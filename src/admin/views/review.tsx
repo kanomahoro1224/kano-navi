@@ -10,7 +10,7 @@ import {
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
-import { formatDateTime } from "@/admin/format"
+import { formatDateTime, japanStamp } from "@/admin/format"
 import type { AdminEvent, AdminPost } from "@/admin/types"
 import {
   Badge,
@@ -291,14 +291,12 @@ export function PostRow({
   post: AdminPost
   onDone: () => void
 }) {
-  const { t, locale } = useAppSettings()
+  const { t } = useAppSettings()
   return (
     <article className="adm-post-row">
       <div className="adm-post-meta">
         <strong>{post.accountHandle || t(`admin.step.${post.source}`)}</strong>
-        <time dateTime={post.publishedAt}>
-          {formatDateTime(post.publishedAt, locale)}
-        </time>
+        <time dateTime={post.publishedAt}>{japanStamp(post.publishedAt)}</time>
         <PostStatus post={post} />
       </div>
       <p className="adm-post-text">{post.text}</p>

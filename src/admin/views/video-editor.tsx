@@ -16,6 +16,9 @@ import { MergeSection } from "@/admin/views/merge-parts"
 /** The kinds the board labels; an empty choice follows the platform. */
 export const videoKinds = ["VIDEO", "MUSIC", "LIVE ARCHIVE", "GAMEPLAY", "TALK"]
 
+/** The labels the App calendar knows; an empty choice reads the title. */
+const videoTags = ["live", "game", "talk", "song"]
+
 /** A format choice: empty follows the feed, otherwise Short or not. */
 const formatChoice = (isShort: boolean | null) =>
   isShort === null ? "" : isShort ? "short" : "regular"
@@ -97,6 +100,7 @@ export function VideoEditor({
   const [draft, setDraft] = useState<{
     title: string
     kind: string
+    tag: string
     thumbnail: string
     format: string
   } | null>(null)
@@ -111,6 +115,7 @@ export function VideoEditor({
       setDraft({
         title: data.video.manualTitle ?? "",
         kind: data.video.manualKind ?? "",
+        tag: data.video.manualTag ?? "",
         thumbnail: pinKey(data.video.manualThumbnail),
         format: formatChoice(data.video.manualIsShort),
       })
@@ -125,6 +130,7 @@ export function VideoEditor({
     const correction: VideoCorrection = {
       title: draft.title.trim() || null,
       kind: draft.kind || null,
+      tag: draft.tag || null,
       thumbnail: file ? { mediaId: file.mediaId, sha256: file.sha256 } : null,
       isShort: draft.format ? draft.format === "short" : null,
     }
@@ -316,6 +322,22 @@ export function VideoEditor({
                   </Field>
                 ) : null}
               </div>
+              <Field
+                label={t("admin.videos.field.tag")}
+                hint={t("admin.videos.tag.hint")}
+              >
+                <select
+                  value={draft.tag}
+                  onChange={(e) => setDraft({ ...draft, tag: e.target.value })}
+                >
+                  <option value="">{t("admin.videos.tag.none")}</option>
+                  {videoTags.map((tag) => (
+                    <option key={tag} value={tag}>
+                      {t(`admin.videos.tag.${tag}`)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
             </div>
           </div>
           <fieldset className="adm-field adm-thumb-picker">

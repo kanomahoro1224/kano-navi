@@ -373,7 +373,7 @@ has neither.
 | `GET /videos`               | `page`, `pageSize` (≤ 200), `status`, `kind`, `thumbnail`, `source`, `search`, `merge`, `translation` | list plus `featuredVideoId`, `featuredVideo` |
 | `PUT /videos/featured`      | `{videoId}` (`null` restores automatic selection)                                                     | `{featuredVideoId}`                          |
 | `GET /videos/{id}/history`  |                                                                                                       | `{video, revisions, thumbnails}`             |
-| `PUT /videos/{id}`          | `{title?, kind?, thumbnail?, isShort?}`                                                               | `{video}`                                    |
+| `PUT /videos/{id}`          | `{title?, kind?, tag?, thumbnail?, isShort?}`                                                         | `{video}`                                    |
 | `POST /videos/{id}/refresh` |                                                                                                       | `202 {video, started, run}`                  |
 | `POST /videos/bilibili`     | `{input}` (BV ID or bilibili.com video link)                                                          | `{video, started, run}`                      |
 | `GET /videos/merges`        |                                                                                                       | `{items}` merge suggestions                  |
@@ -454,13 +454,21 @@ the platform reported and `manualTitle`, `manualKind`, `manualIsShort` and
 (`true` for a Short, `false` for any other upload), or for `thumbnail` from
 one `{mediaId, sha256}` file listed in the history; `null` clears it and an
 omitted field keeps it. A title is 1–300 characters after trimming; a kind is
-one of `VIDEO`, `MUSIC`, `LIVE ARCHIVE`, `GAMEPLAY` or `TALK`. Other fields,
+one of `VIDEO`, `MUSIC`, `LIVE ARCHIVE`, `GAMEPLAY` or `TALK`, and a tag is
+one of `live`, `game`, `talk` or `song` (see below). Other fields,
 unknown files and invalid values answer `400`, an unknown video `404`. A
 change advances the dashboard revision, and machine translations follow the
 corrected title. The feed names the format of its newest uploads only (see
 [Sources](sources.md#shorts)), so `sourceIsShort` is `null` for older ones and
 the console's Format field is how an operator moves one into the board's
 Shorts row.
+
+`tag` is the label the App's calendar shows for the event this video carries
+(`live`, `game`, `talk` or `song`), replacing the App's own reading of the
+title; `null` clears it and lets the App read the title again. It is stored in
+`manual_tag`, appears as `manualTag` beside `tag`, and reaches the calendar as
+the event's `tag` field, so an operator's label survives without an App
+release.
 
 `GET /videos/{id}/history` lists, newest first, the titles and thumbnails the
 platform replaced (`revisions`, each with `origin` `sync` for a new title or

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import path from "node:path"
 import test, { type TestContext } from "node:test"
-import { createElement } from "react"
-import { act, create, type ReactTestRenderer } from "react-test-renderer"
+import { act, createElement } from "react"
+import { render, type Rendered } from "./dom.ts"
 import { createServer } from "vite"
 
 test("dashboard hook recovers, coordinates requests and releases its resources", async (t) => {
@@ -121,13 +121,13 @@ test("dashboard hook recovers, coordinates requests and releases its resources",
         },
       )
       let value: ReturnType<typeof useDashboard>
-      let root: ReactTestRenderer
+      let root: Rendered
       function Probe() {
         value = useDashboard(Date.parse("2025-01-01T00:00:00Z"))
         return null
       }
       await act(async () => {
-        root = create(createElement(Probe))
+        root = render(createElement(Probe))
       })
       const tick = async (ms: number) =>
         act(async () => context.mock.timers.tick(ms))

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict"
 import path from "node:path"
 import test from "node:test"
-import { createElement, useState } from "react"
-import { act, create, type ReactTestRenderer } from "react-test-renderer"
+import { act, createElement, useState } from "react"
 import { createServer } from "vite"
+import { browser, click, enter, render, submit, type Rendered } from "./dom.ts"
 
 const overview = {
   activeRun: null,
@@ -65,73 +65,20 @@ function syncSettings() {
 
 function installBrowser(hash: string, pathname = "/admin") {
   const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
     fetch: globalThis.fetch,
     act: (globalThis as any).IS_REACT_ACT_ENVIRONMENT,
   }
-  const events = new EventTarget()
-  const location = { hash, pathname }
-  const storage = new Map<string, string>()
-  const window = Object.assign(events, {
-    location,
-    history: {
-      pushState: (_state: unknown, _title: string, value: string) => {
-        const hashAt = value.indexOf("#")
-        location.hash = hashAt < 0 ? "" : value.slice(hashAt)
-      },
-    },
-    localStorage: {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => storage.set(key, value),
-      removeItem: (key: string) => storage.delete(key),
-    },
-    matchMedia: () => ({
-      matches: false,
-      addEventListener() {},
-      removeEventListener() {},
-    }),
-    scrollTo() {},
-    setTimeout,
-    clearTimeout,
-  })
-  const document = Object.assign(new EventTarget(), {
-    visibilityState: "visible",
-    title: "",
-    documentElement: {
-      lang: "",
-      classList: { toggle() {} },
-    },
-    head: { append() {} },
-    querySelector: () => null,
-    createElement: () => ({
-      setAttribute() {},
-      getAttribute: () => null,
-      remove() {},
-    }),
-  })
-  Object.assign(globalThis, {
-    window,
-    document,
-    IS_REACT_ACT_ENVIRONMENT: true,
-  })
-  return { previous, window, document }
+  browser.happyDOM.setURL(new URL(pathname + hash, "https://example.test").href)
+  browser.localStorage.clear()
+  ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+  return { previous }
 }
 
 function restoreBrowser(
   previous: ReturnType<typeof installBrowser>["previous"],
 ) {
-  Object.assign(globalThis, {
-    window: previous.window,
-    document: previous.document,
-    fetch: previous.fetch,
-    IS_REACT_ACT_ENVIRONMENT: previous.act,
-  })
-}
-
-function textOf(node: any): string {
-  if (typeof node === "string" || typeof node === "number") return String(node)
-  return (node?.children || []).map(textOf).join("")
+  globalThis.fetch = previous.fetch
+  ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previous.act
 }
 
 test("the real admin Site route loads and saves visitor-region settings", async () => {
@@ -142,7 +89,7 @@ test("the real admin Site route loads and saves visitor-region settings", async 
     optimizeDeps: { noDiscovery: true, include: [] },
     resolve: { alias: { "@": path.resolve("src") } },
   })
-  const browser = installBrowser("#site")
+  const installed = installBrowser("#site")
   const requests: { path: string; method: string; body?: any }[] = []
   const saved = {
     enabled: true,
@@ -175,7 +122,7 @@ test("the real admin Site route loads and saves visitor-region settings", async 
       headers: { "content-type": "application/json" },
     })
   }
-  let root: ReactTestRenderer | undefined
+  let root: Rendered | undefined
   try {
     const [{ AdminApp }, { AppSettingsProvider, PageMessagesProvider }, copy] =
       await Promise.all([
@@ -184,7 +131,7 @@ test("the real admin Site route loads and saves visitor-region settings", async 
         vite.ssrLoadModule("/src/admin-i18n.ts"),
       ])
     await act(async () => {
-      root = create(
+      root = render(
         createElement(
           AppSettingsProvider,
           null,
@@ -197,39 +144,23 @@ test("the real admin Site route loads and saves visitor-region settings", async 
       )
       await new Promise((resolve) => setImmediate(resolve))
     })
-    assert.match(textOf(root!.toJSON()), /Mainland China site suggestion/)
-    const inputs = root!.root.findAllByType("input")
-    const name = inputs.find(
-      (input) => input.props.placeholder === "e.g. a provider",
+    assert.match(root!.container.textContent, /Mainland China site suggestion/)
+    const name = root!.container.querySelector(
+      'input[placeholder="e.g. a provider"]',
     )
-    const providerUrl = inputs.find(
-      (input) => input.props.placeholder === "https://",
+    const [providerUrl, mirrorUrl] = root!.container.querySelectorAll(
+      'input[placeholder="https://"]',
     )
-    const mirrorUrl = inputs.filter(
-      (input) => input.props.placeholder === "https://",
-    )[1]
     assert.ok(name)
     assert.ok(providerUrl)
     assert.ok(mirrorUrl)
-    await act(async () =>
-      name!.props.onChange({ target: { value: "New provider" } }),
-    )
-    await act(async () =>
-      providerUrl!.props.onChange({
-        target: { value: "https://provider.example.test" },
-      }),
-    )
-    await act(async () =>
-      mirrorUrl!.props.onChange({
-        target: { value: "https://mirror.example.test" },
-      }),
-    )
-    const switchInput = root!.root.findByProps({ role: "switch" })
-    await act(async () =>
-      switchInput.props.onChange({ target: { checked: true } }),
-    )
-    const form = root!.root.findByType("form")
-    await act(async () => form.props.onSubmit({ preventDefault() {} }))
+    await enter(name, "New provider")
+    await enter(providerUrl, "https://provider.example.test")
+    await enter(mirrorUrl, "https://mirror.example.test")
+    const switchInput = root!.container.querySelector('[role="switch"]')
+    assert.equal((switchInput as HTMLInputElement | null)?.checked, false)
+    await click(switchInput)
+    await submit(root!.container.querySelector("form"))
     const update = requests.find(
       (request) =>
         request.method === "PUT" && request.path === "/settings/visitor-region",
@@ -240,7 +171,7 @@ test("the real admin Site route loads and saves visitor-region settings", async 
     })
   } finally {
     await act(async () => root?.unmount())
-    restoreBrowser(browser.previous)
+    restoreBrowser(installed.previous)
     await vite.close()
   }
 })
@@ -253,8 +184,8 @@ test("admin sync-setting drafts survive a save in the other Sources column", asy
     optimizeDeps: { noDiscovery: true, include: [] },
     resolve: { alias: { "@": path.resolve("src") } },
   })
-  const browser = installBrowser("#sources")
-  let root: ReactTestRenderer | undefined
+  const installed = installBrowser("#sources")
+  let root: Rendered | undefined
   try {
     const [{ AdminContext }, { AppSettingsProvider }, { SyncSettingsForm }] =
       await Promise.all([
@@ -303,24 +234,23 @@ test("admin sync-setting drafts survive a save in the other Sources column", asy
       )
     }
     await act(async () => {
-      root = create(
+      root = render(
         createElement(AppSettingsProvider, null, createElement(Harness)),
       )
       await new Promise((resolve) => setImmediate(resolve))
     })
-    const inputs = () => root!.root.findAllByType("input")
-    const timed = inputs()[0]
-    const manual = inputs()[4]
-    assert.equal(manual.props.value, "4")
-    assert.equal(timed.props.value, "12")
-    await act(async () => manual.props.onChange({ target: { value: "9" } }))
-    await act(async () => timed.props.onChange({ target: { value: "20" } }))
-    const forms = root!.root.findAllByType("form")
-    await act(async () => forms[0].props.onSubmit({ preventDefault() {} }))
-    assert.equal(manual.props.value, "9")
+    const inputs = () => root!.container.querySelectorAll("input")
+    const timed = () => inputs()[0]
+    const manual = () => inputs()[4]
+    assert.equal(manual().value, "4")
+    assert.equal(timed().value, "12")
+    await enter(manual(), "9")
+    await enter(timed(), "20")
+    await submit(root!.container.querySelector("form"))
+    assert.equal(manual().value, "9")
   } finally {
     await act(async () => root?.unmount())
-    restoreBrowser(browser.previous)
+    restoreBrowser(installed.previous)
     await vite.close()
   }
 })
@@ -333,7 +263,7 @@ test("the public visitor-region toast follows the persisted CN response", async 
     optimizeDeps: { noDiscovery: true, include: [] },
     resolve: { alias: { "@": path.resolve("src") } },
   })
-  const browser = installBrowser("", "/")
+  const installed = installBrowser("", "/")
   globalThis.fetch = async () =>
     new Response(
       JSON.stringify({
@@ -345,7 +275,7 @@ test("the public visitor-region toast follows the persisted CN response", async 
       }),
       { status: 200, headers: { "content-type": "application/json" } },
     )
-  let root: ReactTestRenderer | undefined
+  let root: Rendered | undefined
   try {
     const [{ VisitorRegionToast }, { AppSettingsProvider }] = await Promise.all(
       [
@@ -354,7 +284,7 @@ test("the public visitor-region toast follows the persisted CN response", async 
       ],
     )
     await act(async () => {
-      root = create(
+      root = render(
         createElement(
           AppSettingsProvider,
           null,
@@ -363,18 +293,17 @@ test("the public visitor-region toast follows the persisted CN response", async 
       )
       await new Promise((resolve) => setImmediate(resolve))
     })
-    const links = root!.root.findAllByType("a")
+    const links = [...root!.container.querySelectorAll("a")]
     assert.deepEqual(
-      links.map((link) => link.props.href),
+      links.map((link) => link.getAttribute("href")),
       ["https://provider.example.test", "https://mirror.example.test"],
     )
-    assert.match(textOf(root!.toJSON()), /Synthetic provider/)
-    const dismiss = root!.root.findAllByType("button")[0]
-    await act(async () => dismiss.props.onClick())
-    assert.equal(root!.root.findAllByType("aside").length, 0)
+    assert.match(root!.container.textContent, /Synthetic provider/)
+    await click(root!.container.querySelector("button"))
+    assert.equal(root!.container.querySelectorAll("aside").length, 0)
   } finally {
     await act(async () => root?.unmount())
-    restoreBrowser(browser.previous)
+    restoreBrowser(installed.previous)
     await vite.close()
   }
 })

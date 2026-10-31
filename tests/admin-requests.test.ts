@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import path from "node:path"
 import test, { type TestContext } from "node:test"
-import { createElement } from "react"
-import { act, create, type ReactTestRenderer } from "react-test-renderer"
+import { act, createElement } from "react"
+import { render, type Rendered } from "./dom.ts"
 import { createServer } from "vite"
 
 test("admin hook gates polling on the session, tracks runs and coordinates requests", async (t) => {
@@ -70,7 +70,7 @@ test("admin hook gates polling on the session, tracks runs and coordinates reque
       )
       let value: ReturnType<typeof useAdminData>
       let loaded: ReturnType<typeof useResource>
-      let root: ReactTestRenderer
+      let root: Rendered
       function Resource() {
         const { api } = useAdmin()
         loaded = useResource(() => api.sources(), [])
@@ -85,7 +85,7 @@ test("admin hook gates polling on the session, tracks runs and coordinates reque
         )
       }
       await act(async () => {
-        root = create(createElement(Probe))
+        root = render(createElement(Probe))
       })
       const all = (route: string, method = "GET") =>
         requests.filter((item) => item.path === route && item.method === method)

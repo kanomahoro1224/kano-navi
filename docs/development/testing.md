@@ -128,8 +128,10 @@ the standard empty cache directories; it does not download media.
 `tests/dashboard-requests.test.ts` loads the actual hook through Vite without
 environment files and uses fake time and controlled responses to exercise
 recovery, stalled JSON deadlines, deduplication, races, visibility and
-unmount. Its lightweight React renderer is test-only; browser review covers
-the production React DOM bundle. Together with `tests/archive-requests.test.ts`,
+unmount. Component and hook tests render with React DOM into a happy-dom
+window from `tests/dom.ts`, which loads no scripts, styles or pages, and drive
+views with DOM events; browser review covers the production bundle in real
+browsers. Together with `tests/archive-requests.test.ts`,
 it checks that same-revision live-state expiry refreshes the loaded calendar
 and archive pages atomically, queues a refresh behind pagination, and retains
 known pages on failure or cancellation. `tests/polling.test.ts` uses controlled

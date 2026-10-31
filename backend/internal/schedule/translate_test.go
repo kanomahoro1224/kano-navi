@@ -205,7 +205,7 @@ func TestTranslationTruncationRaisesBudgetWithoutSavingPartialText(t *testing.T)
 				if err != nil {
 					t.Fatal(err)
 				}
-				key := map[string]string{protocolAnthropic: "max_tokens", protocolChat: "max_completion_tokens", protocolResponses: "max_output_tokens"}[protocol]
+				key := map[string]string{protocolAnthropic: "max_tokens", protocolChat: "max_tokens", protocolResponses: "max_output_tokens"}[protocol]
 				budgets = append(budgets, int(property(body, key).(float64)))
 				if f.number(`SELECT COUNT(*) FROM translations`) != 0 {
 					t.Fatal("a truncated translation was saved")

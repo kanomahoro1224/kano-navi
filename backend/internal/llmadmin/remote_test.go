@@ -179,7 +179,7 @@ func TestProviderTestInference(t *testing.T) {
 		body     map[string]any
 	}{
 		{"openai-responses", testBaseURL + "/responses", map[string]any{"model": "beta-chat", "store": false, "input": "ping", "max_output_tokens": float64(1)}},
-		{"openai-chat-completions", testBaseURL + "/chat/completions", map[string]any{"model": "beta-chat", "max_completion_tokens": float64(1),
+		{"openai-chat-completions", testBaseURL + "/chat/completions", map[string]any{"model": "beta-chat", "max_tokens": float64(1),
 			"messages": []any{map[string]any{"role": "user", "content": "ping"}}}},
 		{"anthropic-messages", testBaseURL + "/messages", map[string]any{"model": "beta-chat", "max_tokens": float64(1),
 			"messages": []any{map[string]any{"role": "user", "content": "ping"}}}},

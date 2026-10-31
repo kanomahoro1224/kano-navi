@@ -30,15 +30,18 @@ type parityData struct {
 	AfterSecond    map[string][]map[string]any `json:"afterSecond"`
 }
 
-// The recording predates three deliberate request changes, applied to the
+// The recording predates four deliberate request changes, applied to the
 // recorded bodies here: the Asia/Tokyo publication time in the model text,
-// Anthropic's "auto" tool choice with a system instruction naming the tool, and
-// the instruction asking for English detail, reason and status. Identities and
+// Anthropic's "auto" tool choice with a system instruction naming the tool,
+// the instruction asking for English detail, reason and status, and the
+// chat-completions token limit, which is max_tokens for every compatible
+// server (DeepSeek rejects max_completion_tokens with HTTP 400). Identities and
 // fingerprints are compared unchanged; stored rows differ only in the English
 // pending status that replaced the recorded Chinese default.
 var (
 	recordedPublishedAt  = regexp.MustCompile(`Source post published at ([^ ]+)\. Source URL`)
 	recordedForcedTool   = regexp.MustCompile(`"tool_choice":\{"type":"tool","name":"([^"]+)"\}`)
+	recordedTokenLimit   = regexp.MustCompile(`"max_completion_tokens":`)
 	recordedInstructions = strings.Replace(scheduleInstructions, " "+scheduleLanguageInstruction, "", 1)
 	recordedPending      = strings.NewReplacer(`"status":"待确认"`, `"status":"pending"`)
 )
@@ -59,6 +62,7 @@ func withPendingCode(tables map[string][]map[string]any) {
 
 func withLocalPublishedAt(body string) string {
 	body = strings.ReplaceAll(body, recordedInstructions, scheduleInstructions)
+	body = recordedTokenLimit.ReplaceAllString(body, `"max_tokens":`)
 	body = recordedPublishedAt.ReplaceAllStringFunc(body, func(match string) string {
 		value := recordedPublishedAt.FindStringSubmatch(match)[1]
 		return "Source post published at " + publishedAtText(value) + ". Source URL"

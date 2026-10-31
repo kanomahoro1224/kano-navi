@@ -351,6 +351,14 @@ func anthropicToolInstruction(instructions, name string) string {
 	return instructions + "\n\nReturn the result only by calling the " + name + " tool exactly once."
 }
 
+// chatJSONSchema reports whether a chat-completions provider accepts
+// response_format json_schema. DeepSeek implements only the older json_object
+// mode and answers json_schema with HTTP 400, so its schema has to travel in
+// the prompt instead.
+func chatJSONSchema(p provider) bool {
+	return !strings.Contains(strings.ToLower(p.baseURL), "deepseek.com")
+}
+
 // callModel sends the request in the provider's protocol and returns the
 // structured result the model produced.
 func (e *Extractor) callModel(ctx context.Context, p provider, call modelCall) (any, error) {
@@ -429,16 +437,29 @@ func (e *Extractor) callModel(ctx context.Context, p provider, call modelCall) (
 			content = append(content, obj("type", "image_url", "image_url", obj(
 				"url", "data:"+image.mimeType+";base64,"+encoded[i], "detail", "high")))
 		}
-		payload, err := e.requestLLM(ctx, p, stringify(obj(
+		instructions := call.instructions
+		format := any(obj("type", "json_schema", "json_schema", obj(
+			"name", call.name, "strict", true, "schema", call.schema)))
+		if !chatJSONSchema(p) {
+			// The schema cannot travel in response_format here, so it travels
+			// in the prompt: json_object alone does not tell the model which
+			// keys to return.
+			instructions += "\n\nReply with one JSON object and nothing else, matching this JSON schema: " + string(call.schema)
+			format = obj("type", "json_object")
+		}
+		request := obj(
 			"model", p.model,
 			"messages", []any{
-				obj("role", "system", "content", call.instructions),
+				obj("role", "system", "content", instructions),
 				obj("role", "user", "content", content),
 			},
-			"response_format", obj("type", "json_schema", "json_schema", obj(
-				"name", call.name, "strict", true, "schema", call.schema)),
-			"max_completion_tokens", call.maxTokens,
-		)))
+			"response_format", format,
+			// max_tokens is what every chat-completions server reads;
+			// max_completion_tokens is OpenAI-only and DeepSeek answers an
+			// unknown field with HTTP 400.
+			"max_tokens", call.maxTokens,
+		)
+		payload, err := e.requestLLM(ctx, p, stringify(request))
 		if err != nil {
 			return nil, err
 		}

@@ -49,7 +49,10 @@ func outputTokenLimit(protocol string) string {
 	case protocolAnthropic:
 		return "max_tokens"
 	case protocolChat:
-		return "max_completion_tokens"
+		// max_tokens is the field every OpenAI-compatible chat server reads.
+		// max_completion_tokens is an OpenAI addition; DeepSeek rejects the
+		// unknown field with HTTP 400, so the probe must not send it.
+		return "max_tokens"
 	default:
 		return "max_output_tokens"
 	}

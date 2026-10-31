@@ -94,6 +94,7 @@ is occupied.
 | Profile media, schedule images, post reprocess | `internal/contentadmin`                                         |
 | Schedule extraction step                       | `internal/schedule`                                             |
 | `/mcp`                                         | `internal/mcpapi`                                               |
+| Huawei push delivery, Bambino ingest           | `internal/push`, `internal/ingest`                              |
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
 
 `cmd/kano-go` validates credentials, opens the runtime database and starts the

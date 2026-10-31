@@ -102,11 +102,17 @@ func NewSnapshot(t testing.TB) string {
 			platform TEXT NOT NULL DEFAULT '', text TEXT NOT NULL, source_hash TEXT NOT NULL, provider_id TEXT, model_id TEXT,
 			created_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (owner_type, owner_id, field, locale, origin, platform)
 		);
+		CREATE TABLE push_devices (
+			token TEXT PRIMARY KEY, device_id TEXT NOT NULL, platform TEXT NOT NULL DEFAULT 'harmonyos',
+			locale TEXT, app_version TEXT, enabled INTEGER NOT NULL DEFAULT 1,
+			notify_live INTEGER NOT NULL DEFAULT 1, notify_video INTEGER NOT NULL DEFAULT 1,
+			notify_post INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL, last_seen_at TEXT NOT NULL
+		);
 		CREATE TABLE sync_state (
 			source TEXT NOT NULL, account_id TEXT NOT NULL, cursor_id TEXT, cursor_time TEXT,
 			last_success_at TEXT, metadata_json TEXT, PRIMARY KEY (source, account_id)
-		);
-		CREATE TABLE sync_runs (
+		);		CREATE TABLE sync_runs (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			source TEXT NOT NULL,
 			started_at TEXT NOT NULL,

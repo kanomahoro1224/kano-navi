@@ -247,6 +247,32 @@ accepts signed Atom notifications, which only wake a queued YouTube sync. See
 [Sources](sources.md#websub-push) for the settings, verification, signature,
 debounce and queue rules.
 
+## Push Device Registration: `/api/push/device`
+
+`POST /api/push/device` upserts one HarmonyOS device for Huawei Push Kit
+delivery: the token, a device id, optional platform, locale and app version,
+and the switches `enabled`, `live`, `video` and `post`, which default to on
+when the App omits them. A registration retires the same device's previous
+token, so a rotated token cannot deliver a second copy of every update, and
+repeating one is harmless. The route answers `{ "ok": true }`; a missing or
+oversized token or device id answers `400`, and a read-only snapshot answers
+`503 push_unavailable`. It carries no session because a fresh install has none;
+the token it stores is what a delivery targets. See
+[Configuration](../operations/configuration.md) for the service account that
+lets the process send and [Data model](data-model.md) for `push_devices`.
+
+## Bambino Ingest: `/internal/ingest/bambino`
+
+BambinoStatus posts normalized X updates here so the board can carry a post
+before the next source read. A body holds at most 50 events and 2 MiB, and is
+authenticated by `X-Bambino-Timestamp` (Unix seconds inside the tolerance
+window) and `X-Bambino-Signature`, the HMAC-SHA256 of that timestamp, a
+newline, and the body under `BAMBINO_INGEST_SECRET`. The route answers
+`404 ingest_disabled` while the secret is empty and rejects a stale or
+mismatched request before reading it as data. Accepted batches queue the
+post-processing chain the sync steps use, and a catch-up ticker re-submits it
+when the single-flight queue was busy.
+
 ## Related Docs
 
 - [Backend](backend.md)

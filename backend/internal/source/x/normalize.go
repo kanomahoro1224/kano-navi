@@ -55,14 +55,21 @@ func Normalize(payload map[string]any, fallbackID, account string) *Post {
 	}
 	u = strings.ReplaceAll(u, "twitter.com", "x.com")
 	p := &Post{ID: id, AccountHandle: account, Type: "daily", Label: "DAILY / 近况", Text: text, PublishedAt: published, URL: u, Likes: number(first(payload, "likes", "likeCount")), Reposts: number(first(payload, "retweets", "reposts", "retweetCount")), Replies: number(first(payload, "replies", "replyCount")), MediaURLs: media, AuthorScreenName: screen, Quote: quote, Raw: payload}
-	if strings.Contains(strings.ToLower(text), "schedule") || strings.Contains(text, "スケジュール") || strings.Contains(text, "配信予定") || strings.Contains(text, "週間予定") || strings.Contains(text, "今週の予定") {
-		p.Type = "notice"
-		p.Label = "SCHEDULE / 日程"
-	} else if strings.Contains(text, "お知らせ") || strings.Contains(strings.ToLower(text), "official") || strings.Contains(text, "発売") || strings.Contains(text, "告知") {
-		p.Type = "notice"
-		p.Label = "ANNOUNCEMENT"
-	}
+	p.Type, p.Label = ClassifyText(text)
 	return p
+}
+
+// ClassifyText names the kind and label of a post body. The timeline parser
+// and the ingest endpoint share it, so a notice reads the same whichever
+// route stored it.
+func ClassifyText(text string) (string, string) {
+	if strings.Contains(strings.ToLower(text), "schedule") || strings.Contains(text, "スケジュール") || strings.Contains(text, "配信予定") || strings.Contains(text, "週間予定") || strings.Contains(text, "今週の予定") {
+		return "notice", "SCHEDULE / 日程"
+	}
+	if strings.Contains(text, "お知らせ") || strings.Contains(strings.ToLower(text), "official") || strings.Contains(text, "発売") || strings.Contains(text, "告知") {
+		return "notice", "ANNOUNCEMENT"
+	}
+	return "daily", "DAILY / 近况"
 }
 func stringValue(v any) string {
 	if s, ok := v.(string); ok {

@@ -6,6 +6,8 @@
 > existing chain behavior.
 > Startup adds the `source_schedules.chain_json` and
 > `workflow_runs.source_chain_json` columns; nothing is migrated.
+> Startup also adds the `push_devices` table, which holds the HarmonyOS push
+> registrations and their switches.
 >
 > - Each X and YouTube timer reads through a method chain. Until one is saved
 >   on the Sources page, X tries the FxTwitter timeline, then the profile page,
@@ -177,6 +179,27 @@
   cursor, and the image viewer keeps its close button in the top-right corner
   of the screen and closes on a click anywhere outside the image, its arrows
   and its details.
+
+</details>
+
+<details>
+<summary><strong>Push notifications</strong></summary>
+
+- `POST /api/push/device` registers a HarmonyOS device with its Huawei Push
+  Kit token and four switches (all notifications, live, video, post); the App
+  calls it on launch, after a token rotation and whenever a switch changes.
+  Registering again retires the same device's previous token.
+- Huawei Push Kit delivery needs an AGC service account JSON file in
+  `HUAWEI_PUSH_SERVICE_ACCOUNT`; while it is empty the process starts without
+  push. `HUAWEI_PUSH_CATEGORY` names the category approved for the app, and
+  `HUAWEI_PUSH_TEST=true` marks test messages.
+- BambinoStatus posts normalized X updates to `/internal/ingest/bambino`,
+  signed with `BAMBINO_INGEST_SECRET` and accepted inside
+  `BAMBINO_INGEST_TOLERANCE_SECONDS`; accepted batches queue the
+  post-processing chain, and `BAMBINO_INGEST_CATCHUP_SECONDS` re-submits it
+  when the queue was busy.
+- A post accepted from that route reads the same type and label as one the
+  timeline parser stored, so a schedule notice looks the same either way.
 
 </details>
 

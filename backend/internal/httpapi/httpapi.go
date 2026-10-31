@@ -27,6 +27,8 @@ type Handler struct {
 	mcp    http.Handler
 	// websub receives YouTube hub verifications and signed notifications.
 	websub http.Handler
+	// ingest receives BambinoStatus' internal event batches.
+	ingest http.Handler
 	// publicOrigin is the normalized PUBLIC_ORIGIN or empty; the Atom feed
 	// uses it for absolute links.
 	publicOrigin string
@@ -44,6 +46,9 @@ type Standalone struct {
 	// WebSub answers the YouTube hub; it reports the route as absent while
 	// push is disabled in /admin.
 	WebSub http.Handler
+	// Ingest receives BambinoStatus' internal event batches; nil leaves the
+	// route absent.
+	Ingest http.Handler
 	// PublicOrigin is the normalized PUBLIC_ORIGIN, or empty.
 	PublicOrigin string
 }
@@ -64,6 +69,7 @@ func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Sta
 		static:       options.Static,
 		mcp:          options.MCP,
 		websub:       options.WebSub,
+		ingest:       options.Ingest,
 		publicOrigin: options.PublicOrigin,
 		streams:      newRevisionHub(store.GetDashboardRevision),
 	}
@@ -109,6 +115,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch r.URL.Path {
+	case "/internal/ingest/bambino":
+		if h.ingest == nil {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "ingest_disabled"}, "")
+			return
+		}
+		h.ingest.ServeHTTP(w, r)
+	case "/api/push/device":
+		h.pushDevice(w, r)
 	case "/api/health":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {

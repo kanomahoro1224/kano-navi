@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -17,10 +18,12 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/contentadmin"
 	"github.com/yexca/kano-navi/backend/internal/httpapi"
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/ingest"
 	"github.com/yexca/kano-navi/backend/internal/jobs"
 	"github.com/yexca/kano-navi/backend/internal/llmadmin"
 	"github.com/yexca/kano-navi/backend/internal/mcpapi"
 	"github.com/yexca/kano-navi/backend/internal/mediadownload"
+	pushkit "github.com/yexca/kano-navi/backend/internal/push"
 	"github.com/yexca/kano-navi/backend/internal/schedule"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
@@ -85,6 +88,63 @@ func runStandalone(cfg config.Config) int {
 	defer scheduler.Stop()
 
 	manager := &jobs.QueueManager{Store: store, Queue: queue}
+	// Huawei Push Kit carries accepted updates to registered HarmonyOS
+	// devices. The v3 API authorizes with an AGC service account key, so the
+	// feature stays off unless that key file is configured; a nil dispatcher
+	// leaves ingest exactly as it was.
+	pushAccount, pushErr := pushkit.LoadServiceAccount(os.Getenv("HUAWEI_PUSH_SERVICE_ACCOUNT"))
+	if pushErr != nil {
+		return fail("Huawei push service account unavailable", 1)
+	}
+	pushClient, pushErr := pushkit.New(pushkit.Options{
+		Account:  pushAccount,
+		Category: os.Getenv("HUAWEI_PUSH_CATEGORY"),
+		Test:     strings.EqualFold(strings.TrimSpace(os.Getenv("HUAWEI_PUSH_TEST")), "true"),
+	})
+	if pushErr != nil {
+		return fail("Huawei push service account invalid", 1)
+	}
+	pushDispatcher := pushkit.NewDispatcher(pushClient, store)
+	// BambinoStatus pushes normalized updates to this process. The route only
+	// exists when the shared secret is configured; the ticker re-submits the
+	// post-processing chain when the single-flight queue was busy at ingest.
+	ingestTolerance := 5 * time.Minute
+	if raw := strings.TrimSpace(os.Getenv("BAMBINO_INGEST_TOLERANCE_SECONDS")); raw != "" {
+		if seconds, parseErr := strconv.Atoi(raw); parseErr == nil && seconds > 0 {
+			ingestTolerance = time.Duration(seconds) * time.Second
+		}
+	}
+	ingestModule := ingest.New(ingest.Options{
+		Store:     store,
+		Jobs:      manager,
+		Notifier:  pushDispatcher,
+		Secret:    os.Getenv("BAMBINO_INGEST_SECRET"),
+		Tolerance: ingestTolerance,
+	})
+	if ingestModule != nil {
+		catchUpSeconds := 180
+		if raw := strings.TrimSpace(os.Getenv("BAMBINO_INGEST_CATCHUP_SECONDS")); raw != "" {
+			if seconds, parseErr := strconv.Atoi(raw); parseErr == nil && seconds >= 0 {
+				catchUpSeconds = seconds
+			}
+		}
+		if catchUpSeconds > 0 {
+			catchUpCtx, catchUpCancel := context.WithCancel(context.Background())
+			defer catchUpCancel()
+			go func() {
+				ticker := time.NewTicker(time.Duration(catchUpSeconds) * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ticker.C:
+						ingestModule.RunCatchUp(catchUpCtx)
+					case <-catchUpCtx.Done():
+						return
+					}
+				}
+			}()
+		}
+	}
 	// The live-status probe has its own operator interval but runs through the
 	// same queue, and only in this process.
 	probe := &workflow.LiveProbe{
@@ -119,6 +179,7 @@ func runStandalone(cfg config.Config) int {
 		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin),
 		MCP:          standaloneMCP(store, manager),
 		WebSub:       push,
+		Ingest:       ingestModule,
 		PublicOrigin: cfg.PublicOrigin,
 	})
 	server := httpapi.NewServer(httpapi.RequestLog(httpapi.Compress(handler), os.Stdout), cfg)

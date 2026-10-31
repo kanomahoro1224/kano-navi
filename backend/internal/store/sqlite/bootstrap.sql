@@ -250,6 +250,21 @@ CREATE TABLE profiles (
     raw_json TEXT
   );
 
+CREATE TABLE push_devices (
+    token TEXT PRIMARY KEY,
+    device_id TEXT NOT NULL,
+    platform TEXT NOT NULL DEFAULT 'harmonyos',
+    locale TEXT,
+    app_version TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    notify_live INTEGER NOT NULL DEFAULT 1,
+    notify_video INTEGER NOT NULL DEFAULT 1,
+    notify_post INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL
+  );
+
 CREATE TABLE resources (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
@@ -463,6 +478,10 @@ CREATE INDEX posts_url_published_at_idx ON posts (url, published_at DESC);
 
 CREATE INDEX profile_media_slot_idx
     ON profile_media (slot, is_active, updated_at DESC);
+
+CREATE INDEX push_devices_device_idx ON push_devices (device_id);
+
+CREATE INDEX push_devices_enabled_idx ON push_devices (enabled, updated_at DESC);
 
 CREATE INDEX schedule_asset_reviews_status_idx
     ON schedule_asset_reviews (llm_status, manual_status, updated_at DESC);

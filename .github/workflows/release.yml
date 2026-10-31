@@ -17,10 +17,13 @@ env:
   DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME || github.repository_owner }}
 
 jobs:
-  verify-source:
-    name: Verify release source
+  verify-release:
+    name: Verify release source and validation
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
     steps:
       # Full history, so the tag can be compared with main.
       - name: Checkout
@@ -52,17 +55,28 @@ jobs:
             exit 1
           fi
 
-  verify:
-    name: Verify release
-    needs: verify-source
-    uses: ./.github/workflows/validate.yml
-    with:
-      tier: full
+      # Full validates every main commit and keeps its result. Reuse only a
+      # successful run for this exact commit; never accept another revision.
+      - name: Require a successful Full run for the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          runs_api="repos/${GITHUB_REPOSITORY}/actions/workflows/full.yml/runs?head_sha=${GITHUB_SHA}&per_page=100"
+          passed="$(gh api "${runs_api}&status=success" --jq '.workflow_runs | length')"
+          if [ "$passed" -gt 0 ]; then
+            echo "Full passed for ${GITHUB_SHA}."
+            exit 0
+          fi
+          echo "No successful Full run exists for ${GITHUB_SHA}. Wait for Full to pass, or start it on ${GITHUB_REF_NAME} from the Actions page, then rerun this release." >&2
+          gh api "$runs_api" --jq '.workflow_runs[] | "\(.html_url) status=\(.status) conclusion=\(.conclusion)"' >&2
+          exit 1
 
   publish-image:
     name: Publish container image to Docker Hub and GHCR
     runs-on: ubuntu-latest
-    needs: verify
+    needs: verify-release
     timeout-minutes: 25
     permissions:
       contents: read

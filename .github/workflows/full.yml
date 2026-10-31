@@ -11,10 +11,9 @@ on:
 permissions:
   contents: read
 
-# A newer commit on the same ref supersedes a running validation.
-concurrency:
-  group: kano-full-${{ github.ref }}
-  cancel-in-progress: true
+# No concurrency group: every commit runs to completion beside any other run,
+# so main keeps a concluded result for each of them, which a release of that
+# commit requires.
 
 jobs:
   full:

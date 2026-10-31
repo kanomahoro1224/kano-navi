@@ -163,15 +163,16 @@ This HTTP check does not claim to verify browser interaction.
 
 Validation runs in two tiers that share one set of job definitions:
 
-| Tier   | Workflow  | Runs on                                                | Selects                    | Decides                            |
-| ------ | --------- | ------------------------------------------------------ | -------------------------- | ---------------------------------- |
-| `pr`   | `PR`      | Every pull request                                     | Jobs for the changed paths | Whether the pull request may merge |
-| `full` | `Full`    | Every push to `main`, and any branch or tag on request | Every job                  | Whether `main` is healthy          |
-| `full` | `Release` | Every release tag                                      | Every job                  | Whether the tag may publish        |
+| Tier   | Workflow | Runs on                                                | Selects                    | Decides                            |
+| ------ | -------- | ------------------------------------------------------ | -------------------------- | ---------------------------------- |
+| `pr`   | `PR`     | Every pull request                                     | Jobs for the changed paths | Whether the pull request may merge |
+| `full` | `Full`   | Every push to `main`, and any branch or tag on request | Every job                  | Whether `main` is healthy          |
 
 `.github/workflows/validate.yml` holds the jobs and has no trigger of its own.
-`pr.yml`, `full.yml` and `release.yml` call it with an explicit `tier`, so a
-tier never depends on the event or branch that started a run.
+`pr.yml` and `full.yml` call it with an explicit `tier`, so a tier never
+depends on the event or branch that started a run. The Release workflow checks
+the source and requires a successful `Full` run whose `head_sha` is the exact
+tagged commit; it does not call `validate.yml` again.
 
 ```text
 Style
@@ -214,8 +215,8 @@ selects all jobs. The frontend build type-checks every TypeScript script, so
 each one selects Frontend; `scriptJobs` names the other jobs behind each
 script. A script missing from that table selects all jobs, and the planner's
 tests fail until it is listed. The `full` tier ignores changed paths and always
-plans every job, so whatever a pull request leaves out is validated on `main`
-and before a release publishes.
+plans every job, so whatever a pull request leaves out is validated on `main`.
+A release reuses that result for its tagged commit.
 
 Gate always evaluates the plan against the job results, even after failures.
 It rejects failed, cancelled, missing, or unexpectedly skipped results and a
@@ -223,9 +224,11 @@ missing or invalid plan; only a job the plan disables may be skipped. A check
 is named after the calling job and the validation job, so the ruleset for
 `main` requires the single check `PR / Gate`; adding, splitting or renaming a
 job never changes what the ruleset names. `Full / Gate` reports the same
-verdict for a commit on `main`, and `Verify release / Gate` for a release tag.
-Release grants write permissions only to publication jobs. A new push cancels
-the superseded run of the same pull request or branch; release publication is
+verdict for a commit on `main`; the Release workflow reports its source and
+same-commit result from `Verify release source and validation` without a
+second validation Gate. Release grants write permissions only to publication
+jobs. A new push cancels the superseded run of the same pull request or
+branch, while Full keeps each main commit's result; release publication is
 serialized per tag.
 
 Every runner has a timeout, locked installation, and read-only repository

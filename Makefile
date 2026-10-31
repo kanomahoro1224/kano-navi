@@ -11,15 +11,19 @@ GOVULNCHECK_VERSION ?= v1.8.0
 GOLANGCI_LINT_VERSION ?= v2.13.1
 ACTIONLINT_VERSION ?= v1.7.12
 GO_BINARY ?= backend/bin/kano-go$(if $(filter Windows_NT,$(OS)),.exe,)
+RACE_SHARD ?= 1/1
+RACE_EVENTS ?=
+RACE_RUN ?=
 # package.json owns the version; Go builds receive it at link time.
 APP_VERSION = $(shell $(NODE) -p "require('./package.json').version")
 GO_LDFLAGS = -X github.com/yexca/kano-navi/backend/internal/buildinfo.Version=$(APP_VERSION)
 
 .PHONY: help install dev dev-client dev-server build preview start seed sync go-check go-format-check go-test
 .PHONY: go-build go-start go-docker-build go-lint go-vet go-race actionlint
+.PHONY: backend-race-shard backend-race-durations go-test-shard-test
 .PHONY: format format-check typecheck docs-check check-docs sensitive-check check-sensitive privacy-check test-sensitive test-frontend
 .PHONY: audit npm-audit npm-audit-production npm-audit-signatures go-audit
-.PHONY: smoke docker-build production-smoke ci-fast ci-style ci-backend ci-frontend check ci-local ci
+.PHONY: smoke docker-build production-smoke ci-fast ci-style ci-backend ci-backend-static ci-backend-race ci-frontend check ci-local ci
 .PHONY: ci-plan ci-results test-ci-plan
 
 help:
@@ -75,6 +79,17 @@ go-vet:
 # The race detector needs cgo and a C compiler.
 go-race:
 	$(GO) -C backend test -race -timeout=20m ./...
+
+# Runs one deterministic slice of the race suite. CI sets RACE_SHARD and
+# RACE_EVENTS; the default keeps the whole suite available for local use.
+backend-race-shard: export GO_TEST_JSON := $(if $(RACE_EVENTS),$(abspath $(RACE_EVENTS)))
+backend-race-shard:
+	cd backend && $(NODE) ../scripts/go-test-shard.mjs $(RACE_SHARD) -race -timeout=20m
+
+# Records race-detector timings from the artifacts of a successful CI run so
+# future slices balance around the tests that actually take the longest.
+backend-race-durations:
+	$(NODE) scripts/go-test-shard.mjs record "$(RACE_RUN)" scripts/go-test-durations.json
 
 go-build:
 	$(GO) -C backend build -trimpath -ldflags "$(GO_LDFLAGS)" -o $(patsubst backend/%,%,$(GO_BINARY)) ./cmd/kano-go
@@ -153,9 +168,15 @@ production-smoke:
 ci-fast: format-check go-format-check docs-check sensitive-check
 
 # Narrow checks use the existing locked installation and never fetch source data.
-ci-style: format-check go-format-check docs-check actionlint test-sensitive test-ci-plan sensitive-check
+ci-style: format-check go-format-check docs-check actionlint test-sensitive test-ci-plan go-test-shard-test sensitive-check
 
-ci-backend: go-lint go-vet go-race
+ci-backend: ci-backend-static ci-backend-race
+
+ci-backend-static: go-lint go-vet
+ci-backend-race: go-race
+
+go-test-shard-test:
+	$(NODE) --test scripts/go-test-shard.test.mjs
 
 # The build type-checks the frontend, the maintenance scripts and the tests.
 ci-frontend: build test-frontend

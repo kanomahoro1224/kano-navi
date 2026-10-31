@@ -9,6 +9,15 @@ containers. Source tests, including the historical-window API adapter, use
 fake transports and synthetic credentials; no check synchronizes live
 sources. See [Backend](../architecture/backend.md).
 
+GitHub Actions runs the lint and vet checks once, then runs the race suite as
+four parallel `backend-race-shard` jobs. Each shard lists the same Go tests and
+uses recorded race-detector durations to assign each test to one shard. The
+local `make ci-backend` target still runs the complete unsharded suite. Use
+`make RACE_SHARD=1/4 backend-race-shard` to exercise one slice locally, and
+`make RACE_RUN=<run id> backend-race-durations` to refresh
+`scripts/go-test-durations.json` from the artifacts of a successful CI run;
+the latter requires an authenticated GitHub CLI.
+
 `make test-frontend` runs the frontend tests in `tests/`: the dashboard and
 admin request hooks, the month archive reads, polling, the pure view and
 filter helpers, `robots.txt`, the board's preload in `index.html` and its
@@ -187,8 +196,9 @@ Plan selects the remaining jobs, so they start without waiting for Style.
 Style runs beside them and always runs make ci-style, which also checks the
 workflow files and their shell snippets with actionlint (shellcheck is
 preinstalled on the runner) and tests the CI selection and gate policy with
-make test-ci-plan. Backend runs make ci-backend: golangci-lint, vet and the Go
-contract tests under the race detector. Go gate runs make go-check:
+make test-ci-plan. Backend runs a static matrix entry for golangci-lint and vet,
+plus four race matrix entries that cover the Go contract tests. Go gate runs
+make go-check:
 formatting, CGO-free and cross-platform builds and the read-only container
 smoke. Frontend runs make npm-audit-signatures on its fresh installation, then
 make ci-frontend: the type check, the build and the frontend tests. API smoke

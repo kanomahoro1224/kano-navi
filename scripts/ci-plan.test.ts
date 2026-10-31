@@ -89,6 +89,9 @@ test("application paths select the jobs that consume them", () => {
 test("a validation script selects the jobs that run it, and every script has a decision", () => {
   assert.deepEqual(selected("scripts/golangci-lint.yml"), ["backend"])
   assert.deepEqual(selected("scripts/go-check.mjs"), ["go"])
+  assert.deepEqual(selected("scripts/go-test-shard.mjs"), ["backend"])
+  assert.deepEqual(selected("scripts/go-test-durations.json"), ["backend"])
+  assert.deepEqual(selected("scripts/go-test-shard.test.mjs"), [])
   assert.deepEqual(selected("scripts/smoke.ts"), [
     "frontend",
     "smoke",

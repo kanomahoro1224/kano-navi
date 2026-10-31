@@ -152,8 +152,9 @@ its own data volume and synthetic authentication, checks public pages and API
 contracts, and removes the container and anonymous volume afterwards.
 It does not mount the operator data/ directory or load .env.
 
-The runtime stage copies the `kano-go` and yt-dlp executables, `dist/` with its
-precompressed siblings, and `public/`. The embedded schema and static seeds
+The runtime stage copies the `kano-go` and yt-dlp executables, the CA bundle
+(`/etc/ssl/certs/ca-certificates.crt`, absent from the Node base image),
+`dist/` with its precompressed siblings, and `public/`. The embedded schema and static seeds
 are compiled into the binary. `YTDLP_BINARY` defaults to `/app/yt-dlp` in the
 production Compose deployment; set it to an empty value to disable the method.
 Production starts through `kano-go serve`, validates authentication before

@@ -158,7 +158,8 @@ Production smoke creates a disposable container from the built image, uses
 synthetic production authentication, disables the source timers, and publishes a
 random loopback-only port. Its anonymous data volume is removed in cleanup.
 It validates the image's `kano-go serve` entry point, fresh SQLite, public API,
-SPA page routes, and the protected admin API. It does not mount host data or pass host secrets.
+SPA page routes, the protected admin API, and the CA bundle that outbound
+HTTPS needs. It does not mount host data or pass host secrets.
 This HTTP check does not claim to verify browser interaction.
 
 ## GitHub Actions

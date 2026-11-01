@@ -91,7 +91,7 @@ export interface RunWindow extends Omit<FetchSelection, "mode"> {
 
 export interface Run {
   id: string
-  kind: "sync" | "scan" | "translate" | "workflow"
+  kind: "sync" | "scan" | "translate" | "variants" | "workflow"
   status: "queued" | "running" | "completed" | "failed"
   createdAt: string
   startedAt: string | null
@@ -194,6 +194,23 @@ export interface ProxyTestResult {
   error?: "timeout" | "failed"
   latencyMs: number
   proxy: OutboundProxy
+}
+
+/**
+ * How complete one group's smaller image copies are. Ready originals have
+ * every width stored; unhashed ones were never read, so they count as
+ * missing until a copies run reads them.
+ */
+export interface VariantGroupStatus {
+  group: "lineblog" | "history" | "media"
+  originals: number
+  ready: number
+  unhashed: number
+}
+
+export interface VariantStatus {
+  groups: VariantGroupStatus[]
+  checkedAt: string
 }
 
 export interface Overview {

@@ -4,6 +4,7 @@ import {
   CircleDashed,
   Combine,
   ImageDown,
+  Images,
   Languages,
   RadioTower,
   Sparkles,
@@ -50,6 +51,7 @@ export const stepIcons: Record<string, StepIcon> = {
   translate: Languages,
   reconcile: Combine,
   live: RadioTower,
+  variants: Images,
 }
 
 /**

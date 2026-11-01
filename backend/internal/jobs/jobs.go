@@ -19,9 +19,16 @@ const (
 	// KindTranslate runs the machine translation step alone, as an
 	// operator's incremental translation does.
 	KindTranslate = "translate"
+	// KindVariants makes the missing smaller image copies, an operator's
+	// action from the Site page.
+	KindVariants = "variants"
 
 	// StepTranslate translates post text and video titles.
 	StepTranslate = "translate"
+
+	// StepVariants is the copies run's only step. Like StepLive it is not
+	// part of StepOrder.
+	StepVariants = "variants"
 
 	// StepLive is the probe's only step. It is not part of StepOrder, so
 	// step runs and full synchronizations never select it.

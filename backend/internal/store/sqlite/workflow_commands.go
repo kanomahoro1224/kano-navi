@@ -146,6 +146,8 @@ func (s *Store) CreateWorkflowRun(ctx context.Context, definition WorkflowDefini
 				adapter = "schedule_extract"
 			case "translate":
 				adapter = "text_translate"
+			case "variants":
+				adapter = "media_variants"
 			case "reconcile":
 				adapter = "event_reconcile"
 			}

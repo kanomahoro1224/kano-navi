@@ -94,13 +94,28 @@ The setting is stored in `app_settings` as `visitor_region_enabled`,
 HTTP(S) URLs for the provider website and mirror site. It only enables the
 same-origin country-code check described in the [public API](public-api.md#public-snapshot-contract); it never sends an IP to a geolocation service.
 
+### Image copies
+
+| Method and path       | Query          | Result                |
+| --------------------- | -------------- | --------------------- |
+| `GET /media/variants` | `refresh` (=1) | `{groups, checkedAt}` |
+
+`groups` is the [status](media-cache.md#copy-groups) of the `lineblog`,
+`history` and `media` groups in that order, each `{group, originals, ready,
+unhashed, widths: [{width, copies, kept, missing}]}`, and `checkedAt` is when
+it was listed. The listing is answered again until another run finishes, or
+made anew with `refresh=1` ([Copies Run](media-cache.md#copies-run)). A
+process without the service's data directory and built site answers
+`503 unavailable`. The copies themselves are made by
+`POST /runs {"kind": "variants"}`.
+
 ## Runs
 
 A run is one single-flight unit of work on the durable workflow queue. Its
 shape is the `jobs.Job` projection shared with MCP control tools:
 `{id, kind, status, createdAt, startedAt, finishedAt, triggeredBy, workflowId,
 sourceSchedule, steps, progress, fetchWindows, result, error, run}` where
-`kind` is `sync`, `scan`, `translate`, `workflow` or `live` (the YouTube
+`kind` is `sync`, `scan`, `translate`, `variants`, `workflow` or `live` (the YouTube
 live-status probe, started only by its timer with `triggeredBy:
 "live-probe"` and the one step `live`), `status` is `queued`, `running`,
 `completed` or `failed`, and `progress` maps each step to `pending`,
@@ -127,6 +142,9 @@ a saved workflow reports that ID there, and its name is not read.
 - `{"kind": "sync"}`: every source, media, schedule and translate step.
 - `{"kind": "scan"}`: the automatic schedule extraction only.
 - `{"kind": "translate"}`: the translate step only.
+- `{"kind": "variants"}`: the `variants` step only, the
+  [copies run](media-cache.md#copies-run). A process without the service's
+  data directory and built site answers `400 invalid_input`.
 - `{"kind": "workflow", "steps": ["x", "translate"]}`: a one-off step run.
   Known catalog steps run once in catalog order; an empty list or another
   value is `400 invalid_input`. Source steps read as their

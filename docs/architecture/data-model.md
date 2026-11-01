@@ -92,7 +92,7 @@ index admits one queued or running run at a time. `capability` keeps its
 constrained values (`synthetic`, `x_recent`, `capability_not_migrated`);
 `adapter_capability` names the adapter that runs the step (`x_recent`,
 `youtube_recent`, `bilibili_recent`, `youtube_live`, `media_download`,
-`schedule_extract`, `text_translate` or `event_reconcile`), and a step with
+`schedule_extract`, `text_translate`, `media_variants` or `event_reconcile`), and a step with
 neither finishes `blocked`. `recovery_count` counts how often a run was
 queued again by a retry or by recovery from an expired lease. Finished runs
 and their steps, attempts and `sync_runs` rows are deleted after their

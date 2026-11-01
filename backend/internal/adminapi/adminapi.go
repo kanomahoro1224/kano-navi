@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/adminauth"
@@ -21,6 +22,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/variants"
 )
 
 // RunManager is the durable single-flight queue as the console sees it.
@@ -62,17 +64,26 @@ type Options struct {
 	// them can run now. Without it no method can run, which keeps a read-only
 	// sidecar from accepting work its queue cannot run.
 	FetchMethods func(source string) []history.MethodStatus
+	// Variants locates the originals whose smaller copies the Site page
+	// reports; nil answers that route with 503 unavailable.
+	Variants *variants.Roots
 	// Now is the clock for Japan-date aggregates; nil uses time.Now.
 	Now func() time.Time
 }
 
-type api struct{ Options }
+type api struct {
+	Options
+	// variantsMu lets one copies status listing run at a time and guards
+	// its memo.
+	variantsMu  sync.Mutex
+	variantMemo variantMemo
+}
 
 var japanZone = time.FixedZone("JST", 9*3600)
 
 // New builds the /api/admin handler.
 func New(options Options) http.Handler {
-	a := &api{options}
+	a := &api{Options: options}
 	if a.Now == nil {
 		a.Now = time.Now
 	}
@@ -107,6 +118,7 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/overview", Handler: a.overview},
 		{Method: http.MethodGet, Path: "/settings/visitor-region", Handler: a.visitorRegionSettings},
 		{Method: http.MethodPut, Path: "/settings/visitor-region", Handler: a.updateVisitorRegionSettings},
+		{Method: http.MethodGet, Path: "/media/variants", Handler: a.variantStatus},
 
 		{Method: http.MethodGet, Path: "/runs", Handler: a.needRuns(a.listRuns)},
 		{Method: http.MethodPost, Path: "/runs", Handler: a.needRuns(a.startRun)},

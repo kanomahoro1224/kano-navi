@@ -32,6 +32,15 @@ const visitorRegion = {
   mirrorUrl: "",
 }
 
+const variantStatus = {
+  checkedAt: "2026-03-02T03:00:00.000Z",
+  groups: [
+    { group: "lineblog", originals: 4, ready: 4, unhashed: 0, widths: [] },
+    { group: "history", originals: 3, ready: 1, unhashed: 2, widths: [] },
+    { group: "media", originals: 0, ready: 0, unhashed: 0, widths: [] },
+  ],
+}
+
 function syncSettings() {
   return {
     settings: {
@@ -81,7 +90,7 @@ function restoreBrowser(
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previous.act
 }
 
-test("the real admin Site route loads and saves visitor-region settings", async () => {
+test("the real admin Site route saves visitor-region settings and makes image copies", async () => {
   const vite = await createServer({
     configFile: false,
     envDir: false,
@@ -116,7 +125,11 @@ test("the real admin Site route loads and saves visitor-region settings", async 
             ? overview
             : path === "/settings/visitor-region"
               ? visitorRegion
-              : {}
+              : path.startsWith("/media/variants")
+                ? variantStatus
+                : method === "POST" && path === "/runs"
+                  ? { run: { id: "synthetic-run" } }
+                  : {}
     return new Response(JSON.stringify(payload), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -169,6 +182,28 @@ test("the real admin Site route loads and saves visitor-region settings", async 
       ...saved,
       providerName: "New provider",
     })
+    // The copies card shows each group's ready images; Check again asks for
+    // a new listing and Make missing copies queues the variants run.
+    const text = root!.container.textContent
+    assert.match(text, /LINE BLOG archive4\/ 4 imagesAll copies made/)
+    assert.match(text, /Journey images1\/ 3 images2 without copies/)
+    const button = (label: string) =>
+      [...root!.container.querySelectorAll("button")].find(
+        (element) => element.textContent === label,
+      )
+    await click(button("Check again"))
+    assert.ok(
+      requests.some(
+        (request) =>
+          request.method === "GET" &&
+          request.path === "/media/variants?refresh=1",
+      ),
+    )
+    await click(button("Make missing copies"))
+    const run = requests.find(
+      (request) => request.method === "POST" && request.path === "/runs",
+    )
+    assert.deepEqual(run?.body, { kind: "variants" })
   } finally {
     await act(async () => root?.unmount())
     restoreBrowser(installed.previous)

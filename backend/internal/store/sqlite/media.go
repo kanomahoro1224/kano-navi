@@ -33,6 +33,16 @@ type MediaFile struct {
 	LastModified time.Time
 }
 
+// MediaStream is an opened, checked file to serve: a ready asset, an archive
+// or history original, or a copy. The caller closes File. ETag is unquoted.
+type MediaStream struct {
+	File         *os.File
+	MIMEType     string
+	ETag         string
+	Size         int64
+	LastModified time.Time
+}
+
 type ProfileMediaFile struct {
 	Content  []byte
 	MIMEType string
@@ -57,12 +67,28 @@ type mediaRecord struct {
 	fetchedAt             sql.NullString
 }
 
-func (s *Store) ReadMedia(ctx context.Context, id, version string) (*MediaFile, error) {
+// OpenMedia opens a ready asset's file, or the earlier version version names,
+// for streaming.
+func (s *Store) OpenMedia(ctx context.Context, id, version string) (*MediaStream, error) {
 	record, err := s.lookupMedia(ctx, id, version)
 	if err != nil {
 		return nil, err
 	}
-	return s.readMediaRecord(record)
+	return s.openMediaRecord(ctx, record)
+}
+
+// ReadMedia reads a ready asset's file whole, checked like OpenMedia.
+func (s *Store) ReadMedia(ctx context.Context, id, version string) (*MediaFile, error) {
+	stream, err := s.OpenMedia(ctx, id, version)
+	if err != nil {
+		return nil, err
+	}
+	defer stream.File.Close()
+	content, err := io.ReadAll(io.LimitReader(stream.File, stream.Size+1))
+	if err != nil || int64(len(content)) != stream.Size {
+		return nil, ErrMediaNotFound
+	}
+	return &MediaFile{Content: content, MIMEType: stream.MIMEType, SHA256: stream.ETag, Size: stream.Size, LastModified: stream.LastModified}, nil
 }
 
 func (s *Store) lookupMedia(ctx context.Context, id, version string) (*mediaRecord, error) {
@@ -106,21 +132,47 @@ func (s *Store) lookupMedia(ctx context.Context, id, version string) (*mediaReco
 	return &mediaRecord{cachePath: cachePath.String, mime: mime, hash: contentHash.String, fetchedAt: fetchedAt}, nil
 }
 
-func (s *Store) readMediaRecord(record *mediaRecord) (*MediaFile, error) {
+// openMediaRecord opens the contained regular file of record, within the
+// media bound, whose bytes have record's hash. The hash is read once per file
+// and remembered by path, size and modification time (FileHash), so a
+// request streams the file without hashing it again; a changed file is
+// checked anew.
+func (s *Store) openMediaRecord(ctx context.Context, record *mediaRecord) (*MediaStream, error) {
 	path, err := s.resolveMediaPath(record.cachePath)
 	if err != nil {
 		return nil, ErrMediaNotFound
 	}
-	content, modTime, err := readContainedFile(path, maxCachedMediaBytes)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, ErrMediaNotFound
 	}
-	actual := sha256.Sum256(content)
-	actualHash := hex.EncodeToString(actual[:])
-	if actualHash != record.hash {
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxCachedMediaBytes {
+		file.Close()
 		return nil, ErrMediaNotFound
 	}
-	return &MediaFile{Content: content, MIMEType: record.mime, SHA256: record.hash, Size: int64(len(content)), LastModified: record.lastModified(modTime)}, nil
+	hash, err := s.FileHash(ctx, path, info, file)
+	if err != nil || hash != record.hash {
+		file.Close()
+		return nil, ErrMediaNotFound
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		file.Close()
+		return nil, ErrMediaNotFound
+	}
+	return &MediaStream{File: file, MIMEType: record.mime, ETag: record.hash, Size: info.Size(), LastModified: record.lastModified(info.ModTime())}, nil
+}
+
+// rememberMediaFile records hash as the checked hash of the file at the
+// cache path relative, which was just written or compared with hash.
+func (s *Store) rememberMediaFile(relative, hash string) {
+	path, err := s.resolveMediaPath(relative)
+	if err != nil {
+		return
+	}
+	if info, err := os.Stat(path); err == nil {
+		RememberFileHash(s.dataRoot, path, info, hash)
+	}
 }
 
 func (r *mediaRecord) lastModified(fallback time.Time) time.Time {

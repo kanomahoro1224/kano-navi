@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/mediavariant"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
@@ -114,5 +116,24 @@ func TestDownloadPendingDoesNotRepeatAnAssetThatStaysQueued(t *testing.T) {
 	}
 	if again, _ := store.PendingMedia(context.Background(), 5); len(again) != 1 {
 		t.Fatalf("fixture no longer stays queued: %#v", again)
+	}
+}
+
+func TestDownloadPendingMakesCopiesWithinItsBounds(t *testing.T) {
+	store, _ := queueStore(t, 3)
+	requests := 0
+	summary, err := pngClient(&requests, never).DownloadPending(context.Background(), store, Bounds{Batch: 3, Files: 100, Budget: time.Minute, Variants: 2, VariantBudget: time.Minute})
+	if err != nil || summary.Ready != 3 || summary.Resized != 2 {
+		t.Fatalf("summary=%#v err=%v", summary, err)
+	}
+	// The synthetic files cannot be decoded, so each width keeps its
+	// original; the next step makes the image the bound left.
+	markers, _ := filepath.Glob(filepath.Join(store.DataRoot(), "cache", "variants", "*", "*.orig"))
+	if len(markers) != 2*len(mediavariant.Widths) {
+		t.Fatalf("markers %v", markers)
+	}
+	summary, err = pngClient(&requests, never).DownloadPending(context.Background(), store, Bounds{Batch: 3, Files: 100, Budget: time.Minute, Variants: 2, VariantBudget: time.Minute})
+	if err != nil || summary.Resized != 1 {
+		t.Fatalf("backfill summary=%#v err=%v", summary, err)
 	}
 }

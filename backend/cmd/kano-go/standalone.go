@@ -29,6 +29,7 @@ import (
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/source/youtube/websub"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/variants"
 	"github.com/yexca/kano-navi/backend/internal/workflow"
 )
 
@@ -69,6 +70,9 @@ func runStandalone(cfg config.Config) int {
 	}
 
 	run := newPipeline(store, secretsKey)
+	// The variants step and the Site page's copies status read the archive
+	// under the data directory and the history images of the served site.
+	run.steps.Variants = &variants.Roots{Data: store.DataRoot(), Static: cfg.StaticDirectory}
 	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies)
 	queue := &workflow.Queue{Store: store, Executor: run.executor}
 	defer queue.Close()
@@ -127,6 +131,7 @@ func runStandalone(cfg config.Config) int {
 			XHandles:     run.xOptions.Handles,
 			Bilibili:     run.steps.Bilibili,
 			FetchMethods: run.steps.History.Methods,
+			Variants:     run.steps.Variants,
 		}),
 		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin),
 		MCP:          standaloneMCP(store, manager),
@@ -264,7 +269,7 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		Store: store,
 		Steps: steps,
 		// Every catalog step has a real adapter here; none is synthetic.
-		SyntheticSteps: map[string]bool{"x": false, "youtube": false, "bilibili": false, jobs.StepLive: false, "media": false, "schedule": false, jobs.StepTranslate: false, "reconcile": false},
+		SyntheticSteps: map[string]bool{"x": false, "youtube": false, "bilibili": false, jobs.StepLive: false, "media": false, "schedule": false, jobs.StepTranslate: false, jobs.StepVariants: false, "reconcile": false},
 		// One unavailable source keeps the other source and post-processing,
 		// and a failed translation keeps event reconciliation.
 		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, jobs.StepTranslate: true},

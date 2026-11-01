@@ -94,6 +94,8 @@ export const adminMessages = {
     "admin.run.kind.workflow": "Step run",
     "admin.run.kind.live": "Live-status probe",
     "admin.run.kind.translate": "Translation",
+    "admin.run.kind.variants": "Image copies",
+    "admin.step.variants": "Image copies",
     "admin.run.fetchTitle": "Fetch {sources}",
     "admin.run.sourceTitle": "{source} timer",
     "admin.run.sourceRunNow": "{source} · run now",
@@ -156,6 +158,21 @@ export const adminMessages = {
     "admin.site.visitorRegionProviderPlaceholder": "e.g. a provider",
     "admin.site.visitorRegionProviderUrl": "Provider website",
     "admin.site.visitorRegionMirrorUrl": "Mirror site",
+    "admin.site.variants": "Image copies",
+    "admin.site.variantsDescription":
+      "Pages ask for smaller copies of large images. Requests never resize: an image without its copies is sent whole until a copies run makes them.",
+    "admin.site.variantsGroup.lineblog": "LINE BLOG archive",
+    "admin.site.variantsGroup.history": "Journey images",
+    "admin.site.variantsGroup.media": "Cached source media",
+    "admin.site.variantsOf": "/ {count} images",
+    "admin.site.variantsMissing": "{count} without copies",
+    "admin.site.variantsComplete": "All copies made",
+    "admin.site.variantsChecked": "Checked {time}.",
+    "admin.site.variantsBudget":
+      "One run works for at most 5 minutes in the shared queue; run it again to continue.",
+    "admin.site.variantsRefresh": "Check again",
+    "admin.site.variantsMake": "Make missing copies",
+    "admin.site.variantsRunning": "Making copies",
 
     "admin.review.title": "Review queue",
     "admin.review.description":
@@ -1139,6 +1156,7 @@ export const adminMessages = {
     "admin.metric.considered": "Considered",
     "admin.metric.merged": "Merged",
     "admin.metric.kept": "Kept",
+    "admin.metric.made": "Copies made",
     "admin.metric.released": "Released",
     "admin.metric.ambiguous": "Ambiguous",
     "admin.metric.retargeted": "Retargeted",

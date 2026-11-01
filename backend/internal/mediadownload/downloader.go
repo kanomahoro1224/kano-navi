@@ -13,6 +13,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/mediaformat"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/variants"
 )
 
 const MaxBytes = 10 * 1024 * 1024
@@ -193,24 +194,27 @@ func (c *Client) fetchAsset(ctx context.Context, asset sqlite.PendingMedia) (Dow
 }
 
 // Measured counts ready files cached before dimension probing whose width and
-// height were filled by this run. Remaining counts never-checked assets left
+// height were filled by this run, and Resized the ready images whose smaller
+// copies it made. Remaining counts never-checked assets left
 // queued when the step ended, and Stopped names the bound that ended it with
 // work possibly left (empty when the queue ran dry).
 type Summary struct {
-	Attempted, Ready, Unchanged, Missing, Failed, Measured, Remaining int
-	Stopped                                                           string
+	Attempted, Ready, Unchanged, Missing, Failed, Measured, Remaining, Resized int
+	Stopped                                                                    string
 }
 
 // Bounds limit one media step: Batch assets are claimed per queue read, at
-// most Files are attempted, and no new file starts after Budget.
+// most Files are attempted, and no new file starts after Budget. Then at most
+// Variants ready images get their smaller copies, none started after
+// VariantBudget; zero Variants makes none.
 type Bounds struct {
-	Batch, Files int
-	Budget       time.Duration
+	Batch, Files, Variants int
+	Budget, VariantBudget  time.Duration
 }
 
 // StepBounds drain a large backlog, such as a history window's images, over a
 // few runs while leaving the run time the later steps need.
-var StepBounds = Bounds{Batch: 20, Files: 500, Budget: 5 * time.Minute}
+var StepBounds = Bounds{Batch: 20, Files: 500, Budget: 5 * time.Minute, Variants: 100, VariantBudget: 2 * time.Minute}
 
 // Stop reasons recorded in Summary.Stopped.
 const (
@@ -274,6 +278,15 @@ drain:
 			out.Stopped = StoppedNoProgress
 			break
 		}
+	}
+	// Newly ready images get their copies first; older ones without copies
+	// follow within the same bounds, so requests never decode.
+	if bounds.Variants > 0 {
+		resized, err := variants.Make(ctx, store, variants.Roots{}, variants.Media, variants.Bounds{Files: bounds.Variants, Budget: bounds.VariantBudget, Now: c.now})
+		if err != nil {
+			return out, err
+		}
+		out.Resized = resized.Made + resized.Kept
 	}
 	measured, err := store.MeasureMediaDimensions(ctx, measureBatch)
 	if err != nil {

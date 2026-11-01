@@ -182,6 +182,8 @@ func (s *Store) SaveMediaDownload(ctx context.Context, asset PendingMedia, conte
 		} else {
 			return ErrSourceWrite
 		}
+		// The file now holds hash, so serving it needs no second read.
+		s.rememberMediaFile(relative, hash)
 		// A revalidation that downloads the same bytes changes nothing the board
 		// shows, so only a new version advances the revision.
 		var previous string

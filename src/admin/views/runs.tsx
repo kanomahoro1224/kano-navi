@@ -214,6 +214,7 @@ const headlineCounts: Record<string, string[]> = {
   media: ["ready", "unchanged", "attempted"],
   schedule: ["success", "uncertain", "cached"],
   translate: ["success", "attempted"],
+  variants: ["made", "kept", "remaining"],
   reconcile: ["merged", "eventsCreated", "videosMerged"],
 }
 

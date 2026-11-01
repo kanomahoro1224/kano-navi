@@ -463,7 +463,7 @@ text.
 
 Each step records the adapter that serves it in `adapter_capability`
 (`x_recent`, `youtube_recent`, `bilibili_recent`, `youtube_live`,
-`media_download`, `schedule_extract`, `text_translate` or
+`media_download`, `schedule_extract`, `text_translate`, `media_variants` or
 `event_reconcile`), which projections read before the constrained
 `capability` column (`synthetic`, `x_recent` or `capability_not_migrated`).
 A step without an adapter finishes `blocked` with `capability_not_migrated`

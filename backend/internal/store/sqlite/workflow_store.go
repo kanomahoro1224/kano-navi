@@ -154,13 +154,26 @@ func scanStep(row workflowScanner, extra ...any) (WorkflowStep, error) {
 		return st, err
 	}
 	st.Status = workflowStatus(st.Status, true)
-	if st.Capability != "synthetic" && st.Capability != "x_recent" && st.Capability != "youtube_recent" && st.Capability != "bilibili_recent" && st.Capability != "youtube_live" && st.Capability != "media_download" && st.Capability != "schedule_extract" && st.Capability != "text_translate" && st.Capability != "event_reconcile" {
+	if st.Capability != "synthetic" && st.Capability != "x_recent" && st.Capability != "youtube_recent" && st.Capability != "bilibili_recent" && st.Capability != "youtube_live" && st.Capability != "media_download" && st.Capability != "schedule_extract" && st.Capability != "text_translate" && st.Capability != "media_variants" && st.Capability != "event_reconcile" {
 		st.Capability = "capability_not_migrated"
 	}
 	st.StartedAt = nullableWorkflowString(sa)
 	st.FinishedAt = nullableWorkflowString(fa)
 	st.ErrorCode = workflowCode(ec)
 	return st, nil
+}
+
+// LatestWorkflowFinish returns when the newest finished run finished, or ""
+// before any run has finished. A change means some run may have written.
+func (s *Store) LatestWorkflowFinish(ctx context.Context) (string, error) {
+	if err := s.requireWorkflow(); err != nil {
+		return "", err
+	}
+	var finished sql.NullString
+	if err := s.db.QueryRowContext(ctx, `SELECT MAX(finished_at) FROM workflow_runs`).Scan(&finished); err != nil {
+		return "", ErrWorkflowStorage
+	}
+	return finished.String, nil
 }
 
 func (s *Store) GetWorkflowRun(ctx context.Context, id string) (*WorkflowRun, error) {

@@ -63,7 +63,8 @@ func (a *api) stepCatalog(w http.ResponseWriter, _ *http.Request) {
 }
 
 // startRun accepts exactly one kind of work: a full sync, the schedule scan,
-// translation, a one-off step run or one source window.
+// translation, the missing image copies, a one-off step run or one source
+// window.
 func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 	body, err := httpx.Body(w, r)
 	if err != nil {
@@ -72,17 +73,17 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 	}
 	var kind string
 	if json.Unmarshal(body["kind"], &kind) != nil {
-		httpx.WriteError(w, httpx.Invalid("kind must be sync, scan, translate, workflow or fetch"))
+		httpx.WriteError(w, httpx.Invalid("kind must be sync, scan, translate, variants, workflow or fetch"))
 		return
 	}
 	if _, saved := body["workflowId"]; saved {
 		httpx.WriteError(w, httpx.Invalid("saved workflows are removed; send the steps to run once, or use a source's Run now"))
 		return
 	}
-	allowed := map[string][]string{"sync": {"kind"}, "scan": {"kind"}, "translate": {"kind"}, "workflow": {"kind", "steps"}, "fetch": {"kind", "source", "method", "window", "options"}}
+	allowed := map[string][]string{"sync": {"kind"}, "scan": {"kind"}, "translate": {"kind"}, "variants": {"kind"}, "workflow": {"kind", "steps"}, "fetch": {"kind", "source", "method", "window", "options"}}
 	fields, known := allowed[kind]
 	if !known {
-		httpx.WriteError(w, httpx.Invalid("kind must be sync, scan, translate, workflow or fetch"))
+		httpx.WriteError(w, httpx.Invalid("kind must be sync, scan, translate, variants, workflow or fetch"))
 		return
 	}
 	for key := range body {
@@ -98,6 +99,13 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 		jobKind = jobs.KindScan
 	case "translate":
 		jobKind = jobs.KindTranslate
+	case "variants":
+		// The step needs the originals' locations, which only the service has.
+		if a.Variants == nil {
+			httpx.WriteError(w, httpx.Invalid("variants is not available"))
+			return
+		}
+		jobKind = jobs.KindVariants
 	case "workflow":
 		jobKind = jobs.KindWorkflow
 		steps, stepsErr := catalogSteps(body["steps"])

@@ -17,15 +17,18 @@ kano-go serve        Serve the whole site (API, console, workflows, MCP, fronten
 kano-go seed         Create the database if missing and add missing static records
 kano-go sync         Run one full synchronization and exit
 kano-go migrate-llm  Seal OPENAI_API_KEY as the key of the openai-default provider
+kano-go variants     Make the resized copies of the LINE BLOG and history images
 kano-go healthcheck  Probe the local service and exit
 ```
 
-Every command reads `.env` from the working directory; variables already in
+Every command but `variants` reads `.env` from the working directory; variables already in
 the environment win. `-database` overrides `data/database/kano.sqlite`, and
 `serve` also accepts `-static` (default `dist`) and `-listen` (default `PORT`,
 `7657`). `seed -overwrite` restores the shipped profile, timeline and resource
 wording; it never touches source snapshots, events, media or providers.
-`migrate-llm -force` replaces an already stored key.
+`migrate-llm -force` replaces an already stored key. `variants` takes `-data`,
+`-static` and `-out` instead of `-database`
+([Variants command](media-cache.md#variants-command)).
 
 From the repository root:
 
@@ -35,9 +38,10 @@ make start   # builds backend/bin/kano-go and runs `kano-go serve`
 make seed    # or: make sync
 ```
 
-The npm scripts `start`, `seed`, `sync` and `migrate:llm` run the same commands
+The npm scripts `start`, `seed`, `sync`, `migrate:llm` and `variants` run the same commands
 through `scripts/run-app.mjs`. In the image, `docker compose run --rm kano sync`
-(or `seed`, `migrate-llm`) runs a command against the mounted `/app/data`.
+(or `seed`, `migrate-llm`, `variants`) runs a command against the mounted
+`/app/data`.
 
 `kano-go sync` uses the same executor and SQLite single-flight reservation as
 the service. If the service is already synchronizing, the command reports a
@@ -133,7 +137,8 @@ the observed local origin.
 
 The console's job list is a projection of durable workflow runs. Every run is
 ad hoc and names its kind of work with a reserved ID: `@sync`, `@scan`,
-`@fetch` (manual fetches and one-off step runs), `@translate`, `@live` and
+`@fetch` (manual fetches and one-off step runs), `@translate`, `@variants`
+(the [copies run](media-cache.md#copies-run)), `@live` and
 `@source-<source>` (a source's chain, from its timer or Run now). All of them
 share the SQLite single-flight reservation, so a second start answers `409`
 with `busy` and the active run.

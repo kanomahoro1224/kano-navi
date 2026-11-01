@@ -4,12 +4,16 @@ services:
     pull_policy: always
     restart: unless-stopped
     init: true
+    # Bounds the whole container (server, yt-dlp and its JavaScript runtime).
+    mem_limit: ${KANO_MEM_LIMIT:-1g}
     env_file:
       - .env
     ports:
       - "${KANO_PORT:-7657}:7657"
     environment:
       PORT: 7657
+      # Go garbage-collects harder below this soft limit, kept under mem_limit.
+      GOMEMLIMIT: ${GOMEMLIMIT:-700MiB}
       APP_MODE: ${APP_MODE:-production}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD to at least 12 characters}
       LLM_SECRETS_KEY: ${LLM_SECRETS_KEY:?Set LLM_SECRETS_KEY before starting}

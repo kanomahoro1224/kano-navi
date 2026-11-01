@@ -58,6 +58,7 @@ import type {
   TranslationRequestResult,
   TranslationSummary,
   AdminTranslation,
+  VariantStatus,
   VisitorRegionSettings,
   VideoCorrection,
   VideoHistory,
@@ -93,6 +94,8 @@ function query(values: Record<string, any>) {
 
 export type StartRun =
   | { kind: "sync" | "scan" }
+  /** The missing smaller image copies, within one step's budget. */
+  | { kind: "variants" }
   /** A one-off step run: the picked steps once, nothing saved. */
   | { kind: "workflow"; steps: string[] }
   /** A manual fetch through one method; it never falls back to another. */
@@ -126,6 +129,8 @@ function createClient(run: Runner, slow: Runner) {
 
     overview: () => get<Overview>("/overview"),
     visitorRegion: () => get<VisitorRegionSettings>("/settings/visitor-region"),
+    variantStatus: (refresh = false) =>
+      get<VariantStatus>(`/media/variants${refresh ? "?refresh=1" : ""}`),
     updateVisitorRegion: (settings: VisitorRegionSettings) =>
       send<VisitorRegionSettings>("PUT", "/settings/visitor-region", settings),
     runs: (page: number) =>

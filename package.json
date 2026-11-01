@@ -20,6 +20,7 @@
     "lineblog:comments": "node scripts/package-lineblog-comments.ts",
     "migrate:llm": "node scripts/run-app.mjs migrate-llm",
     "sync": "node scripts/run-app.mjs sync",
+    "variants": "node scripts/run-app.mjs variants",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "check-sensitive": "node scripts/check-sensitive.ts",

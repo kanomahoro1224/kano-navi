@@ -17,6 +17,8 @@ const (
 	AdhocFetchWorkflow = "@fetch"
 	// AdhocTranslateWorkflow is an operator's incremental translation.
 	AdhocTranslateWorkflow = "@translate"
+	// AdhocVariantsWorkflow makes the missing smaller image copies.
+	AdhocVariantsWorkflow = "@variants"
 )
 
 func IsAdhocWorkflow(id string) bool { return strings.HasPrefix(id, "@") }

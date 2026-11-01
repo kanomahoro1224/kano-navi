@@ -114,6 +114,7 @@ func TestStartPresentsEachKindWithItsStepsAndLabel(t *testing.T) {
 		{name: "scan", kind: KindScan, triggeredBy: "mcp", wantKind: KindScan, wantSource: "schedule", wantTrigger: "mcp", wantSteps: []string{"schedule"}},
 		{name: "live probe", kind: KindLive, triggeredBy: TriggeredByLiveProbe, wantKind: KindLive, wantSource: "youtube-live", wantTrigger: TriggeredByLiveProbe, wantSteps: []string{StepLive}},
 		{name: "translate", kind: KindTranslate, triggeredBy: "scheduler", wantKind: KindTranslate, wantSource: "translate", wantTrigger: "scheduler", wantSteps: []string{StepTranslate}},
+		{name: "variants", kind: KindVariants, triggeredBy: "admin", wantKind: KindVariants, wantSource: "variants", wantTrigger: "admin", wantSteps: []string{StepVariants}},
 		{name: "step run", kind: KindWorkflow, triggeredBy: long, options: Options{Steps: []string{"youtube", "bogus", "x"}}, wantKind: KindWorkflow, wantSource: "workflow", wantTrigger: strings.Repeat("あ", 64), wantSteps: []string{"x", "youtube"}},
 		{name: "run now", kind: KindWorkflow, triggeredBy: "admin", options: Options{Source: "youtube", Steps: []string{"x"}}, wantKind: KindWorkflow, wantSource: "workflow", wantTrigger: "admin", wantSteps: workflow.SourceChains["youtube"], wantSchedule: "youtube"},
 	}

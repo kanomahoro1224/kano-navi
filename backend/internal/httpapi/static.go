@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/yexca/kano-navi/backend/internal/variants"
 )
 
 // maxIndexBytes bounds the index.html read for share-tag rewriting.
@@ -98,8 +100,8 @@ type staticSite struct {
 }
 
 // historyImage matches a fixed history image, the only static files with
-// smaller copies.
-var historyImage = regexp.MustCompile(`^assets/history/[^/]+\.(?:jpe?g|png|webp)$`)
+// smaller copies (variants.HistoryImage).
+var historyImage = variants.HistoryImage
 
 // historyFile matches a fixed history file, which pages request with v set to
 // the SHA-256 of its bytes.
@@ -257,7 +259,7 @@ func (s *staticSite) serveVariant(w http.ResponseWriter, r *http.Request, name s
 		return false
 	}
 	open := func() (fs.File, error) { return os.Open(name) }
-	return serveImageVariant(w, r, s.variants, name, info, open, staticContentType(name), width, versioned(r))
+	return serveImageVariant(w, r, s.variants, name, info, open, width, versioned(r))
 }
 
 // precompressed opens the most preferred precompressed sibling of relative
@@ -307,7 +309,7 @@ func (s *staticSite) serve(w http.ResponseWriter, r *http.Request, name, relativ
 	immutable := s.buildFiles[relative] && hashedBuildFile.MatchString(relative)
 	if historyFile.MatchString(relative) && historyVersion(r) != "" {
 		// A history file is immutable under the v that is its bytes' hash.
-		hash, err := fixedFileHash(name, info, file)
+		hash, err := fixedFileHash(r.Context(), s.variants, name, info, file)
 		if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "api_not_found"}, "")
 			return

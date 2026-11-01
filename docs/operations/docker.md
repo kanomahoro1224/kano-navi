@@ -19,6 +19,9 @@ and use `KANO_PORT` to change the default host port of `7657`. The container
 listens on `7657`; the default public address is `http://localhost:7657`.
 To use the equivalent GHCR image, set
 `KANO_IMAGE=ghcr.io/yexca/kano-navi:latest`.
+The service is limited to 1 GiB of memory with a Go soft limit of 700 MiB;
+change both with `KANO_MEM_LIMIT` and `GOMEMLIMIT` as described in
+[Configuration](configuration.md#environment-variables).
 
 Fresh deployments start with empty X/YouTube snapshots and no LLM providers.
 Add providers and the model queue in `/admin`, then use a source's Run now or
@@ -92,6 +95,7 @@ commands run against the mounted `./data`:
 docker compose run --rm kano seed
 docker compose run --rm kano sync
 docker compose run --rm kano migrate-llm
+docker compose run --rm kano variants
 ```
 
 ### Upgrades and rollback

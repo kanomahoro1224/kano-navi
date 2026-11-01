@@ -31,7 +31,10 @@ direct-fallback switch:
   switch. The queue holds at most 16 proxies.
 - A route is off (the area connects directly) or on with a proxy selection.
   An empty selection means every proxy; either way proxies are tried in
-  queue order. A route can be turned on only while the queue has a proxy.
+  queue order. A selection keeps the ids it names when a proxy is removed, so
+  it remains an explicit selection with no usable proxy instead of becoming
+  the all-proxy route. A route can be turned on only while the queue has a
+  proxy.
 - With the direct fallback, a routed request connects directly after every
   proxy failed to answer, or when the route has no usable proxy. Without it,
   such a request fails and the source records its failure as for any other

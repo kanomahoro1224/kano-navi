@@ -332,9 +332,9 @@ encoded, so at most one encoded copy waits in memory besides the widest.
 When the original is no wider than a width, is a GIF (possibly animated) or
 AVIF, cannot be decoded, or the copy would not be smaller, an empty `.orig`
 marker records that the original is served for that width, so it is not
-decoded again. The widest width is stored last and a failed write stops the
-image, so an image whose widest entry exists is done and is skipped without
-being read.
+decoded again. A failed write stops the image. Every width must have a valid
+copy or marker before the image is skipped; malformed or truncated copies are
+treated as missing and replaced on the next call.
 
 ### Copy Groups
 
@@ -365,17 +365,18 @@ has the shape of a step result:
 | `remaining` | originals not reached because a bound stopped the call                   |
 | `stopped`   | the bound that stopped it: `variants_file_cap` or `variants_time_budget` |
 
-A failed original is tried again by the next call. The cache is only ever
-added to; nothing in it is removed.
+A failed original is tried again by the next call. Malformed or truncated
+derived copies are removed when their replacement is written.
 
 A status report per group counts the originals, those with every width
 stored as a copy or a keep marker (`ready`), those whose hash has not been
 read yet (`unhashed`, whose widths count as missing), and the copies, kept
 widths and missing widths of each width. It reads no original and hashes
-nothing: it lists the names in the variant cache once, without their files'
-metadata, and matches media by their rows' hashes and archive and history
-files by their remembered hashes. Its cost is one directory listing of the
-cache and one `stat` per archive or history file.
+nothing: it checks each cached copy's image header and format end marker, then
+matches media by their rows' hashes and archive and history files by their
+remembered hashes. Its cost is one directory listing of the cache plus the
+bounded metadata reads for cached copies and one `stat` per archive or history
+file.
 
 ### Variants Command
 

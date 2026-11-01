@@ -36,7 +36,7 @@ func olderSnapshot(t *testing.T) (string, string) {
 		`DROP INDEX posts_instant_idx`, `DROP INDEX posts_url_published_at_idx`, `DROP INDEX videos_instant_idx`, `DROP INDEX videos_schedule_instant_idx`,
 		`ALTER TABLE assets DROP COLUMN asset_version`, `ALTER TABLE assets DROP COLUMN period_start`, `ALTER TABLE assets DROP COLUMN period_end`,
 		`ALTER TABLE assets DROP COLUMN period_basis`, `ALTER TABLE assets DROP COLUMN manual_period_start`, `ALTER TABLE assets DROP COLUMN manual_period_end`,
-		`ALTER TABLE assets DROP COLUMN manual_period_reason`, `ALTER TABLE videos DROP COLUMN live_status`, `ALTER TABLE videos DROP COLUMN live_checked_at`,
+		`ALTER TABLE assets DROP COLUMN manual_period_reason`, `ALTER TABLE assets DROP COLUMN manual_image_at`, `ALTER TABLE videos DROP COLUMN live_status`, `ALTER TABLE videos DROP COLUMN live_checked_at`,
 		`ALTER TABLE profile_media DROP COLUMN active_sha256`, `ALTER TABLE profile_media DROP COLUMN active_mime_type`,
 		`ALTER TABLE profile_media DROP COLUMN download_status`, `ALTER TABLE profile_media DROP COLUMN last_download_at`,
 		`DROP INDEX schedule_asset_reviews_status_idx`, `ALTER TABLE schedule_asset_reviews DROP COLUMN llm_input_fingerprint`,
@@ -99,6 +99,7 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 	for statement, want := range map[string]string{
 		`SELECT COUNT(*) FROM pragma_table_info('media_assets') WHERE name IN('retry_attempts','next_retry_at')`:             "2",
 		`SELECT period_start||'/'||period_end||'/'||period_basis||'/'||asset_version FROM assets WHERE id='synthetic-board'`: "2026-03-02/2026-03-08/legacy/1",
+		`SELECT COUNT(*) FROM pragma_table_info('assets') WHERE name='manual_image_at'`:                                      "1",
 		`SELECT account_handle FROM posts WHERE id='synthetic-post'`:                                                         "synthetic_handle",
 		`SELECT text FROM posts WHERE id='synthetic-post'`:                                                                   "retained",
 		// An older failure starts without a backoff: the next scan retries it.

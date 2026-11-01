@@ -142,6 +142,20 @@ func TestRouteSelectionAndDisabledProxies(t *testing.T) {
 	}
 }
 
+func TestStaleRouteSelectionDoesNotBecomeAllProxies(t *testing.T) {
+	normalized, err := Normalize(Config{
+		Proxies: []Proxy{proxyAt("remaining", "proxy-remaining.test")},
+		Routes:  map[Area]Route{AreaX: {Enabled: true, ProxyIDs: []string{"removed"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	routed, usable := normalized.Resolve(AreaX)
+	if !routed || len(usable) != 0 {
+		t.Fatalf("routed=%v usable=%v route=%+v", routed, usable, normalized.Routes[AreaX])
+	}
+}
+
 func TestEveryProxyFailingFailsClosedUnlessDirectFallback(t *testing.T) {
 	network := &fakeNetwork{down: map[string]bool{"proxy-a.test": true}}
 	config := Config{Proxies: []Proxy{proxyAt("a", "proxy-a.test")}, Routes: map[Area]Route{AreaMedia: {Enabled: true}}}

@@ -504,9 +504,11 @@ function AreasPanel({
   const none = settings.proxies.length === 0
   const toggleProxy = (area: ProxyArea, id: string) => {
     const route = settings.routes[area]
-    const selected = route.proxyIds.includes(id)
-      ? route.proxyIds.filter((value) => value !== id)
-      : [...route.proxyIds, id]
+    const known = new Set(settings.proxies.map((proxy) => proxy.id))
+    const current = route.proxyIds.filter((value) => known.has(value))
+    const selected = current.includes(id)
+      ? current.filter((value) => value !== id)
+      : [...current, id]
     void saveRoutes({ [area]: { ...route, proxyIds: selected } })
   }
   return (
@@ -537,7 +539,8 @@ function AreasPanel({
                 label={t(`admin.proxy.area.${area}`)}
                 description={t(`admin.proxy.areaHint.${area}`)}
               />
-              {route.enabled && settings.proxies.length > 1 ? (
+              {route.enabled &&
+              (settings.proxies.length > 1 || route.proxyIds.length > 0) ? (
                 <FieldGroup
                   label={t("admin.proxy.useProxies")}
                   hint={t(

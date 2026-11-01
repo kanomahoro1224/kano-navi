@@ -266,12 +266,14 @@ export function PostActions({
   if (compact)
     return (
       <>
-        <IconButton
-          icon={Sparkles}
-          label={t("admin.posts.reprocess")}
-          busy={busy}
-          onClick={reprocess}
-        />
+        {withReprocess ? (
+          <IconButton
+            icon={Sparkles}
+            label={t("admin.posts.reprocess")}
+            busy={busy}
+            onClick={reprocess}
+          />
+        ) : null}
         <a
           className="adm-icon-button"
           href={post.url}

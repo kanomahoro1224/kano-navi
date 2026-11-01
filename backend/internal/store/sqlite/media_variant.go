@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -106,13 +107,49 @@ func checkVariantFile(file *os.File, mime string) *MediaStream {
 	if _, err = file.Seek(0, io.SeekStart); err != nil {
 		return nil
 	}
+	if !completeVariant(file, mime, info.Size()) {
+		return nil
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		return nil
+	}
 	return &MediaStream{File: file, MIMEType: mime, Size: info.Size(), LastModified: info.ModTime()}
+}
+
+// completeVariant checks the format's end marker without decoding pixels.
+// Variant files are written by the encoder in mediavariant, so a missing end
+// marker identifies a truncated copy while keeping requests decode-free.
+func completeVariant(file *os.File, mime string, size int64) bool {
+	var suffix []byte
+	switch mime {
+	case "image/jpeg":
+		suffix = make([]byte, 2)
+	case "image/png":
+		suffix = make([]byte, 12)
+	default:
+		return false
+	}
+	if size < int64(len(suffix)) {
+		return false
+	}
+	if _, err := file.ReadAt(suffix, size-int64(len(suffix))); err != nil {
+		return false
+	}
+	switch mime {
+	case "image/jpeg":
+		return bytes.Equal(suffix, []byte{0xff, 0xd9})
+	case "image/png":
+		return bytes.Equal(suffix, []byte{0, 0, 0, 0, 'I', 'E', 'N', 'D', 0xae, 0x42, 0x60, 0x82})
+	default:
+		return false
+	}
 }
 
 // VariantsDone reports whether every width of hash has a copy or a
 // keep-original marker under dataRoot. MakeVariants writes the widest width
-// last and stops at the first failed write, so the widest entry stands for
-// all of them. It only checks whether a file exists.
+// last and stops at the first failed write. Copy entries must have valid image
+// headers and complete format end markers; keep-original markers are empty
+// regular files.
 func VariantsDone(dataRoot, hash string) bool {
 	if !safeHash(hash) {
 		return false
@@ -122,12 +159,29 @@ func VariantsDone(dataRoot, hash string) bool {
 		return false
 	}
 	defer root.Close()
-	return hasVariantEntry(root, variantName(hash, mediavariant.Widths[len(mediavariant.Widths)-1]))
+	for _, width := range mediavariant.Widths {
+		if !hasVariantEntry(root, variantName(hash, width)) {
+			return false
+		}
+	}
+	return true
 }
 
 func hasVariantEntry(root *os.Root, name string) bool {
-	for _, extension := range []string{variantKeepOriginal, "jpg", "png"} {
-		if info, err := root.Stat(name + "." + extension); err == nil && info.Mode().IsRegular() {
+	if info, err := root.Stat(name + "." + variantKeepOriginal); err == nil && info.Mode().IsRegular() && info.Size() == 0 {
+		return true
+	}
+	for _, item := range []struct {
+		extension string
+		mime      string
+	}{{"jpg", "image/jpeg"}, {"png", "image/png"}} {
+		file, err := root.Open(name + "." + item.extension)
+		if err != nil {
+			continue
+		}
+		valid := checkVariantFile(file, item.mime) != nil
+		file.Close()
+		if valid {
 			return true
 		}
 	}
@@ -175,8 +229,9 @@ func MakeVariants(ctx context.Context, dataRoot, hash string, load func() ([]byt
 		return made, ErrVariantSource
 	}
 	// Each width is written as soon as it is encoded, so at most one copy
-	// waits in memory besides the widest, which is written last: a failed
-	// write stops the image before its widest entry marks it done.
+	// waits in memory besides the widest, which is written last. A failed write
+	// stops the image and leaves that width missing; every width is checked on
+	// the next run so a damaged earlier copy is rebuilt too.
 	missing := missingWidths(dataRoot, hash)
 	stored := true
 	resizeVariants(content, missing, func(i int, copy mediavariant.Copy) bool {
@@ -206,9 +261,9 @@ type VariantEntry struct {
 	Kept bool
 }
 
-// ListVariants lists the variant cache under dataRoot by original hash and
-// width. It reads directory names only, never a file or its metadata, and
-// skips temporary and unrecognized names. A missing cache lists nothing.
+// ListVariants lists valid entries in the variant cache under dataRoot by
+// original hash and width. Invalid or truncated copies are omitted so status
+// reflects what requests can actually serve. A missing cache lists nothing.
 func ListVariants(dataRoot string) (map[string]map[int]VariantEntry, error) {
 	out := map[string]map[int]VariantEntry{}
 	base := filepath.Join(dataRoot, variantRoot)
@@ -231,6 +286,24 @@ func ListVariants(dataRoot string) (map[string]map[int]VariantEntry, error) {
 			hash, width, kept, ok := parseVariantName(entry.Name())
 			if !ok || hash[:2] != shard.Name() || !entry.Type().IsRegular() {
 				continue
+			}
+			if kept {
+				info, infoErr := entry.Info()
+				if infoErr != nil || info.Size() != 0 {
+					continue
+				}
+			} else {
+				extension := filepath.Ext(entry.Name())
+				mime := map[string]string{".jpg": "image/jpeg", ".png": "image/png"}[extension]
+				file, openErr := os.Open(filepath.Join(base, shard.Name(), entry.Name()))
+				if openErr != nil {
+					continue
+				}
+				valid := checkVariantFile(file, mime) != nil
+				file.Close()
+				if !valid {
+					continue
+				}
 			}
 			if out[hash] == nil {
 				out[hash] = map[int]VariantEntry{}
@@ -271,9 +344,16 @@ func missingWidths(dataRoot, hash string) []int {
 	defer root.Close()
 	missing := []int{}
 	for _, width := range mediavariant.Widths {
-		if !hasVariantEntry(root, variantName(hash, width)) {
-			missing = append(missing, width)
+		name := variantName(hash, width)
+		if hasVariantEntry(root, name) {
+			continue
 		}
+		// A malformed copy must not block its replacement. In particular,
+		// os.Rename cannot replace an existing file on Windows.
+		for _, extension := range []string{variantKeepOriginal, "jpg", "png"} {
+			_ = root.Remove(name + "." + extension)
+		}
+		missing = append(missing, width)
 	}
 	return missing
 }

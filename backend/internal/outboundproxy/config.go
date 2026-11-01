@@ -98,7 +98,8 @@ func validArea(area Area) bool {
 
 // Normalize validates a configuration, assigns ids to new proxies and
 // canonicalizes routes: unknown areas are rejected, every area is present,
-// and selections keep only existing proxies in queue order.
+// and selections retain stale proxy ids so an explicit selection cannot turn
+// into the empty, all-proxies selection after a proxy is removed.
 func Normalize(config Config) (Config, error) {
 	if len(config.Proxies) > MaxProxies {
 		return Config{}, httpx.Invalid("at most %d proxies can be configured", MaxProxies)
@@ -185,17 +186,29 @@ func normalizeProxy(proxy Proxy) (Proxy, error) {
 	return proxy, nil
 }
 
-// selection keeps ids that name an existing proxy, in queue order. An empty
-// result means every proxy.
+// selection normalizes and de-duplicates ids. Known ids are returned in queue
+// order, followed by stale ids. An empty result still means every proxy, so a
+// non-empty stale selection must remain non-empty.
 func (config Config) selection(ids []string) []string {
 	wanted := make(map[string]bool, len(ids))
 	for _, id := range ids {
-		wanted[strings.ToLower(strings.TrimSpace(id))] = true
+		id = strings.ToLower(strings.TrimSpace(id))
+		if id != "" {
+			wanted[id] = true
+		}
 	}
 	selected := []string{}
 	for _, proxy := range config.Proxies {
 		if wanted[proxy.ID] {
 			selected = append(selected, proxy.ID)
+			delete(wanted, proxy.ID)
+		}
+	}
+	for _, id := range ids {
+		id = strings.ToLower(strings.TrimSpace(id))
+		if id != "" && wanted[id] {
+			selected = append(selected, id)
+			delete(wanted, id)
 		}
 	}
 	return selected

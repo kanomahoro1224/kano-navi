@@ -229,6 +229,39 @@ func TestOpenVariantSkipsUnusableCopies(t *testing.T) {
 	}
 }
 
+func TestCorruptVariantIsRebuilt(t *testing.T) {
+	s := openVariantStore(t)
+	original := syntheticImage(t, "image/jpeg", 1000, 500, false)
+	hash := hashOf(original)
+	if made, err := MakeVariants(context.Background(), s.dataRoot, hash, func() ([]byte, error) { return original, nil }); err != nil || made != (VariantsMade{Copies: 3, Kept: 2}) {
+		t.Fatalf("initial copies: %+v %v", made, err)
+	}
+	path := filepath.Join(s.dataRoot, variantRoot, hash[:2], hash+"-320.jpg")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(content) < 3 {
+		t.Fatalf("copy too short: %d", len(content))
+	}
+	if err = os.WriteFile(path, content[:len(content)-2], 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if VariantsDone(s.dataRoot, hash) {
+		t.Fatal("truncated copy reported complete")
+	}
+	if stream, ok := s.OpenVariant(hash, 320); ok {
+		stream.File.Close()
+		t.Fatal("truncated copy was served")
+	}
+	if made, err := MakeVariants(context.Background(), s.dataRoot, hash, func() ([]byte, error) { return original, nil }); err != nil || made != (VariantsMade{Copies: 1}) {
+		t.Fatalf("rebuild: %+v %v", made, err)
+	}
+	if !VariantsDone(s.dataRoot, hash) {
+		t.Fatal("rebuilt copies still incomplete")
+	}
+}
+
 func TestMakeVariantsKeepsOnlyBytesMatchingTheHash(t *testing.T) {
 	s := openVariantStore(t)
 	ctx := context.Background()

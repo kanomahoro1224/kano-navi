@@ -76,8 +76,8 @@
   explanatory page descriptions.
 - The Site page shows how many LINE BLOG, Journey and cached source images
   have their smaller copies, and Make missing copies runs a copies job of up
-  to five minutes on the shared queue. The counts list file names only, are
-  read when the page opens and after each run, and Check again lists anew.
+  to five minutes on the shared queue. The counts validate cached copy files,
+  are read when the page opens and after each run, and Check again lists anew.
 
 </details>
 

@@ -55,8 +55,9 @@ test("failed posts name the failed step and offer its actions for one post or a 
   })
   const previous = (globalThis as any).IS_REACT_ACT_ENVIRONMENT
   let root: Rendered | undefined
+  let compactRoot: Rendered | undefined
   try {
-    const { ReviewView } = await vite.ssrLoadModule(
+    const { PostActions, ReviewView } = await vite.ssrLoadModule(
       "/src/admin/views/review.tsx",
     )
     const { AdminContext } = await vite.ssrLoadModule(
@@ -237,8 +238,35 @@ test("failed posts name the failed step and offer its actions for one post or a 
     assert.match(row().textContent!, /Synthetic queued/)
     assert.equal(panel().querySelector(".adm-select-bar"), null)
     assert.deepEqual(picks(), [])
+
+    // Compact actions honor the same reprocess switch as the full actions.
+    await act(async () => {
+      compactRoot = render(
+        createElement(
+          AppSettingsProvider,
+          null,
+          createElement(
+            AdminContext.Provider,
+            { value: context },
+            createElement(PostActions, {
+              post: translation,
+              onDone: () => {},
+              compact: true,
+              reprocess: false,
+            }),
+          ),
+        ),
+      )
+    })
+    assert.equal(
+      compactRoot!.container.querySelector(
+        '[aria-label="admin.posts.reprocess"]',
+      ),
+      null,
+    )
   } finally {
     if (root) await act(async () => root!.unmount())
+    if (compactRoot) await act(async () => compactRoot!.unmount())
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previous
     await vite.close()
   }

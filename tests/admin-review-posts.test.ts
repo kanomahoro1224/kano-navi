@@ -4,7 +4,7 @@ import test from "node:test"
 import { act, createElement } from "react"
 import { createServer } from "vite"
 import type { AdminPost, AdminTranslation } from "../src/admin/types.ts"
-import { click, render, type Rendered } from "./dom.ts"
+import { browser, click, render, type Rendered } from "./dom.ts"
 
 const failedTranslation: AdminTranslation = {
   status: "incomplete",
@@ -45,7 +45,7 @@ function post(id: string, patch: Partial<AdminPost>): AdminPost {
   }
 }
 
-test("failed posts name the failed step and offer that step's actions", async () => {
+test("failed posts name the failed step and offer its actions for one post or a selection", async () => {
   const vite = await createServer({
     configFile: false,
     envDir: false,
@@ -72,9 +72,19 @@ test("failed posts name the failed step and offer that step's actions", async ()
       llmLastError: "provider_error",
       llmRetryAt: "2026-01-02T03:00:00Z",
     })
+    const failed = [
+      extraction,
+      post("extraction2", { llmStatus: "failed" }),
+      post("extraction3", { llmStatus: "failed" }),
+    ]
     const translation = post("translation", { translation: failedTranslation })
+    const queued = post("queued", {
+      llmStatus: "queued",
+      llmReprocessRequested: true,
+    })
     const queries: Record<string, unknown>[] = []
     const calls: string[] = []
+    const notices: string[] = []
     const context = {
       revision: 0,
       overview: {
@@ -90,6 +100,8 @@ test("failed posts name the failed step and offer that step's actions", async ()
       },
       refreshOverview: async () => {},
       act: async (call: () => Promise<unknown>) => call(),
+      notify: (key: string, values?: { count?: number }) =>
+        notices.push(`${key}:${values?.count}`),
       fail: (error: unknown) => {
         throw error
       },
@@ -98,10 +110,12 @@ test("failed posts name the failed step and offer that step's actions", async ()
           queries.push({ ...query })
           const items =
             query.llm === "failed"
-              ? [extraction]
+              ? failed
               : query.translation === "failed"
                 ? [translation]
-                : []
+                : query.reprocess
+                  ? [queued]
+                  : []
           return { items, page: 1, total: items.length, totalPages: 1 }
         },
         dismissPost: async (id: string) => {
@@ -115,6 +129,14 @@ test("failed posts name the failed step and offer that step's actions", async ()
         reprocessPost: async (id: string) => {
           calls.push(`reprocess:${id}`)
           return { state: {} }
+        },
+        reprocessPosts: async (ids: string[]) => {
+          calls.push(`reprocess:${ids.join(",")}`)
+          return { queued: ids.length }
+        },
+        dismissPosts: async (ids: string[]) => {
+          calls.push(`dismiss:${ids.join(",")}`)
+          return { dismissed: ids.length }
         },
       },
     }
@@ -132,10 +154,18 @@ test("failed posts name the failed step and offer that step's actions", async ()
       )
     })
     const panel = () => root!.container.querySelector(".adm-tab-panel")!
-    const button = (text: string) =>
-      [...panel().querySelectorAll("button")].find((item) =>
+    const find = (scope: Element, text: string) =>
+      [...scope.querySelectorAll("button")].find((item) =>
         item.textContent?.includes(text),
       )
+    const row = () => panel().querySelector(".adm-post-row")!
+    const button = (text: string) => find(row(), text)
+    const bar = () => panel().querySelector(".adm-select-bar")!
+    const barButton = (text: string) => find(bar(), text)!
+    const picks = () => [
+      ...panel().querySelectorAll<HTMLInputElement>(".adm-post-pick input"),
+    ]
+    const checked = () => picks().map((input) => input.checked)
 
     // Extraction failures open first, with the overview's counts.
     assert.equal(queries.at(-1)?.llm, "failed")
@@ -149,13 +179,41 @@ test("failed posts name the failed step and offer that step's actions", async ()
         "admin.posts.queued",
       ],
     )
-    const row = () => panel().querySelector(".adm-post-row")!
     assert.match(row().textContent!, /admin\.review\.failure\.extraction/)
     assert.match(row().textContent!, /admin\.posts\.error\.provider_error/)
     assert.match(row().textContent!, /2026-01-02 00:00/)
     assert.ok(button("admin.posts.reprocess"))
     await click(button("admin.posts.dismiss")!)
     assert.deepEqual(calls, ["dismiss:extraction"])
+
+    // A click picks one row and a shift-click the range from it; the bar
+    // applies its action to the whole selection in one request.
+    assert.equal(barButton("admin.posts.dismiss").disabled, true)
+    await click(picks()[0])
+    await act(async () => {
+      picks()[2].dispatchEvent(
+        new browser.MouseEvent("click", {
+          bubbles: true,
+          shiftKey: true,
+        }) as unknown as Event,
+      )
+    })
+    assert.deepEqual(checked(), [true, true, true])
+    await click(barButton("admin.review.bulkReprocess"))
+    assert.equal(calls.at(-1), "reprocess:extraction,extraction2,extraction3")
+    assert.equal(notices.at(-1), "admin.notice.postsQueued:3")
+    assert.deepEqual(checked(), [false, false, false])
+    // The bar's box selects the page, and clearing empties it again.
+    await click(bar().querySelector("input"))
+    assert.deepEqual(checked(), [true, true, true])
+    await click(
+      bar().querySelector('[aria-label="admin.review.clearSelection"]'),
+    )
+    assert.deepEqual(checked(), [false, false, false])
+    await click(picks()[1])
+    await click(barButton("admin.posts.dismiss"))
+    assert.equal(calls.at(-1), "dismiss:extraction2")
+    assert.equal(notices.at(-1), "admin.notice.postsDismissed:1")
 
     await click(filters[1])
     assert.equal(queries.at(-1)?.translation, "failed")
@@ -169,7 +227,16 @@ test("failed posts name the failed step and offer that step's actions", async ()
     assert.equal(button("admin.posts.dismiss"), undefined)
     assert.equal(button("admin.posts.reprocess"), undefined)
     await click(button("admin.review.retryTranslation")!)
-    assert.deepEqual(calls, ["dismiss:extraction", "translate:translation"])
+    assert.equal(calls.at(-1), "translate:translation")
+    await click(picks()[0])
+    await click(barButton("admin.review.retryTranslation"))
+    assert.equal(notices.at(-1), "admin.notice.translationsQueued:1")
+
+    // Queued posts have no bulk action, so nothing is selectable.
+    await click(filters[3])
+    assert.match(row().textContent!, /Synthetic queued/)
+    assert.equal(panel().querySelector(".adm-select-bar"), null)
+    assert.deepEqual(picks(), [])
   } finally {
     if (root) await act(async () => root!.unmount())
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previous

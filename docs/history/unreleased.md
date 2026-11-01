@@ -41,7 +41,9 @@
   Translation failed, and each row names the step that failed with its
   error. A failed extraction can be dismissed, which stops its retries until
   the post or the model queue changes; a failed translation can be queued
-  again.
+  again. Posts can be selected one by one, by shift-click ranges or a page
+  at a time, and the selection dismissed, processed again or translated
+  again at once. The list pages through every matching post.
 - The Schedule page's images open on Active, which leaves out images
   labelled Not a schedule; those move to their own tab.
 - A schedule image without dates covers the Monday-to-Sunday weeks of the

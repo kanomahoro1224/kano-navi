@@ -366,6 +366,8 @@ alias); `none` never needs review and keeps `previewUrl` null.
 | `PUT /posts/{id}/hidden`         | `{hidden}`                                                                                                 | `{state}`                        |
 | `POST /posts/{id}/reprocess`     | `{route?}`                                                                                                 | `{state}`                        |
 | `POST /posts/{id}/dismiss`       | none                                                                                                       | `{state}`; `409 post_not_failed` |
+| `POST /posts/reprocess`          | `{ids}`                                                                                                    | `{queued}`                       |
+| `POST /posts/dismiss`            | `{ids}`                                                                                                    | `{dismissed}`                    |
 | `PUT /posts/{id}/schedule-image` | `{index, reason, start?, end?}`                                                                            | `{image}`                        |
 | `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                                 | `{state}`                        |
 | `POST /posts/{id}/refresh`       | none                                                                                                       | `{state}`                        |
@@ -391,6 +393,11 @@ which runs regardless. `POST /posts/{id}/reprocess` clears the backoff.
 stops its automatic retries (see
 [Failure backoff](sources.md#extraction-failure-backoff)); any other state
 answers `409 post_not_failed`.
+
+`POST /posts/reprocess` and `POST /posts/dismiss` apply the same changes to
+1 to 200 listed posts in one transaction. They skip unknown IDs and, for a
+dismissal, posts whose extraction has not failed, and answer how many posts
+they queued or dismissed; a reprocess keeps each stored route.
 
 `scheduleImage` is the post's schedule image record, or `null`: its asset
 `id`, the `index` of the post's own image it shows (`null` for none of them),

@@ -3218,6 +3218,96 @@ blockquote.adm-verdict-reason {
   border-radius: var(--adm-radius-sm);
 }
 
+/*
+ * A selectable row puts its selection box in a left column that spans the
+ * row, so the whole edge is the hit area. A selected row takes the accent.
+ */
+.adm-post-row.is-selectable {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 12px;
+  padding-left: 0;
+}
+
+.adm-post-row.is-selectable > :not(.adm-post-pick) {
+  grid-column: 2;
+}
+
+.adm-post-row.is-selected {
+  border-color: color-mix(in oklab, var(--adm-accent) 45%, var(--adm-line));
+  background: var(--adm-accent-soft);
+}
+
+.adm-post-pick {
+  display: flex;
+  grid-row: 1 / span 3;
+  justify-content: center;
+  margin: -14px 0;
+  padding: 16px 4px 16px 14px;
+  cursor: pointer;
+}
+
+/*
+ * The bulk bar over a selectable post list: the page-wide box and count,
+ * then the filter's actions on the right. It sticks under the top bar and
+ * takes the accent while posts are selected.
+ */
+.adm-select-bar {
+  position: sticky;
+  top: 60px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 48px;
+  margin-bottom: 12px;
+  padding: 6px 8px 6px 16px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+}
+
+.adm-select-bar.is-active {
+  border-color: color-mix(in oklab, var(--adm-accent) 45%, var(--adm-line));
+  background: color-mix(in oklab, var(--adm-accent) 8%, var(--adm-surface));
+  box-shadow: 0 6px 16px -12px rgb(0 0 0 / 0.35);
+}
+
+.adm-select-bar strong {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-select-hint {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-select-bar .adm-actions {
+  margin-left: auto;
+}
+
+/* A touch screen has no shift-click; a phone puts the actions on one row. */
+@media (pointer: coarse) {
+  .adm-select-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .adm-select-bar .adm-actions {
+    flex-wrap: nowrap;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .adm-select-bar .adm-actions > * {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+  }
+}
+
 .adm-post-meta {
   display: flex;
   flex-wrap: wrap;

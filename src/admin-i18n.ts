@@ -232,6 +232,13 @@ export const adminMessages = {
     "admin.review.failure.extraction": "Schedule extraction failed",
     "admin.review.failure.translation": "Translation failed",
     "admin.review.retryTranslation": "Translate again",
+    "admin.review.selectPage": "Select all on this page",
+    "admin.review.selected": ({ count }: { count: number }) =>
+      `${count} selected`,
+    "admin.review.selectHint": "Shift-click selects a range",
+    "admin.review.clearSelection": "Clear selection",
+    "admin.review.bulkReprocess": "Process again",
+    "admin.review.selectPost": "Select the post from {time}",
 
     "admin.posts.reprocess": "Process again with the LLM",
     "admin.posts.queued": "Queued",
@@ -892,6 +899,12 @@ export const adminMessages = {
     "admin.notice.imageReviewed": "Label saved",
     "admin.notice.periodSaved": "Dates corrected",
     "admin.notice.postDismissed": "Failure dismissed",
+    "admin.notice.postsDismissed": ({ count }: { count: number }) =>
+      `${plural(count, "failure", "failures")} dismissed`,
+    "admin.notice.postsQueued": ({ count }: { count: number }) =>
+      `${plural(count, "post", "posts")} queued for the next schedule scan`,
+    "admin.notice.translationsQueued": ({ count }: { count: number }) =>
+      `${plural(count, "post", "posts")} queued for the translate step`,
     "admin.notice.schedulePicked": "Schedule image saved",
     "admin.notice.postQueued":
       "The LLM processes it again in the next schedule scan",

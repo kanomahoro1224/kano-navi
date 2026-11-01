@@ -226,6 +226,12 @@ function createClient(run: Runner, slow: Runner) {
       send<{ state: unknown }>("POST", `/posts/${enc(id)}/reprocess`, {}),
     dismissPost: (id: string) =>
       send<{ state: unknown }>("POST", `/posts/${enc(id)}/dismiss`, {}),
+    /** Queue up to 200 posts for the next schedule scan at once. */
+    reprocessPosts: (ids: string[]) =>
+      send<{ queued: number }>("POST", "/posts/reprocess", { ids }),
+    /** Dismiss the failed extractions among up to 200 posts. */
+    dismissPosts: (ids: string[]) =>
+      send<{ dismissed: number }>("POST", "/posts/dismiss", { ids }),
     /** Make one of the post's own images its schedule image. */
     pickScheduleImage: (
       id: string,

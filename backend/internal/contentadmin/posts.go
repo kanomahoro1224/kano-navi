@@ -26,6 +26,133 @@ type postLLMState struct {
 
 var errPostNotFound = errors.New("post not found")
 
+// maxBatchPosts bounds the posts one bulk reprocess or dismissal names.
+const maxBatchPosts = 200
+
+// queuePostReprocess marks one post queued for the next extraction run and
+// clears its failure backoff, or answers errPostNotFound.
+func queuePostReprocess(ctx context.Context, tx *sql.Tx, postID string, route *string, now string) error {
+	var found int
+	if err := tx.QueryRowContext(ctx, `SELECT 1 FROM posts WHERE id = ?`, postID).Scan(&found); errors.Is(err, sql.ErrNoRows) {
+		return errPostNotFound
+	} else if err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, `INSERT INTO post_llm_states (
+	     post_id, status, route, last_attempt_at, last_processed_at,
+	     last_error, last_extraction_id, reprocess_requested, updated_at
+	   ) VALUES (?, 'queued', ?, NULL, NULL, NULL, NULL, 1, ?)
+	   ON CONFLICT(post_id) DO UPDATE SET
+	     status=excluded.status, route=COALESCE(excluded.route, post_llm_states.route),
+	     last_error=excluded.last_error,
+	     reprocess_requested=excluded.reprocess_requested,
+	     updated_at=excluded.updated_at,
+	     failure_count=0, failure_fingerprint=NULL, next_attempt_at=NULL`, postID, nullString(route), now)
+	return err
+}
+
+// dismissFailedPost turns one failed extraction into `dismissed`, keeping its
+// failure keyed to the current input with no retry time. It reports whether
+// the post was failed.
+func dismissFailedPost(ctx context.Context, tx *sql.Tx, postID, now string) (bool, error) {
+	result, err := tx.ExecContext(ctx, `UPDATE post_llm_states SET status='dismissed',
+	     reprocess_requested=0, failure_count=MAX(failure_count, 1), next_attempt_at=NULL, updated_at=?
+	   WHERE post_id=? AND status='failed'`, now, postID)
+	if err != nil {
+		return false, err
+	}
+	changed, err := result.RowsAffected()
+	return changed > 0, err
+}
+
+// batchPostIDs reads a bulk request's `ids`: 1 to maxBatchPosts post IDs,
+// with repeats dropped. No other field is accepted.
+func batchPostIDs(w http.ResponseWriter, r *http.Request) ([]string, bool) {
+	body, err := httpx.Body(w, r)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return nil, false
+	}
+	for key := range body {
+		if key != "ids" {
+			httpx.WriteError(w, httpx.Invalid("%s is not supported", key))
+			return nil, false
+		}
+	}
+	var raw []string
+	if json.Unmarshal(body["ids"], &raw) != nil || len(raw) == 0 || len(raw) > maxBatchPosts {
+		httpx.WriteError(w, httpx.Invalid("ids must list 1 to %d post IDs", maxBatchPosts))
+		return nil, false
+	}
+	seen := make(map[string]bool, len(raw))
+	ids := make([]string, 0, len(raw))
+	for _, id := range raw {
+		if id == "" {
+			httpx.WriteError(w, httpx.Invalid("ids must not be empty"))
+			return nil, false
+		}
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	return ids, true
+}
+
+// reprocessPosts queues every listed post that exists for the next
+// extraction run in one transaction; unknown IDs are skipped.
+func (m *Module) reprocessPosts(w http.ResponseWriter, r *http.Request) {
+	ids, ok := batchPostIDs(w, r)
+	if !ok {
+		return
+	}
+	ctx, now, queued := r.Context(), m.timestamp(), 0
+	err := m.inTx(ctx, func(tx *sql.Tx) error {
+		for _, id := range ids {
+			switch err := queuePostReprocess(ctx, tx, id, nil, now); {
+			case errors.Is(err, errPostNotFound):
+			case err != nil:
+				return err
+			default:
+				queued++
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		writeFailure(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"queued": queued})
+}
+
+// dismissPosts dismisses every listed post whose extraction failed in one
+// transaction; other and unknown IDs are skipped.
+func (m *Module) dismissPosts(w http.ResponseWriter, r *http.Request) {
+	ids, ok := batchPostIDs(w, r)
+	if !ok {
+		return
+	}
+	ctx, now, dismissed := r.Context(), m.timestamp(), 0
+	err := m.inTx(ctx, func(tx *sql.Tx) error {
+		for _, id := range ids {
+			changed, err := dismissFailedPost(ctx, tx, id, now)
+			if err != nil {
+				return err
+			}
+			if changed {
+				dismissed++
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		writeFailure(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"dismissed": dismissed})
+}
+
 // requestPostReprocess queues a post for the next extraction run and clears
 // its failure backoff. Only the two schedule routes may be pinned; anything
 // else keeps the stored route.
@@ -33,23 +160,8 @@ func (m *Module) requestPostReprocess(ctx context.Context, postID string, route 
 	var state postLLMState
 	now := m.timestamp()
 	err := m.inTx(ctx, func(tx *sql.Tx) error {
-		var found int
-		if lookupErr := tx.QueryRowContext(ctx, `SELECT 1 FROM posts WHERE id = ?`, postID).Scan(&found); errors.Is(lookupErr, sql.ErrNoRows) {
-			return errPostNotFound
-		} else if lookupErr != nil {
-			return lookupErr
-		}
-		if _, execErr := tx.ExecContext(ctx, `INSERT INTO post_llm_states (
-		     post_id, status, route, last_attempt_at, last_processed_at,
-		     last_error, last_extraction_id, reprocess_requested, updated_at
-		   ) VALUES (?, 'queued', ?, NULL, NULL, NULL, NULL, 1, ?)
-		   ON CONFLICT(post_id) DO UPDATE SET
-		     status=excluded.status, route=COALESCE(excluded.route, post_llm_states.route),
-		     last_error=excluded.last_error,
-		     reprocess_requested=excluded.reprocess_requested,
-		     updated_at=excluded.updated_at,
-		     failure_count=0, failure_fingerprint=NULL, next_attempt_at=NULL`, postID, nullString(route), now); execErr != nil {
-			return execErr
+		if queueErr := queuePostReprocess(ctx, tx, postID, route, now); queueErr != nil {
+			return queueErr
 		}
 		var storedRoute, lastAttempt, lastProcessed, lastError, updatedAt sql.NullString
 		var extraction, requested sql.NullInt64
@@ -102,16 +214,8 @@ var errPostNotFailed = errors.New("post extraction has not failed")
 func (m *Module) dismissPost(w http.ResponseWriter, r *http.Request, postID string) {
 	ctx, now := r.Context(), m.timestamp()
 	err := m.inTx(ctx, func(tx *sql.Tx) error {
-		result, execErr := tx.ExecContext(ctx, `UPDATE post_llm_states SET status='dismissed',
-		     reprocess_requested=0, failure_count=MAX(failure_count, 1), next_attempt_at=NULL, updated_at=?
-		   WHERE post_id=? AND status='failed'`, now, postID)
-		if execErr != nil {
-			return execErr
-		}
-		if changed, countErr := result.RowsAffected(); countErr != nil {
-			return countErr
-		} else if changed > 0 {
-			return nil
+		if changed, dismissErr := dismissFailedPost(ctx, tx, postID, now); dismissErr != nil || changed {
+			return dismissErr
 		}
 		var found int
 		if lookupErr := tx.QueryRowContext(ctx, `SELECT 1 FROM posts WHERE id = ?`, postID).Scan(&found); errors.Is(lookupErr, sql.ErrNoRows) {

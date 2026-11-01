@@ -1,4 +1,4 @@
-import { useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import {
   Ban,
   CalendarCheck,
@@ -8,6 +8,7 @@ import {
   Images,
   Languages,
   Sparkles,
+  X,
 } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
@@ -21,6 +22,7 @@ import {
   IconButton,
   Loading,
   PageHeader,
+  Pager,
   Panel,
   Segmented,
   StatusBadge,
@@ -33,6 +35,7 @@ import {
   ScheduleImageList,
 } from "@/admin/views/schedule-images"
 import { eventDetailText } from "@/lib/event-text"
+import { cn } from "@/lib/utils"
 
 const tabs = ["images", "cancellations", "merges", "posts"] as const
 type Tab = (typeof tabs)[number]
@@ -325,19 +328,37 @@ const postFilters: Record<PostFilter, Record<string, unknown>> = {
   queued: { reprocess: true },
 }
 
+type BulkAction = "dismiss" | "reprocess" | "translate"
+
+/** What a filter's selected posts can have done to them at once. */
+const bulkActions: Record<PostFilter, BulkAction[]> = {
+  extraction: ["dismiss", "reprocess"],
+  translation: ["translate"],
+  uncertain: ["reprocess"],
+  queued: [],
+}
+
+const postPageSize = 50
+
 /**
  * One post of the Failed posts tab: which step failed and why, and the
  * actions for the tab's step. A failed extraction can be dismissed, which
- * stops its retries; a failed translation can be queued again.
+ * stops its retries; a failed translation can be queued again. A post in a
+ * filter with bulk actions has a selection box on its left edge.
  */
-export function PostRow({
+function PostRow({
   post,
   filter,
   onDone,
+  selected,
+  onSelect,
 }: {
   post: AdminPost
   filter: PostFilter
   onDone: () => void
+  selected?: boolean
+  /** Toggle the selection; `range` extends it from the last toggled post. */
+  onSelect?: (range: boolean) => void
 }) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
@@ -354,7 +375,26 @@ export function PostRow({
   }
   const translation = filter === "translation"
   return (
-    <article className="adm-post-row">
+    <article
+      className={cn(
+        "adm-post-row",
+        onSelect && "is-selectable",
+        selected && "is-selected",
+      )}
+    >
+      {onSelect ? (
+        <label className="adm-post-pick">
+          <input
+            type="checkbox"
+            checked={Boolean(selected)}
+            readOnly
+            aria-label={t("admin.review.selectPost", {
+              time: japanStamp(post.publishedAt),
+            })}
+            onClick={(event) => onSelect(event.shiftKey)}
+          />
+        </label>
+      ) : null}
       <div className="adm-post-meta">
         <strong>{post.accountHandle || t(`admin.step.${post.source}`)}</strong>
         <time dateTime={post.publishedAt}>{japanStamp(post.publishedAt)}</time>
@@ -409,14 +449,170 @@ export function PostRow({
   )
 }
 
+/**
+ * The selection bar over a selectable post list: a page-wide box that reads
+ * checked, mixed or empty, the count, and the filter's bulk actions. It
+ * stays under the top bar while the list scrolls.
+ */
+function PostSelectionBar({
+  actions,
+  selected,
+  pageCount,
+  busy,
+  onSelectPage,
+  onClear,
+  onAction,
+}: {
+  actions: BulkAction[]
+  selected: number
+  pageCount: number
+  busy: BulkAction | ""
+  onSelectPage: (all: boolean) => void
+  onClear: () => void
+  onAction: (action: BulkAction) => void
+}) {
+  const { t } = useAppSettings()
+  const all = selected > 0 && selected === pageCount
+  const mixed = selected > 0 && !all
+  const icons = { dismiss: Ban, reprocess: Sparkles, translate: Languages }
+  const labels = {
+    dismiss: t("admin.posts.dismiss"),
+    reprocess: t("admin.review.bulkReprocess"),
+    translate: t("admin.review.retryTranslation"),
+  }
+  const titles: Partial<Record<BulkAction, string>> = {
+    dismiss: t("admin.posts.dismissTitle"),
+    reprocess: t("admin.posts.reprocess"),
+  }
+  return (
+    <div className={cn("adm-select-bar", selected > 0 && "is-active")}>
+      <label className="adm-check">
+        <input
+          type="checkbox"
+          checked={all}
+          ref={(input) => {
+            if (input) input.indeterminate = mixed
+          }}
+          onChange={() => onSelectPage(!all)}
+        />
+        {selected ? (
+          <strong aria-live="polite">
+            {t("admin.review.selected", { count: selected })}
+          </strong>
+        ) : (
+          t("admin.review.selectPage")
+        )}
+      </label>
+      {selected ? (
+        <IconButton
+          icon={X}
+          label={t("admin.review.clearSelection")}
+          onClick={onClear}
+        />
+      ) : (
+        <span className="adm-select-hint">{t("admin.review.selectHint")}</span>
+      )}
+      <div className="adm-actions">
+        {actions.map((action) => (
+          <Button
+            key={action}
+            size="sm"
+            variant={action === "dismiss" ? "ghost" : undefined}
+            icon={icons[action]}
+            title={titles[action]}
+            disabled={!selected || (Boolean(busy) && busy !== action)}
+            busy={busy === action}
+            onClick={() => onAction(action)}
+          >
+            {labels[action]}
+          </Button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function PostsTab() {
   const { t } = useAppSettings()
-  const { api, overview, refreshOverview } = useAdmin()
+  const { api, act, notify, overview } = useAdmin()
   const [filter, setFilter] = useState<PostFilter>("extraction")
+  const [page, setPage] = useState(1)
+  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set())
+  const [busy, setBusy] = useState<BulkAction | "">("")
+  // The last toggled post, where a shift-click range starts.
+  const anchor = useRef<string | null>(null)
   const posts = useResource(
-    () => api.posts({ ...postFilters[filter], pageSize: 50 }),
-    [filter],
+    () => api.posts({ ...postFilters[filter], page, pageSize: postPageSize }),
+    [filter, page],
   )
+  const items = posts.data?.items ?? []
+  const actions = bulkActions[filter]
+
+  // A new filter or page starts with nothing selected; a reload keeps only
+  // the selected posts that are still listed.
+  useEffect(() => {
+    setSelection(new Set())
+    anchor.current = null
+  }, [filter, page])
+  useEffect(() => {
+    setSelection((current) => {
+      const listed = new Set(posts.data?.items.map((post) => post.id))
+      const kept = [...current].filter((id) => listed.has(id))
+      return kept.length === current.size ? current : new Set(kept)
+    })
+  }, [posts.data])
+
+  const reload = async () => {
+    const next = await posts.reload()
+    // A page emptied by a decision moves to the last page that has posts.
+    if (next && !next.items.length && page > 1)
+      setPage(Math.max(1, next.totalPages))
+  }
+
+  const toggle = (id: string, range: boolean) => {
+    const ids = items.map((post) => post.id)
+    const on = !selection.has(id)
+    const from = range && anchor.current ? ids.indexOf(anchor.current) : -1
+    const to = ids.indexOf(id)
+    const span =
+      from < 0 ? [id] : ids.slice(Math.min(from, to), Math.max(from, to) + 1)
+    setSelection((current) => {
+      const next = new Set(current)
+      for (const each of span) {
+        if (on) next.add(each)
+        else next.delete(each)
+      }
+      return next
+    })
+    anchor.current = id
+  }
+
+  const runBulk = async (action: BulkAction) => {
+    const ids = items
+      .filter((post) => selection.has(post.id))
+      .map((post) => post.id)
+    if (!ids.length) return
+    setBusy(action)
+    const count = await act(async () => {
+      if (action === "dismiss") return (await api.dismissPosts(ids)).dismissed
+      if (action === "reprocess") return (await api.reprocessPosts(ids)).queued
+      return (await api.requestTranslations({ ownerType: "post", ids })).queued
+    })
+    setBusy("")
+    if (count === undefined) return
+    notify(
+      {
+        dismiss: "admin.notice.postsDismissed",
+        reprocess: "admin.notice.postsQueued",
+        translate: "admin.notice.translationsQueued",
+      }[action],
+      { count },
+    )
+    setSelection(new Set())
+    anchor.current = null
+    await reload()
+  }
+
   const counts: Partial<Record<PostFilter, number>> = {
     extraction: overview?.review.failedExtractions,
     translation: overview?.review.failedTranslations,
@@ -427,7 +623,10 @@ function PostsTab() {
         <Segmented
           label={t("admin.review.filter")}
           value={filter}
-          onChange={setFilter}
+          onChange={(next) => {
+            setFilter(next)
+            setPage(1)
+          }}
           options={[
             { value: "extraction", label: t("admin.review.posts.extraction") },
             {
@@ -445,20 +644,47 @@ function PostsTab() {
       </div>
       {!posts.data ? (
         <Loading />
-      ) : posts.data.items.length ? (
-        <div className="adm-post-list">
-          {posts.data.items.map((post) => (
-            <PostRow
-              key={post.id}
-              post={post}
-              filter={filter}
-              onDone={() => {
-                void posts.reload()
-                void refreshOverview().catch(() => {})
+      ) : items.length ? (
+        <>
+          {actions.length ? (
+            <PostSelectionBar
+              actions={actions}
+              selected={selection.size}
+              pageCount={items.length}
+              busy={busy}
+              onSelectPage={(all) =>
+                setSelection(
+                  all ? new Set(items.map((post) => post.id)) : new Set(),
+                )
+              }
+              onClear={() => {
+                setSelection(new Set())
+                anchor.current = null
               }}
+              onAction={runBulk}
             />
-          ))}
-        </div>
+          ) : null}
+          <div className="adm-post-list">
+            {items.map((post) => (
+              <PostRow
+                key={post.id}
+                post={post}
+                filter={filter}
+                onDone={() => void reload()}
+                selected={selection.has(post.id)}
+                onSelect={
+                  actions.length ? (range) => toggle(post.id, range) : undefined
+                }
+              />
+            ))}
+          </div>
+          <Pager
+            page={posts.data.page}
+            totalPages={posts.data.totalPages}
+            total={posts.data.total}
+            onPage={setPage}
+          />
+        </>
       ) : (
         <Empty icon={CheckCircle2} title={t("admin.review.noPosts")} />
       )}

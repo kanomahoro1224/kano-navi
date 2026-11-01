@@ -227,6 +227,7 @@ func TestReadOnlyStoreRejectsEveryMutation(t *testing.T) {
 		"/profile-media", "/profile-media/discover", "/profile-media/upload?slot=avatar",
 		"/profile-media/abc/download", "/profile-media/abc/select",
 		"/schedule-images/abc/review", "/posts/abc/reprocess", "/posts/abc/dismiss", "/posts/1900000000000000100/refresh",
+		"/posts/reprocess", "/posts/dismiss",
 	} {
 		f.request(http.MethodPost, path, "application/json", []byte(`{}`)).expect(t, http.StatusServiceUnavailable, "read_only")
 	}
@@ -1023,6 +1024,50 @@ func TestPostDismissalHoldsTheFailedInput(t *testing.T) {
 	f.post("/posts/p1/dismiss", map[string]any{}).expect(t, http.StatusConflict, "post_not_failed")
 	f.post("/posts/p2/dismiss", map[string]any{}).expect(t, http.StatusConflict, "post_not_failed")
 	f.post("/posts/unknown/dismiss", map[string]any{}).expect(t, http.StatusNotFound, "post_not_found")
+}
+
+func TestBulkPostReprocessAndDismissal(t *testing.T) {
+	f := newFixture(t, true)
+	f.exec(`INSERT INTO posts(id,source,text,published_at,url) VALUES
+		('p1','x','synthetic','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/1'),
+		('p2','x','synthetic','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/2'),
+		('p3','x','synthetic','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/3')`)
+	f.exec(`INSERT INTO post_llm_states(post_id,status,last_error,reprocess_requested,updated_at,failure_count,failure_fingerprint,next_attempt_at) VALUES
+		('p1','failed','synthetic failure',0,'2026-10-02T00:00:00.000Z',2,'synthetic-input','2026-10-03T00:00:00.000Z'),
+		('p2','failed','synthetic failure',0,'2026-10-02T00:00:00.000Z',1,'synthetic-input','2026-10-03T00:00:00.000Z'),
+		('p3','success',NULL,0,'2026-10-02T00:00:00.000Z',0,NULL,NULL)`)
+
+	// Only failed extractions are dismissed; a repeat, a settled post and an
+	// unknown ID are skipped without failing the batch.
+	dismissed := f.post("/posts/dismiss", map[string]any{"ids": []string{"p1", "p1", "p3", "unknown"}})
+	dismissed.expect(t, http.StatusOK, "")
+	if dismissed.json["dismissed"] != float64(1) {
+		t.Fatalf("unexpected dismissal count: %s", dismissed.raw)
+	}
+	if got := f.text(`SELECT group_concat(post_id||':'||status||'|'||COALESCE(next_attempt_at,'-'), ',') FROM (SELECT * FROM post_llm_states ORDER BY post_id)`); got != "p1:dismissed|-,p2:failed|2026-10-03T00:00:00.000Z,p3:success|-" {
+		t.Fatalf("dismissed states: %s", got)
+	}
+
+	// Every existing post is queued with its backoff cleared, in one batch.
+	queued := f.post("/posts/reprocess", map[string]any{"ids": []string{"p1", "p2", "p3", "unknown"}})
+	queued.expect(t, http.StatusOK, "")
+	if queued.json["queued"] != float64(3) {
+		t.Fatalf("unexpected queued count: %s", queued.raw)
+	}
+	if got := f.text(`SELECT group_concat(post_id||':'||status||'|'||reprocess_requested||'|'||failure_count||'|'||COALESCE(next_attempt_at,'-'), ',') FROM (SELECT * FROM post_llm_states ORDER BY post_id)`); got != "p1:queued|1|0|-,p2:queued|1|0|-,p3:queued|1|0|-" {
+		t.Fatalf("queued states: %s", got)
+	}
+	if f.text(`SELECT CAST(COUNT(*) AS TEXT) FROM post_llm_states WHERE post_id='unknown'`) != "0" {
+		t.Fatal("an unknown post must not create state")
+	}
+
+	tooMany := strings.Split(strings.TrimSuffix(strings.Repeat("p,", 201), ","), ",")
+	for _, body := range []map[string]any{
+		{}, {"ids": []string{}}, {"ids": "p1"}, {"ids": []string{""}}, {"ids": tooMany}, {"ids": []string{"p1"}, "route": "schedule_board"},
+	} {
+		f.post("/posts/reprocess", body).expect(t, http.StatusBadRequest, "invalid_input")
+		f.post("/posts/dismiss", body).expect(t, http.StatusBadRequest, "invalid_input")
+	}
 }
 
 func TestPickPostScheduleImage(t *testing.T) {

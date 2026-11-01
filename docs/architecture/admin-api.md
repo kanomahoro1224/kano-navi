@@ -4,7 +4,7 @@ The operator console at `/admin` is the only client of `/api/admin`. The API
 is a resource-oriented JSON surface served by `backend/internal/adminapi`,
 which owns one route table (Go `http.ServeMux` method patterns), the session
 and origin guards, and the shared response conventions. Feature packages
-(`llmadmin`, `contentadmin`, YouTube `websub`) contribute route handlers;
+(`llmadmin`, `contentadmin`, `outboundproxy`, YouTube `websub`) contribute route handlers;
 they do not route paths themselves.
 
 MCP (`/mcp`) is a separate boundary with its own projections and never reuses
@@ -610,6 +610,30 @@ provider test without `{model}` only lists the provider's models. Creating a
 provider or adding catalog models never queues anything. Model IDs may
 contain `/`, so model writes name the model in the body. Provider responses
 report `apiKeyConfigured` only; keys are write-only.
+
+## Outbound proxies
+
+| Method and path         | Body                                                      | Result                                                |
+| ----------------------- | --------------------------------------------------------- | ----------------------------------------------------- |
+| `GET /proxy`            |                                                           | `{proxies, routes, directFallback, areas, testAreas}` |
+| `PUT /proxy`            | any subset of `{proxies, routes, directFallback}`         | the same settings                                     |
+| `POST /proxy/{id}/test` | `{area?}` (`x`, `youtube` (default), `bilibili`, `media`) | `{ok, status?, error?, latencyMs, proxy}`             |
+
+`proxies` is the ordered queue; each proxy is `{id, name, scheme, host, port,
+username, hasPassword, passwordUnreadable, enabled, health}`, where `health`
+is `{lastSuccessAt, lastFailureAt, coolingUntil}` from this process. A save
+replaces each field it carries: `proxies` replaces the whole queue (a proxy
+without `id` is new), `routes` maps every area (`x`, `youtube`,
+`bilibili`, `media`, `llm`) to `{enabled, proxyIds}`. In a proxy write,
+an omitted `password` keeps the stored password of the proxy with the same
+`id`, `""` clears it, and a username-less proxy has none. Passwords are
+write-only. Selections drop unknown ids; an unknown area, a route turned on
+without any proxy, or an invalid protocol, address or port is
+`400 invalid_input`. Unparseable stored settings answer reads with
+`503 proxy_settings_unavailable`; a save replaces them. Storing a password
+without `LLM_SECRETS_KEY` is `503 secrets_key_unavailable`. A test reports a
+failed attempt as `200 {ok: false, error: "timeout" | "failed"}`; an unknown
+proxy is `404 proxy_not_found`. See [Outbound proxies](outbound-proxy.md).
 
 ## Related Docs
 

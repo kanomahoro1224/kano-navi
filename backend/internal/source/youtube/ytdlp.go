@@ -27,9 +27,21 @@ type YTDLP struct {
 	Binary                 string
 	Timeout, UpdateTimeout time.Duration
 	MaxOutputBytes         int
+	// Routes, when set, lists the ways a YouTube read starts yt-dlp, tried
+	// in order: the YouTube proxy route. Version and update checks keep the
+	// process environment.
+	Routes func(context.Context) ([]ProcessRoute, error)
 
 	mu      sync.Mutex
-	runFunc func(context.Context, ...string) ([]byte, []byte, error)
+	runFunc func(ctx context.Context, env []string, args ...string) ([]byte, []byte, error)
+}
+
+// ProcessRoute is one way to start yt-dlp. Env replaces the process's proxy
+// variables (nil keeps the environment as it is), so proxy credentials never
+// appear in the argument list. Done receives whether the run reached YouTube.
+type ProcessRoute struct {
+	Env  []string
+	Done func(connected bool)
 }
 
 // YTDLPStatus is the sanitized operator projection of the local executable.
@@ -82,7 +94,7 @@ func (y *YTDLP) Version(ctx context.Context) (string, error) {
 	}
 	y.mu.Lock()
 	defer y.mu.Unlock()
-	out, _, err := y.run(ctx, y.timeout(), "--version")
+	out, _, err := y.run(ctx, y.timeout(), nil, "--version")
 	if err != nil {
 		return "", err
 	}
@@ -101,7 +113,7 @@ func (y *YTDLP) Update(ctx context.Context) error {
 	}
 	y.mu.Lock()
 	defer y.mu.Unlock()
-	_, _, err := y.run(ctx, y.updateTimeout(), "-U")
+	_, _, err := y.run(ctx, y.updateTimeout(), nil, "-U")
 	return err
 }
 
@@ -120,7 +132,7 @@ func (y *YTDLP) ListUploads(ctx context.Context, channel string, limit int) ([]V
 	}
 	y.mu.Lock()
 	defer y.mu.Unlock()
-	out, _, err := y.run(ctx, y.timeout(), "--flat-playlist", "--dump-single-json", "--skip-download", "--quiet", "--no-warnings", "--playlist-end", strconv.Itoa(limit), "https://www.youtube.com/channel/"+channel+"/videos")
+	out, err := y.read(ctx, "--flat-playlist", "--dump-single-json", "--skip-download", "--quiet", "--no-warnings", "--playlist-end", strconv.Itoa(limit), "https://www.youtube.com/channel/"+channel+"/videos")
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +151,7 @@ func (y *YTDLP) Inspect(ctx context.Context, target string) (Video, map[string]a
 	}
 	y.mu.Lock()
 	defer y.mu.Unlock()
-	out, _, err := y.run(ctx, y.timeout(), "--dump-single-json", "--skip-download", "--no-playlist", "--quiet", "--no-warnings", target)
+	out, err := y.read(ctx, "--dump-single-json", "--skip-download", "--no-playlist", "--quiet", "--no-warnings", target)
 	if err != nil {
 		return Video{}, nil, err
 	}
@@ -168,13 +180,72 @@ func (y *YTDLP) updateTimeout() time.Duration {
 	return ytdlpUpdateTimeout
 }
 
-func (y *YTDLP) run(parent context.Context, timeout time.Duration, args ...string) ([]byte, []byte, error) {
+// read runs a YouTube read through each route in turn. It moves to the next
+// route only when the run could not connect: it timed out, or yt-dlp reported
+// a proxy or transport failure. Any other outcome, such as an unavailable
+// video, is the answer.
+func (y *YTDLP) read(ctx context.Context, args ...string) ([]byte, error) {
+	routes := []ProcessRoute{{}}
+	if y.Routes != nil {
+		var err error
+		if routes, err = y.Routes(ctx); err != nil || len(routes) == 0 {
+			return nil, &Error{"youtube_ytdlp_proxy_unavailable"}
+		}
+	}
+	var lastErr error
+	for _, route := range routes {
+		out, stderr, err := y.run(ctx, y.timeout(), route.Env, args...)
+		connected := err == nil || !connectionFailure(err, stderr)
+		if route.Done != nil && ctx.Err() == nil {
+			route.Done(connected)
+		}
+		if connected || ctx.Err() != nil {
+			return out, err
+		}
+		lastErr = err
+	}
+	return nil, lastErr
+}
+
+// connectionFailure reports a run that never reached YouTube. yt-dlp names
+// proxy and connection failures ProxyError and TransportError in its error
+// line.
+func connectionFailure(err error, stderr []byte) bool {
+	var failure *Error
+	if !errors.As(err, &failure) {
+		return false
+	}
+	switch failure.Code {
+	case "youtube_ytdlp_timeout":
+		return true
+	case "youtube_ytdlp_failed":
+		return bytes.Contains(stderr, []byte("ProxyError")) || bytes.Contains(stderr, []byte("TransportError"))
+	}
+	return false
+}
+
+// proxyVariable reports an environment entry that sets a proxy, whatever its
+// case, so a route's variables are the only ones yt-dlp sees.
+func proxyVariable(entry string) bool {
+	name, _, _ := strings.Cut(entry, "=")
+	return strings.HasSuffix(strings.ToUpper(name), "_PROXY")
+}
+
+func (y *YTDLP) run(parent context.Context, timeout time.Duration, env []string, args ...string) ([]byte, []byte, error) {
 	if y.runFunc != nil {
-		return y.runFunc(parent, args...)
+		return y.runFunc(parent, env, args...)
 	}
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, y.Binary, args...)
+	if env != nil {
+		for _, entry := range os.Environ() {
+			if !proxyVariable(entry) {
+				cmd.Env = append(cmd.Env, entry)
+			}
+		}
+		cmd.Env = append(cmd.Env, env...)
+	}
 	var stdout, stderr limitedBuffer
 	stdout.limit, stderr.limit = y.outputLimit(), y.outputLimit()
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr

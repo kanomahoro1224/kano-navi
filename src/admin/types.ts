@@ -132,6 +132,70 @@ export interface VisitorRegionSettings {
   mirrorUrl: string
 }
 
+/** A part of the server's outbound requests with its own proxy route. */
+export type ProxyArea = "x" | "youtube" | "bilibili" | "media" | "llm"
+
+export type ProxyScheme = "http" | "https" | "socks5" | "socks5h"
+
+/** This process's recent attempts through one proxy. */
+export interface ProxyHealth {
+  lastSuccessAt: string | null
+  lastFailureAt: string | null
+  coolingUntil: string | null
+}
+
+export interface OutboundProxy {
+  id: string
+  name: string
+  scheme: ProxyScheme
+  host: string
+  port: number
+  username: string
+  /** The password is write-only; these report whether one is stored. */
+  hasPassword: boolean
+  passwordUnreadable: boolean
+  enabled: boolean
+  health: ProxyHealth
+}
+
+/** An area's route: off, or every proxy (empty proxyIds) or a selection,
+ * tried in queue order. */
+export interface ProxyRoute {
+  enabled: boolean
+  proxyIds: string[]
+}
+
+export interface ProxySettings {
+  /** The queue, highest priority first. */
+  proxies: OutboundProxy[]
+  routes: Record<ProxyArea, ProxyRoute>
+  directFallback: boolean
+  areas: ProxyArea[]
+  /** Areas with a fixed page a proxy test can reach. */
+  testAreas: ProxyArea[]
+}
+
+/** One proxy in a save. Omitting password keeps the stored one; "" clears
+ * it. */
+export interface ProxyInput {
+  id?: string
+  name: string
+  scheme: ProxyScheme
+  host: string
+  port: number
+  username: string
+  password?: string
+  enabled: boolean
+}
+
+export interface ProxyTestResult {
+  ok: boolean
+  status?: number
+  error?: "timeout" | "failed"
+  latencyMs: number
+  proxy: OutboundProxy
+}
+
 export interface Overview {
   /** Public mainland-China site suggestion; absent on older sidecars. */
   visitorRegionEnabled?: boolean

@@ -21,6 +21,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/llmadmin"
 	"github.com/yexca/kano-navi/backend/internal/mcpapi"
 	"github.com/yexca/kano-navi/backend/internal/mediadownload"
+	"github.com/yexca/kano-navi/backend/internal/outboundproxy"
 	"github.com/yexca/kano-navi/backend/internal/schedule"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
@@ -68,7 +69,7 @@ func runStandalone(cfg config.Config) int {
 	}
 
 	run := newPipeline(store, secretsKey)
-	modules := standaloneModules(store, adminConfig.Mode, secretsKey)
+	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies)
 	queue := &workflow.Queue{Store: store, Executor: run.executor}
 	defer queue.Close()
 	if err = queue.Recover(context.Background()); err != nil {
@@ -106,7 +107,7 @@ func runStandalone(cfg config.Config) int {
 	defer pruner.Stop()
 	// YouTube push is configured in /admin; it stays inactive until enabled
 	// there and while SKIP_YOUTUBE disables the source.
-	push := websub.New(ytsource.OptionsFromEnv().ChannelID, nil, youtubePushTrigger(manager))
+	push := websub.New(ytsource.OptionsFromEnv().ChannelID, run.proxies.Client(outboundproxy.AreaYoutube), youtubePushTrigger(manager))
 	pushAdmin := websub.NewAdmin(store, push, secretsKey, os.Getenv(stepSkipFlags["youtube"]) != "1")
 	if err = pushAdmin.Load(context.Background()); err != nil {
 		return fail("YouTube push settings unavailable", 1)
@@ -186,11 +187,13 @@ func runHealthCheck(cfg config.Config) int {
 }
 
 // standaloneModules attaches the operator feature modules. key is the
-// LLM_SECRETS_KEY that seals provider credentials.
-func standaloneModules(store *sqlite.Store, mode, key string) []httpx.AdminModule {
+// LLM_SECRETS_KEY that seals provider and proxy credentials; proxies carries
+// the modules' outbound requests.
+func standaloneModules(store *sqlite.Store, mode, key string, proxies *outboundproxy.Pool) []httpx.AdminModule {
 	return []httpx.AdminModule{
-		llmadmin.New(store, llmadmin.Options{Mode: mode, SecretsKey: key}),
-		contentadmin.New(store, contentadmin.Options{}),
+		llmadmin.New(store, llmadmin.Options{Mode: mode, SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)}),
+		contentadmin.New(store, contentadmin.Options{HTTPClient: proxies.Client(outboundproxy.AreaMedia)}),
+		outboundproxy.NewAdmin(store, proxies),
 	}
 }
 
@@ -201,6 +204,8 @@ type pipeline struct {
 	executor *workflow.Executor
 	skipped  []string
 	xOptions xsource.Options
+	// proxies routes every outbound request by area.
+	proxies *outboundproxy.Pool
 }
 
 // newPipeline wires the source, media and schedule steps. key is the
@@ -219,11 +224,16 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 	skip[jobs.StepLive] = skip["youtube"]
 	xOptions := xsource.OptionsFromEnv()
 	youtubeOptions := ytsource.OptionsFromEnv()
-	xAdapter := xsource.NewAdapter(xsource.NewClient(&http.Client{Timeout: 10 * time.Second}), xOptions)
-	youtubeAdapter := ytsource.NewAdapter(nil, youtubeOptions)
+	// Each client's outbound requests follow its area's proxy route.
+	proxies := outboundproxy.NewPool(store.DB(), key)
+	xAdapter := xsource.NewAdapter(xsource.NewClient(&http.Client{Timeout: 10 * time.Second, Transport: proxies.Transport(outboundproxy.AreaX)}), xOptions)
+	youtubeAdapter := ytsource.NewAdapter(ytsource.NewClient(proxies.Client(outboundproxy.AreaYoutube)), youtubeOptions)
+	if youtubeAdapter.YTDLP != nil {
+		youtubeAdapter.YTDLP.Routes = ytdlpRoutes(proxies)
+	}
 	// Manual fetches list through the source adapters' clients, apart from
 	// X full-archive search.
-	fetcher := history.NewFetcher(store, history.DefaultOptions(), nil)
+	fetcher := history.NewFetcher(store, history.DefaultOptions(), proxies.Transport(outboundproxy.AreaX))
 	fetcher.Timeline, fetcher.Uploads = xAdapter, youtubeAdapter
 	// The timed X chain's API method reads through the same client as the
 	// manual one; without the credential the chain skips it.
@@ -236,10 +246,10 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		Skip:      skip,
 		X:         &workflow.XRecentExecutor{Store: store, Adapter: xAdapter, Options: xOptions},
 		Youtube:   youtubeAdapter,
-		Bilibili:  bilisource.NewAdapter(nil, bilisource.OptionsFromEnv()),
-		Media:     mediadownload.NewClient(nil),
-		Schedule:  scheduleStep{schedule.New(store, schedule.Options{SecretsKey: key})},
-		Translate: translateStep{schedule.NewTranslator(store, schedule.Options{SecretsKey: key})},
+		Bilibili:  bilisource.NewAdapter(bilisource.NewClient(proxies.Client(outboundproxy.AreaBilibili)), bilisource.OptionsFromEnv()),
+		Media:     mediadownload.NewClient(proxies.Client(outboundproxy.AreaMedia)),
+		Schedule:  scheduleStep{schedule.New(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})},
+		Translate: translateStep{schedule.NewTranslator(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})},
 		History: &workflow.HistorySource{
 			Fetcher:      fetcher,
 			Store:        store,
@@ -259,7 +269,22 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		// and a failed translation keeps event reconciliation.
 		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, jobs.StepTranslate: true},
 	}
-	return pipeline{steps: steps, executor: executor, skipped: skipped, xOptions: xOptions}
+	return pipeline{steps: steps, executor: executor, skipped: skipped, xOptions: xOptions, proxies: proxies}
+}
+
+// ytdlpRoutes runs yt-dlp's YouTube reads through the YouTube proxy route.
+func ytdlpRoutes(proxies *outboundproxy.Pool) func(context.Context) ([]ytsource.ProcessRoute, error) {
+	return func(ctx context.Context) ([]ytsource.ProcessRoute, error) {
+		attempts, err := proxies.ProcessAttempts(ctx, outboundproxy.AreaYoutube)
+		if err != nil {
+			return nil, err
+		}
+		routes := make([]ytsource.ProcessRoute, 0, len(attempts))
+		for _, attempt := range attempts {
+			routes = append(routes, ytsource.ProcessRoute{Env: attempt.Env, Done: attempt.Done})
+		}
+		return routes, nil
+	}
 }
 
 // translateStep adapts the translator to the workflow step contract.

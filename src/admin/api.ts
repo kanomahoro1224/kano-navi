@@ -87,6 +87,9 @@ const errorKeys: Record<string, string> = {
   request_too_large: "admin.error.tooLarge",
   merge_conflict: "admin.error.mergeConflict",
   event_merge_conflict: "admin.error.eventMergeConflict",
+  proxy_settings_unavailable: "admin.error.proxySettingsUnavailable",
+  proxy_test_timeout: "admin.error.proxyTestTimeout",
+  proxy_test_failed: "admin.error.proxyTestFailed",
 }
 
 /** Operator-facing text for a failed request. Validation messages from the

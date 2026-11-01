@@ -95,6 +95,7 @@ is occupied.
 | Extraction, providers, models, routes          | `internal/llmadmin`                                             |
 | Profile media, schedule images, post reprocess | `internal/contentadmin`                                         |
 | Schedule extraction step                       | `internal/schedule`                                             |
+| Outbound proxy queue and routes                | `internal/outboundproxy`                                        |
 | `/mcp`                                         | `internal/mcpapi`                                               |
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
 
@@ -102,7 +103,8 @@ is occupied.
 listener; `internal/httpapi` builds the handler around an injected store.
 `internal/adminapi` owns the single `/api/admin` route table described in the
 [Admin API](admin-api.md). Feature packages (`internal/llmadmin`,
-`internal/contentadmin` and the YouTube `websub` package) implement
+`internal/contentadmin`, `internal/outboundproxy` and the YouTube `websub`
+package) implement
 `httpx.AdminModule` by returning their routes; the router authenticates the
 session, applies the origin guard and refuses writes to a read-only database
 before a module handler runs.

@@ -41,7 +41,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `media_versions`         | Earlier cached files of an asset whose bytes a revalidation replaced                                   |
 | `sync_runs`              | Status, counts, error summaries, trigger, and asynchronous job identity                                |
 | `sync_state`             | Durable per-account X, YouTube and Bilibili cursors, read bookkeeping and X API chain state            |
-| `app_settings`           | Model, schedule-extractor, X-account, Featured, and YouTube push settings (push secret sealed)         |
+| `app_settings`           | Model, extractor, X-account, Featured, YouTube push and proxy settings (secrets sealed)                |
 | `schedule_extractions`   | Versioned LLM inputs, outcomes, and structured result metadata                                         |
 | `post_llm_states`        | Per-post LLM status, last attempt, error, reprocess queue state, and extraction failure backoff        |
 | `schedule_asset_reviews` | Per-schedule-image LLM verdict, skip reason (`no_image` for a URL-less row), and optional manual label |

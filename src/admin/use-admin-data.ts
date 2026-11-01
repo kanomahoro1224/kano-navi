@@ -37,6 +37,11 @@ import type {
   ProfileMediaState,
   ProfileSlot,
   Provider,
+  ProxyArea,
+  ProxyInput,
+  ProxyRoute,
+  ProxySettings,
+  ProxyTestResult,
   QueueRoute,
   RouteTarget,
   Run,
@@ -163,6 +168,14 @@ function createClient(run: Runner, slow: Runner) {
     ytdlp: () => get<YTDLPStatus>("/sources/youtube/ytdlp"),
     updateYTDLP: () =>
       send<YTDLPStatus>("POST", "/sources/youtube/ytdlp/update"),
+    proxySettings: () => get<ProxySettings>("/proxy"),
+    updateProxySettings: (body: {
+      proxies?: ProxyInput[]
+      routes?: Partial<Record<ProxyArea, ProxyRoute>>
+      directFallback?: boolean
+    }) => send<ProxySettings>("PUT", "/proxy", body),
+    testProxy: (id: string, area: ProxyArea) =>
+      send<ProxyTestResult>("POST", `/proxy/${enc(id)}/test`, { area }),
     syncSettings: () => get<SyncSettings>("/sync-settings"),
     updateSyncSettings: (body: Partial<Record<SyncSettingField, number>>) =>
       send<SyncSettings>("PUT", "/sync-settings", body),

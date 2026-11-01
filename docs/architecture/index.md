@@ -20,6 +20,7 @@ external sources.
 | [Sources](sources.md)                 | X and YouTube adapters and schedule extraction                     |
 | [Workflows](workflows.md)             | Step catalog, single-flight queue, timers, manual fetches          |
 | [Media cache](media-cache.md)         | Media identity, downloader, layout, HTTP contract                  |
+| [Outbound proxies](outbound-proxy.md) | Proxy queue, per-area routes, attempts and tests                   |
 
 ## When To Read What
 

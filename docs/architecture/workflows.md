@@ -151,6 +151,8 @@ channel entries, maps the metadata yt-dlp provides onto the stored video fields,
 and never downloads media. A `count` fetch is capped at 200 entries; an `all`
 fetch uses the same bounded 200-entry request and reports more work when the
 executable returns exactly 200 entries. It records `youtube_ytdlp_*` codes.
+The executable follows the YouTube
+[proxy route](outbound-proxy.md#yt-dlp).
 
 Videos are written as the listing describes them: title, publication time,
 largest thumbnail and the kind their title gives. The `api` method then checks

@@ -6,6 +6,11 @@
   `backend/internal/` (`source/`, `mediadownload/`, and the provider
   clients of `schedule/` and `llmadmin/`), with fixed HTTP(S) destinations,
   timeouts, limits, and failure handling.
+- Outbound clients take their transport from the operator's
+  [outbound proxy](../architecture/outbound-proxy.md) pool for their area. A
+  new client joins an existing area or adds one; proxy passwords are sealed
+  with `LLM_SECRETS_KEY` and transport errors from a proxied attempt carry a
+  fixed message.
 - Never embed usernames, passwords, tokens, or cookies in a URL. Do not write credentials from a response into `raw_json`, logs, or the UI.
 - Register a new source host and its purpose in `scripts/privacy-allowlist.json` first. The allowlist is a reviewable source record, not a comment-based way to bypass secret detection.
 - An inbound push endpoint (the YouTube WebSub callback is the only one) must

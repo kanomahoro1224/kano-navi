@@ -883,6 +883,83 @@ export const adminMessages = {
     "admin.notice.ytdlpUpdated": "yt-dlp updated",
     "admin.notice.scheduleSaved": "Timer saved",
     "admin.notice.visitorRegionSaved": "Mainland China site suggestion saved",
+    "admin.nav.proxy": "Proxies",
+    "admin.proxy.title": "Outbound proxies",
+    "admin.proxy.description":
+      "Forward proxies for the server's own requests to sources, media hosts and model providers. Visitors never go through them.",
+    "admin.proxy.queue": "Proxy queue",
+    "admin.proxy.queueHint":
+      "A routed request tries these proxies top to bottom and stops at the first that answers. A proxy that fails moves behind the others for a minute.",
+    "admin.proxy.add": "Add proxy",
+    "admin.proxy.addTitle": "Add proxy",
+    "admin.proxy.editTitle": "Edit proxy",
+    "admin.proxy.edit": "Edit",
+    "admin.proxy.remove": "Remove",
+    "admin.proxy.empty": "No proxies",
+    "admin.proxy.emptyHint":
+      "Every outbound request connects directly. Add a proxy, then choose the areas that use it.",
+    "admin.proxy.name": "Name",
+    "admin.proxy.nameHint": "Optional label shown in the queue.",
+    "admin.proxy.scheme": "Protocol",
+    "admin.proxy.host": "Address",
+    "admin.proxy.port": "Port",
+    "admin.proxy.username": "Username",
+    "admin.proxy.password": "Password",
+    "admin.proxy.passwordKeepHint": "Leave empty to keep the stored password.",
+    "admin.proxy.passwordUnreadableHint":
+      "The stored password cannot be read with the current secrets key; enter it again.",
+    "admin.proxy.clearPassword": "Remove the stored password",
+    "admin.proxy.enabled": "In use",
+    "admin.proxy.enabledHint":
+      "A proxy that is not in use stays in the queue but is skipped.",
+    "admin.proxy.disabled": "Not in use",
+    "admin.proxy.hasPassword": "Password",
+    "admin.proxy.passwordUnreadable": "Re-enter password",
+    "admin.proxy.cooling": "Cooling down, back {time}",
+    "admin.proxy.lastSuccess": "Answered {time}",
+    "admin.proxy.lastFailure": "Failed {time}",
+    "admin.proxy.test": "Test",
+    "admin.proxy.testTarget": "Test through",
+    "admin.proxy.testHint":
+      "A test asks one public page of that area through one proxy, with no fallback.",
+    "admin.proxy.testOk": "HTTP {status} in {ms} ms",
+    "admin.proxy.testError.timeout": "No answer within 10 seconds",
+    "admin.proxy.testError.failed": "The proxy did not carry the request",
+    "admin.proxy.areas": "Areas",
+    "admin.proxy.areasHint":
+      "Choose which requests use the queue. An area that is off connects directly.",
+    "admin.proxy.area.x": "X",
+    "admin.proxy.area.youtube": "YouTube",
+    "admin.proxy.area.bilibili": "Bilibili",
+    "admin.proxy.area.media": "Media downloads",
+    "admin.proxy.area.llm": "Model providers",
+    "admin.proxy.areaHint.x":
+      "Profile, FxTwitter and vxtwitter reads, and the X API.",
+    "admin.proxy.areaHint.youtube":
+      "Pages, feeds, the Data API, push subscriptions and yt-dlp reads (at most three proxies per read).",
+    "admin.proxy.areaHint.bilibili": "Upload lists and video details.",
+    "admin.proxy.areaHint.media": "Post, video and profile images.",
+    "admin.proxy.areaHint.llm":
+      "Extraction, translation, provider tests and model discovery. Providers on this machine or the local network always connect directly.",
+    "admin.proxy.useProxies": "Proxies for this area",
+    "admin.proxy.allHint": "None selected: every proxy in queue order.",
+    "admin.proxy.selectionHint": "Only the selected proxies, in queue order.",
+    "admin.proxy.noUsable":
+      "No proxy for this area is in use, so its requests fail.",
+    "admin.proxy.noUsableDirect":
+      "No proxy for this area is in use, so its requests connect directly.",
+    "admin.proxy.directFallback": "Connect directly when every proxy fails",
+    "admin.proxy.directFallbackHint":
+      "Off keeps a routed area from ever connecting directly; its requests fail instead.",
+    "admin.notice.proxySaved": "Proxy saved",
+    "admin.notice.proxyRemoved": "Proxy removed",
+    "admin.notice.proxyRoutesSaved": "Proxy areas saved",
+    "admin.notice.proxyTestOk": "{name} answered in {ms} ms",
+    "admin.error.proxySettingsUnavailable":
+      "The stored proxy settings cannot be read. Saving replaces them.",
+    "admin.error.proxyTestTimeout": "Proxy test: no answer within 10 seconds",
+    "admin.error.proxyTestFailed":
+      "Proxy test: the proxy did not carry the request",
     "admin.notice.secretRotated": "Signing secret rotated",
     "admin.notice.extractionSaved": "Detection settings saved",
     "admin.notice.queueSaved": "Queue saved",

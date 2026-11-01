@@ -91,8 +91,8 @@ mainland China site suggestion. It defaults to `false`.
 The setting is stored in `app_settings` as `visitor_region_enabled`,
 `visitor_region_provider_name`, `visitor_region_provider_url` and
 `visitor_region_mirror_url`. Enabling it requires a provider name and absolute
-HTTP(S) URLs for the provider website and mirror site. It only enables the
-same-origin country-code check described in the [public API](public-api.md#public-snapshot-contract); it never sends an IP to a geolocation service.
+HTTP(S) URLs for the provider website and mirror site. It publishes the site
+and the same-origin country-code check described in the [public API](public-api.md#public-snapshot-contract); it never sends an IP to a geolocation service.
 
 ### Image copies
 

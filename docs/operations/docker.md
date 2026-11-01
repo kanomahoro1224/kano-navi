@@ -46,8 +46,8 @@ provider website and mirror site, turn on the setting on `/admin` → Site, then
 `X-Country-Code`, `X-Geo-Country` or `X-Visitor-Country` with its country code.
 The setting is off by default and Cloudflare's `CF-IPCountry` is checked first.
 Requests that reach the Go listener without one of these headers receive
-`mainlandChina: false`; the browser never sends the visitor's IP to a
-geolocation service.
+`mainlandChina: false`, so only the notice is skipped and the footer link
+remains; the browser never sends the visitor's IP to a geolocation service.
 
 The production listener gzip-compresses public JSON directly and sends the
 build's text from its precompressed Brotli and gzip siblings; a proxy is not

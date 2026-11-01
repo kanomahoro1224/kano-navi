@@ -61,6 +61,7 @@ const messages = {
     "footer.disclaimer":
       "与本人及所属事务所无关 · 内容来自本地快照 · 一切以各平台原页面为准",
     "footer.backToTop": "回到顶部",
+    "footer.mainlandSite": "中国大陆服务器站点",
     "archive.fullHistory": "完整历程",
     "history.metaTitle": "历程 · 鹿乃在做什么",
     "history.metaDescription":
@@ -148,6 +149,7 @@ const messages = {
     "footer.disclaimer":
       "ご本人・所属事務所とは無関係です · ローカルスナップショットを表示 · 各プラットフォームの元ページが正です",
     "footer.backToTop": "ページ上部へ",
+    "footer.mainlandSite": "中国大陸向けサーバーのサイト",
     "archive.fullHistory": "あゆみを全部見る",
     "history.metaTitle": "あゆみ · 鹿乃ちゃん何してるか",
     "history.metaDescription":
@@ -235,6 +237,7 @@ const messages = {
     "footer.disclaimer":
       "Not affiliated with the artist or agency · Shows a local snapshot · Original platform pages are authoritative",
     "footer.backToTop": "Back to top",
+    "footer.mainlandSite": "Mainland China server site",
     "archive.fullHistory": "Full journey",
     "history.metaTitle": "Journey · What’s Kano Up To?",
     "history.metaDescription":

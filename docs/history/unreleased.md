@@ -18,6 +18,11 @@
 - The board's first section no longer jumps when the page opens. A return
   visit shows what the device last saw at once and updates it in place, and
   a first visit's placeholder has the ticket's shape.
+- About credits 鹿可可, who provides and independently deploys the mainland
+  China server site, and links to it. When the operator enables the mirror,
+  the Simplified Chinese footer keeps a link to it after its notice is
+  dismissed. While the mirror is off, the visitor region response leaves out
+  its provider and addresses.
 
 </details>
 

@@ -27,6 +27,9 @@ export const aboutMessages = {
     "about.creditsLineblog":
       "LINE BLOG 页面的文章、图片、视频和中文翻译主要来自 ZhFuwe 整理的 Kano_LINE_Blog_Recovery 项目。",
     "about.creditsRecovery": "查看 Kano_LINE_Blog_Recovery",
+    "about.creditsMainland":
+      "中国大陆服务器站点由 {provider} 提供并独立部署，感谢其为中国大陆的访客提供服务器。",
+    "about.creditsMainlandSite": "访问中国大陆服务器站点",
     "about.notice": "使用与许可说明",
     "about.unofficial":
       "本站为粉丝制作，与鹿乃まほろ本人、所属机构及相关组织无隶属关系，也不代表官方立场。",
@@ -66,6 +69,9 @@ export const aboutMessages = {
     "about.creditsLineblog":
       "LINE BLOG ページの記事、画像、動画、簡体字中国語訳は、主に ZhFuwe さんによる Kano_LINE_Blog_Recovery プロジェクトに基づいています。",
     "about.creditsRecovery": "Kano_LINE_Blog_Recovery を見る",
+    "about.creditsMainland":
+      "中国大陸向けサーバーのサイトは{provider}さんが提供し、独自にデプロイしています。中国大陸からの閲覧のためにサーバーを提供していただき、ありがとうございます。",
+    "about.creditsMainlandSite": "中国大陸向けサーバーのサイトへ",
     "about.notice": "ご利用とライセンスについて",
     "about.unofficial":
       "本サイトはファンによる制作であり、鹿乃まほろ本人、所属事務所、関連団体とは関係ありません。公式の見解を示すものではありません。",
@@ -105,6 +111,9 @@ export const aboutMessages = {
     "about.creditsLineblog":
       "The LINE BLOG page's posts, images, videos, and Simplified Chinese translations come mainly from the Kano_LINE_Blog_Recovery project by ZhFuwe.",
     "about.creditsRecovery": "View Kano_LINE_Blog_Recovery",
+    "about.creditsMainland":
+      "The mainland China server site is provided and independently deployed by {provider}. Thanks for hosting it for visitors in mainland China.",
+    "about.creditsMainlandSite": "Visit the mainland China server site",
     "about.notice": "Usage & license",
     "about.unofficial":
       "This is a fan-made site with no affiliation to Kano Mahoro, her agency, or related organizations. It does not represent an official position.",

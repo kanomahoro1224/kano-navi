@@ -89,6 +89,14 @@
   font-size: 13.5px;
 }
 
+.about-inline-link {
+  color: var(--berry);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
 .about-models {
   display: flex;
   flex-wrap: wrap;

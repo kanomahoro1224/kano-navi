@@ -1,9 +1,10 @@
 import type { ReactNode } from "react"
 import { useEffect, useState } from "react"
-import { ArrowUp, Check } from "lucide-react"
+import { ArrowUp, ArrowUpRight, Check } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import { PreferenceControls } from "@/components/preference-controls"
+import { useMainlandSite } from "@/lib/visitor-region"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { KanoSeal } from "./kano-seal"
+import { ExternalLink } from "./links"
 import "./site.css"
 
 export type PublicPage = "board" | "history" | "lineblog" | "about"
@@ -148,6 +150,21 @@ export function SiteHeader({
   )
 }
 
+/** The mainland China site stays reachable after its notice is dismissed. */
+function MainlandSiteLink() {
+  const { t } = useAppSettings()
+  const site = useMainlandSite()
+  if (!site) return null
+  return (
+    <p className="site-footer-mirror">
+      <ExternalLink href={site.mirrorUrl}>
+        {t("footer.mainlandSite")}
+        <ArrowUpRight aria-hidden="true" />
+      </ExternalLink>
+    </p>
+  )
+}
+
 export function SiteFooter({
   disclaimer,
   topHref = "#top",
@@ -155,7 +172,7 @@ export function SiteFooter({
   disclaimer: string
   topHref?: string
 }) {
-  const { t } = useAppSettings()
+  const { locale, t } = useAppSettings()
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
@@ -166,6 +183,7 @@ export function SiteFooter({
         <div className="site-footer-copy">
           <strong>{t("footer.fanMade")}</strong>
           <p>{disclaimer}</p>
+          {locale === "zh-CN" && <MainlandSiteLink />}
         </div>
         <nav className="site-footer-links" aria-label={t("header.pages")}>
           {pages.map((item) => (

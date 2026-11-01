@@ -94,10 +94,14 @@ modal dialog, toasts); `views/` one file per section; and `admin.css` styles
 them with `adm-` prefixed selectors. `src/components/ui/` contains
 basic UI primitives, while the CSS files contain layout and design tokens. The
 presentation layer must not open SQLite or call X, YouTube, OpenAI,
-or a third-party proxy directly. The root app checks the same-origin
-`/api/visitor-region` response once per browser session; when the operator has
-enabled the setting and it reports mainland China, a dismissible Toast offers
-the optional mainland China site.
+or a third-party proxy directly. The optional mainland China site comes from
+the same-origin `/api/visitor-region` response, read at most once per page
+load through `src/lib/visitor-region.ts`. When the operator has enabled it,
+the footer links to the mirror while the interface is Simplified Chinese;
+when the response also reports mainland China, the root app shows a
+dismissible Toast offering the site, once per browser session. About's credit
+for the mainland China server site is static copy in `src/about/` and does
+not read this response.
 
 ## Request and UI Ownership
 

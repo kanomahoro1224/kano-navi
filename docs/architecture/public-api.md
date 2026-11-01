@@ -40,10 +40,10 @@ and `mirrorUrl`. It returns `mainlandChina: true` when the configured edge or
 reverse proxy supplies a `CN` country code, and `false` otherwise. It reads `CF-IPCountry` first, then `X-Country-Code`,
 `X-Geo-Country` and `X-Visitor-Country`; the proxy must overwrite these
 headers rather than pass visitor-supplied values through. The response is
-`no-store` and contains no address or raw header. The public pages use this
-boolean only to offer the optional mainland China site link. The operator
-console controls whether the response can enable that suggestion through its
-`visitor_region_enabled` setting, which defaults to off.
+`no-store` and contains no address or raw header. The public pages link the
+site in the Simplified Chinese footer whenever `enabled` is true and use
+`mainlandChina` only to decide whether to offer it in a notice. The operator console controls
+`enabled` through its `visitor_region_enabled` setting, which defaults to off.
 
 `backend/internal/publicview` owns shared public event, synchronization,
 and selected profile-media projections for HTTP and MCP. A public sync summary

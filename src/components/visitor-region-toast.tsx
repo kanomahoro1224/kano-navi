@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { useAppSettings } from "@/app-settings"
+import { useMainlandSite } from "@/lib/visitor-region"
 import "./visitor-region-toast.css"
 
 const SESSION_KEY = "kano-visitor-region-notice"
@@ -11,14 +12,6 @@ const PUBLIC_PATHS = new Set([
   "/lineblog",
   "/about",
 ])
-
-interface VisitorRegionPayload {
-  enabled: boolean
-  mainlandChina: boolean
-  providerName: string
-  providerUrl: string
-  mirrorUrl: string
-}
 
 function wasHandled() {
   try {
@@ -39,38 +32,12 @@ function rememberHandled() {
 
 export function VisitorRegionToast() {
   const { t } = useAppSettings()
-  const [config, setConfig] = useState<VisitorRegionPayload | null>(null)
-
-  useEffect(() => {
-    if (!PUBLIC_PATHS.has(window.location.pathname) || wasHandled()) return
-    const controller = new AbortController()
-    void fetch("/api/visitor-region", {
-      headers: { accept: "application/json" },
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: unknown) => {
-        if (payload && typeof payload === "object") {
-          const candidate = payload as Partial<VisitorRegionPayload>
-          if (
-            candidate.enabled === true &&
-            candidate.mainlandChina === true &&
-            typeof candidate.providerName === "string" &&
-            typeof candidate.providerUrl === "string" &&
-            typeof candidate.mirrorUrl === "string" &&
-            candidate.providerName.trim() &&
-            candidate.providerUrl.trim() &&
-            candidate.mirrorUrl.trim() &&
-            !wasHandled()
-          ) {
-            setConfig(candidate as VisitorRegionPayload)
-          }
-        }
-      })
-      .catch(() => undefined)
-    return () => controller.abort()
-  }, [])
+  const [offered] = useState(
+    () => PUBLIC_PATHS.has(window.location.pathname) && !wasHandled(),
+  )
+  const [dismissed, setDismissed] = useState(false)
+  const site = useMainlandSite(offered)
+  const config = site?.mainlandChina && !dismissed ? site : null
 
   if (!config) return null
 
@@ -83,7 +50,7 @@ export function VisitorRegionToast() {
 
   const dismiss = () => {
     rememberHandled()
-    setConfig(null)
+    setDismissed(true)
   }
 
   return (

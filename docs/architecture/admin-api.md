@@ -565,7 +565,7 @@ the platform reported and `manualTitle`, `manualKind`, `manualIsShort` and
 one `{mediaId, sha256}` file listed in the history; `null` clears it and an
 omitted field keeps it. A title is 1–300 characters after trimming; a kind is
 one of `VIDEO`, `MUSIC`, `LIVE ARCHIVE`, `GAMEPLAY` or `TALK`, and a tag is
-one of `live`, `game`, `talk` or `song` (see below). Other fields,
+one of `live`, `game`, `talk`, `song` or `video` (see below). Other fields,
 unknown files and invalid values answer `400`, an unknown video `404`. A
 change advances the dashboard revision, and machine translations follow the
 corrected title. The feed names the format of its newest uploads only (see
@@ -574,7 +574,7 @@ the console's Format field is how an operator moves one into the board's
 Shorts row.
 
 `tag` is the label the App's calendar shows for the event this video carries
-(`live`, `game`, `talk` or `song`), replacing the App's own reading of the
+(`live`, `game`, `talk`, `song` or `video`), replacing the App's own reading of the
 title; `null` clears it and lets the App read the title again. It is stored in
 `manual_tag`, appears as `manualTag` beside `tag`, and reaches the calendar as
 the event's `tag` field, so an operator's label survives without an App

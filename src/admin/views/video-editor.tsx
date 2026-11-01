@@ -31,7 +31,7 @@ import { MergeSection } from "@/admin/views/merge-parts"
 export const videoKinds = ["VIDEO", "MUSIC", "LIVE ARCHIVE", "GAMEPLAY", "TALK"]
 
 /** The calendar labels an operator can pin; an empty choice reads the title. */
-const videoTags = ["live", "game", "talk", "song"]
+const videoTags = ["live", "game", "talk", "song", "video"]
 
 /** A format choice: empty follows the feed, otherwise Short or not. */
 const formatChoice = (isShort: boolean | null) =>

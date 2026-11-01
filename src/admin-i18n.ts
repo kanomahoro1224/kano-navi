@@ -449,6 +449,7 @@ export const adminMessages = {
     "admin.videos.tag.game": "Gameplay",
     "admin.videos.tag.talk": "Talk",
     "admin.videos.tag.song": "Song",
+    "admin.videos.tag.video": "Upload",
     "admin.videos.tag.hint":
       "The App calendar shows this label instead of reading the title.",
     "admin.videos.field.format": "Format",
@@ -1737,6 +1738,7 @@ export const adminMessages = {
     "admin.videos.tag.game": "游戏播",
     "admin.videos.tag.talk": "杂谈",
     "admin.videos.tag.song": "歌回",
+    "admin.videos.tag.video": "投稿",
     "admin.videos.tag.hint": "App 日程表会显示这个标签，而不是按标题猜。",
     "admin.videos.field.format": "形式",
     "admin.videos.format.platform": "跟随订阅源（{format}）",

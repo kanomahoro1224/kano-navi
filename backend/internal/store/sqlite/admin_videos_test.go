@@ -226,6 +226,14 @@ func TestAdminVideoTagRoundTrip(t *testing.T) {
 	if video.Tag == nil || *video.Tag != "song" || video.ManualTag == nil {
 		t.Fatalf("tag=%v manual=%v", video.Tag, video.ManualTag)
 	}
+	// Every label the console offers has to round-trip, including the upload
+	// one that keeps an ordinary video out of the live and song guesses.
+	for _, allowed := range VideoTags {
+		value := allowed
+		if _, err := s.SetVideoOverrides(ctx, "AAAAAAAAAAA", VideoOverrides{SetTag: true, Tag: &value}, time.Now()); err != nil {
+			t.Fatalf("tag %q rejected: %v", allowed, err)
+		}
+	}
 	unknown := "karaoke"
 	if _, err = s.SetVideoOverrides(ctx, "AAAAAAAAAAA", VideoOverrides{SetTag: true, Tag: &unknown}, time.Now()); !errors.Is(err, ErrVideoInvalid) {
 		t.Fatalf("unknown tag err=%v", err)

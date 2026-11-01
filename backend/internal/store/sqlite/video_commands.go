@@ -23,7 +23,7 @@ var VideoKinds = []string{"VIDEO", "MUSIC", "LIVE ARCHIVE", "GAMEPLAY", "TALK"}
 // VideoTags are the labels an operator may pin on a video for the App's
 // calendar, where they replace its guess from the wording. The values are the
 // calendar's own kinds.
-var VideoTags = []string{"live", "game", "talk", "song"}
+var VideoTags = []string{"live", "game", "talk", "song", "video"}
 
 // maxVideoTitle bounds an operator's corrected title, in characters.
 const maxVideoTitle = 300

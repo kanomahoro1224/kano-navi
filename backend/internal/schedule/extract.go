@@ -233,7 +233,7 @@ func (e *Extractor) extractPending(ctx context.Context) (map[string]any, error) 
 		// Cache hits and posts held back by the failure backoff make no
 		// provider call and leave the limit to other work. The held posts are
 		// counted as backoff or retryStopped, keys present only when used.
-		if result.budgetUsed || (result.status != "cached" && !result.heldBack()) {
+		if result.status != "cached" && !result.heldBack() {
 			counts["attempted"] = countOf(counts, "attempted") + 1
 			counts[item.detectionType+"Attempted"] = countOf(counts, item.detectionType+"Attempted") + 1
 		}
@@ -321,9 +321,8 @@ func (e *Extractor) postImageState(ctx context.Context, item post) (postImages, 
 }
 
 type postResult struct {
-	status     string
-	reason     string
-	budgetUsed bool
+	status string
+	reason string
 }
 
 // heldBack is a failed post the scan left alone: still waiting for its
@@ -341,6 +340,24 @@ func (e *Extractor) skipPost(ctx context.Context, postID, route, reason string, 
 		reprocess:     &force,
 	})
 	return postResult{status: "skipped", reason: reason}, err
+}
+
+// useCachedExtraction records a stored result as the post's state without a
+// provider call.
+func (e *Extractor) useCachedExtraction(ctx context.Context, postID, route string, cached *extractionRow) (postResult, error) {
+	processedAt := cached.updatedAt
+	if processedAt == "" {
+		processedAt = e.nowISO()
+	}
+	cleared := false
+	err := e.markPost(ctx, postID, stateUpdate{
+		status:           cached.status,
+		route:            route,
+		lastProcessedAt:  processedAt,
+		lastExtractionID: cached.id,
+		reprocess:        &cleared,
+	})
+	return postResult{status: "cached"}, err
 }
 
 func (e *Extractor) extractPost(ctx context.Context, item post, detectionType string, force bool) (postResult, error) {
@@ -370,13 +387,6 @@ func (e *Extractor) extractPost(ctx context.Context, item post, detectionType st
 	if media.hasImages && !media.complete {
 		return e.skipPost(ctx, item.id, route, "media_pending", force)
 	}
-	providers, reason, err := e.configuredProviders(ctx, inputMode)
-	if err != nil {
-		return postResult{}, err
-	}
-	if len(providers) == 0 {
-		return e.skipPost(ctx, item.id, route, reason, force)
-	}
 	hashes := make([]any, len(media.images))
 	for i, image := range media.images {
 		hashes[i] = image.sha256
@@ -388,6 +398,26 @@ func (e *Extractor) extractPost(ctx context.Context, item post, detectionType st
 	identity.set("url", item.url)
 	identity.set("images", hashes)
 	fingerprint := sha256Hex(stringify(identity))
+
+	// A success or uncertain result stands for this input whichever queue
+	// target produced it, so a queue change sends no post again. A newer
+	// failed attempt, a changed input or an operator request does.
+	if !force {
+		latest, err := latestExtraction(ctx, e.db, item.id, fingerprint, extractorVersionPrefix(detectionType, inputMode))
+		if err != nil {
+			return postResult{}, err
+		}
+		if latest != nil && (latest.status == "success" || latest.status == "uncertain") {
+			return e.useCachedExtraction(ctx, item.id, route, latest)
+		}
+	}
+	providers, reason, err := e.configuredProviders(ctx, inputMode)
+	if err != nil {
+		return postResult{}, err
+	}
+	if len(providers) == 0 {
+		return e.skipPost(ctx, item.id, route, reason, force)
+	}
 
 	// The backoff belongs to this input and these targets: new content, a
 	// different queue or model, or an operator request starts it over.
@@ -406,17 +436,13 @@ func (e *Extractor) extractPost(ctx context.Context, item post, detectionType st
 		}
 	}
 
-	budgetUsed := false
 	for _, target := range providers {
 		status, err := e.extractWithProvider(ctx, item, media.images, fingerprint, target, detectionType, inputMode, route, force)
 		if err != nil {
 			return postResult{}, err
 		}
-		if status != "cached" {
-			budgetUsed = true
-		}
-		if status == "success" || status == "cached" || status == "uncertain" {
-			return postResult{status: status, budgetUsed: budgetUsed}, nil
+		if status == "success" || status == "uncertain" {
+			return postResult{status: status}, nil
 		}
 	}
 	failures := 1
@@ -447,26 +473,8 @@ func storedMessage(err error) string {
 // two retries, as the original did before failing over to the next target.
 func (e *Extractor) extractWithProvider(ctx context.Context, item post, images []cachedImage, fingerprint string, target provider, detectionType, inputMode, route string, force bool) (string, error) {
 	version := extractorVersionFor(target, detectionType, inputMode)
-	existing, err := getExtraction(ctx, e.db, item.id, fingerprint, version)
-	if err != nil {
-		return "", err
-	}
 	cleared := false
-	if !force && existing != nil && (existing.status == "success" || existing.status == "uncertain") && existing.model == target.model {
-		processedAt := existing.updatedAt
-		if processedAt == "" {
-			processedAt = e.nowISO()
-		}
-		err = e.markPost(ctx, item.id, stateUpdate{
-			status:           existing.status,
-			route:            route,
-			lastProcessedAt:  processedAt,
-			lastExtractionID: existing.id,
-			reprocess:        &cleared,
-		})
-		return "cached", err
-	}
-	if err = e.markPost(ctx, item.id, stateUpdate{
+	if err := e.markPost(ctx, item.id, stateUpdate{
 		status:        "running",
 		route:         route,
 		lastAttemptAt: e.nowISO(),

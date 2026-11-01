@@ -87,6 +87,10 @@
 - The media step makes the smaller copies of newly downloaded images, and of
   older ones that have none, up to 100 images and two minutes per run. It
   reports them as `resized`.
+- Changing the extraction queue's models no longer extracts posts again: a
+  successful or uncertain result of the post's current input stands
+  whichever model produced it, and an emptied queue keeps it. Edited posts,
+  failed attempts and reprocess requests still call the queue.
 
 </details>
 

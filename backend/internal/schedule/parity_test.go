@@ -175,6 +175,11 @@ func TestParityWithTypeScriptExtractor(t *testing.T) {
 	}
 	withPendingCode(data.AfterFirst)
 	withPendingCode(data.AfterSecond)
+	// The recorded second scan sent post-c to p-chat again although p-anth had
+	// extracted it. A stored success stands whichever target made it, so that
+	// scan makes no call and p-chat keeps the status the first scan left.
+	data.Second["attempted"], data.Second["boardAttempted"], data.SecondRequests = 0, 0, 0
+	data.AfterSecond["providers"] = data.AfterFirst["providers"]
 	replies := map[string]string{}
 	for _, row := range data.AfterFirst["extractions"] {
 		if result, ok := row["result_json"].(string); ok {

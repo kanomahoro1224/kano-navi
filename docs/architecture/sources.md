@@ -835,9 +835,14 @@ extraction metadata. The overlay applies to manually locked events too, so a man
 remain visible with the model's cancellation evidence. `not_schedule` and
 `uncertain` results only record the extraction outcome and leave existing events
 untouched. Input fingerprints (including text, publication time, URL, and cached image
-hashes), provider endpoint/model identity, and the extractor version make these
-outcomes idempotent. Successful/uncertain posts stay eligible for cache checks
-and can run again when their input or provider configuration changes. Date-only events store `starts_on`, a null `starts_at`, and
+hashes), the detection path, input mode and the extractor version make these
+outcomes idempotent. Each stored extraction also names the queue target that
+produced it, but the cache ignores that part: when the newest attempt of the
+current input is `success` or `uncertain`, any queue target's result stands,
+so adding, removing, reordering or replacing queue targets and models sends no
+post again, and an empty queue keeps the cached state. A post runs again when
+its input changes, when its newest attempt failed (under the backoff below),
+and on an operator's reprocess request. Date-only events store `starts_on`, a null `starts_at`, and
 `time_precision = unknown`; the model must not invent a specific time.
 The extractor never deduplicates against other posts or reservations beyond
 shared IDs; the later `reconcile` step gives an event for a linked YouTube

@@ -80,7 +80,11 @@ func TestTranslatorReadsOnlyTheTranslationQueue(t *testing.T) {
 	if got := f.text(`SELECT source_language FROM translation_states WHERE owner_id = '1'`); got != "ja" {
 		t.Fatalf("language=%q", got)
 	}
-	// A complete post is not sent again.
+	// A complete post is not sent again, even to another queue target.
+	runTranslator(t, translator)
+	f.addProvider("next", protocolChat, "https://next.example.test/v1", "synthetic-next", `["text"]`)
+	f.exec(`DELETE FROM llm_route_targets WHERE route=?`, routeTranslate)
+	f.queueTranslation("next")
 	runTranslator(t, translator)
 	if f.provider.count() != 1 {
 		t.Fatalf("complete post was translated again: %d", f.provider.count())

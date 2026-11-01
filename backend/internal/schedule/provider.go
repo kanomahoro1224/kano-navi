@@ -212,8 +212,14 @@ func (p provider) endpoint() string {
 // array element is the explicit endpoint override, which persisted providers
 // never carry, so it is always null.
 func extractorVersionFor(p provider, detectionType, inputMode string) string {
-	return extractorVersion + ":" + detectionType + ":" + inputMode + ":" + p.id + ":" + p.protocol + ":" +
+	return extractorVersionPrefix(detectionType, inputMode) + p.id + ":" + p.protocol + ":" +
 		sha256Hex(stringify([]any{p.baseURL, nil, p.model}))
+}
+
+// extractorVersionPrefix is the part of the extraction identity that does not
+// name a queue target.
+func extractorVersionPrefix(detectionType, inputMode string) string {
+	return extractorVersion + ":" + detectionType + ":" + inputMode + ":"
 }
 
 func timeoutFor(p provider) time.Duration {

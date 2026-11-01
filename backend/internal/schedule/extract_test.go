@@ -141,6 +141,50 @@ func TestRerunWithUnchangedFingerprintCallsNoProvider(t *testing.T) {
 	}
 }
 
+func TestQueueChangeKeepsStoredResults(t *testing.T) {
+	f := messageFixture(t)
+	f.at(backoffStart)
+	f.scan()
+	stored := f.text(`SELECT updated_at || raw_json FROM events`)
+
+	// Another target or model reuses the stored result, and so does an empty
+	// queue.
+	f.addProvider("p-next", protocolChat, "https://next.example.test/v1", "model-n", `["text"]`)
+	f.exec(`DELETE FROM llm_route_targets WHERE route=?`, routeQueue)
+	f.queue("p-next")
+	if result := f.scan(); countOf(result.Counts, "cached") != 1 || countOf(result.Counts, "attempted") != 0 || f.provider.count() != 1 {
+		t.Fatalf("changed queue = %v after %d requests", result.Counts, f.provider.count())
+	}
+	f.exec(`DELETE FROM llm_route_targets WHERE route=?`, routeQueue)
+	if result := f.scan(); countOf(result.Counts, "cached") != 1 || f.provider.count() != 1 {
+		t.Fatalf("empty queue = %v after %d requests", result.Counts, f.provider.count())
+	}
+	if got := f.text(`SELECT status || '|' || last_extraction_id FROM post_llm_states`); got != "success|1" {
+		t.Errorf("post state = %q", got)
+	}
+	if got := f.text(`SELECT updated_at || raw_json FROM events`); got != stored {
+		t.Error("cached result rewrote the event")
+	}
+
+	// A forced pass that fails is the newest attempt of this input: once its
+	// backoff passes, the scan calls the queue again.
+	f.queue("p-next")
+	f.failing()
+	f.requestReprocess("post-1")
+	f.scan()
+	failed := f.provider.count()
+	f.provider.respond = func(recordedRequest) (int, string) {
+		return http.StatusOK, chatReply(scheduleReply(songTitle, songDate, songClock, "scheduled"))
+	}
+	f.at(backoffStart.Add(2 * time.Hour))
+	if result := f.scan(); countOf(result.Counts, "success") != 1 || f.provider.count() != failed+1 {
+		t.Fatalf("retry after failed pass = %v after %d requests", result.Counts, f.provider.count()-failed)
+	}
+	if got := f.provider.hosts(); got[len(got)-1] != "next.example.test" {
+		t.Errorf("retry went to %v", got)
+	}
+}
+
 func TestManualLockAndTombstoneSurviveExtraction(t *testing.T) {
 	f := messageFixture(t)
 	f.scan()
@@ -314,14 +358,17 @@ func TestProvidersAreTriedInQueueOrder(t *testing.T) {
 		t.Errorf("events = %d", got)
 	}
 
-	// A target calls the catalog model it names.
+	// A target calls the catalog model it names; the extracted post keeps its
+	// result, so only a new post reaches it.
 	f.exec(`DELETE FROM llm_route_targets`)
 	f.exec(`INSERT INTO llm_models (provider_id, model_id, tags_json, enabled, created_at, updated_at) VALUES ('p-second', 'model-catalog', '["text","reasoning"]', 1, ?, ?)`, testTimestamp, testTimestamp)
 	f.exec(`INSERT INTO llm_route_targets (route, provider_id, model_id, priority, created_at, updated_at) VALUES (?, 'p-second', 'model-catalog', 0, ?, ?)`, routeQueue, testTimestamp, testTimestamp)
+	f.addPost("post-2", "", "明後日 20時から配信します", "2026-04-29T03:00:00.000Z", "")
+	before := f.provider.count()
 	f.scan()
 	last := f.provider.requests[len(f.provider.requests)-1]
-	if !strings.Contains(last.body, `"model":"model-catalog"`) {
-		t.Errorf("catalog model was not used: %s", last.body[:80])
+	if f.provider.count() != before+1 || !strings.Contains(last.body, `"model":"model-catalog"`) || !strings.Contains(last.body, "明後日") {
+		t.Errorf("catalog model was not used for the new post alone: %d requests, %s", f.provider.count()-before, last.body[:80])
 	}
 }
 

@@ -618,6 +618,28 @@ func getExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint, ve
 	return &row, nil
 }
 
+// latestExtraction is the most recent extraction of this input by any queue
+// target, matched on the extractor version up to the target identity.
+func latestExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error) {
+	var row extractionRow
+	var model, status, updatedAt sql.NullString
+	err := q.QueryRowContext(ctx, `SELECT id, model, status, result_json, updated_at
+		FROM schedule_extractions
+		WHERE source=? AND source_item_id=? AND content_fingerprint=?
+			AND substr(extractor_version, 1, ?)=?
+		ORDER BY updated_at DESC, id DESC LIMIT 1`,
+		"x", sourceItemID, fingerprint, len(versionPrefix), versionPrefix).
+		Scan(&row.id, &model, &status, &row.resultJSON, &updatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	row.model, row.status, row.updatedAt = model.String, status.String, updatedAt.String
+	return &row, nil
+}
+
 // upsertExtraction stores result (nil -> NULL) the way JSON.stringify did.
 func (e *Extractor) upsertExtraction(ctx context.Context, sourceItemID, fingerprint, version, model, status string, result any, message string) (*extractionRow, error) {
 	timestamp := e.nowISO()

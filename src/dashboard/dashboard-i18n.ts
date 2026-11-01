@@ -372,7 +372,7 @@ export const dashboardMessages = {
     "common.refreshing": "Loading",
     "common.pendingConfirmation": "Time TBA",
     "common.timezoneShort": "JST",
-    "feed.title": "Posts on X",
+    "feed.title": "Recent Posts on X",
     "feed.openMedia": "Open image",
     "feed.originalPost": "Open the original post on X",
     "feed.empty": ({ days }: { days: any }) =>

@@ -145,6 +145,15 @@ func TranslationRequestedSQL(ownerType, alias string) string {
 		ownerType, alias, translationOwners[ownerType].field)
 }
 
+// TranslationFailedSQL is a condition on the owner row: the machine pass of
+// its current wording failed and a target locale still lacks a usable
+// translation.
+func TranslationFailedSQL(ownerType, alias string) string {
+	o := translationOwners[ownerType]
+	return fmt.Sprintf(`EXISTS (SELECT 1 FROM translation_states ts WHERE ts.owner_type = '%s' AND ts.owner_id = %s.id AND ts.field = '%s' AND ts.status = 'failed' AND ts.source_hash = translation_hash(%s)) AND %s`,
+		ownerType, alias, o.field, o.sourceSQL(alias), TranslationIncompleteSQL(ownerType, alias))
+}
+
 // --- public projection ------------------------------------------------------
 
 // Translation is the resolved translation of one locale.

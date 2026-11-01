@@ -305,6 +305,40 @@ func TestQueue(t *testing.T) {
 	equal(t, "cleared queue", len(list(t, cleared.JSON["queue"])), 0)
 }
 
+func TestSeparateQueues(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	h.createProvider("alpha", nil)
+	h.addModels("alpha", "alpha-chat", "alpha-vision", "alpha-ocr")
+	h.ok(http.MethodPut, "/llm/providers/alpha/models", map[string]any{"id": "alpha-vision", "tags": []string{"text", "image"}}, http.StatusOK)
+	h.ok(http.MethodPut, "/llm/providers/alpha/models", map[string]any{"id": "alpha-ocr", "tags": []string{"image"}}, http.StatusOK)
+	target := func(model string) map[string]any { return map[string]any{"providerId": "alpha", "modelId": model} }
+	targets := func(models ...string) []any {
+		out := []any{}
+		for _, model := range models {
+			out = append(out, target(model))
+		}
+		return out
+	}
+
+	h.ok(http.MethodPut, "/llm/queue", map[string]any{"targets": targets("alpha-chat", "alpha-vision")}, http.StatusOK)
+	verify := h.ok(http.MethodPut, "/llm/queue", map[string]any{"route": "verify", "targets": targets("alpha-ocr", "alpha-vision")}, http.StatusOK)
+	equal(t, "verify route", verify.JSON["route"], "verify")
+	h.ok(http.MethodPut, "/llm/queue", map[string]any{"route": "translate", "targets": targets("alpha-vision", "alpha-chat")}, http.StatusOK)
+	catalog := h.ok(http.MethodGet, "/llm", nil, http.StatusOK)
+	equal(t, "extraction queue", catalog.JSON["queue"], targets("alpha-chat", "alpha-vision"))
+	equal(t, "verification queue", catalog.JSON["verificationQueue"], targets("alpha-ocr", "alpha-vision"))
+	equal(t, "translation queue", catalog.JSON["translationQueue"], targets("alpha-vision", "alpha-chat"))
+
+	h.invalid(http.MethodPut, "/llm/queue", map[string]any{"route": "verify", "targets": targets("alpha-chat")}, "schedule image check models need the image tag: alpha/alpha-chat")
+	h.invalid(http.MethodPut, "/llm/queue", map[string]any{"route": "translate", "targets": targets("alpha-ocr")}, "translation models need the text tag: alpha/alpha-ocr")
+	h.invalid(http.MethodPut, "/llm/queue", map[string]any{"route": "schedule_vision", "targets": []any{}}, "route must be schedule, verify or translate")
+
+	// Removing a model drops it from every queue and compacts each one.
+	h.ok(http.MethodPost, "/llm/providers/alpha/models/remove", map[string]any{"ids": []string{"alpha-vision"}}, http.StatusOK)
+	equal(t, "compacted queues", h.scalar(`SELECT group_concat(route || ':' || model_id || ':' || priority, ',') FROM
+		(SELECT route, model_id, priority FROM llm_route_targets ORDER BY route, priority)`), "schedule:alpha-chat:0,translate:alpha-chat:0,verify:alpha-ocr:0")
+}
+
 func TestExtraction(t *testing.T) {
 	h := newHarness(t, harnessOptions{})
 	initial := h.ok(http.MethodGet, "/extraction", nil, http.StatusOK)

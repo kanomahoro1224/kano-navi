@@ -45,6 +45,8 @@ type AdminPost struct {
 	RefreshRequestedAt *string     `json:"refreshRequestedAt"`
 	// HiddenAt is when an operator hid the whole post from the public pages.
 	HiddenAt *string `json:"hiddenAt"`
+	// ScheduleImage is the post's schedule image record, nil when it has none.
+	ScheduleImage *AdminPostSchedule `json:"scheduleImage"`
 }
 
 // AdminQuote is a post's stored quote, read-only in the console. Media
@@ -290,12 +292,12 @@ type AdminRunsPage struct {
 }
 
 // AdminPostFilter narrows the post list.
-// LLM is a post_llm_states status or "never".
+// LLM is a post_llm_states status (including "dismissed") or "never".
 type AdminPostFilter struct {
 	Page, PageSize                         int
 	Source, Account, From, To, Search, LLM string
 	Reprocess                              bool
-	// Translation is "incomplete", "complete" or "requested".
+	// Translation is "incomplete", "complete", "requested" or "failed".
 	Translation string
 }
 
@@ -333,8 +335,12 @@ type AdminCounts struct {
 	Videos                 int `json:"videos"`
 	PendingImages          int `json:"pendingImages"`
 	SuspectedCancellations int `json:"suspectedCancellations"`
-	FailedPosts            int `json:"failedPosts"`
-	ReprocessRequested     int `json:"reprocessRequested"`
+	// FailedPosts are the posts with a failed extraction or translation;
+	// FailedExtractions and FailedTranslations count each step on its own.
+	FailedPosts        int `json:"failedPosts"`
+	FailedExtractions  int `json:"failedExtractions"`
+	FailedTranslations int `json:"failedTranslations"`
+	ReprocessRequested int `json:"reprocessRequested"`
 	// VideoMerges are the Bilibili uploads the merge rule leaves to the
 	// operator.
 	VideoMerges int `json:"videoMerges"`
@@ -431,7 +437,7 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 		args = append(args, pattern, pattern, pattern, pattern)
 	}
 	switch f.LLM {
-	case "never", "pending", "processed", "failed", "skipped", "uncertain":
+	case "never", "pending", "processed", "failed", "skipped", "uncertain", "dismissed":
 		clauses = append(clauses, "COALESCE(s.status, 'never') = ?")
 		args = append(args, f.LLM)
 	}
@@ -445,6 +451,8 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 		clauses = append(clauses, "p.source = 'x' AND NOT "+TranslationIncompleteSQL(TranslationOwnerPost, "p"))
 	case "requested":
 		clauses = append(clauses, TranslationRequestedSQL(TranslationOwnerPost, "p"))
+	case "failed":
+		clauses = append(clauses, "p.source = 'x' AND "+TranslationFailedSQL(TranslationOwnerPost, "p"))
 	}
 	where := strings.Join(clauses, " AND ")
 	var total int
@@ -484,8 +492,9 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 		p.RefreshRequestedAt = nullString(refreshRequested)
 		p.HiddenAt = nullString(hidden)
 		quotes[p.ID] = quote
-		// A queued request runs regardless of the backoff.
-		if failures > 0 && !p.LLMReprocessRequested {
+		// A queued request runs regardless of the backoff; a dismissed
+		// failure is not waiting for a retry.
+		if failures > 0 && !p.LLMReprocessRequested && p.LLMStatus != "dismissed" {
 			p.LLMRetryAt = nullString(retryAt)
 			p.LLMRetryStopped = !retryAt.Valid
 		}
@@ -498,6 +507,9 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	rows.Close()
 	for i := range items {
 		if err := s.resolveAdminPostMedia(ctx, &items[i]); err != nil {
+			return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
+		}
+		if err := s.attachAdminPostSchedule(ctx, &items[i]); err != nil {
 			return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
 		}
 		quote, err := s.mapQuote(ctx, items[i].ID, quotes[items[i].ID])
@@ -946,6 +958,7 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 // upcoming events start on or after it and are not confirmed cancellations.
 func (s *Store) AdminCounts(ctx context.Context, today string) (AdminCounts, error) {
 	var c AdminCounts
+	failedTranslation := TranslationFailedSQL(TranslationOwnerPost, "p")
 	err := s.db.QueryRowContext(ctx, `SELECT
 	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on >= ? AND cancellation_status <> 'manual_confirmed'),
 	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL),
@@ -955,9 +968,11 @@ func (s *Store) AdminCounts(ctx context.Context, today string) (AdminCounts, err
 	     WHERE a.kind='schedule' AND TRIM(a.url)<>'' AND COALESCE(r.manual_status,'unreviewed')='unreviewed'
 	       AND COALESCE(r.llm_status,'pending') IN ('pending','uncertain','failed')),
 	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND cancellation_status='llm_suspected'),
+	  (SELECT COUNT(*) FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE s.status='failed' OR (p.source='x' AND `+failedTranslation+`)),
 	  (SELECT COUNT(*) FROM post_llm_states WHERE status='failed'),
+	  (SELECT COUNT(*) FROM posts p WHERE p.source='x' AND `+failedTranslation+`),
 	  (SELECT COUNT(*) FROM post_llm_states WHERE reprocess_requested=1)`, today).Scan(
-		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.FailedPosts, &c.ReprocessRequested)
+		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.FailedPosts, &c.FailedExtractions, &c.FailedTranslations, &c.ReprocessRequested)
 	if err != nil {
 		return AdminCounts{}, fmt.Errorf("%w: admin counts unavailable", ErrUnavailable)
 	}

@@ -19,6 +19,7 @@ import {
   Info,
   KeyRound,
   ListChecks,
+  ListEnd,
   Lock,
   Play,
   Radio,
@@ -35,9 +36,9 @@ import {
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import {
-  formatDateTime,
   formatInterval,
   formatRelative,
+  japanStamp,
   japanToday,
 } from "@/admin/format"
 import type {
@@ -107,7 +108,7 @@ const sameSync = (a: SourceSync | null, b: SourceSync | null) =>
 function When({ value }: { value: string | null | undefined }) {
   const { locale } = useAppSettings()
   return value ? (
-    <time dateTime={value} title={formatDateTime(value, locale)}>
+    <time dateTime={value} title={japanStamp(value)}>
       {formatRelative(value, locale)}
     </time>
   ) : (
@@ -228,9 +229,20 @@ function SourceSummary({
     setBusy("")
     if (saved) onChange(saved)
   }
+  // A running timer is started itself, as on the overview queue: its run
+  // plans the next one, and while another run holds the queue it runs next.
+  // A source whose timer is off runs its steps once.
+  const timed = state === "running"
+  const queued = Boolean(overview?.activeRun)
   const runNow = async () => {
     setBusy("run")
-    await start({ kind: "source", source })
+    if (timed) {
+      const saved = await act(
+        () => api.startSourceSchedule(source),
+        queued ? "admin.notice.timerNext" : "admin.notice.timerStarted",
+      )
+      if (saved) onChange(saved)
+    } else await start({ kind: "source", source })
     setBusy("")
   }
   return (
@@ -252,13 +264,19 @@ function SourceSummary({
           />
           <Button
             size="sm"
-            icon={Play}
+            icon={timed && queued ? ListEnd : Play}
             busy={busy === "run"}
-            disabled={locked || busy !== "" || Boolean(overview?.activeRun)}
+            disabled={locked || busy !== "" || (!timed && queued)}
             onClick={runNow}
-            title={t("admin.timer.runNowHint")}
+            title={t(
+              !timed
+                ? "admin.timer.runNowHint"
+                : queued
+                  ? "admin.queue.runNextHint"
+                  : "admin.queue.startHint",
+            )}
           >
-            {t("admin.timer.runNow")}
+            {t(timed && queued ? "admin.queue.runNext" : "admin.timer.runNow")}
           </Button>
         </div>
       </header>
@@ -1151,86 +1169,103 @@ function FetchSummary({
   const progress = run.progress[source] || "pending"
   const finished = progress !== "pending" && progress !== "running"
   const items = counts.items || []
+  const [open, setOpen] = useState(true)
+  const id = useId()
   return (
-    <section className="adm-fetch-summary" aria-label={t("admin.fetch.last")}>
-      <header>
+    <section
+      className={cn("adm-fetch-summary", open && "is-open")}
+      aria-label={t("admin.fetch.last")}
+    >
+      <header
+        onClick={(event) => {
+          // The title button handles its own click.
+          if (!(event.target as Element).closest("button")) setOpen(!open)
+        }}
+      >
         <RunMark status={outcome} />
         <span className="adm-fetch-summary-title">
-          <strong>{t("admin.fetch.last")}</strong>
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={`${id}-body`}
+            onClick={() => setOpen(!open)}
+          >
+            {t("admin.fetch.last")}
+          </button>
           <small>
             {window ? `${windowText(window, source, t)} · ` : ""}
-            <time
-              dateTime={run.createdAt}
-              title={formatDateTime(run.createdAt, locale)}
-            >
+            <time dateTime={run.createdAt} title={japanStamp(run.createdAt)}>
               {formatRelative(run.createdAt, locale)}
             </time>
           </small>
         </span>
         <StatusBadge status={outcome} />
+        <ChevronDown aria-hidden className="adm-fold-chevron" />
       </header>
-      {counts.error ? (
-        <p className="adm-inline-error">
-          <ShieldAlert aria-hidden />
-          <code>{counts.error}</code>
-        </p>
-      ) : null}
-      {finished && counts.listed !== undefined ? (
-        <>
-          <Facts
-            items={[
-              [t("admin.metric.listed"), counts.listed],
-              [t("admin.metric.new"), counts.new],
-              [t("admin.metric.stored"), counts.stored],
-              [t("admin.metric.failed"), counts.failed],
-              [t("admin.metric.pages"), counts.pages],
-              ...(counts.inspected === undefined
-                ? []
-                : ([
-                    [t("admin.metric.inspected"), counts.inspected],
-                    [t("admin.metric.apiRequests"), counts.apiRequests],
-                  ] as [string, number | undefined][])),
-            ]}
-          />
-          <p className="adm-field-hint">
-            {counts.reachedEnd
-              ? t("admin.fetch.reachedEnd")
-              : t("admin.fetch.repeat")}
+      <div id={`${id}-body`} className="adm-fetch-summary-body" hidden={!open}>
+        {counts.error ? (
+          <p className="adm-inline-error">
+            <ShieldAlert aria-hidden />
+            <code>{counts.error}</code>
           </p>
-          {items.length ? (
-            <div className="adm-fetch-items">
-              <span>
-                {t("admin.fetch.newItems", { count: counts.new || 0 })}
-              </span>
-              <ul>
-                {items.map((item) => (
-                  <li key={item.id}>
-                    <code>{item.id}</code>
-                    <span>{item.title}</span>
-                    {item.account ? <small>@{item.account}</small> : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {counts.errors?.length ? (
-            <div className="adm-metric-list">
-              <span>{metricLabel("errors", t)}</span>
-              <span className="adm-chip-row">
-                {counts.errors.map((code, index) => (
-                  <code key={index} title={explainCode(code, t) || ""}>
-                    {code}
-                  </code>
-                ))}
-              </span>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-      <div className="adm-form-actions">
-        <Button size="sm" variant="ghost" icon={History} onClick={onOpenRuns}>
-          {t("admin.fetch.openRuns")}
-        </Button>
+        ) : null}
+        {finished && counts.listed !== undefined ? (
+          <>
+            <Facts
+              items={[
+                [t("admin.metric.listed"), counts.listed],
+                [t("admin.metric.new"), counts.new],
+                [t("admin.metric.stored"), counts.stored],
+                [t("admin.metric.failed"), counts.failed],
+                [t("admin.metric.pages"), counts.pages],
+                ...(counts.inspected === undefined
+                  ? []
+                  : ([
+                      [t("admin.metric.inspected"), counts.inspected],
+                      [t("admin.metric.apiRequests"), counts.apiRequests],
+                    ] as [string, number | undefined][])),
+              ]}
+            />
+            <p className="adm-field-hint">
+              {counts.reachedEnd
+                ? t("admin.fetch.reachedEnd")
+                : t("admin.fetch.repeat")}
+            </p>
+            {items.length ? (
+              <div className="adm-fetch-items">
+                <span>
+                  {t("admin.fetch.newItems", { count: counts.new || 0 })}
+                </span>
+                <ul>
+                  {items.map((item) => (
+                    <li key={item.id}>
+                      <code>{item.id}</code>
+                      <span>{item.title}</span>
+                      {item.account ? <small>@{item.account}</small> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {counts.errors?.length ? (
+              <div className="adm-metric-list">
+                <span>{metricLabel("errors", t)}</span>
+                <span className="adm-chip-row">
+                  {counts.errors.map((code, index) => (
+                    <code key={index} title={explainCode(code, t) || ""}>
+                      {code}
+                    </code>
+                  ))}
+                </span>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+        <div className="adm-form-actions">
+          <Button size="sm" variant="ghost" icon={History} onClick={onOpenRuns}>
+            {t("admin.fetch.openRuns")}
+          </Button>
+        </div>
       </div>
     </section>
   )
@@ -1281,7 +1316,7 @@ function FetchPanel({
             ([label, time]) =>
               [
                 t("admin.sources.oldest", { label }),
-                time ? formatDateTime(time, locale) : t("admin.sources.none"),
+                time ? japanStamp(time) : t("admin.sources.none"),
               ] as [string, string],
           ),
         ]}
@@ -1446,21 +1481,15 @@ function PushStage({
                     : "admin.push.secretUnset",
                 ),
               ],
-              [
-                t("admin.push.lease"),
-                formatDateTime(push.leaseExpiresAt, locale) || null,
-              ],
-              [
-                t("admin.push.renewal"),
-                formatDateTime(push.nextRenewalAt, locale) || null,
-              ],
+              [t("admin.push.lease"), japanStamp(push.leaseExpiresAt) || null],
+              [t("admin.push.renewal"), japanStamp(push.nextRenewalAt) || null],
               [
                 t("admin.push.notified"),
-                formatDateTime(push.lastNotificationAt, locale) || null,
+                japanStamp(push.lastNotificationAt) || null,
               ],
               [
                 t("admin.push.triggered"),
-                formatDateTime(push.lastTriggeredAt, locale) || null,
+                japanStamp(push.lastTriggeredAt) || null,
               ],
               [t("admin.push.lastError"), push.lastError],
             ]}
@@ -1575,13 +1604,13 @@ function LiveProbeStage({
               [
                 t("admin.liveProbe.lastRun"),
                 probe.lastRunAt
-                  ? `${formatDateTime(probe.lastRunAt, locale)} · ${formatRelative(probe.lastRunAt, locale)}`
+                  ? `${japanStamp(probe.lastRunAt)} · ${formatRelative(probe.lastRunAt, locale)}`
                   : null,
               ],
               [
                 t("admin.liveProbe.nextRun"),
                 probe.nextRunAt
-                  ? `${formatDateTime(probe.nextRunAt, locale)} · ${formatRelative(probe.nextRunAt, locale)}`
+                  ? `${japanStamp(probe.nextRunAt)} · ${formatRelative(probe.nextRunAt, locale)}`
                   : null,
               ],
               [
@@ -1847,7 +1876,7 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                   selected === "bilibili" && blockedUntil ? (
                     <Badge tone="danger" icon={ShieldAlert}>
                       {t("admin.bilibili.blockedUntil", {
-                        time: formatDateTime(blockedUntil, locale),
+                        time: japanStamp(blockedUntil),
                       })}
                     </Badge>
                   ) : null

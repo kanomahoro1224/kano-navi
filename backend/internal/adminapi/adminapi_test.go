@@ -82,7 +82,7 @@ func newConsole(t *testing.T, mode, password string, steps *gatedSteps) *console
 	steps.seen = make(chan string, 32)
 	executor := &workflow.Executor{
 		Store: store, Steps: steps,
-		SyntheticSteps:  map[string]bool{"x": false, "youtube": false, "bilibili": false, "media": false, "schedule": false, "translate": false, "reconcile": false},
+		SyntheticSteps:  map[string]bool{"x": false, "youtube": false, "bilibili": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
 		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, "translate": true},
 	}
 	queue := &workflow.Queue{Store: store, Executor: executor}
@@ -304,8 +304,9 @@ func TestRunsAreSingleFlightAndSurviveOneFailedSource(t *testing.T) {
 	steps := &gatedSteps{gate: make(chan struct{}), fail: map[string]bool{"x": true}}
 	c := newConsole(t, "development", "", steps)
 	for body, message := range map[string]string{
-		`{}`:                              "kind must be sync, scan, translate, workflow or fetch",
-		`{"kind":"party"}`:                "kind must be sync, scan, translate, workflow or fetch",
+		`{}`:                              "kind must be sync, scan, translate, variants, workflow or fetch",
+		`{"kind":"party"}`:                "kind must be sync, scan, translate, variants, workflow or fetch",
+		`{"kind":"variants"}`:             "variants is not available",
 		`{"kind":"sync","source":"x"}`:    "source is not supported for sync",
 		`{"kind":"workflow"}`:             "steps must be an array of step ids",
 		`{"kind":"fetch","source":"rss"}`: "source must be x or youtube",
@@ -511,7 +512,7 @@ func TestOverviewCountsWhatNeedsReview(t *testing.T) {
 	if counts["events"] != float64(3) || counts["upcomingEvents"] != float64(1) || counts["posts"] != float64(2) || counts["videos"] != float64(0) {
 		t.Fatalf("counts=%v", counts)
 	}
-	if review["suspectedCancellations"] != float64(1) || review["failedPosts"] != float64(1) || review["reprocessRequested"] != float64(1) || review["pendingImages"] != float64(1) {
+	if review["suspectedCancellations"] != float64(1) || review["failedPosts"] != float64(1) || review["failedExtractions"] != float64(1) || review["failedTranslations"] != float64(0) || review["reprocessRequested"] != float64(1) || review["pendingImages"] != float64(1) {
 		t.Fatalf("review=%v", review)
 	}
 	if scheduler := payload["scheduler"].(map[string]any); scheduler["running"] != true {

@@ -141,6 +141,50 @@ func TestRerunWithUnchangedFingerprintCallsNoProvider(t *testing.T) {
 	}
 }
 
+func TestQueueChangeKeepsStoredResults(t *testing.T) {
+	f := messageFixture(t)
+	f.at(backoffStart)
+	f.scan()
+	stored := f.text(`SELECT updated_at || raw_json FROM events`)
+
+	// Another target or model reuses the stored result, and so does an empty
+	// queue.
+	f.addProvider("p-next", protocolChat, "https://next.example.test/v1", "model-n", `["text"]`)
+	f.exec(`DELETE FROM llm_route_targets WHERE route=?`, routeQueue)
+	f.queue("p-next")
+	if result := f.scan(); countOf(result.Counts, "cached") != 1 || countOf(result.Counts, "attempted") != 0 || f.provider.count() != 1 {
+		t.Fatalf("changed queue = %v after %d requests", result.Counts, f.provider.count())
+	}
+	f.exec(`DELETE FROM llm_route_targets WHERE route=?`, routeQueue)
+	if result := f.scan(); countOf(result.Counts, "cached") != 1 || f.provider.count() != 1 {
+		t.Fatalf("empty queue = %v after %d requests", result.Counts, f.provider.count())
+	}
+	if got := f.text(`SELECT status || '|' || last_extraction_id FROM post_llm_states`); got != "success|1" {
+		t.Errorf("post state = %q", got)
+	}
+	if got := f.text(`SELECT updated_at || raw_json FROM events`); got != stored {
+		t.Error("cached result rewrote the event")
+	}
+
+	// A forced pass that fails is the newest attempt of this input: once its
+	// backoff passes, the scan calls the queue again.
+	f.queue("p-next")
+	f.failing()
+	f.requestReprocess("post-1")
+	f.scan()
+	failed := f.provider.count()
+	f.provider.respond = func(recordedRequest) (int, string) {
+		return http.StatusOK, chatReply(scheduleReply(songTitle, songDate, songClock, "scheduled"))
+	}
+	f.at(backoffStart.Add(2 * time.Hour))
+	if result := f.scan(); countOf(result.Counts, "success") != 1 || f.provider.count() != failed+1 {
+		t.Fatalf("retry after failed pass = %v after %d requests", result.Counts, f.provider.count()-failed)
+	}
+	if got := f.provider.hosts(); got[len(got)-1] != "next.example.test" {
+		t.Errorf("retry went to %v", got)
+	}
+}
+
 func TestManualLockAndTombstoneSurviveExtraction(t *testing.T) {
 	f := messageFixture(t)
 	f.scan()
@@ -314,14 +358,17 @@ func TestProvidersAreTriedInQueueOrder(t *testing.T) {
 		t.Errorf("events = %d", got)
 	}
 
-	// A target calls the catalog model it names.
+	// A target calls the catalog model it names; the extracted post keeps its
+	// result, so only a new post reaches it.
 	f.exec(`DELETE FROM llm_route_targets`)
 	f.exec(`INSERT INTO llm_models (provider_id, model_id, tags_json, enabled, created_at, updated_at) VALUES ('p-second', 'model-catalog', '["text","reasoning"]', 1, ?, ?)`, testTimestamp, testTimestamp)
 	f.exec(`INSERT INTO llm_route_targets (route, provider_id, model_id, priority, created_at, updated_at) VALUES (?, 'p-second', 'model-catalog', 0, ?, ?)`, routeQueue, testTimestamp, testTimestamp)
+	f.addPost("post-2", "", "明後日 20時から配信します", "2026-04-29T03:00:00.000Z", "")
+	before := f.provider.count()
 	f.scan()
 	last := f.provider.requests[len(f.provider.requests)-1]
-	if !strings.Contains(last.body, `"model":"model-catalog"`) {
-		t.Errorf("catalog model was not used: %s", last.body[:80])
+	if f.provider.count() != before+1 || !strings.Contains(last.body, `"model":"model-catalog"`) || !strings.Contains(last.body, "明後日") {
+		t.Errorf("catalog model was not used for the new post alone: %d requests, %s", f.provider.count()-before, last.body[:80])
 	}
 }
 
@@ -376,7 +423,7 @@ func boardFixture(t *testing.T) (*fixture, string) {
 	t.Helper()
 	f := newFixture(t)
 	f.addProvider("p-vision", protocolResponses, "https://provider.example.test/v1", "model-v", `["text","image"]`)
-	f.queue("p-vision")
+	f.queueVerify("p-vision")
 	// Only schedule images are under test: no post matches a keyword.
 	f.exec(`INSERT INTO app_settings (key, value, updated_at) VALUES ('schedule_keywords', '["unmatched-keyword"]', ?)`, testTimestamp)
 	f.exec(`INSERT INTO app_settings (key, value, updated_at) VALUES ('schedule_message_enabled', '0', ?)`, testTimestamp)
@@ -426,13 +473,64 @@ func TestScheduleImageVerificationApprovesAsset(t *testing.T) {
 		t.Errorf("manual review was touched: %q", got)
 	}
 
-	// An unchanged image with an unchanged provider list is not sent again.
+	// An unchanged image is not sent again.
 	second := f.scan()
 	assets, _ = second.Counts["assetVerification"].(map[string]any)
 	if f.provider.count() != 1 || countOf(assets, "cached") != 1 {
 		t.Errorf("second verification = %d requests, %v", f.provider.count(), assets)
 	}
 	f.assertNoSecretStored()
+}
+
+func TestScheduleImageCheckNeverUsesTheExtractionQueue(t *testing.T) {
+	f, _ := boardFixture(t)
+	f.exec(`DELETE FROM llm_route_targets WHERE route = ?`, routeVerify)
+	f.queue("p-vision")
+	result := f.scan()
+	assets, _ := result.Counts["assetVerification"].(map[string]any)
+	if f.provider.count() != 0 || countOf(assets, "skipped") != 1 {
+		t.Fatalf("result = %v after %d requests", assets, f.provider.count())
+	}
+	if got := f.text(`SELECT llm_status || '|' || llm_reason FROM schedule_asset_reviews WHERE asset_id='schedule-2026-04-27'`); got != "skipped|no_route_target" {
+		t.Errorf("review = %q", got)
+	}
+}
+
+func TestScheduleImageQueueChangeKeepsVerdicts(t *testing.T) {
+	f, _ := boardFixture(t)
+	f.scan()
+	review := `SELECT llm_status || '|' || llm_model || '|' || llm_input_fingerprint FROM schedule_asset_reviews WHERE asset_id='schedule-2026-04-27'`
+	stored := f.text(review)
+	cached := func(label string) {
+		t.Helper()
+		result := f.scan()
+		assets, _ := result.Counts["assetVerification"].(map[string]any)
+		if f.provider.count() != 1 || countOf(assets, "cached") != 1 || countOf(assets, "attempted") != 0 {
+			t.Fatalf("%s: %v after %d requests", label, assets, f.provider.count())
+		}
+		if got := f.text(review); got != stored {
+			t.Fatalf("%s: review = %q, want %q", label, got, stored)
+		}
+	}
+
+	// Another target or model keeps the verdict, and so does an empty queue.
+	f.addProvider("p-other", protocolResponses, "https://other.example.test/v1", "model-o", `["image"]`)
+	f.exec(`DELETE FROM llm_route_targets WHERE route = ?`, routeVerify)
+	f.queueVerify("p-other")
+	cached("changed queue")
+	f.exec(`DELETE FROM llm_route_targets WHERE route = ?`, routeVerify)
+	cached("empty queue")
+
+	// A failed check is tried again on the current queue.
+	f.queueVerify("p-other")
+	f.exec(`UPDATE schedule_asset_reviews SET llm_status='failed' WHERE asset_id='schedule-2026-04-27'`)
+	f.scan()
+	if got := f.provider.hosts(); len(got) != 2 || got[1] != "other.example.test" {
+		t.Fatalf("retry requests = %v", got)
+	}
+	if got := f.text(`SELECT llm_status || '|' || llm_model FROM schedule_asset_reviews WHERE asset_id='schedule-2026-04-27'`); got != "schedule|model-o" {
+		t.Errorf("retried review = %q", got)
+	}
 }
 
 func TestScheduleAssetWithoutImageIsSettledOnce(t *testing.T) {

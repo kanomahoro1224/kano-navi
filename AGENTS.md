@@ -24,6 +24,7 @@ Before changing an area, read its docs. Backend paths are relative to
 | Dynamic and profile media             | internal/mediadownload/, internal/contentadmin/, internal/httpapi/media.go                         | `docs/architecture/media-cache.md`                                                                  |
 | Fixed history packaging               | ../scripts/package-history-media.ts, ../public/assets/history/                                     | `docs/development/history-archive.md`                                                               |
 | LINE BLOG archive packaging           | ../scripts/package-lineblog.ts, ../src/lineblog/, internal/httpapi/lineblog.go                     | `docs/development/lineblog-archive.md`                                                              |
+| Outbound proxies                      | internal/outboundproxy/, src/admin/views/proxy.tsx                                                 | `docs/architecture/outbound-proxy.md`                                                               |
 | Outbound HTTP, auth, secrets, privacy | any of the above                                                                                   | `SECURITY.md`, `docs/development/security.md`, `docs/operations/security.md`                        |
 | Tests                                 | ../tests/, `*_test.go`                                                                             | `docs/development/testing.md`                                                                       |
 | Commits and releases                  | package.json version, docs/history/                                                                | `docs/development/commit-and-release.md`                                                            |
@@ -86,7 +87,7 @@ reads belong to server-side workflows and their helpers.
 - `LLM_SECRETS_KEY`, source API credentials, and `MCP_CONTROL_TOKEN` stay in
   the environment. `OPENAI_API_KEY` is accepted only by the explicit
   `kano-go migrate-llm` command. Model discovery is an operator action;
-  preserve the single queue's provider/model order and original text/image
+  preserve each queue's provider/model order and original text/image
   capability requirements.
 - New outbound paths need explicit destinations, timeout and response limits,
   redirect policy, error handling, and snapshot retention. Follow the existing

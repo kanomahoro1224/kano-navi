@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"image"
@@ -14,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 
 	_ "image/png"
 )
@@ -53,6 +56,8 @@ func TestLineblogMediaServesSmallerCopies(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	makeCopies(t, store, original)
+	makeCopies(t, store, small)
 	handler := NewHandler(store)
 
 	copy := request(t, handler, http.MethodGet, "/media/lineblog/0123456789ab.jpg?w=320")
@@ -61,7 +66,7 @@ func TestLineblogMediaServesSmallerCopies(t *testing.T) {
 	}
 	headers := copy.Header()
 	if headers.Get("Content-Type") != "image/jpeg" || headers.Get("X-Content-Type-Options") != "nosniff" ||
-		headers.Get("Content-Security-Policy") != "default-src 'none'; sandbox" || headers.Get("ETag") == "" ||
+		headers.Get("Content-Security-Policy") != "default-src 'none'; sandbox" || headers.Get("ETag") != `"`+sha256Of(original)+`-320"` ||
 		headers.Get("Cache-Control") != mediaCacheControl(false) {
 		t.Fatalf("copy headers=%v", headers)
 	}
@@ -112,12 +117,14 @@ func TestLineblogMediaServesSmallerCopies(t *testing.T) {
 func TestLineblogMediaRereadsAReplacedFile(t *testing.T) {
 	store, dir := lineblogStore(t)
 	path := filepath.Join(dir, "0123456789ab.jpg")
-	if err := os.WriteFile(path, noisyJPEG(t, 1000, 500), 0o644); err != nil {
+	original, replaced := noisyJPEG(t, 1000, 500), noisyJPEG(t, 1400, 300)
+	makeCopies(t, store, original)
+	makeCopies(t, store, replaced)
+	if err := os.WriteFile(path, original, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	handler := NewHandler(store)
 	first := request(t, handler, http.MethodGet, "/media/lineblog/0123456789ab.jpg?w=640")
-	replaced := noisyJPEG(t, 1400, 300)
 	if err := os.WriteFile(path, replaced, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -152,6 +159,7 @@ func TestStaticSiteServesSmallerHistoryCopies(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	makeCopies(t, store, original)
 	handler := NewStandaloneHandler(store, nil, Standalone{Static: NewStaticSite(root, "")})
 
 	copy := request(t, handler, http.MethodGet, "/assets/history/synthetic.jpg?v=synthetic&w=640")
@@ -192,6 +200,7 @@ func sha256Of(content []byte) string {
 func TestLineblogImagesAreImmutableOnlyUnderTheirOwnHash(t *testing.T) {
 	store, dir := lineblogStore(t)
 	image := noisyJPEG(t, 1000, 500)
+	makeCopies(t, store, image)
 	named := sha256Of(image)[:12] + ".jpg"
 	video := append([]byte("\x00\x00\x00\x18ftypmp42"), []byte(strings.Repeat("synthetic", 20))...)
 	videoName := sha256Of(video)[:12] + ".mp4"
@@ -240,6 +249,7 @@ func TestHistoryFilesAreImmutableOnlyUnderTheirOwnHash(t *testing.T) {
 	root := t.TempDir()
 	original := noisyJPEG(t, 1000, 500)
 	hash := sha256Of(original)
+	makeCopies(t, store, original)
 	for name, content := range map[string][]byte{
 		"index.html":                   []byte("<!doctype html><title>synthetic</title>"),
 		"assets/history/synthetic.jpg": original,
@@ -293,5 +303,58 @@ func TestHistoryFilesAreImmutableOnlyUnderTheirOwnHash(t *testing.T) {
 		if recorder.Code != http.StatusOK || recorder.Header().Get("Cache-Control") != mediaCacheControl(false) {
 			t.Fatalf("replaced %s cache=%q", suffix, recorder.Header().Get("Cache-Control"))
 		}
+	}
+}
+
+// makeCopies stores every width of content in store's variant cache, as the
+// variants command does.
+func makeCopies(t *testing.T, store *sqlite.Store, content []byte) {
+	t.Helper()
+	if _, err := sqlite.MakeVariants(context.Background(), store.DataRoot(), sha256Of(content), func() ([]byte, error) { return content, nil }); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLineblogCopyIsServedWithoutReadingTheOriginal(t *testing.T) {
+	store, dir := lineblogStore(t)
+	original := noisyJPEG(t, 1000, 500)
+	name := sha256Of(original)[:12] + ".jpg"
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	handler := NewHandler(store)
+	// Without a stored copy the original is streamed; nothing is decoded.
+	cold := request(t, handler, http.MethodGet, "/media/lineblog/"+name+"?w=320")
+	if cold.Code != http.StatusOK || !bytes.Equal(cold.Body.Bytes(), original) {
+		t.Fatalf("cold status=%d length=%d", cold.Code, cold.Body.Len())
+	}
+	if entries, _ := filepath.Glob(filepath.Join(store.DataRoot(), "cache", "variants", "*", "*")); len(entries) != 0 {
+		t.Fatalf("a request made copies: %v", entries)
+	}
+	// The hash read for it is kept under the data directory for restarts.
+	if records, _ := filepath.Glob(filepath.Join(store.DataRoot(), "cache", "file-hashes", "*", "*")); len(records) != 1 {
+		t.Fatalf("hash records %v", records)
+	}
+	makeCopies(t, store, original)
+	warm := request(t, handler, http.MethodGet, "/media/lineblog/"+name+"?w=320")
+	if warm.Code != http.StatusOK || decodedWidth(t, warm.Body.Bytes()) != 320 || warm.Header().Get("Cache-Control") != mediaCacheControl(true) {
+		t.Fatalf("warm status=%d cache=%q", warm.Code, warm.Header().Get("Cache-Control"))
+	}
+	// Other bytes of the same size and modification time are not read
+	// again: the remembered hash still finds the stored copy.
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, bytes.Repeat([]byte{0xff}, len(original)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Chtimes(path, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	again := request(t, handler, http.MethodGet, "/media/lineblog/"+name+"?w=320")
+	if !bytes.Equal(again.Body.Bytes(), warm.Body.Bytes()) || again.Header().Get("ETag") != warm.Header().Get("ETag") {
+		t.Fatalf("remembered copy status=%d length=%d", again.Code, again.Body.Len())
 	}
 }

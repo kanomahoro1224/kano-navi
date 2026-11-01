@@ -35,8 +35,8 @@ gets its media.
   sandboxing CSP, byte ranges and conditional requests. Images whose bytes
   match their name are immutable and videos revalidate
   ([Immutable fixed files](../architecture/media-cache.md#immutable-fixed-files)).
-  Images also have smaller copies, made on demand in the runtime variant
-  cache ([Resized copies](../architecture/media-cache.md#resized-copies)):
+  Images also have smaller copies in the runtime variant cache, made ahead
+  by the variants command ([Resized copies](../architecture/media-cache.md#resized-copies)):
   the recent-post thumbnails, profile photo, article pictures, smartphone
   list pictures, link-card pictures and video covers request them through
   `srcset` (a video poster
@@ -139,6 +139,34 @@ parts. Packaging:
 Packaging performs no network requests and does not change the recovery
 archive. It leaves `src/lineblog/comments/` alone. Review the written files
 and the page together when updating them.
+
+### Copies Archive
+
+`lineblog-variants.tar` packs the smaller copies of every archive image for
+instances that install them instead of running the variants command
+([Deployments](#deployments)). Its paths start with `data/cache/variants/`
+and it holds nothing else; the file-hash records the command writes under
+`-data` name the workstation's paths and stay there. Rebuild it whenever the
+archive images change, in a checkout whose `data/lineblog/` holds the
+packaged media, into an empty `lineblog-variants/` so that copies of images
+the archive no longer holds are left out. An empty `-static` leaves out the
+history images:
+
+```bash
+npm run variants -- -static= -out lineblog-variants/data
+```
+
+The command prints `0 failed, 0 remaining` for `lineblog` when every image is
+done. Pack the copies with fixed ownership and modes, then write the checksum
+beside the archive:
+
+```bash
+cd lineblog-variants && find data/cache/variants -type f | LC_ALL=C sort > ../lineblog-variants.files && tar --format=ustar --owner=0 --group=0 --mode='u=rw,go=r' -cf ../lineblog-variants.tar -T ../lineblog-variants.files && cd ..
+```
+
+```bash
+sha256sum -b lineblog-variants.tar > lineblog-variants.tar.sha256
+```
 
 ## Comments
 
@@ -298,6 +326,57 @@ curl -I http://localhost:7657/media/lineblog/941e5735900c.jpg
 
 A `200` with `Content-Type: image/jpeg` confirms it; a `404` means the file
 is not where the container looks.
+
+Then give the pages the smaller copies they request, once for the whole
+archive (five entries per image: a copy, or a marker that the original serves
+that width). Until an image has them, its thumbnails load the original. The
+copies are named after the originals' bytes, so copies made anywhere apply
+wherever the originals are. They come one of four ways:
+
+- **Make them from the console.** `/admin` → Site → Image copies shows how
+  many archive, history and cached media images have their copies; Make
+  missing copies queues a
+  [copies run](../architecture/media-cache.md#copies-run) of up to five
+  minutes. Run it again until LINE BLOG archive reads all copies made.
+
+- **Make them in the container.** The
+  [variants command](../architecture/media-cache.md#variants-command) works
+  two images at a time and can be stopped and run again:
+
+  ```bash
+  docker compose run --rm kano variants
+  ```
+
+- **Install a copies archive.** A `lineblog-variants.tar` built as in
+  [Copies Archive](#copies-archive) holds the copies of every archive image
+  under `data/cache/variants/`, with its checksum in
+  `lineblog-variants.tar.sha256`. Installing it is optional and replaces
+  running the command. In the directory that holds `docker-compose.yml`,
+  check the archive and extract it over `./data`:
+
+  ```bash
+  sha256sum -c lineblog-variants.tar.sha256
+  ```
+
+  ```bash
+  tar -xf lineblog-variants.tar
+  ```
+
+  The server opens copies per request, so no restart is needed, and hashes
+  each archive image once itself
+  ([File Hashes](../architecture/media-cache.md#file-hashes)). Until it has,
+  the console counts those images as without copies; a copies run reads
+  their hashes without decoding them.
+
+- **Make them on a workstation**, in a checkout whose `data/lineblog/` holds
+  the media, after `npm run build` has built the site into `dist/`:
+
+  ```bash
+  npm run variants -- -out variants-out
+  ```
+
+  Running it again skips the images that are done. Copy the contents of
+  `variants-out/cache/variants/` into the server's `./data/cache/variants/`.
 
 ## Verification
 

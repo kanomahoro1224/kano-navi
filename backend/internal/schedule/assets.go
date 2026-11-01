@@ -77,35 +77,26 @@ func (e *Extractor) verifyAsset(ctx context.Context, assetID string, force bool)
 		return e.skipAsset(ctx, update, "media_pending")
 	}
 	update.expectSHA = image.sha256
-	providers, reason, err := e.configuredProviders(ctx, "image")
-	if err != nil {
-		return assetResult{}, err
-	}
-	if len(providers) == 0 {
-		return e.skipAsset(ctx, update, reason)
-	}
-	identities := make([]any, len(providers))
-	for i, target := range providers {
-		identities[i] = []any{target.id, target.model, target.protocol, target.baseURL}
-	}
 	var sourceURL any
 	if review.sourceURL.Valid {
 		sourceURL = review.sourceURL.String
 	}
-	// The source text is not part of this identity: the original review row
-	// never exposed it to the hash.
-	fingerprint := sha256Hex(stringify(obj(
-		"version", extractorVersion,
-		"image", image.sha256,
-		"sourceUrl", sourceURL,
-		"providers", identities,
-	)))
+	// A verdict stands for this image and source whichever queue target gave
+	// it, so a queue change, or an empty queue, sends no image again.
+	fingerprint := assetFingerprint(image.sha256, sourceURL)
 	if !force && review.llmInputFingerprint == fingerprint && classifications[review.llmStatus] {
 		result := assetResult{status: "cached", classification: review.llmStatus}
 		if review.llmConfidence.Valid {
 			result.confidence = &review.llmConfidence.Float64
 		}
 		return result, nil
+	}
+	providers, reason, err := e.routeProviders(ctx, routeVerify, "image")
+	if err != nil {
+		return assetResult{}, err
+	}
+	if len(providers) == 0 {
+		return e.skipAsset(ctx, update, reason)
 	}
 	running := update
 	running.llmStatus = "running"
@@ -164,6 +155,12 @@ func (e *Extractor) verifyAsset(ctx context.Context, assetID string, force bool)
 	failed.llmCheckedAt = e.nowISO()
 	_, err = e.upsertAssetReview(ctx, failed)
 	return assetResult{status: "failed"}, err
+}
+
+// assetFingerprint identifies the input of an image verdict. The source text
+// is not part of it: the original review row never exposed it to the hash.
+func assetFingerprint(imageSHA string, sourceURL any) string {
+	return sha256Hex(stringify(obj("version", extractorVersion, "image", imageSHA, "sourceUrl", sourceURL)))
 }
 
 func (e *Extractor) attemptVerification(ctx context.Context, target provider, call modelCall, update reviewUpdate, fingerprint string) (assetVerification, bool, error) {

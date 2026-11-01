@@ -30,12 +30,14 @@ data/
     sha256/<first-two>/<content-sha256>.<extension>
   cache/variants/
     <first-two>/<content-sha256>-<width>.<jpg|png|orig>
+  cache/file-hashes/
+    <first-two>/<path-sha256>
 ```
 
 The whole `data/` directory is ignored by Git. It is created on demand by the
 server or synchronization command. Each write goes to a randomly named
-temporary file in its target directory (`.download-*`, `.part-*` or
-`.variant-*`) that is atomically renamed into place. The tracked
+temporary file in its target directory (`.download-*`, `.part-*`,
+`.variant-*` or `.hash-*`) that is atomically renamed into place. The tracked
 `public/assets/` directory is reserved for fixed fallback branding and the
 reviewed history collection.
 
@@ -125,7 +127,9 @@ served as active same-origin content.
    (`SaveMediaDownload` in `internal/store/sqlite/media_commands.go`). The same
    step measures up to 50 ready files cached before dimensions were probed,
    reading each contained, hash-checked file's header only, and reports them
-   as `measured`; a run that measures any advances the dashboard revision.
+   as `measured`; a run that measures any advances the dashboard revision. It
+   then makes the [resized copies](#making-copies) of up to 100 ready images
+   that have none yet, newest first, and reports them as `resized`.
 4. A failed or unavailable request updates the row to `failed` or `missing`.
    Existing ready files are retained; a failed synchronization never clears a
    known snapshot. Transient failures (`media_timeout`, `media_unavailable`,
@@ -156,14 +160,16 @@ served as active same-origin content.
 ### Step Bounds
 
 One media step attempts at most 500 files and starts no new file after five
-minutes, which leaves the rest of the run's 20 minutes to the steps after it.
+minutes. It then makes copies for at most 100 images and starts none after
+two more minutes, which leaves the rest of the run's 20 minutes to the
+steps after it. Images the bound leaves are made by the next step.
 Each asset is attempted at most once per step, so an asset that stays due
 after its check cannot repeat; a batch that holds no asset new to the step
 ends it. A `media_rate_limited` answer ends the step at once. The bounds are
 constants (`StepBounds` in `internal/mediadownload`).
 
 The step result records `attempted`, `ready`, `unchanged`, `failed`,
-`measured` and `remaining`: the never-checked assets still queued when the
+`measured`, `resized` and `remaining`: the never-checked assets still queued when the
 step ends. When a bound ends the step, `stopped` names it
 (`media_file_cap`, `media_time_budget`, `media_rate_limited` or
 `media_no_progress`). The step is `partial` while `remaining` is above zero or
@@ -238,6 +244,15 @@ assets return `404`. A `v` that names a `media_versions` hash of a ready asset
 serves that kept earlier file under the same containment and hash checks; any
 other version answers `404`.
 
+The file is streamed from disk, never read whole into memory, with its row's
+MIME type, `nosniff`, `default-src 'none'; sandbox`, the content hash as its
+ETag and the fetch time as `Last-Modified`; ranges, `HEAD` and both
+conditional validators are answered from the open file. Its bytes are checked
+against the row's hash once per file, not per request: the download records
+the hash it wrote, and a file without a record is hashed once when it is
+first served ([File Hashes](#file-hashes)). A file whose size or modification
+time changes is checked again, and one whose bytes do not match answers `404`.
+
 Dashboard media fields include the safe `...Url` (a
 `/media/<id>?v=<content-sha256>` route or a tracked `/assets/...` fallback), the
 `...Status`, the opaque ID, and the public source URL for traceability. The
@@ -261,33 +276,163 @@ repeated `w`, answers 404. A LINE BLOG video ignores a valid `w`, and other
 static files ignore `w` entirely.
 
 All three share one cache keyed by the SHA-256 of the original's bytes, so an
-image found in several places is resized once. The archive and history files
-have no database rows; the server reads such a file (at most 10 MiB, contained
-in its directory like the original's own response) and remembers its hash by
-path, size and modification time, so a cached copy is found without reading
-the original again and a replaced file is hashed anew. A copy is stored only
-when the bytes read match the hash it is stored under.
+image found in several places is resized once. A copy is stored only when the
+bytes it was made from match the hash it is stored under.
 
-The first request decodes the original (JPEG, PNG or WebP no larger than 40
-megapixels, at most two at a time; concurrent requests for the same copy wait
-for the first and then read it from the cache), scales it to that width with
-Catmull-Rom filtering, encodes JPEG at quality 82 (or PNG when the image has
-transparency) and stores it atomically in
-`data/cache/variants/<first-two>/<hash>-<width>.<jpg|png>`. When the original
-is no wider than the request, is a GIF (possibly animated) or AVIF, cannot be
-decoded, or the copy would not be smaller, an empty `.orig` marker records
-that the original is served for that width, so it is not decoded again.
+Requests never decode. A request is answered with the stored copy of that
+width, or with the original when there is none: not made yet, or marked as
+kept for that width. Copies are made ahead of requests:
 
-The response is always an image: a copy, or the original whenever a copy
-cannot be made or stored (a read-only data directory only means the copy is
-made again next time; a process without the built site, such as the Vite
-development server's API, serves history files without copies). It carries
-`nosniff`, `default-src 'none'; sandbox`, range and conditional handling and
-the copy's own hash as its ETag. A `/media/<id>` copy is immutable when `v` is
+- the [media step](#lifecycle) makes them for ready assets, newest first,
+  within its [bounds](#step-bounds);
+- the [variants command](#variants-command) makes them for the LINE BLOG
+  archive and the history collection;
+- the [copies run](#copies-run), started from the console's Site page, makes
+  them for every group within one step's budget.
+
+All three use one core (`internal/variants`), described in
+[Copy Groups](#copy-groups).
+
+### File Hashes
+
+The archive and history files have no database rows, so the server finds
+their copies by hashing them itself (contained in their directory like the
+original's own response). Cached media files are hashed the same way when
+they are checked against their rows. The file is streamed through the hash,
+at most two files at a time, and the result is remembered by absolute path,
+size and modification time: in memory, and as a one-line record in
+`data/cache/file-hashes/<first-two>/<path-sha256>`. A file is therefore read
+for its hash once, not on every request or restart. A file whose size or
+modification time differs from its record is hashed anew; one replaced with
+the same size and modification time keeps the remembered hash until its
+record is removed. An archive or history file larger than 10 MiB has no
+copies and is not hashed for one.
+
+### Making Copies
+
+Making an image's copies takes one of two source slots, kept from reading the
+original (at most 10 MiB) through checking its hash and decoding it once
+(JPEG, PNG or WebP no larger than 40 megapixels, about 160 MB as RGBA). At most
+two originals and their decodes are therefore in memory at once in a process.
+A maker waiting for a slot holds no original, and concurrent makers of one
+image wait for the first and then find its copies.
+
+The original is scaled once to the widest missing width it is wider than;
+every narrower width is scaled from that copy, so a large original is scanned
+once rather than once per width, and the decoded original can be released
+before the narrower widths are made. Scaling averages each target pixel over
+the source area it covers, on premultiplied colour so transparency blends
+correctly. It reads the source one row at a time and holds only the target
+and one row of sums, so scaling adds about the target's size (a 1920-pixel
+wide copy of a tall image is a few tens of MB) to the decoded original.
+Each copy is encoded as JPEG at quality 82 (or PNG at the default
+compression level when the image has transparency) and stored atomically in
+`data/cache/variants/<first-two>/<hash>-<width>.<jpg|png>` as soon as it is
+encoded, so at most one encoded copy waits in memory besides the widest.
+When the original is no wider than a width, is a GIF (possibly animated) or
+AVIF, cannot be decoded, or the copy would not be smaller, an empty `.orig`
+marker records that the original is served for that width, so it is not
+decoded again. A failed write stops the image. Every width must have a valid
+copy or marker before the image is skipped; malformed or truncated copies are
+treated as missing and replaced on the next call.
+
+### Copy Groups
+
+Copies are made per group of originals:
+
+| Group      | Originals                                                                                                 |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| `lineblog` | `.jpg` and `.png` files with archive names directly in `<data>/lineblog/`                                 |
+| `history`  | `.jpg`, `.jpeg`, `.png` and `.webp` files directly in `<static>/assets/history/`                          |
+| `media`    | the current files of ready X, YouTube and Bilibili assets, newest fetch first; earlier versions have none |
+
+These are the files the server answers `w` for; symlinks, dotfiles and
+archive or history files over 10 MiB are skipped. A call makes one group's
+missing copies two images at a time. An image that is done is skipped without
+being read, and an archive or history file is streamed through its hash first
+(remembered under the data directory, see [File Hashes](#file-hashes)), so a
+stopped call resumes where it left off. A call may be bounded by a number of
+originals to load and a time budget after which no image starts. Its result
+has the shape of a step result:
+
+| Field       | Meaning                                                                  |
+| ----------- | ------------------------------------------------------------------------ |
+| `attempted` | originals loaded to make copies                                          |
+| `made`      | of those, originals that got at least one copy                           |
+| `kept`      | of those, originals that got only keep-original markers                  |
+| `skipped`   | originals that were already done                                         |
+| `failed`    | originals that could not be read, did not match their hash or be stored  |
+| `remaining` | originals not reached because a bound stopped the call                   |
+| `stopped`   | the bound that stopped it: `variants_file_cap` or `variants_time_budget` |
+
+A failed original is tried again by the next call. Malformed or truncated
+derived copies are removed when their replacement is written.
+
+A status report per group counts the originals, those with every width
+stored as a copy or a keep marker (`ready`), those whose hash has not been
+read yet (`unhashed`, whose widths count as missing), and the copies, kept
+widths and missing widths of each width. It reads no original and hashes
+nothing: it checks each cached copy's image header and format end marker, then
+matches media by their rows' hashes and archive and history files by their
+remembered hashes. Its cost is one directory listing of the cache plus the
+bounded metadata reads for cached copies and one `stat` per archive or history
+file.
+
+### Variants Command
+
+`kano-go variants` (`npm run variants`) makes the `lineblog` and `history`
+groups' copies without bounds and prints each group's counts. It exits
+non-zero when it is interrupted; running it again resumes.
+
+| Flag      | Default | Meaning                                                |
+| --------- | ------- | ------------------------------------------------------ |
+| `-data`   | `data`  | data directory holding `lineblog/` and the file hashes |
+| `-static` | `dist`  | built frontend holding `assets/history/`               |
+| `-out`    | `-data` | data directory whose `cache/variants/` is written      |
+
+An empty or missing `-data` or `-static` directory gives its group no
+originals, so `-static=` makes the `lineblog` copies alone.
+
+With `-out` set, the copies can be made on a workstation and copied into the
+server's `data/cache/variants/`: their names depend only on the originals'
+bytes. The hashes it reads are remembered under `-data`, by that machine's
+paths, and are not needed on the server, which hashes each file once itself.
+
+### Copies Run
+
+The console's Site page shows the [status](#copy-groups) of the `lineblog`,
+`history` and `media` groups and starts a copies run
+(`POST /api/admin/runs {"kind":"variants"}`, see
+[Admin API](admin-api.md#runs)). The run is one `variants` step on the shared
+single-flight queue. It makes the groups' missing copies in that order
+within 5 minutes; a group reached after the budget counts its originals as
+`remaining` without loading any. The step's result is the summed call result
+of [Copy Groups](#copy-groups), and it is partial while originals remain or
+fail. Running it again continues, since done images are skipped. The step
+uses the service's data directory and built site, so only the API process
+offers it.
+
+The page reads the status when it opens and after each run, never on a
+timer. The service lists the cache once and answers that listing again until
+another run finishes; copies change only through runs, so a newer listing
+could differ only after the variants command or files changed by hand, which
+the page's Check again (`refresh=1`) covers. One listing runs at a time.
+
+### Responses
+
+The response is always an image: a copy, or the original whenever there is no
+copy (a process without the built site, such as the Vite development server's
+API, serves history files without copies). Copies and originals are streamed
+from their files, never held in memory. A response carries `nosniff`,
+`default-src 'none'; sandbox`, and range and conditional handling. A copy's
+ETag is `<original-sha256>-<width>`, read from its name, so serving it hashes
+nothing; a copy is checked to be a regular file within 10 MiB whose first
+bytes match its extension. A `/media/<id>` copy is immutable when `v` is
 given; archive and history copies are cached like their originals
 ([Immutable Fixed Files](#immutable-fixed-files)). Originals are never
-changed; the variant directory is a derived cache that may be deleted at any
-time.
+changed; the variant and file-hash directories are derived caches that may be
+deleted at any time and are rebuilt by the media step, the variants command
+and the copies run; the file hashes are read again when needed.
 
 Pages request copies through `srcset` and `sizes` with the widths below an
 image's known width (every width when it is unknown) plus the original; the
@@ -311,9 +456,9 @@ videos (named after their watch URL, not their bytes), an archive image whose
 bytes do not match its name, a history file without `v`, or with a repeated,
 malformed or different `v`. A copy (`w`) takes its original's verdict, since
 the variant cache only stores a copy made from bytes with the hash it is
-filed under. The server reads the file to hash it and remembers the hash by
-path, size and modification time like the variant cache; a replaced file is
-hashed anew, so its old addresses revalidate.
+filed under. The hash is the file's remembered one
+([File Hashes](#file-hashes)); a file whose size or modification time
+changes is hashed anew, so its old addresses revalidate.
 
 ## Verification
 

@@ -549,13 +549,13 @@ func (m *Module) deleteModels(ctx context.Context, db Querier, provider *Provide
 			return 0, err
 		}
 	}
-	// Rewrite both queues so their priorities stay contiguous.
-	for _, route := range []string{QueueRoute, TranslationRoute} {
-		targets, err := RouteTargets(ctx, db, route)
+	// Rewrite every queue so their priorities stay contiguous.
+	for _, spec := range queueRoutes {
+		targets, err := RouteTargets(ctx, db, spec.route)
 		if err != nil {
 			return 0, err
 		}
-		if err = m.writeQueue(ctx, db, route, targets); err != nil {
+		if err = m.writeQueue(ctx, db, spec.route, targets); err != nil {
 			return 0, err
 		}
 	}
@@ -578,9 +578,10 @@ func (m *Module) writeQueue(ctx context.Context, db Querier, route string, targe
 }
 
 // setQueue replaces one route's ordered queue. Every target names a model in
-// its provider's catalog; translation targets also need the text tag. It must
-// run inside a transaction.
+// its provider's catalog; schedule-image check targets also need the image
+// tag and translation targets the text tag. It must run inside a transaction.
 func (m *Module) setQueue(ctx context.Context, db Querier, route string, targets []RouteTarget) error {
+	spec := queueRoute(route)
 	seen := map[RouteTarget]bool{}
 	normalized := make([]RouteTarget, 0, len(targets))
 	for _, target := range targets {
@@ -605,8 +606,8 @@ func (m *Module) setQueue(ctx context.Context, db Querier, route string, targets
 		if model == nil {
 			return httpx.Invalid("LLM model does not exist: %s/%s", target.ProviderID, target.ModelID)
 		}
-		if route == TranslationRoute && !slices.Contains(model.Capabilities, "text") {
-			return httpx.Invalid("translation models need the text tag: %s/%s", target.ProviderID, target.ModelID)
+		if spec != nil && spec.needs != "" && !slices.Contains(model.Capabilities, spec.needs) {
+			return httpx.Invalid("%s models need the %s tag: %s/%s", spec.label, spec.needs, target.ProviderID, target.ModelID)
 		}
 		if seen[target] {
 			continue

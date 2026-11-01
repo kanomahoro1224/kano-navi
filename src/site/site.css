@@ -360,6 +360,23 @@
   line-height: 1.6;
 }
 
+.site-footer-mirror a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--soft);
+  font-weight: 700;
+}
+
+.site-footer-mirror a:hover {
+  color: var(--berry);
+}
+
+.site-footer-mirror svg {
+  width: 13px;
+  height: 13px;
+}
+
 .site-footer-links {
   display: flex;
   flex-wrap: wrap;

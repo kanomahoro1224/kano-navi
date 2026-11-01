@@ -18,6 +18,7 @@ import {
   ListChecks,
   LockKeyhole,
   LogOut,
+  Network,
   Radio,
   ScanText,
   UserRound,
@@ -35,6 +36,7 @@ import { LlmView } from "@/admin/views/llm"
 import { OverviewView } from "@/admin/views/overview"
 import { PostsView } from "@/admin/views/posts"
 import { ProfileView } from "@/admin/views/profile"
+import { ProxyView } from "@/admin/views/proxy"
 import { ReviewView } from "@/admin/views/review"
 import { RunsView } from "@/admin/views/runs"
 import { ScheduleView } from "@/admin/views/schedule"
@@ -95,6 +97,7 @@ const views: ViewEntry[] = [
     component: DetectionView,
   },
   { id: "llm", group: "system", icon: Bot, component: LlmView },
+  { id: "proxy", group: "system", icon: Network, component: ProxyView },
   { id: "site", group: "system", icon: Globe, component: SiteView },
 ]
 const groups = ["today", "data", "system"] as const

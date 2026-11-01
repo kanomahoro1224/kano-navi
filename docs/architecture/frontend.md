@@ -94,10 +94,14 @@ modal dialog, toasts); `views/` one file per section; and `admin.css` styles
 them with `adm-` prefixed selectors. `src/components/ui/` contains
 basic UI primitives, while the CSS files contain layout and design tokens. The
 presentation layer must not open SQLite or call X, YouTube, OpenAI,
-or a third-party proxy directly. The root app checks the same-origin
-`/api/visitor-region` response once per browser session; when the operator has
-enabled the setting and it reports mainland China, a dismissible Toast offers
-the optional mainland China site.
+or a third-party proxy directly. The optional mainland China site comes from
+the same-origin `/api/visitor-region` response, read at most once per page
+load through `src/lib/visitor-region.ts`. When the operator has enabled it,
+the footer links to the mirror while the interface is Simplified Chinese;
+when the response also reports mainland China, the root app shows a
+dismissible Toast offering the site, once per browser session. About's credit
+for the mainland China server site is static copy in `src/about/` and does
+not read this response.
 
 ## Request and UI Ownership
 
@@ -165,9 +169,17 @@ The console's schedule (`src/admin/views/schedule.tsx`) has a list, a
 calendar and an images view. The browser remembers list or calendar in local
 storage; the images view has its own address (`#schedule/images`), which the
 Review queue links to. It lists the newest stored schedule images as the
-Review queue's decision cards (`schedule-images.tsx`) under All, Approved
-and Needs review tabs, so any image can be labelled again or its dates
-corrected. The list and the calendar share a search field and status tabs
+Review queue's decision cards (`schedule-images.tsx`) under Active,
+Approved, Needs review and Not a schedule tabs. Active leaves out images an
+operator labelled Not a schedule, so a rejected card leaves the list; the
+Not a schedule tab keeps them, where the label can be cleared. A card
+shows its source post's time and wording, folded to four lines. Correct
+dates opens a wide dialog with the image and the whole post above the form,
+side by side or stacked on a phone. A card's covered dates note when they come from the post's events, and a dated card
+offers Show in calendar, which opens `#schedule/YYYY-MM`: the calendar on
+that month. Below the month grid the calendar lists the schedule images
+whose period overlaps the month, as the same cards, leaving out those
+labelled Not a schedule. The list and the calendar share a search field and status tabs
 for the review tasks: All, Not confirmed, Suspected (cancellation) and
 Deleted. The list groups entries
 under one heading per Japan date, with the day's count and a button that
@@ -204,7 +216,7 @@ label. Refresh, cancel and save stay in the footer.
 
 The Review queue (`src/admin/views/review.tsx`) lists only what waits for a
 decision, in tabs for schedule images that need review, suspected
-cancellations, video merges and failed posts; a decision removes the item
+cancellations, video merges and posts; a decision removes the item
 and the sidebar badge counts again. The images tab links to the Schedule
 page's images view. An image or a suspected cancellation is a decision
 card: its left edge takes the state colour (honey
@@ -216,14 +228,44 @@ and the decision buttons. A cancellation needs a reason before it can be
 confirmed. The video merges tab (`merge-parts.tsx`) lists each Bilibili
 upload the merge rule merges at its next run or leaves to the operator,
 beside its candidates: Merge attaches it to one, and Keep separate keeps it
-apart so the rule never merges it.
+apart so the rule never merges it. The posts tab has two labelled filters:
+Step, Schedule extraction or Translation, each with the overview's failure
+count, and State within the step: Failed, Uncertain or Queued for
+extraction, Failed or Queued for translation. A new step keeps the state
+when the step has it and falls back to Failed otherwise; below 560px each
+filter takes its own full-width line. Each row names the step that failed
+(schedule extraction or translation) with its error. A failed extraction
+offers Dismiss beside the LLM action; a translation row offers Translate
+again, which queues a machine pass. The list pages 50 posts at a time.
+Outside the Queued state each row has a selection box on its left edge,
+and shift-click selects the range from the last toggled row. A selection
+bar above the list, which sticks under the top bar, selects the whole page
+and applies the state's actions to every selected post in one request:
+Dismiss and Process again for failed extractions, Process again for
+uncertain posts, Translate again for failed translations. A new filter or
+page clears the selection.
+
+Console dates are `YYYY-MM-DD` and times `YYYY-MM-DD HH:mm`, in Japan time
+and the same in every console language (`src/admin/format.ts`); a stored
+day adds its short weekday.
+
+The console's Overview (`src/admin/views/overview.tsx`) opens with the
+queue: the active run with its steps and Cancel, or Idle, then the timers in
+the order they start, from the overview's `queue`. A due timer shows Due and
+whether it waits for the current run; a source timer that is not due has
+Start now, or Run next while a run holds the queue. The live-status probe is
+listed without a button. While timers are off in the process the panel says
+so instead of listing them.
 
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
 tabs for X, YouTube and Bilibili, each with the platform's logo, a dot (or
 a lock) for whether its timer runs here and the state as its tooltip.
 The selected source opens with a summary: what it reads, its timer state,
 next run, last run and last successful read, the timer switch (which saves
-at once) and Run now. A source that `SKIP_*` turns off is locked. Below the
+at once) and Run now. While the timer runs, Run now starts it as the
+overview queue's Start now does, and reads Run next while a run holds the
+queue; while it is off, Run now runs the source's steps once and waits for a
+free queue. A source that `SKIP_*` turns off is locked. Below the
 summary the main column holds the timed reads, one form with one Save and
 Discard: the interval and, for X and YouTube, the sync setting; and the
 [method chain](workflows.md#method-chains), with every method's switch and
@@ -258,7 +300,8 @@ The console's post list (`src/admin/views/posts.tsx`) is a feed of posts
 separated by rules, one row of columns per post: the account over the Japan
 time, the wording (three lines) and its quote, the post's own cached images
 (up to three, "+N" counts the rest), the translation status, the extraction
-state with a Hidden badge for a post hidden from the public pages, and the
+state with a Hidden badge for a post hidden from the public pages and a
+Schedule image badge for a post with a schedule image record, and the
 edit, "process again with the LLM" and open actions. The columns after the
 wording have fixed widths, so they line up from post to post. A text-only
 post shows no image cell; a post whose images are not cached yet shows one
@@ -268,8 +311,12 @@ and under 560px the state gets a line of its own. A hidden post's wording is
 dimmed.
 
 Edit opens the post in a dialog: the whole wording, every cached image, the
-translations, the quote and a switch that hides the post from the public
-pages or shows it again, with the LLM and open actions in its footer.
+translations, the quote, the schedule image form and a switch that hides the
+post from the public pages or shows it again, with the LLM and open actions
+in its footer. An X post with images can be marked as a schedule image there:
+the image (a choice when the post has several), a required reason and an
+optional first and last day; a post with a record shows its badge and a link
+to the Schedule page's images view.
 
 The quote is a read-only card on the sunken surface under the wording, so
 its thumbnails never read as the post's own images. Its header holds the
@@ -336,6 +383,16 @@ The dashboard hook coordinates one current request. Snapshot refreshes share an
 in-flight promise; a manual refresh cancels an older revision read, and stale
 completions cannot install state. A 15-second deadline covers headers and JSON
 consumption.
+
+Each successful snapshot is also kept in `localStorage`
+(`kano-dashboard-snapshot-v1`, with the time it was stored). The next visit
+renders a stored snapshot under a week old at once, through the same local
+time derivation, and reads the API as usual; the board reports a refresh
+rather than loading, and the first read replaces it or, on failure, leaves it
+shown with the error. The key's suffix changes when the snapshot's shape
+does. Without a usable stored snapshot the stage shows its placeholder, which
+has a full ticket's shape (the 16:9 art band and a stub with a two-line
+title, three lines at 640px and below), so the usual ticket fills it in place.
 
 While the page is visible the hook keeps an `EventSource` on the
 [revision stream](public-api.md#revision-stream). A pushed revision that
@@ -436,7 +493,8 @@ they never require a browser CDN request. The license ships in
 name, or stable ID to identify a mark; unknown custom providers retain their
 initial. Removing a preset does not delete saved providers.
 
-The LLM view shows the schedule and translation queues side by side, then the
+The LLM view shows the extraction, schedule-image check and translation queues
+side by side, then the
 providers as a list beside the selected provider's detail. A queue change
 (add from the model picker, drag or move, remove) shows at once and is saved
 in order: each queue has at most one save in flight, and edits made meanwhile
@@ -445,8 +503,9 @@ its last stored order and drops the edits that followed it. Each queue marks
 the model each stage calls first. The provider dialog holds only the connection, with the presets above
 it; there is no default model. Saving a new provider with a key selects it and
 lists its models, an explicit operator action. The detail adds ticked models
-to the catalog, edits their tags, turns them on or off, puts them in either
-queue and tests them one at a time.
+to the catalog, edits their tags, turns them on or off, puts them in any queue
+whose tag they carry and tests them one at a time. Removing a model takes a
+second click on its danger-toned icon within a few seconds.
 
 List filters in the console are one row of pills, one per filter, with a
 date range pill and a clear button that appears while a filter narrows the

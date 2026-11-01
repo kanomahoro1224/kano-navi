@@ -11,6 +11,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/variants"
 )
 
 // ScheduleRunner is the schedule extraction step. Status is success, partial
@@ -32,8 +33,12 @@ type SourceSteps struct {
 	Media    *mediadownload.Client
 	// MediaBounds overrides mediadownload.StepBounds when set.
 	MediaBounds *mediadownload.Bounds
-	Schedule    ScheduleRunner
-	Translate   TranslateRunner
+	// Variants locates the originals of the variants step; nil leaves the
+	// step unavailable. VariantBudget overrides VariantsBudget when set.
+	Variants      *variants.Roots
+	VariantBudget time.Duration
+	Schedule      ScheduleRunner
+	Translate     TranslateRunner
 	// History serves the operator's manual fetches through their methods.
 	History *HistorySource
 	Store   *sqlite.Store
@@ -157,11 +162,16 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 		if result.Failed > 0 || result.Missing > 0 || result.Remaining > 0 {
 			status = "partial"
 		}
-		counts := map[string]any{"attempted": result.Attempted, "ready": result.Ready, "unchanged": result.Unchanged, "failed": result.Failed, "measured": result.Measured, "remaining": result.Remaining}
+		counts := map[string]any{"attempted": result.Attempted, "ready": result.Ready, "unchanged": result.Unchanged, "failed": result.Failed, "measured": result.Measured, "resized": result.Resized, "remaining": result.Remaining}
 		if result.Stopped != "" {
 			counts["stopped"] = result.Stopped
 		}
 		return AttemptResult{Status: status, Result: counts}, nil
+	case "variants":
+		if s.Variants == nil {
+			break
+		}
+		return s.makeVariants(ctx)
 	case "schedule", "translate":
 		var status string
 		var counts map[string]any
@@ -227,6 +237,50 @@ func youtubeList(in StepInput, listings []string) ytsource.List {
 		return ytsource.List{Limit: in.Sync.Max, Listings: listings}
 	}
 	return ytsource.List{Limit: sqlite.DefaultSyncMax, Listings: listings}
+}
+
+// VariantsBudget bounds one variants step, so the copies of a large archive
+// hold the single-flight queue for minutes at most; the operator's next run
+// continues with the rest.
+const VariantsBudget = 5 * time.Minute
+
+// makeVariants makes the missing copies of every group within one budget,
+// in variants.Groups order. A group reached after the budget lists its
+// originals as remaining without loading any.
+func (s *SourceSteps) makeVariants(ctx context.Context) (AttemptResult, error) {
+	budget := VariantsBudget
+	if s.VariantBudget > 0 {
+		budget = s.VariantBudget
+	}
+	deadline := time.Now().Add(budget)
+	total := variants.Result{}
+	for _, group := range variants.Groups {
+		result, err := variants.Make(ctx, s.Store, *s.Variants, group, variants.Bounds{Budget: max(time.Nanosecond, time.Until(deadline))})
+		if ctx.Err() != nil {
+			return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
+		}
+		if err != nil {
+			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+		}
+		total.Attempted += result.Attempted
+		total.Made += result.Made
+		total.Kept += result.Kept
+		total.Skipped += result.Skipped
+		total.Failed += result.Failed
+		total.Remaining += result.Remaining
+		if total.Stopped == "" {
+			total.Stopped = result.Stopped
+		}
+	}
+	status := "succeeded"
+	if total.Failed > 0 || total.Remaining > 0 {
+		status = "partial"
+	}
+	counts := map[string]any{"attempted": total.Attempted, "made": total.Made, "kept": total.Kept, "skipped": total.Skipped, "failed": total.Failed, "remaining": total.Remaining}
+	if total.Stopped != "" {
+		counts["stopped"] = total.Stopped
+	}
+	return AttemptResult{Status: status, Result: counts}, nil
 }
 
 func (s *SourceSteps) mediaBounds() mediadownload.Bounds {

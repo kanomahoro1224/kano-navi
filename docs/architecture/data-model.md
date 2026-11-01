@@ -42,13 +42,13 @@ own transaction, and the selected profile media is reconciled with its files
 | `media_versions`         | Earlier cached files of an asset whose bytes a revalidation replaced                                   |
 | `sync_runs`              | Status, counts, error summaries, trigger, and asynchronous job identity                                |
 | `sync_state`             | Durable per-account X, YouTube and Bilibili cursors, read bookkeeping and X API chain state            |
-| `app_settings`           | Model, schedule-extractor, X-account, Featured, and YouTube push settings (push secret sealed)         |
+| `app_settings`           | Model, extractor, X-account, Featured, YouTube push and proxy settings (secrets sealed)                |
 | `schedule_extractions`   | Versioned LLM inputs, outcomes, and structured result metadata                                         |
 | `post_llm_states`        | Per-post LLM status, last attempt, error, reprocess queue state, and extraction failure backoff        |
 | `schedule_asset_reviews` | Per-schedule-image LLM verdict, skip reason (`no_image` for a URL-less row), and optional manual label |
 | `llm_providers`          | OpenAI-compatible or Anthropic endpoints, Text/Image capabilities, health, and encrypted keys          |
 | `llm_models`             | Per-provider model catalog with tags (`text`/`image` routing; `reasoning`/`tools`/`embedding` labels)  |
-| `llm_route_targets`      | The ordered provider + model failover queue (`route = 'schedule'`) shared by every extraction stage    |
+| `llm_route_targets`      | The ordered provider + model failover queues: `schedule`, `verify` and `translate`                     |
 | `llm_route_providers`    | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
 | `source_schedules`       | Each source's timer, sync setting and method chain                                                     |
 | `workflows`              | Saved workflow definitions (ADR-0003): kept in the schema, created empty, never read or written        |
@@ -93,7 +93,7 @@ index admits one queued or running run at a time. `capability` keeps its
 constrained values (`synthetic`, `x_recent`, `capability_not_migrated`);
 `adapter_capability` names the adapter that runs the step (`x_recent`,
 `youtube_recent`, `bilibili_recent`, `youtube_live`, `media_download`,
-`schedule_extract`, `text_translate` or `event_reconcile`), and a step with
+`schedule_extract`, `text_translate`, `media_variants` or `event_reconcile`), and a step with
 neither finishes `blocked`. `recovery_count` counts how often a run was
 queued again by a retry or by recovery from an expired lease. Finished runs
 and their steps, attempts and `sync_runs` rows are deleted after their
@@ -133,8 +133,8 @@ zero, and the first read of a new day starts it over.
 `backend/internal/store/sqlite/static-seed.json` holds the static profile,
 milestone timeline, and resource directory. Every open inserts the static IDs
 that are missing, plus the `dashboard_revision`, the default `x_accounts`
-and the `llm_route_targets_migrated` marker when absent. New environments
-have no X posts, events, YouTube videos, Featured item, schedule assets, or
+and the `llm_route_targets_migrated` and `llm_verify_queue_seeded` markers when
+absent. New environments have no X posts, events, YouTube videos, Featured item, schedule assets, or
 LLM providers/models/routes.
 `kano-go seed` (`npm run seed`) creates or upgrades the database and fills
 missing static IDs; `-overwrite` restores the shipped profile, timeline and
@@ -230,8 +230,9 @@ once in the same transaction as all selected metadata updates. An unchanged
 startup does not increment it. Open boards therefore follow the revision and
 reload the repaired public profile snapshot, including its versioned avatar
 URL.
-Schedule image reviews add `llm_input_fingerprint` for content/configuration
-cache validation; a review without one is rechecked when next scanned. Automatic
+Schedule image reviews add `llm_input_fingerprint` for input cache validation
+(see [Schedule images](sources.md#schedule-images)); a review without
+one is rechecked when next scanned. Automatic
 review writes update LLM columns only. Image responses compare the captured
 `assets.asset_version`, URL and media hash inside a transaction; replacement,
 including replacing and restoring the same URL, invalidates a waiting response.
@@ -246,8 +247,13 @@ not assert that those dates were verified.
 Manual correction stores separate `manual_period_start`, `manual_period_end`,
 and `manual_period_reason`; it preserves the inferred values, source and review.
 Registration of the same image retains that correction. A different image URL
-resets its review and correction. Unknown periods stay null until corrected and
-are not assigned to a calendar week.
+resets its review and correction. `manual_image_at` records when an operator
+picked one of the post's images as the schedule image; synchronization then
+leaves the asset's image, review and correction alone. Readers derive the
+period of an asset with no stored or corrected one from its source post's
+events (basis `events`, see [Schedule images](sources.md#schedule-images));
+nothing stores it. A period that is still unknown stays null until corrected
+and is not assigned to a calendar week.
 
 Complete post `media_urls` snapshots reconcile `post-image` ownership in the
 same transaction as the post write. An empty list removes all display links;
@@ -626,11 +632,16 @@ protocols.
 `vision_capable` (API `visionCapable`) is derived from the `image`
 capability; a provider write without `capabilities` may send `visionCapable`
 instead. `llm_providers.model` is written empty and never read: providers have
-no default model. Every stage shares one priority queue. Startup folds any
-per-stage `schedule_message`, `schedule_board`, and `schedule_vision` targets
-into it in that order, keeping the first position of a repeated provider +
-model pair, and once (marker `llm_default_model_retired`) turns a target
-that followed a provider's default model into a target naming that model.
+no default model. Both detection paths share the extraction queue
+(`schedule`); the schedule-image check reads only `verify`, and translation
+only `translate`. Startup folds any per-stage `schedule_message`,
+`schedule_board`, and `schedule_vision` targets into the extraction queue in
+that order, keeping the first position of a repeated provider + model pair,
+and once (marker `llm_default_model_retired`) turns a target that followed a
+provider's default model into a target naming that model. Once more (marker
+`llm_verify_queue_seeded`, which new databases start with), it copies the
+extraction queue's image-tagged targets in their order into an empty `verify`
+queue.
 `post_llm_states.route` records which detection path (`schedule_message` or
 `schedule_board`) handled a post.
 
@@ -641,7 +652,9 @@ time the automatic scan may try it again; a positive count with a null
 `next_attempt_at` means automatic retries stopped. A success or uncertain
 outcome, cached or not, and an operator reprocess request reset all three
 (`0`, `NULL`, `NULL`); startup adds them to existing snapshots with those
-values, so a stored failure is retried once more before backing off. See [Extraction failure backoff](sources.md#extraction-failure-backoff).
+values, so a stored failure is retried once more before backing off. An
+operator's dismissal sets `status` to `dismissed` with a positive count and a
+null `next_attempt_at`, keeping `failure_fingerprint`. See [Extraction failure backoff](sources.md#extraction-failure-backoff).
 
 `internal/httpapi/media.go` and `internal/store/sqlite/media.go` own cache-root
 path validation and serving; `internal/store/sqlite/source_write.go` owns

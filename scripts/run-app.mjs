@@ -8,7 +8,7 @@
 //   preview [vite args]  backend on KANO_API_PORT + Vite preview of dist/
 //   server               backend only on KANO_API_PORT (pair with `vite`)
 //   start                the whole site from the backend on PORT
-//   seed | sync | migrate-llm [flags]  one-shot maintenance commands
+//   seed | sync | migrate-llm | variants [flags]  one-shot maintenance commands
 import { spawn, spawnSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -33,6 +33,7 @@ const modes = [
   "seed",
   "sync",
   "migrate-llm",
+  "variants",
 ]
 const mode = modes.includes(first) ? first : "dev"
 const args = modes.includes(first) ? rest : process.argv.slice(2)
@@ -97,7 +98,7 @@ for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => stop(0))
 
 if (mode === "start") {
   start(binary, ["serve", ...args])
-} else if (["seed", "sync", "migrate-llm"].includes(mode)) {
+} else if (["seed", "sync", "migrate-llm", "variants"].includes(mode)) {
   start(binary, [mode, ...args])
 } else {
   start(binary, ["serve", "-listen", `127.0.0.1:${apiPort}`])

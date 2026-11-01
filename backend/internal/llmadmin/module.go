@@ -293,6 +293,8 @@ type llmResponse struct {
 	Providers []Provider    `json:"providers"`
 	Models    []Model       `json:"models"`
 	Queue     []RouteTarget `json:"queue"`
+	// VerificationQueue is the separate schedule-image check route.
+	VerificationQueue []RouteTarget `json:"verificationQueue"`
 	// TranslationQueue is the separate translation route.
 	TranslationQueue []RouteTarget `json:"translationQueue"`
 	ModelTags        []string      `json:"modelTags"`
@@ -305,7 +307,9 @@ func (m *Module) getLLM(w http.ResponseWriter, r *http.Request) {
 	if response.Providers, err = ListProviders(ctx, m.db); err == nil {
 		if response.Models, err = ListModels(ctx, m.db, ""); err == nil {
 			if response.Queue, err = QueueTargets(ctx, m.db); err == nil {
-				response.TranslationQueue, err = RouteTargets(ctx, m.db, TranslationRoute)
+				if response.VerificationQueue, err = RouteTargets(ctx, m.db, VerifyRoute); err == nil {
+					response.TranslationQueue, err = RouteTargets(ctx, m.db, TranslationRoute)
+				}
 			}
 		}
 	}
@@ -722,15 +726,16 @@ func (m *Module) putQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	// route selects the schedule queue (the default) or the translation queue.
+	// route selects the extraction queue (the default), the schedule-image
+	// check queue or the translation queue.
 	route := QueueRoute
 	if value, present := body["route"]; present {
-		if name, _ := value.(string); name == QueueRoute || name == TranslationRoute {
-			route = name
-		} else {
-			m.fail(w, httpx.Invalid("route must be schedule or translate"))
+		name, _ := value.(string)
+		if queueRoute(name) == nil {
+			m.fail(w, httpx.Invalid("route must be schedule, verify or translate"))
 			return
 		}
+		route = name
 	}
 	var queue []RouteTarget
 	err = m.write(ctx, func(tx *sql.Tx) error {

@@ -16,7 +16,7 @@ import {
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
-import { formatDateTime } from "@/admin/format"
+import { japanStamp } from "@/admin/format"
 import type {
   ProfileMedia,
   ProfileMediaState,
@@ -54,7 +54,7 @@ function useMeta() {
   return (item: ProfileMedia) =>
     [
       item.width && item.height ? `${item.width}×${item.height}` : "",
-      formatDateTime(item.updatedAt, locale),
+      japanStamp(item.updatedAt),
     ].filter(Boolean)
 }
 
@@ -485,10 +485,7 @@ export function ProfileView(_: ViewProps) {
   const items = state ? ordered(state.items) : []
   return (
     <div className="adm-view">
-      <PageHeader
-        title={t("admin.profile.title")}
-        description={t("admin.profile.description")}
-      />
+      <PageHeader title={t("admin.profile.title")} />
       {!state ? (
         <Loading />
       ) : (

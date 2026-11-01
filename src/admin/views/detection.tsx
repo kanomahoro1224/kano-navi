@@ -181,15 +181,16 @@ function ExtractionPanel() {
   )
 }
 
-/** Which model each model stage calls first; the queue itself is on the LLM page. */
+/** Which model each model stage calls first; the queues themselves are on the LLM page. */
 function ModelSummary({ onOpen }: { onOpen: () => void }) {
   const { t } = useAppSettings()
   const { api } = useAdmin()
   const catalog = useResource(() => api.llm(), [])
   const data = catalog.data
   const stages = [
-    { key: "text", needs: "text" as const },
-    { key: "image", needs: "image" as const },
+    { key: "text", needs: "text" as const, queue: data?.queue },
+    { key: "image", needs: "image" as const, queue: data?.queue },
+    { key: "verify", needs: "image" as const, queue: data?.verificationQueue },
   ]
   return (
     <Panel
@@ -206,7 +207,7 @@ function ModelSummary({ onOpen }: { onOpen: () => void }) {
       ) : (
         <ul className="adm-stage-models">
           {stages.map((stage) => {
-            const first = firstUsable(data, data.queue, stage.needs)
+            const first = firstUsable(data, stage.queue || [], stage.needs)
             return (
               <li key={stage.key}>
                 <span>{t(`admin.detection.stage.${stage.key}`)}</span>

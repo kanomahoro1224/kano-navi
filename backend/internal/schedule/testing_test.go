@@ -154,13 +154,25 @@ func (f *fixture) addProvider(id, protocol, baseURL, model, capabilities string)
 		VALUES (?, ?, ?, 1, ?, ?)`, id, model, capabilities, testTimestamp, testTimestamp)
 }
 
-// queue appends each provider's first catalog model to the priority queue.
+// queue appends each provider's first catalog model to the extraction queue.
 func (f *fixture) queue(providerIDs ...string) {
+	f.t.Helper()
+	f.queueOn(routeQueue, providerIDs...)
+}
+
+// queueVerify appends each provider's first catalog model to the
+// schedule-image check queue.
+func (f *fixture) queueVerify(providerIDs ...string) {
+	f.t.Helper()
+	f.queueOn(routeVerify, providerIDs...)
+}
+
+func (f *fixture) queueOn(route string, providerIDs ...string) {
 	f.t.Helper()
 	for _, id := range providerIDs {
 		f.exec(`INSERT INTO llm_route_targets (route, provider_id, model_id, priority, created_at, updated_at)
 			VALUES (?, ?, (SELECT model_id FROM llm_models WHERE provider_id = ? ORDER BY rowid LIMIT 1),
-			(SELECT COUNT(*) FROM llm_route_targets WHERE route = ?), ?, ?)`, routeQueue, id, id, routeQueue, testTimestamp, testTimestamp)
+			(SELECT COUNT(*) FROM llm_route_targets WHERE route = ?), ?, ?)`, route, id, id, route, testTimestamp, testTimestamp)
 	}
 }
 

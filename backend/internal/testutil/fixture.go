@@ -70,7 +70,7 @@ func NewSnapshot(t testing.TB) string {
 		CREATE TABLE resources (id INTEGER PRIMARY KEY, title TEXT NOT NULL, detail TEXT, icon TEXT, tone TEXT, url TEXT NOT NULL, sort_order INTEGER DEFAULT 0, raw_json TEXT);
 		CREATE TABLE assets (
 			id TEXT PRIMARY KEY, kind TEXT NOT NULL, url TEXT NOT NULL, source_url TEXT, alt TEXT, week_start TEXT, source_account TEXT,
-			updated_at TEXT, raw_json TEXT, period_start TEXT, period_end TEXT, period_basis TEXT, manual_period_start TEXT, manual_period_end TEXT, asset_version INTEGER NOT NULL DEFAULT 0
+			updated_at TEXT, raw_json TEXT, period_start TEXT, period_end TEXT, period_basis TEXT, manual_period_start TEXT, manual_period_end TEXT, asset_version INTEGER NOT NULL DEFAULT 0, manual_image_at TEXT
 		);
 		CREATE TABLE schedule_asset_reviews (
 			asset_id TEXT PRIMARY KEY, llm_status TEXT NOT NULL DEFAULT 'pending', manual_status TEXT NOT NULL DEFAULT 'unreviewed', updated_at TEXT NOT NULL DEFAULT ''

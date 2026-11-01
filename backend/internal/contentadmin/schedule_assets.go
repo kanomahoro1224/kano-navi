@@ -14,8 +14,16 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
-// scheduleAsset is one schedule image with its review state and the browser
-// safe media reference. The source post text never leaves the server.
+// scheduleSourcePost is the stored post that published a schedule image:
+// its wording as the console shows it, and its publication time.
+type scheduleSourcePost struct {
+	Text        string `json:"text"`
+	PublishedAt string `json:"publishedAt"`
+}
+
+// scheduleAsset is one schedule image with its review state, its source
+// post and the browser safe media reference. The board gate's input (a
+// stored raw_json search text) never leaves the server.
 type scheduleAsset struct {
 	ID                  string   `json:"id"`
 	Kind                string   `json:"kind"`
@@ -50,21 +58,31 @@ type scheduleAsset struct {
 	MediaID             *string  `json:"mediaId"`
 	MediaStatus         string   `json:"mediaStatus"`
 	MediaSourceURL      *string  `json:"mediaSourceUrl"`
+	// SourcePost is nil when the source post is not stored.
+	SourcePost *scheduleSourcePost `json:"sourcePost"`
 }
+
+// schedulePeriod is the covered dates of the asset row a (see
+// sqlite.SchedulePeriodSQL).
+var schedulePeriod = sqlite.SchedulePeriodSQL("a")
 
 // The source post text is read from raw_json so a quoted post counts the same
 // way it did when synchronization promoted the image.
-const scheduleAssetColumns = `
+var scheduleAssetColumns = `
   a.id, a.kind, a.url, a.source_url,
-  a.alt, COALESCE(date(a.manual_period_start, 'weekday 0', '-6 days'), a.week_start),
-  COALESCE(a.manual_period_start, a.period_start),
-  COALESCE(a.manual_period_end, a.period_end),
-  CASE WHEN a.manual_period_start IS NOT NULL THEN 'manual' ELSE a.period_basis END,
-  a.period_start, a.period_end,
+  a.alt, ` + schedulePeriod.WeekStart + `,
+  ` + schedulePeriod.Start + `,
+  ` + schedulePeriod.End + `,
+  ` + schedulePeriod.Basis + `,
+  ` + schedulePeriod.InferredStart + `, ` + schedulePeriod.InferredEnd + `,
   a.manual_period_reason, a.source_account,
   a.updated_at, a.asset_version,
   (SELECT COALESCE(json_extract(p.raw_json, '$.search_text'), p.text)
      FROM posts p WHERE p.url = a.source_url
+     ORDER BY p.published_at DESC LIMIT 1),
+  (SELECT p.text FROM posts p WHERE p.url = a.source_url
+     ORDER BY p.published_at DESC LIMIT 1),
+  (SELECT p.published_at FROM posts p WHERE p.url = a.source_url
      ORDER BY p.published_at DESC LIMIT 1),
   r.llm_status, r.llm_confidence,
   r.llm_reason, r.llm_evidence,
@@ -96,18 +114,22 @@ func oneOf(value, fallback string, allowed ...string) string {
 func scanScheduleAsset(row rowScanner) (*scheduleAsset, error) {
 	var asset scheduleAsset
 	var sourceURL, alt, weekStart, periodStart, periodEnd, periodBasis, inferredStart, inferredEnd, periodReason sql.NullString
+	var postText, postPublishedAt sql.NullString
 	var sourceAccount, assetUpdatedAt, sourceText, llmStatus, llmReason, llmEvidence, llmModel, llmCheckedAt, fingerprint sql.NullString
 	var manualStatus, manualReason, manualCheckedAt, reviewUpdatedAt sql.NullString
 	var confidence sql.NullFloat64
 	var version sql.NullInt64
 	err := row.Scan(&asset.ID, &asset.Kind, &asset.URL, &sourceURL, &alt, &weekStart, &periodStart, &periodEnd, &periodBasis,
 		&inferredStart, &inferredEnd, &periodReason, &sourceAccount, &assetUpdatedAt, &version, &sourceText,
-		&llmStatus, &confidence, &llmReason, &llmEvidence, &llmModel, &llmCheckedAt, &fingerprint,
+		&postText, &postPublishedAt, &llmStatus, &confidence, &llmReason, &llmEvidence, &llmModel, &llmCheckedAt, &fingerprint,
 		&manualStatus, &manualReason, &manualCheckedAt, &reviewUpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	asset.SourceURL, asset.Alt, asset.WeekStart = textPointer(sourceURL), textPointer(alt), textPointer(weekStart)
+	if postText.Valid {
+		asset.SourcePost = &scheduleSourcePost{Text: postText.String, PublishedAt: postPublishedAt.String}
+	}
 	asset.PeriodStart, asset.PeriodEnd, asset.PeriodBasis = textPointer(periodStart), textPointer(periodEnd), textPointer(periodBasis)
 	asset.InferredPeriodStart, asset.InferredPeriodEnd, asset.PeriodReason = textPointer(inferredStart), textPointer(inferredEnd), textPointer(periodReason)
 	asset.SourceAccount, asset.AssetUpdatedAt = textPointer(sourceAccount), textPointer(assetUpdatedAt)
@@ -142,9 +164,19 @@ func (m *Module) getScheduleAsset(ctx context.Context, id string) (*scheduleAsse
 	return asset, m.attachMedia(ctx, asset)
 }
 
-func (m *Module) listScheduleAssets(ctx context.Context, limit int) ([]scheduleAsset, error) {
-	rows, err := m.db.QueryContext(ctx, `SELECT `+scheduleAssetColumns+scheduleAssetFrom+`WHERE a.kind = 'schedule'
-	   ORDER BY COALESCE(a.week_start, a.updated_at) DESC, a.id ASC LIMIT ?`, limit)
+// listScheduleAssets lists the newest schedule images, by period and then by
+// update; from and to, when both are dates, keep those whose period overlaps
+// them.
+func (m *Module) listScheduleAssets(ctx context.Context, limit int, from, to string) ([]scheduleAsset, error) {
+	where, args := `WHERE a.kind = 'schedule'`, []any{}
+	if _, fromOK := calendarDate(from); fromOK {
+		if _, toOK := calendarDate(to); toOK {
+			where += ` AND ` + schedulePeriod.Start + ` <= ? AND ` + schedulePeriod.End + ` >= ?`
+			args = append(args, to, from)
+		}
+	}
+	rows, err := m.db.QueryContext(ctx, `SELECT `+scheduleAssetColumns+scheduleAssetFrom+where+`
+	   ORDER BY COALESCE(`+schedulePeriod.Start+`, a.updated_at) DESC, a.id ASC LIMIT ?`, append(args, limit)...)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +272,8 @@ func boundedLimit(values []string) int {
 }
 
 func (m *Module) listScheduleAssetsRoute(w http.ResponseWriter, r *http.Request) {
-	assets, err := m.listScheduleAssets(r.Context(), boundedLimit(r.URL.Query()["limit"]))
+	query := r.URL.Query()
+	assets, err := m.listScheduleAssets(r.Context(), boundedLimit(query["limit"]), query.Get("from"), query.Get("to"))
 	if err != nil {
 		writeFailure(w, err)
 		return

@@ -291,6 +291,38 @@ func (s *Store) DueSourceSchedule(ctx context.Context, now time.Time, skip map[s
 	return nil, nil
 }
 
+// StartSourceScheduleNow makes an enabled schedule due at now, so the
+// scheduler submits it on its next tick or, while a run holds the queue,
+// once the runs due before it have started. A schedule that is already due
+// keeps its place. The claim of the timed run plans the next one as usual.
+// A disabled or never saved schedule reports ErrWorkflowValidation.
+func (s *Store) StartSourceScheduleNow(ctx context.Context, source string, now time.Time, floor int) (SourceSchedule, error) {
+	if !slices.Contains(ScheduleSources, source) {
+		return SourceSchedule{}, ErrWorkflowNotFound
+	}
+	tx, err := s.workflowTx(ctx)
+	if err != nil {
+		return SourceSchedule{}, err
+	}
+	defer tx.Rollback()
+	var enabled int
+	err = tx.QueryRowContext(ctx, `SELECT enabled FROM source_schedules WHERE source=?`, source).Scan(&enabled)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && enabled == 0) {
+		return SourceSchedule{}, ErrWorkflowValidation
+	}
+	if err != nil {
+		return SourceSchedule{}, ErrWorkflowStorage
+	}
+	stamp := workflowTime(now)
+	if _, err = tx.ExecContext(ctx, `UPDATE source_schedules SET next_run_at=? WHERE source=? AND (next_run_at IS NULL OR julianday(next_run_at)>julianday(?))`, stamp, source, stamp); err != nil {
+		return SourceSchedule{}, workflowSQLError(err)
+	}
+	if tx.Commit() != nil {
+		return SourceSchedule{}, ErrWorkflowStorage
+	}
+	return s.SourceScheduleFor(ctx, source, floor)
+}
+
 // SourceScheduleSync is how each source schedule reads X and YouTube, which
 // every run with a source step reads with, except a full sync.
 func (s *Store) SourceScheduleSync(ctx context.Context) (map[string]SourceSync, error) {

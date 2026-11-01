@@ -355,3 +355,50 @@ func TestRetriedOrRecoveredTimedRunKeepsTheSchedulePlan(t *testing.T) {
 		t.Fatalf("retry moved the plan to %v", *got.NextRunAt)
 	}
 }
+
+func TestStartingATimerNowMakesItDueInOrder(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	for _, source := range []string{"x", "youtube"} {
+		schedule := scheduleOf(t, s, source, 180)
+		schedule.Enabled = true
+		if _, err := s.SaveSourceSchedule(ctx, schedule, 180, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// YouTube is planned for 04:00; started at 03:05 it is due then.
+	started, err := s.StartSourceScheduleNow(ctx, "youtube", now.Add(5*time.Minute), 180)
+	if err != nil || *started.NextRunAt != "2026-03-02T03:05:00.000Z" {
+		t.Fatalf("start=%+v %v", started, err)
+	}
+	if _, err = s.StartSourceScheduleNow(ctx, "x", now.Add(6*time.Minute), 180); err != nil {
+		t.Fatal(err)
+	}
+	// Starting a due timer again keeps its place ahead of X.
+	if again, err := s.StartSourceScheduleNow(ctx, "youtube", now.Add(10*time.Minute), 180); err != nil || *again.NextRunAt != "2026-03-02T03:05:00.000Z" {
+		t.Fatalf("again=%+v %v", again, err)
+	}
+	if due, err := s.DueSourceSchedule(ctx, now.Add(10*time.Minute), nil, 180); err != nil || due == nil || due.Source != "youtube" {
+		t.Fatalf("due=%+v %v", due, err)
+	}
+	// A disabled or unknown timer cannot be started.
+	if _, err = s.StartSourceScheduleNow(ctx, "bilibili", now, 180); !errors.Is(err, ErrWorkflowValidation) {
+		t.Fatalf("disabled=%v", err)
+	}
+	if _, err = s.StartSourceScheduleNow(ctx, "mastodon", now, 180); !errors.Is(err, ErrWorkflowNotFound) {
+		t.Fatalf("unknown=%v", err)
+	}
+	// The timed run's claim plans the next run one interval on.
+	claim := now.Add(11 * time.Minute)
+	run, err := s.CreateWorkflowRun(ctx, WorkflowDefinition{ID: SourceScheduleWorkflow("youtube"), Steps: []string{"youtube"}}, "scheduler", "", map[string]bool{"youtube": true}, claim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.ClaimWorkflowRun(ctx, run.ID, "test", claim, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if got := scheduleOf(t, s, "youtube", 180); *got.NextRunAt != "2026-03-02T04:11:00.000Z" {
+		t.Fatalf("claimed=%v", *got.NextRunAt)
+	}
+}

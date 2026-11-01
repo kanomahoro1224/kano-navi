@@ -2,7 +2,7 @@
 // or a model provider directly; every external request is made by the server
 // after an operator action. Endpoint calls live in use-admin-data.ts.
 
-import { formatDateTime } from "@/admin/format"
+import { japanStamp } from "@/admin/format"
 
 export class ApiError extends Error {
   status: number
@@ -87,6 +87,9 @@ const errorKeys: Record<string, string> = {
   request_too_large: "admin.error.tooLarge",
   merge_conflict: "admin.error.mergeConflict",
   event_merge_conflict: "admin.error.eventMergeConflict",
+  proxy_settings_unavailable: "admin.error.proxySettingsUnavailable",
+  proxy_test_timeout: "admin.error.proxyTestTimeout",
+  proxy_test_failed: "admin.error.proxyTestFailed",
 }
 
 /** Operator-facing text for a failed request. Validation messages from the
@@ -98,7 +101,7 @@ export function errorMessage(error: any): Message {
   if (errorKeys[error.code]) return message(errorKeys[error.code])
   if (error.code === "bilibili_blocked")
     return message("admin.error.bilibiliBlocked", {
-      time: formatDateTime(error.blockedUntil, document.documentElement.lang),
+      time: japanStamp(error.blockedUntil),
     })
   if (error.code.startsWith("bilibili_"))
     return message("admin.error.bilibiliUnavailable", { code: error.code })

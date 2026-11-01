@@ -125,15 +125,15 @@ func routeForDetectionType(detectionType string) string {
 	return routeBoard
 }
 
-// configuredProviders returns the usable schedule queue targets for an input
+// configuredProviders returns the usable extraction queue targets for an input
 // mode in priority order; targets whose capabilities do not fit are skipped.
 // An empty list comes with the reason recorded on the skipped post or image.
 func (e *Extractor) configuredProviders(ctx context.Context, inputMode string) ([]provider, string, error) {
 	return e.routeProviders(ctx, routeQueue, inputMode)
 }
 
-// routeProviders resolves the targets of one queue: the schedule queue or the
-// separate translation queue.
+// routeProviders resolves the targets of one queue: the extraction queue or
+// the separate schedule-image check or translation queue.
 func (e *Extractor) routeProviders(ctx context.Context, route, inputMode string) ([]provider, string, error) {
 	targets, err := queueTargets(ctx, e.db, route)
 	if err != nil {
@@ -212,8 +212,14 @@ func (p provider) endpoint() string {
 // array element is the explicit endpoint override, which persisted providers
 // never carry, so it is always null.
 func extractorVersionFor(p provider, detectionType, inputMode string) string {
-	return extractorVersion + ":" + detectionType + ":" + inputMode + ":" + p.id + ":" + p.protocol + ":" +
+	return extractorVersionPrefix(detectionType, inputMode) + p.id + ":" + p.protocol + ":" +
 		sha256Hex(stringify([]any{p.baseURL, nil, p.model}))
+}
+
+// extractorVersionPrefix is the part of the extraction identity that does not
+// name a queue target.
+func extractorVersionPrefix(detectionType, inputMode string) string {
+	return extractorVersion + ":" + detectionType + ":" + inputMode + ":"
 }
 
 func timeoutFor(p provider) time.Duration {

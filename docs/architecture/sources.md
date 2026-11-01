@@ -753,8 +753,8 @@ short provider outage, the 24-hour wait a daily quota reset, and a post that
 still fails after about 31 hours most likely fails on its content.
 
 The backoff starts over when the input changes (edited text, publication
-time, URL or cached images), when the queue's targets or models change, and
-when an operator requests a reprocess, which also clears it immediately. A
+time, URL or cached images), when the extraction queue's targets or models
+change, and when an operator requests a reprocess, which also clears it immediately. A
 queued reprocess request always runs, whatever the backoff, and a forced pass
 that fails counts as the first failure. A success or `uncertain` result,
 including a cache hit, clears the backoff. A cancelled run is not a failure.
@@ -764,9 +764,13 @@ and stay eligible for later scans. The console shows the next retry time or
 that retries stopped next to the post's state. A failed post without a
 recorded failure count has no backoff and is tried on the next scan.
 
-Both paths, and the schedule-image check below, draw from one model priority
-queue: an ordered list of targets, each a provider plus one of its catalog
-models, and a target's capabilities are its model's `text`/`image` tags.
+An operator can dismiss a failed post. It becomes `dismissed`, leaves the
+console's failed list, and is held back like a post whose retries stopped
+until its input or targets change or an operator requests a reprocess.
+
+Both paths draw from the extraction queue: an ordered list of targets, each
+a provider plus one of its catalog models, and a target's capabilities are
+its model's `text`/`image` tags.
 Providers have no default model, and nothing reads the
 `llm_providers.model` column. A one-time startup upgrade, recorded as
 `llm_default_model_retired`, rewrites each queue target without a model
@@ -831,9 +835,14 @@ extraction metadata. The overlay applies to manually locked events too, so a man
 remain visible with the model's cancellation evidence. `not_schedule` and
 `uncertain` results only record the extraction outcome and leave existing events
 untouched. Input fingerprints (including text, publication time, URL, and cached image
-hashes), provider endpoint/model identity, and the extractor version make these
-outcomes idempotent. Successful/uncertain posts stay eligible for cache checks
-and can run again when their input or provider configuration changes. Date-only events store `starts_on`, a null `starts_at`, and
+hashes), the detection path, input mode and the extractor version make these
+outcomes idempotent. Each stored extraction also names the queue target that
+produced it, but the cache ignores that part: when the newest attempt of the
+current input is `success` or `uncertain`, any queue target's result stands,
+so adding, removing, reordering or replacing queue targets and models sends no
+post again, and an empty queue keeps the cached state. A post runs again when
+its input changes, when its newest attempt failed (under the backoff below),
+and on an operator's reprocess request. Date-only events store `starts_on`, a null `starts_at`, and
 `time_precision = unknown`; the model must not invent a specific time.
 The extractor never deduplicates against other posts or reservations beyond
 shared IDs; the later `reconcile` step gives an event for a linked YouTube
@@ -854,7 +863,7 @@ operator requested; without one, a post that a keyword path also selected
 keeps that route, image posts use `schedule_board`, and text posts use
 `schedule_message`. The route chooses the prompt path, not the models.
 
-Providers and the model queue are configured explicitly in `/admin`; initialization
+Providers and the model queues are configured explicitly in `/admin`; initialization
 does not create or enable an OpenAI provider. Provider API keys are encrypted with
 `LLM_SECRETS_KEY`; ciphertext is never returned by an API response or written
 to extraction `raw_json`. A legacy `OPENAI_API_KEY` can be imported once with
@@ -862,8 +871,15 @@ to extraction `raw_json`. A legacy `OPENAI_API_KEY` can be imported once with
 synchronization never reads that environment variable.
 Candidates from either X account use the same idempotent fingerprint and
 manual-lock rules. The stage flags are stored as `schedule_keyword_enabled`,
-`schedule_vision_enabled`, and `schedule_message_enabled` and can be changed
-independently in `/admin`. The legacy `schedule_extraction_enabled` setting
+`schedule_vision_enabled`, and `schedule_message_enabled`. The Detection page
+saves them, with `schedule_message_all_posts`, as one of two modes: keyword
+match (the three stages, not all posts) or everything to the LLM (the message
+stage on all posts); `PUT /api/admin/extraction` accepts any combination.
+Once (marker `schedule_detection_mode_settled`), the first standalone start
+stores running flags that match neither mode as everything to the LLM when
+the message stage runs on all posts and as keyword match otherwise. Flags that
+already match a mode, from storage or the environment, and flags with no stage
+running are not written. The legacy `schedule_extraction_enabled` setting
 (or `SCHEDULE_EXTRACTION_ENABLED`) is only the default for a stage flag that
 is not set; it is not a runtime master switch, so an enabled stage runs even
 when it contains `0`. `schedule_message_all_posts` is off unless set
@@ -946,10 +962,21 @@ with the post, and with the page's continuation checkpoint for a manual fetch.
 Registration does not run extraction or approve an image, and it writes no
 period.
 
+An operator can also make any of an X post's own images its schedule asset
+from the console's post dialog, with a required reason and optional period.
+The pick labels the asset `schedule` and sets `manual_image_at`; a different
+image than the asset showed returns its model verdict to `pending`. Later
+synchronization keeps a picked asset's image, review and period.
+
 A schedule asset's period is `period_start`/`period_end` with its
 `period_basis`; the schema upgrade that adds these columns fills them from a
-stored `week_start` as a seven-day period. An asset without a period is unknown and labelled so
-in the console. Operators set or correct a period with a required reason
+stored `week_start` as a seven-day period. The image check does not read
+dates, so an asset without a stored period takes the whole Monday-to-Sunday
+weeks around the live (not deleted) events extracted from its source post,
+with basis `events` (`SchedulePeriodSQL`,
+`backend/internal/store/sqlite/schedule_period.go`). Readers compute it on
+every request, so it follows later extractions and event edits. An asset
+whose post has no events is unknown and labelled so in the console. Operators set or correct a period with a required reason
 (`manual_period_start`, `manual_period_end`, `manual_period_reason`)
 independently of image approval, and the manual period wins. The dashboard
 and calendar list an approved asset only while its period overlaps the
@@ -963,12 +990,13 @@ A schedule image (`assets.kind = schedule`) is public only after two gates:
    its text) reads as a weekly or multi-day board notice. The stored post `label` is not part of that input, because the
    looser post classifier labels any `配信予定` post as `SCHEDULE / 日程`.
 2. The automatic scan sends each unreviewed candidate's ready cached image,
-   without the post text, to the first image-capable targets of the model
-   queue and records `schedule`, `not_schedule`, or `uncertain` in
-   `schedule_asset_reviews`. A candidate whose source post does not pass
+   without the post text, to the separate schedule-image check queue
+   (`llm_route_targets.route = 'verify'`), whose targets need the `image` tag
+   and which never falls back to the extraction queue, and records
+   `schedule`, `not_schedule`, or `uncertain` in `schedule_asset_reviews`. A candidate whose source post does not pass
    gate 1 is recorded as `skipped` / `source_not_board` without a model
-   call. A pending cache, or no keyed Image provider, is also `skipped` and
-   retried. An asset without an image URL, such as a `weekly-schedule`
+   call. A pending cache, or no queued, keyed Image model, is also `skipped`
+   and retried. An asset without an image URL, such as a `weekly-schedule`
    alias row, has nothing to download: it is recorded once as `skipped` /
    `no_image` and left out of later scans, forced ones included, until a
    writer gives it a URL. It is never public and never counts as needing
@@ -986,8 +1014,12 @@ URL, its `asset_version` increases and its model verdict returns to
 Image review budgets apply after cache checks and manual-label filtering across
 all stored candidates, rather than only the newest page. Retry order follows
 the least recent check/review attempt. Reviews persist an input fingerprint
-including image hash, source gate input, and ordered provider/model targets;
-changed content or configuration can invalidate a successful verdict.
+of the extractor version, image hash and source post URL. A `schedule`,
+`not_schedule` or `uncertain` verdict for the current fingerprint stands
+whichever check-queue target gave it, so adding, removing, reordering or
+replacing targets and models sends no image again, and an empty queue keeps
+the verdict. An image is checked again when its image or source changes, when its last
+check failed, and in a forced pass.
 
 ### Translation
 
@@ -997,7 +1029,7 @@ into English and Simplified Chinese (see
 Bilibili metadata is already Chinese and is never sent to a model, and the
 step never requests a source. Its models come only from the separate
 translation queue (`llm_route_targets.route = 'translate'`), configured in
-`/admin` → Models; it never falls back to the schedule queue. Targets need
+`/admin` → Models; it never falls back to the extraction queue. Targets need
 the `text` tag. Each target gets at most three calls before moving to the
 next configured target, in queue order.
 Without a usable target the step records `disabled` with the reason and

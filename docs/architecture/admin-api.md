@@ -4,7 +4,7 @@ The operator console at `/admin` is the only client of `/api/admin`. The API
 is a resource-oriented JSON surface served by `backend/internal/adminapi`,
 which owns one route table (Go `http.ServeMux` method patterns), the session
 and origin guards, and the shared response conventions. Feature packages
-(`llmadmin`, `contentadmin`, YouTube `websub`) contribute route handlers;
+(`llmadmin`, `contentadmin`, `outboundproxy`, YouTube `websub`) contribute route handlers;
 they do not route paths themselves.
 
 MCP (`/mcp`) is a separate boundary with its own projections and never reuses
@@ -54,6 +54,7 @@ external work:
   "recentRuns": [Run],            // newest 6
   "scheduler": {"enabled", "running", "tickSeconds"},
   "timers": {"scheduled", "nextRunAt"},
+  "queue": [{"kind", "source"?, "nextRunAt", "due"}],
   "sources": {
     "x":       {"skipped", "lastSuccessAt", "lastStep"},
     "youtube": {"skipped", "lastSuccessAt", "lastStep", "push": {"enabled", "verified"}},
@@ -62,7 +63,9 @@ external work:
   "review": {
     "pendingImages",          // unlabelled images with a URL the model has not settled (pending, uncertain, failed)
     "suspectedCancellations", // events with an LLM cancellation overlay
-    "failedPosts",            // posts whose last extraction failed
+    "failedPosts",            // posts with a failed extraction or translation
+    "failedExtractions",      // posts whose last extraction failed
+    "failedTranslations",     // X posts whose current wording failed machine translation and still lacks a translation
     "reprocessRequested",     // posts queued for re-extraction
     "videoMerges"             // unmerged Bilibili uploads the merge rule leaves to the operator
   },
@@ -72,6 +75,12 @@ external work:
 
 `timers` counts the enabled [source schedules](#sources) this process runs
 (not those disabled by `SKIP_*`) and the earliest planned run among them.
+`queue` lists the timed work in the order it reaches the single-flight
+queue: each of those schedules (`kind: "source"` with its `source`) and the
+[live-status probe](workflows.md#live-status-probe) when it has a next run
+(`kind: "live-probe"`), by planned run and then by source, as the scheduler
+picks due schedules. `due` is true once `nextRunAt` has passed; a due entry
+waits for the current run and the entries due before it.
 
 `lastSuccessAt` is the newest successful incremental read of the source
 (`sync_state.last_success_at`). `lastStep` is `{runId, status, finishedAt}` of
@@ -91,8 +100,23 @@ mainland China site suggestion. It defaults to `false`.
 The setting is stored in `app_settings` as `visitor_region_enabled`,
 `visitor_region_provider_name`, `visitor_region_provider_url` and
 `visitor_region_mirror_url`. Enabling it requires a provider name and absolute
-HTTP(S) URLs for the provider website and mirror site. It only enables the
-same-origin country-code check described in the [public API](public-api.md#public-snapshot-contract); it never sends an IP to a geolocation service.
+HTTP(S) URLs for the provider website and mirror site. It publishes the site
+and the same-origin country-code check described in the [public API](public-api.md#public-snapshot-contract); it never sends an IP to a geolocation service.
+
+### Image copies
+
+| Method and path       | Query          | Result                |
+| --------------------- | -------------- | --------------------- |
+| `GET /media/variants` | `refresh` (=1) | `{groups, checkedAt}` |
+
+`groups` is the [status](media-cache.md#copy-groups) of the `lineblog`,
+`history` and `media` groups in that order, each `{group, originals, ready,
+unhashed, widths: [{width, copies, kept, missing}]}`, and `checkedAt` is when
+it was listed. The listing is answered again until another run finishes, or
+made anew with `refresh=1` ([Copies Run](media-cache.md#copies-run)). A
+process without the service's data directory and built site answers
+`503 unavailable`. The copies themselves are made by
+`POST /runs {"kind": "variants"}`.
 
 ## Runs
 
@@ -100,7 +124,7 @@ A run is one single-flight unit of work on the durable workflow queue. Its
 shape is the `jobs.Job` projection shared with MCP control tools:
 `{id, kind, status, createdAt, startedAt, finishedAt, triggeredBy, workflowId,
 sourceSchedule, steps, progress, fetchWindows, result, error, run}` where
-`kind` is `sync`, `scan`, `translate`, `workflow` or `live` (the YouTube
+`kind` is `sync`, `scan`, `translate`, `variants`, `workflow` or `live` (the YouTube
 live-status probe, started only by its timer with `triggeredBy:
 "live-probe"` and the one step `live`), `status` is `queued`, `running`,
 `completed` or `failed`, and `progress` maps each step to `pending`,
@@ -127,6 +151,9 @@ a saved workflow reports that ID there, and its name is not read.
 - `{"kind": "sync"}`: every source, media, schedule and translate step.
 - `{"kind": "scan"}`: the automatic schedule extraction only.
 - `{"kind": "translate"}`: the translate step only.
+- `{"kind": "variants"}`: the `variants` step only, the
+  [copies run](media-cache.md#copies-run). A process without the service's
+  data directory and built site answers `400 invalid_input`.
 - `{"kind": "workflow", "steps": ["x", "translate"]}`: a one-off step run.
   Known catalog steps run once in catalog order; an empty list or another
   value is `400 invalid_input`. Source steps read as their
@@ -179,6 +206,7 @@ value, and another field or value answers `400 invalid_input`.
 | ------------------------------------------ | ----------------------------------------- | ------------------------------ |
 | `GET /sources`                             |                                           | per-source status (below)      |
 | `PUT /sources/{source}/schedule`           | `{enabled, intervalMinutes, sync, chain}` | `SourceSchedule`               |
+| `POST /sources/{source}/schedule/start`    |                                           | `SourceSchedule`               |
 | `POST /sources/{source}/run`               |                                           | `202 {run}`; `409 busy`        |
 | `GET /sources/youtube/push`                |                                           | push status                    |
 | `PUT /sources/youtube/push`                | `{enabled, callbackUrl}`                  | push status                    |
@@ -241,8 +269,20 @@ schedule or changing its interval plans the next run one interval later,
 with the timer's [random offset](workflows.md#source-schedules); a sync
 change alone keeps the plan.
 
-`POST /sources/{source}/run` is **Run now**: it submits the source's fixed
-chain once, triggered by the operator and read with the schedule's sync
+`POST /sources/{source}/schedule/start` starts a timer, as **Start now** on
+the overview queue and **Run now** on the Sources page while the timer runs
+do: it makes an enabled schedule due at once (a schedule already due keeps
+its place) and asks the scheduler to submit the earliest due schedule
+immediately. While a run holds the queue the schedule waits as **Run next**
+and starts after the current run and the schedules due before it. The
+submitted run is the timer's own, so its claim plans the following run (see
+[Source schedules](workflows.md#source-schedules)). It answers
+`404 not_found` for another source and `400 invalid_input` while `SKIP_*`
+disables the source, while timers do not run in this process or while the
+schedule is off.
+
+`POST /sources/{source}/run` is **Run now** while the timer is off or
+timers do not run in the process: it submits the source's fixed chain once, triggered by the operator and read with the schedule's sync
 setting and method chain, and answers `202 {run}` or `409 {error: "busy", run}` while the
 queue is occupied. It does not move the schedule's `nextRunAt`. It answers
 `404 not_found` for another source and `400 invalid_input` while `SKIP_*`
@@ -318,11 +358,18 @@ unmerging and edits advance the dashboard revision.
 
 ## Schedule images
 
-| Method and path                     | Body / query           | Result                                    |
-| ----------------------------------- | ---------------------- | ----------------------------------------- |
-| `GET /schedule-images`              | `limit` (≤ 200)        | `{items}`                                 |
-| `POST /schedule-images/{id}/review` | `{status, reason}`     | `{image}`; `404 schedule_image_not_found` |
-| `PUT /schedule-images/{id}/period`  | `{start, end, reason}` | `{image}`                                 |
+| Method and path                     | Body / query                  | Result                                    |
+| ----------------------------------- | ----------------------------- | ----------------------------------------- |
+| `GET /schedule-images`              | `limit` (≤ 200), `from`, `to` | `{items}`                                 |
+| `POST /schedule-images/{id}/review` | `{status, reason}`            | `{image}`; `404 schedule_image_not_found` |
+| `PUT /schedule-images/{id}/period`  | `{start, end, reason}`        | `{image}`                                 |
+
+`from` and `to`, both dates, keep the images whose period overlaps them; the
+list is ordered by period start, newest first. `periodBasis` is `events` for
+a period derived from the source post's events, and `inferredPeriodStart` and
+`inferredPeriodEnd` give the period without the manual correction.
+`sourcePost` is the stored source post's `text` and `publishedAt`, or `null`;
+the board gate's stored search text stays on the server.
 
 `status` is `schedule`, `not_schedule` or `unreviewed` (which clears the
 label; the others require `reason`). A `schedule` label is the manual gate
@@ -333,17 +380,23 @@ alias); `none` never needs review and keeps `previewUrl` null.
 
 ## Posts
 
-| Method and path                | Body / query                                                                                               | Result        |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------- |
-| `GET /posts`                   | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `reprocess`, `translation` | list of posts |
-| `PUT /posts/{id}/hidden`       | `{hidden}`                                                                                                 | `{state}`     |
-| `POST /posts/{id}/reprocess`   | `{route?}`                                                                                                 | `{state}`     |
-| `PUT /posts/{id}/quote/hidden` | `{hidden}`                                                                                                 | `{state}`     |
-| `POST /posts/{id}/refresh`     | none                                                                                                       | `{state}`     |
+| Method and path                  | Body / query                                                                                               | Result                           |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `GET /posts`                     | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `reprocess`, `translation` | list of posts                    |
+| `PUT /posts/{id}/hidden`         | `{hidden}`                                                                                                 | `{state}`                        |
+| `POST /posts/{id}/reprocess`     | `{route?}`                                                                                                 | `{state}`                        |
+| `POST /posts/{id}/dismiss`       | none                                                                                                       | `{state}`; `409 post_not_failed` |
+| `POST /posts/reprocess`          | `{ids}`                                                                                                    | `{queued}`                       |
+| `POST /posts/dismiss`            | `{ids}`                                                                                                    | `{dismissed}`                    |
+| `PUT /posts/{id}/schedule-image` | `{index, reason, start?, end?}`                                                                            | `{image}`                        |
+| `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                                 | `{state}`                        |
+| `POST /posts/{id}/refresh`       | none                                                                                                       | `{state}`                        |
 
 `account` is an X handle, matched without case or a leading `@`; `llm` is `never`, `pending`, `processed`, `failed`,
-`skipped` or `uncertain`; `reprocess=1` keeps only queued posts;
-`translation` is `incomplete`, `complete` or `requested`.
+`dismissed`, `skipped` or `uncertain`; `reprocess=1` keeps only queued posts;
+`translation` is `incomplete`, `complete`, `requested` or `failed` (the
+machine pass of the current wording failed and a locale still lacks a usable
+translation).
 
 `from` and `to` are inclusive Asia/Tokyo publication dates. Search matches
 text, URL, image alt text and the stored post ID before pagination, so older
@@ -356,6 +409,25 @@ no longer retries its current input (see
 [Failure backoff](sources.md#extraction-failure-backoff)). Both stay
 `null`/`false` for other posts and for a post with a queued reprocess request,
 which runs regardless. `POST /posts/{id}/reprocess` clears the backoff.
+`POST /posts/{id}/dismiss` turns a `failed` extraction into `dismissed` and
+stops its automatic retries (see
+[Failure backoff](sources.md#extraction-failure-backoff)); any other state
+answers `409 post_not_failed`.
+
+`POST /posts/reprocess` and `POST /posts/dismiss` apply the same changes to
+1 to 200 listed posts in one transaction. They skip unknown IDs and, for a
+dismissal, posts whose extraction has not failed, and answer how many posts
+they queued or dismissed; a reprocess keeps each stored route.
+
+`scheduleImage` is the post's schedule image record, or `null`: its asset
+`id`, the `index` of the post's own image it shows (`null` for none of them),
+`llmStatus`, `manualStatus` and `picked`. `PUT /posts/{id}/schedule-image`
+makes the X post's image at `index` (in `media` order) its schedule image,
+labelled `schedule` with the required `reason` (see
+[Schedule images](sources.md#schedule-images)). `start` and `end` set its
+manual period and come together; without them the stored manual period stays.
+An unknown or non-X post answers `404 post_not_found`, and an index without
+an image `400`.
 
 An X post carries `translation` (see [Translations](#translations)); other
 posts carry `null`. `GET /videos` does the same for YouTube videos.
@@ -588,36 +660,61 @@ means the requests wait for the next translate step.
 
 ## Extraction and models
 
-| Method and path                          | Body                                                                                       | Result                                                    |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| `GET /extraction`                        |                                                                                            | extraction settings                                       |
-| `PUT /extraction`                        | any subset of `{keywordEnabled, visionEnabled, messageEnabled, messageAllPosts, keywords}` | extraction settings                                       |
-| `GET /llm`                               |                                                                                            | `{providers, models, queue, translationQueue, modelTags}` |
-| `POST /llm/providers`                    | provider fields                                                                            | `201 {provider}`                                          |
-| `PUT /llm/providers/{id}`                | provider fields                                                                            | `{provider}`                                              |
-| `DELETE /llm/providers/{id}`             |                                                                                            | `204`                                                     |
-| `POST /llm/providers/{id}/test`          | `{model?}`                                                                                 | `{ok, method, model, remoteModelCount, provider}`         |
-| `POST /llm/providers/{id}/discover`      |                                                                                            | `{provider, models}` remote catalog                       |
-| `POST /llm/providers/{id}/models`        | `{models, origin?}`                                                                        | `201 {provider, models}`                                  |
-| `PUT /llm/providers/{id}/models`         | one model `{id, ...}`                                                                      | `{provider, model, models}`                               |
-| `POST /llm/providers/{id}/models/remove` | `{ids}`                                                                                    | `{provider, models, removed}`                             |
-| `PUT /llm/queue`                         | `{route?, targets: [{providerId, modelId}]}`                                               | `{route, queue}`                                          |
+| Method and path                          | Body                                                                                       | Result                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `GET /extraction`                        |                                                                                            | extraction settings                                                          |
+| `PUT /extraction`                        | any subset of `{keywordEnabled, visionEnabled, messageEnabled, messageAllPosts, keywords}` | extraction settings                                                          |
+| `GET /llm`                               |                                                                                            | `{providers, models, queue, verificationQueue, translationQueue, modelTags}` |
+| `POST /llm/providers`                    | provider fields                                                                            | `201 {provider}`                                                             |
+| `PUT /llm/providers/{id}`                | provider fields                                                                            | `{provider}`                                                                 |
+| `DELETE /llm/providers/{id}`             |                                                                                            | `204`                                                                        |
+| `POST /llm/providers/{id}/test`          | `{model?}`                                                                                 | `{ok, method, model, remoteModelCount, provider}`                            |
+| `POST /llm/providers/{id}/discover`      |                                                                                            | `{provider, models}` remote catalog                                          |
+| `POST /llm/providers/{id}/models`        | `{models, origin?}`                                                                        | `201 {provider, models}`                                                     |
+| `PUT /llm/providers/{id}/models`         | one model `{id, ...}`                                                                      | `{provider, model, models}`                                                  |
+| `POST /llm/providers/{id}/models/remove` | `{ids}`                                                                                    | `{provider, models, removed}`                                                |
+| `PUT /llm/queue`                         | `{route?, targets: [{providerId, modelId}]}`                                               | `{route, queue}`                                                             |
 
 Extraction settings are `{enabled, keywordEnabled, visionEnabled,
 messageEnabled, messageAllPosts, keywords}`; `enabled` is derived: the message
 stage alone, or keyword candidates plus boards. `messageAllPosts` makes the
 message stage select every post instead of only heuristic matches. `queue` is
-the single ordered `[{providerId, modelId}]` list every extraction stage draws
+the ordered `[{providerId, modelId}]` extraction list both detection paths draw
 from; every target names a catalog model (`modelId` is required), and a save
 replaces the whole list. `route` selects the queue a save replaces: `schedule`
-(the default) or `translate`, the separate `translationQueue` of the
-translate step, whose targets must carry the `text` tag. Removing a model
-removes its targets from both. Providers have no default model: a provider response
+(the default); `verify`, the separate `verificationQueue` of the schedule-image
+check, whose targets must carry the `image` tag; or `translate`, the separate
+`translationQueue` of the translate step, whose targets must carry the `text`
+tag. Removing a model removes its targets from every queue. Providers have no default model: a provider response
 carries no `model` field, a `model` field in a provider write is ignored, and a
 provider test without `{model}` only lists the provider's models. Creating a
 provider or adding catalog models never queues anything. Model IDs may
 contain `/`, so model writes name the model in the body. Provider responses
 report `apiKeyConfigured` only; keys are write-only.
+
+## Outbound proxies
+
+| Method and path         | Body                                                      | Result                                                |
+| ----------------------- | --------------------------------------------------------- | ----------------------------------------------------- |
+| `GET /proxy`            |                                                           | `{proxies, routes, directFallback, areas, testAreas}` |
+| `PUT /proxy`            | any subset of `{proxies, routes, directFallback}`         | the same settings                                     |
+| `POST /proxy/{id}/test` | `{area?}` (`x`, `youtube` (default), `bilibili`, `media`) | `{ok, status?, error?, latencyMs, proxy}`             |
+
+`proxies` is the ordered queue; each proxy is `{id, name, scheme, host, port,
+username, hasPassword, passwordUnreadable, enabled, health}`, where `health`
+is `{lastSuccessAt, lastFailureAt, coolingUntil}` from this process. A save
+replaces each field it carries: `proxies` replaces the whole queue (a proxy
+without `id` is new), `routes` maps every area (`x`, `youtube`,
+`bilibili`, `media`, `llm`) to `{enabled, proxyIds}`. In a proxy write,
+an omitted `password` keeps the stored password of the proxy with the same
+`id`, `""` clears it, and a username-less proxy has none. Passwords are
+write-only. Selections drop unknown ids; an unknown area, a route turned on
+without any proxy, or an invalid protocol, address or port is
+`400 invalid_input`. Unparseable stored settings answer reads with
+`503 proxy_settings_unavailable`; a save replaces them. Storing a password
+without `LLM_SECRETS_KEY` is `503 secrets_key_unavailable`. A test reports a
+failed attempt as `200 {ok: false, error: "timeout" | "failed"}`; an unknown
+proxy is `404 proxy_not_found`. See [Outbound proxies](outbound-proxy.md).
 
 ## Related Docs
 

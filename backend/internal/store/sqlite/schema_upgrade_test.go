@@ -36,7 +36,7 @@ func olderSnapshot(t *testing.T) (string, string) {
 		`DROP INDEX posts_instant_idx`, `DROP INDEX posts_url_published_at_idx`, `DROP INDEX videos_instant_idx`, `DROP INDEX videos_schedule_instant_idx`,
 		`ALTER TABLE assets DROP COLUMN asset_version`, `ALTER TABLE assets DROP COLUMN period_start`, `ALTER TABLE assets DROP COLUMN period_end`,
 		`ALTER TABLE assets DROP COLUMN period_basis`, `ALTER TABLE assets DROP COLUMN manual_period_start`, `ALTER TABLE assets DROP COLUMN manual_period_end`,
-		`ALTER TABLE assets DROP COLUMN manual_period_reason`, `ALTER TABLE videos DROP COLUMN live_status`, `ALTER TABLE videos DROP COLUMN live_checked_at`,
+		`ALTER TABLE assets DROP COLUMN manual_period_reason`, `ALTER TABLE assets DROP COLUMN manual_image_at`, `ALTER TABLE videos DROP COLUMN live_status`, `ALTER TABLE videos DROP COLUMN live_checked_at`,
 		`ALTER TABLE profile_media DROP COLUMN active_sha256`, `ALTER TABLE profile_media DROP COLUMN active_mime_type`,
 		`ALTER TABLE profile_media DROP COLUMN download_status`, `ALTER TABLE profile_media DROP COLUMN last_download_at`,
 		`DROP INDEX schedule_asset_reviews_status_idx`, `ALTER TABLE schedule_asset_reviews DROP COLUMN llm_input_fingerprint`,
@@ -99,6 +99,7 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 	for statement, want := range map[string]string{
 		`SELECT COUNT(*) FROM pragma_table_info('media_assets') WHERE name IN('retry_attempts','next_retry_at')`:             "2",
 		`SELECT period_start||'/'||period_end||'/'||period_basis||'/'||asset_version FROM assets WHERE id='synthetic-board'`: "2026-03-02/2026-03-08/legacy/1",
+		`SELECT COUNT(*) FROM pragma_table_info('assets') WHERE name='manual_image_at'`:                                      "1",
 		`SELECT account_handle FROM posts WHERE id='synthetic-post'`:                                                         "synthetic_handle",
 		`SELECT text FROM posts WHERE id='synthetic-post'`:                                                                   "retained",
 		// An older failure starts without a backoff: the next scan retries it.
@@ -305,6 +306,68 @@ func TestStandaloneMergesStageRoutesIntoOneQueue(t *testing.T) {
 	}
 	if got := queue(); got != want {
 		t.Fatalf("second start changed the queue: %q", got)
+	}
+}
+
+func TestStandaloneSeedsVerifyQueueOnce(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "snapshot.sqlite")
+	s, err := OpenStandalone(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const stamp = "2026-03-01T00:00:00.000Z"
+	// A database from before the check had its own queue: no seed marker,
+	// and the extraction queue mixes text, image and vision-tagged models.
+	for _, statement := range []string{
+		`DELETE FROM app_settings WHERE key='llm_verify_queue_seeded'`,
+		`INSERT INTO llm_providers(id,name,base_url,model,created_at,updated_at) VALUES('alpha','Alpha','https://alpha.example.test/v1','','` + stamp + `','` + stamp + `')`,
+		`INSERT INTO llm_models(provider_id,model_id,tags_json,enabled,origin,created_at,updated_at) VALUES
+			('alpha','a-text','["text"]',1,'manual','` + stamp + `','` + stamp + `'),
+			('alpha','a-both','["text","image"]',1,'manual','` + stamp + `','` + stamp + `'),
+			('alpha','a-legacy','text, vision',0,'legacy','` + stamp + `','` + stamp + `')`,
+		`INSERT INTO llm_route_targets(route,provider_id,model_id,priority,created_at,updated_at) VALUES
+			('schedule','alpha','a-legacy',0,'` + stamp + `','` + stamp + `'),
+			('schedule','alpha','a-text',1,'` + stamp + `','` + stamp + `'),
+			('schedule','alpha','a-both',2,'` + stamp + `','` + stamp + `'),
+			('translate','alpha','a-text',0,'` + stamp + `','` + stamp + `')`,
+	} {
+		if _, err = s.db.Exec(statement); err != nil {
+			t.Fatalf("%s: %v", statement, err)
+		}
+	}
+	s.Close()
+	queues := func() string {
+		t.Helper()
+		s, err := OpenStandalone(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.Close()
+		var got sql.NullString
+		if err = s.db.QueryRow(`SELECT group_concat(route||':'||model_id||':'||priority,',') FROM
+			(SELECT * FROM llm_route_targets ORDER BY route,priority)`).Scan(&got); err != nil {
+			t.Fatal(err)
+		}
+		return got.String
+	}
+	// Image-tagged targets keep their order, disabled ones included; the
+	// other queues are unchanged.
+	want := "schedule:a-legacy:0,schedule:a-text:1,schedule:a-both:2,translate:a-text:0,verify:a-legacy:0,verify:a-both:1"
+	if got := queues(); got != want {
+		t.Fatalf("queues = %q, want %q", got, want)
+	}
+	// The seed runs once: an operator who empties the check queue keeps it
+	// empty.
+	db, err := sql.Open("sqlite", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`DELETE FROM llm_route_targets WHERE route='verify'`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	if got := queues(); got != "schedule:a-legacy:0,schedule:a-text:1,schedule:a-both:2,translate:a-text:0" {
+		t.Fatalf("second start reseeded: %q", got)
 	}
 }
 

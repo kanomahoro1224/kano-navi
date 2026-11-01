@@ -253,6 +253,23 @@
   cursor: not-allowed;
 }
 
+/* A destructive icon action; armed, it fills while it waits for the second click. */
+.adm-icon-button.is-danger {
+  color: var(--danger);
+}
+
+.adm-icon-button.is-danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.adm-icon-button.is-danger.is-armed,
+.adm-icon-button.is-danger.is-armed:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
 .adm-link {
   display: inline-flex;
   align-items: center;
@@ -460,16 +477,49 @@
   border-top: 1px solid var(--adm-line);
 }
 
+/* The header folds the rest of the summary away. */
 .adm-fetch-summary > header {
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
+}
+
+.adm-fetch-summary.is-open .adm-fold-chevron {
+  transform: rotate(180deg);
+}
+
+.adm-fetch-summary-body {
+  display: grid;
+  gap: 12px;
+}
+
+.adm-fetch-summary-body[hidden] {
+  display: none;
 }
 
 .adm-fetch-summary-title {
   display: grid;
   flex: 1;
   min-width: 0;
+}
+
+.adm-fetch-summary-title button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.adm-fetch-summary-title button:focus-visible {
+  outline: none;
+  box-shadow: var(--adm-focus);
 }
 
 .adm-fetch-summary-title small {
@@ -1088,6 +1138,51 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+/* Two labelled filters side by side: the step, then its state. */
+.adm-post-filters {
+  justify-content: flex-start;
+  gap: 12px 24px;
+}
+
+.adm-filter-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.adm-filter-label {
+  min-width: 36px;
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+@media (max-width: 560px) {
+  .adm-filter-group {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .adm-filter-group .adm-segmented {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+
+  .adm-filter-group .adm-segmented button {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  .adm-filter-group .adm-segmented button svg {
+    display: none;
+  }
 }
 
 /* ------------------------------------------------------------------ shell */
@@ -2334,8 +2429,20 @@
   font-size: 15px;
 }
 
-.adm-now.is-idle .adm-button {
+.adm-now > .adm-button {
   justify-self: start;
+}
+
+.adm-queue {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--adm-line);
+  list-style: none;
+}
+
+.adm-queue > .adm-source-row {
+  padding: 10px 0;
 }
 
 .adm-source-list {
@@ -3216,6 +3323,96 @@ blockquote.adm-verdict-reason {
   padding: 14px 16px;
   border: 1px solid var(--adm-line);
   border-radius: var(--adm-radius-sm);
+}
+
+/*
+ * A selectable row puts its selection box in a left column that spans the
+ * row, so the whole edge is the hit area. A selected row takes the accent.
+ */
+.adm-post-row.is-selectable {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 12px;
+  padding-left: 0;
+}
+
+.adm-post-row.is-selectable > :not(.adm-post-pick) {
+  grid-column: 2;
+}
+
+.adm-post-row.is-selected {
+  border-color: color-mix(in oklab, var(--adm-accent) 45%, var(--adm-line));
+  background: var(--adm-accent-soft);
+}
+
+.adm-post-pick {
+  display: flex;
+  grid-row: 1 / span 3;
+  justify-content: center;
+  margin: -14px 0;
+  padding: 16px 4px 16px 14px;
+  cursor: pointer;
+}
+
+/*
+ * The bulk bar over a selectable post list: the page-wide box and count,
+ * then the filter's actions on the right. It sticks under the top bar and
+ * takes the accent while posts are selected.
+ */
+.adm-select-bar {
+  position: sticky;
+  top: 60px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 48px;
+  margin-bottom: 12px;
+  padding: 6px 8px 6px 16px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+}
+
+.adm-select-bar.is-active {
+  border-color: color-mix(in oklab, var(--adm-accent) 45%, var(--adm-line));
+  background: color-mix(in oklab, var(--adm-accent) 8%, var(--adm-surface));
+  box-shadow: 0 6px 16px -12px rgb(0 0 0 / 0.35);
+}
+
+.adm-select-bar strong {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-select-hint {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-select-bar .adm-actions {
+  margin-left: auto;
+}
+
+/* A touch screen has no shift-click; a phone puts the actions on one row. */
+@media (pointer: coarse) {
+  .adm-select-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .adm-select-bar .adm-actions {
+    flex-wrap: nowrap;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .adm-select-bar .adm-actions > * {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+  }
 }
 
 .adm-post-meta {
@@ -4732,6 +4929,125 @@ blockquote.adm-verdict-reason {
   font-size: 12px;
 }
 
+/* The post that published a schedule image, folded on its card. */
+.adm-source-post {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--adm-line-strong);
+  font-size: 13px;
+}
+
+.adm-source-post time {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-source-post p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.adm-source-post.is-full p {
+  display: block;
+  -webkit-line-clamp: none;
+}
+
+/* Correct dates: the image and its post above the form. */
+.adm-period-reference {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.adm-period-image {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  min-height: 160px;
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-sunken);
+  color: var(--adm-muted);
+}
+
+.adm-period-image img {
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+}
+
+.adm-period-image span {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.adm-period-post {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 10px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+@media (max-width: 640px) {
+  .adm-period-reference {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The schedule images of the calendar's month, below its grid. */
+.adm-month-images {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-month-images h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* A post's own images as choices for its schedule image. */
+.adm-schedule-pick-form .adm-field,
+.adm-schedule-pick-form .adm-form-row {
+  justify-self: stretch;
+}
+
+.adm-thumb-choices.adm-schedule-pick {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  width: 100%;
+}
+
+.adm-schedule-pick-image {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: var(--adm-sunken);
+  color: var(--adm-muted);
+}
+
+.adm-schedule-pick-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .adm-video-history h3 {
   margin-bottom: 10px;
 }
@@ -5275,10 +5591,11 @@ blockquote.adm-verdict-reason {
   height: 16px;
 }
 
-/* Queues: the schedule queue beside the translation queue. */
+/* Queues: extraction, schedule-image check and translation side by side,
+   wrapping when a column would get too narrow for its model rows. */
 .adm-queues {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 20px;
 }
 
@@ -5878,7 +6195,6 @@ blockquote.adm-verdict-reason {
 }
 
 @media (max-width: 960px) {
-  .adm-queues,
   .adm-providers {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -6681,5 +6997,89 @@ blockquote.adm-verdict-reason {
     grid-row: 2;
     grid-column: 2 / -1;
     justify-content: flex-start;
+  }
+}
+
+/* Outbound proxies: the ordered queue beside the areas that use it. */
+.adm-proxy-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.adm-queue-list.adm-proxy-list li {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding-left: 8px;
+  cursor: default;
+}
+
+.adm-proxy-list li.is-off .adm-route-model > strong,
+.adm-proxy-list li.is-off .adm-proxy-endpoint-text {
+  opacity: 0.6;
+}
+
+.adm-proxy-endpoint-text {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.adm-proxy-list .adm-row-actions {
+  flex-wrap: nowrap;
+}
+
+.adm-proxy-test-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.adm-proxy-areas {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-proxy-area {
+  display: grid;
+  gap: 10px;
+}
+
+.adm-proxy-area > .adm-field,
+.adm-proxy-area > .adm-inline-error {
+  margin-left: 46px;
+}
+
+@media (max-width: 1100px) {
+  .adm-proxy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .adm-queue-list.adm-proxy-list li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .adm-proxy-list .adm-row-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .adm-proxy-endpoint.adm-form-row.is-three {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+
+  .adm-proxy-endpoint.adm-form-row.is-three > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .adm-proxy-area > .adm-field,
+  .adm-proxy-area > .adm-inline-error {
+    margin-left: 0;
   }
 }

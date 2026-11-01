@@ -1,5 +1,5 @@
 // Package llmadmin serves the operator's LLM configuration API: providers,
-// their model catalogs, the shared model priority queue and the schedule
+// their model catalogs, the model priority queues and the schedule
 // detection settings.
 //
 // Provider credentials are write-only. Neither the plaintext nor the stored
@@ -16,10 +16,13 @@ import (
 )
 
 const (
-	// QueueRoute names the single model priority queue in llm_route_targets.
-	// Every extraction stage walks it in order and skips targets whose
-	// capabilities do not fit the request.
+	// QueueRoute names the post extraction priority queue in
+	// llm_route_targets. Both detection paths walk it in order and skip
+	// targets whose capabilities do not fit the request.
 	QueueRoute = "schedule"
+	// VerifyRoute is the separate schedule-image check queue. Its targets
+	// need the image tag, and the check never falls back to QueueRoute.
+	VerifyRoute = "verify"
 	// TranslationRoute is the separate translation queue. Its targets need
 	// the text tag, and the translate step never falls back to QueueRoute.
 	TranslationRoute = "translate"
@@ -39,14 +42,32 @@ const (
 )
 
 var (
-	llmCapabilities         = []string{"text", "image"}
-	llmModelTags            = []string{"text", "image", "reasoning", "tools", "embedding"}
-	llmProtocols            = []string{protocolResponses, protocolChat, protocolAnthropic}
+	llmCapabilities = []string{"text", "image"}
+	llmModelTags    = []string{"text", "image", "reasoning", "tools", "embedding"}
+	llmProtocols    = []string{protocolResponses, protocolChat, protocolAnthropic}
+	queueRoutes     = []queueRouteSpec{
+		{QueueRoute, "", "extraction"},
+		{VerifyRoute, "image", "schedule image check"},
+		{TranslationRoute, "text", "translation"},
+	}
 	defaultScheduleKeywords = []string{"schedule", "スケジュール", "配信予定", "週間予定", "今週の予定", "予定"}
 
 	modelIDPattern    = regexp.MustCompile(`^[A-Za-z0-9@][A-Za-z0-9._:/@+-]{0,199}$`)
 	providerIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
 )
+
+// queueRouteSpec is one stored queue and the routing tag its targets need;
+// the extraction queue accepts any catalog model.
+type queueRouteSpec struct{ route, needs, label string }
+
+func queueRoute(name string) *queueRouteSpec {
+	for i := range queueRoutes {
+		if queueRoutes[i].route == name {
+			return &queueRoutes[i]
+		}
+	}
+	return nil
+}
 
 // RemoteModel is one entry of a provider's own model list.
 type RemoteModel struct {

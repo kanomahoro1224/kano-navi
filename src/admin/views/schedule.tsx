@@ -1,4 +1,4 @@
-import { useState, type SubmitEvent } from "react"
+import { useEffect, useState, type SubmitEvent } from "react"
 import {
   CalendarCheck,
   CalendarPlus,
@@ -11,12 +11,12 @@ import {
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import {
-  formatDateTime,
   formatDay,
   formatMonth,
   japanClock,
   japanDay,
   japanInstant,
+  japanStamp,
   japanToday,
 } from "@/admin/format"
 import type { AdminEvent, EventInput } from "@/admin/types"
@@ -36,7 +36,10 @@ import {
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { EventMergeDialog, shiftDay } from "@/admin/views/event-parts"
 import { ScheduleCalendar, shiftMonth } from "@/admin/views/schedule-calendar"
-import { ScheduleImageList } from "@/admin/views/schedule-images"
+import {
+  MonthScheduleImages,
+  ScheduleImageList,
+} from "@/admin/views/schedule-images"
 import { DayHeading, EventRow, groupByDay } from "@/admin/views/schedule-parts"
 
 const eventTypes = ["stream", "member", "appearance", "release", "event"]
@@ -220,7 +223,7 @@ function EventDialog({
         {event ? (
           <p className="adm-muted adm-entry-updated">
             {t("admin.schedule.updated", {
-              time: formatDateTime(event.updatedAt, locale),
+              time: japanStamp(event.updatedAt),
             })}
           </p>
         ) : null}
@@ -487,7 +490,13 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
   const today = japanToday()
   const [mode, setMode] = useState(storedMode)
   // The images tab has its own address, so the Review queue links to it.
+  // A month tab (YYYY-MM) opens the calendar on that month.
   const images = tab === "images"
+  useEffect(() => {
+    if (!/^\d{4}-\d{2}$/u.test(tab)) return
+    setMode("calendar")
+    setMonth(`${tab}-01`)
+  }, [tab])
   const [status, setStatus] = useState<Status>("all")
   const [search, setSearch] = useState("")
   const [query, setQuery] = useState("")
@@ -521,13 +530,19 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
   )
   const changeMode = (next: ScheduleMode | "images") => {
     if (next === "images") return navigate("schedule", "images")
-    if (images) navigate("schedule")
+    if (tab) navigate("schedule")
     setMode(next)
     try {
       window.localStorage.setItem(modeKey, next)
     } catch {
       // The choice simply is not remembered.
     }
+  }
+  // Paging the calendar leaves a month address behind, so a later link to
+  // that month opens it again.
+  const showMonth = (next: string) => {
+    setMonth(next)
+    if (tab) navigate("schedule")
   }
   const changeRange = (patch: { from?: string; to?: string }) => {
     setRange((current) => ({ ...current, ...patch }))
@@ -544,7 +559,6 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
     <div className="adm-view">
       <PageHeader
         title={t("admin.schedule.title")}
-        description={t("admin.schedule.description")}
         actions={
           <Button
             variant="primary"
@@ -593,19 +607,19 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
               <IconButton
                 icon={ChevronLeft}
                 label={t("admin.schedule.month.previous")}
-                onClick={() => setMonth(shiftMonth(month, -1))}
+                onClick={() => showMonth(shiftMonth(month, -1))}
               />
               <strong aria-live="polite">{formatMonth(month, locale)}</strong>
               <IconButton
                 icon={ChevronRight}
                 label={t("admin.schedule.month.next")}
-                onClick={() => setMonth(shiftMonth(month, 1))}
+                onClick={() => showMonth(shiftMonth(month, 1))}
               />
               <Button
                 size="sm"
                 variant="ghost"
                 disabled={month === shiftMonth(today, 0)}
-                onClick={() => setMonth(shiftMonth(today, 0))}
+                onClick={() => showMonth(shiftMonth(today, 0))}
               >
                 {t("admin.schedule.month.today")}
               </Button>
@@ -649,17 +663,23 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
           </div>
         )}
         {images ? (
-          <ScheduleImageList filters={["all", "approved", "review"]} />
-        ) : mode === "calendar" ? (
-          <ScheduleCalendar
-            month={month}
-            // Merged duplicates stay off the grid; the list shows them.
-            filters={{ ...filters, merge: "visible" }}
-            reloadKey={reloadKey}
-            onEdit={(event) => setEditing({ event })}
-            onMerge={setMerging}
-            onCreate={(day) => setEditing({ event: null, day })}
+          <ScheduleImageList
+            filters={["active", "approved", "review", "rejected"]}
+            navigate={navigate}
           />
+        ) : mode === "calendar" ? (
+          <>
+            <ScheduleCalendar
+              month={month}
+              // Merged duplicates stay off the grid; the list shows them.
+              filters={{ ...filters, merge: "visible" }}
+              reloadKey={reloadKey}
+              onEdit={(event) => setEditing({ event })}
+              onMerge={setMerging}
+              onCreate={(day) => setEditing({ event: null, day })}
+            />
+            <MonthScheduleImages month={month} />
+          </>
         ) : !data ? (
           <Loading />
         ) : data.items.length ? (

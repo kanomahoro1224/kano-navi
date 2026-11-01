@@ -37,6 +37,11 @@ import type {
   ProfileMediaState,
   ProfileSlot,
   Provider,
+  ProxyArea,
+  ProxyInput,
+  ProxyRoute,
+  ProxySettings,
+  ProxyTestResult,
   QueueRoute,
   RouteTarget,
   Run,
@@ -53,6 +58,7 @@ import type {
   TranslationRequestResult,
   TranslationSummary,
   AdminTranslation,
+  VariantStatus,
   VisitorRegionSettings,
   VideoCorrection,
   VideoHistory,
@@ -88,6 +94,8 @@ function query(values: Record<string, any>) {
 
 export type StartRun =
   | { kind: "sync" | "scan" }
+  /** The missing smaller image copies, within one step's budget. */
+  | { kind: "variants" }
   /** A one-off step run: the picked steps once, nothing saved. */
   | { kind: "workflow"; steps: string[] }
   /** A manual fetch through one method; it never falls back to another. */
@@ -121,6 +129,8 @@ function createClient(run: Runner, slow: Runner) {
 
     overview: () => get<Overview>("/overview"),
     visitorRegion: () => get<VisitorRegionSettings>("/settings/visitor-region"),
+    variantStatus: (refresh = false) =>
+      get<VariantStatus>(`/media/variants${refresh ? "?refresh=1" : ""}`),
     updateVisitorRegion: (settings: VisitorRegionSettings) =>
       send<VisitorRegionSettings>("PUT", "/settings/visitor-region", settings),
     runs: (page: number) =>
@@ -147,6 +157,8 @@ function createClient(run: Runner, slow: Runner) {
     ) => send<SourceSchedule>("PUT", `/sources/${enc(source)}/schedule`, body),
     runSource: (source: ScheduleSource) =>
       send<{ run: Run }>("POST", `/sources/${enc(source)}/run`),
+    startSourceSchedule: (source: ScheduleSource) =>
+      send<SourceSchedule>("POST", `/sources/${enc(source)}/schedule/start`),
     updatePush: (body: { enabled?: boolean; callbackUrl?: string | null }) =>
       send<Sources["youtube"]["push"]>("PUT", "/sources/youtube/push", body),
     updateLiveProbe: (body: { enabled?: boolean; intervalMinutes?: number }) =>
@@ -163,6 +175,14 @@ function createClient(run: Runner, slow: Runner) {
     ytdlp: () => get<YTDLPStatus>("/sources/youtube/ytdlp"),
     updateYTDLP: () =>
       send<YTDLPStatus>("POST", "/sources/youtube/ytdlp/update"),
+    proxySettings: () => get<ProxySettings>("/proxy"),
+    updateProxySettings: (body: {
+      proxies?: ProxyInput[]
+      routes?: Partial<Record<ProxyArea, ProxyRoute>>
+      directFallback?: boolean
+    }) => send<ProxySettings>("PUT", "/proxy", body),
+    testProxy: (id: string, area: ProxyArea) =>
+      send<ProxyTestResult>("POST", `/proxy/${enc(id)}/test`, { area }),
     syncSettings: () => get<SyncSettings>("/sync-settings"),
     updateSyncSettings: (body: Partial<Record<SyncSettingField, number>>) =>
       send<SyncSettings>("PUT", "/sync-settings", body),
@@ -183,8 +203,12 @@ function createClient(run: Runner, slow: Runner) {
     unmergeEvent: (id: string) =>
       send<{ event: AdminEvent }>("POST", `/events/${enc(id)}/unmerge`),
 
-    scheduleImages: () =>
-      get<{ items: ScheduleImage[] }>("/schedule-images?limit=100"),
+    /** The newest schedule images; a range keeps those whose period
+     * overlaps it. */
+    scheduleImages: (range?: { from: string; to: string }) =>
+      get<{ items: ScheduleImage[] }>(
+        `/schedule-images${query({ limit: 100, ...range })}`,
+      ),
     reviewImage: (id: string, status: string, reason: string) =>
       send<{ image: ScheduleImage }>(
         "POST",
@@ -202,6 +226,24 @@ function createClient(run: Runner, slow: Runner) {
       get<Page<AdminPost>>(`/posts${query(filters)}`),
     reprocessPost: (id: string) =>
       send<{ state: unknown }>("POST", `/posts/${enc(id)}/reprocess`, {}),
+    dismissPost: (id: string) =>
+      send<{ state: unknown }>("POST", `/posts/${enc(id)}/dismiss`, {}),
+    /** Queue up to 200 posts for the next schedule scan at once. */
+    reprocessPosts: (ids: string[]) =>
+      send<{ queued: number }>("POST", "/posts/reprocess", { ids }),
+    /** Dismiss the failed extractions among up to 200 posts. */
+    dismissPosts: (ids: string[]) =>
+      send<{ dismissed: number }>("POST", "/posts/dismiss", { ids }),
+    /** Make one of the post's own images its schedule image. */
+    pickScheduleImage: (
+      id: string,
+      body: { index: number; reason: string; start?: string; end?: string },
+    ) =>
+      send<{ image: ScheduleImage }>(
+        "PUT",
+        `/posts/${enc(id)}/schedule-image`,
+        body,
+      ),
     setPostHidden: (id: string, hidden: boolean) =>
       send<{ state: unknown }>("PUT", `/posts/${enc(id)}/hidden`, { hidden }),
     setQuoteHidden: (id: string, hidden: boolean) =>

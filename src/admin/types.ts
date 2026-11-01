@@ -91,7 +91,7 @@ export interface RunWindow extends Omit<FetchSelection, "mode"> {
 
 export interface Run {
   id: string
-  kind: "sync" | "scan" | "translate" | "workflow"
+  kind: "sync" | "scan" | "translate" | "variants" | "workflow"
   status: "queued" | "running" | "completed" | "failed"
   createdAt: string
   startedAt: string | null
@@ -132,6 +132,95 @@ export interface VisitorRegionSettings {
   mirrorUrl: string
 }
 
+/** A part of the server's outbound requests with its own proxy route. */
+export type ProxyArea = "x" | "youtube" | "bilibili" | "media" | "llm"
+
+export type ProxyScheme = "http" | "https" | "socks5" | "socks5h"
+
+/** This process's recent attempts through one proxy. */
+export interface ProxyHealth {
+  lastSuccessAt: string | null
+  lastFailureAt: string | null
+  coolingUntil: string | null
+}
+
+export interface OutboundProxy {
+  id: string
+  name: string
+  scheme: ProxyScheme
+  host: string
+  port: number
+  username: string
+  /** The password is write-only; these report whether one is stored. */
+  hasPassword: boolean
+  passwordUnreadable: boolean
+  enabled: boolean
+  health: ProxyHealth
+}
+
+/** An area's route: off, or every proxy (empty proxyIds) or a selection,
+ * tried in queue order. */
+export interface ProxyRoute {
+  enabled: boolean
+  proxyIds: string[]
+}
+
+export interface ProxySettings {
+  /** The queue, highest priority first. */
+  proxies: OutboundProxy[]
+  routes: Record<ProxyArea, ProxyRoute>
+  directFallback: boolean
+  areas: ProxyArea[]
+  /** Areas with a fixed page a proxy test can reach. */
+  testAreas: ProxyArea[]
+}
+
+/** One proxy in a save. Omitting password keeps the stored one; "" clears
+ * it. */
+export interface ProxyInput {
+  id?: string
+  name: string
+  scheme: ProxyScheme
+  host: string
+  port: number
+  username: string
+  password?: string
+  enabled: boolean
+}
+
+export interface ProxyTestResult {
+  ok: boolean
+  status?: number
+  error?: "timeout" | "failed"
+  latencyMs: number
+  proxy: OutboundProxy
+}
+
+/**
+ * How complete one group's smaller image copies are. Ready originals have
+ * every width stored; unhashed ones were never read, so they count as
+ * missing until a copies run reads them.
+ */
+export interface VariantGroupStatus {
+  group: "lineblog" | "history" | "media"
+  originals: number
+  ready: number
+  unhashed: number
+}
+
+export interface VariantStatus {
+  groups: VariantGroupStatus[]
+  checkedAt: string
+}
+
+/**
+ * One timer's next run. A due entry waits for the queue: a source timer
+ * starts once the current run and the timers due before it have.
+ */
+export type QueueEntry = { nextRunAt: string; due: boolean } & (
+  { kind: "source"; source: ScheduleSource } | { kind: "live-probe" }
+)
+
 export interface Overview {
   /** Public mainland-China site suggestion; absent on older sidecars. */
   visitorRegionEnabled?: boolean
@@ -141,11 +230,16 @@ export interface Overview {
   scheduler: { enabled: boolean; running: boolean; tickSeconds: number | null }
   /** The enabled source schedules this process runs. */
   timers: { scheduled: number; nextRunAt: string | null }
+  /** Timed work in the order it reaches the single-flight queue. */
+  queue: QueueEntry[]
   sources: { x: SourceHealth; youtube: SourceHealth; bilibili: SourceHealth }
   review: {
     pendingImages: number
     suspectedCancellations: number
+    /** Posts with a failed extraction or translation. */
     failedPosts: number
+    failedExtractions: number
+    failedTranslations: number
     reprocessRequested: number
     /** Bilibili uploads the merge rule leaves to the operator. */
     videoMerges: number
@@ -389,6 +483,8 @@ export interface ScheduleImage {
   approved: boolean
   previewUrl: string | null
   mediaStatus: string
+  /** The stored post that published the image; null when it is not stored. */
+  sourcePost: { text: string; publishedAt: string } | null
 }
 
 export interface AdminPostImage {
@@ -430,6 +526,20 @@ export interface AdminPost {
   refreshRequestedAt: string | null
   /** When an operator hid the whole post from the public pages. */
   hiddenAt: string | null
+  /** The post's schedule image record; null when it has none. */
+  scheduleImage: AdminPostSchedule | null
+}
+
+/**
+ * Which of a post's own images its schedule image shows (null for none of
+ * them), its labels, and whether an operator picked the image.
+ */
+export interface AdminPostSchedule {
+  id: string
+  index: number | null
+  llmStatus: string
+  manualStatus: "unreviewed" | "schedule" | "not_schedule"
+  picked: boolean
 }
 
 /**
@@ -680,7 +790,7 @@ export interface Model {
   ownedBy: string | null
 }
 
-export type QueueRoute = "schedule" | "translate"
+export type QueueRoute = "schedule" | "verify" | "translate"
 
 export interface RouteTarget {
   providerId: string
@@ -690,8 +800,10 @@ export interface RouteTarget {
 export interface LlmCatalog {
   providers: Provider[]
   models: Model[]
-  /** The single model priority queue every extraction stage draws from. */
+  /** The post extraction queue both detection paths draw from. */
   queue: RouteTarget[]
+  /** The separate schedule-image check queue; it never falls back. */
+  verificationQueue?: RouteTarget[]
   /** The separate queue of the translate step; it never falls back. */
   translationQueue?: RouteTarget[]
   modelTags: string[]

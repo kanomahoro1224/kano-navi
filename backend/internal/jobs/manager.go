@@ -55,7 +55,7 @@ func (m *QueueManager) Start(ctx context.Context, kind, triggeredBy string, opti
 	if m == nil || m.Store == nil || m.Queue == nil {
 		return StartResult{}, sqlite.ErrWorkflowUnavailable
 	}
-	if kind != KindScan && kind != KindWorkflow && kind != KindLive && kind != KindTranslate {
+	if kind != KindScan && kind != KindWorkflow && kind != KindLive && kind != KindTranslate && kind != KindVariants {
 		kind = KindSync
 	}
 	if triggeredBy == "" {
@@ -113,6 +113,9 @@ func (m *QueueManager) Start(ctx context.Context, kind, triggeredBy string, opti
 	case KindTranslate:
 		source = "translate"
 		run, err = m.Queue.SubmitDefinition(ctx, sqlite.WorkflowDefinition{ID: sqlite.AdhocTranslateWorkflow, Steps: []string{StepTranslate}}, trigger, nil)
+	case KindVariants:
+		source = "variants"
+		run, err = m.Queue.SubmitDefinition(ctx, sqlite.WorkflowDefinition{ID: sqlite.AdhocVariantsWorkflow, Steps: []string{StepVariants}}, trigger, nil)
 	case KindScan:
 		source = "schedule"
 		run, err = m.Queue.SubmitDefinition(ctx, sqlite.WorkflowDefinition{ID: sqlite.AdhocScanWorkflow, Steps: []string{"schedule"}}, trigger, nil)
@@ -328,6 +331,8 @@ func toJob(run *sqlite.WorkflowRun, history *sqlite.JobRun) *Job {
 		job.Kind = KindLive
 	case sqlite.AdhocTranslateWorkflow:
 		job.Kind = KindTranslate
+	case sqlite.AdhocVariantsWorkflow:
+		job.Kind = KindVariants
 	}
 	if source, scheduled := sqlite.SourceScheduleOf(run.WorkflowID); scheduled {
 		job.SourceSchedule = &source

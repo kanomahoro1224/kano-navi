@@ -38,6 +38,23 @@
 | `SKIP_X`, `SKIP_YOUTUBE`           | `0`                                 | Set to `1` to skip that source's step and its timer                |
 | `SKIP_BILIBILI`                    | `0`                                 | Set to `1` to skip the Bilibili step, timer and console reads      |
 | `SKIP_MEDIA`, `SKIP_LLM`           | `0`                                 | Set a post-processing stage flag to `1` to skip it                 |
+| `KANO_MEM_LIMIT`                   | `1g` in production Compose          | Production Compose: the container's memory limit (`mem_limit`)     |
+| `GOMEMLIMIT`                       | `700MiB` in production Compose      | Go runtime soft memory limit, kept below the container's limit     |
+
+Production Docker Compose limits the container to `KANO_MEM_LIMIT` and passes
+`GOMEMLIMIT` to the server. `GOMEMLIMIT` is the Go runtime's own setting,
+read from the process environment when `kano-go` starts: Compose sets it in
+the container, while a `.env` file the binary reads itself comes too late for
+it, so a process started without it has no soft limit. Near the value the
+garbage collector works harder instead of letting the heap grow until the
+container limit stops the process; it is a soft limit, and the process is not
+stopped when the heap exceeds it. The defaults keep about 300 MB of the 1 GiB
+container for yt-dlp, its JavaScript runtime and memory the Go runtime does not
+count. [Making resized copies](../architecture/media-cache.md#making-copies)
+needs up to about 350 MB at once for two 40-megapixel originals, which fits
+under the soft limit. On a larger host raise both values together, keeping
+`GOMEMLIMIT` about 300 MB below `KANO_MEM_LIMIT`; `GOMEMLIMIT=off` removes
+the soft limit.
 
 `SKIP_LLM=1` skips both model steps, `schedule` and `translate`. The
 translate step reads only the translation queue set in `/admin` → Models, so

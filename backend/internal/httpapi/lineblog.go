@@ -6,18 +6,18 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/yexca/kano-navi/backend/internal/variants"
 )
 
 // lineblogRoot is the data directory holding the recovered LINE BLOG media,
 // written by scripts/package-lineblog.ts.
 const lineblogRoot = "lineblog"
 
-// lineblogName is an archive media name: 12 hex digits of a SHA-256 and the
-// extension that fixes its type.
-var lineblogName = regexp.MustCompile(`^([0-9a-f]{12})\.(jpg|png|mp4)$`)
+// lineblogName is an archive media name (variants.LineblogName).
+var lineblogName = variants.LineblogName
 
 var lineblogTypes = map[string]string{
 	"jpg": "image/jpeg",
@@ -60,7 +60,7 @@ func (h *Handler) lineblogMedia(w http.ResponseWriter, r *http.Request, name str
 	path := filepath.Join(root, lineblogRoot, name)
 	if widthPresent && image {
 		open := func() (fs.File, error) { return dir.Open(name) }
-		if serveImageVariant(w, r, h.store, path, info, open, lineblogTypes[match[2]], width, named) {
+		if serveImageVariant(w, r, h.store, path, info, open, width, named) {
 			return
 		}
 	}
@@ -76,7 +76,7 @@ func (h *Handler) lineblogMedia(w http.ResponseWriter, r *http.Request, name str
 	}
 	immutable := false
 	if image {
-		hash, err := fixedFileHash(path, info, file)
+		hash, err := fixedFileHash(r.Context(), h.store, path, info, file)
 		if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
 			writeLineblogMissing(w, r)
 			return

@@ -25,6 +25,7 @@ test("dashboard hook recovers, coordinates requests and releases its resources",
       context: TestContext,
       controlCalendar = false,
       withStream = false,
+      storage?: Map<string, string>,
     ) => {
       context.mock.timers.enable({
         apis: ["Date", "setTimeout"],
@@ -33,7 +34,15 @@ test("dashboard hook recovers, coordinates requests and releases its resources",
       const doc = Object.assign(new EventTarget(), {
         visibilityState: "visible",
       })
-      const win = Object.assign(new EventTarget(), { setTimeout, clearTimeout })
+      const win = Object.assign(new EventTarget(), {
+        setTimeout,
+        clearTimeout,
+        // A browser without storage, unless a test gives it some.
+        localStorage: storage && {
+          getItem: (key: string) => storage.get(key) ?? null,
+          setItem: (key: string, value: string) => storage.set(key, value),
+        },
+      })
       const previous = {
         window: globalThis.window,
         document: globalThis.document,
@@ -679,6 +688,90 @@ test("dashboard hook recovers, coordinates requests and releases its resources",
           assert.match(refused.requests[1].url, /revision\?since=1$/)
         } finally {
           await refused.unmount()
+        }
+      },
+    )
+
+    const CACHE_KEY = "kano-dashboard-snapshot-v1"
+    const stored = (savedAt: string, value: unknown) =>
+      new Map([
+        [
+          CACHE_KEY,
+          JSON.stringify({ savedAt: Date.parse(savedAt), snapshot: value }),
+        ],
+      ])
+
+    await t.test(
+      "a stored snapshot shows at once and the first read replaces and stores it",
+      async (context) => {
+        const storage = stored("2024-12-31T00:00:00Z", snapshot(1))
+        const fixture = await setup(context, false, false, storage)
+        try {
+          assert.equal(fixture.current().isLoading, false)
+          assert.equal(fixture.current().isRefreshing, true)
+          assert.equal(
+            fixture.current().dashboard.profile.displayName,
+            "Snapshot 1",
+          )
+          assert.match(fixture.requests[0].url, /^\/api\/dashboard\?days=/)
+          await fixture.respond(0, snapshot(2))
+          assert.equal(fixture.current().isRefreshing, false)
+          assert.equal(
+            fixture.current().dashboard.profile.displayName,
+            "Snapshot 2",
+          )
+          assert.deepEqual(JSON.parse(storage.get(CACHE_KEY)!), {
+            savedAt: Date.parse("2025-01-01T00:00:00Z"),
+            snapshot: snapshot(2),
+          })
+        } finally {
+          await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
+      "a failed first read keeps the stored snapshot on screen",
+      async (context) => {
+        const storage = stored("2024-12-31T00:00:00Z", snapshot(1))
+        const fixture = await setup(context, false, false, storage)
+        try {
+          await fixture.reject(0)
+          assert.equal(fixture.current().isLoading, false)
+          assert.ok(fixture.current().error)
+          assert.equal(
+            fixture.current().dashboard.profile.displayName,
+            "Snapshot 1",
+          )
+          // The retry keeps it too, rather than returning to the placeholder.
+          await fixture.tick(8000)
+          assert.equal(fixture.requests.length, 2)
+          assert.equal(fixture.current().isLoading, false)
+        } finally {
+          await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
+      "an old or malformed stored snapshot leaves the placeholder",
+      async (context) => {
+        for (const storage of [
+          stored("2024-12-24T23:59:59Z", snapshot(1)),
+          stored("2024-12-31T00:00:00Z", { ...snapshot(1), posts: {} }),
+          new Map([[CACHE_KEY, "{"]]),
+        ]) {
+          const fixture = await setup(context, false, false, storage)
+          try {
+            assert.equal(fixture.current().isLoading, true)
+            assert.notEqual(
+              fixture.current().dashboard.profile.displayName,
+              "Snapshot 1",
+            )
+          } finally {
+            await fixture.unmount()
+            context.mock.timers.reset()
+          }
         }
       },
     )

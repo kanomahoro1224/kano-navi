@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
-import { formatDateTime } from "@/admin/format"
+import { japanStamp } from "@/admin/format"
 import type {
   AdminVideo,
   VideoCorrection,
@@ -234,7 +234,7 @@ export function VideoEditor({
     item.current
       ? t("admin.videos.thumbnail.current")
       : t("admin.videos.thumbnail.earlier", {
-          time: formatDateTime(item.fetchedAt, locale),
+          time: japanStamp(item.fetchedAt),
         })
   const current = data?.thumbnails.find((item) => item.current)
   // The preview follows the thumbnail choice before it is saved.
@@ -352,17 +352,14 @@ export function VideoEditor({
                   [
                     t("admin.videos.lastChecked"),
                     video.checkedAt
-                      ? formatDateTime(video.checkedAt, locale)
+                      ? japanStamp(video.checkedAt)
                       : t("admin.videos.neverChecked"),
                   ],
                   [
                     t("admin.videos.refreshState"),
                     video.refreshRequestedAt
                       ? t("admin.videos.refreshPending", {
-                          time: formatDateTime(
-                            video.refreshRequestedAt,
-                            locale,
-                          ),
+                          time: japanStamp(video.refreshRequestedAt),
                         })
                       : bilibili
                         ? t("admin.videos.refreshBilibili")
@@ -549,7 +546,7 @@ export function VideoEditor({
                           <strong>{revision.title}</strong>
                           <small>
                             {t(`admin.videos.revision.${revision.origin}`, {
-                              time: formatDateTime(revision.replacedAt, locale),
+                              time: japanStamp(revision.replacedAt),
                             })}
                           </small>
                           {revision.title !== video.sourceTitle ? (

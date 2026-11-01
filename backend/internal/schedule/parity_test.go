@@ -179,6 +179,11 @@ func TestParityWithTypeScriptExtractor(t *testing.T) {
 	}
 	withPendingCode(data.AfterFirst)
 	withPendingCode(data.AfterSecond)
+	// The recorded second scan sent post-c to p-chat again although p-anth had
+	// extracted it. A stored success stands whichever target made it, so that
+	// scan makes no call and p-chat keeps the status the first scan left.
+	data.Second["attempted"], data.Second["boardAttempted"], data.SecondRequests = 0, 0, 0
+	data.AfterSecond["providers"] = data.AfterFirst["providers"]
 	replies := map[string]string{}
 	for _, row := range data.AfterFirst["extractions"] {
 		if result, ok := row["result_json"].(string); ok {
@@ -322,6 +327,7 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 	f.addProvider("p-anth", protocolAnthropic, "https://anthropic.example.test", "model-c", `["text","image"]`)
 	f.addProvider("p-chat", protocolChat, "https://vision-chat.example.test/v1", "model-w", `["image"]`)
 	f.queue("p-text", "p-vision", "p-anth", "p-chat")
+	f.queueVerify("p-vision", "p-anth", "p-chat")
 	f.exec(`INSERT INTO app_settings (key, value, updated_at) VALUES ('schedule_message_enabled', '0', ?)`, testTimestamp)
 	for _, item := range []struct {
 		id, postType, label, text, publishedAt string
@@ -378,6 +384,22 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 			asset.id, asset.url, asset.source, asset.week)
 		f.exec(`INSERT INTO schedule_asset_reviews (asset_id, llm_status, manual_status, updated_at)
 			VALUES (?, 'pending', 'unreviewed', ?)`, asset.id, fmt.Sprintf("2026-04-01T00:00:0%d.000Z", index+1))
+	}
+
+	// The recorded review fingerprints also named the ordered check queue;
+	// verdicts store the fingerprint without it. Each image is checked once,
+	// for the last of its assets in check order, and its duplicates carry that
+	// asset's fingerprint.
+	checkedSource := map[string]any{boardURL: status("img-a"), otherURL: nil}
+	for _, rows := range [][]map[string]any{data.AfterFirst["reviews"], data.AfterSecond["reviews"]} {
+		for _, row := range rows {
+			if _, ok := row["llm_input_fingerprint"].(string); !ok {
+				continue
+			}
+			imageURL := f.text(`SELECT url FROM assets WHERE id = ?`, row["asset_id"])
+			image := f.text(`SELECT sha256 FROM media_assets WHERE id = ?`, mediaIDForSourceURL(imageURL))
+			row["llm_input_fingerprint"] = assetFingerprint(image, checkedSource[imageURL])
+		}
 	}
 
 	replies := map[string]string{}

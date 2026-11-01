@@ -1,5 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type SubmitEvent,
+} from "react"
+import {
+  CalendarCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -10,6 +17,7 @@ import {
   EyeOff,
   FileText,
   ImageOff,
+  Images,
   PencilLine,
   Quote,
   RefreshCw,
@@ -18,13 +26,15 @@ import {
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
-import { japanStamp } from "@/admin/format"
+import { japanStamp, statusTone } from "@/admin/format"
 import type { AdminPost, AdminPostImage, Sources } from "@/admin/types"
 import {
   Badge,
   Button,
   DateRange,
   Empty,
+  Field,
+  FieldGroup,
   FilterReset,
   FilterSelect,
   IconButton,
@@ -401,19 +411,175 @@ function PostQuote({
   )
 }
 
+/** The label a post's schedule image record carries: the operator's, else
+ * the image model's. */
+function scheduleStatus(post: AdminPost) {
+  const record = post.scheduleImage
+  if (!record) return null
+  return record.manualStatus === "unreviewed"
+    ? record.llmStatus
+    : record.manualStatus
+}
+
+/** The post's schedule image record as a chip, when it has one. */
+function ScheduleImageBadge({ post }: { post: AdminPost }) {
+  const { t } = useAppSettings()
+  const status = scheduleStatus(post)
+  if (!status) return null
+  return (
+    <Badge tone={statusTone(status)} icon={CalendarCheck}>
+      {t("admin.posts.schedule.label")} · {t(`admin.status.${status}`)}
+      {post.scheduleImage?.picked
+        ? ` · ${t("admin.posts.schedule.picked")}`
+        : ""}
+    </Badge>
+  )
+}
+
+/**
+ * Make one of an X post's own images its schedule image, labelled with a
+ * reason and, optionally, the dates it covers. The record otherwise comes
+ * only from the synchronization keyword rule, which takes the first image.
+ */
+function PostScheduleImage({
+  post,
+  onDone,
+  navigate,
+}: {
+  post: AdminPost
+  onDone: () => void
+  navigate: ViewProps["navigate"]
+}) {
+  const { t } = useAppSettings()
+  const { api, act } = useAdmin()
+  const [index, setIndex] = useState(post.scheduleImage?.index ?? 0)
+  const [reason, setReason] = useState("")
+  const [start, setStart] = useState("")
+  const [end, setEnd] = useState("")
+  const [busy, setBusy] = useState(false)
+  if (post.source !== "x" || !post.media.length) return null
+  const save = async (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setBusy(true)
+    const result = await act(
+      () =>
+        api.pickScheduleImage(post.id, {
+          index,
+          reason,
+          ...(start ? { start, end } : {}),
+        }),
+      "admin.notice.schedulePicked",
+    )
+    setBusy(false)
+    if (!result) return
+    setReason("")
+    onDone()
+  }
+  const dated = Boolean(start || end)
+  return (
+    <form
+      className="adm-post-editor-section adm-form adm-schedule-pick-form"
+      onSubmit={save}
+    >
+      <h3>{t("admin.posts.schedule.label")}</h3>
+      {post.scheduleImage ? (
+        <div className="adm-chip-row">
+          <ScheduleImageBadge post={post} />
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={Images}
+            onClick={() => navigate("schedule", "images")}
+          >
+            {t("admin.posts.schedule.open")}
+          </Button>
+        </div>
+      ) : null}
+      {post.media.length > 1 ? (
+        <FieldGroup label={t("admin.posts.schedule.image")}>
+          <div className="adm-thumb-choices adm-schedule-pick">
+            {post.media.map((image, position) => {
+              const url = localUrl(image.url)
+              return (
+                <label
+                  key={position}
+                  className={`adm-thumb-choice${index === position ? " is-selected" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name={`schedule-image-${post.id}`}
+                    checked={index === position}
+                    onChange={() => setIndex(position)}
+                  />
+                  <span className="adm-schedule-pick-image">
+                    {url ? (
+                      <img src={url} alt="" loading="lazy" />
+                    ) : (
+                      <ImageOff aria-hidden />
+                    )}
+                  </span>
+                  <small>
+                    {t("admin.posts.schedule.imageOption", {
+                      index: position + 1,
+                    })}
+                  </small>
+                </label>
+              )
+            })}
+          </div>
+        </FieldGroup>
+      ) : null}
+      <Field label={t("admin.review.reason")}>
+        <input
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          placeholder={t("admin.posts.schedule.reasonPlaceholder")}
+          maxLength={500}
+          required
+        />
+      </Field>
+      <div className="adm-form-row">
+        <Field label={t("admin.review.periodStart")}>
+          <input
+            type="date"
+            value={start}
+            onChange={(event) => setStart(event.target.value)}
+            required={dated}
+          />
+        </Field>
+        <Field label={t("admin.review.periodEnd")}>
+          <input
+            type="date"
+            value={end}
+            min={start}
+            onChange={(event) => setEnd(event.target.value)}
+            required={dated}
+          />
+        </Field>
+      </div>
+      <p className="adm-muted">{t("admin.posts.schedule.periodHint")}</p>
+      <Button type="submit" size="sm" icon={CalendarCheck} busy={busy}>
+        {t("admin.posts.schedule.pick")}
+      </Button>
+    </form>
+  )
+}
+
 /**
  * The post in full: its wording, images, translations and quote, its
- * extraction state and the operator's decisions. Hiding the post keeps it
- * stored and processed but leaves it off the public pages.
+ * extraction state, its schedule image and the operator's decisions. Hiding
+ * the post keeps it stored and processed but leaves it off the public pages.
  */
 function PostEditor({
   post,
   onClose,
   onDone,
+  navigate,
 }: {
   post: AdminPost
   onClose: () => void
   onDone: () => void
+  navigate: ViewProps["navigate"]
 }) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
@@ -462,6 +628,7 @@ function PostEditor({
         </section>
       ) : null}
       <PostQuote post={post} onDone={onDone} full />
+      <PostScheduleImage post={post} onDone={onDone} navigate={navigate} />
       <div className="adm-post-editor-section">
         <Switch
           checked={hidden}
@@ -479,7 +646,15 @@ function PostEditor({
  * quote, the post's own images, its translations, its extraction state and
  * its actions. A narrower feed stacks them (see the stylesheet).
  */
-function PostItem({ post, onDone }: { post: AdminPost; onDone: () => void }) {
+function PostItem({
+  post,
+  onDone,
+  navigate,
+}: {
+  post: AdminPost
+  onDone: () => void
+  navigate: ViewProps["navigate"]
+}) {
   const { t } = useAppSettings()
   const [editing, setEditing] = useState(false)
   return (
@@ -511,6 +686,7 @@ function PostItem({ post, onDone }: { post: AdminPost; onDone: () => void }) {
           </Badge>
         ) : null}
         <PostStatus post={post} />
+        <ScheduleImageBadge post={post} />
       </span>
       <span className="adm-post-controls">
         <IconButton
@@ -525,6 +701,7 @@ function PostItem({ post, onDone }: { post: AdminPost; onDone: () => void }) {
           post={post}
           onClose={() => setEditing(false)}
           onDone={onDone}
+          navigate={navigate}
         />
       ) : null}
     </li>
@@ -546,11 +723,18 @@ const llmStatuses = [
   "processed",
   "uncertain",
   "failed",
+  "dismissed",
   "skipped",
 ]
-const translationStatuses = ["incomplete", "complete", "requested"]
+const translationStatuses = ["incomplete", "complete", "requested", "failed"]
 
-function PostList({ sources }: { sources: Sources | undefined }) {
+function PostList({
+  sources,
+  navigate,
+}: {
+  sources: Sources | undefined
+  navigate: ViewProps["navigate"]
+}) {
   const { t } = useAppSettings()
   const { api } = useAdmin()
   const [filters, setFilters] = useState(blankFilters)
@@ -655,6 +839,7 @@ function PostList({ sources }: { sources: Sources | undefined }) {
                 key={post.id}
                 post={post}
                 onDone={() => void posts.reload()}
+                navigate={navigate}
               />
             ))}
           </ul>
@@ -693,7 +878,7 @@ export function PostsView({ navigate }: ViewProps) {
         }
       />
       <Panel>
-        <PostList sources={sources.data} />
+        <PostList sources={sources.data} navigate={navigate} />
       </Panel>
     </div>
   )

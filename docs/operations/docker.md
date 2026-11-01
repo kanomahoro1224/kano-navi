@@ -14,14 +14,17 @@ Compose pulls `yexca/kano-navi:latest` from Docker Hub on each startup. A deploy
 directory needs only `docker-compose.yml` and `.env`; the `./data` directory
 is created when needed and mounted at `/app/data`, preserving SQLite and media
 across container replacement. Run the same command to apply an image update.
-Set `KANO_IMAGE=yexca/kano-navi:0.5.1` in `.env` to pin the release,
+Set `KANO_IMAGE=yexca/kano-navi:0.5.2` in `.env` to pin the release,
 and use `KANO_PORT` to change the default host port of `7657`. The container
 listens on `7657`; the default public address is `http://localhost:7657`.
 To use the equivalent GHCR image, set
 `KANO_IMAGE=ghcr.io/yexca/kano-navi:latest`.
+The service is limited to 1 GiB of memory with a Go soft limit of 700 MiB;
+change both with `KANO_MEM_LIMIT` and `GOMEMLIMIT` as described in
+[Configuration](configuration.md#environment-variables).
 
 Fresh deployments start with empty X/YouTube snapshots and no LLM providers.
-Add providers and the model queue in `/admin`, then use a source's Run now or
+Add providers and the model queues in `/admin`, then use a source's Run now or
 enable its timer on the Sources page to populate source data. Fixed history
 images are already bundled. The LINE BLOG archive's text is bundled too; its
 media live in `./data/lineblog/` or a read-only mount over it, taken from
@@ -43,8 +46,8 @@ provider website and mirror site, turn on the setting on `/admin` → Site, then
 `X-Country-Code`, `X-Geo-Country` or `X-Visitor-Country` with its country code.
 The setting is off by default and Cloudflare's `CF-IPCountry` is checked first.
 Requests that reach the Go listener without one of these headers receive
-`mainlandChina: false`; the browser never sends the visitor's IP to a
-geolocation service.
+`mainlandChina: false`, so only the notice is skipped and the footer link
+remains; the browser never sends the visitor's IP to a geolocation service.
 
 The production listener gzip-compresses public JSON directly and sends the
 build's text from its precompressed Brotli and gzip siblings; a proxy is not
@@ -92,6 +95,7 @@ commands run against the mounted `./data`:
 docker compose run --rm kano seed
 docker compose run --rm kano sync
 docker compose run --rm kano migrate-llm
+docker compose run --rm kano variants
 ```
 
 ### Upgrades and rollback

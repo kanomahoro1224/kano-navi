@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -23,42 +22,31 @@ func (h *Handler) media(w http.ResponseWriter, r *http.Request, id string) {
 		h.writeMediaError(w, sqlite.ErrMediaNotFound, false, r.Method == http.MethodHead)
 		return
 	}
-	var file *sqlite.MediaFile
+	var file *sqlite.MediaStream
 	var err error
 	if widthPresent {
-		file, err = h.store.ReadMediaVariant(r.Context(), id, version, width)
+		file, err = h.store.OpenMediaVariant(r.Context(), id, version, width)
 	} else {
-		file, err = h.store.ReadMedia(r.Context(), id, version)
+		file, err = h.store.OpenMedia(r.Context(), id, version)
 	}
 	if err != nil {
 		h.writeMediaError(w, err, false, r.Method == http.MethodHead)
 		return
 	}
-	h.writeMediaHeaders(w, file.MIMEType, file.SHA256, file.Size, file.LastModified, version != "")
-	if mediaFresh(r, file.SHA256, file.LastModified) {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-	start, end, partial, rangeOK := parseRange(r.Header.Get("Range"), file.Size)
-	if !rangeOK {
-		w.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", file.Size))
-		w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
-		return
-	}
-	if partial {
-		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, file.Size))
-		w.Header().Set("Content-Length", strconv.FormatInt(end-start+1, 10))
-		w.WriteHeader(http.StatusPartialContent)
-		if r.Method != http.MethodHead {
-			_, _ = w.Write(file.Content[start : end+1])
-		}
-		return
-	}
-	w.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
-	w.WriteHeader(http.StatusOK)
-	if r.Method != http.MethodHead {
-		_, _ = w.Write(file.Content)
-	}
+	defer file.File.Close()
+	serveMediaStream(w, r, file, version != "")
+}
+
+// serveMediaStream sends an opened media file with the media headers. It
+// streams the file: ServeContent answers ranges, HEAD and both conditional
+// validators against the stream's ETag and modification time.
+func serveMediaStream(w http.ResponseWriter, r *http.Request, file *sqlite.MediaStream, immutable bool) {
+	w.Header().Set("Content-Type", file.MIMEType)
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", mediaCacheControl(immutable))
+	w.Header().Set("ETag", `"`+file.ETag+`"`)
+	http.ServeContent(w, r, "", file.LastModified, file.File)
 }
 
 func (h *Handler) profileMedia(w http.ResponseWriter, r *http.Request, slot string) {
@@ -157,18 +145,6 @@ func (h *Handler) writeMediaError(w http.ResponseWriter, err error, profile, hea
 	writeJSON(w, http.StatusNotFound, map[string]string{"error": code}, "")
 }
 
-func (h *Handler) writeMediaHeaders(w http.ResponseWriter, mime, hash string, size int64, modified time.Time, immutable bool) {
-	w.Header().Set("Content-Type", mime)
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Cache-Control", mediaCacheControl(immutable))
-	w.Header().Set("ETag", `"`+hash+`"`)
-	if !modified.IsZero() {
-		w.Header().Set("Last-Modified", modified.UTC().Format(http.TimeFormat))
-	}
-	w.Header().Set("Accept-Ranges", "bytes")
-}
-
 func mediaCacheControl(immutable bool) string {
 	if immutable {
 		return "public, max-age=31536000, immutable"
@@ -199,43 +175,4 @@ func mediaFresh(r *http.Request, hash string, modified time.Time) bool {
 		}
 	}
 	return false
-}
-
-func parseRange(raw string, size int64) (int64, int64, bool, bool) {
-	if raw == "" {
-		return 0, size - 1, false, true
-	}
-	if !strings.HasPrefix(raw, "bytes=") || strings.Contains(raw[6:], ",") {
-		return 0, 0, false, false
-	}
-	part := strings.TrimSpace(raw[6:])
-	pieces := strings.SplitN(part, "-", 2)
-	if len(pieces) != 2 {
-		return 0, 0, false, false
-	}
-	if pieces[0] == "" {
-		n, err := strconv.ParseInt(strings.TrimSpace(pieces[1]), 10, 64)
-		if err != nil || n <= 0 || size <= 0 {
-			return 0, 0, false, false
-		}
-		if n > size {
-			n = size
-		}
-		return size - n, size - 1, true, true
-	}
-	start, err := strconv.ParseInt(strings.TrimSpace(pieces[0]), 10, 64)
-	if err != nil || start < 0 || start >= size {
-		return 0, 0, false, false
-	}
-	end := size - 1
-	if strings.TrimSpace(pieces[1]) != "" {
-		end, err = strconv.ParseInt(strings.TrimSpace(pieces[1]), 10, 64)
-		if err != nil || end < start {
-			return 0, 0, false, false
-		}
-		if end >= size {
-			end = size - 1
-		}
-	}
-	return start, end, true, true
 }

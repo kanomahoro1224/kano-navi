@@ -30,9 +30,14 @@ Japan-time clock, and language and theme controls.
   remembered on this device.
 - **Themes:** light and dark, following your system until you pick one.
 - **Layouts:** every page works on phones, tablets, and desktops.
+- **Mainland China server site:** when one is available, visitors who appear
+  to be in mainland China see a notice offering it once per visit, and the
+  footer keeps a link to it while the interface is in Simplified Chinese. The
+  site is deployed independently by its provider.
 
 The About page introduces the project, credits the sources of the LINE BLOG
-archive and the AI models that helped build the site, and states the license.
+archive, the provider of the mainland China server site (with a link to it),
+and the AI models that helped build the site, and states the license.
 
 ## Freshness and Sources
 
@@ -44,7 +49,8 @@ reload button that loads the latest snapshot. A platform not read successfully
 for a day is marked out of date. An open board picks up a newly stored snapshot by
 itself within a few seconds, without a reload.
 When a platform is unavailable, the board keeps showing what it already
-knows.
+knows. Returning to the board shows what this device last saw at once, then
+updates it in place.
 
 Schedule entries are labelled **Auto-detected** when they were read from a
 post or a schedule image automatically, and **Confirmed** when the site's

@@ -1,6 +1,6 @@
 # Posts
 
-**Posts on X** shows the last three days of posts from both of Kano's
+**Recent Posts on X** shows the last three days of posts from both of Kano's
 accounts, and always at least the eight newest of each account, however old.
 Posts are laid out in whole rows; a long post shows its first lines and
 **Read more** opens it in full.

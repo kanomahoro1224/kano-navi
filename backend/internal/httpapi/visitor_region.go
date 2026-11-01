@@ -61,9 +61,13 @@ func visitorRegionPayload(r *http.Request, config visitorRegionConfig) map[strin
 		}
 	}
 	usable := config.enabled && config.providerName != "" && config.providerURL != "" && config.mirrorURL != ""
+	// A disabled site stays private: only the two booleans are returned.
+	if !usable {
+		return map[string]any{"enabled": false, "mainlandChina": false}
+	}
 	return map[string]any{
-		"enabled":       usable,
-		"mainlandChina": usable && country == "CN",
+		"enabled":       true,
+		"mainlandChina": country == "CN",
 		"providerName":  config.providerName,
 		"providerUrl":   config.providerURL,
 		"mirrorUrl":     config.mirrorURL,

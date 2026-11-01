@@ -232,11 +232,16 @@ func writeMediaCandidate(ctx context.Context, tx *sql.Tx, postID, url, account s
 	return replaceMediaLink(ctx, tx, "x", url, "post", postID, "post-image", pos, now)
 }
 func writeScheduleCandidate(ctx context.Context, tx *sql.Tx, c xsource.ScheduleCandidate, now string) error {
-	id := "schedule-x-" + c.PostID
+	id := scheduleAssetID(c.PostID)
 	var oldURL string
-	lookupErr := tx.QueryRowContext(ctx, `SELECT url FROM assets WHERE id=?`, id).Scan(&oldURL)
+	var picked sql.NullString
+	lookupErr := tx.QueryRowContext(ctx, `SELECT url, manual_image_at FROM assets WHERE id=?`, id).Scan(&oldURL, &picked)
 	if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
 		return lookupErr
+	}
+	// An operator picked this post's schedule image; synchronization keeps it.
+	if picked.Valid {
+		return nil
 	}
 	if oldURL != "" && oldURL != c.MediaURL {
 		if _, e := tx.ExecContext(ctx, `UPDATE schedule_asset_reviews SET llm_status='pending',updated_at=? WHERE asset_id=?`, now, id); e != nil {

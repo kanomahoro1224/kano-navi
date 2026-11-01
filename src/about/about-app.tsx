@@ -13,6 +13,9 @@ const REPOSITORY_URL = "https://github.com/yexca/kano-navi"
 const LICENSE_URL = `${REPOSITORY_URL}/blob/main/LICENSE`
 const LINEBLOG_RECOVERY_URL =
   "https://github.com/ZhFuwe/Kano_LINE_Blog_Recovery"
+const MAINLAND_PROVIDER = "鹿可可"
+const MAINLAND_PROVIDER_URL = "https://space.bilibili.com/426276698"
+const MAINLAND_SITE_URL = "https://xiaolubao.com"
 const developmentModels = ["Claude Opus 5.5", "GPT-6.1-Sol", "GPT-5.6-Sol"]
 const technologyGroups = [
   {
@@ -50,6 +53,33 @@ function Chapter({
       </h2>
       <div className="chapter-body">{children}</div>
     </section>
+  )
+}
+
+/** Credits the provider of the mainland China server site. */
+function MainlandSiteCredit() {
+  const { t } = useAppSettings()
+  const marker = "__MAINLAND_PROVIDER__"
+  const [before, after = ""] = t("about.creditsMainland", {
+    provider: marker,
+  }).split(marker)
+  return (
+    <>
+      <p>
+        {before}
+        <ExternalLink
+          className="about-inline-link"
+          href={MAINLAND_PROVIDER_URL}
+        >
+          {MAINLAND_PROVIDER}
+        </ExternalLink>
+        {after}
+      </p>
+      <ExternalLink className="text-link" href={MAINLAND_SITE_URL}>
+        {t("about.creditsMainlandSite")}
+        <ArrowUpRight aria-hidden="true" />
+      </ExternalLink>
+    </>
   )
 }
 
@@ -132,6 +162,7 @@ export function AboutApp() {
               {t("about.creditsRecovery")}
               <ArrowUpRight aria-hidden="true" />
             </ExternalLink>
+            <MainlandSiteCredit />
           </Chapter>
           <Chapter number={5} title={t("about.notice")}>
             <p>{t("about.unofficial")}</p>

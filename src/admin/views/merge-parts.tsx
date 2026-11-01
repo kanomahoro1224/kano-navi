@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
-import { formatDateTime } from "@/admin/format"
+import { japanStamp } from "@/admin/format"
 import type {
   AdminVideo,
   VideoMergeCandidate,
@@ -161,7 +161,7 @@ function MiniVideo({ video, detail }: { video: AdminVideo; detail?: string }) {
           <strong>{video.title}</strong>
         </a>
         <small>
-          {formatDateTime(video.scheduledAt || video.publishedAt, locale)}
+          {japanStamp(video.scheduledAt || video.publishedAt)}
           {detail ? ` · ${detail}` : ""}
         </small>
       </span>
@@ -453,10 +453,7 @@ export function MergeSection({
                   ? t("admin.videos.merge.byRule")
                   : t("admin.videos.merge.byOperator"),
               ],
-              [
-                t("admin.videos.merge.since"),
-                formatDateTime(video.mergedAt, locale),
-              ],
+              [t("admin.videos.merge.since"), japanStamp(video.mergedAt)],
             ]}
           />
           <div className="adm-actions">

@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Route,
   Save,
+  ScanSearch,
   Search,
   Trash2,
   TriangleAlert,
@@ -46,6 +47,7 @@ import {
   Button,
   Callout,
   ConfirmButton,
+  ConfirmIconButton,
   Empty,
   Field,
   IconButton,
@@ -89,11 +91,32 @@ function TagChips({ tags, routing }: { tags: string[]; routing?: boolean }) {
   )
 }
 
-const queueKey = (route: QueueRoute) =>
-  route === "translate" ? "translationQueue" : "queue"
+/**
+ * Each queue's catalog field and the stages it serves: the routing tag each
+ * stage needs. The extraction queue serves text and image posts; the other
+ * queues serve one stage and accept only models with its tag.
+ */
+const queueRoutes: Record<
+  QueueRoute,
+  {
+    key: "queue" | "verificationQueue" | "translationQueue"
+    stages: readonly ("text" | "image")[]
+    needs?: "text" | "image"
+  }
+> = {
+  schedule: { key: "queue", stages: ["text", "image"] },
+  verify: { key: "verificationQueue", stages: ["image"], needs: "image" },
+  translate: { key: "translationQueue", stages: ["text"], needs: "text" },
+}
+
+const routeOrder: QueueRoute[] = ["schedule", "verify", "translate"]
+
+const routeIcons = { schedule: Route, verify: ScanSearch, translate: Languages }
+
+const queueKey = (route: QueueRoute) => queueRoutes[route].key
 
 const queueOf = (catalog: LlmCatalog, route: QueueRoute) =>
-  (route === "translate" ? catalog.translationQueue : catalog.queue) || []
+  catalog[queueKey(route)] || []
 
 const sameTarget = (target: RouteTarget, providerId: string, id: string) =>
   target.providerId === providerId && target.modelId === id
@@ -119,12 +142,12 @@ export function firstUsable(
 function ModelPicker({
   catalog,
   targets,
-  needsText,
+  needs,
   onPick,
 }: {
   catalog: LlmCatalog
   targets: RouteTarget[]
-  needsText: boolean
+  needs?: "text" | "image"
   onPick: (target: RouteTarget) => void
 }) {
   const { t } = useAppSettings()
@@ -150,7 +173,7 @@ function ModelPicker({
   const candidates = catalog.models.filter(
     (model) =>
       model.enabled &&
-      (!needsText || model.capabilities.includes("text")) &&
+      (!needs || model.capabilities.includes(needs)) &&
       !targets.some((target) =>
         sameTarget(target, model.providerId, model.id),
       ) &&
@@ -221,9 +244,9 @@ function ModelPicker({
 }
 
 /**
- * One ordered queue: the schedule queue every extraction stage walks, or the
- * separate translation queue, whose models need the text tag. Every change
- * is saved at once.
+ * One ordered queue: the extraction queue both detection paths walk, or the
+ * separate schedule-image check or translation queue, whose models need the
+ * image or text tag. Every change is saved at once.
  */
 function QueueEditor({
   catalog,
@@ -235,7 +258,7 @@ function QueueEditor({
   onSave: (route: QueueRoute, targets: RouteTarget[]) => Promise<boolean>
 }) {
   const { t } = useAppSettings()
-  const translating = route === "translate"
+  const { stages: needed, needs } = queueRoutes[route]
   const targets = queueOf(catalog, route)
   const [dragging, setDragging] = useState<number | null>(null)
   const [over, setOver] = useState<number | null>(null)
@@ -243,12 +266,10 @@ function QueueEditor({
     describeTarget(target, catalog.providers, catalog.models),
   )
   // Each stage calls the first usable model with the tag it needs.
-  const stages = (
-    translating ? (["text"] as const) : (["text", "image"] as const)
-  ).map((needs) => ({
-    needs,
+  const stages = needed.map((tag) => ({
+    needs: tag,
     index: described.findIndex(
-      (item) => !item.issue && item.capabilities.includes(needs),
+      (item) => !item.issue && item.capabilities.includes(tag),
     ),
   }))
   const save = (next: RouteTarget[]) => void onSave(route, next)
@@ -313,8 +334,8 @@ function QueueEditor({
                       roles.map((role) => (
                         <Badge key={role.needs} tone="leaf" icon={Check}>
                           {t(
-                            translating
-                              ? "admin.route.usedFor.translate"
+                            needs
+                              ? `admin.route.usedFor.${route}`
                               : `admin.route.usedFor.${role.needs}`,
                           )}
                         </Badge>
@@ -354,9 +375,11 @@ function QueueEditor({
       ) : (
         <Empty title={t("admin.route.empty")}>
           {t(
-            translating
-              ? "admin.route.translationEmptyHint"
-              : "admin.route.emptyHint",
+            {
+              schedule: "admin.route.emptyHint",
+              verify: "admin.route.verifyEmptyHint",
+              translate: "admin.route.translationEmptyHint",
+            }[route],
           )}
         </Empty>
       )}
@@ -367,9 +390,11 @@ function QueueEditor({
               <p key={stage.needs} className="adm-inline-error">
                 <TriangleAlert aria-hidden />
                 {t(
-                  translating
-                    ? "admin.route.translationNeedsText"
-                    : `admin.route.needs.${stage.needs}`,
+                  {
+                    schedule: `admin.route.needs.${stage.needs}`,
+                    verify: "admin.route.verifyNeedsImage",
+                    translate: "admin.route.translationNeedsText",
+                  }[route],
                 )}
               </p>
             ))
@@ -378,7 +403,7 @@ function QueueEditor({
         <ModelPicker
           catalog={catalog}
           targets={targets}
-          needsText={translating}
+          needs={needs}
           onPick={(target) => save([...targets, target])}
         />
         {targets.length > 1 ? (
@@ -691,7 +716,6 @@ function ModelRow({
         : [...targets, { providerId: provider.id, modelId: model.id }],
     )
   }
-  const text = model.capabilities.includes("text")
   return (
     <li className={cn("adm-model-row", !model.enabled && "is-disabled")}>
       <span className="adm-model-name">
@@ -734,27 +758,29 @@ function ModelRow({
         })}
       </span>
       <span className="adm-model-queues">
-        {(["schedule", "translate"] as const).map((route) => (
-          <button
-            key={route}
-            type="button"
-            className="adm-queue-pick"
-            aria-pressed={queued(route)}
-            disabled={
-              !model.enabled ||
-              (route === "translate" && !text && !queued(route))
-            }
-            title={t(`admin.provider.queueHint.${route}`)}
-            onClick={() => toggleQueue(route)}
-          >
-            {route === "translate" ? (
-              <Languages aria-hidden />
-            ) : (
-              <Route aria-hidden />
-            )}
-            <span>{t(`admin.provider.queueName.${route}`)}</span>
-          </button>
-        ))}
+        {routeOrder.map((route) => {
+          const { needs } = queueRoutes[route]
+          const Icon = routeIcons[route]
+          return (
+            <button
+              key={route}
+              type="button"
+              className="adm-queue-pick"
+              aria-pressed={queued(route)}
+              disabled={
+                !model.enabled ||
+                (!!needs &&
+                  !model.capabilities.includes(needs) &&
+                  !queued(route))
+              }
+              title={t(`admin.provider.queueHint.${route}`)}
+              onClick={() => toggleQueue(route)}
+            >
+              <Icon aria-hidden />
+              <span>{t(`admin.provider.queueName.${route}`)}</span>
+            </button>
+          )
+        })}
       </span>
       <span className="adm-row-actions">
         <Switch
@@ -781,12 +807,12 @@ function ModelRow({
             )
           }
         />
-        <IconButton
+        <ConfirmIconButton
           icon={Trash2}
           label={t("admin.provider.removeModel")}
           busy={busy === "rm"}
           disabled={busy !== ""}
-          onClick={() =>
+          onConfirm={() =>
             run(
               "rm",
               () => api.removeModels(provider.id, [model.id]),
@@ -1218,8 +1244,12 @@ export function LlmView({ tab, navigate }: ViewProps) {
     () =>
       catalog.data && {
         ...catalog.data,
-        ...(drafts.schedule ? { queue: drafts.schedule } : {}),
-        ...(drafts.translate ? { translationQueue: drafts.translate } : {}),
+        ...Object.fromEntries(
+          routeOrder.flatMap((route) => {
+            const draft = drafts[route]
+            return draft ? [[queueKey(route), draft]] : []
+          }),
+        ),
       },
     [catalog.data, drafts],
   )
@@ -1240,6 +1270,13 @@ export function LlmView({ tab, navigate }: ViewProps) {
                 {t("admin.llm.queue.schedule")}
               </h3>
               <QueueEditor catalog={data} route="schedule" onSave={saveQueue} />
+            </section>
+            <section>
+              <h3>
+                <ScanSearch aria-hidden />
+                {t("admin.llm.queue.verify")}
+              </h3>
+              <QueueEditor catalog={data} route="verify" onSave={saveQueue} />
             </section>
             <section>
               <h3>

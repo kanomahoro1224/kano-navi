@@ -32,7 +32,7 @@ func TestVisitorRegionUsesCountryHeadersWithoutExposingThem(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, request)
 			var response map[string]any
-			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil || recorder.Code != http.StatusOK || response["enabled"] != false || response["mainlandChina"] != false || response["mirrorUrl"] != "" {
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil || recorder.Code != http.StatusOK || response["enabled"] != false || response["mainlandChina"] != false || len(response) != 2 {
 				t.Fatalf("response status=%d body=%q", recorder.Code, recorder.Body.String())
 			}
 			payload := visitorRegionPayload(request, visitorRegionConfig{enabled: true, providerName: "Provider", providerURL: "https://provider.example.test", mirrorURL: "https://mirror.example.test"})
@@ -60,7 +60,7 @@ func TestVisitorRegionPayloadHonorsTheSetting(t *testing.T) {
 		t.Fatalf("enabled CN payload=%v", payload)
 	}
 	config.enabled = false
-	if payload := visitorRegionPayload(request, config); payload["mainlandChina"] != false || payload["enabled"] != false {
+	if payload := visitorRegionPayload(request, config); payload["mainlandChina"] != false || payload["enabled"] != false || len(payload) != 2 {
 		t.Fatalf("disabled CN payload=%v", payload)
 	}
 }

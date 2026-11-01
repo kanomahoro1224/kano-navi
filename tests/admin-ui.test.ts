@@ -19,6 +19,8 @@ const overview = {
     pendingImages: 0,
     suspectedCancellations: 0,
     failedPosts: 0,
+    failedExtractions: 0,
+    failedTranslations: 0,
     reprocessRequested: 0,
     videoMerges: 0,
   },
@@ -30,6 +32,15 @@ const visitorRegion = {
   providerName: "",
   providerUrl: "",
   mirrorUrl: "",
+}
+
+const variantStatus = {
+  checkedAt: "2026-03-02T03:00:00.000Z",
+  groups: [
+    { group: "lineblog", originals: 4, ready: 4, unhashed: 0, widths: [] },
+    { group: "history", originals: 3, ready: 1, unhashed: 2, widths: [] },
+    { group: "media", originals: 0, ready: 0, unhashed: 0, widths: [] },
+  ],
 }
 
 function syncSettings() {
@@ -81,7 +92,7 @@ function restoreBrowser(
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previous.act
 }
 
-test("the real admin Site route loads and saves visitor-region settings", async () => {
+test("the real admin Site route saves visitor-region settings and makes image copies", async () => {
   const vite = await createServer({
     configFile: false,
     envDir: false,
@@ -116,7 +127,11 @@ test("the real admin Site route loads and saves visitor-region settings", async 
             ? overview
             : path === "/settings/visitor-region"
               ? visitorRegion
-              : {}
+              : path.startsWith("/media/variants")
+                ? variantStatus
+                : method === "POST" && path === "/runs"
+                  ? { run: { id: "synthetic-run" } }
+                  : {}
     return new Response(JSON.stringify(payload), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -169,6 +184,28 @@ test("the real admin Site route loads and saves visitor-region settings", async 
       ...saved,
       providerName: "New provider",
     })
+    // The copies card shows each group's ready images; Check again asks for
+    // a new listing and Make missing copies queues the variants run.
+    const text = root!.container.textContent
+    assert.match(text, /LINE BLOG archive4\/ 4 imagesAll copies made/)
+    assert.match(text, /Journey images1\/ 3 images2 without copies/)
+    const button = (label: string) =>
+      [...root!.container.querySelectorAll("button")].find(
+        (element) => element.textContent === label,
+      )
+    await click(button("Check again"))
+    assert.ok(
+      requests.some(
+        (request) =>
+          request.method === "GET" &&
+          request.path === "/media/variants?refresh=1",
+      ),
+    )
+    await click(button("Make missing copies"))
+    const run = requests.find(
+      (request) => request.method === "POST" && request.path === "/runs",
+    )
+    assert.deepEqual(run?.body, { kind: "variants" })
   } finally {
     await act(async () => root?.unmount())
     restoreBrowser(installed.previous)
@@ -301,6 +338,128 @@ test("the public visitor-region toast follows the persisted CN response", async 
     assert.match(root!.container.textContent, /Synthetic provider/)
     await click(root!.container.querySelector("button"))
     assert.equal(root!.container.querySelectorAll("aside").length, 0)
+  } finally {
+    await act(async () => root?.unmount())
+    restoreBrowser(installed.previous)
+    await vite.close()
+  }
+})
+
+test("the overview queue lists timers in order and starts one now or next", async () => {
+  const vite = await createServer({
+    configFile: false,
+    envDir: false,
+    server: { middlewareMode: true, watch: null, ws: false },
+    optimizeDeps: { noDiscovery: true, include: [] },
+    resolve: { alias: { "@": path.resolve("src") } },
+  })
+  const installed = installBrowser("")
+  let root: Rendered | undefined
+  try {
+    const [
+      { AdminContext },
+      { AppSettingsProvider, PageMessagesProvider },
+      { OverviewView },
+      copy,
+    ] = await Promise.all([
+      vite.ssrLoadModule("/src/admin/use-admin-data.ts"),
+      vite.ssrLoadModule("/src/app-settings.tsx"),
+      vite.ssrLoadModule("/src/admin/views/overview.tsx"),
+      vite.ssrLoadModule("/src/admin-i18n.ts"),
+    ])
+    const started: string[] = []
+    const queued = {
+      ...overview,
+      scheduler: { enabled: true, running: true, tickSeconds: 30 },
+      queue: [
+        {
+          kind: "source",
+          source: "x",
+          nextRunAt: "2026-03-02T03:00:00.000Z",
+          due: true,
+        },
+        {
+          kind: "live-probe",
+          nextRunAt: "2026-03-02T03:10:00.000Z",
+          due: false,
+        },
+        {
+          kind: "source",
+          source: "youtube",
+          nextRunAt: "2026-03-02T04:00:00.000Z",
+          due: false,
+        },
+      ],
+    }
+    const admin = {
+      overview: queued,
+      api: {
+        startSourceSchedule: async (source: string) => {
+          started.push(source)
+          return {}
+        },
+      },
+      act: async (work: () => Promise<unknown>) => work(),
+    }
+    function Harness({ busy }: { busy: boolean }) {
+      const value = {
+        ...admin,
+        overview: {
+          ...queued,
+          activeRun: busy
+            ? {
+                id: "synthetic-run",
+                kind: "workflow",
+                status: "running",
+                createdAt: "2026-03-02T02:58:00.000Z",
+                startedAt: "2026-03-02T02:58:00.000Z",
+                steps: ["bilibili"],
+                progress: { bilibili: "running" },
+                sourceSchedule: "bilibili",
+              }
+            : null,
+        },
+      }
+      return createElement(
+        AdminContext.Provider,
+        { value: value as any },
+        createElement(OverviewView, { navigate() {} }),
+      )
+    }
+    const mount = async (busy: boolean) => {
+      await act(async () => root?.unmount())
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: copy.adminMessages },
+              createElement(Harness, { busy }),
+            ),
+          ),
+        )
+      })
+      return [...root!.container.querySelectorAll(".adm-queue > li")]
+    }
+    // A due timer waits with no button; the live probe has none either.
+    let rows = await mount(false)
+    assert.deepEqual(
+      rows.map((row) => row.querySelector("strong")?.textContent),
+      ["X", "Live status", "YouTube"],
+    )
+    assert.match(rows[0].textContent, /Starting shortly.*Due/)
+    assert.equal(rows[0].querySelector("button"), null)
+    assert.equal(rows[1].querySelector("button"), null)
+    await click(rows[2].querySelector("button"))
+    assert.match(rows[2].textContent, /Start now/)
+    // While a run holds the queue the button queues the timer next.
+    rows = await mount(true)
+    assert.match(rows[0].textContent, /Waiting for the current run/)
+    assert.match(rows[2].textContent, /Run next/)
+    await click(rows[2].querySelector("button"))
+    assert.deepEqual(started, ["youtube", "youtube"])
   } finally {
     await act(async () => root?.unmount())
     restoreBrowser(installed.previous)

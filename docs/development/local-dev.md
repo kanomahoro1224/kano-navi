@@ -69,8 +69,9 @@ The console opens on Overview. Sources holds each source's timer and its
 **Run now**; Runs picks any steps and runs them once. LLM providers are configured once (API host, format, and
 key), their model list is fetched from `<baseUrl>/models`, and each model is
 tagged (`text`/`image` drive routing; `reasoning`/`tools`/`embedding` are
-labels). Detection settings then order provider + model targets in one
-priority queue; each stage skips targets without the capability it needs, and
+labels). The LLM page then orders provider + model targets in the extraction,
+schedule-image check and translation queues; extraction skips targets without
+the capability a post needs, and
 each target follows the fixed three-request failover policy. Content & media covers
 the Featured video and profile media. Provider URLs that resolve to loopback or
 private ranges are rejected, so local mock endpoints cannot be configured.

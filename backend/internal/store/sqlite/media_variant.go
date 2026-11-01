@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/yexca/kano-navi/backend/internal/mediaformat"
@@ -18,26 +20,36 @@ import (
 )
 
 // variantRoot holds resized copies under data/cache/variants. It is a derived
-// cache: originals are never changed and a removed directory is rebuilt on
-// demand.
+// cache: originals are never changed and a removed directory is rebuilt by the
+// media step and the variants command.
 const variantRoot = "cache/variants"
 
 // variantKeepOriginal marks a width whose copy would not be smaller (or the
 // format is served whole), so the original is served without decoding again.
 const variantKeepOriginal = "orig"
 
-// resizeSlots bounds concurrent decodes: a 40-megapixel image needs about
-// 160 MB as RGBA.
-var resizeSlots = make(chan struct{}, 2)
+// sourceSlots bounds the originals held in memory to make copies. A slot is
+// taken before an original is read and kept until its copies are made, so at
+// most two originals (10 MiB each) and their decodes (a 40-megapixel image
+// needs about 160 MB as RGBA) exist at once, each with the copy being scaled
+// from it. A maker waiting for a slot holds no original.
+var sourceSlots = make(chan struct{}, 2)
 
-// resizeVariant makes one copy; tests count and pace it.
-var resizeVariant = mediavariant.Resize
+// resizeVariants makes the copies of one original; tests count and pace it.
+var resizeVariants = mediavariant.ResizeEach
 
-// ReadMediaVariant returns a copy of a ready asset no wider than width, made
-// once and kept in the variant cache. It returns the original file whenever
-// a smaller copy cannot be made or stored, so callers never fail on a
-// variant alone.
-func (s *Store) ReadMediaVariant(ctx context.Context, id, version string, width int) (*MediaFile, error) {
+// ErrVariantSource means the loaded original does not have the hash its
+// copies are filed under, so none are made.
+var ErrVariantSource = errors.New("variant source does not match its hash")
+
+// errVariantNotStored means a width could not be written; the image is made
+// again next time.
+var errVariantNotStored = errors.New("variant not stored")
+
+// OpenMediaVariant opens the stored copy of a ready asset no wider than
+// width, or the original when there is none. Requests never decode: copies
+// are made ahead (MakeVariants).
+func (s *Store) OpenMediaVariant(ctx context.Context, id, version string, width int) (*MediaStream, error) {
 	if !mediavariant.ValidWidth(width) {
 		return nil, ErrMediaNotFound
 	}
@@ -45,81 +57,331 @@ func (s *Store) ReadMediaVariant(ctx context.Context, id, version string, width 
 	if err != nil {
 		return nil, err
 	}
-	file, err := s.ReadVariant(ctx, record.hash, width, func() (*MediaFile, error) {
-		return s.readMediaRecord(record)
-	})
-	if err != nil {
-		return nil, err
+	if stream, ok := s.OpenVariant(record.hash, width); ok {
+		stream.LastModified = record.lastModified(stream.LastModified)
+		return stream, nil
 	}
-	file.LastModified = record.lastModified(file.LastModified)
-	return file, nil
+	return s.openMediaRecord(ctx, record)
 }
 
-// ReadVariant returns a copy no wider than width of the image whose SHA-256
-// is hash, made once and kept in the variant cache under that hash. original
-// loads the image's bytes and is called only when no copy or keep-original
-// marker is cached; its error is returned as is. A copy is cached only when
-// the loaded bytes match hash, and the original is returned whenever a
-// smaller copy cannot be made or stored.
-func (s *Store) ReadVariant(ctx context.Context, hash string, width int, original func() (*MediaFile, error)) (*MediaFile, error) {
-	if !mediavariant.ValidWidth(width) || !safeHash(hash) {
-		return nil, ErrMediaNotFound
+// OpenVariant opens the stored copy no wider than width of the image whose
+// SHA-256 is hash. It reports false when there is none, including a width
+// whose original is kept: the caller serves the original. The copy's ETag
+// names the original's hash and the width, so serving it hashes nothing.
+func (s *Store) OpenVariant(hash string, width int) (*MediaStream, bool) {
+	if s == nil || !mediavariant.ValidWidth(width) || !safeHash(hash) {
+		return nil, false
 	}
-	name := variantName(hash, width)
-	if file, keepOriginal := s.readVariant(name); file != nil {
-		return file, nil
-	} else if keepOriginal {
-		return original()
-	}
-	// Concurrent cold requests for one copy wait for the first to make it,
-	// then find it in the cache, instead of each reading and decoding the
-	// original.
-	release, err := s.claimVariant(ctx, name)
+	root, err := os.OpenRoot(filepath.Join(s.dataRoot, variantRoot))
 	if err != nil {
-		return original()
+		return nil, false
+	}
+	defer root.Close()
+	name := variantName(hash, width)
+	for _, mime := range []string{"image/jpeg", "image/png"} {
+		file, openErr := root.Open(name + "." + mediaformat.Extension(mime))
+		if openErr != nil {
+			continue
+		}
+		if stream := checkVariantFile(file, mime); stream != nil {
+			stream.ETag = hash + "-" + strconv.Itoa(width)
+			return stream, true
+		}
+		file.Close()
+	}
+	return nil, false
+}
+
+// checkVariantFile accepts an opened copy that is a complete regular file
+// within the media bound whose first bytes hold mime, positioned at its
+// start; otherwise it returns nil and the caller closes file.
+func checkVariantFile(file *os.File, mime string) *MediaStream {
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxCachedMediaBytes {
+		return nil
+	}
+	header := make([]byte, min(info.Size(), 512))
+	if _, err = io.ReadFull(file, header); err != nil || mediaformat.Sniff(header) != mime {
+		return nil
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		return nil
+	}
+	if !completeVariant(file, mime, info.Size()) {
+		return nil
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		return nil
+	}
+	return &MediaStream{File: file, MIMEType: mime, Size: info.Size(), LastModified: info.ModTime()}
+}
+
+// completeVariant checks the format's end marker without decoding pixels.
+// Variant files are written by the encoder in mediavariant, so a missing end
+// marker identifies a truncated copy while keeping requests decode-free.
+func completeVariant(file *os.File, mime string, size int64) bool {
+	var suffix []byte
+	switch mime {
+	case "image/jpeg":
+		suffix = make([]byte, 2)
+	case "image/png":
+		suffix = make([]byte, 12)
+	default:
+		return false
+	}
+	if size < int64(len(suffix)) {
+		return false
+	}
+	if _, err := file.ReadAt(suffix, size-int64(len(suffix))); err != nil {
+		return false
+	}
+	switch mime {
+	case "image/jpeg":
+		return bytes.Equal(suffix, []byte{0xff, 0xd9})
+	case "image/png":
+		return bytes.Equal(suffix, []byte{0, 0, 0, 0, 'I', 'E', 'N', 'D', 0xae, 0x42, 0x60, 0x82})
+	default:
+		return false
+	}
+}
+
+// VariantsDone reports whether every width of hash has a copy or a
+// keep-original marker under dataRoot. MakeVariants writes the widest width
+// last and stops at the first failed write. Copy entries must have valid image
+// headers and complete format end markers; keep-original markers are empty
+// regular files.
+func VariantsDone(dataRoot, hash string) bool {
+	if !safeHash(hash) {
+		return false
+	}
+	root, err := os.OpenRoot(filepath.Join(dataRoot, variantRoot))
+	if err != nil {
+		return false
+	}
+	defer root.Close()
+	for _, width := range mediavariant.Widths {
+		if !hasVariantEntry(root, variantName(hash, width)) {
+			return false
+		}
+	}
+	return true
+}
+
+func hasVariantEntry(root *os.Root, name string) bool {
+	if info, err := root.Stat(name + "." + variantKeepOriginal); err == nil && info.Mode().IsRegular() && info.Size() == 0 {
+		return true
+	}
+	for _, item := range []struct {
+		extension string
+		mime      string
+	}{{"jpg", "image/jpeg"}, {"png", "image/png"}} {
+		file, err := root.Open(name + "." + item.extension)
+		if err != nil {
+			continue
+		}
+		valid := checkVariantFile(file, item.mime) != nil
+		file.Close()
+		if valid {
+			return true
+		}
+	}
+	return false
+}
+
+// VariantsMade counts the widths one MakeVariants call stored: Copies smaller
+// copies and Kept keep-original markers. Both are zero for an image that was
+// already done.
+type VariantsMade struct{ Copies, Kept int }
+
+// MakeVariants stores every missing width of the image whose SHA-256 is hash
+// in the variant cache under dataRoot: a smaller copy, or a keep-original
+// marker when none can be made. load reads the original. It is called at most
+// once, while holding one of the source slots, and copies are kept only when
+// its bytes match hash. An image already done loads nothing.
+func MakeVariants(ctx context.Context, dataRoot, hash string, load func() ([]byte, error)) (VariantsMade, error) {
+	made := VariantsMade{}
+	if !safeHash(hash) || dataRoot == "" {
+		return made, ErrMediaNotFound
+	}
+	if VariantsDone(dataRoot, hash) {
+		return made, nil
+	}
+	// Concurrent makers of one image wait for the first and then find its
+	// copies, instead of each reading and decoding the original.
+	release, err := claimVariant(ctx, filepath.Join(dataRoot, variantRoot, hash))
+	if err != nil {
+		return made, err
 	}
 	defer release()
-	if file, keepOriginal := s.readVariant(name); file != nil {
-		return file, nil
-	} else if keepOriginal {
-		return original()
+	if VariantsDone(dataRoot, hash) {
+		return made, nil
 	}
-	whole, err := original()
+	freeSlot, err := takeSourceSlot(ctx)
+	if err != nil {
+		return made, err
+	}
+	defer freeSlot()
+	content, err := load()
+	if err != nil {
+		return made, err
+	}
+	if sum := sha256.Sum256(content); hex.EncodeToString(sum[:]) != hash {
+		return made, ErrVariantSource
+	}
+	// Each width is written as soon as it is encoded, so at most one copy
+	// waits in memory besides the widest, which is written last. A failed write
+	// stops the image and leaves that width missing; every width is checked on
+	// the next run so a damaged earlier copy is rebuilt too.
+	missing := missingWidths(dataRoot, hash)
+	stored := true
+	resizeVariants(content, missing, func(i int, copy mediavariant.Copy) bool {
+		name := variantName(hash, missing[i])
+		if copy.Err != nil {
+			stored = writeCacheFile(dataRoot, variantRoot, ".variant-", name+"."+variantKeepOriginal, nil)
+			if stored {
+				made.Kept++
+			}
+		} else {
+			stored = writeCacheFile(dataRoot, variantRoot, ".variant-", name+"."+mediaformat.Extension(copy.MIME), copy.Content)
+			if stored {
+				made.Copies++
+			}
+		}
+		return stored
+	})
+	if !stored {
+		return made, errVariantNotStored
+	}
+	return made, nil
+}
+
+// VariantEntry is one stored width of an image: a copy, or a keep-original
+// marker (Kept).
+type VariantEntry struct {
+	Kept bool
+}
+
+// ListVariants lists valid entries in the variant cache under dataRoot by
+// original hash and width. Invalid or truncated copies are omitted so status
+// reflects what requests can actually serve. A missing cache lists nothing.
+func ListVariants(dataRoot string) (map[string]map[int]VariantEntry, error) {
+	out := map[string]map[int]VariantEntry{}
+	base := filepath.Join(dataRoot, variantRoot)
+	shards, err := os.ReadDir(base)
+	if errors.Is(err, fs.ErrNotExist) {
+		return out, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256(whole.Content)
-	if hex.EncodeToString(sum[:]) != hash {
-		return whole, nil
+	for _, shard := range shards {
+		if !shard.IsDir() || len(shard.Name()) != 2 {
+			continue
+		}
+		entries, err := os.ReadDir(filepath.Join(base, shard.Name()))
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			hash, width, kept, ok := parseVariantName(entry.Name())
+			if !ok || hash[:2] != shard.Name() || !entry.Type().IsRegular() {
+				continue
+			}
+			if kept {
+				info, infoErr := entry.Info()
+				if infoErr != nil || info.Size() != 0 {
+					continue
+				}
+			} else {
+				extension := filepath.Ext(entry.Name())
+				mime := map[string]string{".jpg": "image/jpeg", ".png": "image/png"}[extension]
+				file, openErr := os.Open(filepath.Join(base, shard.Name(), entry.Name()))
+				if openErr != nil {
+					continue
+				}
+				valid := checkVariantFile(file, mime) != nil
+				file.Close()
+				if !valid {
+					continue
+				}
+			}
+			if out[hash] == nil {
+				out[hash] = map[int]VariantEntry{}
+			}
+			if kept {
+				out[hash][width] = VariantEntry{Kept: true}
+			} else if _, marked := out[hash][width]; !marked {
+				out[hash][width] = VariantEntry{}
+			}
+		}
 	}
-	select {
-	case resizeSlots <- struct{}{}:
-	case <-ctx.Done():
-		return whole, nil
-	}
-	content, mime, resizeErr := resizeVariant(whole.Content, width)
-	<-resizeSlots
-	if resizeErr != nil {
-		s.writeVariant(name+"."+variantKeepOriginal, nil)
-		return whole, nil
-	}
-	s.writeVariant(name+"."+mediaformat.Extension(mime), content)
-	file := variantFile(content, mime)
-	file.LastModified = whole.LastModified
-	return file, nil
+	return out, nil
 }
 
-// variantMakers holds the variant copies being made, keyed by their cache
-// path, each with a channel closed when its maker is done.
+// parseVariantName reads "<hash>-<width>.<jpg|png|orig>".
+func parseVariantName(name string) (hash string, width int, kept, ok bool) {
+	stem, extension, found := strings.Cut(name, ".")
+	if !found || (extension != "jpg" && extension != "png" && extension != variantKeepOriginal) {
+		return "", 0, false, false
+	}
+	hash, rawWidth, found := strings.Cut(stem, "-")
+	if !found || !safeHash(hash) {
+		return "", 0, false, false
+	}
+	width, err := strconv.Atoi(rawWidth)
+	if err != nil || !mediavariant.ValidWidth(width) {
+		return "", 0, false, false
+	}
+	return hash, width, extension == variantKeepOriginal, true
+}
+
+// missingWidths lists the widths of hash with neither a copy nor a marker.
+func missingWidths(dataRoot, hash string) []int {
+	root, err := os.OpenRoot(filepath.Join(dataRoot, variantRoot))
+	if err != nil {
+		return append([]int{}, mediavariant.Widths...)
+	}
+	defer root.Close()
+	missing := []int{}
+	for _, width := range mediavariant.Widths {
+		name := variantName(hash, width)
+		if hasVariantEntry(root, name) {
+			continue
+		}
+		// A malformed copy must not block its replacement. In particular,
+		// os.Rename cannot replace an existing file on Windows.
+		for _, extension := range []string{variantKeepOriginal, "jpg", "png"} {
+			_ = root.Remove(name + "." + extension)
+		}
+		missing = append(missing, width)
+	}
+	return missing
+}
+
+// takeSourceSlot waits for a source slot until ctx ends. The returned func
+// frees it and must be called.
+func takeSourceSlot(ctx context.Context) (func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	select {
+	case sourceSlots <- struct{}{}:
+		return func() { <-sourceSlots }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// variantMakers holds the images whose copies are being made, keyed by their
+// cache path, each with a channel closed when its maker is done.
 var (
 	variantMakersMu sync.Mutex
 	variantMakers   = map[string]chan struct{}{}
 )
 
-// claimVariant waits until no other request is making name and claims it.
-// The returned release must be called; an error means ctx ended first.
-func (s *Store) claimVariant(ctx context.Context, name string) (func(), error) {
-	key := filepath.Join(s.dataRoot, variantRoot, name)
+// claimVariant waits until no other maker holds key and claims it. The
+// returned release must be called; an error means ctx ended first.
+func claimVariant(ctx context.Context, key string) (func(), error) {
 	for {
 		variantMakersMu.Lock()
 		busy, ok := variantMakers[key]
@@ -143,91 +405,84 @@ func (s *Store) claimVariant(ctx context.Context, name string) (func(), error) {
 	}
 }
 
+// ReadyMedia is the current file of a ready asset, for the variant maker.
+type ReadyMedia struct {
+	Hash      string
+	cachePath string
+}
+
+// ReadyMedia lists the current files of ready X, YouTube and Bilibili assets,
+// newest fetch first.
+func (s *Store) ReadyMedia(ctx context.Context) ([]ReadyMedia, error) {
+	if s == nil || s.db == nil {
+		return nil, ErrUnavailable
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT cache_path,sha256 FROM media_assets WHERE status='ready' AND source IN('x','youtube','bilibili') AND cache_path IS NOT NULL AND sha256 IS NOT NULL ORDER BY fetched_at DESC,id`)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	defer rows.Close()
+	out := []ReadyMedia{}
+	for rows.Next() {
+		var item ReadyMedia
+		if err = rows.Scan(&item.cachePath, &item.Hash); err != nil {
+			return nil, dbErr(err)
+		}
+		if safeHash(item.Hash) {
+			out = append(out, item)
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, dbErr(err)
+	}
+	return out, nil
+}
+
+// LoadReadyMedia reads item's contained regular file whole, within the media
+// bound. MakeVariants checks the bytes against item.Hash.
+func (s *Store) LoadReadyMedia(item ReadyMedia) ([]byte, error) {
+	path, err := s.resolveMediaPath(item.cachePath)
+	if err != nil {
+		return nil, err
+	}
+	content, _, err := readContainedFile(path, maxCachedMediaBytes)
+	return content, err
+}
+
 func variantName(hash string, width int) string {
 	return filepath.Join(hash[:2], hash+"-"+strconv.Itoa(width))
 }
 
-func variantFile(content []byte, mime string) *MediaFile {
-	sum := sha256.Sum256(content)
-	return &MediaFile{Content: content, MIMEType: mime, SHA256: hex.EncodeToString(sum[:]), Size: int64(len(content))}
-}
-
-// readVariant finds a stored copy, or reports that the original is kept for
-// this width. Any unreadable or mistyped entry counts as absent.
-func (s *Store) readVariant(name string) (*MediaFile, bool) {
-	root, err := os.OpenRoot(filepath.Join(s.dataRoot, variantRoot))
+// writeCacheFile stores name under the cache directory root of dataRoot
+// through a temporary file named with prefix, renamed into place. It reports
+// whether the entry is in place; a read-only data directory or any other
+// failure only means the entry is made again next time.
+func writeCacheFile(dataRoot, root, prefix, name string, content []byte) bool {
+	base, err := os.OpenRoot(dataRoot)
 	if err != nil {
-		return nil, false
-	}
-	defer root.Close()
-	if _, err = root.Stat(name + "." + variantKeepOriginal); err == nil {
-		return nil, true
-	}
-	for _, mime := range []string{"image/jpeg", "image/png"} {
-		file, openErr := root.Open(name + "." + mediaformat.Extension(mime))
-		if openErr != nil {
-			continue
-		}
-		out := readVariantFile(file, mime)
-		file.Close()
-		if out != nil {
-			return out, false
-		}
-	}
-	return nil, false
-}
-
-// statReader is the part of an open file readVariantFile needs.
-type statReader interface {
-	io.Reader
-	Stat() (fs.FileInfo, error)
-}
-
-// readVariantFile reads one stored copy, or returns nil when it cannot be
-// examined, is not a complete regular file, or does not hold mime.
-func readVariantFile(file statReader, mime string) *MediaFile {
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxCachedMediaBytes {
-		return nil
-	}
-	content, _ := io.ReadAll(io.LimitReader(file, maxCachedMediaBytes+1))
-	if int64(len(content)) != info.Size() || mediaformat.Sniff(content) != mime {
-		return nil
-	}
-	out := variantFile(content, mime)
-	out.LastModified = info.ModTime()
-	return out
-}
-
-// writeVariant stores a copy atomically. A read-only data directory or any
-// other failure only means the copy is made again next time.
-func (s *Store) writeVariant(name string, content []byte) {
-	base, err := os.OpenRoot(s.dataRoot)
-	if err != nil {
-		return
+		return false
 	}
 	defer base.Close()
-	dir := filepath.Join(filepath.FromSlash(variantRoot), filepath.Dir(name))
+	dir := filepath.Join(filepath.FromSlash(root), filepath.Dir(name))
 	if base.MkdirAll(dir, 0755) != nil {
-		return
+		return false
 	}
 	suffix := make([]byte, 16)
 	if _, err = rand.Read(suffix); err != nil {
-		return
+		return false
 	}
-	temp := filepath.Join(dir, ".variant-"+hex.EncodeToString(suffix))
+	temp := filepath.Join(dir, prefix+hex.EncodeToString(suffix))
 	file, err := base.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
-		return
+		return false
 	}
 	defer base.Remove(temp)
 	_, writeErr := file.Write(content)
 	closeErr := file.Close()
 	if writeErr != nil || closeErr != nil {
-		return
+		return false
 	}
-	target := filepath.Join(filepath.FromSlash(variantRoot), name)
-	if err = base.Rename(temp, target); err != nil && !errors.Is(err, os.ErrExist) {
-		return
-	}
+	target := filepath.Join(filepath.FromSlash(root), name)
+	err = base.Rename(temp, target)
+	return err == nil || errors.Is(err, os.ErrExist)
 }

@@ -125,3 +125,38 @@ func TestWriteXRecentKeepsTheTimelineGapUntilARunClosesIt(t *testing.T) {
 		t.Fatalf("closed gap=%#v err=%v", state.Gap, err)
 	}
 }
+
+func TestWriteXRecentKeepsAPickedScheduleImage(t *testing.T) {
+	p := testutil.NewSnapshot(t)
+	s, err := OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	post := func(media string) xsource.Result {
+		return xsource.Result{Account: "kano", Posts: []xsource.Post{{ID: "1", AccountHandle: "kano", Type: "notice", Label: "SCHEDULE / 日程", Text: "schedule", PublishedAt: "2026-10-11T00:00:00Z", URL: "https://x.com/kano/status/1", MediaURLs: []string{media}, Raw: map[string]any{"x": 1}}},
+			DiscoveredCount: 1, RequestedCount: 1, NextCursor: "1", NextCursorTime: "2026-10-11T00:00:00Z", Discovery: xsource.DiscoveryTimeline,
+			ScheduleCandidates: []xsource.ScheduleCandidate{{PostID: "1", SourceURL: "https://x.com/kano/status/1", MediaURL: media, AccountHandle: "kano"}}}
+	}
+	if err = s.WriteXRecent(context.Background(), "kano", post("https://pbs.twimg.com/a.jpg"), true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.DB().Exec(`UPDATE assets SET url='https://pbs.twimg.com/picked.jpg', manual_image_at='2026-10-12T00:00:00.000Z' WHERE id='schedule-x-1'`); err != nil {
+		t.Fatal(err)
+	}
+	var before int
+	if err = s.DB().QueryRow(`SELECT asset_version FROM assets WHERE id='schedule-x-1'`).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.WriteXRecent(context.Background(), "kano", post("https://pbs.twimg.com/b.jpg"), true); err != nil {
+		t.Fatal(err)
+	}
+	var url string
+	var version int
+	if err = s.DB().QueryRow(`SELECT url, asset_version FROM assets WHERE id='schedule-x-1'`).Scan(&url, &version); err != nil {
+		t.Fatal(err)
+	}
+	if url != "https://pbs.twimg.com/picked.jpg" || version != before {
+		t.Fatalf("synchronization replaced the picked image: %s v%d", url, version)
+	}
+}

@@ -7,6 +7,7 @@ import {
 } from "react"
 import {
   CalendarCheck,
+  CalendarDays,
   CalendarRange,
   Check,
   CheckCircle2,
@@ -19,7 +20,8 @@ import {
 } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
-import { formatDateTime, formatDay } from "@/admin/format"
+import type { ViewProps } from "@/admin"
+import { formatDay, japanStamp } from "@/admin/format"
 import type { ScheduleImage } from "@/admin/types"
 import {
   Badge,
@@ -53,6 +55,26 @@ function mediaLabel(image: ScheduleImage) {
     : "missing"
 }
 
+/** The post that published an image: its time and wording, folded to a few
+ * lines unless full. */
+function SourcePost({
+  image,
+  full = false,
+}: {
+  image: ScheduleImage
+  full?: boolean
+}) {
+  const post = image.sourcePost
+  if (!post) return null
+  return (
+    <blockquote className={`adm-source-post${full ? " is-full" : ""}`}>
+      <time dateTime={post.publishedAt}>{japanStamp(post.publishedAt)}</time>
+      <p>{post.text}</p>
+    </blockquote>
+  )
+}
+
+/** Correct an image's dates beside the image and its post, for reference. */
 function PeriodDialog({
   image,
   onClose,
@@ -77,7 +99,45 @@ function PeriodDialog({
     if (result) onClose(result.image)
   }
   return (
-    <Modal open title={t("admin.review.periodTitle")} onClose={() => onClose()}>
+    <Modal
+      open
+      wide
+      title={t("admin.review.periodTitle")}
+      onClose={() => onClose()}
+    >
+      <div className="adm-period-reference">
+        <a
+          className="adm-period-image"
+          href={image.previewUrl || undefined}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {image.previewUrl ? (
+            <img src={image.previewUrl} alt={image.alt || ""} />
+          ) : (
+            <span>
+              <ImageOff aria-hidden />
+              {t(`admin.review.media.${mediaLabel(image)}`)}
+            </span>
+          )}
+        </a>
+        <div className="adm-period-post">
+          {image.sourceUrl ? (
+            <a
+              className="adm-link"
+              href={image.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {image.sourceAccount
+                ? `@${image.sourceAccount}`
+                : t("admin.review.sourcePost")}
+              <ExternalLink aria-hidden />
+            </a>
+          ) : null}
+          <SourcePost image={image} full />
+        </div>
+      </div>
       <form className="adm-form" onSubmit={save}>
         <p className="adm-muted">{t("admin.review.periodHint")}</p>
         <div className="adm-form-row">
@@ -146,13 +206,16 @@ export function ConfidenceMeter({
 
 /** One schedule image as a decision card: the model's verdict, the covered
  * dates and the operator's label. The Review queue lists those that need a
- * decision; the Schedule page lists them all. */
+ * decision; the Schedule page lists them all, and its calendar those of the
+ * month. With navigate, a dated card opens its month in the calendar. */
 export function ImageCard({
   image,
   onChanged,
+  navigate,
 }: {
   image: ScheduleImage
   onChanged: (image: ScheduleImage) => void
+  navigate?: ViewProps["navigate"]
 }) {
   const { t, locale } = useAppSettings()
   const { api, act } = useAdmin()
@@ -230,6 +293,7 @@ export function ImageCard({
             <span className="adm-muted">@{image.sourceAccount}</span>
           ) : null}
         </header>
+        <SourcePost image={image} />
         <section className="adm-verdict">
           <div className="adm-verdict-head">
             <span className="adm-verdict-label">
@@ -267,14 +331,15 @@ export function ImageCard({
                   {`${formatDay(image.periodStart, locale)} – ${formatDay(image.periodEnd, locale)}`}
                   {image.periodBasis === "manual" ? (
                     <Badge tone="sky">{t("admin.review.periodManual")}</Badge>
+                  ) : image.periodBasis === "events" ? (
+                    <Badge tone="neutral">
+                      {t("admin.review.periodEvents")}
+                    </Badge>
                   ) : null}
                 </>
               ) : null,
             ],
-            [
-              t("admin.review.checked"),
-              formatDateTime(image.llmCheckedAt, locale) || null,
-            ],
+            [t("admin.review.checked"), japanStamp(image.llmCheckedAt) || null],
           ]}
         />
         <footer className="adm-decision-bar">
@@ -314,6 +379,18 @@ export function ImageCard({
             >
               {t("admin.review.fixPeriod")}
             </Button>
+            {navigate && image.periodStart ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={CalendarDays}
+                onClick={() =>
+                  navigate("schedule", image.periodStart!.slice(0, 7))
+                }
+              >
+                {t("admin.review.showInCalendar")}
+              </Button>
+            ) : null}
             {image.manualStatus !== "unreviewed" ? (
               <Button
                 size="sm"
@@ -341,29 +418,44 @@ export function ImageCard({
   )
 }
 
-type ImageFilter = "review" | "approved" | "all"
+type ImageFilter = "active" | "approved" | "review" | "rejected"
 
+/** Active is every image an operator has not labelled Not a schedule;
+ * those wait under Rejected, where the label can be cleared. */
 function matches(image: ScheduleImage, filter: ImageFilter) {
   if (filter === "review") return needsReview(image)
-  return filter === "approved" ? image.approved : true
+  if (filter === "approved") return image.approved
+  const rejected = image.manualStatus === "not_schedule"
+  return filter === "rejected" ? rejected : !rejected
 }
 
 /**
- * The newest stored schedule images under the first of the filters; more
- * than one filter shows them as tabs. A card that leaves the filter after a
- * decision leaves the list, and the overview's review count reads again.
+ * The newest stored schedule images under the first of the filters, or
+ * those whose period overlaps range; more than one filter shows them as
+ * tabs. A card that leaves the filter after a decision leaves the list, and
+ * the overview's review count reads again.
  */
 export function ScheduleImageList({
   filters,
   actions,
+  range,
+  empty = "admin.schedule.images.empty",
+  navigate,
 }: {
   filters: ImageFilter[]
   actions?: ReactNode
+  range?: { from: string; to: string }
+  /** The message key when no image matches. */
+  empty?: string
+  navigate?: ViewProps["navigate"]
 }) {
   const { t } = useAppSettings()
   const { api, refreshOverview } = useAdmin()
   const [filter, setFilter] = useState(filters[0])
-  const images = useResource(() => api.scheduleImages(), [])
+  const images = useResource(
+    () => api.scheduleImages(range),
+    [range?.from, range?.to],
+  )
   const items = images.data?.items || []
   const visible = useMemo(
     () => items.filter((image) => matches(image, filter)),
@@ -383,9 +475,9 @@ export function ScheduleImageList({
                 value,
                 label: t(`admin.review.filter.${value}`),
                 count:
-                  value === "approved"
-                    ? undefined
-                    : items.filter((image) => matches(image, value)).length,
+                  value === "review"
+                    ? items.filter((image) => matches(image, value)).length
+                    : undefined,
               }))}
             />
           ) : (
@@ -400,6 +492,7 @@ export function ScheduleImageList({
             <ImageCard
               key={image.id}
               image={image}
+              navigate={navigate}
               onChanged={(next) => {
                 images.setData({
                   items: items.map((item) =>
@@ -414,13 +507,32 @@ export function ScheduleImageList({
       ) : (
         <Empty
           icon={CheckCircle2}
-          title={t(
-            filter === "review"
-              ? "admin.review.noImages"
-              : "admin.schedule.images.empty",
-          )}
+          title={t(filter === "review" ? "admin.review.noImages" : empty)}
         />
       )}
     </>
+  )
+}
+
+/** The last day of the month that starts on day (YYYY-MM-01). */
+function monthEnd(day: string) {
+  const [year, month] = day.split("-").map(Number)
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10)
+}
+
+/** The schedule images whose period overlaps a calendar month, below its
+ * grid; images labelled Not a schedule stay off. */
+export function MonthScheduleImages({ month }: { month: string }) {
+  const { t } = useAppSettings()
+  const range = useMemo(() => ({ from: month, to: monthEnd(month) }), [month])
+  return (
+    <section className="adm-month-images">
+      <h2>{t("admin.schedule.monthImages")}</h2>
+      <ScheduleImageList
+        filters={["active"]}
+        range={range}
+        empty="admin.schedule.monthImagesEmpty"
+      />
+    </section>
   )
 }

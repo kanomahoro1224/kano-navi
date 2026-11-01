@@ -1,7 +1,8 @@
 import type { Translator } from "@/types"
 import { eventStatusCode } from "@/lib/event-text"
 
-// All operator times are shown in Asia/Tokyo, whatever the browser zone.
+// All operator times are shown in Asia/Tokyo, whatever the browser zone, and
+// every date as YYYY-MM-DD.
 const intlLocales: Record<string, string> = {
   "zh-CN": "zh-CN",
   ja: "ja-JP",
@@ -29,22 +30,6 @@ function valid(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-export function formatDateTime(
-  value: string | null | undefined,
-  locale: string,
-) {
-  const date = valid(value)
-  return date
-    ? formatter(locale, {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hourCycle: "h23",
-      }).format(date)
-    : ""
-}
-
 export function formatTime(value: string | null | undefined, locale: string) {
   const date = valid(value)
   return date
@@ -56,14 +41,10 @@ export function formatTime(value: string | null | undefined, locale: string) {
     : ""
 }
 
-/** A stored Japan date (YYYY-MM-DD) shown with its weekday. */
+/** A stored Japan date (YYYY-MM-DD) shown as is, with its weekday. */
 export function formatDay(day: string | null | undefined, locale: string) {
   if (!day || !/^\d{4}-\d{2}-\d{2}$/u.test(day)) return day || ""
-  return formatter(locale, {
-    month: "short",
-    day: "numeric",
-    weekday: "short",
-  }).format(new Date(`${day}T12:00:00+09:00`))
+  return `${day} ${formatWeekday(day, locale)}`
 }
 
 /** A stored Japan date's short weekday name. */
@@ -181,6 +162,7 @@ const tones: Record<string, string> = {
   schedule: "success",
   partial: "warning",
   skipped: "neutral",
+  dismissed: "neutral",
   uncertain: "warning",
   never: "neutral",
   unreviewed: "neutral",

@@ -107,6 +107,47 @@ export function IconButton({
   )
 }
 
+/** The first click arms a confirming action; it disarms after a pause. */
+function useArmed() {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!armed) return undefined
+    const timer = window.setTimeout(() => setArmed(false), 3500)
+    return () => window.clearTimeout(timer)
+  }, [armed])
+  return [armed, setArmed] as const
+}
+
+/**
+ * An icon-only destructive action in the danger tone. The first click arms
+ * it, and only a second click within the pause runs it.
+ */
+export function ConfirmIconButton({
+  onConfirm,
+  label,
+  confirmLabel,
+  className,
+  ...props
+}: Omit<Parameters<typeof IconButton>[0], "onClick"> & {
+  onConfirm: () => void
+  confirmLabel?: string
+}) {
+  const { t } = useAppSettings()
+  const [armed, setArmed] = useArmed()
+  return (
+    <IconButton
+      {...props}
+      label={armed ? confirmLabel || t("admin.action.confirmAgain") : label}
+      className={cn("is-danger", armed && "is-armed", className)}
+      onClick={() => {
+        if (!armed) return setArmed(true)
+        setArmed(false)
+        onConfirm()
+      }}
+    />
+  )
+}
+
 /** A destructive or irreversible action that asks once more inline. */
 export function ConfirmButton({
   onConfirm,
@@ -118,12 +159,7 @@ export function ConfirmButton({
   confirmLabel?: string
 }) {
   const { t } = useAppSettings()
-  const [armed, setArmed] = useState(false)
-  useEffect(() => {
-    if (!armed) return undefined
-    const timer = window.setTimeout(() => setArmed(false), 3500)
-    return () => window.clearTimeout(timer)
-  }, [armed])
+  const [armed, setArmed] = useArmed()
   return (
     <Button
       {...props}

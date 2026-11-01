@@ -25,6 +25,10 @@ type Translator struct {
 const (
 	// maxTranslationInput bounds the wording sent to a model.
 	maxTranslationInput = 4000
+	// eventTagPastDays and eventTagFutureDays bound which calendar entries the
+	// model labels: recent ones and announcements up to three months ahead.
+	eventTagPastDays   = 30
+	eventTagFutureDays = 90
 )
 
 // NewTranslator shares the extractor's options. Its scan limit and lookback
@@ -72,6 +76,18 @@ func (t *Translator) Run(ctx context.Context) (Result, error) {
 		}
 		return Result{Status: "failed", Counts: counts}, ErrStore
 	}
+	// The same queue labels the calendar entries whose title carries no other
+	// evidence, so a YouTube-only announcement still reaches readers with a
+	// kind.
+	if tags, tagErr := t.inferEventTags(ctx); tags != nil {
+		counts["eventTags"] = tags
+		if tagErr != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return Result{Status: "failed", Counts: counts}, ctxErr
+			}
+			return Result{Status: "failed", Counts: counts}, ErrStore
+		}
+	}
 	return Result{Status: scanStatus(counts), Counts: counts}, nil
 }
 
@@ -115,6 +131,95 @@ func (t *Translator) translatePending(ctx context.Context) (map[string]any, erro
 		counts[status] = countOf(counts, status) + 1
 	}
 	return counts, nil
+}
+
+// inferEventTags labels the calendar entries that carry no other evidence of
+// what they are. YouTube reservations are created by the sync and never pass
+// through the extraction prompt, so their title is the only thing to read; the
+// judgement is short-text work like translation, and it uses that queue.
+// Entries merged from an X notice were already labelled and are skipped.
+func (t *Translator) inferEventTags(ctx context.Context) (map[string]any, error) {
+	e := t.e
+	counts := map[string]any{"attempted": 0, "success": 0, "failed": 0}
+	providers, reason, err := e.routeProviders(ctx, routeTranslate, "text")
+	if err != nil {
+		return counts, err
+	}
+	if len(providers) == 0 {
+		counts["disabled"], counts["reason"] = true, reason
+		return counts, nil
+	}
+	settings, err := e.store.SyncSettings(ctx)
+	if err != nil {
+		return counts, err
+	}
+	limit := settings.TranslationScanLimit
+	if limit < 1 {
+		limit = 1
+	}
+	now := e.now().In(jst)
+	from := now.AddDate(0, 0, -eventTagPastDays).Format("2006-01-02")
+	to := now.AddDate(0, 0, eventTagFutureDays).Format("2006-01-02")
+	candidates, err := e.store.ListEventTagCandidates(ctx, from, to, limit)
+	if err != nil {
+		return counts, err
+	}
+	for _, item := range candidates {
+		if err = ctx.Err(); err != nil {
+			return counts, err
+		}
+		tag, err := t.inferEventTag(ctx, item, providers)
+		if err != nil {
+			return counts, err
+		}
+		counts["attempted"] = countOf(counts, "attempted") + 1
+		if _, err = e.store.RecordEventTag(ctx, item.ID, tag); err != nil {
+			return counts, err
+		}
+		counts["success"] = countOf(counts, "success") + 1
+	}
+	return counts, nil
+}
+
+// inferEventTag asks each configured target in turn for the label of one
+// title. A null answer is a real result: the entry keeps no label, and the
+// attempt is recorded so the title is not sent again.
+func (t *Translator) inferEventTag(ctx context.Context, item sqlite.EventTagCandidate, providers []provider) (*string, error) {
+	message := "provider request failed"
+	for _, target := range providers {
+		value, err := t.e.callModel(ctx, target, modelCall{
+			instructions: eventTagInstructions,
+			name:         eventTagToolName,
+			schema:       eventTagSchema,
+			maxTokens:    1024,
+			text:         "YouTube title: " + item.Title,
+			includeText:  true,
+			jsonOutput:   true,
+		})
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			message = storedMessage(err)
+			continue
+		}
+		root, ok := value.(*object)
+		if !ok {
+			message = "event tag result was not an object"
+			continue
+		}
+		tagValue, _ := root.get("tag")
+		if tagValue == nil {
+			return nil, nil
+		}
+		text, isString := tagValue.(string)
+		if !isString || !sqlite.ValidEventTag(text) {
+			message = "event tag result has an unknown label"
+			continue
+		}
+		return &text, nil
+	}
+	return nil, fail(message)
 }
 
 // translate handles one candidate and returns success, skipped, failed or

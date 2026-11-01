@@ -248,7 +248,7 @@ func fullResolution(path string) resolution {
 }
 
 // eventColumns are scanEvent's columns.
-const eventColumns = `id,source,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_at,updated_at`
+const eventColumns = `id,source,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,tag,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_at,updated_at`
 
 // queryLinkedEvents finds each video's linked event in one query: the
 // non-deleted event that names the video by ID, source evidence or stream

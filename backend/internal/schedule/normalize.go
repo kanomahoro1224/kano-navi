@@ -86,6 +86,7 @@ type normalizedEvent struct {
 	cancellationSuspected bool
 	status                string
 	eventType             string
+	tag                   *string
 	url                   string
 	isUpcoming            bool
 	confidence            float64
@@ -95,7 +96,7 @@ type normalizedEvent struct {
 // rawObject reproduces the property order of the JavaScript event object so
 // raw_json keeps one stable form across stored rows.
 func (e normalizedEvent) rawObject() *object {
-	return obj(
+	pairs := []any{
 		"id", e.id,
 		"canonicalSource", e.canonicalSource,
 		"canonicalSourceItemId", e.canonicalSourceItemID,
@@ -111,11 +112,18 @@ func (e normalizedEvent) rawObject() *object {
 		"cancellationSuspected", e.cancellationSuspected,
 		"status", e.status,
 		"event_type", e.eventType,
+	}
+	// An unlabelled entry keeps the recorded shape of stored rows.
+	if e.tag != nil {
+		pairs = append(pairs, "tag", *e.tag)
+	}
+	pairs = append(pairs,
 		"url", e.url,
 		"is_upcoming", e.isUpcoming,
 		"confidence", e.confidence,
 		"raw", obj("evidence", e.evidence),
 	)
+	return obj(pairs...)
 }
 
 var (
@@ -127,6 +135,17 @@ var (
 
 func validClock(value any, defined bool) bool {
 	return !defined || value == nil || timePattern.MatchString(jsString(value))
+}
+
+// extractedTag keeps a model label only when it is one of the known codes.
+// The model is asked for null when the entry does not say, so a missing or
+// null field means "no label" rather than an error.
+func extractedTag(value any) *string {
+	text, ok := value.(string)
+	if !ok || !sqlite.ValidEventTag(text) {
+		return nil
+	}
+	return &text
 }
 
 func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time) ([]normalizedEvent, error) {
@@ -141,6 +160,8 @@ func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time
 		endClock, endDefined := event.get("endTime")
 		precision, _ := event.get("timePrecision")
 		eventType, _ := event.get("eventType")
+		tagValue, tagDefined := event.get("tag")
+		tagText, tagIsString := tagValue.(string)
 		confidenceValue, confidenceDefined := event.get("confidence")
 		confidence := jsNumber(confidenceValue, confidenceDefined)
 		precisionText, precisionIsString := precision.(string)
@@ -153,6 +174,7 @@ func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time
 			!(truthy(endClock) && !truthy(clock)) &&
 			precisionIsString && timePrecisions[precisionText] &&
 			typeIsString && eventTypes[typeText] &&
+			(!tagDefined || tagValue == nil || tagIsString && sqlite.ValidEventTag(tagText)) &&
 			finite(confidence) && confidence >= 0 && confidence <= 1
 		if !valid {
 			return nil, fail("schedule extraction contained an invalid event")
@@ -167,6 +189,7 @@ func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time
 		endValue, _ := event.get("endTime")
 		precision, _ := event.get("timePrecision")
 		eventType, _ := event.get("eventType")
+		tagValue, _ := event.get("tag")
 		statusValue, _ := event.get("status")
 		detailValue, _ := event.get("detail")
 		urlValue, _ := event.get("url")
@@ -199,6 +222,7 @@ func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time
 			startsOn:              date,
 			timePrecision:         "unknown",
 			eventType:             eventType.(string),
+			tag:                   extractedTag(tagValue),
 			url:                   normalizePublicURL(eventURL, postURL),
 			isUpcoming:            true,
 			evidence:              sliceUTF16(stringOr(evidenceValue, ""), 1000),

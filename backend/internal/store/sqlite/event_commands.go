@@ -20,7 +20,7 @@ var (
 // EventInput is one validated manual schedule entry. An empty string means
 // "no value" and is stored as NULL. Timestamps are ISO instants; StartsOn is
 // the Japan calendar date.
-type EventInput struct{ ID, Title, Detail, StartsOn, StartsAt, EndsAt, TimePrecision, Status, EventType, URL, CancellationStatus, CancellationReason string }
+type EventInput struct{ ID, Title, Detail, StartsOn, StartsAt, EndsAt, TimePrecision, Status, EventType, Tag, URL, CancellationStatus, CancellationReason string }
 
 func (i EventInput) validate(create bool) error {
 	if !adminDateRE.MatchString(i.StartsOn) {
@@ -30,6 +30,9 @@ func (i EventInput) validate(create bool) error {
 		return ErrEventInvalid
 	}
 	if create && strings.TrimSpace(i.Title) == "" {
+		return ErrEventInvalid
+	}
+	if i.Tag != "" && !ValidEventTag(i.Tag) {
 		return ErrEventInvalid
 	}
 	if i.EndsAt != "" && i.StartsAt == "" {
@@ -58,7 +61,7 @@ func (i EventInput) raw() string {
 		"title": i.Title, "detail": nullIfEmpty(i.Detail), "starts_on": i.StartsOn, "starts_at": nullIfEmpty(i.StartsAt),
 		"ends_at": nullIfEmpty(i.EndsAt), "timezone": "Asia/Tokyo", "time_precision": i.precision(), "status": nullIfEmpty(i.Status),
 		"cancellation_status": i.CancellationStatus, "cancellation_reason": nullIfEmpty(i.CancellationReason),
-		"event_type": i.EventType, "url": nullIfEmpty(i.URL), "provenance": "manual", "manualLocked": true,
+		"event_type": i.EventType, "tag": nullIfEmpty(i.Tag), "url": nullIfEmpty(i.URL), "provenance": "manual", "manualLocked": true,
 	}
 	encoded, err := json.Marshal(value)
 	if err != nil {
@@ -72,6 +75,16 @@ func nullIfEmpty(v string) any {
 		return nil
 	}
 	return v
+}
+
+// manualTagSource marks who decided a tag. An operator clearing the label
+// keeps the row manual (the whole row is locked), so no inference fills it
+// again by itself.
+func manualTagSource(tag string) any {
+	if strings.TrimSpace(tag) == "" {
+		return nil
+	}
+	return TagSourceManual
 }
 
 func newEventID() (string, error) {
@@ -135,10 +148,10 @@ func (s *Store) CreateManualEvent(ctx context.Context, input EventInput) (AdminE
 	}
 	now, raw := ISOTime(time.Now()), input.raw()
 	if _, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,
- time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,cancellation_status,created_at,updated_at,raw_json)
- VALUES(?,'manual',?,?,?,?,?,?,?,'Asia/Tokyo',?,?,?,?,0,'manual',1,'none',?,?,?)`,
+ time_precision,status,event_type,tag,tag_source,url,is_upcoming,provenance,manual_locked,cancellation_status,created_at,updated_at,raw_json)
+ VALUES(?,'manual',?,?,?,?,?,?,?,'Asia/Tokyo',?,?,?,?,?,?,0,'manual',1,'none',?,?,?)`,
 		id, id, id, strings.TrimSpace(input.Title), nullIfEmpty(input.Detail), input.StartsOn, nullIfEmpty(input.StartsAt), nullIfEmpty(input.EndsAt),
-		input.precision(), nullIfEmpty(input.Status), eventType, nullIfEmpty(input.URL), now, now, raw); err != nil {
+		input.precision(), nullIfEmpty(input.Status), eventType, nullIfEmpty(input.Tag), manualTagSource(input.Tag), nullIfEmpty(input.URL), now, now, raw); err != nil {
 		return AdminEvent{}, fmt.Errorf("%w: event", ErrUnavailable)
 	}
 	if err = upsertEventSource(ctx, tx, id, "manual", id, id, nullIfEmpty(input.URL), raw, now); err != nil {
@@ -214,10 +227,10 @@ func (s *Store) UpdateManualEvent(ctx context.Context, id string, input EventInp
 		zone = "Asia/Tokyo"
 	}
 	args := append([]any{newTitle, nullIfEmpty(input.Detail), input.StartsOn, nullIfEmpty(input.StartsAt), nullIfEmpty(input.EndsAt), zone,
-		input.precision(), nullIfEmpty(input.Status), newType, nullIfEmpty(input.URL)}, cancellation...)
+		input.precision(), nullIfEmpty(input.Status), newType, nullIfEmpty(input.Tag), manualTagSource(input.Tag), nullIfEmpty(input.URL)}, cancellation...)
 	args = append(args, now, raw, id)
 	if _, err = tx.ExecContext(ctx, `UPDATE events SET title=?,detail=?,starts_on=?,starts_at=?,ends_at=?,timezone=?,time_precision=?,status=?,
- event_type=?,url=?,provenance='manual',cancellation_status=?,cancellation_source=?,cancellation_reason=?,cancellation_evidence=?,
+ event_type=?,tag=?,tag_source=?,url=?,provenance='manual',cancellation_status=?,cancellation_source=?,cancellation_reason=?,cancellation_evidence=?,
  cancellation_source_item_id=?,cancellation_confidence=?,cancellation_at=?,manual_locked=1,deleted_at=NULL,updated_at=?,raw_json=?,
  merged_into=CASE WHEN merge_source='rule' THEN NULL ELSE merged_into END,merge_reason=CASE WHEN merge_source='rule' THEN NULL ELSE merge_reason END,
  merged_at=CASE WHEN merge_source='rule' THEN NULL ELSE merged_at END,merge_source=CASE WHEN merge_source='rule' THEN NULL ELSE merge_source END WHERE id=?`, args...); err != nil {
@@ -274,7 +287,7 @@ func (s *Store) DeleteManualEvent(ctx context.Context, id string) (AdminEvent, e
 func (s *Store) event(ctx context.Context, id string) (AdminEvent, error) {
 	var e AdminEvent
 	var locked int
-	err := s.db.QueryRowContext(ctx, `SELECT id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_source_item_id,cancellation_confidence,cancellation_at,deleted_at,created_at,updated_at,merged_into,(SELECT t.title FROM events t WHERE t.id=events.merged_into),merge_source,merge_reason,merged_at FROM events WHERE id=?`, id).Scan(&e.ID, &e.Source, &e.SourceItemID, &e.SourceKey, &e.Title, &e.Detail, &e.StartsOn, &e.StartsAt, &e.EndsAt, &e.Timezone, &e.TimePrecision, &e.Status, &e.EventType, &e.URL, &e.Provenance, &locked, &e.CancellationStatus, &e.CancellationSource, &e.CancellationReason, &e.CancellationEvidence, &e.CancellationSourceItemID, &e.CancellationConfidence, &e.CancellationAt, &e.DeletedAt, &e.CreatedAt, &e.UpdatedAt, &e.MergedInto, &e.MergedIntoTitle, &e.MergeSource, &e.MergeReason, &e.MergedAt)
+	err := s.db.QueryRowContext(ctx, `SELECT id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,tag,tag_source,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_source_item_id,cancellation_confidence,cancellation_at,deleted_at,created_at,updated_at,merged_into,(SELECT t.title FROM events t WHERE t.id=events.merged_into),merge_source,merge_reason,merged_at FROM events WHERE id=?`, id).Scan(&e.ID, &e.Source, &e.SourceItemID, &e.SourceKey, &e.Title, &e.Detail, &e.StartsOn, &e.StartsAt, &e.EndsAt, &e.Timezone, &e.TimePrecision, &e.Status, &e.EventType, &e.Tag, &e.TagSource, &e.URL, &e.Provenance, &locked, &e.CancellationStatus, &e.CancellationSource, &e.CancellationReason, &e.CancellationEvidence, &e.CancellationSourceItemID, &e.CancellationConfidence, &e.CancellationAt, &e.DeletedAt, &e.CreatedAt, &e.UpdatedAt, &e.MergedInto, &e.MergedIntoTitle, &e.MergeSource, &e.MergeReason, &e.MergedAt)
 	e.ManualLocked = locked != 0
 	return e, err
 }

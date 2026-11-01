@@ -19,7 +19,7 @@ import {
 } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
-import { formatDateTime, formatDay } from "@/admin/format"
+import { formatDay, japanStamp } from "@/admin/format"
 import type { ScheduleImage } from "@/admin/types"
 import {
   Badge,
@@ -271,10 +271,7 @@ export function ImageCard({
                 </>
               ) : null,
             ],
-            [
-              t("admin.review.checked"),
-              formatDateTime(image.llmCheckedAt, locale) || null,
-            ],
+            [t("admin.review.checked"), japanStamp(image.llmCheckedAt) || null],
           ]}
         />
         <footer className="adm-decision-bar">
@@ -341,11 +338,15 @@ export function ImageCard({
   )
 }
 
-type ImageFilter = "review" | "approved" | "all"
+type ImageFilter = "active" | "approved" | "review" | "rejected"
 
+/** Active is every image an operator has not labelled Not a schedule;
+ * those wait under Rejected, where the label can be cleared. */
 function matches(image: ScheduleImage, filter: ImageFilter) {
   if (filter === "review") return needsReview(image)
-  return filter === "approved" ? image.approved : true
+  if (filter === "approved") return image.approved
+  const rejected = image.manualStatus === "not_schedule"
+  return filter === "rejected" ? rejected : !rejected
 }
 
 /**
@@ -383,9 +384,9 @@ export function ScheduleImageList({
                 value,
                 label: t(`admin.review.filter.${value}`),
                 count:
-                  value === "approved"
-                    ? undefined
-                    : items.filter((image) => matches(image, value)).length,
+                  value === "review"
+                    ? items.filter((image) => matches(image, value)).length
+                    : undefined,
               }))}
             />
           ) : (

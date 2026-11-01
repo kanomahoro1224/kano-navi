@@ -19,6 +19,8 @@ const overview = {
     pendingImages: 0,
     suspectedCancellations: 0,
     failedPosts: 0,
+    failedExtractions: 0,
+    failedTranslations: 0,
     reprocessRequested: 0,
     videoMerges: 0,
   },

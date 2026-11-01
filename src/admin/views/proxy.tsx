@@ -608,10 +608,7 @@ export function ProxyView() {
   }
   return (
     <div className="adm-view">
-      <PageHeader
-        title={t("admin.proxy.title")}
-        description={t("admin.proxy.description")}
-      />
+      <PageHeader title={t("admin.proxy.title")} />
       {!settings ? (
         <Loading />
       ) : (

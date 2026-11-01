@@ -11,12 +11,12 @@ import {
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import {
-  formatDateTime,
   formatDay,
   formatMonth,
   japanClock,
   japanDay,
   japanInstant,
+  japanStamp,
   japanToday,
 } from "@/admin/format"
 import type { AdminEvent, EventInput } from "@/admin/types"
@@ -220,7 +220,7 @@ function EventDialog({
         {event ? (
           <p className="adm-muted adm-entry-updated">
             {t("admin.schedule.updated", {
-              time: formatDateTime(event.updatedAt, locale),
+              time: japanStamp(event.updatedAt),
             })}
           </p>
         ) : null}
@@ -544,7 +544,6 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
     <div className="adm-view">
       <PageHeader
         title={t("admin.schedule.title")}
-        description={t("admin.schedule.description")}
         actions={
           <Button
             variant="primary"
@@ -649,7 +648,9 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
           </div>
         )}
         {images ? (
-          <ScheduleImageList filters={["all", "approved", "review"]} />
+          <ScheduleImageList
+            filters={["active", "approved", "review", "rejected"]}
+          />
         ) : mode === "calendar" ? (
           <ScheduleCalendar
             month={month}

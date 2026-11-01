@@ -512,7 +512,7 @@ func TestOverviewCountsWhatNeedsReview(t *testing.T) {
 	if counts["events"] != float64(3) || counts["upcomingEvents"] != float64(1) || counts["posts"] != float64(2) || counts["videos"] != float64(0) {
 		t.Fatalf("counts=%v", counts)
 	}
-	if review["suspectedCancellations"] != float64(1) || review["failedPosts"] != float64(1) || review["reprocessRequested"] != float64(1) || review["pendingImages"] != float64(1) {
+	if review["suspectedCancellations"] != float64(1) || review["failedPosts"] != float64(1) || review["failedExtractions"] != float64(1) || review["failedTranslations"] != float64(0) || review["reprocessRequested"] != float64(1) || review["pendingImages"] != float64(1) {
 		t.Fatalf("review=%v", review)
 	}
 	if scheduler := payload["scheduler"].(map[string]any); scheduler["running"] != true {

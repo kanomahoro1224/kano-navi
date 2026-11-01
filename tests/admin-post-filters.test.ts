@@ -49,6 +49,7 @@ test("post date filters reach server queries, survive pagination and clear indep
       quoteHiddenAt: null,
       refreshRequestedAt: null,
       hiddenAt: null,
+      scheduleImage: null,
     }
     const queries: Record<string, string | number>[] = []
     const context = {

@@ -62,7 +62,9 @@ external work:
   "review": {
     "pendingImages",          // unlabelled images with a URL the model has not settled (pending, uncertain, failed)
     "suspectedCancellations", // events with an LLM cancellation overlay
-    "failedPosts",            // posts whose last extraction failed
+    "failedPosts",            // posts with a failed extraction or translation
+    "failedExtractions",      // posts whose last extraction failed
+    "failedTranslations",     // X posts whose current wording failed machine translation and still lacks a translation
     "reprocessRequested",     // posts queued for re-extraction
     "videoMerges"             // unmerged Bilibili uploads the merge rule leaves to the operator
   },
@@ -351,17 +353,21 @@ alias); `none` never needs review and keeps `previewUrl` null.
 
 ## Posts
 
-| Method and path                | Body / query                                                                                               | Result        |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------- |
-| `GET /posts`                   | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `reprocess`, `translation` | list of posts |
-| `PUT /posts/{id}/hidden`       | `{hidden}`                                                                                                 | `{state}`     |
-| `POST /posts/{id}/reprocess`   | `{route?}`                                                                                                 | `{state}`     |
-| `PUT /posts/{id}/quote/hidden` | `{hidden}`                                                                                                 | `{state}`     |
-| `POST /posts/{id}/refresh`     | none                                                                                                       | `{state}`     |
+| Method and path                  | Body / query                                                                                               | Result                           |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `GET /posts`                     | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `reprocess`, `translation` | list of posts                    |
+| `PUT /posts/{id}/hidden`         | `{hidden}`                                                                                                 | `{state}`                        |
+| `POST /posts/{id}/reprocess`     | `{route?}`                                                                                                 | `{state}`                        |
+| `POST /posts/{id}/dismiss`       | none                                                                                                       | `{state}`; `409 post_not_failed` |
+| `PUT /posts/{id}/schedule-image` | `{index, reason, start?, end?}`                                                                            | `{image}`                        |
+| `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                                 | `{state}`                        |
+| `POST /posts/{id}/refresh`       | none                                                                                                       | `{state}`                        |
 
 `account` is an X handle, matched without case or a leading `@`; `llm` is `never`, `pending`, `processed`, `failed`,
-`skipped` or `uncertain`; `reprocess=1` keeps only queued posts;
-`translation` is `incomplete`, `complete` or `requested`.
+`dismissed`, `skipped` or `uncertain`; `reprocess=1` keeps only queued posts;
+`translation` is `incomplete`, `complete`, `requested` or `failed` (the
+machine pass of the current wording failed and a locale still lacks a usable
+translation).
 
 `from` and `to` are inclusive Asia/Tokyo publication dates. Search matches
 text, URL, image alt text and the stored post ID before pagination, so older
@@ -374,6 +380,20 @@ no longer retries its current input (see
 [Failure backoff](sources.md#extraction-failure-backoff)). Both stay
 `null`/`false` for other posts and for a post with a queued reprocess request,
 which runs regardless. `POST /posts/{id}/reprocess` clears the backoff.
+`POST /posts/{id}/dismiss` turns a `failed` extraction into `dismissed` and
+stops its automatic retries (see
+[Failure backoff](sources.md#extraction-failure-backoff)); any other state
+answers `409 post_not_failed`.
+
+`scheduleImage` is the post's schedule image record, or `null`: its asset
+`id`, the `index` of the post's own image it shows (`null` for none of them),
+`llmStatus`, `manualStatus` and `picked`. `PUT /posts/{id}/schedule-image`
+makes the X post's image at `index` (in `media` order) its schedule image,
+labelled `schedule` with the required `reason` (see
+[Schedule images](sources.md#schedule-images)). `start` and `end` set its
+manual period and come together; without them the stored manual period stays.
+An unknown or non-X post answers `404 post_not_found`, and an index without
+an image `400`.
 
 An X post carries `translation` (see [Translations](#translations)); other
 posts carry `null`. `GET /videos` does the same for YouTube videos.

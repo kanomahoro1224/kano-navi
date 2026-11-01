@@ -220,6 +220,18 @@ function createClient(run: Runner, slow: Runner) {
       get<Page<AdminPost>>(`/posts${query(filters)}`),
     reprocessPost: (id: string) =>
       send<{ state: unknown }>("POST", `/posts/${enc(id)}/reprocess`, {}),
+    dismissPost: (id: string) =>
+      send<{ state: unknown }>("POST", `/posts/${enc(id)}/dismiss`, {}),
+    /** Make one of the post's own images its schedule image. */
+    pickScheduleImage: (
+      id: string,
+      body: { index: number; reason: string; start?: string; end?: string },
+    ) =>
+      send<{ image: ScheduleImage }>(
+        "PUT",
+        `/posts/${enc(id)}/schedule-image`,
+        body,
+      ),
     setPostHidden: (id: string, hidden: boolean) =>
       send<{ state: unknown }>("PUT", `/posts/${enc(id)}/hidden`, { hidden }),
     setQuoteHidden: (id: string, hidden: boolean) =>

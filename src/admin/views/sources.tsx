@@ -35,9 +35,9 @@ import {
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import {
-  formatDateTime,
   formatInterval,
   formatRelative,
+  japanStamp,
   japanToday,
 } from "@/admin/format"
 import type {
@@ -107,7 +107,7 @@ const sameSync = (a: SourceSync | null, b: SourceSync | null) =>
 function When({ value }: { value: string | null | undefined }) {
   const { locale } = useAppSettings()
   return value ? (
-    <time dateTime={value} title={formatDateTime(value, locale)}>
+    <time dateTime={value} title={japanStamp(value)}>
       {formatRelative(value, locale)}
     </time>
   ) : (
@@ -1159,10 +1159,7 @@ function FetchSummary({
           <strong>{t("admin.fetch.last")}</strong>
           <small>
             {window ? `${windowText(window, source, t)} · ` : ""}
-            <time
-              dateTime={run.createdAt}
-              title={formatDateTime(run.createdAt, locale)}
-            >
+            <time dateTime={run.createdAt} title={japanStamp(run.createdAt)}>
               {formatRelative(run.createdAt, locale)}
             </time>
           </small>
@@ -1281,7 +1278,7 @@ function FetchPanel({
             ([label, time]) =>
               [
                 t("admin.sources.oldest", { label }),
-                time ? formatDateTime(time, locale) : t("admin.sources.none"),
+                time ? japanStamp(time) : t("admin.sources.none"),
               ] as [string, string],
           ),
         ]}
@@ -1446,21 +1443,15 @@ function PushStage({
                     : "admin.push.secretUnset",
                 ),
               ],
-              [
-                t("admin.push.lease"),
-                formatDateTime(push.leaseExpiresAt, locale) || null,
-              ],
-              [
-                t("admin.push.renewal"),
-                formatDateTime(push.nextRenewalAt, locale) || null,
-              ],
+              [t("admin.push.lease"), japanStamp(push.leaseExpiresAt) || null],
+              [t("admin.push.renewal"), japanStamp(push.nextRenewalAt) || null],
               [
                 t("admin.push.notified"),
-                formatDateTime(push.lastNotificationAt, locale) || null,
+                japanStamp(push.lastNotificationAt) || null,
               ],
               [
                 t("admin.push.triggered"),
-                formatDateTime(push.lastTriggeredAt, locale) || null,
+                japanStamp(push.lastTriggeredAt) || null,
               ],
               [t("admin.push.lastError"), push.lastError],
             ]}
@@ -1575,13 +1566,13 @@ function LiveProbeStage({
               [
                 t("admin.liveProbe.lastRun"),
                 probe.lastRunAt
-                  ? `${formatDateTime(probe.lastRunAt, locale)} · ${formatRelative(probe.lastRunAt, locale)}`
+                  ? `${japanStamp(probe.lastRunAt)} · ${formatRelative(probe.lastRunAt, locale)}`
                   : null,
               ],
               [
                 t("admin.liveProbe.nextRun"),
                 probe.nextRunAt
-                  ? `${formatDateTime(probe.nextRunAt, locale)} · ${formatRelative(probe.nextRunAt, locale)}`
+                  ? `${japanStamp(probe.nextRunAt)} · ${formatRelative(probe.nextRunAt, locale)}`
                   : null,
               ],
               [
@@ -1847,7 +1838,7 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                   selected === "bilibili" && blockedUntil ? (
                     <Badge tone="danger" icon={ShieldAlert}>
                       {t("admin.bilibili.blockedUntil", {
-                        time: formatDateTime(blockedUntil, locale),
+                        time: japanStamp(blockedUntil),
                       })}
                     </Badge>
                   ) : null

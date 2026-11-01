@@ -72,9 +72,9 @@ func failure(message string) error { return &opError{message: message} }
 
 func (m *Module) timestamp() string { return sqlite.ISOTime(m.now()) }
 
-// AdminRoutes lists the profile media, schedule image, post reprocess and
-// post quote endpoints. The router has already authenticated the session and applied the
-// origin guard.
+// AdminRoutes lists the profile media, schedule image, post reprocess,
+// dismissal, schedule image pick and post quote endpoints. The router has
+// already authenticated the session and applied the origin guard.
 func (m *Module) AdminRoutes() []httpx.Route {
 	id := func(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) { next(w, r, r.PathValue("id")) }
@@ -94,6 +94,8 @@ func (m *Module) AdminRoutes() []httpx.Route {
 		{Method: http.MethodPost, Path: "/schedule-images/{id}/review", Handler: m.guard(id(m.manualReviewRoute))},
 		{Method: http.MethodPut, Path: "/schedule-images/{id}/period", Handler: m.guard(id(m.periodRoute))},
 		{Method: http.MethodPost, Path: "/posts/{id}/reprocess", Handler: m.guard(id(m.reprocessPost))},
+		{Method: http.MethodPost, Path: "/posts/{id}/dismiss", Handler: m.guard(id(m.dismissPost))},
+		{Method: http.MethodPut, Path: "/posts/{id}/schedule-image", Handler: m.guard(id(m.pickScheduleImageRoute))},
 		{Method: http.MethodPut, Path: "/posts/{id}/hidden", Handler: m.guard(id(m.postHiddenRoute))},
 		{Method: http.MethodPut, Path: "/posts/{id}/quote/hidden", Handler: m.guard(id(m.quoteHiddenRoute))},
 		{Method: http.MethodPost, Path: "/posts/{id}/refresh", Handler: m.guard(id(m.refreshPostRoute))},

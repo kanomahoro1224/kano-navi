@@ -1,16 +1,18 @@
 import { useId, useState } from "react"
 import {
+  Ban,
   CalendarCheck,
   CalendarX,
   CheckCircle2,
   ExternalLink,
   Images,
+  Languages,
   Sparkles,
 } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
-import { formatDateTime, japanStamp } from "@/admin/format"
+import { japanStamp } from "@/admin/format"
 import type { AdminEvent, AdminPost } from "@/admin/types"
 import {
   Badge,
@@ -175,7 +177,6 @@ function CancellationsTab() {
   if (!events.data) return <Loading />
   return events.data.items.length ? (
     <div className="adm-decision-list">
-      <p className="adm-note">{t("admin.review.cancellationHint")}</p>
       {events.data.items.map((event) => (
         <CancellationCard
           key={event.id}
@@ -194,14 +195,19 @@ function CancellationsTab() {
 
 /**
  * The extraction state, last error, failure backoff and queue flag of one
- * post. A queued state already says the post waits, so the flag is not
- * repeated.
+ * post. A failure names the schedule extraction, apart from a failed
+ * translation. A queued state already says the post waits, so the flag is
+ * not repeated.
  */
 export function PostStatus({ post }: { post: AdminPost }) {
-  const { t, locale } = useAppSettings()
+  const { t } = useAppSettings()
   return (
     <>
-      <StatusBadge status={post.llmStatus} />
+      {post.llmStatus === "failed" ? (
+        <Badge tone="danger">{t("admin.review.failure.extraction")}</Badge>
+      ) : (
+        <StatusBadge status={post.llmStatus} />
+      )}
       {post.llmLastError ? (
         <Badge tone="danger">
           {t(`admin.posts.error.${post.llmLastError}`)}
@@ -214,7 +220,7 @@ export function PostStatus({ post }: { post: AdminPost }) {
       ) : post.llmRetryAt ? (
         <Badge tone="neutral" className="adm-retry-badge">
           {t("admin.posts.retryAt", {
-            time: formatDateTime(post.llmRetryAt, locale),
+            time: japanStamp(post.llmRetryAt),
           })}
         </Badge>
       ) : null}
@@ -233,10 +239,13 @@ export function PostActions({
   post,
   onDone,
   compact = false,
+  reprocess: withReprocess = true,
 }: {
   post: AdminPost
   onDone: () => void
   compact?: boolean
+  /** False leaves only the link, for a post that failed only translation. */
+  reprocess?: boolean
 }) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
@@ -273,9 +282,11 @@ export function PostActions({
     )
   return (
     <>
-      <Button size="sm" icon={Sparkles} busy={busy} onClick={reprocess}>
-        {t("admin.posts.reprocess")}
-      </Button>
+      {withReprocess ? (
+        <Button size="sm" icon={Sparkles} busy={busy} onClick={reprocess}>
+          {t("admin.posts.reprocess")}
+        </Button>
+      ) : null}
       <a className="adm-link" href={post.url} target="_blank" rel="noreferrer">
         {t("admin.posts.open")}
         <ExternalLink aria-hidden />
@@ -284,24 +295,114 @@ export function PostActions({
   )
 }
 
+/** A failed machine translation of the post's current wording, with its error. */
+function TranslationFailure({ post }: { post: AdminPost }) {
+  const { t } = useAppSettings()
+  const translation = post.translation
+  if (translation?.machineStatus !== "failed") return null
+  return (
+    <>
+      <Badge tone="danger">{t("admin.review.failure.translation")}</Badge>
+      {translation.lastError ? (
+        <Badge tone="danger">
+          {t(`admin.posts.error.${translation.lastError}`)}
+        </Badge>
+      ) : null}
+      {translation.requested ? (
+        <Badge tone="sky">{t("admin.posts.queued")}</Badge>
+      ) : null}
+    </>
+  )
+}
+
+type PostFilter = "extraction" | "translation" | "uncertain" | "queued"
+
+const postFilters: Record<PostFilter, Record<string, unknown>> = {
+  extraction: { llm: "failed" },
+  translation: { translation: "failed" },
+  uncertain: { llm: "uncertain" },
+  queued: { reprocess: true },
+}
+
+/**
+ * One post of the Failed posts tab: which step failed and why, and the
+ * actions for the tab's step. A failed extraction can be dismissed, which
+ * stops its retries; a failed translation can be queued again.
+ */
 export function PostRow({
   post,
+  filter,
   onDone,
 }: {
   post: AdminPost
+  filter: PostFilter
   onDone: () => void
 }) {
   const { t } = useAppSettings()
+  const { api, act } = useAdmin()
+  const [busy, setBusy] = useState("")
+  const run = async (
+    kind: string,
+    call: () => Promise<unknown>,
+    notice: string,
+  ) => {
+    setBusy(kind)
+    const result = await act(call, notice)
+    setBusy("")
+    if (result) onDone()
+  }
+  const translation = filter === "translation"
   return (
     <article className="adm-post-row">
       <div className="adm-post-meta">
         <strong>{post.accountHandle || t(`admin.step.${post.source}`)}</strong>
         <time dateTime={post.publishedAt}>{japanStamp(post.publishedAt)}</time>
-        <PostStatus post={post} />
+        {translation && post.llmStatus !== "failed" ? null : (
+          <PostStatus post={post} />
+        )}
+        <TranslationFailure post={post} />
       </div>
       <p className="adm-post-text">{post.text}</p>
       <div className="adm-actions">
-        <PostActions post={post} onDone={onDone} />
+        {filter === "extraction" && post.llmStatus === "failed" ? (
+          <Button
+            size="sm"
+            icon={Ban}
+            title={t("admin.posts.dismissTitle")}
+            busy={busy === "dismiss"}
+            onClick={() =>
+              run(
+                "dismiss",
+                () => api.dismissPost(post.id),
+                "admin.notice.postDismissed",
+              )
+            }
+          >
+            {t("admin.posts.dismiss")}
+          </Button>
+        ) : null}
+        {translation ? (
+          <Button
+            size="sm"
+            icon={Languages}
+            busy={busy === "translate"}
+            disabled={Boolean(post.translation?.requested)}
+            onClick={() =>
+              run(
+                "translate",
+                () =>
+                  api.requestTranslations({
+                    ownerType: "post",
+                    ids: [post.id],
+                  }),
+                "admin.notice.translationQueued",
+              )
+            }
+          >
+            {t("admin.review.retryTranslation")}
+          </Button>
+        ) : null}
+        <PostActions post={post} onDone={onDone} reprocess={!translation} />
       </div>
     </article>
   )
@@ -309,19 +410,16 @@ export function PostRow({
 
 function PostsTab() {
   const { t } = useAppSettings()
-  const { api } = useAdmin()
-  const [filter, setFilter] = useState<"failed" | "uncertain" | "queued">(
-    "failed",
-  )
+  const { api, overview, refreshOverview } = useAdmin()
+  const [filter, setFilter] = useState<PostFilter>("extraction")
   const posts = useResource(
-    () =>
-      api.posts(
-        filter === "queued"
-          ? { reprocess: true, pageSize: 50 }
-          : { llm: filter, pageSize: 50 },
-      ),
+    () => api.posts({ ...postFilters[filter], pageSize: 50 }),
     [filter],
   )
+  const counts: Partial<Record<PostFilter, number>> = {
+    extraction: overview?.review.failedExtractions,
+    translation: overview?.review.failedTranslations,
+  }
   return (
     <>
       <div className="adm-toolbar">
@@ -330,10 +428,18 @@ function PostsTab() {
           value={filter}
           onChange={setFilter}
           options={[
-            { value: "failed", label: t("admin.status.failed") },
+            { value: "extraction", label: t("admin.review.posts.extraction") },
+            {
+              value: "translation",
+              label: t("admin.review.posts.translation"),
+            },
             { value: "uncertain", label: t("admin.status.uncertain") },
             { value: "queued", label: t("admin.posts.queued") },
-          ]}
+          ].map((option) => ({
+            ...option,
+            value: option.value as PostFilter,
+            count: counts[option.value as PostFilter],
+          }))}
         />
       </div>
       {!posts.data ? (
@@ -344,7 +450,11 @@ function PostsTab() {
             <PostRow
               key={post.id}
               post={post}
-              onDone={() => void posts.reload()}
+              filter={filter}
+              onDone={() => {
+                void posts.reload()
+                void refreshOverview().catch(() => {})
+              }}
             />
           ))}
         </div>
@@ -369,10 +479,7 @@ export function ReviewView({ tab, navigate }: ViewProps) {
   }
   return (
     <div className="adm-view">
-      <PageHeader
-        title={t("admin.review.title")}
-        description={t("admin.review.description")}
-      />
+      <PageHeader title={t("admin.review.title")} />
       <Panel>
         <div
           className="adm-tabs"

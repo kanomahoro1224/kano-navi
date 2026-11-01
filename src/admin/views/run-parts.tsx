@@ -14,9 +14,9 @@ import {
 
 import { useAppSettings } from "@/app-settings"
 import {
-  formatDateTime,
   formatDuration,
   formatRelative,
+  japanStamp,
   statusTone,
 } from "@/admin/format"
 import type { Run, RunWindow } from "@/admin/types"
@@ -268,10 +268,7 @@ export function RunLine({
             },
           )}
           {" · "}
-          <time
-            dateTime={run.createdAt}
-            title={formatDateTime(run.createdAt, locale)}
-          >
+          <time dateTime={run.createdAt} title={japanStamp(run.createdAt)}>
             {formatRelative(run.createdAt, locale)}
           </time>
           {run.startedAt

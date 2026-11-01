@@ -13,7 +13,7 @@ import {
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
-import { formatDateTime, formatRelative } from "@/admin/format"
+import { formatRelative, japanStamp } from "@/admin/format"
 import type { SourceHealth } from "@/admin/types"
 import {
   Badge,
@@ -202,10 +202,7 @@ export function OverviewView({ navigate }: ViewProps) {
               <RunSteps run={activeRun} />
               <p className="adm-muted">
                 {t("admin.overview.startedAt", {
-                  time: formatDateTime(
-                    activeRun.startedAt || activeRun.createdAt,
-                    locale,
-                  ),
+                  time: japanStamp(activeRun.startedAt || activeRun.createdAt),
                 })}
               </p>
             </div>
@@ -217,7 +214,7 @@ export function OverviewView({ navigate }: ViewProps) {
               <p className="adm-muted">
                 {timers.scheduled && timers.nextRunAt
                   ? t("admin.overview.nextRun", {
-                      time: formatDateTime(timers.nextRunAt, locale),
+                      time: japanStamp(timers.nextRunAt),
                       relative: formatRelative(timers.nextRunAt, locale),
                     })
                   : t("admin.overview.noSchedule")}

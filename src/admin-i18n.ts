@@ -67,6 +67,7 @@ export const adminMessages = {
     "admin.status.unreviewed": "Unreviewed",
     "admin.status.not_schedule": "Not a schedule",
     "admin.status.failed": "Failed",
+    "admin.status.dismissed": "Dismissed",
     "admin.status.blocked": "Blocked",
     "admin.status.cancelled": "Cancelled",
     "admin.status.unknown": "Unknown",
@@ -175,8 +176,6 @@ export const adminMessages = {
     "admin.site.variantsRunning": "Making copies",
 
     "admin.review.title": "Review queue",
-    "admin.review.description":
-      "Decide what automation could not. Every decision is a durable manual label that later syncs keep.",
     "admin.review.tab.images": "Schedule images",
     "admin.review.tab.cancellations": "Cancellations",
     "admin.review.tab.merges": "Video merges",
@@ -184,7 +183,8 @@ export const adminMessages = {
     "admin.review.filter": "Show",
     "admin.review.filter.review": "Needs review",
     "admin.review.filter.approved": "Approved",
-    "admin.review.filter.all": "All",
+    "admin.review.filter.active": "Active",
+    "admin.review.filter.rejected": "Not a schedule",
     "admin.review.noImages": "No schedule images need a decision",
     "admin.review.allImages": "All schedule images",
     "admin.review.approved": "Reaches the board",
@@ -213,12 +213,9 @@ export const adminMessages = {
     "admin.review.noImageHint":
       "This record has no image URL, so there is nothing to download or check. Label it Not a schedule to close it; a newer synced image replaces it.",
     "admin.review.periodTitle": "Correct the covered dates",
-    "admin.review.periodHint":
-      "Both days are included, in Asia/Tokyo. The correction survives later image checks.",
+    "admin.review.periodHint": "Both days are included, in Asia/Tokyo.",
     "admin.review.periodStart": "First day",
     "admin.review.periodEnd": "Last day",
-    "admin.review.cancellationHint":
-      "The model suspects these entries were cancelled. Only a confirmed cancellation is shown as cancelled on the board.",
     "admin.review.noCancellations": "No suspected cancellations",
     "admin.review.noMerges": "No uploads wait for a merge decision",
     "admin.review.cancelReason": "Cancellation reason",
@@ -228,11 +225,28 @@ export const adminMessages = {
     "admin.review.notCancelled": "Not cancelled",
     "admin.review.eventLink": "Open link",
     "admin.review.noPosts": "No posts in this state",
+    "admin.review.posts.extraction": "Extraction failed",
+    "admin.review.posts.translation": "Translation failed",
+    "admin.review.failure.extraction": "Schedule extraction failed",
+    "admin.review.failure.translation": "Translation failed",
+    "admin.review.retryTranslation": "Translate again",
 
     "admin.posts.reprocess": "Process again with the LLM",
     "admin.posts.queued": "Queued",
     "admin.posts.retryAt": "Retry after {time} JST",
     "admin.posts.retryStopped": "Retries stopped",
+    "admin.posts.dismiss": "Dismiss",
+    "admin.posts.dismissTitle":
+      "Stop retrying this post until its wording, images or model queue change",
+    "admin.posts.schedule.label": "Schedule image",
+    "admin.posts.schedule.picked": "picked",
+    "admin.posts.schedule.pick": "Mark as schedule image",
+    "admin.posts.schedule.image": "Image",
+    "admin.posts.schedule.imageOption": "Image {index}",
+    "admin.posts.schedule.reasonPlaceholder": "Why this image is the schedule",
+    "admin.posts.schedule.periodHint":
+      "Without dates the image is labelled but stays off the board.",
+    "admin.posts.schedule.open": "Open schedule images",
     "admin.posts.open": "Open post",
     "admin.posts.edit": "Edit post",
     "admin.posts.hide": "Hide from the public pages",
@@ -262,6 +276,12 @@ export const adminMessages = {
     "admin.posts.error.rate_limited": "Rate limited",
     "admin.posts.error.invalid_response": "Unreadable response",
     "admin.posts.error.network": "Network error",
+    "admin.posts.error.output_truncated": "Output truncated",
+    "admin.posts.error.model_refused": "Model refused",
+    "admin.posts.error.no_structured_output": "No structured output",
+    "admin.posts.error.missing_translation_en": "English missing",
+    "admin.posts.error.missing_translation_zh_cn": "Chinese missing",
+    "admin.posts.error.invalid_translation": "Invalid translation",
 
     "admin.event.dateOnly": "Date only",
     "admin.event.manual": "Manual · locked",
@@ -285,8 +305,6 @@ export const adminMessages = {
     "admin.event.status.cancelled": "Cancelled",
 
     "admin.schedule.title": "Schedule",
-    "admin.schedule.description":
-      "Every stored entry, automatic or manual. Editing, confirming or deleting an entry locks it so automation never replaces or resurrects it.",
     "admin.schedule.create": "New entry",
     "admin.schedule.edit": "Edit entry",
     "admin.schedule.confirm": "Confirm as correct",
@@ -376,8 +394,6 @@ export const adminMessages = {
     "admin.posts.title": "Posts",
     "admin.videos.title": "Videos",
     "admin.profile.title": "Profile images",
-    "admin.profile.description":
-      "The avatar and banner shown on the board and their candidates.",
     "admin.videos.featured": "Featured",
     "admin.videos.feature": "Feature on board",
     "admin.videos.unfeature": "Use automatic choice",
@@ -871,6 +887,8 @@ export const adminMessages = {
     "admin.notice.cancellationDismissed": "Suspicion dismissed",
     "admin.notice.imageReviewed": "Label saved",
     "admin.notice.periodSaved": "Dates corrected",
+    "admin.notice.postDismissed": "Failure dismissed",
+    "admin.notice.schedulePicked": "Schedule image saved",
     "admin.notice.postQueued":
       "The LLM processes it again in the next schedule scan",
     "admin.notice.quoteHidden": "Quote hidden from the public board",
@@ -902,8 +920,6 @@ export const adminMessages = {
     "admin.notice.visitorRegionSaved": "Mainland China site suggestion saved",
     "admin.nav.proxy": "Proxies",
     "admin.proxy.title": "Outbound proxies",
-    "admin.proxy.description":
-      "Forward proxies for the server's own requests to sources, media hosts and model providers. Visitors never go through them.",
     "admin.proxy.queue": "Proxy queue",
     "admin.proxy.queueHint":
       "A routed request tries these proxies top to bottom and stops at the first that answers. A proxy that fails moves behind the others for a minute.",
@@ -1023,6 +1039,7 @@ export const adminMessages = {
     "admin.translation.filter.incomplete": "Missing translations",
     "admin.translation.filter.complete": "Fully translated",
     "admin.translation.filter.requested": "Queued for AI",
+    "admin.translation.filter.failed": "Translation failed",
     "admin.notice.translationSaved": "Translation saved",
     "admin.notice.translationCleared": "Manual translation cleared",
     "admin.notice.translationQueued": "Queued for the translate step",
@@ -1451,15 +1468,12 @@ export const adminMessages = {
     "admin.site.visitorRegionMirrorUrl": "镜像站点",
 
     "admin.review.title": "待审核",
-    "admin.review.description":
-      "处理自动流程无法决定的事项。每个决定都会成为持久的人工标记，之后的同步会保留它。",
     "admin.review.tab.images": "日程图",
     "admin.review.tab.cancellations": "取消",
     "admin.review.tab.posts": "失败贴文",
     "admin.review.filter": "显示",
     "admin.review.filter.review": "待审核",
     "admin.review.filter.approved": "已通过",
-    "admin.review.filter.all": "全部",
     "admin.review.noImages": "没有需要决定的日程图",
     "admin.review.approved": "会显示在页面上",
     "admin.review.manualLabel": "人工标记",
@@ -1487,12 +1501,9 @@ export const adminMessages = {
     "admin.review.noImageHint":
       "这条记录没有图片地址，无需下载或检查。标记为「不是日程」即可关闭；之后同步到的新图片会替换它。",
     "admin.review.periodTitle": "修正覆盖日期",
-    "admin.review.periodHint":
-      "两端日期都包含在内（日本时间）。修正会在之后的图片检查中保留。",
+    "admin.review.periodHint": "两端日期都包含在内（日本时间）。",
     "admin.review.periodStart": "第一天",
     "admin.review.periodEnd": "最后一天",
-    "admin.review.cancellationHint":
-      "模型怀疑这些日程已取消。只有确认取消后，公开页面才会显示为已取消。",
     "admin.review.noCancellations": "没有疑似取消",
     "admin.review.cancelReason": "取消理由",
     "admin.review.confirmCancelled": "确认已取消",
@@ -1556,8 +1567,6 @@ export const adminMessages = {
     "admin.event.status.cancelled": "已取消",
 
     "admin.schedule.title": "日程",
-    "admin.schedule.description":
-      "所有已存日程，包括自动和人工条目。编辑、确认或删除都会锁定条目，自动流程不会再替换或恢复它。",
     "admin.schedule.create": "新建条目",
     "admin.schedule.edit": "编辑条目",
     "admin.schedule.confirm": "确认无误",
@@ -1614,7 +1623,6 @@ export const adminMessages = {
     "admin.posts.title": "贴文",
     "admin.videos.title": "视频",
     "admin.profile.title": "头像与横幅",
-    "admin.profile.description": "页面上显示的头像、横幅及其候选图片。",
     "admin.videos.featured": "精选",
     "admin.videos.feature": "设为精选",
     "admin.videos.unfeature": "改回自动选择",

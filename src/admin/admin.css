@@ -4732,6 +4732,33 @@ blockquote.adm-verdict-reason {
   font-size: 12px;
 }
 
+/* A post's own images as choices for its schedule image. */
+.adm-schedule-pick-form .adm-field,
+.adm-schedule-pick-form .adm-form-row {
+  justify-self: stretch;
+}
+
+.adm-thumb-choices.adm-schedule-pick {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  width: 100%;
+}
+
+.adm-schedule-pick-image {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: var(--adm-sunken);
+  color: var(--adm-muted);
+}
+
+.adm-schedule-pick-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .adm-video-history h3 {
   margin-bottom: 10px;
 }

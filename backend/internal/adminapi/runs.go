@@ -510,6 +510,8 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 			"pendingImages":          counts.PendingImages,
 			"suspectedCancellations": counts.SuspectedCancellations,
 			"failedPosts":            counts.FailedPosts,
+			"failedExtractions":      counts.FailedExtractions,
+			"failedTranslations":     counts.FailedTranslations,
 			"reprocessRequested":     counts.ReprocessRequested,
 			"videoMerges":            counts.VideoMerges,
 		},

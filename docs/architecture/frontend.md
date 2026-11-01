@@ -169,9 +169,10 @@ The console's schedule (`src/admin/views/schedule.tsx`) has a list, a
 calendar and an images view. The browser remembers list or calendar in local
 storage; the images view has its own address (`#schedule/images`), which the
 Review queue links to. It lists the newest stored schedule images as the
-Review queue's decision cards (`schedule-images.tsx`) under All, Approved
-and Needs review tabs, so any image can be labelled again or its dates
-corrected. The list and the calendar share a search field and status tabs
+Review queue's decision cards (`schedule-images.tsx`) under Active,
+Approved, Needs review and Not a schedule tabs. Active leaves out images an
+operator labelled Not a schedule, so a rejected card leaves the list; the
+Not a schedule tab keeps them, where the label can be cleared. The list and the calendar share a search field and status tabs
 for the review tasks: All, Not confirmed, Suspected (cancellation) and
 Deleted. The list groups entries
 under one heading per Japan date, with the day's count and a button that
@@ -220,7 +221,16 @@ and the decision buttons. A cancellation needs a reason before it can be
 confirmed. The video merges tab (`merge-parts.tsx`) lists each Bilibili
 upload the merge rule merges at its next run or leaves to the operator,
 beside its candidates: Merge attaches it to one, and Keep separate keeps it
-apart so the rule never merges it.
+apart so the rule never merges it. The failed posts tab has Extraction
+failed, Translation failed, Uncertain and Queued filters, with the overview's
+counts on the two failure filters. Each row names the step that failed
+(schedule extraction or translation) with its error. A failed extraction
+offers Dismiss beside the LLM action; a failed translation offers Translate
+again, which queues a machine pass.
+
+Console dates are `YYYY-MM-DD` and times `YYYY-MM-DD HH:mm`, in Japan time
+and the same in every console language (`src/admin/format.ts`); a stored
+day adds its short weekday.
 
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
 tabs for X, YouTube and Bilibili, each with the platform's logo, a dot (or
@@ -262,7 +272,8 @@ The console's post list (`src/admin/views/posts.tsx`) is a feed of posts
 separated by rules, one row of columns per post: the account over the Japan
 time, the wording (three lines) and its quote, the post's own cached images
 (up to three, "+N" counts the rest), the translation status, the extraction
-state with a Hidden badge for a post hidden from the public pages, and the
+state with a Hidden badge for a post hidden from the public pages and a
+Schedule image badge for a post with a schedule image record, and the
 edit, "process again with the LLM" and open actions. The columns after the
 wording have fixed widths, so they line up from post to post. A text-only
 post shows no image cell; a post whose images are not cached yet shows one
@@ -272,8 +283,12 @@ and under 560px the state gets a line of its own. A hidden post's wording is
 dimmed.
 
 Edit opens the post in a dialog: the whole wording, every cached image, the
-translations, the quote and a switch that hides the post from the public
-pages or shows it again, with the LLM and open actions in its footer.
+translations, the quote, the schedule image form and a switch that hides the
+post from the public pages or shows it again, with the LLM and open actions
+in its footer. An X post with images can be marked as a schedule image there:
+the image (a choice when the post has several), a required reason and an
+optional first and last day; a post with a record shows its badge and a link
+to the Schedule page's images view.
 
 The quote is a read-only card on the sunken surface under the wording, so
 its thumbnails never read as the post's own images. Its header holds the

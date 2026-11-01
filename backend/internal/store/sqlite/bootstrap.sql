@@ -14,7 +14,7 @@ CREATE TABLE assets (
     source_account TEXT,
     updated_at TEXT,
     raw_json TEXT
-  , asset_version INTEGER NOT NULL DEFAULT 1, period_start TEXT, period_end TEXT, period_basis TEXT NOT NULL DEFAULT 'legacy', manual_period_start TEXT, manual_period_end TEXT, manual_period_reason TEXT);
+  , asset_version INTEGER NOT NULL DEFAULT 1, period_start TEXT, period_end TEXT, period_basis TEXT NOT NULL DEFAULT 'legacy', manual_period_start TEXT, manual_period_end TEXT, manual_period_reason TEXT, manual_image_at TEXT);
 
 CREATE TABLE event_sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

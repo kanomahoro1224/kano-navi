@@ -764,6 +764,10 @@ and stay eligible for later scans. The console shows the next retry time or
 that retries stopped next to the post's state. A failed post without a
 recorded failure count has no backoff and is tried on the next scan.
 
+An operator can dismiss a failed post. It becomes `dismissed`, leaves the
+console's failed list, and is held back like a post whose retries stopped
+until its input or targets change or an operator requests a reprocess.
+
 Both paths, and the schedule-image check below, draw from one model priority
 queue: an ordered list of targets, each a provider plus one of its catalog
 models, and a target's capabilities are its model's `text`/`image` tags.
@@ -945,6 +949,12 @@ keywords play no part) registers its first image as the schedule asset
 with the post, and with the page's continuation checkpoint for a manual fetch.
 Registration does not run extraction or approve an image, and it writes no
 period.
+
+An operator can also make any of an X post's own images its schedule asset
+from the console's post dialog, with a required reason and optional period.
+The pick labels the asset `schedule` and sets `manual_image_at`; a different
+image than the asset showed returns its model verdict to `pending`. Later
+synchronization keeps a picked asset's image, review and period.
 
 A schedule asset's period is `period_start`/`period_end` with its
 `period_basis`; the schema upgrade that adds these columns fills them from a

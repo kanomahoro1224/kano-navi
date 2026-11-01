@@ -26,9 +26,9 @@ import {
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import {
-  formatDateTime,
   formatDuration,
   formatRelative,
+  japanStamp,
   statusTone,
 } from "@/admin/format"
 import type { Run } from "@/admin/types"
@@ -703,9 +703,7 @@ function CopyDiagnostics({ run }: { run: Run }) {
 /** When the run was queued, how long it took and how long it waited. */
 function RunTimes({ run }: { run: Run }) {
   const { t, locale } = useAppSettings()
-  const parts = [
-    t("admin.runs.queuedAt", { time: formatDateTime(run.createdAt, locale) }),
-  ]
+  const parts = [t("admin.runs.queuedAt", { time: japanStamp(run.createdAt) })]
   if (run.startedAt)
     parts.push(
       run.finishedAt
@@ -719,7 +717,7 @@ function RunTimes({ run }: { run: Run }) {
   if (run.finishedAt)
     parts.push(
       t("admin.runs.finishedAt", {
-        time: formatDateTime(run.finishedAt, locale),
+        time: japanStamp(run.finishedAt),
       }),
     )
   return <p className="adm-run-times">{parts.join(" · ")}</p>

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Globe, ImageDown, Images, RefreshCw, Save } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
-import { formatDateTime } from "@/admin/format"
+import { japanStamp } from "@/admin/format"
 import type {
   VariantGroupStatus,
   VariantStatus,
@@ -200,7 +200,7 @@ function VariantsPanel({
       </ul>
       <p className="adm-field-hint">
         {t("admin.site.variantsChecked", {
-          time: formatDateTime(status.checkedAt, locale),
+          time: japanStamp(status.checkedAt),
         })}{" "}
         {t("admin.site.variantsBudget")}
       </p>

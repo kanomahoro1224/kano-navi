@@ -226,13 +226,14 @@ func TestReadOnlyStoreRejectsEveryMutation(t *testing.T) {
 	for _, path := range []string{
 		"/profile-media", "/profile-media/discover", "/profile-media/upload?slot=avatar",
 		"/profile-media/abc/download", "/profile-media/abc/select",
-		"/schedule-images/abc/review", "/posts/abc/reprocess", "/posts/1900000000000000100/refresh",
+		"/schedule-images/abc/review", "/posts/abc/reprocess", "/posts/abc/dismiss", "/posts/1900000000000000100/refresh",
 	} {
 		f.request(http.MethodPost, path, "application/json", []byte(`{}`)).expect(t, http.StatusServiceUnavailable, "read_only")
 	}
 	f.request(http.MethodDelete, "/profile-media/abc", "", nil).expect(t, http.StatusServiceUnavailable, "read_only")
 	f.put("/schedule-images/abc/period", map[string]any{}).expect(t, http.StatusServiceUnavailable, "read_only")
 	f.put("/posts/abc/quote/hidden", map[string]any{"hidden": true}).expect(t, http.StatusServiceUnavailable, "read_only")
+	f.put("/posts/abc/schedule-image", map[string]any{"index": 0, "reason": "x"}).expect(t, http.StatusServiceUnavailable, "read_only")
 	if len(f.network.visited) != 0 {
 		t.Fatalf("read-only requests reached the network: %v", f.network.visited)
 	}
@@ -994,5 +995,78 @@ func TestPostReprocessRequest(t *testing.T) {
 	f.post("/posts/unknown/reprocess", map[string]any{}).expect(t, http.StatusNotFound, "post_not_found")
 	if f.text(`SELECT CAST(COUNT(*) AS TEXT) FROM post_llm_states`) != "1" {
 		t.Fatal("an unknown post must not create state")
+	}
+}
+
+func TestPostDismissalHoldsTheFailedInput(t *testing.T) {
+	f := newFixture(t, true)
+	f.exec(`INSERT INTO posts(id,source,text,published_at,url) VALUES('p1','x','synthetic','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/1'),
+		('p2','x','synthetic','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/2')`)
+	f.exec(`INSERT INTO post_llm_states(post_id,status,last_error,reprocess_requested,updated_at,failure_count,failure_fingerprint,next_attempt_at) VALUES
+		('p1','failed','synthetic failure',1,'2026-10-02T00:00:00.000Z',2,'synthetic-input','2026-10-03T00:00:00.000Z'),
+		('p2','success',NULL,0,'2026-10-02T00:00:00.000Z',0,NULL,NULL)`)
+
+	dismissed := f.post("/posts/p1/dismiss", map[string]any{})
+	dismissed.expect(t, http.StatusOK, "")
+	if state := object(t, dismissed.json["state"]); state["postId"] != "p1" || state["status"] != "dismissed" {
+		t.Fatalf("unexpected dismissal: %s", dismissed.raw)
+	}
+	// The failure stays keyed to its input with no retry time, which the scan
+	// reads as out of automatic retries.
+	if got := f.text(`SELECT status||'|'||reprocess_requested||'|'||failure_count||'|'||failure_fingerprint||'|'||COALESCE(next_attempt_at,'-') FROM post_llm_states WHERE post_id='p1'`); got != "dismissed|0|2|synthetic-input|-" {
+		t.Fatalf("dismissed state: %s", got)
+	}
+	f.post("/posts/p1/dismiss", map[string]any{}).expect(t, http.StatusConflict, "post_not_failed")
+	f.post("/posts/p2/dismiss", map[string]any{}).expect(t, http.StatusConflict, "post_not_failed")
+	f.post("/posts/unknown/dismiss", map[string]any{}).expect(t, http.StatusNotFound, "post_not_found")
+}
+
+func TestPickPostScheduleImage(t *testing.T) {
+	f := newFixture(t, true)
+	stamp := "2026-10-01T00:00:00.000Z"
+	first, second := "https://pbs.twimg.com/media/first.jpg", "https://pbs.twimg.com/media/second.jpg"
+	f.exec(`INSERT INTO posts(id,source,account_handle,text,published_at,url) VALUES('p1','x','synthetic','two images',?,'https://x.com/synthetic/status/1'),
+		('y1','youtube',NULL,'not x',?,'https://youtube.example.test/watch')`, stamp, stamp)
+	for position, source := range []string{first, second} {
+		f.exec(`INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending',?,?)`, sha256Hex([]byte(source)), source, stamp, stamp)
+		f.exec(`INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'post','p1','post-image',?,?,?)`, sha256Hex([]byte(source)), position, stamp, stamp)
+	}
+	// Synchronization registered the first image and the model approved it.
+	f.exec(`INSERT INTO assets(id,kind,url,source_url,updated_at) VALUES('schedule-x-p1','schedule',?,'https://x.com/synthetic/status/1',?)`, first, stamp)
+	f.exec(`INSERT INTO schedule_asset_reviews(asset_id,llm_status,updated_at) VALUES('schedule-x-p1','schedule',?)`, stamp)
+
+	before := f.revision()
+	picked := f.put("/posts/p1/schedule-image", map[string]any{"index": 1, "reason": "the board is the second image", "start": "2026-10-05", "end": "2026-10-11"})
+	picked.expect(t, http.StatusOK, "")
+	image := object(t, picked.json["image"])
+	if image["id"] != "schedule-x-p1" || image["url"] != second || image["manualStatus"] != "schedule" || image["approved"] != true ||
+		image["llmStatus"] != "pending" || image["periodStart"] != "2026-10-05" || image["periodEnd"] != "2026-10-11" || image["periodBasis"] != "manual" ||
+		image["assetVersion"] != float64(2) || image["mediaId"] != sha256Hex([]byte(second)) {
+		t.Fatalf("unexpected pick: %#v", image)
+	}
+	if f.revision() == before {
+		t.Fatal("a pick must bump the dashboard revision")
+	}
+	if f.text(`SELECT CASE WHEN manual_image_at IS NULL THEN 'unlocked' ELSE 'locked' END FROM assets WHERE id='schedule-x-p1'`) != "locked" {
+		t.Fatal("a picked image must be locked against synchronization")
+	}
+
+	// A pick without dates keeps the stored manual period.
+	again := f.put("/posts/p1/schedule-image", map[string]any{"index": 0, "reason": "first after all"})
+	again.expect(t, http.StatusOK, "")
+	if image = object(t, again.json["image"]); image["url"] != first || image["periodStart"] != "2026-10-05" || image["manualReason"] != "first after all" {
+		t.Fatalf("unexpected repick: %#v", image)
+	}
+
+	before = f.revision()
+	f.put("/posts/p1/schedule-image", map[string]any{"index": 2, "reason": "x"}).expectInvalid(t, "index is invalid")
+	f.put("/posts/p1/schedule-image", map[string]any{"index": "1", "reason": "x"}).expectInvalid(t, "index is invalid")
+	f.put("/posts/p1/schedule-image", map[string]any{"index": 0}).expectInvalid(t, "reason is required")
+	f.put("/posts/p1/schedule-image", map[string]any{"index": 0, "reason": "x", "start": "2026-10-05"}).expectInvalid(t, "period is invalid")
+	f.put("/posts/p1/schedule-image", map[string]any{"index": 0, "reason": "x", "start": "2026-10-11", "end": "2026-10-05"}).expectInvalid(t, "period is invalid")
+	f.put("/posts/y1/schedule-image", map[string]any{"index": 0, "reason": "x"}).expect(t, http.StatusNotFound, "post_not_found")
+	f.put("/posts/unknown/schedule-image", map[string]any{"index": 0, "reason": "x"}).expect(t, http.StatusNotFound, "post_not_found")
+	if f.revision() != before {
+		t.Fatal("rejected picks must not change the snapshot")
 	}
 }

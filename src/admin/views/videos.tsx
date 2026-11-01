@@ -14,7 +14,7 @@ import {
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
-import { formatDateTime } from "@/admin/format"
+import { japanStamp } from "@/admin/format"
 import type { AdminVideo } from "@/admin/types"
 import {
   Badge,
@@ -47,9 +47,9 @@ function VideoWhen({ video }: { video: AdminVideo }) {
     <small>
       {video.isUpcoming
         ? t("admin.videos.scheduled", {
-            time: formatDateTime(video.scheduledAt, locale),
+            time: japanStamp(video.scheduledAt),
           })
-        : formatDateTime(video.publishedAt, locale)}
+        : japanStamp(video.publishedAt)}
       {video.kind ? ` · ${video.kind}` : ""}
     </small>
   )
@@ -199,9 +199,9 @@ function VideoMeta({ video }: { video: AdminVideo }) {
       <time>
         {video.isUpcoming
           ? t("admin.videos.scheduled", {
-              time: formatDateTime(video.scheduledAt, locale),
+              time: japanStamp(video.scheduledAt),
             })
-          : formatDateTime(video.publishedAt, locale)}
+          : japanStamp(video.publishedAt)}
       </time>
       {video.kind ? <span>{video.kind}</span> : null}
       {length ? <span>{length}</span> : null}

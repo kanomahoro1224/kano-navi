@@ -2,7 +2,7 @@
 // or a model provider directly; every external request is made by the server
 // after an operator action. Endpoint calls live in use-admin-data.ts.
 
-import { formatDateTime } from "@/admin/format"
+import { japanStamp } from "@/admin/format"
 
 export class ApiError extends Error {
   status: number
@@ -101,7 +101,7 @@ export function errorMessage(error: any): Message {
   if (errorKeys[error.code]) return message(errorKeys[error.code])
   if (error.code === "bilibili_blocked")
     return message("admin.error.bilibiliBlocked", {
-      time: formatDateTime(error.blockedUntil, document.documentElement.lang),
+      time: japanStamp(error.blockedUntil),
     })
   if (error.code.startsWith("bilibili_"))
     return message("admin.error.bilibiliUnavailable", { code: error.code })

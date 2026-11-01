@@ -245,7 +245,9 @@ not assert that those dates were verified.
 Manual correction stores separate `manual_period_start`, `manual_period_end`,
 and `manual_period_reason`; it preserves the inferred values, source and review.
 Registration of the same image retains that correction. A different image URL
-resets its review and correction. Unknown periods stay null until corrected and
+resets its review and correction. `manual_image_at` records when an operator
+picked one of the post's images as the schedule image; synchronization then
+leaves the asset's image, review and correction alone. Unknown periods stay null until corrected and
 are not assigned to a calendar week.
 
 Complete post `media_urls` snapshots reconcile `post-image` ownership in the
@@ -637,7 +639,9 @@ time the automatic scan may try it again; a positive count with a null
 `next_attempt_at` means automatic retries stopped. A success or uncertain
 outcome, cached or not, and an operator reprocess request reset all three
 (`0`, `NULL`, `NULL`); startup adds them to existing snapshots with those
-values, so a stored failure is retried once more before backing off. See [Extraction failure backoff](sources.md#extraction-failure-backoff).
+values, so a stored failure is retried once more before backing off. An
+operator's dismissal sets `status` to `dismissed` with a positive count and a
+null `next_attempt_at`, keeping `failure_fingerprint`. See [Extraction failure backoff](sources.md#extraction-failure-backoff).
 
 `internal/httpapi/media.go` and `internal/store/sqlite/media.go` own cache-root
 path validation and serving; `internal/store/sqlite/source_write.go` owns

@@ -226,7 +226,10 @@ export interface Overview {
   review: {
     pendingImages: number
     suspectedCancellations: number
+    /** Posts with a failed extraction or translation. */
     failedPosts: number
+    failedExtractions: number
+    failedTranslations: number
     reprocessRequested: number
     /** Bilibili uploads the merge rule leaves to the operator. */
     videoMerges: number
@@ -511,6 +514,20 @@ export interface AdminPost {
   refreshRequestedAt: string | null
   /** When an operator hid the whole post from the public pages. */
   hiddenAt: string | null
+  /** The post's schedule image record; null when it has none. */
+  scheduleImage: AdminPostSchedule | null
+}
+
+/**
+ * Which of a post's own images its schedule image shows (null for none of
+ * them), its labels, and whether an operator picked the image.
+ */
+export interface AdminPostSchedule {
+  id: string
+  index: number | null
+  llmStatus: string
+  manualStatus: "unreviewed" | "schedule" | "not_schedule"
+  picked: boolean
 }
 
 /**

@@ -35,9 +35,20 @@
   or selected proxies), an optional direct fallback, and a per-proxy test.
   yt-dlp reads follow the YouTube area, trying up to three proxies.
   Proxy passwords are stored sealed with `LLM_SECRETS_KEY`.
-- The Review queue's failed, uncertain and queued posts show their
-  publication time as `YYYY-MM-DD HH:mm` in Japan time, the same in every
-  console language.
+- Console dates read `YYYY-MM-DD` and times `YYYY-MM-DD HH:mm` in Japan
+  time, the same in every console language.
+- The Review queue's failed posts are split into Extraction failed and
+  Translation failed, and each row names the step that failed with its
+  error. A failed extraction can be dismissed, which stops its retries until
+  the post or the model queue changes; a failed translation can be queued
+  again.
+- The Schedule page's images open on Active, which leaves out images
+  labelled Not a schedule; those move to their own tab.
+- An X post's dialog on the Posts page can mark one of its images as the
+  schedule image, with a reason and optional dates. Synchronization keeps
+  the picked image, and the post list shows a Schedule image badge.
+- The Review queue, Schedule, Profile and Proxies pages drop their
+  explanatory page descriptions.
 - The Site page shows how many LINE BLOG, Journey and cached source images
   have their smaller copies, and Make missing copies runs a copies job of up
   to five minutes on the shared queue. The counts list file names only, are

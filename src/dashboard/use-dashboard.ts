@@ -139,21 +139,77 @@ const REVISION_STREAM_URL = "/api/dashboard/events"
 type LoadResult = { ok: true } | { ok: false; error: Error }
 
 /**
+ * The last snapshot this browser read, shown on the next visit until the
+ * first read replaces it. The suffix changes when the snapshot's shape does.
+ */
+const SNAPSHOT_CACHE_KEY = "kano-dashboard-snapshot-v1"
+/** An older stored snapshot is dropped instead of shown. */
+const SNAPSHOT_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+
+/** A snapshot payload over the defaults, as the board renders it. */
+function mergeSnapshot(payload: Partial<Dashboard>): Dashboard {
+  return {
+    ...emptyDashboard,
+    ...payload,
+    profile: { ...fallbackProfile, ...(payload.profile || {}) },
+    summary: { ...emptyDashboard.summary, ...(payload.summary || {}) },
+    meta: { ...emptyDashboard.meta, ...(payload.meta || {}) },
+  }
+}
+
+function readCachedSnapshot(): Dashboard | null {
+  try {
+    const stored = JSON.parse(
+      window.localStorage.getItem(SNAPSHOT_CACHE_KEY) || "null",
+    )
+    const snapshot = stored?.snapshot
+    const age = Date.now() - stored?.savedAt
+    if (
+      !(age >= 0 && age <= SNAPSHOT_CACHE_MAX_AGE_MS) ||
+      !snapshot ||
+      typeof snapshot !== "object" ||
+      (["posts", "events", "videos", "timeline", "resources"] as const).some(
+        (key) => key in snapshot && !Array.isArray(snapshot[key]),
+      )
+    )
+      return null
+    return mergeSnapshot(snapshot)
+  } catch {
+    return null
+  }
+}
+
+function writeCachedSnapshot(snapshot: unknown) {
+  try {
+    window.localStorage.setItem(
+      SNAPSHOT_CACHE_KEY,
+      JSON.stringify({ savedAt: Date.now(), snapshot }),
+    )
+  } catch {
+    // Without storage the next visit starts from the placeholder.
+  }
+}
+
+/**
  * Reads the stored dashboard snapshot and follows the durable revision
  * counter, so MCP or admin changes appear without a manual reload. The
  * server pushes revision changes over an EventSource stream while the page
  * is visible; when the stream is unavailable the hook polls the revision
- * instead. Nothing here reaches an external platform.
+ * instead. Nothing here reaches an external platform. A visit starts from
+ * the last snapshot this browser stored, refreshing it, rather than from the
+ * loading placeholder.
  */
 export function useDashboard(now = Date.now()) {
-  const [dashboard, setDashboard] = useState(emptyDashboard)
+  const [cached] = useState(readCachedSnapshot)
+  const shownCacheRef = useRef(cached != null)
+  const [dashboard, setDashboard] = useState(cached || emptyDashboard)
   const [snapshotVersion, setSnapshotVersion] = useState(0)
   const [status, setStatus] = useState<{
     isLoading: boolean
     isRefreshing: boolean
     error: Error | null
   }>({
-    isLoading: true,
+    isLoading: !cached,
     isRefreshing: false,
     error: null,
   })
@@ -445,7 +501,7 @@ export function useDashboard(now = Date.now()) {
       if (kind === "snapshot")
         setStatus((current) => ({
           ...current,
-          isLoading: !hasLoaded,
+          isLoading: !hasLoaded && !shownCacheRef.current,
           isRefreshing: true,
         }))
       const isCurrent = () => active && generation === currentGeneration
@@ -461,16 +517,8 @@ export function useDashboard(now = Date.now()) {
           if (!isCurrent())
             return { ok: false, error: new Error("Request superseded") }
           if (kind === "snapshot") {
-            setDashboard({
-              ...emptyDashboard,
-              ...payload,
-              profile: { ...fallbackProfile, ...(payload.profile || {}) },
-              summary: {
-                ...emptyDashboard.summary,
-                ...(payload.summary || {}),
-              },
-              meta: { ...emptyDashboard.meta, ...(payload.meta || {}) },
-            })
+            setDashboard(mergeSnapshot(payload))
+            writeCachedSnapshot(payload)
             setSnapshotVersion((version) => version + 1)
             revision = payload.meta?.revision ?? null
             // A later full snapshot also refreshes time-based calendar fields.

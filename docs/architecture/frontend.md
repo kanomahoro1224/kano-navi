@@ -337,6 +337,16 @@ in-flight promise; a manual refresh cancels an older revision read, and stale
 completions cannot install state. A 15-second deadline covers headers and JSON
 consumption.
 
+Each successful snapshot is also kept in `localStorage`
+(`kano-dashboard-snapshot-v1`, with the time it was stored). The next visit
+renders a stored snapshot under a week old at once, through the same local
+time derivation, and reads the API as usual; the board reports a refresh
+rather than loading, and the first read replaces it or, on failure, leaves it
+shown with the error. The key's suffix changes when the snapshot's shape
+does. Without a usable stored snapshot the stage shows its placeholder, which
+has a full ticket's shape (the 16:9 art band and a stub with a two-line
+title, three lines at 640px and below), so the usual ticket fills it in place.
+
 While the page is visible the hook keeps an `EventSource` on the
 [revision stream](public-api.md#revision-stream). A pushed revision that
 differs from the snapshot's reads the snapshot after a random delay of up to

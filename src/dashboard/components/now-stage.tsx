@@ -408,9 +408,17 @@ function NextTicket({
   now: number
   t: Translator
 }) {
+  // The placeholder takes a full ticket's shape, the stage's usual one, so the
+  // first snapshot fills it in place instead of resizing the stage.
   if (isLoading) {
     return (
-      <div className="ticket is-loading" aria-busy="true">
+      <div className="ticket is-loading has-art" aria-busy="true">
+        <span className="ticket-art" aria-hidden="true" />
+        <span className="ticket-stub" aria-hidden="true">
+          <span className="ticket-placeholder is-head" />
+          <span className="ticket-placeholder is-title" />
+          <span className="ticket-placeholder is-when" />
+        </span>
         <span className="sr-only">{t("common.loading")}</span>
       </div>
     )

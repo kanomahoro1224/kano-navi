@@ -44,7 +44,8 @@ reload button that loads the latest snapshot. A platform not read successfully
 for a day is marked out of date. An open board picks up a newly stored snapshot by
 itself within a few seconds, without a reload.
 When a platform is unavailable, the board keeps showing what it already
-knows.
+knows. Returning to the board shows what this device last saw at once, then
+updates it in place.
 
 Schedule entries are labelled **Auto-detected** when they were read from a
 post or a schedule image automatically, and **Confirmed** when the site's

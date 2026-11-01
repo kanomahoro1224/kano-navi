@@ -15,6 +15,9 @@
   small server's memory. A request gets the stored smaller copy or, until one
   exists, the original. Images and their copies are streamed from disk, and
   each file is checked against its hash once instead of on every request.
+- The board's first section no longer jumps when the page opens. A return
+  visit shows what the device last saw at once and updates it in place, and
+  a first visit's placeholder has the ticket's shape.
 
 </details>
 

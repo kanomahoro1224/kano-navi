@@ -111,8 +111,12 @@
   box-shadow: var(--shadow-lg);
 }
 
-.ticket.is-loading {
-  min-height: 420px;
+/*
+ * The first read's placeholder: the art band and a stub whose lines stand
+ * in for the head, a two-line title and the time, at their own heights.
+ */
+.ticket.is-loading .ticket-art,
+.ticket-placeholder {
   background: linear-gradient(
       90deg,
       var(--sunken),
@@ -121,6 +125,29 @@
     )
     0 0 / 200% 100%;
   animation: placeholder-shine 1.4s ease-in-out infinite;
+}
+
+.ticket-placeholder {
+  grid-column: 1 / -1;
+  border-radius: var(--radius-sm);
+}
+
+.ticket-placeholder.is-head {
+  width: 30%;
+  height: 22px;
+}
+
+/* Two lines of .ticket-title, a typical title's wrap beside the profile. */
+.ticket-placeholder.is-title {
+  width: 85%;
+  height: calc(clamp(20px, 2.2vw, 27px) * 2.5);
+}
+
+/* The time sits closer under the title, as in .ticket-copy. */
+.ticket-placeholder.is-when {
+  width: 20%;
+  height: 18px;
+  margin-top: -8px;
 }
 
 .ticket.is-live {
@@ -844,6 +871,11 @@
   .ticket-open {
     top: 16px;
     right: 18px;
+  }
+
+  /* A typical title wraps to three lines at this width. */
+  .ticket-placeholder.is-title {
+    height: calc(clamp(20px, 2.2vw, 27px) * 3.75);
   }
 
   .ticket-side {

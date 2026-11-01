@@ -1140,6 +1140,51 @@
   margin-bottom: 16px;
 }
 
+/* Two labelled filters side by side: the step, then its state. */
+.adm-post-filters {
+  justify-content: flex-start;
+  gap: 12px 24px;
+}
+
+.adm-filter-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.adm-filter-label {
+  min-width: 36px;
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+@media (max-width: 560px) {
+  .adm-filter-group {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .adm-filter-group .adm-segmented {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+
+  .adm-filter-group .adm-segmented button {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  .adm-filter-group .adm-segmented button svg {
+    display: none;
+  }
+}
+
 /* ------------------------------------------------------------------ shell */
 
 .adm-shell {

@@ -216,7 +216,7 @@ label. Refresh, cancel and save stay in the footer.
 
 The Review queue (`src/admin/views/review.tsx`) lists only what waits for a
 decision, in tabs for schedule images that need review, suspected
-cancellations, video merges and failed posts; a decision removes the item
+cancellations, video merges and posts; a decision removes the item
 and the sidebar badge counts again. The images tab links to the Schedule
 page's images view. An image or a suspected cancellation is a decision
 card: its left edge takes the state colour (honey
@@ -228,16 +228,19 @@ and the decision buttons. A cancellation needs a reason before it can be
 confirmed. The video merges tab (`merge-parts.tsx`) lists each Bilibili
 upload the merge rule merges at its next run or leaves to the operator,
 beside its candidates: Merge attaches it to one, and Keep separate keeps it
-apart so the rule never merges it. The failed posts tab has Extraction
-failed, Translation failed, Uncertain and Queued filters, with the overview's
-counts on the two failure filters. Each row names the step that failed
+apart so the rule never merges it. The posts tab has two labelled filters:
+Step, Schedule extraction or Translation, each with the overview's failure
+count, and State within the step: Failed, Uncertain or Queued for
+extraction, Failed or Queued for translation. A new step keeps the state
+when the step has it and falls back to Failed otherwise; below 560px each
+filter takes its own full-width line. Each row names the step that failed
 (schedule extraction or translation) with its error. A failed extraction
-offers Dismiss beside the LLM action; a failed translation offers Translate
+offers Dismiss beside the LLM action; a translation row offers Translate
 again, which queues a machine pass. The list pages 50 posts at a time.
-Outside the Queued filter each row has a selection box on its left edge,
+Outside the Queued state each row has a selection box on its left edge,
 and shift-click selects the range from the last toggled row. A selection
 bar above the list, which sticks under the top bar, selects the whole page
-and applies the filter's actions to every selected post in one request:
+and applies the state's actions to every selected post in one request:
 Dismiss and Process again for failed extractions, Process again for
 uncertain posts, Translate again for failed translations. A new filter or
 page clears the selection.

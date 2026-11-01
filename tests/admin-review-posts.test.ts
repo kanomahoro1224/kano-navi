@@ -45,7 +45,7 @@ function post(id: string, patch: Partial<AdminPost>): AdminPost {
   }
 }
 
-test("failed posts name the failed step and offer its actions for one post or a selection", async () => {
+test("review posts filter by step and state and offer the step's actions for one post or a selection", async () => {
   const vite = await createServer({
     configFile: false,
     envDir: false,
@@ -83,6 +83,9 @@ test("failed posts name the failed step and offer its actions for one post or a 
       llmStatus: "queued",
       llmReprocessRequested: true,
     })
+    const translationQueued = post("translationQueued", {
+      translation: { ...failedTranslation, machineStatus: "", requested: true },
+    })
     const queries: Record<string, unknown>[] = []
     const calls: string[] = []
     const notices: string[] = []
@@ -114,9 +117,11 @@ test("failed posts name the failed step and offer its actions for one post or a 
               ? failed
               : query.translation === "failed"
                 ? [translation]
-                : query.reprocess
-                  ? [queued]
-                  : []
+                : query.translation === "requested"
+                  ? [translationQueued]
+                  : query.reprocess
+                    ? [queued]
+                    : []
           return { items, page: 1, total: items.length, totalPages: 1 }
         },
         dismissPost: async (id: string) => {
@@ -168,18 +173,28 @@ test("failed posts name the failed step and offer its actions for one post or a 
     ]
     const checked = () => picks().map((input) => input.checked)
 
-    // Extraction failures open first, with the overview's counts.
+    // Extraction failures open first. The steps carry the overview's failure
+    // counts; the states belong to the chosen step.
     assert.equal(queries.at(-1)?.llm, "failed")
-    const filters = [...panel().querySelectorAll('[role="radio"]')]
-    assert.deepEqual(
-      filters.map((item) => item.textContent),
+    const group = (index: number) =>
       [
-        "admin.review.posts.extraction1",
-        "admin.review.posts.translation1",
-        "admin.status.uncertain",
-        "admin.posts.queued",
-      ],
-    )
+        ...panel()
+          .querySelectorAll('[role="radiogroup"]')
+          [index].querySelectorAll('[role="radio"]'),
+      ] as HTMLElement[]
+    const labels = (index: number) =>
+      group(index).map((item) => item.textContent)
+    const option = (index: number, text: string) =>
+      group(index).find((item) => item.textContent === text)!
+    assert.deepEqual(labels(0), [
+      "admin.review.posts.extraction1",
+      "admin.review.posts.translation1",
+    ])
+    assert.deepEqual(labels(1), [
+      "admin.status.failed",
+      "admin.status.uncertain",
+      "admin.posts.queued",
+    ])
     assert.match(row().textContent!, /admin\.review\.failure\.extraction/)
     assert.match(row().textContent!, /admin\.posts\.error\.provider_error/)
     assert.match(row().textContent!, /2026-01-02 00:00/)
@@ -216,8 +231,13 @@ test("failed posts name the failed step and offer its actions for one post or a 
     assert.equal(calls.at(-1), "dismiss:extraction2")
     assert.equal(notices.at(-1), "admin.notice.postsDismissed:1")
 
-    await click(filters[1])
+    // Translation has no uncertain state, so Uncertain falls back to Failed.
+    await click(option(1, "admin.status.uncertain"))
+    assert.equal(queries.at(-1)?.llm, "uncertain")
+    await click(option(0, "admin.review.posts.translation1"))
+    assert.deepEqual(labels(1), ["admin.status.failed", "admin.posts.queued"])
     assert.equal(queries.at(-1)?.translation, "failed")
+    assert.equal(queries.at(-1)?.llm, undefined)
     assert.match(row().textContent!, /admin\.review\.failure\.translation/)
     assert.match(row().textContent!, /admin\.posts\.error\.output_truncated/)
     assert.doesNotMatch(
@@ -233,11 +253,24 @@ test("failed posts name the failed step and offer its actions for one post or a 
     await click(barButton("admin.review.retryTranslation"))
     assert.equal(notices.at(-1), "admin.notice.translationsQueued:1")
 
-    // Queued posts have no bulk action, so nothing is selectable.
-    await click(filters[3])
-    assert.match(row().textContent!, /Synthetic queued/)
+    // Queued translations show their flag and have no bulk action, so
+    // nothing is selectable.
+    await click(option(1, "admin.posts.queued"))
+    assert.equal(queries.at(-1)?.translation, "requested")
+    assert.match(row().textContent!, /Synthetic translationQueued/)
+    assert.match(row().textContent!, /admin\.posts\.queued/)
+    assert.doesNotMatch(
+      row().textContent!,
+      /admin\.review\.failure\.translation/,
+    )
     assert.equal(panel().querySelector(".adm-select-bar"), null)
     assert.deepEqual(picks(), [])
+
+    // A new step keeps a state it has.
+    await click(option(0, "admin.review.posts.extraction1"))
+    assert.equal(queries.at(-1)?.reprocess, true)
+    assert.match(row().textContent!, /Synthetic queued/)
+    assert.equal(panel().querySelector(".adm-select-bar"), null)
 
     // Compact actions honor the same reprocess switch as the full actions.
     await act(async () => {

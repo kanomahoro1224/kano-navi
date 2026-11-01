@@ -301,15 +301,29 @@ export function PostActions({
   )
 }
 
-/** A failed machine translation of the post's current wording, with its error. */
-function TranslationFailure({ post }: { post: AdminPost }) {
+/**
+ * The machine translation of the post's current wording: a failure with its
+ * error, and the queue flag of a requested pass. `queued` false leaves the
+ * flag out, for a row that only reports a failure.
+ */
+function TranslationStatus({
+  post,
+  queued = true,
+}: {
+  post: AdminPost
+  queued?: boolean
+}) {
   const { t } = useAppSettings()
   const translation = post.translation
-  if (translation?.machineStatus !== "failed") return null
+  const failed = translation?.machineStatus === "failed"
+  if (!translation || (!failed && !(queued && translation.requested)))
+    return null
   return (
     <>
-      <Badge tone="danger">{t("admin.review.failure.translation")}</Badge>
-      {translation.lastError ? (
+      {failed ? (
+        <Badge tone="danger">{t("admin.review.failure.translation")}</Badge>
+      ) : null}
+      {failed && translation.lastError ? (
         <Badge tone="danger">
           {t(`admin.posts.error.${translation.lastError}`)}
         </Badge>
@@ -321,42 +335,59 @@ function TranslationFailure({ post }: { post: AdminPost }) {
   )
 }
 
-type PostFilter = "extraction" | "translation" | "uncertain" | "queued"
+/** The processing step a post list covers. */
+type PostStep = "extraction" | "translation"
+/** Where the step's posts stand; translation has no uncertain result. */
+type PostState = "failed" | "uncertain" | "queued"
 
-const postFilters: Record<PostFilter, Record<string, unknown>> = {
-  extraction: { llm: "failed" },
-  translation: { translation: "failed" },
-  uncertain: { llm: "uncertain" },
-  queued: { reprocess: true },
+const postStates: Record<PostStep, PostState[]> = {
+  extraction: ["failed", "uncertain", "queued"],
+  translation: ["failed", "queued"],
+}
+
+const postFilters: Record<
+  PostStep,
+  Partial<Record<PostState, Record<string, unknown>>>
+> = {
+  extraction: {
+    failed: { llm: "failed" },
+    uncertain: { llm: "uncertain" },
+    queued: { reprocess: true },
+  },
+  translation: {
+    failed: { translation: "failed" },
+    queued: { translation: "requested" },
+  },
 }
 
 type BulkAction = "dismiss" | "reprocess" | "translate"
 
-/** What a filter's selected posts can have done to them at once. */
-const bulkActions: Record<PostFilter, BulkAction[]> = {
-  extraction: ["dismiss", "reprocess"],
-  translation: ["translate"],
-  uncertain: ["reprocess"],
-  queued: [],
+/** What a step's selected posts in one state can have done to them at once. */
+const bulkActions: Record<
+  PostStep,
+  Partial<Record<PostState, BulkAction[]>>
+> = {
+  extraction: { failed: ["dismiss", "reprocess"], uncertain: ["reprocess"] },
+  translation: { failed: ["translate"] },
 }
 
 const postPageSize = 50
 
 /**
- * One post of the Failed posts tab: which step failed and why, and the
- * actions for the tab's step. A failed extraction can be dismissed, which
- * stops its retries; a failed translation can be queued again. A post in a
- * filter with bulk actions has a selection box on its left edge.
+ * One post of the Posts tab: where the list's step stands for it and why,
+ * and that step's actions. A failed extraction can be dismissed, which stops
+ * its retries; a translation can be queued again. A post in a list with bulk
+ * actions has a selection box on its left edge.
  */
 function PostRow({
   post,
-  filter,
+  step,
   onDone,
   selected,
   onSelect,
 }: {
   post: AdminPost
-  filter: PostFilter
+  step: PostStep
   onDone: () => void
   selected?: boolean
   /** Toggle the selection; `range` extends it from the last toggled post. */
@@ -375,7 +406,7 @@ function PostRow({
     setBusy("")
     if (result) onDone()
   }
-  const translation = filter === "translation"
+  const translation = step === "translation"
   return (
     <article
       className={cn(
@@ -403,11 +434,11 @@ function PostRow({
         {translation && post.llmStatus !== "failed" ? null : (
           <PostStatus post={post} />
         )}
-        <TranslationFailure post={post} />
+        <TranslationStatus post={post} queued={translation} />
       </div>
       <p className="adm-post-text">{post.text}</p>
       <div className="adm-actions">
-        {filter === "extraction" && post.llmStatus === "failed" ? (
+        {!translation && post.llmStatus === "failed" ? (
           <Button
             size="sm"
             icon={Ban}
@@ -534,28 +565,39 @@ function PostSelectionBar({
   )
 }
 
+/**
+ * Posts that wait on a processing step, picked by two filters: the step
+ * (schedule extraction or translation, each with its failure count) and the
+ * state within it. A new step keeps the state when the step has it.
+ */
 function PostsTab() {
   const { t } = useAppSettings()
   const { api, act, notify, overview } = useAdmin()
-  const [filter, setFilter] = useState<PostFilter>("extraction")
+  const [step, setStep] = useState<PostStep>("extraction")
+  const [state, setState] = useState<PostState>("failed")
   const [page, setPage] = useState(1)
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set())
   const [busy, setBusy] = useState<BulkAction | "">("")
   // The last toggled post, where a shift-click range starts.
   const anchor = useRef<string | null>(null)
   const posts = useResource(
-    () => api.posts({ ...postFilters[filter], page, pageSize: postPageSize }),
-    [filter, page],
+    () =>
+      api.posts({
+        ...postFilters[step][state],
+        page,
+        pageSize: postPageSize,
+      }),
+    [step, state, page],
   )
   const items = posts.data?.items ?? []
-  const actions = bulkActions[filter]
+  const actions = bulkActions[step][state] ?? []
 
   // A new filter or page starts with nothing selected; a reload keeps only
   // the selected posts that are still listed.
   useEffect(() => {
     setSelection(new Set())
     anchor.current = null
-  }, [filter, page])
+  }, [step, state, page])
   useEffect(() => {
     setSelection((current) => {
       const listed = new Set(posts.data?.items.map((post) => post.id))
@@ -615,34 +657,63 @@ function PostsTab() {
     await reload()
   }
 
-  const counts: Partial<Record<PostFilter, number>> = {
+  const failures: Record<PostStep, number | undefined> = {
     extraction: overview?.review.failedExtractions,
     translation: overview?.review.failedTranslations,
   }
+  const stepIcons = { extraction: Sparkles, translation: Languages }
+  const stateLabels: Record<PostState, string> = {
+    failed: t("admin.status.failed"),
+    uncertain: t("admin.status.uncertain"),
+    queued: t("admin.posts.queued"),
+  }
   return (
     <>
-      <div className="adm-toolbar">
-        <Segmented
-          label={t("admin.review.filter")}
-          value={filter}
-          onChange={(next) => {
-            setFilter(next)
-            setPage(1)
-          }}
-          options={[
-            { value: "extraction", label: t("admin.review.posts.extraction") },
-            {
-              value: "translation",
-              label: t("admin.review.posts.translation"),
-            },
-            { value: "uncertain", label: t("admin.status.uncertain") },
-            { value: "queued", label: t("admin.posts.queued") },
-          ].map((option) => ({
-            ...option,
-            value: option.value as PostFilter,
-            count: counts[option.value as PostFilter],
-          }))}
-        />
+      <div className="adm-toolbar adm-post-filters">
+        <div className="adm-filter-group">
+          <span className="adm-filter-label" aria-hidden>
+            {t("admin.review.posts.step")}
+          </span>
+          <Segmented
+            label={t("admin.review.posts.step")}
+            value={step}
+            onChange={(next) => {
+              setStep(next)
+              if (!postStates[next].includes(state)) setState("failed")
+              setPage(1)
+            }}
+            options={(["extraction", "translation"] as const).map((id) => {
+              const StepIcon = stepIcons[id]
+              return {
+                value: id,
+                label: (
+                  <>
+                    <StepIcon aria-hidden />
+                    {t(`admin.review.posts.${id}`)}
+                  </>
+                ),
+                count: failures[id],
+              }
+            })}
+          />
+        </div>
+        <div className="adm-filter-group">
+          <span className="adm-filter-label" aria-hidden>
+            {t("admin.review.posts.state")}
+          </span>
+          <Segmented
+            label={t("admin.review.posts.state")}
+            value={state}
+            onChange={(next) => {
+              setState(next)
+              setPage(1)
+            }}
+            options={postStates[step].map((id) => ({
+              value: id,
+              label: stateLabels[id],
+            }))}
+          />
+        </div>
       </div>
       {!posts.data ? (
         <Loading />
@@ -671,7 +742,7 @@ function PostsTab() {
               <PostRow
                 key={post.id}
                 post={post}
-                filter={filter}
+                step={step}
                 onDone={() => void reload()}
                 selected={selection.has(post.id)}
                 onSelect={

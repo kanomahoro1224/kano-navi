@@ -63,10 +63,12 @@
   Proxy passwords are stored sealed with `LLM_SECRETS_KEY`.
 - Console dates read `YYYY-MM-DD` and times `YYYY-MM-DD HH:mm` in Japan
   time, the same in every console language.
-- The Review queue's failed posts are split into Extraction failed and
-  Translation failed, and each row names the step that failed with its
-  error. A failed extraction can be dismissed, which stops its retries until
-  the post or the extraction queue changes; a failed translation can be
+- The Review queue's Posts tab filters by step, schedule extraction or
+  translation, each with its failure count, and by state within it: failed,
+  uncertain or queued for extraction, failed or queued for translation.
+  Each row names the step that failed with its error. A failed extraction
+  can be dismissed, which stops its retries until the post or the
+  extraction queue changes; a failed translation can be
   queued again. Posts can be selected one by one, by shift-click ranges or a page
   at a time, and the selection dismissed, processed again or translated
   again at once. The list pages through every matching post.

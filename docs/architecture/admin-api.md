@@ -338,11 +338,18 @@ unmerging and edits advance the dashboard revision.
 
 ## Schedule images
 
-| Method and path                     | Body / query           | Result                                    |
-| ----------------------------------- | ---------------------- | ----------------------------------------- |
-| `GET /schedule-images`              | `limit` (≤ 200)        | `{items}`                                 |
-| `POST /schedule-images/{id}/review` | `{status, reason}`     | `{image}`; `404 schedule_image_not_found` |
-| `PUT /schedule-images/{id}/period`  | `{start, end, reason}` | `{image}`                                 |
+| Method and path                     | Body / query                  | Result                                    |
+| ----------------------------------- | ----------------------------- | ----------------------------------------- |
+| `GET /schedule-images`              | `limit` (≤ 200), `from`, `to` | `{items}`                                 |
+| `POST /schedule-images/{id}/review` | `{status, reason}`            | `{image}`; `404 schedule_image_not_found` |
+| `PUT /schedule-images/{id}/period`  | `{start, end, reason}`        | `{image}`                                 |
+
+`from` and `to`, both dates, keep the images whose period overlaps them; the
+list is ordered by period start, newest first. `periodBasis` is `events` for
+a period derived from the source post's events, and `inferredPeriodStart` and
+`inferredPeriodEnd` give the period without the manual correction.
+`sourcePost` is the stored source post's `text` and `publishedAt`, or `null`;
+the board gate's stored search text stays on the server.
 
 `status` is `schedule`, `not_schedule` or `unreviewed` (which clears the
 label; the others require `reason`). A `schedule` label is the manual gate

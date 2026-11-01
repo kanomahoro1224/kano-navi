@@ -4732,6 +4732,98 @@ blockquote.adm-verdict-reason {
   font-size: 12px;
 }
 
+/* The post that published a schedule image, folded on its card. */
+.adm-source-post {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--adm-line-strong);
+  font-size: 13px;
+}
+
+.adm-source-post time {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-source-post p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.adm-source-post.is-full p {
+  display: block;
+  -webkit-line-clamp: none;
+}
+
+/* Correct dates: the image and its post above the form. */
+.adm-period-reference {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.adm-period-image {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  min-height: 160px;
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-sunken);
+  color: var(--adm-muted);
+}
+
+.adm-period-image img {
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+}
+
+.adm-period-image span {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.adm-period-post {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 10px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+@media (max-width: 640px) {
+  .adm-period-reference {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The schedule images of the calendar's month, below its grid. */
+.adm-month-images {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-month-images h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
 /* A post's own images as choices for its schedule image. */
 .adm-schedule-pick-form .adm-field,
 .adm-schedule-pick-form .adm-form-row {

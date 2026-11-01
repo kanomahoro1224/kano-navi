@@ -43,6 +43,7 @@ function ImagesTab({ navigate }: Pick<ViewProps, "navigate">) {
   return (
     <ScheduleImageList
       filters={["review"]}
+      navigate={navigate}
       actions={
         <Button
           size="sm"

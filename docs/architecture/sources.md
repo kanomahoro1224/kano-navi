@@ -958,8 +958,13 @@ synchronization keeps a picked asset's image, review and period.
 
 A schedule asset's period is `period_start`/`period_end` with its
 `period_basis`; the schema upgrade that adds these columns fills them from a
-stored `week_start` as a seven-day period. An asset without a period is unknown and labelled so
-in the console. Operators set or correct a period with a required reason
+stored `week_start` as a seven-day period. The image check does not read
+dates, so an asset without a stored period takes the whole Monday-to-Sunday
+weeks around the live (not deleted) events extracted from its source post,
+with basis `events` (`SchedulePeriodSQL`,
+`backend/internal/store/sqlite/schedule_period.go`). Readers compute it on
+every request, so it follows later extractions and event edits. An asset
+whose post has no events is unknown and labelled so in the console. Operators set or correct a period with a required reason
 (`manual_period_start`, `manual_period_end`, `manual_period_reason`)
 independently of image approval, and the manual period wins. The dashboard
 and calendar list an approved asset only while its period overlaps the

@@ -473,6 +473,8 @@ export interface ScheduleImage {
   approved: boolean
   previewUrl: string | null
   mediaStatus: string
+  /** The stored post that published the image; null when it is not stored. */
+  sourcePost: { text: string; publishedAt: string } | null
 }
 
 export interface AdminPostImage {

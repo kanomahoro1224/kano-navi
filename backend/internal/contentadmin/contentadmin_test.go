@@ -852,8 +852,12 @@ func TestScheduleAssetListAndManualReview(t *testing.T) {
 	if thumb["mediaStatus"] != "ready" || thumb["previewUrl"] != "/media/"+sha256Hex([]byte(thumbURL))+"?v="+thumbHash {
 		t.Fatalf("a cached image exposes only its opaque URL: %#v", thumb)
 	}
-	if _, leaked := board["sourceText"]; leaked {
-		t.Fatal("source post text must stay server-side")
+	// The post's wording is shown; the board gate's stored search text is not.
+	if _, leaked := board["sourceText"]; leaked || strings.Contains(string(listing.raw), "今週のスケジュールです") {
+		t.Fatal("the board gate's search text must stay server-side")
+	}
+	if post := object(t, board["sourcePost"]); post["text"] != "配信します" || post["publishedAt"] != "2026-10-01T00:00:00.000Z" {
+		t.Fatalf("unexpected source post: %#v", post)
 	}
 	for _, key := range []string{"manualReason", "manualCheckedAt", "periodReason", "llmEvidence", "inferredPeriodStart"} {
 		if _, present := thumb[key]; !present {
@@ -1068,5 +1072,57 @@ func TestPickPostScheduleImage(t *testing.T) {
 	f.put("/posts/unknown/schedule-image", map[string]any{"index": 0, "reason": "x"}).expect(t, http.StatusNotFound, "post_not_found")
 	if f.revision() != before {
 		t.Fatal("rejected picks must not change the snapshot")
+	}
+}
+
+func TestScheduleAssetWeekComesFromItsPostEvents(t *testing.T) {
+	f := newFixture(t, true)
+	stamp := "2026-09-14T00:00:00.000Z"
+	f.exec(`INSERT INTO posts(id,source,text,published_at,url) VALUES('p1','x','今週のスケジュール',?,'https://x.com/synthetic/status/1'),
+		('p2','x','今週のスケジュール',?,'https://x.com/synthetic/status/2')`, stamp, stamp)
+	f.exec(`INSERT INTO assets(id,kind,url,source_url,updated_at) VALUES('schedule-x-p1','schedule','https://pbs.twimg.com/media/one.jpg','https://x.com/synthetic/status/1',?),
+		('schedule-x-p2','schedule','https://pbs.twimg.com/media/two.jpg','https://x.com/synthetic/status/2',?)`, stamp, stamp)
+	// A Tuesday-to-Sunday board covers its whole Monday-to-Sunday week; a
+	// deleted event does not stretch it.
+	for _, event := range []struct{ id, day, deleted string }{{"e1", "2026-09-15", ""}, {"e2", "2026-09-20", ""}, {"e3", "2026-09-28", stamp}} {
+		var deleted any
+		if event.deleted != "" {
+			deleted = event.deleted
+		}
+		f.exec(`INSERT INTO events(id,source,source_item_id,title,starts_on,timezone,time_precision,provenance,manual_locked,cancellation_status,deleted_at,created_at,updated_at)
+			VALUES(?,'x','p1','Stream',?,'Asia/Tokyo','unknown','automatic',0,'none',?,?,?)`, event.id, event.day, deleted, stamp, stamp)
+		f.exec(`INSERT INTO event_sources(event_id,source,source_item_id,source_key,created_at,updated_at) VALUES(?,'x','p1',?,?,?)`, event.id, event.id, stamp, stamp)
+	}
+
+	images := func(query string) map[string]map[string]any {
+		t.Helper()
+		listing := f.request(http.MethodGet, "/schedule-images"+query, "", nil)
+		listing.expect(t, http.StatusOK, "")
+		out := map[string]map[string]any{}
+		for _, item := range list(t, listing.json["items"]) {
+			image := object(t, item)
+			out[image["id"].(string)] = image
+		}
+		return out
+	}
+	all := images("")
+	if one := all["schedule-x-p1"]; one["periodStart"] != "2026-09-14" || one["periodEnd"] != "2026-09-20" || one["periodBasis"] != "events" ||
+		one["weekStart"] != "2026-09-14" || one["inferredPeriodStart"] != "2026-09-14" {
+		t.Fatalf("unexpected inferred week: %#v", one)
+	}
+	if two := all["schedule-x-p2"]; two["periodStart"] != nil || two["periodBasis"] != "legacy" {
+		t.Fatalf("a post without events has no period: %#v", two)
+	}
+	if got := images("?from=2026-09-01&to=2026-09-30"); len(got) != 1 || got["schedule-x-p1"] == nil {
+		t.Fatalf("the month lists only overlapping images: %v", got)
+	}
+	if got := images("?from=2026-10-01&to=2026-10-31"); len(got) != 0 {
+		t.Fatalf("no image covers October: %v", got)
+	}
+
+	// The operator's correction wins over the events.
+	f.put("/schedule-images/schedule-x-p1/period", map[string]any{"start": "2026-09-16", "end": "2026-09-22", "reason": "board dates"}).expect(t, http.StatusOK, "")
+	if one := images("")["schedule-x-p1"]; one["periodStart"] != "2026-09-16" || one["periodBasis"] != "manual" || one["inferredPeriodStart"] != "2026-09-14" {
+		t.Fatalf("unexpected corrected week: %#v", one)
 	}
 }

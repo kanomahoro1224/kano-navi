@@ -247,8 +247,11 @@ and `manual_period_reason`; it preserves the inferred values, source and review.
 Registration of the same image retains that correction. A different image URL
 resets its review and correction. `manual_image_at` records when an operator
 picked one of the post's images as the schedule image; synchronization then
-leaves the asset's image, review and correction alone. Unknown periods stay null until corrected and
-are not assigned to a calendar week.
+leaves the asset's image, review and correction alone. Readers derive the
+period of an asset with no stored or corrected one from its source post's
+events (basis `events`, see [Schedule images](sources.md#schedule-images));
+nothing stores it. A period that is still unknown stays null until corrected
+and is not assigned to a calendar week.
 
 Complete post `media_urls` snapshots reconcile `post-image` ownership in the
 same transaction as the post write. An empty list removes all display links;

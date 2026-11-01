@@ -201,8 +201,12 @@ function createClient(run: Runner, slow: Runner) {
     unmergeEvent: (id: string) =>
       send<{ event: AdminEvent }>("POST", `/events/${enc(id)}/unmerge`),
 
-    scheduleImages: () =>
-      get<{ items: ScheduleImage[] }>("/schedule-images?limit=100"),
+    /** The newest schedule images; a range keeps those whose period
+     * overlaps it. */
+    scheduleImages: (range?: { from: string; to: string }) =>
+      get<{ items: ScheduleImage[] }>(
+        `/schedule-images${query({ limit: 100, ...range })}`,
+      ),
     reviewImage: (id: string, status: string, reason: string) =>
       send<{ image: ScheduleImage }>(
         "POST",

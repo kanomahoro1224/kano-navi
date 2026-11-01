@@ -172,7 +172,14 @@ Review queue links to. It lists the newest stored schedule images as the
 Review queue's decision cards (`schedule-images.tsx`) under Active,
 Approved, Needs review and Not a schedule tabs. Active leaves out images an
 operator labelled Not a schedule, so a rejected card leaves the list; the
-Not a schedule tab keeps them, where the label can be cleared. The list and the calendar share a search field and status tabs
+Not a schedule tab keeps them, where the label can be cleared. A card
+shows its source post's time and wording, folded to four lines. Correct
+dates opens a wide dialog with the image and the whole post above the form,
+side by side or stacked on a phone. A card's covered dates note when they come from the post's events, and a dated card
+offers Show in calendar, which opens `#schedule/YYYY-MM`: the calendar on
+that month. Below the month grid the calendar lists the schedule images
+whose period overlaps the month, as the same cards, leaving out those
+labelled Not a schedule. The list and the calendar share a search field and status tabs
 for the review tasks: All, Not confirmed, Suspected (cancellation) and
 Deleted. The list groups entries
 under one heading per Japan date, with the day's count and a button that

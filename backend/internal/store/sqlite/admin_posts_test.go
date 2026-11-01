@@ -249,3 +249,41 @@ func TestAdminPostsReportTheirScheduleImage(t *testing.T) {
 		t.Fatalf("a post without images: %v", err)
 	}
 }
+
+func TestApprovedScheduleImageReachesTheWeekOfItsPostEvents(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenInitialized(filepath.Join(t.TempDir(), "database", "kano.sqlite"), true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	exec := func(query string, args ...any) {
+		t.Helper()
+		if _, err := store.DB().Exec(query, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stamp := "2026-09-14T00:00:00.000Z"
+	exec(`INSERT INTO posts (id,source,type,text,published_at,url) VALUES ('board','x','post','今週のスケジュール',?,'https://x.example.invalid/board')`, stamp)
+	exec(`INSERT INTO assets(id,kind,url,source_url,updated_at) VALUES('schedule-x-board','schedule','https://media.example.test/board.jpg','https://x.example.invalid/board',?)`, stamp)
+	exec(`INSERT INTO schedule_asset_reviews(asset_id,llm_status,manual_status,updated_at) VALUES('schedule-x-board','schedule','unreviewed',?)`, stamp)
+	exec(`INSERT INTO events(id,source,source_item_id,title,starts_on,timezone,time_precision,provenance,manual_locked,cancellation_status,created_at,updated_at)
+		VALUES('e1','x','board','Stream','2026-09-16','Asia/Tokyo','unknown','automatic',0,'none',?,?)`, stamp, stamp)
+	exec(`INSERT INTO event_sources(event_id,source,source_item_id,source_key,created_at,updated_at) VALUES('e1','x','board','e1',?,?)`, stamp, stamp)
+
+	for _, week := range []struct {
+		from, to string
+		want     int
+	}{{"2026-09-14", "2026-09-20", 1}, {"2026-09-20", "2026-09-26", 1}, {"2026-09-21", "2026-09-27", 0}, {"2026-09-07", "2026-09-13", 0}} {
+		assets, err := store.queryScheduleAssets(ctx, week.from, week.to)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(assets) != week.want {
+			t.Fatalf("%s..%s: %d images, want %d", week.from, week.to, len(assets), week.want)
+		}
+		if week.want == 1 && (assets[0].PeriodStart == nil || *assets[0].PeriodStart != "2026-09-14" || *assets[0].PeriodEnd != "2026-09-20" || *assets[0].PeriodBasis != "events") {
+			t.Fatalf("unexpected period: %+v", assets[0])
+		}
+	}
+}

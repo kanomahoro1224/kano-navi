@@ -44,6 +44,14 @@
   again.
 - The Schedule page's images open on Active, which leaves out images
   labelled Not a schedule; those move to their own tab.
+- A schedule image without dates covers the Monday-to-Sunday weeks of the
+  events extracted from its post, so an approved board reaches the board
+  and calendar for its week without a manual correction. A corrected period
+  still wins.
+- The Schedule calendar lists the month's schedule images below the grid,
+  and each image card shows Show in calendar, which opens its month.
+- Schedule image cards show the source post's time and wording, and Correct
+  dates shows the image and the whole post beside the form.
 - An X post's dialog on the Posts page can mark one of its images as the
   schedule image, with a reason and optional dates. Synchronization keeps
   the picked image, and the post list shows a Schedule image badge.

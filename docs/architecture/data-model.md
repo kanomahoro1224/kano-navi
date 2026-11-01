@@ -47,7 +47,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `schedule_asset_reviews` | Per-schedule-image LLM verdict, skip reason (`no_image` for a URL-less row), and optional manual label |
 | `llm_providers`          | OpenAI-compatible or Anthropic endpoints, Text/Image capabilities, health, and encrypted keys          |
 | `llm_models`             | Per-provider model catalog with tags (`text`/`image` routing; `reasoning`/`tools`/`embedding` labels)  |
-| `llm_route_targets`      | The ordered provider + model failover queue (`route = 'schedule'`) shared by every extraction stage    |
+| `llm_route_targets`      | The ordered provider + model failover queues: `schedule`, `verify` and `translate`                     |
 | `llm_route_providers`    | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
 | `source_schedules`       | Each source's timer, sync setting and method chain                                                     |
 | `workflows`              | Saved workflow definitions (ADR-0003): kept in the schema, created empty, never read or written        |
@@ -132,8 +132,8 @@ zero, and the first read of a new day starts it over.
 `backend/internal/store/sqlite/static-seed.json` holds the static profile,
 milestone timeline, and resource directory. Every open inserts the static IDs
 that are missing, plus the `dashboard_revision`, the default `x_accounts`
-and the `llm_route_targets_migrated` marker when absent. New environments
-have no X posts, events, YouTube videos, Featured item, schedule assets, or
+and the `llm_route_targets_migrated` and `llm_verify_queue_seeded` markers when
+absent. New environments have no X posts, events, YouTube videos, Featured item, schedule assets, or
 LLM providers/models/routes.
 `kano-go seed` (`npm run seed`) creates or upgrades the database and fills
 missing static IDs; `-overwrite` restores the shipped profile, timeline and
@@ -627,11 +627,16 @@ protocols.
 `vision_capable` (API `visionCapable`) is derived from the `image`
 capability; a provider write without `capabilities` may send `visionCapable`
 instead. `llm_providers.model` is written empty and never read: providers have
-no default model. Every stage shares one priority queue. Startup folds any
-per-stage `schedule_message`, `schedule_board`, and `schedule_vision` targets
-into it in that order, keeping the first position of a repeated provider +
-model pair, and once (marker `llm_default_model_retired`) turns a target
-that followed a provider's default model into a target naming that model.
+no default model. Both detection paths share the extraction queue
+(`schedule`); the schedule-image check reads only `verify`, and translation
+only `translate`. Startup folds any per-stage `schedule_message`,
+`schedule_board`, and `schedule_vision` targets into the extraction queue in
+that order, keeping the first position of a repeated provider + model pair,
+and once (marker `llm_default_model_retired`) turns a target that followed a
+provider's default model into a target naming that model. Once more (marker
+`llm_verify_queue_seeded`, which new databases start with), it copies the
+extraction queue's image-tagged targets in their order into an empty `verify`
+queue.
 `post_llm_states.route` records which detection path (`schedule_message` or
 `schedule_board`) handled a post.
 

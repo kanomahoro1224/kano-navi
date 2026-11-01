@@ -30,11 +30,7 @@ func newTranslatorFixture(t *testing.T) (*fixture, *Translator) {
 // translation queue.
 func (f *fixture) queueTranslation(providerIDs ...string) {
 	f.t.Helper()
-	for _, id := range providerIDs {
-		f.exec(`INSERT INTO llm_route_targets (route, provider_id, model_id, priority, created_at, updated_at)
-			VALUES (?, ?, (SELECT model_id FROM llm_models WHERE provider_id = ? ORDER BY rowid LIMIT 1),
-			(SELECT COUNT(*) FROM llm_route_targets WHERE route = ?), ?, ?)`, routeTranslate, id, id, routeTranslate, testTimestamp, testTimestamp)
-	}
+	f.queueOn(routeTranslate, providerIDs...)
 }
 
 func translationReply(language, english, chinese string) string {

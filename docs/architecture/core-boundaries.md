@@ -50,7 +50,7 @@ successful snapshot while a source is unavailable.
    small revision endpoint when the stream is unavailable), and the page
    reloads its stored snapshot; page refresh never starts an external fetch.
 6. A maintainer who opens `/admin` can change the model, the independent board
-   and message stages, the shared model queue's priority order, capability flags,
+   and message stages, the model queues' priority order, capability flags,
    Featured video, or curate events. Those changes go through the local API and
    lock affected events against automatic replacement.
 

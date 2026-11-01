@@ -253,6 +253,23 @@
   cursor: not-allowed;
 }
 
+/* A destructive icon action; armed, it fills while it waits for the second click. */
+.adm-icon-button.is-danger {
+  color: var(--danger);
+}
+
+.adm-icon-button.is-danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.adm-icon-button.is-danger.is-armed,
+.adm-icon-button.is-danger.is-armed:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
 .adm-link {
   display: inline-flex;
   align-items: center;
@@ -5484,10 +5501,11 @@ blockquote.adm-verdict-reason {
   height: 16px;
 }
 
-/* Queues: the schedule queue beside the translation queue. */
+/* Queues: extraction, schedule-image check and translation side by side,
+   wrapping when a column would get too narrow for its model rows. */
 .adm-queues {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 20px;
 }
 
@@ -6087,7 +6105,6 @@ blockquote.adm-verdict-reason {
 }
 
 @media (max-width: 960px) {
-  .adm-queues,
   .adm-providers {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -11,11 +11,14 @@ const (
 	protocolChat      = "openai-chat-completions"
 	protocolAnthropic = "anthropic-messages"
 
-	// routeMessage and routeBoard record a post's detection path; every path
-	// draws its models from the one priority queue stored as routeQueue.
+	// routeMessage and routeBoard record a post's detection path; both paths
+	// draw their models from the extraction queue stored as routeQueue.
 	routeMessage = "schedule_message"
 	routeBoard   = "schedule_board"
 	routeQueue   = "schedule"
+	// routeVerify is the separate schedule-image check queue; it never falls
+	// back to the extraction queue.
+	routeVerify = "verify"
 	// routeTranslate is the separate translation queue; it never falls back
 	// to the schedule queue.
 	routeTranslate = "translate"

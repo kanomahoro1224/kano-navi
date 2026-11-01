@@ -753,8 +753,8 @@ short provider outage, the 24-hour wait a daily quota reset, and a post that
 still fails after about 31 hours most likely fails on its content.
 
 The backoff starts over when the input changes (edited text, publication
-time, URL or cached images), when the queue's targets or models change, and
-when an operator requests a reprocess, which also clears it immediately. A
+time, URL or cached images), when the extraction queue's targets or models
+change, and when an operator requests a reprocess, which also clears it immediately. A
 queued reprocess request always runs, whatever the backoff, and a forced pass
 that fails counts as the first failure. A success or `uncertain` result,
 including a cache hit, clears the backoff. A cancelled run is not a failure.
@@ -768,9 +768,9 @@ An operator can dismiss a failed post. It becomes `dismissed`, leaves the
 console's failed list, and is held back like a post whose retries stopped
 until its input or targets change or an operator requests a reprocess.
 
-Both paths, and the schedule-image check below, draw from one model priority
-queue: an ordered list of targets, each a provider plus one of its catalog
-models, and a target's capabilities are its model's `text`/`image` tags.
+Both paths draw from the extraction queue: an ordered list of targets, each
+a provider plus one of its catalog models, and a target's capabilities are
+its model's `text`/`image` tags.
 Providers have no default model, and nothing reads the
 `llm_providers.model` column. A one-time startup upgrade, recorded as
 `llm_default_model_retired`, rewrites each queue target without a model
@@ -858,7 +858,7 @@ operator requested; without one, a post that a keyword path also selected
 keeps that route, image posts use `schedule_board`, and text posts use
 `schedule_message`. The route chooses the prompt path, not the models.
 
-Providers and the model queue are configured explicitly in `/admin`; initialization
+Providers and the model queues are configured explicitly in `/admin`; initialization
 does not create or enable an OpenAI provider. Provider API keys are encrypted with
 `LLM_SECRETS_KEY`; ciphertext is never returned by an API response or written
 to extraction `raw_json`. A legacy `OPENAI_API_KEY` can be imported once with
@@ -978,12 +978,13 @@ A schedule image (`assets.kind = schedule`) is public only after two gates:
    its text) reads as a weekly or multi-day board notice. The stored post `label` is not part of that input, because the
    looser post classifier labels any `配信予定` post as `SCHEDULE / 日程`.
 2. The automatic scan sends each unreviewed candidate's ready cached image,
-   without the post text, to the first image-capable targets of the model
-   queue and records `schedule`, `not_schedule`, or `uncertain` in
-   `schedule_asset_reviews`. A candidate whose source post does not pass
+   without the post text, to the separate schedule-image check queue
+   (`llm_route_targets.route = 'verify'`), whose targets need the `image` tag
+   and which never falls back to the extraction queue, and records
+   `schedule`, `not_schedule`, or `uncertain` in `schedule_asset_reviews`. A candidate whose source post does not pass
    gate 1 is recorded as `skipped` / `source_not_board` without a model
-   call. A pending cache, or no keyed Image provider, is also `skipped` and
-   retried. An asset without an image URL, such as a `weekly-schedule`
+   call. A pending cache, or no queued, keyed Image model, is also `skipped`
+   and retried. An asset without an image URL, such as a `weekly-schedule`
    alias row, has nothing to download: it is recorded once as `skipped` /
    `no_image` and left out of later scans, forced ones included, until a
    writer gives it a URL. It is never public and never counts as needing
@@ -1012,7 +1013,7 @@ into English and Simplified Chinese (see
 Bilibili metadata is already Chinese and is never sent to a model, and the
 step never requests a source. Its models come only from the separate
 translation queue (`llm_route_targets.route = 'translate'`), configured in
-`/admin` → Models; it never falls back to the schedule queue. Targets need
+`/admin` → Models; it never falls back to the extraction queue. Targets need
 the `text` tag. Each target gets at most three calls before moving to the
 next configured target, in queue order.
 Without a usable target the step records `disabled` with the reason and

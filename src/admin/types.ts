@@ -776,7 +776,7 @@ export interface Model {
   ownedBy: string | null
 }
 
-export type QueueRoute = "schedule" | "translate"
+export type QueueRoute = "schedule" | "verify" | "translate"
 
 export interface RouteTarget {
   providerId: string
@@ -786,8 +786,10 @@ export interface RouteTarget {
 export interface LlmCatalog {
   providers: Provider[]
   models: Model[]
-  /** The single model priority queue every extraction stage draws from. */
+  /** The post extraction queue both detection paths draw from. */
   queue: RouteTarget[]
+  /** The separate schedule-image check queue; it never falls back. */
+  verificationQueue?: RouteTarget[]
   /** The separate queue of the translate step; it never falls back. */
   translationQueue?: RouteTarget[]
   modelTags: string[]

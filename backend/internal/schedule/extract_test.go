@@ -376,7 +376,7 @@ func boardFixture(t *testing.T) (*fixture, string) {
 	t.Helper()
 	f := newFixture(t)
 	f.addProvider("p-vision", protocolResponses, "https://provider.example.test/v1", "model-v", `["text","image"]`)
-	f.queue("p-vision")
+	f.queueVerify("p-vision")
 	// Only schedule images are under test: no post matches a keyword.
 	f.exec(`INSERT INTO app_settings (key, value, updated_at) VALUES ('schedule_keywords', '["unmatched-keyword"]', ?)`, testTimestamp)
 	f.exec(`INSERT INTO app_settings (key, value, updated_at) VALUES ('schedule_message_enabled', '0', ?)`, testTimestamp)
@@ -433,6 +433,20 @@ func TestScheduleImageVerificationApprovesAsset(t *testing.T) {
 		t.Errorf("second verification = %d requests, %v", f.provider.count(), assets)
 	}
 	f.assertNoSecretStored()
+}
+
+func TestScheduleImageCheckNeverUsesTheExtractionQueue(t *testing.T) {
+	f, _ := boardFixture(t)
+	f.exec(`DELETE FROM llm_route_targets WHERE route = ?`, routeVerify)
+	f.queue("p-vision")
+	result := f.scan()
+	assets, _ := result.Counts["assetVerification"].(map[string]any)
+	if f.provider.count() != 0 || countOf(assets, "skipped") != 1 {
+		t.Fatalf("result = %v after %d requests", assets, f.provider.count())
+	}
+	if got := f.text(`SELECT llm_status || '|' || llm_reason FROM schedule_asset_reviews WHERE asset_id='schedule-2026-04-27'`); got != "skipped|no_route_target" {
+		t.Errorf("review = %q", got)
+	}
 }
 
 func TestScheduleAssetWithoutImageIsSettledOnce(t *testing.T) {

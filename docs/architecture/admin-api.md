@@ -632,31 +632,32 @@ means the requests wait for the next translate step.
 
 ## Extraction and models
 
-| Method and path                          | Body                                                                                       | Result                                                    |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| `GET /extraction`                        |                                                                                            | extraction settings                                       |
-| `PUT /extraction`                        | any subset of `{keywordEnabled, visionEnabled, messageEnabled, messageAllPosts, keywords}` | extraction settings                                       |
-| `GET /llm`                               |                                                                                            | `{providers, models, queue, translationQueue, modelTags}` |
-| `POST /llm/providers`                    | provider fields                                                                            | `201 {provider}`                                          |
-| `PUT /llm/providers/{id}`                | provider fields                                                                            | `{provider}`                                              |
-| `DELETE /llm/providers/{id}`             |                                                                                            | `204`                                                     |
-| `POST /llm/providers/{id}/test`          | `{model?}`                                                                                 | `{ok, method, model, remoteModelCount, provider}`         |
-| `POST /llm/providers/{id}/discover`      |                                                                                            | `{provider, models}` remote catalog                       |
-| `POST /llm/providers/{id}/models`        | `{models, origin?}`                                                                        | `201 {provider, models}`                                  |
-| `PUT /llm/providers/{id}/models`         | one model `{id, ...}`                                                                      | `{provider, model, models}`                               |
-| `POST /llm/providers/{id}/models/remove` | `{ids}`                                                                                    | `{provider, models, removed}`                             |
-| `PUT /llm/queue`                         | `{route?, targets: [{providerId, modelId}]}`                                               | `{route, queue}`                                          |
+| Method and path                          | Body                                                                                       | Result                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `GET /extraction`                        |                                                                                            | extraction settings                                                          |
+| `PUT /extraction`                        | any subset of `{keywordEnabled, visionEnabled, messageEnabled, messageAllPosts, keywords}` | extraction settings                                                          |
+| `GET /llm`                               |                                                                                            | `{providers, models, queue, verificationQueue, translationQueue, modelTags}` |
+| `POST /llm/providers`                    | provider fields                                                                            | `201 {provider}`                                                             |
+| `PUT /llm/providers/{id}`                | provider fields                                                                            | `{provider}`                                                                 |
+| `DELETE /llm/providers/{id}`             |                                                                                            | `204`                                                                        |
+| `POST /llm/providers/{id}/test`          | `{model?}`                                                                                 | `{ok, method, model, remoteModelCount, provider}`                            |
+| `POST /llm/providers/{id}/discover`      |                                                                                            | `{provider, models}` remote catalog                                          |
+| `POST /llm/providers/{id}/models`        | `{models, origin?}`                                                                        | `201 {provider, models}`                                                     |
+| `PUT /llm/providers/{id}/models`         | one model `{id, ...}`                                                                      | `{provider, model, models}`                                                  |
+| `POST /llm/providers/{id}/models/remove` | `{ids}`                                                                                    | `{provider, models, removed}`                                                |
+| `PUT /llm/queue`                         | `{route?, targets: [{providerId, modelId}]}`                                               | `{route, queue}`                                                             |
 
 Extraction settings are `{enabled, keywordEnabled, visionEnabled,
 messageEnabled, messageAllPosts, keywords}`; `enabled` is derived: the message
 stage alone, or keyword candidates plus boards. `messageAllPosts` makes the
 message stage select every post instead of only heuristic matches. `queue` is
-the single ordered `[{providerId, modelId}]` list every extraction stage draws
+the ordered `[{providerId, modelId}]` extraction list both detection paths draw
 from; every target names a catalog model (`modelId` is required), and a save
 replaces the whole list. `route` selects the queue a save replaces: `schedule`
-(the default) or `translate`, the separate `translationQueue` of the
-translate step, whose targets must carry the `text` tag. Removing a model
-removes its targets from both. Providers have no default model: a provider response
+(the default); `verify`, the separate `verificationQueue` of the schedule-image
+check, whose targets must carry the `image` tag; or `translate`, the separate
+`translationQueue` of the translate step, whose targets must carry the `text`
+tag. Removing a model removes its targets from every queue. Providers have no default model: a provider response
 carries no `model` field, a `model` field in a provider write is ignored, and a
 provider test without `{model}` only lists the provider's models. Creating a
 provider or adding catalog models never queues anything. Model IDs may

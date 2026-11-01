@@ -318,6 +318,7 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 	f.addProvider("p-anth", protocolAnthropic, "https://anthropic.example.test", "model-c", `["text","image"]`)
 	f.addProvider("p-chat", protocolChat, "https://vision-chat.example.test/v1", "model-w", `["image"]`)
 	f.queue("p-text", "p-vision", "p-anth", "p-chat")
+	f.queueVerify("p-vision", "p-anth", "p-chat")
 	f.exec(`INSERT INTO app_settings (key, value, updated_at) VALUES ('schedule_message_enabled', '0', ?)`, testTimestamp)
 	for _, item := range []struct {
 		id, postType, label, text, publishedAt string

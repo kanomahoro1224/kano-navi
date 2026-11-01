@@ -24,7 +24,7 @@ change both with `KANO_MEM_LIMIT` and `GOMEMLIMIT` as described in
 [Configuration](configuration.md#environment-variables).
 
 Fresh deployments start with empty X/YouTube snapshots and no LLM providers.
-Add providers and the model queue in `/admin`, then use a source's Run now or
+Add providers and the model queues in `/admin`, then use a source's Run now or
 enable its timer on the Sources page to populate source data. Fixed history
 images are already bundled. The LINE BLOG archive's text is bundled too; its
 media live in `./data/lineblog/` or a read-only mount over it, taken from

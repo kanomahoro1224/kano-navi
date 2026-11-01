@@ -479,7 +479,8 @@ they never require a browser CDN request. The license ships in
 name, or stable ID to identify a mark; unknown custom providers retain their
 initial. Removing a preset does not delete saved providers.
 
-The LLM view shows the schedule and translation queues side by side, then the
+The LLM view shows the extraction, schedule-image check and translation queues
+side by side, then the
 providers as a list beside the selected provider's detail. A queue change
 (add from the model picker, drag or move, remove) shows at once and is saved
 in order: each queue has at most one save in flight, and edits made meanwhile
@@ -488,8 +489,9 @@ its last stored order and drops the edits that followed it. Each queue marks
 the model each stage calls first. The provider dialog holds only the connection, with the presets above
 it; there is no default model. Saving a new provider with a key selects it and
 lists its models, an explicit operator action. The detail adds ticked models
-to the catalog, edits their tags, turns them on or off, puts them in either
-queue and tests them one at a time.
+to the catalog, edits their tags, turns them on or off, puts them in any queue
+whose tag they carry and tests them one at a time. Removing a model takes a
+second click on its danger-toned icon within a few seconds.
 
 List filters in the console are one row of pills, one per filter, with a
 date range pill and a clear button that appears while a filter narrows the

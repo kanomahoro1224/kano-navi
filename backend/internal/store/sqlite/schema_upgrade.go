@@ -5,10 +5,12 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // OpenStandalone opens the runtime database for the process that owns the
@@ -353,9 +355,11 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 		return err
 	}
 	if retired == 0 {
-		return retireDefaultModel(ctx, tx, now)
+		if err := retireDefaultModel(ctx, tx, now); err != nil {
+			return err
+		}
 	}
-	return nil
+	return seedVerifyQueue(ctx, tx, now)
 }
 
 // backfillEventCodes replaces generated Chinese status and detail text on
@@ -484,6 +488,82 @@ func mergeRouteQueue(ctx context.Context, tx *sql.Tx, now string) error {
 	}
 	_, err = tx.ExecContext(ctx, `DELETE FROM llm_route_targets WHERE route IN (?,?,?)`, stages[0], stages[1], stages[2])
 	return err
+}
+
+// seedVerifyQueue runs once, recorded as llm_verify_queue_seeded: the
+// schedule-image check queue takes the extraction queue's image-tagged
+// targets in their saved order, so each image goes to the model that checked
+// it while both stages shared one queue. A check queue that already has
+// targets is kept as it is.
+func seedVerifyQueue(ctx context.Context, tx *sql.Tx, now string) error {
+	var seeded int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM app_settings WHERE key='llm_verify_queue_seeded'`).Scan(&seeded); err != nil {
+		return ErrSchema
+	}
+	if seeded > 0 {
+		return nil
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT r.provider_id,r.model_id,COALESCE(m.tags_json,'') FROM llm_route_targets r
+ JOIN llm_models m ON m.provider_id=r.provider_id AND m.model_id=r.model_id
+ WHERE r.route='schedule' ORDER BY r.priority,r.provider_id,r.model_id`)
+	if err != nil {
+		return ErrSchema
+	}
+	type target struct{ provider, model string }
+	var targets []target
+	for rows.Next() {
+		var item target
+		var tags string
+		if err = rows.Scan(&item.provider, &item.model, &tags); err != nil {
+			rows.Close()
+			return ErrSchema
+		}
+		if imageTagged(tags) {
+			targets = append(targets, item)
+		}
+	}
+	if err = rows.Close(); err != nil {
+		return ErrSchema
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	var queued int
+	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM llm_route_targets WHERE route='verify'`).Scan(&queued); err != nil {
+		return ErrSchema
+	}
+	if queued == 0 {
+		for priority, item := range targets {
+			if _, err = tx.ExecContext(ctx, `INSERT INTO llm_route_targets(route,provider_id,model_id,priority,created_at,updated_at) VALUES('verify',?,?,?,?,?)`,
+				item.provider, item.model, priority, now, now); err != nil {
+				return err
+			}
+		}
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO app_settings(key,value,updated_at) VALUES('llm_verify_queue_seeded','1',?)`, now)
+	return err
+}
+
+// imageTagged reads tags_json like the model router: a JSON array or a
+// comma/space separated list, where "vision" stands for "image".
+func imageTagged(raw string) bool {
+	var values []string
+	var list []any
+	if json.Unmarshal([]byte(raw), &list) == nil {
+		for _, item := range list {
+			if value, ok := item.(string); ok {
+				values = append(values, value)
+			}
+		}
+	} else {
+		values = strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || unicode.IsSpace(r) })
+	}
+	for _, value := range values {
+		if value = strings.ToLower(strings.TrimSpace(value)); value == "image" || value == "vision" {
+			return true
+		}
+	}
+	return false
 }
 
 // backfillRows derives one value per row from its URL. Rows are read fully

@@ -7,6 +7,14 @@
 > `lineblog-variants.tar` copies archive, as described in
 > [LINE BLOG deployments](../development/lineblog-archive.md#deployments).
 
+> [!NOTE]
+> The schedule-image check has its own model queue. On the first start after
+> upgrading, it takes the image-tagged models of the extraction queue in
+> their order, so every image goes to the model that checked it before.
+> Reorder or trim it afterwards under `/admin` → LLM. `GET /api/admin/llm`
+> adds `verificationQueue`, and `PUT /api/admin/llm/queue` accepts
+> `route: "verify"`.
+
 <details>
 <summary><strong>Public pages</strong></summary>
 
@@ -40,10 +48,17 @@
 - The Review queue's failed posts are split into Extraction failed and
   Translation failed, and each row names the step that failed with its
   error. A failed extraction can be dismissed, which stops its retries until
-  the post or the model queue changes; a failed translation can be queued
-  again. Posts can be selected one by one, by shift-click ranges or a page
+  the post or the extraction queue changes; a failed translation can be
+  queued again. Posts can be selected one by one, by shift-click ranges or a page
   at a time, and the selection dismissed, processed again or translated
   again at once. The list pages through every matching post.
+- The LLM page has a third queue, Schedule image check, beside extraction
+  and translation. It takes only models with the Image tag and never falls
+  back to the extraction queue, so a cheap image model can check boards
+  while a stronger one reads them. Detection settings show the model each
+  of text posts, image posts and the image check calls first.
+- Removing a model from a provider's catalog asks for a second click, and
+  its icon is shown in the danger color.
 - The Schedule page's images open on Active, which leaves out images
   labelled Not a schedule; those move to their own tab.
 - A schedule image without dates covers the Monday-to-Sunday weeks of the

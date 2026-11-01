@@ -69,7 +69,8 @@ is occupied.
    indexes are added from the embedded schema, followed by the backfills
    (schedule periods, post account handles, focus video IDs, provider
    capabilities and retries, the route-target copy, default catalog models,
-   and the merge of per-stage routes into the single model queue). An `events`
+   the merge of per-stage routes into the extraction queue, and the one-time
+   seed of the schedule-image check queue). An `events`
    table without event sources is rebuilt in place: every row keeps its ID,
    gains its Japan calendar date and becomes its own source evidence, and
    events curated from X are locked. Nothing else is dropped or cleared. A

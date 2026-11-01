@@ -308,6 +308,68 @@ func TestStandaloneMergesStageRoutesIntoOneQueue(t *testing.T) {
 	}
 }
 
+func TestStandaloneSeedsVerifyQueueOnce(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "snapshot.sqlite")
+	s, err := OpenStandalone(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const stamp = "2026-03-01T00:00:00.000Z"
+	// A database from before the check had its own queue: no seed marker,
+	// and the extraction queue mixes text, image and vision-tagged models.
+	for _, statement := range []string{
+		`DELETE FROM app_settings WHERE key='llm_verify_queue_seeded'`,
+		`INSERT INTO llm_providers(id,name,base_url,model,created_at,updated_at) VALUES('alpha','Alpha','https://alpha.example.test/v1','','` + stamp + `','` + stamp + `')`,
+		`INSERT INTO llm_models(provider_id,model_id,tags_json,enabled,origin,created_at,updated_at) VALUES
+			('alpha','a-text','["text"]',1,'manual','` + stamp + `','` + stamp + `'),
+			('alpha','a-both','["text","image"]',1,'manual','` + stamp + `','` + stamp + `'),
+			('alpha','a-legacy','text, vision',0,'legacy','` + stamp + `','` + stamp + `')`,
+		`INSERT INTO llm_route_targets(route,provider_id,model_id,priority,created_at,updated_at) VALUES
+			('schedule','alpha','a-legacy',0,'` + stamp + `','` + stamp + `'),
+			('schedule','alpha','a-text',1,'` + stamp + `','` + stamp + `'),
+			('schedule','alpha','a-both',2,'` + stamp + `','` + stamp + `'),
+			('translate','alpha','a-text',0,'` + stamp + `','` + stamp + `')`,
+	} {
+		if _, err = s.db.Exec(statement); err != nil {
+			t.Fatalf("%s: %v", statement, err)
+		}
+	}
+	s.Close()
+	queues := func() string {
+		t.Helper()
+		s, err := OpenStandalone(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.Close()
+		var got sql.NullString
+		if err = s.db.QueryRow(`SELECT group_concat(route||':'||model_id||':'||priority,',') FROM
+			(SELECT * FROM llm_route_targets ORDER BY route,priority)`).Scan(&got); err != nil {
+			t.Fatal(err)
+		}
+		return got.String
+	}
+	// Image-tagged targets keep their order, disabled ones included; the
+	// other queues are unchanged.
+	want := "schedule:a-legacy:0,schedule:a-text:1,schedule:a-both:2,translate:a-text:0,verify:a-legacy:0,verify:a-both:1"
+	if got := queues(); got != want {
+		t.Fatalf("queues = %q, want %q", got, want)
+	}
+	// The seed runs once: an operator who empties the check queue keeps it
+	// empty.
+	db, err := sql.Open("sqlite", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`DELETE FROM llm_route_targets WHERE route='verify'`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	if got := queues(); got != "schedule:a-legacy:0,schedule:a-text:1,schedule:a-both:2,translate:a-text:0" {
+		t.Fatalf("second start reseeded: %q", got)
+	}
+}
+
 func TestStandaloneRefusesUnrecognizedSchemaUnchanged(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "snapshot.sqlite")
 	db, _ := sql.Open("sqlite", p)

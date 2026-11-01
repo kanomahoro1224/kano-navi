@@ -110,6 +110,12 @@ func runStandalone(cfg config.Config) int {
 		return fail("Huawei push service account invalid", 1)
 	}
 	pushDispatcher := pushkit.NewDispatcher(pushClient, store)
+	// Delivery receipts retire the tokens Huawei reports as dead; the AGC
+	// receipt configuration pairs the callback secret with the callback user
+	// name, and both must match for a receipt to pass verification.
+	pushReceipt := pushkit.NewReceiptHandler(store,
+		strings.TrimSpace(os.Getenv("HUAWEI_PUSH_RECEIPT_SECRET")),
+		os.Getenv("HUAWEI_PUSH_RECEIPT_USER"))
 	// BambinoStatus pushes normalized updates to this process. The route only
 	// exists when the shared secret is configured; the ticker re-submits the
 	// post-processing chain when the single-flight queue was busy at ingest.
@@ -186,11 +192,13 @@ func runStandalone(cfg config.Config) int {
 			XHandles:     run.xOptions.Handles,
 			Bilibili:     run.steps.Bilibili,
 			FetchMethods: run.steps.History.Methods,
+			Push:         pushClient,
 		}),
 		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin),
 		MCP:          standaloneMCP(store, manager),
 		WebSub:       push,
 		Ingest:       ingestModule,
+		PushReceipt:  pushReceipt,
 		PublicOrigin: cfg.PublicOrigin,
 	})
 	server := httpapi.NewServer(httpapi.RequestLog(httpapi.Compress(handler), os.Stdout), cfg)

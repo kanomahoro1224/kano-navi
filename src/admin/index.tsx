@@ -7,6 +7,7 @@ import {
   type SubmitEvent,
 } from "react"
 import {
+  BellRing,
   Bot,
   CalendarDays,
   Clapperboard,
@@ -35,6 +36,7 @@ import { LlmView } from "@/admin/views/llm"
 import { OverviewView } from "@/admin/views/overview"
 import { PostsView } from "@/admin/views/posts"
 import { ProfileView } from "@/admin/views/profile"
+import { PushView } from "@/admin/views/push"
 import { ReviewView } from "@/admin/views/review"
 import { RunsView } from "@/admin/views/runs"
 import { ScheduleView } from "@/admin/views/schedule"
@@ -96,6 +98,7 @@ const views: ViewEntry[] = [
   },
   { id: "llm", group: "system", icon: Bot, component: LlmView },
   { id: "site", group: "system", icon: Globe, component: SiteView },
+  { id: "push", group: "system", icon: BellRing, component: PushView },
 ]
 const groups = ["today", "data", "system"] as const
 

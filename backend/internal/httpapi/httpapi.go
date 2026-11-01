@@ -29,6 +29,8 @@ type Handler struct {
 	websub http.Handler
 	// ingest receives BambinoStatus' internal event batches.
 	ingest http.Handler
+	// pushReceipt receives Huawei Push Kit delivery receipts.
+	pushReceipt http.Handler
 	// publicOrigin is the normalized PUBLIC_ORIGIN or empty; the Atom feed
 	// uses it for absolute links.
 	publicOrigin string
@@ -49,6 +51,9 @@ type Standalone struct {
 	// Ingest receives BambinoStatus' internal event batches; nil leaves the
 	// route absent.
 	Ingest http.Handler
+	// PushReceipt answers Huawei Push Kit delivery receipts; nil leaves the
+	// route absent.
+	PushReceipt http.Handler
 	// PublicOrigin is the normalized PUBLIC_ORIGIN, or empty.
 	PublicOrigin string
 }
@@ -70,6 +75,7 @@ func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Sta
 		mcp:          options.MCP,
 		websub:       options.WebSub,
 		ingest:       options.Ingest,
+		pushReceipt:  options.PushReceipt,
 		publicOrigin: options.PublicOrigin,
 		streams:      newRevisionHub(store.GetDashboardRevision),
 	}
@@ -121,6 +127,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.ingest.ServeHTTP(w, r)
+	case "/api/push/receipt":
+		if h.pushReceipt == nil {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "receipt_disabled"}, "")
+			return
+		}
+		h.pushReceipt.ServeHTTP(w, r)
 	case "/api/push/device":
 		h.pushDevice(w, r)
 	case "/api/health":

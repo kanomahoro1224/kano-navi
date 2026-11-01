@@ -21,6 +21,7 @@ import {
 import type {
   AdminEvent,
   AdminPost,
+  AdminPushState,
   AdminVideo,
   AdminVideosPage,
   DiscoveredModel,
@@ -341,6 +342,17 @@ function createClient(run: Runner, slow: Runner) {
         route,
         targets,
       }),
+
+    push: () => get<AdminPushState>("/push"),
+    /** Sends the test notification to one device, or to every enabled one. */
+    testPush: (deviceId?: string) =>
+      sendSlow<{ ok: boolean; devices: number; stale: number; error: string }>(
+        "POST",
+        "/push/test",
+        deviceId ? { deviceId } : {},
+      ),
+    deletePushDevice: (deviceId: string) =>
+      send<null>("DELETE", `/push/devices/${enc(deviceId)}`),
   }
 }
 

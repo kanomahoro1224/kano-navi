@@ -198,6 +198,26 @@ func normalizeLocale(locale string) string {
 	}
 }
 
+// TestNotification is the message the console sends to prove delivery on one
+// device. It carries no update and opens the Recent screen.
+func TestNotification(locale string) Notification {
+	title, body := testWording(normalizeLocale(locale))
+	return Notification{Title: title, Body: body, Route: "recent", Notify: 1}
+}
+
+func testWording(locale string) (string, string) {
+	switch locale {
+	case "zh-Hant":
+		return "推送測試", "這台裝置的華為推送鏈路正常"
+	case "ja":
+		return "テスト通知", "この端末へのプッシュ配信は正常です"
+	case "en":
+		return "Test notification", "Huawei Push Kit is delivering to this device."
+	default:
+		return "推送测试", "这台设备的华为推送链路正常"
+	}
+}
+
 // wording renders the title and body in one language. The title reads
 // "{author} 在 {platform} {action}" so the shade tells both who posted and
 // where, without the user having to open the App first.

@@ -32,6 +32,8 @@
 | `HUAWEI_PUSH_SERVICE_ACCOUNT`      | Empty                               | AGC service account JSON file; empty leaves Huawei push off        |
 | `HUAWEI_PUSH_CATEGORY`             | `SUBSCRIPTION`                      | AGC message category the App is approved for                       |
 | `HUAWEI_PUSH_TEST`                 | `false`                             | `true` sends test messages the App handles without showing them    |
+| `HUAWEI_PUSH_RECEIPT_SECRET`       | Empty                               | AGC receipt callback key; empty serves no receipt route            |
+| `HUAWEI_PUSH_RECEIPT_USER`         | Empty                               | AGC receipt callback user name the signature covers                |
 | `BAMBINO_INGEST_SECRET`            | Empty                               | HMAC secret for `/internal/ingest/bambino`; empty leaves it absent |
 | `BAMBINO_INGEST_TOLERANCE_SECONDS` | `300`                               | Accepted clock skew of an ingest timestamp, in seconds             |
 | `BAMBINO_INGEST_CATCHUP_SECONDS`   | `180`                               | Ticker that re-submits post-processing a busy queue dropped        |
@@ -159,7 +161,10 @@ for the app, and `SUBSCRIPTION` is the only one a self-classified message may
 use. Devices subscribe through `POST /api/push/device` (see
 [Public API](../architecture/public-api.md#push-device-registration-apipushdevice));
 a delivery skips a device that turned its master switch or that update's
-category off.
+category off. `HUAWEI_PUSH_RECEIPT_SECRET` and `HUAWEI_PUSH_RECEIPT_USER` turn
+on `POST /api/push/receipt`: a signed receipt batch retires the tokens it
+reports as uninstalled or reissued, and an empty secret leaves the route
+absent.
 
 `BAMBINO_INGEST_SECRET` turns on `/internal/ingest/bambino`, the bridge's entry
 for normalized X updates; the same value must be configured in BambinoStatus,

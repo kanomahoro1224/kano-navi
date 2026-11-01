@@ -619,6 +619,22 @@ provider or adding catalog models never queues anything. Model IDs may
 contain `/`, so model writes name the model in the body. Provider responses
 report `apiKeyConfigured` only; keys are write-only.
 
+## Huawei push
+
+| Method and path                   | Body          | Result                                                                    |
+| --------------------------------- | ------------- | ------------------------------------------------------------------------- |
+| `GET /push`                       |               | `{configured, projectId, keyId, subAccount, category, testMode, devices}` |
+| `POST /push/test`                 | `{deviceId?}` | `{ok, devices, stale, error}`                                             |
+| `DELETE /push/devices/{deviceId}` |               | `204`                                                                     |
+
+The panel reports the AGC service account loaded from
+`HUAWEI_PUSH_SERVICE_ACCOUNT` at startup; `configured` is false when that
+variable is empty. Device rows carry a masked token only, and a row exists per
+App install. A test goes to one device or to every device whose master switch
+is on; a token Huawei rejects is retired in the same request. Removing a
+device deletes its row, and the App registers again the next time its push
+switch is turned on.
+
 ## Related Docs
 
 - [Backend](backend.md)

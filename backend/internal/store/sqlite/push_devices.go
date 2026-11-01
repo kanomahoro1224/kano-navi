@@ -102,6 +102,82 @@ func (s *Store) DeletePushDevices(ctx context.Context, tokens []string) error {
 	return dbErr(err)
 }
 
+// AdminPushDevice is one registered device as the console lists it. The token
+// stays on the server; the console only needs enough of it to tell devices
+// apart, so the API masks it.
+type AdminPushDevice struct {
+	Token       string
+	DeviceID    string
+	Platform    string
+	Locale      string
+	AppVersion  string
+	Enabled     bool
+	NotifyLive  bool
+	NotifyVideo bool
+	NotifyPost  bool
+	CreatedAt   string
+	UpdatedAt   string
+	LastSeenAt  string
+}
+
+// AdminPushDevices lists every registered device, disabled ones included: the
+// console shows what devices reported, not just who would receive a push.
+func (s *Store) AdminPushDevices(ctx context.Context) ([]AdminPushDevice, error) {
+	if s == nil || s.db == nil {
+		return nil, ErrUnavailable
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT token,device_id,platform,COALESCE(locale,''),COALESCE(app_version,''),
+enabled,notify_live,notify_video,notify_post,created_at,updated_at,last_seen_at
+FROM push_devices ORDER BY last_seen_at DESC`)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	defer rows.Close()
+	devices := []AdminPushDevice{}
+	for rows.Next() {
+		var device AdminPushDevice
+		if err = rows.Scan(&device.Token, &device.DeviceID, &device.Platform, &device.Locale, &device.AppVersion,
+			&device.Enabled, &device.NotifyLive, &device.NotifyVideo, &device.NotifyPost,
+			&device.CreatedAt, &device.UpdatedAt, &device.LastSeenAt); err != nil {
+			return nil, dbErr(err)
+		}
+		devices = append(devices, device)
+	}
+	return devices, dbErr(rows.Err())
+}
+
+// PushDeviceTokens returns the live tokens of one device. A device keeps a
+// single token, but the query stays plural because rows are keyed by token.
+func (s *Store) PushDeviceTokens(ctx context.Context, deviceID string) ([]string, error) {
+	if s == nil || s.db == nil {
+		return nil, ErrUnavailable
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT token FROM push_devices WHERE device_id=? ORDER BY updated_at DESC`, deviceID)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	defer rows.Close()
+	tokens := []string{}
+	for rows.Next() {
+		var token string
+		if err = rows.Scan(&token); err != nil {
+			return nil, dbErr(err)
+		}
+		tokens = append(tokens, token)
+	}
+	return tokens, dbErr(rows.Err())
+}
+
+// DeletePushDevice removes one device by id, which is how an operator retires
+// a phone they no longer use.
+func (s *Store) DeletePushDevice(ctx context.Context, deviceID string) error {
+	if s == nil || s.db == nil || !s.writable {
+		return ErrUnavailable
+	}
+	_, err := s.db.ExecContext(ctx, `DELETE FROM push_devices WHERE device_id=?`, deviceID)
+	return dbErr(err)
+}
+
 // pushFlag stores a boolean as the integer SQLite keeps for the column.
 func pushFlag(value bool) int {
 	if value {

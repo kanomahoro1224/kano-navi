@@ -3195,6 +3195,7 @@ a.month-event:hover {
 }
 
 .archive-dialog-frame {
+  container: archive-dialog / inline-size;
   display: grid;
   height: 100%;
   grid-template-rows: auto minmax(0, 1fr);
@@ -3206,8 +3207,8 @@ a.month-event:hover {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 14px 16px;
-  padding: 26px 24px 14px;
+  gap: 12px 16px;
+  padding: 22px 24px 14px;
   border-bottom: 1px solid var(--rule);
   background: var(--paper);
 }
@@ -3225,6 +3226,11 @@ a.month-event:hover {
   min-width: 0;
 }
 
+.archive-dialog-head > .round-button {
+  grid-row: 1;
+  grid-column: -2;
+}
+
 .archive-dialog-title {
   margin: 4px 0 0;
   font-family: var(--font-display);
@@ -3235,11 +3241,43 @@ a.month-event:hover {
 
 .archive-dialog-bar {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   grid-column: 1 / -1;
   align-items: center;
   justify-content: space-between;
   gap: 10px 16px;
+}
+
+/*
+ * A wide dialog moves the month controls and the toolbar up to the title's
+ * row, leaving the body more height. The post archive's account filter needs
+ * a wider dialog than the month controls alone.
+ */
+@container archive-dialog (width >= 840px) {
+  .archive-dialog-head:not(:has(.archive-tools)) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 28px;
+  }
+
+  .archive-dialog-head:not(:has(.archive-tools)) > .archive-dialog-bar {
+    grid-row: 1;
+    grid-column: 2;
+  }
+}
+
+@container archive-dialog (width >= 1140px) {
+  .archive-dialog-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 28px;
+  }
+
+  .archive-dialog-head > .archive-dialog-bar {
+    grid-row: 1;
+    grid-column: 2;
+  }
 }
 
 .archive-month {

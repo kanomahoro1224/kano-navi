@@ -50,7 +50,7 @@ and Simplified Chinese, in light and dark themes, on phones and desktops.
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>💬 Posts on X</h3>
+      <h3>💬 Recent Posts on X</h3>
       Recent posts from both accounts, with images, quoted posts, an account
       filter, and a month-by-month archive.
     </td>

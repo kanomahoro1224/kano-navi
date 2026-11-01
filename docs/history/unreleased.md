@@ -38,6 +38,10 @@
   the Simplified Chinese footer keeps a link to it after its notice is
   dismissed. While the mirror is off, the visitor region response leaves out
   its provider and addresses.
+- The Monthly schedule, Post archive and Video archive dialogs put the month
+  controls and their switches on the title row when it has room, leaving
+  more of the dialog to the month itself.
+- The board's post section is titled Recent Posts on X.
 
 </details>
 

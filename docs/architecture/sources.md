@@ -1007,8 +1007,12 @@ URL, its `asset_version` increases and its model verdict returns to
 Image review budgets apply after cache checks and manual-label filtering across
 all stored candidates, rather than only the newest page. Retry order follows
 the least recent check/review attempt. Reviews persist an input fingerprint
-including image hash, source gate input, and ordered provider/model targets;
-changed content or configuration can invalidate a successful verdict.
+of the extractor version, image hash and source post URL. A `schedule`,
+`not_schedule` or `uncertain` verdict for the current fingerprint stands
+whichever check-queue target gave it, so adding, removing, reordering or
+replacing targets and models sends no image again, and an empty queue keeps
+the verdict. An image is checked again when its image or source changes, when its last
+check failed, and in a forced pass.
 
 ### Translation
 

@@ -15,6 +15,13 @@
 > adds `verificationQueue`, and `PUT /api/admin/llm/queue` accepts
 > `route: "verify"`.
 
+> [!NOTE]
+> Schedule-image verdicts no longer depend on the check queue, so after
+> upgrading the schedule step checks every image without a manual label once
+> more, up to 20 images per run. While an image is checked, and after a failed or changed verdict, it
+> stays off the board until a check approves it again. Label the schedule
+> images currently in use under `/admin` → Schedule first if that matters.
+
 <details>
 <summary><strong>Public pages</strong></summary>
 
@@ -91,6 +98,10 @@
   successful or uncertain result of the post's current input stands
   whichever model produced it, and an emptied queue keeps it. Edited posts,
   failed attempts and reprocess requests still call the queue.
+- Changing the schedule-image check queue no longer checks images again: a
+  verdict of the current image and source stands whichever model gave it,
+  and an emptied queue keeps it. Replaced images and failed checks still
+  call the queue.
 
 </details>
 

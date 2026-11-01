@@ -229,8 +229,9 @@ once in the same transaction as all selected metadata updates. An unchanged
 startup does not increment it. Open boards therefore follow the revision and
 reload the repaired public profile snapshot, including its versioned avatar
 URL.
-Schedule image reviews add `llm_input_fingerprint` for content/configuration
-cache validation; a review without one is rechecked when next scanned. Automatic
+Schedule image reviews add `llm_input_fingerprint` for input cache validation
+(see [Schedule images](sources.md#schedule-images)); a review without
+one is rechecked when next scanned. Automatic
 review writes update LLM columns only. Image responses compare the captured
 `assets.asset_version`, URL and media hash inside a transaction; replacement,
 including replacing and restoring the same URL, invalidates a waiting response.

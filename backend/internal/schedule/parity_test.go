@@ -382,6 +382,22 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 			VALUES (?, 'pending', 'unreviewed', ?)`, asset.id, fmt.Sprintf("2026-04-01T00:00:0%d.000Z", index+1))
 	}
 
+	// The recorded review fingerprints also named the ordered check queue;
+	// verdicts store the fingerprint without it. Each image is checked once,
+	// for the last of its assets in check order, and its duplicates carry that
+	// asset's fingerprint.
+	checkedSource := map[string]any{boardURL: status("img-a"), otherURL: nil}
+	for _, rows := range [][]map[string]any{data.AfterFirst["reviews"], data.AfterSecond["reviews"]} {
+		for _, row := range rows {
+			if _, ok := row["llm_input_fingerprint"].(string); !ok {
+				continue
+			}
+			imageURL := f.text(`SELECT url FROM assets WHERE id = ?`, row["asset_id"])
+			image := f.text(`SELECT sha256 FROM media_assets WHERE id = ?`, mediaIDForSourceURL(imageURL))
+			row["llm_input_fingerprint"] = assetFingerprint(image, checkedSource[imageURL])
+		}
+	}
+
 	replies := map[string]string{}
 	for _, row := range data.AfterFirst["extractions"] {
 		replies[row["source_item_id"].(string)] = row["result_json"].(string)

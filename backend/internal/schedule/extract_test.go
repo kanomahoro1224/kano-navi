@@ -473,7 +473,7 @@ func TestScheduleImageVerificationApprovesAsset(t *testing.T) {
 		t.Errorf("manual review was touched: %q", got)
 	}
 
-	// An unchanged image with an unchanged provider list is not sent again.
+	// An unchanged image is not sent again.
 	second := f.scan()
 	assets, _ = second.Counts["assetVerification"].(map[string]any)
 	if f.provider.count() != 1 || countOf(assets, "cached") != 1 {
@@ -493,6 +493,43 @@ func TestScheduleImageCheckNeverUsesTheExtractionQueue(t *testing.T) {
 	}
 	if got := f.text(`SELECT llm_status || '|' || llm_reason FROM schedule_asset_reviews WHERE asset_id='schedule-2026-04-27'`); got != "skipped|no_route_target" {
 		t.Errorf("review = %q", got)
+	}
+}
+
+func TestScheduleImageQueueChangeKeepsVerdicts(t *testing.T) {
+	f, _ := boardFixture(t)
+	f.scan()
+	review := `SELECT llm_status || '|' || llm_model || '|' || llm_input_fingerprint FROM schedule_asset_reviews WHERE asset_id='schedule-2026-04-27'`
+	stored := f.text(review)
+	cached := func(label string) {
+		t.Helper()
+		result := f.scan()
+		assets, _ := result.Counts["assetVerification"].(map[string]any)
+		if f.provider.count() != 1 || countOf(assets, "cached") != 1 || countOf(assets, "attempted") != 0 {
+			t.Fatalf("%s: %v after %d requests", label, assets, f.provider.count())
+		}
+		if got := f.text(review); got != stored {
+			t.Fatalf("%s: review = %q, want %q", label, got, stored)
+		}
+	}
+
+	// Another target or model keeps the verdict, and so does an empty queue.
+	f.addProvider("p-other", protocolResponses, "https://other.example.test/v1", "model-o", `["image"]`)
+	f.exec(`DELETE FROM llm_route_targets WHERE route = ?`, routeVerify)
+	f.queueVerify("p-other")
+	cached("changed queue")
+	f.exec(`DELETE FROM llm_route_targets WHERE route = ?`, routeVerify)
+	cached("empty queue")
+
+	// A failed check is tried again on the current queue.
+	f.queueVerify("p-other")
+	f.exec(`UPDATE schedule_asset_reviews SET llm_status='failed' WHERE asset_id='schedule-2026-04-27'`)
+	f.scan()
+	if got := f.provider.hosts(); len(got) != 2 || got[1] != "other.example.test" {
+		t.Fatalf("retry requests = %v", got)
+	}
+	if got := f.text(`SELECT llm_status || '|' || llm_model FROM schedule_asset_reviews WHERE asset_id='schedule-2026-04-27'`); got != "schedule|model-o" {
+		t.Errorf("retried review = %q", got)
 	}
 }
 

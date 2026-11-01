@@ -317,14 +317,24 @@ two originals and their decodes are therefore in memory at once in a process.
 A maker waiting for a slot holds no original, and concurrent makers of one
 image wait for the first and then find its copies.
 
-Each missing width is scaled with Catmull-Rom filtering, encoded as JPEG at
-quality 82 (or PNG when the image has transparency) and stored atomically in
-`data/cache/variants/<first-two>/<hash>-<width>.<jpg|png>`. When the original
-is no wider than a width, is a GIF (possibly animated) or AVIF, cannot be
-decoded, or the copy would not be smaller, an empty `.orig` marker records
-that the original is served for that width, so it is not decoded again. The
-widths are stored in ascending order and a failed write stops the image, so
-an image whose widest entry exists is done and is skipped without being read.
+The original is scaled once to the widest missing width it is wider than;
+every narrower width is scaled from that copy, so a large original is scanned
+once rather than once per width, and the decoded original can be released
+before the narrower widths are made. Scaling averages each target pixel over
+the source area it covers, on premultiplied colour so transparency blends
+correctly. It reads the source one row at a time and holds only the target
+and one row of sums, so scaling adds about the target's size (a 1920-pixel
+wide copy of a tall image is a few tens of MB) to the decoded original.
+Each copy is encoded as JPEG at quality 82 (or PNG at the default
+compression level when the image has transparency) and stored atomically in
+`data/cache/variants/<first-two>/<hash>-<width>.<jpg|png>` as soon as it is
+encoded, so at most one encoded copy waits in memory besides the widest.
+When the original is no wider than a width, is a GIF (possibly animated) or
+AVIF, cannot be decoded, or the copy would not be smaller, an empty `.orig`
+marker records that the original is served for that width, so it is not
+decoded again. The widest width is stored last and a failed write stops the
+image, so an image whose widest entry exists is done and is skipped without
+being read.
 
 ### Copy Groups
 

@@ -13,6 +13,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -61,10 +62,10 @@ func TestMediaStepMakesCopiesThatRequestsServeWithoutDecoding(t *testing.T) {
 	original := syntheticImage(t, "image/jpeg", 1000, 500, false)
 	id := readyAsset(t, s, "https://pbs.twimg.com/media/synthetic-wide.jpg", original, "image/jpeg")
 	var decodes atomic.Int32
-	t.Cleanup(func() { resizeVariants = mediavariant.ResizeAll })
-	resizeVariants = func(content []byte, widths []int) []mediavariant.Copy {
+	t.Cleanup(func() { resizeVariants = mediavariant.ResizeEach })
+	resizeVariants = func(content []byte, widths []int, emit func(int, mediavariant.Copy) bool) {
 		decodes.Add(1)
-		return mediavariant.ResizeAll(content, widths)
+		mediavariant.ResizeEach(content, widths, emit)
 	}
 	// Before the step, a request gets the original and decodes nothing.
 	stream, err := s.OpenMediaVariant(ctx, id, "", 320)
@@ -176,11 +177,11 @@ func TestMakeVariantsMakesOneImageOnce(t *testing.T) {
 	original := syntheticImage(t, "image/jpeg", 1000, 500, false)
 	hash := hashOf(original)
 	var decodes, loads atomic.Int32
-	t.Cleanup(func() { resizeVariants = mediavariant.ResizeAll })
-	resizeVariants = func(content []byte, widths []int) []mediavariant.Copy {
+	t.Cleanup(func() { resizeVariants = mediavariant.ResizeEach })
+	resizeVariants = func(content []byte, widths []int, emit func(int, mediavariant.Copy) bool) {
 		decodes.Add(1)
 		time.Sleep(50 * time.Millisecond)
-		return mediavariant.ResizeAll(content, widths)
+		mediavariant.ResizeEach(content, widths, emit)
 	}
 	var wg sync.WaitGroup
 	for range 4 {
@@ -258,10 +259,10 @@ func TestMakeVariantsBoundsOriginalsInMemory(t *testing.T) {
 	// holding counts originals from their load until their decode ends.
 	var holding, peak, loads atomic.Int32
 	started, proceed := make(chan struct{}, 16), make(chan struct{})
-	t.Cleanup(func() { resizeVariants = mediavariant.ResizeAll })
-	resizeVariants = func(content []byte, widths []int) []mediavariant.Copy {
+	t.Cleanup(func() { resizeVariants = mediavariant.ResizeEach })
+	resizeVariants = func(content []byte, widths []int, emit func(int, mediavariant.Copy) bool) {
 		defer holding.Add(-1)
-		return mediavariant.ResizeAll(content, widths)
+		mediavariant.ResizeEach(content, widths, emit)
 	}
 	const makers = 8
 	var wg sync.WaitGroup
@@ -428,4 +429,45 @@ func noisyAlphaPNG(t *testing.T, width, height int) []byte {
 		t.Fatal(err)
 	}
 	return out.Bytes()
+}
+
+func TestMakeVariantsStopsAtAFailedWriteBeforeTheWidestEntry(t *testing.T) {
+	s := openVariantStore(t)
+	original := syntheticImage(t, "image/jpeg", 1000, 500, false)
+	hash := hashOf(original)
+	shard := filepath.Join(s.dataRoot, variantRoot, hash[:2])
+	// When the 640 copy is handed over, a file takes the shard directory's
+	// place, so that write fails.
+	handed := []int{}
+	t.Cleanup(func() { resizeVariants = mediavariant.ResizeEach })
+	resizeVariants = func(content []byte, widths []int, emit func(int, mediavariant.Copy) bool) {
+		mediavariant.ResizeEach(content, widths, func(i int, copy mediavariant.Copy) bool {
+			handed = append(handed, widths[i])
+			if widths[i] == 640 {
+				if err := os.RemoveAll(shard); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(shard, []byte("synthetic"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			return emit(i, copy)
+		})
+	}
+	load := func() ([]byte, error) { return original, nil }
+	if _, err := MakeVariants(context.Background(), s.dataRoot, hash, load); !errors.Is(err, errVariantNotStored) {
+		t.Fatalf("err=%v", err)
+	}
+	// The failure stops the image before its widest entry.
+	if !slices.Equal(handed, []int{1280, 960, 640}) || VariantsDone(s.dataRoot, hash) {
+		t.Fatalf("handed %v", handed)
+	}
+	// Once the shard is free, the next call makes every width.
+	if err := os.Remove(shard); err != nil {
+		t.Fatal(err)
+	}
+	resizeVariants = mediavariant.ResizeEach
+	if made, err := MakeVariants(context.Background(), s.dataRoot, hash, load); err != nil || made != (VariantsMade{Copies: 3, Kept: 2}) || !VariantsDone(s.dataRoot, hash) {
+		t.Fatalf("retry %+v %v", made, err)
+	}
 }

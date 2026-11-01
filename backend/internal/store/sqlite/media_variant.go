@@ -30,12 +30,12 @@ const variantKeepOriginal = "orig"
 // sourceSlots bounds the originals held in memory to make copies. A slot is
 // taken before an original is read and kept until its copies are made, so at
 // most two originals (10 MiB each) and their decodes (a 40-megapixel image
-// needs about 160 MB as RGBA) exist at once. A maker waiting for a slot holds
-// no original.
+// needs about 160 MB as RGBA) exist at once, each with the copy being scaled
+// from it. A maker waiting for a slot holds no original.
 var sourceSlots = make(chan struct{}, 2)
 
 // resizeVariants makes the copies of one original; tests count and pace it.
-var resizeVariants = mediavariant.ResizeAll
+var resizeVariants = mediavariant.ResizeEach
 
 // ErrVariantSource means the loaded original does not have the hash its
 // copies are filed under, so none are made.
@@ -110,9 +110,9 @@ func checkVariantFile(file *os.File, mime string) *MediaStream {
 }
 
 // VariantsDone reports whether every width of hash has a copy or a
-// keep-original marker under dataRoot. MakeVariants writes the widths in
-// ascending order and stops at the first failed write, so the widest entry
-// stands for all of them. It only checks whether a file exists.
+// keep-original marker under dataRoot. MakeVariants writes the widest width
+// last and stops at the first failed write, so the widest entry stands for
+// all of them. It only checks whether a file exists.
 func VariantsDone(dataRoot, hash string) bool {
 	if !safeHash(hash) {
 		return false
@@ -174,20 +174,28 @@ func MakeVariants(ctx context.Context, dataRoot, hash string, load func() ([]byt
 	if sum := sha256.Sum256(content); hex.EncodeToString(sum[:]) != hash {
 		return made, ErrVariantSource
 	}
+	// Each width is written as soon as it is encoded, so at most one copy
+	// waits in memory besides the widest, which is written last: a failed
+	// write stops the image before its widest entry marks it done.
 	missing := missingWidths(dataRoot, hash)
-	for i, copy := range resizeVariants(content, missing) {
+	stored := true
+	resizeVariants(content, missing, func(i int, copy mediavariant.Copy) bool {
 		name := variantName(hash, missing[i])
 		if copy.Err != nil {
-			if !writeCacheFile(dataRoot, variantRoot, ".variant-", name+"."+variantKeepOriginal, nil) {
-				return made, errVariantNotStored
+			stored = writeCacheFile(dataRoot, variantRoot, ".variant-", name+"."+variantKeepOriginal, nil)
+			if stored {
+				made.Kept++
 			}
-			made.Kept++
 		} else {
-			if !writeCacheFile(dataRoot, variantRoot, ".variant-", name+"."+mediaformat.Extension(copy.MIME), copy.Content) {
-				return made, errVariantNotStored
+			stored = writeCacheFile(dataRoot, variantRoot, ".variant-", name+"."+mediaformat.Extension(copy.MIME), copy.Content)
+			if stored {
+				made.Copies++
 			}
-			made.Copies++
 		}
+		return stored
+	})
+	if !stored {
+		return made, errVariantNotStored
 	}
 	return made, nil
 }

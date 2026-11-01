@@ -60,7 +60,10 @@
   console's copies run, by group (`lineblog`, `history`, `media`) and within
   optional file and time bounds, and reports each group's originals, ready
   images and copies per width without reading the originals.
-- Making copies holds at most two originals in memory at once.
+- Making copies holds at most two originals in memory at once and scales
+  each original once by averaging the area each target pixel covers, which
+  needs no buffer larger than the copy; narrower widths are scaled from the
+  widest copy, and every copy is written as soon as it is encoded.
 - Production Docker Compose limits the container to 1 GiB (`KANO_MEM_LIMIT`)
   and sets the Go runtime's soft limit `GOMEMLIMIT` to 700 MiB.
 

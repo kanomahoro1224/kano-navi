@@ -2,8 +2,8 @@
 // Huawei Push Kit.
 //
 // It speaks the v3 REST API: HarmonyOS 5 and later reject the OAuth 2.0 client
-// credentials the older endpoints accepted, so every request is authorized
-// with a PS256 JWT signed by an AGC service account private key instead.
+// credentials the older endpoints accepted, so the bearer credential is a
+// PS256 JWT signed by an AGC service account key.
 package push
 
 import (
@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -31,7 +30,7 @@ import (
 const (
 	// ProjectBase is the v3 endpoint root; the project id sits in the path.
 	ProjectBase = "https://push-api.cloud.huawei.com/v3/"
-	// DefaultTokenURI issues the access token a signed assertion buys.
+	// DefaultTokenURI is the audience the assertion must name.
 	DefaultTokenURI = "https://oauth-login.cloud.huawei.com/oauth2/v3/token"
 	// MaxTokensPerSend is the API's per-request limit; larger audiences are
 	// split across requests.
@@ -49,14 +48,13 @@ const (
 var ErrDisabled = errors.New("push disabled")
 
 // ServiceAccount is the private.json AGC downloads when a service account key
-// is created. Only these four fields matter for signing; the rest describe
-// endpoints this client does not call.
+// is created. Only these four fields matter; the rest describe endpoints this
+// client does not call.
 type ServiceAccount struct {
 	ProjectID  string `json:"project_id"`
 	KeyID      string `json:"key_id"`
 	PrivateKey string `json:"private_key"`
 	SubAccount string `json:"sub_account"`
-	TokenURI   string `json:"token_uri"`
 }
 
 // Notification is one update ready to deliver. Title and Body are already in
@@ -122,9 +120,6 @@ func New(options Options) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(account.TokenURI) == "" {
-		account.TokenURI = DefaultTokenURI
-	}
 	category := strings.TrimSpace(options.Category)
 	if category == "" {
 		category = "SUBSCRIPTION"
@@ -169,6 +164,15 @@ func LoadServiceAccount(path string) (ServiceAccount, error) {
 // Enabled reports whether this client can deliver anything.
 func (c *Client) Enabled() bool { return c != nil && c.key != nil }
 
+// ProjectID, KeyID, SubAccount, Category and TestMode describe the configured
+// account for the operator console. The private key is never part of the
+// description.
+func (c *Client) ProjectID() string  { return c.account.ProjectID }
+func (c *Client) KeyID() string      { return c.account.KeyID }
+func (c *Client) SubAccount() string { return c.account.SubAccount }
+func (c *Client) Category() string   { return c.category }
+func (c *Client) TestMode() bool     { return c.test }
+
 // Send delivers one notification to every token and returns the tokens Huawei
 // rejected as invalid so the caller can retire them. Transport failures are
 // returned as errors; per-token rejections are not.
@@ -206,7 +210,7 @@ func (c *Client) Send(ctx context.Context, notification Notification, tokens []s
 }
 
 func (c *Client) sendBatch(ctx context.Context, notification Notification, category string, tokens []string) ([]string, error) {
-	token, err := c.accessToken(ctx)
+	token, err := c.accessToken(c.now())
 	if err != nil {
 		return nil, err
 	}
@@ -288,13 +292,13 @@ func rejectedTokens(status int, body []byte) ([]string, error) {
 // is registered any more. Send rewrites it into a full rejection.
 var errAllTokensInvalid = errors.New("push tokens are not registered")
 
-// accessToken returns a cached token, minting a new one when the cached value
-// is near expiry. The assertion is signed per request, so a cold start needs
-// exactly one network round trip before the first send.
-func (c *Client) accessToken(ctx context.Context) (string, error) {
+// accessToken returns a cached assertion, signing a fresh one when the cached
+// value is near expiry. Push v3 takes the assertion itself as the bearer
+// credential; exchanging it at the OAuth endpoint yields a token the push API
+// rejects with 80200001.
+func (c *Client) accessToken(now time.Time) (string, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	now := c.now()
 	if c.token != "" && now.Before(c.expiresAt.Add(-refreshMargin)) {
 		return c.token, nil
 	}
@@ -302,42 +306,8 @@ func (c *Client) accessToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	form := url.Values{
-		"grant_type": {"urn:ietf:params:oauth:grant-type:jwt-bearer"},
-		"assertion":  {assertion},
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.account.TokenURI, strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", err
-	}
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	response, err := c.http.Do(request)
-	if err != nil {
-		return "", fmt.Errorf("push token: %w", err)
-	}
-	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
-	if err != nil {
-		return "", fmt.Errorf("push token: %w", err)
-	}
-	var issued struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
-		Error       string `json:"error"`
-		Description string `json:"error_description"`
-	}
-	if err = json.Unmarshal(body, &issued); err != nil {
-		return "", fmt.Errorf("push token: HTTP %d", response.StatusCode)
-	}
-	if issued.AccessToken == "" {
-		return "", fmt.Errorf("push token: %s %s", issued.Error, issued.Description)
-	}
-	lifetime := tokenLifetime
-	if issued.ExpiresIn > 0 {
-		lifetime = time.Duration(issued.ExpiresIn) * time.Second
-	}
-	c.token = issued.AccessToken
-	c.expiresAt = now.Add(lifetime)
+	c.token = assertion
+	c.expiresAt = now.Add(tokenLifetime)
 	return c.token, nil
 }
 

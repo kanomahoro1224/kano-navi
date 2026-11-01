@@ -817,3 +817,29 @@ export interface DiscoveredModel {
   added: boolean
   tags: string[] | null
 }
+
+export interface AdminPushDevice {
+  deviceId: string
+  /** Masked server-side; the console never receives a usable token. */
+  token: string
+  platform: string
+  locale: string
+  appVersion: string
+  enabled: boolean
+  notifyLive: boolean
+  notifyVideo: boolean
+  notifyPost: boolean
+  createdAt: string
+  updatedAt: string
+  lastSeenAt: string
+}
+
+export interface AdminPushState {
+  configured: boolean
+  projectId: string
+  keyId: string
+  subAccount: string
+  category: string
+  testMode: boolean
+  devices: AdminPushDevice[]
+}

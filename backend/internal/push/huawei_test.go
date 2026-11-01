@@ -1,6 +1,7 @@
 package push
 
 import (
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -9,12 +10,18 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) { return f(request) }
 
 // testAccount mints a throwaway RSA key so the suite never needs a real
 // private.json, which must not live in the repository.
@@ -217,5 +224,52 @@ func TestAcceptsHonoursSwitches(t *testing.T) {
 	device.Enabled = false
 	if accepts(device, CategoryLive) {
 		t.Fatal("master switch must win")
+	}
+}
+
+// Push v3 takes the signed assertion itself as the bearer credential; trading
+// it for an OAuth access token first makes the API answer 80200001. This pins
+// the single-request shape and the cached reuse across sends.
+func TestSendUsesTheAssertionAsBearer(t *testing.T) {
+	account, _ := testAccount(t)
+	var seen []*http.Request
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		seen = append(seen, request)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"code":"80000000"}`)),
+			Request:    request,
+		}, nil
+	})
+	client, err := New(Options{Account: account, Client: &http.Client{Transport: transport}})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		if _, err = client.Send(context.Background(), Notification{Title: "t", Body: "b"}, []string{"token-a"}); err != nil {
+			t.Fatalf("send %d: %v", attempt, err)
+		}
+	}
+	if len(seen) != 2 {
+		t.Fatalf("requests = %d, want one per send and no token exchange", len(seen))
+	}
+	if got := seen[0].URL.String(); got != ProjectBase+"project/messages:send" {
+		t.Fatalf("url = %s", got)
+	}
+	assertion := strings.TrimPrefix(seen[0].Header.Get("Authorization"), "Bearer ")
+	header, err := base64.RawURLEncoding.DecodeString(strings.Split(assertion, ".")[0])
+	if err != nil {
+		t.Fatalf("bearer header: %v", err)
+	}
+	var head map[string]string
+	if err = json.Unmarshal(header, &head); err != nil {
+		t.Fatalf("bearer header json: %v", err)
+	}
+	if head["alg"] != "PS256" || head["kid"] != account.KeyID {
+		t.Fatalf("bearer header = %v", head)
+	}
+	if seen[0].Header.Get("push-type") != "0" {
+		t.Fatalf("push-type = %q", seen[0].Header.Get("push-type"))
 	}
 }

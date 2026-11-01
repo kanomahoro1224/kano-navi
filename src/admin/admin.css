@@ -7083,3 +7083,58 @@ blockquote.adm-verdict-reason {
     margin-left: 0;
   }
 }
+/* -------------------------------------------------------------- push panel */
+
+.adm-push-devices {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-push-device {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+}
+
+.adm-push-device-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.adm-push-device-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.adm-push-device-heading strong {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-push-token {
+  color: var(--adm-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.adm-push-device small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .adm-push-device {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

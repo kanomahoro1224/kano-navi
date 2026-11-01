@@ -18,6 +18,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/adminauth"
 	"github.com/yexca/kano-navi/backend/internal/httpx"
 	"github.com/yexca/kano-navi/backend/internal/jobs"
+	pushkit "github.com/yexca/kano-navi/backend/internal/push"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
@@ -72,6 +73,9 @@ type Options struct {
 	Variants *variants.Roots
 	// Now is the clock for Japan-date aggregates; nil uses time.Now.
 	Now func() time.Time
+	// Push reports and tests Huawei Push Kit delivery; nil leaves the push
+	// routes answering 503 and the panel showing the feature as off.
+	Push *pushkit.Client
 }
 
 type api struct {
@@ -167,6 +171,10 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodPost, Path: "/translations/request", Handler: a.requestTranslations},
 		{Method: http.MethodPut, Path: "/translations/{owner}/{id}/{locale}", Handler: a.putManualTranslation},
 		{Method: http.MethodDelete, Path: "/translations/{owner}/{id}/{locale}", Handler: a.deleteManualTranslation},
+
+		{Method: http.MethodGet, Path: "/push", Handler: a.pushPanel},
+		{Method: http.MethodPost, Path: "/push/test", Handler: a.pushTest},
+		{Method: http.MethodDelete, Path: "/push/devices/{id}", Handler: a.deletePushDevice},
 	}
 }
 

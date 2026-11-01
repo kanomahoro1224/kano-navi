@@ -716,6 +716,22 @@ without `LLM_SECRETS_KEY` is `503 secrets_key_unavailable`. A test reports a
 failed attempt as `200 {ok: false, error: "timeout" | "failed"}`; an unknown
 proxy is `404 proxy_not_found`. See [Outbound proxies](outbound-proxy.md).
 
+## Huawei push
+
+| Method and path                   | Body          | Result                                                                    |
+| --------------------------------- | ------------- | ------------------------------------------------------------------------- |
+| `GET /push`                       |               | `{configured, projectId, keyId, subAccount, category, testMode, devices}` |
+| `POST /push/test`                 | `{deviceId?}` | `{ok, devices, stale, error}`                                             |
+| `DELETE /push/devices/{deviceId}` |               | `204`                                                                     |
+
+The panel reports the AGC service account loaded from
+`HUAWEI_PUSH_SERVICE_ACCOUNT` at startup; `configured` is false when that
+variable is empty. Device rows carry a masked token only, and a row exists per
+App install. A test goes to one device or to every device whose master switch
+is on; a token Huawei rejects is retired in the same request. Removing a
+device deletes its row, and the App registers again the next time its push
+switch is turned on.
+
 ## Related Docs
 
 - [Backend](backend.md)

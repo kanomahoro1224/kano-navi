@@ -6,15 +6,18 @@ import {
   Combine,
   FileWarning,
   ImageOff,
+  ListEnd,
+  Play,
   RefreshCw,
   Sparkles,
   Square,
 } from "lucide-react"
+import { useState } from "react"
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import { formatRelative, japanStamp } from "@/admin/format"
-import type { SourceHealth } from "@/admin/types"
+import type { QueueEntry, ScheduleSource, SourceHealth } from "@/admin/types"
 import {
   Badge,
   Button,
@@ -76,12 +79,81 @@ function SourceRow({
   )
 }
 
-export function OverviewView({ navigate }: ViewProps) {
+/**
+ * One timer in line for the queue: when it runs and, for a source timer,
+ * Start now. While a run holds the queue the button reads Run next, and a
+ * started timer waits behind the timers due before it.
+ */
+function QueueRow({ entry, busy }: { entry: QueueEntry; busy: boolean }) {
   const { t, locale } = useAppSettings()
+  const { api, act } = useAdmin()
+  const [pending, setPending] = useState(false)
+  const Icon = stepIcons[entry.kind === "source" ? entry.source : "live"]
+  const startNow = async (source: ScheduleSource) => {
+    setPending(true)
+    await act(
+      () => api.startSourceSchedule(source),
+      busy ? "admin.notice.timerNext" : "admin.notice.timerStarted",
+    )
+    setPending(false)
+  }
+  return (
+    <li className="adm-source-row">
+      <span className="adm-source-icon" aria-hidden>
+        <Icon />
+      </span>
+      <span className="adm-source-copy">
+        <strong>
+          {t(
+            entry.kind === "source"
+              ? `admin.step.${entry.source}`
+              : "admin.step.live",
+          )}
+        </strong>
+        <small>
+          {entry.due ? (
+            t(busy ? "admin.queue.waiting" : "admin.queue.starting")
+          ) : (
+            <time
+              dateTime={entry.nextRunAt}
+              title={japanStamp(entry.nextRunAt)}
+            >
+              {t("admin.queue.at", {
+                relative: formatRelative(entry.nextRunAt, locale),
+              })}
+            </time>
+          )}
+        </small>
+      </span>
+      <span className="adm-source-state">
+        {entry.due ? (
+          <Badge tone="honey">{t("admin.queue.due")}</Badge>
+        ) : entry.kind === "source" ? (
+          <Button
+            size="sm"
+            icon={busy ? ListEnd : Play}
+            busy={pending}
+            disabled={pending}
+            onClick={() => startNow(entry.source)}
+            title={t(
+              busy ? "admin.queue.runNextHint" : "admin.queue.startHint",
+            )}
+          >
+            {t(busy ? "admin.queue.runNext" : "admin.queue.startNow")}
+          </Button>
+        ) : null}
+      </span>
+    </li>
+  )
+}
+
+export function OverviewView({ navigate }: ViewProps) {
+  const { t } = useAppSettings()
   const { overview, start, act, api, refreshOverview } = useAdmin()
   if (!overview) return <Loading />
 
-  const { review, counts, activeRun, timers } = overview
+  const { review, counts, activeRun, scheduler } = overview
+  const queue = overview.queue || []
   const attention = [
     {
       key: "images",
@@ -174,7 +246,7 @@ export function OverviewView({ navigate }: ViewProps) {
 
       <div className="adm-grid is-two">
         <Panel
-          title={t("admin.overview.now")}
+          title={t("admin.overview.queue")}
           actions={
             activeRun ? (
               <ConfirmButton
@@ -193,42 +265,51 @@ export function OverviewView({ navigate }: ViewProps) {
             ) : null
           }
         >
-          {activeRun ? (
-            <div className="adm-now">
-              <p className="adm-now-title">
-                <StatusBadge status={activeRun.status} />
-                <strong>{runTitle(activeRun, t)}</strong>
-              </p>
-              <RunSteps run={activeRun} />
-              <p className="adm-muted">
-                {t("admin.overview.startedAt", {
-                  time: japanStamp(activeRun.startedAt || activeRun.createdAt),
-                })}
-              </p>
-            </div>
-          ) : (
-            <div className="adm-now is-idle">
+          <div className="adm-now">
+            {activeRun ? (
+              <>
+                <p className="adm-now-title">
+                  <StatusBadge status={activeRun.status} />
+                  <strong>{runTitle(activeRun, t)}</strong>
+                </p>
+                <RunSteps run={activeRun} />
+                <p className="adm-muted">
+                  {t("admin.overview.startedAt", {
+                    time: japanStamp(
+                      activeRun.startedAt || activeRun.createdAt,
+                    ),
+                  })}
+                </p>
+              </>
+            ) : (
               <p className="adm-now-title">
                 <Badge tone="neutral">{t("admin.overview.idle")}</Badge>
               </p>
-              <p className="adm-muted">
-                {timers.scheduled && timers.nextRunAt
-                  ? t("admin.overview.nextRun", {
-                      time: japanStamp(timers.nextRunAt),
-                      relative: formatRelative(timers.nextRunAt, locale),
-                    })
-                  : t("admin.overview.noSchedule")}
-              </p>
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={CalendarClock}
-                onClick={() => navigate("sources")}
-              >
-                {t("admin.overview.openTimers")}
-              </Button>
-            </div>
-          )}
+            )}
+            {!scheduler.enabled ? (
+              <p className="adm-muted">{t("admin.timer.schedulerOff")}</p>
+            ) : queue.length ? (
+              <ol className="adm-queue" aria-label={t("admin.queue.label")}>
+                {queue.map((entry) => (
+                  <QueueRow
+                    key={entry.kind === "source" ? entry.source : entry.kind}
+                    entry={entry}
+                    busy={Boolean(activeRun)}
+                  />
+                ))}
+              </ol>
+            ) : (
+              <p className="adm-muted">{t("admin.overview.noSchedule")}</p>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={CalendarClock}
+              onClick={() => navigate("sources")}
+            >
+              {t("admin.overview.openTimers")}
+            </Button>
+          </div>
         </Panel>
 
         <Panel

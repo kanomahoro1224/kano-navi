@@ -48,6 +48,13 @@
 <details>
 <summary><strong>Operator console</strong></summary>
 
+- The Overview opens with the queue: the active run, then every timer in the
+  order it starts, with when it runs and whether it is due and waiting.
+  Start now runs a source's timer at once, or next while another run holds
+  the queue, and its next timed run is planned from that run. Run now on the
+  Sources page does the same while the source's timer runs.
+  `GET /api/admin/overview` adds `queue`, and
+  `POST /api/admin/sources/{source}/schedule/start` starts a timer.
 - A Proxies page sets up forward proxies for the server's own requests: an
   ordered queue tried one proxy at a time, a choice of which areas use it
   (X, YouTube, Bilibili, media downloads and model providers, each with all

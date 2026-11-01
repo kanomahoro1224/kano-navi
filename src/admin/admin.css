@@ -2351,8 +2351,20 @@
   font-size: 15px;
 }
 
-.adm-now.is-idle .adm-button {
+.adm-now > .adm-button {
   justify-self: start;
+}
+
+.adm-queue {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--adm-line);
+  list-style: none;
+}
+
+.adm-queue > .adm-source-row {
+  padding: 10px 0;
 }
 
 .adm-source-list {

@@ -19,6 +19,7 @@ import {
   Info,
   KeyRound,
   ListChecks,
+  ListEnd,
   Lock,
   Play,
   Radio,
@@ -228,9 +229,20 @@ function SourceSummary({
     setBusy("")
     if (saved) onChange(saved)
   }
+  // A running timer is started itself, as on the overview queue: its run
+  // plans the next one, and while another run holds the queue it runs next.
+  // A source whose timer is off runs its steps once.
+  const timed = state === "running"
+  const queued = Boolean(overview?.activeRun)
   const runNow = async () => {
     setBusy("run")
-    await start({ kind: "source", source })
+    if (timed) {
+      const saved = await act(
+        () => api.startSourceSchedule(source),
+        queued ? "admin.notice.timerNext" : "admin.notice.timerStarted",
+      )
+      if (saved) onChange(saved)
+    } else await start({ kind: "source", source })
     setBusy("")
   }
   return (
@@ -252,13 +264,19 @@ function SourceSummary({
           />
           <Button
             size="sm"
-            icon={Play}
+            icon={timed && queued ? ListEnd : Play}
             busy={busy === "run"}
-            disabled={locked || busy !== "" || Boolean(overview?.activeRun)}
+            disabled={locked || busy !== "" || (!timed && queued)}
             onClick={runNow}
-            title={t("admin.timer.runNowHint")}
+            title={t(
+              !timed
+                ? "admin.timer.runNowHint"
+                : queued
+                  ? "admin.queue.runNextHint"
+                  : "admin.queue.startHint",
+            )}
           >
-            {t("admin.timer.runNow")}
+            {t(timed && queued ? "admin.queue.runNext" : "admin.timer.runNow")}
           </Button>
         </div>
       </header>

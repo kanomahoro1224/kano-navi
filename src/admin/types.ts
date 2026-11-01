@@ -213,6 +213,14 @@ export interface VariantStatus {
   checkedAt: string
 }
 
+/**
+ * One timer's next run. A due entry waits for the queue: a source timer
+ * starts once the current run and the timers due before it have.
+ */
+export type QueueEntry = { nextRunAt: string; due: boolean } & (
+  { kind: "source"; source: ScheduleSource } | { kind: "live-probe" }
+)
+
 export interface Overview {
   /** Public mainland-China site suggestion; absent on older sidecars. */
   visitorRegionEnabled?: boolean
@@ -222,6 +230,8 @@ export interface Overview {
   scheduler: { enabled: boolean; running: boolean; tickSeconds: number | null }
   /** The enabled source schedules this process runs. */
   timers: { scheduled: number; nextRunAt: string | null }
+  /** Timed work in the order it reaches the single-flight queue. */
+  queue: QueueEntry[]
   sources: { x: SourceHealth; youtube: SourceHealth; bilibili: SourceHealth }
   review: {
     pendingImages: number

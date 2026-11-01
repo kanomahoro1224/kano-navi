@@ -157,6 +157,8 @@ function createClient(run: Runner, slow: Runner) {
     ) => send<SourceSchedule>("PUT", `/sources/${enc(source)}/schedule`, body),
     runSource: (source: ScheduleSource) =>
       send<{ run: Run }>("POST", `/sources/${enc(source)}/run`),
+    startSourceSchedule: (source: ScheduleSource) =>
+      send<SourceSchedule>("POST", `/sources/${enc(source)}/schedule/start`),
     updatePush: (body: { enabled?: boolean; callbackUrl?: string | null }) =>
       send<Sources["youtube"]["push"]>("PUT", "/sources/youtube/push", body),
     updateLiveProbe: (body: { enabled?: boolean; intervalMinutes?: number }) =>

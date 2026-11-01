@@ -466,7 +466,13 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 	// The timers are the source schedules (ADR-0003); those SKIP_* disables
 	// never run here.
 	timers := map[string]any{"scheduled": 0, "nextRunAt": nil}
+	queue := []map[string]any{}
 	if schedules, scheduleErr := a.Store.SourceSchedules(ctx, a.bilibiliFloor()); scheduleErr == nil {
+		var probeNext any
+		if probe, probeErr := a.liveProbeState(ctx); probeErr == nil {
+			probeNext = probe["nextRunAt"]
+		}
+		queue = a.timedQueue(schedules, probeNext)
 		scheduled := 0
 		var next *string
 		for _, schedule := range schedules {
@@ -505,6 +511,7 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		"recentRuns":           recent[:min(len(recent), 6)],
 		"scheduler":            scheduler,
 		"timers":               timers,
+		"queue":                queue,
 		"sources":              map[string]any{"x": source("x"), "youtube": youtube, "bilibili": source("bilibili")},
 		"review": map[string]int{
 			"pendingImages":          counts.PendingImages,

@@ -230,10 +230,16 @@ page. A fresh installation keeps all three disabled.
 
 When a schedule is due, the server process submits its chain as the ad hoc
 run `@source-<source>` (`reconcile` is appended as for every run with a
-source step), labelled `source-schedule` in the run history. **Run now** in a
-source's Sources page summary (`POST /api/admin/sources/{source}/run`) submits the same
-chain once, triggered by the operator, and leaves the schedule's next run
-where it was; the history shows it as "X · run now". The follow-up
+source step), labelled `source-schedule` in the run history. **Start now**
+on the console overview's queue, and **Run now** in a source's Sources page
+summary while its timer runs, start the timer
+(`POST /api/admin/sources/{source}/schedule/start`): the schedule becomes due
+at once, so the timer itself submits its chain, immediately when the queue
+is free and otherwise after the current run and the schedules due before
+it. While the timer is off or timers do not run in the process, Run now
+(`POST /api/admin/sources/{source}/run`) submits the same chain once,
+triggered by the operator, and leaves the schedule's next run where it was;
+the history shows it as "X · run now". The follow-up
 steps always run, even when the source wrote nothing: each works from its
 own queue and makes no provider call while that queue is empty, so failed
 extractions, pending image reviews, download retries and operator
@@ -311,8 +317,10 @@ Enabling a schedule or changing its interval plans the next run one interval
 later, never immediately; a sync change alone keeps the plan. Claiming a run
 the timer submitted plans the next one an interval after the claim. Only the
 first claim plans: claiming it again after a retry or after recovery from an
-expired lease (both counted in `recovery_count`) keeps the plan, and Run now
-does not move it either.
+expired lease (both counted in `recovery_count`) keeps the plan, and the
+operator's one-off run of the chain does not move it either. Starting the
+timer moves the plan to the moment it is pressed unless the schedule is
+already due, and the claim plans the next run as for any timed run.
 
 Each plan adds a random offset of whole seconds, uniform in ±10% of the
 interval (a 30-minute X timer runs 27–33 minutes apart), so timed reads do

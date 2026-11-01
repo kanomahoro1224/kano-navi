@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/workflow"
 )
 
 func scheduleBySource(t *testing.T, payload map[string]any, source string) map[string]any {
@@ -247,5 +248,82 @@ func TestSourceScheduleChainAPI(t *testing.T) {
 	}
 	if chain, _ = json.Marshal(payload["chain"]); !strings.Contains(string(chain), `"enabled":true,"id":"api"`) || !strings.Contains(string(chain), `"apiGate":0`) {
 		t.Fatalf("kept=%s", chain)
+	}
+}
+
+func TestStartingATimerQueuesItsChain(t *testing.T) {
+	steps := &gatedSteps{gate: make(chan struct{})}
+	c := newConsole(t, "development", "", steps)
+	c.store.SetScheduleOffset(func(int64) int64 { return 0 })
+	now := func() time.Time { return time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC) }
+	scheduler := &workflow.Scheduler{Store: c.store, Queue: c.runs.Queue, Enabled: true, Now: now}
+	c.handler = New(Options{
+		Store: c.store, Auth: newAuth(t, "development", ""), Runs: c.runs,
+		Scheduler:     scheduler.Status,
+		TickScheduler: func(ctx context.Context) { _, _ = scheduler.Tick(ctx) },
+		Now:           now,
+	})
+	for _, source := range []string{"x", "youtube"} {
+		if code, payload := c.call(t, "PUT", "/api/admin/sources/"+source+"/schedule", `{"enabled":true}`); code != 200 {
+			t.Fatalf("%s schedule=%d %v", source, code, payload)
+		}
+	}
+	queueOf := func() []any {
+		t.Helper()
+		code, payload := c.call(t, "GET", "/api/admin/overview", "")
+		if code != 200 {
+			t.Fatalf("overview=%d %v", code, payload)
+		}
+		return payload["queue"].([]any)
+	}
+	if got := fmt.Sprint(queueOf()); got != "[map[due:false kind:source nextRunAt:2026-03-02T03:30:00.000Z source:x] map[due:false kind:source nextRunAt:2026-03-02T04:00:00.000Z source:youtube]]" {
+		t.Fatalf("queue=%s", got)
+	}
+	// Starting YouTube submits its timed chain at once.
+	code, payload := c.call(t, "POST", "/api/admin/sources/youtube/schedule/start", "")
+	if code != 200 || payload["source"] != "youtube" {
+		t.Fatalf("start=%d %v", code, payload)
+	}
+	if step := <-steps.seen; step != "youtube" {
+		t.Fatalf("first step=%s", step)
+	}
+	active, err := c.runs.Active(context.Background())
+	if err != nil || active == nil || active.SourceSchedule == nil || *active.SourceSchedule != "youtube" || active.TriggeredBy != "source-schedule" {
+		t.Fatalf("active=%+v %v", active, err)
+	}
+	// While it runs, a started X timer waits first in line.
+	if code, payload = c.call(t, "POST", "/api/admin/sources/x/schedule/start", ""); code != 200 || payload["nextRunAt"] != "2026-03-02T03:00:00.000Z" {
+		t.Fatalf("x start=%d %v", code, payload)
+	}
+	// The claim of YouTube's timed run planned its next run (on the
+	// executor's own clock), which leaves it behind X.
+	waiting := queueOf()
+	if len(waiting) != 2 || fmt.Sprint(waiting[0]) != "map[due:true kind:source nextRunAt:2026-03-02T03:00:00.000Z source:x]" ||
+		waiting[1].(map[string]any)["source"] != "youtube" || waiting[1].(map[string]any)["due"] != false {
+		t.Fatalf("waiting queue=%v", waiting)
+	}
+	close(steps.gate)
+	c.waitForRun(t, active.ID, "completed")
+
+	for path, message := range map[string]string{
+		"/api/admin/sources/bilibili/schedule/start": "the bilibili timer is off",
+	} {
+		if code, payload = c.call(t, "POST", path, ""); code != 400 || payload["message"] != message {
+			t.Fatalf("%s=%d %v", path, code, payload)
+		}
+	}
+	if code, payload = c.call(t, "POST", "/api/admin/sources/mastodon/schedule/start", ""); code != 404 {
+		t.Fatalf("unknown=%d %v", code, payload)
+	}
+	// Without timers in this process, or with SKIP_*, nothing can start.
+	off := &console{store: c.store, handler: New(Options{
+		Store: c.store, Auth: newAuth(t, "development", ""), Runs: c.runs, SkippedSteps: []string{"youtube"},
+		Scheduler: func() map[string]any { return map[string]any{"enabled": false} }, Now: now,
+	})}
+	if code, payload = off.call(t, "POST", "/api/admin/sources/x/schedule/start", ""); code != 400 || payload["message"] != "timers do not run in this process" {
+		t.Fatalf("timers off=%d %v", code, payload)
+	}
+	if code, payload = off.call(t, "POST", "/api/admin/sources/youtube/schedule/start", ""); code != 400 || payload["message"] != "the youtube source is disabled for this process" {
+		t.Fatalf("skipped=%d %v", code, payload)
 	}
 }

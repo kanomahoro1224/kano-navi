@@ -246,12 +246,23 @@ Console dates are `YYYY-MM-DD` and times `YYYY-MM-DD HH:mm`, in Japan time
 and the same in every console language (`src/admin/format.ts`); a stored
 day adds its short weekday.
 
+The console's Overview (`src/admin/views/overview.tsx`) opens with the
+queue: the active run with its steps and Cancel, or Idle, then the timers in
+the order they start, from the overview's `queue`. A due timer shows Due and
+whether it waits for the current run; a source timer that is not due has
+Start now, or Run next while a run holds the queue. The live-status probe is
+listed without a button. While timers are off in the process the panel says
+so instead of listing them.
+
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
 tabs for X, YouTube and Bilibili, each with the platform's logo, a dot (or
 a lock) for whether its timer runs here and the state as its tooltip.
 The selected source opens with a summary: what it reads, its timer state,
 next run, last run and last successful read, the timer switch (which saves
-at once) and Run now. A source that `SKIP_*` turns off is locked. Below the
+at once) and Run now. While the timer runs, Run now starts it as the
+overview queue's Start now does, and reads Run next while a run holds the
+queue; while it is off, Run now runs the source's steps once and waits for a
+free queue. A source that `SKIP_*` turns off is locked. Below the
 summary the main column holds the timed reads, one form with one Save and
 Discard: the interval and, for X and YouTube, the sync setting; and the
 [method chain](workflows.md#method-chains), with every method's switch and

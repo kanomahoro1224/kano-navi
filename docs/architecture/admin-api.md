@@ -54,6 +54,7 @@ external work:
   "recentRuns": [Run],            // newest 6
   "scheduler": {"enabled", "running", "tickSeconds"},
   "timers": {"scheduled", "nextRunAt"},
+  "queue": [{"kind", "source"?, "nextRunAt", "due"}],
   "sources": {
     "x":       {"skipped", "lastSuccessAt", "lastStep"},
     "youtube": {"skipped", "lastSuccessAt", "lastStep", "push": {"enabled", "verified"}},
@@ -74,6 +75,12 @@ external work:
 
 `timers` counts the enabled [source schedules](#sources) this process runs
 (not those disabled by `SKIP_*`) and the earliest planned run among them.
+`queue` lists the timed work in the order it reaches the single-flight
+queue: each of those schedules (`kind: "source"` with its `source`) and the
+[live-status probe](workflows.md#live-status-probe) when it has a next run
+(`kind: "live-probe"`), by planned run and then by source, as the scheduler
+picks due schedules. `due` is true once `nextRunAt` has passed; a due entry
+waits for the current run and the entries due before it.
 
 `lastSuccessAt` is the newest successful incremental read of the source
 (`sync_state.last_success_at`). `lastStep` is `{runId, status, finishedAt}` of
@@ -199,6 +206,7 @@ value, and another field or value answers `400 invalid_input`.
 | ------------------------------------------ | ----------------------------------------- | ------------------------------ |
 | `GET /sources`                             |                                           | per-source status (below)      |
 | `PUT /sources/{source}/schedule`           | `{enabled, intervalMinutes, sync, chain}` | `SourceSchedule`               |
+| `POST /sources/{source}/schedule/start`    |                                           | `SourceSchedule`               |
 | `POST /sources/{source}/run`               |                                           | `202 {run}`; `409 busy`        |
 | `GET /sources/youtube/push`                |                                           | push status                    |
 | `PUT /sources/youtube/push`                | `{enabled, callbackUrl}`                  | push status                    |
@@ -261,8 +269,20 @@ schedule or changing its interval plans the next run one interval later,
 with the timer's [random offset](workflows.md#source-schedules); a sync
 change alone keeps the plan.
 
-`POST /sources/{source}/run` is **Run now**: it submits the source's fixed
-chain once, triggered by the operator and read with the schedule's sync
+`POST /sources/{source}/schedule/start` starts a timer, as **Start now** on
+the overview queue and **Run now** on the Sources page while the timer runs
+do: it makes an enabled schedule due at once (a schedule already due keeps
+its place) and asks the scheduler to submit the earliest due schedule
+immediately. While a run holds the queue the schedule waits as **Run next**
+and starts after the current run and the schedules due before it. The
+submitted run is the timer's own, so its claim plans the following run (see
+[Source schedules](workflows.md#source-schedules)). It answers
+`404 not_found` for another source and `400 invalid_input` while `SKIP_*`
+disables the source, while timers do not run in this process or while the
+schedule is off.
+
+`POST /sources/{source}/run` is **Run now** while the timer is off or
+timers do not run in the process: it submits the source's fixed chain once, triggered by the operator and read with the schedule's sync
 setting and method chain, and answers `202 {run}` or `409 {error: "busy", run}` while the
 queue is occupied. It does not move the schedule's `nextRunAt`. It answers
 `404 not_found` for another source and `400 invalid_input` while `SKIP_*`

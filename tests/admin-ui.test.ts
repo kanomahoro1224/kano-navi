@@ -344,3 +344,125 @@ test("the public visitor-region toast follows the persisted CN response", async 
     await vite.close()
   }
 })
+
+test("the overview queue lists timers in order and starts one now or next", async () => {
+  const vite = await createServer({
+    configFile: false,
+    envDir: false,
+    server: { middlewareMode: true, watch: null, ws: false },
+    optimizeDeps: { noDiscovery: true, include: [] },
+    resolve: { alias: { "@": path.resolve("src") } },
+  })
+  const installed = installBrowser("")
+  let root: Rendered | undefined
+  try {
+    const [
+      { AdminContext },
+      { AppSettingsProvider, PageMessagesProvider },
+      { OverviewView },
+      copy,
+    ] = await Promise.all([
+      vite.ssrLoadModule("/src/admin/use-admin-data.ts"),
+      vite.ssrLoadModule("/src/app-settings.tsx"),
+      vite.ssrLoadModule("/src/admin/views/overview.tsx"),
+      vite.ssrLoadModule("/src/admin-i18n.ts"),
+    ])
+    const started: string[] = []
+    const queued = {
+      ...overview,
+      scheduler: { enabled: true, running: true, tickSeconds: 30 },
+      queue: [
+        {
+          kind: "source",
+          source: "x",
+          nextRunAt: "2026-03-02T03:00:00.000Z",
+          due: true,
+        },
+        {
+          kind: "live-probe",
+          nextRunAt: "2026-03-02T03:10:00.000Z",
+          due: false,
+        },
+        {
+          kind: "source",
+          source: "youtube",
+          nextRunAt: "2026-03-02T04:00:00.000Z",
+          due: false,
+        },
+      ],
+    }
+    const admin = {
+      overview: queued,
+      api: {
+        startSourceSchedule: async (source: string) => {
+          started.push(source)
+          return {}
+        },
+      },
+      act: async (work: () => Promise<unknown>) => work(),
+    }
+    function Harness({ busy }: { busy: boolean }) {
+      const value = {
+        ...admin,
+        overview: {
+          ...queued,
+          activeRun: busy
+            ? {
+                id: "synthetic-run",
+                kind: "workflow",
+                status: "running",
+                createdAt: "2026-03-02T02:58:00.000Z",
+                startedAt: "2026-03-02T02:58:00.000Z",
+                steps: ["bilibili"],
+                progress: { bilibili: "running" },
+                sourceSchedule: "bilibili",
+              }
+            : null,
+        },
+      }
+      return createElement(
+        AdminContext.Provider,
+        { value: value as any },
+        createElement(OverviewView, { navigate() {} }),
+      )
+    }
+    const mount = async (busy: boolean) => {
+      await act(async () => root?.unmount())
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: copy.adminMessages },
+              createElement(Harness, { busy }),
+            ),
+          ),
+        )
+      })
+      return [...root!.container.querySelectorAll(".adm-queue > li")]
+    }
+    // A due timer waits with no button; the live probe has none either.
+    let rows = await mount(false)
+    assert.deepEqual(
+      rows.map((row) => row.querySelector("strong")?.textContent),
+      ["X", "Live status", "YouTube"],
+    )
+    assert.match(rows[0].textContent, /Starting shortly.*Due/)
+    assert.equal(rows[0].querySelector("button"), null)
+    assert.equal(rows[1].querySelector("button"), null)
+    await click(rows[2].querySelector("button"))
+    assert.match(rows[2].textContent, /Start now/)
+    // While a run holds the queue the button queues the timer next.
+    rows = await mount(true)
+    assert.match(rows[0].textContent, /Waiting for the current run/)
+    assert.match(rows[2].textContent, /Run next/)
+    await click(rows[2].querySelector("button"))
+    assert.deepEqual(started, ["youtube", "youtube"])
+  } finally {
+    await act(async () => root?.unmount())
+    restoreBrowser(installed.previous)
+    await vite.close()
+  }
+})

@@ -227,6 +227,86 @@ func sourceChain(source string, raw json.RawMessage, current sqlite.SourceChain)
 	return chain, nil
 }
 
+// timedQueue is the work the timers have lined up for the single-flight
+// queue: each enabled source schedule this process runs and the live-status
+// probe when it has a next run, in the order they reach the queue. Entries
+// due at or before now wait for the queue; the scheduler submits due sources
+// earliest first, then by source, as DueSourceSchedule reads them.
+func (a *api) timedQueue(schedules []sqlite.SourceSchedule, probeNext any) []map[string]any {
+	type entry struct {
+		at   time.Time
+		key  string
+		item map[string]any
+	}
+	now := a.Now()
+	entries := []entry{}
+	add := func(next string, key string, item map[string]any) {
+		at, err := time.Parse(time.RFC3339, next)
+		if err != nil {
+			return
+		}
+		item["nextRunAt"], item["due"] = next, !at.After(now)
+		entries = append(entries, entry{at, key, item})
+	}
+	for _, schedule := range schedules {
+		if schedule.Enabled && !a.skipped(schedule.Source) && schedule.NextRunAt != nil {
+			add(*schedule.NextRunAt, schedule.Source, map[string]any{"kind": "source", "source": schedule.Source})
+		}
+	}
+	if next, ok := probeNext.(string); ok {
+		add(next, "~live-probe", map[string]any{"kind": "live-probe"})
+	}
+	slices.SortStableFunc(entries, func(x, y entry) int {
+		if c := x.at.Compare(y.at); c != 0 {
+			return c
+		}
+		return strings.Compare(x.key, y.key)
+	})
+	out := make([]map[string]any, len(entries))
+	for i, e := range entries {
+		out[i] = e.item
+	}
+	return out
+}
+
+// startSourceSchedule starts a source's timer now: the schedule becomes due
+// and the scheduler is asked to submit it at once. While a run holds the
+// queue the timer waits as the next due source, and its claim plans the
+// following run as for any timed run.
+func (a *api) startSourceSchedule(w http.ResponseWriter, r *http.Request) {
+	source := r.PathValue("source")
+	if !slices.Contains(sqlite.ScheduleSources, source) {
+		httpx.WriteCode(w, http.StatusNotFound, "not_found")
+		return
+	}
+	if a.skipped(source) {
+		httpx.WriteError(w, httpx.Invalid("the %s source is disabled for this process", source))
+		return
+	}
+	if a.Scheduler == nil || a.Scheduler()["enabled"] != true {
+		httpx.WriteError(w, httpx.Invalid("timers do not run in this process"))
+		return
+	}
+	schedule, err := a.Store.StartSourceScheduleNow(r.Context(), source, a.Now(), a.bilibiliFloor())
+	if errors.Is(err, sqlite.ErrWorkflowValidation) {
+		httpx.WriteError(w, httpx.Invalid("the %s timer is off", source))
+		return
+	}
+	if err != nil {
+		workflowError(w, err, "not_found")
+		return
+	}
+	if a.TickScheduler != nil {
+		a.TickScheduler(r.Context())
+	}
+	entry, err := a.scheduleEntry(r.Context(), schedule)
+	if err != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, entry)
+}
+
 // runSource starts Run now: the source's fixed chain once, triggered by the
 // operator and read with its schedule's sync setting. It does not move the
 // schedule's next run.

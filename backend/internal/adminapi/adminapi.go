@@ -45,6 +45,9 @@ type Options struct {
 	Modules []httpx.AdminModule
 	// Scheduler reports the in-process source schedule timer.
 	Scheduler func() map[string]any
+	// TickScheduler submits the earliest due source schedule when the queue
+	// is free; nil leaves a started timer to the scheduler's next tick.
+	TickScheduler func(context.Context)
 	// YoutubePush reports the WebSub settings and subscription.
 	YoutubePush func() map[string]any
 	// LiveProbe reports the in-process YouTube live-status probe timer.
@@ -131,6 +134,7 @@ func (a *api) routes() []httpx.Route {
 
 		{Method: http.MethodGet, Path: "/sources", Handler: a.sources},
 		{Method: http.MethodPut, Path: "/sources/{source}/schedule", Handler: a.updateSourceSchedule},
+		{Method: http.MethodPost, Path: "/sources/{source}/schedule/start", Handler: a.startSourceSchedule},
 		{Method: http.MethodPost, Path: "/sources/{source}/run", Handler: a.needRuns(a.runSource)},
 		{Method: http.MethodGet, Path: "/sources/youtube/live-probe", Handler: a.liveProbe},
 		{Method: http.MethodPut, Path: "/sources/youtube/live-probe", Handler: a.updateLiveProbe},

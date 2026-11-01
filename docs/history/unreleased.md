@@ -96,6 +96,8 @@
   have their smaller copies, and Make missing copies runs a copies job of up
   to five minutes on the shared queue. The counts validate cached copy files,
   are read when the page opens and after each run, and Check again lists anew.
+- A source's manual fetch folds its Last fetch summary from the header,
+  leaving the outcome, method and time in view.
 
 </details>
 

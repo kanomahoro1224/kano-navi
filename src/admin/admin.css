@@ -477,16 +477,49 @@
   border-top: 1px solid var(--adm-line);
 }
 
+/* The header folds the rest of the summary away. */
 .adm-fetch-summary > header {
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
+}
+
+.adm-fetch-summary.is-open .adm-fold-chevron {
+  transform: rotate(180deg);
+}
+
+.adm-fetch-summary-body {
+  display: grid;
+  gap: 12px;
+}
+
+.adm-fetch-summary-body[hidden] {
+  display: none;
 }
 
 .adm-fetch-summary-title {
   display: grid;
   flex: 1;
   min-width: 0;
+}
+
+.adm-fetch-summary-title button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.adm-fetch-summary-title button:focus-visible {
+  outline: none;
+  box-shadow: var(--adm-focus);
 }
 
 .adm-fetch-summary-title small {

@@ -1169,12 +1169,29 @@ function FetchSummary({
   const progress = run.progress[source] || "pending"
   const finished = progress !== "pending" && progress !== "running"
   const items = counts.items || []
+  const [open, setOpen] = useState(true)
+  const id = useId()
   return (
-    <section className="adm-fetch-summary" aria-label={t("admin.fetch.last")}>
-      <header>
+    <section
+      className={cn("adm-fetch-summary", open && "is-open")}
+      aria-label={t("admin.fetch.last")}
+    >
+      <header
+        onClick={(event) => {
+          // The title button handles its own click.
+          if (!(event.target as Element).closest("button")) setOpen(!open)
+        }}
+      >
         <RunMark status={outcome} />
         <span className="adm-fetch-summary-title">
-          <strong>{t("admin.fetch.last")}</strong>
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={`${id}-body`}
+            onClick={() => setOpen(!open)}
+          >
+            {t("admin.fetch.last")}
+          </button>
           <small>
             {window ? `${windowText(window, source, t)} · ` : ""}
             <time dateTime={run.createdAt} title={japanStamp(run.createdAt)}>
@@ -1183,69 +1200,72 @@ function FetchSummary({
           </small>
         </span>
         <StatusBadge status={outcome} />
+        <ChevronDown aria-hidden className="adm-fold-chevron" />
       </header>
-      {counts.error ? (
-        <p className="adm-inline-error">
-          <ShieldAlert aria-hidden />
-          <code>{counts.error}</code>
-        </p>
-      ) : null}
-      {finished && counts.listed !== undefined ? (
-        <>
-          <Facts
-            items={[
-              [t("admin.metric.listed"), counts.listed],
-              [t("admin.metric.new"), counts.new],
-              [t("admin.metric.stored"), counts.stored],
-              [t("admin.metric.failed"), counts.failed],
-              [t("admin.metric.pages"), counts.pages],
-              ...(counts.inspected === undefined
-                ? []
-                : ([
-                    [t("admin.metric.inspected"), counts.inspected],
-                    [t("admin.metric.apiRequests"), counts.apiRequests],
-                  ] as [string, number | undefined][])),
-            ]}
-          />
-          <p className="adm-field-hint">
-            {counts.reachedEnd
-              ? t("admin.fetch.reachedEnd")
-              : t("admin.fetch.repeat")}
+      <div id={`${id}-body`} className="adm-fetch-summary-body" hidden={!open}>
+        {counts.error ? (
+          <p className="adm-inline-error">
+            <ShieldAlert aria-hidden />
+            <code>{counts.error}</code>
           </p>
-          {items.length ? (
-            <div className="adm-fetch-items">
-              <span>
-                {t("admin.fetch.newItems", { count: counts.new || 0 })}
-              </span>
-              <ul>
-                {items.map((item) => (
-                  <li key={item.id}>
-                    <code>{item.id}</code>
-                    <span>{item.title}</span>
-                    {item.account ? <small>@{item.account}</small> : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {counts.errors?.length ? (
-            <div className="adm-metric-list">
-              <span>{metricLabel("errors", t)}</span>
-              <span className="adm-chip-row">
-                {counts.errors.map((code, index) => (
-                  <code key={index} title={explainCode(code, t) || ""}>
-                    {code}
-                  </code>
-                ))}
-              </span>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-      <div className="adm-form-actions">
-        <Button size="sm" variant="ghost" icon={History} onClick={onOpenRuns}>
-          {t("admin.fetch.openRuns")}
-        </Button>
+        ) : null}
+        {finished && counts.listed !== undefined ? (
+          <>
+            <Facts
+              items={[
+                [t("admin.metric.listed"), counts.listed],
+                [t("admin.metric.new"), counts.new],
+                [t("admin.metric.stored"), counts.stored],
+                [t("admin.metric.failed"), counts.failed],
+                [t("admin.metric.pages"), counts.pages],
+                ...(counts.inspected === undefined
+                  ? []
+                  : ([
+                      [t("admin.metric.inspected"), counts.inspected],
+                      [t("admin.metric.apiRequests"), counts.apiRequests],
+                    ] as [string, number | undefined][])),
+              ]}
+            />
+            <p className="adm-field-hint">
+              {counts.reachedEnd
+                ? t("admin.fetch.reachedEnd")
+                : t("admin.fetch.repeat")}
+            </p>
+            {items.length ? (
+              <div className="adm-fetch-items">
+                <span>
+                  {t("admin.fetch.newItems", { count: counts.new || 0 })}
+                </span>
+                <ul>
+                  {items.map((item) => (
+                    <li key={item.id}>
+                      <code>{item.id}</code>
+                      <span>{item.title}</span>
+                      {item.account ? <small>@{item.account}</small> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {counts.errors?.length ? (
+              <div className="adm-metric-list">
+                <span>{metricLabel("errors", t)}</span>
+                <span className="adm-chip-row">
+                  {counts.errors.map((code, index) => (
+                    <code key={index} title={explainCode(code, t) || ""}>
+                      {code}
+                    </code>
+                  ))}
+                </span>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+        <div className="adm-form-actions">
+          <Button size="sm" variant="ghost" icon={History} onClick={onOpenRuns}>
+            {t("admin.fetch.openRuns")}
+          </Button>
+        </div>
       </div>
     </section>
   )

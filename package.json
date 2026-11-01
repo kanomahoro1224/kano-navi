@@ -1,7 +1,7 @@
 {
   "name": "kano-status-board",
   "private": true,
-  "version": "0.4.3",
+  "version": "0.5.1",
   "type": "module",
   "engines": {
     "node": ">=24.22.1"
@@ -46,10 +46,9 @@
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@types/react-test-renderer": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "happy-dom": "^21.0.4",
     "prettier": "^3.9.10",
-    "react-test-renderer": "^19.3.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.2.2"

@@ -353,6 +353,9 @@ func TestRunsAreSingleFlightAndSurviveOneFailedSource(t *testing.T) {
 	if x := sources["x"].(map[string]any); x["lastStep"].(map[string]any)["status"] != "failed" || x["skipped"] != false {
 		t.Fatalf("x source=%v", x)
 	}
+	if bilibili, ok := sources["bilibili"].(map[string]any); !ok || bilibili["skipped"] != false {
+		t.Fatalf("bilibili source=%v", sources["bilibili"])
+	}
 	if payload["activeRun"] != nil || len(payload["recentRuns"].([]any)) != 1 {
 		t.Fatalf("overview runs=%v", payload)
 	}
@@ -641,5 +644,32 @@ func TestPostQuoteRoutesRequireTheSession(t *testing.T) {
 	}
 	if code, payload := c.call(t, "PUT", "/api/admin/posts/1900000000000000100/quote/hidden", `{"hidden":true}`); code != 200 || payload["state"] == nil {
 		t.Fatalf("signed-in hide=%d %v", code, payload)
+	}
+}
+
+func TestRunRetentionSettings(t *testing.T) {
+	c := newConsole(t, "development", "", &gatedSteps{})
+	code, payload := c.call(t, "GET", "/api/admin/runs/retention", "")
+	if code != 200 || payload["succeededDays"] != float64(30) || payload["failedDays"] != float64(90) || payload["maxDays"] != float64(3650) ||
+		payload["pruner"].(map[string]any)["available"] != false {
+		t.Fatalf("status=%d %v", code, payload)
+	}
+	for body, message := range map[string]string{
+		`{"succeededDays":-1}`:   "succeededDays must be an integer from 0 to 3650",
+		`{"failedDays":3651}`:    "failedDays must be an integer from 0 to 3650",
+		`{"failedDays":1.5}`:     "failedDays must be an integer from 0 to 3650",
+		`{"keepDays":10}`:        "keepDays is not a run retention field",
+		`{"succeededDays":"30"}`: "succeededDays must be an integer from 0 to 3650",
+	} {
+		if code, payload := c.call(t, "PUT", "/api/admin/runs/retention", body); code != 400 || payload["message"] != message {
+			t.Fatalf("%s => %d %v", body, code, payload)
+		}
+	}
+	code, payload = c.call(t, "PUT", "/api/admin/runs/retention", `{"succeededDays":0}`)
+	if code != 200 || payload["succeededDays"] != float64(0) || payload["failedDays"] != float64(90) {
+		t.Fatalf("save=%d %v", code, payload)
+	}
+	if got := c.text(t, `SELECT value FROM app_settings WHERE key='run_retention_succeeded_days'`); got != "0" {
+		t.Fatalf("stored=%s", got)
 	}
 }

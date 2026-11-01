@@ -56,13 +56,15 @@ external work:
   "timers": {"scheduled", "nextRunAt"},
   "sources": {
     "x":       {"skipped", "lastSuccessAt", "lastStep"},
-    "youtube": {"skipped", "lastSuccessAt", "lastStep", "push": {"enabled", "verified"}}
+    "youtube": {"skipped", "lastSuccessAt", "lastStep", "push": {"enabled", "verified"}},
+    "bilibili": {"skipped", "lastSuccessAt", "lastStep"}
   },
   "review": {
     "pendingImages",          // unlabelled images with a URL the model has not settled (pending, uncertain, failed)
     "suspectedCancellations", // events with an LLM cancellation overlay
     "failedPosts",            // posts whose last extraction failed
-    "reprocessRequested"      // posts queued for re-extraction
+    "reprocessRequested",     // posts queued for re-extraction
+    "videoMerges"             // unmerged Bilibili uploads the merge rule leaves to the operator
   },
   "counts": {"upcomingEvents", "events", "posts", "videos"}
 }
@@ -117,6 +119,8 @@ a saved workflow reports that ID there, and its name is not read.
 | `POST /runs`             | see below                 | `202 {run}`; `409 {error:"busy", run}` |
 | `POST /runs/{id}/cancel` |                           | `202 {run}`                            |
 | `POST /runs/{id}/retry`  |                           | `202 {run}`; `409 busy`                |
+| `GET /runs/retention`    |                           | retention settings and cleanup status  |
+| `PUT /runs/retention`    | see below                 | retention settings and cleanup status  |
 
 `POST /runs` starts exactly one of:
 
@@ -159,6 +163,16 @@ fetch's `fetchWindows` entry is its frozen selection with its `method`; a
 stored run frozen without a method still reads as stored, and running it
 again fails its fetch step.
 
+`GET /runs/retention` answers `{succeededDays, failedDays, maxDays, pruner}`:
+the [retention windows](workflows.md#run-execution) in days (0 keeps those
+runs forever), their bound (3650) and the cleanup of this process.
+`pruner` is `{available: false}` in a process that does not clean the
+history, otherwise `{available, running, intervalHours, lastPrunedAt,
+lastDeleted, lastFailed}` for its newest pass since start (`lastPrunedAt`
+null before the first). `PUT /runs/retention` accepts `{succeededDays?,
+failedDays?}`, each an integer from 0 to 3650; omitted fields keep their
+value, and another field or value answers `400 invalid_input`.
+
 ## Sources
 
 | Method and path                            | Body                                      | Result                         |
@@ -173,6 +187,8 @@ again fails its fetch step.
 | `PUT /sources/youtube/live-probe`          | `{enabled, intervalMinutes}`              | live probe status              |
 | `GET /sources/youtube/ytdlp`               |                                           | `{available, version}`         |
 | `POST /sources/youtube/ytdlp/update`       |                                           | updated `{available, version}` |
+| `GET /sync-settings`                       |                                           | `{settings, fields}`           |
+| `PUT /sync-settings`                       | any subset of the setting fields          | `{settings, fields}`           |
 
 ```json
 {
@@ -248,6 +264,16 @@ probe is off or unavailable. `PUT` accepts either field, keeps an omitted
 one, and rejects other fields and intervals outside 5–360 minutes with
 `400`.
 
+`/sync-settings` holds the [sync settings](../operations/configuration.md#sync-settings).
+`settings` maps each field (`xMaxStatusRequests`, `xRefreshKnown`,
+`xBootstrapDays`, `xDiscoveryLimit`, `youtubeMaxDetailRequests`,
+`fetchMaxPages`, `fetchTimeoutMs`, `fetchRequestDelayMs`,
+`translationScanLimit`, `translationLookbackDays`, `llmModelAttempts`) to its
+integer value, and
+`fields` lists `{field, default, min, max}` for each. `PUT` keeps omitted
+fields and answers `400 invalid_input` for an unknown field or a value that is
+not an integer within its range; the next run reads the saved values.
+
 ## Events
 
 | Method and path             | Body / query                                                                                                            | Result            |
@@ -307,15 +333,15 @@ alias); `none` never needs review and keeps `previewUrl` null.
 
 ## Posts
 
-| Method and path                | Body / query                                                                                         | Result        |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------- | ------------- |
-| `GET /posts`                   | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `media`, `llm`, `reprocess` | list of posts |
-| `POST /posts/{id}/reprocess`   | `{route?}`                                                                                           | `{state}`     |
-| `PUT /posts/{id}/quote/hidden` | `{hidden}`                                                                                           | `{state}`     |
-| `POST /posts/{id}/refresh`     | none                                                                                                 | `{state}`     |
+| Method and path                | Body / query                                                                                               | Result        |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------- |
+| `GET /posts`                   | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `reprocess`, `translation` | list of posts |
+| `PUT /posts/{id}/hidden`       | `{hidden}`                                                                                                 | `{state}`     |
+| `POST /posts/{id}/reprocess`   | `{route?}`                                                                                                 | `{state}`     |
+| `PUT /posts/{id}/quote/hidden` | `{hidden}`                                                                                                 | `{state}`     |
+| `POST /posts/{id}/refresh`     | none                                                                                                       | `{state}`     |
 
-`account` is an X handle, matched without case or a leading `@`; `media` is
-`present` or `missing`; `llm` is `never`, `pending`, `processed`, `failed`,
+`account` is an X handle, matched without case or a leading `@`; `llm` is `never`, `pending`, `processed`, `failed`,
 `skipped` or `uncertain`; `reprocess=1` keeps only queued posts;
 `translation` is `incomplete`, `complete` or `requested`.
 
@@ -346,9 +372,14 @@ Each post also carries `quote`, the stored quoted status read-only (see
 `{id, authorHandle, authorName, text, publishedAt, url, unavailable, media}`.
 Its `media` has the `{url, status, alt}` shape but lists only ready cached
 quote images, never the post's own. `quoteHiddenAt` is when an operator hid
-the quote from the public pages, and `refreshRequestedAt` is a queued
-refresh from the source; both are `null` otherwise. The console never edits
+the quote from the public pages, `hiddenAt` when an operator hid the whole
+post, and `refreshRequestedAt` is a queued refresh from the source; each is
+`null` otherwise. The console never edits
 the quoted wording, author or images.
+
+`PUT /posts/{id}/hidden` with `{"hidden": true}` hides the whole post from the
+dashboard, the post archive and MCP; `false` shows it again. It follows the
+quote rules below, except that any stored post can be hidden.
 
 `PUT /posts/{id}/quote/hidden` with `{"hidden": true}` hides the post's
 quote from the dashboard, the post archive and MCP; `false` shows it again.
@@ -362,24 +393,25 @@ the next X synchronization and removes its pending failure backoff; it
 contacts no source itself. A repeated request keeps the first request's
 place. Posts that are not X statuses with a known account answer
 `400 invalid_input`. See
-[Refresh from the source](sources.md#refresh-from-the-source). Both routes
-answer `{state: {postId, quoteHiddenAt, refreshRequestedAt}}`; MCP control
-has neither.
+[Refresh from the source](sources.md#refresh-from-the-source). The three
+routes answer `{state: {postId, hiddenAt, quoteHiddenAt, refreshRequestedAt}}`;
+MCP control has none of them.
 
 ## Videos
 
-| Method and path             | Body / query                                                                                          | Result                                       |
-| --------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `GET /videos`               | `page`, `pageSize` (≤ 200), `status`, `kind`, `thumbnail`, `source`, `search`, `merge`, `translation` | list plus `featuredVideoId`, `featuredVideo` |
-| `PUT /videos/featured`      | `{videoId}` (`null` restores automatic selection)                                                     | `{featuredVideoId}`                          |
-| `GET /videos/{id}/history`  |                                                                                                       | `{video, revisions, thumbnails}`             |
-| `PUT /videos/{id}`          | `{title?, kind?, tag?, thumbnail?, isShort?}`                                                         | `{video}`                                    |
-| `POST /videos/{id}/refresh` |                                                                                                       | `202 {video, started, run}`                  |
-| `POST /videos/bilibili`     | `{input}` (BV ID or bilibili.com video link)                                                          | `{video, started, run}`                      |
-| `GET /videos/merges`        |                                                                                                       | `{items}` merge suggestions                  |
-| `GET /videos/{id}/merges`   |                                                                                                       | `{items}` for one Bilibili upload            |
-| `POST /videos/{id}/merge`   | `{into}` (YouTube video ID or watch link)                                                             | `{video}`                                    |
-| `POST /videos/{id}/unmerge` |                                                                                                       | `{video}`                                    |
+| Method and path              | Body / query                                                                                          | Result                                       |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `GET /videos`                | `page`, `pageSize` (≤ 200), `status`, `kind`, `thumbnail`, `source`, `search`, `merge`, `translation` | list plus `featuredVideoId`, `featuredVideo` |
+| `PUT /videos/featured`       | `{videoId}` (`null` restores automatic selection)                                                     | `{featuredVideoId}`                          |
+| `GET /videos/{id}/history`   |                                                                                                       | `{video, revisions, thumbnails}`             |
+| `PUT /videos/{id}`           | `{title?, kind?, tag?, thumbnail?, isShort?}`                                                         | `{video}`                                    |
+| `POST /videos/{id}/refresh`  |                                                                                                       | `202 {video, started, run}`                  |
+| `POST /videos/bilibili`      | `{input}` (BV ID or bilibili.com video link)                                                          | `{video, started, run}`                      |
+| `GET /videos/merges`         |                                                                                                       | `{items}` merge suggestions                  |
+| `GET /videos/{id}/merges`    |                                                                                                       | `{items}` for one Bilibili upload            |
+| `POST /videos/{id}/merge`    | `{into}` (YouTube video ID or watch link)                                                             | `{video}`                                    |
+| `POST /videos/{id}/unmerge`  |                                                                                                       | `{video}`                                    |
+| `POST /videos/{id}/separate` |                                                                                                       | `{video}`                                    |
 
 Each video's `thumbnailUrl` is the local `/media/<id>?v=<sha256>` URL of its
 cached thumbnail, or `null` until that file is ready; the remote CDN address is
@@ -431,12 +463,18 @@ or an `into` that is not a stored YouTube video, answers `400`; an unknown
 manual, and keeps the upload separate (`mergeReason: "unmerged_from:<id>"`);
 an upload that is not merged answers `400`. Both advance the dashboard
 revision and write or remove the target's Bilibili translation in the same
-transaction.
+transaction. `POST /videos/{id}/separate` keeps an unmerged Bilibili upload
+apart (`mergeSource: "manual"`, `mergeReason: "kept_separate"`), so the rule
+never merges it; the board is unchanged, so the revision stays. A merged
+upload answers `409 {"error":"merge_conflict"}` (undo it instead), an
+`{id}` that is not a Bilibili upload `400` and an unknown one `404`.
 
 `GET /videos/merges` lists, newest first and at most 50, the unmerged
 Bilibili uploads the rule would merge (`status: "rule"`), or leaves to the
 operator (`ambiguous`, or `unverified` when no candidate satisfies every
-rule), without writing. Uploads an operator kept separate are left out.
+rule), without writing; the overview's `review.videoMerges` counts the
+`ambiguous` and `unverified` uploads without the limit. Uploads an operator
+kept separate are left out.
 Each item has `bilibili` (the upload as listed) and up to five `candidates`:
 `{youtube, complete, titleMatch, durationDelta, gapMinutes}`, where
 `durationDelta` is null when a length is unknown. `GET /videos/{id}/merges`
@@ -487,15 +525,28 @@ of `revisions`.
 
 ## Profile media
 
-| Method and path                     | Body                | Result                      |
-| ----------------------------------- | ------------------- | --------------------------- |
-| `GET /profile-media`                |                     | `{items, active}`           |
-| `POST /profile-media`               | `{slot, sourceUrl}` | `201 {item, items, active}` |
-| `POST /profile-media/discover`      | `{slot?, source?}`  | discovery result            |
-| `POST /profile-media/upload?slot=`  | raw image body      | `201 {item, items, active}` |
-| `GET /profile-media/{id}/preview`   |                     | image bytes (ready only)    |
-| `POST /profile-media/{id}/download` |                     | `{item, items, active}`     |
-| `POST /profile-media/{id}/select`   |                     | `{item, items, active}`     |
+| Method and path                     | Body                         | Result                      |
+| ----------------------------------- | ---------------------------- | --------------------------- |
+| `GET /profile-media`                |                              | `{items, active}`           |
+| `POST /profile-media`               | `{source, sourceUrl, slot?}` | `201 {item, items, active}` |
+| `POST /profile-media/discover`      | `{source, slot?}`            | discovery result            |
+| `POST /profile-media/upload?slot=`  | raw image body (`slot?`)     | `201 {item, items, active}` |
+| `GET /profile-media/{id}/preview`   |                              | image bytes (ready only)    |
+| `POST /profile-media/{id}/download` |                              | `{item, items, active}`     |
+| `POST /profile-media/{id}/select`   | `{slot?}`                    | `{item, items, active}`     |
+| `DELETE /profile-media/{id}`        |                              | `{items, active}`           |
+
+`source` is `x` or `youtube`, and `slot` is `avatar` or `banner`. A candidate's
+`slot` is the slot it is active for, or otherwise the one that found it; an
+added or uploaded candidate without one starts as an avatar. A source URL is
+one candidate whichever slot finds it. Discovery without a slot records the
+avatar and the banner the profile page names, and its result then has no
+`slot`. Selection uses the given slot, or the candidate's own, and moves the
+candidate there; the slot it leaves falls back to the built-in image.
+Deleting the active candidate falls back to the built-in image, an unknown ID
+answers `404 profile_media_not_found`, and a later discovery may record a
+deleted URL again. Files follow
+[Selected Profile Media](media-cache.md#selected-profile-media).
 
 ## Translations
 

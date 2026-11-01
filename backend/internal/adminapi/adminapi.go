@@ -47,6 +47,8 @@ type Options struct {
 	YoutubePush func() map[string]any
 	// LiveProbe reports the in-process YouTube live-status probe timer.
 	LiveProbe func() map[string]any
+	// RunPruner reports the in-process run history cleanup.
+	RunPruner func() map[string]any
 	// SkippedSteps lists steps disabled for the process through SKIP_* flags.
 	SkippedSteps []string
 	XHandles     []string
@@ -109,6 +111,8 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/runs", Handler: a.needRuns(a.listRuns)},
 		{Method: http.MethodPost, Path: "/runs", Handler: a.needRuns(a.startRun)},
 		{Method: http.MethodGet, Path: "/runs/steps", Handler: a.stepCatalog},
+		{Method: http.MethodGet, Path: "/runs/retention", Handler: a.runRetention},
+		{Method: http.MethodPut, Path: "/runs/retention", Handler: a.updateRunRetention},
 		{Method: http.MethodGet, Path: "/runs/{id}", Handler: a.needRuns(a.getRun)},
 		{Method: http.MethodPost, Path: "/runs/{id}/cancel", Handler: a.needRuns(a.cancelRun)},
 		{Method: http.MethodPost, Path: "/runs/{id}/retry", Handler: a.needRuns(a.retryRun)},
@@ -120,6 +124,8 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodPut, Path: "/sources/youtube/live-probe", Handler: a.updateLiveProbe},
 		{Method: http.MethodGet, Path: "/sources/youtube/ytdlp", Handler: a.ytdlpStatus},
 		{Method: http.MethodPost, Path: "/sources/youtube/ytdlp/update", Handler: a.updateYTDLP},
+		{Method: http.MethodGet, Path: "/sync-settings", Handler: a.syncSettings},
+		{Method: http.MethodPut, Path: "/sync-settings", Handler: a.updateSyncSettings},
 
 		{Method: http.MethodGet, Path: "/events", Handler: a.listEvents},
 		{Method: http.MethodPost, Path: "/events", Handler: a.createEvent},
@@ -139,6 +145,7 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/videos/{id}/merges", Handler: a.uploadMerges},
 		{Method: http.MethodPost, Path: "/videos/{id}/merge", Handler: a.mergeVideo},
 		{Method: http.MethodPost, Path: "/videos/{id}/unmerge", Handler: a.unmergeVideo},
+		{Method: http.MethodPost, Path: "/videos/{id}/separate", Handler: a.keepVideoSeparate},
 
 		{Method: http.MethodGet, Path: "/translations", Handler: a.translationSummary},
 		{Method: http.MethodPost, Path: "/translations/request", Handler: a.requestTranslations},

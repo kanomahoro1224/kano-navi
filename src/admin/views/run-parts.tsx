@@ -1,6 +1,5 @@
 import type { ComponentType, SVGProps } from "react"
 import {
-  AtSign,
   Check,
   CircleDashed,
   Combine,
@@ -23,10 +22,14 @@ import type { Run, RunWindow } from "@/admin/types"
 import type { Translator } from "@/types"
 import { StatusBadge, Spinner } from "@/admin/ui"
 import { cn } from "@/lib/utils"
-import { BilibiliLogo, YouTubeLogo } from "@/site/links"
+import { BilibiliLogo, XLogo, YouTubeLogo } from "@/site/links"
 
 // lucide-react 1.x has no brand icons. The board's logos take lucide's
 // default 24px size so unstyled icon slots render them the same way.
+function XIcon(props: SVGProps<SVGSVGElement>) {
+  return <XLogo width={24} height={24} {...props} />
+}
+
 function YouTubeIcon(props: SVGProps<SVGSVGElement>) {
   return <YouTubeLogo width={24} height={24} {...props} />
 }
@@ -35,11 +38,11 @@ export function BilibiliIcon(props: SVGProps<SVGSVGElement>) {
   return <BilibiliLogo width={24} height={24} {...props} />
 }
 
-/** Lucide icons and the YouTube logo, used as `<Icon aria-hidden />`. */
+/** Lucide icons and the platform logos, used as `<Icon aria-hidden />`. */
 type StepIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>
 
 export const stepIcons: Record<string, StepIcon> = {
-  x: AtSign,
+  x: XIcon,
   youtube: YouTubeIcon,
   bilibili: BilibiliIcon,
   media: ImageDown,
@@ -138,6 +141,41 @@ export function stepResult(run: Run, step: string): unknown {
 }
 
 /**
+ * A run as plain text for diagnosing it elsewhere, such as with a coding
+ * agent: a summary with each step's outcome and error code, then the whole
+ * stored run. It keeps codes and English labels rather than the console's
+ * words so the text matches the source.
+ */
+export function runDiagnostics(run: Run) {
+  const lines = [
+    `Kano Navi run ${run.id}`,
+    [
+      `Kind: ${run.kind}`,
+      `outcome: ${runOutcome(run)}`,
+      `triggered by: ${run.triggeredBy}`,
+      ...(run.sourceSchedule ? [`source: ${run.sourceSchedule}`] : []),
+    ].join("; "),
+    `Queued ${run.createdAt}; started ${run.startedAt ?? "-"}; finished ${run.finishedAt ?? "-"}`,
+  ]
+  if (run.error) lines.push(`Error: ${run.error}`)
+  if (run.run?.message && run.run.message !== run.error)
+    lines.push(`Message: ${run.run.message}`)
+  lines.push("Steps:")
+  for (const step of run.steps) {
+    const result = stepResult(run, step) as
+      { error?: unknown; errors?: unknown } | undefined
+    const codes = [
+      result?.error,
+      ...(Array.isArray(result?.errors) ? result.errors : []),
+    ].filter((code): code is string => typeof code === "string")
+    const suffix = codes.length ? ` (${[...new Set(codes)].join(", ")})` : ""
+    lines.push(`- ${step}: ${run.progress[step] || "pending"}${suffix}`)
+  }
+  lines.push("", "Stored run:", "```json", JSON.stringify(run, null, 2), "```")
+  return lines.join("\n")
+}
+
+/**
  * A run's source window in words: the method, the mode and its count, days
  * or dates.
  */
@@ -203,10 +241,15 @@ export function RunLine({
   run,
   onOpen,
   selected,
+  href,
+  onFollow,
 }: {
   run: Run
   onOpen?: () => void
   selected?: boolean
+  /** A link to the run elsewhere; a plain click calls onFollow instead. */
+  href?: string
+  onFollow?: () => void
 }) {
   const { t, locale } = useAppSettings()
   const outcome = runOutcome(run)
@@ -238,6 +281,29 @@ export function RunLine({
       <StatusBadge status={outcome} />
     </>
   )
+  if (href)
+    return (
+      <a
+        className="adm-run-line"
+        href={href}
+        onClick={(event) => {
+          // Modified clicks keep the browser's own new-tab behaviour.
+          if (
+            !onFollow ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return
+          event.preventDefault()
+          onFollow()
+        }}
+      >
+        {content}
+      </a>
+    )
   return onOpen ? (
     <button
       type="button"

@@ -821,6 +821,112 @@
   color: color-mix(in oklab, var(--adm-accent) 80%, var(--adm-text));
 }
 
+/* A filter that opens its own list of choices. The pill is the button; the
+   list hangs under it on the raised surface. */
+.adm-filter-pill.adm-select {
+  padding: 0;
+}
+
+.adm-select > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 12px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.adm-select > button:focus-visible {
+  outline: none;
+}
+
+.adm-select-value {
+  max-width: 220px;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+}
+
+.adm-select > button > svg {
+  width: 14px;
+  height: 14px;
+  color: var(--adm-muted);
+  transition: transform 140ms ease;
+}
+
+.adm-select.is-open > button > svg {
+  transform: rotate(180deg);
+}
+
+.adm-select.is-active > button > svg {
+  color: color-mix(in oklab, var(--adm-accent) 80%, var(--adm-text));
+}
+
+.adm-select-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  gap: 1px;
+  min-width: max(100%, 180px);
+  max-height: 300px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+  box-shadow: var(--shadow-lg);
+  list-style: none;
+  outline: none;
+  animation: adm-select-in 120ms ease-out;
+}
+
+.adm-select-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: calc(var(--adm-radius-sm) - 2px);
+  color: var(--adm-text);
+  cursor: pointer;
+}
+
+.adm-select-list li.is-cursor {
+  background: var(--adm-sunken);
+}
+
+.adm-select-list li[aria-selected="true"] {
+  color: color-mix(in oklab, var(--adm-accent) 80%, var(--adm-text));
+  font-weight: 650;
+}
+
+.adm-select-list li > svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+@keyframes adm-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-select-list {
+    animation: none;
+  }
+}
+
 .adm-filter-pill.is-toggle {
   font-weight: 600;
 }
@@ -1248,7 +1354,7 @@
 
 .adm-main {
   width: 100%;
-  max-width: 1240px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 28px 32px 64px;
 }
@@ -1324,38 +1430,21 @@
   color: var(--adm-accent);
 }
 
-/* Sources page: a tab per source, then the selected source's timer switch
-   and method chain on the left, its settings beside them and its manual fetch
-   below the settings. The chain spans both rows, so a tall chain leaves its
-   extra height to the fetch row. */
-.adm-sources-layout {
-  display: grid;
-  grid-template-columns: minmax(270px, 320px) minmax(0, 1fr);
-  grid-template-rows: auto 1fr;
-  grid-template-areas:
-    "rail detail"
-    "rail fetch";
-  align-items: start;
-  gap: 20px;
-}
-
-.adm-source-rail {
-  display: grid;
-  grid-area: rail;
-  gap: 12px;
-  min-width: 0;
-}
-
-.adm-source-fetch {
-  grid-area: fetch;
-  min-width: 0;
-}
-
 .adm-source-tabs button {
   gap: 10px;
-  min-height: 60px;
+  min-height: 56px;
   padding: 8px 18px 8px 12px;
   text-align: left;
+}
+
+.adm-source-tabs button strong {
+  font-size: 15px;
+}
+
+.adm-shell .adm-source-tabs .adm-source-lock {
+  width: 13px;
+  height: 13px;
+  color: var(--adm-muted);
 }
 
 .adm-source-tabs button:hover {
@@ -1396,54 +1485,6 @@
   color: var(--adm-muted);
 }
 
-.adm-source-tabs .adm-source-name strong {
-  font-size: 15px;
-}
-
-.adm-source-tabs .adm-source-name small {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 500;
-}
-
-.adm-shell .adm-source-tabs .adm-source-name small svg {
-  width: 12px;
-  height: 12px;
-}
-
-.adm-source-tabs .is-active .adm-source-name small {
-  color: color-mix(in oklab, var(--adm-accent) 75%, var(--adm-text));
-}
-
-.adm-chain-body {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-.adm-chain-hint {
-  margin: 0;
-  color: var(--adm-muted);
-  font-size: 12px;
-}
-
-.adm-source-name {
-  display: grid;
-  flex: 1;
-  min-width: 0;
-}
-
-.adm-source-name strong {
-  font-size: 16px;
-  font-weight: 750;
-}
-
-.adm-source-name small {
-  color: var(--adm-muted);
-  font-size: 12px;
-}
-
 .adm-source-note {
   display: flex;
   align-items: flex-start;
@@ -1472,6 +1513,10 @@
   list-style: none;
 }
 
+.adm-panel > .adm-confirm-steps {
+  margin-top: 18px;
+}
+
 .adm-confirm-step + .adm-confirm-step {
   border-top: 1px solid var(--adm-line);
 }
@@ -1491,11 +1536,18 @@
   padding-bottom: 0;
 }
 
-.adm-confirm-step header {
+.adm-confirm-head {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 12px;
+}
+
+.adm-confirm-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 }
 
 .adm-confirm-step h4 {
@@ -1504,14 +1556,8 @@
   font-weight: 750;
 }
 
-.adm-confirm-step header p {
-  max-width: 64ch;
-  margin: 4px 0 0;
-  color: var(--adm-muted);
-  font-size: 13px;
-}
-
-.adm-confirm-mark {
+.adm-confirm-mark,
+.adm-confirm-step .adm-fold-mark {
   display: inline-grid;
   place-items: center;
   width: 30px;
@@ -1521,7 +1567,8 @@
   color: var(--adm-accent);
 }
 
-.adm-shell .adm-confirm-mark svg {
+.adm-shell .adm-confirm-mark svg,
+.adm-shell .adm-confirm-step .adm-fold-mark svg {
   width: 16px;
   height: 16px;
 }
@@ -1532,41 +1579,499 @@
   list-style: none;
 }
 
-.adm-source-detail {
+/* Sources page: the selected source's summary across the top, then its
+   settings in the main column and its manual fetch beside them. */
+.adm-source-page {
   display: grid;
-  grid-area: detail;
-  gap: 16px;
+  gap: 20px;
+}
+
+.adm-sources-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  align-items: start;
+  gap: 20px;
+}
+
+/* Facts under a panel title keep the panel's spacing. */
+.adm-source-aside .adm-panel > .adm-facts:not(:first-child) {
+  margin-top: 16px;
+}
+
+.adm-source-main,
+.adm-source-aside {
+  display: grid;
+  gap: 20px;
   min-width: 0;
 }
 
-.adm-source-header {
+.adm-source-summary {
+  display: grid;
+  gap: 16px;
+}
+
+.adm-panel.adm-source-summary > * + * {
+  margin-top: 0;
+}
+
+.adm-source-summary-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 12px;
+  gap: 12px 14px;
 }
 
-.adm-source-header h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 18px;
-  font-weight: 750;
-}
-
-.adm-source-header h2 svg {
-  width: 20px;
-  height: 20px;
+.adm-source-summary-head .adm-source-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--adm-accent-soft);
   color: var(--adm-accent);
 }
 
-.adm-source-header p {
-  /* A max-width would let the hint share the heading line. */
-  flex-basis: 100%;
+.adm-shell .adm-source-summary-head .adm-source-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.adm-source-summary-title {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.adm-source-summary-title h2 {
   margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.adm-source-summary-title p {
+  margin: 2px 0 0;
   color: var(--adm-muted);
   font-size: 13px;
+}
+
+.adm-source-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+/* The summary's numbers as one ruled strip. */
+.adm-source-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-source-stats > div {
+  min-width: 0;
+  padding: 14px 16px 0;
+}
+
+.adm-source-stats > div:first-child {
+  padding-left: 0;
+}
+
+.adm-source-stats > div + div {
+  border-left: 1px solid var(--adm-line);
+}
+
+.adm-source-stats dt {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-source-stats dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* A long timer state wraps inside its column. */
+.adm-source-stats .adm-badge {
+  max-width: 100%;
+  padding-block: 4px;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.adm-source-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--adm-line-strong);
+}
+
+.adm-source-dot.is-running {
+  background: var(--leaf);
+}
+
+.adm-source-dot.is-blocked {
+  background: var(--honey);
+}
+
+/* Timed reads: the interval row, the method chain and X's API fallback as
+   ruled sections of one form with one Save. */
+.adm-timed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  align-items: start;
+  gap: 14px 18px;
+}
+
+.adm-timed-section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid var(--adm-line);
+}
+
+/* A legend does not lay out inside a grid fieldset; floating it does. */
+.adm-timed-section > legend {
+  display: flex;
+  float: left;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.adm-timed-section > legend + * {
+  clear: both;
+}
+
+.adm-timed-section > .adm-field-hint {
+  max-width: 72ch;
+  margin: 0;
+}
+
+.adm-timed-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0 -20px -20px;
+  padding: 12px 20px;
+  border-top: 1px solid transparent;
+  border-radius: 0 0 var(--adm-radius) var(--adm-radius);
+  background: var(--adm-surface);
+}
+
+.adm-timed-actions.is-dirty {
+  border-top-color: var(--adm-line);
+  box-shadow: 0 -6px 16px -12px rgb(0 0 0 / 0.35);
+}
+
+/* A question mark beside a section title opens its explanation. */
+.adm-shell .adm-help-button {
+  width: 24px;
+  height: 24px;
+}
+
+.adm-shell .adm-help-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* A field label with its question mark. */
+.adm-label-help {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.adm-shell .adm-label-help .adm-help-button {
+  margin-block: -4px;
+}
+
+.adm-help {
+  display: grid;
+  gap: 12px;
+  max-width: 60ch;
+  color: var(--adm-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.adm-help p {
+  margin: 0;
+}
+
+.adm-help-terms {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.adm-help-terms dt {
+  margin-top: 8px;
+  color: var(--adm-text);
+  font-weight: 650;
+}
+
+.adm-help-terms dd {
+  margin: 0;
+}
+
+/* Counts against their limits: today's X API posts and each account's
+   timeline failures before the X API opens. */
+.adm-meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-meter {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-sunken);
+}
+
+.adm-meter-label {
+  overflow: hidden;
+  color: var(--adm-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-meter-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-meter-value strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.adm-meter-value small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-meter-bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--adm-line-strong) 70%, transparent);
+}
+
+.adm-meter-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--leaf);
+}
+
+.adm-meter.is-full .adm-meter-bar i {
+  background: var(--honey);
+}
+
+/* Limits in a narrow column: one field per row, the label beside its
+   input and the hint below both. */
+.adm-limit-rows {
+  display: grid;
+}
+
+.adm-field.adm-limit-row {
+  grid-template-columns: minmax(0, 1fr) 112px;
+  grid-template-areas:
+    "label input"
+    "hint hint";
+  align-items: center;
+  gap: 4px 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-field.adm-limit-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.adm-limit-row > .adm-field-label {
+  grid-area: label;
+}
+
+.adm-limit-row > input {
+  grid-area: input;
+}
+
+.adm-limit-row > .adm-field-hint {
+  grid-area: hint;
+}
+
+/* Read limits split by the runs they bound. */
+.adm-sync-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.adm-sync-section + .adm-sync-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-sync-section > legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.adm-sync-section > legend + * {
+  clear: both;
+}
+
+/* A folded section: a header row of icon, title, controls and chevron
+   that opens onto its body. As a panel the body sits below a rule; inside
+   the progressive confirmation it follows the step's header. */
+.adm-fold-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.adm-fold-mark {
+  display: inline-grid;
+  place-items: center;
+}
+
+.adm-shell .adm-fold-mark svg {
+  width: 18px;
+  height: 18px;
+  color: var(--adm-accent);
+}
+
+.adm-fold-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.adm-fold-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adm-fold-name :is(h3, h4) {
+  min-width: 0;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.adm-fold-name button {
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.adm-fold-name button:focus-visible {
+  outline: none;
+  box-shadow: var(--adm-focus);
+}
+
+.adm-fold-title small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-fold-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.adm-shell .adm-fold-chevron {
+  width: 18px;
+  height: 18px;
+  color: var(--adm-muted);
+  transition: transform 0.15s ease;
+}
+
+.adm-fold.is-open .adm-fold-chevron {
+  transform: rotate(180deg);
+}
+
+.adm-panel.adm-fold {
+  padding: 0;
+}
+
+.adm-panel.adm-fold > * + * {
+  margin-top: 0;
+}
+
+.adm-panel.adm-fold > .adm-fold-head {
+  padding: 16px 20px;
+}
+
+.adm-panel.adm-fold > .adm-fold-body {
+  padding: 18px 20px 20px;
+  border-top: 1px solid var(--adm-line);
+}
+
+/* A panel inside a fold lays out flat. */
+.adm-fold-body > .adm-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.adm-fold-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.adm-confirm-step .adm-fold-name h4 {
+  font-size: 14px;
 }
 
 .adm-panel-header p {
@@ -1679,16 +2184,90 @@
   padding-top: 4px;
 }
 
+/* The pager: the total, page numbers around the current page with the first
+   and last, and a jump to any page. It wraps on narrow screens. */
 .adm-pager,
 .adm-pager-total {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
-  margin: 12px 0 0;
+  gap: 8px 16px;
+  margin: 16px 0 0;
   color: var(--adm-muted);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+}
+
+.adm-pager-count {
+  margin-right: auto;
+}
+
+.adm-pager-pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.adm-pager-page {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--adm-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.adm-pager-page:hover {
+  background: var(--adm-sunken);
+}
+
+.adm-pager-page[aria-current="page"] {
+  border-color: color-mix(in oklab, var(--adm-accent) 45%, transparent);
+  background: var(--adm-accent-soft);
+  color: color-mix(in oklab, var(--adm-accent) 80%, var(--adm-text));
+  cursor: default;
+}
+
+.adm-pager-gap {
+  min-width: 20px;
+  text-align: center;
+}
+
+.adm-pager-jump {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-pager-jump label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-shell .adm-pager-jump input {
+  width: 64px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 999px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+}
+
+.adm-pager-jump input::-webkit-inner-spin-button,
+.adm-pager-jump input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
 }
 
 /* --------------------------------------------------------------- overview */
@@ -1907,7 +2486,12 @@ button.adm-run-line {
   cursor: pointer;
 }
 
-button.adm-run-line:hover {
+a.adm-run-line {
+  text-decoration: none;
+}
+
+button.adm-run-line:hover,
+a.adm-run-line:hover {
   background: var(--adm-sunken);
 }
 
@@ -1945,8 +2529,78 @@ button.adm-run-line:hover {
 
 .adm-run-detail {
   display: grid;
+  gap: 12px;
+  padding: 2px 12px 14px 56px;
+}
+
+/* Wide screens keep the history list and the open run side by side. */
+.adm-runs.is-split {
+  display: grid;
+  grid-template-columns: minmax(340px, 5fr) minmax(0, 7fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.adm-runs-list {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adm-runs.is-split .adm-run-line {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px 12px;
+}
+
+.adm-runs.is-split .adm-run-line .adm-steps {
+  grid-column: 2 / -1;
+  grid-row: 2;
+}
+
+.adm-runs.is-split .adm-run-item.is-open {
+  border-color: color-mix(in oklab, var(--adm-accent) 45%, var(--adm-line));
+  background: color-mix(in oklab, var(--adm-accent) 7%, transparent);
+}
+
+.adm-runs-pane {
+  position: sticky;
+  top: 76px;
+  max-height: calc(100vh - 92px);
+  overflow: auto;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+}
+
+.adm-runs-pane .adm-run-detail {
   gap: 14px;
-  padding: 4px 14px 16px 56px;
+  padding: 16px;
+}
+
+.adm-run-detail-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.adm-run-detail-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.adm-run-times {
+  margin: 0;
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-shell .adm-diagnostics {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
 }
 
 .adm-problems {
@@ -1973,44 +2627,68 @@ button.adm-run-line:hover {
   font-size: 11.5px;
 }
 
-.adm-step-cards {
+.adm-step-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: 6px;
 }
 
-.adm-step-card {
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  min-width: 0;
-  padding: 12px 14px;
-  border: 1px solid var(--adm-line);
-  border-top: 3px solid var(--tone-line);
-  border-radius: var(--adm-radius-sm);
-  background: var(--adm-surface);
-}
-
-.adm-step-card > header {
+.adm-step-list > header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px 8px;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.adm-step-card > header strong {
-  margin-right: auto;
+.adm-step-list h3 {
+  margin: 0;
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.adm-step-card > header small {
-  flex-basis: 100%;
+.adm-step-list .adm-filter-reset {
+  height: 28px;
+  padding: 0 8px;
   font-size: 12px;
 }
 
-.adm-step-card-icon {
+.adm-step-list ol {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+  list-style: none;
+}
+
+.adm-step-row + .adm-step-row {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-step-row-head {
+  display: grid;
+  grid-template-columns: auto minmax(132px, 1fr) minmax(0, 2fr) auto 16px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.adm-step-row-head {
+  cursor: pointer;
+}
+
+button.adm-step-row-head:hover {
+  background: var(--adm-sunken);
+}
+
+.adm-step-row-icon {
   display: inline-grid;
   place-items: center;
   width: 26px;
@@ -2020,9 +2698,60 @@ button.adm-run-line:hover {
   color: var(--tone);
 }
 
-.adm-shell .adm-step-card-icon svg {
+.adm-shell .adm-step-row-icon svg {
   width: 14px;
   height: 14px;
+}
+
+.adm-step-row-name {
+  display: grid;
+  min-width: 0;
+}
+
+.adm-step-row-name strong {
+  font-size: 13px;
+}
+
+.adm-step-row-name small {
+  color: var(--adm-muted);
+  font-size: 11.5px;
+}
+
+.adm-step-row-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  min-width: 0;
+  color: var(--adm-muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-step-row-summary b {
+  color: var(--adm-text);
+  font-weight: 700;
+}
+
+.adm-step-row-summary [class*="adm-tone-"],
+.adm-step-row-summary [class*="adm-tone-"] b {
+  color: color-mix(in oklab, var(--tone) 85%, var(--adm-text));
+}
+
+.adm-step-row-chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--adm-muted);
+  transition: transform 140ms ease;
+}
+
+.adm-step-row.is-open .adm-step-row-chevron {
+  transform: rotate(180deg);
+}
+
+.adm-step-details {
+  display: grid;
+  gap: 10px;
+  padding: 2px 12px 12px 48px;
 }
 
 .adm-code-line {
@@ -2043,41 +2772,46 @@ button.adm-run-line:hover {
   flex: 1 1 160px;
 }
 
-.adm-metrics {
+/* A step's counts as label/value lines; zeros recede. */
+.adm-kv {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0 18px;
   margin: 0;
 }
 
-.adm-metrics > div {
+.adm-kv > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
   min-width: 0;
-  padding: 6px 8px;
-  border-radius: 8px;
-  background: var(--adm-sunken);
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--adm-line);
+  font-size: 12.5px;
 }
 
-.adm-metrics > div[class*="adm-tone-"] {
-  background: var(--tone-soft);
-}
-
-.adm-metrics dt {
+.adm-kv dt {
   overflow: hidden;
   color: var(--adm-muted);
-  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.adm-metrics dd {
+.adm-kv dd {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
+  text-align: right;
   overflow-wrap: anywhere;
 }
 
-.adm-metrics > div[class*="adm-tone-"] dd {
+.adm-kv > .is-zero dd {
+  color: var(--adm-muted);
+  font-weight: 500;
+}
+
+.adm-kv > div[class*="adm-tone-"] dd {
   color: color-mix(in oklab, var(--tone) 85%, var(--adm-text));
 }
 
@@ -2169,6 +2903,20 @@ button.adm-run-line:hover {
 
 .adm-records tr.is-failed td {
   background: color-mix(in oklab, var(--danger) 7%, transparent);
+}
+
+.adm-retention-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 260px));
+  gap: 12px 16px;
+}
+
+.adm-retention-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
 }
 
 .adm-step-picker {
@@ -2498,40 +3246,43 @@ blockquote.adm-verdict-reason {
 }
 
 /*
- * The posts table: account, text, image, extraction state, route and actions
- * per row. It follows its own width, which the sidebar and viewport both
- * change: a medium table moves the account above the text, a narrow one
- * stacks the row.
+ * The posts feed: one row of columns per post, separated by rules: who and
+ * when, the wording and quote, the post's own images, its translations, its
+ * extraction state and its actions. The fixed columns keep the right edge,
+ * so they line up from post to post while the wording takes the rest. A
+ * feed under 1000px puts who and when, the state and the actions on one line
+ * above the wording, images and translations; under 560px the state gets a
+ * line of its own.
  */
-.adm-table {
+.adm-post-feed {
   display: grid;
+  margin: 0 -8px;
+  padding: 0;
+  list-style: none;
+  container: post-feed / inline-size;
 }
 
-.adm-post-table {
-  container-type: inline-size;
-}
-
-.adm-post-table-row {
+.adm-post {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr) 56px 130px 150px 72px;
-  grid-template-areas: "origin body image state route actions";
-  align-items: center;
+  grid-template-columns: 112px minmax(0, 1fr) auto 168px 136px auto;
+  grid-template-areas: "origin body media translation state controls";
+  align-items: start;
   gap: 16px;
-  padding: 12px 4px;
+  min-width: 0;
+  padding: 12px 8px;
+  border-radius: var(--adm-radius-sm);
+  transition: background 140ms ease;
 }
 
-.adm-post-table-row + .adm-post-table-row {
+.adm-post + .adm-post {
   border-top: 1px solid var(--adm-line);
 }
 
-.adm-table-head {
-  padding-block: 0 10px;
-  color: var(--adm-muted);
-  font-size: 12px;
-  font-weight: 600;
+.adm-post:hover {
+  background: color-mix(in oklab, var(--adm-sunken) 55%, transparent);
 }
 
-.adm-post-table .adm-post-origin {
+.adm-post-origin {
   display: grid;
   grid-area: origin;
   gap: 2px;
@@ -2553,33 +3304,105 @@ blockquote.adm-verdict-reason {
   display: grid;
   grid-area: body;
   justify-items: start;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
+}
+
+.adm-post.is-hidden .adm-post-body {
+  opacity: 0.6;
 }
 
 .adm-post-body .adm-post-text {
   -webkit-line-clamp: 3;
   font-size: 14px;
+  line-height: 1.6;
 }
 
-.adm-post-image {
-  grid-area: image;
+.adm-post-media {
+  display: flex;
+  gap: 6px;
+}
+
+.adm-post > .adm-post-media {
+  grid-area: media;
+}
+
+.adm-post-translation {
+  grid-area: translation;
+  min-width: 0;
+}
+
+.adm-post-state {
+  grid-area: state;
+  gap: 4px;
+}
+
+.adm-post-controls {
+  display: flex;
+  grid-area: controls;
+  align-items: center;
+  gap: 2px;
+  margin-top: -4px;
+}
+
+@container post-feed (max-width: 1000px) {
+  .adm-post {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "origin state controls"
+      "body body body";
+    gap: 8px 12px;
+  }
+
+  /* Placed in order under the wording, so a post without images leaves no
+     empty row. */
+  .adm-post > .adm-post-media,
+  .adm-post-translation {
+    grid-area: auto;
+    grid-column: 1 / -1;
+  }
+
+  .adm-post-origin {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 8px;
+    align-self: center;
+  }
+
+  .adm-post-state {
+    align-self: center;
+  }
+
+  .adm-post-controls {
+    margin-top: 0;
+  }
+}
+
+@container post-feed (max-width: 560px) {
+  .adm-post {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "origin controls"
+      "state state"
+      "body body";
+  }
 }
 
 /*
- * A quoted post nests under the post's wording, indented on the sunken
- * surface so its images never read as the post's own. A hidden quote dims
- * its content and keeps a dashed edge.
+ * A quoted post is an embedded card under the post's wording, on the sunken
+ * surface so its images never read as the post's own: the author line with
+ * the quote's icon actions at its end, the wording folded to three lines
+ * behind a toggle, then its thumbnails. A hidden quote keeps a dashed edge
+ * and dims its content.
  */
 .adm-post-quote {
   display: grid;
   justify-self: stretch;
   gap: 6px;
   min-width: 0;
-  margin-left: 8px;
-  padding: 8px 10px;
+  padding: 6px 6px 10px 12px;
   border: 1px solid var(--adm-line);
-  border-left: 3px solid var(--adm-line-strong);
   border-radius: var(--adm-radius-sm);
   background: var(--adm-sunken);
   font-size: 13px;
@@ -2587,10 +3410,10 @@ blockquote.adm-verdict-reason {
 
 .adm-post-quote.is-hidden {
   border-style: dashed;
-  border-left-style: solid;
 }
 
-.adm-post-quote.is-hidden :is(.adm-post-quote-text, .adm-post-quote-media) {
+.adm-post-quote.is-hidden
+  :is(.adm-post-quote-author, .adm-post-quote-text, .adm-post-quote-media) {
   opacity: 0.6;
 }
 
@@ -2598,7 +3421,7 @@ blockquote.adm-verdict-reason {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 6px;
+  gap: 4px 8px;
   min-width: 0;
   color: var(--adm-muted);
   font-size: 12px;
@@ -2608,10 +3431,6 @@ blockquote.adm-verdict-reason {
   width: 14px;
   height: 14px;
   flex: none;
-}
-
-.adm-post-quote-kicker {
-  font-weight: 600;
 }
 
 .adm-post-quote-author {
@@ -2624,17 +3443,69 @@ blockquote.adm-verdict-reason {
 
 .adm-post-quote-author strong {
   color: var(--adm-text);
+  font-size: 13px;
   overflow-wrap: anywhere;
+}
+
+.adm-post-quote-author time {
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-post-quote-actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.adm-post-quote-actions .adm-icon-button {
+  width: 28px;
+  height: 28px;
+}
+
+.adm-post-quote-actions .adm-icon-button svg {
+  width: 15px;
+  height: 15px;
 }
 
 .adm-post-quote-text {
   display: -webkit-box;
   margin: 0;
+  padding-right: 6px;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+  line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.adm-post-quote-text.is-expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.adm-post-quote-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: color-mix(in oklab, var(--adm-accent) 80%, var(--adm-text));
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.adm-post-quote-toggle:hover {
+  text-decoration: underline;
+}
+
+.adm-post-quote-toggle svg {
+  width: 14px;
+  height: 14px;
 }
 
 .adm-post-quote-missing {
@@ -2650,25 +3521,18 @@ blockquote.adm-verdict-reason {
 }
 
 .adm-post-quote-media .adm-post-thumb {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
 }
 
-.adm-post-quote-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-}
-
-/* A square crop of the first cached image; the count marks more images. */
+/* A square crop of a cached image; the count marks images left out. */
 .adm-post-thumb {
   position: relative;
   display: grid;
   place-items: center;
   overflow: hidden;
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   padding: 0;
   border: 1px solid var(--adm-line);
   border-radius: var(--adm-radius-sm);
@@ -2698,7 +3562,7 @@ blockquote.adm-verdict-reason {
   position: absolute;
   right: 3px;
   bottom: 3px;
-  padding: 0 4px;
+  padding: 0 5px;
   border-radius: 999px;
   background: var(--adm-surface);
   color: var(--adm-text);
@@ -2707,11 +3571,43 @@ blockquote.adm-verdict-reason {
   line-height: 16px;
 }
 
-.adm-post-no-image {
+/* The post dialog shows the post in full, with larger images. */
+.adm-post-editor .adm-modal-content {
   display: grid;
-  place-items: center;
-  width: 56px;
+  gap: 14px;
+}
+
+.adm-post-editor-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.adm-post-editor .adm-post-media {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adm-post-editor .adm-post-media .adm-post-thumb {
+  width: 120px;
+  height: 120px;
+}
+
+.adm-post-editor-section {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-post-editor-section h3 {
+  margin: 0;
   color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 /* The in-page post image viewer: one image at a time, fitted to the screen. */
@@ -2757,129 +3653,6 @@ blockquote.adm-verdict-reason {
   color: var(--adm-muted);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
-}
-
-.adm-post-state {
-  grid-area: state;
-}
-
-.adm-post-route {
-  grid-area: route;
-}
-
-.adm-post-table .adm-post-route select {
-  height: 32px;
-  font-size: 13px;
-}
-
-.adm-post-controls {
-  display: flex;
-  grid-area: actions;
-  align-items: center;
-  gap: 4px;
-}
-
-@container (max-width: 900px) {
-  .adm-post-table-row {
-    grid-template-columns: minmax(0, 1fr) 56px 130px 150px 72px;
-    grid-template-rows: auto 1fr;
-    grid-template-areas:
-      "origin image state route actions"
-      "body image state route actions";
-    row-gap: 4px;
-  }
-
-  .adm-table-head > :first-child {
-    display: none;
-  }
-
-  .adm-post-table .adm-post-origin {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 2px 10px;
-  }
-
-  .adm-post-body {
-    align-self: start;
-  }
-}
-
-@container (max-width: 640px) {
-  .adm-post-table-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: none;
-    grid-template-areas:
-      "origin state"
-      "body image"
-      "route actions";
-    gap: 8px 12px;
-  }
-
-  .adm-post-table-row.adm-table-head {
-    display: none;
-  }
-
-  .adm-post-table-row:nth-child(2) {
-    border-top: 0;
-  }
-
-  .adm-post-state,
-  .adm-post-controls {
-    justify-content: flex-end;
-  }
-
-  .adm-post-image {
-    align-self: start;
-    justify-self: end;
-  }
-
-  .adm-post-table .adm-post-route select {
-    max-width: 220px;
-  }
-}
-
-/*
- * A row with a quoted post gives the quote its own cell under the wording,
- * which spans the row once the image moves beside the wording.
- */
-.adm-post-quote-cell {
-  grid-area: quote;
-  min-width: 0;
-}
-
-.adm-post-table-row:has(> .adm-post-quote-cell) {
-  grid-template-areas:
-    "origin body image state route actions"
-    "origin quote image state route actions";
-  row-gap: 8px;
-}
-
-@container (max-width: 900px) {
-  .adm-post-table-row:has(> .adm-post-quote-cell) {
-    grid-template-rows: auto auto 1fr;
-    grid-template-areas:
-      "origin image state route actions"
-      "body image state route actions"
-      "quote image state route actions";
-    row-gap: 4px;
-  }
-}
-
-@container (max-width: 640px) {
-  .adm-post-table-row:has(> .adm-post-quote-cell) {
-    grid-template-rows: none;
-    grid-template-areas:
-      "origin state"
-      "body image"
-      "quote quote"
-      "route actions";
-    gap: 8px 12px;
-  }
-
-  .adm-post-quote {
-    margin-left: 0;
-  }
 }
 
 /* --------------------------------------------------------------- schedule */
@@ -3786,35 +4559,13 @@ blockquote.adm-verdict-reason {
 }
 
 /* Rule suggestions above the list: each upload with its YouTube candidates. */
-.adm-merge-suggestions {
+/* The Review queue's merge decisions: each upload beside its candidates. */
+.adm-merge-queue {
   display: grid;
-  gap: 10px;
-  margin-bottom: 16px;
-  padding: 12px;
-  border: 1px solid var(--adm-line);
-  border-radius: var(--adm-radius-sm);
-  background: var(--adm-sunken);
+  gap: 12px;
 }
 
-.adm-merge-suggestions h3 {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  font-size: 13px;
-}
-
-.adm-merge-suggestions h3 svg {
-  width: 15px;
-  height: 15px;
-}
-
-.adm-merge-suggestions p {
-  margin: 0;
-  font-size: 12px;
-}
-
-.adm-merge-suggestions > ol {
+.adm-merge-queue > ol {
   display: grid;
   gap: 10px;
   margin: 0;
@@ -3826,7 +4577,8 @@ blockquote.adm-verdict-reason {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
   gap: 12px;
-  padding: 10px;
+  padding: 12px;
+  border: 1px solid var(--adm-line);
   border-radius: var(--adm-radius-sm);
   background: var(--adm-surface);
 }
@@ -4118,103 +4870,367 @@ blockquote.adm-verdict-reason {
   font-weight: 600;
 }
 
-.adm-profile-current {
+.adm-profile-preview-panel {
+  container-type: inline-size;
+}
+
+/* The board's profile card at its own size, beside what each slot uses. */
+.adm-profile-preview {
   display: grid;
-  place-items: center;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
+}
+
+.adm-profile-card {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
   overflow: hidden;
+  padding-bottom: 18px;
   border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: hsl(var(--background));
+  box-shadow: var(--shadow-sm);
+}
+
+.adm-profile-card-banner {
+  width: 100%;
+  height: 128px;
   background: var(--adm-sunken);
+}
+
+.adm-profile-card-banner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 30%;
+}
+
+.adm-profile-card-avatar {
+  width: 84px;
+  height: 84px;
+  margin: -42px 0 4px 18px;
+  border: 4px solid hsl(var(--background));
+  border-radius: 50%;
+  background: var(--adm-sunken);
+  object-fit: cover;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Placeholder lines where the card shows the name and catchphrase. */
+.adm-profile-card-line {
+  width: 58%;
+  height: 12px;
+  margin-left: 18px;
+  border-radius: 999px;
+  background: var(--adm-sunken);
+}
+
+.adm-profile-card-line.is-short {
+  width: 36%;
+  height: 9px;
+}
+
+.adm-profile-slots {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.adm-profile-slots > div {
+  display: grid;
+  gap: 8px;
+  padding: 14px 0;
+}
+
+.adm-profile-slots > div + div {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-profile-slots dt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.adm-profile-slots dt svg {
+  width: 16px;
+  height: 16px;
+  color: var(--adm-accent);
+}
+
+.adm-profile-slots dt small,
+.adm-profile-slots dd small {
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-profile-slots dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0;
+}
+
+.adm-profile-count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--adm-sunken);
+  color: var(--adm-text);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 750;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* The Add dialog's tabs: a profile fetch, or an image URL or file. */
+.adm-profile-add {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.adm-profile-add > p {
+  margin: 0;
   color: var(--adm-muted);
   font-size: 13px;
 }
 
-.adm-profile-current.is-avatar {
-  width: 112px;
-  height: 112px;
-  border-radius: 50%;
+.adm-profile-add-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
 }
 
-.adm-profile-current.is-banner {
-  aspect-ratio: 3 / 1;
+.adm-profile-add .adm-segmented {
+  background: var(--adm-surface);
+  box-shadow: inset 0 0 0 1px var(--adm-line);
+}
+
+.adm-profile-add .adm-segmented button {
+  min-width: 64px;
+  justify-content: center;
+}
+
+.adm-profile-add .adm-segmented button.is-active {
+  background: var(--adm-accent-soft);
+  color: var(--adm-accent);
+  box-shadow: none;
+}
+
+.adm-profile-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-profile-or::before,
+.adm-profile-or::after {
+  flex: 1;
+  height: 1px;
+  background: var(--adm-line);
+  content: "";
+}
+
+.adm-profile-drop {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 28px 16px;
+  border: 1.5px dashed var(--adm-line-strong);
   border-radius: var(--adm-radius-sm);
+  background: var(--adm-sunken);
+  color: var(--adm-text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
-.adm-profile-current img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.adm-profile-drop svg {
+  width: 22px;
+  height: 22px;
+  color: var(--adm-accent);
+}
+
+.adm-profile-drop strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.adm-profile-drop small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-profile-drop:hover,
+.adm-profile-drop.is-over {
+  border-color: var(--adm-accent);
+  background: var(--adm-accent-soft);
+}
+
+.adm-profile-drop:disabled {
+  cursor: progress;
+  opacity: 0.7;
 }
 
 .adm-candidate-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
 }
 
 .adm-candidate {
   display: grid;
+  grid-template-rows: auto 1fr;
   overflow: hidden;
   border: 1px solid var(--adm-line);
   border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.adm-candidate:hover {
+  border-color: var(--adm-line-strong);
 }
 
 .adm-candidate.is-active {
   border-color: var(--leaf);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--leaf) 18%, transparent);
 }
 
+/* Every candidate fits whole in the same frame, so square avatars and wide
+ * banners compare side by side. */
 .adm-candidate-preview {
+  position: relative;
   display: grid;
   place-items: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-bottom: 1px solid var(--adm-line);
   background: var(--adm-sunken);
   color: var(--adm-muted);
 }
 
-.adm-candidate-preview.is-avatar {
-  aspect-ratio: 1;
+.adm-candidate-preview > button {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
-.adm-candidate-preview.is-banner {
-  aspect-ratio: 3 / 1;
+.adm-candidate-preview > button:focus-visible {
+  outline: none;
+  box-shadow: inset var(--adm-focus);
 }
 
 .adm-candidate-preview img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+}
+
+.adm-candidate-preview > button:hover img {
+  transform: scale(1.03);
+}
+
+.adm-candidate-flag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: var(--adm-surface);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
 }
 
 .adm-candidate-body {
   display: grid;
-  gap: 6px;
-  padding: 10px;
+  align-content: start;
+  gap: 8px;
+  padding: 10px 12px 12px;
 }
 
 .adm-candidate-body small {
   color: var(--adm-muted);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-candidate-meta {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 8px;
+}
+
+.adm-candidate-meta span {
+  white-space: nowrap;
+}
+
+.adm-candidate-body .adm-error-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.adm-candidate-use {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-candidate-use > span {
+  margin-right: 2px;
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.adm-candidate-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.adm-candidate-tools > :last-child {
+  margin-left: auto;
+}
+
+@container (max-width: 640px) {
+  .adm-profile-preview {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .adm-profile-card {
+    width: min(100%, 340px);
+  }
 }
 
 /* ------------------------------------------------------- detection and llm */
-
-.adm-stage-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.adm-stage {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--adm-line);
-  border-radius: var(--adm-radius-sm);
-}
-
-.adm-stage-sub {
-  padding-top: 12px;
-  border-top: 1px dashed var(--adm-line);
-}
 
 .adm-stage-models {
   display: grid;
@@ -5020,22 +6036,10 @@ blockquote.adm-verdict-reason {
 
 /* ------------------------------------------------------------- responsive */
 
-@media (max-width: 1080px) {
-  .adm-stage-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* Below this the Sources page stacks: the method chain on top, then the
- * settings and the manual fetch. */
-@media (max-width: 1180px) {
+/* Below this the manual fetch follows the settings. */
+@media (max-width: 1280px) {
   .adm-sources-layout {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: none;
-    grid-template-areas:
-      "rail"
-      "detail"
-      "fetch";
   }
 }
 
@@ -5147,7 +6151,21 @@ blockquote.adm-verdict-reason {
     padding: 4px 10px 14px;
   }
 
-  .adm-step-cards {
+  .adm-step-row-head {
+    grid-template-columns: auto minmax(0, 1fr) auto 16px;
+    gap: 4px 10px;
+  }
+
+  .adm-step-row-summary {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+
+  .adm-step-details {
+    padding: 2px 12px 12px;
+  }
+
+  .adm-retention-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -5172,30 +6190,36 @@ blockquote.adm-verdict-reason {
     flex-basis: 100%;
   }
 
-  /* On a phone the source tabs share the width and drop their timer line.
-   */
+  /* On a phone the source summary's numbers take two columns. */
+  .adm-source-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
+  .adm-source-stats > div:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .adm-timed-actions {
+    margin: 0 -16px -16px;
+    padding: 12px 16px;
+  }
+
+  .adm-panel.adm-fold > .adm-fold-head {
+    padding: 14px 16px;
+  }
+
+  .adm-panel.adm-fold > .adm-fold-body {
+    padding: 16px;
+  }
+
+  /* On a phone the source tabs share the width. */
   .adm-source-tabs button {
     flex: 1 1 0;
     justify-content: center;
     min-height: 52px;
     padding: 6px 8px;
-  }
-
-  .adm-source-tabs .adm-source-name {
-    flex: none;
-  }
-
-  .adm-source-tabs .adm-source-name small {
-    display: none;
-  }
-
-  .adm-confirm-step header {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .adm-confirm-step header > .adm-badge {
-    grid-column: 2;
-    justify-self: start;
   }
 
   .adm-queue-list li {
@@ -5645,4 +6669,17 @@ blockquote.adm-verdict-reason {
 
 .adm-chain-actions .adm-switch {
   margin-right: 6px;
+}
+
+/* On a phone a fold's controls move under its title. */
+@media (max-width: 560px) {
+  .adm-fold-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .adm-fold-controls {
+    grid-row: 2;
+    grid-column: 2 / -1;
+    justify-content: flex-start;
+  }
 }

@@ -1,6 +1,6 @@
 name: Validate
 
-# The job definitions shared by both validation tiers. PR, Full and Release
+# The job definitions shared by the PR and Full validation tiers.
 # call this file and choose the tier; it has no trigger of its own, so a tier
 # is always an explicit decision of the caller.
 on:
@@ -72,23 +72,97 @@ jobs:
         run: make ci-style
 
   backend:
-    name: Backend
+    name: Backend (${{ matrix.check }})
     needs: plan
     if: needs.plan.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Lint and vet run once; the race suite is split across four runners.
+        # The slices share a compilation cache, saved by the first race job.
+        include:
+          - check: static
+            target: ci-backend-static
+            cache: static
+            save_cache: true
+          - check: race 1/4
+            target: RACE_SHARD=1/4 backend-race-shard
+            slice: 1
+            cache: race
+            save_cache: true
+          - check: race 2/4
+            target: RACE_SHARD=2/4 backend-race-shard
+            slice: 2
+            cache: race
+          - check: race 3/4
+            target: RACE_SHARD=3/4 backend-race-shard
+            slice: 3
+            cache: race
+          - check: race 4/4
+            target: RACE_SHARD=4/4 backend-race-shard
+            slice: 4
+            cache: race
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 2
       - name: Set up Go
+        id: go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - name: Run Go lint, vet and race-enabled contracts
-        run: make ci-backend
+          cache: false
+      - name: Set up Node.js for race sharding
+        if: matrix.cache == 'race'
+        uses: ./.github/actions/setup-node
+        with:
+          cache: "false"
+      - name: Restore Go modules and tool dependencies
+        id: modules
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/pkg/mod
+          key: go-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('backend/go.mod', 'backend/go.sum', 'Makefile') }}
+          restore-keys: go-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
+      - name: Restore Go compilation and lint results
+        id: build
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: go-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ matrix.cache }}-${{ hashFiles('backend/**/*.go', 'backend/**/*.sql', 'backend/go.mod', 'backend/go.sum', 'scripts/golangci-lint.yml', 'Makefile') }}
+          restore-keys: go-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ matrix.cache }}-
+      - name: Run backend checks
+        env:
+          RACE_EVENTS: ${{ runner.temp }}/race-events.json
+        run: make ${{ matrix.target }}
+      - name: Save Go modules from the static job
+        if: matrix.check == 'static' && steps.modules.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ steps.modules.outputs.cache-primary-key }}
+      - name: Save Go compilation and lint results
+        if: matrix.save_cache && steps.build.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: ${{ steps.build.outputs.cache-primary-key }}
+      - name: Upload race test events
+        if: matrix.slice
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: backend-race-events-${{ matrix.slice }}
+          path: ${{ runner.temp }}/race-events.json
+          retention-days: 30
 
   go:
     name: Go gate

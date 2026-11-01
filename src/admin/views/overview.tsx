@@ -3,29 +3,27 @@ import {
   CalendarClock,
   CheckCircle2,
   CircleSlash,
+  Combine,
   FileWarning,
   ImageOff,
   RefreshCw,
   Sparkles,
   Square,
 } from "lucide-react"
-import { useEffect, useState } from "react"
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import { formatDateTime, formatRelative } from "@/admin/format"
-import type { SourceHealth, VisitorRegionSettings } from "@/admin/types"
+import type { SourceHealth } from "@/admin/types"
 import {
   Badge,
   Button,
   ConfirmButton,
   Empty,
-  Field,
   Loading,
   PageHeader,
   Panel,
   StatusBadge,
-  Switch,
 } from "@/admin/ui"
 import { useAdmin } from "@/admin/use-admin-data"
 import { RunLine, RunSteps, runTitle, stepIcons } from "@/admin/views/run-parts"
@@ -34,7 +32,7 @@ function SourceRow({
   id,
   health,
 }: {
-  id: "x" | "youtube"
+  id: "x" | "youtube" | "bilibili"
   health: SourceHealth
 }) {
   const { t, locale } = useAppSettings()
@@ -78,85 +76,6 @@ function SourceRow({
   )
 }
 
-function VisitorRegionPanel({ settings }: { settings: VisitorRegionSettings }) {
-  const { t } = useAppSettings()
-  const { api, act } = useAdmin()
-  const [draft, setDraft] = useState(settings)
-  const [busy, setBusy] = useState(false)
-  useEffect(() => setDraft(settings), [settings])
-  const dirty =
-    draft.enabled !== settings.enabled ||
-    draft.providerName !== settings.providerName ||
-    draft.providerUrl !== settings.providerUrl ||
-    draft.mirrorUrl !== settings.mirrorUrl
-  const set = (patch: Partial<VisitorRegionSettings>) =>
-    setDraft((current) => ({ ...current, ...patch }))
-  const save = async () => {
-    setBusy(true)
-    await act(
-      () => api.updateVisitorRegion(draft),
-      "admin.notice.visitorRegionSaved",
-    )
-    setBusy(false)
-  }
-  return (
-    <Panel
-      title={t("admin.overview.visitorRegion")}
-      description={t("admin.overview.visitorRegionHint")}
-    >
-      <div className="adm-form">
-        <Switch
-          checked={draft.enabled}
-          disabled={busy}
-          onChange={(enabled) => set({ enabled })}
-          label={t("admin.overview.visitorRegionToggle")}
-          description={t("admin.overview.visitorRegionToggleHint")}
-        />
-        <div className="adm-form-row">
-          <Field label={t("admin.overview.visitorRegionProvider")}>
-            <input
-              value={draft.providerName}
-              onChange={(event) => set({ providerName: event.target.value })}
-              maxLength={120}
-              placeholder={t("admin.overview.visitorRegionProviderPlaceholder")}
-            />
-          </Field>
-          <Field label={t("admin.overview.visitorRegionProviderUrl")}>
-            <input
-              type="url"
-              value={draft.providerUrl}
-              onChange={(event) => set({ providerUrl: event.target.value })}
-              placeholder="https://"
-            />
-          </Field>
-        </div>
-        <Field
-          label={t("admin.overview.visitorRegionMirrorUrl")}
-          hint={t("admin.overview.visitorRegionMirrorHint")}
-        >
-          <input
-            type="url"
-            value={draft.mirrorUrl}
-            onChange={(event) => set({ mirrorUrl: event.target.value })}
-            placeholder="https://"
-          />
-        </Field>
-        <div className="adm-form-actions">
-          <Button
-            size="sm"
-            variant="primary"
-            busy={busy}
-            disabled={!dirty}
-            onClick={() => void save()}
-          >
-            {t("admin.action.save")}
-          </Button>
-        </div>
-      </div>
-    </Panel>
-  )
-}
-
 export function OverviewView({ navigate }: ViewProps) {
   const { t, locale } = useAppSettings()
   const { overview, start, act, api, refreshOverview } = useAdmin()
@@ -177,6 +96,12 @@ export function OverviewView({ navigate }: ViewProps) {
       tone: "berry",
     },
     {
+      key: "merges",
+      count: review.videoMerges,
+      icon: Combine,
+      tone: "lavender",
+    },
+    {
       key: "posts",
       count: review.failedPosts,
       icon: FileWarning,
@@ -188,7 +113,6 @@ export function OverviewView({ navigate }: ViewProps) {
     <div className="adm-view">
       <PageHeader
         title={t("admin.overview.title")}
-        description={t("admin.overview.description")}
         actions={
           <>
             <Button
@@ -210,10 +134,7 @@ export function OverviewView({ navigate }: ViewProps) {
         }
       />
 
-      <Panel
-        title={t("admin.overview.attention")}
-        description={t("admin.overview.attentionHint")}
-      >
+      <Panel title={t("admin.overview.attention")}>
         {attention.length ? (
           <div className="adm-attention">
             {attention.map((item) => {
@@ -328,6 +249,7 @@ export function OverviewView({ navigate }: ViewProps) {
           <ul className="adm-source-list">
             <SourceRow id="x" health={overview.sources.x} />
             <SourceRow id="youtube" health={overview.sources.youtube} />
+            <SourceRow id="bilibili" health={overview.sources.bilibili} />
           </ul>
         </Panel>
       </div>
@@ -343,17 +265,6 @@ export function OverviewView({ navigate }: ViewProps) {
         )}
       </div>
 
-      <VisitorRegionPanel
-        settings={
-          overview.visitorRegion || {
-            enabled: overview.visitorRegionEnabled === true,
-            providerName: "",
-            providerUrl: "",
-            mirrorUrl: "",
-          }
-        }
-      />
-
       <Panel
         title={t("admin.overview.recent")}
         actions={
@@ -365,7 +276,12 @@ export function OverviewView({ navigate }: ViewProps) {
         {overview.recentRuns.length ? (
           <div className="adm-run-list">
             {overview.recentRuns.map((run) => (
-              <RunLine key={run.id} run={run} />
+              <RunLine
+                key={run.id}
+                run={run}
+                href={`#runs/${encodeURIComponent(run.id)}`}
+                onFollow={() => navigate("runs", run.id)}
+              />
             ))}
           </div>
         ) : (

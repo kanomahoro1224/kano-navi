@@ -111,8 +111,8 @@ redirects and controlled `x_*` error codes.
 ([X full-archive search](https://docs.x.com/x-api/posts/search/quickstart/full-archive-search),
 which needs full-archive access). The environment-only credential travels in
 the `Authorization: Bearer` header, never in URLs, SQLite or results. Each
-request has the `SYNC_TIMEOUT_MS` timeout (7 seconds by default, at most 60),
-pages wait `SYNC_REQUEST_DELAY_MS` apart, and redirects are rejected so the
+request has the request timeout and pages wait the request spacing apart (see
+[sync settings](../operations/configuration.md#sync-settings)), and redirects are rejected so the
 credential header never follows one. Each response has a fixed 4 MiB byte
 limit: the adapter checks `Content-Length` and counts streamed bytes,
 cancelling an oversized body before parsing or writing its page. Posts are
@@ -190,9 +190,9 @@ timed source cursor.
 
 ### Budgets and checkpoints
 
-`SOURCE_HISTORY_MAX_PAGES` bounds the pages of one fetch per X account or for
-the channel (4 by default, 1–20), for every paging method. X fetches share
-`X_MAX_STATUS_REQUESTS` across accounts as a page budget, including failed
+The manual fetch pages setting bounds the pages of one fetch per X account or
+for the channel (4 by default, 1–20), for every paging method. X fetches
+share the X status requests per run across accounts as a page budget, including failed
 requests: each account gets an even share of what is left, and the first
 account rotates across runs per mode (`sync_state` source `x-budget`, key
 `window-<mode>`), so a small budget still reaches every account. An account
@@ -228,8 +228,8 @@ page. A fresh installation keeps all three disabled.
 
 When a schedule is due, the server process submits its chain as the ad hoc
 run `@source-<source>` (`reconcile` is appended as for every run with a
-source step), labelled `source-schedule` in the run history. **Run now** on a
-source's timer panel (`POST /api/admin/sources/{source}/run`) submits the same
+source step), labelled `source-schedule` in the run history. **Run now** in a
+source's Sources page summary (`POST /api/admin/sources/{source}/run`) submits the same
 chain once, triggered by the operator, and leaves the schedule's next run
 where it was; the history shows it as "X · run now". The follow-up
 steps always run, even when the source wrote nothing: each works from its
@@ -264,14 +264,14 @@ settings too, frozen on the run: a YouTube push, Run now, a
 [one-off step run](#modular-steps-and-timers) and the operator's single-video refresh.
 A [manual fetch](#manual-fetches-and-historical-backfill) reads through its
 method instead. Full syncs (console, MCP, `kano-go sync`) carry no setting
-and run incrementally with `X_DISCOVERY_LIMIT` for X and 50 uploads for
+and run incrementally with the full-sync post cap for X and 50 uploads for
 YouTube.
 
 #### Method chains
 
 Each X and YouTube schedule also orders its listing methods into a fallback
 chain ([ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)), stored
-in `source_schedules.chain_json` and edited in the source rail of the
+in `source_schedules.chain_json` and edited in the timed reads of the
 Sources page. A read tries the enabled methods from the top and falls to the
 next when the first page fails, when the answer lists none of the account's
 or channel's own records, when the chain skips the method, or on quota and
@@ -499,6 +499,25 @@ recovery` and `recovery_count` incremented. A queued run is then dispatched.
 cancelled at once, and a running one stops its network requests and finishes
 `cancelled` with its pending steps. Finishing a run updates its `sync_runs`
 row and the dashboard revision and releases the lease.
+
+**Retention.** The server process deletes finished runs past their
+retention window when it starts and then once a day. Succeeded and
+cancelled runs are kept 30 days by default; failed, partial and blocked runs
+90 days. Both windows are operator settings in `app_settings`
+(`run_retention_succeeded_days`, `run_retention_failed_days`, 0–3650; 0 keeps
+those runs forever), edited on `/admin` → Runs → History cleanup, and the
+next pass applies a saved value. A run's age counts from `finished_at`
+(`created_at` when it has none). A pass deletes a run with its
+`workflow_run_steps`, `workflow_step_attempts` and `sync_runs` rows in one
+transaction, at most 200 runs per transaction, then applies the same windows
+to `sync_runs` rows that belong to no stored run (`success`; `failed` and
+`partial`). It never deletes a queued, running or leased run, the newest
+run of each `workflow_id` (the live-status probe paces itself and the
+Sources page reads each schedule's last run from it) or the newest
+successful `sync_runs` row (the board's freshness reads it), whatever their
+age. A deleted run can no longer be retried. The pass is local database
+work, not a run: it does not use the queue, and
+`WORKFLOW_SCHEDULER_ENABLED=0` does not stop it.
 
 Schedule-step outcomes combine post extraction and image verification. An
 image-only failure cannot be reported as success: a scan with failures and no

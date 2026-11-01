@@ -84,7 +84,7 @@ video show `PlatformLinks` in that order and an `aria-hidden`
 in `src/index.css`. The hidden `/admin` console
 lives in `src/admin/` and is organized around operator tasks: `index.tsx`
 registers the views (Overview, Review queue, Schedule, Posts, Videos, Profile
-images, Runs, Sources, Detection, LLM) and renders the shell
+images, Runs, Sources, Detection, LLM, Site) and renders the shell
 with hash routing (`#view/tab`; a `#content/<tab>` link opens the matching
 view and a `#models` link opens LLM); `use-admin-data.ts` owns every
 [Admin API](admin-api.md) call, the session and the overview poll that tracks
@@ -161,10 +161,15 @@ wording as written.
 A quote an operator hid is absent from the snapshot, so the board shows the
 post without it.
 
-The console's schedule (`src/admin/views/schedule.tsx`) has a list and a
-calendar view; the browser remembers the last one in local storage. Both
-share a search field and status tabs for the review tasks: All, Not
-confirmed, Suspected (cancellation) and Deleted. The list groups entries
+The console's schedule (`src/admin/views/schedule.tsx`) has a list, a
+calendar and an images view. The browser remembers list or calendar in local
+storage; the images view has its own address (`#schedule/images`), which the
+Review queue links to. It lists the newest stored schedule images as the
+Review queue's decision cards (`schedule-images.tsx`) under All, Approved
+and Needs review tabs, so any image can be labelled again or its dates
+corrected. The list and the calendar share a search field and status tabs
+for the review tasks: All, Not confirmed, Suspected (cancellation) and
+Deleted. The list groups entries
 under one heading per Japan date, with the day's count and a button that
 opens a new entry on that date; Upcoming, Past and All dates tabs set the
 date range beside it. Each row (`schedule-parts.tsx`) shows the time in
@@ -182,8 +187,8 @@ open-ended, while presets and a custom end save `endsAt`. A preview line
 renders the entry as calendar subscribers will see it.
 
 The console's video list (`src/admin/views/videos.tsx`) puts the featured
-video and the Bilibili merge suggestions above a list with a search field
-and task tabs: All, Upcoming, Bilibili and Missing translation. Uploads
+video above a list with a search field and task tabs: All, Upcoming,
+Bilibili and Missing translation. Uploads
 merged into another video appear on that video's row, so only the Bilibili
 tab lists them on their own. Each row shows the
 thumbnail, the title, which opens the correction dialog, the platform, time,
@@ -197,42 +202,84 @@ section and what the platform replaced); one column on narrow screens. A
 corrected field is marked and offers a reset to the platform value beside its
 label. Refresh, cancel and save stay in the footer.
 
-The Review queue (`src/admin/views/review.tsx`) has tabs for schedule images,
-suspected cancellations and failed posts. An image or a suspected
-cancellation is a decision card: its left edge takes the state colour (honey
+The Review queue (`src/admin/views/review.tsx`) lists only what waits for a
+decision, in tabs for schedule images that need review, suspected
+cancellations, video merges and failed posts; a decision removes the item
+and the sidebar badge counts again. The images tab links to the Schedule
+page's images view. An image or a suspected cancellation is a decision
+card: its left edge takes the state colour (honey
 while it needs a decision, leaf once the image reaches the board, neutral
 when rejected), the image or the entry's date sits on the left, and the body
 shows the badges and source link, the model's verdict with a confidence bar
 and its reason or evidence, the facts, and a bottom bar with the note field
 and the decision buttons. A cancellation needs a reason before it can be
-confirmed.
+confirmed. The video merges tab (`merge-parts.tsx`) lists each Bilibili
+upload the merge rule merges at its next run or leaves to the operator,
+beside its candidates: Merge attaches it to one, and Keep separate keeps it
+apart so the rule never merges it.
 
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
-tabs for X, YouTube and Bilibili, each naming whether its timer runs here,
-and three parts for the selected source. On the left are its timer switch
-and its [method chain](workflows.md#method-chains): every method's switch and
-up/down moves, which save at once, a method the process cannot run greyed
-with the variable it needs, and Bilibili's one fixed method read-only. A
-source that `SKIP_*` turns off is locked. Its settings sit beside the chain:
-the timer panel (next and last run, Run now, the interval and the sync
-setting), for X the X API panel (gate, daily cap, today's usage and each
-account's timeline failure streak), and for YouTube the progressive
-confirmation (push, the live-status probe and the read-only
-[follow-up checks](sources.md#follow-up-checks-and-refresh-requests)). The
-manual fetch sits below the settings: method, mode, count or dates, options,
-then the newest fetch's summary; Bilibili shows its single-video form
-there. On a narrower screen the chain moves above the settings, and on a
-phone the tabs share the width and show only the source names.
+tabs for X, YouTube and Bilibili, each with the platform's logo, a dot (or
+a lock) for whether its timer runs here and the state as its tooltip.
+The selected source opens with a summary: what it reads, its timer state,
+next run, last run and last successful read, the timer switch (which saves
+at once) and Run now. A source that `SKIP_*` turns off is locked. Below the
+summary the main column holds the timed reads, one form with one Save and
+Discard: the interval and, for X and YouTube, the sync setting; and the
+[method chain](workflows.md#method-chains), with every method's switch and
+up/down moves, a method the process cannot run greyed with the variable it
+needs, and Bilibili's one fixed method read-only. Save sends only the
+changed fields, and the timer switch keeps unsaved edits.
 
-The console's post list (`src/admin/views/posts.tsx`) shows a post's quote
-read-only in its own cell under the wording, indented on the sunken surface
-so its thumbnails never read as the post's own images: author, time, the
-wording clamped to three lines, ready quote thumbnails that open the image
-viewer, or the unavailable state. Badges mark a quote hidden from the board
-and a queued refresh. Its actions hide the quote from the board or show it
-again, queue a refresh from the source (disabled while one is queued), and
-open the quoted post; nothing edits the quote itself. On narrow containers
-the quote cell spans the row.
+Settings below the timed reads are folded: a header row with the title,
+its state and any quick switch opens onto the settings and figures, and
+each fold saves on its own. X adds its X API limits (gate and daily cap,
+with the API's place in the chain and today's usage in the header, and
+today's usage and each account's timeline failures shown as meters against
+them). YouTube adds its progressive confirmation, where push and the
+live-status probe are folds with their switch in the header, followed by
+the read-only
+[follow-up checks](sources.md#follow-up-checks-and-refresh-requests), and
+yt-dlp, with its status in the header. X and YouTube fold their timed-read
+limits in the main column and the manual-fetch limits, which they share,
+under the manual fetch, one field per row with its label beside the input.
+Both limit folds edit the page's one read of the settings. Longer
+explanations sit in a dialog behind a question mark beside a title or
+label: the chain, the X API limits, YouTube's per-run limit, its
+progressive confirmation and each of its steps, and yt-dlp.
+
+The manual fetch sits beside the main column: method, mode, count or
+dates, options, then the newest fetch's summary; Bilibili shows its account
+and single-video form there. On a narrower screen the side column follows
+the main one, and on a phone the tabs share the width and show only the
+source names, and a fold's header controls move under its title.
+
+The console's post list (`src/admin/views/posts.tsx`) is a feed of posts
+separated by rules, one row of columns per post: the account over the Japan
+time, the wording (three lines) and its quote, the post's own cached images
+(up to three, "+N" counts the rest), the translation status, the extraction
+state with a Hidden badge for a post hidden from the public pages, and the
+edit, "process again with the LLM" and open actions. The columns after the
+wording have fixed widths, so they line up from post to post. A text-only
+post shows no image cell; a post whose images are not cached yet shows one
+placeholder with the reason. A feed under 1000px puts the account, time,
+state and actions on one line above the wording, images and translations,
+and under 560px the state gets a line of its own. A hidden post's wording is
+dimmed.
+
+Edit opens the post in a dialog: the whole wording, every cached image, the
+translations, the quote and a switch that hides the post from the public
+pages or shows it again, with the LLM and open actions in its footer.
+
+The quote is a read-only card on the sunken surface under the wording, so
+its thumbnails never read as the post's own images. Its header holds the
+author, handle and time, badges for a quote hidden from the board and a
+queued refresh, and icon actions that hide the quote from the board or show
+it again, queue a refresh from the source (disabled while one is queued) and
+open the quoted post. Below come the wording, folded to three lines with a
+"Show full quote" toggle that appears only when the clamp cuts it, the ready
+quote thumbnails that open the image viewer, or the unavailable state. The
+edit dialog shows the quote's whole wording. Nothing edits the quote itself.
 
 Post text and video titles come with server-resolved `translations` (see
 [Translations](data-model.md#translations)). `src/components/translated-text.tsx`
@@ -403,8 +450,24 @@ queue and tests them one at a time.
 
 List filters in the console are one row of pills, one per filter, with a
 date range pill and a clear button that appears while a filter narrows the
-list. Run details explain stored error codes in words and keep the code
-beside them.
+list. A choice filter opens its own list under the pill, which follows the
+listbox keyboard pattern. Paged lists show the total, the first and last
+page numbers with two either side of the current page, and a jump field
+that goes to the nearest existing page. The Runs page puts the run history
+beside the open run on a wide
+screen (the newest run is open until another is chosen) and opens a run in
+place on a narrower one. The open run is in the address (`#runs/<id>`): the
+overview's recent runs link there, and a linked run scrolls into view, read
+on its own and listed first when newer runs pushed it off the first page. A
+run lists its steps one line each: the step's
+outcome, its window and up to three non-zero counts, problems first. A step
+opens to everything it counted, as label and value lines with zeros
+receding; failed and partial steps open by themselves. Run details explain
+stored error codes in words and keep the code beside them. A failed or
+partial run copies its diagnostics for an agent or an issue: each step's
+outcome and error code, then the stored run as JSON, with codes and English
+labels so the text matches the source. A browser that refuses the clipboard
+shows the text in a dialog to copy by hand.
 
 ## Related Docs
 
@@ -447,9 +510,9 @@ week rendered with its own dates, dimmed and inert after a short delay, and
 swaps the whole body (days, count and schedule image) once the selected week
 arrives; a failed read reports its error only while its week is selected. A
 refresh of the shown week keeps its days or empty-week note in place and swaps
-the data when it arrives, so a quiet week does not flicker on each refresh. On
-wider screens the schedule-image thumbnail keeps its slot when a week has no
-image.
+the data when it arrives, so a quiet week does not flicker on each refresh. The
+schedule-image strip below the days appears only for a week with a schedule
+image; a week without one has no strip or placeholder.
 Adjacent-date hints support jumping to stored activity in either direction.
 
 Snapshot, calendar and archive reads use `cache: "no-cache"`: the browser

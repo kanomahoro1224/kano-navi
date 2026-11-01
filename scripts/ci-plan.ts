@@ -22,7 +22,8 @@ const backendJobs: Job[] = ["backend", "go", "smoke", "docker"]
 const frontendJobs: Job[] = ["frontend", "docker"]
 
 // The files under scripts/ and the planned jobs that run them. Style always
-// runs, and it formats every script and runs the scanner and planner tests.
+// runs, and it formats every script and runs the scanner, planner and shard
+// tests.
 // The frontend build type-checks every TypeScript script, so each one selects
 // Frontend. An unlisted script selects every job.
 export const scriptJobs: Record<string, Job[]> = {
@@ -32,6 +33,9 @@ export const scriptJobs: Record<string, Job[]> = {
   "ci-plan.test.ts": ["frontend"],
   "go-check.mjs": ["go"],
   "go-docker-smoke.mjs": ["go"],
+  "go-test-shard.mjs": ["backend"],
+  "go-test-shard.test.mjs": [],
+  "go-test-durations.json": ["backend"],
   "golangci-lint.yml": ["backend"],
   "make-help.ts": ["frontend"],
   "package-history-media.ts": ["frontend"],

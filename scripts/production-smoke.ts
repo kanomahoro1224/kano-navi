@@ -65,8 +65,9 @@ async function runProductionSmoke() {
     if (!healthy) throw new Error("Production health did not become ready")
     await verifySnapshot(origin, { staticPages: true })
     await verifyReportedVersion(origin)
+    verifyTLSRoots(container)
     console.log(
-      "Production smoke passed (entry point, fresh volume, API, pages, auth).",
+      "Production smoke passed (entry point, fresh volume, API, pages, auth, TLS roots).",
     )
   } finally {
     if (container) docker(["rm", "--force", "--volumes", container])
@@ -104,6 +105,18 @@ async function verifyReportedVersion(origin: string) {
     throw new Error(
       `MCP reported version ${reported}, expected ${version} from package.json`,
     )
+}
+
+const caBundle = "/etc/ssl/certs/ca-certificates.crt"
+
+// Source, provider and media requests verify TLS against the system CA store;
+// without it every one fails while the smoke itself contacts nothing outside.
+function verifyTLSRoots(container: string) {
+  try {
+    docker(["exec", container, "test", "-s", caBundle])
+  } catch {
+    throw new Error(`Production image has no CA bundle at ${caBundle}`)
+  }
 }
 
 function assertLoopbackAddress(address: string) {

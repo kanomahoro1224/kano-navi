@@ -64,6 +64,11 @@ func runStandalone(cfg config.Config) int {
 		return fail("database unavailable", 1)
 	}
 	defer store.Close()
+	// Read bounds once set in the environment become stored sync settings on
+	// the first start that sees them; /admin owns them from then on.
+	if err = store.ImportSyncSettings(context.Background(), os.Getenv); err != nil {
+		return fail("sync settings unavailable", 1)
+	}
 
 	run := newPipeline(store, secretsKey)
 	modules := standaloneModules(store, adminConfig.Mode, secretsKey)
@@ -154,6 +159,11 @@ func runStandalone(cfg config.Config) int {
 	}
 	probe.Start()
 	defer probe.Stop()
+	// Run history retention is local database work and runs whatever the
+	// timers' switch says.
+	pruner := &workflow.RunPruner{Store: store}
+	pruner.Start()
+	defer pruner.Stop()
 	// YouTube push is configured in /admin; it stays inactive until enabled
 	// there and while SKIP_YOUTUBE disables the source.
 	push := websub.New(ytsource.OptionsFromEnv().ChannelID, nil, youtubePushTrigger(manager))
@@ -170,6 +180,7 @@ func runStandalone(cfg config.Config) int {
 			Scheduler:    scheduler.Status,
 			YoutubePush:  pushAdmin.Status,
 			LiveProbe:    probe.Status,
+			RunPruner:    pruner.Status,
 			YoutubeYTDLP: run.steps.Youtube.YTDLP,
 			SkippedSteps: run.skipped,
 			XHandles:     run.xOptions.Handles,
@@ -203,6 +214,7 @@ func runStandalone(cfg config.Config) int {
 	case <-ctx.Done():
 		push.Stop()
 		probe.Stop()
+		pruner.Stop()
 		scheduler.Stop()
 		queue.Close()
 		shutdown, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
@@ -272,7 +284,7 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 	youtubeAdapter := ytsource.NewAdapter(nil, youtubeOptions)
 	// Manual fetches list through the source adapters' clients, apart from
 	// X full-archive search.
-	fetcher := history.NewFetcher(store, history.OptionsFromEnv(os.Getenv), nil)
+	fetcher := history.NewFetcher(store, history.DefaultOptions(), nil)
 	fetcher.Timeline, fetcher.Uploads = xAdapter, youtubeAdapter
 	// The timed X chain's API method reads through the same client as the
 	// manual one; without the credential the chain skips it.

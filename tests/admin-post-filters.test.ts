@@ -1,10 +1,10 @@
 import assert from "node:assert/strict"
 import path from "node:path"
 import test from "node:test"
-import { createElement } from "react"
-import { act, create, type ReactTestRenderer } from "react-test-renderer"
+import { act, createElement } from "react"
 import { createServer } from "vite"
 import type { AdminPost } from "../src/admin/types.ts"
+import { click, enter, render, submit, type Rendered } from "./dom.ts"
 
 test("post date filters reach server queries, survive pagination and clear independently", async () => {
   const vite = await createServer({
@@ -14,12 +14,8 @@ test("post date filters reach server queries, survive pagination and clear indep
     optimizeDeps: { noDiscovery: true, include: [] },
     resolve: { alias: { "@": path.resolve("src") } },
   })
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    act: (globalThis as any).IS_REACT_ACT_ENVIRONMENT,
-  }
-  let root: ReactTestRenderer | undefined
+  const previous = (globalThis as any).IS_REACT_ACT_ENVIRONMENT
+  let root: Rendered | undefined
   try {
     const { PostsView } = await vite.ssrLoadModule("/src/admin/views/posts.tsx")
     const { AdminContext } = await vite.ssrLoadModule(
@@ -29,11 +25,7 @@ test("post date filters reach server queries, survive pagination and clear indep
       "/src/app-settings.tsx",
     )
     await vite.close()
-    Object.assign(globalThis, {
-      IS_REACT_ACT_ENVIRONMENT: true,
-      window: { localStorage: { getItem: () => null, setItem: () => {} } },
-      document: { documentElement: { classList: { toggle: () => {} } } },
-    })
+    ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
     const post: AdminPost = {
       id: "synthetic-post",
       source: "x",
@@ -56,6 +48,7 @@ test("post date filters reach server queries, survive pagination and clear indep
       quote: null,
       quoteHiddenAt: null,
       refreshRequestedAt: null,
+      hiddenAt: null,
     }
     const queries: Record<string, string | number>[] = []
     const context = {
@@ -73,7 +66,7 @@ test("post date filters reach server queries, survive pagination and clear indep
       },
     }
     await act(async () => {
-      root = create(
+      root = render(
         createElement(
           AppSettingsProvider,
           null,
@@ -85,11 +78,12 @@ test("post date filters reach server queries, survive pagination and clear indep
         ),
       )
     })
-    const input = (key: string) => root!.root.findByProps({ "aria-label": key })
-    const change = (key: string, value: string) =>
-      act(async () => {
-        input(key).props.onChange({ target: { value } })
-      })
+    const find = (selector: string) => root!.container.querySelector(selector)
+    const findAll = (selector: string) => [
+      ...root!.container.querySelectorAll(selector),
+    ]
+    const input = (key: string) => find(`[aria-label="${key}"]`)
+    const change = (key: string, value: string) => enter(input(key)!, value)
     const latest = () => queries.at(-1)!
 
     await change("admin.schedule.filter.from", "2026-01-02")
@@ -97,16 +91,33 @@ test("post date filters reach server queries, survive pagination and clear indep
     assert.equal(latest().from, "2026-01-02")
     assert.equal(latest().to, "2026-01-03")
     assert.equal(latest().page, 1)
-    await act(async () => input("admin.pager.next").props.onClick())
+    await click(input("admin.pager.next"))
     assert.equal(latest().page, 2)
     assert.equal(latest().from, "2026-01-02")
     assert.equal(latest().to, "2026-01-03")
-    await change("admin.posts.search", "needle")
-    await act(async () =>
-      root!.root
-        .findByProps({ className: "adm-filters" })
-        .props.onSubmit({ preventDefault: () => {} }),
+    // A page number and the jump field page the same query; a page past the
+    // end goes to the last one.
+    const pageButton = (number: number) =>
+      findAll(".adm-pager-page").find(
+        (button) => button.textContent === String(number),
+      )
+    await click(pageButton(3))
+    assert.equal(latest().page, 3)
+    await enter(find('[inputmode="numeric"]')!, "99")
+    await submit(find(".adm-pager-jump"))
+    assert.equal(latest().page, 3)
+    assert.equal(latest().from, "2026-01-02")
+    // Picking a choice from a filter list narrows the query from page 1.
+    await click(findAll('[aria-haspopup="listbox"]')[1])
+    await click(
+      findAll('[role="option"]').find((option) => option.id.endsWith("-5")),
     )
+    assert.equal(latest().llm, "failed")
+    assert.equal(latest().page, 1)
+    await click(input("admin.pager.next"))
+    assert.equal(latest().page, 2)
+    await change("admin.posts.search", "needle")
+    await submit(find(".adm-filters"))
     assert.equal(latest().search, "needle")
     assert.equal(latest().page, 1)
     assert.equal(latest().from, "2026-01-02")
@@ -119,11 +130,7 @@ test("post date filters reach server queries, survive pagination and clear indep
     assert.equal(latest().search, "needle")
   } finally {
     if (root) await act(async () => root!.unmount())
-    Object.assign(globalThis, {
-      window: previous.window,
-      document: previous.document,
-      IS_REACT_ACT_ENVIRONMENT: previous.act,
-    })
+    ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previous
     await vite.close()
   }
 })

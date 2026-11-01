@@ -95,7 +95,9 @@ constrained values (`synthetic`, `x_recent`, `capability_not_migrated`);
 `youtube_recent`, `bilibili_recent`, `youtube_live`, `media_download`,
 `schedule_extract`, `text_translate` or `event_reconcile`), and a step with
 neither finishes `blocked`. `recovery_count` counts how often a run was
-queued again by a retry or by recovery from an expired lease.
+queued again by a retry or by recovery from an expired lease. Finished runs
+and their steps, attempts and `sync_runs` rows are deleted after their
+[retention window](workflows.md#run-execution).
 
 `source_schedules` holds each source's timer
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)): `source`
@@ -278,9 +280,13 @@ quote off the public pages: the dashboard, the post archive and MCP then
 omit `quote` entirely, while the console still shows it. No synchronization
 path, refresh or backfill writes this column, so the decision survives every
 rewrite of `quote_json` and the `quote-image` links, like a manual lock.
-`posts.refresh_requested_at` is a queued refresh from the source, cleared
-once the X synchronization made its detail request (see
-[Refresh from the source](sources.md#refresh-from-the-source)). Both are
+`posts.hidden_at` is the same decision for the whole post: the dashboard
+(its post wall, latest post and post count), the post archive and MCP leave
+the post out, while the console lists it, extraction still reads it and no
+synchronization path writes the column. `posts.refresh_requested_at` is a
+queued refresh from the source, cleared once the X synchronization made its
+detail request (see
+[Refresh from the source](sources.md#refresh-from-the-source)). All three are
 additive columns, `NULL` by default.
 
 Startup adds `quote_json` additively. It then fills it for every X post
@@ -541,7 +547,8 @@ owner as for [event merges](#duplicate-merging):
   basis no longer holds. `merge_reason` is `rule:time_duration_title`.
 - `manual`: an operator merge (`merge_reason` `manual`), which the rule never
   changes. `manual` with a null `merged_into` is an undone merge
-  (`unmerged_from:<id>`); the rule never merges that upload again.
+  (`unmerged_from:<id>`) or an upload an operator kept apart
+  (`kept_separate`); the rule never merges that upload again.
 
 An upload merges by rule into a YouTube video only when all of these hold:
 

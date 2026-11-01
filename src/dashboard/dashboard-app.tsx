@@ -13,7 +13,7 @@ import { useAppSettings } from "@/app-settings"
 import { MediaDialog, stepIndex } from "@/site/media-dialog"
 import { SiteFooter, SiteHeader, SkipLink } from "@/site/site-shell"
 import { BilibiliLogo, XLogo, YouTubeLogo } from "@/site/links"
-import { POST_WINDOW_DAYS } from "./content"
+import { POST_WINDOW_DAYS, VIDEO_WINDOW_DAYS } from "./content"
 import { featuredVideoIdOf } from "./derive-dashboard"
 import { syncStateFor } from "./freshness"
 import {
@@ -40,7 +40,11 @@ import {
   PostWall,
 } from "./components/post-wall"
 import { VideoArchive, VideoShelf } from "./components/video-shelf"
-import { ScheduleMonth, WeekGuide } from "./components/week-guide"
+import {
+  ScheduleDayToggle,
+  ScheduleMonth,
+  WeekGuide,
+} from "./components/week-guide"
 import "./board.css"
 
 interface ViewerImage {
@@ -124,6 +128,7 @@ export function DashboardApp() {
   } = useDashboard(now)
   // One month dialog at a time: the schedule grid, past posts or past videos.
   const [archiveView, setArchiveView] = useState<ArchiveRequest | null>(null)
+  const [monthDetails, setMonthDetails] = useState(true)
   const archive = useArchive(
     archiveView,
     dashboard.meta.revision,
@@ -288,6 +293,7 @@ export function DashboardApp() {
           resources={dashboard.resources}
           counts={counts}
           postWindowDays={windowDays}
+          videoWindowDays={VIDEO_WINDOW_DAYS}
           syncState={syncState}
           isLoading={isLoading}
           isRefreshing={isRefreshing}
@@ -393,6 +399,13 @@ export function DashboardApp() {
                   t={t}
                 />
               </div>
+            ) : archiveView.kind === "schedule" ? (
+              <ScheduleDayToggle
+                open={monthDetails}
+                disabled={!archive.archive?.total}
+                onToggle={() => setMonthDetails((open) => !open)}
+                t={t}
+              />
             ) : null
           }
           onClose={closeArchive}
@@ -403,6 +416,8 @@ export function DashboardApp() {
             <ScheduleMonth
               key={archiveView.monthStart.getTime()}
               monthStart={archiveView.monthStart}
+              showDetails={monthDetails}
+              onShowDetails={setMonthDetails}
               archive={archive.archive as ArchiveSnapshot<ScheduleEvent> | null}
               isLoading={archive.isLoading}
               error={archive.error}

@@ -12,6 +12,7 @@ import {
   Clapperboard,
   ExternalLink,
   FileText,
+  Globe,
   KeyRound,
   LayoutDashboard,
   ListChecks,
@@ -37,6 +38,7 @@ import { ProfileView } from "@/admin/views/profile"
 import { ReviewView } from "@/admin/views/review"
 import { RunsView } from "@/admin/views/runs"
 import { ScheduleView } from "@/admin/views/schedule"
+import { SiteView } from "@/admin/views/site"
 import { SourcesView } from "@/admin/views/sources"
 import { runTitle } from "@/admin/views/run-parts"
 import { VideosView } from "@/admin/views/videos"
@@ -70,7 +72,10 @@ const views: ViewEntry[] = [
     icon: ListChecks,
     component: ReviewView,
     badge: ({ review }) =>
-      review.pendingImages + review.suspectedCancellations + review.failedPosts,
+      review.pendingImages +
+      review.suspectedCancellations +
+      review.videoMerges +
+      review.failedPosts,
   },
   {
     id: "schedule",
@@ -90,6 +95,7 @@ const views: ViewEntry[] = [
     component: DetectionView,
   },
   { id: "llm", group: "system", icon: Bot, component: LlmView },
+  { id: "site", group: "system", icon: Globe, component: SiteView },
 ]
 const groups = ["today", "data", "system"] as const
 

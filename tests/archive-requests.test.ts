@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import path from "node:path"
 import test, { type TestContext } from "node:test"
-import { createElement } from "react"
-import { act, create, type ReactTestRenderer } from "react-test-renderer"
+import { act, createElement } from "react"
+import { render, type Rendered } from "./dom.ts"
 import { createServer } from "vite"
 
 type ProbeProps = {
@@ -50,13 +50,13 @@ test("month archives page by revision, follow the board and cancel on close", as
         },
       )
       let value: ReturnType<typeof useArchive>
-      let root: ReactTestRenderer
+      let root: Rendered
       function Probe({ request, revision, snapshotVersion }: ProbeProps) {
         value = useArchive(request, revision, snapshotVersion)
         return null
       }
       await act(async () => {
-        root = create(createElement(Probe, initial))
+        root = render(createElement(Probe, initial))
       })
       const page = (
         page: number,

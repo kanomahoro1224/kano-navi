@@ -26,6 +26,11 @@ const groups = {
     "go-lint": "Run golangci-lint over the Go backend",
     "go-vet": "Run go vet over the Go backend",
     "go-race": "Run Go backend contracts with the race detector (needs cgo)",
+    "backend-race-shard":
+      "Run one deterministic race-detector test shard (CI uses four)",
+    "backend-race-durations":
+      "Record race-test durations from a successful GitHub Actions run",
+    "go-test-shard-test": "Test the Go race-suite sharding logic",
     actionlint: "Check GitHub Actions workflows",
     "go-check":
       "Check Go formatting, contracts, cross-builds, and disposable containers",

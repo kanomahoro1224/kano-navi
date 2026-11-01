@@ -59,11 +59,11 @@ package.json version and point to a commit on `main`.
 
 The Release workflow first verifies its source: the tag matches package.json,
 `docs/history/<tag>.md` exists, and the tagged commit is on `main`. It then
-calls .github/workflows/validate.yml in the `full` tier for the tagged
-revision, as described in [GitHub Actions](testing.md#github-actions). Every
-read-only validation job, including the production image and runtime smoke,
-must pass its Gate before publishing. Validation is intentionally rerun for
-the tag; there is no lookup or wait for a previous `Full` run.
+requires a successful `Full` workflow for that exact commit, as described in
+[GitHub Actions](testing.md#github-actions). The Full run's read-only
+validation jobs, including the production image and runtime smoke, feed its
+Gate, which must pass before publishing. The release workflow does not run a
+second validation tier for the tag.
 
 ## Release Notes
 
@@ -118,11 +118,13 @@ documents.
 3. Update version examples in .env.example and the Docker deployment guide.
 4. Run make ci and make sensitive-check, commit as
    `chore(release): prepare <tag> release`, and push the commit to `main`.
-5. Push the tag; the Release workflow verifies and publishes it.
+5. Push the tag; the Release workflow verifies the source and reuses the
+   successful `Full` result for that commit before publishing it.
 
 ## Publication Order and Credentials
 
-1. Verify the release source and pass the `full` validation tier.
+1. Verify the release source and require the successful `Full` result for the
+   exact tagged commit.
 2. Build one publication image and push it to Docker Hub and GHCR with version,
    major/minor, and latest tags. Preserve provenance and SBOM generation.
 3. Create or publish the GitHub Release from `docs/history/<tag>.md` after

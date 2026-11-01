@@ -35,6 +35,7 @@ import type {
   Page,
   ProfileMedia,
   ProfileMediaState,
+  ProfileSlot,
   Provider,
   QueueRoute,
   RouteTarget,
@@ -45,6 +46,7 @@ import type {
   SourceChainUpdate,
   SourceSchedule,
   Sources,
+  RunRetention,
   StepCatalog,
   TranslationLocale,
   TranslationOwner,
@@ -55,6 +57,8 @@ import type {
   VideoCorrection,
   VideoHistory,
   VideoMergeSuggestion,
+  SyncSettingField,
+  SyncSettings,
   YTDLPStatus,
 } from "@/admin/types"
 
@@ -116,6 +120,7 @@ function createClient(run: Runner, slow: Runner) {
     logout: () => send<null>("DELETE", "/session"),
 
     overview: () => get<Overview>("/overview"),
+    visitorRegion: () => get<VisitorRegionSettings>("/settings/visitor-region"),
     updateVisitorRegion: (settings: VisitorRegionSettings) =>
       send<VisitorRegionSettings>("PUT", "/settings/visitor-region", settings),
     runs: (page: number) =>
@@ -127,6 +132,11 @@ function createClient(run: Runner, slow: Runner) {
     retryRun: (id: string) =>
       send<{ run: Run }>("POST", `/runs/${enc(id)}/retry`),
     stepCatalog: () => get<StepCatalog>("/runs/steps"),
+    runRetention: () => get<RunRetention>("/runs/retention"),
+    updateRunRetention: (body: {
+      succeededDays?: number
+      failedDays?: number
+    }) => send<RunRetention>("PUT", "/runs/retention", body),
 
     sources: () => get<Sources>("/sources"),
     updateSourceSchedule: (
@@ -153,6 +163,9 @@ function createClient(run: Runner, slow: Runner) {
     ytdlp: () => get<YTDLPStatus>("/sources/youtube/ytdlp"),
     updateYTDLP: () =>
       send<YTDLPStatus>("POST", "/sources/youtube/ytdlp/update"),
+    syncSettings: () => get<SyncSettings>("/sync-settings"),
+    updateSyncSettings: (body: Partial<Record<SyncSettingField, number>>) =>
+      send<SyncSettings>("PUT", "/sync-settings", body),
 
     events: (filters: Record<string, any>) =>
       get<Page<AdminEvent>>(`/events${query(filters)}`),
@@ -187,12 +200,10 @@ function createClient(run: Runner, slow: Runner) {
 
     posts: (filters: Record<string, any>) =>
       get<Page<AdminPost>>(`/posts${query(filters)}`),
-    reprocessPost: (id: string, route?: string) =>
-      send<{ state: unknown }>(
-        "POST",
-        `/posts/${enc(id)}/reprocess`,
-        route ? { route } : {},
-      ),
+    reprocessPost: (id: string) =>
+      send<{ state: unknown }>("POST", `/posts/${enc(id)}/reprocess`, {}),
+    setPostHidden: (id: string, hidden: boolean) =>
+      send<{ state: unknown }>("PUT", `/posts/${enc(id)}/hidden`, { hidden }),
     setQuoteHidden: (id: string, hidden: boolean) =>
       send<{ state: unknown }>("PUT", `/posts/${enc(id)}/quote/hidden`, {
         hidden,
@@ -261,30 +272,30 @@ function createClient(run: Runner, slow: Runner) {
       }),
     unmergeVideo: (id: string) =>
       send<{ video: AdminVideo }>("POST", `/videos/${enc(id)}/unmerge`, {}),
+    /** Records that an unmerged upload has no YouTube copy. */
+    keepVideoSeparate: (id: string) =>
+      send<{ video: AdminVideo }>("POST", `/videos/${enc(id)}/separate`, {}),
 
     profileMedia: () => get<ProfileMediaState>("/profile-media"),
-    addProfileMedia: (slot: string, source: string, sourceUrl: string) =>
-      send<ProfileMediaState>("POST", "/profile-media", {
-        slot,
-        source,
-        sourceUrl,
-      }),
-    discoverProfileMedia: (slot: string, source: string) =>
+    addProfileMedia: (source: string, sourceUrl: string) =>
+      send<ProfileMediaState>("POST", "/profile-media", { source, sourceUrl }),
+    /** Without a slot, discovery reads both the avatar and the banner. */
+    discoverProfileMedia: (source: string) =>
       sendSlow<ProfileMediaState & { candidates: ProfileMedia[] }>(
         "POST",
         "/profile-media/discover",
-        { slot, source },
+        { source },
       ),
-    uploadProfileMedia: (slot: string, file: Blob) =>
-      sendSlow<ProfileMediaState>(
-        "POST",
-        `/profile-media/upload${query({ slot })}`,
-        file,
-      ),
+    uploadProfileMedia: (file: Blob) =>
+      sendSlow<ProfileMediaState>("POST", "/profile-media/upload", file),
     downloadProfileMedia: (id: string) =>
       sendSlow<ProfileMediaState>("POST", `/profile-media/${enc(id)}/download`),
-    selectProfileMedia: (id: string) =>
-      send<ProfileMediaState>("POST", `/profile-media/${enc(id)}/select`),
+    selectProfileMedia: (id: string, slot: ProfileSlot) =>
+      send<ProfileMediaState>("POST", `/profile-media/${enc(id)}/select`, {
+        slot,
+      }),
+    deleteProfileMedia: (id: string) =>
+      send<ProfileMediaState>("DELETE", `/profile-media/${enc(id)}`),
 
     extraction: () => get<Extraction>("/extraction"),
     updateExtraction: (body: Partial<Extraction>) =>

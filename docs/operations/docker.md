@@ -14,7 +14,7 @@ Compose pulls `yexca/kano-navi:latest` from Docker Hub on each startup. A deploy
 directory needs only `docker-compose.yml` and `.env`; the `./data` directory
 is created when needed and mounted at `/app/data`, preserving SQLite and media
 across container replacement. Run the same command to apply an image update.
-Set `KANO_IMAGE=yexca/kano-navi:0.4.3` in `.env` to pin the release,
+Set `KANO_IMAGE=yexca/kano-navi:0.5.1` in `.env` to pin the release,
 and use `KANO_PORT` to change the default host port of `7657`. The container
 listens on `7657`; the default public address is `http://localhost:7657`.
 To use the equivalent GHCR image, set
@@ -39,7 +39,7 @@ without Fetch Metadata need the original public Host and forwarded protocol
 to match any supplied `Origin`.
 
 To enable the optional mainland China site suggestion, enter the provider name,
-provider website and mirror site, turn on the setting in `/admin`, then configure the proxy to overwrite `CF-IPCountry`,
+provider website and mirror site, turn on the setting on `/admin` → Site, then configure the proxy to overwrite `CF-IPCountry`,
 `X-Country-Code`, `X-Geo-Country` or `X-Visitor-Country` with its country code.
 The setting is off by default and Cloudflare's `CF-IPCountry` is checked first.
 Requests that reach the Go listener without one of these headers receive
@@ -152,8 +152,9 @@ its own data volume and synthetic authentication, checks public pages and API
 contracts, and removes the container and anonymous volume afterwards.
 It does not mount the operator data/ directory or load .env.
 
-The runtime stage copies the `kano-go` and yt-dlp executables, `dist/` with its
-precompressed siblings, and `public/`. The embedded schema and static seeds
+The runtime stage copies the `kano-go` and yt-dlp executables, the CA bundle
+(`/etc/ssl/certs/ca-certificates.crt`, absent from the Node base image),
+`dist/` with its precompressed siblings, and `public/`. The embedded schema and static seeds
 are compiled into the binary. `YTDLP_BINARY` defaults to `/app/yt-dlp` in the
 production Compose deployment; set it to an empty value to disable the method.
 Production starts through `kano-go serve`, validates authentication before

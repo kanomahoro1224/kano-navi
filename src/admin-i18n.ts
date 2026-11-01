@@ -41,8 +41,10 @@ export const adminMessages = {
     "admin.pager.label": "Pages",
     "admin.pager.previous": "Previous page",
     "admin.pager.next": "Next page",
-    "admin.pager.status": "Page {page} of {totalPages} · {total} total",
     "admin.pager.total": "{total} total",
+    "admin.pager.page": "Page {page}",
+    "admin.pager.jump": "Go to page",
+    "admin.pager.go": "Go",
 
     "admin.interval.minutes": "{count} min",
     "admin.interval.hours": ({ count }: { count: number }) =>
@@ -111,15 +113,13 @@ export const adminMessages = {
     "admin.tag.embedding": "Embedding",
 
     "admin.overview.title": "Overview",
-    "admin.overview.description":
-      "What needs a decision and how synchronization is doing. Nothing here contacts X, YouTube or a model until you start a run.",
     "admin.overview.attention": "Needs your attention",
-    "admin.overview.attentionHint":
-      "Automatic results that wait for an operator decision.",
     "admin.overview.attention.images": ({ count }: { count: number }) =>
       count === 1 ? "schedule image to review" : "schedule images to review",
     "admin.overview.attention.cancellations": ({ count }: { count: number }) =>
       count === 1 ? "suspected cancellation" : "suspected cancellations",
+    "admin.overview.attention.merges": ({ count }: { count: number }) =>
+      count === 1 ? "upload to merge or keep" : "uploads to merge or keep",
     "admin.overview.attention.posts": ({ count }: { count: number }) =>
       count === 1 ? "post failed extraction" : "posts failed extraction",
     "admin.overview.allClear": "All clear",
@@ -150,30 +150,26 @@ export const adminMessages = {
     "admin.overview.noRunsYet": "No runs yet",
     "admin.overview.noRunsHint":
       "Start a sync or turn on a source timer to read the sources.",
-    "admin.overview.visitorRegion": "Mainland China site suggestion",
-    "admin.overview.visitorRegionHint":
-      "When enabled, visitors whose reverse proxy reports mainland China see a Toast linking to the optional mainland China site.",
-    "admin.overview.visitorRegionToggle": "Offer the mainland China site",
-    "admin.overview.visitorRegionToggleHint":
-      "Off by default. The browser never sends visitor IPs to a geolocation service.",
-    "admin.overview.visitorRegionProvider": "Provider name",
-    "admin.overview.visitorRegionProviderPlaceholder": "e.g. a provider",
-    "admin.overview.visitorRegionProviderUrl": "Provider website",
-    "admin.overview.visitorRegionMirrorUrl": "Mirror site",
-    "admin.overview.visitorRegionMirrorHint":
-      "Visitors who match the country check follow this URL.",
+    "admin.site.visitorRegion": "Mainland China site suggestion",
+    "admin.site.visitorRegionToggle": "Offer the mainland China site",
+    "admin.site.visitorRegionProvider": "Provider name",
+    "admin.site.visitorRegionProviderPlaceholder": "e.g. a provider",
+    "admin.site.visitorRegionProviderUrl": "Provider website",
+    "admin.site.visitorRegionMirrorUrl": "Mirror site",
 
     "admin.review.title": "Review queue",
     "admin.review.description":
       "Decide what automation could not. Every decision is a durable manual label that later syncs keep.",
     "admin.review.tab.images": "Schedule images",
     "admin.review.tab.cancellations": "Cancellations",
+    "admin.review.tab.merges": "Video merges",
     "admin.review.tab.posts": "Failed posts",
     "admin.review.filter": "Show",
     "admin.review.filter.review": "Needs review",
     "admin.review.filter.approved": "Approved",
     "admin.review.filter.all": "All",
     "admin.review.noImages": "No schedule images need a decision",
+    "admin.review.allImages": "All schedule images",
     "admin.review.approved": "Reaches the board",
     "admin.review.manualLabel": "Manual label",
     "admin.review.textMismatch": "Post text does not read as a board",
@@ -207,6 +203,7 @@ export const adminMessages = {
     "admin.review.cancellationHint":
       "The model suspects these entries were cancelled. Only a confirmed cancellation is shown as cancelled on the board.",
     "admin.review.noCancellations": "No suspected cancellations",
+    "admin.review.noMerges": "No uploads wait for a merge decision",
     "admin.review.cancelReason": "Cancellation reason",
     "admin.review.cancelReasonPlaceholder": "Reason, required to confirm",
     "admin.review.cancelSuspected": "Model suspects a cancellation",
@@ -215,35 +212,33 @@ export const adminMessages = {
     "admin.review.eventLink": "Open link",
     "admin.review.noPosts": "No posts in this state",
 
-    "admin.posts.route": "Extraction route",
-    "admin.posts.routeAuto": "Automatic route",
-    "admin.posts.reprocess": "Queue again",
+    "admin.posts.reprocess": "Process again with the LLM",
     "admin.posts.queued": "Queued",
     "admin.posts.retryAt": "Retry after {time} JST",
     "admin.posts.retryStopped": "Retries stopped",
     "admin.posts.open": "Open post",
+    "admin.posts.edit": "Edit post",
+    "admin.posts.hide": "Hide from the public pages",
+    "admin.posts.hidden": "Hidden",
+    "admin.posts.translations": "Translations",
     "admin.posts.search": "Search text, URL or ID",
     "admin.posts.account": "Account",
     "admin.posts.llm": "Extraction state",
-    "admin.posts.media": "Media",
-    "admin.posts.withMedia": "With media",
-    "admin.posts.withoutMedia": "Text only",
     "admin.posts.empty": "No posts match",
-    "admin.posts.column.text": "Post",
-    "admin.posts.column.image": "Image",
     "admin.posts.imageView": "View images",
     "admin.posts.imagePrevious": "Previous image",
     "admin.posts.imageNext": "Next image",
     "admin.posts.quote.label": "Quoted post",
-    "admin.posts.quote.hidden": "Hidden from the board",
+    "admin.posts.quote.hidden": "Quote hidden",
     "admin.posts.quote.unavailable": "Quoted post unavailable",
     "admin.posts.quote.imageView": "View quoted image",
-    "admin.posts.quote.show": "Show on board",
-    "admin.posts.quote.hide": "Hide from board",
+    "admin.posts.quote.show": "Show the quote on the board",
+    "admin.posts.quote.hide": "Hide the quote from the board",
     "admin.posts.quote.open": "Open quoted post",
+    "admin.posts.quote.more": "Show full quote",
+    "admin.posts.quote.less": "Show less",
     "admin.posts.refresh": "Refresh from source",
     "admin.posts.refreshQueued": "Refresh queued · {time}",
-    "admin.posts.column.actions": "Actions",
     "admin.posts.error.provider_error": "Provider error",
     "admin.posts.error.timeout": "Timed out",
     "admin.posts.error.authentication": "Authentication failed",
@@ -296,6 +291,8 @@ export const adminMessages = {
     "admin.schedule.view": "View",
     "admin.schedule.view.list": "List",
     "admin.schedule.view.calendar": "Calendar",
+    "admin.schedule.view.images": "Images",
+    "admin.schedule.images.empty": "No schedule images match",
     "admin.schedule.status": "Show",
     "admin.schedule.status.all": "All",
     "admin.schedule.status.unconfirmed": "Not confirmed",
@@ -360,11 +357,7 @@ export const adminMessages = {
     "admin.schedule.cancel.confirmed": "Cancelled (confirmed)",
 
     "admin.posts.title": "Posts",
-    "admin.posts.description":
-      "Stored posts and their extraction state. Fetch a window to read more.",
     "admin.videos.title": "Videos",
-    "admin.videos.description":
-      "Stored YouTube videos and the one featured on the board.",
     "admin.profile.title": "Profile images",
     "admin.profile.description":
       "The avatar and banner shown on the board and their candidates.",
@@ -444,6 +437,7 @@ export const adminMessages = {
     "admin.videos.merge.separateHint":
       "An operator undid this upload's merge, so the matching rule leaves it alone. It can still be merged by hand.",
     "admin.videos.merge.undo": "Undo merge",
+    "admin.videos.merge.keepSeparate": "Keep separate",
     "admin.videos.merge.open": "Merge…",
     "admin.videos.merge.action": "Merge",
     "admin.videos.merge.mergedInto": "Merged into",
@@ -458,8 +452,7 @@ export const adminMessages = {
     "admin.videos.merge.candidates": "Possible YouTube copies",
     "admin.videos.merge.noCandidates":
       "No YouTube video was published within six hours with a matching title or length.",
-    "admin.videos.merge.suggestions": "Bilibili matches · {count}",
-    "admin.videos.merge.suggestionsHint":
+    "admin.review.mergeHint":
       "Uploads the matching rule merges at its next run, and those it leaves to you because several videos match, a length is unknown or the titles differ.",
     "admin.videos.merge.status.rule": "Merges at the next run",
     "admin.videos.merge.status.ambiguous": "Several matches",
@@ -469,8 +462,6 @@ export const adminMessages = {
     "admin.videos.merge.lengthDelta": "length differs by {count} s",
     "admin.videos.merge.lengthUnknown": "length unknown",
     "admin.videos.merge.titleDiffers": "titles differ",
-    "admin.videos.merge.showAll": "Show all {count}",
-    "admin.videos.merge.showLess": "Show fewer",
     "admin.videos.search": "Search title or video ID",
     "admin.videos.view": "Show",
     "admin.videos.view.all": "All",
@@ -501,9 +492,28 @@ export const adminMessages = {
     "admin.profile.avatarHint": "Square image shown next to the name.",
     "admin.profile.bannerHint": "Wide header image.",
     "admin.profile.noneActive": "Using the built-in image",
+    "admin.profile.builtIn": "Built-in",
+    "admin.profile.preview": "Preview",
+    "admin.profile.previewHint":
+      "The profile card on the board with the images in use.",
+    "admin.profile.candidates": "Candidates",
+    "admin.profile.useAs": "Use as",
+    "admin.profile.activeSlot.avatar": "Avatar in use",
+    "admin.profile.activeSlot.banner": "Banner in use",
+    "admin.profile.delete": "Delete",
+    "admin.profile.deleteConfirm": "Delete?",
+    "admin.profile.addButton": "Add",
+    "admin.profile.addTitle": "Add a candidate",
+    "admin.profile.view": "View full size",
+    "admin.profile.fetch": "Fetch",
+    "admin.profile.fetchHint":
+      "Reads the public profile page and records the avatar and banner it names.",
     "admin.profile.discoverFrom": "Discover from",
     "admin.profile.discover": "Find on profile",
     "admin.profile.upload": "Upload",
+    "admin.profile.or": "or",
+    "admin.profile.dropTitle": "Drop an image here or choose a file",
+    "admin.profile.dropHint": "PNG, JPEG, WebP or GIF",
     "admin.profile.addUrl": "Image URL",
     "admin.profile.addUrlHint":
       "Only the source's own image hosts are accepted.",
@@ -512,30 +522,26 @@ export const adminMessages = {
     "admin.profile.active": "In use",
     "admin.profile.download": "Download",
     "admin.profile.refresh": "Download again",
-    "admin.profile.use": "Use this",
     "admin.profile.source.x": "X",
     "admin.profile.source.youtube": "YouTube",
     "admin.profile.source.upload": "Upload",
 
     "admin.runs.title": "Runs",
-    "admin.runs.description":
-      "Every run shares one queue: only one runs at a time and a busy queue refuses new work.",
     "admin.runs.stepRun": "Run steps once",
     "admin.runs.stepRunHint":
       "Pick any steps and run them once; nothing is saved. Sources also run on their own timers on the Sources page.",
     "admin.runs.runOnce": "Run once",
     "admin.runs.skippedStep": "Disabled in this process",
     "admin.runs.history": "Run history",
-    "admin.runs.historyHint":
-      "Open a run to see each step's counts and what went wrong.",
     "admin.runs.created": "Queued",
     "admin.runs.started": "Started",
     "admin.runs.finished": "Finished",
     "admin.runs.retry": "Retry",
+    "admin.runs.copyDiagnostics": "Copy diagnostics",
+    "admin.runs.copyDiagnosticsHint":
+      "This browser refused the clipboard. Select the text and copy it.",
 
     "admin.sources.title": "Sources",
-    "admin.sources.description":
-      "Each source runs on its own timer. Pick a source to change its timer, fetch through one method, or set up YouTube push and live checks.",
     "admin.sources.x.hint":
       "The public FxTwitter timeline, or the full archive with X_API_BEARER_TOKEN.",
     "admin.sources.youtube.hint":
@@ -566,8 +572,6 @@ export const adminMessages = {
     "admin.fetch.noRecords": "Nothing is stored yet; read a date range first.",
     "admin.fetch.run": "Start fetch",
     "admin.fetch.heading": "Manual fetch",
-    "admin.fetch.intro":
-      "Read once through the method you pick. A failed method fails the run; nothing falls back, and the timer's position stays.",
     "admin.fetch.method": "Method",
     "admin.fetch.method.x.timeline": "FxTwitter timeline",
     "admin.fetch.method.x.api": "X API",
@@ -603,10 +607,7 @@ export const adminMessages = {
     "admin.fetch.countRange": "1 to {max}",
     "admin.fetch.options": "Then",
     "admin.fetch.option.extract": "Extract schedules",
-    "admin.fetch.option.extractHint":
-      "Run schedule extraction in the same run; fetched posts join its queue.",
     "admin.fetch.option.translate": "Translate",
-    "admin.fetch.option.translateHint": "Run the translate step afterwards.",
     "admin.fetch.option.refresh": "Refresh stored videos",
     "admin.fetch.option.refreshHint":
       "Rewrite the title and publication time of videos already stored.",
@@ -621,7 +622,6 @@ export const adminMessages = {
     "admin.push.title": "YouTube push",
     "admin.push.description":
       "Let YouTube's hub notify this site about new videos, which queues a YouTube read.",
-    "admin.push.off": "Off",
     "admin.push.enable": "Receive push notifications",
     "admin.push.enableHint":
       "Needs a public HTTPS callback that reaches this server.",
@@ -640,7 +640,7 @@ export const adminMessages = {
     "admin.liveProbe.title": "Live-status probe",
     "admin.liveProbe.description":
       "Rechecks only the watch pages of streams that are about to start or still running, at most {max} per run, so the board shows On air from YouTube's own state.",
-    "admin.liveProbe.on": "On",
+    "admin.liveProbe.notRunning": "Not running",
     "admin.liveProbe.enable": "Probe active streams",
     "admin.liveProbe.enableHint":
       "Runs in the server's job queue, every few minutes around a stream's start, and only while a video is active.",
@@ -649,19 +649,13 @@ export const adminMessages = {
     "admin.liveProbe.interval": "Interval (minutes)",
     "admin.liveProbe.intervalHint":
       "{min} to {max} minutes between checks of a stream on air, or of a waiting room still closed 45 minutes after its start. From the start until it goes live, it checks every 3 minutes. A result counts for two intervals; after that the board falls back to the start time.",
+    "admin.liveProbe.intervalRange": "{min} to {max}",
     "admin.liveProbe.lastRun": "Last probe",
     "admin.liveProbe.nextRun": "Next probe",
     "admin.liveProbe.active": "Active videos now",
     "admin.liveProbe.activeCount": "{count} (up to {max} per run)",
     "admin.sources.bilibili.hint":
       "The account's public upload list, read at most once per BILIBILI_MIN_INTERVAL_MINUTES.",
-    "admin.timer.title": "Timer",
-    "admin.timer.description.x":
-      "Reads X, then caches media, extracts schedules and translates. X has no push, so the timer is how new posts arrive.",
-    "admin.timer.description.youtube":
-      "Reads YouTube, then caches thumbnails and translates. Push and the live-status probe catch most changes; the timer is a fallback.",
-    "admin.timer.description.bilibili":
-      "Reads the upload list, then caches covers and translates. Bilibili limits requests, so the interval stays at {floor} or more.",
     "admin.timer.on": "Every {interval}",
     "admin.timer.enable": "Run on a timer",
     "admin.timer.enableHint":
@@ -670,11 +664,8 @@ export const adminMessages = {
     "admin.timer.schedulerOff":
       "Not running: timers are off (WORKFLOW_SCHEDULER_ENABLED=0).",
     "admin.timer.interval": "Interval",
+    "admin.timer.floor": "At least {floor}",
     "admin.timer.sync": "Read mode",
-    "admin.timer.syncHint.incremental":
-      "Read newest first until a stored record. A run that reaches the limit continues where it stopped next time.",
-    "admin.timer.syncHint.count":
-      "Read the newest records every run, stored or not.",
     "admin.timer.syncLimit.incremental.x": "Most new posts per account",
     "admin.timer.syncLimit.count.x": "Newest posts per account",
     "admin.timer.syncLimit.incremental.youtube": "Most new videos per run",
@@ -713,13 +704,15 @@ export const adminMessages = {
     "admin.chain.apiDailyCapHint":
       "At the cap the chain skips the X API until midnight in Japan. Manual fetches count too.",
     "admin.chain.usage": "X API today",
-    "admin.chain.usageValue": "{posts} of {cap} posts",
-    "admin.chain.streak": "Timeline failure streak",
+    "admin.chain.usageUnit": "posts",
+    "admin.chain.streakUnit": "timeline failures",
+    "admin.help.about": "About {topic}",
     "admin.sources.locked": "Locked",
     "admin.xapi.description":
       "Timed X reads reach the X API only after an account's timeline keeps failing, and only up to a daily cap.",
     "admin.xapi.inChain": "Method {rank} in the chain",
     "admin.xapi.offInChain": "Off in the chain",
+    "admin.xapi.usageHint": "{posts} of {cap} posts today",
     "admin.confirm.title": "Progressive confirmation",
     "admin.confirm.description":
       "YouTube confirms a video in steps: push queues a read when it appears, the live-status probe follows streams around their start, and follow-up checks reread it after it ends. The timer catches what these miss.",
@@ -731,6 +724,46 @@ export const adminMessages = {
     "admin.ytdlp.unavailable": "Not configured",
     "admin.ytdlp.version": "Version",
     "admin.ytdlp.update": "Update yt-dlp",
+    "admin.syncSettings.llm.title": "Model limits",
+    "admin.syncSettings.range": "{min}–{max}, default {default}.",
+    "admin.syncSettings.shared": "Shared by X and YouTube.",
+    "admin.syncSettings.section.timed": "Timed reads",
+    "admin.syncSettings.section.manual": "Manual fetches",
+    "admin.syncSettings.field.xMaxStatusRequests": "Status requests per run",
+    "admin.syncSettings.hint.xMaxStatusRequests":
+      "Detail requests shared by all accounts, and the page budget of a manual X fetch.",
+    "admin.syncSettings.field.xRefreshKnown": "Known posts refreshed",
+    "admin.syncSettings.hint.xRefreshKnown":
+      "Stored posts read again each run for updated counts and media.",
+    "admin.syncSettings.field.xBootstrapDays": "First-run age limit (days)",
+    "admin.syncSettings.hint.xBootstrapDays":
+      "How far back an account's first run reads, before it has a cursor.",
+    "admin.syncSettings.field.xDiscoveryLimit": "Full-sync post cap",
+    "admin.syncSettings.hint.xDiscoveryLimit":
+      "Unstored posts per account in a full sync; a timer uses its own cap.",
+    "admin.syncSettings.field.youtubeMaxDetailRequests":
+      "Video pages inspected per run",
+    "admin.syncSettings.hint.youtubeMaxDetailRequests":
+      "Watch pages read for reservations and details.",
+    "admin.syncSettings.field.fetchMaxPages": "Manual fetch pages",
+    "admin.syncSettings.hint.fetchMaxPages":
+      "Pages of one manual fetch per account or for the channel.",
+    "admin.syncSettings.field.fetchTimeoutMs": "Request timeout (ms)",
+    "admin.syncSettings.hint.fetchTimeoutMs":
+      "Per request of manual fetches and the X API method.",
+    "admin.syncSettings.field.fetchRequestDelayMs": "Request spacing (ms)",
+    "admin.syncSettings.hint.fetchRequestDelayMs":
+      "Wait between the pages of a manual fetch.",
+    "admin.syncSettings.field.translationScanLimit": "Translations per run",
+    "admin.syncSettings.hint.translationScanLimit":
+      "Posts and titles the translate step sends to a model.",
+    "admin.syncSettings.field.translationLookbackDays":
+      "Translation lookback (days)",
+    "admin.syncSettings.hint.translationLookbackDays":
+      "Age of posts and videos translated without a request.",
+    "admin.syncSettings.field.llmModelAttempts": "Attempts per model",
+    "admin.syncSettings.hint.llmModelAttempts":
+      "Calls a model gets for one input before the next model in its queue takes over.",
     "admin.followUp.title": "Follow-up checks",
     "admin.followUp.description":
       "Every YouTube read rereads the watch page of up to 10 finished videos at these times after their end, start or publication, to pick up a new thumbnail or title. Videos older than 8 days are left alone.",
@@ -739,32 +772,14 @@ export const adminMessages = {
     "admin.fetch.headingFor": "Manual fetch · {source}",
     "admin.fetch.noneYet": "No manual fetch of this source yet.",
 
-    "admin.models.extraction": "Detection stages",
-    "admin.models.extractionHint":
-      "Keyword candidates feed the board stage; the message stage reads ordinary posts.",
+    "admin.models.extraction": "Detection mode",
     "admin.models.extractionOn": "Extraction on",
     "admin.models.extractionOff": "Extraction off",
-    "admin.models.stage.keyword": "Keyword candidates",
-    "admin.models.stage.keywordHint":
-      "Pick stored posts that look like a schedule board, without a model.",
-    "admin.models.stage.vision": "Schedule boards",
-    "admin.models.stage.visionHint":
-      "Send candidate posts and their cached images to the board route.",
-    "admin.models.stage.visionNeedsKeywords":
-      "Boards need keyword candidates enabled to find posts.",
-    "admin.models.stage.message": "Single messages",
-    "admin.models.stage.messageHint":
-      "Check ordinary posts that mention a date or stream.",
-    "admin.models.stage.allPosts": "Send every post to the model",
-    "admin.models.stage.allPostsHint":
-      "Skip the local date and stream check: every post with text or images goes to the message route. Each new post costs one model call.",
     "admin.models.keywords": "Keywords",
     "admin.models.keywordsHint":
       "{count} of {max} · press Enter or a comma to add one, {length} characters each",
     "admin.models.keywordsPlaceholder": "Type a keyword and press Enter",
     "admin.models.unsaved": "Unsaved changes",
-    "admin.models.routesHint":
-      "Each stage walks its queue from the top and calls the first usable model with the tag it needs: Text for posts, Image for schedule images. A model gets three attempts before the next one takes over.",
     "admin.models.providers": "Providers",
     "admin.models.providersHint":
       "Keys are stored encrypted and never shown again.",
@@ -772,8 +787,6 @@ export const adminMessages = {
     "admin.models.noProvidersHint":
       "Add a provider, then discover or add its models.",
 
-    "admin.route.schedule_board": "Schedule board",
-    "admin.route.schedule_message": "Single message",
     "admin.route.empty": "No models queued",
     "admin.route.emptyHint": "Without a model, extraction reports a safe skip.",
     "admin.route.up": "Move up",
@@ -838,6 +851,7 @@ export const adminMessages = {
     "admin.notice.runQueued": "Run queued",
     "admin.notice.busy": "Another run is in progress",
     "admin.notice.cancelRequested": "Cancellation requested",
+    "admin.notice.diagnosticsCopied": "Diagnostics copied",
     "admin.notice.eventCreated": "Entry created and locked",
     "admin.notice.eventSaved": "Entry saved and locked",
     "admin.notice.eventConfirmed": "Entry confirmed and locked",
@@ -848,8 +862,11 @@ export const adminMessages = {
     "admin.notice.cancellationDismissed": "Suspicion dismissed",
     "admin.notice.imageReviewed": "Label saved",
     "admin.notice.periodSaved": "Dates corrected",
-    "admin.notice.postQueued": "Queued for the next schedule scan",
+    "admin.notice.postQueued":
+      "The LLM processes it again in the next schedule scan",
     "admin.notice.quoteHidden": "Quote hidden from the public board",
+    "admin.notice.postHidden": "Post hidden from the public pages",
+    "admin.notice.postShown": "Post shown on the public pages again",
     "admin.notice.quoteShown": "Quote shown on the public board again",
     "admin.notice.refreshQueued": "Queued for the next X sync",
     "admin.notice.videoSaved": "Video edits saved",
@@ -859,6 +876,7 @@ export const adminMessages = {
     "admin.notice.bilibiliRead": "Read again from Bilibili",
     "admin.notice.videoMerged": "Upload merged into its YouTube video",
     "admin.notice.videoUnmerged": "Merge undone; the upload stays separate",
+    "admin.notice.videoSeparate": "Upload kept separate",
     "admin.notice.featured": "Featured video pinned",
     "admin.notice.unfeatured": "Featured video is automatic again",
     "admin.notice.mediaDiscovered": "Profile checked for candidates",
@@ -866,8 +884,10 @@ export const adminMessages = {
     "admin.notice.mediaUploaded": "Image uploaded",
     "admin.notice.mediaDownloaded": "Image downloaded",
     "admin.notice.mediaSelected": "Profile image updated",
+    "admin.notice.mediaDeleted": "Candidate deleted",
     "admin.notice.pushSaved": "Push settings saved",
     "admin.notice.liveProbeSaved": "Live probe settings saved",
+    "admin.notice.syncSettingsSaved": "Limits saved",
     "admin.notice.ytdlpUpdated": "yt-dlp updated",
     "admin.notice.scheduleSaved": "Timer saved",
     "admin.notice.visitorRegionSaved": "Mainland China site suggestion saved",
@@ -875,8 +895,6 @@ export const adminMessages = {
     "admin.notice.extractionSaved": "Detection settings saved",
     "admin.notice.queueSaved": "Queue saved",
     "admin.models.translation": "Translation queue",
-    "admin.models.translationHint":
-      "Models that translate X posts and YouTube titles into English and Simplified Chinese. The translate step uses only this queue; leave it empty to turn machine translation off.",
     "admin.route.translationEmptyHint":
       "Without a model, the translate step skips safely and keeps operator requests.",
     "admin.route.translationNeedsText":
@@ -970,6 +988,41 @@ export const adminMessages = {
     "admin.runs.problem.remaining": ({ remaining }: { remaining: number }) =>
       `${plural(remaining, "image is", "images are")} still queued; the next run continues with them.`,
     "admin.runs.lastFinished": "Last finished {time}",
+    "admin.runs.steps": ({ count }: { count: number }) =>
+      plural(count, "step", "steps"),
+    "admin.runs.expandAll": "Open all",
+    "admin.runs.collapseAll": "Close all",
+    "admin.runs.stepSkipped": "Disabled in this process",
+    "admin.runs.noChanges": "Nothing to do",
+    "admin.runs.queuedAt": "Queued {time}",
+    "admin.runs.ranFor": "ran {duration}",
+    "admin.runs.runningFor": "running for {duration}",
+    "admin.runs.finishedAt": "finished {time}",
+    "admin.retention.title": "History cleanup",
+    "admin.retention.succeeded": "Succeeded and cancelled runs",
+    "admin.retention.failed": "Failed, partial and blocked runs",
+    "admin.retention.days": ({ count }: { count: number }) =>
+      `Kept ${plural(count, "day", "days")}; 0 keeps them forever`,
+    "admin.retention.forever": "Kept forever",
+    "admin.retention.last": ({
+      time,
+      count,
+    }: {
+      time: string
+      count: number
+    }) => `Last cleanup ${time} removed ${plural(count, "run", "runs")}.`,
+    "admin.retention.lastFailed": ({
+      time,
+      count,
+    }: {
+      time: string
+      count: number
+    }) =>
+      `The last cleanup ${time} stopped with an error after removing ${plural(count, "run", "runs")}; the next one tries again.`,
+    "admin.retention.pending": "The server has not cleaned the history yet.",
+    "admin.retention.unavailable":
+      "This process does not clean the history; the server process does.",
+    "admin.notice.retentionSaved": "History cleanup saved",
     "admin.metric.yes": "Yes",
     "admin.metric.no": "No",
     "admin.metric.value": "Result",
@@ -1107,23 +1160,32 @@ export const adminMessages = {
       "The source API answer exceeded the size limit.",
     "admin.sources.timerOff": "Timer off",
     "admin.sources.timerBlocked": "Timer on, but not running here",
-    "admin.sources.settingsFor": "{source} settings",
+    "admin.sources.timer": "Timer",
+    "admin.sources.timedReads": "Timed reads",
+    "admin.sources.xapi": "X API limits",
+    "admin.sources.limits.timed": "Timed read limits",
+    "admin.sources.limits.manual": "Manual fetch limits",
     "admin.nav.detection": "Detection",
     "admin.nav.llm": "LLM",
+    "admin.nav.site": "Site",
+    "admin.site.title": "Site",
     "admin.action.discard": "Discard",
     "admin.detection.title": "Detection",
-    "admin.detection.description":
-      "How stored posts become schedule candidates. The models that read them are set up on the LLM page.",
+    "admin.detection.mode": "Posts sent to the model",
+    "admin.detection.mode.keyword": "Keyword match",
+    "admin.detection.mode.llm": "Everything to the LLM",
+    "admin.detection.modeHint.keyword":
+      "Posts with a keyword are read as schedule images; other posts that mention a date or stream are read as text.",
+    "admin.detection.modeHint.llm":
+      "Every post with text or images goes to the model, without a keyword or date check. Each new post costs one model call.",
+    "admin.detection.modeHint.custom":
+      "The saved stages match neither mode. Pick one to replace them.",
     "admin.detection.models": "Models in use",
-    "admin.detection.modelsHint":
-      "Each stage calls the first usable model in the schedule queue that has the tag it needs.",
     "admin.detection.editQueue": "Edit the queue",
     "admin.detection.stage.text": "Text posts",
     "admin.detection.stage.image": "Schedule images",
     "admin.detection.noModel": "No usable model",
     "admin.llm.title": "LLM",
-    "admin.llm.description":
-      "The model queues and the providers behind them. Listing a provider's models and tests run only when you ask.",
     "admin.llm.queues": "Model queues",
     "admin.llm.queue.schedule": "Schedule extraction",
     "admin.route.addModel": "Add model",
@@ -1195,8 +1257,10 @@ export const adminMessages = {
     "admin.pager.label": "分页",
     "admin.pager.previous": "上一页",
     "admin.pager.next": "下一页",
-    "admin.pager.status": "第 {page} / {totalPages} 页 · 共 {total} 条",
     "admin.pager.total": "共 {total} 条",
+    "admin.pager.page": "第 {page} 页",
+    "admin.pager.jump": "跳至",
+    "admin.pager.go": "跳转",
 
     "admin.interval.minutes": "{count} 分钟",
     "admin.interval.hours": "{count} 小时",
@@ -1262,10 +1326,7 @@ export const adminMessages = {
     "admin.tag.embedding": "向量",
 
     "admin.overview.title": "概览",
-    "admin.overview.description":
-      "需要你决定的事项和同步状态。启动运行之前，这里不会访问 X、YouTube 或任何模型。",
     "admin.overview.attention": "需要处理",
-    "admin.overview.attentionHint": "等待人工决定的自动结果。",
     "admin.overview.attention.images": "张日程图待审核",
     "admin.overview.attention.cancellations": "条疑似取消",
     "admin.overview.attention.posts": "条贴文提取失败",
@@ -1295,18 +1356,12 @@ export const adminMessages = {
     "admin.overview.allRuns": "全部运行",
     "admin.overview.noRunsYet": "还没有运行记录",
     "admin.overview.noRunsHint": "启动一次同步，或开启来源定时器来读取来源。",
-    "admin.overview.visitorRegion": "中国大陆站点提示",
-    "admin.overview.visitorRegionHint":
-      "开启后，反向代理报告访客位于中国大陆时，页面会显示前往中国大陆站点的 Toast。",
-    "admin.overview.visitorRegionToggle": "提供中国大陆站点",
-    "admin.overview.visitorRegionToggleHint":
-      "默认关闭。浏览器不会把访客 IP 发送给地理位置服务。",
-    "admin.overview.visitorRegionProvider": "提供者名称",
-    "admin.overview.visitorRegionProviderPlaceholder": "例如：提供者名称",
-    "admin.overview.visitorRegionProviderUrl": "提供者网站",
-    "admin.overview.visitorRegionMirrorUrl": "镜像站点",
-    "admin.overview.visitorRegionMirrorHint":
-      "符合地区检测条件的访客将打开这个地址。",
+    "admin.site.visitorRegion": "中国大陆站点提示",
+    "admin.site.visitorRegionToggle": "提供中国大陆站点",
+    "admin.site.visitorRegionProvider": "提供者名称",
+    "admin.site.visitorRegionProviderPlaceholder": "例如：提供者名称",
+    "admin.site.visitorRegionProviderUrl": "提供者网站",
+    "admin.site.visitorRegionMirrorUrl": "镜像站点",
 
     "admin.review.title": "待审核",
     "admin.review.description":
@@ -1358,35 +1413,33 @@ export const adminMessages = {
     "admin.review.eventLink": "打开链接",
     "admin.review.noPosts": "没有处于该状态的贴文",
 
-    "admin.posts.route": "提取路由",
-    "admin.posts.routeAuto": "自动选择路由",
-    "admin.posts.reprocess": "重新排队",
+    "admin.posts.reprocess": "让 LLM 重新处理",
     "admin.posts.queued": "已排队",
     "admin.posts.retryAt": "{time}（日本时间）后重试",
     "admin.posts.retryStopped": "已停止自动重试",
     "admin.posts.open": "打开贴文",
+    "admin.posts.edit": "编辑贴文",
+    "admin.posts.hide": "在公开页面隐藏",
+    "admin.posts.hidden": "已隐藏",
+    "admin.posts.translations": "翻译",
     "admin.posts.search": "搜索文字、链接或 ID",
     "admin.posts.account": "账户",
     "admin.posts.llm": "提取状态",
-    "admin.posts.media": "媒体",
-    "admin.posts.withMedia": "带媒体",
-    "admin.posts.withoutMedia": "纯文字",
     "admin.posts.empty": "没有符合条件的贴文",
-    "admin.posts.column.text": "内容",
-    "admin.posts.column.image": "图片",
     "admin.posts.imageView": "查看图片",
     "admin.posts.imagePrevious": "上一张",
     "admin.posts.imageNext": "下一张",
     "admin.posts.quote.label": "引用的贴文",
-    "admin.posts.quote.hidden": "已在看板隐藏",
+    "admin.posts.quote.hidden": "引用已隐藏",
     "admin.posts.quote.unavailable": "引用的贴文已无法查看",
     "admin.posts.quote.imageView": "查看引用贴文的图片",
-    "admin.posts.quote.show": "在看板显示",
-    "admin.posts.quote.hide": "在看板隐藏",
+    "admin.posts.quote.show": "在看板显示引用",
+    "admin.posts.quote.hide": "在看板隐藏引用",
     "admin.posts.quote.open": "打开引用的贴文",
+    "admin.posts.quote.more": "展开全文",
+    "admin.posts.quote.less": "收起",
     "admin.posts.refresh": "从来源重新拉取",
     "admin.posts.refreshQueued": "已排队重新拉取 · {time}",
-    "admin.posts.column.actions": "操作",
     "admin.posts.error.provider_error": "服务商错误",
     "admin.posts.error.timeout": "超时",
     "admin.posts.error.authentication": "认证失败",
@@ -1472,10 +1525,7 @@ export const adminMessages = {
     "admin.schedule.cancel.confirmed": "已取消（确认）",
 
     "admin.posts.title": "贴文",
-    "admin.posts.description":
-      "已存的贴文及其提取状态。抓取一个时间窗口即可读取更多。",
     "admin.videos.title": "视频",
-    "admin.videos.description": "已存的 YouTube 视频以及页面上的精选视频。",
     "admin.profile.title": "头像与横幅",
     "admin.profile.description": "页面上显示的头像、横幅及其候选图片。",
     "admin.videos.featured": "精选",
@@ -1555,8 +1605,7 @@ export const adminMessages = {
     "admin.videos.merge.candidates": "可能的 YouTube 版本",
     "admin.videos.merge.noCandidates":
       "六小时内没有标题或时长相符的 YouTube 视频。",
-    "admin.videos.merge.suggestions": "哔哩哔哩匹配 · {count}",
-    "admin.videos.merge.suggestionsHint":
+    "admin.review.mergeHint":
       "匹配规则将在下次运行时合并的投稿，以及因多个视频相符、时长未知或标题不同而留给你决定的投稿。",
     "admin.videos.merge.status.rule": "下次运行时合并",
     "admin.videos.merge.status.ambiguous": "多个候选",
@@ -1566,8 +1615,6 @@ export const adminMessages = {
     "admin.videos.merge.lengthDelta": "时长相差 {count} 秒",
     "admin.videos.merge.lengthUnknown": "时长未知",
     "admin.videos.merge.titleDiffers": "标题不同",
-    "admin.videos.merge.showAll": "显示全部 {count} 条",
-    "admin.videos.merge.showLess": "收起",
     "admin.bilibili.title": "哔哩哔哩",
     "admin.bilibili.description":
       "配置账号的投稿在最小间隔内最多读取一次，只显示在后台；与 YouTube 版本相符的投稿会合并到该视频。",
@@ -1601,21 +1648,17 @@ export const adminMessages = {
     "admin.profile.active": "使用中",
     "admin.profile.download": "下载",
     "admin.profile.refresh": "重新下载",
-    "admin.profile.use": "使用",
     "admin.profile.source.x": "X",
     "admin.profile.source.youtube": "YouTube",
     "admin.profile.source.upload": "上传",
 
     "admin.runs.title": "运行",
-    "admin.runs.description":
-      "所有运行共用一个队列：同时只运行一个，队列忙时会拒绝新任务。",
     "admin.runs.stepRun": "单次运行步骤",
     "admin.runs.stepRunHint":
       "任选步骤运行一次，不会保存。来源也会在“来源”页按各自的定时器运行。",
     "admin.runs.runOnce": "运行一次",
     "admin.runs.skippedStep": "本进程已停用",
     "admin.runs.history": "运行记录",
-    "admin.runs.historyHint": "展开一次运行，查看每个步骤的数量和出错原因。",
     "admin.runs.created": "排队",
     "admin.runs.started": "开始",
     "admin.runs.finished": "结束",
@@ -1651,7 +1694,6 @@ export const adminMessages = {
     "admin.push.title": "YouTube 推送",
     "admin.push.description":
       "让 YouTube 的 Hub 在有新视频时通知本站，从而排队一次 YouTube 读取。",
-    "admin.push.off": "关闭",
     "admin.push.enable": "接收推送通知",
     "admin.push.enableHint": "需要一个能访问到本服务器的公开 HTTPS 回调地址。",
     "admin.push.unavailable": "YouTube 已被 SKIP_YOUTUBE 停用。",
@@ -1669,7 +1711,6 @@ export const adminMessages = {
     "admin.liveProbe.title": "直播状态探测",
     "admin.liveProbe.description":
       "只重新读取即将开始或仍在进行的直播的观看页，每次最多 {max} 个，让看板按 YouTube 自己的状态显示直播中。",
-    "admin.liveProbe.on": "开启",
     "admin.liveProbe.enable": "探测进行中的直播",
     "admin.liveProbe.enableHint":
       "在服务器任务队列中运行：直播开始前后每隔几分钟检查一次，且只在有活跃视频时运行。",
@@ -1684,13 +1725,6 @@ export const adminMessages = {
     "admin.liveProbe.activeCount": "{count}（每次最多 {max} 个）",
     "admin.sources.bilibili.hint":
       "账号的公开投稿列表，每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次。",
-    "admin.timer.title": "定时器",
-    "admin.timer.description.x":
-      "读取 X，然后缓存媒体、提取日程并翻译。X 没有推送，新贴文只能靠定时器读取。",
-    "admin.timer.description.youtube":
-      "读取 YouTube，然后缓存缩略图并翻译。推送和直播状态探测能捕捉大多数变化，定时器只是兜底。",
-    "admin.timer.description.bilibili":
-      "读取投稿列表，然后缓存封面并翻译。哔哩哔哩限制请求频率，因此间隔不能短于 {floor}。",
     "admin.timer.on": "每 {interval}",
     "admin.timer.enable": "定时运行",
     "admin.timer.enableHint":
@@ -1700,9 +1734,6 @@ export const adminMessages = {
       "未运行：定时器已关闭（WORKFLOW_SCHEDULER_ENABLED=0）。",
     "admin.timer.interval": "间隔",
     "admin.timer.sync": "读取方式",
-    "admin.timer.syncHint.incremental":
-      "从最新开始读到已存的记录为止。达到上限的运行会在下次从中断处继续。",
-    "admin.timer.syncHint.count": "每次读取最新的若干条，无论是否已存。",
     "admin.timer.syncLimit.incremental.x": "每个账号最多新贴文数",
     "admin.timer.syncLimit.count.x": "每个账号最新贴文数",
     "admin.timer.syncLimit.incremental.youtube": "每次最多新视频数",
@@ -1717,37 +1748,19 @@ export const adminMessages = {
       "立即运行此来源的步骤一次，下次定时运行的时间不变。",
     "admin.timer.never": "从未",
 
-    "admin.models.extraction": "识别阶段",
-    "admin.models.extractionHint":
-      "关键词候选供日程表阶段使用；单条消息阶段读取普通贴文。",
+    "admin.models.extraction": "识别方式",
     "admin.models.extractionOn": "提取已开启",
     "admin.models.extractionOff": "提取已关闭",
-    "admin.models.stage.keyword": "关键词候选",
-    "admin.models.stage.keywordHint":
-      "不调用模型，挑选看起来像日程表的已存贴文。",
-    "admin.models.stage.vision": "日程表",
-    "admin.models.stage.visionHint": "把候选贴文和缓存图片发送给日程表路由。",
-    "admin.models.stage.visionNeedsKeywords":
-      "日程表需要开启关键词候选才能找到贴文。",
-    "admin.models.stage.message": "单条消息",
-    "admin.models.stage.messageHint": "检查提到日期或直播的普通贴文。",
-    "admin.models.stage.allPosts": "所有贴文都交给模型",
-    "admin.models.stage.allPostsHint":
-      "跳过本地的日期和直播检查：每条带文字或图片的贴文都发送给单条消息路由。每条新贴文消耗一次模型调用。",
     "admin.models.keywords": "关键词",
     "admin.models.keywordsHint":
       "{count}/{max} 个 · 按回车或逗号添加，每个最多 {length} 字",
     "admin.models.keywordsPlaceholder": "输入关键词后按回车",
     "admin.models.unsaved": "有未保存的修改",
-    "admin.models.routesHint":
-      "每个阶段从队列顶部开始，调用第一个可用且带有所需标签的模型：贴文需要“文本”，日程图片需要“图片”。每个模型最多尝试三次，之后由下一个接手。",
     "admin.models.providers": "服务商",
     "admin.models.providersHint": "Key 加密保存，保存后不会再显示。",
     "admin.models.noProviders": "还没有服务商",
     "admin.models.noProvidersHint": "添加服务商，然后发现或添加模型。",
 
-    "admin.route.schedule_board": "日程表",
-    "admin.route.schedule_message": "单条消息",
     "admin.route.empty": "队列中还没有模型",
     "admin.route.emptyHint": "没有模型时，提取会安全跳过。",
     "admin.route.up": "上移",
@@ -1820,8 +1833,10 @@ export const adminMessages = {
     "admin.notice.cancellationDismissed": "已排除取消怀疑",
     "admin.notice.imageReviewed": "标记已保存",
     "admin.notice.periodSaved": "日期已修正",
-    "admin.notice.postQueued": "已排队，将在下次日程扫描时处理",
+    "admin.notice.postQueued": "将在下次日程扫描时由 LLM 重新处理",
     "admin.notice.quoteHidden": "已在公开看板隐藏引用",
+    "admin.notice.postHidden": "已在公开页面隐藏这条贴文",
+    "admin.notice.postShown": "这条贴文已重新在公开页面显示",
     "admin.notice.quoteShown": "已恢复在公开看板显示引用",
     "admin.notice.refreshQueued": "已排入下次 X 同步",
     "admin.notice.videoSaved": "已保存视频编辑",
@@ -1846,8 +1861,6 @@ export const adminMessages = {
     "admin.notice.extractionSaved": "识别设置已保存",
     "admin.notice.queueSaved": "队列已保存",
     "admin.models.translation": "翻译队列",
-    "admin.models.translationHint":
-      "把 X 动态和 YouTube 标题翻译为英文和简体中文的模型。翻译步骤只使用这个队列；留空即关闭机器翻译。",
     "admin.route.translationEmptyHint":
       "没有模型时，翻译步骤会安全跳过，并保留人工发起的请求。",
     "admin.route.translationNeedsText":
@@ -2043,23 +2056,27 @@ export const adminMessages = {
       "来源 API 的响应超过了大小限制。",
     "admin.sources.timerOff": "定时器已关闭",
     "admin.sources.timerBlocked": "定时器已开启，但本进程未运行",
-    "admin.sources.settingsFor": "{source} 设置",
     "admin.nav.detection": "日程识别",
     "admin.nav.llm": "LLM 模型",
+    "admin.nav.site": "站点",
+    "admin.site.title": "站点",
     "admin.action.discard": "放弃更改",
     "admin.detection.title": "日程识别",
-    "admin.detection.description":
-      "存储的贴文如何成为日程候选。读取它们的模型在“LLM 模型”页设置。",
+    "admin.detection.mode": "交给模型的贴文",
+    "admin.detection.mode.keyword": "关键词匹配",
+    "admin.detection.mode.llm": "全部交给 LLM",
+    "admin.detection.modeHint.keyword":
+      "含关键词的贴文按日程图片读取；其他提到日期或直播的贴文按文字读取。",
+    "admin.detection.modeHint.llm":
+      "每条带文字或图片的贴文都交给模型，不做关键词或日期检查。每条新贴文消耗一次模型调用。",
+    "admin.detection.modeHint.custom":
+      "已保存的阶段设置不属于任一方式，选择一种即可替换。",
     "admin.detection.models": "当前使用的模型",
-    "admin.detection.modelsHint":
-      "每个阶段调用日程队列中第一个可用且带有所需标签的模型。",
     "admin.detection.editQueue": "编辑队列",
     "admin.detection.stage.text": "文字贴文",
     "admin.detection.stage.image": "日程图片",
     "admin.detection.noModel": "没有可用模型",
     "admin.llm.title": "LLM 模型",
-    "admin.llm.description":
-      "模型队列及其背后的服务商。只有在你操作时才会获取服务商的模型列表或进行测试。",
     "admin.llm.queues": "模型队列",
     "admin.llm.queue.schedule": "日程提取",
     "admin.route.addModel": "添加模型",

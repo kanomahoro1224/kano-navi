@@ -9,6 +9,15 @@ containers. Source tests, including the historical-window API adapter, use
 fake transports and synthetic credentials; no check synchronizes live
 sources. See [Backend](../architecture/backend.md).
 
+GitHub Actions runs the lint and vet checks once, then runs the race suite as
+four parallel `backend-race-shard` jobs. Each shard lists the same Go tests and
+uses recorded race-detector durations to assign each test to one shard. The
+local `make ci-backend` target still runs the complete unsharded suite. Use
+`make RACE_SHARD=1/4 backend-race-shard` to exercise one slice locally, and
+`make RACE_RUN=<run id> backend-race-durations` to refresh
+`scripts/go-test-durations.json` from the artifacts of a successful CI run;
+the latter requires an authenticated GitHub CLI.
+
 `make test-frontend` runs the frontend tests in `tests/`: the dashboard and
 admin request hooks, the month archive reads, polling, the pure view and
 filter helpers, `robots.txt`, the board's preload in `index.html` and its
@@ -128,8 +137,10 @@ the standard empty cache directories; it does not download media.
 `tests/dashboard-requests.test.ts` loads the actual hook through Vite without
 environment files and uses fake time and controlled responses to exercise
 recovery, stalled JSON deadlines, deduplication, races, visibility and
-unmount. Its lightweight React renderer is test-only; browser review covers
-the production React DOM bundle. Together with `tests/archive-requests.test.ts`,
+unmount. Component and hook tests render with React DOM into a happy-dom
+window from `tests/dom.ts`, which loads no scripts, styles or pages, and drive
+views with DOM events; browser review covers the production bundle in real
+browsers. Together with `tests/archive-requests.test.ts`,
 it checks that same-revision live-state expiry refreshes the loaded calendar
 and archive pages atomically, queues a refresh behind pagination, and retains
 known pages on failure or cancellation. `tests/polling.test.ts` uses controlled
@@ -156,22 +167,24 @@ Production smoke creates a disposable container from the built image, uses
 synthetic production authentication, disables the source timers, and publishes a
 random loopback-only port. Its anonymous data volume is removed in cleanup.
 It validates the image's `kano-go serve` entry point, fresh SQLite, public API,
-SPA page routes, and the protected admin API. It does not mount host data or pass host secrets.
+SPA page routes, the protected admin API, and the CA bundle that outbound
+HTTPS needs. It does not mount host data or pass host secrets.
 This HTTP check does not claim to verify browser interaction.
 
 ## GitHub Actions
 
 Validation runs in two tiers that share one set of job definitions:
 
-| Tier   | Workflow  | Runs on                                                | Selects                    | Decides                            |
-| ------ | --------- | ------------------------------------------------------ | -------------------------- | ---------------------------------- |
-| `pr`   | `PR`      | Every pull request                                     | Jobs for the changed paths | Whether the pull request may merge |
-| `full` | `Full`    | Every push to `main`, and any branch or tag on request | Every job                  | Whether `main` is healthy          |
-| `full` | `Release` | Every release tag                                      | Every job                  | Whether the tag may publish        |
+| Tier   | Workflow | Runs on                                                | Selects                    | Decides                            |
+| ------ | -------- | ------------------------------------------------------ | -------------------------- | ---------------------------------- |
+| `pr`   | `PR`     | Every pull request                                     | Jobs for the changed paths | Whether the pull request may merge |
+| `full` | `Full`   | Every push to `main`, and any branch or tag on request | Every job                  | Whether `main` is healthy          |
 
 `.github/workflows/validate.yml` holds the jobs and has no trigger of its own.
-`pr.yml`, `full.yml` and `release.yml` call it with an explicit `tier`, so a
-tier never depends on the event or branch that started a run.
+`pr.yml` and `full.yml` call it with an explicit `tier`, so a tier never
+depends on the event or branch that started a run. The Release workflow checks
+the source and requires a successful `Full` run whose `head_sha` is the exact
+tagged commit; it does not call `validate.yml` again.
 
 ```text
 Style
@@ -183,8 +196,9 @@ Plan selects the remaining jobs, so they start without waiting for Style.
 Style runs beside them and always runs make ci-style, which also checks the
 workflow files and their shell snippets with actionlint (shellcheck is
 preinstalled on the runner) and tests the CI selection and gate policy with
-make test-ci-plan. Backend runs make ci-backend: golangci-lint, vet and the Go
-contract tests under the race detector. Go gate runs make go-check:
+make test-ci-plan. Backend runs a static matrix entry for golangci-lint and vet,
+plus four race matrix entries that cover the Go contract tests. Go gate runs
+make go-check:
 formatting, CGO-free and cross-platform builds and the read-only container
 smoke. Frontend runs make npm-audit-signatures on its fresh installation, then
 make ci-frontend: the type check, the build and the frontend tests. API smoke
@@ -214,8 +228,8 @@ selects all jobs. The frontend build type-checks every TypeScript script, so
 each one selects Frontend; `scriptJobs` names the other jobs behind each
 script. A script missing from that table selects all jobs, and the planner's
 tests fail until it is listed. The `full` tier ignores changed paths and always
-plans every job, so whatever a pull request leaves out is validated on `main`
-and before a release publishes.
+plans every job, so whatever a pull request leaves out is validated on `main`.
+A release reuses that result for its tagged commit.
 
 Gate always evaluates the plan against the job results, even after failures.
 It rejects failed, cancelled, missing, or unexpectedly skipped results and a
@@ -223,9 +237,11 @@ missing or invalid plan; only a job the plan disables may be skipped. A check
 is named after the calling job and the validation job, so the ruleset for
 `main` requires the single check `PR / Gate`; adding, splitting or renaming a
 job never changes what the ruleset names. `Full / Gate` reports the same
-verdict for a commit on `main`, and `Verify release / Gate` for a release tag.
-Release grants write permissions only to publication jobs. A new push cancels
-the superseded run of the same pull request or branch; release publication is
+verdict for a commit on `main`; the Release workflow reports its source and
+same-commit result from `Verify release source and validation` without a
+second validation Gate. Release grants write permissions only to publication
+jobs. A new push cancels the superseded run of the same pull request or
+branch, while Full keeps each main commit's result; release publication is
 serialized per tag.
 
 Every runner has a timeout, locked installation, and read-only repository

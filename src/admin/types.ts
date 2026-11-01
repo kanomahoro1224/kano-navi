@@ -141,12 +141,14 @@ export interface Overview {
   scheduler: { enabled: boolean; running: boolean; tickSeconds: number | null }
   /** The enabled source schedules this process runs. */
   timers: { scheduled: number; nextRunAt: string | null }
-  sources: { x: SourceHealth; youtube: SourceHealth }
+  sources: { x: SourceHealth; youtube: SourceHealth; bilibili: SourceHealth }
   review: {
     pendingImages: number
     suspectedCancellations: number
     failedPosts: number
     reprocessRequested: number
+    /** Bilibili uploads the merge rule leaves to the operator. */
+    videoMerges: number
   }
   counts: {
     upcomingEvents: number
@@ -161,6 +163,21 @@ export interface StepCatalog {
   steps: { id: string; group: "source" | "process" }[]
   /** Steps disabled through SKIP_* in this process. */
   skippedSteps: string[]
+}
+
+/** How long finished runs stay in the history; 0 days keeps them. */
+export interface RunRetention {
+  succeededDays: number
+  failedDays: number
+  maxDays: number
+  pruner: {
+    /** False when this process does not clean the history. */
+    available: boolean
+    intervalHours?: number
+    lastPrunedAt?: string | null
+    lastDeleted?: number
+    lastFailed?: boolean
+  }
 }
 
 export interface PushStatus {
@@ -193,6 +210,30 @@ export interface LiveProbeStatus {
 export interface YTDLPStatus {
   available: boolean
   version?: string
+}
+
+/** The read bounds of source steps, manual fetches and translation. */
+export type SyncSettingField =
+  | "xBootstrapDays"
+  | "xDiscoveryLimit"
+  | "xMaxStatusRequests"
+  | "xRefreshKnown"
+  | "youtubeMaxDetailRequests"
+  | "fetchMaxPages"
+  | "fetchTimeoutMs"
+  | "fetchRequestDelayMs"
+  | "translationScanLimit"
+  | "translationLookbackDays"
+  | "llmModelAttempts"
+
+export interface SyncSettings {
+  settings: Record<SyncSettingField, number>
+  fields: {
+    field: SyncSettingField
+    default: number
+    min: number
+    max: number
+  }[]
 }
 
 export type ScheduleSource = "x" | "youtube" | "bilibili"
@@ -387,6 +428,8 @@ export interface AdminPost {
   quoteHiddenAt: string | null
   /** A refresh from the source waiting for the next X synchronization. */
   refreshRequestedAt: string | null
+  /** When an operator hid the whole post from the public pages. */
+  hiddenAt: string | null
 }
 
 /**
@@ -579,9 +622,12 @@ export interface AdminVideosPage extends Page<AdminVideo> {
   featuredVideo: AdminVideo | null
 }
 
+export type ProfileSlot = "avatar" | "banner"
+
 export interface ProfileMedia {
   id: string
-  slot: "avatar" | "banner"
+  /** The slot the candidate is active for, or the one that found it. */
+  slot: ProfileSlot
   source: "x" | "youtube" | "upload"
   sourceUrl: string | null
   downloadStatus: string | null

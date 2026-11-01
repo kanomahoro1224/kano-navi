@@ -98,6 +98,9 @@ ENV APP_MODE=production \
 
 WORKDIR /app
 
+# The Node base image has no system CA store; Go reads its TLS roots from this
+# file for every outbound HTTPS request.
+COPY --from=backend /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=backend /out/kano-go /app/kano-go
 COPY --from=backend /out/yt-dlp /app/yt-dlp
 COPY --from=backend /out/data /app/data

@@ -16,6 +16,14 @@
 > `route: "verify"`.
 
 > [!NOTE]
+> On the first start after upgrading, detection stage switches saved by an
+> earlier release that match neither Detection mode become the nearest mode:
+> Everything to the LLM when the message stage runs on all posts, Keyword
+> match otherwise. Keyword match can turn on stages that were off. Settings
+> with no detection stage running stay as they are. Check `/admin` →
+> Detection after upgrading.
+
+> [!NOTE]
 > Schedule-image verdicts no longer depend on the check queue, so after
 > upgrading the schedule step checks every image without a manual label once
 > more, up to 20 images per run. While an image is checked, and after a failed or changed verdict, it

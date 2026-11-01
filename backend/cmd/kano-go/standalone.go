@@ -68,6 +68,11 @@ func runStandalone(cfg config.Config) int {
 	if err = store.ImportSyncSettings(context.Background(), os.Getenv); err != nil {
 		return fail("sync settings unavailable", 1)
 	}
+	// Stage flags an earlier release saved become one of the Detection page's
+	// two modes on the first start.
+	if err = llmadmin.SettleDetectionMode(context.Background(), store, os.LookupEnv); err != nil {
+		return fail("detection settings unavailable", 1)
+	}
 
 	run := newPipeline(store, secretsKey)
 	// The variants step and the Site page's copies status read the archive

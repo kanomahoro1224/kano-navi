@@ -871,8 +871,15 @@ to extraction `raw_json`. A legacy `OPENAI_API_KEY` can be imported once with
 synchronization never reads that environment variable.
 Candidates from either X account use the same idempotent fingerprint and
 manual-lock rules. The stage flags are stored as `schedule_keyword_enabled`,
-`schedule_vision_enabled`, and `schedule_message_enabled` and can be changed
-independently in `/admin`. The legacy `schedule_extraction_enabled` setting
+`schedule_vision_enabled`, and `schedule_message_enabled`. The Detection page
+saves them, with `schedule_message_all_posts`, as one of two modes: keyword
+match (the three stages, not all posts) or everything to the LLM (the message
+stage on all posts); `PUT /api/admin/extraction` accepts any combination.
+Once (marker `schedule_detection_mode_settled`), the first standalone start
+stores running flags that match neither mode as everything to the LLM when
+the message stage runs on all posts and as keyword match otherwise. Flags that
+already match a mode, from storage or the environment, and flags with no stage
+running are not written. The legacy `schedule_extraction_enabled` setting
 (or `SCHEDULE_EXTRACTION_ENABLED`) is only the default for a stage flag that
 is not set; it is not a runtime master switch, so an enabled stage runs even
 when it contains `0`. `schedule_message_all_posts` is off unless set

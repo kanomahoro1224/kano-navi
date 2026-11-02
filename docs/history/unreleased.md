@@ -17,6 +17,10 @@
   `video`) in its `tag` field, so a client can show what kind of activity an
   entry is instead of guessing from its title. The label belongs to the event,
   so a notice without a video link can carry one too.
+- The weekly guide and the month view show an entry's label with an icon. An
+  activity label replaces a plain stream type, while members-only, event and
+  release types stay beside it; colors still follow the type. The Next Up
+  ticket names gameplay, talk and singing entries by their label.
 - Past videos shows four columns of covers on wide screens, three on narrow
   ones and two on phones. A month long enough to scroll keeps the same columns
   as a short one.

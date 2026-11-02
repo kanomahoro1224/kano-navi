@@ -101,6 +101,8 @@ export interface ScheduleEvent {
   timePrecision: string
   status: string | null
   eventType: string
+  /** The entry's activity label code (`live`, `game`, `talk`, `song`, `video`). */
+  tag?: string | null
   url: string | null
   provenance: string
   manualLocked: boolean

@@ -21,6 +21,7 @@ import {
   confirmedLiveStatus,
   countdownParts,
   eventIsManual,
+  eventTag,
   eventTypeKey,
   formatJapanDay,
   formatJapanTime,
@@ -34,6 +35,7 @@ import {
 import { pickCompanion, pickSpotlight, spotlightIsLive } from "../spotlight"
 import type { SyncSource, SyncState } from "../freshness"
 import { videoLinks } from "../video-groups"
+import { EventTagIcon } from "./event-tag"
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import { TranslatedTitle } from "./translated-title"
 
@@ -97,11 +99,17 @@ function TicketHead({
   t: Translator
 }) {
   const typeKey = item.event ? eventTypeKey(item.event) : null
-  const tag = item.video
-    ? videoKindLabel(item.video, t)
-    : typeKey
-      ? t(typeKey)
-      : eventDetailText(item.detail, t) || t("schedule.publicEvent")
+  // A gameplay, talk or singing label outranks the video's title guess; a
+  // plain stream or upload label says no more than the type already does.
+  const kind = item.event ? eventTag(item.event) : null
+  const activity = kind === "game" || kind === "talk" || kind === "song"
+  const tag = activity
+    ? t(`event.tag.${kind}`)
+    : item.video
+      ? videoKindLabel(item.video, t)
+      : typeKey
+        ? t(typeKey)
+        : eventDetailText(item.detail, t) || t("schedule.publicEvent")
   const manual = item.event ? eventIsManual(item.event) : false
   return (
     <span className="ticket-head">
@@ -115,7 +123,10 @@ function TicketHead({
           {t(item.mode === "next" ? "spotlight.next" : "spotlight.latest")}
         </span>
       )}
-      <span className="tag tone-berry">{tag}</span>
+      <span className="tag tone-berry">
+        {activity ? <EventTagIcon tag={kind} /> : null}
+        {tag}
+      </span>
       {item.event ? (
         <span className={`ticket-provenance${manual ? " is-manual" : ""}`}>
           {manual ? (

@@ -6,7 +6,9 @@ The board's first section answers "what's next?".
 
 A ticket shows the next stream or event: its artwork, the date and time in
 Japan, the same moment in your own time zone, and a countdown in hours and
-minutes. While a stream is live the ticket switches to an on-air state.
+minutes. While a stream is live the ticket switches to an on-air state. Its
+label names the activity when the schedule says it is gameplay, talk, or
+singing, and otherwise the kind of stream or video.
 
 When nothing is scheduled, the latest video takes its place. A schedule entry
 without artwork appears as a compact date ticket with its Auto-detected or

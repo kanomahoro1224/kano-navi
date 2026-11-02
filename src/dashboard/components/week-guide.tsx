@@ -32,8 +32,8 @@ import {
   dateKey,
   eventDateKey,
   eventIsManual,
+  eventKinds,
   eventStatus,
-  eventTypeKey,
   formatJapanTime,
   formatLongDate,
   formatWeekRange,
@@ -45,6 +45,7 @@ import {
 import { archiveRange } from "../use-dashboard"
 import { ArchiveMore, ArchiveState } from "./archive-dialog"
 import { CalendarSubscribe } from "./calendar-subscribe"
+import { EventTagIcon } from "./event-tag"
 import { TranslatedTitle } from "./translated-title"
 
 function keyToDate(key: string) {
@@ -100,7 +101,7 @@ function GuideEvent({
   t: Translator
 }) {
   const status = eventStatus(event, now)
-  const typeKey = eventTypeKey(event)
+  const { typeKey, tag } = eventKinds(event)
   const tone = typeTones[String(event.eventType || "").toLowerCase()] || "sky"
   const time = event.startsAt ? formatJapanTime(event.startsAt) : null
   const manual = eventIsManual(event)
@@ -149,6 +150,12 @@ function GuideEvent({
         ) : null}
         <span className="guide-event-tags">
           {typeKey ? <span className="tag">{t(typeKey)}</span> : null}
+          {tag ? (
+            <span className="tag guide-event-kind">
+              <EventTagIcon tag={tag} />
+              {t(`event.tag.${tag}`)}
+            </span>
+          ) : null}
           {status !== "upcoming" ? (
             <span className={`tag tone-${statusTones[status] || "muted"}`}>
               {status === "live" ? <Radio aria-hidden="true" /> : null}
@@ -342,6 +349,7 @@ function MonthGrid({
                 <ol className="month-events">
                   {items.slice(0, MONTH_CHIPS).map((event) => {
                     const status = eventStatus(event, now)
+                    const { tag } = eventKinds(event)
                     const tone =
                       typeTones[String(event.eventType || "").toLowerCase()] ||
                       "sky"
@@ -352,7 +360,13 @@ function MonthGrid({
                       pickTranslation(event.translations, contentLocale)
                         ?.text || event.title,
                     )
-                    const label = `${time || t("common.pendingConfirmation")} ${title} · ${t(`schedule.status.${status}`)}`
+                    const label = [
+                      `${time || t("common.pendingConfirmation")} ${title}`,
+                      tag ? t(`event.tag.${tag}`) : null,
+                      t(`schedule.status.${status}`),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
                     const Wrapper = event.url ? ExternalLink : "span"
                     return (
                       <li key={event.id}>
@@ -363,6 +377,7 @@ function MonthGrid({
                         >
                           <span className="sr-only">{label}</span>
                           <span aria-hidden="true">
+                            {tag ? <EventTagIcon tag={tag} /> : null}
                             {time ? <strong>{time}</strong> : null}
                             {title}
                           </span>

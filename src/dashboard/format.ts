@@ -322,6 +322,35 @@ export function eventTypeKey(event: ScheduleEvent) {
     : null
 }
 
+export const eventTags = ["live", "game", "talk", "song", "video"] as const
+export type EventTag = (typeof eventTags)[number]
+
+/** The entry's activity label, or null when it is unlabelled or unknown. */
+export function eventTag(event: ScheduleEvent): EventTag | null {
+  const tag = String(event.tag || "").toLowerCase()
+  return (eventTags as readonly string[]).includes(tag)
+    ? (tag as EventTag)
+    : null
+}
+
+/**
+ * The kind chips of an entry. A label says what the activity is and the type
+ * how it is held: a label replaces the plain stream chip, a members-only,
+ * event or release chip stays beside it, and a label that repeats its type
+ * is dropped.
+ */
+export function eventKinds(event: ScheduleEvent) {
+  const type = String(event.eventType || "").toLowerCase()
+  let tag = eventTag(event)
+  if (
+    (tag === "live" && (type === "stream" || type === "member")) ||
+    (tag === "video" && type === "video")
+  )
+    tag = null
+  const typeKey = tag && type === "stream" ? null : eventTypeKey(event)
+  return { typeKey, tag }
+}
+
 export function sortEvents(events: ScheduleEvent[]) {
   return [...events].sort(
     (a, b) =>

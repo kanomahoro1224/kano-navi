@@ -1107,6 +1107,17 @@
   background: var(--paper);
 }
 
+.guide-event-tags .tag svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* The activity label takes the entry's tone, so it reads with its type. */
+.guide-event-tags .guide-event-kind {
+  gap: 3px;
+  color: var(--tone);
+}
+
 .guide-provenance {
   display: inline-flex;
   align-items: center;
@@ -1539,6 +1550,15 @@
   font-family: var(--font-mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+
+.month-event svg {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 3px;
+  color: var(--tone);
+  vertical-align: -1.5px;
 }
 
 a.month-event:hover {

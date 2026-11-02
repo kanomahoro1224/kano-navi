@@ -44,6 +44,9 @@ import { DayHeading, EventRow, groupByDay } from "@/admin/views/schedule-parts"
 
 const eventTypes = ["stream", "member", "appearance", "release", "event"]
 
+/** The calendar labels an entry can carry; "" leaves it unlabelled. */
+const eventTags = ["live", "game", "talk", "song", "video"]
+
 /** The form's limit on an entry's detail, shown by its counter. */
 const detailLimit = 500
 
@@ -67,6 +70,7 @@ interface Draft {
   end: string
   approximate: boolean
   eventType: string
+  tag: string
   status: string
   url: string
   cancellationStatus: "none" | "llm_suspected" | "manual_confirmed"
@@ -91,6 +95,7 @@ function draftOf(event: AdminEvent | null, day?: string): Draft {
     end: japanClock(event?.endsAt),
     approximate: event?.timePrecision === "approximate",
     eventType: event?.eventType || "stream",
+    tag: event?.tag || "",
     status: event?.status || "",
     url: event?.url || "",
     cancellationStatus: event?.cancellationStatus || "none",
@@ -133,6 +138,7 @@ function inputOf(draft: Draft): EventInput {
         : "exact"
       : undefined,
     eventType: draft.eventType,
+    tag: draft.tag,
     status: draft.status,
     url: draft.url,
     cancellationStatus: draft.cancellationStatus,
@@ -251,6 +257,22 @@ function EventDialog({
             onChange={(eventType) => set({ eventType })}
           />
         </div>
+        <Field
+          label={t("admin.schedule.field.tag")}
+          hint={t("admin.schedule.field.tagHint")}
+        >
+          <select
+            value={draft.tag}
+            onChange={(e) => set({ tag: e.target.value })}
+          >
+            <option value="">{t("admin.schedule.tag.none")}</option>
+            {eventTags.map((tag) => (
+              <option key={tag} value={tag}>
+                {t(`admin.event.tag.${tag}`)}
+              </option>
+            ))}
+          </select>
+        </Field>
 
         <section
           className="adm-entry-when"

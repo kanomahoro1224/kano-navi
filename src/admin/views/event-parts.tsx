@@ -17,6 +17,7 @@ export function eventToInput(event: AdminEvent): EventInput {
     endsAt: event.endsAt || "",
     timePrecision: event.startsAt ? event.timePrecision : undefined,
     eventType: event.eventType || "event",
+    tag: event.tag || "",
     status: event.status || "",
     url: event.url || "",
     cancellationStatus: event.cancellationStatus,

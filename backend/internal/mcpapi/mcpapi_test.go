@@ -47,8 +47,8 @@ func newStore(t *testing.T) *sqlite.Store {
 func seed(t *testing.T, store *sqlite.Store) {
 	t.Helper()
 	statements := []string{
-		`INSERT INTO events (id,source,source_item_id,source_key,title,detail,starts_on,starts_at,timezone,time_precision,event_type,provenance,manual_locked,confidence,extraction_id,cancellation_status,cancellation_source_item_id,created_at,updated_at,raw_json)
-		 VALUES ('automatic-public-event','x','source-post-placeholder','date-key-placeholder','Automatic schedule','Public detail','2026-09-02','2026-09-02T03:00:00.000Z','Asia/Tokyo','exact','stream','automatic',0,0.9,42,'none','cancel-source-placeholder','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z','{"note":"raw-json-placeholder"}')`,
+		`INSERT INTO events (id,source,source_item_id,source_key,title,detail,starts_on,starts_at,timezone,time_precision,event_type,tag,tag_source,provenance,manual_locked,confidence,extraction_id,cancellation_status,cancellation_source_item_id,created_at,updated_at,raw_json)
+		 VALUES ('automatic-public-event','x','source-post-placeholder','date-key-placeholder','Automatic schedule','Public detail','2026-09-02','2026-09-02T03:00:00.000Z','Asia/Tokyo','exact','stream','song','llm','automatic',0,0.9,42,'none','cancel-source-placeholder','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z','{"note":"raw-json-placeholder"}')`,
 		`INSERT INTO events (id,source,title,starts_on,timezone,time_precision,event_type,provenance,manual_locked,cancellation_status,created_at,updated_at)
 		 VALUES ('manual-public-event','manual','Manual schedule','2026-09-03','Asia/Tokyo','unknown','event','manual',1,'none','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z')`,
 		`INSERT INTO events (id,source,title,starts_on,timezone,time_precision,event_type,provenance,manual_locked,cancellation_status,deleted_at,created_at,updated_at)
@@ -452,10 +452,16 @@ func TestDashboardReadIsAPublicProjection(t *testing.T) {
 				t.Fatalf("event exposes %s: %v", field, event)
 			}
 		}
-		// 18 schedule facts plus the linked video's translations and
-		// sourceLanguage.
-		if len(event) != 20 {
+		// 18 schedule facts, the calendar label, plus the linked video's
+		// translations and sourceLanguage.
+		if len(event) != 21 {
 			t.Fatalf("event field count = %d: %v", len(event), keys(event))
+		}
+		// The label is read from the event row, so a reader sees it here just
+		// as the calendar does; an unlabelled entry reports null.
+		wantTag := map[any]any{"automatic-public-event": "song", "manual-public-event": nil}[event["id"]]
+		if event["tag"] != wantTag {
+			t.Fatalf("event %v tag = %v, want %v", event["id"], event["tag"], wantTag)
 		}
 	}
 	meta := dashboard["meta"].(map[string]any)

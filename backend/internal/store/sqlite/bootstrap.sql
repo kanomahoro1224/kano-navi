@@ -43,6 +43,8 @@ CREATE TABLE events (
     time_precision TEXT NOT NULL DEFAULT 'exact',
     status TEXT,
     event_type TEXT DEFAULT 'event',
+    tag TEXT,
+    tag_source TEXT,
     url TEXT,
     is_upcoming INTEGER DEFAULT 0,
     provenance TEXT NOT NULL DEFAULT 'automatic',

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+
+	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
 // applyExtraction writes one accepted model result in a single transaction:
@@ -136,14 +138,14 @@ func findCancellationTargets(ctx context.Context, q queryer, candidates []normal
 
 const upsertEventSQL = `INSERT INTO events (
 		id, source, source_item_id, source_key, title, detail, starts_on, starts_at,
-		ends_at, timezone, time_precision, status, event_type, url, is_upcoming,
+		ends_at, timezone, time_precision, status, event_type, tag, tag_source, url, is_upcoming,
 		provenance, manual_locked, confidence, extraction_id,
 		cancellation_status, cancellation_source, cancellation_reason,
 		cancellation_evidence, cancellation_source_item_id,
 		cancellation_confidence, cancellation_at, deleted_at,
 		created_at, updated_at, raw_json
 	) VALUES (
-		?, ?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Tokyo', ?, ?, ?, ?, ?,
+		?, ?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Tokyo', ?, ?, ?, ?, ?, ?, ?,
 		'automatic', 0, ?, ?, 'none', NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 		?, ?, ?
 	)
@@ -153,7 +155,8 @@ const upsertEventSQL = `INSERT INTO events (
 		starts_on=excluded.starts_on, starts_at=excluded.starts_at,
 		ends_at=excluded.ends_at, timezone=excluded.timezone,
 		time_precision=excluded.time_precision, status=excluded.status,
-		event_type=excluded.event_type, url=excluded.url,
+		event_type=excluded.event_type, tag=excluded.tag, tag_source=excluded.tag_source,
+		url=excluded.url,
 		is_upcoming=excluded.is_upcoming, provenance=excluded.provenance,
 		manual_locked=excluded.manual_locked, confidence=excluded.confidence,
 		extraction_id=excluded.extraction_id, deleted_at=excluded.deleted_at,
@@ -179,6 +182,15 @@ func nullableText(value *string) any {
 		return nil
 	}
 	return *value
+}
+
+// llmTagSource records that the model decided the label. A cleared label
+// stores no source, so a later extraction can fill it.
+func llmTagSource(tag *string) any {
+	if tag == nil || *tag == "" {
+		return nil
+	}
+	return sqlite.TagSourceLLM
 }
 
 // replaceAutomaticEvents mirrors replaceAutomaticEventsForSource for the X
@@ -237,7 +249,7 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, post
 			eventID, event.canonicalSource, event.canonicalSourceItemID, event.canonicalSourceKey,
 			event.title, nullableText(event.detail), event.startsOn, nullableText(event.startsAt),
 			nullableText(event.endsAt), event.timePrecision, nullable(event.status), event.eventType,
-			nullable(event.url), upcoming, event.confidence, extractionID, now, now, stringify(raw)); err != nil {
+			nullableText(event.tag), llmTagSource(event.tag), nullable(event.url), upcoming, event.confidence, extractionID, now, now, stringify(raw)); err != nil {
 			return err
 		}
 		evidence := event.rawObject()

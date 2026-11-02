@@ -39,8 +39,15 @@ type parityData struct {
 var (
 	recordedPublishedAt  = regexp.MustCompile(`Source post published at ([^ ]+)\. Source URL`)
 	recordedForcedTool   = regexp.MustCompile(`"tool_choice":\{"type":"tool","name":"([^"]+)"\}`)
-	recordedInstructions = strings.Replace(scheduleInstructions, " "+scheduleLanguageInstruction, "", 1)
+	recordedInstructions = strings.TrimSuffix(strings.Replace(scheduleInstructions, " "+scheduleLanguageInstruction, "", 1), " "+scheduleTagInstruction)
 	recordedPending      = strings.NewReplacer(`"status":"待确认"`, `"status":"pending"`)
+
+	// The tag property and its required entry are newer than the recording;
+	// removing them restates the schema the recording was made with.
+	recordedTagProperty    = `"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]},`
+	recordedScheduleSchema = strings.Replace(
+		strings.Replace(string(scheduleSchema), recordedTagProperty, "", 1),
+		`"eventType","tag","url"`, `"eventType","url"`, 1)
 )
 
 // withPendingCode rewrites the recorded Chinese pending status in stored rows.
@@ -57,8 +64,25 @@ func withPendingCode(tables map[string][]map[string]any) {
 	}
 }
 
+// withExtractorVersion restates the recording's extraction rows in the current
+// version. The tag property bumps it, so a known post is asked again.
+func withExtractorVersion(tables ...map[string][]map[string]any) {
+	for _, table := range tables {
+		for _, row := range table["extractions"] {
+			version, ok := row["extractor_version"].(string)
+			if !ok {
+				continue
+			}
+			if rest, found := strings.CutPrefix(version, "openai-schedule-v4"); found {
+				row["extractor_version"] = extractorVersion + rest
+			}
+		}
+	}
+}
+
 func withLocalPublishedAt(body string) string {
 	body = strings.ReplaceAll(body, recordedInstructions, scheduleInstructions)
+	body = strings.ReplaceAll(body, recordedScheduleSchema, string(scheduleSchema))
 	body = recordedPublishedAt.ReplaceAllStringFunc(body, func(match string) string {
 		value := recordedPublishedAt.FindStringSubmatch(match)[1]
 		return "Source post published at " + publishedAtText(value) + ". Source URL"
@@ -175,6 +199,7 @@ func TestParityWithTypeScriptExtractor(t *testing.T) {
 	}
 	withPendingCode(data.AfterFirst)
 	withPendingCode(data.AfterSecond)
+	withExtractorVersion(data.AfterFirst, data.AfterSecond)
 	// The recorded second scan sent post-c to p-chat again although p-anth had
 	// extracted it. A stored success stands whichever target made it, so that
 	// scan makes no call and p-chat keeps the status the first scan left.
@@ -312,6 +337,7 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 	if len(data.Requests) != 8 || len(data.AfterFirst["reviews"]) != 5 {
 		t.Fatalf("unexpected fixture shape")
 	}
+	withExtractorVersion(data.AfterFirst, data.AfterSecond)
 	const (
 		boardURL   = "https://pbs.twimg.com/media/synthetic-board.png?name=orig#frag"
 		otherURL   = "https://pbs.twimg.com/media/synthetic-other.png"

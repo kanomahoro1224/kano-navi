@@ -29,13 +29,16 @@ import {
   formatStamp,
   formatVisitorTime,
   japanDateParts,
-  videoKindLabel,
+  videoFormLabel,
+  videoTag,
+  videoTagLabel,
   visitorIsInJapan,
+  type VideoTag,
 } from "../format"
 import { pickCompanion, pickSpotlight, spotlightIsLive } from "../spotlight"
 import type { SyncSource, SyncState } from "../freshness"
 import { videoLinks } from "../video-groups"
-import { EventTagIcon } from "./event-tag"
+import { EventTagIcon, VideoTagChip } from "./event-tag"
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import { TranslatedTitle } from "./translated-title"
 
@@ -99,17 +102,24 @@ function TicketHead({
   t: Translator
 }) {
   const typeKey = item.event ? eventTypeKey(item.event) : null
-  // A gameplay, talk or singing label outranks the video's title guess; a
-  // plain stream or upload label says no more than the type already does.
-  const kind = item.event ? eventTag(item.event) : null
-  const activity = kind === "game" || kind === "talk" || kind === "song"
-  const tag = activity
-    ? t(`event.tag.${kind}`)
-    : item.video
-      ? videoKindLabel(item.video, t)
-      : typeKey
-        ? t(typeKey)
-        : eventDetailText(item.detail, t) || t("schedule.publicEvent")
+  // The video's tag (which already follows its entry's label) or else the
+  // entry's gameplay, talk or singing label outranks the form; a plain
+  // stream or upload label says no more than the type already does.
+  const label = item.event ? eventTag(item.event) : null
+  const videoActivity = item.video ? videoTag(item.video) : null
+  const activity: VideoTag | null =
+    videoActivity ??
+    (label === "game" || label === "talk" || label === "song" ? label : null)
+  const tag =
+    item.video && videoActivity
+      ? videoTagLabel(item.video, t)
+      : activity
+        ? t(`event.tag.${activity}`)
+        : item.video
+          ? videoFormLabel(item.video, t)
+          : typeKey
+            ? t(typeKey)
+            : eventDetailText(item.detail, t) || t("schedule.publicEvent")
   const manual = item.event ? eventIsManual(item.event) : false
   return (
     <span className="ticket-head">
@@ -124,7 +134,14 @@ function TicketHead({
         </span>
       )}
       <span className="tag tone-berry">
-        {activity ? <EventTagIcon tag={kind} /> : null}
+        {activity ? (
+          <EventTagIcon
+            tag={activity}
+            work={Boolean(
+              videoActivity && item.video && item.video.kind !== "stream",
+            )}
+          />
+        ) : null}
         {tag}
       </span>
       {item.event ? (
@@ -379,7 +396,8 @@ function LatestCard({
       <span className="latest-card-copy">
         <span className="ticket-head">
           <span className="kicker">{t("spotlight.latest")}</span>
-          <span className="tag">{videoKindLabel(companion.video, t)}</span>
+          <span className="tag">{videoFormLabel(companion.video, t)}</span>
+          <VideoTagChip video={companion.video} t={t} />
         </span>
         <TranslatedTitle
           className="latest-card-title"

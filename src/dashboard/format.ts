@@ -375,32 +375,46 @@ export function scheduleSortTime(
 // ---------------------------------------------------------------------------
 // Videos
 
-const videoTagKeys: Record<string, string> = {
+export const videoTags = ["game", "talk", "song"] as const
+export type VideoTag = (typeof videoTags)[number]
+
+// A work's tag names what it is (a song); a stream's names what it was (a
+// singing stream), in the schedule's words.
+const workTagKeys: Record<VideoTag, string> = {
   game: "media.kind.gameplay",
   talk: "media.kind.talk",
   song: "media.kind.music",
 }
 
 /** The video's content tag (game, talk or song), or null for other. */
-export function videoTag(video: Video) {
+export function videoTag(video: Video): VideoTag | null {
   const tag = String(video?.tag || "")
-  return tag in videoTagKeys ? tag : null
+  return (videoTags as readonly string[]).includes(tag)
+    ? (tag as VideoTag)
+    : null
 }
 
 /**
- * A video's chip: a Short, then a stream's waiting room, then what the video
- * is about (its tag), then its form. A stream past its waiting room reads as
- * its archive; the phase tags say when it is on air.
+ * A video's form chip: a Short, then a stream's waiting room, then its form.
+ * A stream past its waiting room reads as its archive; the phase tags say
+ * when it is on air. What the video is about is its tag chip.
  */
-export function videoKindLabel(video: Video, t: Translator) {
+export function videoFormLabel(video: Video, t: Translator) {
   if (video?.isShort === true) return t("media.kind.short")
   const kind = String(video?.kind || "")
-  if (kind === "stream" && video.isUpcoming) return t("media.kind.upcoming")
-  const tag = videoTag(video)
-  if (tag) return t(videoTagKeys[tag])
-  if (kind === "stream") return t("media.kind.liveArchive")
+  if (kind === "stream")
+    return t(
+      video.isUpcoming ? "media.kind.upcoming" : "media.kind.liveArchive",
+    )
   if (kind === "premiere") return t("media.kind.premiere")
   return t("media.kind.video")
+}
+
+/** A video's tag chip label, or null when it has no tag. */
+export function videoTagLabel(video: Video, t: Translator) {
+  const tag = videoTag(video)
+  if (!tag) return null
+  return t(video.kind === "stream" ? `event.tag.${tag}` : workTagKeys[tag])
 }
 
 /** Strip the trailing 【鹿乃まほろ/ミリプロ】 credit that every title repeats. */

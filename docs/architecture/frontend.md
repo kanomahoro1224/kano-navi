@@ -68,9 +68,16 @@ leaves the shelf once its start passes. A past video whose `isShort` is
 an archive nor a work; `null` (unknown) is an ordinary upload. The
 lead is the featured video, or else the newest work tagged `song` or
 premiere, or else the newest work, so a Short leads only when featured; each video appears
-once. A video's chip (`videoKindLabel`) names a Short, then a stream's
-waiting room, then the tag (gameplay, talk, music), then the form (stream
-archive, premiere, video). The filter offers All plus Streams, Works and Shorts for each kind
+once. A video carries two chips. The form chip (`videoFormLabel`) names a
+Short, then a stream's waiting room, then the form (stream archive,
+premiere, video). The tag chip (`VideoTagChip` in
+`src/dashboard/components/event-tag.tsx`) adds the tag with the schedule's
+icon, in the schedule's words for a stream (gameplay, talk, singing) and as
+the work's content otherwise (gameplay, talk, music, where a note replaces
+the singing microphone, as on the archive's Songs button); it appears on every
+card, row, ticket and the lead, including stream archives that hide the
+form chip. The Next Up ticket names the video's tag, else the entry's
+activity label, before the form. The filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the
 centre of the 1280×720 cover (the vertical frame between YouTube's blurred
 pillarbox): one row of up to six in the All view, fewer as columns narrow and
@@ -613,9 +620,11 @@ re-measures when the wall or a post resizes. A container query on the dialog
 head hides the layout switch while the wall is narrower than two masonry
 columns, where both layouts are one column. The video archive lists the
 loaded videos in the API's newest-first order as a grid of cards, each the
-cover above the title, then the Japan date and time, the phase or kind tag
-and platform links: four columns, three or two as the dialog narrows. Its
-category buttons (`VideoArchiveFilter`) pass the API's `category` filter,
+cover above the title, then the Japan date and time, the phase or form chip,
+the tag chip and platform links: four columns, three or two as the dialog
+narrows. Its
+category buttons (`VideoArchiveFilter`) carry the tag icons, pass the API's
+`category` filter,
 show `categoryCounts`, and keep the choice across months until the dialog
 closes. An image viewer opened from the
 post archive stacks above it; Escape closes the topmost dialog and focus

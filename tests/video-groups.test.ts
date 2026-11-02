@@ -13,7 +13,8 @@ import {
 import {
   durationAttribute,
   formatDuration,
-  videoKindLabel,
+  videoFormLabel,
+  videoTagLabel,
 } from "../src/dashboard/format.ts"
 
 const now = Date.parse("2026-10-25T12:00:00Z")
@@ -219,18 +220,26 @@ test("lengths read like the platforms show them", () => {
   assert.equal(durationAttribute(33), "PT33S")
 })
 
-test("a label names the waiting room, then the tag, then the form", () => {
+test("the form chip names the waiting room or the form, never the tag", () => {
   const t = (key: string) => key
-  const label = (fields: Partial<Video>) =>
-    videoKindLabel(video("v", fields), t)
-  assert.equal(label({ isUpcoming: true, tag: "game" }), "media.kind.upcoming")
-  assert.equal(label({ tag: "game" }), "media.kind.gameplay")
-  assert.equal(label({ kind: "premiere", tag: "song" }), "media.kind.music")
-  // A schedule label that names a form is not a tag.
-  assert.equal(label({ tag: "live" }), "media.kind.liveArchive")
-  assert.equal(label({ kind: "premiere" }), "media.kind.premiere")
+  const form = (fields: Partial<Video>) => videoFormLabel(video("v", fields), t)
+  assert.equal(form({ isUpcoming: true, tag: "game" }), "media.kind.upcoming")
+  assert.equal(form({ tag: "game" }), "media.kind.liveArchive")
+  assert.equal(form({ kind: "premiere", tag: "song" }), "media.kind.premiere")
   for (const kind of ["upload", "unknown"])
-    assert.equal(label({ kind }), "media.kind.video", kind)
+    assert.equal(form({ kind, tag: "talk" }), "media.kind.video", kind)
+})
+
+test("the tag chip reads a stream as its activity and a work as what it is", () => {
+  const t = (key: string) => key
+  const tag = (fields: Partial<Video>) => videoTagLabel(video("v", fields), t)
+  assert.equal(tag({ tag: "song" }), "event.tag.song")
+  assert.equal(tag({ isUpcoming: true, tag: "game" }), "event.tag.game")
+  assert.equal(tag({ kind: "premiere", tag: "song" }), "media.kind.music")
+  assert.equal(tag({ kind: "upload", tag: "talk" }), "media.kind.talk")
+  // A schedule label that names a form is not a tag.
+  for (const label of ["live", "video", null])
+    assert.equal(tag({ tag: label }), null, String(label))
 })
 
 test("Shorts are their own group, never a work, an archive or the lead", () => {
@@ -320,8 +329,8 @@ test("Shorts are their own group, never a work, an archive or the lead", () => {
     )
 
   const t = (key: string) => key
-  assert.equal(videoKindLabel(streamShort, t), "media.kind.short")
-  assert.equal(videoKindLabel(brief, t), "media.kind.video")
+  assert.equal(videoFormLabel(streamShort, t), "media.kind.short")
+  assert.equal(videoFormLabel(brief, t), "media.kind.video")
 })
 
 test("Chinese readers open a past video's bilibili copy first", () => {

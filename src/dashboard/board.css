@@ -1795,6 +1795,18 @@ a.month-event:hover {
   animation: onair-pulse 1.6s ease-in-out infinite;
 }
 
+/* A video's tag chip: the schedule's icon, accented beside the plain form. */
+.tag.video-tag {
+  gap: 3px;
+  color: var(--ink);
+}
+
+.tag.video-tag svg {
+  width: 11px;
+  height: 11px;
+  color: var(--berry);
+}
+
 /* Thumbnails */
 
 .video-thumb {
@@ -2908,6 +2920,15 @@ a.month-event:hover {
 .archive-tools > .segmented button {
   flex: none;
   white-space: nowrap;
+}
+
+/* The video categories carry the same icons as the cards' tag chips. */
+.archive-tools > .segmented:not(.is-icons) svg {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 4px;
+  vertical-align: -2px;
 }
 
 .archive-tools > .segmented.is-icons {

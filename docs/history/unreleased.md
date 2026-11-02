@@ -45,8 +45,12 @@
   or `unknown` before a detail check. Every video projection adds `tag`
   (`game`, `talk`, `song` or `null`), and the Atom feed names the form and
   the tag as categories. The video shelf sorts streams and works by the form
-  alone, so an upload whose title mentions a stream stays a work, and a
-  video's chip shows its tag before its form.
+  alone, so an upload whose title mentions a stream stays a work.
+- Every video shows its form and, beside it, its tag with an icon, so stream
+  archives also say whether they were gameplay, talk or singing. Singing
+  takes a vocal microphone and a music video or cover a note. Past videos'
+  category buttons carry the same icons, and the Next Up ticket names a
+  video's tag ahead of its entry's label.
 - Closing the image viewer leaves the page where it was instead of scrolling
   back to the picture. On phones, LINE BLOG's monthly archive opens on a tap,
   so a scroll that starts on it leaves it shut.

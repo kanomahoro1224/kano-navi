@@ -14,7 +14,13 @@ works remain beside those reservations.
 ## Archives and Shorts
 
 Below the lead, stream archives appear as a grid of large thumbnails (two rows
-of two on phones), followed by a row of Shorts. An **All / Streams / Works /
+of two on phones), followed by a row of Shorts.
+
+Each video says how it was published (a stream archive, a premiere, a video
+or a Short) and, beside that, what it is about when known: a gameplay, talk or
+singing stream, or a game, talk or music video, each with an icon: a
+controller for games, a speech bubble for talk, a vocal microphone for
+singing (as in the schedule) and a note for music. An **All / Streams / Works /
 Shorts** filter shows one kind at a time.
 
 A video that also has a bilibili upload carries a two-platform mark and a link
@@ -28,8 +34,9 @@ wording and again to bring the translation back.
 
 **Past videos** (a clock icon on phones) browses every stored YouTube and
 bilibili video month by month as a grid of covers, newest first, each with
-its title, Japan date and time, and kind. Buttons above the grid narrow the
-month to games, talk, songs or everything else, each with its count; the
+its title, Japan date and time, and kind. Buttons above the grid, with the same
+icons, narrow the month to games, talk, songs or everything else, each with
+its count; the
 choice stays while you move between months. A video counts as a game, talk
 or song when the maintainer tagged it so, otherwise when its schedule entry
 carries that label, and otherwise when an automatic reading of its title

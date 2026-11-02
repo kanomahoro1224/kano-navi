@@ -214,7 +214,7 @@ func TestThumbnailRevalidationKeepsTheReplacedFileAndAnOperatorCanPinIt(t *testi
 	if err != nil || len(board.Videos) != 1 || board.Videos[0].Title != title || stringValue(board.Videos[0].ThumbnailURL) != pinned || stringValue(board.Videos[0].Kind) != "MUSIC" {
 		t.Fatalf("board=%#v err=%v", board, err)
 	}
-	archive, err := admin.GetVideoArchive(ctx, "2026-01-01", "2026-01-31", 1, 20, time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC))
+	archive, err := admin.GetVideoArchive(ctx, "2026-01-01", "2026-01-31", "", 1, 20, time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC))
 	if err != nil || len(archive.Items) != 1 || archive.Items[0].Title != title || stringValue(archive.Items[0].ThumbnailURL) != pinned {
 		t.Fatalf("archive=%#v err=%v", archive, err)
 	}

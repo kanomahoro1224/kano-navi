@@ -24,6 +24,10 @@
 - Past videos shows four columns of covers on wide screens, three on narrow
   ones and two on phones. A month long enough to scroll keeps the same columns
   as a short one.
+- Past videos filters a month by games, talk, songs or other, with a count on
+  each button. The calendar label of a video's entry decides, and the video's
+  kind fills in where no label applies. `GET /api/videos` takes the matching
+  `category` filter and reports `categoryCounts`.
 
 </details>
 

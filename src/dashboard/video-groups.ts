@@ -10,6 +10,13 @@ import {
 export type VideoFilter = "all" | "streams" | "works" | "shorts"
 
 /**
+ * The video archive's filter groups. The API derives a video's group from its
+ * calendar label and kind; the board only names them.
+ */
+export const VIDEO_CATEGORIES = ["game", "talk", "song", "other"] as const
+export type VideoCategory = (typeof VIDEO_CATEGORIES)[number]
+
+/**
  * Where a video stands now. `started` is a reservation past its start that no
  * watch page has confirmed yet, so it is neither on air nor an archive.
  */

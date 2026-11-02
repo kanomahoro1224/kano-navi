@@ -351,7 +351,7 @@ func TestVideoMergeTranslationFollowsTitlesAndReadersListAlternates(t *testing.T
 		t.Fatalf("translation after correction = %q", got)
 	}
 
-	archive, err := f.s.GetVideoArchive(ctx, "2026-10-01", "2026-10-31", 1, 20, videoMergeNow)
+	archive, err := f.s.GetVideoArchive(ctx, "2026-10-01", "2026-10-31", "", 1, 20, videoMergeNow)
 	if err != nil || archive.Total != 1 {
 		t.Fatalf("archive = %+v err=%v", archive, err)
 	}

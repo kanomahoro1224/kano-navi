@@ -28,6 +28,8 @@ func writeArchiveError(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_range"}, "")
 	case errors.Is(err, sqlite.ErrInvalidAccount):
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_account"}, "")
+	case errors.Is(err, sqlite.ErrInvalidVideoCategory):
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_category"}, "")
 	default:
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "database_unavailable"}, "")
 	}
@@ -61,16 +63,19 @@ func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 }
 
 // videos serves the video archive: stored videos whose scheduled or published
-// time falls in an inclusive Japan-date range, newest first.
+// time falls in an inclusive Japan-date range, newest first, optionally of one
+// category.
 func (h *Handler) videos(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	page, err := h.store.GetVideoArchive(r.Context(), query.Get("from"), query.Get("to"),
+	page, err := h.store.GetVideoArchive(r.Context(), query.Get("from"), query.Get("to"), query.Get("category"),
 		archiveNumber(r, "page", 1), archiveNumber(r, "pageSize", archivePageSize), h.now())
 	if err != nil {
 		writeArchiveError(w, err)
 		return
 	}
+	payload := archivePayload(page, publicview.PublicVideo)
+	payload["categoryCounts"] = page.CategoryCounts
 	// The body includes the time-derived fields (isUpcoming, liveStatus), so
 	// its ETag changes when they expire as well as with stored data.
-	writeRevalidatedJSON(w, r, archivePayload(page, publicview.PublicVideo), nil)
+	writeRevalidatedJSON(w, r, payload, nil)
 }

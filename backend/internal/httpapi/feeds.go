@@ -198,7 +198,7 @@ func (h *Handler) atomFeed(w http.ResponseWriter, r *http.Request) {
 	}
 	today := now.In(feedJapan)
 	page, err := h.store.GetVideoArchive(r.Context(), today.AddDate(0, 0, -atomFeedPastDays).Format("2006-01-02"),
-		today.AddDate(0, 0, atomFeedFutureDays).Format("2006-01-02"), 1, feeds.MaxEntries, now)
+		today.AddDate(0, 0, atomFeedFutureDays).Format("2006-01-02"), "", 1, feeds.MaxEntries, now)
 	var body []byte
 	if err == nil {
 		body, err = feeds.Atom(page.Items, now, h.publicOrigin, locale)

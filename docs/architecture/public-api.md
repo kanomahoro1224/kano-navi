@@ -163,8 +163,18 @@ no raw JSON), `page`, `pageSize`, `total`, `totalPages`, `hasNext`,
 dates outside the range that hold an item. The optional post `account`
 filter is one X handle, compared without case, and also narrows the totals and
 adjacent dates; `accountCounts` always counts the range's posts per lowercase
-handle. An invalid range returns 400 `invalid_range` and an invalid handle
-400 `invalid_account`. Reads revalidate through their
+handle. The optional video `category` filter is `game`, `talk`, `song` or
+`other`, narrows the totals and adjacent dates the same way, and
+`categoryCounts` always counts the range's videos per category. A video is
+not stored with a category; each read derives it. The
+[calendar label](data-model.md#event-labels) of the video's YouTube entry
+(found by its `youtube-<id>` event, its `source_item_id` or a YouTube
+`event_sources` row, skipping deleted entries) decides when it is `game`,
+`talk` or `song`, and the label of the entry it is merged into comes first.
+Otherwise the shown kind decides: `GAMEPLAY` is `game`, `TALK` is `talk` and
+`MUSIC` is `song`; everything else is `other`. An invalid range returns 400
+`invalid_range`, an invalid handle 400 `invalid_account` and an unknown
+category 400 `invalid_category`. Reads revalidate through their
 [ETags](#public-snapshot-contract), negotiate gzip like the other public JSON
 reads and never fetch platforms. The board's month dialogs use them with the
 calendar.

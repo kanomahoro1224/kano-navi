@@ -594,8 +594,8 @@ an archive read or pagination waits for that work to settle before refreshing;
 a failed refresh keeps the complete known prefix and retries on the next board
 snapshot. Post archives follow stored revisions. These refreshes
 share the board's visibility pause and snapshot backoff rather than starting a
-separate archive timer. Changing the month or the post
-account, or closing the dialog, cancels the read and discards late pages.
+separate archive timer. Changing the month, the post account or the video
+category, or closing the dialog, cancels the read and discards late pages.
 A click anywhere in a month-grid day (outside an entry link) picks it, listing
 its entries beside the grid (below it on phones) until the hide button clears
 the selection and the grid takes the full width; the panel can show that week
@@ -611,7 +611,10 @@ head hides the layout switch while the wall is narrower than two masonry
 columns, where both layouts are one column. The video archive lists the
 loaded videos in the API's newest-first order as a grid of cards, each the
 cover above the title, then the Japan date and time, the phase or kind tag
-and platform links; two columns on phones. An image viewer opened from the
+and platform links: four columns, three or two as the dialog narrows. Its
+category buttons (`VideoArchiveFilter`) pass the API's `category` filter,
+show `categoryCounts`, and keep the choice across months until the dialog
+closes. An image viewer opened from the
 post archive stacks above it; Escape closes the topmost dialog and focus
 returns to its opener.
 Images match their applicable inclusive period, without an updated-at fallback.

@@ -5,6 +5,7 @@ import type { ArchiveSnapshot, Dashboard, CalendarSnapshot } from "@/types"
 import { createRequestScope, startPolling } from "../lib/polling"
 import { startOfWeek, japanToday, localDateKey, addDays } from "./format"
 import { deriveDashboardAt } from "./derive-dashboard"
+import type { VideoCategory } from "./video-groups"
 
 const emptyDashboard: Dashboard = {
   profile: fallbackProfile,
@@ -48,6 +49,8 @@ export interface ArchiveRequest {
   monthStart: Date
   /** Post archives only: one X handle, or null for every account. */
   account?: string | null
+  /** Video archives only: one category, or null for every video. */
+  category?: VideoCategory | null
 }
 
 /**
@@ -75,7 +78,11 @@ function archiveUrl(request: ArchiveRequest, page: number) {
     request.kind === "posts" && request.account
       ? `&account=${encodeURIComponent(request.account)}`
       : ""
-  return `/api/${path}?from=${from}&to=${to}&page=${page}${account}`
+  const category =
+    request.kind === "videos" && request.category
+      ? `&category=${request.category}`
+      : ""
+  return `/api/${path}?from=${from}&to=${to}&page=${page}${account}${category}`
 }
 
 const rangeKey = ({ from, to }: { from: string; to: string }) => `${from}/${to}`
@@ -685,7 +692,7 @@ export function useArchive<T>(
 ) {
   const scope = useMemo(() => createRequestScope(), [])
   const key = request
-    ? `${request.kind}:${rangeKey(archiveRange(request.kind, request.monthStart))}:${request.account || ""}`
+    ? `${request.kind}:${rangeKey(archiveRange(request.kind, request.monthStart))}:${request.account || ""}:${request.category || ""}`
     : null
   const [state, setState] = useState<{
     key: string | null

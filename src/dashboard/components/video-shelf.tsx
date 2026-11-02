@@ -40,6 +40,8 @@ import {
   videoLinks,
   videoMatchesFilter,
   videoPhase,
+  VIDEO_CATEGORIES,
+  type VideoCategory,
   type VideoFilter,
   type VideoLink,
   type VideoPhase,
@@ -830,6 +832,52 @@ function ArchiveCard({
         ) : null}
       </p>
     </li>
+  )
+}
+
+/** The video archive's category filter, with each category's monthly total. */
+export function VideoArchiveFilter({
+  category,
+  setCategory,
+  counts,
+  t,
+}: {
+  category: VideoCategory | null
+  setCategory: (category: VideoCategory | null) => void
+  counts: Record<string, number> | undefined
+  t: Translator
+}) {
+  const all = counts
+    ? VIDEO_CATEGORIES.reduce((sum, item) => sum + (counts[item] ?? 0), 0)
+    : null
+  return (
+    <div className="archive-tools">
+      <div
+        className="segmented"
+        role="group"
+        aria-label={t("videos.categoryFilter")}
+      >
+        <button
+          type="button"
+          aria-pressed={!category}
+          onClick={() => setCategory(null)}
+        >
+          {t("common.all")}
+          {all != null ? <small>{all}</small> : null}
+        </button>
+        {VIDEO_CATEGORIES.map((item) => (
+          <button
+            type="button"
+            key={item}
+            aria-pressed={category === item}
+            onClick={() => setCategory(item)}
+          >
+            {t(`videos.category.${item}`)}
+            {counts ? <small>{counts[item] ?? 0}</small> : null}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 

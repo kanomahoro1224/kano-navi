@@ -180,7 +180,8 @@ export interface CalendarSnapshot {
 /**
  * One loaded prefix of a month archive (schedule, posts or videos), newest
  * page last. Schedule pages also carry dayCounts; post pages carry the month's
- * per-account counts, keyed by lowercase handle.
+ * per-account counts, keyed by lowercase handle, and video pages its
+ * per-category counts.
  */
 export interface ArchiveSnapshot<T> {
   items: T[]
@@ -191,6 +192,7 @@ export interface ArchiveSnapshot<T> {
   revision: number
   dayCounts?: Record<string, number>
   accountCounts?: Record<string, number>
+  categoryCounts?: Record<string, number>
 }
 
 export interface Dashboard {

@@ -5,7 +5,8 @@
 The weekly schedule is a Monday-first program guide: seven day columns on
 wide screens and a day list on phones. Each entry shows its Japan time (or
 "time TBA" when only the date is known), its type, its status (upcoming, on
-air, ended, TBA, or cancelled), and whether it is Auto-detected or Confirmed.
+air, ended, TBA, or cancelled), and an icon for whether it is Auto-detected
+(sparkles) or Confirmed (check badge); the legend under the guide names both.
 The entry's color follows its type, so members-only streams stand apart.
 When the announcement, the title, or the maintainer says what the activity
 is, an icon and label name it: gameplay, talk, singing, a stream, or an
@@ -14,6 +15,12 @@ entry and its video under Past videos name the same activity. An activity label
 takes the place of a plain stream type, and a members-only, event, or release
 entry keeps its type beside it. An entry the maintainer has not confirmed may
 carry a note when it looks cancelled.
+
+Click or tap an entry to open its details: the whole title, its Japan time
+(and your own time when you are outside Japan), its labels, whether it is
+Auto-detected or Confirmed, any cancellation note, and **Open link** for the
+stream, video, or post it comes from. The arrow in an entry's bottom corner
+opens that link directly.
 
 Use the arrows to move between weeks, **Today** to return to the current
 week, or the shortcut to the nearest week that has events. When Kano posts a
@@ -24,11 +31,14 @@ with a link to the original post.
 
 **Month view** opens a month grid with compact entries (dots on phones); an
 entry with an activity label starts with its icon, and hovering it names the
-activity. Move
+activity. On wide screens the grid fills the window, and a day with one or
+two entries wraps their titles onto more lines, more again in a tall window.
+Move
 between months, click or tap a day to list its entries beside the grid (below
-it on phones), and show that date's week on the board. On wide screens an
-entry in the grid opens its link; on phones a tap always shows the day's
-entries. The button at the end of the month row folds the day details away
+it on phones) with their whole titles, and show that date's week on the
+board. On wide screens clicking an entry in the grid lists its day and marks
+that entry; on phones a tap shows the day's entries. An entry in the list
+opens its details as in the weekly guide. The button at the end of the month row folds the day details away
 and brings them back, and picking a day brings them back too; the choice holds
 while you move between months.
 

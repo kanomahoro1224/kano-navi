@@ -141,7 +141,8 @@
   }
 
   body.has-lightbox,
-  body.has-sheet {
+  body.has-sheet,
+  body.has-detail-sheet {
     overflow: hidden;
   }
 

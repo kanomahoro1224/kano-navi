@@ -55,6 +55,14 @@
   takes a vocal microphone and a music video or cover a note. Past videos'
   category buttons carry the same icons, and the Next Up ticket names a
   video's tag ahead of its entry's label.
+- Clicking a schedule entry opens its details with the whole title, the
+  visitor's own time outside Japan, and an Open link button, instead of
+  following the link at once. In the month view an entry picks its day and is
+  marked in the day list, which shows whole titles. Entries show
+  Auto-detected and Confirmed as icons, named by the legend, and an arrow in
+  their bottom corner still opens the link directly.
+- On wide screens the month view fills its window, and a day with few entries
+  wraps their titles onto several lines.
 - Closing the image viewer leaves the page where it was instead of scrolling
   back to the picture. On phones, LINE BLOG's monthly archive opens on a tap,
   so a scroll that starts on it leaves it shut.

@@ -56,7 +56,9 @@ revision stream, `format.ts` owns Japan-time and event-status helpers, `content.
 `components/` renders the next-up stage and profile card, the week guide,
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
-schedule, posts or videos. `video-groups.ts` sorts the shelf's videos from
+schedule, posts or videos, and `sheet-dialog.tsx`, the smaller modal sheet
+that shows one long post or one schedule entry in full and can open above
+the month sheet. `video-groups.ts` sorts the shelf's videos from
 the local snapshot: the `stream` kind is a stream and every other
 [form](data-model.md#video-form-and-tags) a work, whatever the video's tag;
 a video's phase follows the
@@ -362,7 +364,9 @@ rows, week-guide entries) and `TranslatedHeading` for the shelf's lead card.
 A button cannot go inside a link, so these cards are
 not links themselves: the title is the link (`.card-link`), and
 `followCardLink` in `src/site/links.tsx` opens it from anywhere else on the
-card. A clamped title clamps only its wording, so the switch stays visible.
+card. A week-guide entry's title is instead the button that opens the
+entry's sheet, which holds its link, and `followCardLink` presses it the
+same way. A clamped title clamps only its wording, so the switch stays visible.
 Month-grid chips are too small for a switch and show the reader's wording
 unmarked. An operator's
 Featured title from the focus record shows as written. The wording shown

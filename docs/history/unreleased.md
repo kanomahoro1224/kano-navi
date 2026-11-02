@@ -29,7 +29,11 @@
 - A calendar entry can carry a label (`live`, `game`, `talk`, `song` or
   `video`) in its `tag` field, so a client can show what kind of activity an
   entry is instead of guessing from its title. The label belongs to the event,
-  so a notice without a video link can carry one too.
+  so a notice without a video link can carry one too. Each read combines it
+  with the entry's videos: an operator's label on the entry decides, then an
+  operator's video tag, the entry's content label, the video's inferred tag
+  and the entry's form label, so an entry and its video name the same
+  content.
 - The weekly guide and the month view show an entry's label with an icon. An
   activity label replaces a plain stream type, while members-only, event and
   release types stay beside it; colors still follow the type. The Next Up
@@ -87,12 +91,15 @@
   tried, so an outage marks nothing as decided.
 - A rule merge lends an X notice's label to the event that survives, including
   merges made before the notice had a label, and replaces a label guessed from
-  the title. Operator and locked entries keep their own label.
+  the title. Operator and locked entries keep their own label. Among
+  automatic labels a form (`live`, `video`) never replaces content, on a merge
+  or a new extraction, and a notice's content replaces an inherited form.
 - YouTube and Bilibili titles no longer decide a video's kind. Listings store
   `unknown` and the detail check writes the form from the broadcast start
   and premiere verdict; Bilibili uploads are `upload`.
-- After the entries, the same translation queue tags videos that no entry
-  labels, newest first, within the same per-run limit (`videoTags` in the
+- After the entries, the same translation queue tags videos whose entries
+  give no content, including entries that only carry a form from a notice,
+  newest first, within the same per-run limit (`videoTags` in the
   run result). The title prompt now counts covers, originals and music videos
   as `song`.
 

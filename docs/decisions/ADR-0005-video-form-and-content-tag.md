@@ -70,10 +70,11 @@ the archive filter. The schedule labels `live` and `video` name a form and
 never reach a video. The shown tag is the first of:
 
 1. the operator's video tag (`videos.manual_tag`);
-2. the label of the video's schedule entry, read at query time with the
-   existing match (the entry's own row, its source item or its event
-   sources; a merge target's label first), so the entry's own order (manual,
-   then prompt or merged notice, then title inference) holds;
+2. the content label of the video's schedule entry, read at query time with
+   the existing match (the entry's own row, its source item or its event
+   sources; a merge target's content label first, while a form label there
+   does not hide the entry's own), so the entry's own order (manual, then
+   prompt or merged notice, then title inference) holds;
 3. the video's inferred tag (`videos.tag`, with `tag_source` and
    `tag_attempted_at`).
 
@@ -82,12 +83,26 @@ or a released merge on the entry shows at once without a second write. The
 operator's video tag ranks above the operator's entry label because it is
 the more specific correction.
 
+The calendar reads the same layers in the other direction, so an entry and
+its video agree on content. The label an entry shows is the operator's entry
+label when there is one; otherwise the first of an operator's tag on one of
+its videos, the entry's content label, a video's inferred tag and the
+entry's form label (see
+[Shown label](../architecture/data-model.md#shown-label)). An operator who
+tags a video in the archive therefore relabels its calendar entry too, and a
+notice that only says "stream" does not hide a game the title shows. The
+derivation runs on every public event read; it looks each entry and video
+up by ID, which costs microseconds per entry, so nothing is materialized.
+
 ### Inference for videos
 
 The translate step's title inference also labels videos that the schedule
-cannot: public videos with no manual tag and no judgement yet, whose matching
-entries (if any) are neither labelled, judged, operator-owned, merged nor
-still inside the entry inference window. It uses the same prompt, schema,
+cannot: public videos with no manual tag and no judgement yet, none of whose
+matching entries (or the entries those are merged into) carries a content
+label, a title judgement or an operator's decision, or is an unjudged
+reservation still inside the entry inference window. An entry whose only
+label is a form from a notice does not hold the video back, since the
+video's content tag outranks that form on the calendar. It uses the same prompt, schema,
 model queue and retry policy. The prompt names covers, originals and music
 videos as `song`, so uploads are labelled as well as premieres. A `game`,
 `talk` or `song` answer is stored; `live`, `video` or no label is stored as a

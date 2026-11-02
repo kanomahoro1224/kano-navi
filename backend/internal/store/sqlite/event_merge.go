@@ -242,10 +242,12 @@ func (s *Store) ReconcileEventMerges(ctx context.Context, now time.Time) (MergeC
 // every rule merge left in place, kept ones included, so a notice labelled
 // after its merge still lends its label. The notice's label is read from the
 // post itself, so it replaces an empty label or one the title inference
-// guessed; an operator's or locked row, and a label from the extraction
-// prompt, stay. When several labelled notices share a target, the one with
-// the smallest ID lends its label, and an inherited label is no longer
-// replaceable, so repeated runs settle instead of alternating. The copied
+// guessed, and a content label replaces an inherited form label; an
+// operator's or locked row, and any other label from the extraction prompt,
+// stay. A form label never replaces a content label. When several labelled
+// notices share a target, a content label lends before a form label, then
+// the smallest notice ID, and an inherited label is replaced only by content
+// over form, so repeated runs settle instead of alternating. The copied
 // label stays if the merge is released later: it described the same
 // activity. It returns how many targets' labels changed.
 func inheritEventTags(ctx context.Context, tx *sql.Tx, byID map[string]mergeEvent, targets map[string]string) (int, error) {
@@ -255,18 +257,21 @@ func inheritEventTags(ctx context.Context, tx *sql.Tx, byID map[string]mergeEven
 		if from.tag == "" {
 			continue
 		}
-		if best, ok := lenders[target]; !ok || from.id < best.id {
+		best, ok := lenders[target]
+		if !ok || formTag(best.tag) && !formTag(from.tag) || formTag(best.tag) == formTag(from.tag) && from.id < best.id {
 			lenders[target] = from
 		}
 	}
 	changed := 0
 	for target, from := range lenders {
 		to, ok := byID[target]
-		if !ok || to.locked || to.provenance == "manual" || to.tagSource != "" && to.tagSource != TagSourceTitle {
+		if !ok || to.locked || to.provenance == "manual" || !inheritsTag(to, from.tag) {
 			continue
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE events SET tag=?,tag_source=? WHERE id=? AND manual_locked=0 AND provenance<>'manual' AND COALESCE(tag_source,'') IN ('',?)`,
-			from.tag, TagSourceLLM, to.id, TagSourceTitle)
+		result, err := tx.ExecContext(ctx, `UPDATE events SET tag=?,tag_source=? WHERE id=? AND manual_locked=0 AND provenance<>'manual'
+			AND NOT (COALESCE(tag,'') IN `+contentTagSQL+` AND ? IN `+formTagSQL+`)
+			AND (COALESCE(tag_source,'') IN ('',?) OR tag_source=? AND tag IN `+formTagSQL+` AND ? IN `+contentTagSQL+`)`,
+			from.tag, TagSourceLLM, to.id, from.tag, TagSourceTitle, TagSourceLLM, from.tag)
 		if err != nil {
 			return 0, err
 		}
@@ -275,6 +280,22 @@ func inheritEventTags(ctx context.Context, tx *sql.Tx, byID map[string]mergeEven
 		}
 	}
 	return changed, nil
+}
+
+// inheritsTag reports whether a notice's label tag may replace the label of
+// the automatic target to: an empty or title label unless a form would
+// replace content, or an inherited form label that tag gives content to.
+func inheritsTag(to mergeEvent, tag string) bool {
+	if to.tag != "" && !formTag(to.tag) && formTag(tag) {
+		return false
+	}
+	switch to.tagSource {
+	case "", TagSourceTitle:
+		return true
+	case TagSourceLLM:
+		return formTag(to.tag) && !formTag(tag)
+	}
+	return false
 }
 
 func loadMergeEvents(ctx context.Context, tx *sql.Tx, from, to string) ([]mergeEvent, error) {

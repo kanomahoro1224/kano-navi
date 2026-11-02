@@ -157,8 +157,10 @@ const upsertEventSQL = `INSERT INTO events (
 		time_precision=excluded.time_precision, status=excluded.status,
 		event_type=excluded.event_type,
 		tag=CASE WHEN excluded.tag IS NULL OR events.tag_source='manual'
+				OR excluded.tag IN ('live','video') AND events.tag IN ('game','talk','song')
 			THEN events.tag ELSE excluded.tag END,
 		tag_source=CASE WHEN excluded.tag IS NULL OR events.tag_source='manual'
+				OR excluded.tag IN ('live','video') AND events.tag IN ('game','talk','song')
 			THEN events.tag_source ELSE excluded.tag_source END,
 		url=excluded.url,
 		is_upcoming=excluded.is_upcoming, provenance=excluded.provenance,

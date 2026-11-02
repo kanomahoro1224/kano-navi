@@ -346,7 +346,9 @@ label) or null; see [Event labels](data-model.md#event-labels) for their
 precedence. `tagSource` is admin-only. An unknown value answers
 `400 invalid_input`. Every
 reader, including the board, `/api/calendar`, MCP
-`dashboard_read` and `schedule_list`, reports the same event column.
+`dashboard_read` and `schedule_list`, reports the same label, derived from the
+stored one and the entry's videos (see
+[Shown label](data-model.md#shown-label)); this list shows the stored label.
 
 The list includes merged duplicates by default; `merge=merged` lists only
 them and `merge=visible` excludes them, as every public reader does. Each

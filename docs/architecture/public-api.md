@@ -115,12 +115,12 @@ adjacent dates and summary candidates (see
 [Duplicate merging](data-model.md#duplicate-merging)).
 
 Every public event carries `tag`: `live`, `game`, `talk`, `song` or `video`,
-or null when the entry is unlabelled. It is a column of the event rather than
-of a linked video, so the board, `/api/calendar`, MCP `dashboard_read` and
-`schedule_list` report the same value, and an entry without a video link can
-carry one. Readers translate the code for display and fall back to the title
-when it is null; see [Event labels](data-model.md#event-labels) for who
-decides it.
+or null when the entry is unlabelled. Every read derives it the same way from
+the event and its YouTube videos, so the board, `/api/calendar`, MCP
+`dashboard_read` and `schedule_list` report the same value, and an entry
+without a video link can carry one. Readers translate the code for display
+and fall back to the title when it is null; see
+[Shown label](data-model.md#shown-label) for the order.
 
 Dashboard SQL selects up to 100 recent post previews plus the latest-post
 fallback, up to 100 current-week event previews plus 30 upcoming and 30 live

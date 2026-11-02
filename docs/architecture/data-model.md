@@ -180,14 +180,16 @@ activity it leads with. The extraction prompt and the title inference share
 this definition. `tag_source` records who decided it: `manual` for an
 operator, `llm` for the extraction prompt or an X notice merged into the
 entry, and `title` for the title inference. Precedence is manual > `llm` >
-`title` > none:
+`title` > none, except that among automatic labels a content label is never
+replaced by a form label:
 
 - An operator's value belongs to the locked row, so nothing automatic replaces
   it, and clearing the label keeps the row manual.
 - The extraction prompt returns a label only when the post or image states the
   activity. An unknown value is dropped and the entry is kept without a label.
   A post that states no label leaves the row's label and source as they are;
-  a stated label replaces a `title` label on the same row.
+  a stated label replaces a `title` label on the same row unless a form would
+  replace content.
 - YouTube reservations are created by the sync without the extraction prompt,
   so the `translate` queue also labels them from their title. A judgement
   without a label is stored as `tag_source = title` with no tag and is not
@@ -198,14 +200,37 @@ entry, and `title` for the title inference. Precedence is manual > `llm` >
   merged into is not sent.
 - Every rule merge left in place, including one kept from an earlier run, lends
   the label of its notice to the surviving event when that event has no label
-  or a `title` one and is neither locked nor manual. When several labelled
-  notices share a target, the smallest notice ID wins, and the inherited
-  `llm` label is not replaced by later runs. The copied label stays when the
-  merge is released.
+  or a `title` one and is neither locked nor manual, unless a form would
+  replace content. When several labelled notices share a target, a content
+  label lends before a form label, then the smallest notice ID wins. An
+  inherited `llm` label is replaced by later runs only when it is a form and
+  the notice gives content. The copied label stays when the merge is released.
 
 Storing a label or replacing one with a different value advances the
 dashboard revision; a judgement without a label, a failed attempt, or a change
 of `tag_source` alone does not.
+
+### Shown Label
+
+Public readers do not show `events.tag` as stored. Each read derives the
+label of an entry from the entry and its YouTube videos: the videos linked to
+the entry or to an entry merged into it, by the entry ID, its source item or
+its event sources. The shown label is the first of:
+
+1. the entry's label when `tag_source = manual` (an operator's row without a
+   label reads on);
+2. an operator's tag on one of its videos (`videos.manual_tag`);
+3. the entry's content label;
+4. a video's inferred tag (`videos.tag`);
+5. the entry's form label.
+
+Video tags are content tags only, and with several videos the alphabetically
+first tag is taken. A video's tag reads the entry in the other direction (see
+[ADR-0005](../decisions/ADR-0005-video-form-and-content-tag.md#content-tag)),
+so the calendar and the video archive agree on content. Nothing is copied
+between the rows. The derivation looks every entry and video up by ID, and a
+store test checks the query plan for it. The admin event list shows the
+stored label and its source.
 
 ## Event Precedence
 

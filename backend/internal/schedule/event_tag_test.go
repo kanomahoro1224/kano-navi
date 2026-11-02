@@ -101,8 +101,9 @@ func TestExtractionKeepsEventWithUnknownTag(t *testing.T) {
 	}
 }
 
-// A post that names no label keeps the label the title inference stored on
-// the same entry, and a label the post states replaces it.
+// A post that names no label, or only a form, keeps the content label the
+// title inference stored on the same entry, and a content label the post
+// states replaces it.
 func TestExtractionKeepsTitleTagUnlessThePostStatesOne(t *testing.T) {
 	f := messageFixture(t)
 	f.provider.respond = func(recordedRequest) (int, string) {
@@ -114,6 +115,15 @@ func TestExtractionKeepsTitleTagUnlessThePostStatesOne(t *testing.T) {
 	f.scan()
 	if got := f.text(`SELECT COALESCE(tag,'') || '|' || COALESCE(tag_source,'') FROM events`); got != "song|title" {
 		t.Fatalf("null extraction cleared the inferred label: %q", got)
+	}
+	// A form label names less than the inferred content label, so it stays.
+	f.provider.respond = func(recordedRequest) (int, string) {
+		return http.StatusOK, chatReply(taggedScheduleReply("live"))
+	}
+	f.requestReprocess("post-1")
+	f.scan()
+	if got := f.text(`SELECT COALESCE(tag,'') || '|' || COALESCE(tag_source,'') FROM events`); got != "song|title" {
+		t.Fatalf("form label replaced the inferred content label: %q", got)
 	}
 	f.provider.respond = func(recordedRequest) (int, string) {
 		return http.StatusOK, chatReply(taggedScheduleReply("talk"))

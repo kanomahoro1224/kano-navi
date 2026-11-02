@@ -125,8 +125,8 @@ func TestEventTagCandidatesSkipLockedJudgedAndLabelled(t *testing.T) {
 }
 
 // A notice's label follows it onto the surviving calendar entry. It replaces
-// a label the title inference guessed or an empty judgement, and an entry the
-// extraction prompt labelled keeps its own.
+// a label the title inference guessed, an empty judgement, or a form label
+// with content, and a form never replaces a content label.
 func TestMergedNoticeLendsItsTag(t *testing.T) {
 	f := newMergeFixture(t)
 	f.add("x1", "x", "今夜は歌枠", "2026-10-25", "20:00", "stream", `tag='song'`, `tag_source='llm'`)
@@ -137,19 +137,25 @@ func TestMergedNoticeLendsItsTag(t *testing.T) {
 	f.add("y3", "youtube", "synthetic", "2026-10-27", "19:59:16", "stream", `tag='live'`, `tag_source='title'`)
 	f.add("x4", "x", "今夜はゲーム", "2026-10-28", "20:00", "stream", `tag='game'`, `tag_source='llm'`)
 	f.add("y4", "youtube", "synthetic", "2026-10-28", "19:59:16", "stream", `tag_source='title'`)
+	f.add("x5", "x", "今夜は配信", "2026-10-29", "20:00", "stream", `tag='live'`, `tag_source='llm'`)
+	f.add("y5", "youtube", "【マイクラ】synthetic", "2026-10-29", "19:59:16", "stream", `tag='game'`, `tag_source='title'`)
 	counts := f.reconcile()
-	for id, want := range map[string]string{"x1": "song|llm", "y1": "song|llm", "y2": "live|llm", "y3": "talk|llm", "y4": "game|llm"} {
+	for id, want := range map[string]string{"x1": "song|llm", "y1": "song|llm", "y2": "talk|llm", "y3": "talk|llm", "y4": "game|llm", "y5": "game|title"} {
 		if got := f.tagState(id); got != want {
 			t.Errorf("%s label=%q, want %q", id, got, want)
 		}
 	}
-	if counts.Tagged != 3 {
-		t.Fatalf("tagged=%d, want 3", counts.Tagged)
+	var target string
+	if err := f.s.DB().QueryRow(`SELECT COALESCE(merged_into,'') FROM events WHERE id='x5'`).Scan(&target); err != nil || target != "y5" {
+		t.Fatalf("x5 merged into %q err=%v, want y5", target, err)
+	}
+	if counts.Tagged != 4 {
+		t.Fatalf("tagged=%d, want 4", counts.Tagged)
 	}
 }
 
-// The calendar and the dashboard both read the label from the event row, so a
-// tagged entry reaches every reader the same way.
+// The calendar and the dashboard derive the label the same way, so a tagged
+// entry reaches every reader with the same value.
 func TestCalendarAndDashboardExposeEventTags(t *testing.T) {
 	path := testutil.NewSnapshot(t)
 	for _, row := range []struct {

@@ -30,14 +30,15 @@ func videoEventMatch(v string) string {
 }
 
 // videoEventTagSQL reads the content label of the video's schedule entry, a
-// label on the entry it is merged into first. The entry keeps its own order
-// (manual, then prompt or merged notice, then title inference), so this is
-// never copied into the video row.
+// content label on the entry it is merged into first; a form label on that
+// entry does not hide the entry's own content label. The entry keeps its own
+// order (manual, then prompt or merged notice, then title inference), so this
+// is never copied into the video row.
 func videoEventTagSQL(v string) string {
-	return `(SELECT COALESCE(t.tag,e.tag) FROM events e
+	return `(SELECT CASE WHEN t.tag IN ` + contentTagSQL + ` THEN t.tag ELSE e.tag END FROM events e
 	LEFT JOIN events t ON t.id=e.merged_into AND t.deleted_at IS NULL
 	WHERE e.deleted_at IS NULL AND ` + videoEventMatch(v) + `
-		AND COALESCE(t.tag,e.tag) IN ('game','talk','song')
+		AND (t.tag IN ` + contentTagSQL + ` OR e.tag IN ` + contentTagSQL + `)
 	ORDER BY e.id LIMIT 1)`
 }
 
@@ -56,9 +57,12 @@ type VideoTagCandidate struct{ ID, Source, Title string }
 
 // ListVideoTagCandidates returns up to limit videos the schedule cannot tag:
 // shown videos (not merged into another) without a manual tag or a judgement
-// of their own, whose schedule entries, if any, are neither labelled, judged,
-// operator-owned or merged, nor YouTube reservations still on or after
-// eventFrom, the first day the entry inference reads. Videos never attempted
+// of their own, none of whose schedule entries (or the entries those are
+// merged into) carries a content label, a title judgement or an operator's
+// decision, or is an unjudged YouTube reservation still on or after
+// eventFrom, which the entry inference reads instead. An entry whose only
+// label is a form from a notice leaves the video to its own title, since the
+// calendar takes a video's content tag over that form. Videos never attempted
 // come first, then the least recently attempted, each group newest first, so
 // recent uploads are tagged before the backlog and a title whose attempts
 // keep failing moves behind the others.
@@ -71,9 +75,13 @@ func (s *Store) ListVideoTagCandidates(ctx context.Context, eventFrom string, li
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT v.id,v.source,COALESCE(v.manual_title,v.title) FROM videos v
 		WHERE v.merged_into IS NULL AND v.manual_tag IS NULL AND v.tag IS NULL AND COALESCE(v.tag_source,'')=''
-			AND NOT EXISTS (SELECT 1 FROM events e WHERE e.deleted_at IS NULL AND `+videoEventMatch("v")+`
-				AND (e.merged_into IS NOT NULL OR e.tag IS NOT NULL OR COALESCE(e.tag_source,'')<>'' OR e.manual_locked<>0 OR e.provenance<>'automatic'
-					OR e.source='youtube' AND e.source_key='reservation' AND e.starts_on>=?))
+			AND NOT EXISTS (SELECT 1 FROM events e LEFT JOIN events t ON t.id=e.merged_into AND t.deleted_at IS NULL
+				WHERE e.deleted_at IS NULL AND `+videoEventMatch("v")+`
+				AND (e.tag IN `+contentTagSQL+` OR t.tag IN `+contentTagSQL+`
+					OR COALESCE(e.tag_source,'') IN ('title','manual') OR COALESCE(t.tag_source,'') IN ('title','manual')
+					OR e.manual_locked<>0 OR e.provenance<>'automatic' OR t.manual_locked<>0 OR t.provenance<>'automatic'
+					OR e.source='youtube' AND e.source_key='reservation' AND e.starts_on>=? AND e.merged_into IS NULL
+						AND e.tag IS NULL AND COALESCE(e.tag_source,'')=''))
 		ORDER BY v.tag_attempted_at IS NOT NULL, julianday(v.tag_attempted_at) ASC, julianday(COALESCE(v.scheduled_at,v.published_at)) DESC, v.id ASC LIMIT ?`, eventFrom, limit)
 	if err != nil {
 		return nil, dbErr(err)

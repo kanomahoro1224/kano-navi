@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -20,6 +21,62 @@ const (
 	TagSourceTitle  = "title"
 	TagSourceManual = "manual"
 )
+
+// contentTagSQL lists the labels that name what an entry is about (the
+// VideoTags); formTagSQL lists the labels that name only its form. Among
+// automatic labels a content label is never replaced by a form label.
+const (
+	contentTagSQL = `('game','talk','song')`
+	formTagSQL    = `('live','video')`
+)
+
+// formTag reports whether tag names only an entry's form.
+func formTag(tag string) bool { return tag == "live" || tag == "video" }
+
+// eventEntryIDsSQL lists the events row aliased o and the rows merged into
+// it, whose videos are o's videos too.
+func eventEntryIDsSQL(o string) string {
+	return `(SELECT ` + o + `.id UNION ALL SELECT k.id FROM events k WHERE k.merged_into=` + o + `.id AND k.deleted_at IS NULL)`
+}
+
+// eventVideoIDsSQL lists the YouTube videos of the events row aliased o by the
+// links videoEventMatch reads in the other direction. The unary + keeps
+// SQLite from walking every YouTube row through a source index instead of
+// looking each entry up by ID.
+func eventVideoIDsSQL(o string) string {
+	ids := eventEntryIDsSQL(o)
+	return `(SELECT substr(c.id,9) FROM events c WHERE c.id IN ` + ids + ` AND c.id LIKE 'youtube-%'
+		UNION ALL SELECT c.source_item_id FROM events c WHERE c.id IN ` + ids + ` AND +c.source='youtube' AND c.source_item_id IS NOT NULL
+		UNION ALL SELECT s.source_item_id FROM event_sources s WHERE s.event_id IN ` + ids + ` AND +s.source='youtube' AND s.deleted_at IS NULL)`
+}
+
+// eventLabelSQL derives the label readers see for the events row aliased o.
+// An operator's label on the entry decides; an operator's row without one
+// reads on like any other. Otherwise the first of: an operator's tag on one
+// of its videos, the entry's own content
+// label, a video's inferred tag, and the entry's form label. Video tags are
+// content tags only, so a video never turns content back into a form; with
+// several videos the alphabetically first tag is taken. The label is never
+// copied into the entry row.
+func eventLabelSQL(o string) string {
+	return `CASE WHEN ` + o + `.tag_source='` + TagSourceManual + `' THEN ` + o + `.tag ELSE
+		(SELECT COALESCE(MIN(v.manual_tag),CASE WHEN ` + o + `.tag IN ` + contentTagSQL + ` THEN ` + o + `.tag END,MIN(v.tag),` + o + `.tag)
+		FROM videos v WHERE v.id IN ` + eventVideoIDsSQL(o) + `) END`
+}
+
+// eventColumnsAs is eventColumns read from the events row aliased o, with the
+// derived label in place of the stored tag.
+func eventColumnsAs(o string) string {
+	columns := strings.Split(eventColumns, ",")
+	for i, column := range columns {
+		if column == "tag" {
+			columns[i] = eventLabelSQL(o) + ` AS tag`
+		} else {
+			columns[i] = o + "." + column
+		}
+	}
+	return strings.Join(columns, ",")
+}
 
 // ValidEventTag reports whether value is one of EventTags. The empty string
 // means "no label" and is accepted separately.

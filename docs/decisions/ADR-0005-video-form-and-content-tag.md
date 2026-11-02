@@ -124,9 +124,13 @@ rows still in the old shape:
   `UPCOMING LIVE` become `stream` and `VIDEO` becomes `upload`.
 - `kind` is derived again from the stored facts: a start with a premiere
   verdict decides directly; a start without a verdict is a `premiere` when
-  the old kind was a title kind (the old check gave title kinds only to
-  premieres) and a `stream` otherwise; no start is an `upload` once checked
-  and `unknown` otherwise; every Bilibili row is an `upload`.
+  the old kind was `MUSIC` or `VIDEO` and a `stream` otherwise. The old check
+  gave title kinds to scheduled videos only when they were premieres, but a
+  row without a verdict may come from an older check, and `GAMEPLAY` or
+  `TALK` on a scheduled row is far more often a stream than a premiere, so
+  only the song and plain-video kinds count as premiere evidence. No start
+  is an `upload` once checked and `unknown` otherwise; every Bilibili row is
+  an `upload`.
 
 The old title kinds of uploads are not turned into inferred tags: they are
 the regular expression guesses this decision replaces, and the inference

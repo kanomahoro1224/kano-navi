@@ -166,6 +166,9 @@ type Video struct {
 	// a Short, false for any other upload, nil while unknown, as for a row
 	// the feed never listed with a format link.
 	IsShort *bool
+	// Tag is the content tag (game, talk or song) the operator, the schedule
+	// entry or the title inference gave the video; nil when none did.
+	Tag *string
 	// Translations resolves the title's translations by precedence.
 	Translations TranslationSet
 	// Alternates are the other platforms' uploads merged into this video.
@@ -814,7 +817,7 @@ func (s *Store) scanPostMedia(ctx context.Context, row scanner, lead ...any) (Po
 }
 
 func (s *Store) queryDashboardEvents(ctx context.Context, from, to string, now time.Time) ([]DashboardEvent, error) {
-	q := `SELECT id,source,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,tag,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_at,updated_at FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND id IN (SELECT id FROM (SELECT id FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on BETWEEN ? AND ? ORDER BY julianday(COALESCE(starts_at,starts_on)) ASC,id ASC LIMIT 100) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)<=julianday(?) AND (julianday(ends_at)>julianday(?) OR (ends_at IS NULL AND event_type IN ('stream','member') AND julianday(starts_at)>julianday(?,'-3 hours')))) AND (event_type IN ('stream','member') OR source='youtube') ORDER BY julianday(starts_at) ASC,id ASC LIMIT 30)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC`
+	q := `SELECT ` + eventColumnsAs("o") + ` FROM events o WHERE deleted_at IS NULL AND merged_into IS NULL AND id IN (SELECT id FROM (SELECT id FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on BETWEEN ? AND ? ORDER BY julianday(COALESCE(starts_at,starts_on)) ASC,id ASC LIMIT 100) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)<=julianday(?) AND (julianday(ends_at)>julianday(?) OR (ends_at IS NULL AND event_type IN ('stream','member') AND julianday(starts_at)>julianday(?,'-3 hours')))) AND (event_type IN ('stream','member') OR source='youtube') ORDER BY julianday(starts_at) ASC,id ASC LIMIT 30)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC`
 	args := []any{from, to, now.UTC().Format(time.RFC3339Nano), dateInJapan(now), now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano)}
 	return s.scanEvents(ctx, q, args, now)
 }
@@ -909,11 +912,11 @@ const (
 func (s *Store) queryVideos(ctx context.Context, now, liveCutoff time.Time) ([]Video, error) {
 	n := now.UTC().Format(time.RFC3339Nano)
 	// A confirmed live broadcast stays listed past the start-time grace.
-	streamKinds := "'LIVE ARCHIVE','UPCOMING LIVE','GAMEPLAY','TALK'"
+	streamKinds := "'stream'"
 	videoTime := "julianday(COALESCE(scheduled_at,published_at))"
 	base := "COALESCE(manual_kind,kind,'')"
 	short := "COALESCE(manual_is_short,is_short,0)"
-	q := `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short) FROM videos WHERE id IN (
+	q := `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),` + videoTagSQL("videos") + ` FROM videos WHERE id IN (
 		SELECT id FROM (SELECT id FROM videos WHERE ` + publicVideoScope + ` AND ` + short + `<>1 AND ` + base + ` NOT IN (` + streamKinds + `)
 			ORDER BY ` + videoTime + ` DESC,id ASC LIMIT ` + fmt.Sprint(dashboardWorksLimit) + `)
 		UNION SELECT id FROM (SELECT id FROM videos WHERE ` + publicVideoScope + ` AND ` + short + `<>1 AND ` + base + ` IN (` + streamKinds + `)
@@ -940,16 +943,17 @@ func (s *Store) queryVideos(ctx context.Context, now, liveCutoff time.Time) ([]V
 	out := []Video{}
 	for rows.Next() {
 		var v Video
-		var pub, sch, thumb, kind, liveStatus, liveChecked sql.NullString
+		var pub, sch, thumb, kind, liveStatus, liveChecked, tag sql.NullString
 		var upcoming int64
 		var duration sql.NullInt64
 		var short sql.NullBool
-		if err := rows.Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &upcoming, &liveStatus, &liveChecked, &duration, &short); err != nil {
+		if err := rows.Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &upcoming, &liveStatus, &liveChecked, &duration, &short, &tag); err != nil {
 			return nil, dbErr(err)
 		}
 		v.LiveStatus = liveView(liveStatus, liveChecked, liveCutoff)
 		v.DurationSeconds = nullInt(duration)
 		v.IsShort = nullBool(short)
+		v.Tag = nullString(tag)
 		if pub.Valid {
 			v.PublishedAt = &pub.String
 		}
@@ -972,11 +976,11 @@ func (s *Store) queryVideos(ctx context.Context, now, liveCutoff time.Time) ([]V
 }
 func (s *Store) getVideo(ctx context.Context, id string, liveCutoff time.Time) (*Video, error) {
 	var v Video
-	var pub, sch, thumb, kind, liveStatus, liveChecked sql.NullString
+	var pub, sch, thumb, kind, liveStatus, liveChecked, tag sql.NullString
 	var up int64
 	var duration sql.NullInt64
 	var short sql.NullBool
-	err := s.db.QueryRowContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short) FROM videos WHERE id=? AND `+publicVideoScope, id).Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &up, &liveStatus, &liveChecked, &duration, &short)
+	err := s.db.QueryRowContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),`+videoTagSQL("videos")+` FROM videos WHERE id=? AND `+publicVideoScope, id).Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &up, &liveStatus, &liveChecked, &duration, &short, &tag)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -999,6 +1003,7 @@ func (s *Store) getVideo(ctx context.Context, id string, liveCutoff time.Time) (
 	v.LiveStatus = liveView(liveStatus, liveChecked, liveCutoff)
 	v.DurationSeconds = nullInt(duration)
 	v.IsShort = nullBool(short)
+	v.Tag = nullString(tag)
 	return &v, nil
 }
 func (s *Store) queryFocus(ctx context.Context) (*Focus, error) {

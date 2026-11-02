@@ -422,7 +422,11 @@ export interface AdminEvent {
   timePrecision: "exact" | "approximate" | "unknown"
   status: string | null
   eventType: string | null
-  /** Calendar label, and who decided it ("llm" or "manual"). */
+  /**
+   * Calendar label, and who decided it: "manual", "llm" (extraction prompt or
+   * merged X notice) or "title" (title inference; also set with a null tag
+   * when the title gave no label).
+   */
   tag: string | null
   tagSource: string | null
   url: string | null
@@ -627,9 +631,6 @@ export interface AdminVideo {
   thumbnailStatus: string
   kind: string | null
   isUpcoming: boolean
-  /** The App calendar label an operator pinned; null lets it read the title. */
-  tag: string | null
-  manualTag: string | null
   /** title and kind show an operator correction; these keep the platform's. */
   sourceTitle: string
   sourceKind: string | null
@@ -644,6 +645,16 @@ export interface AdminVideo {
   isShort: boolean | null
   sourceIsShort: boolean | null
   manualIsShort: boolean | null
+  /**
+   * The shown content tag (game, talk or song): manualTag, else the label of
+   * the video's schedule entry, else the title inference's. inferredTagSource
+   * is set once the inference judged the video, with or without a tag.
+   */
+  tag: string | null
+  manualTag: string | null
+  scheduleTag: string | null
+  inferredTag: string | null
+  inferredTagSource: string | null
   /** The last successful watch-page read. */
   checkedAt: string | null
   /** A refresh request the next YouTube step has not answered yet. */

@@ -165,9 +165,6 @@ function VideoMarks({
           {t("admin.videos.corrected")}
         </Badge>
       ) : null}
-      {video.tag ? (
-        <Badge tone="leaf">{t(`admin.videos.tag.${video.tag}`)}</Badge>
-      ) : null}
       {video.revisions ? (
         <Badge icon={History}>
           {t("admin.videos.revisionCount", { count: video.revisions })}
@@ -208,6 +205,7 @@ function VideoMeta({ video }: { video: AdminVideo }) {
           : japanStamp(video.publishedAt)}
       </time>
       {video.kind ? <span>{video.kind}</span> : null}
+      {video.tag ? <span>{video.tag}</span> : null}
       {length ? <span>{length}</span> : null}
       {video.isShort ? <span>{t("admin.videos.format.short")}</span> : null}
     </span>

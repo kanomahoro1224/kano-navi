@@ -273,7 +273,7 @@ func TestTranslationRepairKeepsUnchangedSongTitlesNonEmpty(t *testing.T) {
 	f.addProvider("main", protocolChat, "https://translate.example.test", "synthetic-model", `["text"]`)
 	f.queueTranslation("main")
 	const title = "星のうた - 架空アーティスト cover."
-	f.exec(`INSERT INTO videos(id,source,title,published_at,url,kind) VALUES ('song','youtube',?,?,'https://video.example.test/song','VIDEO')`, title, recent(1))
+	f.exec(`INSERT INTO videos(id,source,title,published_at,url,kind,tag_source) VALUES ('song','youtube',?,?,'https://video.example.test/song','upload','title')`, title, recent(1))
 	f.provider.respond = func(request recordedRequest) (int, string) {
 		if !strings.Contains(request.body, "even when the whole title stays unchanged") {
 			t.Fatal("song-title instruction missing")
@@ -347,7 +347,7 @@ func TestTranslatorKeepsOperatorAndPlatformTranslations(t *testing.T) {
 		{"plain", "youtube", "【雑談】おはよう"},
 		{"bilibili", "bilibili", "鹿乃 翻唱"},
 	} {
-		f.exec(`INSERT INTO videos (id, source, title, published_at, url, kind) VALUES (?, ?, ?, ?, ?, 'VIDEO')`,
+		f.exec(`INSERT INTO videos (id, source, title, published_at, url, kind, tag_source) VALUES (?, ?, ?, ?, ?, 'upload', 'title')`,
 			video.id, video.source, video.title, recent(3), "https://video.example.test/"+video.id)
 	}
 	for locale, text := range map[string]string{"en": "[Singing] Autumn night", "zh-CN": "【歌回】秋夜"} {

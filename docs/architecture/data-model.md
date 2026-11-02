@@ -165,25 +165,81 @@ becomes its own source evidence, X schedule rows become manual and locked, and
 YouTube reservations stay automatic. When startup adds `focus.video_id`,
 each row receives it from the YouTube identity of its URL; a post without `account_handle`
 receives the handle in its URL. Automatic, unlocked YouTube events with a
-start time and `unknown` precision become `exact`. None of these steps clears
-a snapshot.
+start time and `unknown` precision become `exact`. A video whose `kind` or
+`manual_kind` is not one of the [video forms](#video-form-and-tags) is
+rewritten once, as that section describes. None of these steps clears a
+snapshot.
 
 ## Event Labels
 
 `events.tag` is the calendar label of one entry: `live`, `game`, `talk`, `song`
-or `video`, or NULL. `tag_source` records who decided it (`llm` for extraction
-or title inference, `manual` for an operator). Precedence is manual > model >
-none: an operator's value belongs to the locked row, so automatic extraction
-cannot replace it, and clearing the label keeps the row manual. The extraction
-prompt returns a label only when the post or image states the activity. YouTube
-reservations are created by the sync without the extraction prompt, so the
-`translate` queue also labels them from their title; a title the model cannot
-classify is recorded as attempted (`tag_source = llm` without a tag) and is not
-asked again. A rule merge copies the label of the X notice onto the surviving
-event when that event has none.
-The calendar read additionally falls back to a label pinned on the linked video
-(see [Video Corrections and History](#video-corrections-and-history)) for an
-entry whose own `tag` is NULL, so a video label never hides an event label.
+or `video`, or NULL. `game`, `talk` and `song` name the content and take
+priority; `song` covers singing streams, covers, originals, music videos and
+song premieres. `live` is a stream and `video` an upload or premiere that none
+of them fits or whose content is not shown, and a mixed entry takes the
+activity it leads with. The extraction prompt and the title inference share
+this definition. `tag_source` records who decided it: `manual` for an
+operator, `llm` for the extraction prompt or an X notice merged into the
+entry, and `title` for the title inference. Precedence is manual > `llm` >
+`title` > none, except that among automatic labels a content label is never
+replaced by a form label:
+
+- An operator's value belongs to the locked row, so nothing automatic replaces
+  it, and clearing the label keeps the row manual. A save that sends the
+  stored label back unchanged keeps its `tag_source`, so an unrelated edit or
+  a cancellation decision does not make an automatic label the operator's.
+- The extraction prompt returns a label only when the post or image states the
+  activity. An unknown value is dropped and the entry is kept without a label.
+  A post that states no label leaves the row's label and source as they are;
+  a stated label replaces a `title` label on the same row unless a form would
+  replace content.
+- YouTube reservations are created by the sync without the extraction prompt,
+  so the `translate` queue also labels them from their title. The request
+  names the entry's form (a `release` entry is a premiere, any other a
+  stream), so a title that shows no content still gets the right form label.
+  A judgement without a label, including an answer outside the five codes,
+  is stored as `tag_source = title` with no tag and is not asked again. A
+  title every model fails on stays unjudged and only receives
+  `tag_attempted_at`; candidates never attempted come first, then the least
+  recently attempted, so a failing title cannot hold the head of the queue
+  and a provider outage judges nothing. An entry that a labelled notice is
+  merged into is not sent.
+- A creator's rename, written by the YouTube sync, clears a `title`
+  judgement that found no content (no label or a form label), so the new
+  title is asked about again; a content label the title gave stays.
+- Every rule merge left in place, including one kept from an earlier run, lends
+  the label of its notice to the surviving event when that event has no label
+  or a `title` one and is neither locked nor manual, unless a form would
+  replace content. When several labelled notices share a target, a content
+  label lends before a form label, then the smallest notice ID wins. An
+  inherited `llm` label is replaced by later runs only when it is a form and
+  the notice gives content. The copied label stays when the merge is released.
+
+Storing a label or replacing one with a different value advances the
+dashboard revision; a judgement without a label, a failed attempt, or a change
+of `tag_source` alone does not.
+
+### Shown Label
+
+Public readers do not show `events.tag` as stored. Each read derives the
+label of an entry from the entry and its YouTube videos: the videos linked to
+the entry or to an entry merged into it, by the entry ID, its source item or
+its event sources. The shown label is the first of:
+
+1. the entry's label when `tag_source = manual` (an operator's row without a
+   label reads on);
+2. an operator's tag on one of its videos (`videos.manual_tag`);
+3. the entry's content label;
+4. a video's inferred tag (`videos.tag`);
+5. the entry's form label.
+
+Video tags are content tags only, and with several videos the alphabetically
+first tag is taken. A video's tag reads the entry in the other direction (see
+[ADR-0005](../decisions/ADR-0005-video-form-and-content-tag.md#content-tag)),
+so the calendar and the video archive agree on content. Nothing is copied
+between the rows. The derivation looks every entry and video up by ID, and a
+store test checks the query plan for it. The admin event list shows the
+stored label and its source.
 
 ## Event Precedence
 
@@ -551,9 +607,78 @@ unknown rather than being guessed from its length.
 `is_premiere` is the stored premiere verdict of a YouTube reservation: 1 for
 a premiere (a `release` event), 0 for live content, `NULL` while no check
 could tell, which is also what the upgrade gives existing rows (see
-[Sources](sources.md#youtube)). It is never derived from the kind.
+[Sources](sources.md#youtube)). It is never derived from the kind; the kind
+follows it.
 Startup adds the columns, both tables and `video_revisions_video_idx` to
 existing snapshots without rewriting videos or media rows.
+
+## Video Form and Tags
+
+A video has three independent layers, each with one owner
+([ADR-0005](../decisions/ADR-0005-video-form-and-content-tag.md)).
+
+**Form.** `kind` is `stream`, `premiere`, `upload` or `unknown`, written by
+synchronization from platform facts only:
+
+- A YouTube detail check (watch page or Data API) that found a broadcast
+  start writes `premiere` when the premiere verdict says so and `stream`
+  otherwise; one that found no broadcast start writes `upload`. An ended
+  broadcast whose answer cannot tell (an unclassified Data API answer) keeps
+  a stored `stream` or `premiere` and is `unknown` without one.
+- A listing (feed, uploads playlist, uploads tab, yt-dlp metadata, history
+  window) inserts `unknown`, and a listing never replaces a stored row's
+  kind; the detail check settles it.
+- Every Bilibili upload is `upload`.
+
+`manual_kind` corrects the form with `stream`, `premiere` or `upload`.
+Readers show `COALESCE(manual_kind, kind)`.
+
+**State.** Upcoming, live, ended and cancelled are not part of the kind:
+`is_upcoming`, `live_status`, `scheduled_at`, the linked entry's `ends_at` and
+its operator-confirmed cancellation say where a stream or premiere stands. A
+stream archive is a `stream` whose broadcast ended.
+
+**Content.** A video's tag is `game`, `talk` or `song`. Readers derive the
+shown tag on each read as the first of:
+
+1. `manual_tag`, the operator's video tag;
+2. the [label](#event-labels) of the video's schedule entry (its
+   `youtube-<id>` event, an event whose `source_item_id` it is, or one with a
+   YouTube `event_sources` row for it; deleted entries are skipped and the
+   label of the entry it is merged into comes first), when that label is
+   `game`, `talk` or `song`;
+3. `tag`, the title inference's tag of the video itself.
+
+The entry label is never copied into the video row, so an edit, merge or
+release on the entry shows at once. `live` and `video` labels name a form and
+never reach a video. A video without a tag is `other` in the archive's
+category filter.
+
+`tag`, `tag_source` and `tag_attempted_at` follow the entry inference's rules
+(see [Event labels](#event-labels)): the `translate` queue asks about public
+YouTube videos (not merged into another) without a manual tag or judgement,
+whose entries, if any, carry neither a content label, a title judgement nor
+an operator's label, are not merged into such an entry, and are not
+automatic reservations still within the entry inference window. An
+operator's row without a label reads on to the video's tag, so it does not
+hold the video back. Only `game`, `talk` or `song` is stored; another
+answer or none is stored as `tag_source = title` without a tag and is not
+asked again until a creator's rename clears that judgement (a stored tag, or
+an operator's `manual_title`, keeps it); a failure only stamps
+`tag_attempted_at`. Videos
+never attempted come first, then the least recently attempted, each newest
+first. Storing a tag advances the dashboard revision; a judgement without
+one or a failed attempt does not.
+
+Startup rewrites a row that still carries an older title kind, once:
+`manual_kind` `GAMEPLAY`, `TALK` and `MUSIC` become `manual_tag` `game`,
+`talk` and `song` and clear the form correction, `LIVE ARCHIVE` and
+`UPCOMING LIVE` become `stream` and `VIDEO` becomes `upload`. `kind` is
+derived from the stored facts: a start with a premiere verdict decides; a
+start without one is a `premiere` for an old `MUSIC` or `VIDEO` kind and a
+`stream` otherwise; a row without a start is an `upload` once
+`live_checked_at` records a detail check and `unknown` otherwise; a Bilibili
+row is an `upload`. A row already in the new shape is untouched.
 
 ## Video Merging
 

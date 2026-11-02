@@ -30,7 +30,7 @@ import {
   formatRelative,
   formatStamp,
   japanDateParts,
-  videoKindLabel,
+  videoFormLabel,
   videoTime,
 } from "../format"
 import {
@@ -40,12 +40,15 @@ import {
   videoLinks,
   videoMatchesFilter,
   videoPhase,
+  VIDEO_CATEGORIES,
+  type VideoCategory,
   type VideoFilter,
   type VideoLink,
   type VideoPhase,
 } from "../video-groups"
 import { mediaSrcSet } from "@/lib/media"
 import { ArchiveMore, ArchiveState } from "./archive-dialog"
+import { EventTagIcon, VideoTagChip } from "./event-tag"
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import { TranslatedHeading, TranslatedTitle } from "./translated-title"
 
@@ -165,7 +168,7 @@ function PhaseTag({
     return <span className="tag tone-danger">{t("videos.cancelled")}</span>
   if (phase === "upcoming")
     return <span className="tag tone-sky">{t("videos.reserved")}</span>
-  return <span className="tag">{videoKindLabel(video, t)}</span>
+  return <span className="tag">{videoFormLabel(video, t)}</span>
 }
 
 function Subhead({ children, count }: { children: ReactNode; count?: number }) {
@@ -223,10 +226,11 @@ function LeadCard({
             {isFeatured ? t("videos.featured") : t("videos.latestWork")}
           </span>
           {phase === "past" ? (
-            <span className="tag">{videoKindLabel(video, t)}</span>
+            <span className="tag">{videoFormLabel(video, t)}</span>
           ) : (
             <PhaseTag phase={phase} video={video} t={t} />
           )}
+          <VideoTagChip video={video} t={t} />
           {usesFocus && focus.dateLabel ? (
             <span>{focus.dateLabel}</span>
           ) : (
@@ -297,8 +301,9 @@ function VideoTicket({
           <span className="video-meta">
             <PhaseTag phase={phase} video={video} t={t} />
             {videoIsStream(video) ? null : (
-              <span className="tag">{videoKindLabel(video, t)}</span>
+              <span className="tag">{videoFormLabel(video, t)}</span>
             )}
+            <VideoTagChip video={video} t={t} />
             {time ? (
               <time dateTime={time}>
                 <span className="sr-only">{formatJapanDay(time, locale)} </span>
@@ -358,8 +363,9 @@ function VideoCard({
       <p className="video-meta">
         <JapanDate video={video} locale={locale} t={t} />
         {showKind ? (
-          <span className="tag">{videoKindLabel(video, t)}</span>
+          <span className="tag">{videoFormLabel(video, t)}</span>
         ) : null}
+        <VideoTagChip video={video} t={t} />
         <LengthNote video={video} t={t} />
         {links.length > 1 ? (
           <PlatformLinks links={links} title={title} variant="chip" t={t} />
@@ -431,8 +437,9 @@ function VideoRow({
             <span className={`tag${video.isUpcoming ? " tone-berry" : ""}`}>
               {video.isUpcoming
                 ? t("videos.reserved")
-                : videoKindLabel(video, t)}
+                : videoFormLabel(video, t)}
             </span>
+            <VideoTagChip video={video} t={t} />
             <VideoWhen
               video={video}
               absoluteTime={absoluteTime}
@@ -824,12 +831,60 @@ function ArchiveCard({
           </time>
         ) : null}
         <PhaseTag phase={phase} video={video} t={t} />
+        <VideoTagChip video={video} t={t} />
         <LengthNote video={video} t={t} />
         {links.length > 1 ? (
           <PlatformLinks links={links} title={title} variant="chip" t={t} />
         ) : null}
       </p>
     </li>
+  )
+}
+
+/** The video archive's category filter, with each category's monthly total. */
+export function VideoArchiveFilter({
+  category,
+  setCategory,
+  counts,
+  t,
+}: {
+  category: VideoCategory | null
+  setCategory: (category: VideoCategory | null) => void
+  counts: Record<string, number> | undefined
+  t: Translator
+}) {
+  const all = counts
+    ? VIDEO_CATEGORIES.reduce((sum, item) => sum + (counts[item] ?? 0), 0)
+    : null
+  return (
+    <div className="archive-tools">
+      <div
+        className="segmented"
+        role="group"
+        aria-label={t("videos.categoryFilter")}
+      >
+        <button
+          type="button"
+          aria-pressed={!category}
+          onClick={() => setCategory(null)}
+        >
+          {t("common.all")}
+          {all != null ? <small>{all}</small> : null}
+        </button>
+        {VIDEO_CATEGORIES.map((item) => (
+          <button
+            type="button"
+            key={item}
+            aria-pressed={category === item}
+            onClick={() => setCategory(item)}
+          >
+            {item === "other" ? null : <EventTagIcon tag={item} work />}
+            {t(`videos.category.${item}`)}
+            {counts ? <small>{counts[item] ?? 0}</small> : null}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 

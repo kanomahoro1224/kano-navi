@@ -5,7 +5,8 @@ import type {
   ScheduleEvent,
   Translator,
 } from "@/types"
-import { useMemo, useRef, useState } from "react"
+import type { ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -18,6 +19,7 @@ import {
   PanelRightOpen,
   Radio,
   Sparkles,
+  X,
 } from "lucide-react"
 
 import { EmptyNote, Placeholder, SectionTitle } from "@/site/site-shell"
@@ -32,19 +34,25 @@ import {
   dateKey,
   eventDateKey,
   eventIsManual,
+  eventKinds,
+  eventTagKey,
   eventStatus,
-  eventTypeKey,
+  eventTags,
   formatJapanTime,
   formatLongDate,
+  formatVisitorTime,
   formatWeekRange,
   japanToday,
   localDateKey,
   sortEvents,
   startOfWeek,
+  visitorIsInJapan,
 } from "../format"
 import { archiveRange } from "../use-dashboard"
 import { ArchiveMore, ArchiveState } from "./archive-dialog"
 import { CalendarSubscribe } from "./calendar-subscribe"
+import { EventTagIcon } from "./event-tag"
+import { SheetDialog } from "./sheet-dialog"
 import { TranslatedTitle } from "./translated-title"
 
 function keyToDate(key: string) {
@@ -88,22 +96,10 @@ const statusTones: Record<string, string> = {
   cancellation_review: "honey",
 }
 
-function GuideEvent({
-  event,
-  locale,
-  now,
-  t,
-}: {
-  event: ScheduleEvent
-  locale: Locale
-  now: number
-  t: Translator
-}) {
+/** What an entry's card and its sheet both show. */
+function entryFacts(event: ScheduleEvent, now: number, t: Translator) {
   const status = eventStatus(event, now)
-  const typeKey = eventTypeKey(event)
-  const tone = typeTones[String(event.eventType || "").toLowerCase()] || "sky"
-  const time = event.startsAt ? formatJapanTime(event.startsAt) : null
-  const manual = eventIsManual(event)
+  const { typeKey, tag, work } = eventKinds(event)
   const cancellationNote =
     event.cancellationStatus === "llm_suspected"
       ? [
@@ -117,29 +113,213 @@ function GuideEvent({
             event.cancellationEvidence,
           ]
         : null
+  return {
+    status,
+    typeKey,
+    tag,
+    work,
+    tone: typeTones[String(event.eventType || "").toLowerCase()] || "sky",
+    time: event.startsAt ? formatJapanTime(event.startsAt) : null,
+    manual: eventIsManual(event),
+    note: cancellationNote?.filter(Boolean).join(" · ") || null,
+  }
+}
+
+type EntryFacts = ReturnType<typeof entryFacts>
+
+/**
+ * Auto-detected or Confirmed. Cards show the icon alone, named by the legend
+ * under the schedule and by the entry's sheet.
+ */
+function Provenance({
+  manual,
+  labelled = false,
+  t,
+}: {
+  manual: boolean
+  labelled?: boolean
+  t: Translator
+}) {
+  const label = t(manual ? "schedule.sourceManual" : "schedule.sourceAutomatic")
+  const Icon = manual ? BadgeCheck : Sparkles
+  return (
+    <span
+      className={`guide-provenance${manual ? " is-manual" : ""}`}
+      title={labelled ? undefined : label}
+    >
+      <Icon aria-hidden="true" />
+      {labelled ? label : <span className="sr-only">{label}</span>}
+    </span>
+  )
+}
+
+/** The entry's type, activity, and any status other than upcoming. */
+function EntryTags({
+  facts,
+  t,
+  children,
+}: {
+  facts: EntryFacts
+  t: Translator
+  children?: ReactNode
+}) {
+  const { typeKey, tag, work, status } = facts
+  if (!typeKey && !tag && status === "upcoming" && !children) return null
+  return (
+    <span className="guide-event-tags">
+      {typeKey ? <span className="tag">{t(typeKey)}</span> : null}
+      {tag ? (
+        <span className="tag guide-event-kind">
+          <EventTagIcon tag={tag} work={work} />
+          {t(eventTagKey(tag, work))}
+        </span>
+      ) : null}
+      {status !== "upcoming" ? (
+        <span className={`tag tone-${statusTones[status] || "muted"}`}>
+          {status === "live" ? <Radio aria-hidden="true" /> : null}
+          {t(`schedule.status.${status}`)}
+        </span>
+      ) : null}
+      {children}
+    </span>
+  )
+}
+
+/**
+ * One entry in full: its whole title, Japan time (and the visitor's when
+ * they are elsewhere), labels, provenance in words, and its link.
+ */
+function EntrySheet({
+  event,
+  facts,
+  locale,
+  onClose,
+  t,
+}: {
+  event: ScheduleEvent
+  facts: EntryFacts
+  locale: Locale
+  onClose: () => void
+  t: Translator
+}) {
+  return (
+    <SheetDialog label={t("schedule.entryDetails")} onClose={onClose}>
+      <article className={`entry-sheet tone-${facts.tone} is-${facts.status}`}>
+        <header className="entry-sheet-head">
+          <p className="kicker">
+            {formatLongDate(keyToDate(eventDateKey(event)), locale)}
+          </p>
+          <button
+            type="button"
+            className="round-button sheet-dialog-close"
+            onClick={onClose}
+            aria-label={t("common.close")}
+            title={t("common.close")}
+          >
+            <X aria-hidden="true" />
+          </button>
+        </header>
+        <p className="entry-sheet-when">
+          <strong>
+            {facts.time
+              ? `${facts.time} ${t("common.timezoneShort")}`
+              : t("common.pendingConfirmation")}
+          </strong>
+          {event.startsAt && !visitorIsInJapan() ? (
+            <small>
+              {t("spotlight.localTime", {
+                time: formatVisitorTime(event.startsAt, locale),
+              })}
+            </small>
+          ) : null}
+        </p>
+        <h3 className="entry-sheet-title">
+          <TranslatedTitle
+            className="entry-sheet-title-text"
+            title={cleanVideoTitle(event.title)}
+            translations={event.translations}
+            t={t}
+          />
+        </h3>
+        {event.detail ? (
+          <p className="entry-sheet-detail">
+            {eventDetailText(event.detail, t)}
+          </p>
+        ) : null}
+        <EntryTags facts={facts} t={t}>
+          <Provenance manual={facts.manual} labelled t={t} />
+        </EntryTags>
+        {facts.note ? <p className="guide-event-note">{facts.note}</p> : null}
+        {event.url ? (
+          <ExternalLink
+            className="pill-button entry-sheet-open"
+            href={event.url}
+          >
+            {t("schedule.openLink")}
+            <ArrowUpRight aria-hidden="true" />
+          </ExternalLink>
+        ) : null}
+      </article>
+    </SheetDialog>
+  )
+}
+
+/**
+ * An entry's card. The card opens the entry's sheet; the arrow in its
+ * bottom corner follows the entry's link directly.
+ * The month's day details show it `full`, with the whole title, and mark
+ * the entry picked in the grid.
+ */
+function GuideEvent({
+  event,
+  full = false,
+  pickTurn = 0,
+  locale,
+  now,
+  t,
+}: {
+  event: ScheduleEvent
+  full?: boolean
+  /** The grid pick that marked this entry, 0 when none; each pick scrolls. */
+  pickTurn?: number
+  locale: Locale
+  now: number
+  t: Translator
+}) {
+  const [open, setOpen] = useState(false)
+  const itemRef = useRef<HTMLLIElement>(null)
+  const highlighted = pickTurn > 0
+  useEffect(() => {
+    if (pickTurn > 0)
+      itemRef.current?.scrollIntoView?.({
+        block: "nearest",
+        behavior: "smooth",
+      })
+  }, [pickTurn])
+  const facts = entryFacts(event, now, t)
 
   return (
-    <li>
+    <li ref={itemRef}>
       <div
-        className={`guide-event tone-${tone} is-${status}${event.url ? " link-card" : ""}`}
-        onClick={event.url ? followCardLink : undefined}
+        className={`guide-event link-card tone-${facts.tone} is-${facts.status}${full ? " is-full" : ""}${highlighted ? " is-highlighted" : ""}`}
+        onClick={followCardLink}
       >
         <span className="guide-event-time">
-          {time ? (
+          {facts.time ? (
             <>
-              <strong>{time}</strong>
+              <strong>{facts.time}</strong>
               <small>{t("common.timezoneShort")}</small>
             </>
           ) : (
             <small>{t("common.pendingConfirmation")}</small>
           )}
-          {event.url ? <ArrowUpRight aria-hidden="true" /> : null}
+          <Provenance manual={facts.manual} t={t} />
         </span>
         <TranslatedTitle
           className="guide-event-title"
           title={cleanVideoTitle(event.title)}
           translations={event.translations}
-          href={event.url}
+          onOpen={() => setOpen(true)}
           t={t}
         />
         {event.detail ? (
@@ -147,34 +327,31 @@ function GuideEvent({
             {eventDetailText(event.detail, t)}
           </span>
         ) : null}
-        <span className="guide-event-tags">
-          {typeKey ? <span className="tag">{t(typeKey)}</span> : null}
-          {status !== "upcoming" ? (
-            <span className={`tag tone-${statusTones[status] || "muted"}`}>
-              {status === "live" ? <Radio aria-hidden="true" /> : null}
-              {t(`schedule.status.${status}`)}
-            </span>
+        <EntryTags facts={facts} t={t}>
+          {event.url ? (
+            <ExternalLink
+              className="guide-event-open"
+              href={event.url}
+              aria-label={t("schedule.openLink")}
+              title={t("schedule.openLink")}
+            >
+              <ArrowUpRight aria-hidden="true" />
+            </ExternalLink>
           ) : null}
-          <span
-            className={`guide-provenance${manual ? " is-manual" : ""}`}
-            title={t(
-              manual ? "schedule.sourceManual" : "schedule.sourceAutomatic",
-            )}
-          >
-            {manual ? (
-              <BadgeCheck aria-hidden="true" />
-            ) : (
-              <Sparkles aria-hidden="true" />
-            )}
-            {t(manual ? "schedule.sourceManual" : "schedule.sourceAutomatic")}
-          </span>
-        </span>
-        {cancellationNote ? (
-          <span className="guide-event-note">
-            {cancellationNote.filter(Boolean).join(" · ")}
-          </span>
+        </EntryTags>
+        {facts.note ? (
+          <span className="guide-event-note">{facts.note}</span>
         ) : null}
       </div>
+      {open ? (
+        <EntrySheet
+          event={event}
+          facts={facts}
+          locale={locale}
+          onClose={() => setOpen(false)}
+          t={t}
+        />
+      ) : null}
     </li>
   )
 }
@@ -263,7 +440,9 @@ const MONTH_CHIPS = 3
 
 /**
  * Month overview: Monday-first weeks covering the month. Each day shows up to
- * three compact entries (dots on phones); its cell selects that day.
+ * three compact entries (dots on phones), whose titles take more lines the
+ * fewer a day has; its cell selects that day, and an entry selects its day
+ * and marks itself in the day details.
  */
 function MonthGrid({
   monthStart,
@@ -281,7 +460,7 @@ function MonthGrid({
   dayCounts: Record<string, number>
   todayKey: string
   selectedKey: string | null
-  onPickDay: (day: Date) => void
+  onPickDay: (day: Date, eventId?: string) => void
   locale: Locale
   now: number
   t: Translator
@@ -320,8 +499,8 @@ function MonthGrid({
               className={`month-day${isToday ? " is-today" : ""}${key < todayKey ? " is-past" : ""}${outside ? " is-outside" : ""}${count ? " has-events" : ""}${key === selectedKey ? " is-selected" : ""}${weekday === 5 ? " is-saturday" : ""}${weekday === 6 ? " is-sunday" : ""}`}
               aria-current={isToday ? "date" : undefined}
               onClick={(event) => {
-                // Entry links keep their own target; the rest of the cell
-                // picks the day, as its date button does for keyboards.
+                // Entries pick the day themselves; the rest of the cell picks
+                // it as its date button does for keyboards.
                 if (!(event.target as Element).closest("a, button"))
                   onPickDay(day)
               }}
@@ -339,9 +518,13 @@ function MonthGrid({
                 {day.getDate()}
               </button>
               {items.length ? (
-                <ol className="month-events">
+                <ol
+                  className="month-events"
+                  data-count={Math.min(items.length, MONTH_CHIPS)}
+                >
                   {items.slice(0, MONTH_CHIPS).map((event) => {
                     const status = eventStatus(event, now)
+                    const { tag, work } = eventKinds(event)
                     const tone =
                       typeTones[String(event.eventType || "").toLowerCase()] ||
                       "sky"
@@ -352,21 +535,34 @@ function MonthGrid({
                       pickTranslation(event.translations, contentLocale)
                         ?.text || event.title,
                     )
-                    const label = `${time || t("common.pendingConfirmation")} ${title} · ${t(`schedule.status.${status}`)}`
-                    const Wrapper = event.url ? ExternalLink : "span"
+                    const label = [
+                      `${time || t("common.pendingConfirmation")} ${title}`,
+                      tag ? t(eventTagKey(tag, work)) : null,
+                      t(`schedule.status.${status}`),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
                     return (
                       <li key={event.id}>
-                        <Wrapper
+                        <button
+                          type="button"
                           className={`month-event tone-${tone} is-${status}`}
-                          href={event.url || undefined}
+                          onClick={() => onPickDay(day, event.id)}
                           title={label}
                         >
                           <span className="sr-only">{label}</span>
                           <span aria-hidden="true">
-                            {time ? <strong>{time}</strong> : null}
+                            {tag || time ? (
+                              <span className="month-event-lead">
+                                {tag ? (
+                                  <EventTagIcon tag={tag} work={work} />
+                                ) : null}
+                                {time ? <strong>{time}</strong> : null}
+                              </span>
+                            ) : null}{" "}
                             {title}
                           </span>
-                        </Wrapper>
+                        </button>
                       </li>
                     )
                   })}
@@ -387,16 +583,22 @@ function MonthGrid({
   )
 }
 
-function ProvenanceLegend({ t }: { t: Translator }) {
+/**
+ * What the schedule's marks mean: the provenance icons, then each activity
+ * label's icon, which month-grid entries show alone.
+ */
+function ScheduleLegend({ t }: { t: Translator }) {
   return (
     <>
-      <span className="guide-provenance">
-        <Sparkles aria-hidden="true" />
-        {t("schedule.sourceAutomatic")}
-      </span>
-      <span className="guide-provenance is-manual">
-        <BadgeCheck aria-hidden="true" />
-        {t("schedule.sourceManual")}
+      <Provenance manual={false} labelled t={t} />
+      <Provenance manual labelled t={t} />
+      <span className="guide-legend-tags">
+        {eventTags.map((tag) => (
+          <span key={tag} className="guide-legend-tag">
+            <EventTagIcon tag={tag} />
+            {t(`event.tag.${tag}`)}
+          </span>
+        ))}
       </span>
     </>
   )
@@ -482,6 +684,11 @@ export function ScheduleMonth({
   const [selectedKey, setSelectedKey] = useState<string | null>(() =>
     todayKey.startsWith(monthPrefix) ? todayKey : null,
   )
+  // The entry picked in the grid, with a turn that grows on every pick, so
+  // picking the same entry again scrolls to it again.
+  const [picked, setPicked] = useState<{ id: string; turn: number } | null>(
+    null,
+  )
   const detailRef = useRef<HTMLDivElement>(null)
   const selected = selectedKey ? keyToDate(selectedKey) : null
   const selectedItems = (selectedKey && byDay.get(selectedKey)) || []
@@ -489,10 +696,15 @@ export function ScheduleMonth({
     ? (dayCounts[selectedKey] ?? selectedItems.length)
     : 0
 
-  const pickDay = (day: Date) => {
+  const pickDay = (day: Date, eventId?: string) => {
     setSelectedKey(localDateKey(day))
+    setPicked((last) =>
+      eventId ? { id: eventId, turn: (last?.turn ?? 0) + 1 } : null,
+    )
     onShowDetails(true)
-    // On narrow screens the details sit below the grid.
+    // On narrow screens the details sit below the grid; a picked entry
+    // scrolls itself into view.
+    if (eventId) return
     window.requestAnimationFrame?.(() =>
       detailRef.current?.scrollIntoView?.({
         block: "nearest",
@@ -534,8 +746,14 @@ export function ScheduleMonth({
             </div>
           ) : null}
           {showDetails && selected ? (
-            <div className="month-detail" ref={detailRef} aria-live="polite">
-              <div className="month-detail-head">
+            <div className="month-detail" ref={detailRef}>
+              {/* Only the day and its count are announced, never an entry
+                  sheet opened inside the list. */}
+              <div
+                className="month-detail-head"
+                aria-live="polite"
+                aria-atomic="true"
+              >
                 <h3>{formatLongDate(selected, locale)}</h3>
                 <span>{t("schedule.weekCount", { count: selectedCount })}</span>
               </div>
@@ -545,6 +763,8 @@ export function ScheduleMonth({
                     <GuideEvent
                       key={event.id}
                       event={event}
+                      full
+                      pickTurn={event.id === picked?.id ? picked.turn : 0}
                       locale={locale}
                       now={now}
                       t={t}
@@ -580,7 +800,7 @@ export function ScheduleMonth({
       {archive ? (
         <div className="guide-foot">
           <p className="guide-legend">
-            <ProvenanceLegend t={t} />
+            <ScheduleLegend t={t} />
           </p>
           <ArchiveMore
             hasNext={archive.hasNext}
@@ -765,7 +985,7 @@ export function WeekGuide({
 
           <div className="guide-foot">
             <p className="guide-legend">
-              <ProvenanceLegend t={t} />
+              <ScheduleLegend t={t} />
               <span>{t("schedule.weekCount", { count: total })}</span>
             </p>
             {hasNext ? (

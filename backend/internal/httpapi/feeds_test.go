@@ -34,9 +34,9 @@ func feedStore(t *testing.T) *sqlite.Store {
 		INSERT INTO translations (owner_type,owner_id,field,locale,origin,text,source_hash,created_at,updated_at) VALUES
 		 ('video','feedvid0002','title','en','manual','Upcoming stream EN','','',''),
 		 ('video','feedvid0002','title','zh-CN','manual','即将开始的直播','','','');
-		INSERT INTO videos (id,source,title,published_at,scheduled_at,url,kind,is_upcoming,raw_json) VALUES
-		 ('feedvid0001','youtube','Cover <&> song','2026-10-20T03:00:00.000Z',NULL,'https://www.youtube.com/watch?v=feedvid0001','MUSIC',0,'{"secret":"raw"}'),
-		 ('feedvid0002','youtube','Upcoming stream','2026-10-26T03:00:00.000Z','2026-11-01T11:00:00.000Z','https://www.youtube.com/watch?v=feedvid0002','LIVE',1,'{}');
+		INSERT INTO videos (id,source,title,published_at,scheduled_at,url,kind,tag,is_upcoming,raw_json) VALUES
+		 ('feedvid0001','youtube','Cover <&> song','2026-10-20T03:00:00.000Z',NULL,'https://www.youtube.com/watch?v=feedvid0001','upload','song',0,'{"secret":"raw"}'),
+		 ('feedvid0002','youtube','Upcoming stream','2026-10-26T03:00:00.000Z','2026-11-01T11:00:00.000Z','https://www.youtube.com/watch?v=feedvid0002','stream',NULL,1,'{}');
 		INSERT INTO app_settings (key,value,updated_at) VALUES ('dashboard_revision','7','');`)
 	store, err := sqlite.OpenReadOnly(path)
 	if err != nil {
@@ -186,11 +186,11 @@ func TestAtomFeed(t *testing.T) {
 	var feed struct {
 		Updated string `xml:"updated"`
 		Entries []struct {
-			Title    string `xml:"title"`
-			ID       string `xml:"id"`
-			Updated  string `xml:"updated"`
-			Summary  string `xml:"summary"`
-			Category struct {
+			Title      string `xml:"title"`
+			ID         string `xml:"id"`
+			Updated    string `xml:"updated"`
+			Summary    string `xml:"summary"`
+			Categories []struct {
 				Term string `xml:"term,attr"`
 			} `xml:"category"`
 			Link struct {
@@ -205,10 +205,10 @@ func TestAtomFeed(t *testing.T) {
 		t.Fatalf("feed=%+v", feed)
 	}
 	upcoming, cover := feed.Entries[0], feed.Entries[1]
-	if upcoming.ID != "urn:kano-navi:video:feedvid0002" || upcoming.Summary != "Scheduled for 2026-11-01 20:00 JST." || upcoming.Category.Term != "LIVE" {
+	if upcoming.ID != "urn:kano-navi:video:feedvid0002" || upcoming.Summary != "Scheduled for 2026-11-01 20:00 JST." || len(upcoming.Categories) != 1 || upcoming.Categories[0].Term != "stream" {
 		t.Fatalf("upcoming=%+v", upcoming)
 	}
-	if cover.Title != "Cover <&> song" || cover.Link.Href != "https://www.youtube.com/watch?v=feedvid0001" || cover.Updated != "2026-10-20T03:00:00Z" {
+	if cover.Title != "Cover <&> song" || len(cover.Categories) != 2 || cover.Categories[0].Term != "upload" || cover.Categories[1].Term != "song" || cover.Link.Href != "https://www.youtube.com/watch?v=feedvid0001" || cover.Updated != "2026-10-20T03:00:00Z" {
 		t.Fatalf("cover=%+v", cover)
 	}
 	if strings.Contains(response.Body.String(), "secret") {

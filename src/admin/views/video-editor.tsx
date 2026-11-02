@@ -27,11 +27,11 @@ import { Badge, Button, Facts, Loading, Modal } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { MergeSection } from "@/admin/views/merge-parts"
 
-/** The kinds the board labels; an empty choice follows the platform. */
-export const videoKinds = ["VIDEO", "MUSIC", "LIVE ARCHIVE", "GAMEPLAY", "TALK"]
+/** The forms an operator may set; an empty choice follows the platform. */
+export const videoKinds = ["stream", "premiere", "upload"]
 
-/** The calendar labels an operator can pin; an empty choice reads the title. */
-const videoTags = ["live", "game", "talk", "song", "video"]
+/** The content tags; an empty choice follows the schedule or inference. */
+export const videoTags = ["game", "talk", "song"]
 
 /** A format choice: empty follows the feed, otherwise Short or not. */
 const formatChoice = (isShort: boolean | null) =>
@@ -145,8 +145,8 @@ function CorrectionField({
 }
 
 /**
- * Corrections an operator layers over a video's platform title, kind and
- * thumbnail, with what the platform replaced, a refresh of its page and the
+ * Corrections an operator layers over a video's platform title, kind,
+ * content tag and thumbnail, with what the platform replaced, a refresh of its page and the
  * merge of a Bilibili upload with its YouTube copy.
  */
 export function VideoEditor({
@@ -245,13 +245,21 @@ export function VideoEditor({
   const fieldId = useId()
   // The header previews the board's row as the draft would leave it.
   const boardKind = draft?.kind || video?.sourceKind || "—"
+  // Without a video tag, the schedule entry's label and then the title
+  // inference's decide, as on the board.
+  const autoTag = video?.scheduleTag ?? video?.inferredTag ?? null
+  const boardTag = draft?.tag || autoTag
   const boardShort = draft?.format
     ? draft.format === "short"
     : Boolean(video?.sourceIsShort)
   const corrected = draft
-    ? [draft.title.trim(), draft.kind, draft.thumbnail, draft.format].filter(
-        Boolean,
-      ).length
+    ? [
+        draft.title.trim(),
+        draft.kind,
+        draft.tag,
+        draft.thumbnail,
+        draft.format,
+      ].filter(Boolean).length
     : 0
   return (
     <Modal
@@ -328,6 +336,7 @@ export function VideoEditor({
                   {t(`admin.videos.source.${video.source}`)}
                 </Badge>
                 <Badge>{boardKind}</Badge>
+                {boardTag ? <Badge tone="leaf">{boardTag}</Badge> : null}
                 {boardShort ? (
                   <Badge tone="lavender">
                     {t("admin.videos.format.short")}
@@ -393,11 +402,7 @@ export function VideoEditor({
                   }
                 />
               </CorrectionField>
-              <div
-                className={`adm-form-row is-top${
-                  video.source === "youtube" ? " is-three" : ""
-                }`}
-              >
+              <div className="adm-form-row is-top">
                 <CorrectionField
                   id={`${fieldId}-kind`}
                   label={t("admin.videos.field.kind")}
@@ -419,6 +424,32 @@ export function VideoEditor({
                     {videoKinds.map((kind) => (
                       <option key={kind} value={kind}>
                         {kind}
+                      </option>
+                    ))}
+                  </select>
+                </CorrectionField>
+                <CorrectionField
+                  id={`${fieldId}-tag`}
+                  label={t("admin.videos.field.tag")}
+                  corrected={Boolean(draft.tag)}
+                  onReset={() => setDraft({ ...draft, tag: "" })}
+                  hint={t("admin.videos.tag.hint")}
+                >
+                  <select
+                    id={`${fieldId}-tag`}
+                    value={draft.tag}
+                    onChange={(e) =>
+                      setDraft({ ...draft, tag: e.target.value })
+                    }
+                  >
+                    <option value="">
+                      {t("admin.videos.tag.auto", {
+                        tag: autoTag || t("admin.videos.tag.none"),
+                      })}
+                    </option>
+                    {videoTags.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
                       </option>
                     ))}
                   </select>
@@ -452,28 +483,6 @@ export function VideoEditor({
                     </select>
                   </CorrectionField>
                 ) : null}
-                <CorrectionField
-                  id={`${fieldId}-tag`}
-                  label={t("admin.videos.field.tag")}
-                  corrected={Boolean(draft.tag)}
-                  onReset={() => setDraft({ ...draft, tag: "" })}
-                  hint={t("admin.videos.tag.hint")}
-                >
-                  <select
-                    id={`${fieldId}-tag`}
-                    value={draft.tag}
-                    onChange={(e) =>
-                      setDraft({ ...draft, tag: e.target.value })
-                    }
-                  >
-                    <option value="">{t("admin.videos.tag.none")}</option>
-                    {videoTags.map((tag) => (
-                      <option key={tag} value={tag}>
-                        {t(`admin.videos.tag.${tag}`)}
-                      </option>
-                    ))}
-                  </select>
-                </CorrectionField>
               </div>
               <fieldset className="adm-field adm-thumb-picker">
                 <legend className="adm-correction-head">

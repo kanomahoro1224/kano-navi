@@ -288,6 +288,9 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 	if err := backfillYoutubeEventTimePrecision(ctx, tx); err != nil {
 		return err
 	}
+	if err := backfillVideoForms(ctx, tx); err != nil {
+		return err
+	}
 	if added["assets.period_start"] {
 		if err := exec(`UPDATE assets SET period_start=week_start,period_end=date(week_start,'+6 days') WHERE kind='schedule'`); err != nil {
 			return err
@@ -405,6 +408,44 @@ WHERE source='youtube' AND starts_at IS NOT NULL AND TRIM(starts_at)<>''
 		return nil
 	}
 	if err = bumpRevision(ctx, tx, workflowTime(time.Now())); err != nil {
+		return fmt.Errorf("%w: upgrade backfill failed", ErrSchema)
+	}
+	return nil
+}
+
+// backfillVideoForms moves rows that still carry a title-derived kind to the
+// form and content layers (ADR-0005). An operator's content kind becomes the
+// video's manual tag and clears the form correction; a stored kind is derived
+// again from the stored facts. Before the form layer, a detail check gave a
+// title kind to a scheduled video only when it was a premiere, so a start
+// without a premiere verdict reads the old kind; a row without a start is an
+// upload once a check read it. Rows already in the new shape are untouched.
+func backfillVideoForms(ctx context.Context, tx *sql.Tx) error {
+	changed := int64(0)
+	for _, statement := range []string{
+		`UPDATE videos SET manual_tag=CASE upper(trim(manual_kind)) WHEN 'GAMEPLAY' THEN 'game' WHEN 'TALK' THEN 'talk' ELSE 'song' END
+WHERE manual_tag IS NULL AND upper(trim(manual_kind)) IN ('GAMEPLAY','TALK','MUSIC')`,
+		`UPDATE videos SET manual_kind=CASE upper(trim(manual_kind)) WHEN 'LIVE ARCHIVE' THEN 'stream' WHEN 'UPCOMING LIVE' THEN 'stream' WHEN 'VIDEO' THEN 'upload' END
+WHERE manual_kind IS NOT NULL AND manual_kind NOT IN ('stream','premiere','upload')`,
+		`UPDATE videos SET kind=CASE
+  WHEN source<>'youtube' THEN 'upload'
+  WHEN scheduled_at IS NOT NULL AND is_premiere IS NOT NULL THEN CASE is_premiere WHEN 1 THEN 'premiere' ELSE 'stream' END
+  WHEN scheduled_at IS NOT NULL THEN CASE WHEN upper(trim(COALESCE(kind,''))) IN ('MUSIC','VIDEO') THEN 'premiere' ELSE 'stream' END
+  WHEN live_checked_at IS NOT NULL THEN 'upload'
+  ELSE 'unknown' END
+WHERE kind IS NULL OR kind NOT IN ('stream','premiere','upload','unknown')`,
+	} {
+		result, err := tx.ExecContext(ctx, statement)
+		if err != nil {
+			return fmt.Errorf("%w: upgrade backfill failed", ErrSchema)
+		}
+		count, _ := result.RowsAffected()
+		changed += count
+	}
+	if changed == 0 {
+		return nil
+	}
+	if err := bumpRevision(ctx, tx, workflowTime(time.Now())); err != nil {
 		return fmt.Errorf("%w: upgrade backfill failed", ErrSchema)
 	}
 	return nil

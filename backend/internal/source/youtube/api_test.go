@@ -156,8 +156,8 @@ func TestRecentPrefersTheDataAPIForListingAndDetails(t *testing.T) {
 		Videos: map[string]Video{
 			// A stream a detail check already described, and an upload only the
 			// feed has named so far.
-			"EEEEEEEEEEE": {ID: "EEEEEEEEEEE", PublishedAt: "2026-01-01T00:00:00Z", ScheduledAt: "2026-01-02T09:00:00Z", Kind: "LIVE ARCHIVE", PremiereKnown: true, ThumbnailURL: "https://i.ytimg.com/vi/EEEEEEEEEEE/maxresdefault.jpg?v=abc"},
-			"NNNNNNNNNNN": {ID: "NNNNNNNNNNN", PublishedAt: "2026-01-02T03:20:58Z", Kind: "MUSIC"},
+			"EEEEEEEEEEE": {ID: "EEEEEEEEEEE", PublishedAt: "2026-01-01T00:00:00Z", ScheduledAt: "2026-01-02T09:00:00Z", Kind: KindStream, PremiereKnown: true, ThumbnailURL: "https://i.ytimg.com/vi/EEEEEEEEEEE/maxresdefault.jpg?v=abc"},
+			"NNNNNNNNNNN": {ID: "NNNNNNNNNNN", PublishedAt: "2026-01-02T03:20:58Z", Kind: KindUnknown},
 		},
 		ActiveIDs:   []string{"EEEEEEEEEEE"},
 		FollowUpIDs: []string{"NNNNNNNNNNN"},
@@ -188,16 +188,16 @@ func TestRecentPrefersTheDataAPIForListingAndDetails(t *testing.T) {
 		}
 	}
 	premiere, room, upload, stream, checked := details["PPPPPPPPPPP"], details["LLLLLLLLLLL"], details["OOOOOOOOOOO"], details["EEEEEEEEEEE"], details["NNNNNNNNNNN"]
-	if !premiere.Premiere || !premiere.IsUpcoming || premiere.Kind != "MUSIC" || premiere.ScheduledAt != "2026-01-03T12:00:00Z" || premiere.LiveStatus != LiveStatusUpcoming || premiere.DurationSeconds != 0 {
+	if !premiere.Premiere || !premiere.IsUpcoming || premiere.Kind != KindPremiere || premiere.ScheduledAt != "2026-01-03T12:00:00Z" || premiere.LiveStatus != LiveStatusUpcoming || premiere.DurationSeconds != 0 {
 		t.Fatalf("premiere=%#v", premiere)
 	}
-	if room.Premiere || !room.IsUpcoming || room.Kind != "UPCOMING LIVE" || room.PublishedAt != "2026-01-02T04:00:00Z" {
+	if room.Premiere || !room.IsUpcoming || room.Kind != KindStream || room.PublishedAt != "2026-01-02T04:00:00Z" {
 		t.Fatalf("waiting room=%#v", room)
 	}
-	if upload.Kind != "VIDEO" || upload.ScheduledAt != "" || upload.DurationSeconds != 60 || upload.ThumbnailURL != "https://i.ytimg.com/vi/OOOOOOOOOOO/hqdefault.jpg" {
+	if upload.Kind != KindUpload || upload.ScheduledAt != "" || upload.DurationSeconds != 60 || upload.ThumbnailURL != "https://i.ytimg.com/vi/OOOOOOOOOOO/hqdefault.jpg" {
 		t.Fatalf("upload=%#v", upload)
 	}
-	if stream.Premiere || stream.Kind != "LIVE ARCHIVE" || stream.LiveStatus != LiveStatusEnded || stream.ScheduledAt != "2026-01-02T10:00:00Z" || stream.EndedAt != "2026-01-02T12:00:00Z" || stream.DurationSeconds != 7200 || stream.PublishedAt != "2026-01-01T00:00:00Z" {
+	if stream.Premiere || stream.Kind != KindStream || stream.LiveStatus != LiveStatusEnded || stream.ScheduledAt != "2026-01-02T10:00:00Z" || stream.EndedAt != "2026-01-02T12:00:00Z" || stream.DurationSeconds != 7200 || stream.PublishedAt != "2026-01-01T00:00:00Z" {
 		t.Fatalf("stream=%#v", stream)
 	}
 	// The same image keeps its stored, versioned URL.
@@ -205,7 +205,7 @@ func TestRecentPrefersTheDataAPIForListingAndDetails(t *testing.T) {
 		t.Fatalf("stream thumbnail=%s", stream.ThumbnailURL)
 	}
 	// The page decides: a premiere keeps the kind of its title, not a live kind.
-	if !checked.Premiere || checked.Kind != "VIDEO" || checked.EndedAt != "2026-01-02T09:06:55Z" || checked.PublishedAt != "2026-01-02T03:20:58Z" {
+	if !checked.Premiere || checked.Kind != KindPremiere || checked.EndedAt != "2026-01-02T09:06:55Z" || checked.PublishedAt != "2026-01-02T03:20:58Z" {
 		t.Fatalf("watch-checked premiere=%#v", checked)
 	}
 }
@@ -218,16 +218,16 @@ func TestEndedBroadcastTakesItsPremiereVerdictFromTheStoredCheck(t *testing.T) {
 	item := items["PPPPPPPPPPP"]
 	start := "2026-01-02T09:00:00Z"
 	// A premiere whose title reads as a stream keeps the stored verdict.
-	v, ok := fromAPI(item, Video{ScheduledAt: start, Kind: "LIVE ARCHIVE", Premiere: true, PremiereKnown: true}, listedNowhere)
+	v, ok := fromAPI(item, Video{ScheduledAt: start, Kind: KindStream, Premiere: true, PremiereKnown: true}, listedNowhere)
 	if !ok || !v.Premiere || !v.PremiereKnown {
 		t.Fatalf("premiere=%#v ok=%v", v, ok)
 	}
-	if v, ok = fromAPI(item, Video{ScheduledAt: start, Kind: "MUSIC", PremiereKnown: true}, listedNowhere); !ok || v.Premiere {
+	if v, ok = fromAPI(item, Video{ScheduledAt: start, Kind: KindPremiere, PremiereKnown: true}, listedNowhere); !ok || v.Premiere {
 		t.Fatalf("stream=%#v ok=%v", v, ok)
 	}
 	// A row stored before verdicts were kept, with a start time and a live
 	// kind, is left to its watch page.
-	if _, ok = fromAPI(item, Video{ScheduledAt: start, Kind: "LIVE ARCHIVE"}, listedNowhere); ok {
+	if _, ok = fromAPI(item, Video{ScheduledAt: start, Kind: KindStream}, listedNowhere); ok {
 		t.Fatal("an unknown verdict was guessed from the kind")
 	}
 }
@@ -280,7 +280,7 @@ func TestRefreshRequestReadsThePageOfAClassifiedBroadcast(t *testing.T) {
 	a.Now = syntheticNow
 	// Premieres a check before their end stored as streams.
 	stored := func(id string) Video {
-		return Video{ID: id, Title: "Letters - cover.", PublishedAt: "2026-01-01T13:58:38Z", ScheduledAt: "2026-01-02T09:00:10Z", Kind: "LIVE ARCHIVE", PremiereKnown: true}
+		return Video{ID: id, Title: "Letters - cover.", PublishedAt: "2026-01-01T13:58:38Z", ScheduledAt: "2026-01-02T09:00:10Z", Kind: KindStream, PremiereKnown: true}
 	}
 	state := State{RefreshIDs: []string{"RRRRRRRRRRR", "FFFFFFFFFFF"}, Videos: map[string]Video{"RRRRRRRRRRR": stored("RRRRRRRRRRR"), "FFFFFFFFFFF": stored("FFFFFFFFFFF")}}
 	result, err := a.FetchRecent(context.Background(), state, 7)
@@ -292,10 +292,10 @@ func TestRefreshRequestReadsThePageOfAClassifiedBroadcast(t *testing.T) {
 		got[v.ID] = v
 	}
 	// The page settles the premiere; a failed page leaves the API answer.
-	if v := got["RRRRRRRRRRR"]; !v.Premiere || !v.PremiereKnown || v.Kind != "MUSIC" || v.LiveStatus != LiveStatusEnded {
+	if v := got["RRRRRRRRRRR"]; !v.Premiere || !v.PremiereKnown || v.Kind != KindPremiere || v.LiveStatus != LiveStatusEnded {
 		t.Fatalf("refreshed=%#v", v)
 	}
-	if v := got["FFFFFFFFFFF"]; v.Premiere || !v.PremiereKnown || v.Kind != "LIVE ARCHIVE" || v.EndedAt != "2026-01-02T09:06:10Z" {
+	if v := got["FFFFFFFFFFF"]; v.Premiere || !v.PremiereKnown || v.Kind != KindStream || v.EndedAt != "2026-01-02T09:06:10Z" {
 		t.Fatalf("failed page=%#v", v)
 	}
 }
@@ -477,8 +477,8 @@ func TestRecentUsesUnclassifiedAPIAnswersOnlyWhenTheWatchPageFails(t *testing.T)
 	state := State{
 		RefreshIDs: []string{"PPPPPPPPPPP", "SSSSSSSSSSS", "WWWWWWWWWWW", "NNNNNNNNNNN"},
 		Videos: map[string]Video{
-			"PPPPPPPPPPP": {ID: "PPPPPPPPPPP", Title: "??? - cover.", PublishedAt: "2026-01-02T03:20:58Z", Kind: "MUSIC", ThumbnailURL: "https://i2.ytimg.com/vi/PPPPPPPPPPP/hqdefault.jpg"},
-			"SSSSSSSSSSS": {ID: "SSSSSSSSSSS", Title: "finished stream", PublishedAt: "2026-01-01T00:00:00Z", ScheduledAt: "2026-01-02T09:00:00Z", Kind: "UPCOMING LIVE"},
+			"PPPPPPPPPPP": {ID: "PPPPPPPPPPP", Title: "??? - cover.", PublishedAt: "2026-01-02T03:20:58Z", Kind: KindUnknown, ThumbnailURL: "https://i2.ytimg.com/vi/PPPPPPPPPPP/hqdefault.jpg"},
+			"SSSSSSSSSSS": {ID: "SSSSSSSSSSS", Title: "finished stream", PublishedAt: "2026-01-01T00:00:00Z", ScheduledAt: "2026-01-02T09:00:00Z", Kind: KindStream},
 		},
 	}
 	result, err := a.FetchRecent(context.Background(), state, 7)
@@ -500,14 +500,15 @@ func TestRecentUsesUnclassifiedAPIAnswersOnlyWhenTheWatchPageFails(t *testing.T)
 	}
 	premiere, stream, page := details["PPPPPPPPPPP"], details["SSSSSSSSSSS"], details["WWWWWWWWWWW"]
 	// The API answer updates the title, times and length but keeps the stored
-	// kind and verdict; another size of the same image keeps the stored URL.
-	if !premiere.Unclassified || premiere.PremiereKnown || premiere.Title != "Kanade - cover." || premiere.Kind != "MUSIC" ||
+	// verdict, so a broadcast stored without one keeps an unknown form; another
+	// size of the same image keeps the stored URL.
+	if !premiere.Unclassified || premiere.PremiereKnown || premiere.Title != "Kanade - cover." || premiere.Kind != KindUnknown ||
 		premiere.ScheduledAt != "2026-01-02T09:00:09Z" || premiere.EndedAt != "2026-01-02T09:06:55Z" || premiere.DurationSeconds != 289 ||
 		premiere.ThumbnailURL != "https://i2.ytimg.com/vi/PPPPPPPPPPP/hqdefault.jpg" || premiere.PublishedAt != "2026-01-02T03:20:58Z" {
 		t.Fatalf("premiere=%#v", premiere)
 	}
-	// A stored waiting-room kind turns into its ended form.
-	if !stream.Unclassified || stream.Kind != "LIVE ARCHIVE" || stream.LiveStatus != LiveStatusEnded || stream.IsUpcoming {
+	// A stored stream stays a stream once its broadcast ended.
+	if !stream.Unclassified || stream.Kind != KindStream || stream.LiveStatus != LiveStatusEnded || stream.IsUpcoming {
 		t.Fatalf("stream=%#v", stream)
 	}
 	// A readable page decides as before.

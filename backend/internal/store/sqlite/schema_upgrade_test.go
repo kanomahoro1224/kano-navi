@@ -45,6 +45,11 @@ func olderSnapshot(t *testing.T) (string, string) {
 		`DROP INDEX videos_merged_into_idx`, `ALTER TABLE videos DROP COLUMN merged_into`, `ALTER TABLE videos DROP COLUMN merge_source`,
 		`ALTER TABLE videos DROP COLUMN merge_reason`, `ALTER TABLE videos DROP COLUMN merged_at`,
 		`ALTER TABLE videos DROP COLUMN is_short`, `ALTER TABLE videos DROP COLUMN manual_is_short`, `ALTER TABLE videos DROP COLUMN is_premiere`,
+		`ALTER TABLE videos DROP COLUMN manual_tag`, `ALTER TABLE videos DROP COLUMN tag`, `ALTER TABLE videos DROP COLUMN tag_source`, `ALTER TABLE videos DROP COLUMN tag_attempted_at`,
+		// Title kinds move to the form and content layers: an operator's content
+		// kind becomes a manual tag, and a scheduled title kind was a premiere's.
+		`INSERT INTO videos(id,source,title,published_at,scheduled_at,url,kind,manual_kind) VALUES('KKKKKKKKKKK','youtube','game stream','2026-03-01T00:00:00.000Z','2026-03-01T09:00:00.000Z','https://www.youtube.com/watch?v=KKKKKKKKKKK','LIVE ARCHIVE','GAMEPLAY')`,
+		`INSERT INTO videos(id,source,title,published_at,scheduled_at,url,kind,manual_kind) VALUES('PPPPPPPPPPP','youtube','premiere','2026-03-01T00:00:00.000Z','2026-03-01T12:00:00.000Z','https://www.youtube.com/watch?v=PPPPPPPPPPP','MUSIC','VIDEO')`,
 		`INSERT INTO videos(id,source,title,published_at,url) VALUES('BV1synthetic0','bilibili','retained','2026-03-01T00:00:00.000Z','https://www.bilibili.com/video/BV1synthetic0')`,
 		// A brief older upload stays of unknown format, never guessed from its length.
 		`INSERT INTO videos(id,source,title,published_at,url,kind,duration_seconds) VALUES('AAAAAAAAAAA','youtube','brief','2026-03-01T00:00:00.000Z','https://www.youtube.com/watch?v=AAAAAAAAAAA','VIDEO',30)`,
@@ -109,10 +114,15 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 		`SELECT title||'/'||COALESCE(merged_into,merge_source,merge_reason,merged_at,'unmerged') FROM videos WHERE id='BV1synthetic0'`:                     "retained/unmerged",
 		`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='videos_merged_into_idx'`:                                                          "1",
 		`SELECT title||'/'||COALESCE(is_short,manual_is_short,is_premiere,'unknown') FROM videos WHERE id='AAAAAAAAAAA'`:                                   "brief/unknown",
-		`SELECT max_retries FROM llm_providers WHERE id='synthetic'`:                                                                                       "2",
-		`SELECT group_concat(route,',') FROM (SELECT route FROM llm_route_targets WHERE provider_id='synthetic' ORDER BY route)`:                           "schedule",
-		`SELECT model_id||'/'||origin FROM llm_models WHERE provider_id='synthetic'`:                                                                       "synthetic-model/legacy",
-		`SELECT value FROM app_settings WHERE key='llm_route_targets_migrated'`:                                                                            "1",
+		`SELECT kind||'/'||COALESCE(manual_kind,'-')||'/'||COALESCE(manual_tag,'-') FROM videos WHERE id='KKKKKKKKKKK'`:                                    "stream/-/game",
+		`SELECT kind||'/'||COALESCE(manual_kind,'-')||'/'||COALESCE(manual_tag,'-') FROM videos WHERE id='PPPPPPPPPPP'`:                                    "premiere/upload/-",
+		// No check read the brief upload, and Bilibili uploads are uploads.
+		`SELECT kind FROM videos WHERE id='AAAAAAAAAAA'`:                                                                         "unknown",
+		`SELECT kind FROM videos WHERE id='BV1synthetic0'`:                                                                       "upload",
+		`SELECT max_retries FROM llm_providers WHERE id='synthetic'`:                                                             "2",
+		`SELECT group_concat(route,',') FROM (SELECT route FROM llm_route_targets WHERE provider_id='synthetic' ORDER BY route)`: "schedule",
+		`SELECT model_id||'/'||origin FROM llm_models WHERE provider_id='synthetic'`:                                             "synthetic-model/legacy",
+		`SELECT value FROM app_settings WHERE key='llm_route_targets_migrated'`:                                                  "1",
 
 		`SELECT title FROM resources WHERE id=9`:                                                     "official site",
 		`SELECT active_sha256||'/'||active_mime_type FROM profile_media WHERE id='synthetic-avatar'`: hex.EncodeToString(sum[:]) + "/image/png",

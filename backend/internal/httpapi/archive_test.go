@@ -146,6 +146,76 @@ func TestVideoArchiveUsesTheScheduledOrPublishedTime(t *testing.T) {
 	}
 }
 
+func TestVideoArchiveFiltersByTag(t *testing.T) {
+	// A video's manual tag comes first, then its schedule entry's label (a
+	// merge target's first; live and video name a form), then its own
+	// inferred tag; anything else is other.
+	handler := archiveHandler(t, `
+		INSERT INTO videos (id,source,title,published_at,url,kind,manual_tag,tag) VALUES
+		 ('v-aug','youtube','August','2026-08-10T12:00:00Z','https://www.youtube.com/watch?v=aug','upload',NULL,'game'),
+		 ('v-sep','youtube','September','2026-09-25T12:00:00Z','https://www.youtube.com/watch?v=sep','upload',NULL,NULL),
+		 ('v-game','youtube','Game','2026-10-01T12:00:00Z','https://www.youtube.com/watch?v=game','stream',NULL,NULL),
+		 ('v-linked','youtube','Linked','2026-10-02T12:00:00Z','https://www.youtube.com/watch?v=linked','stream',NULL,NULL),
+		 ('v-manual','youtube','Manual tag','2026-10-03T12:00:00Z','https://www.youtube.com/watch?v=manual','stream','game',NULL),
+		 ('v-talk','youtube','Inferred talk','2026-10-04T12:00:00Z','https://www.youtube.com/watch?v=talk','upload',NULL,'talk'),
+		 ('v-label','youtube','Label over inference','2026-10-05T12:00:00Z','https://www.youtube.com/watch?v=label','premiere',NULL,'song'),
+		 ('v-merged','youtube','Merged','2026-10-06T12:00:00Z','https://www.youtube.com/watch?v=merged','stream',NULL,NULL),
+		 ('v-music','youtube','Form label','2026-10-07T12:00:00Z','https://www.youtube.com/watch?v=music','premiere',NULL,'song'),
+		 ('v-live','youtube','Live label','2026-10-08T12:00:00Z','https://www.youtube.com/watch?v=live','stream',NULL,NULL),
+		 ('v-deleted','youtube','Deleted entry','2026-10-09T12:00:00Z','https://www.youtube.com/watch?v=deleted','stream',NULL,NULL);
+		INSERT INTO events (id,source,source_item_id,title,starts_on,tag,merged_into,deleted_at,created_at,updated_at) VALUES
+		 ('youtube-v-game','youtube','v-game','Game','2026-10-01','game',NULL,NULL,'',''),
+		 ('x-linked','x','post-1','Linked','2026-10-02','game',NULL,NULL,'',''),
+		 ('youtube-v-manual','youtube','v-manual','Manual','2026-10-03','talk',NULL,NULL,'',''),
+		 ('youtube-v-label','youtube','v-label','Label','2026-10-05','talk',NULL,NULL,'',''),
+		 ('manual-song','manual',NULL,'Song','2026-10-06','song',NULL,NULL,'',''),
+		 ('youtube-v-merged','youtube','v-merged','Merged','2026-10-06',NULL,'manual-song',NULL,'',''),
+		 ('youtube-v-music','youtube','v-music','Music','2026-10-07','video',NULL,NULL,'',''),
+		 ('youtube-v-live','youtube','v-live','Live','2026-10-08','live',NULL,NULL,'',''),
+		 ('youtube-v-deleted','youtube','v-deleted','Deleted','2026-10-09','game',NULL,'2026-10-10T00:00:00Z','','');
+		INSERT INTO event_sources (event_id,source,source_item_id,source_key,created_at,updated_at) VALUES
+		 ('x-linked','youtube','v-linked','reservation','','');`)
+
+	all := decodeObject(t, request(t, handler, http.MethodGet, "/api/videos?from=2026-10-01&to=2026-10-31"))
+	counts := all["categoryCounts"].(map[string]any)
+	if all["total"] != float64(9) || counts["game"] != float64(3) || counts["talk"] != float64(2) || counts["song"] != float64(2) || counts["other"] != float64(2) {
+		t.Fatalf("total=%v counts=%#v", all["total"], counts)
+	}
+	if adjacent := all["adjacent"].(map[string]any); adjacent["previous"] != "2026-09-25" {
+		t.Fatalf("adjacent=%#v", adjacent)
+	}
+
+	for category, want := range map[string]string{
+		"game":  "v-manual,v-linked,v-game",
+		"talk":  "v-label,v-talk",
+		"song":  "v-music,v-merged",
+		"other": "v-deleted,v-live",
+	} {
+		page := decodeObject(t, request(t, handler, http.MethodGet, "/api/videos?from=2026-10-01&to=2026-10-31&category="+category))
+		if got := strings.Join(archiveIDs(t, page), ","); got != want {
+			t.Fatalf("%s=%s want %s", category, got, want)
+		}
+		// The counts ignore the filter so every button keeps its total.
+		if page["categoryCounts"].(map[string]any)["game"] != float64(3) {
+			t.Fatalf("%s counts=%#v", category, page["categoryCounts"])
+		}
+	}
+	// Adjacent dates follow the filter, so an empty month jumps to a match.
+	game := decodeObject(t, request(t, handler, http.MethodGet, "/api/videos?from=2026-10-01&to=2026-10-31&category=game"))
+	if adjacent := game["adjacent"].(map[string]any); adjacent["previous"] != "2026-08-10" || game["total"] != float64(3) {
+		t.Fatalf("game adjacent=%#v total=%v", adjacent, game["total"])
+	}
+	// Each item carries its shown tag.
+	if first := game["items"].([]any)[0].(map[string]any); first["tag"] != "game" {
+		t.Fatalf("game item=%#v", first)
+	}
+
+	bad := request(t, handler, http.MethodGet, "/api/videos?from=2026-10-01&to=2026-10-31&category=live")
+	if bad.Code != http.StatusBadRequest || !strings.Contains(bad.Body.String(), "invalid_category") {
+		t.Fatalf("invalid category status=%d body=%s", bad.Code, bad.Body)
+	}
+}
+
 func TestVideoArchiveValidatorFollowsTimeDerivedFields(t *testing.T) {
 	path := testutil.NewSnapshot(t)
 	testutil.Exec(t, path, `INSERT INTO videos (id,source,title,published_at,scheduled_at,url,kind,is_upcoming) VALUES

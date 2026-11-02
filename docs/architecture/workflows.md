@@ -155,7 +155,8 @@ The executable follows the YouTube
 [proxy route](outbound-proxy.md#yt-dlp).
 
 Videos are written as the listing describes them: title, publication time,
-largest thumbnail and the kind their title gives. The `api` method then checks
+largest thumbnail and an `unknown` kind, since a listing cannot tell a
+broadcast from an upload. The `api` method then checks
 the details of each page's videos that are not stored yet, and of the stored
 ones too with `refresh`, through one `videos.list` call per 50 (see
 [Data API](sources.md#data-api)). It follows the recent step's rules: the
@@ -380,13 +381,22 @@ step; it can also be selected alone. Its
 result counts `considered`, `merged`, `retargeted`, `released`, `kept` and
 `ambiguous` events, `eventsTimed` and `eventsCreated` YouTube events, and
 `videosConsidered`, `videosMerged`, `videosReleased`, `videosKept` and
-`videosAmbiguous` uploads. It advances the dashboard revision only when a
-merge decision, a derived YouTube event or a merged upload's translation
-changed.
+`videosAmbiguous` uploads, and `tagged` surviving events whose label changed
+to the label of a notice merged into them (see
+[Event labels](data-model.md#event-labels)). It advances the dashboard
+revision only when a merge decision, a derived YouTube event, an inherited
+label or a merged upload's translation changed.
 
 `translate` machine-translates X post text and YouTube titles that lack a
-usable translation (see [Translation](sources.md#translation)). Its final
-failure does not abort a run, so `reconcile` still runs after it. It reads
+usable translation (see [Translation](sources.md#translation)), then labels
+unlabelled YouTube reservations from their title with the same queue (see
+[Event labels](data-model.md#event-labels)), then tags the videos no entry
+labels with what is left of the same per-run limit (see
+[Video form and tags](data-model.md#video-form-and-tags)); its result
+counts them under `eventTags` and `videoTags`. A title that fails counts as
+failed and the step goes on;
+only a store failure or cancellation stops it. Its final failure does not
+abort a run, so `reconcile` still runs after it. It reads
 only the translation queue and records a disabled result while that queue
 is empty. `POST /api/admin/translations/request` starts it alone as a
 `translate` run after queueing operator requests.

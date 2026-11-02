@@ -487,9 +487,13 @@ func normalizeVideo(event eventRequest, now time.Time) (sqlite.BambinoVideo, str
 		short := kind == "shorts"
 		isShort = &short
 	}
-	boardKind := bilisource.Classify(title)
-	if source == "youtube" {
-		boardKind = ytsource.Classify(title)
+	// The stored kind is the form, never the content: a collector reports a
+	// broadcast as live and everything else as an upload (ADR-0005). Bilibili
+	// events are uploads only, so the switch covers both platforms.
+	boardKind := ytsource.KindUpload
+	switch kind {
+	case "live_schedule", "live_start", "live_end":
+		boardKind = ytsource.KindStream
 	}
 	publishedAt := sqlite.ISOTime(published)
 	rawEvent := event.Raw

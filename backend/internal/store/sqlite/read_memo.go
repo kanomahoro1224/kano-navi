@@ -263,7 +263,7 @@ func (s *Store) queryLinkedEvents(ctx context.Context, videos []Video, now time.
 		}
 		rows, err := s.db.QueryContext(ctx, `WITH v(vid,vurl,vat) AS (VALUES `+strings.TrimSuffix(strings.Repeat("(?,?,?),", len(chunk)), ",")+`)
  SELECT vid,`+eventColumns+` FROM (
- SELECT v.vid,e.`+strings.ReplaceAll(eventColumns, ",", ",e.")+`,ROW_NUMBER() OVER (PARTITION BY v.vid ORDER BY ABS(julianday(e.starts_at)-julianday(v.vat)),e.id ASC) AS pick FROM v JOIN events e ON e.deleted_at IS NULL AND (e.id='youtube-'||v.vid OR (e.source='youtube' AND e.source_item_id=v.vid) OR EXISTS (SELECT 1 FROM event_sources es WHERE es.event_id=e.id AND es.source='youtube' AND es.source_item_id=v.vid) OR (e.url IS NOT NULL AND stream_identity(e.url)=stream_identity(v.vurl)))
+ SELECT v.vid,`+eventColumnsAs("e")+`,ROW_NUMBER() OVER (PARTITION BY v.vid ORDER BY ABS(julianday(e.starts_at)-julianday(v.vat)),e.id ASC) AS pick FROM v JOIN events e ON e.deleted_at IS NULL AND (e.id='youtube-'||v.vid OR (e.source='youtube' AND e.source_item_id=v.vid) OR EXISTS (SELECT 1 FROM event_sources es WHERE es.event_id=e.id AND es.source='youtube' AND es.source_item_id=v.vid) OR (e.url IS NOT NULL AND stream_identity(e.url)=stream_identity(v.vurl)))
  ) WHERE pick=1`, args...)
 		if err != nil {
 			return nil, dbErr(err)

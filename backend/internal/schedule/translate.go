@@ -78,9 +78,12 @@ func (t *Translator) Run(ctx context.Context) (Result, error) {
 	}
 	// The same queue labels the calendar entries whose title carries no other
 	// evidence, so a YouTube-only announcement still reaches readers with a
-	// kind.
-	if tags, tagErr := t.inferEventTags(ctx); tags != nil {
+	// kind, and then the videos no entry labels.
+	if tags, videoTags, tagErr := t.inferTags(ctx); tags != nil {
 		counts["eventTags"] = tags
+		if videoTags != nil {
+			counts["videoTags"] = videoTags
+		}
 		if tagErr != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return Result{Status: "failed", Counts: counts}, ctxErr
@@ -133,25 +136,37 @@ func (t *Translator) translatePending(ctx context.Context) (map[string]any, erro
 	return counts, nil
 }
 
-// inferEventTags labels the calendar entries that carry no other evidence of
-// what they are. YouTube reservations are created by the sync and never pass
-// through the extraction prompt, so their title is the only thing to read; the
-// judgement is short-text work like translation, and it uses that queue.
-// Entries merged from an X notice were already labelled and are skipped.
-func (t *Translator) inferEventTags(ctx context.Context) (map[string]any, error) {
+// tagJob is one title the inference labels: the calendar entry or video it
+// belongs to, and where its answer and a failed attempt are recorded.
+type tagJob struct {
+	title, platform string
+	record          func(*string) error
+	fail            func() error
+}
+
+// inferTags labels the calendar entries that carry no other evidence of
+// what they are, then the videos no entry labels. YouTube reservations are
+// created by the sync and never pass through the extraction prompt, and an
+// upload often has no entry at all, so the title is the only thing to read;
+// the judgement is short-text work like translation, and it uses that queue
+// and its retry policy. Entries go first and videos use what is left of the
+// same per-run limit, so the video backlog drains over successive runs. A
+// title that fails counts as failed and the run moves on; only a store write
+// or cancellation stops it. videos is nil when the run never reached them.
+func (t *Translator) inferTags(ctx context.Context) (events, videos map[string]any, err error) {
 	e := t.e
-	counts := map[string]any{"attempted": 0, "success": 0, "failed": 0}
+	events = map[string]any{"attempted": 0, "success": 0, "skipped": 0, "failed": 0}
 	providers, reason, err := e.routeProviders(ctx, routeTranslate, "text")
 	if err != nil {
-		return counts, err
+		return events, nil, err
 	}
 	if len(providers) == 0 {
-		counts["disabled"], counts["reason"] = true, reason
-		return counts, nil
+		events["disabled"], events["reason"] = true, reason
+		return events, nil, nil
 	}
 	settings, err := e.store.SyncSettings(ctx)
 	if err != nil {
-		return counts, err
+		return events, nil, err
 	}
 	limit := settings.TranslationScanLimit
 	if limit < 1 {
@@ -160,66 +175,133 @@ func (t *Translator) inferEventTags(ctx context.Context) (map[string]any, error)
 	now := e.now().In(jst)
 	from := now.AddDate(0, 0, -eventTagPastDays).Format("2006-01-02")
 	to := now.AddDate(0, 0, eventTagFutureDays).Format("2006-01-02")
-	candidates, err := e.store.ListEventTagCandidates(ctx, from, to, limit)
+	entries, err := e.store.ListEventTagCandidates(ctx, from, to, limit)
 	if err != nil {
-		return counts, err
+		return events, nil, err
 	}
-	for _, item := range candidates {
-		if err = ctx.Err(); err != nil {
-			return counts, err
-		}
-		tag, err := t.inferEventTag(ctx, item, providers)
-		if err != nil {
-			return counts, err
-		}
-		counts["attempted"] = countOf(counts, "attempted") + 1
-		if _, err = e.store.RecordEventTag(ctx, item.ID, tag); err != nil {
-			return counts, err
-		}
-		counts["success"] = countOf(counts, "success") + 1
+	jobs := make([]tagJob, 0, len(entries))
+	for _, item := range entries {
+		id := item.ID
+		// The form tells live from video when the title does not show it.
+		jobs = append(jobs, tagJob{
+			title: item.Title, platform: "YouTube " + item.Form,
+			record: func(tag *string) error { _, err := e.store.RecordEventTag(ctx, id, tag, e.now()); return err },
+			fail:   func() error { return e.store.RecordEventTagFailure(ctx, id, e.now()) },
+		})
 	}
-	return counts, nil
+	if err = t.runTagJobs(ctx, jobs, providers, events); err != nil {
+		return events, nil, err
+	}
+	videos = map[string]any{"attempted": 0, "success": 0, "skipped": 0, "failed": 0}
+	if limit -= len(entries); limit < 1 {
+		return events, videos, nil
+	}
+	uploads, err := e.store.ListVideoTagCandidates(ctx, from, limit)
+	if err != nil {
+		return events, videos, err
+	}
+	jobs = make([]tagJob, 0, len(uploads))
+	for _, item := range uploads {
+		id := item.ID
+		jobs = append(jobs, tagJob{
+			title: item.Title, platform: "YouTube",
+			record: func(tag *string) error { _, err := e.store.RecordVideoTag(ctx, id, tag, e.now()); return err },
+			fail:   func() error { return e.store.RecordVideoTagFailure(ctx, id, e.now()) },
+		})
+	}
+	return events, videos, t.runTagJobs(ctx, jobs, providers, videos)
 }
 
-// inferEventTag asks each configured target in turn for the label of one
-// title. A null answer is a real result: the entry keeps no label, and the
-// attempt is recorded so the title is not sent again.
-func (t *Translator) inferEventTag(ctx context.Context, item sqlite.EventTagCandidate, providers []provider) (*string, error) {
-	message := "provider request failed"
-	for _, target := range providers {
-		value, err := t.e.callModel(ctx, target, modelCall{
-			instructions: eventTagInstructions,
-			name:         eventTagToolName,
-			schema:       eventTagSchema,
-			maxTokens:    1024,
-			text:         "YouTube title: " + item.Title,
-			includeText:  true,
-			jsonOutput:   true,
-		})
+// runTagJobs labels each job in turn and counts the outcomes.
+func (t *Translator) runTagJobs(ctx context.Context, jobs []tagJob, providers []provider, counts map[string]any) error {
+	for _, job := range jobs {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		status, err := t.inferTag(ctx, job, providers)
 		if err != nil {
+			return err
+		}
+		if status != "skipped" {
+			counts["attempted"] = countOf(counts, "attempted") + 1
+		}
+		counts[status] = countOf(counts, status) + 1
+	}
+	return nil
+}
+
+// inferTag asks each configured target in turn for the label of one title
+// and returns success, skipped or failed. A null answer is a real result: the
+// entry or video keeps no label, and the judgement is recorded so the title
+// is not sent again. When every target fails, the attempt is only stamped, so
+// the title is asked again after the others.
+func (t *Translator) inferTag(ctx context.Context, job tagJob, providers []provider) (string, error) {
+	e := t.e
+	// Over-long wording costs no call, as in translation; an operator can
+	// label it by hand.
+	if utf8.RuneCountInString(job.title) > maxTranslationInput {
+		return "skipped", job.record(nil)
+	}
+	call := modelCall{
+		instructions: eventTagInstructions,
+		name:         eventTagToolName,
+		schema:       eventTagSchema,
+		maxTokens:    1024,
+		text:         job.platform + " title: " + job.title,
+		includeText:  true,
+		jsonOutput:   true,
+	}
+	message := "provider request failed"
+	attempts := e.modelAttempts(ctx)
+	for _, target := range providers {
+		for attempt := 0; attempt < attempts; attempt++ {
+			tag, err := t.attemptEventTag(ctx, target, call)
+			if err == nil {
+				if err = job.record(tag); err != nil {
+					return "", err
+				}
+				if err = e.updateProviderStatus(ctx, target.id, "success", ""); err != nil {
+					return "", err
+				}
+				return "success", nil
+			}
 			if ctx.Err() != nil {
-				return nil, ctx.Err()
+				return "", ctx.Err()
 			}
 			message = storedMessage(err)
-			continue
+			if attempt == attempts-1 || !transientModelFailure(message) {
+				break
+			}
+			if err = e.sleep(ctx, retryDelay(attempt)); err != nil {
+				return "", err
+			}
 		}
-		root, ok := value.(*object)
-		if !ok {
-			message = "event tag result was not an object"
-			continue
+		if err := e.updateProviderStatus(ctx, target.id, "failed", message); err != nil {
+			return "", err
 		}
-		tagValue, _ := root.get("tag")
-		if tagValue == nil {
-			return nil, nil
-		}
-		text, isString := tagValue.(string)
-		if !isString || !sqlite.ValidEventTag(text) {
-			message = "event tag result has an unknown label"
-			continue
-		}
-		return &text, nil
 	}
-	return nil, fail(message)
+	return "failed", job.fail()
+}
+
+// attemptEventTag makes one call and validates its label; nil means the
+// model found none.
+func (t *Translator) attemptEventTag(ctx context.Context, target provider, call modelCall) (*string, error) {
+	value, err := t.e.callModel(ctx, target, call)
+	if err != nil {
+		return nil, err
+	}
+	root, ok := value.(*object)
+	if !ok {
+		return nil, fail("event tag result was not an object")
+	}
+	// A label outside the codes is an answer without one, as extraction drops
+	// it, so the title is judged rather than asked again on every run.
+	tagValue, _ := root.get("tag")
+	text, isString := tagValue.(string)
+	if !isString || !sqlite.ValidEventTag(text) {
+		return nil, nil
+	}
+	return &text, nil
 }
 
 // translate handles one candidate and returns success, skipped, failed or
@@ -311,17 +393,27 @@ func retryTranslation(call *modelCall, message string, repaired *bool) (retry, w
 		call.instructions += "\n\nThe previous response failed validation (" + sqlite.TranslationErrorCode(message) + "). Return the complete JSON object matching the schema, with sourceLanguage, english and simplifiedChinese. For every target language different from sourceLanguage, provide a non-empty translation. If a song title or name needs to stay unchanged, copy it into the complete displayed text rather than returning an empty string. Do not omit fields or add commentary."
 		return true, false
 	}
-	if message == "LLM request failed" || message == "LLM request timed out" {
+	if transientModelFailure(message) {
 		return true, true
+	}
+	return false, false
+}
+
+// transientModelFailure reports a request failure worth waiting for and
+// retrying on the same target: a network failure, a timeout, or HTTP 408,
+// 429 or 5xx.
+func transientModelFailure(message string) bool {
+	if message == "LLM request failed" || message == "LLM request timed out" {
+		return true
 	}
 	const prefix = "LLM request failed (HTTP "
 	if strings.HasPrefix(message, prefix) {
 		status, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(message, prefix), ")"))
 		if err == nil && (status == 408 || status == 429 || status >= 500 && status <= 599) {
-			return true, true
+			return true
 		}
 	}
-	return false, false
+	return false
 }
 
 func recordTranslationDiagnostic(counts map[string]any, item sqlite.TranslationCandidate, target provider, attempt, budget int, d modelDiagnostics, err error) {

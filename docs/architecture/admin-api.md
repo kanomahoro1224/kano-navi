@@ -337,13 +337,20 @@ automatic extraction, and a delete is a durable tombstone. Confirming keeps
 the stored values unless the body overrides them.
 
 `tag` is the calendar label: `live`, `game`, `talk`, `song` or `video`, and an
-empty value clears it. A saved label is an operator's decision
-(`tagSource = manual`) and outranks the automatic one, which the extraction
-prompt or the title inference of the `translate` queue stores with
-`tagSource = llm`; the whole row being locked already keeps a later automatic
-write from replacing it. An unknown value answers `400 invalid_input`. Every
+empty value clears it. A saved label that differs from the stored one is an
+operator's decision (`tagSource = manual`) and outranks the automatic ones;
+a save that sends the stored label back unchanged, such as a cancellation
+decision, keeps its `tagSource`. The whole row being locked already keeps a
+later automatic write from replacing it. The list
+reports `tagSource` as `manual`, `llm` (extraction prompt or merged X notice),
+`title` (title inference, also set with a null `tag` when the title gave no
+label) or null; see [Event labels](data-model.md#event-labels) for their
+precedence. `tagSource` is admin-only. An unknown value answers
+`400 invalid_input`. Every
 reader, including the board, `/api/calendar`, MCP
-`dashboard_read` and `schedule_list`, reports the same event column.
+`dashboard_read` and `schedule_list`, reports the same label, derived from the
+stored one and the entry's videos (see
+[Shown label](data-model.md#shown-label)); this list shows the stored label.
 
 The list includes merged duplicates by default; `merge=merged` lists only
 them and `merge=visible` excludes them, as every public reader does. Each
@@ -503,7 +510,8 @@ is listed, or `null` while the board chooses automatically.
 
 Changing the featured video advances the dashboard revision.
 
-`status` is `published`, `upcoming` or `live`; `thumbnail` is `ready`,
+`status` is `published`, `upcoming` or `live`; `kind` is the shown form,
+`stream`, `premiere`, `upload` or `unknown`; `thumbnail` is `ready`,
 `present` or `missing`; `source` is `youtube` or `bilibili`. `search` matches
 the shown title, the platform title or the video ID. `merge=visible` excludes
 uploads merged into another video and `merge=merged` lists only them;
@@ -569,12 +577,16 @@ changing it: `title`, `kind`, `isShort` and `thumbnailUrl` show the
 correction, while `sourceTitle`, `sourceKind` and `sourceIsShort` keep what
 the platform reported and `manualTitle`, `manualKind`, `manualIsShort` and
 `manualThumbnail` (`{mediaId, sha256}`) are the corrections themselves.
+`tag` is the shown content tag: `manualTag`, else `scheduleTag` (the label of
+the video's schedule entry), else `inferredTag` (the title inference's), with
+`inferredTagSource` set once the inference judged the video, with or without
+a tag (see [Video form and tags](data-model.md#video-form-and-tags)).
 `PUT /videos/{id}` sets a field from a string, for `isShort` from a boolean
 (`true` for a Short, `false` for any other upload), or for `thumbnail` from
 one `{mediaId, sha256}` file listed in the history; `null` clears it and an
 omitted field keeps it. A title is 1–300 characters after trimming; a kind is
-one of `VIDEO`, `MUSIC`, `LIVE ARCHIVE`, `GAMEPLAY` or `TALK`, and a tag is
-one of `live`, `game`, `talk`, `song` or `video` (see below). Other fields,
+`stream`, `premiere` or `upload` and a tag `game`, `talk` or `song`, compared
+without case. Other fields,
 unknown files and invalid values answer `400`, an unknown video `404`. A
 change advances the dashboard revision, and machine translations follow the
 corrected title. The feed names the format of its newest uploads only (see

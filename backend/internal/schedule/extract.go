@@ -114,7 +114,7 @@ func countOf(counts map[string]any, key string) int {
 // independent work within one step.
 func scanStatus(counts map[string]any) string {
 	parts := []map[string]any{counts}
-	for _, key := range []string{"assetVerification", "eventTags"} {
+	for _, key := range []string{"assetVerification", "eventTags", "videoTags"} {
 		if part, ok := counts[key].(map[string]any); ok {
 			parts = append(parts, part)
 		}

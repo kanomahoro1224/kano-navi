@@ -91,7 +91,7 @@ func TestNormalizeVideo(t *testing.T) {
 	if reject != nil {
 		t.Fatalf("reject = %+v", reject)
 	}
-	if video.Source != "bilibili" || video.Kind != "TALK" {
+	if video.Source != "bilibili" || video.Kind != "upload" {
 		t.Fatalf("source/kind = %q/%q", video.Source, video.Kind)
 	}
 	if video.URL != "https://www.bilibili.com/video/"+event.ID {
@@ -129,7 +129,7 @@ func TestNormalizeYoutubeVideo(t *testing.T) {
 	if reject != nil {
 		t.Fatalf("reject = %+v", reject)
 	}
-	if video.Source != "youtube" || video.Kind != "MUSIC" {
+	if video.Source != "youtube" || video.Kind != "upload" {
 		t.Fatalf("source/kind = %q/%q", video.Source, video.Kind)
 	}
 	if video.URL != "https://www.youtube.com/watch?v="+event.ID || hash == "" {

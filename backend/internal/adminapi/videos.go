@@ -26,8 +26,8 @@ func (a *api) videoHistory(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, history)
 }
 
-// updateVideo accepts { title?, kind?, tag?, thumbnail?, isShort? }. A string,
-// a { mediaId, sha256 } file from the history or a boolean sets a correction,
+// updateVideo accepts { title?, kind?, tag?, thumbnail?, isShort? }. A string, a
+// { mediaId, sha256 } file from the history or a boolean sets a correction,
 // null clears it, and an omitted field keeps it.
 func (a *api) updateVideo(w http.ResponseWriter, r *http.Request) {
 	body, err := httpx.Body(w, r)

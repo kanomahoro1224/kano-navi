@@ -7,7 +7,7 @@ import type {
   Translator,
 } from "@/types"
 import type { CSSProperties, ReactElement, ReactNode, RefObject } from "react"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowUpRight,
   Heart,
@@ -44,6 +44,7 @@ import {
   postWallCount,
 } from "../post-rows"
 import { ArchiveMore, ArchiveState } from "./archive-dialog"
+import { SheetDialog } from "./sheet-dialog"
 
 // A post's images fill a card of the post grid or the archive's masonry
 // wall; a lone image can take the whole card.
@@ -206,51 +207,6 @@ function QuoteCard({
         </div>
       ) : null}
     </div>
-  )
-}
-
-/**
- * Native modal sheet with a post's full wording. Escape and the backdrop
- * close it, focus returns to the opener, and the image viewer stacks above.
- */
-function PostDialog({
-  label,
-  onClose,
-  children,
-}: {
-  label: string
-  onClose: () => void
-  children: ReactNode
-}) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return undefined
-    const previous = document.activeElement as HTMLElement | null
-    if (!dialog.open) dialog.showModal?.()
-    dialog.querySelector<HTMLElement>(".post-dialog-close")?.focus()
-    document.body.classList.add("has-sheet")
-    return () => {
-      if (dialog.open) dialog.close()
-      document.body.classList.remove("has-sheet")
-      previous?.focus?.()
-    }
-  }, [])
-  return (
-    <dialog
-      ref={dialogRef}
-      className="post-dialog"
-      aria-label={label}
-      onCancel={(event) => {
-        event.preventDefault()
-        onClose()
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
-    >
-      {children}
-    </dialog>
   )
 }
 
@@ -421,7 +377,7 @@ function PostNote({
       {quote(false)}
       <Engagement post={post} locale={locale} t={t} />
       {reading ? (
-        <PostDialog
+        <SheetDialog
           label={t("feed.fullPost")}
           onClose={() => setReading(false)}
         >
@@ -429,7 +385,7 @@ function PostNote({
             {head(
               <button
                 type="button"
-                className="round-button post-dialog-close"
+                className="round-button sheet-dialog-close"
                 onClick={() => setReading(false)}
                 aria-label={t("common.close")}
                 title={t("common.close")}
@@ -445,7 +401,7 @@ function PostNote({
             {quote(true)}
             <Engagement post={post} locale={locale} t={t} />
           </article>
-        </PostDialog>
+        </SheetDialog>
       ) : null}
     </article>
   )

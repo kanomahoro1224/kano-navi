@@ -115,12 +115,12 @@ adjacent dates and summary candidates (see
 [Duplicate merging](data-model.md#duplicate-merging)).
 
 Every public event carries `tag`: `live`, `game`, `talk`, `song` or `video`,
-or null when the entry is unlabelled. It is a column of the event rather than
-of a linked video, so the board, `/api/calendar`, MCP `dashboard_read` and
-`schedule_list` report the same value, and an entry without a video link can
-carry one. Readers translate the code for display and fall back to the title
-when it is null; see [Event labels](data-model.md#event-labels) for who
-decides it.
+or null when the entry is unlabelled. Every read derives it the same way from
+the event and its YouTube videos, so the board, `/api/calendar`, MCP
+`dashboard_read` and `schedule_list` report the same value, and an entry
+without a video link can carry one. Readers translate the code for display
+and fall back to the title when it is null; see
+[Shown label](data-model.md#shown-label) for the order.
 
 Dashboard SQL selects up to 100 recent post previews plus the latest-post
 fallback, up to 100 current-week event previews plus 30 upcoming and 30 live
@@ -163,8 +163,15 @@ no raw JSON), `page`, `pageSize`, `total`, `totalPages`, `hasNext`,
 dates outside the range that hold an item. The optional post `account`
 filter is one X handle, compared without case, and also narrows the totals and
 adjacent dates; `accountCounts` always counts the range's posts per lowercase
-handle. An invalid range returns 400 `invalid_range` and an invalid handle
-400 `invalid_account`. Reads revalidate through their
+handle. The optional video `category` filter is `game`, `talk`, `song` or
+`other`, narrows the totals and adjacent dates the same way, and
+`categoryCounts` always counts the range's videos per category. A video's
+category is its shown [tag](data-model.md#video-form-and-tags) (`game`,
+`talk` or `song`: the operator's, else its schedule entry's label, else the
+title inference's), or `other` without one; each read derives it, and every
+video projection carries the tag as `tag`, `null` without one. An invalid range returns 400
+`invalid_range`, an invalid handle 400 `invalid_account` and an unknown
+category 400 `invalid_category`. Reads revalidate through their
 [ETags](#public-snapshot-contract), negotiate gzip like the other public JSON
 reads and never fetch platforms. The board's month dialogs use them with the
 calendar.
@@ -200,7 +207,9 @@ reservations dated 30 days before to 11 days after today, newest first. An
 entry is dated by its publication (a future time is dated at the start of
 today's Japan day until it passes, so the entry does not move between polls),
 says when a reservation is scheduled, and links the video and any
-merged platform copy. Entry and feed IDs are `urn:kano-navi:` URNs. The
+merged platform copy. Its categories name the form (`stream`, `premiere`,
+`upload`, `short` for a Short, or `video` while the form is unknown) and
+then the video's tag, when it has one. Entry and feed IDs are `urn:kano-navi:` URNs. The
 server never builds links from the request's `Host`: with `PUBLIC_ORIGIN` the
 feed links the site absolutely and adds a `rel="self"` link to
 `/api/feed.xml`; without it the site link stays `/` and there is no self link.

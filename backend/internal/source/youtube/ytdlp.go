@@ -343,7 +343,7 @@ func videoFromYTDLP(raw map[string]any) (Video, bool) {
 		url = "https://www.youtube.com/watch?v=" + id
 	}
 	liveStatus, _ := raw["live_status"].(string)
-	video := Video{ID: id, Title: title, PublishedAt: published, ScheduledAt: scheduled, URL: url, ThumbnailURL: thumbnail, Kind: Classify(title), DurationSeconds: intValue(raw["duration"])}
+	video := Video{ID: id, Title: title, PublishedAt: published, ScheduledAt: scheduled, URL: url, ThumbnailURL: thumbnail, Kind: KindUnknown, DurationSeconds: intValue(raw["duration"])}
 	switch liveStatus {
 	case "is_upcoming", "upcoming":
 		video.IsUpcoming, video.LiveStatus = true, LiveStatusUpcoming

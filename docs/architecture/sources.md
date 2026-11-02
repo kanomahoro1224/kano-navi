@@ -225,7 +225,7 @@ does not count as a reservation detail check, but RSS lists waiting rooms and
 premieres like ordinary uploads, so the uploads a run takes are detail
 candidates as well, after stream-page discoveries. A watch
 page whose player reports `isLiveContent: false` with a start time is a
-premiere: its event is a `release` and its video keeps the title-derived kind.
+premiere: its event is a `release` and its video's kind is `premiere`.
 `isLiveContent: true` is a stream verdict only on a page that reports the
 broadcast over, since a premiere can read as live content before it ends.
 The verdict is stored as `videos.is_premiere` (1 for a premiere, 0 for live
@@ -353,16 +353,15 @@ asks the YouTube Data API:
   long-form playlist names the video.
 - Without such a verdict, an ended broadcast is classified from its stored
   row only when an earlier detail check gave it a start time and a stored
-  `is_premiere` verdict; the kind cannot tell, since a premiere keeps its
-  title kind, which may be a live one. Otherwise, as for a row without a
+  `is_premiere` verdict. Otherwise, as for a row without a
   stored verdict, an untitled video or an upcoming one without a start, its
   watch page decides.
 - When that watch page fails for an ended broadcast the API gave a start
   (`ytsource.Video.Unclassified`), the API answer is used anyway rather than
   leaving the video unchecked, since some hosts never get a readable page. It
   writes the title, thumbnail, actual start and end, length and `ended`
-  status, sets `live_checked_at` and answers a refresh request, while the
-  stored kind (a stored `UPCOMING LIVE` becomes `LIVE ARCHIVE`), the
+  status, sets `live_checked_at` and answers a refresh request, while a
+  stored `stream` or `premiere` kind (otherwise the kind is `unknown`), the
   `is_premiere` verdict and the reservation event's type and detail stay. Such
   an answer updates an existing reservation event but creates none, and the
   failed page's code is still recorded. The `reconcile` step adds the event of
@@ -490,8 +489,11 @@ same for a new title only, because the API names thumbnails differently from
 the watch page. After any successful page read, the media step revalidates the
 video's thumbnail file whatever its age, and new bytes at the same URL keep
 the replaced file as a version (`origin = media`). Operator corrections of the
-title, kind or thumbnail are separate columns that synchronization never
+title, kind, tag or thumbnail are separate columns that synchronization never
 writes; see [Video corrections](data-model.md#video-corrections-and-history).
+The kind is the video's form, decided from these platform facts alone, and
+what a video is about is its tag; see
+[Video form and tags](data-model.md#video-form-and-tags).
 
 #### Live-status probe
 
@@ -665,8 +667,9 @@ persisted state, not logged and not returned; see
 [Configuration](../operations/configuration.md).
 
 Uploads are `videos` rows with `source = 'bilibili'` and the BV ID as their
-ID, linked to `https://www.bilibili.com/video/<BV>`. The kind comes from the
-title (`翻唱`/cover → `MUSIC`, `直播`/`录播` → `LIVE ARCHIVE`, and so on);
+ID, linked to `https://www.bilibili.com/video/<BV>`. Their kind is `upload`:
+Bilibili reports no broadcast facts, and its categories say nothing about the
+content, which the [video tag](data-model.md#video-form-and-tags) carries;
 the description and `aid` stay in `raw_json`. Every list read replaces the
 platform fields and keeps a replaced title or cover in `video_revisions`, as
 YouTube does; operator corrections survive. Covers come only from

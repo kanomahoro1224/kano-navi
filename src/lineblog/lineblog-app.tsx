@@ -1,6 +1,7 @@
 import type {
   CSSProperties,
   MouseEvent,
+  PointerEvent,
   ReactNode,
   SyntheticEvent,
 } from "react"
@@ -1257,6 +1258,29 @@ function DesignPicker({
 }
 
 /**
+ * A pull-down that a touch opens only once it ends as a tap, so a swipe or a
+ * page scroll that starts on its trigger leaves it shut. A mouse opens it on
+ * press as usual. A tap on the open pull-down's trigger closes it, though
+ * pressing it already dismissed the list.
+ */
+function useTapMenu() {
+  const [open, setOpen] = useState(false)
+  const touch = useRef<{ open: boolean } | null>(null)
+  return {
+    menu: { open, onOpenChange: setOpen },
+    trigger: {
+      onPointerDown: (event: PointerEvent<HTMLElement>) => {
+        touch.current = event.pointerType === "mouse" ? null : { open }
+        if (touch.current) event.preventDefault()
+      },
+      onClick: () => {
+        if (touch.current) setOpen(!touch.current.open)
+      },
+    },
+  }
+}
+
+/**
  * The menu bar's 鹿乃オフィシャルサイト opens the official sites the blog
  * linked over the years, each with the months it was linked.
  */
@@ -1266,23 +1290,10 @@ function OfficialSiteMenu({
   translation: Translation | null
 }) {
   const { t } = useAppSettings()
-  const [open, setOpen] = useState(false)
-  // The phone menu scrolls sideways, so a touch opens the list only once it
-  // ends as a tap, not when a swipe starts on the link. A tap on the open
-  // list's link closes it, though pressing it already dismissed the list.
-  const touch = useRef<{ open: boolean } | null>(null)
+  const { menu, trigger } = useTapMenu()
   return (
-    <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger
-        asChild
-        onPointerDown={(event) => {
-          touch.current = event.pointerType === "mouse" ? null : { open }
-          if (touch.current) event.preventDefault()
-        }}
-        onClick={() => {
-          if (touch.current) setOpen(!touch.current.open)
-        }}
-      >
+    <DropdownMenu modal={false} {...menu}>
+      <DropdownMenuTrigger asChild {...trigger}>
         <button type="button" className="lb-site-button">
           <span lang="ja">
             <MenuLabel
@@ -1597,10 +1608,11 @@ function MonthSelect({
   onChoose: (month: string) => void
 }) {
   const { t } = useAppSettings()
+  const { menu, trigger } = useTapMenu()
   return (
     <section className="lbl-months">
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
+      <DropdownMenu modal={false} {...menu}>
+        <DropdownMenuTrigger asChild {...trigger}>
           <button
             type="button"
             className="lbl-months-button"

@@ -129,7 +129,7 @@ func TestPublicReadersLeaveBilibiliUploadsInTheConsole(t *testing.T) {
 	if err != nil || len(board.Videos) != 1 || board.Videos[0].ID != "AAAAAAAAAAA" {
 		t.Fatalf("board videos=%#v err=%v", board.Videos, err)
 	}
-	archive, err := s.GetVideoArchive(ctx, "2026-01-01", "2026-01-31", 1, 20, now)
+	archive, err := s.GetVideoArchive(ctx, "2026-01-01", "2026-01-31", "", 1, 20, now)
 	if err != nil || archive.Total != 1 || archive.Items[0].ID != "AAAAAAAAAAA" {
 		t.Fatalf("archive=%#v err=%v", archive, err)
 	}

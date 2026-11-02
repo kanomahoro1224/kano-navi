@@ -13,6 +13,24 @@ var ErrInvalidAccount = errors.New("invalid account")
 
 var accountPattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
 
+// ErrInvalidVideoCategory rejects a video archive filter outside
+// VideoCategories.
+var ErrInvalidVideoCategory = errors.New("invalid video category")
+
+// VideoCategories are the video archive's filter groups: the content tags
+// and other. A video is not stored with one; videoCategorySQL derives it on
+// each read (video_tags.go).
+var VideoCategories = append(append([]string{}, VideoTags...), "other")
+
+func validVideoCategory(value string) bool {
+	for _, category := range VideoCategories {
+		if category == value {
+			return true
+		}
+	}
+	return false
+}
+
 // maxArchivePageSize bounds one archive page; every item resolves its media.
 const maxArchivePageSize = 50
 
@@ -34,6 +52,8 @@ type ArchivePage[T any] struct {
 	// AccountCounts counts the range's posts per lowercase handle, ignoring
 	// the account filter, so the filter can show every account's total.
 	AccountCounts map[string]int64
+	// CategoryCounts counts the range's videos per category the same way.
+	CategoryCounts map[string]int64
 }
 
 // archiveBounds turns an inclusive Japan-date range into the UTC instants
@@ -197,8 +217,8 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 }
 
 // GetVideoArchive reads stored videos whose scheduled or published time falls
-// in a Japan-date range, newest first.
-func (s *Store) GetVideoArchive(ctx context.Context, from, to string, page, pageSize int, now time.Time) (*ArchivePage[Video], error) {
+// in a Japan-date range, newest first, optionally of one category.
+func (s *Store) GetVideoArchive(ctx context.Context, from, to, category string, page, pageSize int, now time.Time) (*ArchivePage[Video], error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
@@ -207,10 +227,39 @@ func (s *Store) GetVideoArchive(ctx context.Context, from, to string, page, page
 	if err != nil {
 		return nil, err
 	}
+	if category != "" && !validVideoCategory(category) {
+		return nil, ErrInvalidVideoCategory
+	}
 	const instant = `julianday(COALESCE(scheduled_at,published_at))`
 	inRange := ` WHERE ` + instant + ` >= julianday(?) AND ` + instant + ` < julianday(?) AND ` + publicVideoScope
+	filter, filterArgs := "", []any{}
+	if category != "" {
+		filter, filterArgs = ` AND `+videoCategorySQL+`=?`, []any{category}
+	}
+	args := append([]any{start, end}, filterArgs...)
+
+	counts := map[string]int64{}
+	countRows, err := s.db.QueryContext(ctx, `SELECT `+videoCategorySQL+`, COUNT(*) FROM videos`+inRange+` GROUP BY 1`, start, end)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	for countRows.Next() {
+		var name string
+		var count int64
+		if err := countRows.Scan(&name, &count); err != nil {
+			_ = countRows.Close()
+			return nil, dbErr(err)
+		}
+		counts[name] = count
+	}
+	if err := countRows.Err(); err != nil {
+		_ = countRows.Close()
+		return nil, dbErr(err)
+	}
+	_ = countRows.Close()
+
 	var total int64
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM videos`+inRange, start, end).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM videos`+inRange+filter, args...).Scan(&total); err != nil {
 		return nil, dbErr(err)
 	}
 	page, pageSize, totalPages := archivePaging(total, page, pageSize)
@@ -219,23 +268,24 @@ func (s *Store) GetVideoArchive(ctx context.Context, from, to string, page, page
 		return nil, err
 	}
 	liveCutoff := now.Add(-probe.Freshness())
-	rows, err := s.db.QueryContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short) FROM videos`+inRange+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, start, end, pageSize, (page-1)*pageSize)
+	rows, err := s.db.QueryContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),`+videoTagSQL("videos")+` FROM videos`+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return nil, dbErr(err)
 	}
 	items := make([]Video, 0, pageSize)
 	for rows.Next() {
 		var v Video
-		var pub, sch, thumb, kind, liveStatus, liveChecked sql.NullString
+		var pub, sch, thumb, kind, liveStatus, liveChecked, tag sql.NullString
 		var upcoming int64
 		var duration sql.NullInt64
 		var short sql.NullBool
-		if err := rows.Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &upcoming, &liveStatus, &liveChecked, &duration, &short); err != nil {
+		if err := rows.Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &upcoming, &liveStatus, &liveChecked, &duration, &short, &tag); err != nil {
 			_ = rows.Close()
 			return nil, dbErr(err)
 		}
 		v.DurationSeconds = nullInt(duration)
 		v.IsShort = nullBool(short)
+		v.Tag = nullString(tag)
 		if pub.Valid {
 			v.PublishedAt = &pub.String
 		}
@@ -282,7 +332,7 @@ func (s *Store) GetVideoArchive(ctx context.Context, from, to string, page, page
 	if err = s.attachVideoAlternates(ctx, refs...); err != nil {
 		return nil, err
 	}
-	previous, next, err := s.adjacentDates(ctx, "videos", instant, " AND "+publicVideoScope, nil, start, end)
+	previous, next, err := s.adjacentDates(ctx, "videos", instant, " AND "+publicVideoScope+filter, filterArgs, start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -292,6 +342,6 @@ func (s *Store) GetVideoArchive(ctx context.Context, from, to string, page, page
 	}
 	return &ArchivePage[Video]{
 		Items: items, Page: page, PageSize: pageSize, Total: total, TotalPages: totalPages,
-		HasNext: page < totalPages, Revision: revision, Previous: previous, Next: next,
+		HasNext: page < totalPages, Revision: revision, Previous: previous, Next: next, CategoryCounts: counts,
 	}, nil
 }

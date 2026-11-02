@@ -12,20 +12,24 @@ import { cleanVideoTitle } from "../format"
  * A video or schedule title on a card (a ticket, a row): the reader's
  * translation, followed by the translation switch. The title is the
  * card's link (see `followCardLink`), because the switch cannot go inside
- * one. `title` is the source title as the card shows it; `translations` are
- * its video's or event's.
+ * one; with `onOpen` instead of `href`, the title is the button that opens
+ * the card's details. `title` is the source title as the card shows it;
+ * `translations` are its video's or event's.
  */
 export function TranslatedTitle({
   className,
   title,
   translations,
   href,
+  onOpen,
   t,
 }: {
   className: string
   title: string
   translations?: Translations | null
   href?: string | null
+  /** Opens the card's details; `href` wins when both are given. */
+  onOpen?: () => void
   t: Translator
 }) {
   const state = useTranslatedText(title, translations, null)
@@ -38,6 +42,16 @@ export function TranslatedTitle({
     >
       {text}
     </ExternalLink>
+  ) : onOpen ? (
+    <button
+      type="button"
+      className="card-link translated-title-text"
+      lang={state.lang}
+      onClick={onOpen}
+      aria-haspopup="dialog"
+    >
+      {text}
+    </button>
   ) : (
     <span className="translated-title-text" lang={state.lang}>
       {text}

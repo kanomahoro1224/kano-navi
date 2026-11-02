@@ -37,7 +37,7 @@ func NewSnapshot(t testing.TB) string {
 		CREATE TABLE events (
 			id TEXT PRIMARY KEY, source TEXT NOT NULL, source_item_id TEXT, source_key TEXT, title TEXT NOT NULL, detail TEXT,
 			starts_on TEXT NOT NULL, starts_at TEXT, ends_at TEXT, timezone TEXT NOT NULL DEFAULT 'Asia/Tokyo',
-			time_precision TEXT NOT NULL DEFAULT 'exact', status TEXT, event_type TEXT DEFAULT 'event', tag TEXT, tag_source TEXT, url TEXT,
+			time_precision TEXT NOT NULL DEFAULT 'exact', status TEXT, event_type TEXT DEFAULT 'event', tag TEXT, tag_source TEXT, tag_attempted_at TEXT, url TEXT,
 			is_upcoming INTEGER DEFAULT 0, provenance TEXT NOT NULL DEFAULT 'automatic', manual_locked INTEGER NOT NULL DEFAULT 0,
 			confidence REAL, extraction_id INTEGER, cancellation_status TEXT NOT NULL DEFAULT 'none', cancellation_source TEXT,
 			cancellation_reason TEXT, cancellation_evidence TEXT, cancellation_source_item_id TEXT,
@@ -53,10 +53,10 @@ func NewSnapshot(t testing.TB) string {
 		CREATE TABLE videos (
 			id TEXT PRIMARY KEY, source TEXT NOT NULL, title TEXT NOT NULL, published_at TEXT, scheduled_at TEXT,
 			url TEXT NOT NULL, thumbnail_url TEXT, kind TEXT, is_upcoming INTEGER DEFAULT 0, raw_json TEXT,
-			live_status TEXT, live_checked_at TEXT, duration_seconds INTEGER, manual_title TEXT, manual_kind TEXT, manual_tag TEXT,
+			live_status TEXT, live_checked_at TEXT, duration_seconds INTEGER, manual_title TEXT, manual_kind TEXT,
 			manual_thumbnail_media_id TEXT, manual_thumbnail_sha256 TEXT, manual_updated_at TEXT, refresh_requested_at TEXT,
 			merged_into TEXT, merge_source TEXT, merge_reason TEXT, merged_at TEXT, is_short INTEGER, manual_is_short INTEGER,
-			is_premiere INTEGER
+			is_premiere INTEGER, manual_tag TEXT, tag TEXT, tag_source TEXT, tag_attempted_at TEXT
 		);
 		CREATE TABLE video_revisions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, video_id TEXT NOT NULL, origin TEXT NOT NULL, title TEXT, thumbnail_url TEXT,

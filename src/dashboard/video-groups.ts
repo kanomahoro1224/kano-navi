@@ -3,6 +3,7 @@ import {
   confirmedLiveStatus,
   LIVE_GRACE_MS,
   scheduleSortTime,
+  videoTag,
   videoTime,
 } from "./format.ts"
 
@@ -10,27 +11,24 @@ import {
 export type VideoFilter = "all" | "streams" | "works" | "shorts"
 
 /**
+ * The video archive's filter groups. The API derives a video's group from its
+ * calendar label and kind; the board only names them.
+ */
+export const VIDEO_CATEGORIES = ["game", "talk", "song", "other"] as const
+export type VideoCategory = (typeof VIDEO_CATEGORIES)[number]
+
+/**
  * Where a video stands now. `started` is a reservation past its start that no
  * watch page has confirmed yet, so it is neither on air nor an archive.
  */
 export type VideoPhase = "upcoming" | "live" | "started" | "past" | "cancelled"
 
-// Synchronization gives every broadcast one of the first two kinds; the
-// others are what the title classifier calls a talk or game upload.
-const streamKinds = new Set([
-  "LIVE ARCHIVE",
-  "UPCOMING LIVE",
-  "GAMEPLAY",
-  "TALK",
-])
-
-/** A broadcast or its archive, rather than a cover, original, MV or clip. */
+/**
+ * A broadcast or its archive, rather than a premiere or an upload. Only the
+ * form decides; what the video is about is its tag.
+ */
 export function videoIsStream(video: Video) {
-  return streamKinds.has(
-    String(video.kind || "")
-      .trim()
-      .toUpperCase(),
-  )
+  return video.kind === "stream"
 }
 
 /**
@@ -63,13 +61,9 @@ export function videoPhase(video: Video, now: number): VideoPhase {
     : "past"
 }
 
-/** Whether a work leads the shelf: a cover or original, or a premiere. */
+/** Whether a work leads the shelf: a song (a cover or original) or a premiere. */
 function isLeadWork(video: Video) {
-  return (
-    String(video.kind || "")
-      .trim()
-      .toUpperCase() === "MUSIC" || Boolean(video.scheduledAt)
-  )
+  return videoTag(video) === "song" || video.kind === "premiere"
 }
 
 export interface VideoSplit {

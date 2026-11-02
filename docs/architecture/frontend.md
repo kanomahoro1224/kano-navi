@@ -56,18 +56,33 @@ revision stream, `format.ts` owns Japan-time and event-status helpers, `content.
 `components/` renders the next-up stage and profile card, the week guide,
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
-schedule, posts or videos. `video-groups.ts` sorts the shelf's videos from
-the local snapshot: broadcasts (`LIVE ARCHIVE`, `UPCOMING LIVE`, `GAMEPLAY`,
-`TALK`) are streams and every other kind a work; a video's phase follows the
+schedule, posts or videos, and `sheet-dialog.tsx`, the smaller modal sheet
+that shows one long post or one schedule entry in full and can open above
+the month sheet. `video-groups.ts` sorts the shelf's videos from
+the local snapshot: the `stream` kind is a stream and every other
+[form](data-model.md#video-form-and-tags) a work, whatever the video's tag;
+a video's phase follows the
 stage's live rule (a fresh confirmed state first, then the stream's
 three-hour grace or an explicit end), so a reservation past its start is a
 started ticket rather than an archive and an operator-confirmed cancellation
 leaves the shelf once its start passes. A past video whose `isShort` is
-`true` is a Short before its kind is read, so a Short titled like a stream is
-neither an archive nor a work; `null` (unknown) is an ordinary upload. The
-lead is the featured video, or else the newest `MUSIC` work or premiere, or
-else the newest work, so a Short leads only when featured; each video appears
-once. The filter offers All plus Streams, Works and Shorts for each kind
+`true` is a Short before its kind is read, so a Short broadcast is neither
+an archive nor a work; `null` (unknown) is an ordinary upload. The
+lead is the featured video, or else the newest work tagged `song` or
+premiere, or else the newest work, so a Short leads only when featured; each video appears
+once. A video carries two chips. The form chip (`videoFormLabel`) names a
+Short, then a stream's waiting room, then the form (stream while it may be
+on air by the same rule as a live entry, then stream archive, premiere,
+video). The tag chip (`VideoTagChip` in
+`src/dashboard/components/event-tag.tsx`) adds the tag with the schedule's
+icon, in the schedule's words for a stream (gameplay, talk, singing) and as
+the work's content otherwise (gameplay, talk, music, where a note replaces
+the singing microphone, as on the archive's Songs button); it appears on every
+card, row, ticket and the lead, including stream archives that hide the
+form chip. The Next Up ticket names the video's tag, else the entry's
+activity label, before the form. Schedule entries follow the same split:
+`eventKinds` marks a release or video entry as a work, and `eventTagKey`
+names a work's `song` label music, any other singing. The filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the
 centre of the 1280×720 cover (the vertical frame between YouTube's blurred
 pillarbox): one row of up to six in the All view, fewer as columns narrow and
@@ -204,12 +219,12 @@ Bilibili and Missing translation. Uploads
 merged into another video appear on that video's row, so only the Bilibili
 tab lists them on their own. Each row shows the
 thumbnail, the title, which opens the correction dialog, the platform, time,
-kind, length and format, its badges and merge line, the translation chips,
+kind, tag, length and format, its badges and merge line, the translation chips,
 and the feature, correct and open actions. The correction dialog
 (`video-editor.tsx`) opens with a preview of the board's row as the draft
-leaves it (the chosen thumbnail, title, source, kind, format and the number
-of corrections) and the page-read facts. Below, the corrections (title, kind,
-format and thumbnail files) sit beside the platform's record (the merge
+leaves it (the chosen thumbnail, title, source, kind, tag, format and the
+number of corrections) and the page-read facts. Below, the corrections
+(title, kind, tag, format and thumbnail files) sit beside the platform's record (the merge
 section and what the platform replaced); one column on narrow screens. A
 corrected field is marked and offers a reset to the platform value beside its
 label. Refresh, cancel and save stay in the footer.
@@ -352,7 +367,9 @@ rows, week-guide entries) and `TranslatedHeading` for the shelf's lead card.
 A button cannot go inside a link, so these cards are
 not links themselves: the title is the link (`.card-link`), and
 `followCardLink` in `src/site/links.tsx` opens it from anywhere else on the
-card. A clamped title clamps only its wording, so the switch stays visible.
+card. A week-guide entry's title is instead the button that opens the
+entry's sheet, which holds its link, and `followCardLink` presses it the
+same way. A clamped title clamps only its wording, so the switch stays visible.
 Month-grid chips are too small for a switch and show the reader's wording
 unmarked. An operator's
 Featured title from the focus record shows as written. The wording shown
@@ -594,12 +611,15 @@ an archive read or pagination waits for that work to settle before refreshing;
 a failed refresh keeps the complete known prefix and retries on the next board
 snapshot. Post archives follow stored revisions. These refreshes
 share the board's visibility pause and snapshot backoff rather than starting a
-separate archive timer. Changing the month or the post
-account, or closing the dialog, cancels the read and discards late pages.
-A click anywhere in a month-grid day (outside an entry link) picks it, listing
-its entries beside the grid (below it on phones) until the hide button clears
-the selection and the grid takes the full width; the panel can show that week
-on the board. On phones entries are dots that ignore taps, so a tap always
+separate archive timer. Changing the month, the post account or the video
+category, or closing the dialog, cancels the read and discards late pages.
+A click anywhere in a month-grid day picks it, listing its entries beside the
+grid (below it on phones) until the hide button clears the selection and the
+grid takes the full width. A grid entry is a button: it picks its day, marks
+the entry in that list and scrolls it into view, again on every pick, and the
+list's entries open the details sheet. Only the day heading of the list is a
+live region, so an opened sheet is not announced as an update. The panel can
+show that week on the board. On phones entries are dots that ignore taps, so a tap always
 picks the day. The post archive lays out full
 posts either as a masonry wall or as a single column, a choice kept in
 `localStorage` (`kano-post-archive-layout`). The masonry measures each post
@@ -610,8 +630,13 @@ re-measures when the wall or a post resizes. A container query on the dialog
 head hides the layout switch while the wall is narrower than two masonry
 columns, where both layouts are one column. The video archive lists the
 loaded videos in the API's newest-first order as a grid of cards, each the
-cover above the title, then the Japan date and time, the phase or kind tag
-and platform links; two columns on phones. An image viewer opened from the
+cover above the title, then the Japan date and time, the phase or form chip,
+the tag chip and platform links: four columns, three or two as the dialog
+narrows. Its
+category buttons (`VideoArchiveFilter`) carry the tag icons, pass the API's
+`category` filter,
+show `categoryCounts`, and keep the choice across months until the dialog
+closes. An image viewer opened from the
 post archive stacks above it; Escape closes the topmost dialog and focus
 returns to its opener.
 Images match their applicable inclusive period, without an updated-at fallback.

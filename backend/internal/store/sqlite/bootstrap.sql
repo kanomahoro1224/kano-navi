@@ -45,6 +45,7 @@ CREATE TABLE events (
     event_type TEXT DEFAULT 'event',
     tag TEXT,
     tag_source TEXT,
+    tag_attempted_at TEXT,
     url TEXT,
     is_upcoming INTEGER DEFAULT 0,
     provenance TEXT NOT NULL DEFAULT 'automatic',
@@ -407,7 +408,6 @@ CREATE TABLE videos (
     duration_seconds INTEGER,
     manual_title TEXT,
     manual_kind TEXT,
-    manual_tag TEXT,
     manual_thumbnail_media_id TEXT,
     manual_thumbnail_sha256 TEXT,
     manual_updated_at TEXT,
@@ -418,7 +418,11 @@ CREATE TABLE videos (
     merged_at TEXT,
     is_short INTEGER,
     manual_is_short INTEGER,
-    is_premiere INTEGER
+    is_premiere INTEGER,
+    manual_tag TEXT,
+    tag TEXT,
+    tag_source TEXT,
+    tag_attempted_at TEXT
   );
 
 CREATE TABLE workflows (

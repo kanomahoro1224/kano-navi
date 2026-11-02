@@ -13,7 +13,8 @@ import {
 import {
   durationAttribute,
   formatDuration,
-  videoKindLabel,
+  videoFormLabel,
+  videoTagLabel,
 } from "../src/dashboard/format.ts"
 
 const now = Date.parse("2026-10-25T12:00:00Z")
@@ -29,7 +30,7 @@ function video(id: string, fields: Partial<Video> = {}): Video {
     url: `https://www.youtube.com/watch?v=${id}`,
     thumbnailUrl: `/media/${id}`,
     thumbnailStatus: "ready",
-    kind: "LIVE ARCHIVE",
+    kind: "stream",
     isUpcoming: false,
     ...fields,
   }
@@ -37,18 +38,22 @@ function video(id: string, fields: Partial<Video> = {}): Video {
 
 const at = (offset: number) => new Date(now + offset).toISOString()
 
-test("broadcasts are streams and other uploads are works", () => {
-  for (const kind of ["LIVE ARCHIVE", "UPCOMING LIVE", "gameplay", "TALK"])
-    assert.equal(videoIsStream(video("s", { kind })), true, kind)
-  for (const kind of ["MUSIC", "VIDEO", "", "Vlog"])
+test("broadcasts are streams and other forms are works", () => {
+  assert.equal(videoIsStream(video("s", { kind: "stream" })), true)
+  for (const kind of ["premiere", "upload", "unknown", ""])
     assert.equal(videoIsStream(video("w", { kind })), false, kind)
+  // What a video is about never makes it a stream.
+  assert.equal(
+    videoIsStream(video("g", { kind: "upload", tag: "game" })),
+    false,
+  )
   assert.equal(videoMatchesFilter(video("s"), "streams"), true)
   assert.equal(videoMatchesFilter(video("s"), "works"), false)
-  assert.equal(videoMatchesFilter(video("w", { kind: "MUSIC" }), "all"), true)
+  assert.equal(videoMatchesFilter(video("w", { kind: "upload" }), "all"), true)
 })
 
 test("a reservation past its start is not an archive until it is over", () => {
-  const reserved = { kind: "UPCOMING LIVE", isUpcoming: true }
+  const reserved = { kind: "stream", isUpcoming: true }
   assert.equal(
     videoPhase(video("a", { ...reserved, scheduledAt: at(hour) }), now),
     "upcoming",
@@ -97,7 +102,7 @@ test("a reservation past its start is not an archive until it is over", () => {
   )
   // A premiere without an end is over once it starts.
   assert.equal(
-    videoPhase(video("h", { kind: "MUSIC", scheduledAt: at(-hour) }), now),
+    videoPhase(video("h", { kind: "premiere", scheduledAt: at(-hour) }), now),
     "past",
   )
   assert.equal(
@@ -109,23 +114,32 @@ test("a reservation past its start is not an archive until it is over", () => {
   )
 })
 
-test("the newest cover leads and every video is listed once", () => {
+test("the newest song or premiere leads and every video is listed once", () => {
   const cover = video("cover", {
-    kind: "MUSIC",
+    kind: "premiere",
+    tag: "song",
     scheduledAt: at(-30 * hour),
     durationSeconds: 289,
   })
-  const clip = video("clip", { kind: "VIDEO", publishedAt: at(-10 * hour) })
-  const older = video("older", { kind: "MUSIC", publishedAt: at(-90 * hour) })
+  const clip = video("clip", {
+    kind: "upload",
+    tag: "talk",
+    publishedAt: at(-10 * hour),
+  })
+  const older = video("older", {
+    kind: "upload",
+    tag: "song",
+    publishedAt: at(-90 * hour),
+  })
   const archiveNew = video("archive-new", { scheduledAt: at(-20 * hour) })
   const archiveOld = video("archive-old", { scheduledAt: at(-60 * hour) })
   const later = video("later", {
-    kind: "UPCOMING LIVE",
+    kind: "stream",
     isUpcoming: true,
     scheduledAt: at(48 * hour),
   })
   const sooner = video("sooner", {
-    kind: "UPCOMING LIVE",
+    kind: "stream",
     isUpcoming: true,
     scheduledAt: at(2 * hour),
   })
@@ -138,7 +152,7 @@ test("the newest cover leads and every video is listed once", () => {
     isCancelled: true,
   })
   const cancelledNext = video("cancelled-next", {
-    kind: "UPCOMING LIVE",
+    kind: "stream",
     isUpcoming: true,
     scheduledAt: at(5 * hour),
     isCancelled: true,
@@ -206,42 +220,67 @@ test("lengths read like the platforms show them", () => {
   assert.equal(durationAttribute(33), "PT33S")
 })
 
-test("a reservation past its start is labelled a stream, not an archive", () => {
+test("the form chip names the waiting room or the form, never the tag", () => {
   const t = (key: string) => key
-  const reserved = video("r", { kind: "UPCOMING LIVE", isUpcoming: true })
-  assert.equal(videoKindLabel(reserved, t), "media.kind.upcoming")
+  const form = (fields: Partial<Video>) => videoFormLabel(video("v", fields), t)
+  assert.equal(form({ isUpcoming: true, tag: "game" }), "media.kind.upcoming")
+  assert.equal(form({ tag: "game" }), "media.kind.liveArchive")
+  assert.equal(form({ kind: "premiere", tag: "song" }), "media.kind.premiere")
+})
+
+test("a stream that may be on air reads as a stream, not its archive", () => {
+  const t = (key: string) => key
+  const form = (fields: Partial<Video>) =>
+    videoFormLabel(video("v", fields), t, now)
+  assert.equal(form({ liveStatus: "live" }), "event.type.stream")
+  assert.equal(form({ scheduledAt: at(-hour) }), "event.type.stream")
   assert.equal(
-    videoKindLabel({ ...reserved, isUpcoming: false }, t),
-    "event.type.stream",
+    form({ scheduledAt: at(-hour), endsAt: at(-1) }),
+    "media.kind.liveArchive",
   )
-  assert.equal(videoKindLabel(video("a"), t), "media.kind.liveArchive")
+  assert.equal(form({ scheduledAt: at(-4 * hour) }), "media.kind.liveArchive")
   assert.equal(
-    videoKindLabel(video("v", { kind: "VIDEO" }), t),
-    "media.kind.video",
+    form({ scheduledAt: at(-hour), liveStatus: "ended" }),
+    "media.kind.liveArchive",
   )
+  for (const kind of ["upload", "unknown"])
+    assert.equal(form({ kind, tag: "talk" }), "media.kind.video", kind)
+})
+
+test("the tag chip reads a stream as its activity and a work as what it is", () => {
+  const t = (key: string) => key
+  const tag = (fields: Partial<Video>) => videoTagLabel(video("v", fields), t)
+  assert.equal(tag({ tag: "song" }), "event.tag.song")
+  assert.equal(tag({ isUpcoming: true, tag: "game" }), "event.tag.game")
+  assert.equal(tag({ kind: "premiere", tag: "song" }), "media.kind.music")
+  assert.equal(tag({ kind: "upload", tag: "talk" }), "media.kind.talk")
+  // A schedule label that names a form is not a tag.
+  for (const label of ["live", "video", null])
+    assert.equal(tag({ tag: label }), null, String(label))
 })
 
 test("Shorts are their own group, never a work, an archive or the lead", () => {
-  // The title classifier calls this Short a stream; its format decides.
+  // A Short broadcast is still a Short; its format decides.
   const streamShort = video("short-stream", {
-    kind: "LIVE ARCHIVE",
+    kind: "stream",
     isShort: true,
     publishedAt: at(-2 * hour),
   })
   const songShort = video("short-song", {
-    kind: "MUSIC",
+    kind: "upload",
+    tag: "song",
     isShort: true,
     publishedAt: at(-hour),
   })
   // An unknown format is an ordinary upload, however brief.
   const brief = video("brief", {
-    kind: "VIDEO",
+    kind: "upload",
     isShort: null,
     publishedAt: at(-3 * hour),
     durationSeconds: 30,
   })
   const regular = video("regular", {
-    kind: "VIDEO",
+    kind: "upload",
     isShort: false,
     publishedAt: at(-5 * hour),
   })
@@ -251,7 +290,7 @@ test("Shorts are their own group, never a work, an archive or the lead", () => {
   })
   // A Short that is still coming up stays with the reservations.
   const reserved = video("short-reserved", {
-    kind: "UPCOMING LIVE",
+    kind: "stream",
     isShort: true,
     isUpcoming: true,
     scheduledAt: at(hour),
@@ -307,8 +346,8 @@ test("Shorts are their own group, never a work, an archive or the lead", () => {
     )
 
   const t = (key: string) => key
-  assert.equal(videoKindLabel(streamShort, t), "media.kind.short")
-  assert.equal(videoKindLabel(brief, t), "media.kind.video")
+  assert.equal(videoFormLabel(streamShort, t), "media.kind.short")
+  assert.equal(videoFormLabel(brief, t), "media.kind.video")
 })
 
 test("Chinese readers open a past video's bilibili copy first", () => {
@@ -317,7 +356,7 @@ test("Chinese readers open a past video's bilibili copy first", () => {
     url: "https://www.bilibili.com/video/BV1synthetic1",
   }
   const merged = video("m", {
-    kind: "MUSIC",
+    kind: "upload",
     publishedAt: at(-hour),
     alternates: [bilibili],
   })
@@ -334,7 +373,7 @@ test("Chinese readers open a past video's bilibili copy first", () => {
 
   // A reservation or a broadcast on air stays on its own platform.
   const reserved = video("r", {
-    kind: "UPCOMING LIVE",
+    kind: "stream",
     isUpcoming: true,
     scheduledAt: at(hour),
     alternates: [bilibili],

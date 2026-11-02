@@ -28,10 +28,18 @@ const (
 	translationToolName  = "kano_text_translation"
 	eventTagToolName     = "kano_event_tag"
 
-	// eventTagInstructions classifies one YouTube title for the calendar. It is
-	// a short-text judgement like translation, so it shares that queue rather
-	// than adding a queue and model settings of its own.
-	eventTagInstructions = "Classify one YouTube title by Kano Mahoro (鹿乃まほろ), a Japanese virtual singer, for a fan calendar. Return live for an ordinary broadcast or stream, game for a gameplay stream, talk for a chat or talk stream, song for a singing stream or a song premiere, and video for an uploaded video or any other premiere. Return null when the title does not show what kind of activity it is; never guess from the channel name alone."
+	// eventTagInstructions classifies one YouTube or Bilibili title for the
+	// calendar and the video archive. It is a short-text judgement like
+	// translation, so it shares that queue rather than adding a queue and model
+	// settings of its own. A video keeps only game, talk and song; live and video
+	// name a form the video already has.
+	eventTagInstructions = "Classify one video title by Kano Mahoro (鹿乃まほろ), a Japanese virtual singer, for a fan calendar and video archive. " + eventTagRule + " Return null when the title does not show what kind of activity it is; never guess from the channel name alone."
+
+	// eventTagRule defines the five labels for both the title inference and
+	// the extraction prompt, so a stream or premiere gets the same label
+	// whichever path judges it. game, talk and song name the content; live and
+	// video name only the form and are used when no content label applies.
+	eventTagRule = "Choose by content first: game for gameplay, talk for a chat or talk stream, and song for singing, including a singing stream, a song cover, an original song, a music video and a song premiere. Use live only for a broadcast or stream that is none of these or whose content is not shown, and video only for an uploaded video or premiere that is none of these or whose content is not shown. When an entry mixes activities, use the one it leads with; when none leads, use live for a stream and video for an upload or premiere."
 
 	eventTagSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]}},"required":["tag"]}`
 
@@ -44,7 +52,7 @@ const (
 	// scheduleTagInstruction describes the optional calendar label. The label
 	// describes one calendar entry, so it belongs to the event rather than to
 	// the video a reader may open from it.
-	scheduleTagInstruction = "Set tag only when the post or image itself shows what kind of activity the entry is: live for an ordinary broadcast, game for gameplay, talk for a chat or talk stream, song for a singing stream, video for an uploaded video or premiere. When the entry does not say, use null; never guess from the channel or a person's name."
+	scheduleTagInstruction = "Set tag only when the post or image itself shows what kind of activity the entry is. " + eventTagRule + " When the entry does not say, use null; never guess from the channel or a person's name."
 
 	// English is the base language of stored text; the board translates
 	// status codes and shows titles in their original wording.

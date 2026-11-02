@@ -322,6 +322,41 @@ export function eventTypeKey(event: ScheduleEvent) {
     : null
 }
 
+export const eventTags = ["live", "game", "talk", "song", "video"] as const
+export type EventTag = (typeof eventTags)[number]
+
+/** The entry's activity label, or null when it is unlabelled or unknown. */
+export function eventTag(event: ScheduleEvent): EventTag | null {
+  const tag = String(event.tag || "").toLowerCase()
+  return (eventTags as readonly string[]).includes(tag)
+    ? (tag as EventTag)
+    : null
+}
+
+/**
+ * The kind chips of an entry. A label says what the activity is and the type
+ * how it is held: a label replaces the plain stream chip, a members-only,
+ * event or release chip stays beside it, and a label that repeats its type
+ * is dropped. `work` marks a release (a premiere) or an upload, where a song
+ * is a cover or original rather than a singing stream.
+ */
+export function eventKinds(event: ScheduleEvent) {
+  const type = String(event.eventType || "").toLowerCase()
+  let tag = eventTag(event)
+  if (
+    (tag === "live" && (type === "stream" || type === "member")) ||
+    (tag === "video" && type === "video")
+  )
+    tag = null
+  const typeKey = tag && type === "stream" ? null : eventTypeKey(event)
+  return { typeKey, tag, work: type === "release" || type === "video" }
+}
+
+/** A label's message key: a work's song reads as music, any other as singing. */
+export function eventTagKey(tag: EventTag, work: boolean) {
+  return work && tag === "song" ? "media.kind.music" : `event.tag.${tag}`
+}
+
 export function sortEvents(events: ScheduleEvent[]) {
   return [...events].sort(
     (a, b) =>
@@ -346,28 +381,62 @@ export function scheduleSortTime(
 // ---------------------------------------------------------------------------
 // Videos
 
-const videoKindKeys: Record<string, string> = {
-  GAMEPLAY: "media.kind.gameplay",
-  TALK: "media.kind.talk",
-  "LIVE ARCHIVE": "media.kind.liveArchive",
-  "UPCOMING LIVE": "media.kind.upcoming",
-  MUSIC: "media.kind.music",
-  VIDEO: "media.kind.video",
+export const videoTags = ["game", "talk", "song"] as const
+export type VideoTag = (typeof videoTags)[number]
+
+// A work's tag names what it is (a song); a stream's names what it was (a
+// singing stream), in the schedule's words.
+const workTagKeys: Record<VideoTag, string> = {
+  game: "media.kind.gameplay",
+  talk: "media.kind.talk",
+  song: "media.kind.music",
 }
 
-export function videoKindLabel(video: Video, t: Translator) {
-  // The title classifier can call a Short a stream; its format says more.
+/** The video's content tag (game, talk or song), or null for other. */
+export function videoTag(video: Video): VideoTag | null {
+  const tag = String(video?.tag || "")
+  return (videoTags as readonly string[]).includes(tag)
+    ? (tag as VideoTag)
+    : null
+}
+
+// A stream past its waiting room may still be on air: a confirmed broadcast
+// decides, otherwise its start within the live grace and before its end.
+function streamMayBeOnAir(video: Video, now: number) {
+  const confirmed = confirmedLiveStatus(video)
+  if (confirmed) return confirmed === "live"
+  const start = Date.parse(video.scheduledAt || "")
+  const end = Date.parse(video.endsAt || "")
+  if (!(start <= now)) return false
+  if (Number.isFinite(end)) return end > now
+  return start > now - LIVE_GRACE_MS
+}
+
+/**
+ * A video's form chip: a Short, then a stream's waiting room, then its form.
+ * A stream that may be on air reads as a stream and one past that as its
+ * archive. What the video is about is its tag chip.
+ */
+export function videoFormLabel(video: Video, t: Translator, now = Date.now()) {
   if (video?.isShort === true) return t("media.kind.short")
   const kind = String(video?.kind || "")
-    .trim()
-    .toUpperCase()
-  // A reservation keeps its "UPCOMING LIVE" kind past its start until a watch
-  // page is read again; it may be on air, so it is a stream, not an archive.
-  if (kind === "UPCOMING LIVE" && !video.isUpcoming)
-    return t("event.type.stream")
-  if (videoKindKeys[kind]) return t(videoKindKeys[kind])
-  if (video?.kind && !/[぀-ヿ㐀-鿿]/u.test(video.kind)) return video.kind
-  return t(video?.isUpcoming ? "media.kind.upcoming" : "media.kind.video")
+  if (kind === "stream") {
+    if (video.isUpcoming) return t("media.kind.upcoming")
+    return t(
+      streamMayBeOnAir(video, now)
+        ? "event.type.stream"
+        : "media.kind.liveArchive",
+    )
+  }
+  if (kind === "premiere") return t("media.kind.premiere")
+  return t("media.kind.video")
+}
+
+/** A video's tag chip label, or null when it has no tag. */
+export function videoTagLabel(video: Video, t: Translator) {
+  const tag = videoTag(video)
+  if (!tag) return null
+  return t(video.kind === "stream" ? `event.tag.${tag}` : workTagKeys[tag])
 }
 
 /** Strip the trailing 【鹿乃まほろ/ミリプロ】 credit that every title repeats. */

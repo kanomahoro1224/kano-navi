@@ -54,16 +54,27 @@ const (
 	LiveStatusEnded    = "ended"
 )
 
-func Classify(title string) string {
-	for _, rule := range []struct{ pattern, kind string }{
-		{`(?i)リズム天国|ゲーム|gameplay`, "GAMEPLAY"}, {`(?i)雑談|talk|おつかれ`, "TALK"},
-		{`(?i)初配信|配信|live`, "LIVE ARCHIVE"}, {`(?i)歌枠|song|music|cover|歌唱`, "MUSIC"},
-	} {
-		if regexp.MustCompile(rule.pattern).MatchString(title) {
-			return rule.kind
-		}
+// Video forms, the stored kind. Only platform facts decide one: a detail
+// check's broadcast start and premiere verdict. A listing alone cannot tell,
+// so its entries are KindUnknown until a check reads them. What a video is
+// about is its content tag, never its kind.
+const (
+	KindStream   = "stream"
+	KindPremiere = "premiere"
+	KindUpload   = "upload"
+	KindUnknown  = "unknown"
+)
+
+// formOf names the form a detail check reports.
+func formOf(v Video) string {
+	switch {
+	case v.ScheduledAt == "":
+		return KindUpload
+	case v.Premiere:
+		return KindPremiere
+	default:
+		return KindStream
 	}
-	return "VIDEO"
 }
 
 type feedLink struct {
@@ -126,7 +137,7 @@ func ParseFeed(body []byte) ([]Video, error) {
 		if thumbnail == "" {
 			thumbnail = "https://i.ytimg.com/vi/" + entry.ID + "/hqdefault.jpg"
 		}
-		out = append(out, Video{ID: entry.ID, Title: title, PublishedAt: t.UTC().Format(time.RFC3339Nano), URL: "https://www.youtube.com/watch?v=" + entry.ID, ThumbnailURL: thumbnail, Kind: Classify(title), Short: feedShort(entry.ID, entry.Links)})
+		out = append(out, Video{ID: entry.ID, Title: title, PublishedAt: t.UTC().Format(time.RFC3339Nano), URL: "https://www.youtube.com/watch?v=" + entry.ID, ThumbnailURL: thumbnail, Kind: KindUnknown, Short: feedShort(entry.ID, entry.Links)})
 		if len(out) == 50 {
 			break
 		}

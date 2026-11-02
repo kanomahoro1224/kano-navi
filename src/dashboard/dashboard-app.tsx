@@ -39,7 +39,12 @@ import {
   PostArchiveLayoutToggle,
   PostWall,
 } from "./components/post-wall"
-import { VideoArchive, VideoShelf } from "./components/video-shelf"
+import {
+  VideoArchive,
+  VideoArchiveFilter,
+  VideoShelf,
+} from "./components/video-shelf"
+import type { VideoCategory } from "./video-groups"
 import {
   ScheduleDayToggle,
   ScheduleMonth,
@@ -229,6 +234,11 @@ export function DashboardApp() {
       setArchiveView((current) => (current ? { ...current, account } : null)),
     [],
   )
+  const setArchiveCategory = useCallback(
+    (category: VideoCategory | null) =>
+      setArchiveView((current) => (current ? { ...current, category } : null)),
+    [],
+  )
   const openWeek = useCallback(
     (day: Date) => {
       setWeekStart(startOfWeek(day))
@@ -406,7 +416,14 @@ export function DashboardApp() {
                 onToggle={() => setMonthDetails((open) => !open)}
                 t={t}
               />
-            ) : null
+            ) : (
+              <VideoArchiveFilter
+                category={archiveView.category || null}
+                setCategory={setArchiveCategory}
+                counts={archive.archive?.categoryCounts}
+                t={t}
+              />
+            )
           }
           onClose={closeArchive}
           locale={locale}

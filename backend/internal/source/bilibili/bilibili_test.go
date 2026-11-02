@@ -77,13 +77,13 @@ func TestUploadsKeepOnlyCompleteOwnUploads(t *testing.T) {
 		t.Fatalf("videos=%#v err=%v", videos, err)
 	}
 	cover, stream := videos[0], videos[1]
-	if cover.BVID != "BV1AAAAAAAAA" || cover.Title != "鹿乃 翻唱《奏》 & more" || cover.Kind != "MUSIC" ||
+	if cover.BVID != "BV1AAAAAAAAA" || cover.Title != "鹿乃 翻唱《奏》 & more" || cover.Kind != KindUpload ||
 		cover.ThumbnailURL != "https://i0.hdslb.com/bfs/archive/synthetic.jpg" || cover.PublishedAt != "2026-01-01T09:00:00Z" ||
 		cover.DurationSeconds != 289 || cover.URL != "https://www.bilibili.com/video/BV1AAAAAAAAA" || cover.Description != "synthetic" {
 		t.Fatalf("cover=%#v", cover)
 	}
 	// A cover outside Bilibili's image CDN is not kept.
-	if stream.Kind != "LIVE ARCHIVE" || stream.ThumbnailURL != "" {
+	if stream.Kind != KindUpload || stream.ThumbnailURL != "" {
 		t.Fatalf("stream=%#v", stream)
 	}
 }

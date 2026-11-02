@@ -51,7 +51,8 @@ export function MediaDialog<T>({
     return () => {
       if (dialog.open) dialog.close()
       document.body.classList.remove("has-lightbox")
-      previous?.focus?.()
+      // The opener was in view when clicked; returning focus keeps the page.
+      previous?.focus?.({ preventScroll: true })
     }
   }, [open])
 

@@ -88,14 +88,16 @@ func TestVideoTagsLabelVideosTheScheduleCannot(t *testing.T) {
 }
 
 // Entries spend the per-run limit first; a failed video title only stamps
-// its attempt, so it stays unjudged and is asked after the others.
+// its attempt, so it stays unjudged and is asked after the others. A
+// Bilibili upload is never shown, so it is never asked about.
 func TestVideoTagsShareTheLimitAndFailuresStayUnjudged(t *testing.T) {
 	f, translator := newTranslatorFixture(t)
 	f.addProvider("main", protocolChat, "https://translate.example.test", "synthetic-model", `["text"]`)
 	f.queueTranslation("main")
 	f.exec(`INSERT INTO app_settings (key,value,updated_at) VALUES ('sync_translation_scan_limit','1',?)`, testTimestamp)
 	f.addReservation("entry", "entry title", 1)
-	f.addVideo("bilibili", "bilibili", "video failing", "upload", "2020-03-02T00:00:00Z")
+	f.addVideo("BV1CCCCCCCCC", "bilibili", "video bilibili", "upload", "2020-03-03T00:00:00Z")
+	f.addVideo("failing", "youtube", "video failing", "upload", "2020-03-02T00:00:00Z")
 	f.addVideo("later", "youtube", "video later", "upload", "2020-03-01T00:00:00Z")
 	f.provider.respond = func(request recordedRequest) (int, string) {
 		if strings.Contains(request.body, "failing") {
@@ -108,14 +110,22 @@ func TestVideoTagsShareTheLimitAndFailuresStayUnjudged(t *testing.T) {
 		t.Fatalf("requests=%d videoTags=%v", f.provider.count(), videos)
 	}
 	result = runTranslator(t, translator)
-	if videos, _ := result.Counts["videoTags"].(map[string]any); videos["failed"] != 1 || !strings.Contains(f.provider.requests[1].body, "Bilibili title: video failing") {
+	if videos, _ := result.Counts["videoTags"].(map[string]any); videos["failed"] != 1 || !strings.Contains(f.provider.requests[1].body, "YouTube title: video failing") {
 		t.Fatalf("videoTags=%v", videos)
 	}
-	if got := f.videoTagState("bilibili"); got != "||attempted" {
+	if got := f.videoTagState("failing"); got != "||attempted" {
 		t.Fatalf("failed state=%q", got)
 	}
 	runTranslator(t, translator)
 	if got := f.videoTagState("later"); got != "game|title|attempted" {
 		t.Fatalf("later state=%q", got)
+	}
+	for _, request := range f.provider.requests {
+		if strings.Contains(request.body, "video bilibili") {
+			t.Fatalf("a Bilibili upload was asked about: %s", request.body)
+		}
+	}
+	if got := f.videoTagState("BV1CCCCCCCCC"); got != "||" {
+		t.Fatalf("bilibili state=%q", got)
 	}
 }

@@ -105,9 +105,10 @@ func TestVideoTagReadsEntryContentPastATargetForm(t *testing.T) {
 	}
 }
 
-// A video whose entry carries only a form label from a notice is left to its
-// own title; content, a title judgement, an operator's decision or a pending
-// reservation judgement keep it out.
+// A video whose entry carries only a form label from a notice, or that an
+// operator saved without a label, is left to its own title; content, a title
+// judgement, an operator's label or a pending reservation judgement keep it
+// out, and a Bilibili upload, never shown, is not asked about.
 func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 	f := newMergeFixture(t)
 	add := func(video, day string, options ...string) {
@@ -120,6 +121,10 @@ func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 	add("OPERATOR001", "2026-10-01", `tag='live'`, `tag_source='manual'`, `provenance='manual'`, `manual_locked=1`)
 	add("PENDINGRES1", "2026-10-30", `source_key='reservation'`)
 	add("FORMRES0001", "2026-10-30", `source_key='reservation'`, `tag='live'`, `tag_source='llm'`)
+	add("OPERATOR002", "2026-10-01", `provenance='manual'`, `manual_locked=1`)
+	add("LOCKEDRES01", "2026-10-30", `source_key='reservation'`, `manual_locked=1`)
+	f.labelVideo("BV1BBBBBBBBB", "", "")
+	f.exec(`UPDATE videos SET source='bilibili' WHERE id='BV1BBBBBBBBB'`)
 	f.add("contenttarget", "x", "synthetic", "2026-10-02", "20:00", "stream", `tag='song'`, `tag_source='llm'`)
 	add("MERGEDSONG1", "2026-10-02", `merged_into='contenttarget'`, `merge_source='rule'`)
 	f.add("formtarget", "x", "synthetic", "2026-10-03", "20:00", "stream", `tag='live'`, `tag_source='llm'`)
@@ -136,6 +141,7 @@ func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 	for id, want := range map[string]bool{
 		"FORMNOTICE1": true, "FORMTITLE01": false, "CONTENTLLM1": false, "OPERATOR001": false,
 		"PENDINGRES1": false, "FORMRES0001": true, "MERGEDSONG1": false, "MERGEDFORM1": true,
+		"OPERATOR002": true, "LOCKEDRES01": true, "BV1BBBBBBBBB": false,
 	} {
 		if got[id] != want {
 			t.Errorf("%s candidate=%v, want %v", id, got[id], want)

@@ -61,6 +61,42 @@ func TestManualEventTagRoundTrips(t *testing.T) {
 	}
 }
 
+// A save that sends the label back unchanged, such as a cancellation
+// decision, keeps who decided it; only a changed label becomes the
+// operator's.
+func TestUnchangedLabelKeepsItsSourceOnSave(t *testing.T) {
+	path := testutil.NewSnapshot(t)
+	for _, row := range []struct {
+		id        string
+		tag       any
+		tagSource any
+	}{{"auto-live", "live", "llm"}, {"auto-judged", nil, "title"}, {"auto-changed", "live", "llm"}} {
+		testutil.Exec(t, path, `INSERT INTO events (id,source,source_key,title,starts_on,timezone,time_precision,event_type,provenance,manual_locked,tag,tag_source,created_at,updated_at)
+			VALUES (?,'youtube','reservation','Synthetic','2026-10-20','Asia/Tokyo','unknown','stream','automatic',0,?,?,'','')`,
+			row.id, row.tag, row.tagSource)
+	}
+	store, err := OpenAdminWrites(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	ctx := context.Background()
+	for id, input := range map[string]EventInput{
+		"auto-live":    {Title: "Synthetic", StartsOn: "2026-10-20", Tag: "live", CancellationStatus: "none"},
+		"auto-judged":  {Title: "Synthetic", StartsOn: "2026-10-20", CancellationStatus: "none"},
+		"auto-changed": {Title: "Synthetic", StartsOn: "2026-10-20", Tag: "game", CancellationStatus: "none"},
+	} {
+		if _, err := store.UpdateManualEvent(ctx, id, input); err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+	}
+	for id, want := range map[string]string{"auto-live": "live|llm", "auto-judged": "|title", "auto-changed": "game|manual"} {
+		if got := storeTagState(t, store, id); got != want {
+			t.Errorf("%s state=%q, want %q", id, got, want)
+		}
+	}
+}
+
 // The queue offers only automatic YouTube entries that carry no label yet and
 // were never judged, and records a null answer so the title is not asked again.
 func TestEventTagCandidatesSkipLockedJudgedAndLabelled(t *testing.T) {

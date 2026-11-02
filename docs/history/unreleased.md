@@ -77,7 +77,8 @@
 
 - The schedule editor sets an entry's label, and an empty choice clears it. A
   saved label is the operator's decision, outranks the automatic one and keeps
-  the entry from being relabelled later.
+  the entry from being relabelled later. Saving an entry for another reason,
+  such as a cancellation decision, keeps an automatic label automatic.
 - The video editor corrects the form (`stream`, `premiere` or `upload`) and
   sets a content tag, which outranks the entry's label. The video list and
   `GET /api/admin/videos` show the tag with where it came from
@@ -96,10 +97,11 @@
   premiere is `song` on either path.
 - YouTube reservations never pass through that prompt, so the translation
   queue also labels them from their title (`tagSource = title`), with the
-  queue's retries and provider status. A title the model cannot classify is
-  recorded rather than asked again; a title whose request fails counts as
-  failed, leaves the run going and is asked again after the titles not yet
-  tried, so an outage marks nothing as decided.
+  queue's retries and provider status. A title the model cannot classify,
+  or answers with a label outside the five codes, is recorded rather than
+  asked again; a title whose request fails counts as failed, leaves the run
+  going and is asked again after the titles not yet tried, so an outage
+  marks nothing as decided.
 - A rule merge lends an X notice's label to the event that survives, including
   merges made before the notice had a label, and replaces a label guessed from
   the title. Operator and locked entries keep their own label. Among
@@ -108,10 +110,10 @@
 - YouTube and Bilibili titles no longer decide a video's kind. Listings store
   `unknown` and the detail check writes the form from the broadcast start
   and premiere verdict; Bilibili uploads are `upload`.
-- After the entries, the same translation queue tags videos whose entries
-  give no content, including entries that only carry a form from a notice,
-  newest first, within the same per-run limit (`videoTags` in the
-  run result). The title prompt now counts covers, originals and music videos
+- After the entries, the same translation queue tags public YouTube videos
+  whose entries give no content, including entries that only carry a form
+  from a notice and operator entries without a label, newest first, within
+  the same per-run limit (`videoTags` in the run result). The title prompt now counts covers, originals and music videos
   as `song`.
 
 </details>

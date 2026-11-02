@@ -125,3 +125,25 @@ func TestOverlongEventTagTitleIsSkipped(t *testing.T) {
 		t.Fatalf("state=%q", got)
 	}
 }
+
+// A label outside the codes is an answer without one: the title is judged
+// and not asked again, and the provider is not marked failed.
+func TestUnknownEventTagIsJudgedWithoutALabel(t *testing.T) {
+	f, translator := newTranslatorFixture(t)
+	f.addProvider("main", protocolChat, "https://translate.example.test", "synthetic-model", `["text"]`)
+	f.queueTranslation("main")
+	f.addReservation("a", "synthetic", 1)
+	f.provider.respond = func(recordedRequest) (int, string) { return http.StatusOK, tagReply("music") }
+	result := runTranslator(t, translator)
+	tags, _ := result.Counts["eventTags"].(map[string]any)
+	if tags["success"] != 1 || tags["failed"] != 0 || result.Status != "success" {
+		t.Fatalf("eventTags=%v status=%s", tags, result.Status)
+	}
+	if got := f.tagState("a"); got != "|title|attempted" {
+		t.Fatalf("state=%q", got)
+	}
+	runTranslator(t, translator)
+	if f.provider.count() != 1 {
+		t.Fatalf("asked again: requests=%d", f.provider.count())
+	}
+}

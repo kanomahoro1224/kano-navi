@@ -190,12 +190,12 @@ func (s *Store) UpdateManualEvent(ctx context.Context, id string, input EventInp
 	if err = input.validate(false); err != nil {
 		return AdminEvent{}, err
 	}
-	var title, timezone, eventType, status sql.NullString
+	var title, timezone, eventType, tag, tagSource, status sql.NullString
 	var source, reason, evidence, sourceItem, at sql.NullString
 	var confidence sql.NullFloat64
-	err = tx.QueryRowContext(ctx, `SELECT title,timezone,event_type,cancellation_status,cancellation_source,cancellation_reason,
+	err = tx.QueryRowContext(ctx, `SELECT title,timezone,event_type,tag,tag_source,cancellation_status,cancellation_source,cancellation_reason,
  cancellation_evidence,cancellation_source_item_id,cancellation_confidence,cancellation_at FROM events WHERE id=?`, id).
-		Scan(&title, &timezone, &eventType, &status, &source, &reason, &evidence, &sourceItem, &confidence, &at)
+		Scan(&title, &timezone, &eventType, &tag, &tagSource, &status, &source, &reason, &evidence, &sourceItem, &confidence, &at)
 	if errors.Is(err, sql.ErrNoRows) {
 		return AdminEvent{}, sql.ErrNoRows
 	}
@@ -226,8 +226,15 @@ func (s *Store) UpdateManualEvent(ctx context.Context, id string, input EventInp
 	if zone == "" {
 		zone = "Asia/Tokyo"
 	}
+	// A save that sends the label back unchanged keeps who decided it, so an
+	// unrelated edit or a cancellation decision never turns an automatic
+	// label into the operator's.
+	newTagSource := manualTagSource(input.Tag)
+	if strings.TrimSpace(input.Tag) == tag.String {
+		newTagSource = nullIfEmpty(tagSource.String)
+	}
 	args := append([]any{newTitle, nullIfEmpty(input.Detail), input.StartsOn, nullIfEmpty(input.StartsAt), nullIfEmpty(input.EndsAt), zone,
-		input.precision(), nullIfEmpty(input.Status), newType, nullIfEmpty(input.Tag), manualTagSource(input.Tag), nullIfEmpty(input.URL)}, cancellation...)
+		input.precision(), nullIfEmpty(input.Status), newType, nullIfEmpty(input.Tag), newTagSource, nullIfEmpty(input.URL)}, cancellation...)
 	args = append(args, now, raw, id)
 	if _, err = tx.ExecContext(ctx, `UPDATE events SET title=?,detail=?,starts_on=?,starts_at=?,ends_at=?,timezone=?,time_precision=?,status=?,
  event_type=?,tag=?,tag_source=?,url=?,provenance='manual',cancellation_status=?,cancellation_source=?,cancellation_reason=?,cancellation_evidence=?,

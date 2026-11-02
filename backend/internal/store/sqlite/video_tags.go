@@ -56,13 +56,15 @@ var videoCategorySQL = `COALESCE(` + videoTagSQL("videos") + `,'other')`
 type VideoTagCandidate struct{ ID, Source, Title string }
 
 // ListVideoTagCandidates returns up to limit videos the schedule cannot tag:
-// shown videos (not merged into another) without a manual tag or a judgement
+// public videos (not merged into another) without a manual tag or a judgement
 // of their own, none of whose schedule entries (or the entries those are
 // merged into) carries a content label, a title judgement or an operator's
-// decision, or is an unjudged YouTube reservation still on or after
+// label, or is an unjudged automatic YouTube reservation still on or after
 // eventFrom, which the entry inference reads instead. An entry whose only
-// label is a form from a notice leaves the video to its own title, since the
-// calendar takes a video's content tag over that form. Videos never attempted
+// label is a form from a notice, or an operator's row without a label, leaves
+// the video to its own title, since the calendar reads on to a video's
+// content tag there. Bilibili uploads are never shown, so they are not asked
+// about. Videos never attempted
 // come first, then the least recently attempted, each group newest first, so
 // recent uploads are tagged before the backlog and a title whose attempts
 // keep failing moves behind the others.
@@ -74,13 +76,13 @@ func (s *Store) ListVideoTagCandidates(ctx context.Context, eventFrom string, li
 		limit = 1
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT v.id,v.source,COALESCE(v.manual_title,v.title) FROM videos v
-		WHERE v.merged_into IS NULL AND v.manual_tag IS NULL AND v.tag IS NULL AND COALESCE(v.tag_source,'')=''
+		WHERE `+publicVideoScope+` AND v.merged_into IS NULL AND v.manual_tag IS NULL AND v.tag IS NULL AND COALESCE(v.tag_source,'')=''
 			AND NOT EXISTS (SELECT 1 FROM events e LEFT JOIN events t ON t.id=e.merged_into AND t.deleted_at IS NULL
 				WHERE e.deleted_at IS NULL AND `+videoEventMatch("v")+`
 				AND (e.tag IN `+contentTagSQL+` OR t.tag IN `+contentTagSQL+`
 					OR COALESCE(e.tag_source,'') IN ('title','manual') OR COALESCE(t.tag_source,'') IN ('title','manual')
-					OR e.manual_locked<>0 OR e.provenance<>'automatic' OR t.manual_locked<>0 OR t.provenance<>'automatic'
 					OR e.source='youtube' AND e.source_key='reservation' AND e.starts_on>=? AND e.merged_into IS NULL
+						AND e.provenance='automatic' AND e.manual_locked=0
 						AND e.tag IS NULL AND COALESCE(e.tag_source,'')=''))
 		ORDER BY v.tag_attempted_at IS NOT NULL, julianday(v.tag_attempted_at) ASC, julianday(COALESCE(v.scheduled_at,v.published_at)) DESC, v.id ASC LIMIT ?`, eventFrom, limit)
 	if err != nil {

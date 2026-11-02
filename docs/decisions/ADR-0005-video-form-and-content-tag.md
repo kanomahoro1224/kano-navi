@@ -99,15 +99,17 @@ up by ID, which costs microseconds per entry, so nothing is materialized.
 The translate step's title inference also labels videos that the schedule
 cannot: public videos with no manual tag and no judgement yet, none of whose
 matching entries (or the entries those are merged into) carries a content
-label, a title judgement or an operator's decision, or is an unjudged
-reservation still inside the entry inference window. An entry whose only
-label is a form from a notice does not hold the video back, since the
-video's content tag outranks that form on the calendar. It uses the same prompt, schema,
+label, a title judgement or an operator's label, or is an unjudged
+automatic reservation still inside the entry inference window. An entry
+whose only label is a form from a notice, or an operator's row without a
+label, does not hold the video back, since the calendar reads on to the
+video's content tag there. Bilibili uploads are not public, so they are not
+asked about. It uses the same prompt, schema,
 model queue and retry policy. The prompt names covers, originals and music
 videos as `song`, so uploads are labelled as well as premieres. A `game`,
-`talk` or `song` answer is stored; `live`, `video` or no label is stored as a
-judgement without a tag, so the title is not sent again; a failed call only
-stamps `tag_attempted_at`. The entries are labelled first and the videos use
+`talk` or `song` answer is stored; `live`, `video`, an unknown label or none
+is stored as a judgement without a tag, so the title is not sent again; a
+failed call only stamps `tag_attempted_at`. The entries are labelled first and the videos use
 what is left of the same per-run limit, newest unattempted first, so the
 existing backlog drains over successive runs.
 

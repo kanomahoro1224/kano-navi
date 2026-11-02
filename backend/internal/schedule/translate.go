@@ -201,12 +201,9 @@ func (t *Translator) inferTags(ctx context.Context) (events, videos map[string]a
 	}
 	jobs = make([]tagJob, 0, len(uploads))
 	for _, item := range uploads {
-		id, platform := item.ID, "YouTube"
-		if item.Source == "bilibili" {
-			platform = "Bilibili"
-		}
+		id := item.ID
 		jobs = append(jobs, tagJob{
-			title: item.Title, platform: platform,
+			title: item.Title, platform: "YouTube",
 			record: func(tag *string) error { _, err := e.store.RecordVideoTag(ctx, id, tag, e.now()); return err },
 			fail:   func() error { return e.store.RecordVideoTagFailure(ctx, id, e.now()) },
 		})
@@ -296,13 +293,12 @@ func (t *Translator) attemptEventTag(ctx context.Context, target provider, call 
 	if !ok {
 		return nil, fail("event tag result was not an object")
 	}
+	// A label outside the codes is an answer without one, as extraction drops
+	// it, so the title is judged rather than asked again on every run.
 	tagValue, _ := root.get("tag")
-	if tagValue == nil {
-		return nil, nil
-	}
 	text, isString := tagValue.(string)
 	if !isString || !sqlite.ValidEventTag(text) {
-		return nil, fail("event tag result has an unknown label")
+		return nil, nil
 	}
 	return &text, nil
 }

@@ -337,9 +337,11 @@ automatic extraction, and a delete is a durable tombstone. Confirming keeps
 the stored values unless the body overrides them.
 
 `tag` is the calendar label: `live`, `game`, `talk`, `song` or `video`, and an
-empty value clears it. A saved label is an operator's decision
-(`tagSource = manual`) and outranks the automatic ones; the whole row being
-locked already keeps a later automatic write from replacing it. The list
+empty value clears it. A saved label that differs from the stored one is an
+operator's decision (`tagSource = manual`) and outranks the automatic ones;
+a save that sends the stored label back unchanged, such as a cancellation
+decision, keeps its `tagSource`. The whole row being locked already keeps a
+later automatic write from replacing it. The list
 reports `tagSource` as `manual`, `llm` (extraction prompt or merged X notice),
 `title` (title inference, also set with a null `tag` when the title gave no
 label) or null; see [Event labels](data-model.md#event-labels) for their

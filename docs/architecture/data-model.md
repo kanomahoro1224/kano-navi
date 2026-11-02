@@ -184,7 +184,9 @@ entry, and `title` for the title inference. Precedence is manual > `llm` >
 replaced by a form label:
 
 - An operator's value belongs to the locked row, so nothing automatic replaces
-  it, and clearing the label keeps the row manual.
+  it, and clearing the label keeps the row manual. A save that sends the
+  stored label back unchanged keeps its `tag_source`, so an unrelated edit or
+  a cancellation decision does not make an automatic label the operator's.
 - The extraction prompt returns a label only when the post or image states the
   activity. An unknown value is dropped and the entry is kept without a label.
   A post that states no label leaves the row's label and source as they are;
@@ -192,9 +194,9 @@ replaced by a form label:
   replace content.
 - YouTube reservations are created by the sync without the extraction prompt,
   so the `translate` queue also labels them from their title. A judgement
-  without a label is stored as `tag_source = title` with no tag and is not
-  asked again. A title every model fails on stays unjudged and only receives
-  `tag_attempted_at`; candidates never attempted come first, then the least
+  without a label, including an answer outside the five codes, is stored as
+  `tag_source = title` with no tag and is not asked again. A title every
+  model fails on stays unjudged and only receives `tag_attempted_at`; candidates never attempted come first, then the least
   recently attempted, so a failing title cannot hold the head of the queue
   and a provider outage judges nothing. An entry that a labelled notice is
   merged into is not sent.
@@ -643,10 +645,13 @@ never reach a video. A video without a tag is `other` in the archive's
 category filter.
 
 `tag`, `tag_source` and `tag_attempted_at` follow the entry inference's rules
-(see [Event labels](#event-labels)): the `translate` queue asks about shown
-videos (not merged into another) without a manual tag or judgement, whose
-entries, if any, are neither labelled, judged, operator-owned, merged nor
-still within the entry inference window. Only `game`, `talk` or `song` is
+(see [Event labels](#event-labels)): the `translate` queue asks about public
+YouTube videos (not merged into another) without a manual tag or judgement,
+whose entries, if any, carry neither a content label, a title judgement nor
+an operator's label, are not merged into such an entry, and are not
+automatic reservations still within the entry inference window. An
+operator's row without a label reads on to the video's tag, so it does not
+hold the video back. Only `game`, `talk` or `song` is
 stored; another answer or none is stored as `tag_source = title` without a
 tag and is not asked again; a failure only stamps `tag_attempted_at`. Videos
 never attempted come first, then the least recently attempted, each newest

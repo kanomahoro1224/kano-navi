@@ -273,27 +273,29 @@ function EntrySheet({
 function GuideEvent({
   event,
   full = false,
-  highlighted = false,
+  pickTurn = 0,
   locale,
   now,
   t,
 }: {
   event: ScheduleEvent
   full?: boolean
-  highlighted?: boolean
+  /** The grid pick that marked this entry, 0 when none; each pick scrolls. */
+  pickTurn?: number
   locale: Locale
   now: number
   t: Translator
 }) {
   const [open, setOpen] = useState(false)
   const itemRef = useRef<HTMLLIElement>(null)
+  const highlighted = pickTurn > 0
   useEffect(() => {
-    if (highlighted)
+    if (pickTurn > 0)
       itemRef.current?.scrollIntoView?.({
         block: "nearest",
         behavior: "smooth",
       })
-  }, [highlighted])
+  }, [pickTurn])
   const facts = entryFacts(event, now, t)
 
   return (
@@ -682,7 +684,11 @@ export function ScheduleMonth({
   const [selectedKey, setSelectedKey] = useState<string | null>(() =>
     todayKey.startsWith(monthPrefix) ? todayKey : null,
   )
-  const [pickedId, setPickedId] = useState<string | null>(null)
+  // The entry picked in the grid, with a turn that grows on every pick, so
+  // picking the same entry again scrolls to it again.
+  const [picked, setPicked] = useState<{ id: string; turn: number } | null>(
+    null,
+  )
   const detailRef = useRef<HTMLDivElement>(null)
   const selected = selectedKey ? keyToDate(selectedKey) : null
   const selectedItems = (selectedKey && byDay.get(selectedKey)) || []
@@ -692,7 +698,9 @@ export function ScheduleMonth({
 
   const pickDay = (day: Date, eventId?: string) => {
     setSelectedKey(localDateKey(day))
-    setPickedId(eventId ?? null)
+    setPicked((last) =>
+      eventId ? { id: eventId, turn: (last?.turn ?? 0) + 1 } : null,
+    )
     onShowDetails(true)
     // On narrow screens the details sit below the grid; a picked entry
     // scrolls itself into view.
@@ -738,8 +746,14 @@ export function ScheduleMonth({
             </div>
           ) : null}
           {showDetails && selected ? (
-            <div className="month-detail" ref={detailRef} aria-live="polite">
-              <div className="month-detail-head">
+            <div className="month-detail" ref={detailRef}>
+              {/* Only the day and its count are announced, never an entry
+                  sheet opened inside the list. */}
+              <div
+                className="month-detail-head"
+                aria-live="polite"
+                aria-atomic="true"
+              >
                 <h3>{formatLongDate(selected, locale)}</h3>
                 <span>{t("schedule.weekCount", { count: selectedCount })}</span>
               </div>
@@ -750,7 +764,7 @@ export function ScheduleMonth({
                       key={event.id}
                       event={event}
                       full
-                      highlighted={event.id === pickedId}
+                      pickTurn={event.id === picked?.id ? picked.turn : 0}
                       locale={locale}
                       now={now}
                       t={t}

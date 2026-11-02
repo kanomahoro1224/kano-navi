@@ -3327,15 +3327,29 @@ a.month-event:hover {
 
 /*
  * The video archive: a grid of cards in the archive's newest-first order,
- * each the cover above the title, then the Japan date, time and kind.
+ * each the cover above the title, then the Japan date, time and kind. The
+ * column count follows the dialog's width, so a month long enough to show a
+ * scrollbar keeps the same columns.
  */
 .archive-videos {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 28px 20px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+@container archive-dialog (width < 960px) {
+  .archive-videos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container archive-dialog (width < 720px) {
+  .archive-videos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .archive-card {
@@ -3389,7 +3403,6 @@ a.month-event:hover {
 /* Phones: two columns of smaller covers. */
 @media (max-width: 640px) {
   .archive-videos {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 22px 12px;
   }
 

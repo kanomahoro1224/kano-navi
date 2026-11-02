@@ -338,10 +338,13 @@ the stored values unless the body overrides them.
 
 `tag` is the calendar label: `live`, `game`, `talk`, `song` or `video`, and an
 empty value clears it. A saved label is an operator's decision
-(`tagSource = manual`) and outranks the automatic one, which the extraction
-prompt or the title inference of the `translate` queue stores with
-`tagSource = llm`; the whole row being locked already keeps a later automatic
-write from replacing it. An unknown value answers `400 invalid_input`. Every
+(`tagSource = manual`) and outranks the automatic ones; the whole row being
+locked already keeps a later automatic write from replacing it. The list
+reports `tagSource` as `manual`, `llm` (extraction prompt or merged X notice),
+`title` (title inference, also set with a null `tag` when the title gave no
+label) or null; see [Event labels](data-model.md#event-labels) for their
+precedence. `tagSource` is admin-only. An unknown value answers
+`400 invalid_input`. Every
 reader, including the board, `/api/calendar`, MCP
 `dashboard_read` and `schedule_list`, reports the same event column.
 

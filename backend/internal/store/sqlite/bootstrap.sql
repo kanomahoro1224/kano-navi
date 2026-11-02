@@ -45,6 +45,7 @@ CREATE TABLE events (
     event_type TEXT DEFAULT 'event',
     tag TEXT,
     tag_source TEXT,
+    tag_attempted_at TEXT,
     url TEXT,
     is_upcoming INTEGER DEFAULT 0,
     provenance TEXT NOT NULL DEFAULT 'automatic',

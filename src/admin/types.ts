@@ -422,7 +422,11 @@ export interface AdminEvent {
   timePrecision: "exact" | "approximate" | "unknown"
   status: string | null
   eventType: string | null
-  /** Calendar label, and who decided it ("llm" or "manual"). */
+  /**
+   * Calendar label, and who decided it: "manual", "llm" (extraction prompt or
+   * merged X notice) or "title" (title inference; also set with a null tag
+   * when the title gave no label).
+   */
   tag: string | null
   tagSource: string | null
   url: string | null

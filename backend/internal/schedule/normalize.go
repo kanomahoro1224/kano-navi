@@ -139,7 +139,9 @@ func validClock(value any, defined bool) bool {
 
 // extractedTag keeps a model label only when it is one of the known codes.
 // The model is asked for null when the entry does not say, so a missing or
-// null field means "no label" rather than an error.
+// null field means "no label" rather than an error. An unknown value, which a
+// provider without strict schema output may return, is dropped the same way
+// and leaves the rest of the entry valid.
 func extractedTag(value any) *string {
 	text, ok := value.(string)
 	if !ok || !sqlite.ValidEventTag(text) {
@@ -160,8 +162,6 @@ func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time
 		endClock, endDefined := event.get("endTime")
 		precision, _ := event.get("timePrecision")
 		eventType, _ := event.get("eventType")
-		tagValue, tagDefined := event.get("tag")
-		tagText, tagIsString := tagValue.(string)
 		confidenceValue, confidenceDefined := event.get("confidence")
 		confidence := jsNumber(confidenceValue, confidenceDefined)
 		precisionText, precisionIsString := precision.(string)
@@ -174,7 +174,6 @@ func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time
 			!(truthy(endClock) && !truthy(clock)) &&
 			precisionIsString && timePrecisions[precisionText] &&
 			typeIsString && eventTypes[typeText] &&
-			(!tagDefined || tagValue == nil || tagIsString && sqlite.ValidEventTag(tagText)) &&
 			finite(confidence) && confidence >= 0 && confidence <= 1
 		if !valid {
 			return nil, fail("schedule extraction contained an invalid event")

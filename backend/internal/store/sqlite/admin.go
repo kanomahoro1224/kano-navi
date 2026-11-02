@@ -224,7 +224,8 @@ type AdminEvent struct {
 	Status        *string `json:"status"`
 	EventType     *string `json:"eventType"`
 	// Tag is the calendar label of the entry, and TagSource who decided it
-	// ("llm" or "manual"), or both nil when unlabelled.
+	// ("llm", "title" or "manual"; see TagSourceLLM), or both nil when
+	// unlabelled. A title judgement without a label keeps TagSource "title".
 	Tag                      *string  `json:"tag"`
 	TagSource                *string  `json:"tagSource"`
 	URL                      *string  `json:"url"`

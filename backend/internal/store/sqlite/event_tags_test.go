@@ -75,14 +75,19 @@ func TestEventTagCandidatesSkipLockedJudgedAndLabelled(t *testing.T) {
 		{"free", "youtube", "reservation", "2026-10-20", 0, "automatic", nil, nil},
 		{"locked", "youtube", "reservation", "2026-10-20", 1, "manual", nil, nil},
 		{"labelled", "youtube", "reservation", "2026-10-20", 0, "automatic", "song", "llm"},
-		{"judged", "youtube", "reservation", "2026-10-20", 0, "automatic", nil, "llm"},
+		{"judged", "youtube", "reservation", "2026-10-20", 0, "automatic", nil, "title"},
 		{"notice", "x", "status", "2026-10-20", 0, "automatic", nil, nil},
 		{"far", "youtube", "reservation", "2027-06-01", 0, "automatic", nil, nil},
+		{"lent", "youtube", "reservation", "2026-10-20", 0, "automatic", nil, nil},
+		{"lender", "x", "status", "2026-10-20", 0, "automatic", "talk", "llm"},
 	} {
 		testutil.Exec(t, path, `INSERT INTO events (id,source,source_key,title,starts_on,timezone,time_precision,event_type,provenance,manual_locked,tag,tag_source,created_at,updated_at)
 			VALUES (?,?,?,'Synthetic',?,'Asia/Tokyo','unknown','stream',?,?,?,?,'','')`,
 			row.id, row.source, row.key, row.day, row.provenance, row.locked, row.tag, row.tagSource)
 	}
+	// A labelled notice merged into an entry lends it its label, so its title
+	// is not worth a model call.
+	testutil.Exec(t, path, `UPDATE events SET merged_into='lent',merge_source='rule' WHERE id='lender'`)
 	store, err := OpenAdminWrites(path)
 	if err != nil {
 		t.Fatal(err)
@@ -96,39 +101,50 @@ func TestEventTagCandidatesSkipLockedJudgedAndLabelled(t *testing.T) {
 	if len(candidates) != 1 || candidates[0].ID != "free" {
 		t.Fatalf("candidates=%+v", candidates)
 	}
-	if ok, err := store.RecordEventTag(ctx, "locked", nil); err != nil || ok {
+	if ok, err := store.RecordEventTag(ctx, "locked", nil, tagNow); err != nil || ok {
 		t.Fatalf("locked recorded=%v err=%v", ok, err)
 	}
-	// A null judgement is stored as an attempt: the row keeps no label, and
-	// the same title is not offered again.
-	if ok, err := store.RecordEventTag(ctx, "free", nil); err != nil || !ok {
+	// A null judgement is stored as an attempt: the row keeps no label, the
+	// same title is not offered again, and readers see nothing new.
+	revision := storeRevision(t, store)
+	if ok, err := store.RecordEventTag(ctx, "free", nil, tagNow); err != nil || !ok {
 		t.Fatalf("null judgement recorded=%v err=%v", ok, err)
+	}
+	if got := storeRevision(t, store); got != revision {
+		t.Fatalf("null judgement moved the revision %s -> %s", revision, got)
+	}
+	if got := storeTagState(t, store, "free"); got != "|title" {
+		t.Fatalf("null judgement state=%q", got)
 	}
 	if candidates, err = store.ListEventTagCandidates(ctx, "2026-10-01", "2026-10-31", 10); err != nil || len(candidates) != 0 {
 		t.Fatalf("after judgement candidates=%+v err=%v", candidates, err)
 	}
-	if ok, err := store.RecordEventTag(ctx, "free", nil); err != nil || ok {
+	if ok, err := store.RecordEventTag(ctx, "free", nil, tagNow); err != nil || ok {
 		t.Fatalf("second judgement recorded=%v err=%v", ok, err)
 	}
 }
 
-// A notice's label follows it onto the surviving calendar entry, and an entry
-// that already carries one keeps its own.
+// A notice's label follows it onto the surviving calendar entry. It replaces
+// a label the title inference guessed or an empty judgement, and an entry the
+// extraction prompt labelled keeps its own.
 func TestMergedNoticeLendsItsTag(t *testing.T) {
 	f := newMergeFixture(t)
 	f.add("x1", "x", "今夜は歌枠", "2026-10-25", "20:00", "stream", `tag='song'`, `tag_source='llm'`)
 	f.add("y1", "youtube", "【歌枠】synthetic", "2026-10-25", "19:59:16", "stream")
 	f.add("x2", "x", "今夜は雑談", "2026-10-26", "20:00", "stream", `tag='talk'`, `tag_source='llm'`)
 	f.add("y2", "youtube", "【雑談】synthetic", "2026-10-26", "19:59:16", "stream", `tag='live'`, `tag_source='llm'`)
-	f.reconcile()
-	if got := f.tagState("x1"); got != "song|llm" {
-		t.Fatalf("notice lost its own label: %s", got)
+	f.add("x3", "x", "今夜は雑談", "2026-10-27", "20:00", "stream", `tag='talk'`, `tag_source='llm'`)
+	f.add("y3", "youtube", "synthetic", "2026-10-27", "19:59:16", "stream", `tag='live'`, `tag_source='title'`)
+	f.add("x4", "x", "今夜はゲーム", "2026-10-28", "20:00", "stream", `tag='game'`, `tag_source='llm'`)
+	f.add("y4", "youtube", "synthetic", "2026-10-28", "19:59:16", "stream", `tag_source='title'`)
+	counts := f.reconcile()
+	for id, want := range map[string]string{"x1": "song|llm", "y1": "song|llm", "y2": "live|llm", "y3": "talk|llm", "y4": "game|llm"} {
+		if got := f.tagState(id); got != want {
+			t.Errorf("%s label=%q, want %q", id, got, want)
+		}
 	}
-	if got := f.tagState("y1"); got != "song|llm" {
-		t.Fatalf("target label=%q, want the notice's", got)
-	}
-	if got := f.tagState("y2"); got != "live|llm" {
-		t.Fatalf("target label=%q, want its own", got)
+	if counts.Tagged != 3 {
+		t.Fatalf("tagged=%d, want 3", counts.Tagged)
 	}
 }
 

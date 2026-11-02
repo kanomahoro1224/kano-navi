@@ -155,7 +155,11 @@ const upsertEventSQL = `INSERT INTO events (
 		starts_on=excluded.starts_on, starts_at=excluded.starts_at,
 		ends_at=excluded.ends_at, timezone=excluded.timezone,
 		time_precision=excluded.time_precision, status=excluded.status,
-		event_type=excluded.event_type, tag=excluded.tag, tag_source=excluded.tag_source,
+		event_type=excluded.event_type,
+		tag=CASE WHEN excluded.tag IS NULL OR events.tag_source='manual'
+			THEN events.tag ELSE excluded.tag END,
+		tag_source=CASE WHEN excluded.tag IS NULL OR events.tag_source='manual'
+			THEN events.tag_source ELSE excluded.tag_source END,
 		url=excluded.url,
 		is_upcoming=excluded.is_upcoming, provenance=excluded.provenance,
 		manual_locked=excluded.manual_locked, confidence=excluded.confidence,
@@ -184,8 +188,10 @@ func nullableText(value *string) any {
 	return *value
 }
 
-// llmTagSource records that the model decided the label. A cleared label
-// stores no source, so a later extraction can fill it.
+// llmTagSource records that the extraction prompt decided the label. A post
+// that names no label leaves the row's label and source as they are (see
+// upsertEventSQL), so a label the title inference stored on the same YouTube
+// entry survives, while a label the post states replaces it.
 func llmTagSource(tag *string) any {
 	if tag == nil || *tag == "" {
 		return nil

@@ -11,10 +11,13 @@ import (
 // an X post is not labelled itself: the label describes one calendar entry.
 var EventTags = []string{"live", "game", "talk", "song", "video"}
 
-// Who decided an event's tag. Manual wins over the model, and an automatic
-// extraction never replaces a manual one because the whole row is locked.
+// Who decided an event's tag. An operator's label belongs to the locked row,
+// so nothing automatic replaces it. The extraction prompt, or the X notice a
+// rule merge folds into the entry, outranks the title inference, which reads
+// the YouTube title alone.
 const (
 	TagSourceLLM    = "llm"
+	TagSourceTitle  = "title"
 	TagSourceManual = "manual"
 )
 
@@ -33,11 +36,15 @@ func ValidEventTag(value string) bool {
 // model may label.
 type EventTagCandidate struct{ ID, Title string }
 
-// ListEventTagCandidates returns the unlabelled YouTube reservations whose
-// Japan date falls in the inclusive [from, to] range, oldest first. Entries an
-// operator locked, entries that already carry a label, and entries the model
-// already judged (tag_source is set even when it found no label) are not
-// offered again.
+// ListEventTagCandidates returns up to limit unlabelled YouTube reservations
+// whose Japan date falls in the inclusive [from, to] range. Entries never
+// attempted come first, then the least recently attempted, each group oldest
+// date first, so a title whose attempts keep failing moves behind the others
+// instead of holding the head of the queue. Entries an operator locked,
+// entries that already carry a label, entries the title inference already
+// judged (tag_source is set even when it found no label), and entries a
+// labelled notice is merged into (the merge lends them its label) are not
+// offered.
 func (s *Store) ListEventTagCandidates(ctx context.Context, from, to string, limit int) ([]EventTagCandidate, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
@@ -50,7 +57,8 @@ func (s *Store) ListEventTagCandidates(ctx context.Context, from, to string, lim
 			AND provenance='automatic' AND manual_locked=0
 			AND tag IS NULL AND COALESCE(tag_source,'')=''
 			AND starts_on BETWEEN ? AND ?
-		ORDER BY starts_on ASC,id ASC LIMIT ?`, from, to, limit)
+			AND NOT EXISTS (SELECT 1 FROM events n WHERE n.merged_into=events.id AND n.merge_source=? AND n.deleted_at IS NULL AND n.tag IS NOT NULL)
+		ORDER BY tag_attempted_at IS NOT NULL, julianday(tag_attempted_at) ASC, starts_on ASC, id ASC LIMIT ?`, from, to, MergeSourceRule, limit)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -69,12 +77,13 @@ func (s *Store) ListEventTagCandidates(ctx context.Context, from, to string, lim
 	return candidates, nil
 }
 
-// RecordEventTag stores the model's label, or records that it found none, on
-// an automatic YouTube entry. Recording the attempt even without a label keeps
-// a title the model cannot classify from being sent again on every scan. An
-// operator's edit, or a label that appeared in the meantime, wins and the call
-// reports false.
-func (s *Store) RecordEventTag(ctx context.Context, id string, tag *string) (bool, error) {
+// RecordEventTag stores the title inference's label, or records that it found
+// none, on an automatic YouTube entry. Recording the judgement even without a
+// label keeps a title the model cannot classify from being sent again on every
+// scan. An operator's edit, or a label that appeared in the meantime, wins and
+// the call reports false. Only a stored label changes what readers see, so a
+// judgement without one leaves the dashboard revision alone.
+func (s *Store) RecordEventTag(ctx context.Context, id string, tag *string, now time.Time) (bool, error) {
 	tx, err := s.eventTx(ctx)
 	if err != nil {
 		return false, err
@@ -84,21 +93,39 @@ func (s *Store) RecordEventTag(ctx context.Context, id string, tag *string) (boo
 	if tag != nil && *tag != "" {
 		value = *tag
 	}
-	now := ISOTime(time.Now())
-	result, err := tx.ExecContext(ctx, `UPDATE events SET tag=?,tag_source=?,updated_at=?
+	stamp := ISOTime(now)
+	result, err := tx.ExecContext(ctx, `UPDATE events SET tag=?,tag_source=?,tag_attempted_at=?,updated_at=?
 		WHERE id=? AND deleted_at IS NULL AND manual_locked=0 AND tag IS NULL AND COALESCE(tag_source,'')=''`,
-		value, TagSourceLLM, now, id)
+		value, TagSourceTitle, stamp, stamp, id)
 	if err != nil {
 		return false, fmt.Errorf("%w: event tag", ErrUnavailable)
 	}
 	if changed, _ := result.RowsAffected(); changed == 0 {
 		return false, nil
 	}
-	if err = bumpRevision(ctx, tx, now); err != nil {
-		return false, fmt.Errorf("%w: revision", ErrUnavailable)
+	if value != nil {
+		if err = bumpRevision(ctx, tx, stamp); err != nil {
+			return false, fmt.Errorf("%w: revision", ErrUnavailable)
+		}
 	}
 	if err = tx.Commit(); err != nil {
 		return false, fmt.Errorf("%w: commit", ErrUnavailable)
 	}
 	return true, nil
+}
+
+// RecordEventTagFailure stamps a title inference that produced no answer. The
+// entry stays unjudged, so a passing provider outage never marks it decided,
+// and the stamp moves it behind the entries not yet attempted. Readers see
+// nothing new, so the revision stays.
+func (s *Store) RecordEventTagFailure(ctx context.Context, id string, now time.Time) error {
+	if s == nil || !s.writable {
+		return ErrReadOnly
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE events SET tag_attempted_at=?
+		WHERE id=? AND deleted_at IS NULL AND manual_locked=0 AND tag IS NULL AND COALESCE(tag_source,'')=''`,
+		ISOTime(now), id); err != nil {
+		return fmt.Errorf("%w: event tag", ErrUnavailable)
+	}
+	return nil
 }

@@ -19,8 +19,8 @@ func taggedScheduleReply(tag any) string {
 	))
 }
 
-// An unknown label is a broken reply, not a guess to keep; a missing or null
-// label means the entry simply has no label.
+// A missing, null or unknown label means the entry simply has no label; an
+// unknown value is not kept, and it does not cost the entry itself.
 func TestNormalizeKeepsOnlyKnownEventTags(t *testing.T) {
 	items := func(tag any, withTag bool) []any {
 		pairs := []any{
@@ -42,6 +42,8 @@ func TestNormalizeKeepsOnlyKnownEventTags(t *testing.T) {
 		{"known", "song", true, "song"},
 		{"null", nil, true, ""},
 		{"absent", nil, false, ""},
+		{"unknown", "karaoke", true, ""},
+		{"not a string", 3, true, ""},
 	} {
 		events, err := normalizeExtractedEvents(items(tt.tag, tt.withTag), "post-1", "https://x.com/example/status/1", now)
 		if err != nil {
@@ -54,9 +56,46 @@ func TestNormalizeKeepsOnlyKnownEventTags(t *testing.T) {
 		if got != tt.want {
 			t.Fatalf("%s tag=%q, want %q", tt.name, got, tt.want)
 		}
+		if len(events) != 1 || events[0].title != songTitle {
+			t.Fatalf("%s events=%+v", tt.name, events)
+		}
 	}
-	if _, err := normalizeExtractedEvents(items("karaoke", true), "post-1", "https://x.com/example/status/1", now); err == nil {
-		t.Fatal("unknown tag accepted")
+}
+
+// A provider without strict schema output may answer a label outside the
+// list; the schedule it extracted is stored without a label.
+func TestExtractionKeepsEventWithUnknownTag(t *testing.T) {
+	f := messageFixture(t)
+	f.provider.respond = func(recordedRequest) (int, string) {
+		return http.StatusOK, chatReply(taggedScheduleReply("singing"))
+	}
+	f.scan()
+	if got := f.text(`SELECT title || '|' || COALESCE(tag,'') || '|' || COALESCE(tag_source,'') FROM events`); got != songTitle+"||" {
+		t.Fatalf("stored event = %q", got)
+	}
+}
+
+// A post that names no label keeps the label the title inference stored on
+// the same entry, and a label the post states replaces it.
+func TestExtractionKeepsTitleTagUnlessThePostStatesOne(t *testing.T) {
+	f := messageFixture(t)
+	f.provider.respond = func(recordedRequest) (int, string) {
+		return http.StatusOK, chatReply(taggedScheduleReply(nil))
+	}
+	f.scan()
+	f.exec(`UPDATE events SET tag='song',tag_source='title'`)
+	f.requestReprocess("post-1")
+	f.scan()
+	if got := f.text(`SELECT COALESCE(tag,'') || '|' || COALESCE(tag_source,'') FROM events`); got != "song|title" {
+		t.Fatalf("null extraction cleared the inferred label: %q", got)
+	}
+	f.provider.respond = func(recordedRequest) (int, string) {
+		return http.StatusOK, chatReply(taggedScheduleReply("talk"))
+	}
+	f.requestReprocess("post-1")
+	f.scan()
+	if got := f.text(`SELECT COALESCE(tag,'') || '|' || COALESCE(tag_source,'') FROM events`); got != "talk|llm" {
+		t.Fatalf("stated label did not replace the inferred one: %q", got)
 	}
 }
 

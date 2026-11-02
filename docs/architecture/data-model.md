@@ -170,16 +170,35 @@ a snapshot.
 ## Event Labels
 
 `events.tag` is the calendar label of one entry: `live`, `game`, `talk`, `song`
-or `video`, or NULL. `tag_source` records who decided it (`llm` for extraction
-or title inference, `manual` for an operator). Precedence is manual > model >
-none: an operator's value belongs to the locked row, so automatic extraction
-cannot replace it, and clearing the label keeps the row manual. The extraction
-prompt returns a label only when the post or image states the activity. YouTube
-reservations are created by the sync without the extraction prompt, so the
-`translate` queue also labels them from their title; a title the model cannot
-classify is recorded as attempted (`tag_source = llm` without a tag) and is not
-asked again. A rule merge copies the label of the X notice onto the surviving
-event when that event has none.
+or `video`, or NULL. `tag_source` records who decided it: `manual` for an
+operator, `llm` for the extraction prompt or an X notice merged into the
+entry, and `title` for the title inference. Precedence is manual > `llm` >
+`title` > none:
+
+- An operator's value belongs to the locked row, so nothing automatic replaces
+  it, and clearing the label keeps the row manual.
+- The extraction prompt returns a label only when the post or image states the
+  activity. An unknown value is dropped and the entry is kept without a label.
+  A post that states no label leaves the row's label and source as they are;
+  a stated label replaces a `title` label on the same row.
+- YouTube reservations are created by the sync without the extraction prompt,
+  so the `translate` queue also labels them from their title. A judgement
+  without a label is stored as `tag_source = title` with no tag and is not
+  asked again. A title every model fails on stays unjudged and only receives
+  `tag_attempted_at`; candidates never attempted come first, then the least
+  recently attempted, so a failing title cannot hold the head of the queue
+  and a provider outage judges nothing. An entry that a labelled notice is
+  merged into is not sent.
+- Every rule merge left in place, including one kept from an earlier run, lends
+  the label of its notice to the surviving event when that event has no label
+  or a `title` one and is neither locked nor manual. When several labelled
+  notices share a target, the smallest notice ID wins, and the inherited
+  `llm` label is not replaced by later runs. The copied label stays when the
+  merge is released.
+
+Storing a label or replacing one with a different value advances the
+dashboard revision; a judgement without a label, a failed attempt, or a change
+of `tag_source` alone does not.
 
 ## Event Precedence
 

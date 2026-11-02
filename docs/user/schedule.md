@@ -6,11 +6,13 @@ The weekly schedule is a Monday-first program guide: seven day columns on
 wide screens and a day list on phones. Each entry shows its Japan time (or
 "time TBA" when only the date is known), its type, its status (upcoming, on
 air, ended, TBA, or cancelled), and an icon for whether it is Auto-detected
-(sparkles) or Confirmed (check badge); the legend under the guide names both.
+(sparkles) or Confirmed (check badge). The legend under the guide and the
+month names both marks, then each activity icon.
 The entry's color follows its type, so members-only streams stand apart.
 When the announcement, the title, or the maintainer says what the activity
 is, an icon and label name it: gameplay, talk, singing, a stream, or an
-upload. Gameplay, talk, or singing wins over a plain stream or upload, so an
+upload. A song on a premiere or upload reads as music, with a note in place
+of the singing microphone. Gameplay, talk, or singing wins over a plain stream or upload, so an
 entry and its video under Past videos name the same activity. An activity label
 takes the place of a plain stream type, and a members-only, event, or release
 entry keeps its type beside it. An entry the maintainer has not confirmed may

@@ -2,7 +2,12 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import type { ScheduleEvent } from "../src/types.ts"
 import { dashboardMessages } from "../src/dashboard/dashboard-i18n.ts"
-import { eventKinds, eventTag, eventTags } from "../src/dashboard/format.ts"
+import {
+  eventKinds,
+  eventTag,
+  eventTagKey,
+  eventTags,
+} from "../src/dashboard/format.ts"
 
 function event(eventType: string, tag?: string | null): ScheduleEvent {
   return {
@@ -31,27 +36,35 @@ test("an unlabelled or unknown label keeps the type chip alone", () => {
     assert.deepEqual(eventKinds(event("stream", tag)), {
       typeKey: "event.type.stream",
       tag: null,
+      work: false,
     })
   assert.equal(eventTag(event("stream", "Song")), "song")
 })
 
 test("an activity label replaces the plain stream chip", () => {
   for (const tag of ["game", "talk", "song"])
-    assert.deepEqual(eventKinds(event("stream", tag)), { typeKey: null, tag })
+    assert.deepEqual(eventKinds(event("stream", tag)), {
+      typeKey: null,
+      tag,
+      work: false,
+    })
 })
 
 test("members-only, event and release chips stay beside the label", () => {
   assert.deepEqual(eventKinds(event("member", "song")), {
     typeKey: "event.type.member",
     tag: "song",
+    work: false,
   })
   assert.deepEqual(eventKinds(event("event", "live")), {
     typeKey: "event.type.event",
     tag: "live",
+    work: false,
   })
   assert.deepEqual(eventKinds(event("release", "video")), {
     typeKey: "event.type.release",
     tag: "video",
+    work: true,
   })
 })
 
@@ -64,7 +77,21 @@ test("a label that repeats its type is dropped", () => {
     assert.deepEqual(eventKinds(event(type, tag)), {
       typeKey: `event.type.${type}`,
       tag: null,
+      work: type === "video",
     })
+})
+
+test("a song reads as music on a premiere or upload, else as singing", () => {
+  const key = (type: string) => {
+    const { tag, work } = eventKinds(event(type, "song"))
+    return tag ? eventTagKey(tag, work) : null
+  }
+  for (const type of ["release", "video"])
+    assert.equal(key(type), "media.kind.music", type)
+  for (const type of ["stream", "member", "event"])
+    assert.equal(key(type), "event.tag.song", type)
+  // Only a song changes its words; a work's game stays gameplay.
+  assert.equal(eventTagKey("game", true), "event.tag.game")
 })
 
 test("every label has a display name in each locale", () => {

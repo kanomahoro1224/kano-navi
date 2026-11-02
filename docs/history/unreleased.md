@@ -36,8 +36,10 @@
   content.
 - The weekly guide and the month view show an entry's label with an icon. An
   activity label replaces a plain stream type, while members-only, event and
-  release types stay beside it; colors still follow the type. The Next Up
-  ticket names gameplay, talk and singing entries by their label.
+  release types stay beside it; colors still follow the type. A `song` label
+  reads as music with a note on a release or video entry and as singing with
+  a vocal microphone elsewhere. The Next Up ticket names gameplay, talk and
+  singing entries by their label.
 - Past videos shows four columns of covers on wide screens, three on narrow
   ones and two on phones. A month long enough to scroll keeps the same columns
   as a short one.
@@ -59,8 +61,9 @@
   visitor's own time outside Japan, and an Open link button, instead of
   following the link at once. In the month view an entry picks its day and is
   marked in the day list, which shows whole titles. Entries show
-  Auto-detected and Confirmed as icons, named by the legend, and an arrow in
-  their bottom corner still opens the link directly.
+  Auto-detected and Confirmed as icons, and an arrow in their bottom corner
+  still opens the link directly. The legend under the schedule names these
+  marks and each activity icon.
 - On wide screens the month view fills its window, and a day with few entries
   wraps their titles onto several lines.
 - Closing the image viewer leaves the page where it was instead of scrolling

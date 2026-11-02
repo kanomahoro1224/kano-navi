@@ -166,6 +166,12 @@ test("a schedule entry opens its sheet, and a month entry marks it in its day", 
       "2",
     )
 
+    // The legend names every activity icon that grid entries show alone.
+    assert.equal(
+      container.querySelectorAll(".guide-legend .guide-legend-tag svg").length,
+      5,
+    )
+
     // A card opens its sheet, which holds the whole title and the link.
     await click(cards[0])
     const sheet = container.querySelector("dialog.sheet-dialog")

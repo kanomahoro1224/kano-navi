@@ -1239,6 +1239,26 @@
   font-size: 12px;
 }
 
+/* The activity icons follow the provenance marks as their own group. */
+.guide-legend-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.guide-legend-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+}
+
+.guide-legend-tag svg {
+  width: 12px;
+  height: 12px;
+}
+
 .guide-image {
   display: flex;
   align-items: center;

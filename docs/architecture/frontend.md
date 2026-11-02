@@ -79,7 +79,9 @@ the work's content otherwise (gameplay, talk, music, where a note replaces
 the singing microphone, as on the archive's Songs button); it appears on every
 card, row, ticket and the lead, including stream archives that hide the
 form chip. The Next Up ticket names the video's tag, else the entry's
-activity label, before the form. The filter offers All plus Streams, Works and Shorts for each kind
+activity label, before the form. Schedule entries follow the same split:
+`eventKinds` marks a release or video entry as a work, and `eventTagKey`
+names a work's `song` label music, any other singing. The filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the
 centre of the 1280×720 cover (the vertical frame between YouTube's blurred
 pillarbox): one row of up to six in the All view, fewer as columns narrow and

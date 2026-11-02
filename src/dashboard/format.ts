@@ -337,7 +337,8 @@ export function eventTag(event: ScheduleEvent): EventTag | null {
  * The kind chips of an entry. A label says what the activity is and the type
  * how it is held: a label replaces the plain stream chip, a members-only,
  * event or release chip stays beside it, and a label that repeats its type
- * is dropped.
+ * is dropped. `work` marks a release (a premiere) or an upload, where a song
+ * is a cover or original rather than a singing stream.
  */
 export function eventKinds(event: ScheduleEvent) {
   const type = String(event.eventType || "").toLowerCase()
@@ -348,7 +349,12 @@ export function eventKinds(event: ScheduleEvent) {
   )
     tag = null
   const typeKey = tag && type === "stream" ? null : eventTypeKey(event)
-  return { typeKey, tag }
+  return { typeKey, tag, work: type === "release" || type === "video" }
+}
+
+/** A label's message key: a work's song reads as music, any other as singing. */
+export function eventTagKey(tag: EventTag, work: boolean) {
+  return work && tag === "song" ? "media.kind.music" : `event.tag.${tag}`
 }
 
 export function sortEvents(events: ScheduleEvent[]) {

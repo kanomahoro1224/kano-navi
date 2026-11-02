@@ -35,7 +35,9 @@ import {
   eventDateKey,
   eventIsManual,
   eventKinds,
+  eventTagKey,
   eventStatus,
+  eventTags,
   formatJapanTime,
   formatLongDate,
   formatVisitorTime,
@@ -97,7 +99,7 @@ const statusTones: Record<string, string> = {
 /** What an entry's card and its sheet both show. */
 function entryFacts(event: ScheduleEvent, now: number, t: Translator) {
   const status = eventStatus(event, now)
-  const { typeKey, tag } = eventKinds(event)
+  const { typeKey, tag, work } = eventKinds(event)
   const cancellationNote =
     event.cancellationStatus === "llm_suspected"
       ? [
@@ -115,6 +117,7 @@ function entryFacts(event: ScheduleEvent, now: number, t: Translator) {
     status,
     typeKey,
     tag,
+    work,
     tone: typeTones[String(event.eventType || "").toLowerCase()] || "sky",
     time: event.startsAt ? formatJapanTime(event.startsAt) : null,
     manual: eventIsManual(event),
@@ -160,15 +163,15 @@ function EntryTags({
   t: Translator
   children?: ReactNode
 }) {
-  const { typeKey, tag, status } = facts
+  const { typeKey, tag, work, status } = facts
   if (!typeKey && !tag && status === "upcoming" && !children) return null
   return (
     <span className="guide-event-tags">
       {typeKey ? <span className="tag">{t(typeKey)}</span> : null}
       {tag ? (
         <span className="tag guide-event-kind">
-          <EventTagIcon tag={tag} />
-          {t(`event.tag.${tag}`)}
+          <EventTagIcon tag={tag} work={work} />
+          {t(eventTagKey(tag, work))}
         </span>
       ) : null}
       {status !== "upcoming" ? (
@@ -519,7 +522,7 @@ function MonthGrid({
                 >
                   {items.slice(0, MONTH_CHIPS).map((event) => {
                     const status = eventStatus(event, now)
-                    const { tag } = eventKinds(event)
+                    const { tag, work } = eventKinds(event)
                     const tone =
                       typeTones[String(event.eventType || "").toLowerCase()] ||
                       "sky"
@@ -532,7 +535,7 @@ function MonthGrid({
                     )
                     const label = [
                       `${time || t("common.pendingConfirmation")} ${title}`,
-                      tag ? t(`event.tag.${tag}`) : null,
+                      tag ? t(eventTagKey(tag, work)) : null,
                       t(`schedule.status.${status}`),
                     ]
                       .filter(Boolean)
@@ -549,7 +552,9 @@ function MonthGrid({
                           <span aria-hidden="true">
                             {tag || time ? (
                               <span className="month-event-lead">
-                                {tag ? <EventTagIcon tag={tag} /> : null}
+                                {tag ? (
+                                  <EventTagIcon tag={tag} work={work} />
+                                ) : null}
                                 {time ? <strong>{time}</strong> : null}
                               </span>
                             ) : null}{" "}
@@ -576,11 +581,23 @@ function MonthGrid({
   )
 }
 
-function ProvenanceLegend({ t }: { t: Translator }) {
+/**
+ * What the schedule's marks mean: the provenance icons, then each activity
+ * label's icon, which month-grid entries show alone.
+ */
+function ScheduleLegend({ t }: { t: Translator }) {
   return (
     <>
       <Provenance manual={false} labelled t={t} />
       <Provenance manual labelled t={t} />
+      <span className="guide-legend-tags">
+        {eventTags.map((tag) => (
+          <span key={tag} className="guide-legend-tag">
+            <EventTagIcon tag={tag} />
+            {t(`event.tag.${tag}`)}
+          </span>
+        ))}
+      </span>
     </>
   )
 }
@@ -769,7 +786,7 @@ export function ScheduleMonth({
       {archive ? (
         <div className="guide-foot">
           <p className="guide-legend">
-            <ProvenanceLegend t={t} />
+            <ScheduleLegend t={t} />
           </p>
           <ArchiveMore
             hasNext={archive.hasNext}
@@ -954,7 +971,7 @@ export function WeekGuide({
 
           <div className="guide-foot">
             <p className="guide-legend">
-              <ProvenanceLegend t={t} />
+              <ScheduleLegend t={t} />
               <span>{t("schedule.weekCount", { count: total })}</span>
             </p>
             {hasNext ? (

@@ -21,7 +21,9 @@ import {
   confirmedLiveStatus,
   countdownParts,
   eventIsManual,
+  eventKinds,
   eventTag,
+  eventTagKey,
   eventTypeKey,
   formatJapanDay,
   formatJapanTime,
@@ -106,6 +108,7 @@ function TicketHead({
   // entry's gameplay, talk or singing label outranks the form; a plain
   // stream or upload label says no more than the type already does.
   const label = item.event ? eventTag(item.event) : null
+  const entryWork = item.event ? eventKinds(item.event).work : false
   const videoActivity = item.video ? videoTag(item.video) : null
   const activity: VideoTag | null =
     videoActivity ??
@@ -114,7 +117,7 @@ function TicketHead({
     item.video && videoActivity
       ? videoTagLabel(item.video, t)
       : activity
-        ? t(`event.tag.${activity}`)
+        ? t(eventTagKey(activity, entryWork))
         : item.video
           ? videoFormLabel(item.video, t)
           : typeKey
@@ -137,9 +140,11 @@ function TicketHead({
         {activity ? (
           <EventTagIcon
             tag={activity}
-            work={Boolean(
-              videoActivity && item.video && item.video.kind !== "stream",
-            )}
+            work={
+              videoActivity && item.video
+                ? item.video.kind !== "stream"
+                : entryWork
+            }
           />
         ) : null}
         {tag}

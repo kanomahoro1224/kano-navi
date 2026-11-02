@@ -53,7 +53,8 @@
   the tag as categories. The video shelf sorts streams and works by the form
   alone, so an upload whose title mentions a stream stays a work.
 - Every video shows its form and, beside it, its tag with an icon, so stream
-  archives also say whether they were gameplay, talk or singing. Singing
+  archives also say whether they were gameplay, talk or singing. A stream
+  that may still be on air reads as a stream, not an archive. Singing
   takes a vocal microphone and a music video or cover a note. Past videos'
   category buttons carry the same icons, and the Next Up ticket names a
   video's tag ahead of its entry's label.

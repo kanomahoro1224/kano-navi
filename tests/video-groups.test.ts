@@ -226,6 +226,23 @@ test("the form chip names the waiting room or the form, never the tag", () => {
   assert.equal(form({ isUpcoming: true, tag: "game" }), "media.kind.upcoming")
   assert.equal(form({ tag: "game" }), "media.kind.liveArchive")
   assert.equal(form({ kind: "premiere", tag: "song" }), "media.kind.premiere")
+})
+
+test("a stream that may be on air reads as a stream, not its archive", () => {
+  const t = (key: string) => key
+  const form = (fields: Partial<Video>) =>
+    videoFormLabel(video("v", fields), t, now)
+  assert.equal(form({ liveStatus: "live" }), "event.type.stream")
+  assert.equal(form({ scheduledAt: at(-hour) }), "event.type.stream")
+  assert.equal(
+    form({ scheduledAt: at(-hour), endsAt: at(-1) }),
+    "media.kind.liveArchive",
+  )
+  assert.equal(form({ scheduledAt: at(-4 * hour) }), "media.kind.liveArchive")
+  assert.equal(
+    form({ scheduledAt: at(-hour), liveStatus: "ended" }),
+    "media.kind.liveArchive",
+  )
   for (const kind of ["upload", "unknown"])
     assert.equal(form({ kind, tag: "talk" }), "media.kind.video", kind)
 })

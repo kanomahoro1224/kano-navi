@@ -71,8 +71,9 @@ an archive nor a work; `null` (unknown) is an ordinary upload. The
 lead is the featured video, or else the newest work tagged `song` or
 premiere, or else the newest work, so a Short leads only when featured; each video appears
 once. A video carries two chips. The form chip (`videoFormLabel`) names a
-Short, then a stream's waiting room, then the form (stream archive,
-premiere, video). The tag chip (`VideoTagChip` in
+Short, then a stream's waiting room, then the form (stream while it may be
+on air by the same rule as a live entry, then stream archive, premiere,
+video). The tag chip (`VideoTagChip` in
 `src/dashboard/components/event-tag.tsx`) adds the tag with the schedule's
 icon, in the schedule's words for a stream (gameplay, talk, singing) and as
 the work's content otherwise (gameplay, talk, music, where a note replaces

@@ -400,18 +400,34 @@ export function videoTag(video: Video): VideoTag | null {
     : null
 }
 
+// A stream past its waiting room may still be on air: a confirmed broadcast
+// decides, otherwise its start within the live grace and before its end.
+function streamMayBeOnAir(video: Video, now: number) {
+  const confirmed = confirmedLiveStatus(video)
+  if (confirmed) return confirmed === "live"
+  const start = Date.parse(video.scheduledAt || "")
+  const end = Date.parse(video.endsAt || "")
+  if (!(start <= now)) return false
+  if (Number.isFinite(end)) return end > now
+  return start > now - LIVE_GRACE_MS
+}
+
 /**
  * A video's form chip: a Short, then a stream's waiting room, then its form.
- * A stream past its waiting room reads as its archive; the phase tags say
- * when it is on air. What the video is about is its tag chip.
+ * A stream that may be on air reads as a stream and one past that as its
+ * archive. What the video is about is its tag chip.
  */
-export function videoFormLabel(video: Video, t: Translator) {
+export function videoFormLabel(video: Video, t: Translator, now = Date.now()) {
   if (video?.isShort === true) return t("media.kind.short")
   const kind = String(video?.kind || "")
-  if (kind === "stream")
+  if (kind === "stream") {
+    if (video.isUpcoming) return t("media.kind.upcoming")
     return t(
-      video.isUpcoming ? "media.kind.upcoming" : "media.kind.liveArchive",
+      streamMayBeOnAir(video, now)
+        ? "event.type.stream"
+        : "media.kind.liveArchive",
     )
+  }
   if (kind === "premiere") return t("media.kind.premiere")
   return t("media.kind.video")
 }

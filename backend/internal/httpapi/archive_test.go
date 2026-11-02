@@ -146,23 +146,27 @@ func TestVideoArchiveUsesTheScheduledOrPublishedTime(t *testing.T) {
 	}
 }
 
-func TestVideoArchiveFiltersByCalendarLabelOrKind(t *testing.T) {
+func TestVideoArchiveFiltersByTag(t *testing.T) {
+	// A video's manual tag comes first, then its schedule entry's label (a
+	// merge target's first; live and video name a form), then its own
+	// inferred tag; anything else is other.
 	handler := archiveHandler(t, `
-		INSERT INTO videos (id,source,title,published_at,url,kind,manual_kind) VALUES
-		 ('v-aug','youtube','August','2026-08-10T12:00:00Z','https://www.youtube.com/watch?v=aug','GAMEPLAY',NULL),
-		 ('v-sep','youtube','September','2026-09-25T12:00:00Z','https://www.youtube.com/watch?v=sep','VIDEO',NULL),
-		 ('v-game','youtube','Game','2026-10-01T12:00:00Z','https://www.youtube.com/watch?v=game','LIVE ARCHIVE',NULL),
-		 ('v-linked','youtube','Linked','2026-10-02T12:00:00Z','https://www.youtube.com/watch?v=linked','LIVE ARCHIVE',NULL),
-		 ('v-manual','youtube','Manual kind','2026-10-03T12:00:00Z','https://www.youtube.com/watch?v=manual','VIDEO','GAMEPLAY'),
-		 ('v-talk','youtube','Talk kind','2026-10-04T12:00:00Z','https://www.youtube.com/watch?v=talk','TALK',NULL),
-		 ('v-label','youtube','Label over kind','2026-10-05T12:00:00Z','https://www.youtube.com/watch?v=label','MUSIC',NULL),
-		 ('v-merged','youtube','Merged','2026-10-06T12:00:00Z','https://www.youtube.com/watch?v=merged','LIVE ARCHIVE',NULL),
-		 ('v-music','youtube','Music kind','2026-10-07T12:00:00Z','https://www.youtube.com/watch?v=music','MUSIC',NULL),
-		 ('v-live','youtube','Live label','2026-10-08T12:00:00Z','https://www.youtube.com/watch?v=live','LIVE ARCHIVE',NULL),
-		 ('v-deleted','youtube','Deleted entry','2026-10-09T12:00:00Z','https://www.youtube.com/watch?v=deleted','VIDEO',NULL);
+		INSERT INTO videos (id,source,title,published_at,url,kind,manual_tag,tag) VALUES
+		 ('v-aug','youtube','August','2026-08-10T12:00:00Z','https://www.youtube.com/watch?v=aug','upload',NULL,'game'),
+		 ('v-sep','youtube','September','2026-09-25T12:00:00Z','https://www.youtube.com/watch?v=sep','upload',NULL,NULL),
+		 ('v-game','youtube','Game','2026-10-01T12:00:00Z','https://www.youtube.com/watch?v=game','stream',NULL,NULL),
+		 ('v-linked','youtube','Linked','2026-10-02T12:00:00Z','https://www.youtube.com/watch?v=linked','stream',NULL,NULL),
+		 ('v-manual','youtube','Manual tag','2026-10-03T12:00:00Z','https://www.youtube.com/watch?v=manual','stream','game',NULL),
+		 ('v-talk','youtube','Inferred talk','2026-10-04T12:00:00Z','https://www.youtube.com/watch?v=talk','upload',NULL,'talk'),
+		 ('v-label','youtube','Label over inference','2026-10-05T12:00:00Z','https://www.youtube.com/watch?v=label','premiere',NULL,'song'),
+		 ('v-merged','youtube','Merged','2026-10-06T12:00:00Z','https://www.youtube.com/watch?v=merged','stream',NULL,NULL),
+		 ('v-music','youtube','Form label','2026-10-07T12:00:00Z','https://www.youtube.com/watch?v=music','premiere',NULL,'song'),
+		 ('v-live','youtube','Live label','2026-10-08T12:00:00Z','https://www.youtube.com/watch?v=live','stream',NULL,NULL),
+		 ('v-deleted','youtube','Deleted entry','2026-10-09T12:00:00Z','https://www.youtube.com/watch?v=deleted','stream',NULL,NULL);
 		INSERT INTO events (id,source,source_item_id,title,starts_on,tag,merged_into,deleted_at,created_at,updated_at) VALUES
 		 ('youtube-v-game','youtube','v-game','Game','2026-10-01','game',NULL,NULL,'',''),
 		 ('x-linked','x','post-1','Linked','2026-10-02','game',NULL,NULL,'',''),
+		 ('youtube-v-manual','youtube','v-manual','Manual','2026-10-03','talk',NULL,NULL,'',''),
 		 ('youtube-v-label','youtube','v-label','Label','2026-10-05','talk',NULL,NULL,'',''),
 		 ('manual-song','manual',NULL,'Song','2026-10-06','song',NULL,NULL,'',''),
 		 ('youtube-v-merged','youtube','v-merged','Merged','2026-10-06',NULL,'manual-song',NULL,'',''),
@@ -200,6 +204,10 @@ func TestVideoArchiveFiltersByCalendarLabelOrKind(t *testing.T) {
 	game := decodeObject(t, request(t, handler, http.MethodGet, "/api/videos?from=2026-10-01&to=2026-10-31&category=game"))
 	if adjacent := game["adjacent"].(map[string]any); adjacent["previous"] != "2026-08-10" || game["total"] != float64(3) {
 		t.Fatalf("game adjacent=%#v total=%v", adjacent, game["total"])
+	}
+	// Each item carries its shown tag.
+	if first := game["items"].([]any)[0].(map[string]any); first["tag"] != "game" {
+		t.Fatalf("game item=%#v", first)
 	}
 
 	bad := request(t, handler, http.MethodGet, "/api/videos?from=2026-10-01&to=2026-10-31&category=live")

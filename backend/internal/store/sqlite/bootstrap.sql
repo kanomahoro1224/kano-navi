@@ -403,7 +403,11 @@ CREATE TABLE videos (
     merged_at TEXT,
     is_short INTEGER,
     manual_is_short INTEGER,
-    is_premiere INTEGER
+    is_premiere INTEGER,
+    manual_tag TEXT,
+    tag TEXT,
+    tag_source TEXT,
+    tag_attempted_at TEXT
   );
 
 CREATE TABLE workflows (

@@ -164,8 +164,10 @@ becomes its own source evidence, X schedule rows become manual and locked, and
 YouTube reservations stay automatic. When startup adds `focus.video_id`,
 each row receives it from the YouTube identity of its URL; a post without `account_handle`
 receives the handle in its URL. Automatic, unlocked YouTube events with a
-start time and `unknown` precision become `exact`. None of these steps clears
-a snapshot.
+start time and `unknown` precision become `exact`. A video whose `kind` or
+`manual_kind` is not one of the [video forms](#video-form-and-tags) is
+rewritten once, as that section describes. None of these steps clears a
+snapshot.
 
 ## Event Labels
 
@@ -525,7 +527,7 @@ snapshots without rewriting events.
 Synchronization owns a video's platform fields (`title`, `kind`,
 `thumbnail_url` and its media link) and keeps rewriting them on every
 successful page read. An operator correction lives beside them in
-`manual_title`, `manual_kind`, `manual_is_short` and
+`manual_title`, `manual_kind`, `manual_tag`, `manual_is_short` and
 `manual_thumbnail_media_id` / `manual_thumbnail_sha256` with
 `manual_updated_at`; synchronization never
 writes these columns, and clearing one shows the platform value again. Every
@@ -563,9 +565,73 @@ unknown rather than being guessed from its length.
 `is_premiere` is the stored premiere verdict of a YouTube reservation: 1 for
 a premiere (a `release` event), 0 for live content, `NULL` while no check
 could tell, which is also what the upgrade gives existing rows (see
-[Sources](sources.md#youtube)). It is never derived from the kind.
+[Sources](sources.md#youtube)). It is never derived from the kind; the kind
+follows it.
 Startup adds the columns, both tables and `video_revisions_video_idx` to
 existing snapshots without rewriting videos or media rows.
+
+## Video Form and Tags
+
+A video has three independent layers, each with one owner
+([ADR-0005](../decisions/ADR-0005-video-form-and-content-tag.md)).
+
+**Form.** `kind` is `stream`, `premiere`, `upload` or `unknown`, written by
+synchronization from platform facts only:
+
+- A YouTube detail check (watch page or Data API) that found a broadcast
+  start writes `premiere` when the premiere verdict says so and `stream`
+  otherwise; one that found no broadcast start writes `upload`. An ended
+  broadcast whose answer cannot tell (an unclassified Data API answer) keeps
+  a stored `stream` or `premiere` and is `unknown` without one.
+- A listing (feed, uploads playlist, uploads tab, yt-dlp metadata, history
+  window) inserts `unknown`, and a listing never replaces a stored row's
+  kind; the detail check settles it.
+- Every Bilibili upload is `upload`.
+
+`manual_kind` corrects the form with `stream`, `premiere` or `upload`.
+Readers show `COALESCE(manual_kind, kind)`.
+
+**State.** Upcoming, live, ended and cancelled are not part of the kind:
+`is_upcoming`, `live_status`, `scheduled_at`, the linked entry's `ends_at` and
+its operator-confirmed cancellation say where a stream or premiere stands. A
+stream archive is a `stream` whose broadcast ended.
+
+**Content.** A video's tag is `game`, `talk` or `song`. Readers derive the
+shown tag on each read as the first of:
+
+1. `manual_tag`, the operator's video tag;
+2. the [label](#event-labels) of the video's schedule entry (its
+   `youtube-<id>` event, an event whose `source_item_id` it is, or one with a
+   YouTube `event_sources` row for it; deleted entries are skipped and the
+   label of the entry it is merged into comes first), when that label is
+   `game`, `talk` or `song`;
+3. `tag`, the title inference's tag of the video itself.
+
+The entry label is never copied into the video row, so an edit, merge or
+release on the entry shows at once. `live` and `video` labels name a form and
+never reach a video. A video without a tag is `other` in the archive's
+category filter.
+
+`tag`, `tag_source` and `tag_attempted_at` follow the entry inference's rules
+(see [Event labels](#event-labels)): the `translate` queue asks about shown
+videos (not merged into another) without a manual tag or judgement, whose
+entries, if any, are neither labelled, judged, operator-owned, merged nor
+still within the entry inference window. Only `game`, `talk` or `song` is
+stored; another answer or none is stored as `tag_source = title` without a
+tag and is not asked again; a failure only stamps `tag_attempted_at`. Videos
+never attempted come first, then the least recently attempted, each newest
+first. Storing a tag advances the dashboard revision; a judgement without
+one or a failed attempt does not.
+
+Startup rewrites a row that still carries an older title kind, once:
+`manual_kind` `GAMEPLAY`, `TALK` and `MUSIC` become `manual_tag` `game`,
+`talk` and `song` and clear the form correction, `LIVE ARCHIVE` and
+`UPCOMING LIVE` become `stream` and `VIDEO` becomes `upload`. `kind` is
+derived from the stored facts: a start with a premiere verdict decides; a
+start without one is a `premiere` for an old `MUSIC` or `VIDEO` kind and a
+`stream` otherwise; a row without a start is an `upload` once
+`live_checked_at` records a detail check and `unknown` otherwise; a Bilibili
+row is an `upload`. A row already in the new shape is untouched.
 
 ## Video Merging
 

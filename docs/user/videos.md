@@ -31,8 +31,10 @@ bilibili video month by month as a grid of covers, newest first, each with
 its title, Japan date and time, and kind. Buttons above the grid narrow the
 month to games, talk, songs or everything else, each with its count; the
 choice stays while you move between months. A video counts as a game, talk
-or song when its schedule entry carries that label, or otherwise when its kind
-says so.
+or song when the maintainer tagged it so, otherwise when its schedule entry
+carries that label, and otherwise when an automatic reading of its title
+says so; anything else counts as other. Whether a video is a stream, a
+premiere or an upload comes from YouTube itself and never from its title.
 
 ## Related Docs
 

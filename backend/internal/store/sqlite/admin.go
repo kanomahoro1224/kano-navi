@@ -113,6 +113,14 @@ type AdminVideo struct {
 	IsShort       *bool `json:"isShort"`
 	SourceIsShort *bool `json:"sourceIsShort"`
 	ManualIsShort *bool `json:"manualIsShort"`
+	// Tag is the shown content tag: ManualTag, else ScheduleTag (the label of
+	// the video's schedule entry), else InferredTag (the title inference's,
+	// with InferredTagSource set once the video was judged, tag or none).
+	Tag               *string `json:"tag"`
+	ManualTag         *string `json:"manualTag"`
+	ScheduleTag       *string `json:"scheduleTag"`
+	InferredTag       *string `json:"inferredTag"`
+	InferredTagSource *string `json:"inferredTagSource"`
 	// CheckedAt is the last successful watch-page read; RefreshRequestedAt is
 	// an operator request the next YouTube step has not answered yet.
 	CheckedAt          *string `json:"checkedAt"`
@@ -661,10 +669,11 @@ func (s *Store) ListAdminVideos(ctx context.Context, f AdminVideoFilter) (AdminV
 	}, nil
 }
 
-const adminVideoColumns = `v.id,v.source,v.title,v.published_at,v.scheduled_at,v.url,v.thumbnail_url,v.kind,COALESCE(v.is_upcoming,0),
+var adminVideoColumns = `v.id,v.source,v.title,v.published_at,v.scheduled_at,v.url,v.thumbnail_url,v.kind,COALESCE(v.is_upcoming,0),
  v.manual_title,v.manual_kind,v.manual_thumbnail_media_id,v.manual_thumbnail_sha256,v.duration_seconds,v.live_checked_at,v.refresh_requested_at,
  (SELECT COUNT(*) FROM video_revisions r WHERE r.video_id=v.id),
- v.merged_into,(SELECT COALESCE(t.manual_title,t.title) FROM videos t WHERE t.id=v.merged_into),v.merge_source,v.merge_reason,v.merged_at,v.is_short,v.manual_is_short`
+ v.merged_into,(SELECT COALESCE(t.manual_title,t.title) FROM videos t WHERE t.id=v.merged_into),v.merge_source,v.merge_reason,v.merged_at,v.is_short,v.manual_is_short,
+ v.manual_tag,` + videoEventTagSQL("v") + `,v.tag,v.tag_source`
 
 func scanAdminVideo(row scanner) (AdminVideo, error) {
 	var v AdminVideo
@@ -672,10 +681,12 @@ func scanAdminVideo(row scanner) (AdminVideo, error) {
 	var mergedInto, mergedTitle, mergeSource, mergeReason, mergedAt sql.NullString
 	var duration sql.NullInt64
 	var short, manualShort sql.NullBool
+	var manualTag, scheduleTag, inferredTag, inferredSource sql.NullString
 	var upcoming int
 	if err := row.Scan(&v.ID, &v.Source, &v.SourceTitle, &published, &scheduled, &v.URL, &thumbnail, &kind, &upcoming,
 		&manualTitle, &manualKind, &pinMedia, &pinHash, &duration, &checked, &requested, &v.Revisions,
-		&mergedInto, &mergedTitle, &mergeSource, &mergeReason, &mergedAt, &short, &manualShort); err != nil {
+		&mergedInto, &mergedTitle, &mergeSource, &mergeReason, &mergedAt, &short, &manualShort,
+		&manualTag, &scheduleTag, &inferredTag, &inferredSource); err != nil {
 		return AdminVideo{}, err
 	}
 	v.MergedInto, v.MergedIntoTitle, v.MergeSource = nullString(mergedInto), nullString(mergedTitle), nullString(mergeSource)
@@ -703,6 +714,15 @@ func scanAdminVideo(row scanner) (AdminVideo, error) {
 	v.IsShort = v.SourceIsShort
 	if v.ManualIsShort != nil {
 		v.IsShort = v.ManualIsShort
+	}
+	v.ManualTag, v.ScheduleTag = nullString(manualTag), nullString(scheduleTag)
+	v.InferredTag, v.InferredTagSource = nullString(inferredTag), nullString(inferredSource)
+	v.Tag = v.ManualTag
+	if v.Tag == nil {
+		v.Tag = v.ScheduleTag
+	}
+	if v.Tag == nil {
+		v.Tag = v.InferredTag
 	}
 	v.CheckedAt = nullString(checked)
 	v.RefreshRequestedAt = nullString(requested)

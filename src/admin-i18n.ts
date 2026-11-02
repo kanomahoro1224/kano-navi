@@ -451,6 +451,11 @@ export const adminMessages = {
       "Leave empty to show the platform title. Translations follow this title.",
     "admin.videos.field.kind": "Kind",
     "admin.videos.kind.platform": "Platform value ({kind})",
+    "admin.videos.field.tag": "Content tag",
+    "admin.videos.tag.auto": "Automatic ({tag})",
+    "admin.videos.tag.none": "none",
+    "admin.videos.tag.hint":
+      "Without a tag here, the schedule entry's label decides, then the title inference. None shows as Other.",
     "admin.videos.field.format": "Format",
     "admin.videos.format.platform": "Follow the feed ({format})",
     "admin.videos.format.short": "Short",
@@ -1701,6 +1706,11 @@ export const adminMessages = {
     "admin.videos.field.titleHint": "留空则显示平台标题。翻译会跟随这个标题。",
     "admin.videos.field.kind": "类型",
     "admin.videos.kind.platform": "平台值（{kind}）",
+    "admin.videos.field.tag": "内容标签",
+    "admin.videos.tag.auto": "自动（{tag}）",
+    "admin.videos.tag.none": "无",
+    "admin.videos.tag.hint":
+      "这里不设标签时，先看日程条目的标签，再看标题推断。都没有则归入其他。",
     "admin.videos.field.format": "形式",
     "admin.videos.format.platform": "跟随订阅源（{format}）",
     "admin.videos.format.short": "Shorts",

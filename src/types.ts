@@ -128,7 +128,10 @@ export interface Video {
   url: string
   thumbnailUrl: string | null
   thumbnailStatus: string
+  /** The form: stream, premiere, upload, or unknown before a detail check. */
   kind: string
+  /** What the video is about: game, talk or song; null for anything else. */
+  tag?: string | null
   isUpcoming: boolean
   isCancelled?: boolean
   liveStatus?: LiveStatus | null

@@ -98,7 +98,7 @@ func Atom(videos []sqlite.Video, now time.Time, origin string, locale Locale) ([
 			ID:         "urn:kano-navi:video:" + v.ID,
 			Updated:    at.UTC().Format(time.RFC3339),
 			Links:      []atomLink{{Href: link, Rel: "alternate", Type: "text/html"}},
-			Categories: []atomCategory{{Term: videoKind(v)}},
+			Categories: videoCategories(v),
 			Summary:    summary,
 		}
 		for _, alternate := range v.Alternates {
@@ -150,10 +150,22 @@ func videoKind(v sqlite.Video) string {
 	if v.IsShort != nil && *v.IsShort {
 		return "short"
 	}
-	if v.Kind != nil && strings.TrimSpace(*v.Kind) != "" {
-		return strings.TrimSpace(*v.Kind)
+	if v.Kind != nil {
+		switch kind := strings.TrimSpace(*v.Kind); kind {
+		case "stream", "premiere", "upload":
+			return kind
+		}
 	}
 	return "video"
+}
+
+// videoCategories names an entry's form and, when it has one, its content tag.
+func videoCategories(v sqlite.Video) []atomCategory {
+	out := []atomCategory{{Term: videoKind(v)}}
+	if v.Tag != nil {
+		out = append(out, atomCategory{Term: *v.Tag})
+	}
+	return out
 }
 
 func japanTime(at time.Time) string {

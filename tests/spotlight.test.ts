@@ -24,7 +24,7 @@ const latestVideo: Video = {
   url: "https://www.youtube.com/watch?v=synthetic01",
   thumbnailUrl: "/media/synthetic-thumb",
   thumbnailStatus: "ready",
-  kind: "LIVE ARCHIVE",
+  kind: "stream",
   isUpcoming: false,
 }
 
@@ -68,7 +68,7 @@ test("a reserved stream with artwork keeps the full ticket without a companion",
     url: "https://www.youtube.com/watch?v=synthetic02",
     scheduledAt: "2026-10-22T11:00:00Z",
     publishedAt: null,
-    kind: "UPCOMING LIVE",
+    kind: "stream",
     isUpcoming: true,
   }
   const summary = { nextEvent: dateOnlyEvent, nextStream, latestVideo }
@@ -250,7 +250,7 @@ test("an event for the same YouTube video is not a second candidate", () => {
     url: "https://www.youtube.com/watch?v=synthetic04",
     scheduledAt: "2026-10-24T12:00:00Z",
     publishedAt: null,
-    kind: "UPCOMING LIVE",
+    kind: "stream",
     isUpcoming: true,
   }
   const nextEvent = scheduled({
@@ -437,7 +437,7 @@ test("the latest-video fallback skips Shorts unless the operator featured one", 
     ...latestVideo,
     id,
     url: `https://www.youtube.com/watch?v=${id}`,
-    kind: "VIDEO",
+    kind: "upload",
     isShort: true,
     publishedAt,
   })

@@ -645,6 +645,16 @@ export interface AdminVideo {
   isShort: boolean | null
   sourceIsShort: boolean | null
   manualIsShort: boolean | null
+  /**
+   * The shown content tag (game, talk or song): manualTag, else the label of
+   * the video's schedule entry, else the title inference's. inferredTagSource
+   * is set once the inference judged the video, with or without a tag.
+   */
+  tag: string | null
+  manualTag: string | null
+  scheduleTag: string | null
+  inferredTag: string | null
+  inferredTagSource: string | null
   /** The last successful watch-page read. */
   checkedAt: string | null
   /** A refresh request the next YouTube step has not answered yet. */
@@ -727,6 +737,7 @@ export interface VideoHistory {
 export interface VideoCorrection {
   title?: string | null
   kind?: string | null
+  tag?: string | null
   thumbnail?: VideoThumbnailPin | null
   isShort?: boolean | null
 }

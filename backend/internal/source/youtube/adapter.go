@@ -789,19 +789,13 @@ func completeDetails(v, old Video, now time.Time) Video {
 	// it started before its reserved time.
 	started := v.LiveStatus == LiveStatusLive || v.LiveStatus == LiveStatusEnded
 	v.IsUpcoming = v.IsUpcoming || !started && !t.IsZero() && !t.Before(now)
-	v.Kind = "LIVE ARCHIVE"
-	if v.IsUpcoming {
-		v.Kind = "UPCOMING LIVE"
-	}
-	if t.IsZero() || v.Premiere {
-		v.Kind = Classify(v.Title)
-	}
-	// An unclassified answer keeps the stored kind; only the waiting-room kind
-	// of the same judgement turns into its ended form.
-	if v.Unclassified && old.Kind != "" {
-		v.Kind = old.Kind
-		if v.Kind == "UPCOMING LIVE" {
-			v.Kind = "LIVE ARCHIVE"
+	v.Kind = formOf(v)
+	// An answer that cannot call the broadcast a premiere or a stream keeps
+	// the stored verdict, and leaves the form unknown without one.
+	if v.Unclassified {
+		v.Kind = KindUnknown
+		if old.Kind == KindStream || old.Kind == KindPremiere {
+			v.Kind = old.Kind
 		}
 	}
 	return v

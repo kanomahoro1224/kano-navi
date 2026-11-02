@@ -9,6 +9,19 @@
 > to an existing database; no manual migration is needed. The admin event
 > list (`GET /api/admin/events`) reports `tagSource` as `manual`, `llm` or
 > `title`, and the `reconcile` result adds a `tagged` count.
+>
+> A video's `kind` is its form (`stream`, `premiere`, `upload` or `unknown`)
+> and its content is a separate tag (ADR-0005). Startup adds
+> `videos.manual_tag`, `videos.tag`, `videos.tag_source` and
+> `videos.tag_attempted_at` and rewrites stored kinds once: an operator's
+> `GAMEPLAY`, `TALK` or `MUSIC` correction becomes the matching manual tag,
+> and every other kind is derived from the stored broadcast facts. A YouTube
+> upload never read by a detail check becomes `unknown` until its next check
+> or an operator's refresh. Clients that read `kind` values such as
+> `LIVE ARCHIVE` or `MUSIC` must switch to the new forms and `tag`. Uploads
+> have no tag until the translation queue judges them, a few per run, so the
+> past-video categories fill in gradually and model calls rise until that
+> backlog clears.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -25,9 +38,15 @@
   ones and two on phones. A month long enough to scroll keeps the same columns
   as a short one.
 - Past videos filters a month by games, talk, songs or other, with a count on
-  each button. The calendar label of a video's entry decides, and the video's
-  kind fills in where no label applies. `GET /api/videos` takes the matching
-  `category` filter and reports `categoryCounts`.
+  each button. The video's tag decides: the operator's, else the calendar
+  label of its entry, else the title inference's. `GET /api/videos` takes the
+  matching `category` filter and reports `categoryCounts`.
+- Video `kind` is the form YouTube reports: `stream`, `premiere`, `upload`,
+  or `unknown` before a detail check. Every video projection adds `tag`
+  (`game`, `talk`, `song` or `null`), and the Atom feed names the form and
+  the tag as categories. The video shelf sorts streams and works by the form
+  alone, so an upload whose title mentions a stream stays a work, and a
+  video's chip shows its tag before its form.
 
 </details>
 
@@ -37,6 +56,10 @@
 - The schedule editor sets an entry's label, and an empty choice clears it. A
   saved label is the operator's decision, outranks the automatic one and keeps
   the entry from being relabelled later.
+- The video editor corrects the form (`stream`, `premiere` or `upload`) and
+  sets a content tag, which outranks the entry's label. The video list and
+  `GET /api/admin/videos` show the tag with where it came from
+  (`manualTag`, `scheduleTag`, `inferredTag`, `inferredTagSource`).
 
 </details>
 
@@ -55,5 +78,12 @@
 - A rule merge lends an X notice's label to the event that survives, including
   merges made before the notice had a label, and replaces a label guessed from
   the title. Operator and locked entries keep their own label.
+- YouTube and Bilibili titles no longer decide a video's kind. Listings store
+  `unknown` and the detail check writes the form from the broadcast start
+  and premiere verdict; Bilibili uploads are `upload`.
+- After the entries, the same translation queue tags videos that no entry
+  labels, newest first, within the same per-run limit (`videoTags` in the
+  run result). The title prompt now counts covers, originals and music videos
+  as `song`.
 
 </details>

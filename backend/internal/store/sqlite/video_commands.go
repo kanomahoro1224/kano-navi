@@ -16,9 +16,9 @@ var (
 	ErrVideoInvalid  = errors.New("invalid_input")
 )
 
-// VideoKinds are the kinds an operator may set; they match the labels the
-// board translates.
-var VideoKinds = []string{"VIDEO", "MUSIC", "LIVE ARCHIVE", "GAMEPLAY", "TALK"}
+// VideoKinds are the forms an operator may set over the one platform facts
+// decide. What a video is about is its tag (VideoTags), not its kind.
+var VideoKinds = []string{ytsource.KindStream, ytsource.KindPremiere, ytsource.KindUpload}
 
 // maxVideoTitle bounds an operator's corrected title, in characters.
 const maxVideoTitle = 300
@@ -28,8 +28,11 @@ const maxVideoTitle = 300
 // it. Synchronization keeps writing the platform fields underneath, and the
 // board shows a correction in their place.
 type VideoOverrides struct {
-	SetTitle, SetKind, SetThumbnail, SetShort bool
-	Title, Kind                               *string
+	SetTitle, SetKind, SetThumbnail, SetShort, SetTag bool
+	Title, Kind                                       *string
+	// Tag is the operator's content tag (VideoTags). It ranks above the
+	// schedule entry's label and the title inference.
+	Tag *string
 	// Short marks the video a Short (true) or not (false) over the feed's
 	// format link.
 	Short *bool
@@ -52,7 +55,7 @@ func (s *Store) SetVideoOverrides(ctx context.Context, id string, in VideoOverri
 		in.Title = &title
 	}
 	if in.SetKind && in.Kind != nil {
-		kind := strings.ToUpper(strings.TrimSpace(*in.Kind))
+		kind := strings.ToLower(strings.TrimSpace(*in.Kind))
 		valid := false
 		for _, allowed := range VideoKinds {
 			valid = valid || kind == allowed
@@ -61,6 +64,13 @@ func (s *Store) SetVideoOverrides(ctx context.Context, id string, in VideoOverri
 			return AdminVideo{}, ErrVideoInvalid
 		}
 		in.Kind = &kind
+	}
+	if in.SetTag && in.Tag != nil {
+		tag := strings.ToLower(strings.TrimSpace(*in.Tag))
+		if !ValidVideoTag(tag) {
+			return AdminVideo{}, ErrVideoInvalid
+		}
+		in.Tag = &tag
 	}
 	if in.SetThumbnail && (in.ThumbnailMediaID == nil) != (in.ThumbnailSHA256 == nil) {
 		return AdminVideo{}, ErrVideoInvalid
@@ -87,16 +97,16 @@ func (s *Store) SetVideoOverrides(ctx context.Context, id string, in VideoOverri
 		return AdminVideo{}, ErrUnavailable
 	}
 	defer tx.Rollback()
-	var title, kind, media, hash sql.NullString
+	var title, kind, media, hash, tag sql.NullString
 	var short sql.NullBool
-	err = tx.QueryRowContext(ctx, `SELECT manual_title,manual_kind,manual_thumbnail_media_id,manual_thumbnail_sha256,manual_is_short FROM videos WHERE id=?`, id).Scan(&title, &kind, &media, &hash, &short)
+	err = tx.QueryRowContext(ctx, `SELECT manual_title,manual_kind,manual_thumbnail_media_id,manual_thumbnail_sha256,manual_is_short,manual_tag FROM videos WHERE id=?`, id).Scan(&title, &kind, &media, &hash, &short, &tag)
 	if errors.Is(err, sql.ErrNoRows) {
 		return AdminVideo{}, ErrVideoNotFound
 	}
 	if err != nil {
 		return AdminVideo{}, ErrUnavailable
 	}
-	before, shortBefore := [4]sql.NullString{title, kind, media, hash}, short
+	before, shortBefore := [5]sql.NullString{title, kind, media, hash, tag}, short
 	set := func(target *sql.NullString, value *string) {
 		*target = sql.NullString{}
 		if value != nil {
@@ -109,6 +119,9 @@ func (s *Store) SetVideoOverrides(ctx context.Context, id string, in VideoOverri
 	if in.SetKind {
 		set(&kind, in.Kind)
 	}
+	if in.SetTag {
+		set(&tag, in.Tag)
+	}
 	if in.SetThumbnail {
 		set(&media, in.ThumbnailMediaID)
 		set(&hash, in.ThumbnailSHA256)
@@ -119,8 +132,8 @@ func (s *Store) SetVideoOverrides(ctx context.Context, id string, in VideoOverri
 			short = sql.NullBool{Bool: *in.Short, Valid: true}
 		}
 	}
-	if before != [4]sql.NullString{title, kind, media, hash} || shortBefore != short {
-		if _, err = tx.ExecContext(ctx, `UPDATE videos SET manual_title=?,manual_kind=?,manual_thumbnail_media_id=?,manual_thumbnail_sha256=?,manual_is_short=?,manual_updated_at=? WHERE id=?`, title, kind, media, hash, short, stamp, id); err != nil {
+	if before != [5]sql.NullString{title, kind, media, hash, tag} || shortBefore != short {
+		if _, err = tx.ExecContext(ctx, `UPDATE videos SET manual_title=?,manual_kind=?,manual_thumbnail_media_id=?,manual_thumbnail_sha256=?,manual_is_short=?,manual_tag=?,manual_updated_at=? WHERE id=?`, title, kind, media, hash, short, tag, stamp, id); err != nil {
 			return AdminVideo{}, ErrUnavailable
 		}
 		// A corrected title of a merged upload is its video's translation.

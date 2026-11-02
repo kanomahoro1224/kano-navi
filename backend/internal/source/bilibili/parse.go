@@ -52,21 +52,11 @@ func ParseBVID(input string) (string, bool) {
 	return "", false
 }
 
-// Classify derives a board kind from a title; Bilibili's own categories are
-// too broad (a cover and a stream clip can share one).
-func Classify(title string) string {
-	for _, rule := range []struct{ pattern, kind string }{
-		{`(?i)翻唱|歌ってみた|cover|原创|原創|オリジナル|\bMV\b`, "MUSIC"},
-		{`直播回放|录播|直播|配信|歌回|歌枠`, "LIVE ARCHIVE"},
-		{`(?i)游戏|实况|ゲーム|gameplay`, "GAMEPLAY"},
-		{`杂谈|雑談|聊天`, "TALK"},
-	} {
-		if regexp.MustCompile(rule.pattern).MatchString(title) {
-			return rule.kind
-		}
-	}
-	return "VIDEO"
-}
+// KindUpload is the form of every Bilibili upload. Bilibili reports no
+// broadcast facts for one, and its own categories say nothing about the
+// content (a cover and a stream clip can share one); what an upload is about
+// is its content tag.
+const KindUpload = "upload"
 
 // thumbnail keeps a cover only on Bilibili's image CDN, upgraded to HTTPS.
 func thumbnail(raw string) string {
@@ -114,7 +104,7 @@ func (u upload) video() (Video, bool) {
 		owner = u.Owner.Mid
 	}
 	return Video{
-		BVID: u.BVID, AID: u.AID, OwnerMid: owner, Title: title, Kind: Classify(title),
+		BVID: u.BVID, AID: u.AID, OwnerMid: owner, Title: title, Kind: KindUpload,
 		URL:             "https://www.bilibili.com/video/" + u.BVID,
 		ThumbnailURL:    thumbnail(u.Pic),
 		PublishedAt:     time.Unix(u.PubDate, 0).UTC().Format(time.RFC3339),

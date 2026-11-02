@@ -7,17 +7,17 @@ import (
 
 func TestVideoCorrectionsHistoryAndRefresh(t *testing.T) {
 	c := newConsole(t, "development", "", &gatedSteps{})
-	c.exec(t, `INSERT INTO videos(id,source,title,published_at,url,kind) VALUES('AAAAAAAAAAA','youtube','Song cover premiere','2026-03-01T09:00:00Z','https://www.youtube.com/watch?v=AAAAAAAAAAA','MUSIC')`)
+	c.exec(t, `INSERT INTO videos(id,source,title,published_at,url,kind) VALUES('AAAAAAAAAAA','youtube','Song cover premiere','2026-03-01T09:00:00Z','https://www.youtube.com/watch?v=AAAAAAAAAAA','upload')`)
 	c.exec(t, `INSERT INTO video_revisions(video_id,origin,title,replaced_at) VALUES('AAAAAAAAAAA','sync','Earlier title','2026-03-01T10:00:00Z')`)
 
-	code, payload := c.call(t, "PUT", "/api/admin/videos/AAAAAAAAAAA", `{"title":"Song cover","kind":"talk"}`)
+	code, payload := c.call(t, "PUT", "/api/admin/videos/AAAAAAAAAAA", `{"title":"Song cover","kind":"Premiere","tag":"song"}`)
 	video, _ := payload["video"].(map[string]any)
-	if code != 200 || video["title"] != "Song cover" || video["sourceTitle"] != "Song cover premiere" || video["kind"] != "TALK" {
+	if code != 200 || video["title"] != "Song cover" || video["sourceTitle"] != "Song cover premiere" || video["kind"] != "premiere" || video["tag"] != "song" || video["manualTag"] != "song" {
 		t.Fatalf("update=%d %v", code, payload)
 	}
-	code, payload = c.call(t, "PUT", "/api/admin/videos/AAAAAAAAAAA", `{"kind":null}`)
+	code, payload = c.call(t, "PUT", "/api/admin/videos/AAAAAAAAAAA", `{"kind":null,"tag":null}`)
 	video, _ = payload["video"].(map[string]any)
-	if code != 200 || video["title"] != "Song cover" || video["kind"] != "MUSIC" {
+	if code != 200 || video["title"] != "Song cover" || video["kind"] != "upload" || video["tag"] != nil {
 		t.Fatalf("clear kind=%d %v", code, payload)
 	}
 	// A format correction lies over the feed's, which sync keeps writing.
@@ -35,6 +35,8 @@ func TestVideoCorrectionsHistoryAndRefresh(t *testing.T) {
 	for body, want := range map[string]int{
 		`{"title":""}`:                       400,
 		`{"kind":"SHORTS"}`:                  400,
+		`{"kind":"LIVE ARCHIVE"}`:            400,
+		`{"tag":"live"}`:                     400,
 		`{"isShort":"yes"}`:                  400,
 		`{"thumbnail":{"mediaId":"x"}}`:      400,
 		`{"description":"not a correction"}`: 400,

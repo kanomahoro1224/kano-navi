@@ -17,21 +17,10 @@ var accountPattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
 // VideoCategories.
 var ErrInvalidVideoCategory = errors.New("invalid video category")
 
-// VideoCategories are the video archive's filter groups. A video is not
-// stored with one; videoCategorySQL derives it on each read.
-var VideoCategories = []string{"game", "talk", "song", "other"}
-
-// videoCategorySQL derives a videos row's category. The calendar label of the
-// video's YouTube entry decides when it names game, talk or song; a label on
-// the entry that entry is merged into comes first. Otherwise the shown kind
-// decides (GAMEPLAY, TALK, MUSIC), and anything else is other.
-const videoCategorySQL = `COALESCE((SELECT COALESCE(t.tag,e.tag) FROM events e
-	LEFT JOIN events t ON t.id=e.merged_into AND t.deleted_at IS NULL
-	WHERE e.deleted_at IS NULL AND (e.id='youtube-'||videos.id OR e.source='youtube' AND e.source_item_id=videos.id
-		OR e.id IN (SELECT s.event_id FROM event_sources s WHERE s.source='youtube' AND s.source_item_id=videos.id AND s.deleted_at IS NULL))
-		AND COALESCE(t.tag,e.tag) IN ('game','talk','song')
-	ORDER BY e.id LIMIT 1),
-	CASE upper(trim(COALESCE(manual_kind,kind,''))) WHEN 'GAMEPLAY' THEN 'game' WHEN 'TALK' THEN 'talk' WHEN 'MUSIC' THEN 'song' ELSE 'other' END)`
+// VideoCategories are the video archive's filter groups: the content tags
+// and other. A video is not stored with one; videoCategorySQL derives it on
+// each read (video_tags.go).
+var VideoCategories = append(append([]string{}, VideoTags...), "other")
 
 func validVideoCategory(value string) bool {
 	for _, category := range VideoCategories {
@@ -279,23 +268,24 @@ func (s *Store) GetVideoArchive(ctx context.Context, from, to, category string, 
 		return nil, err
 	}
 	liveCutoff := now.Add(-probe.Freshness())
-	rows, err := s.db.QueryContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short) FROM videos`+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
+	rows, err := s.db.QueryContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),`+videoTagSQL("videos")+` FROM videos`+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return nil, dbErr(err)
 	}
 	items := make([]Video, 0, pageSize)
 	for rows.Next() {
 		var v Video
-		var pub, sch, thumb, kind, liveStatus, liveChecked sql.NullString
+		var pub, sch, thumb, kind, liveStatus, liveChecked, tag sql.NullString
 		var upcoming int64
 		var duration sql.NullInt64
 		var short sql.NullBool
-		if err := rows.Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &upcoming, &liveStatus, &liveChecked, &duration, &short); err != nil {
+		if err := rows.Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &upcoming, &liveStatus, &liveChecked, &duration, &short, &tag); err != nil {
 			_ = rows.Close()
 			return nil, dbErr(err)
 		}
 		v.DurationSeconds = nullInt(duration)
 		v.IsShort = nullBool(short)
+		v.Tag = nullString(tag)
 		if pub.Valid {
 			v.PublishedAt = &pub.String
 		}

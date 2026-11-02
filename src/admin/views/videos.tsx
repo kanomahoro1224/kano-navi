@@ -148,6 +148,7 @@ function VideoMarks({
   const corrected =
     video.manualTitle !== null ||
     video.manualKind !== null ||
+    video.manualTag !== null ||
     video.manualThumbnail !== null ||
     video.manualIsShort !== null
   if (!featured && !corrected && !video.revisions && !video.refreshRequestedAt)
@@ -204,6 +205,7 @@ function VideoMeta({ video }: { video: AdminVideo }) {
           : japanStamp(video.publishedAt)}
       </time>
       {video.kind ? <span>{video.kind}</span> : null}
+      {video.tag ? <span>{video.tag}</span> : null}
       {length ? <span>{length}</span> : null}
       {video.isShort ? <span>{t("admin.videos.format.short")}</span> : null}
     </span>

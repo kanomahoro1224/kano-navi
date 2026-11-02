@@ -39,7 +39,7 @@ func TestEndedBroadcastsTakeTheirVerdictFromTheFormatPlaylists(t *testing.T) {
 	a := NewAdapter(c, Options{ChannelID: syntheticChannel, MaxDetailRequests: 12, APIKey: "synthetic-api-key"})
 	a.Now = probeNow
 	stored := func(id string) Video {
-		return Video{ID: id, Title: "stored", ScheduledAt: "2026-01-03T09:00:00Z", Kind: "UPCOMING LIVE", IsUpcoming: true}
+		return Video{ID: id, Title: "stored", ScheduledAt: "2026-01-03T09:00:00Z", Kind: KindStream, IsUpcoming: true}
 	}
 	// SSSSSSSSSSS holds the stream verdict an upcoming answer without a
 	// length once stored.
@@ -64,17 +64,17 @@ func TestEndedBroadcastsTakeTheirVerdictFromTheFormatPlaylists(t *testing.T) {
 		got[v.ID] = v
 	}
 	for _, id := range []string{"PPPPPPPPPPP", "SSSSSSSSSSS"} {
-		if v := got[id]; !v.Premiere || !v.PremiereKnown || v.Unclassified || v.Kind != "MUSIC" || v.LiveStatus != LiveStatusEnded || v.EndedAt != "2026-01-03T09:06:10Z" {
+		if v := got[id]; !v.Premiere || !v.PremiereKnown || v.Unclassified || v.Kind != KindPremiere || v.LiveStatus != LiveStatusEnded || v.EndedAt != "2026-01-03T09:06:10Z" {
 			t.Fatalf("premiere %s=%#v", id, v)
 		}
 	}
-	if v := got["LLLLLLLLLLL"]; v.Premiere || !v.PremiereKnown || v.Kind != "LIVE ARCHIVE" || v.DurationSeconds != 7200 {
+	if v := got["LLLLLLLLLLL"]; v.Premiere || !v.PremiereKnown || v.Kind != KindStream || v.DurationSeconds != 7200 {
 		t.Fatalf("stream=%#v", v)
 	}
-	if v := got["XXXXXXXXXXX"]; !v.Unclassified || v.PremiereKnown || v.Kind != "LIVE ARCHIVE" {
+	if v := got["XXXXXXXXXXX"]; !v.Unclassified || v.PremiereKnown || v.Kind != KindStream {
 		t.Fatalf("on both lists=%#v", v)
 	}
-	if v := got["UUUUUUUUUUU"]; v.Premiere || v.PremiereKnown || !v.IsUpcoming || v.Kind != "UPCOMING LIVE" {
+	if v := got["UUUUUUUUUUU"]; v.Premiere || v.PremiereKnown || !v.IsUpcoming || v.Kind != KindStream {
 		t.Fatalf("upcoming=%#v", v)
 	}
 }
@@ -93,7 +93,7 @@ func TestAFailedFormatPlaylistLeavesTheOtherVerdicts(t *testing.T) {
 	}, &apiIDs, &watched)
 	a := NewAdapter(c, Options{ChannelID: syntheticChannel, MaxDetailRequests: 12, APIKey: "synthetic-api-key"})
 	a.Now = probeNow
-	result, err := a.ProbeLive(context.Background(), []Video{{ID: "PPPPPPPPPPP", ScheduledAt: "2026-01-03T09:00:00Z", Kind: "UPCOMING LIVE"}, {ID: "LLLLLLLLLLL", ScheduledAt: "2026-01-03T09:00:00Z", Kind: "UPCOMING LIVE"}})
+	result, err := a.ProbeLive(context.Background(), []Video{{ID: "PPPPPPPPPPP", ScheduledAt: "2026-01-03T09:00:00Z", Kind: KindStream}, {ID: "LLLLLLLLLLL", ScheduledAt: "2026-01-03T09:00:00Z", Kind: KindStream}})
 	if err != nil || strings.Join(watched, ",") != "LLLLLLLLLLL" || strings.Join(result.Errors, ",") != "youtube_api_http_error,"+CodeLoginRequired {
 		t.Fatalf("watched=%v result=%#v err=%v", watched, result, err)
 	}
@@ -126,7 +126,7 @@ func TestOnlyDetailChecksReadTheFormatPlaylists(t *testing.T) {
 	a.Now = syntheticNow
 	// A checked old broadcast the listing names again is answered only for
 	// its localized titles, so its verdict is not looked up.
-	state := State{Videos: map[string]Video{"EEEEEEEEEEE": {ID: "EEEEEEEEEEE", PublishedAt: "2025-12-01T00:00:00Z", ScheduledAt: "2025-12-01T00:00:00Z", Kind: "LIVE ARCHIVE"}}, CheckedIDs: []string{"EEEEEEEEEEE"}}
+	state := State{Videos: map[string]Video{"EEEEEEEEEEE": {ID: "EEEEEEEEEEE", PublishedAt: "2025-12-01T00:00:00Z", ScheduledAt: "2025-12-01T00:00:00Z", Kind: KindStream}}, CheckedIDs: []string{"EEEEEEEEEEE"}}
 	result, err := a.FetchUploads(context.Background(), state, List{Limit: 50})
 	if err != nil || result.APIRequests != 2 || result.Inspected != 0 {
 		t.Fatalf("result=%#v err=%v", result, err)

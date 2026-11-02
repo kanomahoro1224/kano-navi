@@ -28,10 +28,12 @@ const (
 	translationToolName  = "kano_text_translation"
 	eventTagToolName     = "kano_event_tag"
 
-	// eventTagInstructions classifies one YouTube title for the calendar. It is
-	// a short-text judgement like translation, so it shares that queue rather
-	// than adding a queue and model settings of its own.
-	eventTagInstructions = "Classify one YouTube title by Kano Mahoro (鹿乃まほろ), a Japanese virtual singer, for a fan calendar. Return live for an ordinary broadcast or stream, game for a gameplay stream, talk for a chat or talk stream, song for a singing stream or a song premiere, and video for an uploaded video or any other premiere. Return null when the title does not show what kind of activity it is; never guess from the channel name alone."
+	// eventTagInstructions classifies one YouTube or Bilibili title for the
+	// calendar and the video archive. It is a short-text judgement like
+	// translation, so it shares that queue rather than adding a queue and model
+	// settings of its own. A video keeps only game, talk and song; live and video
+	// name a form the video already has.
+	eventTagInstructions = "Classify one video title by Kano Mahoro (鹿乃まほろ), a Japanese virtual singer, for a fan calendar and video archive. Return live for an ordinary broadcast or stream, game for a gameplay stream or video, talk for a chat or talk stream, song for a singing stream, a song cover, an original song, a music video or a song premiere, and video for any other uploaded video or premiere. Return null when the title does not show what kind of activity it is; never guess from the channel name alone."
 
 	eventTagSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]}},"required":["tag"]}`
 

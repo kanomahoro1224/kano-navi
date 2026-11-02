@@ -147,7 +147,7 @@ func TestProbeRequestsOnlyBoundedWatchPages(t *testing.T) {
 	}
 	live := result.Videos[0]
 	// The actual start replaces the reservation; stored fields fill the gaps.
-	if live.ID != "AAAAAAAAAAA" || !live.LiveNow || live.IsUpcoming || live.ScheduledAt != "2026-01-03T12:04:30Z" || live.PublishedAt != "2026-01-02T00:00:00Z" || live.Kind != "LIVE ARCHIVE" || live.ThumbnailURL == "" {
+	if live.ID != "AAAAAAAAAAA" || !live.LiveNow || live.IsUpcoming || live.ScheduledAt != "2026-01-03T12:04:30Z" || live.PublishedAt != "2026-01-02T00:00:00Z" || live.Kind != KindStream || live.ThumbnailURL == "" {
 		t.Fatalf("live=%#v", live)
 	}
 	if ended := result.Videos[1]; ended.LiveStatus != LiveStatusEnded || ended.EndedAt != "2026-01-03T11:00:00Z" || ended.IsUpcoming {

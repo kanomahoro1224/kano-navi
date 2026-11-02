@@ -70,8 +70,8 @@ func TestRecentReadsLocalizedTitlesOfTheNewestUploadsInTheDetailCall(t *testing.
 	// Two checked, ordinary uploads are stored: no detail work is due for them.
 	state := State{
 		Videos: map[string]Video{
-			"SSSSSSSSSSS": {ID: "SSSSSSSSSSS", Title: "upload SSSSSSSSSSS", PublishedAt: "2026-01-02T05:00:00Z", Kind: "VIDEO"},
-			"TTTTTTTTTTT": {ID: "TTTTTTTTTTT", Title: "upload TTTTTTTTTTT", PublishedAt: "2026-01-02T04:00:00Z", Kind: "VIDEO"},
+			"SSSSSSSSSSS": {ID: "SSSSSSSSSSS", Title: "upload SSSSSSSSSSS", PublishedAt: "2026-01-02T05:00:00Z", Kind: KindUpload},
+			"TTTTTTTTTTT": {ID: "TTTTTTTTTTT", Title: "upload TTTTTTTTTTT", PublishedAt: "2026-01-02T04:00:00Z", Kind: KindUpload},
 		},
 		CheckedIDs: []string{"SSSSSSSSSSS", "TTTTTTTTTTT"},
 	}

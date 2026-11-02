@@ -165,14 +165,11 @@ filter is one X handle, compared without case, and also narrows the totals and
 adjacent dates; `accountCounts` always counts the range's posts per lowercase
 handle. The optional video `category` filter is `game`, `talk`, `song` or
 `other`, narrows the totals and adjacent dates the same way, and
-`categoryCounts` always counts the range's videos per category. A video is
-not stored with a category; each read derives it. The
-[calendar label](data-model.md#event-labels) of the video's YouTube entry
-(found by its `youtube-<id>` event, its `source_item_id` or a YouTube
-`event_sources` row, skipping deleted entries) decides when it is `game`,
-`talk` or `song`, and the label of the entry it is merged into comes first.
-Otherwise the shown kind decides: `GAMEPLAY` is `game`, `TALK` is `talk` and
-`MUSIC` is `song`; everything else is `other`. An invalid range returns 400
+`categoryCounts` always counts the range's videos per category. A video's
+category is its shown [tag](data-model.md#video-form-and-tags) (`game`,
+`talk` or `song`: the operator's, else its schedule entry's label, else the
+title inference's), or `other` without one; each read derives it, and every
+video projection carries the tag as `tag`, `null` without one. An invalid range returns 400
 `invalid_range`, an invalid handle 400 `invalid_account` and an unknown
 category 400 `invalid_category`. Reads revalidate through their
 [ETags](#public-snapshot-contract), negotiate gzip like the other public JSON
@@ -210,7 +207,9 @@ reservations dated 30 days before to 11 days after today, newest first. An
 entry is dated by its publication (a future time is dated at the start of
 today's Japan day until it passes, so the entry does not move between polls),
 says when a reservation is scheduled, and links the video and any
-merged platform copy. Entry and feed IDs are `urn:kano-navi:` URNs. The
+merged platform copy. Its categories name the form (`stream`, `premiere`,
+`upload`, `short` for a Short, or `video` while the form is unknown) and
+then the video's tag, when it has one. Entry and feed IDs are `urn:kano-navi:` URNs. The
 server never builds links from the request's `Host`: with `PUBLIC_ORIGIN` the
 feed links the site absolutely and adds a `rel="self"` link to
 `/api/feed.xml`; without it the site link stays `/` and there is no self link.

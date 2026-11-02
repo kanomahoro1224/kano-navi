@@ -66,7 +66,7 @@ func TestProbeAsksTheDataAPIBeforeAnyWatchPage(t *testing.T) {
 	a := NewAdapter(c, Options{ChannelID: syntheticChannel, MaxDetailRequests: 12, APIKey: "synthetic-api-key"})
 	a.Now = probeNow
 	stored := func(id, scheduled string) Video {
-		return Video{ID: id, Title: "stored", PublishedAt: "2026-01-02T00:00:00Z", ScheduledAt: scheduled, URL: "https://www.youtube.com/watch?v=" + id, ThumbnailURL: "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg?v=abc", Kind: "UPCOMING LIVE", IsUpcoming: true}
+		return Video{ID: id, Title: "stored", PublishedAt: "2026-01-02T00:00:00Z", ScheduledAt: scheduled, URL: "https://www.youtube.com/watch?v=" + id, ThumbnailURL: "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg?v=abc", Kind: KindStream, IsUpcoming: true}
 	}
 	ended := stored("EEEEEEEEEEE", "2026-01-03T10:00:00Z")
 	ended.PremiereKnown = true
@@ -93,18 +93,18 @@ func TestProbeAsksTheDataAPIBeforeAnyWatchPage(t *testing.T) {
 	}
 	// The actual start replaces the reservation, as on the watch page; a
 	// broadcast without a length waits for its end for a stream verdict.
-	if v := got["LLLLLLLLLLL"]; !v.LiveNow || v.LiveStatus != LiveStatusLive || v.IsUpcoming || v.ScheduledAt != "2026-01-03T12:04:30Z" || v.Premiere || v.PremiereKnown || v.Kind != "LIVE ARCHIVE" || v.PublishedAt != "2026-01-02T00:00:00Z" {
+	if v := got["LLLLLLLLLLL"]; !v.LiveNow || v.LiveStatus != LiveStatusLive || v.IsUpcoming || v.ScheduledAt != "2026-01-03T12:04:30Z" || v.Premiere || v.PremiereKnown || v.Kind != KindStream || v.PublishedAt != "2026-01-02T00:00:00Z" {
 		t.Fatalf("live=%#v", v)
 	}
-	if v := got["UUUUUUUUUUU"]; v.LiveNow || v.LiveStatus != LiveStatusUpcoming || !v.IsUpcoming || v.ScheduledAt != "2026-01-03T13:10:00Z" || v.Kind != "UPCOMING LIVE" {
+	if v := got["UUUUUUUUUUU"]; v.LiveNow || v.LiveStatus != LiveStatusUpcoming || !v.IsUpcoming || v.ScheduledAt != "2026-01-03T13:10:00Z" || v.Kind != KindStream {
 		t.Fatalf("upcoming=%#v", v)
 	}
 	// The same image keeps its stored, versioned URL.
-	if v := got["EEEEEEEEEEE"]; v.LiveStatus != LiveStatusEnded || v.IsUpcoming || v.LiveNow || v.EndedAt != "2026-01-03T12:00:00Z" || v.ScheduledAt != "2026-01-03T10:04:30Z" || v.DurationSeconds != 6930 || v.Kind != "LIVE ARCHIVE" || v.ThumbnailURL != "https://i.ytimg.com/vi/EEEEEEEEEEE/hqdefault.jpg?v=abc" {
+	if v := got["EEEEEEEEEEE"]; v.LiveStatus != LiveStatusEnded || v.IsUpcoming || v.LiveNow || v.EndedAt != "2026-01-03T12:00:00Z" || v.ScheduledAt != "2026-01-03T10:04:30Z" || v.DurationSeconds != 6930 || v.Kind != KindStream || v.ThumbnailURL != "https://i.ytimg.com/vi/EEEEEEEEEEE/hqdefault.jpg?v=abc" {
 		t.Fatalf("ended=%#v", v)
 	}
 	// The failed page leaves the unclassified answer, which keeps the kind.
-	if v := got["PPPPPPPPPPP"]; !v.Unclassified || v.PremiereKnown || v.LiveStatus != LiveStatusEnded || v.EndedAt != "2026-01-03T12:06:55Z" || v.Kind != "LIVE ARCHIVE" {
+	if v := got["PPPPPPPPPPP"]; !v.Unclassified || v.PremiereKnown || v.LiveStatus != LiveStatusEnded || v.EndedAt != "2026-01-03T12:06:55Z" || v.Kind != KindStream {
 		t.Fatalf("unclassified=%#v", v)
 	}
 	if v := got["MMMMMMMMMMM"]; !v.LiveNow || v.ScheduledAt != "2026-01-03T12:01:00Z" {

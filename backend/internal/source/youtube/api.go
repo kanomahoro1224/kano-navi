@@ -79,7 +79,7 @@ func ParseUploadsPage(body []byte) ([]Video, string, error) {
 		if thumbnail == "" {
 			thumbnail = "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg"
 		}
-		out = append(out, Video{ID: id, Title: title, PublishedAt: t.UTC().Format(time.RFC3339Nano), URL: "https://www.youtube.com/watch?v=" + id, ThumbnailURL: thumbnail, Kind: Classify(title)})
+		out = append(out, Video{ID: id, Title: title, PublishedAt: t.UTC().Format(time.RFC3339Nano), URL: "https://www.youtube.com/watch?v=" + id, ThumbnailURL: thumbnail, Kind: KindUnknown})
 	}
 	if len(out) == 0 {
 		return nil, "", &Error{"youtube_api_invalid_response"}
@@ -240,8 +240,7 @@ func needsListing(item apiVideo, old Video) bool {
 //   - An ended broadcast on the live playlist is a stream, and one on the
 //     long-form playlist a premiere, which replaces a stored stream verdict;
 //     a stored premiere verdict is final.
-//   - After that, only the stored verdict of an earlier check tells. The
-//     kind cannot: a premiere keeps its title kind, which may be a live one.
+//   - After that, only the stored verdict of an earlier check tells.
 func fromAPI(item apiVideo, old Video, listed formatList) (Video, bool) {
 	v := Video{ID: item.ID, Title: strings.TrimSpace(item.Snippet.Title), URL: "https://www.youtube.com/watch?v=" + item.ID, PublishedAt: utcTime(item.Snippet.PublishedAt)}
 	if v.Title == "" {

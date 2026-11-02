@@ -129,10 +129,10 @@ func TestRecentFeedEntriesGetDetailsOutsideTheStreamsPage(t *testing.T) {
 		}
 	}
 	room, premiere := details["DDDDDDDDDDD"], details["EEEEEEEEEEE"]
-	if room.ScheduledAt != "2026-01-03T12:00:00Z" || !room.IsUpcoming || room.Premiere || room.EndedAt != "" || room.Kind != "UPCOMING LIVE" {
+	if room.ScheduledAt != "2026-01-03T12:00:00Z" || !room.IsUpcoming || room.Premiere || room.EndedAt != "" || room.Kind != KindStream {
 		t.Fatalf("waiting room=%#v", room)
 	}
-	if premiere.ScheduledAt != "2026-01-02T09:00:09Z" || premiere.IsUpcoming || !premiere.Premiere || premiere.EndedAt != "2026-01-02T09:06:55Z" || premiere.Kind != "MUSIC" {
+	if premiere.ScheduledAt != "2026-01-02T09:00:09Z" || premiere.IsUpcoming || !premiere.Premiere || premiere.EndedAt != "2026-01-02T09:06:55Z" || premiere.Kind != KindPremiere {
 		t.Fatalf("premiere=%#v", premiere)
 	}
 	if strings.Join(result.CheckedIDs, ",") != "DDDDDDDDDDD,EEEEEEEEEEE" {

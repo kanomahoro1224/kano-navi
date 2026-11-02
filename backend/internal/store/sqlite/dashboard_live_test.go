@@ -16,19 +16,19 @@ func TestDashboardVideoPoolKeepsEachKindVisible(t *testing.T) {
 		id := fmt.Sprintf("work-%02d", i)
 		when := base.Add(time.Duration(i) * time.Minute).Format(time.RFC3339)
 		testutil.Exec(t, path, `INSERT INTO videos (id,source,title,published_at,scheduled_at,url,kind,is_short) VALUES (?,'youtube',?,?,?,?,?,?)`,
-			id, id, when, when, "https://www.youtube.com/watch?v="+id, "MUSIC", 0)
+			id, id, when, when, "https://www.youtube.com/watch?v="+id, "upload", 0)
 	}
 	for i := 0; i < 40; i++ {
 		id := fmt.Sprintf("stream-%02d", i)
 		when := base.Add(time.Duration(i) * time.Minute).Format(time.RFC3339)
 		testutil.Exec(t, path, `INSERT INTO videos (id,source,title,published_at,scheduled_at,url,kind,is_short) VALUES (?,'youtube',?,?,?,?,?,?)`,
-			id, id, when, when, "https://www.youtube.com/watch?v="+id, "LIVE ARCHIVE", 0)
+			id, id, when, when, "https://www.youtube.com/watch?v="+id, "stream", 0)
 	}
 	for i := 0; i < 20; i++ {
 		id := fmt.Sprintf("short-%02d", i)
 		when := base.Add(time.Duration(i) * time.Minute).Format(time.RFC3339)
 		testutil.Exec(t, path, `INSERT INTO videos (id,source,title,published_at,scheduled_at,url,kind,is_short) VALUES (?,'youtube',?,?,?,?,?,?)`,
-			id, id, when, when, "https://www.youtube.com/watch?v="+id, "VIDEO", 1)
+			id, id, when, when, "https://www.youtube.com/watch?v="+id, "upload", 1)
 	}
 	store, err := OpenReadOnly(path)
 	if err != nil {
@@ -43,7 +43,7 @@ func TestDashboardVideoPoolKeepsEachKindVisible(t *testing.T) {
 	for _, video := range dashboard.Videos {
 		if video.IsShort != nil && *video.IsShort {
 			counts["shorts"]++
-		} else if video.Kind != nil && *video.Kind == "LIVE ARCHIVE" {
+		} else if video.Kind != nil && *video.Kind == "stream" {
 			counts["archives"]++
 		} else {
 			counts["works"]++

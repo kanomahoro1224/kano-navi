@@ -173,12 +173,12 @@ func TestThumbnailRevalidationKeepsTheReplacedFileAndAnOperatorCanPinIt(t *testi
 	}
 	defer admin.Close()
 	revision, _ := admin.GetDashboardRevision(ctx)
-	title, kind, media := "奏 cover", "music", asset.ID
+	title, kind, media := "奏 cover", "premiere", asset.ID
 	video, err := admin.SetVideoOverrides(ctx, "AAAAAAAAAAA", VideoOverrides{SetTitle: true, Title: &title, SetKind: true, Kind: &kind, SetThumbnail: true, ThumbnailMediaID: &media, ThumbnailSHA256: &oldHash}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if video.Title != title || video.SourceTitle != "Song cover" || stringValue(video.Kind) != "MUSIC" || stringValue(video.ThumbnailURL) != "/media/"+asset.ID+"?v="+oldHash {
+	if video.Title != title || video.SourceTitle != "Song cover" || stringValue(video.Kind) != "premiere" || stringValue(video.ThumbnailURL) != "/media/"+asset.ID+"?v="+oldHash {
 		t.Fatalf("video=%#v", video)
 	}
 	if after, _ := admin.GetDashboardRevision(ctx); after == revision {
@@ -211,7 +211,7 @@ func TestThumbnailRevalidationKeepsTheReplacedFileAndAnOperatorCanPinIt(t *testi
 	}
 	pinned := "/media/" + asset.ID + "?v=" + oldHash
 	board, err := admin.GetDashboard(ctx, 3, time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC))
-	if err != nil || len(board.Videos) != 1 || board.Videos[0].Title != title || stringValue(board.Videos[0].ThumbnailURL) != pinned || stringValue(board.Videos[0].Kind) != "MUSIC" {
+	if err != nil || len(board.Videos) != 1 || board.Videos[0].Title != title || stringValue(board.Videos[0].ThumbnailURL) != pinned || stringValue(board.Videos[0].Kind) != "premiere" {
 		t.Fatalf("board=%#v err=%v", board, err)
 	}
 	archive, err := admin.GetVideoArchive(ctx, "2026-01-01", "2026-01-31", "", 1, 20, time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC))

@@ -488,7 +488,7 @@ MCP control has none of them.
 | `GET /videos`                | `page`, `pageSize` (≤ 200), `status`, `kind`, `thumbnail`, `source`, `search`, `merge`, `translation` | list plus `featuredVideoId`, `featuredVideo` |
 | `PUT /videos/featured`       | `{videoId}` (`null` restores automatic selection)                                                     | `{featuredVideoId}`                          |
 | `GET /videos/{id}/history`   |                                                                                                       | `{video, revisions, thumbnails}`             |
-| `PUT /videos/{id}`           | `{title?, kind?, thumbnail?, isShort?}`                                                               | `{video}`                                    |
+| `PUT /videos/{id}`           | `{title?, kind?, tag?, thumbnail?, isShort?}`                                                         | `{video}`                                    |
 | `POST /videos/{id}/refresh`  |                                                                                                       | `202 {video, started, run}`                  |
 | `POST /videos/bilibili`      | `{input}` (BV ID or bilibili.com video link)                                                          | `{video, started, run}`                      |
 | `GET /videos/merges`         |                                                                                                       | `{items}` merge suggestions                  |
@@ -506,7 +506,8 @@ is listed, or `null` while the board chooses automatically.
 
 Changing the featured video advances the dashboard revision.
 
-`status` is `published`, `upcoming` or `live`; `thumbnail` is `ready`,
+`status` is `published`, `upcoming` or `live`; `kind` is the shown form,
+`stream`, `premiere`, `upload` or `unknown`; `thumbnail` is `ready`,
 `present` or `missing`; `source` is `youtube` or `bilibili`. `search` matches
 the shown title, the platform title or the video ID. `merge=visible` excludes
 uploads merged into another video and `merge=merged` lists only them;
@@ -572,11 +573,16 @@ changing it: `title`, `kind`, `isShort` and `thumbnailUrl` show the
 correction, while `sourceTitle`, `sourceKind` and `sourceIsShort` keep what
 the platform reported and `manualTitle`, `manualKind`, `manualIsShort` and
 `manualThumbnail` (`{mediaId, sha256}`) are the corrections themselves.
+`tag` is the shown content tag: `manualTag`, else `scheduleTag` (the label of
+the video's schedule entry), else `inferredTag` (the title inference's), with
+`inferredTagSource` set once the inference judged the video, with or without
+a tag (see [Video form and tags](data-model.md#video-form-and-tags)).
 `PUT /videos/{id}` sets a field from a string, for `isShort` from a boolean
 (`true` for a Short, `false` for any other upload), or for `thumbnail` from
 one `{mediaId, sha256}` file listed in the history; `null` clears it and an
 omitted field keeps it. A title is 1–300 characters after trimming; a kind is
-one of `VIDEO`, `MUSIC`, `LIVE ARCHIVE`, `GAMEPLAY` or `TALK`. Other fields,
+`stream`, `premiere` or `upload` and a tag `game`, `talk` or `song`, compared
+without case. Other fields,
 unknown files and invalid values answer `400`, an unknown video `404`. A
 change advances the dashboard revision, and machine translations follow the
 corrected title. The feed names the format of its newest uploads only (see

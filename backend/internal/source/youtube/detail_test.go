@@ -166,7 +166,7 @@ func TestSignInPageStopsWatchRequestsForTheRun(t *testing.T) {
 	a := NewAdapter(c, Options{ChannelID: syntheticChannel, MaxDetailRequests: 12, APIKey: "synthetic-api-key"})
 	a.Now = syntheticNow
 	state := storedState(ids)
-	state.Videos["BBBBBBBBBBB"] = Video{ID: "BBBBBBBBBBB", Title: "stream", ScheduledAt: "2026-01-02T09:00:00Z", Kind: "UPCOMING LIVE"}
+	state.Videos["BBBBBBBBBBB"] = Video{ID: "BBBBBBBBBBB", Title: "stream", ScheduledAt: "2026-01-02T09:00:00Z", Kind: KindStream}
 	result, err := a.FetchRecent(context.Background(), state, 7)
 	if err != nil {
 		t.Fatal(err)
@@ -178,7 +178,7 @@ func TestSignInPageStopsWatchRequestsForTheRun(t *testing.T) {
 		t.Fatalf("inspected=%v", result.InspectedIDs)
 	}
 	for _, v := range result.Videos {
-		if v.ID == "BBBBBBBBBBB" && (!v.Unclassified || v.Kind != "LIVE ARCHIVE") {
+		if v.ID == "BBBBBBBBBBB" && (!v.Unclassified || v.Kind != KindStream) {
 			t.Fatalf("stand-in=%#v", v)
 		}
 	}

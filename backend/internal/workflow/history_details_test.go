@@ -72,7 +72,7 @@ func TestYoutubeAPIFetchWritesDetailsThroughTheRecentUpsert(t *testing.T) {
 		return value
 	}
 	for statement, want := range map[string]string{
-		`SELECT duration_seconds||'/'||live_status||'/'||is_premiere||'/'||kind||'/'||(live_checked_at IS NOT NULL) FROM videos WHERE id='SSSSSSSSSSS'`: "7200/ended/0/LIVE ARCHIVE/1",
+		`SELECT duration_seconds||'/'||live_status||'/'||is_premiere||'/'||kind||'/'||(live_checked_at IS NOT NULL) FROM videos WHERE id='SSSSSSSSSSS'`: "7200/ended/0/stream/1",
 		`SELECT event_type||'/'||status||'/'||ends_at FROM events WHERE id='youtube-SSSSSSSSSSS'`:                                                       "stream/ended/2026-01-02T11:00:10Z",
 		`SELECT title||'/'||status FROM events WHERE id='youtube-LLLLLLLLLLL'`:                                                                          "operator title/scheduled",
 		`SELECT duration_seconds||'/'||COUNT(*) FROM videos WHERE id='OOOOOOOOOOO'`:                                                                     "180/1",

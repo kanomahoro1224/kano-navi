@@ -375,28 +375,32 @@ export function scheduleSortTime(
 // ---------------------------------------------------------------------------
 // Videos
 
-const videoKindKeys: Record<string, string> = {
-  GAMEPLAY: "media.kind.gameplay",
-  TALK: "media.kind.talk",
-  "LIVE ARCHIVE": "media.kind.liveArchive",
-  "UPCOMING LIVE": "media.kind.upcoming",
-  MUSIC: "media.kind.music",
-  VIDEO: "media.kind.video",
+const videoTagKeys: Record<string, string> = {
+  game: "media.kind.gameplay",
+  talk: "media.kind.talk",
+  song: "media.kind.music",
 }
 
+/** The video's content tag (game, talk or song), or null for other. */
+export function videoTag(video: Video) {
+  const tag = String(video?.tag || "")
+  return tag in videoTagKeys ? tag : null
+}
+
+/**
+ * A video's chip: a Short, then a stream's waiting room, then what the video
+ * is about (its tag), then its form. A stream past its waiting room reads as
+ * its archive; the phase tags say when it is on air.
+ */
 export function videoKindLabel(video: Video, t: Translator) {
-  // The title classifier can call a Short a stream; its format says more.
   if (video?.isShort === true) return t("media.kind.short")
   const kind = String(video?.kind || "")
-    .trim()
-    .toUpperCase()
-  // A reservation keeps its "UPCOMING LIVE" kind past its start until a watch
-  // page is read again; it may be on air, so it is a stream, not an archive.
-  if (kind === "UPCOMING LIVE" && !video.isUpcoming)
-    return t("event.type.stream")
-  if (videoKindKeys[kind]) return t(videoKindKeys[kind])
-  if (video?.kind && !/[぀-ヿ㐀-鿿]/u.test(video.kind)) return video.kind
-  return t(video?.isUpcoming ? "media.kind.upcoming" : "media.kind.video")
+  if (kind === "stream" && video.isUpcoming) return t("media.kind.upcoming")
+  const tag = videoTag(video)
+  if (tag) return t(videoTagKeys[tag])
+  if (kind === "stream") return t("media.kind.liveArchive")
+  if (kind === "premiere") return t("media.kind.premiere")
+  return t("media.kind.video")
 }
 
 /** Strip the trailing 【鹿乃まほろ/ミリプロ】 credit that every title repeats. */

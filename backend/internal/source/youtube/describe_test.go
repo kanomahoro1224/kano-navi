@@ -10,7 +10,7 @@ import (
 )
 
 func listedUpload(id, title string) Video {
-	return Video{ID: id, Title: title, PublishedAt: "2026-01-02T00:00:00Z", URL: "https://www.youtube.com/watch?v=" + id, ThumbnailURL: "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg", Kind: Classify(title)}
+	return Video{ID: id, Title: title, PublishedAt: "2026-01-02T00:00:00Z", URL: "https://www.youtube.com/watch?v=" + id, ThumbnailURL: "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg", Kind: KindUnknown}
 }
 
 func TestDescribeVideosUsesTheRecentStepsRulesWithoutWatchPages(t *testing.T) {
@@ -40,7 +40,7 @@ func TestDescribeVideosUsesTheRecentStepsRulesWithoutWatchPages(t *testing.T) {
 		listedUpload("QQQQQQQQQQQ", "not answered"),
 	}
 	// A stored video keeps its stored publication time.
-	stored := map[string]Video{"OOOOOOOOOOO": {ID: "OOOOOOOOOOO", Title: "ordinary upload", PublishedAt: "2025-12-01T00:00:00Z", Kind: "VIDEO"}}
+	stored := map[string]Video{"OOOOOOOOOOO": {ID: "OOOOOOOOOOO", Title: "ordinary upload", PublishedAt: "2025-12-01T00:00:00Z", Kind: KindUpload}}
 	described := a.DescribeVideos(context.Background(), listed, stored, nil)
 	// One videos.list call and both format playlists, read once.
 	if len(apiIDs) != 1 || apiIDs[0] != "PPPPPPPPPPP,LLLLLLLLLLL,NNNNNNNNNNN,OOOOOOOOOOO,QQQQQQQQQQQ" || described.APIRequests != 3 || len(described.Errors) != 0 {
@@ -57,10 +57,10 @@ func TestDescribeVideosUsesTheRecentStepsRulesWithoutWatchPages(t *testing.T) {
 	if len(got) != 4 || got["QQQQQQQQQQQ"].ID != "" {
 		t.Fatalf("videos=%v", described.Videos)
 	}
-	if v := got["PPPPPPPPPPP"]; !v.Premiere || !v.PremiereKnown || v.Kind != Classify("Letters - cover.") || v.EndedAt == "" || v.LiveStatus != LiveStatusEnded {
+	if v := got["PPPPPPPPPPP"]; !v.Premiere || !v.PremiereKnown || v.Kind != KindPremiere || v.EndedAt == "" || v.LiveStatus != LiveStatusEnded {
 		t.Fatalf("premiere=%#v", v)
 	}
-	if v := got["LLLLLLLLLLL"]; v.Premiere || !v.PremiereKnown || v.Kind != "LIVE ARCHIVE" || v.DurationSeconds != 7200 {
+	if v := got["LLLLLLLLLLL"]; v.Premiere || !v.PremiereKnown || v.Kind != KindStream || v.DurationSeconds != 7200 {
 		t.Fatalf("stream=%#v", v)
 	}
 	// Without a page, an ended broadcast on neither list stands unclassified.

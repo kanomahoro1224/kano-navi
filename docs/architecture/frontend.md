@@ -57,17 +57,20 @@ revision stream, `format.ts` owns Japan-time and event-status helpers, `content.
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
 schedule, posts or videos. `video-groups.ts` sorts the shelf's videos from
-the local snapshot: broadcasts (`LIVE ARCHIVE`, `UPCOMING LIVE`, `GAMEPLAY`,
-`TALK`) are streams and every other kind a work; a video's phase follows the
+the local snapshot: the `stream` kind is a stream and every other
+[form](data-model.md#video-form-and-tags) a work, whatever the video's tag;
+a video's phase follows the
 stage's live rule (a fresh confirmed state first, then the stream's
 three-hour grace or an explicit end), so a reservation past its start is a
 started ticket rather than an archive and an operator-confirmed cancellation
 leaves the shelf once its start passes. A past video whose `isShort` is
-`true` is a Short before its kind is read, so a Short titled like a stream is
-neither an archive nor a work; `null` (unknown) is an ordinary upload. The
-lead is the featured video, or else the newest `MUSIC` work or premiere, or
-else the newest work, so a Short leads only when featured; each video appears
-once. The filter offers All plus Streams, Works and Shorts for each kind
+`true` is a Short before its kind is read, so a Short broadcast is neither
+an archive nor a work; `null` (unknown) is an ordinary upload. The
+lead is the featured video, or else the newest work tagged `song` or
+premiere, or else the newest work, so a Short leads only when featured; each video appears
+once. A video's chip (`videoKindLabel`) names a Short, then a stream's
+waiting room, then the tag (gameplay, talk, music), then the form (stream
+archive, premiere, video). The filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the
 centre of the 1280×720 cover (the vertical frame between YouTube's blurred
 pillarbox): one row of up to six in the All view, fewer as columns narrow and
@@ -204,12 +207,12 @@ Bilibili and Missing translation. Uploads
 merged into another video appear on that video's row, so only the Bilibili
 tab lists them on their own. Each row shows the
 thumbnail, the title, which opens the correction dialog, the platform, time,
-kind, length and format, its badges and merge line, the translation chips,
+kind, tag, length and format, its badges and merge line, the translation chips,
 and the feature, correct and open actions. The correction dialog
 (`video-editor.tsx`) opens with a preview of the board's row as the draft
-leaves it (the chosen thumbnail, title, source, kind, format and the number
-of corrections) and the page-read facts. Below, the corrections (title, kind,
-format and thumbnail files) sit beside the platform's record (the merge
+leaves it (the chosen thumbnail, title, source, kind, tag, format and the
+number of corrections) and the page-read facts. Below, the corrections
+(title, kind, tag, format and thumbnail files) sit beside the platform's record (the merge
 section and what the platform replaced); one column on narrow screens. A
 corrected field is marked and offers a reset to the platform value beside its
 label. Refresh, cancel and save stay in the footer.

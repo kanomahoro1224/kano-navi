@@ -85,7 +85,7 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	}
 	offset := (page - 1) * pageSize
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id,source,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_at,updated_at
+		SELECT id,source,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,tag,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_at,updated_at
 		FROM events
 		WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on BETWEEN ? AND ?
 		ORDER BY COALESCE(julianday(starts_at), julianday(starts_on || 'T23:59:59.999+09:00')) ASC, id ASC
@@ -214,14 +214,15 @@ func (s *Store) attachLiveStatus(ctx context.Context, events []DashboardEvent, n
 	return nil
 }
 
-// attachVideoTags copies an operator's calendar label from the video an event
-// points at, matched on the watch URL. Events without a labelled video keep a
-// nil tag, and the reader falls back to its own reading of the wording.
+// attachVideoTags fills an entry's calendar label from the video it points at,
+// matched on the watch URL. The label an operator or the model put on the
+// event itself wins; a video label only covers an entry that has none, so a
+// label set before events carried their own still reads.
 func (s *Store) attachVideoTags(ctx context.Context, events []DashboardEvent) error {
 	identities := []any{}
 	seen := map[string]bool{}
 	for _, event := range events {
-		if event.URL == nil {
+		if event.URL == nil || event.Tag != nil {
 			continue
 		}
 		identity := streamIdentity(*event.URL)
@@ -255,9 +256,10 @@ func (s *Store) attachVideoTags(ctx context.Context, events []DashboardEvent) er
 		return dbErr(err)
 	}
 	for i := range events {
-		if events[i].URL != nil {
-			events[i].Tag = tags[streamIdentity(*events[i].URL)]
+		if events[i].Tag != nil || events[i].URL == nil {
+			continue
 		}
+		events[i].Tag = tags[streamIdentity(*events[i].URL)]
 	}
 	return nil
 }

@@ -108,17 +108,20 @@ type PostMedia struct {
 }
 
 type DashboardEvent struct {
-	ID                   string
-	Source               string
-	Title                string
-	Detail               *string
-	StartsOn             string
-	StartsAt             *string
-	EndsAt               *string
-	Timezone             string
-	TimePrecision        string
-	Status               *string
-	EventType            *string
+	ID            string
+	Source        string
+	Title         string
+	Detail        *string
+	StartsOn      string
+	StartsAt      *string
+	EndsAt        *string
+	Timezone      string
+	TimePrecision string
+	Status        *string
+	EventType     *string
+	// Tag is the calendar label of this entry ("live", "game", "talk",
+	// "song" or "video"), decided by an operator or the model, or nil.
+	Tag                  *string
 	URL                  *string
 	Provenance           string
 	CancellationStatus   string
@@ -133,9 +136,6 @@ type DashboardEvent struct {
 	UpdatedAt string
 	// LiveStatus is the linked video's trusted broadcast state, or nil.
 	LiveStatus *string
-	// Tag is the calendar kind an operator pinned on the linked video, or
-	// nil to let the App read the wording instead.
-	Tag *string
 	// Translations are the linked video's title translations while the
 	// event shows that video's title.
 	Translations TranslationSet
@@ -814,7 +814,7 @@ func (s *Store) scanPostMedia(ctx context.Context, row scanner, lead ...any) (Po
 }
 
 func (s *Store) queryDashboardEvents(ctx context.Context, from, to string, now time.Time) ([]DashboardEvent, error) {
-	q := `SELECT id,source,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_at,updated_at FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND id IN (SELECT id FROM (SELECT id FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on BETWEEN ? AND ? ORDER BY julianday(COALESCE(starts_at,starts_on)) ASC,id ASC LIMIT 100) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)<=julianday(?) AND (julianday(ends_at)>julianday(?) OR (ends_at IS NULL AND event_type IN ('stream','member') AND julianday(starts_at)>julianday(?,'-3 hours')))) AND (event_type IN ('stream','member') OR source='youtube') ORDER BY julianday(starts_at) ASC,id ASC LIMIT 30)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC`
+	q := `SELECT id,source,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,tag,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_at,updated_at FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND id IN (SELECT id FROM (SELECT id FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on BETWEEN ? AND ? ORDER BY julianday(COALESCE(starts_at,starts_on)) ASC,id ASC LIMIT 100) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)<=julianday(?) AND (julianday(ends_at)>julianday(?) OR (ends_at IS NULL AND event_type IN ('stream','member') AND julianday(starts_at)>julianday(?,'-3 hours')))) AND (event_type IN ('stream','member') OR source='youtube') ORDER BY julianday(starts_at) ASC,id ASC LIMIT 30)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC`
 	args := []any{from, to, now.UTC().Format(time.RFC3339Nano), dateInJapan(now), now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano)}
 	return s.scanEvents(ctx, q, args, now)
 }
@@ -842,9 +842,9 @@ type scanner interface{ Scan(...any) error }
 
 func scanEvent(row scanner, now time.Time) (DashboardEvent, error) {
 	var e DashboardEvent
-	var detail, sa, ea, status, et, urlv, cs, cr, ce, cat sql.NullString
+	var detail, sa, ea, status, et, tag, urlv, cs, cr, ce, cat sql.NullString
 	var locked int64
-	if err := row.Scan(&e.ID, &e.Source, &e.Title, &detail, &e.StartsOn, &sa, &ea, &e.Timezone, &e.TimePrecision, &status, &et, &urlv, &e.Provenance, &locked, &e.CancellationStatus, &cs, &cr, &ce, &cat, &e.UpdatedAt); err != nil {
+	if err := row.Scan(&e.ID, &e.Source, &e.Title, &detail, &e.StartsOn, &sa, &ea, &e.Timezone, &e.TimePrecision, &status, &et, &tag, &urlv, &e.Provenance, &locked, &e.CancellationStatus, &cs, &cr, &ce, &cat, &e.UpdatedAt); err != nil {
 		return e, dbErr(err)
 	}
 	if detail.Valid {
@@ -861,6 +861,9 @@ func scanEvent(row scanner, now time.Time) (DashboardEvent, error) {
 	}
 	if et.Valid {
 		e.EventType = &et.String
+	}
+	if tag.Valid {
+		e.Tag = &tag.String
 	}
 	if urlv.Valid {
 		e.URL = &urlv.String

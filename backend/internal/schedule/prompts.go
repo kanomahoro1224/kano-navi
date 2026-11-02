@@ -4,7 +4,7 @@ package schedule
 // server/schedule-extractor.ts. extractorVersion is part of stored extraction
 // identities, so changing it reprocesses every known post.
 const (
-	extractorVersion     = "openai-schedule-v4"
+	extractorVersion     = "openai-schedule-v5"
 	defaultOpenAIBaseURL = "https://api.openai.com/v1"
 
 	protocolResponses = "openai-responses"
@@ -26,12 +26,25 @@ const (
 	extractionToolName   = "kano_schedule_extraction"
 	verificationToolName = "kano_schedule_asset_verification"
 	translationToolName  = "kano_text_translation"
+	eventTagToolName     = "kano_event_tag"
+
+	// eventTagInstructions classifies one YouTube title for the calendar. It is
+	// a short-text judgement like translation, so it shares that queue rather
+	// than adding a queue and model settings of its own.
+	eventTagInstructions = "Classify one YouTube title by Kano Mahoro (鹿乃まほろ), a Japanese virtual singer, for a fan calendar. Return live for an ordinary broadcast or stream, game for a gameplay stream, talk for a chat or talk stream, song for a singing stream or a song premiere, and video for an uploaded video or any other premiere. Return null when the title does not show what kind of activity it is; never guess from the channel name alone."
+
+	eventTagSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]}},"required":["tag"]}`
 
 	translationInstructions = "Translate one X post or YouTube video title by Kano Mahoro (鹿乃まほろ), a Japanese virtual singer, for readers of an unofficial fan status board. Set sourceLanguage to the language of the text: ja, en, zh, ko or other, or none when it has nothing to translate (only links, hashtags, @mentions, emoji or kaomoji). Translate the whole text into natural English (english) and Simplified Chinese (simplifiedChinese). Keep URLs, hashtags, @mentions, emoji, kaomoji, bracketed channel tags and line breaks as written. Use the usual romanization or official names of people, groups and games, and keep a song title in its original wording unless it has an official translation. Each translation field is the complete text to display, not a list of changes: when a song title or name stays unchanged, include that original wording in the non-empty result. For sourceLanguage ja, ko or other, both english and simplifiedChinese must be non-empty, even when the whole title stays unchanged. Do not add explanations, quotation marks or notes. Return an empty string only for english when sourceLanguage is en, only for simplifiedChinese when sourceLanguage is zh, and for both when sourceLanguage is none."
 
 	translationSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"sourceLanguage":{"type":"string","enum":["ja","en","zh","ko","other","none"]},"english":{"type":"string"},"simplifiedChinese":{"type":"string"}},"required":["sourceLanguage","english","simplifiedChinese"]}`
 
-	scheduleInstructions = "First classify whether this single Japanese X post is a concrete schedule notice. Return classification=not_schedule when it is ordinary conversation or has no concrete schedule, and classification=uncertain when the evidence is ambiguous. For classification=schedule, extract only entries explicitly supported by the post text or images. Interpret relative dates from the post publication time in Asia/Tokyo. Never invent a time. Use null time and timePrecision unknown when the date is known but the time is not. Set action=cancel only when the post is evidence that an existing schedule may have been cancelled; this is a judgement for review, never a deletion or definitive cancellation. Put the reason in the root reason field and cite the post wording in evidence. For cancellation, events should identify the affected date/title/time when possible. " + scheduleLanguageInstruction + " Return an empty events array for not_schedule."
+	scheduleInstructions = "First classify whether this single Japanese X post is a concrete schedule notice. Return classification=not_schedule when it is ordinary conversation or has no concrete schedule, and classification=uncertain when the evidence is ambiguous. For classification=schedule, extract only entries explicitly supported by the post text or images. Interpret relative dates from the post publication time in Asia/Tokyo. Never invent a time. Use null time and timePrecision unknown when the date is known but the time is not. Set action=cancel only when the post is evidence that an existing schedule may have been cancelled; this is a judgement for review, never a deletion or definitive cancellation. Put the reason in the root reason field and cite the post wording in evidence. For cancellation, events should identify the affected date/title/time when possible. " + scheduleLanguageInstruction + " Return an empty events array for not_schedule. " + scheduleTagInstruction
+
+	// scheduleTagInstruction describes the optional calendar label. The label
+	// describes one calendar entry, so it belongs to the event rather than to
+	// the video a reader may open from it.
+	scheduleTagInstruction = "Set tag only when the post or image itself shows what kind of activity the entry is: live for an ordinary broadcast, game for gameplay, talk for a chat or talk stream, song for a singing stream, video for an uploaded video or premiere. When the entry does not say, use null; never guess from the channel or a person's name."
 
 	// English is the base language of stored text; the board translates
 	// status codes and shows titles in their original wording.
@@ -41,7 +54,7 @@ const (
 
 	// JSON.stringify(scheduleSchema) and
 	// JSON.stringify(scheduleAssetVerificationSchema), byte-exact.
-	scheduleSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"classification":{"type":"string","enum":["schedule","not_schedule","uncertain"]},"events":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"title":{"type":"string"},"detail":{"anyOf":[{"type":"string"},{"type":"null"}]},"date":{"type":"string"},"time":{"anyOf":[{"type":"string"},{"type":"null"}]},"endTime":{"anyOf":[{"type":"string"},{"type":"null"}]},"timePrecision":{"type":"string","enum":["exact","approximate","unknown"]},"status":{"type":"string"},"eventType":{"type":"string","enum":["event","stream","member","release","appearance"]},"url":{"anyOf":[{"type":"string"},{"type":"null"}]},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"}},"required":["title","detail","date","time","endTime","timePrecision","status","eventType","url","confidence","evidence"]}},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}]},"action":{"type":"string","enum":["add","update","cancel","none"]}},"required":["classification","events","confidence","evidence","reason","action"]}`
+	scheduleSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"classification":{"type":"string","enum":["schedule","not_schedule","uncertain"]},"events":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"title":{"type":"string"},"detail":{"anyOf":[{"type":"string"},{"type":"null"}]},"date":{"type":"string"},"time":{"anyOf":[{"type":"string"},{"type":"null"}]},"endTime":{"anyOf":[{"type":"string"},{"type":"null"}]},"timePrecision":{"type":"string","enum":["exact","approximate","unknown"]},"status":{"type":"string"},"eventType":{"type":"string","enum":["event","stream","member","release","appearance"]},"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]},"url":{"anyOf":[{"type":"string"},{"type":"null"}]},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"}},"required":["title","detail","date","time","endTime","timePrecision","status","eventType","tag","url","confidence","evidence"]}},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}]},"action":{"type":"string","enum":["add","update","cancel","none"]}},"required":["classification","events","confidence","evidence","reason","action"]}`
 
 	scheduleAssetVerificationSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"classification":{"type":"string","enum":["schedule","not_schedule","uncertain"]},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"},"reason":{"type":"string"}},"required":["classification","confidence","evidence","reason"]}`
 )

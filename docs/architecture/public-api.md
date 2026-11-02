@@ -107,12 +107,20 @@ order. It returns sanitized `items` / `events`, `total`, `totalPages`,
 `hasNext`, `dayCounts`, `revision`, matching approved schedule images and
 `adjacent.previous` / `adjacent.next` event dates. Invalid ranges return 400.
 Every read uses the same public event projection as the board, including the
-trusted `liveStatus` and the operator's calendar `tag` of an event's linked
-video; it does not fetch platforms or models. MCP `schedule_list` is the bounded, paginated history reader;
+trusted `liveStatus` of an event's linked video; it does not fetch platforms or
+models. MCP `schedule_list` is the bounded, paginated history reader;
 `dashboard_read` shares the bounded snapshot. Events merged into another event
 are excluded from every one of these reads, including totals, day counts,
 adjacent dates and summary candidates (see
 [Duplicate merging](data-model.md#duplicate-merging)).
+
+Every public event carries `tag`: `live`, `game`, `talk`, `song` or `video`,
+or null when the entry is unlabelled. It is a column of the event rather than
+of a linked video, so the board, `/api/calendar`, MCP `dashboard_read` and
+`schedule_list` report the same value, and an entry without a video link can
+carry one. Readers translate the code for display and fall back to the title
+when it is null; see [Event labels](data-model.md#event-labels) for who
+decides it.
 
 Dashboard SQL selects up to 100 recent post previews plus the latest-post
 fallback, up to 100 current-week event previews plus 30 upcoming and 30 live

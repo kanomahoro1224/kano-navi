@@ -93,6 +93,9 @@ export function EventRow({
         ) : null}
         <span className="adm-chip-row">
           <Badge>{t(`admin.event.type.${event.eventType || "event"}`)}</Badge>
+          {event.tag ? (
+            <Badge tone="lavender">{t(`admin.event.tag.${event.tag}`)}</Badge>
+          ) : null}
           <ProvenanceBadge event={event} />
           <CancellationBadge event={event} />
           <MergeBadge event={event} />

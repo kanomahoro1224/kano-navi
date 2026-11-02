@@ -168,6 +168,23 @@ receives the handle in its URL. Automatic, unlocked YouTube events with a
 start time and `unknown` precision become `exact`. None of these steps clears
 a snapshot.
 
+## Event Labels
+
+`events.tag` is the calendar label of one entry: `live`, `game`, `talk`, `song`
+or `video`, or NULL. `tag_source` records who decided it (`llm` for extraction
+or title inference, `manual` for an operator). Precedence is manual > model >
+none: an operator's value belongs to the locked row, so automatic extraction
+cannot replace it, and clearing the label keeps the row manual. The extraction
+prompt returns a label only when the post or image states the activity. YouTube
+reservations are created by the sync without the extraction prompt, so the
+`translate` queue also labels them from their title; a title the model cannot
+classify is recorded as attempted (`tag_source = llm` without a tag) and is not
+asked again. A rule merge copies the label of the X notice onto the surviving
+event when that event has none.
+The calendar read additionally falls back to a label pinned on the linked video
+(see [Video Corrections and History](#video-corrections-and-history)) for an
+entry whose own `tag` is NULL, so a video label never hides an event label.
+
 ## Event Precedence
 
 Automatic X extraction and YouTube reservations use `provenance = automatic`.
@@ -500,10 +517,10 @@ writes these columns, and clearing one shows the platform value again. Every
 public reader (dashboard, video archive, MCP) and the console show
 `COALESCE(manual, platform)`, and a pinned thumbnail is served while its file
 is still cached, otherwise the platform thumbnail. Machine translations
-follow the corrected title. `manual_tag` is the calendar label an operator
-pins on a video (`live`, `game`, `talk`, `song` or `video`); the calendar read copies it
-onto the event that carries the video's URL, so the App shows the operator's
-label instead of reading the title. A correction is not an event lock:
+follow the corrected title. `manual_tag` is a calendar label an operator
+pinned on a video (`live`, `game`, `talk`, `song` or `video`); the calendar read
+uses it for an event that carries the video's URL and has no `tag` of its own,
+so the App shows a label instead of reading the title. A correction is not an event lock:
 reservation events keep their own provenance and manual edits.
 
 Nothing the platform replaces is discarded. A page read that reports a new

@@ -37,7 +37,7 @@ func NewSnapshot(t testing.TB) string {
 		CREATE TABLE events (
 			id TEXT PRIMARY KEY, source TEXT NOT NULL, source_item_id TEXT, source_key TEXT, title TEXT NOT NULL, detail TEXT,
 			starts_on TEXT NOT NULL, starts_at TEXT, ends_at TEXT, timezone TEXT NOT NULL DEFAULT 'Asia/Tokyo',
-			time_precision TEXT NOT NULL DEFAULT 'exact', status TEXT, event_type TEXT DEFAULT 'event', url TEXT,
+			time_precision TEXT NOT NULL DEFAULT 'exact', status TEXT, event_type TEXT DEFAULT 'event', tag TEXT, tag_source TEXT, url TEXT,
 			is_upcoming INTEGER DEFAULT 0, provenance TEXT NOT NULL DEFAULT 'automatic', manual_locked INTEGER NOT NULL DEFAULT 0,
 			confidence REAL, extraction_id INTEGER, cancellation_status TEXT NOT NULL DEFAULT 'none', cancellation_source TEXT,
 			cancellation_reason TEXT, cancellation_evidence TEXT, cancellation_source_item_id TEXT,

@@ -66,8 +66,13 @@ func (c MergeCounts) Changed() bool {
 type mergeEvent struct {
 	id, source, title, startsOn, eventType, precision, provenance, cancellation string
 	mergedInto, mergeSource                                                     string
-	start                                                                       time.Time
-	hasStart, locked                                                            bool
+	// tag is the calendar label of the entry; an X notice may carry one that
+	// the YouTube event it merges into does not.
+	tag       string
+	tagSource string
+	start     time.Time
+	hasStart  bool
+	locked    bool
 	// held events hold a merge another owner made, such as an operator's;
 	// merging them away would chain that merge behind a hidden event.
 	held bool
@@ -199,6 +204,9 @@ func (s *Store) ReconcileEventMerges(ctx context.Context, now time.Time) (MergeC
 		default:
 			_, err = tx.ExecContext(ctx, `UPDATE events SET merged_into=?,merge_source=?,merge_reason=?,merged_at=? WHERE id=? AND (merge_source IS NULL OR merge_source=?)`,
 				target, MergeSourceRule, reasons[event.id], timestamp, event.id, MergeSourceRule)
+			if err == nil {
+				err = inheritEventTag(ctx, tx, event, byID[target])
+			}
 			if current == "" {
 				counts.Merged++
 			} else {
@@ -220,8 +228,25 @@ func (s *Store) ReconcileEventMerges(ctx context.Context, now time.Time) (MergeC
 	return counts, nil
 }
 
+// inheritEventTag copies the label of a notice onto the event that replaces it
+// in the calendar, since readers only see the surviving entry. An operator's
+// value on either side wins over the model's, and the copied label stays put
+// if the merge is released later: it described the same activity.
+func inheritEventTag(ctx context.Context, tx *sql.Tx, from, to mergeEvent) error {
+	if from.tag == "" || to.tag != "" || to.locked || to.provenance == "manual" {
+		return nil
+	}
+	source := from.tagSource
+	if source == "" {
+		source = TagSourceLLM
+	}
+	_, err := tx.ExecContext(ctx, `UPDATE events SET tag=?,tag_source=? WHERE id=? AND tag IS NULL AND manual_locked=0`,
+		from.tag, source, to.id)
+	return err
+}
+
 func loadMergeEvents(ctx context.Context, tx *sql.Tx, from, to string) ([]mergeEvent, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT id,source,title,starts_on,COALESCE(starts_at,''),time_precision,COALESCE(event_type,'event'),provenance,manual_locked,COALESCE(cancellation_status,'none'),COALESCE(merged_into,''),COALESCE(merge_source,''),
+	rows, err := tx.QueryContext(ctx, `SELECT id,source,title,starts_on,COALESCE(starts_at,''),time_precision,COALESCE(event_type,'event'),COALESCE(tag,''),COALESCE(tag_source,''),provenance,manual_locked,COALESCE(cancellation_status,'none'),COALESCE(merged_into,''),COALESCE(merge_source,''),
 		EXISTS(SELECT 1 FROM events m WHERE m.merged_into=events.id AND m.deleted_at IS NULL AND COALESCE(m.merge_source,'')<>?)
 		FROM events WHERE deleted_at IS NULL AND starts_on BETWEEN ? AND ? ORDER BY starts_on,id`, MergeSourceRule, from, to)
 	if err != nil {
@@ -233,7 +258,7 @@ func loadMergeEvents(ctx context.Context, tx *sql.Tx, from, to string) ([]mergeE
 		var e mergeEvent
 		var startsAt, precision string
 		var locked, held int
-		if err = rows.Scan(&e.id, &e.source, &e.title, &e.startsOn, &startsAt, &precision, &e.eventType, &e.provenance, &locked, &e.cancellation, &e.mergedInto, &e.mergeSource, &held); err != nil {
+		if err = rows.Scan(&e.id, &e.source, &e.title, &e.startsOn, &startsAt, &precision, &e.eventType, &e.tag, &e.tagSource, &e.provenance, &locked, &e.cancellation, &e.mergedInto, &e.mergeSource, &held); err != nil {
 			return nil, err
 		}
 		e.locked, e.held, e.precision = locked != 0, held != 0, precision

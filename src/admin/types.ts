@@ -422,6 +422,9 @@ export interface AdminEvent {
   timePrecision: "exact" | "approximate" | "unknown"
   status: string | null
   eventType: string | null
+  /** Calendar label, and who decided it ("llm" or "manual"). */
+  tag: string | null
+  tagSource: string | null
   url: string | null
   provenance: "automatic" | "manual"
   manualLocked: boolean
@@ -452,6 +455,8 @@ export interface EventInput {
   endsAt?: string
   timePrecision?: string
   eventType?: string
+  /** Empty string clears the label. */
+  tag?: string
   status?: string
   url?: string
   cancellationStatus?: Cancellation

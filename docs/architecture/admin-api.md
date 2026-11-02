@@ -330,11 +330,20 @@ not an integer within its range; the next run reads the saved values.
 locked by an operator); `cancellation` is `none`,
 `llm_suspected` or `manual_confirmed`; `order` is `asc` or `desc` (default);
 `deleted=1` includes tombstones and `deleted=only` lists only them. Event fields are `title`, `detail`,
-`startsOn`, `startsAt`, `endsAt`, `timePrecision`, `eventType`, `status`,
+`startsOn`, `startsAt`, `endsAt`, `timePrecision`, `eventType`, `tag`, `status`,
 `url`, `cancellationStatus` and `cancellationReason` (required for
 `manual_confirmed`). Every write is manual: it locks the event against
 automatic extraction, and a delete is a durable tombstone. Confirming keeps
 the stored values unless the body overrides them.
+
+`tag` is the calendar label: `live`, `game`, `talk`, `song` or `video`, and an
+empty value clears it. A saved label is an operator's decision
+(`tagSource = manual`) and outranks the automatic one, which the extraction
+prompt or the title inference of the `translate` queue stores with
+`tagSource = llm`; the whole row being locked already keeps a later automatic
+write from replacing it. An unknown value answers `400 invalid_input`. Every
+reader, including the board, `/api/calendar`, MCP
+`dashboard_read` and `schedule_list`, reports the same event column.
 
 The list includes merged duplicates by default; `merge=merged` lists only
 them and `merge=visible` excludes them, as every public reader does. Each
@@ -573,12 +582,12 @@ corrected title. The feed names the format of its newest uploads only (see
 the console's Format field is how an operator moves one into the board's
 Shorts row.
 
-`tag` is the label the App's calendar shows for the event this video carries
-(`live`, `game`, `talk`, `song` or `video`), replacing the App's own reading of the
-title; `null` clears it and lets the App read the title again. It is stored in
-`manual_tag`, appears as `manualTag` beside `tag`, and reaches the calendar as
-the event's `tag` field, so an operator's label survives without an App
-release.
+`tag` is a calendar label for the event this video carries
+(`live`, `game`, `talk`, `song` or `video`), so the App shows it instead of its
+own reading of the title; `null` clears it and lets the App read the title
+again. It is stored in `manual_tag`, appears as `manualTag` beside `tag`, and
+reaches the calendar as the event's `tag` field whenever that event has no label
+of its own, so an operator's label survives without an App release.
 
 `GET /videos/{id}/history` lists, newest first, the titles and thumbnails the
 platform replaced (`revisions`, each with `origin` `sync` for a new title or

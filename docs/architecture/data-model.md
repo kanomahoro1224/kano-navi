@@ -172,7 +172,12 @@ snapshot.
 ## Event Labels
 
 `events.tag` is the calendar label of one entry: `live`, `game`, `talk`, `song`
-or `video`, or NULL. `tag_source` records who decided it: `manual` for an
+or `video`, or NULL. `game`, `talk` and `song` name the content and take
+priority; `song` covers singing streams, covers, originals, music videos and
+song premieres. `live` is a stream and `video` an upload or premiere that none
+of them fits or whose content is not shown, and a mixed entry takes the
+activity it leads with. The extraction prompt and the title inference share
+this definition. `tag_source` records who decided it: `manual` for an
 operator, `llm` for the extraction prompt or an X notice merged into the
 entry, and `title` for the title inference. Precedence is manual > `llm` >
 `title` > none:

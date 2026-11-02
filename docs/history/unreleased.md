@@ -68,7 +68,10 @@
 
 - The extraction prompt may return a label when the post or image states the
   activity. An unknown label is dropped without losing the entry, and a post
-  that states no label keeps the label already on the entry.
+  that states no label keeps the label already on the entry. It shares the
+  title prompt's label definition: `game`, `talk` and `song` win whenever the
+  content shows, `live` and `video` only name the form otherwise, and a song
+  premiere is `song` on either path.
 - YouTube reservations never pass through that prompt, so the translation
   queue also labels them from their title (`tagSource = title`), with the
   queue's retries and provider status. A title the model cannot classify is

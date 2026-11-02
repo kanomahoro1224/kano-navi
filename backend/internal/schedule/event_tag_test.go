@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -58,6 +59,31 @@ func TestNormalizeKeepsOnlyKnownEventTags(t *testing.T) {
 		}
 		if len(events) != 1 || events[0].title != songTitle {
 			t.Fatalf("%s events=%+v", tt.name, events)
+		}
+	}
+}
+
+// The extraction prompt and the title inference send the same label
+// definition, so a stream or premiere gets the same label whichever path
+// judges it.
+func TestExtractionAndTitleInferenceShareTheTagRule(t *testing.T) {
+	f := messageFixture(t)
+	f.provider.respond = func(recordedRequest) (int, string) {
+		return http.StatusOK, chatReply(taggedScheduleReply(nil))
+	}
+	f.scan()
+	titles, translator := newTranslatorFixture(t)
+	titles.addProvider("main", protocolChat, "https://translate.example.test", "synthetic-model", `["text"]`)
+	titles.queueTranslation("main")
+	titles.addReservation("a", "【歌枠】synthetic", 1)
+	titles.provider.respond = func(recordedRequest) (int, string) { return http.StatusOK, tagReply("song") }
+	runTranslator(t, translator)
+	for name, provider := range map[string]*fakeProvider{"extraction": f.provider, "title inference": titles.provider} {
+		if provider.count() == 0 {
+			t.Fatalf("%s sent no request", name)
+		}
+		if !strings.Contains(provider.requests[0].body, eventTagRule) {
+			t.Errorf("%s request lacks the shared tag rule", name)
 		}
 	}
 }

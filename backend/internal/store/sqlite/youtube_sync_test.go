@@ -316,3 +316,85 @@ func TestYoutubeUnclassifiedAnswerKeepsTheStoredKindAndEvent(t *testing.T) {
 		t.Fatalf("orphan events=%d err=%v", orphans, err)
 	}
 }
+
+// A detail answer that cannot tell the form never turns a stored stream or
+// premiere back into unknown, even for a video the recent state did not load.
+func TestUnknownFormKeepsTheStoredStreamOrPremiere(t *testing.T) {
+	p := testutil.NewSnapshot(t)
+	s, err := OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	for _, row := range [][2]string{{"SSSSSSSSSSS", "stream"}, {"PPPPPPPPPPP", "premiere"}, {"UUUUUUUUUUU", "unknown"}} {
+		testutil.Exec(t, p, `INSERT INTO videos(id,source,title,scheduled_at,url,kind,is_upcoming,raw_json) VALUES(?,'youtube','synthetic','2026-01-02T09:00:00Z',?,?,0,'{}')`,
+			row[0], "https://www.youtube.com/watch?v="+row[0], row[1])
+	}
+	answers := []ytsource.Video{}
+	for _, id := range []string{"SSSSSSSSSSS", "PPPPPPPPPPP", "UUUUUUUUUUU"} {
+		answers = append(answers, ytsource.Video{ID: id, Title: "synthetic", ScheduledAt: "2026-01-02T09:00:00Z", URL: "https://www.youtube.com/watch?v=" + id, Kind: ytsource.KindUnknown, LiveStatus: ytsource.LiveStatusEnded, Unclassified: true})
+	}
+	if err = s.WriteYoutubeRecent(context.Background(), "UCAAAAAAAAAAAAAAAAAAAAAA", ytsource.Result{Videos: answers}); err != nil {
+		t.Fatal(err)
+	}
+	for id, want := range map[string]string{"SSSSSSSSSSS": "stream", "PPPPPPPPPPP": "premiere", "UUUUUUUUUUU": "unknown"} {
+		var kind string
+		if err = s.DB().QueryRow(`SELECT kind FROM videos WHERE id=?`, id).Scan(&kind); err != nil {
+			t.Fatal(err)
+		}
+		if kind != want {
+			t.Errorf("%s kind=%s, want %s", id, kind, want)
+		}
+	}
+}
+
+// A creator's rename asks again about a title judgement that found no
+// content; a content label the title gave, or an operator's title, stays.
+func TestRenamedTitleIsJudgedAgain(t *testing.T) {
+	p := testutil.NewSnapshot(t)
+	s, err := OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	const start = "2026-01-02T09:00:00Z"
+	rows := []struct{ id, tag, eventTag, manualTitle string }{
+		{"NOLABEL0001", "", "", ""},
+		{"FORMLABEL01", "", "live", ""},
+		{"CONTENT0001", "game", "game", ""},
+		{"OPERATOR001", "", "", "operator title"},
+	}
+	for _, row := range rows {
+		testutil.Exec(t, p, `INSERT INTO videos(id,source,title,scheduled_at,url,kind,is_upcoming,manual_title,tag,tag_source,tag_attempted_at,raw_json) VALUES(?,'youtube','placeholder',?,?,'stream',0,NULLIF(?,''),NULLIF(?,''),'title',?,'{}')`,
+			row.id, start, "https://www.youtube.com/watch?v="+row.id, row.manualTitle, row.tag, start)
+		testutil.Exec(t, p, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,timezone,time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,tag,tag_source,tag_attempted_at,created_at,updated_at,raw_json) VALUES(?,'youtube',?,'reservation','placeholder','YouTube Live','2026-01-02',?,'Asia/Tokyo','exact','ended','stream',?,0,'automatic',0,NULLIF(?,''),'title',?,?,?,'{}')`,
+			"youtube-"+row.id, row.id, start, "https://www.youtube.com/watch?v="+row.id, row.eventTag, start, start, start)
+	}
+	answers := []ytsource.Video{}
+	for _, row := range rows {
+		answers = append(answers, ytsource.Video{ID: row.id, Title: "renamed", ScheduledAt: start, URL: "https://www.youtube.com/watch?v=" + row.id, Kind: ytsource.KindStream, LiveStatus: ytsource.LiveStatusEnded, PremiereKnown: true})
+	}
+	if err = s.WriteYoutubeRecent(context.Background(), "UCAAAAAAAAAAAAAAAAAAAAAA", ytsource.Result{Videos: answers}); err != nil {
+		t.Fatal(err)
+	}
+	state := func(table, id string) string {
+		var got string
+		if err := s.DB().QueryRow(`SELECT COALESCE(tag,'')||'|'||COALESCE(tag_source,'')||'|'||CASE WHEN tag_attempted_at IS NULL THEN '' ELSE 'attempted' END FROM `+table+` WHERE id=?`, id).Scan(&got); err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	for id, want := range map[string][2]string{
+		"NOLABEL0001": {"||", "||"},
+		"FORMLABEL01": {"||", "||"},
+		"CONTENT0001": {"game|title|attempted", "game|title|attempted"},
+		"OPERATOR001": {"|title|attempted", "||"},
+	} {
+		if got := state("videos", id); got != want[0] {
+			t.Errorf("video %s state=%q, want %q", id, got, want[0])
+		}
+		if got := state("events", "youtube-"+id); got != want[1] {
+			t.Errorf("event %s state=%q, want %q", id, got, want[1])
+		}
+	}
+}

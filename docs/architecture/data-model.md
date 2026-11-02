@@ -193,13 +193,19 @@ replaced by a form label:
   a stated label replaces a `title` label on the same row unless a form would
   replace content.
 - YouTube reservations are created by the sync without the extraction prompt,
-  so the `translate` queue also labels them from their title. A judgement
-  without a label, including an answer outside the five codes, is stored as
-  `tag_source = title` with no tag and is not asked again. A title every
-  model fails on stays unjudged and only receives `tag_attempted_at`; candidates never attempted come first, then the least
+  so the `translate` queue also labels them from their title. The request
+  names the entry's form (a `release` entry is a premiere, any other a
+  stream), so a title that shows no content still gets the right form label.
+  A judgement without a label, including an answer outside the five codes,
+  is stored as `tag_source = title` with no tag and is not asked again. A
+  title every model fails on stays unjudged and only receives
+  `tag_attempted_at`; candidates never attempted come first, then the least
   recently attempted, so a failing title cannot hold the head of the queue
   and a provider outage judges nothing. An entry that a labelled notice is
   merged into is not sent.
+- A creator's rename, written by the YouTube sync, clears a `title`
+  judgement that found no content (no label or a form label), so the new
+  title is asked about again; a content label the title gave stays.
 - Every rule merge left in place, including one kept from an earlier run, lends
   the label of its notice to the surviving event when that event has no label
   or a `title` one and is neither locked nor manual, unless a form would
@@ -651,9 +657,11 @@ whose entries, if any, carry neither a content label, a title judgement nor
 an operator's label, are not merged into such an entry, and are not
 automatic reservations still within the entry inference window. An
 operator's row without a label reads on to the video's tag, so it does not
-hold the video back. Only `game`, `talk` or `song` is
-stored; another answer or none is stored as `tag_source = title` without a
-tag and is not asked again; a failure only stamps `tag_attempted_at`. Videos
+hold the video back. Only `game`, `talk` or `song` is stored; another
+answer or none is stored as `tag_source = title` without a tag and is not
+asked again until a creator's rename clears that judgement (a stored tag, or
+an operator's `manual_title`, keeps it); a failure only stamps
+`tag_attempted_at`. Videos
 never attempted come first, then the least recently attempted, each newest
 first. Storing a tag advances the dashboard revision; a judgement without
 one or a failed attempt does not.

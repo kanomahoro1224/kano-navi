@@ -147,3 +147,25 @@ func TestUnknownEventTagIsJudgedWithoutALabel(t *testing.T) {
 		t.Fatalf("asked again: requests=%d", f.provider.count())
 	}
 }
+
+// The request names the entry's form, so a premiere whose title shows no
+// content is not judged a stream.
+func TestEventTagRequestNamesTheForm(t *testing.T) {
+	f, translator := newTranslatorFixture(t)
+	f.addProvider("main", protocolChat, "https://translate.example.test", "synthetic-model", `["text"]`)
+	f.queueTranslation("main")
+	f.addReservation("stream", "synthetic stream", 1)
+	f.addReservation("premiere", "synthetic premiere", 2)
+	f.exec(`UPDATE events SET event_type='release',detail='YouTube Premiere' WHERE id='premiere'`)
+	f.provider.respond = func(recordedRequest) (int, string) { return http.StatusOK, tagReply(nil) }
+	runTranslator(t, translator)
+	bodies := ""
+	for _, request := range f.provider.requests {
+		bodies += request.body
+	}
+	for _, want := range []string{"YouTube stream title: synthetic stream", "YouTube premiere title: synthetic premiere"} {
+		if !strings.Contains(bodies, want) {
+			t.Errorf("no request with %q in %s", want, bodies)
+		}
+	}
+}

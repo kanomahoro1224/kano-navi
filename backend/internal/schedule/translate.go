@@ -182,8 +182,9 @@ func (t *Translator) inferTags(ctx context.Context) (events, videos map[string]a
 	jobs := make([]tagJob, 0, len(entries))
 	for _, item := range entries {
 		id := item.ID
+		// The form tells live from video when the title does not show it.
 		jobs = append(jobs, tagJob{
-			title: item.Title, platform: "YouTube",
+			title: item.Title, platform: "YouTube " + item.Form,
 			record: func(tag *string) error { _, err := e.store.RecordEventTag(ctx, id, tag, e.now()); return err },
 			fail:   func() error { return e.store.RecordEventTagFailure(ctx, id, e.now()) },
 		})

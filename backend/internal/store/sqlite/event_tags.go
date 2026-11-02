@@ -90,8 +90,9 @@ func ValidEventTag(value string) bool {
 }
 
 // EventTagCandidate is one automatic YouTube calendar entry whose title the
-// model may label.
-type EventTagCandidate struct{ ID, Title string }
+// model may label, with its form (stream or premiere), which the title alone
+// may not show.
+type EventTagCandidate struct{ ID, Title, Form string }
 
 // ListEventTagCandidates returns up to limit unlabelled YouTube reservations
 // whose Japan date falls in the inclusive [from, to] range. Entries never
@@ -109,7 +110,7 @@ func (s *Store) ListEventTagCandidates(ctx context.Context, from, to string, lim
 	if limit < 1 {
 		limit = 1
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT id,title FROM events
+	rows, err := s.db.QueryContext(ctx, `SELECT id,title,CASE WHEN event_type='release' THEN 'premiere' ELSE 'stream' END FROM events
 		WHERE source='youtube' AND source_key='reservation' AND deleted_at IS NULL AND merged_into IS NULL
 			AND provenance='automatic' AND manual_locked=0
 			AND tag IS NULL AND COALESCE(tag_source,'')=''
@@ -123,7 +124,7 @@ func (s *Store) ListEventTagCandidates(ctx context.Context, from, to string, lim
 	candidates := []EventTagCandidate{}
 	for rows.Next() {
 		var item EventTagCandidate
-		if err = rows.Scan(&item.ID, &item.Title); err != nil {
+		if err = rows.Scan(&item.ID, &item.Title, &item.Form); err != nil {
 			return nil, dbErr(err)
 		}
 		candidates = append(candidates, item)

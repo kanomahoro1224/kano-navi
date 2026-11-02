@@ -253,6 +253,26 @@ func youtubeEventFields(v ytsource.Video) (typeName, detail, status string) {
 	return typeName, detail, status
 }
 
+// A title judgement that found no content is made again once the creator
+// renames the video, since a placeholder title often names nothing. The
+// conditions read the stored row before the upsert. A video keeps a tag the
+// title gave, and an entry keeps a content label; an entry's form label from
+// the title is judged again, as content outranks it.
+const (
+	retitledVideoJudgement = `videos.tag_source='title' AND videos.tag IS NULL AND videos.manual_title IS NULL AND videos.title IS NOT excluded.title`
+	retitledEventJudgement = `events.tag_source='title' AND COALESCE(events.tag,'live') IN ` + formTagSQL + ` AND events.title IS NOT excluded.title`
+)
+
+// retitledJudgementSQL clears the tag, its source and its attempt stamp of
+// the table's row when the condition holds, so the queue offers it again.
+func retitledJudgementSQL(table, condition string) string {
+	set := make([]string, 0, 3)
+	for _, column := range []string{"tag", "tag_source", "tag_attempted_at"} {
+		set = append(set, column+`=CASE WHEN `+condition+` THEN NULL ELSE `+table+`.`+column+` END`)
+	}
+	return strings.Join(set, ",")
+}
+
 // writeYoutubeVideos upserts checked videos and their reservation events. A
 // feed-only entry never replaces a stored video. Manual locks and deletion
 // tombstones survive. It reports whether a public video or event field
@@ -282,7 +302,8 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 		}
 		// A detail check records the broadcast state the page reported, or
 		// clears it when the page names none, and answers an operator's
-		// refresh request.
+		// refresh request. An answer that leaves the form unknown keeps a
+		// stored stream or premiere, even one the recent state did not load.
 		var checkedAt, duration any
 		if !v.FeedOnly {
 			checkedAt = now
@@ -290,7 +311,7 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 		if v.DurationSeconds > 0 {
 			duration = v.DurationSeconds
 		}
-		written, err := tx.ExecContext(ctx, `INSERT INTO videos(id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,live_status,live_checked_at,duration_seconds,is_premiere,raw_json) VALUES(?,'youtube',?,?,?,?,?,?,?,?,?,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=COALESCE(excluded.published_at,videos.published_at),scheduled_at=COALESCE(excluded.scheduled_at,videos.scheduled_at),url=excluded.url,thumbnail_url=excluded.thumbnail_url,kind=excluded.kind,is_upcoming=excluded.is_upcoming,live_status=excluded.live_status,live_checked_at=excluded.live_checked_at,duration_seconds=COALESCE(excluded.duration_seconds,videos.duration_seconds),is_premiere=COALESCE(excluded.is_premiere,videos.is_premiere),refresh_requested_at=CASE WHEN excluded.live_checked_at IS NULL THEN videos.refresh_requested_at END WHERE ?=0`, v.ID, v.Title, nullable(v.PublishedAt), nullable(v.ScheduledAt), v.URL, nullable(v.ThumbnailURL), v.Kind, v.IsUpcoming, nullable(v.LiveStatus), checkedAt, duration, premiere, v.FeedOnly)
+		written, err := tx.ExecContext(ctx, `INSERT INTO videos(id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,live_status,live_checked_at,duration_seconds,is_premiere,raw_json) VALUES(?,'youtube',?,?,?,?,?,?,?,?,?,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=COALESCE(excluded.published_at,videos.published_at),scheduled_at=COALESCE(excluded.scheduled_at,videos.scheduled_at),url=excluded.url,thumbnail_url=excluded.thumbnail_url,kind=CASE WHEN excluded.kind='unknown' AND videos.kind IN ('stream','premiere') THEN videos.kind ELSE excluded.kind END,is_upcoming=excluded.is_upcoming,live_status=excluded.live_status,live_checked_at=excluded.live_checked_at,duration_seconds=COALESCE(excluded.duration_seconds,videos.duration_seconds),is_premiere=COALESCE(excluded.is_premiere,videos.is_premiere),`+retitledJudgementSQL("videos", retitledVideoJudgement)+`,refresh_requested_at=CASE WHEN excluded.live_checked_at IS NULL THEN videos.refresh_requested_at END WHERE ?=0`, v.ID, v.Title, nullable(v.PublishedAt), nullable(v.ScheduledAt), v.URL, nullable(v.ThumbnailURL), v.Kind, v.IsUpcoming, nullable(v.LiveStatus), checkedAt, duration, premiere, v.FeedOnly)
 		if err != nil {
 			return false, ErrSourceWrite
 		}
@@ -346,7 +367,7 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 			}
 			// Manual locks and deletion tombstones survive every source refresh.
 			var event sql.Result
-			event, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,created_at,updated_at,raw_json) VALUES(?,'youtube',?,'reservation',?,?,?,?,?,'Asia/Tokyo','exact',?,?,?,?,'automatic',0,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,detail=excluded.detail,starts_on=excluded.starts_on,starts_at=excluded.starts_at,ends_at=COALESCE(excluded.ends_at,events.ends_at),time_precision=excluded.time_precision,status=excluded.status,event_type=excluded.event_type,url=excluded.url,is_upcoming=excluded.is_upcoming,updated_at=excluded.updated_at WHERE events.manual_locked=0 AND events.deleted_at IS NULL AND (events.title IS NOT excluded.title OR events.detail IS NOT excluded.detail OR events.starts_on IS NOT excluded.starts_on OR events.starts_at IS NOT excluded.starts_at OR events.ends_at IS NOT COALESCE(excluded.ends_at,events.ends_at) OR events.time_precision IS NOT excluded.time_precision OR events.status IS NOT excluded.status OR events.event_type IS NOT excluded.event_type OR events.url IS NOT excluded.url OR events.is_upcoming IS NOT excluded.is_upcoming)`, eventID, v.ID, v.Title, detail, start.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02"), v.ScheduledAt, nullable(v.EndedAt), status, typeName, v.URL, v.IsUpcoming, now, now)
+			event, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,created_at,updated_at,raw_json) VALUES(?,'youtube',?,'reservation',?,?,?,?,?,'Asia/Tokyo','exact',?,?,?,?,'automatic',0,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,detail=excluded.detail,starts_on=excluded.starts_on,starts_at=excluded.starts_at,ends_at=COALESCE(excluded.ends_at,events.ends_at),time_precision=excluded.time_precision,status=excluded.status,event_type=excluded.event_type,url=excluded.url,is_upcoming=excluded.is_upcoming,`+retitledJudgementSQL("events", retitledEventJudgement)+`,updated_at=excluded.updated_at WHERE events.manual_locked=0 AND events.deleted_at IS NULL AND (events.title IS NOT excluded.title OR events.detail IS NOT excluded.detail OR events.starts_on IS NOT excluded.starts_on OR events.starts_at IS NOT excluded.starts_at OR events.ends_at IS NOT COALESCE(excluded.ends_at,events.ends_at) OR events.time_precision IS NOT excluded.time_precision OR events.status IS NOT excluded.status OR events.event_type IS NOT excluded.event_type OR events.url IS NOT excluded.url OR events.is_upcoming IS NOT excluded.is_upcoming)`, eventID, v.ID, v.Title, detail, start.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02"), v.ScheduledAt, nullable(v.EndedAt), status, typeName, v.URL, v.IsUpcoming, now, now)
 			if err != nil {
 				return false, ErrSourceWrite
 			}

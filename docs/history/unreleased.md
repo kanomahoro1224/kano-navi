@@ -102,7 +102,9 @@
   or answers with a label outside the five codes, is recorded rather than
   asked again; a title whose request fails counts as failed, leaves the run
   going and is asked again after the titles not yet tried, so an outage
-  marks nothing as decided.
+  marks nothing as decided. The request names whether the entry is a stream
+  or a premiere, and a creator's rename asks again about a title that gave
+  no content.
 - A rule merge lends an X notice's label to the event that survives, including
   merges made before the notice had a label, and replaces a label guessed from
   the title. Operator and locked entries keep their own label. Among
@@ -110,7 +112,8 @@
   or a new extraction, and a notice's content replaces an inherited form.
 - YouTube and Bilibili titles no longer decide a video's kind. Listings store
   `unknown` and the detail check writes the form from the broadcast start
-  and premiere verdict; Bilibili uploads are `upload`.
+  and premiere verdict; a check that cannot tell keeps a stored stream or
+  premiere. Bilibili uploads are `upload`.
 - After the entries, the same translation queue tags public YouTube videos
   whose entries give no content, including entries that only carry a form
   from a notice and operator entries without a label, newest first, within

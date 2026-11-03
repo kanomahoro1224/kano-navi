@@ -87,6 +87,9 @@
 - Closing the image viewer leaves the page where it was instead of scrolling
   back to the picture. On phones, LINE BLOG's monthly archive opens on a tap,
   so a scroll that starts on it leaves it shut.
+- The About page has a Contributors chapter that names the author and the
+  developers who have contributed code, with a link to the full list on
+  GitHub.
 
 </details>
 

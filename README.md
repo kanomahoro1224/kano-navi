@@ -142,4 +142,4 @@ with [Local development](docs/development/local-dev.md) and the
 
 Created by [yexca](https://github.com/yexca). Kano Navi is free software
 licensed under the [GNU Affero General Public License v3.0](LICENSE). The
-About page lists the development credits and technology stack.
+About page lists the contributors, development credits and technology stack.

@@ -11,6 +11,8 @@ import "./about.css"
 const AUTHOR = "yexca"
 const REPOSITORY_URL = "https://github.com/yexca/kano-navi"
 const LICENSE_URL = `${REPOSITORY_URL}/blob/main/LICENSE`
+const CONTRIBUTORS_URL = `${REPOSITORY_URL}/graphs/contributors`
+const contributors = ["kanomahoro1224"]
 const LINEBLOG_RECOVERY_URL =
   "https://github.com/ZhFuwe/Kano_LINE_Blog_Recovery"
 const MAINLAND_PROVIDER = "鹿可可"
@@ -140,7 +142,34 @@ export function AboutApp() {
               ))}
             </ul>
           </Chapter>
-          <Chapter number={3} title={t("about.technologies")}>
+          <Chapter number={3} title={t("about.contributors")}>
+            <p>{t("about.contributorsText", { author: AUTHOR })}</p>
+            <ul
+              className="about-contributors"
+              aria-label={t("about.contributorList")}
+            >
+              {contributors.map((login) => (
+                <li key={login}>
+                  <ExternalLink href={`https://github.com/${login}`}>
+                    @{login}
+                  </ExternalLink>
+                </li>
+              ))}
+            </ul>
+            <ExternalLink className="text-link" href={CONTRIBUTORS_URL}>
+              {t("about.contributorsAll")}
+              <ArrowUpRight aria-hidden="true" />
+            </ExternalLink>
+          </Chapter>
+          <Chapter number={4} title={t("about.credits")}>
+            <p>{t("about.creditsLineblog")}</p>
+            <ExternalLink className="text-link" href={LINEBLOG_RECOVERY_URL}>
+              {t("about.creditsRecovery")}
+              <ArrowUpRight aria-hidden="true" />
+            </ExternalLink>
+            <MainlandSiteCredit />
+          </Chapter>
+          <Chapter number={5} title={t("about.technologies")}>
             <dl className="about-stack">
               {technologyGroups.map(({ key, items }) => (
                 <div key={key}>
@@ -156,15 +185,7 @@ export function AboutApp() {
               ))}
             </dl>
           </Chapter>
-          <Chapter number={4} title={t("about.credits")}>
-            <p>{t("about.creditsLineblog")}</p>
-            <ExternalLink className="text-link" href={LINEBLOG_RECOVERY_URL}>
-              {t("about.creditsRecovery")}
-              <ArrowUpRight aria-hidden="true" />
-            </ExternalLink>
-            <MainlandSiteCredit />
-          </Chapter>
-          <Chapter number={5} title={t("about.notice")}>
+          <Chapter number={6} title={t("about.notice")}>
             <p>{t("about.unofficial")}</p>
             <p>{t("about.accuracy")}</p>
             <p>{t("about.rights")}</p>

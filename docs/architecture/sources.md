@@ -669,10 +669,14 @@ string | null }`; omitted fields keep their value. The callback must be an
   (`websub_hub_timeout`, `websub_hub_http_error`, `websub_hub_denied`, and so on).
   A failed request is retried after 15 minutes.
 - `GET /api/websub/youtube` echoes `hub.challenge` (at most 1 KiB) only for this
-  channel's topic, and only for a subscription while enabled or the withdrawal
-  this process just requested. Only the verification of a request sent within
-  the last hour updates the lease, so renewal happens at half the granted lease
-  but no more than hourly. When no verification arrives within an hour, the
+  channel's topic, and only for the subscription or the withdrawal this
+  process requested within the last hour, while enabled for a subscription.
+  Any other verification answers like an unknown path, so a stranger's
+  subscribe request with this callback cannot replace the signing secret. The
+  confirmed verification updates the lease, so renewal happens at half the
+  granted lease but no more than hourly. A verification that arrives after a
+  restart for the previous process's request is refused too, and the missing
+  verification below requests the subscription again. When no verification arrives within an hour, the
   status records `websub_verification_missing` and the subscription is
   requested again.
 - `POST /api/websub/youtube` reads at most 256 KiB and verifies

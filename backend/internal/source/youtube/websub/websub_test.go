@@ -234,10 +234,12 @@ func TestVerificationEchoesChallengeOnlyForTopic(t *testing.T) {
 		t.Fatalf("status=%v", status)
 	}
 
-	// A later unsolicited verification is answered but cannot shorten renewal.
+	// A later unsolicited verification, such as one for a stranger's request
+	// carrying this callback and another secret, is refused and changes
+	// nothing.
 	c.Advance(time.Minute)
-	if w := verification(s, hubVerification("subscribe", "again", "60")); w.Code != http.StatusOK || w.Body.String() != "again" {
-		t.Fatalf("code=%d body=%q", w.Code, w.Body.String())
+	if w := verification(s, hubVerification("subscribe", "again", "60")); w.Code != http.StatusNotFound || w.Body.String() == "again" {
+		t.Fatalf("unsolicited verification answered: code=%d body=%q", w.Code, w.Body.String())
 	}
 	if got := s.Status()["nextRenewalAt"]; got != "2026-10-15T12:00:00Z" {
 		t.Fatalf("unsolicited verification changed renewal: %v", got)
@@ -507,5 +509,17 @@ func TestTriggerErrorKeepsNotificationPending(t *testing.T) {
 	s.Step(context.Background())
 	if s.Status()["pending"] != true {
 		t.Fatal("failed trigger dropped the notification")
+	}
+}
+
+func TestVerificationWithoutARequestIsRefused(t *testing.T) {
+	var requests []url.Values
+	s, _ := newTestService(t, recordingHub(t, &requests), nil)
+	// Push is enabled, but this process has not asked the hub for anything.
+	if w := verification(s, hubVerification("subscribe", "stranger", "86400")); w.Code != http.StatusNotFound || w.Body.String() == "stranger" {
+		t.Fatalf("code=%d body=%q", w.Code, w.Body.String())
+	}
+	if s.Status()["verified"] == true {
+		t.Fatal("a refused verification marked the subscription verified")
 	}
 }

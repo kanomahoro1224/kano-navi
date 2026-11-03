@@ -441,19 +441,24 @@ func (s *Service) verify(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
+		// Only a subscription this process requested is confirmed. Echoing
+		// any other would let a stranger's request, made with this callback
+		// and their own secret, replace the secret the hub signs with.
+		if !within(s.requestedAt, now) {
+			http.NotFound(w, r)
+			return
+		}
 		lease, err := strconv.Atoi(query.Get("hub.lease_seconds"))
 		if err != nil || lease <= 0 || lease > LeaseSeconds*4 {
 			lease = LeaseSeconds
 		}
-		if within(s.requestedAt, now) {
-			granted := time.Duration(lease) * time.Second
-			s.verifiedAt = now
-			s.leaseExpiresAt = now.Add(granted)
-			s.requestedAt = time.Time{}
-			s.renewAt = now.Add(max(granted/2, minRenewal))
-			s.lastError = ""
-			s.logf("youtube websub subscription verified")
-		}
+		granted := time.Duration(lease) * time.Second
+		s.verifiedAt = now
+		s.leaseExpiresAt = now.Add(granted)
+		s.requestedAt = time.Time{}
+		s.renewAt = now.Add(max(granted/2, minRenewal))
+		s.lastError = ""
+		s.logf("youtube websub subscription verified")
 		writeChallenge(w, challenge)
 	case "unsubscribe":
 		if !within(s.unsubscribedAt, now) || challenge == "" || len(challenge) > maxChallengeBytes {

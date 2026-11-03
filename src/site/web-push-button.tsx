@@ -10,6 +10,8 @@ import {
   updateWebPushSettings,
   webPushAvailability,
   webPushConfigured,
+  webPushFailure,
+  type WebPushFailure,
   type WebPushSettings,
   type WebPushStatus,
 } from "@/site/web-push"
@@ -33,7 +35,7 @@ export function WebPushButton({
     readWebPushSettings(),
   )
   const [busy, setBusy] = useState(false)
-  const [failed, setFailed] = useState(false)
+  const [failed, setFailed] = useState<WebPushFailure | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -75,14 +77,14 @@ export function WebPushButton({
       return
     }
     setBusy(true)
-    setFailed(false)
+    setFailed(null)
     try {
       await enableWebPush(settings, locale)
       setStatus("subscribed")
       setOpen(true)
     } catch (error) {
       setStatus(webPushAvailability() === "blocked" ? "blocked" : status)
-      setFailed(true)
+      setFailed(webPushFailure(error))
       setOpen(true)
     } finally {
       setBusy(false)
@@ -92,24 +94,24 @@ export function WebPushButton({
   async function change(key: keyof WebPushSettings, value: boolean) {
     const next = { ...settings, [key]: value }
     setSettings(next)
-    setFailed(false)
+    setFailed(null)
     try {
       await updateWebPushSettings(next, locale)
       setStatus("subscribed")
     } catch (error) {
-      setFailed(true)
+      setFailed(webPushFailure(error))
     }
   }
 
   async function turnOff() {
     setBusy(true)
-    setFailed(false)
+    setFailed(null)
     try {
       await disableWebPush()
       setStatus("available")
       setOpen(false)
     } catch (error) {
-      setFailed(true)
+      setFailed(webPushFailure(error))
     } finally {
       setBusy(false)
     }
@@ -164,7 +166,13 @@ export function WebPushButton({
           </div>
           {hint ? <p className="web-push-hint">{hint}</p> : null}
           {failed ? (
-            <p className="web-push-hint">{t("feed.notifyFailed")}</p>
+            <p className="web-push-hint">
+              {t(
+                failed === "service"
+                  ? "feed.notifyFailedService"
+                  : "feed.notifyFailed",
+              )}
+            </p>
           ) : null}
           {status === "subscribed" ? (
             <>

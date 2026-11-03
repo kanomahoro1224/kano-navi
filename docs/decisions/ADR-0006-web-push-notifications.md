@@ -157,6 +157,14 @@ switches, mirroring the App's settings:
   instead of a prompt that cannot succeed.
 - Unsubscribing calls `subscription.unsubscribe()` and then posts the
   endpoint, so the row disappears even if the write fails.
+- `subscribe()` is bounded by a timeout. A browser that cannot reach its push
+  service otherwise sits there for a minute with the button disabled, which
+  looks like a frozen page. The failure is then split in two: a refused
+  prompt, and a push service that never answered. The second one is worth its
+  own sentence, because on mainland networks it is not a transient error —
+  Chrome and Android Edge register through `fcm.googleapis.com`, which is
+  unreachable there, so those browsers can never subscribe. Windows Edge
+  (WNS), Firefox (Mozilla autopush) and Safari (Apple) do work.
 
 ### Configuration
 

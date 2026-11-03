@@ -11,6 +11,10 @@ export interface WebPushSettings {
 export type WebPushStatus =
   "checking" | "unsupported" | "blocked" | "ios" | "available" | "subscribed"
 
+/** Why a subscribe attempt failed, as far as the page can tell: the prompt was
+ * refused, or the browser could not reach the push service behind it. */
+export type WebPushFailure = "permission" | "service"
+
 const SETTINGS_KEY = "kano.webPush.settings"
 const DEFAULT_SETTINGS: WebPushSettings = {
   live: true,
@@ -62,7 +66,9 @@ export function webPushAvailability(): WebPushStatus {
   if (typeof Notification === "undefined") return "unsupported"
   if (Notification.permission === "denied") return "blocked"
   if (isIosWithoutInstall()) return "ios"
-  return Notification.permission === "granted" ? "subscribed" : "available"
+  // Granted only means the reader said yes; whether a subscription exists is
+  // the caller's question, so this never claims "subscribed" on its own.
+  return "available"
 }
 
 /** The worker this browser already registered, without fetching one: a
@@ -139,6 +145,56 @@ async function applicationServerKey(): Promise<Uint8Array<ArrayBuffer>> {
   return decodeKey(payload.publicKey)
 }
 
+/** A browser whose push service is unreachable can sit in `subscribe()` for a
+ * minute or more without answering, which leaves the button spinning forever.
+ * The wait is bounded so the reader is told what happened. */
+const SUBSCRIBE_TIMEOUT_MS = 20000
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("the push service did not answer"))
+    }, ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
+/** Whether the prompt or the push service behind the browser is to blame. */
+export function webPushFailure(error: unknown): WebPushFailure {
+  const name = error instanceof Error ? error.name : ""
+  return name === "NotAllowedError" || name === "PermissionDeniedError"
+    ? "permission"
+    : "service"
+}
+
+/** Ask the push service for a subscription, giving up after a fixed wait. */
+async function subscribeWithKey(
+  registration: ServiceWorkerRegistration,
+): Promise<PushSubscription> {
+  const attempt = registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: await applicationServerKey(),
+  })
+  try {
+    return await withTimeout(attempt, SUBSCRIBE_TIMEOUT_MS)
+  } catch (error) {
+    // A browser cut off from its push service may still finish the request
+    // after we stopped waiting. Retire it, so a retry does not reuse a
+    // subscription the server never heard about.
+    void attempt.then((late) => late.unsubscribe()).catch(() => undefined)
+    throw error
+  }
+}
+
 async function saveSubscription(
   subscription: PushSubscription,
   settings: WebPushSettings,
@@ -174,16 +230,15 @@ export async function enableWebPush(
   locale: Locale,
 ): Promise<void> {
   const active = await ensureRegistration()
-  await navigator.serviceWorker.ready
+  await withTimeout(navigator.serviceWorker.ready, SUBSCRIBE_TIMEOUT_MS)
   const permission = await Notification.requestPermission()
-  if (permission !== "granted") throw new Error("permission was not granted")
+  if (permission !== "granted") {
+    const error = new Error("permission was not granted")
+    error.name = "NotAllowedError"
+    throw error
+  }
   const existing = await active.pushManager.getSubscription()
-  const subscription =
-    existing ??
-    (await active.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: await applicationServerKey(),
-    }))
+  const subscription = existing ?? (await subscribeWithKey(active))
   await saveSubscription(subscription, settings, locale)
   writeWebPushSettings(settings)
 }

@@ -82,6 +82,8 @@ export const dashboardMessages = {
     "feed.notifyIos":
       "在 iPhone / iPad 上，请先把本站添加到主屏幕，才能接收通知。",
     "feed.notifyFailed": "订阅失败，请稍后再试。",
+    "feed.notifyFailedService":
+      "浏览器连不上它的推送服务，通知开不起来。国内网络下 Chrome 和安卓版 Edge 需要 Google 服务，通常被拦截；Windows 版 Edge、Firefox、Safari 可以正常订阅。",
     "feed.layout": "排列方式",
     "feed.layoutMasonry": "瀑布流",
     "feed.layoutList": "单列",
@@ -272,6 +274,8 @@ export const dashboardMessages = {
     "feed.notifyIos":
       "iPhone / iPad では、ホーム画面に追加してから通知を受け取れます。",
     "feed.notifyFailed": "登録に失敗しました。しばらくしてからお試しください。",
+    "feed.notifyFailedService":
+      "ブラウザがプッシュサービスに接続できず、通知を開始できません。中国本土のネットワークでは Chrome や Android 版 Edge は Google のサービスに届かず遮断されます。Windows 版 Edge、Firefox、Safari は購読できます。",
     "feed.layout": "表示方法",
     "feed.layoutMasonry": "タイル表示",
     "feed.layoutList": "1 列表示",
@@ -464,6 +468,8 @@ export const dashboardMessages = {
     "feed.notifyIos":
       "On iPhone and iPad, add this site to your Home Screen before notifications can arrive.",
     "feed.notifyFailed": "Could not subscribe. Please try again.",
+    "feed.notifyFailedService":
+      "This browser cannot reach its push service, so notifications cannot start. On mainland networks Chrome and Android Edge need Google services that are usually blocked; Edge on Windows, Firefox and Safari subscribe fine.",
     "feed.layout": "Layout",
     "feed.layoutMasonry": "Masonry",
     "feed.layoutList": "Single column",

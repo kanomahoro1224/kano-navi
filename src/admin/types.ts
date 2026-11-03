@@ -1,5 +1,7 @@
 // Wire shapes of /api/admin; see docs/architecture/admin-api.md.
 
+import type { VideoAvailability } from "../types.ts"
+
 export interface Page<T> {
   items: T[]
   page: number
@@ -666,6 +668,13 @@ export interface AdminVideo {
   sourceIsShort: boolean | null
   manualIsShort: boolean | null
   /**
+   * availability shows an operator's correction; sourceAvailability keeps
+   * what the checks recorded. Null is unknown.
+   */
+  availability: VideoAvailability | null
+  sourceAvailability: VideoAvailability | null
+  manualAvailability: VideoAvailability | null
+  /**
    * The shown content tag (game, talk or song): manualTag, else the label of
    * the video's schedule entry, else the title inference's. inferredTagSource
    * is set once the inference judged the video, with or without a tag.
@@ -760,6 +769,7 @@ export interface VideoCorrection {
   tag?: string | null
   thumbnail?: VideoThumbnailPin | null
   isShort?: boolean | null
+  availability?: VideoAvailability | null
 }
 
 export interface AdminVideosPage extends Page<AdminVideo> {

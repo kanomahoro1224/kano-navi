@@ -488,9 +488,13 @@ Every check that can tell records who can watch a YouTube video in
 A failed page that told writes only the availability of the stored video and
 counts as no run error. A check that cannot tell keeps the stored value, and
 nothing writes `NULL` back. A `members` video is a `member` entry whatever its
-title says. Bilibili uploads keep `NULL`. The board treats `NULL` as
-watchable; the stage's latest video skips `private` and `removed`, and their
-cards open no YouTube page (see [Public API](public-api.md)).
+title says. Bilibili uploads keep `NULL`. An operator's correction
+(`manual_availability`, see
+[Video corrections](data-model.md#video-corrections-and-history)) lies over
+the recorded value on the board, which checks keep writing beneath it. The
+board treats `NULL` as watchable; the stage's latest video skips `private` and
+`removed`, and their cards open no YouTube page (see
+[Public API](public-api.md)).
 
 #### Follow-up checks and refresh requests
 

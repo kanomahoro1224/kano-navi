@@ -23,9 +23,9 @@
 > past-video categories fill in gradually and model calls rise until that
 > backlog clears.
 >
-> Startup adds `videos.availability` to an existing database, empty for every
-> row; each video fills in at its next YouTube check, so nothing is hidden
-> after the upgrade.
+> Startup adds `videos.availability` and `videos.manual_availability` to an
+> existing database, empty for every row; each video fills in at its next
+> YouTube check, so nothing is hidden after the upgrade.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -98,6 +98,11 @@
   stopped, so an operator can stop checking one video or let it be checked
   again without turning the whole probe off
   (`PUT /api/admin/sources/youtube/live-probe/videos/{id}`).
+- The video editor corrects who can watch a video (public, unlisted, members
+  only, private or removed) over what the checks recorded, which they keep
+  writing beneath it. `PUT /api/admin/videos/{id}` takes `availability`, and
+  the video list and `GET /api/admin/videos` show `availability`,
+  `sourceAvailability` and `manualAvailability`.
 
 </details>
 

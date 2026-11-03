@@ -565,7 +565,8 @@ snapshots without rewriting events.
 Synchronization owns a video's platform fields (`title`, `kind`,
 `thumbnail_url` and its media link) and keeps rewriting them on every
 successful page read. An operator correction lives beside them in
-`manual_title`, `manual_kind`, `manual_tag`, `manual_is_short` and
+`manual_title`, `manual_kind`, `manual_tag`, `manual_is_short`,
+`manual_availability` and
 `manual_thumbnail_media_id` / `manual_thumbnail_sha256` with
 `manual_updated_at`; synchronization never
 writes these columns, and clearing one shows the platform value again. Every
@@ -609,7 +610,10 @@ follows it.
 `members`, `private` or `removed`, `NULL` until a check could tell, which is
 also what existing rows and Bilibili uploads keep (see
 [Video availability](sources.md#video-availability)). A check that cannot
-tell keeps the stored value. Public readers add it as `availability`.
+tell keeps the stored value. `manual_availability` is the operator's
+correction with the same values and `NULL` for none; synchronization never
+writes it. Public readers add
+`availability = COALESCE(manual_availability, availability)`.
 Startup adds the columns, both tables and `video_revisions_video_idx` to
 existing snapshots without rewriting videos or media rows.
 

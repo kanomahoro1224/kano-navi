@@ -408,7 +408,8 @@ CREATE TABLE videos (
     tag TEXT,
     tag_source TEXT,
     tag_attempted_at TEXT,
-    availability TEXT
+    availability TEXT,
+    manual_availability TEXT
   );
 
 CREATE TABLE workflows (

@@ -224,7 +224,7 @@ and the feature, correct and open actions. The correction dialog
 (`video-editor.tsx`) opens with a preview of the board's row as the draft
 leaves it (the chosen thumbnail, title, source, kind, tag, format and the
 number of corrections) and the page-read facts. Below, the corrections
-(title, kind, tag, format and thumbnail files) sit beside the platform's record (the merge
+(title, kind, tag, format, who can watch and thumbnail files) sit beside the platform's record (the merge
 section and what the platform replaced); one column on narrow screens. A
 corrected field is marked and offers a reset to the platform value beside its
 label. Refresh, cancel and save stay in the footer.

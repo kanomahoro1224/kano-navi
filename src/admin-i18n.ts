@@ -463,6 +463,16 @@ export const adminMessages = {
     "admin.videos.format.unknown": "unknown",
     "admin.videos.format.hint":
       "The YouTube feed names the format of its newest uploads only. An unknown one shows as an ordinary video.",
+    "admin.videos.field.availability": "Who can watch",
+    "admin.videos.availability.checked": "Follow the checks ({availability})",
+    "admin.videos.availability.hint":
+      "Checks keep recording beneath a correction. Private and removed videos never lead as the latest video and open no YouTube page.",
+    "admin.videos.availability.public": "public",
+    "admin.videos.availability.unlisted": "unlisted",
+    "admin.videos.availability.members": "members only",
+    "admin.videos.availability.private": "private",
+    "admin.videos.availability.removed": "removed",
+    "admin.videos.availability.unknown": "unknown",
     "admin.videos.field.thumbnail": "Thumbnail",
     "admin.videos.thumbnail.platform": "Follow the platform",
     "admin.videos.thumbnail.current": "Current on the platform",
@@ -1730,6 +1740,16 @@ export const adminMessages = {
     "admin.videos.format.unknown": "未知",
     "admin.videos.format.hint":
       "YouTube 订阅源只标明最新投稿的形式。未知的会按普通视频显示。",
+    "admin.videos.field.availability": "可观看范围",
+    "admin.videos.availability.checked": "跟随检查结果（{availability}）",
+    "admin.videos.availability.hint":
+      "设置修正后，检查仍会在底下继续记录。私享和已删除的视频不会作为最新视频出现，也不会链接到 YouTube。",
+    "admin.videos.availability.public": "公开",
+    "admin.videos.availability.unlisted": "不公开列出",
+    "admin.videos.availability.members": "会员限定",
+    "admin.videos.availability.private": "私享",
+    "admin.videos.availability.removed": "已删除",
+    "admin.videos.availability.unknown": "未知",
     "admin.videos.field.thumbnail": "封面",
     "admin.videos.thumbnail.platform": "跟随平台",
     "admin.videos.thumbnail.current": "平台当前封面",

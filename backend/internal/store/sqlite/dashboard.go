@@ -920,7 +920,7 @@ func (s *Store) queryVideos(ctx context.Context, now, liveCutoff time.Time) ([]V
 	videoTime := "julianday(COALESCE(scheduled_at,published_at))"
 	base := "COALESCE(manual_kind,kind,'')"
 	short := "COALESCE(manual_is_short,is_short,0)"
-	q := `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),` + videoTagSQL("videos") + `,availability FROM videos WHERE id IN (
+	q := `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),` + videoTagSQL("videos") + `,COALESCE(manual_availability,availability) FROM videos WHERE id IN (
 		SELECT id FROM (SELECT id FROM videos WHERE ` + publicVideoScope + ` AND ` + short + `<>1 AND ` + base + ` NOT IN (` + streamKinds + `)
 			ORDER BY ` + videoTime + ` DESC,id ASC LIMIT ` + fmt.Sprint(dashboardWorksLimit) + `)
 		UNION SELECT id FROM (SELECT id FROM videos WHERE ` + publicVideoScope + ` AND ` + short + `<>1 AND ` + base + ` IN (` + streamKinds + `)
@@ -985,7 +985,7 @@ func (s *Store) getVideo(ctx context.Context, id string, liveCutoff time.Time) (
 	var up int64
 	var duration sql.NullInt64
 	var short sql.NullBool
-	err := s.db.QueryRowContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),`+videoTagSQL("videos")+`,availability FROM videos WHERE id=? AND `+publicVideoScope, id).Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &up, &liveStatus, &liveChecked, &duration, &short, &tag, &availability)
+	err := s.db.QueryRowContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),`+videoTagSQL("videos")+`,COALESCE(manual_availability,availability) FROM videos WHERE id=? AND `+publicVideoScope, id).Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &up, &liveStatus, &liveChecked, &duration, &short, &tag, &availability)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

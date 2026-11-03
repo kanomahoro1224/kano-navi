@@ -150,7 +150,8 @@ function VideoMarks({
     video.manualKind !== null ||
     video.manualTag !== null ||
     video.manualThumbnail !== null ||
-    video.manualIsShort !== null
+    video.manualIsShort !== null ||
+    video.manualAvailability !== null
   if (!featured && !corrected && !video.revisions && !video.refreshRequestedAt)
     return null
   return (

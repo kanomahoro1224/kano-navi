@@ -26,12 +26,22 @@ import type {
 import { Badge, Button, Facts, Loading, Modal } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { MergeSection } from "@/admin/views/merge-parts"
+import type { VideoAvailability } from "@/types"
 
 /** The forms an operator may set; an empty choice follows the platform. */
 export const videoKinds = ["stream", "premiere", "upload"]
 
 /** The content tags; an empty choice follows the schedule or inference. */
 export const videoTags = ["game", "talk", "song"]
+
+/** Who can watch a video, as an operator may set it over the checks. */
+const videoAvailabilities: VideoAvailability[] = [
+  "public",
+  "unlisted",
+  "members",
+  "private",
+  "removed",
+]
 
 /** A format choice: empty follows the feed, otherwise Short or not. */
 const formatChoice = (isShort: boolean | null) =>
@@ -171,6 +181,7 @@ export function VideoEditor({
     tag: string
     thumbnail: string
     format: string
+    availability: string
   } | null>(null)
   const [busy, setBusy] = useState<"" | "save" | "refresh">("")
   // A refresh request changes the listed row even when nothing is saved.
@@ -186,6 +197,7 @@ export function VideoEditor({
         tag: data.video.manualTag ?? "",
         thumbnail: pinKey(data.video.manualThumbnail),
         format: formatChoice(data.video.manualIsShort),
+        availability: data.video.manualAvailability ?? "",
       })
   }, [data, draft])
 
@@ -201,6 +213,7 @@ export function VideoEditor({
       tag: draft.tag || null,
       thumbnail: file ? { mediaId: file.mediaId, sha256: file.sha256 } : null,
       isShort: draft.format ? draft.format === "short" : null,
+      availability: (draft.availability || null) as VideoAvailability | null,
     }
     setBusy("save")
     const result = await act(
@@ -259,6 +272,7 @@ export function VideoEditor({
         draft.tag,
         draft.thumbnail,
         draft.format,
+        draft.availability,
       ].filter(Boolean).length
     : 0
   return (
@@ -483,6 +497,34 @@ export function VideoEditor({
                     </select>
                   </CorrectionField>
                 ) : null}
+                <CorrectionField
+                  id={`${fieldId}-availability`}
+                  label={t("admin.videos.field.availability")}
+                  corrected={Boolean(draft.availability)}
+                  onReset={() => setDraft({ ...draft, availability: "" })}
+                  hint={t("admin.videos.availability.hint")}
+                >
+                  <select
+                    id={`${fieldId}-availability`}
+                    value={draft.availability}
+                    onChange={(e) =>
+                      setDraft({ ...draft, availability: e.target.value })
+                    }
+                  >
+                    <option value="">
+                      {t("admin.videos.availability.checked", {
+                        availability: t(
+                          `admin.videos.availability.${video.sourceAvailability ?? "unknown"}`,
+                        ),
+                      })}
+                    </option>
+                    {videoAvailabilities.map((value) => (
+                      <option key={value} value={value}>
+                        {t(`admin.videos.availability.${value}`)}
+                      </option>
+                    ))}
+                  </select>
+                </CorrectionField>
               </div>
               <fieldset className="adm-field adm-thumb-picker">
                 <legend className="adm-correction-head">

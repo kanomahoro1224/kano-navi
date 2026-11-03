@@ -280,6 +280,23 @@ the token it stores is what a delivery targets. See
 [Configuration](../operations/configuration.md) for the service account that
 lets the process send and [Data model](data-model.md) for `push_devices`.
 
+## Browser Notifications: `/api/push/web/*`
+
+`GET /api/push/web/key` reports `{enabled, publicKey}` and is `no-store`. An
+empty VAPID pair answers `{ "enabled": false }` rather than an error, so the
+site hides its bell instead of retrying.
+
+`POST /api/push/web/subscribe` stores one browser: the endpoint, the
+`p256dh` and `auth` keys, an optional locale and the switches `live`, `video`
+and `post`, which default to on. The route is idempotent, and an omitted
+switch keeps the stored value. The endpoint must be `https` on a known push
+service: the server posts to whatever it stores, so an unchecked URL would be
+a request forgery primitive. Both write routes are limited to 30 calls per
+address per hour, answer `204`, and reject an unsafe endpoint, a wrong key
+length or a malformed body with `400`. `POST /api/push/web/unsubscribe` takes
+the endpoint alone; knowing it is the capability. A read-only snapshot answers
+`503`.
+
 ## Bambino Ingest: `/internal/ingest/bambino`
 
 BambinoStatus posts normalized X updates here so the board can carry a post

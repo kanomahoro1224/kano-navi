@@ -109,6 +109,13 @@ func NewSnapshot(t testing.TB) string {
 			notify_post INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL, last_seen_at TEXT NOT NULL
 		);
+		CREATE TABLE web_push_subscriptions (
+			endpoint TEXT PRIMARY KEY, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
+			locale TEXT, user_agent TEXT, enabled INTEGER NOT NULL DEFAULT 1,
+			notify_live INTEGER NOT NULL DEFAULT 1, notify_video INTEGER NOT NULL DEFAULT 1,
+			notify_post INTEGER NOT NULL DEFAULT 1, failure_count INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL, updated_at TEXT NOT NULL, last_seen_at TEXT NOT NULL
+		);
 		CREATE TABLE sync_state (
 			source TEXT NOT NULL, account_id TEXT NOT NULL, cursor_id TEXT, cursor_time TEXT,
 			last_success_at TEXT, metadata_json TEXT, PRIMARY KEY (source, account_id)

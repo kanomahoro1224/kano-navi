@@ -2,6 +2,7 @@ package push
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"strings"
@@ -61,19 +62,37 @@ func (u Update) Category() Category {
 // category, in that device's language.
 type Dispatcher struct {
 	client *Client
-	store  *sqlite.Store
+	// web carries the same updates to browsers that subscribed through the
+	// site. It is optional: a deployment with only Huawei push leaves it nil.
+	web   *WebSender
+	store *sqlite.Store
 	// flushMu serializes pending flushes: the translate step and the ingest
 	// catch-up can both fire, and a second runner would resend the same rows.
 	flushMu sync.Mutex
 }
 
-// NewDispatcher returns nil when push is off, so callers can hold the value
-// without checking configuration at every update.
-func NewDispatcher(client *Client, store *sqlite.Store) *Dispatcher {
-	if !client.Enabled() || store == nil {
+// Option configures a Dispatcher without changing the Huawei call sites.
+type Option func(*Dispatcher)
+
+// WithWeb adds the browser transport beside Huawei Push Kit.
+func WithWeb(sender *WebSender) Option {
+	return func(d *Dispatcher) { d.web = sender }
+}
+
+// NewDispatcher returns nil when no transport is configured, so callers can
+// hold the value without checking configuration at every update.
+func NewDispatcher(client *Client, store *sqlite.Store, options ...Option) *Dispatcher {
+	if store == nil {
 		return nil
 	}
-	return &Dispatcher{client: client, store: store}
+	dispatcher := &Dispatcher{client: client, store: store}
+	for _, option := range options {
+		option(dispatcher)
+	}
+	if !client.Enabled() && !dispatcher.web.Enabled() {
+		return nil
+	}
+	return dispatcher
 }
 
 // maxFanout bounds how many notifications one ingest batch may produce. A
@@ -202,7 +221,20 @@ func (d *Dispatcher) FlushPending(ctx context.Context) error {
 // per language. allow narrows which languages receive this pass; body
 // overrides the second line, which deferred posts fill from their translation.
 func (d *Dispatcher) deliver(ctx context.Context, devices []sqlite.PushDevice, updates []Update, allow func(string) bool, body func(Update, string) string) error {
-	if len(devices) == 0 || len(updates) == 0 {
+	if len(updates) == 0 {
+		return nil
+	}
+	// Browsers are read once per dispatch, like devices, so a batch of updates
+	// does not query the table again for each one.
+	var subs []sqlite.WebPushSubscription
+	if d.web.Enabled() {
+		loaded, err := d.store.WebPushSubscriptions(ctx)
+		if err != nil {
+			return err
+		}
+		subs = loaded
+	}
+	if len(devices) == 0 && len(subs) == 0 {
 		return nil
 	}
 	// One row per author and category: a creator publishing three posts in a
@@ -224,6 +256,9 @@ func (d *Dispatcher) deliver(ctx context.Context, devices []sqlite.PushDevice, u
 			byLocale[locale] = append(byLocale[locale], device.Token)
 		}
 		for locale, tokens := range byLocale {
+			if !d.client.Enabled() {
+				continue
+			}
 			title, detailText := wording(update, locale)
 			if body != nil {
 				detailText = body(update, locale)
@@ -240,6 +275,11 @@ func (d *Dispatcher) deliver(ctx context.Context, devices []sqlite.PushDevice, u
 				failures = append(failures, sendErr.Error())
 			}
 		}
+		if len(subs) > 0 {
+			if webErr := d.deliverWeb(ctx, subs, update, allow, body); webErr != nil {
+				failures = append(failures, webErr.Error())
+			}
+		}
 	}
 	if len(stale) > 0 {
 		_ = d.store.DeletePushDevices(ctx, stale)
@@ -248,6 +288,75 @@ func (d *Dispatcher) deliver(ctx context.Context, devices []sqlite.PushDevice, u
 		return fmt.Errorf("push dispatch: %s", failures[0])
 	}
 	return nil
+}
+
+// maxWebPushFailures is how many consecutive transport failures retire a
+// browser. 404 and 410 delete the row at once; this limit covers a push
+// service that keeps failing without saying the subscription is gone.
+const maxWebPushFailures = 10
+
+// webPushConcurrency bounds how many browsers are addressed at once. A large
+// fanout must not hold the ingest for one slow push service.
+const webPushConcurrency = 4
+
+// deliverWeb sends one update to every browser that accepts its category, in
+// that browser's language. A gone subscription is retired; a failed one is
+// counted and retried by a later update.
+func (d *Dispatcher) deliverWeb(ctx context.Context, subs []sqlite.WebPushSubscription, update Update, allow func(string) bool, body func(Update, string) string) error {
+	category := update.Category()
+	byLocale := map[string][]sqlite.WebPushSubscription{}
+	for _, sub := range subs {
+		if !acceptsWeb(sub, category) {
+			continue
+		}
+		locale := normalizeLocale(sub.Locale)
+		if allow != nil && !allow(locale) {
+			continue
+		}
+		byLocale[locale] = append(byLocale[locale], sub)
+	}
+	if len(byLocale) == 0 {
+		return nil
+	}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var stale []string
+	var firstErr error
+	slots := make(chan struct{}, webPushConcurrency)
+	for locale, group := range byLocale {
+		title, detailText := wording(update, locale)
+		if body != nil {
+			detailText = body(update, locale)
+		}
+		payload := WebPayload{Title: title, Body: detailText, URL: update.URL, Tag: string(category)}
+		for _, sub := range group {
+			wg.Add(1)
+			slots <- struct{}{}
+			go func(sub sqlite.WebPushSubscription) {
+				defer wg.Done()
+				defer func() { <-slots }()
+				sendErr := d.web.Send(ctx, sub, payload)
+				mu.Lock()
+				defer mu.Unlock()
+				switch {
+				case errors.Is(sendErr, ErrWebPushGone):
+					stale = append(stale, sub.Endpoint)
+				case sendErr != nil:
+					_ = d.store.RecordWebPushFailure(ctx, sub.Endpoint, maxWebPushFailures)
+					if firstErr == nil {
+						firstErr = sendErr
+					}
+				default:
+					_ = d.store.ClearWebPushFailures(ctx, sub.Endpoint)
+				}
+			}(sub)
+		}
+	}
+	wg.Wait()
+	for _, endpoint := range stale {
+		_ = d.store.DeleteWebPushSubscription(ctx, endpoint)
+	}
+	return firstErr
 }
 
 // translatedBody picks the deferred notification's second line. Traditional

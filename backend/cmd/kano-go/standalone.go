@@ -41,6 +41,19 @@ import (
 // SKIP_LLM stops every model call: schedule extraction and translation.
 var stepSkipFlags = map[string]string{"x": "SKIP_X", "youtube": "SKIP_YOUTUBE", "bilibili": "SKIP_BILIBILI", "media": "SKIP_MEDIA", "schedule": "SKIP_LLM", jobs.StepTranslate: "SKIP_LLM"}
 
+// splitCommaList parses the comma-separated host list an environment variable
+// carries. An empty value means "use the built-in default".
+func splitCommaList(raw string) []string {
+	parts := strings.Split(raw, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			values = append(values, trimmed)
+		}
+	}
+	return values
+}
+
 func fail(message string, code int) int {
 	fmt.Fprintln(os.Stderr, "kano-go: "+message)
 	return code
@@ -120,7 +133,29 @@ func runStandalone(cfg config.Config) int {
 	if pushErr != nil {
 		return fail("Huawei push service account invalid", 1)
 	}
-	pushDispatcher := pushkit.NewDispatcher(pushClient, store)
+	// Web Push reaches browsers that subscribed through the site. The VAPID
+	// pair is the sender's identity; an empty pair leaves the feature off and
+	// the site hides its button. The icon is the avatar shown beside every
+	// notification.
+	webPushTTL := 24 * time.Hour
+	if raw := strings.TrimSpace(os.Getenv("WEB_PUSH_TTL_SECONDS")); raw != "" {
+		if seconds, parseErr := strconv.Atoi(raw); parseErr == nil && seconds > 0 {
+			webPushTTL = time.Duration(seconds) * time.Second
+		}
+	}
+	webPush, webErr := pushkit.NewWebSender(pushkit.WebOptions{
+		PublicKey:  os.Getenv("WEB_PUSH_VAPID_PUBLIC_KEY"),
+		PrivateKey: os.Getenv("WEB_PUSH_VAPID_PRIVATE_KEY"),
+		Subject:    os.Getenv("WEB_PUSH_VAPID_SUBJECT"),
+		TTL:        webPushTTL,
+		Icon:       os.Getenv("WEB_PUSH_ICON"),
+		Origin:     cfg.PublicOrigin,
+		Hosts:      splitCommaList(os.Getenv("WEB_PUSH_ENDPOINT_HOSTS")),
+	})
+	if webErr != nil {
+		return fail("web push configuration invalid", 1)
+	}
+	pushDispatcher := pushkit.NewDispatcher(pushClient, store, pushkit.WithWeb(webPush))
 	// The translate step is where a deferred post's translations settle, so
 	// the pending notifications are released as soon as the step returns.
 	if pushDispatcher != nil {
@@ -217,12 +252,14 @@ func runStandalone(cfg config.Config) int {
 			FetchMethods:  run.steps.History.Methods,
 			Variants:      run.steps.Variants,
 			Push:          pushClient,
+			WebPush:       webPush,
 		}),
 		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin),
 		MCP:          standaloneMCP(store, manager),
 		WebSub:       push,
 		Ingest:       ingestModule,
 		PushReceipt:  pushReceipt,
+		WebPush:      webPush,
 		PublicOrigin: cfg.PublicOrigin,
 	})
 	server := httpapi.NewServer(httpapi.RequestLog(httpapi.Compress(handler), os.Stdout), cfg)

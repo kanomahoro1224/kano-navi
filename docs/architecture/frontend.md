@@ -495,11 +495,28 @@ the icons in `public/assets/icons/`: a 32 px favicon, 192 and 512 px icons, a
 avatar's own pink, and a 180 px `apple-touch-icon`. They are resized copies of
 the bundled `public/assets/kano-avatar.jpg` and follow its provenance; the
 theme-color metas switch between the light and dark backgrounds.
-There is no service worker or offline mode: an installed app loads the same
-pages, which read the live local API. The Go static server serves
+An installed app loads the same pages, which read the live local API; the only
+service worker is the push receiver described below, and there is no offline
+mode. The Go static server serves
 `.webmanifest` as `application/manifest+json` and, like other unhashed public
 files, revalidates the manifest and icons on each use, so a replaced icon
 takes effect without renaming it.
+
+## Browser Notifications
+
+`public/sw.js` is the site's only service worker and handles push alone: it
+shows `{title, body, icon, url}` with the avatar, focuses or opens the target
+on a click, and re-registers on `pushsubscriptionchange`. It has no `fetch`
+handler, so it cannot change how the SPA or its hashed assets load; the static
+server answers it with `no-cache` so an updated worker replaces the old one.
+
+The bell lives in the X section's header (`WebPushButton`), before the account
+filter. A click asks for permission, subscribes and posts the subscription —
+the prompt must belong to the gesture. The sheet behind it carries the `live`,
+`video` and `post` switches and the way out; a blocked browser or an iPhone
+that has not installed the site gets the instruction instead of a prompt that
+cannot succeed. The button renders only when `/api/push/web/key` reports that
+the server has a VAPID pair.
 
 ## Provider Company Icons
 

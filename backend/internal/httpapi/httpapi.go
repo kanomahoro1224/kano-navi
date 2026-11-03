@@ -13,6 +13,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/config"
 	"github.com/yexca/kano-navi/backend/internal/publicview"
+	"github.com/yexca/kano-navi/backend/internal/push"
 	"github.com/yexca/kano-navi/backend/internal/source/youtube/websub"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -31,6 +32,11 @@ type Handler struct {
 	ingest http.Handler
 	// pushReceipt receives Huawei Push Kit delivery receipts.
 	pushReceipt http.Handler
+	// webPush sends browser notifications and validates subscriptions; nil
+	// leaves the feature off and the site hides its button.
+	webPush *push.WebSender
+	// webPushLimits bounds registration writes per address.
+	webPushLimits *webPushLimiter
 	// publicOrigin is the normalized PUBLIC_ORIGIN or empty; the Atom feed
 	// uses it for absolute links.
 	publicOrigin string
@@ -54,6 +60,9 @@ type Standalone struct {
 	// PushReceipt answers Huawei Push Kit delivery receipts; nil leaves the
 	// route absent.
 	PushReceipt http.Handler
+	// WebPush carries notifications to browsers; nil leaves the routes
+	// answering "disabled" and the button hidden.
+	WebPush *push.WebSender
 	// PublicOrigin is the normalized PUBLIC_ORIGIN, or empty.
 	PublicOrigin string
 }
@@ -68,16 +77,18 @@ func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Sta
 		site.variants = store
 	}
 	return &Handler{
-		store:        store,
-		now:          now,
-		admin:        options.Admin,
-		static:       options.Static,
-		mcp:          options.MCP,
-		websub:       options.WebSub,
-		ingest:       options.Ingest,
-		pushReceipt:  options.PushReceipt,
-		publicOrigin: options.PublicOrigin,
-		streams:      newRevisionHub(store.GetDashboardRevision),
+		store:         store,
+		now:           now,
+		admin:         options.Admin,
+		static:        options.Static,
+		mcp:           options.MCP,
+		websub:        options.WebSub,
+		ingest:        options.Ingest,
+		pushReceipt:   options.PushReceipt,
+		webPush:       options.WebPush,
+		webPushLimits: newWebPushLimiter(),
+		publicOrigin:  options.PublicOrigin,
+		streams:       newRevisionHub(store.GetDashboardRevision),
 	}
 }
 
@@ -135,6 +146,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.pushReceipt.ServeHTTP(w, r)
 	case "/api/push/device":
 		h.pushDevice(w, r)
+	case "/api/push/web/key":
+		h.webPushKey(w, r)
+	case "/api/push/web/subscribe":
+		h.webPushSubscribe(w, r)
+	case "/api/push/web/unsubscribe":
+		h.webPushUnsubscribe(w, r)
 	case "/api/health":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {

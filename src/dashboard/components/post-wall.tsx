@@ -28,6 +28,7 @@ import {
 } from "@/components/translated-text"
 import { EmptyNote, Placeholder, SectionTitle } from "@/site/site-shell"
 import { ExternalLink, XLogo, followCardLink } from "@/site/links"
+import { WebPushButton } from "@/site/web-push-button"
 import { mediaSrcSet } from "@/lib/media"
 import {
   formatCompact,
@@ -482,6 +483,7 @@ export function PostWall({
         }
         title={t("feed.title")}
       >
+        <WebPushButton t={t} locale={locale} />
         {accounts.length > 1 ? (
           <div className="segmented" role="group" aria-label={t("feed.filter")}>
             <button

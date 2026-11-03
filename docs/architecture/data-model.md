@@ -28,7 +28,8 @@ own transaction, and the selected profile media is reconciled with its files
 | `profiles`               | Name, bio, avatar, banner, and official entry points                                                   |
 | `profile_media`          | Avatar and banner candidates, their downloads, and the operator's selected file                        |
 | `push_devices`           | HarmonyOS push tokens, device identity, locale, and the per-category notification switches             |
-| `push_pending`           | X posts whose non-Japanese notifications wait for the translation step                                |
+| `push_pending`           | X posts whose non-Japanese notifications wait for the translation step                                 |
+| `web_push_subscriptions` | Browsers subscribed to Web Push: endpoint, keys, locale, switches, and failure count                   |
 | `posts`                  | X posts, account source, publication time, engagement counts, media, and the quoted status             |
 | `events`                 | Unified schedules, provenance, confidence, manual locks, tombstones, and duplicate merges              |
 | `event_sources`          | Source post/reservation identities attached to each event                                              |

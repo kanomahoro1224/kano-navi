@@ -850,6 +850,29 @@ export interface AdminPushDevice {
   lastSeenAt: string
 }
 
+export interface AdminWebPushSubscription {
+  /** The full endpoint, used only to remove the row. */
+  endpoint: string
+  /** Masked form shown in the list. */
+  endpointLabel: string
+  locale: string
+  userAgent: string
+  enabled: boolean
+  notifyLive: boolean
+  notifyVideo: boolean
+  notifyPost: boolean
+  failureCount: number
+  createdAt: string
+  lastSeenAt: string
+}
+
+export interface AdminWebPushState {
+  configured: boolean
+  total: number
+  enabled: number
+  subscriptions: AdminWebPushSubscription[]
+}
+
 export interface AdminPushState {
   configured: boolean
   projectId: string
@@ -858,4 +881,5 @@ export interface AdminPushState {
   category: string
   testMode: boolean
   devices: AdminPushDevice[]
+  web: AdminWebPushState
 }

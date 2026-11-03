@@ -76,6 +76,9 @@ type Options struct {
 	// Push reports and tests Huawei Push Kit delivery; nil leaves the push
 	// routes answering 503 and the panel showing the feature as off.
 	Push *pushkit.Client
+	// WebPush tests and lists browser subscriptions; nil leaves the panel
+	// section off and the web test answering 503.
+	WebPush *pushkit.WebSender
 }
 
 type api struct {
@@ -175,6 +178,7 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/push", Handler: a.pushPanel},
 		{Method: http.MethodPost, Path: "/push/test", Handler: a.pushTest},
 		{Method: http.MethodDelete, Path: "/push/devices/{id}", Handler: a.deletePushDevice},
+		{Method: http.MethodDelete, Path: "/push/web", Handler: a.deleteWebPushSubscription},
 	}
 }
 

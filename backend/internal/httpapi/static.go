@@ -319,7 +319,13 @@ func (s *staticSite) serve(w http.ResponseWriter, r *http.Request, name, relativ
 	if precompressible(relative) {
 		w.Header().Add("Vary", "Accept-Encoding")
 	}
-	w.Header().Set("Cache-Control", mediaCacheControl(immutable))
+	// The service worker is never hashed, and a stale copy keeps old push
+	// behaviour in place until the browser happens to revalidate it.
+	if relative == "sw.js" {
+		w.Header().Set("Cache-Control", "no-cache")
+	} else {
+		w.Header().Set("Cache-Control", mediaCacheControl(immutable))
+	}
 	if contentType := staticContentType(name); contentType != "" {
 		w.Header().Set("Content-Type", contentType)
 	}

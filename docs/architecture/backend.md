@@ -102,7 +102,7 @@ is occupied.
 | Schedule extraction step                       | `internal/schedule`                                             |
 | Outbound proxy queue and routes                | `internal/outboundproxy`                                        |
 | `/mcp`                                         | `internal/mcpapi`                                               |
-| Huawei push delivery, Bambino ingest           | `internal/push`, `internal/ingest`                              |
+| Huawei and browser notifications, ingest       | `internal/push`, `internal/ingest`                              |
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
 
 `cmd/kano-go` validates credentials, opens the runtime database and starts the

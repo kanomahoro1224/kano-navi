@@ -280,6 +280,22 @@ CREATE TABLE push_pending (
     created_at TEXT NOT NULL
   );
 
+CREATE TABLE web_push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    locale TEXT,
+    user_agent TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    notify_live INTEGER NOT NULL DEFAULT 1,
+    notify_video INTEGER NOT NULL DEFAULT 1,
+    notify_post INTEGER NOT NULL DEFAULT 1,
+    failure_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL
+  );
+
 CREATE TABLE resources (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
@@ -502,6 +518,9 @@ CREATE INDEX push_devices_device_idx ON push_devices (device_id);
 CREATE INDEX push_devices_enabled_idx ON push_devices (enabled, updated_at DESC);
 
 CREATE INDEX push_pending_created_idx ON push_pending (created_at);
+
+CREATE INDEX web_push_subscriptions_enabled_idx
+    ON web_push_subscriptions (enabled, updated_at DESC);
 
 CREATE INDEX schedule_asset_reviews_status_idx
     ON schedule_asset_reviews (llm_status, manual_status, updated_at DESC);

@@ -395,6 +395,20 @@ function createClient(run: Runner, slow: Runner) {
       ),
     deletePushDevice: (deviceId: string) =>
       send<null>("DELETE", `/push/devices/${enc(deviceId)}`),
+    /** Sends the sample notification to every subscribed browser, or one. */
+    testWebPush: (endpoint?: string) =>
+      sendSlow<{
+        ok: boolean
+        subscriptions: number
+        stale: number
+        error: string
+      }>(
+        "POST",
+        "/push/test",
+        endpoint ? { transport: "web", endpoint } : { transport: "web" },
+      ),
+    deleteWebPush: (endpoint: string) =>
+      send<null>("DELETE", `/push/web?endpoint=${enc(endpoint)}`),
   }
 }
 

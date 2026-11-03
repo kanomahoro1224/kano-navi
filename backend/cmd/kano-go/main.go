@@ -35,6 +35,7 @@ Commands:
   sync         Run one full synchronization and exit
   migrate-llm  Store OPENAI_API_KEY as the encrypted key of the openai-default provider (-force replaces)
   variants     Make the smaller copies of the LINE BLOG and history images (-data, -static, -out)
+  webpush-key  Print a fresh VAPID key pair for WEB_PUSH_VAPID_*
   healthcheck  Probe the local service and exit
 
 Common flags: -database <path>  -static <directory>  -listen <address>`
@@ -55,6 +56,8 @@ func main() {
 		os.Exit(runCommand(command, args))
 	case "variants":
 		os.Exit(runVariants(args))
+	case "webpush-key":
+		os.Exit(runWebPushKey())
 	case "help":
 		fmt.Println(usage)
 		return

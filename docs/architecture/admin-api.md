@@ -737,13 +737,14 @@ without `LLM_SECRETS_KEY` is `503 secrets_key_unavailable`. A test reports a
 failed attempt as `200 {ok: false, error: "timeout" | "failed"}`; an unknown
 proxy is `404 proxy_not_found`. See [Outbound proxies](outbound-proxy.md).
 
-## Huawei push
+## Push delivery
 
-| Method and path                   | Body          | Result                                                                    |
-| --------------------------------- | ------------- | ------------------------------------------------------------------------- |
-| `GET /push`                       |               | `{configured, projectId, keyId, subAccount, category, testMode, devices}` |
-| `POST /push/test`                 | `{deviceId?}` | `{ok, devices, stale, error}`                                             |
-| `DELETE /push/devices/{deviceId}` |               | `204`                                                                     |
+| Method and path                   | Body                                 | Result                                                                          |
+| --------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------- |
+| `GET /push`                       |                                      | `{configured, projectId, keyId, subAccount, category, testMode, devices, web}`  |
+| `POST /push/test`                 | `{deviceId?, transport?, endpoint?}` | `{ok, devices, stale, error}` or `{ok, transport, subscriptions, stale, error}` |
+| `DELETE /push/devices/{deviceId}` |                                      | `204`                                                                           |
+| `DELETE /push/web?endpoint=`      |                                      | `204`                                                                           |
 
 The panel reports the AGC service account loaded from
 `HUAWEI_PUSH_SERVICE_ACCOUNT` at startup; `configured` is false when that
@@ -752,6 +753,15 @@ App install. A test goes to one device or to every device whose master switch
 is on; a token Huawei rejects is retired in the same request. Removing a
 device deletes its row, and the App registers again the next time its push
 switch is turned on.
+
+The `web` object reports the browser side: whether a VAPID pair is loaded,
+how many subscriptions exist and how many still accept updates, and the 20
+most recently seen rows. A row shows a masked endpoint, its locale, user
+agent, category switches and consecutive failure count; the console also
+receives the full endpoint, which only the remove action uses. A test with
+`transport: "web"` goes to every browser or to the one `endpoint`. A push
+service that answers `404` or `410` retires the row during a send, and ten
+consecutive failures pause it.
 
 ## Related Docs
 

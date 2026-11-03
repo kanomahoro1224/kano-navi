@@ -24,7 +24,11 @@
 > backlog clears.
 >
 > Startup also adds the `push_devices` table, which holds the HarmonyOS push
-> registrations and their switches; nothing is migrated. It adds
+> registrations and their switches, and `web_push_subscriptions`, which holds
+> the browsers that subscribed from the site; nothing is migrated. Browser
+> notifications stay off until `WEB_PUSH_VAPID_PUBLIC_KEY` and
+> `WEB_PUSH_VAPID_PRIVATE_KEY` are set (a pair comes from `kano-go
+webpush-key`), and the bell stays hidden while they are empty. It adds
 > `push_pending`, which holds an accepted X post until the translate step
 > settles its wording and the other languages are notified.
 
@@ -75,6 +79,12 @@
 - Closing the image viewer leaves the page where it was instead of scrolling
   back to the picture. On phones, LINE BLOG's monthly archive opens on a tap,
   so a scroll that starts on it leaves it shut.
+- A bell in the X section's header subscribes the browser to notifications.
+  The click asks for permission, registers the browser and shows three
+  switches (streams, videos, posts); the message carries the site avatar, a
+  title and the post or video text, and a tap opens the page. A blocked
+  browser, or an iPhone that has not added the site to its Home Screen, gets
+  an instruction instead of a prompt that cannot succeed.
 
 </details>
 
@@ -96,6 +106,9 @@
   sets a content tag, which outranks the entry's label. The video list and
   `GET /api/admin/videos` show the tag with where it came from
   (`manualTag`, `scheduleTag`, `inferredTag`, `inferredTagSource`).
+- The Push page lists the browsers that subscribed from the site beside the
+  App's devices, with their locale, switches and failure count. A test goes to
+  every browser or to one, and removing a row stops its notifications.
 
 </details>
 

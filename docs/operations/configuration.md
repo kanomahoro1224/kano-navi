@@ -34,6 +34,12 @@
 | `HUAWEI_PUSH_TEST`                 | `false`                             | `true` sends test messages the App handles without showing them    |
 | `HUAWEI_PUSH_RECEIPT_SECRET`       | Empty                               | AGC receipt callback key; empty serves no receipt route            |
 | `HUAWEI_PUSH_RECEIPT_USER`         | Empty                               | AGC receipt callback user name the signature covers                |
+| `WEB_PUSH_VAPID_PUBLIC_KEY`        | Empty                               | VAPID public key; empty leaves browser notifications off           |
+| `WEB_PUSH_VAPID_PRIVATE_KEY`       | Empty                               | VAPID private key, printed by `kano-go webpush-key`                |
+| `WEB_PUSH_VAPID_SUBJECT`           | `mailto:kano@example.com`           | Contact a push service may use about this sender                   |
+| `WEB_PUSH_ICON`                    | `/assets/kano-avatar.jpg`           | Avatar shown beside every browser notification                     |
+| `WEB_PUSH_TTL_SECONDS`             | `86400`                             | How long a push service keeps an undelivered message               |
+| `WEB_PUSH_ENDPOINT_HOSTS`          | Built-in allowlist                  | Comma-separated push-service hosts accepted at registration        |
 | `BAMBINO_INGEST_SECRET`            | Empty                               | HMAC secret for `/internal/ingest/bambino`; empty leaves it absent |
 | `BAMBINO_INGEST_TOLERANCE_SECONDS` | `300`                               | Accepted clock skew of an ingest timestamp, in seconds             |
 | `BAMBINO_INGEST_CATCHUP_SECONDS`   | `180`                               | Ticker that re-submits post-processing a busy queue dropped        |
@@ -182,6 +188,23 @@ category off. `HUAWEI_PUSH_RECEIPT_SECRET` and `HUAWEI_PUSH_RECEIPT_USER` turn
 on `POST /api/push/receipt`: a signed receipt batch retires the tokens it
 reports as uninstalled or reissued, and an empty secret leaves the route
 absent.
+
+## Web push
+
+Browser notifications stay off until `WEB_PUSH_VAPID_PUBLIC_KEY` and
+`WEB_PUSH_VAPID_PRIVATE_KEY` both hold a pair from `kano-go webpush-key`; a
+malformed pair refuses startup instead of failing every delivery. The public
+key is handed to the browser, the private key signs the VAPID token and stays
+in the environment. `WEB_PUSH_VAPID_SUBJECT` is the contact a push service may
+use, `WEB_PUSH_ICON` is the avatar beside the message, and
+`WEB_PUSH_TTL_SECONDS` bounds how long an undelivered message may wait.
+
+A browser may only register an `https` endpoint on a push service the server
+will post to; `WEB_PUSH_ENDPOINT_HOSTS` replaces the built-in list
+(`fcm.googleapis.com`, `*.push.services.mozilla.com`, `*.push.apple.com`,
+`*.notify.windows.com`, `*.push.samsungosp.com`) for a self-hosted service.
+The site needs HTTPS for any of this; `localhost` is the browser's only
+exception.
 
 `BAMBINO_INGEST_SECRET` turns on `/internal/ingest/bambino`, the bridge's entry
 for normalized X updates; the same value must be configured in BambinoStatus,

@@ -1413,7 +1413,26 @@ export const adminMessages = {
     "admin.pushKit.noDevices": "No device has registered yet",
     "admin.pushKit.noDevicesHint":
       "Open the App's settings and turn on the push switch to register this phone.",
+    "admin.pushKit.web": "Browser notifications",
+    "admin.pushKit.webHint":
+      "Readers subscribe from the bell in the X section; each browser is one row.",
+    "admin.pushKit.webConfigured": "VAPID keys loaded",
+    "admin.pushKit.webUnconfigured": "VAPID keys missing",
+    "admin.pushKit.webTotal": "{count} registered",
+    "admin.pushKit.webEnabled": "{count} receiving",
+    "admin.pushKit.browsers": "Browsers ({count})",
+    "admin.pushKit.browsersHint":
+      "The endpoint is the browser's identity; a push service that reports it gone removes the row.",
+    "admin.pushKit.noBrowsers": "No browser has subscribed yet",
+    "admin.pushKit.noBrowsersHint":
+      "The bell appears once WEB_PUSH_VAPID_PUBLIC_KEY and its private key are configured.",
+    "admin.pushKit.webTest": "Test browsers",
+    "admin.pushKit.webTestSent": "Sent to {count} browser(s), {stale} retired.",
+    "admin.pushKit.webRemove": "Remove browser",
+    "admin.pushKit.webRemoveConfirm": "Confirm removal",
+    "admin.pushKit.browserDisabled": "Paused",
     "admin.notice.pushDeviceRemoved": "Device removed",
+    "admin.notice.webPushRemoved": "Browser removed",
   },
   "zh-CN": {
     "admin.meta.title": "运营后台 / 鹿乃在做什么",
@@ -2337,7 +2356,25 @@ export const adminMessages = {
     "admin.pushKit.noDevices": "还没有设备登记",
     "admin.pushKit.noDevicesHint":
       "在 App 设置里打开推送开关即可登记这台手机。",
+    "admin.pushKit.web": "浏览器通知",
+    "admin.pushKit.webHint": "读者在 X 动态区点铃铛订阅，一个浏览器一行。",
+    "admin.pushKit.webConfigured": "VAPID 密钥已加载",
+    "admin.pushKit.webUnconfigured": "缺少 VAPID 密钥",
+    "admin.pushKit.webTotal": "已登记 {count} 个",
+    "admin.pushKit.webEnabled": "{count} 个接收中",
+    "admin.pushKit.browsers": "浏览器（{count}）",
+    "admin.pushKit.browsersHint":
+      "端点就是浏览器的身份；推送服务报 404/410 时会自动删除该行。",
+    "admin.pushKit.noBrowsers": "还没有浏览器订阅",
+    "admin.pushKit.noBrowsersHint":
+      "配置 WEB_PUSH_VAPID_PUBLIC_KEY 与私钥后，铃铛才会出现。",
+    "admin.pushKit.webTest": "测试浏览器",
+    "admin.pushKit.webTestSent": "已发送到 {count} 个浏览器，清理 {stale} 个。",
+    "admin.pushKit.webRemove": "移除浏览器",
+    "admin.pushKit.webRemoveConfirm": "确认移除",
+    "admin.pushKit.browserDisabled": "已暂停",
     "admin.notice.pushDeviceRemoved": "设备已移除",
+    "admin.notice.webPushRemoved": "浏览器已移除",
     "admin.status.dismissed": "已忽略",
     "admin.run.kind.variants": "图片副本",
     "admin.step.variants": "图片副本",
@@ -4146,6 +4183,26 @@ export const adminMessages = {
     "admin.pushKit.noDevices": "登録済みの端末はまだありません",
     "admin.pushKit.noDevicesHint":
       "App の設定でプッシュスイッチをオンにすると、この端末が登録されます。",
+    "admin.pushKit.web": "ブラウザ通知",
+    "admin.pushKit.webHint":
+      "読者は X セクションのベルから購読します。ブラウザ 1 台につき 1 行です。",
+    "admin.pushKit.webConfigured": "VAPID キーを読み込み済み",
+    "admin.pushKit.webUnconfigured": "VAPID キーがありません",
+    "admin.pushKit.webTotal": "{count} 件登録",
+    "admin.pushKit.webEnabled": "{count} 件受信中",
+    "admin.pushKit.browsers": "ブラウザ（{count}）",
+    "admin.pushKit.browsersHint":
+      "エンドポイントがブラウザの識別子です。404/410 が返ると行は削除されます。",
+    "admin.pushKit.noBrowsers": "まだ購読しているブラウザはありません",
+    "admin.pushKit.noBrowsersHint":
+      "WEB_PUSH_VAPID_PUBLIC_KEY と秘密鍵を設定するとベルが表示されます。",
+    "admin.pushKit.webTest": "ブラウザへテスト",
+    "admin.pushKit.webTestSent":
+      "{count} 台のブラウザへ送信し、{stale} 件を削除しました。",
+    "admin.pushKit.webRemove": "ブラウザを削除",
+    "admin.pushKit.webRemoveConfirm": "削除を確認",
+    "admin.pushKit.browserDisabled": "停止中",
     "admin.notice.pushDeviceRemoved": "端末を削除しました",
+    "admin.notice.webPushRemoved": "ブラウザを削除しました",
   },
 }

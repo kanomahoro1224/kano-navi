@@ -73,14 +73,18 @@ premiere, or else the newest work, so a Short leads only when featured; each vid
 once. A video carries two chips. The form chip (`videoFormLabel`) names a
 Short, then a stream's waiting room, then the form (stream while it may be
 on air by the same rule as a live entry, then stream archive, premiere,
-video). The tag chip (`VideoTagChip` in
+video); a reported end that has passed makes it an archive even while a
+`live` result is still fresh, as `videoPhase` files it, and every caller
+passes the board's clock. The tag chip (`VideoTagChip` in
 `src/dashboard/components/event-tag.tsx`) adds the tag with the schedule's
 icon, in the schedule's words for a stream (gameplay, talk, singing) and as
 the work's content otherwise (gameplay, talk, music, where a note replaces
 the singing microphone, as on the archive's Songs button); it appears on every
 card, row, ticket and the lead, including stream archives that hide the
 form chip. The Next Up ticket names the video's tag, else the entry's
-activity label, before the form. Schedule entries follow the same split:
+activity label, before the form; a `member` entry adds the members-only chip
+(`MembersChip`) beside it unless the video's availability chip already
+shows `members`, `private` or `removed`. Schedule entries follow the same split:
 `eventKinds` marks a release or video entry as a work, and `eventTagKey`
 names a work's `song` label music, any other singing. The filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the

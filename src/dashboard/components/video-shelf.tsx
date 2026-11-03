@@ -154,10 +154,12 @@ function JapanDate({
 function PhaseTag({
   phase,
   video,
+  now,
   t,
 }: {
   phase: VideoPhase
   video: Video
+  now: number
   t: Translator
 }) {
   // The week guide's tones: live is berry, cancelled danger, unsure honey.
@@ -174,7 +176,7 @@ function PhaseTag({
     return <span className="tag tone-danger">{t("videos.cancelled")}</span>
   if (phase === "upcoming")
     return <span className="tag tone-sky">{t("videos.reserved")}</span>
-  return <span className="tag">{videoFormLabel(video, t)}</span>
+  return <span className="tag">{videoFormLabel(video, t, now)}</span>
 }
 
 function Subhead({ children, count }: { children: ReactNode; count?: number }) {
@@ -235,9 +237,9 @@ function LeadCard({
             {isFeatured ? t("videos.featured") : t("videos.latestWork")}
           </span>
           {phase === "past" ? (
-            <span className="tag">{videoFormLabel(video, t)}</span>
+            <span className="tag">{videoFormLabel(video, t, now)}</span>
           ) : (
-            <PhaseTag phase={phase} video={video} t={t} />
+            <PhaseTag phase={phase} video={video} now={now} t={t} />
           )}
           <VideoTagChip video={video} t={t} />
           <VideoAvailabilityChip video={video} t={t} />
@@ -309,9 +311,9 @@ function VideoTicket({
         </span>
         <span className="video-ticket-copy">
           <span className="video-meta">
-            <PhaseTag phase={phase} video={video} t={t} />
+            <PhaseTag phase={phase} video={video} now={now} t={t} />
             {videoIsStream(video) ? null : (
-              <span className="tag">{videoFormLabel(video, t)}</span>
+              <span className="tag">{videoFormLabel(video, t, now)}</span>
             )}
             <VideoTagChip video={video} t={t} />
             <VideoAvailabilityChip video={video} t={t} />
@@ -375,7 +377,7 @@ function VideoCard({
       <p className="video-meta">
         <JapanDate video={video} locale={locale} t={t} />
         {showKind ? (
-          <span className="tag">{videoFormLabel(video, t)}</span>
+          <span className="tag">{videoFormLabel(video, t, now)}</span>
         ) : null}
         <VideoTagChip video={video} t={t} />
         <VideoAvailabilityChip video={video} t={t} />
@@ -451,7 +453,7 @@ function VideoRow({
             <span className={`tag${video.isUpcoming ? " tone-berry" : ""}`}>
               {video.isUpcoming
                 ? t("videos.reserved")
-                : videoFormLabel(video, t)}
+                : videoFormLabel(video, t, now)}
             </span>
             <VideoTagChip video={video} t={t} />
             <VideoAvailabilityChip video={video} t={t} />
@@ -846,7 +848,7 @@ function ArchiveCard({
             {t("common.timezoneShort")}
           </time>
         ) : null}
-        <PhaseTag phase={phase} video={video} t={t} />
+        <PhaseTag phase={phase} video={video} now={now} t={t} />
         <VideoTagChip video={video} t={t} />
         <VideoAvailabilityChip video={video} t={t} />
         <LengthNote video={video} t={t} />

@@ -240,6 +240,12 @@ test("a stream that may be on air reads as a stream, not its archive", () => {
     "media.kind.liveArchive",
   )
   assert.equal(form({ scheduledAt: at(-4 * hour) }), "media.kind.liveArchive")
+  // A reported end closes a stream whose live result has not aged out yet,
+  // as it files the video under past broadcasts.
+  assert.equal(
+    form({ scheduledAt: at(-hour), endsAt: at(-1), liveStatus: "live" }),
+    "media.kind.liveArchive",
+  )
   assert.equal(
     form({ scheduledAt: at(-hour), liveStatus: "ended" }),
     "media.kind.liveArchive",

@@ -78,3 +78,17 @@ export function VideoAvailabilityChip({
     </span>
   )
 }
+
+/**
+ * The members-only chip of a members-only entry whose activity label or video
+ * form takes the head's main chip, in the same members green as a video
+ * checked as members only.
+ */
+export function MembersChip({ t }: { t: Translator }) {
+  return (
+    <span className="tag video-availability is-members">
+      <Crown aria-hidden="true" />
+      {t("videos.availability.members")}
+    </span>
+  )
+}

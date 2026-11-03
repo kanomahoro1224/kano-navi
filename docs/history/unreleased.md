@@ -54,7 +54,8 @@
   release types stay beside it; colors still follow the type. A `song` label
   reads as music with a note on a release or video entry and as singing with
   a vocal microphone elsewhere. The Next Up ticket names gameplay, talk and
-  singing entries by their label.
+  singing entries by their label, and a members-only entry keeps its Members
+  only chip beside it.
 - Past videos shows four columns of covers on wide screens, three on narrow
   ones and two on phones. A month long enough to scroll keeps the same columns
   as a short one.
@@ -69,7 +70,8 @@
   alone, so an upload whose title mentions a stream stays a work.
 - Every video shows its form and, beside it, its tag with an icon, so stream
   archives also say whether they were gameplay, talk or singing. A stream
-  that may still be on air reads as a stream, not an archive. Singing
+  that may still be on air reads as a stream, not an archive, and one whose
+  reported end has passed reads as an archive. Singing
   takes a vocal microphone and a music video or cover a note. Past videos'
   category buttons carry the same icons, and the Next Up ticket names a
   video's tag ahead of its entry's label.

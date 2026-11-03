@@ -22,6 +22,7 @@ import {
   countdownParts,
   eventIsManual,
   eventKinds,
+  membersChipBeside,
   eventTag,
   eventTagKey,
   eventTypeKey,
@@ -40,7 +41,12 @@ import {
 import { pickCompanion, pickSpotlight, spotlightIsLive } from "../spotlight"
 import type { SyncSource, SyncState } from "../freshness"
 import { videoIsGone, videoLinks, videoPlatforms } from "../video-groups"
-import { EventTagIcon, VideoAvailabilityChip, VideoTagChip } from "./event-tag"
+import {
+  EventTagIcon,
+  MembersChip,
+  VideoAvailabilityChip,
+  VideoTagChip,
+} from "./event-tag"
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import { TranslatedTitle } from "./translated-title"
 
@@ -97,10 +103,12 @@ type Companion = NonNullable<ReturnType<typeof pickCompanion>>
 function TicketHead({
   item,
   isLive,
+  now,
   t,
 }: {
   item: SpotlightItem
   isLive: boolean
+  now: number
   t: Translator
 }) {
   const typeKey = item.event ? eventTypeKey(item.event) : null
@@ -119,10 +127,17 @@ function TicketHead({
       : activity
         ? t(eventTagKey(activity, entryWork))
         : item.video
-          ? videoFormLabel(item.video, t)
+          ? videoFormLabel(item.video, t, now)
           : typeKey
             ? t(typeKey)
             : eventDetailText(item.detail, t) || t("schedule.publicEvent")
+  // A members-only entry keeps saying so beside its activity or video form,
+  // as the schedule does.
+  const membersChip = membersChipBeside(
+    item.event,
+    item.video,
+    Boolean(activity || item.video),
+  )
   const manual = item.event ? eventIsManual(item.event) : false
   return (
     <span className="ticket-head">
@@ -149,6 +164,7 @@ function TicketHead({
         ) : null}
         {tag}
       </span>
+      {membersChip ? <MembersChip t={t} /> : null}
       {item.video ? <VideoAvailabilityChip video={item.video} t={t} /> : null}
       {item.event ? (
         <span className={`ticket-provenance${manual ? " is-manual" : ""}`}>
@@ -271,7 +287,7 @@ function FullTicket({
         ) : null}
       </span>
       <span className="ticket-stub">
-        <TicketHead item={item} isLive={isLive} t={t} />
+        <TicketHead item={item} isLive={isLive} now={now} t={t} />
         <span className="ticket-body">
           {item.mode === "next" ? (
             <DateBlock item={item} locale={locale} />
@@ -335,7 +351,7 @@ function CompactTicket({
         <DateBlock item={item} locale={locale} />
       </span>
       <span className="ticket-stub">
-        <TicketHead item={item} isLive={isLive} t={t} />
+        <TicketHead item={item} isLive={isLive} now={now} t={t} />
         <span className="ticket-copy">
           <TranslatedTitle
             className="ticket-title"
@@ -409,7 +425,7 @@ function LatestCard({
       <span className="latest-card-copy">
         <span className="ticket-head">
           <span className="kicker">{t("spotlight.latest")}</span>
-          <span className="tag">{videoFormLabel(companion.video, t)}</span>
+          <span className="tag">{videoFormLabel(companion.video, t, now)}</span>
           <VideoTagChip video={companion.video} t={t} />
           <VideoAvailabilityChip video={companion.video} t={t} />
         </span>

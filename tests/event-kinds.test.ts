@@ -1,12 +1,13 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import type { ScheduleEvent } from "../src/types.ts"
+import type { ScheduleEvent, Video } from "../src/types.ts"
 import { dashboardMessages } from "../src/dashboard/dashboard-i18n.ts"
 import {
   eventKinds,
   eventTag,
   eventTagKey,
   eventTags,
+  membersChipBeside,
 } from "../src/dashboard/format.ts"
 
 function event(eventType: string, tag?: string | null): ScheduleEvent {
@@ -100,4 +101,25 @@ test("every label has a display name in each locale", () => {
       const messages: Record<string, unknown> = dashboardMessages[locale]
       assert.equal(typeof messages[`event.tag.${tag}`], "string", locale + tag)
     }
+})
+
+test("a members-only entry keeps its chip beside the label that took the type's place", () => {
+  const checked = (availability: Video["availability"]) =>
+    ({ availability }) as Video
+  // A singing label or the video's form takes the head's main chip.
+  assert.equal(membersChipBeside(event("member", "song"), null, true), true)
+  assert.equal(
+    membersChipBeside(event("member"), checked("public"), true),
+    true,
+  )
+  // The type still names it, or the entry is not members only.
+  assert.equal(membersChipBeside(event("member"), null, false), false)
+  assert.equal(membersChipBeside(event("stream", "song"), null, true), false)
+  // The video's availability chip already tells who can watch it.
+  for (const availability of ["members", "private", "removed"] as const)
+    assert.equal(
+      membersChipBeside(event("member", "song"), checked(availability), true),
+      false,
+      availability,
+    )
 })

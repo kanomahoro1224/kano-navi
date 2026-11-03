@@ -45,7 +45,7 @@ func olderSnapshot(t *testing.T) (string, string) {
 		`DROP INDEX videos_merged_into_idx`, `ALTER TABLE videos DROP COLUMN merged_into`, `ALTER TABLE videos DROP COLUMN merge_source`,
 		`ALTER TABLE videos DROP COLUMN merge_reason`, `ALTER TABLE videos DROP COLUMN merged_at`,
 		`ALTER TABLE videos DROP COLUMN is_short`, `ALTER TABLE videos DROP COLUMN manual_is_short`, `ALTER TABLE videos DROP COLUMN is_premiere`,
-		`ALTER TABLE videos DROP COLUMN manual_tag`, `ALTER TABLE videos DROP COLUMN tag`, `ALTER TABLE videos DROP COLUMN tag_source`, `ALTER TABLE videos DROP COLUMN tag_attempted_at`,
+		`ALTER TABLE videos DROP COLUMN manual_tag`, `ALTER TABLE videos DROP COLUMN tag`, `ALTER TABLE videos DROP COLUMN tag_source`, `ALTER TABLE videos DROP COLUMN tag_attempted_at`, `ALTER TABLE videos DROP COLUMN availability`,
 		// Title kinds move to the form and content layers: an operator's content
 		// kind becomes a manual tag, and a scheduled title kind was a premiere's.
 		`INSERT INTO videos(id,source,title,published_at,scheduled_at,url,kind,manual_kind) VALUES('KKKKKKKKKKK','youtube','game stream','2026-03-01T00:00:00.000Z','2026-03-01T09:00:00.000Z','https://www.youtube.com/watch?v=KKKKKKKKKKK','LIVE ARCHIVE','GAMEPLAY')`,

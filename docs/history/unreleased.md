@@ -22,9 +22,19 @@
 > have no tag until the translation queue judges them, a few per run, so the
 > past-video categories fill in gradually and model calls rise until that
 > backlog clears.
+>
+> Startup adds `videos.availability` to an existing database, empty for every
+> row; each video fills in at its next YouTube check, so nothing is hidden
+> after the upgrade.
 
 <details>
 <summary><strong>Public pages</strong></summary>
+
+- Every video projection adds `availability` (`public`, `unlisted`,
+  `members`, `private`, `removed`, or `null` until a check could tell). A
+  video that not everyone can watch shows Members only, Private or Removed
+  beside its labels, and a private or removed video no longer links to
+  YouTube. The stage's latest video passes over private and removed videos.
 
 - A calendar entry can carry a label (`live`, `game`, `talk`, `song` or
   `video`) in its `tag` field, so a client can show what kind of activity an
@@ -125,10 +135,16 @@
   as `song`.
 - A stream made private after it ends no longer keeps the live-status probe
   failing every interval until 24 hours after its start. A watch page that
-  reports a private video records `youtube_watch_private` instead of passing
-  for YouTube's bot check, Japanese reasons included, and a video the Data
-  API leaves out whose page answers without details is treated the same way.
-  The probe stops asking about such a video and counts it in `unavailable`
-  rather than failing the run.
+  reports a private video reads as private instead of passing for YouTube's
+  bot check, Japanese reasons included, and a video the Data API leaves out
+  whose page answers without details reads as private or removed. The probe
+  stops asking about such a video and counts it in `unavailable` rather than
+  failing the run.
+- YouTube checks record who can watch each video: the Data API's privacy
+  status (the `status` part, at no extra quota), the watch page's playability,
+  and private or removed for a failed page only when YouTube answered it. A
+  private or members-only page is no longer a run error, where a members-only
+  page used to record `youtube_watch_details_incomplete`. A members-only video
+  is a member entry whatever its title says.
 
 </details>

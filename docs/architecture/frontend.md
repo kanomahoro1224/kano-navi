@@ -474,7 +474,8 @@ compact ticket unless it is the same link. Both read `summary.latestVideo`,
 which `deriveDashboardAt` recomputes as the newest non-upcoming video that is
 not a Short (`isShort === true`), unless it is the featured video
 (`featuredVideoIdOf`: `meta.featuredVideoId`, or the focus video of a
-snapshot without that field). An unknown format stays eligible, and when every recent upload is a
+snapshot without that field), and that is neither private nor removed
+(`videoIsGone`). An unknown format or availability stays eligible, and when every recent upload is a
 Short the stage shows no latest video. The play mark appears only on
 YouTube or Twitch links; X links read as an announcement.
 Matching needs no protected source item IDs or additional public API fields.

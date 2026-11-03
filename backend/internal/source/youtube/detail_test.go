@@ -261,7 +261,9 @@ func TestWatchTellsASignInPageFromAnIncompleteOne(t *testing.T) {
 		"encoded player":        {`{"player_response":"{\"playabilityStatus\":{\"status\":\"LOGIN_REQUIRED\"}}"}`, CodeLoginRequired},
 		"bot check page":        {`<html><title>synthetic</title><p>Sign in to confirm you’re not a bot</p></html>`, CodeLoginRequired},
 		"escaped bot check":     {`<html><meta property="og:title" content="synthetic">{"text":"Sign in to confirm you're not a bot"}</html>`, CodeLoginRequired},
-		"members only":          {`<script>var ytInitialPlayerResponse = {"playabilityStatus":{"status":"UNPLAYABLE","reason":"Join this channel to get access to members-only content"}};</script>`, "youtube_watch_details_incomplete"},
+		"members only":          {`<script>var ytInitialPlayerResponse = {"playabilityStatus":{"status":"UNPLAYABLE","reason":"Join this channel to get access to members-only content"}};</script>`, CodeMembers},
+		"members in Japanese":   {`<script>var ytInitialPlayerResponse = {"playabilityStatus":{"status":"UNPLAYABLE","reason":"このチャンネルのメンバーになると、このメンバー限定コンテンツにアクセスできます"}};</script>`, CodeMembers},
+		"video unavailable":     {`<script>var ytInitialPlayerResponse = {"playabilityStatus":{"status":"ERROR","reason":"Video unavailable"}};</script>`, "youtube_watch_details_incomplete"},
 		"no player":             {`<html>no player</html>`, "youtube_watch_details_incomplete"},
 		"mismatched video":      {watchPage("BBBBBBBBBBB", `"lengthSeconds":"60"`, ""), "youtube_watch_details_incomplete"},
 	} {

@@ -45,6 +45,9 @@ type Video struct {
 	// its /shorts/ page, false for one it links to a watch page, and nil while
 	// unknown, as for a watch-page read or an entry naming neither.
 	Short *bool
+	// Availability is who can watch the video (AvailabilityPublic and the
+	// rest) as a check could tell, or empty while unknown.
+	Availability string
 }
 
 // Broadcast states a watch page can report.
@@ -204,6 +207,7 @@ type playerResponse struct {
 			Broadcast *broadcastDetails `json:"liveBroadcastDetails"`
 			// PublishDate is an RFC 3339 instant, or a bare date on older pages.
 			PublishDate string `json:"publishDate"`
+			Unlisted    bool   `json:"isUnlisted"`
 		} `json:"playerMicroformatRenderer"`
 	} `json:"microformat"`
 }
@@ -238,33 +242,94 @@ type broadcastDetails struct {
 // CodePrivate and an age gate is incomplete. A missing or unrecognized reason
 // counts as the bot check, since that is how the check reaches the server; at
 // worst it ends one run's page requests early. Members-only videos answer
-// UNPLAYABLE and stay incomplete. The reasons are read in English and
-// Japanese.
+// UNPLAYABLE: one without a start time reports CodeMembers. The reasons are
+// read in English and Japanese.
 const CodeLoginRequired = "youtube_watch_login_required"
 
 // CodePrivate is what ParseWatch reports for a private video: the page of
 // that one video asks to sign in, and no later page will say more.
 const CodePrivate = "youtube_watch_private"
 
+// CodeMembers is what ParseWatch reports for a members-only video whose page
+// has too little to read without a membership.
+const CodeMembers = "youtube_watch_members"
+
 var botCheckPattern = regexp.MustCompile(`(?i)confirm you(?:'|’|&#39;|&#x27;|\\u0027|\\u2019)re not a bot|ボットではないことを確認`)
 
-// privatePattern names a private video; ageGatePattern an age gate. Both are
-// reasons of one video, not the host.
+// privatePattern names a private video, ageGatePattern an age gate and
+// membersPattern a members-only video. All are reasons of one video, not the
+// host.
 var (
 	privatePattern = regexp.MustCompile(`(?i)private video|video is private|非公開`)
 	ageGatePattern = regexp.MustCompile(`(?i)confirm your age|age[- ]restricted|inappropriate for some users|年齢`)
+	membersPattern = regexp.MustCompile(`(?i)members[- ]only|join this channel|メンバー限定|メンバーになる|メンバーシップ`)
 )
 
-// signInReason joins every text a LOGIN_REQUIRED player gives for itself.
-func signInReason(player playerResponse) string {
+// playabilityReason joins every text an unplayable player gives for itself.
+func playabilityReason(player playerResponse) string {
 	p := player.Playability
 	view := p.ErrorScreen.Interstitial.Content.View
 	return strings.Join(append([]string{p.Reason, p.ErrorScreen.Renderer.Reason.String(), p.ErrorScreen.Renderer.Subreason.String(), view.Title.Content, view.Description.Content}, p.Messages...), "\n")
 }
 
+// Who can watch a video (Video.Availability). Empty is unknown.
+const (
+	AvailabilityPublic   = "public"
+	AvailabilityUnlisted = "unlisted"
+	AvailabilityMembers  = "members"
+	AvailabilityPrivate  = "private"
+	AvailabilityRemoved  = "removed"
+)
+
+// watchAvailability reads who can watch a video from a page that passed the
+// completeness checks: a playable page is public or unlisted, a members-only
+// one (a stream archive still names its start) members, any other unknown.
+func watchAvailability(player playerResponse, found bool) string {
+	switch {
+	case !found:
+		return ""
+	case player.Playability.Status == "OK" && player.Microformat.Renderer.Unlisted:
+		return AvailabilityUnlisted
+	case player.Playability.Status == "OK":
+		return AvailabilityPublic
+	case player.Playability.Status == "UNPLAYABLE" && membersPattern.MatchString(playabilityReason(player)):
+		return AvailabilityMembers
+	}
+	return ""
+}
+
+// errBotCheck is the failure of a page that names YouTube's bot check
+// itself. A sign-in page with an unrecognized reason is another *Error with the
+// same code, which FailedAvailability may read as a private video.
+var errBotCheck = &Error{CodeLoginRequired}
+
+// FailedAvailability is who can watch a video whose watch page failed with
+// err, or "" when the failure tells nothing. absent says that a Data API call
+// that succeeded left the video out, as it does private and removed videos:
+// then a page that asks to sign in for a reason other than the bot check is
+// private, and another answered page without the details is removed. A page
+// that was not answered at all (a timeout, a 5xx) never tells.
+func FailedAvailability(err error, absent bool) string {
+	code := safeError(err)
+	switch {
+	case err == nil || err == errBotCheck:
+		return ""
+	case code == CodePrivate:
+		return AvailabilityPrivate
+	case code == CodeMembers:
+		return AvailabilityMembers
+	case absent && code == CodeLoginRequired:
+		return AvailabilityPrivate
+	case absent && strings.HasPrefix(code, "youtube_watch_"):
+		return AvailabilityRemoved
+	}
+	return ""
+}
+
 // ParseWatch reads one watch page. A page that does not pass the
-// completeness checks reports youtube_watch_details_incomplete, or
-// CodeLoginRequired or CodePrivate when it asks to sign in.
+// completeness checks reports youtube_watch_details_incomplete, CodeMembers
+// for a members-only video, or CodeLoginRequired or CodePrivate when it asks
+// to sign in.
 func ParseWatch(body []byte, id string) (Video, error) {
 	text := string(body)
 	v := Video{ID: id, URL: "https://www.youtube.com/watch?v=" + id}
@@ -318,19 +383,24 @@ func ParseWatch(body []byte, id string) (Video, error) {
 	if v.Title == "" || (v.IsUpcoming && v.ScheduledAt == "") || (v.ScheduledAt == "" && (!found || player.VideoDetails.VideoID != id || player.Playability.Status != "OK")) {
 		if !found {
 			if botCheckPattern.MatchString(text) {
-				return v, &Error{CodeLoginRequired}
+				return v, errBotCheck
 			}
 			return v, &Error{"youtube_watch_details_incomplete"}
 		}
-		if player.Playability.Status == "LOGIN_REQUIRED" {
-			reason := signInReason(player)
+		reason := playabilityReason(player)
+		switch player.Playability.Status {
+		case "LOGIN_REQUIRED":
 			switch {
 			case botCheckPattern.MatchString(reason):
-				return v, &Error{CodeLoginRequired}
+				return v, errBotCheck
 			case privatePattern.MatchString(reason):
 				return v, &Error{CodePrivate}
 			case !ageGatePattern.MatchString(reason):
 				return v, &Error{CodeLoginRequired}
+			}
+		case "UNPLAYABLE":
+			if membersPattern.MatchString(reason) {
+				return v, &Error{CodeMembers}
 			}
 		}
 		return v, &Error{"youtube_watch_details_incomplete"}
@@ -347,6 +417,7 @@ func ParseWatch(body []byte, id string) (Video, error) {
 		}
 	}
 	liveState(&v, player, found)
+	v.Availability = watchAvailability(player, found)
 	// isLiveContent: false always means a premiere. Before the broadcast ends
 	// a premiere can read as live content too, so a stream verdict waits for
 	// a page that reports it over.

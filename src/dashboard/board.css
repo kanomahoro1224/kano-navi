@@ -1943,6 +1943,17 @@
   color: var(--berry);
 }
 
+/* Who can watch a video, when not everyone can: muted beside the tag. */
+.tag.video-availability {
+  gap: 3px;
+  color: var(--soft);
+}
+
+.tag.video-availability svg {
+  width: 11px;
+  height: 11px;
+}
+
 /* Thumbnails */
 
 .video-thumb {

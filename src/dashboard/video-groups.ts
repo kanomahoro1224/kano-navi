@@ -40,6 +40,14 @@ export function videoIsShort(video: Video) {
 }
 
 /**
+ * Whether visitors can no longer watch a video on its own platform: it is
+ * private or removed. Unknown availability is still watchable.
+ */
+export function videoIsGone(video: Video) {
+  return video.availability === "private" || video.availability === "removed"
+}
+
+/**
  * The stage's rule for one video: a fresh confirmed state decides first;
  * without one a stream keeps the three-hour grace after its start and any
  * other video stays current only until an explicit end.
@@ -129,7 +137,9 @@ export function groupVideos(
   )
   let lead = featured
   if (!lead) {
-    lead = split.works.find(isLeadWork) || split.works[0] || null
+    // A private or removed work never leads, as it has nothing to open.
+    const watchable = split.works.filter((video) => !videoIsGone(video))
+    lead = watchable.find(isLeadWork) || watchable[0] || null
     if (lead) split.works.splice(split.works.indexOf(lead), 1)
   }
   return { ...split, lead, leadIsFeatured: Boolean(featured) }
@@ -152,8 +162,9 @@ export function videoLinks(
   locale: Locale,
   now: number,
 ): VideoLink[] {
+  // A private or removed video keeps only its other platforms' copies.
   const links = [
-    { source: video.source, url: video.url },
+    ...(videoIsGone(video) ? [] : [{ source: video.source, url: video.url }]),
     ...(video.alternates || []),
   ]
   if (locale !== "zh-CN" || videoPhase(video, now) !== "past") return links

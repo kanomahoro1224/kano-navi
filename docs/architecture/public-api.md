@@ -19,7 +19,8 @@ video list.
 The summary contains `nextEvent`, `nextStream`, `latestVideo`, `latestPost`,
 and counts; `latestPost` survives an empty requested window. `latestVideo` is
 the stage's fallback: the newest non-upcoming video that is not a Short,
-unless the operator featured that Short; a video of unknown format stays
+unless the operator featured that Short, and that is neither private nor
+removed; a video of unknown format or unknown availability stays
 eligible. Metadata includes configured X accounts and the Featured video ID.
 
 `meta.sourceFetchedAt` contains only `x`, `youtube` and `bilibili` ISO
@@ -169,7 +170,10 @@ handle. The optional video `category` filter is `game`, `talk`, `song` or
 category is its shown [tag](data-model.md#video-form-and-tags) (`game`,
 `talk` or `song`: the operator's, else its schedule entry's label, else the
 title inference's), or `other` without one; each read derives it, and every
-video projection carries the tag as `tag`, `null` without one. An invalid range returns 400
+video projection carries the tag as `tag`, `null` without one, and who can
+watch it as `availability` (`public`, `unlisted`, `members`, `private`,
+`removed`, or `null` until a check could tell; see
+[Video availability](sources.md#video-availability)). An invalid range returns 400
 `invalid_range`, an invalid handle 400 `invalid_account` and an unknown
 category 400 `invalid_category`. Reads revalidate through their
 [ETags](#public-snapshot-contract), negotiate gzip like the other public JSON

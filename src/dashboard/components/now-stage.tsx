@@ -39,8 +39,8 @@ import {
 } from "../format"
 import { pickCompanion, pickSpotlight, spotlightIsLive } from "../spotlight"
 import type { SyncSource, SyncState } from "../freshness"
-import { videoLinks } from "../video-groups"
-import { EventTagIcon, VideoTagChip } from "./event-tag"
+import { videoIsGone, videoLinks } from "../video-groups"
+import { EventTagIcon, VideoAvailabilityChip, VideoTagChip } from "./event-tag"
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import { TranslatedTitle } from "./translated-title"
 
@@ -238,7 +238,9 @@ function FullTicket({
   t: Translator
 }) {
   const links = item.video ? videoLinks(item.video, locale, now) : []
-  const url = links[0]?.url || item.url
+  // A private or removed video has no page of its own left to open.
+  const url =
+    links[0]?.url || (item.video && videoIsGone(item.video) ? null : item.url)
   return (
     <div
       className={`ticket is-${isLive ? "live" : item.mode}${item.thumbnailUrl ? " has-art" : ""}${url ? " link-card" : ""}`}
@@ -403,12 +405,13 @@ function LatestCard({
           <span className="kicker">{t("spotlight.latest")}</span>
           <span className="tag">{videoFormLabel(companion.video, t)}</span>
           <VideoTagChip video={companion.video} t={t} />
+          <VideoAvailabilityChip video={companion.video} t={t} />
         </span>
         <TranslatedTitle
           className="latest-card-title"
           title={companion.title}
           translations={companion.video.translations}
-          href={links[0].url}
+          href={links[0]?.url}
           t={t}
         />
         {companion.time ? (

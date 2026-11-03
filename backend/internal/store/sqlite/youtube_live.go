@@ -216,7 +216,7 @@ func (s *Store) LiveProbeTargets(ctx context.Context, now time.Time, settings Li
 	}
 	stoppedJSON, _ := json.Marshal(stopped)
 	n := now.UTC().Format(time.RFC3339Nano)
-	rows, err := s.db.QueryContext(ctx, `SELECT v.id,v.title,COALESCE(v.published_at,''),COALESCE(v.scheduled_at,''),v.url,COALESCE(v.thumbnail_url,''),COALESCE(v.kind,''),v.is_upcoming,COALESCE(v.live_status,''),COALESCE(v.live_checked_at,''),v.is_premiere FROM videos v
+	rows, err := s.db.QueryContext(ctx, `SELECT v.id,v.title,COALESCE(v.published_at,''),COALESCE(v.scheduled_at,''),v.url,COALESCE(v.thumbnail_url,''),COALESCE(v.kind,''),v.is_upcoming,COALESCE(v.live_status,''),COALESCE(v.live_checked_at,''),v.is_premiere,COALESCE(v.availability,'') FROM videos v
  WHERE v.source='youtube' AND v.scheduled_at IS NOT NULL
  AND julianday(v.scheduled_at)<=julianday(?1,?2) AND julianday(v.scheduled_at)>=julianday(?1,?3)
  AND COALESCE(v.live_status,'')<>'ended'
@@ -234,7 +234,7 @@ func (s *Store) LiveProbeTargets(ctx context.Context, now time.Time, settings Li
 		var v ytsource.Video
 		var status, checked string
 		var premiere sql.NullBool
-		if err = rows.Scan(&v.ID, &v.Title, &v.PublishedAt, &v.ScheduledAt, &v.URL, &v.ThumbnailURL, &v.Kind, &v.IsUpcoming, &status, &checked, &premiere); err != nil {
+		if err = rows.Scan(&v.ID, &v.Title, &v.PublishedAt, &v.ScheduledAt, &v.URL, &v.ThumbnailURL, &v.Kind, &v.IsUpcoming, &status, &checked, &premiere, &v.Availability); err != nil {
 			return nil, dbErr(err)
 		}
 		// The stored verdict lets a Data API answer classify an ended
@@ -490,7 +490,11 @@ func (s *Store) WriteYoutubeLive(ctx context.Context, result ytsource.ProbeResul
 	if err != nil {
 		return false, err
 	}
-	changed = changed || translated
+	availability, err := writeVideoAvailability(ctx, tx, result.Availability)
+	if err != nil {
+		return false, err
+	}
+	changed = changed || translated || availability
 	if changed {
 		if err = bumpRevision(ctx, tx, now); err != nil {
 			return false, ErrSourceWrite

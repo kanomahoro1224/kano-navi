@@ -30,6 +30,11 @@ your content language when a translation is available, followed by an **AI**
 mark that is lit while the translation shows; select it to see the original
 wording and again to bring the translation back.
 
+A video that not everyone can watch says so beside its labels: **Members
+only**, **Private**, or **Removed**. A private or removed video stays listed
+but no longer opens on YouTube; a bilibili copy, when there is one, still
+opens.
+
 ## Past Videos
 
 **Past videos** (a clock icon on phones) browses every stored YouTube and

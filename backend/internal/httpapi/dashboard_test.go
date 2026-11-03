@@ -106,6 +106,35 @@ func TestDashboardLatestVideoSkipsShortsUnlessFeatured(t *testing.T) {
 	}
 }
 
+// The latest video is one visitors can still watch: a private or removed
+// upload is passed over, while one not yet checked stays eligible.
+func TestDashboardLatestVideoSkipsVideosNoLongerWatchable(t *testing.T) {
+	handler := dashboardHandler(t, func(path string) {
+		testutil.Exec(t, path, `INSERT INTO videos (id,source,title,published_at,url,kind,is_upcoming,is_short,availability) VALUES
+		 ('private','youtube','Private','2026-10-12T00:00:00.000Z','https://www.youtube.com/watch?v=private','upload',0,0,'private'),
+		 ('removed','youtube','Removed','2026-10-11T00:00:00.000Z','https://www.youtube.com/watch?v=removed','upload',0,0,'removed'),
+		 ('unchecked','youtube','Unchecked','2026-10-10T00:00:00.000Z','https://www.youtube.com/watch?v=unchecked','upload',0,0,NULL),
+		 ('members','youtube','Members','2026-10-09T00:00:00.000Z','https://www.youtube.com/watch?v=members','upload',0,0,'members');`)
+	})
+	status, _, payload, body := dashboardPayload(t, handler, "/api/dashboard")
+	if status != http.StatusOK {
+		t.Fatalf("status=%d body=%s", status, body)
+	}
+	video, _ := payload["summary"].(map[string]any)["latestVideo"].(map[string]any)
+	if video["id"] != "unchecked" || video["availability"] != nil {
+		t.Fatalf("latest=%v", video)
+	}
+	// Every video still lists, with who can watch it.
+	got := map[any]any{}
+	for _, item := range payload["videos"].([]any) {
+		v := item.(map[string]any)
+		got[v["id"]] = v["availability"]
+	}
+	if got["private"] != "private" || got["removed"] != "removed" || got["members"] != "members" {
+		t.Fatalf("videos=%v", got)
+	}
+}
+
 func TestDashboardPublicProjectionAndBoundedSemantics(t *testing.T) {
 	handler := dashboardHandler(t, func(path string) {
 		testutil.Exec(t, path, `

@@ -257,12 +257,16 @@ bot") or gives none that is recognized, or the check's page without a player.
 YouTube puts a host behind this check for every watch page at once, so the
 run requests no further watch page, and the code appears once. A
 `LOGIN_REQUIRED` reason that concerns one video is not the check, and the run
-goes on: a private video records `youtube_watch_private` and an age gate
-`youtube_watch_details_incomplete`. Reasons are recognized in English and
+goes on: a private video reads as `youtube_watch_private` and an age gate
+records `youtube_watch_details_incomplete`. Reasons are recognized in English and
 Japanese, in the player's reason, messages and error screen. The queued IDs it did not reach
 keep their places ahead of the rotated one, and an unclassified Data API
 answer stands in for each of them as for a failed page. A members-only page
-answers `UNPLAYABLE` and stays `youtube_watch_details_incomplete`. Incremental
+answers `UNPLAYABLE`: one that still names its start, as a stream archive
+does, passes as members-only, and one that does not fails as
+`youtube_watch_members`. A page that tells who can watch the video (see
+[Video availability](#video-availability)) is no error and does not stop the
+run's page requests. Incremental
 metadata distinguishes successful `inspected` checks from `detailRequested`
 attempts. Manual fetches
 do not write this incremental metadata.
@@ -462,6 +466,32 @@ after the feed's, and that run marks no Shorts. Without a key, a failed feed
 marks none. An operator correction (`manual_is_short`) lies over the stored
 verdict; see [Video corrections](data-model.md#video-corrections-and-history).
 
+#### Video availability
+
+Every check that can tell records who can watch a YouTube video in
+`videos.availability`:
+
+- A `videos.list` answer (the request names the `status` part, at no extra
+  quota) gives `public` or `unlisted` from `status.privacyStatus`. The API
+  cannot tell a members-only video from a public one, so it keeps a stored
+  `members`.
+- A watch page that passes the completeness checks is `public`, or
+  `unlisted` when its microformat says so; an `UNPLAYABLE` members-only page
+  that still names its start is `members`.
+- A failed page tells only when YouTube answered it: `youtube_watch_private`
+  is `private` and `youtube_watch_members` is `members`. For a video that a
+  `videos.list` call which succeeded left out, as the API does private and
+  removed videos, a sign-in page that does not name the bot check is
+  `private` and any other page without the details is `removed`. A page that
+  was not answered (a timeout, a 5xx) and the bot check tell nothing.
+
+A failed page that told writes only the availability of the stored video and
+counts as no run error. A check that cannot tell keeps the stored value, and
+nothing writes `NULL` back. A `members` video is a `member` entry whatever its
+title says. Bilibili uploads keep `NULL`. The board treats `NULL` as
+watchable; the stage's latest video skips `private` and `removed`, and their
+cards open no YouTube page (see [Public API](public-api.md)).
+
 #### Follow-up checks and refresh requests
 
 Creators often replace a premiere's placeholder thumbnail, or retitle an
@@ -573,11 +603,11 @@ rejection; the key travels only in the `X-Goog-Api-Key` header.
 ##### Stopped videos
 
 A video the probe can learn nothing more about is stopped rather than asked
-again until its 24 hours run out. It is unavailable when its page reports a
-private video (`youtube_watch_private`), or when the Data API answer left it
-out, as it does private and removed videos, and its page then answered
-without the details, whatever that page asked. A page that was not answered
-at all (a timeout, a 5xx) proves nothing and stops no video. An unavailable
+again until its 24 hours run out. It is unavailable when its failed page
+tells it `private` or `removed` (see [Video availability](#video-availability)),
+which also records that availability. A members-only page records `members`
+without stopping the video, and a page that was not answered at all (a
+timeout, a 5xx) or the bot check stops no video. An unavailable
 video is not a run error: the run result counts it in `unavailable`, and a run
 whose only due videos were unavailable succeeds. An operator can also stop
 any active video, or let a stopped one be asked again, from `/admin`.

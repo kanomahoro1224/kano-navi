@@ -268,24 +268,25 @@ func (s *Store) GetVideoArchive(ctx context.Context, from, to, category string, 
 		return nil, err
 	}
 	liveCutoff := now.Add(-probe.Freshness())
-	rows, err := s.db.QueryContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),`+videoTagSQL("videos")+` FROM videos`+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
+	rows, err := s.db.QueryContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),`+videoTagSQL("videos")+`,availability FROM videos`+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return nil, dbErr(err)
 	}
 	items := make([]Video, 0, pageSize)
 	for rows.Next() {
 		var v Video
-		var pub, sch, thumb, kind, liveStatus, liveChecked, tag sql.NullString
+		var pub, sch, thumb, kind, liveStatus, liveChecked, tag, availability sql.NullString
 		var upcoming int64
 		var duration sql.NullInt64
 		var short sql.NullBool
-		if err := rows.Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &upcoming, &liveStatus, &liveChecked, &duration, &short, &tag); err != nil {
+		if err := rows.Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &upcoming, &liveStatus, &liveChecked, &duration, &short, &tag, &availability); err != nil {
 			_ = rows.Close()
 			return nil, dbErr(err)
 		}
 		v.DurationSeconds = nullInt(duration)
 		v.IsShort = nullBool(short)
 		v.Tag = nullString(tag)
+		v.Availability = nullString(availability)
 		if pub.Valid {
 			v.PublishedAt = &pub.String
 		}

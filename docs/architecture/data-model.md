@@ -605,6 +605,11 @@ a premiere (a `release` event), 0 for live content, `NULL` while no check
 could tell, which is also what the upgrade gives existing rows (see
 [Sources](sources.md#youtube)). It is never derived from the kind; the kind
 follows it.
+`availability` is who can watch a YouTube video: `public`, `unlisted`,
+`members`, `private` or `removed`, `NULL` until a check could tell, which is
+also what existing rows and Bilibili uploads keep (see
+[Video availability](sources.md#video-availability)). A check that cannot
+tell keeps the stored value. Public readers add it as `availability`.
 Startup adds the columns, both tables and `video_revisions_video_idx` to
 existing snapshots without rewriting videos or media rows.
 

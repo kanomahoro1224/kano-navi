@@ -1305,8 +1305,6 @@ export const adminMessages = {
     "admin.code.youtube_unavailable": "YouTube could not be reached.",
     "admin.code.youtube_watch_login_required":
       "YouTube asked this server to sign in (its bot check), so the run read no more watch pages.",
-    "admin.code.youtube_watch_private":
-      "The video is private, so its watch page asks to sign in; the live-status probe stops checking it.",
     "admin.code.youtube_feed_http_error":
       "YouTube's RSS feed answered with an error; its 404s can last for hours.",
     "admin.code.youtube_feed_upstream_5xx":
@@ -2220,8 +2218,6 @@ export const adminMessages = {
     "admin.code.youtube_unavailable": "无法访问 YouTube。",
     "admin.code.youtube_watch_login_required":
       "YouTube 要求此服务器登录（机器人验证），本次运行不再读取视频页面。",
-    "admin.code.youtube_watch_private":
-      "该视频是私密视频，页面要求登录；直播状态探测不再检查它。",
     "admin.code.youtube_feed_http_error":
       "YouTube RSS 订阅源返回了错误；它的 404 可能持续数小时。",
     "admin.code.youtube_feed_upstream_5xx":

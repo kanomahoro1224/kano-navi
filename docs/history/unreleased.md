@@ -96,7 +96,10 @@
 - The schedule editor sets an entry's label, and an empty choice clears it. A
   saved label is the operator's decision, outranks the automatic one and keeps
   the entry from being relabelled later; a cleared entry shows no label and
-  does not send its videos to the title inference. Saving an entry for another reason,
+  does not send its videos to the title inference. Automatic (`tag: "auto"`)
+  hands the label back: the entry follows its videos' tags, which are asked
+  about again, and the editor selects it for an entry without an operator's
+  label. Saving an entry for another reason,
   such as a cancellation decision, keeps an automatic label automatic.
 - The video editor corrects the form (`stream`, `premiere` or `upload`) and
   sets a content tag, which outranks the entry's label. The video list and

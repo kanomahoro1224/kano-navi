@@ -59,6 +59,19 @@ func TestManualEventLifecycleLocksAndTombstones(t *testing.T) {
 		edited["cancellationStatus"] != "manual_confirmed" || edited["cancellationSource"] != "manual" || edited["cancellationReason"] != "operator decision" || edited["cancellationAt"] == nil {
 		t.Fatalf("edit=%d %v", code, edited)
 	}
+	// "auto" hands a label back to the automatic layers; another word is
+	// rejected.
+	_, payload = c.call(t, "PUT", "/api/admin/events/"+id, `{"title":"Edited","startsOn":"2026-03-03","tag":"game","cancellationStatus":"manual_confirmed","cancellationReason":"operator decision"}`)
+	if labelled := payload["event"].(map[string]any); labelled["tag"] != "game" || labelled["tagSource"] != "manual" {
+		t.Fatalf("labelled=%v", labelled)
+	}
+	code, payload = c.call(t, "PUT", "/api/admin/events/"+id, `{"title":"Edited","startsOn":"2026-03-03","tag":"auto","cancellationStatus":"manual_confirmed","cancellationReason":"operator decision"}`)
+	if automatic := payload["event"].(map[string]any); code != 200 || automatic["tag"] != nil || automatic["tagSource"] != nil {
+		t.Fatalf("automatic=%d %v", code, automatic)
+	}
+	if code, payload = c.call(t, "PUT", "/api/admin/events/"+id, `{"title":"Edited","startsOn":"2026-03-03","tag":"automatic"}`); code != 400 || payload["message"] != "tag is invalid" {
+		t.Fatalf("unknown tag=%d %v", code, payload)
+	}
 	c.exec(t, `UPDATE events SET cancellation_at='2026-01-01T00:00:00.000Z' WHERE id=?`, id)
 	_, payload = c.call(t, "PUT", "/api/admin/events/"+id, `{"title":"Edited","startsOn":"2026-03-03","cancellationStatus":"manual_confirmed","cancellationReason":"still cancelled"}`)
 	if again := payload["event"].(map[string]any); again["cancellationAt"] != "2026-01-01T00:00:00.000Z" {

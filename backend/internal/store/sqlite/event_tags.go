@@ -22,6 +22,13 @@ const (
 	TagSourceManual = "manual"
 )
 
+// TagAutomatic is the label an operator saves to hand an entry's label back
+// to the automatic layers: the entry stores no label, no source and no
+// attempt, so it reads on to its videos' tags and its videos are asked about
+// again. The row itself stays locked, so the extraction and the entry's own
+// title inference still leave it alone.
+const TagAutomatic = "auto"
+
 // contentTagSQL lists the labels that name what an entry is about (the
 // VideoTags); formTagSQL lists the labels that name only its form. Among
 // automatic labels a content label is never replaced by a form label.

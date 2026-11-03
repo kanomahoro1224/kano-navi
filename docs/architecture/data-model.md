@@ -186,7 +186,11 @@ replaced by a form label:
 - An operator's value belongs to the locked row, so nothing automatic replaces
   it. Clearing a stored label is the operator's decision too: it stores
   `tag_source = manual` without a tag, so the entry shows no label and its
-  videos are not sent to the title inference. A save that sends the
+  videos are not sent to the title inference. Saving the label as automatic
+  (`auto`) clears `tag`, `tag_source` and `tag_attempted_at`: the row stays
+  locked, so the extraction and the entry's own title inference leave it
+  alone, but it reads on to its videos' tags and no longer holds them back
+  from the title inference. A save that sends the
   stored label back unchanged keeps its `tag_source`, so an unrelated edit or
   a cancellation decision does not make an automatic label the operator's.
 - The extraction prompt returns a label only when the post or image states the

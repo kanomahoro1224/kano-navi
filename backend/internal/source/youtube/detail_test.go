@@ -248,18 +248,22 @@ func TestAnAgeGateDoesNotStopWatchRequests(t *testing.T) {
 func TestWatchTellsASignInPageFromAnIncompleteOne(t *testing.T) {
 	const id = "AAAAAAAAAAA"
 	for name, tc := range map[string]struct{ body, code string }{
-		"bot check player":    {botCheckPage, CodeLoginRequired},
-		"bot check subreason": {signInPlayer(`"errorScreen":{"playerErrorMessageRenderer":{"reason":{"simpleText":"Sign in"},"subreason":{"runs":[{"text":"to confirm you’re not a bot"}]}}}`), CodeLoginRequired},
-		"no reason":           {signInPlayer(`"reason":""`), CodeLoginRequired},
-		"age gate":            {signInPlayer(`"reason":"Sign in to confirm your age","messages":["This video may be inappropriate for some users."]`), "youtube_watch_details_incomplete"},
-		"age gate subreason":  {signInPlayer(`"errorScreen":{"playerErrorMessageRenderer":{"subreason":{"simpleText":"This video is age-restricted"}}}`), "youtube_watch_details_incomplete"},
-		"private video":       {signInPlayer(`"messages":["This is a private video. Please sign in to verify that you may see it."]`), "youtube_watch_details_incomplete"},
-		"encoded player":      {`{"player_response":"{\"playabilityStatus\":{\"status\":\"LOGIN_REQUIRED\"}}"}`, CodeLoginRequired},
-		"bot check page":      {`<html><title>synthetic</title><p>Sign in to confirm you’re not a bot</p></html>`, CodeLoginRequired},
-		"escaped bot check":   {`<html><meta property="og:title" content="synthetic">{"text":"Sign in to confirm you're not a bot"}</html>`, CodeLoginRequired},
-		"members only":        {`<script>var ytInitialPlayerResponse = {"playabilityStatus":{"status":"UNPLAYABLE","reason":"Join this channel to get access to members-only content"}};</script>`, "youtube_watch_details_incomplete"},
-		"no player":           {`<html>no player</html>`, "youtube_watch_details_incomplete"},
-		"mismatched video":    {watchPage("BBBBBBBBBBB", `"lengthSeconds":"60"`, ""), "youtube_watch_details_incomplete"},
+		"bot check player":      {botCheckPage, CodeLoginRequired},
+		"bot check subreason":   {signInPlayer(`"errorScreen":{"playerErrorMessageRenderer":{"reason":{"simpleText":"Sign in"},"subreason":{"runs":[{"text":"to confirm you’re not a bot"}]}}}`), CodeLoginRequired},
+		"no reason":             {signInPlayer(`"reason":""`), CodeLoginRequired},
+		"age gate":              {signInPlayer(`"reason":"Sign in to confirm your age","messages":["This video may be inappropriate for some users."]`), "youtube_watch_details_incomplete"},
+		"age gate subreason":    {signInPlayer(`"errorScreen":{"playerErrorMessageRenderer":{"subreason":{"simpleText":"This video is age-restricted"}}}`), "youtube_watch_details_incomplete"},
+		"private video":         {signInPlayer(`"messages":["This is a private video. Please sign in to verify that you may see it."]`), CodePrivate},
+		"private interstitial":  {signInPlayer(`"errorScreen":{"playerInterstitialRenderer":{"content":{"interstitialViewModel":{"title":{"content":"Private video"}}}}}`), CodePrivate},
+		"private in Japanese":   {signInPlayer(`"reason":"非公開動画"`), CodePrivate},
+		"age gate in Japanese":  {signInPlayer(`"reason":"年齢確認"`), "youtube_watch_details_incomplete"},
+		"bot check in Japanese": {signInPlayer(`"reason":"ボットではないことを確認してください"`), CodeLoginRequired},
+		"encoded player":        {`{"player_response":"{\"playabilityStatus\":{\"status\":\"LOGIN_REQUIRED\"}}"}`, CodeLoginRequired},
+		"bot check page":        {`<html><title>synthetic</title><p>Sign in to confirm you’re not a bot</p></html>`, CodeLoginRequired},
+		"escaped bot check":     {`<html><meta property="og:title" content="synthetic">{"text":"Sign in to confirm you're not a bot"}</html>`, CodeLoginRequired},
+		"members only":          {`<script>var ytInitialPlayerResponse = {"playabilityStatus":{"status":"UNPLAYABLE","reason":"Join this channel to get access to members-only content"}};</script>`, "youtube_watch_details_incomplete"},
+		"no player":             {`<html>no player</html>`, "youtube_watch_details_incomplete"},
+		"mismatched video":      {watchPage("BBBBBBBBBBB", `"lengthSeconds":"60"`, ""), "youtube_watch_details_incomplete"},
 	} {
 		if _, err := ParseWatch([]byte(tc.body), id); err == nil || err.Error() != tc.code {
 			t.Fatalf("%s: err=%v", name, err)

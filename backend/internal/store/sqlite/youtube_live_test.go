@@ -332,3 +332,79 @@ func TestDashboardTrustsOnlyFreshLiveState(t *testing.T) {
 		t.Fatalf("linked event=%#v", event)
 	}
 }
+
+func TestLiveProbeStopsUnavailableAndOperatorStoppedVideos(t *testing.T) {
+	s, _ := openLiveStore(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	started := now.Add(-2 * time.Hour).Format(time.RFC3339)
+	videos := []ytsource.Video{liveVideo("AAAAAAAAAAA", started, false), liveVideo("BBBBBBBBBBB", started, false), liveVideo("CCCCCCCCCCC", started, false)}
+	for i := range videos {
+		videos[i].LiveStatus = ytsource.LiveStatusLive
+	}
+	if err := s.WriteYoutubeRecent(ctx, liveChannel, ytsource.Result{Videos: videos, NextCursor: "AAAAAAAAAAA", NextCursorTime: "2026-01-01T00:00:00Z"}); err != nil {
+		t.Fatal(err)
+	}
+	settings := LiveProbeSettings{Enabled: true, IntervalMinutes: 15}
+	active := func() string {
+		t.Helper()
+		targets, err := s.LiveProbeTargets(ctx, time.Now(), settings)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids := []string{}
+		for _, target := range targets {
+			ids = append(ids, target.Video.ID)
+		}
+		return strings.Join(ids, ",")
+	}
+	stopped := func() string {
+		t.Helper()
+		stops, err := s.LiveProbeStopped(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := []string{}
+		for _, stop := range stops {
+			out = append(out, stop.Video.ID+":"+stop.Reason)
+		}
+		return strings.Join(out, ",")
+	}
+	// A private video leaves the active set and keeps its stored state.
+	if _, err := s.WriteYoutubeLive(ctx, ytsource.ProbeResult{Attempted: []string{"AAAAAAAAAAA"}, Unavailable: []string{"AAAAAAAAAAA"}, Requested: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if got := active(); got != "BBBBBBBBBBB,CCCCCCCCCCC" && got != "CCCCCCCCCCC,BBBBBBBBBBB" {
+		t.Fatalf("active=%s", got)
+	}
+	if got := liveText(t, s, `SELECT live_status FROM videos WHERE id='AAAAAAAAAAA'`); got != ytsource.LiveStatusLive {
+		t.Fatalf("stored state changed: %s", got)
+	}
+	s.writable = true
+	// An operator stops one by hand and lets another ask again.
+	if err := s.SetLiveProbeStopped(ctx, "BBBBBBBBBBB", true, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if got := active(); got != "CCCCCCCCCCC" {
+		t.Fatalf("active=%s", got)
+	}
+	if got := stopped(); got != "BBBBBBBBBBB:operator,AAAAAAAAAAA:unavailable" {
+		t.Fatalf("stopped=%s", got)
+	}
+	if err := s.SetLiveProbeStopped(ctx, "AAAAAAAAAAA", false, now.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if got := stopped(); got != "BBBBBBBBBBB:operator" {
+		t.Fatalf("stopped=%s", got)
+	}
+	// Later attempts keep the stops.
+	if _, err := s.WriteYoutubeLive(ctx, ytsource.ProbeResult{Attempted: []string{"CCCCCCCCCCC"}, Requested: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if got := stopped(); got != "BBBBBBBBBBB:operator" {
+		t.Fatalf("stopped after an attempt=%s", got)
+	}
+	if err := s.SetLiveProbeStopped(ctx, "ZZZZZZZZZZZ", true, now); err != ErrWorkflowNotFound {
+		t.Fatalf("unknown video err=%v", err)
+	}
+}

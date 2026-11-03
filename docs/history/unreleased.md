@@ -84,6 +84,10 @@
   sets a content tag, which outranks the entry's label. The video list and
   `GET /api/admin/videos` show the tag with where it came from
   (`manualTag`, `scheduleTag`, `inferredTag`, `inferredTagSource`).
+- The live-status probe lists the videos it is following and the ones it
+  stopped, so an operator can stop checking one video or let it be checked
+  again without turning the whole probe off
+  (`PUT /api/admin/sources/youtube/live-probe/videos/{id}`).
 
 </details>
 
@@ -119,5 +123,12 @@
   from a notice and operator entries without a label, newest first, within
   the same per-run limit (`videoTags` in the run result). The title prompt now counts covers, originals and music videos
   as `song`.
+- A stream made private after it ends no longer keeps the live-status probe
+  failing every interval until 24 hours after its start. A watch page that
+  reports a private video records `youtube_watch_private` instead of passing
+  for YouTube's bot check, Japanese reasons included, and a video the Data
+  API leaves out whose page answers without details is treated the same way.
+  The probe stops asking about such a video and counts it in `unavailable`
+  rather than failing the run.
 
 </details>

@@ -256,8 +256,10 @@ a `LOGIN_REQUIRED` player whose reason names the check ("confirm you're not a
 bot") or gives none that is recognized, or the check's page without a player.
 YouTube puts a host behind this check for every watch page at once, so the
 run requests no further watch page, and the code appears once. A
-`LOGIN_REQUIRED` reason that concerns one video, an age gate or a private
-video, records `youtube_watch_details_incomplete` and the run goes on. The queued IDs it did not reach
+`LOGIN_REQUIRED` reason that concerns one video is not the check, and the run
+goes on: a private video records `youtube_watch_private` and an age gate
+`youtube_watch_details_incomplete`. Reasons are recognized in English and
+Japanese, in the player's reason, messages and error screen. The queued IDs it did not reach
 keep their places ahead of the rotated one, and an unclassified Data API
 answer stands in for each of them as for a failed page. A members-only page
 answers `UNPLAYABLE` and stays `youtube_watch_details_incomplete`. Incremental
@@ -508,8 +510,8 @@ chain enables `api`, and otherwise their watch pages, with no feed, playlist or 
 - broadcasts that started without a known end.
 
 Both are limited to starts in the last 24 hours. Videos the page already
-reported as over, events whose `ends_at` has passed, and manually confirmed
-cancellations are left out. Each active video is due by its phase: once before
+reported as over, events whose `ends_at` has passed, manually confirmed
+cancellations and [stopped videos](#stopped-videos) are left out. Each active video is due by its phase: once before
 its start, every 3 minutes from the start until the page reports it live (for
 up to 45 minutes), then every operator interval (see
 [Workflows](workflows.md#live-status-probe)). A run requests only due videos,
@@ -545,8 +547,9 @@ names no broadcast state, or when it cannot classify the video, such as an
 ended broadcast with neither verdict or an upcoming one without a
 start. If that page fails too, an ended broadcast with an API start is
 written unclassified, as in the recent step. A page that asks to sign in
-(`youtube_watch_login_required`) ends the run's page requests the same way:
-the remaining videos are left as if their pages failed. `apiRequests` in the run
+(`youtube_watch_login_required`) of a video the answer did not leave out ends
+the run's page requests the same way: the remaining videos are left as if
+their pages failed. `apiRequests` in the run
 result counts the calls; `requested` counts watch pages. Each run costs one
 quota unit whatever the number of due videos, two more when an ended
 broadcast needs the per-format playlists, and nothing while nothing is
@@ -566,6 +569,25 @@ when each video was asked about, by the API or its page, in the
 snapshot and is asked again when its phase next makes it due. Each request
 uses the client's existing 10-second timeout, 4 MiB body limit and redirect
 rejection; the key travels only in the `X-Goog-Api-Key` header.
+
+##### Stopped videos
+
+A video the probe can learn nothing more about is stopped rather than asked
+again until its 24 hours run out. It is unavailable when its page reports a
+private video (`youtube_watch_private`), or when the Data API answer left it
+out, as it does private and removed videos, and its page then answered
+without the details, whatever that page asked. A page that was not answered
+at all (a timeout, a 5xx) proves nothing and stops no video. An unavailable
+video is not a run error: the run result counts it in `unavailable`, and a run
+whose only due videos were unavailable succeeds. An operator can also stop
+any active video, or let a stopped one be asked again, from `/admin`.
+
+Stops are kept in the same `youtube-live` `sync_state` row as the requests,
+with when and why (`unavailable` or `operator`), and are forgotten with them
+after two days. A stop leaves the video's stored broadcast state alone: a
+`live` or `upcoming` result simply ages out of the board's freshness window,
+and the video shows its start-time fallback. Letting a video be asked again
+makes it a target again while its start is within the probe's window.
 
 The public dashboard projects `liveStatus` (`live`, `upcoming`, `ended` or
 null) on videos and on the events linked to them. `ended` is final; `live` and

@@ -189,6 +189,14 @@ type playerResponse struct {
 				Reason    playerText `json:"reason"`
 				Subreason playerText `json:"subreason"`
 			} `json:"playerErrorMessageRenderer"`
+			Interstitial struct {
+				Content struct {
+					View struct {
+						Title       struct{ Content string } `json:"title"`
+						Description struct{ Content string } `json:"description"`
+					} `json:"interstitialViewModel"`
+				} `json:"content"`
+			} `json:"playerInterstitialRenderer"`
 		} `json:"errorScreen"`
 	} `json:"playabilityStatus"`
 	Microformat struct {
@@ -226,27 +234,37 @@ type broadcastDetails struct {
 // covers every watch page of a host at once: a LOGIN_REQUIRED player whose
 // reason names the check ("Sign in to confirm you're not a bot"), or the
 // check's page without a player. A LOGIN_REQUIRED reason that names another
-// cause of a single video, an age gate or a private video, is incomplete
-// instead. A missing or unrecognized reason counts as the bot check, since
-// that is how the check reaches the server; at worst it ends one run's page
-// requests early. Members-only videos answer UNPLAYABLE and stay incomplete.
+// cause of a single video is not the check: a private video reports
+// CodePrivate and an age gate is incomplete. A missing or unrecognized reason
+// counts as the bot check, since that is how the check reaches the server; at
+// worst it ends one run's page requests early. Members-only videos answer
+// UNPLAYABLE and stay incomplete. The reasons are read in English and
+// Japanese.
 const CodeLoginRequired = "youtube_watch_login_required"
 
-var botCheckPattern = regexp.MustCompile(`(?i)confirm you(?:'|’|&#39;|&#x27;|\\u0027|\\u2019)re not a bot`)
+// CodePrivate is what ParseWatch reports for a private video: the page of
+// that one video asks to sign in, and no later page will say more.
+const CodePrivate = "youtube_watch_private"
 
-// perVideoSignIn names the LOGIN_REQUIRED reasons of one video, not the host.
-var perVideoSignIn = regexp.MustCompile(`(?i)confirm your age|age[- ]restricted|inappropriate for some users|private video|video is private`)
+var botCheckPattern = regexp.MustCompile(`(?i)confirm you(?:'|’|&#39;|&#x27;|\\u0027|\\u2019)re not a bot|ボットではないことを確認`)
 
-// botCheck reports whether a LOGIN_REQUIRED player is the bot check.
-func botCheck(player playerResponse) bool {
+// privatePattern names a private video; ageGatePattern an age gate. Both are
+// reasons of one video, not the host.
+var (
+	privatePattern = regexp.MustCompile(`(?i)private video|video is private|非公開`)
+	ageGatePattern = regexp.MustCompile(`(?i)confirm your age|age[- ]restricted|inappropriate for some users|年齢`)
+)
+
+// signInReason joins every text a LOGIN_REQUIRED player gives for itself.
+func signInReason(player playerResponse) string {
 	p := player.Playability
-	reason := strings.Join(append([]string{p.Reason, p.ErrorScreen.Renderer.Reason.String(), p.ErrorScreen.Renderer.Subreason.String()}, p.Messages...), "\n")
-	return botCheckPattern.MatchString(reason) || !perVideoSignIn.MatchString(reason)
+	view := p.ErrorScreen.Interstitial.Content.View
+	return strings.Join(append([]string{p.Reason, p.ErrorScreen.Renderer.Reason.String(), p.ErrorScreen.Renderer.Subreason.String(), view.Title.Content, view.Description.Content}, p.Messages...), "\n")
 }
 
 // ParseWatch reads one watch page. A page that does not pass the
 // completeness checks reports youtube_watch_details_incomplete, or
-// CodeLoginRequired when it asks to sign in.
+// CodeLoginRequired or CodePrivate when it asks to sign in.
 func ParseWatch(body []byte, id string) (Video, error) {
 	text := string(body)
 	v := Video{ID: id, URL: "https://www.youtube.com/watch?v=" + id}
@@ -298,8 +316,22 @@ func ParseWatch(body []byte, id string) (Video, error) {
 	}
 	v.IsUpcoming = player.VideoDetails.Upcoming || (!found && regexp.MustCompile(`"isUpcoming"\s*:\s*true`).MatchString(text))
 	if v.Title == "" || (v.IsUpcoming && v.ScheduledAt == "") || (v.ScheduledAt == "" && (!found || player.VideoDetails.VideoID != id || player.Playability.Status != "OK")) {
-		if found && player.Playability.Status == "LOGIN_REQUIRED" && botCheck(player) || !found && botCheckPattern.MatchString(text) {
-			return v, &Error{CodeLoginRequired}
+		if !found {
+			if botCheckPattern.MatchString(text) {
+				return v, &Error{CodeLoginRequired}
+			}
+			return v, &Error{"youtube_watch_details_incomplete"}
+		}
+		if player.Playability.Status == "LOGIN_REQUIRED" {
+			reason := signInReason(player)
+			switch {
+			case botCheckPattern.MatchString(reason):
+				return v, &Error{CodeLoginRequired}
+			case privatePattern.MatchString(reason):
+				return v, &Error{CodePrivate}
+			case !ageGatePattern.MatchString(reason):
+				return v, &Error{CodeLoginRequired}
+			}
 		}
 		return v, &Error{"youtube_watch_details_incomplete"}
 	}

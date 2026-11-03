@@ -254,7 +254,7 @@ func (a *Adapter) FetchUploads(ctx context.Context, state State, list List) (Res
 	// titles, which creators often add later.
 	calls := min(max((len(result.Queue)+MaxAPIVideos-1)/MaxAPIVideos, 1), MaxAPIDetailCalls)
 	batch := uniqueIDs(append(append([]string{}, result.Queue...), feedIDs...), calls*MaxAPIVideos)
-	fromAPI, unclassified := a.apiDetails(ctx, batch, len(result.Queue), state.Videos, result.Localized, &result.APIRequests, &result.Errors, nil)
+	fromAPI, unclassified, _ := a.apiDetails(ctx, batch, len(result.Queue), state.Videos, result.Localized, &result.APIRequests, &result.Errors, nil)
 	budget := a.Options.MaxDetailRequests
 	// Once a page asks to sign in, YouTube's bot check covers this host, so no
 	// further page is requested this run.
@@ -490,7 +490,7 @@ func (a *Adapter) DescribeVideos(ctx context.Context, listed []Video, stored map
 			return out
 		}
 		batch := ids[start:min(len(ids), start+MaxAPIVideos)]
-		answered, unclassified := a.apiDetails(ctx, batch, len(batch), known, out.Localized, &out.APIRequests, &out.Errors, formats)
+		answered, unclassified, _ := a.apiDetails(ctx, batch, len(batch), known, out.Localized, &out.APIRequests, &out.Errors, formats)
 		for _, id := range batch {
 			v, ok := answered[id]
 			if !ok {
@@ -671,11 +671,13 @@ const MaxAPIDetailCalls = 5
 // per-format playlists are read too (formatLists), once. Calls are counted in
 // requests; a failed videos.list call is recorded in errs, answers none and
 // ends the lookup, since the key, quota and rate limit it reports hold for
-// the later batches too. The recent step and the live-status probe share it.
-func (a *Adapter) apiDetails(ctx context.Context, queue []string, checks int, stored map[string]Video, localized map[string]map[string]string, requests *int, errs *[]string, formats *FormatSets) (out, unclassified map[string]Video) {
-	out, unclassified = map[string]Video{}, map[string]Video{}
+// the later batches too. absent holds the IDs a call that succeeded left out,
+// which the API does for private and removed videos. The recent step and the
+// live-status probe share it.
+func (a *Adapter) apiDetails(ctx context.Context, queue []string, checks int, stored map[string]Video, localized map[string]map[string]string, requests *int, errs *[]string, formats *FormatSets) (out, unclassified map[string]Video, absent map[string]bool) {
+	out, unclassified, absent = map[string]Video{}, map[string]Video{}, map[string]bool{}
 	if a.Options.APIKey == "" || len(queue) == 0 {
-		return out, unclassified
+		return out, unclassified, absent
 	}
 	queue = queue[:min(len(queue), MaxAPIDetailCalls*MaxAPIVideos)]
 	items := map[string]apiVideo{}
@@ -697,10 +699,15 @@ func (a *Adapter) apiDetails(ctx context.Context, queue []string, checks int, st
 		for id, item := range answered {
 			items[id] = item
 		}
+		for _, id := range batch {
+			if _, found := answered[id]; !found {
+				absent[id] = true
+			}
+		}
 		ids = append(ids, batch...)
 	}
 	if len(ids) == 0 {
-		return out, unclassified
+		return out, unclassified, absent
 	}
 	listed := map[string]formatList{}
 	for _, id := range ids[:min(checks, len(ids))] {
@@ -725,7 +732,7 @@ func (a *Adapter) apiDetails(ctx context.Context, queue []string, checks int, st
 			}
 		}
 	}
-	return out, unclassified
+	return out, unclassified, absent
 }
 
 // formatLists reads the newest page of the channel's live and long-form
@@ -811,6 +818,12 @@ type ProbeResult struct {
 	Errors []string
 	// Attempted lists the IDs the probe asked about, answered or not.
 	Attempted []string
+	// Unavailable lists the asked IDs that can no longer be watched: their
+	// page reported a private video (CodePrivate), or the Data API left them
+	// out, as it does private and removed videos, and their page answered without
+	// the details.
+	// No later probe would learn more of them.
+	Unavailable []string
 	// Requested counts watch pages; APIRequests counts Data API calls, one
 	// quota unit each.
 	Requested, Inspected, APIRequests int
@@ -822,14 +835,18 @@ type ProbeResult struct {
 // ProbeLive reads the broadcast state of the given stored videos, at most
 // MaxLiveProbes of them: no feed and no streams page. With a key, one
 // videos.list call asks about all of them first, under the recent step's
-// classification rules; a video it left out, could not classify or gave no
-// broadcast state, or every video when the call failed, has its watch page
-// read instead. A failed or incomplete page records its code and leaves that
-// video's snapshot to the caller, unless the API's unclassified answer for an
-// ended broadcast can stand in for it. After a page that asks to sign in
-// (CodeLoginRequired), the rest are left the same way without a page.
+// classification rules; a video it could not classify or gave no broadcast
+// state, left out, or every video when the call failed, has its watch page
+// read instead. A page that reports a private video, or a page of a video the
+// call left out that answers without its details, makes that video
+// unavailable rather than an error.
+// Another failed or incomplete page records its code and leaves that video's
+// snapshot to the caller, unless the API's unclassified answer for an ended
+// broadcast can stand in for it. After a page that asks to sign in
+// (CodeLoginRequired) of a video the call did not leave out, the rest are
+// left the same way without a page.
 func (a *Adapter) ProbeLive(ctx context.Context, videos []Video) (ProbeResult, error) {
-	result := ProbeResult{Videos: []Video{}, Errors: []string{}, Attempted: []string{}, Localized: map[string]map[string]string{}}
+	result := ProbeResult{Videos: []Video{}, Errors: []string{}, Attempted: []string{}, Unavailable: []string{}, Localized: map[string]map[string]string{}}
 	if len(videos) > MaxLiveProbes {
 		videos = videos[:MaxLiveProbes]
 	}
@@ -838,7 +855,7 @@ func (a *Adapter) ProbeLive(ctx context.Context, videos []Video) (ProbeResult, e
 		ids = append(ids, v.ID)
 		stored[v.ID] = v
 	}
-	fromAPI, unclassified := a.apiDetails(ctx, ids, len(ids), stored, result.Localized, &result.APIRequests, &result.Errors, nil)
+	fromAPI, unclassified, absent := a.apiDetails(ctx, ids, len(ids), stored, result.Localized, &result.APIRequests, &result.Errors, nil)
 	signIn := false
 	for _, old := range videos {
 		if err := ctx.Err(); err != nil {
@@ -855,9 +872,17 @@ func (a *Adapter) ProbeLive(ctx context.Context, videos []Video) (ProbeResult, e
 			if !signIn {
 				result.Requested++
 				v, err = a.watch(ctx, old.ID)
-				if err != nil {
-					result.Errors = append(result.Errors, safeError(err))
-					signIn = safeError(err) == CodeLoginRequired
+				switch code := safeError(err); {
+				case err == nil:
+				case code == CodePrivate || absent[old.ID] && strings.HasPrefix(code, "youtube_watch_"):
+					// A private video asks to sign in like the bot check; the
+					// API leaving it out tells the two apart. A page that was
+					// not answered at all (a timeout, a 5xx) proves nothing.
+					result.Unavailable = append(result.Unavailable, old.ID)
+					continue
+				default:
+					result.Errors = append(result.Errors, code)
+					signIn = code == CodeLoginRequired
 				}
 			}
 			if signIn || err != nil {

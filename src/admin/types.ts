@@ -299,6 +299,26 @@ export interface LiveProbeStatus {
   nextRunAt: string | null
   activeVideos: number
   maxVideos: number
+  videos: LiveProbeVideo[]
+  stopped: LiveProbeStop[]
+}
+
+export interface LiveProbeVideo {
+  id: string
+  title: string
+  url: string
+  scheduledAt: string
+  phase: "prestart" | "starting" | "live" | "overdue"
+  dueAt: string
+}
+
+export interface LiveProbeStop {
+  id: string
+  title: string
+  url: string
+  scheduledAt: string
+  stoppedAt: string
+  reason: "unavailable" | "operator"
 }
 
 export interface YTDLPStatus {

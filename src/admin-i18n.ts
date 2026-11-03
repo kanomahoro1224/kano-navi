@@ -715,6 +715,16 @@ export const adminMessages = {
     "admin.liveProbe.nextRun": "Next probe",
     "admin.liveProbe.active": "Active videos now",
     "admin.liveProbe.activeCount": "{count} (up to {max} per run)",
+    "admin.liveProbe.phase.prestart": "Before its start",
+    "admin.liveProbe.phase.starting": "Waiting to go live",
+    "admin.liveProbe.phase.live": "On air",
+    "admin.liveProbe.phase.overdue": "Past its start",
+    "admin.liveProbe.due": "next check {time}",
+    "admin.liveProbe.dueNow": "due now",
+    "admin.liveProbe.stop": "Stop checking",
+    "admin.liveProbe.resume": "Check again",
+    "admin.liveProbe.stopped.unavailable": "Stopped: private or removed",
+    "admin.liveProbe.stopped.operator": "Stopped by an operator",
     "admin.sources.bilibili.hint":
       "The account's public upload list, read at most once per BILIBILI_MIN_INTERVAL_MINUTES.",
     "admin.timer.on": "Every {interval}",
@@ -956,6 +966,8 @@ export const adminMessages = {
     "admin.notice.mediaDeleted": "Candidate deleted",
     "admin.notice.pushSaved": "Push settings saved",
     "admin.notice.liveProbeSaved": "Live probe settings saved",
+    "admin.notice.liveProbeStopped": "The probe stopped checking this video",
+    "admin.notice.liveProbeResumed": "The probe checks this video again",
     "admin.notice.syncSettingsSaved": "Limits saved",
     "admin.notice.ytdlpUpdated": "yt-dlp updated",
     "admin.notice.scheduleSaved": "Timer saved",
@@ -1293,6 +1305,8 @@ export const adminMessages = {
     "admin.code.youtube_unavailable": "YouTube could not be reached.",
     "admin.code.youtube_watch_login_required":
       "YouTube asked this server to sign in (its bot check), so the run read no more watch pages.",
+    "admin.code.youtube_watch_private":
+      "The video is private, so its watch page asks to sign in; the live-status probe stops checking it.",
     "admin.code.youtube_feed_http_error":
       "YouTube's RSS feed answered with an error; its 404s can last for hours.",
     "admin.code.youtube_feed_upstream_5xx":
@@ -1876,6 +1890,16 @@ export const adminMessages = {
     "admin.liveProbe.nextRun": "下次探测",
     "admin.liveProbe.active": "当前活跃视频",
     "admin.liveProbe.activeCount": "{count}（每次最多 {max} 个）",
+    "admin.liveProbe.phase.prestart": "开播前",
+    "admin.liveProbe.phase.starting": "等待开播",
+    "admin.liveProbe.phase.live": "直播中",
+    "admin.liveProbe.phase.overdue": "已过开播时间",
+    "admin.liveProbe.due": "下次检查 {time}",
+    "admin.liveProbe.dueNow": "已到检查时间",
+    "admin.liveProbe.stop": "停止检查",
+    "admin.liveProbe.resume": "重新检查",
+    "admin.liveProbe.stopped.unavailable": "已停止：私密或已删除",
+    "admin.liveProbe.stopped.operator": "已由管理员停止",
     "admin.sources.bilibili.hint":
       "账号的公开投稿列表，每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次。",
     "admin.timer.on": "每 {interval}",
@@ -2008,6 +2032,8 @@ export const adminMessages = {
     "admin.notice.mediaSelected": "头像或横幅已更新",
     "admin.notice.pushSaved": "推送设置已保存",
     "admin.notice.liveProbeSaved": "直播探测设置已保存",
+    "admin.notice.liveProbeStopped": "已停止检查该视频",
+    "admin.notice.liveProbeResumed": "已恢复检查该视频",
     "admin.notice.scheduleSaved": "定时器已保存",
     "admin.notice.visitorRegionSaved": "中国大陆站点提示设置已保存",
     "admin.notice.secretRotated": "签名密钥已轮换",
@@ -2194,6 +2220,8 @@ export const adminMessages = {
     "admin.code.youtube_unavailable": "无法访问 YouTube。",
     "admin.code.youtube_watch_login_required":
       "YouTube 要求此服务器登录（机器人验证），本次运行不再读取视频页面。",
+    "admin.code.youtube_watch_private":
+      "该视频是私密视频，页面要求登录；直播状态探测不再检查它。",
     "admin.code.youtube_feed_http_error":
       "YouTube RSS 订阅源返回了错误；它的 404 可能持续数小时。",
     "admin.code.youtube_feed_upstream_5xx":

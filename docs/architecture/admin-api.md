@@ -202,21 +202,22 @@ value, and another field or value answers `400 invalid_input`.
 
 ## Sources
 
-| Method and path                            | Body                                      | Result                         |
-| ------------------------------------------ | ----------------------------------------- | ------------------------------ |
-| `GET /sources`                             |                                           | per-source status (below)      |
-| `PUT /sources/{source}/schedule`           | `{enabled, intervalMinutes, sync, chain}` | `SourceSchedule`               |
-| `POST /sources/{source}/schedule/start`    |                                           | `SourceSchedule`               |
-| `POST /sources/{source}/run`               |                                           | `202 {run}`; `409 busy`        |
-| `GET /sources/youtube/push`                |                                           | push status                    |
-| `PUT /sources/youtube/push`                | `{enabled, callbackUrl}`                  | push status                    |
-| `POST /sources/youtube/push/rotate-secret` |                                           | push status                    |
-| `GET /sources/youtube/live-probe`          |                                           | live probe status              |
-| `PUT /sources/youtube/live-probe`          | `{enabled, intervalMinutes}`              | live probe status              |
-| `GET /sources/youtube/ytdlp`               |                                           | `{available, version}`         |
-| `POST /sources/youtube/ytdlp/update`       |                                           | updated `{available, version}` |
-| `GET /sync-settings`                       |                                           | `{settings, fields}`           |
-| `PUT /sync-settings`                       | any subset of the setting fields          | `{settings, fields}`           |
+| Method and path                               | Body                                      | Result                         |
+| --------------------------------------------- | ----------------------------------------- | ------------------------------ |
+| `GET /sources`                                |                                           | per-source status (below)      |
+| `PUT /sources/{source}/schedule`              | `{enabled, intervalMinutes, sync, chain}` | `SourceSchedule`               |
+| `POST /sources/{source}/schedule/start`       |                                           | `SourceSchedule`               |
+| `POST /sources/{source}/run`                  |                                           | `202 {run}`; `409 busy`        |
+| `GET /sources/youtube/push`                   |                                           | push status                    |
+| `PUT /sources/youtube/push`                   | `{enabled, callbackUrl}`                  | push status                    |
+| `POST /sources/youtube/push/rotate-secret`    |                                           | push status                    |
+| `GET /sources/youtube/live-probe`             |                                           | live probe status              |
+| `PUT /sources/youtube/live-probe`             | `{enabled, intervalMinutes}`              | live probe status              |
+| `PUT /sources/youtube/live-probe/videos/{id}` | `{stopped}`                               | live probe status              |
+| `GET /sources/youtube/ytdlp`                  |                                           | `{available, version}`         |
+| `POST /sources/youtube/ytdlp/update`          |                                           | updated `{available, version}` |
+| `GET /sync-settings`                          |                                           | `{settings, fields}`           |
+| `PUT /sync-settings`                          | any subset of the setting fields          | `{settings, fields}`           |
 
 ```json
 {
@@ -295,14 +296,23 @@ returned.
 
 `LiveProbeStatus` is `{enabled, intervalMinutes, minIntervalMinutes,
 maxIntervalMinutes, available, lastRunAt, nextRunAt, activeVideos,
-maxVideos}`. `available` is false while timers or YouTube are disabled for
-the process; `activeVideos` counts the videos the probe is following, never
-their IDs, and one run checks at most `maxVideos` of them. `nextRunAt` is when
-the next run is planned (the earliest due video, at least two minutes after
-`lastRunAt`, and no earlier than now), or null while nothing is active or the
-probe is off or unavailable. `PUT` accepts either field, keeps an omitted
-one, and rejects other fields and intervals outside 5–360 minutes with
-`400`.
+maxVideos, videos, stopped}`. `available` is false while timers or YouTube
+are disabled for the process; `activeVideos` counts the videos the probe is
+following, and one run checks at most `maxVideos` of them. `videos` lists
+them earliest due first as `{id, title, url, scheduledAt, phase, dueAt}`, and
+`stopped` lists the [stopped videos](sources.md#stopped-videos) still stored,
+newest stop first, as `{id, title, url, scheduledAt, stoppedAt, reason}` with
+`reason` `unavailable` or `operator`. `nextRunAt` is when the next run is
+planned (the earliest due video, at least two minutes after `lastRunAt`, and
+no earlier than now), or null while nothing is active or the probe is off or
+unavailable. `PUT` accepts either field, keeps an omitted one, and rejects
+other fields and intervals outside 5–360 minutes with `400`.
+
+`PUT /sources/youtube/live-probe/videos/{id}` takes `{stopped}` (required,
+boolean) for one stored YouTube video: `true` stops the probe asking about it,
+`false` lets it ask again. It answers the new `LiveProbeStatus`, `404
+not_found` for a video that is not stored and `400` for an ID that is not a
+YouTube video ID or another body.
 
 `/sync-settings` holds the [sync settings](../operations/configuration.md#sync-settings).
 `settings` maps each field (`xMaxStatusRequests`, `xRefreshKnown`,

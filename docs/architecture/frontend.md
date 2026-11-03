@@ -294,7 +294,9 @@ each fold saves on its own. X adds its X API limits (gate and daily cap,
 with the API's place in the chain and today's usage in the header, and
 today's usage and each account's timeline failures shown as meters against
 them). YouTube adds its progressive confirmation, where push and the
-live-status probe are folds with their switch in the header, followed by
+live-status probe are folds with their switch in the header (the probe's fold
+also lists its active videos, each with Stop checking, and its stopped
+videos, each with Check again), followed by
 the read-only
 [follow-up checks](sources.md#follow-up-checks-and-refresh-requests), and
 yt-dlp, with its status in the header. X and YouTube fold their timed-read

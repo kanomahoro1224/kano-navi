@@ -475,9 +475,10 @@ Every check that can tell records who can watch a YouTube video in
   quota) gives `public` or `unlisted` from `status.privacyStatus`. The API
   cannot tell a members-only video from a public one, so it keeps a stored
   `members`.
-- A watch page that passes the completeness checks is `public`, or
-  `unlisted` when its microformat says so; an `UNPLAYABLE` members-only page
-  that still names its start is `members`.
+- A watch page that passes the completeness checks, a playable page or a
+  `LIVE_STREAM_OFFLINE` waiting room, is `public`, or `unlisted` when its
+  microformat says so; an `UNPLAYABLE` or waiting-room page that names a
+  members-only reason and still names its start is `members`.
 - A failed page tells only when YouTube answered it: `youtube_watch_private`
   is `private` and `youtube_watch_members` is `members`. For a video that a
   `videos.list` call which succeeded left out, as the API does private and
@@ -613,8 +614,11 @@ which also records that availability. A members-only page records `members`
 without stopping the video, and a page that was not answered at all (a
 timeout, a 5xx) or the bot check stops no video. An unavailable
 video is not a run error: the run result counts it in `unavailable`, and a run
-whose only due videos were unavailable succeeds. An operator can also stop
-any active video, or let a stopped one be asked again, from `/admin`.
+whose only due videos were unavailable succeeds. A later regular or probe
+check that records the video `public`, `unlisted` or `members` lifts an
+`unavailable` stop, so a video made watchable again is asked about again. An
+operator can also stop any active video, or let a stopped one be asked again,
+from `/admin`; only the operator lifts an `operator` stop.
 
 Stops are kept in the same `youtube-live` `sync_state` row as the requests,
 with when and why (`unavailable` or `operator`), and are forgotten with them

@@ -77,9 +77,8 @@ func nullIfEmpty(v string) any {
 	return v
 }
 
-// manualTagSource marks who decided a tag. An operator clearing the label
-// keeps the row manual (the whole row is locked), so no inference fills it
-// again by itself.
+// manualTagSource marks who decided the tag of a new entry. One without a
+// label reads on to its videos' tags like any unlabelled row.
 func manualTagSource(tag string) any {
 	if strings.TrimSpace(tag) == "" {
 		return nil
@@ -228,8 +227,10 @@ func (s *Store) UpdateManualEvent(ctx context.Context, id string, input EventInp
 	}
 	// A save that sends the label back unchanged keeps who decided it, so an
 	// unrelated edit or a cancellation decision never turns an automatic
-	// label into the operator's.
-	newTagSource := manualTagSource(input.Tag)
+	// label into the operator's. A changed label is the operator's, a cleared
+	// one included: the entry then shows no label and holds back the title
+	// inference of its videos, so no inference fills it again by itself.
+	var newTagSource any = TagSourceManual
 	if strings.TrimSpace(input.Tag) == tag.String {
 		newTagSource = nullIfEmpty(tagSource.String)
 	}

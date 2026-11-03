@@ -61,14 +61,15 @@ type VideoTagCandidate struct{ ID, Source, Title string }
 // merged into) carries a content label, a title judgement or an operator's
 // label, or is an unjudged automatic YouTube reservation still on or after
 // eventFrom, which the entry inference reads instead. An entry whose only
-// label is a form from a notice, or an operator's row without a label, leaves
+// label is a form from a notice, or an operator's row that never had a label, leaves
 // the video to its own title, since the calendar reads on to a video's
 // content tag there. Bilibili uploads are never shown, so they are not asked
 // about. Videos never attempted
 // come first, then the least recently attempted, each group newest first, so
 // recent uploads are tagged before the backlog and a title whose attempts
-// keep failing moves behind the others.
-func (s *Store) ListVideoTagCandidates(ctx context.Context, eventFrom string, limit int) ([]VideoTagCandidate, error) {
+// keep failing moves behind the others. A failed video waits until its last
+// attempt is no later than retryBefore, as entries do.
+func (s *Store) ListVideoTagCandidates(ctx context.Context, eventFrom string, retryBefore time.Time, limit int) ([]VideoTagCandidate, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
@@ -77,6 +78,7 @@ func (s *Store) ListVideoTagCandidates(ctx context.Context, eventFrom string, li
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT v.id,v.source,COALESCE(v.manual_title,v.title) FROM videos v
 		WHERE `+publicVideoScope+` AND v.merged_into IS NULL AND v.manual_tag IS NULL AND v.tag IS NULL AND COALESCE(v.tag_source,'')=''
+			AND (v.tag_attempted_at IS NULL OR julianday(v.tag_attempted_at)<=julianday(?))
 			AND NOT EXISTS (SELECT 1 FROM events e LEFT JOIN events t ON t.id=e.merged_into AND t.deleted_at IS NULL
 				WHERE e.deleted_at IS NULL AND `+videoEventMatch("v")+`
 				AND (e.tag IN `+contentTagSQL+` OR t.tag IN `+contentTagSQL+`
@@ -84,7 +86,7 @@ func (s *Store) ListVideoTagCandidates(ctx context.Context, eventFrom string, li
 					OR e.source='youtube' AND e.source_key='reservation' AND e.starts_on>=? AND e.merged_into IS NULL
 						AND e.provenance='automatic' AND e.manual_locked=0
 						AND e.tag IS NULL AND COALESCE(e.tag_source,'')=''))
-		ORDER BY v.tag_attempted_at IS NOT NULL, julianday(v.tag_attempted_at) ASC, julianday(COALESCE(v.scheduled_at,v.published_at)) DESC, v.id ASC LIMIT ?`, eventFrom, limit)
+		ORDER BY v.tag_attempted_at IS NOT NULL, julianday(v.tag_attempted_at) ASC, julianday(COALESCE(v.scheduled_at,v.published_at)) DESC, v.id ASC LIMIT ?`, ISOTime(retryBefore), eventFrom, limit)
 	if err != nil {
 		return nil, dbErr(err)
 	}

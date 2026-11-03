@@ -130,7 +130,7 @@ func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 	f.add("formtarget", "x", "synthetic", "2026-10-03", "20:00", "stream", `tag='live'`, `tag_source='llm'`)
 	add("MERGEDFORM1", "2026-10-03", `merged_into='formtarget'`, `merge_source='rule'`)
 
-	candidates, err := f.s.ListVideoTagCandidates(context.Background(), "2026-10-20", 20)
+	candidates, err := f.s.ListVideoTagCandidates(context.Background(), "2026-10-20", tagNow, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,5 +146,42 @@ func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 		if got[id] != want {
 			t.Errorf("%s candidate=%v, want %v", id, got[id], want)
 		}
+	}
+}
+
+// An operator who clears an entry's label decides it has none: the video is
+// not sent to the title inference because of the clear, and the entry shows
+// no label.
+func TestClearedEntryLabelHoldsBackItsVideo(t *testing.T) {
+	f := newMergeFixture(t)
+	f.labelVideo("CLEARED0001", "", "")
+	f.add("youtube-CLEARED0001", "youtube", "synthetic", "2026-10-01", "20:00", "stream", `source_key='reservation'`, `tag='game'`, `tag_source='title'`)
+	ctx := context.Background()
+	candidates := func() int {
+		f.t.Helper()
+		items, err := f.s.ListVideoTagCandidates(ctx, "2026-09-01", tagNow, 20)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(items)
+	}
+	if n := candidates(); n != 0 {
+		t.Fatalf("before the clear candidates=%d", n)
+	}
+	if _, err := f.s.UpdateManualEvent(ctx, "youtube-CLEARED0001", EventInput{Title: "synthetic", StartsOn: "2026-10-01"}); err != nil {
+		t.Fatal(err)
+	}
+	if n := candidates(); n != 0 {
+		t.Fatalf("the clear made the video a candidate: %d", n)
+	}
+	if got := f.tagState("youtube-CLEARED0001"); got != "|manual" {
+		t.Fatalf("cleared state=%q", got)
+	}
+	var label string
+	if err := f.s.DB().QueryRow(`SELECT COALESCE(` + eventLabelSQL("e") + `,'') FROM events e WHERE id='youtube-CLEARED0001'`).Scan(&label); err != nil {
+		t.Fatal(err)
+	}
+	if label != "" {
+		t.Fatalf("cleared entry label=%q", label)
 	}
 }

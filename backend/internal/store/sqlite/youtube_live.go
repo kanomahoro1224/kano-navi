@@ -370,6 +370,47 @@ func recordLiveAttempts(ctx context.Context, tx *sql.Tx, ids, unavailable []stri
 	return nil
 }
 
+// liftUnavailableStops lets the probe ask again about videos it stopped as
+// unavailable once a later check records them watchable: public, unlisted or
+// members, from a checked video or a failed page that told. An operator's stop
+// stays.
+func liftUnavailableStops(ctx context.Context, tx *sql.Tx, videos []ytsource.Video, availability map[string]string, now time.Time) error {
+	watchable := map[string]bool{}
+	mark := func(id, value string) {
+		switch value {
+		case ytsource.AvailabilityPublic, ytsource.AvailabilityUnlisted, ytsource.AvailabilityMembers:
+			watchable[id] = true
+		}
+	}
+	for _, v := range videos {
+		mark(v.ID, v.Availability)
+	}
+	for id, value := range availability {
+		mark(id, value)
+	}
+	if len(watchable) == 0 {
+		return nil
+	}
+	data, err := readLiveState(ctx, tx)
+	if err != nil {
+		return ErrSourceWrite
+	}
+	lifted := false
+	for id, stop := range data.Stopped {
+		if watchable[id] && stop.Reason == LiveStopUnavailable {
+			delete(data.Stopped, id)
+			lifted = true
+		}
+	}
+	if !lifted {
+		return nil
+	}
+	if writeLiveState(ctx, tx, data, now) != nil {
+		return ErrSourceWrite
+	}
+	return nil
+}
+
 // SetLiveProbeStopped stops or resumes the probe for one stored YouTube video
 // on an operator's request. Stopping leaves the video's stored broadcast
 // state alone; resuming makes it a target again when its start allows.
@@ -492,6 +533,9 @@ func (s *Store) WriteYoutubeLive(ctx context.Context, result ytsource.ProbeResul
 	}
 	availability, err := writeVideoAvailability(ctx, tx, result.Availability)
 	if err != nil {
+		return false, err
+	}
+	if err = liftUnavailableStops(ctx, tx, videos, result.Availability, at); err != nil {
 		return false, err
 	}
 	changed = changed || translated || availability

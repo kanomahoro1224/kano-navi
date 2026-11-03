@@ -282,18 +282,20 @@ const (
 )
 
 // watchAvailability reads who can watch a video from a page that passed the
-// completeness checks: a playable page is public or unlisted, a members-only
-// one (a stream archive still names its start) members, any other unknown.
+// completeness checks: a playable page or a waiting room of this video is
+// public or unlisted, a members-only one (a stream archive or waiting room
+// still names its start) members, any other unknown.
 func watchAvailability(player playerResponse, found bool) string {
+	status := player.Playability.Status
 	switch {
 	case !found:
 		return ""
-	case player.Playability.Status == "OK" && player.Microformat.Renderer.Unlisted:
-		return AvailabilityUnlisted
-	case player.Playability.Status == "OK":
-		return AvailabilityPublic
-	case player.Playability.Status == "UNPLAYABLE" && membersPattern.MatchString(playabilityReason(player)):
+	case (status == "UNPLAYABLE" || status == "LIVE_STREAM_OFFLINE") && membersPattern.MatchString(playabilityReason(player)):
 		return AvailabilityMembers
+	case (status == "OK" || status == "LIVE_STREAM_OFFLINE") && player.Microformat.Renderer.Unlisted:
+		return AvailabilityUnlisted
+	case status == "OK" || status == "LIVE_STREAM_OFFLINE":
+		return AvailabilityPublic
 	}
 	return ""
 }

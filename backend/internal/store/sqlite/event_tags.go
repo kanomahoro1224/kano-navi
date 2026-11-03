@@ -51,8 +51,9 @@ func eventVideoIDsSQL(o string) string {
 }
 
 // eventLabelSQL derives the label readers see for the events row aliased o.
-// An operator's label on the entry decides; an operator's row without one
-// reads on like any other. Otherwise the first of: an operator's tag on one
+// An operator's label on the entry decides, a cleared one (manual source
+// without a tag) included; an operator's row that never had one reads on like
+// any other. Otherwise the first of: an operator's tag on one
 // of its videos, the entry's own content
 // label, a video's inferred tag, and the entry's form label. Video tags are
 // content tags only, so a video never turns content back into a form; with
@@ -98,12 +99,14 @@ type EventTagCandidate struct{ ID, Title, Form string }
 // whose Japan date falls in the inclusive [from, to] range. Entries never
 // attempted come first, then the least recently attempted, each group oldest
 // date first, so a title whose attempts keep failing moves behind the others
-// instead of holding the head of the queue. Entries an operator locked,
+// instead of holding the head of the queue. A failed entry waits until its
+// last attempt is no later than retryBefore, so a title every model fails on
+// costs at most one attempt per wait instead of one per run. Entries an operator locked,
 // entries that already carry a label, entries the title inference already
 // judged (tag_source is set even when it found no label), and entries a
 // labelled notice is merged into (the merge lends them its label) are not
 // offered.
-func (s *Store) ListEventTagCandidates(ctx context.Context, from, to string, limit int) ([]EventTagCandidate, error) {
+func (s *Store) ListEventTagCandidates(ctx context.Context, from, to string, retryBefore time.Time, limit int) ([]EventTagCandidate, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
@@ -114,9 +117,10 @@ func (s *Store) ListEventTagCandidates(ctx context.Context, from, to string, lim
 		WHERE source='youtube' AND source_key='reservation' AND deleted_at IS NULL AND merged_into IS NULL
 			AND provenance='automatic' AND manual_locked=0
 			AND tag IS NULL AND COALESCE(tag_source,'')=''
+			AND (tag_attempted_at IS NULL OR julianday(tag_attempted_at)<=julianday(?))
 			AND starts_on BETWEEN ? AND ?
 			AND NOT EXISTS (SELECT 1 FROM events n WHERE n.merged_into=events.id AND n.merge_source=? AND n.deleted_at IS NULL AND n.tag IS NOT NULL)
-		ORDER BY tag_attempted_at IS NOT NULL, julianday(tag_attempted_at) ASC, starts_on ASC, id ASC LIMIT ?`, from, to, MergeSourceRule, limit)
+		ORDER BY tag_attempted_at IS NOT NULL, julianday(tag_attempted_at) ASC, starts_on ASC, id ASC LIMIT ?`, ISOTime(retryBefore), from, to, MergeSourceRule, limit)
 	if err != nil {
 		return nil, dbErr(err)
 	}

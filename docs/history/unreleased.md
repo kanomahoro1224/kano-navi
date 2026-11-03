@@ -93,7 +93,8 @@
 
 - The schedule editor sets an entry's label, and an empty choice clears it. A
   saved label is the operator's decision, outranks the automatic one and keeps
-  the entry from being relabelled later. Saving an entry for another reason,
+  the entry from being relabelled later; a cleared entry shows no label and
+  does not send its videos to the title inference. Saving an entry for another reason,
   such as a cancellation decision, keeps an automatic label automatic.
 - The video editor corrects the form (`stream`, `premiere` or `upload`) and
   sets a content tag, which outranks the entry's label. The video list and
@@ -125,8 +126,9 @@
   queue's retries and provider status. A title the model cannot classify,
   or answers with a label outside the five codes, is recorded rather than
   asked again; a title whose request fails counts as failed, leaves the run
-  going and is asked again after the titles not yet tried, so an outage
-  marks nothing as decided. The request names whether the entry is a stream
+  going and is asked again a day later, after the titles not yet tried, so an
+  outage marks nothing as decided and a title that keeps failing costs one
+  attempt a day. The request names whether the entry is a stream
   or a premiere, and a creator's rename asks again about a title that gave
   no content.
 - A rule merge lends an X notice's label to the event that survives, including
@@ -149,10 +151,10 @@
   bot check, Japanese reasons included, and a video the Data API leaves out
   whose page answers without details reads as private or removed. The probe
   stops asking about such a video and counts it in `unavailable` rather than
-  failing the run.
+  failing the run, and asks again once a later check records it watchable.
 - YouTube checks record who can watch each video: the Data API's privacy
-  status (the `status` part, at no extra quota), the watch page's playability,
-  and private or removed for a failed page only when YouTube answered it. A
+  status (the `status` part, at no extra quota), the watch page's playability
+  (a public waiting room included), and private or removed for a failed page only when YouTube answered it. A
   private or members-only page is no longer a run error, where a members-only
   page used to record `youtube_watch_details_incomplete`. A members-only video
   is a member entry whatever its title says.

@@ -102,7 +102,8 @@ func (s *Store) WriteYoutubeRecent(ctx context.Context, channel string, result y
 	if err = fenceSourceWrite(ctx, tx); err != nil {
 		return err
 	}
-	now := workflowTime(time.Now())
+	at := time.Now()
+	now := workflowTime(at)
 	if _, err = writeYoutubeVideos(ctx, tx, result.Videos, now); err != nil {
 		return err
 	}
@@ -116,6 +117,9 @@ func (s *Store) WriteYoutubeRecent(ctx context.Context, channel string, result y
 	}
 	availability, err := writeVideoAvailability(ctx, tx, result.Availability)
 	if err != nil {
+		return err
+	}
+	if err = liftUnavailableStops(ctx, tx, result.Videos, result.Availability, at); err != nil {
 		return err
 	}
 	meta, _ := json.Marshal(map[string]any{"streamDetailsCheckedIds": result.CheckedIDs, "feedEntries": result.Discovered, "detailRequested": result.Requested, "inspected": result.Inspected})

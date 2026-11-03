@@ -347,8 +347,9 @@ automatic extraction, and a delete is a durable tombstone. Confirming keeps
 the stored values unless the body overrides them.
 
 `tag` is the calendar label: `live`, `game`, `talk`, `song` or `video`, and an
-empty value clears it. A saved label that differs from the stored one is an
-operator's decision (`tagSource = manual`) and outranks the automatic ones;
+empty value clears it. A saved label that differs from the stored one, a
+cleared one included, is an operator's decision (`tagSource = manual`) and
+outranks the automatic ones; a cleared entry shows no label;
 a save that sends the stored label back unchanged, such as a cancellation
 decision, keeps its `tagSource`. The whole row being locked already keeps a
 later automatic write from replacing it. The list

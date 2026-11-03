@@ -117,6 +117,9 @@ export interface ScheduleEvent {
   sourceLanguage?: string | null
 }
 
+export type VideoAvailability =
+  "public" | "unlisted" | "members" | "private" | "removed"
+
 export interface Video {
   id: string
   source: string
@@ -142,6 +145,11 @@ export interface Video {
    * unknown, which the board treats as an ordinary upload.
    */
   isShort?: boolean | null
+  /**
+   * Who can watch it: public, unlisted, members, private or removed; null
+   * until a check could tell, which the board treats as watchable.
+   */
+  availability?: VideoAvailability | null
   /** Translations of the title and its detected language (ja, en, zh, ...). */
   translations?: Translations
   sourceLanguage?: string | null

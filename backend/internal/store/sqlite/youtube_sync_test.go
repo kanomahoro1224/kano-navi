@@ -398,3 +398,49 @@ func TestRenamedTitleIsJudgedAgain(t *testing.T) {
 		}
 	}
 }
+
+func TestYoutubeWritesKeepWhoCanWatch(t *testing.T) {
+	s, _ := openLiveStore(t)
+	ctx := context.Background()
+	write := func(result ytsource.Result) {
+		t.Helper()
+		result.NextCursor, result.NextCursorTime = "AAAAAAAAAAA", "2026-01-01T00:00:00Z"
+		if err := s.WriteYoutubeRecent(ctx, liveChannel, result); err != nil {
+			t.Fatal(err)
+		}
+	}
+	upload := liveVideo("AAAAAAAAAAA", "", false)
+	upload.Availability = ytsource.AvailabilityPublic
+	members := liveVideo("BBBBBBBBBBB", "2026-01-03T10:00:00Z", false)
+	members.Availability = ytsource.AvailabilityMembers
+	write(ytsource.Result{Videos: []ytsource.Video{upload, members}})
+	availability := func(id string) string {
+		t.Helper()
+		return liveText(t, s, `SELECT availability FROM videos WHERE id=?`, id)
+	}
+	if availability("AAAAAAAAAAA") != "public" || availability("BBBBBBBBBBB") != "members" {
+		t.Fatalf("written=%s,%s", availability("AAAAAAAAAAA"), availability("BBBBBBBBBBB"))
+	}
+	// A members-only video is a members entry whatever its title says.
+	if got := liveText(t, s, `SELECT event_type FROM events WHERE id='youtube-BBBBBBBBBBB'`); got != "member" {
+		t.Fatalf("event type=%s", got)
+	}
+	// A check that cannot tell keeps the stored value; a failed page that
+	// told changes only that.
+	upload.Availability = ""
+	write(ytsource.Result{Videos: []ytsource.Video{upload}})
+	if availability("AAAAAAAAAAA") != "public" {
+		t.Fatalf("unknown replaced=%s", availability("AAAAAAAAAAA"))
+	}
+	revision := liveText(t, s, `SELECT value FROM app_settings WHERE key='dashboard_revision'`)
+	write(ytsource.Result{Availability: map[string]string{"AAAAAAAAAAA": ytsource.AvailabilityPrivate, "ZZZZZZZZZZZ": ytsource.AvailabilityRemoved}})
+	if availability("AAAAAAAAAAA") != "private" || liveText(t, s, `SELECT title FROM videos WHERE id='AAAAAAAAAAA'`) != upload.Title {
+		t.Fatalf("failed page=%s", availability("AAAAAAAAAAA"))
+	}
+	if liveText(t, s, `SELECT COUNT(*) FROM videos WHERE id='ZZZZZZZZZZZ'`) != "0" {
+		t.Fatal("a verdict added a video")
+	}
+	if liveText(t, s, `SELECT value FROM app_settings WHERE key='dashboard_revision'`) == revision {
+		t.Fatal("a public change kept the revision")
+	}
+}

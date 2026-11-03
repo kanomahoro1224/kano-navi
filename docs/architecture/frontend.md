@@ -224,7 +224,7 @@ and the feature, correct and open actions. The correction dialog
 (`video-editor.tsx`) opens with a preview of the board's row as the draft
 leaves it (the chosen thumbnail, title, source, kind, tag, format and the
 number of corrections) and the page-read facts. Below, the corrections
-(title, kind, tag, format and thumbnail files) sit beside the platform's record (the merge
+(title, kind, tag, format, who can watch and thumbnail files) sit beside the platform's record (the merge
 section and what the platform replaced); one column on narrow screens. A
 corrected field is marked and offers a reset to the platform value beside its
 label. Refresh, cancel and save stay in the footer.
@@ -294,7 +294,9 @@ each fold saves on its own. X adds its X API limits (gate and daily cap,
 with the API's place in the chain and today's usage in the header, and
 today's usage and each account's timeline failures shown as meters against
 them). YouTube adds its progressive confirmation, where push and the
-live-status probe are folds with their switch in the header, followed by
+live-status probe are folds with their switch in the header (the probe's fold
+also lists its active videos, each with Stop checking, and its stopped
+videos, each with Check again), followed by
 the read-only
 [follow-up checks](sources.md#follow-up-checks-and-refresh-requests), and
 yt-dlp, with its status in the header. X and YouTube fold their timed-read
@@ -472,7 +474,8 @@ compact ticket unless it is the same link. Both read `summary.latestVideo`,
 which `deriveDashboardAt` recomputes as the newest non-upcoming video that is
 not a Short (`isShort === true`), unless it is the featured video
 (`featuredVideoIdOf`: `meta.featuredVideoId`, or the focus video of a
-snapshot without that field). An unknown format stays eligible, and when every recent upload is a
+snapshot without that field), and that is neither private nor removed
+(`videoIsGone`). An unknown format or availability stays eligible, and when every recent upload is a
 Short the stage shows no latest video. The play mark appears only on
 YouTube or Twitch links; X links read as an announcement.
 Matching needs no protected source item IDs or additional public API fields.

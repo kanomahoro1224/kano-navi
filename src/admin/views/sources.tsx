@@ -13,6 +13,7 @@ import {
   CalendarClock,
   ChevronDown,
   CircleHelp,
+  CircleStop,
   Download,
   Gauge,
   History,
@@ -1524,6 +1525,17 @@ function LiveProbeStage({
     setBusy("")
     if (next) onChange(next)
   }
+  const setStopped = async (id: string, stopped: boolean) => {
+    setBusy(`video:${id}`)
+    const next = await act(
+      () => api.stopLiveProbeVideo(id, stopped),
+      stopped
+        ? "admin.notice.liveProbeStopped"
+        : "admin.notice.liveProbeResumed",
+    )
+    setBusy("")
+    if (next) onChange(next)
+  }
   const running = probe.enabled && probe.available
   return (
     <li className="adm-confirm-step">
@@ -1623,6 +1635,62 @@ function LiveProbeStage({
             ]}
           />
         </form>
+        {probe.videos.length || probe.stopped.length ? (
+          <ul className="adm-live-videos">
+            {probe.videos.map((video) => (
+              <li key={video.id}>
+                <span className="adm-live-videos-name">
+                  <a href={video.url} target="_blank" rel="noreferrer">
+                    {video.title}
+                  </a>
+                  <small>
+                    {t(`admin.liveProbe.phase.${video.phase}`)}
+                    {" · "}
+                    {Date.parse(video.dueAt) > Date.now()
+                      ? t("admin.liveProbe.due", {
+                          time: formatRelative(video.dueAt, locale),
+                        })
+                      : t("admin.liveProbe.dueNow")}
+                  </small>
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={CircleStop}
+                  busy={busy === `video:${video.id}`}
+                  disabled={busy !== ""}
+                  onClick={() => setStopped(video.id, true)}
+                >
+                  {t("admin.liveProbe.stop")}
+                </Button>
+              </li>
+            ))}
+            {probe.stopped.map((video) => (
+              <li key={video.id} className="is-stopped">
+                <span className="adm-live-videos-name">
+                  <a href={video.url} target="_blank" rel="noreferrer">
+                    {video.title}
+                  </a>
+                  <small>
+                    {t(`admin.liveProbe.stopped.${video.reason}`)}
+                    {" · "}
+                    {japanStamp(video.stoppedAt)}
+                  </small>
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={Play}
+                  busy={busy === `video:${video.id}`}
+                  disabled={busy !== ""}
+                  onClick={() => setStopped(video.id, false)}
+                >
+                  {t("admin.liveProbe.resume")}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </Fold>
     </li>
   )

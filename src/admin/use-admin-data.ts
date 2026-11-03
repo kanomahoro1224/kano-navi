@@ -167,6 +167,12 @@ function createClient(run: Runner, slow: Runner) {
         "/sources/youtube/live-probe",
         body,
       ),
+    stopLiveProbeVideo: (id: string, stopped: boolean) =>
+      send<Sources["youtube"]["liveProbe"]>(
+        "PUT",
+        `/sources/youtube/live-probe/videos/${enc(id)}`,
+        { stopped },
+      ),
     rotatePushSecret: () =>
       send<Sources["youtube"]["push"]>(
         "POST",

@@ -488,3 +488,27 @@ test("the latest-video fallback skips Shorts unless the operator featured one", 
   assert.equal(pickSpotlight({ ...shortsOnly, nextEvent: null }, now), null)
   assert.equal(pickCompanion(shortsOnly, pickSpotlight(shortsOnly, now)), null)
 })
+
+test("the latest video is one visitors can still watch", () => {
+  const upload = (
+    id: string,
+    publishedAt: string,
+    availability: Video["availability"],
+  ): Video => ({
+    ...latestVideo,
+    id,
+    url: `https://www.youtube.com/watch?v=${id}`,
+    kind: "upload",
+    publishedAt,
+    availability,
+  })
+  const videos = [
+    upload("private0001", "2026-10-21T10:00:00Z", "private"),
+    upload("removed0001", "2026-10-21T09:00:00Z", "removed"),
+    // Not yet checked: still eligible.
+    upload("unchecked01", "2026-10-21T08:00:00Z", null),
+    upload("members0001", "2026-10-21T07:00:00Z", "members"),
+  ]
+  const { summary } = deriveDashboardAt(snapshot([dateOnlyEvent], videos), now)
+  assert.equal(summary.latestVideo?.id, "unchecked01")
+})

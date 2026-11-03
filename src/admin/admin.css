@@ -1631,6 +1631,51 @@
   padding-bottom: 0;
 }
 
+/* The live-status probe's active and stopped videos, each with its action. */
+.adm-live-videos {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-live-videos li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-sunken);
+}
+
+.adm-live-videos li.is-stopped .adm-live-videos-name {
+  opacity: 0.7;
+}
+
+.adm-live-videos-name {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.adm-live-videos-name a,
+.adm-live-videos-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-live-videos-name a {
+  color: inherit;
+  font-weight: 650;
+}
+
+.adm-live-videos-name small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
 .adm-confirm-head {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

@@ -169,6 +169,9 @@ type Video struct {
 	// Tag is the content tag (game, talk or song) the operator, the schedule
 	// entry or the title inference gave the video; nil when none did.
 	Tag *string
+	// Availability is who can watch the video (public, unlisted, members,
+	// private or removed) as the last check could tell; nil until one did.
+	Availability *string
 	// Translations resolves the title's translations by precedence.
 	Translations TranslationSet
 	// Alternates are the other platforms' uploads merged into this video.
@@ -548,12 +551,13 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 		return a < b || (a == b && upcomingVideos[i].ID < upcomingVideos[j].ID)
 	})
 	// The stage's fallback: the newest upload that is not a Short, unless the
-	// operator featured that Short. An unknown format stays eligible.
+	// operator featured that Short, and that visitors can still watch. An
+	// unknown format or availability stays eligible.
 	var latestVideo *Video
 	for i := range videos {
 		short := videos[i].IsShort != nil && *videos[i].IsShort
 		featured := featuredID != nil && videos[i].ID == *featuredID
-		if !videos[i].IsUpcoming && (!short || featured) {
+		if !videos[i].IsUpcoming && (!short || featured) && !gone(videos[i].Availability) {
 			latestVideo = &videos[i]
 			break
 		}
@@ -916,7 +920,7 @@ func (s *Store) queryVideos(ctx context.Context, now, liveCutoff time.Time) ([]V
 	videoTime := "julianday(COALESCE(scheduled_at,published_at))"
 	base := "COALESCE(manual_kind,kind,'')"
 	short := "COALESCE(manual_is_short,is_short,0)"
-	q := `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),` + videoTagSQL("videos") + ` FROM videos WHERE id IN (
+	q := `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),` + videoTagSQL("videos") + `,COALESCE(manual_availability,availability) FROM videos WHERE id IN (
 		SELECT id FROM (SELECT id FROM videos WHERE ` + publicVideoScope + ` AND ` + short + `<>1 AND ` + base + ` NOT IN (` + streamKinds + `)
 			ORDER BY ` + videoTime + ` DESC,id ASC LIMIT ` + fmt.Sprint(dashboardWorksLimit) + `)
 		UNION SELECT id FROM (SELECT id FROM videos WHERE ` + publicVideoScope + ` AND ` + short + `<>1 AND ` + base + ` IN (` + streamKinds + `)
@@ -943,17 +947,18 @@ func (s *Store) queryVideos(ctx context.Context, now, liveCutoff time.Time) ([]V
 	out := []Video{}
 	for rows.Next() {
 		var v Video
-		var pub, sch, thumb, kind, liveStatus, liveChecked, tag sql.NullString
+		var pub, sch, thumb, kind, liveStatus, liveChecked, tag, availability sql.NullString
 		var upcoming int64
 		var duration sql.NullInt64
 		var short sql.NullBool
-		if err := rows.Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &upcoming, &liveStatus, &liveChecked, &duration, &short, &tag); err != nil {
+		if err := rows.Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &upcoming, &liveStatus, &liveChecked, &duration, &short, &tag, &availability); err != nil {
 			return nil, dbErr(err)
 		}
 		v.LiveStatus = liveView(liveStatus, liveChecked, liveCutoff)
 		v.DurationSeconds = nullInt(duration)
 		v.IsShort = nullBool(short)
 		v.Tag = nullString(tag)
+		v.Availability = nullString(availability)
 		if pub.Valid {
 			v.PublishedAt = &pub.String
 		}
@@ -976,11 +981,11 @@ func (s *Store) queryVideos(ctx context.Context, now, liveCutoff time.Time) ([]V
 }
 func (s *Store) getVideo(ctx context.Context, id string, liveCutoff time.Time) (*Video, error) {
 	var v Video
-	var pub, sch, thumb, kind, liveStatus, liveChecked, tag sql.NullString
+	var pub, sch, thumb, kind, liveStatus, liveChecked, tag, availability sql.NullString
 	var up int64
 	var duration sql.NullInt64
 	var short sql.NullBool
-	err := s.db.QueryRowContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),`+videoTagSQL("videos")+` FROM videos WHERE id=? AND `+publicVideoScope, id).Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &up, &liveStatus, &liveChecked, &duration, &short, &tag)
+	err := s.db.QueryRowContext(ctx, `SELECT id,source,COALESCE(manual_title,title),published_at,scheduled_at,url,thumbnail_url,COALESCE(manual_kind,kind),is_upcoming,live_status,live_checked_at,duration_seconds,COALESCE(manual_is_short,is_short),`+videoTagSQL("videos")+`,COALESCE(manual_availability,availability) FROM videos WHERE id=? AND `+publicVideoScope, id).Scan(&v.ID, &v.Source, &v.Title, &pub, &sch, &v.URL, &thumb, &kind, &up, &liveStatus, &liveChecked, &duration, &short, &tag, &availability)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -1004,6 +1009,7 @@ func (s *Store) getVideo(ctx context.Context, id string, liveCutoff time.Time) (
 	v.DurationSeconds = nullInt(duration)
 	v.IsShort = nullBool(short)
 	v.Tag = nullString(tag)
+	v.Availability = nullString(availability)
 	return &v, nil
 }
 func (s *Store) queryFocus(ctx context.Context) (*Focus, error) {
@@ -1622,4 +1628,10 @@ func cancelledStatus(v *string) bool {
 // operator's confirmation. A model's suspicion alone is not one.
 func (e DashboardEvent) Cancelled() bool {
 	return cancelledStatus(e.Status) || e.CancellationStatus == "manual_confirmed"
+}
+
+// gone reports whether visitors can no longer watch a video: it is private
+// or removed. Unknown availability is not gone.
+func gone(availability *string) bool {
+	return availability != nil && (*availability == "private" || *availability == "removed")
 }

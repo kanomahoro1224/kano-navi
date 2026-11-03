@@ -438,12 +438,15 @@ those the API could not settle (see
 due waits for the next tick. Requests are recorded per video in `sync_state`
 (source `youtube-live`), answered or not, so a video that keeps failing is
 asked again on its phase's schedule rather than on every tick; entries older
-than two days are dropped. Runs are recorded in `sync_runs` and
+than two days are dropped. A private or removed video, and any video an
+operator stops, leaves the active set instead (see
+[Stopped videos](sources.md#stopped-videos)). Runs are recorded in `sync_runs` and
 `/api/admin/runs` with `active`, `candidates` (the due videos), `requested`
 (watch pages), `apiRequests` (Data API calls), `inspected`, `live`,
-`changed` and fixed error codes; a run that answered none of its videos is
-`failed`, one with any recorded failure (an API call that failed but whose
-pages answered, for example) `partial`.
+`changed`, `unavailable` (when a video was stopped as private or removed) and
+fixed error codes; a run that recorded an error and answered none of its
+videos is `failed`, one with any recorded failure (an API call that failed but
+whose pages answered, for example) `partial`.
 
 The probe may run more often than a source schedule (15 minutes) because one
 run asks about at most five videos and runs only while something is due.

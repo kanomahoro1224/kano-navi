@@ -48,7 +48,7 @@ import {
 } from "../video-groups"
 import { mediaSrcSet } from "@/lib/media"
 import { ArchiveMore, ArchiveState } from "./archive-dialog"
-import { EventTagIcon, VideoTagChip } from "./event-tag"
+import { EventTagIcon, VideoAvailabilityChip, VideoTagChip } from "./event-tag"
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import { TranslatedHeading, TranslatedTitle } from "./translated-title"
 
@@ -209,13 +209,15 @@ function LeadCard({
     <article className="video-lead">
       <ExternalLink
         className="video-lead-art"
-        href={links[0].url}
+        href={links[0]?.url}
         aria-label={`${t("videos.watch")}: ${title}`}
       >
         <Thumb
           url={thumbnail}
           sizes={LEAD_THUMB_SIZES}
-          badge={phase === "upcoming" ? "upcoming" : "play"}
+          badge={
+            phase === "upcoming" ? "upcoming" : links.length ? "play" : null
+          }
           links={links}
           t={t}
         />
@@ -231,6 +233,7 @@ function LeadCard({
             <PhaseTag phase={phase} video={video} t={t} />
           )}
           <VideoTagChip video={video} t={t} />
+          <VideoAvailabilityChip video={video} t={t} />
           {usesFocus && focus.dateLabel ? (
             <span>{focus.dateLabel}</span>
           ) : (
@@ -304,6 +307,7 @@ function VideoTicket({
               <span className="tag">{videoFormLabel(video, t)}</span>
             )}
             <VideoTagChip video={video} t={t} />
+            <VideoAvailabilityChip video={video} t={t} />
             {time ? (
               <time dateTime={time}>
                 <span className="sr-only">{formatJapanDay(time, locale)} </span>
@@ -318,7 +322,7 @@ function VideoTicket({
             className="video-ticket-title"
             title={title}
             translations={video.translations}
-            href={links[0].url}
+            href={links[0]?.url}
             t={t}
           />
         </span>
@@ -356,7 +360,7 @@ function VideoCard({
           className="video-card-title"
           title={title}
           translations={video.translations}
-          href={links[0].url}
+          href={links[0]?.url}
           t={t}
         />
       </div>
@@ -366,6 +370,7 @@ function VideoCard({
           <span className="tag">{videoFormLabel(video, t)}</span>
         ) : null}
         <VideoTagChip video={video} t={t} />
+        <VideoAvailabilityChip video={video} t={t} />
         <LengthNote video={video} t={t} />
         {links.length > 1 ? (
           <PlatformLinks links={links} title={title} variant="chip" t={t} />
@@ -427,7 +432,7 @@ function VideoRow({
       >
         <Thumb
           url={video.thumbnailUrl}
-          badge={video.isUpcoming ? "upcoming" : "play"}
+          badge={video.isUpcoming ? "upcoming" : links.length ? "play" : null}
           seconds={video.durationSeconds}
           links={links}
           t={t}
@@ -440,6 +445,7 @@ function VideoRow({
                 : videoFormLabel(video, t)}
             </span>
             <VideoTagChip video={video} t={t} />
+            <VideoAvailabilityChip video={video} t={t} />
             <VideoWhen
               video={video}
               absoluteTime={absoluteTime}
@@ -456,7 +462,7 @@ function VideoRow({
             className="video-row-title"
             title={title}
             translations={video.translations}
-            href={links[0].url}
+            href={links[0]?.url}
             t={t}
           />
         </span>
@@ -816,7 +822,7 @@ function ArchiveCard({
           className="archive-card-title"
           title={title}
           translations={video.translations}
-          href={links[0].url}
+          href={links[0]?.url}
           t={t}
         />
       </div>
@@ -832,6 +838,7 @@ function ArchiveCard({
         ) : null}
         <PhaseTag phase={phase} video={video} t={t} />
         <VideoTagChip video={video} t={t} />
+        <VideoAvailabilityChip video={video} t={t} />
         <LengthNote video={video} t={t} />
         {links.length > 1 ? (
           <PlatformLinks links={links} title={title} variant="chip" t={t} />

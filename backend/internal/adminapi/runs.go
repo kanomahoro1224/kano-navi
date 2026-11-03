@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -353,8 +354,8 @@ func (a *api) sources(w http.ResponseWriter, r *http.Request) {
 
 // liveProbeState is the live-status probe as the console sees it: the
 // operator settings and their bounds, whether this process runs the probe,
-// when the newest probe run was queued, how many videos are active and when
-// the next run is planned.
+// when the newest probe run was queued, the active videos with their phase,
+// the videos it stopped asking about and when the next run is planned.
 func (a *api) liveProbeState(ctx context.Context) (map[string]any, error) {
 	settings, err := a.Store.LiveProbeSettings(ctx)
 	if err != nil {
@@ -368,6 +369,24 @@ func (a *api) liveProbeState(ctx context.Context) (map[string]any, error) {
 	active, err := a.Store.LiveProbeTargets(ctx, now, settings)
 	if err != nil {
 		return nil, err
+	}
+	stops, err := a.Store.LiveProbeStopped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	videos := make([]map[string]any, 0, len(active))
+	for _, target := range active {
+		videos = append(videos, map[string]any{
+			"id": target.Video.ID, "title": target.Video.Title, "url": target.Video.URL,
+			"scheduledAt": target.Video.ScheduledAt, "phase": target.Phase, "dueAt": sqlite.ISOTime(target.DueAt),
+		})
+	}
+	stopped := make([]map[string]any, 0, len(stops))
+	for _, stop := range stops {
+		stopped = append(stopped, map[string]any{
+			"id": stop.Video.ID, "title": stop.Video.Title, "url": stop.Video.URL,
+			"scheduledAt": stop.Video.ScheduledAt, "stoppedAt": sqlite.ISOTime(stop.At), "reason": stop.Reason,
+		})
 	}
 	available := false
 	if a.LiveProbe != nil {
@@ -386,7 +405,45 @@ func (a *api) liveProbeState(ctx context.Context) (map[string]any, error) {
 		"minIntervalMinutes": sqlite.LiveProbeMinMinutes, "maxIntervalMinutes": sqlite.LiveProbeMaxMinutes,
 		"available": available, "lastRunAt": lastRunAt, "nextRunAt": nextRunAt,
 		"activeVideos": len(active), "maxVideos": ytsource.MaxLiveProbes,
+		"videos": videos, "stopped": stopped,
 	}, nil
+}
+
+var youtubeVideoID = regexp.MustCompile(`^[A-Za-z0-9_-]{11}$`)
+
+// updateLiveProbeVideo accepts { stopped } for one stored YouTube video:
+// true stops the probe asking about it, false lets it ask again.
+func (a *api) updateLiveProbeVideo(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !youtubeVideoID.MatchString(id) {
+		httpx.WriteError(w, httpx.Invalid("id must be a YouTube video ID"))
+		return
+	}
+	body, err := httpx.Body(w, r)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	var stopped bool
+	for key, raw := range body {
+		if key != "stopped" {
+			httpx.WriteError(w, httpx.Invalid("%s is not a live probe video field", key))
+			return
+		}
+		if json.Unmarshal(raw, &stopped) != nil {
+			httpx.WriteError(w, httpx.Invalid("stopped must be a boolean"))
+			return
+		}
+	}
+	if _, found := body["stopped"]; !found {
+		httpx.WriteError(w, httpx.Invalid("stopped is required"))
+		return
+	}
+	if err = a.Store.SetLiveProbeStopped(r.Context(), id, stopped, a.Now()); err != nil {
+		workflowError(w, err, "not_found")
+		return
+	}
+	a.liveProbe(w, r)
 }
 
 func (a *api) liveProbe(w http.ResponseWriter, r *http.Request) {

@@ -43,6 +43,9 @@ type Result struct {
 	// titles its creator localized by TitleLocales locale; an empty map means
 	// it has none now. Videos no call answered are absent.
 	Localized map[string]map[string]string
+	// Availability holds who can watch the videos whose watch page failed but
+	// told (FailedAvailability); the checked videos carry theirs.
+	Availability map[string]string
 }
 
 // Upload listings, the YouTube chain's methods (ADR-0004), in the default
@@ -133,7 +136,7 @@ const uploadsPageSize = 50
 // one playlist page or the feed lists them.
 func (a *Adapter) FetchRecent(ctx context.Context, state State, days int) (Result, error) {
 	if days < 1 || days > 365 {
-		return Result{Videos: []Video{}, Errors: []string{}, Queue: []string{}, CheckedIDs: []string{}, InspectedIDs: []string{}, Shorts: map[string]bool{}, Localized: map[string]map[string]string{}}, &Error{"youtube_invalid_options"}
+		return Result{Videos: []Video{}, Errors: []string{}, Queue: []string{}, CheckedIDs: []string{}, InspectedIDs: []string{}, Shorts: map[string]bool{}, Localized: map[string]map[string]string{}, Availability: map[string]string{}}, &Error{"youtube_invalid_options"}
 	}
 	return a.FetchUploads(ctx, state, List{Limit: uploadsPageSize, Since: a.Now().Add(-time.Duration(days) * 24 * time.Hour)})
 }
@@ -141,7 +144,7 @@ func (a *Adapter) FetchRecent(ctx context.Context, state State, days int) (Resul
 // FetchUploads lists the channel's newest uploads as list selects them, adds
 // the ones not stored yet and refreshes reservations through the detail queue.
 func (a *Adapter) FetchUploads(ctx context.Context, state State, list List) (Result, error) {
-	result := Result{Videos: []Video{}, Errors: []string{}, Queue: []string{}, CheckedIDs: []string{}, InspectedIDs: []string{}, Shorts: map[string]bool{}, Localized: map[string]map[string]string{}}
+	result := Result{Videos: []Video{}, Errors: []string{}, Queue: []string{}, CheckedIDs: []string{}, InspectedIDs: []string{}, Shorts: map[string]bool{}, Localized: map[string]map[string]string{}, Availability: map[string]string{}}
 	if list.Limit < 1 || list.Limit > MaxListLimit || a.Options.MaxDetailRequests < 1 || a.Options.MaxDetailRequests > 50 {
 		return result, &Error{"youtube_invalid_options"}
 	}
@@ -254,7 +257,7 @@ func (a *Adapter) FetchUploads(ctx context.Context, state State, list List) (Res
 	// titles, which creators often add later.
 	calls := min(max((len(result.Queue)+MaxAPIVideos-1)/MaxAPIVideos, 1), MaxAPIDetailCalls)
 	batch := uniqueIDs(append(append([]string{}, result.Queue...), feedIDs...), calls*MaxAPIVideos)
-	fromAPI, unclassified := a.apiDetails(ctx, batch, len(result.Queue), state.Videos, result.Localized, &result.APIRequests, &result.Errors, nil)
+	fromAPI, unclassified, absent := a.apiDetails(ctx, batch, len(result.Queue), state.Videos, result.Localized, &result.APIRequests, &result.Errors, nil)
 	budget := a.Options.MaxDetailRequests
 	// Once a page asks to sign in, YouTube's bot check covers this host, so no
 	// further page is requested this run.
@@ -286,8 +289,16 @@ func (a *Adapter) FetchUploads(ctx context.Context, state State, list List) (Res
 			result.Requested++
 			v, err = a.watch(ctx, id)
 			if err != nil {
-				result.Errors = append(result.Errors, safeError(err))
-				signIn = safeError(err) == CodeLoginRequired
+				// A page that tells who can watch the video is no error: a
+				// private or members-only video is no reason to stop reading
+				// pages, and a sign-in page of a video the API left out is
+				// private, not the bot check.
+				if availability := FailedAvailability(err, absent[id]); availability != "" {
+					result.Availability[id] = availability
+				} else {
+					result.Errors = append(result.Errors, safeError(err))
+					signIn = safeError(err) == CodeLoginRequired
+				}
 				// The page could not decide, so what the API said still counts.
 				if v, answered = fallback, hasFallback; !answered {
 					continue
@@ -490,7 +501,7 @@ func (a *Adapter) DescribeVideos(ctx context.Context, listed []Video, stored map
 			return out
 		}
 		batch := ids[start:min(len(ids), start+MaxAPIVideos)]
-		answered, unclassified := a.apiDetails(ctx, batch, len(batch), known, out.Localized, &out.APIRequests, &out.Errors, formats)
+		answered, unclassified, _ := a.apiDetails(ctx, batch, len(batch), known, out.Localized, &out.APIRequests, &out.Errors, formats)
 		for _, id := range batch {
 			v, ok := answered[id]
 			if !ok {
@@ -671,11 +682,13 @@ const MaxAPIDetailCalls = 5
 // per-format playlists are read too (formatLists), once. Calls are counted in
 // requests; a failed videos.list call is recorded in errs, answers none and
 // ends the lookup, since the key, quota and rate limit it reports hold for
-// the later batches too. The recent step and the live-status probe share it.
-func (a *Adapter) apiDetails(ctx context.Context, queue []string, checks int, stored map[string]Video, localized map[string]map[string]string, requests *int, errs *[]string, formats *FormatSets) (out, unclassified map[string]Video) {
-	out, unclassified = map[string]Video{}, map[string]Video{}
+// the later batches too. absent holds the IDs a call that succeeded left out,
+// which the API does for private and removed videos. The recent step and the
+// live-status probe share it.
+func (a *Adapter) apiDetails(ctx context.Context, queue []string, checks int, stored map[string]Video, localized map[string]map[string]string, requests *int, errs *[]string, formats *FormatSets) (out, unclassified map[string]Video, absent map[string]bool) {
+	out, unclassified, absent = map[string]Video{}, map[string]Video{}, map[string]bool{}
 	if a.Options.APIKey == "" || len(queue) == 0 {
-		return out, unclassified
+		return out, unclassified, absent
 	}
 	queue = queue[:min(len(queue), MaxAPIDetailCalls*MaxAPIVideos)]
 	items := map[string]apiVideo{}
@@ -697,10 +710,15 @@ func (a *Adapter) apiDetails(ctx context.Context, queue []string, checks int, st
 		for id, item := range answered {
 			items[id] = item
 		}
+		for _, id := range batch {
+			if _, found := answered[id]; !found {
+				absent[id] = true
+			}
+		}
 		ids = append(ids, batch...)
 	}
 	if len(ids) == 0 {
-		return out, unclassified
+		return out, unclassified, absent
 	}
 	listed := map[string]formatList{}
 	for _, id := range ids[:min(checks, len(ids))] {
@@ -725,7 +743,7 @@ func (a *Adapter) apiDetails(ctx context.Context, queue []string, checks int, st
 			}
 		}
 	}
-	return out, unclassified
+	return out, unclassified, absent
 }
 
 // formatLists reads the newest page of the channel's live and long-form
@@ -811,6 +829,13 @@ type ProbeResult struct {
 	Errors []string
 	// Attempted lists the IDs the probe asked about, answered or not.
 	Attempted []string
+	// Unavailable lists the asked IDs that can no longer be watched: their
+	// page failed as private or removed (FailedAvailability). No later probe
+	// would learn more of them.
+	Unavailable []string
+	// Availability holds who can watch the asked videos whose page failed but
+	// told (FailedAvailability), the unavailable ones included.
+	Availability map[string]string
 	// Requested counts watch pages; APIRequests counts Data API calls, one
 	// quota unit each.
 	Requested, Inspected, APIRequests int
@@ -822,14 +847,17 @@ type ProbeResult struct {
 // ProbeLive reads the broadcast state of the given stored videos, at most
 // MaxLiveProbes of them: no feed and no streams page. With a key, one
 // videos.list call asks about all of them first, under the recent step's
-// classification rules; a video it left out, could not classify or gave no
-// broadcast state, or every video when the call failed, has its watch page
-// read instead. A failed or incomplete page records its code and leaves that
-// video's snapshot to the caller, unless the API's unclassified answer for an
-// ended broadcast can stand in for it. After a page that asks to sign in
-// (CodeLoginRequired), the rest are left the same way without a page.
+// classification rules; a video it could not classify or gave no broadcast
+// state, left out, or every video when the call failed, has its watch page
+// read instead. A page that tells the video private or removed
+// (FailedAvailability) makes it unavailable, and a members-only page records
+// that, rather than an error. Another failed or incomplete page records its
+// code and leaves that video's snapshot to the caller, unless the API's
+// unclassified answer for an ended broadcast can stand in for it. After a
+// page that asks to sign in (CodeLoginRequired) of a video the call did not
+// leave out, the rest are left the same way without a page.
 func (a *Adapter) ProbeLive(ctx context.Context, videos []Video) (ProbeResult, error) {
-	result := ProbeResult{Videos: []Video{}, Errors: []string{}, Attempted: []string{}, Localized: map[string]map[string]string{}}
+	result := ProbeResult{Videos: []Video{}, Errors: []string{}, Attempted: []string{}, Unavailable: []string{}, Availability: map[string]string{}, Localized: map[string]map[string]string{}}
 	if len(videos) > MaxLiveProbes {
 		videos = videos[:MaxLiveProbes]
 	}
@@ -838,7 +866,7 @@ func (a *Adapter) ProbeLive(ctx context.Context, videos []Video) (ProbeResult, e
 		ids = append(ids, v.ID)
 		stored[v.ID] = v
 	}
-	fromAPI, unclassified := a.apiDetails(ctx, ids, len(ids), stored, result.Localized, &result.APIRequests, &result.Errors, nil)
+	fromAPI, unclassified, absent := a.apiDetails(ctx, ids, len(ids), stored, result.Localized, &result.APIRequests, &result.Errors, nil)
 	signIn := false
 	for _, old := range videos {
 		if err := ctx.Err(); err != nil {
@@ -855,7 +883,20 @@ func (a *Adapter) ProbeLive(ctx context.Context, videos []Video) (ProbeResult, e
 			if !signIn {
 				result.Requested++
 				v, err = a.watch(ctx, old.ID)
-				if err != nil {
+				switch availability := FailedAvailability(err, absent[old.ID]); {
+				case err == nil:
+				case availability == AvailabilityPrivate || availability == AvailabilityRemoved:
+					// A private video asks to sign in like the bot check; the
+					// API leaving it out tells the two apart. A page that was
+					// not answered at all (a timeout, a 5xx) proves nothing.
+					result.Unavailable = append(result.Unavailable, old.ID)
+					result.Availability[old.ID] = availability
+					continue
+				case availability != "":
+					// A members-only page is no error, but it says nothing of
+					// the broadcast either.
+					result.Availability[old.ID] = availability
+				default:
 					result.Errors = append(result.Errors, safeError(err))
 					signIn = safeError(err) == CodeLoginRequired
 				}

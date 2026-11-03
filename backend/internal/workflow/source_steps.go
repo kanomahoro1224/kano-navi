@@ -439,6 +439,11 @@ func (s *SourceSteps) youtubeLive(ctx context.Context, in StepInput) (AttemptRes
 		}
 	}
 	counts["requested"], counts["inspected"], counts["live"], counts["changed"], counts["apiRequests"] = result.Requested, result.Inspected, live, changed, result.APIRequests
+	if len(result.Unavailable) > 0 {
+		// Private or removed videos leave the active set rather than failing
+		// every later run.
+		counts["unavailable"] = len(result.Unavailable)
+	}
 	if len(result.Errors) == 0 {
 		return AttemptResult{Status: "succeeded", Result: counts}, nil
 	}

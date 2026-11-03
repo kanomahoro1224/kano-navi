@@ -25,7 +25,7 @@ func (s *Store) StoredYoutubeVideos(ctx context.Context, ids []string) (map[stri
 	for _, id := range ids {
 		var v ytsource.Video
 		var premiere sql.NullBool
-		err := s.db.QueryRowContext(ctx, `SELECT id,title,COALESCE(published_at,''),COALESCE(scheduled_at,''),url,COALESCE(thumbnail_url,''),COALESCE(kind,''),is_upcoming,is_premiere FROM videos WHERE id=? AND source='youtube'`, id).Scan(&v.ID, &v.Title, &v.PublishedAt, &v.ScheduledAt, &v.URL, &v.ThumbnailURL, &v.Kind, &v.IsUpcoming, &premiere)
+		err := s.db.QueryRowContext(ctx, `SELECT id,title,COALESCE(published_at,''),COALESCE(scheduled_at,''),url,COALESCE(thumbnail_url,''),COALESCE(kind,''),is_upcoming,is_premiere,COALESCE(availability,'') FROM videos WHERE id=? AND source='youtube'`, id).Scan(&v.ID, &v.Title, &v.PublishedAt, &v.ScheduledAt, &v.URL, &v.ThumbnailURL, &v.Kind, &v.IsUpcoming, &premiere, &v.Availability)
 		if errors.Is(err, sql.ErrNoRows) {
 			continue
 		}
@@ -61,7 +61,7 @@ func (s *Store) YoutubeRecentState(ctx context.Context, channel string) (ytsourc
 	out.Queue = queue.IDs
 	// Feed/streams are bounded, but a large history must not be loaded just to
 	// refresh the small active reservation set.
-	rows, err := s.db.QueryContext(ctx, `SELECT id,title,COALESCE(published_at,''),COALESCE(scheduled_at,''),url,COALESCE(thumbnail_url,''),COALESCE(kind,''),is_upcoming,is_premiere FROM videos WHERE source='youtube' ORDER BY is_upcoming DESC,julianday(COALESCE(scheduled_at,published_at)) DESC,id LIMIT 200`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id,title,COALESCE(published_at,''),COALESCE(scheduled_at,''),url,COALESCE(thumbnail_url,''),COALESCE(kind,''),is_upcoming,is_premiere,COALESCE(availability,'') FROM videos WHERE source='youtube' ORDER BY is_upcoming DESC,julianday(COALESCE(scheduled_at,published_at)) DESC,id LIMIT 200`)
 	if err != nil {
 		return out, ErrUnavailable
 	}
@@ -69,7 +69,7 @@ func (s *Store) YoutubeRecentState(ctx context.Context, channel string) (ytsourc
 	for rows.Next() {
 		var v ytsource.Video
 		var premiere sql.NullBool
-		if rows.Scan(&v.ID, &v.Title, &v.PublishedAt, &v.ScheduledAt, &v.URL, &v.ThumbnailURL, &v.Kind, &v.IsUpcoming, &premiere) != nil {
+		if rows.Scan(&v.ID, &v.Title, &v.PublishedAt, &v.ScheduledAt, &v.URL, &v.ThumbnailURL, &v.Kind, &v.IsUpcoming, &premiere, &v.Availability) != nil {
 			return out, ErrUnavailable
 		}
 		v.Premiere, v.PremiereKnown = premiere.Bool, premiere.Valid
@@ -114,6 +114,10 @@ func (s *Store) WriteYoutubeRecent(ctx context.Context, channel string, result y
 	if err != nil {
 		return err
 	}
+	availability, err := writeVideoAvailability(ctx, tx, result.Availability)
+	if err != nil {
+		return err
+	}
 	meta, _ := json.Marshal(map[string]any{"streamDetailsCheckedIds": result.CheckedIDs, "feedEntries": result.Discovered, "detailRequested": result.Requested, "inspected": result.Inspected})
 	_, err = tx.ExecContext(ctx, `INSERT INTO sync_state(source,account_id,cursor_id,cursor_time,last_success_at,metadata_json) VALUES('youtube',?,?,?,?,?) ON CONFLICT(source,account_id) DO UPDATE SET cursor_id=CASE WHEN julianday(excluded.cursor_time)>COALESCE(julianday(sync_state.cursor_time),0) THEN excluded.cursor_id ELSE sync_state.cursor_id END,cursor_time=CASE WHEN julianday(excluded.cursor_time)>COALESCE(julianday(sync_state.cursor_time),0) THEN excluded.cursor_time ELSE sync_state.cursor_time END,last_success_at=excluded.last_success_at,metadata_json=excluded.metadata_json`, channel, result.NextCursor, result.NextCursorTime, now, string(meta))
 	if err != nil {
@@ -122,7 +126,7 @@ func (s *Store) WriteYoutubeRecent(ctx context.Context, channel string, result y
 	if err = writeYoutubeQueue(ctx, tx, channel, result.Queue); err != nil {
 		return err
 	}
-	if len(result.Videos) > 0 || shorts || translated {
+	if len(result.Videos) > 0 || shorts || translated || availability {
 		if err = bumpRevision(ctx, tx, now); err != nil {
 			return ErrSourceWrite
 		}
@@ -229,7 +233,7 @@ func writeYoutubeLocalizations(ctx context.Context, tx *sql.Tx, localized map[st
 
 // youtubeVideoState is the public part of a video row, compared to tell
 // whether a write changed what the board shows.
-const youtubeVideoState = `SELECT title||char(31)||COALESCE(published_at,'')||char(31)||COALESCE(scheduled_at,'')||char(31)||url||char(31)||COALESCE(thumbnail_url,'')||char(31)||COALESCE(kind,'')||char(31)||COALESCE(is_upcoming,0)||char(31)||COALESCE(live_status,'') FROM videos WHERE id=?`
+const youtubeVideoState = `SELECT title||char(31)||COALESCE(published_at,'')||char(31)||COALESCE(scheduled_at,'')||char(31)||url||char(31)||COALESCE(thumbnail_url,'')||char(31)||COALESCE(kind,'')||char(31)||COALESCE(is_upcoming,0)||char(31)||COALESCE(live_status,'')||char(31)||COALESCE(availability,'') FROM videos WHERE id=?`
 
 // youtubeEventFields derives a reservation event's type, detail and status.
 // The status is a code the board translates (scheduled, live or ended) and the
@@ -237,7 +241,7 @@ const youtubeVideoState = `SELECT title||char(31)||COALESCE(published_at,'')||ch
 // broadcast the watch page reports as live is never "ended".
 func youtubeEventFields(v ytsource.Video) (typeName, detail, status string) {
 	typeName, detail, status = "stream", "YouTube Live", "ended"
-	if strings.Contains(v.Title, "メンバー") || strings.Contains(strings.ToLower(v.Title), "membership") || strings.Contains(v.Title, "限定") {
+	if v.Availability == ytsource.AvailabilityMembers || strings.Contains(v.Title, "メンバー") || strings.Contains(strings.ToLower(v.Title), "membership") || strings.Contains(v.Title, "限定") {
 		typeName = "member"
 	}
 	switch {
@@ -311,7 +315,7 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 		if v.DurationSeconds > 0 {
 			duration = v.DurationSeconds
 		}
-		written, err := tx.ExecContext(ctx, `INSERT INTO videos(id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,live_status,live_checked_at,duration_seconds,is_premiere,raw_json) VALUES(?,'youtube',?,?,?,?,?,?,?,?,?,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=COALESCE(excluded.published_at,videos.published_at),scheduled_at=COALESCE(excluded.scheduled_at,videos.scheduled_at),url=excluded.url,thumbnail_url=excluded.thumbnail_url,kind=CASE WHEN excluded.kind='unknown' AND videos.kind IN ('stream','premiere') THEN videos.kind ELSE excluded.kind END,is_upcoming=excluded.is_upcoming,live_status=excluded.live_status,live_checked_at=excluded.live_checked_at,duration_seconds=COALESCE(excluded.duration_seconds,videos.duration_seconds),is_premiere=COALESCE(excluded.is_premiere,videos.is_premiere),`+retitledJudgementSQL("videos", retitledVideoJudgement)+`,refresh_requested_at=CASE WHEN excluded.live_checked_at IS NULL THEN videos.refresh_requested_at END WHERE ?=0`, v.ID, v.Title, nullable(v.PublishedAt), nullable(v.ScheduledAt), v.URL, nullable(v.ThumbnailURL), v.Kind, v.IsUpcoming, nullable(v.LiveStatus), checkedAt, duration, premiere, v.FeedOnly)
+		written, err := tx.ExecContext(ctx, `INSERT INTO videos(id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,live_status,live_checked_at,duration_seconds,is_premiere,availability,raw_json) VALUES(?,'youtube',?,?,?,?,?,?,?,?,?,?,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=COALESCE(excluded.published_at,videos.published_at),scheduled_at=COALESCE(excluded.scheduled_at,videos.scheduled_at),url=excluded.url,thumbnail_url=excluded.thumbnail_url,kind=CASE WHEN excluded.kind='unknown' AND videos.kind IN ('stream','premiere') THEN videos.kind ELSE excluded.kind END,is_upcoming=excluded.is_upcoming,live_status=excluded.live_status,live_checked_at=excluded.live_checked_at,duration_seconds=COALESCE(excluded.duration_seconds,videos.duration_seconds),is_premiere=COALESCE(excluded.is_premiere,videos.is_premiere),availability=COALESCE(excluded.availability,videos.availability),`+retitledJudgementSQL("videos", retitledVideoJudgement)+`,refresh_requested_at=CASE WHEN excluded.live_checked_at IS NULL THEN videos.refresh_requested_at END WHERE ?=0`, v.ID, v.Title, nullable(v.PublishedAt), nullable(v.ScheduledAt), v.URL, nullable(v.ThumbnailURL), v.Kind, v.IsUpcoming, nullable(v.LiveStatus), checkedAt, duration, premiere, nullable(v.Availability), v.FeedOnly)
 		if err != nil {
 			return false, ErrSourceWrite
 		}
@@ -381,6 +385,25 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 				return false, ErrSourceWrite
 			}
 		}
+	}
+	return changed, nil
+}
+
+// writeVideoAvailability records who can watch the stored YouTube videos
+// whose watch page failed but told (ytsource.FailedAvailability), leaving
+// every other field as it was. It reports whether a value changed.
+func writeVideoAvailability(ctx context.Context, tx *sql.Tx, availability map[string]string) (bool, error) {
+	changed := false
+	for id, value := range availability {
+		written, err := tx.ExecContext(ctx, `UPDATE videos SET availability=? WHERE id=? AND source='youtube' AND availability IS NOT ?`, value, id, value)
+		if err != nil {
+			return false, ErrSourceWrite
+		}
+		count, err := written.RowsAffected()
+		if err != nil {
+			return false, ErrSourceWrite
+		}
+		changed = changed || count > 0
 	}
 	return changed, nil
 }

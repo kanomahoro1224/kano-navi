@@ -386,3 +386,35 @@ test("Chinese readers open a past video's bilibili copy first", () => {
   for (const item of [reserved, onAir])
     assert.equal(videoLinks(item, "zh-CN", now)[0].source, "youtube", item.id)
 })
+
+test("a private or removed video keeps only its other platforms and never leads", () => {
+  const bilibili = {
+    source: "bilibili",
+    url: "https://www.bilibili.com/video/BV1synthetic2",
+  }
+  const gone = video("g", {
+    kind: "upload",
+    publishedAt: at(-hour),
+    availability: "private",
+    alternates: [bilibili],
+  })
+  assert.deepEqual(videoLinks(gone, "en", now), [bilibili])
+  assert.deepEqual(
+    videoLinks(video("x", { availability: "removed" }), "en", now),
+    [],
+  )
+  // Members-only and unchecked videos keep their own link.
+  for (const availability of ["members", null] as const)
+    assert.equal(
+      videoLinks(video("k", { availability }), "en", now)[0]?.source,
+      "youtube",
+    )
+
+  const watchable = video("w", { kind: "upload", publishedAt: at(-2 * hour) })
+  const groups = groupVideos([gone, watchable], null, now)
+  assert.equal(groups.lead?.id, "w")
+  assert.deepEqual(
+    groups.works.map((item) => item.id),
+    ["g"],
+  )
+})

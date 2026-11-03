@@ -616,6 +616,50 @@ func TestLiveProbeSettings(t *testing.T) {
 	}
 }
 
+// An operator stops the probe for one video and lets it ask again; the
+// console lists the active and the stopped videos.
+func TestLiveProbeStopsOneVideo(t *testing.T) {
+	c := newConsole(t, "development", "", &gatedSteps{})
+	// The console clock is 2026-03-02T03:00Z; the stream started an hour before.
+	started := "2026-03-02T02:00:00.000Z"
+	c.exec(t, `INSERT INTO videos (id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,live_status,live_checked_at) VALUES ('AAAAAAAAAAA','youtube','Stream','2026-10-10T00:00:00.000Z',?,'https://www.youtube.com/watch?v=AAAAAAAAAAA','/media/t','live',0,'live',?)`, started, started)
+	ids := func(payload map[string]any, key string) string {
+		out := []string{}
+		for _, item := range payload[key].([]any) {
+			entry := item.(map[string]any)
+			out = append(out, entry["id"].(string))
+			if key == "stopped" {
+				out = append(out, entry["reason"].(string))
+			}
+		}
+		return strings.Join(out, ":")
+	}
+	_, payload := c.call(t, "GET", "/api/admin/sources/youtube/live-probe", "")
+	if ids(payload, "videos") != "AAAAAAAAAAA" || ids(payload, "stopped") != "" || payload["activeVideos"] != float64(1) {
+		t.Fatalf("before=%v", payload)
+	}
+	for path, want := range map[string]struct {
+		body string
+		code int
+	}{
+		"/api/admin/sources/youtube/live-probe/videos/not-an-id":   {`{"stopped":true}`, 400},
+		"/api/admin/sources/youtube/live-probe/videos/AAAAAAAAAAA": {`{}`, 400},
+		"/api/admin/sources/youtube/live-probe/videos/BBBBBBBBBBB": {`{"stopped":true}`, 404},
+	} {
+		if code, _ := c.call(t, "PUT", path, want.body); code != want.code {
+			t.Fatalf("%s %s => %d", path, want.body, code)
+		}
+	}
+	code, payload := c.call(t, "PUT", "/api/admin/sources/youtube/live-probe/videos/AAAAAAAAAAA", `{"stopped":true}`)
+	if code != 200 || ids(payload, "videos") != "" || ids(payload, "stopped") != "AAAAAAAAAAA:operator" || payload["nextRunAt"] != nil {
+		t.Fatalf("stop=%d %v", code, payload)
+	}
+	code, payload = c.call(t, "PUT", "/api/admin/sources/youtube/live-probe/videos/AAAAAAAAAAA", `{"stopped":false}`)
+	if code != 200 || ids(payload, "videos") != "AAAAAAAAAAA" || ids(payload, "stopped") != "" {
+		t.Fatalf("resume=%d %v", code, payload)
+	}
+}
+
 // The post quote decisions and the refresh request need the admin session
 // like every other content route; an anonymous request changes nothing.
 func TestPostQuoteRoutesRequireTheSession(t *testing.T) {

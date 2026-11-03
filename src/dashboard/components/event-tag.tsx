@@ -1,8 +1,10 @@
 import type { Translator, Video } from "@/types"
 import type { LucideIcon } from "lucide-react"
 import {
+  Ban,
   Clapperboard,
   Gamepad2,
+  Lock,
   MessageCircle,
   MicVocal,
   MonitorPlay,
@@ -43,6 +45,33 @@ export function VideoTagChip({ video, t }: { video: Video; t: Translator }) {
     <span className="tag video-tag">
       <EventTagIcon tag={tag} work={video.kind !== "stream"} />
       {videoTagLabel(video, t)}
+    </span>
+  )
+}
+
+/**
+ * Who can watch a video, when not everyone can: members only, private or
+ * removed. Nothing for a public or unlisted video, or one not yet checked.
+ */
+export function VideoAvailabilityChip({
+  video,
+  t,
+}: {
+  video: Video
+  t: Translator
+}) {
+  const availability = video.availability
+  if (
+    availability !== "members" &&
+    availability !== "private" &&
+    availability !== "removed"
+  )
+    return null
+  const Icon = availability === "removed" ? Ban : Lock
+  return (
+    <span className="tag video-availability">
+      <Icon aria-hidden="true" />
+      {t(`videos.availability.${availability}`)}
     </span>
   )
 }

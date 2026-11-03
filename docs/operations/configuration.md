@@ -179,6 +179,8 @@ The YouTube live-status probe is an operator setting, not an environment
 variable: `/admin` → Sources → Live-status probe turns it on or off and sets
 its interval (default 15 minutes, 5–360), stored in `app_settings` as
 `youtube_live_probe_enabled` and `youtube_live_probe_interval_minutes`. The
+same fold stops or resumes checking one video (see
+[Stopped videos](../architecture/sources.md#stopped-videos)). The
 interval paces streams on air and waiting rooms that stay closed past their
 start; around the start itself the probe checks every 3 minutes. With
 `YOUTUBE_API_KEY`, and unless the YouTube timer's method chain turns the Data

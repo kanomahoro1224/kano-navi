@@ -450,6 +450,10 @@ func (m *Module) providerInput(body map[string]any, existing *Provider) (provide
 			input.APIKeyCiphertext = sealed
 		}
 	}
+	// A stored key is only ever sent to the address it was entered for.
+	if existing != nil && existing.APIKeyConfigured && !input.ReplaceAPIKey && input.BaseURL != existing.BaseURL {
+		return input, httpx.Invalid("apiKey must be entered again when baseUrl changes")
+	}
 	return input, nil
 }
 

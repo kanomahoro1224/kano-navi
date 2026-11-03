@@ -742,7 +742,10 @@ carries no `model` field, a `model` field in a provider write is ignored, and a
 provider test without `{model}` only lists the provider's models. Creating a
 provider or adding catalog models never queues anything. Model IDs may
 contain `/`, so model writes name the model in the body. Provider responses
-report `apiKeyConfigured` only; keys are write-only.
+report `apiKeyConfigured` only; keys are write-only. A provider write that
+changes `baseUrl` while a key is stored must carry `apiKey`, otherwise it is
+`400 invalid_input`, so a stored key is only sent to the address it was
+entered for.
 
 `GET /llm/failures` lists the 30 newest stored model failures, newest first:
 failed schedule extractions (one per input and queue target), failed
@@ -769,7 +772,9 @@ replaces each field it carries: `proxies` replaces the whole queue (a proxy
 without `id` is new), `routes` maps every area (`x`, `youtube`,
 `bilibili`, `media`, `llm`) to `{enabled, proxyIds}`. In a proxy write,
 an omitted `password` keeps the stored password of the proxy with the same
-`id`, `""` clears it, and a username-less proxy has none. Passwords are
+`id` while its scheme, host and port stay the same (a changed one is
+`400 invalid_input` until a password is sent), `""` clears it, and a
+username-less proxy has none. Passwords are
 write-only. Selections drop unknown ids; an unknown area, a route turned on
 without any proxy, or an invalid protocol, address or port is
 `400 invalid_input`. Unparseable stored settings answer reads with

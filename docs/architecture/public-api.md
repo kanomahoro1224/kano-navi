@@ -250,11 +250,15 @@ The routes sit under `/api/`, so the development proxy and the
 ## MCP Boundary: `/mcp`
 
 `/mcp` uses stateless Streamable HTTP. `dashboard_read`, `schedule_list`,
-`posts_list`, and `health_read` are public read-only tools and do not require a
-credential. Control tools are only registered for requests carrying
+`posts_list`, `health_read` and `sync_status` are public read-only tools and
+do not require a credential. Public `sync_status` lists the recent jobs' kind,
+status and times only: it carries no job ID and takes no `jobId`. Control
+tools are only registered for requests carrying
 `Authorization: Bearer <MCP_CONTROL_TOKEN>`: they can advance a dashboard
-revision, start or inspect an asynchronous sync, or run the automatic schedule
-scan. The token is independent of `ADMIN_PASSWORD` and browser sessions.
+revision, start an asynchronous sync, or run the automatic schedule scan. For
+those requests `sync_status` also reports each job's `id` and looks a job up
+by `jobId`, so a started job can be followed. The token is independent of
+`ADMIN_PASSWORD` and browser sessions.
 
 The endpoint deliberately has no tool for manual event confirmation, editing,
 deletion, bulk approval, profile-media selection/upload, SQL, file paths, DOM

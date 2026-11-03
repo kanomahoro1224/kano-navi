@@ -56,7 +56,18 @@ type tool struct {
 	annotations string
 	arguments   []argument
 	run         toolHandler
+	// audience limits a tool to requests without (audiencePublic) or with
+	// (audienceControl) the control token; empty follows controlTools.
+	audience audience
 }
+
+type audience int
+
+const (
+	audienceAny audience = iota
+	audiencePublic
+	audienceControl
+)
 
 var datePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
@@ -120,8 +131,19 @@ var tools = []tool{
 		run:         (*handler).healthRead,
 	},
 	{
-		// Status is a read-only observation, so it stays available to public
-		// clients. The mutation controls below still require the bearer token.
+		// Status is a read-only observation, so public clients read it too,
+		// without job IDs: those stay with the holder of the control token,
+		// who starts jobs and follows them by ID.
+		name:        "sync_status",
+		title:       "Read synchronization status",
+		description: "Read the recent synchronization jobs' kind, status and times without starting a job.",
+		inputSchema: `{"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":100}},"additionalProperties":false,"$schema":"` + jsonSchemaDialect + `"}`,
+		annotations: readOnlyAnnotation,
+		arguments:   []argument{boundedInteger("limit", 1, 100)},
+		run:         (*handler).publicSyncStatus,
+		audience:    audiencePublic,
+	},
+	{
 		name:        "sync_status",
 		title:       "Read synchronization status",
 		description: "Read the current synchronization job status without starting a job.",
@@ -131,7 +153,8 @@ var tools = []tool{
 			{name: "jobId", kind: stringArgument, maxLength: 100},
 			boundedInteger("limit", 1, 100),
 		},
-		run: (*handler).syncStatus,
+		run:      (*handler).syncStatus,
+		audience: audienceControl,
 	},
 	{
 		name:        "dashboard_request_reload",
@@ -181,6 +204,12 @@ type toolList struct {
 }
 
 func available(candidate tool, controlAuthorized bool) bool {
+	switch candidate.audience {
+	case audiencePublic:
+		return !controlAuthorized
+	case audienceControl:
+		return controlAuthorized
+	}
 	return controlAuthorized || !controlTools[candidate.name]
 }
 
@@ -549,6 +578,35 @@ func publicRunJob(id int64, source, status, startedAt string, finishedAt *string
 		kind = jobs.KindScan
 	}
 	return publicJob{ID: id, Kind: kind, Status: status, StartedAt: &startedAt, FinishedAt: finishedAt}
+}
+
+// publicStatus is a job as a client without the control token reads it: its
+// kind, status and times, without an ID.
+type publicStatus struct {
+	Kind       string  `json:"kind"`
+	Status     string  `json:"status"`
+	CreatedAt  *string `json:"createdAt,omitempty"`
+	StartedAt  *string `json:"startedAt"`
+	FinishedAt *string `json:"finishedAt"`
+}
+
+type publicStatusResult struct {
+	Jobs []publicStatus `json:"jobs"`
+}
+
+// publicSyncStatus lists the recent jobs the way syncStatus does, without
+// their IDs and without a lookup by ID.
+func (h *handler) publicSyncStatus(ctx context.Context, arguments map[string]any) (any, error) {
+	listed, err := h.syncStatus(ctx, map[string]any{"limit": arguments["limit"]})
+	if err != nil {
+		return nil, err
+	}
+	jobs := listed.(jobsResult).Jobs
+	out := publicStatusResult{Jobs: make([]publicStatus, 0, len(jobs))}
+	for _, job := range jobs {
+		out.Jobs = append(out.Jobs, publicStatus{Kind: job.Kind, Status: job.Status, CreatedAt: job.CreatedAt, StartedAt: job.StartedAt, FinishedAt: job.FinishedAt})
+	}
+	return out, nil
 }
 
 type jobResult struct {

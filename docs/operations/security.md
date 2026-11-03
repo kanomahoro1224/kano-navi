@@ -58,7 +58,8 @@ operator actions, and share the bounded single-flight synchronization queue.
 ## MCP Authentication and Scope
 
 - Public `/mcp` read tools do not require a key. They return a sanitized view of
-  the stored dashboard, schedules, posts, health, and synchronization status;
+  the stored dashboard, schedules, posts, health, and synchronization status
+  (job kind, status and times, without job IDs);
   deleted tombstones and operator-only lock/source metadata are omitted.
 - `dashboard_request_reload`, `sync_start`, and `scan_run_automatic` require
   `Authorization: Bearer <MCP_CONTROL_TOKEN>`. Use a long random token, send it

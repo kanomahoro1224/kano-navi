@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react"
 import {
+  ArrowRight,
   Ban,
   CalendarCheck,
   CalendarX,
@@ -337,12 +338,16 @@ function TranslationStatus({
 
 /** The processing step a post list covers. */
 type PostStep = "extraction" | "translation"
-/** Where the step's posts stand; translation has no uncertain result. */
-type PostState = "failed" | "uncertain" | "queued"
+/**
+ * The step's results that wait on the operator; translation has no
+ * uncertain result. Posts queued for a run wait on the run instead and are
+ * listed from the overview's backlog.
+ */
+type PostState = "failed" | "uncertain"
 
 const postStates: Record<PostStep, PostState[]> = {
-  extraction: ["failed", "uncertain", "queued"],
-  translation: ["failed", "queued"],
+  extraction: ["failed", "uncertain"],
+  translation: ["failed"],
 }
 
 const postFilters: Record<
@@ -352,11 +357,9 @@ const postFilters: Record<
   extraction: {
     failed: { llm: "failed" },
     uncertain: { llm: "uncertain" },
-    queued: { reprocess: true },
   },
   translation: {
     failed: { translation: "failed" },
-    queued: { translation: "requested" },
   },
 }
 
@@ -568,9 +571,11 @@ function PostSelectionBar({
 /**
  * Posts that wait on a processing step, picked by two filters: the step
  * (schedule extraction or translation, each with its failure count) and the
- * state within it. A new step keeps the state when the step has it.
+ * state within it. A new step keeps the state when the step has it. The
+ * step's posts queued for a run are counted under the filters, with a link
+ * to their list.
  */
-function PostsTab() {
+function PostsTab({ navigate }: Pick<ViewProps, "navigate">) {
   const { t } = useAppSettings()
   const { api, act, notify, overview } = useAdmin()
   const [step, setStep] = useState<PostStep>("extraction")
@@ -665,8 +670,11 @@ function PostsTab() {
   const stateLabels: Record<PostState, string> = {
     failed: t("admin.status.failed"),
     uncertain: t("admin.status.uncertain"),
-    queued: t("admin.posts.queued"),
   }
+  const waiting = {
+    extraction: overview?.backlog?.extraction ?? 0,
+    translation: overview?.backlog?.postTranslation ?? 0,
+  }[step]
   return (
     <>
       <div className="adm-toolbar adm-post-filters">
@@ -697,24 +705,39 @@ function PostsTab() {
             })}
           />
         </div>
-        <div className="adm-filter-group">
-          <span className="adm-filter-label" aria-hidden>
-            {t("admin.review.posts.state")}
-          </span>
-          <Segmented
-            label={t("admin.review.posts.state")}
-            value={state}
-            onChange={(next) => {
-              setState(next)
-              setPage(1)
-            }}
-            options={postStates[step].map((id) => ({
-              value: id,
-              label: stateLabels[id],
-            }))}
-          />
-        </div>
+        {postStates[step].length > 1 ? (
+          <div className="adm-filter-group">
+            <span className="adm-filter-label" aria-hidden>
+              {t("admin.review.posts.state")}
+            </span>
+            <Segmented
+              label={t("admin.review.posts.state")}
+              value={state}
+              onChange={(next) => {
+                setState(next)
+                setPage(1)
+              }}
+              options={postStates[step].map((id) => ({
+                value: id,
+                label: stateLabels[id],
+              }))}
+            />
+          </div>
+        ) : null}
       </div>
+      {waiting ? (
+        <p className="adm-note adm-review-waiting">
+          {t(`admin.review.posts.waiting.${step}`, { count: waiting })}
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={ArrowRight}
+            onClick={() => navigate("posts", `queued-${step}`)}
+          >
+            {t("admin.review.posts.showWaiting")}
+          </Button>
+        </p>
+      ) : null}
       {!posts.data ? (
         <Loading />
       ) : items.length ? (
@@ -804,7 +827,7 @@ export function ReviewView({ tab, navigate }: ViewProps) {
           {active === "images" ? <ImagesTab navigate={navigate} /> : null}
           {active === "cancellations" ? <CancellationsTab /> : null}
           {active === "merges" ? <MergeQueue /> : null}
-          {active === "posts" ? <PostsTab /> : null}
+          {active === "posts" ? <PostsTab navigate={navigate} /> : null}
         </div>
       </Panel>
     </div>

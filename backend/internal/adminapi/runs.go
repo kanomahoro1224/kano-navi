@@ -515,6 +515,11 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
 		return
 	}
+	backlog, err := a.Store.AdminBacklog(ctx, a.Now())
+	if err != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
 	lastSuccess, err := a.Store.SourceLastSuccess(ctx)
 	if err != nil {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
@@ -569,6 +574,7 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		"scheduler":            scheduler,
 		"timers":               timers,
 		"queue":                queue,
+		"backlog":              backlog,
 		"sources":              map[string]any{"x": source("x"), "youtube": youtube, "bilibili": source("bilibili")},
 		"review": map[string]int{
 			"pendingImages":          counts.PendingImages,
@@ -576,7 +582,6 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 			"failedPosts":            counts.FailedPosts,
 			"failedExtractions":      counts.FailedExtractions,
 			"failedTranslations":     counts.FailedTranslations,
-			"reprocessRequested":     counts.ReprocessRequested,
 			"videoMerges":            counts.VideoMerges,
 		},
 		"counts": map[string]int{

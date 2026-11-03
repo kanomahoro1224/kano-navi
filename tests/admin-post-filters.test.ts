@@ -6,7 +6,7 @@ import { createServer } from "vite"
 import type { AdminPost } from "../src/admin/types.ts"
 import { click, enter, render, submit, type Rendered } from "./dom.ts"
 
-test("post date filters reach server queries, survive pagination and clear independently", async () => {
+test("post date and queue filters reach server queries, survive pagination and clear independently", async () => {
   const vite = await createServer({
     configFile: false,
     envDir: false,
@@ -74,7 +74,10 @@ test("post date filters reach server queries, survive pagination and clear indep
           createElement(
             AdminContext.Provider,
             { value: context },
-            createElement(PostsView, { navigate: () => {} }),
+            createElement(PostsView, {
+              tab: "queued-refresh",
+              navigate: () => {},
+            }),
           ),
         ),
       )
@@ -86,6 +89,9 @@ test("post date filters reach server queries, survive pagination and clear indep
     const input = (key: string) => find(`[aria-label="${key}"]`)
     const change = (key: string, value: string) => enter(input(key)!, value)
     const latest = () => queries.at(-1)!
+
+    // A queue link from the overview opens the list on that kind of request.
+    assert.equal(queries[0].queued, "refresh")
 
     await change("admin.schedule.filter.from", "2026-01-02")
     await change("admin.schedule.filter.to", "2026-01-03")
@@ -129,6 +135,14 @@ test("post date filters reach server queries, survive pagination and clear indep
     await change("admin.schedule.filter.from", "")
     assert.equal(latest().from, "")
     assert.equal(latest().search, "needle")
+    assert.equal(latest().queued, "refresh")
+    // The queue filter offers any open request.
+    await click(findAll('[aria-haspopup="listbox"]')[3])
+    await click(
+      findAll('[role="option"]').find((option) => option.id.endsWith("-1")),
+    )
+    assert.equal(latest().queued, "any")
+    assert.equal(latest().page, 1)
   } finally {
     if (root) await act(async () => root!.unmount())
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previous

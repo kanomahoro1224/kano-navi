@@ -713,8 +713,18 @@ const blankFilters = {
   account: "",
   llm: "",
   translation: "",
+  queued: "",
   from: "",
   to: "",
+}
+
+/** Open operator requests the list can keep: any, or one kind. */
+const queuedKinds = ["any", "extraction", "refresh", "translation"]
+
+/** A `#posts/queued-<kind>` link opens the list on that kind of request. */
+function queuedPreset(tab: string) {
+  const kind = tab.replace(/^queued-/u, "")
+  return tab.startsWith("queued-") && queuedKinds.includes(kind) ? kind : ""
 }
 
 const llmStatuses = [
@@ -730,14 +740,16 @@ const translationStatuses = ["incomplete", "complete", "requested", "failed"]
 
 function PostList({
   sources,
+  queued,
   navigate,
 }: {
   sources: Sources | undefined
+  queued: string
   navigate: ViewProps["navigate"]
 }) {
   const { t } = useAppSettings()
   const { api } = useAdmin()
-  const [filters, setFilters] = useState(blankFilters)
+  const [filters, setFilters] = useState({ ...blankFilters, queued })
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
   const posts = useResource(
@@ -808,6 +820,18 @@ function PostList({
             })),
           ]}
         />
+        <FilterSelect
+          label={t("admin.posts.queue")}
+          value={filters.queued}
+          onChange={(queued) => update({ queued })}
+          options={[
+            any,
+            ...queuedKinds.map((kind) => ({
+              value: kind,
+              label: t(`admin.posts.queue.${kind}`),
+            })),
+          ]}
+        />
         <DateRange
           from={filters.from}
           to={filters.to}
@@ -857,7 +881,7 @@ function PostList({
   )
 }
 
-export function PostsView({ navigate }: ViewProps) {
+export function PostsView({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
   const { api } = useAdmin()
   // The account filter lists the configured accounts.
@@ -878,7 +902,12 @@ export function PostsView({ navigate }: ViewProps) {
         }
       />
       <Panel>
-        <PostList sources={sources.data} navigate={navigate} />
+        <PostList
+          key={tab}
+          sources={sources.data}
+          queued={queuedPreset(tab)}
+          navigate={navigate}
+        />
       </Panel>
     </div>
   )

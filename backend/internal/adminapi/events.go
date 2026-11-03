@@ -48,7 +48,7 @@ func (a *api) listPosts(w http.ResponseWriter, r *http.Request) {
 		To:          query(r, "to"),
 		Search:      query(r, "search"),
 		LLM:         query(r, "llm"),
-		Reprocess:   queryFlag(r, "reprocess"),
+		Queued:      query(r, "queued"),
 		Translation: query(r, "translation"),
 	})
 	if err != nil {
@@ -69,6 +69,8 @@ func (a *api) listVideos(w http.ResponseWriter, r *http.Request) {
 		Search:      query(r, "search"),
 		Merge:       query(r, "merge"),
 		Translation: query(r, "translation"),
+		Queued:      query(r, "queued"),
+		Now:         a.Now(),
 	})
 	if err != nil {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")

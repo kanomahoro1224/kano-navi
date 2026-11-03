@@ -9,6 +9,7 @@ import (
 	"math"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type AdminPost struct {
@@ -310,7 +311,9 @@ type AdminRunsPage struct {
 type AdminPostFilter struct {
 	Page, PageSize                         int
 	Source, Account, From, To, Search, LLM string
-	Reprocess                              bool
+	// Queued is "extraction", "refresh", "translation" or "any" open
+	// operator request (see postQueuedSQL).
+	Queued string
 	// Translation is "incomplete", "complete", "requested" or "failed".
 	Translation string
 }
@@ -325,6 +328,10 @@ type AdminVideoFilter struct {
 	Page, PageSize                  int
 	Status, Kind, Thumbnail, Source string
 	Search, Merge, Translation      string
+	// Queued is "refresh", "translation" or "any" open operator request
+	// (see videoQueuedSQL); Now bounds the open refresh requests.
+	Queued string
+	Now    time.Time
 }
 
 // AdminEventFilter narrows the event list. Cancellation is "none",
@@ -354,7 +361,6 @@ type AdminCounts struct {
 	FailedPosts        int `json:"failedPosts"`
 	FailedExtractions  int `json:"failedExtractions"`
 	FailedTranslations int `json:"failedTranslations"`
-	ReprocessRequested int `json:"reprocessRequested"`
 	// VideoMerges are the Bilibili uploads the merge rule leaves to the
 	// operator.
 	VideoMerges int `json:"videoMerges"`
@@ -455,8 +461,8 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 		clauses = append(clauses, "COALESCE(s.status, 'never') = ?")
 		args = append(args, f.LLM)
 	}
-	if f.Reprocess {
-		clauses = append(clauses, "COALESCE(s.reprocess_requested, 0) = 1")
+	if queued := postQueuedSQL(f.Queued); queued != "" {
+		clauses = append(clauses, queued)
 	}
 	switch f.Translation {
 	case "incomplete":
@@ -613,6 +619,10 @@ func (s *Store) ListAdminVideos(ctx context.Context, f AdminVideoFilter) (AdminV
 		clauses = append(clauses, scope+" AND NOT "+TranslationIncompleteSQL(TranslationOwnerVideo, "v"))
 	case "requested":
 		clauses = append(clauses, TranslationRequestedSQL(TranslationOwnerVideo, "v"))
+	}
+	if queued, queuedArgs := videoQueuedSQL(f.Queued, f.Now); queued != "" {
+		clauses = append(clauses, queued)
+		args = append(args, queuedArgs...)
 	}
 	switch f.Thumbnail {
 	case "ready":
@@ -996,9 +1006,8 @@ func (s *Store) AdminCounts(ctx context.Context, today string) (AdminCounts, err
 	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND cancellation_status='llm_suspected'),
 	  (SELECT COUNT(*) FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE s.status='failed' OR (p.source='x' AND `+failedTranslation+`)),
 	  (SELECT COUNT(*) FROM post_llm_states WHERE status='failed'),
-	  (SELECT COUNT(*) FROM posts p WHERE p.source='x' AND `+failedTranslation+`),
-	  (SELECT COUNT(*) FROM post_llm_states WHERE reprocess_requested=1)`, today).Scan(
-		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.FailedPosts, &c.FailedExtractions, &c.FailedTranslations, &c.ReprocessRequested)
+	  (SELECT COUNT(*) FROM posts p WHERE p.source='x' AND `+failedTranslation+`)`, today).Scan(
+		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.FailedPosts, &c.FailedExtractions, &c.FailedTranslations)
 	if err != nil {
 		return AdminCounts{}, fmt.Errorf("%w: admin counts unavailable", ErrUnavailable)
 	}

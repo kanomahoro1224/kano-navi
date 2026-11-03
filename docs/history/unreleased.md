@@ -114,6 +114,16 @@
   writing beneath it. `PUT /api/admin/videos/{id}` takes `availability`, and
   the video list and `GET /api/admin/videos` show `availability`,
   `sourceAvailability` and `manualAvailability`.
+- The overview's queue lists the operator requests waiting for a run, with
+  the run that takes each kind: posts to extract again, X posts and videos to
+  read again, and posts and video titles to translate. Each row opens the post
+  or video list on those requests, through a new Queued for filter on posts
+  and a Queued tab on videos. `GET /api/admin/overview` adds `backlog` with
+  these counts and drops `review.reprocessRequested`; `GET /api/admin/posts`
+  and `GET /api/admin/videos` take `queued` (`any` or one kind), which
+  replaces the posts' `reprocess=1`.
+- Review → Posts lists only failed and uncertain results. The step's posts
+  queued for a run are counted under its filters with a link to them.
 
 </details>
 

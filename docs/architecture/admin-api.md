@@ -55,6 +55,13 @@ external work:
   "scheduler": {"enabled", "running", "tickSeconds"},
   "timers": {"scheduled", "nextRunAt"},
   "queue": [{"kind", "source"?, "nextRunAt", "due"}],
+  "backlog": {
+    "extraction",       // posts queued for re-extraction
+    "postRefresh",      // X posts with a refresh from the source queued
+    "postTranslation",  // posts with a machine translation requested
+    "videoRefresh",     // YouTube videos with an open refresh request
+    "videoTranslation"  // video titles with a machine translation requested
+  },
   "sources": {
     "x":       {"skipped", "lastSuccessAt", "lastStep"},
     "youtube": {"skipped", "lastSuccessAt", "lastStep", "push": {"enabled", "verified"}},
@@ -66,7 +73,6 @@ external work:
     "failedPosts",            // posts with a failed extraction or translation
     "failedExtractions",      // posts whose last extraction failed
     "failedTranslations",     // X posts whose current wording failed machine translation and still lacks a translation
-    "reprocessRequested",     // posts queued for re-extraction
     "videoMerges"             // unmerged Bilibili uploads the merge rule leaves to the operator
   },
   "counts": {"upcomingEvents", "events", "posts", "videos"}
@@ -81,6 +87,13 @@ queue: each of those schedules (`kind: "source"` with its `source`) and the
 (`kind: "live-probe"`), by planned run and then by source, as the scheduler
 picks due schedules. `due` is true once `nextRunAt` has passed; a due entry
 waits for the current run and the entries due before it.
+
+`backlog` counts the operator requests that wait for the step that does
+the work: schedule extraction takes a re-extraction, the X step a post
+refresh, the YouTube step a video refresh and the translate step a machine
+translation. A video refresh request counts while it is open, for a day
+after it was made. Each count matches the `queued` filter of
+[`GET /posts`](#posts) or [`GET /videos`](#videos).
 
 `lastSuccessAt` is the newest successful incremental read of the source
 (`sync_state.last_success_at`). `lastStep` is `{runId, status, finishedAt}` of
@@ -412,20 +425,23 @@ alias); `none` never needs review and keeps `previewUrl` null.
 
 ## Posts
 
-| Method and path                  | Body / query                                                                                               | Result                           |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `GET /posts`                     | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `reprocess`, `translation` | list of posts                    |
-| `PUT /posts/{id}/hidden`         | `{hidden}`                                                                                                 | `{state}`                        |
-| `POST /posts/{id}/reprocess`     | `{route?}`                                                                                                 | `{state}`                        |
-| `POST /posts/{id}/dismiss`       | none                                                                                                       | `{state}`; `409 post_not_failed` |
-| `POST /posts/reprocess`          | `{ids}`                                                                                                    | `{queued}`                       |
-| `POST /posts/dismiss`            | `{ids}`                                                                                                    | `{dismissed}`                    |
-| `PUT /posts/{id}/schedule-image` | `{index, reason, start?, end?}`                                                                            | `{image}`                        |
-| `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                                 | `{state}`                        |
-| `POST /posts/{id}/refresh`       | none                                                                                                       | `{state}`                        |
+| Method and path                  | Body / query                                                                                            | Result                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `GET /posts`                     | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `queued`, `translation` | list of posts                    |
+| `PUT /posts/{id}/hidden`         | `{hidden}`                                                                                              | `{state}`                        |
+| `POST /posts/{id}/reprocess`     | `{route?}`                                                                                              | `{state}`                        |
+| `POST /posts/{id}/dismiss`       | none                                                                                                    | `{state}`; `409 post_not_failed` |
+| `POST /posts/reprocess`          | `{ids}`                                                                                                 | `{queued}`                       |
+| `POST /posts/dismiss`            | `{ids}`                                                                                                 | `{dismissed}`                    |
+| `PUT /posts/{id}/schedule-image` | `{index, reason, start?, end?}`                                                                         | `{image}`                        |
+| `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                              | `{state}`                        |
+| `POST /posts/{id}/refresh`       | none                                                                                                    | `{state}`                        |
 
 `account` is an X handle, matched without case or a leading `@`; `llm` is `never`, `pending`, `processed`, `failed`,
-`dismissed`, `skipped` or `uncertain`; `reprocess=1` keeps only queued posts;
+`dismissed`, `skipped` or `uncertain`; `queued` keeps the posts with an open
+operator request: `extraction` (queued for re-extraction), `refresh` (a
+refresh from the source), `translation` (a machine translation) or `any` of
+them;
 `translation` is `incomplete`, `complete`, `requested` or `failed` (the
 machine pass of the current wording failed and a locale still lacks a usable
 translation).
@@ -503,19 +519,19 @@ MCP control has none of them.
 
 ## Videos
 
-| Method and path              | Body / query                                                                                          | Result                                       |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `GET /videos`                | `page`, `pageSize` (≤ 200), `status`, `kind`, `thumbnail`, `source`, `search`, `merge`, `translation` | list plus `featuredVideoId`, `featuredVideo` |
-| `PUT /videos/featured`       | `{videoId}` (`null` restores automatic selection)                                                     | `{featuredVideoId}`                          |
-| `GET /videos/{id}/history`   |                                                                                                       | `{video, revisions, thumbnails}`             |
-| `PUT /videos/{id}`           | `{title?, kind?, tag?, availability?, thumbnail?, isShort?}`                                          | `{video}`                                    |
-| `POST /videos/{id}/refresh`  |                                                                                                       | `202 {video, started, run}`                  |
-| `POST /videos/bilibili`      | `{input}` (BV ID or bilibili.com video link)                                                          | `{video, started, run}`                      |
-| `GET /videos/merges`         |                                                                                                       | `{items}` merge suggestions                  |
-| `GET /videos/{id}/merges`    |                                                                                                       | `{items}` for one Bilibili upload            |
-| `POST /videos/{id}/merge`    | `{into}` (YouTube video ID or watch link)                                                             | `{video}`                                    |
-| `POST /videos/{id}/unmerge`  |                                                                                                       | `{video}`                                    |
-| `POST /videos/{id}/separate` |                                                                                                       | `{video}`                                    |
+| Method and path              | Body / query                                                                                                    | Result                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `GET /videos`                | `page`, `pageSize` (≤ 200), `status`, `kind`, `thumbnail`, `source`, `search`, `merge`, `translation`, `queued` | list plus `featuredVideoId`, `featuredVideo` |
+| `PUT /videos/featured`       | `{videoId}` (`null` restores automatic selection)                                                               | `{featuredVideoId}`                          |
+| `GET /videos/{id}/history`   |                                                                                                                 | `{video, revisions, thumbnails}`             |
+| `PUT /videos/{id}`           | `{title?, kind?, tag?, availability?, thumbnail?, isShort?}`                                                    | `{video}`                                    |
+| `POST /videos/{id}/refresh`  |                                                                                                                 | `202 {video, started, run}`                  |
+| `POST /videos/bilibili`      | `{input}` (BV ID or bilibili.com video link)                                                                    | `{video, started, run}`                      |
+| `GET /videos/merges`         |                                                                                                                 | `{items}` merge suggestions                  |
+| `GET /videos/{id}/merges`    |                                                                                                                 | `{items}` for one Bilibili upload            |
+| `POST /videos/{id}/merge`    | `{into}` (YouTube video ID or watch link)                                                                       | `{video}`                                    |
+| `POST /videos/{id}/unmerge`  |                                                                                                                 | `{video}`                                    |
+| `POST /videos/{id}/separate` |                                                                                                                 | `{video}`                                    |
 
 Each video's `thumbnailUrl` is the local `/media/<id>?v=<sha256>` URL of its
 cached thumbnail, or `null` until that file is ready; the remote CDN address is
@@ -532,7 +548,10 @@ Changing the featured video advances the dashboard revision.
 the shown title, the platform title or the video ID. `merge=visible` excludes
 uploads merged into another video and `merge=merged` lists only them;
 `translation` is `incomplete`, `complete` or `requested`, as for posts, over
-the videos the translate step covers.
+the videos the translate step covers. `queued` keeps the videos with an open
+operator request: `refresh` (a YouTube refresh request made within the last
+day, which the YouTube step still takes first), `translation` (a machine
+translation) or `any` of them.
 
 ### Bilibili uploads
 

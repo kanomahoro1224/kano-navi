@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -496,6 +497,15 @@ func TestOverviewCountsWhatNeedsReview(t *testing.T) {
 	 ('p1','x','post','label','one','2026-03-01T00:00:00.000Z','https://post.example.test/1'),
 	 ('p2','x','post','label','two','2026-03-01T00:00:00.000Z','https://post.example.test/2')`)
 	c.exec(t, `INSERT INTO post_llm_states(post_id,status,reprocess_requested,updated_at) VALUES ('p1','failed',1,'2026-03-01T00:00:00.000Z'),('p2','processed',0,'2026-03-01T00:00:00.000Z')`)
+	// Open operator requests: a post refresh, a post translation, a YouTube
+	// refresh inside its day and one past it, and a video translation.
+	c.exec(t, `UPDATE posts SET refresh_requested_at='2026-03-02T02:00:00.000Z' WHERE id='p2'`)
+	c.exec(t, `INSERT INTO videos(id,source,title,published_at,url,refresh_requested_at) VALUES
+	 ('v-open','youtube','Open','2026-03-01T00:00:00.000Z','https://video.example.test/open','2026-03-02T01:00:00.000Z'),
+	 ('v-stale','youtube','Stale','2026-03-01T00:00:00.000Z','https://video.example.test/stale','2026-02-28T00:00:00.000Z'),
+	 ('v-told','youtube','Told','2026-03-01T00:00:00.000Z','https://video.example.test/told',NULL)`)
+	c.exec(t, `INSERT INTO translation_states(owner_type,owner_id,field,requested,updated_at) VALUES
+	 ('post','p2','text',1,'2026-03-02T00:00:00.000Z'),('video','v-told','title',1,'2026-03-02T00:00:00.000Z')`)
 	// A schedule row without an image URL has nothing to review, with or
 	// without a recorded scan; an unchecked image with a URL does.
 	c.exec(t, `INSERT INTO assets(id,kind,url,period_basis) VALUES
@@ -509,11 +519,15 @@ func TestOverviewCountsWhatNeedsReview(t *testing.T) {
 	}
 	counts := payload["counts"].(map[string]any)
 	review := payload["review"].(map[string]any)
-	if counts["events"] != float64(3) || counts["upcomingEvents"] != float64(1) || counts["posts"] != float64(2) || counts["videos"] != float64(0) {
+	if counts["events"] != float64(3) || counts["upcomingEvents"] != float64(1) || counts["posts"] != float64(2) || counts["videos"] != float64(3) {
 		t.Fatalf("counts=%v", counts)
 	}
-	if review["suspectedCancellations"] != float64(1) || review["failedPosts"] != float64(1) || review["failedExtractions"] != float64(1) || review["failedTranslations"] != float64(0) || review["reprocessRequested"] != float64(1) || review["pendingImages"] != float64(1) {
+	if review["suspectedCancellations"] != float64(1) || review["failedPosts"] != float64(1) || review["failedExtractions"] != float64(1) || review["failedTranslations"] != float64(0) || review["pendingImages"] != float64(1) {
 		t.Fatalf("review=%v", review)
+	}
+	backlog := payload["backlog"].(map[string]any)
+	if backlog["extraction"] != float64(1) || backlog["postRefresh"] != float64(1) || backlog["postTranslation"] != float64(1) || backlog["videoRefresh"] != float64(1) || backlog["videoTranslation"] != float64(1) {
+		t.Fatalf("backlog=%v", backlog)
 	}
 	if scheduler := payload["scheduler"].(map[string]any); scheduler["running"] != true {
 		t.Fatalf("scheduler=%v", scheduler)
@@ -525,9 +539,32 @@ func TestOverviewCountsWhatNeedsReview(t *testing.T) {
 	if items := payload["items"].([]any); code != 200 || len(items) != 1 || items[0].(map[string]any)["id"] != "soon" {
 		t.Fatalf("suspected=%d %v", code, payload)
 	}
-	code, payload = c.call(t, "GET", "/api/admin/posts?llm=failed&reprocess=1", "")
-	if items := payload["items"].([]any); code != 200 || len(items) != 1 || items[0].(map[string]any)["id"] != "p1" {
-		t.Fatalf("failed posts=%d %v", code, payload)
+	ids := func(path string) string {
+		t.Helper()
+		code, payload := c.call(t, "GET", path, "")
+		if code != 200 {
+			t.Fatalf("%s=%d %v", path, code, payload)
+		}
+		out := []string{}
+		for _, item := range payload["items"].([]any) {
+			out = append(out, item.(map[string]any)["id"].(string))
+		}
+		slices.Sort(out)
+		return strings.Join(out, ",")
+	}
+	for path, want := range map[string]string{
+		"/api/admin/posts?llm=failed&queued=extraction": "p1",
+		"/api/admin/posts?queued=refresh":               "p2",
+		"/api/admin/posts?queued=translation":           "p2",
+		"/api/admin/posts?queued=any":                   "p1,p2",
+		"/api/admin/videos?queued=refresh":              "v-open",
+		"/api/admin/videos?queued=translation":          "v-told",
+		"/api/admin/videos?queued=any":                  "v-open,v-told",
+		"/api/admin/videos?queued=other":                "v-open,v-stale,v-told",
+	} {
+		if got := ids(path); got != want {
+			t.Fatalf("%s=%s, want %s", path, got, want)
+		}
 	}
 }
 

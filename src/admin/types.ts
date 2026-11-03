@@ -223,6 +223,19 @@ export type QueueEntry = { nextRunAt: string; due: boolean } & (
   { kind: "source"; source: ScheduleSource } | { kind: "live-probe" }
 )
 
+/**
+ * Operator requests waiting for the step that does the work: posts to
+ * extract again, X posts and YouTube videos to read again from the source,
+ * and machine translations.
+ */
+export interface Backlog {
+  extraction: number
+  postRefresh: number
+  postTranslation: number
+  videoRefresh: number
+  videoTranslation: number
+}
+
 export interface Overview {
   /** Public mainland-China site suggestion; absent on older sidecars. */
   visitorRegionEnabled?: boolean
@@ -234,6 +247,7 @@ export interface Overview {
   timers: { scheduled: number; nextRunAt: string | null }
   /** Timed work in the order it reaches the single-flight queue. */
   queue: QueueEntry[]
+  backlog: Backlog
   sources: { x: SourceHealth; youtube: SourceHealth; bilibili: SourceHealth }
   review: {
     pendingImages: number
@@ -242,7 +256,6 @@ export interface Overview {
     failedPosts: number
     failedExtractions: number
     failedTranslations: number
-    reprocessRequested: number
     /** Bilibili uploads the merge rule leaves to the operator. */
     videoMerges: number
   }

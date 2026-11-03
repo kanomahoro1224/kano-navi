@@ -21,8 +21,14 @@ const overview = {
     failedPosts: 0,
     failedExtractions: 0,
     failedTranslations: 0,
-    reprocessRequested: 0,
     videoMerges: 0,
+  },
+  backlog: {
+    extraction: 0,
+    postRefresh: 0,
+    postTranslation: 0,
+    videoRefresh: 0,
+    videoTranslation: 0,
   },
   counts: { upcomingEvents: 0, events: 0, posts: 0, videos: 0 },
 }
@@ -345,7 +351,7 @@ test("the public visitor-region toast follows the persisted CN response", async 
   }
 })
 
-test("the overview queue lists timers in order and starts one now or next", async () => {
+test("the overview queue lists timers in order, starts one now or next and links to the requests waiting for a run", async () => {
   const vite = await createServer({
     configFile: false,
     envDir: false,
@@ -368,9 +374,11 @@ test("the overview queue lists timers in order and starts one now or next", asyn
       vite.ssrLoadModule("/src/admin-i18n.ts"),
     ])
     const started: string[] = []
+    const visits: string[] = []
     const queued = {
       ...overview,
       scheduler: { enabled: true, running: true, tickSeconds: 30 },
+      backlog: { ...overview.backlog, extraction: 2, videoRefresh: 1 },
       queue: [
         {
           kind: "source",
@@ -423,7 +431,9 @@ test("the overview queue lists timers in order and starts one now or next", asyn
       return createElement(
         AdminContext.Provider,
         { value: value as any },
-        createElement(OverviewView, { navigate() {} }),
+        createElement(OverviewView, {
+          navigate: (view: string, tab = "") => visits.push(`${view}/${tab}`),
+        }),
       )
     }
     const mount = async (busy: boolean) => {
@@ -460,6 +470,21 @@ test("the overview queue lists timers in order and starts one now or next", asyn
     assert.match(rows[2].textContent, /Run next/)
     await click(rows[2].querySelector("button"))
     assert.deepEqual(started, ["youtube", "youtube"])
+    // Only the kinds with open requests list, each with the run that takes
+    // it, and each opens the list of what waits.
+    const backlog = [
+      ...root!.container.querySelectorAll(".adm-backlog-row"),
+    ] as HTMLElement[]
+    assert.deepEqual(
+      backlog.map((row) => row.textContent),
+      [
+        "2 posts to extract againWith the next schedule scan",
+        "1 video to read againWith the next YouTube run",
+      ],
+    )
+    await click(backlog[0])
+    await click(backlog[1])
+    assert.deepEqual(visits, ["posts/queued-extraction", "videos/queued"])
   } finally {
     await act(async () => root?.unmount())
     restoreBrowser(installed.previous)

@@ -224,7 +224,8 @@ renders the entry as calendar subscribers will see it.
 
 The console's video list (`src/admin/views/videos.tsx`) puts the featured
 video above a list with a search field and task tabs: All, Upcoming,
-Bilibili and Missing translation. Uploads
+Bilibili, Missing translation and Queued (an open refresh or translation
+request); a `#videos/<tab>` link opens that tab. Uploads
 merged into another video appear on that video's row, so only the Bilibili
 tab lists them on their own. Each row shows the
 thumbnail, the title, which opens the correction dialog, the platform, time,
@@ -254,15 +255,17 @@ upload the merge rule merges at its next run or leaves to the operator,
 beside its candidates: Merge attaches it to one, and Keep separate keeps it
 apart so the rule never merges it. The posts tab has two labelled filters:
 Step, Schedule extraction or Translation, each with the overview's failure
-count, and State within the step: Failed, Uncertain or Queued for
-extraction, Failed or Queued for translation. A new step keeps the state
-when the step has it and falls back to Failed otherwise; below 560px each
-filter takes its own full-width line. Each row names the step that failed
+count, and State within the step: Failed or Uncertain for extraction;
+translation has only failures and shows no State filter. A new step keeps
+the state when the step has it and falls back to Failed otherwise; below
+560px each filter takes its own full-width line. Posts queued for a run wait
+on the run, not the operator, so the tab lists none of them: a note under
+the filters counts the step's queued posts from the overview's `backlog` and
+links to them in the post list. Each row names the step that failed
 (schedule extraction or translation) with its error. A failed extraction
 offers Dismiss beside the LLM action; a translation row offers Translate
 again, which queues a machine pass. The list pages 50 posts at a time.
-Outside the Queued state each row has a selection box on its left edge,
-and shift-click selects the range from the last toggled row. A selection
+Each row has a selection box on its left edge, and shift-click selects the range from the last toggled row. A selection
 bar above the list, which sticks under the top bar, selects the whole page
 and applies the state's actions to every selected post in one request:
 Dismiss and Process again for failed extractions, Process again for
@@ -279,7 +282,11 @@ the order they start, from the overview's `queue`. A due timer shows Due and
 whether it waits for the current run; a source timer that is not due has
 Start now, or Run next while a run holds the queue. The live-status probe is
 listed without a button. While timers are off in the process the panel says
-so instead of listing them.
+so instead of listing them. Under the timers, Waiting for a run lists the
+overview's `backlog`: each kind of operator request that has any (posts to
+extract again, X posts and videos to read again, posts and video titles to
+translate), with its count and the run that takes it. A row opens the post
+list or the video list on those requests; nothing shows while none waits.
 
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
 tabs for X, YouTube and Bilibili, each with the platform's logo, a dot (or
@@ -334,7 +341,10 @@ post shows no image cell; a post whose images are not cached yet shows one
 placeholder with the reason. A feed under 1000px puts the account, time,
 state and actions on one line above the wording, images and translations,
 and under 560px the state gets a line of its own. A hidden post's wording is
-dimmed.
+dimmed. Beside the account, extraction, translation and date filters,
+Queued for keeps the posts with an open operator request: any, Extract
+again, Read again from X or AI translation. A `#posts/queued-<kind>` link
+opens the list on one kind.
 
 Edit opens the post in a dialog: the whole wording, every cached image, the
 translations, the quote, the schedule image form and a switch that hides the

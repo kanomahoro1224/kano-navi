@@ -189,7 +189,7 @@ func (s *Store) attachAdminVideoAlternates(ctx context.Context, videos []AdminVi
 				videos[i].Alternates = append(videos[i].Alternates, a)
 			}
 		}
-		if err = rows.Close(); err != nil {
+		if err = errors.Join(rows.Err(), rows.Close()); err != nil {
 			return dbErr(err)
 		}
 	}
@@ -816,7 +816,7 @@ func (s *Store) adminVideosByID(ctx context.Context, ids []string) (map[string]A
 			}
 			items = append(items, v)
 		}
-		if err = rows.Close(); err != nil {
+		if err = errors.Join(rows.Err(), rows.Close()); err != nil {
 			return nil, fmt.Errorf("%w: videos unavailable", ErrUnavailable)
 		}
 	}

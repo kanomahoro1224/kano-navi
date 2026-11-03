@@ -249,7 +249,7 @@ func (s *Store) resolveTranslations(ctx context.Context, ownerType string, ids [
 			}
 			best[id][locale] = candidate{value, rank}
 		}
-		if err := rows.Close(); err != nil {
+		if err := errors.Join(rows.Err(), rows.Close()); err != nil {
 			return nil, dbErr(err)
 		}
 		rows, err = s.db.QueryContext(ctx, fmt.Sprintf(`SELECT ts.owner_id, ts.source_language FROM translation_states ts JOIN %[1]s o ON o.id = ts.owner_id
@@ -266,7 +266,7 @@ func (s *Store) resolveTranslations(ctx context.Context, ownerType string, ids [
 			}
 			languages[id] = language
 		}
-		if err := rows.Close(); err != nil {
+		if err := errors.Join(rows.Err(), rows.Close()); err != nil {
 			return nil, dbErr(err)
 		}
 	}
@@ -468,7 +468,7 @@ func (s *Store) AdminTranslations(ctx context.Context, ownerType string, ids []s
 			}
 			rowsByID[id] = append(rowsByID[id], row)
 		}
-		if err := rows.Close(); err != nil {
+		if err := errors.Join(rows.Err(), rows.Close()); err != nil {
 			return nil, dbErr(err)
 		}
 		rows, err = s.db.QueryContext(ctx, fmt.Sprintf(`SELECT ts.owner_id, ts.source_hash = translation_hash(%[3]s), ts.status, COALESCE(ts.source_language, ''), ts.last_attempt_at, ts.last_error, ts.requested
@@ -488,7 +488,7 @@ func (s *Store) AdminTranslations(ctx context.Context, ownerType string, ids []s
 			value.current = current.Valid && current.Bool
 			states[id] = value
 		}
-		if err := rows.Close(); err != nil {
+		if err := errors.Join(rows.Err(), rows.Close()); err != nil {
 			return nil, dbErr(err)
 		}
 	}
@@ -648,7 +648,7 @@ func (s *Store) ListTranslationCandidates(ctx context.Context, since time.Time, 
 			item.SourceHash = TranslationHash(item.Text)
 			all = append(all, item)
 		}
-		if err := rows.Close(); err != nil {
+		if err := errors.Join(rows.Err(), rows.Close()); err != nil {
 			return nil, dbErr(err)
 		}
 	}
@@ -793,7 +793,7 @@ func (s *Store) SaveMachineTranslation(ctx context.Context, result MachineTransl
 			visible[locale] = text
 		}
 	}
-	if err = rows.Close(); err != nil {
+	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
 		return false, dbErr(err)
 	}
 	for locale := range stored {

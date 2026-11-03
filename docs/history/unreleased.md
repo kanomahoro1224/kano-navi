@@ -26,6 +26,11 @@
 > Startup adds `videos.availability` and `videos.manual_availability` to an
 > existing database, empty for every row; each video fills in at its next
 > YouTube check, so nothing is hidden after the upgrade.
+>
+> `PUT /api/admin/proxy` and `PUT /api/admin/llm/providers/{id}` answer
+> `400 invalid_input` when a write moves a proxy (scheme, host or port) or a
+> provider (`baseUrl`) that holds a stored secret without sending the
+> password or `apiKey` again.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -90,6 +95,8 @@
 - The About page has a Contributors chapter that names the author and the
   developers who have contributed code, with a link to the full list on
   GitHub.
+- A browser that blocks site storage sees every page instead of a blank one;
+  the language and theme choices then last for the visit only.
 
 </details>
 
@@ -127,6 +134,9 @@
   replaces the posts' `reprocess=1`.
 - Review → Posts lists only failed and uncertain results. The step's posts
   queued for a run are counted under its filters with a link to them.
+- A saved proxy password or provider API key must be entered again when the
+  proxy's scheme, host or port or the provider's base URL changes, so a
+  stored secret is never sent to a new address.
 - The LLM page lists recent failures: the newest failed schedule extractions,
   schedule image checks and translations with their stage, model, stored
   message and a link to the post or video (`GET /api/admin/llm/failures`).
@@ -186,5 +196,30 @@
   instead of returning an entry that fails the event check (`schedule
 extraction contained an invalid event`). The extractor version is
   unchanged, so stored results are not extracted again.
+- A model answer that is not an object, carries a non-array `events` field,
+  names neither a classification nor events, or classifies a post as
+  `schedule` without entries (other than a cancellation) is a failed attempt.
+  Such answers used to be stored as `not_schedule`, or retired every
+  automatic event of the post.
+- A schedule image whose URL changes starts unreviewed again: an operator's
+  label, reason and period correction for the old image no longer carry over
+  and publish an image nobody checked.
+- A YouTube reservation restores an event that automatic re-extraction had
+  retired, and retiring an event releases the rule merges into it, so a
+  duplicate older than the merge window is shown again. Operator deletions
+  stay deleted.
+- The default cancellation reason the extractor stores is English.
+- Reads that list translations, video alternates and stored machine
+  translations fail instead of returning a partial result when the query
+  stops partway through.
+
+</details>
+
+<details>
+<summary><strong>Runtime and development</strong></summary>
+
+- `kano-go migrate-llm` trims `OPENAI_API_KEY` and `LLM_SECRETS_KEY` as the
+  service does, so a key with surrounding whitespace seals a provider key the
+  service can open, and a whitespace-only secrets key is refused.
 
 </details>

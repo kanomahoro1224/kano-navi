@@ -792,6 +792,17 @@ Asia/Tokyo date, weekday, and time, so relative dates such as 今日, 明日, or
 bare weekday resolve without a UTC conversion. Fingerprints use the stored
 timestamp alone.
 
+Every returned entry must pass the event check: a non-blank title, a real
+`YYYY-MM-DD` date, `HH:MM` times (an end time only with a start time), known
+`timePrecision` and `eventType` codes and a confidence from 0 to 1. One
+entry that fails it fails the whole extraction with `schedule extraction
+contained an invalid event`. The prompt therefore states these formats and
+asks the model to leave out entries that give only a month, a season or a
+vague period, and to classify a post with no remaining entry as
+`not_schedule`. The console's
+[recent failures](admin-api.md#extraction-and-models) show the newest
+stored failures with their messages.
+
 The two candidate lists are merged, de-duplicated by X post ID, sorted by
 least recent attempt (unattempted posts first), with publication time as a tie
 breaker. The shared limit counts candidates requiring work; unchanged fingerprint

@@ -124,6 +124,11 @@
   replaces the posts' `reprocess=1`.
 - Review → Posts lists only failed and uncertain results. The step's posts
   queued for a run are counted under its filters with a link to them.
+- The LLM page lists recent failures: the newest failed schedule extractions,
+  schedule image checks and translations with their stage, model, stored
+  message and a link to the post or video (`GET /api/admin/llm/failures`).
+  A post whose extraction answer failed the event check reads Unreadable
+  response instead of Provider error.
 
 </details>
 
@@ -173,5 +178,10 @@
   private or members-only page is no longer a run error, where a members-only
   page used to record `youtube_watch_details_incomplete`. A members-only video
   is a member entry whatever its title says.
+- The extraction prompt asks for `YYYY-MM-DD` dates and `HH:MM` times and
+  leaves out entries that name only a month, a season or a vague period,
+  instead of returning an entry that fails the event check (`schedule
+extraction contained an invalid event`). The extractor version is
+  unchanged, so stored results are not extracted again.
 
 </details>

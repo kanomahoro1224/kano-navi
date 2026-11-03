@@ -6017,6 +6017,59 @@ blockquote.adm-verdict-reason {
   font-size: 12px;
 }
 
+.adm-failure-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  list-style: none;
+}
+
+.adm-failure-list > li {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.adm-failure-list > li + li {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-failure-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.adm-failure-head time,
+.adm-failure-meta {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-failure-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  overflow-wrap: anywhere;
+}
+
+.adm-failure-meta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+}
+
+.adm-failure-meta svg {
+  width: 12px;
+  height: 12px;
+}
+
 .adm-provider-models,
 .adm-add-models {
   display: grid;

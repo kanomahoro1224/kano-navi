@@ -856,6 +856,22 @@ export interface RouteTarget {
   modelId: string
 }
 
+/**
+ * One stored failed model result. `message` is one of the fixed English
+ * messages the schedule and translate steps store.
+ */
+export interface LlmFailure {
+  route: QueueRoute
+  subject: "post" | "image" | "video"
+  subjectId: string
+  /** The post or video address; an image carries its post's. */
+  url: string | null
+  providerId: string | null
+  model: string | null
+  message: string
+  at: string
+}
+
 export interface LlmCatalog {
   providers: Provider[]
   models: Model[]

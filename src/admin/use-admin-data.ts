@@ -30,6 +30,7 @@ import type {
   FetchOptions,
   FetchSelection,
   LlmCatalog,
+  LlmFailure,
   Model,
   Overview,
   Page,
@@ -349,6 +350,7 @@ function createClient(run: Runner, slow: Runner) {
     updateExtraction: (body: Partial<Extraction>) =>
       send<Extraction>("PUT", "/extraction", body),
     llm: () => get<LlmCatalog>("/llm"),
+    llmFailures: () => get<{ items: LlmFailure[] }>("/llm/failures"),
     createProvider: (body: Record<string, any>) =>
       send<{ provider: Provider }>("POST", "/llm/providers", body),
     updateProvider: (id: string, body: Record<string, any>) =>

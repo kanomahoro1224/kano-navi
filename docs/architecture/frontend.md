@@ -533,8 +533,11 @@ name, or stable ID to identify a mark; unknown custom providers retain their
 initial. Removing a preset does not delete saved providers.
 
 The LLM view shows the extraction, schedule-image check and translation queues
-side by side, then the
-providers as a list beside the selected provider's detail. A queue change
+side by side, then the recent failures, then the
+providers as a list beside the selected provider's detail. Recent failures
+lists each stored failure's stage, relative time (the Japan time on hover),
+message, model and a link to its post or video; it loads with the view and
+on its reload button. A queue change
 (add from the model picker, drag or move, remove) shows at once and is saved
 in order: each queue has at most one save in flight, and edits made meanwhile
 collapse into the latest order, sent next. A refused save returns the queue to

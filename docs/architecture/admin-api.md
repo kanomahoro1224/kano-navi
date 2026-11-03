@@ -716,6 +716,7 @@ means the requests wait for the next translate step.
 | `GET /extraction`                        |                                                                                            | extraction settings                                                          |
 | `PUT /extraction`                        | any subset of `{keywordEnabled, visionEnabled, messageEnabled, messageAllPosts, keywords}` | extraction settings                                                          |
 | `GET /llm`                               |                                                                                            | `{providers, models, queue, verificationQueue, translationQueue, modelTags}` |
+| `GET /llm/failures`                      |                                                                                            | `{items}` newest 30 failures                                                 |
 | `POST /llm/providers`                    | provider fields                                                                            | `201 {provider}`                                                             |
 | `PUT /llm/providers/{id}`                | provider fields                                                                            | `{provider}`                                                                 |
 | `DELETE /llm/providers/{id}`             |                                                                                            | `204`                                                                        |
@@ -742,6 +743,16 @@ provider test without `{model}` only lists the provider's models. Creating a
 provider or adding catalog models never queues anything. Model IDs may
 contain `/`, so model writes name the model in the body. Provider responses
 report `apiKeyConfigured` only; keys are write-only.
+
+`GET /llm/failures` lists the 30 newest stored model failures, newest first:
+failed schedule extractions (one per input and queue target), failed
+schedule-image checks and owners whose last machine translation failed. A
+stopped run (`LLM request cancelled`) is not listed. Each item is `{route,
+subject, subjectId, url, providerId, model, message, at}`: `route` is
+`schedule`, `verify` or `translate`; `subject` is `post`, `image` (a schedule
+image, with its post's `url`) or `video`; `providerId` is known for
+extractions and `model` for extractions and image checks; `message` is the
+stored fixed message, never upstream wording; `at` is when the call failed.
 
 ## Outbound proxies
 

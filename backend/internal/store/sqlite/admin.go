@@ -1109,7 +1109,8 @@ func sanitizeLLMError(value sql.NullString) *string {
 		category = "authentication"
 	case strings.Contains(lower, "rate") || strings.Contains(lower, "429"):
 		category = "rate_limited"
-	case strings.Contains(lower, "json") || strings.Contains(lower, "parse") || strings.Contains(lower, "decode"):
+	case strings.Contains(lower, "json") || strings.Contains(lower, "parse") || strings.Contains(lower, "decode") ||
+		strings.Contains(lower, "invalid") || strings.Contains(lower, "contained"):
 		category = "invalid_response"
 	case strings.Contains(lower, "network") || strings.Contains(lower, "connect"):
 		category = "network"

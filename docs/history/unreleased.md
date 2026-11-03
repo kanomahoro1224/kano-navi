@@ -31,6 +31,11 @@
 > `400 invalid_input` when a write moves a proxy (scheme, host or port) or a
 > provider (`baseUrl`) that holds a stored secret without sending the
 > password or `apiKey` again.
+>
+> The public MCP `sync_status` tool lists the recent jobs' kind, status and
+> times without their `id` and no longer looks a job up by `jobId`; a client
+> that follows a job it started sends the `MCP_CONTROL_TOKEN`, which keeps
+> both.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -97,6 +102,8 @@
   GitHub.
 - A browser that blocks site storage sees every page instead of a blank one;
   the language and theme choices then last for the visit only.
+- Public MCP `sync_status` no longer names job IDs; the control token's
+  holder still reads them and looks jobs up by ID.
 
 </details>
 
@@ -137,6 +144,13 @@
 - A saved proxy password or provider API key must be entered again when the
   proxy's scheme, host or port or the provider's base URL changes, so a
   stored secret is never sent to a new address.
+- A view no longer shows an older answer after a newer one, such as run A's
+  results under run B in the manual fetch panel, and two views reading the
+  same list no longer leave one of them loading forever.
+- A run that reaches its 20-minute limit, or loses its lease, finishes
+  `failed` with `timeout` or `lease_expired` and can be retried, instead of
+  reading as an operator's cancellation. A single failed lease renewal, such
+  as on a busy database, no longer stops the run.
 - The LLM page lists recent failures: the newest failed schedule extractions,
   schedule image checks and translations with their stage, model, stored
   message and a link to the post or video (`GET /api/admin/llm/failures`).
@@ -209,6 +223,18 @@ extraction contained an invalid event`). The extractor version is
   duplicate older than the merge window is shown again. Operator deletions
   stay deleted.
 - The default cancellation reason the extractor stores is English.
+- Times from `24:00` to `29:59`, which Japanese schedules use for late-night
+  hours, are stored on the next date (`25:30` becomes `01:30` the next day),
+  and an empty time means no time, instead of failing the whole post.
+- A manual fetch whose saved continuation the source rejects (an X API
+  `next_token` answered with HTTP 400, or a YouTube playlist token) starts
+  again at the newest page and clears the token, so a repeated fetch no
+  longer fails the same way every time. Rate limits and quota keep the saved
+  position.
+- The YouTube push callback confirms only a subscription this process asked
+  for within the last hour, so a stranger's subscribe request with this
+  callback can no longer replace the signing secret and silence push
+  notifications.
 - Reads that list translations, video alternates and stored machine
   translations fail instead of returning a partial result when the query
   stops partway through.

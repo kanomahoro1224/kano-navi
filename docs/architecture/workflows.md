@@ -209,8 +209,14 @@ checkpoint is a `sync_state` row keyed by account and a hash of the selection
 `youtube-window` for playlist page tokens. The RSS method reads one request and
 keeps no checkpoint. Repeating an interrupted fetch resumes its next page; a
 completed one starts again at the newest page. When a resumed cursor or token
-fails, the fetch starts again from the newest page, in the same run if the
-budget allows. `before` runs finish a pending interval (`pendingWindow`) before
+fails before any page of the fetch is committed, the fetch starts again from
+the newest page, in the same run if the budget allows. A continuation the
+source rejects is cleared from its checkpoint at once, so the next fetch
+begins at the newest page even when this one had no page left: any failed
+timeline cursor, an X API `next_token` answered with HTTP 400, and a
+playlist token answered with an HTTP error or rejected as malformed. Other
+API answers, such as rate limits, quota and outages, keep the stored
+continuation. `before` runs finish a pending interval (`pendingWindow`) before
 moving farther back, using `x-backfill` search boundaries. A completed empty
 interval also moves this boundary backward, preventing an endless retry over
 the same empty month. Failures retain all records and the last successful

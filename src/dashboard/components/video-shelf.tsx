@@ -36,10 +36,12 @@ import {
 import {
   groupVideos,
   splitVideos,
+  videoIsGone,
   videoIsStream,
   videoLinks,
   videoMatchesFilter,
   videoPhase,
+  videoPlatforms,
   VIDEO_CATEGORIES,
   type VideoCategory,
   type VideoFilter,
@@ -63,20 +65,24 @@ function Thumb({
   sizes = CARD_THUMB_SIZES,
   badge = null,
   seconds,
-  links = [],
+  video,
+  links,
   t,
 }: {
   url: string | null
   sizes?: string
   badge?: "play" | "upcoming" | null
   seconds?: number | null
-  /** The video's platforms; two or more mark the cover. */
-  links?: VideoLink[]
+  video: Video
+  /** The video's platform links; their platforms mark the cover. */
+  links: VideoLink[]
   t: Translator
 }) {
   const length = formatDuration(seconds)
+  // A private or removed video without another copy has nothing to open.
+  const closed = videoIsGone(video) && !links.length
   return (
-    <span className="video-thumb">
+    <span className={`video-thumb${closed ? " is-closed" : ""}`}>
       {url ? (
         <img
           src={url}
@@ -91,7 +97,7 @@ function Thumb({
           <span>{t("media.unavailable")}</span>
         </span>
       )}
-      <PlatformBadge links={links} />
+      <PlatformBadge platforms={videoPlatforms(video, links)} />
       {badge ? (
         <span className="video-thumb-badge" aria-hidden="true">
           {badge === "upcoming" ? <Clock3 /> : <Play fill="currentColor" />}
@@ -218,6 +224,7 @@ function LeadCard({
           badge={
             phase === "upcoming" ? "upcoming" : links.length ? "play" : null
           }
+          video={video}
           links={links}
           t={t}
         />
@@ -353,6 +360,7 @@ function VideoCard({
         <Thumb
           url={video.thumbnailUrl}
           seconds={video.durationSeconds}
+          video={video}
           links={links}
           t={t}
         />
@@ -434,6 +442,7 @@ function VideoRow({
           url={video.thumbnailUrl}
           badge={video.isUpcoming ? "upcoming" : links.length ? "play" : null}
           seconds={video.durationSeconds}
+          video={video}
           links={links}
           t={t}
         />
@@ -815,6 +824,7 @@ function ArchiveCard({
           url={video.thumbnailUrl}
           badge={phase === "upcoming" ? "upcoming" : null}
           seconds={video.durationSeconds}
+          video={video}
           links={links}
           t={t}
         />

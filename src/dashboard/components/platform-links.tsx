@@ -55,15 +55,16 @@ export function PlatformLinks({
 }
 
 /**
- * A cover's mark for a work on more than one platform. It only signals; the
- * links follow the title, so a tap on the cover still opens the card's link.
+ * A cover's mark for the platforms a work is on (`videoPlatforms`). It only
+ * signals; the links follow the title, so a tap on the cover still opens the
+ * card's link.
  */
-export function PlatformBadge({ links }: { links: VideoLink[] }) {
-  if (links.length < 2) return null
+export function PlatformBadge({ platforms }: { platforms: string[] }) {
+  if (!platforms.length) return null
   return (
     <span className="platform-badge" aria-hidden="true">
-      {links.map((link) => (
-        <PlatformMark key={link.url} source={link.source} />
+      {platforms.map((source, index) => (
+        <PlatformMark key={`${source}-${index}`} source={source} />
       ))}
     </span>
   )

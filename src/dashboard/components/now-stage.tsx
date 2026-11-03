@@ -39,7 +39,7 @@ import {
 } from "../format"
 import { pickCompanion, pickSpotlight, spotlightIsLive } from "../spotlight"
 import type { SyncSource, SyncState } from "../freshness"
-import { videoIsGone, videoLinks } from "../video-groups"
+import { videoIsGone, videoLinks, videoPlatforms } from "../video-groups"
 import { EventTagIcon, VideoAvailabilityChip, VideoTagChip } from "./event-tag"
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import { TranslatedTitle } from "./translated-title"
@@ -149,6 +149,7 @@ function TicketHead({
         ) : null}
         {tag}
       </span>
+      {item.video ? <VideoAvailabilityChip video={item.video} t={t} /> : null}
       {item.event ? (
         <span className={`ticket-provenance${manual ? " is-manual" : ""}`}>
           {manual ? (
@@ -246,7 +247,10 @@ function FullTicket({
       className={`ticket is-${isLive ? "live" : item.mode}${item.thumbnailUrl ? " has-art" : ""}${url ? " link-card" : ""}`}
       onClick={url ? followCardLink : undefined}
     >
-      <span className="ticket-art" aria-hidden="true">
+      <span
+        className={`ticket-art${item.video && !url ? " is-closed" : ""}`}
+        aria-hidden="true"
+      >
         {item.thumbnailUrl ? (
           <img
             src={item.thumbnailUrl}
@@ -257,7 +261,9 @@ function FullTicket({
         ) : (
           <span className="ticket-art-fallback" />
         )}
-        <PlatformBadge links={links} />
+        <PlatformBadge
+          platforms={item.video ? videoPlatforms(item.video, links) : []}
+        />
         {item.link === "watch" ? (
           <span className="ticket-play">
             <Play fill="currentColor" />
@@ -395,7 +401,7 @@ function LatestCard({
         ) : (
           <span className="ticket-art-fallback" />
         )}
-        <PlatformBadge links={links} />
+        <PlatformBadge platforms={videoPlatforms(companion.video, links)} />
         <span className="latest-card-play">
           <Play fill="currentColor" />
         </span>

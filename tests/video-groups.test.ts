@@ -9,6 +9,7 @@ import {
   videoLinks,
   videoMatchesFilter,
   videoPhase,
+  videoPlatforms,
 } from "../src/dashboard/video-groups.ts"
 import {
   durationAttribute,
@@ -417,4 +418,33 @@ test("a private or removed video keeps only its other platforms and never leads"
     groups.works.map((item) => item.id),
     ["g"],
   )
+})
+
+test("a cover marks every platform a work is on, a gone one included", () => {
+  const bilibili = {
+    source: "bilibili",
+    url: "https://www.bilibili.com/video/BV1synthetic3",
+  }
+  const marks = (item: Video, locale: "en" | "zh-CN" = "en") =>
+    videoPlatforms(item, videoLinks(item, locale, now))
+  assert.deepEqual(marks(video("y")), ["youtube"])
+  assert.deepEqual(marks(video("m", { availability: "members" })), ["youtube"])
+  const merged = video("b", {
+    kind: "upload",
+    publishedAt: at(-hour),
+    alternates: [bilibili],
+  })
+  assert.deepEqual(marks(merged), ["youtube", "bilibili"])
+  assert.deepEqual(marks(merged, "zh-CN"), ["bilibili", "youtube"])
+  // A private or removed video still names its own platform, link or not.
+  assert.deepEqual(marks(video("x", { availability: "removed" })), ["youtube"])
+  assert.deepEqual(
+    marks(video("p", { availability: "private", alternates: [bilibili] })),
+    ["youtube", "bilibili"],
+  )
+  const upload = video("BV1synthetic4", {
+    source: "bilibili",
+    url: "https://www.bilibili.com/video/BV1synthetic4",
+  })
+  assert.deepEqual(marks(upload), ["bilibili"])
 })

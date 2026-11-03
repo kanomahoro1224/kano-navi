@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react"
 import {
   Ban,
   Clapperboard,
+  Crown,
   Gamepad2,
   Lock,
   MessageCircle,
@@ -50,8 +51,9 @@ export function VideoTagChip({ video, t }: { video: Video; t: Translator }) {
 }
 
 /**
- * Who can watch a video, when not everyone can: members only, private or
- * removed. Nothing for a public or unlisted video, or one not yet checked.
+ * Who can watch a video, when not everyone can: members only, in YouTube's
+ * members green, or a muted private or removed. Nothing for a public or
+ * unlisted video, or one not yet checked.
  */
 export function VideoAvailabilityChip({
   video,
@@ -67,9 +69,10 @@ export function VideoAvailabilityChip({
     availability !== "removed"
   )
     return null
-  const Icon = availability === "removed" ? Ban : Lock
+  const Icon =
+    availability === "members" ? Crown : availability === "removed" ? Ban : Lock
   return (
-    <span className="tag video-availability">
+    <span className={`tag video-availability is-${availability}`}>
       <Icon aria-hidden="true" />
       {t(`videos.availability.${availability}`)}
     </span>

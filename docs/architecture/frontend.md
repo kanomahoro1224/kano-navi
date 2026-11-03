@@ -93,8 +93,13 @@ then each of its `alternates`); the first is the link its card, ticket or row
 follows. For `zh-CN` a past video with a bilibili alternate puts bilibili
 first; reservations, started and live videos keep their own platform. With
 two or more links, the shelf cards, rows, tickets and the stage's latest
-video show `PlatformLinks` in that order and an `aria-hidden`
-`PlatformBadge` on the cover (`src/dashboard/components/platform-links.tsx`). Its styles are in
+video show `PlatformLinks` in that order. Every video cover carries an
+`aria-hidden` `PlatformBadge` (`src/dashboard/components/platform-links.tsx`)
+of `videoPlatforms`: the links' platforms, led by the video's own platform
+when it is private or removed. Such a cover with no link left fades
+(`is-closed`). `VideoAvailabilityChip` marks `members` in the solid `--leaf`
+green, as do the schedule's `member` entries, and `private` and `removed`
+muted. Its styles are in
 `src/dashboard/board.css` on top of `src/site/site.css` and the shared tokens
 in `src/index.css`. The hidden `/admin` console
 lives in `src/admin/` and is organized around operator tasks: `index.tsx`

@@ -32,9 +32,14 @@
 
 - Every video projection adds `availability` (`public`, `unlisted`,
   `members`, `private`, `removed`, or `null` until a check could tell). A
-  video that not everyone can watch shows Members only, Private or Removed
-  beside its labels, and a private or removed video no longer links to
-  YouTube. The stage's latest video passes over private and removed videos.
+  video that not everyone can watch shows Members only (in green, as on
+  YouTube), Private or Removed beside its labels, and a private or removed
+  video no longer links to YouTube; without another copy its cover fades.
+  The stage's latest video passes over private and removed videos.
+- Every video cover marks the platforms it is on, a single YouTube or
+  bilibili mark included, not only videos on both.
+- Members-only schedule entries take the green of the Members only chip, and
+  video entries move to lavender.
 
 - A calendar entry can carry a label (`live`, `game`, `talk`, `song` or
   `video`) in its `tag` field, so a client can show what kind of activity an

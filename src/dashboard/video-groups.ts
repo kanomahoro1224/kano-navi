@@ -174,6 +174,16 @@ export function videoLinks(
 }
 
 /**
+ * Every platform a work is on, for its cover mark: the platforms of its links
+ * in their order, led by its own platform when a private or removed video
+ * left it without a link there.
+ */
+export function videoPlatforms(video: Video, links: VideoLink[]): string[] {
+  const sources = links.map((link) => link.source)
+  return videoIsGone(video) ? [video.source, ...sources] : sources
+}
+
+/**
  * Whether a video belongs to a filter; `all` keeps every video and a Short
  * belongs to `shorts` alone.
  */

@@ -352,6 +352,26 @@ export function eventKinds(event: ScheduleEvent) {
   return { typeKey, tag, work: type === "release" || type === "video" }
 }
 
+/**
+ * Whether a members-only entry adds its members chip beside the label that
+ * took the type's place (`displaced`): an activity label or a video's form.
+ * A video whose availability chip already tells who can watch it needs none.
+ */
+export function membersChipBeside(
+  event: ScheduleEvent | null | undefined,
+  video: Video | null | undefined,
+  displaced: boolean,
+) {
+  const availability = video?.availability
+  return (
+    String(event?.eventType || "").toLowerCase() === "member" &&
+    displaced &&
+    availability !== "members" &&
+    availability !== "private" &&
+    availability !== "removed"
+  )
+}
+
 /** A label's message key: a work's song reads as music, any other as singing. */
 export function eventTagKey(tag: EventTag, work: boolean) {
   return work && tag === "song" ? "media.kind.music" : `event.tag.${tag}`
@@ -400,13 +420,15 @@ export function videoTag(video: Video): VideoTag | null {
     : null
 }
 
-// A stream past its waiting room may still be on air: a confirmed broadcast
-// decides, otherwise its start within the live grace and before its end.
+// A stream past its waiting room may still be on air: a reported end that has
+// passed closes it, as in videoPhase; otherwise a confirmed broadcast
+// decides, then its start within the live grace and before its end.
 function streamMayBeOnAir(video: Video, now: number) {
-  const confirmed = confirmedLiveStatus(video)
-  if (confirmed) return confirmed === "live"
   const start = Date.parse(video.scheduledAt || "")
   const end = Date.parse(video.endsAt || "")
+  if (end <= now) return false
+  const confirmed = confirmedLiveStatus(video)
+  if (confirmed) return confirmed === "live"
   if (!(start <= now)) return false
   if (Number.isFinite(end)) return end > now
   return start > now - LIVE_GRACE_MS

@@ -346,9 +346,15 @@ locked by an operator); `cancellation` is `none`,
 automatic extraction, and a delete is a durable tombstone. Confirming keeps
 the stored values unless the body overrides them.
 
-`tag` is the calendar label: `live`, `game`, `talk`, `song` or `video`, and an
-empty value clears it. A saved label that differs from the stored one is an
-operator's decision (`tagSource = manual`) and outranks the automatic ones;
+`tag` is the calendar label: `live`, `game`, `talk`, `song` or `video`, an
+empty value clears it, and `auto` hands it back to the automatic layers. A
+saved label that differs from the stored one, a cleared one included, is an
+operator's decision (`tagSource = manual`) and outranks the automatic ones; a
+cleared entry shows no label. `auto` stores no label, no `tagSource` and no
+attempt, so the entry reads on to its videos' tags and they are asked about
+again; on a new entry it is the same as an empty value. The schedule editor
+offers it as Automatic and selects it for an entry without an operator's
+label;
 a save that sends the stored label back unchanged, such as a cancellation
 decision, keeps its `tagSource`. The whole row being locked already keeps a
 later automatic write from replacing it. The list

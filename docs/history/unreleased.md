@@ -54,7 +54,8 @@
   release types stay beside it; colors still follow the type. A `song` label
   reads as music with a note on a release or video entry and as singing with
   a vocal microphone elsewhere. The Next Up ticket names gameplay, talk and
-  singing entries by their label.
+  singing entries by their label, and a members-only entry keeps its Members
+  only chip beside it.
 - Past videos shows four columns of covers on wide screens, three on narrow
   ones and two on phones. A month long enough to scroll keeps the same columns
   as a short one.
@@ -69,7 +70,8 @@
   alone, so an upload whose title mentions a stream stays a work.
 - Every video shows its form and, beside it, its tag with an icon, so stream
   archives also say whether they were gameplay, talk or singing. A stream
-  that may still be on air reads as a stream, not an archive. Singing
+  that may still be on air reads as a stream, not an archive, and one whose
+  reported end has passed reads as an archive. Singing
   takes a vocal microphone and a music video or cover a note. Past videos'
   category buttons carry the same icons, and the Next Up ticket names a
   video's tag ahead of its entry's label.
@@ -93,7 +95,11 @@
 
 - The schedule editor sets an entry's label, and an empty choice clears it. A
   saved label is the operator's decision, outranks the automatic one and keeps
-  the entry from being relabelled later. Saving an entry for another reason,
+  the entry from being relabelled later; a cleared entry shows no label and
+  does not send its videos to the title inference. Automatic (`tag: "auto"`)
+  hands the label back: the entry follows its videos' tags, which are asked
+  about again, and the editor selects it for an entry without an operator's
+  label. Saving an entry for another reason,
   such as a cancellation decision, keeps an automatic label automatic.
 - The video editor corrects the form (`stream`, `premiere` or `upload`) and
   sets a content tag, which outranks the entry's label. The video list and
@@ -125,8 +131,9 @@
   queue's retries and provider status. A title the model cannot classify,
   or answers with a label outside the five codes, is recorded rather than
   asked again; a title whose request fails counts as failed, leaves the run
-  going and is asked again after the titles not yet tried, so an outage
-  marks nothing as decided. The request names whether the entry is a stream
+  going and is asked again a day later, after the titles not yet tried, so an
+  outage marks nothing as decided and a title that keeps failing costs one
+  attempt a day. The request names whether the entry is a stream
   or a premiere, and a creator's rename asks again about a title that gave
   no content.
 - A rule merge lends an X notice's label to the event that survives, including
@@ -149,10 +156,10 @@
   bot check, Japanese reasons included, and a video the Data API leaves out
   whose page answers without details reads as private or removed. The probe
   stops asking about such a video and counts it in `unavailable` rather than
-  failing the run.
+  failing the run, and asks again once a later check records it watchable.
 - YouTube checks record who can watch each video: the Data API's privacy
-  status (the `status` part, at no extra quota), the watch page's playability,
-  and private or removed for a failed page only when YouTube answered it. A
+  status (the `status` part, at no extra quota), the watch page's playability
+  (a public waiting room included), and private or removed for a failed page only when YouTube answered it. A
   private or members-only page is no longer a run error, where a members-only
   page used to record `youtube_watch_details_incomplete`. A members-only video
   is a member entry whatever its title says.

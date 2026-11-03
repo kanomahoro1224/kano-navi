@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -130,7 +131,7 @@ func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 	f.add("formtarget", "x", "synthetic", "2026-10-03", "20:00", "stream", `tag='live'`, `tag_source='llm'`)
 	add("MERGEDFORM1", "2026-10-03", `merged_into='formtarget'`, `merge_source='rule'`)
 
-	candidates, err := f.s.ListVideoTagCandidates(context.Background(), "2026-10-20", 20)
+	candidates, err := f.s.ListVideoTagCandidates(context.Background(), "2026-10-20", tagNow, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,5 +147,100 @@ func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 		if got[id] != want {
 			t.Errorf("%s candidate=%v, want %v", id, got[id], want)
 		}
+	}
+}
+
+// An operator who clears an entry's label decides it has none: the video is
+// not sent to the title inference because of the clear, and the entry shows
+// no label.
+func TestClearedEntryLabelHoldsBackItsVideo(t *testing.T) {
+	f := newMergeFixture(t)
+	f.labelVideo("CLEARED0001", "", "")
+	f.add("youtube-CLEARED0001", "youtube", "synthetic", "2026-10-01", "20:00", "stream", `source_key='reservation'`, `tag='game'`, `tag_source='title'`)
+	ctx := context.Background()
+	candidates := func() int {
+		f.t.Helper()
+		items, err := f.s.ListVideoTagCandidates(ctx, "2026-09-01", tagNow, 20)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(items)
+	}
+	if n := candidates(); n != 0 {
+		t.Fatalf("before the clear candidates=%d", n)
+	}
+	if _, err := f.s.UpdateManualEvent(ctx, "youtube-CLEARED0001", EventInput{Title: "synthetic", StartsOn: "2026-10-01"}); err != nil {
+		t.Fatal(err)
+	}
+	if n := candidates(); n != 0 {
+		t.Fatalf("the clear made the video a candidate: %d", n)
+	}
+	if got := f.tagState("youtube-CLEARED0001"); got != "|manual" {
+		t.Fatalf("cleared state=%q", got)
+	}
+	var label string
+	if err := f.s.DB().QueryRow(`SELECT COALESCE(` + eventLabelSQL("e") + `,'') FROM events e WHERE id='youtube-CLEARED0001'`).Scan(&label); err != nil {
+		t.Fatal(err)
+	}
+	if label != "" {
+		t.Fatalf("cleared entry label=%q", label)
+	}
+}
+
+// Saving an entry's label as automatic hands it back: a locked entry judged
+// without content, or one an operator cleared, no longer holds its video back,
+// forgets the attempt, and reads on to the video's inferred tag.
+func TestAutomaticLabelReleasesALockedEntry(t *testing.T) {
+	f := newMergeFixture(t)
+	ctx := context.Background()
+	for _, id := range []string{"JUDGEDLOCK1", "CLEAREDLOC1"} {
+		f.labelVideo(id, "", "")
+	}
+	f.add("youtube-JUDGEDLOCK1", "youtube", "synthetic", "2026-10-01", "20:00", "stream", `source_key='reservation'`, `tag_source='title'`, `tag_attempted_at='2026-10-01T00:00:00.000Z'`, `provenance='manual'`, `manual_locked=1`)
+	f.add("youtube-CLEAREDLOC1", "youtube", "synthetic", "2026-10-01", "20:00", "stream", `source_key='reservation'`, `tag_source='manual'`, `provenance='manual'`, `manual_locked=1`)
+	candidates := func() string {
+		f.t.Helper()
+		items, err := f.s.ListVideoTagCandidates(ctx, "2026-09-01", tagNow, 20)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids := []string{}
+		for _, item := range items {
+			ids = append(ids, item.ID)
+		}
+		slices.Sort(ids)
+		return strings.Join(ids, ",")
+	}
+	if got := candidates(); got != "" {
+		t.Fatalf("before candidates=%q", got)
+	}
+	for _, id := range []string{"youtube-JUDGEDLOCK1", "youtube-CLEAREDLOC1"} {
+		saved, err := f.s.UpdateManualEvent(ctx, id, EventInput{Title: "synthetic", StartsOn: "2026-10-01", Tag: TagAutomatic})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if saved.Tag != nil || saved.TagSource != nil || saved.Provenance != "manual" {
+			t.Fatalf("%s saved=%+v", id, saved)
+		}
+	}
+	if got := candidates(); got != "CLEAREDLOC1,JUDGEDLOCK1" {
+		t.Fatalf("after candidates=%q", got)
+	}
+	var attempted int
+	if err := f.s.DB().QueryRow(`SELECT COUNT(*) FROM events WHERE tag_attempted_at IS NOT NULL`).Scan(&attempted); err != nil || attempted != 0 {
+		t.Fatalf("attempted=%d err=%v", attempted, err)
+	}
+	f.exec(`UPDATE videos SET tag='talk',tag_source='title' WHERE id='JUDGEDLOCK1'`)
+	var label string
+	if err := f.s.DB().QueryRow(`SELECT COALESCE(` + eventLabelSQL("e") + `,'') FROM events e WHERE id='youtube-JUDGEDLOCK1'`).Scan(&label); err != nil {
+		t.Fatal(err)
+	}
+	if label != "talk" {
+		t.Fatalf("automatic entry label=%q", label)
+	}
+	// A new entry saved as automatic stores no label.
+	created, err := f.s.CreateManualEvent(ctx, EventInput{ID: "auto-new", Title: "synthetic", StartsOn: "2026-10-02", Tag: TagAutomatic})
+	if err != nil || created.Tag != nil || created.TagSource != nil {
+		t.Fatalf("created=%+v err=%v", created, err)
 	}
 }

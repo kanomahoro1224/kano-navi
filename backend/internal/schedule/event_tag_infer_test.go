@@ -57,13 +57,14 @@ func TestEventTagFailureCountsAndContinues(t *testing.T) {
 			t.Errorf("%s state=%q, want %q", id, got, want)
 		}
 	}
-	// Every target down: each title fails, none is judged, and the provider
-	// status records the failure.
+	// Every target down: the new title fails, none is judged, and the
+	// provider status records the failure. The title that failed waits out
+	// its retry delay instead of being sent again.
 	f.addReservation("d", "synthetic", 4)
 	f.provider.respond = func(recordedRequest) (int, string) { return http.StatusServiceUnavailable, `{}` }
 	result = runTranslator(t, translator)
 	tags, _ = result.Counts["eventTags"].(map[string]any)
-	if tags["failed"] != 2 || tags["success"] != 0 {
+	if tags["failed"] != 1 || tags["success"] != 0 {
 		t.Fatalf("outage eventTags=%v", tags)
 	}
 	if got := f.tagState("d"); got != "||attempted" {
@@ -75,7 +76,8 @@ func TestEventTagFailureCountsAndContinues(t *testing.T) {
 }
 
 // With a budget of one title per run, a title that keeps failing waits behind
-// the titles not yet attempted and is asked again once they have had a turn.
+// the titles not yet attempted, is not sent again before its retry delay has
+// passed, and is asked again after it.
 func TestFailingEventTagDoesNotHoldTheQueue(t *testing.T) {
 	f, translator := newTranslatorFixture(t)
 	f.addProvider("main", protocolChat, "https://translate.example.test", "synthetic-model", `["text"]`)
@@ -103,6 +105,11 @@ func TestFailingEventTagDoesNotHoldTheQueue(t *testing.T) {
 	if strings.Join(asked, ",") != "failing title,synthetic b,synthetic c" {
 		t.Fatalf("asked=%v", asked)
 	}
+	runTranslator(t, translator)
+	if len(asked) != 3 {
+		t.Fatalf("asked again before the retry delay: %v", asked)
+	}
+	f.exec(`UPDATE events SET tag_attempted_at=? WHERE id='a'`, time.Now().Add(-tagRetryAfter-time.Minute).UTC().Format(time.RFC3339Nano))
 	failing = false
 	runTranslator(t, translator)
 	if got := f.tagState("a"); got != "talk|title|attempted" {

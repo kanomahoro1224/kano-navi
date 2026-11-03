@@ -50,13 +50,14 @@ func TestManualEventTagRoundTrips(t *testing.T) {
 	if seen != len(EventTags) {
 		t.Fatalf("listed %d labelled events, want %d", seen, len(EventTags))
 	}
-	// Clearing the label keeps the row manual: provenance stays and the
-	// source becomes empty, so no later extraction fills it on its own.
+	// Clearing the label is the operator's decision: the row stays manual
+	// and records a manual source without a label, so no later extraction or
+	// inference fills it on its own.
 	cleared, err := store.UpdateManualEvent(ctx, "tag-video", EventInput{Title: "Synthetic video", StartsOn: "2026-10-12"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cleared.Tag != nil || cleared.TagSource != nil || cleared.Provenance != "manual" {
+	if cleared.Tag != nil || cleared.TagSource == nil || *cleared.TagSource != TagSourceManual || cleared.Provenance != "manual" {
 		t.Fatalf("cleared=%+v", cleared)
 	}
 }
@@ -130,7 +131,7 @@ func TestEventTagCandidatesSkipLockedJudgedAndLabelled(t *testing.T) {
 	}
 	defer store.Close()
 	ctx := context.Background()
-	candidates, err := store.ListEventTagCandidates(ctx, "2026-10-01", "2026-10-31", 10)
+	candidates, err := store.ListEventTagCandidates(ctx, "2026-10-01", "2026-10-31", tagNow, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +153,7 @@ func TestEventTagCandidatesSkipLockedJudgedAndLabelled(t *testing.T) {
 	if got := storeTagState(t, store, "free"); got != "|title" {
 		t.Fatalf("null judgement state=%q", got)
 	}
-	if candidates, err = store.ListEventTagCandidates(ctx, "2026-10-01", "2026-10-31", 10); err != nil || len(candidates) != 0 {
+	if candidates, err = store.ListEventTagCandidates(ctx, "2026-10-01", "2026-10-31", tagNow, 10); err != nil || len(candidates) != 0 {
 		t.Fatalf("after judgement candidates=%+v err=%v", candidates, err)
 	}
 	if ok, err := store.RecordEventTag(ctx, "free", nil, tagNow); err != nil || ok {

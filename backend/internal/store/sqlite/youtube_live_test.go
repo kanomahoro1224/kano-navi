@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -406,5 +407,48 @@ func TestLiveProbeStopsUnavailableAndOperatorStoppedVideos(t *testing.T) {
 	}
 	if err := s.SetLiveProbeStopped(ctx, "ZZZZZZZZZZZ", true, now); err != ErrWorkflowNotFound {
 		t.Fatalf("unknown video err=%v", err)
+	}
+}
+
+func TestWatchableCheckLiftsAnUnavailableStop(t *testing.T) {
+	s, _ := openLiveStore(t)
+	ctx := context.Background()
+	started := time.Now().UTC().Add(-2 * time.Hour).Format(time.RFC3339)
+	videos := []ytsource.Video{liveVideo("AAAAAAAAAAA", started, false), liveVideo("BBBBBBBBBBB", started, false), liveVideo("CCCCCCCCCCC", started, false)}
+	if err := s.WriteYoutubeRecent(ctx, liveChannel, ytsource.Result{Videos: videos, NextCursor: "AAAAAAAAAAA", NextCursorTime: "2026-01-01T00:00:00Z"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.WriteYoutubeLive(ctx, ytsource.ProbeResult{Attempted: []string{"AAAAAAAAAAA", "CCCCCCCCCCC"}, Unavailable: []string{"AAAAAAAAAAA", "CCCCCCCCCCC"}, Availability: map[string]string{"AAAAAAAAAAA": ytsource.AvailabilityPrivate, "CCCCCCCCCCC": ytsource.AvailabilityPrivate}, Requested: 2}); err != nil {
+		t.Fatal(err)
+	}
+	s.writable = true
+	if err := s.SetLiveProbeStopped(ctx, "BBBBBBBBBBB", true, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	// A recent check reads AAAAAAAAAAA public and BBBBBBBBBBB members-only;
+	// CCCCCCCCCCC stays private.
+	public := liveVideo("AAAAAAAAAAA", started, false)
+	public.Availability = ytsource.AvailabilityPublic
+	if err := s.WriteYoutubeRecent(ctx, liveChannel, ytsource.Result{Videos: []ytsource.Video{public}, Availability: map[string]string{"BBBBBBBBBBB": ytsource.AvailabilityMembers}, NextCursor: "AAAAAAAAAAA", NextCursorTime: "2026-01-01T00:00:00Z"}); err != nil {
+		t.Fatal(err)
+	}
+	stops, err := s.LiveProbeStopped(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := []string{}
+	for _, stop := range stops {
+		got = append(got, stop.Video.ID+":"+stop.Reason)
+	}
+	slices.Sort(got)
+	if strings.Join(got, ",") != "BBBBBBBBBBB:operator,CCCCCCCCCCC:unavailable" {
+		t.Fatalf("stopped=%v", got)
+	}
+	targets, err := s.LiveProbeTargets(ctx, time.Now(), LiveProbeSettings{Enabled: true, IntervalMinutes: 15})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 1 || targets[0].Video.ID != "AAAAAAAAAAA" {
+		t.Fatalf("targets=%v", targets)
 	}
 }

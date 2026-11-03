@@ -319,9 +319,9 @@ func eventInput(body map[string]json.RawMessage) (sqlite.EventInput, error) {
 	if input.EventType, err = oneOf(textField(body["eventType"]), "event", "eventType", "event", "stream", "member", "release", "appearance"); err != nil {
 		return input, err
 	}
-	// An empty tag clears the label; the store keeps the row manual, so the
-	// automatic extraction does not fill it again by itself.
-	if input.Tag, err = oneOf(textField(body["tag"]), "", "tag", sqlite.EventTags...); err != nil {
+	// An empty tag clears the label as the operator's decision, so no
+	// automatic layer fills it again by itself; "auto" hands it back to them.
+	if input.Tag, err = oneOf(textField(body["tag"]), "", "tag", append([]string{sqlite.TagAutomatic}, sqlite.EventTags...)...); err != nil {
 		return input, err
 	}
 	// A date-only entry never acquires a time precision.

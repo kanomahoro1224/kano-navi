@@ -24,7 +24,9 @@
 > backlog clears.
 >
 > Startup also adds the `push_devices` table, which holds the HarmonyOS push
-> registrations and their switches; nothing is migrated.
+> registrations and their switches; nothing is migrated. It adds
+> `push_pending`, which holds an accepted X post until the translate step
+> settles its wording and the other languages are notified.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -103,7 +105,16 @@
 - `POST /api/push/device` registers a HarmonyOS device with its Huawei Push
   Kit token and four switches (all notifications, live, video, post); the App
   calls it on launch, after a token rotation and whenever a switch changes.
-  Registering again retires the same device's previous token.
+  Registering again retires the same device's previous token. The device's
+  `locale` is the App's push language setting, which decides both the
+  notification wording and the body language of a deferred post.
+- An accepted X post notifies the devices reading Japanese at once with the
+  original wording. Every other language waits in `push_pending` until the
+  translate step records a settled translation for the post, and the step's
+  completion then sends one notification per language with the translated
+  body; Traditional Chinese readers receive the Simplified body. A post whose
+  translation never settles is sent with its own wording after a ten-minute
+  wait.
 - Huawei Push Kit delivery needs an AGC service account JSON file in
   `HUAWEI_PUSH_SERVICE_ACCOUNT`; while it is empty the process starts without
   push. `HUAWEI_PUSH_CATEGORY` names the category approved for the app, and

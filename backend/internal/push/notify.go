@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"hash/fnv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -23,6 +25,9 @@ const (
 // the wording per language is chosen here, and the platform's own markup never
 // reaches the shade.
 type Update struct {
+	// ID is the post identity, which ties a deferred notification to its
+	// stored translations. Other categories leave it empty.
+	ID string
 	// Platform is x, youtube or bilibili.
 	Platform string
 	// Kind is the BambinoStatus update kind, e.g. post, video, live_start.
@@ -35,6 +40,9 @@ type Update struct {
 	Text string
 	// URL is the original page, opened if the App cannot route the tap.
 	URL string
+	// Bodies holds translated bodies by locale, filled only for a deferred
+	// post whose translation arrived after the Japanese notification.
+	Bodies map[string]string
 }
 
 // Category reports which switch governs this update.
@@ -54,6 +62,9 @@ func (u Update) Category() Category {
 type Dispatcher struct {
 	client *Client
 	store  *sqlite.Store
+	// flushMu serializes pending flushes: the translate step and the ingest
+	// catch-up can both fire, and a second runner would resend the same rows.
+	flushMu sync.Mutex
 }
 
 // NewDispatcher returns nil when push is off, so callers can hold the value
@@ -70,6 +81,11 @@ func NewDispatcher(client *Client, store *sqlite.Store) *Dispatcher {
 // the shade and burn the daily quota in one burst.
 const maxFanout = 8
 
+// pendingGrace bounds how long a post waits for its translation. The translate
+// queue normally settles an ingested post within its run; a queue that is off
+// or keeps failing must not hold the notification forever.
+const pendingGrace = 10 * time.Minute
+
 // Dispatch sends one notification per update, skipping devices whose switches
 // exclude it. Failures are logged through the returned error; the caller must
 // never let them fail the ingest itself.
@@ -81,7 +97,112 @@ func (d *Dispatcher) Dispatch(ctx context.Context, updates []Update) error {
 	if err != nil {
 		return err
 	}
-	if len(devices) == 0 {
+	return d.deliver(ctx, devices, updates, nil, nil)
+}
+
+// DispatchPosts sends X posts to the devices that read Japanese now and
+// remembers them for every other language. The translate step flushes the
+// remembered rows once it settles their wording, so readers of Chinese and
+// English get the translated body instead of the Japanese original.
+func (d *Dispatcher) DispatchPosts(ctx context.Context, updates []Update) error {
+	if d == nil || len(updates) == 0 {
+		return nil
+	}
+	createdAt := sqlite.ISOTime(time.Now())
+	items := make([]sqlite.PendingPush, 0, len(updates))
+	for _, update := range updates {
+		items = append(items, sqlite.PendingPush{
+			PostID:    strings.TrimSpace(update.ID),
+			Platform:  update.Platform,
+			Kind:      update.Kind,
+			Author:    update.Author,
+			Title:     update.Title,
+			Text:      update.Text,
+			URL:       update.URL,
+			CreatedAt: createdAt,
+		})
+	}
+	// The row is the only record of the post, so keep it even when no device
+	// is registered yet; a device added before the translation settles still
+	// receives the deferred notification. A failed write must not swallow the
+	// Japanese notification that needs no translation.
+	saveErr := d.store.SavePendingPushes(ctx, items)
+	devices, err := d.store.PushDevices(ctx)
+	if err != nil {
+		return err
+	}
+	sendErr := d.deliver(ctx, devices, updates, func(locale string) bool { return locale == "ja" }, nil)
+	if saveErr != nil {
+		return saveErr
+	}
+	return sendErr
+}
+
+// FlushPending notifies the non-Japanese devices of the posts whose
+// translation settled, or whose grace period ran out. It leaves rows that are
+// still waiting for the model, so the next translate run or catch-up tick
+// retries them.
+func (d *Dispatcher) FlushPending(ctx context.Context) error {
+	if d == nil {
+		return nil
+	}
+	d.flushMu.Lock()
+	defer d.flushMu.Unlock()
+	items, err := d.store.PendingPushes(ctx, time.Now(), pendingGrace, maxFanout)
+	if err != nil {
+		return err
+	}
+	ready := make([]sqlite.PendingPush, 0, len(items))
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		if !item.Ready {
+			continue
+		}
+		ready = append(ready, item)
+		ids = append(ids, item.PostID)
+	}
+	if len(ready) == 0 {
+		return nil
+	}
+	sets, err := d.store.PostTranslationSets(ctx, ids)
+	if err != nil {
+		return err
+	}
+	devices, err := d.store.PushDevices(ctx)
+	if err != nil {
+		return err
+	}
+	updates := make([]Update, 0, len(ready))
+	for _, item := range ready {
+		update := Update{
+			ID:       item.PostID,
+			Platform: item.Platform,
+			Kind:     item.Kind,
+			Author:   item.Author,
+			Title:    item.Title,
+			Text:     item.Text,
+			URL:      item.URL,
+			Bodies:   map[string]string{},
+		}
+		for locale, translation := range sets[item.PostID].Locales {
+			update.Bodies[locale] = translation.Text
+		}
+		updates = append(updates, update)
+	}
+	// Japanese devices already hold these posts; only the deferred languages
+	// are sent now.
+	sendErr := d.deliver(ctx, devices, updates, func(locale string) bool { return locale != "ja" }, translatedBody)
+	// A failed send is not retried: a later flush would deliver the same post
+	// twice to any device the first attempt reached.
+	_ = d.store.DeletePendingPushes(ctx, ids)
+	return sendErr
+}
+
+// deliver groups the accepted devices by language and sends one notification
+// per language. allow narrows which languages receive this pass; body
+// overrides the second line, which deferred posts fill from their translation.
+func (d *Dispatcher) deliver(ctx context.Context, devices []sqlite.PushDevice, updates []Update, allow func(string) bool, body func(Update, string) string) error {
+	if len(devices) == 0 || len(updates) == 0 {
 		return nil
 	}
 	// One row per author and category: a creator publishing three posts in a
@@ -96,13 +217,20 @@ func (d *Dispatcher) Dispatch(ctx context.Context, updates []Update) error {
 			if !accepts(device, category) {
 				continue
 			}
-			byLocale[normalizeLocale(device.Locale)] = append(byLocale[normalizeLocale(device.Locale)], device.Token)
+			locale := normalizeLocale(device.Locale)
+			if allow != nil && !allow(locale) {
+				continue
+			}
+			byLocale[locale] = append(byLocale[locale], device.Token)
 		}
 		for locale, tokens := range byLocale {
-			title, body := wording(update, locale)
+			title, detailText := wording(update, locale)
+			if body != nil {
+				detailText = body(update, locale)
+			}
 			rejected, sendErr := d.client.Send(ctx, Notification{
 				Title:  title,
-				Body:   body,
+				Body:   detailText,
 				Route:  routeFor(update),
 				URL:    update.URL,
 				Notify: notifyID(update),
@@ -120,6 +248,23 @@ func (d *Dispatcher) Dispatch(ctx context.Context, updates []Update) error {
 		return fmt.Errorf("push dispatch: %s", failures[0])
 	}
 	return nil
+}
+
+// translatedBody picks the deferred notification's second line. Traditional
+// Chinese readers receive the Simplified translation, which is the only
+// Chinese body the machine step produces; a missing or failed translation
+// falls back to the post's own wording.
+func translatedBody(update Update, locale string) string {
+	// The wordings use zh for Simplified and zh-Hant for Traditional; the
+	// machine step stores one Chinese body under zh-CN.
+	target := locale
+	if target == "zh" || target == "zh-Hant" {
+		target = "zh-CN"
+	}
+	if text := strings.TrimSpace(update.Bodies[target]); text != "" {
+		return oneLine(text, 120)
+	}
+	return detail(update)
 }
 
 // accepts applies a device's master switch and its category switch.

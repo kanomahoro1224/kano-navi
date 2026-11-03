@@ -163,6 +163,7 @@ func (m *Module) notify(events []eventRequest) {
 			author = strings.TrimSpace(event.Author.Handle)
 		}
 		updates = append(updates, push.Update{
+			ID:       strings.TrimSpace(event.ID),
 			Platform: strings.ToLower(strings.TrimSpace(event.Platform)),
 			Kind:     strings.ToLower(strings.TrimSpace(event.Kind)),
 			Author:   author,
@@ -174,8 +175,26 @@ func (m *Module) notify(events []eventRequest) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		if err := m.notifier.Dispatch(ctx, updates); err != nil {
+		// Japanese readers see the original wording at once; every other
+		// language waits for the translate step to settle the post.
+		if err := m.notifier.DispatchPosts(ctx, updates); err != nil {
 			log.Printf("kano-go: push dispatch failed: %v", err)
+		}
+	}()
+}
+
+// flushPending releases the posts whose translation settled since the last
+// check. The translate step calls it through its own hook; the catch-up tick
+// covers a queue that never ran the step.
+func (m *Module) flushPending() {
+	if m.notifier == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := m.notifier.FlushPending(ctx); err != nil {
+			log.Printf("kano-go: push flush failed: %v", err)
 		}
 	}()
 }
@@ -184,7 +203,11 @@ func (m *Module) notify(events []eventRequest) {
 // busy single-flight queue at ingest time cannot strand pending media or
 // schedule extraction.
 func (m *Module) RunCatchUp(ctx context.Context) {
-	if m == nil || m.jobs == nil {
+	if m == nil {
+		return
+	}
+	m.flushPending()
+	if m.jobs == nil {
 		return
 	}
 	if _, err := m.jobs.Start(ctx, jobs.KindWorkflow, "bambino-catchup", jobs.Options{Steps: strings.Split(Chain, ",")}); err != nil {

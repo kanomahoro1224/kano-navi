@@ -269,6 +269,17 @@ CREATE TABLE push_devices (
     last_seen_at TEXT NOT NULL
   );
 
+CREATE TABLE push_pending (
+    post_id TEXT PRIMARY KEY,
+    platform TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    author TEXT,
+    title TEXT,
+    text TEXT NOT NULL,
+    url TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
 CREATE TABLE resources (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
@@ -489,6 +500,8 @@ CREATE INDEX profile_media_slot_idx
 CREATE INDEX push_devices_device_idx ON push_devices (device_id);
 
 CREATE INDEX push_devices_enabled_idx ON push_devices (enabled, updated_at DESC);
+
+CREATE INDEX push_pending_created_idx ON push_pending (created_at);
 
 CREATE INDEX schedule_asset_reviews_status_idx
     ON schedule_asset_reviews (llm_status, manual_status, updated_at DESC);

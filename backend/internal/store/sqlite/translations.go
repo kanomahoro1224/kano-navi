@@ -283,6 +283,12 @@ func (s *Store) resolveTranslations(ctx context.Context, ownerType string, ids [
 	return out, nil
 }
 
+// PostTranslationSets resolves the public translations of the given posts.
+// The push dispatcher reads a post's later language bodies through it.
+func (s *Store) PostTranslationSets(ctx context.Context, ids []string) (map[string]TranslationSet, error) {
+	return s.resolveTranslations(ctx, TranslationOwnerPost, ids)
+}
+
 // attachPostTranslations resolves the posts' translations and their quotes'.
 // A quote shares the status ID of the stored post it quotes, if any.
 func (s *Store) attachPostTranslations(ctx context.Context, posts ...*Post) error {

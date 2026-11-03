@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -120,6 +121,15 @@ func runStandalone(cfg config.Config) int {
 		return fail("Huawei push service account invalid", 1)
 	}
 	pushDispatcher := pushkit.NewDispatcher(pushClient, store)
+	// The translate step is where a deferred post's translations settle, so
+	// the pending notifications are released as soon as the step returns.
+	if pushDispatcher != nil {
+		run.steps.AfterTranslate = func(ctx context.Context) {
+			if err := pushDispatcher.FlushPending(ctx); err != nil {
+				log.Printf("kano-go: push flush failed: %v", err)
+			}
+		}
+	}
 	// Delivery receipts retire the tokens Huawei reports as dead; the AGC
 	// receipt configuration pairs the callback secret with the callback user
 	// name, and both must match for a receipt to pass verification.

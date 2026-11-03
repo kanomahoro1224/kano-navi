@@ -39,6 +39,10 @@ type SourceSteps struct {
 	VariantBudget time.Duration
 	Schedule      ScheduleRunner
 	Translate     TranslateRunner
+	// AfterTranslate runs once the translate step returns, whatever its
+	// status. Push uses it to release notifications that waited for the
+	// machine translations the step just settled.
+	AfterTranslate func(context.Context)
 	// History serves the operator's manual fetches through their methods.
 	History *HistorySource
 	Store   *sqlite.Store
@@ -181,6 +185,9 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 			status, counts, err = s.Schedule.RunSchedule(ctx)
 		case in.StepID == "translate" && s.Translate != nil:
 			status, counts, err = s.Translate.RunTranslate(ctx)
+			if s.AfterTranslate != nil {
+				s.AfterTranslate(ctx)
+			}
 		default:
 			return AttemptResult{}, NewStepError("capability_not_migrated", ErrBlocked)
 		}

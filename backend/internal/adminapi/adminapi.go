@@ -178,6 +178,8 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/push", Handler: a.pushPanel},
 		{Method: http.MethodPost, Path: "/push/test", Handler: a.pushTest},
 		{Method: http.MethodDelete, Path: "/push/devices/{id}", Handler: a.deletePushDevice},
+		{Method: http.MethodGet, Path: "/push/web", Handler: a.webPushPanel},
+		{Method: http.MethodPut, Path: "/push/web", Handler: a.updateWebPushSettings},
 		{Method: http.MethodDelete, Path: "/push/web", Handler: a.deleteWebPushSubscription},
 	}
 }

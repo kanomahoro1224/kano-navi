@@ -46,6 +46,7 @@ import { SiteView } from "@/admin/views/site"
 import { SourcesView } from "@/admin/views/sources"
 import { runTitle } from "@/admin/views/run-parts"
 import { VideosView } from "@/admin/views/videos"
+import { WebPushView } from "@/admin/views/web-push"
 import { cn } from "@/lib/utils"
 import "./admin.css"
 
@@ -102,6 +103,7 @@ const views: ViewEntry[] = [
   { id: "proxy", group: "system", icon: Network, component: ProxyView },
   { id: "site", group: "system", icon: Globe, component: SiteView },
   { id: "push", group: "system", icon: BellRing, component: PushView },
+  { id: "webPush", group: "system", icon: Globe, component: WebPushView },
 ]
 const groups = ["today", "data", "system"] as const
 

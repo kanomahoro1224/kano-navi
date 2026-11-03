@@ -24,6 +24,7 @@ import type {
   AdminPushState,
   AdminVideo,
   AdminVideosPage,
+  AdminWebPushState,
   DiscoveredModel,
   EventInput,
   Extraction,
@@ -395,12 +396,17 @@ function createClient(run: Runner, slow: Runner) {
       ),
     deletePushDevice: (deviceId: string) =>
       send<null>("DELETE", `/push/devices/${enc(deviceId)}`),
+    /** The browser view: subscriptions and the test-mode switch. */
+    webPush: () => get<AdminWebPushState>("/push/web"),
+    updateWebPushSettings: (body: { testMode: boolean }) =>
+      send<AdminWebPushState>("PUT", "/push/web", body),
     /** Sends the sample notification to every subscribed browser, or one. */
     testWebPush: (endpoint?: string) =>
       sendSlow<{
         ok: boolean
         subscriptions: number
         stale: number
+        testMode: boolean
         error: string
       }>(
         "POST",
@@ -684,6 +690,17 @@ export function useResource<T>(load: () => Promise<T>, deps: unknown[]) {
     void reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reload, revision, ...deps])
+
+  // The site can change what the console is looking at while its tab is in the
+  // background: a reader flips a category switch, a sync finishes. Reloading on
+  // return shows the current row instead of the snapshot the tab was left with.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") void reload()
+    }
+    document.addEventListener("visibilitychange", refresh)
+    return () => document.removeEventListener("visibilitychange", refresh)
+  }, [reload])
 
   return { data, setData, error, loading, reload }
 }

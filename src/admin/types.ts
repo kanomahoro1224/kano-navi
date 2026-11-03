@@ -870,6 +870,8 @@ export interface AdminWebPushState {
   configured: boolean
   total: number
   enabled: number
+  /** Test messages travel as important, so Do Not Disturb can be checked. */
+  testMode: boolean
   subscriptions: AdminWebPushSubscription[]
 }
 
@@ -881,5 +883,4 @@ export interface AdminPushState {
   category: string
   testMode: boolean
   devices: AdminPushDevice[]
-  web: AdminWebPushState
 }

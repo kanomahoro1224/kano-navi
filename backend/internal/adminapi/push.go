@@ -1,6 +1,7 @@
 package adminapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -30,14 +31,13 @@ type pushDevice struct {
 }
 
 type pushSnapshot struct {
-	Configured bool            `json:"configured"`
-	ProjectID  string          `json:"projectId"`
-	KeyID      string          `json:"keyId"`
-	SubAccount string          `json:"subAccount"`
-	Category   string          `json:"category"`
-	TestMode   bool            `json:"testMode"`
-	Devices    []pushDevice    `json:"devices"`
-	Web        webPushSnapshot `json:"web"`
+	Configured bool         `json:"configured"`
+	ProjectID  string       `json:"projectId"`
+	KeyID      string       `json:"keyId"`
+	SubAccount string       `json:"subAccount"`
+	Category   string       `json:"category"`
+	TestMode   bool         `json:"testMode"`
+	Devices    []pushDevice `json:"devices"`
 }
 
 // webPushRow is one browser in the console list. The endpoint is masked like a
@@ -57,9 +57,13 @@ type webPushRow struct {
 }
 
 type webPushSnapshot struct {
-	Configured    bool         `json:"configured"`
-	Total         int          `json:"total"`
-	Enabled       int          `json:"enabled"`
+	Configured bool `json:"configured"`
+	Total      int  `json:"total"`
+	Enabled    int  `json:"enabled"`
+	// TestMode marks test messages as important, the same way the App's test
+	// switch does: it is the only way to check that a browser shows a push
+	// while Windows is in Do Not Disturb.
+	TestMode      bool         `json:"testMode"`
 	Subscriptions []webPushRow `json:"subscriptions"`
 }
 
@@ -80,36 +84,6 @@ func (a *api) pushPanel(w http.ResponseWriter, r *http.Request) {
 		status.Category = a.Push.Category()
 		status.TestMode = a.Push.TestMode()
 	}
-	status.Web = webPushSnapshot{Subscriptions: []webPushRow{}}
-	if a.WebPush != nil && a.WebPush.Enabled() {
-		status.Web.Configured = true
-		total, enabled, statsErr := a.Store.WebPushSubscriptionStats(r.Context())
-		if statsErr != nil {
-			httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
-			return
-		}
-		status.Web.Total, status.Web.Enabled = total, enabled
-		subscriptions, listErr := a.Store.AdminWebPushSubscriptions(r.Context(), 20)
-		if listErr != nil {
-			httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
-			return
-		}
-		for _, sub := range subscriptions {
-			status.Web.Subscriptions = append(status.Web.Subscriptions, webPushRow{
-				Endpoint:      sub.Endpoint,
-				EndpointLabel: maskPushEndpoint(sub.Endpoint),
-				Locale:        sub.Locale,
-				UserAgent:     sub.UserAgent,
-				Enabled:       sub.Enabled,
-				NotifyLive:    sub.NotifyLive,
-				NotifyVideo:   sub.NotifyVideo,
-				NotifyPost:    sub.NotifyPost,
-				FailureCount:  sub.FailureCount,
-				CreatedAt:     sub.CreatedAt,
-				LastSeenAt:    sub.LastSeenAt,
-			})
-		}
-	}
 	for _, device := range devices {
 		status.Devices = append(status.Devices, pushDevice{
 			DeviceID:    device.DeviceID,
@@ -127,6 +101,81 @@ func (a *api) pushPanel(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, status)
+}
+
+// webPushPanel answers the browser-notification view, which is separate from
+// the App's Push Kit panel: the two transports share wording and category
+// switches but nothing else.
+func (a *api) webPushPanel(w http.ResponseWriter, r *http.Request) {
+	snapshot, err := a.webPushState(r.Context())
+	if err != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, snapshot)
+}
+
+func (a *api) webPushState(ctx context.Context) (webPushSnapshot, error) {
+	snapshot := webPushSnapshot{Subscriptions: []webPushRow{}}
+	if a.WebPush == nil || !a.WebPush.Enabled() {
+		return snapshot, nil
+	}
+	snapshot.Configured = true
+	total, enabled, err := a.Store.WebPushSubscriptionStats(ctx)
+	if err != nil {
+		return snapshot, err
+	}
+	snapshot.Total, snapshot.Enabled = total, enabled
+	testMode, err := a.Store.WebPushTestMode(ctx)
+	if err != nil {
+		return snapshot, err
+	}
+	snapshot.TestMode = testMode
+	subscriptions, err := a.Store.AdminWebPushSubscriptions(ctx, 20)
+	if err != nil {
+		return snapshot, err
+	}
+	for _, sub := range subscriptions {
+		snapshot.Subscriptions = append(snapshot.Subscriptions, webPushRow{
+			Endpoint:      sub.Endpoint,
+			EndpointLabel: maskPushEndpoint(sub.Endpoint),
+			Locale:        sub.Locale,
+			UserAgent:     sub.UserAgent,
+			Enabled:       sub.Enabled,
+			NotifyLive:    sub.NotifyLive,
+			NotifyVideo:   sub.NotifyVideo,
+			NotifyPost:    sub.NotifyPost,
+			FailureCount:  sub.FailureCount,
+			CreatedAt:     sub.CreatedAt,
+			LastSeenAt:    sub.LastSeenAt,
+		})
+	}
+	return snapshot, nil
+}
+
+// updateWebPushSettings flips the browser test mode. Test mode only raises the
+// priority of test messages; real updates are always important.
+func (a *api) updateWebPushSettings(w http.ResponseWriter, r *http.Request) {
+	body, err := httpx.Body(w, r)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	raw, ok := body["testMode"]
+	if !ok {
+		httpx.WriteError(w, httpx.Invalid("testMode is required"))
+		return
+	}
+	var testMode bool
+	if err = json.Unmarshal(raw, &testMode); err != nil {
+		httpx.WriteError(w, httpx.Invalid("testMode must be a boolean"))
+		return
+	}
+	if err = a.Store.SaveWebPushTestMode(r.Context(), testMode); err != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
+	a.webPushPanel(w, r)
 }
 
 // pushTest sends one test notification, to a single device or to every device
@@ -223,6 +272,11 @@ func (a *api) pushTestWeb(w http.ResponseWriter, r *http.Request, body map[strin
 			return
 		}
 	}
+	testMode, modeErr := a.Store.WebPushTestMode(r.Context())
+	if modeErr != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
 	subscriptions, err := a.Store.WebPushSubscriptions(r.Context())
 	if err != nil {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
@@ -235,7 +289,7 @@ func (a *api) pushTestWeb(w http.ResponseWriter, r *http.Request, body map[strin
 			continue
 		}
 		sent++
-		sendErr := a.WebPush.Send(r.Context(), sub, pushkit.TestWebPayload(sub.Locale))
+		sendErr := a.WebPush.Send(r.Context(), sub, pushkit.TestWebPayload(sub.Locale, testMode))
 		switch {
 		case sendErr == nil:
 			_ = a.Store.ClearWebPushFailures(r.Context(), sub.Endpoint)
@@ -256,6 +310,7 @@ func (a *api) pushTestWeb(w http.ResponseWriter, r *http.Request, body map[strin
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"ok":            firstErr == "",
 		"transport":     "web",
+		"testMode":      testMode,
 		"subscriptions": sent,
 		"stale":         stale,
 		"error":         firstErr,

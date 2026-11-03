@@ -165,6 +165,12 @@ func (s *WebSender) AllowsEndpoint(raw string) bool {
 	return false
 }
 
+// WebUrgencyNormal is the only priority a caller may ask for explicitly.
+// Everything else is sent high: a real update is time sensitive, and on
+// Windows a high-priority push is an urgent toast, which is the one kind that
+// still shows up when Do Not Disturb is on.
+const WebUrgencyNormal = "normal"
+
 // WebPayload is what a browser shows: a title, one line of body, the page to
 // open and the avatar. The App's Notification carries a route instead, which a
 // service worker cannot use.
@@ -174,6 +180,10 @@ type WebPayload struct {
 	URL   string `json:"url,omitempty"`
 	Tag   string `json:"tag,omitempty"`
 	Icon  string `json:"icon,omitempty"`
+	// Urgency is the transport priority, not part of the message: empty means
+	// high. Only a test outside test mode lowers it, so a routine click on the
+	// console does not interrupt the reader.
+	Urgency string `json:"-"`
 }
 
 // Send encrypts and posts one payload to one subscription. The payload is
@@ -195,14 +205,14 @@ func (s *WebSender) Send(ctx context.Context, sub sqlite.WebPushSubscription, pa
 		VAPIDPublicKey:  s.public,
 		VAPIDPrivateKey: s.private,
 		TTL:             s.ttl,
-		Urgency:         webpush.UrgencyNormal,
+		Urgency:         webpush.UrgencyHigh,
 		HTTPClient:      s.client,
 	}
 	if payload.Tag != "" {
 		options.Topic = payload.Tag
 	}
-	if payload.Tag == string(CategoryLive) {
-		options.Urgency = webpush.UrgencyHigh
+	if payload.Urgency == WebUrgencyNormal {
+		options.Urgency = webpush.UrgencyNormal
 	}
 	response, err := webpush.SendNotificationWithContext(ctx, body, &webpush.Subscription{
 		Endpoint: sub.Endpoint,
@@ -223,11 +233,41 @@ func (s *WebSender) Send(ctx context.Context, sub sqlite.WebPushSubscription, pa
 	}
 }
 
-// TestWebPayload is the console's test message for browsers. It mirrors
-// TestNotification's wording, with the site avatar and no target page.
-func TestWebPayload(locale string) WebPayload {
-	title, body := testWording(normalizeLocale(locale))
-	return WebPayload{Title: title, Body: body, Tag: "test", Icon: DefaultWebPushIcon}
+// TestWebPayload is the console's test message for browsers. It says which
+// priority it travelled at, because that is what the operator is checking:
+// only a high-priority push breaks through Do Not Disturb on Windows.
+func TestWebPayload(locale string, urgent bool) WebPayload {
+	title, body := testWebWording(normalizeLocale(locale), urgent)
+	payload := WebPayload{Title: title, Body: body, Tag: "test", Icon: DefaultWebPushIcon}
+	if !urgent {
+		payload.Urgency = WebUrgencyNormal
+	}
+	return payload
+}
+
+func testWebWording(locale string, urgent bool) (string, string) {
+	switch locale {
+	case "zh-Hant":
+		if urgent {
+			return "重要級通知測試", "這則通知以重要級送出，Windows 開啟「請勿打擾」時也應在右下角彈出。"
+		}
+		return "通知測試", "這則通知以普通級送出；開啟測試模式可驗證重要級。"
+	case "ja":
+		if urgent {
+			return "重要通知テスト", "重要度を高くして送信しました。Windows の「応答不可」中でも表示されるはずです。"
+		}
+		return "通知テスト", "通常の重要度で送信しました。テストモードをオンにすると重要度を確認できます。"
+	case "en":
+		if urgent {
+			return "Important notification test", "Sent at high priority, so Windows should show it even with Do Not Disturb on."
+		}
+		return "Notification test", "Sent at normal priority. Turn on test mode to check the high-priority path."
+	default:
+		if urgent {
+			return "重要级通知测试", "这条通知以重要级送出，Windows 开启「请勿打扰」时也应在右下角弹出。"
+		}
+		return "通知测试", "这条通知以普通级送出；开启测试模式可验证重要级。"
+	}
 }
 
 // acceptsWeb applies one subscription's master switch and category switch.

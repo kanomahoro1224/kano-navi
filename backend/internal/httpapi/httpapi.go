@@ -150,6 +150,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.webPushKey(w, r)
 	case "/api/push/web/subscribe":
 		h.webPushSubscribe(w, r)
+	case "/api/push/web/settings":
+		h.webPushSettings(w, r)
 	case "/api/push/web/unsubscribe":
 		h.webPushUnsubscribe(w, r)
 	case "/api/health":

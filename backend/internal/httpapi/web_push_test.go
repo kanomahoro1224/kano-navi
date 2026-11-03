@@ -101,6 +101,15 @@ func TestWebPushSubscribeAndUnsubscribe(t *testing.T) {
 	if err != nil || len(subs) != 1 || subs[0].Locale != "ja" || subs[0].NotifyVideo || !subs[0].NotifyPost {
 		t.Fatalf("subs=%+v err=%v", subs, err)
 	}
+	// A panel opened elsewhere reads the switches back instead of trusting its
+	// own cache, which would write the defaults over this choice.
+	settings := webPushCall(t, handler, http.MethodPost, "/api/push/web/settings",
+		`{"endpoint":"`+endpoint+`"}`)
+	if settings.Code != http.StatusOK || !strings.Contains(settings.Body.String(), `"known":true`) ||
+		!strings.Contains(settings.Body.String(), `"video":false`) ||
+		!strings.Contains(settings.Body.String(), `"post":true`) {
+		t.Fatalf("settings status=%d body=%s", settings.Code, settings.Body)
+	}
 	// The second post omits the switches; neither the stored locale nor the
 	// switched-off category may flip back on.
 	if response := webPushCall(t, handler, http.MethodPost, "/api/push/web/subscribe",
@@ -118,6 +127,11 @@ func TestWebPushSubscribeAndUnsubscribe(t *testing.T) {
 	}
 	if subs, err = store.WebPushSubscriptions(context.Background()); err != nil || len(subs) != 0 {
 		t.Fatalf("after unsubscribe: %+v (%v)", subs, err)
+	}
+	if gone := webPushCall(t, handler, http.MethodPost, "/api/push/web/settings",
+		`{"endpoint":"`+endpoint+`"}`); gone.Code != http.StatusOK ||
+		!strings.Contains(gone.Body.String(), `"known":false`) {
+		t.Fatalf("settings after unsubscribe status=%d body=%s", gone.Code, gone.Body)
 	}
 }
 

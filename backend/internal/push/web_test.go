@@ -159,7 +159,11 @@ func TestWebSenderConfiguration(t *testing.T) {
 		t.Fatalf("icon = %q", sender.icon)
 	}
 	// An update URL relative to the site is made absolute for the worker.
-	if payload := TestWebPayload("ja"); payload.Title == "" || payload.Icon != DefaultWebPushIcon {
+	if payload := TestWebPayload("ja", true); payload.Title == "" || payload.Icon != DefaultWebPushIcon {
 		t.Fatalf("test payload = %+v", payload)
+	}
+	// Outside test mode a test is quiet, so clicking Test does not interrupt.
+	if payload := TestWebPayload("ja", false); payload.Urgency != WebUrgencyNormal {
+		t.Fatalf("quiet test payload = %+v", payload)
 	}
 }

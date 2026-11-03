@@ -6,6 +6,7 @@ import {
   currentWebPushSubscription,
   disableWebPush,
   enableWebPush,
+  fetchWebPushSettings,
   readWebPushSettings,
   updateWebPushSettings,
   webPushAvailability,
@@ -62,6 +63,13 @@ export function WebPushButton({
       if (availability === "ios") {
         setStatus("ios")
         return
+      }
+      if (subscription) {
+        // The server is the truth: a second tab or a cleared cache would
+        // otherwise show the defaults and write them back on the next click.
+        const stored = await fetchWebPushSettings()
+        if (cancelled) return
+        if (stored) setSettings(stored)
       }
       setStatus(subscription ? "subscribed" : "available")
     })()

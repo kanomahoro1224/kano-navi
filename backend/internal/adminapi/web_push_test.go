@@ -19,9 +19,9 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
-// The panel reports browsers beside devices, and the test action reaches
-// exactly the subscriptions registered.
-func TestPushPanelReportsBrowsersAndTestsThem(t *testing.T) {
+// The browser panel is its own view, and test mode flips the priority a test
+// message travels at.
+func TestWebPushPanelReportsBrowsersAndTestsThem(t *testing.T) {
 	store, err := sqlite.OpenInitialized(filepath.Join(t.TempDir(), "database", "kano.sqlite"), true, true)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -48,6 +48,7 @@ func TestPushPanelReportsBrowsersAndTestsThem(t *testing.T) {
 	}
 
 	var sent int
+	var urgency string
 	private, public, err := webpush.GenerateVAPIDKeys()
 	if err != nil {
 		t.Fatal(err)
@@ -56,6 +57,7 @@ func TestPushPanelReportsBrowsersAndTestsThem(t *testing.T) {
 		PublicKey: public, PrivateKey: private, Hosts: []string{"push.example"},
 		HTTPClient: &http.Client{Transport: pushRoundTrip(func(request *http.Request) (*http.Response, error) {
 			sent++
+			urgency = request.Header.Get("Urgency")
 			return &http.Response{
 				StatusCode: http.StatusCreated,
 				Body:       io.NopCloser(strings.NewReader("")),
@@ -89,9 +91,18 @@ func TestPushPanelReportsBrowsersAndTestsThem(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("panel status = %d", code)
 	}
-	web, _ := panel["web"].(map[string]any)
+	if _, ok := panel["web"]; ok {
+		t.Fatalf("browser rows still travel with the App panel: %v", panel["web"])
+	}
+	code, web := call(http.MethodGet, "/api/admin/push/web", "")
+	if code != http.StatusOK {
+		t.Fatalf("web panel status = %d", code)
+	}
 	if web["configured"] != true || web["total"] != float64(1) || web["enabled"] != float64(1) {
-		t.Fatalf("web = %v", panel["web"])
+		t.Fatalf("web = %v", web)
+	}
+	if web["testMode"] != false {
+		t.Fatalf("test mode starts off: %v", web["testMode"])
 	}
 	rows, _ := web["subscriptions"].([]any)
 	if len(rows) != 1 {
@@ -108,6 +119,24 @@ func TestPushPanelReportsBrowsersAndTestsThem(t *testing.T) {
 	code, result := call(http.MethodPost, "/api/admin/push/test", `{"transport":"web"}`)
 	if code != http.StatusOK || result["ok"] != true || result["subscriptions"] != float64(1) || sent != 1 {
 		t.Fatalf("test result = %v (sent %d, status %d)", result, sent, code)
+	}
+	if urgency != "normal" {
+		t.Fatalf("a test outside test mode should stay quiet, urgency = %q", urgency)
+	}
+
+	code, web = call(http.MethodPut, "/api/admin/push/web", `{"testMode":true}`)
+	if code != http.StatusOK || web["testMode"] != true {
+		t.Fatalf("enable test mode: %v (status %d)", web, code)
+	}
+	code, result = call(http.MethodPost, "/api/admin/push/test", `{"transport":"web"}`)
+	if code != http.StatusOK || result["ok"] != true || result["testMode"] != true {
+		t.Fatalf("test in test mode = %v (status %d)", result, code)
+	}
+	if urgency != "high" {
+		t.Fatalf("test mode should send important, urgency = %q", urgency)
+	}
+	if stored, err := store.WebPushTestMode(context.Background()); err != nil || !stored {
+		t.Fatalf("test mode not persisted: %v (%v)", stored, err)
 	}
 
 	code, _ = call(http.MethodDelete, "/api/admin/push/web?endpoint="+strings.ReplaceAll(subscription.Endpoint, "/", "%2F"), "")

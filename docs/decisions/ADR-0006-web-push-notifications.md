@@ -131,7 +131,10 @@ Per subscription:
 - Payload `{title, body, url, tag, icon}` built by the existing `wording`
   function for that row's locale; `tag` is the update's category so a newer
   live notification replaces an undelivered older one.
-- `TTL` 24 hours; `Urgency: high` for `live_start`, `normal` otherwise.
+- `TTL` 24 hours; `Urgency: high` for every update. On Windows a browser maps
+  that to an urgent toast, which is the one kind the system still shows while
+  Do Not Disturb is on, so a reader who asked to be told is told. A test is
+  `normal` unless test mode is on, because pressing Test must not interrupt.
 - `201`/`200` is success and resets `failure_count`. `404` and `410` delete
   the row: the browser is gone. `413` is logged and the row kept (payload
   bug, not a dead subscription). `429` and `5xx` increment `failure_count`
@@ -185,11 +188,20 @@ written to the database or the admin API.
 
 ### Admin
 
-The existing push panel (`GET /api/admin/push`) gains a `web` section: row
-count, enabled count, the 20 most recent subscriptions with a masked endpoint
-and locale, and `DELETE /api/admin/push/web/{endpoint}`. The test action
-takes a transport (`{"transport":"web","locale":"ja"}`) and sends the same
+Browsers get their own console view instead of a section inside the App's push
+panel: the two transports share wording and category names, and nothing else.
+`GET /api/admin/push/web` returns the row count, the enabled count, the 20 most
+recent subscriptions with a masked endpoint and locale, and the test-mode
+switch; `DELETE /api/admin/push/web?endpoint=` retires one. The test action
+takes a transport (`{"transport":"web","endpoint":"..."}`) and sends the same
 sample notification the App test uses.
+
+Test mode is a site setting stored in `app_settings`, not a per-subscription
+flag, because it answers one question for the whole deployment: does an
+important notification still appear while Windows is in Do Not Disturb. With
+it on, a test travels at high priority and says so in its body; with it off, a
+test stays normal and says that instead. Real updates ignore this switch — they
+are always important.
 
 ### Upgrade
 

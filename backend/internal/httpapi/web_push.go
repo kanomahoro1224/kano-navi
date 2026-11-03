@@ -133,6 +133,55 @@ func (h *Handler) webPushSubscribe(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// webPushSettings answers the switches the server holds for one browser. The
+// panel used to trust localStorage alone, so a browser whose cache was cleared
+// -- or a second tab that had never written one -- showed the defaults and
+// then wrote them over the reader's real choice.
+func (h *Handler) webPushSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w, http.MethodPost)
+		return
+	}
+	if h.store == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "storage_unavailable"}, "no-store")
+		return
+	}
+	if !h.webPushAllows(r) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too_many_requests"}, "no-store")
+		return
+	}
+	var request struct {
+		Endpoint string `json:"endpoint"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, MaxWebPushBodyBytes)).Decode(&request); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"}, "")
+		return
+	}
+	endpoint := strings.TrimSpace(request.Endpoint)
+	if endpoint == "" || utf8.RuneCountInString(endpoint) > maxWebPushEndpoint {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_endpoint"}, "")
+		return
+	}
+	sub, found, err := h.store.WebPushSubscription(r.Context(), endpoint)
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "storage_unavailable"}, "no-store")
+		return
+	}
+	if !found {
+		// The row is gone: a 200 with known=false lets the panel fall back to
+		// its defaults without treating this as a failed request.
+		writeJSON(w, http.StatusOK, map[string]any{"known": false}, "no-store")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"known":   true,
+		"enabled": sub.Enabled,
+		"live":    sub.NotifyLive,
+		"video":   sub.NotifyVideo,
+		"post":    sub.NotifyPost,
+	}, "no-store")
+}
+
 // webPushUnsubscribe retires one browser. Knowing the endpoint is the
 // capability, so no other credential is asked for.
 func (h *Handler) webPushUnsubscribe(w http.ResponseWriter, r *http.Request) {

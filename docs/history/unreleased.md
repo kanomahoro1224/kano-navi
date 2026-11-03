@@ -106,9 +106,14 @@ webpush-key`), and the bell stays hidden while they are empty. It adds
   sets a content tag, which outranks the entry's label. The video list and
   `GET /api/admin/videos` show the tag with where it came from
   (`manualTag`, `scheduleTag`, `inferredTag`, `inferredTagSource`).
-- The Push page lists the browsers that subscribed from the site beside the
-  App's devices, with their locale, switches and failure count. A test goes to
-  every browser or to one, and removing a row stops its notifications.
+- The console has a Browser push page of its own, separate from the App's
+  Push Kit page: subscriptions that came from the site, with their locale,
+  switches and failure count. A test goes to every browser or to one, and
+  removing a row stops its notifications. Test mode sends that test as an
+  important notification, which is what Windows shows while Do Not Disturb is
+  on; every real notification is important regardless.
+- A console page reloads its data when its tab becomes visible again, so a
+  switch a reader flips on the site shows up without a manual refresh.
 
 </details>
 

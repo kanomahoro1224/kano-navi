@@ -1321,6 +1321,7 @@ export const adminMessages = {
     "admin.nav.llm": "LLM",
     "admin.nav.site": "Site",
     "admin.nav.push": "Push",
+    "admin.nav.webPush": "Browser push",
     "admin.site.title": "Site",
     "admin.action.discard": "Discard",
     "admin.detection.title": "Detection",
@@ -1413,24 +1414,40 @@ export const adminMessages = {
     "admin.pushKit.noDevices": "No device has registered yet",
     "admin.pushKit.noDevicesHint":
       "Open the App's settings and turn on the push switch to register this phone.",
-    "admin.pushKit.web": "Browser notifications",
-    "admin.pushKit.webHint":
-      "Readers subscribe from the bell in the X section; each browser is one row.",
-    "admin.pushKit.webConfigured": "VAPID keys loaded",
-    "admin.pushKit.webUnconfigured": "VAPID keys missing",
-    "admin.pushKit.webTotal": "{count} registered",
-    "admin.pushKit.webEnabled": "{count} receiving",
-    "admin.pushKit.browsers": "Browsers ({count})",
-    "admin.pushKit.browsersHint":
+    "admin.webPushKit.title": "Browser push",
+    "admin.webPushKit.description":
+      "Readers subscribe from the bell in the X section. Delivery goes through each browser's own push service, so a browser that cannot reach it cannot subscribe.",
+    "admin.webPushKit.service": "Sender",
+    "admin.webPushKit.serviceHint":
+      "VAPID keys are read from WEB_PUSH_* at startup. Test mode only changes the priority of test messages.",
+    "admin.webPushKit.configured": "VAPID keys loaded",
+    "admin.webPushKit.unconfigured": "VAPID keys missing",
+    "admin.webPushKit.total": "{count} registered",
+    "admin.webPushKit.enabledCount": "{count} receiving",
+    "admin.webPushKit.priority": "Priority",
+    "admin.webPushKit.priorityHint":
+      "Real notifications always travel as important, so Windows shows them even with Do Not Disturb on. A test stays normal unless test mode is on.",
+    "admin.webPushKit.testMode": "Test mode",
+    "admin.webPushKit.testModeHint":
+      "Send test messages as important. Windows shows an important toast in the corner even when Do Not Disturb is on, which is the only way to check it.",
+    "admin.webPushKit.browsers": "Browsers ({count})",
+    "admin.webPushKit.browsersHint":
       "The endpoint is the browser's identity; a push service that reports it gone removes the row.",
-    "admin.pushKit.noBrowsers": "No browser has subscribed yet",
-    "admin.pushKit.noBrowsersHint":
-      "The bell appears once WEB_PUSH_VAPID_PUBLIC_KEY and its private key are configured.",
-    "admin.pushKit.webTest": "Test browsers",
-    "admin.pushKit.webTestSent": "Sent to {count} browser(s), {stale} retired.",
-    "admin.pushKit.webRemove": "Remove browser",
-    "admin.pushKit.webRemoveConfirm": "Confirm removal",
-    "admin.pushKit.browserDisabled": "Paused",
+    "admin.webPushKit.noBrowsers": "No browser has subscribed yet",
+    "admin.webPushKit.noBrowsersHint":
+      "The bell appears once the VAPID key pair is configured.",
+    "admin.webPushKit.refresh": "Refresh",
+    "admin.webPushKit.testAll": "Test browsers",
+    "admin.webPushKit.testSucceeded": "Test sent",
+    "admin.webPushKit.testFailed": "The test was not delivered",
+    "admin.webPushKit.testSentImportant":
+      "Sent to {count} browser(s) at high priority, {stale} retired.",
+    "admin.webPushKit.testSentNormal":
+      "Sent to {count} browser(s) at normal priority, {stale} retired.",
+    "admin.webPushKit.enabled": "Receiving",
+    "admin.webPushKit.disabled": "Paused",
+    "admin.webPushKit.remove": "Remove browser",
+    "admin.webPushKit.removeConfirm": "Confirm removal",
     "admin.notice.pushDeviceRemoved": "Device removed",
     "admin.notice.webPushRemoved": "Browser removed",
   },
@@ -2270,6 +2287,7 @@ export const adminMessages = {
     "admin.nav.llm": "LLM 模型",
     "admin.nav.site": "站点",
     "admin.nav.push": "华为推送",
+    "admin.nav.webPush": "浏览器推送",
     "admin.site.title": "站点",
     "admin.action.discard": "放弃更改",
     "admin.detection.title": "日程识别",
@@ -2356,23 +2374,39 @@ export const adminMessages = {
     "admin.pushKit.noDevices": "还没有设备登记",
     "admin.pushKit.noDevicesHint":
       "在 App 设置里打开推送开关即可登记这台手机。",
-    "admin.pushKit.web": "浏览器通知",
-    "admin.pushKit.webHint": "读者在 X 动态区点铃铛订阅，一个浏览器一行。",
-    "admin.pushKit.webConfigured": "VAPID 密钥已加载",
-    "admin.pushKit.webUnconfigured": "缺少 VAPID 密钥",
-    "admin.pushKit.webTotal": "已登记 {count} 个",
-    "admin.pushKit.webEnabled": "{count} 个接收中",
-    "admin.pushKit.browsers": "浏览器（{count}）",
-    "admin.pushKit.browsersHint":
+    "admin.webPushKit.title": "浏览器推送",
+    "admin.webPushKit.description":
+      "读者在 X 动态区点铃铛订阅。投递走各浏览器自己的推送服务，连不上那台服务就没法订阅。",
+    "admin.webPushKit.service": "发送器",
+    "admin.webPushKit.serviceHint":
+      "VAPID 密钥在启动时从 WEB_PUSH_* 读取。测试模式只改变测试通知的优先级。",
+    "admin.webPushKit.configured": "VAPID 密钥已加载",
+    "admin.webPushKit.unconfigured": "缺少 VAPID 密钥",
+    "admin.webPushKit.total": "已登记 {count} 个",
+    "admin.webPushKit.enabledCount": "{count} 个接收中",
+    "admin.webPushKit.priority": "优先级",
+    "admin.webPushKit.priorityHint":
+      "正式通知一律以重要级发送，Windows 开启「请勿打扰」时也会在右下角弹出。测试通知默认普通级，只有开启测试模式才走重要级。",
+    "admin.webPushKit.testMode": "测试模式",
+    "admin.webPushKit.testModeHint":
+      "把测试通知按重要级发送。Windows 在「请勿打扰」下仍会弹出重要级通知，这是唯一能验证的方式。",
+    "admin.webPushKit.browsers": "浏览器（{count}）",
+    "admin.webPushKit.browsersHint":
       "端点就是浏览器的身份；推送服务报 404/410 时会自动删除该行。",
-    "admin.pushKit.noBrowsers": "还没有浏览器订阅",
-    "admin.pushKit.noBrowsersHint":
-      "配置 WEB_PUSH_VAPID_PUBLIC_KEY 与私钥后，铃铛才会出现。",
-    "admin.pushKit.webTest": "测试浏览器",
-    "admin.pushKit.webTestSent": "已发送到 {count} 个浏览器，清理 {stale} 个。",
-    "admin.pushKit.webRemove": "移除浏览器",
-    "admin.pushKit.webRemoveConfirm": "确认移除",
-    "admin.pushKit.browserDisabled": "已暂停",
+    "admin.webPushKit.noBrowsers": "还没有浏览器订阅",
+    "admin.webPushKit.noBrowsersHint": "配置 VAPID 密钥对后，铃铛才会出现。",
+    "admin.webPushKit.refresh": "刷新",
+    "admin.webPushKit.testAll": "测试浏览器",
+    "admin.webPushKit.testSucceeded": "测试已发送",
+    "admin.webPushKit.testFailed": "测试未送达",
+    "admin.webPushKit.testSentImportant":
+      "已以重要级发送到 {count} 个浏览器，清理 {stale} 个。",
+    "admin.webPushKit.testSentNormal":
+      "已以普通级发送到 {count} 个浏览器，清理 {stale} 个。",
+    "admin.webPushKit.enabled": "接收中",
+    "admin.webPushKit.disabled": "已暂停",
+    "admin.webPushKit.remove": "移除浏览器",
+    "admin.webPushKit.removeConfirm": "确认移除",
     "admin.notice.pushDeviceRemoved": "设备已移除",
     "admin.notice.webPushRemoved": "浏览器已移除",
     "admin.status.dismissed": "已忽略",
@@ -4093,6 +4127,7 @@ export const adminMessages = {
     "admin.nav.llm": "LLM",
     "admin.nav.site": "サイト",
     "admin.nav.push": "プッシュ",
+    "admin.nav.webPush": "ブラウザプッシュ",
     "admin.site.title": "サイト",
     "admin.action.discard": "破棄",
     "admin.detection.title": "検出",
@@ -4183,25 +4218,40 @@ export const adminMessages = {
     "admin.pushKit.noDevices": "登録済みの端末はまだありません",
     "admin.pushKit.noDevicesHint":
       "App の設定でプッシュスイッチをオンにすると、この端末が登録されます。",
-    "admin.pushKit.web": "ブラウザ通知",
-    "admin.pushKit.webHint":
-      "読者は X セクションのベルから購読します。ブラウザ 1 台につき 1 行です。",
-    "admin.pushKit.webConfigured": "VAPID キーを読み込み済み",
-    "admin.pushKit.webUnconfigured": "VAPID キーがありません",
-    "admin.pushKit.webTotal": "{count} 件登録",
-    "admin.pushKit.webEnabled": "{count} 件受信中",
-    "admin.pushKit.browsers": "ブラウザ（{count}）",
-    "admin.pushKit.browsersHint":
+    "admin.webPushKit.title": "ブラウザプッシュ",
+    "admin.webPushKit.description":
+      "読者は X セクションのベルから購読します。配信は各ブラウザのプッシュサービスを経由するため、そこへ到達できないブラウザは購読できません。",
+    "admin.webPushKit.service": "送信元",
+    "admin.webPushKit.serviceHint":
+      "VAPID キーは起動時に WEB_PUSH_* から読み込みます。テストモードはテスト通知の重要度だけを変えます。",
+    "admin.webPushKit.configured": "VAPID キーを読み込み済み",
+    "admin.webPushKit.unconfigured": "VAPID キーがありません",
+    "admin.webPushKit.total": "{count} 件登録",
+    "admin.webPushKit.enabledCount": "{count} 件受信中",
+    "admin.webPushKit.priority": "重要度",
+    "admin.webPushKit.priorityHint":
+      "実際の通知は常に重要度「高」で送信するため、Windows の「応答不可」中でも右下に表示されます。テスト通知は通常の重要度で、テストモードをオンにしたときだけ「高」になります。",
+    "admin.webPushKit.testMode": "テストモード",
+    "admin.webPushKit.testModeHint":
+      "テスト通知を重要度「高」で送信します。「応答不可」中でも表示されるかを確かめる唯一の方法です。",
+    "admin.webPushKit.browsers": "ブラウザ（{count}）",
+    "admin.webPushKit.browsersHint":
       "エンドポイントがブラウザの識別子です。404/410 が返ると行は削除されます。",
-    "admin.pushKit.noBrowsers": "まだ購読しているブラウザはありません",
-    "admin.pushKit.noBrowsersHint":
-      "WEB_PUSH_VAPID_PUBLIC_KEY と秘密鍵を設定するとベルが表示されます。",
-    "admin.pushKit.webTest": "ブラウザへテスト",
-    "admin.pushKit.webTestSent":
-      "{count} 台のブラウザへ送信し、{stale} 件を削除しました。",
-    "admin.pushKit.webRemove": "ブラウザを削除",
-    "admin.pushKit.webRemoveConfirm": "削除を確認",
-    "admin.pushKit.browserDisabled": "停止中",
+    "admin.webPushKit.noBrowsers": "まだ購読しているブラウザはありません",
+    "admin.webPushKit.noBrowsersHint":
+      "VAPID キーペアを設定するとベルが表示されます。",
+    "admin.webPushKit.refresh": "更新",
+    "admin.webPushKit.testAll": "ブラウザへテスト",
+    "admin.webPushKit.testSucceeded": "テストを送信しました",
+    "admin.webPushKit.testFailed": "テストは届きませんでした",
+    "admin.webPushKit.testSentImportant":
+      "{count} 台のブラウザへ重要度「高」で送信し、{stale} 件を削除しました。",
+    "admin.webPushKit.testSentNormal":
+      "{count} 台のブラウザへ通常の重要度で送信し、{stale} 件を削除しました。",
+    "admin.webPushKit.enabled": "受信中",
+    "admin.webPushKit.disabled": "停止中",
+    "admin.webPushKit.remove": "ブラウザを削除",
+    "admin.webPushKit.removeConfirm": "削除を確認",
     "admin.notice.pushDeviceRemoved": "端末を削除しました",
     "admin.notice.webPushRemoved": "ブラウザを削除しました",
   },

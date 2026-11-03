@@ -223,6 +223,39 @@ async function saveSubscription(
   if (!response.ok) throw new Error("subscription was rejected")
 }
 
+/** The switches the server holds for this browser, or null when it has no
+ * subscription or the row is gone. The panel used to trust localStorage alone,
+ * so a cleared cache showed the defaults and the next click wrote them over
+ * the reader's real choice. */
+export async function fetchWebPushSettings(): Promise<WebPushSettings | null> {
+  const subscription = await currentWebPushSubscription()
+  if (!subscription) return null
+  try {
+    const response = await fetch("/api/push/web/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: subscription.endpoint }),
+    })
+    if (!response.ok) return null
+    const payload = (await response.json()) as {
+      known?: boolean
+      live?: boolean
+      video?: boolean
+      post?: boolean
+    }
+    if (payload.known !== true) return null
+    const settings: WebPushSettings = {
+      live: payload.live !== false,
+      video: payload.video !== false,
+      post: payload.post !== false,
+    }
+    writeWebPushSettings(settings)
+    return settings
+  } catch (error) {
+    return null
+  }
+}
+
 /** Ask for permission and subscribe. Must run inside a click: Safari ignores a
  * permission prompt that is not tied to a user gesture. */
 export async function enableWebPush(

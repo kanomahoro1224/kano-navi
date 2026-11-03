@@ -24,7 +24,9 @@ var jst = time.FixedZone("JST", 9*3600)
 
 var (
 	datePattern = regexp.MustCompile(`^(\d{4})-(\d{2})-(\d{2})$`)
-	timePattern = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
+	// Japanese schedules count late-night hours on from the evening's date
+	// (25:00 is 01:00 the next day), up to 29:59.
+	timePattern = regexp.MustCompile(`^([01]\d|2\d):[0-5]\d$`)
 )
 
 // parseDate mirrors validDate: Date.UTC maps years 0-99 to 1900-1999, so
@@ -133,8 +135,10 @@ var (
 	actions         = map[string]bool{"add": true, "update": true, "cancel": true, "none": true}
 )
 
+// validClock accepts a missing, null or empty time, which all mean the time
+// is not known, or HH:MM up to 29:59.
 func validClock(value any, defined bool) bool {
-	return !defined || value == nil || timePattern.MatchString(jsString(value))
+	return !defined || value == nil || value == "" || timePattern.MatchString(jsString(value))
 }
 
 // extractedTag keeps a model label only when it is one of the known codes.
@@ -196,10 +200,15 @@ func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time
 		confidenceValue, confidenceDefined := event.get("confidence")
 
 		title := sliceUTF16(jsTrim(jsString(titleValue)), 240)
-		date := jsString(dateValue)
+		// postedDate is the date the post counts the times from; a late-night
+		// start such as 25:00 belongs to the next calendar date.
+		postedDate := jsString(dateValue)
+		date := postedDate
 		clock := ""
+		var start time.Time
 		if truthy(clockValue) {
-			clock = jsString(clockValue)
+			start = japanInstant(postedDate, jsString(clockValue))
+			date, clock = start.In(jst).Format("2006-01-02"), start.In(jst).Format("15:04")
 		}
 		clockLabel := clock
 		if clockLabel == "" {
@@ -237,15 +246,14 @@ func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time
 			normalized.detail = &detail
 		}
 		if clock != "" {
-			start := japanInstant(date, clock)
 			startsAt := sqlite.ISOTime(start)
 			normalized.startsAt = &startsAt
 			normalized.timePrecision = precision.(string)
 			normalized.isUpcoming = !start.Before(now.Truncate(time.Millisecond))
 		}
 		if truthy(endValue) {
-			end := japanInstant(date, jsString(endValue))
-			if clock != "" && end.Before(japanInstant(date, clock)) {
+			end := japanInstant(postedDate, jsString(endValue))
+			if clock != "" && end.Before(start) {
 				end = end.AddDate(0, 0, 1)
 			}
 			endsAt := sqlite.ISOTime(end)

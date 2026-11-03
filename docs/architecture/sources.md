@@ -901,7 +901,12 @@ The instruction keeps titles and cited evidence in the post's wording and asks
 for English detail and reason and a short lowercase English status word; an
 entry without a status, or with a cancellation-like one, stores `pending`.
 A local validator rejects invalid calendar dates, time formats, enumerations,
-or confidence values before any event write. It also rejects a result that is
+or confidence values before any event write. Times run up to `29:59`, as
+Japanese schedules count late-night hours on from the evening's date: a start
+of `25:30` on one date is stored as `01:30` on the next, with that date in its
+event ID, so it matches the same entry written as `01:30`. An end is read from
+the same evening, and one before the start falls on the following day. An
+empty time means no time. It also rejects a result that is
 not an object, a non-array `events` field, a result with neither a
 classification nor an events list, and a `schedule` result without entries
 unless its action is `cancel`; a rejected result is a failed attempt and

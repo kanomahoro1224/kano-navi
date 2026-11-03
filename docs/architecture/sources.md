@@ -897,7 +897,11 @@ The instruction keeps titles and cited evidence in the post's wording and asks
 for English detail and reason and a short lowercase English status word; an
 entry without a status, or with a cancellation-like one, stores `pending`.
 A local validator rejects invalid calendar dates, time formats, enumerations,
-or confidence values before any event write. `schedule` results update automatic
+or confidence values before any event write. It also rejects a result that is
+not an object, a non-array `events` field, a result with neither a
+classification nor an events list, and a `schedule` result without entries
+unless its action is `cancel`; a rejected result is a failed attempt and
+leaves existing events untouched. `schedule` results update automatic
 events. A model never deletes or definitively cancels an event: `action=cancel`
 matches the clearest existing event and writes an `llm_suspected` cancellation
 overlay containing the reason, source evidence, confidence, and post ID. The

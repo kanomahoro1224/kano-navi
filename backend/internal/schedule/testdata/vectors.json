@@ -458,13 +458,38 @@
     [
       "emptyLegacy",
       "{}",
-      "{\"classification\":\"not_schedule\",\"events\":[],\"confidence\":0,\"evidence\":\"\",\"reason\":\"\",\"action\":\"none\"}",
-      null
+      null,
+      "schedule extraction returned no classification"
     ],
     [
       "nullResult",
       "null",
-      "{\"classification\":\"not_schedule\",\"events\":[],\"confidence\":0,\"evidence\":\"\",\"reason\":\"\",\"action\":\"none\"}",
+      null,
+      "schedule extraction did not return an object"
+    ],
+    ["arrayResult", "[]", null, "schedule extraction did not return an object"],
+    [
+      "nonArrayEvents",
+      "{\"classification\":\"schedule\",\"events\":{}}",
+      null,
+      "schedule extraction returned non-array events"
+    ],
+    [
+      "scheduleWithoutEvents",
+      "{\"classification\":\"schedule\",\"events\":[]}",
+      null,
+      "schedule extraction contained no events"
+    ],
+    [
+      "scheduleWithoutEventsField",
+      "{\"classification\":\"schedule\"}",
+      null,
+      "schedule extraction contained no events"
+    ],
+    [
+      "cancelWithoutEvents",
+      "{\"classification\":\"schedule\",\"events\":[],\"action\":\"cancel\"}",
+      "{\"classification\":\"schedule\",\"events\":[],\"confidence\":0,\"evidence\":\"\",\"reason\":\"\",\"action\":\"cancel\"}",
       null
     ],
     [

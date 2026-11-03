@@ -76,3 +76,26 @@ func TestReextractionKeepsMergedEventOutOfPublicReads(t *testing.T) {
 		t.Fatalf("second reconcile=%+v %v", counts, err)
 	}
 }
+
+// Retiring an event releases the rule merges into it, so a duplicate outside
+// the reconciler's window is not left hidden behind a tombstone.
+func TestRetiringAnEventReleasesRuleMergesIntoIt(t *testing.T) {
+	f := messageFixture(t)
+	f.scan()
+	target := f.text(`SELECT id FROM events`)
+	f.exec(`INSERT INTO events (id, source, source_item_id, source_key, title, starts_on, time_precision,
+		event_type, provenance, manual_locked, created_at, updated_at, merged_into, merge_source, merge_reason, merged_at)
+		VALUES ('x-date-only', 'x', 'post-2', 'date-only', 'synthetic', ?, 'unknown', 'stream', 'automatic', 0, ?, ?, ?, 'rule', 'rule_a:title', ?)`,
+		songDate, testTimestamp, testTimestamp, target, testTimestamp)
+	f.provider.respond = func(recordedRequest) (int, string) {
+		return http.StatusOK, chatReply(scheduleReply("別枠", "2099-05-06", "20:00", "scheduled"))
+	}
+	f.requestReprocess("post-1")
+	f.scan()
+	if got := f.text(`SELECT (deleted_at IS NULL) FROM events WHERE id=?`, target); got != "0" {
+		t.Fatalf("target was not retired: %s", got)
+	}
+	if got := f.text(`SELECT COALESCE(merged_into, '') || '|' || COALESCE(merge_source, '') FROM events WHERE id='x-date-only'`); got != "|" {
+		t.Fatalf("the duplicate stays merged into a retired event: %q", got)
+	}
+}

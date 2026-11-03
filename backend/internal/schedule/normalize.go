@@ -267,10 +267,14 @@ func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time
 	return out, nil
 }
 
-// inferredClassification accepts results stored before the classification
-// field existed: those are schedules exactly when they carry events.
+// inferredClassification accepts results without the classification field
+// when they carry an events list: those are schedules exactly when the list
+// has entries. A result that is not an object, or names neither, is invalid.
 func inferredClassification(result any) (string, error) {
-	root, _ := result.(*object)
+	root, isObject := result.(*object)
+	if !isObject || root == nil {
+		return "", fail("schedule extraction did not return an object")
+	}
 	if value, ok := root.get("classification"); ok {
 		if text, isString := value.(string); isString {
 			normalized := jsToLower(jsTrim(text))
@@ -280,10 +284,12 @@ func inferredClassification(result any) (string, error) {
 			return "", fail("schedule extraction returned an invalid classification")
 		}
 	}
-	if events, _ := root.get("events"); events != nil {
-		if list, isArray := events.([]any); isArray && len(list) > 0 {
-			return "schedule", nil
-		}
+	events, ok := root.get("events")
+	if !ok || events == nil {
+		return "", fail("schedule extraction returned no classification")
+	}
+	if list, isArray := events.([]any); isArray && len(list) > 0 {
+		return "schedule", nil
 	}
 	return "not_schedule", nil
 }
@@ -305,7 +311,11 @@ func normalizeExtractionResult(result any, postID, postURL string, now time.Time
 	root, _ := result.(*object)
 	var items []any
 	if value, _ := root.get("events"); value != nil {
-		items, _ = value.([]any)
+		list, isArray := value.([]any)
+		if !isArray {
+			return normalizedExtraction{}, fail("schedule extraction returned non-array events")
+		}
+		items = list
 	}
 	events, err := normalizeExtractedEvents(items, postID, postURL, now)
 	if err != nil {
@@ -336,6 +346,11 @@ func normalizeExtractionResult(result any, postID, postURL string, now time.Time
 	action := jsToLower(jsTrim(stringOr(actionValue, fallbackAction)))
 	if !actions[action] {
 		return normalizedExtraction{}, fail("schedule extraction returned an invalid action")
+	}
+	// A schedule without entries would retire every automatic event of the
+	// post; only cancellation evidence may come without entries.
+	if classification == "schedule" && len(events) == 0 && action != "cancel" {
+		return normalizedExtraction{}, fail("schedule extraction contained no events")
 	}
 	evidence, _ := root.get("evidence")
 	reason, _ := root.get("reason")

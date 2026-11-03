@@ -444,3 +444,36 @@ func TestYoutubeWritesKeepWhoCanWatch(t *testing.T) {
 		t.Fatal("a public change kept the revision")
 	}
 }
+
+func TestReservationRestoresAnAutomaticallyRetiredEvent(t *testing.T) {
+	p := testutil.NewSnapshot(t)
+	s, err := OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+	channel := "UCAAAAAAAAAAAAAAAAAAAAAA"
+	result := ytsource.Result{Videos: []ytsource.Video{{ID: "AAAAAAAAAAA", Title: "reservation", PublishedAt: "2026-01-01T00:00:00Z", ScheduledAt: "2026-01-02T17:00:00Z", URL: "https://www.youtube.com/watch?v=AAAAAAAAAAA", ThumbnailURL: "https://i.ytimg.com/vi/AAAAAAAAAAA/hqdefault.jpg", Kind: "UPCOMING LIVE", IsUpcoming: true}}, NextCursor: "AAAAAAAAAAA", NextCursorTime: "2026-01-01T00:00:00Z", Queue: []string{"AAAAAAAAAAA"}}
+	if err = s.WriteYoutubeRecent(ctx, channel, result); err != nil {
+		t.Fatal(err)
+	}
+	// Re-extraction retired the event's X evidence and then the event, without
+	// an operator: it stays unlocked.
+	testutil.Exec(t, p, `INSERT INTO event_sources(event_id,source,source_item_id,source_key,url,raw_json,created_at,updated_at,deleted_at)
+		VALUES('youtube-AAAAAAAAAAA','x','post-1','2026-01-03T02:00:synthetic','https://x.com/synthetic/status/1','{}','2026-01-01T00:00:00Z','2026-01-01T01:00:00Z','2026-01-01T01:00:00Z')`)
+	testutil.Exec(t, p, `UPDATE events SET title='retired',deleted_at='2026-01-01T01:00:00Z' WHERE id='youtube-AAAAAAAAAAA'`)
+	if err = s.WriteYoutubeRecent(ctx, channel, result); err != nil {
+		t.Fatal(err)
+	}
+	db, _ := sql.Open("sqlite", p)
+	defer db.Close()
+	var title string
+	var deleted sql.NullString
+	if err = db.QueryRow(`SELECT title,deleted_at FROM events WHERE id='youtube-AAAAAAAAAAA'`).Scan(&title, &deleted); err != nil {
+		t.Fatal(err)
+	}
+	if title != "reservation" || deleted.Valid {
+		t.Fatalf("the reservation did not restore the retired event: %s deleted=%v", title, deleted)
+	}
+}

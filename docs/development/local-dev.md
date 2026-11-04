@@ -76,8 +76,10 @@ labels). The LLM page then orders provider + model targets in the extraction,
 schedule-image check and translation queues; extraction skips targets without
 the capability a post needs, and
 each target follows the fixed three-request failover policy. Content & media covers
-the Featured video and profile media. Provider URLs that resolve to loopback or
-private ranges are rejected, so local mock endpoints cannot be configured.
+the Featured video and profile media. Provider URLs on this machine
+(`localhost` or loopback) are rejected, so a local mock provider must listen
+on a local-network address instead, such as the machine's LAN address
+([provider address rules](../architecture/admin-api.md#extraction-and-models)).
 Set `WORKFLOW_SCHEDULER_ENABLED=0` to keep the source timers from firing
 while developing.
 

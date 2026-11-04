@@ -878,8 +878,8 @@ timeout, rejected redirects, and a 4 MiB response limit; it accepts OpenAI-style
 `{ data: [{ id }] }`, `{ models: [...] }`, or bare arrays. Upstream bodies and
 errors are reduced to fixed messages. Tags for newly added models are suggested
 from the model ID and stay editable. Removing a model removes its queue
-targets. The private
-and loopback address guard for provider URLs applies to model discovery too.
+targets. Model discovery uses only a `baseUrl` that passed the
+[provider address rules](admin-api.md#extraction-and-models).
 
 API hosts can omit `/v1`: bare origins use `/v1`, while OpenRouter and Gemini
 use their preset API roots. Explicit versioned roots and custom paths are

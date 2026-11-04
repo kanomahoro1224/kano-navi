@@ -8,7 +8,7 @@
 | Date range returns partial coverage     | Check source credential-availability flags and pagination budgets. Public timeline/RSS coverage cannot expand to a full archive.                            |
 | Source timer does not run               | Check `WORKFLOW_SCHEDULER_ENABLED`, the `SKIP_*` flags, the next run on the Sources page, and the single-flight queue. The API process must remain running. |
 | Schedule extraction skipped             | Check queue ordering, keyed provider capabilities, stage flags, and ready cached images. Pending images are not reduced to text-only input.                 |
-| Model provider cannot connect           | Inspect sanitized admin status. Private/loopback provider origins are rejected; redirects are blocked.                                                      |
+| Model provider cannot connect           | Inspect sanitized admin status. Loopback and link-local provider origins are rejected; local-network ones are allowed; redirects are blocked.               |
 | Media returns 404                       | Verify a ready database row and a contained cache path. Missing bytes do not trigger an external browser fetch.                                             |
 | Admin session disappears                | Sessions are in memory and expire on restart. Log in again.                                                                                                 |
 | HTTPS admin mutation rejected           | Preserve Sec-Fetch-Site and forwarded protocol; non-browser Origin checks need the public Host.                                                             |

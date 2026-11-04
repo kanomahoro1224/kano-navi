@@ -4,7 +4,10 @@
 
 - Go 1.26.10 or newer (the version in `backend/go.mod`, matching CI and Docker)
 - Node.js 24.22.1 or newer in the 24 LTS line (`.nvmrc` pins the version CI
-  and Docker use)
+  and Docker use). `make node-check` compares the running Node with the
+  `package.json` engines floor, and `make install` and the `ci-fast`,
+  `ci-style` and `ci-frontend` targets run it first, so an older Node stops
+  them instead of running the checks under a version CI never uses.
 - npm 10+
 - Git
 - A C compiler such as gcc, only for `make go-race` and `make ci-backend`

@@ -259,6 +259,13 @@ extraction contained an invalid event`). The extractor version is
 <details>
 <summary><strong>Runtime and development</strong></summary>
 
+- `make node-check` stops `make install`, `ci-fast`, `ci-style` and
+  `ci-frontend` under a Node older than the `package.json` engines floor.
+- Backend tests build their snapshot from the real schema in
+  `bootstrap.sql` instead of a hand-written subset, so records they write meet
+  the service's columns, defaults and constraints. Admin routes are checked
+  for a session on every route and method the service registers, and the
+  `dotenv`, `httpx`, `jsonbody` and `mediaformat` packages have tests.
 - `kano-go migrate-llm` trims `OPENAI_API_KEY` and `LLM_SECRETS_KEY` as the
   service does, so a key with surrounding whitespace seals a provider key the
   service can open, and a whitespace-only secrets key is refused.

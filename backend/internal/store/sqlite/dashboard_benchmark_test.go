@@ -87,11 +87,6 @@ func openSynthetic10k(tb testing.TB) *Store {
 	if err := tx.Commit(); err != nil {
 		tb.Fatalf("commit synthetic fixture: %v", err)
 	}
-	if _, err := db.Exec(`CREATE INDEX events_stream_identity_idx ON events (stream_identity(url), id) WHERE url IS NOT NULL;
-CREATE INDEX events_source_item_idx ON events (source, source_item_id, id);
-CREATE INDEX videos_schedule_instant_idx ON videos (julianday(scheduled_at), id);`); err != nil {
-		tb.Fatalf("index synthetic fixture: %v", err)
-	}
 	if err := db.Close(); err != nil {
 		tb.Fatalf("close synthetic writer: %v", err)
 	}

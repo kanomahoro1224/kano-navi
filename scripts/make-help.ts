@@ -13,6 +13,7 @@ const groups = {
     "go-build": "Build the Go backend binary into backend/bin",
   },
   Validation: {
+    "node-check": "Check that Node meets the version package.json requires",
     format: "Format supported files (writes changes)",
     "format-check": "Check formatting",
     typecheck: "Check the TypeScript frontend, scripts, and tests",

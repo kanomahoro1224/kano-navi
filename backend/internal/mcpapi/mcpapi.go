@@ -21,6 +21,7 @@ import (
 	"mime"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,6 +34,12 @@ const bodyLimit = 32 << 10
 
 // maxBatchSize mirrors the transport limit on one JSON-RPC batch.
 const maxBatchSize = 100
+
+// maxBatchToolCalls bounds the tool calls one batch runs, since each can read
+// a whole snapshot; the calls after it are answered with a tool error.
+const maxBatchToolCalls = 10
+
+var batchToolCallsExceeded = "Too many tool calls in one batch (at most " + strconv.Itoa(maxBatchToolCalls) + ")"
 
 // Options configures the endpoint.
 type Options struct {

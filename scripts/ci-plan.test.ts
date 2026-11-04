@@ -102,6 +102,7 @@ test("a validation script selects the jobs that run it, and every script has a d
     "docker",
   ])
   assert.deepEqual(selected("scripts/check-sensitive.test.ts"), ["frontend"])
+  assert.deepEqual(selected("scripts/check-node.ts"), ["frontend"])
   assert.deepEqual(selected("scripts/privacy-allowlist.json"), [])
   assert.deepEqual(
     selected(

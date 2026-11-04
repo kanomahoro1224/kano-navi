@@ -172,7 +172,7 @@ func TestMakeMediaUsesTheReadyRowsAndReportsUnreadableFiles(t *testing.T) {
 	for i, content := range contents {
 		sourceURL := "https://pbs.twimg.com/media/synthetic-" + string(rune('a'+i)) + ".jpg"
 		id := hashOf([]byte(sourceURL))
-		testutil.Exec(t, path, `INSERT INTO media_assets(id,source,source_url,status) VALUES(?,'x',?,'pending')`, id, sourceURL)
+		testutil.Exec(t, path, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id, sourceURL)
 		if err = store.SaveMediaDownload(ctx, sqlite.PendingMedia{ID: id, Source: "x", SourceURL: sourceURL}, content, "image/jpeg", "", "", "ready", ""); err != nil {
 			t.Fatal(err)
 		}

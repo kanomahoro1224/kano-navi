@@ -3,6 +3,7 @@ package llmadmin
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -102,7 +103,7 @@ func TestProviderValidation(t *testing.T) {
 		}
 		return body
 	}
-	private := "baseUrl must not target a private or loopback address"
+	refused := "baseUrl must not target this machine or a link-local or reserved address"
 	cases := []struct {
 		name    string
 		body    map[string]any
@@ -116,18 +117,15 @@ func TestProviderValidation(t *testing.T) {
 		{"credentials", base(map[string]any{"baseUrl": secureURL(strings.Join([]string{"user", "pass"}, ":")+"@provider.example.test", "")}), "baseUrl must not contain credentials, query, or fragment"},
 		{"query", base(map[string]any{"baseUrl": testBaseURL + "?x=1"}), "baseUrl must not contain credentials, query, or fragment"},
 		{"fragment", base(map[string]any{"baseUrl": testBaseURL + "#x"}), "baseUrl must not contain credentials, query, or fragment"},
-		{"loopback v4", base(map[string]any{"baseUrl": "https://127.0.0.1/v1"}), private},
-		{"loopback integer", base(map[string]any{"baseUrl": "https://2130706433/v1"}), private},
-		{"loopback hex", base(map[string]any{"baseUrl": "https://0x7f.1/v1"}), private},
-		{"private v4", base(map[string]any{"baseUrl": secureURL(ipv4(10, 1, 2, 3), "")}), private},
-		{"link local", base(map[string]any{"baseUrl": secureURL(ipv4(169, 254, 169, 254), "/latest")}), private},
-		{"loopback v6", base(map[string]any{"baseUrl": "https://[::1]/v1"}), private},
-		{"unique local v6", base(map[string]any{"baseUrl": secureURL("[fd00::1]", "/v1")}), private},
-		{"mapped v4", base(map[string]any{"baseUrl": secureURL("[::ffff:"+ipv4(10, 0, 0, 1)+"]", "/v1")}), private},
-		{"localhost", base(map[string]any{"baseUrl": "https://LOCALHOST./v1"}), private},
-		{"internal name", base(map[string]any{"baseUrl": secureURL("svc.internal", "/v1")}), private},
-		{"local name", base(map[string]any{"baseUrl": secureURL("printer.local", "")}), private},
-		{"http in production", base(map[string]any{"baseUrl": "http://provider.example.test/v1"}), "baseUrl must use HTTPS in production"},
+		{"loopback v4", base(map[string]any{"baseUrl": "https://127.0.0.1/v1"}), refused},
+		{"loopback integer", base(map[string]any{"baseUrl": "https://2130706433/v1"}), refused},
+		{"loopback hex", base(map[string]any{"baseUrl": "https://0x7f.1/v1"}), refused},
+		{"link local", base(map[string]any{"baseUrl": secureURL(ipv4(169, 254, 169, 254), "/latest")}), refused},
+		{"loopback v6", base(map[string]any{"baseUrl": "https://[::1]/v1"}), refused},
+		{"mapped loopback", base(map[string]any{"baseUrl": secureURL("[::ffff:"+ipv4(127, 0, 0, 1)+"]", "/v1")}), refused},
+		{"localhost", base(map[string]any{"baseUrl": "https://LOCALHOST./v1"}), refused},
+		{"localhost name", base(map[string]any{"baseUrl": secureURL("api.localhost", "/v1")}), refused},
+		{"http in production", base(map[string]any{"baseUrl": "http://provider.example.test/v1"}), "baseUrl must use HTTPS in production outside the local network"},
 		{"protocol", base(map[string]any{"protocol": "bogus"}), "protocol is invalid"},
 		{"enabled", base(map[string]any{"enabled": "maybe"}), "enabled must be a boolean"},
 		{"vision flag", base(map[string]any{"visionCapable": nil}), "visionCapable must be a boolean"},
@@ -171,12 +169,31 @@ func TestProviderSecretRequiresTheSecretsKey(t *testing.T) {
 	equal(t, "apiKeyConfigured", provider["apiKeyConfigured"], false)
 }
 
-func TestDevelopmentModeAllowsPlainHTTPButNotPrivateHosts(t *testing.T) {
+func TestDevelopmentModeAllowsPlainHTTPButNotThisMachine(t *testing.T) {
 	h := newHarness(t, harnessOptions{mode: "development"})
 	provider := h.createProvider("alpha", map[string]any{"baseUrl": "http://provider.example.test:8080/api/"})
 	equal(t, "baseUrl", provider["baseUrl"], "http://provider.example.test:8080/api")
-	h.invalid(http.MethodPost, "/llm/providers", map[string]any{"id": "beta", "baseUrl": composedURL("http", ipv4(192, 168, 1, 10)+":8080", "")},
-		"baseUrl must not target a private or loopback address")
+	h.invalid(http.MethodPost, "/llm/providers", map[string]any{"id": "beta", "baseUrl": composedURL("http", ipv4(127, 0, 0, 1)+":8080", "")},
+		"baseUrl must not target this machine or a link-local or reserved address")
+}
+
+func TestProductionAcceptsLocalNetworkProviders(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+	cases := map[string]string{
+		composedURL("http", ipv4(192, 168, 1, 10)+":11434", "/v1/"):  composedURL("http", ipv4(192, 168, 1, 10)+":11434", "/v1"),
+		composedURL("http", ipv4(100, 64, 0, 7), "/v1"):              composedURL("http", ipv4(100, 64, 0, 7), "/v1"),
+		composedURL("http", "[fd00::1]:8000", "/v1"):                 composedURL("http", "[fd00::1]:8000", "/v1"),
+		composedURL("http", "[::ffff:"+ipv4(10, 0, 0, 1)+"]", "/v1"): composedURL("http", "[::ffff:a00:1]", "/v1"),
+		composedURL("http", "gpu.lan:1234", "/v1"):                   composedURL("http", "gpu.lan:1234", "/v1"),
+		composedURL("http", "host.docker.internal:11434", "/v1"):     composedURL("http", "host.docker.internal:11434", "/v1"),
+		secureURL("models.home.arpa", "/v1"):                         secureURL("models.home.arpa", "/v1"),
+	}
+	index := 0
+	for input, want := range cases {
+		index++
+		provider := h.createProvider("local-"+strconv.Itoa(index), map[string]any{"baseUrl": input})
+		equal(t, input, provider["baseUrl"], want)
+	}
 }
 
 func TestNewProvidersAndModelsAreNotQueuedImplicitly(t *testing.T) {

@@ -22,6 +22,7 @@ func TestPendingMediaRetriesTransientFailuresAndRechecksLiveThumbnails(t *testin
 		upcoming  int
 	}{
 		{"upcoming", workflowTime(now.Add(48 * time.Hour)), 1},
+		{"soon", workflowTime(now.Add(24 * time.Hour)), 1},
 		{"recent", ago(2 * time.Hour), 0},
 		{"old", ago(72 * time.Hour), 0},
 	} {
@@ -40,7 +41,8 @@ func TestPendingMediaRetriesTransientFailuresAndRechecksLiveThumbnails(t *testin
 		{"bilibili retry", "bilibili", "failed", "media_rate_limited", ago(time.Hour), "", true},
 		{"upcoming stream", "youtube", "ready", "", ago(time.Hour), "upcoming", true},
 		{"recent video", "youtube", "ready", "", ago(time.Hour), "recent", true},
-		{"recently checked", "youtube", "ready", "", ago(time.Minute), "upcoming", false},
+		// A video has one thumbnail link, so this case has its own video.
+		{"recently checked", "youtube", "ready", "", ago(time.Minute), "soon", false},
 		{"old video", "youtube", "ready", "", ago(time.Hour), "old", false},
 		{"unlinked ready", "youtube", "ready", "", ago(time.Hour), "", false},
 	}
@@ -48,7 +50,7 @@ func TestPendingMediaRetriesTransientFailuresAndRechecksLiveThumbnails(t *testin
 		u := "https://i.ytimg.com/vi/" + c.name + "/hqdefault.jpg"
 		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,last_error,last_checked_at,etag,created_at,updated_at) VALUES(?,?,?,?,NULLIF(?,''),NULLIF(?,''),'"synthetic"',?,?)`, sha256Hex(u), c.source, u, c.status, c.lastError, c.checked, ago(96*time.Hour), ago(96*time.Hour))
 		if c.owner != "" {
-			testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position) VALUES(?,'video',?,'thumbnail',0)`, sha256Hex(u), c.owner)
+			testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'video',?,'thumbnail',0,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, sha256Hex(u), c.owner)
 		}
 	}
 	pending, err := s.PendingMedia(context.Background(), 100)
@@ -89,9 +91,9 @@ func TestRemainingMediaCountsOnlyNeverCheckedQueuedAssets(t *testing.T) {
 		{"avatar", "avatar", "pending", ""},
 	} {
 		u := "https://pbs.twimg.com/media/" + c.name + ".jpg"
-		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,last_error,last_checked_at) VALUES(?,?,?,?,CASE WHEN ?='failed' THEN 'media_timeout' END,NULLIF(?,''))`, sha256Hex(u), c.source, u, c.status, c.status, c.checked)
+		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,last_error,last_checked_at,created_at,updated_at) VALUES(?,?,?,?,CASE WHEN ?='failed' THEN 'media_timeout' END,NULLIF(?,''),'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, sha256Hex(u), c.source, u, c.status, c.status, c.checked)
 	}
-	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status) VALUES('x-0123456789abcdef0123456789abcdef','x','https://pbs.twimg.com/media/legacy.jpg','pending')`)
+	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES('x-0123456789abcdef0123456789abcdef','x','https://pbs.twimg.com/media/legacy.jpg','pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`)
 	if remaining, err := s.RemainingMedia(context.Background()); err != nil || remaining != 3 {
 		t.Fatalf("remaining=%d err=%v", remaining, err)
 	}

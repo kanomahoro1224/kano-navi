@@ -747,6 +747,16 @@ changes `baseUrl` while a key is stored must carry `apiKey`, otherwise it is
 `400 invalid_input`, so a stored key is only sent to the address it was
 entered for.
 
+A provider `baseUrl` may name a model server on the local network: a private
+or shared (carrier-grade NAT) IPv4 address, a unique-local IPv6 address, or a
+name ending in `.local`, `.lan`, `.internal` or `.home.arpa`, such as
+`host.docker.internal`. Production accepts plain HTTP only for these
+local-network addresses; every other address must use HTTPS. This machine
+(`localhost`, `.localhost` and loopback addresses), link-local addresses
+(including cloud metadata endpoints), multicast and the other
+special-purpose ranges are refused. Names are not resolved, so a public name
+is accepted wherever it points; only the operator sets provider addresses.
+
 `GET /llm/failures` lists the 30 newest stored model failures, newest first:
 failed schedule extractions (one per input and queue target), failed
 schedule-image checks and owners whose last machine translation failed. A

@@ -166,7 +166,8 @@ func (s *Store) WriteHistoryPage(ctx context.Context, page history.Page) (histor
 					return history.Written{}, ErrSourceWrite
 				}
 			}
-			if _, err = tx.ExecContext(ctx, `INSERT INTO videos(id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,raw_json) VALUES(?,'youtube',?,?,NULL,?,?,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=COALESCE(excluded.published_at,videos.published_at),url=excluded.url,thumbnail_url=COALESCE(videos.thumbnail_url,excluded.thumbnail_url)`, video.ID, video.Title, nullable(video.PublishedAt), video.URL, nullable(video.ThumbnailURL), video.Kind, video.IsUpcoming); err != nil {
+			if _, err = tx.ExecContext(ctx, `INSERT INTO videos(id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,raw_json) VALUES(?,'youtube',?,?,NULL,?,?,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=COALESCE(excluded.published_at,videos.published_at),url=excluded.url,thumbnail_url=COALESCE(videos.thumbnail_url,excluded.thumbnail_url),`+retitledJudgementSQL("videos", retitledVideoJudgement)+`
+			   `, video.ID, video.Title, nullable(video.PublishedAt), video.URL, nullable(video.ThumbnailURL), video.Kind, video.IsUpcoming); err != nil {
 				return history.Written{}, ErrSourceWrite
 			}
 			if video.ThumbnailURL != "" && prior.ThumbnailURL == "" {

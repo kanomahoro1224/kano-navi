@@ -101,12 +101,20 @@ func timeVideoEvents(ctx context.Context, tx *sql.Tx, start, end, now string) (i
 	return len(changes), nil
 }
 
+// restorableEventSQL holds for an unlocked event that automatic
+// re-extraction retired: its source evidence was retired before it. Manual
+// deletions are locked and never match.
+func restorableEventSQL(table string) string {
+	return table + `.manual_locked=0 AND ` + table + `.deleted_at IS NOT NULL AND EXISTS(SELECT 1 FROM event_sources retired WHERE retired.event_id=` + table + `.id AND retired.deleted_at IS NOT NULL)`
+}
+
 func createBroadcastEvents(ctx context.Context, tx *sql.Tx, start, end, now string) (int, error) {
 	rows, err := tx.QueryContext(ctx, `SELECT v.id,v.title,v.scheduled_at,v.url,v.is_premiere FROM videos v
 		WHERE v.source='youtube' AND v.scheduled_at IS NOT NULL AND COALESCE(v.is_upcoming,0)=0 AND v.live_status='ended'
 		AND julianday(v.scheduled_at)>=julianday(?) AND julianday(v.scheduled_at)<julianday(?)
 		AND (v.is_premiere IS NOT NULL OR COALESCE(v.duration_seconds,0)>=?)
-		AND NOT EXISTS(SELECT 1 FROM events e WHERE e.id='youtube-'||v.id OR e.source='youtube' AND e.source_item_id=v.id)
+		AND NOT EXISTS(SELECT 1 FROM events e WHERE (e.id='youtube-'||v.id OR e.source='youtube' AND e.source_item_id=v.id)
+			AND NOT (e.id='youtube-'||v.id AND `+restorableEventSQL("e")+`))
 		AND NOT EXISTS(SELECT 1 FROM event_sources s WHERE s.source='youtube' AND s.source_item_id=v.id)
 		ORDER BY v.id`, start, end, unclassifiedStreamSeconds)
 	if err != nil {
@@ -136,8 +144,12 @@ func createBroadcastEvents(ctx context.Context, tx *sql.Tx, start, end, now stri
 		}
 		typeName, detail, status := youtubeEventFields(v)
 		eventID := "youtube-" + v.ID
+		// An event that automatic re-extraction retired is restored in place.
 		if _, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,timezone,time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,created_at,updated_at,raw_json)
-			VALUES(?,'youtube',?,'reservation',?,?,?,?,'Asia/Tokyo','exact',?,?,?,0,'automatic',0,?,?,'{}')`,
+			VALUES(?,'youtube',?,'reservation',?,?,?,?,'Asia/Tokyo','exact',?,?,?,0,'automatic',0,?,?,'{}')
+			ON CONFLICT(id) DO UPDATE SET title=excluded.title,detail=excluded.detail,starts_on=excluded.starts_on,starts_at=excluded.starts_at,
+			  time_precision=excluded.time_precision,status=excluded.status,event_type=excluded.event_type,url=excluded.url,is_upcoming=0,
+			  deleted_at=NULL,updated_at=excluded.updated_at WHERE `+restorableEventSQL("events"),
 			eventID, v.ID, v.Title, detail, instant.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02"), v.ScheduledAt, status, typeName, v.URL, now, now); err != nil {
 			return 0, err
 		}

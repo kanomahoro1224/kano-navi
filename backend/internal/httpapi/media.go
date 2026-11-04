@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,8 +47,46 @@ func serveMediaStream(w http.ResponseWriter, r *http.Request, file *sqlite.Media
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", mediaCacheControl(immutable))
 	w.Header().Set("ETag", `"`+file.ETag+`"`)
-	http.ServeContent(w, r, "", file.LastModified, file.File)
+	serveContent(w, r, "", file.LastModified, file.File)
 }
+
+const (
+	// mediaWriteTimeout bounds each write of a media body, so a client that
+	// stops reading is let go while a slow one that keeps reading is not.
+	mediaWriteTimeout = 30 * time.Second
+	// mediaResponseLimit bounds a whole media body, about 64 KiB/s for the
+	// largest archived video.
+	mediaResponseLimit = 30 * time.Minute
+)
+
+// serveContent is http.ServeContent with the listener's write timeout
+// replaced by per-write progress, since a large video takes longer than a
+// bounded reply on a slow connection.
+func serveContent(w http.ResponseWriter, r *http.Request, name string, modified time.Time, content io.ReadSeeker) {
+	progress := &progressWriter{
+		ResponseWriter: w,
+		controller:     http.NewResponseController(w),
+		end:            time.Now().Add(mediaResponseLimit),
+	}
+	http.ServeContent(progress, r, name, modified, content)
+}
+
+type progressWriter struct {
+	http.ResponseWriter
+	controller *http.ResponseController
+	end        time.Time
+}
+
+func (w *progressWriter) Write(body []byte) (int, error) {
+	deadline := time.Now().Add(mediaWriteTimeout)
+	if deadline.After(w.end) {
+		deadline = w.end
+	}
+	_ = w.controller.SetWriteDeadline(deadline)
+	return w.ResponseWriter.Write(body)
+}
+
+func (w *progressWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func (h *Handler) profileMedia(w http.ResponseWriter, r *http.Request, slot string) {
 	slot = strings.ToLower(slot)

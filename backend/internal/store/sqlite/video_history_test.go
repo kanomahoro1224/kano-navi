@@ -62,7 +62,7 @@ func TestYoutubeStateQueuesRefreshRequestsAndDueFollowUps(t *testing.T) {
 	}
 	// The premiere ended an hour after it started, so its day-one follow-up
 	// counts from the end and is due; the check before it does not cover it.
-	testutil.Exec(t, p, `INSERT INTO events(id,source,source_item_id,source_key,title,starts_on,starts_at,ends_at) VALUES('youtube-premiere','youtube','premiere','reservation','premiere',?,?,?)`, at(-30 * time.Hour)[:10], at(-30*time.Hour), at(-29*time.Hour))
+	testutil.Exec(t, p, `INSERT INTO events(id,source,source_item_id,source_key,title,starts_on,starts_at,ends_at,created_at,updated_at) VALUES('youtube-premiere','youtube','premiere','reservation','premiere',?,?,?,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, at(-30 * time.Hour)[:10], at(-30*time.Hour), at(-29*time.Hour))
 	state, err := s.YoutubeRecentState(context.Background(), historyChannel)
 	if err != nil {
 		t.Fatal(err)
@@ -237,7 +237,7 @@ func TestPendingMediaRevalidatesAThumbnailAfterADetailCheck(t *testing.T) {
 		u := "https://i.ytimg.com/vi/" + c.id + "/hqdefault.jpg"
 		testutil.Exec(t, p, `INSERT INTO videos(id,source,title,published_at,url,live_checked_at) VALUES(?,'youtube',?,?,?,NULLIF(?,''))`, c.id, c.id, at(-10*24*time.Hour), "https://www.youtube.com/watch?v="+c.id, c.pageChecked)
 		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,sha256,last_checked_at,created_at,updated_at) VALUES(?,'youtube',?,'ready',?,?,?,?)`, sha256Hex(u), u, strings.Repeat("a", 64), c.fileChecked, c.fileChecked, c.fileChecked)
-		testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position) VALUES(?,'video',?,'thumbnail',0)`, sha256Hex(u), c.id)
+		testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'video',?,'thumbnail',0,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, sha256Hex(u), c.id)
 	}
 	pending, err := s.PendingMedia(context.Background(), 10)
 	if err != nil {

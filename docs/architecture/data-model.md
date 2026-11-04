@@ -255,8 +255,9 @@ Creating, editing, or confirming an event through `/admin` changes it to
 `provenance = manual` and sets `manual_locked = 1`. Automatic upserts include a
 database-level lock condition and cannot replace those rows. Manual deletion is
 a soft-delete tombstone with the same lock, so synchronization cannot resurrect
-it. An automatic retirement stays unlocked: new X evidence or a YouTube
-reservation for the same event restores it. Manual operators can mark an event `manual_confirmed` with a required reason;
+it. An automatic retirement stays unlocked: new X evidence, a YouTube
+reservation, or the reconciler's event for an ended broadcast of the same
+event restores it. Manual operators can mark an event `manual_confirmed` with a required reason;
 that decision is separate from the LLM overlay and is what the public dashboard
 uses as a definitive cancellation. Editing or confirming an event that carries
 an `llm_suspected` overlay keeps the overlay and its evidence unless the
@@ -679,8 +680,9 @@ operator's row that never had a label (`tag_source` empty) reads on to the
 video's tag, so it does not hold the video back; a cleared label
 (`tag_source = manual`) does. Only `game`, `talk` or `song` is stored; another
 answer or none is stored as `tag_source = title` without a tag and is not
-asked again until a creator's rename clears that judgement (a stored tag, or
-an operator's `manual_title`, keeps it); a failure only stamps
+asked again until a creator's rename clears that judgement, whether the
+recent synchronization or a history page sees the new title first (a stored
+tag, or an operator's `manual_title`, keeps it); a failure only stamps
 `tag_attempted_at` and waits a day, as an entry does. Videos
 never attempted come first, then the least recently attempted, each newest
 first. Storing a tag advances the dashboard revision; a judgement without

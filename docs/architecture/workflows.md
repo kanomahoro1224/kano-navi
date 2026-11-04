@@ -199,7 +199,10 @@ share the X status requests per run across accounts as a page budget, including 
 requests: each account gets an even share of what is left, and the first
 account rotates across runs per mode (`sync_state` source `x-budget`, key
 `window-<mode>`), so a small budget still reaches every account. An account
-left without budget reports `X request budget exhausted`.
+left without budget reports `X request budget exhausted`. A `before` fetch
+skips an account with no stored posts. The step fails (`X fetch failed for
+every account`) when no account's fetch answered, so skipped accounts never
+turn a failure of every attempted account into a partial result.
 
 Each successful page and its continuation checkpoint commit in one
 transaction with the page's posts or videos and schedule candidates. The
@@ -513,7 +516,7 @@ cancellation or a shutdown finishes it `cancelled`.
 
 **Retry.** A step error carries a category. `timeout`, `rate_limited` and
 `dependency_unavailable` are retryable and get one more attempt in the same
-run; `permanent`, `schema_failure`, `validation_failure`, `cancelled` and
+run, five seconds later; `permanent`, `schema_failure`, `validation_failure`, `cancelled` and
 `blocked` are not. The final failure of `x`, `youtube`, `bilibili` or
 `translate` is recorded with its code and the run continues, finishing
 `partial`, or `failed` when no step completed; a source step that carries a

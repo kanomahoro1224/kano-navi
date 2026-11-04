@@ -71,25 +71,45 @@ func scheduleKeywords(value any) ([]string, error) {
 	return normalized, nil
 }
 
-func privateIPv4(address [4]byte) bool {
+// addressClass sorts a provider destination. A local-network destination is
+// accepted, and may use plain HTTP, because model servers on a home or office
+// network usually serve it; a refused one never is.
+type addressClass int
+
+const (
+	publicAddress addressClass = iota
+	localAddress
+	refusedAddress
+)
+
+// classifyIPv4 accepts the private and shared (carrier-grade NAT) ranges as
+// local and refuses this machine, link-local (cloud metadata), multicast and
+// the special-purpose ranges.
+func classifyIPv4(address [4]byte) addressClass {
 	a, b := address[0], address[1]
-	return a == 0 ||
-		a == 10 ||
-		a == 127 ||
-		(a == 100 && b >= 64 && b <= 127) ||
-		(a == 169 && b == 254) ||
-		(a == 172 && b >= 16 && b <= 31) ||
-		(a == 192 && b == 0) ||
-		(a == 192 && b == 168) ||
-		(a == 198 && (b == 18 || b == 19)) ||
-		(a == 198 && b == 51) ||
-		(a == 203 && b == 0) ||
-		a >= 224
+	switch {
+	case a == 10,
+		a == 100 && b >= 64 && b <= 127,
+		a == 172 && b >= 16 && b <= 31,
+		a == 192 && b == 168:
+		return localAddress
+	case a == 0,
+		a == 127,
+		a == 169 && b == 254,
+		a == 192 && b == 0,
+		a == 198 && (b == 18 || b == 19),
+		a == 198 && b == 51,
+		a == 203 && b == 0,
+		a >= 224:
+		return refusedAddress
+	}
+	return publicAddress
 }
 
-// privateIPv6 covers the unspecified, loopback, unique-local, link-local and
-// multicast ranges. IPv4-mapped addresses inherit the IPv4 policy.
-func privateIPv6(address [16]byte) bool {
+// classifyIPv6 accepts unique-local addresses as local and refuses the
+// unspecified, loopback, link-local and multicast ranges. IPv4-mapped
+// addresses inherit the IPv4 policy.
+func classifyIPv6(address [16]byte) addressClass {
 	zeroPrefix := func(n int) bool {
 		for _, b := range address[:n] {
 			if b != 0 {
@@ -98,22 +118,38 @@ func privateIPv6(address [16]byte) bool {
 		}
 		return true
 	}
-	if zeroPrefix(15) && address[15] <= 1 {
-		return true
+	switch {
+	case zeroPrefix(15) && address[15] <= 1:
+		return refusedAddress
+	case address[0]&0xfe == 0xfc: // fc00::/7
+		return localAddress
+	case address[0] == 0xfe && address[1]&0xc0 == 0x80: // fe80::/10
+		return refusedAddress
+	case address[0] == 0xff: // ff00::/8
+		return refusedAddress
+	case zeroPrefix(10) && address[10] == 0xff && address[11] == 0xff:
+		return classifyIPv4([4]byte(address[12:16]))
 	}
-	if address[0]&0xfe == 0xfc { // fc00::/7
-		return true
+	return publicAddress
+}
+
+// localSuffixes are names only a local network resolves; they match the
+// outbound proxy's direct destinations.
+var localSuffixes = []string{".local", ".lan", ".internal", ".home.arpa"}
+
+// classifyName refuses names for this machine and accepts local-network
+// names. A public name is not resolved, so where it points is the operator's
+// responsibility.
+func classifyName(name string) addressClass {
+	if name == "localhost" || strings.HasSuffix(name, ".localhost") {
+		return refusedAddress
 	}
-	if address[0] == 0xfe && address[1]&0xc0 == 0x80 { // fe80::/10
-		return true
+	for _, suffix := range localSuffixes {
+		if strings.HasSuffix(name, suffix) {
+			return localAddress
+		}
 	}
-	if address[0] == 0xff { // ff00::/8
-		return true
-	}
-	if zeroPrefix(10) && address[10] == 0xff && address[11] == 0xff {
-		return privateIPv4([4]byte(address[12:16]))
-	}
-	return false
+	return publicAddress
 }
 
 // urlIPv4 applies the URL Standard's IPv4 host parser, which also accepts
@@ -202,9 +238,9 @@ func removeDotSegments(path string) string {
 	return strings.Join(out, "/")
 }
 
-// providerBaseURL validates and canonicalizes a provider address. Loopback,
-// private, link-local and internal-only names are refused, and production
-// accepts HTTPS only.
+// providerBaseURL validates and canonicalizes a provider address. This
+// machine, link-local and special-purpose addresses are refused, and
+// production accepts plain HTTP only on the local network.
 func providerBaseURL(value any, mode string) (string, error) {
 	normalized, err := text(value, "baseUrl", true, 500)
 	if err != nil {
@@ -238,7 +274,7 @@ func providerBaseURL(value any, mode string) (string, error) {
 	if hostname == "" || strings.Contains(hostname, "%") {
 		return "", invalid
 	}
-	private := false
+	var class addressClass
 	serialized := hostname
 	if strings.HasPrefix(parsed.Host, "[") {
 		address, addrErr := netip.ParseAddr(hostname)
@@ -246,7 +282,7 @@ func providerBaseURL(value any, mode string) (string, error) {
 			return "", invalid
 		}
 		bytes := address.As16()
-		private = privateIPv6(bytes)
+		class = classifyIPv6(bytes)
 		serialized = "[" + address.String() + "]"
 		if address.Is4In6() {
 			// URL serialization keeps mapped addresses in hexadecimal groups.
@@ -265,21 +301,17 @@ func providerBaseURL(value any, mode string) (string, error) {
 			if !ok {
 				return "", invalid
 			}
-			private = privateIPv4(address)
+			class = classifyIPv4(address)
 			serialized = netip.AddrFrom4(address).String()
 		} else {
-			name := strings.TrimSuffix(hostname, ".")
-			private = name == "localhost" ||
-				strings.HasSuffix(name, ".localhost") ||
-				strings.HasSuffix(name, ".local") ||
-				strings.HasSuffix(name, ".internal")
+			class = classifyName(strings.TrimSuffix(hostname, "."))
 		}
 	}
-	if private {
-		return "", httpx.Invalid("baseUrl must not target a private or loopback address")
+	if class == refusedAddress {
+		return "", httpx.Invalid("baseUrl must not target this machine or a link-local or reserved address")
 	}
-	if mode == "production" && scheme != "https" {
-		return "", httpx.Invalid("baseUrl must use HTTPS in production")
+	if mode == "production" && scheme != "https" && class != localAddress {
+		return "", httpx.Invalid("baseUrl must use HTTPS in production outside the local network")
 	}
 
 	if port := parsed.Port(); port != "" {

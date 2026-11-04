@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -753,5 +754,28 @@ func TestRunRetentionSettings(t *testing.T) {
 	}
 	if got := c.text(t, `SELECT value FROM app_settings WHERE key='run_retention_succeeded_days'`); got != "0" {
 		t.Fatalf("stored=%s", got)
+	}
+}
+
+// Every route the console registers, with every method, answers 401 without
+// a session; only the session routes themselves answer.
+func TestEveryCoreRouteRequiresASession(t *testing.T) {
+	c := newConsole(t, "production", "synthetic-password", &gatedSteps{})
+	routes := (&api{Options: Options{Store: c.store}}).routes()
+	if len(routes) < 20 {
+		t.Fatalf("only %d routes listed", len(routes))
+	}
+	wildcard := regexp.MustCompile(`\{[^}]+\}`)
+	for _, route := range routes {
+		path := httpx.AdminPrefix + wildcard.ReplaceAllString(route.Path, "synthetic")
+		if route.Path == "/session" {
+			if route.Method != http.MethodGet && route.Method != http.MethodPost && route.Method != http.MethodDelete {
+				t.Fatalf("%s /session would skip the session check", route.Method)
+			}
+			continue
+		}
+		if code, payload := c.call(t, route.Method, path, "{}"); code != http.StatusUnauthorized || payload["error"] != "admin_auth_required" {
+			t.Errorf("%s %s = %d %v", route.Method, route.Path, code, payload)
+		}
 	}
 }

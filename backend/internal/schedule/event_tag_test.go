@@ -46,7 +46,7 @@ func TestNormalizeKeepsOnlyKnownEventTags(t *testing.T) {
 		{"unknown", "karaoke", true, ""},
 		{"not a string", 3, true, ""},
 	} {
-		events, err := normalizeExtractedEvents(items(tt.tag, tt.withTag), "post-1", "https://x.com/example/status/1", now)
+		events, err := normalizeExtractedEvents(items(tt.tag, tt.withTag), "post-1", "https://x.com/example/status/1", time.Time{}, now)
 		if err != nil {
 			t.Fatalf("%s: %v", tt.name, err)
 		}

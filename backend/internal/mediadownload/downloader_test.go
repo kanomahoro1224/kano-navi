@@ -67,7 +67,7 @@ func TestDownloadPublishesReadableVersionAndFailureRetainsReadyFile(t *testing.T
 	u := "https://pbs.twimg.com/fixture.png"
 	h := sha256.Sum256([]byte(u))
 	id := hex.EncodeToString(h[:])
-	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status) VALUES(?,'x',?,'pending')`, id, u)
+	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id, u)
 	client := NewClient(&http.Client{Transport: transport(func(*http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"image/png"}}, Body: io.NopCloser(strings.NewReader("\x89PNG\r\n\x1a\nsynthetic"))}, nil
 	})})

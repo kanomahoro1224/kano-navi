@@ -61,7 +61,8 @@ them. `GET /media/lineblog/<name>` (and `HEAD`) opens the directory as a root
 and serves only a regular file directly inside it whose name is 12 lowercase
 hex digits and `.jpg`, `.png` or `.mp4`; the type comes from the extension.
 Responses carry `nosniff`, `default-src 'none'; sandbox`, an ETag of the name
-and size, byte ranges and conditional requests; images whose bytes match
+and size, byte ranges, conditional requests and the
+[media body time limits](#http-contract); images whose bytes match
 their name are immutable and everything else revalidates
 ([Immutable Fixed Files](#immutable-fixed-files)). Any
 other name, a directory, a symlink or a missing file answers `404`. The
@@ -252,6 +253,11 @@ against the row's hash once per file, not per request: the download records
 the hash it wrote, and a file without a record is hashed once when it is
 first served ([File Hashes](#file-hashes)). A file whose size or modification
 time changes is checked again, and one whose bytes do not match answers `404`.
+
+A media body is not bound by the [listener's write
+timeout](backend.md#listener-timeouts): each write must finish within 30
+seconds and the whole body within 30 minutes. A large video therefore reaches
+a slow client that keeps reading, and a client that stops reading is let go.
 
 Dashboard media fields include the safe `...Url` (a
 `/media/<id>?v=<content-sha256>` route or a tracked `/assets/...` fallback), the

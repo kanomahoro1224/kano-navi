@@ -36,6 +36,9 @@
 > times without their `id` and no longer looks a job up by `jobId`; a client
 > that follows a job it started sends the `MCP_CONTROL_TOKEN`, which keeps
 > both.
+>
+> An MCP JSON-RPC batch runs at most 10 tool calls; later `tools/call`
+> requests in the same batch are answered with a tool error without running.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -104,6 +107,8 @@
   the language and theme choices then last for the visit only.
 - Public MCP `sync_status` no longer names job IDs; the control token's
   holder still reads them and looks jobs up by ID.
+- A LINE BLOG video or other media file reaches the end on a slow connection
+  that keeps reading, instead of stopping after 150 seconds.
 
 </details>
 
@@ -156,6 +161,10 @@
   message and a link to the post or video (`GET /api/admin/llm/failures`).
   A post whose extraction answer failed the event check reads Unreadable
   response instead of Provider error.
+- A model provider can be a server on the local network, such as a machine
+  at a private address or `host.docker.internal`, over plain HTTP in
+  production too. Addresses on this machine and link-local
+  addresses are still refused.
 
 </details>
 
@@ -231,6 +240,21 @@ extraction contained an invalid event`). The extractor version is
   again at the newest page and clears the token, so a repeated fetch no
   longer fails the same way every time. Rate limits and quota keep the saved
   position.
+- A December notice's January date, which a model sometimes returns in the
+  past year, is stored in the coming year when it falls within three months
+  of the post.
+- A schedule extraction or schedule-image check whose reply the provider cut
+  off at the token limit, refused or left incomplete fails the attempt even
+  when the partial answer parses, instead of being stored as a result.
+- A video renamed while a history page reads it is asked about again when its
+  old title gave no content, as a rename seen by the recent synchronization
+  is.
+- The reconciler's event for an ended broadcast restores an event that
+  automatic re-extraction had retired, instead of leaving it deleted.
+- A manual X `before` fetch fails when no account's fetch answered, instead
+  of reading as partial because an account without stored posts was skipped.
+- A retryable step failure, such as a rate limit, waits five seconds before
+  its second attempt.
 - The YouTube push callback confirms only a subscription this process asked
   for within the last hour, so a stranger's subscribe request with this
   callback can no longer replace the signing secret and silence push
@@ -244,6 +268,13 @@ extraction contained an invalid event`). The extractor version is
 <details>
 <summary><strong>Runtime and development</strong></summary>
 
+- `make node-check` stops `make install`, `ci-fast`, `ci-style` and
+  `ci-frontend` under a Node older than the `package.json` engines floor.
+- Backend tests build their snapshot from the real schema in
+  `bootstrap.sql` instead of a hand-written subset, so records they write meet
+  the service's columns, defaults and constraints. Admin routes are checked
+  for a session on every route and method the service registers, and the
+  `dotenv`, `httpx`, `jsonbody` and `mediaformat` packages have tests.
 - `kano-go migrate-llm` trims `OPENAI_API_KEY` and `LLM_SECRETS_KEY` as the
   service does, so a key with surrounding whitespace seals a provider key the
   service can open, and a whitespace-only secrets key is refused.

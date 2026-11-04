@@ -516,7 +516,7 @@ cancellation or a shutdown finishes it `cancelled`.
 
 **Retry.** A step error carries a category. `timeout`, `rate_limited` and
 `dependency_unavailable` are retryable and get one more attempt in the same
-run; `permanent`, `schema_failure`, `validation_failure`, `cancelled` and
+run, five seconds later; `permanent`, `schema_failure`, `validation_failure`, `cancelled` and
 `blocked` are not. The final failure of `x`, `youtube`, `bilibili` or
 `translate` is recorded with its code and the run continues, finishing
 `partial`, or `failed` when no step completed; a source step that carries a

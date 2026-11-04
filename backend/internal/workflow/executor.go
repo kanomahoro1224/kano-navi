@@ -95,11 +95,14 @@ type Persistence interface {
 }
 type Run = sqlite.WorkflowRun
 type Executor struct {
-	Store          Persistence
-	Steps          StepExecutor
-	OwnerID        string
-	LeaseTTL       time.Duration
-	MaxAttempts    int
+	Store       Persistence
+	Steps       StepExecutor
+	OwnerID     string
+	LeaseTTL    time.Duration
+	MaxAttempts int
+	// RetryDelay is the wait before another attempt of a retryable failure,
+	// such as a rate limit; 5 seconds when unset.
+	RetryDelay     time.Duration
 	Clock          func() time.Time
 	SyntheticSteps map[string]bool
 	// TolerateFailure lists steps whose final failure does not abort the run:
@@ -144,6 +147,9 @@ func (e *Executor) defaults() {
 	}
 	if e.MaxAttempts < 1 {
 		e.MaxAttempts = 2
+	}
+	if e.RetryDelay <= 0 {
+		e.RetryDelay = 5 * time.Second
 	}
 	if e.Clock == nil {
 		e.Clock = time.Now
@@ -353,6 +359,14 @@ func (e *Executor) ExecuteRun(ctx context.Context, run *Run) (*Run, error) {
 					finished = true
 					return e.Store.GetWorkflowRun(context.Background(), run.ID)
 				}
+				// The next attempt waits, so it does not meet the same rate
+				// limit at once; a stop during the wait ends the run as usual.
+				wait := time.NewTimer(e.RetryDelay)
+				select {
+				case <-ctx.Done():
+				case <-wait.C:
+				}
+				wait.Stop()
 				continue
 			}
 			if out.Status == "" {

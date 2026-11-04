@@ -163,7 +163,7 @@ func TestNormalizersMatchTypeScript(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		result, err := normalizeExtractionResult(input, "post-1", "https://x.com/synthetic_handle/status/1", now)
+		result, err := normalizeExtractionResult(input, "post-1", "https://x.com/synthetic_handle/status/1", time.Time{}, now)
 		if wantError := text(item[3]); wantError != "" {
 			if err == nil || err.Error() != wantError {
 				t.Errorf("%s: error = %v, want %q", name, err, wantError)

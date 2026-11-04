@@ -906,11 +906,17 @@ Japanese schedules count late-night hours on from the evening's date: a start
 of `25:30` on one date is stored as `01:30` on the next, with that date in its
 event ID, so it matches the same entry written as `01:30`. An end is read from
 the same evening, and one before the start falls on the following day. An
-empty time means no time. It also rejects a result that is
+empty time means no time. A date more than 180 days before the post's
+publication (Asia/Tokyo) moves to the following year when that lands between
+a week before and three months after the post, so a December notice's 1/5 is
+the coming January; any other date stays as the model gave it. It also rejects a result that is
 not an object, a non-array `events` field, a result with neither a
 classification nor an events list, and a `schedule` result without entries
 unless its action is `cancel`; a rejected result is a failed attempt and
-leaves existing events untouched. `schedule` results update automatic
+leaves existing events untouched. So is a reply the provider reports as cut
+off at the token limit (`max_tokens`, `max_output_tokens`, `length`), refused,
+or incomplete, even when its tool call parses; schedule-image checks follow
+the same rule, and a refusal stores the fixed `LLM refused the request`. `schedule` results update automatic
 events. A model never deletes or definitively cancels an event: `action=cancel`
 matches the clearest existing event and writes an `llm_suspected` cancellation
 overlay containing the reason, source evidence, confidence, and post ID. The

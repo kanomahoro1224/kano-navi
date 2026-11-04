@@ -154,7 +154,34 @@ func extractedTag(value any) *string {
 	return &text
 }
 
-func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time) ([]normalizedEvent, error) {
+// rolledYear moves a date the model placed about a year before the post to
+// the following year, when that lands between a week before and three months
+// after the post: a December notice that says 1/5 means the coming January,
+// not the past one. A date that is old either way, such as an anniversary or
+// a look back at the summer, stays. A zero published time leaves every date
+// alone.
+func rolledYear(date string, published time.Time) string {
+	if published.IsZero() {
+		return date
+	}
+	year, month, day, ok := parseDate(date)
+	if !ok || month == 2 && day == 29 {
+		return date
+	}
+	posted := published.In(jst)
+	postedDay := time.Date(posted.Year(), posted.Month(), posted.Day(), 0, 0, 0, 0, time.UTC)
+	value := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+	if !value.Before(postedDay.AddDate(0, 0, -180)) {
+		return date
+	}
+	next := value.AddDate(1, 0, 0)
+	if next.Before(postedDay.AddDate(0, 0, -7)) || next.After(postedDay.AddDate(0, 0, 92)) {
+		return date
+	}
+	return next.Format("2006-01-02")
+}
+
+func normalizeExtractedEvents(items []any, postID, postURL string, published, now time.Time) ([]normalizedEvent, error) {
 	for _, item := range items {
 		event, _ := item.(*object)
 		if event == nil {
@@ -202,7 +229,7 @@ func normalizeExtractedEvents(items []any, postID, postURL string, now time.Time
 		title := sliceUTF16(jsTrim(jsString(titleValue)), 240)
 		// postedDate is the date the post counts the times from; a late-night
 		// start such as 25:00 belongs to the next calendar date.
-		postedDate := jsString(dateValue)
+		postedDate := rolledYear(jsString(dateValue), published)
 		date := postedDate
 		clock := ""
 		var start time.Time
@@ -311,7 +338,7 @@ type normalizedExtraction struct {
 	action         string
 }
 
-func normalizeExtractionResult(result any, postID, postURL string, now time.Time) (normalizedExtraction, error) {
+func normalizeExtractionResult(result any, postID, postURL string, published, now time.Time) (normalizedExtraction, error) {
 	classification, err := inferredClassification(result)
 	if err != nil {
 		return normalizedExtraction{}, err
@@ -325,7 +352,7 @@ func normalizeExtractionResult(result any, postID, postURL string, now time.Time
 		}
 		items = list
 	}
-	events, err := normalizeExtractedEvents(items, postID, postURL, now)
+	events, err := normalizeExtractedEvents(items, postID, postURL, published, now)
 	if err != nil {
 		return normalizedExtraction{}, err
 	}

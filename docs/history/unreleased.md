@@ -36,6 +36,9 @@
 > times without their `id` and no longer looks a job up by `jobId`; a client
 > that follows a job it started sends the `MCP_CONTROL_TOKEN`, which keeps
 > both.
+>
+> An MCP JSON-RPC batch runs at most 10 tool calls; later `tools/call`
+> requests in the same batch are answered with a tool error without running.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -104,6 +107,8 @@
   the language and theme choices then last for the visit only.
 - Public MCP `sync_status` no longer names job IDs; the control token's
   holder still reads them and looks jobs up by ID.
+- A LINE BLOG video or other media file reaches the end on a slow connection
+  that keeps reading, instead of stopping after 150 seconds.
 
 </details>
 
@@ -156,6 +161,10 @@
   message and a link to the post or video (`GET /api/admin/llm/failures`).
   A post whose extraction answer failed the event check reads Unreadable
   response instead of Provider error.
+- A model provider can be a server on the local network, such as a machine
+  at a private address or `host.docker.internal`, over plain HTTP in
+  production too. Addresses on this machine and link-local
+  addresses are still refused.
 
 </details>
 

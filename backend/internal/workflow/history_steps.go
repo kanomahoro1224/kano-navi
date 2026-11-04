@@ -149,6 +149,9 @@ func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (Atte
 	accounts := []map[string]any{}
 	messages := []string{}
 	total := history.Result{Items: []history.Item{}}
+	// read counts the accounts whose fetch answered; an account skipped for
+	// having no stored posts read nothing and cannot carry the run.
+	read := 0
 	for index, handle := range ordered {
 		if window.Mode == history.ModeBefore {
 			oldest, lookupErr := h.Store.OldestSourceTimestamp(ctx, history.SourceX, handle)
@@ -189,6 +192,7 @@ func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (Atte
 			messages = append(messages, handle+": "+historyMessage(fetchErr))
 			continue
 		}
+		read++
 		account := counts(result)
 		account["handle"] = handle
 		accounts = append(accounts, account)
@@ -207,7 +211,7 @@ func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (Atte
 			messages = append(messages, handle+": "+message)
 		}
 	}
-	if len(accounts) == 0 {
+	if read == 0 {
 		failure := "X fetch failed for every account"
 		if len(messages) > 0 {
 			failure += " (" + messages[0] + ")"

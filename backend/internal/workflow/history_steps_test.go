@@ -369,3 +369,27 @@ func TestCountSettingServesOperatorRefreshes(t *testing.T) {
 		t.Fatalf("cursor=%s metadata=%s err=%v", cursor, stored, err)
 	}
 }
+
+// An account skipped for having no stored posts read nothing, so a before
+// fetch whose only attempted account fails fails the run.
+func TestHistoryXBeforeFailsWhenNoAttemptedAccountAnswers(t *testing.T) {
+	failing := false
+	transport := &historyTransport{respond: func(*http.Request) (int, string) {
+		if failing {
+			return 401, ""
+		}
+		return 200, `{"data":[{"id":"1900000000000000001","text":"stored","created_at":"2026-03-05T03:00:00.000Z"}],"meta":{}}`
+	}}
+	source, _ := newHistorySource(t, transport)
+	source.Handles = []string{"synthetic_one"}
+	ctx := context.Background()
+	if out, err := source.FetchX(ctx, apiRange()); err != nil || out.Status != "succeeded" {
+		t.Fatalf("setup=%+v err=%v", out, err)
+	}
+	source.Handles = []string{"synthetic_one", "synthetic_two"}
+	failing = true
+	out, err := source.FetchX(ctx, history.Window{Method: history.MethodAPI, Mode: history.ModeBefore, Days: 3})
+	if err != nil || out.Status != "failed" {
+		t.Fatalf("before=%+v err=%v", out, err)
+	}
+}

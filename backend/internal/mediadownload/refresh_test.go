@@ -48,8 +48,8 @@ func TestThumbnailFallsBackAndRevalidatesUntilALargerSizeAppears(t *testing.T) {
 	h := sha256.Sum256([]byte(u))
 	id := hex.EncodeToString(h[:])
 	testutil.Exec(t, p, `INSERT INTO videos (id,source,title,published_at,url,is_upcoming) VALUES ('AAAAAAAAAAA','youtube','reservation',?,'https://www.youtube.com/watch?v=AAAAAAAAAAA',1)`, time.Now().UTC().Format(time.RFC3339))
-	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status) VALUES(?,'youtube',?,'pending')`, id, u)
-	testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position) VALUES(?,'video','AAAAAAAAAAA','thumbnail',0)`, id)
+	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'youtube',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id, u)
+	testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'video','AAAAAAAAAAA','thumbnail',0,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id)
 
 	// files maps each URL YouTube serves to its ETag and bytes; others are 404.
 	type file struct{ etag, body string }

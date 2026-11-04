@@ -118,7 +118,11 @@ Backend coverage, by package under `backend/internal/`:
   image review, and the stored secret format.
 
 Use manually authored synthetic records, example.invalid URLs, fixed neutral
-timestamps, and temporary files. Never derive fixtures from operator databases,
+timestamps, and temporary files. `testutil.NewSnapshot` creates an empty
+database from `internal/store/sqlite/bootstrap.sql`, so records written by a
+test must satisfy the real columns, defaults and constraints; a test that needs
+an older layout alters that database explicitly. Fakes of a store interface
+reject what the real store rejects. Never derive fixtures from operator databases,
 provider responses, credentials, local paths, or logs. Do not call live X,
 YouTube, image CDN, or model APIs. Dependency installation and image builds may
 access package registries; that is separate from platform-data synchronization.

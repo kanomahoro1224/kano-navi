@@ -89,7 +89,7 @@ func (h *Handler) lineblogMedia(w http.ResponseWriter, r *http.Request, name str
 	w.Header().Set("Cache-Control", mediaCacheControl(immutable))
 	w.Header().Set("ETag", `"`+match[1]+`-`+strconv.FormatInt(info.Size(), 10)+`"`)
 	// ServeContent answers ranges, HEAD and both conditional validators.
-	http.ServeContent(w, r, name, info.ModTime(), file)
+	serveContent(w, r, name, info.ModTime(), file)
 }
 
 func writeLineblogMissing(w http.ResponseWriter, r *http.Request) {

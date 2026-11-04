@@ -228,9 +228,12 @@ and the revision stream are `no-store`.
 
 ## Listener Timeouts
 
-The listener's read and write timeouts (15 seconds each, `-read-timeout` and
-`-write-timeout`) bound every response except the
-[revision stream](public-api.md#revision-stream). Shutdown ends the open
+The listener's read and write timeouts (`-read-timeout` and `-write-timeout`)
+are 15 seconds each in the [read-only mode](#read-only-mode). `kano-go serve` raises them to 60
+and 150 seconds unless the flags are given, because operator requests may
+wait on a provider test, a profile download or a 15 MiB upload. They bound
+every response except the [revision stream](public-api.md#revision-stream)
+and [media bodies](media-cache.md#http-contract). Shutdown ends the open
 revision streams first, then waits for the remaining requests up to
 `-shutdown-timeout` (10 seconds).
 

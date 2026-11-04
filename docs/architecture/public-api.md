@@ -260,6 +260,11 @@ those requests `sync_status` also reports each job's `id` and looks a job up
 by `jobId`, so a started job can be followed. The token is independent of
 `ADMIN_PASSWORD` and browser sessions.
 
+A JSON-RPC batch holds at most 100 messages and runs at most 10 tool calls,
+since each can read a whole snapshot. Later `tools/call` requests in the same
+batch are answered with the tool error `Too many tool calls in one batch (at
+most 10)` without running; other requests in the batch are answered as usual.
+
 The endpoint deliberately has no tool for manual event confirmation, editing,
 deletion, bulk approval, profile-media selection/upload, SQL, file paths, DOM
 commands, or arbitrary URL proxying. Human confirmation remains a human-only

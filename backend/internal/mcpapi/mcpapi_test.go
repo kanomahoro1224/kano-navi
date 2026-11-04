@@ -1108,6 +1108,33 @@ func TestJSONRPCBatches(t *testing.T) {
 		t.Fatalf("oversized: %d %s", oversized.status, oversized.body)
 	}
 
+	// Tool calls past the batch's budget are answered without running; other
+	// requests in the batch still are.
+	calls := []any{rpc("ping", "ping", nil)}
+	for len(calls) <= maxBatchToolCalls+2 {
+		calls = append(calls, rpc(len(calls), "tools/call", map[string]any{"name": "health_read", "arguments": map[string]any{}}))
+	}
+	var budgeted []map[string]any
+	if err := json.Unmarshal([]byte(post(t, handler, calls).body), &budgeted); err != nil || len(budgeted) != len(calls) {
+		t.Fatalf("budgeted batch: %v, %d responses", err, len(budgeted))
+	}
+	if !reflect.DeepEqual(budgeted[0]["result"], map[string]any{}) {
+		t.Fatalf("ping = %v", budgeted[0])
+	}
+	for index, response := range budgeted[1:] {
+		result := response["result"].(map[string]any)
+		if index < maxBatchToolCalls {
+			if result["isError"] == true {
+				t.Fatalf("call %d = %v", index+1, result)
+			}
+			continue
+		}
+		content := result["content"].([]any)[0].(map[string]any)
+		if result["isError"] != true || content["text"] != "Too many tool calls in one batch (at most 10)" {
+			t.Fatalf("call %d over the budget = %v", index+1, result)
+		}
+	}
+
 	initialize := rpc(1, "initialize", map[string]any{
 		"protocolVersion": "2025-06-18", "capabilities": map[string]any{},
 		"clientInfo": map[string]any{"name": "synthetic-client", "version": "1"},

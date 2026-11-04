@@ -112,8 +112,10 @@ func runSync(database string) int {
 // the stored key of the openai-default provider. The service itself never
 // reads provider keys from the environment.
 func runMigrateLLM(database string, force bool) int {
-	sourceKey := os.Getenv("OPENAI_API_KEY")
-	secretsKey := os.Getenv("LLM_SECRETS_KEY")
+	// Both values are read the way the service and the admin form read them,
+	// so the sealed key opens under the service's LLM_SECRETS_KEY.
+	sourceKey := strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
+	secretsKey := strings.TrimSpace(os.Getenv("LLM_SECRETS_KEY"))
 	if sourceKey == "" {
 		return fail("OPENAI_API_KEY is required only for this migration", 2)
 	}

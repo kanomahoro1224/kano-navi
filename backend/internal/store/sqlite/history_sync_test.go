@@ -326,3 +326,37 @@ func TestTheSameThumbnailInAnotherFormIsNotARevision(t *testing.T) {
 		t.Fatalf("revisions=%s", got)
 	}
 }
+
+// Every fetch checkpoint can be cleared on its own, and a clearing page
+// carries nothing else.
+func TestCheckpointOnlyPagesClearEveryFetchCheckpoint(t *testing.T) {
+	s, query := openHistoryStore(t)
+	ctx := context.Background()
+	for _, tc := range []struct{ source, account, checkpoint, stored string }{
+		{history.SourceX, "synthetic_handle", "", "x-window"},
+		{history.SourceYoutube, "UCAAAAAAAAAAAAAAAAAAAAAA", "", "youtube-window"},
+		{history.SourceX, "synthetic_handle", history.TimelineCheckpoint, history.TimelineCheckpoint},
+	} {
+		page := history.Page{Source: tc.source, Account: tc.account, CheckpointKey: "key", Checkpoint: tc.checkpoint, Next: "stale"}
+		if _, err := s.WriteHistoryPage(ctx, page); err != nil {
+			t.Fatal(err)
+		}
+		page.Next, page.CheckpointOnly = "", true
+		if _, err := s.WriteHistoryPage(ctx, page); err != nil {
+			t.Fatalf("%s: %v", tc.stored, err)
+		}
+		if got := query(`SELECT COALESCE(cursor_id,'') FROM sync_state WHERE source=? AND account_id='key'`, tc.stored); got != "" {
+			t.Fatalf("%s kept %q", tc.stored, got)
+		}
+	}
+	post := xsource.Post{ID: "1900000000000000001", AccountHandle: "synthetic_handle", Text: "x", PublishedAt: "2026-03-04T03:00:00Z", URL: "https://x.com/synthetic_handle/status/1900000000000000001", Raw: map[string]any{}}
+	for _, invalid := range []history.Page{
+		{Source: history.SourceX, Account: "synthetic_handle", CheckpointKey: "key", CheckpointOnly: true, Posts: []xsource.Post{post}},
+		{Source: history.SourceX, Account: "synthetic_handle", CheckpointKey: "key", CheckpointOnly: true, Backfill: &history.Backfill{}},
+		{Source: history.SourceX, Account: "synthetic_handle", CheckpointOnly: true},
+	} {
+		if _, err := s.WriteHistoryPage(ctx, invalid); err == nil {
+			t.Fatalf("checkpoint-only page %+v was accepted", invalid)
+		}
+	}
+}

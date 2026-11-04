@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
@@ -179,6 +180,11 @@ func (a *Admin) apply(ctx context.Context, body map[string]json.RawMessage) (Con
 		for _, item := range items {
 			proxy := Proxy{ID: item.ID, Name: item.Name, Scheme: item.Scheme, Host: item.Host, Port: item.Port, Username: item.Username, Enabled: item.Enabled}
 			if old, ok := kept[item.ID]; ok && item.ID != "" && item.Password == nil {
+				// A saved password is only ever sent to the address it was
+				// entered for.
+				if (old.Password != "" || old.Unreadable) && !sameDestination(old, proxy) {
+					return Config{}, httpx.Invalid("password must be entered again when a proxy's scheme, host or port changes")
+				}
 				proxy.Password, proxy.Unreadable = old.Password, old.Unreadable
 			}
 			if item.Password != nil {
@@ -289,4 +295,9 @@ func (a *Admin) probe(ctx context.Context, proxy Proxy, target string) testResul
 	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, testReadLimit))
 	_ = response.Body.Close()
 	return testResult{OK: true, Status: response.StatusCode, LatencyMs: latency}
+}
+
+func sameDestination(saved, next Proxy) bool {
+	return strings.EqualFold(strings.TrimSpace(saved.Scheme), strings.TrimSpace(next.Scheme)) &&
+		strings.EqualFold(strings.TrimSpace(saved.Host), strings.TrimSpace(next.Host)) && saved.Port == next.Port
 }

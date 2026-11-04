@@ -228,6 +228,18 @@ func nullable(v string) any {
 	}
 	return v
 }
+
+// resetScheduleImageReview clears the model and operator verdicts and the
+// period correction of a schedule asset whose image URL changes: a verdict on
+// one image never approves a different one.
+func resetScheduleImageReview(ctx context.Context, tx *sql.Tx, id, now string) error {
+	if _, err := tx.ExecContext(ctx, `UPDATE schedule_asset_reviews SET llm_status='pending',
+	   manual_status='unreviewed',manual_reason=NULL,manual_checked_at=NULL,updated_at=? WHERE asset_id=?`, now, id); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, `UPDATE assets SET manual_period_start=NULL,manual_period_end=NULL,manual_period_reason=NULL WHERE id=?`, id)
+	return err
+}
 func writeMediaCandidate(ctx context.Context, tx *sql.Tx, postID, url, account string, pos int, now string) error {
 	return replaceMediaLink(ctx, tx, "x", url, "post", postID, "post-image", pos, now)
 }
@@ -244,7 +256,7 @@ func writeScheduleCandidate(ctx context.Context, tx *sql.Tx, c xsource.ScheduleC
 		return nil
 	}
 	if oldURL != "" && oldURL != c.MediaURL {
-		if _, e := tx.ExecContext(ctx, `UPDATE schedule_asset_reviews SET llm_status='pending',updated_at=? WHERE asset_id=?`, now, id); e != nil {
+		if e := resetScheduleImageReview(ctx, tx, id, now); e != nil {
 			return e
 		}
 	}

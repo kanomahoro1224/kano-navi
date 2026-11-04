@@ -160,3 +160,43 @@ func TestWriteXRecentKeepsAPickedScheduleImage(t *testing.T) {
 		t.Fatalf("synchronization replaced the picked image: %s v%d", url, version)
 	}
 }
+
+func TestWriteXRecentResetsTheVerdictOfAReplacedScheduleImage(t *testing.T) {
+	s, _ := openHistoryStore(t)
+	var err error
+	post := func(media string) xsource.Result {
+		return xsource.Result{Account: "kano", Posts: []xsource.Post{{ID: "1", AccountHandle: "kano", Type: "notice", Label: "SCHEDULE / 日程", Text: "schedule", PublishedAt: "2026-10-11T00:00:00Z", URL: "https://x.com/kano/status/1", MediaURLs: []string{media}, Raw: map[string]any{"x": 1}}},
+			DiscoveredCount: 1, RequestedCount: 1, NextCursor: "1", NextCursorTime: "2026-10-11T00:00:00Z", Discovery: xsource.DiscoveryTimeline,
+			ScheduleCandidates: []xsource.ScheduleCandidate{{PostID: "1", SourceURL: "https://x.com/kano/status/1", MediaURL: media, AccountHandle: "kano"}}}
+	}
+	read := func() string {
+		t.Helper()
+		var row string
+		if err := s.DB().QueryRow(`SELECT r.llm_status||'/'||r.manual_status||'/'||COALESCE(r.manual_reason,'-')||'/'||COALESCE(a.manual_period_start,'-')
+		 FROM assets a JOIN schedule_asset_reviews r ON r.asset_id=a.id WHERE a.id='schedule-x-1'`).Scan(&row); err != nil {
+			t.Fatal(err)
+		}
+		return row
+	}
+	if err = s.WriteXRecent(context.Background(), "kano", post("https://pbs.twimg.com/a.jpg"), true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.DB().Exec(`UPDATE schedule_asset_reviews SET llm_status='schedule', manual_status='schedule', manual_reason='approved', manual_checked_at='2026-10-12T00:00:00.000Z' WHERE asset_id='schedule-x-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.DB().Exec(`UPDATE assets SET manual_period_start='2026-10-12', manual_period_end='2026-10-18', manual_period_reason='corrected' WHERE id='schedule-x-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.WriteXRecent(context.Background(), "kano", post("https://pbs.twimg.com/a.jpg"), true); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); got != "schedule/schedule/approved/2026-10-12" {
+		t.Fatalf("the same image lost its review: %s", got)
+	}
+	if err = s.WriteXRecent(context.Background(), "kano", post("https://pbs.twimg.com/b.jpg"), true); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); got != "pending/unreviewed/-/-" {
+		t.Fatalf("a replaced image kept the old verdict: %s", got)
+	}
+}

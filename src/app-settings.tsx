@@ -34,21 +34,38 @@ function isLocale(value: unknown): value is Locale {
   return localeOptions.some((option) => option.value === value)
 }
 
+/** Blocked or full browser storage only loses the remembered setting. */
+function readStored(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function writeStored(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // The setting applies to this visit only.
+  }
+}
+
 function readLocale(): Locale {
   if (typeof window === "undefined") return "en"
-  const savedLocale = window.localStorage.getItem("kano-locale")
+  const savedLocale = readStored("kano-locale")
   return isLocale(savedLocale) ? savedLocale : "en"
 }
 
 function readContentLanguage(): ContentLanguage {
   if (typeof window === "undefined") return "interface"
-  const saved = window.localStorage.getItem("kano-content-locale")
+  const saved = readStored("kano-content-locale")
   return isLocale(saved) ? saved : "interface"
 }
 
 function readTheme() {
   if (typeof window === "undefined") return false
-  const savedTheme = window.localStorage.getItem("kano-theme")
+  const savedTheme = readStored("kano-theme")
   if (savedTheme === "dark" || savedTheme === "light") {
     return savedTheme === "dark"
   }
@@ -82,17 +99,17 @@ export function AppSettingsProvider({ children }: { children?: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark)
-    window.localStorage.setItem("kano-theme", isDark ? "dark" : "light")
+    writeStored("kano-theme", isDark ? "dark" : "light")
   }, [isDark])
 
   useEffect(() => {
     document.documentElement.lang = locale
     syncFeedLinks(locale)
-    window.localStorage.setItem("kano-locale", locale)
+    writeStored("kano-locale", locale)
   }, [locale])
 
   useEffect(() => {
-    window.localStorage.setItem("kano-content-locale", contentLanguage)
+    writeStored("kano-content-locale", contentLanguage)
   }, [contentLanguage])
 
   const value = useMemo(

@@ -112,12 +112,22 @@ export type StartRun =
 export type StartWork = StartRun | { kind: "source"; source: ScheduleSource }
 
 /**
- * Every /api/admin endpoint the console calls. Reads are keyed by path so a
- * newer read supersedes an older one; writes never cancel each other.
+ * The useResource hook whose read is being started. Its requests are keyed to
+ * that hook, so one view's read never cancels another view's read of the same
+ * path.
+ */
+let currentReader: string | null = null
+let readers = 0
+
+/**
+ * Every /api/admin endpoint the console calls. Reads are keyed by path, or by
+ * the useResource hook that starts them, so a newer read supersedes an older
+ * one of the same owner; writes never cancel each other.
  */
 function createClient(run: Runner, slow: Runner) {
   let writes = 0
-  const get = <T>(path: string) => run<T>(path.split("?")[0], path)
+  const get = <T>(path: string) =>
+    run<T>(currentReader ?? path.split("?")[0], path)
   const send = <T>(method: string, path: string, body?: unknown) =>
     run<T>(`write:${++writes}`, path, { method, body })
   const sendSlow = <T>(method: string, path: string, body?: unknown) =>
@@ -633,7 +643,8 @@ export function useAdmin() {
 
 /**
  * Load one view resource and reload it when `deps` change or a run finishes.
- * A failed reload keeps the last good data.
+ * A failed reload keeps the last good data. Only the newest load of the hook
+ * writes its state, and a load supersedes only this hook's earlier request.
  */
 export function useResource<T>(load: () => Promise<T>, deps: unknown[]) {
   const { revision, fail } = useAdmin()
@@ -642,17 +653,31 @@ export function useResource<T>(load: () => Promise<T>, deps: unknown[]) {
   const [loading, setLoading] = useState(true)
   const loader = useRef(load)
   loader.current = load
+  const reader = useRef("")
+  if (!reader.current) reader.current = `read:${++readers}`
+  const latest = useRef(0)
 
   const reload = useCallback(async () => {
+    const call = ++latest.current
     setLoading(true)
     try {
-      const next = await loader.current()
+      let pending: Promise<T>
+      currentReader = reader.current
+      try {
+        pending = loader.current()
+      } finally {
+        currentReader = null
+      }
+      const next = await pending
+      if (call !== latest.current) return next
       setData(next)
       setError(null)
       setLoading(false)
       return next
     } catch (failure) {
-      // A superseded read leaves the newer one in charge of the state.
+      // A newer load of this hook is in charge of the state, and a cancelled
+      // request (a newer one of this hook, or signing out) has nothing to show.
+      if (call !== latest.current) return undefined
       if (failure instanceof Error && failure.name === "AbortError")
         return undefined
       setError(failure)
@@ -666,6 +691,14 @@ export function useResource<T>(load: () => Promise<T>, deps: unknown[]) {
     void reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reload, revision, ...deps])
+
+  // An unmounted view takes no late result.
+  useEffect(
+    () => () => {
+      latest.current++
+    },
+    [],
+  )
 
   return { data, setData, error, loading, reload }
 }

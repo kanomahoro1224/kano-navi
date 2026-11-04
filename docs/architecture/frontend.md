@@ -583,7 +583,10 @@ shows the text in a dialog to copy by hand.
 Calendar and admin requests use the shared lifecycle/deadline helper with a
 12-second deadline including body consumption. The public snapshot coordinator
 uses the 15-second deadline and refresh deduplication described above. All requests
-are cancelled on unmount and reject superseded responses. Automatic polls wait for an active request rather
+are cancelled on unmount and reject superseded responses. An admin view's
+`useResource` read supersedes only that view's earlier read, so two views
+reading the same path load independently, and only the view's newest load
+writes its state. Automatic polls wait for an active request rather
 than starting overlapping work. Their timer is scheduled after settlement,
 including failure, with exponential backoff capped at 60 seconds. Public polls
 pause while hidden, and so does the admin overview poll, which reads at once

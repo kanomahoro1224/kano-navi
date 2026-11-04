@@ -209,8 +209,14 @@ checkpoint is a `sync_state` row keyed by account and a hash of the selection
 `youtube-window` for playlist page tokens. The RSS method reads one request and
 keeps no checkpoint. Repeating an interrupted fetch resumes its next page; a
 completed one starts again at the newest page. When a resumed cursor or token
-fails, the fetch starts again from the newest page, in the same run if the
-budget allows. `before` runs finish a pending interval (`pendingWindow`) before
+fails before any page of the fetch is committed, the fetch starts again from
+the newest page, in the same run if the budget allows. A continuation the
+source rejects is cleared from its checkpoint at once, so the next fetch
+begins at the newest page even when this one had no page left: any failed
+timeline cursor, an X API `next_token` answered with HTTP 400, and a
+playlist token answered with an HTTP error or rejected as malformed. Other
+API answers, such as rate limits, quota and outages, keep the stored
+continuation. `before` runs finish a pending interval (`pendingWindow`) before
 moving farther back, using `x-backfill` search boundaries. A completed empty
 interval also moves this boundary backward, preventing an endless retry over
 the same empty month. Failures retain all records and the last successful
@@ -495,10 +501,15 @@ and never counts as successful work.
 an owner, a generation and an expiry two minutes ahead; a heartbeat renews
 it every 40 seconds. Every step, attempt and run write, and every source
 transaction, checks owner, generation and expiry in the same transaction,
-so a worker that lost its lease cannot commit, and a failed renewal cancels
-its outbound requests. A partial unique index allows at most one `queued` or
-`running` run, so a second start answers `409` with `busy` and the active
-run. A dispatched run has at most 20 minutes.
+so a worker that lost its lease cannot commit. A renewal that finds the
+lease lost cancels the run's outbound requests; a renewal that fails to write,
+such as on a busy database, is left to the next one, and the renewal after an
+expiry finds the lease lost. A partial unique index allows at most one
+`queued` or `running` run, so a second start answers `409` with `busy` and the
+active run. A dispatched run has at most 20 minutes. A run stopped by that
+limit, or by a lost lease, finishes `failed` with `timeout` or
+`lease_expired` and its stopped step is retryable; only an operator's
+cancellation or a shutdown finishes it `cancelled`.
 
 **Retry.** A step error carries a category. `timeout`, `rate_limited` and
 `dependency_unavailable` are retryable and get one more attempt in the same

@@ -26,6 +26,16 @@
 > Startup adds `videos.availability` and `videos.manual_availability` to an
 > existing database, empty for every row; each video fills in at its next
 > YouTube check, so nothing is hidden after the upgrade.
+>
+> `PUT /api/admin/proxy` and `PUT /api/admin/llm/providers/{id}` answer
+> `400 invalid_input` when a write moves a proxy (scheme, host or port) or a
+> provider (`baseUrl`) that holds a stored secret without sending the
+> password or `apiKey` again.
+>
+> The public MCP `sync_status` tool lists the recent jobs' kind, status and
+> times without their `id` and no longer looks a job up by `jobId`; a client
+> that follows a job it started sends the `MCP_CONTROL_TOKEN`, which keeps
+> both.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -90,6 +100,10 @@
 - The About page has a Contributors chapter that names the author and the
   developers who have contributed code, with a link to the full list on
   GitHub.
+- A browser that blocks site storage sees every page instead of a blank one;
+  the language and theme choices then last for the visit only.
+- Public MCP `sync_status` no longer names job IDs; the control token's
+  holder still reads them and looks jobs up by ID.
 
 </details>
 
@@ -127,6 +141,16 @@
   replaces the posts' `reprocess=1`.
 - Review → Posts lists only failed and uncertain results. The step's posts
   queued for a run are counted under its filters with a link to them.
+- A saved proxy password or provider API key must be entered again when the
+  proxy's scheme, host or port or the provider's base URL changes, so a
+  stored secret is never sent to a new address.
+- A view no longer shows an older answer after a newer one, such as run A's
+  results under run B in the manual fetch panel, and two views reading the
+  same list no longer leave one of them loading forever.
+- A run that reaches its 20-minute limit, or loses its lease, finishes
+  `failed` with `timeout` or `lease_expired` and can be retried, instead of
+  reading as an operator's cancellation. A single failed lease renewal, such
+  as on a busy database, no longer stops the run.
 - The LLM page lists recent failures: the newest failed schedule extractions,
   schedule image checks and translations with their stage, model, stored
   message and a link to the post or video (`GET /api/admin/llm/failures`).
@@ -186,5 +210,42 @@
   instead of returning an entry that fails the event check (`schedule
 extraction contained an invalid event`). The extractor version is
   unchanged, so stored results are not extracted again.
+- A model answer that is not an object, carries a non-array `events` field,
+  names neither a classification nor events, or classifies a post as
+  `schedule` without entries (other than a cancellation) is a failed attempt.
+  Such answers used to be stored as `not_schedule`, or retired every
+  automatic event of the post.
+- A schedule image whose URL changes starts unreviewed again: an operator's
+  label, reason and period correction for the old image no longer carry over
+  and publish an image nobody checked.
+- A YouTube reservation restores an event that automatic re-extraction had
+  retired, and retiring an event releases the rule merges into it, so a
+  duplicate older than the merge window is shown again. Operator deletions
+  stay deleted.
+- The default cancellation reason the extractor stores is English.
+- Times from `24:00` to `29:59`, which Japanese schedules use for late-night
+  hours, are stored on the next date (`25:30` becomes `01:30` the next day),
+  and an empty time means no time, instead of failing the whole post.
+- A manual fetch whose saved continuation the source rejects (an X API
+  `next_token` answered with HTTP 400, or a YouTube playlist token) starts
+  again at the newest page and clears the token, so a repeated fetch no
+  longer fails the same way every time. Rate limits and quota keep the saved
+  position.
+- The YouTube push callback confirms only a subscription this process asked
+  for within the last hour, so a stranger's subscribe request with this
+  callback can no longer replace the signing secret and silence push
+  notifications.
+- Reads that list translations, video alternates and stored machine
+  translations fail instead of returning a partial result when the query
+  stops partway through.
+
+</details>
+
+<details>
+<summary><strong>Runtime and development</strong></summary>
+
+- `kano-go migrate-llm` trims `OPENAI_API_KEY` and `LLM_SECRETS_KEY` as the
+  service does, so a key with surrounding whitespace seals a provider key the
+  service can open, and a whitespace-only secrets key is refused.
 
 </details>

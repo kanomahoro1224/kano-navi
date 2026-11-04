@@ -54,9 +54,19 @@ func (m *memoryStore) OldestSourceTimestamp(context.Context, string, string) (*s
 	return &m.oldest, nil
 }
 
+// errMemoryWrite stands for the SQLite store's refusal of a page it never
+// accepts, so a fetcher that writes one fails here as it would in service.
+var errMemoryWrite = errors.New("history page refused")
+
 func (m *memoryStore) WriteHistoryPage(_ context.Context, page Page) (Written, error) {
 	if m.fail != nil {
 		return Written{}, m.fail
+	}
+	if page.Source != SourceX && page.Source != SourceYoutube ||
+		page.Checkpoint != "" && (page.Source != SourceX || page.Checkpoint != TimelineCheckpoint) ||
+		page.CheckpointKey == "" && (page.CheckpointOnly || page.Backfill != nil) ||
+		page.CheckpointOnly && (len(page.Posts) > 0 || len(page.ScheduleCandidates) > 0 || len(page.Videos) > 0 || len(page.Described) > 0 || len(page.Localized) > 0 || page.Backfill != nil) {
+		return Written{}, errMemoryWrite
 	}
 	m.pages = append(m.pages, page)
 	if m.states == nil {
@@ -81,6 +91,16 @@ func (m *memoryStore) WriteHistoryPage(_ context.Context, page Page) (Written, e
 		m.stored[id] = true
 		written.New++
 		written.NewIDs = append(written.NewIDs, id)
+	}
+	if page.Backfill != nil {
+		cursor, pending := page.Window.StartTime, any(nil)
+		if page.Backfill.Pending {
+			cursor, pending = page.Window.EndTime, page.Window
+		}
+		var metadata map[string]any
+		raw, _ := json.Marshal(map[string]any{"pendingWindow": pending})
+		_ = json.Unmarshal(raw, &metadata)
+		m.states[page.Source+"-backfill/"+page.Account] = State{Found: true, CursorTime: cursor, Metadata: metadata}
 	}
 	if page.CheckpointKey == "" {
 		return written, nil
@@ -421,5 +441,52 @@ func TestPostTitlesAreTheFirstLineCut(t *testing.T) {
 	}
 	if got := postTitle(strings.Repeat("あ", 100)); len([]rune(got)) != itemTitleRunes || !strings.HasSuffix(got, "…") {
 		t.Fatalf("title=%q", got)
+	}
+}
+
+// A next_token X no longer accepts is cleared, and the fetch begins again at
+// the newest page of the selected window, in this fetch while pages remain
+// and otherwise on the next one.
+func TestFetchSearchRestartsARejectedNextToken(t *testing.T) {
+	seen := []string{}
+	transport := fakeRoundTripper(func(r *http.Request) (*http.Response, error) {
+		token := r.URL.Query().Get("next_token")
+		seen = append(seen, token)
+		if token == "stale" {
+			return response(400, `{"title":"Invalid Request"}`), nil
+		}
+		return response(200, `{"data":[{"id":"1900000000000000001","text":"newest","created_at":"2026-03-05T03:00:00.000Z","author_id":"7"}],"meta":{}}`), nil
+	})
+	request := Request{Source: SourceX, Account: testAccount, Credential: testCredential, Window: searchRange()}
+	key := searchRange().checkpointKey(testAccount)
+	staleState := func() *memoryStore {
+		return &memoryStore{states: map[string]State{"x-window/" + key: {Found: true, CursorID: "stale", Metadata: map[string]any{"discovered": float64(9)}}}}
+	}
+
+	store := staleState()
+	result, err := newFetcher(store, transport, 2).FetchSearch(context.Background(), request)
+	if err != nil || strings.Join(seen, ",") != "stale," || result.Listed != 1 || store.pages[len(store.pages)-1].Discovered != 1 {
+		t.Fatalf("restart result=%+v requests=%v err=%v", result, seen, err)
+	}
+
+	// With one page allowed the fetch fails, but the token is gone.
+	seen = nil
+	store = staleState()
+	fetcher := newFetcher(store, transport, 1)
+	if _, err = fetcher.FetchSearch(context.Background(), request); err == nil {
+		t.Fatal("a failed only page must fail the fetch")
+	}
+	if state := store.states["x-window/"+key]; state.CursorID != "" {
+		t.Fatalf("the rejected token was kept: %+v", state)
+	}
+	if _, err = fetcher.FetchSearch(context.Background(), request); err != nil || strings.Join(seen, ",") != "stale," {
+		t.Fatalf("the next fetch did not begin at the newest page: requests=%v err=%v", seen, err)
+	}
+
+	// Any other answer keeps the stored token.
+	limited := fakeRoundTripper(func(*http.Request) (*http.Response, error) { return response(429, `{}`), nil })
+	store = staleState()
+	if _, err = newFetcher(store, limited, 2).FetchSearch(context.Background(), request); err == nil || store.states["x-window/"+key].CursorID != "stale" {
+		t.Fatalf("a rate limit cleared the token: %+v err=%v", store.states["x-window/"+key], err)
 	}
 }

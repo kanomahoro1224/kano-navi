@@ -255,7 +255,8 @@ Creating, editing, or confirming an event through `/admin` changes it to
 `provenance = manual` and sets `manual_locked = 1`. Automatic upserts include a
 database-level lock condition and cannot replace those rows. Manual deletion is
 a soft-delete tombstone with the same lock, so synchronization cannot resurrect
-it. Manual operators can mark an event `manual_confirmed` with a required reason;
+it. An automatic retirement stays unlocked: new X evidence or a YouTube
+reservation for the same event restores it. Manual operators can mark an event `manual_confirmed` with a required reason;
 that decision is separate from the LLM overlay and is what the public dashboard
 uses as a definitive cancellation. Editing or confirming an event that carries
 an `llm_suspected` overlay keeps the overlay and its evidence unless the
@@ -511,7 +512,8 @@ reservation refresh, keep the merge. `merge_source` names the owner:
   releases a merge whose target was deleted, merged or moved to another
   date, or whose event became manual or locked or now holds another owner's
   merge. An event holding another owner's merge is never merged away, so no
-  merge points at a merged event. Deleting an event releases the rule merges
+  merge points at a merged event. Deleting an event, or retiring it
+  automatically when its last source evidence goes, releases the rule merges
   into it in the same transaction, so a duplicate older than the
   reconciler's window is shown again.
 - `manual`: an operator decision (`merge_reason` `manual`), which the rules

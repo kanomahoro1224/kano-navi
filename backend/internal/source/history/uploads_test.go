@@ -177,6 +177,18 @@ func TestUploadsFailuresKeepControlledCodesWithoutFallback(t *testing.T) {
 	if err != nil || strings.Join(uploads.tokens, ",") != "stale,,p2" || store.pages[0].Discovered != 1 {
 		t.Fatalf("restart=%+v tokens=%v err=%v", result, uploads.tokens, err)
 	}
+	// A token the Data API rejects is cleared even without a page left, so
+	// the next fetch begins at the newest page.
+	rejected := &ytsource.Error{Code: "youtube_api_http_error"}
+	uploads = &fakeUploads{pages: map[string][]ytsource.Video{"": {upload("AAAAAAAAAAA", "2026-03-09T03:00:00Z")}}, fail: map[string]error{"stale": rejected}}
+	store = &memoryStore{states: map[string]State{"youtube-window/" + key: {Found: true, CursorID: "stale", Metadata: map[string]any{"discovered": float64(9)}}}}
+	single := uploadsFetcher(store, uploads, 1)
+	if _, err = single.FetchUploads(ctx, Request{Source: SourceYoutube, Account: testChannel, Window: uploadsAll()}); err == nil || store.states["youtube-window/"+key].CursorID != "" {
+		t.Fatalf("rejected token kept: %+v err=%v", store.states["youtube-window/"+key], err)
+	}
+	if _, err = single.FetchUploads(ctx, Request{Source: SourceYoutube, Account: testChannel, Window: uploadsAll()}); err != nil || strings.Join(uploads.tokens, ",") != "stale," {
+		t.Fatalf("next fetch tokens=%v err=%v", uploads.tokens, err)
+	}
 	// Retired selections never reach the listing.
 	uploads = &fakeUploads{}
 	retired := Window{Mode: ModeBefore, Days: 7}

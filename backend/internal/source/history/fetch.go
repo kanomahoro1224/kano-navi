@@ -357,6 +357,7 @@ func (f *Fetcher) FetchSearch(ctx context.Context, request Request) (Result, err
 	if err != nil {
 		return Result{}, err
 	}
+	requested := window
 	next := checkpoint.CursorID
 	previous := 0
 	if next != "" {
@@ -381,6 +382,7 @@ func (f *Fetcher) FetchSearch(ctx context.Context, request Request) (Result, err
 	}
 	maxPages := f.pageLimit(request)
 	result := Result{Window: window, Errors: []string{}, Items: []Item{}}
+	committed, restarted := 0, false
 	for {
 		size := 100
 		if input.Mode == ModeCount {
@@ -410,7 +412,25 @@ func (f *Fetcher) FetchSearch(ctx context.Context, request Request) (Result, err
 			if !errors.As(fetchErr, &controlled) {
 				controlled = &Error{Code: "source_api_request_failed"}
 			}
-			if result.Requested == 1 {
+			// X answers a next_token it no longer accepts with 400. That token
+			// must not pin the fetch: clear it and begin again at the newest
+			// page of the selected window, now or on the next fetch.
+			if next != "" && committed == 0 && !restarted && controlled.Code == "source_api_http_400" {
+				restarted = true
+				next, previous = "", 0
+				window = requested
+				if end, _ := parseTime(window.EndTime); end.After(now.Add(-10 * time.Second)) {
+					window.EndTime = formatTime(now.Add(-10 * time.Second))
+				}
+				result.Window = window
+				if _, err := f.Store.WriteHistoryPage(ctx, Page{Source: request.Source, Account: request.Account, CheckpointKey: key, Window: window, CheckpointOnly: true}); err != nil {
+					return result, err
+				}
+				if result.Requested < maxPages {
+					continue
+				}
+			}
+			if committed == 0 {
 				return result, &Error{Code: controlled.Code, Requested: result.Requested}
 			}
 			result.Errors = append(result.Errors, controlled.Code)
@@ -448,6 +468,7 @@ func (f *Fetcher) FetchSearch(ctx context.Context, request Request) (Result, err
 		if writeErr != nil {
 			return result, writeErr
 		}
+		committed++
 		result.add(written, postItems(page.Posts, request.Account))
 		next = following
 		if next == "" || result.Requested >= maxPages {

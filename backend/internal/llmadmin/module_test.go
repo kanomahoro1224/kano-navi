@@ -66,6 +66,14 @@ func TestProviderLifecycleNeverReturnsTheCredential(t *testing.T) {
 
 	h.assertNoSecret(created, listed, edited, models)
 
+	// The stored credential never follows the provider to another address;
+	// the same address written differently keeps it.
+	h.invalid(http.MethodPut, "/llm/providers/alpha", map[string]any{"baseUrl": "https://other.example.test/v1"},
+		"apiKey must be entered again when baseUrl changes")
+	equal(t, "refused move", h.scalar(`SELECT base_url FROM llm_providers WHERE id = 'alpha'`), testBaseURL)
+	same := h.ok(http.MethodPut, "/llm/providers/alpha", map[string]any{"baseUrl": "https://Provider.Example.Test:443/v1/"}, http.StatusOK)
+	equal(t, "same address keeps the key", object(t, same.JSON["provider"])["apiKeyConfigured"], true)
+
 	cleared := h.ok(http.MethodPut, "/llm/providers/alpha", map[string]any{"apiKey": nil}, http.StatusOK)
 	equal(t, "apiKeyConfigured", object(t, cleared.JSON["provider"])["apiKeyConfigured"], false)
 	if h.scalar(`SELECT api_key_ciphertext FROM llm_providers WHERE id = 'alpha'`) != "" {

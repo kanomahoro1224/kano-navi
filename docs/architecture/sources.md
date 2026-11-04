@@ -669,10 +669,14 @@ string | null }`; omitted fields keep their value. The callback must be an
   (`websub_hub_timeout`, `websub_hub_http_error`, `websub_hub_denied`, and so on).
   A failed request is retried after 15 minutes.
 - `GET /api/websub/youtube` echoes `hub.challenge` (at most 1 KiB) only for this
-  channel's topic, and only for a subscription while enabled or the withdrawal
-  this process just requested. Only the verification of a request sent within
-  the last hour updates the lease, so renewal happens at half the granted lease
-  but no more than hourly. When no verification arrives within an hour, the
+  channel's topic, and only for the subscription or the withdrawal this
+  process requested within the last hour, while enabled for a subscription.
+  Any other verification answers like an unknown path, so a stranger's
+  subscribe request with this callback cannot replace the signing secret. The
+  confirmed verification updates the lease, so renewal happens at half the
+  granted lease but no more than hourly. A verification that arrives after a
+  restart for the previous process's request is refused too, and the missing
+  verification below requests the subscription again. When no verification arrives within an hour, the
   status records `websub_verification_missing` and the subscription is
   requested again.
 - `POST /api/websub/youtube` reads at most 256 KiB and verifies
@@ -897,7 +901,16 @@ The instruction keeps titles and cited evidence in the post's wording and asks
 for English detail and reason and a short lowercase English status word; an
 entry without a status, or with a cancellation-like one, stores `pending`.
 A local validator rejects invalid calendar dates, time formats, enumerations,
-or confidence values before any event write. `schedule` results update automatic
+or confidence values before any event write. Times run up to `29:59`, as
+Japanese schedules count late-night hours on from the evening's date: a start
+of `25:30` on one date is stored as `01:30` on the next, with that date in its
+event ID, so it matches the same entry written as `01:30`. An end is read from
+the same evening, and one before the start falls on the following day. An
+empty time means no time. It also rejects a result that is
+not an object, a non-array `events` field, a result with neither a
+classification nor an events list, and a `schedule` result without entries
+unless its action is `cancel`; a rejected result is a failed attempt and
+leaves existing events untouched. `schedule` results update automatic
 events. A model never deletes or definitively cancels an event: `action=cancel`
 matches the clearest existing event and writes an `llm_suspected` cancellation
 overlay containing the reason, source evidence, confidence, and post ID. The

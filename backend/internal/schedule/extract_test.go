@@ -190,9 +190,13 @@ func TestManualLockAndTombstoneSurviveExtraction(t *testing.T) {
 	f.scan()
 	eventID := f.text(`SELECT id FROM events`)
 
-	// The operator edits the event; the admin command locks it this way.
-	f.exec(`UPDATE events SET title='Operator title', status='operator', detail='operator detail',
-		provenance='manual', manual_locked=1 WHERE id=?`, eventID)
+	// The operator edits the event through the admin command, which locks it.
+	ctx := context.Background()
+	startsAt := f.text(`SELECT starts_at FROM events WHERE id=?`, eventID)
+	if _, err := f.store.UpdateManualEvent(ctx, eventID, sqlite.EventInput{Title: "Operator title", Detail: "operator detail", Status: "operator",
+		StartsOn: songDate, StartsAt: startsAt, TimePrecision: "exact", EventType: "stream"}); err != nil {
+		t.Fatal(err)
+	}
 	f.provider.respond = func(recordedRequest) (int, string) {
 		return http.StatusOK, chatReply(scheduleReply(songTitle, songDate, songClock, "changed by model"))
 	}
@@ -208,7 +212,8 @@ func TestManualLockAndTombstoneSurviveExtraction(t *testing.T) {
 	if got := f.number(`SELECT COUNT(*) FROM events`); got != 1 {
 		t.Errorf("extraction duplicated a locked identity: %d events", got)
 	}
-	if got := f.number(`SELECT COUNT(*) FROM event_sources WHERE event_id=? AND deleted_at IS NULL`, eventID); got != 1 {
+	// The edit adds the operator's own evidence; the post's stays attached.
+	if got := f.number(`SELECT COUNT(*) FROM event_sources WHERE event_id=? AND source='x' AND deleted_at IS NULL`, eventID); got != 1 {
 		t.Errorf("source evidence left the locked event: %d", got)
 	}
 
@@ -225,14 +230,20 @@ func TestManualLockAndTombstoneSurviveExtraction(t *testing.T) {
 		t.Errorf("replacement event missing: %d", got)
 	}
 
-	// The operator deletes the event; a tombstone is a locked, deleted row.
-	f.exec(`UPDATE events SET provenance='manual', manual_locked=1, deleted_at=?, updated_at=? WHERE id=?`, testTimestamp, testTimestamp, eventID)
+	// The operator deletes the event through the admin command.
+	if _, err := f.store.DeleteManualEvent(ctx, eventID); err != nil {
+		t.Fatal(err)
+	}
+	tombstone := f.text(`SELECT deleted_at FROM events WHERE id=?`, eventID)
+	if tombstone == "" {
+		t.Fatal("the delete command left no tombstone")
+	}
 	f.provider.respond = func(recordedRequest) (int, string) {
 		return http.StatusOK, chatReply(scheduleReply(songTitle, songDate, songClock, "scheduled"))
 	}
 	f.requestReprocess("post-1")
 	f.scan()
-	if got := f.text(`SELECT title || '|' || COALESCE(deleted_at,'') FROM events WHERE id=?`, eventID); got != "Operator title|"+testTimestamp {
+	if got := f.text(`SELECT title || '|' || COALESCE(deleted_at,'') FROM events WHERE id=?`, eventID); got != "Operator title|"+tombstone {
 		t.Errorf("tombstone was resurrected: %q", got)
 	}
 	if got := f.number(`SELECT COUNT(*) FROM events WHERE starts_on=? AND deleted_at IS NULL`, songDate); got != 0 {

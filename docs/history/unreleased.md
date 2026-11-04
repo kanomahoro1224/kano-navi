@@ -231,6 +231,21 @@ extraction contained an invalid event`). The extractor version is
   again at the newest page and clears the token, so a repeated fetch no
   longer fails the same way every time. Rate limits and quota keep the saved
   position.
+- A December notice's January date, which a model sometimes returns in the
+  past year, is stored in the coming year when it falls within three months
+  of the post.
+- A schedule extraction or schedule-image check whose reply the provider cut
+  off at the token limit, refused or left incomplete fails the attempt even
+  when the partial answer parses, instead of being stored as a result.
+- A video renamed while a history page reads it is asked about again when its
+  old title gave no content, as a rename seen by the recent synchronization
+  is.
+- The reconciler's event for an ended broadcast restores an event that
+  automatic re-extraction had retired, instead of leaving it deleted.
+- A manual X `before` fetch fails when no account's fetch answered, instead
+  of reading as partial because an account without stored posts was skipped.
+- A retryable step failure, such as a rate limit, waits five seconds before
+  its second attempt.
 - The YouTube push callback confirms only a subscription this process asked
   for within the last hour, so a stranger's subscribe request with this
   callback can no longer replace the signing secret and silence push

@@ -679,8 +679,9 @@ operator's row that never had a label (`tag_source` empty) reads on to the
 video's tag, so it does not hold the video back; a cleared label
 (`tag_source = manual`) does. Only `game`, `talk` or `song` is stored; another
 answer or none is stored as `tag_source = title` without a tag and is not
-asked again until a creator's rename clears that judgement (a stored tag, or
-an operator's `manual_title`, keeps it); a failure only stamps
+asked again until a creator's rename clears that judgement, whether the
+recent synchronization or a history page sees the new title first (a stored
+tag, or an operator's `manual_title`, keeps it); a failure only stamps
 `tag_attempted_at` and waits a day, as an entry does. Videos
 never attempted come first, then the least recently attempted, each newest
 first. Storing a tag advances the dashboard revision; a judgement without

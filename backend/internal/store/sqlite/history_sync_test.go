@@ -360,3 +360,29 @@ func TestCheckpointOnlyPagesClearEveryFetchCheckpoint(t *testing.T) {
 		}
 	}
 }
+
+// A rename that a history page sees first asks again about a title that gave
+// no content, as the recent synchronization does; a tag the title gave stays.
+func TestHistoryPageRenameIsJudgedAgain(t *testing.T) {
+	s, query := openHistoryStore(t)
+	for _, row := range []struct{ id, tag string }{{"NOLABEL0001", ""}, {"CONTENT0001", "game"}} {
+		if _, err := s.db.Exec(`INSERT INTO videos(id,source,title,url,kind,is_upcoming,tag,tag_source,tag_attempted_at,raw_json) VALUES(?,'youtube','placeholder',?,'upload',0,NULLIF(?,''),'title','2026-01-02T00:00:00.000Z','{}')`,
+			row.id, "https://www.youtube.com/watch?v="+row.id, row.tag); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page := history.Page{Source: history.SourceYoutube, Account: "UCAAAAAAAAAAAAAAAAAAAAAA", Videos: []ytsource.Video{
+		{ID: "NOLABEL0001", Title: "renamed", URL: "https://www.youtube.com/watch?v=NOLABEL0001", Kind: ytsource.KindUpload},
+		{ID: "CONTENT0001", Title: "renamed", URL: "https://www.youtube.com/watch?v=CONTENT0001", Kind: ytsource.KindUpload},
+	}}
+	if _, err := s.WriteHistoryPage(context.Background(), page); err != nil {
+		t.Fatal(err)
+	}
+	judgement := `SELECT COALESCE(tag,'')||'|'||COALESCE(tag_source,'')||'|'||COALESCE(tag_attempted_at,'') FROM videos WHERE id=?`
+	if got := query(judgement, "NOLABEL0001"); got != "||" {
+		t.Fatalf("the renamed placeholder kept its judgement: %q", got)
+	}
+	if got := query(judgement, "CONTENT0001"); got != "game|title|2026-01-02T00:00:00.000Z" {
+		t.Fatalf("a content tag was cleared: %q", got)
+	}
+}

@@ -57,10 +57,10 @@ the entry, the shared chunks and each lazy page; the build manifest
 (`dist/.vite/manifest.json`) lists which chunks a page imports. For request
 behavior, serve the
 production build against a disposable development backend (see
-[Testing](testing.md#test-scope)) and review all five pages at desktop and
+[Testing](testing.md#test-scope)) and review all six pages at desktop and
 mobile widths, including direct visits, refresh, a failed snapshot read with
 automatic recovery and a failed lazy chunk with retry. Visiting `/history`,
-`/lineblog` or `/about` must not issue dashboard reads.
+`/lineblog`, `/works` or `/about` must not issue dashboard reads.
 
 Report results as local synthetic measurements, not production latency,
 capacity or SLA figures, and do not record them in this document.

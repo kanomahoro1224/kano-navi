@@ -1,0 +1,2313 @@
+/*
+ * /works: an editorial record room on the public shell (src/site/site.css).
+ * The page keeps the shared tokens but gives them a warm ivory and clay
+ * reading, sets names in a serif, separates with hairlines, and lets each
+ * cover's record slide out of its sleeve. Both themes apply.
+ */
+
+body:has(.site.works) {
+  --background: 48 33% 97%;
+  --foreground: 60 3% 8%;
+  --card: 0 0% 100%;
+  --muted: 45 22% 92%;
+  --muted-foreground: 50 3% 37%;
+  --border: 48 14% 87%;
+  --berry: #c96442;
+  --works-clay: #c96442;
+  --works-record: #151514;
+  --works-groove: #232220;
+  --works-hill-far: #efe9dd;
+  --works-hill-mid: #e6dece;
+  --works-hill-near: #ddd3bf;
+  --works-grass: #b3a589;
+  --works-members: #2ba640;
+}
+
+.dark body:has(.site.works) {
+  --background: 30 3% 12%;
+  --foreground: 48 23% 92%;
+  --card: 60 2% 15%;
+  --muted: 40 3% 19%;
+  --muted-foreground: 48 5% 64%;
+  --border: 45 4% 24%;
+  --berry: #e08a6d;
+  --works-clay: #e08a6d;
+  --works-record: #2f2e2b;
+  --works-groove: #3b3a36;
+  --works-hill-far: #2a2825;
+  --works-hill-mid: #312e2a;
+  --works-hill-near: #38342e;
+  --works-grass: #554e43;
+  --works-members: #2ba640;
+}
+
+.works {
+  --font-serif:
+    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia,
+    "Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP",
+    "Noto Serif CJK JP", "Songti SC", "Noto Serif SC", serif;
+  --works-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.works-eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.works-eyebrow > :first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--works-clay);
+}
+
+.works-eyebrow > :first-child::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  content: "";
+  background: currentColor;
+}
+
+/* -------------------------------------------------------------------- hero */
+
+.works-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 1fr);
+  align-items: center;
+  gap: 40px 64px;
+  padding-top: 64px;
+}
+
+.works-hero h1 {
+  max-width: 13ch;
+  margin: 22px 0 0;
+  font-family: var(--font-serif);
+  font-size: clamp(42px, 6.6vw, 88px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.works-lead {
+  max-width: 44ch;
+  margin: 26px 0 0;
+  color: var(--soft);
+  font-size: 17.5px;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+.works-caveat {
+  display: flex;
+  max-width: 52ch;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 22px 0 0;
+  padding: 12px 14px;
+  border-left: 2px solid var(--works-clay);
+  background: color-mix(in oklab, var(--works-clay) 7%, transparent);
+  color: var(--soft);
+  font-size: 13.5px;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.works-caveat svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 3px;
+  color: var(--works-clay);
+}
+
+.works-caveat a {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: color-mix(
+    in oklab,
+    var(--works-clay) 60%,
+    transparent
+  );
+  text-underline-offset: 3px;
+  transition: color 200ms ease;
+}
+
+.works-caveat a:hover {
+  color: var(--works-clay);
+}
+
+.works-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 30px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid currentColor;
+  color: var(--ink);
+  font-size: 14.5px;
+  font-weight: 600;
+  transition: color 200ms ease;
+}
+
+.works-link svg {
+  width: 15px;
+  height: 15px;
+  transition: transform 300ms var(--works-ease);
+}
+
+.works-link:hover {
+  color: var(--works-clay);
+}
+
+.works-link:hover svg {
+  transform: translate(2px, -2px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .works-hero-copy > * {
+    animation: works-rise 900ms var(--works-ease) both;
+  }
+
+  .works-hero-copy > :nth-child(2) {
+    animation-delay: 80ms;
+  }
+
+  .works-hero-copy > :nth-child(3) {
+    animation-delay: 160ms;
+  }
+
+  .works-hero-copy > :nth-child(4) {
+    animation-delay: 240ms;
+  }
+
+  .works-trio {
+    animation: works-rise 1100ms 200ms var(--works-ease) both;
+  }
+}
+
+@keyframes works-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The acoustic cover trilogy: three sleeves fanned out on the right. */
+.works-trio {
+  display: grid;
+  gap: 26px;
+  justify-self: stretch;
+}
+
+.works-trio-stage {
+  position: relative;
+  aspect-ratio: 1.45;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.works-trio-stage > li {
+  position: absolute;
+  width: 48%;
+  transition:
+    transform 600ms var(--works-ease),
+    z-index 0ms 200ms;
+}
+
+.works-trio-stage > .is-0 {
+  z-index: 1;
+  top: 16%;
+  left: 0;
+  transform: rotate(-7deg);
+}
+
+.works-trio-stage > .is-1 {
+  z-index: 2;
+  top: 4%;
+  left: 26%;
+  transform: rotate(-1deg);
+}
+
+.works-trio-stage > .is-2 {
+  z-index: 1;
+  top: 18%;
+  left: 52%;
+  transform: rotate(6deg);
+}
+
+.works-trio-stage > li:hover,
+.works-trio-stage > li:focus-within {
+  z-index: 3;
+  transform: translateY(-12px) rotate(0deg);
+  transition-delay: 0ms;
+}
+
+.works-trio-item {
+  display: block;
+  width: 100%;
+  color: inherit;
+}
+
+/* The record rises out of the top of its sleeve, as on the shelf. */
+.works-trio-item:hover .works-record,
+.works-trio-item:focus-visible .works-record {
+  transform: translateY(-26%);
+}
+
+/*
+ * The figures cut from the three covers in a small landscape, after the night
+ * hills of a fan-made MV: each album's disc sinks behind the far ridges like
+ * a setting sun, and the figures stand and sit on the curved ground in front.
+ * The scene isolates its layers so discs, hills and figures interleave.
+ */
+.works-trio-scene {
+  position: relative;
+  isolation: isolate;
+}
+
+.works-landscape {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  /* The land fades out at the sides and below instead of ending in a box. */
+  mask-image:
+    linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent),
+    linear-gradient(#000 82%, transparent);
+  mask-composite: intersect;
+}
+
+.works-landscape .is-far {
+  fill: var(--works-hill-far);
+}
+
+.works-landscape .is-mid {
+  fill: var(--works-hill-mid);
+}
+
+.works-landscape .is-near {
+  fill: var(--works-hill-near);
+}
+
+.works-landscape .is-crest,
+.works-landscape .is-grass {
+  fill: none;
+  stroke: var(--works-grass);
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.works-landscape .is-crest {
+  stroke-width: 1.5;
+}
+
+.works-landscape .is-grass {
+  stroke-width: 1.3;
+}
+
+.works-landscape .is-flower circle + circle {
+  fill: #f6edd7;
+}
+
+.works-trio-stage.is-figures {
+  aspect-ratio: 1.16;
+}
+
+/* No stacking context of their own, so their layers join the scene's. */
+.works-trio-stage.is-figures > li,
+.works-trio-stage.is-figures > li:hover,
+.works-trio-stage.is-figures > li:focus-within {
+  z-index: auto;
+  top: auto;
+  transform: none;
+  transition: none;
+}
+
+/* Each base sits on the ground curve drawn by FeaturedLandscape. */
+.works-trio-stage.is-figures > .is-0 {
+  left: 0;
+  bottom: 12.2%;
+  width: 34%;
+  --sun-size: 112%;
+  --sun-top: 14%;
+  --lift: 3;
+}
+
+.works-trio-stage.is-figures > .is-1 {
+  left: 25%;
+  bottom: 6.5%;
+  width: 47%;
+  --sun-size: 72%;
+  --sun-top: -16%;
+  --lift: 4;
+}
+
+.works-trio-stage.is-figures > .is-2 {
+  left: 60%;
+  bottom: 14.2%;
+  width: 40%;
+  --sun-size: 88%;
+  --sun-top: 2%;
+  --lift: 3;
+}
+
+@keyframes works-figure-in {
+  from {
+    opacity: 0;
+    translate: 0 28px;
+  }
+}
+
+@keyframes works-sun-in {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+
+.works-figure {
+  position: relative;
+  display: grid;
+  justify-items: center;
+}
+
+/* A disc in the album's colour, grooved like the records on the shelf. */
+.works-figure-sun {
+  position: absolute;
+  z-index: 0;
+  top: var(--sun-top);
+  left: 50%;
+  width: var(--sun-size);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, hsl(var(--background)) 0 3%, transparent 3.5% 100%),
+    repeating-radial-gradient(
+      circle,
+      transparent 0 6px,
+      rgb(255 255 255 / 0.09) 6px 7px
+    ),
+    var(--tone);
+  opacity: 0.92;
+  translate: -50% 0;
+  transition:
+    transform 900ms var(--works-ease),
+    opacity 300ms ease;
+  animation: works-sun-in 1100ms var(--works-ease) both;
+  animation-delay: calc(var(--order) * 140ms);
+}
+
+.works-figure img {
+  position: relative;
+  z-index: var(--lift);
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 12px 14px rgb(0 0 0 / 0.16));
+  transform-origin: 50% 100%;
+  transition: transform 500ms var(--works-ease);
+  animation: works-figure-in 900ms var(--works-ease) both;
+  animation-delay: calc(120ms + var(--order) * 140ms);
+}
+
+.works-trio-item:hover .works-figure img,
+.works-trio-item:focus-visible .works-figure img {
+  z-index: 5;
+  transform: translateY(-10px) rotate(-1.5deg);
+}
+
+.works-trio-item:hover .works-figure-sun,
+.works-trio-item:focus-visible .works-figure-sun {
+  opacity: 1;
+  transform: rotate(40deg) scale(1.06);
+}
+
+/* The label sits on the ground below its figure, following the curve. */
+.works-figure-label {
+  position: absolute;
+  z-index: 3;
+  top: 100%;
+  right: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 200ms ease;
+}
+
+.works-figure-label b {
+  color: var(--tone);
+  font-weight: 600;
+}
+
+.works-trio-item:hover .works-figure-label,
+.works-trio-item:focus-visible .works-figure-label {
+  color: var(--ink);
+}
+
+.works-trio-stage.is-figures .works-trio-item:focus-visible {
+  outline: 2px solid var(--works-clay);
+  outline-offset: 6px;
+  border-radius: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .works-figure img,
+  .works-figure-sun {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .works-hero {
+    grid-template-columns: 1fr;
+    padding-top: 36px;
+  }
+
+  .works-trio {
+    max-width: 460px;
+  }
+}
+
+/* --------------------------------------------------------- sleeve, record */
+
+.works-sleeve {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  isolation: isolate;
+}
+
+.works-cover {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 6px;
+  background:
+    linear-gradient(var(--sunken), var(--sunken)), hsl(var(--background));
+  box-shadow:
+    0 1px 2px rgb(20 20 19 / 0.08),
+    0 18px 36px -18px rgb(20 20 19 / 0.45);
+  transition: transform 500ms var(--works-ease);
+}
+
+.works-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.works-record {
+  position: absolute;
+  z-index: 0;
+  inset: 3%;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle,
+      transparent 0 31%,
+      rgb(255 255 255 / 0.06) 31.5% 32.2%,
+      transparent 32.8%
+    ),
+    repeating-radial-gradient(
+      circle,
+      var(--works-record) 0 1.4px,
+      var(--works-groove) 1.4px 2.6px
+    );
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.05),
+    0 14px 30px -14px rgb(0 0 0 / 0.6);
+  transition: transform 700ms var(--works-ease);
+}
+
+/* Light catching the grooves stays put while the record turns. */
+.works-record::after {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  content: "";
+  background: conic-gradient(
+    from 200deg,
+    transparent 0 6%,
+    rgb(255 255 255 / 0.12) 11%,
+    transparent 17% 56%,
+    rgb(255 255 255 / 0.08) 61%,
+    transparent 67%
+  );
+}
+
+.works-record-label {
+  position: absolute;
+  inset: 32%;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--works-clay);
+  box-shadow: 0 0 0 3px #0b0b0a;
+}
+
+.works-record-label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.works-record-label::after {
+  position: absolute;
+  inset: 44%;
+  border-radius: 50%;
+  content: "";
+  background: hsl(var(--background));
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.35);
+}
+
+.works-record-label .works-missing {
+  display: none;
+}
+
+/* A real disc: its own photo, cut to the disc and turning as a whole. */
+.works-record.has-disc {
+  background: #d9d6cf;
+}
+
+.works-record.has-disc::after {
+  z-index: 1;
+}
+
+.works-record-disc {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.works-record-disc img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.works-record-disc .works-missing {
+  display: none;
+}
+
+/* The centre hole, punched through the photo. */
+.works-record-disc::after {
+  position: absolute;
+  inset: 46%;
+  border-radius: 50%;
+  background: hsl(var(--background));
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+  content: "";
+}
+
+/* On the shelf the record rises out of the top of its sleeve. */
+.release-card button:hover .works-record,
+.release-card button:focus-visible .works-record {
+  transform: translateY(-22%);
+}
+
+.release-card button:hover .works-cover,
+.release-card button:focus-visible .works-cover {
+  transform: translateY(3px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .works-record-label,
+  .works-record-disc {
+    animation: works-spin 5s linear infinite;
+    animation-play-state: paused;
+  }
+
+  .release-card button:hover .works-record-label,
+  .release-card button:focus-visible .works-record-label,
+  .release-card button:hover .works-record-disc,
+  .release-card button:focus-visible .works-record-disc,
+  .works-trio-item:hover .works-record-label,
+  .works-trio-item:hover .works-record-disc {
+    animation-play-state: running;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .works-record,
+  .works-cover {
+    transition-duration: 1ms;
+  }
+}
+
+@keyframes works-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* ---------------------------------------------------------------- sections */
+
+.works-sections {
+  margin-top: 64px;
+}
+
+.works .works-tabs {
+  display: flex;
+  width: 100%;
+  height: auto;
+  justify-content: flex-start;
+  gap: 36px;
+  /* Room for the keyboard focus outline, which the scroller would clip. */
+  padding: 6px 6px 0;
+  margin-inline: -6px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  scrollbar-width: none;
+}
+
+.works .works-tabs [role="tab"] {
+  position: relative;
+  flex: none;
+  gap: 2px;
+  padding: 0 0 14px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--soft);
+  font-family: var(--font-serif);
+  font-size: clamp(19px, 2.2vw, 26px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  transition: color 200ms ease;
+}
+
+.works .works-tabs [role="tab"]::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  content: "";
+  background: var(--works-clay);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 400ms var(--works-ease);
+}
+
+.works .works-tabs [role="tab"]:focus-visible {
+  outline: 2px solid var(--works-clay);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.works .works-tabs[data-pointer] [role="tab"]:focus-visible {
+  outline: none;
+}
+
+.works .works-tabs [role="tab"]:hover {
+  color: var(--ink);
+}
+
+.works .works-tabs [role="tab"][data-state="active"] {
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.works .works-tabs [role="tab"][data-state="active"]::after {
+  transform: scaleX(1);
+}
+
+.works-tabs sup {
+  vertical-align: super;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.works-panel {
+  padding-top: 28px;
+}
+
+.works-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.works-toolbar > .segmented:last-child {
+  margin-left: auto;
+}
+
+/* Filters read as outlined chips; the chosen one is inked. */
+.works .segmented {
+  gap: 6px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.works .segmented button,
+.works-chip,
+.works-toggle.pill-button {
+  display: inline-flex;
+  min-height: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--soft);
+  font-size: 13px;
+  font-weight: 600;
+  transition:
+    background 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease;
+}
+
+.works .segmented button:hover,
+.works-chip:hover,
+.works-toggle.pill-button:hover:not(:disabled, [aria-pressed="true"]) {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.works .segmented button[aria-pressed="true"],
+.works-toggle.pill-button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  box-shadow: none;
+  color: hsl(var(--background));
+}
+
+.works .segmented small,
+.works-toggle small {
+  margin-left: 2px;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  opacity: 0.6;
+}
+
+.works-toggle .works-members-mark {
+  width: 12px;
+  height: 12px;
+}
+
+.works-chip svg {
+  width: 14px;
+  height: 14px;
+}
+
+.works-search {
+  display: flex;
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 340px;
+  height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--soft);
+  transition: border-color 200ms ease;
+}
+
+.works-search:focus-within {
+  border-color: var(--works-clay);
+}
+
+.works-search svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.works-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  outline: none;
+}
+
+.works-result-count {
+  margin: 0;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.works-years {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Each year keeps its numeral in a column beside its works. */
+.works-year {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px 32px;
+  padding: 40px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.works-year:first-child {
+  border-top: 0;
+}
+
+.works-year-label {
+  position: sticky;
+  top: 88px;
+  display: grid;
+  align-self: start;
+  gap: 8px;
+  margin: 0;
+}
+
+.works-year-label span {
+  font-family: var(--font-serif);
+  font-size: clamp(34px, 4vw, 52px);
+  font-weight: 400;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.works-year-label small {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 720px) {
+  .works .works-tabs {
+    gap: 18px;
+  }
+
+  .works .works-tabs [role="tab"] {
+    font-size: 17px;
+  }
+
+  .works-year {
+    grid-template-columns: 1fr;
+    padding: 28px 0;
+  }
+
+  .works-year-label {
+    position: static;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .works-toolbar > .segmented:last-child {
+    margin-left: 0;
+  }
+
+  .works-search {
+    max-width: none;
+  }
+}
+
+/* Rows rise into place as they scroll in, where the browser can tie the
+   motion to scrolling. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .release-card,
+    .credit-row,
+    .upload-card {
+      animation: works-rise linear both;
+      animation-range: entry 0% entry 40%;
+      animation-timeline: view();
+    }
+  }
+}
+
+.works-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.works-meta time {
+  color: var(--ink);
+}
+
+.works-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.works .tag {
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.works .tag.is-accent {
+  border-color: color-mix(in oklab, var(--works-clay) 45%, transparent);
+  color: var(--works-clay);
+}
+
+.works-empty,
+.works-load-failed,
+.works-loading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 28px 0;
+  color: var(--soft);
+  font-size: 14.5px;
+}
+
+.works-loading {
+  display: block;
+  max-width: 560px;
+}
+
+.works-empty svg {
+  width: 18px;
+  height: 18px;
+}
+
+.works-load-failed p {
+  margin: 0;
+}
+
+.works-quiet {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13px;
+}
+
+.works-missing {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 72px;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px;
+  color: var(--soft);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.works-missing svg {
+  width: 20px;
+  height: 20px;
+  opacity: 0.7;
+}
+
+/* --------------------------------------------------------- personal works */
+
+.release-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 44px 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.release-card {
+  position: relative;
+}
+
+.release-card:hover {
+  z-index: 2;
+}
+
+.release-card button {
+  display: grid;
+  width: 100%;
+  gap: 16px;
+  color: inherit;
+  text-align: left;
+}
+
+.release-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.release-copy strong {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  transition: color 200ms ease;
+}
+
+.release-card button:hover strong,
+.release-card button:focus-visible strong {
+  color: var(--works-clay);
+}
+
+.release-unit,
+.release-editions {
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+.release-editions {
+  margin-top: -8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 480px) {
+  .release-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 36px 16px;
+  }
+
+  .release-copy strong {
+    font-size: 16px;
+  }
+}
+
+/* ------------------------------------------------------------ release sheet */
+
+.works-sheet {
+  width: min(960px, calc(100vw - 24px));
+  max-width: none;
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: hsl(var(--background));
+  color: var(--ink);
+  box-shadow: 0 40px 80px -30px rgb(20 20 19 / 0.5);
+  overscroll-behavior: contain;
+}
+
+.works-sheet::backdrop {
+  background: rgb(20 20 19 / 0.55);
+  backdrop-filter: blur(6px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .works-sheet[open] {
+    animation: works-sheet-in 450ms var(--works-ease);
+  }
+}
+
+@keyframes works-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+}
+
+body.has-works-sheet {
+  overflow: hidden;
+}
+
+/* The close button rides over the header without taking room. */
+.works-sheet-close {
+  position: sticky;
+  z-index: 3;
+  top: 14px;
+  display: grid;
+  margin: 14px 14px -58px auto;
+}
+
+.release-sheet {
+  display: block;
+}
+
+/* Header: the cover in its sleeve over a wash of its own colours. */
+.release-head {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  align-items: end;
+  gap: 28px 56px;
+  overflow: hidden;
+  padding: 64px 48px 40px;
+  border-bottom: 1px solid var(--rule);
+  isolation: isolate;
+}
+
+.release-head-backdrop {
+  position: absolute;
+  z-index: -2;
+  inset: -25%;
+  opacity: 0.55;
+  filter: blur(64px) saturate(1.4);
+}
+
+.release-head-backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.release-head::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, hsl(var(--background)) 35%, transparent),
+    hsl(var(--background)) 92%
+  );
+  content: "";
+}
+
+.release-head-art {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.release-head-art > .works-sleeve,
+.release-head-cover {
+  display: block;
+  width: 78%;
+  color: inherit;
+}
+
+.works-sleeve.is-sheet .works-record {
+  transform: translateX(26%);
+}
+
+.release-head-cover:hover .works-record,
+.release-head-cover:focus-visible .works-record {
+  transform: translateX(36%);
+}
+
+.works-sleeve.is-sheet .works-cover {
+  box-shadow:
+    0 1px 2px rgb(20 20 19 / 0.1),
+    0 30px 50px -24px rgb(20 20 19 / 0.6);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .works-sleeve.is-sheet .works-record-label,
+  .works-sleeve.is-sheet .works-record-disc {
+    animation-duration: 9s;
+    animation-play-state: running;
+  }
+}
+
+.release-head-copy {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+
+.release-head-copy .works-eyebrow {
+  padding-right: 48px;
+}
+
+.release-head-copy h2 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(36px, 5vw, 62px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+}
+
+.release-sheet-unit {
+  margin: -4px 0 0;
+  color: var(--soft);
+  font-size: 15px;
+}
+
+.release-head-label {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13.5px;
+}
+
+.release-head-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 10px 0 6px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.release-head-figures strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.release-sheet-caption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+.release-sheet-caption span {
+  color: var(--ink);
+}
+
+.release-sheet-editions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.release-sheet-editions button {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 4px;
+  background: var(--sunken);
+  opacity: 0.55;
+  outline: 1px solid transparent;
+  outline-offset: 2px;
+  transition:
+    opacity 200ms ease,
+    outline-color 200ms ease;
+}
+
+.release-sheet-editions button:hover,
+.release-sheet-editions button[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.release-sheet-editions button[aria-pressed="true"] {
+  outline-color: var(--ink);
+}
+
+.release-sheet-editions img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Body: the tracklist, with the edition's facts and bonuses beside it. */
+.release-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  gap: 40px 52px;
+  padding: 36px 48px 52px;
+}
+
+.release-body.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.release-tracks,
+.release-aside,
+.release-bonuses {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.release-aside {
+  gap: 26px;
+}
+
+.release-tracks > .works-field-label,
+.release-bonuses > .works-field-label {
+  margin-top: 0;
+}
+
+.release-listen-note {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.works-listen {
+  display: flex;
+  flex-wrap: wrap;
+  align-self: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.works-listen-link {
+  display: inline-flex;
+  height: 26px;
+  min-width: 26px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 6px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--soft);
+  transition:
+    color 200ms ease,
+    border-color 200ms ease;
+}
+
+.works-listen-link svg {
+  width: 13px;
+  height: 13px;
+}
+
+.works-listen-link .works-members-mark {
+  width: 11px;
+  height: 11px;
+}
+
+.works-listen-link.is-youtube:hover {
+  border-color: #ff0033;
+  color: #ff0033;
+}
+
+.works-listen-link.is-bilibili:hover {
+  border-color: #00a1d6;
+  color: #00a1d6;
+}
+
+.works-listen-link.is-niconico:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.works-facts {
+  display: grid;
+  margin: 8px 0 0;
+  border-top: 1px solid var(--rule);
+}
+
+.works-facts div {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.works-facts dt {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 2.1;
+  text-transform: uppercase;
+}
+
+.works-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.works-field-label {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 14px 0 0;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.works-field-label small {
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.works-tracklist {
+  display: grid;
+  gap: 16px;
+}
+
+.works-tracklist ol,
+.credit-tracks {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.works-tracklist li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--rule);
+  font-size: 14.5px;
+}
+
+.works-tracklist li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+
+.works-tracklist li.is-kano strong {
+  color: var(--works-clay);
+}
+
+.works-tracklist li.is-kano .works-track-no {
+  color: var(--works-clay);
+}
+
+.works-track-no {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.95;
+}
+
+.works-track-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.works-track-copy strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.works-track-copy small {
+  color: var(--soft);
+  font-size: 12.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.works-kano-credit {
+  color: var(--works-clay);
+  font-weight: 600;
+}
+
+/* A disc's heading, with its photo when the collection has one. */
+.works-disc-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 10px;
+}
+
+.works-disc-head .works-disc {
+  margin: 0;
+}
+
+.works-disc-photo {
+  position: relative;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px var(--rule),
+    0 6px 14px rgb(0 0 0 / 0.18);
+  transition: transform 500ms var(--works-ease);
+}
+
+.works-disc-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.works-disc-photo .works-missing {
+  display: none;
+}
+
+.works-disc-photo:hover,
+.works-disc-photo:focus-visible {
+  transform: rotate(60deg) scale(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .works-disc-photo {
+    transition: none;
+  }
+}
+
+.works-disc {
+  margin: 0 0 6px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Editions: chips to switch, then the chosen edition's own facts. */
+.works-edition-picker {
+  flex-wrap: wrap;
+}
+
+.release-edition {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: color-mix(in oklab, hsl(var(--card)) 60%, transparent);
+}
+
+.release-edition .works-facts {
+  margin-top: 0;
+}
+
+.release-edition .works-field-label {
+  margin-top: 6px;
+}
+
+.release-edition-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.works-package,
+.works-bonuses {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.works-package li {
+  position: relative;
+  padding: 3px 0 3px 18px;
+  overflow-wrap: anywhere;
+}
+
+.works-package li::before {
+  position: absolute;
+  top: 0.95em;
+  left: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--works-clay);
+  content: "";
+}
+
+.works-bonuses li {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: 16px;
+  padding: 9px 0;
+  border-top: 1px solid var(--rule);
+  overflow-wrap: anywhere;
+}
+
+.works-bonuses li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+
+.works-bonus-store {
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+.works-bonus-scope {
+  margin: 6px 0 -6px;
+  color: var(--works-clay);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.works-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.works-thumbs button {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--sunken);
+  outline: 1px solid var(--rule);
+  transition:
+    outline-color 200ms ease,
+    transform 300ms var(--works-ease);
+}
+
+.works-thumbs button:hover,
+.works-thumbs button:focus-visible {
+  outline-color: var(--ink);
+  transform: translateY(-2px);
+}
+
+.works-thumbs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .release-edition {
+    padding: 16px;
+  }
+
+  .works-bonuses li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+@media (max-width: 720px) {
+  .release-head {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 60px 20px 26px;
+  }
+
+  .release-head-art {
+    max-width: 280px;
+  }
+
+  .release-body {
+    grid-template-columns: 1fr;
+    padding: 26px 20px 36px;
+  }
+
+  .works-facts div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+/* Cover details in the image viewer's panel. */
+.works .media-dialog-stage .works-missing {
+  min-width: 240px;
+  min-height: 240px;
+  color: #fff;
+}
+
+.works-cover-details {
+  display: grid;
+  gap: 10px;
+}
+
+.works-cover-details h2 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.works-cover-details p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.works-cover-details dl {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.works-cover-details dl div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 10px;
+  font-size: 12.5px;
+}
+
+.works-cover-details dt {
+  color: var(--soft);
+  font-weight: 600;
+}
+
+.works-cover-details dd {
+  margin: 0;
+}
+
+.works-cover-origin {
+  color: var(--soft);
+}
+
+/* ------------------------------------------------------------ participation */
+
+.credit-list,
+.upload-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.credit-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.credit-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.credit-cover {
+  display: grid;
+  width: 88px;
+  height: 88px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 4px;
+  background: var(--sunken);
+  box-shadow: 0 12px 24px -14px rgb(20 20 19 / 0.45);
+  transition: transform 400ms var(--works-ease);
+}
+
+button.credit-cover:hover {
+  transform: translateY(-3px) rotate(-1.5deg);
+}
+
+.credit-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.credit-cover .works-missing {
+  min-height: 0;
+  padding: 4px;
+  font-size: 0;
+}
+
+.credit-copy {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.credit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 0;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.credit-meta time {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.credit-copy h3 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(19px, 2vw, 23px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.credit-copy h3 a {
+  transition: color 200ms ease;
+}
+
+.credit-copy h3 a:hover {
+  color: var(--works-clay);
+}
+
+.credit-copy h3 svg {
+  display: inline;
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+  color: var(--soft);
+  vertical-align: baseline;
+}
+
+.credit-tracks {
+  gap: 2px;
+}
+
+.credit-tracks li {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 0 6px 14px;
+  border-left: 2px solid var(--works-clay);
+  font-size: 14px;
+}
+
+.credit-tracks .works-track-no {
+  color: var(--works-clay);
+}
+
+.credit-details summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  list-style: none;
+  transition: color 200ms ease;
+}
+
+.credit-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.credit-details summary::after {
+  content: "+";
+  font-size: 13px;
+}
+
+.credit-details[open] summary::after {
+  content: "−";
+}
+
+.credit-details summary:hover {
+  color: var(--works-clay);
+}
+
+.credit-details summary svg {
+  width: 14px;
+  height: 14px;
+}
+
+.credit-details[open] summary {
+  margin-bottom: 10px;
+}
+
+/* ------------------------------------------------------------------ uploads */
+
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 40px 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upload-card {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.upload-art {
+  display: block;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--sunken);
+  box-shadow: 0 18px 32px -22px rgb(20 20 19 / 0.55);
+  transition:
+    transform 450ms var(--works-ease),
+    box-shadow 450ms var(--works-ease);
+}
+
+a.upload-art:hover {
+  box-shadow: 0 26px 40px -24px rgb(20 20 19 / 0.6);
+  transform: translateY(-4px);
+}
+
+.upload-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-art .works-missing {
+  min-height: 0;
+  height: 100%;
+}
+
+/* A printed sleeve for an upload without a saved thumbnail. */
+.upload-print {
+  --print-bg: #c96442;
+  --print-ink: #faf9f5;
+  display: grid;
+  position: absolute;
+  inset: 0;
+  grid-template-rows: auto 1fr auto;
+  gap: 4px;
+  overflow: hidden;
+  padding: 12px 14px;
+  background: var(--print-bg);
+  color: var(--print-ink);
+}
+
+.upload-print.is-tone-1 {
+  --print-bg: #141413;
+  --print-ink: #f0eee6;
+}
+
+.upload-print.is-tone-2 {
+  --print-bg: #d4a27f;
+  --print-ink: #191917;
+}
+
+.upload-print.is-tone-3 {
+  --print-bg: #788c5d;
+  --print-ink: #faf9f5;
+}
+
+.upload-print.is-tone-4 {
+  --print-bg: #cbcadb;
+  --print-ink: #191917;
+}
+
+.dark .upload-print.is-tone-1 {
+  --print-bg: #3a3936;
+}
+
+/* A record's edge, peeking out on the right. */
+.upload-print::after {
+  position: absolute;
+  top: 50%;
+  right: -34%;
+  width: 78%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle,
+      var(--print-bg) 0 9%,
+      transparent 9.5% 22%,
+      color-mix(in oklab, var(--print-ink) 30%, transparent) 22.5% 23%,
+      transparent 23.5%
+    ),
+    repeating-radial-gradient(
+      circle,
+      color-mix(in oklab, var(--print-ink) 14%, transparent) 0 1px,
+      transparent 1px 5px
+    );
+  content: "";
+  opacity: 0.55;
+  transform: translateY(-50%);
+  transition: transform 900ms var(--works-ease);
+}
+
+a.upload-art:hover .upload-print::after {
+  transform: translateY(-50%) rotate(40deg);
+}
+
+.upload-print > span {
+  position: relative;
+  z-index: 1;
+  max-width: 72%;
+}
+
+.upload-print-kind {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  opacity: 0.75;
+  text-transform: uppercase;
+}
+
+.upload-print-title {
+  display: -webkit-box;
+  align-self: end;
+  overflow: hidden;
+  font-family: var(--font-serif);
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.upload-print-artist {
+  overflow: hidden;
+  font-size: 11px;
+  opacity: 0.8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-print-year {
+  position: absolute !important;
+  top: 9px;
+  right: 12px;
+  max-width: none !important;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.upload-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.upload-copy .works-meta {
+  margin: 0;
+}
+
+/* YouTube's own members-only badge: its star mark and green. */
+.works-members {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--works-members);
+  font-weight: 500;
+}
+
+.works-members svg {
+  width: 12px;
+  height: 12px;
+}
+
+.works-members-mark {
+  flex: none;
+  color: var(--works-members);
+}
+
+.upload-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.upload-people,
+.upload-albums {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.upload-albums {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.upload-albums svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin-top: 3px;
+}
+
+.upload-songs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upload-songs li {
+  padding: 2px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-size: 12.5px;
+}
+
+.upload-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 0;
+}
+
+.upload-link {
+  display: inline-flex;
+  height: 32px;
+  min-width: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 9px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--soft);
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    transform 300ms var(--works-ease);
+}
+
+.upload-link:hover {
+  transform: translateY(-2px);
+}
+
+.upload-link svg {
+  width: 15px;
+  height: 15px;
+}
+
+.upload-link .works-members-mark {
+  width: 12px;
+  height: 12px;
+}
+
+.upload-link.is-youtube:hover {
+  border-color: #ff0033;
+  color: #ff0033;
+}
+
+.upload-link.is-bilibili:hover {
+  border-color: #00a1d6;
+  color: #00a1d6;
+}
+
+.upload-link.is-niconico:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+@media (max-width: 560px) {
+  .upload-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 30px 14px;
+  }
+
+  .upload-print {
+    padding: 8px 10px;
+  }
+
+  .upload-print-title {
+    font-size: 15px;
+    -webkit-line-clamp: 2;
+  }
+
+  .upload-print-artist {
+    display: none;
+  }
+
+  .upload-print-year {
+    top: 7px;
+    right: 8px;
+    font-size: 16px;
+  }
+
+  .upload-title {
+    font-size: 16px;
+  }
+}

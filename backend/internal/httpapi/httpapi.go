@@ -174,7 +174,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				writeMethodNotAllowed(w, "GET, HEAD")
 				return
 			}
-			h.lineblogMedia(w, r, strings.TrimPrefix(r.URL.Path, "/media/lineblog/"))
+			lineblogArchive.serve(w, r, h, strings.TrimPrefix(r.URL.Path, "/media/lineblog/"))
+		case strings.HasPrefix(r.URL.Path, "/media/works/"):
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				writeMethodNotAllowed(w, "GET, HEAD")
+				return
+			}
+			worksArchive.serve(w, r, h, strings.TrimPrefix(r.URL.Path, "/media/works/"))
 		case strings.HasPrefix(r.URL.Path, "/media/profile/"):
 			if r.Method != http.MethodGet && r.Method != http.MethodHead {
 				writeMethodNotAllowed(w, "GET, HEAD")

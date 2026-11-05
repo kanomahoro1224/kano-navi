@@ -187,6 +187,7 @@ export const adminMessages = {
     "admin.site.variantsDescription":
       "Pages ask for smaller copies of large images. Requests never resize: an image without its copies is sent whole until a copies run makes them.",
     "admin.site.variantsGroup.lineblog": "LINE BLOG archive",
+    "admin.site.variantsGroup.works": "Works covers",
     "admin.site.variantsGroup.history": "Journey images",
     "admin.site.variantsGroup.media": "Cached source media",
     "admin.site.variantsOf": "/ {count} images",

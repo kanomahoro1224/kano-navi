@@ -15,6 +15,26 @@ introduce a separate token system for a single page.
 - / is the public snapshot board. Refresh reads the local API and preserves known
   state when a request fails.
 - /history is static, sourced content with local fixed images and original links.
+- /works is the static discography in an editorial treatment: on top of the
+  shared shell it gives the shared tokens a warm ivory and clay reading in
+  both themes, sets names and figures in a serif, separates with hairlines
+  and outlined chips, and lets each cover's record slide out of its sleeve
+  (a photo of the real disc where there is one). The header sets the
+  figures cut from the acoustic cover trilogy's covers in a small landscape:
+  each album's grooved disc sinks behind two far ridges like a setting sun,
+  and the figures stand and sit on curved grassy ground with flowers in the
+  three albums' colours, the land fading out at its edges. It falls back to
+  the trilogy's sleeves when a cutout is missing. A cover shelf of Kano's own releases by year opens
+  a sheet for each release: a header with the sleeve over a blurred wash of
+  the cover, then the tracklist, with a round photo beside each disc that has
+  one, beside the edition's details. The section tabs carry their counts and
+  no separate figures or notes; a tab chosen by pointer keeps no focus
+  outline, while keyboard focus draws one the tab bar leaves room for. The works she
+  is featured on are a list; her uploads are a grid of 16:9 covers, with a
+  printed sleeve in one of the palette's tones where no thumbnail is saved. Rows rise
+  in as they scroll into view where the browser ties animation to scrolling,
+  and motion stops under reduced-motion settings. Codes get interface copy;
+  titles and credits keep their wording and language.
 - /lineblog is the static LINE BLOG archive. It reproduces the archived blog's
   own layout (its header art, white menu bar with its Home icon, article column beside a
   profile sidebar, its font stack and accent colour) inside the shared

@@ -44,6 +44,7 @@ const variantStatus = {
   checkedAt: "2026-03-02T03:00:00.000Z",
   groups: [
     { group: "lineblog", originals: 4, ready: 4, unhashed: 0, widths: [] },
+    { group: "works", originals: 2, ready: 0, unhashed: 2, widths: [] },
     { group: "history", originals: 3, ready: 1, unhashed: 2, widths: [] },
     { group: "media", originals: 0, ready: 0, unhashed: 0, widths: [] },
   ],
@@ -194,6 +195,7 @@ test("the real admin Site route saves visitor-region settings and makes image co
     // a new listing and Make missing copies queues the variants run.
     const text = root!.container.textContent
     assert.match(text, /LINE BLOG archive4\/ 4 imagesAll copies made/)
+    assert.match(text, /Works covers0\/ 2 images2 without copies/)
     assert.match(text, /Journey images1\/ 3 images2 without copies/)
     const button = (label: string) =>
       [...root!.container.querySelectorAll("button")].find(

@@ -26,6 +26,8 @@ data/
     sha256/<first-two>/<content-sha256>.<extension>
   lineblog/
     <12-hex-name>.<jpg|png|mp4>
+  works/
+    <12-hex-name>.<jpg|png>
   cache/media/
     sha256/<first-two>/<content-sha256>.<extension>
   cache/variants/
@@ -68,6 +70,19 @@ their name are immutable and everything else revalidates
 other name, a directory, a symlink or a missing file answers `404`. The
 server never writes this directory. Its images have smaller copies (see
 [Resized Copies](#resized-copies)); videos ignore `w`.
+
+## Discography Covers
+
+`data/works/` holds the cover images of the discography page, written only by
+the maintainer's packaging command
+([Works archive maintenance](../development/works-archive.md)). They have no
+database rows: the tracked `src/works/media-catalog.json` lists them.
+`GET /media/works/<name>` (and `HEAD`) is served like
+[LINE BLOG archive media](#line-blog-archive-media), with the same headers,
+containment and `404` answers, except that a name ends in `.jpg` or `.png`
+only: every cover is an image named after its bytes' SHA-256, so it has
+smaller copies and is immutable once its bytes match its name. The server
+never writes this directory.
 
 ## Database Model
 
@@ -275,13 +290,14 @@ A `w` query parameter asks for a smaller copy of an image:
 | ----------------------------------------------- | ------------------------------------------------------------------------- |
 | `GET /media/<id>?v=<hash>&w=<width>`            | a ready asset                                                             |
 | `GET /media/lineblog/<name>?w=<width>`          | a `.jpg` or `.png` file in `data/lineblog/`                               |
+| `GET /media/works/<name>?w=<width>`             | a `.jpg` or `.png` file in `data/works/`                                  |
 | `GET /assets/history/<file>?v=<hash>&w=<width>` | a `.jpg`, `.jpeg`, `.png` or `.webp` file of the built history collection |
 
 `w` must be one of 320, 640, 960, 1280 or 1920; any other value, or a
 repeated `w`, answers 404. A LINE BLOG video ignores a valid `w`, and other
 static files ignore `w` entirely.
 
-All three share one cache keyed by the SHA-256 of the original's bytes, so an
+All of them share one cache keyed by the SHA-256 of the original's bytes, so an
 image found in several places is resized once. A copy is stored only when the
 bytes it was made from match the hash it is stored under.
 
@@ -292,7 +308,7 @@ kept for that width. Copies are made ahead of requests:
 - the [media step](#lifecycle) makes them for ready assets, newest first,
   within its [bounds](#step-bounds);
 - the [variants command](#variants-command) makes them for the LINE BLOG
-  archive and the history collection;
+  archive, the discography covers and the history collection;
 - the [copies run](#copies-run), started from the console's Site page, makes
   them for every group within one step's budget.
 
@@ -349,6 +365,7 @@ Copies are made per group of originals:
 | Group      | Originals                                                                                                 |
 | ---------- | --------------------------------------------------------------------------------------------------------- |
 | `lineblog` | `.jpg` and `.png` files with archive names directly in `<data>/lineblog/`                                 |
+| `works`    | `.jpg` and `.png` files with archive names directly in `<data>/works/`                                    |
 | `history`  | `.jpg`, `.jpeg`, `.png` and `.webp` files directly in `<static>/assets/history/`                          |
 | `media`    | the current files of ready X, YouTube and Bilibili assets, newest fetch first; earlier versions have none |
 
@@ -386,18 +403,18 @@ file.
 
 ### Variants Command
 
-`kano-go variants` (`npm run variants`) makes the `lineblog` and `history`
-groups' copies without bounds and prints each group's counts. It exits
-non-zero when it is interrupted; running it again resumes.
+`kano-go variants` (`npm run variants`) makes the `lineblog`, `works` and
+`history` groups' copies without bounds and prints each group's counts. It
+exits non-zero when it is interrupted; running it again resumes.
 
-| Flag      | Default | Meaning                                                |
-| --------- | ------- | ------------------------------------------------------ |
-| `-data`   | `data`  | data directory holding `lineblog/` and the file hashes |
-| `-static` | `dist`  | built frontend holding `assets/history/`               |
-| `-out`    | `-data` | data directory whose `cache/variants/` is written      |
+| Flag      | Default | Meaning                                                          |
+| --------- | ------- | ---------------------------------------------------------------- |
+| `-data`   | `data`  | data directory holding `lineblog/`, `works/` and the file hashes |
+| `-static` | `dist`  | built frontend holding `assets/history/`                         |
+| `-out`    | `-data` | data directory whose `cache/variants/` is written                |
 
-An empty or missing `-data` or `-static` directory gives its group no
-originals, so `-static=` makes the `lineblog` copies alone.
+An empty or missing directory gives its group no originals, so `-static=`
+makes the `lineblog` and `works` copies alone.
 
 With `-out` set, the copies can be made on a workstation and copied into the
 server's `data/cache/variants/`: their names depend only on the originals'
@@ -407,7 +424,7 @@ paths, and are not needed on the server, which hashes each file once itself.
 ### Copies Run
 
 The console's Site page shows the [status](#copy-groups) of the `lineblog`,
-`history` and `media` groups and starts a copies run
+`works`, `history` and `media` groups and starts a copies run
 (`POST /api/admin/runs {"kind":"variants"}`, see
 [Admin API](admin-api.md#runs)). The run is one `variants` step on the shared
 single-flight queue. It makes the groups' missing copies in that order
@@ -447,19 +464,20 @@ full-image viewers keep loading the original. Profile media and other bundled
 
 ## Immutable Fixed Files
 
-LINE BLOG archive images and the fixed history files are addressed by their
-bytes' SHA-256, so the server lets browsers keep them for a year without
-revalidating (`public, max-age=31536000, immutable`) once it has checked that
-the bytes match the address:
+LINE BLOG archive images, discography covers and the fixed history files are
+addressed by their bytes' SHA-256, so the server lets browsers keep them for a
+year without revalidating (`public, max-age=31536000, immutable`) once it has
+checked that the bytes match the address:
 
 | Request                                             | Immutable when                                                          |
 | --------------------------------------------------- | ----------------------------------------------------------------------- |
 | `GET /media/lineblog/<name>.(jpg\|png)[?w=<width>]` | the file's SHA-256 starts with the name's 12 hex digits                 |
+| `GET /media/works/<name>.(jpg\|png)[?w=<width>]`    | the file's SHA-256 starts with the name's 12 hex digits                 |
 | `GET /assets/history/<file>?v=<hash>[&w=<width>]`   | there is exactly one `v`, 64 lowercase hex digits, equal to the SHA-256 |
 
 Everything else answers `public, max-age=0, must-revalidate`: LINE BLOG
-videos (named after their watch URL, not their bytes), an archive image whose
-bytes do not match its name, a history file without `v`, or with a repeated,
+videos (named after their watch URL, not their bytes), an archive image or
+cover whose bytes do not match its name, a history file without `v`, or with a repeated,
 malformed or different `v`. A copy (`w`) takes its original's verdict, since
 the variant cache only stores a copy made from bytes with the hash it is
 filed under. The hash is the file's remembered one

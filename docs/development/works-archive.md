@@ -1,0 +1,161 @@
+# Works Collection Maintenance
+
+The [Works](../user/works.md) page lists Kano's discography in three
+sections: her own releases (solo and unit works), the works by other artists
+she sang, wrote lyrics for or guested on, and her video-site uploads. The
+records and cover images come from the maintainer's `kano_official`
+reference collection. This page covers where that content lives, how it is
+packaged, and how an instance gets its covers.
+
+## Content and Media
+
+- `src/works/personal.json` lists the personal works: Japan release date,
+  title, format code (`album`, `single`, `ep` or `doujin`), whether it
+  was released digitally, whether every edition was cancelled, the unit name
+  for a unit work, label, catalog numbers, covers, the disc photo for the
+  shelf and the cutout when the collection has them, the tracklist every
+  edition shares (with disc names and tie-in notes such as the anime a song
+  opens), the photos of the discs every edition shares, the editions, and the
+  store bonuses for any edition.
+- Each edition (such as a limited and a standard edition) has its name, its
+  own Japan date when it came out after the release, whether it was
+  cancelled, catalog number, JAN, price, format, packaging, covers, what
+  comes in the package with its images, the store bonuses given with it
+  (store, item and images), its full tracklist and the photos of its discs.
+  An edition's tracklist is
+  its own discs plus the shared discs whose number it does not replace, so a
+  DVD adds a disc and an edition with a different CD replaces disc 1. A
+  release sold in one plain version has no editions.
+- A personal track also carries the videos of the uploads of the same
+  recording: an upload whose albums name the release (with or without a
+  trailing year) and whose song matches the track title, ignoring width,
+  case, spacing, quotes and heart marks, and then parenthetical asides.
+- `src/works/participation.json` lists the participation works: role codes
+  (`vocal`, `lyrics`, `composition`, `voice`, `guest`), form codes (such as
+  `digital`, `bonus`, `drama`), the group Kano belongs to when that group
+  released the work, label, event, catalog number, the page the record
+  follows, its cover, and every track with whether Kano is on it and any
+  database credit for her (`lyrics`, `composition`, `arrangement`,
+  `animation`, `other`).
+- `src/works/uploads.json` lists the uploads: date, song, original artist,
+  kind code (`cover`, `original`, `mv`, `project`, `compilation`, `game`,
+  `composition`), collaborators, the niconico, YouTube, YouTube
+  members-only and bilibili video
+  IDs, the bilibili title, the albums that include the recording and, for a
+  compilation, its songs, and its thumbnail when one is saved. One
+  recording posted to several sites is one record.
+- `src/works/summary.json` holds the counts and the first and last years the
+  page header shows before the longer sections load.
+- `src/works/media-catalog.json` lists each cover, bonus image and
+  thumbnail with its MIME type, size, SHA-256, width and height.
+- `src/works/types.ts` holds the shapes. Titles, credits, edition names,
+  bonuses and packaging keep the collection's wording, in Japanese or
+  Simplified Chinese; image captions are the collection's Simplified Chinese
+  and the page marks them as such. Prices keep their wording, with yen and
+  yuan amounts written with their signs. The interface translates only the
+  codes.
+
+Covers, bonus images and upload thumbnails are named by the first 12 hex
+digits of the SHA-256 of their bytes plus `.jpg` or `.png`. The files (about 160 MiB) are ignored runtime data in
+`data/works/`, too large for the repository and the image. The server reads
+them through `GET /media/works/<name>`, which serves them like the LINE BLOG
+archive media
+([Immutable fixed files](../architecture/media-cache.md#immutable-fixed-files),
+[Resized copies](../architecture/media-cache.md#resized-copies)): the grids,
+rows and the release sheet request smaller copies through `srcset`, and the
+image viewer loads the original. A cover that is not on the server shows an
+unavailable state; the page never loads it from the address it came from.
+
+The page bundles the personal works with its own code. The participation and
+upload sections each load their code and data the first time a visitor opens
+them, and a failed load offers to try again.
+
+## Provenance
+
+Personal-work covers and bonus images carry the collection manifest's
+caption, the page the file was taken from and whether the file is a third-party copy (a
+store, database or collector file of the release's own artwork) or the
+publisher's file. Participation covers are third-party files; those the
+collection matched against a music service or database name it. Release
+dates are the first release's Japan date; doujin releases use the Comic
+Market date.
+
+## Thumbnails, Disc Photos and Cutouts
+
+The collection keeps no video thumbnails of its own, and packaging fetches
+none. To give an upload a cover, save its thumbnail as
+`投稿作品/thumbnails/<video ID>.jpg` (or `.png`), named by its YouTube,
+YouTube members-only, niconico or bilibili ID; packaging uses the first of the
+upload's videos, in that order, that has a file. An upload without one shows
+a printed sleeve with its title.
+
+Disc photos come from the optional `discography_discs.csv` (`date`,
+`release`, `edition`, `disc`, `image_file`), with each image in the
+manifest. A row without an edition is a shared disc: every edition that keeps
+that disc shows it, except a digital edition and an edition that replaces
+the disc with its own tracks. A row with an edition is that edition's own
+disc, such as a limited edition's DVD or a CD whose design differs. Packaging
+stops at a row whose release, edition or disc does not exist. Disc photos
+show beside their discs and leave the cover lists, unless a release has no
+other image; then its disc is its cover.
+
+A personal release's record on the shelf shows a photo of the real disc when
+the collection has one: the file in an optional `disc_file` column of
+`discography.csv`, else the first disc 1 photo (shared, then by edition),
+else an image whose manifest caption is `盘面`. In a release's sheet, the
+record is the chosen edition's disc 1 photo. Other records are drawn.
+
+A figure cut out of a release's cover goes in `抠图/<release title>.png`: a
+PNG with an alpha channel, named by the release's exact title. The page
+header shows the cutouts of the acoustic cover trilogy. A file in `抠图/`
+that names no personal release, or that is not a transparent PNG, stops
+packaging.
+
+## Published Fields
+
+The collection's notes columns are the maintainer's checking record, so
+packaging publishes none of them: no release, edition, participation or
+upload notes and no participation track notes. The one fact it takes from an
+edition note is a later edition date written as `YYYY-MM-DD 发售` alone. In the fields it does publish, packaging
+removes the parentheticals that say where a fact was checked or where a
+cover file came from (a database or shop name, "NAS" for the maintainer's
+own discs, a file's size, how two official pages disagree), and drops a
+personal track note that only records an open question and a package line
+that only says there is no bonus. A catalog number or event the collection
+marks as doubtful is left blank, and an event keeps only its name. Packaging stops
+when checking wording remains in a published field. Share links that carry a
+sharer's token (Taobao `m.tb.cn`) are dropped from records.
+
+## Packaging
+
+To rebuild the tables and `data/works/` from a local copy of the collection,
+run:
+
+```bash
+npm run works:package -- --from /path/to/kano_official
+```
+
+Packaging reads `discography.csv`, `discography_editions.csv`,
+`discography_store_bonuses.csv`, `discography_tracks.csv`, `manifest.json`,
+the optional `discography_discs.csv`, the optional `投稿作品/thumbnails/`
+and `抠图/` directories,
+`参与专辑/participation.csv`,
+`参与专辑/participation_tracks.csv` and `投稿作品/works.csv`. It reads the
+whole selection before writing anything: every table must have its columns,
+every date must be a Japan date, every category, kind, role, form, credit
+and upload kind must map to a code, every edition, track and bonus row must
+name a listed release and edition, every video ID must have its platform's
+shape, and every image must be listed in the manifest and be a JPEG or PNG
+inside the collection within the size limit. An image in another format
+(such as a GIF) is left out and named in packaging's output. Covers already in `data/works/` whose size and hash match are
+left alone. Packaging performs no network requests and does not change the
+collection.
+
+When moving a deployment, preserve the ignored `data/` directory, or run the
+packaging again on the new machine.
+
+## Related Docs
+
+- [Frontend](../architecture/frontend.md)
+- [Media cache](../architecture/media-cache.md)
+- [Testing](testing.md)

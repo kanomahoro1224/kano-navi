@@ -2,7 +2,8 @@
 
 What’s Kano Up To? (Kano Navi) is an unofficial fan board for Kano Mahoro
 (鹿乃まほろ). It gathers her public updates in one place: what airs next, the
-week's schedule, recent posts and videos, and her journey since 2010. Visit
+week's schedule, recent posts and videos, her discography, and her journey
+since 2010. Visit
 it at [kano.yexca.net](https://kano.yexca.net/).
 
 These pages describe what you can see and do on the site.
@@ -13,13 +14,15 @@ These pages describe what you can see and do on the site.
 - [Posts](posts.md): recent posts from both X accounts and the post archive.
 - [Videos](videos.md): streams, works, Shorts, and the video archive.
 - [Journey](journey.md): milestones since 2010 and the visual archive.
+- [Works](works.md): her own releases, the works she is featured on, and her
+  video uploads.
 - [LINE BLOG archive](lineblog.md): her 2015–2019 blog articles, restored
   with their photos and videos.
 
 ## Pages and Settings
 
 Every page shares one header with the site name (with an "Unofficial" mark on
-wide screens), the page links (Now, Journey, LINE BLOG, About), a live
+wide screens), the page links (Now, Journey, Works, LINE BLOG, About), a live
 Japan-time clock, and language and theme controls.
 
 - **Languages:** English, Japanese, and Simplified Chinese. The language

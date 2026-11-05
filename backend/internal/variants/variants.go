@@ -25,6 +25,8 @@ type Group string
 const (
 	// Lineblog is the recovered LINE BLOG images in <data>/lineblog/.
 	Lineblog Group = "lineblog"
+	// Works is the discography cover images in <data>/works/.
+	Works Group = "works"
 	// History is the history images of the built site in
 	// <static>/assets/history/.
 	History Group = "history"
@@ -33,11 +35,15 @@ const (
 )
 
 // Groups lists every group in the order the command makes them.
-var Groups = []Group{Lineblog, History, Media}
+var Groups = []Group{Lineblog, Works, History, Media}
 
 // LineblogName is an archive media name: 12 hex digits of a SHA-256 and the
 // extension that fixes its type. Only .jpg and .png have copies.
 var LineblogName = regexp.MustCompile(`^([0-9a-f]{12})\.(jpg|png|mp4)$`)
+
+// WorksName is a discography cover name: 12 hex digits of its bytes'
+// SHA-256 and the extension that fixes its type. Every cover has copies.
+var WorksName = regexp.MustCompile(`^([0-9a-f]{12})\.(jpg|png)$`)
 
 // HistoryImage matches a history image of the built site by its path
 // relative to the site, the only static files with copies.
@@ -50,9 +56,9 @@ const maxSource = 10 * 1024 * 1024
 // without a third original waiting in memory.
 const workers = 2
 
-// Roots locate the originals and the cache. Data holds lineblog/ and the
-// remembered file hashes, Static the built site, and Out the variant cache
-// that is written (Data when empty). Media needs a store; its cache is the
+// Roots locate the originals and the cache. Data holds lineblog/, works/
+// and the remembered file hashes, Static the built site, and Out the variant
+// cache that is written (Data when empty). Media needs a store; its cache is the
 // store's data directory unless Out is set.
 type Roots struct {
 	Data, Static, Out string
@@ -254,6 +260,8 @@ func list(ctx context.Context, store *sqlite.Store, roots Roots, group Group) ([
 			match := LineblogName.FindStringSubmatch(name)
 			return match != nil && match[2] != "mp4"
 		}, false)
+	case Works:
+		return listFixed(roots.Data, worksDir, WorksName.MatchString, false)
 	case History:
 		return listFixed(roots.Static, historyDir, func(name string) bool {
 			return HistoryImage.MatchString(historyDir + "/" + name)
@@ -277,6 +285,7 @@ func list(ctx context.Context, store *sqlite.Store, roots Roots, group Group) ([
 
 const (
 	lineblogDir = "lineblog"
+	worksDir    = "works"
 	historyDir  = "assets/history"
 )
 

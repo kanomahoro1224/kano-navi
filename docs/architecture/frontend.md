@@ -3,9 +3,10 @@
 ## Presentation: `src/`
 
 `src/main.tsx` routes between the public board, the static `/history`
-page in `src/history/`, the static `/lineblog` archive in `src/lineblog/`, the
-static `/about` page in `src/about/`, and `/admin`.
-Links between the four public pages open in place: the next page's code
+page in `src/history/`, the static `/works` discography in `src/works/`, the
+static `/lineblog` archive in `src/lineblog/`, the static `/about` page in
+`src/about/`, and `/admin`.
+Links between the five public pages open in place: the next page's code
 loads while the current page stays on screen (hovering or focusing a link
 starts that load), then the pages cross-fade under a fixed header with the
 View Transition API. Back and forward restore each entry's scroll position,
@@ -35,7 +36,15 @@ layout, switching on a media query; see
 [Smartphone Template](../development/lineblog-archive.md#smartphone-template). Its
 media load from `/media/lineblog/<name>`, including the header and profile
 art of the design of the newest article shown; see
-[LINE BLOG archive maintenance](../development/lineblog-archive.md). The four
+[LINE BLOG archive maintenance](../development/lineblog-archive.md). The
+`/works` tables are static JSON written by `scripts/package-works.ts`. The
+page keeps its section in the `?view=` query, replacing the current entry
+when a visitor switches sections; the personal works build with the page,
+and the participation and upload sections are their own chunks that load
+the first time they show, with a retry on failure. A release opens in a
+native modal sheet (`works-sheet.tsx`), and covers open in the shared image
+viewer above it. Covers load from `/media/works/<name>`; see
+[Works collection maintenance](../development/works-archive.md). The five
 public pages share `src/site/`: `site-shell.tsx` (header with page navigation and
 Japan clock, footer, skip link, section title, empty and loading states;
 narrow screens show the site name and fold the page links into a menu behind

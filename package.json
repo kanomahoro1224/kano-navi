@@ -18,6 +18,7 @@
     "history:package": "node scripts/package-history-media.ts",
     "lineblog:package": "node scripts/package-lineblog.ts",
     "lineblog:comments": "node scripts/package-lineblog-comments.ts",
+    "works:package": "node scripts/package-works.ts",
     "migrate:llm": "node scripts/run-app.mjs migrate-llm",
     "sync": "node scripts/run-app.mjs sync",
     "variants": "node scripts/run-app.mjs variants",

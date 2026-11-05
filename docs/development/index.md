@@ -6,6 +6,7 @@ Use the Makefile for checks and keep changes within the existing product and mod
 - [Design and interaction](design.md)
 - [History archive maintenance](history-archive.md)
 - [LINE BLOG archive maintenance](lineblog-archive.md)
+- [Works collection maintenance](works-archive.md)
 - [Testing and Actions](testing.md)
 - [Synthetic performance measurements](performance.md)
 - [Secure development](security.md)

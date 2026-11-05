@@ -204,7 +204,7 @@ export interface ProxyTestResult {
  * missing until a copies run reads them.
  */
 export interface VariantGroupStatus {
-  group: "lineblog" | "history" | "media"
+  group: "lineblog" | "works" | "history" | "media"
   originals: number
   ready: number
   unhashed: number

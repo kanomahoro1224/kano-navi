@@ -6,7 +6,7 @@ import { useAppSettings } from "@/app-settings"
 
 /** Parts of the viewer a click keeps open; a click anywhere else closes it. */
 const KEEP_OPEN =
-  "img, a, button, .media-dialog-bar, .media-dialog-details, .media-dialog-note, .history-missing"
+  "img, a, button, .media-dialog-bar, .media-dialog-details, .media-dialog-note, .history-missing, .works-missing"
 
 /**
  * Native modal image viewer shared by the public pages. Escape, the close

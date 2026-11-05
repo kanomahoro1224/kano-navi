@@ -30,6 +30,8 @@ images are already bundled. The LINE BLOG archive's text is bundled too; its
 media live in `./data/lineblog/` or a read-only mount over it, taken from
 the recovery archive as described in
 [LINE BLOG archive maintenance](../development/lineblog-archive.md#deployments).
+The discography covers live the same way in `./data/works/`, packaged as
+described in [Works archive maintenance](../development/works-archive.md).
 Existing `./data` snapshots, archive media and provider configuration survive
 upgrades.
 

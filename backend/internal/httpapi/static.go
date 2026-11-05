@@ -46,6 +46,10 @@ var spaPages = map[string]*pageTags{
 		title:       "LINE BLOG archive · What’s Kano Up To?",
 		description: "Kano's 2015–2019 LINE BLOG posts, recovered from web archives with their photos and videos.",
 	},
+	"works": {
+		title:       "Works · What’s Kano Up To?",
+		description: "Kano's discography: her own releases, the albums she sang or wrote for, and her video uploads, with sources.",
+	},
 }
 
 var (

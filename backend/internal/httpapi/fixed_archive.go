@@ -6,58 +6,79 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/yexca/kano-navi/backend/internal/variants"
 )
 
-// lineblogRoot is the data directory holding the recovered LINE BLOG media,
-// written by scripts/package-lineblog.ts.
-const lineblogRoot = "lineblog"
-
-// lineblogName is an archive media name (variants.LineblogName).
-var lineblogName = variants.LineblogName
-
-var lineblogTypes = map[string]string{
-	"jpg": "image/jpeg",
-	"png": "image/png",
-	"mp4": "video/mp4",
+// fixedArchive is a data directory of packaged files served by name. A name
+// matches name, whose first group is the start of a SHA-256 and whose second
+// is the extension that fixes the file's type in types.
+type fixedArchive struct {
+	dir   string
+	name  *regexp.Regexp
+	types map[string]string
 }
 
-// lineblogMedia serves one recovered LINE BLOG file from the data directory.
-// Only a regular file directly inside it with an archive name is served;
-// names are opaque hashes, so the rest of the path never reaches the disk.
-// An image asked for with w gets a copy from the shared variant cache; a
-// video ignores w. An image and its copies are immutable once its bytes are
+// lineblogArchive holds the recovered LINE BLOG media, written by
+// scripts/package-lineblog.ts.
+var lineblogArchive = fixedArchive{
+	dir:  "lineblog",
+	name: variants.LineblogName,
+	types: map[string]string{
+		"jpg": "image/jpeg",
+		"png": "image/png",
+		"mp4": "video/mp4",
+	},
+}
+
+// worksArchive holds the discography cover images, written by
+// scripts/package-works.ts.
+var worksArchive = fixedArchive{
+	dir:  "works",
+	name: variants.WorksName,
+	types: map[string]string{
+		"jpg": "image/jpeg",
+		"png": "image/png",
+	},
+}
+
+// serve answers one archive file from the data directory. Only a regular
+// file directly inside the archive with an archive name is served; names are
+// opaque hashes, so the rest of the path never reaches the disk. An image
+// asked for with w gets a copy from the shared variant cache; a video
+// ignores w. An image and its copies are immutable once its bytes are
 // checked against its name.
-func (h *Handler) lineblogMedia(w http.ResponseWriter, r *http.Request, name string) {
-	match := lineblogName.FindStringSubmatch(name)
+func (a fixedArchive) serve(w http.ResponseWriter, r *http.Request, h *Handler, name string) {
+	match := a.name.FindStringSubmatch(name)
 	root := ""
 	if h.store != nil {
 		root = h.store.DataRoot()
 	}
 	width, widthPresent, widthValid := requestedWidth(r)
 	if match == nil || root == "" || widthPresent && !widthValid {
-		writeLineblogMissing(w, r)
+		writeArchiveMissing(w, r)
 		return
 	}
-	dir, err := os.OpenRoot(filepath.Join(root, lineblogRoot))
+	dir, err := os.OpenRoot(filepath.Join(root, a.dir))
 	if err != nil {
-		writeLineblogMissing(w, r)
+		writeArchiveMissing(w, r)
 		return
 	}
 	defer dir.Close()
 	info, err := dir.Lstat(name)
 	if err != nil || !info.Mode().IsRegular() {
-		writeLineblogMissing(w, r)
+		writeArchiveMissing(w, r)
 		return
 	}
 	// An image's name is the start of its bytes' SHA-256, so an image whose
 	// bytes match it never changes; a video is named after its watch URL.
-	image := match[2] != "mp4"
+	contentType := a.types[match[2]]
+	image := strings.HasPrefix(contentType, "image/")
 	named := func(hash string) bool { return image && strings.HasPrefix(hash, match[1]) }
-	path := filepath.Join(root, lineblogRoot, name)
+	path := filepath.Join(root, a.dir, name)
 	if widthPresent && image {
 		open := func() (fs.File, error) { return dir.Open(name) }
 		if serveImageVariant(w, r, h.store, path, info, open, width, named) {
@@ -66,24 +87,24 @@ func (h *Handler) lineblogMedia(w http.ResponseWriter, r *http.Request, name str
 	}
 	file, err := dir.Open(name)
 	if err != nil {
-		writeLineblogMissing(w, r)
+		writeArchiveMissing(w, r)
 		return
 	}
 	defer file.Close()
 	if info, err = file.Stat(); err != nil || !info.Mode().IsRegular() {
-		writeLineblogMissing(w, r)
+		writeArchiveMissing(w, r)
 		return
 	}
 	immutable := false
 	if image {
 		hash, err := fixedFileHash(r.Context(), h.store, path, info, file)
 		if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
-			writeLineblogMissing(w, r)
+			writeArchiveMissing(w, r)
 			return
 		}
 		immutable = err == nil && named(hash)
 	}
-	w.Header().Set("Content-Type", lineblogTypes[match[2]])
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", mediaCacheControl(immutable))
@@ -92,7 +113,7 @@ func (h *Handler) lineblogMedia(w http.ResponseWriter, r *http.Request, name str
 	serveContent(w, r, name, info.ModTime(), file)
 }
 
-func writeLineblogMissing(w http.ResponseWriter, r *http.Request) {
+func writeArchiveMissing(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodHead {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(http.StatusNotFound)

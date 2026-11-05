@@ -123,7 +123,7 @@ and the same-origin country-code check described in the [public API](public-api.
 | `GET /media/variants` | `refresh` (=1) | `{groups, checkedAt}` |
 
 `groups` is the [status](media-cache.md#copy-groups) of the `lineblog`,
-`history` and `media` groups in that order, each `{group, originals, ready,
+`works`, `history` and `media` groups in that order, each `{group, originals, ready,
 unhashed, widths: [{width, copies, kept, missing}]}`, and `checkedAt` is when
 it was listed. The listing is answered again until another run finishes, or
 made anew with `refresh=1` ([Copies Run](media-cache.md#copies-run)). A

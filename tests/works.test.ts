@@ -1,0 +1,938 @@
+import assert from "node:assert/strict"
+import crypto from "node:crypto"
+import fs from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+import test, { type TestContext } from "node:test"
+
+import {
+  kanoCredits,
+  packageWorks,
+  parseCsv,
+  participationForms,
+  participationRoles,
+  editionDiscs,
+  editionTracks,
+  linkUploads,
+  personalFormat,
+  publicPrice,
+  certainText,
+  publicText,
+  publicTrackNote,
+  recordId,
+} from "../scripts/package-works.ts"
+import { mediaSrcSet } from "../src/lib/media.ts"
+import {
+  byDate,
+  discsOf,
+  groupByYear,
+  matches,
+  uploadLinks,
+} from "../src/works/content.ts"
+import type {
+  ParticipationRelease,
+  PersonalRelease,
+  Upload,
+} from "../src/works/types.ts"
+
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j1WQAAAAASUVORK5CYII=",
+  "base64",
+)
+const OTHER_PNG = Buffer.concat([PNG, Buffer.from("tail")])
+const THUMB_PNG = Buffer.concat([PNG, Buffer.from("thumb")])
+
+const mediaName = (body: Buffer) =>
+  `${crypto.createHash("sha256").update(body).digest("hex").slice(0, 12)}.png`
+
+const csv = (rows: string[][]) =>
+  `﻿${rows
+    .map((row) =>
+      row
+        .map((cell) =>
+          /[",\n]/u.test(cell) ? `"${cell.replaceAll('"', '""')}"` : cell,
+        )
+        .join(","),
+    )
+    .join("\r\n")}\r\n`
+
+async function collection(t: TestContext) {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "kano-works-test-"))
+  t.after(async () => {
+    await fs.rm(root, { recursive: true, force: true })
+  })
+  const library = path.join(root, "kano_official")
+  await fs.mkdir(path.join(library, "images", "covers"), { recursive: true })
+  await fs.mkdir(path.join(library, "参与专辑", "img"), { recursive: true })
+  await fs.mkdir(path.join(library, "投稿作品"), { recursive: true })
+  await fs.writeFile(path.join(library, "images", "covers", "a.png"), PNG)
+  await fs.writeFile(path.join(library, "参与专辑", "img", "b.png"), OTHER_PNG)
+  await fs.mkdir(path.join(library, "投稿作品", "thumbnails"), {
+    recursive: true,
+  })
+  await fs.writeFile(
+    path.join(library, "投稿作品", "thumbnails", "bbbbbbbbbbb.png"),
+    THUMB_PNG,
+  )
+  await fs.writeFile(
+    path.join(library, "manifest.json"),
+    JSON.stringify({
+      images: [
+        {
+          file: "images/covers/a.png",
+          title: "Synthetic album cover",
+          title_zh: "合成专辑：初回限定盘封面（NAS）",
+          source_page: "https://example.com/shop/item/1",
+          evidence_class: "release_artwork_third_party_file",
+        },
+        {
+          file: "images/covers/c.gif",
+          title: "Synthetic bonus disc",
+          title_zh: "合成专辑：特典盘面",
+          source_page: "https://example.com/news/1",
+          evidence_class: "publisher_or_commissioned_creator",
+        },
+      ],
+    }),
+  )
+  await fs.writeFile(
+    path.join(library, "discography.csv"),
+    csv([
+      [
+        "date",
+        "title",
+        "category",
+        "kind",
+        "kind_note",
+        "group",
+        "notes",
+        "label",
+        "catalog",
+        "cover_files",
+      ],
+      [
+        "2019-08-12",
+        "合成专辑",
+        "独立作品",
+        "单曲",
+        "1st シングル",
+        "",
+        "据使用者的 NAS 收藏补入",
+        "Example Records",
+        "EX-001 (VocaDB)",
+        "images/covers/a.png",
+      ],
+      [
+        "2011-12-31",
+        "Unit Disc",
+        "组合作品",
+        "同人",
+        "同人专辑（C81）",
+        "Example Unit",
+        "C81",
+        "Example Unit",
+        "",
+        "",
+      ],
+    ]),
+  )
+  await fs.writeFile(
+    path.join(library, "discography_tracks.csv"),
+    csv([
+      [
+        "date",
+        "release",
+        "edition",
+        "disc",
+        "disc_label",
+        "no",
+        "track",
+        "credit",
+        "note",
+        "kano",
+      ],
+      [
+        "2019-08-12",
+        "合成专辑",
+        "",
+        "1",
+        "",
+        "2",
+        "Second",
+        "",
+        "カバー? (原曲不明)",
+        "",
+      ],
+      [
+        "2019-08-12",
+        "合成专辑",
+        "",
+        "1",
+        "",
+        "1",
+        "First",
+        "作詞:鹿乃",
+        "TVアニメ「Example」OP",
+        "",
+      ],
+      [
+        "2019-08-12",
+        "合成专辑",
+        "初回限定盤",
+        "2",
+        "DVD",
+        "1",
+        "Music Video",
+        "",
+        "",
+        "",
+      ],
+    ]),
+  )
+  await fs.writeFile(
+    path.join(library, "discography_editions.csv"),
+    csv([
+      [
+        "date",
+        "release",
+        "edition",
+        "catalog",
+        "jan",
+        "price",
+        "format",
+        "packaging",
+        "cover_files",
+        "bonus",
+        "bonus_images",
+        "notes",
+        "source",
+      ],
+      [
+        "2019-08-12",
+        "合成专辑",
+        "初回限定盤",
+        "EX-001",
+        "4900000000001",
+        "2,000 日元",
+        "CD+DVD",
+        "デジパック仕様（销售页 3000 像素）",
+        "images/covers/a.png",
+        "封入特典：ステッカー（据官方公告）；无其他封入特典",
+        "images/covers/c.gif",
+        "2019-09-01 发售",
+        "https://example.com/shop/item/1",
+      ],
+      [
+        "2019-08-12",
+        "合成专辑",
+        "通常盤（发售中止）",
+        "EX-002（MusicBrainz，存疑）",
+        "",
+        "",
+        "CD",
+        "",
+        "",
+        "",
+        "",
+        "原定 2019-09-01 发售",
+        "",
+      ],
+    ]),
+  )
+  await fs.writeFile(
+    path.join(library, "discography_store_bonuses.csv"),
+    csv([
+      [
+        "date",
+        "release",
+        "store",
+        "item",
+        "applies_to",
+        "image_files",
+        "source",
+      ],
+      [
+        "2019-08-12",
+        "合成专辑",
+        "Example Shop",
+        "缶バッジ（骏河屋记 X-1）",
+        "初回限定盤",
+        "images/covers/a.png",
+        "",
+      ],
+      [
+        "2019-08-12",
+        "合成专辑",
+        "全国対象店",
+        "B2 ポスター（官网正文写 A3）",
+        "",
+        "",
+        "",
+      ],
+    ]),
+  )
+  await fs.writeFile(
+    path.join(library, "参与专辑", "participation.csv"),
+    csv([
+      [
+        "date",
+        "title",
+        "kano_tracks",
+        "member_of",
+        "form",
+        "label",
+        "event",
+        "catalog",
+        "notes",
+        "cover_file",
+        "source_url",
+        "cover_source",
+      ],
+      [
+        "2011-08-13",
+        "Synthetic Compilation",
+        "演唱、作词：3. Song",
+        "",
+        "配信单曲 / 印刷 CD-R",
+        "Example Circle",
+        "C80 (day 2)",
+        "EX-9（MusicBrainz，存疑）",
+        "与 Other Album 3 为同曲的不同音源",
+        "img/b.png",
+        "https://example.org/db/album/1",
+        "Example DB https://example.org/db/cover/1",
+      ],
+    ]),
+  )
+  await fs.writeFile(
+    path.join(library, "参与专辑", "participation_tracks.csv"),
+    csv([
+      ["date", "release", "disc", "no", "track", "credit", "note", "kano"],
+      [
+        "2011-08-13",
+        "Synthetic Compilation",
+        "1",
+        "3",
+        "Song",
+        "circle feat. 鹿乃 (鹿乃: Lyricist)",
+        "与 Other Album 3 为同曲的不同音源",
+        "1",
+      ],
+      [
+        "2011-08-13",
+        "Synthetic Compilation",
+        "1",
+        "1",
+        "Opening",
+        "circle",
+        "",
+        "0",
+      ],
+    ]),
+  )
+  await fs.writeFile(
+    path.join(library, "投稿作品", "works.csv"),
+    csv([
+      [
+        "date",
+        "song",
+        "original_artist",
+        "kind",
+        "with",
+        "niconico",
+        "youtube",
+        "youtube_members",
+        "bilibili",
+        "bilibili_title",
+        "album",
+        "notes",
+        "tracks",
+      ],
+      [
+        "2013-05-15",
+        "Synthetic Song",
+        "",
+        "翻唱",
+        "",
+        "sm10000001",
+        "aaaaaaaaaaa;bbbbbbbbbbb",
+        "",
+        "BV1aaaaaaaaa",
+        "",
+        "合成专辑（2019）、Other（2020）",
+        "bilibili 2020-01-07 补投（推定为同一录音）",
+        "",
+      ],
+      [
+        "2022-04-05",
+        "Medley",
+        "",
+        "合集",
+        "",
+        "",
+        "",
+        "ccccccccccc",
+        "",
+        "",
+        "",
+        "YouTube 会员限定",
+        "First；Second",
+      ],
+    ]),
+  )
+  return { root, library }
+}
+
+test("CSV rows keep quoted commas, quotes and line breaks", () => {
+  const rows = parseCsv('﻿a,b\r\n"x, y","say ""hi""\nagain"\r\n\r\nplain,\n')
+  assert.deepEqual(rows, [
+    { a: "x, y", b: 'say "hi"\nagain' },
+    { a: "plain", b: "" },
+  ])
+  assert.throws(() => parseCsv("a,b\nonly\n"), /fields/u)
+})
+
+test("collection words map to codes, and unknown ones stop packaging", () => {
+  assert.deepEqual(participationRoles("演唱、作词、声演：1. Song"), [
+    "vocal",
+    "lyrics",
+    "voice",
+  ])
+  assert.deepEqual(participationRoles("配音：drama"), ["voice"])
+  assert.throws(() => participationRoles("监修：1. Song"), /role/u)
+  assert.deepEqual(participationForms("特典 · 广播 CD"), ["bonus", "drama"])
+  assert.deepEqual(participationForms("众筹回报 · 非卖品"), ["notForSale"])
+  assert.deepEqual(participationForms(""), [])
+  assert.throws(() => participationForms("黑胶"), /form/u)
+  assert.deepEqual(kanoCredits("nana feat. ミク (鹿乃: Lyricist, Other)"), [
+    "lyrics",
+    "other",
+  ])
+  assert.deepEqual(kanoCredits("Vo: 鹿乃"), [])
+  assert.throws(() => kanoCredits("x (鹿乃: Mixer)"), /credit/u)
+})
+
+test("personal kinds, prices and edition tracklists", () => {
+  assert.equal(personalFormat("专辑"), "album")
+  assert.equal(personalFormat("单曲"), "single")
+  assert.equal(personalFormat("EP"), "ep")
+  assert.equal(personalFormat("同人"), "doujin")
+  assert.throws(() => personalFormat("黑胶"), /kind/u)
+
+  assert.equal(publicPrice("2,000 日元"), "¥2,000")
+  assert.equal(publicPrice("15 元"), "CN¥15")
+  assert.equal(publicPrice("¥1,500+税"), "¥1,500+税")
+
+  const track = (disc: number, no: number, title: string) => ({
+    disc,
+    no,
+    title,
+    credit: "",
+    note: "",
+  })
+  const shared = [track(1, 1, "Song"), track(1, 2, "Song (instrumental)")]
+  // An edition's own disc 1 replaces the shared one; other discs add to it.
+  assert.deepEqual(
+    editionTracks(shared, [track(1, 1, "Song -TV size-"), track(2, 1, "MV")]),
+    [track(1, 1, "Song -TV size-"), track(2, 1, "MV")],
+  )
+  assert.deepEqual(editionTracks(shared, [track(2, 1, "MV")]), [
+    ...shared,
+    track(2, 1, "MV"),
+  ])
+})
+
+test("shown fields drop the collection's checking asides", () => {
+  assert.equal(publicText("封面（NAS）"), "封面")
+  assert.equal(publicText("文字图（NAS，非盘面，来源未核实）"), "文字图")
+  assert.equal(publicText("通常盘封面（销售页 3000 像素）"), "通常盘封面")
+  assert.equal(
+    publicText("アニメ盘封面（ヘヴィーオブジェクト）"),
+    "アニメ盘封面（ヘヴィーオブジェクト）",
+  )
+  assert.equal(publicText("CD 商品图（らしんばん）"), "CD 商品图（らしんばん）")
+  assert.equal(publicText("JTCD-0005 (Discogs: JTCD-0006)"), "JTCD-0005")
+  assert.equal(
+    publicText("Shinpei Nasuno (Rebrast)"),
+    "Shinpei Nasuno (Rebrast)",
+  )
+  assert.throws(() => publicText("据整理者的收藏补入"), /Checking wording/u)
+  assert.equal(certainText("C82 (unconfirmed)"), "")
+  assert.equal(certainText("BBCL-0007（MusicBrainz，存疑）"), "")
+  assert.equal(certainText("TECI-1609 (初回限定盤)"), "TECI-1609 (初回限定盤)")
+  assert.equal(publicTrackNote("カバー? (原曲不明)"), "")
+  assert.equal(publicTrackNote("live 版见 Example 13"), "")
+  assert.equal(
+    publicTrackNote("TVアニメ「Example」OP"),
+    "TVアニメ「Example」OP",
+  )
+})
+
+test("works packaging writes the tables and covers named by their bytes", async (t) => {
+  const { root, library } = await collection(t)
+  const contentDir = path.join(root, "content")
+  const mediaDir = path.join(root, "data", "works")
+  assert.deepEqual(await packageWorks(library, { contentDir, mediaDir }), {
+    personal: 2,
+    participation: 1,
+    uploads: 2,
+    media: 3,
+    bytes: PNG.length + OTHER_PNG.length + THUMB_PNG.length,
+    skipped: ["images/covers/c.gif"],
+  })
+  const read = async (name: string) =>
+    JSON.parse(await fs.readFile(path.join(contentDir, name), "utf8"))
+
+  const personal = (await read("personal.json")) as PersonalRelease[]
+  const cover = {
+    media: mediaName(PNG),
+    width: 1,
+    height: 1,
+    caption: "初回限定盘封面",
+    source: "https://example.com/shop/item/1",
+    thirdParty: true,
+  }
+  const shared = [
+    { disc: 1, no: 2, title: "Second", credit: "", note: "" },
+    {
+      disc: 1,
+      no: 1,
+      title: "First",
+      credit: "作詞:鹿乃",
+      note: "TVアニメ「Example」OP",
+    },
+  ]
+  assert.deepEqual(personal[0], {
+    id: recordId("2019-08-12", "合成专辑"),
+    date: "2019-08-12",
+    title: "合成专辑",
+    format: "single",
+    digital: false,
+    cancelled: false,
+    unit: null,
+    label: "Example Records",
+    catalog: "EX-001",
+    covers: [cover],
+    disc: null,
+    cutout: null,
+    tracks: shared,
+    discs: [],
+    editions: [
+      {
+        name: "初回限定盤",
+        date: "2019-09-01",
+        cancelled: false,
+        catalog: "EX-001",
+        jan: "4900000000001",
+        price: "¥2,000",
+        format: "CD+DVD",
+        packaging: "デジパック仕様",
+        covers: [cover],
+        bonuses: ["封入特典：ステッカー"],
+        bonusImages: [],
+        storeBonuses: [
+          { store: "Example Shop", item: "缶バッジ", images: [cover] },
+        ],
+        tracks: [
+          ...shared,
+          {
+            disc: 2,
+            discLabel: "DVD",
+            no: 1,
+            title: "Music Video",
+            credit: "",
+            note: "",
+          },
+        ],
+        discs: [],
+      },
+      {
+        name: "通常盤",
+        date: null,
+        cancelled: true,
+        catalog: "",
+        jan: "",
+        price: "",
+        format: "CD",
+        packaging: "",
+        covers: [],
+        bonuses: [],
+        bonusImages: [],
+        storeBonuses: [],
+        tracks: shared,
+        discs: [],
+      },
+    ],
+    storeBonuses: [{ store: "全国対象店", item: "B2 ポスター", images: [] }],
+  })
+  assert.equal(personal[1].unit, "Example Unit")
+  assert.equal(personal[1].format, "doujin")
+  assert.deepEqual(personal[1].covers, [])
+
+  const [participation] = (await read(
+    "participation.json",
+  )) as ParticipationRelease[]
+  assert.deepEqual(participation.roles, ["vocal", "lyrics"])
+  assert.deepEqual(participation.forms, ["digital", "cdr"])
+  assert.equal(participation.event, "C80")
+  assert.equal(participation.catalog, "")
+  assert.deepEqual(participation.cover, {
+    media: mediaName(OTHER_PNG),
+    width: 1,
+    height: 1,
+    source: "https://example.org/db/cover/1",
+    sourceLabel: "Example DB",
+    thirdParty: true,
+  })
+  assert.deepEqual(
+    participation.tracks.map((track) => [
+      track.no,
+      track.credit,
+      track.kano,
+      track.kanoCredits,
+    ]),
+    [
+      [3, "circle feat. 鹿乃", true, ["lyrics"]],
+      [1, "circle", false, []],
+    ],
+  )
+
+  const uploads = (await read("uploads.json")) as Upload[]
+  assert.deepEqual(uploads[0].youtube, ["aaaaaaaaaaa", "bbbbbbbbbbb"])
+  assert.deepEqual(uploads[0].albums, ["合成专辑（2019）", "Other（2020）"])
+  assert.equal(uploads[0].kind, "cover")
+  assert.deepEqual(uploads[1].tracks, ["First", "Second"])
+  assert.deepEqual(uploads[1].youtubeMembers, ["ccccccccccc"])
+  // The first saved thumbnail of an upload's videos becomes its cover.
+  assert.deepEqual(uploads[0].cover, {
+    media: mediaName(THUMB_PNG),
+    width: 1,
+    height: 1,
+    thirdParty: false,
+  })
+  assert.equal(uploads[1].cover, null)
+
+  // The collection's checking notes reach no published file.
+  for (const name of ["personal.json", "participation.json", "uploads.json"]) {
+    const text = await fs.readFile(path.join(contentDir, name), "utf8")
+    assert.doesNotMatch(
+      text,
+      /"notes"|同曲|补投|NAS|据|骏河屋|官网|像素|存疑|发售中止/u,
+      name,
+    )
+  }
+
+  assert.deepEqual(await read("summary.json"), {
+    personal: 2,
+    participation: 1,
+    uploads: 2,
+    firstYear: 2011,
+    lastYear: 2022,
+  })
+  assert.deepEqual(
+    (await fs.readdir(mediaDir)).sort(),
+    [mediaName(PNG), mediaName(OTHER_PNG), mediaName(THUMB_PNG)].sort(),
+  )
+  assert.deepEqual(await fs.readFile(path.join(mediaDir, mediaName(PNG))), PNG)
+})
+
+test("works packaging writes nothing when a cover lies outside the collection", async (t) => {
+  const { root, library } = await collection(t)
+  await fs.writeFile(path.join(root, "outside.png"), PNG)
+  const table = path.join(library, "参与专辑", "participation.csv")
+  await fs.writeFile(
+    table,
+    (await fs.readFile(table, "utf8")).replace(
+      "img/b.png",
+      "../../outside.png",
+    ),
+  )
+  const contentDir = path.join(root, "content")
+  const mediaDir = path.join(root, "data", "works")
+  await assert.rejects(
+    packageWorks(library, { contentDir, mediaDir }),
+    /outside the collection/u,
+  )
+  await assert.rejects(fs.readdir(mediaDir), { code: "ENOENT" })
+  await assert.rejects(fs.readdir(contentDir), { code: "ENOENT" })
+})
+
+test("works packaging rejects a cover that is not an image", async (t) => {
+  const { root, library } = await collection(t)
+  await fs.writeFile(
+    path.join(library, "images", "covers", "a.png"),
+    "not an image",
+  )
+  await assert.rejects(
+    packageWorks(library, {
+      contentDir: path.join(root, "content"),
+      mediaDir: path.join(root, "data", "works"),
+    }),
+    /not a JPEG or PNG/u,
+  )
+})
+
+test("works packaging stops at an edition the release does not list", async (t) => {
+  const { root, library } = await collection(t)
+  const table = path.join(library, "discography_store_bonuses.csv")
+  await fs.writeFile(
+    table,
+    (await fs.readFile(table, "utf8")).replace(",初回限定盤,", ",限定盤,"),
+  )
+  await assert.rejects(
+    packageWorks(library, {
+      contentDir: path.join(root, "content"),
+      mediaDir: path.join(root, "data", "works"),
+    }),
+    /no edition named 限定盤/u,
+  )
+})
+
+test("an edition shows its own discs and the shared ones it keeps", () => {
+  const photo = (media: string) => ({
+    media,
+    width: 1,
+    height: 1,
+    thirdParty: true,
+  })
+  const track = (disc: number) => ({
+    disc,
+    no: 1,
+    title: "",
+    credit: "",
+    note: "",
+  })
+  const shared = [
+    { disc: 1, image: photo("aaaaaaaaaaaa.png") },
+    { disc: 2, image: photo("bbbbbbbbbbbb.png") },
+  ]
+  const dvd = { disc: 3, image: photo("cccccccccccc.png") }
+  // Its own DVD, the shared CD, and no photo for disc 2, which it replaces.
+  assert.deepEqual(
+    editionDiscs(
+      shared,
+      [dvd],
+      [track(2), track(3)],
+      [track(1), track(2), track(3)],
+    ),
+    [shared[0], dvd],
+  )
+  // A shared photo of a disc the edition does not have stays out.
+  assert.deepEqual(editionDiscs(shared, [], [], [track(1)]), [shared[0]])
+})
+
+test("disc photos follow their discs and leave the covers", async (t) => {
+  const { root, library } = await collection(t)
+  const contentDir = path.join(root, "content")
+  const mediaDir = path.join(root, "data", "works")
+  const dvd = Buffer.concat([PNG, Buffer.from("dvd")])
+  await fs.writeFile(path.join(library, "images", "covers", "d.png"), dvd)
+  const manifestFile = path.join(library, "manifest.json")
+  const manifest = JSON.parse(await fs.readFile(manifestFile, "utf8"))
+  manifest.images.push({
+    file: "images/covers/d.png",
+    title: "Synthetic DVD",
+    title_zh: "合成专辑：初回限定盘 DVD 盘面",
+    source_page: "https://example.org/db/disc/1",
+    evidence_class: "release_artwork_third_party_file",
+  })
+  await fs.writeFile(manifestFile, JSON.stringify(manifest))
+  const editionsFile = path.join(library, "discography_editions.csv")
+  await fs.writeFile(
+    editionsFile,
+    (await fs.readFile(editionsFile, "utf8")).replace(
+      "images/covers/a.png",
+      "images/covers/a.png;images/covers/d.png",
+    ),
+  )
+  const discsFile = path.join(library, "discography_discs.csv")
+  const table = (edition: string, disc: number) =>
+    csv([
+      ["date", "release", "edition", "disc", "image_file"],
+      ["2019-08-12", "合成专辑", edition, String(disc), "images/covers/d.png"],
+    ])
+  await fs.writeFile(discsFile, table("初回限定盤", 2))
+  await packageWorks(library, { contentDir, mediaDir })
+  const [release] = JSON.parse(
+    await fs.readFile(path.join(contentDir, "personal.json"), "utf8"),
+  ) as PersonalRelease[]
+  const media = mediaName(dvd)
+  assert.deepEqual(
+    release.editions.map((edition) =>
+      edition.discs.map((item) => [item.disc, item.image.media]),
+    ),
+    [[[2, media]], []],
+  )
+  assert.equal(
+    release.editions[0].covers.some((cover) => cover.media === media),
+    false,
+  )
+  // Only a disc 1 photo stands for the release on the shelf.
+  assert.equal(release.disc, null)
+
+  // A disc the edition does not have, or an edition the release lacks,
+  // stops packaging.
+  await fs.writeFile(discsFile, table("初回限定盤", 4))
+  await assert.rejects(
+    packageWorks(library, { contentDir, mediaDir }),
+    /初回限定盤 has no disc 4/u,
+  )
+  await fs.writeFile(discsFile, table("限定盤", 2))
+  await assert.rejects(
+    packageWorks(library, { contentDir, mediaDir }),
+    /has no edition named 限定盤/u,
+  )
+})
+
+test("a cutout joins the release it names, and only a transparent PNG does", async (t) => {
+  const { root, library } = await collection(t)
+  const contentDir = path.join(root, "content")
+  const mediaDir = path.join(root, "data", "works")
+  const cutouts = path.join(library, "抠图")
+  await fs.mkdir(cutouts)
+  const figure = Buffer.concat([PNG, Buffer.from("figure")])
+  await fs.writeFile(path.join(cutouts, "合成专辑.png"), figure)
+  await packageWorks(library, { contentDir, mediaDir })
+  const personal = JSON.parse(
+    await fs.readFile(path.join(contentDir, "personal.json"), "utf8"),
+  ) as PersonalRelease[]
+  assert.deepEqual(
+    personal.map((release) => release.cutout),
+    personal.map((release) =>
+      release.title === "合成专辑"
+        ? { media: mediaName(figure), width: 1, height: 1 }
+        : null,
+    ),
+  )
+
+  // A cutout without an alpha channel would print its ground on the page.
+  const opaque = Buffer.from(figure)
+  opaque[25] = 0
+  await fs.writeFile(path.join(cutouts, "合成专辑.png"), opaque)
+  await assert.rejects(
+    packageWorks(library, { contentDir, mediaDir }),
+    /not a transparent PNG: 合成专辑\.png/u,
+  )
+  await fs.writeFile(path.join(cutouts, "合成专辑.png"), figure)
+  await fs.writeFile(path.join(cutouts, "Unknown.png"), figure)
+  await assert.rejects(
+    packageWorks(library, { contentDir, mediaDir }),
+    /names no personal release: Unknown\.png/u,
+  )
+})
+
+test("album tracks link the uploads of the same recording", () => {
+  const track = (title: string) => ({
+    disc: 1,
+    no: 1,
+    title,
+    credit: "",
+    note: "",
+  })
+  const release = {
+    title: "Example Album",
+    tracks: [track("Song A"), track("No Sweet N♡ Life")],
+    editions: [],
+  } as unknown as PersonalRelease
+  const upload = (song: string, albums: string[], youtube: string) =>
+    ({
+      song,
+      albums,
+      niconico: null,
+      youtube: [youtube],
+      youtubeMembers: [],
+      bilibili: null,
+    }) as unknown as Upload
+  linkUploads(
+    [release],
+    [
+      upload("Song A", ["Example Album（2019）"], "aaaaaaaaaaa"),
+      upload("No Sweet N❤︎Life", ["example album"], "bbbbbbbbbbb"),
+      upload("Song A", ["Other Album（2020）"], "ccccccccccc"),
+    ],
+  )
+  assert.deepEqual(release.tracks[0].listen?.youtube, ["aaaaaaaaaaa"])
+  assert.deepEqual(release.tracks[1].listen?.youtube, ["bbbbbbbbbbb"])
+})
+
+test("works views sort, group and search records", () => {
+  const items = [
+    { date: "2019-01-02", disc: 2, no: 1 },
+    { date: "2018-05-01", disc: 1, no: 2 },
+    { date: "2019-03-04", disc: 1, no: 1 },
+  ]
+  assert.deepEqual(
+    byDate(items, "newest").map((item) => item.date),
+    ["2019-03-04", "2019-01-02", "2018-05-01"],
+  )
+  assert.deepEqual(
+    groupByYear(byDate(items, "oldest")).map((group) => [
+      group.year,
+      group.items.length,
+    ]),
+    [
+      ["2018", 1],
+      ["2019", 2],
+    ],
+  )
+  assert.deepEqual(
+    discsOf(items).map(({ disc, tracks }) => [
+      disc,
+      tracks.map((track) => track.no),
+    ]),
+    [
+      [1, [1, 2]],
+      [2, [1]],
+    ],
+  )
+  assert.ok(matches("ＳＴＥＬＬＡ", "Stella-rium"))
+  assert.ok(matches("  ", "anything"))
+  assert.ok(!matches("nowhere", "rye", "HOPE"))
+})
+
+test("an upload links each platform it was posted to", () => {
+  const upload = {
+    niconico: "sm10000001",
+    youtube: ["aaaaaaaaaaa"],
+    youtubeMembers: ["ddddddddddd"],
+    bilibili: "BV1aaaaaaaaa",
+  } as Upload
+  assert.deepEqual(uploadLinks(upload), [
+    {
+      platform: "niconico",
+      href: "https://www.nicovideo.jp/watch/sm10000001",
+    },
+    {
+      platform: "youtube",
+      href: "https://www.youtube.com/watch?v=aaaaaaaaaaa",
+    },
+    {
+      platform: "youtube",
+      href: "https://www.youtube.com/watch?v=ddddddddddd",
+      members: true,
+    },
+    {
+      platform: "bilibili",
+      href: "https://www.bilibili.com/video/BV1aaaaaaaaa",
+    },
+  ])
+  assert.deepEqual(
+    uploadLinks({
+      niconico: null,
+      youtube: [],
+      youtubeMembers: [],
+      bilibili: null,
+    } as unknown as Upload),
+    [],
+  )
+})
+
+test("works covers list the server's smaller copies", () => {
+  const cover = "/media/works/0123456789ab.png"
+  assert.equal(
+    mediaSrcSet(cover, 700),
+    [`${cover}?w=320 320w`, `${cover}?w=640 640w`, `${cover} 700w`].join(", "),
+  )
+  assert.equal(mediaSrcSet("/media/works/0123456789ab.gif", 700), undefined)
+  assert.equal(mediaSrcSet("/media/works/../x.png", 700), undefined)
+})

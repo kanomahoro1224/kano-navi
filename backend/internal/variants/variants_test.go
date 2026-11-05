@@ -10,6 +10,7 @@ import (
 	"image/jpeg"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -121,6 +122,44 @@ func TestMakeFixedGroupsIntoTheOutputRootAndResume(t *testing.T) {
 	}
 	if got := widths(statuses[1]); statuses[1].Ready != 1 || got[2] != [3]int{1, 0, 0} {
 		t.Fatalf("history status %+v", statuses[1])
+	}
+}
+
+func TestMakeWorksCoversOnlyFromTheirArchiveNames(t *testing.T) {
+	data := t.TempDir()
+	cover := syntheticPhoto(t, 1000, 1000)
+	writeFiles(t, data, map[string][]byte{
+		"works/0123456789ab.jpg":  cover,
+		"works/abcdefabcdef.png":  syntheticPhoto(t, 200, 200),
+		"works/ba9876543210.mp4":  []byte("\x00\x00\x00\x18ftypmp42synthetic"),
+		"works/.0123456789ab.jpg": cover,
+		"works/ABCDEFABCDEF.jpg":  cover,
+		"works/notes.txt":         []byte("synthetic"),
+		// A LINE BLOG image belongs to its own group.
+		"lineblog/fedcbafedcba.jpg": syntheticPhoto(t, 900, 300),
+	})
+	roots := Roots{Data: data}
+	ctx := context.Background()
+	statuses, err := Status(ctx, nil, roots, Works)
+	if err != nil || len(statuses) != 1 || statuses[0].Group != Works || statuses[0].Originals != 2 || statuses[0].Unhashed != 2 {
+		t.Fatalf("cold status %+v %v", statuses, err)
+	}
+	result, err := Make(ctx, nil, roots, Works, Bounds{})
+	if err != nil || result != (Result{Attempted: 2, Made: 1, Kept: 1}) {
+		t.Fatalf("works %+v %v", result, err)
+	}
+	if !sqlite.VariantsDone(data, hashOf(cover)) {
+		t.Fatal("cover copies not in the data cache")
+	}
+	if result, err = Make(ctx, nil, roots, Works, Bounds{}); err != nil || result != (Result{Skipped: 2}) {
+		t.Fatalf("second run %+v %v", result, err)
+	}
+	if statuses, err = Status(ctx, nil, roots, Works); err != nil || statuses[0].Ready != 2 || statuses[0].Unhashed != 0 {
+		t.Fatalf("status %+v %v", statuses, err)
+	}
+	// The pre-generated groups include the covers.
+	if !slices.Contains(Groups, Works) {
+		t.Fatalf("groups %v", Groups)
 	}
 }
 

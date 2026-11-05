@@ -5,11 +5,11 @@ import { ArrowUpRight, CodeXml, Scale } from "lucide-react"
 import { version } from "../../package.json"
 import { useAppSettings } from "@/app-settings"
 import { ExternalLink } from "@/site/links"
+import { REPOSITORY_URL } from "@/site/repository"
 import { SiteFooter, SiteHeader, SkipLink } from "@/site/site-shell"
 import "./about.css"
 
 const AUTHOR = "yexca"
-const REPOSITORY_URL = "https://github.com/yexca/kano-navi"
 const LICENSE_URL = `${REPOSITORY_URL}/blob/main/LICENSE`
 const CONTRIBUTORS_URL = `${REPOSITORY_URL}/graphs/contributors`
 const contributors = ["kanomahoro1224"]

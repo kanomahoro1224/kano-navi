@@ -56,6 +56,7 @@ func TestStaticSiteServesBuildWithFallbackAndContainment(t *testing.T) {
 		"/history/":                    {page, "text/html; charset=utf-8", revalidate, "<title>Journey · "},
 		"/about//":                     {page, "text/html; charset=utf-8", revalidate, "<title>About · "},
 		"/lineblog":                    {page, "text/html; charset=utf-8", revalidate, "<title>LINE BLOG archive · "},
+		"/works/":                      {page, "text/html; charset=utf-8", revalidate, "<title>Works · "},
 		"/robots.txt":                  {page, "text/plain; charset=utf-8", revalidate, "Disallow: /admin"},
 		"/assets/index-AbCd1234.js":    {page, "text/javascript; charset=utf-8", immutable, "console.log(1)"},
 		"/assets/unlisted-AbCd1234.js": {page, "text/javascript; charset=utf-8", revalidate, "console.log(2)"},
@@ -64,6 +65,7 @@ func TestStaticSiteServesBuildWithFallbackAndContainment(t *testing.T) {
 		// shows its not-found view, but answer 404.
 		"/lineblog/archives/1":  {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
 		"/history/2024":         {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
+		"/works/1":              {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
 		"/admin/runs":           {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
 		"/About":                {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
 		"/.vite/manifest.json":  {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
@@ -175,6 +177,12 @@ func TestStaticSiteGivesPagesTheirOwnShareTags(t *testing.T) {
 			`property="og:url" content="https://kano.example.invalid/about"`,
 			`content="Project overview, AI development credits`,
 			`property="og:image" content="https://kano.example.invalid/assets/kano-banner.jpg"`,
+		}},
+		{"https://kano.example.invalid", "/works", []string{
+			"<title>Works · What’s Kano Up To?</title>",
+			`property="og:title" content="Works · What’s Kano Up To?"`,
+			`property="og:url" content="https://kano.example.invalid/works"`,
+			`content="Kano&#39;s discography: her own releases`,
 		}},
 	} {
 		w := get(NewStaticSite(root, tc.origin), tc.path)

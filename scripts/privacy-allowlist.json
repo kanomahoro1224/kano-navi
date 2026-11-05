@@ -412,6 +412,114 @@
     {
       "host": "onsen.ag",
       "reason": "Internet radio link kept in the archived LINE BLOG posts (src/lineblog/posts/); visitors open it only by following it."
+    },
+    {
+      "host": "musicbrainz.org",
+      "reason": "Music database page recorded as the source of a /works record or cover (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "vocadb.net",
+      "reason": "Music database page recorded as the source of a /works record or cover (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "touhoudb.com",
+      "reason": "Music database page recorded as the source of a /works record or cover (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "thwiki.cc",
+      "reason": "Music database page recorded as the source of a /works record or cover (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "dojin-music.info",
+      "reason": "Music database page recorded as the source of a /works record or cover (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "vgmdb.net",
+      "reason": "Music database page recorded as the source of a /works record or cover (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "discogs.com",
+      "reason": "Music database page recorded as the source of a /works record or cover (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "music.apple.com",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "itunes.apple.com",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "ototoy.jp",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "y.qq.com",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "music.163.com",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "hmv.co.jp",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "teichiku-shop.com",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "lashinbang.com",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "neowing.co.jp",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "mandarake.co.jp",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "animate-onlineshop.jp",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "diverse.direct",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "geestore.com",
+      "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "virtuareal.net",
+      "reason": "Publisher, circle or event page recorded as the source of a /works record (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "osamuraisan.com",
+      "reason": "Publisher, circle or event page recorded as the source of a /works record (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "web-marmalade.com",
+      "reason": "Publisher, circle or event page recorded as the source of a /works record (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "sbr-gx.jp",
+      "reason": "Publisher, circle or event page recorded as the source of a /works record (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "solfa.asia",
+      "reason": "Publisher, circle or event page recorded as the source of a /works record (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "info-chunithm.sega.jp",
+      "reason": "Publisher, circle or event page recorded as the source of a /works record (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "ubgoe.com",
+      "reason": "Publisher, circle or event page recorded as the source of a /works record (src/works/*.json); the page links to it and never loads it."
     }
   ]
 }

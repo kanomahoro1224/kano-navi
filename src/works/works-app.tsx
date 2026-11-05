@@ -1,6 +1,6 @@
 import type { ComponentType, CSSProperties } from "react"
 import type { Translator } from "@/types"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { ArrowUpRight, Info, RotateCw } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
@@ -89,10 +89,58 @@ function sectionFromUrl(): Section {
 /** The acoustic cover trilogy, in album order. */
 const TRILOGY = ["one", "two", "three"]
 
-/** The order the trilogy leads the page in, left to right. */
-const FEATURED_TITLES = ["two", "one", "three"]
+/**
+ * The scene has two sides, like a record: side A leads with two, side B
+ * keeps album order. The figures stay in album order in the document, so
+ * flipping moves them on screen without reordering them.
+ */
+type Side = "a" | "b"
+const SIDES: Record<Side, string[]> = {
+  a: ["two", "one", "three"],
+  b: ["one", "two", "three"],
+}
 
-const featured = FEATURED_TITLES.map((title) =>
+/** This device remembers the side last played. */
+const SIDE_KEY = "kano-works-trilogy-side"
+
+function readSide(): Side {
+  try {
+    return window.localStorage.getItem(SIDE_KEY) === "b" ? "b" : "a"
+  } catch {
+    return "a"
+  }
+}
+
+/** How long one and two take to sink before they rise on the other side. */
+const SINK_MS = 280
+
+function useTrilogySide() {
+  const [side, setSide] = useState<Side>(readSide)
+  const [flipping, setFlipping] = useState(false)
+  const timer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+  const flip = () => {
+    if (flipping) return
+    const next: Side = side === "a" ? "b" : "a"
+    try {
+      window.localStorage.setItem(SIDE_KEY, next)
+    } catch {
+      // The side still applies until the page closes.
+    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setSide(next)
+      return
+    }
+    setFlipping(true)
+    timer.current = window.setTimeout(() => {
+      setSide(next)
+      setFlipping(false)
+    }, SINK_MS)
+  }
+  return { side, flipping, flip }
+}
+
+const featured = TRILOGY.map((title) =>
   personalReleases.find((release) => release.title === title),
 ).filter((release) => release !== undefined)
 
@@ -105,7 +153,7 @@ const FEATURED_TONES: Record<string, string> = {
 
 /** The trilogy stands as the figures cut from its covers when all have one. */
 const figuresReady =
-  featured.length === FEATURED_TITLES.length &&
+  featured.length === TRILOGY.length &&
   featured.every((release) => release.cutout)
 
 /**
@@ -158,39 +206,73 @@ type Point = [number, number]
 type Curve = { start: Point; segments: [Point, Point, Point][] }
 
 /**
- * The ground the figures stand and sit on: two sits lowest at the left, one
- * stands in the middle, three sits on the rise. Each figure's base in
- * works.css sits on this curve.
+ * The ground the figures stand and sit on, one per side. On side A two sits
+ * lowest at the left, one stands in the middle and three sits on the rise;
+ * on side B one stands at the left and two sits lowest in front of the rise.
+ * Both curves use the same commands, so the ground morphs between them, and
+ * each figure's base in works.css sits on its side's curve.
  */
-const GROUND: Curve = {
-  start: [0, 900],
-  segments: [
-    [
-      [50, 922],
-      [120, 928],
-      [260, 928],
+const GROUND: Record<Side, Curve> = {
+  a: {
+    start: [0, 900],
+    segments: [
+      [
+        [50, 922],
+        [120, 928],
+        [260, 928],
+      ],
+      [
+        [400, 928],
+        [470, 924],
+        [530, 902],
+      ],
+      [
+        [570, 888],
+        [610, 880],
+        [700, 878],
+      ],
+      [
+        [790, 876],
+        [840, 860],
+        [930, 858],
+      ],
+      [
+        [1030, 850],
+        [1110, 862],
+        [1160, 872],
+      ],
     ],
-    [
-      [400, 928],
-      [470, 924],
-      [530, 902],
+  },
+  b: {
+    start: [0, 900],
+    segments: [
+      [
+        [90, 884],
+        [150, 876],
+        [230, 878],
+      ],
+      [
+        [295, 880],
+        [345, 895.5],
+        [397.5, 910.75],
+      ],
+      [
+        [450, 926],
+        [505, 941],
+        [580, 942],
+      ],
+      [
+        [730, 944],
+        [800, 868],
+        [930, 858],
+      ],
+      [
+        [1030, 850],
+        [1110, 862],
+        [1160, 872],
+      ],
     ],
-    [
-      [570, 888],
-      [610, 880],
-      [700, 878],
-    ],
-    [
-      [790, 876],
-      [840, 860],
-      [930, 858],
-    ],
-    [
-      [1030, 850],
-      [1110, 862],
-      [1160, 872],
-    ],
-  ],
+  },
 }
 
 const HILLS: Curve[] = [
@@ -268,19 +350,25 @@ function pointOn({ start, segments }: Curve, segment: number, t: number) {
 }
 
 /** Grass along the ground's crest: three blades every few steps. */
-const GRASS = GROUND.segments
-  .flatMap((_, segment) =>
-    [0.08, 0.3, 0.52, 0.74, 0.94].map((t, i) => {
-      const [x, y] = pointOn(GROUND, segment, t)
-      const lean = (segment + i) % 2 ? 1 : -1
-      return `M${x} ${y + 2}l${-5 * lean} -15M${x + 4} ${y + 2}l${2 * lean} -20M${x + 8} ${y + 2}l${7 * lean} -13`
-    }),
-  )
-  .join("")
+const grass = (ground: Curve) =>
+  ground.segments
+    .flatMap((_, segment) =>
+      [0.08, 0.3, 0.52, 0.74, 0.94].map((t, i) => {
+        const [x, y] = pointOn(ground, segment, t)
+        const lean = (segment + i) % 2 ? 1 : -1
+        return `M${x} ${y + 2}l${-5 * lean} -15M${x + 4} ${y + 2}l${2 * lean} -20M${x + 8} ${y + 2}l${7 * lean} -13`
+      }),
+    )
+    .join("")
 
-/** Small flowers in the three albums' colours, along the crest. */
-const FLOWERS = (
-  [
+type Flower = readonly [segment: number, t: number, title: string]
+
+/**
+ * Small flowers in the three albums' colours, along the crest. Each side has
+ * as many, so a flower drifts to its place on the other side.
+ */
+const FLOWER_SPOTS: Record<Side, readonly Flower[]> = {
+  a: [
     [0, 0.15, "one"],
     [0, 0.75, "three"],
     [1, 0.6, "two"],
@@ -288,17 +376,46 @@ const FLOWERS = (
     [3, 0.3, "one"],
     [3, 0.85, "two"],
     [4, 0.55, "one"],
-  ] as const
-).map(([segment, t, title]) => {
-  const [x, y] = pointOn(GROUND, segment, t)
-  return { x, y: y - 9, tone: FEATURED_TONES[title] }
-})
+  ],
+  b: [
+    [0, 0.2, "one"],
+    [0, 0.7, "three"],
+    [1, 0.9, "two"],
+    [2, 0.7, "one"],
+    [3, 0.25, "three"],
+    [3, 0.8, "two"],
+    [4, 0.5, "one"],
+  ],
+}
+
+type Land = {
+  near: string
+  crest: string
+  grass: string
+  flowers: { x: number; y: number; tone: string }[]
+}
+
+function land(side: Side): Land {
+  const ground = GROUND[side]
+  return {
+    near: filled(ground),
+    crest: curvePath(ground),
+    grass: grass(ground),
+    flowers: FLOWER_SPOTS[side].map(([segment, t, title]) => {
+      const [x, y] = pointOn(ground, segment, t)
+      return { x, y: y - 9, tone: FEATURED_TONES[title] }
+    }),
+  }
+}
+
+const LAND: Record<Side, Land> = { a: land("a"), b: land("b") }
 
 /**
  * Rolling hills behind the figures, after the night hills of a fan-made MV:
  * two far ridges the discs sink behind, then the grassy ground in front.
  */
-function FeaturedLandscape() {
+function FeaturedLandscape({ side }: { side: Side }) {
+  const { near, crest, grass, flowers } = LAND[side]
   return (
     <svg
       className="works-landscape"
@@ -309,16 +426,54 @@ function FeaturedLandscape() {
     >
       <path className="is-far" d={filled(HILLS[0])} />
       <path className="is-mid" d={filled(HILLS[1])} />
-      <path className="is-near" d={filled(GROUND)} />
-      <path className="is-crest" d={curvePath(GROUND)} />
-      <path className="is-grass" d={GRASS} />
-      {FLOWERS.map((flower, index) => (
+      <path className="is-near" d={near} />
+      <path className="is-crest" d={crest} />
+      <path className="is-grass" d={grass} />
+      {flowers.map((flower, index) => (
         <g key={index} className="is-flower">
           <circle cx={flower.x} cy={flower.y} r="6.5" fill={flower.tone} />
           <circle cx={flower.x} cy={flower.y} r="2.2" />
         </g>
       ))}
     </svg>
+  )
+}
+
+/**
+ * Flips the trilogy to its other side: a small two-sided record turns over
+ * while one and two sink and rise in their places on that side.
+ */
+function SideSwitch({
+  side,
+  onFlip,
+  t,
+}: {
+  side: Side
+  onFlip: () => void
+  t: Translator
+}) {
+  const other: Side = side === "a" ? "b" : "a"
+  const action = t("works.trilogyFlip", {
+    side: other.toUpperCase(),
+    order: SIDES[other].join(", "),
+  })
+  return (
+    <button
+      type="button"
+      className="works-side"
+      data-side={side}
+      aria-label={action}
+      title={action}
+      onClick={onFlip}
+    >
+      <span className="works-side-disc" aria-hidden="true">
+        <span className="is-a">A</span>
+        <span className="is-b">B</span>
+      </span>
+      <span aria-hidden="true">
+        {t("works.trilogySide", { side: side.toUpperCase() })}
+      </span>
+    </button>
   )
 }
 
@@ -357,6 +512,7 @@ export function WorksApp() {
   const [section, setSection] = useState<Section>(sectionFromUrl)
   const [openId, setOpenId] = useState<string | null>(null)
   const [pointerTabs, setPointerTabs] = useState(false)
+  const trilogy = useTrilogySide()
   const [viewer, setViewer] = useState<{
     items: WorksCover[]
     index: number
@@ -443,46 +599,54 @@ export function WorksApp() {
           {featured.length ? (
             <div className="works-trio">
               <div className="works-trio-scene">
-                {figuresReady ? <FeaturedLandscape /> : null}
+                {figuresReady ? (
+                  <FeaturedLandscape side={trilogy.side} />
+                ) : null}
                 <ul
-                  className={`works-trio-stage${figuresReady ? " is-figures" : ""}`}
+                  className={`works-trio-stage is-side-${trilogy.side}${figuresReady ? " is-figures" : ""}${trilogy.flipping ? " is-flipping" : ""}`}
                   aria-label={t("works.featured")}
                 >
-                  {featured.map((release, index) => (
-                    <li
-                      key={release.id}
-                      className={`is-${index} is-${release.title}`}
-                      style={
-                        {
-                          "--tone": FEATURED_TONES[release.title],
-                          "--order": index,
-                        } as CSSProperties
-                      }
-                    >
-                      <button
-                        type="button"
-                        className="works-trio-item"
-                        aria-haspopup="dialog"
-                        aria-label={`${release.title} · ${fullDate(release.date, locale)}`}
-                        onClick={() => setOpenId(release.id)}
+                  {featured.map((release) => {
+                    const place = SIDES[trilogy.side].indexOf(release.title)
+                    return (
+                      <li
+                        key={release.id}
+                        className={`is-${place} is-${release.title}`}
+                        style={
+                          {
+                            "--tone": FEATURED_TONES[release.title],
+                            "--order": place,
+                          } as CSSProperties
+                        }
                       >
-                        {figuresReady ? (
-                          <FeaturedFigure release={release} t={t} />
-                        ) : (
-                          <Sleeve
-                            cover={frontCover(release)}
-                            disc={release.disc}
-                            t={t}
-                            sizes={WORKS_COVER_SIZES.trio}
-                            eager
-                            className="is-trio"
-                          />
-                        )}
-                      </button>
-                    </li>
-                  ))}
+                        <button
+                          type="button"
+                          className="works-trio-item"
+                          aria-haspopup="dialog"
+                          aria-label={`${release.title} · ${fullDate(release.date, locale)}`}
+                          onClick={() => setOpenId(release.id)}
+                        >
+                          {figuresReady ? (
+                            <FeaturedFigure release={release} t={t} />
+                          ) : (
+                            <Sleeve
+                              cover={frontCover(release)}
+                              disc={release.disc}
+                              t={t}
+                              sizes={WORKS_COVER_SIZES.trio}
+                              eager
+                              className="is-trio"
+                            />
+                          )}
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
+              {figuresReady ? (
+                <SideSwitch side={trilogy.side} onFlip={trilogy.flip} t={t} />
+              ) : null}
             </div>
           ) : null}
         </section>

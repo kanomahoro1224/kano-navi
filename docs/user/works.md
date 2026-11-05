@@ -4,7 +4,9 @@ The Works page collects Kano's discography from the first covers in 2010 to
 the latest releases. The top of the page shows the acoustic cover trilogy
 _one_, _two_ and _three_ as the girl from each cover on a small landscape of
 rolling hills, each before a disc in that album's colour; select a figure to
-open the album. A note there says the sections do not strictly
+open the album. Like a record, the scene has two sides: side A leads with
+_two_, and side B keeps album order. The small record below the scene flips
+it, and the page remembers the side on that device. A note there says the sections do not strictly
 follow who holds each work's rights and that, with this many works, some
 details may be wrong, and welcomes corrections and feedback on GitHub, and
 **Official discography** opens the official site's list. Pick a section with

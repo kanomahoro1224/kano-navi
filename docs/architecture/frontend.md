@@ -41,7 +41,8 @@ art of the design of the newest article shown; see
 page keeps its section in the `?view=` query, replacing the current entry
 when a visitor switches sections; the personal works build with the page,
 and the participation and upload sections are their own chunks that load
-the first time they show, with a retry on failure. A release opens in a
+the first time they show, with a retry on failure. The side the trilogy
+scene shows is kept in `localStorage` (`kano-works-trilogy-side`). A release opens in a
 native modal sheet (`works-sheet.tsx`), and covers open in the shared image
 viewer above it. Covers load from `/media/works/<name>`; see
 [Works collection maintenance](../development/works-archive.md). The five

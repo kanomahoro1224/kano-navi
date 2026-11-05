@@ -24,7 +24,11 @@ introduce a separate token system for a single page.
   figures cut from the acoustic cover trilogy's covers in a small landscape:
   each album's grooved disc sinks behind two far ridges like a setting sun,
   and the figures stand and sit on curved grassy ground with flowers in the
-  three albums' colours, the land fading out at its edges. It falls back to
+  three albums' colours, the land fading out at its edges. The scene has two
+  sides, two leading on side A and album order on side B; a small two-sided
+  record under it turns over to flip them while one and two sink and rise in
+  their new places and the ground and flowers morph between the sides'
+  curves, and this device remembers the side. It falls back to
   the trilogy's sleeves when a cutout is missing. A cover shelf of Kano's own releases by year opens
   a sheet for each release: a header with the sleeve over a blurred wash of
   the cover, then the tracklist, with a round photo beside each disc that has

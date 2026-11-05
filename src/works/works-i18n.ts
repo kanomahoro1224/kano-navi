@@ -6,6 +6,8 @@ const plural =
 export const worksMessages = {
   "zh-CN": {
     "works.featured": "原声翻唱三部曲",
+    "works.trilogySide": "{side} 面",
+    "works.trilogyFlip": "翻到 {side} 面：{order}",
     "works.metaTitle": "作品 · 鹿乃在做什么",
     "works.metaDescription":
       "鹿乃的个人作品、参与作品与投稿作品：发行日、版本、曲目与出处。",
@@ -134,6 +136,8 @@ export const worksMessages = {
   },
   ja: {
     "works.featured": "アコースティックカバー三部作",
+    "works.trilogySide": "{side}面",
+    "works.trilogyFlip": "{side}面に裏返す：{order}",
     "works.metaTitle": "作品 · 鹿乃ちゃん何してるか",
     "works.metaDescription":
       "鹿乃の個人作品、参加作品、投稿作品。発売日、形態、収録曲と出典。",
@@ -262,6 +266,8 @@ export const worksMessages = {
   },
   en: {
     "works.featured": "Acoustic cover trilogy",
+    "works.trilogySide": "Side {side}",
+    "works.trilogyFlip": "Flip to side {side}: {order}",
     "works.metaTitle": "Works · What’s Kano Up To?",
     "works.metaDescription":
       "Kano's own releases, the works she sang or wrote for, and her video uploads, with editions, tracklists and sources.",

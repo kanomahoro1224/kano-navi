@@ -376,6 +376,137 @@ body:has(.site.works) {
   --lift: 3;
 }
 
+/* Side B keeps album order: one stands at the left, two sits in front. */
+.works-trio-stage.is-figures.is-side-b > .is-one {
+  left: 0;
+  bottom: 12.2%;
+  --sun-size: 112%;
+  --sun-top: 14%;
+  --sun-shift: 0%;
+}
+
+.works-trio-stage.is-figures.is-side-b > .is-two {
+  left: 25%;
+  bottom: 6.5%;
+  --figure-shift: 0%;
+}
+
+/*
+ * Flipping sides: one and two sink into the ground with their discs, the
+ * ground and its flowers shift, and the two rise in their new places.
+ * The disc, figure and label each fade on their own layer, so the discs stay
+ * behind the hills and the figures in front throughout; the fade and the
+ * sink use filter and offsets, which the entrance animation leaves free.
+ */
+.works-trio-stage.is-flipping > :is(.is-one, .is-two) .works-figure-sun {
+  margin-top: 22px;
+  filter: opacity(0);
+}
+
+.works-trio-stage.is-flipping > :is(.is-one, .is-two) .works-figure img {
+  top: 22px;
+  filter: drop-shadow(0 12px 14px rgb(0 0 0 / 0.16)) opacity(0);
+}
+
+.works-trio-stage.is-flipping > :is(.is-one, .is-two) .works-figure-label {
+  opacity: 0;
+  translate: 0 22px;
+}
+
+.works-trio-stage.is-flipping
+  > :is(.is-one, .is-two)
+  :is(.works-figure-sun, .works-figure img, .works-figure-label) {
+  transition-duration: 260ms;
+  transition-delay: 0ms;
+  transition-timing-function: ease-in;
+}
+
+.works-landscape :is(.is-near, .is-crest, .is-grass) {
+  transition: d 760ms var(--works-ease);
+}
+
+.works-landscape .is-flower circle {
+  transition:
+    cx 760ms var(--works-ease),
+    cy 760ms var(--works-ease),
+    fill 760ms ease;
+}
+
+/* A small two-sided record under the scene, its label showing the side. */
+.works-side {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  gap: 9px;
+  margin-top: -14px;
+  padding: 4px 6px 4px 4px;
+  border-radius: 999px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 200ms ease;
+}
+
+.works-side:hover {
+  color: var(--ink);
+}
+
+.works-side:focus-visible {
+  outline: 2px solid var(--works-clay);
+  outline-offset: 2px;
+}
+
+.works-side-disc {
+  position: relative;
+  display: block;
+  width: 28px;
+  height: 28px;
+  perspective: 120px;
+  transform-style: preserve-3d;
+  transition: transform 760ms var(--works-ease);
+}
+
+.works-side[data-side="b"] .works-side-disc {
+  transform: rotateY(180deg);
+}
+
+.works-side:hover .works-side-disc > span {
+  scale: 1.06;
+}
+
+/* Each face is a grooved record with a clay label naming its side. */
+.works-side-disc > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--works-clay) 0 34%, transparent 35% 100%),
+    repeating-radial-gradient(
+      circle,
+      transparent 0 2px,
+      rgb(255 255 255 / 0.12) 2px 2.6px
+    ),
+    #2b2522;
+  color: #f6edd7;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  box-shadow:
+    0 1px 3px rgb(0 0 0 / 0.22),
+    inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  backface-visibility: hidden;
+  transition: scale 200ms ease;
+}
+
+.works-side-disc > .is-b {
+  transform: rotateY(180deg);
+}
+
 @keyframes works-figure-in {
   from {
     opacity: 0;
@@ -417,7 +548,9 @@ body:has(.site.works) {
   translate: -50% 0;
   transition:
     transform 900ms var(--works-ease),
-    opacity 300ms ease;
+    opacity 300ms ease,
+    filter 520ms 160ms ease,
+    margin-top 760ms 160ms var(--works-ease);
   animation: works-sun-in 1100ms var(--works-ease) both;
   animation-delay: calc(var(--order) * 140ms);
 }
@@ -428,9 +561,13 @@ body:has(.site.works) {
   z-index: var(--lift);
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 12px 14px rgb(0 0 0 / 0.16));
+  top: 0;
+  filter: drop-shadow(0 12px 14px rgb(0 0 0 / 0.16)) opacity(1);
   transform-origin: 50% 100%;
-  transition: transform 500ms var(--works-ease);
+  transition:
+    transform 500ms var(--works-ease),
+    filter 520ms 160ms ease,
+    top 760ms 160ms var(--works-ease);
   animation: works-figure-in 900ms var(--works-ease) both;
   animation-delay: calc(120ms + var(--order) * 140ms);
 }
@@ -463,7 +600,10 @@ body:has(.site.works) {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: color 200ms ease;
+  transition:
+    color 200ms ease,
+    opacity 520ms 160ms ease,
+    translate 760ms 160ms var(--works-ease);
 }
 
 .works-figure-label b {
@@ -484,7 +624,10 @@ body:has(.site.works) {
 
 @media (prefers-reduced-motion: reduce) {
   .works-figure img,
-  .works-figure-sun {
+  .works-figure-sun,
+  .works-figure-label,
+  .works-landscape *,
+  .works-side-disc {
     animation: none;
     transition: none;
   }

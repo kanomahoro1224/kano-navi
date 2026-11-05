@@ -29,6 +29,9 @@ const (
 	// model labels: recent ones and announcements up to three months ahead.
 	eventTagPastDays   = 30
 	eventTagFutureDays = 90
+	// tagRetryAfter is how long a title every model failed on waits before
+	// it is asked again, so it costs one attempt a day rather than one a run.
+	tagRetryAfter = 24 * time.Hour
 )
 
 // NewTranslator shares the extractor's options. Its scan limit and lookback
@@ -175,7 +178,8 @@ func (t *Translator) inferTags(ctx context.Context) (events, videos map[string]a
 	now := e.now().In(jst)
 	from := now.AddDate(0, 0, -eventTagPastDays).Format("2006-01-02")
 	to := now.AddDate(0, 0, eventTagFutureDays).Format("2006-01-02")
-	entries, err := e.store.ListEventTagCandidates(ctx, from, to, limit)
+	retryBefore := e.now().Add(-tagRetryAfter)
+	entries, err := e.store.ListEventTagCandidates(ctx, from, to, retryBefore, limit)
 	if err != nil {
 		return events, nil, err
 	}
@@ -196,7 +200,7 @@ func (t *Translator) inferTags(ctx context.Context) (events, videos map[string]a
 	if limit -= len(entries); limit < 1 {
 		return events, videos, nil
 	}
-	uploads, err := e.store.ListVideoTagCandidates(ctx, from, limit)
+	uploads, err := e.store.ListVideoTagCandidates(ctx, from, retryBefore, limit)
 	if err != nil {
 		return events, videos, err
 	}

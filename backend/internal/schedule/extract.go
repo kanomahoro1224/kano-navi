@@ -569,7 +569,8 @@ func (e *Extractor) attemptExtraction(ctx context.Context, item post, images []c
 	if err != nil {
 		return "", err
 	}
-	normalized, err := normalizeExtractionResult(result, item.id, item.url, e.now())
+	published, _ := parseInstant(item.publishedAt)
+	normalized, err := normalizeExtractionResult(result, item.id, item.url, published, e.now())
 	if err != nil {
 		return "", err
 	}

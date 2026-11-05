@@ -28,6 +28,8 @@ const frontendJobs: Job[] = ["frontend", "docker"]
 // Frontend. An unlisted script selects every job.
 export const scriptJobs: Record<string, Job[]> = {
   "check-doc-links.ts": ["frontend"],
+  // Style and Frontend run it before their Node checks.
+  "check-node.ts": ["frontend"],
   "check-sensitive.ts": ["frontend"],
   "check-sensitive.test.ts": ["frontend"],
   "ci-plan.test.ts": ["frontend"],

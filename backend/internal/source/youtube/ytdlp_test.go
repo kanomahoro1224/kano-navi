@@ -33,7 +33,9 @@ func TestYTDLPListUploadsParsesFlatPlaylist(t *testing.T) {
 
 func TestYTDLPInspectKeepsRawObjectPrivateToCaller(t *testing.T) {
 	y := NewYTDLP("synthetic-yt-dlp")
-	y.runFunc = func(_ context.Context, _ []string, _ ...string) ([]byte, []byte, error) {
+	var args []string
+	y.runFunc = func(_ context.Context, _ []string, got ...string) ([]byte, []byte, error) {
+		args = got
 		return []byte(`{"id":"CCCCCCCCCCC","title":"full info","timestamp":1793361600,"duration":61,"description":"private source text","webpage_url":"https://www.youtube.com/watch?v=CCCCCCCCCCC"}`), nil, nil
 	}
 	video, raw, err := y.Inspect(context.Background(), "https://www.youtube.com/watch?v=CCCCCCCCCCC")
@@ -42,6 +44,13 @@ func TestYTDLPInspectKeepsRawObjectPrivateToCaller(t *testing.T) {
 	}
 	if video.DurationSeconds != 61 || video.Title != "full info" {
 		t.Fatalf("video=%+v", video)
+	}
+	// The target follows "--", so one that looks like an option stays a target.
+	if _, _, err = y.Inspect(context.Background(), "--exec=synthetic"); err != nil {
+		t.Fatal(err)
+	}
+	if len(args) < 2 || args[len(args)-2] != "--" || args[len(args)-1] != "--exec=synthetic" {
+		t.Fatalf("args=%v", args)
 	}
 }
 

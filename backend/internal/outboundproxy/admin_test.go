@@ -105,6 +105,28 @@ func TestSavedPasswordIsSealedWriteOnlyAndKept(t *testing.T) {
 	if err != nil || reloaded.Proxies[0].Password != "synthetic-pass" {
 		t.Fatalf("reloaded=%+v err=%v", reloaded, err)
 	}
+
+	// The saved password never follows the proxy to another address.
+	for _, moved := range []string{
+		`"scheme":"socks5","host":"other.example.test","port":1080`,
+		`"scheme":"socks5","host":"proxy.example.test","port":1081`,
+		`"scheme":"http","host":"proxy.example.test","port":1080`,
+	} {
+		w, _ = call(t, admin, http.MethodPut, "/proxy", `{"proxies":[{"id":"`+id+`","name":"Tokyo 2",`+moved+`,"username":"user","enabled":true}]}`)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("%s: status=%d body=%s", moved, w.Code, w.Body)
+		}
+	}
+	if config, err = pool.Config(context.Background()); err != nil || config.Proxies[0].Host != "proxy.example.test" {
+		t.Fatalf("a refused move changed the config: %+v err=%v", config, err)
+	}
+	w, _ = call(t, admin, http.MethodPut, "/proxy", `{"proxies":[{"id":"`+id+`","name":"Tokyo 2","scheme":"socks5","host":"other.example.test","port":1080,"username":"user","password":"other-pass","enabled":true}]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body)
+	}
+	if config, err = pool.Config(context.Background()); err != nil || config.Proxies[0].Password != "other-pass" {
+		t.Fatalf("config=%+v err=%v", config, err)
+	}
 }
 
 func TestChangedSecretsKeyMarksThePasswordUnreadable(t *testing.T) {

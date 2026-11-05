@@ -187,7 +187,13 @@ entry, and `title` for the title inference. Precedence is manual > `llm` >
 replaced by a form label:
 
 - An operator's value belongs to the locked row, so nothing automatic replaces
-  it, and clearing the label keeps the row manual. A save that sends the
+  it. Clearing a stored label is the operator's decision too: it stores
+  `tag_source = manual` without a tag, so the entry shows no label and its
+  videos are not sent to the title inference. Saving the label as automatic
+  (`auto`) clears `tag`, `tag_source` and `tag_attempted_at`: the row stays
+  locked, so the extraction and the entry's own title inference leave it
+  alone, but it reads on to its videos' tags and no longer holds them back
+  from the title inference. A save that sends the
   stored label back unchanged keeps its `tag_source`, so an unrelated edit or
   a cancellation decision does not make an automatic label the operator's.
 - The extraction prompt returns a label only when the post or image states the
@@ -202,9 +208,11 @@ replaced by a form label:
   A judgement without a label, including an answer outside the five codes,
   is stored as `tag_source = title` with no tag and is not asked again. A
   title every model fails on stays unjudged and only receives
-  `tag_attempted_at`; candidates never attempted come first, then the least
-  recently attempted, so a failing title cannot hold the head of the queue
-  and a provider outage judges nothing. An entry that a labelled notice is
+  `tag_attempted_at`; it is offered again only once that attempt is a day
+  old, so it costs at most one attempt a day rather than one a run.
+  Candidates never attempted come first, then the least recently attempted,
+  so a failing title cannot hold the head of the queue and a provider outage
+  judges nothing. An entry that a labelled notice is
   merged into is not sent.
 - A creator's rename, written by the YouTube sync, clears a `title`
   judgement that found no content (no label or a form label), so the new
@@ -250,7 +258,9 @@ Creating, editing, or confirming an event through `/admin` changes it to
 `provenance = manual` and sets `manual_locked = 1`. Automatic upserts include a
 database-level lock condition and cannot replace those rows. Manual deletion is
 a soft-delete tombstone with the same lock, so synchronization cannot resurrect
-it. Manual operators can mark an event `manual_confirmed` with a required reason;
+it. An automatic retirement stays unlocked: new X evidence, a YouTube
+reservation, or the reconciler's event for an ended broadcast of the same
+event restores it. Manual operators can mark an event `manual_confirmed` with a required reason;
 that decision is separate from the LLM overlay and is what the public dashboard
 uses as a definitive cancellation. Editing or confirming an event that carries
 an `llm_suspected` overlay keeps the overlay and its evidence unless the
@@ -506,7 +516,8 @@ reservation refresh, keep the merge. `merge_source` names the owner:
   releases a merge whose target was deleted, merged or moved to another
   date, or whose event became manual or locked or now holds another owner's
   merge. An event holding another owner's merge is never merged away, so no
-  merge points at a merged event. Deleting an event releases the rule merges
+  merge points at a merged event. Deleting an event, or retiring it
+  automatically when its last source evidence goes, releases the rule merges
   into it in the same transaction, so a duplicate older than the
   reconciler's window is shown again.
 - `manual`: an operator decision (`merge_reason` `manual`), which the rules
@@ -568,7 +579,8 @@ snapshots without rewriting events.
 Synchronization owns a video's platform fields (`title`, `kind`,
 `thumbnail_url` and its media link) and keeps rewriting them on every
 successful page read. An operator correction lives beside them in
-`manual_title`, `manual_kind`, `manual_tag`, `manual_is_short` and
+`manual_title`, `manual_kind`, `manual_tag`, `manual_is_short`,
+`manual_availability` and
 `manual_thumbnail_media_id` / `manual_thumbnail_sha256` with
 `manual_updated_at`; synchronization never
 writes these columns, and clearing one shows the platform value again. Every
@@ -611,6 +623,14 @@ a premiere (a `release` event), 0 for live content, `NULL` while no check
 could tell, which is also what the upgrade gives existing rows (see
 [Sources](sources.md#youtube)). It is never derived from the kind; the kind
 follows it.
+`availability` is who can watch a YouTube video: `public`, `unlisted`,
+`members`, `private` or `removed`, `NULL` until a check could tell, which is
+also what existing rows and Bilibili uploads keep (see
+[Video availability](sources.md#video-availability)). A check that cannot
+tell keeps the stored value. `manual_availability` is the operator's
+correction with the same values and `NULL` for none; synchronization never
+writes it. Public readers add
+`availability = COALESCE(manual_availability, availability)`.
 Startup adds the columns, both tables and `video_revisions_video_idx` to
 existing snapshots without rewriting videos or media rows.
 
@@ -662,12 +682,14 @@ YouTube videos (not merged into another) without a manual tag or judgement,
 whose entries, if any, carry neither a content label, a title judgement nor
 an operator's label, are not merged into such an entry, and are not
 automatic reservations still within the entry inference window. An
-operator's row without a label reads on to the video's tag, so it does not
-hold the video back. Only `game`, `talk` or `song` is stored; another
+operator's row that never had a label (`tag_source` empty) reads on to the
+video's tag, so it does not hold the video back; a cleared label
+(`tag_source = manual`) does. Only `game`, `talk` or `song` is stored; another
 answer or none is stored as `tag_source = title` without a tag and is not
-asked again until a creator's rename clears that judgement (a stored tag, or
-an operator's `manual_title`, keeps it); a failure only stamps
-`tag_attempted_at`. Videos
+asked again until a creator's rename clears that judgement, whether the
+recent synchronization or a history page sees the new title first (a stored
+tag, or an operator's `manual_title`, keeps it); a failure only stamps
+`tag_attempted_at` and waits a day, as an entry does. Videos
 never attempted come first, then the least recently attempted, each newest
 first. Storing a tag advances the dashboard revision; a judgement without
 one or a failed attempt does not.

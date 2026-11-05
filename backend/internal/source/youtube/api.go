@@ -99,6 +99,11 @@ type apiVideo struct {
 	ContentDetails struct {
 		Duration string `json:"duration"`
 	} `json:"contentDetails"`
+	// Status.PrivacyStatus is public, unlisted or private; a key sees no
+	// private video, so in practice one of the first two.
+	Status struct {
+		PrivacyStatus string `json:"privacyStatus"`
+	} `json:"status"`
 	Live *struct {
 		ScheduledStart string `json:"scheduledStartTime"`
 		ActualStart    string `json:"actualStartTime"`
@@ -221,6 +226,22 @@ const (
 	listedVideos
 )
 
+// apiAvailability reads who can watch a video from its privacyStatus. The API
+// cannot tell a members-only video from a public one, so a stored members
+// verdict, which only a watch page gives, stays.
+func apiAvailability(privacy, stored string) string {
+	switch privacy {
+	case AvailabilityPublic, AvailabilityUnlisted:
+		if stored == AvailabilityMembers {
+			return stored
+		}
+		return privacy
+	case AvailabilityPrivate:
+		return privacy
+	}
+	return ""
+}
+
 // needsListing reports whether an answer is for an ended broadcast whose
 // verdict the per-format playlists could settle. A stored premiere verdict is
 // final, so only an unknown or a stream verdict is looked up.
@@ -246,6 +267,7 @@ func fromAPI(item apiVideo, old Video, listed formatList) (Video, bool) {
 	if v.Title == "" {
 		return v, false
 	}
+	v.Availability = apiAvailability(item.Status.PrivacyStatus, old.Availability)
 	v.ThumbnailURL = item.Snippet.Thumbnails.best()
 	// The API names a thumbnail without the watch page's ?v= version, so the
 	// same image keeps its stored URL rather than reading as a replacement.

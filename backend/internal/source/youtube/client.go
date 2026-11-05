@@ -238,7 +238,7 @@ func (c *Client) Videos(ctx context.Context, key string, ids []string) ([]byte, 
 			return nil, &Error{"youtube_invalid_video"}
 		}
 	}
-	query := url.Values{"part": {"snippet,contentDetails,liveStreamingDetails,localizations"}, "id": {strings.Join(ids, ",")}, "maxResults": {"50"}}
+	query := url.Values{"part": {"snippet,contentDetails,liveStreamingDetails,localizations,status"}, "id": {strings.Join(ids, ",")}, "maxResults": {"50"}}
 	return c.api(ctx, "videos", query, key)
 }
 func (c *Client) api(ctx context.Context, resource string, query url.Values, key string) ([]byte, error) {

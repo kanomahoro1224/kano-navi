@@ -4,6 +4,7 @@ import {
   ArrowUp,
   Bot,
   Check,
+  ExternalLink,
   Globe,
   GripVertical,
   KeyRound,
@@ -24,7 +25,7 @@ import {
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
-import { formatRelative } from "@/admin/format"
+import { formatRelative, japanStamp } from "@/admin/format"
 import { createLatestWins } from "@/admin/latest-wins"
 import {
   describeTarget,
@@ -1201,6 +1202,93 @@ function ProviderList({
   )
 }
 
+const failureRoutes: Record<QueueRoute, string> = {
+  schedule: "admin.llm.queue.schedule",
+  verify: "admin.llm.queue.verify",
+  translate: "admin.llm.failures.translate",
+}
+
+const failureSubjects = {
+  post: "admin.llm.failures.post",
+  image: "admin.llm.failures.image",
+  video: "admin.llm.failures.video",
+} as const
+
+/**
+ * The newest stored model failures of every queue, so a failed call can be
+ * read without the database. The list loads with the view and on demand.
+ */
+function RecentFailures({ providers }: { providers: Provider[] | undefined }) {
+  const { t, locale } = useAppSettings()
+  const { api } = useAdmin()
+  const failures = useResource(() => api.llmFailures(), [])
+  const providerName = (id: string | null) =>
+    id ? providers?.find((provider) => provider.id === id)?.name || id : null
+  const items = failures.data?.items
+  return (
+    <Panel
+      icon={TriangleAlert}
+      title={t("admin.llm.failures.title")}
+      description={t("admin.llm.failures.hint")}
+      actions={
+        <IconButton
+          icon={RefreshCw}
+          label={t("admin.llm.failures.reload")}
+          busy={failures.loading}
+          onClick={() => void failures.reload()}
+        />
+      }
+    >
+      {!items ? (
+        <Loading />
+      ) : items.length ? (
+        <ul className="adm-failure-list">
+          {items.map((failure) => {
+            const RouteIcon = routeIcons[failure.route] || Route
+            const provider = providerName(failure.providerId)
+            const subject = `${t(failureSubjects[failure.subject])} ${failure.subjectId}`
+            return (
+              <li
+                key={`${failure.route}:${failure.subject}:${failure.subjectId}:${failure.at}`}
+              >
+                <div className="adm-failure-head">
+                  <Badge tone="danger" icon={RouteIcon}>
+                    {t(failureRoutes[failure.route])}
+                  </Badge>
+                  <time dateTime={failure.at} title={japanStamp(failure.at)}>
+                    {formatRelative(failure.at, locale)}
+                  </time>
+                </div>
+                <p className="adm-error-text">{failure.message}</p>
+                <small className="adm-failure-meta">
+                  {failure.url ? (
+                    <a href={failure.url} target="_blank" rel="noreferrer">
+                      {subject}
+                      <ExternalLink aria-hidden />
+                    </a>
+                  ) : (
+                    <span>{subject}</span>
+                  )}
+                  {failure.model ? (
+                    <span>
+                      {provider ? `${provider} · ` : ""}
+                      {failure.model}
+                    </span>
+                  ) : null}
+                </small>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <Empty icon={Check} title={t("admin.llm.failures.none")}>
+          {t("admin.llm.failures.noneHint")}
+        </Empty>
+      )}
+    </Panel>
+  )
+}
+
 export function LlmView({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
@@ -1292,6 +1380,7 @@ export function LlmView({ tab, navigate }: ViewProps) {
           </div>
         )}
       </Panel>
+      <RecentFailures providers={data?.providers} />
       <SyncSettingsPanel group="llm" level={2} />
       <Panel
         icon={Bot}

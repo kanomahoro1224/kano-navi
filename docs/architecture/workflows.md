@@ -199,7 +199,10 @@ share the X status requests per run across accounts as a page budget, including 
 requests: each account gets an even share of what is left, and the first
 account rotates across runs per mode (`sync_state` source `x-budget`, key
 `window-<mode>`), so a small budget still reaches every account. An account
-left without budget reports `X request budget exhausted`.
+left without budget reports `X request budget exhausted`. A `before` fetch
+skips an account with no stored posts. The step fails (`X fetch failed for
+every account`) when no account's fetch answered, so skipped accounts never
+turn a failure of every attempted account into a partial result.
 
 Each successful page and its continuation checkpoint commit in one
 transaction with the page's posts or videos and schedule candidates. The
@@ -209,8 +212,14 @@ checkpoint is a `sync_state` row keyed by account and a hash of the selection
 `youtube-window` for playlist page tokens. The RSS method reads one request and
 keeps no checkpoint. Repeating an interrupted fetch resumes its next page; a
 completed one starts again at the newest page. When a resumed cursor or token
-fails, the fetch starts again from the newest page, in the same run if the
-budget allows. `before` runs finish a pending interval (`pendingWindow`) before
+fails before any page of the fetch is committed, the fetch starts again from
+the newest page, in the same run if the budget allows. A continuation the
+source rejects is cleared from its checkpoint at once, so the next fetch
+begins at the newest page even when this one had no page left: any failed
+timeline cursor, an X API `next_token` answered with HTTP 400, and a
+playlist token answered with an HTTP error or rejected as malformed. Other
+API answers, such as rate limits, quota and outages, keep the stored
+continuation. `before` runs finish a pending interval (`pendingWindow`) before
 moving farther back, using `x-backfill` search boundaries. A completed empty
 interval also moves this boundary backward, preventing an endless retry over
 the same empty month. Failures retain all records and the last successful
@@ -438,12 +447,15 @@ those the API could not settle (see
 due waits for the next tick. Requests are recorded per video in `sync_state`
 (source `youtube-live`), answered or not, so a video that keeps failing is
 asked again on its phase's schedule rather than on every tick; entries older
-than two days are dropped. Runs are recorded in `sync_runs` and
+than two days are dropped. A private or removed video, and any video an
+operator stops, leaves the active set instead (see
+[Stopped videos](sources.md#stopped-videos)). Runs are recorded in `sync_runs` and
 `/api/admin/runs` with `active`, `candidates` (the due videos), `requested`
 (watch pages), `apiRequests` (Data API calls), `inspected`, `live`,
-`changed` and fixed error codes; a run that answered none of its videos is
-`failed`, one with any recorded failure (an API call that failed but whose
-pages answered, for example) `partial`.
+`changed`, `unavailable` (when a video was stopped as private or removed) and
+fixed error codes; a run that recorded an error and answered none of its
+videos is `failed`, one with any recorded failure (an API call that failed but
+whose pages answered, for example) `partial`.
 
 The probe may run more often than a source schedule (15 minutes) because one
 run asks about at most five videos and runs only while something is due.
@@ -492,14 +504,19 @@ and never counts as successful work.
 an owner, a generation and an expiry two minutes ahead; a heartbeat renews
 it every 40 seconds. Every step, attempt and run write, and every source
 transaction, checks owner, generation and expiry in the same transaction,
-so a worker that lost its lease cannot commit, and a failed renewal cancels
-its outbound requests. A partial unique index allows at most one `queued` or
-`running` run, so a second start answers `409` with `busy` and the active
-run. A dispatched run has at most 20 minutes.
+so a worker that lost its lease cannot commit. A renewal that finds the
+lease lost cancels the run's outbound requests; a renewal that fails to write,
+such as on a busy database, is left to the next one, and the renewal after an
+expiry finds the lease lost. A partial unique index allows at most one
+`queued` or `running` run, so a second start answers `409` with `busy` and the
+active run. A dispatched run has at most 20 minutes. A run stopped by that
+limit, or by a lost lease, finishes `failed` with `timeout` or
+`lease_expired` and its stopped step is retryable; only an operator's
+cancellation or a shutdown finishes it `cancelled`.
 
 **Retry.** A step error carries a category. `timeout`, `rate_limited` and
 `dependency_unavailable` are retryable and get one more attempt in the same
-run; `permanent`, `schema_failure`, `validation_failure`, `cancelled` and
+run, five seconds later; `permanent`, `schema_failure`, `validation_failure`, `cancelled` and
 `blocked` are not. The final failure of `x`, `youtube`, `bilibili` or
 `translate` is recorded with its code and the run continues, finishing
 `partial`, or `failed` when no step completed; a source step that carries a

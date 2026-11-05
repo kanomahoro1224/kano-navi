@@ -106,6 +106,35 @@ func TestDashboardLatestVideoSkipsShortsUnlessFeatured(t *testing.T) {
 	}
 }
 
+// The latest video is one visitors can still watch: a private or removed
+// upload is passed over, while one not yet checked stays eligible.
+func TestDashboardLatestVideoSkipsVideosNoLongerWatchable(t *testing.T) {
+	handler := dashboardHandler(t, func(path string) {
+		testutil.Exec(t, path, `INSERT INTO videos (id,source,title,published_at,url,kind,is_upcoming,is_short,availability) VALUES
+		 ('private','youtube','Private','2026-10-12T00:00:00.000Z','https://www.youtube.com/watch?v=private','upload',0,0,'private'),
+		 ('removed','youtube','Removed','2026-10-11T00:00:00.000Z','https://www.youtube.com/watch?v=removed','upload',0,0,'removed'),
+		 ('unchecked','youtube','Unchecked','2026-10-10T00:00:00.000Z','https://www.youtube.com/watch?v=unchecked','upload',0,0,NULL),
+		 ('members','youtube','Members','2026-10-09T00:00:00.000Z','https://www.youtube.com/watch?v=members','upload',0,0,'members');`)
+	})
+	status, _, payload, body := dashboardPayload(t, handler, "/api/dashboard")
+	if status != http.StatusOK {
+		t.Fatalf("status=%d body=%s", status, body)
+	}
+	video, _ := payload["summary"].(map[string]any)["latestVideo"].(map[string]any)
+	if video["id"] != "unchecked" || video["availability"] != nil {
+		t.Fatalf("latest=%v", video)
+	}
+	// Every video still lists, with who can watch it.
+	got := map[any]any{}
+	for _, item := range payload["videos"].([]any) {
+		v := item.(map[string]any)
+		got[v["id"]] = v["availability"]
+	}
+	if got["private"] != "private" || got["removed"] != "removed" || got["members"] != "members" {
+		t.Fatalf("videos=%v", got)
+	}
+}
+
 func TestDashboardPublicProjectionAndBoundedSemantics(t *testing.T) {
 	handler := dashboardHandler(t, func(path string) {
 		testutil.Exec(t, path, `
@@ -120,9 +149,9 @@ func TestDashboardPublicProjectionAndBoundedSemantics(t *testing.T) {
 		INSERT INTO events (id,source,title,starts_on,starts_at,timezone,time_precision,status,event_type,provenance,manual_locked,cancellation_status,cancellation_evidence,created_at,updated_at) VALUES ('suspected','x','Suspected','2026-10-11','2026-10-11T12:00:00+09:00','Asia/Tokyo','exact','cancelled','event','automatic',0,'llm_suspected','evidence','','');
 		INSERT INTO events (id,source,title,starts_on,starts_at,timezone,time_precision,status,event_type,provenance,manual_locked,cancellation_status,created_at,updated_at) VALUES ('offset-z','x','Offset Z','2026-10-11','2026-10-10T23:00:00Z','Asia/Tokyo','exact','scheduled','event','automatic',0,'none','','');
 		INSERT INTO events (id,source,title,starts_on,starts_at,timezone,time_precision,status,event_type,provenance,manual_locked,cancellation_status,created_at,updated_at) VALUES ('date-only','x','Date only','2026-10-13',NULL,'Asia/Tokyo','date','scheduled','event','automatic',0,'none','','');
-		INSERT INTO media_assets (id,source,source_url,status) VALUES ('pending-media','x','https://example.com/post.png','pending');
-		INSERT INTO media_assets (id,source,source_url,status) VALUES ('pending-thumb','youtube','https://example.com/thumb.png','pending');
-		INSERT INTO profile_media (id,slot,source,source_url,status,is_active) VALUES ('avatar-candidate','avatar','x','https://example.com/avatar.png','pending',1);
+		INSERT INTO media_assets (id,source,source_url,status,created_at,updated_at) VALUES ('pending-media','x','https://example.com/post.png','pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z');
+		INSERT INTO media_assets (id,source,source_url,status,created_at,updated_at) VALUES ('pending-thumb','youtube','https://example.com/thumb.png','pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z');
+		INSERT INTO profile_media (id,slot,source,source_url,status,is_active,created_at,updated_at) VALUES ('avatar-candidate','avatar','x','https://example.com/avatar.png','pending',1,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z');
 		INSERT INTO assets (id,kind,url,source_url,alt,week_start,period_start,period_end,period_basis,source_account,updated_at) VALUES ('schedule-1','schedule','https://example.com/schedule.png','https://example.com/post/1','schedule','2026-10-05','2026-10-05','2026-10-11','explicit','kano_2525','2026-10-10T00:00:00.000Z');
 		INSERT INTO schedule_asset_reviews (asset_id,llm_status,manual_status,updated_at) VALUES ('schedule-1','pending','schedule','');
 		INSERT INTO assets (id,kind,url,source_url,alt,week_start,period_start,period_end,period_basis,source_account,updated_at) VALUES ('schedule-2','schedule','https://example.com/other.png','https://x.com/kano_2525/status/1','other','2026-10-05','2026-10-05','2026-10-11','explicit','kano_2525','2026-10-10T00:00:00.000Z');

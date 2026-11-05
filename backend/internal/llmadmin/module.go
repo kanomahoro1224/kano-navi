@@ -135,6 +135,7 @@ func (m *Module) AdminRoutes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/extraction", Handler: m.guard(m.getExtraction)},
 		{Method: http.MethodPut, Path: "/extraction", Handler: m.guard(m.putExtraction)},
 		{Method: http.MethodGet, Path: "/llm", Handler: m.guard(m.getLLM)},
+		{Method: http.MethodGet, Path: "/llm/failures", Handler: m.guard(m.getFailures)},
 		{Method: http.MethodPost, Path: "/llm/providers", Handler: m.guard(m.postProvider)},
 		{Method: http.MethodPut, Path: "/llm/providers/{id}", Handler: m.guard(id(m.putProvider))},
 		{Method: http.MethodDelete, Path: "/llm/providers/{id}", Handler: m.guard(id(m.deleteProvider))},

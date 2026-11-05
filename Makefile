@@ -18,7 +18,7 @@ RACE_RUN ?=
 APP_VERSION = $(shell $(NODE) -p "require('./package.json').version")
 GO_LDFLAGS = -X github.com/yexca/kano-navi/backend/internal/buildinfo.Version=$(APP_VERSION)
 
-.PHONY: help install dev dev-client dev-server build preview start seed sync go-check go-format-check go-test
+.PHONY: help node-check install dev dev-client dev-server build preview start seed sync go-check go-format-check go-test
 .PHONY: go-build go-start go-docker-build go-lint go-vet go-race actionlint
 .PHONY: backend-race-shard backend-race-durations go-test-shard-test
 .PHONY: format format-check typecheck docs-check check-docs sensitive-check check-sensitive privacy-check test-sensitive test-frontend
@@ -29,7 +29,12 @@ GO_LDFLAGS = -X github.com/yexca/kano-navi/backend/internal/buildinfo.Version=$(
 help:
 	@$(NODE) scripts/make-help.ts
 
-install:
+# The Node version package.json requires; every Node-based target below
+# depends on it through install or the ci-* targets.
+node-check:
+	@$(NODE) scripts/check-node.ts
+
+install: node-check
 	$(NPM) ci
 
 dev:
@@ -165,10 +170,10 @@ production-smoke:
 
 # Fast local feedback for ordinary edits. It uses the installed toolchain and
 # never installs dependencies, runs tests, starts Docker, or contacts sources.
-ci-fast: format-check go-format-check docs-check sensitive-check
+ci-fast: node-check format-check go-format-check docs-check sensitive-check
 
 # Narrow checks use the existing locked installation and never fetch source data.
-ci-style: format-check go-format-check docs-check actionlint test-sensitive test-ci-plan go-test-shard-test sensitive-check
+ci-style: node-check format-check go-format-check docs-check actionlint test-sensitive test-ci-plan go-test-shard-test sensitive-check
 
 ci-backend: ci-backend-static ci-backend-race
 
@@ -179,7 +184,7 @@ go-test-shard-test:
 	$(NODE) --test scripts/go-test-shard.test.mjs
 
 # The build type-checks the frontend, the maintenance scripts and the tests.
-ci-frontend: build test-frontend
+ci-frontend: node-check build test-frontend
 
 check: ci-style ci-backend ci-frontend smoke
 

@@ -139,11 +139,11 @@ func TestMediaAndProfileMediaContainmentAndHeaders(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Remove(mediaPath); _ = os.Remove(profilePath) })
 	testutil.Exec(t, path, `
-		INSERT INTO media_assets (id,source,source_url,cache_path,mime_type,byte_size,sha256,status,fetched_at) VALUES (?,?,?,?,?,?,?,?,?)`, id, "x", "https://cdn.example.invalid/media.png", relative, "image/png", len(body), hash, "ready", "2026-10-11T00:00:00Z")
+		INSERT INTO media_assets (id,source,source_url,cache_path,mime_type,byte_size,sha256,status,fetched_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id, "x", "https://cdn.example.invalid/media.png", relative, "image/png", len(body), hash, "ready", "2026-10-11T00:00:00Z")
 	testutil.Exec(t, path, `
-		INSERT INTO media_assets (id,source,source_url,status) VALUES (?,?,?,?)`, strings.Repeat("b", 64), "x", "https://cdn.example.invalid/pending.png", "pending")
+		INSERT INTO media_assets (id,source,source_url,status,created_at,updated_at) VALUES (?,?,?,?,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, strings.Repeat("b", 64), "x", "https://cdn.example.invalid/pending.png", "pending")
 	testutil.Exec(t, path, `
-		INSERT INTO profile_media (id,slot,source,source_url,active_cache_path,active_sha256,active_mime_type,status,is_active) VALUES (?,?,?,?,?,?,?,?,?)`, "profile", "avatar", "upload", "https://example.invalid/profile.png", profileRelative, hash, "image/png", "ready", 1)
+		INSERT INTO profile_media (id,slot,source,source_url,active_cache_path,active_sha256,active_mime_type,status,is_active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, "profile", "avatar", "upload", "https://example.invalid/profile.png", profileRelative, hash, "image/png", "ready", 1)
 	store, err := sqlite.OpenReadOnly(path)
 	if err != nil {
 		t.Fatal(err)

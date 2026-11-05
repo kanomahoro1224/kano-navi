@@ -5,6 +5,8 @@ package schedule
 const (
 	outputTruncated = "LLM output was truncated"
 	modelRefused    = "LLM refused translation"
+	// requestRefused is the refusal of a schedule extraction or image check.
+	requestRefused = "LLM refused the request"
 )
 
 type modelDiagnostics struct {
@@ -21,10 +23,10 @@ func usageCount(value any) *int {
 	return &count
 }
 
+// checkResponse fails a reply the model cut short or refused, whatever its
+// output form: a structured tool call cut off at the token limit would
+// otherwise read as a complete, empty answer.
 func (call modelCall) checkResponse(payload any, protocol string) error {
-	if !call.jsonOutput {
-		return nil
-	}
 	d := modelDiagnostics{}
 	usage := property(payload, "usage")
 	var reason any
@@ -72,7 +74,10 @@ func (call modelCall) checkResponse(payload any, protocol string) error {
 	case "max_tokens", "max_output_tokens", "length":
 		return fail(outputTruncated)
 	case "refusal", "content_filter":
-		return fail(modelRefused)
+		if call.jsonOutput {
+			return fail(modelRefused)
+		}
+		return fail(requestRefused)
 	}
 	if protocol == protocolResponses && (property(payload, "status") == "incomplete" || property(payload, "status") == "failed") {
 		return fail(noStructuredOutput)

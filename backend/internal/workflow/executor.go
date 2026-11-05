@@ -95,11 +95,14 @@ type Persistence interface {
 }
 type Run = sqlite.WorkflowRun
 type Executor struct {
-	Store          Persistence
-	Steps          StepExecutor
-	OwnerID        string
-	LeaseTTL       time.Duration
-	MaxAttempts    int
+	Store       Persistence
+	Steps       StepExecutor
+	OwnerID     string
+	LeaseTTL    time.Duration
+	MaxAttempts int
+	// RetryDelay is the wait before another attempt of a retryable failure,
+	// such as a rate limit; 5 seconds when unset.
+	RetryDelay     time.Duration
 	Clock          func() time.Time
 	SyntheticSteps map[string]bool
 	// TolerateFailure lists steps whose final failure does not abort the run:
@@ -144,6 +147,9 @@ func (e *Executor) defaults() {
 	}
 	if e.MaxAttempts < 1 {
 		e.MaxAttempts = 2
+	}
+	if e.RetryDelay <= 0 {
+		e.RetryDelay = 5 * time.Second
 	}
 	if e.Clock == nil {
 		e.Clock = time.Now
@@ -220,8 +226,8 @@ func (e *Executor) ExecuteRun(ctx context.Context, run *Run) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithCancel(sqlite.WithSourceLease(ctx, lease))
-	defer cancel()
+	ctx, cancel := context.WithCancelCause(sqlite.WithSourceLease(ctx, lease))
+	defer cancel(nil)
 	// Network batches can exceed a lease TTL. Losing ownership cancels outbound
 	// work; source transactions independently check the lease before committing.
 	stopHeartbeat := make(chan struct{})
@@ -241,8 +247,11 @@ func (e *Executor) ExecuteRun(ctx context.Context, run *Run) (*Run, error) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if e.Store.RenewWorkflowLease(ctx, lease, e.Clock().UTC(), e.LeaseTTL) != nil {
-					cancel()
+				// Only a lost lease stops the run. A failed write, such as a busy
+				// database, leaves it to the next renewal: the lease outlives two
+				// missed ones, and the renewal after it expires reports it lost.
+				if errors.Is(e.Store.RenewWorkflowLease(ctx, lease, e.Clock().UTC(), e.LeaseTTL), sqlite.ErrLeaseLost) {
+					cancel(errLeaseLost)
 					return
 				}
 			}
@@ -254,7 +263,7 @@ func (e *Executor) ExecuteRun(ctx context.Context, run *Run) (*Run, error) {
 		if !finished {
 			status, code := "failed", "internal"
 			if ctx.Err() != nil {
-				status, code = "cancelled", "cancelled"
+				status, code = stopOutcome(ctx)
 			}
 			_ = e.Store.FinishWorkflowRun(context.Background(), lease, status, code, e.Clock().UTC())
 		}
@@ -310,25 +319,30 @@ func (e *Executor) ExecuteRun(ctx context.Context, run *Run) (*Run, error) {
 				}
 				out, execErr = e.Steps.Execute(ctx, input)
 			}
+			stopStatus := ""
 			if ctx.Err() != nil {
-				execErr = NewStepError("cancelled", ErrCancelled)
+				var stopCode string
+				stopStatus, stopCode = stopOutcome(ctx)
+				execErr = NewStepError(stopCode, ErrCancelled)
 			}
 			if execErr != nil {
 				code, retry := classify(execErr)
 				finishCtx := ctx
 				if ctx.Err() != nil {
-					code = "cancelled"
 					retry = false
 					finishCtx = context.Background()
 				}
 				outStatus := "failed"
-				if code == "cancelled" {
+				if code == "cancelled" || stopStatus == "cancelled" {
 					outStatus = "cancelled"
 				}
 				if code == "capability_not_migrated" {
 					outStatus = "blocked"
 				}
-				if err = e.Store.FinishWorkflowStep(finishCtx, lease, step.ID, num, sqlite.WorkflowOutcome{Status: outStatus, Code: code, Retryable: retry}, retry && attempt < e.MaxAttempts, e.Clock().UTC()); err != nil {
+				// A run stopped by its time limit or a lost lease is not tried again
+				// here, but an operator may retry the step.
+				retryable := retry || stopStatus == "failed"
+				if err = e.Store.FinishWorkflowStep(finishCtx, lease, step.ID, num, sqlite.WorkflowOutcome{Status: outStatus, Code: code, Retryable: retryable}, retry && attempt < e.MaxAttempts, e.Clock().UTC()); err != nil {
 					return nil, err
 				}
 				if (!retry || attempt == e.MaxAttempts) && outStatus == "failed" && tolerate {
@@ -345,6 +359,14 @@ func (e *Executor) ExecuteRun(ctx context.Context, run *Run) (*Run, error) {
 					finished = true
 					return e.Store.GetWorkflowRun(context.Background(), run.ID)
 				}
+				// The next attempt waits, so it does not meet the same rate
+				// limit at once; a stop during the wait ends the run as usual.
+				wait := time.NewTimer(e.RetryDelay)
+				select {
+				case <-ctx.Done():
+				case <-wait.C:
+				}
+				wait.Stop()
 				continue
 			}
 			if out.Status == "" {
@@ -398,6 +420,24 @@ func (e *Executor) ExecuteRun(ctx context.Context, run *Run) (*Run, error) {
 	finished = true
 	return e.Store.GetWorkflowRun(context.Background(), run.ID)
 }
+
+// errLeaseLost is the cause of a run context stopped because another owner
+// holds, or nobody renewed, the run's lease.
+var errLeaseLost = errors.New("workflow lease lost")
+
+// stopOutcome names why a run's context ended. An operator's cancellation or
+// a shutdown is cancelled; reaching the run's time limit or losing the lease
+// is a failure the operator can retry.
+func stopOutcome(ctx context.Context) (status, code string) {
+	switch cause := context.Cause(ctx); {
+	case errors.Is(cause, errLeaseLost):
+		return "failed", "lease_expired"
+	case errors.Is(cause, context.DeadlineExceeded):
+		return "failed", "timeout"
+	}
+	return "cancelled", "cancelled"
+}
+
 func (e *Executor) Cancel(ctx context.Context, id string) error {
 	e.defaults()
 	return e.Store.RequestWorkflowCancellation(ctx, id, e.Clock().UTC())

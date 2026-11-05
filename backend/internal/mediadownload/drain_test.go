@@ -29,7 +29,7 @@ func queueStore(t *testing.T, n int) (*sqlite.Store, string) {
 	for i := range n {
 		u := fmt.Sprintf("https://pbs.twimg.com/media/drain-%d.png", i)
 		h := sha256.Sum256([]byte(u))
-		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status) VALUES(?,'x',?,'pending')`, hex.EncodeToString(h[:]), u)
+		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, hex.EncodeToString(h[:]), u)
 	}
 	return store, p
 }
@@ -103,8 +103,8 @@ func TestDownloadPendingDoesNotRepeatAnAssetThatStaysQueued(t *testing.T) {
 	u := "https://i.ytimg.com/vi/skewedvideo/hqdefault.jpg"
 	h := sha256.Sum256([]byte(u))
 	id := hex.EncodeToString(h[:])
-	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,etag,last_checked_at) VALUES(?,'youtube',?,'ready','"synthetic"',?)`, id, u, now.Add(-time.Hour).Format(time.RFC3339))
-	testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position) VALUES(?,'video','skewed','thumbnail',0)`, id)
+	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,etag,last_checked_at,created_at,updated_at) VALUES(?,'youtube',?,'ready','"synthetic"',?,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id, u, now.Add(-time.Hour).Format(time.RFC3339))
+	testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'video','skewed','thumbnail',0,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id)
 	requests := 0
 	client := NewClient(&http.Client{Transport: transport(func(*http.Request) (*http.Response, error) {
 		requests++

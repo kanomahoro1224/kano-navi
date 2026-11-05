@@ -316,9 +316,19 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, post
 			return err
 		}
 		if remaining == 0 {
-			if _, err = tx.ExecContext(ctx, `UPDATE events SET deleted_at=?, updated_at=?
-				WHERE id=? AND provenance='automatic' AND manual_locked=0`, timestamp, timestamp, row.eventID); err != nil {
+			retired, err := tx.ExecContext(ctx, `UPDATE events SET deleted_at=?, updated_at=?
+				WHERE id=? AND provenance='automatic' AND manual_locked=0`, timestamp, timestamp, row.eventID)
+			if err != nil {
 				return err
+			}
+			// As with a manual delete, the rule merges into a retired event are
+			// released, so a duplicate outside the reconciler's window is not
+			// left hidden behind it.
+			if count, _ := retired.RowsAffected(); count > 0 {
+				if _, err = tx.ExecContext(ctx, `UPDATE events SET merged_into=NULL, merge_source=NULL, merge_reason=NULL, merged_at=NULL
+					WHERE merged_into=? AND merge_source='rule'`, row.eventID); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -331,7 +341,7 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, post
 func (e *Extractor) applyCancellations(ctx context.Context, tx *sql.Tx, postID, reason, evidence string, confidence float64, targets []string) error {
 	timestamp := e.nowISO()
 	if reason == "" {
-		reason = "LLM 判断该日程可能已取消"
+		reason = "The model judged that this schedule may be cancelled"
 	}
 	var storedConfidence any
 	if finite(confidence) {

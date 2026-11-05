@@ -44,6 +44,13 @@ func uploadsCode(err error) string {
 	return "youtube_unavailable"
 }
 
+// staleUploadsCursor reports an answer that rejects the page token itself:
+// a malformed token, or the Data API's 400 for one it no longer knows.
+func staleUploadsCursor(err error) bool {
+	code := uploadsCode(err)
+	return code == "youtube_api_http_error" || code == "youtube_api_invalid_response"
+}
+
 func videoItems(videos []ytsource.Video) map[string]Item {
 	out := map[string]Item{}
 	for _, video := range videos {
@@ -157,10 +164,17 @@ func (f *Fetcher) FetchUploads(ctx context.Context, request Request) (Result, er
 				return result, ctx.Err()
 			}
 			// A page cursor that no longer answers must not pin the fetch:
-			// begin again at the newest page.
+			// begin again at the newest page. A rejected token is cleared at
+			// once, so the next fetch begins there even when this one has no
+			// page left; a quota or outage answer keeps the stored position.
 			if cursor != "" && committed == 0 && !restarted {
 				restarted = true
 				cursor, previous = "", 0
+				if staleUploadsCursor(fetchErr) {
+					if _, err := commit(Page{CheckpointOnly: true}); err != nil {
+						return result, err
+					}
+				}
 				if result.Requested < maxPages {
 					continue
 				}

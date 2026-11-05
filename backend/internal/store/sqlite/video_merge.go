@@ -454,7 +454,7 @@ func (s *Store) attachVideoAlternates(ctx context.Context, videos ...*Video) err
 				video.Alternates = append(video.Alternates, alternate)
 			}
 		}
-		if err = rows.Close(); err != nil {
+		if err = errors.Join(rows.Err(), rows.Close()); err != nil {
 			return dbErr(err)
 		}
 	}

@@ -48,7 +48,7 @@ func (a *api) listPosts(w http.ResponseWriter, r *http.Request) {
 		To:          query(r, "to"),
 		Search:      query(r, "search"),
 		LLM:         query(r, "llm"),
-		Reprocess:   queryFlag(r, "reprocess"),
+		Queued:      query(r, "queued"),
 		Translation: query(r, "translation"),
 	})
 	if err != nil {
@@ -69,6 +69,8 @@ func (a *api) listVideos(w http.ResponseWriter, r *http.Request) {
 		Search:      query(r, "search"),
 		Merge:       query(r, "merge"),
 		Translation: query(r, "translation"),
+		Queued:      query(r, "queued"),
+		Now:         a.Now(),
 	})
 	if err != nil {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
@@ -319,9 +321,9 @@ func eventInput(body map[string]json.RawMessage) (sqlite.EventInput, error) {
 	if input.EventType, err = oneOf(textField(body["eventType"]), "event", "eventType", "event", "stream", "member", "release", "appearance"); err != nil {
 		return input, err
 	}
-	// An empty tag clears the label; the store keeps the row manual, so the
-	// automatic extraction does not fill it again by itself.
-	if input.Tag, err = oneOf(textField(body["tag"]), "", "tag", sqlite.EventTags...); err != nil {
+	// An empty tag clears the label as the operator's decision, so no
+	// automatic layer fills it again by itself; "auto" hands it back to them.
+	if input.Tag, err = oneOf(textField(body["tag"]), "", "tag", append([]string{sqlite.TagAutomatic}, sqlite.EventTags...)...); err != nil {
 		return input, err
 	}
 	// A date-only entry never acquires a time precision.

@@ -3,7 +3,7 @@ export const aboutMessages = {
     "about.kicker": "关于本站",
     "about.metaTitle": "关于本站 · 鹿乃在做什么",
     "about.metaDescription":
-      "“鹿乃在做什么”的项目介绍、AI 开发致谢、技术栈、资料来源与许可说明。",
+      "“鹿乃在做什么”的项目介绍、AI 开发致谢、贡献者、技术栈、资料来源与许可说明。",
     "about.skip": "跳转到项目介绍",
     "about.tagline": "鹿乃まほろ · 非官方近况整理页",
     "about.by": "作者 {author}",
@@ -19,6 +19,11 @@ export const aboutMessages = {
     "about.aiCredit":
       "本项目由 {author} 在 AI Agent 的协助下开发。以下是参与项目开发的模型。",
     "about.models": "参与开发的 AI 模型",
+    "about.contributors": "贡献者",
+    "about.contributorsText":
+      "本项目由 {author} 发起并维护。感谢以下开发者为项目贡献代码。",
+    "about.contributorList": "代码贡献者",
+    "about.contributorsAll": "在 GitHub 查看全部贡献者",
     "about.technologies": "主要技术栈",
     "about.group.frontend": "前端",
     "about.group.backend": "后端",
@@ -45,7 +50,7 @@ export const aboutMessages = {
     "about.kicker": "このサイトについて",
     "about.metaTitle": "このサイトについて · 鹿乃ちゃん何してるか",
     "about.metaDescription":
-      "「鹿乃ちゃん何してるか」の概要、AI 開発への謝辞、技術構成、出典とライセンスについて。",
+      "「鹿乃ちゃん何してるか」の概要、AI 開発への謝辞、コントリビューター、技術構成、出典とライセンスについて。",
     "about.skip": "プロジェクト紹介へ",
     "about.tagline": "鹿乃まほろ · 非公式近況まとめ",
     "about.by": "作者 {author}",
@@ -61,6 +66,11 @@ export const aboutMessages = {
     "about.aiCredit":
       "本プロジェクトは {author} が AI Agent の支援を受けて開発しました。以下は開発に使用したモデルです。",
     "about.models": "開発に使用した AI モデル",
+    "about.contributors": "コントリビューター",
+    "about.contributorsText":
+      "本プロジェクトは {author} が立ち上げ、メンテナンスしています。コードを寄せてくださった以下の開発者の皆さんに感謝します。",
+    "about.contributorList": "コードのコントリビューター",
+    "about.contributorsAll": "GitHub ですべてのコントリビューターを見る",
     "about.technologies": "主な技術構成",
     "about.group.frontend": "フロントエンド",
     "about.group.backend": "バックエンド",
@@ -87,7 +97,7 @@ export const aboutMessages = {
     "about.kicker": "About",
     "about.metaTitle": "About · What’s Kano Up To?",
     "about.metaDescription":
-      "Project overview, AI development credits, technology stack, sources, and license for What’s Kano Up To?",
+      "Project overview, AI development credits, contributors, technology stack, sources, and license for What’s Kano Up To?",
     "about.skip": "Skip to project information",
     "about.tagline": "Kano Mahoro · Unofficial status board",
     "about.by": "By {author}",
@@ -103,6 +113,11 @@ export const aboutMessages = {
     "about.aiCredit":
       "This project was developed by {author} with assistance from AI Agents. These models contributed to its development.",
     "about.models": "AI models used in development",
+    "about.contributors": "Contributors",
+    "about.contributorsText":
+      "{author} started and maintains this project. Thanks to these developers for contributing code.",
+    "about.contributorList": "Code contributors",
+    "about.contributorsAll": "See all contributors on GitHub",
     "about.technologies": "Main technologies",
     "about.group.frontend": "Frontend",
     "about.group.backend": "Backend",

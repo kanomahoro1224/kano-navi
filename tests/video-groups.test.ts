@@ -9,6 +9,7 @@ import {
   videoLinks,
   videoMatchesFilter,
   videoPhase,
+  videoPlatforms,
 } from "../src/dashboard/video-groups.ts"
 import {
   durationAttribute,
@@ -239,6 +240,12 @@ test("a stream that may be on air reads as a stream, not its archive", () => {
     "media.kind.liveArchive",
   )
   assert.equal(form({ scheduledAt: at(-4 * hour) }), "media.kind.liveArchive")
+  // A reported end closes a stream whose live result has not aged out yet,
+  // as it files the video under past broadcasts.
+  assert.equal(
+    form({ scheduledAt: at(-hour), endsAt: at(-1), liveStatus: "live" }),
+    "media.kind.liveArchive",
+  )
   assert.equal(
     form({ scheduledAt: at(-hour), liveStatus: "ended" }),
     "media.kind.liveArchive",
@@ -385,4 +392,65 @@ test("Chinese readers open a past video's bilibili copy first", () => {
   })
   for (const item of [reserved, onAir])
     assert.equal(videoLinks(item, "zh-CN", now)[0].source, "youtube", item.id)
+})
+
+test("a private or removed video keeps only its other platforms and never leads", () => {
+  const bilibili = {
+    source: "bilibili",
+    url: "https://www.bilibili.com/video/BV1synthetic2",
+  }
+  const gone = video("g", {
+    kind: "upload",
+    publishedAt: at(-hour),
+    availability: "private",
+    alternates: [bilibili],
+  })
+  assert.deepEqual(videoLinks(gone, "en", now), [bilibili])
+  assert.deepEqual(
+    videoLinks(video("x", { availability: "removed" }), "en", now),
+    [],
+  )
+  // Members-only and unchecked videos keep their own link.
+  for (const availability of ["members", null] as const)
+    assert.equal(
+      videoLinks(video("k", { availability }), "en", now)[0]?.source,
+      "youtube",
+    )
+
+  const watchable = video("w", { kind: "upload", publishedAt: at(-2 * hour) })
+  const groups = groupVideos([gone, watchable], null, now)
+  assert.equal(groups.lead?.id, "w")
+  assert.deepEqual(
+    groups.works.map((item) => item.id),
+    ["g"],
+  )
+})
+
+test("a cover marks every platform a work is on, a gone one included", () => {
+  const bilibili = {
+    source: "bilibili",
+    url: "https://www.bilibili.com/video/BV1synthetic3",
+  }
+  const marks = (item: Video, locale: "en" | "zh-CN" = "en") =>
+    videoPlatforms(item, videoLinks(item, locale, now))
+  assert.deepEqual(marks(video("y")), ["youtube"])
+  assert.deepEqual(marks(video("m", { availability: "members" })), ["youtube"])
+  const merged = video("b", {
+    kind: "upload",
+    publishedAt: at(-hour),
+    alternates: [bilibili],
+  })
+  assert.deepEqual(marks(merged), ["youtube", "bilibili"])
+  assert.deepEqual(marks(merged, "zh-CN"), ["bilibili", "youtube"])
+  // A private or removed video still names its own platform, link or not.
+  assert.deepEqual(marks(video("x", { availability: "removed" })), ["youtube"])
+  assert.deepEqual(
+    marks(video("p", { availability: "private", alternates: [bilibili] })),
+    ["youtube", "bilibili"],
+  )
+  const upload = video("BV1synthetic4", {
+    source: "bilibili",
+    url: "https://www.bilibili.com/video/BV1synthetic4",
+  })
+  assert.deepEqual(marks(upload), ["bilibili"])
 })

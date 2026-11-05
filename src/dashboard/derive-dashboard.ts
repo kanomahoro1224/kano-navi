@@ -9,7 +9,7 @@ import {
   sortEvents,
   scheduleSortTime,
 } from "./format.ts"
-import { videoIsShort } from "./video-groups.ts"
+import { videoIsGone, videoIsShort } from "./video-groups.ts"
 
 /** How close a later reservation must be to replace a presumed-live item. */
 export const LIVE_YIELD_MS = 30 * 60 * 1000
@@ -100,12 +100,14 @@ export function deriveDashboardAt(snapshot: Dashboard, now: number): Dashboard {
         a.id.localeCompare(b.id),
     )
   // The stage falls back to the newest upload that is not a Short, unless
-  // the operator featured that Short.
+  // the operator featured that Short, and that visitors can still watch.
   const featuredId = featuredVideoIdOf(snapshot)
   const latestVideos = videos
     .filter(
       (video) =>
-        !video.isUpcoming && (!videoIsShort(video) || video.id === featuredId),
+        !video.isUpcoming &&
+        (!videoIsShort(video) || video.id === featuredId) &&
+        !videoIsGone(video),
     )
     .sort(
       (a, b) =>

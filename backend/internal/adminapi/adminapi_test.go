@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -496,6 +498,15 @@ func TestOverviewCountsWhatNeedsReview(t *testing.T) {
 	 ('p1','x','post','label','one','2026-03-01T00:00:00.000Z','https://post.example.test/1'),
 	 ('p2','x','post','label','two','2026-03-01T00:00:00.000Z','https://post.example.test/2')`)
 	c.exec(t, `INSERT INTO post_llm_states(post_id,status,reprocess_requested,updated_at) VALUES ('p1','failed',1,'2026-03-01T00:00:00.000Z'),('p2','processed',0,'2026-03-01T00:00:00.000Z')`)
+	// Open operator requests: a post refresh, a post translation, a YouTube
+	// refresh inside its day and one past it, and a video translation.
+	c.exec(t, `UPDATE posts SET refresh_requested_at='2026-03-02T02:00:00.000Z' WHERE id='p2'`)
+	c.exec(t, `INSERT INTO videos(id,source,title,published_at,url,refresh_requested_at) VALUES
+	 ('v-open','youtube','Open','2026-03-01T00:00:00.000Z','https://video.example.test/open','2026-03-02T01:00:00.000Z'),
+	 ('v-stale','youtube','Stale','2026-03-01T00:00:00.000Z','https://video.example.test/stale','2026-02-28T00:00:00.000Z'),
+	 ('v-told','youtube','Told','2026-03-01T00:00:00.000Z','https://video.example.test/told',NULL)`)
+	c.exec(t, `INSERT INTO translation_states(owner_type,owner_id,field,requested,updated_at) VALUES
+	 ('post','p2','text',1,'2026-03-02T00:00:00.000Z'),('video','v-told','title',1,'2026-03-02T00:00:00.000Z')`)
 	// A schedule row without an image URL has nothing to review, with or
 	// without a recorded scan; an unchecked image with a URL does.
 	c.exec(t, `INSERT INTO assets(id,kind,url,period_basis) VALUES
@@ -509,11 +520,15 @@ func TestOverviewCountsWhatNeedsReview(t *testing.T) {
 	}
 	counts := payload["counts"].(map[string]any)
 	review := payload["review"].(map[string]any)
-	if counts["events"] != float64(3) || counts["upcomingEvents"] != float64(1) || counts["posts"] != float64(2) || counts["videos"] != float64(0) {
+	if counts["events"] != float64(3) || counts["upcomingEvents"] != float64(1) || counts["posts"] != float64(2) || counts["videos"] != float64(3) {
 		t.Fatalf("counts=%v", counts)
 	}
-	if review["suspectedCancellations"] != float64(1) || review["failedPosts"] != float64(1) || review["failedExtractions"] != float64(1) || review["failedTranslations"] != float64(0) || review["reprocessRequested"] != float64(1) || review["pendingImages"] != float64(1) {
+	if review["suspectedCancellations"] != float64(1) || review["failedPosts"] != float64(1) || review["failedExtractions"] != float64(1) || review["failedTranslations"] != float64(0) || review["pendingImages"] != float64(1) {
 		t.Fatalf("review=%v", review)
+	}
+	backlog := payload["backlog"].(map[string]any)
+	if backlog["extraction"] != float64(1) || backlog["postRefresh"] != float64(1) || backlog["postTranslation"] != float64(1) || backlog["videoRefresh"] != float64(1) || backlog["videoTranslation"] != float64(1) {
+		t.Fatalf("backlog=%v", backlog)
 	}
 	if scheduler := payload["scheduler"].(map[string]any); scheduler["running"] != true {
 		t.Fatalf("scheduler=%v", scheduler)
@@ -525,9 +540,32 @@ func TestOverviewCountsWhatNeedsReview(t *testing.T) {
 	if items := payload["items"].([]any); code != 200 || len(items) != 1 || items[0].(map[string]any)["id"] != "soon" {
 		t.Fatalf("suspected=%d %v", code, payload)
 	}
-	code, payload = c.call(t, "GET", "/api/admin/posts?llm=failed&reprocess=1", "")
-	if items := payload["items"].([]any); code != 200 || len(items) != 1 || items[0].(map[string]any)["id"] != "p1" {
-		t.Fatalf("failed posts=%d %v", code, payload)
+	ids := func(path string) string {
+		t.Helper()
+		code, payload := c.call(t, "GET", path, "")
+		if code != 200 {
+			t.Fatalf("%s=%d %v", path, code, payload)
+		}
+		out := []string{}
+		for _, item := range payload["items"].([]any) {
+			out = append(out, item.(map[string]any)["id"].(string))
+		}
+		slices.Sort(out)
+		return strings.Join(out, ",")
+	}
+	for path, want := range map[string]string{
+		"/api/admin/posts?llm=failed&queued=extraction": "p1",
+		"/api/admin/posts?queued=refresh":               "p2",
+		"/api/admin/posts?queued=translation":           "p2",
+		"/api/admin/posts?queued=any":                   "p1,p2",
+		"/api/admin/videos?queued=refresh":              "v-open",
+		"/api/admin/videos?queued=translation":          "v-told",
+		"/api/admin/videos?queued=any":                  "v-open,v-told",
+		"/api/admin/videos?queued=other":                "v-open,v-stale,v-told",
+	} {
+		if got := ids(path); got != want {
+			t.Fatalf("%s=%s, want %s", path, got, want)
+		}
 	}
 }
 
@@ -616,6 +654,50 @@ func TestLiveProbeSettings(t *testing.T) {
 	}
 }
 
+// An operator stops the probe for one video and lets it ask again; the
+// console lists the active and the stopped videos.
+func TestLiveProbeStopsOneVideo(t *testing.T) {
+	c := newConsole(t, "development", "", &gatedSteps{})
+	// The console clock is 2026-03-02T03:00Z; the stream started an hour before.
+	started := "2026-03-02T02:00:00.000Z"
+	c.exec(t, `INSERT INTO videos (id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,live_status,live_checked_at) VALUES ('AAAAAAAAAAA','youtube','Stream','2026-10-10T00:00:00.000Z',?,'https://www.youtube.com/watch?v=AAAAAAAAAAA','/media/t','live',0,'live',?)`, started, started)
+	ids := func(payload map[string]any, key string) string {
+		out := []string{}
+		for _, item := range payload[key].([]any) {
+			entry := item.(map[string]any)
+			out = append(out, entry["id"].(string))
+			if key == "stopped" {
+				out = append(out, entry["reason"].(string))
+			}
+		}
+		return strings.Join(out, ":")
+	}
+	_, payload := c.call(t, "GET", "/api/admin/sources/youtube/live-probe", "")
+	if ids(payload, "videos") != "AAAAAAAAAAA" || ids(payload, "stopped") != "" || payload["activeVideos"] != float64(1) {
+		t.Fatalf("before=%v", payload)
+	}
+	for path, want := range map[string]struct {
+		body string
+		code int
+	}{
+		"/api/admin/sources/youtube/live-probe/videos/not-an-id":   {`{"stopped":true}`, 400},
+		"/api/admin/sources/youtube/live-probe/videos/AAAAAAAAAAA": {`{}`, 400},
+		"/api/admin/sources/youtube/live-probe/videos/BBBBBBBBBBB": {`{"stopped":true}`, 404},
+	} {
+		if code, _ := c.call(t, "PUT", path, want.body); code != want.code {
+			t.Fatalf("%s %s => %d", path, want.body, code)
+		}
+	}
+	code, payload := c.call(t, "PUT", "/api/admin/sources/youtube/live-probe/videos/AAAAAAAAAAA", `{"stopped":true}`)
+	if code != 200 || ids(payload, "videos") != "" || ids(payload, "stopped") != "AAAAAAAAAAA:operator" || payload["nextRunAt"] != nil {
+		t.Fatalf("stop=%d %v", code, payload)
+	}
+	code, payload = c.call(t, "PUT", "/api/admin/sources/youtube/live-probe/videos/AAAAAAAAAAA", `{"stopped":false}`)
+	if code != 200 || ids(payload, "videos") != "AAAAAAAAAAA" || ids(payload, "stopped") != "" {
+		t.Fatalf("resume=%d %v", code, payload)
+	}
+}
+
 // The post quote decisions and the refresh request need the admin session
 // like every other content route; an anonymous request changes nothing.
 func TestPostQuoteRoutesRequireTheSession(t *testing.T) {
@@ -672,5 +754,28 @@ func TestRunRetentionSettings(t *testing.T) {
 	}
 	if got := c.text(t, `SELECT value FROM app_settings WHERE key='run_retention_succeeded_days'`); got != "0" {
 		t.Fatalf("stored=%s", got)
+	}
+}
+
+// Every route the console registers, with every method, answers 401 without
+// a session; only the session routes themselves answer.
+func TestEveryCoreRouteRequiresASession(t *testing.T) {
+	c := newConsole(t, "production", "synthetic-password", &gatedSteps{})
+	routes := (&api{Options: Options{Store: c.store}}).routes()
+	if len(routes) < 20 {
+		t.Fatalf("only %d routes listed", len(routes))
+	}
+	wildcard := regexp.MustCompile(`\{[^}]+\}`)
+	for _, route := range routes {
+		path := httpx.AdminPrefix + wildcard.ReplaceAllString(route.Path, "synthetic")
+		if route.Path == "/session" {
+			if route.Method != http.MethodGet && route.Method != http.MethodPost && route.Method != http.MethodDelete {
+				t.Fatalf("%s /session would skip the session check", route.Method)
+			}
+			continue
+		}
+		if code, payload := c.call(t, route.Method, path, "{}"); code != http.StatusUnauthorized || payload["error"] != "admin_auth_required" {
+			t.Errorf("%s %s = %d %v", route.Method, route.Path, code, payload)
+		}
 	}
 }

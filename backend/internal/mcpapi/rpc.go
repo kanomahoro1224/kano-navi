@@ -136,12 +136,20 @@ func (h *handler) serve(r *http.Request, body any, controlAuthorized bool) (stat
 	// yields one response, like the original transport's request map.
 	order := []string{}
 	responses := map[string]rpcResponse{}
+	toolCalls := 0
 	for _, m := range messages {
 		if !m.isRequest {
 			continue
 		}
 		if _, seen := responses[m.idKey]; !seen {
 			order = append(order, m.idKey)
+		}
+		if m.method == "tools/call" {
+			toolCalls++
+			if toolCalls > maxBatchToolCalls {
+				responses[m.idKey] = resultResponse(m.id, toolError(batchToolCallsExceeded))
+				continue
+			}
 		}
 		responses[m.idKey] = h.dispatch(r.Context(), m, controlAuthorized)
 	}

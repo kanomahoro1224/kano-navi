@@ -326,3 +326,63 @@ func TestTheSameThumbnailInAnotherFormIsNotARevision(t *testing.T) {
 		t.Fatalf("revisions=%s", got)
 	}
 }
+
+// Every fetch checkpoint can be cleared on its own, and a clearing page
+// carries nothing else.
+func TestCheckpointOnlyPagesClearEveryFetchCheckpoint(t *testing.T) {
+	s, query := openHistoryStore(t)
+	ctx := context.Background()
+	for _, tc := range []struct{ source, account, checkpoint, stored string }{
+		{history.SourceX, "synthetic_handle", "", "x-window"},
+		{history.SourceYoutube, "UCAAAAAAAAAAAAAAAAAAAAAA", "", "youtube-window"},
+		{history.SourceX, "synthetic_handle", history.TimelineCheckpoint, history.TimelineCheckpoint},
+	} {
+		page := history.Page{Source: tc.source, Account: tc.account, CheckpointKey: "key", Checkpoint: tc.checkpoint, Next: "stale"}
+		if _, err := s.WriteHistoryPage(ctx, page); err != nil {
+			t.Fatal(err)
+		}
+		page.Next, page.CheckpointOnly = "", true
+		if _, err := s.WriteHistoryPage(ctx, page); err != nil {
+			t.Fatalf("%s: %v", tc.stored, err)
+		}
+		if got := query(`SELECT COALESCE(cursor_id,'') FROM sync_state WHERE source=? AND account_id='key'`, tc.stored); got != "" {
+			t.Fatalf("%s kept %q", tc.stored, got)
+		}
+	}
+	post := xsource.Post{ID: "1900000000000000001", AccountHandle: "synthetic_handle", Text: "x", PublishedAt: "2026-03-04T03:00:00Z", URL: "https://x.com/synthetic_handle/status/1900000000000000001", Raw: map[string]any{}}
+	for _, invalid := range []history.Page{
+		{Source: history.SourceX, Account: "synthetic_handle", CheckpointKey: "key", CheckpointOnly: true, Posts: []xsource.Post{post}},
+		{Source: history.SourceX, Account: "synthetic_handle", CheckpointKey: "key", CheckpointOnly: true, Backfill: &history.Backfill{}},
+		{Source: history.SourceX, Account: "synthetic_handle", CheckpointOnly: true},
+	} {
+		if _, err := s.WriteHistoryPage(ctx, invalid); err == nil {
+			t.Fatalf("checkpoint-only page %+v was accepted", invalid)
+		}
+	}
+}
+
+// A rename that a history page sees first asks again about a title that gave
+// no content, as the recent synchronization does; a tag the title gave stays.
+func TestHistoryPageRenameIsJudgedAgain(t *testing.T) {
+	s, query := openHistoryStore(t)
+	for _, row := range []struct{ id, tag string }{{"NOLABEL0001", ""}, {"CONTENT0001", "game"}} {
+		if _, err := s.db.Exec(`INSERT INTO videos(id,source,title,url,kind,is_upcoming,tag,tag_source,tag_attempted_at,raw_json) VALUES(?,'youtube','placeholder',?,'upload',0,NULLIF(?,''),'title','2026-01-02T00:00:00.000Z','{}')`,
+			row.id, "https://www.youtube.com/watch?v="+row.id, row.tag); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page := history.Page{Source: history.SourceYoutube, Account: "UCAAAAAAAAAAAAAAAAAAAAAA", Videos: []ytsource.Video{
+		{ID: "NOLABEL0001", Title: "renamed", URL: "https://www.youtube.com/watch?v=NOLABEL0001", Kind: ytsource.KindUpload},
+		{ID: "CONTENT0001", Title: "renamed", URL: "https://www.youtube.com/watch?v=CONTENT0001", Kind: ytsource.KindUpload},
+	}}
+	if _, err := s.WriteHistoryPage(context.Background(), page); err != nil {
+		t.Fatal(err)
+	}
+	judgement := `SELECT COALESCE(tag,'')||'|'||COALESCE(tag_source,'')||'|'||COALESCE(tag_attempted_at,'') FROM videos WHERE id=?`
+	if got := query(judgement, "NOLABEL0001"); got != "||" {
+		t.Fatalf("the renamed placeholder kept its judgement: %q", got)
+	}
+	if got := query(judgement, "CONTENT0001"); got != "game|title|2026-01-02T00:00:00.000Z" {
+		t.Fatalf("a content tag was cleared: %q", got)
+	}
+}

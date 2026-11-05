@@ -14,6 +14,9 @@ func TestTranslationDiagnosticsKeepOnlySafeUsageAndErrors(t *testing.T) {
 		"LLM response did not contain structured output": "no_structured_output",
 		"LLM refused translation":                        "model_refused",
 		"synthetic upstream response":                    "provider_error",
+		// A schedule result the event check rejected is an unreadable answer.
+		"schedule extraction contained an invalid event": "invalid_response",
+		"not_schedule extraction contained events":       "invalid_response",
 	} {
 		if got := TranslationErrorCode(message); got != want {
 			t.Fatalf("code=%s want=%s", got, want)

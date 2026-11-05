@@ -90,7 +90,9 @@ func (s *Store) WriteHistoryPage(ctx context.Context, page history.Page) (histor
 	if page.CheckpointKey == "" && (page.CheckpointOnly || page.Backfill != nil) {
 		return history.Written{}, ErrSourceWrite
 	}
-	if page.CheckpointOnly && (checkpoint != history.TimelineCheckpoint || len(page.Posts) > 0 || len(page.ScheduleCandidates) > 0 || len(page.Videos) > 0 || page.Backfill != nil) {
+	// A checkpoint-only page clears a stale continuation of any fetch
+	// checkpoint and carries nothing else.
+	if page.CheckpointOnly && (len(page.Posts) > 0 || len(page.ScheduleCandidates) > 0 || len(page.Videos) > 0 || len(page.Described) > 0 || len(page.Localized) > 0 || page.Backfill != nil) {
 		return history.Written{}, ErrSourceWrite
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -164,7 +166,8 @@ func (s *Store) WriteHistoryPage(ctx context.Context, page history.Page) (histor
 					return history.Written{}, ErrSourceWrite
 				}
 			}
-			if _, err = tx.ExecContext(ctx, `INSERT INTO videos(id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,raw_json) VALUES(?,'youtube',?,?,NULL,?,?,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=COALESCE(excluded.published_at,videos.published_at),url=excluded.url,thumbnail_url=COALESCE(videos.thumbnail_url,excluded.thumbnail_url)`, video.ID, video.Title, nullable(video.PublishedAt), video.URL, nullable(video.ThumbnailURL), video.Kind, video.IsUpcoming); err != nil {
+			if _, err = tx.ExecContext(ctx, `INSERT INTO videos(id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,raw_json) VALUES(?,'youtube',?,?,NULL,?,?,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=COALESCE(excluded.published_at,videos.published_at),url=excluded.url,thumbnail_url=COALESCE(videos.thumbnail_url,excluded.thumbnail_url),`+retitledJudgementSQL("videos", retitledVideoJudgement)+`
+			   `, video.ID, video.Title, nullable(video.PublishedAt), video.URL, nullable(video.ThumbnailURL), video.Kind, video.IsUpcoming); err != nil {
 				return history.Written{}, ErrSourceWrite
 			}
 			if video.ThumbnailURL != "" && prior.ThumbnailURL == "" {

@@ -583,38 +583,53 @@ func TestHealthReadReportsSanitizedSyncSummary(t *testing.T) {
 
 func TestSyncStatusReadsStoredRunsWithoutAManager(t *testing.T) {
 	handler, _ := newHandler(t, nil)
+	control := bearer(controlToken)
 
+	// A public client reads kind, status and times, never a job ID.
 	response := post(t, handler, toolCall("sync_status", nil))
-	want := map[string]any{"jobs": []any{
-		map[string]any{"id": float64(2), "kind": "scan", "status": "success", "startedAt": "2026-09-01T01:00:00.000Z", "finishedAt": "2026-09-01T01:00:05.000Z"},
-		map[string]any{"id": float64(1), "kind": "sync", "status": "partial", "startedAt": "2026-09-01T00:00:00.000Z", "finishedAt": "2026-09-01T00:00:05.000Z"},
+	public := map[string]any{"jobs": []any{
+		map[string]any{"kind": "scan", "status": "success", "startedAt": "2026-09-01T01:00:00.000Z", "finishedAt": "2026-09-01T01:00:05.000Z"},
+		map[string]any{"kind": "sync", "status": "partial", "startedAt": "2026-09-01T00:00:00.000Z", "finishedAt": "2026-09-01T00:00:05.000Z"},
 	}}
-	if got := toolValue(t, response); !reflect.DeepEqual(got, want) {
+	if got := toolValue(t, response); !reflect.DeepEqual(got, public) {
 		t.Fatalf("jobs = %v", got)
 	}
 	assertNoOperatorData(t, "sync_status", response.body)
-
 	limited := toolValue(t, post(t, handler, toolCall("sync_status", map[string]any{"limit": 1})))
 	if len(limited["jobs"].([]any)) != 1 {
 		t.Fatalf("limited = %v", limited)
 	}
+	// It cannot look a job up, so it cannot learn whether an ID exists.
+	if got := toolValue(t, post(t, handler, toolCall("sync_status", map[string]any{"jobId": "internal-job-placeholder"}))); !reflect.DeepEqual(got, public) {
+		t.Fatalf("public lookup = %v", got)
+	}
 
+	// The control token's holder reads the IDs and looks runs up.
+	want := map[string]any{"jobs": []any{
+		map[string]any{"id": float64(2), "kind": "scan", "status": "success", "startedAt": "2026-09-01T01:00:00.000Z", "finishedAt": "2026-09-01T01:00:05.000Z"},
+		map[string]any{"id": float64(1), "kind": "sync", "status": "partial", "startedAt": "2026-09-01T00:00:00.000Z", "finishedAt": "2026-09-01T00:00:05.000Z"},
+	}}
+	controlled := post(t, handler, toolCall("sync_status", nil), control)
+	if got := toolValue(t, controlled); !reflect.DeepEqual(got, want) {
+		t.Fatalf("control jobs = %v", got)
+	}
+	assertNoOperatorData(t, "sync_status", controlled.body)
 	// A stored run is found by its job id or its numeric id; only the public
 	// job fields come back.
 	for _, id := range []string{"internal-job-placeholder", "1"} {
-		lookup := post(t, handler, toolCall("sync_status", map[string]any{"jobId": id}))
+		lookup := post(t, handler, toolCall("sync_status", map[string]any{"jobId": id}), control)
 		job := toolValue(t, lookup)["job"].(map[string]any)
 		if !reflect.DeepEqual(job, want["jobs"].([]any)[1]) {
 			t.Fatalf("lookup %q = %v", id, job)
 		}
 		assertNoOperatorData(t, "sync_status lookup", lookup.body)
 	}
-	missing := toolValue(t, post(t, handler, toolCall("sync_status", map[string]any{"jobId": "no-such-job"})))
+	missing := toolValue(t, post(t, handler, toolCall("sync_status", map[string]any{"jobId": "no-such-job"}), control))
 	if job, present := missing["job"]; !present || job != nil {
 		t.Fatalf("missing = %v", missing)
 	}
 	// An empty job id lists instead of looking up.
-	if _, present := toolValue(t, post(t, handler, toolCall("sync_status", map[string]any{"jobId": ""})))["jobs"]; !present {
+	if _, present := toolValue(t, post(t, handler, toolCall("sync_status", map[string]any{"jobId": ""}), control))["jobs"]; !present {
 		t.Fatal("empty jobId should list jobs")
 	}
 }
@@ -629,8 +644,21 @@ func TestSyncStatusPrefersTheJobManager(t *testing.T) {
 	}}
 	manager.active = &manager.listed[0]
 	handler, _ := newHandler(t, manager)
+	control := bearer(controlToken)
 
-	response := post(t, handler, toolCall("sync_status", nil))
+	public := post(t, handler, toolCall("sync_status", nil))
+	if got := toolValue(t, public)["jobs"]; !reflect.DeepEqual(got, []any{
+		map[string]any{"kind": "scan", "status": "running", "createdAt": "2026-09-02T00:00:00.000Z", "startedAt": started, "finishedAt": nil},
+		map[string]any{"kind": "sync", "status": "completed", "createdAt": "2026-09-01T00:00:00.000Z", "startedAt": nil, "finishedAt": nil},
+	}) {
+		t.Fatalf("public jobs = %v", got)
+	}
+	if strings.Contains(public.body, "job-2") {
+		t.Fatal("a public read named a job ID")
+	}
+	assertNoOperatorData(t, "sync_status", public.body)
+
+	response := post(t, handler, toolCall("sync_status", nil), control)
 	want := []any{
 		map[string]any{"id": "job-2", "kind": "scan", "status": "running", "createdAt": "2026-09-02T00:00:00.000Z", "startedAt": started, "finishedAt": nil},
 		map[string]any{"id": "job-1", "kind": "sync", "status": "completed", "createdAt": "2026-09-01T00:00:00.000Z", "startedAt": nil, "finishedAt": nil},
@@ -640,14 +668,14 @@ func TestSyncStatusPrefersTheJobManager(t *testing.T) {
 	}
 	assertNoOperatorData(t, "sync_status", response.body)
 
-	lookup := post(t, handler, toolCall("sync_status", map[string]any{"jobId": "job-2"}))
+	lookup := post(t, handler, toolCall("sync_status", map[string]any{"jobId": "job-2"}), control)
 	if got := toolValue(t, lookup)["job"]; !reflect.DeepEqual(got, want[0]) {
 		t.Fatalf("job = %v", got)
 	}
 	assertNoOperatorData(t, "sync_status lookup", lookup.body)
 
 	// Unknown to the manager: fall back to the stored run history.
-	fallback := toolValue(t, post(t, handler, toolCall("sync_status", map[string]any{"jobId": "scan-job-placeholder"})))
+	fallback := toolValue(t, post(t, handler, toolCall("sync_status", map[string]any{"jobId": "scan-job-placeholder"}), control))
 	if fallback["job"].(map[string]any)["id"] != float64(2) {
 		t.Fatalf("fallback = %v", fallback)
 	}
@@ -674,7 +702,7 @@ func TestToolArgumentValidationReportsToolErrors(t *testing.T) {
 		{"schedule_list", map[string]any{"search": map[string]any{}}, "Expected string, received object at search"},
 		{"schedule_list", map[string]any{"from": "2026/01/01", "pageSize": 0, "search": strings.Repeat("x", 121)},
 			"Number must be greater than or equal to 1 at pageSize\nString must contain at most 120 character(s) at search\nInvalid at from"},
-		{"sync_status", map[string]any{"jobId": strings.Repeat("j", 101)}, "String must contain at most 100 character(s) at jobId"},
+		{"sync_status", map[string]any{"limit": 0}, "Number must be greater than or equal to 1 at limit"},
 	}
 	for _, c := range cases {
 		got := toolErrorText(t, post(t, handler, toolCall(c.name, c.arguments)))
@@ -682,6 +710,12 @@ func TestToolArgumentValidationReportsToolErrors(t *testing.T) {
 		if got != want {
 			t.Errorf("%s %v:\n got %q\nwant %q", c.name, c.arguments, got, want)
 		}
+	}
+
+	// The control variant validates its job ID.
+	long := toolErrorText(t, post(t, handler, toolCall("sync_status", map[string]any{"jobId": strings.Repeat("j", 101)}), bearer(controlToken)))
+	if want := "MCP error -32602: Input validation error: Invalid arguments for tool sync_status: String must contain at most 100 character(s) at jobId"; long != want {
+		t.Errorf("control jobId:\n got %q\nwant %q", long, want)
 	}
 
 	if got := toolErrorText(t, post(t, handler, toolCall("no_such_tool", nil))); got != "MCP error -32602: Tool no_such_tool not found" {
@@ -1072,6 +1106,33 @@ func TestJSONRPCBatches(t *testing.T) {
 	oversized := post(t, handler, tooMany)
 	if code, text := rpcErrorOf(t, oversized); oversized.status != http.StatusBadRequest || code != codeInvalidRequest || text != "Invalid Request: Batch must not exceed 100 messages" {
 		t.Fatalf("oversized: %d %s", oversized.status, oversized.body)
+	}
+
+	// Tool calls past the batch's budget are answered without running; other
+	// requests in the batch still are.
+	calls := []any{rpc("ping", "ping", nil)}
+	for len(calls) <= maxBatchToolCalls+2 {
+		calls = append(calls, rpc(len(calls), "tools/call", map[string]any{"name": "health_read", "arguments": map[string]any{}}))
+	}
+	var budgeted []map[string]any
+	if err := json.Unmarshal([]byte(post(t, handler, calls).body), &budgeted); err != nil || len(budgeted) != len(calls) {
+		t.Fatalf("budgeted batch: %v, %d responses", err, len(budgeted))
+	}
+	if !reflect.DeepEqual(budgeted[0]["result"], map[string]any{}) {
+		t.Fatalf("ping = %v", budgeted[0])
+	}
+	for index, response := range budgeted[1:] {
+		result := response["result"].(map[string]any)
+		if index < maxBatchToolCalls {
+			if result["isError"] == true {
+				t.Fatalf("call %d = %v", index+1, result)
+			}
+			continue
+		}
+		content := result["content"].([]any)[0].(map[string]any)
+		if result["isError"] != true || content["text"] != "Too many tool calls in one batch (at most 10)" {
+			t.Fatalf("call %d over the budget = %v", index+1, result)
+		}
 	}
 
 	initialize := rpc(1, "initialize", map[string]any{

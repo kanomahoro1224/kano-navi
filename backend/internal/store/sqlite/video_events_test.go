@@ -308,3 +308,27 @@ func TestDeletingAnEventShowsEverythingMergedIntoIt(t *testing.T) {
 	f.reconcile()
 	f.expect(map[string]string{"x-notice": unmerged, "x-plan": "|manual|unmerged_from:y1"})
 }
+
+// An ended broadcast restores the event automatic re-extraction retired, and
+// an operator's deletion stays.
+func TestReconcileRestoresARetiredBroadcastEvent(t *testing.T) {
+	f := newMergeFixture(t)
+	f.video("RETIRED0001", "歌枠", "2026-10-12T10:00:00Z", "2026-10-12T10:00:00Z", "ended", "0", 7200)
+	f.exec(`INSERT INTO events(id,source,source_item_id,source_key,title,starts_on,time_precision,event_type,provenance,manual_locked,created_at,updated_at,deleted_at)
+		VALUES('youtube-RETIRED0001','x','post-1','2026-10-12Tunknown:synthetic','retired','2026-10-12','unknown','stream','automatic',0,'2026-10-01T00:00:00.000Z','2026-10-02T00:00:00.000Z','2026-10-02T00:00:00.000Z')`)
+	f.exec(`INSERT INTO event_sources(event_id,source,source_item_id,source_key,created_at,updated_at,deleted_at)
+		VALUES('youtube-RETIRED0001','x','post-1','2026-10-12Tunknown:synthetic','2026-10-01T00:00:00.000Z','2026-10-02T00:00:00.000Z','2026-10-02T00:00:00.000Z')`)
+	if counts := f.reconcile(); counts.EventsCreated != 1 {
+		t.Fatalf("counts=%+v", counts)
+	}
+	var row string
+	if err := f.s.DB().QueryRow(`SELECT title||'|'||starts_at||'|'||(deleted_at IS NULL) FROM events WHERE id='youtube-RETIRED0001'`).Scan(&row); err != nil {
+		t.Fatal(err)
+	}
+	if row != "歌枠|2026-10-12T10:00:00Z|1" {
+		t.Fatalf("the retired event was not restored: %s", row)
+	}
+	if counts := f.reconcile(); counts.EventsCreated != 0 {
+		t.Fatalf("a restored event was created again: %+v", counts)
+	}
+}

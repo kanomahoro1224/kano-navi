@@ -73,14 +73,18 @@ premiere, or else the newest work, so a Short leads only when featured; each vid
 once. A video carries two chips. The form chip (`videoFormLabel`) names a
 Short, then a stream's waiting room, then the form (stream while it may be
 on air by the same rule as a live entry, then stream archive, premiere,
-video). The tag chip (`VideoTagChip` in
+video); a reported end that has passed makes it an archive even while a
+`live` result is still fresh, as `videoPhase` files it, and every caller
+passes the board's clock. The tag chip (`VideoTagChip` in
 `src/dashboard/components/event-tag.tsx`) adds the tag with the schedule's
 icon, in the schedule's words for a stream (gameplay, talk, singing) and as
 the work's content otherwise (gameplay, talk, music, where a note replaces
 the singing microphone, as on the archive's Songs button); it appears on every
 card, row, ticket and the lead, including stream archives that hide the
 form chip. The Next Up ticket names the video's tag, else the entry's
-activity label, before the form. Schedule entries follow the same split:
+activity label, before the form; a `member` entry adds the members-only chip
+(`MembersChip`) beside it unless the video's availability chip already
+shows `members`, `private` or `removed`. Schedule entries follow the same split:
 `eventKinds` marks a release or video entry as a work, and `eventTagKey`
 names a work's `song` label music, any other singing. The filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the
@@ -93,8 +97,13 @@ then each of its `alternates`); the first is the link its card, ticket or row
 follows. For `zh-CN` a past video with a bilibili alternate puts bilibili
 first; reservations, started and live videos keep their own platform. With
 two or more links, the shelf cards, rows, tickets and the stage's latest
-video show `PlatformLinks` in that order and an `aria-hidden`
-`PlatformBadge` on the cover (`src/dashboard/components/platform-links.tsx`). Its styles are in
+video show `PlatformLinks` in that order. Every video cover carries an
+`aria-hidden` `PlatformBadge` (`src/dashboard/components/platform-links.tsx`)
+of `videoPlatforms`: the links' platforms, led by the video's own platform
+when it is private or removed. Such a cover with no link left fades
+(`is-closed`). `VideoAvailabilityChip` marks `members` in the solid `--leaf`
+green, as do the schedule's `member` entries, and `private` and `removed`
+muted. Its styles are in
 `src/dashboard/board.css` on top of `src/site/site.css` and the shared tokens
 in `src/index.css`. The hidden `/admin` console
 lives in `src/admin/` and is organized around operator tasks: `index.tsx`
@@ -215,7 +224,8 @@ renders the entry as calendar subscribers will see it.
 
 The console's video list (`src/admin/views/videos.tsx`) puts the featured
 video above a list with a search field and task tabs: All, Upcoming,
-Bilibili and Missing translation. Uploads
+Bilibili, Missing translation and Queued (an open refresh or translation
+request); a `#videos/<tab>` link opens that tab. Uploads
 merged into another video appear on that video's row, so only the Bilibili
 tab lists them on their own. Each row shows the
 thumbnail, the title, which opens the correction dialog, the platform, time,
@@ -224,7 +234,7 @@ and the feature, correct and open actions. The correction dialog
 (`video-editor.tsx`) opens with a preview of the board's row as the draft
 leaves it (the chosen thumbnail, title, source, kind, tag, format and the
 number of corrections) and the page-read facts. Below, the corrections
-(title, kind, tag, format and thumbnail files) sit beside the platform's record (the merge
+(title, kind, tag, format, who can watch and thumbnail files) sit beside the platform's record (the merge
 section and what the platform replaced); one column on narrow screens. A
 corrected field is marked and offers a reset to the platform value beside its
 label. Refresh, cancel and save stay in the footer.
@@ -245,15 +255,17 @@ upload the merge rule merges at its next run or leaves to the operator,
 beside its candidates: Merge attaches it to one, and Keep separate keeps it
 apart so the rule never merges it. The posts tab has two labelled filters:
 Step, Schedule extraction or Translation, each with the overview's failure
-count, and State within the step: Failed, Uncertain or Queued for
-extraction, Failed or Queued for translation. A new step keeps the state
-when the step has it and falls back to Failed otherwise; below 560px each
-filter takes its own full-width line. Each row names the step that failed
+count, and State within the step: Failed or Uncertain for extraction;
+translation has only failures and shows no State filter. A new step keeps
+the state when the step has it and falls back to Failed otherwise; below
+560px each filter takes its own full-width line. Posts queued for a run wait
+on the run, not the operator, so the tab lists none of them: a note under
+the filters counts the step's queued posts from the overview's `backlog` and
+links to them in the post list. Each row names the step that failed
 (schedule extraction or translation) with its error. A failed extraction
 offers Dismiss beside the LLM action; a translation row offers Translate
 again, which queues a machine pass. The list pages 50 posts at a time.
-Outside the Queued state each row has a selection box on its left edge,
-and shift-click selects the range from the last toggled row. A selection
+Each row has a selection box on its left edge, and shift-click selects the range from the last toggled row. A selection
 bar above the list, which sticks under the top bar, selects the whole page
 and applies the state's actions to every selected post in one request:
 Dismiss and Process again for failed extractions, Process again for
@@ -270,7 +282,11 @@ the order they start, from the overview's `queue`. A due timer shows Due and
 whether it waits for the current run; a source timer that is not due has
 Start now, or Run next while a run holds the queue. The live-status probe is
 listed without a button. While timers are off in the process the panel says
-so instead of listing them.
+so instead of listing them. Under the timers, Waiting for a run lists the
+overview's `backlog`: each kind of operator request that has any (posts to
+extract again, X posts and videos to read again, posts and video titles to
+translate), with its count and the run that takes it. A row opens the post
+list or the video list on those requests; nothing shows while none waits.
 
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
 tabs for X, YouTube and Bilibili, each with the platform's logo, a dot (or
@@ -294,7 +310,9 @@ each fold saves on its own. X adds its X API limits (gate and daily cap,
 with the API's place in the chain and today's usage in the header, and
 today's usage and each account's timeline failures shown as meters against
 them). YouTube adds its progressive confirmation, where push and the
-live-status probe are folds with their switch in the header, followed by
+live-status probe are folds with their switch in the header (the probe's fold
+also lists its active videos, each with Stop checking, and its stopped
+videos, each with Check again), followed by
 the read-only
 [follow-up checks](sources.md#follow-up-checks-and-refresh-requests), and
 yt-dlp, with its status in the header. X and YouTube fold their timed-read
@@ -323,7 +341,10 @@ post shows no image cell; a post whose images are not cached yet shows one
 placeholder with the reason. A feed under 1000px puts the account, time,
 state and actions on one line above the wording, images and translations,
 and under 560px the state gets a line of its own. A hidden post's wording is
-dimmed.
+dimmed. Beside the account, extraction, translation and date filters,
+Queued for keeps the posts with an open operator request: any, Extract
+again, Read again from X or AI translation. A `#posts/queued-<kind>` link
+opens the list on one kind.
 
 Edit opens the post in a dialog: the whole wording, every cached image, the
 translations, the quote, the schedule image form and a switch that hides the
@@ -472,7 +493,8 @@ compact ticket unless it is the same link. Both read `summary.latestVideo`,
 which `deriveDashboardAt` recomputes as the newest non-upcoming video that is
 not a Short (`isShort === true`), unless it is the featured video
 (`featuredVideoIdOf`: `meta.featuredVideoId`, or the focus video of a
-snapshot without that field). An unknown format stays eligible, and when every recent upload is a
+snapshot without that field), and that is neither private nor removed
+(`videoIsGone`). An unknown format or availability stays eligible, and when every recent upload is a
 Short the stage shows no latest video. The play mark appears only on
 YouTube or Twitch links; X links read as an announcement.
 Matching needs no protected source item IDs or additional public API fields.
@@ -528,8 +550,11 @@ name, or stable ID to identify a mark; unknown custom providers retain their
 initial. Removing a preset does not delete saved providers.
 
 The LLM view shows the extraction, schedule-image check and translation queues
-side by side, then the
-providers as a list beside the selected provider's detail. A queue change
+side by side, then the recent failures, then the
+providers as a list beside the selected provider's detail. Recent failures
+lists each stored failure's stage, relative time (the Japan time on hover),
+message, model and a link to its post or video; it loads with the view and
+on its reload button. A queue change
 (add from the model picker, drag or move, remove) shows at once and is saved
 in order: each queue has at most one save in flight, and edits made meanwhile
 collapse into the latest order, sent next. A refused save returns the queue to
@@ -575,7 +600,10 @@ shows the text in a dialog to copy by hand.
 Calendar and admin requests use the shared lifecycle/deadline helper with a
 12-second deadline including body consumption. The public snapshot coordinator
 uses the 15-second deadline and refresh deduplication described above. All requests
-are cancelled on unmount and reject superseded responses. Automatic polls wait for an active request rather
+are cancelled on unmount and reject superseded responses. An admin view's
+`useResource` read supersedes only that view's earlier read, so two views
+reading the same path load independently, and only the view's newest load
+writes its state. Automatic polls wait for an active request rather
 than starting overlapping work. Their timer is scheduled after settlement,
 including failure, with exponential backoff capped at 60 seconds. Public polls
 pause while hidden, and so does the admin overview poll, which reads at once

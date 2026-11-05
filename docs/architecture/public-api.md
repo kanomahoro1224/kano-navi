@@ -19,7 +19,8 @@ video list.
 The summary contains `nextEvent`, `nextStream`, `latestVideo`, `latestPost`,
 and counts; `latestPost` survives an empty requested window. `latestVideo` is
 the stage's fallback: the newest non-upcoming video that is not a Short,
-unless the operator featured that Short; a video of unknown format stays
+unless the operator featured that Short, and that is neither private nor
+removed; a video of unknown format or unknown availability stays
 eligible. Metadata includes configured X accounts and the Featured video ID.
 
 `meta.sourceFetchedAt` contains only `x`, `youtube` and `bilibili` ISO
@@ -169,7 +170,10 @@ handle. The optional video `category` filter is `game`, `talk`, `song` or
 category is its shown [tag](data-model.md#video-form-and-tags) (`game`,
 `talk` or `song`: the operator's, else its schedule entry's label, else the
 title inference's), or `other` without one; each read derives it, and every
-video projection carries the tag as `tag`, `null` without one. An invalid range returns 400
+video projection carries the tag as `tag`, `null` without one, and who can
+watch it as `availability` (`public`, `unlisted`, `members`, `private`,
+`removed`, or `null` until a check could tell; see
+[Video availability](sources.md#video-availability)). An invalid range returns 400
 `invalid_range`, an invalid handle 400 `invalid_account` and an unknown
 category 400 `invalid_category`. Reads revalidate through their
 [ETags](#public-snapshot-contract), negotiate gzip like the other public JSON
@@ -246,11 +250,20 @@ The routes sit under `/api/`, so the development proxy and the
 ## MCP Boundary: `/mcp`
 
 `/mcp` uses stateless Streamable HTTP. `dashboard_read`, `schedule_list`,
-`posts_list`, and `health_read` are public read-only tools and do not require a
-credential. Control tools are only registered for requests carrying
+`posts_list`, `health_read` and `sync_status` are public read-only tools and
+do not require a credential. Public `sync_status` lists the recent jobs' kind,
+status and times only: it carries no job ID and takes no `jobId`. Control
+tools are only registered for requests carrying
 `Authorization: Bearer <MCP_CONTROL_TOKEN>`: they can advance a dashboard
-revision, start or inspect an asynchronous sync, or run the automatic schedule
-scan. The token is independent of `ADMIN_PASSWORD` and browser sessions.
+revision, start an asynchronous sync, or run the automatic schedule scan. For
+those requests `sync_status` also reports each job's `id` and looks a job up
+by `jobId`, so a started job can be followed. The token is independent of
+`ADMIN_PASSWORD` and browser sessions.
+
+A JSON-RPC batch holds at most 100 messages and runs at most 10 tool calls,
+since each can read a whole snapshot. Later `tools/call` requests in the same
+batch are answered with the tool error `Too many tool calls in one batch (at
+most 10)` without running; other requests in the batch are answered as usual.
 
 The endpoint deliberately has no tool for manual event confirmation, editing,
 deletion, bulk approval, profile-media selection/upload, SQL, file paths, DOM

@@ -26,7 +26,7 @@ func TestMediaStepIsPartialWhileImagesRemainQueued(t *testing.T) {
 	for i := range 3 {
 		u := fmt.Sprintf("https://pbs.twimg.com/media/step-%d.png", i)
 		h := sha256.Sum256([]byte(u))
-		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status) VALUES(?,'x',?,'pending')`, hex.EncodeToString(h[:]), u)
+		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, hex.EncodeToString(h[:]), u)
 	}
 	client := mediadownload.NewClient(&http.Client{Transport: xTestRT(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"image/png"}}, Body: io.NopCloser(strings.NewReader("\x89PNG\r\n\x1a\n" + r.URL.Path))}, nil

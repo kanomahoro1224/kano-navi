@@ -23,12 +23,19 @@ controller for games, a speech bubble for talk, a vocal microphone for
 singing (as in the schedule) and a note for music. An **All / Streams / Works /
 Shorts** filter shows one kind at a time.
 
-A video that also has a bilibili upload carries a two-platform mark and a link
-for each platform. Chinese readers open such past videos on bilibili first;
+Each cover carries the mark of every platform the video is on: YouTube,
+bilibili or both. A video on both also has a link for each platform. Chinese
+readers open such past videos on bilibili first;
 reservations and live streams always open on YouTube. Video titles appear in
 your content language when a translation is available, followed by an **AI**
 mark that is lit while the translation shows; select it to see the original
 wording and again to bring the translation back.
+
+A video that not everyone can watch says so beside its labels: **Members
+only** in green, as on YouTube, or a grey **Private** or **Removed**. A
+private or removed video stays listed but no longer opens on YouTube; a
+bilibili copy, when there is one, still opens, and without one the cover
+fades.
 
 ## Past Videos
 

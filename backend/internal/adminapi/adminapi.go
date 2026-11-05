@@ -145,6 +145,7 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodPost, Path: "/sources/{source}/run", Handler: a.needRuns(a.runSource)},
 		{Method: http.MethodGet, Path: "/sources/youtube/live-probe", Handler: a.liveProbe},
 		{Method: http.MethodPut, Path: "/sources/youtube/live-probe", Handler: a.updateLiveProbe},
+		{Method: http.MethodPut, Path: "/sources/youtube/live-probe/videos/{id}", Handler: a.updateLiveProbeVideo},
 		{Method: http.MethodGet, Path: "/sources/youtube/ytdlp", Handler: a.ytdlpStatus},
 		{Method: http.MethodPost, Path: "/sources/youtube/ytdlp/update", Handler: a.updateYTDLP},
 		{Method: http.MethodGet, Path: "/sync-settings", Handler: a.syncSettings},

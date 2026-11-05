@@ -367,15 +367,27 @@
     ],
     [
       "badTime",
-      "{\"events\":[{\"title\":\"T\",\"detail\":null,\"date\":\"2099-01-02\",\"time\":\"24:00\",\"endTime\":null,\"timePrecision\":\"exact\",\"status\":\"ok\",\"eventType\":\"event\",\"url\":null,\"confidence\":0.5,\"evidence\":\"\"}]}",
+      "{\"events\":[{\"title\":\"T\",\"detail\":null,\"date\":\"2099-01-02\",\"time\":\"30:00\",\"endTime\":null,\"timePrecision\":\"exact\",\"status\":\"ok\",\"eventType\":\"event\",\"url\":null,\"confidence\":0.5,\"evidence\":\"\"}]}",
       null,
       "schedule extraction contained an invalid event"
     ],
     [
       "emptyTime",
       "{\"events\":[{\"title\":\"T\",\"detail\":null,\"date\":\"2099-01-02\",\"time\":\"\",\"endTime\":null,\"timePrecision\":\"exact\",\"status\":\"ok\",\"eventType\":\"event\",\"url\":null,\"confidence\":0.5,\"evidence\":\"\"}]}",
-      null,
-      "schedule extraction contained an invalid event"
+      "{\"classification\":\"schedule\",\"events\":[{\"id\":\"x-schedule-20990102-779df4d5d4\",\"canonicalSource\":\"x\",\"canonicalSourceItemId\":\"post-1\",\"canonicalSourceKey\":\"2099-01-02Tunknown:e3b98a4da3\",\"source_key\":\"2099-01-02Tunknown:e3b98a4da3\",\"title\":\"T\",\"detail\":null,\"starts_on\":\"2099-01-02\",\"starts_at\":null,\"ends_at\":null,\"timezone\":\"Asia/Tokyo\",\"time_precision\":\"unknown\",\"cancellationSuspected\":false,\"status\":\"ok\",\"event_type\":\"event\",\"url\":\"https://x.com/synthetic_handle/status/1\",\"is_upcoming\":true,\"confidence\":0.5,\"raw\":{\"evidence\":\"\"}}],\"confidence\":0.5,\"evidence\":\"\",\"reason\":\"\",\"action\":\"add\"}",
+      null
+    ],
+    [
+      "lateNightStart",
+      "{\"events\":[{\"title\":\"T\",\"detail\":null,\"date\":\"2099-12-31\",\"time\":\"25:30\",\"endTime\":\"27:00\",\"timePrecision\":\"exact\",\"status\":\"ok\",\"eventType\":\"stream\",\"url\":null,\"confidence\":0.5,\"evidence\":\"\"}]}",
+      "{\"classification\":\"schedule\",\"events\":[{\"id\":\"x-schedule-21000101-2eb10e6863\",\"canonicalSource\":\"x\",\"canonicalSourceItemId\":\"post-1\",\"canonicalSourceKey\":\"2100-01-01T01:30:e3b98a4da3\",\"source_key\":\"2100-01-01T01:30:e3b98a4da3\",\"title\":\"T\",\"detail\":null,\"starts_on\":\"2100-01-01\",\"starts_at\":\"2099-12-31T16:30:00.000Z\",\"ends_at\":\"2099-12-31T18:00:00.000Z\",\"timezone\":\"Asia/Tokyo\",\"time_precision\":\"exact\",\"cancellationSuspected\":false,\"status\":\"ok\",\"event_type\":\"stream\",\"url\":\"https://x.com/synthetic_handle/status/1\",\"is_upcoming\":true,\"confidence\":0.5,\"raw\":{\"evidence\":\"\"}}],\"confidence\":0.5,\"evidence\":\"\",\"reason\":\"\",\"action\":\"add\"}",
+      null
+    ],
+    [
+      "lateNightEarlyEnd",
+      "{\"events\":[{\"title\":\"T\",\"detail\":null,\"date\":\"2099-12-31\",\"time\":\"25:30\",\"endTime\":\"01:45\",\"timePrecision\":\"exact\",\"status\":\"ok\",\"eventType\":\"stream\",\"url\":null,\"confidence\":0.5,\"evidence\":\"\"}]}",
+      "{\"classification\":\"schedule\",\"events\":[{\"id\":\"x-schedule-21000101-2eb10e6863\",\"canonicalSource\":\"x\",\"canonicalSourceItemId\":\"post-1\",\"canonicalSourceKey\":\"2100-01-01T01:30:e3b98a4da3\",\"source_key\":\"2100-01-01T01:30:e3b98a4da3\",\"title\":\"T\",\"detail\":null,\"starts_on\":\"2100-01-01\",\"starts_at\":\"2099-12-31T16:30:00.000Z\",\"ends_at\":\"2099-12-31T16:45:00.000Z\",\"timezone\":\"Asia/Tokyo\",\"time_precision\":\"exact\",\"cancellationSuspected\":false,\"status\":\"ok\",\"event_type\":\"stream\",\"url\":\"https://x.com/synthetic_handle/status/1\",\"is_upcoming\":true,\"confidence\":0.5,\"raw\":{\"evidence\":\"\"}}],\"confidence\":0.5,\"evidence\":\"\",\"reason\":\"\",\"action\":\"add\"}",
+      null
     ],
     [
       "endWithoutStart",
@@ -458,13 +470,38 @@
     [
       "emptyLegacy",
       "{}",
-      "{\"classification\":\"not_schedule\",\"events\":[],\"confidence\":0,\"evidence\":\"\",\"reason\":\"\",\"action\":\"none\"}",
-      null
+      null,
+      "schedule extraction returned no classification"
     ],
     [
       "nullResult",
       "null",
-      "{\"classification\":\"not_schedule\",\"events\":[],\"confidence\":0,\"evidence\":\"\",\"reason\":\"\",\"action\":\"none\"}",
+      null,
+      "schedule extraction did not return an object"
+    ],
+    ["arrayResult", "[]", null, "schedule extraction did not return an object"],
+    [
+      "nonArrayEvents",
+      "{\"classification\":\"schedule\",\"events\":{}}",
+      null,
+      "schedule extraction returned non-array events"
+    ],
+    [
+      "scheduleWithoutEvents",
+      "{\"classification\":\"schedule\",\"events\":[]}",
+      null,
+      "schedule extraction contained no events"
+    ],
+    [
+      "scheduleWithoutEventsField",
+      "{\"classification\":\"schedule\"}",
+      null,
+      "schedule extraction contained no events"
+    ],
+    [
+      "cancelWithoutEvents",
+      "{\"classification\":\"schedule\",\"events\":[],\"action\":\"cancel\"}",
+      "{\"classification\":\"schedule\",\"events\":[],\"confidence\":0,\"evidence\":\"\",\"reason\":\"\",\"action\":\"cancel\"}",
       null
     ],
     [

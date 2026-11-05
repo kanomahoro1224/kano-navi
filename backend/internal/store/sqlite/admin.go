@@ -9,6 +9,7 @@ import (
 	"math"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type AdminPost struct {
@@ -113,6 +114,11 @@ type AdminVideo struct {
 	IsShort       *bool `json:"isShort"`
 	SourceIsShort *bool `json:"sourceIsShort"`
 	ManualIsShort *bool `json:"manualIsShort"`
+	// Availability shows an operator's correction when one is set;
+	// SourceAvailability keeps what the checks recorded, nil while unknown.
+	Availability       *string `json:"availability"`
+	SourceAvailability *string `json:"sourceAvailability"`
+	ManualAvailability *string `json:"manualAvailability"`
 	// Tag is the shown content tag: ManualTag, else ScheduleTag (the label of
 	// the video's schedule entry), else InferredTag (the title inference's,
 	// with InferredTagSource set once the video was judged, tag or none).
@@ -183,7 +189,7 @@ func (s *Store) attachAdminVideoAlternates(ctx context.Context, videos []AdminVi
 				videos[i].Alternates = append(videos[i].Alternates, a)
 			}
 		}
-		if err = rows.Close(); err != nil {
+		if err = errors.Join(rows.Err(), rows.Close()); err != nil {
 			return dbErr(err)
 		}
 	}
@@ -305,7 +311,9 @@ type AdminRunsPage struct {
 type AdminPostFilter struct {
 	Page, PageSize                         int
 	Source, Account, From, To, Search, LLM string
-	Reprocess                              bool
+	// Queued is "extraction", "refresh", "translation" or "any" open
+	// operator request (see postQueuedSQL).
+	Queued string
 	// Translation is "incomplete", "complete", "requested" or "failed".
 	Translation string
 }
@@ -320,6 +328,10 @@ type AdminVideoFilter struct {
 	Page, PageSize                  int
 	Status, Kind, Thumbnail, Source string
 	Search, Merge, Translation      string
+	// Queued is "refresh", "translation" or "any" open operator request
+	// (see videoQueuedSQL); Now bounds the open refresh requests.
+	Queued string
+	Now    time.Time
 }
 
 // AdminEventFilter narrows the event list. Cancellation is "none",
@@ -349,7 +361,6 @@ type AdminCounts struct {
 	FailedPosts        int `json:"failedPosts"`
 	FailedExtractions  int `json:"failedExtractions"`
 	FailedTranslations int `json:"failedTranslations"`
-	ReprocessRequested int `json:"reprocessRequested"`
 	// VideoMerges are the Bilibili uploads the merge rule leaves to the
 	// operator.
 	VideoMerges int `json:"videoMerges"`
@@ -450,8 +461,8 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 		clauses = append(clauses, "COALESCE(s.status, 'never') = ?")
 		args = append(args, f.LLM)
 	}
-	if f.Reprocess {
-		clauses = append(clauses, "COALESCE(s.reprocess_requested, 0) = 1")
+	if queued := postQueuedSQL(f.Queued); queued != "" {
+		clauses = append(clauses, queued)
 	}
 	switch f.Translation {
 	case "incomplete":
@@ -613,6 +624,10 @@ func (s *Store) ListAdminVideos(ctx context.Context, f AdminVideoFilter) (AdminV
 	case "requested":
 		clauses = append(clauses, TranslationRequestedSQL(TranslationOwnerVideo, "v"))
 	}
+	if queued, queuedArgs := videoQueuedSQL(f.Queued, f.Now); queued != "" {
+		clauses = append(clauses, queued)
+		args = append(args, queuedArgs...)
+	}
 	switch f.Thumbnail {
 	case "ready":
 		clauses = append(clauses, "EXISTS (SELECT 1 FROM media_assets m WHERE m.source_url=v.thumbnail_url AND m.status='ready')")
@@ -677,7 +692,7 @@ var adminVideoColumns = `v.id,v.source,v.title,v.published_at,v.scheduled_at,v.u
  v.manual_title,v.manual_kind,v.manual_thumbnail_media_id,v.manual_thumbnail_sha256,v.duration_seconds,v.live_checked_at,v.refresh_requested_at,
  (SELECT COUNT(*) FROM video_revisions r WHERE r.video_id=v.id),
  v.merged_into,(SELECT COALESCE(t.manual_title,t.title) FROM videos t WHERE t.id=v.merged_into),v.merge_source,v.merge_reason,v.merged_at,v.is_short,v.manual_is_short,
- v.manual_tag,` + videoEventTagSQL("v") + `,v.tag,v.tag_source`
+ v.manual_tag,` + videoEventTagSQL("v") + `,v.tag,v.tag_source,v.availability,v.manual_availability`
 
 func scanAdminVideo(row scanner) (AdminVideo, error) {
 	var v AdminVideo
@@ -685,12 +700,12 @@ func scanAdminVideo(row scanner) (AdminVideo, error) {
 	var mergedInto, mergedTitle, mergeSource, mergeReason, mergedAt sql.NullString
 	var duration sql.NullInt64
 	var short, manualShort sql.NullBool
-	var manualTag, scheduleTag, inferredTag, inferredSource sql.NullString
+	var manualTag, scheduleTag, inferredTag, inferredSource, availability, manualAvailability sql.NullString
 	var upcoming int
 	if err := row.Scan(&v.ID, &v.Source, &v.SourceTitle, &published, &scheduled, &v.URL, &thumbnail, &kind, &upcoming,
 		&manualTitle, &manualKind, &pinMedia, &pinHash, &duration, &checked, &requested, &v.Revisions,
 		&mergedInto, &mergedTitle, &mergeSource, &mergeReason, &mergedAt, &short, &manualShort,
-		&manualTag, &scheduleTag, &inferredTag, &inferredSource); err != nil {
+		&manualTag, &scheduleTag, &inferredTag, &inferredSource, &availability, &manualAvailability); err != nil {
 		return AdminVideo{}, err
 	}
 	v.MergedInto, v.MergedIntoTitle, v.MergeSource = nullString(mergedInto), nullString(mergedTitle), nullString(mergeSource)
@@ -718,6 +733,11 @@ func scanAdminVideo(row scanner) (AdminVideo, error) {
 	v.IsShort = v.SourceIsShort
 	if v.ManualIsShort != nil {
 		v.IsShort = v.ManualIsShort
+	}
+	v.SourceAvailability, v.ManualAvailability = nullString(availability), nullString(manualAvailability)
+	v.Availability = v.SourceAvailability
+	if v.ManualAvailability != nil {
+		v.Availability = v.ManualAvailability
 	}
 	v.ManualTag, v.ScheduleTag = nullString(manualTag), nullString(scheduleTag)
 	v.InferredTag, v.InferredTagSource = nullString(inferredTag), nullString(inferredSource)
@@ -800,7 +820,7 @@ func (s *Store) adminVideosByID(ctx context.Context, ids []string) (map[string]A
 			}
 			items = append(items, v)
 		}
-		if err = rows.Close(); err != nil {
+		if err = errors.Join(rows.Err(), rows.Close()); err != nil {
 			return nil, fmt.Errorf("%w: videos unavailable", ErrUnavailable)
 		}
 	}
@@ -990,9 +1010,8 @@ func (s *Store) AdminCounts(ctx context.Context, today string) (AdminCounts, err
 	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND cancellation_status='llm_suspected'),
 	  (SELECT COUNT(*) FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE s.status='failed' OR (p.source='x' AND `+failedTranslation+`)),
 	  (SELECT COUNT(*) FROM post_llm_states WHERE status='failed'),
-	  (SELECT COUNT(*) FROM posts p WHERE p.source='x' AND `+failedTranslation+`),
-	  (SELECT COUNT(*) FROM post_llm_states WHERE reprocess_requested=1)`, today).Scan(
-		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.FailedPosts, &c.FailedExtractions, &c.FailedTranslations, &c.ReprocessRequested)
+	  (SELECT COUNT(*) FROM posts p WHERE p.source='x' AND `+failedTranslation+`)`, today).Scan(
+		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.FailedPosts, &c.FailedExtractions, &c.FailedTranslations)
 	if err != nil {
 		return AdminCounts{}, fmt.Errorf("%w: admin counts unavailable", ErrUnavailable)
 	}
@@ -1094,7 +1113,8 @@ func sanitizeLLMError(value sql.NullString) *string {
 		category = "authentication"
 	case strings.Contains(lower, "rate") || strings.Contains(lower, "429"):
 		category = "rate_limited"
-	case strings.Contains(lower, "json") || strings.Contains(lower, "parse") || strings.Contains(lower, "decode"):
+	case strings.Contains(lower, "json") || strings.Contains(lower, "parse") || strings.Contains(lower, "decode") ||
+		strings.Contains(lower, "invalid") || strings.Contains(lower, "contained"):
 		category = "invalid_response"
 	case strings.Contains(lower, "network") || strings.Contains(lower, "connect"):
 		category = "network"

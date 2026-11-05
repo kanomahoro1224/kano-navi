@@ -35,9 +35,11 @@ Japan-time clock, and language and theme controls.
   footer keeps a link to it while the interface is in Simplified Chinese. The
   site is deployed independently by its provider.
 
-The About page introduces the project, credits the sources of the LINE BLOG
-archive, the provider of the mainland China server site (with a link to it),
-and the AI models that helped build the site, and states the license.
+The About page introduces the project, names its author and the developers
+who have contributed code (with a link to the full contributor list), credits
+the sources of the LINE BLOG archive, the provider of the mainland China
+server site (with a link to it), and the AI models that helped build the site,
+and states the license.
 
 ## Freshness and Sources
 

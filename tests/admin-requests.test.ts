@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import path from "node:path"
 import test, { type TestContext } from "node:test"
-import { act, createElement } from "react"
+import { act, createElement, useState } from "react"
 import { render, type Rendered } from "./dom.ts"
 import { createServer } from "vite"
 
@@ -20,7 +20,16 @@ test("admin hook gates polling on the session, tracks runs and coordinates reque
       await vite.ssrLoadModule("/src/admin/use-admin-data.ts")
     // Keep Vite's real watcher/optimizer timers outside the mocked clock.
     await vite.close()
-    const setup = async (context: TestContext, { resource = false } = {}) => {
+    const setup = async (
+      context: TestContext,
+      {
+        resource = false,
+        view,
+      }: {
+        resource?: boolean
+        view?: () => ReturnType<typeof createElement>
+      } = {},
+    ) => {
       context.mock.timers.enable({
         apis: ["Date", "setTimeout"],
         now: new Date("2025-01-01T00:00:00Z"),
@@ -82,6 +91,7 @@ test("admin hook gates polling on the session, tracks runs and coordinates reque
           AdminContext.Provider,
           { value },
           resource ? createElement(Resource) : null,
+          view ? view() : null,
         )
       }
       await act(async () => {
@@ -302,6 +312,82 @@ test("admin hook gates polling on the session, tracks runs and coordinates reque
           await fixture.respond(fixture.open("/overview"), overview())
           assert.equal(fixture.current().revision, 1)
           assert.equal(fixture.all("/sources").length, 2)
+        } finally {
+          await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
+      "views reading one path never cancel each other's reads",
+      async (context) => {
+        const loaded: Record<string, any> = {}
+        function Reader({ name, query }: { name: string; query: any }) {
+          const { api } = useAdmin()
+          loaded[name] = useResource(() => api.events(query), [])
+          return null
+        }
+        const fixture = await setup(context, {
+          view: () =>
+            createElement(
+              "div",
+              null,
+              createElement(Reader, { name: "list", query: { page: 1 } }),
+              createElement(Reader, {
+                name: "dialog",
+                query: { pageSize: 50 },
+              }),
+            ),
+        })
+        try {
+          const reads = fixture.requests.filter((item) =>
+            item.path.startsWith("/events"),
+          )
+          assert.equal(reads.length, 2)
+          assert.equal(
+            reads.some((item) => item.signal.aborted),
+            false,
+          )
+          await fixture.respond(reads[0], { items: ["list"] })
+          await fixture.respond(reads[1], { items: ["dialog"] })
+          assert.equal(loaded.list.loading, false)
+          assert.equal(loaded.dialog.loading, false)
+          assert.deepEqual(
+            [loaded.list.data, loaded.dialog.data]
+              .map((data) => data.items[0])
+              .sort(),
+            ["dialog", "list"],
+          )
+        } finally {
+          await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
+      "an older response never replaces a newer one",
+      async (context) => {
+        let loaded: any
+        let show: (id: string) => void = () => {}
+        function Shown() {
+          const { api } = useAdmin()
+          const [id, setId] = useState("run-a")
+          show = setId
+          loaded = useResource(() => api.run(id), [id])
+          return null
+        }
+        const fixture = await setup(context, {
+          view: () => createElement(Shown),
+        })
+        try {
+          const first = fixture.open("/runs/run-a")
+          await act(async () => show("run-b"))
+          await fixture.respond(fixture.open("/runs/run-b"), {
+            run: { id: "run-b" },
+          })
+          await fixture.respond(first, { run: { id: "run-a" } })
+          assert.equal(loaded.data.run.id, "run-b")
+          assert.equal(loaded.loading, false)
         } finally {
           await fixture.unmount()
         }

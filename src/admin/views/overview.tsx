@@ -6,6 +6,7 @@ import {
   Combine,
   FileWarning,
   ImageOff,
+  Languages,
   ListEnd,
   Play,
   RefreshCw,
@@ -17,7 +18,12 @@ import { useState } from "react"
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import { formatRelative, japanStamp } from "@/admin/format"
-import type { QueueEntry, ScheduleSource, SourceHealth } from "@/admin/types"
+import type {
+  Backlog,
+  QueueEntry,
+  ScheduleSource,
+  SourceHealth,
+} from "@/admin/types"
 import {
   Badge,
   Button,
@@ -147,6 +153,87 @@ function QueueRow({ entry, busy }: { entry: QueueEntry; busy: boolean }) {
   )
 }
 
+/**
+ * The operator requests waiting for a run, each with the run that takes it
+ * and a link to the list of what waits. Nothing shows while none waits.
+ */
+function BacklogList({
+  backlog,
+  navigate,
+}: {
+  backlog: Backlog
+  navigate: ViewProps["navigate"]
+}) {
+  const { t } = useAppSettings()
+  const items = [
+    {
+      key: "extraction",
+      count: backlog.extraction,
+      icon: Sparkles,
+      open: () => navigate("posts", "queued-extraction"),
+    },
+    {
+      key: "postRefresh",
+      count: backlog.postRefresh,
+      icon: stepIcons.x,
+      open: () => navigate("posts", "queued-refresh"),
+    },
+    {
+      key: "videoRefresh",
+      count: backlog.videoRefresh,
+      icon: stepIcons.youtube,
+      open: () => navigate("videos", "queued"),
+    },
+    {
+      key: "postTranslation",
+      count: backlog.postTranslation,
+      icon: Languages,
+      open: () => navigate("posts", "queued-translation"),
+    },
+    {
+      key: "videoTranslation",
+      count: backlog.videoTranslation,
+      icon: Languages,
+      open: () => navigate("videos", "queued"),
+    },
+  ].filter((item) => item.count > 0)
+  if (!items.length) return null
+  return (
+    <div className="adm-backlog">
+      <h3 id="adm-backlog-title">{t("admin.backlog.title")}</h3>
+      <div
+        className="adm-queue"
+        role="list"
+        aria-labelledby="adm-backlog-title"
+      >
+        {items.map((item) => {
+          const Icon = item.icon
+          return (
+            <button
+              key={item.key}
+              type="button"
+              role="listitem"
+              className="adm-source-row adm-backlog-row"
+              onClick={item.open}
+            >
+              <span className="adm-source-icon" aria-hidden>
+                <Icon />
+              </span>
+              <span className="adm-source-copy">
+                <strong>
+                  {t(`admin.backlog.${item.key}`, { count: item.count })}
+                </strong>
+                <small>{t(`admin.backlog.${item.key}.when`)}</small>
+              </span>
+              <ArrowRight aria-hidden />
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function OverviewView({ navigate }: ViewProps) {
   const { t } = useAppSettings()
   const { overview, start, act, api, refreshOverview } = useAdmin()
@@ -235,13 +322,6 @@ export function OverviewView({ navigate }: ViewProps) {
             {t("admin.overview.allClearHint")}
           </Empty>
         )}
-        {review.reprocessRequested ? (
-          <p className="adm-note">
-            {t("admin.overview.reprocessQueued", {
-              count: review.reprocessRequested,
-            })}
-          </p>
-        ) : null}
       </Panel>
 
       <div className="adm-grid is-two">
@@ -301,6 +381,9 @@ export function OverviewView({ navigate }: ViewProps) {
             ) : (
               <p className="adm-muted">{t("admin.overview.noSchedule")}</p>
             )}
+            {overview.backlog ? (
+              <BacklogList backlog={overview.backlog} navigate={navigate} />
+            ) : null}
             <Button
               size="sm"
               variant="ghost"

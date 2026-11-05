@@ -165,3 +165,57 @@ func TestProbeReadsThePageWhenTheAPINamesNoBroadcastState(t *testing.T) {
 		}
 	}
 }
+
+func TestProbeLeavesPrivateVideosUnavailable(t *testing.T) {
+	var apiIDs, watched []string
+	c := probeAPIClient(t, func() *http.Response {
+		// GGGGGGGGGGG and TTTTTTTTTTT are missing from the answer, as private
+		// and removed videos are.
+		return response(200, apiItems())
+	}, nil, func(id string) *http.Response {
+		switch id {
+		case "GGGGGGGGGGG":
+			// Left out by the API, so a sign-in page with an unknown reason
+			// is the video's, not the bot check.
+			return response(200, signInPlayer(`"reason":"synthetic"`))
+		case "TTTTTTTTTTT":
+			// A page that was not answered proves nothing.
+			return response(503, "")
+		}
+		return response(200, watchPage(id, `"isLive":true,"isLiveContent":true`, `{"isLiveNow":true,"startTimestamp":"2026-01-03T12:01:00+00:00"}`))
+	}, &apiIDs, &watched)
+	a := NewAdapter(c, Options{ChannelID: syntheticChannel, MaxDetailRequests: 12, APIKey: "synthetic-api-key"})
+	a.Now = probeNow
+	videos := []Video{
+		{ID: "GGGGGGGGGGG", Title: "stored", ScheduledAt: "2026-01-03T12:00:00Z", URL: "https://www.youtube.com/watch?v=GGGGGGGGGGG"},
+		{ID: "TTTTTTTTTTT", Title: "stored", ScheduledAt: "2026-01-03T12:00:00Z", URL: "https://www.youtube.com/watch?v=TTTTTTTTTTT"},
+		{ID: "LLLLLLLLLLL", Title: "stored", ScheduledAt: "2026-01-03T12:00:00Z", URL: "https://www.youtube.com/watch?v=LLLLLLLLLLL"},
+	}
+	result, err := a.ProbeLive(context.Background(), videos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The private video's page does not stop the later pages.
+	if strings.Join(watched, ",") != "GGGGGGGGGGG,TTTTTTTTTTT,LLLLLLLLLLL" || strings.Join(result.Unavailable, ",") != "GGGGGGGGGGG" || strings.Join(result.Errors, ",") != "youtube_upstream_5xx" {
+		t.Fatalf("watched=%v result=%#v", watched, result)
+	}
+	if result.Inspected != 1 || len(result.Attempted) != 3 || result.Videos[0].ID != "LLLLLLLLLLL" {
+		t.Fatalf("result=%#v", result)
+	}
+
+	// Without a key a private page alone tells, and a bot check still stops
+	// the rest.
+	watched = nil
+	c = probeAPIClient(t, nil, nil, func(id string) *http.Response {
+		if id == "GGGGGGGGGGG" {
+			return response(200, signInPlayer(`"reason":"Private video"`))
+		}
+		return response(200, botCheckPage)
+	}, &apiIDs, &watched)
+	a = NewAdapter(c, Options{ChannelID: syntheticChannel, MaxDetailRequests: 12})
+	a.Now = probeNow
+	result, err = a.ProbeLive(context.Background(), videos)
+	if err != nil || strings.Join(watched, ",") != "GGGGGGGGGGG,TTTTTTTTTTT" || strings.Join(result.Unavailable, ",") != "GGGGGGGGGGG" || strings.Join(result.Errors, ",") != CodeLoginRequired {
+		t.Fatalf("watched=%v result=%#v err=%v", watched, result, err)
+	}
+}

@@ -1631,6 +1631,51 @@
   padding-bottom: 0;
 }
 
+/* The live-status probe's active and stopped videos, each with its action. */
+.adm-live-videos {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-live-videos li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-sunken);
+}
+
+.adm-live-videos li.is-stopped .adm-live-videos-name {
+  opacity: 0.7;
+}
+
+.adm-live-videos-name {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.adm-live-videos-name a,
+.adm-live-videos-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-live-videos-name a {
+  color: inherit;
+  font-weight: 650;
+}
+
+.adm-live-videos-name small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
 .adm-confirm-head {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -2443,6 +2488,50 @@
 
 .adm-queue > .adm-source-row {
   padding: 10px 0;
+}
+
+.adm-backlog {
+  display: grid;
+  gap: 6px;
+}
+
+.adm-backlog h3 {
+  margin: 0;
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.adm-backlog-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--adm-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.adm-backlog-row + .adm-backlog-row {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-backlog-row > svg:last-child {
+  flex: none;
+  color: var(--adm-muted);
+}
+
+.adm-backlog-row:hover strong {
+  color: var(--adm-accent);
+}
+
+.adm-review-waiting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .adm-source-list {
@@ -5926,6 +6015,59 @@ blockquote.adm-verdict-reason {
   align-items: center;
   gap: 6px;
   font-size: 12px;
+}
+
+.adm-failure-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  list-style: none;
+}
+
+.adm-failure-list > li {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.adm-failure-list > li + li {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-failure-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.adm-failure-head time,
+.adm-failure-meta {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-failure-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  overflow-wrap: anywhere;
+}
+
+.adm-failure-meta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+}
+
+.adm-failure-meta svg {
+  width: 12px;
+  height: 12px;
 }
 
 .adm-provider-models,

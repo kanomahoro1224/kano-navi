@@ -1,5 +1,7 @@
 // Wire shapes of /api/admin; see docs/architecture/admin-api.md.
 
+import type { VideoAvailability } from "../types.ts"
+
 export interface Page<T> {
   items: T[]
   page: number
@@ -221,6 +223,19 @@ export type QueueEntry = { nextRunAt: string; due: boolean } & (
   { kind: "source"; source: ScheduleSource } | { kind: "live-probe" }
 )
 
+/**
+ * Operator requests waiting for the step that does the work: posts to
+ * extract again, X posts and YouTube videos to read again from the source,
+ * and machine translations.
+ */
+export interface Backlog {
+  extraction: number
+  postRefresh: number
+  postTranslation: number
+  videoRefresh: number
+  videoTranslation: number
+}
+
 export interface Overview {
   /** Public mainland-China site suggestion; absent on older sidecars. */
   visitorRegionEnabled?: boolean
@@ -232,6 +247,7 @@ export interface Overview {
   timers: { scheduled: number; nextRunAt: string | null }
   /** Timed work in the order it reaches the single-flight queue. */
   queue: QueueEntry[]
+  backlog: Backlog
   sources: { x: SourceHealth; youtube: SourceHealth; bilibili: SourceHealth }
   review: {
     pendingImages: number
@@ -240,7 +256,6 @@ export interface Overview {
     failedPosts: number
     failedExtractions: number
     failedTranslations: number
-    reprocessRequested: number
     /** Bilibili uploads the merge rule leaves to the operator. */
     videoMerges: number
   }
@@ -299,6 +314,26 @@ export interface LiveProbeStatus {
   nextRunAt: string | null
   activeVideos: number
   maxVideos: number
+  videos: LiveProbeVideo[]
+  stopped: LiveProbeStop[]
+}
+
+export interface LiveProbeVideo {
+  id: string
+  title: string
+  url: string
+  scheduledAt: string
+  phase: "prestart" | "starting" | "live" | "overdue"
+  dueAt: string
+}
+
+export interface LiveProbeStop {
+  id: string
+  title: string
+  url: string
+  scheduledAt: string
+  stoppedAt: string
+  reason: "unavailable" | "operator"
 }
 
 export interface YTDLPStatus {
@@ -646,6 +681,13 @@ export interface AdminVideo {
   sourceIsShort: boolean | null
   manualIsShort: boolean | null
   /**
+   * availability shows an operator's correction; sourceAvailability keeps
+   * what the checks recorded. Null is unknown.
+   */
+  availability: VideoAvailability | null
+  sourceAvailability: VideoAvailability | null
+  manualAvailability: VideoAvailability | null
+  /**
    * The shown content tag (game, talk or song): manualTag, else the label of
    * the video's schedule entry, else the title inference's. inferredTagSource
    * is set once the inference judged the video, with or without a tag.
@@ -740,6 +782,7 @@ export interface VideoCorrection {
   tag?: string | null
   thumbnail?: VideoThumbnailPin | null
   isShort?: boolean | null
+  availability?: VideoAvailability | null
 }
 
 export interface AdminVideosPage extends Page<AdminVideo> {
@@ -811,6 +854,22 @@ export type QueueRoute = "schedule" | "verify" | "translate"
 export interface RouteTarget {
   providerId: string
   modelId: string
+}
+
+/**
+ * One stored failed model result. `message` is one of the fixed English
+ * messages the schedule and translate steps store.
+ */
+export interface LlmFailure {
+  route: QueueRoute
+  subject: "post" | "image" | "video"
+  subjectId: string
+  /** The post or video address; an image carries its post's. */
+  url: string | null
+  providerId: string | null
+  model: string | null
+  message: string
+  at: string
 }
 
 export interface LlmCatalog {

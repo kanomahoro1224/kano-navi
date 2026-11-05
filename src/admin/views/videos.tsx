@@ -150,7 +150,8 @@ function VideoMarks({
     video.manualKind !== null ||
     video.manualTag !== null ||
     video.manualThumbnail !== null ||
-    video.manualIsShort !== null
+    video.manualIsShort !== null ||
+    video.manualAvailability !== null
   if (!featured && !corrected && !video.revisions && !video.refreshRequestedAt)
     return null
   return (
@@ -308,23 +309,32 @@ function VideoRow({
   )
 }
 
-type VideoView = "all" | "upcoming" | "bilibili" | "translation"
+const videoViews = [
+  "all",
+  "upcoming",
+  "bilibili",
+  "translation",
+  "queued",
+] as const
+type VideoView = (typeof videoViews)[number]
 
 /**
  * Each tab is an operator task. Uploads merged into another video show on
  * that video, so only the Bilibili tab lists them as rows of their own.
+ * Queued lists the videos with an open refresh or translation request.
  */
 const viewFilters: Record<VideoView, Record<string, string>> = {
   all: { merge: "visible" },
   upcoming: { status: "upcoming", merge: "visible" },
   bilibili: { source: "bilibili" },
   translation: { translation: "incomplete" },
+  queued: { queued: "any" },
 }
 
-function VideoList() {
+function VideoList({ initial }: { initial: VideoView }) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
-  const [view, setView] = useState<VideoView>("all")
+  const [view, setView] = useState<VideoView>(initial)
   const [search, setSearch] = useState("")
   const [query, setQuery] = useState("")
   const [page, setPage] = useState(1)
@@ -392,9 +402,7 @@ function VideoList() {
           <Segmented
             label={t("admin.videos.view")}
             value={view}
-            options={(
-              ["all", "upcoming", "bilibili", "translation"] as const
-            ).map((value) => ({
+            options={videoViews.map((value) => ({
               value,
               label: t(`admin.videos.view.${value}`),
             }))}
@@ -480,8 +488,12 @@ function VideoList() {
   )
 }
 
-export function VideosView({ navigate }: ViewProps) {
+export function VideosView({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
+  // A `#videos/<view>` link opens that tab.
+  const initial = (videoViews as readonly string[]).includes(tab)
+    ? (tab as VideoView)
+    : "all"
   return (
     <div className="adm-view">
       <PageHeader
@@ -497,7 +509,7 @@ export function VideosView({ navigate }: ViewProps) {
           </Button>
         }
       />
-      <VideoList />
+      <VideoList key={initial} initial={initial} />
     </div>
   )
 }

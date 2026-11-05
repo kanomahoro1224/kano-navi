@@ -82,12 +82,13 @@ function groupByDay(
 const countEvents = (byDay: Map<string, ScheduleEvent[]>) =>
   [...byDay.values()].reduce((count, items) => count + items.length, 0)
 
+// Members-only entries take YouTube's members green, as the video chips do.
 const typeTones: Record<string, string> = {
   stream: "berry",
-  member: "lavender",
+  member: "leaf",
   event: "sky",
   release: "honey",
-  video: "leaf",
+  video: "lavender",
 }
 
 const statusTones: Record<string, string> = {

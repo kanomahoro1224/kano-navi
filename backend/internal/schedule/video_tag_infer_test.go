@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 // addVideo inserts a stored video published long before the translation
@@ -88,7 +89,8 @@ func TestVideoTagsLabelVideosTheScheduleCannot(t *testing.T) {
 }
 
 // Entries spend the per-run limit first; a failed video title only stamps
-// its attempt, so it stays unjudged and is asked after the others. A
+// its attempt, so it stays unjudged, is asked after the others and not
+// before its retry delay has passed. A
 // Bilibili upload is never shown, so it is never asked about.
 func TestVideoTagsShareTheLimitAndFailuresStayUnjudged(t *testing.T) {
 	f, translator := newTranslatorFixture(t)
@@ -119,6 +121,17 @@ func TestVideoTagsShareTheLimitAndFailuresStayUnjudged(t *testing.T) {
 	runTranslator(t, translator)
 	if got := f.videoTagState("later"); got != "game|title|attempted" {
 		t.Fatalf("later state=%q", got)
+	}
+	// Every other title is judged: the failed one waits out its delay.
+	asked := f.provider.count()
+	runTranslator(t, translator)
+	if f.provider.count() != asked {
+		t.Fatalf("failed title sent again before its delay: %d requests", f.provider.count())
+	}
+	f.exec(`UPDATE videos SET tag_attempted_at=? WHERE id='failing'`, time.Now().Add(-tagRetryAfter-time.Minute).UTC().Format(time.RFC3339Nano))
+	runTranslator(t, translator)
+	if f.provider.count() != asked+1 {
+		t.Fatalf("failed title not asked after its delay: %d requests", f.provider.count())
 	}
 	for _, request := range f.provider.requests {
 		if strings.Contains(request.body, "video bilibili") {

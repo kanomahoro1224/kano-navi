@@ -36,10 +36,12 @@ import {
 import {
   groupVideos,
   splitVideos,
+  videoIsGone,
   videoIsStream,
   videoLinks,
   videoMatchesFilter,
   videoPhase,
+  videoPlatforms,
   VIDEO_CATEGORIES,
   type VideoCategory,
   type VideoFilter,
@@ -48,7 +50,7 @@ import {
 } from "../video-groups"
 import { mediaSrcSet } from "@/lib/media"
 import { ArchiveMore, ArchiveState } from "./archive-dialog"
-import { EventTagIcon, VideoTagChip } from "./event-tag"
+import { EventTagIcon, VideoAvailabilityChip, VideoTagChip } from "./event-tag"
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import { TranslatedHeading, TranslatedTitle } from "./translated-title"
 
@@ -63,20 +65,24 @@ function Thumb({
   sizes = CARD_THUMB_SIZES,
   badge = null,
   seconds,
-  links = [],
+  video,
+  links,
   t,
 }: {
   url: string | null
   sizes?: string
   badge?: "play" | "upcoming" | null
   seconds?: number | null
-  /** The video's platforms; two or more mark the cover. */
-  links?: VideoLink[]
+  video: Video
+  /** The video's platform links; their platforms mark the cover. */
+  links: VideoLink[]
   t: Translator
 }) {
   const length = formatDuration(seconds)
+  // A private or removed video without another copy has nothing to open.
+  const closed = videoIsGone(video) && !links.length
   return (
-    <span className="video-thumb">
+    <span className={`video-thumb${closed ? " is-closed" : ""}`}>
       {url ? (
         <img
           src={url}
@@ -91,7 +97,7 @@ function Thumb({
           <span>{t("media.unavailable")}</span>
         </span>
       )}
-      <PlatformBadge links={links} />
+      <PlatformBadge platforms={videoPlatforms(video, links)} />
       {badge ? (
         <span className="video-thumb-badge" aria-hidden="true">
           {badge === "upcoming" ? <Clock3 /> : <Play fill="currentColor" />}
@@ -148,10 +154,12 @@ function JapanDate({
 function PhaseTag({
   phase,
   video,
+  now,
   t,
 }: {
   phase: VideoPhase
   video: Video
+  now: number
   t: Translator
 }) {
   // The week guide's tones: live is berry, cancelled danger, unsure honey.
@@ -168,7 +176,7 @@ function PhaseTag({
     return <span className="tag tone-danger">{t("videos.cancelled")}</span>
   if (phase === "upcoming")
     return <span className="tag tone-sky">{t("videos.reserved")}</span>
-  return <span className="tag">{videoFormLabel(video, t)}</span>
+  return <span className="tag">{videoFormLabel(video, t, now)}</span>
 }
 
 function Subhead({ children, count }: { children: ReactNode; count?: number }) {
@@ -209,13 +217,16 @@ function LeadCard({
     <article className="video-lead">
       <ExternalLink
         className="video-lead-art"
-        href={links[0].url}
+        href={links[0]?.url}
         aria-label={`${t("videos.watch")}: ${title}`}
       >
         <Thumb
           url={thumbnail}
           sizes={LEAD_THUMB_SIZES}
-          badge={phase === "upcoming" ? "upcoming" : "play"}
+          badge={
+            phase === "upcoming" ? "upcoming" : links.length ? "play" : null
+          }
+          video={video}
           links={links}
           t={t}
         />
@@ -226,11 +237,12 @@ function LeadCard({
             {isFeatured ? t("videos.featured") : t("videos.latestWork")}
           </span>
           {phase === "past" ? (
-            <span className="tag">{videoFormLabel(video, t)}</span>
+            <span className="tag">{videoFormLabel(video, t, now)}</span>
           ) : (
-            <PhaseTag phase={phase} video={video} t={t} />
+            <PhaseTag phase={phase} video={video} now={now} t={t} />
           )}
           <VideoTagChip video={video} t={t} />
+          <VideoAvailabilityChip video={video} t={t} />
           {usesFocus && focus.dateLabel ? (
             <span>{focus.dateLabel}</span>
           ) : (
@@ -299,11 +311,12 @@ function VideoTicket({
         </span>
         <span className="video-ticket-copy">
           <span className="video-meta">
-            <PhaseTag phase={phase} video={video} t={t} />
+            <PhaseTag phase={phase} video={video} now={now} t={t} />
             {videoIsStream(video) ? null : (
-              <span className="tag">{videoFormLabel(video, t)}</span>
+              <span className="tag">{videoFormLabel(video, t, now)}</span>
             )}
             <VideoTagChip video={video} t={t} />
+            <VideoAvailabilityChip video={video} t={t} />
             {time ? (
               <time dateTime={time}>
                 <span className="sr-only">{formatJapanDay(time, locale)} </span>
@@ -318,7 +331,7 @@ function VideoTicket({
             className="video-ticket-title"
             title={title}
             translations={video.translations}
-            href={links[0].url}
+            href={links[0]?.url}
             t={t}
           />
         </span>
@@ -349,6 +362,7 @@ function VideoCard({
         <Thumb
           url={video.thumbnailUrl}
           seconds={video.durationSeconds}
+          video={video}
           links={links}
           t={t}
         />
@@ -356,16 +370,17 @@ function VideoCard({
           className="video-card-title"
           title={title}
           translations={video.translations}
-          href={links[0].url}
+          href={links[0]?.url}
           t={t}
         />
       </div>
       <p className="video-meta">
         <JapanDate video={video} locale={locale} t={t} />
         {showKind ? (
-          <span className="tag">{videoFormLabel(video, t)}</span>
+          <span className="tag">{videoFormLabel(video, t, now)}</span>
         ) : null}
         <VideoTagChip video={video} t={t} />
+        <VideoAvailabilityChip video={video} t={t} />
         <LengthNote video={video} t={t} />
         {links.length > 1 ? (
           <PlatformLinks links={links} title={title} variant="chip" t={t} />
@@ -427,8 +442,9 @@ function VideoRow({
       >
         <Thumb
           url={video.thumbnailUrl}
-          badge={video.isUpcoming ? "upcoming" : "play"}
+          badge={video.isUpcoming ? "upcoming" : links.length ? "play" : null}
           seconds={video.durationSeconds}
+          video={video}
           links={links}
           t={t}
         />
@@ -437,9 +453,10 @@ function VideoRow({
             <span className={`tag${video.isUpcoming ? " tone-berry" : ""}`}>
               {video.isUpcoming
                 ? t("videos.reserved")
-                : videoFormLabel(video, t)}
+                : videoFormLabel(video, t, now)}
             </span>
             <VideoTagChip video={video} t={t} />
+            <VideoAvailabilityChip video={video} t={t} />
             <VideoWhen
               video={video}
               absoluteTime={absoluteTime}
@@ -456,7 +473,7 @@ function VideoRow({
             className="video-row-title"
             title={title}
             translations={video.translations}
-            href={links[0].url}
+            href={links[0]?.url}
             t={t}
           />
         </span>
@@ -809,6 +826,7 @@ function ArchiveCard({
           url={video.thumbnailUrl}
           badge={phase === "upcoming" ? "upcoming" : null}
           seconds={video.durationSeconds}
+          video={video}
           links={links}
           t={t}
         />
@@ -816,7 +834,7 @@ function ArchiveCard({
           className="archive-card-title"
           title={title}
           translations={video.translations}
-          href={links[0].url}
+          href={links[0]?.url}
           t={t}
         />
       </div>
@@ -830,8 +848,9 @@ function ArchiveCard({
             {t("common.timezoneShort")}
           </time>
         ) : null}
-        <PhaseTag phase={phase} video={video} t={t} />
+        <PhaseTag phase={phase} video={video} now={now} t={t} />
         <VideoTagChip video={video} t={t} />
+        <VideoAvailabilityChip video={video} t={t} />
         <LengthNote video={video} t={t} />
         {links.length > 1 ? (
           <PlatformLinks links={links} title={title} variant="chip" t={t} />

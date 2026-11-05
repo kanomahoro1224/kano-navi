@@ -78,11 +78,11 @@ func TestDashboardProjectionKeepsOperatorColumnsOut(t *testing.T) {
 	INSERT INTO events (id,source,source_item_id,source_key,title,starts_on,starts_at,timezone,time_precision,status,event_type,provenance,manual_locked,confidence,extraction_id,cancellation_status,cancellation_source_item_id,created_at,updated_at,raw_json,merge_reason) VALUES
 	 ('event-1','x','OPERATOR_ONLY_item','OPERATOR_ONLY_key','Event','2026-01-03','2026-01-03T20:00:00+09:00','Asia/Tokyo','exact','scheduled','event','automatic',0,0.42,7,'none','OPERATOR_ONLY_cancel_item','','','{"prompt":"OPERATOR_ONLY_event"}','OPERATOR_ONLY_event_merge');
 	INSERT INTO event_sources (event_id,source,source_item_id,source_key,url,raw_json,created_at,updated_at) VALUES ('event-1','x','OPERATOR_ONLY_source','OPERATOR_ONLY_source_key','https://x.example.invalid/status/1','{"x":"OPERATOR_ONLY_event_source"}','','');
-	INSERT INTO media_assets (id,source,source_url,cache_path,sha256,status,etag,last_error,raw_json) VALUES
-	 ('media-post','x','https://media.example.invalid/post.png','/srv/OPERATOR_ONLY/data/x/post.png','OPERATOR_ONLY_media_sha','pending','OPERATOR_ONLY_etag','OPERATOR_ONLY_download C:\OPERATOR_ONLY\data','{"OPERATOR_ONLY":1}');
-	INSERT INTO media_links (media_id,owner_type,owner_id,role,position) VALUES ('media-post','post','post-1','image',0),('media-post','post','post-1','quote-image',0);
-	INSERT INTO profile_media (id,slot,source,source_url,active_cache_path,active_sha256,status,is_active,raw_json) VALUES
-	 ('avatar-1','avatar','x','https://media.example.invalid/avatar.png','/srv/OPERATOR_ONLY/avatar.png','OPERATOR_ONLY_avatar_sha','pending',1,'{"OPERATOR_ONLY":2}');
+	INSERT INTO media_assets (id,source,source_url,cache_path,sha256,status,etag,last_error,raw_json,created_at,updated_at) VALUES
+	 ('media-post','x','https://media.example.invalid/post.png','/srv/OPERATOR_ONLY/data/x/post.png','OPERATOR_ONLY_media_sha','pending','OPERATOR_ONLY_etag','OPERATOR_ONLY_download C:\OPERATOR_ONLY\data','{"OPERATOR_ONLY":1}','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z');
+	INSERT INTO media_links (media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES ('media-post','post','post-1','image',0,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z'),('media-post','post','post-1','quote-image',0,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z');
+	INSERT INTO profile_media (id,slot,source,source_url,active_cache_path,active_sha256,status,is_active,raw_json,created_at,updated_at) VALUES
+	 ('avatar-1','avatar','x','https://media.example.invalid/avatar.png','/srv/OPERATOR_ONLY/avatar.png','OPERATOR_ONLY_avatar_sha','pending',1,'{"OPERATOR_ONLY":2}','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z');
 	INSERT INTO assets (id,kind,url,source_url,alt,week_start,period_start,period_end,period_basis,source_account,updated_at,raw_json) VALUES
 	 ('asset-1','schedule','https://media.example.invalid/schedule.png','https://x.example.invalid/status/1','schedule','2025-12-29','2025-12-29','2026-01-04','explicit','synthetic','2026-01-01T00:00:00.000Z','{"OPERATOR_ONLY":3}');
 	INSERT INTO schedule_asset_reviews (asset_id,llm_status,manual_status,updated_at) VALUES ('asset-1','pending','schedule','');

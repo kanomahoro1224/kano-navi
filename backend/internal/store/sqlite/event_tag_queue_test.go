@@ -34,9 +34,10 @@ func TestRecordedEventTagMovesRevision(t *testing.T) {
 	}
 }
 
-// A failed inference only stamps the entry: it stays a candidate, moves
-// behind the entries never attempted and then behind more recent failures,
-// so one title that keeps failing cannot hold the head of the queue.
+// A failed inference only stamps the entry: it stays a candidate once its
+// retry wait has passed, moves behind the entries never attempted and then
+// behind more recent failures, so one title that keeps failing cannot hold
+// the head of the queue or be sent again on every run.
 func TestFailedEventTagAttemptsRotate(t *testing.T) {
 	path := testutil.NewSnapshot(t)
 	for _, row := range []struct{ id, day string }{{"a", "2026-10-20"}, {"b", "2026-10-21"}, {"c", "2026-10-22"}} {
@@ -49,9 +50,9 @@ func TestFailedEventTagAttemptsRotate(t *testing.T) {
 	}
 	defer store.Close()
 	ctx := context.Background()
-	ids := func() string {
+	ids := func(retryBefore time.Time) string {
 		t.Helper()
-		candidates, err := store.ListEventTagCandidates(ctx, "2026-10-01", "2026-10-31", 2)
+		candidates, err := store.ListEventTagCandidates(ctx, "2026-10-01", "2026-10-31", retryBefore, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -61,7 +62,8 @@ func TestFailedEventTagAttemptsRotate(t *testing.T) {
 		}
 		return out
 	}
-	if got := ids(); got != "ab" {
+	later := tagNow.Add(24 * time.Hour)
+	if got := ids(later); got != "ab" {
 		t.Fatalf("initial=%q", got)
 	}
 	revision := storeRevision(t, store)
@@ -74,7 +76,7 @@ func TestFailedEventTagAttemptsRotate(t *testing.T) {
 	if got := storeRevision(t, store); got != revision {
 		t.Fatal("failure moved the revision")
 	}
-	if got := ids(); got != "bc" {
+	if got := ids(later); got != "bc" {
 		t.Fatalf("after one failure=%q", got)
 	}
 	if err = store.RecordEventTagFailure(ctx, "b", tagNow.Add(time.Minute)); err != nil {
@@ -83,8 +85,15 @@ func TestFailedEventTagAttemptsRotate(t *testing.T) {
 	if err = store.RecordEventTagFailure(ctx, "c", tagNow.Add(2*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	// Every entry failed once: the oldest attempt comes back first.
-	if got := ids(); got != "ab" {
+	// Every entry failed once: none returns before its wait has passed, then
+	// the oldest attempt comes back first.
+	if got := ids(tagNow.Add(-time.Second)); got != "" {
+		t.Fatalf("before the retry wait=%q", got)
+	}
+	if got := ids(tagNow.Add(time.Minute)); got != "ab" {
+		t.Fatalf("after the first retry wait=%q", got)
+	}
+	if got := ids(later); got != "ab" {
 		t.Fatalf("after every entry failed=%q", got)
 	}
 }

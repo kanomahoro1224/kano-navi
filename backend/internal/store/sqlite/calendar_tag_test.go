@@ -16,11 +16,14 @@ func TestCalendarCarriesTheOperatorTag(t *testing.T) {
 		('AAAAAAAAAAA','youtube','Song','2026-11-01T12:00:00.000Z','https://www.youtube.com/watch?v=AAAAAAAAAAA','song'),
 		('BBBBBBBBBBB','youtube','Plain','2026-11-01T13:00:00.000Z','https://www.youtube.com/watch?v=BBBBBBBBBBB',NULL),
 		('CCCCCCCCCCC','youtube','Both','2026-11-01T14:00:00.000Z','https://www.youtube.com/watch?v=CCCCCCCCCCC','game')`)
-	testutil.Exec(t, path, `INSERT INTO events(id,source,source_item_id,source_key,title,starts_on,starts_at,url) VALUES
-		('youtube-AAAAAAAAAAA','youtube','AAAAAAAAAAA','reservation','Song','2026-11-01','2026-11-01T12:00:00.000Z','https://www.youtube.com/watch?v=AAAAAAAAAAA'),
-		('youtube-BBBBBBBBBBB','youtube','BBBBBBBBBBB','reservation','Plain','2026-11-01','2026-11-01T13:00:00.000Z','https://www.youtube.com/watch?v=BBBBBBBBBBB')`)
-	testutil.Exec(t, path, `INSERT INTO events(id,source,source_item_id,source_key,title,starts_on,starts_at,url,tag,tag_source) VALUES
-		('youtube-CCCCCCCCCCC','youtube','CCCCCCCCCCC','reservation','Both','2026-11-01','2026-11-01T14:00:00.000Z','https://www.youtube.com/watch?v=CCCCCCCCCCC','live','manual')`)
+	// The fixture now builds the real schema, where these timestamps have no
+	// default: a row written by a test has to name them like one written by the
+	// ingest does.
+	testutil.Exec(t, path, `INSERT INTO events(id,source,source_item_id,source_key,title,starts_on,starts_at,url,created_at,updated_at) VALUES
+		('youtube-AAAAAAAAAAA','youtube','AAAAAAAAAAA','reservation','Song','2026-11-01','2026-11-01T12:00:00.000Z','https://www.youtube.com/watch?v=AAAAAAAAAAA','',''),
+		('youtube-BBBBBBBBBBB','youtube','BBBBBBBBBBB','reservation','Plain','2026-11-01','2026-11-01T13:00:00.000Z','https://www.youtube.com/watch?v=BBBBBBBBBBB','','')`)
+	testutil.Exec(t, path, `INSERT INTO events(id,source,source_item_id,source_key,title,starts_on,starts_at,url,tag,tag_source,created_at,updated_at) VALUES
+		('youtube-CCCCCCCCCCC','youtube','CCCCCCCCCCC','reservation','Both','2026-11-01','2026-11-01T14:00:00.000Z','https://www.youtube.com/watch?v=CCCCCCCCCCC','live','manual','','')`)
 	store, err := OpenReadOnly(path)
 	if err != nil {
 		t.Fatal(err)

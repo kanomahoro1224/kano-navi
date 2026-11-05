@@ -44,7 +44,10 @@ import { DayHeading, EventRow, groupByDay } from "@/admin/views/schedule-parts"
 
 const eventTypes = ["stream", "member", "appearance", "release", "event"]
 
-/** The calendar labels an entry can carry; "" leaves it unlabelled. */
+/**
+ * The calendar labels an entry can carry. "" is the operator's "no label";
+ * "auto" hands the label back to the title inference and the entry's videos.
+ */
 const eventTags = ["live", "game", "talk", "song", "video"]
 
 /** The form's limit on an entry's detail, shown by its counter. */
@@ -95,7 +98,9 @@ function draftOf(event: AdminEvent | null, day?: string): Draft {
     end: japanClock(event?.endsAt),
     approximate: event?.timePrecision === "approximate",
     eventType: event?.eventType || "stream",
-    tag: event?.tag || "",
+    // An entry without an operator's label reads as automatic, so saving it
+    // hands the label back rather than recording the operator's "no label".
+    tag: event?.tag || (event?.tagSource === "manual" ? "" : "auto"),
     status: event?.status || "",
     url: event?.url || "",
     cancellationStatus: event?.cancellationStatus || "none",
@@ -259,12 +264,21 @@ function EventDialog({
         </div>
         <Field
           label={t("admin.schedule.field.tag")}
-          hint={t("admin.schedule.field.tagHint")}
+          hint={
+            event
+              ? `${t("admin.schedule.field.tagHint")} · ${t(
+                  event.tagSource === "manual"
+                    ? "admin.schedule.tag.decidedManual"
+                    : "admin.schedule.tag.decidedAutomatic",
+                )}`
+              : t("admin.schedule.field.tagHint")
+          }
         >
           <select
             value={draft.tag}
             onChange={(e) => set({ tag: e.target.value })}
           >
+            <option value="auto">{t("admin.schedule.tag.auto")}</option>
             <option value="">{t("admin.schedule.tag.none")}</option>
             {eventTags.map((tag) => (
               <option key={tag} value={tag}>

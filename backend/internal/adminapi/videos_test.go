@@ -1,8 +1,10 @@
 package adminapi
 
 import (
+	"context"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestVideoCorrectionsHistoryAndRefresh(t *testing.T) {
@@ -139,5 +141,35 @@ func TestVideoMergeRoutes(t *testing.T) {
 	}
 	if got := c.text(t, `SELECT COUNT(*) FROM translations WHERE owner_id='e6acfMolexU' AND platform='bilibili'`); got != "0" {
 		t.Fatalf("undone merge kept %s translations", got)
+	}
+}
+
+// An operator's availability lies over what the checks record, which sync
+// keeps writing beneath it, and the board reads the correction.
+func TestVideoAvailabilityCorrection(t *testing.T) {
+	c := newConsole(t, "development", "", &gatedSteps{})
+	c.exec(t, `INSERT INTO videos(id,source,title,published_at,url,kind,availability) VALUES('AAAAAAAAAAA','youtube','Archive','2026-03-01T09:00:00Z','https://www.youtube.com/watch?v=AAAAAAAAAAA','upload','public')`)
+	code, payload := c.call(t, "PUT", "/api/admin/videos/AAAAAAAAAAA", `{"availability":" Private "}`)
+	video, _ := payload["video"].(map[string]any)
+	if code != 200 || video["availability"] != "private" || video["sourceAvailability"] != "public" || video["manualAvailability"] != "private" {
+		t.Fatalf("set=%d %v", code, payload)
+	}
+	board, err := c.store.GetDashboard(context.Background(), 3, time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if board.Summary.LatestVideo != nil || len(board.Videos) != 1 || *board.Videos[0].Availability != "private" {
+		t.Fatalf("board latest=%v videos=%v", board.Summary.LatestVideo, board.Videos)
+	}
+	c.exec(t, `UPDATE videos SET availability='unlisted' WHERE id='AAAAAAAAAAA'`)
+	code, payload = c.call(t, "PUT", "/api/admin/videos/AAAAAAAAAAA", `{"availability":null}`)
+	video, _ = payload["video"].(map[string]any)
+	if code != 200 || video["availability"] != "unlisted" || video["manualAvailability"] != nil {
+		t.Fatalf("clear=%d %v", code, payload)
+	}
+	for _, body := range []string{`{"availability":"hidden"}`, `{"availability":true}`} {
+		if code, payload = c.call(t, "PUT", "/api/admin/videos/AAAAAAAAAAA", body); code != 400 {
+			t.Fatalf("%s=%d %v", body, code, payload)
+		}
 	}
 }

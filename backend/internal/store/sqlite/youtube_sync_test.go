@@ -398,3 +398,82 @@ func TestRenamedTitleIsJudgedAgain(t *testing.T) {
 		}
 	}
 }
+
+func TestYoutubeWritesKeepWhoCanWatch(t *testing.T) {
+	s, _ := openLiveStore(t)
+	ctx := context.Background()
+	write := func(result ytsource.Result) {
+		t.Helper()
+		result.NextCursor, result.NextCursorTime = "AAAAAAAAAAA", "2026-01-01T00:00:00Z"
+		if err := s.WriteYoutubeRecent(ctx, liveChannel, result); err != nil {
+			t.Fatal(err)
+		}
+	}
+	upload := liveVideo("AAAAAAAAAAA", "", false)
+	upload.Availability = ytsource.AvailabilityPublic
+	members := liveVideo("BBBBBBBBBBB", "2026-01-03T10:00:00Z", false)
+	members.Availability = ytsource.AvailabilityMembers
+	write(ytsource.Result{Videos: []ytsource.Video{upload, members}})
+	availability := func(id string) string {
+		t.Helper()
+		return liveText(t, s, `SELECT availability FROM videos WHERE id=?`, id)
+	}
+	if availability("AAAAAAAAAAA") != "public" || availability("BBBBBBBBBBB") != "members" {
+		t.Fatalf("written=%s,%s", availability("AAAAAAAAAAA"), availability("BBBBBBBBBBB"))
+	}
+	// A members-only video is a members entry whatever its title says.
+	if got := liveText(t, s, `SELECT event_type FROM events WHERE id='youtube-BBBBBBBBBBB'`); got != "member" {
+		t.Fatalf("event type=%s", got)
+	}
+	// A check that cannot tell keeps the stored value; a failed page that
+	// told changes only that.
+	upload.Availability = ""
+	write(ytsource.Result{Videos: []ytsource.Video{upload}})
+	if availability("AAAAAAAAAAA") != "public" {
+		t.Fatalf("unknown replaced=%s", availability("AAAAAAAAAAA"))
+	}
+	revision := liveText(t, s, `SELECT value FROM app_settings WHERE key='dashboard_revision'`)
+	write(ytsource.Result{Availability: map[string]string{"AAAAAAAAAAA": ytsource.AvailabilityPrivate, "ZZZZZZZZZZZ": ytsource.AvailabilityRemoved}})
+	if availability("AAAAAAAAAAA") != "private" || liveText(t, s, `SELECT title FROM videos WHERE id='AAAAAAAAAAA'`) != upload.Title {
+		t.Fatalf("failed page=%s", availability("AAAAAAAAAAA"))
+	}
+	if liveText(t, s, `SELECT COUNT(*) FROM videos WHERE id='ZZZZZZZZZZZ'`) != "0" {
+		t.Fatal("a verdict added a video")
+	}
+	if liveText(t, s, `SELECT value FROM app_settings WHERE key='dashboard_revision'`) == revision {
+		t.Fatal("a public change kept the revision")
+	}
+}
+
+func TestReservationRestoresAnAutomaticallyRetiredEvent(t *testing.T) {
+	p := testutil.NewSnapshot(t)
+	s, err := OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+	channel := "UCAAAAAAAAAAAAAAAAAAAAAA"
+	result := ytsource.Result{Videos: []ytsource.Video{{ID: "AAAAAAAAAAA", Title: "reservation", PublishedAt: "2026-01-01T00:00:00Z", ScheduledAt: "2026-01-02T17:00:00Z", URL: "https://www.youtube.com/watch?v=AAAAAAAAAAA", ThumbnailURL: "https://i.ytimg.com/vi/AAAAAAAAAAA/hqdefault.jpg", Kind: "UPCOMING LIVE", IsUpcoming: true}}, NextCursor: "AAAAAAAAAAA", NextCursorTime: "2026-01-01T00:00:00Z", Queue: []string{"AAAAAAAAAAA"}}
+	if err = s.WriteYoutubeRecent(ctx, channel, result); err != nil {
+		t.Fatal(err)
+	}
+	// Re-extraction retired the event's X evidence and then the event, without
+	// an operator: it stays unlocked.
+	testutil.Exec(t, p, `INSERT INTO event_sources(event_id,source,source_item_id,source_key,url,raw_json,created_at,updated_at,deleted_at)
+		VALUES('youtube-AAAAAAAAAAA','x','post-1','2026-01-03T02:00:synthetic','https://x.com/synthetic/status/1','{}','2026-01-01T00:00:00Z','2026-01-01T01:00:00Z','2026-01-01T01:00:00Z')`)
+	testutil.Exec(t, p, `UPDATE events SET title='retired',deleted_at='2026-01-01T01:00:00Z' WHERE id='youtube-AAAAAAAAAAA'`)
+	if err = s.WriteYoutubeRecent(ctx, channel, result); err != nil {
+		t.Fatal(err)
+	}
+	db, _ := sql.Open("sqlite", p)
+	defer db.Close()
+	var title string
+	var deleted sql.NullString
+	if err = db.QueryRow(`SELECT title,deleted_at FROM events WHERE id='youtube-AAAAAAAAAAA'`).Scan(&title, &deleted); err != nil {
+		t.Fatal(err)
+	}
+	if title != "reservation" || deleted.Valid {
+		t.Fatalf("the reservation did not restore the retired event: %s deleted=%v", title, deleted)
+	}
+}

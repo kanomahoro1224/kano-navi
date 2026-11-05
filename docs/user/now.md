@@ -8,9 +8,11 @@ A ticket shows the next stream or event: its artwork, the date and time in
 Japan, the same moment in your own time zone, and a countdown in hours and
 minutes. While a stream is live the ticket switches to an on-air state. Its
 label names the activity with an icon when the video or the schedule says it
-is gameplay, talk, or singing, and otherwise the kind of stream or video.
+is gameplay, talk, or singing, and otherwise the kind of stream or video. A
+members-only stream keeps its Members only mark beside that label.
 
-When nothing is scheduled, the latest video takes its place. A schedule entry
+When nothing is scheduled, the latest video takes its place, passing over
+one that has been made private or removed. A schedule entry
 without artwork appears as a compact date ticket with its Auto-detected or
 Confirmed label and a link to the stream or its announcement, followed by the
 latest video as a small card with its kind and, when it has one, its

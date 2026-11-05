@@ -1943,6 +1943,35 @@
   color: var(--berry);
 }
 
+/*
+ * Who can watch a video, when not everyone can: members only in YouTube's
+ * solid members green, private and removed muted beside the tag.
+ */
+.tag.video-availability {
+  gap: 3px;
+  color: var(--soft);
+}
+
+.tag.video-availability svg {
+  width: 11px;
+  height: 11px;
+}
+
+.tag.video-availability.is-members {
+  background: var(--leaf);
+  color: #fff;
+}
+
+.dark .tag.video-availability.is-members {
+  color: hsl(var(--background));
+}
+
+/* A private or removed cover with nothing left to open fades. */
+:is(.video-thumb, .ticket-art).is-closed img {
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+
 /* Thumbnails */
 
 .video-thumb {

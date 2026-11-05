@@ -32,7 +32,7 @@ func (i EventInput) validate(create bool) error {
 	if create && strings.TrimSpace(i.Title) == "" {
 		return ErrEventInvalid
 	}
-	if i.Tag != "" && !ValidEventTag(i.Tag) {
+	if i.Tag != "" && i.Tag != TagAutomatic && !ValidEventTag(i.Tag) {
 		return ErrEventInvalid
 	}
 	if i.EndsAt != "" && i.StartsAt == "" {
@@ -77,14 +77,23 @@ func nullIfEmpty(v string) any {
 	return v
 }
 
-// manualTagSource marks who decided a tag. An operator clearing the label
-// keeps the row manual (the whole row is locked), so no inference fills it
-// again by itself.
+// manualTagSource marks who decided the tag of a new entry. One without a
+// label, or saved as automatic, reads on to its videos' tags like any
+// unlabelled row.
 func manualTagSource(tag string) any {
-	if strings.TrimSpace(tag) == "" {
+	if storedTag(tag) == nil {
 		return nil
 	}
 	return TagSourceManual
+}
+
+// storedTag is the tag column an operator's label writes: nothing for no
+// label or for TagAutomatic.
+func storedTag(tag string) any {
+	if strings.TrimSpace(tag) == TagAutomatic {
+		return nil
+	}
+	return nullIfEmpty(tag)
 }
 
 func newEventID() (string, error) {
@@ -151,7 +160,7 @@ func (s *Store) CreateManualEvent(ctx context.Context, input EventInput) (AdminE
  time_precision,status,event_type,tag,tag_source,url,is_upcoming,provenance,manual_locked,cancellation_status,created_at,updated_at,raw_json)
  VALUES(?,'manual',?,?,?,?,?,?,?,'Asia/Tokyo',?,?,?,?,?,?,0,'manual',1,'none',?,?,?)`,
 		id, id, id, strings.TrimSpace(input.Title), nullIfEmpty(input.Detail), input.StartsOn, nullIfEmpty(input.StartsAt), nullIfEmpty(input.EndsAt),
-		input.precision(), nullIfEmpty(input.Status), eventType, nullIfEmpty(input.Tag), manualTagSource(input.Tag), nullIfEmpty(input.URL), now, now, raw); err != nil {
+		input.precision(), nullIfEmpty(input.Status), eventType, storedTag(input.Tag), manualTagSource(input.Tag), nullIfEmpty(input.URL), now, now, raw); err != nil {
 		return AdminEvent{}, fmt.Errorf("%w: event", ErrUnavailable)
 	}
 	if err = upsertEventSource(ctx, tx, id, "manual", id, id, nullIfEmpty(input.URL), raw, now); err != nil {
@@ -228,16 +237,24 @@ func (s *Store) UpdateManualEvent(ctx context.Context, id string, input EventInp
 	}
 	// A save that sends the label back unchanged keeps who decided it, so an
 	// unrelated edit or a cancellation decision never turns an automatic
-	// label into the operator's.
-	newTagSource := manualTagSource(input.Tag)
-	if strings.TrimSpace(input.Tag) == tag.String {
+	// label into the operator's. A changed label is the operator's, a cleared
+	// one included: the entry then shows no label and holds back the title
+	// inference of its videos, so no inference fills it again by itself.
+	// TagAutomatic forgets the label, its source and the last attempt, which
+	// hands the label back to the automatic layers.
+	automatic := strings.TrimSpace(input.Tag) == TagAutomatic
+	var newTagSource any = TagSourceManual
+	switch {
+	case automatic:
+		newTagSource = nil
+	case strings.TrimSpace(input.Tag) == tag.String:
 		newTagSource = nullIfEmpty(tagSource.String)
 	}
 	args := append([]any{newTitle, nullIfEmpty(input.Detail), input.StartsOn, nullIfEmpty(input.StartsAt), nullIfEmpty(input.EndsAt), zone,
-		input.precision(), nullIfEmpty(input.Status), newType, nullIfEmpty(input.Tag), newTagSource, nullIfEmpty(input.URL)}, cancellation...)
+		input.precision(), nullIfEmpty(input.Status), newType, storedTag(input.Tag), newTagSource, automatic, nullIfEmpty(input.URL)}, cancellation...)
 	args = append(args, now, raw, id)
 	if _, err = tx.ExecContext(ctx, `UPDATE events SET title=?,detail=?,starts_on=?,starts_at=?,ends_at=?,timezone=?,time_precision=?,status=?,
- event_type=?,tag=?,tag_source=?,url=?,provenance='manual',cancellation_status=?,cancellation_source=?,cancellation_reason=?,cancellation_evidence=?,
+ event_type=?,tag=?,tag_source=?,tag_attempted_at=CASE WHEN ? THEN NULL ELSE tag_attempted_at END,url=?,provenance='manual',cancellation_status=?,cancellation_source=?,cancellation_reason=?,cancellation_evidence=?,
  cancellation_source_item_id=?,cancellation_confidence=?,cancellation_at=?,manual_locked=1,deleted_at=NULL,updated_at=?,raw_json=?,
  merged_into=CASE WHEN merge_source='rule' THEN NULL ELSE merged_into END,merge_reason=CASE WHEN merge_source='rule' THEN NULL ELSE merge_reason END,
  merged_at=CASE WHEN merge_source='rule' THEN NULL ELSE merged_at END,merge_source=CASE WHEN merge_source='rule' THEN NULL ELSE merge_source END WHERE id=?`, args...); err != nil {

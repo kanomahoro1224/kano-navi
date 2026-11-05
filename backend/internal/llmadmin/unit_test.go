@@ -42,43 +42,51 @@ func TestProviderBaseURLCanonicalForm(t *testing.T) {
 	}
 }
 
-func TestPrivateAddressPolicy(t *testing.T) {
+func TestAddressPolicy(t *testing.T) {
 	// Octets on each side of every range boundary in the policy.
-	privateV4 := [][4]byte{
-		{0, 0, 0, 0}, {10, 0, 0, 1}, {100, 64, 0, 1}, {100, 127, 255, 255}, {127, 0, 0, 1}, {169, 254, 1, 1},
-		{172, 16, 0, 1}, {172, 31, 255, 255}, {192, 0, 0, 1}, {192, 168, 0, 1}, {198, 18, 0, 1}, {198, 19, 0, 1},
-		{198, 51, 100, 1}, {203, 0, 113, 1}, {224, 0, 0, 1}, {255, 255, 255, 255},
+	classes := map[addressClass][][4]byte{
+		localAddress: {
+			{10, 0, 0, 1}, {100, 64, 0, 1}, {100, 127, 255, 255}, {172, 16, 0, 1}, {172, 31, 255, 255}, {192, 168, 0, 1},
+		},
+		refusedAddress: {
+			{0, 0, 0, 0}, {127, 0, 0, 1}, {169, 254, 1, 1}, {192, 0, 0, 1}, {198, 18, 0, 1}, {198, 19, 0, 1},
+			{198, 51, 100, 1}, {203, 0, 113, 1}, {224, 0, 0, 1}, {255, 255, 255, 255},
+		},
+		publicAddress: {
+			{1, 1, 1, 1}, {9, 255, 255, 255}, {11, 0, 0, 1}, {100, 63, 0, 1}, {100, 128, 0, 1}, {169, 253, 0, 1},
+			{172, 15, 0, 1}, {172, 32, 0, 1}, {192, 1, 0, 1}, {192, 167, 0, 1}, {198, 17, 0, 1}, {198, 20, 0, 1},
+			{203, 1, 0, 1}, {223, 255, 255, 255},
+		},
 	}
-	publicV4 := [][4]byte{
-		{1, 1, 1, 1}, {9, 255, 255, 255}, {11, 0, 0, 1}, {100, 63, 0, 1}, {100, 128, 0, 1}, {169, 253, 0, 1},
-		{172, 15, 0, 1}, {172, 32, 0, 1}, {192, 1, 0, 1}, {192, 167, 0, 1}, {198, 17, 0, 1}, {198, 20, 0, 1},
-		{203, 1, 0, 1}, {223, 255, 255, 255},
-	}
-	for _, address := range privateV4 {
-		if !privateIPv4(address) {
-			t.Errorf("%v should be refused", address)
-		}
-		// An IPv4-mapped IPv6 address inherits the IPv4 decision.
-		if !privateIPv6(netip.AddrFrom4(address).As16()) {
-			t.Errorf("mapped %v should be refused", address)
-		}
-	}
-	for _, address := range publicV4 {
-		if privateIPv4(address) {
-			t.Errorf("%v should be allowed", address)
-		}
-		if privateIPv6(netip.AddrFrom4(address).As16()) {
-			t.Errorf("mapped %v should be allowed", address)
+	for want, addresses := range classes {
+		for _, address := range addresses {
+			if got := classifyIPv4(address); got != want {
+				t.Errorf("classifyIPv4(%v) = %d, want %d", address, got, want)
+			}
+			// An IPv4-mapped IPv6 address inherits the IPv4 decision.
+			if got := classifyIPv6(netip.AddrFrom4(address).As16()); got != want {
+				t.Errorf("classifyIPv6(mapped %v) = %d, want %d", address, got, want)
+			}
 		}
 	}
-	for _, text := range []string{"::", "::1", "fc00::1", "fdff::1", "fe80::1", "febf::1", "ff02::1"} {
-		if !privateIPv6(netip.MustParseAddr(text).As16()) {
-			t.Errorf("%s should be refused", text)
+	v6 := map[string]addressClass{
+		"fc00::1": localAddress, "fdff::1": localAddress,
+		"::": refusedAddress, "::1": refusedAddress, "fe80::1": refusedAddress, "febf::1": refusedAddress, "ff02::1": refusedAddress,
+		"2001:db8::1": publicAddress, "fec0::1": publicAddress, "fbff::1": publicAddress, "::2": publicAddress, "2000::1": publicAddress,
+	}
+	for text, want := range v6 {
+		if got := classifyIPv6(netip.MustParseAddr(text).As16()); got != want {
+			t.Errorf("classifyIPv6(%s) = %d, want %d", text, got, want)
 		}
 	}
-	for _, text := range []string{"2001:db8::1", "fec0::1", "fbff::1", "::2", "2000::1"} {
-		if privateIPv6(netip.MustParseAddr(text).As16()) {
-			t.Errorf("%s should be allowed", text)
+	names := map[string]addressClass{
+		"localhost": refusedAddress, "api.localhost": refusedAddress,
+		"gpu.local": localAddress, "gpu.lan": localAddress, "host.docker.internal": localAddress, "gpu.home.arpa": localAddress,
+		"provider.example.test": publicAddress, "local": publicAddress, "lan.example.test": publicAddress,
+	}
+	for name, want := range names {
+		if got := classifyName(name); got != want {
+			t.Errorf("classifyName(%q) = %d, want %d", name, got, want)
 		}
 	}
 }

@@ -1,8 +1,11 @@
 import type { Translator, Video } from "@/types"
 import type { LucideIcon } from "lucide-react"
 import {
+  Ban,
   Clapperboard,
+  Crown,
   Gamepad2,
+  Lock,
   MessageCircle,
   MicVocal,
   MonitorPlay,
@@ -43,6 +46,49 @@ export function VideoTagChip({ video, t }: { video: Video; t: Translator }) {
     <span className="tag video-tag">
       <EventTagIcon tag={tag} work={video.kind !== "stream"} />
       {videoTagLabel(video, t)}
+    </span>
+  )
+}
+
+/**
+ * Who can watch a video, when not everyone can: members only, in YouTube's
+ * members green, or a muted private or removed. Nothing for a public or
+ * unlisted video, or one not yet checked.
+ */
+export function VideoAvailabilityChip({
+  video,
+  t,
+}: {
+  video: Video
+  t: Translator
+}) {
+  const availability = video.availability
+  if (
+    availability !== "members" &&
+    availability !== "private" &&
+    availability !== "removed"
+  )
+    return null
+  const Icon =
+    availability === "members" ? Crown : availability === "removed" ? Ban : Lock
+  return (
+    <span className={`tag video-availability is-${availability}`}>
+      <Icon aria-hidden="true" />
+      {t(`videos.availability.${availability}`)}
+    </span>
+  )
+}
+
+/**
+ * The members-only chip of a members-only entry whose activity label or video
+ * form takes the head's main chip, in the same members green as a video
+ * checked as members only.
+ */
+export function MembersChip({ t }: { t: Translator }) {
+  return (
+    <span className="tag video-availability is-members">
+      <Crown aria-hidden="true" />
+      {t("videos.availability.members")}
     </span>
   )
 }

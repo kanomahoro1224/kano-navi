@@ -55,6 +55,13 @@ external work:
   "scheduler": {"enabled", "running", "tickSeconds"},
   "timers": {"scheduled", "nextRunAt"},
   "queue": [{"kind", "source"?, "nextRunAt", "due"}],
+  "backlog": {
+    "extraction",       // posts queued for re-extraction
+    "postRefresh",      // X posts with a refresh from the source queued
+    "postTranslation",  // posts with a machine translation requested
+    "videoRefresh",     // YouTube videos with an open refresh request
+    "videoTranslation"  // video titles with a machine translation requested
+  },
   "sources": {
     "x":       {"skipped", "lastSuccessAt", "lastStep"},
     "youtube": {"skipped", "lastSuccessAt", "lastStep", "push": {"enabled", "verified"}},
@@ -66,7 +73,6 @@ external work:
     "failedPosts",            // posts with a failed extraction or translation
     "failedExtractions",      // posts whose last extraction failed
     "failedTranslations",     // X posts whose current wording failed machine translation and still lacks a translation
-    "reprocessRequested",     // posts queued for re-extraction
     "videoMerges"             // unmerged Bilibili uploads the merge rule leaves to the operator
   },
   "counts": {"upcomingEvents", "events", "posts", "videos"}
@@ -81,6 +87,13 @@ queue: each of those schedules (`kind: "source"` with its `source`) and the
 (`kind: "live-probe"`), by planned run and then by source, as the scheduler
 picks due schedules. `due` is true once `nextRunAt` has passed; a due entry
 waits for the current run and the entries due before it.
+
+`backlog` counts the operator requests that wait for the step that does
+the work: schedule extraction takes a re-extraction, the X step a post
+refresh, the YouTube step a video refresh and the translate step a machine
+translation. A video refresh request counts while it is open, for a day
+after it was made. Each count matches the `queued` filter of
+[`GET /posts`](#posts) or [`GET /videos`](#videos).
 
 `lastSuccessAt` is the newest successful incremental read of the source
 (`sync_state.last_success_at`). `lastStep` is `{runId, status, finishedAt}` of
@@ -202,21 +215,22 @@ value, and another field or value answers `400 invalid_input`.
 
 ## Sources
 
-| Method and path                            | Body                                      | Result                         |
-| ------------------------------------------ | ----------------------------------------- | ------------------------------ |
-| `GET /sources`                             |                                           | per-source status (below)      |
-| `PUT /sources/{source}/schedule`           | `{enabled, intervalMinutes, sync, chain}` | `SourceSchedule`               |
-| `POST /sources/{source}/schedule/start`    |                                           | `SourceSchedule`               |
-| `POST /sources/{source}/run`               |                                           | `202 {run}`; `409 busy`        |
-| `GET /sources/youtube/push`                |                                           | push status                    |
-| `PUT /sources/youtube/push`                | `{enabled, callbackUrl}`                  | push status                    |
-| `POST /sources/youtube/push/rotate-secret` |                                           | push status                    |
-| `GET /sources/youtube/live-probe`          |                                           | live probe status              |
-| `PUT /sources/youtube/live-probe`          | `{enabled, intervalMinutes}`              | live probe status              |
-| `GET /sources/youtube/ytdlp`               |                                           | `{available, version}`         |
-| `POST /sources/youtube/ytdlp/update`       |                                           | updated `{available, version}` |
-| `GET /sync-settings`                       |                                           | `{settings, fields}`           |
-| `PUT /sync-settings`                       | any subset of the setting fields          | `{settings, fields}`           |
+| Method and path                               | Body                                      | Result                         |
+| --------------------------------------------- | ----------------------------------------- | ------------------------------ |
+| `GET /sources`                                |                                           | per-source status (below)      |
+| `PUT /sources/{source}/schedule`              | `{enabled, intervalMinutes, sync, chain}` | `SourceSchedule`               |
+| `POST /sources/{source}/schedule/start`       |                                           | `SourceSchedule`               |
+| `POST /sources/{source}/run`                  |                                           | `202 {run}`; `409 busy`        |
+| `GET /sources/youtube/push`                   |                                           | push status                    |
+| `PUT /sources/youtube/push`                   | `{enabled, callbackUrl}`                  | push status                    |
+| `POST /sources/youtube/push/rotate-secret`    |                                           | push status                    |
+| `GET /sources/youtube/live-probe`             |                                           | live probe status              |
+| `PUT /sources/youtube/live-probe`             | `{enabled, intervalMinutes}`              | live probe status              |
+| `PUT /sources/youtube/live-probe/videos/{id}` | `{stopped}`                               | live probe status              |
+| `GET /sources/youtube/ytdlp`                  |                                           | `{available, version}`         |
+| `POST /sources/youtube/ytdlp/update`          |                                           | updated `{available, version}` |
+| `GET /sync-settings`                          |                                           | `{settings, fields}`           |
+| `PUT /sync-settings`                          | any subset of the setting fields          | `{settings, fields}`           |
 
 ```json
 {
@@ -295,14 +309,23 @@ returned.
 
 `LiveProbeStatus` is `{enabled, intervalMinutes, minIntervalMinutes,
 maxIntervalMinutes, available, lastRunAt, nextRunAt, activeVideos,
-maxVideos}`. `available` is false while timers or YouTube are disabled for
-the process; `activeVideos` counts the videos the probe is following, never
-their IDs, and one run checks at most `maxVideos` of them. `nextRunAt` is when
-the next run is planned (the earliest due video, at least two minutes after
-`lastRunAt`, and no earlier than now), or null while nothing is active or the
-probe is off or unavailable. `PUT` accepts either field, keeps an omitted
-one, and rejects other fields and intervals outside 5–360 minutes with
-`400`.
+maxVideos, videos, stopped}`. `available` is false while timers or YouTube
+are disabled for the process; `activeVideos` counts the videos the probe is
+following, and one run checks at most `maxVideos` of them. `videos` lists
+them earliest due first as `{id, title, url, scheduledAt, phase, dueAt}`, and
+`stopped` lists the [stopped videos](sources.md#stopped-videos) still stored,
+newest stop first, as `{id, title, url, scheduledAt, stoppedAt, reason}` with
+`reason` `unavailable` or `operator`. `nextRunAt` is when the next run is
+planned (the earliest due video, at least two minutes after `lastRunAt`, and
+no earlier than now), or null while nothing is active or the probe is off or
+unavailable. `PUT` accepts either field, keeps an omitted one, and rejects
+other fields and intervals outside 5–360 minutes with `400`.
+
+`PUT /sources/youtube/live-probe/videos/{id}` takes `{stopped}` (required,
+boolean) for one stored YouTube video: `true` stops the probe asking about it,
+`false` lets it ask again. It answers the new `LiveProbeStatus`, `404
+not_found` for a video that is not stored and `400` for an ID that is not a
+YouTube video ID or another body.
 
 `/sync-settings` holds the [sync settings](../operations/configuration.md#sync-settings).
 `settings` maps each field (`xMaxStatusRequests`, `xRefreshKnown`,
@@ -336,9 +359,15 @@ locked by an operator); `cancellation` is `none`,
 automatic extraction, and a delete is a durable tombstone. Confirming keeps
 the stored values unless the body overrides them.
 
-`tag` is the calendar label: `live`, `game`, `talk`, `song` or `video`, and an
-empty value clears it. A saved label that differs from the stored one is an
-operator's decision (`tagSource = manual`) and outranks the automatic ones;
+`tag` is the calendar label: `live`, `game`, `talk`, `song` or `video`, an
+empty value clears it, and `auto` hands it back to the automatic layers. A
+saved label that differs from the stored one, a cleared one included, is an
+operator's decision (`tagSource = manual`) and outranks the automatic ones; a
+cleared entry shows no label. `auto` stores no label, no `tagSource` and no
+attempt, so the entry reads on to its videos' tags and they are asked about
+again; on a new entry it is the same as an empty value. The schedule editor
+offers it as Automatic and selects it for an entry without an operator's
+label;
 a save that sends the stored label back unchanged, such as a cancellation
 decision, keeps its `tagSource`. The whole row being locked already keeps a
 later automatic write from replacing it. The list
@@ -396,20 +425,23 @@ alias); `none` never needs review and keeps `previewUrl` null.
 
 ## Posts
 
-| Method and path                  | Body / query                                                                                               | Result                           |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `GET /posts`                     | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `reprocess`, `translation` | list of posts                    |
-| `PUT /posts/{id}/hidden`         | `{hidden}`                                                                                                 | `{state}`                        |
-| `POST /posts/{id}/reprocess`     | `{route?}`                                                                                                 | `{state}`                        |
-| `POST /posts/{id}/dismiss`       | none                                                                                                       | `{state}`; `409 post_not_failed` |
-| `POST /posts/reprocess`          | `{ids}`                                                                                                    | `{queued}`                       |
-| `POST /posts/dismiss`            | `{ids}`                                                                                                    | `{dismissed}`                    |
-| `PUT /posts/{id}/schedule-image` | `{index, reason, start?, end?}`                                                                            | `{image}`                        |
-| `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                                 | `{state}`                        |
-| `POST /posts/{id}/refresh`       | none                                                                                                       | `{state}`                        |
+| Method and path                  | Body / query                                                                                            | Result                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `GET /posts`                     | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `queued`, `translation` | list of posts                    |
+| `PUT /posts/{id}/hidden`         | `{hidden}`                                                                                              | `{state}`                        |
+| `POST /posts/{id}/reprocess`     | `{route?}`                                                                                              | `{state}`                        |
+| `POST /posts/{id}/dismiss`       | none                                                                                                    | `{state}`; `409 post_not_failed` |
+| `POST /posts/reprocess`          | `{ids}`                                                                                                 | `{queued}`                       |
+| `POST /posts/dismiss`            | `{ids}`                                                                                                 | `{dismissed}`                    |
+| `PUT /posts/{id}/schedule-image` | `{index, reason, start?, end?}`                                                                         | `{image}`                        |
+| `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                              | `{state}`                        |
+| `POST /posts/{id}/refresh`       | none                                                                                                    | `{state}`                        |
 
 `account` is an X handle, matched without case or a leading `@`; `llm` is `never`, `pending`, `processed`, `failed`,
-`dismissed`, `skipped` or `uncertain`; `reprocess=1` keeps only queued posts;
+`dismissed`, `skipped` or `uncertain`; `queued` keeps the posts with an open
+operator request: `extraction` (queued for re-extraction), `refresh` (a
+refresh from the source), `translation` (a machine translation) or `any` of
+them;
 `translation` is `incomplete`, `complete`, `requested` or `failed` (the
 machine pass of the current wording failed and a locale still lacks a usable
 translation).
@@ -487,19 +519,19 @@ MCP control has none of them.
 
 ## Videos
 
-| Method and path              | Body / query                                                                                          | Result                                       |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `GET /videos`                | `page`, `pageSize` (≤ 200), `status`, `kind`, `thumbnail`, `source`, `search`, `merge`, `translation` | list plus `featuredVideoId`, `featuredVideo` |
-| `PUT /videos/featured`       | `{videoId}` (`null` restores automatic selection)                                                     | `{featuredVideoId}`                          |
-| `GET /videos/{id}/history`   |                                                                                                       | `{video, revisions, thumbnails}`             |
-| `PUT /videos/{id}`           | `{title?, kind?, tag?, thumbnail?, isShort?}`                                                         | `{video}`                                    |
-| `POST /videos/{id}/refresh`  |                                                                                                       | `202 {video, started, run}`                  |
-| `POST /videos/bilibili`      | `{input}` (BV ID or bilibili.com video link)                                                          | `{video, started, run}`                      |
-| `GET /videos/merges`         |                                                                                                       | `{items}` merge suggestions                  |
-| `GET /videos/{id}/merges`    |                                                                                                       | `{items}` for one Bilibili upload            |
-| `POST /videos/{id}/merge`    | `{into}` (YouTube video ID or watch link)                                                             | `{video}`                                    |
-| `POST /videos/{id}/unmerge`  |                                                                                                       | `{video}`                                    |
-| `POST /videos/{id}/separate` |                                                                                                       | `{video}`                                    |
+| Method and path              | Body / query                                                                                                    | Result                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `GET /videos`                | `page`, `pageSize` (≤ 200), `status`, `kind`, `thumbnail`, `source`, `search`, `merge`, `translation`, `queued` | list plus `featuredVideoId`, `featuredVideo` |
+| `PUT /videos/featured`       | `{videoId}` (`null` restores automatic selection)                                                               | `{featuredVideoId}`                          |
+| `GET /videos/{id}/history`   |                                                                                                                 | `{video, revisions, thumbnails}`             |
+| `PUT /videos/{id}`           | `{title?, kind?, tag?, availability?, thumbnail?, isShort?}`                                                    | `{video}`                                    |
+| `POST /videos/{id}/refresh`  |                                                                                                                 | `202 {video, started, run}`                  |
+| `POST /videos/bilibili`      | `{input}` (BV ID or bilibili.com video link)                                                                    | `{video, started, run}`                      |
+| `GET /videos/merges`         |                                                                                                                 | `{items}` merge suggestions                  |
+| `GET /videos/{id}/merges`    |                                                                                                                 | `{items}` for one Bilibili upload            |
+| `POST /videos/{id}/merge`    | `{into}` (YouTube video ID or watch link)                                                                       | `{video}`                                    |
+| `POST /videos/{id}/unmerge`  |                                                                                                                 | `{video}`                                    |
+| `POST /videos/{id}/separate` |                                                                                                                 | `{video}`                                    |
 
 Each video's `thumbnailUrl` is the local `/media/<id>?v=<sha256>` URL of its
 cached thumbnail, or `null` until that file is ready; the remote CDN address is
@@ -516,7 +548,10 @@ Changing the featured video advances the dashboard revision.
 the shown title, the platform title or the video ID. `merge=visible` excludes
 uploads merged into another video and `merge=merged` lists only them;
 `translation` is `incomplete`, `complete` or `requested`, as for posts, over
-the videos the translate step covers.
+the videos the translate step covers. `queued` keeps the videos with an open
+operator request: `refresh` (a YouTube refresh request made within the last
+day, which the YouTube step still takes first), `translation` (a machine
+translation) or `any` of them.
 
 ### Bilibili uploads
 
@@ -573,10 +608,11 @@ describes one upload whatever its state, adding `merged`, `separate` and
 ### Video corrections and history
 
 An operator correction replaces a platform value on the board without
-changing it: `title`, `kind`, `isShort` and `thumbnailUrl` show the
-correction, while `sourceTitle`, `sourceKind` and `sourceIsShort` keep what
-the platform reported and `manualTitle`, `manualKind`, `manualIsShort` and
-`manualThumbnail` (`{mediaId, sha256}`) are the corrections themselves.
+changing it: `title`, `kind`, `isShort`, `availability` and `thumbnailUrl`
+show the correction, while `sourceTitle`, `sourceKind`, `sourceIsShort` and
+`sourceAvailability` keep what the platform reported and `manualTitle`,
+`manualKind`, `manualIsShort`, `manualAvailability` and `manualThumbnail`
+(`{mediaId, sha256}`) are the corrections themselves.
 `tag` is the shown content tag: `manualTag`, else `scheduleTag` (the label of
 the video's schedule entry), else `inferredTag` (the title inference's), with
 `inferredTagSource` set once the inference judged the video, with or without
@@ -585,7 +621,8 @@ a tag (see [Video form and tags](data-model.md#video-form-and-tags)).
 (`true` for a Short, `false` for any other upload), or for `thumbnail` from
 one `{mediaId, sha256}` file listed in the history; `null` clears it and an
 omitted field keeps it. A title is 1–300 characters after trimming; a kind is
-`stream`, `premiere` or `upload` and a tag `game`, `talk` or `song`, compared
+`stream`, `premiere` or `upload`, a tag `game`, `talk` or `song`, and an
+availability `public`, `unlisted`, `members`, `private` or `removed`, compared
 without case. Other fields,
 unknown files and invalid values answer `400`, an unknown video `404`. A
 change advances the dashboard revision, and machine translations follow the
@@ -686,6 +723,7 @@ means the requests wait for the next translate step.
 | `GET /extraction`                        |                                                                                            | extraction settings                                                          |
 | `PUT /extraction`                        | any subset of `{keywordEnabled, visionEnabled, messageEnabled, messageAllPosts, keywords}` | extraction settings                                                          |
 | `GET /llm`                               |                                                                                            | `{providers, models, queue, verificationQueue, translationQueue, modelTags}` |
+| `GET /llm/failures`                      |                                                                                            | `{items}` newest 30 failures                                                 |
 | `POST /llm/providers`                    | provider fields                                                                            | `201 {provider}`                                                             |
 | `PUT /llm/providers/{id}`                | provider fields                                                                            | `{provider}`                                                                 |
 | `DELETE /llm/providers/{id}`             |                                                                                            | `204`                                                                        |
@@ -711,7 +749,30 @@ carries no `model` field, a `model` field in a provider write is ignored, and a
 provider test without `{model}` only lists the provider's models. Creating a
 provider or adding catalog models never queues anything. Model IDs may
 contain `/`, so model writes name the model in the body. Provider responses
-report `apiKeyConfigured` only; keys are write-only.
+report `apiKeyConfigured` only; keys are write-only. A provider write that
+changes `baseUrl` while a key is stored must carry `apiKey`, otherwise it is
+`400 invalid_input`, so a stored key is only sent to the address it was
+entered for.
+
+A provider `baseUrl` may name a model server on the local network: a private
+or shared (carrier-grade NAT) IPv4 address, a unique-local IPv6 address, or a
+name ending in `.local`, `.lan`, `.internal` or `.home.arpa`, such as
+`host.docker.internal`. Production accepts plain HTTP only for these
+local-network addresses; every other address must use HTTPS. This machine
+(`localhost`, `.localhost` and loopback addresses), link-local addresses
+(including cloud metadata endpoints), multicast and the other
+special-purpose ranges are refused. Names are not resolved, so a public name
+is accepted wherever it points; only the operator sets provider addresses.
+
+`GET /llm/failures` lists the 30 newest stored model failures, newest first:
+failed schedule extractions (one per input and queue target), failed
+schedule-image checks and owners whose last machine translation failed. A
+stopped run (`LLM request cancelled`) is not listed. Each item is `{route,
+subject, subjectId, url, providerId, model, message, at}`: `route` is
+`schedule`, `verify` or `translate`; `subject` is `post`, `image` (a schedule
+image, with its post's `url`) or `video`; `providerId` is known for
+extractions and `model` for extractions and image checks; `message` is the
+stored fixed message, never upstream wording; `at` is when the call failed.
 
 ## Outbound proxies
 
@@ -728,7 +789,9 @@ replaces each field it carries: `proxies` replaces the whole queue (a proxy
 without `id` is new), `routes` maps every area (`x`, `youtube`,
 `bilibili`, `media`, `llm`) to `{enabled, proxyIds}`. In a proxy write,
 an omitted `password` keeps the stored password of the proxy with the same
-`id`, `""` clears it, and a username-less proxy has none. Passwords are
+`id` while its scheme, host and port stay the same (a changed one is
+`400 invalid_input` until a password is sent), `""` clears it, and a
+username-less proxy has none. Passwords are
 write-only. Selections drop unknown ids; an unknown area, a route turned on
 without any proxy, or an invalid protocol, address or port is
 `400 invalid_input`. Unparseable stored settings answer reads with

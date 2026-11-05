@@ -151,7 +151,9 @@ func (y *YTDLP) Inspect(ctx context.Context, target string) (Video, map[string]a
 	}
 	y.mu.Lock()
 	defer y.mu.Unlock()
-	out, err := y.read(ctx, "--dump-single-json", "--skip-download", "--no-playlist", "--quiet", "--no-warnings", target)
+	// "--" ends the options, so a target that begins with "-" is never read
+	// as one.
+	out, err := y.read(ctx, "--dump-single-json", "--skip-download", "--no-playlist", "--quiet", "--no-warnings", "--", target)
 	if err != nil {
 		return Video{}, nil, err
 	}

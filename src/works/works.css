@@ -345,25 +345,29 @@ body:has(.site.works) {
 }
 
 /* Each base sits on the ground curve drawn by FeaturedLandscape. */
-.works-trio-stage.is-figures > .is-0 {
-  left: 0;
-  bottom: 12.2%;
-  width: 34%;
-  --sun-size: 112%;
-  --sun-top: 14%;
-  --lift: 3;
-}
-
-.works-trio-stage.is-figures > .is-1 {
-  left: 25%;
-  bottom: 6.5%;
+.works-trio-stage.is-figures > .is-two {
+  left: -4.2%;
+  bottom: 7.4%;
   width: 47%;
   --sun-size: 72%;
   --sun-top: -16%;
   --lift: 4;
+  /* She sits a little left of her disc: 1.2% of the stage. */
+  --figure-shift: -2.55%;
 }
 
-.works-trio-stage.is-figures > .is-2 {
+.works-trio-stage.is-figures > .is-one {
+  left: 34%;
+  bottom: 11.8%;
+  width: 34%;
+  --sun-size: 100%;
+  --sun-top: 16%;
+  /* Her disc centres between two's (19.3%) and three's (80%): 49.65%. */
+  --sun-shift: -3.97%;
+  --lift: 3;
+}
+
+.works-trio-stage.is-figures > .is-three {
   left: 60%;
   bottom: 14.2%;
   width: 40%;
@@ -397,7 +401,7 @@ body:has(.site.works) {
   position: absolute;
   z-index: 0;
   top: var(--sun-top);
-  left: 50%;
+  left: calc(50% + var(--sun-shift, 0%));
   width: var(--sun-size);
   aspect-ratio: 1;
   border-radius: 50%;
@@ -420,6 +424,7 @@ body:has(.site.works) {
 
 .works-figure img {
   position: relative;
+  left: var(--figure-shift, 0);
   z-index: var(--lift);
   width: 100%;
   height: auto;
@@ -493,6 +498,20 @@ body:has(.site.works) {
 
   .works-trio {
     max-width: 460px;
+  }
+}
+
+/* On a phone the scene draws in a little so two's feet stay on screen. */
+@media (max-width: 480px) {
+  .works-trio-scene {
+    width: 92%;
+    margin-inline: auto;
+  }
+
+  .works-figure-label {
+    gap: 4px;
+    margin-top: 6px;
+    font-size: 10px;
   }
 }
 

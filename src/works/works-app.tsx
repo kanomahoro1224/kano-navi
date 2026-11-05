@@ -86,8 +86,11 @@ function sectionFromUrl(): Section {
   return SECTIONS.includes(value as Section) ? (value as Section) : "personal"
 }
 
-/** The acoustic cover trilogy leads the page. */
-const FEATURED_TITLES = ["one", "two", "three"]
+/** The acoustic cover trilogy, in album order. */
+const TRILOGY = ["one", "two", "three"]
+
+/** The order the trilogy leads the page in, left to right. */
+const FEATURED_TITLES = ["two", "one", "three"]
 
 const featured = FEATURED_TITLES.map((title) =>
   personalReleases.find((release) => release.title === title),
@@ -111,11 +114,9 @@ const figuresReady =
  */
 function FeaturedFigure({
   release,
-  index,
   t,
 }: {
   release: PersonalRelease
-  index: number
   t: Translator
 }) {
   const [failed, setFailed] = useState(false)
@@ -146,7 +147,7 @@ function FeaturedFigure({
         onError={() => setFailed(true)}
       />
       <span className="works-figure-label" aria-hidden="true">
-        <b>{String(index + 1).padStart(2, "0")}</b>
+        <b>{String(TRILOGY.indexOf(release.title) + 1).padStart(2, "0")}</b>
         {release.title}
       </span>
     </span>
@@ -157,26 +158,31 @@ type Point = [number, number]
 type Curve = { start: Point; segments: [Point, Point, Point][] }
 
 /**
- * The ground the figures stand and sit on: one stands at the left, two sits
- * lowest in front, three sits on the rise. Each figure's base in works.css
- * sits on this curve.
+ * The ground the figures stand and sit on: two sits lowest at the left, one
+ * stands in the middle, three sits on the rise. Each figure's base in
+ * works.css sits on this curve.
  */
 const GROUND: Curve = {
   start: [0, 900],
   segments: [
     [
-      [90, 884],
-      [150, 876],
-      [230, 878],
+      [50, 922],
+      [120, 928],
+      [260, 928],
     ],
     [
-      [360, 882],
-      [430, 940],
-      [580, 942],
+      [400, 928],
+      [470, 924],
+      [530, 902],
     ],
     [
-      [730, 944],
-      [800, 868],
+      [570, 888],
+      [610, 880],
+      [700, 878],
+    ],
+    [
+      [790, 876],
+      [840, 860],
       [930, 858],
     ],
     [
@@ -275,13 +281,13 @@ const GRASS = GROUND.segments
 /** Small flowers in the three albums' colours, along the crest. */
 const FLOWERS = (
   [
-    [0, 0.2, "one"],
-    [0, 0.7, "three"],
-    [1, 0.45, "two"],
-    [1, 0.85, "one"],
-    [2, 0.25, "three"],
-    [2, 0.8, "two"],
-    [3, 0.5, "one"],
+    [0, 0.15, "one"],
+    [0, 0.75, "three"],
+    [1, 0.6, "two"],
+    [2, 0.5, "three"],
+    [3, 0.3, "one"],
+    [3, 0.85, "two"],
+    [4, 0.55, "one"],
   ] as const
 ).map(([segment, t, title]) => {
   const [x, y] = pointOn(GROUND, segment, t)
@@ -442,7 +448,7 @@ export function WorksApp() {
                   {featured.map((release, index) => (
                     <li
                       key={release.id}
-                      className={`is-${index}`}
+                      className={`is-${index} is-${release.title}`}
                       style={
                         {
                           "--tone": FEATURED_TONES[release.title],
@@ -458,11 +464,7 @@ export function WorksApp() {
                         onClick={() => setOpenId(release.id)}
                       >
                         {figuresReady ? (
-                          <FeaturedFigure
-                            release={release}
-                            index={index}
-                            t={t}
-                          />
+                          <FeaturedFigure release={release} t={t} />
                         ) : (
                           <Sleeve
                             cover={frontCover(release)}

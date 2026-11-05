@@ -387,8 +387,9 @@ body:has(.site.works) {
 
 .works-trio-stage.is-figures.is-side-b > .is-two {
   left: 25%;
-  bottom: 6.5%;
-  --figure-shift: 0%;
+  bottom: 8%;
+  /* She sits a little left of her disc: 3.8% of the stage. */
+  --figure-shift: -8%;
 }
 
 /*

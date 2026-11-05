@@ -39,7 +39,8 @@ art of the design of the newest article shown; see
 public pages share `src/site/`: `site-shell.tsx` (header with page navigation and
 Japan clock, footer, skip link, section title, empty and loading states;
 narrow screens show the site name and fold the page links into a menu behind
-the `kano-seal.tsx` deer seal),
+the `kano-seal.tsx` deer seal; the footer is the fan-made and unaffiliated
+line, About and Back to top, with the page's disclaimer behind a switch),
 `media-dialog.tsx` (the native modal image viewer: its close button stays in
 the screen's top-right corner, and a click anywhere outside the image, its
 arrows and its details closes it; a set takes the viewer's full height and

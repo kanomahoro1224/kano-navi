@@ -58,8 +58,9 @@ const messages = {
     "schedule.detail.youtube_live": "YouTube 直播",
     "schedule.detail.youtube_premiere": "YouTube 首播",
     "footer.fanMade": "粉丝制作的非官方整理页",
-    "footer.disclaimer":
-      "与本人及所属事务所无关 · 内容来自本地快照 · 一切以各平台原页面为准",
+    "footer.unaffiliated": "与本人及所属事务所无关",
+    "footer.disclaimer": "内容来自本地快照 · 一切以各平台原页面为准",
+    "footer.notes": "说明",
     "footer.backToTop": "回到顶部",
     "footer.mainlandSite": "中国大陆服务器站点",
     "archive.fullHistory": "完整历程",
@@ -86,8 +87,7 @@ const messages = {
     "history.empty": "这个身份暂时没有收录节点。",
     "history.note":
       "资料整理自本人官网、唱片公司、事务所与制作方的公开页面。歌手、直播角色与音乐组合的活动彼此并行，同一年可能出现多个身份。发行以唱片公司公布的发售或配信日为准。",
-    "history.disclaimer":
-      "与本人及所属事务所无关 · 节点为人工整理，可能不完整 · 一切以各来源原页面为准",
+    "history.disclaimer": "节点为人工整理，可能不完整 · 一切以各来源原页面为准",
     "history.kind.start": "起点",
     "history.kind.debut": "出道",
     "history.kind.release": "发行",
@@ -146,8 +146,10 @@ const messages = {
     "schedule.detail.youtube_live": "YouTube ライブ",
     "schedule.detail.youtube_premiere": "YouTube プレミア公開",
     "footer.fanMade": "ファンによる非公式まとめ",
+    "footer.unaffiliated": "ご本人・所属事務所とは無関係です",
     "footer.disclaimer":
-      "ご本人・所属事務所とは無関係です · ローカルスナップショットを表示 · 各プラットフォームの元ページが正です",
+      "ローカルスナップショットを表示 · 各プラットフォームの元ページが正です",
+    "footer.notes": "注意事項",
     "footer.backToTop": "ページ上部へ",
     "footer.mainlandSite": "中国大陸向けサーバーのサイト",
     "archive.fullHistory": "あゆみを全部見る",
@@ -175,7 +177,7 @@ const messages = {
     "history.note":
       "ご本人の公式サイト、レーベル、事務所、制作者の公開ページをもとに整理しています。歌手・配信キャラクター・音楽ユニットの活動は並行しており、同じ年に複数の名義が登場します。リリースはレーベル発表の発売日・配信日に基づきます。",
     "history.disclaimer":
-      "ご本人・所属事務所とは無関係です · 手作業の整理のため網羅的ではありません · 各出典の元ページが正です",
+      "手作業の整理のため網羅的ではありません · 各出典の元ページが正です",
     "history.kind.start": "はじまり",
     "history.kind.debut": "デビュー",
     "history.kind.release": "リリース",
@@ -234,8 +236,10 @@ const messages = {
     "schedule.detail.youtube_live": "YouTube Live",
     "schedule.detail.youtube_premiere": "YouTube Premiere",
     "footer.fanMade": "A fan-made, unofficial board",
+    "footer.unaffiliated": "Not affiliated with the artist or agency",
     "footer.disclaimer":
-      "Not affiliated with the artist or agency · Shows a local snapshot · Original platform pages are authoritative",
+      "Shows a local snapshot · Original platform pages are authoritative",
+    "footer.notes": "Notes",
     "footer.backToTop": "Back to top",
     "footer.mainlandSite": "Mainland China server site",
     "archive.fullHistory": "Full journey",
@@ -264,7 +268,7 @@ const messages = {
     "history.note":
       "Compiled from the artist's official site and public pages from labels, the agency, and creators. Singer, streaming-character, and music-unit activities run in parallel, so one year can show several identities. Releases use the label's release or distribution date.",
     "history.disclaimer":
-      "Not affiliated with the artist or agency · Hand-curated and not exhaustive · Each source page is authoritative",
+      "Hand-curated and not exhaustive · Each source page is authoritative",
     "history.kind.start": "Beginning",
     "history.kind.debut": "Debut",
     "history.kind.release": "Release",

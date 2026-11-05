@@ -304,10 +304,15 @@
 
 /* ------------------------------------------------------------------ footer */
 
+/*
+ * One row: the fan-made line, then the notes switch, About and Back to top.
+ * The page's notes open on a row of their own below. Phones put the lines on
+ * top of each other.
+ */
 .site-footer {
   position: relative;
   margin-top: 24px;
-  padding: 40px var(--gutter) 48px;
+  padding: 20px var(--gutter) 24px;
   border-top: 1px solid var(--rule);
   background: color-mix(in oklab, hsl(var(--muted)) 45%, transparent);
 }
@@ -324,40 +329,37 @@
 .site-footer-inner {
   display: grid;
   width: min(100%, var(--page-width));
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 20px 28px;
+  gap: 8px 28px;
   margin-inline: auto;
 }
 
-.site-footer-mark {
-  display: grid;
-  width: 52px;
-  height: 52px;
-  place-items: center;
-  border-radius: 16px;
-  background: var(--paper);
-  box-shadow: var(--shadow-sm);
-  font-size: 18px;
-  line-height: 1;
-}
-
-.site-footer-mark span:last-child {
-  margin-top: -8px;
-  margin-left: 14px;
-}
-
-.site-footer-copy strong {
-  font-family: var(--font-display);
-  font-size: 15px;
-}
-
-.site-footer-copy p {
-  max-width: 62ch;
-  margin: 4px 0 0;
+.site-footer-lead {
+  margin: 0;
   color: var(--soft);
   font-size: 13px;
   line-height: 1.6;
+}
+
+.site-footer-lead strong {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+
+.site-footer-more {
+  grid-column: 1 / -1;
+  max-width: 72ch;
+  margin: 0;
+  color: var(--soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.site-footer-mirror {
+  margin: 2px 0 0;
+  font-size: 13px;
 }
 
 .site-footer-mirror a {
@@ -380,20 +382,23 @@
 .site-footer-links {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 4px 14px;
   font-size: 13px;
   font-weight: 700;
 }
 
-.site-footer-links a {
+.site-footer-links a,
+.site-footer-toggle {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   color: var(--soft);
 }
 
-.site-footer-links a:hover {
+.site-footer-links a:hover,
+.site-footer-toggle:hover {
   color: var(--berry);
 }
 
@@ -402,14 +407,43 @@
   height: 14px;
 }
 
-@media (max-width: 760px) {
+.site-footer-toggle svg {
+  transition: transform 160ms ease;
+}
+
+.site-footer-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 680px) {
+  .site-footer {
+    margin-top: 16px;
+  }
+
   .site-footer-inner {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .site-footer-lead strong {
+    display: block;
+  }
+
+  .site-footer-sep {
+    display: none;
+  }
+
+  /* The notes open between the lines and the links. */
+  .site-footer-more {
+    grid-row: 2;
   }
 
   .site-footer-links {
-    grid-column: 1 / -1;
     justify-content: flex-start;
+  }
+
+  .site-footer-toggle {
+    margin-right: auto;
   }
 }
 

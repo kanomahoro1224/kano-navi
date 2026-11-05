@@ -66,26 +66,46 @@ func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 // holds a shown post, oldest first, with its per-account counts.
 func (h *Handler) postMonths(w http.ResponseWriter, r *http.Request) {
 	months, revision, err := h.store.GetPostMonths(r.Context())
+	writeArchiveMonths(w, r, months, revision, err, "accountCounts")
+}
+
+// videoMonths serves the video timeline's month index: every Japan month that
+// holds a public video, oldest first, with its per-category counts.
+func (h *Handler) videoMonths(w http.ResponseWriter, r *http.Request) {
+	months, revision, err := h.store.GetVideoMonths(r.Context())
+	writeArchiveMonths(w, r, months, revision, err, "categoryCounts")
+}
+
+func writeArchiveMonths(w http.ResponseWriter, r *http.Request, months []sqlite.ArchiveMonth, revision int64, err error, countsKey string) {
 	if err != nil {
 		writeArchiveError(w, err)
 		return
 	}
 	items := make([]any, 0, len(months))
 	for _, month := range months {
-		items = append(items, map[string]any{
-			"month": month.Month, "total": month.Total, "accountCounts": month.AccountCounts,
-		})
+		items = append(items, map[string]any{"month": month.Month, "total": month.Total, countsKey: month.Counts})
 	}
 	writeRevalidatedJSON(w, r, map[string]any{"months": items, "revision": revision}, nil)
 }
 
-// videos serves the video archive: stored videos whose scheduled or published
-// time falls in an inclusive Japan-date range, newest first, optionally of one
-// category.
+// videos serves the video archive, newest first, optionally of one category:
+// with from and to, the stored videos whose scheduled or published time falls
+// in that inclusive Japan-date range; without them, the timeline of every
+// dated video, or of those on or before the inclusive Japan date until.
 func (h *Handler) videos(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	page, err := h.store.GetVideoArchive(r.Context(), query.Get("from"), query.Get("to"), query.Get("category"),
-		archiveNumber(r, "page", 1), archiveNumber(r, "pageSize", archivePageSize), h.now())
+	pageNumber, pageSize := archiveNumber(r, "page", 1), archiveNumber(r, "pageSize", archivePageSize)
+	var page *sqlite.ArchivePage[sqlite.Video]
+	var err error
+	if query.Has("from") || query.Has("to") {
+		if query.Has("until") {
+			err = sqlite.ErrInvalidCalendarRange
+		} else {
+			page, err = h.store.GetVideoArchive(r.Context(), query.Get("from"), query.Get("to"), query.Get("category"), pageNumber, pageSize, h.now())
+		}
+	} else {
+		page, err = h.store.GetVideoTimeline(r.Context(), query.Get("until"), query.Get("category"), pageNumber, pageSize, h.now())
+	}
 	if err != nil {
 		writeArchiveError(w, err)
 		return

@@ -39,12 +39,15 @@ fades.
 
 ## Past Videos
 
-**Past videos** (a clock icon on phones) browses every stored YouTube and
-bilibili video month by month as a grid of covers, newest first, each with
-its title, Japan date and time, and kind. Buttons above the grid, with the same
-icons, narrow the month to games, talk, songs or everything else, each with
-its count; the
-choice stays while you move between months. A video counts as a game, talk
+**Past videos** (a clock icon on phones) lists every stored YouTube and
+bilibili video in one scrolling list, newest first, as a grid of covers, each
+with its title, Japan date and time, and kind. Each month has a header with
+its number of videos that stays at the top while you scroll through it, and
+older videos load as you reach the end. The month name above the list follows
+the scroll; click it to jump to any month that has videos, and use Latest to
+return to the newest. Buttons above the list, with the same icons, narrow it
+to games, talk, songs or everything else, each with its count across all
+months. A video counts as a game, talk
 or song when the maintainer tagged it so, otherwise when its schedule entry
 carries that label, and otherwise when an automatic reading of its title
 says so; anything else counts as other. Whether a video is a stream, a

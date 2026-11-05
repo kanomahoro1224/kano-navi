@@ -191,6 +191,120 @@ func TestVideoArchiveUsesTheScheduledOrPublishedTime(t *testing.T) {
 	}
 }
 
+func TestVideoTimelinePagesThroughEveryMonth(t *testing.T) {
+	handler := archiveHandler(t, `
+		INSERT INTO videos (id,source,title,published_at,scheduled_at,url,kind,is_upcoming,raw_json,manual_tag) VALUES
+		 ('video-2024','youtube','Old',     '2024-03-02T12:00:00Z',NULL,'https://www.youtube.com/watch?v=v2024','video',0,'{"private":"synthetic"}','song'),
+		 ('video-edge','youtube','Edge',    '2026-09-30T15:00:00Z',NULL,'https://www.youtube.com/watch?v=edge','video',0,NULL,NULL),
+		 ('video-sep', 'youtube','September','2026-09-30T14:59:00Z',NULL,'https://www.youtube.com/watch?v=sep','video',0,NULL,'game'),
+		 ('video-oct', 'youtube','October', '2026-10-05T12:00:00Z',NULL,'https://www.youtube.com/watch?v=oct','video',0,NULL,'game'),
+		 ('video-next','youtube','Reserved','2026-10-18T12:00:00Z','2026-12-01T12:00:00Z','https://www.youtube.com/watch?v=next','upcoming',1,NULL,NULL),
+		 ('video-undated','youtube','Undated',NULL,NULL,'https://www.youtube.com/watch?v=undated','video',0,NULL,NULL),
+		 ('video-bili','bilibili','Elsewhere','2026-10-06T12:00:00Z',NULL,'https://www.bilibili.com/video/BV1example','video',0,NULL,NULL);
+		INSERT INTO app_settings (key,value,updated_at) VALUES ('dashboard_revision','9','');`)
+
+	// Without a range the pages run newest first through every month, from
+	// reservations ahead to the oldest video; undated and other-platform rows
+	// are not listed.
+	first := request(t, handler, http.MethodGet, "/api/videos?pageSize=3")
+	if first.Code != http.StatusOK || first.Header().Get("Cache-Control") != "no-cache" || !strings.HasPrefix(first.Header().Get("ETag"), `W/"`) {
+		t.Fatalf("status=%d headers=%v body=%s", first.Code, first.Header(), first.Body)
+	}
+	if strings.Contains(first.Body.String(), "private") {
+		t.Fatalf("timeline leaked raw video fields: %s", first.Body)
+	}
+	payload := decodeObject(t, first)
+	if got := strings.Join(archiveIDs(t, payload), ","); got != "video-next,video-oct,video-edge" {
+		t.Fatalf("first page=%s", got)
+	}
+	if payload["total"] != float64(5) || payload["hasNext"] != true || payload["revision"] != float64(9) {
+		t.Fatalf("paging=%#v", payload)
+	}
+	if adjacent := payload["adjacent"].(map[string]any); adjacent["previous"] != nil || adjacent["next"] != nil {
+		t.Fatalf("open adjacent=%#v", adjacent)
+	}
+	counts := payload["categoryCounts"].(map[string]any)
+	if counts["game"] != float64(2) || counts["song"] != float64(1) || counts["other"] != float64(2) {
+		t.Fatalf("counts=%#v", counts)
+	}
+	second := decodeObject(t, request(t, handler, http.MethodGet, "/api/videos?pageSize=3&page=2"))
+	if got := strings.Join(archiveIDs(t, second), ","); got != "video-sep,video-2024" || second["hasNext"] != false {
+		t.Fatalf("second page=%s %#v", got, second)
+	}
+
+	// until ends the timeline on an inclusive Japan date, and the nearest
+	// later video tells the board that newer months exist.
+	september := decodeObject(t, request(t, handler, http.MethodGet, "/api/videos?until=2026-09-30"))
+	if got := strings.Join(archiveIDs(t, september), ","); got != "video-sep,video-2024" {
+		t.Fatalf("until=%s", got)
+	}
+	if adjacent := september["adjacent"].(map[string]any); adjacent["previous"] != nil || adjacent["next"] != "2026-10-01" {
+		t.Fatalf("until adjacent=%#v", adjacent)
+	}
+	game := decodeObject(t, request(t, handler, http.MethodGet, "/api/videos?until=2026-10-31&category=game"))
+	if got := strings.Join(archiveIDs(t, game), ","); got != "video-oct,video-sep" || game["categoryCounts"].(map[string]any)["other"] != float64(1) {
+		t.Fatalf("game=%s %#v", got, game)
+	}
+
+	for path, code := range map[string]string{
+		"/api/videos?until=2026-02-30":                               "invalid_range",
+		"/api/videos?until=yesterday":                                "invalid_range",
+		"/api/videos?from=2026-10-01&to=2026-10-31&until=2026-10-31": "invalid_range",
+		"/api/videos?to=2026-10-31":                                  "invalid_range",
+		"/api/videos?category=live":                                  "invalid_category",
+	} {
+		bad := request(t, handler, http.MethodGet, path)
+		if bad.Code != http.StatusBadRequest || bad.Body.String() != `{"error":"`+code+`"}` {
+			t.Fatalf("%s: status=%d body=%s", path, bad.Code, bad.Body)
+		}
+	}
+}
+
+func TestVideoMonthsCountJapanMonthsPerCategory(t *testing.T) {
+	handler := archiveHandler(t, `
+		INSERT INTO videos (id,source,title,published_at,scheduled_at,url,kind,raw_json,manual_tag) VALUES
+		 ('video-old', 'youtube','Old',      '2024-03-02T12:00:00Z',NULL,'https://www.youtube.com/watch?v=old','video','{"private":"synthetic"}','song'),
+		 ('video-edge','youtube','Edge',     '2026-09-30T15:00:00Z',NULL,'https://www.youtube.com/watch?v=edge','video',NULL,'game'),
+		 ('video-oct', 'youtube','October',  '2026-10-05T12:00:00Z',NULL,'https://www.youtube.com/watch?v=oct','video',NULL,NULL),
+		 ('video-moved','youtube','Scheduled','2026-08-01T12:00:00Z','2026-10-20T12:00:00Z','https://www.youtube.com/watch?v=moved','stream',NULL,'game'),
+		 ('video-undated','youtube','Undated',NULL,NULL,'https://www.youtube.com/watch?v=undated','video',NULL,NULL),
+		 ('video-bili','bilibili','Elsewhere','2025-01-06T12:00:00Z',NULL,'https://www.bilibili.com/video/BV1example','video',NULL,NULL);
+		INSERT INTO app_settings (key,value,updated_at) VALUES ('dashboard_revision','3','');`)
+
+	recorder := request(t, handler, http.MethodGet, "/api/videos/months")
+	if recorder.Code != http.StatusOK || recorder.Header().Get("Cache-Control") != "no-cache" || !strings.HasPrefix(recorder.Header().Get("ETag"), `W/"`) {
+		t.Fatalf("status=%d headers=%v body=%s", recorder.Code, recorder.Header(), recorder.Body)
+	}
+	if strings.Contains(recorder.Body.String(), "private") || strings.Contains(recorder.Body.String(), "video-") {
+		t.Fatalf("month index leaked video fields: %s", recorder.Body)
+	}
+	payload := decodeObject(t, recorder)
+	if payload["revision"] != float64(3) {
+		t.Fatalf("revision=%#v", payload["revision"])
+	}
+	// The scheduled time decides the month; undated and other-platform rows
+	// are not counted.
+	months := payload["months"].([]any)
+	got := []string{}
+	for _, raw := range months {
+		got = append(got, raw.(map[string]any)["month"].(string))
+	}
+	if strings.Join(got, ",") != "2024-03,2026-10" {
+		t.Fatalf("months=%v", got)
+	}
+	october := months[1].(map[string]any)
+	counts := october["categoryCounts"].(map[string]any)
+	if october["total"] != float64(3) || counts["game"] != float64(2) || counts["other"] != float64(1) {
+		t.Fatalf("october=%#v", october)
+	}
+	if _, ok := october["accountCounts"]; ok {
+		t.Fatalf("video months carry post counts: %#v", october)
+	}
+	if method := request(t, handler, http.MethodPost, "/api/videos/months"); method.Code != http.StatusMethodNotAllowed || method.Header().Get("Allow") != http.MethodGet {
+		t.Fatalf("method status=%d headers=%v", method.Code, method.Header())
+	}
+}
+
 func TestVideoArchiveFiltersByTag(t *testing.T) {
 	// A video's manual tag comes first, then its schedule entry's label (a
 	// merge target's first; live and video name a form), then its own

@@ -626,10 +626,12 @@ revalidates its stored copy with the response's
 nothing changed, so the minute refresh, and an open dialog's reread after it,
 cost little when the board is quiet.
 
-The month dialogs read through `useArchive` in `use-dashboard.ts`, only
+The archive dialogs read through `useArchive` in `use-dashboard.ts`, only
 while one is open: the schedule reads the Monday-first weeks covering the month
-from `/api/calendar`, and past posts and videos read the month's own days from
-[`/api/posts` and `/api/videos`](public-api.md#bounded-public-archives). They
+from `/api/calendar`, past posts read the month's own days from
+[`/api/posts`](public-api.md#bounded-public-archives), and past videos read
+the [video timeline](public-api.md#bounded-public-archives) from `/api/videos`,
+from the newest video or from the last day of a chosen start month. They
 follow the same rules as the calendar: pages of one revision are appended, a
 later page from another revision rereads the loaded pages atomically (up to
 three attempts under the 12-second deadline), and a board revision change
@@ -640,13 +642,17 @@ an archive read or pagination waits for that work to settle before refreshing;
 a failed refresh keeps the complete known prefix and retries on the next board
 snapshot. Post archives follow stored revisions. These refreshes
 share the board's visibility pause and snapshot backoff rather than starting a
-separate archive timer. Changing the month, the post account or the video
-category, or closing the dialog, cancels the read and discards late pages.
-While the post archive is open, `usePostMonths` reads its month index from
-[`/api/posts/months`](public-api.md#bounded-public-archives) and rereads it on
-each board revision. The month label opens a jump grid (`MonthPicker`): a year
-stepper bounded by the oldest indexed month and the latest month, over twelve
-months whose counts follow the account filter. Months without posts and months
+separate archive timer. Changing the month, the post account, the video
+category or the timeline's start month, or closing the dialog, cancels the
+read and discards late pages.
+While the post archive or the video timeline is open, `useArchiveMonths` reads
+its month index from
+[`/api/posts/months` or `/api/videos/months`](public-api.md#bounded-public-archives)
+and rereads it on each board revision. The month label opens a jump grid
+(`MonthPicker`): a year stepper bounded by the oldest indexed month and the
+latest month (this Japan month, or a later month holding a video
+reservation), over twelve months whose counts follow the account or category
+filter. Months without posts and months
 after the latest are marked `aria-disabled`; arrow keys move between months,
 Page Up and Page Down change the year, and Escape or a press outside closes the
 grid before the dialog. A failed index read keeps a known index, and without
@@ -666,15 +672,29 @@ and places it, in order, under the column that ends highest
 while the cells stay in post order for keyboard and screen readers; it
 re-measures when the wall or a post resizes. A container query on the dialog
 head hides the layout switch while the wall is narrower than two masonry
-columns, where both layouts are one column. The video archive lists the
-loaded videos in the API's newest-first order as a grid of cards, each the
-cover above the title, then the Japan date and time, the phase or form chip,
-the tag chip and platform links: four columns, three or two as the dialog
-narrows. Its
+columns, where both layouts are one column. The video dialog is a timeline
+(`VideoTimeline`): one section per Japan month of the loaded videos, in the
+API's newest-first order, under a header that sticks to the top of the dialog
+body and names the month with its indexed count. Each month is a grid of
+cards, each the cover above the title, then the Japan date and time, the
+phase or form chip, the tag chip and platform links: four columns, three or
+two as the dialog narrows. The next page loads once the load button comes
+within 600 px of the visible area (an `IntersectionObserver` on the dialog
+body), and the button stays for keyboards; after a failed read only the button
+loads again. A polite status line counts the loaded and total videos. Loaded
+pages stay in memory until the dialog closes; months out of view skip layout
+and paint (`content-visibility: auto`) and the cards are memoized, so a
+change of the scrolled-to month renders no card again. In the
+dialog's timeline mode (`ArchiveDialog`'s `timeline`), the month label follows
+the scroll (the last month whose header has reached the top of the body) and
+is not a live region, and the month arrows give way to a Latest button. A
+month chosen in the jump grid scrolls into view when it is loaded; otherwise
+the timeline restarts from that month, offering a button for the newer videos,
+and Latest returns to the newest. The
 category buttons (`VideoArchiveFilter`) carry the tag icons, pass the API's
-`category` filter,
-show `categoryCounts`, and keep the choice across months until the dialog
-closes. An image viewer opened from the
+`category` filter, show the index's per-category totals over every month
+(`categoryCounts` of the loaded timeline while the index is unknown), and keep
+the choice until the dialog closes. An image viewer opened from the
 post archive stacks above it; Escape closes the topmost dialog and focus
 returns to its opener.
 Images match their applicable inclusive period, without an updated-at fallback.

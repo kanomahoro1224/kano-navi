@@ -1,6 +1,7 @@
 import type { Locale, Video } from "../types.ts"
 import {
   confirmedLiveStatus,
+  dateKey,
   LIVE_GRACE_MS,
   scheduleSortTime,
   videoTag,
@@ -16,6 +17,11 @@ export type VideoFilter = "all" | "streams" | "works" | "shorts"
  */
 export const VIDEO_CATEGORIES = ["game", "talk", "song", "other"] as const
 export type VideoCategory = (typeof VIDEO_CATEGORIES)[number]
+
+/** A video's Japan month, `YYYY-MM`, or "" when it has no time. */
+export function videoMonthKey(video: Video) {
+  return dateKey(videoTime(video)).slice(0, 7)
+}
 
 /**
  * Where a video stands now. `started` is a reservation past its start that no

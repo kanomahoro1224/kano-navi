@@ -19,7 +19,7 @@ async function loadModules() {
   try {
     const [
       { ArchiveDialog },
-      { usePostMonths },
+      { useArchiveMonths },
       { AppSettingsProvider, PageMessagesProvider, useAppSettings },
       { dashboardMessages },
     ] = await Promise.all([
@@ -30,7 +30,7 @@ async function loadModules() {
     ])
     return {
       ArchiveDialog,
-      usePostMonths,
+      useArchiveMonths,
       AppSettingsProvider,
       PageMessagesProvider,
       useAppSettings,
@@ -204,7 +204,7 @@ test("without a month index every month up to the latest is offered", async () =
   })
 })
 
-test("the month index loads while enabled, follows the revision and survives failures", async (t) => {
+test("month indexes load while enabled, follow the revision and survive failures", async (t) => {
   await withAct(async () => {
     const requests: {
       url: string
@@ -219,44 +219,64 @@ test("the month index loads while enabled, follows the revision and survives fai
           requests.push({ url: String(url), resolve, reject }),
         ),
     )
+    type Props = {
+      kind: "posts" | "videos"
+      enabled: boolean
+      revision: number
+    }
     let value: unknown
-    function Probe(props: { enabled: boolean; revision: number }) {
-      value = modules.usePostMonths(props.enabled, props.revision)
+    function Probe(props: Props) {
+      value = modules.useArchiveMonths(
+        props.kind,
+        props.enabled,
+        props.revision,
+      )
       return null
     }
+    const respond = (index: number, months: unknown[]) =>
+      act(async () =>
+        requests[index].resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ months, revision: 1 }),
+        } as Response),
+      )
     let root: Rendered | undefined
+    const show = (props: Props) =>
+      act(async () => root!.update(createElement(Probe, props)))
     await act(async () => {
-      root = render(createElement(Probe, { enabled: false, revision: 1 }))
+      root = render(
+        createElement(Probe, { kind: "posts", enabled: false, revision: 1 }),
+      )
     })
     try {
       assert.equal(requests.length, 0)
-      await act(async () =>
-        root!.update(createElement(Probe, { enabled: true, revision: 1 })),
-      )
+      await show({ kind: "posts", enabled: true, revision: 1 })
       assert.equal(requests[0].url, "/api/posts/months")
-      const month = (key: string, total: number) => ({
-        month: key,
-        total,
-        accountCounts: { kano_2525: total },
-      })
-      await act(async () =>
-        requests[0].resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            months: [month("2026-09", 2), month("2026-13", 1), { month: 3 }],
-            revision: 1,
-          }),
-        } as Response),
-      )
-      assert.deepEqual(value, [month("2026-09", 2)])
+      await respond(0, [
+        { month: "2026-09", total: 2, accountCounts: { kano_2525: 2 } },
+        { month: "2026-13", total: 1, accountCounts: {} },
+        { month: 3 },
+      ])
+      const september = { month: "2026-09", total: 2, counts: { kano_2525: 2 } }
+      assert.deepEqual(value, [september])
 
-      await act(async () =>
-        root!.update(createElement(Probe, { enabled: true, revision: 2 })),
-      )
+      await show({ kind: "posts", enabled: true, revision: 2 })
       assert.equal(requests.length, 2)
       await act(async () => requests[1].reject(new Error("Synthetic outage")))
-      assert.deepEqual(value, [month("2026-09", 2)])
+      assert.deepEqual(value, [september])
+
+      // The video index counts categories; the post index is not reused.
+      await show({ kind: "videos", enabled: true, revision: 2 })
+      assert.equal(value, null)
+      assert.equal(requests[2].url, "/api/videos/months")
+      await respond(2, [
+        { month: "2015-02", total: 3, categoryCounts: { song: 1, other: 2 } },
+        { month: "2015-03", total: 1, accountCounts: { kano_2525: 1 } },
+      ])
+      assert.deepEqual(value, [
+        { month: "2015-02", total: 3, counts: { song: 1, other: 2 } },
+      ])
     } finally {
       await act(async () => root?.unmount())
     }

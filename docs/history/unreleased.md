@@ -13,5 +13,12 @@
   shows each month's post count for the chosen account and dims months
   without posts. A new public read, `/api/posts/months`, serves the month
   index.
+- Past videos is one scrolling list of every month instead of a month at a
+  time: sticky month headers carry each month's count, older videos load as
+  the list nears its end, the month name follows the scroll and jumps to any
+  month, and Latest returns to the newest. The category counts cover every
+  month. `/api/videos` without a date range pages through all videos, up to
+  an optional `until` date, and `/api/videos/months` serves the video month
+  index.
 
 </details>

@@ -18,7 +18,7 @@ var compressedPublicReads = map[string]string{
 	"/api/dashboard": "application/json", "/api/dashboard/revision": "application/json",
 	"/api/health": "application/json", "/api/calendar": "application/json",
 	"/api/posts": "application/json", "/api/posts/months": "application/json",
-	"/api/videos":       "application/json",
+	"/api/videos": "application/json", "/api/videos/months": "application/json",
 	"/api/calendar.ics": "text/calendar", "/api/feed.xml": "application/atom+xml",
 }
 

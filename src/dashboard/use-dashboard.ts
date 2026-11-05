@@ -51,11 +51,17 @@ export type ArchiveKind = "schedule" | "posts" | "videos"
 
 export interface ArchiveRequest {
   kind: ArchiveKind
+  /** The schedule or post month shown; the video timeline ignores it. */
   monthStart: Date
   /** Post archives only: one X handle, or null for every account. */
   account?: string | null
   /** Video archives only: one category, or null for every video. */
   category?: VideoCategory | null
+  /**
+   * Video archives only: the month the timeline starts from, reading that
+   * month and everything older; null starts from the newest video.
+   */
+  anchor?: Date | null
 }
 
 /**
@@ -74,23 +80,38 @@ export function archiveRange(kind: ArchiveKind, monthStart: Date) {
     : { from: localDateKey(first), to: localDateKey(last) }
 }
 
+/** The inclusive Japan date the video timeline ends on, or "" for none. */
+function timelineUntil(anchor: Date | null | undefined) {
+  return anchor
+    ? localDateKey(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0))
+    : ""
+}
+
 function archiveUrl(request: ArchiveRequest, page: number) {
+  if (request.kind === "videos") {
+    const until = timelineUntil(request.anchor)
+    const category = request.category ? `&category=${request.category}` : ""
+    return `/api/videos?page=${page}${until ? `&until=${until}` : ""}${category}`
+  }
   const { from, to } = archiveRange(request.kind, request.monthStart)
-  const path = { schedule: "calendar", posts: "posts", videos: "videos" }[
-    request.kind
-  ]
+  const path = request.kind === "schedule" ? "calendar" : "posts"
   const account =
     request.kind === "posts" && request.account
       ? `&account=${encodeURIComponent(request.account)}`
       : ""
-  const category =
-    request.kind === "videos" && request.category
-      ? `&category=${request.category}`
-      : ""
-  return `/api/${path}?from=${from}&to=${to}&page=${page}${account}${category}`
+  return `/api/${path}?from=${from}&to=${to}&page=${page}${account}`
 }
 
 const rangeKey = ({ from, to }: { from: string; to: string }) => `${from}/${to}`
+
+/** What identifies one archive read: its month or timeline start and filter. */
+function archiveKey(request: ArchiveRequest) {
+  const span =
+    request.kind === "videos"
+      ? `until:${timelineUntil(request.anchor)}`
+      : rangeKey(archiveRange(request.kind, request.monthStart))
+  return `${request.kind}:${span}:${request.account || ""}:${request.category || ""}`
+}
 
 async function readScopedJson(url: string, signal: AbortSignal) {
   const response = await fetch(url, {
@@ -684,26 +705,50 @@ export function useDashboard(now = Date.now()) {
 
 const monthKeyPattern = /^\d{4}-(0[1-9]|1[0-2])$/
 
-function isArchiveMonth(value: unknown): value is ArchiveMonth {
-  if (!value || typeof value !== "object") return false
+/** Where each month index lives and which field holds its per-key counts. */
+const monthIndexes = {
+  posts: { url: "/api/posts/months", counts: "accountCounts" },
+  videos: { url: "/api/videos/months", counts: "categoryCounts" },
+} as const
+
+function readArchiveMonth(
+  value: unknown,
+  countsField: string,
+): ArchiveMonth | null {
+  if (!value || typeof value !== "object") return null
   const month = value as Record<string, unknown>
-  return (
-    typeof month.month === "string" &&
-    monthKeyPattern.test(month.month) &&
-    Number.isInteger(month.total) &&
-    Boolean(month.accountCounts) &&
-    typeof month.accountCounts === "object"
+  const counts = month[countsField]
+  if (
+    typeof month.month !== "string" ||
+    !monthKeyPattern.test(month.month) ||
+    !Number.isInteger(month.total) ||
+    !counts ||
+    typeof counts !== "object"
   )
+    return null
+  return {
+    month: month.month,
+    total: month.total as number,
+    counts: counts as Record<string, number>,
+  }
 }
 
 /**
- * Reads the post archive's month index while `enabled`: every Japan month
- * holding posts, oldest first. It rereads when the board's revision changes.
- * A failed read leaves `months` null, so the picker offers every month.
+ * Reads the month index of the post archive or the video timeline while
+ * `enabled`: every Japan month holding records, oldest first. It rereads when
+ * the board's revision changes. A failed read keeps the known index, and with
+ * none `months` stays null, so the picker offers every month.
  */
-export function usePostMonths(enabled: boolean, revision?: number | null) {
+export function useArchiveMonths(
+  kind: "posts" | "videos",
+  enabled: boolean,
+  revision?: number | null,
+) {
   const scope = useMemo(() => createRequestScope(), [])
-  const [months, setMonths] = useState<ArchiveMonth[] | null>(null)
+  const [state, setState] = useState<{
+    kind: string
+    months: ArchiveMonth[]
+  } | null>(null)
 
   useEffect(() => {
     scope.activate()
@@ -712,24 +757,30 @@ export function usePostMonths(enabled: boolean, revision?: number | null) {
 
   useEffect(() => {
     if (!enabled) return undefined
+    const index = monthIndexes[kind]
     scope
       .run("months", async (signal) => {
-        const result = await readScopedJson("/api/posts/months", signal)
+        const result = await readScopedJson(index.url, signal)
         if (!Array.isArray(result?.months))
           throw new Error("Invalid month index")
-        return result.months.filter(isArchiveMonth) as ArchiveMonth[]
+        return (result.months as unknown[])
+          .map((month) => readArchiveMonth(month, index.counts))
+          .filter((month): month is ArchiveMonth => month !== null)
       })
-      .then(setMonths, () => {
-        // A failed read keeps a known index; the picker works without one.
-      })
+      .then(
+        (months) => setState({ kind, months }),
+        () => {
+          // A failed read keeps a known index; the picker works without one.
+        },
+      )
     return () => scope.cancelKey("months")
-  }, [enabled, revision, scope])
+  }, [kind, enabled, revision, scope])
 
-  return months
+  return state?.kind === kind ? state.months : null
 }
 
 /**
- * Reads one month of the stored schedule, posts or videos for a dialog, page
+ * Reads one schedule or post month, or the video timeline, for a dialog, page
  * by page. Like the calendar it follows the board's revision: a change rereads
  * the loaded pages atomically, and a later page from another revision restarts
  * the read instead of being appended. Schedule and video archives also follow
@@ -742,9 +793,7 @@ export function useArchive<T>(
   snapshotVersion?: number,
 ) {
   const scope = useMemo(() => createRequestScope(), [])
-  const key = request
-    ? `${request.kind}:${rangeKey(archiveRange(request.kind, request.monthStart))}:${request.account || ""}:${request.category || ""}`
-    : null
+  const key = request ? archiveKey(request) : null
   const [state, setState] = useState<{
     key: string | null
     snapshot: ArchiveSnapshot<T> | null

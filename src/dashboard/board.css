@@ -3659,10 +3659,10 @@
 
 /*
  * The jump grid hangs below the month controls, over the dialog body, so the
- * header stacks above the body while it is open.
+ * header stacks above the body and its sticky month headers while it is open.
  */
 .archive-dialog-head:has(.month-picker) {
-  z-index: 2;
+  z-index: 3;
 }
 
 .month-picker {
@@ -3773,9 +3773,11 @@
 }
 
 .archive-dialog-body {
+  /* Sticky headers inside offset by the top padding to meet the edge. */
+  --archive-body-top: 20px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 20px 24px 28px;
+  padding: var(--archive-body-top) 24px 28px;
 }
 
 .archive-dialog-body > .inline-alert,
@@ -3793,6 +3795,57 @@
   display: flex;
   justify-content: center;
   padding-top: 8px;
+}
+
+/*
+ * The video timeline: one section per Japan month, newest first. Each month's
+ * header sticks to the top of the dialog body while its videos scroll under
+ * it, so the month in view stays named. Months out of view skip layout and
+ * paint, keeping their last measured height, so a long loaded list costs
+ * little to scroll.
+ */
+.video-month {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
+
+.video-month + .video-month {
+  margin-top: 32px;
+}
+
+.video-month-head {
+  position: sticky;
+  top: calc(-1 * var(--archive-body-top, 0px));
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  background: hsl(var(--background));
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.video-month-head small {
+  color: var(--soft);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.archive-more.is-newer {
+  padding: 0 0 16px;
+}
+
+.video-timeline-status {
+  margin: 28px 0 0;
+  color: var(--soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 /*
@@ -3902,7 +3955,8 @@
   }
 
   .archive-dialog-body {
-    padding: 16px 16px 24px;
+    --archive-body-top: 16px;
+    padding: var(--archive-body-top) 16px 24px;
   }
 
   .archive-month-label {

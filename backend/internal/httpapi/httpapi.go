@@ -174,6 +174,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.videos(w, r)
+	case "/api/videos/months":
+		w.Header().Set("Vary", "Accept-Encoding")
+		if r.Method != http.MethodGet {
+			writeMethodNotAllowed(w, http.MethodGet)
+			return
+		}
+		h.videoMonths(w, r)
 	default:
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/media/lineblog/"):

@@ -14,6 +14,19 @@ export interface ArchivePicker {
   countLabel?: (count: number) => string
 }
 
+/**
+ * A dialog that scrolls through every month instead of showing one: its month
+ * label follows the scroll, and the month arrows give way to a Latest button.
+ */
+export interface ArchiveTimeline {
+  /** Returns to the newest records. */
+  onLatest: () => void
+  /** Whether the newest records are already at the top of the view. */
+  atLatest: boolean
+  /** Scrolls the body back to the top whenever it changes. */
+  resetKey: string
+}
+
 function shiftMonth(date: Date, offset: number) {
   return new Date(date.getFullYear(), date.getMonth() + offset, 1)
 }
@@ -24,9 +37,10 @@ function dateFromKey(key: string) {
 }
 
 /**
- * Native modal sheet for browsing one month of stored records. Escape and the
- * backdrop close it, focus returns to the opener, and an image viewer opened
- * from inside stacks above it.
+ * Native modal sheet for browsing one month of stored records, or with
+ * `timeline` a scrolling list of every month. Escape and the backdrop close
+ * it, focus returns to the opener, and an image viewer opened from inside
+ * stacks above it.
  */
 export function ArchiveDialog({
   open,
@@ -37,6 +51,7 @@ export function ArchiveDialog({
   onMonthChange,
   latestMonth,
   picker,
+  timeline,
   toolbar,
   onClose,
   children,
@@ -53,6 +68,8 @@ export function ArchiveDialog({
   latestMonth?: Date
   /** Turns the month label into a button that opens a jump grid. */
   picker?: ArchivePicker
+  /** Shows `monthStart` as the scrolled-to month of a continuous list. */
+  timeline?: ArchiveTimeline
   toolbar?: ReactNode
   onClose: () => void
   children: ReactNode
@@ -95,11 +112,13 @@ export function ArchiveDialog({
     }
   }, [open])
 
-  const monthKey = `${monthStart.getFullYear()}-${monthStart.getMonth()}`
+  // A timeline's month follows the scroll, so only its reset key rewinds it.
+  const resetKey =
+    timeline?.resetKey ?? `${monthStart.getFullYear()}-${monthStart.getMonth()}`
   useEffect(() => {
     bodyRef.current?.scrollTo?.({ top: 0 })
     setPickerOpen(false)
-  }, [monthKey])
+  }, [resetKey])
 
   if (!open) return null
   const thisMonth = monthStartOf(japanToday())
@@ -147,15 +166,17 @@ export function ArchiveDialog({
               aria-label={label}
               ref={pickerRef}
             >
-              <button
-                type="button"
-                className="round-button"
-                onClick={() => onMonthChange(shiftMonth(monthStart, -1))}
-                aria-label={t("common.previousMonth")}
-                title={t("common.previousMonth")}
-              >
-                <ChevronLeft aria-hidden="true" />
-              </button>
+              {timeline ? null : (
+                <button
+                  type="button"
+                  className="round-button"
+                  onClick={() => onMonthChange(shiftMonth(monthStart, -1))}
+                  aria-label={t("common.previousMonth")}
+                  title={t("common.previousMonth")}
+                >
+                  <ChevronLeft aria-hidden="true" />
+                </button>
+              )}
               {picker ? (
                 <button
                   ref={pickerButtonRef}
@@ -169,7 +190,10 @@ export function ArchiveDialog({
                   title={t("common.chooseMonth")}
                   onClick={() => setPickerOpen((open) => !open)}
                 >
-                  <span aria-live="polite">{label}</span>
+                  {/* A scrolled month changes too often to announce. */}
+                  <span aria-live={timeline ? undefined : "polite"}>
+                    {label}
+                  </span>
                   <ChevronDown aria-hidden="true" />
                 </button>
               ) : (
@@ -177,24 +201,37 @@ export function ArchiveDialog({
                   {label}
                 </strong>
               )}
-              <button
-                type="button"
-                className="round-button"
-                disabled={atLatest}
-                onClick={() => onMonthChange(shiftMonth(monthStart, 1))}
-                aria-label={t("common.nextMonth")}
-                title={t("common.nextMonth")}
-              >
-                <ChevronRight aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className="pill-button"
-                disabled={isCurrent}
-                onClick={() => onMonthChange(thisMonth)}
-              >
-                {t("common.thisMonth")}
-              </button>
+              {timeline ? (
+                <button
+                  type="button"
+                  className="pill-button"
+                  disabled={timeline.atLatest}
+                  onClick={timeline.onLatest}
+                >
+                  {t("common.latest")}
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="round-button"
+                    disabled={atLatest}
+                    onClick={() => onMonthChange(shiftMonth(monthStart, 1))}
+                    aria-label={t("common.nextMonth")}
+                    title={t("common.nextMonth")}
+                  >
+                    <ChevronRight aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="pill-button"
+                    disabled={isCurrent}
+                    onClick={() => onMonthChange(thisMonth)}
+                  >
+                    {t("common.thisMonth")}
+                  </button>
+                </>
+              )}
               {summary ? (
                 <span className="archive-summary">{summary}</span>
               ) : null}
@@ -303,23 +340,56 @@ export function ArchiveState({
   )
 }
 
-/** The archive's "load more" control, disabled while a page is in flight. */
+/**
+ * The archive's "load more" control, disabled while a page is in flight. With
+ * `auto`, it also loads the next page once it scrolls near the visible area;
+ * the button stays for keyboards and for a failed read, which never retries
+ * on its own.
+ */
 export function ArchiveMore({
   hasNext,
   isLoading,
   label,
   onLoadMore,
+  auto,
   t,
 }: {
   hasNext: boolean
   isLoading: boolean
   label: string
   onLoadMore: () => unknown
+  /** Loads on approach unless a read failed. */
+  auto?: { failed: boolean; loaded: number }
   t: Translator
 }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const loadRef = useRef(onLoadMore)
+  loadRef.current = onLoadMore
+  const armed = Boolean(auto && hasNext && !isLoading && !auto.failed)
+  // Observing anew after each page reports whether the control is still in
+  // reach, so a short page keeps loading until the view fills.
+  useEffect(() => {
+    const node = ref.current
+    if (!armed || !node || typeof IntersectionObserver !== "function")
+      return undefined
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect()
+          void loadRef.current()
+        }
+      },
+      {
+        root: node.closest(".archive-dialog-body"),
+        rootMargin: "0px 0px 600px 0px",
+      },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [armed, auto?.loaded])
   if (!hasNext) return null
   return (
-    <div className="archive-more">
+    <div className="archive-more" ref={ref}>
       <button
         type="button"
         className="pill-button"

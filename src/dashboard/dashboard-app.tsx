@@ -26,11 +26,12 @@ import {
 import {
   type ArchiveRequest,
   useArchive,
+  useArchiveMonths,
   useDashboard,
   useNow,
-  usePostMonths,
 } from "./use-dashboard"
 import { ArchiveDialog } from "./components/archive-dialog"
+import { monthKeyOf } from "./components/month-picker"
 import { LinkDirectory } from "./components/link-directory"
 import { NowStage } from "./components/now-stage"
 import {
@@ -41,11 +42,11 @@ import {
   PostWall,
 } from "./components/post-wall"
 import {
-  VideoArchive,
   VideoArchiveFilter,
   VideoShelf,
+  VideoTimeline,
 } from "./components/video-shelf"
-import type { VideoCategory } from "./video-groups"
+import { type VideoCategory, videoMonthKey } from "./video-groups"
 import {
   ScheduleDayToggle,
   ScheduleMonth,
@@ -74,7 +75,24 @@ function readPostLayout(): PostArchiveLayout {
   }
 }
 
-/** Heading copy of each month dialog, with the loaded month's total. */
+/** The first day of a `YYYY-MM` month, as a local Date. */
+function monthFromKey(key: string) {
+  const [year, month] = key.split("-").map(Number)
+  return new Date(year, month - 1, 1)
+}
+
+/**
+ * The last month a post or video jump grid offers: this Japan month, or a
+ * later month holding a video reservation.
+ */
+function latestArchiveMonth(months: { month: string }[] | null) {
+  const thisMonth = monthStartOf(japanToday())
+  const last = months?.at(-1)?.month
+  const indexed = last ? monthFromKey(last) : null
+  return indexed && indexed > thisMonth ? indexed : thisMonth
+}
+
+/** Heading copy of each archive dialog, with the month's or timeline's total. */
 function archiveCopy(
   view: ArchiveRequest,
   archive: ArchiveSnapshot<unknown> | null,
@@ -140,23 +158,58 @@ export function DashboardApp() {
     dashboard.meta.revision,
     snapshotVersion,
   )
-  const postMonths = usePostMonths(
-    archiveView?.kind === "posts",
+  const indexKind = archiveView?.kind === "videos" ? "videos" : "posts"
+  const archiveMonths = useArchiveMonths(
+    indexKind,
+    archiveView?.kind === "posts" || archiveView?.kind === "videos",
     dashboard.meta.revision,
   )
-  const archiveAccount =
-    archiveView?.kind === "posts" ? archiveView.account || null : null
-  // The month index narrowed to the chosen account.
-  const postMonthCounts = useMemo(() => {
-    if (!postMonths) return null
-    const handle = archiveAccount?.toLowerCase()
+  const indexFilter =
+    archiveView?.kind === "posts"
+      ? archiveView.account?.toLowerCase() || null
+      : archiveView?.kind === "videos"
+        ? archiveView.category || null
+        : null
+  // The month index narrowed to the chosen account or category.
+  const archiveMonthCounts = useMemo(() => {
+    if (!archiveMonths) return null
     return new Map(
-      postMonths.map(({ month, total, accountCounts }) => [
+      archiveMonths.map(({ month, total, counts }) => [
         month,
-        handle ? accountCounts[handle] || 0 : total,
+        indexFilter ? counts[indexFilter] || 0 : total,
       ]),
     )
-  }, [postMonths, archiveAccount])
+  }, [archiveMonths, indexFilter])
+  // Every video's category over the whole index, so the filter keeps its
+  // totals wherever the timeline starts.
+  const videoCategoryCounts = useMemo(() => {
+    if (indexKind !== "videos" || !archiveMonths) return undefined
+    const totals: Record<string, number> = {}
+    for (const { counts } of archiveMonths)
+      for (const [key, count] of Object.entries(counts))
+        totals[key] = (totals[key] || 0) + count
+    return totals
+  }, [indexKind, archiveMonths])
+  // The video timeline's month in view, and a loaded month to scroll to.
+  const [timelineMonth, setTimelineMonth] = useState<string | null>(null)
+  const [timelineJump, setTimelineJump] = useState<{
+    month: string
+    nonce: number
+  } | null>(null)
+  const videoArchive =
+    archiveView?.kind === "videos"
+      ? (archive.archive as ArchiveSnapshot<Video> | null)
+      : null
+  const loadedVideoMonths = useMemo(
+    () => [...new Set((videoArchive?.items || []).map(videoMonthKey))],
+    [videoArchive],
+  )
+  const timelineAnchor =
+    archiveView?.kind === "videos" ? archiveView.anchor || null : null
+  const timelineShown =
+    timelineMonth ||
+    loadedVideoMonths[0] ||
+    (timelineAnchor ? monthKeyOf(timelineAnchor) : null)
   const [postLayout, setPostLayoutState] =
     useState<PostArchiveLayout>(readPostLayout)
   const setPostLayout = useCallback((layout: PostArchiveLayout) => {
@@ -231,14 +284,47 @@ export function DashboardApp() {
       }),
     [],
   )
-  const openVideoArchive = useCallback(
-    () =>
-      setArchiveView({
-        kind: "videos",
-        monthStart: monthStartOf(japanToday()),
-      }),
-    [],
+  const openVideoArchive = useCallback(() => {
+    setTimelineMonth(null)
+    setTimelineJump(null)
+    setArchiveView({
+      kind: "videos",
+      monthStart: monthStartOf(japanToday()),
+      anchor: null,
+    })
+  }, [])
+  // A loaded month scrolls into view; any other restarts the timeline there.
+  const chooseTimelineMonth = useCallback(
+    (month: Date) => {
+      const key = monthKeyOf(month)
+      if (loadedVideoMonths.includes(key)) {
+        setTimelineJump((current) => ({
+          month: key,
+          nonce: (current?.nonce || 0) + 1,
+        }))
+        return
+      }
+      setTimelineMonth(null)
+      setArchiveView((current) =>
+        current ? { ...current, anchor: monthStartOf(month) } : null,
+      )
+    },
+    [loadedVideoMonths],
   )
+  const showLatestVideos = useCallback(() => {
+    if (timelineAnchor) {
+      setTimelineMonth(null)
+      setArchiveView((current) =>
+        current ? { ...current, anchor: null } : null,
+      )
+    } else if (loadedVideoMonths[0]) {
+      const month = loadedVideoMonths[0]
+      setTimelineJump((current) => ({
+        month,
+        nonce: (current?.nonce || 0) + 1,
+      }))
+    }
+  }, [timelineAnchor, loadedVideoMonths])
   const closeArchive = useCallback(() => setArchiveView(null), [])
   const setArchiveMonth = useCallback(
     (monthStart: Date) =>
@@ -252,11 +338,10 @@ export function DashboardApp() {
       setArchiveView((current) => (current ? { ...current, account } : null)),
     [],
   )
-  const setArchiveCategory = useCallback(
-    (category: VideoCategory | null) =>
-      setArchiveView((current) => (current ? { ...current, category } : null)),
-    [],
-  )
+  const setArchiveCategory = useCallback((category: VideoCategory | null) => {
+    setTimelineMonth(null)
+    setArchiveView((current) => (current ? { ...current, category } : null))
+  }, [])
   const openWeek = useCallback(
     (day: Date) => {
       setWeekStart(startOfWeek(day))
@@ -404,18 +489,47 @@ export function DashboardApp() {
             meta.xAccounts || [],
             t,
           )}
-          monthStart={archiveView.monthStart}
-          onMonthChange={setArchiveMonth}
+          monthStart={
+            archiveView.kind === "videos"
+              ? timelineShown
+                ? monthFromKey(timelineShown)
+                : monthStartOf(japanToday())
+              : archiveView.monthStart
+          }
+          onMonthChange={
+            archiveView.kind === "videos"
+              ? chooseTimelineMonth
+              : setArchiveMonth
+          }
           latestMonth={
-            archiveView.kind === "posts"
-              ? monthStartOf(japanToday())
-              : undefined
+            archiveView.kind === "schedule"
+              ? undefined
+              : latestArchiveMonth(
+                  archiveView.kind === "videos" ? archiveMonths : null,
+                )
           }
           picker={
-            archiveView.kind === "posts"
+            archiveView.kind === "schedule"
+              ? undefined
+              : {
+                  counts: archiveMonthCounts,
+                  countLabel: (count) =>
+                    t(
+                      archiveView.kind === "posts"
+                        ? "feed.monthCount"
+                        : "videos.monthCount",
+                      { count },
+                    ),
+                }
+          }
+          timeline={
+            archiveView.kind === "videos"
               ? {
-                  counts: postMonthCounts,
-                  countLabel: (count) => t("feed.monthCount", { count }),
+                  onLatest: showLatestVideos,
+                  atLatest:
+                    !timelineAnchor &&
+                    (!timelineMonth || timelineMonth === loadedVideoMonths[0]),
+                  resetKey: `${timelineAnchor ? monthKeyOf(timelineAnchor) : "latest"}:${archiveView.category || ""}`,
                 }
               : undefined
           }
@@ -446,7 +560,7 @@ export function DashboardApp() {
               <VideoArchiveFilter
                 category={archiveView.category || null}
                 setCategory={setArchiveCategory}
-                counts={archive.archive?.categoryCounts}
+                counts={videoCategoryCounts ?? archive.archive?.categoryCounts}
                 t={t}
               />
             )
@@ -488,13 +602,16 @@ export function DashboardApp() {
               onOpenMedia={openImages}
             />
           ) : (
-            <VideoArchive
-              archive={archive.archive as ArchiveSnapshot<Video> | null}
+            <VideoTimeline
+              archive={videoArchive}
               isLoading={archive.isLoading}
               error={archive.error}
               onRetry={archive.reload}
               onLoadMore={archive.loadMore}
-              onJump={setArchiveMonth}
+              monthCounts={archiveMonthCounts}
+              jump={timelineJump}
+              onVisibleMonth={setTimelineMonth}
+              onNewer={showLatestVideos}
               locale={locale}
               now={now}
               t={t}

@@ -189,21 +189,21 @@ export interface CalendarSnapshot {
 }
 
 /**
- * One loaded prefix of a month archive (schedule, posts or videos), newest
- * page last. Schedule pages also carry dayCounts; post pages carry the month's
- * per-account counts, keyed by lowercase handle, and video pages its
- * per-category counts.
- */
-/**
- * One Japan month that holds posts, as `YYYY-MM`, with its total and its
- * posts per lowercase handle.
+ * One Japan month that holds posts or videos, as `YYYY-MM`, with its total and
+ * its records per key: a lowercase handle for posts, a category for videos.
  */
 export interface ArchiveMonth {
   month: string
   total: number
-  accountCounts: Record<string, number>
+  counts: Record<string, number>
 }
 
+/**
+ * One loaded prefix of an archive (a schedule or post month, or the video
+ * timeline), newest page last. Schedule pages also carry dayCounts; post pages
+ * carry the month's per-account counts, keyed by lowercase handle, and video
+ * pages the per-category counts of everything they page through.
+ */
 export interface ArchiveSnapshot<T> {
   items: T[]
   adjacent: { previous: string | null; next: string | null }

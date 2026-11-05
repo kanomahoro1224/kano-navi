@@ -154,6 +154,12 @@ func (e *Extractor) extractPending(ctx context.Context) (map[string]any, error) 
 		return nil, err
 	}
 	boardEnabled := config.keywordEnabled && config.visionEnabled
+	// An archive import is history: posts older than the configured window stay
+	// out of the scan, so a 15k-post backfill cannot spend provider calls.
+	since := ""
+	if config.maxAgeDays > 0 {
+		since = sqlite.ISOTime(e.now().AddDate(0, 0, -config.maxAgeDays))
+	}
 	requestedPosts, err := e.listRequestedPosts(ctx, scanLimit)
 	if err != nil {
 		return nil, err
@@ -175,7 +181,7 @@ func (e *Extractor) extractPending(ctx context.Context) (map[string]any, error) 
 		if !stage.enabled {
 			continue
 		}
-		posts, err := e.listCandidatePosts(ctx, config.keywords, stage.detectionType, config.messageAllPosts)
+		posts, err := e.listCandidatePosts(ctx, config.keywords, stage.detectionType, config.messageAllPosts, since)
 		if err != nil {
 			return nil, err
 		}

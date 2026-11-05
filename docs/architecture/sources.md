@@ -978,6 +978,13 @@ is not set; it is not a runtime master switch, so an enabled stage runs even
 when it contains `0`. `schedule_message_all_posts` is off unless set
 explicitly and does not follow the legacy setting.
 
+`schedule_extract_max_age_days` (`SCHEDULE_EXTRACT_MAX_AGE_DAYS`) bounds the
+scan by post age. An imported archive is history, not an announcement, so a
+backfill of thousands of old posts must not spend provider calls: a positive
+value keeps posts older than that many days out of both detector stages, while
+an operator's reprocess request still runs that one post. Zero, the default,
+scans every stored post.
+
 The `featured_video_id` setting is maintained through `/admin`. It points to an
 existing local `videos` row (or an empty value for no Featured item), and source
 synchronization never changes it. The dashboard includes the selected video

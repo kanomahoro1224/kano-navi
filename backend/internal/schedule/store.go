@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
@@ -52,8 +53,12 @@ type scheduleConfig struct {
 	// messageAllPosts sends every X post with text or images through the
 	// message route instead of only the posts the local heuristic selects.
 	messageAllPosts bool
-	keywords        []string
-	providerOrder   []string
+	// maxAgeDays keeps posts older than this many days out of the scan. An
+	// imported archive is history, not a schedule announcement, so it must not
+	// spend provider calls; zero scans every stored post.
+	maxAgeDays    int
+	keywords      []string
+	providerOrder []string
 }
 
 func settingBoolean(value string, fallback bool) bool {
@@ -67,6 +72,16 @@ func settingBoolean(value string, fallback bool) bool {
 		return false
 	}
 	return fallback
+}
+
+// settingCount reads a non-negative whole number, falling back when the value
+// is unset or not a number.
+func settingCount(value string, fallback int) int {
+	count, err := strconv.Atoi(jsTrim(value))
+	if err != nil || count < 0 {
+		return fallback
+	}
+	return count
 }
 
 func isListSeparator(r rune) bool { return r == '\n' || r == ',' || r == '，' }
@@ -174,6 +189,14 @@ func (e *Extractor) loadConfig(ctx context.Context) (scheduleConfig, error) {
 		return config, err
 	}
 	config.messageAllPosts = settingBoolean(allPosts, false)
+	// Old posts are history. Extracting them costs provider calls and yields no
+	// usable schedule, so the scan is bounded by age unless an operator asks
+	// for a specific post to be reprocessed.
+	maxAge, err := setting("schedule_extract_max_age_days", "SCHEDULE_EXTRACT_MAX_AGE_DAYS", "0")
+	if err != nil {
+		return config, err
+	}
+	config.maxAgeDays = settingCount(maxAge, 0)
 	stored, ok, err := appSetting(ctx, e.db, "schedule_keywords")
 	if err != nil {
 		return config, err
@@ -388,16 +411,17 @@ func isLikelyScheduleBoardText(value string) bool {
 }
 
 // listCandidatePosts selects the posts a detector stage scans. With allPosts,
-// the message stage takes every post that has text or images.
-func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, detectionType string, allPosts bool) ([]post, error) {
+// the message stage takes every post that has text or images. A non-empty
+// since drops older posts before the heuristic runs.
+func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, detectionType string, allPosts bool, since string) ([]post, error) {
 	lowered := []string{}
 	for _, keyword := range boundedKeywords(parseListValues(keywords)) {
 		lowered = append(lowered, jsToLower(keyword))
 	}
 	rows, err := e.db.QueryContext(ctx, `SELECT id, type, label, text, published_at, url, media_url, raw_json
 		FROM posts
-		WHERE source='x'
-		ORDER BY published_at DESC`)
+		WHERE source='x' AND (? = '' OR published_at >= ?)
+		ORDER BY published_at DESC`, since, since)
 	if err != nil {
 		return nil, err
 	}

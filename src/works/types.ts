@@ -14,15 +14,27 @@ export type WorksCover = {
   height: number
   /** What the image shows, in the collection's Simplified Chinese. */
   caption?: string
-  /** The page the file was taken from, when recorded. */
+  /** The page the file was taken from, when recorded and public. */
   source?: string
   /** The site the file was taken from, when recorded without a page. */
   sourceLabel?: string
+  /** Who scanned, photographed or gave a file from their own copy. */
+  credit?: WorksCredit
   /**
    * The release's own artwork in a file from a store, database or collector,
    * not the publisher's site.
    */
   thirdParty: boolean
+}
+
+/**
+ * A file from a person's own copy: a scan, a photo, or a file a fan gave
+ * without a public page. A named person may link to their profile.
+ */
+export type WorksCredit = {
+  role: "scan" | "photo" | "fan"
+  name?: string
+  url?: string
 }
 
 /** A packaged image with no caption or provenance of its own. */
@@ -74,6 +86,8 @@ export type PersonalEdition = {
   tracks: WorksTrack[]
   /** Photos of the edition's own discs, by disc number. */
   discs: DiscImage[]
+  /** No disc was pressed (a download, or withdrawn): its cover is printed on one. */
+  printedDisc: boolean
 }
 
 /** A photo or scan of one disc of a release, by its disc number. */
@@ -101,6 +115,8 @@ export type PersonalRelease = {
   covers: WorksCover[]
   /** A photo or scan of the disc itself, when the collection has one. */
   disc: WorksCover | null
+  /** The record shows the cover printed on a disc instead of a drawn one. */
+  printedDisc: boolean
   /** A figure cut out of the cover on a transparent ground, when there is one. */
   cutout: WorksImage | null
   /** The tracklist every edition shares. */

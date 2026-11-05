@@ -14,6 +14,7 @@ import {
   byDate,
   dayLabel,
   discsOf,
+  firstEdition,
   fullDate,
   groupByYear,
   personalReleases,
@@ -29,7 +30,7 @@ import type {
   WorksTrack,
 } from "./types"
 import { FilterButtons, OrderToggle, type Order } from "./works-controls"
-import { WORKS_COVER_SIZES, WorksCoverImage } from "./works-media"
+import { CreditLine, WORKS_COVER_SIZES, WorksCoverImage } from "./works-media"
 import { WorksSheet } from "./works-sheet"
 
 export type OpenCovers = (
@@ -61,11 +62,14 @@ export function releaseKind(release: PersonalRelease, t: Translator) {
 
 /**
  * A cover in its sleeve with the record behind it, which slides out when the
- * card is pointed at; the record's label shows the cover again.
+ * card is pointed at. The record is the disc photo when there is one (also
+ * for a release whose only cover is its disc). A download has no disc, so its
+ * cover is printed on one; otherwise the record's label shows the cover again.
  */
 export function Sleeve({
   cover,
   disc = null,
+  printed = false,
   t,
   sizes,
   eager = false,
@@ -74,22 +78,24 @@ export function Sleeve({
   cover: WorksCover | null
   /** A photo of the real disc, shown as the record when there is one. */
   disc?: WorksCover | null
+  /** Print the cover on a disc: for a download, which has none. */
+  printed?: boolean
   t: Translator
   sizes: string
   eager?: boolean
   className?: string
 }) {
-  const realDisc = disc && disc.media !== cover?.media ? disc : null
+  const face = disc ?? (printed ? cover : null)
   return (
     <span className={`works-sleeve ${className}`}>
       <span
-        className={`works-record${realDisc ? " has-disc" : ""}`}
+        className={`works-record${face ? " has-disc" : ""}`}
         aria-hidden="true"
       >
-        {realDisc ? (
-          <span className="works-record-disc">
+        {face ? (
+          <span className={`works-record-disc${disc ? "" : " is-printed"}`}>
             <WorksCoverImage
-              cover={realDisc}
+              cover={face}
               alt=""
               t={t}
               sizes={WORKS_COVER_SIZES.card}
@@ -156,6 +162,7 @@ function ReleaseCard({
         <Sleeve
           cover={frontCover(release)}
           disc={release.disc}
+          printed={release.printedDisc}
           t={t}
           sizes={WORKS_COVER_SIZES.card}
         />
@@ -419,7 +426,9 @@ export function ReleaseSheet({
   onClose: () => void
   onOpenCovers: OpenCovers
 }) {
-  const [editionIndex, setEditionIndex] = useState(0)
+  const [editionIndex, setEditionIndex] = useState(() =>
+    firstEdition(release.editions),
+  )
   const [shown, setShown] = useState(0)
   const edition = release.editions[editionIndex] ?? null
   const covers = edition?.covers.length ? edition.covers : release.covers
@@ -475,6 +484,7 @@ export function ReleaseSheet({
                   key={cover.media}
                   cover={cover}
                   disc={recordDisc}
+                  printed={(edition ?? release).printedDisc}
                   t={t}
                   sizes={WORKS_COVER_SIZES.sheet}
                   eager
@@ -517,10 +527,14 @@ export function ReleaseSheet({
                 ))}
               </div>
             ) : null}
-            {caption || cover?.thirdParty ? (
+            {caption || cover?.thirdParty || cover?.credit ? (
               <p className="release-sheet-caption">
                 {caption ? <span lang="zh-CN">{caption}</span> : null}
-                {cover?.thirdParty ? (
+                {cover?.credit ? (
+                  <small>
+                    <CreditLine credit={cover.credit} t={t} />
+                  </small>
+                ) : cover?.thirdParty ? (
                   <small>{t("works.thirdPartyFile")}</small>
                 ) : null}
               </p>

@@ -6,6 +6,7 @@ import path from "node:path"
 import test, { type TestContext } from "node:test"
 
 import {
+  creditOf,
   kanoCredits,
   packageWorks,
   parseCsv,
@@ -15,7 +16,9 @@ import {
   editionTracks,
   linkUploads,
   personalFormat,
+  printedDiscOf,
   publicPrice,
+  publicSource,
   certainText,
   publicText,
   publicTrackNote,
@@ -25,12 +28,14 @@ import { mediaSrcSet } from "../src/lib/media.ts"
 import {
   byDate,
   discsOf,
+  firstEdition,
   groupByYear,
   matches,
   uploadLinks,
 } from "../src/works/content.ts"
 import type {
   ParticipationRelease,
+  PersonalEdition,
   PersonalRelease,
   Upload,
 } from "../src/works/types.ts"
@@ -514,6 +519,7 @@ test("works packaging writes the tables and covers named by their bytes", async 
     catalog: "EX-001",
     covers: [cover],
     disc: null,
+    printedDisc: false,
     cutout: null,
     tracks: shared,
     discs: [],
@@ -545,6 +551,7 @@ test("works packaging writes the tables and covers named by their bytes", async 
           },
         ],
         discs: [],
+        printedDisc: false,
       },
       {
         name: "通常盤",
@@ -561,6 +568,8 @@ test("works packaging writes the tables and covers named by their bytes", async 
         storeBonuses: [],
         tracks: shared,
         discs: [],
+        // Withdrawn before sale, so no disc was pressed.
+        printedDisc: true,
       },
     ],
     storeBonuses: [{ store: "全国対象店", item: "B2 ポスター", images: [] }],
@@ -719,6 +728,139 @@ test("an edition shows its own discs and the shared ones it keeps", () => {
   )
   // A shared photo of a disc the edition does not have stays out.
   assert.deepEqual(editionDiscs(shared, [], [], [track(1)]), [shared[0]])
+})
+
+test("a release opens on the edition with the most disc photos", () => {
+  const edition = (...media: string[]) => ({
+    discs: media.map((name) => ({ image: { media: name } })),
+  })
+  // A download before its CD opens on the CD; CD+DVD before the CD alone.
+  assert.equal(firstEdition([edition(), edition("cd")]), 1)
+  assert.equal(
+    firstEdition([edition(), edition("cd", "dvd"), edition("cd")]),
+    1,
+  )
+  // Ties and releases without disc photos keep the first edition.
+  assert.equal(firstEdition([edition("a", "b"), edition("c", "d")]), 0)
+  assert.equal(firstEdition([edition(), edition()]), 0)
+  assert.equal(firstEdition([]), 0)
+  // A store set of the limited edition and a bonus disc bundles it; a
+  // later edition with other discs still takes over.
+  assert.equal(
+    firstEdition([
+      edition("cd", "dvd"),
+      edition("cd"),
+      edition("cd", "dvd", "bonus"),
+    ]),
+    0,
+  )
+  assert.equal(firstEdition([edition("cd"), edition("cd2", "dvd")]), 1)
+})
+
+test("a release without a pressed disc prints its cover on the record", () => {
+  const row = (kindNote: string, printed = "") => ({
+    title: "Synthetic",
+    kind_note: kindNote,
+    catalog: "",
+    printed_disc: printed,
+  })
+  const edition = (format: string, printedDisc: boolean) =>
+    ({ format, printedDisc }) as PersonalEdition
+  // A download sold in one version, and editions all downloads or withdrawn.
+  assert.equal(printedDiscOf(row("配信单曲"), []), true)
+  assert.equal(
+    printedDiscOf(row(""), [edition("CD", true), edition("CD", true)]),
+    true,
+  )
+  // A download released beside a CD keeps the CD's record.
+  assert.equal(
+    printedDiscOf(row(""), [edition("配信", true), edition("CD", false)]),
+    false,
+  )
+  assert.equal(printedDiscOf(row("同人专辑"), []), false)
+  // The collection can ask for it, and an unknown value stops packaging.
+  assert.equal(printedDiscOf(row("同人专辑", "封面"), []), true)
+  assert.throws(() => printedDiscOf(row("同人专辑", "yes"), []), /printed_disc/)
+})
+
+test("a seller's listing shows only its marketplace's name", () => {
+  const markets = new Map([["example.net", "Market"]])
+  const listing = "https://example.net/item/1"
+  assert.deepEqual(publicSource(listing, "", markets), {
+    sourceLabel: "Market",
+  })
+  // A recorded site name wins; other pages keep their link.
+  assert.deepEqual(publicSource(listing, "Shop", markets), {
+    sourceLabel: "Shop",
+  })
+  assert.deepEqual(
+    publicSource("https://example.com/item/1", "Shop", markets),
+    {
+      source: "https://example.com/item/1",
+      sourceLabel: "Shop",
+    },
+  )
+  assert.deepEqual(publicSource("", "", markets), {})
+})
+
+test("a file from a person's copy credits them and keeps its page private", async (t) => {
+  const record = (role: string, name = "", url = "") => ({
+    file: "images/covers/x.png",
+    title: "",
+    title_zh: "",
+    source_page: "",
+    evidence_class: "release_artwork_third_party_file",
+    credit_role: role,
+    credit_name: name,
+    credit_url: url,
+  })
+  assert.equal(creditOf(record("")), null)
+  assert.deepEqual(creditOf(record("fan")), { role: "fan" })
+  assert.deepEqual(
+    creditOf(record("scan", "collector", "https://example.org/collector")),
+    { role: "scan", name: "collector", url: "https://example.org/collector" },
+  )
+  // A scan or photo names its person; a link needs a name and a web address.
+  assert.throws(() => creditOf(record("scan")), /needs a name/)
+  assert.throws(
+    () => creditOf(record("fan", "", "https://example.org/")),
+    /needs a name/,
+  )
+  assert.throws(
+    () => creditOf(record("scan", "a", "ftp://example.org/")),
+    /web source/,
+  )
+  assert.throws(() => creditOf(record("found", "a")), /Unknown credit role/)
+  assert.throws(() => creditOf(record("", "a")), /needs a role/)
+
+  const { root, library } = await collection(t)
+  const contentDir = path.join(root, "content")
+  const mediaDir = path.join(root, "data", "works")
+  const manifestFile = path.join(library, "manifest.json")
+  const manifest = JSON.parse(await fs.readFile(manifestFile, "utf8"))
+  Object.assign(manifest.images[0], {
+    credit_role: "photo",
+    credit_name: "collector",
+    credit_url: "https://example.org/collector",
+  })
+  await fs.writeFile(manifestFile, JSON.stringify(manifest))
+  await packageWorks(library, { contentDir, mediaDir })
+  const [release] = JSON.parse(
+    await fs.readFile(path.join(contentDir, "personal.json"), "utf8"),
+  ) as PersonalRelease[]
+  const [cover] = release.covers
+  assert.deepEqual(cover.credit, {
+    role: "photo",
+    name: "collector",
+    url: "https://example.org/collector",
+  })
+  assert.equal(cover.source, undefined)
+  assert.equal(
+    (
+      await fs.readFile(path.join(contentDir, "personal.json"), "utf8")
+    ).includes("example.com/shop"),
+    false,
+  )
 })
 
 test("disc photos follow their discs and leave the covers", async (t) => {

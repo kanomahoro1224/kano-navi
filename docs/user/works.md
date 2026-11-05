@@ -21,7 +21,11 @@ with its format, with **Digital** when it was released for download or
 streaming, with its number of editions when there are several, and with
 **Cancelled** when it never went on sale. Pointing at a cover lifts its
 record out of the sleeve; where the collection has a photo of the real disc,
-that disc is the record. A work released without a cover shows its disc.
+that disc is the record. A work released without a cover shows its disc,
+and the same disc still slides out. A work sold only as a download, or
+cancelled before its CD went on sale, has no disc, so its record is the
+cover printed on one; a few CDs with no photo of their disc show it the
+same way.
 
 Open a work to see it in full: its cover and record over a wash of the
 cover's colours, the release date, label, and counts of tracks, editions and
@@ -29,7 +33,9 @@ tracks also posted online, then the tracklist beside the chosen edition's
 details. A track also posted to a video site has a button for each site,
 marked when the video is for YouTube channel members only. A work sold in several
 editions, such as a limited edition with a DVD and a standard edition, lets
-you switch between them; each edition shows its own cover, catalog number,
+you switch between them, and opens on the edition with the most disc photos,
+so a CD comes before its download and a limited edition before a store set
+that bundles it with a bonus disc; each edition shows its own cover, catalog number,
 JAN, price, format and packaging, what comes in the package, the store
 bonuses shops gave with it, and its own tracklist with every disc. Where the
 collection has a photo of a disc, it sits beside that disc in the tracklist,
@@ -39,7 +45,10 @@ disc. Store bonuses for any edition are listed after the edition's own. Select a
 image or the large cover to view it in full with its size and where the file
 came from; an edition with several covers shows a thumbnail of each. Some covers
 are copies from a shop, database or collector rather than the publisher's
-own file; these are marked as third-party files.
+own file; these are marked as third-party files. A scan or photo of
+someone's own copy names who made it, with a link to their profile where
+they have one. A photo from a second-hand listing names the marketplace but
+does not link to the seller.
 
 ## Featured On
 

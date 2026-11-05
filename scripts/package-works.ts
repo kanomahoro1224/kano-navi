@@ -17,6 +17,7 @@ import type {
   Upload,
   UploadKind,
   WorksCover,
+  WorksCredit,
   WorksMedia,
   WorksTrack,
 } from "../src/works/types.ts"
@@ -145,6 +146,35 @@ export function publicTrackNote(note: string) {
 /** Share links carry the sharer's token, so a record keeps none of them. */
 const shareLinkHosts = new Set(["m.tb.cn"])
 
+/**
+ * Second-hand marketplaces, where a listing is one seller's own page. A file
+ * from one names the marketplace but does not link to the seller's listing.
+ */
+const marketplaces: ReadonlyMap<string, string> = new Map([
+  ["jp.mercari.com", "メルカリ"],
+  ["auctions.yahoo.co.jp", "Yahoo!オークション"],
+  ["paypayfleamarket.yahoo.co.jp", "Yahoo!フリマ"],
+])
+
+/**
+ * Where a file came from as the page shows it: a link to its page, or only
+ * a marketplace's name for a seller's listing. label is the site's name
+ * recorded with the page, if any.
+ */
+export function publicSource(
+  url: string,
+  label = "",
+  hosts = marketplaces,
+): Pick<WorksCover, "source" | "sourceLabel"> {
+  const page = publicUrl(url)
+  const marketplace = page ? hosts.get(new URL(page).hostname) : null
+  if (marketplace) return { sourceLabel: label || marketplace }
+  return {
+    ...(page ? { source: page } : {}),
+    ...(label ? { sourceLabel: label } : {}),
+  }
+}
+
 export function publicUrl(url: string) {
   if (!url) return ""
   let parsed: URL
@@ -229,6 +259,38 @@ type ManifestImage = {
   title_zh: string
   source_page: string
   evidence_class: string
+  credit_role?: string
+  credit_name?: string
+  credit_url?: string
+}
+
+const creditRoles = new Set<WorksCredit["role"]>(["scan", "photo", "fan"])
+
+/**
+ * Who a file from a person's own copy came from. Such a file shows its
+ * credit instead of a source page: its record's page is evidence for the
+ * collection, not where the file was published.
+ */
+export function creditOf(record: ManifestImage): WorksCredit | null {
+  const role = record.credit_role ?? ""
+  if (!role) {
+    if (record.credit_name || record.credit_url)
+      throw new Error(`A credit needs a role: ${record.file}`)
+    return null
+  }
+  if (!creditRoles.has(role as WorksCredit["role"]))
+    throw new Error(`Unknown credit role ${role}: ${record.file}`)
+  const name = publicText(record.credit_name ?? "")
+  if (role !== "fan" && !name)
+    throw new Error(`A ${role} credit needs a name: ${record.file}`)
+  const url = publicUrl(record.credit_url ?? "")
+  if (url && !name)
+    throw new Error(`A credit link needs a name: ${record.file}`)
+  return {
+    role: role as WorksCredit["role"],
+    ...(name ? { name } : {}),
+    ...(url ? { url } : {}),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -296,6 +358,21 @@ function isDigital(row: Row, editions: PersonalEdition[]) {
     row.catalog.includes("digital") ||
     editions.some((edition) => digitalFormat.test(edition.format))
   )
+}
+
+/**
+ * Whether a release's record is its cover printed on a disc: no disc was
+ * pressed (every edition a download or withdrawn, or a download sold in one
+ * version), or the collection asks for it with printed_disc 封面.
+ */
+export function printedDiscOf(row: Row, editions: PersonalEdition[]) {
+  const asked = row.printed_disc ?? ""
+  if (asked && asked !== "封面")
+    throw new Error(`Unknown printed_disc for ${row.title}: ${asked}`)
+  if (asked) return true
+  return editions.length
+    ? editions.every((edition) => edition.printedDisc)
+    : isDigital(row, editions)
 }
 
 const releaseKey = (date: string, title: string) => `${date}\n${title}`
@@ -466,6 +543,9 @@ async function personalWorks(root: string, images: Images) {
         storeBonuses: await storeBonuses(bonuses.filter(appliesTo), images),
         tracks: editionTrackList,
         discs,
+        printedDisc:
+          digitalFormat.test(edition.format) ||
+          cancelledMark.test(edition.edition),
       })
     }
     for (const item of [...tracks, ...bonuses, ...discPhotos])
@@ -511,6 +591,7 @@ async function personalWorks(root: string, images: Images) {
       catalog: certainText(row.catalog),
       covers,
       disc,
+      printedDisc: printedDiscOf(row, editions),
       cutout: null,
       tracks: shared,
       discs: sharedDiscs,
@@ -561,14 +642,13 @@ function collectionImages(
           continue
         }
         const cover = await coverOf(root, relative, covers)
+        const credit = creditOf(record)
         shown.push({
           ...cover,
           caption: publicText(
             record.title_zh.split("：").slice(1).join("：") || record.title_zh,
           ),
-          ...(publicUrl(record.source_page)
-            ? { source: record.source_page }
-            : {}),
+          ...(credit ? { credit } : publicSource(record.source_page)),
           thirdParty: record.evidence_class.includes("third_party"),
         })
       }
@@ -700,12 +780,7 @@ async function participationWorks(
       )
       const [, label = "", url = ""] =
         /^(.*?)\s*(https?:\/\/\S+)?$/u.exec(row.cover_source) ?? []
-      cover = {
-        ...shown,
-        ...(publicUrl(url) ? { source: url } : {}),
-        ...(label ? { sourceLabel: label } : {}),
-        thirdParty: true,
-      }
+      cover = { ...shown, ...publicSource(url, label), thirdParty: true }
     }
     releases.push({
       id: recordId(date, row.title),

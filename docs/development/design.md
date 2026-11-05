@@ -19,7 +19,8 @@ introduce a separate token system for a single page.
   shared shell it gives the shared tokens a warm ivory and clay reading in
   both themes, sets names and figures in a serif, separates with hairlines
   and outlined chips, and lets each cover's record slide out of its sleeve
-  (a photo of the real disc where there is one). The header sets the
+  (a photo of the real disc where there is one; where no disc was pressed,
+  the cover printed on a disc with a clear hub). The header sets the
   figures cut from the acoustic cover trilogy's covers in a small landscape:
   each album's grooved disc sinks behind two far ridges like a setting sun,
   and the figures stand and sit on curved grassy ground with flowers in the

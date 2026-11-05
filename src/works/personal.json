@@ -27,6 +27,7 @@
       "source": "https://musicbrainz.org/release/5a7326ec-311e-43ac-be2a-f84dce88ddd1",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -168,6 +169,7 @@
       "source": "https://www.discogs.com/release/16387434",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -288,7 +290,17 @@
         "thirdParty": true
       }
     ],
-    "disc": null,
+    "disc": {
+      "media": "6d14ce921945.jpg",
+      "width": 498,
+      "height": 498,
+      "caption": "盘面",
+      "credit": {
+        "role": "fan"
+      },
+      "thirdParty": true
+    },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -327,7 +339,21 @@
         "note": ""
       }
     ],
-    "discs": [],
+    "discs": [
+      {
+        "disc": 1,
+        "image": {
+          "media": "6d14ce921945.jpg",
+          "width": 498,
+          "height": 498,
+          "caption": "盘面",
+          "credit": {
+            "role": "fan"
+          },
+          "thirdParty": true
+        }
+      }
+    ],
     "editions": [],
     "storeBonuses": []
   },
@@ -351,7 +377,15 @@
         "thirdParty": true
       }
     ],
-    "disc": null,
+    "disc": {
+      "media": "4b86cff9baac.jpg",
+      "width": 689,
+      "height": 689,
+      "caption": "盘面（Yahoo!オークション）",
+      "sourceLabel": "Yahoo!オークション",
+      "thirdParty": true
+    },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -468,7 +502,19 @@
         }
       }
     ],
-    "discs": [],
+    "discs": [
+      {
+        "disc": 1,
+        "image": {
+          "media": "4b86cff9baac.jpg",
+          "width": 689,
+          "height": 689,
+          "caption": "盘面（Yahoo!オークション）",
+          "sourceLabel": "Yahoo!オークション",
+          "thirdParty": true
+        }
+      }
+    ],
     "editions": [],
     "storeBonuses": []
   },
@@ -493,6 +539,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -527,7 +574,19 @@
         "thirdParty": true
       }
     ],
-    "disc": null,
+    "disc": {
+      "media": "fe55d5467540.jpg",
+      "width": 1406,
+      "height": 1406,
+      "caption": "盘面",
+      "credit": {
+        "role": "scan",
+        "name": "yexca",
+        "url": "https://github.com/yexca"
+      },
+      "thirdParty": true
+    },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -585,7 +644,23 @@
         }
       }
     ],
-    "discs": [],
+    "discs": [
+      {
+        "disc": 1,
+        "image": {
+          "media": "fe55d5467540.jpg",
+          "width": 1406,
+          "height": 1406,
+          "caption": "盘面",
+          "credit": {
+            "role": "scan",
+            "name": "yexca",
+            "url": "https://github.com/yexca"
+          },
+          "thirdParty": true
+        }
+      }
+    ],
     "editions": [],
     "storeBonuses": []
   },
@@ -617,6 +692,7 @@
       "source": "https://vgmdb.net/album/40390",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -759,6 +835,7 @@
       "source": "https://vgmdb.net/album/42961",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -868,6 +945,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -910,6 +988,7 @@
       "source": "https://vgmdb.net/album/49423",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -1006,6 +1085,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -1047,6 +1127,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -1084,7 +1165,7 @@
         "height": 793,
         "caption": "初回限定盘封面",
         "source": "https://whv-amusic.com/kano/discography/single/index00030000.html",
-        "thirdParty": true
+        "thirdParty": false
       },
       {
         "media": "d3b6a13c270d.jpg",
@@ -1103,6 +1184,7 @@
       "source": "https://musicbrainz.org/release/f7953526-af24-4d3b-a367-e7a7ab591333",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -1153,7 +1235,19 @@
         "note": ""
       }
     ],
-    "discs": [],
+    "discs": [
+      {
+        "disc": 1,
+        "image": {
+          "media": "637961cca91f.jpg",
+          "width": 1200,
+          "height": 1200,
+          "caption": "盘面",
+          "source": "https://musicbrainz.org/release/f7953526-af24-4d3b-a367-e7a7ab591333",
+          "thirdParty": true
+        }
+      }
+    ],
     "editions": [
       {
         "name": "初回限定盤",
@@ -1171,7 +1265,7 @@
             "height": 793,
             "caption": "初回限定盘封面",
             "source": "https://whv-amusic.com/kano/discography/single/index00030000.html",
-            "thirdParty": true
+            "thirdParty": false
           }
         ],
         "bonuses": [],
@@ -1288,8 +1382,24 @@
               "source": "https://musicbrainz.org/release/f7953526-af24-4d3b-a367-e7a7ab591333",
               "thirdParty": true
             }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "000460c69f54.jpg",
+              "width": 1380,
+              "height": 1380,
+              "caption": "初回限定盘 DVD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
+              "thirdParty": true
+            }
           }
-        ]
+        ],
+        "printedDisc": false
       },
       {
         "name": "通常盤",
@@ -1377,7 +1487,20 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "637961cca91f.jpg",
+              "width": 1200,
+              "height": 1200,
+              "caption": "盘面",
+              "source": "https://musicbrainz.org/release/f7953526-af24-4d3b-a367-e7a7ab591333",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -1418,6 +1541,7 @@
       "source": "https://vgmdb.net/album/54307",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -1588,7 +1712,20 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 2,
+            "image": {
+              "media": "1853a24f2526.jpg",
+              "width": 820,
+              "height": 820,
+              "caption": "アーティスト盘 DVD 盘面（Mercari）",
+              "sourceLabel": "メルカリ",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       },
       {
         "name": "アニメ盤",
@@ -1681,7 +1818,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": [
@@ -1736,6 +1874,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -1832,7 +1971,15 @@
         "thirdParty": false
       }
     ],
-    "disc": null,
+    "disc": {
+      "media": "d2bde0b8aedb.jpg",
+      "width": 840,
+      "height": 840,
+      "caption": "CD 盘面（Yahoo!オークション）",
+      "sourceLabel": "Yahoo!オークション",
+      "thirdParty": true
+    },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -1942,7 +2089,19 @@
         "note": ""
       }
     ],
-    "discs": [],
+    "discs": [
+      {
+        "disc": 1,
+        "image": {
+          "media": "d2bde0b8aedb.jpg",
+          "width": 840,
+          "height": 840,
+          "caption": "CD 盘面（Yahoo!オークション）",
+          "sourceLabel": "Yahoo!オークション",
+          "thirdParty": true
+        }
+      }
+    ],
     "editions": [
       {
         "name": "絵本付生産限定盤",
@@ -1989,6 +2148,14 @@
                 "caption": "绘本付生产限定盘店铺特典一览",
                 "source": "https://whv-amusic.com/kano/news/index00300000.html",
                 "thirdParty": false
+              },
+              {
+                "media": "e29e8a0b07ff.jpg",
+                "width": 504,
+                "height": 504,
+                "caption": "とらのあな特典 SPECIAL CD『こまったましろ』盘面（駿河屋 on Mercari Shops）",
+                "sourceLabel": "メルカリ",
+                "thirdParty": true
               }
             ]
           },
@@ -2181,7 +2348,20 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "d2bde0b8aedb.jpg",
+              "width": 840,
+              "height": 840,
+              "caption": "CD 盘面（Yahoo!オークション）",
+              "sourceLabel": "Yahoo!オークション",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       },
       {
         "name": "通常盤",
@@ -2315,7 +2495,20 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "d2bde0b8aedb.jpg",
+              "width": 840,
+              "height": 840,
+              "caption": "CD 盘面（Yahoo!オークション）",
+              "sourceLabel": "Yahoo!オークション",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -2357,13 +2550,14 @@
       }
     ],
     "disc": {
-      "media": "e2157b40b546.jpg",
-      "width": 597,
-      "height": 600,
-      "caption": "盘面",
-      "source": "https://www.discogs.com/release/30495421",
+      "media": "876284a88442.jpg",
+      "width": 725,
+      "height": 725,
+      "caption": "アーティスト盘 CD 盘面（Yahoo!オークション）",
+      "sourceLabel": "Yahoo!オークション",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -2540,7 +2734,31 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "876284a88442.jpg",
+              "width": 725,
+              "height": 725,
+              "caption": "アーティスト盘 CD 盘面（Yahoo!オークション）",
+              "sourceLabel": "Yahoo!オークション",
+              "thirdParty": true
+            }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "b3d2fbfe1355.jpg",
+              "width": 766,
+              "height": 766,
+              "caption": "アーティスト盘 DVD 盘面（Yahoo!オークション）",
+              "sourceLabel": "Yahoo!オークション",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       },
       {
         "name": "アニメ盤",
@@ -2650,7 +2868,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       },
       {
         "name": "通常盤",
@@ -2731,7 +2950,24 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "e94359824d74.jpg",
+              "width": 776,
+              "height": 776,
+              "caption": "通常盘 CD 盘面",
+              "credit": {
+                "role": "photo",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -2764,6 +3000,7 @@
       "source": "https://vgmdb.net/album/64004",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -2824,17 +3061,17 @@
         "caption": "通常盘封面",
         "source": "https://ototoy.jp/_/default/p/74196",
         "thirdParty": true
-      },
-      {
-        "media": "fad6a5f98716.jpg",
-        "width": 1500,
-        "height": 1488,
-        "caption": "通常盘封面",
-        "source": "https://kano-official.amebaownd.com/posts/3988850/",
-        "thirdParty": false
       }
     ],
-    "disc": null,
+    "disc": {
+      "media": "cbd5569ad1bf.jpg",
+      "width": 1113,
+      "height": 1113,
+      "caption": "CD 盘面（アーティスト盘・通常盘）（PayPayフリマ）",
+      "sourceLabel": "Yahoo!フリマ",
+      "thirdParty": true
+    },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -2878,7 +3115,19 @@
         "note": ""
       }
     ],
-    "discs": [],
+    "discs": [
+      {
+        "disc": 1,
+        "image": {
+          "media": "cbd5569ad1bf.jpg",
+          "width": 1113,
+          "height": 1113,
+          "caption": "CD 盘面（アーティスト盘・通常盘）（PayPayフリマ）",
+          "sourceLabel": "Yahoo!フリマ",
+          "thirdParty": true
+        }
+      }
+    ],
     "editions": [
       {
         "name": "アーティスト盤",
@@ -2989,7 +3238,31 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "cbd5569ad1bf.jpg",
+              "width": 1113,
+              "height": 1113,
+              "caption": "CD 盘面（アーティスト盘・通常盘）（PayPayフリマ）",
+              "sourceLabel": "Yahoo!フリマ",
+              "thirdParty": true
+            }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "478d4487e444.jpg",
+              "width": 966,
+              "height": 966,
+              "caption": "アーティスト盘 DVD 盘面（PayPayフリマ）",
+              "sourceLabel": "Yahoo!フリマ",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       },
       {
         "name": "アニメ盤",
@@ -3076,7 +3349,31 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "16edbe89bb52.jpg",
+              "width": 378,
+              "height": 378,
+              "caption": "アニメ盘 CD 盘面（PayPayフリマ）",
+              "sourceLabel": "Yahoo!フリマ",
+              "thirdParty": true
+            }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "b682e65dc00b.jpg",
+              "width": 390,
+              "height": 390,
+              "caption": "アニメ盘 DVD 盘面（PayPayフリマ）",
+              "sourceLabel": "Yahoo!フリマ",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       },
       {
         "name": "通常盤",
@@ -3088,14 +3385,6 @@
         "format": "CD",
         "packaging": "",
         "covers": [
-          {
-            "media": "fad6a5f98716.jpg",
-            "width": 1500,
-            "height": 1488,
-            "caption": "通常盘封面",
-            "source": "https://kano-official.amebaownd.com/posts/3988850/",
-            "thirdParty": false
-          },
           {
             "media": "7f014d642f55.jpg",
             "width": 3000,
@@ -3150,7 +3439,20 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "cbd5569ad1bf.jpg",
+              "width": 1113,
+              "height": 1113,
+              "caption": "CD 盘面（アーティスト盘・通常盘）（PayPayフリマ）",
+              "sourceLabel": "Yahoo!フリマ",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -3180,10 +3482,22 @@
         "height": 3000,
         "caption": "通常盘封面",
         "source": "https://whv-amusic.com/kano/discography/album/index00090000.html",
-        "thirdParty": true
+        "thirdParty": false
       }
     ],
-    "disc": null,
+    "disc": {
+      "media": "6ec35cd90033.jpg",
+      "width": 1386,
+      "height": 1386,
+      "caption": "CD 盘面",
+      "credit": {
+        "role": "scan",
+        "name": "yexca",
+        "url": "https://github.com/yexca"
+      },
+      "thirdParty": true
+    },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -3307,7 +3621,23 @@
         "note": "カバー (ボーナス・トラック)"
       }
     ],
-    "discs": [],
+    "discs": [
+      {
+        "disc": 1,
+        "image": {
+          "media": "6ec35cd90033.jpg",
+          "width": 1386,
+          "height": 1386,
+          "caption": "CD 盘面",
+          "credit": {
+            "role": "scan",
+            "name": "yexca",
+            "url": "https://github.com/yexca"
+          },
+          "thirdParty": true
+        }
+      }
+    ],
     "editions": [
       {
         "name": "初回生産限定盤",
@@ -3343,7 +3673,16 @@
           {
             "store": "アニメイト",
             "item": "「Stella-rium」弾き語りカバー CD",
-            "images": []
+            "images": [
+              {
+                "media": "3dbf129fb55c.jpg",
+                "width": 498,
+                "height": 498,
+                "caption": "アニメイト特典「Stella-rium」弾き語りカバー CD 盘面（駿河屋 on Mercari Shops）",
+                "sourceLabel": "メルカリ",
+                "thirdParty": true
+              }
+            ]
           },
           {
             "store": "Amazon.co.jp",
@@ -3539,7 +3878,39 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "6ec35cd90033.jpg",
+              "width": 1386,
+              "height": 1386,
+              "caption": "CD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
+              "thirdParty": true
+            }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "d4e5bbc2c04d.jpg",
+              "width": 1380,
+              "height": 1380,
+              "caption": "初回生産限定盘 DVD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       },
       {
         "name": "DVD 付盤",
@@ -3709,7 +4080,39 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "6ec35cd90033.jpg",
+              "width": 1386,
+              "height": 1386,
+              "caption": "CD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
+              "thirdParty": true
+            }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "d4e5bbc2c04d.jpg",
+              "width": 1380,
+              "height": 1380,
+              "caption": "初回生産限定盘 DVD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       },
       {
         "name": "通常盤",
@@ -3727,7 +4130,7 @@
             "height": 3000,
             "caption": "通常盘封面",
             "source": "https://whv-amusic.com/kano/discography/album/index00090000.html",
-            "thirdParty": true
+            "thirdParty": false
           }
         ],
         "bonuses": [],
@@ -3855,7 +4258,24 @@
             "note": "カバー (ボーナス・トラック)"
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "6ec35cd90033.jpg",
+              "width": 1386,
+              "height": 1386,
+              "caption": "CD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -3877,14 +4297,6 @@
         "height": 1736,
         "caption": "专辑封面",
         "source": "https://booth.pm/ja/items/709759",
-        "thirdParty": true
-      },
-      {
-        "media": "6732b821b923.jpg",
-        "width": 1200,
-        "height": 630,
-        "caption": "专辑封面",
-        "source": "https://booth.pm/ja/items/709759",
         "thirdParty": false
       }
     ],
@@ -3896,6 +4308,7 @@
       "source": "https://www.discogs.com/release/14379591",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": {
       "media": "979d56d991c0.png",
       "width": 1118,
@@ -3981,14 +4394,6 @@
             "height": 1736,
             "caption": "专辑封面",
             "source": "https://booth.pm/ja/items/709759",
-            "thirdParty": true
-          },
-          {
-            "media": "6732b821b923.jpg",
-            "width": 1200,
-            "height": 630,
-            "caption": "专辑封面",
-            "source": "https://booth.pm/ja/items/709759",
             "thirdParty": false
           }
         ],
@@ -4057,7 +4462,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -4083,6 +4489,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -4120,15 +4527,7 @@
         "height": 1446,
         "caption": "专辑封面",
         "source": "https://booth.pm/ja/items/944785",
-        "thirdParty": true
-      },
-      {
-        "media": "673187973f4f.jpg",
-        "width": 1024,
-        "height": 926,
-        "caption": "同人专辑封面",
-        "source": "https://booth.pm/ja/items/944785",
-        "thirdParty": true
+        "thirdParty": false
       }
     ],
     "disc": {
@@ -4139,6 +4538,7 @@
       "source": "https://www.discogs.com/release/16626057",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": {
       "media": "adc87413e879.png",
       "width": 1621,
@@ -4224,15 +4624,7 @@
             "height": 1446,
             "caption": "专辑封面",
             "source": "https://booth.pm/ja/items/944785",
-            "thirdParty": true
-          },
-          {
-            "media": "673187973f4f.jpg",
-            "width": 1024,
-            "height": 926,
-            "caption": "同人专辑封面",
-            "source": "https://booth.pm/ja/items/944785",
-            "thirdParty": true
+            "thirdParty": false
           }
         ],
         "bonuses": [],
@@ -4300,7 +4692,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -4326,6 +4719,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -4390,6 +4784,7 @@
       "source": "https://vgmdb.net/album/81424",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -4809,7 +5204,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       },
       {
         "name": "通常盤",
@@ -5001,7 +5397,31 @@
             "note": "カバー (アコースティック)"
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "c3278e9f9be8.jpg",
+              "width": 1874,
+              "height": 1952,
+              "caption": "盘面",
+              "source": "https://vgmdb.net/album/81424",
+              "thirdParty": true
+            }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "69ebeddc4281.jpg",
+              "width": 1874,
+              "height": 1899,
+              "caption": "初回限定盘 Side-B 盘面",
+              "source": "https://vgmdb.net/album/81424",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       },
       {
         "name": "アニメイト限定盤",
@@ -5268,7 +5688,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       },
       {
         "name": "とらのあな限定盤",
@@ -5535,7 +5956,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": [
@@ -5665,15 +6087,23 @@
     "catalog": "",
     "covers": [
       {
-        "media": "14932e86a3ae.jpg",
-        "width": 1080,
-        "height": 953,
-        "caption": "白纸套与盘面",
+        "media": "7b249347bf9d.png",
+        "width": 512,
+        "height": 512,
+        "caption": "封面・盘面",
         "source": "https://vgmdb.net/album/84998",
         "thirdParty": true
       }
     ],
-    "disc": null,
+    "disc": {
+      "media": "7b249347bf9d.png",
+      "width": 512,
+      "height": 512,
+      "caption": "封面・盘面",
+      "source": "https://vgmdb.net/album/84998",
+      "thirdParty": true
+    },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -5684,7 +6114,19 @@
         "note": "鹿乃歌唱"
       }
     ],
-    "discs": [],
+    "discs": [
+      {
+        "disc": 1,
+        "image": {
+          "media": "7b249347bf9d.png",
+          "width": 512,
+          "height": 512,
+          "caption": "封面・盘面",
+          "source": "https://vgmdb.net/album/84998",
+          "thirdParty": true
+        }
+      }
+    ],
     "editions": [
       {
         "name": "附赠 CD",
@@ -5695,16 +6137,7 @@
         "price": "",
         "format": "CD",
         "packaging": "白纸套",
-        "covers": [
-          {
-            "media": "14932e86a3ae.jpg",
-            "width": 1080,
-            "height": 953,
-            "caption": "白纸套与盘面",
-            "source": "https://vgmdb.net/album/84998",
-            "thirdParty": true
-          }
-        ],
+        "covers": [],
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
@@ -5717,7 +6150,20 @@
             "note": "鹿乃歌唱"
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "7b249347bf9d.png",
+              "width": 512,
+              "height": 512,
+              "caption": "封面・盘面",
+              "source": "https://vgmdb.net/album/84998",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -5739,7 +6185,7 @@
         "height": 751,
         "caption": "同人专辑封面",
         "source": "https://booth.pm/ja/items/1484096",
-        "thirdParty": true
+        "thirdParty": false
       }
     ],
     "disc": {
@@ -5750,6 +6196,7 @@
       "source": "https://www.discogs.com/release/16626129",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": {
       "media": "a989c6b26a81.png",
       "width": 1617,
@@ -5847,7 +6294,7 @@
             "height": 751,
             "caption": "同人专辑封面",
             "source": "https://booth.pm/ja/items/1484096",
-            "thirdParty": true
+            "thirdParty": false
           }
         ],
         "bonuses": [],
@@ -5927,7 +6374,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -5949,7 +6397,7 @@
         "height": 800,
         "caption": "专辑封面（1st VOCALOID ALBUM）",
         "source": "https://booth.pm/ja/items/1484110",
-        "thirdParty": true
+        "thirdParty": false
       }
     ],
     "disc": {
@@ -5960,6 +6408,7 @@
       "source": "https://musicbrainz.org/release/68b49c7f-3304-451e-bc03-f0db753ea269",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -6073,7 +6522,15 @@
         "thirdParty": false
       }
     ],
-    "disc": null,
+    "disc": {
+      "media": "a83920f8d6aa.jpg",
+      "width": 404,
+      "height": 404,
+      "caption": "CD 盘面（Mercari）",
+      "sourceLabel": "メルカリ",
+      "thirdParty": true
+    },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -6139,7 +6596,19 @@
         "note": "bonus track（未発表曲）"
       }
     ],
-    "discs": [],
+    "discs": [
+      {
+        "disc": 1,
+        "image": {
+          "media": "a83920f8d6aa.jpg",
+          "width": 404,
+          "height": 404,
+          "caption": "CD 盘面（Mercari）",
+          "sourceLabel": "メルカリ",
+          "thirdParty": true
+        }
+      }
+    ],
     "editions": [
       {
         "name": "CD+DVD",
@@ -6235,7 +6704,31 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [
+          {
+            "disc": 1,
+            "image": {
+              "media": "a83920f8d6aa.jpg",
+              "width": 404,
+              "height": 404,
+              "caption": "CD 盘面（Mercari）",
+              "sourceLabel": "メルカリ",
+              "thirdParty": true
+            }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "ce5a61e42115.jpg",
+              "width": 406,
+              "height": 406,
+              "caption": "DVD 盘面（Mercari）",
+              "sourceLabel": "メルカリ",
+              "thirdParty": true
+            }
+          }
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": [
@@ -6282,6 +6775,7 @@
       "source": "https://musicbrainz.org/release/769dfb4b-14a0-49b9-a7d3-364fd0f772e6",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -6359,7 +6853,8 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [],
+        "printedDisc": true
       },
       {
         "name": "CD",
@@ -6427,7 +6922,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -6460,6 +6956,7 @@
       "source": "https://vgmdb.net/album/94757",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -6518,7 +7015,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -6575,6 +7073,7 @@
       "source": "https://musicbrainz.org/release/494012de-5c5a-4d8c-bd5a-2c5db10da85d",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -6799,7 +7298,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       },
       {
         "name": "通常盤",
@@ -6913,7 +7413,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       },
       {
         "name": "等身大パッケージ",
@@ -7035,7 +7536,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       },
       {
         "name": "アニメイト限定盤",
@@ -7213,8 +7715,31 @@
               "source": "https://musicbrainz.org/release/494012de-5c5a-4d8c-bd5a-2c5db10da85d",
               "thirdParty": true
             }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "b320571b24b0.png",
+              "width": 2824,
+              "height": 2876,
+              "caption": "初回限定盘 DVD 盘面",
+              "source": "https://musicbrainz.org/release/494012de-5c5a-4d8c-bd5a-2c5db10da85d",
+              "thirdParty": true
+            }
+          },
+          {
+            "disc": 3,
+            "image": {
+              "media": "4b74fa116d4e.jpg",
+              "width": 896,
+              "height": 896,
+              "caption": "アニメイト限定盤特典 Inst.CD 盘面（駿河屋 on Mercari Shops）",
+              "sourceLabel": "メルカリ",
+              "thirdParty": true
+            }
           }
-        ]
+        ],
+        "printedDisc": false
       },
       {
         "name": "とらのあな限定盤",
@@ -7392,8 +7917,31 @@
               "source": "https://musicbrainz.org/release/494012de-5c5a-4d8c-bd5a-2c5db10da85d",
               "thirdParty": true
             }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "b320571b24b0.png",
+              "width": 2824,
+              "height": 2876,
+              "caption": "初回限定盘 DVD 盘面",
+              "source": "https://musicbrainz.org/release/494012de-5c5a-4d8c-bd5a-2c5db10da85d",
+              "thirdParty": true
+            }
+          },
+          {
+            "disc": 3,
+            "image": {
+              "media": "beb1635f9301.jpg",
+              "width": 491,
+              "height": 491,
+              "caption": "とらのあな限定盤特典 Inst.CD 盘面（駿河屋 on Mercari Shops）",
+              "sourceLabel": "メルカリ",
+              "thirdParty": true
+            }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": [
@@ -7549,6 +8097,7 @@
       "source": "https://musicbrainz.org/release/4c4d0d04-7750-48af-808d-685d5fafd3dd",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -7654,7 +8203,8 @@
             "note": "鹿乃と宇崎ちゃん"
           }
         ],
-        "discs": []
+        "discs": [],
+        "printedDisc": true
       },
       {
         "name": "初回限定盤",
@@ -7745,7 +8295,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       },
       {
         "name": "通常盤",
@@ -7817,7 +8368,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": [
@@ -7886,6 +8438,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -7921,6 +8474,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -7976,7 +8530,8 @@
             }
           }
         ],
-        "discs": []
+        "discs": [],
+        "printedDisc": true
       }
     ],
     "storeBonuses": []
@@ -8017,6 +8572,7 @@
       "source": "https://musicbrainz.org/release/d935713d-4574-4b5d-b6a5-0d5214c798c7",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -8183,7 +8739,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       },
       {
         "name": "通常盤",
@@ -8248,7 +8805,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": [
@@ -8317,6 +8875,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -8510,7 +9069,8 @@
             }
           }
         ],
-        "discs": []
+        "discs": [],
+        "printedDisc": true
       },
       {
         "name": "酷狗音乐 数字专辑",
@@ -8623,7 +9183,8 @@
             }
           }
         ],
-        "discs": []
+        "discs": [],
+        "printedDisc": true
       },
       {
         "name": "酷我音乐 数字专辑",
@@ -8731,7 +9292,8 @@
             }
           }
         ],
-        "discs": []
+        "discs": [],
+        "printedDisc": true
       }
     ],
     "storeBonuses": []
@@ -8764,6 +9326,7 @@
       "source": "https://vgmdb.net/album/115729",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -9197,7 +9760,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": [
@@ -9358,6 +9922,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -9503,7 +10068,8 @@
             "note": "MKLNtic"
           }
         ],
-        "discs": []
+        "discs": [],
+        "printedDisc": true
       },
       {
         "name": "MKLNtic盤",
@@ -9597,7 +10163,8 @@
             "note": "MKLNtic"
           }
         ],
-        "discs": []
+        "discs": [],
+        "printedDisc": true
       }
     ],
     "storeBonuses": []
@@ -9623,6 +10190,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -9706,7 +10274,8 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [],
+        "printedDisc": true
       }
     ],
     "storeBonuses": []
@@ -9729,14 +10298,6 @@
         "caption": "配信封面",
         "source": "https://music.apple.com/jp/album/1697258312",
         "thirdParty": true
-      },
-      {
-        "media": "f8eec5a98752.jpg",
-        "width": 500,
-        "height": 437,
-        "caption": "CD 商品图（らしんばん）",
-        "source": "https://shop.lashinbang.com/products/detail/8419558",
-        "thirdParty": true
       }
     ],
     "disc": {
@@ -9747,6 +10308,7 @@
       "source": "https://vgmdb.net/album/131095",
       "thirdParty": true
     },
+    "printedDisc": false,
     "cutout": null,
     "tracks": [
       {
@@ -9816,7 +10378,8 @@
             "note": ""
           }
         ],
-        "discs": []
+        "discs": [],
+        "printedDisc": true
       },
       {
         "name": "CD",
@@ -9829,11 +10392,11 @@
         "packaging": "",
         "covers": [
           {
-            "media": "f8eec5a98752.jpg",
-            "width": 500,
-            "height": 437,
-            "caption": "CD 商品图（らしんばん）",
-            "source": "https://shop.lashinbang.com/products/detail/8419558",
+            "media": "48eff2ed390d.jpg",
+            "width": 600,
+            "height": 600,
+            "caption": "配信封面",
+            "source": "https://music.apple.com/jp/album/1697258312",
             "thirdParty": true
           }
         ],
@@ -9868,7 +10431,8 @@
               "thirdParty": true
             }
           }
-        ]
+        ],
+        "printedDisc": false
       }
     ],
     "storeBonuses": []
@@ -9894,6 +10458,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -9935,6 +10500,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -9976,6 +10542,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -10017,6 +10584,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {
@@ -10058,6 +10626,7 @@
       }
     ],
     "disc": null,
+    "printedDisc": true,
     "cutout": null,
     "tracks": [
       {

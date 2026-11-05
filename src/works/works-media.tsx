@@ -5,7 +5,7 @@ import { ArrowUpRight, Disc3 } from "lucide-react"
 import { mediaSrcSet } from "@/lib/media"
 import { ExternalLink } from "@/site/links"
 import { coverUrl } from "./content"
-import type { WorksCover } from "./types"
+import type { WorksCover, WorksCredit } from "./types"
 
 /** How wide each cover shows (src/works/works.css). */
 export const WORKS_COVER_SIZES = {
@@ -67,6 +67,35 @@ export function WorksCoverImage({
   )
 }
 
+/**
+ * Who scanned, photographed or gave the file, such as "yexca 扫描". A named
+ * person with a profile links to it; the profile is not the file's source.
+ */
+export function CreditLine({
+  credit,
+  t,
+}: {
+  credit: WorksCredit
+  t: Translator
+}) {
+  // Without a name value the message keeps its {name} slot to split at.
+  const [before, after = ""] = t(`works.credit.${credit.role}`).split("{name}")
+  const name = credit.url ? (
+    <ExternalLink className="text-link" href={credit.url}>
+      {credit.name}
+    </ExternalLink>
+  ) : (
+    credit.name
+  )
+  return (
+    <span className="works-credit">
+      {before}
+      {name}
+      {after}
+    </span>
+  )
+}
+
 /** The viewer's panel: which edition, where the file came from. */
 export function CoverDetails({
   cover,
@@ -82,6 +111,11 @@ export function CoverDetails({
       <p className="kicker">{t("works.cover")}</p>
       <h2>{title}</h2>
       {cover.caption ? <p lang="zh-CN">{cover.caption}</p> : null}
+      {cover.credit ? (
+        <p className="works-cover-origin">
+          <CreditLine credit={cover.credit} t={t} />
+        </p>
+      ) : null}
       <dl>
         <div>
           <dt>{t("works.coverSize")}</dt>

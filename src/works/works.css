@@ -624,10 +624,33 @@ body:has(.site.works) {
 /* The centre hole, punched through the photo. */
 .works-record-disc::after {
   position: absolute;
+  z-index: 2;
   inset: 46%;
   border-radius: 50%;
   background: hsl(var(--background));
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+  content: "";
+}
+
+/*
+ * A download's cover printed on a disc, since it has none: the clear hub
+ * around the hole, its stacking ring, and a thin rim at the edge.
+ */
+.works-record-disc.is-printed::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle closest-side,
+    transparent 0 7%,
+    rgb(232 236 240 / 0.82) 7.5% 15%,
+    rgb(255 255 255 / 0.95) 15.5% 16.5%,
+    rgb(214 220 226 / 0.7) 17% 25%,
+    rgb(120 126 132 / 0.35) 25.5% 26.5%,
+    transparent 27% 96.5%,
+    rgb(255 255 255 / 0.45) 97.5% 100%
+  );
   content: "";
 }
 
@@ -1326,7 +1349,7 @@ body.has-works-sheet {
   font-size: 12.5px;
 }
 
-.release-sheet-caption span {
+.release-sheet-caption > span {
   color: var(--ink);
 }
 

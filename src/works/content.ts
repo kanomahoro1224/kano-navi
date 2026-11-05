@@ -64,6 +64,30 @@ export function byDate<T extends { date: string }>(
   return order === "newest" ? sorted.reverse() : sorted
 }
 
+/**
+ * The edition a release opens on: the one with the most disc photos, so a
+ * pressed CD comes before its download; the earlier edition on a tie. A
+ * later edition holding every disc photo of the earlier pick, such as a
+ * store set of the limited edition and a bonus disc, bundles it and does not
+ * take its place.
+ */
+export function firstEdition(
+  editions: { discs: { image: { media: string } }[] }[],
+) {
+  const photos = editions.map(
+    (edition) => new Set(edition.discs.map((item) => item.image.media)),
+  )
+  let best = 0
+  editions.forEach((edition, index) => {
+    const bundles =
+      photos[best].size > 0 &&
+      [...photos[best]].every((media) => photos[index].has(media))
+    if (edition.discs.length > editions[best].discs.length && !bundles)
+      best = index
+  })
+  return best
+}
+
 /** Discs in order, each with its tracks; a one-disc release has one. */
 export function discsOf<T extends { disc: number; no: number }>(tracks: T[]) {
   const discs = new Map<number, T[]>()

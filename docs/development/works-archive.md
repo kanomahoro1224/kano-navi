@@ -75,7 +75,22 @@ them, and a failed load offers to try again.
 Personal-work covers and bonus images carry the collection manifest's
 caption, the page the file was taken from and whether the file is a third-party copy (a
 store, database or collector file of the release's own artwork) or the
-publisher's file. Participation covers are third-party files; those the
+publisher's file. The manifest's evidence class decides that flag; the
+singer's own circle shop (bambi-no on BOOTH) and the label's
+`whv-amusic.com/kano/` pages count as the publisher.
+
+A photo from a second-hand marketplace listing (メルカリ, Yahoo!オークション,
+Yahoo!フリマ) names the marketplace but does not link to the seller's
+listing; the collection keeps the listing as evidence.
+
+A file from a person's own copy names them instead of a page. The manifest's
+`credit_role` is `scan`, `photo` or `fan`, with `credit_name` and an optional
+`credit_url` (the person's profile, shown as a link on the name). A credited
+file publishes no source page: its record's page is evidence for the
+collection, and a fan's file keeps the site it came from private. A scan or
+photo needs a name, a link needs a name, and any other role stops packaging.
+
+Participation covers are third-party files; those the
 collection matched against a music service or database name it. Release
 dates are the first release's Japan date; doujin releases use the Comic
 Market date.
@@ -103,7 +118,16 @@ A personal release's record on the shelf shows a photo of the real disc when
 the collection has one: the file in an optional `disc_file` column of
 `discography.csv`, else the first disc 1 photo (shared, then by edition),
 else an image whose manifest caption is `盘面`. In a release's sheet, the
-record is the chosen edition's disc 1 photo. Other records are drawn.
+record is the chosen edition's disc 1 photo, and the sheet opens on the
+edition with the most disc photos, the earlier one on a tie. A later edition
+that holds every disc photo of the earlier pick plus more (a store set of
+the limited edition with a bonus disc) bundles it and does not take over.
+Without a disc photo, a record prints the
+cover on a disc where no disc was pressed: a download or withdrawn edition,
+and a release whose editions are all such, or a download sold in one
+version. The optional `printed_disc` column of `discography.csv` asks for
+the same with `封面` (any other value stops packaging). Other records are
+drawn.
 
 A figure cut out of a release's cover goes in `抠图/<release title>.png`: a
 PNG with an alpha channel, named by the release's exact title. The page

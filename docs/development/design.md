@@ -33,10 +33,16 @@ introduce a separate token system for a single page.
   outline, while keyboard focus draws one the tab bar leaves room for. A
   closed sheet returns focus only to the control that opened it, never to the
   section panel a tap in Safari focuses. On phones the English title fits one
-  line, the filter chips scroll sideways in one row that ends with the order as
-  a single icon, and a cover's record rises only while a finger is on it. The works she
-  is featured on are a list; her uploads are a grid of 16:9 covers, with a
-  printed sleeve in one of the palette's tones where no thumbnail is saved. Rows rise
+  line, the filter chips scroll sideways in one row, and a cover's record
+  rises only while a finger is on it. The works she
+  is featured on are a list; her uploads are a grid of 16:9 covers (on phones
+  a list of rows, thumbnail beside words), with the site marks as small icons
+  at the end of the date line and a
+  printed sleeve in one of the palette's tones where no thumbnail is saved.
+  The order is a single icon that ends the toolbar's row; search and
+  narrowing toggles join that row on a wide screen and take a second row
+  otherwise, and search shows focus by thickening its clay underline rather
+  than boxing the field. Rows rise
   in as they scroll into view where the browser ties animation to scrolling,
   and motion stops under reduced-motion settings. Codes get interface copy;
   titles and credits keep their wording and language.

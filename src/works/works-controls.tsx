@@ -3,7 +3,10 @@ import { ArrowDownWideNarrow, ArrowUpNarrowWide, Search } from "lucide-react"
 
 export type Order = "newest" | "oldest"
 
-/** Newest or oldest first; every section starts with the newest. */
+/**
+ * Newest or oldest first, as one icon at the end of the toolbar that flips
+ * it; every section starts with the newest.
+ */
 export function OrderToggle({
   order,
   onChange,
@@ -15,36 +18,16 @@ export function OrderToggle({
 }) {
   const Icon = order === "newest" ? ArrowDownWideNarrow : ArrowUpNarrowWide
   const current = `${t("works.order")}: ${t(`works.order.${order}`)}`
-  // Wide screens show both choices; a phone shows one icon that flips the
-  // order, at the end of the filter row.
   return (
-    <>
-      <div
-        className="segmented works-order"
-        role="group"
-        aria-label={t("works.order")}
-      >
-        {(["newest", "oldest"] as const).map((item) => (
-          <button
-            key={item}
-            type="button"
-            aria-pressed={order === item}
-            onClick={() => onChange(item)}
-          >
-            {t(`works.order.${item}`)}
-          </button>
-        ))}
-      </div>
-      <button
-        type="button"
-        className="round-button works-order-icon"
-        aria-label={current}
-        title={current}
-        onClick={() => onChange(order === "newest" ? "oldest" : "newest")}
-      >
-        <Icon aria-hidden="true" />
-      </button>
-    </>
+    <button
+      type="button"
+      className="round-button works-order"
+      aria-label={current}
+      title={current}
+      onClick={() => onChange(order === "newest" ? "oldest" : "newest")}
+    >
+      <Icon aria-hidden="true" />
+    </button>
   )
 }
 

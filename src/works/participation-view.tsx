@@ -220,12 +220,14 @@ export function ParticipationView({
           }
           t={t}
         />
-        <SearchBox
-          value={query}
-          onChange={setQuery}
-          label={t("works.searchParticipation")}
-        />
         <OrderToggle order={order} onChange={setOrder} t={t} />
+        <div className="works-refine">
+          <SearchBox
+            value={query}
+            onChange={setQuery}
+            label={t("works.searchParticipation")}
+          />
+        </div>
       </div>
       <p className="works-result-count" role="status">
         {t("works.releaseCount", { count: shown })}

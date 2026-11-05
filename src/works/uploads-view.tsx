@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import { Disc3, Tv } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
+import type { Translator } from "@/types"
 import {
   BilibiliLogo,
   ExternalLink,
@@ -39,6 +40,17 @@ function keep(upload: Upload, filter: KindFilter) {
 }
 
 const isMembers = (upload: Upload) => upload.youtubeMembers.length > 0
+
+function watchLabel(
+  t: Translator,
+  upload: Upload,
+  link: ReturnType<typeof uploadLinks>[number],
+) {
+  return t(link.members ? "works.watchOnMembers" : "works.watchOn", {
+    platform: t(`works.platform.${link.platform}`),
+    title: upload.song,
+  })
+}
 
 /** One of the page's tones, the same for an upload on every visit. */
 export function uploadTone(id: string) {
@@ -89,18 +101,13 @@ function UploadCard({ upload, index }: { upload: Upload; index: number }) {
       : "",
     upload.with ? t("works.with", { names: upload.with }) : "",
   ].filter(Boolean)
-  const watchLabel = (link: (typeof links)[number]) =>
-    t(link.members ? "works.watchOnMembers" : "works.watchOn", {
-      platform: t(`works.platform.${link.platform}`),
-      title: upload.song,
-    })
   return (
     <li className="upload-card" style={{ "--order": index } as CSSProperties}>
       {primary ? (
         <ExternalLink
           className="upload-art"
           href={primary.href}
-          aria-label={watchLabel(primary)}
+          aria-label={watchLabel(t, upload, primary)}
           tabIndex={-1}
         >
           <UploadArt upload={upload} />
@@ -111,16 +118,19 @@ function UploadCard({ upload, index }: { upload: Upload; index: number }) {
         </span>
       )}
       <div className="upload-copy">
-        <p className="works-meta">
-          <time dateTime={upload.date}>{dayLabel(upload.date)}</time>
-          <span>{t(`works.kind.${upload.kind}`)}</span>
-          {isMembers(upload) ? (
-            <span className="works-members">
-              <YouTubeMembersMark aria-hidden="true" />
-              {t("works.membersOnly")}
-            </span>
-          ) : null}
-        </p>
+        <div className="upload-head">
+          <p className="works-meta">
+            <time dateTime={upload.date}>{dayLabel(upload.date)}</time>
+            <span>{t(`works.kind.${upload.kind}`)}</span>
+            {isMembers(upload) ? (
+              <span className="works-members">
+                <YouTubeMembersMark aria-hidden="true" />
+                {t("works.membersOnly")}
+              </span>
+            ) : null}
+          </p>
+          <UploadLinks upload={upload} />
+        </div>
         <h4 className="upload-title">{upload.song}</h4>
         {people.length ? (
           <p className="upload-people">{people.join(" · ")}</p>
@@ -143,40 +153,46 @@ function UploadCard({ upload, index }: { upload: Upload; index: number }) {
             </ol>
           </details>
         ) : null}
-        <p className="upload-links">
-          {links.length ? (
-            links.map((link) => {
-              const Mark = platformMarks[link.platform]
-              return (
-                <ExternalLink
-                  key={link.href}
-                  className={`upload-link is-${link.platform}${link.members ? " is-members" : ""}`}
-                  href={link.href}
-                  aria-label={watchLabel(link)}
-                  title={
-                    link.platform === "bilibili" && upload.bilibiliTitle
-                      ? `${t("works.platform.bilibili")} · ${upload.bilibiliTitle}`
-                      : link.members
-                        ? `${t("works.platform.youtube")} · ${t("works.membersOnly")}`
-                        : t(`works.platform.${link.platform}`)
-                  }
-                >
-                  <Mark aria-hidden="true" />
-                  {link.members ? (
-                    <YouTubeMembersMark
-                      className="works-members-mark"
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                </ExternalLink>
-              )
-            })
-          ) : (
-            <span className="works-quiet">{t("works.noLink")}</span>
-          )}
-        </p>
       </div>
     </li>
+  )
+}
+
+/** A small mark for each site the recording is on, beside its date. */
+function UploadLinks({ upload }: { upload: Upload }) {
+  const { t } = useAppSettings()
+  const links = uploadLinks(upload)
+  if (!links.length)
+    return <span className="works-quiet upload-links">{t("works.noLink")}</span>
+  return (
+    <p className="upload-links">
+      {links.map((link) => {
+        const Mark = platformMarks[link.platform]
+        return (
+          <ExternalLink
+            key={link.href}
+            className={`upload-link is-${link.platform}${link.members ? " is-members" : ""}`}
+            href={link.href}
+            aria-label={watchLabel(t, upload, link)}
+            title={
+              link.platform === "bilibili" && upload.bilibiliTitle
+                ? `${t("works.platform.bilibili")} · ${upload.bilibiliTitle}`
+                : link.members
+                  ? `${t("works.platform.youtube")} · ${t("works.membersOnly")}`
+                  : t(`works.platform.${link.platform}`)
+            }
+          >
+            <Mark aria-hidden="true" />
+            {link.members ? (
+              <YouTubeMembersMark
+                className="works-members-mark"
+                aria-hidden="true"
+              />
+            ) : null}
+          </ExternalLink>
+        )
+      })}
+    </p>
   )
 }
 
@@ -224,36 +240,38 @@ export function UploadsView() {
           }
           t={t}
         />
-        <button
-          type="button"
-          className="pill-button works-toggle"
-          aria-pressed={onlyLoose}
-          onClick={() => setOnlyLoose((value) => !value)}
-        >
-          {t("works.notOnAlbum")}
-          <small>
-            {uploads.filter((upload) => !upload.albums.length).length}
-          </small>
-        </button>
-        <button
-          type="button"
-          className="pill-button works-toggle"
-          aria-pressed={onlyMembers}
-          onClick={() => setOnlyMembers((value) => !value)}
-        >
-          <YouTubeMembersMark
-            className="works-members-mark"
-            aria-hidden="true"
-          />
-          {t("works.membersOnly")}
-          <small>{uploads.filter(isMembers).length}</small>
-        </button>
-        <SearchBox
-          value={query}
-          onChange={setQuery}
-          label={t("works.searchUploads")}
-        />
         <OrderToggle order={order} onChange={setOrder} t={t} />
+        <div className="works-refine">
+          <SearchBox
+            value={query}
+            onChange={setQuery}
+            label={t("works.searchUploads")}
+          />
+          <button
+            type="button"
+            className="pill-button works-toggle"
+            aria-pressed={onlyLoose}
+            onClick={() => setOnlyLoose((value) => !value)}
+          >
+            {t("works.notOnAlbum")}
+            <small>
+              {uploads.filter((upload) => !upload.albums.length).length}
+            </small>
+          </button>
+          <button
+            type="button"
+            className="pill-button works-toggle"
+            aria-pressed={onlyMembers}
+            onClick={() => setOnlyMembers((value) => !value)}
+          >
+            <YouTubeMembersMark
+              className="works-members-mark"
+              aria-hidden="true"
+            />
+            {t("works.membersOnly")}
+            <small>{uploads.filter(isMembers).length}</small>
+          </button>
+        </div>
       </div>
       <p className="works-result-count" role="status">
         {t("works.uploadCount", { count: shown })}

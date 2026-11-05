@@ -868,12 +868,49 @@ body:has(.site.works) {
   margin-bottom: 12px;
 }
 
-.works-toolbar > .works-order {
-  margin-left: auto;
+/* The filters take the row's free space, so the order icon ends it. */
+.works-toolbar > .segmented:first-child {
+  flex: 1 1 auto;
 }
 
-.works-order-icon {
-  display: none;
+.works-order {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+}
+
+/*
+ * Search and any narrowing toggles sit on a row of their own below, except
+ * on a screen wide enough for one row: filters, toggles, search, order.
+ */
+.works-refine {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 8px;
+}
+
+.works-refine .works-search {
+  margin-right: 8px;
+}
+
+/* From here the toolbar is wide enough (about 1,160px) for the upload toggles. */
+@media (min-width: 1240px) {
+  .works-refine {
+    display: contents;
+  }
+
+  .works-refine .works-search {
+    flex: 0 1 260px;
+    order: 1;
+    margin: 0 4px 0 6px;
+  }
+
+  .works-toolbar > .works-order {
+    order: 2;
+  }
 }
 
 /* Filters read as outlined chips; the chosen one is inked. */
@@ -953,8 +990,14 @@ body:has(.site.works) {
   transition: border-color 200ms ease;
 }
 
+/* Focus thickens the underline in clay instead of boxing the field. */
 .works-search:focus-within {
   border-color: var(--works-clay);
+  box-shadow: 0 1px 0 var(--works-clay);
+}
+
+.works-search input:focus-visible {
+  outline: none;
 }
 
 .works-search svg {
@@ -1049,10 +1092,6 @@ body:has(.site.works) {
     gap: 12px;
   }
 
-  .works-toolbar > .works-order {
-    margin-left: 0;
-  }
-
   .works-search {
     max-width: none;
   }
@@ -1109,16 +1148,7 @@ body:has(.site.works) {
   }
 
   .works-toolbar > .works-order {
-    display: none;
-  }
-
-  .works-toolbar > .works-order-icon {
-    display: inline-grid;
     order: 1;
-    flex: none;
-    width: 34px;
-    height: 34px;
-    background: transparent;
   }
 
   .works-toolbar > .segmented:first-child::-webkit-scrollbar {
@@ -2189,7 +2219,7 @@ button.credit-cover:hover {
 .upload-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
-  gap: 40px 26px;
+  gap: 32px 24px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2198,7 +2228,7 @@ button.credit-cover:hover {
 .upload-card {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -2354,7 +2384,17 @@ a.upload-art:hover .upload-print::after {
   min-width: 0;
 }
 
+/* The date line carries the site marks at its end. */
+.upload-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 26px;
+}
+
 .upload-copy .works-meta {
+  min-width: 0;
   margin: 0;
 }
 
@@ -2426,30 +2466,33 @@ a.upload-art:hover .upload-print::after {
 
 .upload-links {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 4px 0 0;
+  flex: none;
+  gap: 2px;
+  margin: 0 -5px 0 0;
+}
+
+span.upload-links {
+  margin: 0;
+  font-size: 11.5px;
 }
 
 .upload-link {
   display: inline-flex;
-  height: 32px;
-  min-width: 32px;
+  height: 26px;
+  min-width: 26px;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 0 9px;
-  border: 1px solid var(--rule);
-  border-radius: 999px;
+  gap: 2px;
+  padding: 0 5px;
+  border-radius: 6px;
   color: var(--soft);
   transition:
     color 200ms ease,
-    border-color 200ms ease,
-    transform 300ms var(--works-ease);
+    background 200ms ease;
 }
 
 .upload-link:hover {
-  transform: translateY(-2px);
+  background: var(--sunken);
 }
 
 .upload-link svg {
@@ -2458,51 +2501,68 @@ a.upload-art:hover .upload-print::after {
 }
 
 .upload-link .works-members-mark {
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
 }
 
 .upload-link.is-youtube:hover {
-  border-color: #ff0033;
   color: #ff0033;
 }
 
 .upload-link.is-bilibili:hover {
-  border-color: #00a1d6;
   color: #00a1d6;
 }
 
 .upload-link.is-niconico:hover {
-  border-color: var(--ink);
   color: var(--ink);
 }
 
+/* On a phone each upload is a row: its thumbnail beside its words. */
 @media (max-width: 560px) {
   .upload-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 30px 14px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .upload-card {
+    grid-template-columns: 136px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+  }
+
+  .upload-copy {
+    gap: 3px;
+  }
+
+  .upload-head {
+    min-height: 24px;
+  }
+
+  .upload-copy .works-meta {
+    font-size: 10px;
   }
 
   .upload-print {
-    padding: 8px 10px;
+    padding: 6px 8px;
   }
 
-  .upload-print-title {
-    font-size: 15px;
-    -webkit-line-clamp: 2;
-  }
-
-  .upload-print-artist {
+  .upload-print-kind,
+  .upload-print-artist,
+  .upload-print-year {
     display: none;
   }
 
-  .upload-print-year {
-    top: 7px;
-    right: 8px;
-    font-size: 16px;
+  .upload-print-title {
+    font-size: 13px;
+    -webkit-line-clamp: 2;
   }
 
   .upload-title {
-    font-size: 16px;
+    font-size: 15px;
+  }
+
+  .upload-people,
+  .upload-albums {
+    font-size: 12px;
   }
 }

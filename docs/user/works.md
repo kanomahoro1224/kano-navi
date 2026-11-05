@@ -16,8 +16,8 @@ so a link can open it directly.
 Albums, singles and doujin works released under Kano's own name or her
 units' (MKLNtic and Weekend Paradise), shown as a shelf of covers by year,
 newest first. Filter the shelf by format (albums, singles and EPs, doujin)
-or show only the unit works, and switch to oldest first (on a phone, the
-filters scroll sideways and the order is the icon at the end of their row). Each cover is marked
+or show only the unit works, and switch to oldest first with the order icon
+at the end of the filters (on a phone, the filters scroll sideways). Each cover is marked
 with its format, with **Digital** when it was released for download or
 streaming, with its number of editions when there are several, and with
 **Cancelled** when it never went on sale. Pointing at a cover lifts its
@@ -64,9 +64,11 @@ parts, or search titles, tracks and circles.
 
 The songs Kano posted to niconico, YouTube and bilibili, YouTube
 members-only posts included: covers, originals, MVs and project songs, as a
-grid of covers by year. An upload shows its video thumbnail where the
+grid of covers by year, or on a phone a list with each thumbnail beside its
+title. An upload shows its video thumbnail where the
 collection has one, and otherwise a printed sleeve with its title. A
-recording posted to several sites is one entry with a button for each site;
+recording posted to several sites is one entry with a small mark for each
+site beside its date;
 members-only videos are marked **Members only**. An entry names the original
 artist and any partners, and the albums that later included the recording.
 **Not on an album** keeps only the uploads no album includes, and **Members

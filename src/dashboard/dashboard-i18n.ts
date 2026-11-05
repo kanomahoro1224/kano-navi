@@ -51,6 +51,7 @@ export const dashboardMessages = {
     "feed.title": "X 动态",
     "feed.openMedia": "查看图片",
     "feed.originalPost": "在 X 打开原帖",
+    "feed.reposted": "转推",
     "feed.empty": ({ days }: { days: any }) => `最近 ${days} 天没有新的动态。`,
     "feed.lastSeen": "最近的一条",
     "feed.filter": "按账号筛选",
@@ -243,6 +244,7 @@ export const dashboardMessages = {
     "feed.title": "X のポスト",
     "feed.openMedia": "画像を開く",
     "feed.originalPost": "X で元のポストを開く",
+    "feed.reposted": "リポスト",
     "feed.empty": ({ days }: { days: any }) =>
       `直近 ${days} 日間の新しいポストはありません。`,
     "feed.lastSeen": "最後のポスト",
@@ -439,6 +441,7 @@ export const dashboardMessages = {
     "feed.title": "Recent Posts on X",
     "feed.openMedia": "Open image",
     "feed.originalPost": "Open the original post on X",
+    "feed.reposted": "Reposted",
     "feed.empty": ({ days }: { days: any }) =>
       `No new posts in the last ${days} days.`,
     "feed.lastSeen": "Most recent post",

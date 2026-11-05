@@ -283,37 +283,65 @@ function PostNote({
       />
     ) : null
 
+  const repost = post.repost
+  const shownAt = repost?.publishedAt || post.publishedAt
   const head = (close?: ReactNode) => (
-    <header className="post-note-head">
-      <img src={avatarUrl || undefined} alt="" />
-      {post.accountHandle ? (
-        <ExternalLink
-          className="post-note-handle"
-          href={post.accountUrl || `https://x.com/${post.accountHandle}`}
+    <>
+      {repost ? (
+        <div className="post-note-repost">
+          <Repeat2 aria-hidden="true" />
+          <span>{t("feed.reposted")}</span>
+        </div>
+      ) : null}
+      <header className="post-note-head">
+        {repost ? (
+          repost.authorAvatar ? (
+            <img src={repost.authorAvatar} alt="" />
+          ) : (
+            <span className="post-note-avatar-fallback" aria-hidden="true">
+              {repost.authorName?.trim().charAt(0) ||
+                repost.authorHandle?.charAt(0) ||
+                "X"}
+            </span>
+          )
+        ) : (
+          <img src={avatarUrl || undefined} alt="" />
+        )}
+        {repost ? (
+          <ExternalLink className="post-note-handle" href={repost.url}>
+            {repost.authorHandle
+              ? `@${repost.authorHandle}`
+              : repost.authorName}
+          </ExternalLink>
+        ) : post.accountHandle ? (
+          <ExternalLink
+            className="post-note-handle"
+            href={post.accountUrl || `https://x.com/${post.accountHandle}`}
+          >
+            @{post.accountHandle}
+          </ExternalLink>
+        ) : (
+          <span className="post-note-handle">X</span>
+        )}
+        <time
+          dateTime={shownAt}
+          title={`${formatJapanDay(shownAt, locale)} ${formatJapanTime(shownAt)} ${t("common.timezoneShort")}`}
         >
-          @{post.accountHandle}
+          {absoluteTime
+            ? formatStamp(shownAt)
+            : formatRelative(shownAt, locale, now)}
+        </time>
+        <ExternalLink
+          className="post-note-open"
+          href={repost?.url || post.url}
+          aria-label={t("feed.originalPost")}
+          title={t("feed.originalPost")}
+        >
+          <ArrowUpRight aria-hidden="true" />
         </ExternalLink>
-      ) : (
-        <span className="post-note-handle">X</span>
-      )}
-      <time
-        dateTime={post.publishedAt}
-        title={`${formatJapanDay(post.publishedAt, locale)} ${formatJapanTime(post.publishedAt)} ${t("common.timezoneShort")}`}
-      >
-        {absoluteTime
-          ? formatStamp(post.publishedAt)
-          : formatRelative(post.publishedAt, locale, now)}
-      </time>
-      <ExternalLink
-        className="post-note-open"
-        href={post.url}
-        aria-label={t("feed.originalPost")}
-        title={t("feed.originalPost")}
-      >
-        <ArrowUpRight aria-hidden="true" />
-      </ExternalLink>
-      {close}
-    </header>
+        {close}
+      </header>
+    </>
   )
   const mediaGrid = media.length ? (
     <div className={`post-note-media count-${Math.min(4, media.length)}`}>

@@ -27,6 +27,16 @@ type BambinoQuote struct {
 	MediaURLs    []string
 }
 
+// BambinoRepost is the original status a repost event carries.
+type BambinoRepost struct {
+	ID           string
+	AuthorHandle string
+	AuthorName   string
+	AuthorAvatar string
+	PublishedAt  string
+	URL          string
+}
+
 // BambinoPost is one normalized DynamicUpdate from BambinoStatus.
 type BambinoPost struct {
 	ID            string
@@ -39,6 +49,7 @@ type BambinoPost struct {
 	Replies       int
 	MediaURLs     []string
 	Quote         *BambinoQuote
+	Repost        *BambinoRepost
 	// RawJSON is the stored raw_json document. It must include ingest_hash,
 	// search_text and media_urls for the schedule and archive readers.
 	RawJSON string
@@ -83,6 +94,15 @@ type bambinoQuoteJSON struct {
 	URL          string `json:"url"`
 }
 
+type bambinoRepostJSON struct {
+	ID           string `json:"id"`
+	AuthorHandle string `json:"authorHandle,omitempty"`
+	AuthorName   string `json:"authorName,omitempty"`
+	AuthorAvatar string `json:"authorAvatar,omitempty"`
+	PublishedAt  string `json:"publishedAt,omitempty"`
+	URL          string `json:"url"`
+}
+
 type ingestHashJSON struct {
 	IngestHash string `json:"ingest_hash"`
 }
@@ -99,6 +119,9 @@ func (s *Store) IngestBambinoPost(ctx context.Context, p BambinoPost) (BambinoIn
 		if p.Quote.URL == "" || !strings.Contains(p.Quote.URL, p.Quote.ID) {
 			p.Quote.URL = "https://x.com/" + p.Quote.AuthorHandle + "/status/" + p.Quote.ID
 		}
+	}
+	if p.Repost != nil && p.Repost.AuthorHandle != "" && (p.Repost.URL == "" || !strings.Contains(p.Repost.URL, p.Repost.ID)) {
+		p.Repost.URL = "https://x.com/" + p.Repost.AuthorHandle + "/status/" + p.Repost.ID
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -147,12 +170,27 @@ func (s *Store) IngestBambinoPost(ctx context.Context, p BambinoPost) (BambinoIn
 		}
 		quote = string(body)
 	}
+	repost := ""
+	if p.Repost != nil {
+		body, marshalErr := json.Marshal(bambinoRepostJSON{
+			ID:           p.Repost.ID,
+			AuthorHandle: p.Repost.AuthorHandle,
+			AuthorName:   p.Repost.AuthorName,
+			AuthorAvatar: validRepostAvatar(p.Repost.AuthorAvatar),
+			PublishedAt:  p.Repost.PublishedAt,
+			URL:          p.Repost.URL,
+		})
+		if marshalErr != nil {
+			return BambinoIngestResult{}, dbErr(marshalErr)
+		}
+		repost = string(body)
+	}
 
-	written, err := tx.ExecContext(ctx, `INSERT INTO posts(id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,raw_json,quote_json)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(id) DO UPDATE SET account_handle=excluded.account_handle,type=excluded.type,label=excluded.label,text=excluded.text,published_at=excluded.published_at,url=excluded.url,likes=excluded.likes,reposts=excluded.reposts,replies=excluded.replies,media_url=excluded.media_url,media_alt=excluded.media_alt,raw_json=excluded.raw_json,quote_json=excluded.quote_json
+	written, err := tx.ExecContext(ctx, `INSERT INTO posts(id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,raw_json,quote_json,repost_json)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(id) DO UPDATE SET account_handle=excluded.account_handle,type=excluded.type,label=excluded.label,text=excluded.text,published_at=excluded.published_at,url=excluded.url,likes=excluded.likes,reposts=excluded.reposts,replies=excluded.replies,media_url=excluded.media_url,media_alt=excluded.media_alt,raw_json=excluded.raw_json,quote_json=excluded.quote_json,repost_json=excluded.repost_json
 WHERE lower(posts.account_handle)=lower(excluded.account_handle) OR posts.account_handle IS NULL`,
-		p.ID, "x", nullable(p.AccountHandle), postType, label, p.Text, p.PublishedAt, p.URL, p.Likes, p.Reposts, p.Replies, nullable(media), nil, nullable(p.RawJSON), nullable(quote))
+		p.ID, "x", nullable(p.AccountHandle), postType, label, p.Text, p.PublishedAt, p.URL, p.Likes, p.Reposts, p.Replies, nullable(media), nil, nullable(p.RawJSON), nullable(quote), nullable(repost))
 	if err != nil {
 		return BambinoIngestResult{}, dbErr(err)
 	}
@@ -173,6 +211,13 @@ WHERE lower(posts.account_handle)=lower(excluded.account_handle) OR posts.accoun
 	if p.Quote != nil {
 		for i, url := range p.Quote.MediaURLs {
 			if err = replaceMediaLink(ctx, tx, "x", url, "post", p.ID, roleQuoteImage, i, now); err != nil {
+				return BambinoIngestResult{}, dbErr(err)
+			}
+		}
+	}
+	if p.Repost != nil {
+		if avatar := validRepostAvatar(p.Repost.AuthorAvatar); avatar != "" {
+			if err = replaceMediaLink(ctx, tx, "x", avatar, "post", p.ID, roleRepostAvatar, 0, now); err != nil {
 				return BambinoIngestResult{}, dbErr(err)
 			}
 		}

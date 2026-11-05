@@ -216,7 +216,7 @@ func TestNormalizeRepostUsesOriginalTextAndMedia(t *testing.T) {
 	event.Retweet = &nestedRequest{
 		ID:          "1849999999999999999",
 		URL:         "https://x.com/other/status/1849999999999999999",
-		Author:      authorRequest{Handle: "other"},
+		Author:      authorRequest{Handle: "other", DisplayName: "Other", AvatarURL: "https://pbs.twimg.com/profile_images/1/avatar_normal.jpg"},
 		PublishedAt: "2026-10-30T09:00:00Z",
 		Text:        "原推正文",
 		Media: []mediaRequest{
@@ -236,6 +236,9 @@ func TestNormalizeRepostUsesOriginalTextAndMedia(t *testing.T) {
 	}
 	if post.Quote != nil {
 		t.Fatalf("repost must not create a quote: %+v", post.Quote)
+	}
+	if post.Repost == nil || post.Repost.ID != event.Retweet.ID || post.Repost.AuthorHandle != "other" || post.Repost.AuthorName != "Other" || post.Repost.AuthorAvatar != event.Retweet.Author.AvatarURL || post.Repost.URL != event.Retweet.URL {
+		t.Fatalf("repost = %+v", post.Repost)
 	}
 }
 

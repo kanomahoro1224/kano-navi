@@ -68,6 +68,22 @@ export interface Post {
   sourceLanguage?: string | null
   /** The status this post quotes, shown nested in the post. */
   quote?: PostQuote | null
+  /** The original status of a repost; the post carries its wording and media. */
+  repost?: PostRepost | null
+}
+
+/**
+ * The status a repost repeats: the author the wording and images belong to,
+ * not the account that reposted it.
+ */
+export interface PostRepost {
+  id: string
+  authorHandle: string | null
+  authorName: string | null
+  /** The original author's X profile image, when the collector carried it. */
+  authorAvatar: string | null
+  publishedAt: string | null
+  url: string
 }
 
 /**

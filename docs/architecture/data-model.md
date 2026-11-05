@@ -30,7 +30,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `push_devices`           | HarmonyOS push tokens, device identity, locale, and the per-category notification switches             |
 | `push_pending`           | X posts whose non-Japanese notifications wait for the translation step                                 |
 | `web_push_subscriptions` | Browsers subscribed to Web Push: endpoint, keys, locale, switches, and failure count                   |
-| `posts`                  | X posts, account source, publication time, engagement counts, media, and the quoted status             |
+| `posts`                  | X posts, account source, publication time, engagement counts, media, and the quoted or reposted status |
 | `events`                 | Unified schedules, provenance, confidence, manual locks, tombstones, and duplicate merges              |
 | `event_sources`          | Source post/reservation identities attached to each event                                              |
 | `videos`                 | YouTube videos and streams, Bilibili uploads and their merges, corrections, and refresh requests       |
@@ -399,6 +399,32 @@ and it increments the dashboard revision when it changes a row. A timeline
 page that lists a stored post again leaves it unchanged, so a stored post
 without a projection gets its quote from this step; any later detail refresh
 rewrites it from the source.
+
+## Reposted Posts
+
+A repost is stored as one post of the reposting account: its `text`, media
+and translations are the original status's, while `account_handle` stays the
+account that reposted it. `posts.repost_json` names the original status:
+`{id, authorHandle, authorName, authorAvatar, publishedAt, url}`. It holds no
+wording or image addresses, because those already belong to the post, and a
+post that is not a repost stores `NULL`. `authorAvatar` is the original
+author's X profile image and accepts only `pbs.twimg.com/profile_images/`;
+the same address is a `media_links` row with role `repost-avatar`, so the
+media step downloads it and readers load it from the board's own cache.
+
+The public dashboard, the post archive and MCP add `repost` to each post:
+`{id, authorHandle, authorName, authorAvatar, publishedAt, url}`, empty fields
+are `null`. `authorAvatar` is the cached `/media/...` URL, and stays `null`
+until that file is ready; the source address is never exposed. The read path
+drops a projection whose ID is not a status ID or whose URL is not that
+status's x.com address. A repost's push notification carries the original
+wording and opens the original status.
+
+Startup adds `repost_json` additively and fills it for every stored X post
+whose `raw_json` carries a nested reposted status
+(`bambino.twitter.retweeted_tweet`, or the ingest event's `bambino.retweet`).
+The step reads only rows without a projection, so it is idempotent, and it
+increments the dashboard revision when it changes a row.
 
 The dashboard reads a bounded current-week/focus selection, not all history.
 Event totals and upcoming counts use SQL aggregates over all visible records;

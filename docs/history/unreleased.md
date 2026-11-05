@@ -31,6 +31,11 @@
 webpush-key`), and the bell stays hidden while they are empty. It adds
 > `push_pending`, which holds an accepted X post until the translate step
 > settles its wording and the other languages are notified.
+>
+> Startup adds `posts.repost_json`, the original status of a repost. It fills
+> the column for every stored X post whose `raw_json` carries a nested
+> `retweeted_tweet`, so a repost stored earlier gains its author without a
+> re-fetch; no manual migration is needed.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -85,6 +90,11 @@ webpush-key`), and the bell stays hidden while they are empty. It adds
   title and the post or video text, and a tap opens the page. A blocked
   browser, or an iPhone that has not added the site to its Home Screen, gets
   an instruction instead of a prompt that cannot succeed.
+- A repost card says Reposted above it, names the original author with the
+  author's cached avatar instead of the reposting account, and shows the
+  original wording and images. The open link goes to the original post. An
+  older repost without a cached avatar shows a letter placeholder until the
+  collector supplies one.
 
 </details>
 
@@ -143,7 +153,9 @@ webpush-key`), and the bell stays hidden while they are empty. It adds
   post-processing chain, and `BAMBINO_INGEST_CATCHUP_SECONDS` re-submits it
   when the queue was busy.
 - A post accepted from that route reads the same type and label as one the
-  timeline parser stored, so a schedule notice looks the same either way.
+  timeline parser stored, so a schedule notice looks the same either way. A
+  repost notification carries the original wording and opens the original
+  post.
 
 </details>
 

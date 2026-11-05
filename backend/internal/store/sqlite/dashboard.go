@@ -78,6 +78,30 @@ type Post struct {
 	Translations TranslationSet
 	// Quote is the status the post quotes, nil when it quotes none.
 	Quote *PostQuote
+	// Repost is the original status of a repost, nil for every other kind.
+	Repost *PostRepost
+}
+
+// PostRepost is the stored projection of a reposted status: the account the
+// wording and images belong to, not the account that reposted it.
+type PostRepost struct {
+	ID           string `json:"id"`
+	AuthorHandle string `json:"authorHandle"`
+	AuthorName   string `json:"authorName"`
+	AuthorAvatar string `json:"authorAvatar"`
+	PublishedAt  string `json:"publishedAt"`
+	URL          string `json:"url"`
+}
+
+// validRepostAvatar keeps only an X profile-image URL: a public page must not
+// fetch an image from a host the board does not control.
+func validRepostAvatar(raw string) string {
+	raw = strings.TrimSpace(raw)
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host != "pbs.twimg.com" || u.User != nil || !strings.HasPrefix(u.Path, "/profile_images/") {
+		return ""
+	}
+	return raw
 }
 
 // PostQuote is the stored projection of a quoted status. Media lists only
@@ -586,7 +610,8 @@ type postRow struct {
 	likes, reposts, replies                                                           int64
 	hasAccount, hasLabel, hasMediaURL, hasMediaAlt                                    bool
 	// quoteJSON is NULL in public reads when an operator hid the quote.
-	quoteJSON sql.NullString
+	quoteJSON  sql.NullString
+	repostJSON sql.NullString
 }
 
 // dashboardAccountPosts is how many of each account's newest posts the board
@@ -599,7 +624,7 @@ const dashboardAccountPosts = 8
 // and, for every account, the newest dashboardAccountPosts of its posts.
 func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error) {
 	instant := "julianday(published_at)"
-	rows, err := s.db.QueryContext(ctx, `SELECT id, source, account_handle, type, label, text, published_at, url, likes, reposts, replies, media_url, media_alt, CASE WHEN quote_hidden_at IS NULL THEN quote_json END FROM posts WHERE id IN (
+	rows, err := s.db.QueryContext(ctx, `SELECT id, source, account_handle, type, label, text, published_at, url, likes, reposts, replies, media_url, media_alt, CASE WHEN quote_hidden_at IS NULL THEN quote_json END, repost_json FROM posts WHERE id IN (
 		SELECT id FROM (SELECT id FROM posts WHERE hidden_at IS NULL AND `+instant+` >= julianday(?) ORDER BY `+instant+` DESC, id ASC LIMIT 100)
 		UNION SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY lower(COALESCE(account_handle, '')) ORDER BY `+instant+` DESC, id ASC) AS n FROM posts WHERE hidden_at IS NULL) WHERE n <= ?
 	) ORDER BY `+instant+` DESC, id ASC`, since, dashboardAccountPosts)
@@ -611,7 +636,7 @@ func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error)
 	for rows.Next() {
 		var r postRow
 		var account, label, mu, ma sql.NullString
-		if err := rows.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON); err != nil {
+		if err := rows.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.repostJSON); err != nil {
 			return nil, dbErr(err)
 		}
 		r.accountHandle, r.hasAccount = account.String, account.Valid
@@ -628,7 +653,7 @@ func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error)
 func (s *Store) queryLatestPost(ctx context.Context) (*postRow, error) {
 	var r postRow
 	var account, label, mu, ma sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END FROM posts WHERE hidden_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`).Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON)
+	err := s.db.QueryRowContext(ctx, `SELECT id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END,repost_json FROM posts WHERE hidden_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`).Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.repostJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -703,7 +728,44 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 	if p.Quote, err = s.mapQuote(ctx, r.id, r.quoteJSON); err != nil {
 		return p, err
 	}
+	if p.Repost, err = s.mapRepost(ctx, r.id, r.repostJSON); err != nil {
+		return p, err
+	}
 	return p, nil
+}
+
+// mapRepost reads a post's stored repost projection. A projection that is not
+// a repost of an x.com status is left out. The author's avatar comes from the
+// media cache; the stored source URL is never exposed.
+func (s *Store) mapRepost(ctx context.Context, postID string, stored sql.NullString) (*PostRepost, error) {
+	if !stored.Valid || stored.String == "" {
+		return nil, nil
+	}
+	var r PostRepost
+	if json.Unmarshal([]byte(stored.String), &r) != nil || !quoteIDPattern.MatchString(r.ID) {
+		return nil, nil
+	}
+	if r.URL == "" && r.AuthorHandle != "" {
+		r.URL = "https://x.com/" + r.AuthorHandle + "/status/" + r.ID
+	}
+	if r.URL == "" || !quoteLinksTo(r.URL, r.ID) {
+		return nil, nil
+	}
+	avatarSource := validRepostAvatar(r.AuthorAvatar)
+	r.AuthorAvatar = ""
+	if avatarSource != "" {
+		links, err := s.queryPostMedia(ctx, postID, roleRepostAvatar)
+		if err != nil {
+			return nil, err
+		}
+		for _, link := range links {
+			if link.Status == "ready" && link.ID != nil && link.URL != nil && link.SourceURL != nil && *link.SourceURL == avatarSource {
+				r.AuthorAvatar = *link.URL
+				break
+			}
+		}
+	}
+	return &r, nil
 }
 
 var (

@@ -12,6 +12,8 @@ Posts are laid out in whole rows; a long post shows its first lines and
 - See like, repost, and reply counts as they were last collected.
 - A post that quotes another one shows the quoted post as a nested card that
   links to it on X.
+- A repost says who reposted it and shows the original author and wording;
+  opening it goes to the original post.
 - A post translated into your content language ends with the same **AI**
   mark as video titles; select it to read the original post.
 - A quoted post from one of these accounts is translated too, with its own

@@ -194,6 +194,10 @@ func writeXPost(ctx context.Context, tx *sql.Tx, account string, p xsource.Post,
 // from its own post-image links, which alone feed schedule extraction.
 const roleQuoteImage = "quote-image"
 
+// roleRepostAvatar caches the original author's profile image through the
+// media step, so readers never fetch it from X's CDN themselves.
+const roleRepostAvatar = "repost-avatar"
+
 // quoteJSON is the stored quote projection; its images are media links.
 func quoteJSON(q *xsource.Quote) any {
 	if q == nil {

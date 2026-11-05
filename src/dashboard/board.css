@@ -2630,6 +2630,20 @@
   background: var(--paper);
 }
 
+.post-note-repost {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.post-note-repost svg {
+  width: 13px;
+  height: 13px;
+}
+
 .post-note-head {
   display: flex;
   align-items: center;
@@ -2642,6 +2656,19 @@
   height: 28px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.post-note-avatar-fallback {
+  display: grid;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--berry);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .post-note-handle {

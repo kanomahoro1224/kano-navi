@@ -162,14 +162,24 @@ func (m *Module) notify(events []eventRequest) {
 		if author == "" {
 			author = strings.TrimSpace(event.Author.Handle)
 		}
+		kind := strings.ToLower(strings.TrimSpace(event.Kind))
+		text, url := event.Text, event.URL
+		// A repost's own text is the wrapper; the wording readers should see
+		// and the page they should open belong to the original status.
+		if kind == "repost" && event.Retweet != nil && strings.TrimSpace(event.Retweet.ID) != "" {
+			text = event.Retweet.Text
+			if original := strings.TrimSpace(event.Retweet.URL); original != "" {
+				url = original
+			}
+		}
 		updates = append(updates, push.Update{
 			ID:       strings.TrimSpace(event.ID),
 			Platform: strings.ToLower(strings.TrimSpace(event.Platform)),
-			Kind:     strings.ToLower(strings.TrimSpace(event.Kind)),
+			Kind:     kind,
 			Author:   author,
 			Title:    event.Title,
-			Text:     event.Text,
-			URL:      event.URL,
+			Text:     text,
+			URL:      url,
 		})
 	}
 	go func() {
@@ -346,6 +356,7 @@ func normalize(event eventRequest, now time.Time) (sqlite.BambinoPost, string, *
 	text := event.Text
 	media := mediaURLs(event.Media)
 	var quote *sqlite.BambinoQuote
+	var repost *sqlite.BambinoRepost
 	switch kind {
 	case "quote":
 		if event.Quote == nil || strings.TrimSpace(event.Quote.ID) == "" {
@@ -356,6 +367,7 @@ func normalize(event eventRequest, now time.Time) (sqlite.BambinoPost, string, *
 		if event.Retweet != nil && strings.TrimSpace(event.Retweet.ID) != "" {
 			text = event.Retweet.Text
 			media = mediaURLs(event.Retweet.Media)
+			repost = repostOf(event.Retweet)
 		}
 	}
 	if strings.TrimSpace(text) == "" && len(media) == 0 && quote == nil {
@@ -382,6 +394,9 @@ func normalize(event eventRequest, now time.Time) (sqlite.BambinoPost, string, *
 		hashInput = append(hashInput, quote.ID, quote.Text)
 		hashInput = append(hashInput, quote.MediaURLs...)
 	}
+	if repost != nil {
+		hashInput = append(hashInput, repost.ID, repost.AuthorHandle, repost.PublishedAt)
+	}
 	sum := sha256.Sum256([]byte(strings.Join(hashInput, "\x1f")))
 	contentHash := hex.EncodeToString(sum[:])
 	raw := map[string]any{
@@ -406,6 +421,7 @@ func normalize(event eventRequest, now time.Time) (sqlite.BambinoPost, string, *
 		Replies:       max(0, event.Metrics.Replies),
 		MediaURLs:     media,
 		Quote:         quote,
+		Repost:        repost,
 		RawJSON:       string(rawBody),
 	}, contentHash, nil
 }
@@ -578,6 +594,21 @@ func quoteOf(nested *nestedRequest) *sqlite.BambinoQuote {
 	}
 }
 
+func repostOf(nested *nestedRequest) *sqlite.BambinoRepost {
+	url := strings.TrimSpace(nested.URL)
+	if url == "" {
+		url = "https://x.com/" + strings.TrimPrefix(strings.TrimSpace(nested.Author.Handle), "@") + "/status/" + nested.ID
+	}
+	return &sqlite.BambinoRepost{
+		ID:           strings.TrimSpace(nested.ID),
+		AuthorHandle: strings.TrimPrefix(strings.TrimSpace(nested.Author.Handle), "@"),
+		AuthorName:   nested.Author.DisplayName,
+		AuthorAvatar: strings.TrimSpace(nested.Author.AvatarURL),
+		PublishedAt:  nested.PublishedAt,
+		URL:          strings.ReplaceAll(url, "twitter.com", "x.com"),
+	}
+}
+
 func mediaURLs(items []mediaRequest) []string {
 	out := make([]string, 0, len(items))
 	for _, item := range items {
@@ -646,6 +677,7 @@ type authorRequest struct {
 	ExternalID  string `json:"external_id"`
 	DisplayName string `json:"display_name"`
 	ProfileURL  string `json:"profile_url"`
+	AvatarURL   string `json:"avatar_url"`
 }
 
 type mediaRequest struct {

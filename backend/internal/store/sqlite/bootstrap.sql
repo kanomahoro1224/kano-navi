@@ -210,6 +210,7 @@ CREATE TABLE posts (
     media_alt TEXT,
     raw_json TEXT,
     quote_json TEXT,
+    repost_json TEXT,
     quote_hidden_at TEXT,
     refresh_requested_at TEXT,
     hidden_at TEXT

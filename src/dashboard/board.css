@@ -3607,6 +3607,7 @@
 }
 
 .archive-month {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -3620,6 +3621,149 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   text-align: center;
+}
+
+/* A month label that opens the jump grid. */
+.archive-month-label.is-picker {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.archive-month-label.is-picker:hover,
+.archive-month-label.is-picker[aria-expanded="true"] {
+  border-color: color-mix(in oklab, var(--berry) 50%, transparent);
+  color: var(--berry);
+}
+
+.archive-month-label.is-picker svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  transition: transform 160ms ease;
+}
+
+.archive-month-label.is-picker[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/*
+ * The jump grid hangs below the month controls, over the dialog body, so the
+ * header stacks above the body while it is open.
+ */
+.archive-dialog-head:has(.month-picker) {
+  z-index: 2;
+}
+
+.month-picker {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  width: min(320px, calc(100vw - 32px));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  box-shadow: var(--shadow-lg);
+}
+
+.month-picker-year {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.month-picker-year-label {
+  display: grid;
+  margin: 0;
+  justify-items: center;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.month-picker-year-label strong {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.month-picker-year-label span {
+  color: var(--soft);
+  font-size: 12px;
+}
+
+.month-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.month-picker-month {
+  display: grid;
+  min-height: 48px;
+  align-content: center;
+  justify-items: center;
+  gap: 1px;
+  padding: 4px 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.month-picker-count {
+  color: var(--soft);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.month-picker-month:hover:not([aria-disabled="true"]) {
+  border-color: color-mix(in oklab, var(--berry) 50%, transparent);
+  color: var(--berry);
+}
+
+.month-picker-month.is-today {
+  border-color: var(--rule);
+}
+
+.month-picker-month[aria-current="date"] {
+  border-color: transparent;
+  background: var(--berry);
+  color: #fff;
+}
+
+.month-picker-month[aria-current="date"] .month-picker-count {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.month-picker-month[aria-disabled="true"] {
+  background: transparent;
+  color: var(--soft);
+  cursor: default;
+  opacity: 0.5;
 }
 
 .archive-summary {

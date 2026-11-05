@@ -6,7 +6,7 @@ import type {
   Translator,
   Video,
 } from "@/types"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { WifiOff } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
@@ -28,6 +28,7 @@ import {
   useArchive,
   useDashboard,
   useNow,
+  usePostMonths,
 } from "./use-dashboard"
 import { ArchiveDialog } from "./components/archive-dialog"
 import { LinkDirectory } from "./components/link-directory"
@@ -139,6 +140,23 @@ export function DashboardApp() {
     dashboard.meta.revision,
     snapshotVersion,
   )
+  const postMonths = usePostMonths(
+    archiveView?.kind === "posts",
+    dashboard.meta.revision,
+  )
+  const archiveAccount =
+    archiveView?.kind === "posts" ? archiveView.account || null : null
+  // The month index narrowed to the chosen account.
+  const postMonthCounts = useMemo(() => {
+    if (!postMonths) return null
+    const handle = archiveAccount?.toLowerCase()
+    return new Map(
+      postMonths.map(({ month, total, accountCounts }) => [
+        month,
+        handle ? accountCounts[handle] || 0 : total,
+      ]),
+    )
+  }, [postMonths, archiveAccount])
   const [postLayout, setPostLayoutState] =
     useState<PostArchiveLayout>(readPostLayout)
   const setPostLayout = useCallback((layout: PostArchiveLayout) => {
@@ -391,6 +409,14 @@ export function DashboardApp() {
           latestMonth={
             archiveView.kind === "posts"
               ? monthStartOf(japanToday())
+              : undefined
+          }
+          picker={
+            archiveView.kind === "posts"
+              ? {
+                  counts: postMonthCounts,
+                  countLabel: (count) => t("feed.monthCount", { count }),
+                }
               : undefined
           }
           toolbar={

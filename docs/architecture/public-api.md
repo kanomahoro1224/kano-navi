@@ -59,7 +59,8 @@ a small revision hint without external work, and
 changes. Timestamps are parseable ISO 8601 strings; display and date-window
 boundaries use Asia/Tokyo.
 
-`/api/dashboard`, `/api/calendar`, `/api/posts` and `/api/videos` send
+`/api/dashboard`, `/api/calendar`, `/api/posts`, `/api/posts/months` and
+`/api/videos` send
 `Cache-Control: no-cache` and a weak ETag, a SHA-256 prefix of the
 uncompressed JSON body. The dashboard's tag leaves out `meta.generatedAt`,
 which changes on every read; the other time-derived fields, such as
@@ -179,6 +180,13 @@ category 400 `invalid_category`. Reads revalidate through their
 [ETags](#public-snapshot-contract), negotiate gzip like the other public JSON
 reads and never fetch platforms. The board's month dialogs use them with the
 calendar.
+
+`GET /api/posts/months` is the post archive's month index: `months` lists
+every Japan month (`YYYY-MM`) that holds a shown post, oldest first, each with
+its `total` and its `accountCounts` per lowercase handle, plus the `revision`.
+Hidden posts and posts without a parseable time are not counted. It takes no
+parameters, revalidates through its ETag and negotiates gzip like the archive
+pages.
 
 ## Public Feeds
 

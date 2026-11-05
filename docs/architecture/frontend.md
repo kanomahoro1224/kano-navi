@@ -642,6 +642,15 @@ snapshot. Post archives follow stored revisions. These refreshes
 share the board's visibility pause and snapshot backoff rather than starting a
 separate archive timer. Changing the month, the post account or the video
 category, or closing the dialog, cancels the read and discards late pages.
+While the post archive is open, `usePostMonths` reads its month index from
+[`/api/posts/months`](public-api.md#bounded-public-archives) and rereads it on
+each board revision. The month label opens a jump grid (`MonthPicker`): a year
+stepper bounded by the oldest indexed month and the latest month, over twelve
+months whose counts follow the account filter. Months without posts and months
+after the latest are marked `aria-disabled`; arrow keys move between months,
+Page Up and Page Down change the year, and Escape or a press outside closes the
+grid before the dialog. A failed index read keeps a known index, and without
+one every month up to the latest is offered.
 A click anywhere in a month-grid day picks it, listing its entries beside the
 grid (below it on phones) until the hide button clears the selection and the
 grid takes the full width. A grid entry is a button: it picks its day, marks

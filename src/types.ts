@@ -194,6 +194,16 @@ export interface CalendarSnapshot {
  * per-account counts, keyed by lowercase handle, and video pages its
  * per-category counts.
  */
+/**
+ * One Japan month that holds posts, as `YYYY-MM`, with its total and its
+ * posts per lowercase handle.
+ */
+export interface ArchiveMonth {
+  month: string
+  total: number
+  accountCounts: Record<string, number>
+}
+
 export interface ArchiveSnapshot<T> {
   items: T[]
   adjacent: { previous: string | null; next: string | null }

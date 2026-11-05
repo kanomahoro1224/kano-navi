@@ -160,6 +160,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.posts(w, r)
+	case "/api/posts/months":
+		w.Header().Set("Vary", "Accept-Encoding")
+		if r.Method != http.MethodGet {
+			writeMethodNotAllowed(w, http.MethodGet)
+			return
+		}
+		h.postMonths(w, r)
 	case "/api/videos":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {

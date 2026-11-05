@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { fallbackProfile, POST_WINDOW_DAYS } from "./content"
-import type { ArchiveSnapshot, Dashboard, CalendarSnapshot } from "@/types"
+import type {
+  ArchiveMonth,
+  ArchiveSnapshot,
+  Dashboard,
+  CalendarSnapshot,
+} from "@/types"
 import { createRequestScope, startPolling } from "../lib/polling"
 import { startOfWeek, japanToday, localDateKey, addDays } from "./format"
 import { deriveDashboardAt } from "./derive-dashboard"
@@ -675,6 +680,52 @@ export function useDashboard(now = Date.now()) {
     setWeekStart,
     calendarRange: range,
   }
+}
+
+const monthKeyPattern = /^\d{4}-(0[1-9]|1[0-2])$/
+
+function isArchiveMonth(value: unknown): value is ArchiveMonth {
+  if (!value || typeof value !== "object") return false
+  const month = value as Record<string, unknown>
+  return (
+    typeof month.month === "string" &&
+    monthKeyPattern.test(month.month) &&
+    Number.isInteger(month.total) &&
+    Boolean(month.accountCounts) &&
+    typeof month.accountCounts === "object"
+  )
+}
+
+/**
+ * Reads the post archive's month index while `enabled`: every Japan month
+ * holding posts, oldest first. It rereads when the board's revision changes.
+ * A failed read leaves `months` null, so the picker offers every month.
+ */
+export function usePostMonths(enabled: boolean, revision?: number | null) {
+  const scope = useMemo(() => createRequestScope(), [])
+  const [months, setMonths] = useState<ArchiveMonth[] | null>(null)
+
+  useEffect(() => {
+    scope.activate()
+    return () => scope.dispose()
+  }, [scope])
+
+  useEffect(() => {
+    if (!enabled) return undefined
+    scope
+      .run("months", async (signal) => {
+        const result = await readScopedJson("/api/posts/months", signal)
+        if (!Array.isArray(result?.months))
+          throw new Error("Invalid month index")
+        return result.months.filter(isArchiveMonth) as ArchiveMonth[]
+      })
+      .then(setMonths, () => {
+        // A failed read keeps a known index; the picker works without one.
+      })
+    return () => scope.cancelKey("months")
+  }, [enabled, revision, scope])
+
+  return months
 }
 
 /**

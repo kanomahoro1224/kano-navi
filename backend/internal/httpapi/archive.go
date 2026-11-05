@@ -62,6 +62,23 @@ func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 	writeRevalidatedJSON(w, r, payload, nil)
 }
 
+// postMonths serves the post archive's month index: every Japan month that
+// holds a shown post, oldest first, with its per-account counts.
+func (h *Handler) postMonths(w http.ResponseWriter, r *http.Request) {
+	months, revision, err := h.store.GetPostMonths(r.Context())
+	if err != nil {
+		writeArchiveError(w, err)
+		return
+	}
+	items := make([]any, 0, len(months))
+	for _, month := range months {
+		items = append(items, map[string]any{
+			"month": month.Month, "total": month.Total, "accountCounts": month.AccountCounts,
+		})
+	}
+	writeRevalidatedJSON(w, r, map[string]any{"months": items, "revision": revision}, nil)
+}
+
 // videos serves the video archive: stored videos whose scheduled or published
 // time falls in an inclusive Japan-date range, newest first, optionally of one
 // category.

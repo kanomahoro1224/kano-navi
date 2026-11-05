@@ -1,10 +1,18 @@
 import type { Locale, Translator } from "@/types"
 import type { ReactNode } from "react"
-import { useEffect, useRef } from "react"
-import { ChevronLeft, ChevronRight, X } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react"
 
 import { EmptyNote, Placeholder } from "@/site/site-shell"
 import { formatMonth, japanToday, monthStartOf } from "../format"
+import { MonthPicker } from "./month-picker"
+
+/** A month dialog's jump grid: its month index and how a count reads. */
+export interface ArchivePicker {
+  /** Records per `YYYY-MM`; null while unknown, which offers every month. */
+  counts: ReadonlyMap<string, number> | null
+  countLabel?: (count: number) => string
+}
 
 function shiftMonth(date: Date, offset: number) {
   return new Date(date.getFullYear(), date.getMonth() + offset, 1)
@@ -28,6 +36,7 @@ export function ArchiveDialog({
   monthStart,
   onMonthChange,
   latestMonth,
+  picker,
   toolbar,
   onClose,
   children,
@@ -42,6 +51,8 @@ export function ArchiveDialog({
   onMonthChange: (month: Date) => void
   /** The last month worth opening; later months are not offered. */
   latestMonth?: Date
+  /** Turns the month label into a button that opens a jump grid. */
+  picker?: ArchivePicker
   toolbar?: ReactNode
   onClose: () => void
   children: ReactNode
@@ -51,6 +62,24 @@ export function ArchiveDialog({
   const dialogRef = useRef<HTMLDialogElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const pickerButtonRef = useRef<HTMLButtonElement>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const closePicker = (refocus: boolean) => {
+    setPickerOpen(false)
+    if (refocus) pickerButtonRef.current?.focus()
+  }
+
+  // A press outside the month controls closes the jump grid.
+  useEffect(() => {
+    if (!pickerOpen) return undefined
+    const onPointerDown = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node))
+        setPickerOpen(false)
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    return () => document.removeEventListener("pointerdown", onPointerDown)
+  }, [pickerOpen])
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -69,6 +98,7 @@ export function ArchiveDialog({
   const monthKey = `${monthStart.getFullYear()}-${monthStart.getMonth()}`
   useEffect(() => {
     bodyRef.current?.scrollTo?.({ top: 0 })
+    setPickerOpen(false)
   }, [monthKey])
 
   if (!open) return null
@@ -84,7 +114,9 @@ export function ArchiveDialog({
       aria-labelledby="archive-dialog-title"
       onCancel={(event) => {
         event.preventDefault()
-        onClose()
+        // Escape closes an open jump grid before the dialog.
+        if (pickerOpen) closePicker(true)
+        else onClose()
       }}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
@@ -109,7 +141,12 @@ export function ArchiveDialog({
             <X aria-hidden="true" />
           </button>
           <div className="archive-dialog-bar">
-            <div className="archive-month" role="group" aria-label={label}>
+            <div
+              className="archive-month"
+              role="group"
+              aria-label={label}
+              ref={pickerRef}
+            >
               <button
                 type="button"
                 className="round-button"
@@ -119,9 +156,27 @@ export function ArchiveDialog({
               >
                 <ChevronLeft aria-hidden="true" />
               </button>
-              <strong className="archive-month-label" aria-live="polite">
-                {label}
-              </strong>
+              {picker ? (
+                <button
+                  ref={pickerButtonRef}
+                  type="button"
+                  className="archive-month-label is-picker"
+                  aria-haspopup="dialog"
+                  aria-expanded={pickerOpen}
+                  aria-controls={
+                    pickerOpen ? "archive-month-picker" : undefined
+                  }
+                  title={t("common.chooseMonth")}
+                  onClick={() => setPickerOpen((open) => !open)}
+                >
+                  <span aria-live="polite">{label}</span>
+                  <ChevronDown aria-hidden="true" />
+                </button>
+              ) : (
+                <strong className="archive-month-label" aria-live="polite">
+                  {label}
+                </strong>
+              )}
               <button
                 type="button"
                 className="round-button"
@@ -142,6 +197,22 @@ export function ArchiveDialog({
               </button>
               {summary ? (
                 <span className="archive-summary">{summary}</span>
+              ) : null}
+              {picker && pickerOpen ? (
+                <MonthPicker
+                  id="archive-month-picker"
+                  shown={monthStart}
+                  latestMonth={latestMonth}
+                  counts={picker.counts}
+                  countLabel={picker.countLabel}
+                  onChoose={(month) => {
+                    closePicker(true)
+                    onMonthChange(month)
+                  }}
+                  onClose={() => closePicker(true)}
+                  locale={locale}
+                  t={t}
+                />
               ) : null}
             </div>
             {toolbar}

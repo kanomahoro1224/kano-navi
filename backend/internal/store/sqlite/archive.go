@@ -216,6 +216,57 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 	}, nil
 }
 
+// ArchiveMonth is one Japan month that holds stored posts: its total and its
+// posts per lowercase handle.
+type ArchiveMonth struct {
+	Month         string
+	Total         int64
+	AccountCounts map[string]int64
+}
+
+// GetPostMonths lists every Japan month holding a shown post, oldest first,
+// so the archive can offer a jump to any of them. Accounts are not filtered:
+// the counts let the board narrow each month to the chosen account.
+func (s *Store) GetPostMonths(ctx context.Context) ([]ArchiveMonth, int64, error) {
+	if s == nil || s.db == nil {
+		return nil, 0, ErrUnavailable
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT strftime('%Y-%m', julianday(published_at) + 0.375) AS month,
+	     lower(COALESCE(account_handle,'')), COUNT(*)
+	   FROM posts WHERE hidden_at IS NULL AND julianday(published_at) IS NOT NULL
+	   GROUP BY 1, 2 ORDER BY 1, 2`)
+	if err != nil {
+		return nil, 0, dbErr(err)
+	}
+	months := []ArchiveMonth{}
+	for rows.Next() {
+		var month, handle string
+		var count int64
+		if err := rows.Scan(&month, &handle, &count); err != nil {
+			_ = rows.Close()
+			return nil, 0, dbErr(err)
+		}
+		if n := len(months); n == 0 || months[n-1].Month != month {
+			months = append(months, ArchiveMonth{Month: month, AccountCounts: map[string]int64{}})
+		}
+		current := &months[len(months)-1]
+		current.Total += count
+		if handle != "" {
+			current.AccountCounts[handle] = count
+		}
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, 0, dbErr(err)
+	}
+	_ = rows.Close()
+	revision, err := s.GetDashboardRevision(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	return months, revision, nil
+}
+
 // GetVideoArchive reads stored videos whose scheduled or published time falls
 // in a Japan-date range, newest first, optionally of one category.
 func (s *Store) GetVideoArchive(ctx context.Context, from, to, category string, page, pageSize int, now time.Time) (*ArchivePage[Video], error) {

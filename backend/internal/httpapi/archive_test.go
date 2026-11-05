@@ -103,6 +103,51 @@ func TestPostArchiveReadsAJapanMonthNewestFirst(t *testing.T) {
 	}
 }
 
+func TestPostMonthsCountJapanMonthsPerAccount(t *testing.T) {
+	handler := archiveHandler(t, `
+		INSERT INTO posts (id,source,account_handle,type,text,published_at,url,raw_json,hidden_at) VALUES
+		 ('post-old','x','kano_2525','daily','Old','2024-01-10T03:00:00Z','https://x.com/kano_2525/status/1','{"private":"synthetic"}',NULL),
+		 ('post-edge','x','Kano_2525','daily','Edge','2026-09-30T15:00:00Z','https://x.com/kano_2525/status/2',NULL,NULL),
+		 ('post-other','x','_Kanotic','daily','Other','2026-10-12T03:00:00+09:00','https://x.com/_Kanotic/status/3',NULL,NULL),
+		 ('post-september','x','_Kanotic','daily','September','2026-09-30T14:59:00Z','https://x.com/_Kanotic/status/4',NULL,NULL),
+		 ('post-hidden','x','kano_2525','daily','Hidden','2025-05-05T03:00:00Z','https://x.com/kano_2525/status/5',NULL,'2026-10-01T00:00:00Z'),
+		 ('post-undated','x','kano_2525','daily','Undated','not a time','https://x.com/kano_2525/status/6',NULL,NULL);
+		INSERT INTO app_settings (key,value,updated_at) VALUES ('dashboard_revision','7','');`)
+
+	recorder := request(t, handler, http.MethodGet, "/api/posts/months")
+	if recorder.Code != http.StatusOK || recorder.Header().Get("Cache-Control") != "no-cache" || !strings.HasPrefix(recorder.Header().Get("ETag"), `W/"`) {
+		t.Fatalf("status=%d headers=%v body=%s", recorder.Code, recorder.Header(), recorder.Body)
+	}
+	if strings.Contains(recorder.Body.String(), "private") || strings.Contains(recorder.Body.String(), "post-") {
+		t.Fatalf("month index leaked post fields: %s", recorder.Body)
+	}
+	payload := decodeObject(t, recorder)
+	if payload["revision"] != float64(7) {
+		t.Fatalf("revision=%#v", payload["revision"])
+	}
+	// Japan months, oldest first; hidden and unparseable posts are not counted.
+	months := payload["months"].([]any)
+	got := []string{}
+	for _, raw := range months {
+		month := raw.(map[string]any)
+		got = append(got, month["month"].(string))
+	}
+	if strings.Join(got, ",") != "2024-01,2026-09,2026-10" {
+		t.Fatalf("months=%v", got)
+	}
+	october := months[2].(map[string]any)
+	counts := october["accountCounts"].(map[string]any)
+	if october["total"] != float64(2) || counts["kano_2525"] != float64(1) || counts["_kanotic"] != float64(1) {
+		t.Fatalf("october=%#v", october)
+	}
+	if september := months[1].(map[string]any); september["total"] != float64(1) {
+		t.Fatalf("september=%#v", september)
+	}
+	if method := request(t, handler, http.MethodPost, "/api/posts/months"); method.Code != http.StatusMethodNotAllowed || method.Header().Get("Allow") != http.MethodGet {
+		t.Fatalf("method status=%d headers=%v", method.Code, method.Header())
+	}
+}
+
 func TestVideoArchiveUsesTheScheduledOrPublishedTime(t *testing.T) {
 	handler := archiveHandler(t, `
 		INSERT INTO videos (id,source,title,published_at,scheduled_at,url,kind,is_upcoming,raw_json,duration_seconds,is_short) VALUES

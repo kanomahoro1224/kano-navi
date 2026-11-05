@@ -21,7 +21,9 @@ Posts are laid out in whole rows; a long post shows its first lines and
 
 **Past posts** (a clock icon on phones) browses every post the board has
 stored, month by month, with the same account filter and per-account counts.
-Posts appear newest first in a masonry wall that reads row by row, left to
+Select the month name to jump straight to another month: a year stepper over
+twelve months shows how many posts each month holds for the chosen account,
+and months without posts are dimmed. Posts appear newest first in a masonry wall that reads row by row, left to
 right, or in a single column; on wider screens the layout switch beside the
 filter picks one, and this device remembers the choice. Phones always show
 one column.

@@ -154,7 +154,13 @@ function Provenance({
   )
 }
 
-/** The entry's type, activity, and any status other than upcoming. */
+/**
+ * Statuses an entry names in words. Upcoming is the default and an ended
+ * entry says so by its faded, folded card, so neither gets a chip.
+ */
+const quietStatuses = ["upcoming", "done"]
+
+/** The entry's type, activity, and any status worth a chip. */
 function EntryTags({
   facts,
   t,
@@ -165,7 +171,8 @@ function EntryTags({
   children?: ReactNode
 }) {
   const { typeKey, tag, work, status } = facts
-  if (!typeKey && !tag && status === "upcoming" && !children) return null
+  const showStatus = !quietStatuses.includes(status)
+  if (!typeKey && !tag && !showStatus && !children) return null
   return (
     <span className="guide-event-tags">
       {typeKey ? <span className="tag">{t(typeKey)}</span> : null}
@@ -175,7 +182,7 @@ function EntryTags({
           {t(eventTagKey(tag, work))}
         </span>
       ) : null}
-      {status !== "upcoming" ? (
+      {showStatus ? (
         <span className={`tag tone-${statusTones[status] || "muted"}`}>
           {status === "live" ? <Radio aria-hidden="true" /> : null}
           {t(`schedule.status.${status}`)}
@@ -269,11 +276,14 @@ function EntrySheet({
  * An entry's card. The card opens the entry's sheet; the arrow in its
  * bottom corner follows the entry's link directly.
  * The month's day details show it `full`, with the whole title, and mark
- * the entry picked in the grid.
+ * the entry picked in the grid. The week shows a past entry `folded`: its
+ * activity icon, time and provenance over two lines of title, with the
+ * rest in its sheet.
  */
 function GuideEvent({
   event,
   full = false,
+  folded = false,
   pickTurn = 0,
   locale,
   now,
@@ -281,6 +291,7 @@ function GuideEvent({
 }: {
   event: ScheduleEvent
   full?: boolean
+  folded?: boolean
   /** The grid pick that marked this entry, 0 when none; each pick scrolls. */
   pickTurn?: number
   locale: Locale
@@ -302,10 +313,13 @@ function GuideEvent({
   return (
     <li ref={itemRef}>
       <div
-        className={`guide-event link-card tone-${facts.tone} is-${facts.status}${full ? " is-full" : ""}${highlighted ? " is-highlighted" : ""}`}
+        className={`guide-event link-card tone-${facts.tone} is-${facts.status}${full ? " is-full" : ""}${folded ? " is-folded" : ""}${highlighted ? " is-highlighted" : ""}`}
         onClick={followCardLink}
       >
         <span className="guide-event-time">
+          {folded && facts.tag ? (
+            <EventTagIcon tag={facts.tag} work={facts.work} />
+          ) : null}
           {facts.time ? (
             <>
               <strong>{facts.time}</strong>
@@ -323,26 +337,30 @@ function GuideEvent({
           onOpen={() => setOpen(true)}
           t={t}
         />
-        {event.detail ? (
-          <span className="guide-event-detail">
-            {eventDetailText(event.detail, t)}
-          </span>
-        ) : null}
-        <EntryTags facts={facts} t={t}>
-          {event.url ? (
-            <ExternalLink
-              className="guide-event-open"
-              href={event.url}
-              aria-label={t("schedule.openLink")}
-              title={t("schedule.openLink")}
-            >
-              <ArrowUpRight aria-hidden="true" />
-            </ExternalLink>
-          ) : null}
-        </EntryTags>
-        {facts.note ? (
-          <span className="guide-event-note">{facts.note}</span>
-        ) : null}
+        {folded ? null : (
+          <>
+            {event.detail ? (
+              <span className="guide-event-detail">
+                {eventDetailText(event.detail, t)}
+              </span>
+            ) : null}
+            <EntryTags facts={facts} t={t}>
+              {event.url ? (
+                <ExternalLink
+                  className="guide-event-open"
+                  href={event.url}
+                  aria-label={t("schedule.openLink")}
+                  title={t("schedule.openLink")}
+                >
+                  <ArrowUpRight aria-hidden="true" />
+                </ExternalLink>
+              ) : null}
+            </EntryTags>
+            {facts.note ? (
+              <span className="guide-event-note">{facts.note}</span>
+            ) : null}
+          </>
+        )}
       </div>
       {open ? (
         <EntrySheet
@@ -355,6 +373,15 @@ function GuideEvent({
       ) : null}
     </li>
   )
+}
+
+/**
+ * Whether the week folds an entry: everything on a day before today, and
+ * today's entries once they end, except one still on air.
+ */
+function entryIsPast(event: ScheduleEvent, dayIsPast: boolean, now: number) {
+  const status = eventStatus(event, now)
+  return status !== "live" && (dayIsPast || status === "done")
 }
 
 function WeekDays({
@@ -414,6 +441,7 @@ function WeekDays({
                   <GuideEvent
                     key={event.id}
                     event={event}
+                    folded={entryIsPast(event, isPast, now)}
                     locale={locale}
                     now={now}
                     t={t}
@@ -539,7 +567,9 @@ function MonthGrid({
                     const label = [
                       `${time || t("common.pendingConfirmation")} ${title}`,
                       tag ? t(eventTagKey(tag, work)) : null,
-                      t(`schedule.status.${status}`),
+                      quietStatuses.includes(status)
+                        ? null
+                        : t(`schedule.status.${status}`),
                     ]
                       .filter(Boolean)
                       .join(" · ")

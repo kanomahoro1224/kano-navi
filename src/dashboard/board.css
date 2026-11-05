@@ -1188,8 +1188,36 @@
 }
 
 .guide-event.is-done,
-.guide-event.is-pending {
+.guide-event.is-pending,
+.guide-event.is-folded {
   opacity: 0.66;
+}
+
+/* A past entry folds to its time row over two lines of title. */
+.guide-event.is-folded {
+  gap: 2px;
+  padding: 5px 8px 6px;
+}
+
+.guide-event.is-folded .guide-event-time strong {
+  font-size: 12px;
+}
+
+.guide-event.is-folded .guide-event-time > svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  align-self: center;
+}
+
+.guide-event.is-folded .guide-event-title,
+.guide-event.is-folded .guide-event-title > .card-link {
+  font-size: 12px;
+  -webkit-line-clamp: 2;
+}
+
+.guide-event.is-folded:hover {
+  opacity: 1;
 }
 
 .guide-event.is-cancelled {

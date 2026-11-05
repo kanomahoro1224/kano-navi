@@ -4,9 +4,11 @@
 
 The weekly schedule is a Monday-first program guide: seven day columns on
 wide screens and a day list on phones. Each entry shows its Japan time (or
-"time TBA" when only the date is known), its type, its status (upcoming, on
-air, ended, TBA, or cancelled), and an icon for whether it is Auto-detected
-(sparkles) or Confirmed (check badge). The legend under the guide and the
+"time TBA" when only the date is known), its type, a status when it is on
+air, TBA, or cancelled, and an icon for whether it is Auto-detected
+(sparkles) or Confirmed (check badge). Entries of earlier days, and today's
+once they end, fold to their time, activity icon, and the start of their
+title; a stream still on air stays whole. The legend under the guide and the
 month names both marks, then each activity icon.
 The entry's color follows its type, so members-only streams stand apart.
 When the announcement, the title, or the maintainer says what the activity

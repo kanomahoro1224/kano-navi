@@ -344,7 +344,8 @@ body:has(.site.works) {
   transition: none;
 }
 
-/* Each base sits on the ground curve drawn by FeaturedLandscape. */
+/* Each base sits on its side's ground curve drawn by FeaturedLandscape;
+   side B leads with two. */
 .works-trio-stage.is-figures > .is-two {
   left: -4.2%;
   bottom: 7.4%;
@@ -376,8 +377,8 @@ body:has(.site.works) {
   --lift: 3;
 }
 
-/* Side B keeps album order: one stands at the left, two sits in front. */
-.works-trio-stage.is-figures.is-side-b > .is-one {
+/* Side A keeps album order: one stands at the left, two sits in front. */
+.works-trio-stage.is-figures.is-side-a > .is-one {
   left: 0;
   bottom: 12.2%;
   --sun-size: 112%;
@@ -385,41 +386,11 @@ body:has(.site.works) {
   --sun-shift: 0%;
 }
 
-.works-trio-stage.is-figures.is-side-b > .is-two {
+.works-trio-stage.is-figures.is-side-a > .is-two {
   left: 25%;
   bottom: 8%;
   /* She sits a little left of her disc: 3.8% of the stage. */
   --figure-shift: -8%;
-}
-
-/*
- * Flipping sides: one and two sink into the ground with their discs, the
- * ground and its flowers shift, and the two rise in their new places.
- * The disc, figure and label each fade on their own layer, so the discs stay
- * behind the hills and the figures in front throughout; the fade and the
- * sink use filter and offsets, which the entrance animation leaves free.
- */
-.works-trio-stage.is-flipping > :is(.is-one, .is-two) .works-figure-sun {
-  margin-top: 22px;
-  filter: opacity(0);
-}
-
-.works-trio-stage.is-flipping > :is(.is-one, .is-two) .works-figure img {
-  top: 22px;
-  filter: drop-shadow(0 12px 14px rgb(0 0 0 / 0.16)) opacity(0);
-}
-
-.works-trio-stage.is-flipping > :is(.is-one, .is-two) .works-figure-label {
-  opacity: 0;
-  translate: 0 22px;
-}
-
-.works-trio-stage.is-flipping
-  > :is(.is-one, .is-two)
-  :is(.works-figure-sun, .works-figure img, .works-figure-label) {
-  transition-duration: 260ms;
-  transition-delay: 0ms;
-  transition-timing-function: ease-in;
 }
 
 .works-landscape :is(.is-near, .is-crest, .is-grass) {
@@ -433,14 +404,19 @@ body:has(.site.works) {
     fill 760ms ease;
 }
 
-/* A small two-sided record under the scene, its label showing the side. */
+/*
+ * A small two-sided record at the scene's top right, above three, its label
+ * showing the side.
+ */
 .works-side {
+  position: absolute;
+  z-index: 6;
+  top: 0;
+  right: 0;
   display: inline-flex;
   align-items: center;
-  justify-self: end;
   gap: 9px;
-  margin-top: -14px;
-  padding: 4px 6px 4px 4px;
+  padding: 4px 4px 4px 6px;
   border-radius: 999px;
   color: var(--soft);
   font-family: var(--font-mono);
@@ -549,9 +525,7 @@ body:has(.site.works) {
   translate: -50% 0;
   transition:
     transform 900ms var(--works-ease),
-    opacity 300ms ease,
-    filter 520ms 160ms ease,
-    margin-top 760ms 160ms var(--works-ease);
+    opacity 300ms ease;
   animation: works-sun-in 1100ms var(--works-ease) both;
   animation-delay: calc(var(--order) * 140ms);
 }
@@ -562,13 +536,9 @@ body:has(.site.works) {
   z-index: var(--lift);
   width: 100%;
   height: auto;
-  top: 0;
-  filter: drop-shadow(0 12px 14px rgb(0 0 0 / 0.16)) opacity(1);
+  filter: drop-shadow(0 12px 14px rgb(0 0 0 / 0.16));
   transform-origin: 50% 100%;
-  transition:
-    transform 500ms var(--works-ease),
-    filter 520ms 160ms ease,
-    top 760ms 160ms var(--works-ease);
+  transition: transform 500ms var(--works-ease);
   animation: works-figure-in 900ms var(--works-ease) both;
   animation-delay: calc(120ms + var(--order) * 140ms);
 }
@@ -601,10 +571,7 @@ body:has(.site.works) {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition:
-    color 200ms ease,
-    opacity 520ms 160ms ease,
-    translate 760ms 160ms var(--works-ease);
+  transition: color 200ms ease;
 }
 
 .works-figure-label b {
@@ -626,7 +593,6 @@ body:has(.site.works) {
 @media (prefers-reduced-motion: reduce) {
   .works-figure img,
   .works-figure-sun,
-  .works-figure-label,
   .works-landscape *,
   .works-side-disc {
     animation: none;
@@ -634,14 +600,29 @@ body:has(.site.works) {
   }
 }
 
+/*
+ * In one column the scene sits between the title and the lead: the copy's
+ * lines join the hero's grid so the scene can take its place among them.
+ */
 @media (max-width: 820px) {
   .works-hero {
     grid-template-columns: 1fr;
+    row-gap: 0;
     padding-top: 36px;
   }
 
+  .works-hero-copy {
+    display: contents;
+  }
+
+  .works-hero-copy > :nth-child(n + 3) {
+    order: 2;
+  }
+
   .works-trio {
+    order: 1;
     max-width: 460px;
+    margin-top: 24px;
   }
 }
 

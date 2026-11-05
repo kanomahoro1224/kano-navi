@@ -90,14 +90,14 @@ function sectionFromUrl(): Section {
 const TRILOGY = ["one", "two", "three"]
 
 /**
- * The scene has two sides, like a record: side A leads with two, side B
- * keeps album order. The figures stay in album order in the document, so
+ * The scene has two sides, like a record: side A keeps album order, side B
+ * leads with two. The figures stay in album order in the document, so
  * flipping moves them on screen without reordering them.
  */
 type Side = "a" | "b"
 const SIDES: Record<Side, string[]> = {
-  a: ["two", "one", "three"],
-  b: ["one", "two", "three"],
+  a: ["one", "two", "three"],
+  b: ["two", "one", "three"],
 }
 
 /** This device remembers the side last played. */
@@ -111,33 +111,76 @@ function readSide(): Side {
   }
 }
 
-/** How long one and two take to sink before they rise on the other side. */
-const SINK_MS = 280
+/**
+ * Flipping sides: one and two sink into the ground with their discs and
+ * labels, the ground and its flowers shift, and the two rise in their new
+ * places. Each part moves on its own layer, so the discs stay behind the
+ * hills and the figures in front, and only opacity and translate change,
+ * which the browser can animate without repainting the figures.
+ */
+const SINK_MS = 260
+const RISE_MS = 700
+const RISE_DELAY_MS = 160
+const SINK_DEPTH = "22px"
+const FLIPPING_PARTS =
+  ":is(.is-one, .is-two) :is(.works-figure-sun, .works-figure img, .works-figure-label)"
+
+/** A part sunk out of sight; a disc stays centred on its own left edge. */
+function sunk(part: HTMLElement): Keyframe {
+  const x = part.classList.contains("works-figure-sun") ? "-50%" : "0"
+  return { opacity: 0, translate: `${x} ${SINK_DEPTH}` }
+}
 
 function useTrilogySide() {
   const [side, setSide] = useState<Side>(readSide)
-  const [flipping, setFlipping] = useState(false)
-  const timer = useRef<number | undefined>(undefined)
-  useEffect(() => () => window.clearTimeout(timer.current), [])
-  const flip = () => {
-    if (flipping) return
+  const stage = useRef<HTMLUListElement>(null)
+  const busy = useRef(false)
+  const flip = async () => {
+    if (busy.current) return
     const next: Side = side === "a" ? "b" : "a"
     try {
       window.localStorage.setItem(SIDE_KEY, next)
     } catch {
       // The side still applies until the page closes.
     }
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const parts =
+      stage.current && !still
+        ? [...stage.current.querySelectorAll<HTMLElement>(FLIPPING_PARTS)]
+        : []
+    if (!parts.length) {
       setSide(next)
       return
     }
-    setFlipping(true)
-    timer.current = window.setTimeout(() => {
-      setSide(next)
-      setFlipping(false)
-    }, SINK_MS)
+    busy.current = true
+    const sinking = parts.map((part) =>
+      part.animate([sunk(part)], {
+        duration: SINK_MS,
+        easing: "ease-in",
+        fill: "forwards",
+      }),
+    )
+    await Promise.all(sinking.map((animation) => animation.finished)).catch(
+      () => undefined,
+    )
+    setSide(next)
+    // The rise holds each part sunk until it starts, so nothing shows in the
+    // old place between the two animations.
+    const rising = parts.map((part) =>
+      part.animate([{ ...sunk(part), offset: 0 }], {
+        duration: RISE_MS,
+        delay: RISE_DELAY_MS,
+        easing: "cubic-bezier(0.2, 0.7, 0.2, 1)",
+        fill: "backwards",
+      }),
+    )
+    sinking.forEach((animation) => animation.cancel())
+    await Promise.all(rising.map((animation) => animation.finished)).catch(
+      () => undefined,
+    )
+    busy.current = false
   }
-  return { side, flipping, flip }
+  return { side, stage, flip }
 }
 
 const featured = TRILOGY.map((title) =>
@@ -206,14 +249,14 @@ type Point = [number, number]
 type Curve = { start: Point; segments: [Point, Point, Point][] }
 
 /**
- * The ground the figures stand and sit on, one per side. On side A two sits
- * lowest at the left, one stands in the middle and three sits on the rise;
- * on side B one stands at the left and two sits lowest in front of the rise.
+ * The ground the figures stand and sit on, one per side. On side A one
+ * stands at the left and two sits lowest in front of the rise; on side B two
+ * sits lowest at the left, one stands in the middle and three on the rise.
  * Both curves use the same commands, so the ground morphs between them, and
  * each figure's base in works.css sits on its side's curve.
  */
 const GROUND: Record<Side, Curve> = {
-  a: {
+  b: {
     start: [0, 900],
     segments: [
       [
@@ -243,7 +286,7 @@ const GROUND: Record<Side, Curve> = {
       ],
     ],
   },
-  b: {
+  a: {
     start: [0, 900],
     segments: [
       [
@@ -368,7 +411,7 @@ type Flower = readonly [segment: number, t: number, title: string]
  * as many, so a flower drifts to its place on the other side.
  */
 const FLOWER_SPOTS: Record<Side, readonly Flower[]> = {
-  a: [
+  b: [
     [0, 0.15, "one"],
     [0, 0.75, "three"],
     [1, 0.6, "two"],
@@ -377,7 +420,7 @@ const FLOWER_SPOTS: Record<Side, readonly Flower[]> = {
     [3, 0.85, "two"],
     [4, 0.55, "one"],
   ],
-  b: [
+  a: [
     [0, 0.2, "one"],
     [0, 0.7, "three"],
     [1, 0.9, "two"],
@@ -466,12 +509,12 @@ function SideSwitch({
       title={action}
       onClick={onFlip}
     >
+      <span aria-hidden="true">
+        {t("works.trilogySide", { side: side.toUpperCase() })}
+      </span>
       <span className="works-side-disc" aria-hidden="true">
         <span className="is-a">A</span>
         <span className="is-b">B</span>
-      </span>
-      <span aria-hidden="true">
-        {t("works.trilogySide", { side: side.toUpperCase() })}
       </span>
     </button>
   )
@@ -603,7 +646,8 @@ export function WorksApp() {
                   <FeaturedLandscape side={trilogy.side} />
                 ) : null}
                 <ul
-                  className={`works-trio-stage is-side-${trilogy.side}${figuresReady ? " is-figures" : ""}${trilogy.flipping ? " is-flipping" : ""}`}
+                  ref={trilogy.stage}
+                  className={`works-trio-stage is-side-${trilogy.side}${figuresReady ? " is-figures" : ""}`}
                   aria-label={t("works.featured")}
                 >
                   {featured.map((release) => {
@@ -643,10 +687,10 @@ export function WorksApp() {
                     )
                   })}
                 </ul>
+                {figuresReady ? (
+                  <SideSwitch side={trilogy.side} onFlip={trilogy.flip} t={t} />
+                ) : null}
               </div>
-              {figuresReady ? (
-                <SideSwitch side={trilogy.side} onFlip={trilogy.flip} t={t} />
-              ) : null}
             </div>
           ) : null}
         </section>

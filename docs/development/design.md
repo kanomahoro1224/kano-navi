@@ -21,12 +21,13 @@ introduce a separate token system for a single page.
   and outlined chips, and lets each cover's record slide out of its sleeve
   (a photo of the real disc where there is one; where no disc was pressed,
   the cover printed on a disc with a clear hub). The header sets the
-  figures cut from the acoustic cover trilogy's covers in a small landscape:
+  figures cut from the acoustic cover trilogy's covers in a small landscape,
+  which in one column sits between the title and the lead:
   each album's grooved disc sinks behind two far ridges like a setting sun,
   and the figures stand and sit on curved grassy ground with flowers in the
   three albums' colours, the land fading out at its edges. The scene has two
-  sides, two leading on side A and album order on side B; a small two-sided
-  record under it turns over to flip them while one and two sink and rise in
+  sides, album order on side A and two leading on side B; a small two-sided
+  record at its top right turns over to flip them while one and two sink and rise in
   their new places and the ground and flowers morph between the sides'
   curves, and this device remembers the side. It falls back to
   the trilogy's sleeves when a cutout is missing. A cover shelf of Kano's own releases by year opens

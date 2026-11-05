@@ -89,10 +89,10 @@ body:has(.site.works) {
 }
 
 .works-hero h1 {
-  max-width: 13ch;
+  max-width: 16ch;
   margin: 22px 0 0;
   font-family: var(--font-serif);
-  font-size: clamp(42px, 6.6vw, 88px);
+  font-size: clamp(38px, 5vw, 68px);
   font-weight: 400;
   letter-spacing: -0.025em;
   line-height: 1.02;
@@ -501,8 +501,50 @@ body:has(.site.works) {
   }
 }
 
-/* On a phone the scene draws in a little so two's feet stay on screen. */
+/*
+ * On a phone the English title fits one line (about 13.5 of its em widths
+ * across the column), the copy around it steps down, and the scene draws in
+ * a little so two's feet stay on screen.
+ */
 @media (max-width: 480px) {
+  .works-hero {
+    padding-top: 28px;
+  }
+
+  .works-eyebrow {
+    font-size: 10.5px;
+  }
+
+  .works-hero h1 {
+    max-width: none;
+    margin-top: 16px;
+    font-size: min(30px, calc((100vw - 32px) / 13.5));
+  }
+
+  .works-lead {
+    margin-top: 16px;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .works-caveat {
+    gap: 8px;
+    margin-top: 16px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  .works-caveat svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .works-link {
+    margin-top: 20px;
+    font-size: 13.5px;
+  }
+
   .works-trio-scene {
     width: 92%;
     margin-inline: auto;
@@ -701,6 +743,23 @@ body:has(.site.works) {
   }
 }
 
+/*
+ * A tap leaves :hover on the card it opened until the next tap elsewhere, so
+ * on a touch screen the record rises and turns only while the finger is down
+ * instead of standing over the year above after the sheet closes.
+ */
+@media (hover: none) {
+  .release-card button:hover:not(:active) .works-record,
+  .release-card button:hover:not(:active) .works-cover {
+    transform: none;
+  }
+
+  .release-card button:hover:not(:active) .works-record-label,
+  .release-card button:hover:not(:active) .works-record-disc {
+    animation-play-state: paused;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .works-record,
   .works-cover {
@@ -809,8 +868,12 @@ body:has(.site.works) {
   margin-bottom: 12px;
 }
 
-.works-toolbar > .segmented:last-child {
+.works-toolbar > .works-order {
   margin-left: auto;
+}
+
+.works-order-icon {
+  display: none;
 }
 
 /* Filters read as outlined chips; the chosen one is inked. */
@@ -986,12 +1049,102 @@ body:has(.site.works) {
     gap: 12px;
   }
 
-  .works-toolbar > .segmented:last-child {
+  .works-toolbar > .works-order {
     margin-left: 0;
   }
 
   .works-search {
     max-width: none;
+  }
+}
+
+/*
+ * On a phone the filter chips run in one row that scrolls sideways from the
+ * screen's left edge, the order is one icon at that row's right end, the other
+ * controls take the rows below, and the type steps down with the hero's.
+ */
+@media (max-width: 480px) {
+  .works-sections {
+    margin-top: 48px;
+  }
+
+  .works .works-tabs {
+    gap: 16px;
+  }
+
+  .works .works-tabs [role="tab"] {
+    padding-bottom: 12px;
+    font-size: 16px;
+  }
+
+  .works-panel {
+    padding-top: 20px;
+  }
+
+  .works-toolbar {
+    gap: 10px 8px;
+  }
+
+  .works-toolbar > * {
+    order: 2;
+  }
+
+  .works-toolbar > .segmented:first-child {
+    order: 0;
+    flex: 1 1 calc(100% - 42px);
+    flex-wrap: nowrap;
+    min-width: 0;
+    /* Room for the focus outline, which the scroller would clip. */
+    padding: 3px 4px 3px 16px;
+    margin: -3px 0 -3px -16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    mask-image: linear-gradient(
+      90deg,
+      transparent,
+      #000 16px,
+      #000 calc(100% - 24px),
+      transparent
+    );
+  }
+
+  .works-toolbar > .works-order {
+    display: none;
+  }
+
+  .works-toolbar > .works-order-icon {
+    display: inline-grid;
+    order: 1;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    background: transparent;
+  }
+
+  .works-toolbar > .segmented:first-child::-webkit-scrollbar {
+    display: none;
+  }
+
+  .works .segmented button,
+  .works-chip,
+  .works-toggle.pill-button {
+    flex: none;
+    gap: 5px;
+    padding: 5px 12px;
+    font-size: 12.5px;
+  }
+
+  .works-year {
+    gap: 20px;
+    padding: 24px 0;
+  }
+
+  .works-year-label span {
+    font-size: 28px;
+  }
+
+  .works-year-label small {
+    font-size: 10px;
   }
 }
 
@@ -1171,7 +1324,7 @@ body:has(.site.works) {
   }
 
   .release-copy strong {
-    font-size: 16px;
+    font-size: 15px;
   }
 }
 

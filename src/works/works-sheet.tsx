@@ -4,6 +4,9 @@ import { X } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 
+/** The elements a sheet hands focus back to when it closes. */
+const OPENERS = "button, a[href], input, select, textarea, [role='tab']"
+
 /**
  * Native modal sheet for one release in full. Escape, the close button and
  * the backdrop close it; focus returns to the opener without scrolling. The
@@ -25,13 +28,18 @@ export function WorksSheet({
     const dialog = dialogRef.current
     if (!dialog) return undefined
     const previous = document.activeElement as HTMLElement | null
+    // A tap in Safari focuses the nearest focusable container (the section's
+    // tab panel) rather than the button tapped, so only a control gets focus
+    // back; the panel would show its focus outline around every work.
+    const control = previous?.matches(OPENERS) ? previous : null
     if (!dialog.open) dialog.showModal?.()
     dialog.querySelector<HTMLElement>(".works-sheet-close")?.focus()
     document.body.classList.add("has-works-sheet")
     return () => {
       if (dialog.open) dialog.close()
       document.body.classList.remove("has-works-sheet")
-      previous?.focus?.({ preventScroll: true })
+      if (control) control.focus({ preventScroll: true })
+      else if (previous && document.activeElement === previous) previous.blur()
     }
   }, [])
   return (

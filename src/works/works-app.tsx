@@ -406,6 +406,8 @@ export function WorksApp() {
     uploads: worksSummary.uploads,
   }
   const open = personalReleases.find((release) => release.id === openId)
+  // The caveat's sentence carries the feedback link where {link} stands.
+  const [before, after = ""] = t("works.caveat").split("{link}")
 
   return (
     <div className="site works" id="top">
@@ -426,10 +428,11 @@ export function WorksApp() {
             <p className="works-caveat">
               <Info aria-hidden="true" />
               <span>
-                {t("works.caveat")}{" "}
+                {before}
                 <ExternalLink href={`${REPOSITORY_URL}/issues`}>
-                  {t("works.reportIssue")}
+                  {t("works.feedback")}
                 </ExternalLink>
+                {after}
               </span>
             </p>
             <ExternalLink className="works-link" href={OFFICIAL_DISCOGRAPHY}>

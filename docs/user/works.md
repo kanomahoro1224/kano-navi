@@ -6,7 +6,7 @@ _one_, _two_ and _three_ as the girl from each cover on a small landscape of
 rolling hills, each before a disc in that album's colour; select a figure to
 open the album. A note there says the sections do not strictly
 follow who holds each work's rights and that, with this many works, some
-details may be wrong, with a link to report one as a GitHub issue, and
+details may be wrong, and welcomes corrections and feedback on GitHub, and
 **Official discography** opens the official site's list. Pick a section with
 the tabs below, each counting its works; the address remembers the section,
 so a link can open it directly.
@@ -16,7 +16,8 @@ so a link can open it directly.
 Albums, singles and doujin works released under Kano's own name or her
 units' (MKLNtic and Weekend Paradise), shown as a shelf of covers by year,
 newest first. Filter the shelf by format (albums, singles and EPs, doujin)
-or show only the unit works, and switch to oldest first. Each cover is marked
+or show only the unit works, and switch to oldest first (on a phone, the
+filters scroll sideways and the order is the icon at the end of their row). Each cover is marked
 with its format, with **Digital** when it was released for download or
 streaming, with its number of editions when there are several, and with
 **Cancelled** when it never went on sale. Pointing at a cover lifts its

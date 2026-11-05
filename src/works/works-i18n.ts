@@ -14,8 +14,9 @@ export const worksMessages = {
     "works.title": "唱过的、写过的，每一首歌",
     "works.lead":
       "鹿乃名义发行的作品、参与演唱或作词的作品，以及这些年投稿到网上的歌，都整理在这里。",
-    "works.caveat": "作品并非完全按照版权归属整理；作品较多，难免有错漏。",
-    "works.reportIssue": "在 GitHub 提交 issue 反馈",
+    "works.caveat":
+      "作品并非完全按照版权归属整理；作品较多，难免有错漏，欢迎到 {link} 指正和反馈。",
+    "works.feedback": "GitHub",
     "works.section.personal": "个人作品",
     "works.section.participation": "参与作品",
     "works.section.uploads": "投稿作品",
@@ -142,8 +143,8 @@ export const worksMessages = {
     "works.lead":
       "鹿乃名義の作品、歌声や詞を届けた参加作品、そしてこれまでネットに投稿してきた歌を、ここにまとめました。",
     "works.caveat":
-      "作品は権利の帰属どおりに分類しているわけではありません。作品数が多いため、誤りが含まれる場合があります。",
-    "works.reportIssue": "GitHub の issue で知らせる",
+      "作品は権利の帰属どおりに分類しているわけではありません。作品数が多いため、誤りが含まれる場合があります。お気づきの点があれば、{link}で気軽に教えてください。",
+    "works.feedback": "GitHub",
     "works.section.personal": "個人作品",
     "works.section.participation": "参加作品",
     "works.section.uploads": "投稿作品",
@@ -270,8 +271,8 @@ export const worksMessages = {
     "works.lead":
       "Releases under Kano's own name, albums carrying Kano's voice and words, and the songs posted online over the years, gathered in one place.",
     "works.caveat":
-      "Works are not sorted strictly by rights ownership, and with this many of them some details may be wrong.",
-    "works.reportIssue": "Report it in a GitHub issue",
+      "Works are not sorted strictly by rights ownership, and with this many of them some details may be wrong; corrections and feedback are always welcome {link}.",
+    "works.feedback": "on GitHub",
     "works.section.personal": "Own releases",
     "works.section.participation": "Featured on",
     "works.section.uploads": "Uploads",

@@ -30,7 +30,11 @@ introduce a separate token system for a single page.
   the cover, then the tracklist, with a round photo beside each disc that has
   one, beside the edition's details. The section tabs carry their counts and
   no separate figures or notes; a tab chosen by pointer keeps no focus
-  outline, while keyboard focus draws one the tab bar leaves room for. The works she
+  outline, while keyboard focus draws one the tab bar leaves room for. A
+  closed sheet returns focus only to the control that opened it, never to the
+  section panel a tap in Safari focuses. On phones the English title fits one
+  line, the filter chips scroll sideways in one row that ends with the order as
+  a single icon, and a cover's record rises only while a finger is on it. The works she
   is featured on are a list; her uploads are a grid of 16:9 covers, with a
   printed sleeve in one of the palette's tones where no thumbnail is saved. Rows rise
   in as they scroll into view where the browser ties animation to scrolling,

@@ -40,7 +40,12 @@ func TestATransientRenewalFailureKeepsTheRunGoing(t *testing.T) {
 	defer s.Close()
 	store := &flakyRenewStore{Store: s, renewed: make(chan struct{}, 1)}
 	step := &blockingStep{entered: make(chan StepInput, 1), release: make(chan struct{})}
-	q := &Queue{Store: s, Executor: &Executor{Store: store, Steps: step, LeaseTTL: 300 * time.Millisecond, SyntheticSteps: map[string]bool{"x": true}}}
+	// The lease is claimed, renewed and fenced at one frozen instant, so a slow
+	// runner that delays a heartbeat past the short TTL cannot expire it; only
+	// the failed renewal can stop the run.
+	frozen := time.Now()
+	clock := func() time.Time { return frozen }
+	q := &Queue{Store: s, Executor: &Executor{Store: store, Steps: step, LeaseTTL: 300 * time.Millisecond, Clock: clock, SyntheticSteps: map[string]bool{"x": true}}}
 	defer q.Close()
 	r, err := q.SubmitDefinition(context.Background(), xRecent, TriggerOperator, nil)
 	if err != nil {

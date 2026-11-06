@@ -38,7 +38,10 @@ Check desktop and mobile layouts on the affected pages. Preserve semantic
 buttons, labels, keyboard navigation, visible focus, and dialog Escape/focus
 behavior. Open images through the shared image viewer and give each opener the
 `media-opener` class, so every page shows the same cursor and closes the same
-way. Use status color to communicate state, with text or an icon available
+way. The page always reserves the vertical scrollbar's gutter, so a page
+growing past the viewport or a dialog or menu locking scroll never changes its
+width; scroll locks hide overflow and add no compensating margin or padding.
+Use status color to communicate state, with text or an icon available
 as another cue. Keep implementation details out of visitor-facing copy.
 
 ## Related Docs

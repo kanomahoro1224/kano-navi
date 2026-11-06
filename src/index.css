@@ -97,9 +97,15 @@
     @apply border-border;
   }
 
+  /*
+   * The page always reserves the vertical scrollbar's gutter, so content
+   * that grows past the viewport, or a sheet that locks scrolling, never
+   * changes the page width. Overlay scrollbars (phones, macOS) take no space.
+   */
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 84px;
+    scrollbar-gutter: stable;
   }
 
   body {
@@ -144,6 +150,15 @@
   body.has-sheet,
   body.has-detail-sheet {
     overflow: hidden;
+  }
+
+  /*
+   * Radix modal menus lock scrolling and pad the body by the scrollbar width.
+   * The reserved gutter already holds that space, so the extra margin would
+   * shift the page; the higher specificity beats the injected rule.
+   */
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
   }
 
   @media (prefers-reduced-motion: reduce) {

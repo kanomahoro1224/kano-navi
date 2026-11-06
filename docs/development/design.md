@@ -31,9 +31,17 @@ introduce a separate token system for a single page.
   their new places and the ground and flowers morph between the sides'
   curves, and this device remembers the side. It falls back to
   the trilogy's sleeves when a cutout is missing. A cover shelf of Kano's own releases by year opens
-  a sheet for each release: a header with the sleeve over a blurred wash of
-  the cover, then the tracklist, with a round photo beside each disc that has
-  one, beside the edition's details. The section tabs carry their counts and
+  a sheet for each release, one size for every release and edition. Its
+  left pane holds the sleeve over a blurred wash of the cover, the label, one
+  row of figures, and a card for each edition with that edition's cover and
+  format, the chosen one drawn in ink. The tracklist has a round photo beside
+  each disc that has one. The details are the chosen edition's facts and
+  bonuses, or for a release sold in one version its type, date, label and
+  catalog number. On the widest screens the tracklist and the details take
+  columns of their own; a wide screen puts the details below the tracklist
+  in one right pane, and narrower screens stack everything in one scrolling
+  column. The panes'
+  scrollbars are thin and show while the pointer is over them. The section tabs carry their counts and
   no separate figures or notes; a tab chosen by pointer keeps no focus
   outline, while keyboard focus draws one the tab bar leaves room for. A
   closed sheet returns focus only to the control that opened it, never to the

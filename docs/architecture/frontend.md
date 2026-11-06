@@ -61,9 +61,12 @@ narrow screens show the site name and fold the page links into a menu behind
 the `kano-seal.tsx` deer seal),
 `media-dialog.tsx` (the native modal image viewer: its close button stays in
 the screen's top-right corner, and a click anywhere outside the image, its
-arrows and its details closes it; a set takes the viewer's full height and
-centres each image in it, so its arrows stay in place across image sizes,
-and shows the details panel for every image once any image has details; an
+arrows and its details closes it; a set without details takes the
+viewer's full height and centres each image in it, so its arrows stay in
+place across image sizes; a viewer with details keeps one size for every
+image, at most 820px tall, and shows the details panel for every image once
+any image has details, and with `scaleUp` (Works and Journey) a smaller
+image grows to fill the stage; an
 image's small-print note closes the panel, or the viewer when there is none;
 every control that opens it carries `media-opener`, which shows the zoom
 cursor), `links.tsx` (external

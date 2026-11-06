@@ -767,6 +767,7 @@ export function WorksApp() {
         label={viewer?.title || ""}
         onClose={closeCovers}
         onStep={stepCovers}
+        scaleUp
         renderImage={(item) => (
           <WorksCoverImage
             key={item.media}

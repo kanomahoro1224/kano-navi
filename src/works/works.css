@@ -1485,10 +1485,15 @@ body:has(.site.works) {
 
 /* ------------------------------------------------------------ release sheet */
 
+/*
+ * The sheet keeps one size for every release and edition, so switching
+ * editions or opening a single beside a long album never resizes it.
+ */
 .works-sheet {
   width: min(960px, calc(100vw - 24px));
+  height: min(860px, calc(100dvh - 24px));
   max-width: none;
-  max-height: calc(100dvh - 24px);
+  max-height: none;
   margin: auto;
   padding: 0;
   overflow: auto;
@@ -1522,6 +1527,35 @@ body.has-works-sheet {
   overflow: hidden;
 }
 
+/* The sheet's scrolling panes keep a thin scrollbar that shows while the
+   pointer is over the pane. */
+.works-sheet,
+.release-head-inner,
+.release-body,
+.release-tracks,
+.release-aside {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+.works-sheet:hover,
+.release-head-inner:hover,
+.release-body:hover,
+.release-tracks:hover,
+.release-aside:hover {
+  scrollbar-color: color-mix(in oklab, var(--ink) 24%, transparent) transparent;
+}
+
+@media (hover: none) {
+  .works-sheet,
+  .release-head-inner,
+  .release-body,
+  .release-tracks,
+  .release-aside {
+    scrollbar-color: auto;
+  }
+}
+
 /* The close button rides over the header without taking room. */
 .works-sheet-close {
   position: sticky;
@@ -1538,14 +1572,17 @@ body.has-works-sheet {
 /* Header: the cover in its sleeve over a wash of its own colours. */
 .release-head {
   position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--rule);
+  isolation: isolate;
+}
+
+.release-head-inner {
   display: grid;
   grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
   align-items: end;
   gap: 28px 56px;
-  overflow: hidden;
   padding: 64px 48px 40px;
-  border-bottom: 1px solid var(--rule);
-  isolation: isolate;
 }
 
 .release-head-backdrop {
@@ -1643,25 +1680,36 @@ body.has-works-sheet {
   font-size: 13.5px;
 }
 
+/* The figures keep to one row; a long label wraps under its number. */
 .release-head-figures {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px 28px;
-  margin: 10px 0 6px;
+  align-items: start;
+  gap: 22px;
+  margin: 6px 0 2px;
   color: var(--soft);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
   text-transform: uppercase;
+}
+
+.release-head-figures > span {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.release-head-figures > span:last-child {
+  max-width: 11em;
 }
 
 .release-head-figures strong {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   color: var(--ink);
   font-family: var(--font-serif);
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 400;
   letter-spacing: 0;
   line-height: 1;
@@ -1725,10 +1773,6 @@ body.has-works-sheet {
   padding: 36px 48px 52px;
 }
 
-.release-body.is-single {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .release-tracks,
 .release-aside,
 .release-bonuses {
@@ -1745,11 +1789,6 @@ body.has-works-sheet {
 .release-tracks > .works-field-label,
 .release-bonuses > .works-field-label {
   margin-top: 0;
-}
-
-.release-listen-note {
-  margin: 0;
-  font-size: 12.5px;
 }
 
 .works-listen {
@@ -1971,9 +2010,94 @@ body.has-works-sheet {
   text-transform: uppercase;
 }
 
-/* Editions: chips to switch, then the chosen edition's own facts. */
+/*
+ * Editions: a card for each, with its own cover and format, so 初回限定盤
+ * and 通常盤 read apart at a glance; the chosen one is drawn in ink. The
+ * chosen edition's own facts follow beside or below the tracklist.
+ */
 .works-edition-picker {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 6px;
+}
+
+.works-edition-picker button {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px 5px 5px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: color-mix(in oklab, hsl(var(--background)) 72%, transparent);
+  color: var(--soft);
+  text-align: left;
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+.works-edition-picker button:hover {
+  border-color: color-mix(in oklab, var(--ink) 40%, transparent);
+  color: var(--ink);
+}
+
+.works-edition-picker button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.works-edition-art {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 3px;
+  background: var(--sunken);
+  opacity: 0.6;
+  transition: opacity 200ms ease;
+}
+
+.works-edition-picker button:hover .works-edition-art,
+.works-edition-picker button[aria-pressed="true"] .works-edition-art {
+  opacity: 1;
+}
+
+.works-edition-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.works-edition-art svg {
+  width: 16px;
+  height: 16px;
+}
+
+.works-edition-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.works-edition-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.works-edition-text small {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .release-edition {
@@ -2110,7 +2234,7 @@ body.has-works-sheet {
 }
 
 @media (max-width: 720px) {
-  .release-head {
+  .release-head-inner {
     grid-template-columns: 1fr;
     gap: 24px;
     padding: 60px 20px 26px;
@@ -2128,6 +2252,133 @@ body.has-works-sheet {
   .works-facts div {
     grid-template-columns: 1fr;
     gap: 2px;
+  }
+}
+
+/*
+ * On a wide screen the sheet splits in two: the cover and the release's
+ * figures stay in the left pane, and the tracklist, edition facts and
+ * bonuses scroll in the right. Each pane scrolls on its own, so a short
+ * single fills the sheet as well as a long album.
+ */
+@media (min-width: 900px) {
+  .works-sheet {
+    height: min(860px, calc(100dvh - 48px));
+    overflow: hidden;
+  }
+
+  .works-sheet-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    margin: 0;
+  }
+
+  .release-sheet {
+    display: grid;
+    height: 100%;
+    grid-template-columns: 360px minmax(0, 1fr);
+  }
+
+  .release-head {
+    border-right: 1px solid var(--rule);
+    border-bottom: 0;
+  }
+
+  .release-head-inner {
+    height: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    align-items: start;
+    gap: 26px;
+    overflow-y: auto;
+    padding: 52px 32px 32px;
+    overscroll-behavior: contain;
+  }
+
+  .release-head-copy .works-eyebrow {
+    padding-right: 0;
+  }
+
+  .release-head-copy h2 {
+    font-size: clamp(30px, 2.6vw, 38px);
+  }
+
+  .release-body {
+    min-height: 0;
+    align-content: start;
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+    padding: 60px 40px 48px;
+    overscroll-behavior: contain;
+  }
+}
+
+/*
+ * On a wider screen the right pane splits again: the tracklist in the middle
+ * and the edition's facts and bonuses in a column of their own, each
+ * scrolling on its own, so switching editions changes what is in view.
+ */
+@media (min-width: 1320px) {
+  .works-sheet {
+    width: min(1240px, calc(100vw - 48px));
+  }
+
+  .release-sheet {
+    grid-template-columns: 340px minmax(0, 1fr);
+  }
+
+  .release-body {
+    height: 100%;
+    align-content: stretch;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .release-tracks,
+  .release-aside {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .release-tracks {
+    padding: 56px 36px 48px;
+  }
+
+  .release-aside {
+    padding: 64px 28px 48px;
+    border-left: 1px solid var(--rule);
+    background: color-mix(in oklab, hsl(var(--card)) 45%, transparent);
+  }
+
+  .release-aside .release-edition {
+    margin-top: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .release-aside .works-facts div {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .release-aside .release-edition-name {
+    font-size: 19px;
+  }
+
+  .release-aside .works-bonuses li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1px;
+    padding: 8px 0;
+  }
+
+  .release-aside .works-bonus-store {
+    font-size: 11.5px;
   }
 }
 

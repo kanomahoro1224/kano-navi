@@ -22,6 +22,11 @@
   Each instance saves the uploads' video thumbnails itself; an upload the
   site knows shows its length, whether it can still be watched and a link
   to the board's video archive, and the list names the date it covers.
+- A Works release's sheet and the Works and Journey image viewers keep one
+  size whatever the release or image; on a wide screen the release's cover
+  and figures stay on the left while its tracklist and details scroll beside
+  them, in columns of their own on the widest screens. Each edition, such as
+  初回限定盤 or 通常盤, is a card with its own cover and format.
 - The Journey page's address is `/journey`; `/history` links redirect to it.
   Its Chinese name is 足迹.
 - Journey's release milestones show their release's covers from the Works

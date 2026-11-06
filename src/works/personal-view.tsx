@@ -395,20 +395,44 @@ function EditionPicker({
 }) {
   return (
     <div
-      className="segmented works-edition-picker"
+      className="works-edition-picker"
       role="group"
       aria-label={t("works.editionPicker")}
     >
-      {editions.map((edition, index) => (
-        <button
-          key={edition.name}
-          type="button"
-          aria-pressed={index === value}
-          onClick={() => onChange(index)}
-        >
-          {edition.name}
-        </button>
-      ))}
+      {editions.map((edition, index) => {
+        const cover = edition.covers[0] ?? null
+        const detail = [
+          edition.format,
+          edition.cancelled ? t("works.cancelled") : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")
+        return (
+          <button
+            key={edition.name}
+            type="button"
+            aria-pressed={index === value}
+            onClick={() => onChange(index)}
+          >
+            <span className="works-edition-art" aria-hidden="true">
+              {cover ? (
+                <WorksCoverImage
+                  cover={cover}
+                  alt=""
+                  t={t}
+                  sizes={WORKS_COVER_SIZES.edition}
+                />
+              ) : (
+                <Disc3 />
+              )}
+            </span>
+            <span className="works-edition-text">
+              <span className="works-edition-name">{edition.name}</span>
+              {detail ? <small>{detail}</small> : null}
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -453,10 +477,6 @@ export function ReleaseSheet({
     setEditionIndex(index)
     setShown(0)
   }
-  const hasAside =
-    edition !== null ||
-    release.catalog !== "" ||
-    release.storeBonuses.length > 0
   return (
     <WorksSheet label={release.title} onClose={onClose}>
       <article className="release-sheet">
@@ -472,116 +492,118 @@ export function ReleaseSheet({
               />
             </span>
           ) : null}
-          <div className="release-head-art">
-            {cover ? (
-              <button
-                type="button"
-                className="media-opener release-head-cover"
-                onClick={() => onOpenCovers(covers, shown, release.title)}
-                aria-label={t("works.openCover", { title: release.title })}
-              >
+          <div className="release-head-inner">
+            <div className="release-head-art">
+              {cover ? (
+                <button
+                  type="button"
+                  className="media-opener release-head-cover"
+                  onClick={() => onOpenCovers(covers, shown, release.title)}
+                  aria-label={t("works.openCover", { title: release.title })}
+                >
+                  <Sleeve
+                    key={cover.media}
+                    cover={cover}
+                    disc={recordDisc}
+                    printed={(edition ?? release).printedDisc}
+                    t={t}
+                    sizes={WORKS_COVER_SIZES.sheet}
+                    eager
+                    className="is-sheet"
+                  />
+                </button>
+              ) : (
                 <Sleeve
-                  key={cover.media}
-                  cover={cover}
-                  disc={recordDisc}
-                  printed={(edition ?? release).printedDisc}
+                  cover={null}
                   t={t}
                   sizes={WORKS_COVER_SIZES.sheet}
-                  eager
                   className="is-sheet"
                 />
-              </button>
-            ) : (
-              <Sleeve
-                cover={null}
-                t={t}
-                sizes={WORKS_COVER_SIZES.sheet}
-                className="is-sheet"
-              />
-            )}
-            {covers.length > 1 ? (
-              <div
-                className="release-sheet-editions"
-                role="group"
-                aria-label={t("works.coverPicker")}
-              >
-                {covers.map((item, index) => (
-                  <button
-                    key={item.media}
-                    type="button"
-                    aria-pressed={index === shown}
-                    aria-label={t("works.editionNumber", {
-                      number: index + 1,
-                      count: covers.length,
-                    })}
-                    title={item.caption}
-                    onClick={() => setShown(index)}
-                  >
-                    <WorksCoverImage
-                      cover={item}
-                      alt=""
-                      t={t}
-                      sizes={WORKS_COVER_SIZES.edition}
-                    />
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {caption || cover?.thirdParty || cover?.credit ? (
-              <p className="release-sheet-caption">
-                {caption ? <span lang="zh-CN">{caption}</span> : null}
-                {cover?.credit ? (
-                  <small>
-                    <CreditLine credit={cover.credit} t={t} />
-                  </small>
-                ) : cover?.thirdParty ? (
-                  <small>{t("works.thirdPartyFile")}</small>
+              )}
+              {covers.length > 1 ? (
+                <div
+                  className="release-sheet-editions"
+                  role="group"
+                  aria-label={t("works.coverPicker")}
+                >
+                  {covers.map((item, index) => (
+                    <button
+                      key={item.media}
+                      type="button"
+                      aria-pressed={index === shown}
+                      aria-label={t("works.editionNumber", {
+                        number: index + 1,
+                        count: covers.length,
+                      })}
+                      title={item.caption}
+                      onClick={() => setShown(index)}
+                    >
+                      <WorksCoverImage
+                        cover={item}
+                        alt=""
+                        t={t}
+                        sizes={WORKS_COVER_SIZES.edition}
+                      />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {caption || cover?.thirdParty || cover?.credit ? (
+                <p className="release-sheet-caption">
+                  {caption ? <span lang="zh-CN">{caption}</span> : null}
+                  {cover?.credit ? (
+                    <small>
+                      <CreditLine credit={cover.credit} t={t} />
+                    </small>
+                  ) : cover?.thirdParty ? (
+                    <small>{t("works.thirdPartyFile")}</small>
+                  ) : null}
+                </p>
+              ) : null}
+            </div>
+            <div className="release-head-copy">
+              <p className="works-eyebrow">
+                <time dateTime={release.date}>
+                  {fullDate(release.date, locale)}
+                </time>
+                <span>{releaseKind(release, t)}</span>
+                {release.cancelled ? <span>{t("works.cancelled")}</span> : null}
+              </p>
+              <h2>{release.title}</h2>
+              {release.unit ? (
+                <p className="release-sheet-unit">{release.unit}</p>
+              ) : null}
+              <p className="release-head-label">{release.label}</p>
+              <p className="release-head-figures">
+                <span>
+                  <strong>{tracks.length}</strong>
+                  {t("works.figureTracks")}
+                </span>
+                {release.editions.length > 1 ? (
+                  <span>
+                    <strong>{release.editions.length}</strong>
+                    {t("works.editions")}
+                  </span>
+                ) : null}
+                {listened ? (
+                  <span>
+                    <strong>{listened}</strong>
+                    {t("works.figureListen")}
+                  </span>
                 ) : null}
               </p>
-            ) : null}
-          </div>
-          <div className="release-head-copy">
-            <p className="works-eyebrow">
-              <time dateTime={release.date}>
-                {fullDate(release.date, locale)}
-              </time>
-              <span>{releaseKind(release, t)}</span>
-              {release.cancelled ? <span>{t("works.cancelled")}</span> : null}
-            </p>
-            <h2>{release.title}</h2>
-            {release.unit ? (
-              <p className="release-sheet-unit">{release.unit}</p>
-            ) : null}
-            <p className="release-head-label">{release.label}</p>
-            <p className="release-head-figures">
-              <span>
-                <strong>{tracks.length}</strong>
-                {t("works.figureTracks")}
-              </span>
               {release.editions.length > 1 ? (
-                <span>
-                  <strong>{release.editions.length}</strong>
-                  {t("works.editions")}
-                </span>
+                <EditionPicker
+                  editions={release.editions}
+                  value={editionIndex}
+                  onChange={chooseEdition}
+                  t={t}
+                />
               ) : null}
-              {listened ? (
-                <span>
-                  <strong>{listened}</strong>
-                  {t("works.figureListen")}
-                </span>
-              ) : null}
-            </p>
-            {release.editions.length > 1 ? (
-              <EditionPicker
-                editions={release.editions}
-                value={editionIndex}
-                onChange={chooseEdition}
-                t={t}
-              />
-            ) : null}
+            </div>
           </div>
         </header>
-        <div className={`release-body${hasAside ? "" : " is-single"}`}>
+        <div className="release-body">
           <section className="release-tracks" aria-label={t("works.tracklist")}>
             <p className="works-field-label">
               {t("works.tracklist")}
@@ -596,88 +618,92 @@ export function ReleaseSheet({
               t={t}
               onOpenCovers={onOpenCovers}
             />
-            {listened ? (
-              <p className="works-quiet release-listen-note">
-                {t("works.listenNote")}
-              </p>
-            ) : null}
           </section>
-          {hasAside ? (
-            <aside className="release-aside">
-              {edition ? (
-                <section className="release-edition">
-                  <h3 className="release-edition-name">
-                    {edition.name}
-                    {edition.cancelled ? (
-                      <span className="tag is-accent">
-                        {t("works.cancelled")}
-                      </span>
+          <aside className="release-aside">
+            {edition ? (
+              <section className="release-edition">
+                <h3 className="release-edition-name">
+                  {edition.name}
+                  {edition.cancelled ? (
+                    <span className="tag is-accent">
+                      {t("works.cancelled")}
+                    </span>
+                  ) : null}
+                </h3>
+                <Facts
+                  facts={[
+                    [
+                      "works.editionDate",
+                      edition.date ? fullDate(edition.date, locale) : "",
+                    ],
+                    ["works.catalog", edition.catalog],
+                    ["works.jan", edition.jan],
+                    ["works.price", edition.price],
+                    ["works.discFormat", edition.format],
+                    ["works.packaging", edition.packaging],
+                  ]}
+                  t={t}
+                />
+                {edition.bonuses.length || edition.bonusImages.length ? (
+                  <>
+                    <p className="works-field-label">{t("works.inPackage")}</p>
+                    {edition.bonuses.length ? (
+                      <ul className="works-package">
+                        {edition.bonuses.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
                     ) : null}
-                  </h3>
-                  <Facts
-                    facts={[
-                      [
-                        "works.editionDate",
-                        edition.date ? fullDate(edition.date, locale) : "",
-                      ],
-                      ["works.catalog", edition.catalog],
-                      ["works.jan", edition.jan],
-                      ["works.price", edition.price],
-                      ["works.discFormat", edition.format],
-                      ["works.packaging", edition.packaging],
-                    ]}
-                    t={t}
-                  />
-                  {edition.bonuses.length || edition.bonusImages.length ? (
-                    <>
-                      <p className="works-field-label">
-                        {t("works.inPackage")}
+                    <ImageStrip
+                      images={edition.bonusImages}
+                      title={release.title}
+                      t={t}
+                      onOpenCovers={onOpenCovers}
+                    />
+                  </>
+                ) : null}
+              </section>
+            ) : (
+              // A release sold in one version shows its own facts here.
+              <section className="release-edition">
+                <h3 className="release-edition-name">
+                  {releaseKind(release, t)}
+                </h3>
+                <Facts
+                  facts={[
+                    ["works.editionDate", fullDate(release.date, locale)],
+                    ["works.labelName", release.label],
+                    ["works.catalog", release.catalog],
+                  ]}
+                  t={t}
+                />
+              </section>
+            )}
+            {storeBonuses.length || release.storeBonuses.length ? (
+              <section className="release-bonuses">
+                <p className="works-field-label">{t("works.storeBonuses")}</p>
+                {storeBonuses.length ? (
+                  <BonusList items={storeBonuses} />
+                ) : null}
+                {release.storeBonuses.length ? (
+                  <>
+                    {edition ? (
+                      <p className="works-bonus-scope">
+                        {t("works.anyEdition")}
                       </p>
-                      {edition.bonuses.length ? (
-                        <ul className="works-package">
-                          {edition.bonuses.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      <ImageStrip
-                        images={edition.bonusImages}
-                        title={release.title}
-                        t={t}
-                        onOpenCovers={onOpenCovers}
-                      />
-                    </>
-                  ) : null}
-                </section>
-              ) : (
-                <Facts facts={[["works.catalog", release.catalog]]} t={t} />
-              )}
-              {storeBonuses.length || release.storeBonuses.length ? (
-                <section className="release-bonuses">
-                  <p className="works-field-label">{t("works.storeBonuses")}</p>
-                  {storeBonuses.length ? (
-                    <BonusList items={storeBonuses} />
-                  ) : null}
-                  {release.storeBonuses.length ? (
-                    <>
-                      {edition ? (
-                        <p className="works-bonus-scope">
-                          {t("works.anyEdition")}
-                        </p>
-                      ) : null}
-                      <BonusList items={release.storeBonuses} />
-                    </>
-                  ) : null}
-                  <ImageStrip
-                    images={bonusImages}
-                    title={release.title}
-                    t={t}
-                    onOpenCovers={onOpenCovers}
-                  />
-                </section>
-              ) : null}
-            </aside>
-          ) : null}
+                    ) : null}
+                    <BonusList items={release.storeBonuses} />
+                  </>
+                ) : null}
+                <ImageStrip
+                  images={bonusImages}
+                  title={release.title}
+                  t={t}
+                  onOpenCovers={onOpenCovers}
+                />
+              </section>
+            ) : null}
+          </aside>
         </div>
       </article>
     </WorksSheet>

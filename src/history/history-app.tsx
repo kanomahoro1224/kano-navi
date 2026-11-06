@@ -721,6 +721,7 @@ export function HistoryApp() {
         }
         onClose={closeMedia}
         onStep={stepMedia}
+        scaleUp
         renderImage={(item) => (
           <HistoryImage key={item.id} item={item} locale={locale} t={t} eager />
         )}

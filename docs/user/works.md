@@ -33,7 +33,8 @@ same way.
 Open a work to see it in full: its cover and record over a wash of the
 cover's colours, the release date, label, and counts of tracks, editions and
 tracks also posted online, then the tracklist beside the chosen edition's
-details. A track also posted to a video site has a button for each site,
+details, or for a work sold in one version its type, date, label and catalog
+number. A track also posted to a video site has a button for each site,
 marked when the video is for YouTube channel members only. A work sold in several
 editions, such as a limited edition with a DVD and a standard edition, lets
 you switch between them, and opens on the edition with the most disc photos,

@@ -13,7 +13,8 @@ const KEEP_OPEN =
  * button in the screen corner and a click outside the image and its controls
  * close it; arrow keys page through a set, and focus returns to the opener.
  * Details show in a panel beside the image; an item's small-print note
- * closes the panel, or the viewer when the set has no details.
+ * closes the panel, or the viewer when the set has no details. A viewer with
+ * a panel keeps one size whatever the image's own size.
  */
 export function MediaDialog<T>({
   items,
@@ -24,6 +25,7 @@ export function MediaDialog<T>({
   renderImage,
   renderDetails,
   renderNote,
+  scaleUp = false,
 }: {
   items: T[] | null | undefined
   index: number
@@ -35,6 +37,11 @@ export function MediaDialog<T>({
   renderDetails?: (item: T) => ReactNode
   /** Small print at the bottom of the panel or the viewer. */
   renderNote?: (item: T) => ReactNode
+  /**
+   * Images smaller than the stage grow to fill it, for collections whose
+   * smallest images still read well at that size.
+   */
+  scaleUp?: boolean
 }) {
   const { t } = useAppSettings()
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -72,7 +79,7 @@ export function MediaDialog<T>({
   return (
     <dialog
       ref={dialogRef}
-      className={`media-dialog${panel ? " has-details" : ""}${!panel && note !== null ? " has-note" : ""}${many ? " has-steps" : ""}`}
+      className={`media-dialog${panel ? " has-details" : ""}${!panel && note !== null ? " has-note" : ""}${many ? " has-steps" : ""}${scaleUp ? " scales-up" : ""}`}
       aria-label={label}
       onCancel={(event) => {
         event.preventDefault()

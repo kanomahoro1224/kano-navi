@@ -2,6 +2,7 @@ import type { Dashboard, Locale, Translator } from "@/types"
 import {
   ArrowRight,
   ArrowUpRight,
+  BookOpen,
   Globe,
   Hash,
   House,
@@ -12,7 +13,7 @@ import {
 
 import { SectionTitle } from "@/site/site-shell"
 import { BilibiliLogo, ExternalLink, XLogo, YouTubeLogo } from "@/site/links"
-import { archiveLinks, hashtags } from "../content"
+import { hashtags } from "../content"
 import { localizeSeedText } from "../seed-copy"
 
 function resourceIcon(url = "") {
@@ -23,6 +24,7 @@ function resourceIcon(url = "") {
   if (/nicovideo\.jp/u.test(url)) return ListMusic
   if (/milpr\.com/u.test(url)) return Sparkles
   if (/amebaownd\.com/u.test(url)) return House
+  if (/wikipedia\.org/u.test(url)) return BookOpen
   return Globe
 }
 
@@ -97,14 +99,10 @@ export function LinkDirectory({
               {t("archive.fullHistory")}
               <ArrowRight aria-hidden="true" />
             </a>
-            <ExternalLink className="text-link" href={archiveLinks.wikipedia}>
-              {t("archive.wiki")}
-              <ArrowUpRight aria-hidden="true" />
-            </ExternalLink>
-            <ExternalLink className="text-link" href={archiveLinks.mylist}>
-              {t("archive.listenFromStart")}
-              <ArrowUpRight aria-hidden="true" />
-            </ExternalLink>
+            <a className="pill-button" href="/works">
+              {t("archive.works")}
+              <ArrowRight aria-hidden="true" />
+            </a>
           </div>
         </aside>
       </div>

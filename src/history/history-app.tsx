@@ -665,7 +665,6 @@ export function HistoryApp() {
 
           <TabsContent value="gallery" className="gallery-view">
             <div className="gallery-bar">
-              <p>{t("history.galleryLead")}</p>
               <div
                 className="segmented"
                 role="group"

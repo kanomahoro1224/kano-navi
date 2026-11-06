@@ -10,8 +10,6 @@ export const historyMessages = {
     "history.gallery": "图片图鉴",
     "history.selectionCount": "{milestones} 个节点 · {images} 张图片",
     "history.jumpYear": "跳转到年份",
-    "history.galleryLead":
-      "从唱片封面到历代形象。点击图片查看完整画面、图片资料与原始出处。",
     "history.mediaFilter": "图片类型",
     "history.galleryEmpty": "此筛选下暂时没有图片。",
     "history.openImage": "查看图片与出处：{title}",
@@ -23,7 +21,6 @@ export const historyMessages = {
     "history.frameTime": "截帧时刻",
     "history.openSource": "打开原始出处",
     "history.sourceImage": "原站图片文件",
-    "history.cachedOriginal": "本地原文件",
     "history.originalStream": "原直播（历史链接）",
     "history.heroImageSource": "官网全身图 · 查看出处",
     "history.imageRights":
@@ -99,8 +96,6 @@ export const historyMessages = {
     "history.gallery": "ビジュアル図鑑",
     "history.selectionCount": "{milestones} 件の出来事 · {images} 枚の画像",
     "history.jumpYear": "年に移動",
-    "history.galleryLead":
-      "ジャケットから歴代ビジュアルまで。画像を押すと、全体・画像情報・元の出典を確認できます。",
     "history.mediaFilter": "画像の種類",
     "history.galleryEmpty": "この条件の画像はまだ収録していません。",
     "history.openImage": "画像と出典を見る：{title}",
@@ -112,7 +107,6 @@ export const historyMessages = {
     "history.frameTime": "フレームの時刻",
     "history.openSource": "元の出典を開く",
     "history.sourceImage": "出典の画像ファイル",
-    "history.cachedOriginal": "ローカルの元ファイル",
     "history.originalStream": "元配信（過去のリンク）",
     "history.heroImageSource": "公式全身画像 · 出典を見る",
     "history.imageRights":
@@ -193,8 +187,6 @@ export const historyMessages = {
     "history.gallery": "Visual archive",
     "history.selectionCount": "{milestones} milestones · {images} images",
     "history.jumpYear": "Jump to a year",
-    "history.galleryLead":
-      "From album covers to character designs. Open an image to see the full picture, its details, and the original source.",
     "history.mediaFilter": "Image type",
     "history.galleryEmpty": "No images match this selection.",
     "history.openImage": "View image and source: {title}",
@@ -206,7 +198,6 @@ export const historyMessages = {
     "history.frameTime": "Frame timestamp",
     "history.openSource": "Open original source",
     "history.sourceImage": "Image on the source website",
-    "history.cachedOriginal": "Local original file",
     "history.originalStream": "Original stream (historical link)",
     "history.heroImageSource": "Official full-body artwork · source",
     "history.imageRights":

@@ -266,10 +266,6 @@ function ReleaseCoverDetails({
         ) : cover.sourceLabel ? (
           <span className="text-link">{cover.sourceLabel}</span>
         ) : null}
-        <ExternalLink className="text-link" href={item.url}>
-          {t("history.cachedOriginal")}
-          <ArrowUpRight aria-hidden="true" />
-        </ExternalLink>
       </div>
       <p className="image-details-rights">{t("history.imageRights")}</p>
     </div>
@@ -326,10 +322,6 @@ function FixedImageDetails({
       <div className="image-details-links">
         <ExternalLink className="pill-button" href={item.sourcePage}>
           {t("history.openSource")} · {sourceName(item.sourcePage, t)}
-          <ArrowUpRight aria-hidden="true" />
-        </ExternalLink>
-        <ExternalLink className="text-link" href={item.url}>
-          {t("history.cachedOriginal")}
           <ArrowUpRight aria-hidden="true" />
         </ExternalLink>
         <ExternalLink className="text-link" href={item.sourceUrl}>

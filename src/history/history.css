@@ -707,13 +707,6 @@
   margin-bottom: 20px;
 }
 
-.gallery-bar p {
-  max-width: 70ch;
-  margin: 0;
-  color: var(--soft);
-  font-size: 14px;
-}
-
 .gallery-bar .segmented button:disabled {
   opacity: 0.4;
 }

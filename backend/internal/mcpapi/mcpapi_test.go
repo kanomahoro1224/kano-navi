@@ -452,9 +452,9 @@ func TestDashboardReadIsAPublicProjection(t *testing.T) {
 				t.Fatalf("event exposes %s: %v", field, event)
 			}
 		}
-		// 18 schedule facts, the calendar label, plus the linked video's
-		// translations and sourceLanguage.
-		if len(event) != 21 {
+		// 19 schedule facts (a sale's close date included), the calendar
+		// label, plus the linked video's translations and sourceLanguage.
+		if len(event) != 22 {
 			t.Fatalf("event field count = %d: %v", len(event), keys(event))
 		}
 		// The label is read from the event row, so a reader sees it here just
@@ -503,7 +503,7 @@ func TestScheduleListHidesOperatorMetadata(t *testing.T) {
 				t.Fatalf("event exposes %s", field)
 			}
 		}
-		if len(event) != 18 {
+		if len(event) != 19 {
 			t.Fatalf("event field count = %d: %v", len(event), keys(event))
 		}
 	}

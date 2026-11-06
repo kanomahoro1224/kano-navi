@@ -309,17 +309,38 @@ func eventInput(body map[string]json.RawMessage) (sqlite.EventInput, error) {
 	if input.StartsAt != "" && startsAt.In(japanZone).Format("2006-01-02") != input.StartsOn {
 		return input, httpx.Invalid("startsAt must fall on startsOn in Asia/Tokyo")
 	}
+	if input.EventType, err = oneOf(textField(body["eventType"]), "event", "eventType", "event", "stream", "member", "release", "appearance", "sale"); err != nil {
+		return input, err
+	}
+	// Only a sale period has a close date. Its close time falls on that date,
+	// and a deadline whose opening is not known has no start time.
+	if input.EndsOn, err = eventText(body["endsOn"], "endsOn", false, 10); err != nil {
+		return input, err
+	}
+	if input.EndsOn != "" {
+		if input.EventType != "sale" {
+			return input, httpx.Invalid("endsOn is only for a sale")
+		}
+		if day, parseErr := time.Parse("2006-01-02", input.EndsOn); parseErr != nil || day.Format("2006-01-02") != input.EndsOn || input.EndsOn < input.StartsOn {
+			return input, httpx.Invalid("endsOn is invalid")
+		}
+	}
 	if input.EndsAt, endsAt, err = eventInstant(body["endsAt"], "endsAt"); err != nil {
 		return input, err
 	}
-	if input.EndsAt != "" && input.StartsAt == "" {
+	if input.EndsAt != "" && input.StartsAt == "" && input.EndsOn == "" {
 		return input, httpx.Invalid("endsAt requires startsAt")
+	}
+	// A sale's close time is read against its close date, so one without
+	// the other would read as open for as long as the time says.
+	if input.EndsAt != "" && input.EventType == "sale" && input.EndsOn == "" {
+		return input, httpx.Invalid("endsAt requires endsOn for a sale")
+	}
+	if input.EndsAt != "" && input.EndsOn != "" && endsAt.In(japanZone).Format("2006-01-02") != input.EndsOn {
+		return input, httpx.Invalid("endsAt must fall on endsOn in Asia/Tokyo")
 	}
 	if input.EndsAt != "" && endsAt.Before(startsAt) {
 		return input, httpx.Invalid("endsAt must not be earlier than startsAt")
-	}
-	if input.EventType, err = oneOf(textField(body["eventType"]), "event", "eventType", "event", "stream", "member", "release", "appearance"); err != nil {
-		return input, err
 	}
 	// An empty tag clears the label as the operator's decision, so no
 	// automatic layer fills it again by itself; "auto" hands it back to them.

@@ -353,9 +353,14 @@ not an integer within its range; the next run reads the saved values.
 locked by an operator); `cancellation` is `none`,
 `llm_suspected` or `manual_confirmed`; `order` is `asc` or `desc` (default);
 `deleted=1` includes tombstones and `deleted=only` lists only them. Event fields are `title`, `detail`,
-`startsOn`, `startsAt`, `endsAt`, `timePrecision`, `eventType`, `tag`, `status`,
+`startsOn`, `startsAt`, `endsAt`, `endsOn`, `timePrecision`, `eventType`, `tag`, `status`,
 `url`, `cancellationStatus` and `cancellationReason` (required for
-`manual_confirmed`). Every write is manual: it locks the event against
+`manual_confirmed`). `eventType` is `event` (the default), `stream`,
+`member`, `release`, `appearance` or `sale`. `endsOn` is a sale's close date
+and is rejected for any other type; it is not before `startsOn`, `endsAt` then
+falls on it in Japan, and a deadline (`endsOn` equal to `startsOn`) may have
+`endsAt` without `startsAt`. A sale's `endsAt` requires `endsOn`. Saving
+another type clears it. Every write is manual: it locks the event against
 automatic extraction, and a delete is a durable tombstone. Confirming keeps
 the stored values unless the body overrides them.
 

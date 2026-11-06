@@ -34,6 +34,7 @@ import { ArchiveDialog } from "./components/archive-dialog"
 import { monthKeyOf } from "./components/month-picker"
 import { LinkDirectory } from "./components/link-directory"
 import { NowStage } from "./components/now-stage"
+import { SaleStrip } from "./components/sale-strip"
 import {
   type PostArchiveLayout,
   PostArchive,
@@ -415,6 +416,8 @@ export function DashboardApp() {
           now={now}
           t={t}
         />
+
+        <SaleStrip events={dashboard.events} locale={locale} now={now} t={t} />
 
         <WeekGuide
           range={calendarRange}

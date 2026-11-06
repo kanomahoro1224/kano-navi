@@ -17,7 +17,8 @@ the window only. `counts.videos` counts public videos whose publication time is
 within the most recent seven days; it is independent of the bounded homepage
 video list.
 The summary contains `nextEvent`, `nextStream`, `latestVideo`, `latestPost`,
-and counts; `latestPost` survives an empty requested window. `latestVideo` is
+and counts; `latestPost` survives an empty requested window. `nextEvent` is
+never a sale period. `latestVideo` is
 the stage's fallback: the newest non-upcoming video that is not a Short,
 unless the operator featured that Short, and that is neither private nor
 removed; a video of unknown format or unknown availability stays
@@ -116,6 +117,11 @@ are excluded from every one of these reads, including totals, day counts,
 adjacent dates and summary candidates (see
 [Duplicate merging](data-model.md#duplicate-merging)).
 
+Every public event carries `endsOn`, the Japan close date of a
+[sale period](data-model.md#sale-periods) or null. A range lists a sale when
+it contains the sale's opening or close date, and `dayCounts` and the adjacent
+dates count the close date too.
+
 Every public event carries `tag`: `live`, `game`, `talk`, `song` or `video`,
 or null when the entry is unlabelled. Every read derives it the same way from
 the event and its YouTube videos, so the board, `/api/calendar`, MCP
@@ -126,7 +132,9 @@ and fall back to the title when it is null; see
 
 Dashboard SQL selects up to 100 recent post previews plus the latest-post
 fallback, up to 100 current-week event previews plus 30 upcoming and 30 live
-focus candidates and at most one linked event per returned video, and bounded
+focus candidates, up to 10 [sale periods](data-model.md#sale-periods) on sale
+or opening within seven days (closing soonest first), and at most one linked
+event per returned video, and bounded
 video candidates plus Featured selection and the latest completed video.
 Live event eligibility is applied before the 30-row limit: cancelled and
 suspected cancellations, tombstones, non-stream activities and expired streams
@@ -213,8 +221,13 @@ date. All-day entries also carry `X-MICROSOFT-CDO-ALLDAYEVENT:TRUE`, which
 keeps Outlook from drawing them across two days; timed entries do not. A
 timed event without a stored end after its start lasts an hour when it is a
 stream (the `stream` and `member` types the board treats as streams) and half
-an hour otherwise, since RFC 5545 would make it zero-length. A UID is the
-public event ID with `@kano-navi`. `LAST-MODIFIED` is the event's stored
+an hour otherwise, since RFC 5545 would make it zero-length. A sale period
+is written at its ends, as the board shows it: its opening (titled "Sales
+open:" in the feed's language) and, when it closes on a later date, its close
+("Sales close:"), or the close alone for a deadline. A closing entry with a
+time ends at that time and starts half an hour earlier. A UID is the
+public event ID with `@kano-navi`; the closing entry of a period adds
+`-close` to the ID. `LAST-MODIFIED` is the event's stored
 `updated_at`, and `SEQUENCE` is that time in whole seconds since 2020-01-01
 UTC, so it grows whenever the event is written and clients replace a changed
 entry; an event without a parseable update time has neither. `STATUS` is

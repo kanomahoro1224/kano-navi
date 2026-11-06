@@ -797,8 +797,10 @@ bare weekday resolve without a UTC conversion. Fingerprints use the stored
 timestamp alone.
 
 Every returned entry must pass the event check: a non-blank title, a real
-`YYYY-MM-DD` date, `HH:MM` times (an end time only with a start time), known
-`timePrecision` and `eventType` codes and a confidence from 0 to 1. One
+`YYYY-MM-DD` date, `HH:MM` times (an end time only with a start time, or for
+a sale with a close date), for a sale a close date (`endDate`) that is a real
+date not before its opening date, known `timePrecision` and `eventType` codes
+and a confidence from 0 to 1. One
 entry that fails it fails the whole extraction with `schedule extraction
 contained an invalid event`. The prompt therefore states these formats and
 asks the model to leave out entries that give only a month, a season or a
@@ -806,6 +808,16 @@ vague period, and to classify a post with no remaining entry as
 `not_schedule`. The console's
 [recent failures](admin-api.md#extraction-and-models) show the newest
 stored failures with their messages.
+
+The prompt defines each `eventType` in one sentence; a `sale` is a period to
+buy, pre-order, order or apply for goods, media or tickets, and a `release`
+the date a work becomes available. It asks for one entry per sale period with
+its opening as `date` and `time` and its close as `endDate` and `endTime`;
+本日から means the post date. A post that names only the deadline gives the
+deadline as both dates and no start time. The close is stored as the
+[sale period](data-model.md#sale-periods) for a sale and ignored for every
+other type, and a shipping or delivery date is not an entry. A sale's
+`endTime` without `endDate` closes it on the Japan date that time falls on.
 
 The two candidate lists are merged, de-duplicated by X post ID, sorted by
 least recent attempt (unattempted posts first), with publication time as a tie

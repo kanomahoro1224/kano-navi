@@ -3,6 +3,7 @@ import { streamIdentity } from "../lib/stream-identity.ts"
 import {
   confirmedLiveStatus,
   eventIsLive,
+  eventIsSale,
   eventIsUpcoming,
   eventStatus,
   LIVE_GRACE_MS,
@@ -89,8 +90,13 @@ export function deriveDashboardAt(snapshot: Dashboard, now: number): Dashboard {
       !["cancelled", "cancellation_review"].includes(eventStatus(event, now)),
   )
   const upcomingEvents = eligible.filter((event) => event.isUpcoming)
+  // A sale period is never the next event: the stage shows activities, and
+  // an order window lasting weeks would hold it.
   const focusEvents = sortEvents(
-    eligible.filter((event) => event.isUpcoming || eventIsLive(event, now)),
+    eligible.filter(
+      (event) =>
+        !eventIsSale(event) && (event.isUpcoming || eventIsLive(event, now)),
+    ),
   )
   const focusVideos = videos
     .filter((video) => videoIsInFocus(video, now))

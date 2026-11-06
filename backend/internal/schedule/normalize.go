@@ -84,6 +84,9 @@ type normalizedEvent struct {
 	startsOn              string
 	startsAt              *string
 	endsAt                *string
+	// endsOn is the Japan close date of a sale period, nil for every other
+	// entry.
+	endsOn                *string
 	timePrecision         string
 	cancellationSuspected bool
 	status                string
@@ -109,12 +112,19 @@ func (e normalizedEvent) rawObject() *object {
 		"starts_on", e.startsOn,
 		"starts_at", e.startsAt,
 		"ends_at", e.endsAt,
+	}
+	// Only a sale period carries a close date; other entries keep the
+	// recorded shape of stored rows.
+	if e.endsOn != nil {
+		pairs = append(pairs, "ends_on", *e.endsOn)
+	}
+	pairs = append(pairs,
 		"timezone", "Asia/Tokyo",
 		"time_precision", e.timePrecision,
 		"cancellationSuspected", e.cancellationSuspected,
 		"status", e.status,
 		"event_type", e.eventType,
-	}
+	)
 	// An unlabelled entry keeps the recorded shape of stored rows.
 	if e.tag != nil {
 		pairs = append(pairs, "tag", *e.tag)
@@ -130,7 +140,7 @@ func (e normalizedEvent) rawObject() *object {
 
 var (
 	timePrecisions  = map[string]bool{"exact": true, "approximate": true, "unknown": true}
-	eventTypes      = map[string]bool{"event": true, "stream": true, "member": true, "release": true, "appearance": true}
+	eventTypes      = map[string]bool{"event": true, "stream": true, "member": true, "release": true, "appearance": true, "sale": true}
 	classifications = map[string]bool{"schedule": true, "not_schedule": true, "uncertain": true}
 	actions         = map[string]bool{"add": true, "update": true, "cancel": true, "none": true}
 )
@@ -181,6 +191,29 @@ func rolledYear(date string, published time.Time) string {
 	return next.Format("2006-01-02")
 }
 
+// saleEndDate returns the rolled close date of a sale entry, "" when the
+// entry is not a sale or names no close, and ok=false when the close is not a
+// calendar date or falls before the opening date. Every other type ignores
+// endDate: only a sale stores a period.
+func saleEndDate(event *object, eventType string, startDate string, published time.Time) (string, bool) {
+	value, defined := event.get("endDate")
+	if eventType != "sale" || !defined || value == nil || value == "" {
+		return "", true
+	}
+	text, isString := value.(string)
+	if !isString {
+		return "", false
+	}
+	if _, _, _, ok := parseDate(text); !ok {
+		return "", false
+	}
+	end := rolledYear(text, published)
+	if end < rolledYear(startDate, published) {
+		return "", false
+	}
+	return end, true
+}
+
 func normalizeExtractedEvents(items []any, postID, postURL string, published, now time.Time) ([]normalizedEvent, error) {
 	for _, item := range items {
 		event, _ := item.(*object)
@@ -198,11 +231,17 @@ func normalizeExtractedEvents(items []any, postID, postURL string, published, no
 		precisionText, precisionIsString := precision.(string)
 		typeText, typeIsString := eventType.(string)
 		_, _, _, dateOK := parseDate(stringOr(date, ""))
+		endDate, endDateOK := "", false
+		if dateOK && typeIsString {
+			endDate, endDateOK = saleEndDate(event, typeText, stringOr(date, ""), published)
+		}
+		// An end time needs a start time, except the deadline of a sale period
+		// whose close date is given.
 		valid := jsTrim(stringOr(title, "")) != "" &&
-			dateOK &&
+			dateOK && endDateOK &&
 			validClock(clock, clockDefined) &&
 			validClock(endClock, endDefined) &&
-			!(truthy(endClock) && !truthy(clock)) &&
+			!(truthy(endClock) && !truthy(clock) && endDate == "") &&
 			precisionIsString && timePrecisions[precisionText] &&
 			typeIsString && eventTypes[typeText] &&
 			finite(confidence) && confidence >= 0 && confidence <= 1
@@ -278,13 +317,36 @@ func normalizeExtractedEvents(items []any, postID, postURL string, published, no
 			normalized.timePrecision = precision.(string)
 			normalized.isUpcoming = !start.Before(now.Truncate(time.Millisecond))
 		}
-		if truthy(endValue) {
+		endDate, _ := saleEndDate(event, normalized.eventType, jsString(dateValue), published)
+		switch {
+		case endDate != "" && truthy(endValue):
+			// A sale closes at its stated date and time; 24:00 belongs to the
+			// next calendar date, as a start time does.
+			end := japanInstant(endDate, jsString(endValue))
+			endsOn := end.In(jst).Format("2006-01-02")
+			normalized.endsOn = &endsOn
+			if clock == "" || !end.Before(start) {
+				endsAt := sqlite.ISOTime(end)
+				normalized.endsAt = &endsAt
+			}
+		case endDate != "":
+			normalized.endsOn = &endDate
+		case truthy(endValue):
 			end := japanInstant(postedDate, jsString(endValue))
 			if clock != "" && end.Before(start) {
 				end = end.AddDate(0, 0, 1)
 			}
 			endsAt := sqlite.ISOTime(end)
 			normalized.endsAt = &endsAt
+			// A sale's close time always has its close date, the date it
+			// falls on in Japan.
+			if normalized.eventType == "sale" {
+				endsOn := end.In(jst).Format("2006-01-02")
+				normalized.endsOn = &endsOn
+			}
+		}
+		if normalized.endsOn != nil && *normalized.endsOn < normalized.startsOn {
+			normalized.endsOn, normalized.endsAt = nil, nil
 		}
 		normalized.cancellationSuspected = isCancelledEventStatus(statusValue)
 		status := "pending"

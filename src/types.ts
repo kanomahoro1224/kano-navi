@@ -89,6 +89,16 @@ export interface PostQuote {
   sourceLanguage?: string | null
 }
 
+export type SaleMark = "opens" | "closes"
+
+/** A sale period as stored: its opening and its close. */
+export interface SaleWindow {
+  startsOn: string
+  startsAt: string | null
+  endsOn: string | null
+  endsAt: string | null
+}
+
 export interface ScheduleEvent {
   id: string
   source: string
@@ -97,10 +107,19 @@ export interface ScheduleEvent {
   startsOn: string
   startsAt: string | null
   endsAt: string | null
+  /** The Japan close date of a sale period; absent for every other entry. */
+  endsOn?: string | null
   timezone: string
   timePrecision: string
   status: string | null
   eventType: string
+  /**
+   * Which end of a sale period this calendar entry shows. The board derives
+   * it (see `scheduleEntries`); the closing entry carries the close as its
+   * start and the whole period in `saleWindow`.
+   */
+  saleMark?: SaleMark
+  saleWindow?: SaleWindow
   /** The entry's activity label code (`live`, `game`, `talk`, `song`, `video`). */
   tag?: string | null
   url: string | null

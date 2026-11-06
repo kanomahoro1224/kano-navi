@@ -42,7 +42,14 @@ import {
 } from "@/admin/views/schedule-images"
 import { DayHeading, EventRow, groupByDay } from "@/admin/views/schedule-parts"
 
-const eventTypes = ["stream", "member", "appearance", "release", "event"]
+const eventTypes = [
+  "stream",
+  "member",
+  "appearance",
+  "release",
+  "sale",
+  "event",
+]
 
 /**
  * The calendar labels an entry can carry. "" is the operator's "no label";
@@ -73,6 +80,9 @@ interface Draft {
   end: string
   approximate: boolean
   eventType: string
+  /** A sale's close date and time; ignored for every other type. */
+  closesOn: string
+  closesAt: string
   tag: string
   status: string
   url: string
@@ -83,6 +93,8 @@ interface Draft {
 function draftOf(event: AdminEvent | null, day?: string): Draft {
   const startsAt = Date.parse(event?.startsAt || "")
   const minutes = (Date.parse(event?.endsAt || "") - startsAt) / 60_000
+  // A sale's end is its close, not a length after the start.
+  const sale = event?.eventType === "sale"
   return {
     title: event?.title || "",
     detail: event?.detail || "",
@@ -90,14 +102,18 @@ function draftOf(event: AdminEvent | null, day?: string): Draft {
     // A new entry starts timed so a date-only entry is a deliberate choice.
     timed: event ? Boolean(event.startsAt) : true,
     start: japanClock(event?.startsAt),
-    length: !event?.endsAt
-      ? ""
-      : lengths.includes(minutes)
-        ? String(minutes)
-        : "custom",
-    end: japanClock(event?.endsAt),
+    length:
+      !event?.endsAt || sale
+        ? ""
+        : lengths.includes(minutes)
+          ? String(minutes)
+          : "custom",
+    end: sale ? "" : japanClock(event?.endsAt),
     approximate: event?.timePrecision === "approximate",
     eventType: event?.eventType || "stream",
+    // A close time keeps its date, so saving never drops it.
+    closesOn: event?.endsOn || (sale ? japanDay(event?.endsAt) : ""),
+    closesAt: sale ? japanClock(event?.endsAt) : "",
     // An entry without an operator's label reads as automatic, so saving it
     // hands the label back rather than recording the operator's "no label".
     tag: event?.tag || (event?.tagSource === "manual" ? "" : "auto"),
@@ -131,12 +147,19 @@ function endOf(draft: Draft, startsAt: string) {
 function inputOf(draft: Draft): EventInput {
   const startsAt =
     draft.timed && draft.start ? japanInstant(draft.startsOn, draft.start) : ""
+  const sale = draft.eventType === "sale"
+  const endsOn = sale ? draft.closesOn : ""
   return {
     title: draft.title,
     detail: draft.detail,
     startsOn: draft.startsOn,
     startsAt,
-    endsAt: endOf(draft, startsAt),
+    endsAt: sale
+      ? endsOn && draft.closesAt
+        ? japanInstant(endsOn, draft.closesAt)
+        : ""
+      : endOf(draft, startsAt),
+    endsOn,
     timePrecision: startsAt
       ? draft.approximate
         ? "approximate"
@@ -194,7 +217,19 @@ function EventDialog({
   // What a calendar subscriber sees for this entry once it is saved.
   const input = inputOf(draft)
   let preview = `${formatDay(draft.startsOn, locale)} · ${t("admin.schedule.allDay")}`
-  if (input.startsAt) {
+  if (input.endsOn) {
+    // A sale shows at its opening and its close.
+    const opening = input.startsAt
+      ? `${formatDay(draft.startsOn, locale)} ${draft.start} JST`
+      : formatDay(draft.startsOn, locale)
+    const closing = input.endsAt
+      ? `${formatDay(input.endsOn, locale)} ${draft.closesAt} JST`
+      : formatDay(input.endsOn, locale)
+    preview =
+      input.endsOn === draft.startsOn && !input.startsAt
+        ? closing
+        : `${opening} → ${closing}`
+  } else if (input.startsAt) {
     const end =
       input.endsAt ||
       new Date(
@@ -331,39 +366,69 @@ function EventDialog({
                     required
                   />
                 </Field>
-                <Field
-                  label={t("admin.schedule.field.length")}
-                  hint={
-                    draft.length
-                      ? undefined
-                      : t("admin.schedule.length.openHint", {
-                          length: fallback,
-                        })
-                  }
-                >
-                  <select
-                    value={draft.length}
-                    onChange={(e) => set({ length: e.target.value })}
+                {draft.eventType === "sale" ? null : (
+                  <Field
+                    label={t("admin.schedule.field.length")}
+                    hint={
+                      draft.length
+                        ? undefined
+                        : t("admin.schedule.length.openHint", {
+                            length: fallback,
+                          })
+                    }
                   >
-                    <option value="">
-                      {t("admin.schedule.length.default", {
-                        length: fallback,
-                      })}
-                    </option>
-                    {lengths.map((minutes) => (
-                      <option key={minutes} value={minutes}>
-                        {minutesLabel(minutes)}
+                    <select
+                      value={draft.length}
+                      onChange={(e) => set({ length: e.target.value })}
+                    >
+                      <option value="">
+                        {t("admin.schedule.length.default", {
+                          length: fallback,
+                        })}
                       </option>
-                    ))}
-                    <option value="custom">
-                      {t("admin.schedule.length.custom")}
-                    </option>
-                  </select>
-                </Field>
+                      {lengths.map((minutes) => (
+                        <option key={minutes} value={minutes}>
+                          {minutesLabel(minutes)}
+                        </option>
+                      ))}
+                      <option value="custom">
+                        {t("admin.schedule.length.custom")}
+                      </option>
+                    </select>
+                  </Field>
+                )}
               </>
             ) : null}
           </div>
-          {draft.timed && draft.length === "custom" ? (
+          {draft.eventType === "sale" ? (
+            <div className="adm-form-row is-top is-three">
+              <Field
+                label={t("admin.schedule.field.closesOn")}
+                hint={t("admin.schedule.field.closesOnHint")}
+              >
+                <input
+                  type="date"
+                  value={draft.closesOn}
+                  min={draft.startsOn}
+                  onChange={(e) => set({ closesOn: e.target.value })}
+                />
+              </Field>
+              <Field
+                label={t("admin.schedule.field.closesAt")}
+                hint={t("admin.schedule.field.closesAtHint")}
+              >
+                <input
+                  type="time"
+                  value={draft.closesAt}
+                  disabled={!draft.closesOn}
+                  onChange={(e) => set({ closesAt: e.target.value })}
+                />
+              </Field>
+            </div>
+          ) : null}
+          {draft.eventType !== "sale" &&
+          draft.timed &&
+          draft.length === "custom" ? (
             <div className="adm-form-row is-three">
               <Field
                 label={t("admin.schedule.field.end")}

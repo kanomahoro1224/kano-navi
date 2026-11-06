@@ -44,6 +44,7 @@ import {
   formatWeekRange,
   japanToday,
   localDateKey,
+  scheduleEntries,
   sortEvents,
   startOfWeek,
   visitorIsInJapan,
@@ -60,13 +61,16 @@ function keyToDate(key: string) {
   return new Date(year, month - 1, day)
 }
 
-/** Events of an inclusive date range, in schedule order, keyed by Japan date. */
+/**
+ * Calendar entries of an inclusive date range, in schedule order, keyed by
+ * Japan date. A sale period shows at its opening and its close.
+ */
 function groupByDay(
   events: ScheduleEvent[],
   range: { from: string; to: string },
 ) {
   const grouped = new Map<string, ScheduleEvent[]>()
-  for (const event of sortEvents(events)) {
+  for (const event of sortEvents(events.flatMap(scheduleEntries))) {
     const key = eventDateKey(event)
     if (key < range.from || key > range.to) continue
     let day = grouped.get(key)
@@ -89,10 +93,12 @@ const typeTones: Record<string, string> = {
   event: "sky",
   release: "honey",
   video: "lavender",
+  sale: "lavender",
 }
 
 const statusTones: Record<string, string> = {
   live: "berry",
+  open: "leaf",
   cancelled: "danger",
   cancellation_review: "honey",
 }
@@ -123,6 +129,7 @@ function entryFacts(event: ScheduleEvent, now: number, t: Translator) {
     time: event.startsAt ? formatJapanTime(event.startsAt) : null,
     manual: eventIsManual(event),
     note: cancellationNote?.filter(Boolean).join(" · ") || null,
+    saleMark: event.saleMark || null,
   }
 }
 
@@ -170,12 +177,15 @@ function EntryTags({
   t: Translator
   children?: ReactNode
 }) {
-  const { typeKey, tag, work, status } = facts
+  const { typeKey, tag, work, status, saleMark } = facts
   const showStatus = !quietStatuses.includes(status)
   if (!typeKey && !tag && !showStatus && !children) return null
   return (
     <span className="guide-event-tags">
       {typeKey ? <span className="tag">{t(typeKey)}</span> : null}
+      {saleMark ? (
+        <span className="tag">{t(`schedule.sale.${saleMark}`)}</span>
+      ) : null}
       {tag ? (
         <span className="tag guide-event-kind">
           <EventTagIcon tag={tag} work={work} />
@@ -566,6 +576,9 @@ function MonthGrid({
                     )
                     const label = [
                       `${time || t("common.pendingConfirmation")} ${title}`,
+                      event.saleMark
+                        ? t(`schedule.sale.${event.saleMark}`)
+                        : null,
                       tag ? t(eventTagKey(tag, work)) : null,
                       quietStatuses.includes(status)
                         ? null

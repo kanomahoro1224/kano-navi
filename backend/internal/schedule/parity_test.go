@@ -30,25 +30,32 @@ type parityData struct {
 	AfterSecond    map[string][]map[string]any `json:"afterSecond"`
 }
 
-// The recording predates four deliberate request changes, applied to the
+// The recording predates five deliberate request changes, applied to the
 // recorded bodies here: the Asia/Tokyo publication time in the model text,
 // Anthropic's "auto" tool choice with a system instruction naming the tool,
-// the instruction asking for English detail, reason and status, and the
-// instruction on date and time formats. Identities and
+// the instruction asking for English detail, reason and status, the
+// instruction on date and time formats, and the instructions on event types
+// and sale periods. Identities and
 // fingerprints are compared unchanged; stored rows differ only in the English
 // pending status that replaced the recorded Chinese default.
 var (
 	recordedPublishedAt  = regexp.MustCompile(`Source post published at ([^ ]+)\. Source URL`)
 	recordedForcedTool   = regexp.MustCompile(`"tool_choice":\{"type":"tool","name":"([^"]+)"\}`)
-	recordedInstructions = strings.TrimSuffix(strings.NewReplacer(" "+scheduleLanguageInstruction, "", " "+scheduleDateInstruction, "").Replace(scheduleInstructions), " "+scheduleTagInstruction)
+	recordedInstructions = strings.TrimSuffix(strings.NewReplacer(" "+scheduleLanguageInstruction, "", " "+scheduleDateInstruction, "", " "+scheduleTypeInstruction, "", " "+scheduleSaleInstruction, "").Replace(scheduleInstructions), " "+scheduleTagInstruction)
 	recordedPending      = strings.NewReplacer(`"status":"待确认"`, `"status":"pending"`)
 
-	// The tag property and its required entry are newer than the recording;
-	// removing them restates the schema the recording was made with.
-	recordedTagProperty    = `"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]},`
-	recordedScheduleSchema = strings.Replace(
-		strings.Replace(string(scheduleSchema), recordedTagProperty, "", 1),
-		`"eventType","tag","url"`, `"eventType","url"`, 1)
+	// The tag and endDate properties, their required entries and the sale
+	// type are newer than the recording; removing them restates the schema
+	// the recording was made with.
+	recordedTagProperty     = `"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]},`
+	recordedEndDateProperty = `"endDate":{"anyOf":[{"type":"string"},{"type":"null"}]},`
+	recordedScheduleSchema  = strings.NewReplacer(
+		recordedTagProperty, "",
+		recordedEndDateProperty, "",
+		`"eventType","tag","url"`, `"eventType","url"`,
+		`"endTime","endDate","timePrecision"`, `"endTime","timePrecision"`,
+		`"appearance","sale"]`, `"appearance"]`,
+	).Replace(string(scheduleSchema))
 )
 
 // withPendingCode rewrites the recorded Chinese pending status in stored rows.

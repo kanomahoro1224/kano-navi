@@ -248,6 +248,38 @@ between the rows. The derivation looks every entry and video up by ID, and a
 store test checks the query plan for it. The admin event list shows the
 stored label and its source.
 
+## Sale Periods
+
+`events.event_type` is `stream`, `member` (a members-only stream),
+`appearance`, `release` (the date a work becomes available), `sale` or
+`event` (any other entry). A `sale` is a period to buy, pre-order, order or
+apply for goods, media or tickets, and is the only type that stores a close:
+the nullable `ends_on` holds its Japan close date and `ends_at` its close
+instant when the time is known. A sale's `ends_at` always has its `ends_on`,
+the Japan date it falls on. Every other row has a null `ends_on`; the admin
+API rejects one and the extraction ignores it. A sale row takes one of three
+shapes:
+
+| Shape        | `starts_on` / `starts_at`  | `ends_on` / `ends_at`                   |
+| ------------ | -------------------------- | --------------------------------------- |
+| Period       | opening date, opening time | a later close date, close time          |
+| Deadline     | the close date, no time    | the same date, close time or null       |
+| Opening only | opening date, opening time | null, or the same date and a close time |
+
+Every reader shows a sale at its ends rather than across its days: a period
+on its opening date and on its close date, a deadline on its date alone, and
+any other sale on its opening date. Calendar pages therefore include a sale
+whose `ends_on` falls in the range, count it in `dayCounts` on its close date
+when that is later than its opening date, and take close dates into the
+adjacent dates; the dashboard's current-week selection includes it the same
+way. The dashboard also carries up to 10 sales that are on sale on the
+current Japan date or open within seven days (a deadline counts as on sale
+until its date), closing soonest first, so a period that opened weeks ago
+reaches the board's on-sale list. A sale is never `nextEvent`. Reminders of one sale merge into its
+period ([Rule C](#duplicate-merging)). The partial `events_ends_on_idx` index
+supports the close-date reads, and startup adds the column empty and the
+index to existing snapshots without rewriting events.
+
 ## Event Precedence
 
 Automatic X extraction and YouTube reservations use `provenance = automatic`.
@@ -542,6 +574,24 @@ after the current Japan date:
   removed). Without a title overlap it merges only when the date has exactly
   one date-only event and one timed stream. A YouTube event never merges into
   an X event.
+- Rule C: an automatic `sale` merges into another sale of the same shop
+  whose [period](#sale-periods) covers its own, such as a deadline reminder
+  into the announced period. Two sales are of the same shop when their links
+  name the same page (host without `www`, path without a trailing slash, and
+  query; a link to an X post names no shop), or, when either has no shop
+  link, when their titles overlap as in Rule A once the words and counts
+  every sale title uses (such as 受注, 受付, 締切, グッズ, 本日まで or 残り2日)
+  are removed as well, so a title naming no goods or event matches no other
+  sale. A period covers another that
+  opens no earlier and closes no later, and a sale whose close is not known
+  when its opening date falls inside; a deadline is covered only by a period
+  that closes on its date, or by the same deadline. Of two sales covering
+  each other the one that states more (a known opening, a close date, a start
+  time, a close time) stays, then the smaller ID. Among several covering
+  sales the one no other covers is the target; several leave the sale
+  unmerged. A sale counts in the window by its close date as well as its
+  opening date, and its `merge_reason` is `rule_c:sale_period`. Because the
+  target covers the merged sale, the surviving entry shows the whole period.
 - Several plausible targets leave the event unmerged and are counted as
   `ambiguous`. A cancellation overlay (`llm_suspected` or `manual_confirmed`)
   on either side freezes the current decision.

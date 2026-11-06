@@ -108,13 +108,16 @@ type PostMedia struct {
 }
 
 type DashboardEvent struct {
-	ID            string
-	Source        string
-	Title         string
-	Detail        *string
-	StartsOn      string
-	StartsAt      *string
-	EndsAt        *string
+	ID       string
+	Source   string
+	Title    string
+	Detail   *string
+	StartsOn string
+	StartsAt *string
+	EndsAt   *string
+	// EndsOn is the Japan close date of a sale period, nil for every other
+	// entry and for a sale whose close is not known.
+	EndsOn        *string
 	Timezone      string
 	TimePrecision string
 	Status        *string
@@ -562,9 +565,14 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 			break
 		}
 	}
+	// A sale period is never the next event: the stage shows activities, and
+	// a month-long order window would hold it.
 	var nextEvent *DashboardEvent
-	if len(upcoming) > 0 {
-		nextEvent = &upcoming[0]
+	for i := range upcoming {
+		if !SaleEvent(upcoming[i].EventType) {
+			nextEvent = &upcoming[i]
+			break
+		}
 	}
 	var nextStream *Video
 	if len(upcomingVideos) > 0 {
@@ -821,10 +829,27 @@ func (s *Store) scanPostMedia(ctx context.Context, row scanner, lead ...any) (Po
 }
 
 func (s *Store) queryDashboardEvents(ctx context.Context, from, to string, now time.Time) ([]DashboardEvent, error) {
-	q := `SELECT ` + eventColumnsAs("o") + ` FROM events o WHERE deleted_at IS NULL AND merged_into IS NULL AND id IN (SELECT id FROM (SELECT id FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on BETWEEN ? AND ? ORDER BY julianday(COALESCE(starts_at,starts_on)) ASC,id ASC LIMIT 100) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)<=julianday(?) AND (julianday(ends_at)>julianday(?) OR (ends_at IS NULL AND event_type IN ('stream','member') AND julianday(starts_at)>julianday(?,'-3 hours')))) AND (event_type IN ('stream','member') OR source='youtube') ORDER BY julianday(starts_at) ASC,id ASC LIMIT 30)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC`
-	args := []any{from, to, now.UTC().Format(time.RFC3339Nano), dateInJapan(now), now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano)}
+	q := `SELECT ` + eventColumnsAs("o") + ` FROM events o WHERE deleted_at IS NULL AND merged_into IS NULL AND id IN (SELECT id FROM (SELECT id FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND ` + eventDaySQL + ` ORDER BY julianday(COALESCE(starts_at,starts_on)) ASC,id ASC LIMIT 100) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)<=julianday(?) AND (julianday(ends_at)>julianday(?) OR (ends_at IS NULL AND event_type IN ('stream','member') AND julianday(starts_at)>julianday(?,'-3 hours')))) AND (event_type IN ('stream','member') OR source='youtube') ORDER BY julianday(starts_at) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND ` + currentSaleSQL + ` ORDER BY COALESCE(ends_on,starts_on) ASC,id ASC LIMIT 10)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC`
+	today := dateInJapan(now)
+	soon := now.In(time.FixedZone("JST", 9*3600)).AddDate(0, 0, saleLookaheadDays).Format("2006-01-02")
+	args := []any{from, to, from, to, now.UTC().Format(time.RFC3339Nano), today, now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), soon, today}
 	return s.scanEvents(ctx, q, args, now)
 }
+
+// eventDaySQL holds for an event shown on a Japan date in the inclusive range
+// [?, ?] (bound twice): its start date, or the close date of a sale period.
+const eventDaySQL = `(starts_on BETWEEN ? AND ? OR (event_type='sale' AND ends_on BETWEEN ? AND ?))`
+
+// saleLookaheadDays is how far ahead the board's on-sale list looks for a
+// sale that has not opened yet.
+const saleLookaheadDays = 7
+
+// currentSaleSQL holds for a sale period on sale on the Japan date today or
+// opening by soon (bound as soon, today): it opens by soon, or is a deadline
+// whose opening is not known, and it has not closed before today. The
+// dashboard adds up to 10 of them, closing soonest first, so a period that
+// opened weeks ago still reaches the board's on-sale list.
+const currentSaleSQL = `event_type='sale' AND (starts_on<=? OR (ends_on=starts_on AND starts_at IS NULL)) AND COALESCE(ends_on,starts_on)>=?`
 
 const eligibleEventSQL = `deleted_at IS NULL AND merged_into IS NULL AND lower(trim(COALESCE(status,''))) NOT LIKE 'cancel%' AND trim(COALESCE(status,'')) NOT IN ('取消','已取消','中止','キャンセル') AND cancellation_status NOT IN ('llm_suspected','manual_confirmed')`
 
@@ -849,9 +874,9 @@ type scanner interface{ Scan(...any) error }
 
 func scanEvent(row scanner, now time.Time) (DashboardEvent, error) {
 	var e DashboardEvent
-	var detail, sa, ea, status, et, tag, urlv, cs, cr, ce, cat sql.NullString
+	var detail, sa, ea, eo, status, et, tag, urlv, cs, cr, ce, cat sql.NullString
 	var locked int64
-	if err := row.Scan(&e.ID, &e.Source, &e.Title, &detail, &e.StartsOn, &sa, &ea, &e.Timezone, &e.TimePrecision, &status, &et, &tag, &urlv, &e.Provenance, &locked, &e.CancellationStatus, &cs, &cr, &ce, &cat, &e.UpdatedAt); err != nil {
+	if err := row.Scan(&e.ID, &e.Source, &e.Title, &detail, &e.StartsOn, &sa, &ea, &eo, &e.Timezone, &e.TimePrecision, &status, &et, &tag, &urlv, &e.Provenance, &locked, &e.CancellationStatus, &cs, &cr, &ce, &cat, &e.UpdatedAt); err != nil {
 		return e, dbErr(err)
 	}
 	if detail.Valid {
@@ -862,6 +887,9 @@ func scanEvent(row scanner, now time.Time) (DashboardEvent, error) {
 	}
 	if ea.Valid {
 		e.EndsAt = &ea.String
+	}
+	if eo.Valid {
+		e.EndsOn = &eo.String
 	}
 	if status.Valid {
 		e.Status = &status.String
@@ -1564,6 +1592,13 @@ func mondayWindow(day string) (string, string) {
 	t = t.AddDate(0, 0, -delta)
 	return t.Format("2006-01-02"), t.AddDate(0, 0, 6).Format("2006-01-02")
 }
+
+// SaleEvent reports whether an event type names a sale period, the one type
+// that stores a close date and is shown at its opening and its close.
+func SaleEvent(eventType *string) bool {
+	return eventType != nil && *eventType == "sale"
+}
+
 func eventUpcoming(e DashboardEvent, now time.Time) bool {
 	if e.StartsAt != nil {
 		t, err := time.Parse(time.RFC3339, *e.StartsAt)

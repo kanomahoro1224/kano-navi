@@ -454,6 +454,8 @@ export interface AdminEvent {
   startsOn: string
   startsAt: string | null
   endsAt: string | null
+  /** The Japan close date of a sale period, or null. */
+  endsOn: string | null
   timePrecision: "exact" | "approximate" | "unknown"
   status: string | null
   eventType: string | null
@@ -492,6 +494,8 @@ export interface EventInput {
   startsOn: string
   startsAt?: string
   endsAt?: string
+  /** A sale's close date; the API rejects it for any other type. */
+  endsOn?: string
   timePrecision?: string
   eventType?: string
   /** Empty string clears the label. */

@@ -384,6 +384,19 @@
   opacity: 0.7;
 }
 
+/* The time, with the phone countdown beside it. */
+.ticket-when-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.ticket-countdown.is-inline {
+  display: none;
+}
+
 .ticket-open {
   position: absolute;
   top: 20px;
@@ -676,34 +689,49 @@
   width: 100%;
   grid-template-columns: repeat(3, 1fr);
   margin: 10px 0 0;
+  padding: 0;
   border-top: 1px solid var(--rule);
+  list-style: none;
 }
 
-.profile-stats div {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 2px;
-  padding: 12px 0 2px;
-}
-
-.profile-stats div + div {
+.profile-stats li + li {
   padding-left: 14px;
   border-left: 1px solid var(--rule);
 }
 
-.profile-stats dt {
+/* The count reads after its label but sits above it. */
+.profile-stats a {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  padding: 12px 0 2px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.profile-stats a span {
   color: var(--soft);
   font-size: 11.5px;
   line-height: 1.3;
 }
 
-.profile-stats dd {
-  margin: 0;
+.profile-stats a strong {
   font-family: var(--font-display);
   font-size: 26px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  transition: color 160ms ease;
+}
+
+.profile-stats a:hover strong {
+  color: var(--berry);
+}
+
+.profile-status {
+  display: grid;
+  width: 100%;
+  gap: 8px;
 }
 
 .profile-sync {
@@ -800,26 +828,134 @@
 
 @media (max-width: 640px) {
   .stage {
+    gap: 16px;
     padding-top: 16px;
   }
 
+  /*
+   * On phones the profile leads the stage as a compact identity row so the
+   * schedule comes up sooner: the banner is a short strip, and a small
+   * avatar sits beside the kicker, name and catchphrase.
+   */
   .profile-card {
     grid-template-columns: 1fr;
+    order: -1;
   }
 
   .profile-banner {
-    height: 104px;
+    height: 76px;
     min-height: 0;
   }
 
   .profile-body {
-    grid-template-columns: minmax(0, 1fr);
-    padding-top: 0;
-    padding-inline: 18px;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 4px 12px;
+    padding: 14px 16px 14px;
   }
 
-  .profile-avatar {
-    margin-top: -42px;
+  .profile-body > * {
+    grid-column: 1 / -1;
+  }
+
+  .profile-body > .profile-avatar {
+    grid-row: 1 / span 3;
+    grid-column: 1;
+    align-self: center;
+    width: 56px;
+    height: 56px;
+    margin: 0;
+    border-width: 2px;
+  }
+
+  .profile-body > .kicker {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .profile-body > .profile-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 8px;
+    grid-row: 2;
+    grid-column: 2;
+    font-size: 22px;
+  }
+
+  .profile-name span {
+    margin-top: 0;
+  }
+
+  .profile-body > .profile-catchphrase {
+    grid-row: 3;
+    grid-column: 2;
+    font-size: 14px;
+  }
+
+  .profile-links {
+    margin-top: 8px;
+  }
+
+  /* The counts stay on wider screens; the sections follow right below. */
+  .profile-stats {
+    display: none;
+  }
+
+  /*
+   * The last row holds each source's last read on the left and the run's
+   * state dot and the reload on the right. The state's wording stays for
+   * screen readers and as the dot's tooltip.
+   */
+  .profile-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--rule);
+  }
+
+  /*
+   * The three times spread across the row: about 18px apart on a 375px
+   * phone, and never under 8px, so a 360px phone keeps one line.
+   */
+  .profile-sources {
+    min-width: 0;
+    flex: 1;
+    justify-content: space-between;
+    gap: 4px 8px;
+    margin-right: 6px;
+    padding: 0;
+    font-size: 11px;
+    letter-spacing: -0.01em;
+  }
+
+  .profile-sources > div {
+    gap: 3px;
+  }
+
+  .profile-sync {
+    width: auto;
+    flex: none;
+    order: 1;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    background: none;
+  }
+
+  .profile-sync-copy {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .profile-sync .round-button {
+    width: 30px;
+    height: 30px;
   }
 
   /*
@@ -856,8 +992,42 @@
     padding: 18px 18px 20px;
   }
 
-  .ticket-countdown {
-    justify-items: start;
+  /*
+   * The countdown moves beside the time as one short line of small cells,
+   * and the open cue keeps only its arrow.
+   */
+  .ticket-stub > .ticket-countdown {
+    display: none;
+  }
+
+  .ticket-countdown.is-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ticket-countdown.is-inline .ticket-countdown-cells {
+    gap: 4px;
+  }
+
+  .ticket-countdown.is-inline .ticket-countdown-cell {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 3px;
+    padding: 4px 7px;
+  }
+
+  .ticket-countdown.is-inline .ticket-countdown-cell strong {
+    font-size: 16px;
+  }
+
+  .ticket-countdown.is-inline .ticket-countdown-cell small {
+    margin-top: 0;
+  }
+
+  .ticket-open-label {
+    display: none;
   }
 
   .ticket-date {
@@ -890,10 +1060,47 @@
     font-size: 38px;
   }
 
+  /*
+   * The kicker and chips run across the top, so the title keeps the width
+   * beside the thumbnail.
+   */
   .latest-card {
     grid-template-columns: 120px minmax(0, 1fr);
-    gap: 14px;
-    padding: 10px;
+    grid-template-areas:
+      "head head"
+      "art title"
+      "art when"
+      "art links";
+    grid-template-rows: auto auto auto 1fr;
+    align-items: start;
+    gap: 4px 12px;
+    padding: 10px 12px 12px;
+  }
+
+  .latest-card-copy {
+    display: contents;
+  }
+
+  .latest-card-copy > .ticket-head {
+    grid-area: head;
+    gap: 6px 8px;
+    margin-bottom: 4px;
+  }
+
+  .latest-card-art {
+    grid-area: art;
+  }
+
+  .latest-card-title {
+    grid-area: title;
+  }
+
+  .latest-card-copy > small {
+    grid-area: when;
+  }
+
+  .latest-card-copy > .platform-links {
+    grid-area: links;
   }
 
   .latest-card-open {
@@ -4004,4 +4211,112 @@
 .toast.is-visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/*
+ * Sales on sale now or opening soon, between the stage and the schedule: a
+ * kicker over up to three cards in the sale tone, a row on wide screens and
+ * a stack on phones.
+ */
+.sale-strip {
+  display: grid;
+  gap: 10px;
+  padding-top: 28px;
+}
+
+.sale-strip-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sale-card {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  height: 100%;
+  padding: 10px 34px 11px 12px;
+  border-left: 3px solid var(--tone);
+  border-radius: 4px var(--radius-sm) var(--radius-sm) 4px;
+  background: var(--tone-wash);
+  transition: transform 160ms ease;
+}
+
+.sale-card.link-card:hover {
+  transform: translateY(-1px);
+}
+
+.sale-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.sale-card-when {
+  color: var(--tone);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sale-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.sale-card-open {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 16px;
+  height: 16px;
+  color: var(--tone);
+}
+
+@media (max-width: 980px) {
+  .sale-strip-list {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+}
+
+/*
+ * On phones the cards scroll sideways in one row, each most of the width so
+ * the next one shows at the edge; a single sale takes the whole row.
+ */
+@media (max-width: 640px) {
+  .sale-strip {
+    padding-top: 20px;
+  }
+
+  .sale-strip-list {
+    grid-template-columns: none;
+    grid-auto-columns: minmax(80%, 1fr);
+    grid-auto-flow: column;
+    gap: 10px;
+    /* Room for a card's focus outline inside the scroller. */
+    margin: -4px;
+    padding: 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 4px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .sale-strip-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sale-strip-list > li {
+    scroll-snap-align: start;
+  }
 }

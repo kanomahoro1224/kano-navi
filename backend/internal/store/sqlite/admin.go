@@ -224,15 +224,17 @@ type AdminThumbnailPin struct {
 }
 
 type AdminEvent struct {
-	ID            string  `json:"id"`
-	Source        string  `json:"source"`
-	SourceItemID  *string `json:"sourceItemId"`
-	SourceKey     *string `json:"sourceKey"`
-	Title         string  `json:"title"`
-	Detail        *string `json:"detail"`
-	StartsOn      string  `json:"startsOn"`
-	StartsAt      *string `json:"startsAt"`
-	EndsAt        *string `json:"endsAt"`
+	ID           string  `json:"id"`
+	Source       string  `json:"source"`
+	SourceItemID *string `json:"sourceItemId"`
+	SourceKey    *string `json:"sourceKey"`
+	Title        string  `json:"title"`
+	Detail       *string `json:"detail"`
+	StartsOn     string  `json:"startsOn"`
+	StartsAt     *string `json:"startsAt"`
+	EndsAt       *string `json:"endsAt"`
+	// EndsOn is the Japan close date of a sale period, or nil.
+	EndsOn        *string `json:"endsOn"`
 	Timezone      string  `json:"timezone"`
 	TimePrecision string  `json:"timePrecision"`
 	Status        *string `json:"status"`
@@ -941,7 +943,7 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	if f.Ascending {
 		direction = "ASC"
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT e.id,e.source,e.source_item_id,e.source_key,e.title,e.detail,e.starts_on,e.starts_at,e.ends_at,e.timezone,e.time_precision,e.status,e.event_type,e.tag,e.tag_source,e.url,e.provenance,e.manual_locked,e.confidence,e.extraction_id,e.cancellation_status,e.cancellation_source,e.cancellation_reason,e.cancellation_evidence,e.cancellation_source_item_id,e.cancellation_confidence,e.cancellation_at,e.deleted_at,e.created_at,e.updated_at,e.merged_into,(SELECT t.title FROM events t WHERE t.id=e.merged_into),e.merge_source,e.merge_reason,e.merged_at FROM events e WHERE `+where+` ORDER BY COALESCE(julianday(e.starts_at),julianday(e.starts_on || 'T23:59:59.999+09:00')) `+direction+`,e.id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
+	rows, err := s.db.QueryContext(ctx, `SELECT e.id,e.source,e.source_item_id,e.source_key,e.title,e.detail,e.starts_on,e.starts_at,e.ends_at,e.ends_on,e.timezone,e.time_precision,e.status,e.event_type,e.tag,e.tag_source,e.url,e.provenance,e.manual_locked,e.confidence,e.extraction_id,e.cancellation_status,e.cancellation_source,e.cancellation_reason,e.cancellation_evidence,e.cancellation_source_item_id,e.cancellation_confidence,e.cancellation_at,e.deleted_at,e.created_at,e.updated_at,e.merged_into,(SELECT t.title FROM events t WHERE t.id=e.merged_into),e.merge_source,e.merge_reason,e.merged_at FROM events e WHERE `+where+` ORDER BY COALESCE(julianday(e.starts_at),julianday(e.starts_on || 'T23:59:59.999+09:00')) `+direction+`,e.id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 	}
@@ -949,12 +951,12 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	items := []AdminEvent{}
 	for rows.Next() {
 		var e AdminEvent
-		var sourceItem, sourceKey, detail, startsAt, endsAt, status, eventType, tag, tagSource, url, cancelSource, cancelReason, cancelEvidence, cancelSourceItem, cancelAt, deletedAt sql.NullString
+		var sourceItem, sourceKey, detail, startsAt, endsAt, endsOn, status, eventType, tag, tagSource, url, cancelSource, cancelReason, cancelEvidence, cancelSourceItem, cancelAt, deletedAt sql.NullString
 		var mergedInto, mergedIntoTitle, mergeSource, mergeReason, mergedAt sql.NullString
 		var manual int
 		var confidence, cancelConfidence sql.NullFloat64
 		var extraction sql.NullInt64
-		if err := rows.Scan(&e.ID, &e.Source, &sourceItem, &sourceKey, &e.Title, &detail, &e.StartsOn, &startsAt, &endsAt, &e.Timezone, &e.TimePrecision, &status, &eventType, &tag, &tagSource, &url, &e.Provenance, &manual, &confidence, &extraction, &e.CancellationStatus, &cancelSource, &cancelReason, &cancelEvidence, &cancelSourceItem, &cancelConfidence, &cancelAt, &deletedAt, &e.CreatedAt, &e.UpdatedAt, &mergedInto, &mergedIntoTitle, &mergeSource, &mergeReason, &mergedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.Source, &sourceItem, &sourceKey, &e.Title, &detail, &e.StartsOn, &startsAt, &endsAt, &endsOn, &e.Timezone, &e.TimePrecision, &status, &eventType, &tag, &tagSource, &url, &e.Provenance, &manual, &confidence, &extraction, &e.CancellationStatus, &cancelSource, &cancelReason, &cancelEvidence, &cancelSourceItem, &cancelConfidence, &cancelAt, &deletedAt, &e.CreatedAt, &e.UpdatedAt, &mergedInto, &mergedIntoTitle, &mergeSource, &mergeReason, &mergedAt); err != nil {
 			return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 		}
 		e.SourceItemID = nullString(sourceItem)
@@ -962,6 +964,7 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 		e.Detail = nullString(detail)
 		e.StartsAt = nullString(startsAt)
 		e.EndsAt = nullString(endsAt)
+		e.EndsOn = nullString(endsOn)
 		e.Status = nullString(status)
 		e.EventType = nullString(eventType)
 		e.Tag = nullString(tag)

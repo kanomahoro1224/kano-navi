@@ -468,6 +468,7 @@ type publicEvent struct {
 	StartsOn             string  `json:"startsOn"`
 	StartsAt             *string `json:"startsAt"`
 	EndsAt               *string `json:"endsAt"`
+	EndsOn               *string `json:"endsOn"`
 	Timezone             string  `json:"timezone"`
 	TimePrecision        string  `json:"timePrecision"`
 	Status               *string `json:"status"`
@@ -514,7 +515,7 @@ func (h *handler) scheduleList(ctx context.Context, arguments map[string]any) (a
 	for _, event := range page.Items {
 		items = append(items, publicEvent{
 			ID: event.ID, Source: event.Source, Title: event.Title, Detail: event.Detail,
-			StartsOn: event.StartsOn, StartsAt: event.StartsAt, EndsAt: event.EndsAt,
+			StartsOn: event.StartsOn, StartsAt: event.StartsAt, EndsAt: event.EndsAt, EndsOn: event.EndsOn,
 			Timezone: event.Timezone, TimePrecision: event.TimePrecision, Status: event.Status,
 			EventType: event.EventType, URL: event.URL, Provenance: event.Provenance,
 			CancellationStatus: event.CancellationStatus, CancellationSource: event.CancellationSource,

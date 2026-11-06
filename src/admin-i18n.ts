@@ -340,6 +340,7 @@ export const adminMessages = {
     "admin.event.type.member": "Members",
     "admin.event.type.release": "Release",
     "admin.event.type.appearance": "Appearance",
+    "admin.event.type.sale": "Sale",
     "admin.event.tag.live": "Live",
     "admin.event.tag.game": "Gameplay",
     "admin.event.tag.talk": "Talk",
@@ -419,6 +420,12 @@ export const adminMessages = {
     "admin.schedule.field.startHint": "Japan time",
     "admin.schedule.field.end": "End",
     "admin.schedule.field.endHint": "Earlier than the start means the next day",
+    "admin.schedule.field.closesOn": "Closes on",
+    "admin.schedule.field.closesOnHint":
+      "Japan date. For a deadline alone, use the same date with an all-day opening",
+    "admin.schedule.field.closesAt": "Closes at",
+    "admin.schedule.field.closesAtHint":
+      "Leave empty when only the date is known",
     "admin.schedule.field.length": "Length",
     "admin.schedule.length.default": "Type default ({length})",
     "admin.schedule.length.openHint":
@@ -1684,6 +1691,7 @@ export const adminMessages = {
     "admin.event.type.member": "会员",
     "admin.event.type.release": "发布",
     "admin.event.type.appearance": "出演",
+    "admin.event.type.sale": "贩售",
     "admin.event.tag.live": "直播",
     "admin.event.tag.game": "游戏播",
     "admin.event.tag.talk": "杂谈",
@@ -1730,6 +1738,11 @@ export const adminMessages = {
     "admin.schedule.field.startHint": "日本时间",
     "admin.schedule.field.end": "结束",
     "admin.schedule.field.endHint": "早于开始时间表示次日",
+    "admin.schedule.field.closesOn": "截止日期",
+    "admin.schedule.field.closesOnHint":
+      "日本日期。只有截止时，开始日期填同一天并选全天",
+    "admin.schedule.field.closesAt": "截止时间",
+    "admin.schedule.field.closesAtHint": "只知道日期时留空",
     "admin.schedule.field.length": "时长",
     "admin.schedule.length.default": "按类型默认（{length}）",
     "admin.schedule.length.openHint": "不保存结束时间，日历按 {length} 显示",

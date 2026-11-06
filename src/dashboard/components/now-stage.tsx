@@ -62,14 +62,20 @@ function dateOnlyParts(key: string, locale: Locale) {
   return japanDateParts(date.toISOString(), locale)
 }
 
+/**
+ * The countdown under the stub, or with inline set the copy beside the time
+ * that phones show instead; the stylesheet shows one of the two.
+ */
 function Countdown({
   time,
   now,
   t,
+  inline = false,
 }: {
   time: string
   now: number
   t: Translator
+  inline?: boolean
 }) {
   const parts = countdownParts(time, now)
   if (!parts || parts.past) return null
@@ -83,7 +89,7 @@ function Countdown({
         [parts.minutes, t("countdown.unitMinutes")],
       ]
   return (
-    <div className="ticket-countdown">
+    <span className={`ticket-countdown${inline ? " is-inline" : ""}`}>
       <span className="ticket-countdown-label">{t("spotlight.startsIn")}</span>
       <span className="ticket-countdown-cells">
         {cells.map(([value, unit]) => (
@@ -93,7 +99,7 @@ function Countdown({
           </span>
         ))}
       </span>
-    </div>
+    </span>
   )
 }
 
@@ -300,7 +306,12 @@ function FullTicket({
               href={url}
               t={t}
             />
-            <TicketWhen item={item} locale={locale} now={now} t={t} />
+            <span className="ticket-when-row">
+              <TicketWhen item={item} locale={locale} now={now} t={t} />
+              {item.mode === "next" && item.time && !isLive ? (
+                <Countdown time={item.time} now={now} t={t} inline />
+              ) : null}
+            </span>
             {links.length > 1 ? (
               <PlatformLinks
                 links={links}
@@ -319,7 +330,7 @@ function FullTicket({
         ) : null}
         {url ? (
           <span className="ticket-open">
-            {t("spotlight.open")}
+            <span className="ticket-open-label">{t("spotlight.open")}</span>
             <ArrowUpRight aria-hidden="true" />
           </span>
         ) : null}
@@ -360,7 +371,12 @@ function CompactTicket({
             href={item.url}
             t={t}
           />
-          <TicketWhen item={item} locale={locale} now={now} t={t} />
+          <span className="ticket-when-row">
+            <TicketWhen item={item} locale={locale} now={now} t={t} />
+            {item.time && !isLive ? (
+              <Countdown time={item.time} now={now} t={t} inline />
+            ) : null}
+          </span>
         </span>
         {item.time && !isLive ? (
           <Countdown time={item.time} now={now} t={t} />
@@ -593,78 +609,94 @@ function ProfileCard({
             </ExternalLink>
           ) : null}
         </div>
-        <dl className="profile-stats">
-          <div>
-            <dt>{t("stats.upcoming")}</dt>
-            <dd>{counts.upcomingEvents}</dd>
-          </div>
-          <div>
-            <dt>{t("stats.posts", { days: postWindowDays })}</dt>
-            <dd>{counts.posts}</dd>
-          </div>
-          <div>
-            <dt>{t("stats.videos", { days: videoWindowDays })}</dt>
-            <dd>{counts.videos}</dd>
-          </div>
-        </dl>
-        <div className={`profile-sync tone-${syncState.tone}`}>
-          <span className="sync-dot" aria-hidden="true" />
-          <span className="profile-sync-copy">
-            <strong>{syncState.label}</strong>
-            {syncState.runAt ? (
-              <small>
-                {t("sync.latestRun")}{" "}
-                <time dateTime={syncState.runAt}>
-                  {formatStamp(syncState.runAt)}
-                </time>{" "}
-                {t("common.timezoneShort")}
-              </small>
-            ) : null}
-          </span>
-          <button
-            type="button"
-            className={`round-button${isRefreshing ? " is-spinning" : ""}`}
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            aria-label={t(
-              isRefreshing ? "common.refreshing" : "common.refresh",
-            )}
-            title={t(isRefreshing ? "common.refreshing" : "common.refresh")}
+        {/* Each count opens the board section it counts. */}
+        <ul className="profile-stats">
+          <li>
+            <a href="#schedule">
+              <span>{t("stats.upcoming")}</span>
+              <strong>{counts.upcomingEvents}</strong>
+            </a>
+          </li>
+          <li>
+            <a href="#feed">
+              <span>{t("stats.posts", { days: postWindowDays })}</span>
+              <strong>{counts.posts}</strong>
+            </a>
+          </li>
+          <li>
+            <a href="#videos">
+              <span>{t("stats.videos", { days: videoWindowDays })}</span>
+              <strong>{counts.videos}</strong>
+            </a>
+          </li>
+        </ul>
+        {/* The run's state and the reload above each source's last read; on
+            phones they share one row, the source times first. */}
+        <div className="profile-status">
+          <div
+            className={`profile-sync tone-${syncState.tone}`}
+            title={syncState.label}
           >
-            <RefreshCw aria-hidden="true" />
-          </button>
+            <span className="sync-dot" aria-hidden="true" />
+            <span className="profile-sync-copy">
+              <strong>{syncState.label}</strong>
+              {syncState.runAt ? (
+                <small>
+                  {t("sync.latestRun")}{" "}
+                  <time dateTime={syncState.runAt}>
+                    {formatStamp(syncState.runAt)}
+                  </time>{" "}
+                  {t("common.timezoneShort")}
+                </small>
+              ) : null}
+            </span>
+            <button
+              type="button"
+              className={`round-button${isRefreshing ? " is-spinning" : ""}`}
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              aria-label={t(
+                isRefreshing ? "common.refreshing" : "common.refresh",
+              )}
+              title={t(isRefreshing ? "common.refreshing" : "common.refresh")}
+            >
+              <RefreshCw aria-hidden="true" />
+            </button>
+          </div>
+          {syncState.sources.length ? (
+            <dl className="profile-sources" aria-label={t("sync.sourceTimes")}>
+              {syncState.sources.map(({ source, timestamp, state }) => {
+                const { name, Icon } = SOURCES[source]
+                const note =
+                  state === "fresh"
+                    ? null
+                    : t(state === "stale" ? "sync.stale" : "sync.waiting")
+                return (
+                  <div
+                    key={source}
+                    className={state === "stale" ? "is-stale" : undefined}
+                    title={note ? `${name} · ${note}` : name}
+                  >
+                    <dt>
+                      <Icon aria-hidden="true" />
+                      <span className="sr-only">{name}</span>
+                    </dt>
+                    <dd>
+                      {timestamp ? (
+                        <time dateTime={timestamp}>
+                          {formatStamp(timestamp)}
+                        </time>
+                      ) : (
+                        <span aria-hidden="true">—</span>
+                      )}
+                      {note ? <span className="sr-only">{note}</span> : null}
+                    </dd>
+                  </div>
+                )
+              })}
+            </dl>
+          ) : null}
         </div>
-        {syncState.sources.length ? (
-          <dl className="profile-sources" aria-label={t("sync.sourceTimes")}>
-            {syncState.sources.map(({ source, timestamp, state }) => {
-              const { name, Icon } = SOURCES[source]
-              const note =
-                state === "fresh"
-                  ? null
-                  : t(state === "stale" ? "sync.stale" : "sync.waiting")
-              return (
-                <div
-                  key={source}
-                  className={state === "stale" ? "is-stale" : undefined}
-                  title={note ? `${name} · ${note}` : name}
-                >
-                  <dt>
-                    <Icon aria-hidden="true" />
-                    <span className="sr-only">{name}</span>
-                  </dt>
-                  <dd>
-                    {timestamp ? (
-                      <time dateTime={timestamp}>{formatStamp(timestamp)}</time>
-                    ) : (
-                      <span aria-hidden="true">—</span>
-                    )}
-                    {note ? <span className="sr-only">{note}</span> : null}
-                  </dd>
-                </div>
-              )
-            })}
-          </dl>
-        ) : null}
       </div>
     </aside>
   )

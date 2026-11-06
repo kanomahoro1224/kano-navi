@@ -138,14 +138,14 @@ func findCancellationTargets(ctx context.Context, q queryer, candidates []normal
 
 const upsertEventSQL = `INSERT INTO events (
 		id, source, source_item_id, source_key, title, detail, starts_on, starts_at,
-		ends_at, timezone, time_precision, status, event_type, tag, tag_source, url, is_upcoming,
+		ends_at, ends_on, timezone, time_precision, status, event_type, tag, tag_source, url, is_upcoming,
 		provenance, manual_locked, confidence, extraction_id,
 		cancellation_status, cancellation_source, cancellation_reason,
 		cancellation_evidence, cancellation_source_item_id,
 		cancellation_confidence, cancellation_at, deleted_at,
 		created_at, updated_at, raw_json
 	) VALUES (
-		?, ?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Tokyo', ?, ?, ?, ?, ?, ?, ?,
+		?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Tokyo', ?, ?, ?, ?, ?, ?, ?,
 		'automatic', 0, ?, ?, 'none', NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 		?, ?, ?
 	)
@@ -153,7 +153,7 @@ const upsertEventSQL = `INSERT INTO events (
 		source=excluded.source, source_item_id=excluded.source_item_id,
 		source_key=excluded.source_key, title=excluded.title, detail=excluded.detail,
 		starts_on=excluded.starts_on, starts_at=excluded.starts_at,
-		ends_at=excluded.ends_at, timezone=excluded.timezone,
+		ends_at=excluded.ends_at, ends_on=excluded.ends_on, timezone=excluded.timezone,
 		time_precision=excluded.time_precision, status=excluded.status,
 		event_type=excluded.event_type,
 		tag=CASE WHEN excluded.tag IS NULL OR events.tag_source='manual'
@@ -256,7 +256,7 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, post
 		if _, err = tx.ExecContext(ctx, upsertEventSQL,
 			eventID, event.canonicalSource, event.canonicalSourceItemID, event.canonicalSourceKey,
 			event.title, nullableText(event.detail), event.startsOn, nullableText(event.startsAt),
-			nullableText(event.endsAt), event.timePrecision, nullable(event.status), event.eventType,
+			nullableText(event.endsAt), nullableText(event.endsOn), event.timePrecision, nullable(event.status), event.eventType,
 			nullableText(event.tag), llmTagSource(event.tag), nullable(event.url), upcoming, event.confidence, extractionID, now, now, stringify(raw)); err != nil {
 			return err
 		}

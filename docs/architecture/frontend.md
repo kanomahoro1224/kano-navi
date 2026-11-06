@@ -54,7 +54,10 @@ the dialog). A `pill-button is-collapsible` shows only its icon at 560px and
 below, so it keeps its label as `aria-label`. The board lives in
 `src/dashboard/`: `use-dashboard.ts` owns the snapshot request and the
 revision stream, `format.ts` owns Japan-time and event-status helpers, `content.ts` holds static public links, and
-`components/` renders the next-up stage and profile card, the week guide,
+`components/` renders the next-up stage and profile card, the on-sale strip
+(`sale-strip.tsx`: up to three sales from `currentSales`, on sale now by
+their close and then those opening within seven days by their opening,
+rendered only when one qualifies), the week guide,
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
 schedule, posts or videos, and `sheet-dialog.tsx`, the smaller modal sheet
@@ -87,7 +90,12 @@ activity label, before the form; a `member` entry adds the members-only chip
 (`MembersChip`) beside it unless the video's availability chip already
 shows `members`, `private` or `removed`. Schedule entries follow the same split:
 `eventKinds` marks a release or video entry as a work, and `eventTagKey`
-names a work's `song` label music, any other singing. The filter offers All plus Streams, Works and Shorts for each kind
+names a work's `song` label music, any other singing. `scheduleEntries` turns
+a [sale period](data-model.md#sale-periods) into the guide's entries at its
+ends: the closing entry carries the close as its date and time, both carry
+`saleMark` (`opens` or `closes`, shown as a chip) and the stored period in
+`saleWindow`, and `eventStatus` gives both the period's status (`upcoming`,
+`open`, `done`). The filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the
 centre of the 1280×720 cover (the vertical frame between YouTube's blurred
 pillarbox): one row of up to six in the All view, fewer as columns narrow and
@@ -220,8 +228,9 @@ entry button. On a narrow grid the chips become dots. The entry dialog is
 either timed or all day. A timed entry needs a start time; its length
 defaults to the [calendar feed's](public-api.md#public-feeds) length for the
 type without saving an end, so the board keeps treating a stream as
-open-ended, while presets and a custom end save `endsAt`. A preview line
-renders the entry as calendar subscribers will see it.
+open-ended, while presets and a custom end save `endsAt`. A sale replaces the
+length with a close date and an optional close time (`endsOn` and `endsAt`).
+A preview line renders the entry as calendar subscribers will see it.
 
 The console's video list (`src/admin/views/videos.tsx`) puts the featured
 video above a list with a search field and task tabs: All, Upcoming,
@@ -459,7 +468,9 @@ The overall state, shown by the header dot and the profile card, is the
 latest completed run in `meta.lastSync`: its outcome and its finish time (its
 start time when it has none). An API failure takes priority, then a run that
 is neither `success` nor `partial` (needs review); a `partial` run is partial
-and a run older than 24 hours is out of date. Below it, the profile card lists
+and a run older than 24 hours is out of date. Below it (on phones, before
+its dot on one row, with the state's wording left to screen readers and the
+dot's tooltip), the profile card lists
 the last successful X, YouTube and bilibili reads from `meta.sourceFetchedAt`,
 each marked out of date after 24 hours; these source times do not change the
 overall state. The local clock updates both warnings without a request.
@@ -478,7 +489,8 @@ rule, so the week guide never folds a stream as past while the stage shows
 it on air; a confirmed `upcoming` waiting room past its reserved time stays
 upcoming there. Without one, streams and
 memberships retain a three-hour live grace period, or their explicit end time; other activities, including YouTube
-premieres, count as live only before an explicit end. A started candidate
+premieres, count as live only before an explicit end. A sale period is
+never a focus candidate. A started candidate
 without an explicit end or a confirmed live state is only presumed live: in `nextEvent`, `nextStream` and
 `pickSpotlight` it yields to a later timed candidate that has started or starts
 within 30 minutes, while a candidate with an explicit end keeps its place until

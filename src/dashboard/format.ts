@@ -1,4 +1,10 @@
-import type { LiveStatus, ScheduleEvent, Translator, Video } from "../types.ts"
+import type {
+  LiveStatus,
+  SaleWindow,
+  ScheduleEvent,
+  Translator,
+  Video,
+} from "../types.ts"
 
 export const JAPAN_TIME_ZONE = "Asia/Tokyo"
 
@@ -297,7 +303,7 @@ const pendingStatuses = [
   "未定",
 ]
 
-/** upcoming | live | done | pending | cancelled | cancellation_review */
+/** upcoming | live | open | done | pending | cancelled | cancellation_review */
 export function eventStatus(event: ScheduleEvent, now = Date.now()) {
   if (event.cancellationStatus === "manual_confirmed") return "cancelled"
   if (event.cancellationStatus === "llm_suspected") return "cancellation_review"
@@ -306,6 +312,8 @@ export function eventStatus(event: ScheduleEvent, now = Date.now()) {
     .toLowerCase()
   if (cancelledStatuses.includes(status) || status.startsWith("cancel"))
     return "cancelled"
+  // A sale period follows its window, never a broadcast state.
+  if (eventIsSale(event)) return saleStatus(event, now)
   // The stage's On air rule, so the schedule never calls it ended meanwhile.
   if (eventIsLive(event, now)) return "live"
   // A waiting room past its reserved time has not started, as the stage shows.
@@ -322,9 +330,127 @@ export function eventIsManual(event: ScheduleEvent) {
 
 export function eventTypeKey(event: ScheduleEvent) {
   const type = String(event.eventType || "").toLowerCase()
-  return ["stream", "member", "event", "release", "video"].includes(type)
+  return ["stream", "member", "event", "release", "video", "sale"].includes(
+    type,
+  )
     ? `event.type.${type}`
     : null
+}
+
+// ---------------------------------------------------------------------------
+// Sale periods
+
+export function eventIsSale(event: Pick<ScheduleEvent, "eventType">) {
+  return String(event.eventType || "").toLowerCase() === "sale"
+}
+
+/** The stored period of a sale entry, also from one of its calendar entries. */
+export function saleWindow(event: ScheduleEvent): SaleWindow {
+  return (
+    event.saleWindow || {
+      startsOn: event.startsOn,
+      startsAt: event.startsAt,
+      endsOn: event.endsOn ?? null,
+      endsAt: event.endsAt,
+    }
+  )
+}
+
+/**
+ * A deadline whose opening is not known: the close date is the start date
+ * and there is no start time.
+ */
+function saleIsDeadline(window: SaleWindow) {
+  return window.endsOn === window.startsOn && !window.startsAt
+}
+
+/**
+ * The calendar entries of an event. A sale period shows at its ends rather
+ * than on every day it runs: a period that closes on a later date gives an
+ * opening and a closing entry, a deadline its closing entry alone, and any
+ * other sale its opening. The closing entry carries the close as its date and
+ * time. Every other event is its own single entry.
+ */
+export function scheduleEntries(event: ScheduleEvent): ScheduleEvent[] {
+  if (!eventIsSale(event)) return [event]
+  const window = saleWindow(event)
+  const closing: ScheduleEvent = {
+    ...event,
+    startsOn: window.endsOn || window.startsOn,
+    startsAt: window.endsAt,
+    timePrecision: window.endsAt ? "exact" : "unknown",
+    saleMark: "closes",
+    saleWindow: window,
+  }
+  if (saleIsDeadline(window)) return [closing]
+  const opening: ScheduleEvent = {
+    ...event,
+    saleMark: "opens",
+    saleWindow: window,
+  }
+  return window.endsOn && window.endsOn > window.startsOn
+    ? [opening, closing]
+    : [opening]
+}
+
+const japanDayStart = (day: string) => Date.parse(`${day}T00:00:00+09:00`)
+const japanDayEnd = (day: string) => Date.parse(`${day}T23:59:59.999+09:00`)
+
+/** The instant a sale opens; -Infinity for a deadline whose opening is unknown. */
+export function saleOpensAt(event: ScheduleEvent) {
+  const window = saleWindow(event)
+  return saleIsDeadline(window)
+    ? -Infinity
+    : Date.parse(window.startsAt || "") || japanDayStart(window.startsOn)
+}
+
+/** The instant a sale closes: its close time, else the end of its close day. */
+export function saleClosesAt(event: ScheduleEvent) {
+  const window = saleWindow(event)
+  return (
+    Date.parse(window.endsAt || "") ||
+    japanDayEnd(window.endsOn || window.startsOn)
+  )
+}
+
+/** How far ahead the on-sale list looks for a sale that has not opened. */
+export const SALE_LOOKAHEAD_MS = 7 * 86_400_000
+
+/**
+ * The sales the board lists as on sale now or opening within a week:
+ * cancelled ones and those under cancellation review stay out, open ones
+ * come first by their close, then the others by their opening.
+ */
+export function currentSales(events: ScheduleEvent[], now: number, limit = 3) {
+  const listed = events.filter((event) => {
+    if (!eventIsSale(event)) return false
+    const status = eventStatus(event, now)
+    return (
+      status === "open" ||
+      (status === "upcoming" && saleOpensAt(event) <= now + SALE_LOOKAHEAD_MS)
+    )
+  })
+  const open = (event: ScheduleEvent) => saleStatus(event, now) === "open"
+  return listed
+    .sort(
+      (a, b) =>
+        Number(open(b)) - Number(open(a)) ||
+        (open(a)
+          ? saleClosesAt(a) - saleClosesAt(b)
+          : saleOpensAt(a) - saleOpensAt(b)) ||
+        a.id.localeCompare(b.id),
+    )
+    .slice(0, limit)
+}
+
+/**
+ * upcoming before a sale opens, open until it closes, done after. A deadline
+ * counts as open until it passes, and a period without a close as open for
+ * its opening day.
+ */
+export function saleStatus(event: ScheduleEvent, now: number) {
+  if (now < saleOpensAt(event)) return "upcoming"
+  return now < saleClosesAt(event) ? "open" : "done"
 }
 
 export const eventTags = ["live", "game", "talk", "song", "video"] as const

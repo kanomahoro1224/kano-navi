@@ -43,6 +43,9 @@ type messages struct {
 	scheduled    string
 	aired        string
 	cancelled    string
+	// saleOpens and saleCloses title the two ends of a sale period.
+	saleOpens  string
+	saleCloses string
 }
 
 var catalog = map[Locale]messages{
@@ -59,6 +62,8 @@ var catalog = map[Locale]messages{
 		scheduled:    "Scheduled for %s.",
 		aired:        "Aired %s.",
 		cancelled:    "Cancelled. ",
+		saleOpens:    "Sales open: %s",
+		saleCloses:   "Sales close: %s",
 	},
 	Japanese: {
 		siteName:     "鹿乃ちゃん何してるか",
@@ -73,6 +78,8 @@ var catalog = map[Locale]messages{
 		scheduled:    "予定：%s。",
 		aired:        "配信：%s。",
 		cancelled:    "中止。",
+		saleOpens:    "受付開始：%s",
+		saleCloses:   "受付締切：%s",
 	},
 	Chinese: {
 		siteName:     "鹿乃在做什么",
@@ -87,6 +94,8 @@ var catalog = map[Locale]messages{
 		scheduled:    "预定于 %s。",
 		aired:        "播出于 %s。",
 		cancelled:    "已取消。",
+		saleOpens:    "开始贩售：%s",
+		saleCloses:   "贩售截止：%s",
 	},
 }
 

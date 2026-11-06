@@ -34,6 +34,8 @@
   labels above the thumbnail, and the On sale cards scroll sideways in one
   row. On wider screens the profile counts open the schedule, post wall and
   video shelf.
+- The About page shows each code contributor's GitHub avatar with the name
+  below it, loaded from GitHub, and its technology list adds yt-dlp and MCP.
 
 </details>
 

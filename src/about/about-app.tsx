@@ -12,6 +12,7 @@ const AUTHOR = "yexca"
 const REPOSITORY_URL = "https://github.com/yexca/kano-navi"
 const LICENSE_URL = `${REPOSITORY_URL}/blob/main/LICENSE`
 const CONTRIBUTORS_URL = `${REPOSITORY_URL}/graphs/contributors`
+/** GitHub logins; avatars load from GitHub. */
 const contributors = ["kanomahoro1224"]
 const LINEBLOG_RECOVERY_URL =
   "https://github.com/ZhFuwe/Kano_LINE_Blog_Recovery"
@@ -31,7 +32,10 @@ const technologyGroups = [
       "lucide-react",
     ],
   },
-  { key: "backend", items: ["Go", "net/http", "SQLite", "modernc.org/sqlite"] },
+  {
+    key: "backend",
+    items: ["Go", "net/http", "SQLite", "modernc.org/sqlite", "yt-dlp", "MCP"],
+  },
   { key: "delivery", items: ["Docker", "Docker Compose", "GitHub Actions"] },
 ]
 
@@ -143,7 +147,7 @@ export function AboutApp() {
             </ul>
           </Chapter>
           <Chapter number={3} title={t("about.contributors")}>
-            <p>{t("about.contributorsText", { author: AUTHOR })}</p>
+            <p>{t("about.contributorsText")}</p>
             <ul
               className="about-contributors"
               aria-label={t("about.contributorList")}
@@ -151,7 +155,16 @@ export function AboutApp() {
               {contributors.map((login) => (
                 <li key={login}>
                   <ExternalLink href={`https://github.com/${login}`}>
-                    @{login}
+                    <img
+                      src={`https://github.com/${login}.png?size=128`}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      width={64}
+                      height={64}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span>{login}</span>
                   </ExternalLink>
                 </li>
               ))}

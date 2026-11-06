@@ -20,8 +20,7 @@ export const aboutMessages = {
       "本项目由 {author} 在 AI Agent 的协助下开发。以下是参与项目开发的模型。",
     "about.models": "参与开发的 AI 模型",
     "about.contributors": "贡献者",
-    "about.contributorsText":
-      "本项目由 {author} 发起并维护。感谢以下开发者为项目贡献代码。",
+    "about.contributorsText": "感谢以下开发者为项目贡献代码。",
     "about.contributorList": "代码贡献者",
     "about.contributorsAll": "在 GitHub 查看全部贡献者",
     "about.technologies": "主要技术栈",
@@ -68,7 +67,7 @@ export const aboutMessages = {
     "about.models": "開発に使用した AI モデル",
     "about.contributors": "コントリビューター",
     "about.contributorsText":
-      "本プロジェクトは {author} が立ち上げ、メンテナンスしています。コードを寄せてくださった以下の開発者の皆さんに感謝します。",
+      "コードを寄せてくださった以下の開発者の皆さんに感謝します。",
     "about.contributorList": "コードのコントリビューター",
     "about.contributorsAll": "GitHub ですべてのコントリビューターを見る",
     "about.technologies": "主な技術構成",
@@ -115,7 +114,7 @@ export const aboutMessages = {
     "about.models": "AI models used in development",
     "about.contributors": "Contributors",
     "about.contributorsText":
-      "{author} started and maintains this project. Thanks to these developers for contributing code.",
+      "Thanks to these developers for contributing code.",
     "about.contributorList": "Code contributors",
     "about.contributorsAll": "See all contributors on GitHub",
     "about.technologies": "Main technologies",

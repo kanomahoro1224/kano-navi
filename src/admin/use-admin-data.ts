@@ -64,6 +64,7 @@ import type {
   VideoCorrection,
   VideoHistory,
   VideoMergeSuggestion,
+  WorksMergeConflict,
   SyncSettingField,
   SyncSettings,
   YTDLPStatus,
@@ -321,6 +322,8 @@ function createClient(run: Runner, slow: Runner) {
       ),
     /** Uploads the merge rule would attach, or leaves to the operator. */
     videoMerges: () => get<{ items: VideoMergeSuggestion[] }>("/videos/merges"),
+    worksConflicts: () =>
+      get<{ items: WorksMergeConflict[] }>("/videos/works-conflicts"),
     /** One upload's merge state and candidates, whatever its state. */
     uploadMerges: (id: string) =>
       get<{ items: VideoMergeSuggestion[] }>(`/videos/${enc(id)}/merges`),

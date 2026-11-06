@@ -15,7 +15,7 @@ pool for one area:
 | `x`        | X profile, FxTwitter and vxtwitter reads, the X API (timed chain and manual fetches) |
 | `youtube`  | YouTube pages, feeds, the Data API, WebSub subscribe requests and yt-dlp reads       |
 | `bilibili` | The Bilibili API                                                                     |
-| `media`    | Post, video and profile media downloads and profile page reads                       |
+| `media`    | Post, video and profile media downloads, profile page reads, niconico cover lookups  |
 | `llm`      | Model provider requests: extraction, translation, provider tests, model discovery    |
 
 The health check and the read-only flag mode make no source requests and are

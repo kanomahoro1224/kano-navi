@@ -49,9 +49,10 @@ func AllowedURL(raw string) bool {
 		return false
 	}
 	host := strings.ToLower(u.Hostname())
-	// X media, YouTube thumbnails and Bilibili covers (i0.hdslb.com and its
-	// numbered siblings); each needs a real subdomain of the CDN.
-	if !(host == "pbs.twimg.com" || strings.HasSuffix(host, ".twimg.com") || strings.HasSuffix(host, ".ytimg.com") || strings.HasSuffix(host, ".hdslb.com")) {
+	// X media, YouTube thumbnails, Bilibili covers (i0.hdslb.com and its
+	// numbered siblings), each on a real subdomain of its CDN, and niconico
+	// thumbnails on their one host.
+	if !(host == "pbs.twimg.com" || strings.HasSuffix(host, ".twimg.com") || strings.HasSuffix(host, ".ytimg.com") || strings.HasSuffix(host, ".hdslb.com") || host == NiconicoThumbnailHost) {
 		return false
 	}
 	for key := range u.Query() {
@@ -150,11 +151,22 @@ var thumbnailPath = regexp.MustCompile(`^/(vi|vi_webp)/([A-Za-z0-9_-]{11})/(maxr
 // while the larger files are generated only for some.
 var thumbnailSizes = []string{"maxresdefault", "sddefault", "hqdefault"}
 
-// ThumbnailFallbacks lists the smaller variants of a YouTube thumbnail URL to
-// try, in order, when that size was never generated. A live variant ends with
-// the plain hqdefault.jpg, which outlives the stream. Other URLs have none.
+// NiconicoThumbnailHost serves niconico video thumbnails.
+const NiconicoThumbnailHost = "nicovideo.cdn.nimg.jp"
+
+// niconicoLarge matches a niconico thumbnail's large (.L) size, which only
+// newer videos have.
+var niconicoLarge = regexp.MustCompile(`^/thumbnails/[0-9]+/[0-9]+(?:\.[0-9]+)?\.L$`)
+
+// ThumbnailFallbacks lists the smaller variants of a thumbnail URL to try, in
+// order, when that size was never generated: YouTube's smaller sizes (a live
+// variant ends with the plain hqdefault.jpg, which outlives the stream) and
+// the plain size of a niconico large thumbnail. Other URLs have none.
 func ThumbnailFallbacks(raw string) []string {
 	u, err := url.Parse(raw)
+	if err == nil && strings.ToLower(u.Hostname()) == NiconicoThumbnailHost && u.RawQuery == "" && niconicoLarge.MatchString(u.Path) {
+		return []string{"https://" + NiconicoThumbnailHost + strings.TrimSuffix(u.Path, ".L")}
+	}
 	if err != nil || !strings.HasSuffix(strings.ToLower(u.Hostname()), ".ytimg.com") {
 		return nil
 	}
@@ -178,8 +190,8 @@ func ThumbnailFallbacks(raw string) []string {
 	return out
 }
 
-// fetchAsset requests the asset and, while YouTube reports a size as missing,
-// the next smaller one. The bytes stay under the original URL, so a later
+// fetchAsset requests the asset and, while YouTube or niconico reports a size
+// as missing, the next smaller one. The bytes stay under the original URL, so a later
 // revalidation picks up the larger size once YouTube generates it.
 func (c *Client) fetchAsset(ctx context.Context, asset sqlite.PendingMedia) (Download, error) {
 	d, err := c.fetch(ctx, asset.SourceURL, asset.ETag, asset.LastModified)

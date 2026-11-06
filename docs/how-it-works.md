@@ -63,7 +63,8 @@ flowchart LR
 The profile, milestones, resource links, the Journey images, the works
 tables, and the LINE BLOG archive's articles and archived comments ship with
 the code; the works covers are packaged into `data/works/` from the local
-reference collection, and the archive's photos and videos into
+reference collection (the uploads' video thumbnails are saved by each
+instance's media step), and the archive's photos and videos into
 `data/lineblog/` from a local recovery archive. Source snapshots and LLM providers start empty on a fresh installation.
 See [Core boundaries](architecture/core-boundaries.md) for the full contract.
 

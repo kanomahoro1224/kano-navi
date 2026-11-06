@@ -736,6 +736,14 @@ export interface VideoMergeCandidate {
   gapMinutes: number
 }
 
+/** A stored Bilibili upload whose merge the Works list pairs differently. */
+export interface WorksMergeConflict {
+  upload: string
+  bilibili: string
+  mergedInto: string | null
+  worksYoutube: string[]
+}
+
 export interface VideoMergeSuggestion {
   bilibili: AdminVideo
   status: "rule" | "ambiguous" | "unverified" | "merged" | "separate" | "none"

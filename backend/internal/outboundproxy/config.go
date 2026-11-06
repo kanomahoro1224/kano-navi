@@ -31,7 +31,8 @@ const (
 	AreaYoutube Area = "youtube"
 	// AreaBilibili covers the Bilibili API.
 	AreaBilibili Area = "bilibili"
-	// AreaMedia covers post, video and profile media downloads.
+	// AreaMedia covers post, video and profile media downloads and the
+	// niconico thumbnail lookups of the Works page's covers.
 	AreaMedia Area = "media"
 	// AreaLLM covers model provider requests: extraction, translation, tests
 	// and model discovery.

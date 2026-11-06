@@ -6,6 +6,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/publicview"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 const archivePageSize = 30
@@ -78,4 +79,16 @@ func (h *Handler) videos(w http.ResponseWriter, r *http.Request) {
 	// The body includes the time-derived fields (isUpcoming, liveStatus), so
 	// its ETag changes when they expire as well as with stored data.
 	writeRevalidatedJSON(w, r, payload, nil)
+}
+
+// worksUploads serves what this instance knows about the Works page's
+// uploads: each one's cover and stored videos, joined by video ID on read.
+func (h *Handler) worksUploads(w http.ResponseWriter, r *http.Request) {
+	index := works.Packaged()
+	overlay, err := h.store.GetWorksOverlay(r.Context(), index)
+	if err != nil {
+		writeArchiveError(w, err)
+		return
+	}
+	writeRevalidatedJSON(w, r, publicview.WorksUploads(index, overlay), nil)
 }

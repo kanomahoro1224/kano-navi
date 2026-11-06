@@ -45,7 +45,13 @@ the first time they show, with a retry on failure. The side the trilogy
 scene shows is kept in `localStorage` (`kano-works-trilogy-side`). A release opens in a
 native modal sheet (`works-sheet.tsx`), and covers open in the shared image
 viewer above it. Covers load from `/media/works/<name>`; see
-[Works collection maintenance](../development/works-archive.md). The five
+[Works collection maintenance](../development/works-archive.md). The upload
+section reads [`/api/works/uploads`](public-api.md#works-uploads) once per
+page load (`use-works-uploads.ts`) for the uploads' covers, lengths,
+availability and archive links; until it answers the art stays blank, and a
+failed read keeps the packaged list with printed sleeves. Its archive links
+open the board with `/?archive=videos`, which opens the video archive dialog
+once and leaves `/` in the address. The five
 public pages share `src/site/`: `site-shell.tsx` (header with page navigation and
 Japan clock, footer, skip link, section title, empty and loading states;
 narrow screens show the site name and fold the page links into a menu behind

@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react"
 import { useMemo, useState } from "react"
-import { Disc3, Tv } from "lucide-react"
+import { Archive, Disc3, Tv } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import type { Translator } from "@/types"
@@ -11,15 +11,33 @@ import {
   YouTubeMembersMark,
 } from "@/site/links"
 import data from "./uploads.json" with { type: "json" }
-import { byDate, dayLabel, groupByYear, matches, uploadLinks } from "./content"
+import { mediaSrcSet } from "@/lib/media"
+import {
+  byDate,
+  dayLabel,
+  fullDate,
+  groupByYear,
+  matches,
+  uploadLinks,
+  worksSummary,
+} from "./content"
 import type { Upload } from "./types"
+import {
+  durationLabel,
+  japanMonth,
+  useWorksUploads,
+  videoArchiveHref,
+  videoGone,
+  type WorksUploadState,
+  type WorksUploadsStatus,
+} from "./use-works-uploads"
 import {
   FilterButtons,
   OrderToggle,
   SearchBox,
   type Order,
 } from "./works-controls"
-import { WORKS_COVER_SIZES, WorksCoverImage } from "./works-media"
+import { WORKS_COVER_SIZES } from "./works-media"
 
 const uploads = data as Upload[]
 
@@ -60,20 +78,37 @@ export function uploadTone(id: string) {
 }
 
 /**
- * A video thumbnail when the collection has one; otherwise a printed
- * sleeve with the song's title, in one of the page's tones.
+ * The thumbnail this server cached for one of the upload's videos; otherwise
+ * a printed sleeve with the song's title, in one of the page's tones. Nothing
+ * shows while the server's answer is on its way.
  */
-function UploadArt({ upload }: { upload: Upload }) {
+function UploadArt({
+  upload,
+  stored,
+  loading,
+}: {
+  upload: Upload
+  stored: WorksUploadState | undefined
+  loading: boolean
+}) {
   const { t } = useAppSettings()
-  if (upload.cover)
+  const [failed, setFailed] = useState(false)
+  const cover = stored?.cover
+  if (cover && !failed)
     return (
-      <WorksCoverImage
-        cover={upload.cover}
-        alt=""
-        t={t}
+      <img
+        src={cover.url}
+        srcSet={mediaSrcSet(cover.url, cover.width)}
         sizes={WORKS_COVER_SIZES.upload}
+        alt=""
+        width={cover.width ?? undefined}
+        height={cover.height ?? undefined}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
       />
     )
+  if (loading) return <span className="upload-wait" aria-hidden="true" />
   return (
     <span
       className={`upload-print is-tone-${uploadTone(upload.id)}`}
@@ -91,9 +126,28 @@ function UploadArt({ upload }: { upload: Upload }) {
   )
 }
 
-function UploadCard({ upload, index }: { upload: Upload; index: number }) {
+function UploadCard({
+  upload,
+  index,
+  stored,
+  loading,
+}: {
+  upload: Upload
+  index: number
+  stored: WorksUploadState | undefined
+  loading: boolean
+}) {
   const { t } = useAppSettings()
   const links = uploadLinks(upload)
+  const youtube = stored?.videos.filter((video) => video.source === "youtube")
+  const live = youtube?.find((video) => !videoGone(video))
+  const gone = Boolean(youtube?.length) && !live
+  const length = stored?.videos.find(
+    (video) => video.durationSeconds,
+  )?.durationSeconds
+  const archiveMonth = live
+    ? japanMonth(live.scheduledAt ?? live.publishedAt ?? "")
+    : null
   const primary = links.find((link) => !link.members) ?? links[0]
   const people = [
     upload.originalArtist
@@ -110,11 +164,11 @@ function UploadCard({ upload, index }: { upload: Upload; index: number }) {
           aria-label={watchLabel(t, upload, primary)}
           tabIndex={-1}
         >
-          <UploadArt upload={upload} />
+          <UploadArt upload={upload} stored={stored} loading={loading} />
         </ExternalLink>
       ) : (
         <span className="upload-art">
-          <UploadArt upload={upload} />
+          <UploadArt upload={upload} stored={stored} loading={loading} />
         </span>
       )}
       <div className="upload-copy">
@@ -122,6 +176,10 @@ function UploadCard({ upload, index }: { upload: Upload; index: number }) {
           <p className="works-meta">
             <time dateTime={upload.date}>{dayLabel(upload.date)}</time>
             <span>{t(`works.kind.${upload.kind}`)}</span>
+            {length ? <span>{durationLabel(length)}</span> : null}
+            {gone ? (
+              <span className="works-gone">{t("works.videoGone")}</span>
+            ) : null}
             {isMembers(upload) ? (
               <span className="works-members">
                 <YouTubeMembersMark aria-hidden="true" />
@@ -129,7 +187,7 @@ function UploadCard({ upload, index }: { upload: Upload; index: number }) {
               </span>
             ) : null}
           </p>
-          <UploadLinks upload={upload} />
+          <UploadLinks upload={upload} stored={stored} />
         </div>
         <h4 className="upload-title">{upload.song}</h4>
         {people.length ? (
@@ -142,6 +200,15 @@ function UploadCard({ upload, index }: { upload: Upload; index: number }) {
               {t("works.onAlbums")} {upload.albums.join(" / ")}
             </span>
           </p>
+        ) : null}
+        {archiveMonth ? (
+          <a
+            className="upload-archive"
+            href={videoArchiveHref({ month: archiveMonth })}
+          >
+            <Archive aria-hidden="true" />
+            {t("works.inVideoArchive")}
+          </a>
         ) : null}
         {upload.tracks.length ? (
           <details className="credit-details">
@@ -159,9 +226,18 @@ function UploadCard({ upload, index }: { upload: Upload; index: number }) {
 }
 
 /** A small mark for each site the recording is on, beside its date. */
-function UploadLinks({ upload }: { upload: Upload }) {
+function UploadLinks({
+  upload,
+  stored,
+}: {
+  upload: Upload
+  stored: WorksUploadState | undefined
+}) {
   const { t } = useAppSettings()
   const links = uploadLinks(upload)
+  const goneIds = new Set(
+    (stored?.videos ?? []).filter(videoGone).map((video) => video.id),
+  )
   if (!links.length)
     return <span className="works-quiet upload-links">{t("works.noLink")}</span>
   return (
@@ -171,16 +247,19 @@ function UploadLinks({ upload }: { upload: Upload }) {
         return (
           <ExternalLink
             key={link.href}
-            className={`upload-link is-${link.platform}${link.members ? " is-members" : ""}`}
+            className={`upload-link is-${link.platform}${link.members ? " is-members" : ""}${goneIds.has(link.id) ? " is-gone" : ""}`}
             href={link.href}
             aria-label={watchLabel(t, upload, link)}
-            title={
+            title={[
               link.platform === "bilibili" && upload.bilibiliTitle
                 ? `${t("works.platform.bilibili")} · ${upload.bilibiliTitle}`
                 : link.members
                   ? `${t("works.platform.youtube")} · ${t("works.membersOnly")}`
-                  : t(`works.platform.${link.platform}`)
-            }
+                  : t(`works.platform.${link.platform}`),
+              goneIds.has(link.id) ? t("works.videoGone") : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           >
             <Mark aria-hidden="true" />
             {link.members ? (
@@ -196,8 +275,40 @@ function UploadLinks({ upload }: { upload: Upload }) {
   )
 }
 
+/**
+ * The list is the collection's as of its date. Later uploads reach the
+ * board's video archive, not this list.
+ */
+function UploadsThrough({
+  status,
+  date,
+}: {
+  status: WorksUploadsStatus
+  date: string
+}) {
+  const { t, locale } = useAppSettings()
+  const [before, after = ""] = t("works.uploadsThrough", {
+    date: fullDate(date, locale),
+  }).split("{archive}")
+  return (
+    <p className="works-through">
+      {before}
+      <a className="text-link" href={videoArchiveHref({ category: "song" })}>
+        {t("works.videoArchive")}
+      </a>
+      {after}
+      {status.state === "failed" ? (
+        <span className="works-quiet"> {t("works.uploadsOffline")}</span>
+      ) : null}
+    </p>
+  )
+}
+
 export function UploadsView() {
   const { t } = useAppSettings()
+  const status = useWorksUploads()
+  const stored = status.state === "ready" ? status.overlay.uploads : undefined
+  const loading = status.state === "loading"
   const [filter, setFilter] = useState<KindFilter>("all")
   const [onlyLoose, setOnlyLoose] = useState(false)
   const [onlyMembers, setOnlyMembers] = useState(false)
@@ -288,7 +399,13 @@ export function UploadsView() {
               </h3>
               <ul className="upload-grid">
                 {group.items.map((upload, index) => (
-                  <UploadCard key={upload.id} upload={upload} index={index} />
+                  <UploadCard
+                    key={upload.id}
+                    upload={upload}
+                    index={index}
+                    stored={stored?.[upload.id]}
+                    loading={loading}
+                  />
                 ))}
               </ul>
             </li>
@@ -297,6 +414,7 @@ export function UploadsView() {
       ) : (
         <p className="works-empty">{t("works.empty")}</p>
       )}
+      <UploadsThrough status={status} date={worksSummary.updatedAt} />
     </>
   )
 }

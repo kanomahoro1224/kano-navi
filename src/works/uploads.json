@@ -12,13 +12,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "b4cf4df8c784.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2010-05-25-348136",
@@ -33,13 +27,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "972e1edcfee8.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2010-07-23-0c3599",
@@ -60,13 +48,7 @@
       "鹿乃BEST（2022）",
       "EXIT TUNES PRESENTS 神曲を歌ってみた 3（2010）"
     ],
-    "tracks": [],
-    "cover": {
-      "media": "5aa831b47d2c.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2010-07-24-be3766",
@@ -81,13 +63,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "2b252148e33c.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2010-08-03-488478",
@@ -102,13 +78,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["ばんび～の（2011）"],
-    "tracks": [],
-    "cover": {
-      "media": "6995756b5453.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2010-08-08-bab825",
@@ -123,13 +93,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["ハートフルシーケンス（2011）"],
-    "tracks": [],
-    "cover": {
-      "media": "b3fab5ee85cd.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2010-10-04-17e495",
@@ -144,13 +108,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "24365f23a8e0.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2010-12-16-c0917a",
@@ -165,13 +123,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["ばんび～の（2011）", "three（2019）"],
-    "tracks": [],
-    "cover": {
-      "media": "8cf6c96de785.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-01-01-d694ba",
@@ -186,13 +138,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["ばんび～の（2011）"],
-    "tracks": [],
-    "cover": {
-      "media": "b6fa6fd33ac5.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-02-23-5d1d83",
@@ -207,13 +153,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "bd5e6b7b2a44.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-03-22-e983df",
@@ -228,13 +168,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["メリー（2015）"],
-    "tracks": [],
-    "cover": {
-      "media": "c7120db0e316.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-04-08-71e07d",
@@ -249,13 +183,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "dc76e34380ca.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-05-28-5ba21b",
@@ -270,13 +198,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "df458fb98a17.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-06-25-069e61",
@@ -291,13 +213,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "1d7fecfa8d15.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-07-02-0b1bd6",
@@ -312,13 +228,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "3af2dcc62878.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-07-21-c58639",
@@ -333,13 +243,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "cee4151da213.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-07-28-57287a",
@@ -354,13 +258,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["three（2019）"],
-    "tracks": [],
-    "cover": {
-      "media": "3aef1b94d366.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-08-14-48f321",
@@ -375,13 +273,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["Sweet Ices Cream（2011）", "rye（2018）"],
-    "tracks": [],
-    "cover": {
-      "media": "d87952798b38.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-08-17-1e6f40",
@@ -396,13 +288,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "4f6317421abe.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-08-22-d843aa",
@@ -417,13 +303,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "486af3dc4ae0.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-09-09-5bbe81",
@@ -438,13 +318,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["Sweet Ices Cream（2011）"],
-    "tracks": [],
-    "cover": {
-      "media": "87d231c2523b.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-10-13-014b61",
@@ -459,13 +333,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["Sweet Ices Cream（2011）"],
-    "tracks": [],
-    "cover": {
-      "media": "f9422f8ba990.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-11-08-f9e156",
@@ -480,13 +348,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "124c90d8680c.jpg",
-      "width": 468,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-11-15-15aec0",
@@ -501,13 +363,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "f598ef6e887c.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2011-12-23-6ea335",
@@ -522,13 +378,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["曖昧ばんび～な（2012）"],
-    "tracks": [],
-    "cover": {
-      "media": "d476a289039a.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-01-11-1f6759",
@@ -543,13 +393,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "59a7a7676a77.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-01-29-ce9fba",
@@ -564,13 +408,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "426697c686f8.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-02-05-cf43b3",
@@ -585,13 +423,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["曖昧ばんび～な（2012）", "rye（2018）"],
-    "tracks": [],
-    "cover": {
-      "media": "ab5ac85de7ef.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-02-18-b58029",
@@ -606,13 +438,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["曖昧ばんび～な（2012）"],
-    "tracks": [],
-    "cover": {
-      "media": "50609e7931b6.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-04-17-eaab48",
@@ -627,13 +453,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "2d5815aa26a0.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-04-19-fc20b1",
@@ -648,13 +468,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["フキゲンアンテナ（2012）"],
-    "tracks": [],
-    "cover": {
-      "media": "e6fc293f348d.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-05-12-29c851",
@@ -669,13 +483,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "b8615f109e21.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-05-21-ef8be0",
@@ -690,13 +498,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "952c0ffa3158.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-06-16-7b3156",
@@ -711,13 +513,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "cb456e8c15a3.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-07-02-ecbb37",
@@ -732,13 +528,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "3fe997216757.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-07-20-af7055",
@@ -753,13 +543,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["曖昧ばんび～な（2012）"],
-    "tracks": [],
-    "cover": {
-      "media": "16eedc1cf9ff.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-07-29-37619f",
@@ -774,13 +558,7 @@
     "bilibili": "BV1u7411H7b9",
     "bilibiliTitle": "[鹿乃]《 lrony 》",
     "albums": ["曖昧ばんび～な（2012）", "one（2017）", "鹿乃BEST（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "0296b3baf95f.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-08-13-6c5351",
@@ -795,13 +573,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["曖昧ばんび～な（2012）", "rye（2018）", "鹿乃BEST（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "a5aef92f8272.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-08-20-239df0",
@@ -816,13 +588,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "3ca0ed159b77.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-08-28-321698",
@@ -837,13 +603,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "bd31c7da094d.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-10-08-4d35f8",
@@ -858,13 +618,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "032d43d5e636.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-11-01-b708ac",
@@ -879,13 +633,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "4c121a2caadc.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-11-05-a582f7",
@@ -900,13 +648,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "2984975afe64.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-12-04-2316f8",
@@ -921,13 +663,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "05b7bb9df6d0.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-12-18-8631bc",
@@ -945,13 +681,7 @@
       "戯言クライン（2013）",
       "天声絶唱 REFERENCE ～BEST OF 歌ってみた～（2015）"
     ],
-    "tracks": [],
-    "cover": {
-      "media": "b618d1d9b678.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2012-12-27-3868de",
@@ -966,13 +696,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["すきなの。（2012）", "rye（2018）", "鹿乃BEST（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "7e28af756c88.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2013-01-13-48633f",
@@ -987,13 +711,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["すきなの。（2012）"],
-    "tracks": [],
-    "cover": {
-      "media": "7bf44e226535.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2013-02-23-5a463b",
@@ -1008,13 +726,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "595191a32584.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2013-02-26-f5691b",
@@ -1029,13 +741,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "c959bd0f76f5.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2013-05-15-1e6b9c",
@@ -1050,13 +756,7 @@
     "bilibili": "BV1PJ41157dw",
     "bilibiliTitle": "[鹿乃]《 Sadistic Love 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "1507648dd6bb.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2013-06-18-77701a",
@@ -1071,13 +771,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "ebf47783cd8c.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2013-06-30-60adf8",
@@ -1092,13 +786,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "1d6e84f7afa3.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2013-07-11-eddd40",
@@ -1113,13 +801,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["戯言クライン（2013）"],
-    "tracks": [],
-    "cover": {
-      "media": "89a9a3f2bfc3.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2013-08-08-446f54",
@@ -1134,13 +816,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["戯言クライン（2013）"],
-    "tracks": [],
-    "cover": {
-      "media": "fc3b683ae242.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2013-10-16-e794e0",
@@ -1155,13 +831,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["rye（2018）"],
-    "tracks": [],
-    "cover": {
-      "media": "30a4d8747db6.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2013-12-06-e03d49",
@@ -1176,13 +846,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["或る街の白昼夢（2013）"],
-    "tracks": [],
-    "cover": {
-      "media": "f620633ff0f4.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2014-03-15-7a28ef",
@@ -1197,13 +861,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["クライヤ（2015）", "rye（2018）"],
-    "tracks": [],
-    "cover": {
-      "media": "956a3d641512.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2014-05-21-1222b1",
@@ -1218,13 +876,7 @@
     "bilibili": "BV1BJ411j7aQ",
     "bilibiliTitle": "[鹿乃]《 多愁善感的爱慕心 》",
     "albums": ["センチメンタルな愛慕心（2015）"],
-    "tracks": [],
-    "cover": {
-      "media": "277f4a9da03b.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2014-08-22-b495b0",
@@ -1239,13 +891,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "d4be29075cc9.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2014-10-04-71956d",
@@ -1260,13 +906,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "d2f453200d89.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2015-04-08-11a802",
@@ -1281,13 +921,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "d3210fb4f3c8.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2015-04-19-fe49db",
@@ -1302,13 +936,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "3dd648e0f56c.jpg",
-      "width": 640,
-      "height": 480,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2015-05-20-d1842c",
@@ -1323,13 +951,7 @@
     "bilibili": "BV15f4y167sa",
     "bilibiliTitle": "Stella-rium【鹿乃】",
     "albums": ["Stella-rium（2015）", "nowhere（2016）", "鹿乃BEST（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "e9b12346b848.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2015-05-21-e22cb1",
@@ -1344,13 +966,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["Stella-rium（2015）", "nowhere（2016）"],
-    "tracks": [],
-    "cover": {
-      "media": "78fcc041e2b6.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2015-10-09-7127bd",
@@ -1365,13 +981,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["ディアブレイブ（2015）", "nowhere（2016）", "鹿乃BEST（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "33deec94ced5.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2015-11-06-cf0749",
@@ -1386,13 +996,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["ディアブレイブ（2015）", "nowhere（2016）", "鹿乃BEST（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "924667ea5b11.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2015-11-18-3717a3",
@@ -1407,13 +1011,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["ディアブレイブ（2015）", "nowhere（2016）"],
-    "tracks": [],
-    "cover": {
-      "media": "1e1110ea9898.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2015-12-22-e94ae8",
@@ -1428,13 +1026,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["メリー（2015）"],
-    "tracks": [],
-    "cover": {
-      "media": "8472034ee5b2.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2016-04-15-af08d9",
@@ -1449,13 +1041,7 @@
     "bilibili": "BV1LU4y1s7og",
     "bilibiliTitle": "Primastella【鹿乃】",
     "albums": ["nowhere（2016）", "鹿乃BEST（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "2aa44c92b12b.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2016-05-10-e2a9a6",
@@ -1470,13 +1056,7 @@
     "bilibili": "BV1MV411b7bF",
     "bilibiliTitle": "【鹿乃】活在当下的少女/今をかける少女",
     "albums": ["nowhere（2016）"],
-    "tracks": [],
-    "cover": {
-      "media": "5614c1275a4a.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2016-08-12-2a6c25",
@@ -1495,13 +1075,7 @@
       "アルストロメリア（2017）",
       "鹿乃BEST（2022）"
     ],
-    "tracks": [],
-    "cover": {
-      "media": "6cbb0de1c4eb.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2016-08-31-80bac7",
@@ -1516,13 +1090,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["nameless（2016）", "アルストロメリア（2017）"],
-    "tracks": [],
-    "cover": {
-      "media": "6ed38b2450d6.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2017-03-18-560874",
@@ -1537,13 +1105,7 @@
     "bilibili": "BV187411T7UY",
     "bilibiliTitle": "[鹿乃]《 sanctuary 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "58e6b04f4b85.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2017-04-14-752606",
@@ -1562,13 +1124,7 @@
       "アルストロメリア（2017）",
       "鹿乃BEST（2022）"
     ],
-    "tracks": [],
-    "cover": {
-      "media": "2629bbb2df11.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2017-05-15-b05d21",
@@ -1583,13 +1139,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "271abb09aa4d.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2017-05-17-7309d4",
@@ -1608,13 +1158,7 @@
       "アルストロメリア（2017）",
       "鹿乃BEST（2022）"
     ],
-    "tracks": [],
-    "cover": {
-      "media": "941b261bd5c8.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2017-05-21-061e5f",
@@ -1629,13 +1173,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "7d6b62011f50.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2017-09-27-efcce7",
@@ -1650,13 +1188,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "8e80dbb772f5.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2017-11-17-5507f6",
@@ -1671,13 +1203,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["アルストロメリア（2017）"],
-    "tracks": [],
-    "cover": {
-      "media": "b1dbe6b5a266.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2017-12-13-5920b7",
@@ -1692,13 +1218,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["アルストロメリア（2017）"],
-    "tracks": [],
-    "cover": {
-      "media": "ca6892646f59.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2018-05-29-cb1428",
@@ -1718,13 +1238,7 @@
       "鹿乃BEST（2022）",
       "実験品家族 -クリーチャーズ・ファミリー・デイズ- DVD-BOX 同梱CD（2018）"
     ],
-    "tracks": [],
-    "cover": {
-      "media": "9f946e2f2cca.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2018-06-17-2271b6",
@@ -1739,13 +1253,7 @@
     "bilibili": "BV1nW411c7PW",
     "bilibiliTitle": "[鹿乃]《 ハイタ 歌ってみた 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "158cfec2ff61.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2018-07-06-8543b4",
@@ -1760,13 +1268,7 @@
     "bilibili": "BV1gs411p7rs",
     "bilibiliTitle": "[鹿乃]《 メルティランドナイトメア 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "f2d4124761c7.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2018-08-21-964f8f",
@@ -1781,13 +1283,7 @@
     "bilibili": "BV1sW411Q7yu",
     "bilibiliTitle": "[鹿乃]《 君がいる世界へ 一花依世界 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "3bbc17269ce1.jpg",
-      "width": 640,
-      "height": 480,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2018-10-24-05fdc9",
@@ -1802,13 +1298,7 @@
     "bilibili": "BV1wt411d7A3",
     "bilibiliTitle": "[鹿乃]《 それがあなたの幸せとしても 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "e6a0b509fb33.jpg",
-      "width": 640,
-      "height": 480,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2018-10-25-d2a15b",
@@ -1823,13 +1313,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["HOPE（2018）", "rye（2018）"],
-    "tracks": [],
-    "cover": {
-      "media": "7dcbef68c297.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2018-12-06-c93e3d",
@@ -1844,13 +1328,7 @@
     "bilibili": "BV1Kt411Y7XP",
     "bilibiliTitle": "[鹿乃]《 『「Q」＆「A」』 》",
     "albums": ["rye（2018）"],
-    "tracks": [],
-    "cover": {
-      "media": "fbb5fa10564c.jpg",
-      "width": 640,
-      "height": 480,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2018-12-19-50b8bf",
@@ -1865,13 +1343,7 @@
     "bilibili": "BV1Nt411Y745",
     "bilibiliTitle": "[鹿乃]《 HOPE 》",
     "albums": ["HOPE（2018）", "rye（2018）"],
-    "tracks": [],
-    "cover": {
-      "media": "63a13f1c4fbc.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-01-26-2e0b1a",
@@ -1886,13 +1358,7 @@
     "bilibili": "BV1ct411t74U",
     "bilibiliTitle": "[鹿乃 feat.洛天依]《 灰と境界 》",
     "albums": ["blue（2019）"],
-    "tracks": [],
-    "cover": {
-      "media": "3ac7e29093a2.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-02-08-bea020",
@@ -1907,13 +1373,7 @@
     "bilibili": "BV1vb411676h",
     "bilibiliTitle": "[鹿乃]《 乙女解剖 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "b2f12891d364.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-02-14-e14285",
@@ -1928,13 +1388,7 @@
     "bilibili": "BV1jb41127DC",
     "bilibiliTitle": "[鹿乃.作曲＆miku.演唱]《 No Sweet N❤︎Life 》",
     "albums": ["blue（2019）"],
-    "tracks": [],
-    "cover": {
-      "media": "de9d991a2b66.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-04-19-132dc0",
@@ -1949,13 +1403,7 @@
     "bilibili": "BV1nb411L7ha",
     "bilibiliTitle": "[鹿乃]《 勾指起誓 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "41780c475c5c.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-06-14-5ec188",
@@ -1970,13 +1418,7 @@
     "bilibili": "BV1N4411N7bK",
     "bilibiliTitle": "[鹿乃]《 ワールドエンド・ガールズライク 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "6dbf31dc4e4d.jpg",
-      "width": 640,
-      "height": 480,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-07-12-9e74d8",
@@ -1991,13 +1433,7 @@
     "bilibili": "BV1et41157Js",
     "bilibiliTitle": "[鹿乃 feat.洛天依]《 Photographer 》",
     "albums": ["blue（2019）"],
-    "tracks": [],
-    "cover": {
-      "media": "aeb9b3bcde4e.jpg",
-      "width": 2111,
-      "height": 1319,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-08-01-1c7bc9",
@@ -2012,13 +1448,7 @@
     "bilibili": "BV1Gt411F7LW",
     "bilibiliTitle": "[鹿乃]《 自我介绍歌 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "9f7983ffa9bc.png",
-      "width": 992,
-      "height": 621,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-08-11-4a2fbd",
@@ -2033,13 +1463,7 @@
     "bilibili": "BV1d4411D7Qz",
     "bilibiliTitle": "[鹿乃]《 地球最後の告白を 》",
     "albums": ["three（2019）"],
-    "tracks": [],
-    "cover": {
-      "media": "2687e84ea5a0.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-08-30-f0859d",
@@ -2054,13 +1478,7 @@
     "bilibili": "BV1U441117TN",
     "bilibiliTitle": "[鹿乃]《 ルカルカ☆ナイトフィーバー 》",
     "albums": ["いつかの約束を君に（2019）"],
-    "tracks": [],
-    "cover": {
-      "media": "dc4fe86d1736.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-09-23-b510df",
@@ -2075,13 +1493,7 @@
     "bilibili": "BV1EJ411M7VG",
     "bilibiliTitle": "[鹿乃]《 说好不哭 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "75e8f5df37d6.jpg",
-      "width": 1280,
-      "height": 800,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-10-02-b2fb0f",
@@ -2096,13 +1508,7 @@
     "bilibili": "BV1uE411Q7uc",
     "bilibiliTitle": "[鹿乃]《 告白气球 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "bea0972c6252.jpg",
-      "width": 1555,
-      "height": 972,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-11-05-e7500d",
@@ -2117,13 +1523,7 @@
     "bilibili": "BV1nE411B7UN",
     "bilibiliTitle": "[鹿乃]《 被生命所厌恶 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "0228ebcf480c.jpg",
-      "width": 1152,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-11-09-7b650a",
@@ -2138,13 +1538,7 @@
     "bilibili": "BV15E411v7fR",
     "bilibiliTitle": "[鹿乃]《 爱能做到的还有什么 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "afc9ac37df8a.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2019-11-14-4afd23",
@@ -2159,13 +1553,7 @@
     "bilibili": "BV1wJ411D7uR",
     "bilibiliTitle": "[鹿乃＆小东人鱼＆花丸晴琉＆野野宫ののの]《 FlowerPop Girl 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "e223adedf281.jpg",
-      "width": 1152,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-01-09-ce794b",
@@ -2180,13 +1568,7 @@
     "bilibili": "BV1sJ411G7ib",
     "bilibiliTitle": "[鹿乃]《 灰色と青 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "bcd39821e3e0.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-01-24-8ee30a",
@@ -2201,13 +1583,7 @@
     "bilibili": "BV1t7411a75K",
     "bilibiliTitle": "[鹿乃]《 好想爱这个世界啊 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "d8812bffbfb1.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-01-24-a19afc",
@@ -2222,13 +1598,7 @@
     "bilibili": "BV1KJ411C7qF",
     "bilibiliTitle": "[鹿乃与拜年祭]《 星之回响 》",
     "albums": ["星之回响（2020）"],
-    "tracks": [],
-    "cover": {
-      "media": "f7fd02acbd6a.jpg",
-      "width": 3456,
-      "height": 2160,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-01-26-8d8905",
@@ -2243,13 +1613,7 @@
     "bilibili": "BV1x7411k7Ww",
     "bilibiliTitle": "[鹿乃]《 买买买 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "53bd6c97a9e4.jpg",
-      "width": 1920,
-      "height": 1080,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-02-06-502a7d",
@@ -2264,13 +1628,7 @@
     "bilibili": "BV1x7411H7yA",
     "bilibiliTitle": "[鹿乃]《 午夜0点的无力的神明午前0時の無力な神様 》",
     "albums": ["yuanfen（2020）", "鹿乃BEST（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "280d2dc92470.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-02-14-a6537a",
@@ -2285,13 +1643,7 @@
     "bilibili": "BV1R7411u7xQ",
     "bilibiliTitle": "[鹿乃＆神乐七奈]《 自言自语 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "7793128f4dda.jpg",
-      "width": 1728,
-      "height": 1080,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-03-19-ed8d0c",
@@ -2306,13 +1658,7 @@
     "bilibili": "BV1XE411P7kd",
     "bilibiliTitle": "[鹿乃＆MUE]《 Gimme×Gimme 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "63da256c58da.jpg",
-      "width": 1920,
-      "height": 1080,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-03-23-a7b7d6",
@@ -2327,13 +1673,7 @@
     "bilibili": "BV1tE411c74Q",
     "bilibiliTitle": "[鹿乃]《 童话 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a7ed5e17ba68.jpg",
-      "width": 966,
-      "height": 604,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-03-26-2201fe",
@@ -2348,13 +1688,7 @@
     "bilibili": "BV127411C7jS",
     "bilibiliTitle": "[鹿乃]《 处处吻 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "026425902a1d.jpg",
-      "width": 1152,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-04-10-eb0dbe",
@@ -2369,13 +1703,7 @@
     "bilibili": "BV1dK4y1r7Wc",
     "bilibiliTitle": "[鹿乃＆小东人鱼＆花丸晴琉＆野野宫ののの]《 瞬间天堂 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "2c6c65b46e1d.jpg",
-      "width": 1031,
-      "height": 644,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-04-11-42d32a",
@@ -2390,13 +1718,7 @@
     "bilibili": "BV1Fe41147h8",
     "bilibiliTitle": "[鹿乃]《 別の人の彼女になったよ我成了别人的女朋友 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a58f11bc5f10.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-05-08-433c5a",
@@ -2411,13 +1733,7 @@
     "bilibili": "BV1zV411d7KJ",
     "bilibiliTitle": "[鹿乃]《 猫猫的宇宙论 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "c6eb1a29284f.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-05-23-03848b",
@@ -2432,13 +1748,7 @@
     "bilibili": "BV11V411C7BQ",
     "bilibiliTitle": "[鹿乃]《 花に亡霊花上的亡灵 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "249af4848786.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-05-28-2d6f56",
@@ -2453,13 +1763,7 @@
     "bilibili": "BV1EQ4y1P7cb",
     "bilibiliTitle": "[鹿乃]《 言って。说吧。 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "88d4d06e1fd3.jpg",
-      "width": 1280,
-      "height": 800,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-06-17-6e5038",
@@ -2474,13 +1778,7 @@
     "bilibili": "BV1mz4y1Q7yF",
     "bilibiliTitle": "[鹿乃]《 等她 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "6aeae584a3ac.jpg",
-      "width": 960,
-      "height": 600,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-06-19-b14687",
@@ -2495,13 +1793,7 @@
     "bilibili": "BV1kk4y1z7gH",
     "bilibiliTitle": "[鹿乃]《 想见你想见你想见你 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "02a8318f2cc3.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-06-25-8be4fd",
@@ -2516,13 +1808,7 @@
     "bilibili": "BV1cC4y1Y7JD",
     "bilibiliTitle": "[鹿乃]《 Turing Love 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "c7b941294021.jpg",
-      "width": 1146,
-      "height": 716,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-07-09-fb9be1",
@@ -2537,13 +1823,7 @@
     "bilibili": "BV1Aa4y1a7NH",
     "bilibiliTitle": "[鹿乃]《 那些花儿 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "89b679e2f071.png",
-      "width": 1152,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-07-30-557aa5",
@@ -2562,13 +1842,7 @@
       "鹿乃BEST（2022）",
       "『宇崎ちゃんは遊びたい!』サウンドこれくしょん（2021）"
     ],
-    "tracks": [],
-    "cover": {
-      "media": "a4308319ac3b.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-08-07-f45e21",
@@ -2583,13 +1857,7 @@
     "bilibili": "BV1UT4y157ns",
     "bilibiliTitle": "[鹿乃]《 ここから、ここから 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "c8695235eaac.jpg",
-      "width": 1139,
-      "height": 712,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-08-25-9e02a7",
@@ -2604,13 +1872,7 @@
     "bilibili": "BV19C4y1t7YU",
     "bilibiliTitle": "[鹿乃＆hanser]《 drop pop candy 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "5ef85634b54a.jpg",
-      "width": 1032,
-      "height": 645,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-08-30-019bb4",
@@ -2625,13 +1887,7 @@
     "bilibili": "BV1oa4y177tH",
     "bilibiliTitle": "[鹿乃]《 达啦崩吧铃铛版 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "5c1eac51c7ac.jpg",
-      "width": 1146,
-      "height": 716,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-09-01-5a02e7",
@@ -2646,13 +1902,7 @@
     "bilibili": "BV12k4y127mJ",
     "bilibiliTitle": "[鹿乃]《 只给予你的晴天 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "9ee4f85af1ed.jpg",
-      "width": 1146,
-      "height": 716,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-09-22-34b6fd",
@@ -2667,13 +1917,7 @@
     "bilibili": "BV1bh411X76h",
     "bilibiliTitle": "鹿乃酱的音乐混剪 2020remix",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "9228ade69dc6.jpg",
-      "width": 640,
-      "height": 480,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-09-27-3194f7",
@@ -2688,13 +1932,7 @@
     "bilibili": "BV19V411m79M",
     "bilibiliTitle": "[鹿乃]《 回忆一夏 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "95a11ee7b342.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-10-04-766a27",
@@ -2709,13 +1947,7 @@
     "bilibili": "BV1my4y1k7JC",
     "bilibiliTitle": "[鹿乃]《 unravel 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "c6e16a114ea2.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-10-17-5d579f",
@@ -2730,13 +1962,7 @@
     "bilibili": "BV1By4y1C72f",
     "bilibiliTitle": "[鹿乃]《 KING 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "2b45880f22ca.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-10-23-9f83a3",
@@ -2751,13 +1977,7 @@
     "bilibili": "BV1cA411j72F",
     "bilibiliTitle": "[鹿乃]《 谎言是恋爱的开始 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "5af8c8d8b833.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-11-05-7f2977",
@@ -2772,13 +1992,7 @@
     "bilibili": "BV1CZ4y1V7Su",
     "bilibiliTitle": "[鹿乃]《 飞鸟和蝉 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "886b78c3d8b7.jpg",
-      "width": 1132,
-      "height": 708,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-11-13-ca0163",
@@ -2793,13 +2007,7 @@
     "bilibili": "BV1fr4y1F79m",
     "bilibiliTitle": "[鹿乃＆小东人鱼]《 寄明月 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "2e196f5ec74c.jpg",
-      "width": 1088,
-      "height": 680,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-12-11-db5912",
@@ -2814,13 +2022,7 @@
     "bilibili": "BV1kK41137bj",
     "bilibiliTitle": "[鹿乃]《 Dreamin ChuChu 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "dc725b7f0745.jpg",
-      "width": 640,
-      "height": 480,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2020-12-19-88d361",
@@ -2838,13 +2040,7 @@
       "纸鸢（2020）",
       "创世之音 bilibili虚拟主播演唱会节目音频（2021，live）"
     ],
-    "tracks": [],
-    "cover": {
-      "media": "b5ce9f3fe1ad.jpg",
-      "width": 1146,
-      "height": 716,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-01-06-f14c27",
@@ -2859,13 +2055,7 @@
     "bilibili": "BV18t4y1r7yp",
     "bilibiliTitle": "[鹿乃]《 compass song 》",
     "albums": ["コンパスソング（2021）", "鹿乃BEST（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "1b9422cf552f.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-01-15-2e8bc9",
@@ -2880,13 +2070,7 @@
     "bilibili": "BV1B5411n7h1",
     "bilibiliTitle": "[鹿乃＆泠鸢yousa]《 不识月 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "f8def7b94b64.jpg",
-      "width": 1285,
-      "height": 803,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-02-10-cb1b87",
@@ -2901,13 +2085,7 @@
     "bilibili": "BV16v4y1o7j1",
     "bilibiliTitle": "[鹿乃]《 SAKURAいきものがかり 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "671afe4c26fc.jpg",
-      "width": 640,
-      "height": 480,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-02-11-82c7a2",
@@ -2922,13 +2100,7 @@
     "bilibili": "BV1zp4y1W7qf",
     "bilibiliTitle": "[鹿乃＆hanser＆泠鸢yousa＆祖娅纳惜]《 吉祥话 》",
     "albums": ["2021哔哩哔哩拜年纪（2021）"],
-    "tracks": [],
-    "cover": {
-      "media": "88235cd8c8f5.jpg",
-      "width": 1144,
-      "height": 715,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-03-15-830ce2",
@@ -2943,13 +2115,7 @@
     "bilibili": "BV1Tv41187TJ",
     "bilibiliTitle": "《テロメアの産声/Telomere's first cry》翻唱【鹿乃】",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "5fd27715943e.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-04-06-edabfe",
@@ -2964,13 +2130,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "f002299c9506.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-04-09-71e723",
@@ -2985,13 +2145,7 @@
     "bilibili": "BV1AZ4y1w7ca",
     "bilibiliTitle": "[鹿乃]《 被劈腿了可我还是爱你。 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "95be8f140975.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-04-24-aad47e",
@@ -3006,13 +2160,7 @@
     "bilibili": "BV1m54y1L7wh",
     "bilibiliTitle": "[鹿乃]《 再见宣言  グッバイ宣言 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "37dcd6fd3092.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-05-02-ee92fb",
@@ -3027,13 +2175,7 @@
     "bilibili": "BV1GA41157bn",
     "bilibiliTitle": "[鹿乃]《 吸血鬼  ヴァンパイア 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "45b95837b5ea.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-05-14-2c7f76",
@@ -3048,13 +2190,7 @@
     "bilibili": "BV1Gh411v7zy",
     "bilibiliTitle": "[鹿乃]《 45秒で何ができる？ 45秒能做什么呢？ 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "86a767461986.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-05-21-1e5f5e",
@@ -3069,13 +2205,7 @@
     "bilibili": "BV1864y1y7hV",
     "bilibiliTitle": "[鹿乃]《 キュートなカノジョ 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "4733823a7113.jpg",
-      "width": 640,
-      "height": 480,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-05-27-c6f20d",
@@ -3090,13 +2220,7 @@
     "bilibili": "BV1Bg411378E",
     "bilibiliTitle": "[鹿乃＆MUE＆汤圆]《 Ready Steady 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a51862565e54.jpg",
-      "width": 1728,
-      "height": 1080,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-06-12-eb591f",
@@ -3111,13 +2235,7 @@
     "bilibili": "BV1Y64y1674x",
     "bilibiliTitle": "[鹿乃]《 bullet 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "8396f9a83e73.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-06-25-591003",
@@ -3132,13 +2250,7 @@
     "bilibili": "BV1V64y19758",
     "bilibiliTitle": "[鹿乃]《 每天每天  てねてね 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "039062d19139.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-07-16-bfeaf4",
@@ -3153,13 +2265,7 @@
     "bilibili": "BV1py4y1T7L8",
     "bilibiliTitle": "[鹿乃]《 起风了 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "ae1be6a24e0e.jpg",
-      "width": 1642,
-      "height": 1026,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-08-03-bcee7f",
@@ -3174,13 +2280,7 @@
     "bilibili": "BV1c44y127wD",
     "bilibiliTitle": "[鹿乃]《 一剪梅 》",
     "albums": ["情书（2021）"],
-    "tracks": [],
-    "cover": {
-      "media": "3358ca3c31ef.jpg",
-      "width": 1146,
-      "height": 716,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-08-09-8be83b",
@@ -3195,13 +2295,7 @@
     "bilibili": "BV1964y1W7rV",
     "bilibiliTitle": "[鹿乃]《 星语心愿 》",
     "albums": ["情书（2021）"],
-    "tracks": [],
-    "cover": {
-      "media": "b0833b73718c.jpg",
-      "width": 1146,
-      "height": 716,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-08-28-a19a4a",
@@ -3216,13 +2310,7 @@
     "bilibili": "BV1Cb4y1m7HJ",
     "bilibiliTitle": "[鹿乃]《 水星记 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "c557dcd5b4a9.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-09-04-4563f4",
@@ -3237,13 +2325,7 @@
     "bilibili": "BV1Bv411P7fb",
     "bilibiliTitle": "[鹿乃]《 示弱 ヨワネハキ 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "c086830e9aa1.jpg",
-      "width": 1728,
-      "height": 1080,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-09-10-7b9186",
@@ -3258,13 +2340,7 @@
     "bilibili": "BV1VL411x7Zc",
     "bilibiliTitle": "[鹿乃]《 Darling Danceダーリンダンス 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "31fab003afdb.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-09-25-281349",
@@ -3279,13 +2355,7 @@
     "bilibili": "BV19341127GM",
     "bilibiliTitle": "[鹿乃]《 伪物フォニイphony 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a20323923c19.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-10-06-9bd205",
@@ -3300,13 +2370,7 @@
     "bilibili": "BV1m341117JC",
     "bilibiliTitle": "[鹿乃]《 CHO-DARI- 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "01016960ca86.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-11-05-0d4884",
@@ -3321,13 +2385,7 @@
     "bilibili": "BV1Lh411t7SN",
     "bilibiliTitle": "[鹿乃＆扇宝]《 回响 》",
     "albums": ["星梦偶像计划广播剧原声带 Vol.1下（2021）"],
-    "tracks": [],
-    "cover": {
-      "media": "a27518e34294.jpg",
-      "width": 1146,
-      "height": 716,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-11-25-6dabce",
@@ -3342,13 +2400,7 @@
     "bilibili": "BV1gU4y1T7pE",
     "bilibiliTitle": "[鹿乃]《 Oz. 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "9acd9fd5defe.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-12-03-9c4247",
@@ -3363,13 +2415,7 @@
     "bilibili": "BV1ES4y1X7yN",
     "bilibiliTitle": "[鹿乃]《 热爱105°C的你 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "d919ff9641f2.jpg",
-      "width": 1663,
-      "height": 1039,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-12-18-7977e0",
@@ -3384,13 +2430,7 @@
     "bilibili": "BV1KP4y1H7KD",
     "bilibiliTitle": "[鹿乃＆物述有栖＆风见kuku]《 马儿蹦跳传说 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "4f3d4cf272ee.jpg",
-      "width": 1728,
-      "height": 1080,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2021-12-30-12d0b0",
@@ -3405,13 +2445,7 @@
     "bilibili": "BV1Dq4y1m75s",
     "bilibiliTitle": "[鹿乃]《 路过人间 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "076718fee697.jpg",
-      "width": 1032,
-      "height": 645,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-01-29-ecbf47",
@@ -3426,13 +2460,7 @@
     "bilibili": "BV1Pq4y1h75p",
     "bilibiliTitle": "[鹿乃]《 海怪红色预警-日语版 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "0c9d1f2e8281.jpg",
-      "width": 1728,
-      "height": 1080,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-02-02-311b2f",
@@ -3447,13 +2475,7 @@
     "bilibili": "BV12Y411t7Tm",
     "bilibiliTitle": "[鹿乃]《 反方向的鐘 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "16f5ae684ddb.jpg",
-      "width": 960,
-      "height": 600,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-02-05-af771c",
@@ -3468,13 +2490,7 @@
     "bilibili": "BV1Hq4y1b7PM",
     "bilibiliTitle": "[鹿乃]《 一梦千宵 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a84956670ca5.jpg",
-      "width": 1146,
-      "height": 716,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-02-22-0ddaab",
@@ -3489,13 +2505,7 @@
     "bilibili": "BV1c44y1n7Ny",
     "bilibiliTitle": "[鹿乃]《 我想变成猫 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "7fe44d07f75a.jpg",
-      "width": 1474,
-      "height": 921,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-03-11-62d641",
@@ -3510,13 +2520,7 @@
     "bilibili": "BV1qP4y1M7G7",
     "bilibiliTitle": "[鹿乃]《 Stay Alive 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "6d4d38e82664.jpg",
-      "width": 1156,
-      "height": 722,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-04-01-55bd07",
@@ -3531,13 +2535,7 @@
     "bilibili": "BV1U94y1o7kP",
     "bilibiliTitle": "【鹿乃】翻唱《你不必强迫自己去笑》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a75493276c82.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-04-05-421f44",
@@ -3581,13 +2579,7 @@
       "クリスマスソング",
       "メリーメリー",
       "Stella-rium"
-    ],
-    "cover": {
-      "media": "cd0ca1a4e397.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    ]
   },
   {
     "id": "2022-04-09-4e2dc2",
@@ -3602,13 +2594,7 @@
     "bilibili": "BV1zr4y1n7sM",
     "bilibiliTitle": "[鹿乃]《 曾经我也想过一了百了 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "f1f671b81d8f.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-05-07-2ff9b0",
@@ -3623,13 +2609,7 @@
     "bilibili": "BV1jT4y167Ux",
     "bilibiliTitle": "[鹿乃]《 Sincerely 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a321b1819b4d.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-06-11-58e649",
@@ -3644,13 +2624,7 @@
     "bilibili": "BV1uv4y1G7K2",
     "bilibiliTitle": "[鹿乃]《 灰姑娘男孩 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "8821117dc45b.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-07-11-908494",
@@ -3665,13 +2639,7 @@
     "bilibili": "BV19G411H7XH",
     "bilibiliTitle": "[鹿乃]《 I LOVE U 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "b18b4196dff0.jpg",
-      "width": 2000,
-      "height": 1250,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-07-16-fd0c39",
@@ -3686,13 +2654,7 @@
     "bilibili": "BV1ke4y1R7Vp",
     "bilibiliTitle": "[鹿乃]《 最伟大的作品 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "ead62dcff9a4.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-08-12-51e054",
@@ -3707,13 +2669,7 @@
     "bilibili": "BV1RV4y1x7Ct",
     "bilibiliTitle": "[鹿乃]《 Identity _ アイデンティティ 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "cd37945265a7.jpg",
-      "width": 640,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-08-25-d03644",
@@ -3728,13 +2684,7 @@
     "bilibili": "BV13V4y1x77w",
     "bilibiliTitle": "[鹿乃]《 魔法少女与巧克力 _ 魔法少女とチョコレゐト 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "4673b29d0161.jpg",
-      "width": 640,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-08-27-fb196a",
@@ -3749,13 +2699,7 @@
     "bilibili": "BV1GP411L7f3",
     "bilibiliTitle": "[鹿乃＆lon]《 summertime 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "cba1c7d698e6.jpg",
-      "width": 640,
-      "height": 270,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-09-01-e8c706",
@@ -3770,13 +2714,7 @@
     "bilibili": "BV1aD4y167ju",
     "bilibiliTitle": "[鹿乃]《 一个想成为开朗JK的孤僻JK 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "2e0b9cf62b6c.jpg",
-      "width": 1134,
-      "height": 709,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-09-09-e5a98f",
@@ -3791,13 +2729,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a86a351d1272.jpg",
-      "width": 640,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-09-10-31e38e",
@@ -3812,13 +2744,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "4f95be73f2a7.jpg",
-      "width": 640,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-09-19-ba4322",
@@ -3833,13 +2759,7 @@
     "bilibili": "BV1YP4y1o73e",
     "bilibiliTitle": "【MMD】《再见宣言 / グッバイ宣言》鹿乃/MKLNtic",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "7b9c96080cae.jpg",
-      "width": 2160,
-      "height": 1350,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-10-07-959e75",
@@ -3854,13 +2774,7 @@
     "bilibili": "BV1514y1h7Af",
     "bilibiliTitle": "[鹿乃]《 一期一会 Celebration 》",
     "albums": ["いちごいちえ Celebration（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "b52f81329ed5.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-10-09-37a222",
@@ -3875,13 +2789,7 @@
     "bilibili": "BV1Qe4y1q7fA",
     "bilibiliTitle": "[鹿乃＆lon]《 HELLO MY TREAT 》",
     "albums": ["はっぴーらいふ（2022）"],
-    "tracks": [],
-    "cover": {
-      "media": "38cf8cf73c8f.jpg",
-      "width": 640,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-10-19-28e652",
@@ -3896,13 +2804,7 @@
     "bilibili": "BV1dt4y1M74z",
     "bilibiliTitle": "[鹿乃]《 青鸟 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "dff4b4304385.jpg",
-      "width": 1292,
-      "height": 808,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-10-20-4f5c61",
@@ -3917,13 +2819,7 @@
     "bilibili": "BV1AV4y1G7zQ",
     "bilibiliTitle": "[鹿乃]《 ALIVE 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "ebd68558128b.jpg",
-      "width": 1465,
-      "height": 916,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-10-23-2dc67b",
@@ -3938,13 +2834,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "b1aece6c08d6.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-11-20-79f439",
@@ -3959,13 +2849,7 @@
     "bilibili": "BV1C24y1y7D1",
     "bilibiliTitle": "[鹿乃]《 青春コンプレックス 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "b28f6eee2853.jpg",
-      "width": 1504,
-      "height": 940,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-12-17-4a44f1",
@@ -3980,13 +2864,7 @@
     "bilibili": "BV1JR4y1k7A4",
     "bilibiliTitle": "[鹿乃]《 再会 (produced by Ayase) 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "571973ec5b77.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-12-23-2d004b",
@@ -4001,13 +2879,7 @@
     "bilibili": "BV1Hg411J79a",
     "bilibiliTitle": "[鹿乃＆lon＆hanser]《 爱言叶Ⅳ 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "3168c636b232.jpg",
-      "width": 3456,
-      "height": 2160,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2022-12-31-3722aa",
@@ -4024,13 +2896,7 @@
     "albums": [
       "Stellar Gift (Genshin Impact HoYoFair 2024 New Year Fan Music Special Collection)（2024）"
     ],
-    "tracks": [],
-    "cover": {
-      "media": "04bd1a273adb.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-01-22-a34229",
@@ -4045,13 +2911,7 @@
     "bilibili": "BV1bA411d7Vr",
     "bilibiliTitle": "[鹿乃]《 啾，多样性。 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "dacb594eeb04.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-04-16-6dab60",
@@ -4066,13 +2926,7 @@
     "bilibili": "BV1TM4y1y7g5",
     "bilibiliTitle": "[鹿乃]《 单相思 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "d5e3af525b8f.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-04-29-9bb044",
@@ -4087,13 +2941,7 @@
     "bilibili": "BV1Cg4y1L7pa",
     "bilibiliTitle": "[鹿乃]《 我、和我们 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "21597ab3cff8.jpg",
-      "width": 640,
-      "height": 480,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-05-06-b3743b",
@@ -4108,13 +2956,7 @@
     "bilibili": "BV1VM4y1b7XP",
     "bilibiliTitle": "[鹿乃]《 Beat Eater 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "3d9cd002522d.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-06-10-9859dd",
@@ -4129,13 +2971,7 @@
     "bilibili": "BV1ws4y1v7Yk",
     "bilibiliTitle": "[鹿乃]《 强风大背头 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "7ff6391cc887.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-06-20-4a6ad7",
@@ -4150,13 +2986,7 @@
     "bilibili": "BV1BW4y1S7UD",
     "bilibiliTitle": "[鹿乃]《 我们都拥有海洋 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "3e4bf2f96356.jpg",
-      "width": 1145,
-      "height": 716,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-06-24-c16d91",
@@ -4171,13 +3001,7 @@
     "bilibili": "BV1Yo4y1P7hz",
     "bilibiliTitle": "[鹿乃＆lon]《 像神一样呐 _ 神っぽいな 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "eb68ea1c1767.jpg",
-      "width": 1296,
-      "height": 810,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-06-29-b33f26",
@@ -4192,13 +3016,7 @@
     "bilibili": "BV1sh4y1M7KT",
     "bilibiliTitle": "[鹿乃]《secret base ～君がくれたもの～》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "455c0ca6ad15.jpg",
-      "width": 1109,
-      "height": 693,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-06-30-9154b6",
@@ -4213,13 +3031,7 @@
     "bilibili": "BV1Ws4y1F7Gn",
     "bilibiliTitle": "[鹿乃]《偶像 _ アイドル》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "4ab98fa2d338.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-07-12-ae1a0e",
@@ -4234,13 +3046,7 @@
     "bilibili": "BV1kM4y1j7Qq",
     "bilibiliTitle": "鹿乃 翻唱《你诞生的那一天 / 君が生まれた日》acousti ver.",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "512ec5a61331.jpg",
-      "width": 1079,
-      "height": 674,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-08-10-97d47a",
@@ -4255,13 +3061,7 @@
     "bilibili": "BV1Gh4y1k7jo",
     "bilibiliTitle": "[鹿乃]《主播女孩重度依赖 _ INTERNET OVERDOSE》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "15fa6a1b61ba.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-08-20-acf4df",
@@ -4276,13 +3076,7 @@
     "bilibili": "BV1DX4y1W71F",
     "bilibiliTitle": "[鹿乃]《 早起椰树头 _ 寝起きヤシの木》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "7b3b2b8fbfa1.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2023-11-03-aff020",
@@ -4297,13 +3091,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "d8cb20ae4e24.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-04-20-0cba5d",
@@ -4318,13 +3106,7 @@
     "bilibili": "BV1cE421K7Tf",
     "bilibiliTitle": "[鹿乃]《Stereophonic _ ステレオフォニック》",
     "albums": ["ステレオフォニック（2024）"],
-    "tracks": [],
-    "cover": {
-      "media": "73445cca4066.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-04-27-dffd13",
@@ -4339,13 +3121,7 @@
     "bilibili": "BV1QC411n7az",
     "bilibiliTitle": "[鹿乃]《 大人渣 _ ド屑 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a92d7b7de19a.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-05-05-0b1604",
@@ -4360,13 +3136,7 @@
     "bilibili": "BV1bM4m1Z7gk",
     "bilibiliTitle": "[鹿乃] 《 兔子洞 _ ラビットホール 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "920ba7ddf038.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-05-17-f7280a",
@@ -4381,13 +3151,7 @@
     "bilibili": "BV1Hz42127dT",
     "bilibiliTitle": "[鹿乃]《 うぉんちゅーばっど _ want you bad 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "9a68e09c7c2a.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-05-29-d62d27",
@@ -4402,13 +3166,7 @@
     "bilibili": "BV1MJ4m1A7st",
     "bilibiliTitle": "[鹿乃]《_Stand_By_Me_acoustic_ver._》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a31e89d5f7ea.png",
-      "width": 1080,
-      "height": 810,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-06-15-f5d096",
@@ -4423,13 +3181,7 @@
     "bilibili": "BV1o1421k7m8",
     "bilibiliTitle": "[鹿乃]《  咒语 _ お呪い  》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "fb3a9393f385.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-08-15-bb3b27",
@@ -4444,13 +3196,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "65e050520d05.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-08-28-669c0d",
@@ -4465,13 +3211,7 @@
     "bilibili": "BV1Ln4y1Z7cZ",
     "bilibiliTitle": "[鹿乃]《 Metome _ メトメ 》",
     "albums": ["メトメ（2024）"],
-    "tracks": [],
-    "cover": {
-      "media": "f07a6fc6c4b2.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-09-18-bd0748",
@@ -4486,13 +3226,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "05f1a5905ced.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-09-22-964350",
@@ -4507,13 +3241,7 @@
     "bilibili": "BV1hktDesEH4",
     "bilibiliTitle": "[鹿乃＆lon]【原神】《泡泡时光》",
     "albums": ["Genshin Impact HoYoFair: Flame Fusion（2024）"],
-    "tracks": [],
-    "cover": {
-      "media": "40a680d6432a.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-10-23-2a1ffc",
@@ -4528,13 +3256,7 @@
     "bilibili": "BV1QPyZYaE7K",
     "bilibiliTitle": "[鹿乃]《 愛と哀 》",
     "albums": ["愛と哀（2024）"],
-    "tracks": [],
-    "cover": {
-      "media": "a8cf8404dde9.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-11-24-4b42e6",
@@ -4549,13 +3271,7 @@
     "bilibili": "BV14cB2YVE2H",
     "bilibiliTitle": "[鹿乃]《永远在一起吧！_ ずうっといっしょ！》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "0f7cd79ca01d.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-12-14-5a9def",
@@ -4570,13 +3286,7 @@
     "bilibili": "BV1LkqzYMEQL",
     "bilibiliTitle": "[鹿乃]《 萌萌点火Fire _ モエチャッカファイア - 弌誠 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "f16351566782.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2024-12-18-a6c443",
@@ -4591,13 +3301,7 @@
     "bilibili": "BV1yjkFYnE1T",
     "bilibiliTitle": "[鹿乃]【鸣潮】《 CAMELLIA  》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "268bc53f4942.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-01-01-6beb53",
@@ -4612,13 +3316,7 @@
     "bilibili": "BV1n86dYwEGw",
     "bilibiliTitle": "[鹿乃]【星穹铁道 HoYoFair】《 飞月之旅 _ To the Moon 》",
     "albums": ["Star Rail HoYoFair Music Selection #3 \"Monkey 42\"（2025）"],
-    "tracks": [],
-    "cover": {
-      "media": "944819f5e8e2.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-01-25-83006b",
@@ -4633,13 +3331,7 @@
     "bilibili": "BV1U8ffYeE3E",
     "bilibiliTitle": "[鹿乃]《 杂鱼 Nice Try _ みむかｩわナイストライ 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "7dd284f31d0a.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-02-01-fca891",
@@ -4654,13 +3346,7 @@
     "bilibili": "BV1bNFuehEyA",
     "bilibiliTitle": "[鹿乃]《视奸 _ モニタリング _ Monitoring 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "41450ea4eaee.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-02-06-c759db",
@@ -4675,13 +3361,7 @@
     "bilibili": "BV1UbNneGEmr",
     "bilibiliTitle": "[鹿乃]《Tetoris _ テトリス 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "075299b3f472.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-02-11-5457df",
@@ -4696,13 +3376,7 @@
     "bilibili": "BV17dNoe8EUM",
     "bilibiliTitle": "[鹿乃]《Doppel原画与复制Gänger _ ドッペル原画と複製ゲンガー》",
     "albums": ["ドッペル原画と複製ゲンガー（2025）"],
-    "tracks": [],
-    "cover": {
-      "media": "8c619508d9c3.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-03-08-8c472e",
@@ -4717,13 +3391,7 @@
     "bilibili": null,
     "bilibiliTitle": "[鹿乃＆4円]琥珀色の街、上海蟹の朝_くるり",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "6f223f32ecdd.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-07-02-61f562",
@@ -4738,13 +3406,7 @@
     "bilibili": "BV1AEg6zfELy",
     "bilibiliTitle": "[鹿乃]《Hiraeth》",
     "albums": ["Hiraeth（2025）"],
-    "tracks": [],
-    "cover": {
-      "media": "c8416ef64bc0.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-07-18-342822",
@@ -4759,13 +3421,7 @@
     "bilibili": "BV1uYg3zdEeH",
     "bilibiliTitle": "[鹿乃]《 失恋之歌入耳良多 而我早已哭泣不止  失恋ソング沢山聴いて 泣いてばかりの私はもう 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "909d7ad734aa.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-07-19-4fce1f",
@@ -4780,13 +3436,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "4b20eaa587fa.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-07-25-82936c",
@@ -4801,13 +3451,7 @@
     "bilibili": "BV1pCbmz8ENG",
     "bilibiliTitle": "[鹿乃]《 夏霞 piano arrange 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "581345f3b1ab.jpg",
-      "width": 1082,
-      "height": 608,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-08-06-702e9c",
@@ -4822,13 +3466,7 @@
     "bilibili": "BV1J8tJzkEDu",
     "bilibiliTitle": "[鹿乃]《glow》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "d19715b5f0e6.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-08-09-ebec80",
@@ -4843,13 +3481,7 @@
     "bilibili": "BV1katWzdE5i",
     "bilibiliTitle": "[鹿乃]《Cherry Pop  チェリーポップ 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "e1d66ffa873b.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-08-22-c14f42",
@@ -4864,13 +3496,7 @@
     "bilibili": "BV1VvYZznEbf",
     "bilibiliTitle": "[鹿乃]《心拍数♯0822》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "e18e1dd32320.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-08-22-66b26b",
@@ -4885,13 +3511,7 @@
     "bilibili": "BV1RKYRzkEW6",
     "bilibiliTitle": "[鹿乃]《时之奇旅》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "44f64bf259d3.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-08-30-b87616",
@@ -4906,13 +3526,7 @@
     "bilibili": "BV1K8hvzBE5Z",
     "bilibiliTitle": "[鹿乃]《求婚  propose  プロポーズ》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a817bd269f48.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-09-09-03bfd2",
@@ -4927,13 +3541,7 @@
     "bilibili": "BV1q2YwzvEG7",
     "bilibiliTitle": "[鹿乃]《プロポーズ  Propose》名取 ver",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "7c73c912f5d3.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-09-25-0ce139",
@@ -4948,13 +3556,7 @@
     "bilibili": "BV1yQnszjEkB",
     "bilibiliTitle": "[鹿乃]《Pale moonlight》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "efd032b48371.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-10-11-9462ee",
@@ -4969,13 +3571,7 @@
     "bilibili": "BV12B4xziE2w",
     "bilibiliTitle": "鹿乃 翻唱《 p.h.》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "571b88d11c0f.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-11-22-504c70",
@@ -4990,13 +3586,7 @@
     "bilibili": "BV1yNUnBnEd1",
     "bilibiliTitle": "[鹿乃]《Fairy Winking》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "aa4cb16753cf.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-12-24-9bc969",
@@ -5011,13 +3601,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": ["two（2018）"],
-    "tracks": [],
-    "cover": {
-      "media": "ebf07c449f62.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-12-25-97d3a5",
@@ -5032,13 +3616,7 @@
     "bilibili": "BV1x5BQBEEYU",
     "bilibiliTitle": "[鹿乃]《UNDEAD》Band ver",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "7b921ce63fb5.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2025-12-27-9d86c2",
@@ -5053,13 +3631,7 @@
     "bilibili": "BV11EBkB9Epk",
     "bilibiliTitle": "[鹿乃]《反语  アイロニ》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "336f4735d602.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-01-10-76e440",
@@ -5074,13 +3646,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "f45d44455249.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-01-10-eeabdc",
@@ -5095,13 +3661,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "ecd8e8246f8d.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-01-10-e8773a",
@@ -5116,13 +3676,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "e3b49d8c7b83.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-01-28-ebdeba",
@@ -5137,13 +3691,7 @@
     "bilibili": "BV1x86KBtEAc",
     "bilibiliTitle": "[鹿乃＆真白花音]《呐呐呐》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "6b5e9021f2df.jpg",
-      "width": 1920,
-      "height": 1080,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-01-28-a81139",
@@ -5158,13 +3706,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "5a3c2de54d55.jpg",
-      "width": 480,
-      "height": 360,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-02-01-f70fa1",
@@ -5179,13 +3721,7 @@
     "bilibili": "BV1Bs6tB3EeB",
     "bilibiliTitle": "[鹿乃]《IRIS OUT》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "12068b77cba4.jpg",
-      "width": 1920,
-      "height": 1080,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-03-04-aa33e6",
@@ -5200,13 +3736,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "70a22db9e48f.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-03-29-c22916",
@@ -5221,13 +3751,7 @@
     "bilibili": "BV1znXSBqEmx",
     "bilibiliTitle": "[鹿乃]《丁香花  ライラック》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "60b4988606d4.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-04-11-a0255f",
@@ -5242,13 +3766,7 @@
     "bilibili": "BV1rQQTBHEQ4",
     "bilibiliTitle": "[鹿乃]《妄想感伤代偿联盟》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "7079ad582137.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-05-02-a9e36f",
@@ -5263,13 +3781,7 @@
     "bilibili": "BV1o9RgBtEak",
     "bilibiliTitle": "[鹿乃]《宣告春天  春を告げる 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "028cbfdb7403.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-07-12-1172e3",
@@ -5284,13 +3796,7 @@
     "bilibili": "BV1UqNg6xEGt",
     "bilibiliTitle": "[鹿乃]《雨声残响  雨き声残響》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "bcb1eeee1fde.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-07-19-62d3e4",
@@ -5305,13 +3811,7 @@
     "bilibili": "BV18gKB6rERv",
     "bilibiliTitle": "[鹿乃]《乾燥花  ドライフラワー 》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "9d9abcf2a30e.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-07-26-f89d44",
@@ -5326,13 +3826,7 @@
     "bilibili": "BV1rV3762EDi",
     "bilibiliTitle": "[鹿乃]《DAYBREAK FRONTLINE》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "746c837a1ed3.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-08-13-d82ef2",
@@ -5347,13 +3841,7 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "a6c601ec6ccc.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-08-22-8ba18e",
@@ -5368,13 +3856,7 @@
     "bilibili": "BV1bF8269Ehz",
     "bilibiliTitle": "[鹿乃]《Hello／How are you》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "ff97d1dffd10.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-09-21-0256af",
@@ -5389,13 +3871,7 @@
     "bilibili": "BV1kkhv6JEyk",
     "bilibiliTitle": "[鹿乃]《高嶺の花子さん》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "cc7a4a9c130f.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-10-24-9dedef",
@@ -5410,13 +3886,7 @@
     "bilibili": "BV1CmHw6eEGE",
     "bilibiliTitle": "鹿乃 翻唱《奏》",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "030c13522370.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   },
   {
     "id": "2026-10-29-ca14fc",
@@ -5431,12 +3901,6 @@
     "bilibili": null,
     "bilibiliTitle": "",
     "albums": [],
-    "tracks": [],
-    "cover": {
-      "media": "2656ef2236f1.jpg",
-      "width": 1280,
-      "height": 720,
-      "thirdParty": false
-    }
+    "tracks": []
   }
 ]

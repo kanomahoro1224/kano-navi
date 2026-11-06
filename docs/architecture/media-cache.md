@@ -20,6 +20,8 @@ data/
     sha256/<first-two>/<content-sha256>.<extension>
   bilibili/
     sha256/<first-two>/<content-sha256>.<extension>
+  niconico/
+    sha256/<first-two>/<content-sha256>.<extension>
   avatar/
     avatar.<extension>
     banner.<extension>
@@ -82,7 +84,42 @@ database rows: the tracked `src/works/media-catalog.json` lists them.
 containment and `404` answers, except that a name ends in `.jpg` or `.png`
 only: every cover is an image named after its bytes' SHA-256, so it has
 smaller copies and is immutable once its bytes match its name. The server
-never writes this directory.
+never writes this directory. The uploads' covers are not among them; they are
+[cached per instance](#works-upload-covers).
+
+## Works Upload Covers
+
+The Works page's uploads take their covers from this cache, so a fresh
+deployment fills them itself. The server embeds the packaged upload list
+(`internal/works`, see
+[Upload covers](../development/works-archive.md#upload-covers)), and every
+media step, before its download, walks each upload's videos in cover order
+(`PlanWorkCovers` in `internal/store/sqlite/works_covers.go`):
+
+- a video whose stored row has a ready thumbnail, or whose works image is
+  ready, is the upload's cover;
+- a stored video whose own thumbnail is still pending or failing waits for
+  it, so the shared image is never fetched twice;
+- a YouTube video with neither gets its fixed thumbnail address,
+  `https://i.ytimg.com/vi/<id>/maxresdefault.jpg`, registered at once (it
+  steps down to `hqdefault` like any YouTube thumbnail);
+- a niconico or Bilibili video is looked up first: niconico's public
+  `getthumbinfo` answer names its thumbnail on `nicovideo.cdn.nimg.jp`
+  (the large `.L` size is asked for, stepping down to the plain one, which is
+  all older videos have), and Bilibili's view answer names its cover on
+  `*.hdslb.com` (see [Sources](sources.md#works-cover-lookups));
+- a video whose image is missing, or whose lookup found it deleted, is
+  passed over for the upload's next video, and an upload with none left
+  shows a printed sleeve.
+
+A found image is an ordinary asset linked as `work-video /
+<platform>:<id> / thumbnail / 0` and downloaded by the same step under the
+platform's namespace; one URL is one asset, so a video synchronization
+stores later shares the file. Lookups are recorded in `work_cover_lookups`
+(see [Data model](data-model.md#sqlite-snapshot)): a deleted video is never asked
+again and a failed lookup waits from 30 minutes, doubling to a day. A works
+image that answers `media_missing` and no stored record links is not
+retried. Nothing here writes a `videos` row.
 
 ## Database Model
 
@@ -96,7 +133,7 @@ never writes this directory.
 - `source`, `source_url`: the platform adapter and original public URL;
 - `status`: `pending`, `ready`, `missing`, or `failed`;
 - `cache_path`: a path relative to the runtime `data/` directory, under `x/`,
-  `youtube/`, `bilibili/` or `avatar/`, or a `sha256/` path under
+  `youtube/`, `bilibili/`, `niconico/` or `avatar/`, or a `sha256/` path under
   `cache/media/`; never an absolute path or one with `..`;
 - `mime_type`, `extension`, `byte_size`, `sha256`, `width`, and `height`
   (read from the image header; `0×0` marks a header that could not be read,
@@ -157,8 +194,9 @@ served as active same-origin content.
    A successful download or 304 revalidation clears the failure state.
 5. A YouTube thumbnail that answers 404 for `maxresdefault` or `sddefault`
    (including their `_live` forms) is requested at the next smaller size,
-   ending with `hqdefault.jpg`. The bytes are stored under the original URL, so
-   the asset identity and links do not change.
+   ending with `hqdefault.jpg`, and a niconico `.L` thumbnail that answers 404
+   is requested at its plain size. The bytes are stored under the original
+   URL, so the asset identity and links do not change.
 6. A ready YouTube thumbnail linked to an upcoming video, or to one that
    started or was published within the last 24 hours, is revalidated at most
    every 30 minutes with its stored `ETag` and `Last-Modified`. So is the
@@ -196,8 +234,9 @@ the queue, so a history window's images arrive over a few runs.
 
 `internal/mediadownload` accepts only HTTPS URLs on port 443 on X's
 `*.twimg.com` media CDN subdomains, YouTube's `*.ytimg.com` thumbnail CDN
-subdomains and Bilibili's `*.hdslb.com` cover CDN subdomains (`i0`, `i1`, `i2`
-and so on). The suffix check requires a real subdomain boundary, so
+subdomains, Bilibili's `*.hdslb.com` cover CDN subdomains (`i0`, `i1`, `i2`
+and so on) and niconico's one thumbnail host, `nicovideo.cdn.nimg.jp`. The
+suffix check requires a real subdomain boundary, so
 lookalike hosts and the bare parent domains are rejected, as are userinfo,
 fragments and query keys that look like credentials (`token`, `secret`,
 `auth`, `api_key` and the like). Redirects are followed by hand: at most three,
@@ -362,12 +401,12 @@ treated as missing and replaced on the next call.
 
 Copies are made per group of originals:
 
-| Group      | Originals                                                                                                 |
-| ---------- | --------------------------------------------------------------------------------------------------------- |
-| `lineblog` | `.jpg` and `.png` files with archive names directly in `<data>/lineblog/`                                 |
-| `works`    | `.jpg` and `.png` files with archive names directly in `<data>/works/`                                    |
-| `history`  | `.jpg`, `.jpeg`, `.png` and `.webp` files directly in `<static>/assets/history/`                          |
-| `media`    | the current files of ready X, YouTube and Bilibili assets, newest fetch first; earlier versions have none |
+| Group      | Originals                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| `lineblog` | `.jpg` and `.png` files with archive names directly in `<data>/lineblog/`                                           |
+| `works`    | `.jpg` and `.png` files with archive names directly in `<data>/works/`                                              |
+| `history`  | `.jpg`, `.jpeg`, `.png` and `.webp` files directly in `<static>/assets/history/`                                    |
+| `media`    | the current files of ready X, YouTube, Bilibili and niconico assets, newest fetch first; earlier versions have none |
 
 These are the files the server answers `w` for; symlinks, dotfiles and
 archive or history files over 10 MiB are skipped. A call makes one group's

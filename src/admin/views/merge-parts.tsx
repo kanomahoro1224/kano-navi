@@ -13,6 +13,7 @@ import type {
   AdminVideo,
   VideoMergeCandidate,
   VideoMergeSuggestion,
+  WorksMergeConflict,
 } from "@/admin/types"
 import {
   Badge,
@@ -278,16 +279,27 @@ export function MergeQueue() {
   const { t } = useAppSettings()
   const { api, refreshOverview } = useAdmin()
   const suggestions = useResource(() => api.videoMerges(), [])
+  const conflicts = useResource(() => api.worksConflicts(), [])
   if (!suggestions.data) return <Loading />
   const items: VideoMergeSuggestion[] = suggestions.data.items
   const decided = () => {
     void suggestions.reload()
+    void conflicts.reload()
     void refreshOverview().catch(() => {})
   }
+  const disagreements = conflicts.data?.items.length ? (
+    <WorksConflicts items={conflicts.data.items} />
+  ) : null
   if (!items.length)
-    return <Empty icon={CheckCircle2} title={t("admin.review.noMerges")} />
+    return (
+      <>
+        <Empty icon={CheckCircle2} title={t("admin.review.noMerges")} />
+        {disagreements}
+      </>
+    )
   return (
     <div className="adm-merge-queue">
+      {disagreements}
       <p className="adm-note">{t("admin.review.mergeHint")}</p>
       <ol>
         {items.map((item) => (
@@ -310,6 +322,37 @@ export function MergeQueue() {
         ))}
       </ol>
     </div>
+  )
+}
+
+/**
+ * Stored Bilibili uploads whose merge the packaged Works list pairs
+ * differently. The list only reports; the operator decides.
+ */
+function WorksConflicts({ items }: { items: WorksMergeConflict[] }) {
+  const { t } = useAppSettings()
+  return (
+    <section className="adm-merge-queue">
+      <h3>{t("admin.review.worksConflicts")}</h3>
+      <p className="adm-note">{t("admin.review.worksConflictsHint")}</p>
+      <ul>
+        {items.map((item) => (
+          <li key={item.bilibili} className="adm-chip-row">
+            <code>{item.bilibili}</code>
+            <Badge tone="honey">
+              {item.mergedInto
+                ? t("admin.review.worksMergedInto", { id: item.mergedInto })
+                : t("admin.review.worksNotMerged")}
+            </Badge>
+            <span>
+              {t("admin.review.worksPairs", {
+                ids: item.worksYoutube.join(", ") || "—",
+              })}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

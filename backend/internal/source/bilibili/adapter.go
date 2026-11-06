@@ -103,6 +103,31 @@ func (a *Adapter) FetchVideo(ctx context.Context, state State, bvid string) (Vid
 	return v, succeeded(state, now), nil
 }
 
+// FetchCover reads the cover address of any upload for the Works page,
+// whatever its account, never while a block lasts. A captcha or rate-limit
+// answer starts the same backoff as a list read; an answer keeps the list
+// read's interval and last success as they were.
+func (a *Adapter) FetchCover(ctx context.Context, state State, bvid string) (string, State, error) {
+	now := a.Now()
+	if now.Before(state.BlockedUntil) {
+		return "", state, &Error{"bilibili_risk_control"}
+	}
+	requests := 0
+	session, err := a.session(ctx, &state, &requests, now)
+	var v Video
+	if err == nil {
+		v, err = a.Client.Video(ctx, bvid, session)
+	}
+	if err == nil && v.ThumbnailURL == "" {
+		err = &Error{"bilibili_invalid_response"}
+	}
+	if err != nil {
+		return "", failed(state, err, now), err
+	}
+	state.Failures, state.LastError, state.BlockedUntil = 0, "", time.Time{}
+	return v.ThumbnailURL, state, nil
+}
+
 // session reuses a recent device identity or requests a new one, and adds
 // the configured login cookie for this request only.
 func (a *Adapter) session(ctx context.Context, state *State, requests *int, now time.Time) (Session, error) {

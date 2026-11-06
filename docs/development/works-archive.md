@@ -42,12 +42,19 @@ packaged, and how an instance gets its covers.
   `composition`), collaborators, the niconico, YouTube, YouTube
   members-only and bilibili video
   IDs, the bilibili title, the albums that include the recording and, for a
-  compilation, its songs, and its thumbnail when one is saved. One
-  recording posted to several sites is one record.
+  compilation, its songs. One recording posted to several sites is one
+  record.
 - `src/works/summary.json` holds the counts and the first and last years the
-  page header shows before the longer sections load.
-- `src/works/media-catalog.json` lists each cover, bonus image and
-  thumbnail with its MIME type, size, SHA-256, width and height.
+  page header shows before the longer sections load, and `updatedAt`, the
+  Japan date the upload list was checked through.
+- `backend/internal/works/videos.json` is the server's copy of the upload
+  list: `updatedAt` and each upload's ID, date and videos (`platform`
+  `youtube`, `niconico` or `bilibili`, `id`, and `members` for a
+  members-only YouTube video) in cover order: YouTube, YouTube
+  members-only, niconico, then bilibili. The server embeds it to join the
+  list with stored videos (see [Upload Covers](#upload-covers)).
+- `src/works/media-catalog.json` lists each cover and bonus image with its
+  MIME type, size, SHA-256, width and height.
 - `src/works/types.ts` holds the shapes. Titles, credits, edition names,
   bonuses and packaging keep the collection's wording, in Japanese or
   Simplified Chinese; image captions are the collection's Simplified Chinese
@@ -55,8 +62,8 @@ packaged, and how an instance gets its covers.
   yuan amounts written with their signs. The interface translates only the
   codes.
 
-Covers, bonus images and upload thumbnails are named by the first 12 hex
-digits of the SHA-256 of their bytes plus `.jpg` or `.png`. The files (about 160 MiB) are ignored runtime data in
+Covers and bonus images are named by the first 12 hex
+digits of the SHA-256 of their bytes plus `.jpg` or `.png`. The files (about 200 MiB) are ignored runtime data in
 `data/works/`, too large for the repository and the image. The server reads
 them through `GET /media/works/<name>`, which serves them like the LINE BLOG
 archive media
@@ -95,14 +102,29 @@ collection matched against a music service or database name it. Release
 dates are the first release's Japan date; doujin releases use the Comic
 Market date.
 
-## Thumbnails, Disc Photos and Cutouts
+## Upload Covers
 
-The collection keeps no video thumbnails of its own, and packaging fetches
-none. To give an upload a cover, save its thumbnail as
-`投稿作品/thumbnails/<video ID>.jpg` (or `.png`), named by its YouTube,
-YouTube members-only, niconico or bilibili ID; packaging uses the first of the
-upload's videos, in that order, that has a file. An upload without one shows
-a printed sleeve with its title.
+Packaging publishes no video thumbnails; each instance caches them. The
+upload list is the packaged one whatever an instance stored, and the server
+joins it with its own data by video ID on every read
+(`GET /api/works/uploads`, see
+[Public API](../architecture/public-api.md#works-uploads)). An upload's cover
+is the first of its videos, in cover order, with a ready image: the stored
+video's own thumbnail, else the image the media step downloaded for the list
+([Works upload covers](../architecture/media-cache.md#works-upload-covers)).
+Until one is ready, and for an upload whose every video is gone, the page
+prints a sleeve with its title. A stored YouTube or bilibili video also adds
+its current title, length and who can watch it, and a YouTube one a link to
+its month in the board's video archive. The join never writes a video row or
+a merge; a stored bilibili upload whose merge disagrees with the list's
+pairing is listed for the operator
+([Admin API](../architecture/admin-api.md#videos)).
+
+Uploads posted after `updatedAt` are not added to the list automatically: the
+page names the date and links to the board's video archive, filtered to
+songs.
+
+## Disc Photos and Cutouts
 
 Disc photos come from the optional `discography_discs.csv` (`date`,
 `release`, `edition`, `disc`, `image_file`), with each image in the
@@ -159,10 +181,13 @@ run:
 npm run works:package -- --from /path/to/kano_official
 ```
 
+`updatedAt` is the newest upload's date. When the list was checked through a
+later day, name it with `--through YYYY-MM-DD`; a date before the newest
+upload stops packaging.
+
 Packaging reads `discography.csv`, `discography_editions.csv`,
 `discography_store_bonuses.csv`, `discography_tracks.csv`, `manifest.json`,
-the optional `discography_discs.csv`, the optional `投稿作品/thumbnails/`
-and `抠图/` directories,
+the optional `discography_discs.csv`, the optional `抠图/` directory,
 `参与专辑/participation.csv`,
 `参与专辑/participation_tracks.csv` and `投稿作品/works.csv`. It reads the
 whole selection before writing anything: every table must have its columns,
@@ -172,7 +197,8 @@ name a listed release and edition, every video ID must have its platform's
 shape, and every image must be listed in the manifest and be a JPEG or PNG
 inside the collection within the size limit. An image in another format
 (such as a GIF) is left out and named in packaging's output. Covers already in `data/works/` whose size and hash match are
-left alone. Packaging performs no network requests and does not change the
+left alone. Packaging also writes `backend/internal/works/videos.json`; a run
+with another content directory must name its own index file. Packaging performs no network requests and does not change the
 collection.
 
 When moving a deployment, preserve the ignored `data/` directory, or run the

@@ -23,6 +23,8 @@ import {
   publicText,
   publicTrackNote,
   recordId,
+  uploadVideoRefs,
+  worksVideoIndex,
 } from "../scripts/package-works.ts"
 import { mediaSrcSet } from "../src/lib/media.ts"
 import {
@@ -477,14 +479,21 @@ test("works packaging writes the tables and covers named by their bytes", async 
   const { root, library } = await collection(t)
   const contentDir = path.join(root, "content")
   const mediaDir = path.join(root, "data", "works")
-  assert.deepEqual(await packageWorks(library, { contentDir, mediaDir }), {
-    personal: 2,
-    participation: 1,
-    uploads: 2,
-    media: 3,
-    bytes: PNG.length + OTHER_PNG.length + THUMB_PNG.length,
-    skipped: ["images/covers/c.gif"],
-  })
+  assert.deepEqual(
+    await packageWorks(library, {
+      contentDir,
+      mediaDir,
+      indexFile: path.join(root, "videos.json"),
+    }),
+    {
+      personal: 2,
+      participation: 1,
+      uploads: 2,
+      media: 2,
+      bytes: PNG.length + OTHER_PNG.length,
+      skipped: ["images/covers/c.gif"],
+    },
+  )
   const read = async (name: string) =>
     JSON.parse(await fs.readFile(path.join(contentDir, name), "utf8"))
 
@@ -612,14 +621,8 @@ test("works packaging writes the tables and covers named by their bytes", async 
   assert.equal(uploads[0].kind, "cover")
   assert.deepEqual(uploads[1].tracks, ["First", "Second"])
   assert.deepEqual(uploads[1].youtubeMembers, ["ccccccccccc"])
-  // The first saved thumbnail of an upload's videos becomes its cover.
-  assert.deepEqual(uploads[0].cover, {
-    media: mediaName(THUMB_PNG),
-    width: 1,
-    height: 1,
-    thirdParty: false,
-  })
-  assert.equal(uploads[1].cover, null)
+  // Saved thumbnails are not packaged: the server downloads upload covers.
+  assert.equal("cover" in uploads[0], false)
 
   // The collection's checking notes reach no published file.
   for (const name of ["personal.json", "participation.json", "uploads.json"]) {
@@ -637,10 +640,30 @@ test("works packaging writes the tables and covers named by their bytes", async 
     uploads: 2,
     firstYear: 2011,
     lastYear: 2022,
+    updatedAt: uploads
+      .map((upload) => upload.date)
+      .sort()
+      .at(-1),
   })
+  // The server's index lists each upload's videos in cover order.
+  const index = JSON.parse(
+    await fs.readFile(path.join(root, "videos.json"), "utf8"),
+  ) as { updatedAt: string; uploads: { id: string; videos: unknown[] }[] }
+  assert.equal(
+    index.updatedAt,
+    uploads
+      .map((upload) => upload.date)
+      .sort()
+      .at(-1),
+  )
+  assert.deepEqual(
+    index.uploads.map((upload) => upload.id),
+    uploads.map((upload) => upload.id),
+  )
+  assert.deepEqual(index.uploads[1].videos, uploadVideoRefs(uploads[1]))
   assert.deepEqual(
     (await fs.readdir(mediaDir)).sort(),
-    [mediaName(PNG), mediaName(OTHER_PNG), mediaName(THUMB_PNG)].sort(),
+    [mediaName(PNG), mediaName(OTHER_PNG)].sort(),
   )
   assert.deepEqual(await fs.readFile(path.join(mediaDir, mediaName(PNG))), PNG)
 })
@@ -659,7 +682,11 @@ test("works packaging writes nothing when a cover lies outside the collection", 
   const contentDir = path.join(root, "content")
   const mediaDir = path.join(root, "data", "works")
   await assert.rejects(
-    packageWorks(library, { contentDir, mediaDir }),
+    packageWorks(library, {
+      contentDir,
+      mediaDir,
+      indexFile: path.join(root, "videos.json"),
+    }),
     /outside the collection/u,
   )
   await assert.rejects(fs.readdir(mediaDir), { code: "ENOENT" })
@@ -676,6 +703,7 @@ test("works packaging rejects a cover that is not an image", async (t) => {
     packageWorks(library, {
       contentDir: path.join(root, "content"),
       mediaDir: path.join(root, "data", "works"),
+      indexFile: path.join(root, "videos.json"),
     }),
     /not a JPEG or PNG/u,
   )
@@ -692,6 +720,7 @@ test("works packaging stops at an edition the release does not list", async (t) 
     packageWorks(library, {
       contentDir: path.join(root, "content"),
       mediaDir: path.join(root, "data", "works"),
+      indexFile: path.join(root, "videos.json"),
     }),
     /no edition named 限定盤/u,
   )
@@ -844,7 +873,11 @@ test("a file from a person's copy credits them and keeps its page private", asyn
     credit_url: "https://example.org/collector",
   })
   await fs.writeFile(manifestFile, JSON.stringify(manifest))
-  await packageWorks(library, { contentDir, mediaDir })
+  await packageWorks(library, {
+    contentDir,
+    mediaDir,
+    indexFile: path.join(root, "videos.json"),
+  })
   const [release] = JSON.parse(
     await fs.readFile(path.join(contentDir, "personal.json"), "utf8"),
   ) as PersonalRelease[]
@@ -894,7 +927,11 @@ test("disc photos follow their discs and leave the covers", async (t) => {
       ["2019-08-12", "合成专辑", edition, String(disc), "images/covers/d.png"],
     ])
   await fs.writeFile(discsFile, table("初回限定盤", 2))
-  await packageWorks(library, { contentDir, mediaDir })
+  await packageWorks(library, {
+    contentDir,
+    mediaDir,
+    indexFile: path.join(root, "videos.json"),
+  })
   const [release] = JSON.parse(
     await fs.readFile(path.join(contentDir, "personal.json"), "utf8"),
   ) as PersonalRelease[]
@@ -916,12 +953,20 @@ test("disc photos follow their discs and leave the covers", async (t) => {
   // stops packaging.
   await fs.writeFile(discsFile, table("初回限定盤", 4))
   await assert.rejects(
-    packageWorks(library, { contentDir, mediaDir }),
+    packageWorks(library, {
+      contentDir,
+      mediaDir,
+      indexFile: path.join(root, "videos.json"),
+    }),
     /初回限定盤 has no disc 4/u,
   )
   await fs.writeFile(discsFile, table("限定盤", 2))
   await assert.rejects(
-    packageWorks(library, { contentDir, mediaDir }),
+    packageWorks(library, {
+      contentDir,
+      mediaDir,
+      indexFile: path.join(root, "videos.json"),
+    }),
     /has no edition named 限定盤/u,
   )
 })
@@ -934,7 +979,11 @@ test("a cutout joins the release it names, and only a transparent PNG does", asy
   await fs.mkdir(cutouts)
   const figure = Buffer.concat([PNG, Buffer.from("figure")])
   await fs.writeFile(path.join(cutouts, "合成专辑.png"), figure)
-  await packageWorks(library, { contentDir, mediaDir })
+  await packageWorks(library, {
+    contentDir,
+    mediaDir,
+    indexFile: path.join(root, "videos.json"),
+  })
   const personal = JSON.parse(
     await fs.readFile(path.join(contentDir, "personal.json"), "utf8"),
   ) as PersonalRelease[]
@@ -952,13 +1001,21 @@ test("a cutout joins the release it names, and only a transparent PNG does", asy
   opaque[25] = 0
   await fs.writeFile(path.join(cutouts, "合成专辑.png"), opaque)
   await assert.rejects(
-    packageWorks(library, { contentDir, mediaDir }),
+    packageWorks(library, {
+      contentDir,
+      mediaDir,
+      indexFile: path.join(root, "videos.json"),
+    }),
     /not a transparent PNG: 合成专辑\.png/u,
   )
   await fs.writeFile(path.join(cutouts, "合成专辑.png"), figure)
   await fs.writeFile(path.join(cutouts, "Unknown.png"), figure)
   await assert.rejects(
-    packageWorks(library, { contentDir, mediaDir }),
+    packageWorks(library, {
+      contentDir,
+      mediaDir,
+      indexFile: path.join(root, "videos.json"),
+    }),
     /names no personal release: Unknown\.png/u,
   )
 })
@@ -1042,19 +1099,23 @@ test("an upload links each platform it was posted to", () => {
   assert.deepEqual(uploadLinks(upload), [
     {
       platform: "niconico",
+      id: "sm10000001",
       href: "https://www.nicovideo.jp/watch/sm10000001",
     },
     {
       platform: "youtube",
+      id: "aaaaaaaaaaa",
       href: "https://www.youtube.com/watch?v=aaaaaaaaaaa",
     },
     {
       platform: "youtube",
+      id: "ddddddddddd",
       href: "https://www.youtube.com/watch?v=ddddddddddd",
       members: true,
     },
     {
       platform: "bilibili",
+      id: "BV1aaaaaaaaa",
       href: "https://www.bilibili.com/video/BV1aaaaaaaaa",
     },
   ])
@@ -1077,4 +1138,50 @@ test("works covers list the server's smaller copies", () => {
   )
   assert.equal(mediaSrcSet("/media/works/0123456789ab.gif", 700), undefined)
   assert.equal(mediaSrcSet("/media/works/../x.png", 700), undefined)
+})
+
+test("the server's works index matches the packaged uploads", async () => {
+  const read = async (relative: string) =>
+    JSON.parse(
+      await fs.readFile(new URL(`../${relative}`, import.meta.url), "utf8"),
+    )
+  const uploads = (await read("src/works/uploads.json")) as Upload[]
+  const summary = (await read("src/works/summary.json")) as {
+    updatedAt: string
+  }
+  assert.deepEqual(
+    await read("backend/internal/works/videos.json"),
+    worksVideoIndex(uploads, summary.updatedAt),
+  )
+  assert.ok(uploads.every((upload) => upload.date <= summary.updatedAt))
+})
+
+test("an upload's videos are tried YouTube first, then niconico and Bilibili", () => {
+  assert.deepEqual(
+    uploadVideoRefs({
+      niconico: "sm9",
+      youtube: ["aaaaaaaaaaa"],
+      youtubeMembers: ["bbbbbbbbbbb"],
+      bilibili: "BV1xx411c7mD",
+    } as Upload),
+    [
+      { platform: "youtube", id: "aaaaaaaaaaa" },
+      { platform: "youtube", id: "bbbbbbbbbbb", members: true },
+      { platform: "niconico", id: "sm9" },
+      { platform: "bilibili", id: "BV1xx411c7mD" },
+    ],
+  )
+})
+
+test("works packaging refuses a list date before its newest upload", async (t) => {
+  const { root, library } = await collection(t)
+  await assert.rejects(
+    packageWorks(library, {
+      contentDir: path.join(root, "content"),
+      mediaDir: path.join(root, "data", "works"),
+      indexFile: path.join(root, "videos.json"),
+      through: "2000-01-01",
+    }),
+    /checked through 2000-01-01/u,
+  )
 })

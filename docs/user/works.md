@@ -67,14 +67,20 @@ parts, or search titles, tracks and circles.
 The songs Kano posted to niconico, YouTube and bilibili, YouTube
 members-only posts included: covers, originals, MVs and project songs, as a
 grid of covers by year, or on a phone a list with each thumbnail beside its
-title. An upload shows its video thumbnail where the
-collection has one, and otherwise a printed sleeve with its title. A
+title. An upload shows the thumbnail of one of its videos once this site
+has saved it, and otherwise a printed sleeve with its title. A
 recording posted to several sites is one entry with a small mark for each
 site beside its date;
-members-only videos are marked **Members only**. An entry names the original
+members-only videos are marked **Members only**. Where the site knows the
+video, the entry adds its length and a link to its month in the board's
+video archive; a video nobody can watch any more is marked **No longer
+watchable** and its site mark is dimmed. An entry names the original
 artist and any partners, and the albums that later included the recording.
 **Not on an album** keeps only the uploads no album includes, and **Members
 only** keeps the members-only posts. Search by song, artist or partner.
+
+The list names the date it covers. Later uploads are not added to it; the
+note at its end links to the board's video archive, showing songs.
 
 ## Dates and Sources
 

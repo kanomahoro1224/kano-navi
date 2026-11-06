@@ -605,6 +605,12 @@ Each item has `bilibili` (the upload as listed) and up to five `candidates`:
 describes one upload whatever its state, adding `merged`, `separate` and
 `none`.
 
+`GET /videos/works-conflicts` lists the stored Bilibili uploads whose merge
+disagrees with the packaged Works list: the list pairs the upload with other
+YouTube videos than the one it is merged into, or with stored ones while it
+is unmerged. Each item is `{upload, bilibili, mergedInto, worksYoutube}`. The
+list only reports; the Review queue's merge decisions show the items.
+
 ### Video corrections and history
 
 An operator correction replaces a platform value on the board without

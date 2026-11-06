@@ -197,8 +197,16 @@ export type Upload = {
   albums: string[]
   /** The songs a compilation holds. */
   tracks: string[]
-  /** A video thumbnail the maintainer saved, when there is one. */
-  cover: WorksCover | null
+}
+
+export type WorksPlatform = "youtube" | "niconico" | "bilibili"
+
+/** One video of an upload, in the order covers are tried. */
+export type WorksVideoRef = {
+  platform: WorksPlatform
+  id: string
+  /** A YouTube video only channel members can watch. */
+  members?: boolean
 }
 
 export type WorksMedia = {

@@ -25,12 +25,14 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/schedule"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
+	"github.com/yexca/kano-navi/backend/internal/source/niconico"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/source/youtube/websub"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/variants"
 	"github.com/yexca/kano-navi/backend/internal/workflow"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 // stepSkipFlags are the process-wide kill switches for each workflow step.
@@ -254,6 +256,7 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 	if xToken != "" {
 		xAdapter.API = &history.XAPI{Fetcher: fetcher, Credential: xToken}
 	}
+	worksIndex := works.Packaged()
 	steps := &workflow.SourceSteps{
 		Store:     store,
 		Skip:      skip,
@@ -261,6 +264,8 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		Youtube:   youtubeAdapter,
 		Bilibili:  bilisource.NewAdapter(bilisource.NewClient(proxies.Client(outboundproxy.AreaBilibili)), bilisource.OptionsFromEnv()),
 		Media:     mediadownload.NewClient(proxies.Client(outboundproxy.AreaMedia)),
+		Niconico:  niconico.NewClient(proxies.Client(outboundproxy.AreaMedia)),
+		Works:     &worksIndex,
 		Schedule:  scheduleStep{schedule.New(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})},
 		Translate: translateStep{schedule.NewTranslator(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})},
 		History: &workflow.HistorySource{

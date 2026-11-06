@@ -127,11 +127,19 @@
     },
     {
       "host": "api.bilibili.com",
-      "reason": "Bilibili source: the account's public upload list, single uploads and the anonymous device identity, read server-side with a fixed host, timeout, size limit and captcha backoff."
+      "reason": "Bilibili source: the account's public upload list, single uploads, the cover addresses of the Works page's uploads and the anonymous device identity, read server-side with a fixed host, timeout, size limit and captcha backoff."
     },
     {
       "host": "hdslb.com",
-      "reason": "Bilibili cover CDN (i0/i1/i2.hdslb.com) for uploads of the configured account, downloaded server-side into the media cache."
+      "reason": "Bilibili cover CDN (i0/i1/i2.hdslb.com) for uploads of the configured account and of the Works page's list, downloaded server-side into the media cache."
+    },
+    {
+      "host": "ext.nicovideo.jp",
+      "reason": "niconico getthumbinfo API: the thumbnail address of each niconico video on the Works page, read server-side by the media step with a fixed host, timeout, size limit and no redirects."
+    },
+    {
+      "host": "nicovideo.cdn.nimg.jp",
+      "reason": "niconico thumbnail host named by getthumbinfo; the Works page's niconico covers are downloaded server-side into the media cache."
     },
     {
       "host": "twitcasting.tv",

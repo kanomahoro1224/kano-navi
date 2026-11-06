@@ -107,6 +107,8 @@ export function discsOf<T extends { disc: number; no: number }>(tracks: T[]) {
 export function uploadLinks(upload: UploadVideos) {
   const links: {
     platform: "niconico" | "youtube" | "bilibili"
+    /** The platform's video ID. */
+    id: string
     href: string
     /** Only channel members can watch it. */
     members?: true
@@ -114,22 +116,26 @@ export function uploadLinks(upload: UploadVideos) {
   if (upload.niconico)
     links.push({
       platform: "niconico",
+      id: upload.niconico,
       href: `https://www.nicovideo.jp/watch/${upload.niconico}`,
     })
   for (const id of upload.youtube)
     links.push({
       platform: "youtube",
+      id,
       href: `https://www.youtube.com/watch?v=${id}`,
     })
   for (const id of upload.youtubeMembers)
     links.push({
       platform: "youtube",
+      id,
       href: `https://www.youtube.com/watch?v=${id}`,
       members: true,
     })
   if (upload.bilibili)
     links.push({
       platform: "bilibili",
+      id: upload.bilibili,
       href: `https://www.bilibili.com/video/${upload.bilibili}`,
     })
   return links

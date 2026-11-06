@@ -59,7 +59,8 @@ a small revision hint without external work, and
 changes. Timestamps are parseable ISO 8601 strings; display and date-window
 boundaries use Asia/Tokyo.
 
-`/api/dashboard`, `/api/calendar`, `/api/posts` and `/api/videos` send
+`/api/dashboard`, `/api/calendar`, `/api/posts`, `/api/videos` and
+`/api/works/uploads` send
 `Cache-Control: no-cache` and a weak ETag, a SHA-256 prefix of the
 uncompressed JSON body. The dashboard's tag leaves out `meta.generatedAt`,
 which changes on every read; the other time-derived fields, such as
@@ -179,7 +180,24 @@ watch it as `availability` (`public`, `unlisted`, `members`, `private`,
 category 400 `invalid_category`. Reads revalidate through their
 [ETags](#public-snapshot-contract), negotiate gzip like the other public JSON
 reads and never fetch platforms. The board's month dialogs use them with the
-calendar.
+calendar. The board opens its video archive from a link:
+`/?archive=videos` with an optional `month` (`YYYY-MM`) and `category`.
+
+## Works Uploads
+
+`GET /api/works/uploads` joins the Works page's packaged upload list
+([Upload covers](../development/works-archive.md#upload-covers)) with stored
+data by video ID, on each read and without writing. It returns `updatedAt`,
+the list's date, `revision`, and `uploads`, keyed by upload ID, for each
+upload with a ready cover or a stored video: `cover` (`{url, width, height}`,
+a local `/media/<id>?v=<sha256>` URL with smaller copies, or `null`) and
+`videos`, the stored YouTube and Bilibili videos of the upload in list order
+as `{source, id, title, url, publishedAt, scheduledAt, durationSeconds,
+availability, translations, sourceLanguage}`. Uploads with neither are left
+out. A stored video's title is its shown one (an operator's correction
+first); raw JSON, thumbnails' source URLs and videos outside the list never
+appear. The read revalidates through its [ETag](#public-snapshot-contract)
+and never fetches platforms.
 
 ## Public Feeds
 

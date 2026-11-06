@@ -2630,6 +2630,54 @@ span.upload-links {
   height: 11px;
 }
 
+/* A video nobody can watch any more keeps its link, dimmed. */
+.upload-link.is-gone {
+  opacity: 0.45;
+}
+
+.works-gone {
+  color: var(--soft);
+  text-decoration: line-through;
+}
+
+/* The sunken ground of the art, while the server's covers are on their way. */
+.upload-wait {
+  position: absolute;
+  inset: 0;
+}
+
+.upload-archive {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  color: var(--soft);
+  font-size: 13px;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 160ms ease;
+}
+
+.upload-archive:hover,
+.upload-archive:focus-visible {
+  color: var(--ink);
+  text-decoration-color: currentColor;
+}
+
+.upload-archive svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+
+.works-through {
+  margin: 32px 0 0;
+  color: var(--soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
 .upload-link.is-youtube:hover {
   color: #ff0033;
 }

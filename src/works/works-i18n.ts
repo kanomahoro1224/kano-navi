@@ -133,6 +133,11 @@ export const worksMessages = {
     "works.platform.youtube": "YouTube",
     "works.platform.bilibili": "bilibili",
     "works.noLink": "无公开链接",
+    "works.videoGone": "已无法观看",
+    "works.inVideoArchive": "在视频归档中查看",
+    "works.videoArchive": "视频归档",
+    "works.uploadsThrough": "投稿列表收录至 {date}，之后的投稿请看{archive}。",
+    "works.uploadsOffline": "暂时无法读取本站的视频封面。",
   },
   ja: {
     "works.featured": "アコースティックカバー三部作",
@@ -263,6 +268,13 @@ export const worksMessages = {
     "works.platform.youtube": "YouTube",
     "works.platform.bilibili": "bilibili",
     "works.noLink": "公開リンクなし",
+    "works.videoGone": "視聴できません",
+    "works.inVideoArchive": "動画アーカイブで見る",
+    "works.videoArchive": "動画アーカイブ",
+    "works.uploadsThrough":
+      "投稿リストは {date} までの収録です。それ以降の投稿は{archive}へ。",
+    "works.uploadsOffline":
+      "このサイトの動画サムネイルを読み込めませんでした。",
   },
   en: {
     "works.featured": "Acoustic cover trilogy",
@@ -395,5 +407,11 @@ export const worksMessages = {
     "works.platform.youtube": "YouTube",
     "works.platform.bilibili": "bilibili",
     "works.noLink": "No public link",
+    "works.videoGone": "No longer watchable",
+    "works.inVideoArchive": "In the video archive",
+    "works.videoArchive": "video archive",
+    "works.uploadsThrough":
+      "This list covers uploads through {date}; later uploads are in the {archive}.",
+    "works.uploadsOffline": "This site's video thumbnails could not be loaded.",
   },
 }

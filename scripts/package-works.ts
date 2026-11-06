@@ -20,6 +20,7 @@ import type {
   WorksCredit,
   WorksMedia,
   WorksTrack,
+  WorksVideoRef,
 } from "../src/works/types.ts"
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024
@@ -874,39 +875,37 @@ export async function addCutouts(
   }
 }
 
-/** Video thumbnails the maintainer saved, named by a video ID. */
-const THUMBNAIL_DIR = "投稿作品/thumbnails"
-
-async function thumbnailFiles(root: string) {
-  const files = new Map<string, string>()
-  let names: string[]
-  try {
-    names = await fs.readdir(path.join(root, THUMBNAIL_DIR))
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT")
-      return files
-    throw error
-  }
-  for (const name of names) {
-    const match = /^(.+)\.(?:jpe?g|png)$/iu.exec(name)
-    if (match) files.set(match[1], `${THUMBNAIL_DIR}/${name}`)
-  }
-  return files
+/** An upload's videos in the order the page and the cover step try them. */
+export function uploadVideoRefs(upload: Upload): WorksVideoRef[] {
+  return [
+    ...upload.youtube.map((id) => ({ platform: "youtube" as const, id })),
+    ...upload.youtubeMembers.map((id) => ({
+      platform: "youtube" as const,
+      id,
+      members: true,
+    })),
+    ...(upload.niconico
+      ? [{ platform: "niconico" as const, id: upload.niconico }]
+      : []),
+    ...(upload.bilibili
+      ? [{ platform: "bilibili" as const, id: upload.bilibili }]
+      : []),
+  ]
 }
 
-/** The first saved thumbnail of an upload's videos, in link order. */
-export function uploadThumbnailId(upload: Upload, saved: Set<string>) {
-  return (
-    [
-      ...upload.youtube,
-      ...upload.youtubeMembers,
-      upload.niconico ?? "",
-      upload.bilibili ?? "",
-    ].find((id) => id && saved.has(id)) ?? null
-  )
+/** The index of upload videos the server embeds (backend/internal/works). */
+export function worksVideoIndex(uploads: Upload[], updatedAt: string) {
+  return {
+    updatedAt,
+    uploads: uploads.map((upload) => ({
+      id: upload.id,
+      date: upload.date,
+      videos: uploadVideoRefs(upload),
+    })),
+  }
 }
 
-async function uploads(root: string, covers: Map<string, CoverFile>) {
+async function uploads(root: string) {
   const rows = parseCsv(await readText(root, "投稿作品/works.csv"))
   requireColumns(rows, [
     "date",
@@ -922,8 +921,6 @@ async function uploads(root: string, covers: Map<string, CoverFile>) {
     "album",
     "tracks",
   ])
-  const thumbnails = await thumbnailFiles(root)
-  const saved = new Set(thumbnails.keys())
   const items: Upload[] = []
   for (const row of rows) {
     const kind = uploadKinds[row.kind]
@@ -949,14 +946,7 @@ async function uploads(root: string, covers: Map<string, CoverFile>) {
       bilibiliTitle: row.bilibili_title,
       albums: split(row.album, /、/u),
       tracks: split(row.tracks, /；/u),
-      cover: null,
     }
-    const thumbnail = uploadThumbnailId(upload, saved)
-    if (thumbnail)
-      upload.cover = {
-        ...(await coverOf(root, thumbnails.get(thumbnail)!, covers)),
-        thirdParty: false,
-      }
     items.push(upload)
   }
   return uniqueIds(items)
@@ -1071,15 +1061,32 @@ export async function packageWorks(
   {
     contentDir = path.join(projectRoot, "src/works"),
     mediaDir = path.join(projectRoot, "data/works"),
-  }: { contentDir?: string; mediaDir?: string } = {},
+    indexFile,
+    through,
+  }: {
+    contentDir?: string
+    mediaDir?: string
+    indexFile?: string
+    /** The Japan date the upload list was checked through. */
+    through?: string
+  } = {},
 ) {
+  // Another content directory needs its own index file, so a trial run never
+  // writes the server's.
+  const index =
+    indexFile ??
+    (path.resolve(contentDir) === path.join(projectRoot, "src/works")
+      ? path.join(projectRoot, "backend/internal/works/videos.json")
+      : null)
+  if (!index)
+    throw new Error("An index file is needed with a content directory")
   const root = await fs.realpath(directory)
   const covers = new Map<string, CoverFile>()
   const manifest = await readManifest(root)
   const images = collectionImages(root, covers, manifest)
   const personal = await personalWorks(root, images)
   const participation = await participationWorks(root, covers)
-  const uploaded = await uploads(root, covers)
+  const uploaded = await uploads(root)
   linkUploads(personal, uploaded)
   await addCutouts(root, personal, covers)
 
@@ -1105,13 +1112,27 @@ export async function packageWorks(
   const dates = [...personal, ...participation, ...uploaded]
     .map((item) => item.date)
     .sort()
+  const newestUpload = uploaded
+    .map((item) => item.date)
+    .sort()
+    .at(-1)
+  const updatedAt = through
+    ? checkDate(through)
+    : (newestUpload ?? dates.at(-1))
+  if (newestUpload && updatedAt! < newestUpload)
+    throw new Error(
+      `The upload list is checked through ${updatedAt}, before its newest upload`,
+    )
   await writeJson(path.join(contentDir, "summary.json"), {
     personal: personal.length,
     participation: participation.length,
     uploads: uploaded.length,
     firstYear: Number(dates[0].slice(0, 4)),
     lastYear: Number(dates[dates.length - 1].slice(0, 4)),
+    updatedAt,
   })
+  await fs.mkdir(path.dirname(index), { recursive: true })
+  await writeJson(index, worksVideoIndex(uploaded, updatedAt!))
   return {
     personal: personal.length,
     participation: participation.length,
@@ -1127,12 +1148,16 @@ if (
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   const args = process.argv.slice(2)
-  if (args.length !== 2 || args[0] !== "--from") {
-    console.error("Usage: npm run works:package -- --from <kano_official>")
+  const through =
+    args.length === 4 && args[2] === "--through" ? args[3] : undefined
+  if ((args.length !== 2 && through === undefined) || args[0] !== "--from") {
+    console.error(
+      "Usage: npm run works:package -- --from <kano_official> [--through YYYY-MM-DD]",
+    )
     process.exitCode = 1
   } else {
     try {
-      const result = await packageWorks(args[1])
+      const result = await packageWorks(args[1], { through })
       console.log(
         `Packaged ${result.personal} personal works, ${result.participation} participations, ${result.uploads} uploads and ${result.media} covers (${(result.bytes / 1024 / 1024).toFixed(1)} MiB).`,
       )

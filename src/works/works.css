@@ -70,6 +70,40 @@ body:has(.site.works) {
   color: var(--works-clay);
 }
 
+/* The official discography follows the years in the eyebrow, a small pill;
+   in one column it keeps to the row's right end. */
+.works-official {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 3px 8px 3px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--soft);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  transition:
+    border-color 200ms ease,
+    color 200ms ease;
+}
+
+.works-official svg {
+  width: 12px;
+  height: 12px;
+  transition: transform 300ms var(--works-ease);
+}
+
+.works-official:hover {
+  border-color: color-mix(in oklab, var(--works-clay) 55%, transparent);
+  color: var(--works-clay);
+}
+
+.works-official:hover svg {
+  transform: translate(1px, -1px);
+}
+
 .works-eyebrow > :first-child::before {
   width: 6px;
   height: 6px;
@@ -146,33 +180,6 @@ body:has(.site.works) {
 
 .works-caveat a:hover {
   color: var(--works-clay);
-}
-
-.works-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 30px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid currentColor;
-  color: var(--ink);
-  font-size: 14.5px;
-  font-weight: 600;
-  transition: color 200ms ease;
-}
-
-.works-link svg {
-  width: 15px;
-  height: 15px;
-  transition: transform 300ms var(--works-ease);
-}
-
-.works-link:hover {
-  color: var(--works-clay);
-}
-
-.works-link:hover svg {
-  transform: translate(2px, -2px);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -615,6 +622,10 @@ body:has(.site.works) {
     display: contents;
   }
 
+  .works-official {
+    margin-left: auto;
+  }
+
   .works-hero-copy > :nth-child(n + 3) {
     order: 2;
   }
@@ -663,11 +674,6 @@ body:has(.site.works) {
   .works-caveat svg {
     width: 13px;
     height: 13px;
-  }
-
-  .works-link {
-    margin-top: 20px;
-    font-size: 13.5px;
   }
 
   .works-trio-scene {

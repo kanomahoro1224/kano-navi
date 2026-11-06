@@ -28,9 +28,9 @@ export function WorksSheet({
     const dialog = dialogRef.current
     if (!dialog) return undefined
     const previous = document.activeElement as HTMLElement | null
-    // A tap in Safari focuses the nearest focusable container (the section's
-    // tab panel) rather than the button tapped, so only a control gets focus
-    // back; the panel would show its focus outline around every work.
+    // A tap in Safari can focus the nearest focusable container rather than
+    // the button tapped, so only a control gets focus back; a container would
+    // show its focus outline around everything in it.
     const control = previous?.matches(OPENERS) ? previous : null
     if (!dialog.open) dialog.showModal?.()
     dialog.querySelector<HTMLElement>(".works-sheet-close")?.focus()

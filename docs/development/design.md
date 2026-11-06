@@ -44,8 +44,10 @@ introduce a separate token system for a single page.
   scrollbars are thin and show while the pointer is over them. The section tabs carry their counts and
   no separate figures or notes; a tab chosen by pointer keeps no focus
   outline, while keyboard focus draws one the tab bar leaves room for. A
-  closed sheet returns focus only to the control that opened it, never to the
-  section panel a tap in Safari focuses. On phones the English title fits one
+  closed sheet returns focus only to the control that opened it, and the
+  section panels take no focus themselves, so a tap or a drag on their empty
+  space draws no focus ring. The official discography is a small pill after
+  the years in the eyebrow. On phones the English title fits one
   line, the filter chips scroll sideways in one row, and a cover's record
   rises only while a finger is on it. The works she
   is featured on are a list; her uploads are a grid of 16:9 covers (on phones

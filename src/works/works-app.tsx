@@ -635,6 +635,13 @@ export function WorksApp() {
               <span>
                 {worksSummary.firstYear}–{worksSummary.lastYear}
               </span>
+              <ExternalLink
+                className="works-official"
+                href={OFFICIAL_DISCOGRAPHY}
+              >
+                {t("works.officialDiscography")}
+                <ArrowUpRight aria-hidden="true" />
+              </ExternalLink>
             </p>
             <h1 id="works-title">{t("works.title")}</h1>
             <p className="works-lead">{t("works.lead")}</p>
@@ -648,10 +655,6 @@ export function WorksApp() {
                 {after}
               </span>
             </p>
-            <ExternalLink className="works-link" href={OFFICIAL_DISCOGRAPHY}>
-              {t("works.officialDiscography")}
-              <ArrowUpRight aria-hidden="true" />
-            </ExternalLink>
           </div>
           {featured.length ? (
             <div className="works-trio">

@@ -8,8 +8,9 @@ open the album. Like a record, the scene has two sides: side A keeps album
 order, and side B leads with _two_. The small record at the top right of the scene flips
 it, and the page remembers the side on that device. A note there says the sections do not strictly
 follow who holds each work's rights and that, with this many works, some
-details may be wrong, and welcomes corrections and feedback on GitHub, and
-**Official discography** opens the official site's list. Pick a section with
+details may be wrong, and welcomes corrections and feedback on GitHub.
+**Official discography**, beside the years at the top, opens the official
+site's list. Pick a section with
 the tabs below, each counting its works; the address remembers the section,
 so a link can open it directly.
 

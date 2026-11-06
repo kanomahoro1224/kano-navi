@@ -214,9 +214,12 @@ checks ([Immutable Fixed Files](media-cache.md#immutable-fixed-files));
 without `v`, or
 with any other `v`, it revalidates. HTML (including SPA fallback routes),
 icons and other files receive `public, max-age=0, must-revalidate`. A path that is neither a
-build file nor one of the frontend's pages (`/`, `/history`, `/lineblog`,
+build file nor one of the frontend's pages (`/`, `/journey`, `/lineblog`,
 `/works`, `/about`, `/admin`, with or without a trailing slash) still receives `index.html`, which
-shows the frontend's not-found view, but with status 404. `robots.txt` comes
+shows the frontend's not-found view, but with status 404. `/history`, the
+journey's earlier address, answers `301 Moved Permanently` to `/journey` with
+the same query (`movedPages` in `backend/internal/httpapi/static.go`); the
+browser keeps the fragment. `robots.txt` comes
 from `public/` and disallows `/admin`, `/api/` and `/mcp` but allows the two
 public feeds, `/api/calendar.ics` and `/api/feed.xml`, whose subscription
 fetchers (Google Calendar's among them) honour it. `/index.html` is the file
@@ -244,7 +247,7 @@ revision streams first, then waits for the remaining requests up to
 `index.html` carries static Open Graph and Twitter card tags (site name,
 description, the bundled banner) and `rel="alternate"` links to both feeds.
 Those tags describe the board. When the server serves `index.html` for
-`/history`, `/lineblog`, `/works` or `/about`, it replaces the page's `<title>`, `description`,
+`/journey`, `/lineblog`, `/works` or `/about`, it replaces the page's `<title>`, `description`,
 `og:title`, `og:description` and `og:url` (and Twitter title and description
 tags, if present) with that page's English title, description and path; the
 route table `spaPages` in `backend/internal/httpapi/static.go` holds them

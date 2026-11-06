@@ -63,12 +63,12 @@ const messages = {
       "与本人及所属事务所无关 · 内容来自本地快照 · 一切以各平台原页面为准",
     "footer.backToTop": "回到顶部",
     "footer.mainlandSite": "中国大陆服务器站点",
-    "archive.fullHistory": "完整历程",
-    "history.metaTitle": "历程 · 鹿乃在做什么",
+    "archive.fullHistory": "完整足迹",
+    "history.metaTitle": "足迹 · 鹿乃在做什么",
     "history.metaDescription":
       "鹿乃从 2010 年翻唱投稿到 2026 年加入ミリプロSONA 的公开足迹，附官方来源。",
     "history.back": "回到近况",
-    "history.eyebrow": "历程",
+    "history.eyebrow": "足迹",
     "history.title": "从 NicoNico 的歌声，到虚拟舞台",
     "history.lead":
       "从 2010 年的第一首翻唱、2015 年的主流出道，经过花寄女子寮、鹿乃まほろ与 MKLNtic，到 2026 年加入ミリプロSONA。这里按时间排列鹿乃的公开足迹，日期保留原有精度，并附上公开来源。",

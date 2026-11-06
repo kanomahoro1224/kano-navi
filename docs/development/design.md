@@ -14,7 +14,7 @@ introduce a separate token system for a single page.
 
 - / is the public snapshot board. Refresh reads the local API and preserves known
   state when a request fails.
-- /history is static, sourced content with local fixed images and original links.
+- /journey is static, sourced content with local fixed images and original links.
 - /works is the static discography in an editorial treatment: on top of the
   shared shell it gives the shared tokens a warm ivory and clay reading in
   both themes, sets names and figures in a serif, separates with hairlines

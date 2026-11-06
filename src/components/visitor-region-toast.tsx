@@ -8,7 +8,7 @@ const SESSION_KEY = "kano-visitor-region-notice"
 const PUBLIC_PATHS = new Set([
   "/",
   "/index.html",
-  "/history",
+  "/journey",
   "/lineblog",
   "/about",
 ])

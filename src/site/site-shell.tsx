@@ -19,7 +19,7 @@ export type PublicPage = "board" | "history" | "works" | "lineblog" | "about"
 
 const pages: { id: PublicPage; href: string; labelKey: string }[] = [
   { id: "board", href: "/", labelKey: "nav.now" },
-  { id: "history", href: "/history", labelKey: "history.eyebrow" },
+  { id: "history", href: "/journey", labelKey: "history.eyebrow" },
   { id: "works", href: "/works", labelKey: "works.label" },
   { id: "lineblog", href: "/lineblog", labelKey: "lineblog.label" },
   { id: "about", href: "/about", labelKey: "about.label" },

@@ -73,7 +73,7 @@ credits, and provenance are preserved. Packaging performs no network requests
 and does not change the reference collection or runtime SQLite database.
 Review the catalog and packaged assets together when updating the collection.
 
-`/history` reads no `media_assets` rows. A snapshot that holds rows for these
+`/journey` reads no `media_assets` rows. A snapshot that holds rows for these
 images keeps them, and `/media/:id` serves them like any other ready media.
 
 When moving a deployment, preserve the ignored `data/` directory for source

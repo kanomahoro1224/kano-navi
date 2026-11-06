@@ -43,7 +43,7 @@ reads belong to server-side workflows and their helpers.
   run it. TypeScript is the frontend and the maintenance scripts only.
 - Page loads, refreshes, and revision requests never fetch X, YouTube, or model
   providers. A failed source retains known snapshots and records its outcome.
-- `src/main.tsx` composes `/`, `/history`, `/works`, `/lineblog`, `/about`, and `/admin`. Keep board
+- `src/main.tsx` composes `/`, `/journey`, `/works`, `/lineblog`, `/about`, and `/admin`. Keep board
   requests in `src/dashboard/use-dashboard.ts` and admin requests in
   `src/admin/use-admin-data.ts`. Reuse React, semantic Tailwind tokens, and the
   existing UI primitives.

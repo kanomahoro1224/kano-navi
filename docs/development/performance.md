@@ -59,7 +59,7 @@ behavior, serve the
 production build against a disposable development backend (see
 [Testing](testing.md#test-scope)) and review all six pages at desktop and
 mobile widths, including direct visits, refresh, a failed snapshot read with
-automatic recovery and a failed lazy chunk with retry. Visiting `/history`,
+automatic recovery and a failed lazy chunk with retry. Visiting `/journey`,
 `/lineblog`, `/works` or `/about` must not issue dashboard reads.
 
 Report results as local synthetic measurements, not production latency,

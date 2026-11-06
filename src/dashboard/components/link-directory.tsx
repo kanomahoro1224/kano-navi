@@ -93,7 +93,7 @@ export function LinkDirectory({
             ))}
           </ol>
           <div className="journey-card-actions">
-            <a className="pill-button is-solid" href="/history">
+            <a className="pill-button is-solid" href="/journey">
               {t("archive.fullHistory")}
               <ArrowRight aria-hidden="true" />
             </a>

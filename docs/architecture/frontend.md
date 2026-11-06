@@ -2,8 +2,9 @@
 
 ## Presentation: `src/`
 
-`src/main.tsx` routes between the public board, the static `/history`
-page in `src/history/`, the static `/works` discography in `src/works/`, the
+`src/main.tsx` routes between the public board, the static `/journey`
+page in `src/history/` (an address of `/history` is replaced with `/journey`
+before the first page loads), the static `/works` discography in `src/works/`, the
 static `/lineblog` archive in `src/lineblog/`, the static `/about` page in
 `src/about/`, and `/admin`.
 Links between the five public pages open in place: the next page's code

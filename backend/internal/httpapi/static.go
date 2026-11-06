@@ -38,7 +38,7 @@ var spaPages = map[string]*pageTags{
 		title:       "About · What’s Kano Up To?",
 		description: "Project overview, AI development credits, technology stack, and license for What’s Kano Up To?",
 	},
-	"history": {
+	"journey": {
 		title:       "Journey · What’s Kano Up To?",
 		description: "Kano's public milestones from the first 2010 covers to joining Milpro SONA in 2026, with sources.",
 	},
@@ -50,6 +50,12 @@ var spaPages = map[string]*pageTags{
 		title:       "Works · What’s Kano Up To?",
 		description: "Kano's discography: her own releases, the albums she sang or wrote for, and her video uploads, with sources.",
 	},
+}
+
+// movedPages are a page's earlier addresses. They redirect permanently to
+// its own, keeping the query; the browser keeps the fragment.
+var movedPages = map[string]string{
+	"history": "/journey",
 }
 
 var (
@@ -193,6 +199,13 @@ func (s *staticSite) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	relative := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
+	if target, ok := movedPages[relative]; ok {
+		if r.URL.RawQuery != "" {
+			target += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
+		return
+	}
 	if name, ok := s.file(relative); ok {
 		if width, present, valid := requestedWidth(r); present && historyImage.MatchString(relative) {
 			if !valid {

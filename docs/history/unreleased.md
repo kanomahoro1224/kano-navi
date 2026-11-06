@@ -22,6 +22,8 @@
   Each instance saves the uploads' video thumbnails itself; an upload the
   site knows shows its length, whether it can still be watched and a link
   to the board's video archive, and the list names the date it covers.
+- The Journey page's address is `/journey`; `/history` links redirect to it.
+  Its Chinese name is 足迹.
 - Journey's release milestones show their release's covers from the Works
   page, each linking to the release there; the doujin album one is dated
   December 29, 2017, and the ルル MV August 13, 2026.

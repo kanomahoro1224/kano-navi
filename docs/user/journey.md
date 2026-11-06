@@ -13,9 +13,11 @@ screens and a strip on phones.
 
 ## Visual Archive
 
-The visual archive collects 60 images bundled with the site. Filter by image
-type and open any image in full to see its dimensions, how its date was
-determined, its recorded credit, and links to the original pages. Frames from
+The visual archive collects the site's own images of each identity and the
+covers of each release, the same covers the [Works](works.md) page shows.
+Filter by image type and open any image in full to see its dimensions, how
+its date was determined, its recorded credit, and links to the original
+pages; a cover also links to its release on the Works page. Frames from
 official streams name the archive and the moment they were taken from.
 
 Artwork and other third-party images keep their original rights; the site's

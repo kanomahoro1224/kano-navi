@@ -27,6 +27,7 @@ import { SiteFooter, SiteHeader, SkipLink } from "@/site/site-shell"
 import { branches, milestones } from "./milestones"
 import {
   branchPortraits,
+  fixedMedia,
   historyMedia,
   localized,
   mediaByMilestone,
@@ -406,7 +407,7 @@ export function HistoryApp() {
     (count, group) => count + group.items.length,
     0,
   )
-  const portrait = historyMedia.find((item) => item.id === branchPortraits.sona)
+  const portrait = fixedMedia.find((item) => item.id === branchPortraits.sona)
 
   const openMedia = useCallback(
     (items: HistoryMediaItem[], index: number) => setViewer({ items, index }),
@@ -533,7 +534,7 @@ export function HistoryApp() {
               </span>
             </button>
             {branches.map((branch) => {
-              const image = historyMedia.find(
+              const image = fixedMedia.find(
                 (item) => item.id === branchPortraits[branch.id],
               )
               const count = milestones.filter(

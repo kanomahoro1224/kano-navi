@@ -86,6 +86,12 @@ function sectionFromUrl(): Section {
   return SECTIONS.includes(value as Section) ? (value as Section) : "personal"
 }
 
+/** A release another page links to with `?release=<id>`, opened on load. */
+function releaseFromUrl() {
+  const id = new URLSearchParams(window.location.search).get("release")
+  return personalReleases.some((release) => release.id === id) ? id : null
+}
+
 /** The acoustic cover trilogy, in album order. */
 const TRILOGY = ["one", "two", "three"]
 
@@ -553,7 +559,7 @@ function LazySection({
 export function WorksApp() {
   const { locale, t } = useAppSettings()
   const [section, setSection] = useState<Section>(sectionFromUrl)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(releaseFromUrl)
   const [pointerTabs, setPointerTabs] = useState(false)
   const trilogy = useTrilogySide()
   const [viewer, setViewer] = useState<{
@@ -568,6 +574,14 @@ export function WorksApp() {
       .querySelector('meta[name="description"]')
       ?.setAttribute("content", t("works.metaDescription"))
   }, [t])
+
+  // The linked release opens once; the address keeps only the section.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has("release")) return
+    url.searchParams.delete("release")
+    window.history.replaceState(window.history.state, "", url.href)
+  }, [])
 
   useEffect(() => {
     const onPop = () => setSection(sectionFromUrl())

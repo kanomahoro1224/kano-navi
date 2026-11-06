@@ -1,25 +1,31 @@
 # History Archive Maintenance
 
 The [Journey](../user/journey.md) page shows a multilingual timeline of 45
-milestones from 2010 onward and 60 images from the maintainer's
-`kano_official` reference collection, reviewed in October 2026. This page
-covers where that content lives, how its provenance is recorded, and how the
-bundled images are packaged.
+milestones from 2010 onward from the maintainer's `kano_official` reference
+collection, with 38 bundled images of its own and the covers of its releases
+from the [Works page](works-archive.md). This page covers where that content
+lives, how its provenance is recorded, and how the bundled images are
+packaged.
 
 ## Content and Provenance
 
 - `src/history/milestones.ts` owns milestone copy, dates, identity, and evidence
-  links. Year, month, day, and range precision is preserved.
-- `src/history/media-catalog.json` contains public titles in three languages,
+  links. Year, month, day, and range precision is preserved. A release
+  milestone names its release on the Works page by ID (`release`).
+- `src/history/media-catalog.json` lists the bundled images: public titles in three languages,
   related milestones, identities, image type, source page and file URLs,
   dimensions, MIME type, size, SHA-256, source identity, and date basis.
   Original local paths are excluded.
-- `src/history/media.ts` groups images and supplies versioned local
-  `/assets/history/<filename>?v=<sha256>` URLs, which the server caches as
-  immutable while the hash matches the file
+- `src/history/media.ts` groups images by milestone. Bundled images get
+  versioned local `/assets/history/<filename>?v=<sha256>` URLs, which the
+  server caches as immutable while the hash matches the file
   ([Immutable fixed files](../architecture/media-cache.md#immutable-fixed-files)).
-- `public/assets/history/` contains the 60 verified original image files,
-  copied by Vite into `dist/` and included in production Docker images.
+  A release milestone shows every cover its release lists in
+  `src/works/personal.json`, in that order, from `/media/works/<name>`, with
+  the Works page's caption, source page, third-party mark and credit.
+- `public/assets/history/` contains the 38 verified original image files,
+  copied by Vite into `dist/` and included in production Docker images. It
+  holds no release covers.
 - `src/history/history-i18n.ts` supplies image and provenance translations.
 
 Release dates, Japan-time post dates, stream dates, depicted outfit reveals,
@@ -34,21 +40,24 @@ art, product illustrations, promotional visuals, and model demonstrations
 remain distinct. Illustrations alone do not establish a new streaming model.
 Agency press-release images display their requested publisher credit.
 
-The first solo album, `ばんび～の` (January 16, 2011), appears in both the
-board summary and the full timeline. Its cover is explicitly labelled as a
-third-party file, with the acquired bytes and provenance preserved; the
+A release cover carries the release's date from the Works page. The first
+solo album, `ばんび～の` (January 16, 2011), appears in both the board summary
+and the full timeline; its cover is marked as a third-party file, and the
 product record supplies the release date. The 2022 `いちごいちえ Celebration`
 entry records the October 7 MV publication. Its planned split-EP CD release
-was cancelled in the November 7 official notice. The two published covers
-use the October 6 discography-page publication date, not the cancelled
-November 30 release date.
+was cancelled in the November 7 official notice, so its two covers are marked
+as artwork of a cancelled release, dated as the Works page records it rather
+than by the planned November 30 release, and are also listed under MKLNtic.
 
 ## Fixed Image Packaging
 
 The reviewed history collection is fixed site content, tracked with the
 project. A fresh checkout, production build, or container displays these images
 without database media rows, runtime downloads, or an extra import. The
-collection contains about 62 MiB of original bytes. Changing X/YouTube images
+collection contains about 44 MiB of original bytes. Release covers are not
+part of it: they are the Works page's covers in `data/works/`, packaged with
+the [Works collection](works-archive.md#packaging), and a deployment without
+them shows the unavailable state on those milestones. Changing X/YouTube images
 and operator-selected profile media remain ignored runtime data.
 
 To update the fixed collection from the local reference archive, run:
@@ -68,15 +77,16 @@ Review the catalog and packaged assets together when updating the collection.
 images keeps them, and `/media/:id` serves them like any other ready media.
 
 When moving a deployment, preserve the ignored `data/` directory for source
-snapshots, dynamic media, and provider configuration. History images are
-supplied by the project and image. Missing fixed files show an unavailable
-state while retaining original-source links.
+snapshots, dynamic media, provider configuration and the Works covers. The
+bundled history images are supplied by the project and image. Missing files
+show an unavailable state while retaining original-source links.
 
 ## Requests and Verification
 
 The page has no data-fetching hook or external embeds. Gallery and timeline
-images are lazy loaded from the local static asset route; the introductory
-portrait is loaded eagerly. Thumbnails, the portrait and the identity
+images are lazy loaded from the local static asset route and the Works cover
+route; the introductory portrait is loaded eagerly. A release cover's details
+link to its release on the Works page (`/works?release=<id>`). Thumbnails, the portrait and the identity
 pictures offer the server's smaller copies through `srcset`, made ahead from
 the shipped files by the variants command and kept in the runtime variant
 cache ([Resized copies](../architecture/media-cache.md#resized-copies)); the image
@@ -85,7 +95,8 @@ a link. Provenance hosts are documented in the privacy allowlist without
 expanding the remote downloader's destination policy.
 
 Run `make ci-frontend`, `make docs-check`, and `make sensitive-check`.
-`tests/history-media.test.ts` checks the catalog, the shipped bytes and
+`tests/history-media.test.ts` checks the catalog, the shipped bytes, that
+every named release exists and its covers are packaged Works covers, and
 packaging with synthetic archives and without network requests. Browser verification covers identity/image-type filters, year
 navigation, dialog focus and Escape, source links, three languages, themes,
 and desktop/mobile layouts.

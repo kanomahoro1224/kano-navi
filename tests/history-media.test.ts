@@ -11,8 +11,15 @@ import {
   sha256ForContent,
   type HistoryCatalogItem,
 } from "../scripts/package-history-media.ts"
-import { historyMedia } from "../src/history/media.ts"
+import {
+  fixedMedia,
+  historyMedia,
+  mediaByMilestone,
+  releaseCovers,
+} from "../src/history/media.ts"
 import { milestones } from "../src/history/milestones.ts"
+import { personalReleases } from "../src/works/content.ts"
+import worksMedia from "../src/works/media-catalog.json" with { type: "json" }
 
 async function fixture(t: TestContext) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "kano-history-test-"))
@@ -58,10 +65,10 @@ test("history catalog preserves distinct source identities, dates, and milestone
     historyMedia.length,
   )
   assert.equal(
-    new Set(historyMedia.map((item) => item.mediaId)).size,
-    historyMedia.length,
+    new Set(fixedMedia.map((item) => item.mediaId)).size,
+    fixedMedia.length,
   )
-  for (const item of historyMedia) {
+  for (const item of fixedMedia) {
     assert.equal(item.mediaId, mediaIdForSourceUrl(item.sourceUrl))
     assert.ok(!item.milestoneId || milestoneIds.has(item.milestoneId))
     assert.match(
@@ -69,8 +76,9 @@ test("history catalog preserves distinct source identities, dates, and milestone
       /^\/assets\/history\/[a-zA-Z0-9_.-]+\?v=[a-f0-9]{64}$/u,
     )
     assert.ok(item.title.en && item.title.ja && item.title["zh-CN"])
+    assert.notEqual(item.category, "cover", item.id)
   }
-  const frames = historyMedia.filter((item) => item.frameTime)
+  const frames = fixedMedia.filter((item) => item.frameTime)
   assert.equal(frames.length, 4)
   assert.ok(
     frames.every(
@@ -80,7 +88,7 @@ test("history catalog preserves distinct source identities, dates, and milestone
         item.dateKind === "stream",
     ),
   )
-  const portrait = historyMedia.find(
+  const portrait = fixedMedia.find(
     (item) => item.id === "12_sona_2026_official_fullbody",
   )
   assert.ok(portrait)
@@ -89,30 +97,73 @@ test("history catalog preserves distinct source identities, dates, and milestone
 })
 
 test("every fixed history image ships with its catalog bytes and identity", async () => {
-  for (const item of historyMedia) {
+  for (const item of fixedMedia) {
     const content = await fs.readFile(
       new URL(`../public/assets/history/${item.filename}`, import.meta.url),
     )
     assert.equal(content.length, item.byteSize, item.id)
     assert.equal(sha256ForContent(content), item.sha256, item.id)
   }
+  const shipped = await fs.readdir(
+    new URL("../public/assets/history/", import.meta.url),
+  )
+  assert.deepEqual(
+    shipped.sort(),
+    fixedMedia.map((item) => item.filename).sort(),
+  )
+})
+
+test("release milestones show their Works release's packaged covers", () => {
+  const packaged = new Set(worksMedia.map((item) => item.name))
+  const releases = new Map(personalReleases.map((item) => [item.id, item]))
+  const linked = milestones.filter((item) => "release" in item)
+  assert.ok(linked.length > 0)
+  for (const milestone of linked) {
+    assert.ok("release" in milestone)
+    const release = releases.get(milestone.release)
+    assert.ok(release, milestone.id)
+    const covers = releaseCovers.filter(
+      (item) => item.milestoneId === milestone.id,
+    )
+    assert.deepEqual(
+      covers.map((item) => item.cover.media),
+      release.covers.map((cover) => cover.media),
+      milestone.id,
+    )
+    for (const cover of covers) {
+      assert.ok(packaged.has(cover.cover.media), cover.id)
+      assert.equal(cover.url, `/media/works/${cover.cover.media}`)
+      assert.equal(cover.releaseId, release.id)
+      assert.equal(cover.date, release.date)
+      assert.ok(cover.branches.includes(milestone.branch))
+    }
+  }
+  assert.ok(
+    milestones.every(
+      (item) =>
+        item.kind !== "release" ||
+        "release" in item ||
+        !personalReleases.some(
+          (release) => release.date === item.date && !release.unit,
+        ),
+    ),
+    "a release milestone on a Works release date names that release",
+  )
 })
 
 test("the first album and cancelled EP keep their distinct release and publication dates", () => {
   const firstAlbum = milestones.find((item) => item.id === "bambino")
-  const firstCover = historyMedia.find((item) => item.id === "01_bambino_album")
   assert.ok(firstAlbum)
   assert.ok(firstAlbum.source)
-  assert.ok(firstCover)
   assert.equal(firstAlbum.date, "2011-01-16")
-  assert.equal(firstCover.milestoneId, firstAlbum.id)
+  const [firstCover] = mediaByMilestone.bambino
+  assert.ok(firstCover?.origin === "release")
   assert.equal(firstCover.date, firstAlbum.date)
-  assert.equal(firstCover.dateKind, "release")
-  assert.equal(firstCover.sourceKind, "thirdPartyCover")
-  assert.equal(firstCover.note, "thirdPartyCover")
+  assert.equal(firstCover.cover.thirdParty, true)
+  assert.ok(firstCover.cover.source)
   assert.notEqual(
     new URL(firstAlbum.source).hostname,
-    new URL(firstCover.sourcePage).hostname,
+    new URL(firstCover.cover.source).hostname,
   )
 
   const mv = milestones.find((item) => item.id === "ichigo-ichie")
@@ -125,13 +176,12 @@ test("the first album and cancelled EP keep their distinct release and publicati
       (link) => link.label === "history.sourceName.cancelledRelease",
     ),
   )
-  const covers = historyMedia.filter((item) => item.milestoneId === mv.id)
+  const covers = mediaByMilestone[mv.id]
   assert.equal(covers.length, 2)
   for (const cover of covers) {
-    assert.equal(cover.date, "2022-10-06")
-    assert.equal(cover.dateKind, "publication")
-    assert.equal(cover.note, "cancelledEpCover")
-    assert.equal(cover.sourceKind, "artist")
+    assert.ok(cover.origin === "release")
+    assert.equal(cover.cancelled, true)
+    assert.deepEqual(cover.branches, ["singer", "mklntic"])
   }
 })
 

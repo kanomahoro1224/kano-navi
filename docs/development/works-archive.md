@@ -201,6 +201,10 @@ left alone. Packaging also writes `backend/internal/works/videos.json`; a run
 with another content directory must name its own index file. Packaging performs no network requests and does not change the
 collection.
 
+The [Journey](history-archive.md) page names releases by their `id` and
+shows their covers, so `tests/history-media.test.ts` fails when packaging
+changes the ID or covers of a named release; update the milestone with it.
+
 When moving a deployment, preserve the ignored `data/` directory, or run the
 packaging again on the new machine.
 

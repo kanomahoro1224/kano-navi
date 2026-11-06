@@ -17,7 +17,8 @@ with a target load normally; back and forward within `/admin` or another path
 stay with that page, which keeps the browser's own scroll restoration and
 handles its fragment moves (the console's views), and `index.html` applies the saved theme and
 language before the first paint so no load flashes the other theme. History copy and image metadata are
-static; verified fixed images ship in `public/assets/history/` and `dist/`.
+static; verified fixed images ship in `public/assets/history/` and `dist/`,
+and release milestones show the `/works` covers of the release they name.
 `scripts/package-history-media.ts` updates these files from a local reference
 archive without network requests.
 See [History archive maintenance](../development/history-archive.md). The
@@ -39,7 +40,8 @@ art of the design of the newest article shown; see
 [LINE BLOG archive maintenance](../development/lineblog-archive.md). The
 `/works` tables are static JSON written by `scripts/package-works.ts`. The
 page keeps its section in the `?view=` query, replacing the current entry
-when a visitor switches sections; the personal works build with the page,
+when a visitor switches sections, and `?release=<id>` opens that release's
+sheet once and is then dropped from the address; the personal works build with the page,
 and the participation and upload sections are their own chunks that load
 the first time they show, with a retry on failure. The side the trilogy
 scene shows is kept in `localStorage` (`kano-works-trilogy-side`). A release opens in a

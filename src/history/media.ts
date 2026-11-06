@@ -1,15 +1,90 @@
 import type { Translator } from "../types.ts"
+import { mediaUrl, personalReleases } from "../works/content.ts"
+import type { WorksCover } from "../works/types.ts"
 import catalog from "./media-catalog.json" with { type: "json" }
+import { milestones } from "./milestones.ts"
 
-// Curated fixed images ship in public/assets/history and the production bundle.
-// Changing source media still uses the runtime cache; visits stay local.
-export const historyMedia = catalog.map((item) => ({
+// Journey-only images ship in public/assets/history and the production
+// bundle. Release milestones show their release's covers from the Works page
+// (data/works/, see docs/development/works-archive.md) instead of copies of
+// their own. Changing source media still uses the runtime cache; visits stay
+// local.
+export const fixedMedia = catalog.map((item) => ({
   ...item,
+  origin: "fixed" as const,
   url: `/assets/history/${item.filename}?v=${item.sha256}`,
 }))
 
+export type FixedMediaItem = (typeof fixedMedia)[number]
+
+/** A cover of a release on the Works page, shown on its milestone. */
+export type ReleaseCoverItem = {
+  origin: "release"
+  id: string
+  /** The release's ID on the Works page. */
+  releaseId: string
+  milestoneId: string
+  branches: string[]
+  category: "cover"
+  /** The release's title, as the Works page writes it in every locale. */
+  title: LocalizedText
+  date: string
+  dateKind: "release"
+  /** Every edition was withdrawn before sale. */
+  cancelled: boolean
+  cover: WorksCover
+  url: string
+  width: number
+  height: number
+  frameTime: null
+  credit: null
+}
+
+export type HistoryMediaItem = FixedMediaItem | ReleaseCoverItem
+
+// A release that also belongs to another identity's story is listed under it.
+const releaseBranches: Record<string, string[]> = {
+  "ichigo-ichie": ["mklntic"],
+  doppel: ["mahoro"],
+}
+
+const releaseById = new Map(
+  personalReleases.map((release) => [release.id, release]),
+)
+
+export const releaseCovers: ReleaseCoverItem[] = milestones.flatMap(
+  (milestone) => {
+    if (!("release" in milestone) || !milestone.release) return []
+    const release = releaseById.get(milestone.release)
+    if (!release) return []
+    return release.covers.map((cover) => ({
+      origin: "release" as const,
+      id: `${release.id}/${cover.media}`,
+      releaseId: release.id,
+      milestoneId: milestone.id,
+      branches: [milestone.branch, ...(releaseBranches[milestone.id] ?? [])],
+      category: "cover" as const,
+      title: { en: release.title },
+      date: release.date,
+      dateKind: "release" as const,
+      cancelled: release.cancelled,
+      cover,
+      url: mediaUrl(cover.media),
+      width: cover.width,
+      height: cover.height,
+      frameTime: null,
+      credit: null,
+    }))
+  },
+)
+
+export const historyMedia: HistoryMediaItem[] = [
+  ...fixedMedia,
+  ...releaseCovers,
+]
+
 export const mediaByMilestone = historyMedia.reduce<
-  Record<string, typeof historyMedia>
+  Record<string, HistoryMediaItem[]>
 >((groups, item) => {
   if (item.milestoneId) (groups[item.milestoneId] ??= []).push(item)
   return groups

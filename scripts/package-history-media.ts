@@ -3,7 +3,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { historyMedia } from "../src/history/media.ts"
+import { fixedMedia } from "../src/history/media.ts"
 
 export interface HistoryCatalogItem {
   id: string
@@ -77,7 +77,7 @@ function sniffImageMimeType(body: Buffer) {
 // altered archive cannot partially replace a previously working collection.
 export async function prepareHistoryMedia(
   directory: string,
-  catalog: HistoryCatalogItem[] = historyMedia,
+  catalog: HistoryCatalogItem[] = fixedMedia,
 ) {
   const root = await fs.realpath(directory)
   const manifest = JSON.parse(

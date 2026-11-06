@@ -5,8 +5,10 @@
 > `npm run works:package -- --from /path/to/kano_official` on the instance
 > to package them, then `npm run variants` (or a copies run from the
 > console) to make their smaller copies; until packaged, the page shows each
-> cover as unavailable. The uploads' video thumbnails need no packaging: the
-> media step saves them over its next runs.
+> cover as unavailable. The Journey page's release milestones show the same
+> covers, so they are unavailable there too until packaged. The uploads'
+> video thumbnails need no packaging: the media step saves them over its next
+> runs.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -20,5 +22,8 @@
   Each instance saves the uploads' video thumbnails itself; an upload the
   site knows shows its length, whether it can still be watched and a link
   to the board's video archive, and the list names the date it covers.
+- Journey's release milestones show their release's covers from the Works
+  page, each linking to the release there; the doujin album one is dated
+  December 29, 2017, and the ルル MV August 13, 2026.
 
 </details>

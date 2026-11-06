@@ -5,9 +5,6 @@ export const historyMessages = {
     "history.yearEmpty": "{years} 没有收录节点",
     "history.stat.images": "收录图片",
     "history.archiveOnly": "依据官方配信的第三方存档",
-    "history.identities": "同一段旅程，不同的舞台",
-    "history.identitiesNote":
-      "歌手、配信角色与音乐组合的活动彼此并行。选择一个身份，沿着它的足迹回顾。",
     "history.view": "浏览方式",
     "history.timeline": "时间线",
     "history.gallery": "图片图鉴",
@@ -97,9 +94,6 @@ export const historyMessages = {
     "history.yearEmpty": "{years} の出来事は収録していません",
     "history.stat.images": "収録画像",
     "history.archiveOnly": "公式配信の第三者アーカイブに基づく",
-    "history.identities": "ひとつのあゆみ、いろいろな舞台",
-    "history.identitiesNote":
-      "歌手・配信キャラクター・音楽ユニットの活動は並行しています。名義を選んで、その足跡をたどってみてください。",
     "history.view": "表示方法",
     "history.timeline": "タイムライン",
     "history.gallery": "ビジュアル図鑑",
@@ -194,9 +188,6 @@ export const historyMessages = {
     "history.stat.images": "Archived images",
     "history.archiveOnly":
       "Based on a third-party archive of the official stream",
-    "history.identities": "One journey, many stages",
-    "history.identitiesNote":
-      "Singer, streaming character, and music unit activities overlap. Choose an identity to follow its part of the story.",
     "history.view": "Browse the archive",
     "history.timeline": "Timeline",
     "history.gallery": "Visual archive",

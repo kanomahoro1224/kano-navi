@@ -505,11 +505,7 @@ export function HistoryApp() {
           ) : null}
         </section>
 
-        <section className="identities" aria-labelledby="identities-title">
-          <div className="identities-head">
-            <h2 id="identities-title">{t("history.identities")}</h2>
-            <p>{t("history.identitiesNote")}</p>
-          </div>
+        <section className="identities">
           <div
             className="identity-picker"
             role="group"
@@ -715,7 +711,6 @@ export function HistoryApp() {
             )}
           </TabsContent>
         </Tabs>
-        <p className="history-note">{t("history.note")}</p>
       </main>
 
       <SiteFooter disclaimer={t("history.disclaimer")} />

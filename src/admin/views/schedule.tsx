@@ -63,8 +63,9 @@ const detailLimit = 500
 /** Preset lengths, in minutes, that save an end time. */
 const lengths = [30, 60, 120, 180]
 
-/** The calendar feed's length for a timed entry without an end: an hour for
- * the stream types and half an hour otherwise (see the public feeds). */
+/** The type's length, saved as the end of a timed entry on "default" and the
+ * calendar feed's length for one without an end: an hour for the stream
+ * types and half an hour otherwise (see the public feeds). */
 function defaultMinutes(eventType: string) {
   return eventType === "stream" || eventType === "member" ? 60 : 30
 }
@@ -75,7 +76,10 @@ interface Draft {
   startsOn: string
   timed: boolean
   start: string
-  /** "" keeps the end open, a preset is minutes, "custom" uses end. */
+  /**
+   * "default" saves the type's length, "open" saves no end, a preset is
+   * minutes and "custom" uses end.
+   */
   length: string
   end: string
   approximate: boolean
@@ -102,9 +106,12 @@ function draftOf(event: AdminEvent | null, day?: string): Draft {
     // A new entry starts timed so a date-only entry is a deliberate choice.
     timed: event ? Boolean(event.startsAt) : true,
     start: japanClock(event?.startsAt),
-    length:
-      !event?.endsAt || sale
-        ? ""
+    // A new entry takes its type's length; a saved entry without an end
+    // stays open, so an unrelated edit never adds one.
+    length: !event
+      ? "default"
+      : !event.endsAt || sale
+        ? "open"
         : lengths.includes(minutes)
           ? String(minutes)
           : "custom",
@@ -126,9 +133,13 @@ function draftOf(event: AdminEvent | null, day?: string): Draft {
 
 /** The saved end instant; a custom end clock before the start is the next day. */
 function endOf(draft: Draft, startsAt: string) {
-  if (!startsAt || !draft.length) return ""
+  if (!startsAt || draft.length === "open") return ""
   if (draft.length !== "custom") {
-    const end = new Date(Date.parse(startsAt) + Number(draft.length) * 60_000)
+    const minutes =
+      draft.length === "default"
+        ? defaultMinutes(draft.eventType)
+        : Number(draft.length)
+    const end = new Date(Date.parse(startsAt) + minutes * 60_000)
     return japanInstant(
       japanDay(end.toISOString()),
       japanClock(end.toISOString()),
@@ -370,21 +381,24 @@ function EventDialog({
                   <Field
                     label={t("admin.schedule.field.length")}
                     hint={
-                      draft.length
-                        ? undefined
-                        : t("admin.schedule.length.openHint", {
+                      draft.length === "open"
+                        ? t("admin.schedule.length.openHint", {
                             length: fallback,
                           })
+                        : undefined
                     }
                   >
                     <select
                       value={draft.length}
                       onChange={(e) => set({ length: e.target.value })}
                     >
-                      <option value="">
+                      <option value="default">
                         {t("admin.schedule.length.default", {
                           length: fallback,
                         })}
+                      </option>
+                      <option value="open">
+                        {t("admin.schedule.length.open")}
                       </option>
                       {lengths.map((minutes) => (
                         <option key={minutes} value={minutes}>

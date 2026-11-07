@@ -240,11 +240,13 @@ without merged duplicates. Each entry is a chip with its time and title,
 styled by review state as the legend below names; a chip opens the entry,
 and a day opens its rows below the grid with the same actions and its new
 entry button. On a narrow grid the chips become dots. The entry dialog is
-either timed or all day. A timed entry needs a start time; its length
-defaults to the [calendar feed's](public-api.md#public-feeds) length for the
-type without saving an end, so the board keeps treating a stream as
-open-ended, while presets and a custom end save `endsAt`. A sale replaces the
-length with a close date and an optional close time (`endsOn` and `endsAt`).
+either timed or all day. A timed entry needs a start time. Its length
+starts at the type default, the [calendar feed's](public-api.md#public-feeds)
+length for the type, and saves that end as `endsAt` like the presets and a
+custom end. **No end time** saves none, so the board treats a stream as
+open-ended; a saved entry without an end opens on it, so an unrelated edit
+never adds one. A sale replaces the length with a close date and an optional
+close time (`endsOn` and `endsAt`).
 A preview line renders the entry as calendar subscribers will see it.
 
 The console's video list (`src/admin/views/videos.tsx`) puts the featured

@@ -431,6 +431,7 @@ export const adminMessages = {
       "Leave empty when only the date is known",
     "admin.schedule.field.length": "Length",
     "admin.schedule.length.default": "Type default ({length})",
+    "admin.schedule.length.open": "No end time",
     "admin.schedule.length.openHint":
       "No end is saved; calendars show {length}",
     "admin.schedule.length.custom": "Custom end time",
@@ -1825,6 +1826,7 @@ export const adminMessages = {
     "admin.schedule.field.closesAtHint": "只知道日期时留空",
     "admin.schedule.field.length": "时长",
     "admin.schedule.length.default": "按类型默认（{length}）",
+    "admin.schedule.length.open": "不设结束时间",
     "admin.schedule.length.openHint": "不保存结束时间，日历按 {length} 显示",
     "admin.schedule.length.custom": "自定义结束时间",
     "admin.schedule.when": "时间",

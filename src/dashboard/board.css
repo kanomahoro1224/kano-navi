@@ -834,8 +834,11 @@
 
   /*
    * On phones the profile leads the stage as a compact identity row so the
-   * schedule comes up sooner: the banner is a short strip, and a small
-   * avatar sits beside the kicker, name and catchphrase.
+   * schedule comes up sooner: the banner is a short strip, and the avatar
+   * straddles its lower left edge, as on wider screens, beside the name;
+   * the catchphrase starts at the card's left edge below them, in line with
+   * the links, and the kicker is left out. The left keeps clear of the
+   * banner's centred art.
    */
   .profile-card {
     grid-template-columns: 1fr;
@@ -843,33 +846,33 @@
   }
 
   .profile-banner {
-    height: 76px;
+    height: 88px;
     min-height: 0;
   }
 
   .profile-body {
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: 64px minmax(0, 1fr);
     gap: 4px 12px;
-    padding: 14px 16px 14px;
+    padding: 8px 16px 14px;
   }
 
   .profile-body > * {
     grid-column: 1 / -1;
   }
 
+  /* Half of the avatar rises over the banner, past the body's top padding. */
   .profile-body > .profile-avatar {
-    grid-row: 1 / span 3;
+    grid-row: 1;
     grid-column: 1;
-    align-self: center;
-    width: 56px;
-    height: 56px;
-    margin: 0;
-    border-width: 2px;
+    align-self: start;
+    width: 64px;
+    height: 64px;
+    margin: -40px 0 0;
+    border-width: 3px;
   }
 
   .profile-body > .kicker {
-    grid-row: 1;
-    grid-column: 2;
+    display: none;
   }
 
   .profile-body > .profile-name {
@@ -877,7 +880,7 @@
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0 8px;
-    grid-row: 2;
+    grid-row: 1;
     grid-column: 2;
     font-size: 22px;
   }
@@ -887,8 +890,9 @@
   }
 
   .profile-body > .profile-catchphrase {
-    grid-row: 3;
-    grid-column: 2;
+    grid-row: 2;
+    grid-column: 1 / -1;
+    margin-top: 4px;
     font-size: 14px;
   }
 

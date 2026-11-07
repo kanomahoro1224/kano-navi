@@ -48,8 +48,9 @@
   opening time.
 - On phones the Now section is shorter, so the On sale row and the schedule
   come up sooner. The profile card leads the section as a compact identity
-  row with a short banner strip and a small avatar beside the name; it
-  leaves out the counts, and its last row holds the X, YouTube and
+  row: a short banner strip with the avatar overlapping its lower left
+  edge, beside the name, and the catchphrase below in line with the links; it
+  leaves out the role line above the name and the counts, and its last row holds the X, YouTube and
   bilibili read times, the run's state dot and the reload button. The
   countdown sits with the ticket's time, the latest video card puts its
   labels above the thumbnail, and the On sale cards scroll sideways in one
@@ -110,6 +111,10 @@
 
 - The schedule editor offers the Sale type, with a close date and time in
   place of the length.
+- A timed entry's **Type default** length saves its end time: an hour after
+  the start for a stream or membership, half an hour otherwise, so the board
+  stops showing the stream as live at that time. **No end time** leaves the
+  end open, and an entry saved without an end opens on it.
 - Sources has a Bilibili uploads and a Bilibili dynamics tab, each with
   its timer and Run now and, below the timed reads, its read's state: the
   account, the last read and its error, whether the login cookie signs in

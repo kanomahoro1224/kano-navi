@@ -40,9 +40,9 @@ Japan-time clock, and language and theme controls.
 
 The About page introduces the project, names its author and the developers
 who have contributed code (with a link to the full contributor list), credits
-the sources of the LINE BLOG archive, the provider of the mainland China
-server site (with a link to it), and the AI models that helped build the site,
-and states the license.
+the sources of the LINE BLOG archive, the help behind the Works page, the
+provider of the mainland China server site (with a link to it), and the AI
+models that helped build the site, and states the license.
 
 ## Freshness and Sources
 

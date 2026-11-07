@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useEffect } from "react"
-import { ArrowUpRight, CodeXml, Scale } from "lucide-react"
+import { ArrowRight, ArrowUpRight, CodeXml, Scale } from "lucide-react"
 
 import { version } from "../../package.json"
 import { useAppSettings } from "@/app-settings"
@@ -15,6 +15,8 @@ const CONTRIBUTORS_URL = `${REPOSITORY_URL}/graphs/contributors`
 const contributors = ["kanomahoro1224"]
 const LINEBLOG_RECOVERY_URL =
   "https://github.com/ZhFuwe/Kano_LINE_Blog_Recovery"
+const ZHFUWE = "ZhFuwe"
+const ZHFUWE_URL = "https://github.com/ZhFuwe"
 const MAINLAND_PROVIDER = "鹿可可"
 const MAINLAND_PROVIDER_URL = "https://space.bilibili.com/426276698"
 const MAINLAND_SITE_URL = "https://xiaolubao.com"
@@ -58,25 +60,62 @@ function Chapter({
   )
 }
 
+/** A message with one of its values as a link to that person's page. */
+function CreditText({
+  message,
+  param,
+  name,
+  href,
+}: {
+  message: string
+  param: string
+  name: string
+  href: string
+}) {
+  const { t } = useAppSettings()
+  const marker = "__CREDIT_NAME__"
+  const [before, after = ""] = t(message, { [param]: marker }).split(marker)
+  return (
+    <p>
+      {before}
+      <ExternalLink className="about-inline-link" href={href}>
+        {name}
+      </ExternalLink>
+      {after}
+    </p>
+  )
+}
+
+/** Thanks the person who helped build the Works page. */
+function WorksCredit() {
+  const { t } = useAppSettings()
+  return (
+    <>
+      <CreditText
+        message="about.creditsWorks"
+        param="name"
+        name={ZHFUWE}
+        href={ZHFUWE_URL}
+      />
+      <a className="text-link" href="/works">
+        {t("about.creditsWorksPage")}
+        <ArrowRight aria-hidden="true" />
+      </a>
+    </>
+  )
+}
+
 /** Credits the provider of the mainland China server site. */
 function MainlandSiteCredit() {
   const { t } = useAppSettings()
-  const marker = "__MAINLAND_PROVIDER__"
-  const [before, after = ""] = t("about.creditsMainland", {
-    provider: marker,
-  }).split(marker)
   return (
     <>
-      <p>
-        {before}
-        <ExternalLink
-          className="about-inline-link"
-          href={MAINLAND_PROVIDER_URL}
-        >
-          {MAINLAND_PROVIDER}
-        </ExternalLink>
-        {after}
-      </p>
+      <CreditText
+        message="about.creditsMainland"
+        param="provider"
+        name={MAINLAND_PROVIDER}
+        href={MAINLAND_PROVIDER_URL}
+      />
       <ExternalLink className="text-link" href={MAINLAND_SITE_URL}>
         {t("about.creditsMainlandSite")}
         <ArrowUpRight aria-hidden="true" />
@@ -131,8 +170,7 @@ export function AboutApp() {
 
         <div className="chapters">
           <Chapter number={1} title={t("about.overview")}>
-            <p>{t("about.overviewOne")}</p>
-            <p>{t("about.overviewTwo")}</p>
+            <p>{t("about.overviewText")}</p>
           </Chapter>
           <Chapter number={2} title={t("about.builtWithAi")}>
             <p>{t("about.aiCredit", { author: AUTHOR })}</p>
@@ -162,11 +200,17 @@ export function AboutApp() {
             </ExternalLink>
           </Chapter>
           <Chapter number={4} title={t("about.credits")}>
-            <p>{t("about.creditsLineblog")}</p>
+            <CreditText
+              message="about.creditsLineblog"
+              param="name"
+              name={ZHFUWE}
+              href={ZHFUWE_URL}
+            />
             <ExternalLink className="text-link" href={LINEBLOG_RECOVERY_URL}>
               {t("about.creditsRecovery")}
               <ArrowUpRight aria-hidden="true" />
             </ExternalLink>
+            <WorksCredit />
             <MainlandSiteCredit />
           </Chapter>
           <Chapter number={5} title={t("about.technologies")}>

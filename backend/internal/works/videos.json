@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-29",
+  "updatedAt": "2026-11-07",
   "uploads": [
     {
       "id": "2010-03-28-2eb885",
@@ -3130,6 +3130,16 @@
         {
           "platform": "youtube",
           "id": "oXXXfkwBNhU"
+        }
+      ]
+    },
+    {
+      "id": "2026-11-07-633bf7",
+      "date": "2026-11-07",
+      "videos": [
+        {
+          "platform": "bilibili",
+          "id": "BV1St4h6BEJH"
         }
       ]
     }

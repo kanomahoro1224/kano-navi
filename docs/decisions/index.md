@@ -10,6 +10,6 @@ ADRs record durable choices. Current implementation details belong in architectu
 - [ADR-0006: Sale periods as one entry shown at its ends](ADR-0006-sale-periods.md)
 - [ADR-0007: The Bilibili dynamics listing requires an operator login cookie](ADR-0007-bilibili-dynamics-need-a-login.md)
 - [ADR-0008: Extraction normalizes source time zones in code](ADR-0008-source-time-zones-in-code.md)
-- [ADR-0009: Related X accounts and stored quoted statuses](ADR-0009-related-x-accounts-and-quoted-statuses.md) (Proposed)
+- [ADR-0009: Related X accounts and stored quoted statuses](ADR-0009-related-x-accounts-and-quoted-statuses.md)
 
 [Documentation index](../README.md)

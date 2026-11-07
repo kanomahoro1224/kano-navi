@@ -419,8 +419,15 @@ to the label of a notice merged into them (see
 revision only when a merge decision, a derived YouTube event, an inherited
 label or a merged upload's translation changed.
 
-`translate` machine-translates X post text and YouTube titles that lack a
-usable translation (see [Translation](sources.md#translation)), then labels
+`x` reads the own accounts through the X method chain and then every
+related account's timeline into the X status pool, whatever the sync
+setting (see [Related accounts](sources.md#related-accounts)); a related
+account's failure leaves the run partial and adds its code to the result's
+errors (`relatedErrors` under a `count` setting).
+
+`translate` machine-translates X post text, YouTube titles and the X
+statuses own posts quote that lack a usable translation (see
+[Translation](sources.md#translation)), then labels
 unlabelled YouTube reservations from their title with the same queue (see
 [Event labels](data-model.md#event-labels)), then tags the videos no entry
 labels with what is left of the same per-run limit (see

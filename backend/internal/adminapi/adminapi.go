@@ -143,6 +143,10 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodPost, Path: "/sources/youtube/ytdlp/update", Handler: a.updateYTDLP},
 		{Method: http.MethodGet, Path: "/sync-settings", Handler: a.syncSettings},
 		{Method: http.MethodPut, Path: "/sync-settings", Handler: a.updateSyncSettings},
+		{Method: http.MethodGet, Path: "/sources/x/related", Handler: a.relatedAccounts},
+		{Method: http.MethodPut, Path: "/sources/x/related", Handler: a.updateRelatedAccounts},
+		{Method: http.MethodGet, Path: "/x-statuses", Handler: a.listXStatuses},
+		{Method: http.MethodPut, Path: "/x-statuses/{id}/decision", Handler: a.decideXStatus},
 
 		{Method: http.MethodGet, Path: "/events", Handler: a.listEvents},
 		{Method: http.MethodPost, Path: "/events", Handler: a.createEvent},

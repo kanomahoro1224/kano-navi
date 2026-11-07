@@ -13,8 +13,9 @@ pages back until a page's oldest own status is already stored or is not newer
 than the account's stored cursor, so posts published between runs are found
 even when several arrive at once. Before an account has a cursor, statuses
 older than the first-run age limit (seven days by default; see
-[sync settings](../operations/configuration.md#sync-settings)) also end the first run. Reposts carry
-another author and are skipped. The cap, the full-sync post cap or
+[sync settings](../operations/configuration.md#sync-settings)) also end the first run. A repost
+lists the original status's ID, time and author, so it is never a post: the
+run records it as a repost link (see [Reposts](#reposts)). The cap, the full-sync post cap or
 the X schedule's incremental `max` (see
 [source schedules](workflows.md#source-schedules)), counts the
 statuses that are not stored yet and sets the pages of 20 (at most 10) per
@@ -140,6 +141,68 @@ appear only when used.
 Each discovered image URL is registered and linked to its post. A bounded media
 stage later in the same command downloads pending image files from X's
 `*.twimg.com` media CDN subdomains.
+
+#### Related accounts
+
+A related account (such as the agency, `@Mil_Pro_`) is a second account
+role beside the own accounts of `X_HANDLES`, configured on the console's
+Sources page with its keyword rules in the app setting `x_related_accounts`
+(see [Configuration](../operations/configuration.md#related-x-accounts)) and
+decided in [ADR-0009](../decisions/ADR-0009-related-x-accounts-and-quoted-statuses.md).
+A handle is in one role at a time, and the setting starts empty.
+
+Each run of the `x` step, after the own accounts, reads every related
+account's own timeline in full into the X status pool (`x_statuses`, see
+[Quoted posts](#quoted-posts)), whatever the X schedule's sync setting:
+
+- It reads the FxTwitter timeline alone, with the own accounts' discovery
+  limit and first-run age. It has no profile-page fallback and no X API
+  method, and it makes no detail request, since a page carries each status;
+  a status without usable content is left out. Its reposts and other
+  authors' statuses are left out too.
+- The count-based model ([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md))
+  holds as for an own account, with its own `sync_state` row of source
+  `x-related` (the lower-case handle as account): the cursor, the timeline
+  gap and the known statuses come from the pool's statuses that the
+  account's timeline listed (`listed_at`), never from `posts`, so a role
+  change never mixes cursors.
+- A failed read keeps the cursor and the pool, records its code in the row's
+  `lastError` and leaves the run partial, never failed. While FxTwitter is
+  down, related accounts are not read; a timeline gap covers the stretch.
+
+The step result adds `related: {accounts, listed, promoted, demoted}` when
+any related account is configured.
+
+Every pooled status stores the reasons that apply to it:
+
+| Reason     | When                                                                    | Effect              |
+| ---------- | ----------------------------------------------------------------------- | ------------------- |
+| `keyword`  | a related account's status whose text contains one of its keyword rules | promoted            |
+| `manual`   | an operator promoted a related account's status                         | promoted            |
+| `quoted`   | an own account quoted it, whatever its author                           | translated, no card |
+| `reposted` | an own account reposted it, and its author is a related account         | translated, no card |
+| `none`     | none of the above                                                       | stored only         |
+
+Keyword rules match anywhere in the text, ignoring letter case. Reasons are
+evaluated when a related timeline lists a status, when an own account
+reposts it, when an operator decides on it, and for every pooled status when
+the related accounts or their rules are saved.
+
+**Promotion** writes the status from its pooled `raw_json` to `posts` under
+its author's handle, with `posts.promoted_at` set. It registers the status's
+own images and quoted images as any post does, but never a schedule-image
+candidate, and gives the status it quotes no `quoted` reason. From then on
+the post takes the paths every post takes: the wall, the archive,
+translation, extraction and media. **Demotion** sets `posts.hidden_at` and
+keeps the row, its media and its events, whose automatic ones then leave the
+public pages (see [Events of hidden posts](data-model.md#events-of-hidden-posts)).
+An automatic demotion records `x_statuses.demoted_at`, so an automatic
+promotion shows again only a post the rules hid; an operator's hide in Posts
+stays. An operator's promote or demote (`manual_decision`, with its reason
+and time) is a durable lock that the rules never override; a manual promote
+shows a hidden promoted post, and returning a status to the rules lets them
+decide again. Only a related account's status can be promoted by hand, and a
+pooled status that is an own post is never promoted or demoted.
 
 #### X API in the chain
 
@@ -953,6 +1016,24 @@ deadline as both dates and no start time. The close is stored as the
 other type, and a shipping or delivery date is not an entry. A sale's
 `endTime` without `endDate` closes it on the Japan date that time falls on.
 
+Neither path, nor an operator's reprocess request, selects a post with
+`posts.hidden_at` set; a request for a hidden post waits until the post is
+shown again, and showing it makes it a candidate again. The events such a
+post alone supports leave the public pages while it is hidden (see
+[Events of hidden posts](data-model.md#events-of-hidden-posts)).
+
+A post that quotes another status gives the model the quoted wording after
+its own text, marked as quoted context (`[Quoted post by @handle. …]`),
+because a quoted status reaches extraction no other way: posts often say
+little more than 「これ！」 over a quoted announcement. The quoted wording
+joins the post's extraction fingerprint, the single-message heuristic and
+the reading of the entry's platform; a post without a quote has the
+fingerprint of its own wording alone. An unavailable quote, or one an
+operator hid from the public pages (`posts.quote_hidden_at`), adds nothing,
+so hiding or showing a quote changes the input and the post is extracted
+again. Quoted images never join the input (see
+[Quoted posts](#quoted-posts)).
+
 The two candidate lists are merged, de-duplicated by post ID, sorted by
 least recent attempt (unattempted posts first), with publication time as a tie
 breaker. The shared limit counts candidates requiring work; unchanged fingerprint
@@ -1178,7 +1259,8 @@ bypass that readiness gate.
 
 A status a post quotes (`qrt` in the detail answer, `quote` on a timeline
 page) is never a post of its own: it does not enter `posts`, the timeline
-cursor, the pending queue or extraction. The adapter
+cursor or the pending queue, and extraction reads it only as context of the
+quoting post. The adapter
 (`backend/internal/source/x/quote.go`) reads it into a sanitized
 projection stored beside the quoting post in `posts.quote_json`: the quoted
 status ID, its author's handle and display name, its wording (as written,
@@ -1195,12 +1277,51 @@ without an author or content. A payload that names no usable status ID
 stores no quote. X API answers carry the quoted status as an expansion; one
 X does not return is stored as unavailable in the same way.
 
+Every available quote also enters the X status pool, `x_statuses`, in the
+quoting post's transaction, whatever its author (`backend/internal/store/sqlite/x_pool.go`).
+The pool row and `quote_json` come from the same projection, so the pool
+text is the text the quote card shows. The row keeps the status ID, author,
+wording, publication time, x.com URL and a sanitized `raw_json` with the
+quoted images' addresses, and `quoted_at`, the publication time of the
+newest own post that quotes it. A quote of a stored post (a self-quote)
+enters the pool too, but its translations stay the stored post's. No public
+reader reads or joins the pool, and nothing of a pooled status gets a card,
+a media link or a schedule candidate of its own. Startup fills the pool from
+the quotes stored posts' `raw_json` already hold, with no request.
+
+The [translate step](#translation) translates quoted statuses by status ID,
+so a status quoted several times is translated once, and the quote card
+resolves those translations against its own wording (see
+[Translations](data-model.md#translations)). Schedule extraction reads the
+quoted wording as context of the quoting post (see
+[Schedule extraction pipeline](#schedule-extraction-pipeline)).
+
 An operator can hide a post's quote from the public pages
 (`posts.quote_hidden_at`); synchronization, the X API fetch method and the
 startup quote backfill (which fills a missing `quote_json` from the post's
 stored `raw_json`) keep updating the stored quote underneath and never write
 that decision. Hiding the whole post (`posts.hidden_at`) works the same way:
-synchronization keeps rewriting the stored post and never clears it.
+synchronization keeps rewriting the stored post and never clears it, while
+extraction skips it (see
+[Schedule extraction pipeline](#schedule-extraction-pipeline)).
+
+#### Reposts
+
+Timeline pages list an own account's repost under the original status's ID,
+time and author, with `reposted_by` naming the account; X API answers list
+it as a post that references the status as `retweeted`. Neither is ever a
+post or a cursor, pending or gap entry. Recent synchronization and manual
+fetches record each one in `x_reposts`: the reposted status ID, the
+reposting account and, when known, the status's author, with the time it
+was first seen, which a later listing keeps. The board shows no reposts. The
+timed X API method asks for the account's posts without retweets, so it
+records none.
+
+A reposted status of a [related account](#related-accounts) also enters the
+pool with `reposted_at`, from the repost item when the account's own
+timeline has not stored it yet, and its reasons are evaluated again: it is
+translated for the `reposted` reason and promoted only by a keyword or by
+hand. A repost of any other author records the link alone.
 
 #### Refresh from the Source
 
@@ -1301,8 +1422,9 @@ check failed, and in a forced pass.
 
 ### Translation
 
-The `translate` step machine-translates X post and Bilibili dynamic text and
-YouTube video titles into English, Japanese and Simplified Chinese, each
+The `translate` step machine-translates X post and Bilibili dynamic text,
+YouTube video titles and the X statuses own posts quote or repost into
+English, Japanese and Simplified Chinese, each
 locale only when it is not the detected source language (see
 [Translations](data-model.md#translations) for storage and precedence).
 Bilibili upload titles are already Chinese and are never sent to a model,
@@ -1314,19 +1436,23 @@ next configured target, in queue order.
 Without a usable target the step records `disabled` with the reason and
 keeps operator requests.
 
-Candidates are posts and YouTube videos whose current wording lacks a usable
+Candidates are posts, YouTube videos and pooled quoted or reposted X
+statuses that are not stored posts (`owner_type` `x_status`, see
+[Quoted posts](#quoted-posts)) whose current wording lacks a usable
 translation of a needed locale: operator requests first (forced passes that
-replace machine rows, whatever their age), then never-attempted wording, then
-the least recently attempted, newest first. Unrequested candidates are
-limited to the translation lookback (30 days by default) by publication, and
-at most the translation items per run (20 by default) are sent per run (see
+replace machine rows, whatever their age), then posts and videos, then
+pooled statuses; within each, never-attempted wording, then the least
+recently attempted, newest first. Unrequested candidates are limited to the
+translation lookback (30 days by default), by publication, or for a pooled
+status by when an own post last quoted it, and at most the translation items
+per run (20 by default) are sent per run, pooled statuses included (see
 [sync settings](../operations/configuration.md#sync-settings)). A locale already covered
 by a manual or platform row is not a reason to call a model.
 
 Wording with only links, hashtags, mentions or emoji is recorded as
 `skipped` with language `none` without a call; wording over 4000 characters
-is skipped without a call. The model receives the kind (X post, Bilibili dynamic or YouTube video
-title) and the text, returns `sourceLanguage` plus English, Japanese and
+is skipped without a call. The model receives the kind (X post, which a
+pooled status also is, Bilibili dynamic or YouTube video title) and the text, returns `sourceLanguage` plus English, Japanese and
 Simplified Chinese, and is told to keep URLs, tags, mentions, emoji,
 bracketed emoji codes and bracketed channel tags, and to keep times as
 written with their zone (北京时间17点 becomes 17:00 Beijing time; converting

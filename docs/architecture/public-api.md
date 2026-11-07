@@ -11,8 +11,12 @@ whitelisted synchronization summary; it does not return a database path or
 label. `GET /api/dashboard?days=3` clamps days to 1 through 30 and returns
 profile, summary, posts, events, videos, focus, timeline, resources, schedule
 assets, media status, and metadata. Posts are the newest 100 published within
-the window plus, however old, the eight newest of each account; MCP
-`dashboard_read` and `posts_list` read the same list. `counts.posts` counts
+the window plus, however old, the eight newest of each own account; MCP
+`dashboard_read` and `posts_list` read the same list. A post with
+`promoted: true` is a related account's status promoted onto the board (see
+[Related accounts](sources.md#related-accounts)): it is never `latestPost`
+or one of an account's eight, and the list and the post archive leave it out
+while a shown own post shows it as a shown quote. `counts.posts` counts
 the window only. `counts.videos` counts public videos whose publication time is
 within the most recent seven days; it is independent of the bounded homepage
 video list.
@@ -133,10 +137,11 @@ order. It returns sanitized `items` / `events`, `total`, `totalPages`,
 Every read uses the same public event projection as the board, including the
 trusted `liveStatus` of an event's linked video; it does not fetch platforms
 or models. MCP `schedule_list` is the bounded, paginated history reader;
-`dashboard_read` shares the bounded snapshot. Events merged into another event
-are excluded from every one of these reads, including totals, day counts,
-adjacent dates and summary candidates (see
-[Duplicate merging](data-model.md#duplicate-merging)).
+`dashboard_read` shares the bounded snapshot. Events merged into another event,
+and automatic events whose every source post is hidden, are excluded from
+every one of these reads, including totals, day counts, adjacent dates and
+summary candidates (see [Duplicate merging](data-model.md#duplicate-merging)
+and [Events of hidden posts](data-model.md#events-of-hidden-posts)).
 
 Every public event carries `endsOn`, the Japan close date of a
 [sale period](data-model.md#sale-periods) or null. A range lists a sale when

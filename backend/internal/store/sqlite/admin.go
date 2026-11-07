@@ -48,6 +48,9 @@ type AdminPost struct {
 	RefreshRequestedAt *string     `json:"refreshRequestedAt"`
 	// HiddenAt is when an operator hid the whole post from the public pages.
 	HiddenAt *string `json:"hiddenAt"`
+	// PromotedAt is when a related account's status was promoted into posts;
+	// nil for an own post. Such a post is managed in External posts.
+	PromotedAt *string `json:"promotedAt"`
 	// ScheduleImage is the post's schedule image record, nil when it has none.
 	ScheduleImage *AdminPostSchedule `json:"scheduleImage"`
 }
@@ -268,6 +271,9 @@ type AdminEvent struct {
 	MergeSource     *string `json:"mergeSource"`
 	MergeReason     *string `json:"mergeReason"`
 	MergedAt        *string `json:"mergedAt"`
+	// HiddenByPosts: an automatic event whose every source post is hidden,
+	// which every public reader leaves out (see eventHiddenByPostsSQL).
+	HiddenByPosts bool `json:"hiddenByPosts"`
 }
 
 type AdminRun struct {
@@ -352,6 +358,9 @@ type AdminEventFilter struct {
 	// Merge is "merged" (only merged duplicates), "visible" (excluding them,
 	// as every public reader does) or empty for both.
 	Merge string
+	// Public leaves out the events hidden by their posts, as every public
+	// reader does.
+	Public bool
 }
 
 // AdminCounts are the bounded aggregates behind the console overview.
@@ -504,7 +513,7 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	totalPages := pageCount(total, pageSize)
 	page = safePage(page, totalPages)
 	offset := (page - 1) * pageSize
-	query := `SELECT p.id,p.source,p.account_handle,p.text,p.published_at,p.url,p.media_url,p.media_alt,COALESCE(s.status,'never'),s.route,s.last_attempt_at,s.last_processed_at,s.last_error,s.last_extraction_id,COALESCE(s.reprocess_requested,0),COALESCE(s.failure_count,0),s.next_attempt_at,p.quote_json,p.quote_hidden_at,p.refresh_requested_at,p.hidden_at FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE ` + where + ` ORDER BY julianday(p.published_at) DESC,p.id ASC LIMIT ? OFFSET ?`
+	query := `SELECT p.id,p.source,p.account_handle,p.text,p.published_at,p.url,p.media_url,p.media_alt,COALESCE(s.status,'never'),s.route,s.last_attempt_at,s.last_processed_at,s.last_error,s.last_extraction_id,COALESCE(s.reprocess_requested,0),COALESCE(s.failure_count,0),s.next_attempt_at,p.quote_json,p.quote_hidden_at,p.refresh_requested_at,p.hidden_at,p.promoted_at FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE ` + where + ` ORDER BY julianday(p.published_at) DESC,p.id ASC LIMIT ? OFFSET ?`
 	rows, err := s.db.QueryContext(ctx, query, append(args, pageSize, offset)...)
 	if err != nil {
 		return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
@@ -514,11 +523,11 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	quotes := map[string]sql.NullString{}
 	for rows.Next() {
 		var p AdminPost
-		var quote, quoteHidden, refreshRequested, hidden sql.NullString
+		var quote, quoteHidden, refreshRequested, hidden, promoted sql.NullString
 		var account, mediaURL, mediaAlt, route, lastAttempt, lastProcessed, lastError, retryAt sql.NullString
 		var extraction sql.NullInt64
 		var requested, failures int
-		if err := rows.Scan(&p.ID, &p.Source, &account, &p.Text, &p.PublishedAt, &p.URL, &mediaURL, &mediaAlt, &p.LLMStatus, &route, &lastAttempt, &lastProcessed, &lastError, &extraction, &requested, &failures, &retryAt, &quote, &quoteHidden, &refreshRequested, &hidden); err != nil {
+		if err := rows.Scan(&p.ID, &p.Source, &account, &p.Text, &p.PublishedAt, &p.URL, &mediaURL, &mediaAlt, &p.LLMStatus, &route, &lastAttempt, &lastProcessed, &lastError, &extraction, &requested, &failures, &retryAt, &quote, &quoteHidden, &refreshRequested, &hidden, &promoted); err != nil {
 			return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
 		}
 		p.AccountHandle = nullString(account)
@@ -533,6 +542,7 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 		p.QuoteHiddenAt = nullString(quoteHidden)
 		p.RefreshRequestedAt = nullString(refreshRequested)
 		p.HiddenAt = nullString(hidden)
+		p.PromotedAt = nullString(promoted)
 		quotes[p.ID] = quote
 		// A queued request runs regardless of the backoff; a dismissed
 		// failure is not waiting for a retry.
@@ -944,6 +954,9 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	case "visible":
 		clauses = append(clauses, "e.merged_into IS NULL")
 	}
+	if f.Public {
+		clauses = append(clauses, eventShownSQL("e"))
+	}
 	if adminDateRE.MatchString(f.From) {
 		clauses = append(clauses, "e.starts_on >= ?")
 		args = append(args, f.From)
@@ -963,7 +976,7 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	if f.Ascending {
 		direction = "ASC"
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT e.id,e.source,e.source_item_id,e.source_key,e.title,e.detail,e.starts_on,e.starts_at,e.ends_at,e.ends_on,e.timezone,e.time_precision,e.status,e.event_type,e.tag,e.tag_source,e.url,e.provenance,e.manual_locked,e.confidence,e.extraction_id,e.cancellation_status,e.cancellation_source,e.cancellation_reason,e.cancellation_evidence,e.cancellation_source_item_id,e.cancellation_confidence,e.cancellation_at,e.deleted_at,e.created_at,e.updated_at,e.merged_into,(SELECT t.title FROM events t WHERE t.id=e.merged_into),e.merge_source,e.merge_reason,e.merged_at FROM events e WHERE `+where+` ORDER BY COALESCE(julianday(e.starts_at),julianday(e.starts_on || 'T23:59:59.999+09:00')) `+direction+`,e.id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
+	rows, err := s.db.QueryContext(ctx, `SELECT e.id,e.source,e.source_item_id,e.source_key,e.title,e.detail,e.starts_on,e.starts_at,e.ends_at,e.ends_on,e.timezone,e.time_precision,e.status,e.event_type,e.tag,e.tag_source,e.url,e.provenance,e.manual_locked,e.confidence,e.extraction_id,e.cancellation_status,e.cancellation_source,e.cancellation_reason,e.cancellation_evidence,e.cancellation_source_item_id,e.cancellation_confidence,e.cancellation_at,e.deleted_at,e.created_at,e.updated_at,e.merged_into,(SELECT t.title FROM events t WHERE t.id=e.merged_into),e.merge_source,e.merge_reason,e.merged_at,`+eventHiddenByPostsSQL("e")+` FROM events e WHERE `+where+` ORDER BY COALESCE(julianday(e.starts_at),julianday(e.starts_on || 'T23:59:59.999+09:00')) `+direction+`,e.id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 	}
@@ -973,10 +986,10 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 		var e AdminEvent
 		var sourceItem, sourceKey, detail, startsAt, endsAt, endsOn, status, eventType, tag, tagSource, url, cancelSource, cancelReason, cancelEvidence, cancelSourceItem, cancelAt, deletedAt sql.NullString
 		var mergedInto, mergedIntoTitle, mergeSource, mergeReason, mergedAt sql.NullString
-		var manual int
+		var manual, hiddenByPosts int
 		var confidence, cancelConfidence sql.NullFloat64
 		var extraction sql.NullInt64
-		if err := rows.Scan(&e.ID, &e.Source, &sourceItem, &sourceKey, &e.Title, &detail, &e.StartsOn, &startsAt, &endsAt, &endsOn, &e.Timezone, &e.TimePrecision, &status, &eventType, &tag, &tagSource, &url, &e.Provenance, &manual, &confidence, &extraction, &e.CancellationStatus, &cancelSource, &cancelReason, &cancelEvidence, &cancelSourceItem, &cancelConfidence, &cancelAt, &deletedAt, &e.CreatedAt, &e.UpdatedAt, &mergedInto, &mergedIntoTitle, &mergeSource, &mergeReason, &mergedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.Source, &sourceItem, &sourceKey, &e.Title, &detail, &e.StartsOn, &startsAt, &endsAt, &endsOn, &e.Timezone, &e.TimePrecision, &status, &eventType, &tag, &tagSource, &url, &e.Provenance, &manual, &confidence, &extraction, &e.CancellationStatus, &cancelSource, &cancelReason, &cancelEvidence, &cancelSourceItem, &cancelConfidence, &cancelAt, &deletedAt, &e.CreatedAt, &e.UpdatedAt, &mergedInto, &mergedIntoTitle, &mergeSource, &mergeReason, &mergedAt, &hiddenByPosts); err != nil {
 			return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 		}
 		e.SourceItemID = nullString(sourceItem)
@@ -1005,6 +1018,7 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 		e.MergeSource = nullString(mergeSource)
 		e.MergeReason = nullString(mergeReason)
 		e.MergedAt = nullString(mergedAt)
+		e.HiddenByPosts = hiddenByPosts != 0
 		items = append(items, e)
 	}
 	if err := rows.Err(); err != nil {

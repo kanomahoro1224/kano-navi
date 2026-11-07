@@ -77,6 +77,9 @@ type Post struct {
 	MediaID        *string
 	MediaStatus    string
 	MediaSourceURL *string
+	// Promoted marks a related account's status promoted onto the board,
+	// which is not one of Kano's own posts.
+	Promoted bool
 	// Translations resolves the text's translations by precedence.
 	Translations TranslationSet
 	// Quote is the status the post quotes, nil when it quotes none.
@@ -617,7 +620,20 @@ type postRow struct {
 	hasAccount, hasLabel, hasMediaURL, hasMediaAlt                                    bool
 	// quoteJSON is NULL in public reads when an operator hid the quote.
 	quoteJSON sql.NullString
+	// promoted marks a related account's status promoted into posts.
+	promoted bool
 }
+
+// postColumns are a public post read's columns of the unaliased posts table,
+// in postRow's scan order.
+const postColumns = `id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END,promoted_at IS NOT NULL`
+
+// wallPostSQL holds for a post of the unaliased posts table that the post
+// wall and the archive list: not hidden, and not a promoted post that a shown
+// own post's shown quote already carries (ADR-0009). The second is a display
+// rule computed at read time; the quote card returns the post to the wall
+// when the quoting post or its quote is hidden.
+const wallPostSQL = `hidden_at IS NULL AND NOT (promoted_at IS NOT NULL AND EXISTS (SELECT 1 FROM posts wq WHERE wq.source='x' AND wq.promoted_at IS NULL AND wq.hidden_at IS NULL AND wq.quote_hidden_at IS NULL AND json_valid(wq.quote_json) AND json_extract(wq.quote_json,'$.id')=posts.id))`
 
 // dashboardAccountPosts is how many of each account's newest posts the board
 // always lists, however old, so every account's filter fills the wall's whole
@@ -629,9 +645,11 @@ const dashboardAccountPosts = 8
 // and, for every account, the newest dashboardAccountPosts of its posts.
 func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error) {
 	instant := "julianday(published_at)"
-	rows, err := s.db.QueryContext(ctx, `SELECT id, source, account_handle, type, label, text, published_at, url, likes, reposts, replies, media_url, media_alt, CASE WHEN quote_hidden_at IS NULL THEN quote_json END FROM posts WHERE id IN (
-		SELECT id FROM (SELECT id FROM posts WHERE hidden_at IS NULL AND `+instant+` >= julianday(?) ORDER BY `+instant+` DESC, id ASC LIMIT 100)
-		UNION SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY lower(COALESCE(account_handle, '')) ORDER BY `+instant+` DESC, id ASC) AS n FROM posts WHERE hidden_at IS NULL) WHERE n <= ?
+	// The per-account newest posts are the own accounts' only: a promoted
+	// post appears in the combined wall, never as an account of its own.
+	rows, err := s.db.QueryContext(ctx, `SELECT `+postColumns+` FROM posts WHERE id IN (
+		SELECT id FROM (SELECT id FROM posts WHERE `+wallPostSQL+` AND `+instant+` >= julianday(?) ORDER BY `+instant+` DESC, id ASC LIMIT 100)
+		UNION SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY lower(COALESCE(account_handle, '')) ORDER BY `+instant+` DESC, id ASC) AS n FROM posts WHERE hidden_at IS NULL AND promoted_at IS NULL) WHERE n <= ?
 	) ORDER BY `+instant+` DESC, id ASC`, since, dashboardAccountPosts)
 	if err != nil {
 		return nil, dbErr(err)
@@ -641,7 +659,7 @@ func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error)
 	for rows.Next() {
 		var r postRow
 		var account, label, mu, ma sql.NullString
-		if err := rows.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON); err != nil {
+		if err := rows.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted); err != nil {
 			return nil, dbErr(err)
 		}
 		r.accountHandle, r.hasAccount = account.String, account.Valid
@@ -658,7 +676,8 @@ func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error)
 func (s *Store) queryLatestPost(ctx context.Context) (*postRow, error) {
 	var r postRow
 	var account, label, mu, ma sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END FROM posts WHERE hidden_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`).Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON)
+	// The latest post is an own account's: a promoted post never takes it.
+	err := s.db.QueryRowContext(ctx, `SELECT `+postColumns+` FROM posts WHERE hidden_at IS NULL AND promoted_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`).Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -673,7 +692,7 @@ func (s *Store) queryLatestPost(ctx context.Context) (*postRow, error) {
 }
 func (s *Store) queryPostCount(ctx context.Context, since string) (int64, error) {
 	var count int64
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts WHERE hidden_at IS NULL AND julianday(published_at) >= julianday(?)`, since).Scan(&count); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts WHERE `+wallPostSQL+` AND julianday(published_at) >= julianday(?)`, since).Scan(&count); err != nil {
 		return 0, dbErr(err)
 	}
 	return count, nil
@@ -694,7 +713,7 @@ func (s *Store) queryRecentVideoCount(ctx context.Context, now time.Time) (int64
 	return count, nil
 }
 func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
-	p := Post{ID: r.id, Source: r.source, Type: r.typ, Text: r.text, PublishedAt: r.publishedAt, URL: r.url, Likes: r.likes, Reposts: r.reposts, Replies: r.replies}
+	p := Post{ID: r.id, Source: r.source, Type: r.typ, Text: r.text, PublishedAt: r.publishedAt, URL: r.url, Likes: r.likes, Reposts: r.reposts, Replies: r.replies, Promoted: r.promoted}
 	if r.hasAccount {
 		p.AccountHandle = strPtr(r.accountHandle)
 	} else if h := xHandleFromURL(r.url); h != "" {
@@ -857,7 +876,7 @@ func (s *Store) scanPostMedia(ctx context.Context, row scanner, lead ...any) (Po
 }
 
 func (s *Store) queryDashboardEvents(ctx context.Context, from, to string, now time.Time) ([]DashboardEvent, error) {
-	q := `SELECT ` + eventColumnsAs("o") + ` FROM events o WHERE deleted_at IS NULL AND merged_into IS NULL AND id IN (SELECT id FROM (SELECT id FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND ` + eventDaySQL + ` ORDER BY julianday(COALESCE(starts_at,starts_on)) ASC,id ASC LIMIT 100) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)<=julianday(?) AND (julianday(ends_at)>julianday(?) OR (ends_at IS NULL AND event_type IN ('stream','member') AND julianday(starts_at)>julianday(?,'-3 hours')))) AND (event_type IN ('stream','member') OR source='youtube') ORDER BY julianday(starts_at) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND ` + currentSaleSQL + ` ORDER BY COALESCE(ends_on,starts_on) ASC,id ASC LIMIT 10)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC`
+	q := `SELECT ` + eventColumnsAs("o") + ` FROM events o WHERE deleted_at IS NULL AND merged_into IS NULL AND id IN (SELECT id FROM (SELECT id FROM events WHERE ` + publicEventSQL + ` AND ` + eventDaySQL + ` ORDER BY julianday(COALESCE(starts_at,starts_on)) ASC,id ASC LIMIT 100) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)<=julianday(?) AND (julianday(ends_at)>julianday(?) OR (ends_at IS NULL AND event_type IN ('stream','member') AND julianday(starts_at)>julianday(?,'-3 hours')))) AND (event_type IN ('stream','member') OR source='youtube') ORDER BY julianday(starts_at) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND ` + currentSaleSQL + ` ORDER BY COALESCE(ends_on,starts_on) ASC,id ASC LIMIT 10)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC`
 	today := dateInJapan(now)
 	soon := now.In(time.FixedZone("JST", 9*3600)).AddDate(0, 0, saleLookaheadDays).Format("2006-01-02")
 	args := []any{from, to, from, to, now.UTC().Format(time.RFC3339Nano), today, now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), soon, today}
@@ -879,7 +898,12 @@ const saleLookaheadDays = 7
 // opened weeks ago still reaches the board's on-sale list.
 const currentSaleSQL = `event_type='sale' AND (starts_on<=? OR (ends_on=starts_on AND starts_at IS NULL)) AND COALESCE(ends_on,starts_on)>=?`
 
-const eligibleEventSQL = `deleted_at IS NULL AND merged_into IS NULL AND lower(trim(COALESCE(status,''))) NOT LIKE 'cancel%' AND trim(COALESCE(status,'')) NOT IN ('取消','已取消','中止','キャンセル') AND cancellation_status NOT IN ('llm_suspected','manual_confirmed')`
+// publicEventSQL holds for an event of the unaliased events table that a
+// public reader shows: not a tombstone, not a merged duplicate and not hidden
+// by its posts.
+var publicEventSQL = `deleted_at IS NULL AND merged_into IS NULL AND ` + eventShownSQL("events")
+
+var eligibleEventSQL = publicEventSQL + ` AND lower(trim(COALESCE(status,''))) NOT LIKE 'cancel%' AND trim(COALESCE(status,'')) NOT IN ('取消','已取消','中止','キャンセル') AND cancellation_status NOT IN ('llm_suspected','manual_confirmed')`
 
 func (s *Store) scanEvents(ctx context.Context, q string, args []any, now time.Time) ([]DashboardEvent, error) {
 	rows, err := s.db.QueryContext(ctx, q, args...)
@@ -955,7 +979,7 @@ func scanEvent(row scanner, now time.Time) (DashboardEvent, error) {
 }
 func (s *Store) queryEventCounts(ctx context.Context, today string, now time.Time) (int64, int64, error) {
 	var total, up int64
-	err := s.db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL),(SELECT COUNT(*) FROM events WHERE `+eligibleEventSQL+` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)))`, now.UTC().Format(time.RFC3339Nano), today).Scan(&total, &up)
+	err := s.db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM events WHERE `+publicEventSQL+`),(SELECT COUNT(*) FROM events WHERE `+eligibleEventSQL+` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)))`, now.UTC().Format(time.RFC3339Nano), today).Scan(&total, &up)
 	if err != nil {
 		return 0, 0, dbErr(err)
 	}

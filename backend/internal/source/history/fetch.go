@@ -77,7 +77,9 @@ type Page struct {
 	Discovered         int
 	Posts              []xsource.Post
 	ScheduleCandidates []xsource.ScheduleCandidate
-	Videos             []ytsource.Video
+	// Reposts are the account's reposts an X page lists.
+	Reposts []xsource.Repost
+	Videos  []ytsource.Video
 	// Described are the listed videos the Data API answered for, written
 	// through the recent step's upsert, and Localized their localized titles.
 	Described []ytsource.Video
@@ -497,6 +499,7 @@ func (f *Fetcher) mapSearchPage(request Request, payload map[string]any, page *P
 	if err != nil {
 		return read, &Error{Code: "source_api_invalid_records"}
 	}
+	page.Reposts = append(page.Reposts, xsource.APIReposts(payload, request.Account)...)
 	for _, post := range posts {
 		if !page.Window.Contains(post.PublishedAt) {
 			continue

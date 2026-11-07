@@ -497,7 +497,8 @@ func (h *handler) scheduleList(ctx context.Context, arguments map[string]any) (a
 	if h.store == nil {
 		return nil, failureSnapshot
 	}
-	// Newest first, never including deleted tombstones or merged duplicates.
+	// Newest first, never including deleted tombstones, merged duplicates or
+	// events hidden by their posts.
 	page, err := h.store.ListAdminEvents(ctx, sqlite.AdminEventFilter{
 		Page:       integerArgumentValue(arguments, "page", 1),
 		PageSize:   integerArgumentValue(arguments, "pageSize", 25),
@@ -507,6 +508,7 @@ func (h *handler) scheduleList(ctx context.Context, arguments map[string]any) (a
 		From:       stringArgumentValue(arguments, "from"),
 		To:         stringArgumentValue(arguments, "to"),
 		Merge:      "visible",
+		Public:     true,
 	})
 	if err != nil {
 		return nil, failureSnapshot

@@ -182,6 +182,11 @@ event status codes and the generated YouTube details become labels through
 while other details and operator notes show as stored (see
 [Stored event text](data-model.md#stored-event-text)).
 
+A related account's promoted post (`post.promoted`) shows the account's
+initial on the sunken surface in place of Kano's portrait, beside its
+handle; it appears in the All tab and the archive, never under an own
+account's tab.
+
 A post that quotes another status (`post.quote`, see
 [Quoted posts](data-model.md#quoted-posts)) shows it nested in the post note,
 below the post's own wording and images and above the engagement counts: an
@@ -193,9 +198,9 @@ images. Read more also appears when the clamp hides quoted wording; the full
 post dialog and the archive show the whole quote with larger thumbnails. An
 unavailable quote shows a localized "Quoted post unavailable" placeholder
 linking to x.com. Quoted wording follows the content language like the
-post's own: a quote of a tracked account's post shows that post's
-translation with its own translation switch, and any other quote shows its
-wording as written.
+post's own: the quote's `translations` (its stored post's for a self-quote,
+otherwise the quoted status's own) show with their own translation switch,
+and a quote without one shows its wording as written.
 A quote an operator hid is absent from the snapshot, so the board shows the
 post without it.
 
@@ -235,6 +240,8 @@ opens a new entry on that date; Upcoming, Past and All dates tabs set the
 date range beside it. Each row (`schedule-parts.tsx`) shows the time in
 Japan (or All day), the title, which opens the entry dialog, and its badges;
 an unconfirmed entry has a labelled Confirm button before the icon actions.
+An automatic entry whose every source post is hidden carries a Hidden by its
+posts badge and is dimmed, since the public pages leave it out.
 The calendar (`schedule-calendar.tsx`) shows a Monday-first month grid
 without merged duplicates. Each entry is a chip with its time and title,
 styled by review state as the legend below names; a chip opens the entry,
@@ -337,7 +344,12 @@ its state and any quick switch opens onto the settings and figures, and
 each fold saves on its own. X adds its X API limits (gate and daily cap,
 with the API's place in the chain and today's usage in the header, and
 today's usage and each account's timeline failures shown as meters against
-them). YouTube adds its progressive confirmation, where push and the
+them), then the related accounts panel
+(`src/admin/views/related-accounts.tsx`): each account's handle and keyword
+rules, one per line, side by side (stacked on a phone) with its last read,
+stored and promoted counts and last error below, an Add account button that
+starts with the default rules, and one Save; a link opens External posts.
+YouTube adds its progressive confirmation, where push and the
 live-status probe are folds with their switch in the header (the probe's fold
 also lists its active videos, each with Stop checking, and its stopped
 videos, each with Check again), followed by
@@ -365,11 +377,27 @@ by its link, disabled while the source does not run here. On a narrower screen t
 the main one, and on a phone the tabs share the width and show only the
 source names, and a fold's header controls move under its title.
 
+External posts (`src/admin/views/external-posts.tsx`, in the Data group
+after Posts) lists the X status pool in the post list's feed layout:
+author, name and Japan time; the wording with its image count, links to the
+own posts that quote it (opening Posts searched for the post), the accounts
+that reposted it, a link to a promoted status's post in Posts and a locked
+decision's reason; the translation summary of a status that has no post;
+badges for its state (On the board, Demoted, Stored only, Own post), a lock
+and its reasons; and icon actions to promote a related account's status,
+demote a promoted one, return a locked one to the keyword rules and open it
+on X. Promote and demote open a dialog that shows the wording and requires
+a reason. Filters cover the text or ID, the author (the related accounts),
+the reason and the state; a header link opens the related accounts on
+Sources.
+
 The console's post list (`src/admin/views/posts.tsx`) is a feed of posts
 separated by rules, one row of columns per post: the account over the Japan
 time, the wording (three lines) and its quote, the post's own cached images
 (up to three, "+N" counts the rest), the translation status, the extraction
-state with a Hidden badge for a post hidden from the public pages and a
+state with a Hidden badge for a post hidden from the public pages, a
+Promoted badge, which opens External posts, for a related account's
+promoted status, and a
 Schedule image badge for a post with a schedule image record, and the
 edit, "process again with the LLM" and open actions. The columns after the
 wording have fixed widths, so they line up from post to post. A text-only

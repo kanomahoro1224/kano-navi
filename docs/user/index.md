@@ -10,7 +10,8 @@ These pages describe what you can see and do on the site.
 - [Now](now.md): the next stream, the profile card, and the links section.
 - [Schedule](schedule.md): the weekly guide, the month view, and calendar
   subscriptions.
-- [Posts](posts.md): recent posts from both X accounts and the post archive.
+- [Posts](posts.md): recent posts from both X accounts, the agency's posts
+  about Kano, and the post archive.
 - [Videos](videos.md): streams, works, Shorts, and the video archive.
 - [Journey](journey.md): milestones since 2010 and the visual archive.
 - [LINE BLOG archive](lineblog.md): her 2015–2019 blog articles, restored

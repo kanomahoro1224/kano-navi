@@ -373,7 +373,7 @@ func (e *Extractor) extractPost(ctx context.Context, item post, detectionType st
 	if err != nil {
 		return postResult{}, err
 	}
-	hasText := jsTrim(item.text) != ""
+	hasText := jsTrim(item.matchText()) != ""
 	inputMode := ""
 	switch {
 	case hasText && media.hasImages:
@@ -399,6 +399,10 @@ func (e *Extractor) extractPost(ctx context.Context, item post, detectionType st
 	}
 	identity.set("url", item.url)
 	identity.set("images", hashes)
+	// A post without a shown quote keeps the fingerprint it always had.
+	if item.quote.text != "" {
+		identity.set("quote", obj("author", item.quote.author, "text", item.quote.text))
+	}
 	fingerprint := sha256Hex(stringify(identity))
 
 	// A success or uncertain result stands for this input whichever queue
@@ -557,6 +561,20 @@ func (p sourceProfile) publishedAtText(value string) string {
 	return value + " (" + instant.In(p.zone).Format("2006-01-02 Mon 15:04") + " " + p.zoneName + ")"
 }
 
+// quotedInput marks the wording of the status a post quotes as context after
+// the post's own text: the post points at it, often with a word or two, and
+// the schedule is in the quoted wording. Quoted images never join the input.
+func quotedInput(quote quotedContext) string {
+	if quote.text == "" {
+		return ""
+	}
+	author := "another account"
+	if quote.author != "" {
+		author = "@" + quote.author
+	}
+	return "\n\n[Quoted post by " + author + ". The source post quotes this wording; it is context, not the source post's own text.]\n" + quote.text
+}
+
 // extractionSource is the source recorded with the post's extractions and
 // events.
 func (p post) extractionSource() string { return profileFor(p.source).source }
@@ -568,7 +586,7 @@ func (e *Extractor) attemptExtraction(ctx context.Context, item post, images []c
 		name:         extractionToolName,
 		schema:       profile.schema,
 		maxTokens:    4000,
-		text:         "Source post published at " + profile.publishedAtText(item.publishedAt) + ". Source URL: " + item.url + "\n\n" + item.text,
+		text:         "Source post published at " + profile.publishedAtText(item.publishedAt) + ". Source URL: " + item.url + "\n\n" + item.text + quotedInput(item.quote),
 		includeText:  inputMode != "image",
 	}
 	if inputMode != "text" {
@@ -579,7 +597,7 @@ func (e *Extractor) attemptExtraction(ctx context.Context, item post, images []c
 		return "", err
 	}
 	published, _ := parseInstant(item.publishedAt)
-	normalized, err := profile.normalizeResult(result, item.id, item.url, item.text, published, e.now())
+	normalized, err := profile.normalizeResult(result, item.id, item.url, item.matchText(), published, e.now())
 	if err != nil {
 		return "", err
 	}

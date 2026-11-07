@@ -45,6 +45,7 @@ function chipState(event: AdminEvent) {
   if (event.deletedAt) return "is-deleted"
   if (event.cancellationStatus === "manual_confirmed") return "is-cancelled"
   if (event.cancellationStatus === "llm_suspected") return "is-suspected"
+  if (event.hiddenByPosts) return "is-hidden"
   if (event.provenance === "automatic" && !event.manualLocked)
     return "is-unconfirmed"
   return "is-confirmed"
@@ -60,6 +61,7 @@ function Legend() {
           ["is-confirmed", "admin.schedule.legend.confirmed"],
           ["is-suspected", "admin.event.suspected"],
           ["is-cancelled", "admin.event.cancelled"],
+          ["is-hidden", "admin.event.hiddenByPosts"],
         ] as const
       ).map(([state, key]) => (
         <li key={state}>

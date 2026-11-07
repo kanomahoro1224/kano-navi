@@ -73,7 +73,7 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	}
 
 	var total int64
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND `+eventDaySQL, from, to, from, to).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM events WHERE `+publicEventSQL+` AND `+eventDaySQL, from, to, from, to).Scan(&total); err != nil {
 		return nil, dbErr(err)
 	}
 	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
@@ -87,7 +87,7 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT `+eventColumnsAs("o")+`
 		FROM events o
-		WHERE deleted_at IS NULL AND merged_into IS NULL AND `+eventDaySQL+`
+		WHERE deleted_at IS NULL AND merged_into IS NULL AND `+eventShownSQL("o")+` AND `+eventDaySQL+`
 		ORDER BY COALESCE(julianday(starts_at), julianday(starts_on || 'T23:59:59.999+09:00')) ASC, id ASC
 		LIMIT ? OFFSET ?`, from, to, from, to, pageSize, offset)
 	if err != nil {
@@ -120,8 +120,8 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	// A sale period counts on its opening date and, when it closes on a later
 	// date, on its close date too: the board shows it on both.
 	countRows, err := s.db.QueryContext(ctx, `SELECT day, COUNT(*) FROM (
-		SELECT starts_on AS day FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on BETWEEN ? AND ?
-		UNION ALL SELECT ends_on FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND event_type='sale' AND ends_on>starts_on AND ends_on BETWEEN ? AND ?
+		SELECT starts_on AS day FROM events WHERE `+publicEventSQL+` AND starts_on BETWEEN ? AND ?
+		UNION ALL SELECT ends_on FROM events WHERE `+publicEventSQL+` AND event_type='sale' AND ends_on>starts_on AND ends_on BETWEEN ? AND ?
 	) GROUP BY day`, from, to, from, to)
 	if err != nil {
 		return nil, dbErr(err)
@@ -142,12 +142,12 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	_ = countRows.Close()
 
 	var previous, next sql.NullString
-	if err := s.db.QueryRowContext(ctx, `SELECT MAX(day) FROM (SELECT starts_on AS day FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on < ?
-		UNION ALL SELECT ends_on FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND event_type='sale' AND ends_on < ?)`, from, from).Scan(&previous); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT MAX(day) FROM (SELECT starts_on AS day FROM events WHERE `+publicEventSQL+` AND starts_on < ?
+		UNION ALL SELECT ends_on FROM events WHERE `+publicEventSQL+` AND event_type='sale' AND ends_on < ?)`, from, from).Scan(&previous); err != nil {
 		return nil, dbErr(err)
 	}
-	if err := s.db.QueryRowContext(ctx, `SELECT MIN(day) FROM (SELECT starts_on AS day FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on > ?
-		UNION ALL SELECT ends_on FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND event_type='sale' AND ends_on > ?)`, to, to).Scan(&next); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT MIN(day) FROM (SELECT starts_on AS day FROM events WHERE `+publicEventSQL+` AND starts_on > ?
+		UNION ALL SELECT ends_on FROM events WHERE `+publicEventSQL+` AND event_type='sale' AND ends_on > ?)`, to, to).Scan(&next); err != nil {
 		return nil, dbErr(err)
 	}
 

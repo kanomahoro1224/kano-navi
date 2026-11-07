@@ -233,6 +233,8 @@ value, and another field or value answers `400 invalid_input`.
 | `POST /sources/youtube/ytdlp/update`          |                                                                                    | updated `{available, version}` |
 | `GET /sync-settings`                          |                                                                                    | `{settings, fields}`           |
 | `PUT /sync-settings`                          | any subset of the setting fields                                                   | `{settings, fields}`           |
+| `GET /sources/x/related`                      |                                                                                    | related accounts (below)       |
+| `PUT /sources/x/related`                      | `{accounts: [{handle, keywords}]}`                                                 | related accounts               |
 
 ```json
 {
@@ -244,6 +246,19 @@ value, and another field or value answers `400 invalid_input`.
                "live": {"roomId", "liveStatus", "title", "liveTime", "checkedAt", "lastLiveAt", "blockedUntil", "lastError"}}
 }
 ```
+
+The related accounts answer is `{accounts, defaultKeywords, status}`:
+`accounts` lists `{handle, keywords}` (see
+[Related accounts](sources.md#related-accounts)), `defaultKeywords` the rules
+the console offers a new account, and `status` each account's
+`{handle, lastSuccessAt, lastError, statuses, promoted}`, from its
+`x-related` row and the pool. `PUT` replaces the list: at most 10 accounts,
+each a valid handle (a leading `@` is dropped) listed once and not one of
+`X_HANDLES`, with up to 30 distinct trimmed keywords of at most 100
+characters; anything else answers `400 invalid_input` naming the problem.
+Saving evaluates every pooled status against the new rules in the same
+transaction, promoting and demoting, and moves the dashboard revision when a
+post changed. Neither route contacts X; the next X run reads the accounts.
 
 `FetchMethod` describes one manual fetch method in the order the console
 offers them: `{id, modes, maxCount, pageSize, requires, refresh, extract,
@@ -396,7 +411,11 @@ stored one and the entry's videos (see
 The list includes merged duplicates by default; `merge=merged` lists only
 them and `merge=visible` excludes them, as every public reader does. Each
 event carries `mergedInto`, `mergedIntoTitle`, `mergeSource` (`rule` or
-`manual`), `mergeReason` and `mergedAt`.
+`manual`), `mergeReason` and `mergedAt`. `hiddenByPosts` is true for an
+automatic event that every public reader leaves out because each of its
+source posts is hidden (see
+[Events of hidden posts](data-model.md#events-of-hidden-posts)); the console
+list keeps it under every filter.
 
 `merge` hides the event behind the event `into` names, on any date, as a
 durable operator decision (`mergeSource = manual`, `mergeReason = manual`)
@@ -449,6 +468,8 @@ alias); `none` never needs review and keeps `previewUrl` null.
 | `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                              | `{state}`                        |
 | `POST /posts/{id}/refresh`       | none                                                                                                    | `{state}`                        |
 
+Each post reports `promotedAt`, when a related account's status was promoted
+into posts, or null for an own post; External posts holds its decisions.
 `account` is an X handle, matched without case or a leading `@`; `llm` is `never`, `pending`, `processed`, `failed`,
 `dismissed`, `skipped` or `uncertain`; `queued` keeps the posts with an open
 operator request: `extraction` (queued for re-extraction), `refresh` (a
@@ -510,8 +531,12 @@ post, and `refreshRequestedAt` is a queued refresh from the source; each is
 the quoted wording, author or images.
 
 `PUT /posts/{id}/hidden` with `{"hidden": true}` hides the whole post from the
-dashboard, the post archive and MCP; `false` shows it again. It follows the
-quote rules below, except that any stored post can be hidden.
+dashboard, the post archive and MCP; `false` shows it again. A hidden post is
+never selected for extraction, and an operator's reprocess request for it
+waits until it is shown again (the extraction backlog does not count it). The
+automatic events it alone supports leave the public pages while it is hidden
+(see [Events of hidden posts](data-model.md#events-of-hidden-posts)). It
+follows the quote rules below, except that any stored post can be hidden.
 
 `PUT /posts/{id}/quote/hidden` with `{"hidden": true}` hides the post's
 quote from the dashboard, the post archive and MCP; `false` shows it again.
@@ -528,6 +553,37 @@ place. Posts that are not X statuses with a known account answer
 [Refresh from the source](sources.md#refresh-from-the-source). The three
 routes answer `{state: {postId, hiddenAt, quoteHiddenAt, refreshRequestedAt}}`;
 MCP control has none of them.
+
+## External posts
+
+| Method and path                 | Body / query                                                      | Result           |
+| ------------------------------- | ----------------------------------------------------------------- | ---------------- |
+| `GET /x-statuses`               | `page`, `pageSize` (≤ 100), `author`, `reason`, `state`, `search` | list of statuses |
+| `PUT /x-statuses/{id}/decision` | `{decision, reason}`                                              | `{status}`       |
+
+The list pages the X status pool, newest status first (see
+[Related accounts](sources.md#related-accounts)). `author` is a handle,
+matched without case or a leading `@`; `reason` is `keyword`, `manual`,
+`quoted`, `reposted` or `none`; `state` is `promoted` (a shown promoted
+post), `demoted` (a hidden one), `stored` (pool only) or `post` (an own post
+the pool holds as a quote); `search` matches the text or the status ID. Each
+status is `{id, authorHandle, authorName, text, publishedAt, url, images,
+reasons, state, related, decision, decisionReason, decidedAt, quotedAt,
+repostedAt, listedAt, firstSeenAt, quotedBy, repostedBy, translation}`:
+`images` counts its pooled image addresses, `related` says its author is a
+related account, `quotedBy` lists up to five own posts quoting it, newest
+first, `repostedBy` the own accounts that reposted it, and `translation` is
+its `x_status` translation summary (see [Translations](#translations)), or
+null for a status whose post owns the translations.
+
+`decision` is `promote` or `demote`, which need a `reason` of at most 500
+characters and become a durable lock, or `automatic`, which removes the lock
+so the keyword rules decide again. A promote needs a related account's
+status, writes or shows its post and answers the status; a demote hides the
+promoted post. An own post answers `400 invalid_input`, a missing status
+`404 not_found`. A change moves the dashboard revision. Translations of a
+pooled status use the [translation routes](#translations) with owner
+`x_status`.
 
 ## Videos
 
@@ -719,9 +775,10 @@ deleted URL again. Files follow
 | `PUT /translations/{owner}/{id}/{locale}`    | `{text}`                                            | `{translation}`           |
 | `DELETE /translations/{owner}/{id}/{locale}` |                                                     | `{translation}`           |
 
-`owner` and `ownerType` are `post` or `video`; `locale` is `en` or `zh-CN`.
-`counts` maps each owner type to `{total, incomplete, requested}` over the
-posts and videos the translate step covers. A translation summary is
+`owner` and `ownerType` are `post`, `video` or `x_status`, a pooled X status
+by its status ID (see [Translations](data-model.md#translations)); `locale`
+is `en` or `zh-CN`. `counts` maps `post` and `video` to `{total, incomplete,
+requested}` over the posts and videos the translate step covers. A translation summary is
 `{status, sourceLanguage, machineStatus, lastAttemptAt, lastError, requested,
 locales}` with `status` `complete` or `incomplete`, `machineStatus` `never`,
 `success`, `failed`, `skipped` or `outdated` (the wording changed after the
@@ -743,8 +800,10 @@ metadata; see [Translation](sources.md#translation).
 outranks platform and machine rows; `DELETE` removes it. Both answer the
 owner's new summary and `404 not_found` for an unknown owner. `POST
 /translations/request` queues forced machine passes for the listed owners
-(at most 200), or with `missing: true` for every post or video (of
-`ownerType`, or both) lacking a usable translation, whatever its age. When it
+(at most 200), or with `missing: true` for every owner of `ownerType`, or
+every post and video without one, lacking a usable translation, whatever
+its age. Owners outside the translate step's scope, such as a pooled status
+that is a stored post, are not queued. When it
 queued any and the run queue is free it starts a `translate` run; `busy: true`
 means the requests wait for the next translate step.
 

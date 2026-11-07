@@ -19,6 +19,7 @@ import {
   LockKeyhole,
   LogOut,
   Network,
+  Newspaper,
   Radio,
   ScanText,
   UserRound,
@@ -32,6 +33,7 @@ import type { Overview } from "@/admin/types"
 import { Badge, Button, Spinner, Toasts } from "@/admin/ui"
 import { AdminContext, useAdminData } from "@/admin/use-admin-data"
 import { DetectionView } from "@/admin/views/detection"
+import { ExternalPostsView } from "@/admin/views/external-posts"
 import { LlmView } from "@/admin/views/llm"
 import { OverviewView } from "@/admin/views/overview"
 import { PostsView } from "@/admin/views/posts"
@@ -86,6 +88,12 @@ const views: ViewEntry[] = [
     component: ScheduleView,
   },
   { id: "posts", group: "data", icon: FileText, component: PostsView },
+  {
+    id: "external",
+    group: "data",
+    icon: Newspaper,
+    component: ExternalPostsView,
+  },
   { id: "videos", group: "data", icon: Clapperboard, component: VideosView },
   { id: "profile", group: "data", icon: UserRound, component: ProfileView },
   { id: "runs", group: "system", icon: Workflow, component: RunsView },

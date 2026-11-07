@@ -126,7 +126,7 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 		return nil, ErrInvalidAccount
 	}
 	const instant = `julianday(published_at)`
-	inRange := ` WHERE hidden_at IS NULL AND ` + instant + ` >= julianday(?) AND ` + instant + ` < julianday(?)`
+	inRange := ` WHERE ` + wallPostSQL + ` AND ` + instant + ` >= julianday(?) AND ` + instant + ` < julianday(?)`
 	filter, filterArgs := "", []any{}
 	if account != "" {
 		filter, filterArgs = ` AND lower(account_handle)=lower(?)`, []any{account}
@@ -160,7 +160,7 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 		return nil, dbErr(err)
 	}
 	page, pageSize, totalPages := archivePaging(total, page, pageSize)
-	rows, err := s.db.QueryContext(ctx, `SELECT id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END FROM posts`+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+postColumns+` FROM posts`+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -168,7 +168,7 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 	for rows.Next() {
 		var r postRow
 		var handle, label, mu, ma sql.NullString
-		if err := rows.Scan(&r.id, &r.source, &handle, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON); err != nil {
+		if err := rows.Scan(&r.id, &r.source, &handle, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted); err != nil {
 			_ = rows.Close()
 			return nil, dbErr(err)
 		}
@@ -232,7 +232,7 @@ type ArchiveMonth struct {
 func (s *Store) GetPostMonths(ctx context.Context) ([]ArchiveMonth, int64, error) {
 	return s.archiveMonths(ctx, `SELECT strftime('%Y-%m', julianday(published_at) + 0.375) AS month,
 	     lower(COALESCE(account_handle,'')), COUNT(*)
-	   FROM posts WHERE hidden_at IS NULL AND julianday(published_at) IS NOT NULL
+	   FROM posts WHERE `+wallPostSQL+` AND julianday(published_at) IS NOT NULL
 	   GROUP BY 1, 2 ORDER BY 1, 2`)
 }
 

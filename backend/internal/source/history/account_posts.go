@@ -60,7 +60,7 @@ func (x *XAPI) AccountPosts(ctx context.Context, query xsource.APIQuery) (xsourc
 	if err != nil {
 		return xsource.APIPage{Read: read}, xCode(&Error{Code: "source_api_invalid_records"})
 	}
-	return xsource.APIPage{Posts: posts, Next: next, Read: read}, nil
+	return xsource.APIPage{Posts: posts, Next: next, Read: read, Reposts: xsource.APIReposts(payload, query.Account)}, nil
 }
 
 // userID resolves an account's numeric ID through the user lookup, once.

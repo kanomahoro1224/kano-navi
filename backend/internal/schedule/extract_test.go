@@ -802,3 +802,62 @@ func TestRunStopsWhenContextIsCancelled(t *testing.T) {
 		t.Errorf("a cancelled context still ran: %v, %d requests", err, f.provider.count())
 	}
 }
+
+func TestHiddenPostsAreNeverExtracted(t *testing.T) {
+	f := messageFixture(t)
+	f.exec(`UPDATE posts SET hidden_at=? WHERE id='post-1'`, testTimestamp)
+	f.scan()
+	if f.provider.count() != 0 || f.number(`SELECT COUNT(*) FROM post_llm_states`) != 0 {
+		t.Fatalf("hidden post was extracted: %d requests", f.provider.count())
+	}
+	// An operator's reprocess request waits until the post is shown again.
+	f.requestReprocess("post-1")
+	f.scan()
+	if f.provider.count() != 0 {
+		t.Fatalf("requested hidden post was extracted: %d requests", f.provider.count())
+	}
+	f.exec(`UPDATE posts SET hidden_at=NULL WHERE id='post-1'`)
+	f.scan()
+	if f.provider.count() != 1 || f.number(`SELECT COUNT(*) FROM events WHERE source_item_id='post-1'`) != 1 {
+		t.Fatalf("shown post was not extracted: %d requests", f.provider.count())
+	}
+	if got := f.text(`SELECT reprocess_requested FROM post_llm_states WHERE post_id='post-1'`); got != "0" {
+		t.Errorf("request was not cleared: %q", got)
+	}
+}
+
+func TestQuotedWordingIsMarkedContext(t *testing.T) {
+	f := messageFixture(t)
+	// The post only points at the quote; the schedule is in the quoted wording.
+	f.exec(`UPDATE posts SET text='これ！', quote_json=? WHERE id='post-1'`,
+		`{"id":"1900000000000000001","authorHandle":"agency_synthetic","text":"明日 21時から歌枠配信します","url":"https://x.com/agency_synthetic/status/1900000000000000001"}`)
+	f.scan()
+	if f.provider.count() != 1 {
+		t.Fatalf("quoting post was not selected: %d requests", f.provider.count())
+	}
+	body := f.provider.requests[0].body
+	if !strings.Contains(body, `これ！\n\n[Quoted post by @agency_synthetic. The source post quotes this wording; it is context, not the source post's own text.]\n明日 21時から歌枠配信します`) {
+		t.Fatalf("request lacks the marked quote: %s", body)
+	}
+	if got := f.number(`SELECT COUNT(*) FROM events WHERE source_item_id='post-1'`); got != 1 {
+		t.Fatalf("events = %d", got)
+	}
+	// The same input is cached.
+	f.scan()
+	if f.provider.count() != 1 {
+		t.Fatalf("unchanged input was sent again")
+	}
+	// A hidden quote gives no context and changes the input.
+	f.exec(`UPDATE posts SET text='明日 21時から配信', quote_hidden_at=? WHERE id='post-1'`, testTimestamp)
+	f.scan()
+	if f.provider.count() != 2 || strings.Contains(f.provider.requests[1].body, "Quoted post") {
+		t.Fatalf("hidden quote reached the model: %d requests", f.provider.count())
+	}
+	// An unavailable quote adds nothing.
+	f.exec(`UPDATE posts SET quote_hidden_at=NULL, quote_json=? WHERE id='post-1'`,
+		`{"id":"1900000000000000001","url":"https://x.com/i/status/1900000000000000001","unavailable":true}`)
+	f.scan()
+	if f.provider.count() != 2 {
+		t.Fatalf("an unavailable quote changed the input: %d requests", f.provider.count())
+	}
+}

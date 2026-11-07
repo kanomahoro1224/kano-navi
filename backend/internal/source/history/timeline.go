@@ -132,7 +132,7 @@ func (f *Fetcher) FetchTimeline(ctx context.Context, request Request) (Result, e
 			result.Errors = append(result.Errors, "x_timeline_repeated_page")
 			following = ""
 		}
-		written, writeErr := commit(Page{Next: following, Discovered: previous + result.Listed, Posts: posts, ScheduleCandidates: candidates})
+		written, writeErr := commit(Page{Next: following, Discovered: previous + result.Listed, Posts: posts, ScheduleCandidates: candidates, Reposts: page.Reposts})
 		if writeErr != nil {
 			return result, writeErr
 		}

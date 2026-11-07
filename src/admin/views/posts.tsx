@@ -678,6 +678,16 @@ function PostItem({
             {t("admin.posts.hidden")}
           </Badge>
         ) : null}
+        {post.promotedAt ? (
+          <button
+            type="button"
+            className="adm-badge-button"
+            onClick={() => navigate("external")}
+            title={t("admin.posts.promotedHint")}
+          >
+            <Badge tone="lavender">{t("admin.posts.promoted")}</Badge>
+          </button>
+        ) : null}
         <PostStatus post={post} />
         <ScheduleImageBadge post={post} />
       </span>
@@ -734,16 +744,23 @@ const translationStatuses = ["incomplete", "complete", "requested", "failed"]
 function PostList({
   sources,
   queued,
+  find,
   navigate,
 }: {
   sources: Sources | undefined
   queued: string
+  /** A status ID the list opens searched for, from External posts. */
+  find: string
   navigate: ViewProps["navigate"]
 }) {
   const { t } = useAppSettings()
   const { api } = useAdmin()
-  const [filters, setFilters] = useState({ ...blankFilters, queued })
-  const [search, setSearch] = useState("")
+  const [filters, setFilters] = useState({
+    ...blankFilters,
+    queued,
+    search: find,
+  })
+  const [search, setSearch] = useState(find)
   const [page, setPage] = useState(1)
   const posts = useResource(
     () => api.posts({ ...filters, page, pageSize: 30 }),
@@ -899,6 +916,7 @@ export function PostsView({ tab, navigate }: ViewProps) {
           key={tab}
           sources={sources.data}
           queued={queuedPreset(tab)}
+          find={tab.startsWith("find-") ? tab.slice(5) : ""}
           navigate={navigate}
         />
       </Panel>

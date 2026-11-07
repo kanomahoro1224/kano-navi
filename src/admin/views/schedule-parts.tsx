@@ -18,6 +18,7 @@ import { Badge, Button, ConfirmButton, IconButton } from "@/admin/ui"
 import { useAdmin } from "@/admin/use-admin-data"
 import {
   CancellationBadge,
+  HiddenByPostsBadge,
   MergeBadge,
   ProvenanceBadge,
   shiftDay,
@@ -76,7 +77,7 @@ export function EventRow({
   const deleted = Boolean(event.deletedAt)
   return (
     <li
-      className={`adm-event-row${deleted ? " is-deleted" : ""}${event.mergedInto ? " is-merged" : ""}`}
+      className={`adm-event-row${deleted ? " is-deleted" : ""}${event.mergedInto ? " is-merged" : ""}${event.hiddenByPosts ? " is-hidden" : ""}`}
     >
       <EventTime event={event} />
       <div className="adm-event-main">
@@ -99,6 +100,7 @@ export function EventRow({
           <ProvenanceBadge event={event} />
           <CancellationBadge event={event} />
           <MergeBadge event={event} />
+          <HiddenByPostsBadge event={event} />
           {event.status ? (
             <Badge tone="sky">{eventStatusLabel(event.status, t)}</Badge>
           ) : null}

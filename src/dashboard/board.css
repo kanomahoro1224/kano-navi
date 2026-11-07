@@ -2883,6 +2883,22 @@
   object-fit: cover;
 }
 
+/* A related account's promoted post shows its initial, not Kano's portrait. */
+.post-note-initial {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: var(--sunken);
+  color: var(--soft);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .post-note-handle {
   font-weight: 800;
 }

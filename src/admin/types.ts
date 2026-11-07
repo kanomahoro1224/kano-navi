@@ -542,6 +542,9 @@ export interface AdminEvent {
   mergeSource: string | null
   mergeReason: string | null
   mergedAt: string | null
+  /** An automatic entry whose every source post is hidden: the public pages
+   * leave it out until a source post is shown or the entry is confirmed. */
+  hiddenByPosts: boolean
 }
 
 export interface EventInput {
@@ -630,6 +633,9 @@ export interface AdminPost {
   refreshRequestedAt: string | null
   /** When an operator hid the whole post from the public pages. */
   hiddenAt: string | null
+  /** When a related account's status was promoted onto the board; null for
+   * an own post. External posts holds its promote and demote decisions. */
+  promotedAt: string | null
   /** The post's schedule image record; null when it has none. */
   scheduleImage: AdminPostSchedule | null
 }
@@ -661,7 +667,7 @@ export interface AdminQuote {
   media: AdminPostImage[]
 }
 
-export type TranslationOwner = "post" | "video"
+export type TranslationOwner = "post" | "video" | "x_status"
 export type TranslationLocale = "en" | "ja" | "zh-CN"
 
 /** One target locale of a post or video in the console. */
@@ -682,6 +688,63 @@ export interface AdminTranslationLocale {
   machine: string | null
   machineAt: string | null
   model: string | null
+}
+
+/** A related X account and the keyword rules that promote its statuses. */
+export interface XRelatedAccount {
+  handle: string
+  keywords: string[]
+}
+
+/** A related account's last timeline read and its pool. */
+export interface XRelatedStatus {
+  handle: string
+  lastSuccessAt: string | null
+  lastError: string | null
+  statuses: number
+  promoted: number
+}
+
+export interface XRelatedAccounts {
+  accounts: XRelatedAccount[]
+  defaultKeywords: string[]
+  status: XRelatedStatus[]
+}
+
+export type XStatusReason =
+  "keyword" | "manual" | "quoted" | "reposted" | "none"
+export type XStatusState = "promoted" | "demoted" | "stored" | "post"
+export type XStatusDecision = "promote" | "demote" | "automatic"
+
+/**
+ * A status of the X status pool: a related account's status, or one an own
+ * account quoted or reposted. Only a promoted one is a post; the rest never
+ * reach the board except as a quote's wording.
+ */
+export interface AdminXStatus {
+  id: string
+  authorHandle: string
+  authorName: string | null
+  text: string
+  publishedAt: string | null
+  url: string
+  images: number
+  reasons: XStatusReason[]
+  state: XStatusState
+  /** Its author is a related account, so it can be promoted by hand. */
+  related: boolean
+  decision: "promote" | "demote" | null
+  decisionReason: string | null
+  decidedAt: string | null
+  quotedAt: string | null
+  repostedAt: string | null
+  listedAt: string | null
+  firstSeenAt: string
+  /** Own posts quoting it, newest first, and own accounts that reposted it. */
+  quotedBy: string[]
+  repostedBy: string[]
+  /** Its own translation; null when its post owns the translations. */
+  translation: AdminTranslation | null
 }
 
 export interface AdminTranslation {

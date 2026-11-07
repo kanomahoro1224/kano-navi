@@ -51,8 +51,10 @@ own transaction, and the selected profile media is reconciled with its files
 | `llm_route_providers`    | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
 | `source_schedules`       | Each source's timer, sync setting and method chain                                                     |
 | `workflows`              | Saved workflow definitions (ADR-0003): kept in the schema, created empty, never read or written        |
-| `translations`           | Manual, platform, and machine translations of post text and video titles per target locale             |
-| `translation_states`     | Per-post/video machine translation state: source hash and language, last attempt, operator request     |
+| `translations`           | Manual, platform, and machine translations of posts, videos and pooled X statuses per target locale    |
+| `translation_states`     | Per-owner machine translation state: source hash and language, last attempt, operator request          |
+| `x_statuses`             | The X status pool: related accounts' statuses and statuses own posts quote or repost; never public     |
+| `x_reposts`              | The own X accounts' reposts: reposted status, account, author and first sighting                       |
 
 The API maps snake_case columns to camelCase and removes `raw_json`. The
 frontend must not depend on database fields that are not declared in the API
@@ -127,7 +129,10 @@ each source's incremental cursors and the fetch checkpoints (see
 per X account with `{timelineFailures}`, its current streak of runs whose
 timeline failed, and the row `@usage` with `{day, posts}`, the posts X API
 answers returned on that Japan day. A count for an earlier day reads as
-zero, and the first read of a new day starts it over.
+zero, and the first read of a new day starts it over. Source `x-related`
+keeps one row per [related account](sources.md#related-accounts), keyed by
+the lower-case handle: the cursor of its own timeline and
+`{handle, discovered, listed, discovery, timelineGap, lastError}`.
 
 The `bilibili` row of the account (the mid) keeps, besides the upload
 read's device identity, clock and captcha backoff, the dynamics listing's
@@ -150,7 +155,7 @@ while a block a concurrent read stored is kept. Neither is returned by a public 
 milestone timeline, and resource directory. Every open inserts the static IDs
 that are missing, plus the `dashboard_revision`, the default `x_accounts`
 and the `llm_route_targets_migrated` and `llm_verify_queue_seeded` markers when
-absent. New environments have no X posts, events, YouTube videos, Featured item, schedule assets, or
+absent. `x_related_accounts` starts empty, and seeding leaves it as it is. New environments have no X posts, events, YouTube videos, Featured item, schedule assets, or
 LLM providers/models/routes.
 `kano-go seed` (`npm run seed`) creates or upgrades the database and fills
 missing static IDs; `-overwrite` restores the shipped profile, timeline and
@@ -412,6 +417,33 @@ drops a stored projection whose ID is not a status ID or whose URL is not
 that status's x.com address. An unavailable quote has only `id` and `url`.
 The console's post list keeps a post's own images apart from its quote.
 
+Every available quote is also a row of the X status pool `x_statuses` (see
+[Quoted posts](sources.md#quoted-posts)), which also holds every status of a
+[related account](sources.md#related-accounts): `id`, `author_handle`,
+`author_name`, `text`, `published_at`, `url`, a sanitized `raw_json` (a
+quote's `{id, text, created_at, url, author, mediaURLs}`, or the timeline
+status as an own post stores it), `quoted_at`, the publication time of the
+newest own post that quotes it, `reposted_at`, when an own account's repost
+of a related account's status was first seen, `listed_at`, when its related
+author's timeline first listed it, `keyword` (1 while a keyword rule
+matches), the operator's `manual_decision` (`promote` or `demote`) with
+`manual_reason` and `manual_at`, `demoted_at`, set while an automatic
+demotion hides its post, `first_seen_at` and `updated_at`. A quote's `text`
+equals the `text` of the `quote_json` written with it, since both come from
+one projection; a status its related author's timeline listed keeps that
+listing's wording and payload. No public reader reads or joins the table.
+
+`posts.promoted_at` marks a related account's status promoted into `posts`
+(`NULL` for an own post), whose `account_handle` is its author. Readers that
+are an own account's (the dashboard's latest post and per-account newest
+posts) leave it out, so a promoted post appears only in the combined post
+wall and the archive, which also leave out a promoted post that a shown own
+post quotes with its quote shown: the quote card already shows it. That is a
+display rule computed at read time; it sets nothing, and the post returns
+when the quoting post or its quote is hidden. `x_reposts` holds one row per reposted
+status and own account (`status_id`, `account_handle` in lower case,
+`author_handle` or `NULL`, `first_seen_at`); see [Reposts](sources.md#reposts).
+
 `posts.quote_hidden_at` records an operator's decision to keep a post's
 quote off the public pages: the dashboard, the post archive and MCP then
 omit `quote` entirely, while the console still shows it. No synchronization
@@ -419,12 +451,19 @@ path, refresh or backfill writes this column, so the decision survives every
 rewrite of `quote_json` and the `quote-image` links, like a manual lock.
 `posts.hidden_at` is the same decision for the whole post: the dashboard
 (its post wall, latest post and post count), the post archive and MCP leave
-the post out, while the console lists it, extraction still reads it and no
-synchronization path writes the column. `posts.refresh_requested_at` is a
+the post out, extraction never selects it, and the automatic events it alone
+supports leave the public pages (see
+[Events of hidden posts](#events-of-hidden-posts)). The console still lists
+the post, and no synchronization path writes the column. `posts.refresh_requested_at` is a
 queued refresh from the source, cleared once the X synchronization made its
 detail request (see
 [Refresh from the source](sources.md#refresh-from-the-source)). All three are
 additive columns, `NULL` by default.
+
+Startup creates both tables in existing snapshots. On every start it adds
+to the pool the quote of every stored X post whose available quote the pool
+does not hold as quoted by that post yet, mapped from the post's `raw_json`
+like a source write, without a request.
 
 Startup adds `quote_json` additively. It then fills it for every X post
 whose `raw_json` names a quoted status (an object under `qrt`, `quote`,
@@ -487,7 +526,8 @@ Post text and video titles keep their source wording in `posts.text` and
 `videos.title`. `translations` stores their translations for the target
 locales `en`, `ja` and `zh-CN`, keyed by
 `(owner_type, owner_id, field, locale, origin, platform)`: `owner_type` is
-`post` (field `text`) or `video` (field `title`), `origin` is `manual`,
+`post` (field `text`), `video` (field `title`) or `x_status` (field `text`,
+a pooled status keyed by its status ID), `origin` is `manual`,
 `platform` or `machine`, and `platform` names the platform of a platform row
 (`youtube`, `bilibili`) and is empty otherwise. One row per origin lets the
 three coexist; readers resolve each locale by precedence: manual, then
@@ -537,14 +577,18 @@ while its trimmed title equals the video's effective title; an event with
 an operator's or an extraction's own wording carries none. The projection is
 computed at read time, so a video translation's revision already covers it.
 
-Quoted statuses have no translation rows of their own either. A post's
-available `quote` carries the `translations` and `sourceLanguage` of the
-stored post with the same status ID, which a quote of a tracked account's
-post has; any other quote carries an empty `translations` and a `null`
-`sourceLanguage`. Like events, this is computed at read time.
+A post's available `quote` carries `translations` and `sourceLanguage`,
+computed at read time. A quote of a stored post (a self-quote) carries that
+post's. Any other quote carries the `x_status` rows of its status ID,
+resolved against the quote's own `text` in `quote_json`: a machine row and
+the detected language count only while their source hash matches that text,
+and manual and platform rows always count. The read uses the translation
+tables alone and never reads `x_statuses`. The machine step translates a
+pooled status while an own post quotes or reposts it and it is not a stored
+post (see [Translation](sources.md#translation)).
 
-Startup creates both tables in existing snapshots; no post, video or event
-row is rewritten.
+Startup creates both translation tables in existing snapshots; no post,
+video or event row is rewritten.
 
 Translation model attempts also record bounded diagnostics in
 `sync_runs.counts_json` under `translate.diagnostics`: configured model and
@@ -649,9 +693,10 @@ exists and carries its time whichever source was read first:
 Manual locks and tombstones keep their rows, and no video gets a second
 event identity.
 
-Every public reader excludes merged rows: the dashboard events, totals,
-upcoming counts and summary/spotlight candidates, calendar items, totals,
-pagination, day counts and adjacent dates, and MCP `schedule_list`. The
+Every public reader excludes merged rows, and the events
+[hidden by their posts](#events-of-hidden-posts): the dashboard events,
+totals, upcoming counts and summary/spotlight candidates, calendar items,
+totals, pagination, day counts and adjacent dates, and MCP `schedule_list`. The
 operator console lists them with their target and can undo a merge. Startup
 adds the columns and the partial `events_merged_into_idx` index to existing
 snapshots without rewriting events.
@@ -672,6 +717,22 @@ and the link goes back to the dynamic's. An unchanged run writes nothing; an
 extraction that rewrites the link restores the dynamic's link until the next
 run pairs it again. The upload source is evidence of the work, not an
 announcement, so it keeps no entry alive that its dynamic no longer lists.
+
+## Events of Hidden Posts
+
+An automatic, unlocked event whose every active source is a hidden post is
+hidden by its posts: the active `event_sources` rows of the event and of the
+events merged into it all name a stored X or Bilibili post with
+`posts.hidden_at` set, and there is at least one. It is a visibility rule
+computed at read time, not a deletion or tombstone: the row, its evidence and
+its merges stay, and showing a source post shows the event again. An event
+with `manual_locked = 1` or `provenance = manual` is never hidden this way,
+since the operator's decision outranks hiding; confirming an event keeps it
+shown while its post stays hidden. An event with any other active source,
+such as a YouTube reservation or a visible post, or with no evidence at all,
+stays shown. Every public event reader leaves such an event out, as it leaves
+out merged rows (see [Duplicate merging](#duplicate-merging)), and so does a
+video's linked event. The console lists it with `hiddenByPosts`.
 
 ## Event Platforms
 

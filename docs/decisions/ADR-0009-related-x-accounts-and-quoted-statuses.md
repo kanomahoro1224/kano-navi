@@ -1,6 +1,6 @@
 # ADR-0009: Related X Accounts and Stored Quoted Statuses
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-07
 - Builds on: [ADR-0002](ADR-0002-count-based-source-sync.md) (its cursor,
   cap and gap model serves a second account role) and
@@ -52,18 +52,25 @@ extraction still reads it.
 
 `X_HANDLES` and `x_accounts` keep their meaning: Kano's own accounts, with
 every behavior listed above. A **related account** is a separate role,
-configured on the console's Sources page beside the X schedule (working
-setting `x_related_accounts`), with its keyword rules. Its own timeline is
-read in full on each X recent run. Its reposts and replies are skipped, as
-an own account's are. A handle is in one role at a time.
+configured on the console's Sources page beside the X API limits (app
+setting `x_related_accounts`, at most 10 accounts with up to 30 keyword
+rules each), with its keyword rules. Its own timeline is read in full on
+each run of the X step, after the own accounts and whatever the X schedule's
+sync setting, `count` included. Its reposts, other authors' statuses and
+statuses without usable content are skipped. A handle is in one role at a
+time: a related account cannot be one of `X_HANDLES`.
 
 ### A raw pool: `x_statuses`
 
-A new table, working name `x_statuses`, holds every status of a related
-account and every status an own account quotes, whatever its author: the
-status ID, author handle and display name, text, publication time, the
-validated x.com URL and a sanitized `raw_json` (with `mediaURLs`, so a later
-promotion needs no new request). It also holds the relevance state below.
+A new table, `x_statuses`, holds every status of a related account, every
+status an own account quotes, whatever its author, and a related account's
+status an own account reposts: the status ID, author handle and display
+name, text, publication time, the validated x.com URL and a sanitized
+`raw_json` (with `mediaURLs`, so a later promotion needs no new request). It
+also holds the relevance state below: `quoted_at` (the newest quoting own
+post's publication time), `reposted_at`, `listed_at` (when the author's own
+timeline listed it), `keyword`, the operator's `manual_decision` with
+`manual_reason` and `manual_at`, and `demoted_at`.
 
 No public path reads `x_statuses`, and none joins it. The dashboard, archive,
 public API and MCP read `posts`, `quote_json` and `translations`; a status
@@ -71,9 +78,11 @@ reaches them only by promotion or as a translated quote (below), so the pool
 fails closed.
 
 A related account's read keeps the [count-based model](ADR-0002-count-based-source-sync.md)
-unchanged. Its cursor, known IDs and gap ceilings come from `x_statuses`
-instead of `posts`, in its own `sync_state` rows (working source
-`x-related`), so a role change never mixes cursors. The incremental `max`,
+unchanged. Its cursor, known IDs and gap ceilings come from the
+`x_statuses` rows its own timeline listed (`listed_at`), never from `posts`
+or from statuses held only as quotes, in its own `sync_state` rows (source
+`x-related`, keyed by the lower-case handle), so a role change never mixes
+cursors. The incremental `max`,
 the page budget and timeline gaps work as for an own account. Timeline pages
 carry each status, so the read makes no detail request. A quoted status is
 written to the pool in the same transaction as the quoting post.
@@ -95,25 +104,36 @@ Each pool status stores every reason that applies to it:
 | `reposted` | an own account reposted it, and its author is a related account         | translated, no card |
 | `none`     | none of the above, or an operator demoted it                            | stored only         |
 
-The keyword rules default to `鹿乃`, `@kano_2525` and `#鹿乃まほろ`. Reasons
-are evaluated on ingest and again when the rules change or a later own
-status quotes or reposts a stored one.
+The keyword rules default to `鹿乃`, `@kano_2525` and `#鹿乃まほろ` for a
+newly added account and match anywhere in the text, ignoring letter case.
+Reasons are evaluated on ingest, when an own account reposts a stored
+status, when an operator decides on one, and for every pooled status when
+the accounts or rules are saved. A later quote records `quoted_at`, which
+needs no evaluation, since `quoted` never promotes.
 
 **Promotion** writes the status to `posts` as an X post whose
 `account_handle` is its author (for example `Mil_Pro_`), marked as promoted
-(working additive column `posts.promoted_at`) so readers tell it from an own
-post without comparing handles to the current account list. It is the only
+(additive column `posts.promoted_at`) so readers tell it from an own post
+without comparing handles to the current account list. It needs the
+status's publication time, which timeline pages and quotes carry. It is the only
 way a pool status gets a card of its own; only `keyword` and `manual`
 promote. A promoted post reaches the board, translation, extraction and
 media through the paths every post takes. Its images are registered from
 the pool's `raw_json` at promotion. A promoted post never registers a
-schedule-image candidate.
+schedule-image candidate, and its own quote gives the quoted status no
+`quoted` reason. The board shows a promoted post with its account's initial
+in place of Kano's portrait, and public posts report it as `promoted`.
 
 **Demotion** sets `posts.hidden_at` on the promoted post and keeps its row,
-its media and its events. A manual promote or demote is a durable lock, with
-a reason, that automatic re-evaluation never overrides, like the
-[manual event locks](../architecture/data-model.md#event-precedence). A
-manual promote of a demoted post clears its `hidden_at`.
+its media and its events. An automatic demotion also records
+`x_statuses.demoted_at`, so an automatic promotion shows again only a post
+the rules hid, and an operator's hide in Posts stays. A manual promote or
+demote is a durable lock, with a reason, that automatic re-evaluation never
+overrides, like the
+[manual event locks](../architecture/data-model.md#event-precedence); only a
+related account's status can be promoted by hand. A manual promote of a
+demoted post clears its `hidden_at`, and returning a status to the rules
+(`automatic`) removes the lock.
 
 **Quoted promoted posts.** The post wall and the archive leave out a promoted
 post that a visible own post quotes with its quote shown, because the quote
@@ -129,6 +149,9 @@ its quote is hidden.
   translations, as the read-time projection does today.
 - `posts.quote_json` stays the public projection, and `quote_hidden_at`
   keeps its meaning.
+- Startup fills the pool from the quotes already stored in posts'
+  `raw_json`, as the quote backfill does, with no request, so existing
+  quotes within the translation lookback are translated too.
 - Every other quoted status, and every reposted status of a related account,
   is translated through the generic `translations` and `translation_states`
   tables with `owner_type = 'x_status'` and field `text`, keyed by the status
@@ -136,20 +159,26 @@ its quote is hidden.
   pool text and the quote projection come from the same mapping of the same
   payload, so the board's quote card resolves its `translations` and
   `sourceLanguage` from `quote_json` and these rows, comparing the source hash
-  with the projection's text, without reading the pool. The usual manual,
-  platform, machine precedence applies.
+  with the projection's text, without reading the pool. A status its related
+  author's timeline listed keeps that listing's wording, which the trimmed
+  source hash matches. The usual manual, platform, machine precedence
+  applies.
 - The translate step reads its `x_status` candidates from the pool: statuses
   with a `quoted` or `reposted` reason and no `posts` row. They share its
-  per-run budget and lookback (by the quoting or reposting post's publication
-  time), after posts; operator requests still go first.
+  per-run budget and lookback (by the quoting post's publication time, or
+  when an own repost was first seen, since a repost has no time of its own),
+  after posts and videos; operator requests still go first.
 - Quoted images stay non-candidates for schedule images.
 
 ### Extraction
 
 - **Quoted text as context.** Extraction gives the model the quoted status's
   text from the quoting post's `quote_json` as context, marked as quoted
-  wording, because a quoted status reaches extraction no other way. An
-  unavailable quote adds nothing. The quoted text joins the post's extraction
+  wording, because a quoted status reaches extraction no other way. The
+  quoted text also counts toward the single-message heuristic and the
+  reading of an entry's platform, so a post that only points at a quoted
+  announcement is selected; the board path's keywords read the post's own
+  wording. An unavailable quote adds nothing. The quoted text joins the post's extraction
   input and fingerprint, so posts with quotes extract once more within the
   lookback; event locks and tombstones protect manual edits. Quoted images
   stay outside the input, as they stay non-candidates.
@@ -157,32 +186,50 @@ its quote is hidden.
   `posts.hidden_at` set: a demoted promoted post and every hidden own post
   alike. Unhiding a post makes it a candidate again.
 
-**Open:** whether a hidden quote (`quote_hidden_at`) still gives its text as
-context.
-
-**Open:** what happens to automatic events whose only source post is hidden:
-they stay, or they retire while locked and manual events stay.
+- **A hidden quote gives no context.** Extraction gives the quoted text only
+  while the public pages show it: a post with `posts.quote_hidden_at` set is
+  extracted from its own wording alone. Hiding or showing a quote changes the
+  extraction input, so that post extracts once more.
+- **Events of hidden posts are hidden.** An event whose every source post is
+  hidden is left out of the public pages (board, calendar, archive, public
+  API and MCP) and is listed in the console as hidden by its posts. This is a
+  visibility rule, not a deletion or tombstone: the row stays, and unhiding a
+  source post shows the event again. It applies to automatic events only. An
+  event an operator edited, confirmed or added (`manual_locked`, or manual
+  provenance) is never hidden by its posts, since the operator's decision
+  outranks hiding. An event with any visible source, such as an X notice
+  merged into a YouTube event, stays shown. The active evidence of the
+  events merged into an event counts as its own, and an event with no
+  active evidence at all stays shown. A video's linked event follows the
+  same rule. A reprocess request for a hidden post waits until it is shown
+  again.
 
 ### Pure reposts
 
-An own account's repost records a link (working table `x_reposts`: reposted
-status ID, reposting account, first-seen time). A reposted status of a
+An own account's repost records a link (table `x_reposts`: reposted status
+ID, reposting account, the status's author when known, first-seen time). A reposted status of a
 related account enters the pool from the repost item if its own timeline has
 not stored it yet, and is translated by the `reposted` reason. A repost of
-any other author records only the link. The board shows no reposts; the link
+any other author records only the link. Timeline pages mark a repost with
+`reposted_by`, and X API answers with a `retweeted` reference; the timed X
+API read asks for posts without retweets, since each returned post is
+billed, so it records none. The board shows no reposts; the link
 and the translation are kept for a later repost display, whose time would be
 the original's or an estimate bounded by the neighbouring own statuses on
 the page where the repost first appeared.
 
 ### Console
 
-A new view in the `data` group of `src/admin/index.tsx` (working name
-"External posts") lists the pool: author, time, text, reasons and promoted
-state, filtered by author, reason and state. Its actions are a manual
-promote or demote (the lock above), editing or requesting a quoted or
-reposted status's translation, and links to the quoting or reposting posts
-in Posts. Related account configuration stays on the Sources page and
-promoted posts are managed in Posts. The view has no review badge at first.
+A new view in the `data` group of `src/admin/index.tsx`, External posts,
+lists the pool: author, time, text, reasons and state, filtered by author,
+reason, state and text. Its actions are a manual promote or demote (the
+lock above), editing or requesting a quoted or reposted status's
+translation through the translation routes with owner `x_status`, and
+links to the quoting posts in Posts and the accounts that reposted it.
+Related account configuration stays on the Sources page and promoted posts
+are managed in Posts, which marks them. The view has no review badge. The
+admin API adds `GET`/`PUT /sources/x/related`, `GET /x-statuses` and
+`PUT /x-statuses/{id}/decision`.
 
 ### Cost and outbound requests
 
@@ -206,7 +253,8 @@ promoted posts are managed in Posts. The view has no review badge at first.
 
 All additive:
 
-- the `x_statuses` table and the `x_reposts` table;
+- the `x_statuses` table (with an index on the author) and the `x_reposts`
+  table;
 - `posts.promoted_at`, `NULL` for own posts;
 - `owner_type = 'x_status'` in `translations` and `translation_states`;
 - `sync_state` rows of source `x-related`;
@@ -242,6 +290,11 @@ No column is dropped and no snapshot is rewritten.
   [Admin API](../architecture/admin-api.md) (which lists what hiding
   affects), and the candidate rules of the
   [Schedule extraction pipeline](../architecture/sources.md#schedule-extraction-pipeline).
+- Hiding a post also hides the automatic events it alone supports, so every
+  public event read (board, calendar, archive, public API, MCP schedule
+  reads) applies the visibility rule, and the console shows why an event is
+  hidden. To keep a post's wording off the board while its event stays
+  shown, an operator confirms the event, which locks it.
 - The pool keeps every related-account status. It is text only and grows by
   about a hundred rows a month per agency-sized account, which is not
   pruned, matching the retention of other snapshots.

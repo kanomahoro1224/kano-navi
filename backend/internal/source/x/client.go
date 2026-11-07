@@ -279,6 +279,8 @@ type Result struct {
 	// RefreshOnly marks a run of Options.RefreshOnly; its write leaves the
 	// account's incremental state as it is.
 	RefreshOnly bool
+	// Reposts are the account's reposts the listing pages carried.
+	Reposts []Repost
 }
 
 type Adapter struct {

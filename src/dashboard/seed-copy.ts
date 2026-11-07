@@ -10,7 +10,7 @@ const seedCopy: Record<string, Partial<Record<Locale, string>>> = {
   鹿乃まほろ: { en: "Kano Mahoro" },
   "8 月加入ミリプロSONA，以新形象开始配信。": {
     ja: "8 月にミリプロSONA へ加入し、新しい姿で配信を開始。",
-    en: "Joined Milpro SONA in August and began streaming with a new look.",
+    en: "Joined ミリプロSONA in August and began streaming with a new look.",
   },
   "与ろん组成音乐组合。": {
     ja: "ろんと音楽ユニットを結成。",
@@ -66,7 +66,6 @@ const seedCopy: Record<string, Partial<Record<Locale, string>>> = {
     ja: "配信アーカイブとお知らせ",
     en: "Stream archives and notices",
   },
-  "ミリプロ / SONA": { en: "Milpro / SONA" },
   "事务所个人页 · 资料与公告": {
     ja: "事務所のタレントページ · プロフィールとお知らせ",
     en: "Agency talent page · Profile and news",
@@ -77,7 +76,7 @@ const seedCopy: Record<string, Partial<Record<Locale, string>>> = {
     ja: "公式サイト",
     en: "Official site",
   },
-  "ミリプロ shop": { en: "Milpro shop" },
+  "ミリプロ shop": { en: "Million Production shop" },
   事务所官方商店: { ja: "事務所公式ショップ", en: "Official agency shop" },
 }
 

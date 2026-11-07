@@ -405,7 +405,7 @@ export const dashboardMessages = {
     "media.unavailable": "Image not available yet",
     "directory.kicker": "Links & archive",
     "nav.schedule": "Schedule",
-    "hero.kicker": "Virtual Artist · Milpro SONA",
+    "hero.kicker": "Virtual Artist · ミリプロSONA",
     "hero.catchphrase": "みんなの毎日を、まほろばに。",
     "spotlight.next": "Up next",
     "spotlight.latest": "Latest video",

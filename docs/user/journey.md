@@ -1,13 +1,13 @@
 # Journey
 
 The Journey page follows Kano's public milestones from her first covers in
-2010 to joining Milpro SONA in 2026.
+2010 to joining ミリプロSONA in 2026.
 
 ## Timeline
 
 Every milestone keeps the precision of its source (a year, a month, a day, or
 a range), names the identity she was active under (singer, Hanayori Joshiryo,
-Kano Mahoro, MKLNtic, Milpro SONA), and links its strongest public source.
+Kano Mahoro, MKLNtic, ミリプロSONA), and links its strongest public source.
 Filter by identity, or jump to a year from the year rail: a side rail on wide
 screens and a strip on phones.
 

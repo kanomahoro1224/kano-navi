@@ -40,7 +40,7 @@ var spaPages = map[string]*pageTags{
 	},
 	"history": {
 		title:       "Journey · What’s Kano Up To?",
-		description: "Kano's public milestones from the first 2010 covers to joining Milpro SONA in 2026, with sources.",
+		description: "Kano's public milestones from the first 2010 covers to joining ミリプロSONA in 2026, with sources.",
 	},
 	"lineblog": {
 		title:       "LINE BLOG archive · What’s Kano Up To?",

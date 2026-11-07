@@ -245,12 +245,12 @@ const messages = {
     "archive.fullHistory": "Full journey",
     "history.metaTitle": "Journey · What’s Kano Up To?",
     "history.metaDescription":
-      "Kano's public milestones from the first 2010 covers to joining Milpro SONA in 2026, with sources.",
+      "Kano's public milestones from the first 2010 covers to joining ミリプロSONA in 2026, with sources.",
     "history.back": "Back to the board",
     "history.eyebrow": "Journey",
     "history.title": "From utaite to Virtual Artist",
     "history.lead":
-      "From the first covers in 2010 and the 2015 major debut, through Hanayori Joshiryo, Kano Mahoro, and MKLNtic, to joining Milpro SONA in 2026. Kano's public milestones in order, each date kept at its original precision and linked to a public source.",
+      "From the first covers in 2010 and the 2015 major debut, through Hanayori Joshiryo, Kano Mahoro, and MKLNtic, to joining ミリプロSONA in 2026. Kano's public milestones in order, each date kept at its original precision and linked to a public source.",
     "history.stat.yearsLabel": "Since 2010",
     "history.stat.years": ({ count }: { count: any }) => `${count} yrs`,
     "history.stat.milestones": "Milestones",

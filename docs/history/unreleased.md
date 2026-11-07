@@ -70,6 +70,9 @@
 - A premiere carries its Premiere label only while it waits or airs; once
   it has aired it is an ordinary video and shows no form label, as a
   stream archive on the shelf shows none.
+- English pages write Kano's group as ミリプロSONA, as the agency does, and
+  name the agency's shop Million Production shop after its official English
+  name.
 
 </details>
 

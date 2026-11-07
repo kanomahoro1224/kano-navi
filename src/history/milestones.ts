@@ -39,7 +39,7 @@ export const branches = [
     id: "sona",
     tone: "sky",
     since: "2026",
-    label: { "zh-CN": "ミリプロSONA", ja: "ミリプロSONA", en: "Milpro SONA" },
+    label: { "zh-CN": "ミリプロSONA", ja: "ミリプロSONA", en: "ミリプロSONA" },
   },
 ]
 
@@ -604,7 +604,7 @@ const originalMilestones = [
     title: {
       "zh-CN": "加入ミリプロSONA",
       ja: "ミリプロSONA に所属",
-      en: "Joins Milpro SONA",
+      en: "Joins ミリプロSONA",
     },
     detail: {
       "zh-CN": "Million Production 发布新闻稿，宣布加入新组别 SONA。",

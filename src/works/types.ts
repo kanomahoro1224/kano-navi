@@ -53,6 +53,41 @@ export type WorksTrack = {
   listen?: UploadVideos
 }
 
+/** A streaming service, download store or official page that offers a release. */
+export type StorePlatform =
+  | "smart_link"
+  | "apple_music"
+  | "spotify"
+  | "amazon_music"
+  | "line_music"
+  | "youtube_music"
+  | "awa"
+  | "itunes"
+  | "mora"
+  | "recochoku"
+  | "ototoy"
+  | "qq_music"
+  | "kugou"
+  | "label_page"
+
+/** An official listing of a release on one platform. */
+export type StoreLink = {
+  platform: StorePlatform
+  url: string
+  /** The store also sells it in high resolution. */
+  hiRes: boolean
+}
+
+/**
+ * The listings of one digital item. A release or edition offered as several
+ * items, such as a full version and a TV-size single, names each but the
+ * main one.
+ */
+export type StoreGroup = {
+  item: string
+  links: StoreLink[]
+}
+
 /** Kano's own releases: a solo work or a work of a unit she belongs to. */
 export type PersonalFormat = "album" | "single" | "ep" | "doujin"
 
@@ -82,6 +117,8 @@ export type PersonalEdition = {
   bonusImages: WorksCover[]
   /** Store bonuses given with this edition. */
   storeBonuses: StoreBonus[]
+  /** Where this edition alone is streamed or sold as a download. */
+  stores: StoreGroup[]
   /** The edition's full tracklist, shared discs included. */
   tracks: WorksTrack[]
   /** Photos of the edition's own discs, by disc number. */
@@ -127,6 +164,8 @@ export type PersonalRelease = {
   editions: PersonalEdition[]
   /** Store bonuses for any edition. */
   storeBonuses: StoreBonus[]
+  /** Where the release is streamed or sold as a download, for any edition. */
+  stores: StoreGroup[]
 }
 
 /** What Kano did on a work released under someone else's name. */

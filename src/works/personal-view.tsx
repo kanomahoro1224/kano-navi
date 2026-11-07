@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react"
 import type { Locale, Translator } from "@/types"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Disc3, Tv } from "lucide-react"
+import { ArrowUpRight, Disc3, Tv } from "lucide-react"
 
 import {
   BilibiliLogo,
@@ -26,6 +26,7 @@ import type {
   PersonalFormat,
   PersonalRelease,
   StoreBonus,
+  StoreGroup,
   WorksCover,
   WorksTrack,
 } from "./types"
@@ -360,6 +361,60 @@ function uniqueImages(groups: WorksCover[][]) {
   return [...seen.values()]
 }
 
+/**
+ * Where a release is streamed or sold as a download, as outlined chips that
+ * open the store. Each item beyond the main one is named above its chips.
+ */
+function StoreLinks({
+  groups,
+  title,
+  t,
+}: {
+  groups: StoreGroup[]
+  title: string
+  t: Translator
+}) {
+  return (
+    <>
+      {groups.map((group) => (
+        <div key={group.item} className="works-stores">
+          {group.item ? (
+            <p className="works-bonus-scope">{group.item}</p>
+          ) : null}
+          <ul>
+            {group.links.map((link) => {
+              const platform = t(`works.store.${link.platform}`)
+              return (
+                <li key={link.platform}>
+                  <ExternalLink
+                    className={`works-chip works-store is-${link.platform}`}
+                    href={link.url}
+                    aria-label={t(
+                      link.platform === "smart_link"
+                        ? "works.openAllStores"
+                        : link.platform === "label_page"
+                          ? "works.openLabelPage"
+                          : "works.openStore",
+                      {
+                        platform,
+                        title: group.item ? `${title} ${group.item}` : title,
+                      },
+                    )}
+                  >
+                    {platform}
+                    {link.hiRes ? <small>Hi-Res</small> : null}
+                    <ArrowUpRight aria-hidden="true" />
+                  </ExternalLink>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
+    </>
+  )
+}
+
 function BonusList({ items }: { items: StoreBonus[] }) {
   return (
     <ul className="works-bonuses">
@@ -542,6 +597,8 @@ export function ReleaseSheet({
       null)
     : null
   const storeBonuses = edition?.storeBonuses ?? []
+  // The chosen edition's own items, then the release's.
+  const stores = [...(edition?.stores ?? []), ...release.stores]
   const bonusImages = uniqueImages([
     ...storeBonuses.map((bonus) => bonus.images),
     ...release.storeBonuses.map((bonus) => bonus.images),
@@ -784,6 +841,12 @@ export function ReleaseSheet({
                 />
               </section>
             )}
+            {stores.length ? (
+              <section className="release-bonuses">
+                <p className="works-field-label">{t("works.stores")}</p>
+                <StoreLinks groups={stores} title={release.title} t={t} />
+              </section>
+            ) : null}
             {storeBonuses.length || release.storeBonuses.length ? (
               <section className="release-bonuses">
                 <p className="works-field-label">{t("works.storeBonuses")}</p>

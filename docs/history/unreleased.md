@@ -29,7 +29,8 @@
 - A Works release's sheet and the Works and Journey image viewers keep one
   size whatever the release or image; on a wide screen the release's cover
   and figures stay on the left while its tracklist and details scroll beside
-  them, in columns of their own on the widest screens. An edition with
+  them, in columns of their own on the widest screens. A release's details
+  link the official streaming and download stores that offer it. An edition with
   photos of several discs can put any of them on the record that turns in
   its header. Each edition, such as
   初回限定盤 or 通常盤, is a card with its own cover and format.

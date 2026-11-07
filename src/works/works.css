@@ -2251,6 +2251,43 @@ body.has-works-sheet {
   font-size: 12.5px;
 }
 
+.works-stores ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.works-stores + .works-stores {
+  margin-top: 4px;
+}
+
+.works-store {
+  padding: 5px 12px;
+  font-size: 12.5px;
+}
+
+.works-store small {
+  color: var(--works-clay);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.works-store svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
+}
+
+/* The official page listing every store leads, drawn in ink. */
+.works-store.is-smart_link {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
 .works-bonus-scope {
   margin: 6px 0 -6px;
   color: var(--works-clay);

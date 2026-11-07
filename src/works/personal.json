@@ -139,7 +139,8 @@
       }
     ],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2011-11-19-3382d7",
@@ -268,7 +269,8 @@
       }
     ],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2011-12-31-a6c379",
@@ -359,7 +361,8 @@
       }
     ],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2012-08-11-044255",
@@ -528,7 +531,8 @@
       }
     ],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2012-12-05-d28586",
@@ -564,7 +568,19 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "itunes",
+            "url": "https://music.apple.com/jp/album/580486322",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2012-12-31-9206cb",
@@ -674,7 +690,8 @@
       }
     ],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2013-08-12-351169",
@@ -817,7 +834,8 @@
       }
     ],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2013-12-31-48d8a6",
@@ -934,7 +952,8 @@
       }
     ],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2014-08-08-9f5d57",
@@ -970,7 +989,19 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/905158819",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2014-12-30-89f0ef",
@@ -1074,7 +1105,8 @@
       }
     ],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2015-01-16-ce98c9",
@@ -1116,7 +1148,19 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/956477763",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2015-01-16-06ae4c",
@@ -1158,7 +1202,19 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/956440297",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2015-05-20-ad12ac",
@@ -1326,6 +1382,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -1450,6 +1507,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -1515,7 +1573,49 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/989763556",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/6cyCsgQOHNUOwGxxyXDJKH",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B00WKV77GW",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb000000000133e8ea",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_lzRDov-_rlVbrqQB1WyY4y2NCtLbUmiBc",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000033/A40679/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2000544692/",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2015-11-18-f7fcf9",
@@ -1654,6 +1754,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -1799,6 +1900,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -1883,6 +1985,48 @@
             "caption": "特典一览（缶バッジ、クリアファイル、B2、ALL OFF 连动特典）",
             "source": "https://whv-amusic.com/kano/news/index00140000.html",
             "thirdParty": false
+          }
+        ]
+      }
+    ],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1054853144",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/3Jf1wKEkc5dI2tOe8wJYhd",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B017H8L0W4",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb000000000133e8d7",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_nWCUeXQlW8KZMlT_TNBIlsFOD3Y7QovwU",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000033/A43106/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2000634644/",
+            "hiRes": false
           }
         ]
       }
@@ -1976,7 +2120,8 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2016-05-11-20aeff",
@@ -2259,6 +2404,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -2449,6 +2595,7 @@
         ],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -2577,7 +2724,49 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1109999421",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/5QG8jRmmyoyKbFKsXDTito",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B01EF7QKWK",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb000000000133e900",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_kgvCODxI-KbTIjgZyuOZ81fBH9vH75kds",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000033/A45974/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2000715517/",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2016-09-07-17d72f",
@@ -2710,6 +2899,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -2875,6 +3065,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -2986,6 +3177,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -3048,7 +3240,49 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1146362683",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/1OKb1uPE04DfBANUvLkorI",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B01KDA8H7E",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb000000000133e8d5",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_lsuqkpDKiu928w_30CNiL_i-XuPrkwGj4",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000033/A48672/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2000772111/",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2016-12-31-b70113",
@@ -3103,7 +3337,8 @@
       }
     ],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2017-05-24-7d4c15",
@@ -3266,6 +3501,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -3395,6 +3631,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -3499,6 +3736,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -3561,7 +3799,49 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1228945672",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/0lEvpvScCr5nNEnIbWBXto",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B071CX1SWY",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb000000000133e8dd",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_ntLc3cBSM7AKf8Ph9o_WWHdr_YzCO9yNk",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000033/A53496/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2000957824/",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2017-12-20-60cfba",
@@ -3838,6 +4118,7 @@
             "images": []
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -4040,6 +4321,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -4242,6 +4524,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -4384,7 +4667,49 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1319754559",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/0ZYZ5Gmk2iSoHOmdHPj3TU",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B077QHFGR6",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb000000000157b8e9",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_kCg7a-8ILlVKT8uT8KjOBVSWF4grFKvNU",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000033/A58403/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2001133704/",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2017-12-29-7692c3",
@@ -4506,6 +4831,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -4572,7 +4898,8 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2018-05-30-ad6dc1",
@@ -4614,7 +4941,49 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1882012545",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/7Gip0vFInskuopgj6rMObA",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0G95JYXCS",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000004e53c5e",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_mTkM29SMh3UrHZcqnzDEPcJsWQzuezknA",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000010/C126/",
+            "hiRes": true
+          },
+          {
+            "platform": "label_page",
+            "url": "https://www.teichiku.co.jp/artist/kano/discography/D-C126.html",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2018-08-10-3fc4cc",
@@ -4736,6 +5105,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -4802,7 +5172,8 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2018-10-24-336b5c",
@@ -4844,7 +5215,49 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1862906227",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/1TK2s7ZVhTDImg6cSoAPna",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0G94W9BLZ",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000004e56b62",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_lfzAYc6SXWlopHDWplnTzr9Y_IaVoiqRg",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000010/4988004151071/",
+            "hiRes": false
+          },
+          {
+            "platform": "label_page",
+            "url": "https://www.teichiku.co.jp/artist/kano/discography/D-C280.html",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2018-12-19-bfac1a",
@@ -5084,6 +5497,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -5335,6 +5749,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -5568,6 +5983,7 @@
           }
         ],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -5836,6 +6252,7 @@
           }
         ],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -6179,6 +6596,48 @@
           }
         ]
       }
+    ],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1862907111",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/4NquD35lwzPcHlQ13rA0Jp",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0G9783SRB",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb00000000051151cb",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_n19aee71opUMHBNrQ4TPMS-2UUWBWqAO0",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000010/4988004151132/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2001381259/",
+            "hiRes": false
+          }
+        ]
+      }
     ]
   },
   {
@@ -6247,6 +6706,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -6272,7 +6732,8 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2019-08-12-8b5b9d",
@@ -6406,6 +6867,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -6484,7 +6946,8 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2019-08-12-164776",
@@ -6606,7 +7069,8 @@
       }
     ],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2019-09-25-44f278",
@@ -6746,6 +7210,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -6859,6 +7324,48 @@
         "item": "鹿乃 複製メッセージ入りレター",
         "images": []
       }
+    ],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1862899962",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/1DFdF8VmOAFZhwcQw7hNho",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0G95D5683",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000004e51f56",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_naTK3S6XJCEugoSvnVtyDb71bmcoQz-Bs",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000010/4988004154362/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2001567680/",
+            "hiRes": false
+          }
+        ]
+      }
     ]
   },
   {
@@ -6965,6 +7472,23 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [
+          {
+            "item": "TV サイズ",
+            "links": [
+              {
+                "platform": "itunes",
+                "url": "https://music.apple.com/jp/album/1480823089",
+                "hiRes": false
+              },
+              {
+                "platform": "mora",
+                "url": "https://mora.jp/package/43000002/ANTCD-33417/",
+                "hiRes": false
+              }
+            ]
+          }
+        ],
         "tracks": [
           {
             "disc": 1,
@@ -7002,6 +7526,7 @@
         ],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -7048,7 +7573,49 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1487521168",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/62EF4EjcoG5N9rPvLYE8mP",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B081N45P22",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000001abb81b",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_k_lnevBPdDx-r14WM3XHnL3vkb2SsxwAY",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000002/XNST-10015/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2001627506/",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2019-12-31-a5a2af",
@@ -7116,6 +7683,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -7141,7 +7709,8 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2020-03-04-c686b1",
@@ -7311,6 +7880,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -7445,6 +8015,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -7568,6 +8139,7 @@
         "bonuses": ["等身大パネル带本人直筆サイン"],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -7700,6 +8272,7 @@
           }
         ],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -7906,6 +8479,7 @@
           }
         ],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -8173,6 +8747,48 @@
           }
         ]
       }
+    ],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1862904549",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/1fpJL41gqnTrOfNGBTAgXK",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0G96M1RSB",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000005112396",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_kt51NkqIB58Bx8fy9PogC_tCKb4hgnjMU",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000010/4988004156410/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2001689932/",
+            "hiRes": false
+          }
+        ]
+      }
     ]
   },
   {
@@ -8301,6 +8917,118 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [
+          {
+            "item": "",
+            "links": [
+              {
+                "platform": "smart_link",
+                "url": "https://linkco.re/buXpfq3u",
+                "hiRes": false
+              },
+              {
+                "platform": "apple_music",
+                "url": "https://music.apple.com/jp/album/1525481205",
+                "hiRes": false
+              },
+              {
+                "platform": "spotify",
+                "url": "https://open.spotify.com/album/0DHRcMo1VzsMSTncdoYKuu",
+                "hiRes": false
+              },
+              {
+                "platform": "amazon_music",
+                "url": "https://music.amazon.co.jp/albums/B08DT8Y3PW",
+                "hiRes": false
+              },
+              {
+                "platform": "line_music",
+                "url": "https://music.line.me/webapp/album/mb0000000001d4adeb",
+                "hiRes": false
+              },
+              {
+                "platform": "youtube_music",
+                "url": "https://music.youtube.com/playlist?list=OLAK5uy_kQmN7yyDBiBgnqYxI9_zMuLrrYfGi3afc",
+                "hiRes": false
+              },
+              {
+                "platform": "awa",
+                "url": "https://s.awa.fm/track/bc13907a1af74d4ce886",
+                "hiRes": false
+              },
+              {
+                "platform": "mora",
+                "url": "https://mora.jp/package/43000074/TCJPR0000669356/",
+                "hiRes": true
+              },
+              {
+                "platform": "recochoku",
+                "url": "https://recochoku.jp/song/S1009627433/",
+                "hiRes": false
+              },
+              {
+                "platform": "ototoy",
+                "url": "https://ototoy.jp/_/default/p/585677",
+                "hiRes": true
+              }
+            ]
+          },
+          {
+            "item": "TVsize",
+            "links": [
+              {
+                "platform": "smart_link",
+                "url": "https://linkco.re/hXBDPH5E",
+                "hiRes": false
+              },
+              {
+                "platform": "apple_music",
+                "url": "https://music.apple.com/jp/album/1525483010",
+                "hiRes": false
+              },
+              {
+                "platform": "spotify",
+                "url": "https://open.spotify.com/album/1NjiPPtH3I46kBIjZsh2sr",
+                "hiRes": false
+              },
+              {
+                "platform": "amazon_music",
+                "url": "https://music.amazon.co.jp/albums/B08DTNG3MQ",
+                "hiRes": false
+              },
+              {
+                "platform": "line_music",
+                "url": "https://music.line.me/webapp/album/mb0000000001d4adda",
+                "hiRes": false
+              },
+              {
+                "platform": "youtube_music",
+                "url": "https://music.youtube.com/playlist?list=OLAK5uy_l_YzrPiS85D2h_H6tBghhcUgddKsBrC6w",
+                "hiRes": false
+              },
+              {
+                "platform": "awa",
+                "url": "https://s.awa.fm/track/35647a0f54d90e76e238",
+                "hiRes": false
+              },
+              {
+                "platform": "mora",
+                "url": "https://mora.jp/package/43000074/TCJPR0000669362/",
+                "hiRes": true
+              },
+              {
+                "platform": "recochoku",
+                "url": "https://recochoku.jp/song/S1009627438/",
+                "hiRes": false
+              },
+              {
+                "platform": "ototoy",
+                "url": "https://ototoy.jp/_/default/p/585683",
+                "hiRes": true
+              }
+            ]
+          }
+        ],
         "tracks": [
           {
             "disc": 1,
@@ -8350,6 +9078,7 @@
         "bonuses": ["アニメ版権描き下ろしステッカー"],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -8442,6 +9171,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -8537,6 +9267,63 @@
           }
         ]
       }
+    ],
+    "stores": [
+      {
+        "item": "instrumental",
+        "links": [
+          {
+            "platform": "smart_link",
+            "url": "https://linkco.re/abe3A4xz",
+            "hiRes": false
+          },
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1529852752",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/6e2X73AqHb1pZQa3iCLFPY",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B08H273TRJ",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000001d9a5a1",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_ljFZQajAmbJM91deIALyABk3x4Qmd-HrA",
+            "hiRes": false
+          },
+          {
+            "platform": "awa",
+            "url": "https://s.awa.fm/track/35647b0f5cd80876e238",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000074/TCJPR0000683621/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/song/S1009720271/",
+            "hiRes": false
+          },
+          {
+            "platform": "ototoy",
+            "url": "https://ototoy.jp/_/default/p/601783",
+            "hiRes": true
+          }
+        ]
+      }
     ]
   },
   {
@@ -8573,7 +9360,64 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "smart_link",
+            "url": "https://linkco.re/v0h5nv69",
+            "hiRes": false
+          },
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1529853308",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/5cvp9ER4f4iElxR9bRTNVn",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B08H2633BV",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000001d9a596",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_miY2hFJPUY_-546CCfSucftvPBtbNiY-o",
+            "hiRes": false
+          },
+          {
+            "platform": "awa",
+            "url": "https://s.awa.fm/track/905b95004d64524c2539",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000074/TCJPR0000683623/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/song/S1009720272/",
+            "hiRes": false
+          },
+          {
+            "platform": "ototoy",
+            "url": "https://ototoy.jp/_/default/p/601787",
+            "hiRes": true
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2020-12-19-49d477",
@@ -8637,6 +9481,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -8656,7 +9501,24 @@
         "printedDisc": true
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "qq_music",
+            "url": "https://y.qq.com/n/ryqq/albumDetail/002whGhe0IHlVS",
+            "hiRes": false
+          },
+          {
+            "platform": "kugou",
+            "url": "https://www.kugou.com/album/info/o5orzbf/",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2021-01-27-d42113",
@@ -8793,6 +9655,7 @@
             ]
           }
         ],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -8886,6 +9749,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -8971,6 +9835,63 @@
             "caption": "店铺特典一览",
             "source": "https://kano-official.amebaownd.com/posts/11923579/",
             "thirdParty": false
+          }
+        ]
+      }
+    ],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "smart_link",
+            "url": "https://linkco.re/dtMf3RDM",
+            "hiRes": false
+          },
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1551260396",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/0BwDESRyAUALUXR3nEHO84",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B08VDP28ZN",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000001fc4803",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_mG6y0PaGtaJYLKfOeVUzO0GUaDt8Gmv4c",
+            "hiRes": false
+          },
+          {
+            "platform": "awa",
+            "url": "https://s.awa.fm/album/21c77a17453239be6097",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000074/TCJPR0000742196/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2001980240/",
+            "hiRes": false
+          },
+          {
+            "platform": "ototoy",
+            "url": "https://ototoy.jp/_/default/p/683578",
+            "hiRes": true
           }
         ]
       }
@@ -9107,6 +10028,18 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [
+          {
+            "item": "",
+            "links": [
+              {
+                "platform": "qq_music",
+                "url": "https://y.qq.com/n/ryqq/albumDetail/000eCWzV0XpTHp",
+                "hiRes": false
+              }
+            ]
+          }
+        ],
         "tracks": [
           {
             "disc": 1,
@@ -9221,6 +10154,18 @@
         ],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [
+          {
+            "item": "",
+            "links": [
+              {
+                "platform": "kugou",
+                "url": "https://www.kugou.com/album/info/sfocz26/",
+                "hiRes": false
+              }
+            ]
+          }
+        ],
         "tracks": [
           {
             "disc": 1,
@@ -9330,6 +10275,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -9418,7 +10364,8 @@
         "printedDisc": true
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2022-01-26-b025c1",
@@ -9678,6 +10625,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -10013,6 +10961,33 @@
           }
         ]
       }
+    ],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "smart_link",
+            "url": "https://linkco.re/rxq5efxU",
+            "hiRes": false
+          },
+          {
+            "platform": "itunes",
+            "url": "https://music.apple.com/jp/album/1605073751",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000074/TCJPR0000869692/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2002640132/",
+            "hiRes": false
+          }
+        ]
+      }
     ]
   },
   {
@@ -10140,6 +11115,7 @@
           }
         ],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -10235,6 +11211,7 @@
           }
         ],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -10289,7 +11266,8 @@
         "printedDisc": true
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2022-11-30-f46039",
@@ -10367,6 +11345,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -10400,7 +11379,59 @@
         "printedDisc": true
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1654623394",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/3zlbXn71gCS3vfBP2yzEsl",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0BN4MBPKN",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000002a594a0",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_mhTHHJJu8gUvfAA8h6T10gTRwZrpGtb64",
+            "hiRes": false
+          },
+          {
+            "platform": "awa",
+            "url": "https://s.awa.fm/album/e7b4263f7db8cf26c858",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000074/TCJPR0000965050/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2003172649/",
+            "hiRes": false
+          },
+          {
+            "platform": "ototoy",
+            "url": "https://ototoy.jp/_/default/p/1446885",
+            "hiRes": true
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2023-07-24-5fd7fa",
@@ -10484,6 +11515,43 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [
+          {
+            "item": "",
+            "links": [
+              {
+                "platform": "apple_music",
+                "url": "https://music.apple.com/jp/album/1697258312",
+                "hiRes": false
+              },
+              {
+                "platform": "spotify",
+                "url": "https://open.spotify.com/album/3d5QBVx6g10iRFMLvmoJb4",
+                "hiRes": false
+              },
+              {
+                "platform": "amazon_music",
+                "url": "https://music.amazon.co.jp/albums/B0CBVKV95W",
+                "hiRes": false
+              },
+              {
+                "platform": "line_music",
+                "url": "https://music.line.me/webapp/album/mb0000000002f1020c",
+                "hiRes": false
+              },
+              {
+                "platform": "youtube_music",
+                "url": "https://music.youtube.com/playlist?list=OLAK5uy_lHoPosboc_4c2rTL5tHtpZc_Wl0o05lOY",
+                "hiRes": false
+              },
+              {
+                "platform": "mora",
+                "url": "https://mora.jp/package/43000033/PA00120146-0-1/",
+                "hiRes": true
+              }
+            ]
+          }
+        ],
         "tracks": [
           {
             "disc": 1,
@@ -10525,6 +11593,7 @@
         "bonuses": [],
         "bonusImages": [],
         "storeBonuses": [],
+        "stores": [],
         "tracks": [
           {
             "disc": 1,
@@ -10557,7 +11626,8 @@
         "printedDisc": false
       }
     ],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": []
   },
   {
     "id": "2024-04-20-e993c6",
@@ -10599,7 +11669,64 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "smart_link",
+            "url": "https://lnk.to/stereophonic",
+            "hiRes": false
+          },
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1740139942",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/6KYPe7NgNMvIFwDmaJ3ity",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0D153NDZR",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb00000000038d86cd",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_n-ji81BBWpc3o72my995M4X6PcTJTo9hQ",
+            "hiRes": false
+          },
+          {
+            "platform": "awa",
+            "url": "https://s.awa.fm/album/36a5490b21c829d90874",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000087/SRXX04946B00Z/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2004410316/",
+            "hiRes": false
+          },
+          {
+            "platform": "label_page",
+            "url": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX04946B01A",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2024-08-28-dc475d",
@@ -10641,7 +11768,64 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "smart_link",
+            "url": "https://lnk.to/metome",
+            "hiRes": false
+          },
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1762970929",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/5xNbTIC2qs08IdM0dGNdls",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0DD6TJDGZ",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000003cef11a",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_kwA4bM0APJd7TuEeK2rb36LaEBsSb8-mI",
+            "hiRes": false
+          },
+          {
+            "platform": "awa",
+            "url": "https://s.awa.fm/album/22cecd9c6316dee69595",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000087/SRXX05051B00Z/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2004682171/",
+            "hiRes": false
+          },
+          {
+            "platform": "label_page",
+            "url": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05051B01A",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2024-10-23-46e237",
@@ -10683,7 +11867,64 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "smart_link",
+            "url": "https://lnk.to/aitoai",
+            "hiRes": false
+          },
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1773024737",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/26GO1wt7lp8NkG1vfoaRLA",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0DJQMBRBZ",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb0000000003ecf7d9",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_k7WCA2DVV172978R_l8dmVOURJ_zNSsFI",
+            "hiRes": false
+          },
+          {
+            "platform": "awa",
+            "url": "https://s.awa.fm/album/31acc52bc328658caa11",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000087/SRXX05112B00Z/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2004840799/",
+            "hiRes": false
+          },
+          {
+            "platform": "label_page",
+            "url": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05112B01A",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2025-02-12-48c9ff",
@@ -10725,7 +11966,64 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "smart_link",
+            "url": "https://lnk.to/Dopeelegangertofukuseiganger",
+            "hiRes": false
+          },
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1791929000",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/0dL4BMiFnSVpQVgDbtZk30",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0DTPVJZQ8",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb00000000042042a1",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_kwDTPL74BoTi-KDMsT7r70qpJE1WTxDz8",
+            "hiRes": false
+          },
+          {
+            "platform": "awa",
+            "url": "https://s.awa.fm/album/e7b6213873b8cd26c858",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000087/SRXX05173B00Z/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2005141292/",
+            "hiRes": false
+          },
+          {
+            "platform": "label_page",
+            "url": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05173B01A",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2025-07-02-90ad1e",
@@ -10767,6 +12065,63 @@
     ],
     "discs": [],
     "editions": [],
-    "storeBonuses": []
+    "storeBonuses": [],
+    "stores": [
+      {
+        "item": "",
+        "links": [
+          {
+            "platform": "smart_link",
+            "url": "https://lnk.to/_Hiraeth",
+            "hiRes": false
+          },
+          {
+            "platform": "apple_music",
+            "url": "https://music.apple.com/jp/album/1821852991",
+            "hiRes": false
+          },
+          {
+            "platform": "spotify",
+            "url": "https://open.spotify.com/album/1nUQfyq1U5MM0aQOQB84Ni",
+            "hiRes": false
+          },
+          {
+            "platform": "amazon_music",
+            "url": "https://music.amazon.co.jp/albums/B0FDX1M1X2",
+            "hiRes": false
+          },
+          {
+            "platform": "line_music",
+            "url": "https://music.line.me/webapp/album/mb00000000047d1735",
+            "hiRes": false
+          },
+          {
+            "platform": "youtube_music",
+            "url": "https://music.youtube.com/playlist?list=OLAK5uy_llUtXlASm6XQWFVzh3iEmAoYOYCWCrAEM",
+            "hiRes": false
+          },
+          {
+            "platform": "awa",
+            "url": "https://s.awa.fm/album/9601e05ab5c699104a53",
+            "hiRes": false
+          },
+          {
+            "platform": "mora",
+            "url": "https://mora.jp/package/43000087/SRXX05316B00Z/",
+            "hiRes": true
+          },
+          {
+            "platform": "recochoku",
+            "url": "https://recochoku.jp/album/A2005481364/",
+            "hiRes": false
+          },
+          {
+            "platform": "label_page",
+            "url": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05316B01A",
+            "hiRes": false
+          }
+        ]
+      }
+    ]
   }
 ]

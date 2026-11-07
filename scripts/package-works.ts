@@ -14,6 +14,9 @@ import type {
   PersonalFormat,
   PersonalRelease,
   StoreBonus,
+  StoreGroup,
+  StoreLink,
+  StorePlatform,
   Upload,
   UploadKind,
   WorksCover,
@@ -417,6 +420,112 @@ async function discRowsOf(root: string) {
   return rows
 }
 
+/** The optional table of store listings; none when the collection lacks it. */
+async function storeRowsOf(root: string) {
+  let text: string
+  try {
+    text = await readText(root, "discography_stores.csv")
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return []
+    throw error
+  }
+  const rows = parseCsv(text)
+  requireColumns(rows, [
+    "date",
+    "release",
+    "edition",
+    "item",
+    "platform",
+    "url",
+  ])
+  return rows
+}
+
+/**
+ * Each platform's hosts, in the order the page lists them: the official
+ * multi-store page, streaming services, download stores, then the label.
+ */
+const storeHosts: Record<StorePlatform, string[]> = {
+  smart_link: ["linkco.re", "lnk.to"],
+  apple_music: ["music.apple.com"],
+  spotify: ["open.spotify.com"],
+  amazon_music: ["music.amazon.co.jp"],
+  line_music: ["music.line.me"],
+  youtube_music: ["music.youtube.com"],
+  awa: ["s.awa.fm"],
+  itunes: ["music.apple.com"],
+  mora: ["mora.jp"],
+  recochoku: ["recochoku.jp"],
+  ototoy: ["ototoy.jp"],
+  qq_music: ["y.qq.com"],
+  kugou: ["www.kugou.com"],
+  label_page: ["www.sonymusic.co.jp", "www.teichiku.co.jp"],
+}
+const storeOrder = Object.keys(storeHosts) as StorePlatform[]
+
+/**
+ * A listing's canonical address. Only YouTube Music keeps a query, its album
+ * playlist; anything that could carry a referral or a sharer's token stops
+ * packaging.
+ */
+export function storeUrl(platform: StorePlatform, value: string) {
+  const url = new URL(value)
+  const query = [...url.searchParams.keys()]
+  const allowed =
+    platform === "youtube_music"
+      ? url.pathname === "/playlist" &&
+        query.length === 1 &&
+        query[0] === "list"
+      : !url.search
+  if (
+    url.protocol !== "https:" ||
+    !storeHosts[platform].includes(url.hostname) ||
+    url.hash ||
+    url.username ||
+    !allowed
+  )
+    throw new Error(`Not a canonical ${platform} listing: ${value}`)
+  return url.href
+}
+
+/**
+ * Store rows grouped by item, the main item first, each with its platforms
+ * in the page's order. A high-resolution listing marks its store's own.
+ */
+export function storeGroups(rows: Row[]): StoreGroup[] {
+  const groups = new Map<string, Map<StorePlatform, StoreLink>>()
+  for (const row of rows) {
+    const hiRes = row.platform.endsWith("_hires")
+    const platform = row.platform.replace(/_hires$/u, "") as StorePlatform
+    if (!storeOrder.includes(platform))
+      throw new Error(`Unknown store platform: ${row.platform}`)
+    const url = storeUrl(platform, row.url)
+    const item = publicText(row.item ?? "")
+    const links = groups.get(item) ?? new Map<StorePlatform, StoreLink>()
+    groups.set(item, links)
+    const known = links.get(platform)
+    if (hiRes) {
+      if (known) known.hiRes = true
+      else links.set(platform, { platform, url, hiRes: true })
+    } else if (known && !known.hiRes) {
+      throw new Error(`${platform} is listed twice for ${row.release} ${item}`)
+    } else {
+      // The standard listing replaces a high-resolution one seen first.
+      links.set(platform, { platform, url, hiRes: Boolean(known?.hiRes) })
+    }
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => Number(Boolean(a)) - Number(Boolean(b)))
+    .map(([item, links]) => ({
+      item,
+      links: [...links.values()].sort(
+        (a, b) =>
+          storeOrder.indexOf(a.platform) - storeOrder.indexOf(b.platform),
+      ),
+    }))
+}
+
 async function personalWorks(root: string, images: Images) {
   const rows = parseCsv(await readText(root, "discography.csv"))
   requireColumns(rows, [
@@ -470,9 +579,16 @@ async function personalWorks(root: string, images: Images) {
   ])
 
   const discRows = await discRowsOf(root)
+  const storeRows = await storeRowsOf(root)
 
   const known = new Set(rows.map((row) => releaseKey(row.date, row.title)))
-  for (const row of [...trackRows, ...editionRows, ...bonusRows, ...discRows])
+  for (const row of [
+    ...trackRows,
+    ...editionRows,
+    ...bonusRows,
+    ...discRows,
+    ...storeRows,
+  ])
     if (!known.has(releaseKey(row.date, row.release)))
       throw new Error(`A works row names an unknown release: ${row.release}`)
 
@@ -488,6 +604,8 @@ async function personalWorks(root: string, images: Images) {
     const bonuses = bonusRows.filter(ofRelease)
     const editionNames = new Set<string>()
     const discPhotos = discRows.filter(ofRelease)
+    const listings = storeRows.filter(ofRelease)
+    const releaseStores = storeGroups(listings.filter((item) => !item.edition))
     const discsOf = async (edition: string) => {
       const items: DiscImage[] = []
       for (const item of discPhotos.filter((d) => d.edition === edition)) {
@@ -527,6 +645,17 @@ async function personalWorks(root: string, images: Images) {
         editionTrackList,
       )
       for (const item of discs) discMedia.add(item.image.media)
+      const stores = storeGroups(
+        listings.filter((item) => item.edition === edition.edition),
+      )
+      // An edition shows its own items and the release's together, so only
+      // one of them may go unnamed.
+      if (
+        [...stores, ...releaseStores].filter((group) => !group.item).length > 1
+      )
+        throw new Error(
+          `${row.title} ${edition.edition} needs a name for one of its store items`,
+        )
       editions.push({
         name: publicText(edition.edition.replace(cancelledMark, "")),
         date: editionDate(edition.notes),
@@ -542,6 +671,7 @@ async function personalWorks(root: string, images: Images) {
           .map(publicText),
         bonusImages: await images.list(edition.bonus_images),
         storeBonuses: await storeBonuses(bonuses.filter(appliesTo), images),
+        stores,
         tracks: editionTrackList,
         discs,
         printedDisc:
@@ -549,7 +679,7 @@ async function personalWorks(root: string, images: Images) {
           cancelledMark.test(edition.edition),
       })
     }
-    for (const item of [...tracks, ...bonuses, ...discPhotos])
+    for (const item of [...tracks, ...bonuses, ...discPhotos, ...listings])
       for (const name of split(item.edition ?? item.applies_to, /、/u))
         if (!editionNames.has(name))
           throw new Error(`${row.title} has no edition named ${name}`)
@@ -601,6 +731,7 @@ async function personalWorks(root: string, images: Images) {
         bonuses.filter((bonus) => !bonus.applies_to),
         images,
       ),
+      stores: releaseStores,
     })
   }
   return uniqueIds(releases)

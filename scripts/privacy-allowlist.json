@@ -470,6 +470,38 @@
       "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
     },
     {
+      "host": "linkco.re",
+      "reason": "Official multi-store page of a /works release published by its distributor (src/works/personal.json); the page links to it and never loads it."
+    },
+    {
+      "host": "lnk.to",
+      "reason": "Official multi-store page of a /works release published by its label (src/works/personal.json); the page links to it and never loads it."
+    },
+    {
+      "host": "open.spotify.com",
+      "reason": "Official streaming or download store listing of a /works release (src/works/personal.json); the page links to it and never loads it."
+    },
+    {
+      "host": "music.line.me",
+      "reason": "Official streaming or download store listing of a /works release (src/works/personal.json); the page links to it and never loads it."
+    },
+    {
+      "host": "s.awa.fm",
+      "reason": "Official streaming or download store listing of a /works release (src/works/personal.json); the page links to it and never loads it."
+    },
+    {
+      "host": "mora.jp",
+      "reason": "Official streaming or download store listing of a /works release (src/works/personal.json); the page links to it and never loads it."
+    },
+    {
+      "host": "recochoku.jp",
+      "reason": "Official streaming or download store listing of a /works release (src/works/personal.json); the page links to it and never loads it."
+    },
+    {
+      "host": "kugou.com",
+      "reason": "Official streaming or download store listing of a /works release (src/works/personal.json); the page links to it and never loads it."
+    },
+    {
       "host": "music.163.com",
       "reason": "Store or music-service page recorded as the source of a /works record or cover file (src/works/*.json); the page links to it and never loads it."
     },

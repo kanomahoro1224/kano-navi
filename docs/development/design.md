@@ -40,7 +40,10 @@ introduce a separate token system for a single page.
   back into the sleeve to change (in place under reduced motion) and is
   marked in ink in the tracklist. The details are the chosen edition's facts and
   bonuses, or for a release sold in one version its type, date, label and
-  catalog number. On the widest screens the tracklist and the details take
+  catalog number, then the official streaming and download listings as
+  outlined chips with the store's name (the page listing every store drawn
+  in ink first, high resolution as a small mark, each extra item such as a
+  TV-size single named above its own chips). On the widest screens the tracklist and the details take
   columns of their own; a wide screen puts the details below the tracklist
   in one right pane, and narrower screens stack everything in one scrolling
   column. The panes'

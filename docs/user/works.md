@@ -42,7 +42,8 @@ you switch between them, and opens on the edition with the most disc photos,
 so a CD comes before its download and a limited edition before a store set
 that bundles it with a bonus disc; each edition shows its own cover, catalog number,
 JAN, price, format and packaging, what comes in the package, the store
-bonuses shops gave with it, and its own tracklist with every disc. Where the
+bonuses shops gave with it, where it can be streamed or downloaded, and
+its own tracklist with every disc. Where the
 collection has a photo of a disc, it sits beside that disc in the tracklist,
 so a limited edition with a CD and a DVD shows both discs; select one to
 view it in full. The record in the header is the chosen edition's first

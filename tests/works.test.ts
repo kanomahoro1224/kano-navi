@@ -23,6 +23,8 @@ import {
   publicText,
   publicTrackNote,
   recordId,
+  storeGroups,
+  storeUrl,
   uploadVideoRefs,
   worksVideoIndex,
 } from "../scripts/package-works.ts"
@@ -548,6 +550,7 @@ test("works packaging writes the tables and covers named by their bytes", async 
         storeBonuses: [
           { store: "Example Shop", item: "缶バッジ", images: [cover] },
         ],
+        stores: [],
         tracks: [
           ...shared,
           {
@@ -575,6 +578,7 @@ test("works packaging writes the tables and covers named by their bytes", async 
         bonuses: [],
         bonusImages: [],
         storeBonuses: [],
+        stores: [],
         tracks: shared,
         discs: [],
         // Withdrawn before sale, so no disc was pressed.
@@ -582,6 +586,7 @@ test("works packaging writes the tables and covers named by their bytes", async 
       },
     ],
     storeBonuses: [{ store: "全国対象店", item: "B2 ポスター", images: [] }],
+    stores: [],
   })
   assert.equal(personal[1].unit, "Example Unit")
   assert.equal(personal[1].format, "doujin")
@@ -893,6 +898,140 @@ test("a file from a person's copy credits them and keeps its page private", asyn
       await fs.readFile(path.join(contentDir, "personal.json"), "utf8")
     ).includes("example.com/shop"),
     false,
+  )
+})
+
+test("store listings keep canonical addresses only", () => {
+  assert.equal(
+    storeUrl("spotify", "https://open.spotify.com/album/synthetic"),
+    "https://open.spotify.com/album/synthetic",
+  )
+  assert.equal(
+    storeUrl(
+      "youtube_music",
+      "https://music.youtube.com/playlist?list=OLAK5uy_synthetic",
+    ),
+    "https://music.youtube.com/playlist?list=OLAK5uy_synthetic",
+  )
+  for (const [platform, url] of [
+    // A referral or a sharer's token, another platform's host, plain HTTP.
+    ["spotify", "https://open.spotify.com/album/synthetic?si=token"],
+    [
+      "youtube_music",
+      "https://music.youtube.com/playlist?list=a&feature=share",
+    ],
+    ["apple_music", "https://open.spotify.com/album/synthetic"],
+    ["mora", "http://mora.jp/package/synthetic/"],
+  ] as const)
+    assert.throws(() => storeUrl(platform, url), /Not a canonical/u)
+})
+
+test("store listings group by item and fold high-resolution stores", () => {
+  const row = (item: string, platform: string, url: string) => ({
+    date: "2019-08-12",
+    release: "合成专辑",
+    edition: "",
+    item,
+    platform,
+    url,
+  })
+  assert.deepEqual(
+    storeGroups([
+      row("TVsize", "spotify", "https://open.spotify.com/album/tv"),
+      row("", "mora_hires", "https://mora.jp/package/full_hires/"),
+      row("", "spotify", "https://open.spotify.com/album/full"),
+      row("", "mora", "https://mora.jp/package/full/"),
+      row("", "smart_link", "https://linkco.re/full"),
+    ]),
+    [
+      {
+        item: "",
+        links: [
+          {
+            platform: "smart_link",
+            url: "https://linkco.re/full",
+            hiRes: false,
+          },
+          {
+            platform: "spotify",
+            url: "https://open.spotify.com/album/full",
+            hiRes: false,
+          },
+          {
+            platform: "mora",
+            url: "https://mora.jp/package/full/",
+            hiRes: true,
+          },
+        ],
+      },
+      {
+        item: "TVsize",
+        links: [
+          {
+            platform: "spotify",
+            url: "https://open.spotify.com/album/tv",
+            hiRes: false,
+          },
+        ],
+      },
+    ],
+  )
+  assert.throws(
+    () =>
+      storeGroups([row("", "unknown_store", "https://example.com/album/1")]),
+    /Unknown store platform/u,
+  )
+})
+
+test("an edition lists its own store items and the release's", async (t) => {
+  const { root, library } = await collection(t)
+  const contentDir = path.join(root, "content")
+  const options = {
+    contentDir,
+    mediaDir: path.join(root, "data", "works"),
+    indexFile: path.join(root, "videos.json"),
+  }
+  const storesFile = path.join(library, "discography_stores.csv")
+  const table = (editionItem: string) =>
+    csv([
+      ["date", "release", "edition", "item", "platform", "url"],
+      [
+        "2019-08-12",
+        "合成专辑",
+        "",
+        "",
+        "apple_music",
+        "https://music.apple.com/jp/album/1",
+      ],
+      [
+        "2019-08-12",
+        "合成专辑",
+        "初回限定盤",
+        editionItem,
+        "spotify",
+        "https://open.spotify.com/album/edition",
+      ],
+    ])
+  await fs.writeFile(storesFile, table("TVsize"))
+  await packageWorks(library, options)
+  const [release] = JSON.parse(
+    await fs.readFile(path.join(contentDir, "personal.json"), "utf8"),
+  ) as PersonalRelease[]
+  assert.deepEqual(
+    release.stores.map((group) => group.item),
+    [""],
+  )
+  assert.deepEqual(
+    release.editions.map((edition) =>
+      edition.stores.map((group) => [group.item, group.links[0].platform]),
+    ),
+    [[["TVsize", "spotify"]], []],
+  )
+  // Two unnamed items would show side by side under one edition.
+  await fs.writeFile(storesFile, table(""))
+  await assert.rejects(
+    packageWorks(library, options),
+    /needs a name for one of its store items/u,
   )
 })
 

@@ -123,6 +123,26 @@ Uploads posted after `updatedAt` are not added to the list automatically: the
 page names the date and links to the board's video archive, filtered to
 songs.
 
+## Store Listings
+
+Where a release is streamed or sold as a download comes from the optional
+`discography_stores.csv` (`date`, `release`, `edition`, `item`, `platform`,
+`url`; the collection also keeps `checked_at` and `notes`, which are not
+published). A row without an edition belongs to every edition; a row with
+one belongs to that edition alone, such as a 先行配信 download. `item` names
+a digital item beyond a release's or edition's main one, such as a TV-size
+or instrumental single; an edition may show only one unnamed item between
+its own rows and the release's. `platform` is one of `smart_link` (the
+official page listing every store), `apple_music`, `spotify`,
+`amazon_music`, `line_music`, `youtube_music`, `awa`, `itunes`, `mora`,
+`recochoku`, `ototoy`, `qq_music`, `kugou` or `label_page`, the order the
+page lists them in; `mora_hires` and `ototoy_hires` mark their store's
+listing as also sold in high resolution. Each address must be HTTPS on its
+platform's host with no query, fragment or credentials, except a YouTube
+Music album playlist's `list`, so no referral or sharer's token is
+published. Only listings whose label and rights line match the collection's
+record belong in the table.
+
 ## Disc Photos and Cutouts
 
 Disc photos come from the optional `discography_discs.csv` (`date`,
@@ -186,13 +206,15 @@ upload stops packaging.
 
 Packaging reads `discography.csv`, `discography_editions.csv`,
 `discography_store_bonuses.csv`, `discography_tracks.csv`, `manifest.json`,
-the optional `discography_discs.csv`, the optional `抠图/` directory,
+the optional `discography_discs.csv`, the optional
+`discography_stores.csv`, the optional `抠图/` directory,
 `参与专辑/participation.csv`,
 `参与专辑/participation_tracks.csv` and `投稿作品/works.csv`. It reads the
 whole selection before writing anything: every table must have its columns,
 every date must be a Japan date, every category, kind, role, form, credit
 and upload kind must map to a code, every edition, track and bonus row must
-name a listed release and edition, every video ID must have its platform's
+name a listed release and edition, every store listing must have a known
+platform and a canonical address, every video ID must have its platform's
 shape, and every image must be listed in the manifest and be a JPEG or PNG
 inside the collection within the size limit. An image in another format
 (such as a GIF) is left out and named in packaging's output. Covers already in `data/works/` whose size and hash match are

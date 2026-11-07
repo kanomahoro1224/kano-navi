@@ -61,6 +61,11 @@ type Options struct {
 	// Bilibili reads single uploads for operators; nil disables the routes
 	// that need it.
 	Bilibili *bilisource.Adapter
+	// BiliAuthURL is the collector's loopback login endpoint (its own
+	// 127.0.0.1 listener). The console proxies the scan-login flow through it
+	// because that process owns the Bilibili client and its cookie jar. Empty
+	// leaves the login panel reporting the feature as unavailable.
+	BiliAuthURL string
 	// YoutubeYTDLP is the optional local yt-dlp runner used by the YouTube
 	// source and its operator update route.
 	YoutubeYTDLP *ytsource.YTDLP
@@ -83,6 +88,9 @@ type Options struct {
 
 type api struct {
 	Options
+	// biliAuth proxies the collector's scan-login endpoints; nil when no
+	// collector URL is configured.
+	biliAuth *biliAuthClient
 	// variantsMu lets one copies status listing run at a time and guards
 	// its memo.
 	variantsMu  sync.Mutex
@@ -94,6 +102,7 @@ var japanZone = time.FixedZone("JST", 9*3600)
 // New builds the /api/admin handler.
 func New(options Options) http.Handler {
 	a := &api{Options: options}
+	a.biliAuth = newBiliAuthClient(options.BiliAuthURL)
 	if a.Now == nil {
 		a.Now = time.Now
 	}
@@ -148,6 +157,9 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodPut, Path: "/sources/youtube/live-probe/videos/{id}", Handler: a.updateLiveProbeVideo},
 		{Method: http.MethodGet, Path: "/sources/youtube/ytdlp", Handler: a.ytdlpStatus},
 		{Method: http.MethodPost, Path: "/sources/youtube/ytdlp/update", Handler: a.updateYTDLP},
+		{Method: http.MethodGet, Path: "/bili/login/status", Handler: a.biliLoginStatus},
+		{Method: http.MethodGet, Path: "/bili/login/qr", Handler: a.biliLoginQR},
+		{Method: http.MethodGet, Path: "/bili/login/poll", Handler: a.biliLoginPoll},
 		{Method: http.MethodGet, Path: "/sync-settings", Handler: a.syncSettings},
 		{Method: http.MethodPut, Path: "/sync-settings", Handler: a.updateSyncSettings},
 

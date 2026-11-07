@@ -19,6 +19,9 @@ import {
   type RequestOptions,
 } from "@/admin/api"
 import type {
+  AdminBiliLoginPoll,
+  AdminBiliLoginQR,
+  AdminBiliLoginStatus,
   AdminEvent,
   AdminPost,
   AdminPushState,
@@ -321,6 +324,13 @@ function createClient(run: Runner, slow: Runner) {
         "/videos/bilibili",
         { input },
       ),
+    /** The collector's Bilibili session, as its own process sees it. */
+    biliLoginStatus: () => get<AdminBiliLoginStatus>("/bili/login/status"),
+    /** A fresh code; the image is a data URL ready for an <img>. */
+    biliLoginQR: () => get<AdminBiliLoginQR>("/bili/login/qr"),
+    /** One scan check. The key comes from biliLoginQR. */
+    biliLoginPoll: (key: string) =>
+      get<AdminBiliLoginPoll>(`/bili/login/poll?key=${enc(key)}`),
     /** Uploads the merge rule would attach, or leaves to the operator. */
     videoMerges: () => get<{ items: VideoMergeSuggestion[] }>("/videos/merges"),
     /** One upload's merge state and candidates, whatever its state. */

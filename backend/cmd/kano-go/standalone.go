@@ -253,6 +253,10 @@ func runStandalone(cfg config.Config) int {
 			Variants:      run.steps.Variants,
 			Push:          pushClient,
 			WebPush:       webPush,
+			// The collector holds the Bilibili client, so the console's scan
+			// login goes through its loopback listener. No URL leaves the
+			// panel reporting the feature as off.
+			BiliAuthURL: strings.TrimSpace(os.Getenv("BILI_AUTH_URL")),
 		}),
 		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin),
 		MCP:          standaloneMCP(store, manager),

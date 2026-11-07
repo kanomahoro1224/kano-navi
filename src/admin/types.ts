@@ -943,3 +943,25 @@ export interface AdminPushState {
   testMode: boolean
   devices: AdminPushDevice[]
 }
+
+/** The collector's scan-login state. Available is false when it is not running. */
+export interface AdminBiliLoginStatus {
+  available: boolean
+  loggedIn: boolean
+}
+
+/** One issued code, already encoded as a data URL the console can render. */
+export interface AdminBiliLoginQR {
+  key: string
+  image: string
+}
+
+/** Bilibili's own numbers: 0 signed in, 86090 scanned, 86101 waiting, 86038 expired. */
+export interface AdminBiliLoginPoll {
+  code: number
+  pending: boolean
+  /** The phone has read the code and only the confirmation is missing. */
+  scanned: boolean
+  loggedIn: boolean
+  message: string
+}

@@ -248,7 +248,7 @@ export interface Overview {
   /** Timed work in the order it reaches the single-flight queue. */
   queue: QueueEntry[]
   backlog: Backlog
-  sources: { x: SourceHealth; youtube: SourceHealth; bilibili: SourceHealth }
+  sources: Record<ScheduleSource, SourceHealth>
   review: {
     pendingImages: number
     suspectedCancellations: number
@@ -386,7 +386,7 @@ export interface SyncSettings {
   }[]
 }
 
-export type ScheduleSource = "x" | "youtube" | "bilibili"
+export type ScheduleSource = "x" | "youtube" | "bilibili" | "bilibili_dynamics"
 
 /** One listing method of a source's fallback chain (ADR-0004). */
 export interface ChainMethod {

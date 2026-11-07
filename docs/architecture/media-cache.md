@@ -419,7 +419,8 @@ uses the service's data directory and built site, so only the API process
 offers it.
 
 The page reads the status when it opens and after each run, never on a
-timer. The service lists the cache once and answers that listing again until
+timer. Its panel and one meter per group render at once and fill in when the
+status arrives, so a slow listing never holds the page. The service lists the cache once and answers that listing again until
 another run finishes; copies change only through runs, so a newer listing
 could differ only after the variants command or files changed by hand, which
 the page's Check again (`refresh=1`) covers. One listing runs at a time.

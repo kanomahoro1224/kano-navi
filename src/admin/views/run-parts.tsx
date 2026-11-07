@@ -46,6 +46,7 @@ export const stepIcons: Record<string, StepIcon> = {
   x: XIcon,
   youtube: YouTubeIcon,
   bilibili: BilibiliIcon,
+  bilibili_dynamics: BilibiliIcon,
   media: ImageDown,
   schedule: Sparkles,
   translate: Languages,

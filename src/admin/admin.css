@@ -2032,6 +2032,10 @@
   background: var(--leaf);
 }
 
+.adm-meter.is-pending .adm-meter-value strong {
+  color: var(--adm-muted);
+}
+
 .adm-meter.is-full .adm-meter-bar i {
   background: var(--honey);
 }
@@ -2290,6 +2294,9 @@
 /* -------------------------------------------------------------- tabs/page */
 
 .adm-tabs {
+  /* Positioned, so a tab's visually hidden text scrolls with the row
+     instead of widening the page when the tabs overflow a phone screen. */
+  position: relative;
   display: flex;
   gap: 4px;
   margin: -6px -6px 0;

@@ -186,7 +186,21 @@ function PhaseTag({
     return <span className="tag tone-danger">{t("videos.cancelled")}</span>
   if (phase === "upcoming")
     return <span className="tag tone-sky">{t("videos.reserved")}</span>
-  return <span className="tag">{videoFormLabel(video, t, now)}</span>
+  return <FormChip video={video} now={now} t={t} />
+}
+
+/** A video's form chip, or nothing for a form without one (a premiere). */
+function FormChip({
+  video,
+  now,
+  t,
+}: {
+  video: Video
+  now: number
+  t: Translator
+}) {
+  const label = videoFormLabel(video, t, now)
+  return label ? <span className="tag">{label}</span> : null
 }
 
 function Subhead({ children, count }: { children: ReactNode; count?: number }) {
@@ -247,7 +261,7 @@ function LeadCard({
             {isFeatured ? t("videos.featured") : t("videos.latestWork")}
           </span>
           {phase === "past" ? (
-            <span className="tag">{videoFormLabel(video, t, now)}</span>
+            <FormChip video={video} now={now} t={t} />
           ) : (
             <PhaseTag phase={phase} video={video} now={now} t={t} />
           )}
@@ -323,7 +337,7 @@ function VideoTicket({
           <span className="video-meta">
             <PhaseTag phase={phase} video={video} now={now} t={t} />
             {videoIsStream(video) ? null : (
-              <span className="tag">{videoFormLabel(video, t, now)}</span>
+              <FormChip video={video} now={now} t={t} />
             )}
             <VideoTagChip video={video} t={t} />
             <VideoAvailabilityChip video={video} t={t} />
@@ -388,9 +402,7 @@ function VideoCard({
       </div>
       <p className="video-meta">
         <JapanDate video={video} locale={locale} t={t} />
-        {showKind ? (
-          <span className="tag">{videoFormLabel(video, t, now)}</span>
-        ) : null}
+        {showKind ? <FormChip video={video} now={now} t={t} /> : null}
         <VideoTagChip video={video} t={t} />
         <VideoAvailabilityChip video={video} t={t} />
         <LengthNote video={video} t={t} />
@@ -462,11 +474,11 @@ function VideoRow({
         />
         <span className="video-row-copy">
           <span className="video-meta">
-            <span className={`tag${video.isUpcoming ? " tone-berry" : ""}`}>
-              {video.isUpcoming
-                ? t("videos.reserved")
-                : videoFormLabel(video, t, now)}
-            </span>
+            {video.isUpcoming ? (
+              <span className="tag tone-berry">{t("videos.reserved")}</span>
+            ) : (
+              <FormChip video={video} now={now} t={t} />
+            )}
             <VideoTagChip video={video} t={t} />
             <VideoAvailabilityChip video={video} t={t} />
             <VideoWhen

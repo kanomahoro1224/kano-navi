@@ -30,7 +30,7 @@
 | `BILIBILI_MIN_INTERVAL_MINUTES` | `180`                               | Minimum minutes between Bilibili reads and timer runs (60–1440)    |
 | `BILIBILI_SESSDATA`             | Empty                               | Optional login cookie; required for the dynamics listing           |
 | `SKIP_X`, `SKIP_YOUTUBE`        | `0`                                 | Set to `1` to skip that source's step and its timer                |
-| `SKIP_BILIBILI`                 | `0`                                 | Set to `1` to skip the Bilibili step, timer and console reads      |
+| `SKIP_BILIBILI`                 | `0`                                 | Set to `1` to skip both Bilibili steps, timers and console reads   |
 | `SKIP_MEDIA`, `SKIP_LLM`        | `0`                                 | Set a post-processing stage flag to `1` to skip it                 |
 | `KANO_MEM_LIMIT`                | `1g` in production Compose          | Production Compose: the container's memory limit (`mem_limit`)     |
 | `GOMEMLIMIT`                    | `700MiB` in production Compose      | Go runtime soft memory limit, kept below the container's limit     |
@@ -78,7 +78,8 @@ Docker Compose also uses `KANO_IMAGE` (default
 Bilibili (developer tools → Application → Cookies → `.bilibili.com`). With
 it, the `bilibili` step and the console's reads are sent as that account,
 which Bilibili's captcha blocks far less often than anonymous reads, and the
-step also reads the account's dynamics, which it skips without one
+`bilibili_dynamics` step reads the account's dynamics, which it skips without
+one
 ([ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)). It is
 sent only to `api.bilibili.com`, never stored in SQLite, logged, or returned.
 "Signed in" in the console means Bilibili accepted the cookie at the latest
@@ -173,9 +174,13 @@ work either way. Page requests and admin reads never start a
 timer or a run. Each source's timer is an operator setting, not an
 environment variable: `/admin` → Sources turns it on or off and sets its
 interval and read mode, stored in the `source_schedules` table (X 30 minutes
-and YouTube 60 by default, 15 minutes through seven days; Bilibili 180 by
-default, never below `BILIBILI_MIN_INTERVAL_MINUTES`). `SKIP_X`,
-`SKIP_YOUTUBE` and `SKIP_BILIBILI` keep that source's timer from running.
+and YouTube 60 by default, 15 minutes through seven days; the Bilibili
+uploads and dynamics timers 180 each by default, never below
+`BILIBILI_MIN_INTERVAL_MINUTES`). Both Bilibili timers reach the same
+address, so their requests add up: keep the dynamics timer no shorter than
+the uploads timer until the account has read without a captcha for a while.
+`SKIP_X`, `SKIP_YOUTUBE` and `SKIP_BILIBILI` keep that source's timers from
+running.
 Per-source timers are the only timed sync
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)). See
 [Workflows](../architecture/workflows.md#source-schedules).
@@ -191,8 +196,9 @@ start; around the start itself the probe checks every 3 minutes. With
 `YOUTUBE_API_KEY`, and unless the YouTube timer's method chain turns the Data
 API off, it asks the Data API first, one quota unit per run. It
 uses the same timer process, so `WORKFLOW_SCHEDULER_ENABLED=0` stops it and
-`SKIP_YOUTUBE=1` its YouTube part. The same fold turns the Bilibili live
-check on or off and sets its baseline interval (default 30 minutes, 10–360),
+`SKIP_YOUTUBE=1` its YouTube part. `/admin` → Sources → Bilibili uploads →
+Bilibili live room turns the Bilibili live check on or off and sets its
+baseline interval (default 30 minutes, 10–360),
 stored as `bilibili_live_probe_enabled` and
 `bilibili_live_probe_interval_minutes`; `SKIP_BILIBILI=1` stops it. See
 [Workflows](../architecture/workflows.md#live-status-probe).

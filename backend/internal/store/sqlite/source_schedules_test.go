@@ -194,14 +194,14 @@ func TestPrepareSourceSchedulesKeepsAFreshInstallationDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	schedules, err := s.SourceSchedules(ctx, 180)
-	if err != nil || len(schedules) != 3 {
+	if err != nil || len(schedules) != 4 {
 		t.Fatalf("schedules=%+v %v", schedules, err)
 	}
 	for i, want := range []struct {
 		source   string
 		interval int
 		sync     bool
-	}{{"x", 30, true}, {"youtube", 60, true}, {"bilibili", 180, false}} {
+	}{{"x", 30, true}, {"youtube", 60, true}, {"bilibili", 180, false}, {BilibiliDynamicsSource, 180, false}} {
 		got := schedules[i]
 		if got.Source != want.source || got.Enabled || got.IntervalMinutes != want.interval || (got.Sync != nil) != want.sync || got.NextRunAt != nil || got.LastRun != nil {
 			t.Fatalf("default %s=%+v", want.source, got)
@@ -400,5 +400,53 @@ func TestStartingATimerNowMakesItDueInOrder(t *testing.T) {
 	}
 	if got := scheduleOf(t, s, "youtube", 180); *got.NextRunAt != "2026-03-02T04:11:00.000Z" {
 		t.Fatalf("claimed=%v", *got.NextRunAt)
+	}
+}
+
+func TestPrepareSourceSchedulesSplitsTheDynamicsTimerOffASavedBilibiliTimer(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	s.SetScheduleOffset(func(int64) int64 { return 0 })
+	bilibili := scheduleOf(t, s, "bilibili", 180)
+	bilibili.Enabled, bilibili.IntervalMinutes = true, 240
+	if _, err := s.SaveSourceSchedule(ctx, bilibili, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareSourceSchedules(ctx, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	// It keeps the upload timer's switch and interval and falls due half an
+	// interval after it: the upload read is planned at 07:00.
+	dynamics := scheduleOf(t, s, BilibiliDynamicsSource, 180)
+	if !dynamics.Enabled || dynamics.IntervalMinutes != 240 || dynamics.NextRunAt == nil || *dynamics.NextRunAt != "2026-03-02T09:00:00.000Z" {
+		t.Fatalf("dynamics=%+v next=%v", dynamics, dynamics.NextRunAt)
+	}
+	// Once saved, the operator's dynamics timer is its own: a later start
+	// leaves it alone, apart from raising it to a raised floor.
+	dynamics.Enabled = false
+	if _, err := s.SaveSourceSchedule(ctx, dynamics, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareSourceSchedules(ctx, 300, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := scheduleOf(t, s, BilibiliDynamicsSource, 300); got.Enabled || got.IntervalMinutes != 300 {
+		t.Fatalf("after restart=%+v", got)
+	}
+}
+
+func TestPrepareSourceSchedulesSplitsADisabledBilibiliTimerDisabled(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	if _, err := s.SaveSourceSchedule(ctx, scheduleOf(t, s, "bilibili", 180), 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareSourceSchedules(ctx, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := scheduleOf(t, s, BilibiliDynamicsSource, 180); got.Enabled || got.NextRunAt != nil || got.UpdatedAt == nil {
+		t.Fatalf("dynamics=%+v", got)
 	}
 }

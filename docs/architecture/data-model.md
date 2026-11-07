@@ -91,7 +91,8 @@ froze; new runs write `{}` there. A partial unique
 index admits one queued or running run at a time. `capability` keeps its
 constrained values (`synthetic`, `x_recent`, `capability_not_migrated`);
 `adapter_capability` names the adapter that runs the step (`x_recent`,
-`youtube_recent`, `bilibili_recent`, `youtube_live`, `media_download`,
+`youtube_recent`, `bilibili_recent`, `bilibili_dynamics`, `youtube_live`,
+`media_download`,
 `schedule_extract`, `text_translate`, `media_variants` or `event_reconcile`), and a step with
 neither finishes `blocked`. `recovery_count` counts how often a run was
 queued again by a retry or by recovery from an expired lease. Finished runs
@@ -100,11 +101,12 @@ and their steps, attempts and `sync_runs` rows are deleted after their
 
 `source_schedules` holds each source's timer
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)): `source`
-(`x`, `youtube` or `bilibili`, the primary key), `enabled`,
-`interval_minutes`, `sync_json` (`{"x": SourceSync}` or `{"youtube":
-SourceSync}`; `{}` for Bilibili and as the default), `chain_json` (X and
-YouTube: `{methods: [{id, enabled}], apiGate, apiDailyCap}`, the gate and cap
-for X only; `{}` for Bilibili, and a chain that is unreadable or does not
+(`x`, `youtube`, `bilibili` or `bilibili_dynamics`, the primary key),
+`enabled`, `interval_minutes`, `sync_json` (`{"x": SourceSync}` or
+`{"youtube": SourceSync}`; `{}` for both Bilibili timers and as the
+default), `chain_json` (X and YouTube: `{methods: [{id, enabled}], apiGate,
+apiDailyCap}`, the gate and cap for X only; `{}` for both Bilibili timers,
+and a chain that is unreadable or does not
 list every method of its source once reads as the default;
 [ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)), `next_run_at`
 and `updated_at`. A missing row reads as that source's disabled default (see

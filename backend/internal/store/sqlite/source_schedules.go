@@ -21,7 +21,7 @@ type SourceSchedule struct {
 	// Sync is how X and YouTube are read (ADR-0002); Bilibili has none.
 	Sync *SourceSync `json:"sync"`
 	// Chain is the fallback over listing methods that X and YouTube reads
-	// try (ADR-0004); Bilibili's is its one fixed method.
+	// try (ADR-0004); each Bilibili timer's is its one fixed method.
 	Chain     SourceChain        `json:"chain"`
 	NextRunAt *string            `json:"nextRunAt"`
 	UpdatedAt *string            `json:"updatedAt"`
@@ -38,8 +38,8 @@ type SourceScheduleRun struct {
 
 const (
 	// SourceScheduleMinMinutes and SourceScheduleMaxMinutes bound every
-	// source interval. Bilibili's lower bound is BILIBILI_MIN_INTERVAL_MINUTES
-	// instead.
+	// source interval. The lower bound of both Bilibili timers is
+	// BILIBILI_MIN_INTERVAL_MINUTES instead.
 	SourceScheduleMinMinutes = 15
 	SourceScheduleMaxMinutes = 7 * 24 * 60
 	// sourceSchedulePrefix names the ad hoc runs of a source's chain, from
@@ -47,8 +47,19 @@ const (
 	sourceSchedulePrefix = "@source-"
 )
 
+// BilibiliDynamicsSource is the timer and step that read the Bilibili
+// account's dynamics; "bilibili" reads its uploads. Both share one client,
+// device identity and captcha backoff.
+const BilibiliDynamicsSource = "bilibili_dynamics"
+
 // ScheduleSources are the sources with a schedule, in catalog order.
-var ScheduleSources = []string{"x", "youtube", "bilibili"}
+var ScheduleSources = []string{"x", "youtube", "bilibili", BilibiliDynamicsSource}
+
+// IsBilibiliSchedule reports a Bilibili timer, bounded below by
+// BILIBILI_MIN_INTERVAL_MINUTES.
+func IsBilibiliSchedule(source string) bool {
+	return source == "bilibili" || source == BilibiliDynamicsSource
+}
 
 // SourceScheduleWorkflow is the ad hoc workflow ID of a source's runs.
 func SourceScheduleWorkflow(source string) string { return sourceSchedulePrefix + source }
@@ -62,7 +73,7 @@ func SourceScheduleOf(workflowID string) (string, bool) {
 // SourceScheduleBounds are the interval bounds of a source. floor is the
 // Bilibili list interval in minutes.
 func SourceScheduleBounds(source string, floor int) (int, int) {
-	if source == "bilibili" {
+	if IsBilibiliSchedule(source) {
 		return min(max(floor, SourceScheduleMinMinutes), SourceScheduleMaxMinutes), SourceScheduleMaxMinutes
 	}
 	return SourceScheduleMinMinutes, SourceScheduleMaxMinutes
@@ -371,9 +382,9 @@ func (s *Store) SetScheduleOffset(draw func(spread int64) int64) { s.scheduleOff
 // tenth of it, so timed reads do not hit a platform on a fixed cadence. The
 // offset is whole seconds, uniform in ±10%, and is reflected into the
 // interval bounds: a plan never goes below the lower bound or above 7 days.
-// Bilibili's offset is never negative, so a plan is never shorter than its
-// interval and therefore never below BILIBILI_MIN_INTERVAL_MINUTES, and the
-// adapter's own interval check does not skip the run.
+// A Bilibili timer's offset is never negative, so a plan is never shorter
+// than its interval and therefore never below BILIBILI_MIN_INTERVAL_MINUTES,
+// and the adapter's own interval check does not skip the run.
 func (s *Store) plannedInterval(source string, minutes int) time.Duration {
 	minutes = min(max(minutes, SourceScheduleMinMinutes), SourceScheduleMaxMinutes)
 	interval := time.Duration(minutes) * time.Minute
@@ -384,7 +395,7 @@ func (s *Store) plannedInterval(source string, minutes int) time.Duration {
 	}
 	offset := time.Duration(min(max(draw(spread), -spread), spread)) * time.Second
 	low, high := SourceScheduleMinMinutes*time.Minute, SourceScheduleMaxMinutes*time.Minute
-	if source == "bilibili" {
+	if IsBilibiliSchedule(source) {
 		low = interval
 	}
 	if interval+offset < low || interval+offset > high {
@@ -415,9 +426,12 @@ func (s *Store) planSourceSchedule(ctx context.Context, tx *sql.Tx, source strin
 }
 
 // PrepareSourceSchedules runs at every start of the process that owns the
-// timers. floor is BILIBILI_MIN_INTERVAL_MINUTES: a stored Bilibili interval
-// below a raised floor is raised to it. Timers live only in source_schedules
-// (ADR-0003), so nothing else is moved.
+// timers. floor is BILIBILI_MIN_INTERVAL_MINUTES: a stored interval of either
+// Bilibili timer below a raised floor is raised to it. A saved Bilibili timer
+// without a dynamics timer beside it gets one, as enabled and with the same
+// interval, planned half an interval after the upload read so the two never
+// fall due together. Timers live only in source_schedules (ADR-0003), so
+// nothing else is moved.
 func (s *Store) PrepareSourceSchedules(ctx context.Context, floor int, now time.Time) error {
 	tx, err := s.workflowTx(ctx)
 	if err != nil {
@@ -425,10 +439,48 @@ func (s *Store) PrepareSourceSchedules(ctx context.Context, floor int, now time.
 	}
 	defer tx.Rollback()
 	low, _ := SourceScheduleBounds("bilibili", floor)
-	if _, err = tx.ExecContext(ctx, `UPDATE source_schedules SET interval_minutes=?,updated_at=? WHERE source='bilibili' AND interval_minutes<?`, low, workflowTime(now), low); err != nil {
+	if _, err = tx.ExecContext(ctx, `UPDATE source_schedules SET interval_minutes=?,updated_at=? WHERE source IN ('bilibili',?) AND interval_minutes<?`, low, workflowTime(now), BilibiliDynamicsSource, low); err != nil {
 		return ErrWorkflowStorage
 	}
+	if err = splitBilibiliDynamics(ctx, tx, now); err != nil {
+		return err
+	}
 	if tx.Commit() != nil {
+		return ErrWorkflowStorage
+	}
+	return nil
+}
+
+// splitBilibiliDynamics adds the dynamics timer beside a saved Bilibili timer
+// that has none, keeping its switch and interval: the dynamics were read by
+// the upload timer's runs before they had a timer of their own.
+func splitBilibiliDynamics(ctx context.Context, tx *sql.Tx, now time.Time) error {
+	var present int
+	if tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM source_schedules WHERE source=?`, BilibiliDynamicsSource).Scan(&present) != nil {
+		return ErrWorkflowStorage
+	}
+	if present > 0 {
+		return nil
+	}
+	var enabled, interval int
+	var next sql.NullString
+	err := tx.QueryRowContext(ctx, `SELECT enabled,interval_minutes,next_run_at FROM source_schedules WHERE source='bilibili'`).Scan(&enabled, &interval, &next)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return ErrWorkflowStorage
+	}
+	var planned any
+	if enabled != 0 {
+		base := now
+		if parsed, parseErr := time.Parse(time.RFC3339Nano, next.String); next.Valid && parseErr == nil {
+			base = parsed
+		}
+		planned = workflowTime(base.Add(time.Duration(interval) * time.Minute / 2))
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO source_schedules(source,enabled,interval_minutes,sync_json,chain_json,next_run_at,updated_at) VALUES(?,?,?,'{}','{}',?,?)`,
+		BilibiliDynamicsSource, enabled, interval, planned, workflowTime(now)); err != nil {
 		return ErrWorkflowStorage
 	}
 	return nil

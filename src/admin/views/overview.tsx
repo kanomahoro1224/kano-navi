@@ -41,7 +41,7 @@ function SourceRow({
   id,
   health,
 }: {
-  id: "x" | "youtube" | "bilibili"
+  id: ScheduleSource
   health: SourceHealth
 }) {
   const { t, locale } = useAppSettings()
@@ -411,6 +411,12 @@ export function OverviewView({ navigate }: ViewProps) {
             <SourceRow id="x" health={overview.sources.x} />
             <SourceRow id="youtube" health={overview.sources.youtube} />
             <SourceRow id="bilibili" health={overview.sources.bilibili} />
+            {overview.sources.bilibili_dynamics ? (
+              <SourceRow
+                id="bilibili_dynamics"
+                health={overview.sources.bilibili_dynamics}
+              />
+            ) : null}
           </ul>
         </Panel>
       </div>

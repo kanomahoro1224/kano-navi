@@ -135,11 +135,10 @@ function TicketHead({
       ? videoTagLabel(item.video, t)
       : activity
         ? t(eventTagKey(activity, entryWork))
-        : item.video
-          ? videoFormLabel(item.video, t, now)
-          : typeKey
+        : (item.video && videoFormLabel(item.video, t, now)) ||
+          (typeKey
             ? t(typeKey)
-            : eventDetailText(item.detail, t) || t("schedule.publicEvent")
+            : eventDetailText(item.detail, t) || t("schedule.publicEvent"))
   // A members-only entry keeps saying so beside its activity or video form,
   // as the schedule does.
   const membersChip = membersChipBeside(
@@ -429,6 +428,7 @@ function LatestCard({
   t: Translator
 }) {
   const links = videoLinks(companion.video, locale, now)
+  const companionForm = videoFormLabel(companion.video, t, now)
   return (
     <div className="latest-card link-card" onClick={followCardLink}>
       <span className="latest-card-art" aria-hidden="true">
@@ -451,7 +451,7 @@ function LatestCard({
       <span className="latest-card-copy">
         <span className="ticket-head">
           <span className="kicker">{t("spotlight.latest")}</span>
-          <span className="tag">{videoFormLabel(companion.video, t, now)}</span>
+          {companionForm ? <span className="tag">{companionForm}</span> : null}
           <VideoTagChip video={companion.video} t={t} />
           <VideoAvailabilityChip video={companion.video} t={t} />
         </span>

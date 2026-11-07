@@ -65,7 +65,8 @@ external work:
   "sources": {
     "x":       {"skipped", "lastSuccessAt", "lastStep"},
     "youtube": {"skipped", "lastSuccessAt", "lastStep", "push": {"enabled", "verified"}},
-    "bilibili": {"skipped", "lastSuccessAt", "lastStep"}
+    "bilibili": {"skipped", "lastSuccessAt", "lastStep"},
+    "bilibili_dynamics": {"skipped", "lastSuccessAt", "lastStep"} // lastSuccessAt: the listing's
   },
   "review": {
     "pendingImages",          // unlabelled images with a URL the model has not settled (pending, uncertain, failed)
@@ -193,7 +194,8 @@ A busy queue answers `409` with the active run. There are no saved workflows
 `/workflows` routes (`404 not_found`).
 
 `GET /runs/steps` is the step catalog `[{id, group}]` in execution order
-(`x`, `youtube`, `bilibili` are `source`; `media`, `schedule`,
+(`x`, `youtube`, `bilibili`, `bilibili_dynamics` are `source`; `media`,
+`schedule`,
 `translate`, `reconcile` are `process`), and `skippedSteps` lists the
 steps disabled through `SKIP_*`.
 
@@ -252,16 +254,18 @@ it, or the method's adapter, is missing. `refresh` and `extract` say which
 options the method takes.
 
 `schedules` lists the [source schedules](workflows.md#source-schedules) of
-`x`, `youtube` and `bilibili`, in that order. `SourceSchedule` is `{source,
+`x`, `youtube`, `bilibili` and `bilibili_dynamics`, in that order.
+`SourceSchedule` is `{source,
 enabled, intervalMinutes, minIntervalMinutes, maxIntervalMinutes, sync,
 chain, nextRunAt, lastRun, skipped}`, plus `reason: "environment"` while `SKIP_*`
-disables the source. `sync` is `{mode: "incremental", max}` (default, `max` 50) or `{mode: "count", count}`, each 1–200, and null for Bilibili.
+disables the source. `sync` is `{mode: "incremental", max}` (default, `max` 50) or `{mode: "count", count}`, each 1–200, and null for both Bilibili timers.
 `chain` is the source's [method chain](workflows.md#method-chains):
 `{methods, fixed}`, where `methods` lists `{id, enabled, available,
 requires}` in the order reads try them. `available` is false while the
 method's credential is missing, and `requires` names its variable
 (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY` or `YTDLP_BINARY`) for methods that need one. `fixed`
-is true for Bilibili, whose one method `list` cannot change. The X chain adds
+is true for the Bilibili timers, whose one method (`list` for uploads,
+`dynamics` for the dynamics listing) cannot change. The X chain adds
 `apiGate`, `apiDailyCap`, `apiUsage` (`{day, posts}`, the posts X API
 answers returned on the current Japan day) and `timelineFailures`, each
 account's current streak (see
@@ -269,7 +273,8 @@ account's current streak (see
 `lastRun` is `{id, status, at}` of the newest run of the source's chain, from
 its timer or Run now
 (durable run status; `at` is when it finished, started or was queued), or
-null. The Bilibili `minIntervalMinutes` is `BILIBILI_MIN_INTERVAL_MINUTES`.
+null. The `minIntervalMinutes` of both Bilibili timers is
+`BILIBILI_MIN_INTERVAL_MINUTES`.
 `PUT /sources/{source}/schedule` takes any subset of `{enabled,
 intervalMinutes, sync, chain}` and keeps omitted fields. `chain` takes any
 subset of `{methods, apiGate, apiDailyCap}`: `methods` is `[{id, enabled}]`
@@ -277,9 +282,9 @@ in the new order and must list every method of the source once with at
 least one enabled; `apiGate` (0–100) and `apiDailyCap` (1–10,000) apply to X
 only. It answers `404 not_found` for another source and `400 invalid_input`
 for other fields, an interval outside the bounds, an invalid `sync` or a
-`sync` for Bilibili, and for a chain with an unknown or repeated method, a
+`sync` for either Bilibili timer, and for a chain with an unknown or repeated method, a
 missing method, no enabled method, a gate or cap out of range or for
-YouTube, or any chain for Bilibili. A method may be enabled while its
+YouTube, or any chain for either Bilibili timer. A method may be enabled while its
 credential is missing; reads skip it until it is set. Enabling a
 schedule or changing its interval plans the next run one interval later,
 with the timer's [random offset](workflows.md#source-schedules); a sync

@@ -79,9 +79,11 @@ export const adminMessages = {
     "admin.step.live": "Live status",
     "admin.step.x.hint": "Read new posts from the configured accounts",
     "admin.step.youtube.hint": "Read new and upcoming videos",
-    "admin.step.bilibili": "Bilibili",
-    "admin.step.bilibili.hint":
-      "Read new uploads and dynamics, at most once per interval",
+    "admin.step.bilibili": "Bilibili uploads",
+    "admin.step.bilibili.hint": "Read new uploads, at most once per interval",
+    "admin.step.bilibili_dynamics": "Bilibili dynamics",
+    "admin.step.bilibili_dynamics.hint":
+      "Read new dynamics with the login cookie, at most once per interval",
     "admin.step.media.hint": "Cache images and thumbnails locally",
     "admin.step.schedule.hint": "Turn candidate posts into schedule entries",
     "admin.step.translate": "Translation",
@@ -578,7 +580,7 @@ export const adminMessages = {
     "admin.videos.noMatch": "No videos match",
     "admin.bilibili.title": "Bilibili",
     "admin.bilibili.description":
-      "Uploads of the configured account are read at most once per interval and stay in the console. One that matches its YouTube copy is merged into it. Its dynamics show as posts on the board, and its live room marks Bilibili streams live.",
+      "Uploads of the configured account are read at most once per interval and stay in the console. One that matches its YouTube copy is merged into it.",
     "admin.bilibili.signedIn": "Signed in",
     "admin.bilibili.anonymous": "Anonymous",
     "admin.bilibili.loginExpired": "Login expired",
@@ -606,6 +608,8 @@ export const adminMessages = {
     "admin.bilibili.addPostHint":
       "A bilibili.com/opus or t.bilibili.com link to a dynamic of the configured account. It is read at once.",
     "admin.bilibili.dynamics.title": "Dynamics",
+    "admin.bilibili.dynamics.description":
+      "Dynamics of the configured account show as posts beside X posts on the board. The listing needs a login cookie; adding one dynamic by link does not.",
     "admin.bilibili.dynamics.posts": "Stored dynamics",
     "admin.bilibili.dynamics.lastAttempt": "Last read",
     "admin.bilibili.dynamics.lastSuccess": "Last success",
@@ -815,7 +819,9 @@ export const adminMessages = {
     "admin.liveProbe.stopped.unavailable": "Stopped: private or removed",
     "admin.liveProbe.stopped.operator": "Stopped by an operator",
     "admin.sources.bilibili.hint":
-      "The account's public uploads, and its dynamics with BILIBILI_SESSDATA, each read at most once per BILIBILI_MIN_INTERVAL_MINUTES.",
+      "The account's public uploads, read at most once per BILIBILI_MIN_INTERVAL_MINUTES. Its live room is checked on its own interval.",
+    "admin.sources.bilibili_dynamics.hint":
+      "The account's dynamics, read with BILIBILI_SESSDATA at most once per BILIBILI_MIN_INTERVAL_MINUTES. They share the uploads' captcha backoff: a block met by either read holds both.",
     "admin.timer.on": "Every {interval}",
     "admin.timer.enable": "Run on a timer",
     "admin.timer.enableHint":
@@ -842,8 +848,10 @@ export const adminMessages = {
     "admin.chain.title": "Method chain",
     "admin.chain.description":
       "Timed reads, Run now, pushes and step runs try the enabled methods from the top and fall to the next when the first page fails, lists none of the account's own records, or hits quota or rate limits. Manual fetches pick their own method.",
-    "admin.chain.fixed":
+    "admin.chain.fixed.bilibili":
       "Bilibili reads its upload list through one fixed method.",
+    "admin.chain.fixed.bilibili_dynamics":
+      "Bilibili reads its dynamics listing through one fixed method.",
     "admin.chain.up": "Move {method} up",
     "admin.chain.down": "Move {method} down",
     "admin.chain.needs": "Needs {variable}",
@@ -855,6 +863,7 @@ export const adminMessages = {
     "admin.chain.method.youtube.ytdlp": "yt-dlp upload metadata",
     "admin.chain.method.youtube.videos_page": "Uploads tab (IDs only)",
     "admin.chain.method.bilibili.list": "Upload list",
+    "admin.chain.method.bilibili_dynamics.dynamics": "Dynamics listing",
     "admin.chain.youtubeAPIOff":
       "With the Data API off, YouTube makes no Data API call at all: listing, details, the live-status probe and Shorts verdicts use public pages.",
     "admin.chain.apiGate": "Timeline failures before the X API",
@@ -1583,8 +1592,11 @@ export const adminMessages = {
     "admin.step.live": "直播状态",
     "admin.step.x.hint": "读取所配置账号的新贴文",
     "admin.step.youtube.hint": "读取新视频和预定直播",
-    "admin.step.bilibili": "哔哩哔哩",
-    "admin.step.bilibili.hint": "读取新投稿和动态，受最小间隔限制",
+    "admin.step.bilibili": "哔哩哔哩投稿",
+    "admin.step.bilibili.hint": "读取新投稿，受最小间隔限制",
+    "admin.step.bilibili_dynamics": "哔哩哔哩动态",
+    "admin.step.bilibili_dynamics.hint":
+      "使用登录 Cookie 读取新动态，受最小间隔限制",
     "admin.step.media.hint": "把图片和缩略图缓存到本地",
     "admin.step.schedule.hint": "把候选贴文转换为日程",
     "admin.step.translate": "翻译",
@@ -1937,7 +1949,7 @@ export const adminMessages = {
     "admin.videos.merge.titleDiffers": "标题不同",
     "admin.bilibili.title": "哔哩哔哩",
     "admin.bilibili.description":
-      "配置账号的投稿在最小间隔内最多读取一次，只显示在后台；与 YouTube 版本相符的投稿会合并到该视频。动态会作为帖子显示在公开页面，直播间状态用于标记哔哩哔哩直播。",
+      "配置账号的投稿在最小间隔内最多读取一次，只显示在后台；与 YouTube 版本相符的投稿会合并到该视频。",
     "admin.bilibili.signedIn": "已登录",
     "admin.bilibili.anonymous": "未登录",
     "admin.bilibili.loginExpired": "登录已过期",
@@ -1965,6 +1977,8 @@ export const adminMessages = {
     "admin.bilibili.addPostHint":
       "配置账号某条动态的 bilibili.com/opus 或 t.bilibili.com 链接，会立即读取。",
     "admin.bilibili.dynamics.title": "动态",
+    "admin.bilibili.dynamics.description":
+      "配置账号的动态会作为帖子与 X 贴文一起显示在公开页面。读取动态列表需要登录 Cookie；通过链接添加单条动态则不需要。",
     "admin.bilibili.dynamics.posts": "已收录动态",
     "admin.bilibili.dynamics.lastAttempt": "上次读取",
     "admin.bilibili.dynamics.lastSuccess": "上次成功",
@@ -2097,7 +2111,9 @@ export const adminMessages = {
     "admin.liveProbe.stopped.unavailable": "已停止：私密或已删除",
     "admin.liveProbe.stopped.operator": "已由管理员停止",
     "admin.sources.bilibili.hint":
-      "账号的公开投稿，以及配置 BILIBILI_SESSDATA 时的动态，各自每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次。",
+      "账号的公开投稿，每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次。直播间按自己的间隔检查。",
+    "admin.sources.bilibili_dynamics.hint":
+      "账号的动态，使用 BILIBILI_SESSDATA 读取，每 BILIBILI_MIN_INTERVAL_MINUTES 最多一次。它与投稿共用验证码退避：任一读取被拦截，两者都会暂停。",
     "admin.timer.on": "每 {interval}",
     "admin.timer.enable": "定时运行",
     "admin.timer.enableHint":

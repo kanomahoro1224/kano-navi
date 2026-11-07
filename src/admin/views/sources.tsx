@@ -77,7 +77,12 @@ import {
   type Tone,
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
-import { BilibiliSource } from "@/admin/views/bilibili-parts"
+import {
+  BilibiliDynamicsSource,
+  BilibiliSource,
+  LiveRoomFacts,
+  LiveRoomState,
+} from "@/admin/views/bilibili-parts"
 import {
   BilibiliIcon,
   explainCode,
@@ -101,7 +106,15 @@ const skipFlags: Record<ScheduleSource, string> = {
   x: "SKIP_X",
   youtube: "SKIP_YOUTUBE",
   bilibili: "SKIP_BILIBILI",
+  bilibili_dynamics: "SKIP_BILIBILI",
 }
+
+/** Both Bilibili timers: bounded by BILIBILI_MIN_INTERVAL_MINUTES, sharing
+ * one captcha backoff and with no manual fetch. */
+const isBilibili = (
+  source: ScheduleSource,
+): source is "bilibili" | "bilibili_dynamics" =>
+  source === "bilibili" || source === "bilibili_dynamics"
 
 const sameSync = (a: SourceSync | null, b: SourceSync | null) =>
   JSON.stringify(a) === JSON.stringify(b)
@@ -595,7 +608,7 @@ function TimedReadsPanel({
           <Field
             label={t("admin.timer.interval")}
             hint={
-              source === "bilibili"
+              isBilibili(source)
                 ? t("admin.timer.floor", {
                     floor: formatInterval(schedule.minIntervalMinutes, t),
                   })
@@ -683,7 +696,7 @@ function TimedReadsPanel({
             </HelpButton>
           </legend>
           {chain.fixed ? (
-            <p className="adm-field-hint">{t("admin.chain.fixed")}</p>
+            <p className="adm-field-hint">{t(`admin.chain.fixed.${source}`)}</p>
           ) : null}
           <ol className="adm-chain-list">
             {methods.map((method, index) => (
@@ -1503,15 +1516,19 @@ function PushStage({
 }
 
 /**
- * The Bilibili live-room check inside the probe: its own switch and
- * interval, saved through the same settings, and the stream events it
- * follows. The board shows a Bilibili stream On air from this check.
+ * The Bilibili live-room check on the Bilibili tab, as YouTube's probe sits
+ * on its own: a switch and interval saved through the live-probe settings,
+ * the stream events it follows and the room's last check. It runs in the
+ * live-probe step on its own interval. The board shows a Bilibili stream On
+ * air from this check.
  */
-function BilibiliProbe({
+function BilibiliLivePanel({
   probe,
+  live,
   onChange,
 }: {
   probe: NonNullable<LiveProbeStatus["bilibili"]>
+  live: Sources["bilibili"]["live"]
   onChange: (probe: LiveProbeStatus) => void
 }) {
   const { t, locale } = useAppSettings()
@@ -1532,19 +1549,33 @@ function BilibiliProbe({
     if (next) onChange(next)
   }
   return (
-    <section className="adm-bilibili-part adm-live-bilibili">
-      <h3>
-        <BilibiliIcon aria-hidden />
-        {t("admin.liveProbe.bilibili.title")}
-        {probe.enabled && !probe.available ? (
-          <Badge tone="honey">{t("admin.liveProbe.notRunning")}</Badge>
-        ) : null}
-      </h3>
-      <p className="adm-field-hint">
-        {probe.available
-          ? t("admin.liveProbe.bilibili.description")
-          : t("admin.liveProbe.bilibili.unavailable")}
-      </p>
+    <Panel
+      level={3}
+      icon={RadioTower}
+      title={
+        <>
+          {t("admin.liveProbe.bilibili.title")}
+          <HelpButton title={t("admin.liveProbe.bilibili.title")}>
+            <p>{t("admin.liveProbe.bilibili.description")}</p>
+          </HelpButton>
+        </>
+      }
+      actions={
+        <span className="adm-chip-row">
+          {live ? <LiveRoomState live={live} /> : null}
+          {probe.enabled && !probe.available ? (
+            <Badge tone="honey">{t("admin.liveProbe.notRunning")}</Badge>
+          ) : null}
+          <Switch
+            compact
+            checked={probe.enabled}
+            disabled={!probe.available || busy !== ""}
+            onChange={(bilibiliEnabled) => save({ bilibiliEnabled })}
+            label={t("admin.liveProbe.bilibili.enable")}
+          />
+        </span>
+      }
+    >
       <form
         className="adm-form"
         onSubmit={(event) => {
@@ -1552,12 +1583,11 @@ function BilibiliProbe({
           save({ bilibiliIntervalMinutes: minutes })
         }}
       >
-        <Switch
-          checked={probe.enabled}
-          disabled={!probe.available || busy !== ""}
-          onChange={(bilibiliEnabled) => save({ bilibiliEnabled })}
-          label={t("admin.liveProbe.bilibili.enable")}
-        />
+        {probe.available ? null : (
+          <p className="adm-field-hint">
+            {t("admin.liveProbe.bilibili.unavailable")}
+          </p>
+        )}
         <Field
           label={t("admin.liveProbe.interval")}
           hint={t("admin.liveProbe.intervalRange", {
@@ -1619,7 +1649,13 @@ function BilibiliProbe({
           ))}
         </ul>
       ) : null}
-    </section>
+      {live ? (
+        <section className="adm-bilibili-part">
+          <h4>{t("admin.bilibili.live.title")}</h4>
+          <LiveRoomFacts live={live} />
+        </section>
+      ) : null}
+    </Panel>
   )
 }
 
@@ -1813,9 +1849,6 @@ function LiveProbeStage({
             ))}
           </ul>
         ) : null}
-        {probe.bilibili ? (
-          <BilibiliProbe probe={probe.bilibili} onChange={onChange} />
-        ) : null}
       </Fold>
     </li>
   )
@@ -1982,7 +2015,12 @@ function LimitsPanel({
   )
 }
 
-const sourceIds: ScheduleSource[] = ["x", "youtube", "bilibili"]
+const sourceIds: ScheduleSource[] = [
+  "x",
+  "youtube",
+  "bilibili",
+  "bilibili_dynamics",
+]
 
 /**
  * The Sources page: a tab per source, then the selected source's summary
@@ -2063,10 +2101,12 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                 lastSuccess={
                   selected === "bilibili"
                     ? data.bilibili.lastSuccessAt
-                    : overview?.sources[selected].lastSuccessAt
+                    : selected === "bilibili_dynamics"
+                      ? data.bilibili.dynamics?.lastSuccessAt
+                      : overview?.sources[selected].lastSuccessAt
                 }
                 chips={
-                  selected === "bilibili" && blockedUntil ? (
+                  isBilibili(selected) && blockedUntil ? (
                     <Badge tone="danger" icon={ShieldAlert}>
                       {t("admin.bilibili.blockedUntil", {
                         time: japanStamp(blockedUntil),
@@ -2098,7 +2138,20 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                       }
                     />
                   ) : null}
-                  {selected === "bilibili" ? null : (
+                  {selected === "bilibili" &&
+                  data.youtube.liveProbe.bilibili ? (
+                    <BilibiliLivePanel
+                      probe={data.youtube.liveProbe.bilibili}
+                      live={data.bilibili.live}
+                      onChange={(liveProbe) =>
+                        sources.setData({
+                          ...data,
+                          youtube: { ...data.youtube, liveProbe },
+                        })
+                      }
+                    />
+                  ) : null}
+                  {isBilibili(selected) ? null : (
                     <LimitsPanel
                       key={`${selected}-timed`}
                       source={selected}
@@ -2117,6 +2170,11 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                 <div className="adm-source-aside">
                   {selected === "bilibili" ? (
                     <BilibiliSource
+                      status={data.bilibili}
+                      onAdded={() => void sources.reload()}
+                    />
+                  ) : selected === "bilibili_dynamics" ? (
+                    <BilibiliDynamicsSource
                       status={data.bilibili}
                       onAdded={() => void sources.reload()}
                     />

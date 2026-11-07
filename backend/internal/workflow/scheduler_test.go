@@ -77,7 +77,7 @@ func TestSchedulerRunsOnlySourceSchedulesEarliestFirst(t *testing.T) {
 	enable("bilibili", 60, nil)
 	testutil.Exec(t, p, `UPDATE source_schedules SET next_run_at=CASE source WHEN 'x' THEN '2026-03-02T03:05:00.000Z' ELSE '2026-03-02T02:50:00.000Z' END`)
 
-	all := map[string]bool{"x": true, "youtube": true, "bilibili": true, "media": true, "schedule": true, "translate": true, "reconcile": true}
+	all := map[string]bool{"x": true, "youtube": true, "bilibili": true, "bilibili_dynamics": true, "media": true, "schedule": true, "translate": true, "reconcile": true}
 	scheduler := &Scheduler{
 		Store: s, Executor: &Executor{Store: s, Clock: now, SyntheticSteps: all},
 		Enabled: true, BilibiliFloor: 60, Now: now,
@@ -100,7 +100,7 @@ func TestSchedulerRunsOnlySourceSchedulesEarliestFirst(t *testing.T) {
 	// The overdue Bilibili schedule goes before X.
 	first := tick()
 	if first == nil || first.WorkflowID != "@source-bilibili" || first.Status != "succeeded" || first.TriggerSource != "scheduler" ||
-		!slices.Equal(steps(first), []string{"bilibili", "media", "schedule", "translate", "reconcile"}) || len(first.SourceSync) != 0 {
+		!slices.Equal(steps(first), []string{"bilibili", "media", "translate", "reconcile"}) || len(first.SourceSync) != 0 {
 		t.Fatalf("first=%#v", first)
 	}
 	history, err := s.SyncRunForJob(ctx, first.ID)

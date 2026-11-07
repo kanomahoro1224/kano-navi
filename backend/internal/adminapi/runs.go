@@ -22,6 +22,7 @@ var workflowSteps = []map[string]string{
 	{"id": "x", "group": "source"},
 	{"id": "youtube", "group": "source"},
 	{"id": "bilibili", "group": "source"},
+	{"id": sqlite.BilibiliDynamicsSource, "group": "source"},
 	{"id": "media", "group": "process"},
 	{"id": "schedule", "group": "process"},
 	{"id": "translate", "group": "process"},
@@ -582,6 +583,14 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 	}
 	youtube := source("youtube")
 	youtube["push"] = map[string]any{"enabled": push["enabled"] == true, "verified": push["verified"] == true}
+	// The dynamics listing keeps its last success beside the upload read's,
+	// in the account's state.
+	dynamics := source(sqlite.BilibiliDynamicsSource)
+	if a.Bilibili != nil {
+		if status, statusErr := a.Store.BilibiliStatus(ctx, a.Bilibili.Options.Account); statusErr == nil {
+			dynamics["lastSuccessAt"] = status.Dynamics.LastSuccessAt
+		}
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"visitorRegionEnabled": visitorRegion.Enabled,
 		"visitorRegion":        visitorRegion,
@@ -591,7 +600,7 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		"timers":               timers,
 		"queue":                queue,
 		"backlog":              backlog,
-		"sources":              map[string]any{"x": source("x"), "youtube": youtube, "bilibili": source("bilibili")},
+		"sources":              map[string]any{"x": source("x"), "youtube": youtube, "bilibili": source("bilibili"), sqlite.BilibiliDynamicsSource: dynamics},
 		"review": map[string]int{
 			"pendingImages":          counts.PendingImages,
 			"suspectedCancellations": counts.SuspectedCancellations,

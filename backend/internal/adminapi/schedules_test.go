@@ -15,7 +15,7 @@ import (
 func scheduleBySource(t *testing.T, payload map[string]any, source string) map[string]any {
 	t.Helper()
 	schedules, ok := payload["schedules"].([]any)
-	if !ok || len(schedules) != 3 {
+	if !ok || len(schedules) != 4 {
 		t.Fatalf("schedules=%v", payload["schedules"])
 	}
 	for _, entry := range schedules {
@@ -180,14 +180,20 @@ func TestRunNowSubmitsTheSourceChainOnce(t *testing.T) {
 	if x["nextRunAt"] != "2026-03-02T03:30:00.000Z" || x["lastRun"].(map[string]any)["id"] != id {
 		t.Fatalf("x schedule=%v", x)
 	}
-	// Bilibili's chain has no sync setting.
-	code, payload = c.call(t, "POST", "/api/admin/sources/bilibili/run", "")
-	if code != 202 {
-		t.Fatalf("bilibili=%d %v", code, payload)
-	}
-	bilibili := c.waitForRun(t, runID(t, payload), "completed")
-	if bilibili["sourceSchedule"] != "bilibili" || fmt.Sprint(bilibili["steps"]) != "[bilibili media schedule translate reconcile]" || bilibili["fetchWindows"] != nil {
-		t.Fatalf("bilibili run=%v", bilibili)
+	// Bilibili's chains have no sync setting: uploads need no schedule
+	// extraction, and dynamics are posts that do.
+	for source, want := range map[string]string{
+		"bilibili":          "[bilibili media translate reconcile]",
+		"bilibili_dynamics": "[bilibili_dynamics media schedule translate reconcile]",
+	} {
+		code, payload = c.call(t, "POST", "/api/admin/sources/"+source+"/run", "")
+		if code != 202 {
+			t.Fatalf("%s=%d %v", source, code, payload)
+		}
+		run := c.waitForRun(t, runID(t, payload), "completed")
+		if run["sourceSchedule"] != source || fmt.Sprint(run["steps"]) != want || run["fetchWindows"] != nil {
+			t.Fatalf("%s run=%v", source, run)
+		}
 	}
 	// SKIP_* refuses Run now for that source.
 	skipped := &console{store: c.store, handler: New(Options{

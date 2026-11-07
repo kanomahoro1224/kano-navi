@@ -145,6 +145,11 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 			break
 		}
 		return s.bilibiliRecent(ctx)
+	case sqlite.BilibiliDynamicsSource:
+		if s.Bilibili == nil {
+			break
+		}
+		return s.bilibiliDynamics(ctx)
 	case "media":
 		if s.Media == nil {
 			break
@@ -381,51 +386,55 @@ func (s *SourceSteps) bilibiliRecent(ctx context.Context) (AttemptResult, error)
 	if ctx.Err() != nil {
 		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
 	}
-	var counts map[string]any
-	status := "succeeded"
 	if result.Skipped != "" {
-		counts = map[string]any{"skipped": true, "reason": result.Skipped, "requested": 0}
-	} else {
-		changed, err := s.Store.WriteBilibiliRecent(ctx, account, result)
-		if err != nil {
-			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
-		}
-		counts = map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "requested": result.Requested, "changed": changed}
-		if fetchErr != nil {
-			counts["errors"] = []string{bilisource.ErrorCode(fetchErr)}
-			status = "failed"
-		}
+		// A read skipped without a request changes no state.
+		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": result.Skipped, "requested": 0}}, nil
 	}
-	// The dynamics listing follows with the state the upload read left, so a
-	// captcha that read met holds the listing back as well.
-	dynamics, dynamicsErr := s.Bilibili.FetchDynamics(ctx, result.State)
+	changed, err := s.Store.WriteBilibiliRecent(ctx, account, result)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	counts := map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "requested": result.Requested, "changed": changed}
+	if fetchErr != nil {
+		counts["errors"] = []string{bilisource.ErrorCode(fetchErr)}
+		return AttemptResult{Status: "failed", Result: counts}, nil
+	}
+	return AttemptResult{Status: "succeeded", Result: counts}, nil
+}
+
+// bilibiliDynamics reads the first page of the account's dynamics with the
+// login cookie, at most once per interval and never during the backoff it
+// shares with the upload read: a captcha either read meets holds both back.
+// Without a cookie, or while its last check found it expired, the step is
+// skipped without a listing request. A failure is recorded, not retried.
+func (s *SourceSteps) bilibiliDynamics(ctx context.Context) (AttemptResult, error) {
+	account := s.Bilibili.Options.Account
+	state, err := s.Store.BilibiliState(ctx, account)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	dynamics, fetchErr := s.Bilibili.FetchDynamics(ctx, state)
 	if ctx.Err() != nil {
 		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
 	}
 	if dynamics.Skipped != "" && dynamics.Requested == 0 {
-		counts["dynamics"] = map[string]any{"skipped": true, "reason": dynamics.Skipped, "requested": 0}
 		// A listing skipped without a request changes no state.
-		return AttemptResult{Status: status, Result: counts}, nil
+		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": dynamics.Skipped, "requested": 0}}, nil
 	}
 	changed, err := s.Store.WriteBilibiliDynamics(ctx, account, dynamics)
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
-	listing := map[string]any{"posts": len(dynamics.Dynamics), "requested": dynamics.Requested, "changed": changed}
+	counts := map[string]any{"count": len(dynamics.Dynamics), "posts": len(dynamics.Dynamics), "requested": dynamics.Requested, "changed": changed}
 	if dynamics.Skipped != "" {
 		// The login check found the cookie expired.
-		listing["skipped"], listing["reason"] = true, dynamics.Skipped
+		counts["skipped"], counts["reason"] = true, dynamics.Skipped
 	}
-	if dynamicsErr != nil {
-		listing["errors"] = []string{bilisource.ErrorCode(dynamicsErr)}
-		if status == "succeeded" && result.Skipped == "" {
-			status = "partial"
-		} else if result.Skipped != "" {
-			status = "failed"
-		}
+	if fetchErr != nil {
+		counts["errors"] = []string{bilisource.ErrorCode(fetchErr)}
+		return AttemptResult{Status: "failed", Result: counts}, nil
 	}
-	counts["dynamics"] = listing
-	return AttemptResult{Status: status, Result: counts}, nil
+	return AttemptResult{Status: "succeeded", Result: counts}, nil
 }
 
 // live runs the live-status probe: the YouTube videos due by their phase

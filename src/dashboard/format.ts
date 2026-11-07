@@ -575,12 +575,30 @@ function streamMayBeOnAir(video: Video, now: number) {
   return start > now - LIVE_GRACE_MS
 }
 
+// A premiere before or during its showing, by videoPhase's rule: a fresh
+// confirmed state decides, else a start still ahead or an end not yet passed.
+function premiereIsCurrent(video: Video, now: number) {
+  const start = Date.parse(video.scheduledAt || "")
+  const end = Date.parse(video.endsAt || "")
+  const confirmed = confirmedLiveStatus(video)
+  if (confirmed === "live") return !(end <= now)
+  if (confirmed) return confirmed === "upcoming"
+  if (!Number.isFinite(start)) return video.isUpcoming === true
+  return start > now || end > now
+}
+
 /**
  * A video's form chip: a Short, then a stream's waiting room, then its form.
  * A stream that may be on air reads as a stream and one past that as its
- * archive. What the video is about is its tag chip.
+ * archive. A premiere is named only while it is waiting or airing, by the
+ * same rule as `videoPhase`; once it has aired it is an ordinary video with
+ * no form chip (null). What the video is about is its tag chip.
  */
-export function videoFormLabel(video: Video, t: Translator, now = Date.now()) {
+export function videoFormLabel(
+  video: Video,
+  t: Translator,
+  now = Date.now(),
+): string | null {
   if (video?.isShort === true) return t("media.kind.short")
   const kind = String(video?.kind || "")
   if (kind === "stream") {
@@ -591,7 +609,8 @@ export function videoFormLabel(video: Video, t: Translator, now = Date.now()) {
         : "media.kind.liveArchive",
     )
   }
-  if (kind === "premiere") return t("media.kind.premiere")
+  if (kind === "premiere")
+    return premiereIsCurrent(video, now) ? t("media.kind.premiere") : null
   return t("media.kind.video")
 }
 

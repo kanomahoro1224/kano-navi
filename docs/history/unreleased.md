@@ -23,7 +23,12 @@
 > Public posts may have `source: "bilibili"`,
 > public events add `platform` and full ones `liveUrl`, the dashboard adds
 > `liveNow`, translations may include `ja`, the extraction schema adds
-> `platform`, and the Bilibili timer's chain adds the `schedule` step.
+> `platform`, and the dynamics have their own `bilibili_dynamics` step and
+> timer, whose chain adds the `schedule` step; the step catalog, the source
+> schedules and the overview's sources add it. Startup gives a saved
+> Bilibili timer a dynamics timer beside it with the same switch and
+> interval, planned half an interval after the upload read; `SKIP_BILIBILI`
+> covers both.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -61,6 +66,9 @@
 - A bilibili stream links to Kano's live room and shows as live while the
   room is on air; an unannounced bilibili stream shows on the stage as live
   now without adding a schedule entry.
+- A premiere carries its Premiere label only while it waits or airs; once
+  it has aired it is an ordinary video and shows no form label, as a
+  stream archive on the shelf shows none.
 
 </details>
 
@@ -70,10 +78,12 @@
 - The extraction prompt defines each event type and returns one entry per
   sale period with its opening and its close, instead of separate entries
   of mixed types for the opening and the deadline.
-- The `bilibili` step also reads the account's dynamics with a login cookie,
-  signed with Bilibili's WBI keys, on its own interval and under the shared
-  captcha backoff; reposts, uploads and live notices are left out, and emoji
-  are dropped from the stored text.
+- A `bilibili_dynamics` step reads the account's dynamics with a login
+  cookie, signed with Bilibili's WBI keys, on its own timer and interval and
+  under the captcha backoff it shares with the upload read, so dynamics can
+  be read on a schedule apart from the uploads and their runs and failures
+  stay apart; reposts, uploads and live notices are left out, and emoji are
+  dropped from the stored text.
 - Bilibili dynamics go through schedule extraction with a Chinese prompt.
   The model gives times as written with their zone, and code converts
   Beijing time to Japan time, including the next-day rollover
@@ -100,11 +110,17 @@
 
 - The schedule editor offers the Sale type, with a close date and time in
   place of the length.
-- The Bilibili source shows the dynamics listing, the live room and whether
-  the login cookie signs in, and adds a dynamic by its opus link. During a
-  captcha backoff, adding or refreshing one upload or dynamic offers **Try
-  once anyway**. The live-status probe gains the Bilibili
-  switch and interval. Translation views show the Japanese locale, and
-  bilibili posts offer no X-only actions.
+- Sources has a Bilibili uploads and a Bilibili dynamics tab, each with
+  its timer and Run now. Bilibili uploads holds the live room check (its
+  switch, interval, followed streams and the room's last check) in the
+  main column, as YouTube holds its probe; Bilibili dynamics shows the
+  listing's last read and whether the login cookie signs in, and adds a
+  dynamic by its opus link. During a captcha backoff, adding or refreshing
+  one upload or dynamic offers **Try once anyway**. Translation views show
+  the Japanese locale, and bilibili posts offer no X-only actions.
+- Site → Image copies shows its panel and group meters at once and fills in
+  the counts when the listing arrives.
+- Source tabs that overflow a phone screen scroll within their row instead
+  of widening the page.
 
 </details>

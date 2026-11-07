@@ -701,8 +701,9 @@ poll.
 
 ### Bilibili
 
-The `bilibili` step reads the uploads and the dynamics (动态) of
-`BILIBILI_UID` (Kano's account by default); the [live-status
+The `bilibili` step reads the uploads and the `bilibili_dynamics` step the
+dynamics (动态) of `BILIBILI_UID` (Kano's account by default), each on its
+own [timer](workflows.md#source-schedules); the [live-status
 probe](workflows.md#live-status-probe) checks its live room. Every request
 goes to one of three fixed hosts: `api.bilibili.com`, `www.bilibili.com`
 (the opus page of one dynamic only) and `api.live.bilibili.com`. Uploads use
@@ -743,13 +744,13 @@ HTML captcha page, or an opus page without its state),
 and `bilibili_risk_control_voucher` (a `v_voucher` instead of the listing);
 `-799`/`-509`/429 are `bilibili_rate_limited`. Each starts the same backoff:
 the adapter waits 6 hours, doubled for each consecutive block up to a day,
-and the step makes no `api.bilibili.com` or `www.bilibili.com` request until
-then; independently, upload reads are at least
+and neither step makes an `api.bilibili.com` or `www.bilibili.com` request
+until then; independently, upload reads are at least
 `BILIBILI_MIN_INTERVAL_MINUTES` (180 by default) apart, which is also the
-shortest Bilibili schedule interval. A skipped read records `{ skipped: true,
-reason: "interval" | "blocked" }`; a failed one records its code as a failed
-step without a retry, keeps every stored upload and post, and lets the rest
-of the run continue.
+shortest interval of either Bilibili timer. A skipped read records
+`{ skipped: true, reason: "interval" | "blocked" }`; a failed one records its
+code as a failed step without a retry, keeps every stored upload and post,
+and lets the rest of the run continue.
 
 `BILIBILI_SESSDATA` optionally adds an operator's login cookie to the
 `api.bilibili.com` requests (never to the device-identity or ticket request,
@@ -757,7 +758,8 @@ the opus page or the live host). Signed-in reads meet the captcha far less
 often, and the dynamics listing needs one. The cookie is verified at most once
 a day through `nav`'s `isLogin`, when the listing runs; while the latest check
 found it expired, no request sends it and the listing waits for the next
-check (`dynamics: { skipped: true, reason: "login_expired" }`, error
+check (`{ skipped: true, reason: "login_expired" }` on the
+`bilibili_dynamics` step, error
 `bilibili_login_expired`). The console reports `signed_in`, `expired`,
 `unchecked` or `not_configured`. The cookie stays in memory: it is not part of
 the persisted state, not logged and not returned; see
@@ -801,18 +803,19 @@ The dynamics listing,
 `/x/polymer/web-dynamic/v1/feed/space?host_mid=<mid>`, answers reliably only
 to a signed-in caller, so it runs only with `BILIBILI_SESSDATA`
 ([ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)).
-Without the cookie the step records `dynamics: { skipped: true, reason:
-"login_required" }` and makes no anonymous attempt. The listing is signed
+Without the cookie the `bilibili_dynamics` step records `{ skipped: true,
+reason: "login_required" }` and makes no anonymous attempt. The listing is signed
 with Bilibili's WBI scheme (`wts` and `w_rid` from the rotating keys that
 the ticket or `/x/web-interface/nav` names); the keys are cached for 12
 hours and dropped after a `v_voucher` or `-352` answer, which may mean they
 rotated. A signed-out `nav` answer, or `-101` from the listing, is
 `bilibili_login_expired`. The listing shares the upload read's captcha
-backoff, so a block either one met holds both back, and runs on its own
-clock at least `BILIBILI_MIN_INTERVAL_MINUTES` apart, after the upload read
-in the same step. One read requests the first page only: the listing itself,
-plus `nav` for the daily login check or stale keys, and the device identity
-and ticket when they are due.
+backoff and device identity, so a block either one met holds both back, and
+runs on its own clock at least `BILIBILI_MIN_INTERVAL_MINUTES` apart. The
+single-flight queue never runs the two steps at once, so their writes of the
+shared state never race. One read requests the first page only: the listing
+itself, plus `nav` for the daily login check or stale keys, and the device
+identity and ticket when they are due.
 
 A listing keeps the account's own `DYNAMIC_TYPE_WORD` and `DYNAMIC_TYPE_DRAW`
 items (the opus and picture cards), and `DYNAMIC_TYPE_ARTICLE` items only in

@@ -14,6 +14,7 @@ const overview = {
     x: { skipped: true, lastSuccessAt: null, lastStep: null },
     youtube: { skipped: true, lastSuccessAt: null, lastStep: null },
     bilibili: { skipped: true, lastSuccessAt: null, lastStep: null },
+    bilibili_dynamics: { skipped: true, lastSuccessAt: null, lastStep: null },
   },
   review: {
     pendingImages: 0,

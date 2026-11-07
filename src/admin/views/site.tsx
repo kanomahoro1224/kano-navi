@@ -102,27 +102,49 @@ function VisitorRegionPanel({
   )
 }
 
-/** One group's ready originals against all of them, with what is left. */
-function VariantMeter({ group }: { group: VariantGroupStatus }) {
+/** The groups in the order the server lists them, shown before it answers. */
+const variantGroups: VariantGroupStatus["group"][] = [
+  "lineblog",
+  "history",
+  "media",
+]
+
+/**
+ * One group's ready originals against all of them, with what is left; a
+ * group not read yet keeps its place with dashes.
+ */
+function VariantMeter({
+  name,
+  group,
+}: {
+  name: VariantGroupStatus["group"]
+  group: VariantGroupStatus | undefined
+}) {
   const { t } = useAppSettings()
-  const missing = group.originals - group.ready
-  const share = group.originals > 0 ? group.ready / group.originals : 0
+  const missing = group ? group.originals - group.ready : 0
+  const share = group && group.originals > 0 ? group.ready / group.originals : 0
   return (
-    <li className="adm-meter">
+    <li className={`adm-meter${group ? "" : " is-pending"}`}>
       <span className="adm-meter-label">
-        {t(`admin.site.variantsGroup.${group.group}`)}
+        {t(`admin.site.variantsGroup.${name}`)}
       </span>
       <span className="adm-meter-value">
-        <strong>{group.ready}</strong>
-        <small>{t("admin.site.variantsOf", { count: group.originals })}</small>
+        <strong>{group ? group.ready : "—"}</strong>
+        {group ? (
+          <small>
+            {t("admin.site.variantsOf", { count: group.originals })}
+          </small>
+        ) : null}
       </span>
       <span className="adm-meter-bar" aria-hidden>
         <i style={{ width: `${share * 100}%` }} />
       </span>
       <span className="adm-meter-label">
-        {missing > 0
-          ? t("admin.site.variantsMissing", { count: missing })
-          : t("admin.site.variantsComplete")}
+        {!group
+          ? " "
+          : missing > 0
+            ? t("admin.site.variantsMissing", { count: missing })
+            : t("admin.site.variantsComplete")}
       </span>
     </li>
   )
@@ -130,15 +152,18 @@ function VariantMeter({ group }: { group: VariantGroupStatus }) {
 
 /**
  * The smaller image copies: how complete each group is and a run that makes
- * the missing ones. The page reads the status when it opens and after every
- * run, never on a timer; the server answers its last listing until a run
+ * the missing ones. The panel renders at once and fills in when the status
+ * arrives. The page reads the status when it opens and after every run,
+ * never on a timer; the server answers its last listing until a run
  * finishes, and Check again lists anew.
  */
 function VariantsPanel({
   status,
+  loading,
   onChange,
 }: {
-  status: VariantStatus
+  status: VariantStatus | undefined
+  loading: boolean
   onChange: (status: VariantStatus) => void
 }) {
   const { t, locale } = useAppSettings()
@@ -153,7 +178,7 @@ function VariantsPanel({
   }
   const active = overview?.activeRun
   const running = active?.kind === "variants"
-  const missing = status.groups.reduce(
+  const missing = (status?.groups ?? []).reduce(
     (sum, group) => sum + group.originals - group.ready,
     0,
   )
@@ -173,7 +198,7 @@ function VariantsPanel({
             size="sm"
             variant="ghost"
             icon={RefreshCw}
-            busy={checking}
+            busy={checking || (loading && !status)}
             onClick={() => void check()}
           >
             {t("admin.site.variantsRefresh")}
@@ -193,15 +218,23 @@ function VariantsPanel({
         </>
       }
     >
-      <ul className="adm-meters">
-        {status.groups.map((group) => (
-          <VariantMeter key={group.group} group={group} />
+      <ul className="adm-meters" aria-busy={!status}>
+        {variantGroups.map((name) => (
+          <VariantMeter
+            key={name}
+            name={name}
+            group={status?.groups.find((group) => group.group === name)}
+          />
         ))}
       </ul>
       <p className="adm-field-hint">
-        {t("admin.site.variantsChecked", {
-          time: japanStamp(status.checkedAt),
-        })}{" "}
+        {status
+          ? t("admin.site.variantsChecked", {
+              time: japanStamp(status.checkedAt),
+            })
+          : loading
+            ? t("admin.loading")
+            : null}{" "}
         {t("admin.site.variantsBudget")}
       </p>
     </Panel>
@@ -226,14 +259,11 @@ export function SiteView() {
           onChange={(next) => region.setData(next)}
         />
       )}
-      {variants.data ? (
-        <VariantsPanel
-          status={variants.data}
-          onChange={(next) => variants.setData(next)}
-        />
-      ) : variants.loading ? (
-        <Loading />
-      ) : null}
+      <VariantsPanel
+        status={variants.data}
+        loading={variants.loading}
+        onChange={(next) => variants.setData(next)}
+      />
     </div>
   )
 }

@@ -76,8 +76,9 @@ lead is the featured video, or else the newest work tagged `song` or
 premiere, or else the newest work, so a Short leads only when featured; each video appears
 once. A video carries two chips. The form chip (`videoFormLabel`) names a
 Short, then a stream's waiting room, then the form (stream while it may be
-on air by the same rule as a live entry, then stream archive, premiere,
-video); a reported end that has passed makes it an archive even while a
+on air by the same rule as a live entry, then stream archive, premiere
+while it waits or airs by `videoPhase`'s rule, then video); a premiere that
+has aired is an ordinary video and has no form chip (`null`); a reported end that has passed makes it an archive even while a
 `live` result is still fresh, as `videoPhase` files it, and every caller
 passes the board's clock. The tag chip (`VideoTagChip` in
 `src/dashboard/components/event-tag.tsx`) adds the tag with the schedule's
@@ -313,7 +314,8 @@ translate), with its count and the run that takes it. A row opens the post
 list or the video list on those requests; nothing shows while none waits.
 
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
-tabs for X, YouTube and Bilibili, each with the platform's logo, a dot (or
+tabs for X, YouTube, Bilibili uploads and Bilibili dynamics, each with the
+platform's logo, a dot (or
 a lock) for whether its timer runs here and the state as its tooltip.
 The selected source opens with a summary: what it reads, its timer state,
 next run, last run and last successful read, the timer switch (which saves
@@ -325,7 +327,7 @@ summary the main column holds the timed reads, one form with one Save and
 Discard: the interval and, for X and YouTube, the sync setting; and the
 [method chain](workflows.md#method-chains), with every method's switch and
 up/down moves, a method the process cannot run greyed with the variable it
-needs, and Bilibili's one fixed method read-only. Save sends only the
+needs, and each Bilibili timer's one fixed method read-only. Save sends only the
 changed fields, and the timer switch keeps unsaved edits.
 
 Settings below the timed reads are folded: a header row with the title,
@@ -339,7 +341,10 @@ also lists its active videos, each with Stop checking, and its stopped
 videos, each with Check again), followed by
 the read-only
 [follow-up checks](sources.md#follow-up-checks-and-refresh-requests), and
-yt-dlp, with its status in the header. X and YouTube fold their timed-read
+yt-dlp, with its status in the header. Bilibili uploads adds the Bilibili
+live room, the live-status probe's Bilibili part: the room's state and the
+check's switch in the header, its interval, next check and the stream
+entries it follows, then the room's last check. X and YouTube fold their timed-read
 limits in the main column and the manual-fetch limits, which they share,
 under the manual fetch, one field per row with its label beside the input.
 Both limit folds edit the page's one read of the settings. Longer
@@ -348,8 +353,9 @@ label: the chain, the X API limits, YouTube's per-run limit, its
 progressive confirmation and each of its steps, and yt-dlp.
 
 The manual fetch sits beside the main column: method, mode, count or
-dates, options, then the newest fetch's summary; Bilibili shows its account
-and single-video form there. On a narrower screen the side column follows
+dates, options, then the newest fetch's summary. Bilibili uploads shows
+its account, login state and single-upload form there, and Bilibili dynamics
+its login state, the listing's last read and the single-dynamic form. On a narrower screen the side column follows
 the main one, and on a phone the tabs share the width and show only the
 source names, and a fold's header controls move under its title.
 

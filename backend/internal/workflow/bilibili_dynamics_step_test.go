@@ -47,7 +47,7 @@ func biliResponder(t *testing.T, paths *[]string, live string) func(*http.Reques
 	}
 }
 
-func TestBilibiliStepReadsDynamicsOnlyWithALogin(t *testing.T) {
+func TestBilibiliDynamicsStepReadsOnlyWithALoginOnItsOwnClock(t *testing.T) {
 	s, err := sqlite.OpenInitialized(filepath.Join(t.TempDir(), "data", "database", "snapshot.sqlite"), true, true)
 	if err != nil {
 		t.Fatal(err)
@@ -57,32 +57,47 @@ func TestBilibiliStepReadsDynamicsOnlyWithALogin(t *testing.T) {
 	adapter := bilisource.NewAdapter(bilisource.NewClient(&http.Client{Transport: xTestRT(biliResponder(t, &paths, ""))}),
 		bilisource.Options{Account: bilisource.DefaultAccount, MinInterval: 3 * time.Hour, PageSize: 20})
 	steps := &SourceSteps{Store: s, Bilibili: adapter}
-	run := func() AttemptResult {
+	run := func(step string) AttemptResult {
 		t.Helper()
-		result, err := steps.Execute(context.Background(), StepInput{StepID: "bilibili", WorkflowID: sqlite.AdhocSyncWorkflow})
+		result, err := steps.Execute(context.Background(), StepInput{StepID: step, WorkflowID: sqlite.AdhocSyncWorkflow})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return result
 	}
-	anonymous := run()
-	dynamics, _ := anonymous.Result["dynamics"].(map[string]any)
-	if anonymous.Status != "succeeded" || dynamics["reason"] != "login_required" || strings.Contains(strings.Join(paths, ","), "feed/space") {
+	// The upload step reads only the upload list.
+	uploads := run("bilibili")
+	if uploads.Status != "succeeded" || uploads.Result["dynamics"] != nil || strings.Contains(strings.Join(paths, ","), "feed/space") {
+		t.Fatalf("uploads=%#v paths=%v", uploads, paths)
+	}
+	// Without a login the dynamics step is skipped without a request.
+	paths = nil
+	anonymous := run(sqlite.BilibiliDynamicsSource)
+	if anonymous.Status != "succeeded" || anonymous.Result["reason"] != "login_required" || anonymous.Result["requested"] != 0 || len(paths) != 0 {
 		t.Fatalf("anonymous=%#v paths=%v", anonymous, paths)
 	}
-	// With a login the listing follows the upload read on its own clock.
+	// With a login it checks the cookie and reads the listing, reusing the
+	// device identity the upload read left.
 	adapter.Options.SESSDATA = syntheticLogin
 	clock := time.Now().Add(4 * time.Hour)
 	adapter.Now = func() time.Time { return clock }
 	paths = nil
-	signedIn := run()
-	dynamics, _ = signedIn.Result["dynamics"].(map[string]any)
-	if signedIn.Status != "succeeded" || dynamics["posts"] != 1 || dynamics["changed"] != true || strings.Join(paths, ",") != "api.bilibili.com/x/series/recArchivesByKeywords,api.bilibili.com/x/web-interface/nav,api.bilibili.com/x/polymer/web-dynamic/v1/feed/space" {
+	signedIn := run(sqlite.BilibiliDynamicsSource)
+	if signedIn.Status != "succeeded" || signedIn.Result["posts"] != 1 || signedIn.Result["changed"] != true || strings.Join(paths, ",") != "api.bilibili.com/x/web-interface/nav,api.bilibili.com/x/polymer/web-dynamic/v1/feed/space" {
 		t.Fatalf("signed in=%#v paths=%v", signedIn, paths)
 	}
 	page, err := s.ListAdminPosts(context.Background(), sqlite.AdminPostFilter{Page: 1, PageSize: 10, Source: "bilibili"})
 	if err != nil || page.Total != 1 || page.Items[0].ID != "bilibili-900000000000000010" || page.Items[0].Translation == nil {
 		t.Fatalf("posts=%#v err=%v", page, err)
+	}
+	// Each read keeps its own interval: the listing waits, the upload list,
+	// last read four hours ago, is due.
+	paths = nil
+	if again := run(sqlite.BilibiliDynamicsSource); again.Result["reason"] != "interval" || len(paths) != 0 {
+		t.Fatalf("again=%#v paths=%v", again, paths)
+	}
+	if uploads = run("bilibili"); uploads.Status != "succeeded" || strings.Join(paths, ",") != "api.bilibili.com/x/series/recArchivesByKeywords" {
+		t.Fatalf("uploads due=%#v paths=%v", uploads, paths)
 	}
 }
 

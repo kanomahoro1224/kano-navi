@@ -16,8 +16,9 @@ works remain beside those reservations.
 Below the lead, stream archives appear as a grid of large thumbnails (two rows
 of two on phones), followed by a row of Shorts.
 
-Each video says how it was published (a stream archive, a premiere, a video
-or a Short) and, beside that, what it is about when known: a gameplay, talk or
+Each video says how it was published (a stream archive, a video or a Short,
+or a premiere until it has aired; an aired premiere is an ordinary video and
+shows no such label) and, beside that, what it is about when known: a gameplay, talk or
 singing stream, or a game, talk or music video, each with an icon: a
 controller for games, a speech bubble for talk, a vocal microphone for
 singing (as in the schedule) and a note for music. An **All / Streams / Works /

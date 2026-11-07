@@ -230,13 +230,21 @@ checkpoint.
 Each source has its own timer
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)), stored in
 the additive `source_schedules` table and edited on the console's Sources
-page. A fresh installation keeps all three disabled.
+page. A fresh installation keeps all four disabled.
 
-| Source     | Interval (default, bounds)                        | Fixed chain                           |
-| ---------- | ------------------------------------------------- | ------------------------------------- |
-| `x`        | 30 min, 15 min – 7 days                           | `x`, `media`, `schedule`, `translate` |
-| `youtube`  | 60 min, 15 min – 7 days                           | `youtube`, `media`, `translate`       |
-| `bilibili` | 180 min, `BILIBILI_MIN_INTERVAL_MINUTES` – 7 days | `bilibili`, `media`, `translate`      |
+| Source              | Interval (default, bounds)                        | Fixed chain                                           |
+| ------------------- | ------------------------------------------------- | ----------------------------------------------------- |
+| `x`                 | 30 min, 15 min – 7 days                           | `x`, `media`, `schedule`, `translate`                 |
+| `youtube`           | 60 min, 15 min – 7 days                           | `youtube`, `media`, `translate`                       |
+| `bilibili`          | 180 min, `BILIBILI_MIN_INTERVAL_MINUTES` – 7 days | `bilibili`, `media`, `translate`                      |
+| `bilibili_dynamics` | 180 min, `BILIBILI_MIN_INTERVAL_MINUTES` – 7 days | `bilibili_dynamics`, `media`, `schedule`, `translate` |
+
+Bilibili has two timers because its two reads serve different purposes:
+the uploads are an archive, like YouTube's, while the dynamics announce
+schedules, like X posts, and need the login cookie. Each timer has its own
+interval, runs and Run now; both share the client, device identity and
+captcha backoff, so a captcha met by either read holds both, and their
+requests to the same address add up.
 
 When a schedule is due, the server process submits its chain as the ad hoc
 run `@source-<source>` (`reconcile` is appended as for every run with a
@@ -258,8 +266,8 @@ submit the `youtube` chain as well (labelled `websub`). The operator's
 single-video refresh keeps its own steps, and the
 [live-status probe](#live-status-probe) has its own timer. X has no push, so its
 timer is how new posts arrive; YouTube push and the probe catch most
-YouTube changes and its timer is a fallback; the Bilibili interval cannot go
-below the environment floor, and the adapter's own interval and backoff
+YouTube changes and its timer is a fallback; neither Bilibili interval can
+go below the environment floor, and the adapter's own interval and backoff
 checks stay as the safety net.
 
 X and YouTube schedules carry a sync setting that says how much a run reads
@@ -336,15 +344,16 @@ Each plan adds a random offset of whole seconds, uniform in ±10% of the
 interval (a 30-minute X timer runs 27–33 minutes apart), so timed reads do
 not reach FxTwitter, YouTube or `api.bilibili.com` on a fixed cadence. An
 offset that would leave the interval bounds is reflected back, so a plan is
-never shorter than 15 minutes nor longer than 7 days. Bilibili's offset is
-never negative (0 to +10%): its interval is never below
+never shorter than 15 minutes nor longer than 7 days. A Bilibili timer's
+offset is never negative (0 to +10%): its interval is never below
 `BILIBILI_MIN_INTERVAL_MINUTES`, so a plan is never sooner than the floor and
 the adapter's interval check does not skip a timed run. Run now, YouTube
 pushes and the live-status probe have no offset. The draw is the store's
 injectable `SetScheduleOffset`, which tests replace for deterministic plans.
 `WORKFLOW_SCHEDULER_ENABLED=0` stops source schedules as well, and `SKIP_X`,
-`SKIP_YOUTUBE` and `SKIP_BILIBILI` disable that source's schedule, which the
-console reports as `{ skipped: true, reason: "environment" }`.
+`SKIP_YOUTUBE` and `SKIP_BILIBILI` disable that source's schedules (both
+Bilibili timers for `SKIP_BILIBILI`), which the console reports as
+`{ skipped: true, reason: "environment" }`.
 
 #### The `workflows` table
 
@@ -356,13 +365,19 @@ nothing reads or writes it, and no timer is derived from it. A run whose
 `workflow_id` is not a reserved `@` ID (see
 [Backend](backend.md#jobs-and-workflows)) keeps that ID, and the history
 labels it as a retired workflow. Every start of `kano-go serve` raises a
-stored Bilibili interval below `BILIBILI_MIN_INTERVAL_MINUTES` to that floor.
+stored interval of either Bilibili timer below
+`BILIBILI_MIN_INTERVAL_MINUTES` to that floor. A saved `bilibili` timer
+without a `bilibili_dynamics` timer beside it gets one with the same switch
+and interval, planned half an interval after the upload read, so the two
+never fall due together; once that row exists the operator's settings are
+its own.
 
 ## Modular Steps and Timers
 
 Synchronization is split into modular steps declared in
 `backend/internal/jobs` (`StepOrder`), executed in this order: `x`,
-`youtube`, `bilibili`, `media`, `schedule`, `translate`, `reconcile`. `kano-go sync` (`make sync`) runs every step
+`youtube`, `bilibili`, `bilibili_dynamics`, `media`, `schedule`,
+`translate`, `reconcile`. `kano-go sync` (`make sync`) runs every step
 and records the ones disabled by `SKIP_*` as skipped.
 A one-off step run (the Runs page, `POST /api/admin/runs` with
 `{ "kind": "workflow", "steps": [...] }`) picks any subset from the catalog
@@ -374,13 +389,13 @@ step is disabled by `SKIP_*`, its result records `{ skipped: true, reason:
 steps, sync settings and windows, so a failed run with a retryable failed
 step can be retried without any saved definition.
 
-`bilibili` paces itself: it reads the account's upload list, and then with
-`BILIBILI_SESSDATA` its dynamics, each at most once per
-`BILIBILI_MIN_INTERVAL_MINUTES` on its own clock and never during the shared
-captcha backoff, so it is safe in a manual run soon after its timer (see
-[Bilibili](sources.md#bilibili)). Its result keeps the upload counts at the
-top level and the listing's under `dynamics`; a failed listing after a
-successful upload read makes the step `partial`.
+`bilibili` and `bilibili_dynamics` pace themselves: `bilibili` reads the
+account's upload list and `bilibili_dynamics`, with `BILIBILI_SESSDATA`, its
+dynamics, each at most once per `BILIBILI_MIN_INTERVAL_MINUTES` on its own
+clock and never during the shared captcha backoff, so either is safe in a
+manual run soon after its timer (see [Bilibili](sources.md#bilibili)). A
+read skipped without a request records `{ skipped: true, reason }` and
+succeeds; a failed read makes its step `failed`.
 
 `reconcile` derives the YouTube events of stored videos and applies the
 deterministic duplicate-merge rules in
@@ -515,7 +530,8 @@ projections omit raw payloads, stack traces, paths, credentials and provider
 text.
 
 Each step records the adapter that serves it in `adapter_capability`
-(`x_recent`, `youtube_recent`, `bilibili_recent`, `youtube_live`,
+(`x_recent`, `youtube_recent`, `bilibili_recent`, `bilibili_dynamics`,
+`youtube_live`,
 `media_download`, `schedule_extract`, `text_translate`, `media_variants` or
 `event_reconcile`), which projections read before the constrained
 `capability` column (`synthetic`, `x_recent` or `capability_not_migrated`).

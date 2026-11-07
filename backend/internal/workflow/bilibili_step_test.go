@@ -67,6 +67,13 @@ func TestBilibiliStepStoresUploadsOncePerIntervalAndRecordsCaptchas(t *testing.T
 	if err != nil || !state.BlockedUntil.After(now) {
 		t.Fatalf("state=%#v err=%v", state, err)
 	}
+	// The backoff is shared: the dynamics step waits too, even with a login
+	// and its own interval elapsed, and makes no request.
+	adapter.Options.SESSDATA = syntheticLogin
+	held, err := steps.Execute(context.Background(), StepInput{StepID: sqlite.BilibiliDynamicsSource, WorkflowID: sqlite.AdhocSyncWorkflow})
+	if err != nil || held.Status != "succeeded" || held.Result["reason"] != "blocked" || requests != 4 {
+		t.Fatalf("held=%#v err=%v requests=%d", held, err, requests)
+	}
 	// The stored upload survives the failed read.
 	page, err := s.ListAdminVideos(context.Background(), sqlite.AdminVideoFilter{Source: "bilibili"})
 	if err != nil || page.Total != 1 {

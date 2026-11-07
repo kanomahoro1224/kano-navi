@@ -162,7 +162,7 @@ function AddForm({
 }
 
 /** The live room's last check: its state, title and when it went live. */
-function LiveRoomState({ live }: { live: BilibiliLiveRoom }) {
+export function LiveRoomState({ live }: { live: BilibiliLiveRoom }) {
   const { t } = useAppSettings()
   const state = live.liveStatus == null ? null : roomStates[live.liveStatus]
   return state ? (
@@ -172,12 +172,113 @@ function LiveRoomState({ live }: { live: BilibiliLiveRoom }) {
   ) : null
 }
 
+const future = (value: string | null | undefined) =>
+  Boolean(value && Date.parse(value) > Date.now())
+
+/** A Japan time with how long ago or until it is, or null. */
+function useStamp() {
+  const { locale } = useAppSettings()
+  return (value: string | null | undefined) =>
+    value ? `${japanStamp(value)} · ${formatRelative(value, locale)}` : null
+}
+
+/** An error code explained, with the code as its tooltip, or nothing. */
+function ErrorText({ code }: { code: string | null | undefined }) {
+  const { t } = useAppSettings()
+  return code ? <span title={code}>{explainCode(code, t) ?? code}</span> : null
+}
+
+/** The live room's last check, as the live-check panel lists it. */
+export function LiveRoomFacts({ live }: { live: BilibiliLiveRoom }) {
+  const { t } = useAppSettings()
+  const stamp = useStamp()
+  return (
+    <Facts
+      items={[
+        [
+          t("admin.bilibili.live.room"),
+          live.roomId ? (
+            <a
+              className="adm-link"
+              href={`https://live.bilibili.com/${encodeURIComponent(live.roomId)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {live.roomId}
+            </a>
+          ) : null,
+        ],
+        [t("admin.bilibili.live.streamTitle"), live.title],
+        [
+          t("admin.bilibili.live.liveTime"),
+          live.liveTime
+            ? stamp(live.liveTime)
+            : live.liveStatus === 1
+              ? t("admin.bilibili.live.startUnknown")
+              : null,
+        ],
+        [t("admin.bilibili.live.checkedAt"), stamp(live.checkedAt)],
+        [t("admin.bilibili.live.lastLiveAt"), stamp(live.lastLiveAt)],
+        [
+          t("admin.bilibili.live.blockedUntil"),
+          future(live.blockedUntil) ? stamp(live.blockedUntil) : null,
+        ],
+        [
+          t("admin.bilibili.lastError"),
+          live.lastError ? <ErrorText code={live.lastError} /> : null,
+        ],
+      ]}
+    />
+  )
+}
+
 /**
- * The Bilibili account on the Sources page, beside its timer (which shows the
- * last read and backoff): its uploads, its dynamics (posts beside X posts on
- * the board) and its live room, and an operator's way to add one upload by BV
- * ID or link, or one dynamic by link. Uploads stay in the console; one merged
- * into its YouTube copy is listed on that video.
+ * The login cookie as both reads send it: `signedIn` only says a cookie is
+ * configured, `login` is its last check.
+ */
+function loginOf(status: Sources["bilibili"] | undefined): BilibiliLogin {
+  return status?.login ?? (status?.signedIn ? "signed_in" : "not_configured")
+}
+
+function LoginBadge({ login }: { login: BilibiliLogin }) {
+  const { t } = useAppSettings()
+  const state = loginStates[login] ?? loginStates.not_configured
+  return (
+    <Badge tone={state.tone} icon={KeyRound}>
+      {t(state.key)}
+    </Badge>
+  )
+}
+
+/** The badges both Bilibili panels lead with: skipped and the backoff. */
+function StateBadges({
+  status,
+  children,
+}: {
+  status: Sources["bilibili"]
+  children?: ReactNode
+}) {
+  const { t } = useAppSettings()
+  return (
+    <span className="adm-chip-row">
+      {!status.available || status.skipped ? (
+        <Badge>{t("admin.overview.skipped")}</Badge>
+      ) : null}
+      {children}
+      {future(status.blockedUntil) ? (
+        <Badge tone="danger" icon={ShieldAlert}>
+          {t("admin.bilibili.blocked")}
+        </Badge>
+      ) : null}
+    </span>
+  )
+}
+
+/**
+ * The Bilibili account's uploads on the Sources page, beside their timer
+ * (which shows the last read and backoff): what is stored and an operator's
+ * way to add one upload by BV ID or link. Uploads stay in the console; one
+ * merged into its YouTube copy is listed on that video.
  */
 export function BilibiliSource({
   status,
@@ -186,22 +287,10 @@ export function BilibiliSource({
   status: Sources["bilibili"] | undefined
   onAdded: () => void
 }) {
-  const { t, locale } = useAppSettings()
+  const { t } = useAppSettings()
   const { api } = useAdmin()
   const usable = Boolean(status?.available && !status.skipped)
-  const future = (value: string | null | undefined) =>
-    Boolean(value && Date.parse(value) > Date.now())
-  const blocked = future(status?.blockedUntil)
-  const stamp = (value: string | null | undefined) =>
-    value ? `${japanStamp(value)} · ${formatRelative(value, locale)}` : null
-  const error = (code: string | null | undefined) =>
-    code ? <span title={code}>{explainCode(code, t) ?? code}</span> : null
-  // `signedIn` only says a cookie is configured; `login` is its last check.
-  const login: BilibiliLogin =
-    status?.login ?? (status?.signedIn ? "signed_in" : "not_configured")
-  const loginState = loginStates[login] ?? loginStates.not_configured
-  const dynamics = status?.dynamics
-  const live = status?.live
+  const login = loginOf(status)
   return (
     <Panel
       icon={BilibiliIcon}
@@ -209,17 +298,9 @@ export function BilibiliSource({
       description={t("admin.bilibili.description")}
       actions={
         status ? (
-          <span className="adm-chip-row">
-            {!usable ? <Badge>{t("admin.overview.skipped")}</Badge> : null}
-            <Badge tone={loginState.tone} icon={KeyRound}>
-              {t(loginState.key)}
-            </Badge>
-            {blocked ? (
-              <Badge tone="danger" icon={ShieldAlert}>
-                {t("admin.bilibili.blocked")}
-              </Badge>
-            ) : null}
-          </span>
+          <StateBadges status={status}>
+            <LoginBadge login={login} />
+          </StateBadges>
         ) : null
       }
     >
@@ -235,10 +316,9 @@ export function BilibiliSource({
               }),
             ],
             [
-              t("admin.bilibili.loginChecked"),
-              stamp(status.loginCheckedAt ?? null),
+              t("admin.bilibili.lastError"),
+              status.lastError ? <ErrorText code={status.lastError} /> : null,
             ],
-            [t("admin.bilibili.lastError"), error(status.lastError)],
           ]}
         />
       ) : null}
@@ -247,79 +327,6 @@ export function BilibiliSource({
       ) : null}
       {status?.available && login === "expired" ? (
         <p className="adm-note">{t("admin.bilibili.loginExpiredHint")}</p>
-      ) : null}
-      {status?.available && dynamics ? (
-        <section className="adm-bilibili-part">
-          <h3>
-            <MessageSquareText aria-hidden />
-            {t("admin.bilibili.dynamics.title")}
-          </h3>
-          <Facts
-            items={[
-              [t("admin.bilibili.dynamics.posts"), String(dynamics.posts)],
-              [
-                t("admin.bilibili.dynamics.lastAttempt"),
-                stamp(dynamics.lastAttemptAt),
-              ],
-              [
-                t("admin.bilibili.dynamics.lastSuccess"),
-                stamp(dynamics.lastSuccessAt),
-              ],
-              [
-                t("admin.bilibili.dynamics.skipped"),
-                dynamics.skipped
-                  ? t(`admin.bilibili.dynamics.skipped.${dynamics.skipped}`)
-                  : null,
-              ],
-              [t("admin.bilibili.lastError"), error(dynamics.lastError)],
-            ]}
-          />
-          {dynamics.skipped === "login_required" ? (
-            <p className="adm-note">{t("admin.bilibili.dynamics.loginHint")}</p>
-          ) : null}
-        </section>
-      ) : null}
-      {status?.available && live ? (
-        <section className="adm-bilibili-part">
-          <h3>
-            <RadioTower aria-hidden />
-            {t("admin.bilibili.live.title")}
-            <LiveRoomState live={live} />
-          </h3>
-          <Facts
-            items={[
-              [
-                t("admin.bilibili.live.room"),
-                live.roomId ? (
-                  <a
-                    className="adm-link"
-                    href={`https://live.bilibili.com/${encodeURIComponent(live.roomId)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {live.roomId}
-                  </a>
-                ) : null,
-              ],
-              [t("admin.bilibili.live.streamTitle"), live.title],
-              [
-                t("admin.bilibili.live.liveTime"),
-                live.liveTime
-                  ? stamp(live.liveTime)
-                  : live.liveStatus === 1
-                    ? t("admin.bilibili.live.startUnknown")
-                    : null,
-              ],
-              [t("admin.bilibili.live.checkedAt"), stamp(live.checkedAt)],
-              [t("admin.bilibili.live.lastLiveAt"), stamp(live.lastLiveAt)],
-              [
-                t("admin.bilibili.live.blockedUntil"),
-                future(live.blockedUntil) ? stamp(live.blockedUntil) : null,
-              ],
-              [t("admin.bilibili.lastError"), error(live.lastError)],
-            ]}
-          />
-        </section>
       ) : null}
       <AddForm
         label={t("admin.bilibili.add")}
@@ -330,6 +337,74 @@ export function BilibiliSource({
         send={(input, force) => api.addBilibiliVideo(input, force)}
         onAdded={onAdded}
       />
+    </Panel>
+  )
+}
+
+/**
+ * The Bilibili account's dynamics on the Sources page, beside their own
+ * timer: the login cookie and its last check, the listing's last read, and
+ * an operator's way to add one dynamic by link, which needs no login.
+ * Dynamics show as posts beside X posts on the board.
+ */
+export function BilibiliDynamicsSource({
+  status,
+  onAdded,
+}: {
+  status: Sources["bilibili"] | undefined
+  onAdded: () => void
+}) {
+  const { t } = useAppSettings()
+  const { api } = useAdmin()
+  const stamp = useStamp()
+  const usable = Boolean(status?.available && !status.skipped)
+  const login = loginOf(status)
+  const dynamics = status?.dynamics
+  const facts: [ReactNode, ReactNode][] = status?.available
+    ? [
+        [t("admin.bilibili.account"), status.account],
+        [
+          t("admin.bilibili.loginChecked"),
+          stamp(status.loginCheckedAt ?? null),
+        ],
+      ]
+    : []
+  if (status?.available && dynamics)
+    facts.push(
+      [t("admin.bilibili.dynamics.posts"), String(dynamics.posts)],
+      [t("admin.bilibili.dynamics.lastAttempt"), stamp(dynamics.lastAttemptAt)],
+      [t("admin.bilibili.dynamics.lastSuccess"), stamp(dynamics.lastSuccessAt)],
+      [
+        t("admin.bilibili.dynamics.skipped"),
+        dynamics.skipped
+          ? t(`admin.bilibili.dynamics.skipped.${dynamics.skipped}`)
+          : null,
+      ],
+      [
+        t("admin.bilibili.lastError"),
+        dynamics.lastError ? <ErrorText code={dynamics.lastError} /> : null,
+      ],
+    )
+  return (
+    <Panel
+      icon={MessageSquareText}
+      title={t("admin.bilibili.dynamics.title")}
+      description={t("admin.bilibili.dynamics.description")}
+      actions={
+        status ? (
+          <StateBadges status={status}>
+            <LoginBadge login={login} />
+          </StateBadges>
+        ) : null
+      }
+    >
+      {facts.length ? <Facts items={facts} /> : null}
+      {status?.available && login === "not_configured" ? (
+        <p className="adm-note">{t("admin.bilibili.dynamics.loginHint")}</p>
+      ) : null}
+      {status?.available && login === "expired" ? (
+        <p className="adm-note">{t("admin.bilibili.loginExpiredHint")}</p>
+      ) : null}
       <AddForm
         label={t("admin.bilibili.addPost")}
         hint={t("admin.bilibili.addPostHint")}

@@ -81,11 +81,11 @@ func newConsole(t *testing.T, mode, password string, steps *gatedSteps) *console
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { store.Close() })
-	steps.seen = make(chan string, 32)
+	steps.seen = make(chan string, 64)
 	executor := &workflow.Executor{
 		Store: store, Steps: steps,
-		SyntheticSteps:  map[string]bool{"x": false, "youtube": false, "bilibili": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
-		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, "translate": true},
+		SyntheticSteps:  map[string]bool{"x": false, "youtube": false, "bilibili": false, "bilibili_dynamics": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
+		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, "bilibili_dynamics": true, "translate": true},
 	}
 	queue := &workflow.Queue{Store: store, Executor: executor}
 	t.Cleanup(queue.Close)
@@ -163,18 +163,19 @@ func (c *console) text(t *testing.T, statement string, args ...any) string {
 func (c *console) waitForRun(t *testing.T, id, status string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
+	var run map[string]any
 	for time.Now().Before(deadline) {
 		code, payload := c.call(t, "GET", "/api/admin/runs/"+id, "")
 		if code != 200 {
 			t.Fatalf("run read=%d %v", code, payload)
 		}
-		run := payload["run"].(map[string]any)
+		run = payload["run"].(map[string]any)
 		if run["status"] == status {
 			return run
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("run %s never reached %s", id, status)
+	t.Fatalf("run %s never reached %s: %v", id, status, run)
 	return nil
 }
 
@@ -232,7 +233,7 @@ func TestSessionGuardsEveryRoute(t *testing.T) {
 func TestOneOffStepRunsReplaceSavedWorkflows(t *testing.T) {
 	c := newConsole(t, "development", "", &gatedSteps{})
 	code, payload := c.call(t, "GET", "/api/admin/runs/steps", "")
-	if code != 200 || len(payload["steps"].([]any)) != 7 {
+	if code != 200 || len(payload["steps"].([]any)) != 8 {
 		t.Fatalf("catalog=%d %v", code, payload)
 	}
 	if skipped := payload["skippedSteps"].([]any); len(skipped) != 1 || skipped[0] != "media" {

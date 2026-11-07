@@ -1628,8 +1628,11 @@ body.has-works-sheet {
   content: "";
 }
 
+/* The sleeve holds its place while the pickers under it come and go. */
 .release-head-art {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-self: start;
   gap: 14px;
   min-width: 0;
 }
@@ -1826,6 +1829,115 @@ body.has-works-sheet {
 .works-sleeve.is-sheet.is-swapping .works-record {
   transform: translateX(0);
   transition-duration: 260ms;
+}
+
+/*
+ * A picker only some editions have folds to nothing, gap included, for the
+ * others. Its padding keeps the chosen button's outline clear of the clip.
+ */
+.release-sheet-slot {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: -14px;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.release-sheet-slot.is-open {
+  grid-template-rows: 1fr;
+  margin-top: 0;
+  opacity: 1;
+  visibility: visible;
+}
+
+.release-sheet-slot > div {
+  min-height: 0;
+  overflow: hidden;
+  margin: -4px;
+  padding: 4px;
+}
+
+/*
+ * A cover being changed stays until the next has loaded, which fades in over
+ * it. A cover taking a moment to load shows a sheen sweeping the skeleton, or
+ * the cover before it; a quick load shows none.
+ */
+.works-fade {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+}
+
+.works-fade > span {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-area: 1 / 1;
+  opacity: 0;
+}
+
+.works-fade > span.is-ready {
+  opacity: 1;
+}
+
+.works-fade.is-pending::after {
+  z-index: 1;
+  grid-area: 1 / 1;
+  background: linear-gradient(
+      100deg,
+      transparent 35%,
+      rgb(255 255 255 / 0.16) 50%,
+      transparent 65%
+    )
+    0 0 / 250% 100%;
+  content: "";
+  opacity: 0;
+}
+
+/*
+ * Changing the edition: the pickers fold, the covers fade, and the tracklist
+ * and facts fade in place.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .release-sheet-slot {
+    transition:
+      grid-template-rows 300ms var(--works-ease),
+      margin-top 300ms var(--works-ease),
+      opacity 220ms ease,
+      visibility 300ms;
+  }
+
+  .works-fade > span {
+    transition: opacity 320ms ease;
+  }
+
+  .works-fade.is-pending::after {
+    animation: works-sheen 1300ms 150ms ease-in-out infinite;
+  }
+
+  .release-sheet-caption,
+  .release-body {
+    animation: works-swap-in 220ms ease both;
+  }
+}
+
+@keyframes works-sheen {
+  from {
+    background-position: 100% 0;
+    opacity: 1;
+  }
+
+  to {
+    background-position: -50% 0;
+    opacity: 1;
+  }
+}
+
+@keyframes works-swap-in {
+  from {
+    opacity: 0.35;
+  }
 }
 
 /* Body: the tracklist, with the edition's facts and bonuses beside it. */

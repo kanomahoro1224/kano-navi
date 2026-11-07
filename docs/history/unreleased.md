@@ -33,7 +33,8 @@
   link the official streaming and download stores that offer it. An edition with
   photos of several discs can put any of them on the record that turns in
   its header. Each edition, such as
-  初回限定盤 or 通常盤, is a card with its own cover and format.
+  初回限定盤 or 通常盤, is a card with its own cover and format; switching
+  editions fades from one cover to the next without a blank in between.
 - The Journey page's address is `/journey`; `/history` links redirect to it.
   Its Chinese name is 足迹.
 - Journey's release milestones show their release's covers from the Works

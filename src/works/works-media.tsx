@@ -1,5 +1,5 @@
 import type { Translator } from "@/types"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ArrowUpRight, Disc3 } from "lucide-react"
 
 import { mediaSrcSet } from "@/lib/media"
@@ -30,6 +30,7 @@ export function WorksCoverImage({
   t,
   sizes,
   eager = false,
+  onSettled,
 }: {
   cover: WorksCover | null
   alt: string
@@ -37,9 +38,12 @@ export function WorksCoverImage({
   /** Without sizes, as in the viewer, the original loads. */
   sizes?: string
   eager?: boolean
+  /** Called once the image has loaded or failed to. */
+  onSettled?: () => void
 }) {
-  const [failed, setFailed] = useState(false)
-  if (!cover || failed) {
+  // The cover that failed, so another cover in the same place still loads.
+  const [failed, setFailed] = useState<string | null>(null)
+  if (!cover || failed === cover.media) {
     return (
       <span
         className="works-missing"
@@ -62,8 +66,88 @@ export function WorksCoverImage({
       height={cover.height}
       loading={eager ? "eager" : "lazy"}
       decoding="async"
-      onError={() => setFailed(true)}
+      onLoad={onSettled}
+      onError={() => {
+        setFailed(cover.media)
+        onSettled?.()
+      }}
     />
+  )
+}
+
+/** How long a newly loaded cover takes to fade in over the one before. */
+const COVER_FADE_MS = 320
+
+type CoverLayer = { cover: WorksCover; ready: boolean }
+
+/**
+ * A cover that changes without a gap: the one shown stays until the next has
+ * loaded, which then fades in over it. A cover still loading shows a
+ * skeleton, over the cover before it when there is one.
+ */
+export function FadingCover({
+  cover,
+  t,
+  sizes,
+  eager = false,
+  skeleton = true,
+}: {
+  cover: WorksCover | null
+  t: Translator
+  sizes: string
+  eager?: boolean
+  /** Show the loading skeleton; a blurred backdrop has no use for one. */
+  skeleton?: boolean
+}) {
+  const [layers, setLayers] = useState<CoverLayer[]>(() =>
+    cover ? [{ cover, ready: false }] : [],
+  )
+  const timer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+  if (cover && layers.at(-1)?.cover.media !== cover.media) {
+    // Keep the last loaded cover under the new one; drop any never loaded.
+    setLayers([
+      ...layers.filter((layer) => layer.ready).slice(-1),
+      { cover, ready: false },
+    ])
+  }
+  if (!cover) return <WorksCoverImage cover={null} alt="" t={t} />
+  const settle = (media: string) => {
+    setLayers((current) =>
+      current.map((layer) =>
+        layer.cover.media === media ? { ...layer, ready: true } : layer,
+      ),
+    )
+    // Once it has faded in, the covers under it go.
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(
+      () =>
+        setLayers((current) => {
+          const top = current.findLastIndex((layer) => layer.ready)
+          return top > 0 ? current.slice(top) : current
+        }),
+      COVER_FADE_MS,
+    )
+  }
+  const pending = !layers.at(-1)?.ready
+  return (
+    <span className={`works-fade${pending && skeleton ? " is-pending" : ""}`}>
+      {layers.map((layer) => (
+        <span
+          key={layer.cover.media}
+          className={layer.ready ? "is-ready" : undefined}
+        >
+          <WorksCoverImage
+            cover={layer.cover}
+            alt=""
+            t={t}
+            sizes={sizes}
+            eager={eager}
+            onSettled={() => settle(layer.cover.media)}
+          />
+        </span>
+      ))}
+    </span>
   )
 }
 

@@ -34,7 +34,12 @@ introduce a separate token system for a single page.
   a sheet for each release, one size for every release and edition. Its
   left pane holds the sleeve over a blurred wash of the cover, the label, one
   row of figures, and a card for each edition with that edition's cover and
-  format, the chosen one drawn in ink. The tracklist has a round photo beside
+  format, the chosen one drawn in ink. Choosing another edition or cover
+  keeps the cover and its wash until the next has loaded, then fades it in
+  over them; a cover still loading shows a skeleton with a sweeping sheen.
+  The tracklist and details fade in place, and a picker under the sleeve
+  that only some editions have folds open or shut, so the cards below glide
+  instead of jumping (all at once under reduced motion). The tracklist has a round photo beside
   each disc that has one; with photos of two or more discs, round photos
   under the sleeve choose the disc that turns in the header, which slides
   back into the sleeve to change (in place under reduced motion) and is

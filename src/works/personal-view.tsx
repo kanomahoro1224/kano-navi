@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import type { Locale, Translator } from "@/types"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ArrowUpRight, Disc3, Tv } from "lucide-react"
@@ -31,7 +31,12 @@ import type {
   WorksTrack,
 } from "./types"
 import { FilterButtons, OrderToggle, type Order } from "./works-controls"
-import { CreditLine, WORKS_COVER_SIZES, WorksCoverImage } from "./works-media"
+import {
+  CreditLine,
+  FadingCover,
+  WORKS_COVER_SIZES,
+  WorksCoverImage,
+} from "./works-media"
 import { WorksSheet } from "./works-sheet"
 
 export type OpenCovers = (
@@ -74,6 +79,7 @@ export function Sleeve({
   t,
   sizes,
   eager = false,
+  fade = false,
   className = "",
 }: {
   cover: WorksCover | null
@@ -84,6 +90,8 @@ export function Sleeve({
   t: Translator
   sizes: string
   eager?: boolean
+  /** Fade from one cover to the next instead of swapping it at once. */
+  fade?: boolean
   className?: string
 }) {
   const face = disc ?? (printed ? cover : null)
@@ -116,13 +124,17 @@ export function Sleeve({
         )}
       </span>
       <span className="works-cover">
-        <WorksCoverImage
-          cover={cover}
-          alt=""
-          t={t}
-          sizes={sizes}
-          eager={eager}
-        />
+        {fade ? (
+          <FadingCover cover={cover} t={t} sizes={sizes} eager={eager} />
+        ) : (
+          <WorksCoverImage
+            cover={cover}
+            alt=""
+            t={t}
+            sizes={sizes}
+            eager={eager}
+          />
+        )}
       </span>
     </span>
   )
@@ -443,6 +455,19 @@ function Facts({ facts, t }: { facts: [string, string][]; t: Translator }) {
   )
 }
 
+/**
+ * A picker under the sleeve that some editions have and others lack. It
+ * opens and closes smoothly, so switching editions does not jolt the buttons
+ * below it.
+ */
+function ArtSlot({ open, children }: { open: boolean; children: ReactNode }) {
+  return (
+    <div className={`release-sheet-slot${open ? " is-open" : ""}`}>
+      <div>{open ? children : null}</div>
+    </div>
+  )
+}
+
 /** The time the record takes to slide back into its sleeve before a swap. */
 const RECORD_SWAP_MS = 260
 
@@ -635,13 +660,7 @@ export function ReleaseSheet({
         <header className="release-head">
           {cover ? (
             <span className="release-head-backdrop" aria-hidden="true">
-              <WorksCoverImage
-                key={cover.media}
-                cover={cover}
-                alt=""
-                t={t}
-                sizes="320px"
-              />
+              <FadingCover cover={cover} t={t} sizes="320px" skeleton={false} />
             </span>
           ) : null}
           <div className="release-head-inner">
@@ -654,13 +673,13 @@ export function ReleaseSheet({
                   aria-label={t("works.openCover", { title: release.title })}
                 >
                   <Sleeve
-                    key={cover.media}
                     cover={cover}
                     disc={recordDisc}
                     printed={(edition ?? release).printedDisc}
                     t={t}
                     sizes={WORKS_COVER_SIZES.sheet}
                     eager
+                    fade
                     className={`is-sheet${swapping ? " is-swapping" : ""}`}
                   />
                 </button>
@@ -672,7 +691,7 @@ export function ReleaseSheet({
                   className="is-sheet"
                 />
               )}
-              {covers.length > 1 ? (
+              <ArtSlot open={covers.length > 1}>
                 <div
                   className="release-sheet-editions"
                   role="group"
@@ -699,8 +718,8 @@ export function ReleaseSheet({
                     </button>
                   ))}
                 </div>
-              ) : null}
-              {discChoice ? (
+              </ArtSlot>
+              <ArtSlot open={discChoice}>
                 <DiscPicker
                   photos={discPhotos}
                   tracks={tracks}
@@ -708,9 +727,9 @@ export function ReleaseSheet({
                   onChange={chooseDisc}
                   t={t}
                 />
-              ) : null}
+              </ArtSlot>
               {caption || cover?.thirdParty || cover?.credit ? (
-                <p className="release-sheet-caption">
+                <p key={cover?.media} className="release-sheet-caption">
                   {caption ? <span lang="zh-CN">{caption}</span> : null}
                   {cover?.credit ? (
                     <small>
@@ -764,7 +783,8 @@ export function ReleaseSheet({
             </div>
           </div>
         </header>
-        <div className="release-body">
+        {/* A new edition's tracklist and facts fade in as a whole. */}
+        <div key={editionIndex} className="release-body">
           <section className="release-tracks" aria-label={t("works.tracklist")}>
             <p className="works-field-label">
               {t("works.tracklist")}

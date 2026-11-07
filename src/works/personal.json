@@ -291,12 +291,14 @@
       }
     ],
     "disc": {
-      "media": "6d14ce921945.jpg",
-      "width": 498,
-      "height": 498,
+      "media": "a3982cac7fd3.jpg",
+      "width": 2892,
+      "height": 2892,
       "caption": "盘面",
       "credit": {
-        "role": "fan"
+        "role": "scan",
+        "name": "ZhFuwe",
+        "url": "https://github.com/ZhFuwe"
       },
       "thirdParty": true
     },
@@ -343,12 +345,14 @@
       {
         "disc": 1,
         "image": {
-          "media": "6d14ce921945.jpg",
-          "width": 498,
-          "height": 498,
+          "media": "a3982cac7fd3.jpg",
+          "width": 2892,
+          "height": 2892,
           "caption": "盘面",
           "credit": {
-            "role": "fan"
+            "role": "scan",
+            "name": "ZhFuwe",
+            "url": "https://github.com/ZhFuwe"
           },
           "thirdParty": true
         }
@@ -378,11 +382,15 @@
       }
     ],
     "disc": {
-      "media": "4b86cff9baac.jpg",
-      "width": 689,
-      "height": 689,
-      "caption": "盘面（Yahoo!オークション）",
-      "sourceLabel": "Yahoo!オークション",
+      "media": "003ac2815ab2.jpg",
+      "width": 2892,
+      "height": 2892,
+      "caption": "盘面",
+      "credit": {
+        "role": "scan",
+        "name": "ZhFuwe",
+        "url": "https://github.com/ZhFuwe"
+      },
       "thirdParty": true
     },
     "printedDisc": false,
@@ -506,11 +514,15 @@
       {
         "disc": 1,
         "image": {
-          "media": "4b86cff9baac.jpg",
-          "width": 689,
-          "height": 689,
-          "caption": "盘面（Yahoo!オークション）",
-          "sourceLabel": "Yahoo!オークション",
+          "media": "003ac2815ab2.jpg",
+          "width": 2892,
+          "height": 2892,
+          "caption": "盘面",
+          "credit": {
+            "role": "scan",
+            "name": "ZhFuwe",
+            "url": "https://github.com/ZhFuwe"
+          },
           "thirdParty": true
         }
       }
@@ -1534,11 +1546,15 @@
       }
     ],
     "disc": {
-      "media": "b305360f92e2.jpg",
-      "width": 2920,
-      "height": 2920,
-      "caption": "盘面",
-      "source": "https://vgmdb.net/album/54307",
+      "media": "6e0f28d73be4.jpg",
+      "width": 2896,
+      "height": 2896,
+      "caption": "アーティスト盘 CD 盘面",
+      "credit": {
+        "role": "scan",
+        "name": "ZhFuwe",
+        "url": "https://github.com/ZhFuwe"
+      },
       "thirdParty": true
     },
     "printedDisc": false,
@@ -1714,13 +1730,32 @@
         ],
         "discs": [
           {
+            "disc": 1,
+            "image": {
+              "media": "6e0f28d73be4.jpg",
+              "width": 2896,
+              "height": 2896,
+              "caption": "アーティスト盘 CD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
+              "thirdParty": true
+            }
+          },
+          {
             "disc": 2,
             "image": {
-              "media": "1853a24f2526.jpg",
-              "width": 820,
-              "height": 820,
-              "caption": "アーティスト盘 DVD 盘面（Mercari）",
-              "sourceLabel": "メルカリ",
+              "media": "409048d891f3.jpg",
+              "width": 2888,
+              "height": 2888,
+              "caption": "アーティスト盘 DVD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
               "thirdParty": true
             }
           }
@@ -1972,11 +2007,15 @@
       }
     ],
     "disc": {
-      "media": "d2bde0b8aedb.jpg",
-      "width": 840,
-      "height": 840,
-      "caption": "CD 盘面（Yahoo!オークション）",
-      "sourceLabel": "Yahoo!オークション",
+      "media": "0c4de7238a24.jpg",
+      "width": 2900,
+      "height": 2900,
+      "caption": "CD 盘面（絵本付生産限定盘・通常盘）",
+      "credit": {
+        "role": "scan",
+        "name": "ZhFuwe",
+        "url": "https://github.com/ZhFuwe"
+      },
       "thirdParty": true
     },
     "printedDisc": false,
@@ -2093,11 +2132,15 @@
       {
         "disc": 1,
         "image": {
-          "media": "d2bde0b8aedb.jpg",
-          "width": 840,
-          "height": 840,
-          "caption": "CD 盘面（Yahoo!オークション）",
-          "sourceLabel": "Yahoo!オークション",
+          "media": "0c4de7238a24.jpg",
+          "width": 2900,
+          "height": 2900,
+          "caption": "CD 盘面（絵本付生産限定盘・通常盘）",
+          "credit": {
+            "role": "scan",
+            "name": "ZhFuwe",
+            "url": "https://github.com/ZhFuwe"
+          },
           "thirdParty": true
         }
       }
@@ -2352,11 +2395,30 @@
           {
             "disc": 1,
             "image": {
-              "media": "d2bde0b8aedb.jpg",
-              "width": 840,
-              "height": 840,
-              "caption": "CD 盘面（Yahoo!オークション）",
-              "sourceLabel": "Yahoo!オークション",
+              "media": "0c4de7238a24.jpg",
+              "width": 2900,
+              "height": 2900,
+              "caption": "CD 盘面（絵本付生産限定盘・通常盘）",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
+              "thirdParty": true
+            }
+          },
+          {
+            "disc": 2,
+            "image": {
+              "media": "9427912bac1f.jpg",
+              "width": 2890,
+              "height": 2890,
+              "caption": "絵本付生産限定盘 DVD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
               "thirdParty": true
             }
           }
@@ -2499,11 +2561,15 @@
           {
             "disc": 1,
             "image": {
-              "media": "d2bde0b8aedb.jpg",
-              "width": 840,
-              "height": 840,
-              "caption": "CD 盘面（Yahoo!オークション）",
-              "sourceLabel": "Yahoo!オークション",
+              "media": "0c4de7238a24.jpg",
+              "width": 2900,
+              "height": 2900,
+              "caption": "CD 盘面（絵本付生産限定盘・通常盘）",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
               "thirdParty": true
             }
           }
@@ -3381,22 +3447,30 @@
           {
             "disc": 1,
             "image": {
-              "media": "16edbe89bb52.jpg",
-              "width": 378,
-              "height": 378,
-              "caption": "アニメ盘 CD 盘面（PayPayフリマ）",
-              "sourceLabel": "Yahoo!フリマ",
+              "media": "cdbff7e1531c.jpg",
+              "width": 2896,
+              "height": 2896,
+              "caption": "アニメ盘 CD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
               "thirdParty": true
             }
           },
           {
             "disc": 2,
             "image": {
-              "media": "b682e65dc00b.jpg",
-              "width": 390,
-              "height": 390,
-              "caption": "アニメ盘 DVD 盘面（PayPayフリマ）",
-              "sourceLabel": "Yahoo!フリマ",
+              "media": "f2f519712cac.jpg",
+              "width": 2889,
+              "height": 2889,
+              "caption": "アニメ盘 DVD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
               "thirdParty": true
             }
           }
@@ -7778,11 +7852,15 @@
           {
             "disc": 3,
             "image": {
-              "media": "4b74fa116d4e.jpg",
-              "width": 896,
-              "height": 896,
-              "caption": "アニメイト限定盤特典 Inst.CD 盘面（駿河屋 on Mercari Shops）",
-              "sourceLabel": "メルカリ",
+              "media": "8bada2a273ef.jpg",
+              "width": 2890,
+              "height": 2890,
+              "caption": "アニメイト限定盤特典 Inst.CD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
               "thirdParty": true
             }
           }
@@ -7980,11 +8058,15 @@
           {
             "disc": 3,
             "image": {
-              "media": "beb1635f9301.jpg",
-              "width": 491,
-              "height": 491,
-              "caption": "とらのあな限定盤特典 Inst.CD 盘面（駿河屋 on Mercari Shops）",
-              "sourceLabel": "メルカリ",
+              "media": "57095aeebaa7.jpg",
+              "width": 2887,
+              "height": 2887,
+              "caption": "とらのあな限定盤特典 Inst.CD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
               "thirdParty": true
             }
           }

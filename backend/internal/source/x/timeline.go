@@ -163,7 +163,7 @@ type timelinePage struct {
 // fall back to the profile page; a later failure keeps the newer pages
 // already read.
 func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Options, cutoff time.Time) (discovery, error) {
-	pages := (opts.DiscoveryLimit + timelinePageSize - 1) / timelinePageSize
+	pages := (opts.DiscoveryLimit + TimelinePageSize - 1) / TimelinePageSize
 	pages = min(max(pages, 1), maxTimelinePages)
 	found := discovery{ids: []string{}, posts: map[string]*Post{}, gap: opts.Gap}
 	seen := map[string]bool{}
@@ -194,7 +194,7 @@ func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Opt
 	read := 0
 	timeline := func(cursor string) (timelinePage, error) {
 		read++
-		body, err := a.Client.Timeline(ctx, account, cursor, timelinePageSize)
+		body, err := a.Client.Timeline(ctx, account, cursor, TimelinePageSize)
 		if err != nil {
 			return timelinePage{}, err
 		}

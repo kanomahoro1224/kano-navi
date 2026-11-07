@@ -202,7 +202,7 @@ func TestTimelineStatusesNormalizeOwnPostsFromThePage(t *testing.T) {
 	requests := 0
 	rt := fakeRoundTripper(func(r *http.Request) (*http.Response, error) {
 		requests++
-		if r.URL.Host != timelineHost || r.URL.Path != "/2/profile/kano/statuses" || r.URL.Query().Get("count") != "100" || r.URL.Query().Get("cursor") != "page-1" {
+		if r.URL.Host != timelineHost || r.URL.Path != "/2/profile/kano/statuses" || r.URL.Query().Get("count") != "20" || r.URL.Query().Get("cursor") != "page-1" {
 			return response(400, "unexpected"), nil
 		}
 		return response(200, body), nil

@@ -21,13 +21,11 @@ const (
 	detailHost             = "api.vxtwitter.com"
 	userAgent              = "kano-navi-go/x-recent"
 	maxResponseBytes int64 = 4 * 1024 * 1024
-	// timelinePageSize is FxTwitter's default page; one page usually reaches a
-	// stored post, so later pages are requested only to close a gap.
-	timelinePageSize = 20
+	// TimelinePageSize is FxTwitter's timeline page: it lists 20 statuses
+	// whatever count asks for. One page usually reaches a stored post, so
+	// incremental runs request later pages only to close a gap.
+	TimelinePageSize = 20
 	maxTimelinePages = 10
-	// MaxTimelinePageSize is FxTwitter's largest page, which operator windows
-	// request so a long window needs few pages.
-	MaxTimelinePageSize = 100
 )
 
 type ErrorCode string
@@ -120,10 +118,11 @@ func (c *Client) Profile(ctx context.Context, account string) ([]byte, error) {
 	return c.request(ctx, profileHost, "/"+url.PathEscape(account), nil)
 }
 
-// Timeline reads one newest-first page of up to count of the account's
-// statuses. An empty cursor requests the first page.
+// Timeline reads one newest-first page of the account's statuses, asking for
+// count of them up to TimelinePageSize; FxTwitter answers with its fixed page
+// either way. An empty cursor requests the first page.
 func (c *Client) Timeline(ctx context.Context, account, cursor string, count int) ([]byte, error) {
-	query := url.Values{"count": {strconv.Itoa(min(max(count, 1), MaxTimelinePageSize))}}
+	query := url.Values{"count": {strconv.Itoa(min(max(count, 1), TimelinePageSize))}}
 	if cursor != "" {
 		query.Set("cursor", cursor)
 	}

@@ -103,6 +103,9 @@
   default) otherwise, and learns the room from the answer.
 - Translation adds Japanese, and translates Bilibili dynamics into English
   and Japanese, keeping their times as written.
+- Manual X timeline fetches count FxTwitter's fixed pages of 20 statuses, so
+  a large `count` fetch stops at the page budget and continues when repeated
+  instead of reading fewer statuses than it reports.
 
 </details>
 

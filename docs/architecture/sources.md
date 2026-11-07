@@ -7,7 +7,8 @@
 The synchronizer discovers status IDs for each account named by `X_HANDLES`
 (default `kano_2525,_Kanotic`) from the public FxTwitter timeline
 `api.fxtwitter.com/2/profile/<handle>/statuses`, which lists the account's
-statuses newest first in pages of 20 with a continuation cursor. Discovery
+statuses newest first in pages of 20 with a continuation cursor; the page
+size is fixed whatever `count` a request names. Discovery
 pages back until a page's oldest own status is already stored or is not newer
 than the account's stored cursor, so posts published between runs are found
 even when several arrive at once. Before an account has a cursor, statuses
@@ -90,7 +91,7 @@ quoted status is read into the same
 
 The operator's timeline fetches read the same timeline differently (see
 [Manual fetches](workflows.md#manual-fetches-and-historical-backfill)): they
-request pages of 100 and store each own status from the page itself.
+read the same pages of 20 and store each own status from the page itself.
 The adapter maps FxTwitter's `created_timestamp`, `text`, counters and
 `media` (a photo's URL without the `?name=orig` size, or a video's or GIF's
 thumbnail, in post order; a quoted status's images belong to its quote) onto

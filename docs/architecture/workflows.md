@@ -12,7 +12,7 @@ options.
 
 | Source  | Method     | Needs                | Modes                              | Listing                                                  |
 | ------- | ---------- | -------------------- | ---------------------------------- | -------------------------------------------------------- |
-| X       | `timeline` |                      | `count` (1–200), `all`             | public FxTwitter timeline, 100 statuses a page           |
+| X       | `timeline` |                      | `count` (1–200), `all`             | public FxTwitter timeline, 20 statuses a page            |
 | X       | `api`      | `X_API_BEARER_TOKEN` | `count` (1–200), `range`, `before` | full-archive search, 100 posts a page                    |
 | YouTube | `api`      | `YOUTUBE_API_KEY`    | `count` (1–200), `all`             | uploads playlist, 50 entries and one quota unit a page   |
 | YouTube | `rss`      |                      | `count` (1–15)                     | public feed, its newest 15 uploads in one request        |
@@ -93,8 +93,11 @@ or scan carries neither and stays incremental.
 ### X timeline method
 
 Timeline fetches page the public FxTwitter timeline
-(`api.fxtwitter.com/2/profile/<handle>/statuses`, 100 statuses per page)
-newest first. Each status is stored from the timeline page itself, without
+(`api.fxtwitter.com/2/profile/<handle>/statuses`) newest first. FxTwitter
+lists 20 statuses a page whatever `count` a request names, so a `count` of
+200 takes ten pages, more than the default
+[page budget](#budgets-and-checkpoints); such a fetch stops with
+`history_page_budget_reached` and continues when repeated. Each status is stored from the timeline page itself, without
 vxtwitter detail requests or the incremental pending queue. A `count` fetch
 stops after the account's newest `count` own statuses, and an `all` fetch at
 the end of the timeline. Reposts are skipped and replies are not listed. A

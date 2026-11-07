@@ -66,7 +66,9 @@ func (f *Fetcher) FetchTimeline(ctx context.Context, request Request) (Result, e
 	result := Result{Window: window, Errors: []string{}, Items: []Item{}}
 	committed, restarted, failed := 0, false, false
 	for {
-		size := xsource.MaxTimelinePageSize
+		// FxTwitter's page is fixed, so a page may list more statuses than a
+		// count fetch still needs; the loop below stops at the count.
+		size := xsource.TimelinePageSize
 		if counted {
 			size = max(1, min(size, window.Count-previous-result.Listed))
 		}

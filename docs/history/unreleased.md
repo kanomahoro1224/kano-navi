@@ -20,8 +20,9 @@
   the tracks she sang or wrote, and her niconico, YouTube (members-only
   included) and bilibili uploads as a cover grid with filters and search.
   Each instance saves the uploads' video thumbnails itself; an upload the
-  site knows shows its length, whether it can still be watched and a link
-  to the board's video archive, and the list names the date it covers.
+  site knows shows its length and whether it can still be watched, a disc
+  beside an upload's title lists the albums that later included it, and the
+  list names the date it covers.
 - A Works release's sheet and the Works and Journey image viewers keep one
   size whatever the release or image; on a wide screen the release's cover
   and figures stay on the left while its tracklist and details scroll beside

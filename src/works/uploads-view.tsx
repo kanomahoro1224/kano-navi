@@ -1,8 +1,15 @@
 import type { CSSProperties } from "react"
 import { useMemo, useState } from "react"
-import { Archive, Disc3, Tv } from "lucide-react"
+import { Disc3, Tv } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import type { Translator } from "@/types"
 import {
   BilibiliLogo,
@@ -24,9 +31,8 @@ import {
 import type { Upload } from "./types"
 import {
   durationLabel,
-  japanMonth,
   useWorksUploads,
-  videoArchiveHref,
+  songArchiveHref,
   videoGone,
   type WorksUploadState,
   type WorksUploadsStatus,
@@ -145,9 +151,6 @@ function UploadCard({
   const length = stored?.videos.find(
     (video) => video.durationSeconds,
   )?.durationSeconds
-  const archiveMonth = live
-    ? japanMonth(live.scheduledAt ?? live.publishedAt ?? "")
-    : null
   const primary = links.find((link) => !link.members) ?? links[0]
   const people = [
     upload.originalArtist
@@ -189,26 +192,12 @@ function UploadCard({
           </p>
           <UploadLinks upload={upload} stored={stored} />
         </div>
-        <h4 className="upload-title">{upload.song}</h4>
+        <div className="upload-title-row">
+          <h4 className="upload-title">{upload.song}</h4>
+          {upload.albums.length ? <UploadAlbums upload={upload} /> : null}
+        </div>
         {people.length ? (
           <p className="upload-people">{people.join(" · ")}</p>
-        ) : null}
-        {upload.albums.length ? (
-          <p className="upload-albums">
-            <Disc3 aria-hidden="true" />
-            <span>
-              {t("works.onAlbums")} {upload.albums.join(" / ")}
-            </span>
-          </p>
-        ) : null}
-        {archiveMonth ? (
-          <a
-            className="upload-archive"
-            href={videoArchiveHref({ month: archiveMonth })}
-          >
-            <Archive aria-hidden="true" />
-            {t("works.inVideoArchive")}
-          </a>
         ) : null}
         {upload.tracks.length ? (
           <details className="credit-details">
@@ -222,6 +211,36 @@ function UploadCard({
         ) : null}
       </div>
     </li>
+  )
+}
+
+/**
+ * A disc beside the title of a recording that albums later included, with
+ * their count; it opens the list of those albums.
+ */
+function UploadAlbums({ upload }: { upload: Upload }) {
+  const { t } = useAppSettings()
+  const count = upload.albums.length
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="upload-albums-button"
+          aria-label={t("works.showAlbums", { title: upload.song, count })}
+          title={t("works.onAlbums")}
+        >
+          <Disc3 aria-hidden="true" />
+          {count > 1 ? <span>{count}</span> : null}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="upload-albums-menu">
+        <DropdownMenuLabel>{t("works.onAlbums")}</DropdownMenuLabel>
+        {upload.albums.map((album) => (
+          <DropdownMenuItem key={album}>{album}</DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -293,7 +312,7 @@ function UploadsThrough({
   return (
     <p className="works-through">
       {before}
-      <a className="text-link" href={videoArchiveHref({ category: "song" })}>
+      <a className="text-link" href={songArchiveHref}>
         {t("works.videoArchive")}
       </a>
       {after}

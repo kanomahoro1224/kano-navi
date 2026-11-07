@@ -114,8 +114,7 @@ video's own thumbnail, else the image the media step downloaded for the list
 ([Works upload covers](../architecture/media-cache.md#works-upload-covers)).
 Until one is ready, and for an upload whose every video is gone, the page
 prints a sleeve with its title. A stored YouTube or bilibili video also adds
-its current title, length and who can watch it, and a YouTube one a link to
-its month in the board's video archive. The join never writes a video row or
+its current title, length and who can watch it. The join never writes a video row or
 a merge; a stored bilibili upload whose merge disagrees with the list's
 pairing is listed for the operator
 ([Admin API](../architecture/admin-api.md#videos)).

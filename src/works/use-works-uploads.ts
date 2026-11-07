@@ -108,26 +108,5 @@ export function durationLabel(seconds: number) {
     : `${minutes}:${rest}`
 }
 
-/** The Japan month (YYYY-MM) a stored video's time falls in. */
-export function japanMonth(instant: string) {
-  const time = new Date(instant)
-  if (Number.isNaN(time.getTime())) return null
-  return new Date(time.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 7)
-}
-
-/**
- * The board's video archive: at a month, or of one category from the
- * current month.
- */
-export function videoArchiveHref({
-  month,
-  category,
-}: {
-  month?: string
-  category?: "song"
-}) {
-  const query = new URLSearchParams({ archive: "videos" })
-  if (month) query.set("month", month)
-  if (category) query.set("category", category)
-  return `/?${query.toString()}`
-}
+/** The board's video archive of songs, from the current month. */
+export const songArchiveHref = "/?archive=videos&category=song"

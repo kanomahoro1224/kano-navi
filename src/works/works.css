@@ -2810,7 +2810,16 @@ a.upload-art:hover .upload-print::after {
   color: var(--works-members);
 }
 
+/* The title, with a disc at its end when albums later included the song. */
+.upload-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .upload-title {
+  min-width: 0;
   margin: 0;
   font-family: var(--font-serif);
   font-size: 18px;
@@ -2820,25 +2829,51 @@ a.upload-art:hover .upload-print::after {
   overflow-wrap: anywhere;
 }
 
-.upload-people,
-.upload-albums {
+.upload-people {
   margin: 0;
   color: var(--soft);
   font-size: 13px;
   overflow-wrap: anywhere;
 }
 
-.upload-albums {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
+.upload-albums-button {
+  display: inline-flex;
+  flex: none;
+  height: 26px;
+  min-width: 26px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin: -1px -5px 0 0;
+  padding: 0 5px;
+  border-radius: 6px;
+  color: var(--soft);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
 }
 
-.upload-albums svg {
-  flex: none;
-  width: 13px;
-  height: 13px;
-  margin-top: 3px;
+.upload-albums-button:hover,
+.upload-albums-button[data-state="open"] {
+  background: var(--sunken);
+  color: var(--ink);
+}
+
+.upload-albums-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.upload-albums-menu {
+  max-width: min(320px, calc(100vw - 32px));
+  border-radius: 12px;
+}
+
+.upload-albums-menu [role="menuitem"] {
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .upload-songs {
@@ -2914,31 +2949,6 @@ span.upload-links {
   inset: 0;
 }
 
-.upload-archive {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  color: var(--soft);
-  font-size: 13px;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  text-underline-offset: 3px;
-  transition: text-decoration-color 160ms ease;
-}
-
-.upload-archive:hover,
-.upload-archive:focus-visible {
-  color: var(--ink);
-  text-decoration-color: currentColor;
-}
-
-.upload-archive svg {
-  flex: none;
-  width: 13px;
-  height: 13px;
-}
-
 .works-through {
   margin: 32px 0 0;
   color: var(--soft);
@@ -3002,8 +3012,7 @@ span.upload-links {
     font-size: 15px;
   }
 
-  .upload-people,
-  .upload-albums {
+  .upload-people {
     font-size: 12px;
   }
 }

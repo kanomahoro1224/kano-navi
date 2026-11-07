@@ -74,10 +74,11 @@ has saved it, and otherwise a printed sleeve with its title. A
 recording posted to several sites is one entry with a small mark for each
 site beside its date;
 members-only videos are marked **Members only**. Where the site knows the
-video, the entry adds its length and a link to its month in the board's
-video archive; a video nobody can watch any more is marked **No longer
-watchable** and its site mark is dimmed. An entry names the original
-artist and any partners, and the albums that later included the recording.
+video, the entry adds its length; a video nobody can watch any more is
+marked **No longer watchable** and its site mark is dimmed. An entry names
+the original artist and any partners. A recording that albums later
+included has a disc at the end of its title, with their count when there
+are several; select it to list those albums.
 **Not on an album** keeps only the uploads no album includes, and **Members
 only** keeps the members-only posts. Search by song, artist or partner.
 

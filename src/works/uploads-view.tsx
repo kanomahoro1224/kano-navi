@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react"
 import { useMemo, useState } from "react"
-import { Disc3, Tv } from "lucide-react"
+import { Disc3, ListMusic, Tv, type LucideIcon } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import {
@@ -194,20 +194,36 @@ function UploadCard({
         </div>
         <div className="upload-title-row">
           <h4 className="upload-title">{upload.song}</h4>
-          {upload.albums.length ? <UploadAlbums upload={upload} /> : null}
+          {upload.tracks.length || upload.albums.length ? (
+            <span className="upload-title-marks">
+              {upload.tracks.length ? (
+                <UploadListMenu
+                  icon={ListMusic}
+                  label={t("works.songsIn")}
+                  ariaLabel={t("works.showSongs", {
+                    title: upload.song,
+                    count: upload.tracks.length,
+                  })}
+                  items={upload.tracks}
+                  numbered
+                />
+              ) : null}
+              {upload.albums.length ? (
+                <UploadListMenu
+                  icon={Disc3}
+                  label={t("works.onAlbums")}
+                  ariaLabel={t("works.showAlbums", {
+                    title: upload.song,
+                    count: upload.albums.length,
+                  })}
+                  items={upload.albums}
+                />
+              ) : null}
+            </span>
+          ) : null}
         </div>
         {people.length ? (
           <p className="upload-people">{people.join(" · ")}</p>
-        ) : null}
-        {upload.tracks.length ? (
-          <details className="credit-details">
-            <summary>{t("works.more")}</summary>
-            <ol className="upload-songs">
-              {upload.tracks.map((song, index) => (
-                <li key={index}>{song}</li>
-              ))}
-            </ol>
-          </details>
         ) : null}
       </div>
     </li>
@@ -215,29 +231,45 @@ function UploadCard({
 }
 
 /**
- * A disc beside the title of a recording that albums later included, with
- * their count; it opens the list of those albums.
+ * A mark at the end of an upload's title that opens a list: the songs a
+ * long upload sings, numbered, or the albums that later included the
+ * recording. A count shows when the list has more than one entry.
  */
-function UploadAlbums({ upload }: { upload: Upload }) {
-  const { t } = useAppSettings()
-  const count = upload.albums.length
+function UploadListMenu({
+  icon: Icon,
+  label,
+  ariaLabel,
+  items,
+  numbered = false,
+}: {
+  icon: LucideIcon
+  label: string
+  ariaLabel: string
+  items: string[]
+  numbered?: boolean
+}) {
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="upload-albums-button"
-          aria-label={t("works.showAlbums", { title: upload.song, count })}
-          title={t("works.onAlbums")}
+          className="upload-list-button"
+          aria-label={ariaLabel}
+          title={label}
         >
-          <Disc3 aria-hidden="true" />
-          {count > 1 ? <span>{count}</span> : null}
+          <Icon aria-hidden="true" />
+          {items.length > 1 ? <span>{items.length}</span> : null}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="upload-albums-menu">
-        <DropdownMenuLabel>{t("works.onAlbums")}</DropdownMenuLabel>
-        {upload.albums.map((album) => (
-          <DropdownMenuItem key={album}>{album}</DropdownMenuItem>
+      <DropdownMenuContent align="end" className="upload-list-menu">
+        <DropdownMenuLabel>{label}</DropdownMenuLabel>
+        {items.map((item, index) => (
+          <DropdownMenuItem key={index}>
+            {numbered ? (
+              <span className="upload-list-number">{index + 1}</span>
+            ) : null}
+            {item}
+          </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

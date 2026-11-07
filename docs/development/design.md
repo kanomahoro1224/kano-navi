@@ -52,8 +52,9 @@ introduce a separate token system for a single page.
   rises only while a finger is on it. The works she
   is featured on are a list; her uploads are a grid of 16:9 covers (on phones
   a list of rows, thumbnail beside words), with the site marks as small icons
-  at the end of the date line, a disc at the end of the title that opens a
-  menu of the albums including the recording, and a
+  at the end of the date line; at the end of the title a disc opens a menu
+  of the albums including the recording and, for an upload of many songs,
+  a list mark opens its numbered songs; and a
   printed sleeve in one of the palette's tones where no thumbnail is saved.
   The order is a single icon that ends the toolbar's row; search and
   narrowing toggles join that row on a wide screen and take a second row

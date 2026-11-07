@@ -78,7 +78,9 @@ video, the entry adds its length; a video nobody can watch any more is
 marked **No longer watchable** and its site mark is dimmed. An entry names
 the original artist and any partners. A recording that albums later
 included has a disc at the end of its title, with their count when there
-are several; select it to list those albums.
+are several; select it to list those albums. An upload that sings many
+songs in one video has a list mark there with the number of songs; select
+it to see them in order.
 **Not on an album** keeps only the uploads no album includes, and **Members
 only** keeps the members-only posts. Search by song, artist or partner.
 

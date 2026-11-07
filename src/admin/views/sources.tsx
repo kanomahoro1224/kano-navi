@@ -36,6 +36,7 @@ import {
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
+import { RelatedAccountsPanel } from "@/admin/views/related-accounts"
 import {
   formatInterval,
   formatRelative,
@@ -2132,6 +2133,9 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                       accounts={data.x.accounts.map((entry) => entry.account)}
                       onChange={setSchedule}
                     />
+                  ) : null}
+                  {selected === "x" ? (
+                    <RelatedAccountsPanel navigate={navigate} />
                   ) : null}
                   {selected === "youtube" ? (
                     <ConfirmationPanel

@@ -530,6 +530,30 @@ func TestScheduleListHidesOperatorMetadata(t *testing.T) {
 	}
 }
 
+func TestScheduleListLeavesOutEventsOfHiddenPosts(t *testing.T) {
+	handler, store := newHandler(t, nil)
+	for _, statement := range []string{
+		`UPDATE posts SET hidden_at='2026-09-01T13:00:00.000Z' WHERE id='post-1'`,
+		`INSERT INTO event_sources (event_id,source,source_item_id,source_key,created_at,updated_at)
+		 VALUES ('automatic-public-event','x','post-1','date-key-placeholder','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z')`,
+	} {
+		if _, err := store.DB().Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page := toolValue(t, post(t, handler, toolCall("schedule_list", map[string]any{"pageSize": 100})))
+	items := page["items"].([]any)
+	if page["total"] != float64(1) || len(items) != 1 || items[0].(map[string]any)["id"] != "manual-public-event" {
+		t.Fatalf("page = %v", page)
+	}
+	dashboard := toolValue(t, post(t, handler, toolCall("dashboard_read", map[string]any{"days": 30})))
+	for _, entry := range dashboard["events"].([]any) {
+		if entry.(map[string]any)["id"] == "automatic-public-event" {
+			t.Fatal("dashboard_read lists an event of a hidden post")
+		}
+	}
+}
+
 func TestPostsListReadsTheStoredSnapshot(t *testing.T) {
 	handler, _ := newHandler(t, nil)
 	response := post(t, handler, toolCall("posts_list", nil))

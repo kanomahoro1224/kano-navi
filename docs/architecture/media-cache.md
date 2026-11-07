@@ -96,7 +96,11 @@ role, position)`, for example `post / 209... / post-image / 0` or `video / abc /
 thumbnail / 0`. A post's own images use `post-image`; the images of a status
 it quotes use `quote-image` under the same post, so the board shows them in
 the quote card and extraction never reads them (see
-[Quoted posts](sources.md#quoted-posts)).
+[Quoted posts](sources.md#quoted-posts)). A status of the X status pool has
+no media link: a related account's status registers its images as
+`post-image` links only when it is promoted into posts (see
+[Related accounts](sources.md#related-accounts)), so nothing is downloaded
+for statuses that stay in the pool.
 
 The `media_url`, `thumbnail_url`, and image URL columns of content tables are
 source-snapshot fields and are not treated as safe browser URLs by the

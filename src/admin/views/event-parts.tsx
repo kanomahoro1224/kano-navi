@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Combine, Lock, Sparkles, Split } from "lucide-react"
+import { Combine, EyeOff, Lock, Sparkles, Split } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import { formatDay, formatTime, japanDay } from "@/admin/format"
@@ -72,6 +72,20 @@ export function MergeBadge({ event }: { event: AdminEvent }) {
   if (event.mergeSource === "manual")
     return <Badge icon={Split}>{t("admin.event.keptSeparate")}</Badge>
   return null
+}
+
+/** An automatic entry the public pages leave out because every source post
+ * is hidden. */
+export function HiddenByPostsBadge({ event }: { event: AdminEvent }) {
+  const { t } = useAppSettings()
+  if (!event.hiddenByPosts || event.deletedAt) return null
+  return (
+    <Badge tone="danger" icon={EyeOff}>
+      <span title={t("admin.event.hiddenByPostsHint")}>
+        {t("admin.event.hiddenByPosts")}
+      </span>
+    </Badge>
+  )
 }
 
 /** The Japan date `days` away from `day`. */

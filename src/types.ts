@@ -76,6 +76,8 @@ export interface Post {
   sourceLanguage?: string | null
   /** The status this post quotes, shown nested in the post. */
   quote?: PostQuote | null
+  /** A related account's status promoted onto the board, not Kano's own. */
+  promoted?: boolean
 }
 
 /**

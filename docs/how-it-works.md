@@ -43,11 +43,13 @@ flowchart LR
 ```
 
 1. Source timers, an operator's Run now, or an authorized MCP client start a
-   workflow. Workflows read public X and YouTube pages (and bilibili posts,
-   copies and live status),
+   workflow. Workflows read public X and YouTube pages (Kano's X accounts and
+   related accounts such as her agency, whose posts about her are promoted
+   onto the board; and bilibili posts, copies and live status),
    download their images into the media cache, and write a SQLite snapshot.
    A failed source keeps the previous snapshot and records its outcome.
-2. Schedule extraction reads candidate posts and schedule images and asks the
+2. Schedule extraction reads candidate posts, the wording they quote, and
+   schedule images, skips hidden posts, and asks the
    configured LLM providers for structured events. Uncertain results create no
    events; manual edits and confirmations lock an event against automatic
    replacement.

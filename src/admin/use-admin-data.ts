@@ -61,6 +61,10 @@ import type {
   AdminTranslation,
   VariantStatus,
   VisitorRegionSettings,
+  AdminXStatus,
+  XRelatedAccount,
+  XRelatedAccounts,
+  XStatusDecision,
   VideoCorrection,
   VideoHistory,
   VideoMergeSuggestion,
@@ -168,6 +172,19 @@ function createClient(run: Runner, slow: Runner) {
     ) => send<SourceSchedule>("PUT", `/sources/${enc(source)}/schedule`, body),
     runSource: (source: ScheduleSource) =>
       send<{ run: Run }>("POST", `/sources/${enc(source)}/run`),
+    /** The related X accounts, their keyword rules and their last reads. */
+    relatedAccounts: () => get<XRelatedAccounts>("/sources/x/related"),
+    updateRelatedAccounts: (accounts: XRelatedAccount[]) =>
+      send<XRelatedAccounts>("PUT", "/sources/x/related", { accounts }),
+    /** The X status pool behind External posts. */
+    xStatuses: (filters: Record<string, any>) =>
+      get<Page<AdminXStatus>>(`/x-statuses${query(filters)}`),
+    /** A promote or demote lock with its reason, or back to the rules. */
+    decideXStatus: (id: string, decision: XStatusDecision, reason = "") =>
+      send<{ status: AdminXStatus }>("PUT", `/x-statuses/${enc(id)}/decision`, {
+        decision,
+        reason,
+      }),
     startSourceSchedule: (source: ScheduleSource) =>
       send<SourceSchedule>("POST", `/sources/${enc(source)}/schedule/start`),
     updatePush: (body: { enabled?: boolean; callbackUrl?: string | null }) =>

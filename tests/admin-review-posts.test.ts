@@ -40,6 +40,7 @@ function post(id: string, patch: Partial<AdminPost>): AdminPost {
     quoteHiddenAt: null,
     refreshRequestedAt: null,
     hiddenAt: null,
+    promotedAt: null,
     scheduleImage: null,
     ...patch,
   }

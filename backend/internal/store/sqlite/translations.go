@@ -28,6 +28,9 @@ import (
 const (
 	TranslationOwnerPost  = "post"
 	TranslationOwnerVideo = "video"
+	// TranslationOwnerXStatus is a pooled X status (x_statuses) that an own
+	// account quotes or reposts and that is not a stored post.
+	TranslationOwnerXStatus = "x_status"
 
 	TranslationOriginManual   = "manual"
 	TranslationOriginPlatform = "platform"
@@ -76,15 +79,35 @@ const videoTitleSource = "COALESCE(%[1]s.manual_title, %[1]s.title)"
 // Bilibili metadata is already Chinese and is not sent to a model.
 const videoTranslationScope = "%[1]s.source = 'youtube' AND %[1]s.merged_into IS NULL"
 
+// xStatusInstant is when a pooled status was last quoted or first seen
+// reposted by an own account: the lookback of its translation follows the
+// quoting or reposting post, not the status's own age.
+const xStatusInstant = "CASE WHEN %[1]s.reposted_at IS NULL OR julianday(%[1]s.quoted_at) >= julianday(%[1]s.reposted_at) THEN COALESCE(%[1]s.quoted_at, %[1]s.reposted_at) ELSE %[1]s.reposted_at END"
+
+// xStatusTranslationScope selects the pooled statuses the machine step
+// translates: quoted or reposted ones that are not stored posts, whose own
+// translations a quote of them reuses.
+const xStatusTranslationScope = "(%[1]s.quoted_at IS NOT NULL OR %[1]s.reposted_at IS NOT NULL) AND NOT EXISTS (SELECT 1 FROM posts xp WHERE xp.id = %[1]s.id)"
+
+// translationOwner describes an owner type: its table, translated field and
+// the SQL (%[1]s is the table alias) of its wording, the instant the lookback
+// compares, the machine scope and its source (x, bilibili or youtube).
 type translationOwner struct {
-	table, field, source, instant, scope string
+	table, field, source, instant, scope, origin string
 }
 
+// An origin without a column ignores the alias through %.0[1]s.
 var translationOwners = map[string]translationOwner{
-	TranslationOwnerPost:  {table: "posts", field: "text", source: "%[1]s.text", instant: "%[1]s.published_at", scope: "%[1]s.source IN ('x','bilibili')"},
-	TranslationOwnerVideo: {table: "videos", field: "title", source: videoTitleSource, instant: "COALESCE(%[1]s.scheduled_at, %[1]s.published_at)", scope: videoTranslationScope},
+	TranslationOwnerPost:    {table: "posts", field: "text", source: "%[1]s.text", instant: "%[1]s.published_at", scope: "%[1]s.source IN ('x','bilibili')", origin: "%[1]s.source"},
+	TranslationOwnerVideo:   {table: "videos", field: "title", source: videoTitleSource, instant: "COALESCE(%[1]s.scheduled_at, %[1]s.published_at)", scope: videoTranslationScope, origin: "%[1]s.source"},
+	TranslationOwnerXStatus: {table: "x_statuses", field: "text", source: "%[1]s.text", instant: xStatusInstant, scope: xStatusTranslationScope, origin: "%.0[1]s'x'"},
 }
 
+// machineTranslationOwners are the owner types the machine step translates,
+// in the order it takes them: pooled statuses only after posts and videos.
+var machineTranslationOwners = []string{TranslationOwnerPost, TranslationOwnerVideo, TranslationOwnerXStatus}
+
+func (o translationOwner) originSQL(alias string) string  { return fmt.Sprintf(o.origin, alias) }
 func (o translationOwner) sourceSQL(alias string) string  { return fmt.Sprintf(o.source, alias) }
 func (o translationOwner) instantSQL(alias string) string { return fmt.Sprintf(o.instant, alias) }
 func (o translationOwner) scopeSQL(alias string) string   { return fmt.Sprintf(o.scope, alias) }
@@ -306,7 +329,10 @@ func (s *Store) resolveTranslations(ctx context.Context, ownerType string, ids [
 }
 
 // attachPostTranslations resolves the posts' translations and their quotes'.
-// A quote shares the status ID of the stored post it quotes, if any.
+// A quote of a stored post (a self-quote, or a promoted status) shares that
+// post's translations; any other quote has the x_status translations of its
+// status ID, resolved against the quote's own text (see
+// resolveQuoteTranslations).
 func (s *Store) attachPostTranslations(ctx context.Context, posts ...*Post) error {
 	ids := []string{}
 	seen := map[string]bool{}
@@ -316,6 +342,7 @@ func (s *Store) attachPostTranslations(ctx context.Context, posts ...*Post) erro
 			ids = append(ids, id)
 		}
 	}
+	quoted := []string{}
 	for _, post := range posts {
 		if post == nil {
 			continue
@@ -323,9 +350,24 @@ func (s *Store) attachPostTranslations(ctx context.Context, posts ...*Post) erro
 		add(post.ID)
 		if post.Quote != nil && !post.Quote.Unavailable {
 			add(post.Quote.ID)
+			quoted = append(quoted, post.Quote.ID)
 		}
 	}
 	sets, err := s.resolveTranslations(ctx, TranslationOwnerPost, ids)
+	if err != nil {
+		return err
+	}
+	stored, err := s.storedPostIDs(ctx, quoted)
+	if err != nil {
+		return err
+	}
+	pooled := map[string][]string{}
+	for _, post := range posts {
+		if post != nil && post.Quote != nil && !post.Quote.Unavailable && !stored[post.Quote.ID] {
+			pooled[post.Quote.ID] = append(pooled[post.Quote.ID], post.Quote.Text)
+		}
+	}
+	quotes, err := s.resolveQuoteTranslations(ctx, pooled)
 	if err != nil {
 		return err
 	}
@@ -335,10 +377,129 @@ func (s *Store) attachPostTranslations(ctx context.Context, posts ...*Post) erro
 		}
 		post.Translations = sets[post.ID]
 		if post.Quote != nil && !post.Quote.Unavailable {
-			post.Quote.Translations = sets[post.Quote.ID]
+			if stored[post.Quote.ID] {
+				post.Quote.Translations = sets[post.Quote.ID]
+			} else {
+				post.Quote.Translations = quotes[quoteTextKey(post.Quote.ID, post.Quote.Text)]
+			}
 		}
 	}
 	return nil
+}
+
+// storedPostIDs reports which of the IDs are stored posts.
+func (s *Store) storedPostIDs(ctx context.Context, ids []string) (map[string]bool, error) {
+	out := map[string]bool{}
+	for _, chunk := range translationChunks(ids) {
+		rows, err := s.db.QueryContext(ctx, `SELECT id FROM posts WHERE id IN (`+placeholders(len(chunk))+`)`, idArgs(chunk)...)
+		if err != nil {
+			return nil, dbErr(err)
+		}
+		for rows.Next() {
+			var id string
+			if err = rows.Scan(&id); err != nil {
+				rows.Close()
+				return nil, dbErr(err)
+			}
+			out[id] = true
+		}
+		if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+			return nil, dbErr(err)
+		}
+	}
+	return out, nil
+}
+
+// quoteTextKey identifies a quoted status together with the wording a quote
+// of it shows.
+func quoteTextKey(id, text string) string { return id + "|" + TranslationHash(text) }
+
+// resolveQuoteTranslations resolves the x_status translations of quoted
+// statuses, keyed by quoteTextKey, from the translation tables alone: the
+// projection's text stands in for the pooled wording, which comes from the
+// same mapping, so the public read never touches x_statuses. A machine row or
+// a source language counts only when its source hash matches that text;
+// manual and platform rows always count.
+func (s *Store) resolveQuoteTranslations(ctx context.Context, texts map[string][]string) (map[string]TranslationSet, error) {
+	out := map[string]TranslationSet{}
+	ids := make([]string, 0, len(texts))
+	for id := range texts {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	type row struct {
+		locale, origin, platform, text, hash string
+	}
+	translated := map[string][]row{}
+	states := map[string][2]string{}
+	field := translationOwners[TranslationOwnerXStatus].field
+	for _, chunk := range translationChunks(ids) {
+		args := append([]any{TranslationOwnerXStatus, field}, idArgs(chunk)...)
+		rows, err := s.db.QueryContext(ctx, `SELECT owner_id, locale, origin, platform, text, source_hash FROM translations
+			WHERE owner_type = ? AND field = ? AND owner_id IN (`+placeholders(len(chunk))+`)`, args...)
+		if err != nil {
+			return nil, dbErr(err)
+		}
+		for rows.Next() {
+			var id string
+			var r row
+			if err = rows.Scan(&id, &r.locale, &r.origin, &r.platform, &r.text, &r.hash); err != nil {
+				rows.Close()
+				return nil, dbErr(err)
+			}
+			translated[id] = append(translated[id], r)
+		}
+		if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+			return nil, dbErr(err)
+		}
+		rows, err = s.db.QueryContext(ctx, `SELECT owner_id, COALESCE(source_hash, ''), source_language FROM translation_states
+			WHERE owner_type = ? AND field = ? AND owner_id IN (`+placeholders(len(chunk))+`) AND source_language IS NOT NULL`, args...)
+		if err != nil {
+			return nil, dbErr(err)
+		}
+		for rows.Next() {
+			var id, hash, language string
+			if err = rows.Scan(&id, &hash, &language); err != nil {
+				rows.Close()
+				return nil, dbErr(err)
+			}
+			states[id] = [2]string{hash, language}
+		}
+		if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+			return nil, dbErr(err)
+		}
+	}
+	for _, id := range ids {
+		for _, text := range texts[id] {
+			key := quoteTextKey(id, text)
+			if _, done := out[key]; done {
+				continue
+			}
+			hash := TranslationHash(text)
+			set := TranslationSet{Locales: map[string]Translation{}}
+			ranks := map[string]int{}
+			for _, r := range translated[id] {
+				if !validTranslationLocale(r.locale) || strings.TrimSpace(r.text) == "" || (r.origin == TranslationOriginMachine && r.hash != hash) {
+					continue
+				}
+				rank := translationRank(r.origin, r.platform)
+				if current, seen := ranks[r.locale]; seen && current <= rank {
+					continue
+				}
+				ranks[r.locale] = rank
+				value := Translation{Text: r.text, Origin: r.origin}
+				if r.platform != "" {
+					value.Platform = strPtr(r.platform)
+				}
+				set.Locales[r.locale] = value
+			}
+			if state, ok := states[id]; ok && state[0] == hash && SourceLanguages[state[1]] {
+				set.SourceLanguage = strPtr(state[1])
+			}
+			out[key] = set
+		}
+	}
+	return out, nil
 }
 
 func (s *Store) attachVideoTranslations(ctx context.Context, videos ...*Video) error {
@@ -640,7 +801,7 @@ func (s *Store) TranslationSummary(ctx context.Context) (map[string]TranslationC
 type TranslationCandidate struct {
 	OwnerType, OwnerID, Field, Text, SourceHash string
 	// Source is the owner's source: x or bilibili for a post, youtube for a
-	// video.
+	// video, x for a pooled status.
 	Source    string
 	Requested bool
 	attempt   string
@@ -650,21 +811,22 @@ type TranslationCandidate struct {
 // ListTranslationCandidates returns up to limit owners in the machine scope
 // whose current wording lacks a usable translation of a needed locale, plus
 // owners an operator requested. Requests come first and ignore since; then
-// owners never attempted for this wording, then the least recently
-// attempted, newest first within each group.
+// posts and videos before pooled statuses, each never attempted for this
+// wording first, then the least recently attempted, newest first within each
+// group. A pooled status's instant is when an own post last quoted it.
 func (s *Store) ListTranslationCandidates(ctx context.Context, since time.Time, limit int) ([]TranslationCandidate, error) {
 	if limit < 1 {
 		return []TranslationCandidate{}, nil
 	}
 	cutoff := since.UTC().Format(time.RFC3339Nano)
 	all := []TranslationCandidate{}
-	for _, ownerType := range []string{TranslationOwnerPost, TranslationOwnerVideo} {
+	for _, ownerType := range machineTranslationOwners {
 		o := translationOwners[ownerType]
-		query := fmt.Sprintf(`SELECT o.id, o.source, %[2]s, COALESCE(ts.requested, 0), CASE WHEN ts.source_hash = translation_hash(%[2]s) THEN COALESCE(ts.last_attempt_at, '') ELSE '' END, COALESCE(%[3]s, '')
+		query := fmt.Sprintf(`SELECT o.id, %[6]s, %[2]s, COALESCE(ts.requested, 0), CASE WHEN ts.source_hash = translation_hash(%[2]s) THEN COALESCE(ts.last_attempt_at, '') ELSE '' END, COALESCE(%[3]s, '')
 			FROM %[1]s o LEFT JOIN translation_states ts ON ts.owner_type = ? AND ts.owner_id = o.id AND ts.field = ?
 			WHERE %[4]s AND (COALESCE(ts.requested, 0) = 1 OR (julianday(%[3]s) >= julianday(?) AND %[5]s))
 			ORDER BY COALESCE(ts.requested, 0) DESC, julianday(%[3]s) DESC, o.id ASC LIMIT 2000`,
-			o.table, o.sourceSQL("o"), o.instantSQL("o"), o.scopeSQL("o"), TranslationIncompleteSQL(ownerType, "o"))
+			o.table, o.sourceSQL("o"), o.instantSQL("o"), o.scopeSQL("o"), TranslationIncompleteSQL(ownerType, "o"), o.originSQL("o"))
 		rows, err := s.db.QueryContext(ctx, query, ownerType, o.field, cutoff)
 		if err != nil {
 			return nil, dbErr(err)
@@ -686,6 +848,9 @@ func (s *Store) ListTranslationCandidates(ctx context.Context, since time.Time, 
 		a, b := all[i], all[j]
 		if a.Requested != b.Requested {
 			return a.Requested
+		}
+		if pa, pb := a.OwnerType == TranslationOwnerXStatus, b.OwnerType == TranslationOwnerXStatus; !a.Requested && pa != pb {
+			return pb
 		}
 		if (a.attempt == "") != (b.attempt == "") {
 			return a.attempt == ""

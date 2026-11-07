@@ -212,7 +212,8 @@ CREATE TABLE posts (
     quote_json TEXT,
     quote_hidden_at TEXT,
     refresh_requested_at TEXT,
-    hidden_at TEXT
+    hidden_at TEXT,
+    promoted_at TEXT
   );
 
 CREATE TABLE profile_media (
@@ -428,6 +429,34 @@ CREATE TABLE workflows (
     updated_at TEXT NOT NULL
   );
 
+CREATE TABLE x_reposts (
+    status_id TEXT NOT NULL,
+    account_handle TEXT NOT NULL,
+    author_handle TEXT,
+    first_seen_at TEXT NOT NULL,
+    PRIMARY KEY (status_id, account_handle)
+  );
+
+CREATE TABLE x_statuses (
+    id TEXT PRIMARY KEY,
+    author_handle TEXT NOT NULL,
+    author_name TEXT,
+    text TEXT NOT NULL,
+    published_at TEXT,
+    url TEXT NOT NULL,
+    raw_json TEXT,
+    quoted_at TEXT,
+    reposted_at TEXT,
+    listed_at TEXT,
+    keyword INTEGER NOT NULL DEFAULT 0,
+    manual_decision TEXT,
+    manual_reason TEXT,
+    manual_at TEXT,
+    demoted_at TEXT,
+    first_seen_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
 CREATE INDEX event_sources_event_idx ON event_sources (event_id);
 
 CREATE UNIQUE INDEX event_sources_identity_idx
@@ -494,3 +523,5 @@ CREATE INDEX videos_instant_idx ON videos (julianday(COALESCE(scheduled_at, publ
 CREATE INDEX videos_merged_into_idx ON videos (merged_into) WHERE merged_into IS NOT NULL;
 
 CREATE INDEX videos_schedule_instant_idx ON videos (julianday(scheduled_at), id);
+
+CREATE INDEX x_statuses_author_idx ON x_statuses (lower(author_handle), length(id), id);

@@ -325,7 +325,15 @@ function PostNote({
   )
   const head = (close?: ReactNode) => (
     <header className="post-note-head">
-      <img src={avatarUrl || undefined} alt="" />
+      {post.promoted ? (
+        // Another account's post shown for Kano: its initial, never her
+        // portrait.
+        <span className="post-note-initial" aria-hidden="true">
+          {(post.accountHandle || "X").replace(/^@/u, "").charAt(0)}
+        </span>
+      ) : (
+        <img src={avatarUrl || undefined} alt="" />
+      )}
       {bilibili ? (
         <ExternalLink
           className="post-note-handle is-source"

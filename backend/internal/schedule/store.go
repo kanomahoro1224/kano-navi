@@ -3,6 +3,7 @@ package schedule
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -324,6 +325,39 @@ type post struct {
 	mediaURLs   []any
 	raw         *object
 	llmRoute    string
+	// quote is the wording of the status the post quotes, as the public
+	// pages show it, or empty: without a quote, with an unavailable one, or
+	// with one an operator hid.
+	quote quotedContext
+}
+
+// quotedContext is a quoted status's author handle and text.
+type quotedContext struct{ author, text string }
+
+// quoteContextOf reads the quote projection the public pages show. The
+// caller passes NULL for a hidden quote.
+func quoteContextOf(stored sql.NullString) quotedContext {
+	if !stored.Valid || stored.String == "" {
+		return quotedContext{}
+	}
+	var quote struct {
+		AuthorHandle string `json:"authorHandle"`
+		Text         string `json:"text"`
+		Unavailable  bool   `json:"unavailable"`
+	}
+	if json.Unmarshal([]byte(stored.String), &quote) != nil || quote.Unavailable || jsTrim(quote.Text) == "" {
+		return quotedContext{}
+	}
+	return quotedContext{author: quote.AuthorHandle, text: quote.Text}
+}
+
+// matchText is the wording the message heuristic and the source platform read:
+// the post's own text and the text it quotes.
+func (p post) matchText() string {
+	if p.quote.text == "" {
+		return p.text
+	}
+	return p.text + "\n" + p.quote.text
 }
 
 // rawObjectOf returns the stored source record when it is a JSON object.
@@ -393,15 +427,17 @@ func isLikelyScheduleBoardText(value string) bool {
 }
 
 // listCandidatePosts selects the posts a detector stage scans. With allPosts,
-// the message stage takes every post that has text or images.
+// the message stage takes every post that has text or images. A hidden post
+// is never a candidate.
 func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, detectionType string, allPosts bool) ([]post, error) {
 	lowered := []string{}
 	for _, keyword := range boundedKeywords(parseListValues(keywords)) {
 		lowered = append(lowered, jsToLower(keyword))
 	}
-	rows, err := e.db.QueryContext(ctx, `SELECT source, id, type, label, text, published_at, url, media_url, raw_json
+	rows, err := e.db.QueryContext(ctx, `SELECT source, id, type, label, text, published_at, url, media_url, raw_json,
+		CASE WHEN quote_hidden_at IS NULL THEN quote_json END
 		FROM posts
-		WHERE source IN ('x','bilibili')
+		WHERE source IN ('x','bilibili') AND hidden_at IS NULL
 		ORDER BY published_at DESC`)
 	if err != nil {
 		return nil, err
@@ -410,10 +446,11 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 	out := []post{}
 	for rows.Next() {
 		var item post
-		var postType, label, text, publishedAt, postURL, mediaURL, rawJSON sql.NullString
-		if err = rows.Scan(&item.source, &item.id, &postType, &label, &text, &publishedAt, &postURL, &mediaURL, &rawJSON); err != nil {
+		var postType, label, text, publishedAt, postURL, mediaURL, rawJSON, quoteJSON sql.NullString
+		if err = rows.Scan(&item.source, &item.id, &postType, &label, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &quoteJSON); err != nil {
 			return nil, err
 		}
+		item.quote = quoteContextOf(quoteJSON)
 		item.postType, item.label, item.text = postType.String, label.String, text.String
 		item.publishedAt, item.url, item.mediaURL = publishedAt.String, postURL.String, mediaURL.String
 		item.raw = rawObjectOf(rawJSON)
@@ -439,11 +476,13 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 		case detectionType != "message":
 			selected = matchesKeyword()
 		case allPosts:
-			selected = jsTrim(item.text) != "" || len(item.mediaURLs) > 0
-		case jsTrim(item.text) == "":
+			selected = jsTrim(item.matchText()) != "" || len(item.mediaURLs) > 0
+		case jsTrim(item.matchText()) == "":
 			selected = len(item.mediaURLs) > 0 && noticeLabelPattern.MatchString(item.postType+" "+item.label)
 		default:
-			selected = matchesKeyword() || scheduleMessagePattern.MatchString(item.text) ||
+			// The quoted wording counts: a post that only points at a quoted
+			// announcement carries its schedule there.
+			selected = matchesKeyword() || scheduleMessagePattern.MatchString(item.matchText()) ||
 				item.source == "bilibili" && bilibiliMessagePattern.MatchString(item.text)
 		}
 		if selected {
@@ -462,11 +501,13 @@ func arrayProperty(root *object, key string) ([]any, bool) {
 	return list, isArray
 }
 
+// listRequestedPosts lists operator reprocess requests. A request for a hidden
+// post waits until the post is shown again.
 func (e *Extractor) listRequestedPosts(ctx context.Context, limit int) ([]post, error) {
 	rows, err := e.db.QueryContext(ctx, `SELECT p.source, p.id, p.text, p.published_at, p.url, p.media_url,
-		p.raw_json, s.route
+		p.raw_json, s.route, CASE WHEN p.quote_hidden_at IS NULL THEN p.quote_json END
 		FROM posts p LEFT JOIN post_llm_states s ON s.post_id = p.id
-		WHERE s.reprocess_requested = 1
+		WHERE s.reprocess_requested = 1 AND p.hidden_at IS NULL
 		ORDER BY p.published_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
@@ -475,10 +516,11 @@ func (e *Extractor) listRequestedPosts(ctx context.Context, limit int) ([]post, 
 	out := []post{}
 	for rows.Next() {
 		var item post
-		var text, publishedAt, postURL, mediaURL, rawJSON, route sql.NullString
-		if err = rows.Scan(&item.source, &item.id, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &route); err != nil {
+		var text, publishedAt, postURL, mediaURL, rawJSON, route, quoteJSON sql.NullString
+		if err = rows.Scan(&item.source, &item.id, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &route, &quoteJSON); err != nil {
 			return nil, err
 		}
+		item.quote = quoteContextOf(quoteJSON)
 		item.text, item.publishedAt, item.url = text.String, publishedAt.String, postURL.String
 		item.mediaURL, item.llmRoute = mediaURL.String, route.String
 		item.raw = rawObjectOf(rawJSON)

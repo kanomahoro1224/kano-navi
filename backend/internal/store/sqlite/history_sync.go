@@ -92,7 +92,7 @@ func (s *Store) WriteHistoryPage(ctx context.Context, page history.Page) (histor
 	}
 	// A checkpoint-only page clears a stale continuation of any fetch
 	// checkpoint and carries nothing else.
-	if page.CheckpointOnly && (len(page.Posts) > 0 || len(page.ScheduleCandidates) > 0 || len(page.Videos) > 0 || len(page.Described) > 0 || len(page.Localized) > 0 || page.Backfill != nil) {
+	if page.CheckpointOnly && (len(page.Posts) > 0 || len(page.Reposts) > 0 || len(page.ScheduleCandidates) > 0 || len(page.Videos) > 0 || len(page.Described) > 0 || len(page.Localized) > 0 || page.Backfill != nil) {
 		return history.Written{}, ErrSourceWrite
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -131,6 +131,11 @@ func (s *Store) WriteHistoryPage(ctx context.Context, page history.Page) (histor
 			out.New++
 			out.NewIDs = append(out.NewIDs, post.ID)
 		}
+		repostsChanged, repostErr := writeXReposts(ctx, tx, page.Account, page.Reposts, now)
+		if repostErr != nil {
+			return history.Written{}, ErrSourceWrite
+		}
+		changed = changed || repostsChanged
 		for _, candidate := range page.ScheduleCandidates {
 			if candidate.MediaURL == "" || candidate.SourceURL == "" || kept[candidate.PostID] {
 				continue

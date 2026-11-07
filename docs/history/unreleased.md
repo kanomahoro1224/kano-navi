@@ -30,6 +30,39 @@
 > interval, planned half an interval after the upload read; `SKIP_BILIBILI`
 > covers both.
 
+> [!IMPORTANT]
+> Related X accounts
+> ([ADR-0009](../decisions/ADR-0009-related-x-accounts-and-quoted-statuses.md))
+> start empty: the `x_related_accounts` setting is empty after the upgrade
+> and on a fresh install, so no account beyond `X_HANDLES` is read. To follow
+> Kano's agency, add `Mil_Pro_` on `/admin` → Sources → X. A new account
+> starts with the keyword rules `鹿乃`, `@kano_2525` and `#鹿乃まほろ`, and the
+> next X run reads its timeline through FxTwitter only.
+
+> [!NOTE]
+> Startup creates the `x_statuses` and `x_reposts` tables, adds
+> `posts.promoted_at`, and fills the status pool from the quotes stored
+> posts already hold, without a request or a rewritten row. Public posts add
+> `promoted`; admin posts add `promotedAt` and admin events `hiddenByPosts`;
+> the admin API adds `/sources/x/related` and `/x-statuses`, and its
+> translation routes accept the owner `x_status`, which translation rows may
+> also carry.
+
+> [!NOTE]
+> Schedule extraction skips hidden posts, and the automatic events that only
+> hidden posts support leave the board, the calendar, the calendar
+> subscription, the public API and MCP schedule reads. Posts hidden before
+> the upgrade therefore stop being extracted and their automatic events
+> leave the public pages. No row is changed: showing a post, or confirming
+> an event in the console, shows the event again.
+
+> [!NOTE]
+> Model calls rise a little after upgrading. Schedule extraction reads the
+> wording a post quotes, which changes the input of every post with a shown
+> quote, so those within the extraction lookback are extracted once more,
+> and quoted posts within the translation lookback are translated within
+> the translate step's per-run limit, after posts and videos.
+
 <details>
 <summary><strong>Public pages</strong></summary>
 
@@ -73,6 +106,11 @@
 - English pages write Kano's group as ミリプロSONA, as the agency does, and
   name the agency's shop Million Production shop after its official English
   name.
+- A quoted post of any account is translated into the content language,
+  with its own AI mark on the quoted card.
+- Posts of the agency's account about Kano appear on the post wall, with the
+  account's initial rather than Kano's portrait. A post Kano quotes shows
+  only inside her post, and the agency never gets a tab of its own.
 
 </details>
 
@@ -109,6 +147,18 @@
 - Manual X timeline fetches count FxTwitter's fixed pages of 20 statuses, so
   a large `count` fetch stops at the page budget and continues when repeated
   instead of reading fewer statuses than it reports.
+- Schedule extraction skips hidden posts, including operator reprocess
+  requests for them, which wait until the post is shown again.
+- Schedule extraction reads the wording a post quotes as marked context, so
+  a post that only points at a quoted announcement gets its schedule; a
+  quote hidden from the board adds nothing.
+- Quoted statuses are kept in a status pool that the public pages never
+  read, and own accounts' reposts are recorded as links; neither becomes a
+  post.
+- Each X run also reads related accounts, such as the agency, in full into
+  the pool through the FxTwitter timeline only, with their own cursor.
+  Statuses matching the account's keyword rules are promoted onto the board
+  without schedule-image candidates; the rest stay in the pool.
 
 </details>
 
@@ -135,5 +185,12 @@
   the counts when the listing arrives.
 - Source tabs that overflow a phone screen scroll within their row instead
   of widening the page.
+- The schedule marks an automatic entry whose every source post is hidden
+  as Hidden by its posts and dims it in the list and the calendar, since the
+  public pages leave it out.
+- Sources → X lists related accounts with their keyword rules and last read.
+- External posts, in the Data group, lists the status pool with its reasons
+  and state, and promotes or demotes a status with a reason, as a lock the
+  keyword rules never override. Posts marks promoted posts.
 
 </details>

@@ -68,6 +68,7 @@ func (a *Adapter) discover(ctx context.Context, account string, opts Options, cu
 		}
 		result.Tried = append(result.Tried, Attempt{Method: method})
 		result.Discovery, result.Gap, result.Notes = method, found.gap, found.notes
+		result.Reposts = found.reposts
 		return found, nil
 	}
 	return discovery{}, last
@@ -151,6 +152,7 @@ func (a *Adapter) discoverAPI(ctx context.Context, account string, opts Options,
 			if err != nil {
 				return false, err
 			}
+			found.reposts = append(found.reposts, page.Reposts...)
 			for _, post := range page.Posts {
 				if seen[post.ID] {
 					continue

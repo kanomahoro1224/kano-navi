@@ -14,12 +14,16 @@ Posts are laid out in whole rows; a long post shows its first lines and
 - See like, repost, and reply counts of X posts as they were last collected.
 - A post that quotes another one shows the quoted post as a nested card that
   links to it on X.
+- Some posts of the agency's account appear on the wall too, when they are
+  about Kano. They show the account's initial instead of Kano's portrait and
+  appear under All, not under Kano's account tabs. One that Kano quotes
+  shows only inside her post.
 - A post translated into your content language ends with the same **AI**
   mark as video titles; select it to read the original post. Japanese
   readers see Japanese posts as written and a Chinese bilibili post in its
   Japanese translation.
-- A quoted post from one of these accounts is translated too, with its own
-  **AI** mark at the end of the quoted card's top line.
+- A quoted post is translated too, with its own **AI** mark at the end of
+  the quoted card's top line.
 
 ## Past Posts
 

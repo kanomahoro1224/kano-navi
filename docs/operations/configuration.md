@@ -165,6 +165,17 @@ an out-of-range value at the nearest bound; the others ignore it. A stored
 value is never replaced from the environment, so these variables have no
 effect once stored and need not be set.
 
+## Related X accounts
+
+Related X accounts are not environment variables: they live in the app
+setting `x_related_accounts` and are edited on `/admin` → Sources → X,
+beside the X API limits. Each account is a handle that is not one of
+`X_HANDLES`, with keyword rules (`鹿乃`, `@kano_2525` and `#鹿乃まほろ` for a
+newly added account). Each X run reads them after the own accounts through
+the FxTwitter timeline only; see
+[Related accounts](../architecture/sources.md#related-accounts). The setting
+starts empty, and seeding leaves it as it is.
+
 ## Source timers
 
 `kano-go serve` starts the timer process unless

@@ -39,7 +39,10 @@ type BambinoRepost struct {
 
 // BambinoPost is one normalized DynamicUpdate from BambinoStatus.
 type BambinoPost struct {
-	ID            string
+	ID string
+	// Source is 'x' or 'bilibili'; empty means x, the only writer before
+	// Bilibili dynamics were accepted here.
+	Source        string
 	AccountHandle string
 	Text          string
 	PublishedAt   string
@@ -111,17 +114,29 @@ type ingestHashJSON struct {
 // the content changed. Duplicate content is a no-op.
 func (s *Store) IngestBambinoPost(ctx context.Context, p BambinoPost) (BambinoIngestResult, error) {
 	p.ID = strings.TrimSpace(p.ID)
-	p.AccountHandle = s.canonicalXHandle(ctx, p.AccountHandle)
-	p.URL = strings.ReplaceAll(p.URL, "twitter.com", "x.com")
+	p.Source = strings.ToLower(strings.TrimSpace(p.Source))
+	if p.Source == "" {
+		p.Source = "x"
+	}
+	if p.Source == "x" {
+		// Only X handles are configured accounts with a canonical spelling;
+		// a Bilibili UP name is whatever the collector read.
+		p.AccountHandle = s.canonicalXHandle(ctx, p.AccountHandle)
+		p.URL = strings.ReplaceAll(p.URL, "twitter.com", "x.com")
+	}
 	p.MediaURLs = nonEmptyURLs(p.MediaURLs)
 	if p.Quote != nil {
 		p.Quote.MediaURLs = nonEmptyURLs(p.Quote.MediaURLs)
-		if p.Quote.URL == "" || !strings.Contains(p.Quote.URL, p.Quote.ID) {
+		if p.Source == "x" && (p.Quote.URL == "" || !strings.Contains(p.Quote.URL, p.Quote.ID)) {
 			p.Quote.URL = "https://x.com/" + p.Quote.AuthorHandle + "/status/" + p.Quote.ID
 		}
 	}
 	if p.Repost != nil && p.Repost.AuthorHandle != "" && (p.Repost.URL == "" || !strings.Contains(p.Repost.URL, p.Repost.ID)) {
-		p.Repost.URL = "https://x.com/" + p.Repost.AuthorHandle + "/status/" + p.Repost.ID
+		if p.Source == "bilibili" {
+			p.Repost.URL = "https://t.bilibili.com/" + p.Repost.ID
+		} else {
+			p.Repost.URL = "https://x.com/" + p.Repost.AuthorHandle + "/status/" + p.Repost.ID
+		}
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -190,7 +205,7 @@ func (s *Store) IngestBambinoPost(ctx context.Context, p BambinoPost) (BambinoIn
 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(id) DO UPDATE SET account_handle=excluded.account_handle,type=excluded.type,label=excluded.label,text=excluded.text,published_at=excluded.published_at,url=excluded.url,likes=excluded.likes,reposts=excluded.reposts,replies=excluded.replies,media_url=excluded.media_url,media_alt=excluded.media_alt,raw_json=excluded.raw_json,quote_json=excluded.quote_json,repost_json=excluded.repost_json
 WHERE lower(posts.account_handle)=lower(excluded.account_handle) OR posts.account_handle IS NULL`,
-		p.ID, "x", nullable(p.AccountHandle), postType, label, p.Text, p.PublishedAt, p.URL, p.Likes, p.Reposts, p.Replies, nullable(media), nil, nullable(p.RawJSON), nullable(quote), nullable(repost))
+		p.ID, p.Source, nullable(p.AccountHandle), postType, label, p.Text, p.PublishedAt, p.URL, p.Likes, p.Reposts, p.Replies, nullable(media), nil, nullable(p.RawJSON), nullable(quote), nullable(repost))
 	if err != nil {
 		return BambinoIngestResult{}, dbErr(err)
 	}
@@ -204,20 +219,20 @@ WHERE lower(posts.account_handle)=lower(excluded.account_handle) OR posts.accoun
 		return BambinoIngestResult{}, dbErr(err)
 	}
 	for i, url := range p.MediaURLs {
-		if err = replaceMediaLink(ctx, tx, "x", url, "post", p.ID, "post-image", i, now); err != nil {
+		if err = replaceMediaLink(ctx, tx, p.Source, url, "post", p.ID, "post-image", i, now); err != nil {
 			return BambinoIngestResult{}, dbErr(err)
 		}
 	}
 	if p.Quote != nil {
 		for i, url := range p.Quote.MediaURLs {
-			if err = replaceMediaLink(ctx, tx, "x", url, "post", p.ID, roleQuoteImage, i, now); err != nil {
+			if err = replaceMediaLink(ctx, tx, p.Source, url, "post", p.ID, roleQuoteImage, i, now); err != nil {
 				return BambinoIngestResult{}, dbErr(err)
 			}
 		}
 	}
 	if p.Repost != nil {
 		if avatar := validRepostAvatar(p.Repost.AuthorAvatar); avatar != "" {
-			if err = replaceMediaLink(ctx, tx, "x", avatar, "post", p.ID, roleRepostAvatar, 0, now); err != nil {
+			if err = replaceMediaLink(ctx, tx, p.Source, avatar, "post", p.ID, roleRepostAvatar, 0, now); err != nil {
 				return BambinoIngestResult{}, dbErr(err)
 			}
 		}

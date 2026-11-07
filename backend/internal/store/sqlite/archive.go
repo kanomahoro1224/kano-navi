@@ -8,10 +8,13 @@ import (
 	"time"
 )
 
-// ErrInvalidAccount rejects a post archive filter that is not an X handle.
+// ErrInvalidAccount rejects a post archive filter that cannot be an account
+// name.
 var ErrInvalidAccount = errors.New("invalid account")
 
-var accountPattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
+// accountPattern allows the letters of any script: an X handle is ASCII, but a
+// Bilibili author is a display name that is usually Japanese or Chinese.
+var accountPattern = regexp.MustCompile(`^[\p{L}\p{N}_ .·-]{1,64}$`)
 
 // ErrInvalidVideoCategory rejects a video archive filter outside
 // VideoCategories.

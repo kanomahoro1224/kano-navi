@@ -19,6 +19,11 @@ Posts are laid out in whole rows; a long post shows its first lines and
 - A quoted post from one of these accounts is translated too, with its own
   **AI** mark at the end of the quoted card's top line.
 
+Bilibili dynamics join the same wall, newest first. They carry the author's
+display name instead of an `@handle`, and opening one goes to
+`t.bilibili.com`. They are not translated, and they never become schedule
+sources: only X posts are read for schedules.
+
 ## Past Posts
 
 **Past posts** (a clock icon on phones) browses every post the board has

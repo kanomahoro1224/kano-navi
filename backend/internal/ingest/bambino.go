@@ -246,8 +246,18 @@ func (m *Module) submit(ctx context.Context, triggeredBy string) string {
 }
 
 func (m *Module) ingest(ctx context.Context, event eventRequest) (sqlite.BambinoIngestResult, *rejection) {
-	switch strings.ToLower(strings.TrimSpace(event.Platform)) {
-	case "bilibili", "youtube":
+	platform := strings.ToLower(strings.TrimSpace(event.Platform))
+	kind := strings.ToLower(strings.TrimSpace(event.Kind))
+	switch platform {
+	case "bilibili":
+		// One Bilibili account pushes two shapes: uploads become videos rows,
+		// text dynamics become posts. The kind decides which, never the
+		// platform alone.
+		if videoKinds[kind] {
+			return m.ingestVideo(ctx, event)
+		}
+		return m.ingestPost(ctx, event)
+	case "youtube":
 		return m.ingestVideo(ctx, event)
 	default:
 		return m.ingestPost(ctx, event)
@@ -326,15 +336,28 @@ func normalize(event eventRequest, now time.Time) (sqlite.BambinoPost, string, *
 	if strings.TrimSpace(event.ID) == "" {
 		return sqlite.BambinoPost{}, "", reject("invalid_event", "id is required")
 	}
+	// Twitter events keep landing in the x namespace, and Bilibili dynamics
+	// get their own; the source is what the archive groups by.
 	platform := strings.ToLower(strings.TrimSpace(event.Platform))
-	if platform != "x" && platform != "twitter" {
-		return sqlite.BambinoPost{}, "", reject("unsupported_platform", "posts are accepted for x only")
+	source := ""
+	switch platform {
+	case "x", "twitter":
+		source = "x"
+	case "bilibili":
+		source = "bilibili"
+	default:
+		return sqlite.BambinoPost{}, "", reject("unsupported_platform", "posts are accepted for x and bilibili")
 	}
 	kind := strings.ToLower(strings.TrimSpace(event.Kind))
 	switch kind {
 	case "post", "quote", "repost":
 	default:
 		return sqlite.BambinoPost{}, "", reject("invalid_event", "unknown kind")
+	}
+	// A Bilibili dynamic id is the decimal number its page URL carries; any
+	// other shape means the collector sent something else.
+	if source == "bilibili" && !bilibiliPostIDPattern.MatchString(event.ID) {
+		return sqlite.BambinoPost{}, "", reject("invalid_event", "id must be a Bilibili dynamic id")
 	}
 	published, err := time.Parse(time.RFC3339, strings.TrimSpace(event.PublishedAt))
 	if err != nil {
@@ -349,9 +372,15 @@ func normalize(event eventRequest, now time.Time) (sqlite.BambinoPost, string, *
 	}
 	url := strings.TrimSpace(event.URL)
 	if url == "" {
-		url = "https://x.com/" + handle + "/status/" + event.ID
+		if source == "bilibili" {
+			url = "https://t.bilibili.com/" + event.ID
+		} else {
+			url = "https://x.com/" + handle + "/status/" + event.ID
+		}
 	}
-	url = strings.ReplaceAll(url, "twitter.com", "x.com")
+	if source == "x" {
+		url = strings.ReplaceAll(url, "twitter.com", "x.com")
+	}
 
 	text := event.Text
 	media := mediaURLs(event.Media)
@@ -412,6 +441,7 @@ func normalize(event eventRequest, now time.Time) (sqlite.BambinoPost, string, *
 
 	return sqlite.BambinoPost{
 		ID:            event.ID,
+		Source:        source,
 		AccountHandle: handle,
 		Text:          text,
 		PublishedAt:   publishedAt,
@@ -427,6 +457,10 @@ func normalize(event eventRequest, now time.Time) (sqlite.BambinoPost, string, *
 }
 
 var youtubeIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{11}$`)
+
+// bilibiliPostIDPattern matches a dynamic id: a decimal number that the
+// t.bilibili.com URL repeats.
+var bilibiliPostIDPattern = regexp.MustCompile(`^[0-9]{1,32}$`)
 
 // videoKinds are the event kinds that describe one videos row. Everything else
 // a collector reports (Bilibili text dynamics, YouTube live updates) has no

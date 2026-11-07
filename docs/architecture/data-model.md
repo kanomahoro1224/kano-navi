@@ -30,7 +30,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `push_devices`           | HarmonyOS push tokens, device identity, locale, and the per-category notification switches             |
 | `push_pending`           | X posts whose non-Japanese notifications wait for the translation step                                 |
 | `web_push_subscriptions` | Browsers subscribed to Web Push: endpoint, keys, locale, switches, and failure count                   |
-| `posts`                  | X posts, account source, publication time, engagement counts, media, and the quoted or reposted status |
+| `posts`                  | Posts from X and Bilibili, account source, publication time, engagement counts, media, and the quoted or reposted status |
 | `events`                 | Unified schedules, provenance, confidence, manual locks, tombstones, and duplicate merges              |
 | `event_sources`          | Source post/reservation identities attached to each event                                              |
 | `videos`                 | YouTube videos and streams, Bilibili uploads and their merges, corrections, and refresh requests       |
@@ -425,6 +425,26 @@ whose `raw_json` carries a nested reposted status
 (`bambino.twitter.retweeted_tweet`, or the ingest event's `bambino.retweet`).
 The step reads only rows without a projection, so it is idempotent, and it
 increments the dashboard revision when it changes a row.
+
+## Bilibili Posts
+
+A Bilibili dynamic lives in `posts` too, with `source = 'bilibili'`, so the
+dashboard, the archive and search read one timeline. `id` is the dynamic id its
+`t.bilibili.com/<id>` page carries, `url` is that page, and `account_handle` is
+the UP's display name rather than an X handle. The read path therefore leaves
+`accountUrl` `null` for it — there is no `/@name` profile to link — and the post
+card shows the name without an `@`.
+
+Ingest takes `platform = "bilibili"` for the `post` and `repost` kinds; an
+upload still goes to `videos`, because its `kind` is `video`. A forwarded
+dynamic carries its original in the event's `retweet`, so `repost_json` fills
+the same way as for X and the card links to the original dynamic. Media URLs
+are `i*.hdslb.com` images, cached under `media_assets.source = 'bilibili'` by
+the same media step.
+
+Bilibili posts stay outside the X-only paths on purpose: schedule extraction
+scans `source = 'x'`, translation scopes to `source = 'x'`, and the collector's
+refresh command is X-only. Push, media, archive and search work unchanged.
 
 The dashboard reads a bounded current-week/focus selection, not all history.
 Event totals and upcoming counts use SQL aggregates over all visible records;

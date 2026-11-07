@@ -64,9 +64,10 @@ function missingKey(status: string) {
 
 function PostAccount({ post }: { post: AdminPost }) {
   const { t } = useAppSettings()
-  return post.accountHandle
-    ? `@${post.accountHandle.replace(/^@/, "")}`
-    : t(`admin.step.${post.source}`)
+  if (!post.accountHandle) return t(`admin.step.${post.source}`)
+  // Only X names are handles; a Bilibili author is a plain display name.
+  const name = post.accountHandle.replace(/^@/, "")
+  return post.source === "x" ? `@${name}` : name
 }
 
 /**

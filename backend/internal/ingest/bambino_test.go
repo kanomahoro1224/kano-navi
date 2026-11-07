@@ -242,6 +242,90 @@ func TestNormalizeRepostUsesOriginalTextAndMedia(t *testing.T) {
 	}
 }
 
+func bilibiliEvent() eventRequest {
+	return eventRequest{
+		ID:          "1150000000000000000",
+		Platform:    "bilibili",
+		Kind:        "post",
+		PublishedAt: "2026-10-31T11:00:00Z",
+		URL:         "https://t.bilibili.com/1150000000000000000",
+		Author: authorRequest{
+			Handle:      "鹿乃",
+			ExternalID:  "316381099",
+			DisplayName: "鹿乃",
+		},
+		Text: "今天也元气满满",
+		Media: []mediaRequest{
+			{Type: "photo", URL: "https://i0.hdslb.com/bfs/new_dyn/abc.jpg"},
+		},
+	}
+}
+
+// A Bilibili dynamic shares the posts table with X but keeps its own source, so
+// the archive can tell them apart and no X-only rewriting touches it.
+func TestNormalizeBilibiliPost(t *testing.T) {
+	event := bilibiliEvent()
+	event.URL = ""
+
+	post, hash, reject := normalize(event, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+	if reject != nil {
+		t.Fatalf("reject = %+v", reject)
+	}
+	if post.Source != "bilibili" {
+		t.Fatalf("source = %q", post.Source)
+	}
+	if post.URL != "https://t.bilibili.com/"+event.ID {
+		t.Fatalf("url = %q", post.URL)
+	}
+	if post.AccountHandle != "鹿乃" {
+		t.Fatalf("account = %q", post.AccountHandle)
+	}
+	if len(post.MediaURLs) != 1 || hash == "" {
+		t.Fatalf("post = %+v", post)
+	}
+}
+
+func TestNormalizeBilibiliRepost(t *testing.T) {
+	event := bilibiliEvent()
+	event.Kind = "repost"
+	event.Text = "转发动态"
+	event.Media = nil
+	event.Retweet = &nestedRequest{
+		ID:          "1149999999999999999",
+		URL:         "https://t.bilibili.com/1149999999999999999",
+		Author:      authorRequest{Handle: "别人", DisplayName: "别人"},
+		PublishedAt: "2026-10-30T09:00:00Z",
+		Text:        "原动态正文",
+		Media: []mediaRequest{
+			{Type: "photo", URL: "https://i0.hdslb.com/bfs/new_dyn/rt.jpg"},
+		},
+	}
+
+	post, _, reject := normalize(event, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+	if reject != nil {
+		t.Fatalf("reject = %+v", reject)
+	}
+	if post.Text != "原动态正文" || post.Repost == nil || post.Repost.ID != event.Retweet.ID {
+		t.Fatalf("repost = %+v text = %q", post.Repost, post.Text)
+	}
+	if post.Repost.URL != event.Retweet.URL {
+		t.Fatalf("repost url = %q", post.Repost.URL)
+	}
+	if len(post.MediaURLs) != 1 || !strings.Contains(post.MediaURLs[0], "rt.jpg") {
+		t.Fatalf("media = %+v", post.MediaURLs)
+	}
+}
+
+// A BV id belongs to the videos table; letting it through here would put a
+// video in the feed.
+func TestNormalizeBilibiliRejectsNonDynamicID(t *testing.T) {
+	event := bilibiliEvent()
+	event.ID = "BV1xx411c7mD"
+	if _, _, reject := normalize(event, time.Now()); reject == nil || reject.Code != "invalid_event" {
+		t.Fatalf("reject = %+v", reject)
+	}
+}
+
 func TestNormalizeRejectsFutureAndUnknownPlatform(t *testing.T) {
 	event := baseEvent()
 	event.PublishedAt = "2026-11-02T00:00:00Z"

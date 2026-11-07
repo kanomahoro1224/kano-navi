@@ -284,6 +284,10 @@ function PostNote({
     ) : null
 
   const repost = post.repost
+  // Bilibili dynamics share the wall with X. Their author is a display name
+  // rather than an @handle, and the site has no Bilibili profile card to link
+  // to, so the name stays plain text.
+  const bilibili = post.source === "bilibili"
   const shownAt = repost?.publishedAt || post.publishedAt
   const head = (close?: ReactNode) => (
     <>
@@ -314,14 +318,18 @@ function PostNote({
               : repost.authorName}
           </ExternalLink>
         ) : post.accountHandle ? (
-          <ExternalLink
-            className="post-note-handle"
-            href={post.accountUrl || `https://x.com/${post.accountHandle}`}
-          >
-            @{post.accountHandle}
-          </ExternalLink>
+          bilibili ? (
+            <span className="post-note-handle">{post.accountHandle}</span>
+          ) : (
+            <ExternalLink
+              className="post-note-handle"
+              href={post.accountUrl || `https://x.com/${post.accountHandle}`}
+            >
+              @{post.accountHandle}
+            </ExternalLink>
+          )
         ) : (
-          <span className="post-note-handle">X</span>
+          <span className="post-note-handle">{bilibili ? "Bilibili" : "X"}</span>
         )}
         <time
           dateTime={shownAt}

@@ -59,7 +59,8 @@ introduce a separate token system for a single page.
   otherwise, and search shows focus by thickening its clay underline rather
   than boxing the field. Rows rise
   in as they scroll into view where the browser ties animation to scrolling,
-  and motion stops under reduced-motion settings. Codes get interface copy;
+  by movement alone: a fade tied to scrolling stalls frames while covers
+  decode. Motion stops under reduced-motion settings. Codes get interface copy;
   titles and credits keep their wording and language.
 - /lineblog is the static LINE BLOG archive. It reproduces the archived blog's
   own layout (its header art, white menu bar with its Home icon, article column beside a

@@ -1310,16 +1310,27 @@ body:has(.site.works) {
 }
 
 /* Rows rise into place as they scroll in, where the browser can tie the
-   motion to scrolling. */
+   motion to scrolling. They move without fading: a fade tied to scrolling
+   holds each frame while the row's covers decode. */
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .release-card,
     .credit-row,
     .upload-card {
-      animation: works-rise linear both;
+      animation: works-slide-in linear both;
       animation-range: entry 0% entry 40%;
       animation-timeline: view();
     }
+  }
+}
+
+@keyframes works-slide-in {
+  from {
+    transform: translateY(22px);
+  }
+
+  to {
+    transform: none;
   }
 }
 

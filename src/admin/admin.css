@@ -3559,7 +3559,11 @@ blockquote.adm-verdict-reason {
 
 .adm-post {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr) auto 168px 136px auto;
+  /* The translation column fits its chip group (wider with Missing or
+     Manual labels), so it never runs into the state badge. */
+  grid-template-columns:
+    112px minmax(0, 1fr) auto minmax(216px, max-content)
+    136px auto;
   grid-template-areas: "origin body media translation state controls";
   align-items: start;
   gap: 16px;

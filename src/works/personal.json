@@ -2550,11 +2550,15 @@
       }
     ],
     "disc": {
-      "media": "876284a88442.jpg",
-      "width": 725,
-      "height": 725,
-      "caption": "アーティスト盘 CD 盘面（Yahoo!オークション）",
-      "sourceLabel": "Yahoo!オークション",
+      "media": "eede8004c990.jpg",
+      "width": 1423,
+      "height": 1423,
+      "caption": "アーティスト盘 CD 盘面",
+      "credit": {
+        "role": "scan",
+        "name": "yexca",
+        "url": "https://github.com/yexca"
+      },
       "thirdParty": true
     },
     "printedDisc": false,
@@ -2738,22 +2742,30 @@
           {
             "disc": 1,
             "image": {
-              "media": "876284a88442.jpg",
-              "width": 725,
-              "height": 725,
-              "caption": "アーティスト盘 CD 盘面（Yahoo!オークション）",
-              "sourceLabel": "Yahoo!オークション",
+              "media": "eede8004c990.jpg",
+              "width": 1423,
+              "height": 1423,
+              "caption": "アーティスト盘 CD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
               "thirdParty": true
             }
           },
           {
             "disc": 2,
             "image": {
-              "media": "b3d2fbfe1355.jpg",
-              "width": 766,
-              "height": 766,
-              "caption": "アーティスト盘 DVD 盘面（Yahoo!オークション）",
-              "sourceLabel": "Yahoo!オークション",
+              "media": "a0a5d5808e8e.jpg",
+              "width": 1421,
+              "height": 1421,
+              "caption": "アーティスト盘 DVD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
               "thirdParty": true
             }
           }
@@ -3064,11 +3076,15 @@
       }
     ],
     "disc": {
-      "media": "cbd5569ad1bf.jpg",
-      "width": 1113,
-      "height": 1113,
-      "caption": "CD 盘面（アーティスト盘・通常盘）（PayPayフリマ）",
-      "sourceLabel": "Yahoo!フリマ",
+      "media": "20a533cc8e6b.jpg",
+      "width": 1422,
+      "height": 1422,
+      "caption": "CD 盘面（アーティスト盘・通常盘）",
+      "credit": {
+        "role": "scan",
+        "name": "yexca",
+        "url": "https://github.com/yexca"
+      },
       "thirdParty": true
     },
     "printedDisc": false,
@@ -3119,11 +3135,15 @@
       {
         "disc": 1,
         "image": {
-          "media": "cbd5569ad1bf.jpg",
-          "width": 1113,
-          "height": 1113,
-          "caption": "CD 盘面（アーティスト盘・通常盘）（PayPayフリマ）",
-          "sourceLabel": "Yahoo!フリマ",
+          "media": "20a533cc8e6b.jpg",
+          "width": 1422,
+          "height": 1422,
+          "caption": "CD 盘面（アーティスト盘・通常盘）",
+          "credit": {
+            "role": "scan",
+            "name": "yexca",
+            "url": "https://github.com/yexca"
+          },
           "thirdParty": true
         }
       }
@@ -3242,22 +3262,30 @@
           {
             "disc": 1,
             "image": {
-              "media": "cbd5569ad1bf.jpg",
-              "width": 1113,
-              "height": 1113,
-              "caption": "CD 盘面（アーティスト盘・通常盘）（PayPayフリマ）",
-              "sourceLabel": "Yahoo!フリマ",
+              "media": "20a533cc8e6b.jpg",
+              "width": 1422,
+              "height": 1422,
+              "caption": "CD 盘面（アーティスト盘・通常盘）",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
               "thirdParty": true
             }
           },
           {
             "disc": 2,
             "image": {
-              "media": "478d4487e444.jpg",
-              "width": 966,
-              "height": 966,
-              "caption": "アーティスト盘 DVD 盘面（PayPayフリマ）",
-              "sourceLabel": "Yahoo!フリマ",
+              "media": "0dd6a4583e20.jpg",
+              "width": 1419,
+              "height": 1419,
+              "caption": "アーティスト盘 DVD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
               "thirdParty": true
             }
           }
@@ -3443,11 +3471,15 @@
           {
             "disc": 1,
             "image": {
-              "media": "cbd5569ad1bf.jpg",
-              "width": 1113,
-              "height": 1113,
-              "caption": "CD 盘面（アーティスト盘・通常盘）（PayPayフリマ）",
-              "sourceLabel": "Yahoo!フリマ",
+              "media": "20a533cc8e6b.jpg",
+              "width": 1422,
+              "height": 1422,
+              "caption": "CD 盘面（アーティスト盘・通常盘）",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
               "thirdParty": true
             }
           }
@@ -6523,11 +6555,15 @@
       }
     ],
     "disc": {
-      "media": "a83920f8d6aa.jpg",
-      "width": 404,
-      "height": 404,
-      "caption": "CD 盘面（Mercari）",
-      "sourceLabel": "メルカリ",
+      "media": "2d3483813123.jpg",
+      "width": 1418,
+      "height": 1418,
+      "caption": "CD 盘面",
+      "credit": {
+        "role": "scan",
+        "name": "yexca",
+        "url": "https://github.com/yexca"
+      },
       "thirdParty": true
     },
     "printedDisc": false,
@@ -6600,11 +6636,15 @@
       {
         "disc": 1,
         "image": {
-          "media": "a83920f8d6aa.jpg",
-          "width": 404,
-          "height": 404,
-          "caption": "CD 盘面（Mercari）",
-          "sourceLabel": "メルカリ",
+          "media": "2d3483813123.jpg",
+          "width": 1418,
+          "height": 1418,
+          "caption": "CD 盘面",
+          "credit": {
+            "role": "scan",
+            "name": "yexca",
+            "url": "https://github.com/yexca"
+          },
           "thirdParty": true
         }
       }
@@ -6708,22 +6748,30 @@
           {
             "disc": 1,
             "image": {
-              "media": "a83920f8d6aa.jpg",
-              "width": 404,
-              "height": 404,
-              "caption": "CD 盘面（Mercari）",
-              "sourceLabel": "メルカリ",
+              "media": "2d3483813123.jpg",
+              "width": 1418,
+              "height": 1418,
+              "caption": "CD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
               "thirdParty": true
             }
           },
           {
             "disc": 2,
             "image": {
-              "media": "ce5a61e42115.jpg",
-              "width": 406,
-              "height": 406,
-              "caption": "DVD 盘面（Mercari）",
-              "sourceLabel": "メルカリ",
+              "media": "113326818c8e.jpg",
+              "width": 1422,
+              "height": 1422,
+              "caption": "DVD 盘面",
+              "credit": {
+                "role": "scan",
+                "name": "yexca",
+                "url": "https://github.com/yexca"
+              },
               "thirdParty": true
             }
           }

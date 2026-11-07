@@ -13,8 +13,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/yexca/kano-navi/backend/internal/variants"
 )
 
 // maxIndexBytes bounds the index.html read for share-tag rewriting.
@@ -93,8 +91,8 @@ func (p *pageTags) apply(page []byte, route string) []byte {
 var hashedBuildFile = regexp.MustCompile(`^assets/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$`)
 
 // staticSite serves the built single-page application. Only manifest-listed,
-// content-hashed JS/CSS filenames and /assets/history files asked for by
-// their bytes' hash are immutable; other files keep revalidation. Text files
+// content-hashed JS/CSS filenames are immutable; other files keep
+// revalidation. Text files
 // are sent from their precompressed siblings when the request accepts one.
 // Other paths receive index.html so a reload keeps working: 200 for the
 // frontend's pages, 404 for anything else.
@@ -104,36 +102,6 @@ type staticSite struct {
 	// publicOrigin, when set, makes index.html's root-relative share-tag
 	// URLs (content="/...") absolute, as link previews require.
 	publicOrigin string
-	// variants makes the w copies of the fixed history images; without it
-	// they are served whole.
-	variants variantReader
-}
-
-// historyImage matches a fixed history image, the only static files with
-// smaller copies (variants.HistoryImage).
-var historyImage = variants.HistoryImage
-
-// historyFile matches a fixed history file, which pages request with v set to
-// the SHA-256 of its bytes.
-var historyFile = regexp.MustCompile(`^assets/history/[^/]+$`)
-
-// historyVersion returns the request's single v when it has the form of a
-// SHA-256, or "".
-func historyVersion(r *http.Request) string {
-	values := r.URL.Query()["v"]
-	if len(values) != 1 || !sha256Hex.MatchString(values[0]) {
-		return ""
-	}
-	return values[0]
-}
-
-var sha256Hex = regexp.MustCompile(`^[0-9a-f]{64}$`)
-
-// versioned reports whether hash is the v the request names. A missing or
-// malformed v never matches.
-func versioned(r *http.Request) func(hash string) bool {
-	version := historyVersion(r)
-	return func(hash string) bool { return version != "" && hash == version }
 }
 
 // precompressedCodings are the build's precompressed siblings of its text
@@ -207,15 +175,6 @@ func (s *staticSite) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if name, ok := s.file(relative); ok {
-		if width, present, valid := requestedWidth(r); present && historyImage.MatchString(relative) {
-			if !valid {
-				writeJSON(w, http.StatusNotFound, map[string]string{"error": "media_not_found"}, "")
-				return
-			}
-			if s.serveVariant(w, r, name, width) {
-				return
-			}
-		}
 		s.serve(w, r, name, relative, http.StatusOK, "")
 		return
 	}
@@ -267,18 +226,6 @@ func (s *staticSite) contained(relative string) (string, bool) {
 	return resolved, true
 }
 
-// serveVariant answers a history image's w request from the variant cache,
-// keyed by the SHA-256 of the file's bytes. It reports false when the
-// original is to be served instead.
-func (s *staticSite) serveVariant(w http.ResponseWriter, r *http.Request, name string, width int) bool {
-	info, err := os.Stat(name)
-	if err != nil || !info.Mode().IsRegular() {
-		return false
-	}
-	open := func() (fs.File, error) { return os.Open(name) }
-	return serveImageVariant(w, r, s.variants, name, info, open, width, versioned(r))
-}
-
 // precompressed opens the most preferred precompressed sibling of relative
 // that the request accepts and returns it with its length and coding. A
 // sibling older than its original is stale and skipped.
@@ -324,15 +271,6 @@ func (s *staticSite) serve(w http.ResponseWriter, r *http.Request, name, relativ
 		return
 	}
 	immutable := s.buildFiles[relative] && hashedBuildFile.MatchString(relative)
-	if historyFile.MatchString(relative) && historyVersion(r) != "" {
-		// A history file is immutable under the v that is its bytes' hash.
-		hash, err := fixedFileHash(r.Context(), s.variants, name, info, file)
-		if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "api_not_found"}, "")
-			return
-		}
-		immutable = err == nil && versioned(r)(hash)
-	}
 	if precompressible(relative) {
 		w.Header().Add("Vary", "Accept-Encoding")
 	}

@@ -77,9 +77,9 @@ func runStandalone(cfg config.Config) int {
 	}
 
 	run := newPipeline(store, secretsKey)
-	// The variants step and the Site page's copies status read the archive
-	// under the data directory and the history images of the served site.
-	run.steps.Variants = &variants.Roots{Data: store.DataRoot(), Static: cfg.StaticDirectory}
+	// The variants step and the Site page's copies status read the archives
+	// under the data directory.
+	run.steps.Variants = &variants.Roots{Data: store.DataRoot()}
 	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies)
 	queue := &workflow.Queue{Store: store, Executor: run.executor}
 	defer queue.Close()

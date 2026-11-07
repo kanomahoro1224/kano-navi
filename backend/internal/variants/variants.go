@@ -27,15 +27,14 @@ const (
 	Lineblog Group = "lineblog"
 	// Works is the discography cover images in <data>/works/.
 	Works Group = "works"
-	// History is the history images of the built site in
-	// <static>/assets/history/.
-	History Group = "history"
+	// Journey is the Journey page's images in <data>/journey/.
+	Journey Group = "journey"
 	// Media is the current files of ready X, YouTube and Bilibili assets.
 	Media Group = "media"
 )
 
 // Groups lists every group in the order the command makes them.
-var Groups = []Group{Lineblog, Works, History, Media}
+var Groups = []Group{Lineblog, Works, Journey, Media}
 
 // LineblogName is an archive media name: 12 hex digits of a SHA-256 and the
 // extension that fixes its type. Only .jpg and .png have copies.
@@ -45,23 +44,25 @@ var LineblogName = regexp.MustCompile(`^([0-9a-f]{12})\.(jpg|png|mp4)$`)
 // SHA-256 and the extension that fixes its type. Every cover has copies.
 var WorksName = regexp.MustCompile(`^([0-9a-f]{12})\.(jpg|png)$`)
 
-// HistoryImage matches a history image of the built site by its path
-// relative to the site, the only static files with copies.
-var HistoryImage = regexp.MustCompile(`^assets/history/[^/]+\.(?:jpe?g|png|webp)$`)
+// JourneyName is a Journey image name: 12 hex digits of its bytes' SHA-256
+// and the extension that fixes its type. Every image has copies.
+var JourneyName = regexp.MustCompile(`^([0-9a-f]{12})\.(jpg|png)$`)
 
-// maxSource is the largest original that has copies, the cached-media bound.
-const maxSource = 10 * 1024 * 1024
+// MaxSource is the largest packaged original (LINE BLOG, Works or Journey)
+// that has copies; the server sends a larger one whole. Cached source media
+// keep their own, smaller bound.
+const MaxSource = 32 * 1024 * 1024
 
 // workers matches the variant cache's two source slots, so both are busy
 // without a third original waiting in memory.
 const workers = 2
 
-// Roots locate the originals and the cache. Data holds lineblog/, works/
-// and the remembered file hashes, Static the built site, and Out the variant
-// cache that is written (Data when empty). Media needs a store; its cache is the
-// store's data directory unless Out is set.
+// Roots locate the originals and the cache. Data holds lineblog/, works/,
+// journey/ and the remembered file hashes, and Out the variant cache that is
+// written (Data when empty). Media needs a store; its cache is the store's
+// data directory unless Out is set.
 type Roots struct {
-	Data, Static, Out string
+	Data, Out string
 }
 
 func (r Roots) out() string {
@@ -229,7 +230,7 @@ func source(ctx context.Context, store *sqlite.Store, roots Roots, item original
 	}
 	defer file.Close()
 	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxSource {
+	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > MaxSource {
 		return "", nil, errors.New("original unavailable")
 	}
 	hash, err := sqlite.FileHash(ctx, roots.Data, item.path, info, file)
@@ -239,7 +240,7 @@ func source(ctx context.Context, store *sqlite.Store, roots Roots, item original
 	return hash, func() ([]byte, error) { return readBounded(item.path) }, nil
 }
 
-// readBounded reads at most maxSource bytes of path; a file that grew past
+// readBounded reads at most MaxSource bytes of path; a file that grew past
 // the bound then fails the hash check instead of being read whole.
 func readBounded(path string) ([]byte, error) {
 	file, err := os.Open(path)
@@ -247,25 +248,22 @@ func readBounded(path string) ([]byte, error) {
 		return nil, err
 	}
 	defer file.Close()
-	return io.ReadAll(io.LimitReader(file, maxSource))
+	return io.ReadAll(io.LimitReader(file, MaxSource))
 }
 
 // list returns group's originals. Fixed files are listed by the absolute
-// path the server keys their hashes by: the archive path as is, a history
-// path with symlinks resolved, as the static site resolves it.
+// archive path the server keys their hashes by.
 func list(ctx context.Context, store *sqlite.Store, roots Roots, group Group) ([]original, error) {
 	switch group {
 	case Lineblog:
 		return listFixed(roots.Data, lineblogDir, func(name string) bool {
 			match := LineblogName.FindStringSubmatch(name)
 			return match != nil && match[2] != "mp4"
-		}, false)
+		})
 	case Works:
-		return listFixed(roots.Data, worksDir, WorksName.MatchString, false)
-	case History:
-		return listFixed(roots.Static, historyDir, func(name string) bool {
-			return HistoryImage.MatchString(historyDir + "/" + name)
-		}, true)
+		return listFixed(roots.Data, worksDir, WorksName.MatchString)
+	case Journey:
+		return listFixed(roots.Data, journeyDir, JourneyName.MatchString)
 	case Media:
 		if store == nil {
 			return nil, errors.New("media copies need the store")
@@ -286,13 +284,13 @@ func list(ctx context.Context, store *sqlite.Store, roots Roots, group Group) ([
 const (
 	lineblogDir = "lineblog"
 	worksDir    = "works"
-	historyDir  = "assets/history"
+	journeyDir  = "journey"
 )
 
 // listFixed lists the regular files directly in root's dir whose names
 // accept takes, skipping symlinks and dotfiles. An empty or missing root
 // lists nothing.
-func listFixed(root, dir string, accept func(name string) bool, resolve bool) ([]original, error) {
+func listFixed(root, dir string, accept func(name string) bool) ([]original, error) {
 	if root == "" {
 		return nil, nil
 	}
@@ -306,11 +304,6 @@ func listFixed(root, dir string, accept func(name string) bool, resolve bool) ([
 	}
 	if err != nil {
 		return nil, err
-	}
-	if resolve {
-		if base, err = filepath.EvalSymlinks(base); err != nil {
-			return nil, err
-		}
 	}
 	out := []original{}
 	for _, entry := range entries {

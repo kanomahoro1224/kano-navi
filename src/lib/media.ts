@@ -1,19 +1,18 @@
-// Smaller copies of images. The server makes them on first request at a fixed
-// list of widths (backend/internal/mediavariant) for cached source media,
-// LINE BLOG archive images, works covers and the fixed history collection,
-// and keeps the original untouched; full-image viewers keep loading the
-// original URL.
+// Smaller copies of images. The server makes them ahead at a fixed list of
+// widths (backend/internal/mediavariant) for cached source media, LINE BLOG
+// archive images, Works covers and Journey images, and keeps the original
+// untouched; full-image viewers keep loading the original URL.
 
 /** The only widths the server accepts in a media URL's `w` parameter. */
 export const MEDIA_VARIANT_WIDTHS = [320, 640, 960, 1280, 1920] as const
 
 /**
  * Matches an image URL with smaller copies: a cached asset (`/media/<id>`), a
- * LINE BLOG archive image, a works cover or a fixed history image. Profile
- * media, videos and other bundled assets have none.
+ * LINE BLOG archive image, a Works cover or a Journey image. Profile media,
+ * videos and bundled assets have none.
  */
 const CACHED_MEDIA =
-  /^\/(?:media\/[a-f0-9]{64}|media\/(?:lineblog|works)\/[a-f0-9]{12}\.(?:jpg|png)|assets\/history\/[^/?#]+\.(?:jpe?g|png|webp))(?:\?|$)/
+  /^\/media\/(?:[a-f0-9]{64}|(?:lineblog|works|journey)\/[a-f0-9]{12}\.(?:jpg|png))(?:\?|$)/
 
 /** The URL of a smaller copy, or the URL itself when it has none. */
 export function mediaVariantUrl(url: string, width: number): string {

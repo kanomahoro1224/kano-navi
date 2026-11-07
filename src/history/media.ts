@@ -4,15 +4,15 @@ import type { WorksCover } from "../works/types.ts"
 import catalog from "./media-catalog.json" with { type: "json" }
 import { milestones } from "./milestones.ts"
 
-// Journey-only images ship in public/assets/history and the production
-// bundle. Release milestones show their release's covers from the Works page
-// (data/works/, see docs/development/works-archive.md) instead of copies of
-// their own. Changing source media still uses the runtime cache; visits stay
-// local.
+// Journey-only images are packaged into data/journey/ under their hashed
+// names (docs/development/history-archive.md). Release milestones show their
+// release's covers from the Works page (data/works/, see
+// docs/development/works-archive.md) instead of copies of their own. Visits
+// stay local.
 export const fixedMedia = catalog.map((item) => ({
   ...item,
   origin: "fixed" as const,
-  url: `/assets/history/${item.filename}?v=${item.sha256}`,
+  url: `/media/journey/${item.name}`,
 }))
 
 export type FixedMediaItem = (typeof fixedMedia)[number]
@@ -128,6 +128,7 @@ export function sourceName(href: string, t: Translator) {
   if (host === "shop.milpr.com") return t("history.sourceName.shop")
   if (host.endsWith("milpr.com")) return t("history.sourceName.agency")
   if (host.endsWith("prtimes.jp")) return "PR TIMES"
+  if (host === "pixiogaming.jp") return "Pixio"
   if (host === "archive.ragtag.moe") return t("history.sourceName.archive")
   return host.replace(/^www\./u, "")
 }

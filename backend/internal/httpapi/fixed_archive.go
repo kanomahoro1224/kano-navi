@@ -45,6 +45,17 @@ var worksArchive = fixedArchive{
 	},
 }
 
+// journeyArchive holds the Journey page's images, written by
+// scripts/package-history-media.ts.
+var journeyArchive = fixedArchive{
+	dir:  "journey",
+	name: variants.JourneyName,
+	types: map[string]string{
+		"jpg": "image/jpeg",
+		"png": "image/png",
+	},
+}
+
 // serve answers one archive file from the data directory. Only a regular
 // file directly inside the archive with an archive name is served; names are
 // opaque hashes, so the rest of the path never reaches the disk. An image

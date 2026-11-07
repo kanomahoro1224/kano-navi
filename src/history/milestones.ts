@@ -321,6 +321,24 @@ const originalMilestones = [
     source: null,
   },
   {
+    id: "rebirth-vr-live",
+    date: "2020-03-29",
+    branch: "singer",
+    kind: "live",
+    title: {
+      "zh-CN": "VR 演唱会「ReBirth」",
+      ja: "VR ライブ「ReBirth」",
+      en: "VR concert “ReBirth”",
+    },
+    detail: {
+      "zh-CN":
+        "为专辑 yuanfen 举办，在 INSPIX LIVE、niconico 与 bilibili 同步直播；3 月 23 日先公开了部分彩排。",
+      ja: "アルバム「yuanfen」の VR ライブ。INSPIX LIVE・ニコニコ・bilibili で同時配信し、3 月 23 日には公開リハーサルも。",
+      en: "A VR concert for the album “yuanfen”, simulcast on INSPIX LIVE, niconico and bilibili after a public rehearsal on March 23.",
+    },
+    source: "https://kano-official.amebaownd.com/posts/7938521/",
+  },
+  {
     id: "hanayori-3d",
     date: "2020-08-07",
     branch: "hanayori",
@@ -734,7 +752,7 @@ const visualMilestones = [
   },
   {
     id: "hanayori-anniversary-goods",
-    date: "2020-08",
+    date: "2020-08-01",
     branch: "hanayori",
     kind: "goods",
     title: {
@@ -743,9 +761,9 @@ const visualMilestones = [
       en: "Anniversary swimsuit merchandise artwork",
     },
     detail: {
-      "zh-CN": "官方立牌中的夏日插画。商品页未标明精确上架日，仅保留月份。",
-      ja: "公式アクリルスタンドの夏のイラスト。販売開始日は不明のため月単位で記録。",
-      en: "Summer artwork from the official acrylic stand. The exact listing day is unknown, so only the month is recorded.",
+      "zh-CN": "官方亚克力立牌的两张夏日插画，日期为 BOOTH 商品页公开日。",
+      ja: "公式アクリルスタンドの夏のイラスト 2 点。日付は BOOTH の商品ページ公開日。",
+      en: "Two summer artworks from the official acrylic stand, dated to the day the BOOTH listing went up.",
     },
     source: "https://booth.pm/ja/items/2258381",
   },

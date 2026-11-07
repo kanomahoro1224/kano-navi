@@ -17,7 +17,7 @@ kano-go serve        Serve the whole site (API, console, workflows, MCP, fronten
 kano-go seed         Create the database if missing and add missing static records
 kano-go sync         Run one full synchronization and exit
 kano-go migrate-llm  Seal OPENAI_API_KEY as the key of the openai-default provider
-kano-go variants     Make the resized copies of the LINE BLOG, cover and history images
+kano-go variants     Make the resized copies of the LINE BLOG, Works and Journey images
 kano-go healthcheck  Probe the local service and exit
 ```
 
@@ -26,8 +26,8 @@ the environment win. `-database` overrides `data/database/kano.sqlite`, and
 `serve` also accepts `-static` (default `dist`) and `-listen` (default `PORT`,
 `7657`). `seed -overwrite` restores the shipped profile, timeline and resource
 wording; it never touches source snapshots, events, media or providers.
-`migrate-llm -force` replaces an already stored key. `variants` takes `-data`,
-`-static` and `-out` instead of `-database`
+`migrate-llm -force` replaces an already stored key. `variants` takes `-data`
+and `-out` instead of `-database`
 ([Variants command](media-cache.md#variants-command)).
 
 From the repository root:
@@ -207,12 +207,7 @@ send `Cache-Control: no-store, no-transform` so intermediaries also have an
 explicit transformation prohibition.
 
 Content-hashed JS/CSS in `dist/assets` listed in Vite's
-`dist/.vite/manifest.json` receive `public, max-age=31536000, immutable`. So
-does a fixed history file under `/assets/history/` (and its `w` copies) when
-the request's single `v` is the SHA-256 of the file's bytes, which the server
-checks ([Immutable Fixed Files](media-cache.md#immutable-fixed-files));
-without `v`, or
-with any other `v`, it revalidates. HTML (including SPA fallback routes),
+`dist/.vite/manifest.json` receive `public, max-age=31536000, immutable`. HTML (including SPA fallback routes),
 icons and other files receive `public, max-age=0, must-revalidate`. A path that is neither a
 build file nor one of the frontend's pages (`/`, `/journey`, `/lineblog`,
 `/works`, `/about`, `/admin`, with or without a trailing slash) still receives `index.html`, which

@@ -128,7 +128,7 @@ make ci installs the lockfile first and then runs the full portable sequence.
 
 - data/ contains ignored runtime SQLite, source media, and selected profile media.
 - dist/, node_modules/, and local test artifacts stay out of Git.
-- public/assets/ contains fixed branding and reviewed history images.
+- public/assets/ contains fixed branding.
 - .env is ignored; .env.example is the complete non-secret runtime inventory.
 - When adding configuration, update .env.example and
   [Runtime configuration](../operations/configuration.md), plus the relevant

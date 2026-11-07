@@ -6,9 +6,12 @@
 > to package them, then `npm run variants` (or a copies run from the
 > console) to make their smaller copies; until packaged, the page shows each
 > cover as unavailable. The Journey page's release milestones show the same
-> covers, so they are unavailable there too until packaged. The uploads'
-> video thumbnails need no packaging: the media step saves them over its next
-> runs.
+> covers, so they are unavailable there too until packaged. The Journey
+> page's own images are packaged the same way into `data/journey/`: run
+> `npm run history:package -- --from /path/to/kano_official` before
+> `npm run variants`. The variants command no longer takes `-static`. The
+> uploads' video thumbnails need no packaging: the media step saves them over
+> its next runs.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -33,5 +36,12 @@
 - Journey's release milestones show their release's covers from the Works
   page, each linking to the release there; the doujin album one is dated
   December 29, 2017, and the ルル MV August 13, 2026.
+- Journey shows both BOOTH artworks of the Hanayori anniversary acrylic
+  stand, dated August 1, 2020, a frame of the SONA teaser video for the
+  teaser milestone, the head and shoulders of the full-length 2021 singer
+  illustration in its timeline thumbnail, the Pixio ambassador illustration
+  in its gallery, the full-size SONA joining merchandise image, and a
+  milestone for the March 29, 2020 VR concert 「ReBirth」 with its rehearsal
+  photo.
 
 </details>

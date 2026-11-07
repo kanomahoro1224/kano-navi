@@ -63,7 +63,7 @@ func widths(status GroupStatus) [][3]int {
 }
 
 func TestMakeFixedGroupsIntoTheOutputRootAndResume(t *testing.T) {
-	data, static, out := t.TempDir(), t.TempDir(), t.TempDir()
+	data, out := t.TempDir(), t.TempDir()
 	wide, small := syntheticPhoto(t, 1000, 500), syntheticPhoto(t, 200, 100)
 	writeFiles(t, data, map[string][]byte{
 		"lineblog/0123456789ab.jpg":  wide,
@@ -71,17 +71,15 @@ func TestMakeFixedGroupsIntoTheOutputRootAndResume(t *testing.T) {
 		"lineblog/ba9876543210.mp4":  []byte("\x00\x00\x00\x18ftypmp42synthetic"),
 		"lineblog/.0123456789ab.jpg": wide,
 		"lineblog/notes.txt":         []byte("synthetic"),
-	})
-	writeFiles(t, static, map[string][]byte{
 		// The same bytes as an archive image share its copies.
-		"assets/history/synthetic.jpg": wide,
-		"assets/history/readme.txt":    []byte("synthetic"),
-		"assets/kano-banner.jpg":       wide,
+		"journey/fedcba987654.jpg": wide,
+		"journey/readme.txt":       []byte("synthetic"),
+		"journey/synthetic.jpg":    wide,
 	})
-	roots := Roots{Data: data, Static: static, Out: out}
+	roots := Roots{Data: data, Out: out}
 	ctx := context.Background()
 	// Before any copy, the status reads no original: nothing is hashed yet.
-	statuses, err := Status(ctx, nil, roots, Lineblog, History)
+	statuses, err := Status(ctx, nil, roots, Lineblog, Journey)
 	if err != nil || len(statuses) != 2 || statuses[0].Originals != 2 || statuses[0].Unhashed != 2 || statuses[0].Ready != 0 || statuses[1].Originals != 1 {
 		t.Fatalf("cold status %+v %v", statuses, err)
 	}
@@ -89,8 +87,8 @@ func TestMakeFixedGroupsIntoTheOutputRootAndResume(t *testing.T) {
 	if err != nil || result != (Result{Attempted: 2, Made: 1, Kept: 1}) {
 		t.Fatalf("lineblog %+v %v", result, err)
 	}
-	if result, err = Make(ctx, nil, roots, History, Bounds{}); err != nil || result != (Result{Skipped: 1}) {
-		t.Fatalf("history %+v %v", result, err)
+	if result, err = Make(ctx, nil, roots, Journey, Bounds{}); err != nil || result != (Result{Skipped: 1}) {
+		t.Fatalf("journey %+v %v", result, err)
 	}
 	hash := hashOf(wide)
 	for _, name := range []string{"-320.jpg", "-640.jpg", "-960.jpg", "-1280.orig", "-1920.orig"} {
@@ -99,21 +97,18 @@ func TestMakeFixedGroupsIntoTheOutputRootAndResume(t *testing.T) {
 		}
 	}
 	// Copies go to the output root only; the hashes read are remembered
-	// under the data directory, and the built site is not written.
+	// under the data directory.
 	if entries, _ := os.ReadDir(filepath.Join(out, "cache")); len(entries) != 1 || entries[0].Name() != "variants" {
 		t.Fatalf("output cache holds %v", entries)
 	}
 	if entries, _ := os.ReadDir(filepath.Join(data, "cache")); len(entries) != 1 || entries[0].Name() != "file-hashes" {
 		t.Fatalf("data cache holds %v", entries)
 	}
-	if _, err = os.Stat(filepath.Join(static, "cache")); !os.IsNotExist(err) {
-		t.Fatalf("built site written: %v", err)
-	}
 	// A second call resumes: every image is done.
 	if result, err = Make(ctx, nil, roots, Lineblog, Bounds{}); err != nil || result != (Result{Skipped: 2}) {
 		t.Fatalf("second run %+v %v", result, err)
 	}
-	statuses, err = Status(ctx, nil, roots, Lineblog, History)
+	statuses, err = Status(ctx, nil, roots, Lineblog, Journey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +116,7 @@ func TestMakeFixedGroupsIntoTheOutputRootAndResume(t *testing.T) {
 		t.Fatalf("lineblog status %+v", statuses[0])
 	}
 	if got := widths(statuses[1]); statuses[1].Ready != 1 || got[2] != [3]int{1, 0, 0} {
-		t.Fatalf("history status %+v", statuses[1])
+		t.Fatalf("journey status %+v", statuses[1])
 	}
 }
 

@@ -238,8 +238,12 @@
       "reason": "Public official BOOTH product artwork retained as history image provenance; never loaded automatically by the browser."
     },
     {
-      "host": "www.livecartoon.net",
-      "reason": "Public commissioned production-studio portfolio cited by the history visual archive."
+      "host": "pixiogaming.jp",
+      "reason": "Public Pixio brand news page cited as a /journey image source."
+    },
+    {
+      "host": "cdn.shopify.com",
+      "reason": "Public brand and official shop image files retained as /journey image provenance; never loaded automatically by the browser."
     },
     {
       "host": "static.wixstatic.com",

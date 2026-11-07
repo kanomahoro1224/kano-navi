@@ -73,8 +73,8 @@ back to asking for the revision every 30 seconds and keep working.
 
 Deploy `dist/` together with its `.vite/manifest.json` and the `.br` and `.gz`
 siblings the build writes next to its text files: manifest-listed hashed
-JS/CSS and hash-addressed history images are immutable for one year, while
-HTML and other fixed assets revalidate. Copy siblings with or after their
+JS/CSS are immutable for one year, while HTML and other fixed assets
+revalidate. Copy siblings with or after their
 originals; a sibling older than its original is ignored.
 Keep earlier hashed files available during a rolling deployment when possible;
 an already open page can request its old lazy chunks. If a chunk is unavailable,

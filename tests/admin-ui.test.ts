@@ -45,7 +45,7 @@ const variantStatus = {
   groups: [
     { group: "lineblog", originals: 4, ready: 4, unhashed: 0, widths: [] },
     { group: "works", originals: 2, ready: 0, unhashed: 2, widths: [] },
-    { group: "history", originals: 3, ready: 1, unhashed: 2, widths: [] },
+    { group: "journey", originals: 3, ready: 1, unhashed: 2, widths: [] },
     { group: "media", originals: 0, ready: 0, unhashed: 0, widths: [] },
   ],
 }

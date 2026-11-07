@@ -18,9 +18,9 @@ with a target load normally; back and forward within `/admin` or another path
 stay with that page, which keeps the browser's own scroll restoration and
 handles its fragment moves (the console's views), and `index.html` applies the saved theme and
 language before the first paint so no load flashes the other theme. History copy and image metadata are
-static; verified fixed images ship in `public/assets/history/` and `dist/`,
+static; the images are served from `data/journey/` (`/media/journey/<name>`),
 and release milestones show the `/works` covers of the release they name.
-`scripts/package-history-media.ts` updates these files from a local reference
+`scripts/package-history-media.ts` packages the images from a local reference
 archive without network requests.
 See [History archive maintenance](../development/history-archive.md). The
 `/lineblog` article index and per-article files are static JSON written by
@@ -420,8 +420,8 @@ carries its `lang` attribute. The console's
 completeness chips and translation editor are in
 `src/admin/views/translation-parts.tsx`, shared by posts and videos.
 
-Board images from the media cache, LINE BLOG archive images and the fixed
-history images load through `srcset`: `src/lib/media.ts` lists the server's
+Board images from the media cache, LINE BLOG archive images, Works covers
+and Journey images load through `srcset`: `src/lib/media.ts` lists the server's
 [resized copies](media-cache.md#resized-copies) below an image's known width,
 and each card or thumbnail passes a `sizes` hint for its layout. The
 full-image viewers, profile media and other bundled assets keep their single

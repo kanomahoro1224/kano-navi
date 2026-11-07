@@ -8203,14 +8203,6 @@
         "thirdParty": false
       },
       {
-        "media": "4bb4aea746e3.jpg",
-        "width": 3000,
-        "height": 3000,
-        "caption": "先行配信封面（鹿乃）",
-        "source": "https://music.apple.com/jp/album/1525481205",
-        "thirdParty": true
-      },
-      {
         "media": "cf8fb942a75f.jpg",
         "width": 3000,
         "height": 3000,
@@ -8290,11 +8282,11 @@
         "packaging": "",
         "covers": [
           {
-            "media": "4bb4aea746e3.jpg",
+            "media": "b024d7f94834.jpg",
             "width": 3000,
             "height": 3000,
-            "caption": "先行配信封面（鹿乃）",
-            "source": "https://music.apple.com/jp/album/1525481205",
+            "caption": "初回限定盘封面",
+            "source": "https://kano-official.amebaownd.com/posts/9160369/",
             "thirdParty": true
           },
           {

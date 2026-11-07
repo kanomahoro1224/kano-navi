@@ -2,7 +2,8 @@
   {
     "id": "02_rebirth_rehearsal",
     "filename": "02_rebirth_rehearsal.jpg",
-    "milestoneId": null,
+    "name": "6580c0e0192c.jpg",
+    "milestoneId": "rebirth-vr-live",
     "branches": ["singer"],
     "category": "artwork",
     "title": {
@@ -10,8 +11,8 @@
       "ja": "ReBirth · リハーサル写真",
       "en": "ReBirth · rehearsal photo"
     },
-    "date": null,
-    "dateKind": "unknown",
+    "date": "2020-03-19",
+    "dateKind": "post",
     "sourceKind": "artist",
     "sourcePage": "https://kano-official.amebaownd.com/posts/7938521/",
     "sourceUrl": "https://cdn.amebaowndme.com/madrid-prd/madrid-web/images/sites/461000/60fc9e3286bf23c49370774e74d61527_b87125f662e0a3500d4c4d7ef982bec0.jpg",
@@ -26,11 +27,12 @@
     "byteSize": 519347,
     "sha256": "6580c0e0192c3952819ffb0aa6cbaf61f10422115b677cd512ea148b1bc61900",
     "mediaId": "191d17ffddb1f36da70ae826fe651c52c1867e7bbb2e5cd6af3548fd991d23db",
-    "checkedAt": "2026-10-01"
+    "checkedAt": "2026-11-07"
   },
   {
     "id": "04_bambino_2024_live",
     "filename": "04_bambino_2024_live.jpg",
+    "name": "858fee8aa3c2.jpg",
     "milestoneId": "bambino-promo",
     "branches": ["singer"],
     "category": "artwork",
@@ -58,37 +60,9 @@
     "checkedAt": "2026-10-01"
   },
   {
-    "id": "05_negotiation_promo",
-    "filename": "05_negotiation_promo.jpg",
-    "milestoneId": null,
-    "branches": ["singer"],
-    "category": "artwork",
-    "title": {
-      "zh-CN": "なだめスかし Negotiation：制作方宣传视觉",
-      "ja": "なだめスかし Negotiation · 制作ビジュアル",
-      "en": "Negotiation · production visual"
-    },
-    "date": null,
-    "dateKind": "unknown",
-    "sourceKind": "studio",
-    "sourcePage": "https://www.livecartoon.net/post/20200731",
-    "sourceUrl": "https://static.wixstatic.com/media/e7e18e_a0c33804e06045259ddaece2e857569c~mv2.jpg",
-    "originalStream": null,
-    "frameTime": null,
-    "creator": null,
-    "credit": null,
-    "note": "artwork",
-    "width": 2000,
-    "height": 2000,
-    "mimeType": "image/jpeg",
-    "byteSize": 504496,
-    "sha256": "87140b6b6f07a6987ed457e743bf6f37fbaa666b499ef95b21cad4dad67899e1",
-    "mediaId": "a071ed435513ec89c57a7fb6d34fca6c0f2026b14fd0eaf1dc4461e7cbd7f052",
-    "checkedAt": "2026-10-01"
-  },
-  {
     "id": "08_2024_xr_concert_keyvisual",
     "filename": "08_2024_xr_concert_keyvisual.jpg",
+    "name": "e10a4ab69f86.jpg",
     "milestoneId": "xr-concert",
     "branches": ["singer"],
     "category": "artwork",
@@ -118,6 +92,7 @@
   {
     "id": "09_2024_xr_concert_merch_art",
     "filename": "09_2024_xr_concert_merch_art.png",
+    "name": "b0262ba98eb6.png",
     "milestoneId": "xr-concert",
     "branches": ["singer"],
     "category": "goods",
@@ -147,6 +122,7 @@
   {
     "id": "01_2019_artist_intro",
     "filename": "01_2019_artist_intro.jpg",
+    "name": "0e9bdeaa3bf3.jpg",
     "milestoneId": "hanayori-debut",
     "branches": ["hanayori"],
     "category": "artwork",
@@ -176,6 +152,7 @@
   {
     "id": "02_2019_self_intro",
     "filename": "02_2019_self_intro.png",
+    "name": "47deedeb5abc.png",
     "milestoneId": "hanayori-debut",
     "branches": ["hanayori"],
     "category": "artwork",
@@ -205,6 +182,7 @@
   {
     "id": "03_2019_birthday_hairstyle",
     "filename": "03_2019_birthday_hairstyle.jpg",
+    "name": "303ee9e11ecd.jpg",
     "milestoneId": "hanayori-birthday",
     "branches": ["hanayori"],
     "category": "frame",
@@ -234,6 +212,7 @@
   {
     "id": "04_2020_kimono_outfit",
     "filename": "04_2020_kimono_outfit.jpg",
+    "name": "915b7068cbb1.jpg",
     "milestoneId": "hanayori-kimono",
     "branches": ["hanayori"],
     "category": "frame",
@@ -263,6 +242,7 @@
   {
     "id": "05_2020_swimsuit_concept",
     "filename": "05_2020_swimsuit_concept.png",
+    "name": "92e19728f5f5.png",
     "milestoneId": "hanayori-anniversary-goods",
     "branches": ["hanayori"],
     "category": "goods",
@@ -271,7 +251,7 @@
       "ja": "花寄女子寮 · 周年の水着グッズ",
       "en": "Hanayori · anniversary swimsuit art"
     },
-    "date": "2020-08",
+    "date": "2020-08-01",
     "dateKind": "publication",
     "sourceKind": "shop",
     "sourcePage": "https://booth.pm/ja/items/2258381",
@@ -290,8 +270,39 @@
     "checkedAt": "2026-10-01"
   },
   {
+    "id": "13_2020_swimsuit_umbrella",
+    "filename": "13_2020_swimsuit_umbrella.png",
+    "name": "37b01b26559f.png",
+    "milestoneId": "hanayori-anniversary-goods",
+    "branches": ["hanayori"],
+    "category": "goods",
+    "title": {
+      "zh-CN": "花寄女子寮：周年阳伞夏装周边插画",
+      "ja": "花寄女子寮 · 周年の日傘グッズ",
+      "en": "Hanayori · anniversary parasol art"
+    },
+    "date": "2020-08-01",
+    "dateKind": "publication",
+    "sourceKind": "shop",
+    "sourcePage": "https://booth.pm/ja/items/2258381",
+    "sourceUrl": "https://booth.pximg.net/ee3a73f7-3cfe-415c-9aa6-6b9abb410d05/i/2258381/54db81c0-3193-4758-9f8d-0e9569117b4b.png",
+    "originalStream": null,
+    "frameTime": null,
+    "creator": null,
+    "credit": null,
+    "note": null,
+    "width": 1024,
+    "height": 1024,
+    "mimeType": "image/png",
+    "byteSize": 299304,
+    "sha256": "37b01b26559fd6b587bb28965c1045ccd2dca1f64ee90fcdca20f8f76f414e75",
+    "mediaId": "3a2adb5127d5b6d1c74b495ce5c6525b7512126b299e104fa5ca4294309e7e2a",
+    "checkedAt": "2026-11-07"
+  },
+  {
     "id": "06_2020_3d_portrait",
     "filename": "06_2020_3d_portrait.jpg",
+    "name": "8645752d3221.jpg",
     "milestoneId": "hanayori-3d",
     "branches": ["hanayori"],
     "category": "frame",
@@ -321,6 +332,7 @@
   {
     "id": "07_2020_3d_fullbody",
     "filename": "07_2020_3d_fullbody.jpg",
+    "name": "7bd1c05386ec.jpg",
     "milestoneId": "hanayori-3d",
     "branches": ["hanayori"],
     "category": "frame",
@@ -350,6 +362,7 @@
   {
     "id": "11_2019_hated_by_life_art",
     "filename": "11_2019_hated_by_life_art.jpg",
+    "name": "f639634a5282.jpg",
     "milestoneId": "hanayori-hated-by-life",
     "branches": ["hanayori"],
     "category": "artwork",
@@ -379,6 +392,7 @@
   {
     "id": "12_2020_hitorigoto_duet_art",
     "filename": "12_2020_hitorigoto_duet_art.jpg",
+    "name": "c0a98917d4c8.jpg",
     "milestoneId": "hanayori-hitorigoto",
     "branches": ["hanayori"],
     "category": "artwork",
@@ -408,6 +422,7 @@
   {
     "id": "03_2021_official_keyvisual",
     "filename": "03_2021_official_keyvisual.jpg",
+    "name": "a55984e0670c.jpg",
     "milestoneId": "singer-keyvisual",
     "branches": ["singer"],
     "category": "artwork",
@@ -428,6 +443,7 @@
     "note": "artwork",
     "width": 800,
     "height": 1756,
+    "focus": "50% 0%",
     "mimeType": "image/jpeg",
     "byteSize": 398073,
     "sha256": "a55984e0670c9a5c2b3415950a4696328edcfbea78cd8b12831e527fd0081004",
@@ -437,6 +453,7 @@
   {
     "id": "06_2020_kilig_new_costume_goods",
     "filename": "06_2020_kilig_new_costume_goods.jpg",
+    "name": "e9508e71f9f8.jpg",
     "milestoneId": "kilig",
     "branches": ["singer"],
     "category": "goods",
@@ -466,6 +483,7 @@
   {
     "id": "07_2020_bambi_live2d_model",
     "filename": "07_2020_bambi_live2d_model.jpg",
+    "name": "cb55a7c23e0a.jpg",
     "milestoneId": "bambi-live2d",
     "branches": ["singer"],
     "category": "model",
@@ -495,6 +513,7 @@
   {
     "id": "08_2020_scale_figure_preview",
     "filename": "08_2020_scale_figure_preview.jpg",
+    "name": "efb0f7437c4a.jpg",
     "milestoneId": "kilig-goods",
     "branches": ["singer"],
     "category": "goods",
@@ -524,6 +543,7 @@
   {
     "id": "09_2020_kilig_sd_bambi_stickits",
     "filename": "09_2020_kilig_sd_bambi_stickits.png",
+    "name": "67f229b2e6c6.png",
     "milestoneId": "kilig-goods",
     "branches": ["singer"],
     "category": "goods",
@@ -553,6 +573,7 @@
   {
     "id": "10_2024_xr_singer_keyvisual",
     "filename": "10_2024_xr_singer_keyvisual.png",
+    "name": "ac0f1d310df3.png",
     "milestoneId": "xr-concert",
     "branches": ["singer"],
     "category": "artwork",
@@ -580,8 +601,39 @@
     "checkedAt": "2026-10-01"
   },
   {
+    "id": "11_2026_pixio_ambassador_fullbody",
+    "filename": "11_2026_pixio_ambassador_fullbody.png",
+    "name": "da239db84c5c.png",
+    "milestoneId": null,
+    "branches": ["singer"],
+    "category": "artwork",
+    "title": {
+      "zh-CN": "Pixio 官方大使：歌手鹿乃全身立绘",
+      "ja": "Pixio 公式アンバサダー · 鹿乃の立ち絵",
+      "en": "Pixio ambassador · full-body illustration"
+    },
+    "date": "2026-02-26",
+    "dateKind": "publication",
+    "sourceKind": "brand",
+    "sourcePage": "https://pixiogaming.jp/blogs/news/ambassador02",
+    "sourceUrl": "https://cdn.shopify.com/s/files/1/0535/0873/5151/files/kano_tachie.png",
+    "originalStream": null,
+    "frameTime": null,
+    "creator": null,
+    "credit": null,
+    "note": "artwork",
+    "width": 1814,
+    "height": 3455,
+    "mimeType": "image/png",
+    "byteSize": 15960909,
+    "sha256": "da239db84c5c705540835130c11291f1c148e6e6f4c2d3f1fec44e2264012523",
+    "mediaId": "c50c76c32fd856d7c3e4a9b0f85eeb007c694f56ee655193ec6bccde6a547693",
+    "checkedAt": "2026-11-07"
+  },
+  {
     "id": "03_mahoro_2021_model_sheet",
     "filename": "03_mahoro_2021_model_sheet.jpg",
+    "name": "068f948e7cbb.jpg",
     "milestoneId": "mahoro-debut",
     "branches": ["mahoro"],
     "category": "model",
@@ -611,6 +663,7 @@
   {
     "id": "04_mahoro_2021_yukata_art",
     "filename": "04_mahoro_2021_yukata_art.jpg",
+    "name": "0f7fd45c80e0.jpg",
     "milestoneId": "mahoro-yukata",
     "branches": ["mahoro"],
     "category": "artwork",
@@ -640,6 +693,7 @@
   {
     "id": "05_mahoro_2022_keyvisual",
     "filename": "05_mahoro_2022_keyvisual.jpg",
+    "name": "76afce302dd3.jpg",
     "milestoneId": "mahoro-keyvisual",
     "branches": ["mahoro"],
     "category": "artwork",
@@ -669,6 +723,7 @@
   {
     "id": "06_mahoro_2025_new_outfit_promo",
     "filename": "06_mahoro_2025_new_outfit_promo.png",
+    "name": "dd0a263509a2.png",
     "milestoneId": "mahoro-2025-outfit",
     "branches": ["mahoro"],
     "category": "goods",
@@ -698,6 +753,7 @@
   {
     "id": "07_mahoro_2025_new_outfit_art",
     "filename": "07_mahoro_2025_new_outfit_art.png",
+    "name": "9d6429724d8a.png",
     "milestoneId": "mahoro-2025-outfit",
     "branches": ["mahoro"],
     "category": "goods",
@@ -727,6 +783,7 @@
   {
     "id": "08_mahoro_2021_kimono_stream_post",
     "filename": "08_mahoro_2021_kimono_stream_post.jpg",
+    "name": "569faf2c177b.jpg",
     "milestoneId": "mahoro-kimono-recap",
     "branches": ["mahoro"],
     "category": "artwork",
@@ -756,6 +813,7 @@
   {
     "id": "09_mahoro_2022_creator_keyvisual",
     "filename": "09_mahoro_2022_creator_keyvisual.jpg",
+    "name": "505561179b7f.jpg",
     "milestoneId": "mahoro-keyvisual",
     "branches": ["mahoro"],
     "category": "artwork",
@@ -785,6 +843,7 @@
   {
     "id": "01_mahoro_2022_mklntic_outfit",
     "filename": "01_mahoro_2022_mklntic_outfit.png",
+    "name": "d837425257dc.png",
     "milestoneId": "mklntic",
     "branches": ["mklntic"],
     "category": "goods",
@@ -814,6 +873,7 @@
   {
     "id": "02_2022_guitar_performance_model",
     "filename": "02_2022_guitar_performance_model.jpg",
+    "name": "403908bdbaca.jpg",
     "milestoneId": "mklntic-guitar",
     "branches": ["mklntic"],
     "category": "model",
@@ -843,6 +903,7 @@
   {
     "id": "03_2024_jr_nakano_1",
     "filename": "03_2024_jr_nakano_1.jpg",
+    "name": "b1fc2496ff97.jpg",
     "milestoneId": "jr-nakano",
     "branches": ["mklntic"],
     "category": "artwork",
@@ -872,6 +933,7 @@
   {
     "id": "04_2024_jr_nakano_2",
     "filename": "04_2024_jr_nakano_2.jpg",
+    "name": "7883ecaded99.jpg",
     "milestoneId": "jr-nakano",
     "branches": ["mklntic"],
     "category": "artwork",
@@ -901,6 +963,7 @@
   {
     "id": "05_2024_xr_mklntic_duo",
     "filename": "05_2024_xr_mklntic_duo.png",
+    "name": "ff0388471892.png",
     "milestoneId": "xr-concert",
     "branches": ["mklntic"],
     "category": "artwork",
@@ -928,37 +991,39 @@
     "checkedAt": "2026-10-05"
   },
   {
-    "id": "08_sona_debut_teaser_2026",
-    "filename": "08_sona_debut_teaser_2026.jpg",
+    "id": "19_sona_2026_teaser_pv_frame",
+    "filename": "19_sona_2026_teaser_pv_frame.jpg",
+    "name": "722980c6a2d2.jpg",
     "milestoneId": "sona-teaser",
     "branches": ["sona"],
-    "category": "artwork",
+    "category": "frame",
     "title": {
-      "zh-CN": "SONA：本人加入预告",
-      "ja": "SONA · 加入ティザー",
-      "en": "SONA · debut teaser"
+      "zh-CN": "SONA：本人加入预告 PV 截帧",
+      "ja": "SONA · 加入ティザー PV",
+      "en": "SONA · debut teaser video frame"
     },
     "date": "2026-08-16",
-    "dateKind": "post",
-    "sourceKind": "artist",
-    "sourcePage": "https://x.com/kano_2525/status/2088969801817583799",
-    "sourceUrl": "https://pbs.twimg.com/media/HP2C8lLbYAAaEiP.jpg",
+    "dateKind": "publication",
+    "sourceKind": "video",
+    "sourcePage": "https://www.youtube.com/watch?v=Q-KAvQqUD7I",
+    "sourceUrl": "https://www.youtube.com/watch?v=Q-KAvQqUD7I&t=38",
     "originalStream": null,
-    "frameTime": null,
+    "frameTime": "00:00:38",
     "creator": null,
     "credit": null,
-    "note": "artwork",
-    "width": 1200,
-    "height": 675,
+    "note": null,
+    "width": 1920,
+    "height": 1080,
     "mimeType": "image/jpeg",
-    "byteSize": 205810,
-    "sha256": "8c709f98d558ad89e0e677a0e09afe08704d2062556970367ffaf0052351fab7",
-    "mediaId": "4b07f2ac13f057f235cdc7d3a39a988446ccfb13bb65a93ca30f1de88094006d",
-    "checkedAt": "2026-10-01"
+    "byteSize": 418778,
+    "sha256": "722980c6a2d2f9a3e4d446f9ef1da7b33321b9f317b7a5b48e5995a0ebe924f5",
+    "mediaId": "f2bd9c303d1b7d60a08f4723dd4d3155011d75713ced0b86a7e80f6e95b13f26",
+    "checkedAt": "2026-11-07"
   },
   {
     "id": "09_sona_member_announcement_2026",
     "filename": "09_sona_member_announcement_2026.png",
+    "name": "da6d1402e5f1.png",
     "milestoneId": "sona-join",
     "branches": ["sona"],
     "category": "artwork",
@@ -988,6 +1053,7 @@
   {
     "id": "10_sona_2026_debut_promo",
     "filename": "10_sona_2026_debut_promo.jpg",
+    "name": "8944e118e0dc.jpg",
     "milestoneId": "sona-join",
     "branches": ["sona"],
     "category": "artwork",
@@ -1017,6 +1083,7 @@
   {
     "id": "11_sona_joining_merch_2026",
     "filename": "11_sona_joining_merch_2026.png",
+    "name": "27838579019c.png",
     "milestoneId": "sona-debut",
     "branches": ["sona"],
     "category": "goods",
@@ -1029,23 +1096,24 @@
     "dateKind": "publication",
     "sourceKind": "shop",
     "sourcePage": "https://shop.milpr.com/products/mahoro_join_full",
-    "sourceUrl": "https://shop.milpr.com/cdn/shop/files/309e51fdc0d9afb1b98a02d994406f88_5f5215d1-db83-4a84-9ba0-2edb0ee82fa0.png?v=1787320856&width=823",
+    "sourceUrl": "https://cdn.shopify.com/s/files/1/0741/9215/9010/files/309e51fdc0d9afb1b98a02d994406f88_5f5215d1-db83-4a84-9ba0-2edb0ee82fa0.png?v=1787320856",
     "originalStream": null,
     "frameTime": null,
     "creator": null,
     "credit": null,
     "note": null,
-    "width": 823,
-    "height": 823,
+    "width": 3000,
+    "height": 3000,
     "mimeType": "image/png",
-    "byteSize": 736553,
-    "sha256": "0dcedfc74b59548899d046ec1b3fc6d658f818d95a06a6afec3410505615c203",
-    "mediaId": "b101ff723fa236ff7ab59284941923e885028f9acb0051ebb059fa4c3a604db8",
-    "checkedAt": "2026-10-01"
+    "byteSize": 3742024,
+    "sha256": "27838579019c2e3b1b70868226db11f7ed4ac1c469b7691f51af257e1c1a1d09",
+    "mediaId": "333d2c5516470e59bc6d36ece41752c34f3da51025ad942a71bb6b472035ee1c",
+    "checkedAt": "2026-11-07"
   },
   {
     "id": "12_sona_2026_official_fullbody",
     "filename": "12_sona_2026_official_fullbody.png",
+    "name": "0fcdcc7ef04b.png",
     "milestoneId": "sona-debut",
     "branches": ["sona"],
     "category": "artwork",
@@ -1075,6 +1143,7 @@
   {
     "id": "14_sona_2026_profile_card",
     "filename": "14_sona_2026_profile_card.jpg",
+    "name": "92cd84ee82dd.jpg",
     "milestoneId": "sona-join",
     "branches": ["sona"],
     "category": "artwork",

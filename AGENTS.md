@@ -11,24 +11,24 @@ Read these first:
 Before changing an area, read its docs. Backend paths are relative to
 `backend/`.
 
-| Area                                  | Main paths                                                                                         | Docs                                                                                                |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Public UI and history                 | src/site/, src/dashboard/, src/history/, src/works/, src/lineblog/, src/about/, src/components/ui/ | `docs/architecture/frontend.md`, `docs/development/design.md`, `docs/user/index.md`                 |
-| Operator UI and requests              | src/admin/, src/admin/views/, src/admin/use-admin-data.ts                                          | `docs/architecture/frontend.md`, `docs/architecture/admin-api.md`                                   |
-| Entry point, commands, image          | cmd/kano-go/, ../Dockerfile                                                                        | `docs/architecture/backend.md`, `docs/operations/docker.md`                                         |
-| API, authentication, projections, MCP | internal/httpapi/, internal/adminapi/, internal/adminauth/, internal/mcpapi/, internal/publicview/ | `docs/architecture/backend.md`, `docs/architecture/public-api.md`, `docs/architecture/admin-api.md` |
-| SQLite schema, upgrades, seeds        | internal/store/sqlite/ (bootstrap.sql, schema_upgrade.go, static-seed.json)                        | `docs/architecture/data-model.md`, `docs/operations/database.md`                                    |
-| Sources and historical windows        | internal/source/x/, internal/source/youtube/, internal/source/history/                             | `docs/architecture/sources.md`, `docs/architecture/workflows.md`                                    |
-| Jobs, steps, timers                   | internal/jobs/, internal/workflow/                                                                 | `docs/architecture/workflows.md`                                                                    |
-| Model routing and extraction          | internal/schedule/, internal/llmadmin/, internal/secretstore/                                      | `docs/architecture/sources.md`, `docs/operations/configuration.md`                                  |
-| Dynamic and profile media             | internal/mediadownload/, internal/contentadmin/, internal/httpapi/media.go                         | `docs/architecture/media-cache.md`                                                                  |
-| Fixed history packaging               | ../scripts/package-history-media.ts, ../public/assets/history/                                     | `docs/development/history-archive.md`                                                               |
-| LINE BLOG archive packaging           | ../scripts/package-lineblog.ts, ../src/lineblog/, internal/httpapi/fixed_archive.go                | `docs/development/lineblog-archive.md`                                                              |
-| Works collection packaging            | ../scripts/package-works.ts, ../src/works/, internal/httpapi/fixed_archive.go                      | `docs/development/works-archive.md`                                                                 |
-| Outbound proxies                      | internal/outboundproxy/, src/admin/views/proxy.tsx                                                 | `docs/architecture/outbound-proxy.md`                                                               |
-| Outbound HTTP, auth, secrets, privacy | any of the above                                                                                   | `SECURITY.md`, `docs/development/security.md`, `docs/operations/security.md`                        |
-| Tests                                 | ../tests/, `*_test.go`                                                                             | `docs/development/testing.md`                                                                       |
-| Commits and releases                  | package.json version, docs/history/                                                                | `docs/development/commit-and-release.md`                                                            |
+| Area                                  | Main paths                                                                                                | Docs                                                                                                |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Public UI and history                 | src/site/, src/dashboard/, src/history/, src/works/, src/lineblog/, src/about/, src/components/ui/        | `docs/architecture/frontend.md`, `docs/development/design.md`, `docs/user/index.md`                 |
+| Operator UI and requests              | src/admin/, src/admin/views/, src/admin/use-admin-data.ts                                                 | `docs/architecture/frontend.md`, `docs/architecture/admin-api.md`                                   |
+| Entry point, commands, image          | cmd/kano-go/, ../Dockerfile                                                                               | `docs/architecture/backend.md`, `docs/operations/docker.md`                                         |
+| API, authentication, projections, MCP | internal/httpapi/, internal/adminapi/, internal/adminauth/, internal/mcpapi/, internal/publicview/        | `docs/architecture/backend.md`, `docs/architecture/public-api.md`, `docs/architecture/admin-api.md` |
+| SQLite schema, upgrades, seeds        | internal/store/sqlite/ (bootstrap.sql, schema_upgrade.go, static-seed.json)                               | `docs/architecture/data-model.md`, `docs/operations/database.md`                                    |
+| Sources and historical windows        | internal/source/x/, internal/source/youtube/, internal/source/history/                                    | `docs/architecture/sources.md`, `docs/architecture/workflows.md`                                    |
+| Jobs, steps, timers                   | internal/jobs/, internal/workflow/                                                                        | `docs/architecture/workflows.md`                                                                    |
+| Model routing and extraction          | internal/schedule/, internal/llmadmin/, internal/secretstore/                                             | `docs/architecture/sources.md`, `docs/operations/configuration.md`                                  |
+| Dynamic and profile media             | internal/mediadownload/, internal/contentadmin/, internal/httpapi/media.go                                | `docs/architecture/media-cache.md`                                                                  |
+| Journey image packaging               | ../scripts/package-history-media.ts, ../src/history/media-catalog.json, internal/httpapi/fixed_archive.go | `docs/development/history-archive.md`                                                               |
+| LINE BLOG archive packaging           | ../scripts/package-lineblog.ts, ../src/lineblog/, internal/httpapi/fixed_archive.go                       | `docs/development/lineblog-archive.md`                                                              |
+| Works collection packaging            | ../scripts/package-works.ts, ../src/works/, internal/httpapi/fixed_archive.go                             | `docs/development/works-archive.md`                                                                 |
+| Outbound proxies                      | internal/outboundproxy/, src/admin/views/proxy.tsx                                                        | `docs/architecture/outbound-proxy.md`                                                               |
+| Outbound HTTP, auth, secrets, privacy | any of the above                                                                                          | `SECURITY.md`, `docs/development/security.md`, `docs/operations/security.md`                        |
+| Tests                                 | ../tests/, `*_test.go`                                                                                    | `docs/development/testing.md`                                                                       |
+| Commits and releases                  | package.json version, docs/history/                                                                       | `docs/development/commit-and-release.md`                                                            |
 
 ## Product Boundaries
 
@@ -99,9 +99,10 @@ reads belong to server-side workflows and their helpers.
   registered through `media_assets`/`media_links`. Profile candidates follow
   their source; uploads and selected profile media use `data/avatar/`. Serve
   only ready, contained opaque-ID assets.
-- The verified fixed history collection is tracked in `public/assets/history/`.
-  Preserve original bytes, catalog hashes, credits, and provenance when
-  changing it. LINE BLOG archive media are ignored runtime data in
+- Journey images are ignored runtime data in `data/journey/`, packaged from
+  the local reference collection and listed in the tracked
+  `src/history/media-catalog.json`. Preserve original bytes, catalog hashes,
+  credits, and provenance when changing it. LINE BLOG archive media are ignored runtime data in
   `data/lineblog/`, packaged from the local recovery archive and listed in the
   tracked `src/lineblog/media-catalog.json`. Works covers are ignored runtime
   data in `data/works/`, packaged from the local reference collection and

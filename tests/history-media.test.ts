@@ -33,12 +33,14 @@ async function fixture(t: TestContext) {
   const sourceUrl = "https://images.example.invalid/history.png"
   const mediaId = mediaIdForSourceUrl(sourceUrl)
   assert.ok(mediaId)
+  const sha256 = sha256ForContent(content)
   const image: HistoryCatalogItem = {
     id: "fixture-image",
     filename: "history.png",
+    name: `${sha256.slice(0, 12)}.png`,
     sourceUrl,
     mediaId,
-    sha256: sha256ForContent(content),
+    sha256,
     byteSize: content.length,
     mimeType: "image/png",
   }
@@ -68,49 +70,45 @@ test("history catalog preserves distinct source identities, dates, and milestone
     new Set(fixedMedia.map((item) => item.mediaId)).size,
     fixedMedia.length,
   )
+  assert.equal(
+    new Set(fixedMedia.map((item) => item.name)).size,
+    fixedMedia.length,
+  )
   for (const item of fixedMedia) {
     assert.equal(item.mediaId, mediaIdForSourceUrl(item.sourceUrl))
     assert.ok(!item.milestoneId || milestoneIds.has(item.milestoneId))
-    assert.match(
-      item.url,
-      /^\/assets\/history\/[a-zA-Z0-9_.-]+\?v=[a-f0-9]{64}$/u,
+    assert.equal(
+      item.name,
+      `${item.sha256.slice(0, 12)}.${item.mimeType === "image/png" ? "png" : "jpg"}`,
+      item.id,
     )
+    assert.equal(item.url, `/media/journey/${item.name}`)
+    assert.ok(item.byteSize <= 32 * 1024 * 1024, item.id)
     assert.ok(item.title.en && item.title.ja && item.title["zh-CN"])
     assert.notEqual(item.category, "cover", item.id)
   }
   const frames = fixedMedia.filter((item) => item.frameTime)
-  assert.equal(frames.length, 4)
+  const archived = frames.filter((item) => item.sourceKind === "streamArchive")
+  assert.equal(archived.length, 4)
   assert.ok(
-    frames.every(
+    archived.every(
       (item) =>
-        item.sourceKind === "streamArchive" &&
         item.originalStream?.includes("youtube.com/watch?") === true &&
         item.dateKind === "stream",
     ),
   )
+  // Any other frame is from the artist's own video, linked at its moment.
+  for (const item of frames) {
+    if (item.sourceKind === "streamArchive") continue
+    assert.equal(item.sourceKind, "video", item.id)
+    assert.match(item.sourceUrl, /youtube\.com\/watch\?v=[\w-]+&t=\d+$/u)
+  }
   const portrait = fixedMedia.find(
     (item) => item.id === "12_sona_2026_official_fullbody",
   )
   assert.ok(portrait)
   assert.equal(portrait.dateKind, "capture")
   assert.equal(portrait.date, "2026-09-30")
-})
-
-test("every fixed history image ships with its catalog bytes and identity", async () => {
-  for (const item of fixedMedia) {
-    const content = await fs.readFile(
-      new URL(`../public/assets/history/${item.filename}`, import.meta.url),
-    )
-    assert.equal(content.length, item.byteSize, item.id)
-    assert.equal(sha256ForContent(content), item.sha256, item.id)
-  }
-  const shipped = await fs.readdir(
-    new URL("../public/assets/history/", import.meta.url),
-  )
-  assert.deepEqual(
-    shipped.sort(),
-    fixedMedia.map((item) => item.filename).sort(),
-  )
 })
 
 test("release milestones show their Works release's packaged covers", () => {
@@ -192,8 +190,12 @@ test("history packaging validates the archive before publishing fixed images", a
     packaged: 1,
     bytes: content.length,
   })
-  const packagedFile = path.join(destination, image.filename)
+  const packagedFile = path.join(destination, image.name)
   assert.deepEqual(await fs.readFile(packagedFile), content)
+  assert.deepEqual(await fs.readdir(destination), [image.name])
+  // A second run keeps the file in place.
+  await packageHistoryMedia(root, destination, [image])
+  assert.deepEqual(await fs.readdir(destination), [image.name])
   await fs.writeFile(
     path.join(root, image.filename),
     Buffer.alloc(content.length),
@@ -227,6 +229,10 @@ test("history packaging rejects traversal, wrong MIME, and changed size before w
       { ...image, byteSize: image.byteSize + 1 },
     ]),
     /size mismatch/u,
+  )
+  await assert.rejects(
+    packageHistoryMedia(root, destination, [{ ...image, name: "history.png" }]),
+    /name mismatch/u,
   )
   await assert.rejects(fs.access(destination))
 })

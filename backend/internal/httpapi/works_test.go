@@ -210,3 +210,53 @@ func TestWorksMediaRejectsOtherPaths(t *testing.T) {
 		}
 	}
 }
+
+func TestJourneyMediaServesItsArchiveWithCopies(t *testing.T) {
+	store, works := worksStore(t)
+	dir := filepath.Join(filepath.Dir(works), "journey")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	image := noisyJPEG(t, 1000, 500)
+	makeCopies(t, store, image)
+	named := sha256Of(image)[:12] + ".jpg"
+	for name, content := range map[string][]byte{named: image, "0123456789ab.jpg": image} {
+		if err := os.WriteFile(filepath.Join(dir, name), content, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A Works cover is not a Journey image.
+	if err := os.WriteFile(filepath.Join(works, "fedcba987654.jpg"), image, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	handler := NewHandler(store)
+	original := request(t, handler, http.MethodGet, "/media/journey/"+named)
+	if original.Code != http.StatusOK || !bytes.Equal(original.Body.Bytes(), image) || original.Header().Get("Content-Type") != "image/jpeg" ||
+		original.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("original status=%d headers=%v", original.Code, original.Header())
+	}
+	copy := request(t, handler, http.MethodGet, "/media/journey/"+named+"?w=640")
+	if copy.Code != http.StatusOK || decodedWidth(t, copy.Body.Bytes()) != 640 || copy.Body.Len() >= len(image) {
+		t.Fatalf("copy status=%d length=%d", copy.Code, copy.Body.Len())
+	}
+	for path, want := range map[string]bool{
+		"/media/journey/" + named:               true,
+		"/media/journey/" + named + "?w=640":    true,
+		"/media/journey/0123456789ab.jpg":       false,
+		"/media/journey/0123456789ab.jpg?w=640": false,
+	} {
+		recorder := request(t, handler, http.MethodGet, path)
+		if recorder.Code != http.StatusOK || recorder.Header().Get("Cache-Control") != mediaCacheControl(want) {
+			t.Fatalf("%s status=%d cache=%q", path, recorder.Code, recorder.Header().Get("Cache-Control"))
+		}
+	}
+	for _, path := range []string{"/media/journey/fedcba987654.jpg", "/media/journey/synthetic.jpg", "/media/journey/" + named + "?w=100"} {
+		if recorder := request(t, handler, http.MethodGet, path); recorder.Code != http.StatusNotFound {
+			t.Fatalf("%s status=%d", path, recorder.Code)
+		}
+	}
+	if post := request(t, handler, http.MethodPost, "/media/journey/"+named); post.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST status=%d", post.Code)
+	}
+}

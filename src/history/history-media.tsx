@@ -36,6 +36,7 @@ export function HistoryImage({
   eager = false,
   decorative = false,
   sizes,
+  focus,
 }: {
   item: HistoryMediaItem
   locale: Locale
@@ -43,6 +44,8 @@ export function HistoryImage({
   eager?: boolean
   decorative?: boolean
   sizes?: string
+  /** Where a cropping box anchors the image (CSS object-position). */
+  focus?: string
 }) {
   const [failed, setFailed] = useState(false)
   if (failed) {
@@ -67,6 +70,7 @@ export function HistoryImage({
       height={item.height}
       loading={eager ? "eager" : "lazy"}
       decoding="async"
+      style={focus ? { objectPosition: focus } : undefined}
       onError={() => setFailed(true)}
     />
   )
@@ -104,6 +108,7 @@ export function MilestoneMedia({
             t={t}
             decorative
             sizes={HISTORY_IMAGE_SIZES.milestone}
+            focus={item.origin === "fixed" ? item.focus : undefined}
           />
           {item.frameTime ? (
             <span className="frame-time">{item.frameTime}</span>
@@ -325,7 +330,13 @@ function FixedImageDetails({
           <ArrowUpRight aria-hidden="true" />
         </ExternalLink>
         <ExternalLink className="text-link" href={item.sourceUrl}>
-          {t(item.frameTime ? "history.originalStream" : "history.sourceImage")}
+          {t(
+            item.sourceKind === "streamArchive"
+              ? "history.originalStream"
+              : item.frameTime
+                ? "history.videoAtFrame"
+                : "history.sourceImage",
+          )}
           <ArrowUpRight aria-hidden="true" />
         </ExternalLink>
       </div>

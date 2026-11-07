@@ -1782,6 +1782,52 @@ body.has-works-sheet {
   object-fit: cover;
 }
 
+/* The discs that can turn in the header, as small round photos. */
+.release-sheet-discs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.release-sheet-discs button {
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--sunken);
+  opacity: 0.55;
+  outline: 1px solid transparent;
+  outline-offset: 2px;
+  transition:
+    opacity 200ms ease,
+    outline-color 200ms ease;
+}
+
+.release-sheet-discs button:hover,
+.release-sheet-discs button[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.release-sheet-discs button[aria-pressed="true"] {
+  outline-color: var(--ink);
+}
+
+.release-sheet-discs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.release-sheet-discs .works-missing {
+  display: none;
+}
+
+/* A record being changed slides back into its sleeve first. */
+.works-sleeve.is-sheet.is-swapping .works-record {
+  transform: translateX(0);
+  transition-duration: 260ms;
+}
+
 /* Body: the tracklist, with the edition's facts and bonuses beside it. */
 .release-body {
   display: grid;
@@ -1981,6 +2027,17 @@ body.has-works-sheet {
 
 .works-disc-head .works-disc {
   margin: 0;
+}
+
+/* The disc turning in the header. */
+.works-disc-head.is-on-record .works-disc-photo {
+  box-shadow:
+    0 0 0 1.5px var(--ink),
+    0 6px 14px rgb(0 0 0 / 0.18);
+}
+
+.works-disc-head.is-on-record .works-disc {
+  color: var(--ink);
 }
 
 .works-disc-photo {

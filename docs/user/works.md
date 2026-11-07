@@ -46,7 +46,9 @@ bonuses shops gave with it, and its own tracklist with every disc. Where the
 collection has a photo of a disc, it sits beside that disc in the tracklist,
 so a limited edition with a CD and a DVD shows both discs; select one to
 view it in full. The record in the header is the chosen edition's first
-disc. Store bonuses for any edition are listed after the edition's own. Select a bonus
+disc; when the edition has photos of two or more discs, small round photos
+under the cover put another disc on the record, which slides back into the
+sleeve and comes out as that disc, marked in the tracklist. Store bonuses for any edition are listed after the edition's own. Select a bonus
 image or the large cover to view it in full with its size and where the file
 came from; an edition with several covers shows a thumbnail of each. Some covers
 are copies from a shop, database or collector rather than the publisher's

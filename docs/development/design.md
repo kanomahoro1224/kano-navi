@@ -35,7 +35,10 @@ introduce a separate token system for a single page.
   left pane holds the sleeve over a blurred wash of the cover, the label, one
   row of figures, and a card for each edition with that edition's cover and
   format, the chosen one drawn in ink. The tracklist has a round photo beside
-  each disc that has one. The details are the chosen edition's facts and
+  each disc that has one; with photos of two or more discs, round photos
+  under the sleeve choose the disc that turns in the header, which slides
+  back into the sleeve to change (in place under reduced motion) and is
+  marked in ink in the tracklist. The details are the chosen edition's facts and
   bonuses, or for a release sold in one version its type, date, label and
   catalog number. On the widest screens the tracklist and the details take
   columns of their own; a wide screen puts the details below the tracklist

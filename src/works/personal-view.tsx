@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react"
 import type { Locale, Translator } from "@/types"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Disc3, Tv } from "lucide-react"
 
 import {
@@ -231,17 +231,21 @@ function ListenLinks({ track, t }: { track: WorksTrack; t: Translator }) {
 
 /**
  * The tracklist by disc. A disc with a photo shows it beside its heading;
- * selecting it opens the edition's disc photos in the viewer.
+ * selecting it opens the edition's disc photos in the viewer. The disc the
+ * header's record shows is marked when the record can show another.
  */
 function Tracklist({
   tracks,
   photos,
+  onRecord = null,
   title,
   t,
   onOpenCovers,
 }: {
   tracks: WorksTrack[]
   photos: DiscImage[]
+  /** The disc on the header's record, when there is a choice of discs. */
+  onRecord?: number | null
   title: string
   t: Translator
   onOpenCovers: OpenCovers
@@ -262,7 +266,9 @@ function Tracklist({
         return (
           <div key={disc}>
             {heading.length || photo >= 0 ? (
-              <div className="works-disc-head">
+              <div
+                className={`works-disc-head${disc === onRecord ? " is-on-record" : ""}`}
+              >
                 {photo >= 0 ? (
                   <button
                     type="button"
@@ -382,6 +388,59 @@ function Facts({ facts, t }: { facts: [string, string][]; t: Translator }) {
   )
 }
 
+/** The time the record takes to slide back into its sleeve before a swap. */
+const RECORD_SWAP_MS = 260
+
+/**
+ * Round photos of an edition's discs under the sleeve; the chosen one is the
+ * record that turns in the header.
+ */
+function DiscPicker({
+  photos,
+  tracks,
+  value,
+  onChange,
+  t,
+}: {
+  photos: DiscImage[]
+  tracks: WorksTrack[]
+  value: number | null
+  onChange: (disc: number) => void
+  t: Translator
+}) {
+  return (
+    <div
+      className="release-sheet-discs"
+      role="group"
+      aria-label={t("works.discPicker")}
+    >
+      {photos.map(({ disc, image }) => {
+        const label = tracks.find((track) => track.disc === disc)?.discLabel
+        const name = [t("works.disc", { disc }), label]
+          .filter(Boolean)
+          .join(" · ")
+        return (
+          <button
+            key={disc}
+            type="button"
+            aria-pressed={disc === value}
+            aria-label={t("works.showDisc", { disc: name })}
+            title={name}
+            onClick={() => onChange(disc)}
+          >
+            <WorksCoverImage
+              cover={image}
+              alt=""
+              t={t}
+              sizes={WORKS_COVER_SIZES.discPhoto}
+            />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function EditionPicker({
   editions,
   value,
@@ -454,6 +513,11 @@ export function ReleaseSheet({
     firstEdition(release.editions),
   )
   const [shown, setShown] = useState(0)
+  // The disc chosen for the record, or null for the edition's first.
+  const [chosenDisc, setChosenDisc] = useState<number | null>(null)
+  const [swapping, setSwapping] = useState(false)
+  const swapTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(swapTimer.current), [])
   const edition = release.editions[editionIndex] ?? null
   const covers = edition?.covers.length ? edition.covers : release.covers
   const cover = covers[shown] ?? null
@@ -462,9 +526,21 @@ export function ReleaseSheet({
   const discPhotos = edition ? edition.discs : release.discs
   // The record in the header is the chosen edition's first disc, drawn when
   // that edition's disc has no photo (another edition's may look different).
-  const recordDisc = edition
-    ? (discPhotos.find((item) => item.disc === 1)?.image ?? null)
-    : release.disc
+  // With photos of two or more discs, any of them can be put on the record.
+  const discChoice = discPhotos.length > 1
+  const pickedDisc = discChoice
+    ? (discPhotos.find((item) => item.disc === chosenDisc) ?? null)
+    : null
+  const recordDisc = pickedDisc
+    ? pickedDisc.image
+    : edition
+      ? (discPhotos.find((item) => item.disc === 1)?.image ?? null)
+      : release.disc
+  const discOnRecord = discChoice
+    ? (pickedDisc?.disc ??
+      discPhotos.find((item) => item.image.media === recordDisc?.media)?.disc ??
+      null)
+    : null
   const storeBonuses = edition?.storeBonuses ?? []
   const bonusImages = uniqueImages([
     ...storeBonuses.map((bonus) => bonus.images),
@@ -474,8 +550,27 @@ export function ReleaseSheet({
     tracks.filter((track) => track.listen).map((track) => track.title),
   ).size
   const chooseEdition = (index: number) => {
+    window.clearTimeout(swapTimer.current)
+    setSwapping(false)
     setEditionIndex(index)
     setShown(0)
+    setChosenDisc(null)
+  }
+  // The record slides back into the sleeve, changes and slides out again;
+  // with reduced motion it changes in place.
+  const chooseDisc = (disc: number) => {
+    if (disc === discOnRecord) return
+    window.clearTimeout(swapTimer.current)
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setSwapping(false)
+      setChosenDisc(disc)
+      return
+    }
+    setSwapping(true)
+    swapTimer.current = window.setTimeout(() => {
+      setChosenDisc(disc)
+      setSwapping(false)
+    }, RECORD_SWAP_MS)
   }
   return (
     <WorksSheet label={release.title} onClose={onClose}>
@@ -509,7 +604,7 @@ export function ReleaseSheet({
                     t={t}
                     sizes={WORKS_COVER_SIZES.sheet}
                     eager
-                    className="is-sheet"
+                    className={`is-sheet${swapping ? " is-swapping" : ""}`}
                   />
                 </button>
               ) : (
@@ -547,6 +642,15 @@ export function ReleaseSheet({
                     </button>
                   ))}
                 </div>
+              ) : null}
+              {discChoice ? (
+                <DiscPicker
+                  photos={discPhotos}
+                  tracks={tracks}
+                  value={discOnRecord}
+                  onChange={chooseDisc}
+                  t={t}
+                />
               ) : null}
               {caption || cover?.thirdParty || cover?.credit ? (
                 <p className="release-sheet-caption">
@@ -614,6 +718,7 @@ export function ReleaseSheet({
             <Tracklist
               tracks={tracks}
               photos={discPhotos}
+              onRecord={discOnRecord}
               title={release.title}
               t={t}
               onOpenCovers={onOpenCovers}

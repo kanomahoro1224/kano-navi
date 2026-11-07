@@ -119,17 +119,36 @@ func (d *Dispatcher) Dispatch(ctx context.Context, updates []Update) error {
 	return d.deliver(ctx, devices, updates, nil, nil)
 }
 
-// DispatchPosts sends X posts to the devices that read Japanese now and
-// remembers them for every other language. The translate step flushes the
-// remembered rows once it settles their wording, so readers of Chinese and
-// English get the translated body instead of the Japanese original.
+// DispatchPosts sends the batch to the devices. A post's wording can be
+// translated, so it goes to the devices that read Japanese now and is
+// remembered for every other language; the translate step flushes the
+// remembered rows once it settles that wording. Everything else — a video's
+// title, a live room's title — arrives in the platform's own words, so it is
+// sent at once in every language instead of waiting for a translation that
+// would never come.
 func (d *Dispatcher) DispatchPosts(ctx context.Context, updates []Update) error {
 	if d == nil || len(updates) == 0 {
 		return nil
 	}
-	createdAt := sqlite.ISOTime(time.Now())
-	items := make([]sqlite.PendingPush, 0, len(updates))
+	posts := make([]Update, 0, len(updates))
+	immediate := make([]Update, 0, len(updates))
 	for _, update := range updates {
+		if update.Category() == CategoryPost {
+			posts = append(posts, update)
+		} else {
+			immediate = append(immediate, update)
+		}
+	}
+	if len(posts) == 0 {
+		devices, err := d.store.PushDevices(ctx)
+		if err != nil {
+			return err
+		}
+		return d.deliver(ctx, devices, immediate, nil, nil)
+	}
+	createdAt := sqlite.ISOTime(time.Now())
+	items := make([]sqlite.PendingPush, 0, len(posts))
+	for _, update := range posts {
 		items = append(items, sqlite.PendingPush{
 			PostID:    strings.TrimSpace(update.ID),
 			Platform:  update.Platform,
@@ -150,7 +169,12 @@ func (d *Dispatcher) DispatchPosts(ctx context.Context, updates []Update) error 
 	if err != nil {
 		return err
 	}
-	sendErr := d.deliver(ctx, devices, updates, func(locale string) bool { return locale == "ja" }, nil)
+	sendErr := d.deliver(ctx, devices, posts, func(locale string) bool { return locale == "ja" }, nil)
+	if len(immediate) > 0 {
+		if err := d.deliver(ctx, devices, immediate, nil, nil); err != nil && sendErr == nil {
+			sendErr = err
+		}
+	}
 	if saveErr != nil {
 		return saveErr
 	}
@@ -373,7 +397,10 @@ func translatedBody(update Update, locale string) string {
 	if text := strings.TrimSpace(update.Bodies[target]); text != "" {
 		return oneLine(text, 120)
 	}
-	return detail(update)
+	if detailText := detail(update); detailText != "" {
+		return detailText
+	}
+	return fallbackDetail(update.Kind, locale)
 }
 
 // accepts applies a device's master switch and its category switch.
@@ -476,7 +503,41 @@ func testWording(locale string) (string, string) {
 // "{author} 在 {platform} {action}" so the shade tells both who posted and
 // where, without the user having to open the App first.
 func wording(update Update, locale string) (string, string) {
-	return title(update, locale), detail(update)
+	line := title(update, locale)
+	detailText := detail(update)
+	if detailText == "" {
+		// Push Kit refuses a notification without a body (80100003), so an
+		// update that carries no title and no text still says what happened.
+		detailText = fallbackDetail(update.Kind, locale)
+	}
+	return line, detailText
+}
+
+// fallbackDetail is the second line of an update with no wording of its own,
+// such as a live room that changed its cover.
+func fallbackDetail(kind, locale string) string {
+	switch locale {
+	case "ja":
+		if kind == "live_update" {
+			return "配信ルームの情報が更新されました"
+		}
+		return "詳細はアプリでご確認ください"
+	case "en":
+		if kind == "live_update" {
+			return "The live room details changed"
+		}
+		return "Open the app for details"
+	case "zh-Hant":
+		if kind == "live_update" {
+			return "直播間資訊有更新"
+		}
+		return "詳情請在 App 中查看"
+	default:
+		if kind == "live_update" {
+			return "直播间信息有更新"
+		}
+		return "详情请在 App 中查看"
+	}
 }
 
 // title assembles the first line. Each language keeps its own word order:

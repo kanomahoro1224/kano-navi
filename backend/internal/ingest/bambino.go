@@ -250,9 +250,13 @@ func (m *Module) ingest(ctx context.Context, event eventRequest) (sqlite.Bambino
 	kind := strings.ToLower(strings.TrimSpace(event.Kind))
 	switch platform {
 	case "bilibili":
-		// One Bilibili account pushes two shapes: uploads become videos rows,
-		// text dynamics become posts. The kind decides which, never the
-		// platform alone.
+		// One Bilibili account pushes three shapes: uploads become videos
+		// rows, text dynamics become posts, and live-room changes have no row
+		// of their own — a live room is not an upload — so they are accepted
+		// for the notification alone and store nothing.
+		if bilibiliLiveKinds[kind] {
+			return sqlite.BambinoIngestResult{}, nil
+		}
 		if videoKinds[kind] {
 			return m.ingestVideo(ctx, event)
 		}
@@ -471,6 +475,18 @@ var videoKinds = map[string]bool{
 	"live_schedule": true,
 	"live_start":    true,
 	"live_end":      true,
+}
+
+// bilibiliLiveKinds are a Bilibili account's live-room changes: the room went
+// live, ended, or its title or area changed. The room is not an upload and has
+// no form in videos or posts, so nothing is stored and the event exists only
+// to reach the devices. YouTube keeps its live events as videos, which is why
+// this list names the platform rather than the kinds.
+var bilibiliLiveKinds = map[string]bool{
+	"live_schedule": true,
+	"live_start":    true,
+	"live_end":      true,
+	"live_update":   true,
 }
 
 // normalizeVideo maps a collector's upload event onto the videos table. The

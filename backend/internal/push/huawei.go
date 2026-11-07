@@ -214,12 +214,19 @@ func (c *Client) sendBatch(ctx context.Context, notification Notification, categ
 	if err != nil {
 		return nil, err
 	}
+	// Push Kit answers 80100003 ("Illegal payload, body cannot be null") to a
+	// notification without a body, and the whole batch is lost with it, so a
+	// body is always sent: the title stands in when the update has no wording.
+	titleText, bodyText := clip(notification.Title, 100), clip(notification.Body, 300)
+	if strings.TrimSpace(bodyText) == "" {
+		bodyText = titleText
+	}
 	payload, err := json.Marshal(map[string]any{
 		"payload": map[string]any{
 			"notification": map[string]any{
 				"category": category,
-				"title":    clip(notification.Title, 100),
-				"body":     clip(notification.Body, 300),
+				"title":    titleText,
+				"body":     bodyText,
 				// actionType 0 opens the app; the data map rides along in the
 				// want, which is how the App learns which screen to show.
 				"clickAction": map[string]any{

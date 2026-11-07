@@ -111,11 +111,13 @@
 - The schedule editor offers the Sale type, with a close date and time in
   place of the length.
 - Sources has a Bilibili uploads and a Bilibili dynamics tab, each with
-  its timer and Run now. Bilibili uploads holds the live room check (its
-  switch, interval, followed streams and the room's last check) in the
-  main column, as YouTube holds its probe; Bilibili dynamics shows the
-  listing's last read and whether the login cookie signs in, and adds a
-  dynamic by its opus link. During a captcha backoff, adding or refreshing
+  its timer and Run now and, below the timed reads, its read's state: the
+  account, the last read and its error, whether the login cookie signs in
+  and the captcha backoff. Bilibili uploads also holds the live room check
+  (its switch, interval, followed streams and the room's last check) in the
+  main column, as YouTube holds its probe. Beside them each tab keeps only
+  its manual action, adding one upload or one dynamic by its link, as X and
+  YouTube keep their manual fetch. During a captcha backoff, adding or refreshing
   one upload or dynamic offers **Try once anyway**. Translation views show
   the Japanese locale, and bilibili posts offer no X-only actions.
 - Site → Image copies shows its panel and group meters at once and fills in

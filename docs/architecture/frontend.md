@@ -344,7 +344,11 @@ the read-only
 yt-dlp, with its status in the header. Bilibili uploads adds the Bilibili
 live room, the live-status probe's Bilibili part: the room's state and the
 check's switch in the header, its interval, next check and the stream
-entries it follows, then the room's last check. X and YouTube fold their timed-read
+entries it follows, then the room's last check. Each Bilibili tab adds,
+below the timed reads, its read's state: the account, what is stored, the
+last read and its error, the login cookie and its last check, whether the
+source runs here and the shared captcha backoff, with the sign-in hints.
+X and YouTube fold their timed-read
 limits in the main column and the manual-fetch limits, which they share,
 under the manual fetch, one field per row with its label beside the input.
 Both limit folds edit the page's one read of the settings. Longer
@@ -353,9 +357,9 @@ label: the chain, the X API limits, YouTube's per-run limit, its
 progressive confirmation and each of its steps, and yt-dlp.
 
 The manual fetch sits beside the main column: method, mode, count or
-dates, options, then the newest fetch's summary. Bilibili uploads shows
-its account, login state and single-upload form there, and Bilibili dynamics
-its login state, the listing's last read and the single-dynamic form. On a narrower screen the side column follows
+dates, options, then the newest fetch's summary. The Bilibili tabs hold only
+their manual action there: one upload added by BV ID or link, or one dynamic
+by its link, disabled while the source does not run here. On a narrower screen the side column follows
 the main one, and on a phone the tabs share the width and show only the
 source names, and a fold's header controls move under its title.
 

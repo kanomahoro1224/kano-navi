@@ -578,7 +578,6 @@ export const adminMessages = {
     "admin.videos.view.translation": "Missing translation",
     "admin.videos.view.queued": "Queued",
     "admin.videos.noMatch": "No videos match",
-    "admin.bilibili.title": "Bilibili",
     "admin.bilibili.description":
       "Uploads of the configured account are read at most once per interval and stay in the console. One that matches its YouTube copy is merged into it.",
     "admin.bilibili.signedIn": "Signed in",
@@ -604,6 +603,9 @@ export const adminMessages = {
     "admin.bilibili.addHint":
       "A BV ID or a bilibili.com video link of the configured account. It is read at once.",
     "admin.bilibili.addButton": "Add",
+    "admin.bilibili.addField": "BV ID or video link",
+    "admin.bilibili.uploadsTitle": "Uploads",
+    "admin.bilibili.addPostField": "Dynamic link",
     "admin.bilibili.addPost": "Add a dynamic",
     "admin.bilibili.addPostHint":
       "A bilibili.com/opus or t.bilibili.com link to a dynamic of the configured account. It is read at once.",
@@ -1947,7 +1949,6 @@ export const adminMessages = {
     "admin.videos.merge.lengthDelta": "时长相差 {count} 秒",
     "admin.videos.merge.lengthUnknown": "时长未知",
     "admin.videos.merge.titleDiffers": "标题不同",
-    "admin.bilibili.title": "哔哩哔哩",
     "admin.bilibili.description":
       "配置账号的投稿在最小间隔内最多读取一次，只显示在后台；与 YouTube 版本相符的投稿会合并到该视频。",
     "admin.bilibili.signedIn": "已登录",
@@ -1973,6 +1974,9 @@ export const adminMessages = {
     "admin.bilibili.addHint":
       "填写配置账号投稿的 BV 号或 bilibili.com 视频链接，会立即读取。",
     "admin.bilibili.addButton": "添加",
+    "admin.bilibili.addField": "BV 号或视频链接",
+    "admin.bilibili.uploadsTitle": "投稿",
+    "admin.bilibili.addPostField": "动态链接",
     "admin.bilibili.addPost": "添加动态",
     "admin.bilibili.addPostHint":
       "配置账号某条动态的 bilibili.com/opus 或 t.bilibili.com 链接，会立即读取。",

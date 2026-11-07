@@ -78,8 +78,10 @@ import {
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import {
-  BilibiliDynamicsSource,
-  BilibiliSource,
+  BilibiliAddDynamic,
+  BilibiliAddUpload,
+  BilibiliDynamicsStatus,
+  BilibiliUploadsStatus,
   LiveRoomFacts,
   LiveRoomState,
 } from "@/admin/views/bilibili-parts"
@@ -2026,10 +2028,11 @@ const sourceIds: ScheduleSource[] = [
  * The Sources page: a tab per source, then the selected source's summary
  * (timer state, runs, the timer switch and Run now). Below it the timed-read
  * settings fill the main column, followed by X's API limits or YouTube's
- * progressive confirmation, the timed-read limits and yt-dlp, each folded;
- * the manual fetch and its folded limits, or Bilibili's account and
- * single-upload form, sit beside them. On a narrower screen the side column
- * follows the main one.
+ * progressive confirmation, the timed-read limits and yt-dlp, each folded,
+ * or a Bilibili read's state (and the uploads' live room). The manual
+ * actions sit beside them: the manual fetch and its folded limits, or one
+ * Bilibili upload or dynamic added by link. On a narrower screen the side
+ * column follows the main one.
  */
 export function SourcesView({ tab, navigate }: ViewProps) {
   const { t, locale } = useAppSettings()
@@ -2138,6 +2141,12 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                       }
                     />
                   ) : null}
+                  {selected === "bilibili" ? (
+                    <BilibiliUploadsStatus status={data.bilibili} />
+                  ) : null}
+                  {selected === "bilibili_dynamics" ? (
+                    <BilibiliDynamicsStatus status={data.bilibili} />
+                  ) : null}
                   {selected === "bilibili" &&
                   data.youtube.liveProbe.bilibili ? (
                     <BilibiliLivePanel
@@ -2169,12 +2178,12 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                 </div>
                 <div className="adm-source-aside">
                   {selected === "bilibili" ? (
-                    <BilibiliSource
+                    <BilibiliAddUpload
                       status={data.bilibili}
                       onAdded={() => void sources.reload()}
                     />
                   ) : selected === "bilibili_dynamics" ? (
-                    <BilibiliDynamicsSource
+                    <BilibiliAddDynamic
                       status={data.bilibili}
                       onAdded={() => void sources.reload()}
                     />

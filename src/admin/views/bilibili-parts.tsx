@@ -274,27 +274,29 @@ function StateBadges({
   )
 }
 
+/** Whether the operator's single reads can run: the source is on here. */
+const usableOf = (status: Sources["bilibili"] | undefined) =>
+  Boolean(status?.available && !status.skipped)
+
 /**
- * The Bilibili account's uploads on the Sources page, beside their timer
- * (which shows the last read and backoff): what is stored and an operator's
- * way to add one upload by BV ID or link. Uploads stay in the console; one
- * merged into its YouTube copy is listed on that video.
+ * The upload read's state on the Sources page, below its timer: the
+ * account, what is stored, the read interval, the last read error and the
+ * login cookie the read sends, with whether the source runs here and the
+ * captcha backoff. Uploads stay in the console; one merged into its YouTube
+ * copy is listed on that video.
  */
-export function BilibiliSource({
+export function BilibiliUploadsStatus({
   status,
-  onAdded,
 }: {
   status: Sources["bilibili"] | undefined
-  onAdded: () => void
 }) {
   const { t } = useAppSettings()
-  const { api } = useAdmin()
-  const usable = Boolean(status?.available && !status.skipped)
   const login = loginOf(status)
   return (
     <Panel
+      level={3}
       icon={BilibiliIcon}
-      title={t("admin.bilibili.title")}
+      title={t("admin.bilibili.uploadsTitle")}
       description={t("admin.bilibili.description")}
       actions={
         status ? (
@@ -328,36 +330,23 @@ export function BilibiliSource({
       {status?.available && login === "expired" ? (
         <p className="adm-note">{t("admin.bilibili.loginExpiredHint")}</p>
       ) : null}
-      <AddForm
-        label={t("admin.bilibili.add")}
-        hint={t("admin.bilibili.addHint")}
-        placeholder="BV1xxxxxxxxx"
-        disabled={!usable}
-        notice="admin.notice.bilibiliAdded"
-        send={(input, force) => api.addBilibiliVideo(input, force)}
-        onAdded={onAdded}
-      />
     </Panel>
   )
 }
 
 /**
- * The Bilibili account's dynamics on the Sources page, beside their own
- * timer: the login cookie and its last check, the listing's last read, and
- * an operator's way to add one dynamic by link, which needs no login.
- * Dynamics show as posts beside X posts on the board.
+ * The dynamics listing's state on the Sources page, below its timer: the
+ * account, the login cookie and its last check, and the listing's last
+ * read, with whether the source runs here and the captcha backoff it shares
+ * with the upload read. Dynamics show as posts beside X posts on the board.
  */
-export function BilibiliDynamicsSource({
+export function BilibiliDynamicsStatus({
   status,
-  onAdded,
 }: {
   status: Sources["bilibili"] | undefined
-  onAdded: () => void
 }) {
   const { t } = useAppSettings()
-  const { api } = useAdmin()
   const stamp = useStamp()
-  const usable = Boolean(status?.available && !status.skipped)
   const login = loginOf(status)
   const dynamics = status?.dynamics
   const facts: [ReactNode, ReactNode][] = status?.available
@@ -387,6 +376,7 @@ export function BilibiliDynamicsSource({
     )
   return (
     <Panel
+      level={3}
       icon={MessageSquareText}
       title={t("admin.bilibili.dynamics.title")}
       description={t("admin.bilibili.dynamics.description")}
@@ -405,15 +395,89 @@ export function BilibiliDynamicsSource({
       {status?.available && login === "expired" ? (
         <p className="adm-note">{t("admin.bilibili.loginExpiredHint")}</p>
       ) : null}
-      <AddForm
-        label={t("admin.bilibili.addPost")}
-        hint={t("admin.bilibili.addPostHint")}
-        placeholder="https://www.bilibili.com/opus/…"
-        disabled={!usable}
-        notice="admin.notice.bilibiliPostAdded"
-        send={(input, force) => api.addBilibiliPost(input, force)}
-        onAdded={onAdded}
-      />
     </Panel>
+  )
+}
+
+/**
+ * The operator's single read beside a Bilibili timer, as the manual fetch
+ * sits beside X's and YouTube's: one form, disabled while the source does
+ * not run here. It respects the shared captcha backoff and offers one
+ * forced read after a refusal.
+ */
+function AddPanel({
+  status,
+  title,
+  ...form
+}: {
+  status: Sources["bilibili"] | undefined
+  title: string
+  label: string
+  hint: string
+  placeholder: string
+  notice: string
+  send: (input: string, force: boolean) => Promise<unknown>
+  onAdded: () => void
+}) {
+  const { t } = useAppSettings()
+  const usable = usableOf(status)
+  return (
+    <Panel
+      icon={Plus}
+      title={title}
+      actions={
+        status && !usable ? <Badge>{t("admin.overview.skipped")}</Badge> : null
+      }
+    >
+      <AddForm {...form} disabled={!usable} />
+    </Panel>
+  )
+}
+
+/** Adds or re-reads one upload of the account by BV ID or video link. */
+export function BilibiliAddUpload({
+  status,
+  onAdded,
+}: {
+  status: Sources["bilibili"] | undefined
+  onAdded: () => void
+}) {
+  const { t } = useAppSettings()
+  const { api } = useAdmin()
+  return (
+    <AddPanel
+      status={status}
+      title={t("admin.bilibili.add")}
+      label={t("admin.bilibili.addField")}
+      hint={t("admin.bilibili.addHint")}
+      placeholder="BV1xxxxxxxxx"
+      notice="admin.notice.bilibiliAdded"
+      send={(input, force) => api.addBilibiliVideo(input, force)}
+      onAdded={onAdded}
+    />
+  )
+}
+
+/** Adds or re-reads one dynamic of the account by its link; needs no login. */
+export function BilibiliAddDynamic({
+  status,
+  onAdded,
+}: {
+  status: Sources["bilibili"] | undefined
+  onAdded: () => void
+}) {
+  const { t } = useAppSettings()
+  const { api } = useAdmin()
+  return (
+    <AddPanel
+      status={status}
+      title={t("admin.bilibili.addPost")}
+      label={t("admin.bilibili.addPostField")}
+      hint={t("admin.bilibili.addPostHint")}
+      placeholder="https://www.bilibili.com/opus/…"
+      notice="admin.notice.bilibiliPostAdded"
+      send={(input, force) => api.addBilibiliPost(input, force)}
+      onAdded={onAdded}
+    />
   )
 }

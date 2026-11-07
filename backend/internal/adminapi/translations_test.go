@@ -13,7 +13,7 @@ func TestTranslationConsole(t *testing.T) {
 	}
 	code, payload := c.call(t, "GET", "/api/admin/translations", "")
 	posts := payload["counts"].(map[string]any)["post"].(map[string]any)
-	if code != 200 || posts["total"] != float64(2) || posts["incomplete"] != float64(2) || fmt.Sprint(payload["locales"]) != "[en zh-CN]" {
+	if code != 200 || posts["total"] != float64(2) || posts["incomplete"] != float64(2) || fmt.Sprint(payload["locales"]) != "[en ja zh-CN]" {
 		t.Fatalf("summary=%d %v", code, payload)
 	}
 
@@ -26,7 +26,7 @@ func TestTranslationConsole(t *testing.T) {
 		t.Fatalf("manual=%v", en)
 	}
 	for path, want := range map[string]int{
-		"/api/admin/translations/post/1/ja":       400,
+		"/api/admin/translations/post/1/ko":       400,
 		"/api/admin/translations/post/missing/en": 404,
 		"/api/admin/translations/event/1/en":      404,
 	} {

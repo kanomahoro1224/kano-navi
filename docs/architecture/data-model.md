@@ -27,8 +27,8 @@ own transaction, and the selected profile media is reconciled with its files
 | ------------------------ | ------------------------------------------------------------------------------------------------------ |
 | `profiles`               | Name, bio, avatar, banner, and official entry points                                                   |
 | `profile_media`          | Avatar and banner candidates, their downloads, and the operator's selected file                        |
-| `posts`                  | X posts, account source, publication time, engagement counts, media, and the quoted status             |
-| `events`                 | Unified schedules, provenance, confidence, manual locks, tombstones, and duplicate merges              |
+| `posts`                  | X posts and Bilibili dynamics, account, publication time, engagement counts, media, and the quote      |
+| `events`                 | Unified schedules, platform, provenance, confidence, manual locks, tombstones, and duplicate merges    |
 | `event_sources`          | Source post/reservation identities attached to each event                                              |
 | `videos`                 | YouTube videos and streams, Bilibili uploads and their merges, corrections, and refresh requests       |
 | `video_revisions`        | Titles and thumbnails a platform replaced, one row per change                                          |
@@ -126,6 +126,21 @@ per X account with `{timelineFailures}`, its current streak of runs whose
 timeline failed, and the row `@usage` with `{day, posts}`, the posts X API
 answers returned on that Japan day. A count for an earlier day reads as
 zero, and the first read of a new day starts it over.
+
+The `bilibili` row of the account (the mid) keeps, besides the upload
+read's device identity, clock and captcha backoff, the dynamics listing's
+`dynamics` `{lastAttemptAt, lastSuccessAt, lastError}` and the cached WBI
+signature keys `wbi` `{img, sub, at}`; the cursor names the newest upload.
+The `bilibili-live` row of the same account keeps the
+[live room](sources.md#live-room) state `{roomId, title, liveStatus,
+liveTime, checkedAt, lastAttemptAt, blockedUntil, failures, lastError,
+lastBroadcast, lastLiveAt, endedAt}`; the room ID is learned from the checks.
+The `bilibili` row's metadata also keeps the device's `bNut` and
+`bili_ticket` (with when it was issued and its lifetime) inside `session`,
+`login` `{checkedAt, signedIn}` from the latest login check, and
+`blockedAt`/`clearedAt`, when the current block was recorded and when the
+latest successful read started, so a forced read's success lifts a block
+while a block a concurrent read stored is kept. Neither is returned by a public read.
 
 ## Seed versus Synchronization
 
@@ -468,7 +483,7 @@ as the same codes and wording.
 
 Post text and video titles keep their source wording in `posts.text` and
 `videos.title`. `translations` stores their translations for the target
-locales `en` and `zh-CN` (Japanese readers see the source), keyed by
+locales `en`, `ja` and `zh-CN`, keyed by
 `(owner_type, owner_id, field, locale, origin, platform)`: `owner_type` is
 `post` (field `text`) or `video` (field `title`), `origin` is `manual`,
 `platform` or `machine`, and `platform` names the platform of a platform row
@@ -499,8 +514,13 @@ seen: the hash and detected `source_language` (`ja`, `en`, `zh`, `ko`,
 attempted, its `status` (`success`, `failed`, `skipped`), the last attempt and
 sanitized error, and `requested`, an operator's request for a forced pass. A
 locale whose language matches the detected source language needs no
-translation, and `none` needs none at all. A post or video is complete when
-every locale it needs has a usable row. The public dashboard, archives and
+translation, and `none` needs none at all: a Japanese X post or YouTube title
+needs `en` and `zh-CN`, a Chinese Bilibili dynamic `en` and `ja`. Wording the
+step has not seen in its current form needs `en` and `zh-CN`, and `ja` only
+when it is a Bilibili dynamic, since X posts and YouTube titles are presumed
+Japanese until detected; the console shows such a `ja` as the source. A post
+or video is complete when every locale it needs has a usable row. The
+machine step translates posts of the sources `x` and `bilibili`. The public dashboard, archives and
 video lists add `translations` (`{locale: {text, origin, platform}}`) and
 `sourceLanguage` to posts and videos; providers, models and hashes stay in
 the console. A Bilibili video, which the machine step never translates,
@@ -572,8 +592,21 @@ after the current Japan date:
   own (one contains the other or they share a token of at least two
   characters after punctuation, brackets and medium words such as 配信 are
   removed). Without a title overlap it merges only when the date has exactly
-  one date-only event and one timed stream. A YouTube event never merges into
-  an X event.
+  one date-only event and one timed stream, and not into a stream of platform
+  `bilibili` unless the date-only entry is `bilibili` as well. A YouTube event never merges into
+  an X or Bilibili event.
+
+- Rule B also moves an automatic entry of a Bilibili dynamic whose platform
+  is `youtube` (such as 「今晚8点YouTube直播」), under the same constraints.
+- Rule D (after Rule B): an automatic X `stream`, `member` or `release` of
+  platform `bilibili` with an exact or approximate time merges into the only
+  compatible entry of a Bilibili dynamic (`source` `bilibili`) on the same
+  date that starts within 30 minutes; a release only into a release. The
+  dynamic is the platform's first-party post, as the YouTube event is for
+  Rule B, and an X entry of platform `bilibili` is never a Rule B notice.
+  Without a dynamics listing the X entry stands alone and still gets the
+  room as `liveUrl`.
+
 - Rule C: an automatic `sale` merges into another sale of the same shop
   whose [period](#sale-periods) covers its own, such as a deadline reminder
   into the announced period. Two sales are of the same shop when their links
@@ -620,6 +653,42 @@ pagination, day counts and adjacent dates, and MCP `schedule_list`. The
 operator console lists them with their target and can undo a merge. Startup
 adds the columns and the partial `events_merged_into_idx` index to existing
 snapshots without rewriting events.
+
+An entry of a Bilibili dynamic never merges into an X entry, by any rule; it
+is otherwise an X entry for Rules A and C.
+
+### Bilibili releases
+
+Before merging, `reconcile` recomputes the pairing of the automatic,
+unlocked `release` entries of Bilibili dynamics in its window with the
+account's Bilibili uploads. A release and an upload pair when each is the
+other's only match within 30 minutes: the entry's link becomes the upload's
+page and an active `bilibili-video` event source (`source_key` `upload`)
+names it. A pairing that no longer holds (the release moved, or a second
+release or upload made it ambiguous) is released: its source row is retired
+and the link goes back to the dynamic's. An unchanged run writes nothing; an
+extraction that rewrites the link restores the dynamic's link until the next
+run pairs it again. The upload source is evidence of the work, not an
+announcement, so it keeps no entry alive that its dynamic no longer lists.
+
+## Event Platforms
+
+`events.platform` records where an entry happens: `youtube`, `bilibili`,
+`other` or `unknown`; it is null on rows written before the column existed,
+which read as unknown, and the startup that adds it sets `youtube` on the
+YouTube writers' events. Extraction writes it with the other fields of an
+automatic entry, under the same manual locks and tombstones (see
+[Source time zones](sources.md#source-time-zones)); the YouTube writers
+write `youtube`. Public events report it as `platform`.
+
+`events.url` is the announcement's link (a post, an operator's link, a
+paired upload), never the live room, because readers use the link as the
+identity of one broadcast. Full public reads add `liveUrl`, the account's
+Bilibili live room, to every entry of platform `bilibili` and type `stream`
+or `member` once a live check learned the room, and project the room's state
+as `liveStatus` (see [Live room](sources.md#live-room)). The dashboard's
+`liveNow` reports a live broadcast that matches no entry; no entry is
+created for it.
 
 ## Video Corrections and History
 

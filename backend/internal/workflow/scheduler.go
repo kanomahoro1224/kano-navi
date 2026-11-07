@@ -19,7 +19,7 @@ const TriggeredBySourceSchedule = "source-schedule"
 var SourceChains = map[string][]string{
 	"x":        {"x", "media", "schedule", "translate"},
 	"youtube":  {"youtube", "media", "translate"},
-	"bilibili": {"bilibili", "media", "translate"},
+	"bilibili": {"bilibili", "media", "schedule", "translate"},
 }
 
 // Scheduler starts due source schedules through the single-flight queue.

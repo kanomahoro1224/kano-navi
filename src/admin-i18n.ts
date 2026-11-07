@@ -80,12 +80,13 @@ export const adminMessages = {
     "admin.step.x.hint": "Read new posts from the configured accounts",
     "admin.step.youtube.hint": "Read new and upcoming videos",
     "admin.step.bilibili": "Bilibili",
-    "admin.step.bilibili.hint": "Read new uploads, at most once per interval",
+    "admin.step.bilibili.hint":
+      "Read new uploads and dynamics, at most once per interval",
     "admin.step.media.hint": "Cache images and thumbnails locally",
     "admin.step.schedule.hint": "Turn candidate posts into schedule entries",
     "admin.step.translate": "Translation",
     "admin.step.translate.hint":
-      "Translate X posts and YouTube titles that lack one",
+      "Translate X posts, Bilibili dynamics and YouTube titles that lack one; dates and times stay as written",
     "admin.step.reconcile": "Duplicate merge",
     "admin.step.reconcile.hint":
       "Hide duplicate entries of one stream and attach Bilibili uploads to their YouTube copy; runs after source and extraction steps",
@@ -577,9 +578,17 @@ export const adminMessages = {
     "admin.videos.noMatch": "No videos match",
     "admin.bilibili.title": "Bilibili",
     "admin.bilibili.description":
-      "Uploads of the configured account are read at most once per interval and stay in the console. One that matches its YouTube copy is merged into it.",
+      "Uploads of the configured account are read at most once per interval and stay in the console. One that matches its YouTube copy is merged into it. Its dynamics show as posts on the board, and its live room marks Bilibili streams live.",
     "admin.bilibili.signedIn": "Signed in",
     "admin.bilibili.anonymous": "Anonymous",
+    "admin.bilibili.loginExpired": "Login expired",
+    "admin.bilibili.loginUnchecked": "Login not checked yet",
+    "admin.bilibili.loginChecked": "Login checked",
+    "admin.bilibili.loginExpiredHint":
+      "The login cookie expired. Set a fresh BILIBILI_SESSDATA in the server environment; the daily login check confirms it.",
+    "admin.bilibili.force": "Try once anyway",
+    "admin.bilibili.forceHint":
+      "Reads wait for the captcha backoff until {time}. This sends this one read now, which may extend the backoff.",
     "admin.bilibili.blocked": "Captcha backoff",
     "admin.bilibili.account": "Account",
     "admin.bilibili.videos": "Stored uploads",
@@ -593,6 +602,33 @@ export const adminMessages = {
     "admin.bilibili.addHint":
       "A BV ID or a bilibili.com video link of the configured account. It is read at once.",
     "admin.bilibili.addButton": "Add",
+    "admin.bilibili.addPost": "Add a dynamic",
+    "admin.bilibili.addPostHint":
+      "A bilibili.com/opus or t.bilibili.com link to a dynamic of the configured account. It is read at once.",
+    "admin.bilibili.dynamics.title": "Dynamics",
+    "admin.bilibili.dynamics.posts": "Stored dynamics",
+    "admin.bilibili.dynamics.lastAttempt": "Last read",
+    "admin.bilibili.dynamics.lastSuccess": "Last success",
+    "admin.bilibili.dynamics.skipped": "Last read skipped",
+    "admin.bilibili.dynamics.skipped.login_required":
+      "The dynamics listing needs BILIBILI_SESSDATA",
+    "admin.bilibili.dynamics.skipped.login_expired":
+      "The login cookie expired; the listing waits for the daily login check",
+    "admin.bilibili.dynamics.skipped.interval": "Waiting for the interval",
+    "admin.bilibili.dynamics.skipped.blocked": "Captcha backoff",
+    "admin.bilibili.dynamics.loginHint":
+      "The dynamics listing needs a login cookie. Set BILIBILI_SESSDATA in the server environment to read it.",
+    "admin.bilibili.live.title": "Live room",
+    "admin.bilibili.live.on": "Live",
+    "admin.bilibili.live.off": "Off air",
+    "admin.bilibili.live.rotation": "Rotation (not live)",
+    "admin.bilibili.live.room": "Room",
+    "admin.bilibili.live.streamTitle": "Title",
+    "admin.bilibili.live.liveTime": "Live since",
+    "admin.bilibili.live.startUnknown": "Live, start unknown",
+    "admin.bilibili.live.checkedAt": "Last check",
+    "admin.bilibili.live.lastLiveAt": "Last seen live (approximate end)",
+    "admin.bilibili.live.blockedUntil": "Checks wait until",
     "admin.profile.avatar": "Avatar",
     "admin.profile.banner": "Banner",
     "admin.profile.avatarHint": "Square image shown next to the name.",
@@ -764,6 +800,14 @@ export const adminMessages = {
     "admin.liveProbe.phase.starting": "Waiting to go live",
     "admin.liveProbe.phase.live": "On air",
     "admin.liveProbe.phase.overdue": "Past its start",
+    "admin.liveProbe.phase.baseline": "Routine check",
+    "admin.liveProbe.bilibili.title": "Bilibili live room",
+    "admin.liveProbe.bilibili.description":
+      "Checks the account's Bilibili live room around Bilibili stream events, and at the interval otherwise, so the board shows On air for an announced or unannounced Bilibili stream.",
+    "admin.liveProbe.bilibili.enable": "Check the Bilibili live room",
+    "admin.liveProbe.bilibili.unavailable":
+      "Not running: timers are off (WORKFLOW_SCHEDULER_ENABLED=0) or Bilibili is disabled.",
+    "admin.liveProbe.bilibili.nextCheck": "Next check",
     "admin.liveProbe.due": "next check {time}",
     "admin.liveProbe.dueNow": "due now",
     "admin.liveProbe.stop": "Stop checking",
@@ -771,7 +815,7 @@ export const adminMessages = {
     "admin.liveProbe.stopped.unavailable": "Stopped: private or removed",
     "admin.liveProbe.stopped.operator": "Stopped by an operator",
     "admin.sources.bilibili.hint":
-      "The account's public upload list, read at most once per BILIBILI_MIN_INTERVAL_MINUTES.",
+      "The account's public uploads, and its dynamics with BILIBILI_SESSDATA, each read at most once per BILIBILI_MIN_INTERVAL_MINUTES.",
     "admin.timer.on": "Every {interval}",
     "admin.timer.enable": "Run on a timer",
     "admin.timer.enableHint":
@@ -997,6 +1041,7 @@ export const adminMessages = {
     "admin.notice.videoRefresh":
       "Refresh requested; the next YouTube step reads this video first",
     "admin.notice.bilibiliAdded": "Bilibili upload stored",
+    "admin.notice.bilibiliPostAdded": "Bilibili dynamic stored",
     "admin.notice.bilibiliRead": "Read again from Bilibili",
     "admin.notice.videoMerged": "Upload merged into its YouTube video",
     "admin.notice.videoUnmerged": "Merge undone; the upload stays separate",
@@ -1112,6 +1157,7 @@ export const adminMessages = {
     "admin.translation.precedence":
       "Readers see a manual translation first, then the platform’s, then the AI’s. A manual translation stays until you clear it.",
     "admin.translation.locale.en": "English",
+    "admin.translation.locale.ja": "Japanese",
     "admin.translation.locale.zh-CN": "Simplified Chinese",
     "admin.translation.language.ja": "Japanese",
     "admin.translation.language.en": "English",
@@ -1177,6 +1223,9 @@ export const adminMessages = {
     "admin.error.bilibiliBlocked":
       "Bilibili is asking this server for a captcha. Reads resume after {time}.",
     "admin.error.bilibiliUnavailable": "Bilibili did not answer ({code}).",
+    "admin.error.bilibiliLoginExpired":
+      "Bilibili's login cookie expired (BILIBILI_SESSDATA).",
+    "admin.error.postNotFound": "The source has no such post.",
     "admin.filter.any": "Any",
     "admin.filter.dates": "Dates",
     "admin.filter.reset": "Clear filters ({count})",
@@ -1362,6 +1411,22 @@ export const adminMessages = {
       "YouTube's RSS feed could not be reached.",
     "admin.code.bilibili_risk_control":
       "Bilibili asked this server for a captcha; reads wait for the backoff to end.",
+    "admin.code.bilibili_login_expired":
+      "Login cookie expired (BILIBILI_SESSDATA)",
+    "admin.code.bilibili_risk_control_http":
+      "Bilibili asked this server for a captcha: an HTTP 412 answer.",
+    "admin.code.bilibili_risk_control_page":
+      "Bilibili asked this server for a captcha: a captcha page instead of data.",
+    "admin.code.bilibili_risk_control_352":
+      "Bilibili asked this server for a captcha: risk-control code -352.",
+    "admin.code.bilibili_risk_control_412":
+      "Bilibili asked this server for a captcha: risk-control code -412.",
+    "admin.code.bilibili_risk_control_voucher":
+      "Bilibili asked this server for a captcha: a WBI voucher challenge.",
+    "admin.code.bilibili_blocked":
+      "Bilibili reads wait for the captcha backoff to end.",
+    "admin.code.bilibili_unsupported_dynamic":
+      "This dynamic is not a text or picture post (a repost, video or other kind).",
     "admin.code.source_api_request_failed": "The source API request failed.",
     "admin.code.source_api_invalid_response":
       "The source API answered with something unreadable.",
@@ -1519,11 +1584,12 @@ export const adminMessages = {
     "admin.step.x.hint": "读取所配置账号的新贴文",
     "admin.step.youtube.hint": "读取新视频和预定直播",
     "admin.step.bilibili": "哔哩哔哩",
-    "admin.step.bilibili.hint": "读取新投稿，受最小间隔限制",
+    "admin.step.bilibili.hint": "读取新投稿和动态，受最小间隔限制",
     "admin.step.media.hint": "把图片和缩略图缓存到本地",
     "admin.step.schedule.hint": "把候选贴文转换为日程",
     "admin.step.translate": "翻译",
-    "admin.step.translate.hint": "翻译缺少译文的 X 动态和 YouTube 标题",
+    "admin.step.translate.hint":
+      "翻译缺少译文的 X 贴文、哔哩哔哩动态和 YouTube 标题；日期和时间保持原文",
     "admin.step.reconcile": "重复合并",
     "admin.step.reconcile.hint":
       "隐藏同一场直播的重复条目，并把哔哩哔哩投稿合并到对应的 YouTube 视频；在来源和提取步骤之后运行",
@@ -1871,9 +1937,17 @@ export const adminMessages = {
     "admin.videos.merge.titleDiffers": "标题不同",
     "admin.bilibili.title": "哔哩哔哩",
     "admin.bilibili.description":
-      "配置账号的投稿在最小间隔内最多读取一次，只显示在后台；与 YouTube 版本相符的投稿会合并到该视频。",
+      "配置账号的投稿在最小间隔内最多读取一次，只显示在后台；与 YouTube 版本相符的投稿会合并到该视频。动态会作为帖子显示在公开页面，直播间状态用于标记哔哩哔哩直播。",
     "admin.bilibili.signedIn": "已登录",
     "admin.bilibili.anonymous": "未登录",
+    "admin.bilibili.loginExpired": "登录已过期",
+    "admin.bilibili.loginUnchecked": "尚未检查登录",
+    "admin.bilibili.loginChecked": "登录检查",
+    "admin.bilibili.loginExpiredHint":
+      "登录 Cookie 已过期。请在服务器环境中设置新的 BILIBILI_SESSDATA，每日登录检查会确认它。",
+    "admin.bilibili.force": "仍然尝试一次",
+    "admin.bilibili.forceHint":
+      "验证码退避持续到 {time}。这会立即发送这一次读取，可能延长退避。",
     "admin.bilibili.blocked": "验证码退避中",
     "admin.bilibili.account": "账号",
     "admin.bilibili.videos": "已收录投稿",
@@ -1887,6 +1961,33 @@ export const adminMessages = {
     "admin.bilibili.addHint":
       "填写配置账号投稿的 BV 号或 bilibili.com 视频链接，会立即读取。",
     "admin.bilibili.addButton": "添加",
+    "admin.bilibili.addPost": "添加动态",
+    "admin.bilibili.addPostHint":
+      "配置账号某条动态的 bilibili.com/opus 或 t.bilibili.com 链接，会立即读取。",
+    "admin.bilibili.dynamics.title": "动态",
+    "admin.bilibili.dynamics.posts": "已收录动态",
+    "admin.bilibili.dynamics.lastAttempt": "上次读取",
+    "admin.bilibili.dynamics.lastSuccess": "上次成功",
+    "admin.bilibili.dynamics.skipped": "上次读取已跳过",
+    "admin.bilibili.dynamics.skipped.login_required":
+      "动态列表需要 BILIBILI_SESSDATA",
+    "admin.bilibili.dynamics.skipped.login_expired":
+      "登录 Cookie 已过期，动态列表等待每日登录检查",
+    "admin.bilibili.dynamics.skipped.interval": "等待最小间隔",
+    "admin.bilibili.dynamics.skipped.blocked": "验证码退避中",
+    "admin.bilibili.dynamics.loginHint":
+      "动态列表需要登录 Cookie。请在服务器环境中设置 BILIBILI_SESSDATA。",
+    "admin.bilibili.live.title": "直播间",
+    "admin.bilibili.live.on": "直播中",
+    "admin.bilibili.live.off": "未开播",
+    "admin.bilibili.live.rotation": "轮播中（非直播）",
+    "admin.bilibili.live.room": "房间",
+    "admin.bilibili.live.streamTitle": "标题",
+    "admin.bilibili.live.liveTime": "开播时间",
+    "admin.bilibili.live.startUnknown": "直播中，开播时间未知",
+    "admin.bilibili.live.checkedAt": "上次检查",
+    "admin.bilibili.live.lastLiveAt": "最后一次检测到直播（约为结束时间）",
+    "admin.bilibili.live.blockedUntil": "检查等待至",
     "admin.profile.avatar": "头像",
     "admin.profile.banner": "横幅",
     "admin.profile.avatarHint": "显示在名字旁的方形图片。",
@@ -1981,6 +2082,14 @@ export const adminMessages = {
     "admin.liveProbe.phase.starting": "等待开播",
     "admin.liveProbe.phase.live": "直播中",
     "admin.liveProbe.phase.overdue": "已过开播时间",
+    "admin.liveProbe.phase.baseline": "例行检查",
+    "admin.liveProbe.bilibili.title": "哔哩哔哩直播间",
+    "admin.liveProbe.bilibili.description":
+      "在哔哩哔哩直播日程前后检查账号的直播间，其余时间按间隔检查，让公开页面显示已预告或未预告的哔哩哔哩直播。",
+    "admin.liveProbe.bilibili.enable": "检查哔哩哔哩直播间",
+    "admin.liveProbe.bilibili.unavailable":
+      "未运行：定时器已关闭（WORKFLOW_SCHEDULER_ENABLED=0），或哔哩哔哩已停用。",
+    "admin.liveProbe.bilibili.nextCheck": "下次检查",
     "admin.liveProbe.due": "下次检查 {time}",
     "admin.liveProbe.dueNow": "已到检查时间",
     "admin.liveProbe.stop": "停止检查",
@@ -1988,7 +2097,7 @@ export const adminMessages = {
     "admin.liveProbe.stopped.unavailable": "已停止：私密或已删除",
     "admin.liveProbe.stopped.operator": "已由管理员停止",
     "admin.sources.bilibili.hint":
-      "账号的公开投稿列表，每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次。",
+      "账号的公开投稿，以及配置 BILIBILI_SESSDATA 时的动态，各自每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次。",
     "admin.timer.on": "每 {interval}",
     "admin.timer.enable": "定时运行",
     "admin.timer.enableHint":
@@ -2107,6 +2216,7 @@ export const adminMessages = {
     "admin.notice.videoRefresh":
       "已请求刷新，下次 YouTube 步骤会先读取这个视频",
     "admin.notice.bilibiliAdded": "已收录哔哩哔哩投稿",
+    "admin.notice.bilibiliPostAdded": "已收录哔哩哔哩动态",
     "admin.notice.bilibiliRead": "已从哔哩哔哩重新读取",
     "admin.notice.videoMerged": "已将投稿合并到 YouTube 视频",
     "admin.notice.videoUnmerged": "已撤销合并，该投稿保持独立",
@@ -2137,6 +2247,7 @@ export const adminMessages = {
     "admin.translation.precedence":
       "读者优先看到人工翻译，其次是平台提供的翻译，最后是 AI 翻译。人工翻译会一直保留，直到你清除它。",
     "admin.translation.locale.en": "英文",
+    "admin.translation.locale.ja": "日文",
     "admin.translation.locale.zh-CN": "简体中文",
     "admin.translation.language.ja": "日文",
     "admin.translation.language.en": "英文",
@@ -2200,6 +2311,9 @@ export const adminMessages = {
     "admin.error.bilibiliBlocked":
       "哔哩哔哩正在要求本服务器完成验证码，{time} 后恢复读取。",
     "admin.error.bilibiliUnavailable": "哔哩哔哩没有响应（{code}）。",
+    "admin.error.bilibiliLoginExpired":
+      "哔哩哔哩登录 Cookie 已过期（BILIBILI_SESSDATA）。",
+    "admin.error.postNotFound": "来源中没有这条帖子。",
     "admin.filter.any": "全部",
     "admin.filter.dates": "日期",
     "admin.filter.reset": "清除筛选（{count}）",
@@ -2316,6 +2430,21 @@ export const adminMessages = {
     "admin.code.youtube_feed_unavailable": "无法访问 YouTube RSS 订阅源。",
     "admin.code.bilibili_risk_control":
       "哔哩哔哩要求本服务器完成验证码，读取会等待退避结束。",
+    "admin.code.bilibili_login_expired":
+      "登录 Cookie 已过期（BILIBILI_SESSDATA）",
+    "admin.code.bilibili_risk_control_http":
+      "哔哩哔哩要求本服务器完成验证码：HTTP 412 响应。",
+    "admin.code.bilibili_risk_control_page":
+      "哔哩哔哩要求本服务器完成验证码：返回了验证码页面而不是数据。",
+    "admin.code.bilibili_risk_control_352":
+      "哔哩哔哩要求本服务器完成验证码：风控代码 -352。",
+    "admin.code.bilibili_risk_control_412":
+      "哔哩哔哩要求本服务器完成验证码：风控代码 -412。",
+    "admin.code.bilibili_risk_control_voucher":
+      "哔哩哔哩要求本服务器完成验证码：WBI voucher 验证。",
+    "admin.code.bilibili_blocked": "哔哩哔哩读取正在等待验证码退避结束。",
+    "admin.code.bilibili_unsupported_dynamic":
+      "这条动态不是文字或图片帖子（转发、视频或其他类型）。",
     "admin.code.source_api_request_failed": "来源 API 请求失败。",
     "admin.code.source_api_invalid_response": "来源 API 的响应无法解析。",
     "admin.code.source_api_response_too_large":

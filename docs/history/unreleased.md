@@ -9,6 +9,22 @@
 > events and MCP schedule reads add `endsOn`, and the event type `sale`
 > joins the admin API's types.
 
+> [!NOTE]
+> Bilibili dynamics are listed only with `BILIBILI_SESSDATA` configured
+> ([ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)).
+> Startup adds the empty `events.platform` column and sets it to `youtube`
+> on YouTube events, without rewriting other events. Japanese becomes a
+> translation target:
+> X posts and YouTube titles detected as Japanese still need only English
+> and Chinese, so they are not translated again, but wording detected as
+> English, Korean or another language now also gets a Japanese translation,
+> within the per-run limit. Bilibili's `bilibili_risk_control` code is split
+> into `bilibili_risk_control_http`, `_page`, `_352`, `_412` and `_voucher`.
+> Public posts may have `source: "bilibili"`,
+> public events add `platform` and full ones `liveUrl`, the dashboard adds
+> `liveNow`, translations may include `ja`, the extraction schema adds
+> `platform`, and the Bilibili timer's chain adds the `schedule` step.
+
 <details>
 <summary><strong>Public pages</strong></summary>
 
@@ -36,6 +52,15 @@
   video shelf.
 - The About page shows each code contributor's GitHub avatar with the name
   below it, loaded from GitHub, and its technology list adds yt-dlp and MCP.
+- The post wall is **Recent Posts** and lists Kano's bilibili dynamics with
+  her X posts, with the bilibili mark and a link to the dynamic; bilibili
+  posts show no quote or engagement counts.
+- Japanese content shows a Japanese translation of wording that is not
+  Japanese, such as a Chinese bilibili post, with the AI mark; the calendar
+  and video feeds pick Japanese wording the same way.
+- A bilibili stream links to Kano's live room and shows as live while the
+  room is on air; an unannounced bilibili stream shows on the stage as live
+  now without adding a schedule entry.
 
 </details>
 
@@ -45,6 +70,28 @@
 - The extraction prompt defines each event type and returns one entry per
   sale period with its opening and its close, instead of separate entries
   of mixed types for the opening and the deadline.
+- The `bilibili` step also reads the account's dynamics with a login cookie,
+  signed with Bilibili's WBI keys, on its own interval and under the shared
+  captcha backoff; reposts, uploads and live notices are left out, and emoji
+  are dropped from the stored text.
+- Bilibili dynamics go through schedule extraction with a Chinese prompt.
+  The model gives times as written with their zone, and code converts
+  Beijing time to Japan time, including the next-day rollover
+  ([ADR-0008](../decisions/ADR-0008-source-time-zones-in-code.md)). Every
+  entry records its platform, and a bilibili release links to the upload it
+  announced once that is read. An X notice of a bilibili stream merges into
+  the dynamic's entry of it.
+- Bilibili requests read like the site's own pages: a desktop browser user
+  agent and language, the page they come from, and the `b_nut` and
+  `bili_ticket` device cookies. The login cookie is verified once a day and
+  not sent while expired, and captcha answers name how Bilibili gave them
+  (`bilibili_risk_control_http`, `_page`, `_352`, `_412`, `_voucher`), all
+  with the same backoff.
+- The live-status probe checks the Bilibili live room, one request per run,
+  around announced streams and once per operator interval (30 minutes by
+  default) otherwise, and learns the room from the answer.
+- Translation adds Japanese, and translates Bilibili dynamics into English
+  and Japanese, keeping their times as written.
 
 </details>
 
@@ -53,5 +100,11 @@
 
 - The schedule editor offers the Sale type, with a close date and time in
   place of the length.
+- The Bilibili source shows the dynamics listing, the live room and whether
+  the login cookie signs in, and adds a dynamic by its opus link. During a
+  captcha backoff, adding or refreshing one upload or dynamic offers **Try
+  once anyway**. The live-status probe gains the Bilibili
+  switch and interval. Translation views show the Japanese locale, and
+  bilibili posts offer no X-only actions.
 
 </details>

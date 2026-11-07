@@ -437,7 +437,7 @@ func TestDashboardReadIsAPublicProjection(t *testing.T) {
 	response := post(t, handler, toolCall("dashboard_read", nil))
 	dashboard := toolValue(t, response)
 
-	want := []string{"assets", "events", "focus", "meta", "posts", "profile", "profileMedia", "resources", "scheduleImages", "summary", "timeline", "videos"}
+	want := []string{"assets", "events", "focus", "liveNow", "meta", "posts", "profile", "profileMedia", "resources", "scheduleImages", "summary", "timeline", "videos"}
 	if got := keys(dashboard); !reflect.DeepEqual(got, want) {
 		t.Fatalf("dashboard keys = %v", got)
 	}
@@ -453,8 +453,9 @@ func TestDashboardReadIsAPublicProjection(t *testing.T) {
 			}
 		}
 		// 19 schedule facts (a sale's close date included), the calendar
-		// label, plus the linked video's translations and sourceLanguage.
-		if len(event) != 22 {
+		// label, the platform, plus the linked video's translations and
+		// sourceLanguage.
+		if len(event) != 23 {
 			t.Fatalf("event field count = %d: %v", len(event), keys(event))
 		}
 		// The label is read from the event row, so a reader sees it here just

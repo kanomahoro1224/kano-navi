@@ -172,7 +172,12 @@ function createClient(run: Runner, slow: Runner) {
       send<SourceSchedule>("POST", `/sources/${enc(source)}/schedule/start`),
     updatePush: (body: { enabled?: boolean; callbackUrl?: string | null }) =>
       send<Sources["youtube"]["push"]>("PUT", "/sources/youtube/push", body),
-    updateLiveProbe: (body: { enabled?: boolean; intervalMinutes?: number }) =>
+    updateLiveProbe: (body: {
+      enabled?: boolean
+      intervalMinutes?: number
+      bilibiliEnabled?: boolean
+      bilibiliIntervalMinutes?: number
+    }) =>
       send<Sources["youtube"]["liveProbe"]>(
         "PUT",
         "/sources/youtube/live-probe",
@@ -307,17 +312,28 @@ function createClient(run: Runner, slow: Runner) {
       get<VideoHistory>(`/videos/${enc(id)}/history`),
     correctVideo: (id: string, correction: VideoCorrection) =>
       send<{ video: AdminVideo }>("PUT", `/videos/${enc(id)}`, correction),
-    refreshVideo: (id: string) =>
+    /**
+     * `force` sends a Bilibili upload's read once past the captcha backoff,
+     * after the server offered it (`bilibili_blocked` with `force`).
+     */
+    refreshVideo: (id: string, force = false) =>
       send<{ video: AdminVideo; started: boolean; run: Run | null }>(
         "POST",
         `/videos/${enc(id)}/refresh`,
-        {},
+        force ? { force: true } : {},
       ),
-    addBilibiliVideo: (input: string) =>
+    addBilibiliVideo: (input: string, force = false) =>
       send<{ video: AdminVideo; started: boolean; run: Run | null }>(
         "POST",
         "/videos/bilibili",
-        { input },
+        force ? { input, force: true } : { input },
+      ),
+    /** `input` is a bilibili.com/opus or t.bilibili.com dynamic link. */
+    addBilibiliPost: (input: string, force = false) =>
+      send<{ post: AdminPost; started: boolean; run: Run | null }>(
+        "POST",
+        "/posts/bilibili",
+        force ? { input, force: true } : { input },
       ),
     /** Uploads the merge rule would attach, or leaves to the operator. */
     videoMerges: () => get<{ items: VideoMergeSuggestion[] }>("/videos/merges"),

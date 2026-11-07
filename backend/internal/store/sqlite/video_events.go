@@ -145,8 +145,8 @@ func createBroadcastEvents(ctx context.Context, tx *sql.Tx, start, end, now stri
 		typeName, detail, status := youtubeEventFields(v)
 		eventID := "youtube-" + v.ID
 		// An event that automatic re-extraction retired is restored in place.
-		if _, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,timezone,time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,created_at,updated_at,raw_json)
-			VALUES(?,'youtube',?,'reservation',?,?,?,?,'Asia/Tokyo','exact',?,?,?,0,'automatic',0,?,?,'{}')
+		if _, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,timezone,time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,created_at,updated_at,raw_json,platform)
+			VALUES(?,'youtube',?,'reservation',?,?,?,?,'Asia/Tokyo','exact',?,?,?,0,'automatic',0,?,?,'{}','youtube')
 			ON CONFLICT(id) DO UPDATE SET title=excluded.title,detail=excluded.detail,starts_on=excluded.starts_on,starts_at=excluded.starts_at,
 			  time_precision=excluded.time_precision,status=excluded.status,event_type=excluded.event_type,url=excluded.url,is_upcoming=0,
 			  deleted_at=NULL,updated_at=excluded.updated_at WHERE `+restorableEventSQL("events"),

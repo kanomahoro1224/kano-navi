@@ -14,12 +14,13 @@ import { cleanVideoTitle } from "../format"
  * card's link (see `followCardLink`), because the switch cannot go inside
  * one; with `onOpen` instead of `href`, the title is the button that opens
  * the card's details. `title` is the source title as the card shows it;
- * `translations` are its video's or event's.
+ * `translations` and `sourceLanguage` are its video's or event's.
  */
 export function TranslatedTitle({
   className,
   title,
   translations,
+  sourceLanguage,
   href,
   onOpen,
   t,
@@ -27,12 +28,13 @@ export function TranslatedTitle({
   className: string
   title: string
   translations?: Translations | null
+  sourceLanguage?: string | null
   href?: string | null
   /** Opens the card's details; `href` wins when both are given. */
   onOpen?: () => void
   t: Translator
 }) {
-  const state = useTranslatedText(title, translations, null)
+  const state = useTranslatedText(title, translations, sourceLanguage)
   const text = state.shown ? cleanVideoTitle(state.text) : title
   const wording = href ? (
     <ExternalLink

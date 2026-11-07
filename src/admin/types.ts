@@ -316,6 +316,27 @@ export interface LiveProbeStatus {
   maxVideos: number
   videos: LiveProbeVideo[]
   stopped: LiveProbeStop[]
+  /** The Bilibili live-room check around Bilibili stream events. */
+  bilibili?: BilibiliLiveProbe
+}
+
+export interface BilibiliLiveProbe {
+  enabled: boolean
+  intervalMinutes: number
+  minIntervalMinutes: number
+  maxIntervalMinutes: number
+  /** False when the process has no Bilibili reader. */
+  available: boolean
+  nextCheckAt: string | null
+  targets: BilibiliLiveTarget[]
+}
+
+export interface BilibiliLiveTarget {
+  eventId: string
+  title: string
+  startsAt: string
+  phase: "prestart" | "starting" | "live" | "overdue" | "baseline"
+  dueAt: string
 }
 
 export interface LiveProbeVideo {
@@ -435,13 +456,48 @@ export interface Sources {
     videos?: number
     /** A login cookie (BILIBILI_SESSDATA) is configured; it is never shown. */
     signedIn?: boolean
+    /** The cookie's state at the daily login check. */
+    login?: BilibiliLogin
+    loginCheckedAt?: string | null
     minIntervalMinutes?: number
     lastAttemptAt?: string | null
     lastSuccessAt?: string | null
     /** Reads wait until then after Bilibili asked for a captcha. */
     blockedUntil?: string | null
     lastError?: string | null
+    dynamics?: BilibiliDynamicsStatus
+    live?: BilibiliLiveRoom
   }
+}
+
+export type BilibiliLogin =
+  "signed_in" | "expired" | "unchecked" | "not_configured"
+
+/** The account's dynamics listing, read with the upload list. */
+export interface BilibiliDynamicsStatus {
+  posts: number
+  lastAttemptAt: string | null
+  lastSuccessAt: string | null
+  lastError: string | null
+  /** Why the last read was skipped, or null when it ran. */
+  skipped: "login_required" | "login_expired" | "interval" | "blocked" | null
+}
+
+/**
+ * The account's live room as last checked: 0 off, 1 live, 2 rotation
+ * (replays, not live).
+ */
+export interface BilibiliLiveRoom {
+  /** The room the live check found; null until the first check. */
+  roomId: string | null
+  liveStatus: 0 | 1 | 2 | null
+  title: string | null
+  liveTime: string | null
+  checkedAt: string | null
+  /** The last check that saw the room live: the last broadcast's approximate end. */
+  lastLiveAt: string | null
+  blockedUntil: string | null
+  lastError: string | null
 }
 
 export type Cancellation = "none" | "llm_suspected" | "manual_confirmed"
@@ -564,7 +620,7 @@ export interface AdminPost {
   llmRetryAt: string | null
   /** The automatic scan no longer retries this post's current input. */
   llmRetryStopped: boolean
-  /** Null for posts the translate step does not cover (non-X). */
+  /** Null for posts the translate step does not cover. */
   translation: AdminTranslation | null
   /** The status the post quotes, read-only; null when it quotes none. */
   quote: AdminQuote | null
@@ -606,7 +662,7 @@ export interface AdminQuote {
 }
 
 export type TranslationOwner = "post" | "video"
-export type TranslationLocale = "en" | "zh-CN"
+export type TranslationLocale = "en" | "ja" | "zh-CN"
 
 /** One target locale of a post or video in the console. */
 export interface AdminTranslationLocale {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -36,7 +37,8 @@ type AdminPost struct {
 	// image's status, or "none" for a text-only post.
 	Media       []AdminPostImage `json:"media"`
 	MediaStatus string           `json:"mediaStatus"`
-	// Translation is nil for posts outside the machine scope (non-X).
+	// Translation is nil for posts outside the machine scope
+	// (TranslationPostSources).
 	Translation *AdminTranslation `json:"translation"`
 	// Quote is the quoted status as the board would show it, nil when the
 	// post quotes none. QuoteHiddenAt is when an operator hid it from the
@@ -311,6 +313,8 @@ type AdminRunsPage struct {
 // AdminPostFilter narrows the post list.
 // LLM is a post_llm_states status (including "dismissed") or "never".
 type AdminPostFilter struct {
+	// ID narrows the list to the post with exactly this ID.
+	ID                                     string
 	Page, PageSize                         int
 	Source, Account, From, To, Search, LLM string
 	// Queued is "extraction", "refresh", "translation" or "any" open
@@ -433,10 +437,26 @@ func nullFloat(v sql.NullFloat64) *float64 {
 	return &n
 }
 
+// AdminPostByID is one post as the console lists it.
+func (s *Store) AdminPostByID(ctx context.Context, id string) (AdminPost, error) {
+	page, err := s.ListAdminPosts(ctx, AdminPostFilter{ID: id, Page: 1, PageSize: 1})
+	if err != nil {
+		return AdminPost{}, err
+	}
+	if len(page.Items) != 1 {
+		return AdminPost{}, ErrUnavailable
+	}
+	return page.Items[0], nil
+}
+
 func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPage[AdminPost], error) {
 	page, pageSize := boundPage(f.Page, f.PageSize, 200, 50)
 	clauses := []string{"1=1"}
 	args := []any{}
+	if f.ID != "" {
+		clauses = append(clauses, "p.id = ?")
+		args = append(args, f.ID)
+	}
 	if source := strings.TrimSpace(f.Source); source != "" {
 		clauses = append(clauses, "p.source = ?")
 		args = append(args, source)
@@ -468,13 +488,13 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	}
 	switch f.Translation {
 	case "incomplete":
-		clauses = append(clauses, "p.source = 'x' AND "+TranslationIncompleteSQL(TranslationOwnerPost, "p"))
+		clauses = append(clauses, TranslatedPostSQL("p")+" AND "+TranslationIncompleteSQL(TranslationOwnerPost, "p"))
 	case "complete":
-		clauses = append(clauses, "p.source = 'x' AND NOT "+TranslationIncompleteSQL(TranslationOwnerPost, "p"))
+		clauses = append(clauses, TranslatedPostSQL("p")+" AND NOT "+TranslationIncompleteSQL(TranslationOwnerPost, "p"))
 	case "requested":
 		clauses = append(clauses, TranslationRequestedSQL(TranslationOwnerPost, "p"))
 	case "failed":
-		clauses = append(clauses, "p.source = 'x' AND "+TranslationFailedSQL(TranslationOwnerPost, "p"))
+		clauses = append(clauses, TranslatedPostSQL("p")+" AND "+TranslationFailedSQL(TranslationOwnerPost, "p"))
 	}
 	where := strings.Join(clauses, " AND ")
 	var total int
@@ -542,7 +562,7 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	}
 	ids := []string{}
 	for _, item := range items {
-		if item.Source == "x" {
+		if slices.Contains(TranslationPostSources, item.Source) {
 			ids = append(ids, item.ID)
 		}
 	}
@@ -1007,9 +1027,9 @@ func (s *Store) AdminCounts(ctx context.Context, today string) (AdminCounts, err
 	     WHERE a.kind='schedule' AND TRIM(a.url)<>'' AND COALESCE(r.manual_status,'unreviewed')='unreviewed'
 	       AND COALESCE(r.llm_status,'pending') IN ('pending','uncertain','failed')),
 	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND cancellation_status='llm_suspected'),
-	  (SELECT COUNT(*) FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE s.status='failed' OR (p.source='x' AND `+failedTranslation+`)),
+	  (SELECT COUNT(*) FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE s.status='failed' OR (`+TranslatedPostSQL("p")+` AND `+failedTranslation+`)),
 	  (SELECT COUNT(*) FROM post_llm_states WHERE status='failed'),
-	  (SELECT COUNT(*) FROM posts p WHERE p.source='x' AND `+failedTranslation+`)`, today).Scan(
+	  (SELECT COUNT(*) FROM posts p WHERE `+TranslatedPostSQL("p")+` AND `+failedTranslation+`)`, today).Scan(
 		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.FailedPosts, &c.FailedExtractions, &c.FailedTranslations)
 	if err != nil {
 		return AdminCounts{}, fmt.Errorf("%w: admin counts unavailable", ErrUnavailable)

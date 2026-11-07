@@ -70,8 +70,8 @@ func TestPlatformTranslationsRankAndMoveTheRevision(t *testing.T) {
 	if err = store.UpsertPlatformTranslation(ctx, TranslationWrite{OwnerType: TranslationOwnerVideo, OwnerID: "v1", Field: "text", Locale: "zh-CN", Platform: "youtube", Text: "x"}); !errors.Is(err, ErrTranslationInvalid) {
 		t.Fatalf("a post field on a video must be rejected: %v", err)
 	}
-	if err = store.UpsertPlatformTranslation(ctx, TranslationWrite{OwnerType: TranslationOwnerVideo, OwnerID: "v1", Field: "title", Locale: "ja", Platform: "youtube", Text: "x"}); !errors.Is(err, ErrTranslationInvalid) {
-		t.Fatalf("a Japanese target must be rejected: %v", err)
+	if err = store.UpsertPlatformTranslation(ctx, TranslationWrite{OwnerType: TranslationOwnerVideo, OwnerID: "v1", Field: "title", Locale: "ko", Platform: "youtube", Text: "x"}); !errors.Is(err, ErrTranslationInvalid) {
+		t.Fatalf("a locale outside the targets must be rejected: %v", err)
 	}
 }
 
@@ -99,8 +99,8 @@ func TestMachineTranslationForChangedWordingIsDropped(t *testing.T) {
 	if saved, err = store.SaveMachineTranslation(ctx, result, time.Now()); err != nil || !saved {
 		t.Fatalf("saved=%v err=%v", saved, err)
 	}
-	result.Texts["ja"] = "こんばんは"
+	result.Texts["ko"] = "안녕하세요"
 	if _, err = store.SaveMachineTranslation(ctx, result, time.Now()); !errors.Is(err, ErrTranslationInvalid) {
-		t.Fatalf("a Japanese machine row must be rejected: %v", err)
+		t.Fatalf("a machine row outside the targets must be rejected: %v", err)
 	}
 }

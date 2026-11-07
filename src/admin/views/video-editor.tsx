@@ -25,6 +25,7 @@ import type {
 } from "@/admin/types"
 import { Badge, Button, Facts, Loading, Modal } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
+import { useForcedRead } from "@/admin/views/bilibili-parts"
 import { MergeSection } from "@/admin/views/merge-parts"
 import type { VideoAvailability } from "@/types"
 
@@ -226,20 +227,23 @@ export function VideoEditor({
   // A YouTube video waits for the next YouTube step; a Bilibili upload is
   // read at once, so its history may already have changed.
   const bilibili = data?.video.source === "bilibili"
+  // A Bilibili read the captcha backoff refused can be sent once anyway.
+  const forced = useForcedRead()
   const refresh = async () => {
     setBusy("refresh")
-    const result = await act(
-      () => api.refreshVideo(videoId),
+    await forced.read(
+      (force) => api.refreshVideo(videoId, force),
       bilibili ? "admin.notice.bilibiliRead" : "admin.notice.videoRefresh",
+      (result) => {
+        setRefreshed(result.video)
+        if (bilibili) void history.reload()
+        else
+          history.setData(
+            (current) => current && { ...current, video: result.video },
+          )
+      },
     )
     setBusy("")
-    if (!result) return
-    setRefreshed(result.video)
-    if (bilibili) void history.reload()
-    else
-      history.setData(
-        (current) => current && { ...current, video: result.video },
-      )
   }
 
   const video = data?.video
@@ -296,6 +300,7 @@ export function VideoEditor({
                   : t("admin.videos.refresh")}
               </Button>
             ) : null}
+            {bilibili ? forced.offer : null}
             <a
               className="adm-link"
               href={video.url}

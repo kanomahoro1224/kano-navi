@@ -32,7 +32,10 @@ type Dashboard struct {
 	Assets         []Asset
 	ScheduleImages []Asset
 	ProfileMedia   ProfileMediaSlots
-	Meta           DashboardMeta
+	// LiveNow is the account's Bilibili broadcast that no entry matched, or
+	// nil.
+	LiveNow *LiveNow
+	Meta    DashboardMeta
 }
 
 type Profile struct {
@@ -137,8 +140,16 @@ type DashboardEvent struct {
 	// UpdatedAt is the stored ISO time of the event's last write, which
 	// feeds use to tell calendar clients that an entry changed.
 	UpdatedAt string
-	// LiveStatus is the linked video's trusted broadcast state, or nil.
+	// Platform is where the entry happens (youtube, bilibili, other or
+	// unknown), or nil for an entry stored before platforms were recorded.
+	Platform *string
+	// LiveStatus is the linked video's trusted broadcast state, or the
+	// Bilibili room's for a Bilibili stream the room's broadcast matched, or
+	// nil.
 	LiveStatus *string
+	// LiveURL is the account's Bilibili live room for a Bilibili stream or
+	// members-only stream, once a live check learned the room; nil otherwise.
+	LiveURL *string
 	// Translations are the linked video's title translations while the
 	// event shows that video's title.
 	Translations TranslationSet
@@ -280,6 +291,9 @@ type DashboardMeta struct {
 	Revision        int64
 	FeaturedVideoID *string
 	XAccounts       []string
+	// BilibiliAccounts are the mids of the stored Bilibili posts, for the
+	// post wall's account filter.
+	BilibiliAccounts []string
 }
 
 type mediaAsset struct {
@@ -421,6 +435,10 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 			events[i].LiveStatus = live[streamIdentity(*events[i].URL)]
 		}
 	}
+	liveNow, err := s.attachBilibiliLive(ctx, events, now)
+	if err != nil {
+		return nil, err
+	}
 
 	sort.SliceStable(events, func(i, j int) bool {
 		return eventSortKey(events[i]) < eventSortKey(events[j]) || (eventSortKey(events[i]) == eventSortKey(events[j]) && events[i].ID < events[j].ID)
@@ -505,6 +523,10 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 	if err != nil {
 		return nil, err
 	}
+	bilibiliAccounts, err := s.getBilibiliAccounts(ctx)
+	if err != nil {
+		return nil, err
+	}
 	xAccounts, err := s.getXAccounts(ctx)
 	if err != nil {
 		return nil, err
@@ -584,8 +606,8 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 	return &Dashboard{
 		Profile: profile,
 		Summary: DashboardSummary{NextEvent: nextEvent, NextStream: nextStream, LatestVideo: latestVideo, LatestPost: latest, Counts: DashboardCounts{Posts: postCount, Events: totalEvents, UpcomingEvents: upcomingEvents, Videos: videoCount, Resources: int64(len(resources))}},
-		Posts:   posts, Events: events, Videos: videos, Focus: focus, Timeline: timeline, Resources: resources, Assets: assets, ScheduleImages: filterReadyAssets(calendarAssets), ProfileMedia: profileMedia,
-		Meta: DashboardMeta{FetchedAt: fetchedAt, SourceFetchedAt: sourceFetchedAt, LastSync: lastSync, PostWindowDays: days, EventWindow: EventWindow{From: from, To: to, Paginated: true}, GeneratedAt: now.UTC().Format("2006-01-02T15:04:05.000Z"), MediaCache: mediaCache, Revision: revision, FeaturedVideoID: featuredID, XAccounts: xAccounts},
+		Posts:   posts, Events: events, Videos: videos, Focus: focus, Timeline: timeline, Resources: resources, Assets: assets, ScheduleImages: filterReadyAssets(calendarAssets), ProfileMedia: profileMedia, LiveNow: liveNow,
+		Meta: DashboardMeta{FetchedAt: fetchedAt, SourceFetchedAt: sourceFetchedAt, LastSync: lastSync, PostWindowDays: days, EventWindow: EventWindow{From: from, To: to, Paginated: true}, GeneratedAt: now.UTC().Format("2006-01-02T15:04:05.000Z"), MediaCache: mediaCache, Revision: revision, FeaturedVideoID: featuredID, XAccounts: xAccounts, BilibiliAccounts: bilibiliAccounts},
 	}, nil
 }
 
@@ -691,6 +713,11 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 		u := "https://x.com/" + *p.AccountHandle
 		p.AccountURL = &u
 	}
+	// A Bilibili dynamic's account is the mid of its space.
+	if p.AccountHandle != nil && r.source == "bilibili" && bilibiliMid.MatchString(*p.AccountHandle) {
+		u := "https://space.bilibili.com/" + *p.AccountHandle
+		p.AccountURL = &u
+	}
 	ref, err := s.resolveMedia(ctx, p.MediaURL)
 	if err != nil {
 		return p, err
@@ -715,6 +742,7 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 }
 
 var (
+	bilibiliMid      = regexp.MustCompile(`^[1-9][0-9]{0,15}$`)
 	quoteIDPattern   = regexp.MustCompile(`^\d{10,22}$`)
 	quotePathPattern = regexp.MustCompile(`^/[A-Za-z0-9_]{1,30}/status/(\d{10,22})$`)
 )
@@ -874,10 +902,13 @@ type scanner interface{ Scan(...any) error }
 
 func scanEvent(row scanner, now time.Time) (DashboardEvent, error) {
 	var e DashboardEvent
-	var detail, sa, ea, eo, status, et, tag, urlv, cs, cr, ce, cat sql.NullString
+	var detail, sa, ea, eo, status, et, tag, urlv, cs, cr, ce, cat, platform sql.NullString
 	var locked int64
-	if err := row.Scan(&e.ID, &e.Source, &e.Title, &detail, &e.StartsOn, &sa, &ea, &eo, &e.Timezone, &e.TimePrecision, &status, &et, &tag, &urlv, &e.Provenance, &locked, &e.CancellationStatus, &cs, &cr, &ce, &cat, &e.UpdatedAt); err != nil {
+	if err := row.Scan(&e.ID, &e.Source, &e.Title, &detail, &e.StartsOn, &sa, &ea, &eo, &e.Timezone, &e.TimePrecision, &status, &et, &tag, &urlv, &e.Provenance, &locked, &e.CancellationStatus, &cs, &cr, &ce, &cat, &e.UpdatedAt, &platform); err != nil {
 		return e, dbErr(err)
+	}
+	if platform.Valid {
+		e.Platform = &platform.String
 	}
 	if detail.Valid {
 		e.Detail = &detail.String
@@ -1404,6 +1435,25 @@ func (s *Store) getMediaCache(ctx context.Context) (map[string]int64, error) {
 	}
 	return out, rows.Err()
 }
+
+// getBilibiliAccounts lists the accounts of the stored, shown Bilibili posts.
+func (s *Store) getBilibiliAccounts(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT account_handle FROM posts WHERE source='bilibili' AND hidden_at IS NULL AND account_handle IS NOT NULL ORDER BY account_handle LIMIT 5`)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var account string
+		if err = rows.Scan(&account); err != nil {
+			return nil, dbErr(err)
+		}
+		out = append(out, account)
+	}
+	return out, dbErr(rows.Err())
+}
+
 func (s *Store) getXAccounts(ctx context.Context) ([]string, error) {
 	var v string
 	err := s.db.QueryRowContext(ctx, `SELECT value FROM app_settings WHERE key='x_accounts'`).Scan(&v)

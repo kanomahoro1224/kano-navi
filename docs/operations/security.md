@@ -2,7 +2,7 @@
 
 ## Trust Boundary
 
-- The browser trusts only the prepared snapshot returned by the local API. X, YouTube, image CDNs, and other public pages are untrusted input.
+- The browser trusts only the prepared snapshot returned by the local API. X, YouTube, Bilibili, image CDNs, and other public pages are untrusted input.
 - SQLite, runtime directories, and environment variables belong to the local maintainer boundary and must not be exposed verbatim through the API.
 - `/mcp` is a separate integration boundary: public tools expose only prepared
   read-only facts, while mutation tools require a dedicated bearer token. The
@@ -25,8 +25,13 @@
 
 ## Admin Authentication
 
-Optional source API credentials (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`)
-exist only in the environment. Official source requests use
+Optional source API credentials (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`,
+`BILIBILI_SESSDATA`) exist only in the environment. The Bilibili cookie goes
+only to `api.bilibili.com`, never to its ticket endpoint; the opus page on
+`www.bilibili.com` and the live host `api.live.bilibili.com` are read without
+it. The `bili_ticket` request goes to the same fixed `api.bilibili.com` host
+with a key Bilibili's public web script carries; the ticket it returns is a
+device cookie kept with the device identity, not a credential. Official source requests use
 Bearer or `X-Goog-Api-Key` headers with redirects blocked. The admin API
 returns availability flags, not credentials; error reports contain controlled
 codes rather than upstream response bodies or request exceptions. Time-window

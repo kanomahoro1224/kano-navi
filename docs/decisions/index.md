@@ -8,5 +8,7 @@ ADRs record durable choices. Current implementation details belong in architectu
 - [ADR-0004: Method fallback chains for timed source reads](ADR-0004-method-fallback-chains.md)
 - [ADR-0005: Video form from platform facts, content from tags](ADR-0005-video-form-and-content-tag.md)
 - [ADR-0006: Sale periods as one entry shown at its ends](ADR-0006-sale-periods.md)
+- [ADR-0007: The Bilibili dynamics listing requires an operator login cookie](ADR-0007-bilibili-dynamics-need-a-login.md)
+- [ADR-0008: Extraction normalizes source time zones in code](ADR-0008-source-time-zones-in-code.md)
 
 [Documentation index](../README.md)

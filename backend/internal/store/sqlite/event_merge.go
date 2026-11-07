@@ -31,6 +31,7 @@ const (
 	mergeReasonOnly     = "rule_a:only_stream"
 	mergeReasonYoutube  = "rule_b:youtube_start"
 	mergeReasonSale     = "rule_c:sale_period"
+	mergeReasonBilibili = "rule_d:bilibili_start"
 	mergeWindowPastDays = 30
 	mergeWindowNextDays = 60
 	mergeStartTolerance = 30 * time.Minute
@@ -61,12 +62,15 @@ type MergeCounts struct {
 	// Tagged counts the surviving events whose label changed to the label of
 	// a notice merged into them (see inheritEventTags).
 	Tagged int `json:"tagged"`
+	// ReleasesPaired counts the Bilibili releases whose link moved to the
+	// upload they announced (see pairBilibiliReleases).
+	ReleasesPaired int `json:"releasesPaired"`
 }
 
 // Changed reports whether the run wrote any merge decision, derived event or
 // inherited label.
 func (c MergeCounts) Changed() bool {
-	return c.Merged+c.Retargeted+c.Released+c.EventsTimed+c.EventsCreated+c.Tagged > 0
+	return c.Merged+c.Retargeted+c.Released+c.EventsTimed+c.EventsCreated+c.Tagged+c.ReleasesPaired > 0
 }
 
 type mergeEvent struct {
@@ -83,7 +87,9 @@ type mergeEvent struct {
 	endsOn                    string
 	startTimeSet, endsTimeSet bool
 	url                       string
-	locked                    bool
+	// platform is where the entry happens, "" when unknown.
+	platform string
+	locked   bool
 	// held events hold a merge another owner made, such as an operator's;
 	// merging them away would chain that merge behind a hidden event.
 	held bool
@@ -200,7 +206,8 @@ func (e mergeEvent) timed() bool { return e.hasStart }
 // stream, a release, or an entry of unnamed type whose exact time is all
 // it says, such as 「このあと20時からはじまります！」.
 func (e mergeEvent) notice() bool {
-	return e.source == "x" && e.timed() &&
+	// A Bilibili dynamic's entry of a YouTube stream is a notice as well.
+	return (e.source == "x" && e.platform != "bilibili" || e.source == "bilibili" && e.platform == "youtube") && e.timed() &&
 		(e.stream() || e.eventType == "release" || e.eventType == "event" && e.precision == "exact")
 }
 
@@ -268,6 +275,9 @@ func (s *Store) ReconcileEventMerges(ctx context.Context, now time.Time) (MergeC
 	}
 	timestamp := workflowTime(now)
 	if counts.EventsTimed, counts.EventsCreated, err = settleVideoEvents(ctx, tx, counts.From, counts.To, timestamp); err != nil {
+		return MergeCounts{}, ErrSourceWrite
+	}
+	if counts.ReleasesPaired, err = pairBilibiliReleases(ctx, tx, counts.From, counts.To, timestamp); err != nil {
 		return MergeCounts{}, ErrSourceWrite
 	}
 	events, err := loadMergeEvents(ctx, tx, counts.From, counts.To)
@@ -404,7 +414,7 @@ func loadMergeEvents(ctx context.Context, tx *sql.Tx, from, to string) ([]mergeE
 	// period that opened before the window still meets its reminders.
 	rows, err := tx.QueryContext(ctx, `SELECT id,source,title,starts_on,COALESCE(starts_at,''),time_precision,COALESCE(event_type,'event'),COALESCE(tag,''),COALESCE(tag_source,''),provenance,manual_locked,COALESCE(cancellation_status,'none'),COALESCE(merged_into,''),COALESCE(merge_source,''),
 		EXISTS(SELECT 1 FROM events m WHERE m.merged_into=events.id AND m.deleted_at IS NULL AND COALESCE(m.merge_source,'')<>?),
-		COALESCE(ends_on,''),ends_at IS NOT NULL,COALESCE(url,'')
+		COALESCE(ends_on,''),ends_at IS NOT NULL,COALESCE(url,''),COALESCE(platform,'')
 		FROM events WHERE deleted_at IS NULL AND (starts_on BETWEEN ? AND ? OR (event_type='sale' AND ends_on BETWEEN ? AND ?)) ORDER BY starts_on,id`, MergeSourceRule, from, to, from, to)
 	if err != nil {
 		return nil, err
@@ -415,7 +425,7 @@ func loadMergeEvents(ctx context.Context, tx *sql.Tx, from, to string) ([]mergeE
 		var e mergeEvent
 		var startsAt, precision string
 		var locked, held, endsTime int
-		if err = rows.Scan(&e.id, &e.source, &e.title, &e.startsOn, &startsAt, &precision, &e.eventType, &e.tag, &e.tagSource, &e.provenance, &locked, &e.cancellation, &e.mergedInto, &e.mergeSource, &held, &e.endsOn, &endsTime, &e.url); err != nil {
+		if err = rows.Scan(&e.id, &e.source, &e.title, &e.startsOn, &startsAt, &precision, &e.eventType, &e.tag, &e.tagSource, &e.provenance, &locked, &e.cancellation, &e.mergedInto, &e.mergeSource, &held, &e.endsOn, &endsTime, &e.url, &e.platform); err != nil {
 			return nil, err
 		}
 		e.locked, e.held, e.precision = locked != 0, held != 0, precision
@@ -480,6 +490,30 @@ func planMerges(events []mergeEvent) (map[string]string, map[string]string, int)
 				ambiguous++
 			}
 		}
+		// Rule D: a timed X notice of a Bilibili stream or release and the
+		// Bilibili dynamic's entry of it, the platform's first-party post.
+		for _, s := range list {
+			if s.source != "x" || s.platform != "bilibili" || !s.timed() || !movable(s) || desired[s.id] != "" ||
+				!(s.stream() || s.eventType == "release") {
+				continue
+			}
+			matches := []string{}
+			for _, t := range list {
+				if t.id == s.id || t.source != "bilibili" || !receivable(t) || !t.timed() || !compatible(s, t) {
+					continue
+				}
+				if gap := s.start.Sub(t.start); gap <= mergeStartTolerance && gap >= -mergeStartTolerance {
+					matches = append(matches, t.id)
+				}
+			}
+			switch len(matches) {
+			case 0:
+			case 1:
+				desired[s.id], reasons[s.id] = matches[0], mergeReasonBilibili
+			default:
+				ambiguous++
+			}
+		}
 		// Rule A: a date-only stream entry, usually from a weekly schedule image.
 		dateOnly, timed := []mergeEvent{}, []mergeEvent{}
 		for _, e := range list {
@@ -493,8 +527,11 @@ func planMerges(events []mergeEvent) (map[string]string, map[string]string, int)
 		}
 		for _, s := range dateOnly {
 			// A YouTube event outranks every X entry, so it only merges into
-			// another YouTube event.
-			targets := slices.DeleteFunc(slices.Clone(timed), func(t mergeEvent) bool { return s.source == "youtube" && t.source != "youtube" })
+			// another YouTube event, and a Bilibili dynamic's entry never
+			// merges into an X entry.
+			targets := slices.DeleteFunc(slices.Clone(timed), func(t mergeEvent) bool {
+				return s.source == "youtube" && t.source != "youtube" || s.source == "bilibili" && t.source == "x"
+			})
 			if len(targets) == 0 {
 				continue
 			}
@@ -509,7 +546,10 @@ func planMerges(events []mergeEvent) (map[string]string, map[string]string, int)
 				desired[s.id], reasons[s.id] = matches[0], mergeReasonTitle
 			case len(matches) > 1:
 				ambiguous++
-			case len(dateOnly) == 1 && len(timed) == 1 && len(targets) == 1 && compatible(s, timed[0]):
+			// Without a title the only timed stream is the target, unless it
+			// is a Bilibili stream and the date-only entry is not.
+			case len(dateOnly) == 1 && len(timed) == 1 && len(targets) == 1 && compatible(s, timed[0]) &&
+				(timed[0].platform != "bilibili" || s.platform == "bilibili"):
 				desired[s.id], reasons[s.id] = timed[0].id, mergeReasonOnly
 			default:
 				ambiguous++
@@ -517,6 +557,16 @@ func planMerges(events []mergeEvent) (map[string]string, map[string]string, int)
 		}
 	}
 	ambiguous += planSaleMerges(events, desired, reasons)
+	sources := make(map[string]string, len(events))
+	for _, e := range events {
+		sources[e.id] = e.source
+	}
+	for id, target := range desired {
+		if sources[id] == "bilibili" && sources[target] == "x" {
+			delete(desired, id)
+			delete(reasons, id)
+		}
+	}
 	return desired, reasons, ambiguous
 }
 

@@ -186,7 +186,7 @@ func TestRunNowSubmitsTheSourceChainOnce(t *testing.T) {
 		t.Fatalf("bilibili=%d %v", code, payload)
 	}
 	bilibili := c.waitForRun(t, runID(t, payload), "completed")
-	if bilibili["sourceSchedule"] != "bilibili" || fmt.Sprint(bilibili["steps"]) != "[bilibili media translate reconcile]" || bilibili["fetchWindows"] != nil {
+	if bilibili["sourceSchedule"] != "bilibili" || fmt.Sprint(bilibili["steps"]) != "[bilibili media schedule translate reconcile]" || bilibili["fetchWindows"] != nil {
 		t.Fatalf("bilibili run=%v", bilibili)
 	}
 	// SKIP_* refuses Run now for that source.

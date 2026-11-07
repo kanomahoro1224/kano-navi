@@ -291,6 +291,13 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 	if err := backfillVideoForms(ctx, tx); err != nil {
 		return err
 	}
+	// The platform of the YouTube writers' events is known; every other
+	// stored event keeps an unknown platform.
+	if added["events.platform"] {
+		if err := exec(`UPDATE events SET platform='youtube' WHERE source='youtube'`); err != nil {
+			return err
+		}
+	}
 	if added["assets.period_start"] {
 		if err := exec(`UPDATE assets SET period_start=week_start,period_end=date(week_start,'+6 days') WHERE kind='schedule'`); err != nil {
 			return err

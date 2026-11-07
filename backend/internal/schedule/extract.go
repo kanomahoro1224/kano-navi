@@ -405,7 +405,7 @@ func (e *Extractor) extractPost(ctx context.Context, item post, detectionType st
 	// target produced it, so a queue change sends no post again. A newer
 	// failed attempt, a changed input or an operator request does.
 	if !force {
-		latest, err := latestExtraction(ctx, e.db, item.id, fingerprint, extractorVersionPrefix(detectionType, inputMode))
+		latest, err := latestExtraction(ctx, e.db, item.extractionSource(), item.id, fingerprint, extractorVersionPrefix(detectionType, inputMode))
 		if err != nil {
 			return postResult{}, err
 		}
@@ -484,7 +484,7 @@ func (e *Extractor) extractWithProvider(ctx context.Context, item post, images [
 	}); err != nil {
 		return "", err
 	}
-	running, err := e.upsertExtraction(ctx, item.id, fingerprint, version, target.model, "running", nil, "")
+	running, err := e.upsertExtraction(ctx, item.extractionSource(), item.id, fingerprint, version, target.model, "running", nil, "")
 	if err != nil {
 		return "", err
 	}
@@ -493,7 +493,7 @@ func (e *Extractor) extractWithProvider(ctx context.Context, item post, images [
 	abandon := func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
-		_, _ = e.upsertExtraction(cleanup, item.id, fingerprint, version, target.model, "failed", nil, cancelledMessage)
+		_, _ = e.upsertExtraction(cleanup, item.extractionSource(), item.id, fingerprint, version, target.model, "failed", nil, cancelledMessage)
 		_ = e.markPost(cleanup, item.id, stateUpdate{
 			status:           "failed",
 			route:            route,
@@ -522,7 +522,7 @@ func (e *Extractor) extractWithProvider(ctx context.Context, item post, images [
 			}
 		}
 	}
-	if _, err = e.upsertExtraction(ctx, item.id, fingerprint, version, target.model, "failed", nil, message); err != nil {
+	if _, err = e.upsertExtraction(ctx, item.extractionSource(), item.id, fingerprint, version, target.model, "failed", nil, message); err != nil {
 		return "", err
 	}
 	if err = e.updateProviderStatus(ctx, target.id, "failed", message); err != nil {
@@ -542,7 +542,11 @@ func (e *Extractor) extractWithProvider(ctx context.Context, item post, images [
 // timestamp plus its Asia/Tokyo date, weekday and time, so 今日, 明日 and bare
 // weekdays resolve without the model converting from UTC. The extraction
 // identity keeps the stored timestamp alone.
-func publishedAtText(value string) string {
+func publishedAtText(value string) string { return xProfile.publishedAtText(value) }
+
+// publishedAtText gives the publication time in the source's zone: Beijing
+// time for a Bilibili dynamic, so 今天 and 明天 resolve there.
+func (p sourceProfile) publishedAtText(value string) string {
 	if value == "" {
 		return "undefined"
 	}
@@ -550,16 +554,21 @@ func publishedAtText(value string) string {
 	if !ok {
 		return value
 	}
-	return value + " (" + instant.In(jst).Format("2006-01-02 Mon 15:04") + " Asia/Tokyo)"
+	return value + " (" + instant.In(p.zone).Format("2006-01-02 Mon 15:04") + " " + p.zoneName + ")"
 }
 
+// extractionSource is the source recorded with the post's extractions and
+// events.
+func (p post) extractionSource() string { return profileFor(p.source).source }
+
 func (e *Extractor) attemptExtraction(ctx context.Context, item post, images []cachedImage, fingerprint, version string, target provider, inputMode, route string, extractionID int64) (string, error) {
+	profile := profileFor(item.source)
 	call := modelCall{
-		instructions: scheduleInstructions,
+		instructions: profile.instructions,
 		name:         extractionToolName,
-		schema:       scheduleSchema,
+		schema:       profile.schema,
 		maxTokens:    4000,
-		text:         "Source post published at " + publishedAtText(item.publishedAt) + ". Source URL: " + item.url + "\n\n" + item.text,
+		text:         "Source post published at " + profile.publishedAtText(item.publishedAt) + ". Source URL: " + item.url + "\n\n" + item.text,
 		includeText:  inputMode != "image",
 	}
 	if inputMode != "text" {
@@ -570,17 +579,17 @@ func (e *Extractor) attemptExtraction(ctx context.Context, item post, images []c
 		return "", err
 	}
 	published, _ := parseInstant(item.publishedAt)
-	normalized, err := normalizeExtractionResult(result, item.id, item.url, published, e.now())
+	normalized, err := profile.normalizeResult(result, item.id, item.url, item.text, published, e.now())
 	if err != nil {
 		return "", err
 	}
 	status := "success"
 	if normalized.classification == "uncertain" {
 		status = "uncertain"
-	} else if err = e.applyExtraction(ctx, item.id, extractionID, normalized); err != nil {
+	} else if err = e.applyExtraction(ctx, profile.source, item.id, extractionID, normalized); err != nil {
 		return "", err
 	}
-	if _, err = e.upsertExtraction(ctx, item.id, fingerprint, version, target.model, status, result, ""); err != nil {
+	if _, err = e.upsertExtraction(ctx, profile.source, item.id, fingerprint, version, target.model, status, result, ""); err != nil {
 		return "", err
 	}
 	if err = e.updateProviderStatus(ctx, target.id, "success", ""); err != nil {

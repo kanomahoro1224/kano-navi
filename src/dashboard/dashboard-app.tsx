@@ -98,6 +98,7 @@ function archiveCopy(
   view: ArchiveRequest,
   archive: ArchiveSnapshot<unknown> | null,
   accounts: string[],
+  bilibiliAccounts: string[],
   t: Translator,
 ) {
   const total = archive ? archive.total : null
@@ -113,6 +114,13 @@ function archiveCopy(
         <>
           <XLogo className="kicker-icon" aria-hidden="true" />{" "}
           {accounts.map((handle) => `@${handle}`).join(" · ")}
+          {bilibiliAccounts.length ? (
+            <>
+              {" · "}
+              <BilibiliLogo className="kicker-icon" aria-hidden="true" />{" "}
+              bilibili
+            </>
+          ) : null}
         </>
       ),
       title: t("feed.archiveTitle"),
@@ -404,6 +412,7 @@ export function DashboardApp() {
         <NowStage
           profile={profile}
           summary={summary}
+          liveNow={dashboard.liveNow}
           resources={dashboard.resources}
           counts={counts}
           postWindowDays={windowDays}
@@ -445,6 +454,7 @@ export function DashboardApp() {
           posts={dashboard.posts}
           latestPost={summary.latestPost}
           accounts={meta.xAccounts || []}
+          bilibiliAccounts={meta.bilibiliAccounts || []}
           avatarUrl={profile.avatarUrl}
           windowDays={windowDays}
           isLoading={isLoading}
@@ -490,6 +500,7 @@ export function DashboardApp() {
             archiveView,
             archive.archive,
             meta.xAccounts || [],
+            meta.bilibiliAccounts || [],
             t,
           )}
           monthStart={
@@ -541,6 +552,7 @@ export function DashboardApp() {
               <div className="archive-tools">
                 <PostArchiveFilter
                   accounts={meta.xAccounts || []}
+                  bilibiliAccounts={meta.bilibiliAccounts || []}
                   account={archiveView.account || null}
                   setAccount={setArchiveAccount}
                   counts={archive.archive?.accountCounts}

@@ -46,7 +46,7 @@ import {
   Switch,
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
-import { PostActions, PostStatus } from "@/admin/views/review"
+import { PostAccount, PostActions, PostStatus } from "@/admin/views/review"
 import {
   TranslationBacklog,
   TranslationCell,
@@ -60,13 +60,6 @@ function localUrl(value: string | null | undefined) {
 /** The message key for an image that has no cached file to show yet. */
 function missingKey(status: string) {
   return `admin.review.media.${["pending", "failed"].includes(status) ? status : "missing"}`
-}
-
-function PostAccount({ post }: { post: AdminPost }) {
-  const { t } = useAppSettings()
-  return post.accountHandle
-    ? `@${post.accountHandle.replace(/^@/, "")}`
-    : t(`admin.step.${post.source}`)
 }
 
 /**
@@ -218,7 +211,7 @@ function PostImages({
  * (hide from the public pages or show again, queue a refresh from the source
  * for the next X synchronization, open it), then its wording and its cached
  * thumbnails. Wording past three lines folds behind a toggle; `full` shows it
- * all.
+ * all. Quotes and refreshes are X's; another source's post shows none.
  */
 function PostQuote({
   post,
@@ -249,7 +242,7 @@ function PostQuote({
     return () => observer.disconnect()
   }, [expanded, quote?.text])
   const queued = post.refreshRequestedAt
-  if (!quote && !queued) return null
+  if (post.source !== "x" || (!quote && !queued)) return null
   const hidden = Boolean(post.quoteHiddenAt)
   const images = (quote?.media || []).filter((image) => localUrl(image.url))
   const run = async (

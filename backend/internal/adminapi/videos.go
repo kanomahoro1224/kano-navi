@@ -106,7 +106,17 @@ func (a *api) refreshVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if current.Source == "bilibili" {
-		a.readBilibili(w, r, current.ID)
+		body, bodyErr := httpx.Body(w, r)
+		if bodyErr != nil {
+			httpx.WriteError(w, bodyErr)
+			return
+		}
+		force, forceErr := forceFlag(body)
+		if forceErr != nil {
+			httpx.WriteError(w, forceErr)
+			return
+		}
+		a.readBilibili(w, r, current.ID, force)
 		return
 	}
 	if a.skipped("youtube") {
@@ -209,13 +219,32 @@ func (a *api) addBilibiliVideo(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.Invalid("enter a BV ID or a bilibili.com video link"))
 		return
 	}
-	a.readBilibili(w, r, bvid)
+	force, err := forceFlag(body)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	a.readBilibili(w, r, bvid, force)
 }
 
-// readBilibili reads one upload now, which costs one or two Bilibili
+// forceFlag reads an operator's optional { force: true }, which sends one
+// single-item read during a captcha backoff.
+func forceFlag(body map[string]json.RawMessage) (bool, error) {
+	raw, ok := body["force"]
+	if !ok {
+		return false, nil
+	}
+	var force bool
+	if json.Unmarshal(raw, &force) != nil {
+		return false, httpx.Invalid("force must be a boolean")
+	}
+	return force, nil
+}
+
+// readBilibili reads one upload now, which costs one to three Bilibili
 // requests, stores it and starts the media step for its cover. A captcha
-// block is respected rather than retried.
-func (a *api) readBilibili(w http.ResponseWriter, r *http.Request, bvid string) {
+// block is respected unless the operator forces this one read.
+func (a *api) readBilibili(w http.ResponseWriter, r *http.Request, bvid string, force bool) {
 	if a.Bilibili == nil || a.skipped("bilibili") {
 		httpx.WriteError(w, httpx.Invalid("the Bilibili source is disabled for this process"))
 		return
@@ -227,7 +256,7 @@ func (a *api) readBilibili(w http.ResponseWriter, r *http.Request, bvid string) 
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
 		return
 	}
-	upload, next, err := a.Bilibili.FetchVideo(ctx, state, bvid)
+	upload, next, err := a.Bilibili.FetchVideo(ctx, state, bvid, force)
 	if err != nil {
 		_ = a.Store.SaveBilibiliState(ctx, account, next)
 		writeBilibiliError(w, err, next)
@@ -252,16 +281,17 @@ func (a *api) readBilibili(w http.ResponseWriter, r *http.Request, bvid string) 
 }
 
 func writeBilibiliError(w http.ResponseWriter, err error, state bilisource.State) {
-	switch code := bilisource.ErrorCode(err); code {
-	case "bilibili_risk_control", "bilibili_rate_limited":
+	switch code := bilisource.ErrorCode(err); {
+	case code == "bilibili_blocked" || bilisource.IsRiskControl(code):
 		until := state.BlockedUntil.UTC().Format(time.RFC3339)
+		// force tells the console it may send this one read anyway.
 		httpx.WriteJSON(w, http.StatusServiceUnavailable, map[string]any{
-			"error": "bilibili_blocked", "blockedUntil": until,
-			"message": "Bilibili is asking this server for a captcha; requests resume after " + until,
+			"error": "bilibili_blocked", "code": code, "blockedUntil": until, "force": true,
+			"message": "Bilibili is asking this server for a captcha (" + code + "); requests resume after " + until,
 		})
-	case "bilibili_not_found":
+	case code == "bilibili_not_found":
 		httpx.WriteJSON(w, http.StatusNotFound, map[string]any{"error": "video_not_found", "message": "Bilibili does not list this video"})
-	case "bilibili_other_account":
+	case code == "bilibili_other_account":
 		httpx.WriteError(w, httpx.Invalid("this video was not uploaded by the configured Bilibili account"))
 	default:
 		httpx.WriteJSON(w, http.StatusBadGateway, map[string]any{"error": code, "message": "Bilibili did not answer (" + code + ")"})
@@ -277,13 +307,36 @@ func (a *api) bilibiliStatus(ctx context.Context) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	state, err := a.Store.BilibiliState(ctx, a.Bilibili.Options.Account)
+	if err != nil {
+		return nil, err
+	}
 	return map[string]any{
 		"available": true, "skipped": a.skipped("bilibili"), "account": status.Account, "videos": status.Videos,
-		"signedIn":           a.Bilibili.Options.SignedIn(),
+		"signedIn": a.Bilibili.Options.SignedIn(),
+		"login":    a.Bilibili.LoginStatus(state), "loginCheckedAt": status.LoginCheckedAt,
 		"minIntervalMinutes": int(a.Bilibili.Options.MinInterval / time.Minute),
 		"lastAttemptAt":      status.LastAttemptAt, "lastSuccessAt": status.LastSuccessAt,
 		"blockedUntil": status.BlockedUntil, "lastError": status.LastError,
+		"dynamics": map[string]any{
+			"posts": status.Dynamics.Posts, "lastAttemptAt": status.Dynamics.LastAttemptAt, "lastSuccessAt": status.Dynamics.LastSuccessAt,
+			"lastError": status.Dynamics.LastError, "skipped": dynamicsSkipped(a.Bilibili.LoginStatus(state), status),
+		},
+		"live": status.Live,
 	}, nil
+}
+
+// dynamicsSkipped is why the dynamics listing makes no request now, or nil.
+func dynamicsSkipped(login string, status sqlite.BilibiliStatus) any {
+	switch {
+	case login == "not_configured":
+		return "login_required"
+	case login == "expired":
+		return "login_expired"
+	case status.BlockedUntil != nil && *status.BlockedUntil > sqlite.ISOTime(time.Now()):
+		return "blocked"
+	}
+	return nil
 }
 
 func writeVideoError(w http.ResponseWriter, err error) {

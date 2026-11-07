@@ -4,10 +4,11 @@ import {
   confirmedLiveStatus,
   eventIsLive,
   eventIsUpcoming,
+  eventLink,
   scheduleSortTime,
 } from "./format.ts"
 import { leadingCandidate, videoIsInFocus } from "./derive-dashboard.ts"
-import type { Dashboard, ScheduleEvent, Video } from "../types.ts"
+import type { Dashboard, LiveNow, ScheduleEvent, Video } from "../types.ts"
 
 type SpotlightSummary = Pick<
   Dashboard["summary"],
@@ -27,13 +28,15 @@ interface SpotlightCandidate {
   thumbnailUrl?: string | null
   video?: Video
   event?: ScheduleEvent
+  /** An unannounced broadcast the platform reports live now. */
+  liveNow?: LiveNow
 }
 
 export interface SpotlightItem extends SpotlightCandidate {
   layout: "full" | "compact"
 }
 
-const watchHosts = ["youtube.com", "youtu.be", "twitch.tv"]
+const watchHosts = ["youtube.com", "youtu.be", "twitch.tv", "live.bilibili.com"]
 const announcementHosts = ["x.com", "twitter.com"]
 
 function hostMatches(host: string, domains: string[]) {
@@ -64,11 +67,27 @@ function withLayout(item: SpotlightCandidate): SpotlightItem {
   return { ...item, layout: item.thumbnailUrl ? "full" : "compact" }
 }
 
+/**
+ * What the stage shows: the next or live stream or entry, an unannounced
+ * live broadcast (`liveNow`, already checked against the entries), or else
+ * the latest video.
+ */
 export function pickSpotlight(
   summary: SpotlightSummary | null | undefined,
   now: number,
+  liveNow?: LiveNow | null,
 ): SpotlightItem | null {
   const candidates: SpotlightCandidate[] = []
+  if (liveNow) {
+    candidates.push({
+      mode: "next",
+      time: liveNow.startedAt,
+      title: cleanVideoTitle(liveNow.title),
+      url: liveNow.url,
+      link: "watch",
+      liveNow,
+    })
+  }
   if (summary?.nextStream?.scheduledAt) {
     const video = summary.nextStream
     candidates.push({
@@ -90,20 +109,23 @@ export function pickSpotlight(
         streamIdentity(candidate.url) === streamIdentity(event.url),
     )
     if (!duplicate) {
+      // A Bilibili stream's ticket opens its live room once known.
+      const url = eventLink(event)
       candidates.push({
         mode: "next",
         time: event.startsAt || null,
         dateOnly: event.startsAt ? null : event.startsOn,
         title: cleanVideoTitle(event.title),
         detail: event.detail,
-        url: event.url,
-        link: spotlightLink(event.url),
+        url,
+        link: spotlightLink(url),
         event,
       })
     }
   }
   const upcoming = candidates
     .filter((candidate) => {
+      if (candidate.liveNow) return true
       if (candidate.event)
         return (
           eventIsUpcoming(candidate.event, now) ||
@@ -123,6 +145,7 @@ export function pickSpotlight(
     (candidate) =>
       Date.parse((candidate.event || candidate.video)?.endsAt || ""),
     (candidate) =>
+      Boolean(candidate.liveNow) ||
       confirmedLiveStatus(candidate.event || candidate.video) === "live",
   )
   if (lead) return withLayout(lead)
@@ -152,6 +175,7 @@ export function spotlightIsLive(
   now: number,
 ) {
   if (item?.mode !== "next" || !item.time) return false
+  if (item.liveNow) return true
   const confirmed = confirmedLiveStatus(item.event || item.video)
   if (confirmed) return confirmed === "live"
   return Date.parse(item.time) <= now

@@ -9,6 +9,8 @@ export class ApiError extends Error {
   code: string
   /** When a Bilibili captcha backoff ends (bilibili_blocked). */
   blockedUntil?: string
+  /** The refused single-item read may be sent once with `force: true`. */
+  force?: boolean
   constructor(status: number, code: string, message: string) {
     super(message)
     this.name = "ApiError"
@@ -59,6 +61,7 @@ export async function request<T = any>(
     Object.assign(error, {
       run: payload.run,
       blockedUntil: payload.blockedUntil,
+      force: payload.force === true,
     })
     throw error
   }
@@ -90,6 +93,8 @@ const errorKeys: Record<string, string> = {
   proxy_settings_unavailable: "admin.error.proxySettingsUnavailable",
   proxy_test_timeout: "admin.error.proxyTestTimeout",
   proxy_test_failed: "admin.error.proxyTestFailed",
+  bilibili_login_expired: "admin.error.bilibiliLoginExpired",
+  post_not_found: "admin.error.postNotFound",
 }
 
 /** Operator-facing text for a failed request. Validation messages from the
@@ -103,6 +108,12 @@ export function errorMessage(error: any): Message {
     return message("admin.error.bilibiliBlocked", {
       time: japanStamp(error.blockedUntil),
     })
+  // Each captcha answer names how Bilibili asked; see admin.code.*.
+  if (
+    error.code.startsWith("bilibili_risk_control") ||
+    error.code === "bilibili_unsupported_dynamic"
+  )
+    return message(`admin.code.${error.code}`)
   if (error.code.startsWith("bilibili_"))
     return message("admin.error.bilibiliUnavailable", { code: error.code })
   if (error.status === 404) return message("admin.error.notFound")

@@ -104,6 +104,8 @@ function Countdown({
 }
 
 type SpotlightItem = NonNullable<ReturnType<typeof pickSpotlight>>
+
+const platformNames: Record<string, string> = { bilibili: "bilibili" }
 type Companion = NonNullable<ReturnType<typeof pickCompanion>>
 
 function TicketHead({
@@ -127,8 +129,9 @@ function TicketHead({
   const activity: VideoTag | null =
     videoActivity ??
     (label === "game" || label === "talk" || label === "song" ? label : null)
-  const tag =
-    item.video && videoActivity
+  const tag = item.liveNow
+    ? t("spotlight.liveNow", { platform: platformNames[item.liveNow.platform] })
+    : item.video && videoActivity
       ? videoTagLabel(item.video, t)
       : activity
         ? t(eventTagKey(activity, entryWork))
@@ -158,6 +161,7 @@ function TicketHead({
         </span>
       )}
       <span className="tag tone-berry">
+        {item.liveNow ? <BilibiliLogo aria-hidden="true" /> : null}
         {activity ? (
           <EventTagIcon
             tag={activity}
@@ -303,6 +307,7 @@ function FullTicket({
               className="ticket-title"
               title={item.title}
               translations={(item.video || item.event)?.translations}
+              sourceLanguage={(item.video || item.event)?.sourceLanguage}
               href={url}
               t={t}
             />
@@ -325,7 +330,9 @@ function FullTicket({
         {item.mode === "next" && item.time && !isLive ? (
           <Countdown time={item.time} now={now} t={t} />
         ) : null}
-        {isLive && !confirmedLiveStatus(item.event || item.video) ? (
+        {isLive &&
+        !item.liveNow &&
+        !confirmedLiveStatus(item.event || item.video) ? (
           <span className="ticket-note">{t("spotlight.started")}</span>
         ) : null}
         {url ? (
@@ -368,6 +375,7 @@ function CompactTicket({
             className="ticket-title"
             title={item.title}
             translations={(item.video || item.event)?.translations}
+            sourceLanguage={(item.video || item.event)?.sourceLanguage}
             href={item.url}
             t={t}
           />
@@ -381,7 +389,9 @@ function CompactTicket({
         {item.time && !isLive ? (
           <Countdown time={item.time} now={now} t={t} />
         ) : null}
-        {isLive && !confirmedLiveStatus(item.event || item.video) ? (
+        {isLive &&
+        !item.liveNow &&
+        !confirmedLiveStatus(item.event || item.video) ? (
           <span className="ticket-note">{t("spotlight.started")}</span>
         ) : null}
         {item.url ? (
@@ -449,6 +459,7 @@ function LatestCard({
           className="latest-card-title"
           title={companion.title}
           translations={companion.video.translations}
+          sourceLanguage={companion.video.sourceLanguage}
           href={links[0]?.url}
           t={t}
         />
@@ -472,12 +483,14 @@ function LatestCard({
 /** The single most useful thing to know right now: what airs next. */
 function NextTicket({
   summary,
+  liveNow,
   isLoading,
   locale,
   now,
   t,
 }: {
   summary: Dashboard["summary"]
+  liveNow: Dashboard["liveNow"]
   isLoading: boolean
   locale: Locale
   now: number
@@ -498,7 +511,7 @@ function NextTicket({
       </div>
     )
   }
-  const item = pickSpotlight(summary, now)
+  const item = pickSpotlight(summary, now, liveNow)
   if (!item) {
     return (
       <div className="ticket is-empty">
@@ -705,6 +718,8 @@ function ProfileCard({
 export function NowStage(props: {
   profile: Profile
   summary: Dashboard["summary"]
+  /** An unannounced live broadcast no schedule entry shows. */
+  liveNow?: Dashboard["liveNow"]
   resources: Dashboard["resources"]
   counts: { posts: number; upcomingEvents: number; videos: number }
   postWindowDays: number
@@ -717,11 +732,12 @@ export function NowStage(props: {
   now: number
   t: Translator
 }) {
-  const { summary, isLoading, locale, now, t } = props
+  const { summary, liveNow, isLoading, locale, now, t } = props
   return (
     <section className="stage" id="now" aria-label={t("nav.now")}>
       <NextTicket
         summary={summary}
+        liveNow={liveNow ?? null}
         isLoading={isLoading}
         locale={locale}
         now={now}

@@ -100,7 +100,7 @@ func TestSchedulerRunsOnlySourceSchedulesEarliestFirst(t *testing.T) {
 	// The overdue Bilibili schedule goes before X.
 	first := tick()
 	if first == nil || first.WorkflowID != "@source-bilibili" || first.Status != "succeeded" || first.TriggerSource != "scheduler" ||
-		!slices.Equal(steps(first), []string{"bilibili", "media", "translate", "reconcile"}) || len(first.SourceSync) != 0 {
+		!slices.Equal(steps(first), []string{"bilibili", "media", "schedule", "translate", "reconcile"}) || len(first.SourceSync) != 0 {
 		t.Fatalf("first=%#v", first)
 	}
 	history, err := s.SyncRunForJob(ctx, first.ID)

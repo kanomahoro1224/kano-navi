@@ -341,6 +341,7 @@ function VideoTicket({
             className="video-ticket-title"
             title={title}
             translations={video.translations}
+            sourceLanguage={video.sourceLanguage}
             href={links[0]?.url}
             t={t}
           />
@@ -380,6 +381,7 @@ function VideoCard({
           className="video-card-title"
           title={title}
           translations={video.translations}
+          sourceLanguage={video.sourceLanguage}
           href={links[0]?.url}
           t={t}
         />
@@ -483,6 +485,7 @@ function VideoRow({
             className="video-row-title"
             title={title}
             translations={video.translations}
+            sourceLanguage={video.sourceLanguage}
             href={links[0]?.url}
             t={t}
           />
@@ -848,6 +851,7 @@ const ArchiveCard = memo(function ArchiveCard({
           className="archive-card-title"
           title={title}
           translations={video.translations}
+          sourceLanguage={video.sourceLanguage}
           href={links[0]?.url}
           t={t}
         />

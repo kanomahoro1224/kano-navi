@@ -1660,13 +1660,15 @@
 }
 
 .adm-live-videos-name a,
+.adm-live-videos-name strong,
 .adm-live-videos-name small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.adm-live-videos-name a {
+.adm-live-videos-name a,
+.adm-live-videos-name strong {
   color: inherit;
   font-weight: 650;
 }
@@ -5193,6 +5195,31 @@ blockquote.adm-verdict-reason {
 
 .adm-bilibili-add .adm-field {
   flex: 1 1 260px;
+}
+
+/* The Bilibili panel's dynamics and live room, each under a small heading. */
+.adm-bilibili-part {
+  margin-top: 16px;
+}
+
+.adm-bilibili-part h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.adm-bilibili-part h3 > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--adm-muted);
+}
+
+.adm-bilibili-part .adm-note {
+  margin-top: 8px;
 }
 
 /* The pinned video above the list, or the automatic choice when none is. */

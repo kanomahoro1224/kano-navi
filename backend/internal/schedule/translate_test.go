@@ -33,8 +33,14 @@ func (f *fixture) queueTranslation(providerIDs ...string) {
 	f.queueOn(routeTranslate, providerIDs...)
 }
 
+// translationReply answers with a Japanese field derived from the others,
+// filled only when Japanese is not the source language.
 func translationReply(language, english, chinese string) string {
-	return chatReply(stringify(obj("sourceLanguage", language, "english", english, "simplifiedChinese", chinese)))
+	japanese := ""
+	if language != "ja" && language != "none" {
+		japanese = "ja:" + english + chinese
+	}
+	return chatReply(stringify(obj("sourceLanguage", language, "english", english, "japanese", japanese, "simplifiedChinese", chinese)))
 }
 
 func recent(hours int) string {
@@ -384,8 +390,8 @@ func TestTranslatorKeepsOperatorAndPlatformTranslations(t *testing.T) {
 		t.Fatal(err)
 	}
 	item := items["1"]
-	if item.Status != "incomplete" || item.MachineStatus != "outdated" || item.Locales[0].Text == nil || *item.Locales[0].Text != "Morning!" || !item.Locales[0].ManualStale || item.Locales[1].Status != "stale" {
-		t.Fatalf("admin=%+v en=%+v zh=%+v", item, item.Locales[0], item.Locales[1])
+	if item.Status != "incomplete" || item.MachineStatus != "outdated" || item.Locales[0].Text == nil || *item.Locales[0].Text != "Morning!" || !item.Locales[0].ManualStale || item.Locales[2].Status != "stale" {
+		t.Fatalf("admin=%+v en=%+v zh=%+v", item, item.Locales[0], item.Locales[2])
 	}
 	f.provider.respond = func(recordedRequest) (int, string) {
 		return http.StatusOK, translationReply("ja", "Good morning to you", "早上好呀")

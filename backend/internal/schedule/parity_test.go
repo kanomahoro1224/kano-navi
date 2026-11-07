@@ -41,7 +41,7 @@ type parityData struct {
 var (
 	recordedPublishedAt  = regexp.MustCompile(`Source post published at ([^ ]+)\. Source URL`)
 	recordedForcedTool   = regexp.MustCompile(`"tool_choice":\{"type":"tool","name":"([^"]+)"\}`)
-	recordedInstructions = strings.TrimSuffix(strings.NewReplacer(" "+scheduleLanguageInstruction, "", " "+scheduleDateInstruction, "", " "+scheduleTypeInstruction, "", " "+scheduleSaleInstruction, "").Replace(scheduleInstructions), " "+scheduleTagInstruction)
+	recordedInstructions = strings.TrimSuffix(strings.NewReplacer(" "+schedulePlatformInstruction, "", " "+scheduleLanguageInstruction, "", " "+scheduleDateInstruction, "", " "+scheduleTypeInstruction, "", " "+scheduleSaleInstruction, "").Replace(scheduleInstructions), " "+scheduleTagInstruction)
 	recordedPending      = strings.NewReplacer(`"status":"待确认"`, `"status":"pending"`)
 
 	// The tag and endDate properties, their required entries and the sale
@@ -50,6 +50,8 @@ var (
 	recordedTagProperty     = `"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]},`
 	recordedEndDateProperty = `"endDate":{"anyOf":[{"type":"string"},{"type":"null"}]},`
 	recordedScheduleSchema  = strings.NewReplacer(
+		`"platform":{"type":"string","enum":["youtube","bilibili","other","unknown"]},`, "",
+		`"platform","confidence"`, `"confidence"`,
 		recordedTagProperty, "",
 		recordedEndDateProperty, "",
 		`"eventType","tag","url"`, `"eventType","url"`,

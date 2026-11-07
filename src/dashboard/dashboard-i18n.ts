@@ -2,7 +2,7 @@ export const dashboardMessages = {
   "zh-CN": {
     "meta.title": "鹿乃在做什么",
     "meta.description":
-      "鹿乃まほろ的非官方近况整理页：X 动态、配信日程、YouTube 与资料入口。",
+      "鹿乃まほろ的非官方近况整理页：X 与 bilibili 动态、配信日程、YouTube 与资料入口。",
     "header.bannerAlt": "鹿乃まほろ的草莓与格纹主题横幅",
     "spotlight.onAir": "直播中",
     "countdown.unitDays": "天",
@@ -26,6 +26,8 @@ export const dashboardMessages = {
     "spotlight.open": "打开",
     "spotlight.announcement": "查看公告",
     "spotlight.watch": "观看",
+    "spotlight.liveNow": ({ platform }: { platform: any }) =>
+      `正在 ${platform} 直播`,
     "spotlight.localTime": ({ time }: { time: any }) => `你的时区 ${time}`,
     "stats.upcoming": "未来安排",
     "stats.posts": ({ days }: { days: any }) => `${days} 天内动态`,
@@ -48,9 +50,10 @@ export const dashboardMessages = {
     "common.refreshing": "读取中",
     "common.pendingConfirmation": "时间待定",
     "common.timezoneShort": "JST",
-    "feed.title": "X 动态",
+    "feed.title": "最新动态",
     "feed.openMedia": "查看图片",
     "feed.originalPost": "在 X 打开原帖",
+    "feed.originalPostBilibili": "在 bilibili 打开原动态",
     "feed.empty": ({ days }: { days: any }) => `最近 ${days} 天没有新的动态。`,
     "feed.lastSeen": "最近的一条",
     "feed.filter": "按账号筛选",
@@ -191,7 +194,7 @@ export const dashboardMessages = {
   ja: {
     "meta.title": "鹿乃ちゃん何してるか",
     "meta.description":
-      "鹿乃まほろの非公式まとめページ。X、配信予定、YouTube、公開リンクをひと目で。",
+      "鹿乃まほろの非公式まとめページ。X と bilibili の投稿、配信予定、YouTube、公開リンクをひと目で。",
     "header.bannerAlt": "鹿乃まほろの苺とギンガムチェックのバナー",
     "spotlight.onAir": "配信中",
     "countdown.unitDays": "日",
@@ -216,6 +219,8 @@ export const dashboardMessages = {
     "spotlight.open": "開く",
     "spotlight.announcement": "告知を見る",
     "spotlight.watch": "見る",
+    "spotlight.liveNow": ({ platform }: { platform: any }) =>
+      `${platform} で配信中`,
     "spotlight.localTime": ({ time }: { time: any }) => `あなたの時刻 ${time}`,
     "stats.upcoming": "今後の予定",
     "stats.posts": ({ days }: { days: any }) => `${days} 日間のポスト`,
@@ -240,9 +245,10 @@ export const dashboardMessages = {
     "common.refreshing": "読み込み中",
     "common.pendingConfirmation": "時間未定",
     "common.timezoneShort": "JST",
-    "feed.title": "X のポスト",
+    "feed.title": "最近の投稿",
     "feed.openMedia": "画像を開く",
     "feed.originalPost": "X で元のポストを開く",
+    "feed.originalPostBilibili": "bilibili で元の投稿を開く",
     "feed.empty": ({ days }: { days: any }) =>
       `直近 ${days} 日間の新しいポストはありません。`,
     "feed.lastSeen": "最後のポスト",
@@ -385,7 +391,7 @@ export const dashboardMessages = {
   en: {
     "meta.title": "What’s Kano Up To?",
     "meta.description":
-      "An unofficial Kano Mahoro status board: X posts, stream schedule, YouTube, and public links at a glance.",
+      "An unofficial Kano Mahoro status board: X and bilibili posts, stream schedule, YouTube, and public links at a glance.",
     "header.bannerAlt": "Kano Mahoro's strawberry and gingham banner",
     "spotlight.onAir": "On air",
     "countdown.unitDays": "days",
@@ -410,6 +416,8 @@ export const dashboardMessages = {
     "spotlight.open": "Open",
     "spotlight.announcement": "View notice",
     "spotlight.watch": "Watch",
+    "spotlight.liveNow": ({ platform }: { platform: any }) =>
+      `Live now on ${platform}`,
     "spotlight.localTime": ({ time }: { time: any }) => `Your time ${time}`,
     "stats.upcoming": "Upcoming",
     "stats.posts": ({ days }: { days: any }) => `Posts · ${days}d`,
@@ -434,9 +442,10 @@ export const dashboardMessages = {
     "common.refreshing": "Loading",
     "common.pendingConfirmation": "Time TBA",
     "common.timezoneShort": "JST",
-    "feed.title": "Recent Posts on X",
+    "feed.title": "Recent Posts",
     "feed.openMedia": "Open image",
     "feed.originalPost": "Open the original post on X",
+    "feed.originalPostBilibili": "Open the original post on bilibili",
     "feed.empty": ({ days }: { days: any }) =>
       `No new posts in the last ${days} days.`,
     "feed.lastSeen": "Most recent post",

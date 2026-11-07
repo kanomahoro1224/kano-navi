@@ -70,7 +70,7 @@ func TestBilibiliUploadsAreAddedAndRefreshedByOperators(t *testing.T) {
 
 	code, payload = c.call(t, "GET", "/api/admin/sources", "")
 	status, _ := payload["bilibili"].(map[string]any)
-	if code != 200 || status["videos"] != float64(1) || status["blockedUntil"] == nil || status["lastError"] != "bilibili_risk_control" || status["account"] != "316381099" {
+	if code != 200 || status["videos"] != float64(1) || status["blockedUntil"] == nil || status["lastError"] != "bilibili_risk_control_http" || status["account"] != "316381099" {
 		t.Fatalf("sources=%d %v", code, payload["bilibili"])
 	}
 	if raw, _ := json.Marshal(status); strings.Contains(string(raw), "buvid") || strings.Contains(string(raw), "infoc") {

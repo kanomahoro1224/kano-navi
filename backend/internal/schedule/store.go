@@ -312,6 +312,8 @@ func (e *Extractor) updateProviderStatus(ctx context.Context, id, status, messag
 // ---- posts ----
 
 type post struct {
+	// source is the post's source, x or bilibili.
+	source      string
 	id          string
 	postType    string
 	label       string
@@ -379,6 +381,9 @@ var (
 	// excludes every line terminator, so both are spelled out for RE2.
 	noticeLabelPattern     = regexp.MustCompile(`(?i)(?:notice|schedule|日程|告知|お知らせ|公告)`)
 	scheduleMessagePattern = regexp.MustCompile(`(?i)(?:今日|明日|明後日|今週|来週|(?:\d{1,2})` + jsSpaceClass + `*[/:月日]` + jsSpaceClass + `*(?:\d{1,2})?|(?:\d{1,2})` + jsSpaceClass + `*時)|(?:配信|放送|出演|イベント|ライブ|開始|開催|予定|告知)`)
+	// bilibiliMessagePattern adds the Chinese date, time and scheduling words
+	// of a Bilibili dynamic to the single-message heuristic.
+	bilibiliMessagePattern = regexp.MustCompile(`(?:今天|明天|后天|\d{1,2}` + jsSpaceClass + `*点|北京时间|直播|开播|播|开始|预约|上传|投稿)`)
 	scheduleBoardPattern   = regexp.MustCompile(`(?i)(?:\b(?:weekly(?:` + jsSpaceClass + `|[_-])+)?schedule(?:(?:` + jsSpaceClass + `|[_-])+(?:board|table))?\b|\bthis` + jsSpaceClass + `+week(?:'s)?` + jsSpaceClass + `+schedule\b|スケジュール|予定表|(?:今週|来週|今月|週間)[^\n\r\x{2028}\x{2029}]{0,4}(?:予定|スケジュール))`)
 )
 
@@ -394,9 +399,9 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 	for _, keyword := range boundedKeywords(parseListValues(keywords)) {
 		lowered = append(lowered, jsToLower(keyword))
 	}
-	rows, err := e.db.QueryContext(ctx, `SELECT id, type, label, text, published_at, url, media_url, raw_json
+	rows, err := e.db.QueryContext(ctx, `SELECT source, id, type, label, text, published_at, url, media_url, raw_json
 		FROM posts
-		WHERE source='x'
+		WHERE source IN ('x','bilibili')
 		ORDER BY published_at DESC`)
 	if err != nil {
 		return nil, err
@@ -406,7 +411,7 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 	for rows.Next() {
 		var item post
 		var postType, label, text, publishedAt, postURL, mediaURL, rawJSON sql.NullString
-		if err = rows.Scan(&item.id, &postType, &label, &text, &publishedAt, &postURL, &mediaURL, &rawJSON); err != nil {
+		if err = rows.Scan(&item.source, &item.id, &postType, &label, &text, &publishedAt, &postURL, &mediaURL, &rawJSON); err != nil {
 			return nil, err
 		}
 		item.postType, item.label, item.text = postType.String, label.String, text.String
@@ -438,7 +443,8 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 		case jsTrim(item.text) == "":
 			selected = len(item.mediaURLs) > 0 && noticeLabelPattern.MatchString(item.postType+" "+item.label)
 		default:
-			selected = matchesKeyword() || scheduleMessagePattern.MatchString(item.text)
+			selected = matchesKeyword() || scheduleMessagePattern.MatchString(item.text) ||
+				item.source == "bilibili" && bilibiliMessagePattern.MatchString(item.text)
 		}
 		if selected {
 			out = append(out, item)
@@ -457,7 +463,7 @@ func arrayProperty(root *object, key string) ([]any, bool) {
 }
 
 func (e *Extractor) listRequestedPosts(ctx context.Context, limit int) ([]post, error) {
-	rows, err := e.db.QueryContext(ctx, `SELECT p.id, p.text, p.published_at, p.url, p.media_url,
+	rows, err := e.db.QueryContext(ctx, `SELECT p.source, p.id, p.text, p.published_at, p.url, p.media_url,
 		p.raw_json, s.route
 		FROM posts p LEFT JOIN post_llm_states s ON s.post_id = p.id
 		WHERE s.reprocess_requested = 1
@@ -470,7 +476,7 @@ func (e *Extractor) listRequestedPosts(ctx context.Context, limit int) ([]post, 
 	for rows.Next() {
 		var item post
 		var text, publishedAt, postURL, mediaURL, rawJSON, route sql.NullString
-		if err = rows.Scan(&item.id, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &route); err != nil {
+		if err = rows.Scan(&item.source, &item.id, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &route); err != nil {
 			return nil, err
 		}
 		item.text, item.publishedAt, item.url = text.String, publishedAt.String, postURL.String
@@ -600,13 +606,13 @@ type extractionRow struct {
 	updatedAt  string
 }
 
-func getExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint, version string) (*extractionRow, error) {
+func getExtraction(ctx context.Context, q queryer, source, sourceItemID, fingerprint, version string) (*extractionRow, error) {
 	var row extractionRow
 	var model, status, updatedAt sql.NullString
 	err := q.QueryRowContext(ctx, `SELECT id, model, status, result_json, updated_at
 		FROM schedule_extractions
 		WHERE source=? AND source_item_id=? AND content_fingerprint=?
-			AND extractor_version=?`, "x", sourceItemID, fingerprint, version).
+			AND extractor_version=?`, source, sourceItemID, fingerprint, version).
 		Scan(&row.id, &model, &status, &row.resultJSON, &updatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -620,7 +626,7 @@ func getExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint, ve
 
 // latestExtraction is the most recent extraction of this input by any queue
 // target, matched on the extractor version up to the target identity.
-func latestExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error) {
+func latestExtraction(ctx context.Context, q queryer, source, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error) {
 	var row extractionRow
 	var model, status, updatedAt sql.NullString
 	err := q.QueryRowContext(ctx, `SELECT id, model, status, result_json, updated_at
@@ -628,7 +634,7 @@ func latestExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint,
 		WHERE source=? AND source_item_id=? AND content_fingerprint=?
 			AND substr(extractor_version, 1, ?)=?
 		ORDER BY updated_at DESC, id DESC LIMIT 1`,
-		"x", sourceItemID, fingerprint, len(versionPrefix), versionPrefix).
+		source, sourceItemID, fingerprint, len(versionPrefix), versionPrefix).
 		Scan(&row.id, &model, &status, &row.resultJSON, &updatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -641,7 +647,7 @@ func latestExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint,
 }
 
 // upsertExtraction stores result (nil -> NULL) the way JSON.stringify did.
-func (e *Extractor) upsertExtraction(ctx context.Context, sourceItemID, fingerprint, version, model, status string, result any, message string) (*extractionRow, error) {
+func (e *Extractor) upsertExtraction(ctx context.Context, source, sourceItemID, fingerprint, version, model, status string, result any, message string) (*extractionRow, error) {
 	timestamp := e.nowISO()
 	var resultJSON any
 	if result != nil {
@@ -655,11 +661,11 @@ func (e *Extractor) upsertExtraction(ctx context.Context, sourceItemID, fingerpr
 		DO UPDATE SET model=excluded.model, status=excluded.status,
 			result_json=excluded.result_json, error=excluded.error,
 			updated_at=excluded.updated_at`,
-		"x", sourceItemID, fingerprint, version, model, status, resultJSON, nullable(message), timestamp, timestamp)
+		source, sourceItemID, fingerprint, version, model, status, resultJSON, nullable(message), timestamp, timestamp)
 	if err != nil {
 		return nil, err
 	}
-	row, err := getExtraction(ctx, e.db, sourceItemID, fingerprint, version)
+	row, err := getExtraction(ctx, e.db, source, sourceItemID, fingerprint, version)
 	if err == nil && row == nil {
 		err = sql.ErrNoRows
 	}
@@ -739,7 +745,7 @@ func (e *Extractor) cachedFile(relative string) (string, bool) {
 		base = filepath.Join(root, "cache", "media")
 	} else {
 		switch strings.ToLower(jsTrim(parts[0])) {
-		case "x", "youtube", "avatar":
+		case "x", "youtube", "bilibili", "avatar":
 		default:
 			return "", false
 		}

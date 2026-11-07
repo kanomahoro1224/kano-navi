@@ -198,6 +198,20 @@ wording as written.
 A quote an operator hid is absent from the snapshot, so the board shows the
 post without it.
 
+A Bilibili dynamic (`source: "bilibili"`) shows the bilibili mark and name,
+linked to the account's space, instead of an `@handle`, and its open link
+goes to the opus page. It has no quote and no engagement counts, so neither
+shows, and an empty text (an emoji-only dynamic) leaves only its images. The
+wall's top line adds bilibili while it holds a dynamic. A stream or
+members-only entry links to `liveUrl ?? url` (`eventLink` in
+`src/dashboard/format.ts`). The dashboard's `liveNow` becomes a live stage
+ticket, "Live now on bilibili", unless an entry of the same platform, type
+stream or member and confirmed `live` starts at S with S−2h ≤ `startedAt` ≤
+S+3h, as the server matches broadcasts; the match never compares links. The
+post wall's account filter adds a bilibili button for each of
+`meta.bilibiliAccounts`, with the bilibili mark instead of the mid. A snapshot restored from the
+browser drops `liveNow` until the first fresh read.
+
 The console's schedule (`src/admin/views/schedule.tsx`) has a list, a
 calendar and an images view. The browser remembers list or calendar in local
 storage; the images view has its own address (`#schedule/images`), which the
@@ -377,8 +391,9 @@ edit dialog shows the quote's whole wording. Nothing edits the quote itself.
 Post text and video titles come with server-resolved `translations` (see
 [Translations](data-model.md#translations)). `src/components/translated-text.tsx`
 chooses what a reader sees from the content language, not the interface
-locale: English and Chinese content gets that locale's translation by default
-and Japanese content always gets the source. The header's language menu
+locale: each content language gets that locale's translation by default,
+except that Japanese content keeps wording detected as Japanese
+(`pickTranslation`). The header's language menu
 (`src/components/preference-controls.tsx`) sets both; the content language
 defaults to "Same as interface", and the operator console shows only the
 interface choice. The LINE BLOG paragraph translations and the schedule

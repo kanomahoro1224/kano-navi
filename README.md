@@ -17,8 +17,8 @@
 </p>
 
 Kano Navi gathers the public activity of **Kano Mahoro (鹿乃まほろ)** into one
-page: what airs next, the week's schedule, recent posts on X, streams and
-works on YouTube, her journey since 2010, and an archive of her 2015–2019
+page: what airs next, the week's schedule, recent posts on X and bilibili,
+streams and works on YouTube, her journey since 2010, and an archive of her 2015–2019
 LINE BLOG. It reads in English, Japanese,
 and Simplified Chinese, in light and dark themes, on phones and desktops.
 
@@ -50,9 +50,9 @@ and Simplified Chinese, in light and dark themes, on phones and desktops.
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>💬 Recent Posts on X</h3>
-      Recent posts from both accounts, with images, quoted posts, an account
-      filter, and a month-by-month archive.
+      <h3>💬 Recent Posts</h3>
+      Recent posts from both X accounts and bilibili, with images, quoted
+      posts, an account filter, and a month-by-month archive.
     </td>
     <td width="50%" valign="top">
       <h3>🎬 Streams and works</h3>
@@ -101,7 +101,7 @@ the last known state when a platform is unavailable. See
 
 ```mermaid
 flowchart LR
-  X["X posts"] --> S[("Board snapshot")]
+  X["X and bilibili posts"] --> S[("Board snapshot")]
   YT["YouTube and bilibili"] --> S
   S --> B["Board · Journey · About"]
   S --> C["Calendar and video feeds"]

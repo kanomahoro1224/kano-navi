@@ -79,6 +79,7 @@ import {
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { BilibiliSource } from "@/admin/views/bilibili-parts"
 import {
+  BilibiliIcon,
   explainCode,
   metricLabel,
   RunMark,
@@ -1501,6 +1502,127 @@ function PushStage({
   )
 }
 
+/**
+ * The Bilibili live-room check inside the probe: its own switch and
+ * interval, saved through the same settings, and the stream events it
+ * follows. The board shows a Bilibili stream On air from this check.
+ */
+function BilibiliProbe({
+  probe,
+  onChange,
+}: {
+  probe: NonNullable<LiveProbeStatus["bilibili"]>
+  onChange: (probe: LiveProbeStatus) => void
+}) {
+  const { t, locale } = useAppSettings()
+  const { api, act } = useAdmin()
+  const [minutes, setMinutes] = useState(probe.intervalMinutes)
+  const [busy, setBusy] = useState("")
+  useEffect(() => setMinutes(probe.intervalMinutes), [probe.intervalMinutes])
+  const save = async (body: {
+    bilibiliEnabled?: boolean
+    bilibiliIntervalMinutes?: number
+  }) => {
+    setBusy(body.bilibiliEnabled === undefined ? "save" : "toggle")
+    const next = await act(
+      () => api.updateLiveProbe(body),
+      "admin.notice.liveProbeSaved",
+    )
+    setBusy("")
+    if (next) onChange(next)
+  }
+  return (
+    <section className="adm-bilibili-part adm-live-bilibili">
+      <h3>
+        <BilibiliIcon aria-hidden />
+        {t("admin.liveProbe.bilibili.title")}
+        {probe.enabled && !probe.available ? (
+          <Badge tone="honey">{t("admin.liveProbe.notRunning")}</Badge>
+        ) : null}
+      </h3>
+      <p className="adm-field-hint">
+        {probe.available
+          ? t("admin.liveProbe.bilibili.description")
+          : t("admin.liveProbe.bilibili.unavailable")}
+      </p>
+      <form
+        className="adm-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          save({ bilibiliIntervalMinutes: minutes })
+        }}
+      >
+        <Switch
+          checked={probe.enabled}
+          disabled={!probe.available || busy !== ""}
+          onChange={(bilibiliEnabled) => save({ bilibiliEnabled })}
+          label={t("admin.liveProbe.bilibili.enable")}
+        />
+        <Field
+          label={t("admin.liveProbe.interval")}
+          hint={t("admin.liveProbe.intervalRange", {
+            min: probe.minIntervalMinutes,
+            max: probe.maxIntervalMinutes,
+          })}
+        >
+          <input
+            type="number"
+            min={probe.minIntervalMinutes}
+            max={probe.maxIntervalMinutes}
+            step={1}
+            value={minutes}
+            onChange={(e) => setMinutes(Number(e.target.value))}
+            required
+          />
+        </Field>
+        <div className="adm-form-actions">
+          <Button
+            type="submit"
+            size="sm"
+            icon={Save}
+            busy={busy === "save"}
+            disabled={minutes === probe.intervalMinutes || busy !== ""}
+          >
+            {t("admin.action.save")}
+          </Button>
+        </div>
+        <Facts
+          items={[
+            [
+              t("admin.liveProbe.bilibili.nextCheck"),
+              probe.nextCheckAt
+                ? `${japanStamp(probe.nextCheckAt)} · ${formatRelative(probe.nextCheckAt, locale)}`
+                : null,
+            ],
+          ]}
+        />
+      </form>
+      {probe.targets.length ? (
+        <ul className="adm-live-videos">
+          {probe.targets.map((target) => (
+            <li key={target.eventId}>
+              <span className="adm-live-videos-name">
+                <strong>{target.title}</strong>
+                <small>
+                  {t(`admin.liveProbe.phase.${target.phase}`)}
+                  {" · "}
+                  {japanStamp(target.startsAt)}
+                  {" · "}
+                  {Date.parse(target.dueAt) > Date.now()
+                    ? t("admin.liveProbe.due", {
+                        time: formatRelative(target.dueAt, locale),
+                      })
+                    : t("admin.liveProbe.dueNow")}
+                </small>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  )
+}
+
 function LiveProbeStage({
   probe,
   onChange,
@@ -1690,6 +1812,9 @@ function LiveProbeStage({
               </li>
             ))}
           </ul>
+        ) : null}
+        {probe.bilibili ? (
+          <BilibiliProbe probe={probe.bilibili} onChange={onChange} />
         ) : null}
       </Fold>
     </li>

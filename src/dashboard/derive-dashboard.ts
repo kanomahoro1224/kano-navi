@@ -1,4 +1,4 @@
-import type { Dashboard, ScheduleEvent, Video } from "../types.ts"
+import type { Dashboard, LiveNow, ScheduleEvent, Video } from "../types.ts"
 import { streamIdentity } from "../lib/stream-identity.ts"
 import {
   confirmedLiveStatus,
@@ -47,6 +47,41 @@ export function leadingCandidate<T>(
     })
   })
   return lead ?? null
+}
+
+/**
+ * How early before an entry's start its broadcast may open, and how late
+ * after it the broadcast may start.
+ */
+export const LIVE_NOW_EARLY_MS = 2 * 3600 * 1000
+export const LIVE_NOW_LATE_MS = 3 * 3600 * 1000
+
+/**
+ * Whether an entry is the unannounced broadcast's own: a live stream or
+ * membership entry on the same platform whose broadcast started from two
+ * hours before to three hours after the entry's start. Links never decide
+ * it, since an entry links to its source post.
+ */
+export function eventMatchesLiveNow(event: ScheduleEvent, liveNow: LiveNow) {
+  if (event.platform !== liveNow.platform) return false
+  if (!["stream", "member"].includes(event.eventType)) return false
+  if (confirmedLiveStatus(event) !== "live") return false
+  const start = Date.parse(event.startsAt || "")
+  const started = Date.parse(liveNow.startedAt)
+  return (
+    started >= start - LIVE_NOW_EARLY_MS && started <= start + LIVE_NOW_LATE_MS
+  )
+}
+
+/** The live-now item, unless an entry already shows that broadcast. */
+export function visibleLiveNow(
+  liveNow: LiveNow | null | undefined,
+  events: ScheduleEvent[],
+): LiveNow | null {
+  if (!liveNow?.url) return null
+  return events.some((event) => eventMatchesLiveNow(event, liveNow))
+    ? null
+    : liveNow
 }
 
 export function videoIsInFocus(video: Video, now: number) {
@@ -121,10 +156,15 @@ export function deriveDashboardAt(snapshot: Dashboard, now: number): Dashboard {
           scheduleSortTime(a.scheduledAt || a.publishedAt) ||
         a.id.localeCompare(b.id),
     )
+  const nextEvent = snapshot.summary.nextEvent
   return {
     ...snapshot,
     events,
     videos,
+    liveNow: visibleLiveNow(
+      snapshot.liveNow,
+      nextEvent ? [...events, nextEvent] : events,
+    ),
     summary: {
       ...snapshot.summary,
       nextEvent: leadingCandidate(

@@ -136,10 +136,10 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 		}
 		return s.youtubeRecent(ctx, in)
 	case "live":
-		if s.Youtube == nil {
+		if s.Youtube == nil && s.Bilibili == nil {
 			break
 		}
-		return s.youtubeLive(ctx, in)
+		return s.live(ctx, in)
 	case "bilibili":
 		if s.Bilibili == nil {
 			break
@@ -381,19 +381,122 @@ func (s *SourceSteps) bilibiliRecent(ctx context.Context) (AttemptResult, error)
 	if ctx.Err() != nil {
 		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
 	}
+	var counts map[string]any
+	status := "succeeded"
 	if result.Skipped != "" {
-		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": result.Skipped, "requested": 0}}, nil
+		counts = map[string]any{"skipped": true, "reason": result.Skipped, "requested": 0}
+	} else {
+		changed, err := s.Store.WriteBilibiliRecent(ctx, account, result)
+		if err != nil {
+			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+		}
+		counts = map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "requested": result.Requested, "changed": changed}
+		if fetchErr != nil {
+			counts["errors"] = []string{bilisource.ErrorCode(fetchErr)}
+			status = "failed"
+		}
 	}
-	changed, err := s.Store.WriteBilibiliRecent(ctx, account, result)
+	// The dynamics listing follows with the state the upload read left, so a
+	// captcha that read met holds the listing back as well.
+	dynamics, dynamicsErr := s.Bilibili.FetchDynamics(ctx, result.State)
+	if ctx.Err() != nil {
+		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
+	}
+	if dynamics.Skipped != "" && dynamics.Requested == 0 {
+		counts["dynamics"] = map[string]any{"skipped": true, "reason": dynamics.Skipped, "requested": 0}
+		// A listing skipped without a request changes no state.
+		return AttemptResult{Status: status, Result: counts}, nil
+	}
+	changed, err := s.Store.WriteBilibiliDynamics(ctx, account, dynamics)
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
-	counts := map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "requested": result.Requested, "changed": changed}
-	if fetchErr != nil {
-		counts["errors"] = []string{bilisource.ErrorCode(fetchErr)}
-		return AttemptResult{Status: "failed", Result: counts}, nil
+	listing := map[string]any{"posts": len(dynamics.Dynamics), "requested": dynamics.Requested, "changed": changed}
+	if dynamics.Skipped != "" {
+		// The login check found the cookie expired.
+		listing["skipped"], listing["reason"] = true, dynamics.Skipped
 	}
-	return AttemptResult{Status: "succeeded", Result: counts}, nil
+	if dynamicsErr != nil {
+		listing["errors"] = []string{bilisource.ErrorCode(dynamicsErr)}
+		if status == "succeeded" && result.Skipped == "" {
+			status = "partial"
+		} else if result.Skipped != "" {
+			status = "failed"
+		}
+	}
+	counts["dynamics"] = listing
+	return AttemptResult{Status: status, Result: counts}, nil
+}
+
+// live runs the live-status probe: the YouTube videos due by their phase
+// and, in the same run, at most one check of the Bilibili room when it is
+// due. Each platform's part is left out while its source is disabled.
+func (s *SourceSteps) live(ctx context.Context, in StepInput) (AttemptResult, error) {
+	out := AttemptResult{Status: "succeeded", Result: map[string]any{}}
+	if s.Youtube != nil && !s.Skip["youtube"] {
+		var err error
+		if out, err = s.youtubeLive(ctx, in); err != nil {
+			return out, err
+		}
+	}
+	if s.Bilibili == nil || s.Skip["bilibili"] {
+		return out, nil
+	}
+	counts, status, err := s.bilibiliLive(ctx)
+	if err != nil {
+		return AttemptResult{}, err
+	}
+	if counts == nil {
+		return out, nil
+	}
+	out.Result["bilibili"] = counts
+	switch {
+	case status == "succeeded":
+	case out.Status == "succeeded" && (s.Youtube == nil || s.Skip["youtube"] || out.Result["candidates"] == 0):
+		out.Status = status
+	default:
+		out.Status = "partial"
+	}
+	return out, nil
+}
+
+// bilibiliLive checks the configured room once when the plan says it is
+// due. It returns nil counts when the check is off or not due.
+func (s *SourceSteps) bilibiliLive(ctx context.Context) (map[string]any, string, error) {
+	now := s.Bilibili.Now()
+	settings, err := s.Store.LiveProbeSettings(ctx)
+	if err != nil {
+		return nil, "", NewStepError("schema_failure", ErrSchema)
+	}
+	if !settings.BilibiliEnabled {
+		return nil, "", nil
+	}
+	account := s.Bilibili.Options.Account
+	plan, err := s.Store.BilibiliLivePlan(ctx, account, now, settings)
+	if err != nil {
+		return nil, "", NewStepError("schema_failure", ErrSchema)
+	}
+	if now.Before(plan.DueAt) {
+		return nil, "", nil
+	}
+	state, requested, checkErr := s.Bilibili.CheckLive(ctx, plan.Live.State)
+	if ctx.Err() != nil {
+		return nil, "", NewStepError("cancelled", ErrCancelled)
+	}
+	counts := map[string]any{"targets": len(plan.Targets), "phase": plan.Phase, "requested": 0, "live": false, "changed": false}
+	if !requested {
+		return counts, "succeeded", nil
+	}
+	changed, err := s.Store.WriteBilibiliLive(ctx, account, state)
+	if err != nil {
+		return nil, "", NewStepError("schema_failure", ErrSchema)
+	}
+	counts["requested"], counts["live"], counts["changed"] = 1, checkErr == nil && state.Room.LiveStatus == bilisource.RoomLive, changed
+	if checkErr != nil {
+		counts["errors"] = []string{bilisource.ErrorCode(checkErr)}
+		return counts, "failed", nil
+	}
+	return counts, "succeeded", nil
 }
 
 // youtubeLive asks about only the few active videos that are due by their
@@ -408,6 +511,11 @@ func (s *SourceSteps) youtubeLive(ctx context.Context, in StepInput) (AttemptRes
 	settings, err := s.Store.LiveProbeSettings(ctx)
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	if !settings.Enabled {
+		// The operator turned the YouTube part off: no YouTube request, even
+		// when the run is for the Bilibili room.
+		return AttemptResult{Status: "succeeded", Result: map[string]any{"active": 0, "candidates": 0, "requested": 0, "inspected": 0, "live": 0, "changed": false, "apiRequests": 0, "disabled": true}}, nil
 	}
 	targets, err := s.Store.LiveProbeTargets(ctx, now, settings)
 	if err != nil {

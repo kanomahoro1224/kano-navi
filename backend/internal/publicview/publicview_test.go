@@ -187,7 +187,7 @@ func TestHealthAndRevision(t *testing.T) {
 func TestPublicEventExtrasAreDashboardOnly(t *testing.T) {
 	live := "live"
 	event := sqlite.DashboardEvent{ID: "e", Title: "Event", ManualLocked: true, IsUpcoming: true, LiveStatus: &live}
-	extras := []string{"manualLocked", "isUpcoming", "liveStatus"}
+	extras := []string{"manualLocked", "isUpcoming", "liveStatus", "liveUrl"}
 	full, compact := PublicEvent(event, true), PublicEvent(event, false)
 	for _, key := range extras {
 		if _, ok := compact[key]; ok {

@@ -106,6 +106,11 @@ func runStandalone(cfg config.Config) int {
 		Store:   store,
 		Submit:  liveProbeTrigger(manager),
 		Enabled: scheduler.Enabled && !run.steps.Skip[jobs.StepLive],
+		// Each part of the probe stops with its source.
+		SkipYoutube: run.steps.Skip["youtube"],
+	}
+	if run.steps.Bilibili != nil && !run.steps.Skip["bilibili"] {
+		probe.BilibiliAccount = run.steps.Bilibili.Options.Account
 	}
 	probe.Start()
 	defer probe.Stop()
@@ -233,8 +238,9 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 			skipped = append(skipped, step)
 		}
 	}
-	// The live-status probe is part of the YouTube source.
-	skip[jobs.StepLive] = skip["youtube"]
+	// The live-status probe checks the YouTube videos and the Bilibili room;
+	// each part stops with its source.
+	skip[jobs.StepLive] = skip["youtube"] && skip["bilibili"]
 	xOptions := xsource.OptionsFromEnv()
 	youtubeOptions := ytsource.OptionsFromEnv()
 	// Each client's outbound requests follow its area's proxy route.

@@ -29,7 +29,8 @@ it.
   menu sets the interface language and, separately, the content language:
   the language of video and schedule titles, posts, and LINE BLOG
   translations. Content follows the interface until you pick another
-  language; Japanese content shows the original wording. Both choices are
+  language; Japanese content shows Japanese wording as written and other
+  wording, such as a Chinese bilibili post, translated. Both choices are
   remembered on this device.
 - **Themes:** light and dark, following your system until you pick one.
 - **Layouts:** every page works on phones, tablets, and desktops.

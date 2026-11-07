@@ -42,12 +42,20 @@ export interface Translation {
   platform?: string | null
 }
 
-/** The target locales; Japanese readers always see the source wording. */
-export type TranslationLocale = "en" | "zh-CN"
+/**
+ * The target locales. Japanese readers see a Japanese translation only of
+ * wording whose source language is not Japanese.
+ */
+export type TranslationLocale = "en" | "ja" | "zh-CN"
 
 /** At most one resolved translation per target locale. */
 export type Translations = Partial<Record<TranslationLocale, Translation>>
 
+/**
+ * An X post, or a Bilibili dynamic (`source` "bilibili"): its handle is the
+ * account's numeric mid, it has no engagement counts or quote, and its text
+ * may be empty.
+ */
 export interface Post {
   id: string
   source: string
@@ -99,9 +107,13 @@ export interface SaleWindow {
   endsAt: string | null
 }
 
+/** Where an entry's broadcast or work is: its platform, when known. */
+export type EventPlatform = "youtube" | "bilibili" | "other" | "unknown"
+
 export interface ScheduleEvent {
   id: string
   source: string
+  platform?: EventPlatform | null
   title: string
   detail: string | null
   startsOn: string
@@ -129,8 +141,16 @@ export interface ScheduleEvent {
   cancellationStatus: string
   cancellationReason?: string | null
   cancellationEvidence?: string | null
-  /** The linked YouTube video's confirmed broadcast state. */
+  /**
+   * The linked video's or Bilibili live room's confirmed broadcast state;
+   * Bilibili never reports upcoming.
+   */
   liveStatus?: LiveStatus | null
+  /**
+   * The Bilibili live room of a Bilibili stream or membership entry, once
+   * known; the entry links to it instead of its source post (`url`).
+   */
+  liveUrl?: string | null
   /** The linked video's title translations while the event shows its title. */
   translations?: Translations
   sourceLanguage?: string | null
@@ -235,8 +255,21 @@ export interface ArchiveSnapshot<T> {
   categoryCounts?: Record<string, number>
 }
 
+/**
+ * A live Bilibili broadcast that no schedule entry matched, present only
+ * while the room is live.
+ */
+export interface LiveNow {
+  platform: "bilibili"
+  url: string
+  title: string
+  startedAt: string
+}
+
 export interface Dashboard {
   profile: Profile
+  /** An unannounced broadcast on air now; absent in older snapshots. */
+  liveNow?: LiveNow | null
   summary: {
     nextEvent: ScheduleEvent | null
     nextStream: Video | null
@@ -281,6 +314,8 @@ export interface Dashboard {
     } | null
     postWindowDays: number
     xAccounts: string[]
+    /** The mids of stored Bilibili posts; the post filters offer each. */
+    bilibiliAccounts?: string[]
     featuredVideoId: string | null
     eventWindow?: { from: string; to: string; paginated: boolean }
     revision?: number

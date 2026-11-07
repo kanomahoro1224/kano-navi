@@ -1,45 +1,207 @@
-import { useState, type SubmitEvent } from "react"
-import { KeyRound, Plus, ShieldAlert } from "lucide-react"
+import { useState, type ReactNode, type SubmitEvent } from "react"
+import {
+  KeyRound,
+  MessageSquareText,
+  Plus,
+  RadioTower,
+  ShieldAlert,
+} from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
-import type { AdminVideo, Sources } from "@/admin/types"
-import { Badge, Button, Facts, Field, Panel } from "@/admin/ui"
+import { ApiError } from "@/admin/api"
+import { formatRelative, japanStamp } from "@/admin/format"
+import type { BilibiliLiveRoom, BilibiliLogin, Sources } from "@/admin/types"
+import { Badge, Button, Facts, Field, Panel, type Tone } from "@/admin/ui"
 import { useAdmin } from "@/admin/use-admin-data"
-import { BilibiliIcon } from "@/admin/views/run-parts"
+import { BilibiliIcon, explainCode } from "@/admin/views/run-parts"
+
+const roomStates: Record<number, { key: string; tone: Tone }> = {
+  0: { key: "admin.bilibili.live.off", tone: "neutral" },
+  1: { key: "admin.bilibili.live.on", tone: "leaf" },
+  2: { key: "admin.bilibili.live.rotation", tone: "neutral" },
+}
+
+const loginStates: Record<BilibiliLogin, { key: string; tone: Tone }> = {
+  signed_in: { key: "admin.bilibili.signedIn", tone: "leaf" },
+  expired: { key: "admin.bilibili.loginExpired", tone: "danger" },
+  unchecked: { key: "admin.bilibili.loginUnchecked", tone: "honey" },
+  not_configured: { key: "admin.bilibili.anonymous", tone: "neutral" },
+}
+
+/** A refusal by the local backoff that the server lets one read override. */
+function forceable(error: unknown): error is ApiError {
+  return (
+    error instanceof ApiError &&
+    error.code === "bilibili_blocked" &&
+    error.force === true
+  )
+}
+
+/**
+ * A single-item Bilibili read (adding an upload or a dynamic, reading an
+ * upload again) that the captcha backoff refused can be sent once anyway:
+ * `read` runs `send(false)` like any action, and after such a refusal
+ * `offer` is a "Try once anyway" button that sends `send(true)` once.
+ * Timers and Run now never get this override.
+ */
+export function useForcedRead() {
+  const { t } = useAppSettings()
+  const { act } = useAdmin()
+  const [pending, setPending] = useState<{
+    until?: string
+    send: () => Promise<unknown>
+  } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const read = async <T,>(
+    send: (force: boolean) => Promise<T>,
+    notice: string,
+    done: (result: T) => void,
+  ) => {
+    setPending(null)
+    const result = await act(async () => {
+      try {
+        return await send(false)
+      } catch (error) {
+        if (forceable(error))
+          setPending({
+            until: error.blockedUntil,
+            send: async () => {
+              const forced = await act(() => send(true), notice)
+              if (forced) done(forced)
+            },
+          })
+        throw error
+      }
+    }, notice)
+    if (result) done(result)
+    return Boolean(result)
+  }
+  const force = async () => {
+    if (!pending) return
+    setBusy(true)
+    await pending.send()
+    setBusy(false)
+    setPending(null)
+  }
+  const offer: ReactNode = pending ? (
+    <Button
+      size="sm"
+      variant="ghost"
+      icon={ShieldAlert}
+      busy={busy}
+      onClick={force}
+      title={t("admin.bilibili.forceHint", {
+        time: pending.until ? japanStamp(pending.until) : "—",
+      })}
+    >
+      {t("admin.bilibili.force")}
+    </Button>
+  ) : null
+  return { read, offer }
+}
+
+/** One add form of the panel: a link or ID field and its button. */
+function AddForm({
+  label,
+  hint,
+  placeholder,
+  disabled,
+  notice,
+  send,
+  onAdded,
+}: {
+  label: string
+  hint: string
+  placeholder: string
+  disabled: boolean
+  notice: string
+  send: (input: string, force: boolean) => Promise<unknown>
+  onAdded: () => void
+}) {
+  const { t } = useAppSettings()
+  const [input, setInput] = useState("")
+  const [busy, setBusy] = useState(false)
+  const { read, offer } = useForcedRead()
+  const submit = async (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const value = input.trim()
+    if (!value) return
+    setBusy(true)
+    await read(
+      (force) => send(value, force),
+      notice,
+      () => {
+        setInput("")
+        onAdded()
+      },
+    )
+    setBusy(false)
+  }
+  return (
+    <form className="adm-bilibili-add" onSubmit={submit}>
+      <Field label={label} hint={hint}>
+        <input
+          value={input}
+          placeholder={placeholder}
+          maxLength={300}
+          disabled={disabled}
+          onChange={(e) => setInput(e.target.value)}
+        />
+      </Field>
+      <Button
+        type="submit"
+        icon={Plus}
+        busy={busy}
+        disabled={disabled || !input.trim()}
+      >
+        {t("admin.bilibili.addButton")}
+      </Button>
+      {offer}
+    </form>
+  )
+}
+
+/** The live room's last check: its state, title and when it went live. */
+function LiveRoomState({ live }: { live: BilibiliLiveRoom }) {
+  const { t } = useAppSettings()
+  const state = live.liveStatus == null ? null : roomStates[live.liveStatus]
+  return state ? (
+    <Badge tone={state.tone} icon={RadioTower}>
+      {t(state.key)}
+    </Badge>
+  ) : null
+}
 
 /**
  * The Bilibili account on the Sources page, beside its timer (which shows the
- * last read and backoff), and an operator's way to add one upload by BV ID or
- * link. Uploads stay in the console; one merged into its YouTube copy is
- * listed on that video.
+ * last read and backoff): its uploads, its dynamics (posts beside X posts on
+ * the board) and its live room, and an operator's way to add one upload by BV
+ * ID or link, or one dynamic by link. Uploads stay in the console; one merged
+ * into its YouTube copy is listed on that video.
  */
 export function BilibiliSource({
   status,
   onAdded,
 }: {
   status: Sources["bilibili"] | undefined
-  onAdded: (video: AdminVideo) => void
+  onAdded: () => void
 }) {
-  const { t } = useAppSettings()
-  const { api, act } = useAdmin()
-  const [input, setInput] = useState("")
-  const [busy, setBusy] = useState(false)
+  const { t, locale } = useAppSettings()
+  const { api } = useAdmin()
   const usable = Boolean(status?.available && !status.skipped)
-  const blocked =
-    status?.blockedUntil && Date.parse(status.blockedUntil) > Date.now()
-  const add = async (submit: SubmitEvent<HTMLFormElement>) => {
-    submit.preventDefault()
-    if (!input.trim()) return
-    setBusy(true)
-    const result = await act(
-      () => api.addBilibiliVideo(input.trim()),
-      "admin.notice.bilibiliAdded",
-    )
-    setBusy(false)
-    if (!result) return
-    setInput("")
-    onAdded(result.video)
-  }
+  const future = (value: string | null | undefined) =>
+    Boolean(value && Date.parse(value) > Date.now())
+  const blocked = future(status?.blockedUntil)
+  const stamp = (value: string | null | undefined) =>
+    value ? `${japanStamp(value)} · ${formatRelative(value, locale)}` : null
+  const error = (code: string | null | undefined) =>
+    code ? <span title={code}>{explainCode(code, t) ?? code}</span> : null
+  // `signedIn` only says a cookie is configured; `login` is its last check.
+  const login: BilibiliLogin =
+    status?.login ?? (status?.signedIn ? "signed_in" : "not_configured")
+  const loginState = loginStates[login] ?? loginStates.not_configured
+  const dynamics = status?.dynamics
+  const live = status?.live
   return (
     <Panel
       icon={BilibiliIcon}
@@ -49,13 +211,9 @@ export function BilibiliSource({
         status ? (
           <span className="adm-chip-row">
             {!usable ? <Badge>{t("admin.overview.skipped")}</Badge> : null}
-            {status.signedIn ? (
-              <Badge tone="leaf" icon={KeyRound}>
-                {t("admin.bilibili.signedIn")}
-              </Badge>
-            ) : (
-              <Badge icon={KeyRound}>{t("admin.bilibili.anonymous")}</Badge>
-            )}
+            <Badge tone={loginState.tone} icon={KeyRound}>
+              {t(loginState.key)}
+            </Badge>
             {blocked ? (
               <Badge tone="danger" icon={ShieldAlert}>
                 {t("admin.bilibili.blocked")}
@@ -76,35 +234,111 @@ export function BilibiliSource({
                 count: status.minIntervalMinutes ?? 0,
               }),
             ],
-            [t("admin.bilibili.lastError"), status.lastError ?? "—"],
+            [
+              t("admin.bilibili.loginChecked"),
+              stamp(status.loginCheckedAt ?? null),
+            ],
+            [t("admin.bilibili.lastError"), error(status.lastError)],
           ]}
         />
       ) : null}
-      {!status?.signedIn && status?.available ? (
+      {status?.available && login === "not_configured" ? (
         <p className="adm-note">{t("admin.bilibili.signInHint")}</p>
       ) : null}
-      <form className="adm-bilibili-add" onSubmit={add}>
-        <Field
-          label={t("admin.bilibili.add")}
-          hint={t("admin.bilibili.addHint")}
-        >
-          <input
-            value={input}
-            placeholder="BV1xxxxxxxxx"
-            maxLength={300}
-            disabled={!usable}
-            onChange={(e) => setInput(e.target.value)}
+      {status?.available && login === "expired" ? (
+        <p className="adm-note">{t("admin.bilibili.loginExpiredHint")}</p>
+      ) : null}
+      {status?.available && dynamics ? (
+        <section className="adm-bilibili-part">
+          <h3>
+            <MessageSquareText aria-hidden />
+            {t("admin.bilibili.dynamics.title")}
+          </h3>
+          <Facts
+            items={[
+              [t("admin.bilibili.dynamics.posts"), String(dynamics.posts)],
+              [
+                t("admin.bilibili.dynamics.lastAttempt"),
+                stamp(dynamics.lastAttemptAt),
+              ],
+              [
+                t("admin.bilibili.dynamics.lastSuccess"),
+                stamp(dynamics.lastSuccessAt),
+              ],
+              [
+                t("admin.bilibili.dynamics.skipped"),
+                dynamics.skipped
+                  ? t(`admin.bilibili.dynamics.skipped.${dynamics.skipped}`)
+                  : null,
+              ],
+              [t("admin.bilibili.lastError"), error(dynamics.lastError)],
+            ]}
           />
-        </Field>
-        <Button
-          type="submit"
-          icon={Plus}
-          busy={busy}
-          disabled={!usable || !input.trim()}
-        >
-          {t("admin.bilibili.addButton")}
-        </Button>
-      </form>
+          {dynamics.skipped === "login_required" ? (
+            <p className="adm-note">{t("admin.bilibili.dynamics.loginHint")}</p>
+          ) : null}
+        </section>
+      ) : null}
+      {status?.available && live ? (
+        <section className="adm-bilibili-part">
+          <h3>
+            <RadioTower aria-hidden />
+            {t("admin.bilibili.live.title")}
+            <LiveRoomState live={live} />
+          </h3>
+          <Facts
+            items={[
+              [
+                t("admin.bilibili.live.room"),
+                live.roomId ? (
+                  <a
+                    className="adm-link"
+                    href={`https://live.bilibili.com/${encodeURIComponent(live.roomId)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {live.roomId}
+                  </a>
+                ) : null,
+              ],
+              [t("admin.bilibili.live.streamTitle"), live.title],
+              [
+                t("admin.bilibili.live.liveTime"),
+                live.liveTime
+                  ? stamp(live.liveTime)
+                  : live.liveStatus === 1
+                    ? t("admin.bilibili.live.startUnknown")
+                    : null,
+              ],
+              [t("admin.bilibili.live.checkedAt"), stamp(live.checkedAt)],
+              [t("admin.bilibili.live.lastLiveAt"), stamp(live.lastLiveAt)],
+              [
+                t("admin.bilibili.live.blockedUntil"),
+                future(live.blockedUntil) ? stamp(live.blockedUntil) : null,
+              ],
+              [t("admin.bilibili.lastError"), error(live.lastError)],
+            ]}
+          />
+        </section>
+      ) : null}
+      <AddForm
+        label={t("admin.bilibili.add")}
+        hint={t("admin.bilibili.addHint")}
+        placeholder="BV1xxxxxxxxx"
+        disabled={!usable}
+        notice="admin.notice.bilibiliAdded"
+        send={(input, force) => api.addBilibiliVideo(input, force)}
+        onAdded={onAdded}
+      />
+      <AddForm
+        label={t("admin.bilibili.addPost")}
+        hint={t("admin.bilibili.addPostHint")}
+        placeholder="https://www.bilibili.com/opus/…"
+        disabled={!usable}
+        notice="admin.notice.bilibiliPostAdded"
+        send={(input, force) => api.addBilibiliPost(input, force)}
+        onAdded={onAdded}
+      />
     </Panel>
   )
 }

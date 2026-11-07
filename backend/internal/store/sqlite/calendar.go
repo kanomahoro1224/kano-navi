@@ -215,5 +215,6 @@ func (s *Store) attachLiveStatus(ctx context.Context, events []DashboardEvent, n
 			events[i].LiveStatus = live[streamIdentity(*events[i].URL)]
 		}
 	}
-	return nil
+	_, err = s.attachBilibiliLive(ctx, events, now)
+	return err
 }

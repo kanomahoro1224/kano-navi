@@ -24,6 +24,27 @@ unless the operator featured that Short, and that is neither private nor
 removed; a video of unknown format or unknown availability stays
 eligible. Metadata includes configured X accounts and the Featured video ID.
 
+A post's `source` is `x` or `bilibili`. A Bilibili dynamic has the ID
+`bilibili-<dynamic ID>`, its opus page as `url`, the account's mid as
+`accountHandle` and its space as `accountUrl`, zero engagement counts and no
+`quote`; its text may be empty when the dynamic held only emoji.
+
+Every public event reports its `platform` (`youtube`, `bilibili`, `other`,
+`unknown`, or null for an entry stored before platforms were recorded; see
+[Event platforms](data-model.md#event-platforms)). Full event reads (the
+board, the calendar) add `liveUrl`: the account's Bilibili live room for an
+entry of platform `bilibili` and type `stream` or `member` once a live check
+learned the room, null otherwise. Readers link such an entry to
+`liveUrl ?? url`; `url` stays the announcement's link. Its `liveStatus`
+follows the room (see [Live room](sources.md#live-room)). The dashboard adds
+`liveNow`, `{platform: "bilibili", url, title, startedAt}`, while the room is
+live within two Bilibili check intervals and the broadcast matches no
+stored entry, and null otherwise; it is never an event, and readers match it
+against entries by platform and time, not by link. The calendar's items carry
+`liveUrl` as well. `meta.bilibiliAccounts` lists the accounts (mids) of the
+stored Bilibili posts; the post archive's `account` filter and its
+`accountCounts` take a mid like an X handle.
+
 `meta.sourceFetchedAt` contains only `x`, `youtube` and `bilibili` ISO
 timestamps or null, derived from successful incremental source reads, the head
 pages of manual timeline fetches and the Bilibili account's last successful
@@ -253,8 +274,8 @@ feed links the site absolutely and adds a `rel="self"` link to
 Both take an optional `lang` query, `en`, `ja` or `zh-CN`; a missing or
 unknown value is the English base, so the bare paths stay English. Titles
 resolve [translations](data-model.md#translations) the way the board does:
-Japanese readers get the source wording, and English and Chinese readers get
-the locale's translation when one exists (an event only through its linked
+each reader gets the locale's translation when one exists, except that
+Japanese readers keep wording detected as Japanese (an event only through its linked
 video's title). The fixed wording the server writes — the calendar and feed
 names (the board's `site.name`), the event descriptions' provenance and
 unofficial notes, the generated YouTube details (`YouTube Live`,

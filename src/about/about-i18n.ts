@@ -12,7 +12,7 @@ export const aboutMessages = {
     "about.license": "许可证",
     "about.overview": "项目概览",
     "about.overviewOne":
-      "本站是为鹿乃まほろ的粉丝制作的非官方近况整理页，汇集公开的 X 动态、配信与活动日程、YouTube 更新，以及相关资料入口。独立的旅程页面记录从 2010 年至今的公开活动节点与图片档案。LINE BLOG 页面是鹿乃 2015–2019 年 LINE BLOG 的非官方存档，文章保留日文原文。",
+      "本站是为鹿乃まほろ的粉丝制作的非官方近况整理页，汇集公开的 X 与 bilibili 动态、配信与活动日程、YouTube 更新，以及相关资料入口。独立的旅程页面记录从 2010 年至今的公开活动节点与图片档案。LINE BLOG 页面是鹿乃 2015–2019 年 LINE BLOG 的非官方存档，文章保留日文原文。",
     "about.overviewTwo":
       "页面读取服务端保存的本地快照，浏览或刷新页面不会直接抓取外部平台。日程时间以日本时间显示，信息的新鲜度取决于同步频率；来源暂时不可用时，保留已有记录。",
     "about.builtWithAi": "使用 AI 构建",
@@ -58,7 +58,7 @@ export const aboutMessages = {
     "about.license": "ライセンス",
     "about.overview": "プロジェクト概要",
     "about.overviewOne":
-      "本サイトは鹿乃まほろのファンによる非公式の近況まとめサイトです。公開 X 投稿、配信・イベント予定、YouTube 更新、関連リンクをまとめています。別ページの活動記録では、2010 年から現在までの公開活動と画像資料を紹介しています。LINE BLOG ページは、鹿乃の 2015〜2019 年の LINE BLOG の非公式アーカイブで、記事は日本語の原文のままです。",
+      "本サイトは鹿乃まほろのファンによる非公式の近況まとめサイトです。公開 X・bilibili 投稿、配信・イベント予定、YouTube 更新、関連リンクをまとめています。別ページの活動記録では、2010 年から現在までの公開活動と画像資料を紹介しています。LINE BLOG ページは、鹿乃の 2015〜2019 年の LINE BLOG の非公式アーカイブで、記事は日本語の原文のままです。",
     "about.overviewTwo":
       "ページはサーバーに保存されたローカルのスナップショットを読み込み、閲覧や更新操作で外部サービスを直接取得することはありません。予定は日本時間で表示し、情報の鮮度は同期頻度によります。取得元が一時的に利用できない場合も既存の記録を保持します。",
     "about.builtWithAi": "AI とともに開発",
@@ -105,7 +105,7 @@ export const aboutMessages = {
     "about.license": "License",
     "about.overview": "Project overview",
     "about.overviewOne":
-      "This site is an unofficial status board made for Kano Mahoro fans. It brings together public X posts, stream and event schedules, YouTube updates, and resource links. A separate journey page collects public milestones and visual archives from 2010 to the present. The LINE BLOG page is an unofficial archive of Kano's 2015–2019 LINE BLOG, with posts in their original Japanese.",
+      "This site is an unofficial status board made for Kano Mahoro fans. It brings together public X and bilibili posts, stream and event schedules, YouTube updates, and resource links. A separate journey page collects public milestones and visual archives from 2010 to the present. The LINE BLOG page is an unofficial archive of Kano's 2015–2019 LINE BLOG, with posts in their original Japanese.",
     "about.overviewTwo":
       "Pages read local snapshots saved by the server. Browsing or refreshing a page does not fetch external platforms directly. Schedules use Japan time, and freshness depends on synchronization frequency. Existing records remain available when a source is temporarily unavailable.",
     "about.builtWithAi": "Built with AI",

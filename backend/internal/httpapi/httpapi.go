@@ -341,6 +341,7 @@ func (h *Handler) calendar(w http.ResponseWriter, r *http.Request) {
 		// state to the public event, while omitting dashboard-only isUpcoming.
 		projected["manualLocked"] = event.ManualLocked
 		projected["liveStatus"] = event.LiveStatus
+		projected["liveUrl"] = event.LiveURL
 		items = append(items, projected)
 	}
 	images := make([]any, 0, len(calendar.ScheduleImages))

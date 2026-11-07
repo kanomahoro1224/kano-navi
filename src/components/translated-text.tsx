@@ -15,15 +15,22 @@ const sourceLangs: Record<string, string> = {
 
 const platforms = new Set(["youtube", "bilibili"])
 
+/** Whether a detected source language (ja, ja-JP, ...) is Japanese. */
+function isJapanese(language: string | undefined | null) {
+  return (language || "").toLowerCase().split("-")[0] === "ja"
+}
+
 /**
  * The translation a reader of the content locale sees instead of the source
- * wording, or null: Japanese content and untranslated wording keep the source.
+ * wording, or null: untranslated wording keeps the source, and Japanese
+ * readers see a Japanese translation only of wording not written in Japanese.
  */
 export function pickTranslation(
   translations: Translations | undefined | null,
   locale: Locale,
+  sourceLanguage?: string | null,
 ): Translation | null {
-  if (locale === "ja") return null
+  if (locale === "ja" && isJapanese(sourceLanguage)) return null
   const translation = translations?.[locale]
   return translation?.text ? translation : null
 }
@@ -64,7 +71,7 @@ export function useTranslatedText(
 ): TranslatedTextState {
   const { contentLocale } = useAppSettings()
   const [showOriginal, setShowOriginal] = useState(false)
-  const available = pickTranslation(translations, contentLocale)
+  const available = pickTranslation(translations, contentLocale, sourceLanguage)
   const shown = available && !showOriginal ? available : null
   return {
     text: shown ? shown.text : original,

@@ -107,9 +107,10 @@ func (l Locale) messages() messages {
 }
 
 // localizedTitle is the wording a reader of the locale sees, as the board
-// picks it: Japanese readers and untranslated wording keep the source.
+// picks it: Japanese wording keeps the source for Japanese readers, and
+// untranslated wording keeps it for everyone.
 func localizedTitle(source string, translations sqlite.TranslationSet, l Locale) string {
-	if l == Japanese {
+	if l == Japanese && translations.SourceLanguage != nil && *translations.SourceLanguage == "ja" {
 		return source
 	}
 	if translation, ok := translations.Locales[string(l)]; ok && strings.TrimSpace(translation.Text) != "" {

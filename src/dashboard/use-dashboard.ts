@@ -29,6 +29,7 @@ const emptyDashboard: Dashboard = {
   resources: [],
   assets: [],
   scheduleImages: [],
+  liveNow: null,
   meta: {
     fetchedAt: null,
     sourceFetchedAt: { x: null, youtube: null, bilibili: null },
@@ -53,7 +54,7 @@ export interface ArchiveRequest {
   kind: ArchiveKind
   /** The schedule or post month shown; the video timeline ignores it. */
   monthStart: Date
-  /** Post archives only: one X handle, or null for every account. */
+  /** Post archives only: an X handle or Bilibili mid, or null for all. */
   account?: string | null
   /** Video archives only: one category, or null for every video. */
   category?: VideoCategory | null
@@ -206,7 +207,8 @@ function readCachedSnapshot(): Dashboard | null {
       )
     )
       return null
-    return mergeSnapshot(snapshot)
+    // A stored broadcast may have ended; only a fresh read says it is live.
+    return mergeSnapshot({ ...snapshot, liveNow: null })
   } catch {
     return null
   }

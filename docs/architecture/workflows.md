@@ -374,10 +374,13 @@ step is disabled by `SKIP_*`, its result records `{ skipped: true, reason:
 steps, sync settings and windows, so a failed run with a retryable failed
 step can be retried without any saved definition.
 
-`bilibili` paces itself: it reads the account's upload list at most once per
-`BILIBILI_MIN_INTERVAL_MINUTES` and never during a captcha backoff, so it is
-safe in a manual run soon after its timer (see
-[Bilibili](sources.md#bilibili)).
+`bilibili` paces itself: it reads the account's upload list, and then with
+`BILIBILI_SESSDATA` its dynamics, each at most once per
+`BILIBILI_MIN_INTERVAL_MINUTES` on its own clock and never during the shared
+captcha backoff, so it is safe in a manual run soon after its timer (see
+[Bilibili](sources.md#bilibili)). Its result keeps the upload counts at the
+top level and the listing's under `dynamics`; a failed listing after a
+successful upload read makes the step `partial`.
 
 `reconcile` derives the YouTube events of stored videos and applies the
 deterministic duplicate-merge rules in
@@ -387,7 +390,9 @@ deterministic duplicate-merge rules in
 Every run that includes `x`, `youtube`, `bilibili` or `schedule` (sync, scan,
 manual fetches, source schedules, Run now, step runs, WebSub pushes and MCP) appends it as its last
 step; it can also be selected alone. Its
-result counts `considered`, `merged`, `retargeted`, `released`, `kept` and
+result counts `releasesPaired` (see
+[Duplicate merging](data-model.md#bilibili-releases)), `considered`,
+`merged`, `retargeted`, `released`, `kept` and
 `ambiguous` events, `eventsTimed` and `eventsCreated` YouTube events, and
 `videosConsidered`, `videosMerged`, `videosReleased`, `videosKept` and
 `videosAmbiguous` uploads, and `tagged` surviving events whose label changed
@@ -419,10 +424,14 @@ live-status probe.
 
 ### Live-status probe
 
-The YouTube [live-status probe](sources.md#live-status-probe) has its own
-timer and its own operator interval, stored in `app_settings`
-(`youtube_live_probe_enabled`, default on; `youtube_live_probe_interval_minutes`,
-default 15, 5–360). It is edited in `/admin` (Sources → Live-status probe).
+The [live-status probe](sources.md#live-status-probe) asks YouTube about
+active videos and Bilibili about the account's
+[live room](sources.md#live-room). It has its own timer and its own operator
+settings, stored in `app_settings`: for YouTube `youtube_live_probe_enabled`
+(default on) and `youtube_live_probe_interval_minutes` (default 15, 5–360),
+for Bilibili `bilibili_live_probe_enabled` (default on) and
+`bilibili_live_probe_interval_minutes` (default 30, 10–360). They are edited
+in `/admin` (Sources → Live-status probe).
 Each active video is due by its phase against its reserved start (its actual
 start once on air), counted from its last successful check (a watch page or
 a Data API answer) or probe request, whichever is newer:
@@ -469,8 +478,22 @@ together, at 150 pages an hour; a regular YouTube step every 15 minutes (feed,
 streams page and up to 12 detail pages) is about 56 requests an hour. Longer
 than six hours would let a stale result outlive most streams. `live` is not
 a catalog step: step runs and full syncs never select it.
-`WORKFLOW_SCHEDULER_ENABLED=0` and `SKIP_YOUTUBE=1` stop the probe as well.
+`WORKFLOW_SCHEDULER_ENABLED=0` stops the probe; `SKIP_YOUTUBE=1` stops its
+YouTube part and `SKIP_BILIBILI=1` its Bilibili part.
 Page loads, refreshes and revision requests never start it.
+
+The Bilibili part follows the active stream and members-only entries of
+platform `bilibili` that start within the next 15 minutes or the last 24
+hours, through the same phases at the Bilibili interval; an entry whose
+broadcast the room already showed and ended, an ended entry and a manually
+confirmed cancellation are left out. Without a due entry the room is still asked
+about once per Bilibili interval after its last check (phase `baseline`), so
+an unannounced stream is seen. A due Bilibili check joins the same probe run
+as due YouTube videos and costs one request, never more; it never runs
+during the live host's backoff. Its counts are under `bilibili` in the run
+result (`targets`, `phase`, `requested`, `live`, `changed`, `errors`). At the
+default interval the baseline costs 48 requests a day, and one announced
+stream a few more around its start.
 
 ## Run Execution
 

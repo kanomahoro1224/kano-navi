@@ -34,12 +34,23 @@ const (
 	TranslationOriginMachine  = "machine"
 )
 
-// TranslationLocales are the target locales. Japanese readers see the source.
-var TranslationLocales = []string{"en", "zh-CN"}
+// TranslationLocales are the target locales. A locale whose language is the
+// detected source language needs no translation: a Japanese X post or
+// YouTube title needs en and zh-CN, a Chinese Bilibili dynamic en and ja.
+var TranslationLocales = []string{"en", "ja", "zh-CN"}
 
 // translationLanguages maps a target locale to the detected source language
 // that makes it unnecessary.
-var translationLanguages = map[string]string{"en": "en", "zh-CN": "zh"}
+var translationLanguages = map[string]string{"en": "en", "ja": "ja", "zh-CN": "zh"}
+
+// TranslationPostSources are the post sources the machine step translates.
+var TranslationPostSources = []string{"x", "bilibili"}
+
+// TranslatedPostSQL is a condition on the posts row aliased alias: its source
+// is one the machine step translates.
+func TranslatedPostSQL(alias string) string {
+	return alias + ".source IN ('" + strings.Join(TranslationPostSources, "','") + "')"
+}
 
 // SourceLanguages are the codes the machine step records: none means there is
 // no wording to translate (only links, tags, mentions or emoji).
@@ -70,7 +81,7 @@ type translationOwner struct {
 }
 
 var translationOwners = map[string]translationOwner{
-	TranslationOwnerPost:  {table: "posts", field: "text", source: "%[1]s.text", instant: "%[1]s.published_at", scope: "%[1]s.source = 'x'"},
+	TranslationOwnerPost:  {table: "posts", field: "text", source: "%[1]s.text", instant: "%[1]s.published_at", scope: "%[1]s.source IN ('x','bilibili')"},
 	TranslationOwnerVideo: {table: "videos", field: "title", source: videoTitleSource, instant: "COALESCE(%[1]s.scheduled_at, %[1]s.published_at)", scope: videoTranslationScope},
 }
 
@@ -121,9 +132,20 @@ func translationCoveredSQL(ownerType, alias, locale string) string {
 
 // translationNeededSQL is false only when the machine step found that the
 // current wording is already in the locale's language or has nothing to
-// translate; an owner it never saw needs every locale.
+// translate. An owner whose current wording it never saw needs en and zh-CN,
+// and ja only when it is a Bilibili dynamic: X posts and YouTube titles are
+// presumed Japanese until the step detects otherwise, so a title that
+// platform rows already cover is not sent for ja alone.
 func translationNeededSQL(ownerType, alias, locale string) string {
 	o := translationOwners[ownerType]
+	if locale == "ja" {
+		presumed := "0"
+		if ownerType == TranslationOwnerPost {
+			presumed = alias + ".source = 'bilibili'"
+		}
+		return fmt.Sprintf(`COALESCE((SELECT ts.source_language NOT IN ('ja', 'none') FROM translation_states ts WHERE ts.owner_type = '%s' AND ts.owner_id = %s.id AND ts.field = '%s' AND ts.source_hash = translation_hash(%s)), %s)`,
+			ownerType, alias, o.field, o.sourceSQL(alias), presumed)
+	}
 	return fmt.Sprintf(`NOT COALESCE((SELECT ts.source_hash = translation_hash(%s) AND ts.source_language IN ('%s', 'none') FROM translation_states ts WHERE ts.owner_type = '%s' AND ts.owner_id = %s.id AND ts.field = '%s'), 0)`,
 		o.sourceSQL(alias), translationLanguages[locale], ownerType, alias, o.field)
 }
@@ -545,6 +567,9 @@ func (s *Store) AdminTranslations(ctx context.Context, ownerType string, ids []s
 					entry.Status = "source"
 				case item.SourceLanguage != nil && *item.SourceLanguage == "none":
 					entry.Status = "not_needed"
+				case item.SourceLanguage == nil && locale == "ja" && !(ownerType == TranslationOwnerPost && strings.HasPrefix(id, "bilibili-")):
+					// Presumed Japanese until detected (see translationNeededSQL).
+					entry.Status = "source"
 				case stale:
 					entry.Status = "stale"
 				}
@@ -571,6 +596,8 @@ func TranslationErrorCode(message string) string {
 		return "no_structured_output"
 	case "translation result is missing en":
 		return "missing_translation_en"
+	case "translation result is missing ja":
+		return "missing_translation_ja"
 	case "translation result is missing zh-CN":
 		return "missing_translation_zh_cn"
 	case "translation result was not an object", "translation result has an unknown source language", "translation result is too long":
@@ -612,9 +639,12 @@ func (s *Store) TranslationSummary(ctx context.Context) (map[string]TranslationC
 // TranslationCandidate is one current wording the machine step may translate.
 type TranslationCandidate struct {
 	OwnerType, OwnerID, Field, Text, SourceHash string
-	Requested                                   bool
-	attempt                                     string
-	instant                                     string
+	// Source is the owner's source: x or bilibili for a post, youtube for a
+	// video.
+	Source    string
+	Requested bool
+	attempt   string
+	instant   string
 }
 
 // ListTranslationCandidates returns up to limit owners in the machine scope
@@ -630,7 +660,7 @@ func (s *Store) ListTranslationCandidates(ctx context.Context, since time.Time, 
 	all := []TranslationCandidate{}
 	for _, ownerType := range []string{TranslationOwnerPost, TranslationOwnerVideo} {
 		o := translationOwners[ownerType]
-		query := fmt.Sprintf(`SELECT o.id, %[2]s, COALESCE(ts.requested, 0), CASE WHEN ts.source_hash = translation_hash(%[2]s) THEN COALESCE(ts.last_attempt_at, '') ELSE '' END, COALESCE(%[3]s, '')
+		query := fmt.Sprintf(`SELECT o.id, o.source, %[2]s, COALESCE(ts.requested, 0), CASE WHEN ts.source_hash = translation_hash(%[2]s) THEN COALESCE(ts.last_attempt_at, '') ELSE '' END, COALESCE(%[3]s, '')
 			FROM %[1]s o LEFT JOIN translation_states ts ON ts.owner_type = ? AND ts.owner_id = o.id AND ts.field = ?
 			WHERE %[4]s AND (COALESCE(ts.requested, 0) = 1 OR (julianday(%[3]s) >= julianday(?) AND %[5]s))
 			ORDER BY COALESCE(ts.requested, 0) DESC, julianday(%[3]s) DESC, o.id ASC LIMIT 2000`,
@@ -641,7 +671,7 @@ func (s *Store) ListTranslationCandidates(ctx context.Context, since time.Time, 
 		}
 		for rows.Next() {
 			item := TranslationCandidate{OwnerType: ownerType, Field: o.field}
-			if err := rows.Scan(&item.OwnerID, &item.Text, &item.Requested, &item.attempt, &item.instant); err != nil {
+			if err := rows.Scan(&item.OwnerID, &item.Source, &item.Text, &item.Requested, &item.attempt, &item.instant); err != nil {
 				rows.Close()
 				return nil, dbErr(err)
 			}

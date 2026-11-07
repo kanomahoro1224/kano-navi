@@ -701,34 +701,74 @@ poll.
 
 ### Bilibili
 
-The `bilibili` step reads the uploads of `BILIBILI_UID` (Kano's account by
-default) from Bilibili's public web API, `api.bilibili.com`, using only
-endpoints that need no request signature:
+The `bilibili` step reads the uploads and the dynamics (动态) of
+`BILIBILI_UID` (Kano's account by default); the [live-status
+probe](workflows.md#live-status-probe) checks its live room. Every request
+goes to one of three fixed hosts: `api.bilibili.com`, `www.bilibili.com`
+(the opus page of one dynamic only) and `api.live.bilibili.com`. Uploads use
+only endpoints that need no request signature:
 
 - `/x/frontend/finger/spi` returns the anonymous device identity
-  (`buvid3`/`buvid4`) Bilibili's own pages send. It is reused for seven days
-  and kept in `sync_state` (source `bilibili`).
+  (`buvid3`/`buvid4`) Bilibili's own pages send; its `b_nut` is when it was
+  issued. It is reused for seven days and kept in `sync_state` (source
+  `bilibili`).
+- `POST /bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket` returns the
+  `bili_ticket` cookie (a JWT valid about three days), signed as Bilibili's
+  web script signs it (`key_id` `ec02`, `hexsign` an HMAC-SHA256 of
+  `ts<unix seconds>`, `context[ts]`, an empty `csrf`). It is kept with the
+  device identity and renewed six hours before it expires, and its answer
+  also names the current WBI keys. A failed ticket request is not a
+  failure: the read goes on without it.
 - `/x/series/recArchivesByKeywords` lists the account's newest 20 uploads
   with title, cover, publication time, length and description. Entries of
   another uploader are skipped.
 - `/x/web-interface/view` reads one upload for an operator.
 
-Bilibili answers a few anonymous requests and then puts the server's address
-behind a captcha for hours: HTTP 412, an HTML page, or the JSON codes `-352`
-and `-412`. The client never retries and reports these as
-`bilibili_risk_control` (`-799`/`-509`/429 as `bilibili_rate_limited`). The
-adapter then waits 6 hours, doubled for each consecutive block up to a day,
-and the step makes no request until then; independently, list reads are at
-least `BILIBILI_MIN_INTERVAL_MINUTES` (180 by default) apart, which is also
-the shortest Bilibili schedule interval. A skipped read records `{ skipped: true, reason: "interval" |
-"blocked" }`; a failed one records its code as a failed step without a retry,
-keeps every stored upload, and lets the rest of the run continue.
+Every request reads like Bilibili's own pages: one desktop browser user
+agent (`BrowserUserAgent` in `backend/internal/source/bilibili/client.go`,
+updated deliberately together with this page), `Accept-Language:
+zh-CN,zh;q=0.9`, the page it comes from as `Referer` (the space for the
+upload list and the listing, the video page for one upload, the home page
+for the device identity, ticket and `nav`, `https://live.bilibili.com/` for
+the live host) and, on the API hosts, that page's `Origin`. The device
+cookies (`buvid3`, `buvid4`, `b_nut`, `bili_ticket` and
+`bili_ticket_expires`) go to `api.bilibili.com` and the opus page, never to
+the live host; the device-identity request sends none.
 
-`BILIBILI_SESSDATA` optionally adds an operator's login cookie to the API
-requests (never to the device-identity request). Signed-in reads meet the
-captcha far less often. The cookie stays in memory: it is not part of the
-persisted state, not logged and not returned; see
+Bilibili still puts an address behind a captcha for hours at times. The
+client never retries and names how Bilibili answered:
+`bilibili_risk_control_http` (HTTP 412), `bilibili_risk_control_page` (an
+HTML captcha page, or an opus page without its state),
+`bilibili_risk_control_352` and `bilibili_risk_control_412` (the JSON codes)
+and `bilibili_risk_control_voucher` (a `v_voucher` instead of the listing);
+`-799`/`-509`/429 are `bilibili_rate_limited`. Each starts the same backoff:
+the adapter waits 6 hours, doubled for each consecutive block up to a day,
+and the step makes no `api.bilibili.com` or `www.bilibili.com` request until
+then; independently, upload reads are at least
+`BILIBILI_MIN_INTERVAL_MINUTES` (180 by default) apart, which is also the
+shortest Bilibili schedule interval. A skipped read records `{ skipped: true,
+reason: "interval" | "blocked" }`; a failed one records its code as a failed
+step without a retry, keeps every stored upload and post, and lets the rest
+of the run continue.
+
+`BILIBILI_SESSDATA` optionally adds an operator's login cookie to the
+`api.bilibili.com` requests (never to the device-identity or ticket request,
+the opus page or the live host). Signed-in reads meet the captcha far less
+often, and the dynamics listing needs one. The cookie is verified at most once
+a day through `nav`'s `isLogin`, when the listing runs; while the latest check
+found it expired, no request sends it and the listing waits for the next
+check (`dynamics: { skipped: true, reason: "login_expired" }`, error
+`bilibili_login_expired`). The console reports `signed_in`, `expired`,
+`unchecked` or `not_configured`. The cookie stays in memory: it is not part of
+the persisted state, not logged and not returned; see
 [Configuration](../operations/configuration.md).
+
+An operator's single read (one upload, one dynamic) answers
+`bilibili_blocked` during a backoff without a request, unless the operator
+forces it once from the console (`force`, see
+[Admin API](admin-api.md#bilibili-uploads)). A forced read that succeeds
+lifts the backoff; one that fails extends it as usual. Listing and timer
+reads are never forced.
 
 Uploads are `videos` rows with `source = 'bilibili'` and the BV ID as their
 ID, linked to `https://www.bilibili.com/video/<BV>`. Their kind is `upload`:
@@ -736,9 +776,9 @@ Bilibili reports no broadcast facts, and its categories say nothing about the
 content, which the [video tag](data-model.md#video-form-and-tags) carries;
 the description and `aid` stay in `raw_json`. Every list read replaces the
 platform fields and keeps a replaced title or cover in `video_revisions`, as
-YouTube does; operator corrections survive. Covers come only from
-`*.hdslb.com`, upgraded to HTTPS, and are cached under `data/bilibili/` by
-the media step.
+YouTube does; operator corrections survive. Covers and dynamic pictures come
+only from `*.hdslb.com`, upgraded to HTTPS, and are cached under
+`data/bilibili/` by the media step.
 
 Bilibili uploads stay in the console: the board, the video archive and MCP
 list only YouTube videos, so one cover is never listed twice. The `reconcile`
@@ -755,13 +795,101 @@ than the writer's), with its failure count and code: a captcha backoff is
 never lost. A read that changes a merged upload's title rewrites the
 translation in the same transaction.
 
+#### Dynamics
+
+The dynamics listing,
+`/x/polymer/web-dynamic/v1/feed/space?host_mid=<mid>`, answers reliably only
+to a signed-in caller, so it runs only with `BILIBILI_SESSDATA`
+([ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)).
+Without the cookie the step records `dynamics: { skipped: true, reason:
+"login_required" }` and makes no anonymous attempt. The listing is signed
+with Bilibili's WBI scheme (`wts` and `w_rid` from the rotating keys that
+the ticket or `/x/web-interface/nav` names); the keys are cached for 12
+hours and dropped after a `v_voucher` or `-352` answer, which may mean they
+rotated. A signed-out `nav` answer, or `-101` from the listing, is
+`bilibili_login_expired`. The listing shares the upload read's captcha
+backoff, so a block either one met holds both back, and runs on its own
+clock at least `BILIBILI_MIN_INTERVAL_MINUTES` apart, after the upload read
+in the same step. One read requests the first page only: the listing itself,
+plus `nav` for the daily login check or stale keys, and the device identity
+and ticket when they are due.
+
+A listing keeps the account's own `DYNAMIC_TYPE_WORD` and `DYNAMIC_TYPE_DRAW`
+items (the opus and picture cards), and `DYNAMIC_TYPE_ARTICLE` items only in
+their `MAJOR_TYPE_OPUS` form, whose text comes from the opus summary. Reposts are left out, as on X; uploads
+and collection updates belong to the upload read; a live-start notice is not
+a post. The stored text joins the nodes' text (words, topics, mentions,
+links) and leaves out emoji nodes (`RICH_TEXT_NODE_TYPE_EMOJI`); an opus
+title leads it. The nodes, emoji included, stay in `raw_json`. An
+emoji-only dynamic therefore has empty text and is translated as `none`
+without a model call. Up to nine pictures are kept as the post's images.
+
+Dynamics are `posts` rows with `source = 'bilibili'`, the ID
+`bilibili-<id_str>` (dynamic and X status IDs are both numbers of about 19
+digits and share `posts.id`), `account_handle` the mid, `url`
+`https://www.bilibili.com/opus/<id_str>` and `published_at` the publication
+time in UTC. They have no engagement counts and no quote. A read replaces a
+dynamic's text, time and pictures, keeps an operator's hide, and advances
+the dashboard revision only when the text, time, link, pictures or hide
+changed. Its pictures are `post-image` links, so they feed
+[schedule extraction](#schedule-extraction-pipeline) once cached; a
+schedule board on a Bilibili picture is not registered as a
+[schedule image](#schedule-images).
+
+An operator adds or re-reads one dynamic by its `bilibili.com/opus/<id>` or
+`t.bilibili.com/<id>` link from `/admin` (see
+[Admin API](admin-api.md#bilibili-uploads)). That read takes the dynamic from
+the server-rendered state (`window.__INITIAL_STATE__`) of its
+`www.bilibili.com/opus/<id>` page, which needs no login; it respects the
+captcha backoff and accepts only dynamics of the configured account whose
+comment area is a post's (`basic.comment_type` 11 pictures, 12 article, 17
+text) and that the page shows without a fallback; any other is
+`bilibili_unsupported_dynamic`.
+
+#### Live room
+
+The account's live room is not configured: each live check learns it.
+The [live-status probe](workflows.md#live-status-probe) asks
+`api.live.bilibili.com/room/v1/Room/get_status_info_by_uids?uids[]=<mid>`,
+which needs no cookie, about the account's room in one request, and keeps
+the answer's `room_id` with the rest of the state. Only `live_status` 1 is a
+broadcast (0 is off air and 2 a rotation of recordings, which is not live);
+`live_time` is its actual start. A live answer without `live_time` is live
+with an unknown start: the broadcast already seen, or one that started by
+that check; it never ends a broadcast. The live host has its own captcha backoff,
+with the same 6-hour doubling. The state (room, title, status, start,
+checked and attempted times, backoff) is kept in `sync_state` (source
+`bilibili-live`, the mid as account), together with the start of the last
+broadcast seen live, the last check that saw it live and the first later
+check that saw the room off air.
+
+Entries are tied to the room by their [platform](data-model.md#event-platforms),
+never by a link: the room's link is the same for every broadcast, while
+readers treat an entry's link as the identity of one broadcast. Public reads
+add the room as `liveUrl` to every entry of platform `bilibili` and type
+`stream` or `member` once a check learned the room, so entries extracted
+before the first check get it too and a changed room needs no rewrite. A
+broadcast starting at L is the entry starting at S when S−2h ≤ L ≤ S+3h; of
+several, the nearest, and one broadcast matches one entry at most. That entry
+is `live` while the check is younger than two Bilibili check intervals, and
+`ended` once a later check saw the room off air. The last check that saw the
+broadcast live is its approximate end, kept in the state and shown in the
+console; it is never written as the entry's `ends_at`. Bilibili has no
+reservation state, so no entry is `upcoming` from the room; an entry's own
+start drives that. A live broadcast that matches no stored entry creates no
+entry: the dashboard reports it as `liveNow` (see
+[Public API](public-api.md#public-snapshot-contract)). Raw answers, counters
+and errors stay in the console.
+
 ### Source Request Limits
 
 Every source client requests fixed destinations with a 10-second timeout
 (the X API, manual or in the chain, uses the request timeout setting; see
 [X API method](workflows.md#x-api-method))
 that stays active through body consumption, rejects redirects, and records
-only controlled error codes. Response bodies are limited to 4 MiB for X and
+only controlled error codes. The Bilibili client builds its URLs itself on
+its three fixed hosts and checks the mid and the dynamic ID before a
+request. Response bodies are limited to 4 MiB for X and
 YouTube and 2 MiB for Bilibili; a timed-out or oversized stream is cancelled
 and releases its reader so the single-flight queue can run a subsequent job.
 
@@ -783,18 +911,20 @@ Schedule extraction has two independent candidate paths:
    posts that look like a schedule image or board; its posts are recorded with
    the `schedule_board` detection route.
 2. The single-message path applies a cheap local date/time and scheduling-verb
-   heuristic to ordinary X messages, including messages without a configured
-   keyword. Suspected messages are recorded with the `schedule_message`
+   heuristic to ordinary X posts and Bilibili dynamics, including messages
+   without a configured keyword. A Bilibili dynamic also matches the Chinese
+   words 今天, 明天, 后天, `<n>点`, 北京时间, 直播, 开播, 播, 开始, 预约,
+   上传 and 投稿. Suspected messages are recorded with the `schedule_message`
    detection route, and the model first classifies the post as `schedule`,
    `not_schedule`, or `uncertain` before extracting events. With `schedule_message_all_posts`
-   enabled, the path skips the heuristic and selects every X post with text or
+   enabled, the path skips the heuristic and selects every post with text or
    images; each new post then costs one model call, still within the shared
    scan limit.
 
 The model text starts with the stored publication timestamp followed by its
-Asia/Tokyo date, weekday, and time, so relative dates such as 今日, 明日, or a
-bare weekday resolve without a UTC conversion. Fingerprints use the stored
-timestamp alone.
+date, weekday, and time in the source's zone (Asia/Tokyo for X, Asia/Shanghai
+for Bilibili), so relative dates such as 今日, 明天, or a bare weekday resolve
+without a UTC conversion. Fingerprints use the stored timestamp alone.
 
 Every returned entry must pass the event check: a non-blank title, a real
 `YYYY-MM-DD` date, `HH:MM` times (an end time only with a start time, or for
@@ -819,13 +949,52 @@ deadline as both dates and no start time. The close is stored as the
 other type, and a shipping or delivery date is not an entry. A sale's
 `endTime` without `endDate` closes it on the Japan date that time falls on.
 
-The two candidate lists are merged, de-duplicated by X post ID, sorted by
+The two candidate lists are merged, de-duplicated by post ID, sorted by
 least recent attempt (unattempted posts first), with publication time as a tie
 breaker. The shared limit counts candidates requiring work; unchanged fingerprint
 cache hits and posts held back by the failure backoff below do not consume it.
 Failures and blocked candidates move behind older
 unattempted work on later scans. Manual reprocess requests still run first. A post selected by the
 board path is not sent a second time through the message path in the same scan.
+
+#### Source time zones
+
+A Bilibili dynamic gets its own prompt: a Chinese dynamic written for
+Chinese viewers, with times in Beijing time unless it says Japan time. The
+model gives each entry's date and times as written and names their zone in
+`timeZone` (`Asia/Tokyo` or `Asia/Shanghai`, or an alias such as `CST`,
+`UTC+8`, `北京时间`, `JST` or `UTC+9`); code converts them to
+Asia/Tokyo, including the day rollover (Beijing 23:30 is 00:30 the next day
+in Japan), so the model does no time arithmetic
+([ADR-0008](../decisions/ADR-0008-source-time-zones-in-code.md)). An entry
+without a known `timeZone` is in the source's zone, never an invalid
+entry. X posts keep the Japan prompt and schema, and their entries are always
+Asia/Tokyo whatever `timeZone` a model adds.
+
+Events of a Bilibili dynamic have IDs `bilibili-schedule-<date>-<hash>`,
+`events.source` and `event_sources.source` `bilibili`, and the dynamic's opus
+page as the `event_sources` link. Extraction results and post states of a
+dynamic are stored with source `bilibili` under its post ID.
+
+Every entry, of either source, names its `platform`: `youtube`, `bilibili`,
+`other` (another platform, or someone else's channel or room such as a
+collaboration) or `unknown`. An unknown or invalid value is `unknown`, never
+an invalid entry. A YouTube link makes an entry `youtube`; a dynamic's
+stream or members-only stream that names none is `bilibili`, and so is a
+stream or release of an X post that calls it Bilibili-only (bilibili限定,
+B站限定, B限 as its own word rather than the end of WEB限定, ビリビリ限定)
+without also naming YouTube, since such a post
+may announce a simulcast. The model gives a link only when the post does: an
+entry keeps the post's link, or the model's explicit one. A live-room link
+(`live.bilibili.com`) never stays as an entry's link, since reads add the
+room as `liveUrl` (see [Live room](#live-room)): it makes the entry
+`bilibili` and the entry keeps the post's link, unless the entry is `other`,
+a collaboration in someone else's room, which keeps that link and gets no
+live state.
+
+Reconciliation links a dynamic's release to the upload it announced and
+merges an X notice of a Bilibili stream into the dynamic's entry (see
+[Duplicate merging](data-model.md#duplicate-merging)).
 
 #### Extraction Failure Backoff
 
@@ -1128,11 +1297,12 @@ check failed, and in a forced pass.
 
 ### Translation
 
-The `translate` step machine-translates X post text and YouTube video titles
-into English and Simplified Chinese (see
+The `translate` step machine-translates X post and Bilibili dynamic text and
+YouTube video titles into English, Japanese and Simplified Chinese, each
+locale only when it is not the detected source language (see
 [Translations](data-model.md#translations) for storage and precedence).
-Bilibili metadata is already Chinese and is never sent to a model, and the
-step never requests a source. Its models come only from the separate
+Bilibili upload titles are already Chinese and are never sent to a model,
+and the step never requests a source. Its models come only from the separate
 translation queue (`llm_route_targets.route = 'translate'`), configured in
 `/admin` → Models; it never falls back to the extraction queue. Targets need
 the `text` tag. Each target gets at most three calls before moving to the
@@ -1151,10 +1321,12 @@ by a manual or platform row is not a reason to call a model.
 
 Wording with only links, hashtags, mentions or emoji is recorded as
 `skipped` with language `none` without a call; wording over 4000 characters
-is skipped without a call. The model receives the kind (X post or YouTube video
-title) and the text, returns `sourceLanguage` plus English and Simplified
-Chinese, and is told to keep URLs, tags, mentions, emoji and bracketed
-channel tags. A result is accepted only with a known language and a
+is skipped without a call. The model receives the kind (X post, Bilibili dynamic or YouTube video
+title) and the text, returns `sourceLanguage` plus English, Japanese and
+Simplified Chinese, and is told to keep URLs, tags, mentions, emoji,
+bracketed emoji codes and bracketed channel tags, and to keep times as
+written with their zone (北京时间17点 becomes 17:00 Beijing time; converting
+a time belongs to extraction). A result is accepted only with a known language and a
 non-empty, bounded translation for every locale that differs from it. The
 result is stored only if the wording still has the hash that was sent.
 The translation fields hold the complete displayed text. Preserving an

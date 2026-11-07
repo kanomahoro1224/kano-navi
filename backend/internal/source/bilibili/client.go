@@ -1,11 +1,14 @@
-// Package bilibili reads the public uploads of one Bilibili account.
+// Package bilibili reads the public uploads, dynamics and live room of one
+// Bilibili account.
 //
 // Bilibili's anonymous web API answers a few requests and then puts the
 // caller's address behind a captcha (HTTP 412 or an HTML page, sometimes the
 // JSON codes -352 and -412) for hours. The client therefore makes one request
 // per call, never retries, reports that state as bilibili_risk_control, and
-// leaves the waiting to the adapter's persisted backoff. It reads only
-// endpoints that need no signature and no login.
+// leaves the waiting to the adapter's persisted backoff. It requests a fixed
+// set of hosts: api.bilibili.com (uploads, the device identity, the WBI keys
+// and the signed-in dynamics listing), www.bilibili.com (one dynamic's opus
+// page only) and api.live.bilibili.com (the live room status).
 package bilibili
 
 import (
@@ -26,20 +29,55 @@ import (
 // smaller.
 const MaxResponseBytes = 2 * 1024 * 1024
 
-const apiHost = "api.bilibili.com"
+// The fixed destinations. The login cookie goes only to apiHost; the opus
+// page gets the device identity alone and the live host no cookie at all.
+const (
+	apiHost  = "api.bilibili.com"
+	wwwHost  = "www.bilibili.com"
+	liveHost = "api.live.bilibili.com"
+)
 
 type Error struct{ Code string }
 
 func (e *Error) Error() string { return e.Code }
 
-// Session is the anonymous device identity Bilibili's own pages request
-// before calling the API, plus the operator's optional login cookie. Only
-// the device identity is persisted; Login comes from the environment on every
-// request and is never stored, logged or returned.
+// Session is the anonymous device identity Bilibili's own pages keep in
+// their cookies (buvid3, buvid4, b_nut and the bili_ticket JWT), plus the
+// operator's optional login cookie. Only the device identity is persisted;
+// Login comes from the environment on every request and is never stored,
+// logged or returned.
 type Session struct {
 	Buvid3 string `json:"buvid3"`
 	Buvid4 string `json:"buvid4"`
-	Login  string `json:"-"`
+	// Nut is the device's first visit (b_nut), unix seconds.
+	Nut int64 `json:"bNut,omitempty"`
+	// Ticket is the bili_ticket cookie; TicketAt and TicketTTL are when it
+	// was issued and how long it lasts, in seconds.
+	Ticket    string `json:"ticket,omitempty"`
+	TicketAt  int64  `json:"ticketAt,omitempty"`
+	TicketTTL int64  `json:"ticketTTL,omitempty"`
+	Login     string `json:"-"`
+}
+
+// BrowserUserAgent is the desktop browser every request names, as Bilibili's
+// own pages are read; an unknown client is far more often sent to the
+// captcha. It is updated deliberately, together with the docs.
+const BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.163 Safari/537.36"
+
+// cookie is the Cookie header for a request: the device identity, then the
+// login cookie when login is set and the host is the API.
+func (s Session) cookie(login bool, host string) string {
+	parts := []string{"buvid3=" + s.Buvid3, "buvid4=" + s.Buvid4}
+	if s.Nut > 0 {
+		parts = append(parts, "b_nut="+strconv.FormatInt(s.Nut, 10))
+	}
+	if ticketPattern.MatchString(s.Ticket) {
+		parts = append(parts, "bili_ticket="+s.Ticket, "bili_ticket_expires="+strconv.FormatInt(s.TicketAt+s.TicketTTL, 10))
+	}
+	if login && host == apiHost && sessdata.MatchString(s.Login) {
+		parts = append(parts, "SESSDATA="+s.Login)
+	}
+	return strings.Join(parts, "; ")
 }
 
 func (s Session) valid() bool {
@@ -53,7 +91,15 @@ var (
 	// sessdata is the login cookie as browsers store it (URL-encoded, so no
 	// separators that could add another cookie or header).
 	sessdata = regexp.MustCompile(`^[A-Za-z0-9%*,._-]{16,512}$`)
+	// ticketPattern is a JWT: three base64url parts.
+	ticketPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{8,512}\.[A-Za-z0-9_-]{8,1000}\.[A-Za-z0-9_-]{8,512}$`)
 )
+
+// IsRiskControl reports a code that starts the captcha backoff: one of the
+// risk-control answers, split by how Bilibili gave it, or a rate limit.
+func IsRiskControl(code string) bool {
+	return strings.HasPrefix(code, "bilibili_risk_control") || code == "bilibili_rate_limited"
+}
 
 type Client struct{ http *http.Client }
 
@@ -69,22 +115,42 @@ func NewClient(client *http.Client) *Client {
 
 // get requests one api.bilibili.com path and returns the envelope's data.
 func (c *Client) get(ctx context.Context, path string, query url.Values, referer string, session *Session) (json.RawMessage, error) {
-	u := url.URL{Scheme: "https", Host: apiHost, Path: path, RawQuery: query.Encode()}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	body, err := c.fetch(ctx, apiHost, path, query.Encode(), referer, "application/json", session, true)
+	if err != nil {
+		return nil, err
+	}
+	return envelope(body)
+}
+
+// fetch requests one path on a fixed host with GET and returns the bounded
+// body.
+func (c *Client) fetch(ctx context.Context, host, path, rawQuery, referer, accept string, session *Session, login bool) ([]byte, error) {
+	return c.do(ctx, http.MethodGet, host, path, rawQuery, referer, accept, session, login)
+}
+
+// do requests one path on a fixed host as a browser would: its user agent
+// and language, the page it came from as Referer and, for the API hosts,
+// that page's Origin. The device identity is sent when session is set, and
+// the login cookie only when login is true as well and the host is the API.
+func (c *Client) do(ctx context.Context, method, host, path, rawQuery, referer, accept string, session *Session, login bool) ([]byte, error) {
+	u := url.URL{Scheme: "https", Host: host, Path: path, RawQuery: rawQuery}
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
 	if err != nil {
 		return nil, &Error{"bilibili_invalid_request"}
 	}
-	req.Header.Set("User-Agent", "kano-navi-go/source-sync")
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", BrowserUserAgent)
+	req.Header.Set("Accept", accept)
+	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
 	if referer != "" {
 		req.Header.Set("Referer", referer)
+		if host != wwwHost {
+			if from, parseErr := url.Parse(referer); parseErr == nil && from.Host != "" {
+				req.Header.Set("Origin", from.Scheme+"://"+from.Host)
+			}
+		}
 	}
 	if session != nil {
-		cookie := "buvid3=" + session.Buvid3 + "; buvid4=" + session.Buvid4
-		if sessdata.MatchString(session.Login) {
-			cookie += "; SESSDATA=" + session.Login
-		}
-		req.Header.Set("Cookie", cookie)
+		req.Header.Set("Cookie", session.cookie(login, host))
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -101,9 +167,11 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, referer
 	case resp.StatusCode >= 300 && resp.StatusCode < 400:
 		return nil, &Error{"bilibili_redirect_rejected"}
 	case resp.StatusCode == http.StatusPreconditionFailed:
-		return nil, &Error{"bilibili_risk_control"}
+		return nil, &Error{"bilibili_risk_control_http"}
 	case resp.StatusCode == http.StatusTooManyRequests:
 		return nil, &Error{"bilibili_rate_limited"}
+	case resp.StatusCode == http.StatusNotFound && host == wwwHost:
+		return nil, &Error{"bilibili_not_found"}
 	case resp.StatusCode >= 500:
 		return nil, &Error{"bilibili_upstream_5xx"}
 	case resp.StatusCode != http.StatusOK:
@@ -116,11 +184,12 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, referer
 	if len(body) > MaxResponseBytes {
 		return nil, &Error{"bilibili_response_oversized"}
 	}
-	return envelope(body)
+	return body, nil
 }
 
 // envelope reads Bilibili's {code, message, data}. An HTML answer is the
-// captcha page.
+// captcha page. The risk-control codes name how Bilibili answered, for
+// diagnosis; IsRiskControl treats them alike.
 func envelope(body []byte) (json.RawMessage, error) {
 	var out struct {
 		Code *int            `json:"code"`
@@ -128,19 +197,23 @@ func envelope(body []byte) (json.RawMessage, error) {
 	}
 	if json.Unmarshal(body, &out) != nil || out.Code == nil {
 		if strings.Contains(strings.ToLower(string(body[:min(len(body), 512)])), "<!doctype html") {
-			return nil, &Error{"bilibili_risk_control"}
+			return nil, &Error{"bilibili_risk_control_page"}
 		}
 		return nil, &Error{"bilibili_invalid_response"}
 	}
 	switch *out.Code {
 	case 0:
 		return out.Data, nil
-	case -352, -412:
-		return nil, &Error{"bilibili_risk_control"}
+	case -352:
+		return nil, &Error{"bilibili_risk_control_352"}
+	case -412:
+		return nil, &Error{"bilibili_risk_control_412"}
 	case -799, -509:
 		return nil, &Error{"bilibili_rate_limited"}
-	case -404, 62002, 62004, 62012:
+	case -404, 4101131, 4101105, 62002, 62004, 62012:
 		return nil, &Error{"bilibili_not_found"}
+	case -101:
+		return nil, &Error{"bilibili_login_expired"}
 	}
 	return nil, &Error{"bilibili_api_error"}
 }

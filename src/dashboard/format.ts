@@ -324,6 +324,16 @@ export function eventStatus(event: ScheduleEvent, now = Date.now()) {
   return "done"
 }
 
+/**
+ * The link an entry follows: a stream or membership entry's Bilibili live
+ * room once known, else its own link (the source post or operator's link).
+ */
+export function eventLink(event: ScheduleEvent) {
+  if (event.liveUrl && ["stream", "member"].includes(event.eventType))
+    return event.liveUrl
+  return event.url
+}
+
 export function eventIsManual(event: ScheduleEvent) {
   return event.provenance === "manual" || Boolean(event.manualLocked)
 }

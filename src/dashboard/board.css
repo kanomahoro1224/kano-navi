@@ -2887,6 +2887,18 @@
   color: var(--berry);
 }
 
+/* A Bilibili dynamic names its source with the platform mark. */
+.post-note-handle.is-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.post-note-handle.is-source svg {
+  width: 14px;
+  height: 14px;
+}
+
 .post-note-head time {
   color: var(--soft);
   font-size: 12px;
@@ -3287,6 +3299,15 @@
   display: grid;
   padding: 6px 10px;
   place-items: center;
+}
+
+/* A platform mark in an account filter, such as bilibili's. */
+.segmented .account-mark {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 4px;
+  vertical-align: -2px;
 }
 
 .segmented.is-icons svg {

@@ -13,12 +13,13 @@ import { Badge, Button, Modal, type Tone } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { cn } from "@/lib/utils"
 
-// Translations of X post text and YouTube video titles: readers see a manual
+// Translations of post text and video titles: readers see a manual
 // translation, then a platform's, then a model's. Posts and videos share
 // these parts; the owner type names which one an ID belongs to.
 
 const localeShort: Record<TranslationLocale, string> = {
   en: "EN",
+  ja: "日",
   "zh-CN": "中",
 }
 

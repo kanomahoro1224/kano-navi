@@ -72,7 +72,7 @@ external work:
     "suspectedCancellations", // events with an LLM cancellation overlay
     "failedPosts",            // posts with a failed extraction or translation
     "failedExtractions",      // posts whose last extraction failed
-    "failedTranslations",     // X posts whose current wording failed machine translation and still lacks a translation
+    "failedTranslations",     // X and Bilibili posts whose current wording failed machine translation and still lacks a translation
     "videoMerges"             // unmerged Bilibili uploads the merge rule leaves to the operator
   },
   "counts": {"upcomingEvents", "events", "posts", "videos"}
@@ -215,29 +215,31 @@ value, and another field or value answers `400 invalid_input`.
 
 ## Sources
 
-| Method and path                               | Body                                      | Result                         |
-| --------------------------------------------- | ----------------------------------------- | ------------------------------ |
-| `GET /sources`                                |                                           | per-source status (below)      |
-| `PUT /sources/{source}/schedule`              | `{enabled, intervalMinutes, sync, chain}` | `SourceSchedule`               |
-| `POST /sources/{source}/schedule/start`       |                                           | `SourceSchedule`               |
-| `POST /sources/{source}/run`                  |                                           | `202 {run}`; `409 busy`        |
-| `GET /sources/youtube/push`                   |                                           | push status                    |
-| `PUT /sources/youtube/push`                   | `{enabled, callbackUrl}`                  | push status                    |
-| `POST /sources/youtube/push/rotate-secret`    |                                           | push status                    |
-| `GET /sources/youtube/live-probe`             |                                           | live probe status              |
-| `PUT /sources/youtube/live-probe`             | `{enabled, intervalMinutes}`              | live probe status              |
-| `PUT /sources/youtube/live-probe/videos/{id}` | `{stopped}`                               | live probe status              |
-| `GET /sources/youtube/ytdlp`                  |                                           | `{available, version}`         |
-| `POST /sources/youtube/ytdlp/update`          |                                           | updated `{available, version}` |
-| `GET /sync-settings`                          |                                           | `{settings, fields}`           |
-| `PUT /sync-settings`                          | any subset of the setting fields          | `{settings, fields}`           |
+| Method and path                               | Body                                                                               | Result                         |
+| --------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------ |
+| `GET /sources`                                |                                                                                    | per-source status (below)      |
+| `PUT /sources/{source}/schedule`              | `{enabled, intervalMinutes, sync, chain}`                                          | `SourceSchedule`               |
+| `POST /sources/{source}/schedule/start`       |                                                                                    | `SourceSchedule`               |
+| `POST /sources/{source}/run`                  |                                                                                    | `202 {run}`; `409 busy`        |
+| `GET /sources/youtube/push`                   |                                                                                    | push status                    |
+| `PUT /sources/youtube/push`                   | `{enabled, callbackUrl}`                                                           | push status                    |
+| `POST /sources/youtube/push/rotate-secret`    |                                                                                    | push status                    |
+| `GET /sources/youtube/live-probe`             |                                                                                    | live probe status              |
+| `PUT /sources/youtube/live-probe`             | `{enabled, intervalMinutes, bilibiliEnabled, bilibiliIntervalMinutes}`, any subset | live probe status              |
+| `PUT /sources/youtube/live-probe/videos/{id}` | `{stopped}`                                                                        | live probe status              |
+| `GET /sources/youtube/ytdlp`                  |                                                                                    | `{available, version}`         |
+| `POST /sources/youtube/ytdlp/update`          |                                                                                    | updated `{available, version}` |
+| `GET /sync-settings`                          |                                                                                    | `{settings, fields}`           |
+| `PUT /sync-settings`                          | any subset of the setting fields                                                   | `{settings, fields}`           |
 
 ```json
 {
   "schedules": [SourceSchedule],
   "x":       {"skipped", "methods": [FetchMethod], "accounts": [{"account", "oldest"}]},
   "youtube": {"skipped", "methods": [FetchMethod], "oldest", "push": PushStatus, "liveProbe": LiveProbeStatus},
-  "bilibili": {"available", "skipped", "account", "videos", "signedIn", "minIntervalMinutes", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError"}
+  "bilibili": {"available", "skipped", "account", "videos", "signedIn", "login", "loginCheckedAt", "minIntervalMinutes", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError",
+               "dynamics": {"posts", "lastAttemptAt", "lastSuccessAt", "lastError", "skipped"},
+               "live": {"roomId", "liveStatus", "title", "liveTime", "checkedAt", "lastLiveAt", "blockedUntil", "lastError"}}
 }
 ```
 
@@ -565,13 +567,40 @@ now and stores it; `POST /videos/{id}/refresh` on a Bilibili video reads it
 again the same way and answers `200`. Both start the `media` step for the
 cover (`started` is false while another run holds the queue). An input that
 is neither a BV ID nor a `bilibili.com` video link, or an upload of another
-account, answers `400`; a video Bilibili does not list answers `404`. While
-Bilibili asks for a captcha, both answer `503 {"error":"bilibili_blocked",
-blockedUntil, message}` without sending a request until that time; other
-upstream failures answer `502` with their `bilibili_*` code. `bilibili` in
+account, answers `400`; a video Bilibili does not list answers `404`. A
+captcha answer, and any later read while the backoff lasts, answers `503
+{"error":"bilibili_blocked", code, blockedUntil, force: true, message}`,
+where `code` names the captcha answer or `bilibili_blocked` for the waiting
+backoff; nothing is sent while it waits. Both reads accept `{force: true}`
+in the body, which sends that one read anyway: a success lifts the backoff
+and a failure extends it. Other upstream failures answer `502` with their
+`bilibili_*` code. `bilibili` in
 `GET /sources` reports the account, the stored uploads, whether a login cookie
-is configured (`signedIn`, never the cookie), the read interval and the
-latest attempt, success, backoff and error.
+is configured (`signedIn`, never the cookie), `login` (`signed_in`,
+`expired`, `unchecked` or `not_configured`) with `loginCheckedAt`, the read
+interval and the
+latest attempt, success, backoff and error. Its `dynamics` reports the stored
+dynamics and the listing's latest attempt, success and error
+(`bilibili_login_expired` when the cookie no longer signs in), and `skipped`:
+`login_required` without a cookie, `login_expired` while the latest login
+check found it expired, `blocked` during the backoff, otherwise null. Its `live` is the room as the last check saw it (`liveStatus` 0 off
+air, 1 live, 2 rotation; `roomId` null until the first check) and
+`lastLiveAt`, the last check that saw it live: the approximate end of the
+last broadcast once the room is off air.
+
+`POST /posts/bilibili` with `{input}`, a `bilibili.com/opus/<id>` or
+`t.bilibili.com/<id>` link, reads that dynamic of the configured account from
+its opus page now, stores it and starts the `media` step for its pictures,
+answering `{post, started, run}` with the post in the list shape. Another
+input or a dynamic of another account answers `400 invalid_input`, a repost,
+video or other non-post dynamic `400 {"error":"bilibili_unsupported_dynamic"}`,
+one Bilibili does not show `404 {"error":"post_not_found"}`, and a captcha,
+`force` and other upstream failures work as for uploads.
+
+The live probe status adds `bilibili`: `{enabled, intervalMinutes,
+minIntervalMinutes, maxIntervalMinutes, available, nextCheckAt, targets}`,
+each target `{eventId, title, startsAt, phase, dueAt}` with `phase` one of
+the YouTube phases or `baseline`.
 
 ### Video merging
 

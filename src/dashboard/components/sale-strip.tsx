@@ -83,6 +83,7 @@ export function SaleStrip({
                   className="sale-card-title"
                   title={cleanVideoTitle(event.title)}
                   translations={event.translations}
+                  sourceLanguage={event.sourceLanguage}
                   href={event.url}
                   t={t}
                 />

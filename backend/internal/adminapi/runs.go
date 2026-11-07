@@ -393,6 +393,10 @@ func (a *api) liveProbeState(ctx context.Context) (map[string]any, error) {
 		available = a.LiveProbe()["available"] == true
 	}
 	available = available && !a.skipped("youtube")
+	bilibili, err := a.bilibiliLiveProbe(ctx, settings)
+	if err != nil {
+		return nil, err
+	}
 	var lastRunAt, nextRunAt any
 	if last != nil {
 		lastRunAt = sqlite.ISOTime(*last)
@@ -405,7 +409,7 @@ func (a *api) liveProbeState(ctx context.Context) (map[string]any, error) {
 		"minIntervalMinutes": sqlite.LiveProbeMinMinutes, "maxIntervalMinutes": sqlite.LiveProbeMaxMinutes,
 		"available": available, "lastRunAt": lastRunAt, "nextRunAt": nextRunAt,
 		"activeVideos": len(active), "maxVideos": ytsource.MaxLiveProbes,
-		"videos": videos, "stopped": stopped,
+		"videos": videos, "stopped": stopped, "bilibili": bilibili,
 	}, nil
 }
 
@@ -482,6 +486,18 @@ func (a *api) updateLiveProbe(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			settings.IntervalMinutes = minutes
+		case "bilibiliEnabled":
+			if json.Unmarshal(raw, &settings.BilibiliEnabled) != nil {
+				httpx.WriteError(w, httpx.Invalid("bilibiliEnabled must be a boolean"))
+				return
+			}
+		case "bilibiliIntervalMinutes":
+			minutes, rangeErr := integer(raw, "bilibiliIntervalMinutes", sqlite.BilibiliLiveMinMinutes, sqlite.BilibiliLiveMaxMinutes)
+			if rangeErr != nil {
+				httpx.WriteError(w, rangeErr)
+				return
+			}
+			settings.BilibiliIntervalMinutes = minutes
 		default:
 			httpx.WriteError(w, httpx.Invalid("%s is not a live probe field", key))
 			return

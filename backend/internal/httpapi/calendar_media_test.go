@@ -220,3 +220,35 @@ func TestMediaAndProfileMediaContainmentAndHeaders(t *testing.T) {
 }
 
 func contentLengthString(value int) string { return strconv.Itoa(value) }
+
+// The calendar carries the Bilibili room as liveUrl on a Bilibili stream,
+// as the board does, so the week guide links it.
+func TestCalendarCarriesTheBilibiliLiveURL(t *testing.T) {
+	path := testutil.NewSnapshot(t)
+	testutil.Exec(t, path, `
+		INSERT INTO events (id,source,title,starts_on,starts_at,timezone,time_precision,status,event_type,url,platform,provenance,manual_locked,cancellation_status,created_at,updated_at) VALUES
+		 ('bilibili-stream','bilibili','杂谈','2026-10-10','2026-10-10T12:00:00Z','Asia/Tokyo','exact','scheduled','stream','https://www.bilibili.com/opus/1','bilibili','automatic',0,'none','',''),
+		 ('youtube-stream','youtube','雑談','2026-10-10','2026-10-10T13:00:00Z','Asia/Tokyo','exact','scheduled','stream','https://www.youtube.com/watch?v=AAAAAAAAAAA','youtube','automatic',0,'none','','');
+		INSERT INTO sync_state (source,account_id,metadata_json) VALUES ('bilibili-live','316381099','{"roomId":"1000001","liveStatus":0}');`)
+	store, err := sqlite.OpenReadOnly(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	recorder := request(t, NewHandler(store), http.MethodGet, "/api/calendar?from=2026-10-10&to=2026-10-10&page=1&pageSize=10")
+	var payload map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	links := map[any]any{}
+	for _, item := range payload["items"].([]any) {
+		event := item.(map[string]any)
+		if _, ok := event["liveUrl"]; !ok {
+			t.Fatalf("calendar item lacks liveUrl: %v", event)
+		}
+		links[event["id"]] = event["liveUrl"]
+	}
+	if links["bilibili-stream"] != "https://live.bilibili.com/1000001" || links["youtube-stream"] != nil {
+		t.Fatalf("links=%v", links)
+	}
+}

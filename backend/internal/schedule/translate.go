@@ -12,8 +12,8 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
-// Translator is the machine translation step. It translates X post text and
-// YouTube video titles into the target locales with the models of the
+// Translator is the machine translation step. It translates X post and
+// Bilibili dynamic text and YouTube video titles into the target locales with the models of the
 // separate translation queue, using the extractor's provider client and
 // failover policy. It never replaces a manual or platform translation: those
 // rank above machine rows when readers resolve them, and a locale they cover
@@ -48,6 +48,14 @@ var (
 		sqlite.TranslationOwnerVideo: "YouTube video title",
 	}
 )
+
+// translationKind names what is translated for the model.
+func translationKind(item sqlite.TranslationCandidate) string {
+	if item.OwnerType == sqlite.TranslationOwnerPost && item.Source == "bilibili" {
+		return "Bilibili dynamic"
+	}
+	return translationKindText[item.OwnerType]
+}
 
 // hasTranslatableText reports whether anything but links, tags, mentions,
 // emoji and punctuation remains.
@@ -327,7 +335,7 @@ func (t *Translator) translate(ctx context.Context, item sqlite.TranslationCandi
 		name:         translationToolName,
 		schema:       translationSchema,
 		maxTokens:    min(4000, max(1024, 400+3*utf8.RuneCountInString(item.Text))),
-		text:         "Kind: " + translationKindText[item.OwnerType] + "\n\n" + item.Text,
+		text:         "Kind: " + translationKind(item) + "\n\n" + item.Text,
 		includeText:  true,
 		jsonOutput:   true,
 	}
@@ -389,12 +397,12 @@ func retryTranslation(call *modelCall, message string, repaired *bool) (retry, w
 		}
 		call.maxTokens = min(4000, call.maxTokens*2)
 		return true, false
-	case "missing_translation_en", "missing_translation_zh_cn", "invalid_translation", "invalid_response", "no_structured_output":
+	case "missing_translation_en", "missing_translation_ja", "missing_translation_zh_cn", "invalid_translation", "invalid_response", "no_structured_output":
 		if *repaired {
 			return false, false
 		}
 		*repaired = true
-		call.instructions += "\n\nThe previous response failed validation (" + sqlite.TranslationErrorCode(message) + "). Return the complete JSON object matching the schema, with sourceLanguage, english and simplifiedChinese. For every target language different from sourceLanguage, provide a non-empty translation. If a song title or name needs to stay unchanged, copy it into the complete displayed text rather than returning an empty string. Do not omit fields or add commentary."
+		call.instructions += "\n\nThe previous response failed validation (" + sqlite.TranslationErrorCode(message) + "). Return the complete JSON object matching the schema, with sourceLanguage, english, japanese and simplifiedChinese. For every target language different from sourceLanguage, provide a non-empty translation. If a song title or name needs to stay unchanged, copy it into the complete displayed text rather than returning an empty string. Do not omit fields or add commentary."
 		return true, false
 	}
 	if transientModelFailure(message) {
@@ -461,10 +469,10 @@ func (t *Translator) attempt(ctx context.Context, item sqlite.TranslationCandida
 	return result, nil
 }
 
-var translationLocaleFields = map[string]string{"en": "english", "zh-CN": "simplifiedChinese"}
+var translationLocaleFields = map[string]string{"en": "english", "ja": "japanese", "zh-CN": "simplifiedChinese"}
 
 // translationLanguage is the source language that makes a locale unnecessary.
-var translationLanguage = map[string]string{"en": "en", "zh-CN": "zh"}
+var translationLanguage = map[string]string{"en": "en", "ja": "ja", "zh-CN": "zh"}
 
 // normalizeTranslation validates a model result: a known source language and
 // a bounded translation for every locale that differs from it.

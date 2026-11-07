@@ -36,6 +36,7 @@ import {
   eventIsManual,
   eventKinds,
   eventTagKey,
+  eventLink,
   eventStatus,
   eventTags,
   formatJapanTime,
@@ -130,6 +131,7 @@ function entryFacts(event: ScheduleEvent, now: number, t: Translator) {
     manual: eventIsManual(event),
     note: cancellationNote?.filter(Boolean).join(" · ") || null,
     saleMark: event.saleMark || null,
+    link: eventLink(event),
   }
 }
 
@@ -256,6 +258,7 @@ function EntrySheet({
             className="entry-sheet-title-text"
             title={cleanVideoTitle(event.title)}
             translations={event.translations}
+            sourceLanguage={event.sourceLanguage}
             t={t}
           />
         </h3>
@@ -268,10 +271,10 @@ function EntrySheet({
           <Provenance manual={facts.manual} labelled t={t} />
         </EntryTags>
         {facts.note ? <p className="guide-event-note">{facts.note}</p> : null}
-        {event.url ? (
+        {facts.link ? (
           <ExternalLink
             className="pill-button entry-sheet-open"
-            href={event.url}
+            href={facts.link}
           >
             {t("schedule.openLink")}
             <ArrowUpRight aria-hidden="true" />
@@ -344,6 +347,7 @@ function GuideEvent({
           className="guide-event-title"
           title={cleanVideoTitle(event.title)}
           translations={event.translations}
+          sourceLanguage={event.sourceLanguage}
           onOpen={() => setOpen(true)}
           t={t}
         />
@@ -355,10 +359,10 @@ function GuideEvent({
               </span>
             ) : null}
             <EntryTags facts={facts} t={t}>
-              {event.url ? (
+              {facts.link ? (
                 <ExternalLink
                   className="guide-event-open"
-                  href={event.url}
+                  href={facts.link}
                   aria-label={t("schedule.openLink")}
                   title={t("schedule.openLink")}
                 >
@@ -571,8 +575,11 @@ function MonthGrid({
                       ? formatJapanTime(event.startsAt)
                       : null
                     const title = cleanVideoTitle(
-                      pickTranslation(event.translations, contentLocale)
-                        ?.text || event.title,
+                      pickTranslation(
+                        event.translations,
+                        contentLocale,
+                        event.sourceLanguage,
+                      )?.text || event.title,
                     )
                     const label = [
                       `${time || t("common.pendingConfirmation")} ${title}`,

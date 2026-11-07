@@ -11,7 +11,7 @@ import {
   deriveDashboardAt,
   videoIsInFocus,
 } from "../src/dashboard/derive-dashboard.ts"
-import { eventIsLive, eventStatus } from "../src/dashboard/format.ts"
+import { eventIsLive, eventLink, eventStatus } from "../src/dashboard/format.ts"
 
 const now = Date.parse("2026-10-21T12:00:00Z")
 
@@ -108,6 +108,7 @@ test("links name what they open", () => {
     "watch",
   )
   assert.equal(spotlightLink("https://youtu.be/synthetic01"), "watch")
+  assert.equal(spotlightLink("https://live.bilibili.com/100000001"), "watch")
   assert.equal(spotlightLink("https://x.com.example.test/status/1"), "open")
   assert.equal(spotlightLink("https://media.example.test/page"), "open")
   assert.equal(spotlightLink("not a url"), "open")
@@ -511,4 +512,99 @@ test("the latest video is one visitors can still watch", () => {
   ]
   const { summary } = deriveDashboardAt(snapshot([dateOnlyEvent], videos), now)
   assert.equal(summary.latestVideo?.id, "unchecked01")
+})
+
+const room = "https://live.bilibili.com/100000001"
+const bilibiliStream: ScheduleEvent = {
+  ...dateOnlyEvent,
+  id: "bilibili-stream",
+  source: "x",
+  platform: "bilibili",
+  startsOn: "2026-10-21",
+  startsAt: "2026-10-21T11:30:00Z",
+  timePrecision: "minute",
+  url: "https://www.bilibili.com/opus/1000000000000000001",
+  liveStatus: "live",
+  liveUrl: room,
+}
+
+test("a Bilibili stream or membership entry links to its live room once known", () => {
+  assert.equal(eventLink(bilibiliStream), room)
+  assert.equal(eventLink({ ...bilibiliStream, liveStatus: "ended" }), room)
+  assert.equal(eventLink({ ...bilibiliStream, eventType: "member" }), room)
+  // Other entries, and streams whose room is unknown, keep their own link.
+  assert.equal(
+    eventLink({ ...bilibiliStream, eventType: "event" }),
+    bilibiliStream.url,
+  )
+  assert.equal(
+    eventLink({ ...bilibiliStream, liveUrl: null }),
+    bilibiliStream.url,
+  )
+  const item = pickSpotlight(
+    { nextEvent: bilibiliStream, nextStream: null, latestVideo: null },
+    now,
+  )
+  assert.equal(item?.url, room)
+  assert.equal(item?.link, "watch")
+})
+
+const liveNow = {
+  platform: "bilibili" as const,
+  url: room,
+  title: "Synthetic unannounced stream",
+  startedAt: "2026-10-21T11:40:00Z",
+}
+
+test("an unannounced live broadcast leads the stage as live", () => {
+  const item = pickSpotlight(
+    { nextEvent: dateOnlyEvent, nextStream: null, latestVideo },
+    now,
+    liveNow,
+  )
+  assert.ok(item?.liveNow)
+  assert.equal(item.url, room)
+  assert.equal(item.link, "watch")
+  assert.equal(item.layout, "compact")
+  assert.ok(spotlightIsLive(item, now))
+  assert.equal(
+    pickCompanion({ nextEvent: null, nextStream: null, latestVideo }, item)
+      ?.url,
+    latestVideo.url,
+  )
+})
+
+test("the live-now item yields to a live entry of its platform and time", () => {
+  const snapshot = (events: ScheduleEvent[]) =>
+    deriveDashboardAt(
+      {
+        summary: {
+          nextEvent: null,
+          nextStream: null,
+          latestVideo: null,
+          latestPost: null,
+          counts: null,
+        },
+        events,
+        videos: [],
+        meta: { featuredVideoId: null },
+        liveNow,
+      } as unknown as Dashboard,
+      now,
+    ).liveNow
+  // The match goes by platform and start, never by link. The broadcast
+  // (11:40) may open up to two hours before the entry's start or begin up to
+  // three hours after it.
+  assert.equal(snapshot([{ ...bilibiliStream, liveUrl: null }]), null)
+  for (const startsAt of ["2026-10-21T13:40:00Z", "2026-10-21T08:40:00Z"])
+    assert.equal(snapshot([{ ...bilibiliStream, startsAt }]), null, startsAt)
+  for (const other of [
+    { ...bilibiliStream, platform: "youtube" as const },
+    { ...bilibiliStream, liveStatus: "ended" as const },
+    { ...bilibiliStream, eventType: "event" },
+    { ...bilibiliStream, startsAt: "2026-10-21T13:41:00Z" },
+    { ...bilibiliStream, startsAt: "2026-10-21T08:39:00Z" },
+    { ...dateOnlyEvent, url: room },
+  ])
+    assert.deepEqual(snapshot([other]), liveNow)
 })

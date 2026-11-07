@@ -127,11 +127,31 @@
     },
     {
       "host": "api.bilibili.com",
-      "reason": "Bilibili source: the account's public upload list, single uploads and the anonymous device identity, read server-side with a fixed host, timeout, size limit and captcha backoff."
+      "reason": "Bilibili source: the account's public upload list, single uploads, the anonymous device identity, the WBI keys and the signed-in dynamics listing, read server-side with a fixed host, timeout, size limit and captcha backoff."
+    },
+    {
+      "host": "www.bilibili.com",
+      "reason": "Bilibili source: one dynamic's server-rendered opus page (/opus/<id> only), read server-side for an operator, and the public opus link of a stored dynamic."
+    },
+    {
+      "host": "api.live.bilibili.com",
+      "reason": "Bilibili live check: the configured account's live room status, one cookie-free request per probe run with a fixed host, timeout, size limit and backoff."
+    },
+    {
+      "host": "live.bilibili.com",
+      "reason": "Public link of the configured Bilibili live room on stream entries."
+    },
+    {
+      "host": "space.bilibili.com",
+      "reason": "Public link of the Bilibili account's space on its posts."
+    },
+    {
+      "host": "t.bilibili.com",
+      "reason": "Public dynamic link form an operator may paste; parsed only, never requested."
     },
     {
       "host": "hdslb.com",
-      "reason": "Bilibili cover CDN (i0/i1/i2.hdslb.com) for uploads of the configured account, downloaded server-side into the media cache."
+      "reason": "Bilibili image CDN (i0/i1/i2.hdslb.com) for upload covers and dynamic pictures of the configured account, downloaded server-side into the media cache."
     },
     {
       "host": "twitcasting.tv",

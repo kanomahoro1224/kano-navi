@@ -33,7 +33,7 @@ explains how the board gets there and what it deliberately does not do.
 
 ```mermaid
 flowchart LR
-  X["X posts"] --> W["Server-side workflows"]
+  X["X and bilibili posts"] --> W["Server-side workflows"]
   YT["YouTube and bilibili"] --> W
   W -- "schedule extraction" --> LLM["Configured LLM providers"]
   W --> DB[("SQLite snapshot<br/>and media cache")]
@@ -43,7 +43,8 @@ flowchart LR
 ```
 
 1. Source timers, an operator's Run now, or an authorized MCP client start a
-   workflow. Workflows read public X and YouTube pages (and bilibili copies),
+   workflow. Workflows read public X and YouTube pages (and bilibili posts,
+   copies and live status),
    download their images into the media cache, and write a SQLite snapshot.
    A failed source keeps the previous snapshot and records its outcome.
 2. Schedule extraction reads candidate posts and schedule images and asks the

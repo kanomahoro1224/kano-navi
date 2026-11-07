@@ -199,6 +199,17 @@ function CancellationsTab() {
 }
 
 /**
+ * Who posted: an X post's @handle, or the source's name for another source
+ * (a Bilibili dynamic's handle is the account's numeric mid).
+ */
+export function PostAccount({ post }: { post: AdminPost }) {
+  const { t } = useAppSettings()
+  return post.source === "x" && post.accountHandle
+    ? `@${post.accountHandle.replace(/^@/, "")}`
+    : t(`admin.step.${post.source}`)
+}
+
+/**
  * The extraction state, last error, failure backoff and queue flag of one
  * post. A failure names the schedule extraction, apart from a failed
  * translation. A queued state already says the post waits, so the flag is
@@ -432,7 +443,9 @@ function PostRow({
         </label>
       ) : null}
       <div className="adm-post-meta">
-        <strong>{post.accountHandle || t(`admin.step.${post.source}`)}</strong>
+        <strong>
+          <PostAccount post={post} />
+        </strong>
         <time dateTime={post.publishedAt}>{japanStamp(post.publishedAt)}</time>
         {translation && post.llmStatus !== "failed" ? null : (
           <PostStatus post={post} />

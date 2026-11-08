@@ -335,8 +335,8 @@
 - Sources has an X related tab: the related accounts' timer (switch,
   interval, most new statuses per account, next and last run, Run now) beside
   the related accounts with their keyword rules and last read.
-- External posts, in the Data group, lists the status pool with its reasons
-  and state, and promotes or demotes a status with a reason, as a lock the
+- External posts, in the Data group, lists the status pool, without Kano's
+  own accounts' statuses, with its reasons and state, and promotes or demotes a status with a reason, as a lock the
   keyword rules never override. Posts marks promoted posts.
 - Sources has an Official shop tab with its timer and Run now, the shop
   read's state (sale entries, last read and error, a 429's wait) and

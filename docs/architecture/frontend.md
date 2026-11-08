@@ -448,12 +448,13 @@ the main one, and on a phone the tabs share the width and show only the
 source names, and a fold's header controls move under its title.
 
 External posts (`src/admin/views/external-posts.tsx`, in the Data group
-after Posts) lists the X status pool in the post list's feed layout:
+after Posts) lists the X status pool, without Kano's own accounts'
+statuses, in the post list's feed layout:
 author, name and Japan time; the wording with its image count, links to the
 own posts that quote it (opening Posts searched for the post), the accounts
 that reposted it, a link to a promoted status's post in Posts and a locked
 decision's reason; the translation summary of a status that has no post;
-badges for its state (On the board, Demoted, Stored only, Own post), a lock
+badges for its state (On the board, Demoted, Stored only), a lock
 and its reasons; and icon actions to promote a related account's status,
 demote a promoted one, return a locked one to the keyword rules and open it
 on X. Promote and demote open a dialog that shows the wording and requires

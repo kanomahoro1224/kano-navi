@@ -47,7 +47,7 @@ const reasons: XStatusReason[] = [
   "reposted",
   "none",
 ]
-const states: XStatusState[] = ["promoted", "demoted", "stored", "post"]
+const states: XStatusState[] = ["promoted", "demoted", "stored"]
 
 const reasonTone: Record<XStatusReason, Tone> = {
   keyword: "leaf",
@@ -61,7 +61,6 @@ const stateTone: Record<XStatusState, Tone> = {
   promoted: "success",
   demoted: "warning",
   stored: "neutral",
-  post: "sky",
 }
 
 const reasonLimit = 500
@@ -156,8 +155,7 @@ function XStatusItem({
     setBusy(false)
     if (result) onDone()
   }
-  const promotable =
-    status.related && status.state !== "promoted" && status.state !== "post"
+  const promotable = status.related && status.state !== "promoted"
   const demotable = status.state === "promoted"
   return (
     <li
@@ -301,8 +299,9 @@ function XStatusItem({
 const blankFilters = { search: "", author: "", reason: "", state: "" }
 
 /**
- * The X status pool: every status of a related account and every status an
- * own account quotes or reposts. Promote and demote are durable locks;
+ * The X status pool: every status of a related account and every other
+ * account's status an own account quotes or reposts; the own accounts'
+ * statuses belong to Posts. Promote and demote are durable locks;
  * related accounts and their keyword rules are set on the Sources page.
  */
 export function ExternalPostsView({ navigate }: ViewProps) {
@@ -328,7 +327,6 @@ export function ExternalPostsView({ navigate }: ViewProps) {
     <div className="adm-view">
       <PageHeader
         title={t("admin.external.title")}
-        description={t("admin.external.description")}
         actions={
           <Button
             size="sm"

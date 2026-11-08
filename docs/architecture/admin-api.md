@@ -656,11 +656,13 @@ MCP control has none of them.
 | `PUT /x-statuses/{id}/decision` | `{decision, reason}`                                              | `{status}`       |
 
 The list pages the X status pool, newest status first (see
-[Related accounts](sources.md#related-accounts)). `author` is a handle,
+[Related accounts](sources.md#related-accounts)), without the statuses of
+the own accounts (`X_HANDLES`) or any own post the pool holds as a quote;
+those belong to Posts. `author` is a handle,
 matched without case or a leading `@`; `reason` is `keyword`, `manual`,
 `quoted`, `reposted` or `none`; `state` is `promoted` (a shown promoted
-post), `demoted` (a hidden one), `stored` (pool only) or `post` (an own post
-the pool holds as a quote); `search` matches the text or the status ID. Each
+post), `demoted` (a hidden one) or `stored` (pool only); `search` matches
+the text or the status ID. Each
 status is `{id, authorHandle, authorName, text, publishedAt, url, images,
 reasons, state, related, decision, decisionReason, decidedAt, quotedAt,
 repostedAt, listedAt, firstSeenAt, quotedBy, repostedBy, translation}`:

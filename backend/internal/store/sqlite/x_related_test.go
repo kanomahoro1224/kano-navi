@@ -152,6 +152,32 @@ func TestRelatedStatusesPromoteByKeywordAndStayOffOwnSlots(t *testing.T) {
 	}
 }
 
+func TestExternalListLeavesOutOwnAccounts(t *testing.T) {
+	f := newRelatedFixture(t)
+	ctx := context.Background()
+	if _, err := f.s.WriteXRelated(ctx, "agency_synthetic", xsource.Result{Posts: []xsource.Post{
+		relatedStatus(relatedMatch, "鹿乃まほろ 出演決定"),
+	}}, true); err != nil {
+		t.Fatal(err)
+	}
+	// One own post quotes another stored own post, a second quotes a status
+	// of the other own account that Posts does not hold.
+	own := quotingPost("1900000000000000320", "2026-10-11T00:00:00Z", nil)
+	self := quotingPost("1900000000000000321", "2026-10-11T01:00:00Z", &xsource.Quote{ID: own.ID, AuthorHandle: "kano", Text: own.Text, URL: own.URL})
+	sub := quotingPost("1900000000000000322", "2026-10-11T02:00:00Z", &xsource.Quote{ID: "1900000000000000323", AuthorHandle: "Kano_Sub", Text: "sub", URL: "https://x.com/kano_sub/status/1900000000000000323"})
+	if err := f.s.WriteXRecent(ctx, "kano", xsource.Result{Account: "kano", Posts: []xsource.Post{own, self, sub}}, true); err != nil {
+		t.Fatal(err)
+	}
+	all, err := f.s.ListAdminXStatuses(ctx, AdminXStatusFilter{})
+	if err != nil || all.Total != 3 {
+		t.Fatalf("pool=%+v err=%v", all, err)
+	}
+	page, err := f.s.ListAdminXStatuses(ctx, AdminXStatusFilter{ExcludeOwn: true, Own: []string{"kano", "@kano_sub"}})
+	if err != nil || page.Total != 1 || page.Items[0].ID != relatedMatch {
+		t.Fatalf("external=%+v err=%v", page, err)
+	}
+}
+
 func wallHas(wall map[string]bool, id string) bool {
 	_, ok := wall[id]
 	return ok

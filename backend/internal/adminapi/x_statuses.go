@@ -74,6 +74,9 @@ func (a *api) listXStatuses(w http.ResponseWriter, r *http.Request) {
 		Reason:   query(r, "reason"),
 		State:    query(r, "state"),
 		Search:   query(r, "search"),
+		// The own accounts' statuses and posts belong to Posts.
+		ExcludeOwn: true,
+		Own:        a.XHandles,
 	})
 	if err != nil {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")

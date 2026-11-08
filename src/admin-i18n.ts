@@ -410,8 +410,6 @@ export const adminMessages = {
     "admin.posts.translations": "Translations",
 
     "admin.external.title": "External posts",
-    "admin.external.description":
-      "Statuses of related accounts and the statuses Kano's accounts quote or repost. Only promoted ones reach the board as posts; quoted ones show inside Kano's posts.",
     "admin.external.configure": "Related accounts",
     "admin.external.search": "Search text or ID",
     "admin.external.author": "Author",
@@ -428,7 +426,6 @@ export const adminMessages = {
     "admin.external.state.promoted": "On the board",
     "admin.external.state.demoted": "Demoted",
     "admin.external.state.stored": "Stored only",
-    "admin.external.state.post": "Own post",
     "admin.external.locked.promote": "Promote locked",
     "admin.external.locked.demote": "Demote locked",
     "admin.external.images": "{count} images",

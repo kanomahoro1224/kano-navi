@@ -756,7 +756,7 @@ export interface XRelatedAccounts {
 
 export type XStatusReason =
   "keyword" | "manual" | "quoted" | "reposted" | "none"
-export type XStatusState = "promoted" | "demoted" | "stored" | "post"
+export type XStatusState = "promoted" | "demoted" | "stored"
 export type XStatusDecision = "promote" | "demote" | "automatic"
 
 /**

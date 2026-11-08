@@ -615,11 +615,15 @@ type AdminXStatus struct {
 
 // AdminXStatusFilter selects pooled statuses. Reason is keyword, manual,
 // quoted, reposted or none; State promoted, demoted, stored or post.
+// ExcludeOwn leaves out every own post and the statuses of the Own handles,
+// as the External posts view lists the pool.
 type AdminXStatusFilter struct {
 	Page, PageSize        int
 	Author, Reason, State string
 	Search                string
 	IDs                   []string
+	ExcludeOwn            bool
+	Own                   []string
 }
 
 // xStatusStateSQL is a pooled status's state over x_statuses s joined with
@@ -655,6 +659,15 @@ func (s *Store) ListAdminXStatuses(ctx context.Context, f AdminXStatusFilter) (A
 	if search := strings.TrimSpace(f.Search); search != "" {
 		clauses = append(clauses, "(s.text LIKE ? ESCAPE '\\' OR s.id=?)")
 		args = append(args, likePattern(search), search)
+	}
+	if f.ExcludeOwn {
+		clauses = append(clauses, "(p.id IS NULL OR p.promoted_at IS NOT NULL)")
+		for _, handle := range f.Own {
+			if handle = strings.TrimPrefix(strings.TrimSpace(handle), "@"); handle != "" {
+				clauses = append(clauses, "lower(s.author_handle)<>lower(?)")
+				args = append(args, handle)
+			}
+		}
 	}
 	if f.IDs != nil {
 		if len(f.IDs) == 0 {

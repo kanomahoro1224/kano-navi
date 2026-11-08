@@ -311,13 +311,18 @@ tab lists them on their own. Each row shows the
 thumbnail, the title, which opens the correction dialog, the platform, time,
 kind, tag, length and format, its badges and merge line, the translation chips,
 and the feature, correct and open actions. The correction dialog
-(`video-editor.tsx`) opens with a preview of the board's row as the draft
-leaves it (the chosen thumbnail, title, source, kind, tag, format and the
-number of corrections) and the page-read facts. Below, the corrections
-(title, kind, tag, format, who can watch and thumbnail files) sit beside the platform's record (the merge
-section and what the platform replaced); one column on narrow screens. A
-corrected field is marked and offers a reset to the platform value beside its
-label. Refresh, cancel and save stay in the footer.
+(`video-editor.tsx`) carries no explanatory text. Its left column shows the
+board's row as the draft leaves it (the chosen thumbnail, title, source, kind,
+tag, format and the number of corrections) and when the page was last read,
+then below a hairline the corrections: title, kind, tag, format, who can
+watch, and the thumbnail files when any are stored, as fixed-size tiles with
+a check on the chosen one. Its right column is one soft panel as tall as the
+left, holding the platform's record: the merge section, its field and button
+on one row, and, below a hairline, what the platform replaced when it
+replaced anything, each entry a two-line title with its date. Narrow screens
+stack the panel below the corrections. A corrected control is tinted and
+offers an icon reset to the platform value beside its label. The footer holds
+the refresh as a quiet button, the platform link, cancel and save.
 
 The Review queue (`src/admin/views/review.tsx`) lists only what waits for a
 decision, in tabs for schedule images that need review, suspected

@@ -377,7 +377,7 @@ function MergeInput({
   }
   return (
     <div className="adm-bilibili-add">
-      <Field label={label} hint={t("admin.videos.merge.inputHint")}>
+      <Field label={label}>
         <input
           value={value}
           placeholder={placeholder}
@@ -470,16 +470,13 @@ export function MergeSection({
               ))}
             </ul>
           ) : (
-            <>
-              <p className="adm-muted">{t("admin.videos.merge.noneYoutube")}</p>
-              <MergeInput
-                label={t("admin.videos.merge.bilibiliInput")}
-                placeholder="BV1xxxxxxxxx"
-                busy={busy}
-                valid={(value) => bvPattern.test(value)}
-                onMerge={(value) => merge(value.match(bvPattern)![0], video.id)}
-              />
-            </>
+            <MergeInput
+              label={t("admin.videos.merge.bilibiliInput")}
+              placeholder="BV1xxxxxxxxx"
+              busy={busy}
+              valid={(value) => bvPattern.test(value)}
+              onMerge={(value) => merge(value.match(bvPattern)![0], video.id)}
+            />
           )}
         </>
       ) : video.mergedInto ? (

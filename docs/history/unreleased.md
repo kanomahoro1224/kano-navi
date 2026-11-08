@@ -384,5 +384,11 @@
   the model queues, providers, model limits and recent failures. The
   separate LLM page and the models-in-use summary are gone, and old LLM
   links open Detection.
+- The video correction dialog is simpler and calmer: the field hints, intro
+  and refresh schedule are gone; the board row sits above the corrections,
+  beside one soft panel with the merge and what the platform replaced; a
+  corrected control is tinted with an icon reset; the thumbnail picker and the
+  replaced history appear only when they have entries; and the refresh is a
+  quiet button.
 
 </details>

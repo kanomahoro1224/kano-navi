@@ -1,4 +1,3 @@
-import type { ReactNode } from "react"
 import {
   ArrowUpRight,
   Clock,
@@ -43,29 +42,17 @@ const reasonTones: Record<string, Tone> = {
   backoffDue: "honey",
 }
 
-/** The shared head of a tab: when it was computed and a way to recompute. */
+/** The shared head of a tab: a way to recompute it. */
 function TabHead({
-  generatedAt,
   loading,
   onRefresh,
-  children,
 }: {
-  generatedAt?: string
   loading: boolean
   onRefresh: () => void
-  children?: ReactNode
 }) {
   const { t } = useAppSettings()
   return (
     <div className="adm-qp-head">
-      <p className="adm-muted">
-        {children}
-        {generatedAt
-          ? t("admin.queuePreview.computedAt", {
-              time: japanStamp(generatedAt),
-            })
-          : null}
-      </p>
       <Button
         size="sm"
         variant="ghost"
@@ -169,12 +156,9 @@ function ScheduleTab({ navigate }: { navigate: ViewProps["navigate"] }) {
   return (
     <div className="adm-qp-tab">
       <TabHead
-        generatedAt={queue.generatedAt}
         loading={resource.loading}
         onRefresh={() => void resource.reload()}
-      >
-        {t("admin.queuePreview.schedule.intro", { limit: queue.limit })}{" "}
-      </TabHead>
+      />
       {resource.data?.skipped ? (
         <Callout tone="warning" icon={TriangleAlert}>
           {t("admin.queuePreview.stepSkipped")}
@@ -270,12 +254,9 @@ function YoutubeTab() {
   return (
     <div className="adm-qp-tab">
       <TabHead
-        generatedAt={queue.generatedAt}
         loading={resource.loading}
         onRefresh={() => void resource.reload()}
-      >
-        {t("admin.queuePreview.youtube.intro")}{" "}
-      </TabHead>
+      />
       {queue.skipped ? (
         <Callout tone="warning" icon={TriangleAlert}>
           {t("admin.queuePreview.stepSkipped")}
@@ -412,12 +393,9 @@ function TranslateTab({ navigate }: { navigate: ViewProps["navigate"] }) {
   return (
     <div className="adm-qp-tab">
       <TabHead
-        generatedAt={queue.generatedAt}
         loading={resource.loading}
         onRefresh={() => void resource.reload()}
-      >
-        {t("admin.queuePreview.translate.intro", { limit: queue.limit })}{" "}
-      </TabHead>
+      />
       {resource.data?.skipped ? (
         <Callout tone="warning" icon={TriangleAlert}>
           {t("admin.queuePreview.stepSkipped")}
@@ -477,14 +455,9 @@ function RefreshTab({ navigate }: { navigate: ViewProps["navigate"] }) {
   return (
     <div className="adm-qp-tab">
       <TabHead
-        generatedAt={queue.generatedAt}
         loading={resource.loading}
         onRefresh={() => void resource.reload()}
-      >
-        {t("admin.queuePreview.refresh.intro", {
-          perAccount: queue.perAccount,
-        })}{" "}
-      </TabHead>
+      />
       {queue.skipped ? (
         <Callout tone="warning" icon={TriangleAlert}>
           {t("admin.queuePreview.stepSkipped")}
@@ -565,10 +538,7 @@ export function QueueView({ tab, navigate }: ViewProps) {
     : "schedule"
   return (
     <div className="adm-view">
-      <PageHeader
-        title={t("admin.queuePreview.title")}
-        description={t("admin.queuePreview.description")}
-      />
+      <PageHeader title={t("admin.queuePreview.title")} />
       <Panel>
         <div
           className="adm-tabs"

@@ -7380,16 +7380,7 @@ blockquote.adm-verdict-reason {
 
 .adm-qp-head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px 16px;
-}
-
-.adm-qp-head p {
-  flex: 1 1 320px;
-  max-width: 72ch;
-  font-size: 13px;
+  justify-content: flex-end;
 }
 
 .adm-qp-title {

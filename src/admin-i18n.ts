@@ -173,13 +173,10 @@ export const adminMessages = {
     "admin.overview.openTimers": "Source timers",
     "admin.overview.openQueue": "What runs next",
     "admin.queuePreview.title": "Queue",
-    "admin.queuePreview.description":
-      "What each step would work through, in order, if a run started now. Every queue is worked out when a run starts; this page works it out the same way when it opens or you refresh it, and changes nothing.",
     "admin.queuePreview.tab.schedule": "Schedule extraction",
     "admin.queuePreview.tab.youtube": "YouTube details",
     "admin.queuePreview.tab.translate": "Translation",
     "admin.queuePreview.tab.x-refresh": "X refreshes",
-    "admin.queuePreview.computedAt": "Worked out {time} JST.",
     "admin.queuePreview.refresh": "Refresh",
     "admin.queuePreview.stepSkipped":
       "This step is turned off for the service, so no run works through this queue.",
@@ -209,8 +206,6 @@ export const adminMessages = {
     "admin.queuePreview.owner.video": "Video",
     "admin.queuePreview.owner.x_status": "Quoted X post",
     "admin.queuePreview.owner.bilibili_status": "Forwarded dynamic",
-    "admin.queuePreview.schedule.intro":
-      "One run processes up to {limit} posts: operator requests first, then posts never tried, then the longest untried. Cached results and posts in backoff use no place.",
     "admin.queuePreview.schedule.disabled":
       "Both detection stages are off and nothing is requested, so a run extracts nothing.",
     "admin.queuePreview.schedule.stages": "Detection stages",
@@ -231,8 +226,6 @@ export const adminMessages = {
     "admin.queuePreview.schedule.retryStopped": "Retries stopped",
     "admin.queuePreview.schedule.note":
       "Posts synced, edited or requested before the run starts, and model queue changes, can change this order.",
-    "admin.queuePreview.youtube.intro":
-      "Detail checks in the order the YouTube step queues them; each video appears once, in its first group.",
     "admin.queuePreview.youtube.watchPages": "Watch pages per run",
     "admin.queuePreview.youtube.apiVideos": "Data API videos per run",
     "admin.queuePreview.youtube.noApi": "No API key",
@@ -245,8 +238,6 @@ export const adminMessages = {
     "admin.queuePreview.youtube.upcoming": "Upcoming",
     "admin.queuePreview.youtube.unknown": "Not stored",
     "admin.queuePreview.youtube.none": "No video waits for a detail check",
-    "admin.queuePreview.translate.intro":
-      "The translate step's candidates in its order. One run makes up to {limit} model calls; wording with nothing to translate uses none, so a run can reach further down.",
     "admin.queuePreview.translate.disabled":
       "The translate step would translate nothing: {reason}.",
     "admin.queuePreview.translate.limit": "Calls per run",
@@ -254,8 +245,6 @@ export const adminMessages = {
     "admin.queuePreview.translate.candidates": "Candidates read",
     "admin.queuePreview.translate.ifSkips": "If earlier ones skip",
     "admin.queuePreview.translate.none": "Nothing waits for a translation",
-    "admin.queuePreview.refresh.intro":
-      "Posts waiting to be read again, oldest request first. The X step reads up to {perAccount} per account per run, ahead of the account's other detail requests.",
     "admin.queuePreview.refresh.total": "Requests",
     "admin.queuePreview.refresh.detailBudget": "Detail requests per run",
     "admin.queuePreview.refresh.handles": "Accounts read",
@@ -481,8 +470,6 @@ export const adminMessages = {
     "admin.related.handle": "Handle",
     "admin.related.keywords": "Keyword rules",
     "admin.related.keywordsFor": "Keyword rules of @{handle}",
-    "admin.related.keywordsHint":
-      "Matching ignores letter case; saving rechecks stored statuses.",
     "admin.related.remove": "Remove account",
     "admin.related.add": "Add account",
     "admin.related.none": "No related accounts.",
@@ -796,13 +783,10 @@ export const adminMessages = {
     "admin.videos.view.translation": "Missing translation",
     "admin.videos.view.queued": "Queued",
     "admin.videos.noMatch": "No videos match",
-    "admin.bilibili.description":
-      "Uploads of the configured account are read at most once per interval and stay in the console. One that matches its YouTube copy is merged into it.",
     "admin.bilibili.signedIn": "Signed in",
     "admin.bilibili.anonymous": "Anonymous",
     "admin.bilibili.loginExpired": "Login expired",
     "admin.bilibili.loginUnchecked": "Login not checked yet",
-    "admin.bilibili.loginChecked": "Login checked",
     "admin.bilibili.loginExpiredHint":
       "The login cookie expired. Set a fresh BILIBILI_SESSDATA in the server environment; the daily login check confirms it.",
     "admin.bilibili.force": "Try once anyway",
@@ -810,40 +794,17 @@ export const adminMessages = {
       "Reads wait for the captcha backoff until {time}. This sends this one read now, which may extend the backoff.",
     "admin.bilibili.blocked": "Captcha backoff",
     "admin.bilibili.account": "Account",
-    "admin.bilibili.videos": "Stored uploads",
-    "admin.bilibili.interval": "List reads",
-    "admin.bilibili.everyMinutes": "At most every {count} min",
     "admin.bilibili.blockedUntil": "Waiting until {time}",
     "admin.bilibili.lastError": "Last error",
     "admin.bilibili.signInHint":
       "Anonymous reads often meet Bilibili's captcha. Set BILIBILI_SESSDATA in the server environment to read as a signed-in account; see the configuration guide.",
     "admin.bilibili.add": "Add an upload",
-    "admin.bilibili.addHint":
-      "A BV ID or a bilibili.com video link of the configured account. It is read at once.",
     "admin.bilibili.addButton": "Add",
     "admin.bilibili.addField": "BV ID or video link",
-    "admin.bilibili.uploadsTitle": "Uploads",
     "admin.youtube.add": "Add a video",
     "admin.youtube.addField": "Video ID or link",
-    "admin.youtube.addHint":
-      "A video ID or a YouTube link to a video of the configured channel. It is read at once: through the Data API with YOUTUBE_API_KEY, otherwise from its watch page.",
     "admin.bilibili.addPostField": "Dynamic link",
     "admin.bilibili.addPost": "Add a dynamic",
-    "admin.bilibili.addPostHint":
-      "A bilibili.com/opus or t.bilibili.com link to a dynamic of the configured account. It is read at once.",
-    "admin.bilibili.dynamics.title": "Dynamics",
-    "admin.bilibili.dynamics.description":
-      "Dynamics of the configured account show as posts beside X posts on the board. The listing needs a login cookie; adding one dynamic by link does not.",
-    "admin.bilibili.dynamics.posts": "Stored dynamics",
-    "admin.bilibili.dynamics.lastAttempt": "Last read",
-    "admin.bilibili.dynamics.lastSuccess": "Last success",
-    "admin.bilibili.dynamics.skipped": "Last read skipped",
-    "admin.bilibili.dynamics.skipped.login_required":
-      "The dynamics listing needs BILIBILI_SESSDATA",
-    "admin.bilibili.dynamics.skipped.login_expired":
-      "The login cookie expired; the listing waits for the daily login check",
-    "admin.bilibili.dynamics.skipped.interval": "Waiting for the interval",
-    "admin.bilibili.dynamics.skipped.blocked": "Captcha backoff",
     "admin.bilibili.dynamics.loginHint":
       "The dynamics listing needs a login cookie. Set BILIBILI_SESSDATA in the server environment to read it.",
     "admin.bilibili.live.title": "Live room",
@@ -958,42 +919,18 @@ export const adminMessages = {
     "admin.fetch.method.youtube.ytdlp": "yt-dlp",
     "admin.fetch.method.bilibili.space": "Space uploads",
     "admin.fetch.method.bilibili_dynamics.space": "Space dynamics",
-    "admin.fetch.methodHint.x.timeline":
-      "The public timeline, 100 posts a page. Posts already stored keep what they have.",
-    "admin.fetch.methodHint.x.api":
-      "Full-archive search through X_API_BEARER_TOKEN; X bills every post read. Posts already stored keep what they have.",
     "admin.fetch.methodHint.youtube.api":
       "The uploads playlist through YOUTUBE_API_KEY, 50 videos and one quota unit a page.",
     "admin.fetch.methodHint.youtube.rss":
       "The public feed, which lists the newest 15 uploads.",
     "admin.fetch.methodHint.youtube.ytdlp":
       "The configured yt-dlp executable, which reads upload metadata without downloading media.",
-    "admin.fetch.methodHint.bilibili.space":
-      "The account's upload listing, 20 uploads a page and 15 seconds between pages. Listed uploads are rewritten from the listing.",
-    "admin.fetch.methodHint.bilibili_dynamics.space":
-      "The account's dynamics listing through BILIBILI_SESSDATA, about 12 a page and 15 seconds between pages. Listed dynamics are rewritten from the listing.",
     "admin.fetch.bilibiliBlocked":
       "Bilibili asked this server for a captcha; fetches wait until {time}.",
     "admin.fetch.needs": "Needs {variable} on the server.",
     "admin.fetch.unavailable": "This method is not available on the server.",
     "admin.fetch.selection": "Read",
     "admin.fetch.mode.all": "Everything",
-    "admin.fetch.modeHint.count.x":
-      "Each account's newest posts, stored or not, whatever their age.",
-    "admin.fetch.modeHint.count.youtube":
-      "The channel's newest uploads, stored or not.",
-    "admin.fetch.modeHint.all.x":
-      "Every page of each account's timeline. A fetch stops at its page budget; repeat it to continue.",
-    "admin.fetch.modeHint.all.youtube":
-      "Every page of the uploads playlist. A fetch stops at its page budget; repeat it to continue.",
-    "admin.fetch.modeHint.count.bilibili":
-      "The account's newest uploads, stored or not.",
-    "admin.fetch.modeHint.all.bilibili":
-      "Every page of the upload listing. A fetch stops at its page budget; repeat it to continue.",
-    "admin.fetch.modeHint.count.bilibili_dynamics":
-      "The account's newest dynamics, stored or not.",
-    "admin.fetch.modeHint.all.bilibili_dynamics":
-      "Every page of the dynamics listing. A fetch stops at its page budget; repeat it to continue.",
     "admin.fetch.modeHint.range.x":
       "An inclusive Japan date range of up to 365 days.",
     "admin.fetch.modeHint.before.x":
@@ -1003,8 +940,6 @@ export const adminMessages = {
     "admin.fetch.option.extract": "Extract schedules",
     "admin.fetch.option.translate": "Translate",
     "admin.fetch.option.refresh": "Refresh stored videos",
-    "admin.fetch.option.refreshHint":
-      "Rewrite the title and publication time of videos already stored.",
     "admin.fetch.last": "Last fetch",
     "admin.fetch.reachedEnd": "Reached the end of what it asked for.",
     "admin.fetch.repeat":
@@ -1022,8 +957,9 @@ export const adminMessages = {
     "admin.push.enableHint":
       "Needs a public HTTPS callback that reaches this server.",
     "admin.push.unavailable": "YouTube is disabled by SKIP_YOUTUBE.",
-    "admin.push.callback": "Public callback URL",
-    "admin.push.callbackHint": "Must end in {path}.",
+    "admin.push.callback": "Deployment address",
+    "admin.push.callbackPlaceholder":
+      "Your domain, such as https://example.com",
     "admin.push.rotate": "Rotate signing secret",
     "admin.push.secret": "Signing secret",
     "admin.push.secretSet": "Configured",
@@ -1040,8 +976,6 @@ export const adminMessages = {
     "admin.liveProbe.enable": "Probe active streams",
     "admin.liveProbe.enableHint":
       "Runs in the server's job queue, every few minutes around a stream's start, and only while a video is active.",
-    "admin.liveProbe.unavailable":
-      "Not running: timers are off (WORKFLOW_SCHEDULER_ENABLED=0) or YouTube is disabled by SKIP_YOUTUBE.",
     "admin.liveProbe.interval": "Interval (minutes)",
     "admin.liveProbe.intervalHint":
       "{min} to {max} minutes between checks of a stream on air, or of a waiting room still closed 45 minutes after its start. From the start until it goes live, it checks every 3 minutes. A result counts for two intervals; after that the board falls back to the start time.",
@@ -1059,8 +993,6 @@ export const adminMessages = {
     "admin.liveProbe.bilibili.description":
       "Checks the account's Bilibili live room around Bilibili stream events, and at the interval otherwise, so the board shows On air for an announced or unannounced Bilibili stream.",
     "admin.liveProbe.bilibili.enable": "Check the Bilibili live room",
-    "admin.liveProbe.bilibili.unavailable":
-      "Not running: timers are off (WORKFLOW_SCHEDULER_ENABLED=0) or Bilibili is disabled.",
     "admin.liveProbe.bilibili.nextCheck": "Next check",
     "admin.liveProbe.due": "next check {time}",
     "admin.liveProbe.dueNow": "due now",
@@ -1103,10 +1035,6 @@ export const adminMessages = {
     "admin.chain.title": "Method chain",
     "admin.chain.description":
       "Timed reads, Run now, pushes and step runs try the enabled methods from the top and fall to the next when the first page fails, lists none of the account's own records, or hits quota or rate limits. Manual fetches pick their own method.",
-    "admin.chain.fixed.bilibili":
-      "Bilibili reads its upload list through one fixed method.",
-    "admin.chain.fixed.bilibili_dynamics":
-      "Bilibili reads its dynamics listing through one fixed method.",
     "admin.chain.fixed.shop":
       "The shop reads its newest products through one fixed method.",
     "admin.chain.up": "Move {method} up",
@@ -1174,8 +1102,6 @@ export const adminMessages = {
     "admin.syncSettings.hint.youtubeMaxDetailRequests":
       "Watch pages read for reservations and details.",
     "admin.syncSettings.field.fetchMaxPages": "Manual fetch pages",
-    "admin.syncSettings.hint.fetchMaxPages":
-      "Pages of one manual fetch per account or for the channel.",
     "admin.syncSettings.field.fetchTimeoutMs": "Request timeout (ms)",
     "admin.syncSettings.hint.fetchTimeoutMs":
       "Per request of manual fetches and the X API method.",
@@ -1692,8 +1618,6 @@ export const adminMessages = {
       "The shop answered with something other than its product JSON.",
     "admin.code.shop_invalid_request": "The shop request could not be built.",
     "admin.shop.title": "Shop reads",
-    "admin.shop.description":
-      "Sale entries keep their last known period when a product leaves the listing. Operator edits and deletions win over the shop.",
     "admin.shop.sales": "Sale entries",
     "admin.shop.lastAttempt": "Last read",
     "admin.shop.lastError": "Last error",
@@ -2259,13 +2183,10 @@ export const adminMessages = {
     "admin.videos.merge.lengthDelta": "时长相差 {count} 秒",
     "admin.videos.merge.lengthUnknown": "时长未知",
     "admin.videos.merge.titleDiffers": "标题不同",
-    "admin.bilibili.description":
-      "配置账号的投稿在最小间隔内最多读取一次，只显示在后台；与 YouTube 版本相符的投稿会合并到该视频。",
     "admin.bilibili.signedIn": "已登录",
     "admin.bilibili.anonymous": "未登录",
     "admin.bilibili.loginExpired": "登录已过期",
     "admin.bilibili.loginUnchecked": "尚未检查登录",
-    "admin.bilibili.loginChecked": "登录检查",
     "admin.bilibili.loginExpiredHint":
       "登录 Cookie 已过期。请在服务器环境中设置新的 BILIBILI_SESSDATA，每日登录检查会确认它。",
     "admin.bilibili.force": "仍然尝试一次",
@@ -2273,38 +2194,17 @@ export const adminMessages = {
       "验证码退避持续到 {time}。这会立即发送这一次读取，可能延长退避。",
     "admin.bilibili.blocked": "验证码退避中",
     "admin.bilibili.account": "账号",
-    "admin.bilibili.videos": "已收录投稿",
-    "admin.bilibili.interval": "列表读取",
-    "admin.bilibili.everyMinutes": "最多每 {count} 分钟一次",
     "admin.bilibili.blockedUntil": "等待至 {time}",
     "admin.bilibili.lastError": "最近错误",
     "admin.bilibili.signInHint":
       "未登录读取经常会遇到哔哩哔哩的验证码。在服务器环境中设置 BILIBILI_SESSDATA 即可以登录账号读取，详见配置说明。",
     "admin.bilibili.add": "添加投稿",
-    "admin.bilibili.addHint":
-      "填写配置账号投稿的 BV 号或 bilibili.com 视频链接，会立即读取。",
     "admin.bilibili.addButton": "添加",
     "admin.bilibili.addField": "BV 号或视频链接",
-    "admin.bilibili.uploadsTitle": "投稿",
     "admin.bilibili.addPostField": "动态链接",
     "admin.bilibili.addPost": "添加动态",
     "admin.youtube.add": "添加视频",
     "admin.youtube.addField": "视频 ID 或链接",
-    "admin.bilibili.addPostHint":
-      "配置账号某条动态的 bilibili.com/opus 或 t.bilibili.com 链接，会立即读取。",
-    "admin.bilibili.dynamics.title": "动态",
-    "admin.bilibili.dynamics.description":
-      "配置账号的动态会作为帖子与 X 贴文一起显示在公开页面。读取动态列表需要登录 Cookie；通过链接添加单条动态则不需要。",
-    "admin.bilibili.dynamics.posts": "已收录动态",
-    "admin.bilibili.dynamics.lastAttempt": "上次读取",
-    "admin.bilibili.dynamics.lastSuccess": "上次成功",
-    "admin.bilibili.dynamics.skipped": "上次读取已跳过",
-    "admin.bilibili.dynamics.skipped.login_required":
-      "动态列表需要 BILIBILI_SESSDATA",
-    "admin.bilibili.dynamics.skipped.login_expired":
-      "登录 Cookie 已过期，动态列表等待每日登录检查",
-    "admin.bilibili.dynamics.skipped.interval": "等待最小间隔",
-    "admin.bilibili.dynamics.skipped.blocked": "验证码退避中",
     "admin.bilibili.dynamics.loginHint":
       "动态列表需要登录 Cookie。请在服务器环境中设置 BILIBILI_SESSDATA。",
     "admin.bilibili.live.title": "直播间",
@@ -2388,8 +2288,8 @@ export const adminMessages = {
     "admin.push.enable": "接收推送通知",
     "admin.push.enableHint": "需要一个能访问到本服务器的公开 HTTPS 回调地址。",
     "admin.push.unavailable": "YouTube 已被 SKIP_YOUTUBE 停用。",
-    "admin.push.callback": "公开回调地址",
-    "admin.push.callbackHint": "必须以 {path} 结尾。",
+    "admin.push.callback": "部署地址",
+    "admin.push.callbackPlaceholder": "部署域名，例如 https://example.com",
     "admin.push.rotate": "轮换签名密钥",
     "admin.push.secret": "签名密钥",
     "admin.push.secretSet": "已配置",
@@ -2405,8 +2305,6 @@ export const adminMessages = {
     "admin.liveProbe.enable": "探测进行中的直播",
     "admin.liveProbe.enableHint":
       "在服务器任务队列中运行：直播开始前后每隔几分钟检查一次，且只在有活跃视频时运行。",
-    "admin.liveProbe.unavailable":
-      "未运行：定时器已关闭（WORKFLOW_SCHEDULER_ENABLED=0），或 YouTube 已被 SKIP_YOUTUBE 停用。",
     "admin.liveProbe.interval": "间隔（分钟）",
     "admin.liveProbe.intervalHint":
       "{min} 到 {max} 分钟，用于直播中的视频，以及开始 45 分钟后仍未开播的待机室。从预定开始到确认开播，每 3 分钟检查一次。结果在两个间隔内有效，之后看板改按开始时间推断。",
@@ -2423,8 +2321,6 @@ export const adminMessages = {
     "admin.liveProbe.bilibili.description":
       "在哔哩哔哩直播日程前后检查账号的直播间，其余时间按间隔检查，让公开页面显示已预告或未预告的哔哩哔哩直播。",
     "admin.liveProbe.bilibili.enable": "检查哔哩哔哩直播间",
-    "admin.liveProbe.bilibili.unavailable":
-      "未运行：定时器已关闭（WORKFLOW_SCHEDULER_ENABLED=0），或哔哩哔哩已停用。",
     "admin.liveProbe.bilibili.nextCheck": "下次检查",
     "admin.liveProbe.due": "下次检查 {time}",
     "admin.liveProbe.dueNow": "已到检查时间",

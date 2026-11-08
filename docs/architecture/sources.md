@@ -725,9 +725,10 @@ listed beyond that grace. Run timing is described in
 
 #### WebSub Push
 
-Polling remains the baseline. The operator turns push on in `/admin` (Content
-& media → YouTube push) by entering a public HTTPS callback URL that forwards to
-`/api/websub/youtube`. The standalone process then subscribes the channel's
+Polling remains the baseline. The operator turns push on in `/admin`
+(Sources → YouTube → YouTube push) by entering the deployment's public HTTPS
+address; the console adds `/api/websub/youtube` and saves the result as the
+callback URL. The standalone process then subscribes the channel's
 feed topic at Google's hub (`https://pubsubhubbub.appspot.com/subscribe`)
 within seconds, without a restart, and again at every startup.
 `backend/internal/source/youtube/websub` owns the protocol and its admin

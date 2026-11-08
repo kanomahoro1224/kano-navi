@@ -136,10 +136,7 @@ export function RelatedAccountsPanel({
                         />
                       </span>
                     </Field>
-                    <FieldGroup
-                      label={t("admin.related.keywords")}
-                      hint={t("admin.related.keywordsHint")}
-                    >
+                    <FieldGroup label={t("admin.related.keywords")}>
                       <TagInput
                         value={draft.keywords}
                         onChange={(keywords) => set(draft.key, { keywords })}

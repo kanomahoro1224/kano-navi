@@ -25,7 +25,6 @@ export function ShopStatusPanel({ shop }: { shop: Sources["shop"] }) {
       level={3}
       icon={ShoppingBag}
       title={t("admin.shop.title")}
-      description={t("admin.shop.description")}
       actions={
         <span className="adm-chip-row">
           {shop.skipped ? <Badge>{t("admin.overview.skipped")}</Badge> : null}

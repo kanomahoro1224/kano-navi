@@ -1,11 +1,5 @@
 import { useState, type ReactNode, type SubmitEvent } from "react"
-import {
-  KeyRound,
-  MessageSquareText,
-  Plus,
-  RadioTower,
-  ShieldAlert,
-} from "lucide-react"
+import { KeyRound, Plus, RadioTower, ShieldAlert } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import { ApiError } from "@/admin/api"
@@ -13,7 +7,7 @@ import { formatRelative, japanStamp } from "@/admin/format"
 import type { BilibiliLiveRoom, BilibiliLogin, Sources } from "@/admin/types"
 import { Badge, Button, Facts, Field, Panel, type Tone } from "@/admin/ui"
 import { useAdmin } from "@/admin/use-admin-data"
-import { BilibiliIcon, explainCode } from "@/admin/views/run-parts"
+import { explainCode } from "@/admin/views/run-parts"
 
 const roomStates: Record<number, { key: string; tone: Tone }> = {
   0: { key: "admin.bilibili.live.off", tone: "neutral" },
@@ -111,7 +105,7 @@ function AddForm({
   onAdded,
 }: {
   label: string
-  hint: string
+  hint?: string
   placeholder: string
   disabled: boolean
   notice: string
@@ -250,153 +244,48 @@ function LoginBadge({ login }: { login: BilibiliLogin }) {
   )
 }
 
-/** The badges both Bilibili panels lead with: skipped and the backoff. */
-function StateBadges({
-  status,
-  children,
-}: {
-  status: Sources["bilibili"]
-  children?: ReactNode
-}) {
-  const { t } = useAppSettings()
-  return (
-    <span className="adm-chip-row">
-      {!status.available || status.skipped ? (
-        <Badge>{t("admin.overview.skipped")}</Badge>
-      ) : null}
-      {children}
-      {future(status.blockedUntil) ? (
-        <Badge tone="danger" icon={ShieldAlert}>
-          {t("admin.bilibili.blocked")}
-        </Badge>
-      ) : null}
-    </span>
-  )
-}
-
 /** Whether the operator's single reads can run: the source is on here. */
 const usableOf = (status: Sources["bilibili"] | undefined) =>
   Boolean(status?.available && !status.skipped)
 
-/**
- * The upload read's state on the Sources page, below its timer: the
- * account, what is stored, the read interval, the last read error and the
- * login cookie the read sends, with whether the source runs here and the
- * captcha backoff. Uploads stay in the console; one merged into its YouTube
- * copy is listed on that video.
- */
-export function BilibiliUploadsStatus({
+/** The login cookie both Bilibili reads send, as a chip of the summary. */
+export function BilibiliLoginBadge({
   status,
 }: {
   status: Sources["bilibili"] | undefined
 }) {
-  const { t } = useAppSettings()
-  const login = loginOf(status)
-  return (
-    <Panel
-      level={3}
-      icon={BilibiliIcon}
-      title={t("admin.bilibili.uploadsTitle")}
-      description={t("admin.bilibili.description")}
-      actions={
-        status ? (
-          <StateBadges status={status}>
-            <LoginBadge login={login} />
-          </StateBadges>
-        ) : null
-      }
-    >
-      {status?.available ? (
-        <Facts
-          items={[
-            [t("admin.bilibili.account"), status.account],
-            [t("admin.bilibili.videos"), String(status.videos)],
-            [
-              t("admin.bilibili.interval"),
-              t("admin.bilibili.everyMinutes", {
-                count: status.minIntervalMinutes ?? 0,
-              }),
-            ],
-            [
-              t("admin.bilibili.lastError"),
-              status.lastError ? <ErrorText code={status.lastError} /> : null,
-            ],
-          ]}
-        />
-      ) : null}
-      {status?.available && login === "not_configured" ? (
-        <p className="adm-note">{t("admin.bilibili.signInHint")}</p>
-      ) : null}
-      {status?.available && login === "expired" ? (
-        <p className="adm-note">{t("admin.bilibili.loginExpiredHint")}</p>
-      ) : null}
-    </Panel>
-  )
+  return status?.available ? <LoginBadge login={loginOf(status)} /> : null
 }
 
 /**
- * The dynamics listing's state on the Sources page, below its timer: the
- * account, the login cookie and its last check, and the listing's last
- * read, with whether the source runs here and the captcha backoff it shares
- * with the upload read. Dynamics show as posts beside X posts on the board.
+ * What a Bilibili read needs of its login cookie, under the summary: how to
+ * set one while none is configured (the uploads read anonymously, the
+ * dynamics listing not at all) and that an expired one needs replacing.
  */
-export function BilibiliDynamicsStatus({
+export function BilibiliLoginNote({
   status,
+  dynamics,
 }: {
   status: Sources["bilibili"] | undefined
+  dynamics: boolean
 }) {
   const { t } = useAppSettings()
-  const stamp = useStamp()
+  if (!status?.available) return null
   const login = loginOf(status)
-  const dynamics = status?.dynamics
-  const facts: [ReactNode, ReactNode][] = status?.available
-    ? [
-        [t("admin.bilibili.account"), status.account],
-        [
-          t("admin.bilibili.loginChecked"),
-          stamp(status.loginCheckedAt ?? null),
-        ],
-      ]
-    : []
-  if (status?.available && dynamics)
-    facts.push(
-      [t("admin.bilibili.dynamics.posts"), String(dynamics.posts)],
-      [t("admin.bilibili.dynamics.lastAttempt"), stamp(dynamics.lastAttemptAt)],
-      [t("admin.bilibili.dynamics.lastSuccess"), stamp(dynamics.lastSuccessAt)],
-      [
-        t("admin.bilibili.dynamics.skipped"),
-        dynamics.skipped
-          ? t(`admin.bilibili.dynamics.skipped.${dynamics.skipped}`)
-          : null,
-      ],
-      [
-        t("admin.bilibili.lastError"),
-        dynamics.lastError ? <ErrorText code={dynamics.lastError} /> : null,
-      ],
-    )
-  return (
-    <Panel
-      level={3}
-      icon={MessageSquareText}
-      title={t("admin.bilibili.dynamics.title")}
-      description={t("admin.bilibili.dynamics.description")}
-      actions={
-        status ? (
-          <StateBadges status={status}>
-            <LoginBadge login={login} />
-          </StateBadges>
-        ) : null
-      }
-    >
-      {facts.length ? <Facts items={facts} /> : null}
-      {status?.available && login === "not_configured" ? (
-        <p className="adm-note">{t("admin.bilibili.dynamics.loginHint")}</p>
-      ) : null}
-      {status?.available && login === "expired" ? (
-        <p className="adm-note">{t("admin.bilibili.loginExpiredHint")}</p>
-      ) : null}
-    </Panel>
-  )
+  const key =
+    login === "expired"
+      ? "admin.bilibili.loginExpiredHint"
+      : login !== "not_configured"
+        ? null
+        : dynamics
+          ? "admin.bilibili.dynamics.loginHint"
+          : "admin.bilibili.signInHint"
+  return key ? (
+    <p className="adm-source-note">
+      <KeyRound aria-hidden />
+      {t(key)}
+    </p>
+  ) : null
 }
 
 /**
@@ -413,7 +302,7 @@ export function AddPanel({
   usable: boolean
   title: string
   label: string
-  hint: string
+  hint?: string
   placeholder: string
   notice: string
   send: (input: string, force: boolean) => Promise<unknown>
@@ -446,7 +335,6 @@ export function BilibiliAddUpload({
       usable={usableOf(status)}
       title={t("admin.bilibili.add")}
       label={t("admin.bilibili.addField")}
-      hint={t("admin.bilibili.addHint")}
       placeholder="BV1xxxxxxxxx"
       notice="admin.notice.bilibiliAdded"
       send={(input, force) => api.addBilibiliVideo(input, force)}
@@ -470,7 +358,6 @@ export function BilibiliAddDynamic({
       usable={usableOf(status)}
       title={t("admin.bilibili.addPost")}
       label={t("admin.bilibili.addPostField")}
-      hint={t("admin.bilibili.addPostHint")}
       placeholder="https://www.bilibili.com/opus/…"
       notice="admin.notice.bilibiliPostAdded"
       send={(input, force) => api.addBilibiliPost(input, force)}

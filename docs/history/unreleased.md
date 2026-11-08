@@ -324,11 +324,10 @@
   stops showing the stream as live at that time. **No end time** leaves the
   end open, and an entry saved without an end opens on it.
 - Sources has a Bilibili uploads and a Bilibili dynamics tab, each with
-  its timer and Run now and, below the timed reads, its read's state: the
-  account, the last read and its error, whether the login cookie signs in
-  and the captcha backoff. Bilibili uploads also holds the live room check
-  (its switch, interval, followed streams and the room's last check) in the
-  main column, as YouTube holds its probe. Beside them each tab has a manual
+  its timer and Run now, whether the login cookie signs in and the captcha
+  backoff in its summary. Bilibili uploads also holds the live room check
+  (its switch, interval, followed streams and the room's last check) as a
+  fold in the main column, as YouTube holds its probe. Beside them each tab has a manual
   fetch, as X and YouTube do: the account's newest uploads or dynamics, or
   the whole listing, 15 seconds a page within the manual fetch page budget
   and resumed when repeated; the dynamics fetch needs the login cookie and
@@ -336,6 +335,8 @@
   backoff. Below it each tab adds one upload or one dynamic by its link;
   during a backoff, adding or refreshing one upload or dynamic offers **Try
   once anyway**.
+- YouTube push takes the deployment's address and adds the callback path
+  itself.
 - Sources → YouTube adds one video of the channel by its ID or link below the
   manual fetch and reads it at once: through the Data API with a key,
   otherwise from its watch page. A video of another channel is refused. Translation views show

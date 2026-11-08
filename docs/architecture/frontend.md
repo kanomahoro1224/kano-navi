@@ -395,7 +395,10 @@ next run, last run and last successful read, the timer switch (which saves
 at once) and Run now. While the timer runs, Run now starts it as the
 overview queue's Start now does, and reads Run next while a run holds the
 queue; while it is off, Run now runs the source's steps once and waits for a
-free queue. A source that `SKIP_*` turns off is locked. Below the
+free queue. A source that `SKIP_*` turns off is locked. The Bilibili
+tabs' summaries add the login cookie's state and the shared captcha backoff
+as chips, with a note on setting `BILIBILI_SESSDATA` while no cookie is
+configured or the configured one expired. Below the
 summary the main column holds the timed reads, one form with one Save and
 Discard: the interval and, for X and YouTube, the sync setting; and the
 [method chain](workflows.md#method-chains), with every method's switch and
@@ -422,12 +425,9 @@ videos, each with Check again), followed by
 the read-only
 [follow-up checks](sources.md#follow-up-checks-and-refresh-requests), and
 yt-dlp, with its status in the header. Bilibili uploads adds the Bilibili
-live room, the live-status probe's Bilibili part: the room's state and the
-check's switch in the header, its interval, next check and the stream
-entries it follows, then the room's last check. Each Bilibili tab adds,
-below the timed reads, its read's state: the account, what is stored, the
-last read and its error, the login cookie and its last check, whether the
-source runs here and the shared captcha backoff, with the sign-in hints.
+live room fold, the live-status probe's Bilibili part: the room's state and
+the check's switch in the header, its interval, next check and the stream
+entries it follows, then the room's last check.
 The shop tab (`src/admin/views/shop-parts.tsx`) adds the shop read's state:
 its sale entries, last read and error, whether it runs here and the wait a
 429 answer set.
@@ -441,7 +441,9 @@ progressive confirmation and each of its steps, and yt-dlp.
 
 The manual fetch sits beside the main column: method, for X every own
 account or one of them, mode, count or dates, options, then the newest
-fetch's summary. The X related tab's fetch picks one related account,
+fetch's summary. The method and mode pickers show only when there is more
+than one to pick, and only YouTube's methods and the date windows carry a
+hint. The X related tab's fetch picks one related account,
 shows its last read, and offers schedule extraction and translation; its
 summary counts the statuses listed, promoted and demoted. The Bilibili tabs'
 fetch form is disabled while the captcha backoff lasts, with its end. The

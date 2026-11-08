@@ -84,8 +84,8 @@ import {
   AddPanel,
   BilibiliAddDynamic,
   BilibiliAddUpload,
-  BilibiliDynamicsStatus,
-  BilibiliUploadsStatus,
+  BilibiliLoginBadge,
+  BilibiliLoginNote,
   LiveRoomFacts,
   LiveRoomState,
 } from "@/admin/views/bilibili-parts"
@@ -238,11 +238,14 @@ function SourceSummary({
   schedule,
   lastSuccess,
   chips,
+  notes,
   onChange,
 }: {
   schedule: SourceSchedule
   lastSuccess: string | null | undefined
   chips?: ReactNode
+  /** Notes under the locked note, such as a missing login. */
+  notes?: ReactNode
   onChange: (schedule: SourceSchedule) => void
 }) {
   const { t } = useAppSettings()
@@ -322,6 +325,7 @@ function SourceSummary({
           {t("admin.timer.skipped", { flag: skipFlags[source] })}
         </p>
       ) : null}
+      {notes}
       <dl className="adm-source-stats">
         <div>
           <dt>{t("admin.sources.timer")}</dt>
@@ -629,7 +633,7 @@ function TimedReadsPanel({
           <Field
             label={t("admin.timer.interval")}
             hint={
-              isBilibili(source) || source === "shop"
+              source === "shop"
                 ? t("admin.timer.floor", {
                     floor: formatInterval(schedule.minIntervalMinutes, t),
                   })
@@ -719,9 +723,10 @@ function TimedReadsPanel({
               <p>{t("admin.chain.description")}</p>
             </HelpButton>
           </legend>
-          {/* The related accounts' one method speaks for itself. */}
-          {chain.fixed && source !== "x_related" ? (
-            <p className="adm-field-hint">{t(`admin.chain.fixed.${source}`)}</p>
+          {/* Only the shop's one method needs a word; the others speak for
+          themselves. */}
+          {chain.fixed && source === "shop" ? (
+            <p className="adm-field-hint">{t("admin.chain.fixed.shop")}</p>
           ) : null}
           <ol className="adm-chain-list">
             {methods.map((method, index) => (
@@ -1042,25 +1047,33 @@ function FetchForm({
   }
   return (
     <form className="adm-form" onSubmit={submit}>
-      <FieldGroup
-        label={t("admin.fetch.method")}
-        hint={t(`admin.fetch.methodHint.${source}.${method.id}`)}
-      >
-        <Segmented
+      {/* A source with one method, such as Bilibili's, has nothing to pick;
+      only YouTube's methods differ enough to explain. */}
+      {methods.length > 1 ? (
+        <FieldGroup
           label={t("admin.fetch.method")}
-          value={method.id}
-          onChange={setMethodId}
-          options={methods.map((item) => ({
-            value: item.id,
-            label: (
-              <>
-                {item.available ? null : <KeyRound aria-hidden />}
-                {t(`admin.fetch.method.${source}.${item.id}`)}
-              </>
-            ),
-          }))}
-        />
-      </FieldGroup>
+          hint={
+            source === "youtube"
+              ? t(`admin.fetch.methodHint.${source}.${method.id}`)
+              : undefined
+          }
+        >
+          <Segmented
+            label={t("admin.fetch.method")}
+            value={method.id}
+            onChange={setMethodId}
+            options={methods.map((item) => ({
+              value: item.id,
+              label: (
+                <>
+                  {item.available ? null : <KeyRound aria-hidden />}
+                  {t(`admin.fetch.method.${source}.${item.id}`)}
+                </>
+              ),
+            }))}
+          />
+        </FieldGroup>
+      ) : null}
       {method.available ? null : (
         <p className="adm-inline-error">
           <KeyRound aria-hidden />
@@ -1085,24 +1098,28 @@ function FetchForm({
           />
         </FieldGroup>
       ) : null}
-      <FieldGroup
-        label={t("admin.fetch.selection")}
-        hint={t(
-          current === "all"
-            ? `admin.fetch.modeHint.all.${source}`
-            : `admin.fetch.modeHint.${current}.${source}`,
-        )}
-      >
-        <Segmented
+      {/* A method with one mode has nothing to pick; Latest and Everything
+      explain themselves, and only date windows need their bounds. */}
+      {method.modes.length > 1 ? (
+        <FieldGroup
           label={t("admin.fetch.selection")}
-          value={current}
-          onChange={setMode}
-          options={method.modes.map((value) => ({
-            value,
-            label: t(`admin.fetch.mode.${value}`),
-          }))}
-        />
-      </FieldGroup>
+          hint={
+            current === "range" || current === "before"
+              ? t(`admin.fetch.modeHint.${current}.${source}`)
+              : undefined
+          }
+        >
+          <Segmented
+            label={t("admin.fetch.selection")}
+            value={current}
+            onChange={setMode}
+            options={method.modes.map((value) => ({
+              value,
+              label: t(`admin.fetch.mode.${value}`),
+            }))}
+          />
+        </FieldGroup>
+      ) : null}
       {current === "count" ? (
         <Field
           label={t(
@@ -1179,7 +1196,6 @@ function FetchForm({
             checked={refresh}
             onChange={setRefresh}
             label={t("admin.fetch.option.refresh")}
-            description={t("admin.fetch.option.refreshHint")}
           />
         ) : null}
       </fieldset>
@@ -1516,7 +1532,6 @@ function YoutubeAddVideo({
       usable={!youtube.skipped}
       title={t("admin.youtube.add")}
       label={t("admin.youtube.addField")}
-      hint={t("admin.youtube.addHint")}
       placeholder="https://www.youtube.com/watch?v=…"
       notice="admin.notice.youtubeAdded"
       send={(input) => api.addYoutubeVideo(input)}
@@ -1758,6 +1773,25 @@ function Stage({
   )
 }
 
+/** The deployment address a stored callback URL starts with. */
+function callbackOrigin(url: string | null | undefined, path: string) {
+  if (!url) return ""
+  return url.endsWith(path) ? url.slice(0, -path.length) : url
+}
+
+/**
+ * The callback URL for an entered deployment address: HTTPS unless another
+ * scheme is given, without trailing slashes, ending in the callback path.
+ * Nothing entered clears it.
+ */
+function callbackUrl(input: string, path: string) {
+  let origin = input.trim().replace(/\/+$/u, "")
+  if (!origin) return null
+  if (origin.endsWith(path)) origin = origin.slice(0, -path.length)
+  if (!/^[a-z][a-z0-9+.-]*:\/\//iu.test(origin)) origin = `https://${origin}`
+  return `${origin}${path}`
+}
+
 function PushStage({
   push,
   onChange,
@@ -1767,9 +1801,14 @@ function PushStage({
 }) {
   const { t, locale } = useAppSettings()
   const { api, act } = useAdmin()
-  const [callback, setCallback] = useState(push.callbackUrl || "")
+  const path = push.callbackPath
+  const saved = callbackOrigin(push.callbackUrl, path)
+  // The field holds the deployment address; the callback path is added on
+  // save.
+  const [callback, setCallback] = useState(saved)
   const [busy, setBusy] = useState("")
-  useEffect(() => setCallback(push.callbackUrl || ""), [push.callbackUrl])
+  useEffect(() => setCallback(saved), [saved])
+  const url = callbackUrl(callback, path)
   const save = async (body: {
     enabled?: boolean
     callbackUrl?: string | null
@@ -1806,9 +1845,7 @@ function PushStage({
               compact
               checked={push.enabled}
               disabled={!push.available || busy !== ""}
-              onChange={(enabled) =>
-                save({ enabled, callbackUrl: callback || null })
-              }
+              onChange={(enabled) => save({ enabled, callbackUrl: url })}
               label={t("admin.push.enable")}
             />
           </>
@@ -1818,15 +1855,15 @@ function PushStage({
           {push.available ? null : (
             <p className="adm-field-hint">{t("admin.push.unavailable")}</p>
           )}
-          <Field
-            label={t("admin.push.callback")}
-            hint={t("admin.push.callbackHint", { path: push.callbackPath })}
-          >
+          <Field label={t("admin.push.callback")}>
             <input
-              type="url"
+              type="text"
+              inputMode="url"
               value={callback}
               onChange={(e) => setCallback(e.target.value)}
-              placeholder="https://"
+              placeholder={t("admin.push.callbackPlaceholder")}
+              spellCheck={false}
+              autoCapitalize="off"
             />
           </Field>
           <div className="adm-form-actions">
@@ -1849,8 +1886,8 @@ function PushStage({
               size="sm"
               icon={Save}
               busy={busy === "save"}
-              disabled={callback === (push.callbackUrl || "")}
-              onClick={() => save({ callbackUrl: callback || null })}
+              disabled={url === (push.callbackUrl || null)}
+              onClick={() => save({ callbackUrl: url })}
             >
               {t("admin.action.save")}
             </Button>
@@ -1885,11 +1922,11 @@ function PushStage({
 }
 
 /**
- * The Bilibili live-room check on the Bilibili tab, as YouTube's probe sits
- * on its own: a switch and interval saved through the live-probe settings,
- * the stream events it follows and the room's last check. It runs in the
- * live-probe step on its own interval. The board shows a Bilibili stream On
- * air from this check.
+ * The Bilibili live-room check on the Bilibili tab, folded like YouTube's
+ * probe: the room's state and the switch in the header, then the interval
+ * saved through the live-probe settings, the stream events it follows and
+ * the room's last check. It runs in the live-probe step on its own interval.
+ * The board shows a Bilibili stream On air from this check.
  */
 function BilibiliLivePanel({
   probe,
@@ -1918,19 +1955,13 @@ function BilibiliLivePanel({
     if (next) onChange(next)
   }
   return (
-    <Panel
-      level={3}
+    <Fold
       icon={RadioTower}
-      title={
+      title={t("admin.liveProbe.bilibili.title")}
+      className="adm-panel"
+      help={<p>{t("admin.liveProbe.bilibili.description")}</p>}
+      controls={
         <>
-          {t("admin.liveProbe.bilibili.title")}
-          <HelpButton title={t("admin.liveProbe.bilibili.title")}>
-            <p>{t("admin.liveProbe.bilibili.description")}</p>
-          </HelpButton>
-        </>
-      }
-      actions={
-        <span className="adm-chip-row">
           {live ? <LiveRoomState live={live} /> : null}
           {probe.enabled && !probe.available ? (
             <Badge tone="honey">{t("admin.liveProbe.notRunning")}</Badge>
@@ -1942,7 +1973,7 @@ function BilibiliLivePanel({
             onChange={(bilibiliEnabled) => save({ bilibiliEnabled })}
             label={t("admin.liveProbe.bilibili.enable")}
           />
-        </span>
+        </>
       }
     >
       <form
@@ -1952,11 +1983,6 @@ function BilibiliLivePanel({
           save({ bilibiliIntervalMinutes: minutes })
         }}
       >
-        {probe.available ? null : (
-          <p className="adm-field-hint">
-            {t("admin.liveProbe.bilibili.unavailable")}
-          </p>
-        )}
         <Field
           label={t("admin.liveProbe.interval")}
           hint={t("admin.liveProbe.intervalRange", {
@@ -2024,7 +2050,7 @@ function BilibiliLivePanel({
           <LiveRoomFacts live={live} />
         </section>
       ) : null}
-    </Panel>
+    </Fold>
   )
 }
 
@@ -2107,9 +2133,6 @@ function LiveProbeStage({
             save({ intervalMinutes: minutes })
           }}
         >
-          {probe.available ? null : (
-            <p className="adm-field-hint">{t("admin.liveProbe.unavailable")}</p>
-          )}
           <Field
             label={t("admin.liveProbe.interval")}
             hint={t("admin.liveProbe.intervalRange", {
@@ -2398,8 +2421,8 @@ const sourceIds: ScheduleSource[] = [
  * (timer state, runs, the timer switch and Run now). Below it the timed-read
  * settings fill the main column, followed by X's API limits or YouTube's
  * progressive confirmation, the timed-read limits and yt-dlp, each folded,
- * the related X accounts beside their timer, or a Bilibili read's state (and
- * the uploads' live room). The manual actions sit beside them: the manual
+ * the related X accounts beside their timer, or the uploads' folded Bilibili
+ * live room; a Bilibili summary shows the login cookie and the backoff. The manual actions sit beside them: the manual
  * fetch, a related account's fetch or the shop's read, then one YouTube
  * video, Bilibili upload or dynamic added by link, then the fetches' folded
  * limits for X and YouTube. On a narrower screen the side column follows
@@ -2487,12 +2510,25 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                       : overview?.sources[selected].lastSuccessAt
                 }
                 chips={
-                  isBilibili(selected) && blockedUntil ? (
-                    <Badge tone="danger" icon={ShieldAlert}>
-                      {t("admin.bilibili.blockedUntil", {
-                        time: japanStamp(blockedUntil),
-                      })}
-                    </Badge>
+                  isBilibili(selected) ? (
+                    <>
+                      <BilibiliLoginBadge status={data.bilibili} />
+                      {blockedUntil ? (
+                        <Badge tone="danger" icon={ShieldAlert}>
+                          {t("admin.bilibili.blockedUntil", {
+                            time: japanStamp(blockedUntil),
+                          })}
+                        </Badge>
+                      ) : null}
+                    </>
+                  ) : null
+                }
+                notes={
+                  isBilibili(selected) ? (
+                    <BilibiliLoginNote
+                      status={data.bilibili}
+                      dynamics={selected === "bilibili_dynamics"}
+                    />
                   ) : null
                 }
                 onChange={setSchedule}
@@ -2525,12 +2561,6 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                         sources.setData({ ...data, youtube })
                       }
                     />
-                  ) : null}
-                  {selected === "bilibili" ? (
-                    <BilibiliUploadsStatus status={data.bilibili} />
-                  ) : null}
-                  {selected === "bilibili_dynamics" ? (
-                    <BilibiliDynamicsStatus status={data.bilibili} />
                   ) : null}
                   {selected === "shop" ? (
                     <ShopStatusPanel shop={data.shop} />

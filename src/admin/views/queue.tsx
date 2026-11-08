@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import {
   ArrowUpRight,
   Clock,
@@ -42,17 +43,23 @@ const reasonTones: Record<string, Tone> = {
   backoffDue: "honey",
 }
 
-/** The shared head of a tab: a way to recompute it. */
+/**
+ * The shared head of a tab: its figures and, on the same row, a way to
+ * recompute them.
+ */
 function TabHead({
+  facts,
   loading,
   onRefresh,
 }: {
+  facts: [ReactNode, ReactNode][]
   loading: boolean
   onRefresh: () => void
 }) {
   const { t } = useAppSettings()
   return (
     <div className="adm-qp-head">
+      <Facts items={facts} />
       <Button
         size="sm"
         variant="ghost"
@@ -156,6 +163,19 @@ function ScheduleTab({ navigate }: { navigate: ViewProps["navigate"] }) {
   return (
     <div className="adm-qp-tab">
       <TabHead
+        facts={[
+          [
+            t("admin.queuePreview.schedule.stages"),
+            stages.length ? stages.join(" · ") : t("admin.metric.no"),
+          ],
+          [t("admin.queuePreview.schedule.candidates"), queue.candidates],
+          [t("admin.queuePreview.schedule.requested"), queue.requested],
+          [t("admin.queuePreview.schedule.postsRead"), queue.postsRead],
+          [
+            t("admin.queuePreview.schedule.candidateMs"),
+            t("admin.queuePreview.ms", { ms: queue.candidateMs }),
+          ],
+        ]}
         loading={resource.loading}
         onRefresh={() => void resource.reload()}
       />
@@ -169,21 +189,6 @@ function ScheduleTab({ navigate }: { navigate: ViewProps["navigate"] }) {
           {t("admin.queuePreview.schedule.disabled")}
         </Callout>
       ) : null}
-      <Facts
-        items={[
-          [
-            t("admin.queuePreview.schedule.stages"),
-            stages.length ? stages.join(" · ") : t("admin.metric.no"),
-          ],
-          [t("admin.queuePreview.schedule.candidates"), queue.candidates],
-          [t("admin.queuePreview.schedule.requested"), queue.requested],
-          [t("admin.queuePreview.schedule.postsRead"), queue.postsRead],
-          [
-            t("admin.queuePreview.schedule.candidateMs"),
-            t("admin.queuePreview.ms", { ms: queue.candidateMs }),
-          ],
-        ]}
-      />
       <h3 className="adm-qp-title">
         {t("admin.queuePreview.schedule.thisRun", {
           count: queue.run.length,
@@ -254,16 +259,7 @@ function YoutubeTab() {
   return (
     <div className="adm-qp-tab">
       <TabHead
-        loading={resource.loading}
-        onRefresh={() => void resource.reload()}
-      />
-      {queue.skipped ? (
-        <Callout tone="warning" icon={TriangleAlert}>
-          {t("admin.queuePreview.stepSkipped")}
-        </Callout>
-      ) : null}
-      <Facts
-        items={[
+        facts={[
           [t("admin.queuePreview.youtube.watchPages"), queue.watchPages],
           [
             t("admin.queuePreview.youtube.apiVideos"),
@@ -277,7 +273,14 @@ function YoutubeTab() {
             queue.counts.followUp,
           ],
         ]}
+        loading={resource.loading}
+        onRefresh={() => void resource.reload()}
       />
+      {queue.skipped ? (
+        <Callout tone="warning" icon={TriangleAlert}>
+          {t("admin.queuePreview.stepSkipped")}
+        </Callout>
+      ) : null}
       <Callout icon={Info}>
         {t("admin.queuePreview.youtube.discovered")}
       </Callout>
@@ -393,6 +396,14 @@ function TranslateTab({ navigate }: { navigate: ViewProps["navigate"] }) {
   return (
     <div className="adm-qp-tab">
       <TabHead
+        facts={[
+          [t("admin.queuePreview.translate.limit"), queue.limit],
+          [t("admin.queuePreview.translate.lookback"), queue.lookbackDays],
+          [
+            t("admin.queuePreview.translate.candidates"),
+            queue.candidates.length,
+          ],
+        ]}
         loading={resource.loading}
         onRefresh={() => void resource.reload()}
       />
@@ -408,16 +419,6 @@ function TranslateTab({ navigate }: { navigate: ViewProps["navigate"] }) {
           })}
         </Callout>
       ) : null}
-      <Facts
-        items={[
-          [t("admin.queuePreview.translate.limit"), queue.limit],
-          [t("admin.queuePreview.translate.lookback"), queue.lookbackDays],
-          [
-            t("admin.queuePreview.translate.candidates"),
-            queue.candidates.length,
-          ],
-        ]}
-      />
       {queue.candidates.length ? (
         <ol className="adm-qp-list">
           {queue.candidates.map((entry, index) => (
@@ -455,16 +456,7 @@ function RefreshTab({ navigate }: { navigate: ViewProps["navigate"] }) {
   return (
     <div className="adm-qp-tab">
       <TabHead
-        loading={resource.loading}
-        onRefresh={() => void resource.reload()}
-      />
-      {queue.skipped ? (
-        <Callout tone="warning" icon={TriangleAlert}>
-          {t("admin.queuePreview.stepSkipped")}
-        </Callout>
-      ) : null}
-      <Facts
-        items={[
+        facts={[
           [t("admin.queuePreview.refresh.total"), queue.total],
           [t("admin.queuePreview.refresh.detailBudget"), queue.detailBudget],
           [
@@ -474,7 +466,14 @@ function RefreshTab({ navigate }: { navigate: ViewProps["navigate"] }) {
               : "—",
           ],
         ]}
+        loading={resource.loading}
+        onRefresh={() => void resource.reload()}
       />
+      {queue.skipped ? (
+        <Callout tone="warning" icon={TriangleAlert}>
+          {t("admin.queuePreview.stepSkipped")}
+        </Callout>
+      ) : null}
       {queue.total > queue.entries.length ? (
         <p className="adm-muted">
           {t("admin.queuePreview.refresh.truncated", {

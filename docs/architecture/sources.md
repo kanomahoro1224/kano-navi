@@ -1086,8 +1086,9 @@ missing `orig`, a dynamic of any other kind (a live room, a collection,
 goods, a vote, an article in its old form) or one with neither wording nor
 pictures is unavailable, with only its ID and its opus page as URL (an
 upload too); when even its ID is unknown, `id` is empty and `url` is the
-forward's own opus page. A bad `orig` never fails the page. An unavailable
-quote leaves the dynamic's pool row as it was.
+forward's own opus page. An `orig` of an unexpected shape is unavailable
+as well, keeping its ID when `id_str` still reads, and never fails the page.
+An unavailable quote leaves the dynamic's pool row as it was.
 
 Every available forwarded dynamic also enters the Bilibili status pool,
 `bilibili_statuses`, in the forward's transaction, whatever its author. The
@@ -1170,7 +1171,8 @@ nothing else; no address comes from data:
   products, read by every timed run, Run now and full sync;
 - `/products.json?limit=250&page=<n>`, the whole catalog, read only by the
   operator's [read-all fetch](workflows.md#manual-fetches-and-historical-backfill):
-  at most six pages, three seconds apart, until a page lists fewer than 250;
+  at most six pages, three seconds apart, until a page lists fewer than 250
+  products, counting those left out as unusable;
 - `/collections.json?limit=250`, the collection list, read at most once per
   run, three seconds after the listing, and only when a listed product is in
   no stored sale of its period.
@@ -1190,8 +1192,11 @@ code, since the board is Kano's, and when its description states a dated
 period: a label (受注期間, 販売期間, 受付期間 or 抽選受付期間), a dated
 opening, and on the same line `〜`, `～` or `~` and a dated close, such as
 `＜受注期間＞ 2026年10月24日 〜 2026年11月24日`. Full-width digits read as
-digits, a weekday or time may follow the opening, and a close without a
-year falls on or after the opening. A permanent item (`販売期間 2026年10月1日～`
+digits, every Unicode space (such as the no-break space of `&nbsp;`) reads
+as a plain space, a weekday or time may follow the opening, and a close
+without a year falls on or after the opening: in the opening's year, or the
+next one when its month and day come earlier, and only then is the date
+checked, so `2027年12月1日 〜 2月29日` closes on 2028-02-29. A permanent item (`販売期間 2026年10月1日～`
 with no close), a product without a period and a period with impossible
 dates are skipped and counted by reason (`open_ended`, `no_period`,
 `invalid_period`, `untagged`). Stock (`variants[].available`) is not the
@@ -1233,7 +1238,7 @@ Each group is an automatic `sale` event (see
 | `time_precision`          | `exact` with `starts_at`, otherwise `unknown`                                                                                              |
 | `url`                     | the collection page, or the first product's page                                                                                           |
 | `detail`                  | null                                                                                                                                       |
-| `platform`                | `other`                                                                                                                                    |
+| `platform` / `platforms`  | `other` / `["other"]`, stated (`platforms_inferred` 0)                                                                                     |
 
 `raw_json`, on the event and its source row, holds only the group's title,
 link and collection handle, the matched period line, and each product's ID,
@@ -1262,8 +1267,12 @@ lookups, none started after two minutes, newest upload first.
   request per video through the media
   [outbound proxy](outbound-proxy.md) area, with a 10-second timeout, a
   256 KiB body limit and no redirects. Only the answer's video ID and a
-  thumbnail URL on `https://nicovideo.cdn.nimg.jp/thumbnails/<n>/<n>[.<hash>]`
-  are read; `DELETED`, `NOT_FOUND` and `COMMUNITY` mean the video is gone.
+  thumbnail URL on `https://nicovideo.cdn.nimg.jp/thumbnails/<n>/<n>[.<hash>]`,
+  where both `<n>` are the requested video's number, are read; `DELETED`,
+  `NOT_FOUND` and `COMMUNITY` mean the video is gone. A deadline before or
+  during the body is `niconico_timeout`. The first 429
+  (`niconico_rate_limited`) is recorded as a failed lookup and ends the
+  step's niconico lookups.
 - Bilibili: the view endpoint above, for any uploader, with the account's
   device identity and backoff. A blocked source makes no request, and the
   first captcha or rate-limit answer starts the shared backoff and ends the

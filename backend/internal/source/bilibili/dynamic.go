@@ -214,7 +214,29 @@ type spaceItem struct {
 		} `json:"module_tag"`
 	} `json:"modules"`
 	// Orig is the dynamic a forward forwards, carried in full by the listing.
-	Orig *spaceItem `json:"orig"`
+	// It is decoded on its own (see original) so a bad one never fails the
+	// page.
+	Orig json.RawMessage `json:"orig"`
+}
+
+// original is the forwarded dynamic, or nil when the forward has none. One
+// that does not decode is read for its ID alone, so its quote is
+// unavailable.
+func (it spaceItem) original() *spaceItem {
+	if len(it.Orig) == 0 || string(it.Orig) == "null" {
+		return nil
+	}
+	var orig spaceItem
+	if json.Unmarshal(it.Orig, &orig) == nil {
+		return &orig
+	}
+	var id struct {
+		IDStr string `json:"id_str"`
+	}
+	if json.Unmarshal(it.Orig, &id) != nil {
+		return nil
+	}
+	return &spaceItem{IDStr: id.IDStr}
 }
 
 // dynamic validates one listing item of the account; it reports false for a
@@ -239,10 +261,11 @@ func (it spaceItem) dynamic(owner int64) (Dynamic, bool) {
 		d := Dynamic{IDStr: it.IDStr, OwnerMid: owner, Text: boundText(joinNodes(nodes)), PublishedAt: published, Images: []string{}}
 		// A forward without wording of its own whose dynamic is gone is still
 		// kept: the store rewrites a stored one and leaves out a new one.
-		d.Quote = it.Orig.quote(d.URL())
+		forwarded := it.original()
+		d.Quote = forwarded.quote(d.URL())
 		orig := map[string]any{"type": "", "id": strings.TrimPrefix(d.Quote.ID, PostPrefix)}
-		if it.Orig != nil && len(it.Orig.Type) <= 64 {
-			orig["type"] = it.Orig.Type
+		if forwarded != nil && len(forwarded.Type) <= 64 {
+			orig["type"] = forwarded.Type
 		}
 		d.Raw = map[string]any{"type": it.Type, "nodes": nodes, "orig": orig}
 		return d, true

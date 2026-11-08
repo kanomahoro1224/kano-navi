@@ -353,7 +353,9 @@ stream (the `stream` and `member` types the board treats as streams) and half
 an hour otherwise, since RFC 5545 would make it zero-length. A sale period
 is written at its ends, as the board shows it: its opening (titled "Sales
 open:" in the feed's language) and, when it closes on a later date, its close
-("Sales close:"), or the close alone for a deadline. A closing entry with a
+("Sales close:"), or the close alone for a deadline (a close on the opening
+date without a stored opening time; a stored time of `unknown` precision
+makes an all-day opening, as on the board). A closing entry with a
 time ends at that time and starts half an hour earlier. A UID is the
 public event ID with `@kano-navi`; the closing entry of a period adds
 `-close` to the ID. `LAST-MODIFIED` is the event's stored

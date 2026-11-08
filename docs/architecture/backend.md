@@ -84,9 +84,9 @@ is occupied.
    for public projections. Read-only mode opens its own four-connection pool
    without enabling WAL or creating sidecars.
 7. Interrupted workflow runs are recovered, a stored interval of either
-   Bilibili timer below `BILIBILI_MIN_INTERVAL_MINUTES` is raised to it, and a
-   saved Bilibili timer without a dynamics timer gets one beside it (see
-   [Source schedules](workflows.md#the-workflows-table)). No other timers are
+   Bilibili timer below `BILIBILI_MIN_INTERVAL_MINUTES` is raised to it (see
+   [Source schedules](workflows.md#the-workflows-table)), and the accounts
+   named in `X_HANDLES` are settled as own accounts only. No timers are
    seeded; [source schedules](workflows.md#source-schedules) hold them.
 8. The timer starts unless `WORKFLOW_SCHEDULER_ENABLED=0`. It submits due
    source schedules, earliest first.

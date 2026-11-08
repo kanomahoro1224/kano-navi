@@ -295,7 +295,8 @@ A sale is stored as one period and shown at its opening and closing dates. This 
 apply for goods, media or tickets, and is the only type that stores a close:
 the nullable `ends_on` holds its Japan close date and `ends_at` its close
 instant when the time is known. A sale's `ends_at` always has its `ends_on`,
-the Japan date it falls on. Every other row has a null `ends_on`; the admin
+the Japan date it falls on; the store rejects a manual entry whose close
+time falls on another date. Every other row has a null `ends_on`; the admin
 API rejects one and the extraction ignores it. Sales come from post
 extraction and from the [official shop](sources.md#official-shop), whose
 entries are periods with the opening time when known and the close date
@@ -731,8 +732,9 @@ so no merge points at a merged event.
   query; a link to an X post names no shop), or, when either has no shop
   link, when their titles overlap as in Rule A once the words and counts
   every sale title uses (such as 受注, 受付, 締切, グッズ, 本日まで or 残り2日)
-  are removed as well, so a title naming no goods or event matches no other
-  sale. A period covers another that
+  and Kano's own name (鹿乃まほろ, its parts 鹿乃 and まほろ, and its
+  romanization) are removed as well, so a title naming no goods or event
+  matches no other sale. A period covers another that
   opens no earlier and closes no later, and a sale whose close is not known
   when its opening date falls inside; a deadline is covered only by a period
   that closes on its date, or by the same deadline. Of two sales covering
@@ -785,8 +787,12 @@ account's Bilibili uploads. A release and an upload pair when each is the
 other's only match within 30 minutes: the entry's link becomes the upload's
 page and an active `bilibili-video` event source (`source_key` `upload`)
 names it. A pairing that no longer holds (the release moved, or a second
-release or upload made it ambiguous) is released: its source row is retired
-and the link goes back to the dynamic's. An unchanged run writes nothing; an
+release or upload made it ambiguous) is released first: its source row is
+retired and the link goes back to the dynamic's. An upload another entry
+still holds is not paired: a locked or manual entry keeps its upload row
+whatever its state, and so does any other entry that is not deleted and
+whose row is active, so a locked entry's row is never rewritten. An
+unchanged run writes nothing; an
 extraction that rewrites the link restores the dynamic's link until the next
 run pairs it again. The upload source is evidence of the work, not an
 announcement, so it keeps no entry alive that its dynamic no longer lists.
@@ -816,16 +822,16 @@ and `events.platforms_inferred` is 1 when the array came from a source's
 default rather than from the wording or an operator; a Bilibili-only entry
 is one whose array is `["bilibili"]`, stated. `events.platform` is
 the first announced platform, or `unknown`, for readers of the single
-value. A row whose array is null (written before the column existed) reads
-as its single platform when that is `youtube`, `bilibili` or `other`, and
-as none otherwise, stated; `platform` itself is null on rows written before
-that column existed, and the startup that adds it sets `youtube` on the
-YouTube writers' events. Startup adds both columns without rewriting a row.
+value. Startup adds the columns without rewriting the array: `platform` is
+null on rows written before it existed, and the startup that adds it sets
+`youtube` on the YouTube writers' events. A row whose array is null reads as
+`["youtube"]`, stated, when its `platform` is `youtube`, and as no platform
+otherwise.
 
 Extraction writes the announced platforms with the other fields of an
 automatic entry, under the same manual locks and tombstones (see
 [Source time zones](sources.md#source-time-zones)); the YouTube writers
-write `["youtube"]`. An operator's entry carries the operator's platforms,
+write `["youtube"]` and the shop step `["other"]`, both stated. An operator's entry carries the operator's platforms,
 which are part of its manual lock.
 
 `events.url` is the announcement's link (a post, an operator's link, a

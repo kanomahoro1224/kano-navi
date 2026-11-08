@@ -311,10 +311,14 @@ with no usable target.
 detailBudget, total, limit, entries}`: up to `limit` (500) posts with an open
 refresh request, oldest request first, each `{postId, source, accountHandle,
 text, url, publishedAt, requestedAt, status}`. `status` is `next` for the
-oldest `perAccount` requests of each account in `handles` (`X_HANDLES`),
-`later` for that account's others, and `notRead` for an account the X step
-does not read. `detailBudget` is the per-run X detail request budget the
-refreshes lead.
+oldest requests of each account in `handles` (`X_HANDLES`) that the next run
+reads, `later` for that account's others, and `notRead` for an account the X
+step does not read. `detailBudget` is the per-run X detail request budget the
+refreshes lead: the run takes the accounts from its rotation's start, gives
+each an even share of the budget left, and reads at most `perAccount` of an
+account's refreshes within its share, so an account's `next` requests are
+the smallest of its requests, `perAccount` and its share, with the share an
+account's refreshes leave passing to the next account.
 
 ## Sources
 

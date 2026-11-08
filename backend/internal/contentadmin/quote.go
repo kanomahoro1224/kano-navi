@@ -98,6 +98,11 @@ func (m *Module) setPostHidden(ctx context.Context, postID string, hidden bool) 
 			if _, err := tx.ExecContext(ctx, `UPDATE posts SET hidden_at = ? WHERE id = ?`, value, postID); err != nil {
 				return err
 			}
+			// The hide is the operator's now: an automatic promotion of
+			// the pool shows again only a post the pool hid itself.
+			if _, err := tx.ExecContext(ctx, `UPDATE x_statuses SET demoted_at = NULL, updated_at = ? WHERE id = ? AND demoted_at IS NOT NULL`, now, postID); err != nil {
+				return err
+			}
 			if err := sqlite.BumpRevisionTx(ctx, tx, now); err != nil {
 				return err
 			}

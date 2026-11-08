@@ -1211,6 +1211,19 @@ test("works views sort, group and search records", () => {
     byDate(items, "newest").map((item) => item.date),
     ["2019-03-04", "2019-01-02", "2018-05-01"],
   )
+  const ties = [
+    { date: "2020-01-01", no: 1 },
+    { date: "2020-01-01", no: 2 },
+    { date: "2021-01-01", no: 3 },
+  ]
+  assert.deepEqual(
+    byDate(ties, "newest").map((item) => item.no),
+    [3, 1, 2],
+  )
+  assert.deepEqual(
+    byDate(ties, "oldest").map((item) => item.no),
+    [1, 2, 3],
+  )
   assert.deepEqual(
     groupByYear(byDate(items, "oldest")).map((group) => [
       group.year,
@@ -1388,4 +1401,35 @@ test("works packaging refuses a list date before its newest upload", async (t) =
     }),
     /checked through 2000-01-01/u,
   )
+  await assert.rejects(fs.readdir(path.join(root, "data", "works")), {
+    code: "ENOENT",
+  })
+  await assert.rejects(fs.readdir(path.join(root, "content")), {
+    code: "ENOENT",
+  })
+  await assert.rejects(fs.stat(path.join(root, "videos.json")), {
+    code: "ENOENT",
+  })
+})
+
+test("works packaging accepts calendar dates only", async (t) => {
+  const { root, library } = await collection(t)
+  const options = {
+    contentDir: path.join(root, "content"),
+    mediaDir: path.join(root, "data", "works"),
+    indexFile: path.join(root, "videos.json"),
+  }
+  for (const through of ["2026-13-45", "2099-02-30", "2099-2-03"])
+    await assert.rejects(
+      packageWorks(library, { ...options, through }),
+      /Not a Japan date/u,
+    )
+  await assert.rejects(fs.readdir(options.contentDir), { code: "ENOENT" })
+  const table = path.join(library, "投稿作品", "works.csv")
+  const rows = await fs.readFile(table, "utf8")
+  const date = /\d{4}-\d{2}-\d{2}/u.exec(rows)![0]
+  await fs.writeFile(table, rows.replace(date, `${date.slice(0, 4)}-02-30`))
+  await assert.rejects(packageWorks(library, options), /Not a Japan date/u)
+  await fs.writeFile(table, rows)
+  await packageWorks(library, { ...options, through: "2096-02-29" })
 })

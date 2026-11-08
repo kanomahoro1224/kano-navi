@@ -367,20 +367,15 @@ func namesSimulcast(wording string) bool {
 }
 
 // modelPlatforms reads a Bilibili entry's platforms array; a value outside
-// the enum is dropped. A stray scalar platform counts as a one-item array.
+// the enum is dropped.
 func modelPlatforms(event *object) []string {
 	values := []string{}
-	if list, ok := event.get("platforms"); ok {
-		items, _ := list.([]any)
-		for _, item := range items {
-			if text, isString := item.(string); isString {
-				values = append(values, text)
-			}
+	list, _ := event.get("platforms")
+	items, _ := list.([]any)
+	for _, item := range items {
+		if text, isString := item.(string); isString {
+			values = append(values, text)
 		}
-		return sqlite.NormalizePlatforms(values)
-	}
-	if value, _ := event.get("platform"); value != nil {
-		values = append(values, jsString(value))
 	}
 	return sqlite.NormalizePlatforms(values)
 }

@@ -13,23 +13,25 @@
 > Bilibili dynamics are listed only with a Bilibili login configured
 > (`BILIBILI_COOKIE`, a signed-in browser's cookies, or `BILIBILI_SESSDATA`,
 > [Bilibili dynamics](../architecture/sources.md#dynamics)).
-> Startup adds the empty `events.platform` column and sets it to `youtube`
-> on YouTube events, without rewriting other events. Japanese becomes a
-> translation target:
+> Startup adds the empty `events.platform`, `events.platforms` and
+> `events.platforms_inferred` columns and sets `platform` to `youtube` on
+> YouTube events, without rewriting other events, so a stored YouTube entry
+> reads as `youtube` and any other stored entry as no platform. Japanese
+> becomes a translation target:
 > X posts and YouTube titles detected as Japanese still need only English
 > and Chinese, so they are not translated again, but wording detected as
 > English, Korean or another language now also gets a Japanese translation,
 > within the per-run limit. Bilibili's `bilibili_risk_control` code is split
 > into `bilibili_risk_control_http`, `_page`, `_352`, `_412` and `_voucher`.
 > Public posts may have `source: "bilibili"`,
-> public events add `platform` and full ones `liveUrl`, the dashboard adds
-> `liveNow`, translations may include `ja`, the extraction schema adds
+> public events add `platform` and `platforms` and full ones `links` and
+> `liveUrl`, the dashboard adds `liveNow`, translations may include `ja`, the extraction schema adds
 > `platform`, and the dynamics have their own `bilibili_dynamics` step and
 > timer, whose chain adds the `schedule` step; the step catalog, the source
-> schedules and the overview's sources add it. Startup gives a saved
-> Bilibili timer a dynamics timer beside it with the same switch and
-> interval, planned half an interval after the upload read; `SKIP_BILIBILI`
-> covers both. Startup creates the empty `bilibili_statuses` table for the
+> schedules and the overview's sources add it. The dynamics timer starts
+> off: turn it on under `/admin` → Sources after configuring the Bilibili
+> login. `SKIP_BILIBILI` covers both Bilibili timers. Startup creates the
+> empty `bilibili_statuses` table for the
 > dynamics forwards forward. A forward's public `quote` is that dynamic, with
 > a `null` `id` when the listing did not name it, the admin API adds
 > `GET /bilibili-statuses`, and its translation routes accept the owner
@@ -43,10 +45,9 @@
 > Kano's agency, add `Mil_Pro_` on `/admin` → Sources → X related. A new
 > account starts with the keyword rules `鹿乃`, `@kano_2525` and `#鹿乃まほろ`.
 > Related accounts are read on their own `x_related` timer, through
-> FxTwitter only: startup gives a saved X timer an `x_related` timer beside it
-> with the same switch, every 180 minutes with the default incremental read,
-> planned half the X interval after the X timer's next run; a fresh install
-> keeps it off. `SKIP_X` covers both X timers. The step catalog, the source
+> FxTwitter only, every 180 minutes with the default incremental read by
+> default; the timer starts off, so turn it on under `/admin` → Sources
+> after adding an account. `SKIP_X` covers both X timers. The step catalog, the source
 > schedules and the overview's sources add `x_related`.
 
 > [!NOTE]
@@ -109,13 +110,7 @@
 > with the `catalog` method. No column is added and no event is rewritten.
 
 > [!NOTE]
-> Startup adds the empty `events.platforms` and `events.platforms_inferred`
-> columns without rewriting events; a stored entry reads as its single
-> platform. The Bilibili extraction schema asks
-> for a `platforms` array in place of `platform`; extraction identities do
-> not name the schema, so no stored post is extracted again, and the X
-> prompt and schema are unchanged. Public events and MCP `schedule_list`
-> add `platforms`, full ones `links`, and `liveUrl` covers every stream
+> MCP `schedule_list` adds `platforms`, and `liveUrl` covers every stream
 > shown on bilibili; MCP `schedule_list` and the calendar subscription read
 > a stored live-room link as none, the subscription linking the platform
 > instead; the admin

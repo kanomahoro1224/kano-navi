@@ -107,7 +107,7 @@ func TestBilibiliReadsStoreUploadsHistoryAndBackoffState(t *testing.T) {
 	}
 }
 
-func TestPublicReadersLeaveBilibiliUploadsInTheConsole(t *testing.T) {
+func TestPublicReadersListBilibiliUploadsWithoutACopy(t *testing.T) {
 	_, path := snapshotUnderRoot(t)
 	s, err := OpenWorkflowCore(path, true)
 	if err != nil {
@@ -120,17 +120,22 @@ func TestPublicReadersLeaveBilibiliUploadsInTheConsole(t *testing.T) {
 	if _, err = s.WriteBilibiliRecent(ctx, biliAccount, bilisource.Result{Videos: []bilisource.Video{biliVideo("鹿乃 翻唱《奏》", "")}}); err != nil {
 		t.Fatal(err)
 	}
-	// Featuring a Bilibili upload does not bring it to the board either.
-	if _, err = s.DB().Exec(`INSERT INTO app_settings(key,value,updated_at) VALUES('featured_video_id','BV1AAAAAAAAA','2026-01-02T00:00:00Z')`); err != nil {
-		t.Fatal(err)
-	}
+	// The upload has no YouTube copy of the same work, so readers get it on its
+	// own cover; merging it would hide it behind that copy instead.
 	now := time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC)
 	board, err := s.GetDashboard(ctx, 3, now)
-	if err != nil || len(board.Videos) != 1 || board.Videos[0].ID != "AAAAAAAAAAA" {
+	if err != nil || len(board.Videos) != 2 {
 		t.Fatalf("board videos=%#v err=%v", board.Videos, err)
 	}
+	listed := map[string]bool{}
+	for _, video := range board.Videos {
+		listed[video.ID] = true
+	}
+	if !listed["AAAAAAAAAAA"] || !listed["BV1AAAAAAAAA"] {
+		t.Fatalf("board ids=%v", listed)
+	}
 	archive, err := s.GetVideoArchive(ctx, "2026-01-01", "2026-01-31", "", 1, 20, now)
-	if err != nil || archive.Total != 1 || archive.Items[0].ID != "AAAAAAAAAAA" {
+	if err != nil || archive.Total != 2 {
 		t.Fatalf("archive=%#v err=%v", archive, err)
 	}
 	s.Close()

@@ -740,11 +740,14 @@ YouTube does; operator corrections survive. Covers come only from
 `*.hdslb.com`, upgraded to HTTPS, and are cached under `data/bilibili/` by
 the media step.
 
-Bilibili uploads stay in the console: the board, the video archive and MCP
-list only YouTube videos, so one cover is never listed twice. The `reconcile`
-step merges an upload into the YouTube video of the same work, which then
-lists it in `alternates` and shows its title as the video's Chinese platform
-translation; operators confirm, add or undo merges in `/admin` (see
+Bilibili uploads reach readers on their own cover only when YouTube carries
+no copy of the same work: the `reconcile` step merges an upload into the
+YouTube video of the same work, and a merged upload stays out of the board,
+the video archive and MCP, which list it in that video's `alternates` and
+show its title as the video's Chinese platform translation instead. A work
+published only on Bilibili has no copy to merge into, so it is listed as its
+own video: one cover is never listed twice and nothing is hidden behind a
+video that does not exist. Operators confirm, add or undo merges in `/admin` (see
 [Video merging](data-model.md#video-merging)). Operators can
 add an upload by BV ID or `bilibili.com` video link and read one again at
 once from `/admin` (see [Admin API](admin-api.md#bilibili-uploads)); those

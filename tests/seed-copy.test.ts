@@ -21,12 +21,15 @@ const seedTexts = [
 ].filter((text) => text != null)
 
 const cjk = /[぀-ヿ一-鿿]/u
+// The group's name, which English pages keep as the agency writes it, also
+// in the talent link's title "ミリプロ / SONA".
+const keptNames = /ミリプロ(?: \/ )?SONA/gu
 
 test("every timeline and link seed reads without CJK text in English", () => {
   for (const text of seedTexts) {
     const localized = localizeSeedText(text, "en")
     assert.ok(localized !== null, text)
-    assert.doesNotMatch(localized, cjk, text)
+    assert.doesNotMatch(localized.replace(keptNames, ""), cjk, text)
   }
 })
 

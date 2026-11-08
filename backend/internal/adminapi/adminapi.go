@@ -23,6 +23,7 @@ import (
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/variants"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 // RunManager is the durable single-flight queue as the console sees it.
@@ -70,6 +71,9 @@ type Options struct {
 	// Variants locates the originals whose smaller copies the Site page
 	// reports; nil answers that route with 503 unavailable.
 	Variants *variants.Roots
+	// Works is the packaged upload list whose covers the Site page
+	// reports; nil answers that route with 503 unavailable.
+	Works *works.Index
 	// Queues are the steps' queue previews; Youtube names the channel and
 	// key the YouTube step reads with. Nil parts answer their routes with
 	// 503 unavailable.
@@ -127,6 +131,7 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/settings/visitor-region", Handler: a.visitorRegionSettings},
 		{Method: http.MethodPut, Path: "/settings/visitor-region", Handler: a.updateVisitorRegionSettings},
 		{Method: http.MethodGet, Path: "/media/variants", Handler: a.variantStatus},
+		{Method: http.MethodGet, Path: "/media/works-covers", Handler: a.worksCovers},
 
 		{Method: http.MethodGet, Path: "/runs", Handler: a.needRuns(a.listRuns)},
 		{Method: http.MethodPost, Path: "/runs", Handler: a.needRuns(a.startRun)},

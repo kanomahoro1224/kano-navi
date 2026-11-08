@@ -128,6 +128,15 @@ again and a failed lookup waits from 30 minutes, doubling to a day. A works
 image that answers `media_missing` and no stored record links is not
 retried. Nothing here writes a `videos` row.
 
+The console's Site page shows how the covers stand without a request to a
+platform (`GET /api/admin/media/works-covers`, see
+[Admin API](admin-api.md#works-upload-covers)): the covered, due, waiting and
+uncovered uploads, and each upload without a cover with its videos' states,
+last error codes and retry times. Its **Fill missing covers** starts a
+one-step media run on the shared queue, so a deployment whose source timers
+are off fills its covers too; each run keeps the lookup bounds above, and
+running it again continues.
+
 ## Database Model
 
 `media_assets` stores one row per normalized HTTP(S) source URL:

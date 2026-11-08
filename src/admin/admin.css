@@ -2040,6 +2040,44 @@
   background: var(--honey);
 }
 
+/* The Works uploads without a cover: each upload above its videos. */
+.adm-works-covers {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-works-covers > li {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+}
+
+.adm-works-covers > li > .adm-chip-row time {
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-works-covers > li > ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  list-style: none;
+}
+
+.adm-works-covers code {
+  overflow-wrap: anywhere;
+}
+
 /* Limits in a narrow column: one field per row, the label beside its
    input and the hint below both. */
 .adm-limit-rows {

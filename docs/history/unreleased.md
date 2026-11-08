@@ -125,7 +125,9 @@
 > `npm run history:package -- --from /path/to/kano_official` before
 > `npm run variants`. The variants command no longer takes `-static`. The
 > uploads' video thumbnails need no packaging: the media step saves them over
-> its next runs.
+> its next runs, and `/admin` → Site → Works upload covers shows which are
+> still missing and starts a media step to fill them. The admin API adds
+> `GET /media/works-covers`.
 
 <details>
 <summary><strong>Public pages</strong></summary>
@@ -327,6 +329,10 @@
   hidden from the public pages like an X quote.
 - Site → Image copies shows its panel and group meters at once and fills in
   the counts when the listing arrives.
+- Site → Works upload covers counts the uploads with and without a cover,
+  lists each upload still without one with its videos (gone, waiting with
+  the last error and retry time, or still to try), and **Fill missing
+  covers** runs the media step once.
 - Source tabs that overflow a phone screen scroll within their row instead
   of widening the page.
 - The schedule marks an automatic entry whose every source post is hidden

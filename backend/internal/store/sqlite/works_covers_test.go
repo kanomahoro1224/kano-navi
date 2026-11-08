@@ -2,7 +2,9 @@ package sqlite
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -102,5 +104,68 @@ func TestStoredVideoThumbnailCoversItsWork(t *testing.T) {
 	var links int
 	if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM media_links WHERE owner_type='work-video'`).Scan(&links); err != nil || links != 0 {
 		t.Fatalf("links=%d err=%v", links, err)
+	}
+}
+
+func TestWorkCoverReportListsUploadsWithoutCoversAndNeverWrites(t *testing.T) {
+	s := worksTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO videos (id,source,title,url,thumbnail_url) VALUES
+		('aaaaaaaaaaa','youtube','A','https://www.youtube.com/watch?v=aaaaaaaaaaa','https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg')`); err != nil {
+		t.Fatal(err)
+	}
+	// The YouTube video's stored thumbnail is downloaded, so its upload is
+	// covered.
+	if err := os.MkdirAll(filepath.Join(s.dataRoot, "youtube"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(s.dataRoot, "youtube", "a.jpg"), []byte{1}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	thumb := "https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg"
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO media_assets (id,source,source_url,cache_path,mime_type,byte_size,sha256,status,created_at,updated_at) VALUES (?,'youtube',?,'youtube/a.jpg','image/jpeg',1,?,'ready','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, sha256Hex(thumb), thumb, strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	index := works.Index{Uploads: []works.Upload{
+		// Waits for a failed niconico lookup to be tried again.
+		{ID: "2026-01-04-dddddd", Date: "2026-01-04", Videos: []works.Video{{Platform: works.Niconico, ID: "sm4"}}},
+		// Its niconico video is gone and its Bilibili one is still to look up.
+		{ID: "2026-01-03-cccccc", Date: "2026-01-03", Videos: []works.Video{{Platform: works.Niconico, ID: "sm3"}, {Platform: works.Bilibili, ID: "BV1CCCCCCCCC"}}},
+		// Every video is gone.
+		{ID: "2026-01-02-bbbbbb", Date: "2026-01-02", Videos: []works.Video{{Platform: works.Niconico, ID: "sm2"}}},
+		{ID: "2026-01-01-aaaaaa", Date: "2026-01-01", Videos: []works.Video{{Platform: works.YouTube, ID: "aaaaaaaaaaa"}}},
+	}}
+	for _, lookup := range []struct {
+		id, status, code string
+	}{{"sm4", WorkLookupFailed, "niconico_timeout"}, {"sm3", WorkLookupMissing, "niconico_not_found"}, {"sm2", WorkLookupMissing, "niconico_not_found"}} {
+		if err := s.SaveWorkCoverLookup(ctx, WorkVideoRef{works.Niconico, lookup.id}, lookup.status, "", lookup.code, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var before int
+	if err := s.db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM media_links)+(SELECT COUNT(*) FROM work_cover_lookups)`).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	report, err := s.WorkCoverReport(ctx, index, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Total != 4 || report.Covered != 1 || report.Due != 1 || report.Waiting != 1 || report.Uncovered != 1 || len(report.Uploads) != 3 {
+		t.Fatalf("report=%#v", report)
+	}
+	waiting, due, gone := report.Uploads[0], report.Uploads[1], report.Uploads[2]
+	if waiting.State != WorkCoverWaiting || waiting.Videos[0].State != WorkCoverWaiting || *waiting.Videos[0].Code != "niconico_timeout" || waiting.Videos[0].RetryAt == nil {
+		t.Fatalf("waiting=%#v", waiting)
+	}
+	if due.State != WorkCoverDue || due.Videos[0].State != WorkCoverGone || *due.Videos[0].Code != "niconico_not_found" || due.Videos[1].State != WorkCoverDue || due.Videos[1].Code != nil {
+		t.Fatalf("due=%#v", due)
+	}
+	if gone.State != WorkCoverUncovered || gone.Videos[0].State != WorkCoverGone {
+		t.Fatalf("gone=%#v", gone)
+	}
+	var after int
+	if err = s.db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM media_links)+(SELECT COUNT(*) FROM work_cover_lookups)`).Scan(&after); err != nil || after != before {
+		t.Fatalf("rows before=%d after=%d err=%v", before, after, err)
 	}
 }

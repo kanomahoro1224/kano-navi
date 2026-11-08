@@ -72,6 +72,7 @@ import type {
   VideoCorrection,
   VideoHistory,
   VideoMergeSuggestion,
+  WorksCoverStatus,
   WorksMergeConflict,
   SyncSettingField,
   SyncSettings,
@@ -159,6 +160,7 @@ function createClient(run: Runner, slow: Runner) {
     visitorRegion: () => get<VisitorRegionSettings>("/settings/visitor-region"),
     variantStatus: (refresh = false) =>
       get<VariantStatus>(`/media/variants${refresh ? "?refresh=1" : ""}`),
+    worksCovers: () => get<WorksCoverStatus>("/media/works-covers"),
     updateVisitorRegion: (settings: VisitorRegionSettings) =>
       send<VisitorRegionSettings>("PUT", "/settings/visitor-region", settings),
     runs: (page: number) =>

@@ -218,6 +218,41 @@ export interface VariantStatus {
 }
 
 /**
+ * How the Works page's upload covers stand. Due uploads are those the next
+ * media step looks up or queues; waiting ones have an image or lookup on its
+ * way or waiting to retry; uncovered ones have every video gone.
+ */
+export interface WorksCoverStatus {
+  total: number
+  covered: number
+  due: number
+  waiting: number
+  uncovered: number
+  /** Uploads without a ready cover, newest first. */
+  uploads: WorksCoverUpload[]
+  /** SKIP_MEDIA keeps the media step from running in this process. */
+  skipped: boolean
+  checkedAt: string
+}
+
+export interface WorksCoverUpload {
+  id: string
+  date: string
+  state: "due" | "waiting" | "uncovered"
+  videos: WorksCoverVideo[]
+}
+
+/** One video in cover order; code and retryAt come from its last failure. */
+export interface WorksCoverVideo {
+  platform: "youtube" | "niconico" | "bilibili"
+  id: string
+  members: boolean
+  state: "due" | "waiting" | "gone"
+  code: string | null
+  retryAt: string | null
+}
+
+/**
  * One timer's next run. A due entry waits for the queue: a source timer
  * starts once the current run and the timers due before it have.
  */

@@ -148,6 +148,7 @@ func runStandalone(cfg config.Config) int {
 			Bilibili:      run.steps.Bilibili,
 			FetchMethods:  run.steps.History.Methods,
 			Variants:      run.steps.Variants,
+			Works:         run.steps.Works,
 			Queues:        run.queues,
 			Youtube:       run.steps.Youtube,
 		}),

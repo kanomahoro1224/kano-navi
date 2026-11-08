@@ -134,6 +134,27 @@ process without the service's data directory and built site answers
 `503 unavailable`. The copies themselves are made by
 `POST /runs {"kind": "variants"}`.
 
+### Works upload covers
+
+| Method and path           | Query | Result                                                                   |
+| ------------------------- | ----- | ------------------------------------------------------------------------ |
+| `GET /media/works-covers` | none  | `{total, covered, due, waiting, uncovered, uploads, skipped, checkedAt}` |
+
+The counts sort the packaged upload list's uploads by the
+[cover rules](media-cache.md#works-upload-covers): `covered` have a ready
+cover, `due` are those the next media step looks up or queues, `waiting`
+have an image or lookup on its way or waiting to retry, and `uncovered` have
+every video gone. `uploads` lists every upload without a cover, newest first,
+as `{id, date, state, videos}` with `state` `due`, `waiting` or `uncovered`;
+each video, in cover order, is `{platform, id, members, state, code,
+retryAt}` with `state` `due`, `waiting` or `gone`, the error code of its
+last failed lookup or download and when that failure is tried again.
+`skipped` is true while `SKIP_MEDIA` disables the media step, and `checkedAt`
+is when the snapshot was read. The route reads the snapshot only and makes
+no lookup; a process without the packaged list answers `503 unavailable`.
+The covers are filled by `POST /runs {"kind": "workflow", "steps":
+["media"]}`.
+
 ## Runs
 
 A run is one single-flight unit of work on the durable workflow queue. Its

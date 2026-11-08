@@ -82,6 +82,7 @@ type linkedWorkCover struct {
 type workLookup struct {
 	status  string
 	retryAt sql.NullString
+	code    sql.NullString
 }
 
 func storedKey(platform, id string) string { return platform + ":" + id }
@@ -185,14 +186,14 @@ func (s *Store) loadWorkCoverState(ctx context.Context, index works.Index, now t
 	if err != nil {
 		return nil, dbErr(err)
 	}
-	rows, err = s.db.QueryContext(ctx, `SELECT platform,video_id,status,next_retry_at FROM work_cover_lookups`)
+	rows, err = s.db.QueryContext(ctx, `SELECT platform,video_id,status,next_retry_at,last_error FROM work_cover_lookups`)
 	if err != nil {
 		return nil, dbErr(err)
 	}
 	for rows.Next() {
 		var platform, id string
 		var lookup workLookup
-		if err = rows.Scan(&platform, &id, &lookup.status, &lookup.retryAt); err != nil {
+		if err = rows.Scan(&platform, &id, &lookup.status, &lookup.retryAt, &lookup.code); err != nil {
 			_ = rows.Close()
 			return nil, dbErr(err)
 		}
@@ -345,6 +346,106 @@ func (s *Store) PlanWorkCovers(ctx context.Context, index works.Index, now time.
 	}
 	out.Queued = len(queue)
 	return out, nil
+}
+
+// Upload and video states of a WorkCoverReport.
+const (
+	WorkCoverDue       = "due"
+	WorkCoverWaiting   = "waiting"
+	WorkCoverUncovered = "uncovered"
+	WorkCoverGone      = "gone"
+)
+
+// WorkCoverReport is how the Works list's upload covers stand: the counts
+// and, newest first, every upload without a ready cover. Due uploads are
+// those the next media step acts on; Due and Waiting together are the
+// media step's waiting count.
+type WorkCoverReport struct {
+	Total, Covered, Due, Waiting, Uncovered int
+	Uploads                                 []WorkCoverUpload
+}
+
+// WorkCoverUpload is one upload without a ready cover and its videos in
+// cover order.
+type WorkCoverUpload struct {
+	ID, Date, State string
+	Videos          []WorkCoverVideo
+}
+
+// WorkCoverVideo is one video's cover state: due (the media step would look
+// it up or queue its image), waiting (an image or lookup is on its way or
+// waits to retry) or gone (deleted, missing or rejected). Code is the last
+// lookup or download error code and RetryAt when a failure is tried again.
+type WorkCoverVideo struct {
+	Platform, ID, State string
+	Members             bool
+	Code, RetryAt       *string
+}
+
+// WorkCoverReport reads how the Works list's covers stand. It never writes
+// and makes no lookup, so it answers the same before and after a deployment
+// has run a media step.
+func (s *Store) WorkCoverReport(ctx context.Context, index works.Index, now time.Time) (WorkCoverReport, error) {
+	out := WorkCoverReport{Uploads: []WorkCoverUpload{}}
+	if s == nil || s.db == nil {
+		return out, ErrUnavailable
+	}
+	ctx = withReadMemo(ctx)
+	state, err := s.loadWorkCoverState(ctx, index, now)
+	if err != nil {
+		return out, err
+	}
+	uploads := slices.Clone(index.Uploads)
+	slices.SortStableFunc(uploads, func(a, b works.Upload) int { return strings.Compare(b.Date, a.Date) })
+	for _, upload := range uploads {
+		out.Total++
+		ready, next, waiting := s.uploadCover(ctx, state, upload)
+		item := WorkCoverUpload{ID: upload.ID, Date: upload.Date, Videos: []WorkCoverVideo{}}
+		switch {
+		case ready != nil:
+			out.Covered++
+			continue
+		case next != nil:
+			out.Due++
+			item.State = WorkCoverDue
+		case waiting:
+			out.Waiting++
+			item.State = WorkCoverWaiting
+		default:
+			out.Uncovered++
+			item.State = WorkCoverUncovered
+		}
+		for _, video := range upload.Videos {
+			item.Videos = append(item.Videos, s.workVideoReport(ctx, state, video))
+		}
+		out.Uploads = append(out.Uploads, item)
+	}
+	return out, nil
+}
+
+// workVideoReport describes one video of an upload without a cover, with the
+// error and retry time of the works image or lookup that decided its state.
+func (s *Store) workVideoReport(ctx context.Context, state *workCoverState, video works.Video) WorkCoverVideo {
+	out := WorkCoverVideo{Platform: video.Platform, ID: video.ID, Members: video.Members}
+	cover := s.workVideoCover(ctx, state, video)
+	switch {
+	case cover.exhausted:
+		out.State = WorkCoverGone
+	case cover.waiting:
+		out.State = WorkCoverWaiting
+	default:
+		out.State = WorkCoverDue
+	}
+	key := storedKey(video.Platform, video.ID)
+	if link, ok := state.links[key]; ok {
+		out.Code, out.RetryAt = nullString(link.err), nullString(link.retryAt)
+	} else if lookup, ok := state.lookups[key]; ok {
+		out.Code, out.RetryAt = nullString(lookup.code), nullString(lookup.retryAt)
+	}
+	if out.State == WorkCoverDue {
+		out.RetryAt = nil
+	}
+	return out
 }
 
 // Lookup outcomes recorded by SaveWorkCoverLookup.

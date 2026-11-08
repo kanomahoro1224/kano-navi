@@ -424,6 +424,19 @@ func (s *Store) PrepareSourceSchedules(ctx context.Context, floor int, now time.
 		return err
 	}
 	defer tx.Rollback()
+	// A source the console lists may have no row at all: older installations
+	// only saved the sources an operator had touched, and the scheduler reads
+	// rows, not defaults. Seed the missing timers disabled so enabling one is
+	// all that stands between an upgrade and its first timed read. In
+	// particular, Bilibili's dynamics are read by its own source step, so a
+	// missing bilibili timer means no timed run ever asks for them.
+	for _, source := range ScheduleSources {
+		low, high := SourceScheduleBounds(source, floor)
+		interval := min(max(defaultScheduleInterval(source), low), high)
+		if _, err = tx.ExecContext(ctx, `INSERT OR IGNORE INTO source_schedules(source,enabled,interval_minutes,sync_json,chain_json,next_run_at,updated_at) VALUES(?,0,?,'{}','{}',NULL,?)`, source, interval, workflowTime(now)); err != nil {
+			return ErrWorkflowStorage
+		}
+	}
 	low, _ := SourceScheduleBounds("bilibili", floor)
 	if _, err = tx.ExecContext(ctx, `UPDATE source_schedules SET interval_minutes=?,updated_at=? WHERE source='bilibili' AND interval_minutes<?`, low, workflowTime(now), low); err != nil {
 		return ErrWorkflowStorage

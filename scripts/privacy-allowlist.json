@@ -30,6 +30,10 @@
       "reason": "Public repository and documentation links."
     },
     {
+      "host": "avatars.githubusercontent.com",
+      "reason": "Public GitHub avatar CDN; the visitor's browser loads each code contributor's avatar on the About page. The server never fetches it."
+    },
+    {
       "host": "kano.yexca.net",
       "reason": "Maintainer-hosted public Kano Navi instance linked from the README; never used as a synchronization source."
     },

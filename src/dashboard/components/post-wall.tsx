@@ -591,9 +591,14 @@ export function PostWall({
   // same way. The chips keep a fixed platform order rather than the order the
   // newest posts happened to arrive in, so the two X accounts stay together
   // and the Bilibili uploader sits after them.
+  //
+  // Crucially the group is built from the whole payload, not the current
+  // platform: switching platforms must never unmount a chip and slide the
+  // controls under the pointer. Accounts outside the selected platform stay
+  // in place (dimmed) and act as shortcuts to their own platform.
   const handles = useMemo(() => {
     const names: { name: string; source: string }[] = []
-    for (const post of scoped) {
+    for (const post of posts) {
       const name = String(post.accountHandle || "").trim()
       if (!name) continue
       if (names.some((entry) => entry.name.toLowerCase() === name.toLowerCase()))
@@ -601,9 +606,16 @@ export function PostWall({
       names.push({ name, source: post.source })
     }
     return byPlatform(names, (entry) => entry.source)
-  }, [scoped])
+  }, [posts])
   const countFor = (handle: string) =>
     scoped.filter(
+      (post) =>
+        String(post.accountHandle || "").toLowerCase() === handle.toLowerCase(),
+    ).length
+  // A chip outside the selected platform still says how much is waiting
+  // there, rather than showing a misleading zero.
+  const totalFor = (handle: string) =>
+    posts.filter(
       (post) =>
         String(post.accountHandle || "").toLowerCase() === handle.toLowerCase(),
     ).length
@@ -704,17 +716,26 @@ export function PostWall({
               {t("common.all")}
               <small>{scoped.length}</small>
             </button>
-            {handles.map((entry) => (
-              <button
-                type="button"
-                key={entry.name}
-                aria-pressed={account === entry.name}
-                onClick={() => setAccount(entry.name)}
-              >
-                {entry.source === "bilibili" ? entry.name : `@${entry.name}`}
-                <small>{countFor(entry.name)}</small>
-              </button>
-            ))}
+            {handles.map((entry) => {
+              const outside = !!origin && origin !== entry.source
+              return (
+                <button
+                  type="button"
+                  key={entry.name}
+                  className={outside ? "is-out-of-scope" : undefined}
+                  aria-pressed={account === entry.name && !outside}
+                  onClick={() => {
+                    // An account belongs to one platform, so choosing it from
+                    // the other platform brings that platform along.
+                    if (outside) setOrigin(entry.source)
+                    setAccount(entry.name)
+                  }}
+                >
+                  {entry.source === "bilibili" ? entry.name : `@${entry.name}`}
+                  <small>{outside ? totalFor(entry.name) : countFor(entry.name)}</small>
+                </button>
+              )
+            })}
           </div>
         ) : null}
         <button

@@ -2593,6 +2593,26 @@
 
 /* ------------------------------------------------------------------- posts */
 
+/*
+ * Switching platforms must not slide the filter row under the pointer. The
+ * account chips stay mounted, so only their counts change: reserve a fixed
+ * box for every count, and dim the accounts of the other platform.
+ */
+.posts .section-title-actions .segmented small {
+  display: inline-block;
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.posts .section-title-actions .segmented button.is-out-of-scope {
+  opacity: 0.45;
+}
+
+.posts .section-title-actions .segmented button.is-out-of-scope:hover {
+  opacity: 1;
+}
+
 /* Phones: the filter starts the row and the archive icon ends it. */
 @media (max-width: 560px) {
   .posts .section-title-actions,

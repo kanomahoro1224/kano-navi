@@ -456,8 +456,10 @@ the main one, and on a phone the tabs share the width and show only the
 source names, and a fold's header controls move under its title.
 
 External posts (`src/admin/views/external-posts.tsx`, in the Data group
-after Posts) lists the X status pool, without Kano's own accounts'
-statuses, in the post list's feed layout:
+after Posts) has a tab per status pool, X and Bilibili, styled like the
+Sources tabs and kept in the URL (`#external/bilibili`). The X tab lists the
+X status pool, without Kano's own accounts' statuses, in the post list's
+feed layout:
 author, name and Japan time; the wording with its image count, links to the
 own posts that quote it (opening Posts searched for the post), the accounts
 that reposted it, a link to a promoted status's post in Posts and a locked
@@ -469,6 +471,17 @@ on X. Promote and demote open a dialog that shows the wording and requires
 a reason. Filters cover the text or ID, the author (the related accounts),
 the reason and the state; a header link opens the related accounts on
 Sources.
+
+The Bilibili tab lists the Bilibili status pool, without forwards of
+Kano's own dynamics, in the same layout and read-only: the Bilibili mark
+with the author's name and mid, the Japan time, the wording with its image
+count and a "Forwarded in a post" link to each forward in Posts (marked when
+that forward is hidden, hides its quote or shows it unavailable), the
+translation editor, badges for whether a forward shows it (Public, Not
+public, Gone), Video for an upload and its reason, and a link to it on
+Bilibili. It has no promote or demote, since the forward's quote shows the
+dynamic. Filters cover the text or ID, the author's mid or name, and the
+kind.
 
 The console's post list (`src/admin/views/posts.tsx`) is a feed of posts
 separated by rules, one row of columns per post: the account over the Japan

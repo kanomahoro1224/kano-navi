@@ -3631,6 +3631,20 @@ blockquote.adm-verdict-reason {
   overflow-wrap: anywhere;
 }
 
+/* A pooled dynamic's author, after its platform mark. */
+.adm-post-origin .adm-post-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.adm-shell .adm-post-mark svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--adm-muted);
+}
+
 .adm-post-origin time {
   color: var(--adm-muted);
   font-size: 12px;

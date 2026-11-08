@@ -65,6 +65,7 @@ import type {
   AdminTranslation,
   VariantStatus,
   VisitorRegionSettings,
+  AdminBilibiliStatus,
   AdminXStatus,
   YoutubeQueue,
   XRelatedAccount,
@@ -202,6 +203,9 @@ function createClient(run: Runner, slow: Runner) {
     /** The X status pool behind External posts. */
     xStatuses: (filters: Record<string, any>) =>
       get<Page<AdminXStatus>>(`/x-statuses${query(filters)}`),
+    /** The Bilibili status pool: the dynamics own posts forward. */
+    bilibiliStatuses: (filters: Record<string, any>) =>
+      get<Page<AdminBilibiliStatus>>(`/bilibili-statuses${query(filters)}`),
     /** A promote or demote lock with its reason, or back to the rules. */
     decideXStatus: (id: string, decision: XStatusDecision, reason = "") =>
       send<{ status: AdminXStatus }>("PUT", `/x-statuses/${enc(id)}/decision`, {

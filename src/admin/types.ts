@@ -759,7 +759,7 @@ export interface AdminQuote {
   media: AdminPostImage[]
 }
 
-export type TranslationOwner = "post" | "video" | "x_status"
+export type TranslationOwner = "post" | "video" | "x_status" | "bilibili_status"
 export type TranslationLocale = "en" | "ja" | "zh-CN"
 
 /** One target locale of a post or video in the console. */
@@ -839,6 +839,37 @@ export interface AdminXStatus {
   translation: AdminTranslation | null
 }
 
+/** An own post that forwards a pooled Bilibili dynamic. */
+export interface BilibiliForward {
+  postId: string
+  hidden: boolean
+  quoteHidden: boolean
+  quoteAvailable: boolean
+}
+
+/**
+ * A pooled Bilibili dynamic that an own post forwards. It is never promoted:
+ * the forward's quote card shows it, so only its translations are edited.
+ */
+export interface AdminBilibiliStatus {
+  id: string
+  authorMid: string
+  authorName: string | null
+  text: string
+  publishedAt: string | null
+  url: string
+  kind: "dynamic" | "video"
+  images: number
+  reasons: "forwarded"[]
+  forwardedAt: string | null
+  firstSeenAt: string
+  /** Up to five forwarding posts, newest first. */
+  forwardedBy: BilibiliForward[]
+  /** Whether a forward shows it on the board, or none shows it available. */
+  shown: "public" | "hidden" | "gone"
+  translation: AdminTranslation | null
+}
+
 export interface AdminTranslation {
   status: "complete" | "incomplete"
   sourceLanguage: string | null
@@ -858,7 +889,8 @@ export interface TranslationCounts {
 }
 
 export interface TranslationSummary {
-  counts: Record<TranslationOwner, TranslationCounts>
+  /** Posts and videos only. */
+  counts: Partial<Record<TranslationOwner, TranslationCounts>>
   locales: TranslationLocale[]
 }
 

@@ -116,7 +116,7 @@ func (a *api) requestTranslations(w http.ResponseWriter, r *http.Request) {
 	var owner string
 	if raw, present := body["ownerType"]; present {
 		if json.Unmarshal(raw, &owner) != nil || sqlite.TranslationField(owner) == "" {
-			httpx.WriteError(w, httpx.Invalid("ownerType must be post or video"))
+			httpx.WriteError(w, httpx.Invalid("ownerType must be post, video, x_status or bilibili_status"))
 			return
 		}
 	}

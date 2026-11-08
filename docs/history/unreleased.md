@@ -30,9 +30,9 @@
 > interval, planned half an interval after the upload read; `SKIP_BILIBILI`
 > covers both. Startup creates the empty `bilibili_statuses` table for the
 > dynamics forwards forward. A forward's public `quote` is that dynamic, with
-> a `null` `id` when the listing did not name it, and the admin API's
-> translation routes accept the owner `bilibili_status`, which translation
-> rows may also carry.
+> a `null` `id` when the listing did not name it, the admin API adds
+> `GET /bilibili-statuses`, and its translation routes accept the owner
+> `bilibili_status`, which translation rows may also carry.
 
 > [!IMPORTANT]
 > Related X accounts
@@ -364,6 +364,11 @@
 - External posts, in the Data group, lists the status pool, without Kano's
   own accounts' statuses, with its reasons and state, and promotes or demotes a status with a reason, as a lock the
   keyword rules never override. Posts marks promoted posts.
+- External posts has an X and a Bilibili tab. The Bilibili tab lists the
+  dynamics Kano's Bilibili posts forward from other accounts, with whether a
+  forward shows them, links to the forwards in Posts and their
+  translations, which can be edited there; they are never promoted, since
+  the forward's quote shows them.
 - Sources has an Official shop tab with its timer and Run now, the shop
   read's state (sale entries, last read and error, a 429's wait) and
   **Read the whole catalog** beside it; the outbound proxy areas add the

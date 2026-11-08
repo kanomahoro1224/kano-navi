@@ -85,6 +85,30 @@ func (a *api) listXStatuses(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, page)
 }
 
+// listBilibiliStatuses lists the Bilibili status pool: the dynamics own
+// forwards forward. They are never promoted, as the forward's quote card
+// shows them; their translations use the translation routes with owner
+// bilibili_status.
+func (a *api) listBilibiliStatuses(w http.ResponseWriter, r *http.Request) {
+	kind := query(r, "kind")
+	if kind != "" && kind != sqlite.BilibiliStatusKindDynamic && kind != sqlite.BilibiliStatusKindVideo {
+		httpx.WriteError(w, httpx.Invalid("kind must be dynamic or video"))
+		return
+	}
+	page, err := a.Store.ListBilibiliStatuses(r.Context(), sqlite.AdminBilibiliStatusFilter{
+		Page:     queryInt(r, "page", 1),
+		PageSize: queryInt(r, "pageSize", 25),
+		Author:   query(r, "author"),
+		Search:   query(r, "search"),
+		Kind:     kind,
+	})
+	if err != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, page)
+}
+
 // decideXStatus records a manual promote or demote with its reason, or
 // returns the status to the rules with "automatic".
 func (a *api) decideXStatus(w http.ResponseWriter, r *http.Request) {

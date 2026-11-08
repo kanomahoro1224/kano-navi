@@ -686,6 +686,7 @@ MCP control has none of them.
 | ------------------------------- | ----------------------------------------------------------------- | ---------------- |
 | `GET /x-statuses`               | `page`, `pageSize` (≤ 100), `author`, `reason`, `state`, `search` | list of statuses |
 | `PUT /x-statuses/{id}/decision` | `{decision, reason}`                                              | `{status}`       |
+| `GET /bilibili-statuses`        | `page`, `pageSize` (≤ 100), `author`, `search`, `kind`            | list of dynamics |
 
 The list pages the X status pool, newest status first (see
 [Related accounts](sources.md#related-accounts)), without the statuses of
@@ -712,6 +713,27 @@ promoted post. An own post answers `400 invalid_input`, a missing status
 `404 not_found`. A change moves the dashboard revision. Translations of a
 pooled status use the [translation routes](#translations) with owner
 `x_status`.
+
+`GET /bilibili-statuses` pages the Bilibili status pool (see
+[Forwards](sources.md#forwards)), newest dynamic first, without a dynamic
+that is a stored post (a forward of an own dynamic), whose translations
+belong to Posts. `author` is an exact mid or part of the author's name,
+matched without case; `search` matches the text or the dynamic or post ID;
+`kind` is `dynamic` or `video` (an upload, whose URL is its video page), and
+any other value answers `400 invalid_input`. Each dynamic is `{id,
+authorMid, authorName, text, publishedAt, url, kind, images, reasons,
+forwardedAt, firstSeenAt, forwardedBy, shown, translation}`: `id` is its
+post ID, `images` counts its pooled image addresses, `reasons` is
+`["forwarded"]`, `forwardedBy` lists up to five own posts forwarding it,
+newest first, as `{postId, hidden, quoteHidden, quoteAvailable}`, and
+`translation` is its `bilibili_status` translation summary. `shown` is
+`public` when a shown forward shows it with its quote shown, `hidden` when
+every forward that shows it available is hidden or hides its quote, and
+`gone` when no forward shows it available. The pool has no decision route:
+a quoted status appears inside its quoting post and never as a post of its
+own ([ADR-0009](../decisions/ADR-0009-related-x-accounts-and-quoted-statuses.md)),
+and the forward's quote already shows the dynamic. Its translations use the
+translation routes with owner `bilibili_status`.
 
 ## Videos
 
@@ -936,7 +958,7 @@ deleted URL again. Files follow
 `owner` and `ownerType` are `post`, `video`, `x_status`, a pooled X status
 by its status ID, or `bilibili_status`, a pooled forwarded dynamic by its
 post ID (see [Translations](data-model.md#translations)); `locale`
-is `en` or `zh-CN`. `counts` maps `post` and `video` to `{total, incomplete,
+is `en`, `ja` or `zh-CN`. `counts` maps `post` and `video` to `{total, incomplete,
 requested}` over the posts and videos the translate step covers. A translation summary is
 `{status, sourceLanguage, machineStatus, lastAttemptAt, lastError, requested,
 locales}` with `status` `complete` or `incomplete`, `machineStatus` `never`,

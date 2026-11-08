@@ -11,12 +11,15 @@ import {
   Search,
   Settings2,
   Undo2,
+  UserRound,
+  Video,
 } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import { japanStamp } from "@/admin/format"
 import type {
+  AdminBilibiliStatus,
   AdminXStatus,
   XStatusDecision,
   XStatusReason,
@@ -38,7 +41,9 @@ import {
   type Tone,
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
+import { stepIcons } from "@/admin/views/run-parts"
 import { TranslationCell } from "@/admin/views/translation-parts"
+import { cn } from "@/lib/utils"
 
 const reasons: XStatusReason[] = [
   "keyword",
@@ -304,7 +309,7 @@ const blankFilters = { search: "", author: "", reason: "", state: "" }
  * statuses belong to Posts. Promote and demote are durable locks;
  * related accounts and their keyword rules are set on the Sources page.
  */
-export function ExternalPostsView({ navigate }: ViewProps) {
+function XStatusPool({ navigate }: Pick<ViewProps, "navigate">) {
   const { t } = useAppSettings()
   const { api } = useAdmin()
   const [filters, setFilters] = useState(blankFilters)
@@ -324,120 +329,399 @@ export function ExternalPostsView({ navigate }: ViewProps) {
   ).filter((key) => filters[key] !== blankFilters[key]).length
   const any = { value: "", label: t("admin.filter.any") }
   return (
+    <Panel>
+      <form
+        className="adm-filters"
+        onSubmit={(event) => {
+          event.preventDefault()
+          update({ search })
+        }}
+      >
+        <label className="adm-search">
+          <Search aria-hidden />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onBlur={() => search !== filters.search && update({ search })}
+            placeholder={t("admin.external.search")}
+            aria-label={t("admin.external.search")}
+          />
+        </label>
+        <FilterSelect
+          label={t("admin.external.author")}
+          value={filters.author}
+          onChange={(author) => update({ author })}
+          options={[
+            any,
+            ...(related.data?.accounts || []).map(({ handle }) => ({
+              value: handle,
+              label: `@${handle}`,
+            })),
+          ]}
+        />
+        <FilterSelect
+          label={t("admin.external.reasonFilter")}
+          value={filters.reason}
+          onChange={(reason) => update({ reason })}
+          options={[
+            any,
+            ...reasons.map((reason) => ({
+              value: reason,
+              label: t(`admin.external.reason.${reason}`),
+            })),
+          ]}
+        />
+        <FilterSelect
+          label={t("admin.external.stateFilter")}
+          value={filters.state}
+          onChange={(state) => update({ state })}
+          options={[
+            any,
+            ...states.map((state) => ({
+              value: state,
+              label: t(`admin.external.state.${state}`),
+            })),
+          ]}
+        />
+        <FilterReset
+          count={active}
+          onReset={() => {
+            setSearch("")
+            update(blankFilters)
+          }}
+        />
+      </form>
+      <div className="adm-list-bar">
+        <span className="adm-muted">
+          {statuses.data
+            ? t("admin.pager.total", { total: statuses.data.total })
+            : ""}
+        </span>
+      </div>
+      {!statuses.data ? (
+        <Loading />
+      ) : statuses.data.items.length ? (
+        <>
+          <ul className="adm-post-feed" aria-label={t("admin.external.title")}>
+            {statuses.data.items.map((status) => (
+              <XStatusItem
+                key={status.id}
+                status={status}
+                onDone={() => void statuses.reload()}
+                navigate={navigate}
+              />
+            ))}
+          </ul>
+          <Pager
+            page={statuses.data.page}
+            totalPages={statuses.data.totalPages}
+            total={statuses.data.total}
+            onPage={setPage}
+          />
+        </>
+      ) : (
+        <Empty icon={Newspaper} title={t("admin.external.empty")}>
+          {t("admin.external.emptyHint")}
+        </Empty>
+      )}
+    </Panel>
+  )
+}
+
+const shownTone: Record<AdminBilibiliStatus["shown"], Tone> = {
+  public: "success",
+  hidden: "warning",
+  gone: "neutral",
+}
+
+const BilibiliMark = stepIcons.bilibili
+
+/** Why a forward does not show the dynamic, as its chip's title. */
+function forwardNote(
+  forward: AdminBilibiliStatus["forwardedBy"][number],
+  t: ReturnType<typeof useAppSettings>["t"],
+) {
+  if (forward.hidden) return t("admin.external.forward.hidden")
+  if (forward.quoteHidden) return t("admin.external.forward.quoteHidden")
+  if (!forward.quoteAvailable) return t("admin.external.forward.unavailable")
+  return undefined
+}
+
+/**
+ * A pooled Bilibili dynamic. It is never promoted: its forward's quote card
+ * shows it, so the console edits only its translations.
+ */
+function BilibiliStatusItem({
+  status,
+  onDone,
+  navigate,
+}: {
+  status: AdminBilibiliStatus
+  onDone: () => void
+  navigate: ViewProps["navigate"]
+}) {
+  const { t } = useAppSettings()
+  return (
+    <li
+      className={cn(
+        "adm-post adm-xstatus",
+        status.shown !== "public" && "is-hidden",
+      )}
+    >
+      <span className="adm-post-origin">
+        <strong className="adm-post-mark">
+          <BilibiliMark aria-hidden />
+          {status.authorName || status.authorMid}
+        </strong>
+        {status.authorName ? (
+          <span className="adm-muted">{status.authorMid}</span>
+        ) : null}
+        {status.publishedAt ? (
+          <time dateTime={status.publishedAt}>
+            {japanStamp(status.publishedAt)}
+          </time>
+        ) : null}
+      </span>
+      <div className="adm-post-body">
+        <p className="adm-post-text">{status.text}</p>
+        <span className="adm-chip-row">
+          {status.images ? (
+            <Badge icon={ImageIcon}>
+              {t("admin.external.images", { count: status.images })}
+            </Badge>
+          ) : null}
+          {status.forwardedBy.map((forward) => {
+            const note = forwardNote(forward, t)
+            return (
+              <Button
+                key={forward.postId}
+                size="sm"
+                variant="ghost"
+                icon={note ? EyeOff : Repeat2}
+                title={note}
+                onClick={() => navigate("posts", `find-${forward.postId}`)}
+              >
+                {t("admin.external.forwardedBy")}
+              </Button>
+            )
+          })}
+        </span>
+      </div>
+      <div className="adm-post-translation">
+        {status.translation ? (
+          <TranslationCell
+            owner="bilibili_status"
+            id={status.id}
+            original={status.text}
+            translation={status.translation}
+            onChanged={onDone}
+          />
+        ) : null}
+      </div>
+      <span className="adm-chip-row adm-post-state">
+        <Badge tone={shownTone[status.shown]}>
+          {t(`admin.external.shown.${status.shown}`)}
+        </Badge>
+        {status.kind === "video" ? (
+          <Badge tone="sky" icon={Video}>
+            {t("admin.external.kind.video")}
+          </Badge>
+        ) : null}
+        {status.reasons.map((reason) => (
+          <Badge key={reason} tone="lavender">
+            {t(`admin.external.reason.${reason}`)}
+          </Badge>
+        ))}
+      </span>
+      <span className="adm-post-controls">
+        <a
+          className="adm-icon-button"
+          href={status.url}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={t("admin.external.openBilibili")}
+          title={t("admin.external.openBilibili")}
+        >
+          <ArrowUpRight aria-hidden />
+        </a>
+      </span>
+    </li>
+  )
+}
+
+const blankBilibiliFilters = { search: "", author: "", kind: "" }
+
+/**
+ * The Bilibili status pool: the dynamics own posts forward, apart from own
+ * dynamics, which are stored posts.
+ */
+function BilibiliStatusPool({ navigate }: Pick<ViewProps, "navigate">) {
+  const { t } = useAppSettings()
+  const { api } = useAdmin()
+  const [filters, setFilters] = useState(blankBilibiliFilters)
+  const [search, setSearch] = useState("")
+  const [author, setAuthor] = useState("")
+  const [page, setPage] = useState(1)
+  const statuses = useResource(
+    () => api.bilibiliStatuses({ ...filters, page, pageSize: 30 }),
+    [filters, page],
+  )
+  const update = (patch: Partial<typeof filters>) => {
+    setFilters((current) => ({ ...current, ...patch }))
+    setPage(1)
+  }
+  const active = (
+    Object.keys(blankBilibiliFilters) as (keyof typeof blankBilibiliFilters)[]
+  ).filter((key) => filters[key] !== blankBilibiliFilters[key]).length
+  return (
+    <Panel>
+      <form
+        className="adm-filters"
+        onSubmit={(event) => {
+          event.preventDefault()
+          update({ search, author })
+        }}
+      >
+        <label className="adm-search">
+          <Search aria-hidden />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onBlur={() => search !== filters.search && update({ search })}
+            placeholder={t("admin.external.search")}
+            aria-label={t("admin.external.search")}
+          />
+        </label>
+        <label className="adm-search">
+          <UserRound aria-hidden />
+          <input
+            type="search"
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            onBlur={() => author !== filters.author && update({ author })}
+            placeholder={t("admin.external.authorSearch")}
+            aria-label={t("admin.external.authorSearch")}
+          />
+        </label>
+        <FilterSelect
+          label={t("admin.external.kindFilter")}
+          value={filters.kind}
+          onChange={(kind) => update({ kind })}
+          options={[
+            { value: "", label: t("admin.filter.any") },
+            { value: "dynamic", label: t("admin.external.kind.dynamic") },
+            { value: "video", label: t("admin.external.kind.video") },
+          ]}
+        />
+        <FilterReset
+          count={active}
+          onReset={() => {
+            setSearch("")
+            setAuthor("")
+            update(blankBilibiliFilters)
+          }}
+        />
+      </form>
+      <div className="adm-list-bar">
+        <span className="adm-muted">
+          {statuses.data
+            ? t("admin.pager.total", { total: statuses.data.total })
+            : ""}
+        </span>
+      </div>
+      {!statuses.data ? (
+        <Loading />
+      ) : statuses.data.items.length ? (
+        <>
+          <ul
+            className="adm-post-feed"
+            aria-label={t("admin.external.source.bilibili")}
+          >
+            {statuses.data.items.map((status) => (
+              <BilibiliStatusItem
+                key={status.id}
+                status={status}
+                onDone={() => void statuses.reload()}
+                navigate={navigate}
+              />
+            ))}
+          </ul>
+          <Pager
+            page={statuses.data.page}
+            totalPages={statuses.data.totalPages}
+            total={statuses.data.total}
+            onPage={setPage}
+          />
+        </>
+      ) : (
+        <Empty icon={Repeat2} title={t("admin.external.bilibiliEmpty")}>
+          {t("admin.external.bilibiliEmptyHint")}
+        </Empty>
+      )}
+    </Panel>
+  )
+}
+
+const pools = ["x", "bilibili"] as const
+
+/**
+ * External posts: a tab per status pool. The X pool takes promote and
+ * demote decisions; the Bilibili pool is read-only apart from translations.
+ * The selected pool is the view's tab in the URL.
+ */
+export function ExternalPostsView({ tab, navigate }: ViewProps) {
+  const { t } = useAppSettings()
+  const pool = tab === "bilibili" ? "bilibili" : "x"
+  return (
     <div className="adm-view">
       <PageHeader
         title={t("admin.external.title")}
         actions={
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={Settings2}
-            onClick={() => navigate("sources", "x")}
-          >
-            {t("admin.external.configure")}
-          </Button>
+          pool === "x" ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={Settings2}
+              onClick={() => navigate("sources", "x")}
+            >
+              {t("admin.external.configure")}
+            </Button>
+          ) : undefined
         }
       />
-      <Panel>
-        <form
-          className="adm-filters"
-          onSubmit={(event) => {
-            event.preventDefault()
-            update({ search })
-          }}
-        >
-          <label className="adm-search">
-            <Search aria-hidden />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onBlur={() => search !== filters.search && update({ search })}
-              placeholder={t("admin.external.search")}
-              aria-label={t("admin.external.search")}
-            />
-          </label>
-          <FilterSelect
-            label={t("admin.external.author")}
-            value={filters.author}
-            onChange={(author) => update({ author })}
-            options={[
-              any,
-              ...(related.data?.accounts || []).map(({ handle }) => ({
-                value: handle,
-                label: `@${handle}`,
-              })),
-            ]}
-          />
-          <FilterSelect
-            label={t("admin.external.reasonFilter")}
-            value={filters.reason}
-            onChange={(reason) => update({ reason })}
-            options={[
-              any,
-              ...reasons.map((reason) => ({
-                value: reason,
-                label: t(`admin.external.reason.${reason}`),
-              })),
-            ]}
-          />
-          <FilterSelect
-            label={t("admin.external.stateFilter")}
-            value={filters.state}
-            onChange={(state) => update({ state })}
-            options={[
-              any,
-              ...states.map((state) => ({
-                value: state,
-                label: t(`admin.external.state.${state}`),
-              })),
-            ]}
-          />
-          <FilterReset
-            count={active}
-            onReset={() => {
-              setSearch("")
-              update(blankFilters)
-            }}
-          />
-        </form>
-        <div className="adm-list-bar">
-          <span className="adm-muted">
-            {statuses.data
-              ? t("admin.pager.total", { total: statuses.data.total })
-              : ""}
-          </span>
-        </div>
-        {!statuses.data ? (
-          <Loading />
-        ) : statuses.data.items.length ? (
-          <>
-            <ul
-              className="adm-post-feed"
-              aria-label={t("admin.external.title")}
+      <div
+        className="adm-tabs is-bare adm-source-tabs"
+        role="tablist"
+        aria-label={t("admin.external.pools")}
+      >
+        {pools.map((id) => {
+          const Icon = stepIcons[id]
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={pool === id}
+              className={cn(pool === id && "is-active")}
+              onClick={() => navigate("external", id)}
             >
-              {statuses.data.items.map((status) => (
-                <XStatusItem
-                  key={status.id}
-                  status={status}
-                  onDone={() => void statuses.reload()}
-                  navigate={navigate}
-                />
-              ))}
-            </ul>
-            <Pager
-              page={statuses.data.page}
-              totalPages={statuses.data.totalPages}
-              total={statuses.data.total}
-              onPage={setPage}
-            />
-          </>
+              <span className="adm-source-icon">
+                <Icon aria-hidden />
+              </span>
+              <strong>{t(`admin.external.source.${id}`)}</strong>
+            </button>
+          )
+        })}
+      </div>
+      <div role="tabpanel" aria-label={t(`admin.external.source.${pool}`)}>
+        {pool === "x" ? (
+          <XStatusPool navigate={navigate} />
         ) : (
-          <Empty icon={Newspaper} title={t("admin.external.empty")}>
-            {t("admin.external.emptyHint")}
-          </Empty>
+          <BilibiliStatusPool navigate={navigate} />
         )}
-      </Panel>
+      </div>
     </div>
   )
 }

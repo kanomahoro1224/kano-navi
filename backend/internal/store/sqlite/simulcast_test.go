@@ -101,6 +101,10 @@ func TestRuleEIsRecomputedAndReleased(t *testing.T) {
 	f.expect(map[string]string{"bilibili-schedule-a": unmerged})
 }
 
+// simulcastNow is the store tests' clock: midday in Japan, so every instant
+// they place around it falls on the same Japan date.
+var simulcastNow = time.Date(2026, 11, 7, 12, 0, 0, 0, time.FixedZone("JST", 9*3600)).UTC()
+
 // simulcastStore is a store with a learned live room.
 func simulcastStore(t *testing.T) (*Store, func(id, source, kind, start, end, url, platforms string, inferred int)) {
 	t.Helper()
@@ -139,7 +143,7 @@ func findEvent(events []DashboardEvent, id string) *DashboardEvent {
 func TestLivePlanChecksEveryScheduledStream(t *testing.T) {
 	s, add := simulcastStore(t)
 	ctx := context.Background()
-	now := time.Now().UTC().Truncate(time.Second)
+	now := simulcastNow
 	at := func(d time.Duration) string { return now.Add(d).Format(time.RFC3339) }
 	add("youtube-AAAAAAAAAAA", "youtube", "stream", at(-time.Minute), "", "https://www.youtube.com/watch?v=AAAAAAAAAAA", `["youtube"]`, 0)
 	add("youtube-BBBBBBBBBBB", "youtube", "stream", at(-time.Minute), "", "https://www.youtube.com/watch?v=BBBBBBBBBBB", `["youtube"]`, 0)
@@ -207,7 +211,7 @@ func TestLivePlanChecksEveryScheduledStream(t *testing.T) {
 func TestObservedSimulcastAttachesToTheYoutubeEvent(t *testing.T) {
 	s, add := simulcastStore(t)
 	ctx := context.Background()
-	now := time.Now().UTC().Truncate(time.Second)
+	now := simulcastNow
 	at := func(d time.Duration) string { return now.Add(d).Format(time.RFC3339) }
 	_ = add
 	watch := "https://www.youtube.com/watch?v=AAAAAAAAAAA"
@@ -258,7 +262,7 @@ func TestObservedSimulcastAttachesToTheYoutubeEvent(t *testing.T) {
 func TestBroadcastAfterAnEndedYoutubeStreamIsLiveNow(t *testing.T) {
 	s, add := simulcastStore(t)
 	ctx := context.Background()
-	now := time.Now().UTC().Truncate(time.Second)
+	now := simulcastNow
 	at := func(d time.Duration) string { return now.Add(d).Format(time.RFC3339) }
 	add("youtube-AAAAAAAAAAA", "youtube", "stream", at(-40*time.Minute), at(-20*time.Minute), "https://www.youtube.com/watch?v=AAAAAAAAAAA", `["youtube"]`, 0)
 	live := bilisource.LiveState{Room: bilisource.Room{RoomID: "1000001", Title: "杂谈", LiveStatus: bilisource.RoomLive, LiveTime: at(-15 * time.Minute)}, CheckedAt: now, LastAttemptAt: now}
@@ -287,7 +291,7 @@ func TestBroadcastAfterAnEndedYoutubeStreamIsLiveNow(t *testing.T) {
 func TestARoomLinkAsUrlReadsAsTheBilibiliPlatform(t *testing.T) {
 	s, add := simulcastStore(t)
 	ctx := context.Background()
-	now := time.Now().UTC().Truncate(time.Second)
+	now := simulcastNow
 	room := bilisource.RoomURL("1000001")
 	add("manual-a", "manual", "stream", now.Add(time.Hour).Format(time.RFC3339), "", room, "", 0)
 	add("x-schedule-o", "x", "stream", now.Add(2*time.Hour).Format(time.RFC3339), "", "https://live.bilibili.com/2000002", `["other"]`, 0)

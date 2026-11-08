@@ -77,6 +77,10 @@ const seedCopy: Record<string, Partial<Record<Locale, string>>> = {
     en: "Official site",
   },
   "ミリプロ shop": { en: "Million Production shop" },
+  "日文条目「鹿乃」": {
+    ja: "日本語版の記事「鹿乃」",
+    en: "Japanese article on Kano",
+  },
   事务所官方商店: { ja: "事務所公式ショップ", en: "Official agency shop" },
 }
 

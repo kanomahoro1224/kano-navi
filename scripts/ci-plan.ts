@@ -43,6 +43,7 @@ export const scriptJobs: Record<string, Job[]> = {
   "package-history-media.ts": ["frontend"],
   "package-lineblog-comments.ts": ["frontend"],
   "package-lineblog.ts": ["frontend"],
+  "package-works.ts": ["frontend"],
   "privacy-allowlist.json": [],
   "production-smoke.ts": ["frontend", "docker"],
   "run-app.mjs": [],

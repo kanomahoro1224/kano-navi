@@ -25,6 +25,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/schedule"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
+	"github.com/yexca/kano-navi/backend/internal/source/niconico"
 	shopsource "github.com/yexca/kano-navi/backend/internal/source/shop"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
@@ -32,6 +33,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/variants"
 	"github.com/yexca/kano-navi/backend/internal/workflow"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 // stepSkipFlags are the process-wide kill switches for each workflow step.
@@ -76,9 +78,9 @@ func runStandalone(cfg config.Config) int {
 	}
 
 	run := newPipeline(store, secretsKey)
-	// The variants step and the Site page's copies status read the archive
-	// under the data directory and the history images of the served site.
-	run.steps.Variants = &variants.Roots{Data: store.DataRoot(), Static: cfg.StaticDirectory}
+	// The variants step and the Site page's copies status read the archives
+	// under the data directory.
+	run.steps.Variants = &variants.Roots{Data: store.DataRoot()}
 	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies)
 	queue := &workflow.Queue{Store: store, Executor: run.executor}
 	defer queue.Close()
@@ -268,6 +270,7 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 	}
 	extractor := schedule.New(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})
 	translator := schedule.NewTranslator(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})
+	worksIndex := works.Packaged()
 	steps := &workflow.SourceSteps{
 		Store:     store,
 		Skip:      skip,
@@ -276,6 +279,8 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		Bilibili:  bilisource.NewAdapter(bilisource.NewClient(proxies.Client(outboundproxy.AreaBilibili)), bilisource.OptionsFromEnv()),
 		Shop:      shopsource.NewAdapter(shopsource.NewClient(proxies.Client(outboundproxy.AreaShop))),
 		Media:     mediadownload.NewClient(proxies.Client(outboundproxy.AreaMedia)),
+		Niconico:  niconico.NewClient(proxies.Client(outboundproxy.AreaMedia)),
+		Works:     &worksIndex,
 		Schedule:  scheduleStep{extractor},
 		Translate: translateStep{translator},
 		History: &workflow.HistorySource{

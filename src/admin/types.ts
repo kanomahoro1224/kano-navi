@@ -204,7 +204,7 @@ export interface ProxyTestResult {
  * missing until a copies run reads them.
  */
 export interface VariantGroupStatus {
-  group: "lineblog" | "history" | "media"
+  group: "lineblog" | "works" | "journey" | "media"
   originals: number
   ready: number
   unhashed: number
@@ -899,6 +899,14 @@ export interface VideoMergeCandidate {
   /** Length difference in seconds; null when a length is unknown. */
   durationDelta: number | null
   gapMinutes: number
+}
+
+/** A stored Bilibili upload whose merge the Works list pairs differently. */
+export interface WorksMergeConflict {
+  upload: string
+  bilibili: string
+  mergedInto: string | null
+  worksYoutube: string[]
 }
 
 export interface VideoMergeSuggestion {

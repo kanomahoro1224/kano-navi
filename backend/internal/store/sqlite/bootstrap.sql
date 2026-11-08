@@ -426,6 +426,18 @@ CREATE TABLE videos (
     manual_availability TEXT
   );
 
+CREATE TABLE work_cover_lookups (
+    platform TEXT NOT NULL,
+    video_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    source_url TEXT,
+    last_error TEXT,
+    retry_attempts INTEGER NOT NULL DEFAULT 0,
+    next_retry_at TEXT,
+    checked_at TEXT NOT NULL,
+    PRIMARY KEY (platform, video_id)
+  );
+
 CREATE TABLE workflows (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,

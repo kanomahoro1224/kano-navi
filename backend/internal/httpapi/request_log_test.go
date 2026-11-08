@@ -20,6 +20,8 @@ func TestRequestLogOnlyRecordsAllowedFields(t *testing.T) {
 		{"GET", "/api/health?private=synthetic", "/api/health", 200},
 		{"POST", "/api/dashboard", "/api/dashboard", 405},
 		{"PRIVATE", "/api/private-value?private=synthetic", "unmatched", 404},
+		{"GET", "/media/lineblog/0123456789ab.jpg?w=320", "/media/lineblog/:name", 404},
+		{"GET", "/media/works/0123456789ab.jpg?w=320", "/media/works/:name", 404},
 		{"GET", "/api/dashboard/revision", "/api/dashboard/revision", 503},
 	} {
 		if tc.status == 503 {

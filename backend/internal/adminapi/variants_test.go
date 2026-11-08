@@ -29,7 +29,7 @@ func TestVariantStatusReadsNoOriginalAndListsAgainAfterARun(t *testing.T) {
 		t.Helper()
 		code, payload := c.call(t, "GET", path, "")
 		groups, _ := payload["groups"].([]any)
-		if code != 200 || len(groups) != 3 || payload["checkedAt"] == nil {
+		if code != 200 || len(groups) != 4 || payload["checkedAt"] == nil {
 			t.Fatalf("status=%d %v", code, payload)
 		}
 		return groups[0].(map[string]any)

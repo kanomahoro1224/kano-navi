@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 func value(v *string) any {
@@ -265,4 +266,23 @@ func Revision(revision int64, since *int64) PublicRevisionResponse {
 		changed = revision != *since
 	}
 	return PublicRevisionResponse{Revision: revision, Changed: changed}
+}
+
+// WorksUploads is the Works page's view of stored data: for each upload with
+// a ready cover or a stored video, the cover's local URL and size and the
+// videos' public fields. Uploads without either are left out.
+func WorksUploads(index works.Index, overlay *sqlite.WorksOverlay) map[string]any {
+	uploads := map[string]any{}
+	for _, upload := range overlay.Uploads {
+		var cover any
+		if upload.Cover != nil {
+			cover = map[string]any{"url": upload.Cover.URL, "width": valueInt(upload.Cover.Width), "height": valueInt(upload.Cover.Height)}
+		}
+		videos := make([]any, 0, len(upload.Videos))
+		for _, v := range upload.Videos {
+			videos = append(videos, map[string]any{"source": v.Source, "id": v.ID, "title": v.Title, "url": v.URL, "publishedAt": value(v.PublishedAt), "scheduledAt": value(v.ScheduledAt), "durationSeconds": valueInt(v.DurationSeconds), "availability": value(v.Availability), "translations": publicTranslations(v.Translations), "sourceLanguage": value(v.Translations.SourceLanguage)})
+		}
+		uploads[upload.ID] = map[string]any{"cover": cover, "videos": videos}
+	}
+	return map[string]any{"updatedAt": index.UpdatedAt, "revision": overlay.Revision, "uploads": uploads}
 }

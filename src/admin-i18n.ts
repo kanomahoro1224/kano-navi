@@ -295,7 +295,8 @@ export const adminMessages = {
     "admin.site.variantsDescription":
       "Pages ask for smaller copies of large images. Requests never resize: an image without its copies is sent whole until a copies run makes them.",
     "admin.site.variantsGroup.lineblog": "LINE BLOG archive",
-    "admin.site.variantsGroup.history": "Journey images",
+    "admin.site.variantsGroup.works": "Works covers",
+    "admin.site.variantsGroup.journey": "Journey images",
     "admin.site.variantsGroup.media": "Cached source media",
     "admin.site.variantsOf": "/ {count} images",
     "admin.site.variantsMissing": "{count} without copies",
@@ -744,6 +745,12 @@ export const adminMessages = {
       "No YouTube video was published within six hours with a matching title or length.",
     "admin.review.mergeHint":
       "Uploads the matching rule merges at its next run, and those it leaves to you because several videos match, a length is unknown or the titles differ.",
+    "admin.review.worksConflicts": "The Works list pairs these differently",
+    "admin.review.worksConflictsHint":
+      "The packaged Works list names other YouTube videos for these Bilibili uploads than their merge. The list never merges or releases an upload; decide here or correct the collection.",
+    "admin.review.worksMergedInto": "Merged into {id}",
+    "admin.review.worksNotMerged": "Not merged",
+    "admin.review.worksPairs": "Works list: {ids}",
     "admin.videos.merge.status.rule": "Merges at the next run",
     "admin.videos.merge.status.ambiguous": "Several matches",
     "admin.videos.merge.status.unverified": "Needs a check",
@@ -2171,6 +2178,12 @@ export const adminMessages = {
       "六小时内没有标题或时长相符的 YouTube 视频。",
     "admin.review.mergeHint":
       "匹配规则将在下次运行时合并的投稿，以及因多个视频相符、时长未知或标题不同而留给你决定的投稿。",
+    "admin.review.worksConflicts": "作品列表的配对与此不同",
+    "admin.review.worksConflictsHint":
+      "随程序发布的作品列表为这些 B 站投稿配对的 YouTube 视频与当前合并不同。作品列表不会合并或解除任何投稿；请在这里决定，或修正资料库。",
+    "admin.review.worksMergedInto": "已合并到 {id}",
+    "admin.review.worksNotMerged": "未合并",
+    "admin.review.worksPairs": "作品列表：{ids}",
     "admin.videos.merge.status.rule": "下次运行时合并",
     "admin.videos.merge.status.ambiguous": "多个候选",
     "admin.videos.merge.status.unverified": "需要确认",

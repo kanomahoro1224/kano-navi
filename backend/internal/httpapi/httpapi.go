@@ -53,10 +53,6 @@ func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Sta
 	if now == nil {
 		now = time.Now
 	}
-	// The fixed history images share the store's variant cache.
-	if site, ok := options.Static.(*staticSite); ok && store != nil {
-		site.variants = store
-	}
 	return &Handler{
 		store:        store,
 		now:          now,
@@ -181,6 +177,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.videoMonths(w, r)
+	case "/api/works/uploads":
+		w.Header().Set("Vary", "Accept-Encoding")
+		if r.Method != http.MethodGet {
+			writeMethodNotAllowed(w, http.MethodGet)
+			return
+		}
+		h.worksUploads(w, r)
 	default:
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/media/lineblog/"):
@@ -188,7 +191,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				writeMethodNotAllowed(w, "GET, HEAD")
 				return
 			}
-			h.lineblogMedia(w, r, strings.TrimPrefix(r.URL.Path, "/media/lineblog/"))
+			lineblogArchive.serve(w, r, h, strings.TrimPrefix(r.URL.Path, "/media/lineblog/"))
+		case strings.HasPrefix(r.URL.Path, "/media/works/"):
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				writeMethodNotAllowed(w, "GET, HEAD")
+				return
+			}
+			worksArchive.serve(w, r, h, strings.TrimPrefix(r.URL.Path, "/media/works/"))
+		case strings.HasPrefix(r.URL.Path, "/media/journey/"):
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				writeMethodNotAllowed(w, "GET, HEAD")
+				return
+			}
+			journeyArchive.serve(w, r, h, strings.TrimPrefix(r.URL.Path, "/media/journey/"))
 		case strings.HasPrefix(r.URL.Path, "/media/profile/"):
 			if r.Method != http.MethodGet && r.Method != http.MethodHead {
 				writeMethodNotAllowed(w, "GET, HEAD")

@@ -45,3 +45,12 @@ export function YouTubeLogo(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+/** YouTube's members-only badge icon: a star cut out of a disc. */
+export function YouTubeMembersMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 12 12" fill="currentColor" {...props}>
+      <path d="M6 .5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Zm.27 2.045.906 1.837 2.027.295a.3.3 0 0 1 .166.511l-1.467 1.43.346 2.019a.3.3 0 0 1-.435.316L6 8l-1.813.953a.3.3 0 0 1-.435-.316l.346-2.019-1.467-1.43a.3.3 0 0 1 .166-.511l2.027-.295.907-1.837a.3.3 0 0 1 .539 0Z" />
+    </svg>
+  )
+}

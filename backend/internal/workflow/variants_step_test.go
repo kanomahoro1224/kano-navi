@@ -37,11 +37,12 @@ func TestVariantsStepMakesEveryGroupAndResumes(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	data, static := t.TempDir(), t.TempDir()
+	data := t.TempDir()
 	files := map[string][]byte{
-		filepath.Join(data, "lineblog", "0123456789ab.jpg"):         syntheticJPEG(t, 1000, 500),
-		filepath.Join(data, "lineblog", "abcdefabcdef.jpg"):         syntheticJPEG(t, 200, 100),
-		filepath.Join(static, "assets", "history", "synthetic.jpg"): syntheticJPEG(t, 700, 400),
+		filepath.Join(data, "lineblog", "0123456789ab.jpg"): syntheticJPEG(t, 1000, 500),
+		filepath.Join(data, "lineblog", "abcdefabcdef.jpg"): syntheticJPEG(t, 200, 100),
+		filepath.Join(data, "works", "fedcba987654.jpg"):    syntheticJPEG(t, 800, 800),
+		filepath.Join(data, "journey", "0a1b2c3d4e5f.jpg"):  syntheticJPEG(t, 700, 400),
 	}
 	for path, content := range files {
 		if err = os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -51,14 +52,14 @@ func TestVariantsStepMakesEveryGroupAndResumes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	steps := &SourceSteps{Store: s, Variants: &variants.Roots{Data: data, Static: static}}
+	steps := &SourceSteps{Store: s, Variants: &variants.Roots{Data: data}}
 	out, err := steps.Execute(context.Background(), StepInput{StepID: "variants"})
-	if err != nil || out.Status != "succeeded" || out.Result["made"] != 2 || out.Result["kept"] != 1 || out.Result["remaining"] != 0 || out.Result["stopped"] != nil {
+	if err != nil || out.Status != "succeeded" || out.Result["made"] != 3 || out.Result["kept"] != 1 || out.Result["remaining"] != 0 || out.Result["stopped"] != nil {
 		t.Fatalf("first out=%#v err=%v", out, err)
 	}
 	// The next run loads nothing: every image is done.
 	out, err = steps.Execute(context.Background(), StepInput{StepID: "variants"})
-	if err != nil || out.Status != "succeeded" || out.Result["attempted"] != 0 || out.Result["skipped"] != 3 {
+	if err != nil || out.Status != "succeeded" || out.Result["attempted"] != 0 || out.Result["skipped"] != 4 {
 		t.Fatalf("second out=%#v err=%v", out, err)
 	}
 	// Without the roots the step is not available.

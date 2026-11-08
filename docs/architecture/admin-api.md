@@ -125,7 +125,7 @@ and the same-origin country-code check described in the [public API](public-api.
 | `GET /media/variants` | `refresh` (=1) | `{groups, checkedAt}` |
 
 `groups` is the [status](media-cache.md#copy-groups) of the `lineblog`,
-`history` and `media` groups in that order, each `{group, originals, ready,
+`works`, `history` and `media` groups in that order, each `{group, originals, ready,
 unhashed, widths: [{width, copies, kept, missing}]}`, and `checkedAt` is when
 it was listed. The listing is answered again until another run finishes, or
 made anew with `refresh=1` ([Copies Run](media-cache.md#copies-run)). A
@@ -792,6 +792,12 @@ Each item has `bilibili` (the upload as listed) and up to five `candidates`:
 `durationDelta` is null when a length is unknown. `GET /videos/{id}/merges`
 describes one upload whatever its state, adding `merged`, `separate` and
 `none`.
+
+`GET /videos/works-conflicts` lists the stored Bilibili uploads whose merge
+disagrees with the packaged Works list: the list pairs the upload with other
+YouTube videos than the one it is merged into, or with stored ones while it
+is unmerged. Each item is `{upload, bilibili, mergedInto, worksYoutube}`. The
+list only reports; the Review queue's merge decisions show the items.
 
 ### Video corrections and history
 

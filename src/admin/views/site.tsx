@@ -105,7 +105,8 @@ function VisitorRegionPanel({
 /** The groups in the order the server lists them, shown before it answers. */
 const variantGroups: VariantGroupStatus["group"][] = [
   "lineblog",
-  "history",
+  "works",
+  "journey",
   "media",
 ]
 

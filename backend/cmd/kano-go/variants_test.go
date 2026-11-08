@@ -11,7 +11,7 @@ func TestVariantsCommandWritesOnlyTheOutputRoot(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(data, "lineblog"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if code := runVariants([]string{"-data", data, "-static", filepath.Join(data, "missing"), "-out", out}); code != 0 {
+	if code := runVariants([]string{"-data", data, "-out", out}); code != 0 {
 		t.Fatalf("exit %d", code)
 	}
 	if info, err := os.Stat(out); err != nil || !info.IsDir() {

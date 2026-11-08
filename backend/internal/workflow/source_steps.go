@@ -9,10 +9,12 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/mediadownload"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
+	"github.com/yexca/kano-navi/backend/internal/source/niconico"
 	shopsource "github.com/yexca/kano-navi/backend/internal/source/shop"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/variants"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 // ScheduleRunner is the schedule extraction step. Status is success, partial
@@ -36,6 +38,14 @@ type SourceSteps struct {
 	Media *mediadownload.Client
 	// MediaBounds overrides mediadownload.StepBounds when set.
 	MediaBounds *mediadownload.Bounds
+	// Works is the Works page's upload list whose covers the media step
+	// fetches; nil fetches none. Niconico looks up its niconico thumbnails
+	// (nil leaves them uncovered), WorkCoverBounds overrides the lookup
+	// bounds and Now is the clock of the lookups.
+	Niconico        *niconico.Client
+	Works           *works.Index
+	WorkCoverBounds *WorkCoverBounds
+	Now             func() time.Time
 	// Variants locates the originals of the variants step; nil leaves the
 	// step unavailable. VariantBudget overrides VariantsBudget when set.
 	Variants      *variants.Roots
@@ -178,24 +188,20 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 		if s.Media == nil {
 			break
 		}
-		result, err := s.Media.DownloadPending(ctx, s.Store, s.mediaBounds())
-		if err != nil {
-			if ctx.Err() != nil {
-				return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
+		// The Works list's covers join the queue first, so this download
+		// fetches them.
+		covers, err := s.workCovers(ctx)
+		if err == nil {
+			var result mediadownload.Summary
+			result, err = s.Media.DownloadPending(ctx, s.Store, s.mediaBounds())
+			if err == nil {
+				return mediaResult(result, covers), nil
 			}
-			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 		}
-		// Images a bound left queued make the step partial; the next run
-		// continues with them.
-		status := "succeeded"
-		if result.Failed > 0 || result.Missing > 0 || result.Remaining > 0 {
-			status = "partial"
+		if ctx.Err() != nil {
+			return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
 		}
-		counts := map[string]any{"attempted": result.Attempted, "ready": result.Ready, "unchanged": result.Unchanged, "failed": result.Failed, "measured": result.Measured, "resized": result.Resized, "remaining": result.Remaining}
-		if result.Stopped != "" {
-			counts["stopped"] = result.Stopped
-		}
-		return AttemptResult{Status: status, Result: counts}, nil
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	case "variants":
 		if s.Variants == nil {
 			break
@@ -310,6 +316,20 @@ func (s *SourceSteps) makeVariants(ctx context.Context) (AttemptResult, error) {
 		counts["stopped"] = total.Stopped
 	}
 	return AttemptResult{Status: status, Result: counts}, nil
+}
+
+// mediaResult is the media step's outcome. Images a bound left queued and
+// failed Works lookups make it partial; the next run continues with them.
+func mediaResult(result mediadownload.Summary, covers workCoverCounts) AttemptResult {
+	status := "succeeded"
+	if result.Failed > 0 || result.Missing > 0 || result.Remaining > 0 || covers.Failed > 0 {
+		status = "partial"
+	}
+	counts := map[string]any{"attempted": result.Attempted, "ready": result.Ready, "unchanged": result.Unchanged, "failed": result.Failed, "measured": result.Measured, "resized": result.Resized, "remaining": result.Remaining, "works": covers.result()}
+	if result.Stopped != "" {
+		counts["stopped"] = result.Stopped
+	}
+	return AttemptResult{Status: status, Result: counts}
 }
 
 func (s *SourceSteps) mediaBounds() mediadownload.Bounds {

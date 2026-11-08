@@ -2,10 +2,12 @@
 
 ## Presentation: `src/`
 
-`src/main.tsx` routes between the public board, the static `/history`
-page in `src/history/`, the static `/lineblog` archive in `src/lineblog/`, the
-static `/about` page in `src/about/`, and `/admin`.
-Links between the four public pages open in place: the next page's code
+`src/main.tsx` routes between the public board, the static `/journey`
+page in `src/history/` (an address of `/history` is replaced with `/journey`
+before the first page loads), the static `/works` discography in `src/works/`, the
+static `/lineblog` archive in `src/lineblog/`, the static `/about` page in
+`src/about/`, and `/admin`.
+Links between the five public pages open in place: the next page's code
 loads while the current page stays on screen (hovering or focusing a link
 starts that load), then the pages cross-fade under a fixed header with the
 View Transition API. Back and forward restore each entry's scroll position,
@@ -16,8 +18,9 @@ with a target load normally; back and forward within `/admin` or another path
 stay with that page, which keeps the browser's own scroll restoration and
 handles its fragment moves (the console's views), and `index.html` applies the saved theme and
 language before the first paint so no load flashes the other theme. History copy and image metadata are
-static; verified fixed images ship in `public/assets/history/` and `dist/`.
-`scripts/package-history-media.ts` updates these files from a local reference
+static; the images are served from `data/journey/` (`/media/journey/<name>`),
+and release milestones show the `/works` covers of the release they name.
+`scripts/package-history-media.ts` packages the images from a local reference
 archive without network requests.
 See [History archive maintenance](../development/history-archive.md). The
 `/lineblog` article index and per-article files are static JSON written by
@@ -35,7 +38,23 @@ layout, switching on a media query; see
 [Smartphone Template](../development/lineblog-archive.md#smartphone-template). Its
 media load from `/media/lineblog/<name>`, including the header and profile
 art of the design of the newest article shown; see
-[LINE BLOG archive maintenance](../development/lineblog-archive.md). The four
+[LINE BLOG archive maintenance](../development/lineblog-archive.md). The
+`/works` tables are static JSON written by `scripts/package-works.ts`. The
+page keeps its section in the `?view=` query, replacing the current entry
+when a visitor switches sections, and `?release=<id>` opens that release's
+sheet once and is then dropped from the address; the personal works build with the page,
+and the participation and upload sections are their own chunks that load
+the first time they show, with a retry on failure. The side the trilogy
+scene shows is kept in `localStorage` (`kano-works-trilogy-side`). A release opens in a
+native modal sheet (`works-sheet.tsx`), and covers open in the shared image
+viewer above it. Covers load from `/media/works/<name>`; see
+[Works collection maintenance](../development/works-archive.md). The upload
+section reads [`/api/works/uploads`](public-api.md#works-uploads) once per
+page load (`use-works-uploads.ts`) for the uploads' covers, lengths,
+availability and archive links; until it answers the art stays blank, and a
+failed read keeps the packaged list with printed sleeves. Its archive links
+open the board with `/?archive=videos`, which opens the video archive dialog
+once and leaves `/` in the address. The five
 public pages share `src/site/`: `site-shell.tsx` (header with page navigation and
 Japan clock, footer, skip link, section title, empty and loading states;
 narrow screens show the site name and fold the page links into a menu behind
@@ -43,9 +62,12 @@ the `kano-seal.tsx` deer seal; the footer is the fan-made and unaffiliated
 line, About and Back to top, with the page's disclaimer behind a switch),
 `media-dialog.tsx` (the native modal image viewer: its close button stays in
 the screen's top-right corner, and a click anywhere outside the image, its
-arrows and its details closes it; a set takes the viewer's full height and
-centres each image in it, so its arrows stay in place across image sizes,
-and shows the details panel for every image once any image has details; an
+arrows and its details closes it; a set without details takes the
+viewer's full height and centres each image in it, so its arrows stay in
+place across image sizes; a viewer with details keeps one size for every
+image, at most 820px tall, and shows the details panel for every image once
+any image has details, and with `scaleUp` (Works and Journey) a smaller
+image grows to fill the stage; an
 image's small-print note closes the panel, or the viewer when there is none;
 every control that opens it carries `media-opener`, which shows the zoom
 cursor), `links.tsx` (external
@@ -511,8 +533,8 @@ carries its `lang` attribute. The console's
 completeness chips and translation editor are in
 `src/admin/views/translation-parts.tsx`, shared by posts and videos.
 
-Board images from the media cache, LINE BLOG archive images and the fixed
-history images load through `srcset`: `src/lib/media.ts` lists the server's
+Board images from the media cache, LINE BLOG archive images, Works covers
+and Journey images load through `srcset`: `src/lib/media.ts` lists the server's
 [resized copies](media-cache.md#resized-copies) below an image's known width,
 and each card or thumbnail passes a `sizes` hint for its layout. The
 full-image viewers, profile media and other bundled assets keep their single

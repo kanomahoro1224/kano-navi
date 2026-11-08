@@ -829,11 +829,18 @@
   right: 12px;
 }
 
+/* A viewer with a panel keeps one size for every image: the stage takes the
+   height, and each image centres in it. */
 .media-dialog.has-details {
+  --media-dialog-height: min(calc(100dvh - 68px), 820px);
+  --media-dialog-image: calc(var(--media-dialog-height) - 40px);
   width: min(1180px, calc(100vw - 24px));
+  height: var(--media-dialog-height);
 }
 
 .media-dialog.has-details .media-dialog-frame {
+  height: 100%;
+  max-height: none;
   grid-template-columns: minmax(0, 1fr) 340px;
   grid-template-rows: minmax(0, 1fr);
   gap: 0;
@@ -849,8 +856,16 @@
 }
 
 .media-dialog.has-details .media-dialog-stage img {
-  max-height: calc(100dvh - 108px);
+  max-height: var(--media-dialog-image);
   box-shadow: none;
+}
+
+/* A smaller image grows to the stage instead of sitting small in it. */
+.media-dialog.has-details.scales-up .media-dialog-stage img {
+  width: 100%;
+  height: var(--media-dialog-image);
+  border-radius: 0;
+  object-fit: contain;
 }
 
 .media-dialog-details {
@@ -885,49 +900,35 @@
   color: var(--ink);
 }
 
-/* A set takes the viewer's full height and centres each image in it, so
-   images of different sizes keep the arrows, the note and the panel in one
-   place while it steps. */
-.media-dialog.has-steps,
-.media-dialog.has-steps .media-dialog-frame {
+/* A set without a panel takes the viewer's full height and centres each
+   image in it, so images of different sizes keep the arrows and the note in
+   one place while it steps. */
+.media-dialog.has-steps:not(.has-details),
+.media-dialog.has-steps:not(.has-details) .media-dialog-frame {
   height: calc(100dvh - 68px);
 }
 
+/* On a narrow screen the viewer takes the full height: a fixed image band,
+   the details scrolling under it, and a set's arrows at the bottom. */
 @media (max-width: 820px) {
+  .media-dialog.has-details {
+    --media-dialog-height: calc(100dvh - 68px);
+    --media-dialog-image: 52dvh;
+  }
+
   .media-dialog.has-details .media-dialog-frame {
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-    overflow-y: auto;
-  }
-
-  .media-dialog.has-details .media-dialog-stage img {
-    max-height: 52dvh;
-  }
-
-  .media-dialog.has-details .media-dialog-bar {
-    position: sticky;
-    width: auto;
+    grid-template-rows: calc(52dvh + 40px) minmax(0, 1fr) auto;
   }
 
   .media-dialog.has-details.has-steps .media-dialog-details,
   .media-dialog-details {
     padding-bottom: 16px;
-    overflow: visible;
   }
 
-  /* A set keeps a fixed image band, the details scrolling under it, and the
-     arrows at the bottom. */
-  .media-dialog.has-details.has-steps .media-dialog-frame {
-    grid-template-rows: calc(52dvh + 40px) minmax(0, 1fr) auto;
-    overflow: hidden;
-  }
-
-  .media-dialog.has-details.has-steps .media-dialog-details {
-    overflow-y: auto;
-  }
-
-  .media-dialog.has-details.has-steps .media-dialog-bar {
+  .media-dialog.has-details .media-dialog-bar {
     position: static;
+    width: auto;
   }
 }
 

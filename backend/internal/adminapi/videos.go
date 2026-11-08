@@ -11,6 +11,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/jobs"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 // Video corrections are operator decisions layered over what the platform
@@ -144,6 +145,17 @@ func (a *api) refreshVideo(w http.ResponseWriter, r *http.Request) {
 // YouTube video, or leaves to the operator, without writing.
 func (a *api) videoMerges(w http.ResponseWriter, r *http.Request) {
 	a.writeMergeSuggestions(w, r, "")
+}
+
+// worksConflicts lists the stored Bilibili uploads whose merge disagrees
+// with the packaged works list's pairing.
+func (a *api) worksConflicts(w http.ResponseWriter, r *http.Request) {
+	items, err := a.Store.WorksMergeConflicts(r.Context(), works.Packaged())
+	if err != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
 // uploadMerges describes one upload's merge state and candidates, whatever

@@ -16,9 +16,9 @@
   from the YouTube push card, which resubscribes with the new value.
 - Cached media is runtime state. The file read routes are `/media/:id`, which
   validates an opaque database ID, a ready status, and a resolved path below the
-  cache root, the selected profile media, and `/media/lineblog/<name>`, which
-  accepts only an archive name and a regular file directly inside
-  `data/lineblog/`.
+  cache root, the selected profile media, and `/media/lineblog/<name>` and
+  `/media/works/<name>`, which accept only an archive name and a regular file
+  directly inside `data/lineblog/` or `data/works/`.
 - This is a public fan-made project; the public dashboard does not collect
   visitor accounts or profiles. The production admin API uses one local session
   cookie after password authentication.

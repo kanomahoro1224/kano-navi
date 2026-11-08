@@ -34,16 +34,22 @@ const TabsTrigger = React.forwardRef<
 ))
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
+/**
+ * A panel holds its own controls, so it takes no focus itself unless given a
+ * tabIndex: otherwise a tap or a drag on its empty space would focus the
+ * whole panel and draw a ring around it.
+ */
 const TabsContent = React.forwardRef<
   React.ComponentRef<typeof TabsPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
->(({ className, ...props }, ref) => (
+>(({ className, tabIndex, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
       "mt-2 ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
       className,
     )}
+    tabIndex={tabIndex}
     {...props}
   />
 ))

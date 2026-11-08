@@ -411,13 +411,13 @@ type ReadyMedia struct {
 	cachePath string
 }
 
-// ReadyMedia lists the current files of ready X, YouTube and Bilibili assets,
+// ReadyMedia lists the current files of ready X, YouTube, Bilibili and niconico assets,
 // newest fetch first.
 func (s *Store) ReadyMedia(ctx context.Context) ([]ReadyMedia, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT cache_path,sha256 FROM media_assets WHERE status='ready' AND source IN('x','youtube','bilibili') AND cache_path IS NOT NULL AND sha256 IS NOT NULL ORDER BY fetched_at DESC,id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT cache_path,sha256 FROM media_assets WHERE status='ready' AND source IN('x','youtube','bilibili','niconico') AND cache_path IS NOT NULL AND sha256 IS NOT NULL ORDER BY fetched_at DESC,id`)
 	if err != nil {
 		return nil, dbErr(err)
 	}

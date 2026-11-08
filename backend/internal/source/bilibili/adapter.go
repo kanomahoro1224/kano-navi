@@ -243,6 +243,32 @@ func (a *Adapter) FetchDynamic(ctx context.Context, state State, id string, forc
 	return d, state, nil
 }
 
+// FetchCover reads the cover address of any upload for the Works page,
+// whatever its account, never while a block lasts. As in FetchDynamic, a
+// captcha or rate-limit answer starts the shared backoff and a success
+// clears it; the list read's interval, last success and last error stay as
+// they were.
+func (a *Adapter) FetchCover(ctx context.Context, state State, bvid string) (string, State, error) {
+	now := a.Now()
+	if now.Before(state.BlockedUntil) {
+		return "", state, &Error{"bilibili_blocked"}
+	}
+	requests := 0
+	session, err := a.session(ctx, &state, &requests, now)
+	var v Video
+	if err == nil {
+		v, err = a.Client.Video(ctx, bvid, session)
+	}
+	if err == nil && v.ThumbnailURL == "" {
+		err = &Error{"bilibili_invalid_response"}
+	}
+	if err != nil {
+		return "", blocked(state, err, now), err
+	}
+	state.Failures, state.BlockedUntil, state.ClearedAt = 0, time.Time{}, now
+	return v.ThumbnailURL, state, nil
+}
+
 // session reuses a recent device identity or requests a new one (its b_nut
 // is that moment), renews its bili_ticket when it is missing or about to
 // expire, and adds the configured login cookie for this request only, unless

@@ -131,7 +131,7 @@ func TestStaticSiteServesPrecompressedSiblings(t *testing.T) {
 	}
 	// Pages whose share tags are rewritten, and missing pages, never use the
 	// stored sibling.
-	for _, path := range []string{"/history", "/no-such-page"} {
+	for _, path := range []string{"/journey", "/no-such-page"} {
 		recorder := get(http.MethodGet, path, "Accept-Encoding", "br")
 		if recorder.Header().Get("Content-Encoding") != "" || !strings.Contains(recorder.Body.String(), "og:url") {
 			t.Fatalf("%s => %v %q", path, recorder.Header(), recorder.Body)

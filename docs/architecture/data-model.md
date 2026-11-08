@@ -37,7 +37,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `resources`              | X, YouTube, Wikipedia, and other resource links                                                        |
 | `assets`                 | Schedule images and their sources                                                                      |
 | `media_assets`           | Remote media identities, cache metadata, and fetch status                                              |
-| `media_links`            | Links from cached media to posts, videos, profiles, and focus items                                    |
+| `media_links`            | Links from cached media to posts, videos, profiles, focus items and Works upload videos                |
 | `media_versions`         | Earlier cached files of an asset whose bytes a revalidation replaced                                   |
 | `sync_runs`              | Status, counts, error summaries, trigger, and asynchronous job identity                                |
 | `sync_state`             | Durable per-account X, YouTube, Bilibili and shop cursors, read bookkeeping and X API chain state      |
@@ -51,6 +51,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `llm_route_providers`    | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
 | `source_schedules`       | Each source's timer, sync setting and method chain                                                     |
 | `workflows`              | Saved workflow definitions (ADR-0003): kept in the schema, created empty, never read or written        |
+| `work_cover_lookups`     | Each niconico or Bilibili cover lookup of a Works upload video: outcome, image URL and retry time      |
 | `translations`           | Manual, platform, and machine translations of posts, videos and pooled statuses per target locale      |
 | `translation_states`     | Per-owner machine translation state: source hash and language, last attempt, operator request          |
 | `x_statuses`             | The X status pool: related accounts' statuses and statuses own posts quote or repost; never public     |

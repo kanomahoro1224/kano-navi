@@ -39,6 +39,7 @@ const messages = {
     "page.notFound": "找不到这个页面。",
     "page.home": "回到首页",
     "about.label": "关于",
+    "works.label": "作品",
     "lineblog.label": "LINE BLOG",
     "common.close": "关闭",
     "common.all": "全部",
@@ -63,13 +64,13 @@ const messages = {
     "footer.notes": "说明",
     "footer.backToTop": "回到顶部",
     "footer.mainlandSite": "中国大陆服务器站点",
-    "archive.fullHistory": "完整历程",
-    "history.metaTitle": "历程 · 鹿乃在做什么",
+    "archive.fullHistory": "完整足迹",
+    "history.metaTitle": "足迹 · 鹿乃在做什么",
     "history.metaDescription":
       "鹿乃从 2010 年翻唱投稿到 2026 年加入ミリプロSONA 的公开足迹，附官方来源。",
     "history.back": "回到近况",
-    "history.eyebrow": "历程",
-    "history.title": "从歌い手到 Virtual Artist",
+    "history.eyebrow": "足迹",
+    "history.title": "从 NicoNico 的歌声，到虚拟舞台",
     "history.lead":
       "从 2010 年的第一首翻唱、2015 年的主流出道，经过花寄女子寮、鹿乃まほろ与 MKLNtic，到 2026 年加入ミリプロSONA。这里按时间排列鹿乃的公开足迹，日期保留原有精度，并附上公开来源。",
     "history.stat.yearsLabel": "自 2010 年",
@@ -85,8 +86,6 @@ const messages = {
     "history.nowTitle": "故事还在继续",
     "history.nowDetail": "之后的配信、日程与动态，请看近况页。",
     "history.empty": "这个身份暂时没有收录节点。",
-    "history.note":
-      "资料整理自本人官网、唱片公司、事务所与制作方的公开页面。歌手、直播角色与音乐组合的活动彼此并行，同一年可能出现多个身份。发行以唱片公司公布的发售或配信日为准。",
     "history.disclaimer": "节点为人工整理，可能不完整 · 一切以各来源原页面为准",
     "history.kind.start": "起点",
     "history.kind.debut": "出道",
@@ -126,6 +125,7 @@ const messages = {
     "page.notFound": "このページは見つかりませんでした。",
     "page.home": "トップへ戻る",
     "about.label": "について",
+    "works.label": "作品",
     "lineblog.label": "LINE BLOG",
     "common.close": "閉じる",
     "common.all": "すべて",
@@ -158,7 +158,7 @@ const messages = {
       "2010 年の歌ってみた投稿から 2026 年のミリプロSONA 所属まで、鹿乃の公開されたあゆみを出典つきで。",
     "history.back": "いまのまほろへ",
     "history.eyebrow": "あゆみ",
-    "history.title": "歌い手から Virtual Artist へ",
+    "history.title": "ニコニコの歌声から、バーチャルのステージへ",
     "history.lead":
       "2010 年の最初の歌ってみた、2015 年のメジャーデビュー、花寄女子寮、鹿乃まほろ、MKLNtic を経て、2026 年のミリプロSONA 所属へ。鹿乃の公開されたあゆみを時系列で並べました。日付は元の精度のまま、出典を添えています。",
     "history.stat.yearsLabel": "2010 年から",
@@ -174,8 +174,6 @@ const messages = {
     "history.nowTitle": "物語はまだ続く",
     "history.nowDetail": "このあとの配信・予定・ポストはトップページへ。",
     "history.empty": "この名義の出来事はまだ収録していません。",
-    "history.note":
-      "ご本人の公式サイト、レーベル、事務所、制作者の公開ページをもとに整理しています。歌手・配信キャラクター・音楽ユニットの活動は並行しており、同じ年に複数の名義が登場します。リリースはレーベル発表の発売日・配信日に基づきます。",
     "history.disclaimer":
       "手作業の整理のため網羅的ではありません · 各出典の元ページが正です",
     "history.kind.start": "はじまり",
@@ -216,6 +214,7 @@ const messages = {
     "page.notFound": "This page doesn’t exist.",
     "page.home": "Back to the board",
     "about.label": "About",
+    "works.label": "Works",
     "lineblog.label": "LINE BLOG",
     "common.close": "Close",
     "common.all": "All",
@@ -248,7 +247,7 @@ const messages = {
       "Kano's public milestones from the first 2010 covers to joining ミリプロSONA in 2026, with sources.",
     "history.back": "Back to the board",
     "history.eyebrow": "Journey",
-    "history.title": "From utaite to Virtual Artist",
+    "history.title": "From a voice on NicoNico to the virtual stage",
     "history.lead":
       "From the first covers in 2010 and the 2015 major debut, through Hanayori Joshiryo, Kano Mahoro, and MKLNtic, to joining ミリプロSONA in 2026. Kano's public milestones in order, each date kept at its original precision and linked to a public source.",
     "history.stat.yearsLabel": "Since 2010",
@@ -265,8 +264,6 @@ const messages = {
     "history.nowDetail":
       "For later streams, schedules, and posts, see the board.",
     "history.empty": "No milestones for this identity yet.",
-    "history.note":
-      "Compiled from the artist's official site and public pages from labels, the agency, and creators. Singer, streaming-character, and music-unit activities run in parallel, so one year can show several identities. Releases use the label's release or distribution date.",
     "history.disclaimer":
       "Hand-curated and not exhaustive · Each source page is authoritative",
     "history.kind.start": "Beginning",

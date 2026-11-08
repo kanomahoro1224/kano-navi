@@ -787,7 +787,8 @@ only endpoints that need no request signature:
 - `/x/series/recArchivesByKeywords` lists the account's newest 20 uploads
   with title, cover, publication time, length and description. Entries of
   another uploader are skipped.
-- `/x/web-interface/view` reads one upload for an operator.
+- `/x/web-interface/view` reads one upload for an operator, and the cover
+  address of an upload on the Works page.
 
 Every request reads like Bilibili's own pages: one desktop browser user
 agent (`BrowserUserAgent` in `backend/internal/source/bilibili/client.go`,
@@ -1119,6 +1120,32 @@ merges a post's entry of the same sale into the shop's, which states an
 opening time and a close date. The read's bookkeeping is the `sync_state`
 row of source `shop` and account `shop.milpr.com`; its last success is the
 shop's [freshness](public-api.md#public-snapshot-contract).
+
+### Works Cover Lookups
+
+The media step finds covers for the Works page's uploads that no stored
+video covers (see
+[Works upload covers](media-cache.md#works-upload-covers)). YouTube needs no
+lookup. The others are bounded per step: at most 30 niconico and 5 Bilibili
+lookups, none started after two minutes, newest upload first.
+
+- niconico: `https://ext.nicovideo.jp/api/getthumbinfo/<sm|nm|so ID>`, one
+  request per video through the media
+  [outbound proxy](outbound-proxy.md) area, with a 10-second timeout, a
+  256 KiB body limit and no redirects. Only the answer's video ID and a
+  thumbnail URL on `https://nicovideo.cdn.nimg.jp/thumbnails/<n>/<n>[.<hash>]`
+  are read; `DELETED`, `NOT_FOUND` and `COMMUNITY` mean the video is gone.
+- Bilibili: the view endpoint above, for any uploader, with the account's
+  device identity and backoff. A blocked source makes no request, and the
+  first captcha or rate-limit answer starts the shared backoff and ends the
+  step's lookups. A lookup never changes the list read's interval, last
+  success or last error, and the step stops looking up while
+  `SKIP_BILIBILI` is set.
+
+The step's result adds `works`: `queued` YouTube images, `lookups`,
+`resolved`, `missing` and `failed` lookups, the `covered`, `waiting` and
+`uncovered` uploads, and `bilibili: "blocked"` or `"skipped"` when that source
+was not asked. A failed lookup makes the step `partial`.
 
 ### Source Request Limits
 

@@ -2,7 +2,8 @@
 
 What’s Kano Up To? (Kano Navi) is an unofficial fan board for Kano Mahoro
 (鹿乃まほろ). It gathers her public updates in one place: what airs next, the
-week's schedule, recent posts and videos, and her journey since 2010. Visit
+week's schedule, recent posts and videos, her discography, and her journey
+since 2010. Visit
 it at [kano.yexca.net](https://kano.yexca.net/).
 
 These pages describe what you can see and do on the site.
@@ -14,13 +15,15 @@ These pages describe what you can see and do on the site.
   about Kano, and the post archive.
 - [Videos](videos.md): streams, works, Shorts, and the video archive.
 - [Journey](journey.md): milestones since 2010 and the visual archive.
+- [Works](works.md): her own releases, the works she is featured on, and her
+  video uploads.
 - [LINE BLOG archive](lineblog.md): her 2015–2019 blog articles, restored
   with their photos and videos.
 
 ## Pages and Settings
 
 Every page shares one header with the site name (with an "Unofficial" mark on
-wide screens), the page links (Now, Journey, LINE BLOG, About), a live
+wide screens), the page links (Now, Journey, Works, LINE BLOG, About), a live
 Japan-time clock, and language and theme controls. The footer says the site
 is fan-made and unaffiliated and links to About and Back to top. **Notes**
 (**Rights and notes** on the LINE BLOG archive) opens the page's notes below
@@ -42,9 +45,9 @@ it.
 
 The About page introduces the project, names its author and the developers
 who have contributed code (with a link to the full contributor list), credits
-the sources of the LINE BLOG archive, the provider of the mainland China
-server site (with a link to it), and the AI models that helped build the site,
-and states the license.
+the sources of the LINE BLOG archive, the help behind the Works page, the
+provider of the mainland China server site (with a link to it), and the AI
+models that helped build the site, and states the license.
 
 ## Freshness and Sources
 

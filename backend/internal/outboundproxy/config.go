@@ -33,7 +33,8 @@ const (
 	AreaBilibili Area = "bilibili"
 	// AreaShop covers the official shop's product JSON.
 	AreaShop Area = "shop"
-	// AreaMedia covers post, video and profile media downloads.
+	// AreaMedia covers post, video and profile media downloads and the
+	// niconico thumbnail lookups of the Works page's covers.
 	AreaMedia Area = "media"
 	// AreaLLM covers model provider requests: extraction, translation, tests
 	// and model discovery.

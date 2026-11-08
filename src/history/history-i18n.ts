@@ -5,16 +5,11 @@ export const historyMessages = {
     "history.yearEmpty": "{years} 没有收录节点",
     "history.stat.images": "收录图片",
     "history.archiveOnly": "依据官方配信的第三方存档",
-    "history.identities": "同一段旅程，不同的舞台",
-    "history.identitiesNote":
-      "歌手、配信角色与音乐组合的活动彼此并行。选择一个身份，沿着它的足迹回顾。",
     "history.view": "浏览方式",
     "history.timeline": "时间线",
     "history.gallery": "图片图鉴",
     "history.selectionCount": "{milestones} 个节点 · {images} 张图片",
     "history.jumpYear": "跳转到年份",
-    "history.galleryLead":
-      "从唱片封面到历代形象。点击图片查看完整画面、图片资料与原始出处。",
     "history.mediaFilter": "图片类型",
     "history.galleryEmpty": "此筛选下暂时没有图片。",
     "history.openImage": "查看图片与出处：{title}",
@@ -26,8 +21,8 @@ export const historyMessages = {
     "history.frameTime": "截帧时刻",
     "history.openSource": "打开原始出处",
     "history.sourceImage": "原站图片文件",
-    "history.cachedOriginal": "本地原文件",
     "history.originalStream": "原直播（历史链接）",
+    "history.videoAtFrame": "原视频（截帧时刻）",
     "history.heroImageSource": "官网全身图 · 查看出处",
     "history.imageRights":
       "图片权利属于作者及相关权利人；转载请参照原始页面的署名与使用要求。",
@@ -42,7 +37,7 @@ export const historyMessages = {
     "history.mediaKind.cover": "音乐封面",
     "history.mediaKind.artwork": "主视觉与插画",
     "history.mediaKind.model": "模型展示",
-    "history.mediaKind.frame": "配信截帧",
+    "history.mediaKind.frame": "视频截帧",
     "history.mediaKind.goods": "周边与商品",
     "history.dateKind.unknown": "日期未确认",
     "history.dateKind.release": "发行 / 配信日",
@@ -53,11 +48,12 @@ export const historyMessages = {
     "history.dateKind.post": "原帖日期（日本时间）",
     "history.dateKind.publication": "已核对公开节点",
     "history.sourceKind.artist": "本人官网 / 原帖",
-    "history.sourceKind.label": "唱片公司 / 官方唱片目录",
     "history.sourceKind.thirdPartyCover": "发行封面 · 第三方文件",
+    "history.sourceKind.officialCover": "发行封面 · 发行方站点文件",
     "history.sourceKind.creator": "制作方 / 受委托创作者原帖",
     "history.sourceKind.shop": "官方商品页",
     "history.sourceKind.organizer": "主办方新闻稿",
+    "history.sourceKind.brand": "品牌官网 / 新闻稿",
     "history.sourceKind.agency": "事务所官网 / 新闻稿",
     "history.sourceKind.studio": "制作公司作品页",
     "history.sourceKind.video": "本人发布的视频",
@@ -65,9 +61,13 @@ export const historyMessages = {
     "history.imageNote.cover":
       "日期为作品发行或开始配信日。唱片插画与直播模型分别记录。",
     "history.imageNote.thirdPartyCover":
-      "封面为发行视觉，文件取自第三方存档。保留采集文件的原始字节与尺寸，未确认其为最大分辨率。发行日期依据时间线所链的商品记录。",
-    "history.imageNote.cancelledEpCover":
-      "日期为官网唱片页面的公开日。两版 CD 原定 2022-11-30 发行，后于 2022-11-07 公告中止发售；保留已公开的封面，不将原定发售日记作实际发行日。",
+      "封面为发行视觉，文件取自商店、数据库或收藏者，不是发行方站点。日期为作品发行或开始配信日。",
+    "history.imageNote.cancelledRelease":
+      "所有版本都在发售前中止。保留已公开的封面，日期按作品页的记录，不是原定发售日。",
+    "history.coverCredit.scan": "{name} 扫描",
+    "history.coverCredit.photo": "{name} 提供",
+    "history.coverCredit.fan": "粉丝提供",
+    "history.openRelease": "在作品页查看",
     "history.imageNote.artwork":
       "这张图记录已公开的宣传视觉或插画；对应可动模型的公开时间需以制作公告或配信记录为准。",
     "history.imageNote.frame":
@@ -93,16 +93,11 @@ export const historyMessages = {
     "history.yearEmpty": "{years} の出来事は収録していません",
     "history.stat.images": "収録画像",
     "history.archiveOnly": "公式配信の第三者アーカイブに基づく",
-    "history.identities": "ひとつのあゆみ、いろいろな舞台",
-    "history.identitiesNote":
-      "歌手・配信キャラクター・音楽ユニットの活動は並行しています。名義を選んで、その足跡をたどってみてください。",
     "history.view": "表示方法",
     "history.timeline": "タイムライン",
     "history.gallery": "ビジュアル図鑑",
     "history.selectionCount": "{milestones} 件の出来事 · {images} 枚の画像",
     "history.jumpYear": "年に移動",
-    "history.galleryLead":
-      "ジャケットから歴代ビジュアルまで。画像を押すと、全体・画像情報・元の出典を確認できます。",
     "history.mediaFilter": "画像の種類",
     "history.galleryEmpty": "この条件の画像はまだ収録していません。",
     "history.openImage": "画像と出典を見る：{title}",
@@ -114,8 +109,8 @@ export const historyMessages = {
     "history.frameTime": "フレームの時刻",
     "history.openSource": "元の出典を開く",
     "history.sourceImage": "出典の画像ファイル",
-    "history.cachedOriginal": "ローカルの元ファイル",
     "history.originalStream": "元配信（過去のリンク）",
+    "history.videoAtFrame": "元の動画（この時刻から）",
     "history.heroImageSource": "公式全身画像 · 出典を見る",
     "history.imageRights":
       "画像の権利は作者・権利者に帰属します。転載時は元ページの利用・クレジット条件をご確認ください。",
@@ -130,7 +125,7 @@ export const historyMessages = {
     "history.mediaKind.cover": "ジャケット",
     "history.mediaKind.artwork": "キービジュアル・イラスト",
     "history.mediaKind.model": "モデル紹介",
-    "history.mediaKind.frame": "配信フレーム",
+    "history.mediaKind.frame": "動画フレーム",
     "history.mediaKind.goods": "グッズ・商品",
     "history.dateKind.unknown": "日付未確認",
     "history.dateKind.release": "発売・配信日",
@@ -141,12 +136,14 @@ export const historyMessages = {
     "history.dateKind.post": "元投稿の日付（日本時間）",
     "history.dateKind.publication": "確認済みの公開日",
     "history.sourceKind.artist": "本人の公式サイト・投稿",
-    "history.sourceKind.label": "レーベル・公式ディスコグラフィ",
     "history.sourceKind.thirdPartyCover":
       "リリースのジャケット・第三者保管ファイル",
+    "history.sourceKind.officialCover":
+      "リリースのジャケット・発売元サイトのファイル",
     "history.sourceKind.creator": "制作者・委託されたクリエイターの投稿",
     "history.sourceKind.shop": "公式商品ページ",
     "history.sourceKind.organizer": "主催者のプレスリリース",
+    "history.sourceKind.brand": "ブランドの公式サイト・発表",
     "history.sourceKind.agency": "事務所の公式サイト・発表",
     "history.sourceKind.studio": "制作会社の作品ページ",
     "history.sourceKind.video": "本人が公開した動画",
@@ -155,9 +152,13 @@ export const historyMessages = {
     "history.imageNote.cover":
       "日付は作品の発売・配信日です。ジャケットイラストと配信モデルは別々に記録しています。",
     "history.imageNote.thirdPartyCover":
-      "作品のジャケットを第三者アーカイブから取得したファイルです。取得時のバイト列と寸法を保持しており、最大解像度とは確認していません。発売日はタイムラインからリンクする商品記録に基づきます。",
-    "history.imageNote.cancelledEpCover":
-      "日付は公式ディスコグラフィページの公開日です。両 CD 盤は 2022-11-30 発売予定でしたが、2022-11-07 に発売中止を発表。公開済みジャケットを保存し、予定日を実際の発売日として扱いません。",
+      "作品のジャケットを、発売元サイトではなくショップ・データベース・コレクターから取得したファイルです。日付は作品の発売・配信日です。",
+    "history.imageNote.cancelledRelease":
+      "すべての盤が発売前に中止されました。公開済みのジャケットを残し、日付は発売予定日ではなく作品ページの記録に従います。",
+    "history.coverCredit.scan": "{name} スキャン",
+    "history.coverCredit.photo": "{name} 提供",
+    "history.coverCredit.fan": "ファン提供",
+    "history.openRelease": "作品ページで見る",
     "history.imageNote.artwork":
       "公開された宣伝ビジュアルやイラストです。対応するモデルの公開日は制作告知や配信記録に基づきます。",
     "history.imageNote.frame":
@@ -185,16 +186,11 @@ export const historyMessages = {
     "history.stat.images": "Archived images",
     "history.archiveOnly":
       "Based on a third-party archive of the official stream",
-    "history.identities": "One journey, many stages",
-    "history.identitiesNote":
-      "Singer, streaming character, and music unit activities overlap. Choose an identity to follow its part of the story.",
     "history.view": "Browse the archive",
     "history.timeline": "Timeline",
     "history.gallery": "Visual archive",
     "history.selectionCount": "{milestones} milestones · {images} images",
     "history.jumpYear": "Jump to a year",
-    "history.galleryLead":
-      "From album covers to character designs. Open an image to see the full picture, its details, and the original source.",
     "history.mediaFilter": "Image type",
     "history.galleryEmpty": "No images match this selection.",
     "history.openImage": "View image and source: {title}",
@@ -206,8 +202,8 @@ export const historyMessages = {
     "history.frameTime": "Frame timestamp",
     "history.openSource": "Open original source",
     "history.sourceImage": "Image on the source website",
-    "history.cachedOriginal": "Local original file",
     "history.originalStream": "Original stream (historical link)",
+    "history.videoAtFrame": "Original video at this moment",
     "history.heroImageSource": "Official full-body artwork · source",
     "history.imageRights":
       "Images belong to their creators and rights holders. Refer to each source page for reuse and credit requirements.",
@@ -222,7 +218,7 @@ export const historyMessages = {
     "history.mediaKind.cover": "Music covers",
     "history.mediaKind.artwork": "Key visuals and artwork",
     "history.mediaKind.model": "Model demonstrations",
-    "history.mediaKind.frame": "Stream frames",
+    "history.mediaKind.frame": "Video frames",
     "history.mediaKind.goods": "Merchandise and products",
     "history.dateKind.unknown": "Date unverified",
     "history.dateKind.release": "Release / distribution date",
@@ -233,12 +229,14 @@ export const historyMessages = {
     "history.dateKind.post": "Original post date (Japan time)",
     "history.dateKind.publication": "Verified public record",
     "history.sourceKind.artist": "Artist’s official site or post",
-    "history.sourceKind.label": "Record label or official discography",
     "history.sourceKind.thirdPartyCover":
       "Release cover from a third-party archive",
+    "history.sourceKind.officialCover":
+      "Release cover from the publisher’s site",
     "history.sourceKind.creator": "Production team or commissioned creator",
     "history.sourceKind.shop": "Official product page",
     "history.sourceKind.organizer": "Organizer’s press release",
+    "history.sourceKind.brand": "Brand website or press release",
     "history.sourceKind.agency": "Agency website or announcement",
     "history.sourceKind.studio": "Production studio portfolio",
     "history.sourceKind.video": "Video published by the artist",
@@ -247,9 +245,13 @@ export const historyMessages = {
     "history.imageNote.cover":
       "The date belongs to the release or distribution of the work. Cover artwork and streaming models are recorded separately.",
     "history.imageNote.thirdPartyCover":
-      "Release artwork obtained from a third-party archive. The acquired file’s bytes and dimensions are preserved; maximum resolution is unverified. The release date follows the product record linked from the timeline.",
-    "history.imageNote.cancelledEpCover":
-      "The date is the official discography page’s publication date. Both CDs were planned for November 30, 2022, then cancelled on November 7. The published artwork is preserved without treating the planned date as an actual release.",
+      "Release artwork in a file from a store, database or collector, not the publisher’s site. The date is the work’s release or distribution date.",
+    "history.imageNote.cancelledRelease":
+      "Every edition was cancelled before sale. The published artwork is kept, dated as the Works page records it rather than by the planned release.",
+    "history.coverCredit.scan": "Scanned by {name}",
+    "history.coverCredit.photo": "Photo from {name}",
+    "history.coverCredit.fan": "From a fan",
+    "history.openRelease": "View on the Works page",
     "history.imageNote.artwork":
       "Published promotional artwork. A corresponding model’s reveal date requires a production announcement or stream record.",
     "history.imageNote.frame":

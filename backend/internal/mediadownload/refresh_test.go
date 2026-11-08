@@ -28,6 +28,11 @@ func TestThumbnailFallbacksStepDownYouTubeSizes(t *testing.T) {
 		{"https://i.ytimg.com/vi_webp/AAAAAAAAAAA/maxresdefault.webp", []string{"https://i.ytimg.com/vi_webp/AAAAAAAAAAA/sddefault.webp", "https://i.ytimg.com/vi_webp/AAAAAAAAAAA/hqdefault.webp"}},
 		{vi + "custom.jpg", nil},
 		{"https://pbs.twimg.com/vi/AAAAAAAAAAA/maxresdefault.jpg", nil},
+		// niconico's large size steps down to the plain one.
+		{"https://nicovideo.cdn.nimg.jp/thumbnails/12/12.L", []string{"https://nicovideo.cdn.nimg.jp/thumbnails/12/12"}},
+		{"https://nicovideo.cdn.nimg.jp/thumbnails/40/40.3281.L", []string{"https://nicovideo.cdn.nimg.jp/thumbnails/40/40.3281"}},
+		{"https://nicovideo.cdn.nimg.jp/thumbnails/12/12", nil},
+		{"https://example.com/thumbnails/12/12.L", nil},
 	} {
 		if got := ThumbnailFallbacks(tc.raw); !reflect.DeepEqual(got, tc.want) {
 			t.Fatalf("%s fallbacks = %#v, want %#v", tc.raw, got, tc.want)

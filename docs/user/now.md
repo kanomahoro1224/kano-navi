@@ -58,9 +58,9 @@ the thumbnail and title.
 
 ## Links
 
-The last section of the board collects official and community resources, a
-short milestone summary that opens the full [Journey](journey.md), and common
-hashtags.
+The last section of the board collects official and community resources
+(Wikipedia among them), a short milestone summary that opens the full
+[Journey](journey.md) or the [Works](works.md) page, and common hashtags.
 
 ## Related Docs
 

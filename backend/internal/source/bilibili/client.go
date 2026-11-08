@@ -13,12 +13,14 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -35,7 +37,9 @@ func (e *Error) Error() string { return e.Code }
 // Session is the anonymous device identity Bilibili's own pages request
 // before calling the API, plus the operator's optional login cookie. Only
 // the device identity is persisted; Login comes from the environment on every
-// request and is never stored, logged or returned.
+// request and is never stored, logged or returned. It holds the browser's
+// whole cookie string, not just SESSDATA: the space feed answers 412
+// ("request was banned") to a request that carries SESSDATA alone.
 type Session struct {
 	Buvid3 string `json:"buvid3"`
 	Buvid4 string `json:"buvid4"`
@@ -50,12 +54,53 @@ var (
 	buvid3 = regexp.MustCompile(`^[A-Fa-f0-9-]{20,64}infoc$`)
 	buvid4 = regexp.MustCompile(`^[A-Za-z0-9+/=_-]{10,200}$`)
 	mid    = regexp.MustCompile(`^[1-9][0-9]{0,15}$`)
-	// sessdata is the login cookie as browsers store it (URL-encoded, so no
+	// sessdata is one cookie value as browsers store it (URL-encoded, so no
 	// separators that could add another cookie or header).
 	sessdata = regexp.MustCompile(`^[A-Za-z0-9%*,._-]{16,512}$`)
+	// loginCookie is the whole cookie set a signed-in browser holds, which is
+	// what the space feed demands. Only characters a cookie header may carry
+	// are accepted, so the value cannot inject another header.
+	loginCookie = regexp.MustCompile(`^[A-Za-z0-9%*_.=;, -]{16,1000}$`)
 )
 
-type Client struct{ http *http.Client }
+// normalizeLogin accepts either the full cookie string an operator copied from
+// the browser or a bare SESSDATA value, and returns what the client sends.
+// An empty string means "no login", which disables the reads that need one.
+func normalizeLogin(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+	if !strings.Contains(value, "SESSDATA=") {
+		value = "SESSDATA=" + value
+	}
+	if !loginCookie.MatchString(value) {
+		return ""
+	}
+	if !sessdata.MatchString(cookieValue(value, "SESSDATA")) {
+		return ""
+	}
+	return value
+}
+
+// cookieValue reads one value out of a cookie header string.
+func cookieValue(cookies, name string) string {
+	for _, part := range strings.Split(cookies, ";") {
+		key, value, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if ok && key == name {
+			return value
+		}
+	}
+	return ""
+}
+
+type Client struct {
+	http *http.Client
+	// mu guards the cached signing key, which a read fetches and a refused
+	// signature drops.
+	mu  sync.Mutex
+	wbi wbiKey
+}
 
 func NewClient(client *http.Client) *Client {
 	if client == nil {
@@ -69,7 +114,13 @@ func NewClient(client *http.Client) *Client {
 
 // get requests one api.bilibili.com path and returns the envelope's data.
 func (c *Client) get(ctx context.Context, path string, query url.Values, referer string, session *Session) (json.RawMessage, error) {
-	u := url.URL{Scheme: "https", Host: apiHost, Path: path, RawQuery: query.Encode()}
+	return c.getRaw(ctx, path, query.Encode(), referer, session)
+}
+
+// getRaw is get with the query already encoded, which a signed query must be:
+// the signature covers the exact parameter string that is sent.
+func (c *Client) getRaw(ctx context.Context, path, rawQuery, referer string, session *Session) (json.RawMessage, error) {
+	u := url.URL{Scheme: "https", Host: apiHost, Path: path, RawQuery: rawQuery}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, &Error{"bilibili_invalid_request"}
@@ -81,8 +132,8 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, referer
 	}
 	if session != nil {
 		cookie := "buvid3=" + session.Buvid3 + "; buvid4=" + session.Buvid4
-		if sessdata.MatchString(session.Login) {
-			cookie += "; SESSDATA=" + session.Login
+		if login := normalizeLogin(session.Login); login != "" {
+			cookie += "; " + login
 		}
 		req.Header.Set("Cookie", cookie)
 	}
@@ -123,8 +174,9 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, referer
 // captcha page.
 func envelope(body []byte) (json.RawMessage, error) {
 	var out struct {
-		Code *int            `json:"code"`
-		Data json.RawMessage `json:"data"`
+		Code    *int            `json:"code"`
+		Message string          `json:"message"`
+		Data    json.RawMessage `json:"data"`
 	}
 	if json.Unmarshal(body, &out) != nil || out.Code == nil {
 		if strings.Contains(strings.ToLower(string(body[:min(len(body), 512)])), "<!doctype html") {
@@ -142,6 +194,9 @@ func envelope(body []byte) (json.RawMessage, error) {
 	case -404, 62002, 62004, 62012:
 		return nil, &Error{"bilibili_not_found"}
 	}
+	// The code alone says nothing an operator can act on, so the answer's own
+	// words go to the log while the caller keeps the stable error code.
+	log.Printf("kano-go: bilibili api error code=%d message=%q", *out.Code, out.Message)
 	return nil, &Error{"bilibili_api_error"}
 }
 
@@ -196,20 +251,67 @@ func (c *Client) Video(ctx context.Context, bvid string, session Session) (Video
 	return ParseView(data, bvid)
 }
 
+// Dynamics lists an account's newest dynamics, newest first. Unlike the
+// uploads list it answers only with an operator's login cookie — the whole
+// cookie set, not SESSDATA alone: a partial one is answered with 412 — and
+// refuses anonymous reads outright.
+func (c *Client) Dynamics(ctx context.Context, account string, pageSize int, session Session) ([]Dynamic, error) {
+	if !mid.MatchString(account) {
+		return nil, &Error{"bilibili_invalid_account"}
+	}
+	if !session.valid() {
+		return nil, &Error{"bilibili_invalid_session"}
+	}
+	if normalizeLogin(session.Login) == "" {
+		return nil, &Error{"bilibili_login_required"}
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	query := url.Values{
+		"host_mid":        {account},
+		"page":            {strconv.Itoa(max(pageSize/10, 1))},
+		"offset":          {""},
+		"timezone_offset": {"-540"},
+		// The opus form carries the text and pictures of a newer dynamic;
+		// without it they are left out of the answer.
+		"features": {"itemOpusStyle,opusBigCover,onlyfansVote"},
+		"platform": {"web"},
+	}
+	mixin, err := c.mixinKey(ctx, &session)
+	if err != nil {
+		return nil, err
+	}
+	signed := signWBI(query, mixin, time.Now())
+	data, err := c.getRaw(ctx, "/x/polymer/web-dynamic/v1/feed/space", signed, "https://space.bilibili.com/"+account+"/dynamic", &session)
+	if err != nil {
+		if code := ErrorCode(err); code == "bilibili_api_error" || code == "bilibili_risk_control" {
+			// A stale signing key is answered with an API error, so the next
+			// read asks for a new one.
+			c.forgetMixinKey()
+		}
+		return nil, err
+	}
+	return ParseDynamics(data, account)
+}
+
 type Options struct {
 	// Account is the uploader's numeric mid.
 	Account string
 	// MinInterval spaces list reads, whatever the source schedule.
 	MinInterval time.Duration
 	PageSize    int
-	// SESSDATA is an operator's Bilibili login cookie from BILIBILI_SESSDATA.
-	// Signed-in reads meet the captcha far less often. It is a credential of
-	// that account: it stays in memory and goes only to api.bilibili.com.
+	// SESSDATA is an operator's Bilibili login cookie from BILIBILI_SESSDATA:
+	// either the whole cookie string the browser holds (SESSDATA, bili_jct,
+	// DedeUserID, …) or a bare SESSDATA value. Signed-in reads meet the
+	// captcha far less often, and the dynamics read needs it; a partial cookie
+	// is answered with 412. It is a credential of that account: it stays in
+	// memory and goes only to api.bilibili.com.
 	SESSDATA string
 }
 
 // SignedIn reports whether a valid login cookie is configured.
-func (o Options) SignedIn() bool { return sessdata.MatchString(o.SESSDATA) }
+func (o Options) SignedIn() bool { return normalizeLogin(o.SESSDATA) != "" }
 
 // DefaultAccount is Kano's public space, linked from the resource directory.
 const DefaultAccount = "316381099"
@@ -223,9 +325,6 @@ func OptionsFromEnv() Options {
 	if err != nil || minutes < 60 || minutes > 1440 {
 		minutes = 180
 	}
-	login := strings.TrimSpace(os.Getenv("BILIBILI_SESSDATA"))
-	if !sessdata.MatchString(login) {
-		login = ""
-	}
+	login := normalizeLogin(os.Getenv("BILIBILI_SESSDATA"))
 	return Options{Account: account, MinInterval: time.Duration(minutes) * time.Minute, PageSize: 20, SESSDATA: login}
 }

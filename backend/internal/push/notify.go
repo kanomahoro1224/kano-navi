@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"log"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -146,6 +148,7 @@ func (d *Dispatcher) DispatchPosts(ctx context.Context, updates []Update) error 
 		}
 		return d.deliver(ctx, devices, immediate, nil, nil)
 	}
+	log.Printf("kano-go: push posts deferred=%d immediate=%d", len(posts), len(immediate))
 	createdAt := sqlite.ISOTime(time.Now())
 	items := make([]sqlite.PendingPush, 0, len(posts))
 	for _, update := range posts {
@@ -234,6 +237,7 @@ func (d *Dispatcher) FlushPending(ctx context.Context) error {
 	}
 	// Japanese devices already hold these posts; only the deferred languages
 	// are sent now.
+	log.Printf("kano-go: push flush rows=%d pending=%d", len(ready), len(items))
 	sendErr := d.deliver(ctx, devices, updates, func(locale string) bool { return locale != "ja" }, translatedBody)
 	// A failed send is not retried: a later flush would deliver the same post
 	// twice to any device the first attempt reached.
@@ -259,13 +263,17 @@ func (d *Dispatcher) deliver(ctx context.Context, devices []sqlite.PushDevice, u
 		subs = loaded
 	}
 	if len(devices) == 0 && len(subs) == 0 {
+		log.Printf("kano-go: push skipped: no registered device or browser")
 		return nil
 	}
 	// One row per author and category: a creator publishing three posts in a
 	// minute should produce one shade entry, not three.
 	selected := dedupeByAuthor(updates, maxFanout)
+	log.Printf("kano-go: push dispatch updates=%d selected=%d devices=%d browsers=%d kit=%t", len(updates), len(selected), len(devices), len(subs), d.client.Enabled())
 	var stale []string
 	var failures []string
+	sent := 0
+	started := time.Now()
 	for _, update := range selected {
 		category := update.Category()
 		byLocale := map[string][]string{}
@@ -281,6 +289,7 @@ func (d *Dispatcher) deliver(ctx context.Context, devices []sqlite.PushDevice, u
 		}
 		for locale, tokens := range byLocale {
 			if !d.client.Enabled() {
+				log.Printf("kano-go: push kit disabled, dropping kind=%s id=%s locale=%s targets=%d", update.Kind, update.ID, locale, len(tokens))
 				continue
 			}
 			title, detailText := wording(update, locale)
@@ -295,8 +304,13 @@ func (d *Dispatcher) deliver(ctx context.Context, devices []sqlite.PushDevice, u
 				Notify: notifyID(update),
 			}, tokens)
 			stale = append(stale, rejected...)
-			if sendErr != nil {
+			switch {
+			case sendErr != nil:
 				failures = append(failures, sendErr.Error())
+				log.Printf("kano-go: push kit failed kind=%s category=%s locale=%s targets=%d title=%q err=%v", update.Kind, category, locale, len(tokens), title, sendErr)
+			default:
+				sent++
+				log.Printf("kano-go: push kit sent kind=%s category=%s locale=%s targets=%d stale=%d title=%q", update.Kind, category, locale, len(tokens), len(rejected), title)
 			}
 		}
 		if len(subs) > 0 {
@@ -307,7 +321,9 @@ func (d *Dispatcher) deliver(ctx context.Context, devices []sqlite.PushDevice, u
 	}
 	if len(stale) > 0 {
 		_ = d.store.DeletePushDevices(ctx, stale)
+		log.Printf("kano-go: push kit dropped %d unregistered token(s)", len(stale))
 	}
+	log.Printf("kano-go: push done batches=%d stale=%d failures=%d took_ms=%d", sent, len(stale), len(failures), time.Since(started).Milliseconds())
 	if len(failures) > 0 {
 		return fmt.Errorf("push dispatch: %s", failures[0])
 	}
@@ -322,6 +338,16 @@ const maxWebPushFailures = 10
 // webPushConcurrency bounds how many browsers are addressed at once. A large
 // fanout must not hold the ingest for one slow push service.
 const webPushConcurrency = 4
+
+// endpointHost names a browser's push service without logging the endpoint
+// itself: that URL is a capability, so only its host is safe to print.
+func endpointHost(raw string) string {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Host == "" {
+		return "-"
+	}
+	return parsed.Host
+}
 
 // deliverWeb sends one update to every browser that accepts its category, in
 // that browser's language. A gone subscription is retired; a failed one is
@@ -340,6 +366,7 @@ func (d *Dispatcher) deliverWeb(ctx context.Context, subs []sqlite.WebPushSubscr
 		byLocale[locale] = append(byLocale[locale], sub)
 	}
 	if len(byLocale) == 0 {
+		log.Printf("kano-go: web push skipped kind=%s category=%s: no browser accepts it", update.Kind, category)
 		return nil
 	}
 	var wg sync.WaitGroup
@@ -365,13 +392,16 @@ func (d *Dispatcher) deliverWeb(ctx context.Context, subs []sqlite.WebPushSubscr
 				switch {
 				case errors.Is(sendErr, ErrWebPushGone):
 					stale = append(stale, sub.Endpoint)
+					log.Printf("kano-go: web push gone kind=%s category=%s locale=%s host=%s", update.Kind, category, locale, endpointHost(sub.Endpoint))
 				case sendErr != nil:
 					_ = d.store.RecordWebPushFailure(ctx, sub.Endpoint, maxWebPushFailures)
 					if firstErr == nil {
 						firstErr = sendErr
 					}
+					log.Printf("kano-go: web push failed kind=%s category=%s locale=%s host=%s err=%v", update.Kind, category, locale, endpointHost(sub.Endpoint), sendErr)
 				default:
 					_ = d.store.ClearWebPushFailures(ctx, sub.Endpoint)
+					log.Printf("kano-go: web push sent kind=%s category=%s locale=%s host=%s", update.Kind, category, locale, endpointHost(sub.Endpoint))
 				}
 			}(sub)
 		}

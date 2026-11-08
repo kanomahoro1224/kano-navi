@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -198,6 +199,7 @@ func (c *Client) Send(ctx context.Context, notification Notification, tokens []s
 		if errors.Is(err, errAllTokensInvalid) {
 			// Huawei refused the whole batch as unregistered; every token in it
 			// is dead, not just one.
+			log.Printf("kano-go: push kit refused the batch, dropping tokens=%d", end-start)
 			stale = append(stale, tokens[start:end]...)
 			continue
 		}
@@ -280,10 +282,13 @@ func rejectedTokens(status int, body []byte) ([]string, error) {
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		if status != http.StatusOK {
+			log.Printf("kano-go: push kit answered http=%d with an unreadable body", status)
 			return nil, fmt.Errorf("push send: HTTP %d", status)
 		}
+		log.Printf("kano-go: push kit answered http=200 with an unreadable body")
 		return nil, errors.New("push send: unreadable response")
 	}
+	log.Printf("kano-go: push kit answered http=%d code=%s msg=%s requestId=%s", status, result.Code, result.Message, result.RequestID)
 	switch result.Code {
 	case "80000000", "80000001":
 		// Accepted. Per-token rejections arrive at the receipt server, not

@@ -199,11 +199,15 @@ func TestLoginCookieGoesOnlyToApiReadsWhenValid(t *testing.T) {
 	now := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
 	login := "synthetic0login%2C1767225600%2Cabcde%2A11"
 	for _, tc := range []struct {
-		name, sessdata string
-		signedIn       bool
+		name, cookie string
+		signedIn     bool
 	}{
-		{"valid", login, true},
-		{"separator", login + "; extra=1", false},
+		{"bare session", login, true},
+		// The feed refuses a login that carries SESSDATA alone, so the whole
+		// cookie set a browser holds is kept and forwarded.
+		{"whole cookie", "SESSDATA=" + login + "; bili_jct=synthetic; DedeUserID=316381099", true},
+		// A line break would end the cookie header and start another one.
+		{"header injection", login + "\r\nX-Injected: 1", false},
 		{"absent", "", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -219,7 +223,7 @@ func TestLoginCookieGoesOnlyToApiReadsWhenValid(t *testing.T) {
 				cookies[r.URL.Path] = r.Header.Get("Cookie")
 				return s.reply(r.URL.Path), nil
 			})})
-			a.Options.SESSDATA = tc.sessdata
+			a.Options.SESSDATA = tc.cookie
 			if a.Options.SignedIn() != tc.signedIn {
 				t.Fatalf("signed in=%v", a.Options.SignedIn())
 			}
@@ -231,8 +235,11 @@ func TestLoginCookieGoesOnlyToApiReadsWhenValid(t *testing.T) {
 				t.Fatalf("device request carried cookies %q", cookies["/x/frontend/finger/spi"])
 			}
 			list := cookies["/x/series/recArchivesByKeywords"]
-			if strings.Contains(list, "SESSDATA="+login) != tc.signedIn || strings.Contains(list, "extra=") {
+			if strings.Contains(list, "SESSDATA="+login) != tc.signedIn || strings.Contains(list, "X-Injected") {
 				t.Fatalf("list cookie=%q", list)
+			}
+			if tc.name == "whole cookie" && !strings.Contains(list, "bili_jct=synthetic") {
+				t.Fatalf("list cookie dropped the rest of the set: %q", list)
 			}
 			// The login is never part of the state that is persisted.
 			if result.State.Session.Login != "" {

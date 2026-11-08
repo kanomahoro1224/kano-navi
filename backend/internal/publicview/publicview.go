@@ -119,7 +119,17 @@ func PublicEvent(e sqlite.DashboardEvent, extras bool) map[string]any {
 	return out
 }
 func publicPost(p sqlite.Post) map[string]any {
-	return map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "repost": publicRepost(p.Repost)}
+	return map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "emoji": publicEmojis(p.Emojis), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "repost": publicRepost(p.Repost)}
+}
+
+// publicEmojis is the stickers a post's text uses: the caption the wording
+// keeps and the icon the board paints over it.
+func publicEmojis(items []sqlite.PostEmoji) []any {
+	emojis := make([]any, 0, len(items))
+	for _, e := range items {
+		emojis = append(emojis, map[string]any{"text": e.Caption, "icon": e.Icon})
+	}
+	return emojis
 }
 
 func publicMedia(items []sqlite.PostMedia) []any {
@@ -144,6 +154,7 @@ func publicQuote(q *sqlite.PostQuote) any {
 	}
 	return map[string]any{"id": q.ID, "authorHandle": text(q.AuthorHandle), "authorName": text(q.AuthorName), "text": text(q.Text), "publishedAt": text(q.PublishedAt), "url": q.URL, "unavailable": q.Unavailable, "media": publicMedia(q.Media), "translations": publicTranslations(q.Translations), "sourceLanguage": value(q.Translations.SourceLanguage)}
 }
+
 // publicRepost is the original status of a repost: its author, wording time
 // and x.com link. The post itself carries the wording and images.
 func publicRepost(r *sqlite.PostRepost) any {

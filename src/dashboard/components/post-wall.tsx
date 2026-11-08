@@ -3,6 +3,7 @@ import type {
   Locale,
   MediaItem,
   Post,
+  PostEmoji,
   PostQuote,
   Translator,
 } from "@/types"
@@ -27,7 +28,7 @@ import {
   useTranslatedText,
 } from "@/components/translated-text"
 import { EmptyNote, Placeholder, SectionTitle } from "@/site/site-shell"
-import { ExternalLink, XLogo, followCardLink } from "@/site/links"
+import { BilibiliLogo, ExternalLink, XLogo, followCardLink } from "@/site/links"
 import { WebPushButton } from "@/site/web-push-button"
 import { mediaSrcSet } from "@/lib/media"
 import {
@@ -51,6 +52,76 @@ import { SheetDialog } from "./sheet-dialog"
 // wall; a lone image can take the whole card.
 const POST_MEDIA_SIZES =
   "(max-width: 640px) 100vw, (max-width: 1200px) 34vw, 420px"
+
+/** escapeRegExp makes a sticker caption safe to put in a pattern. */
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+/**
+ * splitEmojis cuts a post's wording where its stickers sit, so the icon takes
+ * the caption's place. A translation may drop the caption; the stickers then
+ * follow the wording rather than vanish.
+ */
+function splitEmojis(
+  text: string,
+  emojis: PostEmoji[] | undefined,
+): (string | PostEmoji)[] | null {
+  const stickers = (emojis ?? []).filter((emoji) => emoji.text && emoji.icon)
+  if (!stickers.length) return null
+  const byCaption = new Map(stickers.map((emoji) => [emoji.text, emoji]))
+  const pattern = new RegExp(
+    `(${stickers.map((emoji) => escapeRegExp(emoji.text)).join("|")})`,
+    "g",
+  )
+  const parts: (string | PostEmoji)[] = []
+  let placed = false
+  for (const part of text.split(pattern)) {
+    const sticker = byCaption.get(part)
+    if (sticker) {
+      placed = true
+      parts.push(sticker)
+    } else if (part) {
+      parts.push(part)
+    }
+  }
+  if (!placed) parts.push(...stickers)
+  return parts
+}
+
+/**
+ * PostWording is a post's wording with its stickers painted in place: Bilibili
+ * keeps a sticker's caption in the text, and the board shows the picture.
+ */
+function PostWording({
+  text,
+  emojis,
+}: {
+  text: string
+  emojis: PostEmoji[] | undefined
+}) {
+  const parts = useMemo(() => splitEmojis(text, emojis), [text, emojis])
+  if (!parts) return <>{text}</>
+  return (
+    <>
+      {parts.map((part, index) =>
+        typeof part === "string" ? (
+          part
+        ) : (
+          <img
+            key={`emoji-${index}-${part.text}`}
+            className="post-emoji"
+            src={part.icon}
+            alt={part.text}
+            title={part.text}
+            loading="lazy"
+            decoding="async"
+          />
+        ),
+      )}
+    </>
+  )
+}
 
 /** Ready local media can open in the viewer; anything else stays labelled. */
 export function postMedia(post: Post): MediaItem[] {
@@ -390,7 +461,7 @@ function PostNote({
         className={`post-note-text${clamp ? " is-clamped" : ""}`}
         lang={wording.lang}
       >
-        {wording.text}
+        <PostWording text={wording.text} emojis={post.emoji} />
         <TranslationToggle
           state={wording}
           t={t}
@@ -431,7 +502,7 @@ function PostNote({
               </button>,
             )}
             <p className="post-note-text" lang={wording.lang}>
-              {wording.text}
+              <PostWording text={wording.text} emojis={post.emoji} />
               <TranslationToggle state={wording} t={t} />
             </p>
             {mediaGrid}
@@ -469,23 +540,64 @@ export function PostWall({
   onOpenMedia: (media: MediaItem[], index: number) => void
   onOpenArchive: (account: string | null) => void
 }) {
+  // One wall holds both sources, ordered by publication time: an X post and a
+  // Bilibili dynamic sit side by side. The platform segments appear only when
+  // the payload carries both, so a single-source board keeps its old look.
+  const [origin, setOrigin] = useState<string | null>(null)
+  const origins = useMemo(() => {
+    const counts: { source: string; count: number }[] = []
+    for (const post of posts) {
+      const seen = counts.find((entry) => entry.source === post.source)
+      if (seen) seen.count += 1
+      else counts.push({ source: post.source, count: 1 })
+    }
+    return counts
+  }, [posts])
+  const scoped = useMemo(
+    () => (origin ? posts.filter((post) => post.source === origin) : posts),
+    [origin, posts],
+  )
   const [account, setAccount] = useState<string | null>(null)
   const visible = useMemo(
     () =>
       account
-        ? posts.filter(
+        ? scoped.filter(
             (post) =>
               String(post.accountHandle || "").toLowerCase() ===
               account.toLowerCase(),
           )
-        : posts,
-    [account, posts],
+        : scoped,
+    [account, scoped],
   )
+  // An X post names a handle, a Bilibili dynamic an uploader; both filter the
+  // same way, so the chips follow whatever the current source holds.
+  const handles = useMemo(() => {
+    const names: { name: string; source: string }[] = []
+    for (const post of scoped) {
+      const name = String(post.accountHandle || "").trim()
+      if (!name) continue
+      if (names.some((entry) => entry.name.toLowerCase() === name.toLowerCase()))
+        continue
+      names.push({ name, source: post.source })
+    }
+    return names
+  }, [scoped])
   const countFor = (handle: string) =>
-    posts.filter(
+    scoped.filter(
       (post) =>
         String(post.accountHandle || "").toLowerCase() === handle.toLowerCase(),
     ).length
+  // The section kicker names every source on the wall, whatever the segments
+  // currently show.
+  const uploaders = useMemo(() => {
+    const names: string[] = []
+    for (const post of posts) {
+      if (post.source !== "bilibili") continue
+      const name = String(post.accountHandle || "").trim()
+      if (name && !names.includes(name)) names.push(name)
+    }
+    return names
+  }, [posts])
   // The board shows whole rows of the wall's current column count (see
   // postWallCount); older posts stay in the Past posts dialog.
   const [wall, setWall] = useState<HTMLDivElement | null>(null)
@@ -515,12 +627,54 @@ export function PostWall({
           <>
             <XLogo className="kicker-icon" aria-hidden="true" />{" "}
             {accounts.map((handle) => `@${handle}`).join(" · ")}
+            {uploaders.length ? (
+              <>
+                <span aria-hidden="true"> · </span>
+                <BilibiliLogo className="kicker-icon" aria-hidden="true" />{" "}
+                {uploaders.join(" · ")}
+              </>
+            ) : null}
           </>
         }
         title={t("feed.title")}
       >
         <WebPushButton t={t} locale={locale} />
-        {accounts.length > 1 ? (
+        {origins.length > 1 ? (
+          <div
+            className="segmented"
+            role="group"
+            aria-label={t("feed.sourceFilter")}
+          >
+            <button
+              type="button"
+              aria-pressed={!origin}
+              onClick={() => {
+                setOrigin(null)
+                setAccount(null)
+              }}
+            >
+              {t("common.all")}
+              <small>{posts.length}</small>
+            </button>
+            {origins.map((entry) => (
+              <button
+                type="button"
+                key={entry.source}
+                aria-pressed={origin === entry.source}
+                onClick={() => {
+                  setOrigin(entry.source)
+                  setAccount(null)
+                }}
+              >
+                {entry.source === "bilibili"
+                  ? t("feed.sourceBilibili")
+                  : t("feed.sourceX")}
+                <small>{entry.count}</small>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {handles.length > 1 ? (
           <div className="segmented" role="group" aria-label={t("feed.filter")}>
             <button
               type="button"
@@ -528,17 +682,17 @@ export function PostWall({
               onClick={() => setAccount(null)}
             >
               {t("common.all")}
-              <small>{posts.length}</small>
+              <small>{scoped.length}</small>
             </button>
-            {accounts.map((handle) => (
+            {handles.map((entry) => (
               <button
                 type="button"
-                key={handle}
-                aria-pressed={account === handle}
-                onClick={() => setAccount(handle)}
+                key={entry.name}
+                aria-pressed={account === entry.name}
+                onClick={() => setAccount(entry.name)}
               >
-                @{handle}
-                <small>{countFor(handle)}</small>
+                {entry.source === "bilibili" ? entry.name : `@${entry.name}`}
+                <small>{countFor(entry.name)}</small>
               </button>
             ))}
           </div>

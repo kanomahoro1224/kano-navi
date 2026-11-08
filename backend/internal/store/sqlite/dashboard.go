@@ -56,21 +56,24 @@ type Profile struct {
 }
 
 type Post struct {
-	ID             string
-	Source         string
-	AccountHandle  *string
-	Type           string
-	Label          *string
-	Text           string
-	PublishedAt    string
-	URL            string
-	Likes          int64
-	Reposts        int64
-	Replies        int64
-	MediaURL       *string
-	MediaAlt       *string
-	AccountURL     *string
-	Media          []PostMedia
+	ID            string
+	Source        string
+	AccountHandle *string
+	Type          string
+	Label         *string
+	Text          string
+	PublishedAt   string
+	URL           string
+	Likes         int64
+	Reposts       int64
+	Replies       int64
+	MediaURL      *string
+	MediaAlt      *string
+	AccountURL    *string
+	Media         []PostMedia
+	// Emojis are the stickers the text uses, in order. Bilibili keeps their
+	// caption in the text, so the board renders the icon over that caption.
+	Emojis         []PostEmoji
 	MediaID        *string
 	MediaStatus    string
 	MediaSourceURL *string
@@ -102,6 +105,55 @@ func validRepostAvatar(raw string) string {
 		return ""
 	}
 	return raw
+}
+
+// PostEmoji is one custom sticker a post's text carries. Caption is the
+// replacement text the source keeps in the wording ("[name]"); Icon is the
+// image the board paints over it.
+type PostEmoji struct {
+	Caption string
+	Icon    string
+}
+
+// validEmojiIcon keeps only a Bilibili image-CDN URL: a public page must not
+// fetch an image from a host the board does not control.
+func validEmojiIcon(raw string) string {
+	raw = strings.TrimSpace(raw)
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.User != nil {
+		return ""
+	}
+	if !strings.HasSuffix(strings.ToLower(u.Hostname()), ".hdslb.com") {
+		return ""
+	}
+	return raw
+}
+
+// storedEmojis reads the stickers a post's raw_json carries. The column is
+// operator-only, so this is the single place the icons leave it, and only
+// icon and caption pass: nothing else of the source payload is exposed.
+func storedEmojis(raw string) []PostEmoji {
+	if raw == "" {
+		return nil
+	}
+	var stored struct {
+		Emoji []struct {
+			Text string `json:"text"`
+			Icon string `json:"icon"`
+		} `json:"emoji"`
+	}
+	if json.Unmarshal([]byte(raw), &stored) != nil {
+		return nil
+	}
+	out := make([]PostEmoji, 0, len(stored.Emoji))
+	for _, e := range stored.Emoji {
+		icon := validEmojiIcon(e.Icon)
+		if icon == "" {
+			continue
+		}
+		out = append(out, PostEmoji{Caption: strings.TrimSpace(e.Text), Icon: icon})
+	}
+	return out
 }
 
 // PostQuote is the stored projection of a quoted status. Media lists only
@@ -612,6 +664,9 @@ type postRow struct {
 	// quoteJSON is NULL in public reads when an operator hid the quote.
 	quoteJSON  sql.NullString
 	repostJSON sql.NullString
+	// rawJSON carries the source payload; only the sticker icons are read
+	// from it (see storedEmojis).
+	rawJSON sql.NullString
 }
 
 // dashboardAccountPosts is how many of each account's newest posts the board
@@ -624,7 +679,7 @@ const dashboardAccountPosts = 8
 // and, for every account, the newest dashboardAccountPosts of its posts.
 func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error) {
 	instant := "julianday(published_at)"
-	rows, err := s.db.QueryContext(ctx, `SELECT id, source, account_handle, type, label, text, published_at, url, likes, reposts, replies, media_url, media_alt, CASE WHEN quote_hidden_at IS NULL THEN quote_json END, repost_json FROM posts WHERE id IN (
+	rows, err := s.db.QueryContext(ctx, `SELECT id, source, account_handle, type, label, text, published_at, url, likes, reposts, replies, media_url, media_alt, CASE WHEN quote_hidden_at IS NULL THEN quote_json END, repost_json, raw_json FROM posts WHERE id IN (
 		SELECT id FROM (SELECT id FROM posts WHERE hidden_at IS NULL AND `+instant+` >= julianday(?) ORDER BY `+instant+` DESC, id ASC LIMIT 100)
 		UNION SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY lower(COALESCE(account_handle, '')) ORDER BY `+instant+` DESC, id ASC) AS n FROM posts WHERE hidden_at IS NULL) WHERE n <= ?
 	) ORDER BY `+instant+` DESC, id ASC`, since, dashboardAccountPosts)
@@ -636,7 +691,7 @@ func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error)
 	for rows.Next() {
 		var r postRow
 		var account, label, mu, ma sql.NullString
-		if err := rows.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.repostJSON); err != nil {
+		if err := rows.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.repostJSON, &r.rawJSON); err != nil {
 			return nil, dbErr(err)
 		}
 		r.accountHandle, r.hasAccount = account.String, account.Valid
@@ -653,7 +708,7 @@ func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error)
 func (s *Store) queryLatestPost(ctx context.Context) (*postRow, error) {
 	var r postRow
 	var account, label, mu, ma sql.NullString
-	err := s.db.QueryRowContext(ctx, `SELECT id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END,repost_json FROM posts WHERE hidden_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`).Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.repostJSON)
+	err := s.db.QueryRowContext(ctx, `SELECT id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END,repost_json,raw_json FROM posts WHERE hidden_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`).Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.repostJSON, &r.rawJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -690,6 +745,7 @@ func (s *Store) queryRecentVideoCount(ctx context.Context, now time.Time) (int64
 }
 func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 	p := Post{ID: r.id, Source: r.source, Type: r.typ, Text: r.text, PublishedAt: r.publishedAt, URL: r.url, Likes: r.likes, Reposts: r.reposts, Replies: r.replies}
+	p.Emojis = storedEmojis(r.rawJSON.String)
 	if r.hasAccount {
 		p.AccountHandle = strPtr(r.accountHandle)
 	} else if h := xHandleFromURL(r.url); h != "" {

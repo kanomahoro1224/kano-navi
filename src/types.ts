@@ -59,6 +59,8 @@ export interface Post {
   media: MediaItem[]
   mediaUrl: string | null
   mediaStatus: string
+  /** Custom stickers the wording uses, painted over the captions it keeps. */
+  emoji?: PostEmoji[]
   likes?: number
   reposts?: number
   replies?: number
@@ -70,6 +72,15 @@ export interface Post {
   quote?: PostQuote | null
   /** The original status of a repost; the post carries its wording and media. */
   repost?: PostRepost | null
+}
+
+/**
+ * One custom sticker a post's wording carries. `text` is the caption the
+ * source keeps in the text ("[name]"), `icon` the image shown in its place.
+ */
+export interface PostEmoji {
+  text: string
+  icon: string
 }
 
 /**

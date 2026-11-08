@@ -402,3 +402,35 @@ func TestStartingATimerNowMakesItDueInOrder(t *testing.T) {
 		t.Fatalf("claimed=%v", *got.NextRunAt)
 	}
 }
+
+// An installation upgraded from before Bilibili had a timer shows the source
+// in the console but has no row for the scheduler to read. Starting the
+// process must give every source a disabled timer, never start one by itself.
+func TestPrepareSourceSchedulesSeedsMissingSourceTimers(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	// Only the two sources an operator once touched have rows.
+	if _, err := s.db.Exec(`INSERT INTO source_schedules(source,enabled,interval_minutes,sync_json,chain_json,next_run_at,updated_at) VALUES('x',0,30,'{}','{}',NULL,'2026-03-01T00:00:00.000Z'),('youtube',1,15,'{}','{}','2026-03-02T03:05:00.000Z','2026-03-01T00:00:00.000Z')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareSourceSchedules(ctx, 240, now); err != nil {
+		t.Fatal(err)
+	}
+	var enabled, interval int
+	var next *string
+	if err := s.db.QueryRow(`SELECT enabled,interval_minutes,next_run_at FROM source_schedules WHERE source='bilibili'`).Scan(&enabled, &interval, &next); err != nil {
+		t.Fatalf("bilibili timer missing: %v", err)
+	}
+	if enabled != 0 || interval != 240 || next != nil {
+		t.Fatalf("seeded bilibili enabled=%d interval=%d next=%v", enabled, interval, next)
+	}
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM source_schedules`).Scan(&count); err != nil || count != len(ScheduleSources) {
+		t.Fatalf("timers=%d err=%v", count, err)
+	}
+	// The operator's own timer is left exactly as it was.
+	if got := scheduleOf(t, s, "youtube", 240); !got.Enabled || got.IntervalMinutes != 15 {
+		t.Fatalf("youtube=%+v", got)
+	}
+}

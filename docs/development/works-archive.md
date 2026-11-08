@@ -46,7 +46,8 @@ packaged, and how an instance gets its covers.
   record.
 - `src/works/summary.json` holds the counts and the first and last years the
   page header shows before the longer sections load, and `updatedAt`, the
-  Japan date the upload list was checked through.
+  Japan date the collection was checked through, which the header names
+  under its caveat.
 - `backend/internal/works/videos.json` is the server's copy of the upload
   list: `updatedAt` and each upload's ID, date and videos (`platform`
   `youtube`, `niconico` or `bilibili`, `id`, and `members` for a
@@ -200,9 +201,9 @@ run:
 npm run works:package -- --from /path/to/kano_official
 ```
 
-`updatedAt` is the newest upload's date. When the list was checked through a
-later day, name it with `--through YYYY-MM-DD`; a date before the newest
-upload stops packaging.
+`updatedAt` is the newest upload's date. When the collection was checked
+through a later day, name it with `--through YYYY-MM-DD`; a date before the
+newest upload stops packaging.
 
 Packaging reads `discography.csv`, `discography_editions.csv`,
 `discography_store_bonuses.csv`, `discography_tracks.csv`, `manifest.json`,

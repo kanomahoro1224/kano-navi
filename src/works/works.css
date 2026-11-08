@@ -182,6 +182,15 @@ body:has(.site.works) {
   color: var(--works-clay);
 }
 
+/* The date the collection covers, quietly under the caveat. */
+.works-updated {
+  margin: 12px 0 0;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .works-hero-copy > * {
     animation: works-rise 900ms var(--works-ease) both;
@@ -197,6 +206,10 @@ body:has(.site.works) {
 
   .works-hero-copy > :nth-child(4) {
     animation-delay: 240ms;
+  }
+
+  .works-hero-copy > :nth-child(5) {
+    animation-delay: 320ms;
   }
 
   .works-trio {
@@ -3158,7 +3171,7 @@ span.upload-links {
   inset: 0;
 }
 
-.works-through {
+.works-notice {
   margin: 32px 0 0;
   color: var(--soft);
   font-size: 13.5px;

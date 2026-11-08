@@ -107,6 +107,3 @@ export function durationLabel(seconds: number) {
     ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}`
     : `${minutes}:${rest}`
 }
-
-/** The board's video archive of songs, from the current month. */
-export const songArchiveHref = "/?archive=videos&category=song"

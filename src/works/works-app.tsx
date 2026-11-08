@@ -655,6 +655,12 @@ export function WorksApp() {
                 {after}
               </span>
             </p>
+            {/* Every section is packaged by hand, so all share one date. */}
+            <p className="works-updated">
+              {t("works.updatedThrough", {
+                date: fullDate(worksSummary.updatedAt, locale),
+              })}
+            </p>
           </div>
           {featured.length ? (
             <div className="works-trio">

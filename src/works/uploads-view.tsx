@@ -19,23 +19,13 @@ import {
 } from "@/site/links"
 import data from "./uploads.json" with { type: "json" }
 import { mediaSrcSet } from "@/lib/media"
-import {
-  byDate,
-  dayLabel,
-  fullDate,
-  groupByYear,
-  matches,
-  uploadLinks,
-  worksSummary,
-} from "./content"
+import { byDate, dayLabel, groupByYear, matches, uploadLinks } from "./content"
 import type { Upload } from "./types"
 import {
   durationLabel,
   useWorksUploads,
-  songArchiveHref,
   videoGone,
   type WorksUploadState,
-  type WorksUploadsStatus,
 } from "./use-works-uploads"
 import {
   FilterButtons,
@@ -326,35 +316,6 @@ function UploadLinks({
   )
 }
 
-/**
- * The list is the collection's as of its date. Later uploads reach the
- * board's video archive, not this list.
- */
-function UploadsThrough({
-  status,
-  date,
-}: {
-  status: WorksUploadsStatus
-  date: string
-}) {
-  const { t, locale } = useAppSettings()
-  const [before, after = ""] = t("works.uploadsThrough", {
-    date: fullDate(date, locale),
-  }).split("{archive}")
-  return (
-    <p className="works-through">
-      {before}
-      <a className="text-link" href={songArchiveHref}>
-        {t("works.videoArchive")}
-      </a>
-      {after}
-      {status.state === "failed" ? (
-        <span className="works-quiet"> {t("works.uploadsOffline")}</span>
-      ) : null}
-    </p>
-  )
-}
-
 export function UploadsView() {
   const { t } = useAppSettings()
   const status = useWorksUploads()
@@ -465,7 +426,9 @@ export function UploadsView() {
       ) : (
         <p className="works-empty">{t("works.empty")}</p>
       )}
-      <UploadsThrough status={status} date={worksSummary.updatedAt} />
+      {status.state === "failed" ? (
+        <p className="works-notice">{t("works.uploadsOffline")}</p>
+      ) : null}
     </>
   )
 }

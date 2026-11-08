@@ -9,6 +9,8 @@ order, and side B leads with _two_. The small record at the top right of the sce
 it, and the page remembers the side on that device. A note there says the sections do not strictly
 follow who holds each work's rights and that, with this many works, some
 details may be wrong, and welcomes corrections and feedback on GitHub.
+Under it, the page names the date its releases and uploads cover; later
+works are added when the collection is next updated.
 **Official discography**, beside the years at the top, opens the official
 site's list. Pick a section with
 the tabs below, each counting its works; the address remembers the section,
@@ -86,9 +88,6 @@ songs in one video has a list mark there with the number of songs; select
 it to see them in order.
 **Not on an album** keeps only the uploads no album includes, and **Members
 only** keeps the members-only posts. Search by song, artist or partner.
-
-The list names the date it covers. Later uploads are not added to it; the
-note at its end links to the board's video archive, showing songs.
 
 ## Dates and Sources
 

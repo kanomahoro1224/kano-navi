@@ -19,6 +19,7 @@ export const worksMessages = {
     "works.caveat":
       "作品并非完全按照版权归属整理；作品较多，难免有错漏，欢迎到 {link} 指正和反馈。",
     "works.feedback": "GitHub",
+    "works.updatedThrough": "收录至 {date}",
     "works.section.personal": "个人作品",
     "works.section.participation": "参与作品",
     "works.section.uploads": "投稿作品",
@@ -156,8 +157,6 @@ export const worksMessages = {
     "works.platform.bilibili": "bilibili",
     "works.noLink": "无公开链接",
     "works.videoGone": "已无法观看",
-    "works.videoArchive": "视频归档",
-    "works.uploadsThrough": "投稿列表收录至 {date}，之后的投稿请看{archive}。",
     "works.uploadsOffline": "暂时无法读取本站的视频封面。",
   },
   ja: {
@@ -175,6 +174,7 @@ export const worksMessages = {
     "works.caveat":
       "作品は権利の帰属どおりに分類しているわけではありません。作品数が多いため、誤りが含まれる場合があります。お気づきの点があれば、{link}で気軽に教えてください。",
     "works.feedback": "GitHub",
+    "works.updatedThrough": "{date}までの作品を収録しています",
     "works.section.personal": "個人作品",
     "works.section.participation": "参加作品",
     "works.section.uploads": "投稿作品",
@@ -312,9 +312,6 @@ export const worksMessages = {
     "works.platform.bilibili": "bilibili",
     "works.noLink": "公開リンクなし",
     "works.videoGone": "視聴できません",
-    "works.videoArchive": "動画アーカイブ",
-    "works.uploadsThrough":
-      "投稿リストは {date} までの収録です。それ以降の投稿は{archive}へ。",
     "works.uploadsOffline":
       "このサイトの動画サムネイルを読み込めませんでした。",
   },
@@ -333,6 +330,7 @@ export const worksMessages = {
     "works.caveat":
       "Works are not sorted strictly by rights ownership, and with this many of them some details may be wrong; corrections and feedback are always welcome {link}.",
     "works.feedback": "on GitHub",
+    "works.updatedThrough": "This list covers works through {date}",
     "works.section.personal": "Own releases",
     "works.section.participation": "Featured on",
     "works.section.uploads": "Uploads",
@@ -471,9 +469,6 @@ export const worksMessages = {
     "works.platform.bilibili": "bilibili",
     "works.noLink": "No public link",
     "works.videoGone": "No longer watchable",
-    "works.videoArchive": "video archive",
-    "works.uploadsThrough":
-      "This list covers uploads through {date}; later uploads are in the {archive}.",
     "works.uploadsOffline": "This site's video thumbnails could not be loaded.",
   },
 }

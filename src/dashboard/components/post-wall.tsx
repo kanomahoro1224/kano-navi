@@ -116,6 +116,10 @@ function PostWording({
             title={part.text}
             loading="lazy"
             decoding="async"
+            // Bilibili's image CDN answers 403 to a hotlink that carries any
+            // other site's Referer, which leaves the caption showing instead
+            // of the sticker.
+            referrerPolicy="no-referrer"
           />
         ),
       )}

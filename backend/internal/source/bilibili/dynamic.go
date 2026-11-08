@@ -3,6 +3,7 @@ package bilibili
 import (
 	"encoding/json"
 	"html"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -99,6 +100,29 @@ func richText(nodes []richTextNode) (string, []DynamicEmoji) {
 	return builder.String(), emojis
 }
 
+// flexInt reads an integer Bilibili sends as either a JSON number or a quoted
+// string. The space feed quotes timestamps and mids on some entries and not
+// on others, and a strict int64 turns that into a whole page of nothing.
+type flexInt int64
+
+func (n *flexInt) UnmarshalJSON(data []byte) error {
+	raw := strings.TrimSpace(strings.Trim(string(data), `"`))
+	if raw == "" || raw == "null" {
+		*n = 0
+		return nil
+	}
+	if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		*n = flexInt(value)
+		return nil
+	}
+	value, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return err
+	}
+	*n = flexInt(value)
+	return nil
+}
+
 // dynamicItem is one entry of the space feed. A forwarded dynamic carries the
 // forwarded one in orig, in the same shape.
 type dynamicItem struct {
@@ -106,9 +130,9 @@ type dynamicItem struct {
 	Type    string `json:"type"`
 	Modules struct {
 		Author *struct {
-			PubTS int64  `json:"pub_ts"`
-			Name  string `json:"name"`
-			Mid   int64  `json:"mid"`
+			PubTS flexInt `json:"pub_ts"`
+			Name  string  `json:"name"`
+			Mid   flexInt `json:"mid"`
 		} `json:"module_author"`
 		Dynamic *struct {
 			Desc *struct {
@@ -149,7 +173,7 @@ func (d dynamicItem) dynamic(account int64) (Dynamic, bool) {
 	if !dynamicIDPattern.MatchString(d.IDStr) || author == nil || author.PubTS <= 0 {
 		return Dynamic{}, false
 	}
-	if author.Mid != 0 && author.Mid != account {
+	if author.Mid != 0 && int64(author.Mid) != account {
 		return Dynamic{}, false
 	}
 	if d.Type == dynamicTypeVideo {
@@ -162,9 +186,9 @@ func (d dynamicItem) dynamic(account int64) (Dynamic, bool) {
 	out := Dynamic{
 		ID: d.IDStr, Kind: KindDynamicPost, Text: text,
 		URL:         "https://t.bilibili.com/" + d.IDStr,
-		PublishedAt: time.Unix(author.PubTS, 0).UTC().Format(time.RFC3339),
+		PublishedAt: time.Unix(int64(author.PubTS), 0).UTC().Format(time.RFC3339),
 		Author:      strings.TrimSpace(html.UnescapeString(author.Name)),
-		AuthorMid:   author.Mid,
+		AuthorMid:   int64(author.Mid),
 		Images:      images,
 		Emojis:      emojis,
 	}
@@ -173,7 +197,7 @@ func (d dynamicItem) dynamic(account int64) (Dynamic, bool) {
 		// read without the account restriction.
 		mid := int64(0)
 		if d.Orig.Modules.Author != nil {
-			mid = d.Orig.Modules.Author.Mid
+			mid = int64(d.Orig.Modules.Author.Mid)
 		}
 		if original, ok := d.Orig.dynamic(mid); ok {
 			out.Kind, out.Original = KindDynamicRepost, &original
@@ -251,22 +275,43 @@ const (
 )
 
 // ParseDynamics reads one space feed page. Entries of another account and
-// entries that carry nothing showable are skipped, and so are repeated IDs.
+// entries that carry nothing showable are skipped, and so are repeated IDs. An
+// entry the parser cannot read is skipped on its own: one entry whose shape
+// changed must not hide the rest of the page.
 func ParseDynamics(data json.RawMessage, account string) ([]Dynamic, error) {
 	var page struct {
-		Items []dynamicItem `json:"items"`
+		Items []json.RawMessage `json:"items"`
 	}
-	if json.Unmarshal(data, &page) != nil || page.Items == nil {
+	if err := json.Unmarshal(data, &page); err != nil {
+		log.Printf("kano-go: bilibili feed is unreadable: %v", err)
+		return nil, &Error{"bilibili_invalid_response"}
+	}
+	if page.Items == nil {
+		// An answer without items is either a pagination edge or a shape
+		// change; its opening bytes are the only way to tell which.
+		log.Printf("kano-go: bilibili feed has no items: %q", string(data[:min(len(data), 200)]))
 		return nil, &Error{"bilibili_invalid_response"}
 	}
 	owner, _ := strconv.ParseInt(account, 10, 64)
 	out := []Dynamic{}
 	seen := map[string]bool{}
-	for _, item := range page.Items {
+	unreadable := 0
+	for _, raw := range page.Items {
+		var item dynamicItem
+		if err := json.Unmarshal(raw, &item); err != nil {
+			unreadable++
+			if unreadable == 1 {
+				log.Printf("kano-go: bilibili dynamic is unreadable: %v", err)
+			}
+			continue
+		}
 		if d, ok := item.dynamic(owner); ok && !seen[d.ID] {
 			seen[d.ID] = true
 			out = append(out, d)
 		}
+	}
+	if unreadable > 0 {
+		log.Printf("kano-go: bilibili dynamics skipped=%d read=%d", unreadable, len(out))
 	}
 	return out, nil
 }

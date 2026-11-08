@@ -162,3 +162,21 @@ func TestDynamicsSendsTheWholeLoginCookie(t *testing.T) {
 		}
 	}
 }
+
+// The feed quotes timestamps and mids on some pages and sends them as numbers
+// on others; the quoted form must not empty the whole page.
+func TestParseDynamicsReadsQuotedNumbers(t *testing.T) {
+	page := `{"items":[{"id_str":"1100000000000000077","type":"DYNAMIC_TYPE_WORD","modules":{
+	  "module_author":{"pub_ts":"1767258000","name":"鹿乃","mid":"316381099"},
+	  "module_dynamic":{"desc":{"text":"引用形式的数字"}}}}]}`
+	items, err := ParseDynamics([]byte(page), "316381099")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Text != "引用形式的数字" || items[0].PublishedAt != "2026-01-01T09:00:00Z" {
+		t.Fatalf("items=%#v, want the quoted pub_ts read", items)
+	}
+	if items[0].AuthorMid != 316381099 {
+		t.Fatalf("mid=%d, want the quoted mid read", items[0].AuthorMid)
+	}
+}

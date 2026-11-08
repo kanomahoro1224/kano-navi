@@ -179,9 +179,13 @@ func envelope(body []byte) (json.RawMessage, error) {
 		Data    json.RawMessage `json:"data"`
 	}
 	if json.Unmarshal(body, &out) != nil || out.Code == nil {
-		if strings.Contains(strings.ToLower(string(body[:min(len(body), 512)])), "<!doctype html") {
+		head := strings.ToLower(string(body[:min(len(body), 512)]))
+		if strings.Contains(head, "<!doctype html") {
 			return nil, &Error{"bilibili_risk_control"}
 		}
+		// What came back instead of the envelope is the only way to tell a
+		// captcha interstitial from a shape change, so it goes to the log.
+		log.Printf("kano-go: bilibili response is not an envelope: %q", string(body[:min(len(body), 200)]))
 		return nil, &Error{"bilibili_invalid_response"}
 	}
 	switch *out.Code {

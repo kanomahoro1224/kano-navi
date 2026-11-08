@@ -3,6 +3,7 @@ import { Combine, EyeOff, Lock, Sparkles, Split } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import { formatDay, formatTime, japanDay } from "@/admin/format"
+import { isLiveRoomLink } from "@/admin/types"
 import type { AdminEvent, EventInput } from "@/admin/types"
 import { Badge, Button, Loading, Modal } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
@@ -19,7 +20,14 @@ export function eventToInput(event: AdminEvent): EventInput {
     eventType: event.eventType || "event",
     tag: event.tag || "",
     status: event.status || "",
-    url: event.url || "",
+    // A stored live-room link reads as no link of a bilibili entry.
+    url:
+      event.url &&
+      isLiveRoomLink(event.url) &&
+      !event.platforms?.includes("other")
+        ? ""
+        : event.url || "",
+    platforms: event.platforms || [],
     cancellationStatus: event.cancellationStatus,
     cancellationReason: event.cancellationReason || "",
   }
@@ -179,6 +187,46 @@ export function EventMergeDialog({
         <p className="adm-muted">{t("admin.schedule.merge.none")}</p>
       )}
     </Modal>
+  )
+}
+
+/**
+ * The platforms the board shows for an entry. One that is not announced
+ * (lent by a merged entry, or a simulcast the live room observed) is dashed,
+ * and one a source default gave is italic; the title says which.
+ */
+export function PlatformBadges({ event }: { event: AdminEvent }) {
+  const { t } = useAppSettings()
+  const announced = event.platforms || []
+  const shown = event.shownPlatforms?.length ? event.shownPlatforms : announced
+  return (
+    <>
+      {shown.map((platform) => {
+        const name = t(`admin.event.platform.${platform}`)
+        const observed = !announced.includes(platform)
+        const title = observed
+          ? t("admin.event.platform.observed", { platform: name })
+          : event.platformsInferred
+            ? t("admin.event.platform.inferred", { platform: name })
+            : undefined
+        return (
+          <span key={platform} title={title}>
+            <Badge
+              tone="sky"
+              className={
+                observed
+                  ? "adm-badge-observed"
+                  : event.platformsInferred
+                    ? "adm-badge-inferred"
+                    : undefined
+              }
+            >
+              {name}
+            </Badge>
+          </span>
+        )
+      })}
+    </>
   )
 }
 

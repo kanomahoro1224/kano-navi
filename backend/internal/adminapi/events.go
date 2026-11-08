@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf16"
@@ -146,6 +147,11 @@ func (a *api) confirmEvent(w http.ResponseWriter, r *http.Request) {
 	for key, value := range body {
 		merged[key] = value
 	}
+	// A stored live-room link reads as no link of a Bilibili entry, so a
+	// confirmation that names no link keeps it that way.
+	if _, named := body["url"]; !named && existing.URL != nil && sqlite.IsBilibiliRoomURL(*existing.URL) && !slices.Contains(existing.Platforms, sqlite.PlatformOther) {
+		merged["url"] = json.RawMessage("null")
+	}
 	input, err := eventInput(merged)
 	if err != nil {
 		httpx.WriteError(w, err)
@@ -215,6 +221,9 @@ func writeEventError(w http.ResponseWriter, err error) {
 		httpx.WriteError(w, httpx.Invalid("event already exists"))
 	case errors.Is(err, sqlite.ErrEventInvalid):
 		httpx.WriteError(w, httpx.Invalid("event is invalid"))
+	case errors.Is(err, sqlite.ErrEventLiveRoomURL):
+		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "event_live_room_url",
+			"message": "a Bilibili live-room link is not an entry's link; choose the bilibili platform instead, or other for someone else's room"})
 	default:
 		httpx.WriteError(w, err)
 	}
@@ -376,5 +385,30 @@ func eventInput(body map[string]json.RawMessage) (sqlite.EventInput, error) {
 	if input.URL, err = eventURL(body["url"]); err != nil {
 		return input, err
 	}
+	if input.Platforms, input.PlatformsSet, err = eventPlatforms(body["platforms"]); err != nil {
+		return input, err
+	}
 	return input, nil
+}
+
+// eventPlatforms reads the announced platforms: absent keeps the stored
+// ones, null names none, and an array names each of youtube, bilibili and
+// other at most once.
+func eventPlatforms(raw json.RawMessage) ([]string, bool, error) {
+	if raw == nil {
+		return nil, false, nil
+	}
+	if jsonNull(raw) {
+		return []string{}, true, nil
+	}
+	var values []string
+	if json.Unmarshal(raw, &values) != nil {
+		return nil, false, httpx.Invalid("platforms must be an array")
+	}
+	for _, value := range values {
+		if len(sqlite.NormalizePlatforms([]string{value})) == 0 {
+			return nil, false, httpx.Invalid("platforms is invalid")
+		}
+	}
+	return sqlite.NormalizePlatforms(values), true, nil
 }

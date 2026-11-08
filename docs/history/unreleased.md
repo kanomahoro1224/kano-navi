@@ -78,6 +78,22 @@
 > `GET /sources` adds `shop`, and a manual fetch accepts `source: "shop"`
 > with the `catalog` method. No column is added and no event is rewritten.
 
+> [!NOTE]
+> Startup adds the empty `events.platforms` and `events.platforms_inferred`
+> columns without rewriting events; a stored entry reads as its single
+> platform. The Bilibili extraction schema asks
+> for a `platforms` array in place of `platform`; extraction identities do
+> not name the schema, so no stored post is extracted again, and the X
+> prompt and schema are unchanged. Public events and MCP `schedule_list`
+> add `platforms`, full ones `links`, and `liveUrl` covers every stream
+> shown on bilibili; MCP `schedule_list` and the calendar subscription read
+> a stored live-room link as none, the subscription linking the platform
+> instead; the admin
+> API's events accept `platforms`, report `platforms`, `platformsInferred`
+> and `shownPlatforms`, and refuse a live-room link as `url` with
+> `event_live_room_url`. The live room gets about two more anonymous
+> requests per scheduled stream.
+
 <details>
 <summary><strong>Public pages</strong></summary>
 
@@ -117,6 +133,13 @@
 - A bilibili stream links to Kano's live room and shows as live while the
   room is on air; an unannounced bilibili stream shows on the stage as live
   now without adding a schedule entry.
+- A stream on YouTube and bilibili at once is one card with a link to each
+  platform, on the stage, in the week and in the calendar, and the platform
+  that is live is marked and opened first; the card reads live while either
+  is. A link is named after a platform only when it opens that platform;
+  the post that announced the entry keeps the open arrow. A bilibili
+  broadcast during a YouTube stream that has started shows on that
+  stream's card instead of as a separate live-now ticket.
 - A premiere carries its Premiere label only while it waits or airs; once
   it has aired it is an ordinary video and shows no form label, as a
   stream archive on the shelf shows none.
@@ -168,6 +191,14 @@
 - The live-status probe checks the Bilibili live room, one request per run,
   around announced streams and once per operator interval (30 minutes by
   default) otherwise, and learns the room from the answer.
+- Entries record every platform they are on. A bilibili dynamic lists the
+  platforms it names, and X posts that announce a simulcast (同時配信, or
+  both platforms with 同時) name both; a dynamic's plain stream merges into
+  the YouTube stream at the same time, while one stated bilibili-only
+  (B站限定) stays apart and never joins that day's YouTube stream. The live room is
+  also checked about 5 and 20 minutes into every other scheduled stream, so
+  a bilibili broadcast that only a YouTube reservation announced is seen as
+  its simulcast.
 - Translation adds Japanese, and translates Bilibili dynamics into English
   and Japanese, keeping their times as written. A forwarded dynamic is
   translated once however often it is forwarded, after posts, videos and
@@ -204,6 +235,12 @@
 
 - The schedule editor offers the Sale type, with a close date and time in
   place of the length.
+- The schedule editor chooses an entry's platforms (YouTube, bilibili,
+  Other; both for a simulcast). A pasted bilibili live-room link selects
+  bilibili instead of becoming the entry's link, unless Other is chosen for
+  someone else's room. Schedule rows show the platforms, dashed when a
+  merged entry or the live room adds one and italic when a source default
+  gave it.
 - A timed entry's **Type default** length saves its end time: an hour after
   the start for a stream or membership, half an hour otherwise, so the board
   stops showing the stream as live at that time. **No end time** leaves the

@@ -987,18 +987,35 @@ with the same 6-hour doubling. The state (room, title, status, start,
 checked and attempted times, backoff) is kept in `sync_state` (source
 `bilibili-live`, the mid as account), together with the start of the last
 broadcast seen live, the last check that saw it live and the first later
-check that saw the room off air.
+check that saw the room off air, and the start and observed end of the
+broadcast before it when a check saw that one end.
 
-Entries are tied to the room by their [platform](data-model.md#event-platforms),
+Entries are tied to the room by their [platforms](data-model.md#event-platforms),
 never by a link: the room's link is the same for every broadcast, while
 readers treat an entry's link as the identity of one broadcast. Public reads
-add the room as `liveUrl` to every entry of platform `bilibili` and type
-`stream` or `member` once a check learned the room, so entries extracted
-before the first check get it too and a changed room needs no rewrite. A
-broadcast starting at L is the entry starting at S when S−2h ≤ L ≤ S+3h; of
-several, the nearest, and one broadcast matches one entry at most. That entry
-is `live` while the check is younger than two Bilibili check intervals, and
-`ended` once a later check saw the room off air. The last check that saw the
+add the room as `liveUrl` and as the bilibili link to every `stream` or
+`member` entry shown on Bilibili once a check learned the room, so entries
+extracted before the first check get it too and a changed room needs no
+rewrite. A broadcast starting at L is matched against the active, timed
+stream and members-only entries that are not merged away or a confirmed
+cancellation, all of them rather than one read's, so every page agrees:
+
+1. the entry shown on Bilibili (its platforms, with those its merged
+   entries lend it, include `bilibili`) starting at S when
+   S−2h ≤ L ≤ S+3h and not ended before L (its `ends_at`), the nearest of
+   several;
+2. otherwise the YouTube event whose video a check saw `live` or `ended`,
+   whose broadcast started within 30 minutes of L and had not ended before
+   L, the nearest of several: the broadcast is its simulcast, and its shown
+   platforms gain an observed `bilibili`. A reservation that has not started,
+   or that no check has seen, never takes it.
+
+One broadcast matches one entry at most. The entry the previous broadcast
+matched takes no broadcast that starts more than 30 minutes after a check
+saw that one end: it is another broadcast, not a restart. That entry is `live` while the
+check is younger than two Bilibili check intervals, and `ended` once a
+later check saw the room off air, unless its YouTube broadcast already
+reports a state; a live room always makes it `live`. The last check that saw the
 broadcast live is its approximate end, kept in the state and shown in the
 console; it is never written as the entry's `ends_at`. Bilibili has no
 reservation state, so no entry is `upcoming` from the room; an entry's own
@@ -1221,21 +1238,45 @@ Events of a Bilibili dynamic have IDs `bilibili-schedule-<date>-<hash>`,
 page as the `event_sources` link. Extraction results and post states of a
 dynamic are stored with source `bilibili` under its post ID.
 
-Every entry, of either source, names its `platform`: `youtube`, `bilibili`,
+Every entry, of either source, has its [announced
+platforms](data-model.md#event-platforms) from `youtube`, `bilibili` and
 `other` (another platform, or someone else's channel or room such as a
-collaboration) or `unknown`. An unknown or invalid value is `unknown`, never
-an invalid entry. A YouTube link makes an entry `youtube`; a dynamic's
-stream or members-only stream that names none is `bilibili`, and so is a
-stream or release of an X post that calls it Bilibili-only (bilibili限定,
+collaboration), in announced order. An entry's **wording** is its title,
+detail and cited evidence, and the post's text when the post has this one
+entry. **Bilibili-only wording** calls it Bilibili-only (bilibili限定,
 B站限定, B限 as its own word rather than the end of WEB限定, ビリビリ限定)
-without also naming YouTube, since such a post
-may announce a simulcast. The model gives a link only when the post does: an
-entry keeps the post's link, or the model's explicit one. A live-room link
-(`live.bilibili.com`) never stays as an entry's link, since reads add the
-room as `liveUrl` (see [Live room](#live-room)): it makes the entry
-`bilibili` and the entry keeps the post's link, unless the entry is `other`,
-a collaboration in someone else's room, which keeps that link and gets no
-live state.
+without also naming YouTube.
+
+The Bilibili schema asks for a `platforms` array of the platforms the post
+names for the entry, both for a simulcast, and none for a plain 直播; a
+value outside the enum is dropped, never an invalid entry. Code decides
+whether Bilibili alone is stated: `["bilibili"]` from the model or a room
+link is stated only for Bilibili-only wording, and so is a stream or
+release that names none with such wording; otherwise a dynamic's
+`["bilibili"]`, and a stream or members-only stream naming none, is
+inferred, the source's default.
+
+The X schema keeps its single `platform` (`unknown` when the post does not
+say, and for an invalid value), and code derives the set, always stated: a
+stream or release of a post with Bilibili-only wording is `bilibili` when
+the model named none, and else the model's platform holds. A stream or
+release whose wording announces a simulcast (同時配信, 同时直播, 同步直播,
+simulcast, or YouTube and Bilibili both named together with 同時) adds the
+other of `youtube` and `bilibili` after the model's platform (`youtube`
+first when the model named none), so a notice whose model named Bilibili
+still meets the dynamic's entry by Rule D; naming both sites without 同時
+is no simulcast, and an `other` entry, a collaboration elsewhere, stays
+`other`. On either source a YouTube link adds `youtube`. The model gives a link only when the post
+does: an entry keeps the post's link, or the model's explicit one. A
+live-room link (`live.bilibili.com`) never stays as an entry's link, since
+reads add the room (see [Live room](#live-room)): it makes the entry
+`bilibili` (on X in place of its single platform) and the entry keeps the
+post's link, unless the entry is `other`, a collaboration in someone else's
+room, which keeps that link and gets no live state.
+
+Extraction identities name neither prompt nor schema, so a schema change
+of one source extracts no stored post again: an entry keeps its platforms
+until its post's content changes or an operator asks for its extraction.
 
 Reconciliation links a dynamic's release to the upload it announced and
 merges an X notice of a Bilibili stream into the dynamic's entry (see

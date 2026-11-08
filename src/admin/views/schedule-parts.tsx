@@ -20,6 +20,7 @@ import {
   CancellationBadge,
   HiddenByPostsBadge,
   MergeBadge,
+  PlatformBadges,
   ProvenanceBadge,
   shiftDay,
 } from "@/admin/views/event-parts"
@@ -97,6 +98,7 @@ export function EventRow({
           {event.tag ? (
             <Badge tone="lavender">{t(`admin.event.tag.${event.tag}`)}</Badge>
           ) : null}
+          <PlatformBadges event={event} />
           <ProvenanceBadge event={event} />
           <CancellationBadge event={event} />
           <MergeBadge event={event} />

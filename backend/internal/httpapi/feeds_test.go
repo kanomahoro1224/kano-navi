@@ -336,3 +336,22 @@ func TestCalendarFeedKeepsComingEventsUnderTheCap(t *testing.T) {
 		t.Fatal("past events follow the coming ones")
 	}
 }
+
+// A manual entry stored with the live room as its link reads without a
+// link, and its calendar entry links its platform instead.
+func TestCalendarFeedLinksTheRoomOfARoomLinkEntry(t *testing.T) {
+	path := testutil.NewSnapshot(t)
+	testutil.Exec(t, path, `
+		INSERT INTO events (id,source,title,starts_on,starts_at,timezone,time_precision,status,event_type,url,provenance,manual_locked,cancellation_status,created_at,updated_at) VALUES
+		 ('feed-room','manual','Bilibili 限定雑談','2026-10-28','2026-10-28T11:00:00Z','Asia/Tokyo','exact','scheduled','stream','https://live.bilibili.com/1000001','manual',1,'none','','');`)
+	store, err := sqlite.OpenReadOnly(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	handler := NewHandlerWithClock(store, func() time.Time { return time.Date(2026, 10, 27, 3, 0, 0, 0, time.UTC) })
+	body := strings.ReplaceAll(request(t, handler, http.MethodGet, "/api/calendar.ics").Body.String(), "\r\n ", "")
+	if !strings.Contains(body, "\r\nURL:https://live.bilibili.com/1000001\r\n") {
+		t.Fatalf("body=%s", body)
+	}
+}

@@ -38,18 +38,25 @@ it), the author's mid as `authorHandle`, and its Bilibili page as `url`; a
 forward's own text may be empty.
 
 Every public event reports its `platform` (`youtube`, `bilibili`, `other`,
-`unknown`, or null for an entry stored before platforms were recorded; see
+`unknown`, or null for an entry stored before platforms were recorded) and
+`platforms`, the platforms it is shown on with its own first (an empty array
+when none is known; see
 [Event platforms](data-model.md#event-platforms)). Full event reads (the
-board, the calendar) add `liveUrl`: the account's Bilibili live room for an
-entry of platform `bilibili` and type `stream` or `member` once a live check
-learned the room, null otherwise. Readers link such an entry to
-`liveUrl ?? url`; `url` stays the announcement's link. Its `liveStatus`
-follows the room (see [Live room](sources.md#live-room)). The dashboard adds
-`liveNow`, `{platform: "bilibili", url, title, startedAt}`, while the room is
-live within two Bilibili check intervals and the broadcast matches no
-stored entry, and null otherwise; it is never an event, and readers match it
-against entries by platform and time, not by link. The calendar's items carry
-`liveUrl` as well. `meta.bilibiliAccounts` lists the accounts (mids) of the
+board, the calendar) add `links`, one `{platform, url, liveStatus}` per
+shown platform in that order, where `url` is a page on that platform or
+null (an announcement post stays the event's `url`) and `liveStatus` is
+that platform's broadcast state, and `liveUrl`: the
+account's Bilibili live room for an entry of type `stream` or `member` shown
+on Bilibili once a live check learned the room, null otherwise. `url` stays
+the announcement's link, except that a stored live-room link reads as null.
+An entry's `liveStatus` follows its linked video, a YouTube event an
+operator merged into it, or the room when the room's broadcast matched it
+(see [Live room](sources.md#live-room)), and is `live` while any of them
+is. The
+dashboard adds `liveNow`, `{platform: "bilibili", url, title, startedAt}`,
+while the room is live within two Bilibili check intervals and the
+broadcast matches no stored entry, and null otherwise; it is never an event,
+and readers match it against entries by platform and time, not by link. `meta.bilibiliAccounts` lists the accounts (mids) of the
 stored Bilibili posts; the post archive's `account` filter and its
 `accountCounts` take a mid like an X handle.
 

@@ -19,12 +19,19 @@ import {
   japanStamp,
   japanToday,
 } from "@/admin/format"
-import type { AdminEvent, EventInput } from "@/admin/types"
+import {
+  eventPlatforms,
+  isLiveRoomLink,
+  type AdminEvent,
+  type EventInput,
+  type EventPlatform,
+} from "@/admin/types"
 import {
   Button,
   DateRange,
   Empty,
   Field,
+  FieldGroup,
   IconButton,
   Loading,
   Modal,
@@ -90,6 +97,8 @@ interface Draft {
   tag: string
   status: string
   url: string
+  /** The operator's platforms; both YouTube and bilibili for a simulcast. */
+  platforms: EventPlatform[]
   cancellationStatus: "none" | "llm_suspected" | "manual_confirmed"
   cancellationReason: string
 }
@@ -125,9 +134,34 @@ function draftOf(event: AdminEvent | null, day?: string): Draft {
     // hands the label back rather than recording the operator's "no label".
     tag: event?.tag || (event?.tagSource === "manual" ? "" : "auto"),
     status: event?.status || "",
-    url: event?.url || "",
+    // A stored live-room link reads as no link of a bilibili entry, whose
+    // platforms already include bilibili.
+    url:
+      event?.url &&
+      isLiveRoomLink(event.url) &&
+      !event.platforms?.includes("other")
+        ? ""
+        : event?.url || "",
+    platforms: event?.platforms || [],
     cancellationStatus: event?.cancellationStatus || "none",
     cancellationReason: event?.cancellationReason || "",
+  }
+}
+
+/**
+ * The draft with a live-room link moved to the bilibili platform, or the
+ * same draft when its link is not one or the entry is in another room.
+ */
+function withoutRoomLink(draft: Draft): Draft {
+  if (!isLiveRoomLink(draft.url) || draft.platforms.includes("other"))
+    return draft
+  return {
+    ...draft,
+    url: "",
+    platforms: eventPlatforms.filter(
+      (platform) =>
+        platform === "bilibili" || draft.platforms.includes(platform),
+    ),
   }
 }
 
@@ -180,6 +214,7 @@ function inputOf(draft: Draft): EventInput {
     tag: draft.tag,
     status: draft.status,
     url: draft.url,
+    platforms: draft.platforms,
     cancellationStatus: draft.cancellationStatus,
     cancellationReason:
       draft.cancellationStatus === "manual_confirmed"
@@ -208,10 +243,30 @@ function EventDialog({
   )
   const set = (patch: Partial<Draft>) =>
     setDraft((current) => ({ ...current, ...patch }))
+  // A live-room link is the bilibili platform, not the entry's link, unless
+  // the entry is in someone else's room (Other). It turns once the field is
+  // left or the entry saved, so a link typed letter by letter stays whole.
+  const [roomHint, setRoomHint] = useState(false)
+  const settleRoomLink = () => {
+    const settled = withoutRoomLink(draft)
+    if (settled !== draft) {
+      setRoomHint(true)
+      setDraft(settled)
+    }
+    return settled
+  }
+  const togglePlatform = (platform: EventPlatform) =>
+    set({
+      platforms: eventPlatforms.filter((candidate) =>
+        candidate === platform
+          ? !draft.platforms.includes(candidate)
+          : draft.platforms.includes(candidate),
+      ),
+    })
   const save = async (submit: SubmitEvent<HTMLFormElement>) => {
     submit.preventDefault()
     setBusy(true)
-    const input = inputOf(draft)
+    const input = inputOf(settleRoomLink())
     const result = await act(
       () => (event ? api.updateEvent(event.id, input) : api.createEvent(input)),
       event ? "admin.notice.eventSaved" : "admin.notice.eventCreated",
@@ -476,13 +531,41 @@ function EventDialog({
           </p>
         </section>
 
-        <Field label={t("admin.schedule.field.url")}>
+        <FieldGroup
+          label={t("admin.schedule.field.platforms")}
+          hint={t("admin.schedule.field.platformsHint")}
+        >
+          <div
+            className="adm-segmented"
+            role="group"
+            aria-label={t("admin.schedule.field.platforms")}
+          >
+            {eventPlatforms.map((platform) => (
+              <button
+                key={platform}
+                type="button"
+                aria-pressed={draft.platforms.includes(platform)}
+                className={
+                  draft.platforms.includes(platform) ? "is-active" : undefined
+                }
+                onClick={() => togglePlatform(platform)}
+              >
+                {t(`admin.event.platform.${platform}`)}
+              </button>
+            ))}
+          </div>
+        </FieldGroup>
+        <Field
+          label={t("admin.schedule.field.url")}
+          hint={roomHint ? t("admin.schedule.roomLinkHint") : undefined}
+        >
           <span className="adm-input-icon">
             <Link2 aria-hidden />
             <input
               type="url"
               value={draft.url}
               onChange={(e) => set({ url: e.target.value })}
+              onBlur={settleRoomLink}
               maxLength={2000}
               placeholder="https://"
             />

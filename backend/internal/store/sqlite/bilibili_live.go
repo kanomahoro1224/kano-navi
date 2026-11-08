@@ -30,6 +30,11 @@ type bilibiliLiveMetadata struct {
 	LastBroadcast string `json:"lastBroadcast,omitempty"`
 	LastLiveAt    string `json:"lastLiveAt,omitempty"`
 	EndedAt       string `json:"endedAt,omitempty"`
+	// PreviousBroadcast and PreviousEndedAt are the broadcast before the
+	// last one and the check that saw it off air, kept so the entry it
+	// matched does not take the next broadcast as well.
+	PreviousBroadcast string `json:"previousBroadcast,omitempty"`
+	PreviousEndedAt   string `json:"previousEndedAt,omitempty"`
 }
 
 // BilibiliLive is the stored live room state.
@@ -39,6 +44,9 @@ type BilibiliLive struct {
 	// seen. LastLiveAt is only an approximate end: the room may have gone off
 	// air any time before EndedAt.
 	LastBroadcast, LastLiveAt, EndedAt time.Time
+	// PreviousBroadcast and PreviousEndedAt are the broadcast before and the
+	// check that saw it off air; both zero unless one was seen ending.
+	PreviousBroadcast, PreviousEndedAt time.Time
 }
 
 func readBilibiliLive(ctx context.Context, q rowQuerier, account string) (BilibiliLive, error) {
@@ -52,7 +60,8 @@ func readBilibiliLive(ctx context.Context, q rowQuerier, account string) (Bilibi
 	}
 	var data bilibiliLiveMetadata
 	_ = json.Unmarshal([]byte(meta), &data)
-	out := BilibiliLive{LastBroadcast: parseInstant(data.LastBroadcast), LastLiveAt: parseInstant(data.LastLiveAt), EndedAt: parseInstant(data.EndedAt)}
+	out := BilibiliLive{LastBroadcast: parseInstant(data.LastBroadcast), LastLiveAt: parseInstant(data.LastLiveAt), EndedAt: parseInstant(data.EndedAt),
+		PreviousBroadcast: parseInstant(data.PreviousBroadcast), PreviousEndedAt: parseInstant(data.PreviousEndedAt)}
 	out.State = bilisource.LiveState{
 		Room:      bilisource.Room{RoomID: data.RoomID, Title: data.Title, LiveTime: data.LiveTime},
 		CheckedAt: parseInstant(data.CheckedAt), LastAttemptAt: parseInstant(data.LastAttemptAt),
@@ -98,6 +107,7 @@ func (s *Store) WriteBilibiliLive(ctx context.Context, account string, state bil
 		CheckedAt: formatInstant(state.CheckedAt), LastAttemptAt: formatInstant(state.LastAttemptAt),
 		BlockedUntil: formatInstant(state.BlockedUntil), Failures: state.Failures, LastError: state.LastError,
 		LastBroadcast: formatInstant(prior.LastBroadcast), LastLiveAt: formatInstant(prior.LastLiveAt), EndedAt: formatInstant(prior.EndedAt),
+		PreviousBroadcast: formatInstant(prior.PreviousBroadcast), PreviousEndedAt: formatInstant(prior.PreviousEndedAt),
 	}
 	if state.Room.RoomID != "" {
 		status := state.Room.LiveStatus
@@ -114,6 +124,11 @@ func (s *Store) WriteBilibiliLive(ctx context.Context, account string, state bil
 				start = state.CheckedAt
 			}
 			if !start.IsZero() && !start.Equal(prior.LastBroadcast) {
+				// A broadcast seen ending is kept as the previous one.
+				data.PreviousBroadcast, data.PreviousEndedAt = "", ""
+				if !prior.LastBroadcast.IsZero() && !prior.EndedAt.IsZero() {
+					data.PreviousBroadcast, data.PreviousEndedAt = formatInstant(prior.LastBroadcast), formatInstant(prior.EndedAt)
+				}
 				data.LastBroadcast, data.EndedAt = formatInstant(start), ""
 			}
 			data.LastLiveAt = formatInstant(state.CheckedAt)

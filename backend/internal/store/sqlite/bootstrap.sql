@@ -76,7 +76,7 @@ CREATE TABLE events (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     raw_json TEXT
-  , merged_into TEXT, merge_source TEXT, merge_reason TEXT, merged_at TEXT, ends_on TEXT, platform TEXT);
+  , merged_into TEXT, merge_source TEXT, merge_reason TEXT, merged_at TEXT, ends_on TEXT, platform TEXT, platforms TEXT, platforms_inferred INTEGER NOT NULL DEFAULT 0);
 
 CREATE TABLE focus (
     id INTEGER PRIMARY KEY,

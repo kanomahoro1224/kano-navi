@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 )
 
 type AdminPost struct {
@@ -274,6 +276,13 @@ type AdminEvent struct {
 	// HiddenByPosts: an automatic event whose every source post is hidden,
 	// which every public reader leaves out (see eventHiddenByPostsSQL).
 	HiddenByPosts bool `json:"hiddenByPosts"`
+	// Platforms are the announced platforms as readers see them, inferred
+	// when they came from a source default. ShownPlatforms add those of the
+	// automatic entries merged into it and a Bilibili broadcast observed on
+	// the room as its simulcast; the public reads show these.
+	Platforms         []string `json:"platforms"`
+	PlatformsInferred bool     `json:"platformsInferred"`
+	ShownPlatforms    []string `json:"shownPlatforms"`
 }
 
 type AdminRun struct {
@@ -976,7 +985,7 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	if f.Ascending {
 		direction = "ASC"
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT e.id,e.source,e.source_item_id,e.source_key,e.title,e.detail,e.starts_on,e.starts_at,e.ends_at,e.ends_on,e.timezone,e.time_precision,e.status,e.event_type,e.tag,e.tag_source,e.url,e.provenance,e.manual_locked,e.confidence,e.extraction_id,e.cancellation_status,e.cancellation_source,e.cancellation_reason,e.cancellation_evidence,e.cancellation_source_item_id,e.cancellation_confidence,e.cancellation_at,e.deleted_at,e.created_at,e.updated_at,e.merged_into,(SELECT t.title FROM events t WHERE t.id=e.merged_into),e.merge_source,e.merge_reason,e.merged_at,`+eventHiddenByPostsSQL("e")+` FROM events e WHERE `+where+` ORDER BY COALESCE(julianday(e.starts_at),julianday(e.starts_on || 'T23:59:59.999+09:00')) `+direction+`,e.id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
+	rows, err := s.db.QueryContext(ctx, `SELECT e.id,e.source,e.source_item_id,e.source_key,e.title,e.detail,e.starts_on,e.starts_at,e.ends_at,e.ends_on,e.timezone,e.time_precision,e.status,e.event_type,e.tag,e.tag_source,e.url,e.provenance,e.manual_locked,e.confidence,e.extraction_id,e.cancellation_status,e.cancellation_source,e.cancellation_reason,e.cancellation_evidence,e.cancellation_source_item_id,e.cancellation_confidence,e.cancellation_at,e.deleted_at,e.created_at,e.updated_at,e.merged_into,(SELECT t.title FROM events t WHERE t.id=e.merged_into),e.merge_source,e.merge_reason,e.merged_at,`+eventHiddenByPostsSQL("e")+`,e.platform,e.platforms,e.platforms_inferred FROM events e WHERE `+where+` ORDER BY COALESCE(julianday(e.starts_at),julianday(e.starts_on || 'T23:59:59.999+09:00')) `+direction+`,e.id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 	}
@@ -986,12 +995,15 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 		var e AdminEvent
 		var sourceItem, sourceKey, detail, startsAt, endsAt, endsOn, status, eventType, tag, tagSource, url, cancelSource, cancelReason, cancelEvidence, cancelSourceItem, cancelAt, deletedAt sql.NullString
 		var mergedInto, mergedIntoTitle, mergeSource, mergeReason, mergedAt sql.NullString
-		var manual, hiddenByPosts int
+		var manual, hiddenByPosts, inferred int
 		var confidence, cancelConfidence sql.NullFloat64
 		var extraction sql.NullInt64
-		if err := rows.Scan(&e.ID, &e.Source, &sourceItem, &sourceKey, &e.Title, &detail, &e.StartsOn, &startsAt, &endsAt, &endsOn, &e.Timezone, &e.TimePrecision, &status, &eventType, &tag, &tagSource, &url, &e.Provenance, &manual, &confidence, &extraction, &e.CancellationStatus, &cancelSource, &cancelReason, &cancelEvidence, &cancelSourceItem, &cancelConfidence, &cancelAt, &deletedAt, &e.CreatedAt, &e.UpdatedAt, &mergedInto, &mergedIntoTitle, &mergeSource, &mergeReason, &mergedAt, &hiddenByPosts); err != nil {
+		var platform, platforms sql.NullString
+		if err := rows.Scan(&e.ID, &e.Source, &sourceItem, &sourceKey, &e.Title, &detail, &e.StartsOn, &startsAt, &endsAt, &endsOn, &e.Timezone, &e.TimePrecision, &status, &eventType, &tag, &tagSource, &url, &e.Provenance, &manual, &confidence, &extraction, &e.CancellationStatus, &cancelSource, &cancelReason, &cancelEvidence, &cancelSourceItem, &cancelConfidence, &cancelAt, &deletedAt, &e.CreatedAt, &e.UpdatedAt, &mergedInto, &mergedIntoTitle, &mergeSource, &mergeReason, &mergedAt, &hiddenByPosts, &platform, &platforms, &inferred); err != nil {
 			return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 		}
+		e.Platforms, _ = readPlatforms(platforms, platform, url.String)
+		e.PlatformsInferred = inferred != 0
 		e.SourceItemID = nullString(sourceItem)
 		e.SourceKey = nullString(sourceKey)
 		e.Detail = nullString(detail)
@@ -1024,7 +1036,46 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	if err := rows.Err(); err != nil {
 		return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 	}
+	_ = rows.Close()
+	if err := s.attachAdminPlatforms(ctx, items); err != nil {
+		return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
+	}
 	return AdminPage[AdminEvent]{Items: items, Page: page, PageSize: pageSize, Total: total, TotalPages: totalPages}, nil
+}
+
+// attachAdminPlatforms fills ShownPlatforms as the public reads compute
+// them: the announced platforms, those of the automatic entries merged into
+// the event, and bilibili when the room's last broadcast matched its
+// YouTube broadcast.
+func (s *Store) attachAdminPlatforms(ctx context.Context, items []AdminEvent) error {
+	ids := make([]string, len(items))
+	for i, e := range items {
+		ids[i] = e.ID
+	}
+	merged, err := readMergedPlatforms(ctx, s.db, ids)
+	if err != nil {
+		return err
+	}
+	live, err := readBilibiliLive(ctx, s.db, bilisource.OptionsFromEnv().Account)
+	if err != nil {
+		return err
+	}
+	match, matched, err := roomBroadcastMatch(ctx, s.db, live)
+	if err != nil {
+		return err
+	}
+	for i := range items {
+		e := &items[i]
+		if e.Platforms == nil {
+			e.Platforms = []string{}
+		}
+		shown := append(append([]string{}, e.Platforms...), merged.platforms[e.ID]...)
+		if matched && match.observed && match.id == e.ID {
+			shown = append(shown, PlatformBilibili)
+		}
+		e.ShownPlatforms = orderPlatforms(shown, PrimaryPlatform(e.Platforms))
+	}
+	return nil
 }
 
 // AdminCounts reads the overview aggregates. today is the current Japan date;

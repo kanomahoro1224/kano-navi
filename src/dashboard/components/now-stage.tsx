@@ -38,11 +38,19 @@ import {
   videoTag,
   videoTagLabel,
   visitorIsInJapan,
+  eventLinks,
+  eventPlatforms,
+  eventShowsPlatformLinks,
   type VideoTag,
 } from "../format"
 import { pickCompanion, pickSpotlight, spotlightIsLive } from "../spotlight"
 import type { SyncSource, SyncState } from "../freshness"
-import { videoIsGone, videoLinks, videoPlatforms } from "../video-groups"
+import {
+  videoIsGone,
+  videoLinks,
+  videoPlatforms,
+  type VideoLink,
+} from "../video-groups"
 import {
   EventTagIcon,
   MembersChip,
@@ -65,6 +73,33 @@ const SOURCES: Record<
   youtube: { name: "YouTube", Icon: YouTubeLogo },
   bilibili: { name: "bilibili", Icon: BilibiliLogo },
   shop: { name: null, Icon: ShoppingBag },
+}
+
+/**
+ * A ticket's platform links: a video's, with the other platforms of an
+ * entry of the same broadcast, or an entry's. A live platform leads.
+ */
+function ticketLinks(
+  item: SpotlightItem,
+  locale: Locale,
+  now: number,
+): VideoLink[] {
+  if (!item.video) {
+    if (!item.event) return []
+    const links = eventLinks(item.event, locale, now)
+    return eventShowsPlatformLinks(item.event, links) ? links : []
+  }
+  // The video's own link is marked while the probe confirms it live.
+  const live = confirmedLiveStatus(item.video) === "live"
+  const links: VideoLink[] = [
+    ...videoLinks(item.video, locale, now).map((link) =>
+      live && link.url === item.video?.url ? { ...link, live } : link,
+    ),
+    ...(item.extraLinks || []),
+  ]
+  const lead = links.findIndex((link) => link.live)
+  if (lead <= 0) return links
+  return [links[lead], ...links.slice(0, lead), ...links.slice(lead + 1)]
 }
 
 function dateOnlyParts(key: string, locale: Locale) {
@@ -146,7 +181,11 @@ function TicketHead({
       ? videoTagLabel(item.video, t)
       : activity
         ? t(eventTagKey(activity, entryWork))
-        : (item.video && videoFormLabel(item.video, t, now)) ||
+        : // A reservation on air on another platform is a stream on air.
+          (item.video &&
+            (isLive && item.video.isUpcoming
+              ? t("event.type.stream")
+              : videoFormLabel(item.video, t, now))) ||
           (typeKey
             ? t(typeKey)
             : eventDetailText(item.detail, t) || t("schedule.publicEvent"))
@@ -274,7 +313,7 @@ function FullTicket({
   now: number
   t: Translator
 }) {
-  const links = item.video ? videoLinks(item.video, locale, now) : []
+  const links = ticketLinks(item, locale, now)
   // A private or removed video has no page of its own left to open.
   const url =
     links[0]?.url || (item.video && videoIsGone(item.video) ? null : item.url)
@@ -298,7 +337,13 @@ function FullTicket({
           <span className="ticket-art-fallback" />
         )}
         <PlatformBadge
-          platforms={item.video ? videoPlatforms(item.video, links) : []}
+          platforms={
+            item.video
+              ? videoPlatforms(item.video, links)
+              : item.event
+                ? eventPlatforms(item.event)
+                : []
+          }
         />
         {item.link === "watch" ? (
           <span className="ticket-play">
@@ -327,7 +372,7 @@ function FullTicket({
                 <Countdown time={item.time} now={now} t={t} inline />
               ) : null}
             </span>
-            {links.length > 1 ? (
+            {links.length > (item.video ? 1 : 0) ? (
               <PlatformLinks
                 links={links}
                 title={item.title}
@@ -370,10 +415,13 @@ function CompactTicket({
   now: number
   t: Translator
 }) {
+  const links = ticketLinks(item, locale, now)
+  // A video's ticket follows the platform that is live, as its links lead.
+  const url = (item.video && links[0]?.url) || item.url
   return (
     <div
-      className={`ticket is-compact is-${isLive ? "live" : item.mode}${item.url ? " link-card" : ""}`}
-      onClick={item.url ? followCardLink : undefined}
+      className={`ticket is-compact is-${isLive ? "live" : item.mode}${url ? " link-card" : ""}`}
+      onClick={url ? followCardLink : undefined}
     >
       <span className="ticket-side">
         <DateBlock item={item} locale={locale} />
@@ -386,7 +434,7 @@ function CompactTicket({
             title={item.title}
             translations={(item.video || item.event)?.translations}
             sourceLanguage={(item.video || item.event)?.sourceLanguage}
-            href={item.url}
+            href={url}
             t={t}
           />
           <span className="ticket-when-row">
@@ -395,6 +443,14 @@ function CompactTicket({
               <Countdown time={item.time} now={now} t={t} inline />
             ) : null}
           </span>
+          {links.length > (item.video ? 1 : 0) ? (
+            <PlatformLinks
+              links={links}
+              title={item.title}
+              variant="chip"
+              t={t}
+            />
+          ) : null}
         </span>
         {item.time && !isLive ? (
           <Countdown time={item.time} now={now} t={t} />
@@ -404,7 +460,7 @@ function CompactTicket({
         !confirmedLiveStatus(item.event || item.video) ? (
           <span className="ticket-note">{t("spotlight.started")}</span>
         ) : null}
-        {item.url ? (
+        {url ? (
           <span className="ticket-link">
             {item.link === "announcement" ? (
               <XLogo aria-hidden="true" />

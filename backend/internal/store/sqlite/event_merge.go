@@ -27,14 +27,15 @@ const (
 	MergeSourceRule   = "rule"
 	MergeSourceManual = "manual"
 
-	mergeReasonTitle    = "rule_a:title"
-	mergeReasonOnly     = "rule_a:only_stream"
-	mergeReasonYoutube  = "rule_b:youtube_start"
-	mergeReasonSale     = "rule_c:sale_period"
-	mergeReasonBilibili = "rule_d:bilibili_start"
-	mergeWindowPastDays = 30
-	mergeWindowNextDays = 60
-	mergeStartTolerance = 30 * time.Minute
+	mergeReasonTitle     = "rule_a:title"
+	mergeReasonOnly      = "rule_a:only_stream"
+	mergeReasonYoutube   = "rule_b:youtube_start"
+	mergeReasonSale      = "rule_c:sale_period"
+	mergeReasonBilibili  = "rule_d:bilibili_start"
+	mergeReasonSimulcast = "rule_e:simulcast"
+	mergeWindowPastDays  = 30
+	mergeWindowNextDays  = 60
+	mergeStartTolerance  = 30 * time.Minute
 )
 
 var (
@@ -87,16 +88,39 @@ type mergeEvent struct {
 	endsOn                    string
 	startTimeSet, endsTimeSet bool
 	url                       string
-	// platform is where the entry happens, "" when unknown.
-	platform string
-	locked   bool
+	// platform is where the entry happens, "" when unknown; platforms are
+	// its announced platforms, inferred when they came from a source
+	// default.
+	platform  string
+	platforms []string
+	inferred  bool
+	locked    bool
 	// held events hold a merge another owner made, such as an operator's;
 	// merging them away would chain that merge behind a hidden event.
 	held bool
 }
 
 func (e mergeEvent) stream() bool { return e.eventType == "stream" || e.eventType == "member" }
-func (e mergeEvent) sale() bool   { return e.eventType == "sale" }
+
+// simulcast entries may be the Bilibili side of a YouTube broadcast: their
+// platforms are bilibili by a source default, or name both platforms.
+// Bilibili-only wording (a stated [bilibili]) never is.
+func (e mergeEvent) simulcast() bool {
+	return e.bothPlatforms() || e.inferred && len(e.platforms) == 1 && e.platforms[0] == PlatformBilibili
+}
+
+// bothPlatforms entries name YouTube and Bilibili; as streams only Rule E
+// moves them, whichever platform they name first.
+func (e mergeEvent) bothPlatforms() bool {
+	return hasPlatform(e.platforms, PlatformYouTube) && hasPlatform(e.platforms, PlatformBilibili)
+}
+
+// statedBilibili entries are Bilibili-only by their wording, such as
+// 「B站限定」.
+func (e mergeEvent) statedBilibili() bool {
+	return !e.inferred && len(e.platforms) == 1 && e.platforms[0] == PlatformBilibili
+}
+func (e mergeEvent) sale() bool { return e.eventType == "sale" }
 
 // saleDeadline reports a sale period whose opening is not known: its close
 // date is its start date and it has no start time.
@@ -206,7 +230,11 @@ func (e mergeEvent) timed() bool { return e.hasStart }
 // stream, a release, or an entry of unnamed type whose exact time is all
 // it says, such as 「このあと20時からはじまります！」.
 func (e mergeEvent) notice() bool {
-	// A Bilibili dynamic's entry of a YouTube stream is a notice as well.
+	// A Bilibili dynamic's entry of a YouTube stream is a notice as well. A
+	// stream on both platforms is Rule E's.
+	if e.stream() && e.bothPlatforms() {
+		return false
+	}
 	return (e.source == "x" && e.platform != "bilibili" || e.source == "bilibili" && e.platform == "youtube") && e.timed() &&
 		(e.stream() || e.eventType == "release" || e.eventType == "event" && e.precision == "exact")
 }
@@ -414,7 +442,7 @@ func loadMergeEvents(ctx context.Context, tx *sql.Tx, from, to string) ([]mergeE
 	// period that opened before the window still meets its reminders.
 	rows, err := tx.QueryContext(ctx, `SELECT id,source,title,starts_on,COALESCE(starts_at,''),time_precision,COALESCE(event_type,'event'),COALESCE(tag,''),COALESCE(tag_source,''),provenance,manual_locked,COALESCE(cancellation_status,'none'),COALESCE(merged_into,''),COALESCE(merge_source,''),
 		EXISTS(SELECT 1 FROM events m WHERE m.merged_into=events.id AND m.deleted_at IS NULL AND COALESCE(m.merge_source,'')<>?),
-		COALESCE(ends_on,''),ends_at IS NOT NULL,COALESCE(url,''),COALESCE(platform,'')
+		COALESCE(ends_on,''),ends_at IS NOT NULL,COALESCE(url,''),platform,platforms,COALESCE(platforms_inferred,0)
 		FROM events WHERE deleted_at IS NULL AND (starts_on BETWEEN ? AND ? OR (event_type='sale' AND ends_on BETWEEN ? AND ?)) ORDER BY starts_on,id`, MergeSourceRule, from, to, from, to)
 	if err != nil {
 		return nil, err
@@ -424,9 +452,16 @@ func loadMergeEvents(ctx context.Context, tx *sql.Tx, from, to string) ([]mergeE
 	for rows.Next() {
 		var e mergeEvent
 		var startsAt, precision string
-		var locked, held, endsTime int
-		if err = rows.Scan(&e.id, &e.source, &e.title, &e.startsOn, &startsAt, &precision, &e.eventType, &e.tag, &e.tagSource, &e.provenance, &locked, &e.cancellation, &e.mergedInto, &e.mergeSource, &held, &e.endsOn, &endsTime, &e.url, &e.platform); err != nil {
+		var locked, held, endsTime, inferred int
+		var platform, platforms sql.NullString
+		if err = rows.Scan(&e.id, &e.source, &e.title, &e.startsOn, &startsAt, &precision, &e.eventType, &e.tag, &e.tagSource, &e.provenance, &locked, &e.cancellation, &e.mergedInto, &e.mergeSource, &held, &e.endsOn, &endsTime, &e.url, &platform, &platforms, &inferred); err != nil {
 			return nil, err
+		}
+		var room bool
+		e.platforms, room = readPlatforms(platforms, platform, e.url)
+		e.platform, e.inferred = platform.String, inferred != 0
+		if room {
+			e.platform = PrimaryPlatform(e.platforms)
 		}
 		e.locked, e.held, e.precision = locked != 0, held != 0, precision
 		e.startTimeSet, e.endsTimeSet = startsAt != "", endsTime != 0
@@ -493,7 +528,7 @@ func planMerges(events []mergeEvent) (map[string]string, map[string]string, int)
 		// Rule D: a timed X notice of a Bilibili stream or release and the
 		// Bilibili dynamic's entry of it, the platform's first-party post.
 		for _, s := range list {
-			if s.source != "x" || s.platform != "bilibili" || !s.timed() || !movable(s) || desired[s.id] != "" ||
+			if s.source != "x" || !hasPlatform(s.platforms, PlatformBilibili) || !s.timed() || !movable(s) || desired[s.id] != "" ||
 				!(s.stream() || s.eventType == "release") {
 				continue
 			}
@@ -510,6 +545,29 @@ func planMerges(events []mergeEvent) (map[string]string, map[string]string, int)
 			case 0:
 			case 1:
 				desired[s.id], reasons[s.id] = matches[0], mergeReasonBilibili
+			default:
+				ambiguous++
+			}
+		}
+		// Rule E: the Bilibili side of a simulcast and the YouTube event of
+		// the same broadcast.
+		for _, s := range list {
+			if s.source == "youtube" || !s.stream() || !s.timed() || !s.simulcast() || !movable(s) || desired[s.id] != "" {
+				continue
+			}
+			matches := []string{}
+			for _, t := range list {
+				if t.id == s.id || t.source != "youtube" || !receivable(t) || !t.timed() || !t.stream() || !compatible(s, t) {
+					continue
+				}
+				if gap := s.start.Sub(t.start); gap <= mergeStartTolerance && gap >= -mergeStartTolerance {
+					matches = append(matches, t.id)
+				}
+			}
+			switch len(matches) {
+			case 0:
+			case 1:
+				desired[s.id], reasons[s.id] = matches[0], mergeReasonSimulcast
 			default:
 				ambiguous++
 			}
@@ -534,6 +592,14 @@ func planMerges(events []mergeEvent) (map[string]string, map[string]string, int)
 			})
 			if len(targets) == 0 {
 				continue
+			}
+			// A Bilibili-only entry never joins a stream that is not on
+			// Bilibili.
+			if s.statedBilibili() {
+				targets = slices.DeleteFunc(targets, func(t mergeEvent) bool { return !hasPlatform(t.platforms, PlatformBilibili) })
+				if len(targets) == 0 {
+					continue
+				}
 			}
 			matches := []string{}
 			for _, t := range targets {
@@ -566,6 +632,21 @@ func planMerges(events []mergeEvent) (map[string]string, map[string]string, int)
 			delete(desired, id)
 			delete(reasons, id)
 		}
+	}
+	// No merge chains: an entry whose target is merged away itself goes on
+	// to the final target, whichever rules made the two merges.
+	for id, target := range desired {
+		seen := map[string]bool{id: true}
+		for desired[target] != "" && !seen[target] {
+			seen[target] = true
+			target = desired[target]
+		}
+		if seen[target] {
+			delete(desired, id)
+			delete(reasons, id)
+			continue
+		}
+		desired[id] = target
 	}
 	return desired, reasons, ambiguous
 }

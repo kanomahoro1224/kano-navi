@@ -114,6 +114,16 @@ export interface SaleWindow {
 /** Where an entry's broadcast or work is: its platform, when known. */
 export type EventPlatform = "youtube" | "bilibili" | "other" | "unknown"
 
+/**
+ * One platform an entry is shown on, the link to follow there (null when it
+ * has none) and that platform's confirmed broadcast state.
+ */
+export interface EventLink {
+  platform: EventPlatform
+  url: string | null
+  liveStatus?: LiveStatus | null
+}
+
 export interface ScheduleEvent {
   id: string
   source: string
@@ -151,10 +161,17 @@ export interface ScheduleEvent {
    */
   liveStatus?: LiveStatus | null
   /**
-   * The Bilibili live room of a Bilibili stream or membership entry, once
-   * known; the entry links to it instead of its source post (`url`).
+   * The Bilibili live room of a stream or membership entry shown on
+   * Bilibili, once known.
    */
   liveUrl?: string | null
+  /**
+   * Every platform the entry is shown on, its own first: announced, lent by
+   * the entries merged into it, or a simulcast the live room observed.
+   */
+  platforms?: EventPlatform[]
+  /** One link per shown platform, in `platforms` order. */
+  links?: EventLink[]
   /** The linked video's title translations while the event shows its title. */
   translations?: Translations
   sourceLanguage?: string | null

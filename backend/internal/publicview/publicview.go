@@ -118,12 +118,30 @@ func publicLiveNow(l *sqlite.LiveNow) any {
 }
 
 func PublicEvent(e sqlite.DashboardEvent, extras bool) map[string]any {
-	out := map[string]any{"id": e.ID, "source": e.Source, "platform": value(e.Platform), "title": e.Title, "detail": value(e.Detail), "startsOn": e.StartsOn, "startsAt": value(e.StartsAt), "endsAt": value(e.EndsAt), "endsOn": value(e.EndsOn), "timezone": e.Timezone, "timePrecision": e.TimePrecision, "status": value(e.Status), "eventType": value(e.EventType), "tag": value(e.Tag), "url": value(e.URL), "provenance": e.Provenance, "cancellationStatus": e.CancellationStatus, "cancellationSource": value(e.CancellationSource), "cancellationReason": value(e.CancellationReason), "cancellationEvidence": value(e.CancellationEvidence), "cancellationAt": value(e.CancellationAt), "translations": publicTranslations(e.Translations), "sourceLanguage": value(e.Translations.SourceLanguage)}
+	out := map[string]any{"id": e.ID, "source": e.Source, "platform": value(e.Platform), "platforms": publicPlatforms(e.Platforms), "title": e.Title, "detail": value(e.Detail), "startsOn": e.StartsOn, "startsAt": value(e.StartsAt), "endsAt": value(e.EndsAt), "endsOn": value(e.EndsOn), "timezone": e.Timezone, "timePrecision": e.TimePrecision, "status": value(e.Status), "eventType": value(e.EventType), "tag": value(e.Tag), "url": value(e.URL), "provenance": e.Provenance, "cancellationStatus": e.CancellationStatus, "cancellationSource": value(e.CancellationSource), "cancellationReason": value(e.CancellationReason), "cancellationEvidence": value(e.CancellationEvidence), "cancellationAt": value(e.CancellationAt), "translations": publicTranslations(e.Translations), "sourceLanguage": value(e.Translations.SourceLanguage)}
 	if extras {
 		out["manualLocked"] = e.ManualLocked
 		out["isUpcoming"] = e.IsUpcoming
 		out["liveStatus"] = value(e.LiveStatus)
 		out["liveUrl"] = value(e.LiveURL)
+		out["links"] = PublicEventLinks(e.Links)
+	}
+	return out
+}
+
+// publicPlatforms is an entry's shown platforms, never null.
+func publicPlatforms(platforms []string) []string {
+	if platforms == nil {
+		return []string{}
+	}
+	return platforms
+}
+
+// PublicEventLinks is one {platform, url, liveStatus} per shown platform.
+func PublicEventLinks(links []sqlite.EventLink) []any {
+	out := make([]any, 0, len(links))
+	for _, link := range links {
+		out = append(out, map[string]any{"platform": link.Platform, "url": value(link.URL), "liveStatus": value(link.LiveStatus)})
 	}
 	return out
 }

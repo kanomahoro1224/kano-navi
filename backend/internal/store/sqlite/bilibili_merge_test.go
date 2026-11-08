@@ -43,8 +43,11 @@ func TestBilibiliStreamsFollowTheExistingMergeRules(t *testing.T) {
 func TestXNoticesOfBilibiliStreamsMergeIntoTheDynamic(t *testing.T) {
 	start := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	entry := func(id, source, eventType, platform string, offset time.Duration) mergeEvent {
+		// As loadMergeEvents reads a row whose platforms array is its
+		// single platform.
 		return mergeEvent{id: id, source: source, title: "杂谈", startsOn: "2026-11-07", eventType: eventType, precision: "exact",
-			provenance: "automatic", cancellation: "none", platform: platform, start: start.Add(offset), hasStart: true, startTimeSet: true}
+			provenance: "automatic", cancellation: "none", platform: platform, platforms: NormalizePlatforms([]string{platform}),
+			start: start.Add(offset), hasStart: true, startTimeSet: true}
 	}
 	dynamic := entry("bilibili-schedule-a", "bilibili", "stream", "bilibili", 0)
 	notice := entry("x-schedule-a", "x", "stream", "bilibili", 20*time.Minute)

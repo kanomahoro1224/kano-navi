@@ -520,6 +520,18 @@ export const adminMessages = {
     "admin.schedule.field.status": "Status note",
     "admin.schedule.field.statusHint": "Shown as a short label",
     "admin.schedule.field.url": "Link",
+    "admin.schedule.field.platforms": "Platforms",
+    "admin.schedule.field.platformsHint":
+      "Where the entry happens; choose YouTube and bilibili for a simulcast, none when not known",
+    "admin.schedule.roomLinkHint":
+      "A bilibili live-room link is the same for every broadcast, so it is not the entry's link: bilibili is chosen instead and the board links the room. Choose Other to keep it for someone else's room.",
+    "admin.event.platform.youtube": "YouTube",
+    "admin.event.platform.bilibili": "bilibili",
+    "admin.event.platform.other": "Other",
+    "admin.event.platform.observed": ({ platform }: { platform: any }) =>
+      `${platform}: shown from a merged entry or the live room`,
+    "admin.event.platform.inferred": ({ platform }: { platform: any }) =>
+      `${platform}: the source's default, not its wording`,
     "admin.schedule.field.detail": "Detail",
     "admin.schedule.field.detailPlaceholder":
       "Shown under the title and in calendar notes",
@@ -1309,6 +1321,8 @@ export const adminMessages = {
       "An operator already merged another upload into this video. Undo that merge first.",
     "admin.error.eventMergeConflict":
       "An operator already merged another entry into this one. Undo that merge first.",
+    "admin.error.eventLiveRoomUrl":
+      "A bilibili live-room link is not an entry's link. Choose the bilibili platform instead, or Other for someone else's room.",
     "admin.error.notFound": "That record no longer exists.",
     "admin.error.bilibiliBlocked":
       "Bilibili is asking this server for a captcha. Reads resume after {time}.",

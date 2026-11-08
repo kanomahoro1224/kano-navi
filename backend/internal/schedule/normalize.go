@@ -3,6 +3,7 @@ package schedule
 import (
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -103,13 +104,18 @@ type normalizedEvent struct {
 	cancellationSuspected bool
 	status                string
 	eventType             string
-	// platform is youtube, bilibili, other or unknown.
-	platform   string
-	tag        *string
-	url        string
-	isUpcoming bool
-	confidence float64
-	evidence   string
+	// platform is youtube, bilibili, other or unknown: the first of
+	// platforms, the announced platforms in stored order. platformsInferred
+	// marks platforms that came from the source's default rather than from
+	// the wording.
+	platform          string
+	platforms         []string
+	platformsInferred bool
+	tag               *string
+	url               string
+	isUpcoming        bool
+	confidence        float64
+	evidence          string
 }
 
 // rawObject reproduces the property order of the JavaScript event object so
@@ -327,6 +333,106 @@ func (p sourceProfile) entryPlatform(value any, eventType, text, youtubeID strin
 	return platform
 }
 
+// simulcastWording names a broadcast on two platforms at once;
+// bilibiliWording names Bilibili, and simultaneous a time shared with
+// another platform, which with both platforms named is a simulcast too.
+var (
+	simulcastWording = regexp.MustCompile(`(?i)同時配信|同時生配信|同時放送|同時生放送|同时直播|同时配信|同步直播|simulcast`)
+	bilibiliWording  = regexp.MustCompile(`(?i)bilibili|ビリビリ|b站|哔哩哔哩`)
+	simultaneous     = regexp.MustCompile(`同時|同时`)
+)
+
+// entryWording is what an entry itself says: its title, detail and cited
+// evidence, and the post's text when the post has this one entry only. A
+// post of several entries may name platforms that only some of them use.
+func entryWording(event *object, text string, single bool) string {
+	parts := []string{}
+	for _, key := range []string{"title", "detail", "evidence"} {
+		if value, _ := event.get(key); value != nil {
+			parts = append(parts, jsString(value))
+		}
+	}
+	if single {
+		parts = append(parts, text)
+	}
+	return strings.Join(parts, " ")
+}
+
+// namesSimulcast reports wording that announces an entry on both YouTube and
+// Bilibili at once: a simulcast word, or both platforms named together with
+// 同時 (YouTubeとbilibiliで同時に). Naming both platforms alone is not one.
+func namesSimulcast(wording string) bool {
+	return simulcastWording.MatchString(wording) ||
+		bilibiliWording.MatchString(wording) && youtubeWording.MatchString(wording) && simultaneous.MatchString(wording)
+}
+
+// modelPlatforms reads a Bilibili entry's platforms array; a value outside
+// the enum is dropped. A stray scalar platform counts as a one-item array.
+func modelPlatforms(event *object) []string {
+	values := []string{}
+	if list, ok := event.get("platforms"); ok {
+		items, _ := list.([]any)
+		for _, item := range items {
+			if text, isString := item.(string); isString {
+				values = append(values, text)
+			}
+		}
+		return sqlite.NormalizePlatforms(values)
+	}
+	if value, _ := event.get("platform"); value != nil {
+		values = append(values, jsString(value))
+	}
+	return sqlite.NormalizePlatforms(values)
+}
+
+// entryPlatforms is where one entry happens, in announced order, and
+// whether that came from the source's default rather than the wording.
+//
+// An X entry keeps the single platform of entryPlatform (a live-room link
+// makes it bilibili, as before), and a stream or release whose own wording
+// announces a simulcast adds the other of YouTube and Bilibili after it; a
+// collaboration elsewhere (other) stays other.
+//
+// A Bilibili entry lists what the model read, a YouTube link adding youtube
+// and a live-room link bilibili unless the entry is other. Code decides
+// whether bilibili alone is stated: only Bilibili-only wording (bilibili限定,
+// B站限定) states it; a dynamic's plain stream, named on B站 or not, is
+// bilibili by the source's default (inferred).
+func (p sourceProfile) entryPlatforms(event *object, eventType, text, eventURL, youtubeID string, single bool) ([]string, bool) {
+	stream := eventType == "stream" || eventType == "member"
+	room := isBilibiliRoomLink(eventURL)
+	wording := entryWording(event, text, single)
+	if p.source == "x" {
+		platformValue, _ := event.get("platform")
+		platform := p.entryPlatform(platformValue, eventType, text, youtubeID)
+		if room && platform != sqlite.PlatformOther {
+			platform = sqlite.PlatformBilibili
+		}
+		if (stream || eventType == "release") && platform != sqlite.PlatformOther && namesSimulcast(wording) {
+			return sqlite.NormalizePlatforms([]string{platform, sqlite.PlatformYouTube, sqlite.PlatformBilibili}), false
+		}
+		return sqlite.NormalizePlatforms([]string{platform}), false
+	}
+	platforms := modelPlatforms(event)
+	if youtubeID != "" {
+		platforms = append(platforms, sqlite.PlatformYouTube)
+	}
+	if room && !slices.Contains(platforms, sqlite.PlatformOther) {
+		platforms = append(platforms, sqlite.PlatformBilibili)
+	}
+	platforms = sqlite.NormalizePlatforms(platforms)
+	only := bilibiliOnly.MatchString(wording) && !youtubeWording.MatchString(wording)
+	switch {
+	case len(platforms) == 0 && (stream || eventType == "release") && only:
+		return []string{sqlite.PlatformBilibili}, false
+	case len(platforms) == 0 && stream && p.streamPlatform != "":
+		return []string{p.streamPlatform}, true
+	case len(platforms) == 1 && platforms[0] == sqlite.PlatformBilibili:
+		return platforms, !only
+	}
+	return platforms, false
+}
+
 // isBilibiliRoomLink reports a Bilibili live-room link, which is the same
 // for every broadcast and so never an entry's own link.
 func isBilibiliRoomLink(value string) bool {
@@ -411,14 +517,11 @@ func (p sourceProfile) normalizeEvents(items []any, postID, postURL, text string
 		}
 		eventTypeText := eventType.(string)
 		youtubeID := youtubeIDFromURL(eventURL)
-		platformValue, _ := event.get("platform")
-		platform := p.entryPlatform(platformValue, eventTypeText, text, youtubeID)
 		// A live-room link stays only on a collaboration in someone else's
 		// room; any other entry with one is a Bilibili stream.
-		if isBilibiliRoomLink(eventURL) && platform != "other" {
-			platform = "bilibili"
-		}
-		if platform == "bilibili" && isBilibiliRoomLink(eventURL) {
+		platforms, inferred := p.entryPlatforms(event, eventTypeText, text, eventURL, youtubeID, len(items) == 1)
+		platform := sqlite.PrimaryPlatform(platforms)
+		if isBilibiliRoomLink(eventURL) && !slices.Contains(platforms, sqlite.PlatformOther) {
 			// The room link is the same for every broadcast; reads add it as
 			// liveUrl, so the entry keeps its announcement's link.
 			eventURL = ""
@@ -434,6 +537,8 @@ func (p sourceProfile) normalizeEvents(items []any, postID, postURL, text string
 			timePrecision:         "unknown",
 			eventType:             eventTypeText,
 			platform:              platform,
+			platforms:             platforms,
+			platformsInferred:     inferred,
 			tag:                   extractedTag(tagValue),
 			url:                   normalizePublicURL(eventURL, postURL),
 			isUpcoming:            true,

@@ -324,14 +324,87 @@ export function eventStatus(event: ScheduleEvent, now = Date.now()) {
   return "done"
 }
 
+/** One platform link of an entry, marked while that platform is live. */
+export interface EventPlatformLink {
+  source: string
+  url: string
+  live?: boolean
+}
+
 /**
- * The link an entry follows: a stream or membership entry's Bilibili live
- * room once known, else its own link (the source post or operator's link).
+ * An entry's platform links, as videos order theirs: a live platform
+ * first, Bilibili first for zh-CN once the entry is over, its own platform
+ * first otherwise. A platform without a link is left out.
+ */
+export function eventLinks(
+  event: ScheduleEvent,
+  locale?: string,
+  now?: number,
+): EventPlatformLink[] {
+  const links: EventPlatformLink[] = (event.links || []).flatMap((link) =>
+    link.url
+      ? [
+          {
+            source: link.platform,
+            url: link.url,
+            ...(link.liveStatus === "live" ? { live: true } : {}),
+          },
+        ]
+      : [],
+  )
+  let lead = links.findIndex((link) => link.live)
+  if (lead < 0 && locale === "zh-CN" && now !== undefined)
+    lead =
+      eventStatus(event, now) === "done"
+        ? links.findIndex((link) => link.source === "bilibili")
+        : -1
+  if (lead <= 0) return links
+  return [links[lead], ...links.slice(0, lead), ...links.slice(lead + 1)]
+}
+
+/**
+ * The link an entry follows: its first platform link (a live platform's,
+ * else its own platform's), or for a snapshot without links a stream's
+ * Bilibili live room once known, else its own link (the source post or
+ * operator's link).
  */
 export function eventLink(event: ScheduleEvent) {
+  const [first] = eventLinks(event)
+  if (first) return first.url
   if (event.liveUrl && ["stream", "member"].includes(event.eventType))
     return event.liveUrl
   return event.url
+}
+
+/**
+ * The entry's own link (its announcement, or an operator's link) when no
+ * platform link is that page; it is never labelled as a platform.
+ */
+export function eventAnnouncement(
+  event: ScheduleEvent,
+  links: EventPlatformLink[],
+): string | null {
+  if (!event.url || links.some((link) => link.url === event.url)) return null
+  return event.url
+}
+
+/**
+ * Whether an entry shows its platform links: more than one, or one beside
+ * an announcement of its own, which then keeps the open arrow.
+ */
+export function eventShowsPlatformLinks(
+  event: ScheduleEvent,
+  links: EventPlatformLink[],
+) {
+  return (
+    links.length > 1 ||
+    (links.length === 1 && Boolean(eventAnnouncement(event, links)))
+  )
+}
+
+/** The platforms an entry is shown on, for its mark. */
+export function eventPlatforms(event: ScheduleEvent): string[] {
+  return (event.platforms || []).filter((platform) => platform !== "unknown")
 }
 
 export function eventIsManual(event: ScheduleEvent) {

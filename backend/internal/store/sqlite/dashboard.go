@@ -150,12 +150,30 @@ type DashboardEvent struct {
 	// Bilibili room's for a Bilibili stream the room's broadcast matched, or
 	// nil.
 	LiveStatus *string
-	// LiveURL is the account's Bilibili live room for a Bilibili stream or
-	// members-only stream, once a live check learned the room; nil otherwise.
+	// LiveURL is the account's Bilibili live room for a stream or
+	// members-only stream shown on Bilibili, once a live check learned the
+	// room; nil otherwise.
 	LiveURL *string
+	// Platforms are the entry's shown platforms, its own platform first, and
+	// Links one link per shown platform (see attachEventPlatforms).
+	Platforms []string
+	Links     []EventLink
+	// announced are the stored platforms as readers see them, and roomURL a
+	// live-room link stored as the entry's url, which reads as no identity
+	// link (see readPlatforms).
+	announced []string
+	roomURL   string
 	// Translations are the linked video's title translations while the
 	// event shows that video's title.
 	Translations TranslationSet
+}
+
+// EventLink is one shown platform of an entry, the link to follow there
+// (nil when there is none) and that platform's broadcast state.
+type EventLink struct {
+	Platform   string
+	URL        *string
+	LiveStatus *string
 }
 
 type Video struct {
@@ -438,7 +456,7 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 			events[i].LiveStatus = live[streamIdentity(*events[i].URL)]
 		}
 	}
-	liveNow, err := s.attachBilibiliLive(ctx, events, now)
+	liveNow, err := s.attachEventPlatforms(ctx, events, now)
 	if err != nil {
 		return nil, err
 	}
@@ -960,13 +978,22 @@ type scanner interface{ Scan(...any) error }
 
 func scanEvent(row scanner, now time.Time) (DashboardEvent, error) {
 	var e DashboardEvent
-	var detail, sa, ea, eo, status, et, tag, urlv, cs, cr, ce, cat, platform sql.NullString
+	var detail, sa, ea, eo, status, et, tag, urlv, cs, cr, ce, cat, platform, platforms sql.NullString
 	var locked int64
-	if err := row.Scan(&e.ID, &e.Source, &e.Title, &detail, &e.StartsOn, &sa, &ea, &eo, &e.Timezone, &e.TimePrecision, &status, &et, &tag, &urlv, &e.Provenance, &locked, &e.CancellationStatus, &cs, &cr, &ce, &cat, &e.UpdatedAt, &platform); err != nil {
+	if err := row.Scan(&e.ID, &e.Source, &e.Title, &detail, &e.StartsOn, &sa, &ea, &eo, &e.Timezone, &e.TimePrecision, &status, &et, &tag, &urlv, &e.Provenance, &locked, &e.CancellationStatus, &cs, &cr, &ce, &cat, &e.UpdatedAt, &platform, &platforms); err != nil {
 		return e, dbErr(err)
 	}
 	if platform.Valid {
 		e.Platform = &platform.String
+	}
+	var room bool
+	e.announced, room = readPlatforms(platforms, platform, urlv.String)
+	e.Platforms = e.announced
+	if room {
+		// A live-room link is the same for every broadcast: the entry reads
+		// as a Bilibili one without an identity link.
+		e.roomURL, urlv = urlv.String, sql.NullString{}
+		e.Platform = strPtr(PrimaryPlatform(e.announced))
 	}
 	if detail.Valid {
 		e.Detail = &detail.String

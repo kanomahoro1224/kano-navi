@@ -5,7 +5,9 @@ import {
   eventIsLive,
   eventIsUpcoming,
   eventLink,
+  eventLinks,
   scheduleSortTime,
+  type EventPlatformLink,
 } from "./format.ts"
 import { leadingCandidate, videoIsInFocus } from "./derive-dashboard.ts"
 import type { Dashboard, LiveNow, ScheduleEvent, Video } from "../types.ts"
@@ -30,6 +32,11 @@ interface SpotlightCandidate {
   event?: ScheduleEvent
   /** An unannounced broadcast the platform reports live now. */
   liveNow?: LiveNow
+  /**
+   * The platform links an entry of the same broadcast adds to a video, such
+   * as the bilibili room of a simulcast.
+   */
+  extraLinks?: EventPlatformLink[]
 }
 
 export interface SpotlightItem extends SpotlightCandidate {
@@ -59,6 +66,11 @@ export function spotlightLink(
   if (hostMatches(host, watchHosts)) return "watch"
   if (hostMatches(host, announcementHosts)) return "announcement"
   return "open"
+}
+
+/** Whether an entry of the video's broadcast is live on another platform. */
+function extraLive(item: SpotlightCandidate) {
+  return Boolean(item.extraLinks?.some((link) => link.live))
 }
 
 // Only artwork earns the full ticket; a schedule entry without it would leave
@@ -102,12 +114,23 @@ export function pickSpotlight(
   }
   if (summary?.nextEvent) {
     const event = summary.nextEvent
-    const duplicate = candidates.some(
+    const duplicate = candidates.find(
       (candidate) =>
         event.url &&
         candidate.url &&
         streamIdentity(candidate.url) === streamIdentity(event.url),
     )
+    // The video's ticket keeps the entry's other platforms.
+    if (duplicate?.video) {
+      const sources = [
+        duplicate.video.source,
+        ...(duplicate.video.alternates || []).map((link) => link.source),
+      ]
+      const extra = eventLinks(event).filter(
+        (link) => !sources.includes(link.source),
+      )
+      if (extra.length) duplicate.extraLinks = extra
+    }
     if (!duplicate) {
       // A Bilibili stream's ticket opens its live room once known.
       const url = eventLink(event)
@@ -131,7 +154,9 @@ export function pickSpotlight(
           eventIsUpcoming(candidate.event, now) ||
           eventIsLive(candidate.event, now)
         )
-      return candidate.video ? videoIsInFocus(candidate.video, now) : false
+      return candidate.video
+        ? videoIsInFocus(candidate.video, now) || extraLive(candidate)
+        : false
     })
     .sort(
       (a, b) =>
@@ -146,7 +171,8 @@ export function pickSpotlight(
       Date.parse((candidate.event || candidate.video)?.endsAt || ""),
     (candidate) =>
       Boolean(candidate.liveNow) ||
-      confirmedLiveStatus(candidate.event || candidate.video) === "live",
+      confirmedLiveStatus(candidate.event || candidate.video) === "live" ||
+      extraLive(candidate),
   )
   if (lead) return withLayout(lead)
 
@@ -175,7 +201,7 @@ export function spotlightIsLive(
   now: number,
 ) {
   if (item?.mode !== "next" || !item.time) return false
-  if (item.liveNow) return true
+  if (item.liveNow || extraLive(item)) return true
   const confirmed = confirmedLiveStatus(item.event || item.video)
   if (confirmed) return confirmed === "live"
   return Date.parse(item.time) <= now

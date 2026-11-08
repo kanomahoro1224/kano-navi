@@ -8,9 +8,12 @@ A ticket shows the next stream or event (a sale stays on the schedule
 instead): its artwork, the date and time in
 Japan, the same moment in your own time zone, and a countdown in hours and
 minutes. While a stream is live the ticket switches to an on-air state. A
-bilibili stream opens Kano's bilibili live room. When she goes live on
-bilibili without an announced entry, the ticket shows **Live now on
-bilibili** with the room's title and a link to watch. Its
+bilibili stream opens Kano's bilibili live room. A stream on YouTube and
+bilibili at once is one ticket with a link to each platform; the platform
+that is live is marked and opened first. When she goes live on bilibili while
+a YouTube stream is on air, that stream's ticket gains its bilibili link.
+When she goes live on bilibili without any entry, the ticket shows **Live
+now on bilibili** with the room's title and a link to watch. Its
 label names the activity with an icon when the video or the schedule says it
 is gameplay, talk, or singing, and otherwise the kind of stream or video. A
 members-only stream keeps its Members only mark beside that label.

@@ -519,18 +519,25 @@ a catalog step: step runs and full syncs never select it.
 YouTube part and `SKIP_BILIBILI=1` its Bilibili part.
 Page loads, refreshes and revision requests never start it.
 
-The Bilibili part follows the active stream and members-only entries of
-platform `bilibili` that start within the next 15 minutes or the last 24
-hours, through the same phases at the Bilibili interval; an entry whose
-broadcast the room already showed and ended, an ended entry and a manually
-confirmed cancellation are left out. Without a due entry the room is still asked
-about once per Bilibili interval after its last check (phase `baseline`), so
-an unannounced stream is seen. A due Bilibili check joins the same probe run
-as due YouTube videos and costs one request, never more; it never runs
-during the live host's backoff. Its counts are under `bilibili` in the run
-result (`targets`, `phase`, `requested`, `live`, `changed`, `errors`). At the
-default interval the baseline costs 48 requests a day, and one announced
-stream a few more around its start.
+The Bilibili part follows every active stream and members-only entry that
+starts within the next 15 minutes or the last 24 hours. An entry shown on
+Bilibili (its platforms, with those its merged entries lend it, include
+`bilibili`; see [Event platforms](data-model.md#event-platforms)) goes
+through the same phases at the Bilibili interval. Every other one gets
+sparse checks (phase `sparse`), about 5 and 20 minutes after its start and
+then one per Bilibili interval while the room is live, so a broadcast on
+Bilibili that only a YouTube reservation announced is seen as its
+simulcast.
+An entry whose broadcast the room already showed and ended, an ended entry
+and a manually confirmed cancellation are left out. Without a due entry the
+room is still asked about once per Bilibili interval after its last check
+(phase `baseline`), so an unannounced stream is seen. A due Bilibili check
+joins the same probe run as due YouTube videos and costs one request, never
+more; it never runs during the live host's backoff. Its counts are under
+`bilibili` in the run result (`targets`, `phase`, `requested`, `live`,
+`changed`, `errors`). At the default interval the baseline costs 48
+requests a day, one stream shown on Bilibili a few more around its start,
+and any other scheduled stream about two.
 
 ## Run Execution
 

@@ -213,12 +213,31 @@ goes to the opus page. It has no engagement counts. A forward shows the
 dynamic it forwards as its quote card, and an empty text (an emoji-only
 dynamic, or a forward without wording of its own) leaves only its images or
 its quote. The
-wall's top line adds bilibili while it holds a dynamic. A stream or
-members-only entry links to `liveUrl ?? url` (`eventLink` in
-`src/dashboard/format.ts`). The dashboard's `liveNow` becomes a live stage
-ticket, "Live now on bilibili", unless an entry of the same platform, type
-stream or member and confirmed `live` starts at S with S−2h ≤ `startedAt` ≤
-S+3h, as the server matches broadcasts; the match never compares links. The
+wall's top line adds bilibili while it holds a dynamic.
+
+An entry follows its first platform link (`eventLink` in
+`src/dashboard/format.ts`), or its `url`, or, in a snapshot without
+`links`, a stream's `liveUrl ?? url`. `eventLinks` orders an entry's
+`links` as `videoLinks` orders a video's: a platform whose `liveStatus` is
+`live` first, marked live, then for zh-CN once the entry is done its
+bilibili link, else its own platform first; a platform without a link is
+left out. An entry shows them with `PlatformLinks` (`platform-links.tsx`,
+the live one marked) when it has more than one, or one beside an
+announcement of its own (`eventAnnouncement`: its `url` when no platform
+link is that page): on its stage ticket, on its week and calendar card,
+where the open arrow then opens the announcement, and in its sheet, where
+the open button does; the announcement is never labelled as a platform. A
+full stage ticket of an entry marks its `platforms` on the art with
+`PlatformBadge`. When the stage shows the reserved video of an entry, the
+ticket adds the entry's links on platforms the video has no copy on, such
+as the bilibili room of a simulcast, marks the video's own link live while
+the probe confirms it, and reads live, without a countdown, while any of
+its links is. `PlatformLinks` names a link on another platform by its
+host. The dashboard's `liveNow` becomes a live stage
+ticket, "Live now on bilibili", unless an entry shown on that platform, of
+type stream or member and confirmed `live`, starts at S with S−2h ≤
+`startedAt` ≤ S+3h, as the server matches broadcasts; the match never
+compares links. The
 post wall's account filter adds a bilibili button for each of
 `meta.bilibiliAccounts`, with the bilibili mark instead of the mid. A snapshot restored from the
 browser drops `liveNow` until the first fresh read.

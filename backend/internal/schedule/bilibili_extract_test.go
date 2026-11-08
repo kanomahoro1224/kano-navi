@@ -67,7 +67,7 @@ func TestBilibiliExtractionConvertsBeijingTimeAndRecordsThePlatform(t *testing.T
 	if f.provider.count() != 1 {
 		t.Fatalf("requests=%d", f.provider.count())
 	}
-	for _, want := range []string{"Chinese Bilibili dynamic", "2026-11-07T04:04:48Z (2026-11-07 Sat 12:04 Asia/Shanghai)", `"timeZone"`, `"platform"`} {
+	for _, want := range []string{"Chinese Bilibili dynamic", "2026-11-07T04:04:48Z (2026-11-07 Sat 12:04 Asia/Shanghai)", `"timeZone"`, `"platforms"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("request lacks %q", want)
 		}

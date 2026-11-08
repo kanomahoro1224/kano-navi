@@ -453,9 +453,9 @@ func TestDashboardReadIsAPublicProjection(t *testing.T) {
 			}
 		}
 		// 19 schedule facts (a sale's close date included), the calendar
-		// label, the platform, plus the linked video's translations and
-		// sourceLanguage.
-		if len(event) != 23 {
+		// label, the platform and the shown platforms, plus the linked
+		// video's translations and sourceLanguage.
+		if len(event) != 24 {
 			t.Fatalf("event field count = %d: %v", len(event), keys(event))
 		}
 		// The label is read from the event row, so a reader sees it here just
@@ -504,7 +504,8 @@ func TestScheduleListHidesOperatorMetadata(t *testing.T) {
 				t.Fatalf("event exposes %s", field)
 			}
 		}
-		if len(event) != 19 {
+		// The visitor facts plus the shown platforms.
+		if len(event) != 20 {
 			t.Fatalf("event field count = %d: %v", len(event), keys(event))
 		}
 	}
@@ -1301,5 +1302,25 @@ func TestScheduleListOmitsMergedDuplicates(t *testing.T) {
 	}
 	if strings.Contains(response.body, "merged-duplicate") || strings.Contains(response.body, "rule_a") {
 		t.Fatalf("merged duplicate leaked: %s", response.body)
+	}
+}
+
+// A manual entry stored with the live room as its link, as the console
+// saved it before the room link was refused, lists as a Bilibili entry
+// without a link, as on every other public read.
+func TestScheduleListReadsALiveRoomLinkAsTheBilibiliPlatform(t *testing.T) {
+	handler, store := newHandler(t, nil)
+	if _, err := store.DB().Exec(`INSERT INTO events(id,source,source_item_id,source_key,title,starts_on,timezone,time_precision,event_type,url,provenance,manual_locked,cancellation_status,created_at,updated_at)
+ VALUES ('manual-room-event','manual','manual-room-event','manual-room-event','Bilibili 限定雑談','2026-09-04','Asia/Tokyo','unknown','stream','https://live.bilibili.com/1000001','manual',1,'none','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z')`); err != nil {
+		t.Fatal(err)
+	}
+	page := toolValue(t, post(t, handler, toolCall("schedule_list", map[string]any{"search": "Bilibili 限定"})))
+	items := page["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("items = %v", items)
+	}
+	event := items[0].(map[string]any)
+	if event["url"] != nil || !reflect.DeepEqual(event["platforms"], []any{"bilibili"}) {
+		t.Fatalf("event = %v", event)
 	}
 }

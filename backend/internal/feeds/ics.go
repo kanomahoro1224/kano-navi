@@ -73,7 +73,7 @@ func Calendar(events []sqlite.DashboardEvent, stamp time.Time, locale Locale) []
 			if description := eventDescription(e, entry.timed, locale); description != "" {
 				line("DESCRIPTION", escapeText(description))
 			}
-			if link := publicLink(e.URL); link != "" {
+			if link := publicLink(eventFeedLink(e)); link != "" {
 				line("URL", link)
 			}
 			line("STATUS", eventStatus(e))
@@ -215,7 +215,7 @@ func eventDescription(e sqlite.DashboardEvent, timed bool, locale Locale) string
 	} else {
 		parts = append(parts, m.automatic)
 	}
-	if link := publicLink(e.URL); link != "" {
+	if link := publicLink(eventFeedLink(e)); link != "" {
 		parts = append(parts, link)
 	}
 	parts = append(parts, m.unofficial)
@@ -258,4 +258,19 @@ func writeFolded(b *strings.Builder, content string) {
 		width += size
 	}
 	b.WriteString("\r\n")
+}
+
+// eventFeedLink is the link a calendar entry carries: the entry's own, or,
+// for an entry without one (a stored live-room link reads as none), its
+// first platform link.
+func eventFeedLink(e sqlite.DashboardEvent) *string {
+	if e.URL != nil {
+		return e.URL
+	}
+	for _, link := range e.Links {
+		if link.URL != nil {
+			return link.URL
+		}
+	}
+	return e.LiveURL
 }

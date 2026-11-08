@@ -155,6 +155,8 @@ export function groupVideos(
 export interface VideoLink {
   source: string
   url: string
+  /** The platform is broadcasting this entry now. */
+  live?: boolean
 }
 
 /**

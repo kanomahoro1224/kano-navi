@@ -342,6 +342,7 @@ func (h *Handler) calendar(w http.ResponseWriter, r *http.Request) {
 		projected["manualLocked"] = event.ManualLocked
 		projected["liveStatus"] = event.LiveStatus
 		projected["liveUrl"] = event.LiveURL
+		projected["links"] = publicview.PublicEventLinks(event.Links)
 		items = append(items, projected)
 	}
 	images := make([]any, 0, len(calendar.ScheduleImages))

@@ -562,6 +562,26 @@ export interface AdminEvent {
   /** An automatic entry whose every source post is hidden: the public pages
    * leave it out until a source post is shown or the entry is confirmed. */
   hiddenByPosts: boolean
+  /** The announced platforms, inferred when a source default gave them. */
+  platforms?: EventPlatform[]
+  platformsInferred?: boolean
+  /** What the public pages show: announced, merged entries' and observed. */
+  shownPlatforms?: EventPlatform[]
+}
+
+/** Where an entry happens; none means not known. */
+export type EventPlatform = "youtube" | "bilibili" | "other"
+
+export const eventPlatforms: EventPlatform[] = ["youtube", "bilibili", "other"]
+
+/** A bilibili live-room link, which is never an entry's own link. */
+export function isLiveRoomLink(value: string) {
+  try {
+    const host = new URL(value.trim()).hostname.toLowerCase()
+    return host === "live.bilibili.com" || host.endsWith(".live.bilibili.com")
+  } catch {
+    return false
+  }
 }
 
 export interface EventInput {
@@ -578,6 +598,8 @@ export interface EventInput {
   tag?: string
   status?: string
   url?: string
+  /** The operator's platforms; absent keeps the stored ones. */
+  platforms?: EventPlatform[]
   cancellationStatus?: Cancellation
   cancellationReason?: string
 }

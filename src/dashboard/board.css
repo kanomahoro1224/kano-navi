@@ -2316,6 +2316,16 @@
   height: 12px;
 }
 
+/* The platform an entry is live on now. */
+.platform-chip.is-live {
+  border-color: var(--berry);
+  color: var(--berry);
+}
+
+.platform-links .platform-live {
+  animation: onair-pulse 1.6s ease-in-out infinite;
+}
+
 /* Fingers get a taller chip; a pointer keeps the meta line light. */
 @media (max-width: 720px), (pointer: coarse) {
   .platform-chip {

@@ -36,7 +36,10 @@ Click or tap an entry to open its details: the whole title, its Japan time
 (and your own time when you are outside Japan), its labels, whether it is
 Auto-detected or Confirmed, any cancellation note, and **Open link** for the
 stream, video, or post it comes from. The arrow in an entry's bottom corner
-opens that link directly.
+opens that link directly. An entry on more than one platform, such as a
+stream on YouTube and bilibili at once, shows one link per platform, with
+the live one marked; so does an entry on one platform whose announcement is
+a post, and the arrow and **Open link** then open that post.
 
 Use the arrows to move between weeks, **Today** to return to the current
 week, or the shortcut to the nearest week that has events. When Kano posts a

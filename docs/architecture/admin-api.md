@@ -383,7 +383,7 @@ locked by an operator); `cancellation` is `none`,
 `llm_suspected` or `manual_confirmed`; `order` is `asc` or `desc` (default);
 `deleted=1` includes tombstones and `deleted=only` lists only them. Event fields are `title`, `detail`,
 `startsOn`, `startsAt`, `endsAt`, `endsOn`, `timePrecision`, `eventType`, `tag`, `status`,
-`url`, `cancellationStatus` and `cancellationReason` (required for
+`url`, `platforms`, `cancellationStatus` and `cancellationReason` (required for
 `manual_confirmed`). `eventType` is `event` (the default), `stream`,
 `member`, `release`, `appearance` or `sale`. `endsOn` is a sale's close date
 and is rejected for any other type; it is not before `startsOn`, `endsAt` then
@@ -392,6 +392,23 @@ falls on it in Japan, and a deadline (`endsOn` equal to `startsOn`) may have
 another type clears it. Every write is manual: it locks the event against
 automatic extraction, and a delete is a durable tombstone. Confirming keeps
 the stored values unless the body overrides them.
+
+`platforms` are the entry's [announced platforms](data-model.md#event-platforms):
+an array of `youtube`, `bilibili` and `other`, each at most once, both
+`youtube` and `bilibili` for a simulcast; null names none, an update
+without the field keeps the stored ones, and any other value answers
+`400 invalid_input`. A save writes them as the operator's (not inferred)
+under the manual lock. A live-room link (`live.bilibili.com`) as `url`
+answers `400 event_live_room_url` unless the platforms include `other`
+(someone else's room); the schedule editor turns a pasted room link into
+the bilibili platform instead. Confirming an entry whose stored `url` is a
+room link without `other` drops that link, as readers already do. Each
+event carries `platforms`, its announced platforms as readers see them (a
+stored room link without `other` adds `bilibili`), `platformsInferred` as
+stored, and `shownPlatforms`, the platforms the public reads show (with
+those its merged entries lend it and a simulcast the live room observed);
+the list marks the ones it does not announce. The order of `platforms` is
+kept: the first is the entry's own platform.
 
 `tag` is the calendar label: `live`, `game`, `talk`, `song` or `video`, an
 empty value clears it, and `auto` hands it back to the automatic layers. A

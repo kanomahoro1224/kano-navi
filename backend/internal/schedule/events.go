@@ -143,11 +143,11 @@ const upsertEventSQL = `INSERT INTO events (
 		cancellation_status, cancellation_source, cancellation_reason,
 		cancellation_evidence, cancellation_source_item_id,
 		cancellation_confidence, cancellation_at, deleted_at,
-		created_at, updated_at, raw_json, platform
+		created_at, updated_at, raw_json, platform, platforms, platforms_inferred
 	) VALUES (
 		?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Tokyo', ?, ?, ?, ?, ?, ?, ?,
 		'automatic', 0, ?, ?, 'none', NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-		?, ?, ?, ?
+		?, ?, ?, ?, ?, ?
 	)
 	ON CONFLICT(id) DO UPDATE SET
 		source=excluded.source, source_item_id=excluded.source_item_id,
@@ -180,7 +180,8 @@ const upsertEventSQL = `INSERT INTO events (
 			THEN events.cancellation_confidence ELSE excluded.cancellation_confidence END,
 		cancellation_at=CASE WHEN events.cancellation_status IN ('llm_suspected', 'manual_confirmed')
 			THEN events.cancellation_at ELSE excluded.cancellation_at END,
-		updated_at=excluded.updated_at, raw_json=excluded.raw_json, platform=excluded.platform
+		updated_at=excluded.updated_at, raw_json=excluded.raw_json, platform=excluded.platform,
+		platforms=excluded.platforms, platforms_inferred=excluded.platforms_inferred
 	WHERE events.manual_locked = 0`
 
 func nullableText(value *string) any {
@@ -256,7 +257,7 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, sour
 			eventID, event.canonicalSource, event.canonicalSourceItemID, event.canonicalSourceKey,
 			event.title, nullableText(event.detail), event.startsOn, nullableText(event.startsAt),
 			nullableText(event.endsAt), nullableText(event.endsOn), event.timePrecision, nullable(event.status), event.eventType,
-			nullableText(event.tag), llmTagSource(event.tag), nullable(event.url), upcoming, event.confidence, extractionID, now, now, stringify(raw), event.platform); err != nil {
+			nullableText(event.tag), llmTagSource(event.tag), nullable(event.url), upcoming, event.confidence, extractionID, now, now, stringify(raw), event.platform, sqlite.EncodePlatforms(event.platforms), event.platformsInferred); err != nil {
 			return err
 		}
 		evidence := event.rawObject()

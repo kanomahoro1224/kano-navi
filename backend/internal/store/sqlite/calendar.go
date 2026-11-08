@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"regexp"
-	"strings"
 	"time"
 )
 
@@ -175,46 +174,23 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 
 // attachLiveStatus gives each linked event the trusted broadcast state of its
 // video, the same state the board reads, so the schedule and the board agree
-// on what is on air.
+// on what is on air, then projects the events' platforms and links.
 func (s *Store) attachLiveStatus(ctx context.Context, events []DashboardEvent, now time.Time) error {
-	identities := []any{}
+	links := []string{}
 	for _, event := range events {
 		if event.URL != nil {
-			identities = append(identities, streamIdentity(*event.URL))
+			links = append(links, *event.URL)
 		}
 	}
-	if len(identities) == 0 {
-		return nil
-	}
-	probe, err := s.LiveProbeSettings(ctx)
+	live, err := s.videoLiveStatuses(ctx, links, now)
 	if err != nil {
 		return err
-	}
-	cutoff := now.Add(-probe.Freshness())
-	rows, err := s.db.QueryContext(ctx, `SELECT url,live_status,live_checked_at FROM videos WHERE live_status IS NOT NULL AND stream_identity(url) IN (?`+strings.Repeat(",?", len(identities)-1)+`)`, identities...)
-	if err != nil {
-		return dbErr(err)
-	}
-	defer rows.Close()
-	live := map[string]*string{}
-	for rows.Next() {
-		var url string
-		var status, checked sql.NullString
-		if err := rows.Scan(&url, &status, &checked); err != nil {
-			return dbErr(err)
-		}
-		if view := liveView(status, checked, cutoff); view != nil {
-			live[streamIdentity(url)] = view
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return dbErr(err)
 	}
 	for i := range events {
 		if events[i].URL != nil {
 			events[i].LiveStatus = live[streamIdentity(*events[i].URL)]
 		}
 	}
-	_, err = s.attachBilibiliLive(ctx, events, now)
+	_, err = s.attachEventPlatforms(ctx, events, now)
 	return err
 }

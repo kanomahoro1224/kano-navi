@@ -120,10 +120,15 @@ func TestBilibiliLiveMatchesStreamsByPlatformAndTime(t *testing.T) {
 	if err != nil || !settings.BilibiliEnabled || settings.BilibiliIntervalMinutes != BilibiliLiveDefaultMinutes {
 		t.Fatalf("settings=%#v err=%v", settings, err)
 	}
-	// Both entries of the current stream are followed; never checked, due now.
+	// Both entries of the current stream are followed; never checked, due
+	// now. The stream on another platform gets a sparse check 5 minutes
+	// after its start.
 	plan, err := s.BilibiliLivePlan(ctx, biliAccount, now, settings)
-	if err != nil || len(plan.Targets) != 3 || plan.Phase != LivePhaseStarting || plan.DueAt.After(now) {
+	if err != nil || len(plan.Targets) != 4 || plan.Phase != LivePhaseStarting || plan.DueAt.After(now) {
 		t.Fatalf("plan=%#v err=%v", plan, err)
+	}
+	if sparse := plan.Targets[3]; sparse.EventID != "x-schedule-o" || sparse.Phase != LivePhaseSparse || !sparse.DueAt.Equal(now.Add(-5*time.Minute)) {
+		t.Fatalf("sparse=%#v", sparse)
 	}
 	find := func(events []DashboardEvent, id string) *DashboardEvent {
 		for i := range events {

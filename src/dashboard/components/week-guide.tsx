@@ -36,7 +36,10 @@ import {
   eventIsManual,
   eventKinds,
   eventTagKey,
+  eventAnnouncement,
   eventLink,
+  eventLinks,
+  eventShowsPlatformLinks,
   eventStatus,
   eventTags,
   formatJapanTime,
@@ -54,6 +57,7 @@ import { archiveRange } from "../use-dashboard"
 import { ArchiveMore, ArchiveState } from "./archive-dialog"
 import { CalendarSubscribe } from "./calendar-subscribe"
 import { EventTagIcon } from "./event-tag"
+import { PlatformLinks } from "./platform-links"
 import { SheetDialog } from "./sheet-dialog"
 import { TranslatedTitle } from "./translated-title"
 
@@ -105,7 +109,12 @@ const statusTones: Record<string, string> = {
 }
 
 /** What an entry's card and its sheet both show. */
-function entryFacts(event: ScheduleEvent, now: number, t: Translator) {
+function entryFacts(
+  event: ScheduleEvent,
+  now: number,
+  locale: Locale,
+  t: Translator,
+) {
   const status = eventStatus(event, now)
   const { typeKey, tag, work } = eventKinds(event)
   const cancellationNote =
@@ -132,6 +141,20 @@ function entryFacts(event: ScheduleEvent, now: number, t: Translator) {
     note: cancellationNote?.filter(Boolean).join(" · ") || null,
     saleMark: event.saleMark || null,
     link: eventLink(event),
+    ...entryLinks(event, locale, now),
+  }
+}
+
+/**
+ * An entry's platform links and, when they show, its own announcement link
+ * beside them.
+ */
+function entryLinks(event: ScheduleEvent, locale: Locale, now: number) {
+  const links = eventLinks(event, locale, now)
+  const shown = eventShowsPlatformLinks(event, links)
+  return {
+    links: shown ? links : [],
+    announcement: shown ? eventAnnouncement(event, links) : null,
   }
 }
 
@@ -271,10 +294,18 @@ function EntrySheet({
           <Provenance manual={facts.manual} labelled t={t} />
         </EntryTags>
         {facts.note ? <p className="guide-event-note">{facts.note}</p> : null}
-        {facts.link ? (
+        {facts.links.length ? (
+          <PlatformLinks
+            links={facts.links}
+            title={cleanVideoTitle(event.title)}
+            variant="pill"
+            t={t}
+          />
+        ) : null}
+        {(facts.links.length ? facts.announcement : facts.link) ? (
           <ExternalLink
             className="pill-button entry-sheet-open"
-            href={facts.link}
+            href={(facts.links.length ? facts.announcement : facts.link)!}
           >
             {t("schedule.openLink")}
             <ArrowUpRight aria-hidden="true" />
@@ -321,7 +352,7 @@ function GuideEvent({
         behavior: "smooth",
       })
   }, [pickTurn])
-  const facts = entryFacts(event, now, t)
+  const facts = entryFacts(event, now, locale, t)
 
   return (
     <li ref={itemRef}>
@@ -359,10 +390,18 @@ function GuideEvent({
               </span>
             ) : null}
             <EntryTags facts={facts} t={t}>
-              {facts.link ? (
+              {facts.links.length ? (
+                <PlatformLinks
+                  links={facts.links}
+                  title={cleanVideoTitle(event.title)}
+                  variant="chip"
+                  t={t}
+                />
+              ) : null}
+              {(facts.links.length ? facts.announcement : facts.link) ? (
                 <ExternalLink
                   className="guide-event-open"
-                  href={facts.link}
+                  href={(facts.links.length ? facts.announcement : facts.link)!}
                   aria-label={t("schedule.openLink")}
                   title={t("schedule.openLink")}
                 >

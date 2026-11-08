@@ -58,12 +58,15 @@ export const LIVE_NOW_LATE_MS = 3 * 3600 * 1000
 
 /**
  * Whether an entry is the unannounced broadcast's own: a live stream or
- * membership entry on the same platform whose broadcast started from two
+ * membership entry shown on that platform whose broadcast started from two
  * hours before to three hours after the entry's start. Links never decide
  * it, since an entry links to its source post.
  */
 export function eventMatchesLiveNow(event: ScheduleEvent, liveNow: LiveNow) {
-  if (event.platform !== liveNow.platform) return false
+  const platforms: string[] = event.platforms?.length
+    ? event.platforms
+    : [event.platform || ""]
+  if (!platforms.includes(liveNow.platform)) return false
   if (!["stream", "member"].includes(event.eventType)) return false
   if (confirmedLiveStatus(event) !== "live") return false
   const start = Date.parse(event.startsAt || "")

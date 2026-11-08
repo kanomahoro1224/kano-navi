@@ -676,19 +676,41 @@ after the current Japan date:
   characters after punctuation, brackets and medium words such as 配信 are
   removed). Without a title overlap it merges only when the date has exactly
   one date-only event and one timed stream, and not into a stream of platform
-  `bilibili` unless the date-only entry is `bilibili` as well. A YouTube event never merges into
-  an X or Bilibili event.
+  `bilibili` unless the date-only entry is `bilibili` as well. An entry
+  stated Bilibili-only (see [Event platforms](#event-platforms)) never
+  merges into a stream whose own platforms lack `bilibili`. A YouTube event
+  never merges into an X or Bilibili event.
 
 - Rule B also moves an automatic entry of a Bilibili dynamic whose platform
-  is `youtube` (such as 「今晚8点YouTube直播」), under the same constraints.
-- Rule D (after Rule B): an automatic X `stream`, `member` or `release` of
-  platform `bilibili` with an exact or approximate time merges into the only
+  is `youtube` (such as 「今晚8点YouTube直播」), under the same constraints. A
+  `stream` or `member` entry whose platforms include both `youtube` and
+  `bilibili` is never a Rule B notice; Rule E moves it.
+- Rule D (after Rule B): an automatic X `stream`, `member` or `release`
+  whose platforms include `bilibili`, with an exact or approximate time,
+  merges into the only
   compatible entry of a Bilibili dynamic (`source` `bilibili`) on the same
   date that starts within 30 minutes; a release only into a release. The
   dynamic is the platform's first-party post, as the YouTube event is for
   Rule B, and an X entry of platform `bilibili` is never a Rule B notice.
+  An X notice of a simulcast whose model named Bilibili keeps `bilibili`
+  first and merges here, then follows the dynamic's entry (below).
   Without a dynamics listing the X entry stands alone and still gets the
   room as `liveUrl`.
+
+- Rule E (after Rule D): an automatic `stream` or `member` entry, of any
+  source but YouTube, whose announced platforms are `bilibili` by a
+  source's default (inferred) or include both `youtube` and `bilibili`
+  merges into the only compatible YouTube `stream` or `member` event on the
+  same date that starts within 30 minutes, as in Rule B
+  (`merge_reason` `rule_e:simulcast`): it is the Bilibili side of a
+  simulcast, and the YouTube event's shown platforms include `bilibili`
+  (see [Event platforms](#event-platforms)). An entry stated Bilibili-only,
+  such as 「B站限定」, and a release never merge by this rule.
+
+After every rule, an entry whose target is itself merged away goes on to
+the final target, whichever rules made the two merges (an X notice Rule D
+merged into a dynamic's entry that Rule E moves ends on the YouTube event),
+so no merge points at a merged event.
 
 - Rule C: an automatic `sale` merges into another sale of the same shop
   whose [period](#sale-periods) covers its own, such as a deadline reminder
@@ -775,20 +797,51 @@ video's linked event. The console lists it with `hiddenByPosts`.
 
 ## Event Platforms
 
-`events.platform` records where an entry happens: `youtube`, `bilibili`,
-`other` or `unknown`; it is null on rows written before the column existed,
-which read as unknown, and the startup that adds it sets `youtube` on the
-YouTube writers' events. Extraction writes it with the other fields of an
+An entry happens on one or more platforms. `events.platforms` is the JSON
+array of its **announced platforms**, each of `youtube`, `bilibili` and
+`other` at most once, in announced order (the entry's own platform first),
+and `events.platforms_inferred` is 1 when the array came from a source's
+default rather than from the wording or an operator; a Bilibili-only entry
+is one whose array is `["bilibili"]`, stated. `events.platform` is
+the first announced platform, or `unknown`, for readers of the single
+value. A row whose array is null (written before the column existed) reads
+as its single platform when that is `youtube`, `bilibili` or `other`, and
+as none otherwise, stated; `platform` itself is null on rows written before
+that column existed, and the startup that adds it sets `youtube` on the
+YouTube writers' events. Startup adds both columns without rewriting a row.
+
+Extraction writes the announced platforms with the other fields of an
 automatic entry, under the same manual locks and tombstones (see
 [Source time zones](sources.md#source-time-zones)); the YouTube writers
-write `youtube`. Public events report it as `platform`.
+write `["youtube"]`. An operator's entry carries the operator's platforms,
+which are part of its manual lock.
 
 `events.url` is the announcement's link (a post, an operator's link, a
-paired upload), never the live room, because readers use the link as the
-identity of one broadcast. Full public reads add `liveUrl`, the account's
-Bilibili live room, to every entry of platform `bilibili` and type `stream`
-or `member` once a live check learned the room, and project the room's state
-as `liveStatus` (see [Live room](sources.md#live-room)). The dashboard's
+paired upload, a watch link), never the live room, because readers use the
+link as the identity of one broadcast. A stored row whose `url` is a
+live-room link (`live.bilibili.com`) and whose platforms do not include
+`other` reads as announced on `bilibili` with no `url`; the row is not
+rewritten.
+
+Readers compute an entry's **shown platforms**: its announced platforms,
+those the automatic entries merged into it lend, and `bilibili` when the
+live room's broadcast is the simulcast of its YouTube broadcast (observed;
+see [Live room](sources.md#live-room)). Only merges that join platforms
+lend: Rule D, Rule E and an operator's merge; Rules A, B and C join
+duplicates of one entry. Nothing observed is written. Each shown platform
+has a link only to a page on that platform: YouTube's is the watch link (the
+entry's `url` when it names a YouTube video, or that of a YouTube event an
+operator merged into it), Bilibili's the account's live room for a `stream`
+or `member` entry once a live check learned the room (or the stored room
+link of an older row) and a release's Bilibili upload page, and `other`'s
+the entry's `url`. A platform without such a page has a null link: the
+announcement (a post) stays the entry's own `url`, never labelled as a
+platform. The entry's `liveStatus` is `live` while any of its platforms is:
+its own video's state, then a merged YouTube event's, then the room's.
+Public events report the single value as `platform` and the shown platforms
+as `platforms`; full reads add `links`, and `liveUrl`, the room, to every
+`stream` or `member` entry shown on Bilibili (see
+[Public API](public-api.md#public-snapshot-contract)). The dashboard's
 `liveNow` reports a live broadcast that matches no entry; no entry is
 created for it.
 

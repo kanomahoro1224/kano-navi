@@ -93,18 +93,25 @@ const (
 // zone they are written in; code converts them to Asia/Tokyo, so the model
 // never does time arithmetic.
 const (
-	bilibiliScheduleInstructions = "First classify whether this single Chinese Bilibili dynamic, written by the Japanese virtual singer Kano Mahoro (鹿乃) for Chinese viewers, is a concrete schedule notice. Return classification=not_schedule when it is ordinary conversation or has no concrete schedule, and classification=uncertain when the evidence is ambiguous. For classification=schedule, extract only entries explicitly supported by the post text or images. Interpret relative dates such as 今天, 明天 and 后天 from the post publication time in Asia/Shanghai (Beijing time). Never invent a time. Use null time and timePrecision unknown when the date is known but the time is not. " + bilibiliScheduleDateInstruction + " " + scheduleTypeInstruction + " " + scheduleSaleInstruction + " Set action=cancel only when the post is evidence that an existing schedule may have been cancelled; this is a judgement for review, never a deletion or definitive cancellation. Put the reason in the root reason field and cite the post wording in evidence. For cancellation, events should identify the affected date/title/time when possible. " + scheduleLanguageInstruction + " Return an empty events array for not_schedule. " + scheduleTagInstruction + " " + schedulePlatformInstruction
+	bilibiliScheduleInstructions = "First classify whether this single Chinese Bilibili dynamic, written by the Japanese virtual singer Kano Mahoro (鹿乃) for Chinese viewers, is a concrete schedule notice. Return classification=not_schedule when it is ordinary conversation or has no concrete schedule, and classification=uncertain when the evidence is ambiguous. For classification=schedule, extract only entries explicitly supported by the post text or images. Interpret relative dates such as 今天, 明天 and 后天 from the post publication time in Asia/Shanghai (Beijing time). Never invent a time. Use null time and timePrecision unknown when the date is known but the time is not. " + bilibiliScheduleDateInstruction + " " + scheduleTypeInstruction + " " + scheduleSaleInstruction + " Set action=cancel only when the post is evidence that an existing schedule may have been cancelled; this is a judgement for review, never a deletion or definitive cancellation. Put the reason in the root reason field and cite the post wording in evidence. For cancellation, events should identify the affected date/title/time when possible. " + scheduleLanguageInstruction + " Return an empty events array for not_schedule. " + scheduleTagInstruction + " " + bilibiliSchedulePlatformInstruction
+
+	// bilibiliSchedulePlatformInstruction asks for the platforms the wording
+	// names; code decides whether bilibili alone is stated and gives a
+	// stream that names none the account's room.
+	bilibiliSchedulePlatformInstruction = "Set platforms to the platforms the post itself names for the entry: youtube when it names YouTube (油管), bilibili when it names Bilibili (B站, bilibili限定) and other for another platform or someone else's channel or room such as a collaboration. List both youtube and bilibili for a broadcast on both at once (同时直播). Use an empty array when the post names no platform for the entry, as for a plain 直播. Give url only when the post itself gives that link; never make up a live room link."
 
 	// bilibiliScheduleDateInstruction keeps the stored event check and asks
 	// for the written zone instead of a conversion.
 	bilibiliScheduleDateInstruction = "Give date as the calendar date YYYY-MM-DD and time and endTime as 24-hour HH:MM exactly as the post writes them, without converting between time zones. Set timeZone to Asia/Tokyo only when the post states Japan time (日本时间); otherwise use Asia/Shanghai, because times written without a zone or as 北京时间 are Beijing time. An entry needs its calendar day: when the post gives only a month, a season or a vague period, leave that entry out, and return classification=not_schedule when no entry remains."
 )
 
-// bilibiliScheduleSchema is scheduleSchema with each entry's timeZone.
-var bilibiliScheduleSchema = rawJSON(strings.Replace(strings.Replace(string(scheduleSchema),
-	`"url":{"anyOf":[{"type":"string"},{"type":"null"}]},`,
-	`"url":{"anyOf":[{"type":"string"},{"type":"null"}]},"timeZone":{"type":"string","enum":["Asia/Tokyo","Asia/Shanghai"]},`, 1),
-	`"tag","url","platform","confidence","evidence"]`, `"tag","url","platform","timeZone","confidence","evidence"]`, 1))
+// bilibiliScheduleSchema is scheduleSchema with each entry's timeZone and
+// its platforms array in place of the single platform.
+var bilibiliScheduleSchema = rawJSON(strings.NewReplacer(
+	`"url":{"anyOf":[{"type":"string"},{"type":"null"}]},"platform":{"type":"string","enum":["youtube","bilibili","other","unknown"]},`,
+	`"url":{"anyOf":[{"type":"string"},{"type":"null"}]},"timeZone":{"type":"string","enum":["Asia/Tokyo","Asia/Shanghai"]},"platforms":{"type":"array","items":{"type":"string","enum":["youtube","bilibili","other"]}},`,
+	`"tag","url","platform","confidence","evidence"]`, `"tag","url","platforms","timeZone","confidence","evidence"]`,
+).Replace(string(scheduleSchema)))
 
 var defaultScheduleKeywords = []string{
 	"schedule",

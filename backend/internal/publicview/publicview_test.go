@@ -187,7 +187,7 @@ func TestHealthAndRevision(t *testing.T) {
 func TestPublicEventExtrasAreDashboardOnly(t *testing.T) {
 	live := "live"
 	event := sqlite.DashboardEvent{ID: "e", Title: "Event", ManualLocked: true, IsUpcoming: true, LiveStatus: &live}
-	extras := []string{"manualLocked", "isUpcoming", "liveStatus", "liveUrl"}
+	extras := []string{"manualLocked", "isUpcoming", "liveStatus", "liveUrl", "links"}
 	full, compact := PublicEvent(event, true), PublicEvent(event, false)
 	for _, key := range extras {
 		if _, ok := compact[key]; ok {
@@ -220,5 +220,22 @@ func TestDashboardSharesTheLatestPostAndKeepsTranslationText(t *testing.T) {
 	projected = Dashboard(&sqlite.Dashboard{Posts: []sqlite.Post{listed}, Summary: sqlite.DashboardSummary{LatestPost: &older}})
 	if got := projected["summary"].(map[string]any)["latestPost"]; !reflect.DeepEqual(got, PublicPost(older)) {
 		t.Fatalf("latest outside the window=%v", got)
+	}
+}
+
+// Each shown platform of an entry is one link with its own state; the
+// shown platforms are in every event read, never null.
+func TestPublicEventLinks(t *testing.T) {
+	watch, room, live := "https://www.youtube.com/watch?v=AAAAAAAAAAA", "https://live.bilibili.com/1000001", "live"
+	event := sqlite.DashboardEvent{ID: "e", Title: "Event", Platforms: []string{"youtube", "bilibili"},
+		Links: []sqlite.EventLink{{Platform: "youtube", URL: &watch}, {Platform: "bilibili", URL: &room, LiveStatus: &live}}}
+	full := PublicEvent(event, true)
+	links := full["links"].([]any)
+	if len(links) != 2 || links[0].(map[string]any)["url"] != watch || links[0].(map[string]any)["liveStatus"] != nil ||
+		links[1].(map[string]any)["platform"] != "bilibili" || links[1].(map[string]any)["liveStatus"] != "live" {
+		t.Fatalf("links=%v", links)
+	}
+	if platforms := PublicEvent(sqlite.DashboardEvent{ID: "e"}, false)["platforms"].([]string); platforms == nil || len(platforms) != 0 {
+		t.Fatalf("platforms=%v", platforms)
 	}
 }

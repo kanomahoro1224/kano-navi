@@ -1,5 +1,5 @@
 import type { Translator } from "@/types"
-import { ArrowUpRight } from "lucide-react"
+import { ArrowUpRight, Radio } from "lucide-react"
 
 import { BilibiliLogo, ExternalLink, YouTubeLogo } from "@/site/links"
 import type { VideoLink } from "../video-groups"
@@ -7,6 +7,16 @@ import type { VideoLink } from "../video-groups"
 const platformNames: Record<string, string> = {
   youtube: "YouTube",
   bilibili: "bilibili",
+}
+
+/** A link's name: its platform, or the host of a link elsewhere. */
+function linkName(link: VideoLink) {
+  if (platformNames[link.source]) return platformNames[link.source]
+  try {
+    return new URL(link.url).hostname.replace(/^www\./u, "")
+  } catch {
+    return link.source
+  }
 }
 
 function PlatformMark({ source }: { source: string }) {
@@ -17,7 +27,8 @@ function PlatformMark({ source }: { source: string }) {
 
 /**
  * One link per platform, in `videoLinks` order: the card's own link first,
- * then the other uploads of the same work, such as its bilibili copy.
+ * then the other uploads of the same work, such as its bilibili copy. An
+ * entry's links (`eventLinks`) mark a platform that is live now.
  */
 export function PlatformLinks({
   links,
@@ -33,20 +44,24 @@ export function PlatformLinks({
   return (
     <span className="platform-links">
       {links.map((link, index) => {
-        const name = platformNames[link.source] || link.source
+        const name = linkName(link)
         const className =
           variant === "pill"
             ? `pill-button${index === 0 ? " is-solid" : ""}`
             : "platform-chip"
+        const live = link.live ? ` (${t("schedule.status.live")})` : ""
         return (
           <ExternalLink
             key={link.url}
-            className={className}
+            className={`${className}${link.live ? " is-live" : ""}`}
             href={link.url}
-            aria-label={`${t("videos.watchOn", { platform: name })}: ${title}`}
+            aria-label={`${t("videos.watchOn", { platform: name })}: ${title}${live}`}
           >
             <PlatformMark source={link.source} />
             {name}
+            {link.live ? (
+              <Radio className="platform-live" aria-hidden="true" />
+            ) : null}
           </ExternalLink>
         )
       })}

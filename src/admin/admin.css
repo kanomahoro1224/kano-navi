@@ -7369,3 +7369,13 @@ blockquote.adm-verdict-reason {
     margin-left: 0;
   }
 }
+
+/* An entry's platform the board shows without its announcing it. */
+.adm-badge-observed {
+  border-style: dashed;
+}
+
+/* An entry's platform from its source's default. */
+.adm-badge-inferred {
+  font-style: italic;
+}

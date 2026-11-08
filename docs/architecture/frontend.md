@@ -140,9 +140,9 @@ muted. Its styles are in
 in `src/index.css`. The hidden `/admin` console
 lives in `src/admin/` and is organized around operator tasks: `index.tsx`
 registers the views (Overview, Review queue, Schedule, Posts, Videos, Profile
-images, Runs, Queue, Sources, Detection, LLM, Site) and renders the shell
+images, Runs, Queue, Sources, Detection, Site) and renders the shell
 with hash routing (`#view/tab`; a `#content/<tab>` link opens the matching
-view and a `#models` link opens LLM); `use-admin-data.ts` owns every
+view, and `#models` and `#llm/<provider>` links open Detection); `use-admin-data.ts` owns every
 [Admin API](admin-api.md) call, the session and the overview poll that tracks
 the active run while the console is visible; `api.ts` is the transport and error mapping; `types.ts` holds
 the wire shapes; `ui.tsx` the console primitives (buttons, panels, native
@@ -676,9 +676,10 @@ they never require a browser CDN request. The license ships in
 name, or stable ID to identify a mark; unknown custom providers retain their
 initial. Removing a preset does not delete saved providers.
 
-The LLM view shows the extraction, schedule-image check and translation queues
-side by side, then the recent failures, then the
-providers as a list beside the selected provider's detail. Recent failures
+The Detection view shows the detection mode and keywords, then the
+extraction, schedule-image check and translation queues side by side, then
+the providers as a list beside the selected provider's detail
+(`#detection/<provider>`), the model limits, and the recent failures. Recent failures
 lists each stored failure's stage, relative time (the Japan time on hover),
 message, model and a link to its post or video; it loads with the view and
 on its reload button. A queue change

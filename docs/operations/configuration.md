@@ -135,7 +135,7 @@ and save it only in the ignored environment file or deployment secret store.
 
 The read limits of source steps, manual fetches and the translate step, and
 the attempts each model gets, are operator settings in `app_settings`, edited
-on `/admin` → Sources (the X and YouTube read limits) and `/admin` → LLM
+on `/admin` → Sources (the X and YouTube read limits) and `/admin` → Detection
 (model limits: the attempts and the translation limits). Each run reads the
 limits when it
 starts, so a saved value applies from the next run; the attempts per model

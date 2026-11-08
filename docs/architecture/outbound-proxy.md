@@ -121,8 +121,8 @@ pages belong to hosts the area already reads:
 | `shop`     | `https://shop.milpr.com/robots.txt`    |
 | `media`    | `https://pbs.twimg.com/`               |
 
-Model providers have no fixed page; a provider test on `/admin` → LLM
-already goes through the `llm` route. A test is an operator action, bounded
+Model providers have no fixed page; a provider test on `/admin` →
+Detection already goes through the `llm` route. A test is an operator action, bounded
 at 10 seconds and 64 KiB of response, and its outcome updates the proxy's
 health.
 

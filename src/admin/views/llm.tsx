@@ -54,7 +54,6 @@ import {
   IconButton,
   Loading,
   Modal,
-  PageHeader,
   Panel,
   StatusBadge,
   Switch,
@@ -64,7 +63,7 @@ import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { SyncSettingsPanel } from "@/admin/views/sync-settings"
 import { cn } from "@/lib/utils"
 
-export function ProviderMark({ provider }: { provider: Partial<Provider> }) {
+function ProviderMark({ provider }: { provider: Partial<Provider> }) {
   const icon = providerIcon(provider)
   return (
     <span className="adm-provider-mark" aria-hidden>
@@ -121,21 +120,6 @@ const queueOf = (catalog: LlmCatalog, route: QueueRoute) =>
 
 const sameTarget = (target: RouteTarget, providerId: string, id: string) =>
   target.providerId === providerId && target.modelId === id
-
-/** The first queued model a stage can use: usable and carrying its tag. */
-export function firstUsable(
-  catalog: LlmCatalog,
-  targets: RouteTarget[],
-  needs: "text" | "image",
-) {
-  return (
-    targets
-      .map((target) =>
-        describeTarget(target, catalog.providers, catalog.models),
-      )
-      .find((item) => !item.issue && item.capabilities.includes(needs)) || null
-  )
-}
 
 // --- queues -----------------------------------------------------------------
 
@@ -1289,7 +1273,11 @@ function RecentFailures({ providers }: { providers: Provider[] | undefined }) {
   )
 }
 
-export function LlmView({ tab, navigate }: ViewProps) {
+/**
+ * The model setup on the Detection page: queues, providers, model limits
+ * and recent failures. The page tab is the selected provider.
+ */
+export function ModelSetup({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
   const catalog = useResource(() => api.llm(), [])
@@ -1345,8 +1333,7 @@ export function LlmView({ tab, navigate }: ViewProps) {
     data?.providers.find((provider) => provider.id === tab) ||
     data?.providers[0]
   return (
-    <div className="adm-view">
-      <PageHeader title={t("admin.llm.title")} />
+    <>
       <Panel icon={Route} title={t("admin.llm.queues")}>
         {!data ? (
           <Loading />
@@ -1380,8 +1367,6 @@ export function LlmView({ tab, navigate }: ViewProps) {
           </div>
         )}
       </Panel>
-      <RecentFailures providers={data?.providers} />
-      <SyncSettingsPanel group="llm" level={2} />
       <Panel
         icon={Bot}
         title={t("admin.models.providers")}
@@ -1404,7 +1389,7 @@ export function LlmView({ tab, navigate }: ViewProps) {
             <ProviderList
               catalog={data}
               selected={selected.id}
-              onSelect={(id) => navigate("llm", id)}
+              onSelect={(id) => navigate("detection", id)}
             />
             <ProviderDetail
               key={selected.id}
@@ -1414,7 +1399,7 @@ export function LlmView({ tab, navigate }: ViewProps) {
               onEdit={() => setEditing(selected)}
               onChanged={() => void catalog.reload()}
               onDeleted={() => {
-                navigate("llm")
+                navigate("detection")
                 void catalog.reload()
               }}
               onQueue={saveQueue}
@@ -1426,6 +1411,8 @@ export function LlmView({ tab, navigate }: ViewProps) {
           </Empty>
         )}
       </Panel>
+      <SyncSettingsPanel group="llm" level={2} />
+      <RecentFailures providers={data?.providers} />
       {editing !== undefined && data ? (
         <ProviderDialog
           provider={editing}
@@ -1435,12 +1422,12 @@ export function LlmView({ tab, navigate }: ViewProps) {
             setEditing(undefined)
             if (isNew) {
               setCreated(provider.id)
-              navigate("llm", provider.id)
+              navigate("detection", provider.id)
             }
             void catalog.reload()
           }}
         />
       ) : null}
-    </div>
+    </>
   )
 }

@@ -353,5 +353,9 @@
   with each run's budget; the translate step's candidates; and the X posts
   waiting to be read again. The Overview links to it, and schedule runs
   record how long choosing and judging their candidates took.
+- Detection holds the model setup: the detection mode and keywords, then
+  the model queues, providers, model limits and recent failures. The
+  separate LLM page and the models-in-use summary are gone, and old LLM
+  links open Detection.
 
 </details>

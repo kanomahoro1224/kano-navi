@@ -7,7 +7,6 @@ import {
   type SubmitEvent,
 } from "react"
 import {
-  Bot,
   CalendarDays,
   Clapperboard,
   ExternalLink,
@@ -35,7 +34,6 @@ import { Badge, Button, Spinner, Toasts } from "@/admin/ui"
 import { AdminContext, useAdminData } from "@/admin/use-admin-data"
 import { DetectionView } from "@/admin/views/detection"
 import { ExternalPostsView } from "@/admin/views/external-posts"
-import { LlmView } from "@/admin/views/llm"
 import { OverviewView } from "@/admin/views/overview"
 import { PostsView } from "@/admin/views/posts"
 import { ProfileView } from "@/admin/views/profile"
@@ -107,7 +105,6 @@ const views: ViewEntry[] = [
     icon: ScanText,
     component: DetectionView,
   },
-  { id: "llm", group: "system", icon: Bot, component: LlmView },
   { id: "proxy", group: "system", icon: Network, component: ProxyView },
   { id: "site", group: "system", icon: Globe, component: SiteView },
 ]
@@ -129,8 +126,9 @@ function readHash() {
     .split("/")
   if (view === "content")
     return { view: legacyContent[tab] || "posts", tab: "" }
-  // Models & detection became two views; old links open the model setup.
-  if (view === "models") return { view: "llm", tab: "" }
+  // Model links open the Detection page, which holds the model setup.
+  if (view === "models") return { view: "detection", tab: "" }
+  if (view === "llm") return { view: "detection", tab }
   return views.some((entry) => entry.id === view)
     ? { view, tab }
     : { view: "overview", tab: "" }

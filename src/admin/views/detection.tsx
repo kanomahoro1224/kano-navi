@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { ArrowRight, Bot, Save, ScanText, TriangleAlert } from "lucide-react"
+import { Save, ScanText } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
@@ -15,7 +15,7 @@ import {
   TagInput,
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
-import { firstUsable, ProviderMark } from "@/admin/views/llm"
+import { ModelSetup } from "@/admin/views/llm"
 
 const keywordLimit = 30
 const keywordLength = 80
@@ -181,64 +181,13 @@ function ExtractionPanel() {
   )
 }
 
-/** Which model each model stage calls first; the queues themselves are on the LLM page. */
-function ModelSummary({ onOpen }: { onOpen: () => void }) {
-  const { t } = useAppSettings()
-  const { api } = useAdmin()
-  const catalog = useResource(() => api.llm(), [])
-  const data = catalog.data
-  const stages = [
-    { key: "text", needs: "text" as const, queue: data?.queue },
-    { key: "image", needs: "image" as const, queue: data?.queue },
-    { key: "verify", needs: "image" as const, queue: data?.verificationQueue },
-  ]
-  return (
-    <Panel
-      icon={Bot}
-      title={t("admin.detection.models")}
-      actions={
-        <Button size="sm" icon={ArrowRight} onClick={onOpen}>
-          {t("admin.detection.editQueue")}
-        </Button>
-      }
-    >
-      {!data ? (
-        <Loading />
-      ) : (
-        <ul className="adm-stage-models">
-          {stages.map((stage) => {
-            const first = firstUsable(data, stage.queue || [], stage.needs)
-            return (
-              <li key={stage.key}>
-                <span>{t(`admin.detection.stage.${stage.key}`)}</span>
-                {first ? (
-                  <span className="adm-stage-model">
-                    {first.provider ? (
-                      <ProviderMark provider={first.provider} />
-                    ) : null}
-                    <strong>{first.model?.name || first.modelId}</strong>
-                  </span>
-                ) : (
-                  <Badge tone="warning" icon={TriangleAlert}>
-                    {t("admin.detection.noModel")}
-                  </Badge>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </Panel>
-  )
-}
-
-export function DetectionView({ navigate }: ViewProps) {
+export function DetectionView({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
   return (
     <div className="adm-view">
       <PageHeader title={t("admin.detection.title")} />
       <ExtractionPanel />
-      <ModelSummary onOpen={() => navigate("llm")} />
+      <ModelSetup tab={tab} navigate={navigate} />
     </div>
   )
 }

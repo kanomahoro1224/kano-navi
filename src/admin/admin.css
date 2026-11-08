@@ -5779,50 +5779,7 @@ blockquote.adm-verdict-reason {
   }
 }
 
-/* ------------------------------------------------------- detection and llm */
-
-.adm-stage-models {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.adm-stage-models li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: var(--adm-radius-sm);
-  background: var(--adm-sunken);
-}
-
-.adm-stage-models li > span:first-child {
-  color: var(--adm-muted);
-  font-size: 13px;
-}
-
-.adm-stage-model {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.adm-stage-model .adm-provider-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-}
-
-.adm-stage-model .adm-provider-mark img {
-  width: 16px;
-  height: 16px;
-}
+/* ------------------------------------------------------------- detection */
 
 /* Queues: extraction, schedule-image check and translation side by side,
    wrapping when a column would get too narrow for its model rows. */

@@ -1735,10 +1735,6 @@
   gap: 20px;
 }
 
-.adm-sources-layout.is-single {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 /* Facts under a panel title keep the panel's spacing. */
 .adm-source-aside .adm-panel > .adm-facts:not(:first-child) {
   margin-top: 16px;

@@ -57,6 +57,7 @@ import type {
   SourceSync,
   Sources,
   SyncSettings,
+  XRelatedAccounts,
   YTDLPStatus,
 } from "@/admin/types"
 import {
@@ -708,7 +709,8 @@ function TimedReadsPanel({
               <p>{t("admin.chain.description")}</p>
             </HelpButton>
           </legend>
-          {chain.fixed ? (
+          {/* The related accounts' one method speaks for itself. */}
+          {chain.fixed && source !== "x_related" ? (
             <p className="adm-field-hint">{t(`admin.chain.fixed.${source}`)}</p>
           ) : null}
           <ol className="adm-chain-list">
@@ -958,19 +960,23 @@ function servedMode(method: FetchMethod, mode: FetchMode) {
 }
 
 /**
- * A manual fetch, method first: the listing method, what it reads, its count
- * or dates, and the steps that follow. The run fails with the method's code
- * when the method fails; nothing falls back.
+ * A manual fetch, method first: the listing method, for X every own account
+ * or one of them, what it reads, its count or dates, and the steps that
+ * follow. The run fails with the method's code when the method fails;
+ * nothing falls back.
  */
 function FetchForm({
   source,
   methods,
+  accounts,
   hasRecords,
   disabled,
   onStarted,
 }: {
   source: "x" | "youtube"
   methods: FetchMethod[]
+  /** X's own accounts (X_HANDLES), in their configured order. */
+  accounts: string[]
   hasRecords: boolean
   disabled: boolean
   onStarted: (run: Run) => void
@@ -980,6 +986,8 @@ function FetchForm({
   const [methodId, setMethodId] = useState(
     () => (methods.find((item) => item.available) || methods[0])?.id,
   )
+  // "" reads every account.
+  const [account, setAccount] = useState("")
   const [mode, setMode] = useState<FetchMode>("count")
   const [count, setCount] = useState(source === "x" ? 50 : 15)
   const [days, setDays] = useState(30)
@@ -994,21 +1002,23 @@ function FetchForm({
   const current = servedMode(method, mode)
   const limit = Math.min(count, method.maxCount)
   const needsRecords = current === "before" && !hasRecords
+  const chosen = accounts.includes(account) ? account : ""
   const submit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     setBusy(true)
+    const selection =
+      current === "count"
+        ? { mode: current, count: limit }
+        : current === "range"
+          ? { mode: current, startDate, endDate }
+          : current === "before"
+            ? { mode: current, days }
+            : { mode: current }
     const run = await start({
       kind: "fetch",
       source,
       method: method.id,
-      window:
-        current === "count"
-          ? { mode: current, count: limit }
-          : current === "range"
-            ? { mode: current, startDate, endDate }
-            : current === "before"
-              ? { mode: current, days }
-              : { mode: current },
+      window: chosen ? { ...selection, account: chosen } : selection,
       options: {
         extract: method.extract && extract,
         translate,
@@ -1047,6 +1057,22 @@ function FetchForm({
             : t("admin.fetch.unavailable")}
         </p>
       )}
+      {source === "x" && accounts.length > 1 ? (
+        <FieldGroup label={t("admin.fetch.account")}>
+          <Segmented
+            label={t("admin.fetch.account")}
+            value={chosen}
+            onChange={setAccount}
+            options={[
+              { value: "", label: t("admin.fetch.account.all") },
+              ...accounts.map((handle) => ({
+                value: handle,
+                label: `@${handle}`,
+              })),
+            ]}
+          />
+        </FieldGroup>
+      ) : null}
       <FieldGroup
         label={t("admin.fetch.selection")}
         hint={t(
@@ -1178,6 +1204,10 @@ interface FetchCounts {
    * groups they make. */
   candidates?: number
   sales?: number
+  /** Related account reads: statuses promoted onto and demoted from the
+   * board. */
+  promoted?: number
+  demoted?: number
 }
 
 /**
@@ -1191,7 +1221,7 @@ function FetchSummary({
   onOpenRuns,
 }: {
   run: Run
-  source: "x" | "youtube" | "shop"
+  source: "x" | "x_related" | "youtube" | "shop"
   onOpenRuns: () => void
 }) {
   const { t, locale } = useAppSettings()
@@ -1245,37 +1275,50 @@ function FetchSummary({
           <>
             <Facts
               items={
-                source === "shop"
+                source === "x_related"
                   ? [
                       [t("admin.metric.listed"), counts.listed],
-                      [t("admin.metric.candidates"), counts.candidates],
-                      [t("admin.metric.sales"), counts.sales],
-                      [t("admin.metric.pages"), counts.pages],
+                      [t("admin.metric.promoted"), counts.promoted],
+                      [t("admin.metric.demoted"), counts.demoted],
                     ]
-                  : [
-                      [t("admin.metric.listed"), counts.listed],
-                      [t("admin.metric.new"), counts.new],
-                      [t("admin.metric.stored"), counts.stored],
-                      [t("admin.metric.failed"), counts.failed],
-                      [t("admin.metric.pages"), counts.pages],
-                      ...(counts.inspected === undefined
-                        ? []
-                        : ([
-                            [t("admin.metric.inspected"), counts.inspected],
-                            [t("admin.metric.apiRequests"), counts.apiRequests],
-                          ] as [string, number | undefined][])),
-                    ]
+                  : source === "shop"
+                    ? [
+                        [t("admin.metric.listed"), counts.listed],
+                        [t("admin.metric.candidates"), counts.candidates],
+                        [t("admin.metric.sales"), counts.sales],
+                        [t("admin.metric.pages"), counts.pages],
+                      ]
+                    : [
+                        [t("admin.metric.listed"), counts.listed],
+                        [t("admin.metric.new"), counts.new],
+                        [t("admin.metric.stored"), counts.stored],
+                        [t("admin.metric.failed"), counts.failed],
+                        [t("admin.metric.pages"), counts.pages],
+                        ...(counts.inspected === undefined
+                          ? []
+                          : ([
+                              [t("admin.metric.inspected"), counts.inspected],
+                              [
+                                t("admin.metric.apiRequests"),
+                                counts.apiRequests,
+                              ],
+                            ] as [string, number | undefined][])),
+                      ]
               }
             />
-            <p className="adm-field-hint">
-              {counts.reachedEnd
-                ? t("admin.fetch.reachedEnd")
-                : t(
-                    source === "shop"
-                      ? "admin.fetch.shopPageLimit"
-                      : "admin.fetch.repeat",
-                  )}
-            </p>
+            {/* A related read stops at its cursor or its bound, as its
+                timer's does. */}
+            {source === "x_related" ? null : (
+              <p className="adm-field-hint">
+                {counts.reachedEnd
+                  ? t("admin.fetch.reachedEnd")
+                  : t(
+                      source === "shop"
+                        ? "admin.fetch.shopPageLimit"
+                        : "admin.fetch.repeat",
+                    )}
+              </p>
+            )}
             {items.length ? (
               <div className="adm-fetch-items">
                 <span>
@@ -1369,6 +1412,9 @@ function FetchPanel({
       <FetchForm
         source={source}
         methods={state.methods}
+        accounts={
+          source === "x" ? sources.x.accounts.map((entry) => entry.account) : []
+        }
         hasRecords={oldest.some(([, time]) => Boolean(time))}
         disabled={state.skipped || Boolean(overview?.activeRun)}
         onStarted={(run) => setStarted(run.id)}
@@ -1451,6 +1497,131 @@ function ShopFetchPanel({
       {last.data && last.data.id === shown && last.data.fetchWindows?.shop ? (
         <FetchSummary run={last.data} source="shop" onOpenRuns={onOpenRuns} />
       ) : shown ? null : (
+        <p className="adm-fetch-empty">{t("admin.fetch.noneYet")}</p>
+      )}
+    </Panel>
+  )
+}
+
+/**
+ * A related account's manual read: the timer's incremental read of the one
+ * account picked here, through the FxTwitter timeline, with schedule
+ * extraction and translation after it on request. Then the newest such
+ * fetch's summary.
+ */
+function RelatedFetchPanel({
+  related,
+  skipped,
+  onOpenRuns,
+}: {
+  related: XRelatedAccounts | undefined
+  skipped: boolean
+  onOpenRuns: () => void
+}) {
+  const { t } = useAppSettings()
+  const { api, overview, start } = useAdmin()
+  const [account, setAccount] = useState("")
+  const [extract, setExtract] = useState(false)
+  const [translate, setTranslate] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [started, setStarted] = useState<string | null>(null)
+  const recent = overview?.recentRuns.find(
+    (run) => run.fetchWindows?.x_related?.method,
+  )
+  const shown = started || recent?.id || null
+  const last = useResource(
+    () =>
+      shown ? api.run(shown).then((data) => data.run) : Promise.resolve(null),
+    [shown],
+  )
+  const handles = related?.accounts.map((entry) => entry.handle) || []
+  const chosen = handles.includes(account) ? account : handles[0] || ""
+  const status = related?.status.find((entry) => entry.handle === chosen)
+  const submit = async (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!chosen) return
+    setBusy(true)
+    const run = await start({
+      kind: "fetch",
+      source: "x_related",
+      method: "timeline",
+      window: { mode: "incremental", account: chosen },
+      options: { extract, translate },
+    })
+    setBusy(false)
+    if (run) setStarted(run.id)
+  }
+  return (
+    <Panel
+      icon={Download}
+      title={t("admin.fetch.headingFor", {
+        source: t("admin.step.x_related"),
+      })}
+    >
+      {!related ? (
+        <Loading />
+      ) : handles.length ? (
+        <form className="adm-form" onSubmit={submit}>
+          <Field
+            label={t("admin.fetch.account")}
+            hint={
+              status
+                ? status.lastSuccessAt
+                  ? t("admin.related.lastRead", {
+                      time: japanStamp(status.lastSuccessAt),
+                    })
+                  : t("admin.related.neverRead")
+                : undefined
+            }
+          >
+            <select
+              value={chosen}
+              onChange={(event) => setAccount(event.target.value)}
+            >
+              {handles.map((handle) => (
+                <option key={handle} value={handle}>
+                  @{handle}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <fieldset className="adm-fetch-options">
+            <legend>{t("admin.fetch.options")}</legend>
+            <Switch
+              checked={extract}
+              onChange={setExtract}
+              label={t("admin.fetch.option.extract")}
+            />
+            <Switch
+              checked={translate}
+              onChange={setTranslate}
+              label={t("admin.fetch.option.translate")}
+            />
+          </fieldset>
+          <div className="adm-form-actions">
+            <Button
+              type="submit"
+              variant="primary"
+              icon={Download}
+              busy={busy}
+              disabled={skipped || Boolean(overview?.activeRun)}
+            >
+              {t("admin.fetch.run")}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <p className="adm-fetch-empty">{t("admin.related.fetchNone")}</p>
+      )}
+      {last.data &&
+      last.data.id === shown &&
+      last.data.fetchWindows?.x_related ? (
+        <FetchSummary
+          run={last.data}
+          source="x_related"
+          onOpenRuns={onOpenRuns}
+        />
+      ) : shown || !handles.length ? null : (
         <p className="adm-fetch-empty">{t("admin.fetch.noneYet")}</p>
       )}
     </Panel>
@@ -2134,9 +2305,9 @@ const sourceIds: ScheduleSource[] = [
  * progressive confirmation, the timed-read limits and yt-dlp, each folded,
  * the related X accounts beside their timer, or a Bilibili read's state (and
  * the uploads' live room). The manual actions sit beside them: the manual
- * fetch and its folded limits, or one Bilibili upload or dynamic added by
- * link; the related accounts have none, so their page is one column. On a
- * narrower screen the side column follows the main one.
+ * fetch and its folded limits, a related account's fetch, or one Bilibili
+ * upload or dynamic added by link. On a narrower screen the side column
+ * follows the main one.
  */
 export function SourcesView({ tab, navigate }: ViewProps) {
   const { t, locale } = useAppSettings()
@@ -2150,6 +2321,13 @@ export function SourcesView({ tab, navigate }: ViewProps) {
   const selected = sourceIds.includes(tab as ScheduleSource)
     ? (tab as ScheduleSource)
     : "x"
+  // The related accounts' editor and fetch share one read, made on their
+  // tab only.
+  const relatedTab = selected === "x_related"
+  const related = useResource(
+    () => (relatedTab ? api.relatedAccounts() : Promise.resolve(undefined)),
+    [relatedTab],
+  )
   const timersOff = overview ? !overview.scheduler.enabled : false
   const setSchedule = (next: SourceSchedule) =>
     data &&
@@ -2223,12 +2401,7 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                 }
                 onChange={setSchedule}
               />
-              <div
-                className={cn(
-                  "adm-sources-layout",
-                  selected === "x_related" && "is-single",
-                )}
-              >
+              <div className="adm-sources-layout">
                 <div className="adm-source-main">
                   <TimedReadsPanel
                     key={selected}
@@ -2243,7 +2416,11 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                     />
                   ) : null}
                   {selected === "x_related" ? (
-                    <RelatedAccountsPanel navigate={navigate} />
+                    <RelatedAccountsPanel
+                      related={related.data}
+                      onSaved={related.setData}
+                      navigate={navigate}
+                    />
                   ) : null}
                   {selected === "youtube" ? (
                     <ConfirmationPanel
@@ -2291,42 +2468,46 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                     />
                   ) : null}
                 </div>
-                {selected === "x_related" ? null : (
-                  <div className="adm-source-aside">
-                    {selected === "bilibili" ? (
-                      <BilibiliAddUpload
-                        status={data.bilibili}
-                        onAdded={() => void sources.reload()}
-                      />
-                    ) : selected === "bilibili_dynamics" ? (
-                      <BilibiliAddDynamic
-                        status={data.bilibili}
-                        onAdded={() => void sources.reload()}
-                      />
-                    ) : selected === "shop" ? (
-                      <ShopFetchPanel
+                <div className="adm-source-aside">
+                  {selected === "x_related" ? (
+                    <RelatedFetchPanel
+                      related={related.data}
+                      skipped={current.skipped}
+                      onOpenRuns={() => navigate("runs")}
+                    />
+                  ) : selected === "bilibili" ? (
+                    <BilibiliAddUpload
+                      status={data.bilibili}
+                      onAdded={() => void sources.reload()}
+                    />
+                  ) : selected === "bilibili_dynamics" ? (
+                    <BilibiliAddDynamic
+                      status={data.bilibili}
+                      onAdded={() => void sources.reload()}
+                    />
+                  ) : selected === "shop" ? (
+                    <ShopFetchPanel
+                      sources={data}
+                      onOpenRuns={() => navigate("runs")}
+                    />
+                  ) : (
+                    <>
+                      <FetchPanel
+                        key={selected}
+                        source={selected}
                         sources={data}
                         onOpenRuns={() => navigate("runs")}
                       />
-                    ) : (
-                      <>
-                        <FetchPanel
-                          key={selected}
-                          source={selected}
-                          sources={data}
-                          onOpenRuns={() => navigate("runs")}
-                        />
-                        <LimitsPanel
-                          key={`${selected}-manual`}
-                          source={selected}
-                          section="manual"
-                          settings={limits.data}
-                          onSaved={limits.setData}
-                        />
-                      </>
-                    )}
-                  </div>
-                )}
+                      <LimitsPanel
+                        key={`${selected}-manual`}
+                        source={selected}
+                        section="manual"
+                        settings={limits.data}
+                        onSaved={limits.setData}
+                      />
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           ) : null}

@@ -393,3 +393,31 @@ func TestHistoryXBeforeFailsWhenNoAttemptedAccountAnswers(t *testing.T) {
 		t.Fatalf("before=%+v err=%v", out, err)
 	}
 }
+
+func TestHistoryXNamedAccountTakesTheBudgetAndLeavesTheRotation(t *testing.T) {
+	transport := &historyTransport{respond: func(*http.Request) (int, string) {
+		return 200, `{"data":[{"id":"1900000000000000001","text":"stored","created_at":"2026-03-05T03:00:00.000Z"}],"meta":{}}`
+	}}
+	source, _ := newHistorySource(t, transport)
+	ctx := context.Background()
+	window := apiRange()
+	window.Account = "SYNTHETIC_TWO"
+	out, err := source.FetchX(ctx, window)
+	if err != nil || out.Status != "succeeded" {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if accounts := out.Result["accounts"].([]map[string]any); len(accounts) != 1 || accounts[0]["handle"] != "synthetic_two" {
+		t.Fatalf("accounts=%v", accounts)
+	}
+	// The rotation still starts with the first account.
+	if _, err = source.FetchX(ctx, apiRange()); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(transport.accounts, ","); got != "synthetic_two,synthetic_one,synthetic_two" {
+		t.Fatalf("order=%s", got)
+	}
+	window.Account = "someone_else"
+	if out, err = source.FetchX(ctx, window); err != nil || out.Status != "failed" || out.Result["error"] != "x_account_unknown" {
+		t.Fatalf("unknown=%+v err=%v", out, err)
+	}
+}

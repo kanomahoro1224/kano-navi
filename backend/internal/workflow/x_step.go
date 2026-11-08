@@ -3,6 +3,8 @@ package workflow
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
 	"time"
 
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
@@ -215,17 +217,32 @@ func (x *XRecentExecutor) Execute(ctx context.Context, in StepInput) (AttemptRes
 }
 
 // ExecuteRelated is the x_related step: it reads every related account's
-// timeline (ReadRelated) with the bounds of RelatedOptions. Without a related
-// account it succeeds as skipped without a request. An account whose read
-// failed leaves the run partial with its code in errors, as do the reads'
-// notes; when every account failed the step fails with x_related_failed.
+// timeline (ReadRelated) with the bounds of RelatedOptions, or only the
+// account a manual fetch's window names. Without a related account it
+// succeeds as skipped without a request. An account whose read failed leaves
+// the run partial with its code in errors, as do the reads' notes; when every
+// account failed the step fails with x_related_failed. A manual fetch fails
+// once instead, with x_related_account_unknown when its account is no longer
+// related or with its account's failure code.
 func (x *XRecentExecutor) ExecuteRelated(ctx context.Context, in StepInput) (AttemptResult, error) {
 	if x == nil || x.Store == nil || x.Adapter == nil {
 		return AttemptResult{}, NewStepError("x_source_unavailable", ErrDependency)
 	}
-	read, err := x.ReadRelated(ctx, x.RelatedOptions(in))
+	only := ""
+	if in.Window != nil {
+		only = in.Window.Account
+	}
+	read, err := x.ReadRelated(ctx, x.RelatedOptions(in), only)
 	if err != nil {
 		return AttemptResult{}, err
+	}
+	// A manual fetch fails once with its code, as the other manual fetches
+	// do; it is not retried.
+	if only != "" && read.Accounts == 0 {
+		return failedResult("x_related_account_unknown"), nil
+	}
+	if only != "" && read.Failed == read.Accounts {
+		return failedResult(read.Errors[0]), nil
 	}
 	if read.Accounts == 0 {
 		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": "no_accounts"}}, nil
@@ -271,18 +288,23 @@ type RelatedRead struct {
 	Errors                    []string
 }
 
-// ReadRelated reads each related account's own timeline into the X status
-// pool (ADR-0009). It uses the FxTwitter timeline alone: no profile page, no
+// ReadRelated reads each related account's own timeline, or only the one
+// named by only, into the X status pool (ADR-0009). It uses the FxTwitter timeline alone: no profile page, no
 // X API and no detail request, since a page carries each status and
 // relevance needs its text. Each account keeps its own x-related cursor,
 // known statuses and gaps, and records a failed read's code as its last
 // error; its reposts and statuses without content are left out.
 // Cancellation and store failures stop it.
-func (x *XRecentExecutor) ReadRelated(ctx context.Context, base xsource.Options) (RelatedRead, error) {
+func (x *XRecentExecutor) ReadRelated(ctx context.Context, base xsource.Options, only string) (RelatedRead, error) {
 	read := RelatedRead{Errors: []string{}}
 	accounts, err := x.Store.XRelatedAccounts(ctx)
 	if err != nil {
 		return read, NewStepError("schema_failure", ErrSchema)
+	}
+	if only != "" {
+		accounts = slices.DeleteFunc(accounts, func(account sqlite.XRelatedAccount) bool {
+			return !strings.EqualFold(account.Handle, only)
+		})
 	}
 	read.Accounts = len(accounts)
 	for _, account := range accounts {

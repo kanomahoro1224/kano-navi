@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/source/history"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
@@ -181,5 +182,31 @@ func TestXRelatedStepFollowsTheSchedulesCapAndSkipX(t *testing.T) {
 	got, err := steps.Execute(context.Background(), StepInput{StepID: sqlite.XRelatedStep})
 	if err != nil || got.Result["skipped"] != true || got.Result["reason"] != "environment" {
 		t.Fatalf("skipped=%#v err=%v", got, err)
+	}
+}
+
+func TestXRelatedFetchReadsOnlyTheNamedAccount(t *testing.T) {
+	ctx := context.Background()
+	f := newRelatedStepFixture(t, `[{"handle":"agency","keywords":["鹿乃"]},{"handle":"other","keywords":["鹿乃"]}]`)
+	window := history.Window{Method: history.MethodTimeline, Mode: history.ModeIncremental, Account: "Agency"}
+	got, err := f.ex.ExecuteRelated(ctx, StepInput{StepID: sqlite.XRelatedStep, Window: &window})
+	if err != nil || got.Status != "succeeded" || got.Result["accounts"] != 1 || got.Result["promoted"] != 1 {
+		t.Fatalf("result=%#v err=%v", got, err)
+	}
+	if len(f.paths) != 1 || !strings.Contains(f.paths[0], "/agency/") {
+		t.Fatalf("requests=%v", f.paths)
+	}
+	// An account removed since the fetch was queued fails without a request.
+	window.Account = "removed"
+	got, err = f.ex.ExecuteRelated(ctx, StepInput{StepID: sqlite.XRelatedStep, Window: &window})
+	if err != nil || got.Status != "failed" || got.Result["error"] != "x_related_account_unknown" || len(f.paths) != 1 {
+		t.Fatalf("removed=%#v err=%v requests=%v", got, err, f.paths)
+	}
+	// A failed read fails the fetch once with the account's code.
+	f = newRelatedStepFixture(t, `[{"handle":"broken","keywords":["鹿乃"]}]`, "broken")
+	window.Account = "broken"
+	got, err = f.ex.ExecuteRelated(ctx, StepInput{StepID: sqlite.XRelatedStep, Window: &window})
+	if err != nil || got.Status != "failed" || !strings.HasPrefix(got.Result["error"].(string), "@broken: ") {
+		t.Fatalf("broken=%#v err=%v", got, err)
 	}
 }

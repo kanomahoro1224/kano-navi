@@ -116,6 +116,14 @@ export type StartRun =
       window: FetchSelection
       options?: FetchOptions
     }
+  /** One related X account's timeline, read as its timer reads it. */
+  | {
+      kind: "fetch"
+      source: "x_related"
+      method: "timeline"
+      window: { mode: "incremental"; account: string }
+      options?: FetchOptions
+    }
 
 /** A run start, or a source's Run now: its fixed chain once. */
 export type StartWork = StartRun | { kind: "source"; source: ScheduleSource }

@@ -18,6 +18,9 @@ import (
 // duplicate-event reconciliation over everything written before it.
 var StepOrder = []string{"x", sqlite.XRelatedStep, "youtube", "bilibili", sqlite.BilibiliDynamicsSource, sqlite.ShopSource, "media", "schedule", StepTranslate, "reconcile"}
 
+// fetchSources are the steps a manual fetch's window can select.
+var fetchSources = []string{"x", sqlite.XRelatedStep, "youtube", sqlite.ShopSource}
+
 // NormalizeSteps returns the known step IDs in catalog order.
 func NormalizeSteps(values []string) []string {
 	selected := map[string]bool{}
@@ -87,7 +90,7 @@ func (m *QueueManager) Start(ctx context.Context, kind, triggeredBy string, opti
 		}
 		for source, window := range options.FetchWindows {
 			normalized, windowErr := window.Normalize(source)
-			if windowErr != nil || (source != "x" && source != "youtube" && source != sqlite.ShopSource) {
+			if windowErr != nil || !slices.Contains(fetchSources, source) {
 				return StartResult{}, sqlite.ErrWorkflowValidation
 			}
 			definition.FetchWindows[source] = normalized
@@ -150,7 +153,9 @@ func (m *QueueManager) sourceSync(ctx context.Context, definition sqlite.Workflo
 	var schedules map[string]sqlite.SourceSync
 	out := map[string]sqlite.SourceSync{}
 	for _, step := range definition.Steps {
-		if _, windowed := definition.FetchWindows[step]; windowed || !slices.Contains(sqlite.SyncSources, step) {
+		// A related account's fetch is its timer's read of one account, so it
+		// keeps the timer's bound.
+		if _, windowed := definition.FetchWindows[step]; (windowed && step != sqlite.XRelatedStep) || !slices.Contains(sqlite.SyncSources, step) {
 			continue
 		}
 		if setting, ok := given[step]; ok {
@@ -366,11 +371,14 @@ func toJob(run *sqlite.WorkflowRun, history *sqlite.JobRun) *Job {
 	if job.Kind == KindWorkflow {
 		windows := map[string]any{}
 		for _, step := range job.Steps {
-			if step != "x" && step != "youtube" && step != sqlite.ShopSource {
+			if !slices.Contains(fetchSources, step) {
 				continue
 			}
 			if window, selected := run.FetchWindows[step]; selected {
 				windows[step] = window
+			} else if step == sqlite.XRelatedStep {
+				// Only a related account's manual fetch names a window.
+				continue
 			} else if sync, ok := run.SourceSync[step]; ok {
 				windows[step] = sync
 			} else if days, ok := run.SourceLookbackDays[step]; ok {

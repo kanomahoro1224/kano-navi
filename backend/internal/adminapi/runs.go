@@ -121,8 +121,8 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 	case "fetch":
 		jobKind = jobs.KindWorkflow
 		var source, method string
-		if json.Unmarshal(body["source"], &source) != nil || (source != "x" && source != "youtube" && source != history.SourceShop) {
-			httpx.WriteError(w, httpx.Invalid("source must be x, youtube or shop"))
+		if json.Unmarshal(body["source"], &source) != nil || (source != "x" && source != history.SourceXRelated && source != "youtube" && source != history.SourceShop) {
+			httpx.WriteError(w, httpx.Invalid("source must be x, x_related, youtube or shop"))
 			return
 		}
 		_ = json.Unmarshal(body["method"], &method)
@@ -150,6 +150,14 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, httpx.Invalid("%s", history.UnavailableMessage(source, method)))
 			return
 		}
+		if window.Account != "" {
+			account, accountErr := a.fetchAccount(r, source, window.Account)
+			if accountErr != nil {
+				httpx.WriteError(w, accountErr)
+				return
+			}
+			window.Account = account
+		}
 		options.Steps = []string{source, "media"}
 		if source == history.SourceShop {
 			// The shop's sale periods have no media.
@@ -169,6 +177,32 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeStart(w, result)
+}
+
+// fetchAccount resolves a fetch's account to its configured spelling: one
+// of the own accounts (X_HANDLES) for an X fetch, or a related account for
+// an x_related fetch.
+func (a *api) fetchAccount(r *http.Request, source, account string) (string, error) {
+	known := a.XHandles
+	if source == history.SourceXRelated {
+		accounts, err := a.Store.XRelatedAccounts(r.Context())
+		if err != nil {
+			return "", err
+		}
+		known = make([]string, 0, len(accounts))
+		for _, related := range accounts {
+			known = append(known, related.Handle)
+		}
+	}
+	for _, handle := range known {
+		if strings.EqualFold(strings.TrimPrefix(handle, "@"), account) {
+			return strings.TrimPrefix(handle, "@"), nil
+		}
+	}
+	if source == history.SourceXRelated {
+		return "", httpx.Invalid("account must be one of the related accounts")
+	}
+	return "", httpx.Invalid("account must be one of the X accounts")
 }
 
 // fetchOptions are a manual fetch's options: run schedule extraction and

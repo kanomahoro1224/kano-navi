@@ -34,7 +34,10 @@ func (h *HistorySource) MethodAvailable(source, method string) bool {
 		return false
 	}
 	switch {
-	case source == history.SourceX && method == history.MethodTimeline:
+	case source == history.SourceX && method == history.MethodTimeline,
+		// The x_related step reads through the X adapter that serves the
+		// timeline here.
+		source == history.SourceXRelated && method == history.MethodTimeline:
 		return h.Fetcher.Timeline != nil
 	case source == history.SourceX && method == history.MethodAPI:
 		return strings.TrimSpace(h.XToken) != ""
@@ -114,9 +117,10 @@ func counts(result history.Result) map[string]any {
 	}
 }
 
-// FetchX fetches every configured account through the window's method. One
-// account's failure keeps the others; the rotation spreads a short request
-// budget across runs.
+// FetchX fetches every configured account, or the one the window names,
+// through the window's method. One account's failure keeps the others; the
+// rotation spreads a short request budget across runs, and a one-account
+// fetch takes the whole budget and leaves the rotation as it is.
 func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (AttemptResult, error) {
 	window, message := h.selection(history.SourceX, window)
 	if message != "" {
@@ -129,21 +133,12 @@ func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (Atte
 	if len(h.Handles) == 0 {
 		return AttemptResult{}, NewStepError("x_no_accounts", ErrValidation)
 	}
-	rotationID := "window-" + window.Mode
-	rotation, err := h.Store.SyncState(ctx, "x-budget", rotationID)
+	ordered, err := h.fetchOrder(ctx, window)
 	if err != nil {
-		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+		return AttemptResult{}, err
 	}
-	next := 0
-	last, _ := rotation.Metadata["lastAccount"].(string)
-	for i, handle := range h.Handles {
-		if handle == last {
-			next = (i + 1) % len(h.Handles)
-		}
-	}
-	ordered := append(append([]string{}, h.Handles[next:]...), h.Handles[:next]...)
-	if h.Store.WriteSyncMetadata(ctx, "x-budget", rotationID, map[string]any{"lastAccount": ordered[0]}) != nil {
-		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	if len(ordered) == 0 {
+		return failedResult("x_account_unknown"), nil
 	}
 	remaining := h.RequestLimit
 	if remaining < 1 {
@@ -229,6 +224,37 @@ func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (Atte
 		delete(out, "apiRead")
 	}
 	return AttemptResult{Status: stepStatus(messages), Result: out}, nil
+}
+
+// fetchOrder is the accounts an X fetch reads, in order: the one the window
+// names, none when it is not configured, or every account starting after the
+// one the previous fetch of this mode started with.
+func (h *HistorySource) fetchOrder(ctx context.Context, window history.Window) ([]string, error) {
+	if window.Account != "" {
+		for _, handle := range h.Handles {
+			if strings.EqualFold(handle, window.Account) {
+				return []string{handle}, nil
+			}
+		}
+		return nil, nil
+	}
+	rotationID := "window-" + window.Mode
+	rotation, err := h.Store.SyncState(ctx, "x-budget", rotationID)
+	if err != nil {
+		return nil, NewStepError("schema_failure", ErrSchema)
+	}
+	next := 0
+	last, _ := rotation.Metadata["lastAccount"].(string)
+	for i, handle := range h.Handles {
+		if handle == last {
+			next = (i + 1) % len(h.Handles)
+		}
+	}
+	ordered := append(append([]string{}, h.Handles[next:]...), h.Handles[:next]...)
+	if h.Store.WriteSyncMetadata(ctx, "x-budget", rotationID, map[string]any{"lastAccount": ordered[0]}) != nil {
+		return nil, NewStepError("schema_failure", ErrSchema)
+	}
+	return ordered, nil
 }
 
 // FetchYoutube fetches the configured channel through the window's method.

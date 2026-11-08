@@ -2,22 +2,34 @@
 
 ## Manual Fetches and Historical Backfill
 
-The console's Sources page starts manual fetches of X, YouTube and the
-official shop; it is the one place to start them. The Posts and Videos pages open on their lists and
+The console's Sources page starts manual fetches of X, the related X
+accounts, YouTube and the official shop; it is the one place to start them. The Posts and Videos pages open on their lists and
 link to it from their header. A fetch names one listing method first, then
 what the method reads. `POST /api/admin/runs` with
 `{ "kind": "fetch", "source": "x", "method": "timeline", "window": { "mode": "count", "count": 50 } }`
 starts one; the [Admin API](admin-api.md#runs) describes the body and its
 options.
 
-| Source  | Method     | Needs                | Modes                              | Listing                                                  |
-| ------- | ---------- | -------------------- | ---------------------------------- | -------------------------------------------------------- |
-| X       | `timeline` |                      | `count` (1–200), `all`             | public FxTwitter timeline, 20 statuses a page            |
-| X       | `api`      | `X_API_BEARER_TOKEN` | `count` (1–200), `range`, `before` | full-archive search, 100 posts a page                    |
-| YouTube | `api`      | `YOUTUBE_API_KEY`    | `count` (1–200), `all`             | uploads playlist, 50 entries and one quota unit a page   |
-| YouTube | `rss`      |                      | `count` (1–15)                     | public feed, its newest 15 uploads in one request        |
-| YouTube | `ytdlp`    | `YTDLP_BINARY`       | `count` (1–200), `all`             | configured yt-dlp upload listing, without media download |
-| Shop    | `catalog`  |                      | `all`                              | the whole product catalog, at most 6 pages of 250        |
+| Source    | Method     | Needs                | Modes                              | Listing                                                  |
+| --------- | ---------- | -------------------- | ---------------------------------- | -------------------------------------------------------- |
+| X         | `timeline` |                      | `count` (1–200), `all`             | public FxTwitter timeline, 20 statuses a page            |
+| X         | `api`      | `X_API_BEARER_TOKEN` | `count` (1–200), `range`, `before` | full-archive search, 100 posts a page                    |
+| X related | `timeline` |                      | `incremental`                      | one related account's FxTwitter timeline                 |
+| YouTube   | `api`      | `YOUTUBE_API_KEY`    | `count` (1–200), `all`             | uploads playlist, 50 entries and one quota unit a page   |
+| YouTube   | `rss`      |                      | `count` (1–15)                     | public feed, its newest 15 uploads in one request        |
+| YouTube   | `ytdlp`    | `YTDLP_BINARY`       | `count` (1–200), `all`             | configured yt-dlp upload listing, without media download |
+| Shop      | `catalog`  |                      | `all`                              | the whole product catalog, at most 6 pages of 250        |
+
+An X fetch reads every account of `X_HANDLES`, or the one its selection's
+`account` names; a one-account fetch takes the whole X request budget and
+leaves the rotation that spreads the budget across all-account fetches as
+it is. An `x_related` fetch names one related account and is the
+[`x_related` step](sources.md#related-accounts) for that account alone:
+its timer's incremental read from the account's cursor, bounded by the
+`x_related` schedule's `max`, through the FxTwitter timeline only. It fails
+once, without a retry, with the account's failure code, or with
+`x_related_account_unknown` when the account was removed while the fetch
+waited in the queue.
 
 - `count` reads the newest `count` records per X account or for the channel,
   stored or not, whatever their age.
@@ -46,7 +58,7 @@ failure is not tolerated, so the steps after it do not run.
 
 The options add steps or change what is written:
 
-- `extract` (X methods) appends the `schedule` step. Schedule extraction picks
+- `extract` (X and related-account methods) appends the `schedule` step. Schedule extraction picks
   its candidates among all stored X posts by its keyword and message rules,
   unattempted posts first (see
   [Schedule extraction](sources.md#schedule-extraction-pipeline)), so fetched
@@ -455,8 +467,10 @@ every related account's timeline into the pool (see
 it records `{ skipped: true, reason: "no_accounts" }` and succeeds without a
 request; a failed account leaves it `partial` with `@<handle>: <code>` in
 `errors`, and when every account failed it fails with `x_related_failed`,
-retryable like `x_source_failed`. Neither step's outcome affects the
-other's.
+retryable like `x_source_failed`. A manual fetch of one related account
+reads that account alone (see
+[Manual fetches](#manual-fetches-and-historical-backfill)). Neither step's
+outcome affects the other's.
 
 `translate` machine-translates X post text, YouTube titles and the X
 statuses own posts quote that lack a usable translation (see

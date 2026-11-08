@@ -63,6 +63,11 @@ var methods = map[string][]Method{
 	SourceShop: {
 		{ID: MethodCatalog, Modes: []string{ModeAll}, PageSize: 250},
 	},
+	// A related account reads its FxTwitter timeline from its own cursor,
+	// bounded as the x_related timer reads it.
+	SourceXRelated: {
+		{ID: MethodTimeline, Modes: []string{ModeIncremental}, PageSize: 100, Extract: true},
+	},
 }
 
 // Methods lists a source's listing methods in the order the console offers

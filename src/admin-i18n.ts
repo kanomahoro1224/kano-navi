@@ -449,13 +449,12 @@ export const adminMessages = {
     "admin.external.notice.automatic": "Status returned to the keyword rules",
 
     "admin.related.title": "Related accounts",
-    "admin.related.description":
-      "Accounts such as the agency whose own timelines each run of this timer reads in full, through the FxTwitter timeline only. A status containing one of the account's keywords is promoted onto the board; the rest stay in External posts.",
     "admin.related.openExternal": "External posts",
     "admin.related.handle": "Handle",
     "admin.related.keywords": "Keyword rules",
+    "admin.related.keywordsFor": "Keyword rules of @{handle}",
     "admin.related.keywordsHint":
-      "One per line. Matching ignores letter case. Saving checks every stored status again.",
+      "Matching ignores letter case; saving rechecks stored statuses.",
     "admin.related.remove": "Remove account",
     "admin.related.add": "Add account",
     "admin.related.none": "No related accounts.",
@@ -463,6 +462,7 @@ export const adminMessages = {
     "admin.related.neverRead": "Not read yet",
     "admin.related.counts": "{statuses} stored · {promoted} on the board",
     "admin.related.saved": "Related accounts saved",
+    "admin.related.fetchNone": "Add a related account to fetch it.",
     "admin.posts.search": "Search text, URL or ID",
     "admin.posts.account": "Account",
     "admin.posts.llm": "Extraction state",
@@ -883,7 +883,7 @@ export const adminMessages = {
     "admin.sources.x.hint":
       "The public FxTwitter timeline, or the full archive with X_API_BEARER_TOKEN.",
     "admin.sources.x_related.hint":
-      "The related accounts' own FxTwitter timelines, on a timer apart from Kano's accounts. Statuses matching an account's keyword rules reach the board.",
+      "Related accounts' FxTwitter timelines; keyword matches reach the board.",
     "admin.sources.youtube.hint":
       "The RSS feed, or older videos with YOUTUBE_API_KEY.",
     "admin.sources.lastSuccess": "Last successful read",
@@ -913,6 +913,9 @@ export const adminMessages = {
     "admin.fetch.run": "Start fetch",
     "admin.fetch.heading": "Manual fetch",
     "admin.fetch.method": "Method",
+    "admin.fetch.account": "Account",
+    "admin.fetch.account.all": "All accounts",
+    "admin.fetch.method.x_related.timeline": "FxTwitter timeline",
     "admin.fetch.method.x.timeline": "FxTwitter timeline",
     "admin.fetch.method.x.api": "X API",
     "admin.fetch.method.youtube.api": "Data API",
@@ -1038,8 +1041,7 @@ export const adminMessages = {
     "admin.timer.syncLimitHint.x": "1 to 200",
     "admin.timer.syncLimit.incremental.x_related":
       "Most new statuses per account",
-    "admin.timer.syncLimitHint.x_related":
-      "1 to 200. Related accounts always read incrementally.",
+    "admin.timer.syncLimitHint.x_related": "1 to 200",
     "admin.timer.syncLimitHint.youtube":
       "1 to 200. Without YOUTUBE_API_KEY the RSS feed lists 15.",
     "admin.timer.nextRun": "Next run",
@@ -1053,8 +1055,6 @@ export const adminMessages = {
       "Timed reads, Run now, pushes and step runs try the enabled methods from the top and fall to the next when the first page fails, lists none of the account's own records, or hits quota or rate limits. Manual fetches pick their own method.",
     "admin.chain.fixed.bilibili":
       "Bilibili reads its upload list through one fixed method.",
-    "admin.chain.fixed.x_related":
-      "Related accounts read their FxTwitter timeline through one fixed method: no profile page, X API or detail request.",
     "admin.chain.fixed.bilibili_dynamics":
       "Bilibili reads its dynamics listing through one fixed method.",
     "admin.chain.fixed.shop":
@@ -1510,6 +1510,8 @@ export const adminMessages = {
     "admin.metric.failed": "Failed",
     "admin.metric.listed": "Listed",
     "admin.metric.new": "New",
+    "admin.metric.promoted": "Promoted",
+    "admin.metric.demoted": "Demoted",
     "admin.metric.stored": "Already stored",
     "admin.metric.pages": "Pages",
     "admin.metric.candidates": "Dated products of Kano",
@@ -1607,6 +1609,10 @@ export const adminMessages = {
     "admin.code.no_structured_output":
       "The model did not answer in the required format.",
     "admin.code.x_no_accounts": "No X accounts are configured.",
+    "admin.code.x_account_unknown":
+      "The fetch named an account that is not in X_HANDLES.",
+    "admin.code.x_related_account_unknown":
+      "The fetch named an account that is no longer a related account.",
     "admin.code.x_related_failed":
       "Every related account's timeline read failed; each keeps its cursor.",
     "admin.code.x_api_daily_cap":
@@ -2320,6 +2326,8 @@ export const adminMessages = {
     "admin.fetch.end": "最后一天",
     "admin.fetch.noRecords": "还没有存储任何记录，请先读取一个日期范围。",
     "admin.fetch.run": "开始抓取",
+    "admin.fetch.account": "账号",
+    "admin.fetch.account.all": "全部账号",
     "admin.fetch.openSources": "抓取",
     "admin.push.title": "YouTube 推送",
     "admin.push.description":

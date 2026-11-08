@@ -180,7 +180,10 @@ demoted}`. Without a related account the step records `{skipped: true,
 reason: "no_accounts"}` and makes no request. An account whose read failed,
 and a read's notes such as a timeline gap, leave the step `partial` with
 `errors` as `@<handle>: <code>`; when every account failed the step fails
-with `x_related_failed`. The own accounts' read and the related accounts'
+with `x_related_failed`. An operator's
+[manual fetch](workflows.md#manual-fetches-and-historical-backfill) of one
+related account runs the same read for that account alone and fails once
+with its code. The own accounts' read and the related accounts'
 read never decide each other's outcome, and quotes and reposts of the own
 accounts write the pool in the `x` step whether or not `x_related` runs.
 

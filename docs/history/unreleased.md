@@ -332,9 +332,13 @@
 - The schedule marks an automatic entry whose every source post is hidden
   as Hidden by its posts and dims it in the list and the calendar, since the
   public pages leave it out.
-- Sources has an X related tab: the related accounts' timer (switch,
-  interval, most new statuses per account, next and last run, Run now) beside
-  the related accounts with their keyword rules and last read.
+- Sources has an X related tab laid out like X and YouTube: the related
+  accounts' timer (switch, interval, most new statuses per account, next and
+  last run, Run now) and its one method, the related accounts with their
+  keyword rules entered as chips (Enter or a comma adds one) and last read,
+  and beside them a manual fetch that reads one picked related account now,
+  as its timer would, with optional schedule extraction and translation.
+- The X manual fetch reads every own account or only the one picked.
 - External posts, in the Data group, lists the status pool, without Kano's
   own accounts' statuses, with its reasons and state, and promotes or demotes a status with a reason, as a lock the
   keyword rules never override. Posts marks promoted posts.

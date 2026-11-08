@@ -35,9 +35,11 @@ export type FetchMethodId = "timeline" | "api" | "rss" | "ytdlp" | "catalog"
  */
 export type FetchMode = "count" | "all" | "range" | "before"
 
-/** The selection a manual fetch sends with its method. */
+/** The selection a manual fetch sends with its method. An X fetch may name
+ * one of the own accounts; without one it reads them all. */
 export interface FetchSelection {
   mode: FetchMode
+  account?: string
   days?: number
   count?: number
   startDate?: string

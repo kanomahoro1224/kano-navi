@@ -408,12 +408,14 @@ its state and any quick switch opens onto the settings and figures, and
 each fold saves on its own. X adds its X API limits (gate and daily cap,
 with the API's place in the chain and today's usage in the header, and
 today's usage and each account's timeline failures shown as meters against
-them), then the related accounts panel
+them). X related adds the related accounts panel
 (`src/admin/views/related-accounts.tsx`): each account's handle and keyword
-rules, one per line, side by side (stacked on a phone) with its last read,
+rules side by side (stacked on a phone), the rules entered as chips in the
+shared tag input, where Enter or a comma adds one, with its last read,
 stored and promoted counts and last error below, an Add account button that
 starts with the default rules, and one Save; a link opens External posts.
-YouTube adds its progressive confirmation, where push and the
+The panel and the related manual fetch share the tab's one read of the
+accounts, made only while the tab is open. YouTube adds its progressive confirmation, where push and the
 live-status probe are folds with their switch in the header (the probe's fold
 also lists its active videos, each with Stop checking, and its stopped
 videos, each with Check again), followed by
@@ -437,8 +439,11 @@ explanations sit in a dialog behind a question mark beside a title or
 label: the chain, the X API limits, YouTube's per-run limit, its
 progressive confirmation and each of its steps, and yt-dlp.
 
-The manual fetch sits beside the main column: method, mode, count or
-dates, options, then the newest fetch's summary. The shop's is one button
+The manual fetch sits beside the main column: method, for X every own
+account or one of them, mode, count or dates, options, then the newest
+fetch's summary. The X related tab's fetch picks one related account,
+shows its last read, and offers schedule extraction and translation; its
+summary counts the statuses listed, promoted and demoted. The shop's is one button
 that reads the whole catalog, disabled while a 429's wait lasts, then the
 newest read's listed products, dated products of Kano, sale periods and
 pages. The Bilibili tabs hold only

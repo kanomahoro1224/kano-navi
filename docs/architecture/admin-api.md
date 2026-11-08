@@ -174,16 +174,23 @@ a saved workflow reports that ID there, and its name is not read.
   Known catalog steps run once in catalog order; an empty list or another
   value is `400 invalid_input`. Source steps read as their
   [source schedule](#sources) does.
-- `{"kind": "fetch", "source": "x" | "youtube" | "shop", "method": Method, "window":
+- `{"kind": "fetch", "source": "x" | "x_related" | "youtube" | "shop", "method": Method, "window":
 Selection, "options"?: {"extract"?, "translate"?, "refresh"?}}`: one
   source plus media for a
   [manual fetch](workflows.md#manual-fetches-and-historical-backfill)
   through the one method it names. `Method` is `timeline` or `api` for X,
-  `api`, `rss` or `ytdlp` for YouTube, and `catalog` for the shop, whose
+  `timeline` for a related account, `api`, `rss` or `ytdlp` for YouTube,
+  and `catalog` for the shop, whose
   fetch is the `shop` step alone, with `{mode: "all"}` and no option. `Selection` is `{mode: "count", count}`
   (1 to the method's `maxCount`), `{mode: "all"}`, `{mode: "range",
 startDate, endDate}` or `{mode: "before", days}` (1–365), as the method's
-  `modes` allow. `extract` (X methods) adds the `schedule` step,
+  `modes` allow. An X selection may add `account`, one of `X_HANDLES`, to
+  read that account alone. A related account's selection is
+  `{mode: "incremental", account}`, where `account` is one of the
+  [related accounts](#sources). Either handle may carry a leading `@` and
+  any letter case, and the run freezes its configured spelling; another
+  account answers `400 invalid_input`, as does `account` on a YouTube or
+  shop fetch. `extract` (X and related-account methods) adds the `schedule` step,
   `translate` the `translate` step, and `refresh` (YouTube methods)
   rewrites stored videos the listing names again; each is a boolean and
   defaults to false. An unknown method, a mode or count the method does not
@@ -332,8 +339,8 @@ each a valid handle (a leading `@` is dropped) listed once and not one of
 characters; anything else answers `400 invalid_input` naming the problem.
 Saving evaluates every pooled status against the new rules in the same
 transaction, promoting and demoting, and moves the dashboard revision when a
-post changed. Neither route contacts X; the next `x_related` run reads the
-accounts.
+post changed. Neither route contacts X; the next `x_related` run, or a
+manual fetch of one account, reads the accounts.
 
 `FetchMethod` describes one manual fetch method in the order the console
 offers them: `{id, modes, maxCount, pageSize, requires, refresh, extract,

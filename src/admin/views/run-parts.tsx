@@ -190,6 +190,7 @@ export function windowText(window: RunWindow, step: string, t: Translator) {
   if (window.method)
     parts.push(t(`admin.fetch.method.${step}.${window.method}`))
   parts.push(t(`admin.fetch.mode.${window.mode}`))
+  if (window.account) parts.push(`@${window.account}`)
   if (window.days)
     parts.push(t("admin.fetch.daysCount", { count: window.days }))
   if (window.max) parts.push(t("admin.fetch.maxCount", { count: window.max }))

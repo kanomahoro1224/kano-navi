@@ -5,59 +5,73 @@ import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import { japanStamp } from "@/admin/format"
 import type { XRelatedAccount, XRelatedAccounts } from "@/admin/types"
-import { Badge, Button, Field, IconButton, Loading, Panel } from "@/admin/ui"
-import { useAdmin, useResource } from "@/admin/use-admin-data"
+import {
+  Badge,
+  Button,
+  Field,
+  FieldGroup,
+  IconButton,
+  Loading,
+  Panel,
+  TagInput,
+} from "@/admin/ui"
+import { useAdmin } from "@/admin/use-admin-data"
+
+/** The server's bounds of one account's keyword rules. */
+const keywordLimit = 30
+const keywordLength = 100
 
 interface Draft {
   key: number
   handle: string
-  keywords: string
+  keywords: string[]
 }
-
-const keywordsText = (keywords: string[]) => keywords.join("\n")
-
-const parseKeywords = (text: string) =>
-  text
-    .split(/[\n,，]/u)
-    .map((keyword) => keyword.trim())
-    .filter(Boolean)
 
 const draftsOf = (accounts: XRelatedAccount[]): Draft[] =>
   accounts.map((account, key) => ({
     key,
     handle: account.handle,
-    keywords: keywordsText(account.keywords),
+    keywords: account.keywords,
   }))
 
 const accountsOf = (drafts: Draft[]): XRelatedAccount[] =>
   drafts.map((draft) => ({
     handle: draft.handle.trim().replace(/^@/u, ""),
-    keywords: parseKeywords(draft.keywords),
+    keywords: draft.keywords,
   }))
 
 /**
  * The related X accounts on their timer's Sources page: accounts such as the
  * agency whose own timelines each x_related run reads in full, through the
  * FxTwitter timeline only, into External posts. A status whose text contains
- * one of the account's keyword rules is promoted onto the board.
+ * one of the account's keyword rules, entered as chips, is promoted onto the
+ * board. The page holds the one read of the accounts, which the manual fetch
+ * beside it shares.
  */
 export function RelatedAccountsPanel({
+  related,
+  onSaved,
   navigate,
 }: {
+  related: XRelatedAccounts | undefined
+  onSaved: (related: XRelatedAccounts) => void
   navigate: ViewProps["navigate"]
 }) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
-  const related = useResource(() => api.relatedAccounts(), [])
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [nextKey, setNextKey] = useState(0)
   const [busy, setBusy] = useState(false)
-  const saved = related.data
+  const saved = related
+  // A reread after a run, which only changes the read status, keeps the
+  // edits; a changed account list replaces them.
+  const savedKey = saved ? JSON.stringify(saved.accounts) : ""
   useEffect(() => {
     if (!saved) return
     setDrafts(draftsOf(saved.accounts))
     setNextKey(saved.accounts.length)
-  }, [saved])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedKey])
   if (!saved) return <Loading />
   const dirty =
     JSON.stringify(accountsOf(drafts)) !== JSON.stringify(saved.accounts)
@@ -75,7 +89,7 @@ export function RelatedAccountsPanel({
       "admin.related.saved",
     )
     setBusy(false)
-    if (next) related.setData(next)
+    if (next) onSaved(next)
   }
   const statusOf = (handle: string) =>
     saved.status.find(
@@ -87,7 +101,6 @@ export function RelatedAccountsPanel({
     <Panel
       icon={UsersRound}
       title={t("admin.related.title")}
-      description={t("admin.related.description")}
       actions={
         <Button
           size="sm"
@@ -123,18 +136,21 @@ export function RelatedAccountsPanel({
                         />
                       </span>
                     </Field>
-                    <Field
+                    <FieldGroup
                       label={t("admin.related.keywords")}
                       hint={t("admin.related.keywordsHint")}
                     >
-                      <textarea
+                      <TagInput
                         value={draft.keywords}
-                        onChange={(e) =>
-                          set(draft.key, { keywords: e.target.value })
-                        }
-                        rows={3}
+                        onChange={(keywords) => set(draft.key, { keywords })}
+                        label={t("admin.related.keywordsFor", {
+                          handle: draft.handle || "…",
+                        })}
+                        placeholder={t("admin.models.keywordsPlaceholder")}
+                        max={keywordLimit}
+                        maxLength={keywordLength}
                       />
-                    </Field>
+                    </FieldGroup>
                     <IconButton
                       icon={Trash2}
                       label={t("admin.related.remove")}
@@ -183,7 +199,7 @@ export function RelatedAccountsPanel({
                 {
                   key: nextKey,
                   handle: "",
-                  keywords: keywordsText(saved.defaultKeywords),
+                  keywords: saved.defaultKeywords,
                 },
               ])
               setNextKey(nextKey + 1)

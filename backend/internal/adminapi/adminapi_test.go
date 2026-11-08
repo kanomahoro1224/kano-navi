@@ -312,7 +312,7 @@ func TestRunsAreSingleFlightAndSurviveOneFailedSource(t *testing.T) {
 		`{"kind":"variants"}`:             "variants is not available",
 		`{"kind":"sync","source":"x"}`:    "source is not supported for sync",
 		`{"kind":"workflow"}`:             "steps must be an array of step ids",
-		`{"kind":"fetch","source":"rss"}`: "source must be x, youtube or shop",
+		`{"kind":"fetch","source":"rss"}`: "source must be x, x_related, youtube or shop",
 	} {
 		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
 			t.Fatalf("%s => %d %v", body, code, payload)
@@ -470,6 +470,49 @@ func TestSourceFetchMethods(t *testing.T) {
 	failed := c.waitForRun(t, runID(t, payload), "failed")
 	if progress := failed["progress"].(map[string]any); progress["x"] != "failed" || progress["media"] == "completed" {
 		t.Fatalf("failed run=%v", failed)
+	}
+}
+
+func TestFetchesNameOneConfiguredAccount(t *testing.T) {
+	c := newConsole(t, "development", "", &gatedSteps{})
+	if code, payload := c.call(t, "PUT", "/api/admin/sources/x/related", `{"accounts":[{"handle":"agency_synthetic","keywords":["synthetic"]}]}`); code != 200 {
+		t.Fatalf("related=%d %v", code, payload)
+	}
+	for body, message := range map[string]string{
+		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"count","count":5,"account":"agency_synthetic"}}`:  "account must be one of the X accounts",
+		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"count","count":5,"account":"not a handle"}}`:      "account must be an X handle",
+		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"count","count":5,"account":7}}`:                   "account must be an X handle",
+		`{"kind":"fetch","source":"youtube","method":"rss","window":{"mode":"count","count":5,"account":"synthetic_one"}}`:    "account is not supported for this source",
+		`{"kind":"fetch","source":"x_related","method":"timeline","window":{"mode":"incremental"}}`:                           "account is required",
+		`{"kind":"fetch","source":"x_related","method":"timeline","window":{"mode":"all","account":"agency_synthetic"}}`:      "this fetch uses a retired selection; start a new fetch",
+		`{"kind":"fetch","source":"x_related","method":"timeline","window":{"mode":"incremental","account":"synthetic_one"}}`: "account must be one of the related accounts",
+		`{"kind":"fetch","source":"x_related","method":"api","window":{"mode":"incremental","account":"agency_synthetic"}}`:   "method must be one of timeline",
+	} {
+		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
+			t.Fatalf("%s => %d %v", body, code, payload)
+		}
+	}
+	// An X fetch of one own account freezes its configured spelling.
+	code, payload := c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"count","count":5,"account":"@Synthetic_One"}}`)
+	if code != 202 {
+		t.Fatalf("x=%d %v", code, payload)
+	}
+	own := c.waitForRun(t, runID(t, payload), "completed")
+	if window := own["fetchWindows"].(map[string]any)["x"].(map[string]any); window["account"] != "synthetic_one" || window["count"] != float64(5) {
+		t.Fatalf("x window=%v", window)
+	}
+	// A related account's fetch is the x_related step for that account,
+	// then the options' steps.
+	code, payload = c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"x_related","method":"timeline","window":{"mode":"incremental","account":"Agency_Synthetic"},"options":{"extract":true,"translate":true}}`)
+	if code != 202 {
+		t.Fatalf("related fetch=%d %v", code, payload)
+	}
+	related := c.waitForRun(t, runID(t, payload), "completed")
+	if window := related["fetchWindows"].(map[string]any)["x_related"].(map[string]any); window["method"] != "timeline" || window["mode"] != "incremental" || window["account"] != "agency_synthetic" {
+		t.Fatalf("related window=%v", window)
+	}
+	if fmt.Sprint(related["steps"]) != "[x_related media schedule translate reconcile]" {
+		t.Fatalf("related steps=%v", related["steps"])
 	}
 }
 

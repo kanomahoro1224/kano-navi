@@ -21,6 +21,9 @@ const (
 	SourceYoutube = "youtube"
 	// SourceShop is the official shop; its one fetch reads the whole catalog.
 	SourceShop = "shop"
+	// SourceXRelated is one related X account (ADR-0009); its one fetch is
+	// the x_related timer's incremental read of that account alone.
+	SourceXRelated = "x_related"
 
 	xSearchURL = "https://api.x.com/2/tweets/search/all"
 	// xArchiveStart begins a count search. Without a start_time the search

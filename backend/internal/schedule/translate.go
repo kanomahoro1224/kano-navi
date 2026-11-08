@@ -44,9 +44,10 @@ var (
 	translationLinks    = regexp.MustCompile(`https?://\S+`)
 	translationHandles  = regexp.MustCompile(`[@#＃][\p{L}\p{N}_]+`)
 	translationKindText = map[string]string{
-		sqlite.TranslationOwnerPost:    "X post",
-		sqlite.TranslationOwnerVideo:   "YouTube video title",
-		sqlite.TranslationOwnerXStatus: "X post",
+		sqlite.TranslationOwnerPost:           "X post",
+		sqlite.TranslationOwnerVideo:          "YouTube video title",
+		sqlite.TranslationOwnerXStatus:        "X post",
+		sqlite.TranslationOwnerBilibiliStatus: "Bilibili dynamic",
 	}
 )
 

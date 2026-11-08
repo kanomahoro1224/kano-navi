@@ -564,7 +564,7 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 		if err := s.attachAdminPostSchedule(ctx, &items[i]); err != nil {
 			return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
 		}
-		quote, err := s.mapQuote(ctx, items[i].ID, quotes[items[i].ID])
+		quote, err := s.mapQuote(ctx, items[i].Source, items[i].ID, quotes[items[i].ID])
 		if err != nil {
 			return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
 		}

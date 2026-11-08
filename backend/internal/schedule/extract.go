@@ -563,12 +563,21 @@ func (p sourceProfile) publishedAtText(value string) string {
 
 // quotedInput marks the wording of the status a post quotes as context after
 // the post's own text: the post points at it, often with a word or two, and
-// the schedule is in the quoted wording. Quoted images never join the input.
+// the schedule is in the quoted wording. A Bilibili forward names the
+// forwarded dynamic's author by display name, and times without a zone in
+// its wording are Beijing time, as in the forward's own. Quoted images never
+// join the input.
 func quotedInput(quote quotedContext) string {
 	if quote.text == "" {
 		return ""
 	}
 	author := "another account"
+	if quote.forward {
+		if quote.author != "" {
+			author = quote.author
+		}
+		return "\n\n[Forwarded dynamic by " + author + ". The source post forwards this wording; it is context, not the source post's own text. Times written in it without a zone are Beijing time, as in the source post.]\n" + quote.text
+	}
 	if quote.author != "" {
 		author = "@" + quote.author
 	}

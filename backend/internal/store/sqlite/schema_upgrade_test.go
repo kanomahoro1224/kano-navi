@@ -130,6 +130,8 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 		`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN('events_instant_idx','events_stream_identity_idx','posts_instant_idx','posts_url_published_at_idx','videos_instant_idx','videos_schedule_instant_idx','events_source_item_idx','schedule_asset_reviews_status_idx')`: "8",
 		`SELECT COUNT(*) FROM pragma_table_info('videos') WHERE name IN('live_status','live_checked_at')`:                                                                          "2",
 		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN('workflow_runs','workflow_run_steps','workflow_step_attempts','workflow_leases','workflow_migrations')`: "5",
+		// The forwarded-dynamic pool starts empty: no forward was stored before.
+		`SELECT COUNT(*)||'/'||(SELECT COUNT(*) FROM bilibili_statuses) FROM sqlite_master WHERE type='table' AND name='bilibili_statuses'`: "1/0",
 	} {
 		if got := query(statement); got != want {
 			t.Fatalf("%s = %q, want %q", statement, got, want)

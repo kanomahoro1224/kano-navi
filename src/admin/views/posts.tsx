@@ -211,7 +211,8 @@ function PostImages({
  * (hide from the public pages or show again, queue a refresh from the source
  * for the next X synchronization, open it), then its wording and its cached
  * thumbnails. Wording past three lines folds behind a toggle; `full` shows it
- * all. Quotes and refreshes are X's; another source's post shows none.
+ * all. A Bilibili forward shows the dynamic it forwards, its author by name
+ * or mid; refreshes are X's only.
  */
 function PostQuote({
   post,
@@ -242,7 +243,8 @@ function PostQuote({
     return () => observer.disconnect()
   }, [expanded, quote?.text])
   const queued = post.refreshRequestedAt
-  if (post.source !== "x" || (!quote && !queued)) return null
+  const bilibili = post.source === "bilibili"
+  if ((post.source !== "x" && !bilibili) || (!quote && !queued)) return null
   const hidden = Boolean(post.quoteHiddenAt)
   const images = (quote?.media || []).filter((image) => localUrl(image.url))
   const run = async (
@@ -267,10 +269,14 @@ function PostQuote({
           <span className="adm-post-quote-author">
             <strong>
               {quote.authorName ||
-                (quote.authorHandle ? `@${quote.authorHandle}` : "")}
+                (quote.authorHandle && !bilibili
+                  ? `@${quote.authorHandle}`
+                  : quote.authorHandle || "")}
             </strong>
             {quote.authorName && quote.authorHandle ? (
-              <span>@{quote.authorHandle}</span>
+              <span>
+                {bilibili ? quote.authorHandle : `@${quote.authorHandle}`}
+              </span>
             ) : null}
             {quote.publishedAt ? (
               <time dateTime={quote.publishedAt}>

@@ -16,6 +16,19 @@ CREATE TABLE assets (
     raw_json TEXT
   , asset_version INTEGER NOT NULL DEFAULT 1, period_start TEXT, period_end TEXT, period_basis TEXT NOT NULL DEFAULT 'legacy', manual_period_start TEXT, manual_period_end TEXT, manual_period_reason TEXT, manual_image_at TEXT);
 
+CREATE TABLE bilibili_statuses (
+    id TEXT PRIMARY KEY,
+    author_mid TEXT NOT NULL,
+    author_name TEXT,
+    text TEXT NOT NULL,
+    published_at TEXT,
+    url TEXT NOT NULL,
+    raw_json TEXT,
+    forwarded_at TEXT,
+    first_seen_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
 CREATE TABLE event_sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id TEXT NOT NULL REFERENCES events (id) ON DELETE CASCADE,

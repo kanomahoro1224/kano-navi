@@ -754,7 +754,7 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 		p.Media = links
 		p.MediaID, p.MediaURL, p.MediaStatus, p.MediaSourceURL = links[0].ID, links[0].URL, links[0].Status, links[0].SourceURL
 	}
-	if p.Quote, err = s.mapQuote(ctx, r.id, r.quoteJSON); err != nil {
+	if p.Quote, err = s.mapQuote(ctx, r.source, r.id, r.quoteJSON); err != nil {
 		return p, err
 	}
 	return p, nil
@@ -764,6 +764,11 @@ var (
 	bilibiliMid      = regexp.MustCompile(`^[1-9][0-9]{0,15}$`)
 	quoteIDPattern   = regexp.MustCompile(`^\d{10,22}$`)
 	quotePathPattern = regexp.MustCompile(`^/[A-Za-z0-9_]{1,30}/status/(\d{10,22})$`)
+	// A Bilibili quote names a dynamic by its post ID and links to its opus
+	// page, or to the video page of a forwarded upload.
+	bilibiliQuoteIDPattern = regexp.MustCompile(`^bilibili-([1-9][0-9]{8,24})$`)
+	bilibiliOpusPath       = regexp.MustCompile(`^/opus/([1-9][0-9]{8,24})$`)
+	bilibiliVideoPath      = regexp.MustCompile(`^/video/BV1[1-9A-HJ-NP-Za-km-z]{9}$`)
 )
 
 // quoteLinksTo reports whether a stored quote URL is exactly the x.com page
@@ -777,15 +782,44 @@ func quoteLinksTo(raw, id string) bool {
 	return m != nil && m[1] == id
 }
 
+// bilibiliQuoteLinksTo reports whether a stored Bilibili quote URL is exactly
+// the opus page of the dynamic id, or a video page when video is allowed.
+func bilibiliQuoteLinksTo(raw, id string, video bool) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host != "www.bilibili.com" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+	if m := bilibiliOpusPath.FindStringSubmatch(u.Path); m != nil {
+		return m[1] == id
+	}
+	return video && bilibiliVideoPath.MatchString(u.Path)
+}
+
+// validQuote reports whether a stored projection is a quote the post of
+// source and postID may show: an X post quotes an x.com status, a Bilibili
+// post (a forward) a Bilibili dynamic. A forward of a dynamic whose ID the
+// listing did not give is unavailable and links to the forward itself.
+func validQuote(source, postID string, q PostQuote) bool {
+	if source != "bilibili" {
+		return quoteIDPattern.MatchString(q.ID) && quoteLinksTo(q.URL, q.ID)
+	}
+	if q.ID == "" {
+		own := bilibiliQuoteIDPattern.FindStringSubmatch(postID)
+		return q.Unavailable && own != nil && bilibiliQuoteLinksTo(q.URL, own[1], false)
+	}
+	m := bilibiliQuoteIDPattern.FindStringSubmatch(q.ID)
+	return m != nil && bilibiliQuoteLinksTo(q.URL, m[1], !q.Unavailable)
+}
+
 // mapQuote reads a post's stored quote. A projection that is not a valid
-// quote of an x.com status is left out; its images are the post's
+// quote for the post (see validQuote) is left out; its images are the post's
 // quote-image links whose cached files are ready.
-func (s *Store) mapQuote(ctx context.Context, postID string, stored sql.NullString) (*PostQuote, error) {
+func (s *Store) mapQuote(ctx context.Context, source, postID string, stored sql.NullString) (*PostQuote, error) {
 	if !stored.Valid || stored.String == "" {
 		return nil, nil
 	}
 	var q PostQuote
-	if json.Unmarshal([]byte(stored.String), &q) != nil || !quoteIDPattern.MatchString(q.ID) || !quoteLinksTo(q.URL, q.ID) {
+	if json.Unmarshal([]byte(stored.String), &q) != nil || !validQuote(source, postID, q) {
 		return nil, nil
 	}
 	q.Media = []PostMedia{}

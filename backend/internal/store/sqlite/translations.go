@@ -31,6 +31,10 @@ const (
 	// TranslationOwnerXStatus is a pooled X status (x_statuses) that an own
 	// account quotes or reposts and that is not a stored post.
 	TranslationOwnerXStatus = "x_status"
+	// TranslationOwnerBilibiliStatus is a pooled Bilibili dynamic
+	// (bilibili_statuses) that an own forward forwards and that is not a
+	// stored post.
+	TranslationOwnerBilibiliStatus = "bilibili_status"
 
 	TranslationOriginManual   = "manual"
 	TranslationOriginPlatform = "platform"
@@ -89,6 +93,11 @@ const xStatusInstant = "CASE WHEN %[1]s.reposted_at IS NULL OR julianday(%[1]s.q
 // translations a quote of them reuses.
 const xStatusTranslationScope = "(%[1]s.quoted_at IS NOT NULL OR %[1]s.reposted_at IS NOT NULL) AND NOT EXISTS (SELECT 1 FROM posts xp WHERE xp.id = %[1]s.id)"
 
+// bilibiliStatusTranslationScope selects the pooled dynamics the machine
+// step translates: forwarded ones that are not stored posts. Their lookback
+// instant is forwarded_at, the newest own forward's publication time.
+const bilibiliStatusTranslationScope = "%[1]s.forwarded_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM posts bp WHERE bp.id = %[1]s.id)"
+
 // translationOwner describes an owner type: its table, translated field and
 // the SQL (%[1]s is the table alias) of its wording, the instant the lookback
 // compares, the machine scope and its source (x, bilibili or youtube).
@@ -98,14 +107,32 @@ type translationOwner struct {
 
 // An origin without a column ignores the alias through %.0[1]s.
 var translationOwners = map[string]translationOwner{
-	TranslationOwnerPost:    {table: "posts", field: "text", source: "%[1]s.text", instant: "%[1]s.published_at", scope: "%[1]s.source IN ('x','bilibili')", origin: "%[1]s.source"},
-	TranslationOwnerVideo:   {table: "videos", field: "title", source: videoTitleSource, instant: "COALESCE(%[1]s.scheduled_at, %[1]s.published_at)", scope: videoTranslationScope, origin: "%[1]s.source"},
-	TranslationOwnerXStatus: {table: "x_statuses", field: "text", source: "%[1]s.text", instant: xStatusInstant, scope: xStatusTranslationScope, origin: "%.0[1]s'x'"},
+	TranslationOwnerPost:           {table: "posts", field: "text", source: "%[1]s.text", instant: "%[1]s.published_at", scope: "%[1]s.source IN ('x','bilibili')", origin: "%[1]s.source"},
+	TranslationOwnerVideo:          {table: "videos", field: "title", source: videoTitleSource, instant: "COALESCE(%[1]s.scheduled_at, %[1]s.published_at)", scope: videoTranslationScope, origin: "%[1]s.source"},
+	TranslationOwnerXStatus:        {table: "x_statuses", field: "text", source: "%[1]s.text", instant: xStatusInstant, scope: xStatusTranslationScope, origin: "%.0[1]s'x'"},
+	TranslationOwnerBilibiliStatus: {table: "bilibili_statuses", field: "text", source: "%[1]s.text", instant: "%[1]s.forwarded_at", scope: bilibiliStatusTranslationScope, origin: "%.0[1]s'bilibili'"},
 }
 
 // machineTranslationOwners are the owner types the machine step translates,
-// in the order it takes them: pooled statuses only after posts and videos.
-var machineTranslationOwners = []string{TranslationOwnerPost, TranslationOwnerVideo, TranslationOwnerXStatus}
+// in the order it takes them: pooled X statuses only after posts and videos,
+// and pooled Bilibili dynamics last.
+var machineTranslationOwners = []string{TranslationOwnerPost, TranslationOwnerVideo, TranslationOwnerXStatus, TranslationOwnerBilibiliStatus}
+
+// quoteTranslationOwner is the pool owner type of a quote shown on a post of
+// the source: a forwarded Bilibili dynamic or a quoted X status.
+func quoteTranslationOwner(source string) string {
+	if source == "bilibili" {
+		return TranslationOwnerBilibiliStatus
+	}
+	return TranslationOwnerXStatus
+}
+
+// presumedJapanese reports whether an owner's wording counts as Japanese
+// until the machine step detects its language: X posts and statuses and
+// YouTube titles do, Bilibili dynamics, stored or pooled, do not.
+func presumedJapanese(ownerType, id string) bool {
+	return ownerType != TranslationOwnerBilibiliStatus && !(ownerType == TranslationOwnerPost && strings.HasPrefix(id, "bilibili-"))
+}
 
 func (o translationOwner) originSQL(alias string) string  { return fmt.Sprintf(o.origin, alias) }
 func (o translationOwner) sourceSQL(alias string) string  { return fmt.Sprintf(o.source, alias) }
@@ -156,15 +183,18 @@ func translationCoveredSQL(ownerType, alias, locale string) string {
 // translationNeededSQL is false only when the machine step found that the
 // current wording is already in the locale's language or has nothing to
 // translate. An owner whose current wording it never saw needs en and zh-CN,
-// and ja only when it is a Bilibili dynamic: X posts and YouTube titles are
-// presumed Japanese until the step detects otherwise, so a title that
-// platform rows already cover is not sent for ja alone.
+// and ja only when it is a Bilibili dynamic, stored or pooled: X posts and
+// YouTube titles are presumed Japanese until the step detects otherwise, so
+// a title that platform rows already cover is not sent for ja alone.
 func translationNeededSQL(ownerType, alias, locale string) string {
 	o := translationOwners[ownerType]
 	if locale == "ja" {
 		presumed := "0"
-		if ownerType == TranslationOwnerPost {
+		switch ownerType {
+		case TranslationOwnerPost:
 			presumed = alias + ".source = 'bilibili'"
+		case TranslationOwnerBilibiliStatus:
+			presumed = "1"
 		}
 		return fmt.Sprintf(`COALESCE((SELECT ts.source_language NOT IN ('ja', 'none') FROM translation_states ts WHERE ts.owner_type = '%s' AND ts.owner_id = %s.id AND ts.field = '%s' AND ts.source_hash = translation_hash(%s)), %s)`,
 			ownerType, alias, o.field, o.sourceSQL(alias), presumed)
@@ -329,9 +359,10 @@ func (s *Store) resolveTranslations(ctx context.Context, ownerType string, ids [
 }
 
 // attachPostTranslations resolves the posts' translations and their quotes'.
-// A quote of a stored post (a self-quote, or a promoted status) shares that
-// post's translations; any other quote has the x_status translations of its
-// status ID, resolved against the quote's own text (see
+// A quote of a stored post (a self-quote, a forward of an own dynamic, or a
+// promoted status) shares that post's translations; any other quote has the
+// pool translations of its ID (x_status on an X post, bilibili_status on a
+// Bilibili forward), resolved against the quote's own text (see
 // resolveQuoteTranslations).
 func (s *Store) attachPostTranslations(ctx context.Context, posts ...*Post) error {
 	ids := []string{}
@@ -361,15 +392,21 @@ func (s *Store) attachPostTranslations(ctx context.Context, posts ...*Post) erro
 	if err != nil {
 		return err
 	}
-	pooled := map[string][]string{}
+	pooled := map[string]map[string][]string{}
 	for _, post := range posts {
 		if post != nil && post.Quote != nil && !post.Quote.Unavailable && !stored[post.Quote.ID] {
-			pooled[post.Quote.ID] = append(pooled[post.Quote.ID], post.Quote.Text)
+			owner := quoteTranslationOwner(post.Source)
+			if pooled[owner] == nil {
+				pooled[owner] = map[string][]string{}
+			}
+			pooled[owner][post.Quote.ID] = append(pooled[owner][post.Quote.ID], post.Quote.Text)
 		}
 	}
-	quotes, err := s.resolveQuoteTranslations(ctx, pooled)
-	if err != nil {
-		return err
+	quotes := map[string]map[string]TranslationSet{}
+	for owner, texts := range pooled {
+		if quotes[owner], err = s.resolveQuoteTranslations(ctx, owner, texts); err != nil {
+			return err
+		}
 	}
 	for _, post := range posts {
 		if post == nil {
@@ -380,7 +417,7 @@ func (s *Store) attachPostTranslations(ctx context.Context, posts ...*Post) erro
 			if stored[post.Quote.ID] {
 				post.Quote.Translations = sets[post.Quote.ID]
 			} else {
-				post.Quote.Translations = quotes[quoteTextKey(post.Quote.ID, post.Quote.Text)]
+				post.Quote.Translations = quotes[quoteTranslationOwner(post.Source)][quoteTextKey(post.Quote.ID, post.Quote.Text)]
 			}
 		}
 	}
@@ -414,13 +451,14 @@ func (s *Store) storedPostIDs(ctx context.Context, ids []string) (map[string]boo
 // of it shows.
 func quoteTextKey(id, text string) string { return id + "|" + TranslationHash(text) }
 
-// resolveQuoteTranslations resolves the x_status translations of quoted
-// statuses, keyed by quoteTextKey, from the translation tables alone: the
-// projection's text stands in for the pooled wording, which comes from the
-// same mapping, so the public read never touches x_statuses. A machine row or
+// resolveQuoteTranslations resolves the pool translations (ownerType
+// x_status or bilibili_status) of quoted statuses, keyed by quoteTextKey,
+// from the translation tables alone: the projection's text stands in for the
+// pooled wording, which comes from the same mapping, so the public read never
+// touches a pool table. A machine row or
 // a source language counts only when its source hash matches that text;
 // manual and platform rows always count.
-func (s *Store) resolveQuoteTranslations(ctx context.Context, texts map[string][]string) (map[string]TranslationSet, error) {
+func (s *Store) resolveQuoteTranslations(ctx context.Context, ownerType string, texts map[string][]string) (map[string]TranslationSet, error) {
 	out := map[string]TranslationSet{}
 	ids := make([]string, 0, len(texts))
 	for id := range texts {
@@ -432,9 +470,9 @@ func (s *Store) resolveQuoteTranslations(ctx context.Context, texts map[string][
 	}
 	translated := map[string][]row{}
 	states := map[string][2]string{}
-	field := translationOwners[TranslationOwnerXStatus].field
+	field := translationOwners[ownerType].field
 	for _, chunk := range translationChunks(ids) {
-		args := append([]any{TranslationOwnerXStatus, field}, idArgs(chunk)...)
+		args := append([]any{ownerType, field}, idArgs(chunk)...)
 		rows, err := s.db.QueryContext(ctx, `SELECT owner_id, locale, origin, platform, text, source_hash FROM translations
 			WHERE owner_type = ? AND field = ? AND owner_id IN (`+placeholders(len(chunk))+`)`, args...)
 		if err != nil {
@@ -728,7 +766,7 @@ func (s *Store) AdminTranslations(ctx context.Context, ownerType string, ids []s
 					entry.Status = "source"
 				case item.SourceLanguage != nil && *item.SourceLanguage == "none":
 					entry.Status = "not_needed"
-				case item.SourceLanguage == nil && locale == "ja" && !(ownerType == TranslationOwnerPost && strings.HasPrefix(id, "bilibili-")):
+				case item.SourceLanguage == nil && locale == "ja" && presumedJapanese(ownerType, id):
 					// Presumed Japanese until detected (see translationNeededSQL).
 					entry.Status = "source"
 				case stale:
@@ -801,7 +839,7 @@ func (s *Store) TranslationSummary(ctx context.Context) (map[string]TranslationC
 type TranslationCandidate struct {
 	OwnerType, OwnerID, Field, Text, SourceHash string
 	// Source is the owner's source: x or bilibili for a post, youtube for a
-	// video, x for a pooled status.
+	// video, x for a pooled X status, bilibili for a pooled dynamic.
 	Source    string
 	Requested bool
 	attempt   string
@@ -811,9 +849,11 @@ type TranslationCandidate struct {
 // ListTranslationCandidates returns up to limit owners in the machine scope
 // whose current wording lacks a usable translation of a needed locale, plus
 // owners an operator requested. Requests come first and ignore since; then
-// posts and videos before pooled statuses, each never attempted for this
-// wording first, then the least recently attempted, newest first within each
-// group. A pooled status's instant is when an own post last quoted it.
+// posts and videos, then pooled X statuses, then pooled Bilibili dynamics
+// (see candidateGroup), each never attempted for this wording first, then
+// the least recently attempted, newest first within each group. A pooled X
+// status's instant is when an own post last quoted it, a pooled dynamic's
+// when an own forward last forwarded it.
 func (s *Store) ListTranslationCandidates(ctx context.Context, since time.Time, limit int) ([]TranslationCandidate, error) {
 	if limit < 1 {
 		return []TranslationCandidate{}, nil
@@ -849,8 +889,8 @@ func (s *Store) ListTranslationCandidates(ctx context.Context, since time.Time, 
 		if a.Requested != b.Requested {
 			return a.Requested
 		}
-		if pa, pb := a.OwnerType == TranslationOwnerXStatus, b.OwnerType == TranslationOwnerXStatus; !a.Requested && pa != pb {
-			return pb
+		if ga, gb := candidateGroup(a.OwnerType), candidateGroup(b.OwnerType); !a.Requested && ga != gb {
+			return ga < gb
 		}
 		if (a.attempt == "") != (b.attempt == "") {
 			return a.attempt == ""
@@ -864,6 +904,18 @@ func (s *Store) ListTranslationCandidates(ctx context.Context, since time.Time, 
 		all = all[:limit]
 	}
 	return all, nil
+}
+
+// candidateGroup orders the machine step's automatic candidates: posts and
+// videos, then pooled X statuses, then pooled Bilibili dynamics.
+func candidateGroup(ownerType string) int {
+	switch ownerType {
+	case TranslationOwnerXStatus:
+		return 1
+	case TranslationOwnerBilibiliStatus:
+		return 2
+	}
+	return 0
 }
 
 // MachineTranslation is a model's result for one candidate.

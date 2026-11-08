@@ -192,12 +192,15 @@ A post that quotes another status (`post.quote`, see
 below the post's own wording and images and above the engagement counts: an
 indented card on the quieter sunken surface with "display name @handle ·
 time", the quoted wording clamped to four lines and up to three thumbnails
-("+N" counts the rest). The card follows the quoted post's x.com link from
-anywhere except its thumbnails, which open the image viewer with the quote's
-images. Read more also appears when the clamp hides quoted wording; the full
-post dialog and the archive show the whole quote with larger thumbnails. An
-unavailable quote shows a localized "Quoted post unavailable" placeholder
-linking to x.com. Quoted wording follows the content language like the
+("+N" counts the rest). The card follows the quoted post's link (its x.com
+page, or for a Bilibili forward the forwarded dynamic's or upload's Bilibili
+page) from anywhere except its thumbnails, which open the image viewer with
+the quote's images. A forward's card names the forwarded dynamic's author by
+display name after the bilibili mark, never by `@` or mid. Read more also
+appears when the clamp hides quoted wording; the full post dialog and the
+archive show the whole quote with larger thumbnails. An unavailable quote
+shows a localized "Quoted post unavailable" placeholder linking to the
+quote's `url`. Quoted wording follows the content language like the
 post's own: the quote's `translations` (its stored post's for a self-quote,
 otherwise the quoted status's own) show with their own translation switch,
 and a quote without one shows its wording as written.
@@ -206,8 +209,10 @@ post without it.
 
 A Bilibili dynamic (`source: "bilibili"`) shows the bilibili mark and name,
 linked to the account's space, instead of an `@handle`, and its open link
-goes to the opus page. It has no quote and no engagement counts, so neither
-shows, and an empty text (an emoji-only dynamic) leaves only its images. The
+goes to the opus page. It has no engagement counts. A forward shows the
+dynamic it forwards as its quote card, and an empty text (an emoji-only
+dynamic, or a forward without wording of its own) leaves only its images or
+its quote. The
 wall's top line adds bilibili while it holds a dynamic. A stream or
 members-only entry links to `liveUrl ?? url` (`eventLink` in
 `src/dashboard/format.ts`). The dashboard's `liveNow` becomes a live stage

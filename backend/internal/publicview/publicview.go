@@ -140,7 +140,9 @@ func publicMedia(items []sqlite.PostMedia) []any {
 }
 
 // publicQuote is the quoted status a post shows: its author, wording, time,
-// x.com link and ready images. Empty fields are null.
+// link (an x.com status, or a Bilibili dynamic or upload page for a forward)
+// and ready images. Empty fields are null; only an unavailable forward of a
+// dynamic whose ID is unknown has a null id.
 func publicQuote(q *sqlite.PostQuote) any {
 	if q == nil {
 		return nil
@@ -151,7 +153,7 @@ func publicQuote(q *sqlite.PostQuote) any {
 		}
 		return s
 	}
-	return map[string]any{"id": q.ID, "authorHandle": text(q.AuthorHandle), "authorName": text(q.AuthorName), "text": text(q.Text), "publishedAt": text(q.PublishedAt), "url": q.URL, "unavailable": q.Unavailable, "media": publicMedia(q.Media), "translations": publicTranslations(q.Translations), "sourceLanguage": value(q.Translations.SourceLanguage)}
+	return map[string]any{"id": text(q.ID), "authorHandle": text(q.AuthorHandle), "authorName": text(q.AuthorName), "text": text(q.Text), "publishedAt": text(q.PublishedAt), "url": q.URL, "unavailable": q.Unavailable, "media": publicMedia(q.Media), "translations": publicTranslations(q.Translations), "sourceLanguage": value(q.Translations.SourceLanguage)}
 }
 func publicVideo(v sqlite.Video) map[string]any {
 	return map[string]any{"id": v.ID, "source": v.Source, "title": v.Title, "publishedAt": value(v.PublishedAt), "scheduledAt": value(v.ScheduledAt), "url": v.URL, "thumbnailUrl": value(v.ThumbnailURL), "kind": value(v.Kind), "isUpcoming": v.IsUpcoming, "endsAt": value(v.EndsAt), "thumbnailId": value(v.ThumbnailID), "thumbnailStatus": v.ThumbnailStatus, "thumbnailSourceUrl": value(v.ThumbnailSourceURL), "isCancelled": v.IsCancelled, "liveStatus": value(v.LiveStatus), "durationSeconds": valueInt(v.DurationSeconds), "isShort": valueBool(v.IsShort), "tag": value(v.Tag), "availability": value(v.Availability), "translations": publicTranslations(v.Translations), "sourceLanguage": value(v.Translations.SourceLanguage), "alternates": publicAlternates(v.Alternates)}

@@ -28,7 +28,11 @@
 > schedules and the overview's sources add it. Startup gives a saved
 > Bilibili timer a dynamics timer beside it with the same switch and
 > interval, planned half an interval after the upload read; `SKIP_BILIBILI`
-> covers both.
+> covers both. Startup creates the empty `bilibili_statuses` table for the
+> dynamics forwards forward. A forward's public `quote` is that dynamic, with
+> a `null` `id` when the listing did not name it, and the admin API's
+> translation routes accept the owner `bilibili_status`, which translation
+> rows may also carry.
 
 > [!IMPORTANT]
 > Related X accounts
@@ -93,7 +97,9 @@
   below it, loaded from GitHub, and its technology list adds yt-dlp and MCP.
 - The post wall is **Recent Posts** and lists Kano's bilibili dynamics with
   her X posts, with the bilibili mark and a link to the dynamic; bilibili
-  posts show no quote or engagement counts.
+  posts show no engagement counts. A bilibili forward shows the post it
+  forwards as a nested card with its author's name, translated like a
+  quoted X post, and links to it on bilibili.
 - Japanese content shows a Japanese translation of wording that is not
   Japanese, such as a Chinese bilibili post, with the AI mark; the calendar
   and video feeds pick Japanese wording the same way.
@@ -124,8 +130,11 @@
   cookie, signed with Bilibili's WBI keys, on its own timer and interval and
   under the captcha backoff it shares with the upload read, so dynamics can
   be read on a schedule apart from the uploads and their runs and failures
-  stay apart; reposts, uploads and live notices are left out, and emoji are
-  dropped from the stored text.
+  stay apart; uploads and live notices are left out, and emoji are
+  dropped from the stored text. A forward is kept as a post that quotes the
+  forwarded dynamic, read from the listing itself without another request,
+  and extraction reads the forwarded wording as context, with its times in
+  Beijing time.
 - Bilibili dynamics go through schedule extraction with a Chinese prompt.
   The model gives times as written with their zone, and code converts
   Beijing time to Japan time, including the next-day rollover
@@ -143,7 +152,9 @@
   around announced streams and once per operator interval (30 minutes by
   default) otherwise, and learns the room from the answer.
 - Translation adds Japanese, and translates Bilibili dynamics into English
-  and Japanese, keeping their times as written.
+  and Japanese, keeping their times as written. A forwarded dynamic is
+  translated once however often it is forwarded, after posts, videos and
+  quoted X posts.
 - Manual X timeline fetches count FxTwitter's fixed pages of 20 statuses, so
   a large `count` fetch stops at the page budget and continues when repeated
   instead of reading fewer statuses than it reports.
@@ -180,7 +191,9 @@
   its manual action, adding one upload or one dynamic by its link, as X and
   YouTube keep their manual fetch. During a captcha backoff, adding or refreshing
   one upload or dynamic offers **Try once anyway**. Translation views show
-  the Japanese locale, and bilibili posts offer no X-only actions.
+  the Japanese locale, and bilibili posts offer no X-only actions. Posts
+  shows a bilibili forward's forwarded dynamic as its quote, which can be
+  hidden from the public pages like an X quote.
 - Site → Image copies shows its panel and group meters at once and fills in
   the counts when the listing arrives.
 - Source tabs that overflow a phone screen scroll within their row instead

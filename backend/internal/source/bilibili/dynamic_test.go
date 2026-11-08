@@ -10,14 +10,14 @@ import (
 )
 
 // Synthetic listing in the feed/space shape: a word dynamic with an emoji, a
-// picture dynamic, an opus dynamic, a repost, an upload, a live notice and
-// another author's item.
+// picture dynamic, an opus dynamic, another author's forward, an upload, a
+// live notice and another author's item.
 const spaceFeed = `{"code":0,"message":"0","data":{"has_more":true,"offset":"900000000000000001","items":[
  {"id_str":"900000000000000010","type":"DYNAMIC_TYPE_WORD","visible":true,"modules":{"module_author":{"mid":316381099,"pub_ts":1794024288},"module_dynamic":{"desc":{"text":"x","rich_text_nodes":[
   {"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"今天20点开始播杂谈 "},{"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[synthetic_emoji]"},{"type":"RICH_TEXT_NODE_TYPE_TOPIC","text":"#话题#"},{"type":"RICH_TEXT_NODE_TYPE_AT","text":"@someone"}]},"major":null}}},
  {"id_str":"900000000000000009","type":"DYNAMIC_TYPE_DRAW","modules":{"module_author":{"mid":"316381099","pub_ts":"1794020000"},"module_dynamic":{"major":{"type":"MAJOR_TYPE_DRAW","draw":{"items":[{"src":"http://i0.hdslb.com/bfs/new_dyn/synthetic-a.jpg"},{"src":"https://images.invalid/b.jpg"}]}},"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[only_emoji]"}]}}}},
  {"id_str":"900000000000000008","type":"DYNAMIC_TYPE_DRAW","modules":{"module_author":{"mid":316381099,"pub_ts":1794010000},"module_dynamic":{"major":{"type":"MAJOR_TYPE_OPUS","opus":{"title":"","summary":{"text":"s","rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"图文"},{"type":"RICH_TEXT_NODE_TYPE_WEB","text":"网页链接"}]},"pics":[{"url":"//i1.hdslb.com/bfs/new_dyn/synthetic-c.png"}]}}},"module_tag":{"text":"置顶"}}},
- {"id_str":"900000000000000007","type":"DYNAMIC_TYPE_FORWARD","modules":{"module_author":{"mid":316381099,"pub_ts":1794000000},"module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"repost"}]}}}},
+ {"id_str":"900000000000000007","type":"DYNAMIC_TYPE_FORWARD","modules":{"module_author":{"mid":43,"pub_ts":1794000000},"module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[synthetic_emoji]"}]}}},"orig":{"id_str":null,"type":"DYNAMIC_TYPE_NONE","modules":{"module_author":{},"module_dynamic":{"major":{"type":"MAJOR_TYPE_NONE","none":{"tips":"deleted"}}}}}},
  {"id_str":"900000000000000006","type":"DYNAMIC_TYPE_AV","modules":{"module_author":{"mid":316381099,"pub_ts":1794000000},"module_dynamic":{"major":{"type":"MAJOR_TYPE_ARCHIVE"}}}},
  {"id_str":"900000000000000005","type":"DYNAMIC_TYPE_LIVE_RCMD","modules":{"module_author":{"mid":316381099,"pub_ts":1794000000},"module_dynamic":{}}},
  {"id_str":"900000000000000004","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":42,"pub_ts":1794000000},"module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"other"}]}}}}

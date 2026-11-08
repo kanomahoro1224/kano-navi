@@ -94,9 +94,10 @@ server never writes this directory. Its images have smaller copies (see
 media table to every content table. Its owner tuple is `(owner_type, owner_id,
 role, position)`, for example `post / 209... / post-image / 0` or `video / abc /
 thumbnail / 0`. A post's own images use `post-image`; the images of a status
-it quotes use `quote-image` under the same post, so the board shows them in
-the quote card and extraction never reads them (see
-[Quoted posts](sources.md#quoted-posts)). A status of the X status pool has
+it quotes, or of the dynamic a Bilibili forward forwards, use `quote-image`
+under the same post, so the board shows them in the quote card and
+extraction never reads them (see [Quoted posts](sources.md#quoted-posts) and
+[Forwards](sources.md#forwards)). A row of the X or Bilibili status pool has
 no media link: a related account's status registers its images as
 `post-image` links only when it is promoted into posts (see
 [Related accounts](sources.md#related-accounts)), so nothing is downloaded

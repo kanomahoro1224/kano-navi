@@ -68,7 +68,8 @@ export function postMedia(post: Post): MediaItem[] {
 
 /**
  * Whether a post is a Bilibili dynamic: it names its source instead of a
- * handle and has no quote or engagement counts.
+ * handle and has no engagement counts. A forward quotes the dynamic it
+ * forwards.
  */
 export function isBilibiliPost(post: Pick<Post, "source">) {
   return post.source === "bilibili"
@@ -133,12 +134,15 @@ const QUOTE_THUMBS = 3
 
 /**
  * The status a post quotes, nested in the note: author, time, wording and
- * small thumbnails. The card follows the quoted post's x.com link, while its
- * thumbnails and translation switch keep their own actions. A quote of a
- * tracked account's post shows that post's translation.
+ * small thumbnails. The card follows the quoted post's link (its x.com page,
+ * or the forwarded dynamic's Bilibili page), while its thumbnails and
+ * translation switch keep their own actions. A quote of a tracked account's
+ * post shows that post's translation. A forwarded dynamic's author shows by
+ * name beside the bilibili mark, never by mid.
  */
 function QuoteCard({
   quote,
+  bilibili,
   wording,
   absoluteTime,
   clamp,
@@ -149,6 +153,8 @@ function QuoteCard({
   onOpenMedia,
 }: {
   quote: PostQuote
+  /** The quote of a Bilibili forward. */
+  bilibili: boolean
   /** The note keeps the quote's switch, shared by the board and the dialog. */
   wording: TranslatedTextState
   absoluteTime: boolean
@@ -172,22 +178,31 @@ function QuoteCard({
   const media = quote.media.filter((item) => item.url)
   const shown = clamp ? media.slice(0, QUOTE_THUMBS) : media
   const hidden = media.length - shown.length
-  const name =
-    quote.authorName || (quote.authorHandle ? `@${quote.authorHandle}` : "X")
+  const name = bilibili
+    ? quote.authorName || "bilibili"
+    : quote.authorName || (quote.authorHandle ? `@${quote.authorHandle}` : "X")
   return (
     <div
       className={`post-quote link-card${clamp ? "" : " is-full"}`}
       onClick={followCardLink}
     >
       <p className="post-quote-head">
+        {bilibili ? (
+          <BilibiliLogo className="post-quote-mark" aria-hidden="true" />
+        ) : null}
         <ExternalLink
           className="card-link post-quote-name"
           href={quote.url}
-          aria-label={t("feed.openQuote", { name })}
+          aria-label={t(
+            bilibili ? "feed.openQuoteBilibili" : "feed.openQuote",
+            {
+              name,
+            },
+          )}
         >
           {name}
         </ExternalLink>
-        {quote.authorName && quote.authorHandle ? (
+        {!bilibili && quote.authorName && quote.authorHandle ? (
           <span className="post-quote-handle">@{quote.authorHandle}</span>
         ) : null}
         {quote.publishedAt ? (
@@ -303,9 +318,10 @@ function PostNote({
     return () => observer.disconnect()
   }, [clamp, wording.text, quoteWording.text])
   const quote = (full: boolean) =>
-    post.quote && !bilibili ? (
+    post.quote ? (
       <QuoteCard
         quote={post.quote}
+        bilibili={bilibili}
         wording={quoteWording}
         absoluteTime={absoluteTime}
         clamp={clamp && !full}

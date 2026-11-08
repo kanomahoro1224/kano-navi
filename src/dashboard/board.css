@@ -3159,6 +3159,14 @@
   color: var(--berry);
 }
 
+/* A forwarded dynamic's author carries the bilibili mark, not a handle. */
+.post-quote-mark {
+  flex: none;
+  align-self: center;
+  width: 13px;
+  height: 13px;
+}
+
 /* On a narrow card the handle gives way before the display name. */
 .post-quote-handle {
   min-width: 0;

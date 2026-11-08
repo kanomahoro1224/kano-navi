@@ -30,8 +30,12 @@ eligible. Metadata includes configured X accounts and the Featured video ID.
 
 A post's `source` is `x` or `bilibili`. A Bilibili dynamic has the ID
 `bilibili-<dynamic ID>`, its opus page as `url`, the account's mid as
-`accountHandle` and its space as `accountUrl`, zero engagement counts and no
-`quote`; its text may be empty when the dynamic held only emoji.
+`accountHandle` and its space as `accountUrl` and zero engagement counts; its
+text may be empty when the dynamic held only emoji. A forward's `quote` is
+the dynamic it forwards (see [Quoted posts](data-model.md#quoted-posts)),
+with that dynamic's post ID as `id` (`null` when the listing did not name
+it), the author's mid as `authorHandle`, and its Bilibili page as `url`; a
+forward's own text may be empty.
 
 Every public event reports its `platform` (`youtube`, `bilibili`, `other`,
 `unknown`, or null for an entry stored before platforms were recorded; see

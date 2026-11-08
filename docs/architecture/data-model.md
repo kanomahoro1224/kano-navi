@@ -51,10 +51,11 @@ own transaction, and the selected profile media is reconciled with its files
 | `llm_route_providers`    | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
 | `source_schedules`       | Each source's timer, sync setting and method chain                                                     |
 | `workflows`              | Saved workflow definitions (ADR-0003): kept in the schema, created empty, never read or written        |
-| `translations`           | Manual, platform, and machine translations of posts, videos and pooled X statuses per target locale    |
+| `translations`           | Manual, platform, and machine translations of posts, videos and pooled statuses per target locale      |
 | `translation_states`     | Per-owner machine translation state: source hash and language, last attempt, operator request          |
 | `x_statuses`             | The X status pool: related accounts' statuses and statuses own posts quote or repost; never public     |
 | `x_reposts`              | The own X accounts' reposts: reposted status, account, author and first sighting                       |
+| `bilibili_statuses`      | The Bilibili status pool: dynamics own forwards forward; never public                                  |
 
 The API maps snake_case columns to camelCase and removes `raw_json`. The
 frontend must not depend on database fields that are not declared in the API
@@ -401,7 +402,10 @@ call this writer. Cache rows/files may remain after a link is removed.
 A post that quotes another status keeps it in `posts.quote_json`, a
 sanitized projection (`id`, `authorHandle`, `authorName`, `text`,
 `publishedAt`, `url`, and `unavailable` for a quote the source names but
-does not carry). The quoted status's images are `media_links` with the role
+does not carry). An X post quotes an X status; a Bilibili
+[forward](sources.md#forwards) quotes the dynamic it forwards, with the
+author's mid as `authorHandle` and the post ID `bilibili-<dynamic ID>` as
+`id`. The quoted status's images are `media_links` with the role
 `quote-image` and the quoting post as owner; `quote_json` holds no image
 address, and a post's `post-image` links, `media_url` and
 `raw_json.mediaURLs` are its own images only. A post without a quote stores
@@ -413,11 +417,17 @@ The public dashboard, the post archive and MCP add `quote` to each post:
 translations, sourceLanguage}`, where empty fields are `null` and `media` has
 the shape of the post's own `media` but lists only ready, contained opaque-ID
 images ([Translations](#translations) describes the last two). The read path
-drops a stored projection whose ID is not a status ID or whose URL is not
-that status's x.com address. An unavailable quote has only `id` and `url`.
-The console's post list keeps a post's own images apart from its quote.
+accepts a projection only for its post's source. On an X post, it drops one
+whose ID is not a status ID or whose URL is not that status's x.com address.
+On a Bilibili post, it drops one whose ID is not `bilibili-<digits>` or
+whose URL is not exactly that dynamic's `https://www.bilibili.com/opus/` page
+or, for an available forwarded upload, a `https://www.bilibili.com/video/`
+page. An unavailable quote has only `id` and `url`; an unavailable forward
+of a dynamic whose ID the listing did not give has a `null` `id` and the
+forward's own opus page as `url`. The console's post list keeps a post's own
+images apart from its quote.
 
-Every available quote is also a row of the X status pool `x_statuses` (see
+Every available X quote is also a row of the X status pool `x_statuses` (see
 [Quoted posts](sources.md#quoted-posts)), which also holds every status of a
 [related account](sources.md#related-accounts): `id`, `author_handle`,
 `author_name`, `text`, `published_at`, `url`, a sanitized `raw_json` (a
@@ -432,6 +442,15 @@ demotion hides its post, `first_seen_at` and `updated_at`. A quote's `text`
 equals the `text` of the `quote_json` written with it, since both come from
 one projection; a status its related author's timeline listed keeps that
 listing's wording and payload. No public reader reads or joins the table.
+
+Every available forwarded dynamic is likewise a row of the Bilibili status
+pool `bilibili_statuses` (see [Forwards](sources.md#forwards)): `id` (the
+post ID `bilibili-<dynamic ID>`), `author_mid`, `author_name`, `text`,
+`published_at`, `url`, a sanitized `raw_json` (`{id, text, publishedAt, url,
+author: {mid, name}, mediaURLs}`), `forwarded_at`, the publication time of
+the newest own forward of it, `first_seen_at` and `updated_at`. Its `text`
+equals the forward's `quote_json` `text`, and no public reader reads or joins
+the table. A fresh database and an upgraded snapshot start with it empty.
 
 `posts.promoted_at` marks a related account's status promoted into `posts`
 (`NULL` for an own post), whose `account_handle` is its author. Readers that
@@ -526,8 +545,9 @@ Post text and video titles keep their source wording in `posts.text` and
 `videos.title`. `translations` stores their translations for the target
 locales `en`, `ja` and `zh-CN`, keyed by
 `(owner_type, owner_id, field, locale, origin, platform)`: `owner_type` is
-`post` (field `text`), `video` (field `title`) or `x_status` (field `text`,
-a pooled status keyed by its status ID), `origin` is `manual`,
+`post` (field `text`), `video` (field `title`), `x_status` (field `text`,
+a pooled X status keyed by its status ID) or `bilibili_status` (field
+`text`, a pooled forwarded dynamic keyed by its post ID), `origin` is `manual`,
 `platform` or `machine`, and `platform` names the platform of a platform row
 (`youtube`, `bilibili`) and is empty otherwise. One row per origin lets the
 three coexist; readers resolve each locale by precedence: manual, then
@@ -559,8 +579,9 @@ locale whose language matches the detected source language needs no
 translation, and `none` needs none at all: a Japanese X post or YouTube title
 needs `en` and `zh-CN`, a Chinese Bilibili dynamic `en` and `ja`. Wording the
 step has not seen in its current form needs `en` and `zh-CN`, and `ja` only
-when it is a Bilibili dynamic, since X posts and YouTube titles are presumed
-Japanese until detected; the console shows such a `ja` as the source. A post
+when it is a Bilibili dynamic, stored or pooled, since X posts and statuses
+and YouTube titles are presumed Japanese until detected; the console shows
+such a `ja` as the source. A post
 or video is complete when every locale it needs has a usable row. The
 machine step translates posts of the sources `x` and `bilibili`. The public dashboard, archives and
 video lists add `translations` (`{locale: {text, origin, platform}}`) and
@@ -578,13 +599,15 @@ an operator's or an extraction's own wording carries none. The projection is
 computed at read time, so a video translation's revision already covers it.
 
 A post's available `quote` carries `translations` and `sourceLanguage`,
-computed at read time. A quote of a stored post (a self-quote) carries that
-post's. Any other quote carries the `x_status` rows of its status ID,
-resolved against the quote's own `text` in `quote_json`: a machine row and
-the detected language count only while their source hash matches that text,
-and manual and platform rows always count. The read uses the translation
-tables alone and never reads `x_statuses`. The machine step translates a
-pooled status while an own post quotes or reposts it and it is not a stored
+computed at read time. A quote of a stored post (a self-quote, or a forward
+of an own stored dynamic) carries that post's. Any other quote carries the
+pool rows of its ID, `x_status` on an X post and `bilibili_status` on a
+Bilibili forward, resolved against the quote's own `text` in `quote_json`: a
+machine row and the detected language count only while their source hash
+matches that text, and manual and platform rows always count. The read uses
+the translation tables alone and never reads a pool table. The machine step
+translates a pooled X status while an own post quotes or reposts it, and a
+pooled dynamic while an own forward forwards it, when it is not a stored
 post (see [Translation](sources.md#translation)).
 
 Startup creates both translation tables in existing snapshots; no post,

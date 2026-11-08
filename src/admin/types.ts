@@ -653,8 +653,11 @@ export interface AdminPostSchedule {
 }
 
 /**
- * A post's stored quote. Media lists only its ready cached images, apart
- * from the post's own; an unavailable quote has only its id and url.
+ * A post's stored quote: an X status, or the dynamic a Bilibili forward
+ * forwards (authorHandle is then its author's mid). Media lists only its
+ * ready cached images, apart from the post's own; an unavailable quote has
+ * only its id and url, and the id is empty for a forwarded dynamic the
+ * listing did not name.
  */
 export interface AdminQuote {
   id: string

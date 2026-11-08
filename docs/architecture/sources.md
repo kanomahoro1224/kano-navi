@@ -882,12 +882,14 @@ itself, plus `nav` for the daily login check or stale keys, and the device
 identity and ticket when they are due.
 
 A listing keeps the account's own `DYNAMIC_TYPE_WORD` and `DYNAMIC_TYPE_DRAW`
-items (the opus and picture cards), and `DYNAMIC_TYPE_ARTICLE` items only in
-their `MAJOR_TYPE_OPUS` form, whose text comes from the opus summary. Reposts are left out, as on X; uploads
+items (the opus and picture cards), `DYNAMIC_TYPE_ARTICLE` items only in
+their `MAJOR_TYPE_OPUS` form, whose text comes from the opus summary, and
+forwards (`DYNAMIC_TYPE_FORWARD`, see [Forwards](#forwards)); uploads
 and collection updates belong to the upload read; a live-start notice is not
 a post. The stored text joins the nodes' text (words, topics, mentions,
 links) and leaves out emoji nodes (`RICH_TEXT_NODE_TYPE_EMOJI`); an opus
-title leads it. The nodes, emoji included, stay in `raw_json`. An
+title leads it, and a picture post's `desc` nodes give it beside its
+pictures. The nodes, emoji included, stay in `raw_json`. An
 emoji-only dynamic therefore has empty text and is translated as `none`
 without a model call. Up to nine pictures are kept as the post's images.
 
@@ -895,10 +897,11 @@ Dynamics are `posts` rows with `source = 'bilibili'`, the ID
 `bilibili-<id_str>` (dynamic and X status IDs are both numbers of about 19
 digits and share `posts.id`), `account_handle` the mid, `url`
 `https://www.bilibili.com/opus/<id_str>` and `published_at` the publication
-time in UTC. They have no engagement counts and no quote. A read replaces a
-dynamic's text, time and pictures, keeps an operator's hide, and advances
-the dashboard revision only when the text, time, link, pictures or hide
-changed. Its pictures are `post-image` links, so they feed
+time in UTC. They have no engagement counts; a forward has a quote. A read
+replaces a dynamic's text, time, pictures and quote, keeps an operator's
+hide, and advances the dashboard revision only when the text, time, link,
+pictures, quote, quoted pictures or hide changed. Its pictures are
+`post-image` links, so they feed
 [schedule extraction](#schedule-extraction-pipeline) once cached; a
 schedule board on a Bilibili picture is not registered as a
 [schedule image](#schedule-images).
@@ -911,7 +914,63 @@ the server-rendered state (`window.__INITIAL_STATE__`) of its
 captcha backoff and accepts only dynamics of the configured account whose
 comment area is a post's (`basic.comment_type` 11 pictures, 12 article, 17
 text) and that the page shows without a fallback; any other is
-`bilibili_unsupported_dynamic`.
+`bilibili_unsupported_dynamic`. The read takes the dynamic as its page
+shows it, with no quote: a forward and its quote come from the listing, and
+a single read never rewrites a stored forward (`raw_json.type`
+`DYNAMIC_TYPE_FORWARD`), whose row stays as the listing stored it.
+
+#### Forwards
+
+A forward is the account's own post that quotes the dynamic it forwards, the
+way an X post [quotes a status](#quoted-posts): it has its own dynamic ID,
+publication time and wording, and the listing carries the forwarded
+dynamic in full in its `orig` object, so a forward needs no request of its
+own. Its text is its `desc` nodes without emoji, and it has no pictures of
+its own. The listing keeps every forward of the account. The store leaves
+out a new forward that has no wording of its own and an unavailable quote,
+which would be an empty card; a stored forward whose dynamic becomes
+unavailable is rewritten with the unavailable quote, loses its
+`quote-image` links and advances the dashboard revision, with or without
+wording of its own.
+
+`backend/internal/source/bilibili/dynamic.go` reads `orig` into the same
+sanitized projection an X quote has, stored in `posts.quote_json`:
+
+- `id` is `bilibili-<orig id_str>`, the post ID that dynamic has (or would
+  have) as a stored post, so a forward of an own dynamic resolves to that
+  post like an X self-quote;
+- `authorHandle` is the author's mid and `authorName` the display name,
+  HTML-unescaped, trimmed and at most 50 characters;
+- `text` is built like a listed dynamic's (opus title and summary, or `desc`
+  nodes, emoji left out); a forwarded forward shows its own wording only and
+  is not followed further;
+- `publishedAt` is its publication time in UTC, and `url` its
+  `https://www.bilibili.com/opus/<id>` page, or for a forwarded upload
+  (`DYNAMIC_TYPE_AV`) the `https://www.bilibili.com/video/<BV ID>` page, with
+  the video title as text and its cover as the one image.
+
+Its pictures (HTTPS on `*.hdslb.com`, at most nine) are `quote-image` links
+of the forward and never schedule candidates; `quote_json` holds no image
+address. A deleted dynamic (`DYNAMIC_TYPE_NONE`, `MAJOR_TYPE_NONE`), a
+missing `orig`, a dynamic of any other kind (a live room, a collection,
+goods, a vote, an article in its old form) or one with neither wording nor
+pictures is unavailable, with only its ID and its opus page as URL (an
+upload too); when even its ID is unknown, `id` is empty and `url` is the
+forward's own opus page. A bad `orig` never fails the page. An unavailable
+quote leaves the dynamic's pool row as it was.
+
+Every available forwarded dynamic also enters the Bilibili status pool,
+`bilibili_statuses`, in the forward's transaction, whatever its author. The
+pool row and `quote_json` come from the same projection. The row keeps the
+post ID, the author's mid and name, the wording, publication time, URL, a
+sanitized `raw_json` with the pictures' addresses, and `forwarded_at`, the
+publication time of the newest own forward of it. No public reader reads or
+joins the pool. The [translate step](#translation) translates a forwarded
+dynamic that is not a stored post by its post ID (`owner_type`
+`bilibili_status`), so it is translated once however often it is forwarded,
+and [schedule extraction](#schedule-extraction-pipeline) reads its wording
+as context of the forward. A forward's events are Bilibili-sourced events
+like any dynamic's.
 
 #### Live room
 
@@ -1025,9 +1084,13 @@ post alone supports leave the public pages while it is hidden (see
 A post that quotes another status gives the model the quoted wording after
 its own text, marked as quoted context (`[Quoted post by @handle. …]`),
 because a quoted status reaches extraction no other way: posts often say
-little more than 「これ！」 over a quoted announcement. The quoted wording
-joins the post's extraction fingerprint, the single-message heuristic and
-the reading of the entry's platform; a post without a quote has the
+little more than 「これ！」 over a quoted announcement. A Bilibili
+[forward](#forwards) marks the forwarded dynamic's wording the same way but
+names its author by display name (`[Forwarded dynamic by <name>. …]`) and
+says that times written in it without a zone are Beijing time, as in the
+forward's own. The quoted wording joins the post's extraction fingerprint,
+the single-message heuristic (the Chinese one for a forward too) and the
+reading of the entry's platform; a post without a quote has the
 fingerprint of its own wording alone. An unavailable quote, or one an
 operator hid from the public pages (`posts.quote_hidden_at`), adds nothing,
 so hiding or showing a quote changes the input and the post is extracted
@@ -1423,7 +1486,8 @@ check failed, and in a forced pass.
 ### Translation
 
 The `translate` step machine-translates X post and Bilibili dynamic text,
-YouTube video titles and the X statuses own posts quote or repost into
+YouTube video titles, the X statuses own posts quote or repost and the
+dynamics own forwards forward into
 English, Japanese and Simplified Chinese, each
 locale only when it is not the detected source language (see
 [Translations](data-model.md#translations) for storage and precedence).
@@ -1436,23 +1500,27 @@ next configured target, in queue order.
 Without a usable target the step records `disabled` with the reason and
 keeps operator requests.
 
-Candidates are posts, YouTube videos and pooled quoted or reposted X
+Candidates are posts, YouTube videos, pooled quoted or reposted X
 statuses that are not stored posts (`owner_type` `x_status`, see
-[Quoted posts](#quoted-posts)) whose current wording lacks a usable
-translation of a needed locale: operator requests first (forced passes that
-replace machine rows, whatever their age), then posts and videos, then
-pooled statuses; within each, never-attempted wording, then the least
-recently attempted, newest first. Unrequested candidates are limited to the
-translation lookback (30 days by default), by publication, or for a pooled
-status by when an own post last quoted it, and at most the translation items
-per run (20 by default) are sent per run, pooled statuses included (see
+[Quoted posts](#quoted-posts)) and pooled forwarded dynamics that are not
+stored posts (`owner_type` `bilibili_status`, see [Forwards](#forwards))
+whose current wording lacks a usable translation of a needed locale:
+operator requests first (forced passes that replace machine rows, whatever
+their age), then posts and videos, then pooled X statuses, then pooled
+dynamics; within each, never-attempted wording, then the least recently
+attempted, newest first. Unrequested candidates are limited to the
+translation lookback (30 days by default), by publication, for a pooled
+status by when an own post last quoted it, and for a pooled dynamic by when
+an own forward last forwarded it, and at most the translation items per run
+(20 by default) are sent per run, pooled statuses included (see
 [sync settings](../operations/configuration.md#sync-settings)). A locale already covered
 by a manual or platform row is not a reason to call a model.
 
 Wording with only links, hashtags, mentions or emoji is recorded as
 `skipped` with language `none` without a call; wording over 4000 characters
 is skipped without a call. The model receives the kind (X post, which a
-pooled status also is, Bilibili dynamic or YouTube video title) and the text, returns `sourceLanguage` plus English, Japanese and
+pooled status also is, Bilibili dynamic, which a pooled dynamic also is, or
+YouTube video title) and the text, returns `sourceLanguage` plus English, Japanese and
 Simplified Chinese, and is told to keep URLs, tags, mentions, emoji,
 bracketed emoji codes and bracketed channel tags, and to keep times as
 written with their zone (北京时间17点 becomes 17:00 Beijing time; converting

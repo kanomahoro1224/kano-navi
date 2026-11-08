@@ -65,6 +65,8 @@ export const dashboardMessages = {
     "feed.quoteUnavailable": "引用的动态已无法查看",
     "feed.openQuote": ({ name }: { name: any }) =>
       `在 X 打开被引用的 ${name} 的动态`,
+    "feed.openQuoteBilibili": ({ name }: { name: any }) =>
+      `在 bilibili 打开被转发的 ${name} 的动态`,
     "feed.openQuoteMedia": "查看引用动态的图片",
     "schedule.title": "周日程",
     "feed.archive": "历史动态",
@@ -261,6 +263,8 @@ export const dashboardMessages = {
     "feed.quoteUnavailable": "引用元のポストは表示できません",
     "feed.openQuote": ({ name }: { name: any }) =>
       `${name} の引用元ポストを X で開く`,
+    "feed.openQuoteBilibili": ({ name }: { name: any }) =>
+      `${name} の転送元の投稿を bilibili で開く`,
     "feed.openQuoteMedia": "引用元の画像を開く",
     "schedule.title": "週間予定",
     "feed.archive": "過去のポスト",
@@ -458,6 +462,8 @@ export const dashboardMessages = {
     "feed.quoteUnavailable": "Quoted post unavailable",
     "feed.openQuote": ({ name }: { name: any }) =>
       `Open the quoted post by ${name} on X`,
+    "feed.openQuoteBilibili": ({ name }: { name: any }) =>
+      `Open the forwarded post by ${name} on bilibili`,
     "feed.openQuoteMedia": "Open quoted image",
     "schedule.title": "Weekly schedule",
     "feed.archive": "Past posts",

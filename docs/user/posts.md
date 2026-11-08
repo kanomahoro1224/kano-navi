@@ -13,7 +13,10 @@ Posts are laid out in whole rows; a long post shows its first lines and
 - Open images in a viewer and step through them.
 - See like, repost, and reply counts of X posts as they were last collected.
 - A post that quotes another one shows the quoted post as a nested card that
-  links to it on X.
+  links to it on X. A bilibili post that forwards another one shows the
+  forwarded post the same way, with its author's name after the bilibili
+  mark, and links to it on bilibili; a forward with nothing of its own to
+  say shows just that card.
 - Some posts of the agency's account appear on the wall too, when they are
   about Kano. They show the account's initial instead of Kano's portrait and
   appear under All, not under Kano's account tabs. One that Kano quotes
@@ -22,8 +25,8 @@ Posts are laid out in whole rows; a long post shows its first lines and
   mark as video titles; select it to read the original post. Japanese
   readers see Japanese posts as written and a Chinese bilibili post in its
   Japanese translation.
-- A quoted post is translated too, with its own **AI** mark at the end of
-  the quoted card's top line.
+- A quoted or forwarded post is translated too, with its own **AI** mark at
+  the end of the card's top line.
 
 ## Past Posts
 

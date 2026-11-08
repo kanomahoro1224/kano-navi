@@ -81,13 +81,15 @@ export interface Post {
 }
 
 /**
- * A quoted X status. Its translations are those of the stored post with the
- * same id, empty for any other status, and media lists only ready local
- * images. An unavailable quote (deleted or withheld) has only its id and
- * x.com url.
+ * A quoted X status, or the dynamic a Bilibili forward forwards (authorHandle
+ * is then the author's mid). Its translations are those of the stored post
+ * with the same id, otherwise those of the quoted status itself, and media
+ * lists only ready local images. An unavailable quote (deleted or withheld)
+ * has only its id and url; a forward of a dynamic whose id is unknown has a
+ * null id and links to the forward itself.
  */
 export interface PostQuote {
-  id: string
+  id: string | null
   authorHandle: string | null
   authorName: string | null
   text: string | null

@@ -331,22 +331,31 @@ type post struct {
 	quote quotedContext
 }
 
-// quotedContext is a quoted status's author handle and text.
-type quotedContext struct{ author, text string }
+// quotedContext is a quoted status's author and text. The author is an X
+// status's handle, or the display name of a dynamic a Bilibili forward
+// forwards (forward set), whose handle is only a mid.
+type quotedContext struct {
+	author, text string
+	forward      bool
+}
 
-// quoteContextOf reads the quote projection the public pages show. The
-// caller passes NULL for a hidden quote.
-func quoteContextOf(stored sql.NullString) quotedContext {
+// quoteContextOf reads the quote projection the public pages show on a post
+// of the source. The caller passes NULL for a hidden quote.
+func quoteContextOf(source string, stored sql.NullString) quotedContext {
 	if !stored.Valid || stored.String == "" {
 		return quotedContext{}
 	}
 	var quote struct {
 		AuthorHandle string `json:"authorHandle"`
+		AuthorName   string `json:"authorName"`
 		Text         string `json:"text"`
 		Unavailable  bool   `json:"unavailable"`
 	}
 	if json.Unmarshal([]byte(stored.String), &quote) != nil || quote.Unavailable || jsTrim(quote.Text) == "" {
 		return quotedContext{}
+	}
+	if source == "bilibili" {
+		return quotedContext{author: quote.AuthorName, text: quote.Text, forward: true}
 	}
 	return quotedContext{author: quote.AuthorHandle, text: quote.Text}
 }
@@ -450,7 +459,7 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 		if err = rows.Scan(&item.source, &item.id, &postType, &label, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &quoteJSON); err != nil {
 			return nil, err
 		}
-		item.quote = quoteContextOf(quoteJSON)
+		item.quote = quoteContextOf(item.source, quoteJSON)
 		item.postType, item.label, item.text = postType.String, label.String, text.String
 		item.publishedAt, item.url, item.mediaURL = publishedAt.String, postURL.String, mediaURL.String
 		item.raw = rawObjectOf(rawJSON)
@@ -483,7 +492,7 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 			// The quoted wording counts: a post that only points at a quoted
 			// announcement carries its schedule there.
 			selected = matchesKeyword() || scheduleMessagePattern.MatchString(item.matchText()) ||
-				item.source == "bilibili" && bilibiliMessagePattern.MatchString(item.text)
+				item.source == "bilibili" && bilibiliMessagePattern.MatchString(item.matchText())
 		}
 		if selected {
 			out = append(out, item)
@@ -520,7 +529,7 @@ func (e *Extractor) listRequestedPosts(ctx context.Context, limit int) ([]post, 
 		if err = rows.Scan(&item.source, &item.id, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &route, &quoteJSON); err != nil {
 			return nil, err
 		}
-		item.quote = quoteContextOf(quoteJSON)
+		item.quote = quoteContextOf(item.source, quoteJSON)
 		item.text, item.publishedAt, item.url = text.String, publishedAt.String, postURL.String
 		item.mediaURL, item.llmRoute = mediaURL.String, route.String
 		item.raw = rawObjectOf(rawJSON)

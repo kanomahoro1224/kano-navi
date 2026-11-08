@@ -3,6 +3,7 @@ package bilibili
 import (
 	"bytes"
 	"encoding/json"
+	"html"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -23,9 +24,34 @@ type Dynamic struct {
 	// PublishedAt is the publication time, RFC 3339 in UTC.
 	PublishedAt string
 	// Images are the dynamic's own pictures on Bilibili's image CDN, HTTPS.
+	// A forward has none of its own.
 	Images []string
+	// Quote is the dynamic a forward forwards, nil for any other dynamic.
+	Quote *Quote
 	// Raw keeps the type and the source nodes, emoji included.
 	Raw map[string]any
+}
+
+// Quote is the dynamic a forward (DYNAMIC_TYPE_FORWARD) forwards, in the
+// shape of the stored quote projection (posts.quote_json) that an X quote
+// also has. ID is the forwarded dynamic's post ID (PostPrefix and its
+// dynamic ID), so a forward of a stored dynamic names that post.
+// AuthorHandle is the author's mid. URL is the forwarded dynamic's opus
+// page, or the video page of a forwarded upload. A forwarded dynamic the
+// listing cannot show (deleted, or a kind that is neither a post nor an
+// upload) is Unavailable with only its ID and URL; when even its ID is
+// unknown, ID is empty and URL is the forward's own opus page. MediaURLs are
+// its pictures, which the store links as quote-image media and never as
+// schedule candidates.
+type Quote struct {
+	ID           string   `json:"id"`
+	AuthorHandle string   `json:"authorHandle,omitempty"`
+	AuthorName   string   `json:"authorName,omitempty"`
+	Text         string   `json:"text,omitempty"`
+	PublishedAt  string   `json:"publishedAt,omitempty"`
+	URL          string   `json:"url"`
+	Unavailable  bool     `json:"unavailable,omitempty"`
+	MediaURLs    []string `json:"-"`
 }
 
 // PostPrefix keeps dynamic IDs apart from X status IDs in posts.id: both are
@@ -64,11 +90,17 @@ func ParseDynamicID(input string) (string, bool) {
 	return "", false
 }
 
-// Dynamic types the listing keeps: text, picture and opus posts, and an
-// article only in its opus form. Reposts are left out as on X, uploads and
-// collection updates are the upload read's, and a live-start notice is not a
-// post.
-var keptDynamicTypes = map[string]bool{"DYNAMIC_TYPE_WORD": true, "DYNAMIC_TYPE_DRAW": true, "DYNAMIC_TYPE_ARTICLE": true}
+// Dynamic types the listing keeps: text, picture and opus posts, an article
+// only in its opus form, and forwards, which quote the dynamic they forward.
+// Uploads and collection updates are the upload read's, and a live-start
+// notice is not a post.
+var keptDynamicTypes = map[string]bool{"DYNAMIC_TYPE_WORD": true, "DYNAMIC_TYPE_DRAW": true, "DYNAMIC_TYPE_ARTICLE": true, ForwardType: true}
+
+// ForwardType is a forward's dynamic type, also kept in its raw_json.
+const ForwardType = "DYNAMIC_TYPE_FORWARD"
+
+// maxAuthorName bounds a forwarded dynamic's author name, in runes.
+const maxAuthorName = 50
 
 // keptCommentTypes are the comment areas of the kept types as an opus page
 // names them: 11 a picture post, 12 an article, 17 a text post. A video (1)
@@ -142,6 +174,7 @@ type spaceItem struct {
 	Modules struct {
 		Author struct {
 			Mid   flexInt `json:"mid"`
+			Name  string  `json:"name"`
 			PubTS flexInt `json:"pub_ts"`
 		} `json:"module_author"`
 		Dynamic struct {
@@ -166,16 +199,25 @@ type spaceItem struct {
 						Src string `json:"src"`
 					} `json:"items"`
 				} `json:"draw"`
+				Archive *struct {
+					BVID  string `json:"bvid"`
+					Title string `json:"title"`
+					Cover string `json:"cover"`
+				} `json:"archive"`
 			} `json:"major"`
 		} `json:"module_dynamic"`
 		Tag *struct {
 			Text string `json:"text"`
 		} `json:"module_tag"`
 	} `json:"modules"`
+	// Orig is the dynamic a forward forwards, carried in full by the listing.
+	Orig *spaceItem `json:"orig"`
 }
 
 // dynamic validates one listing item of the account; it reports false for a
-// kind that is not a post or an incomplete item.
+// kind that is not a post or an incomplete item. A forward keeps its own
+// wording and quotes the dynamic it forwards, whether or not that dynamic can
+// still be shown.
 func (it spaceItem) dynamic(owner int64) (Dynamic, bool) {
 	if !keptDynamicTypes[it.Type] || !dynamicIDPattern.MatchString(it.IDStr) || it.Modules.Author.PubTS <= 0 ||
 		int64(it.Modules.Author.Mid) != owner || it.Visible != nil && !*it.Visible {
@@ -185,6 +227,38 @@ func (it spaceItem) dynamic(owner int64) (Dynamic, bool) {
 	if it.Type == "DYNAMIC_TYPE_ARTICLE" && (m.Major == nil || m.Major.Type != "MAJOR_TYPE_OPUS") {
 		return Dynamic{}, false
 	}
+	published := time.Unix(int64(it.Modules.Author.PubTS), 0).UTC().Format(time.RFC3339)
+	if it.Type == ForwardType {
+		nodes := []richNode{}
+		if m.Desc != nil && m.Desc.Nodes != nil {
+			nodes = m.Desc.Nodes
+		}
+		d := Dynamic{IDStr: it.IDStr, OwnerMid: owner, Text: boundText(joinNodes(nodes)), PublishedAt: published, Images: []string{}}
+		// A forward without wording of its own whose dynamic is gone is still
+		// kept: the store rewrites a stored one and leaves out a new one.
+		d.Quote = it.Orig.quote(d.URL())
+		orig := map[string]any{"type": "", "id": strings.TrimPrefix(d.Quote.ID, PostPrefix)}
+		if it.Orig != nil && len(it.Orig.Type) <= 64 {
+			orig["type"] = it.Orig.Type
+		}
+		d.Raw = map[string]any{"type": it.Type, "nodes": nodes, "orig": orig}
+		return d, true
+	}
+	text, nodes, title, pics := it.content()
+	raw := map[string]any{"type": it.Type, "nodes": nodes}
+	if title != "" {
+		raw["title"] = title
+	}
+	if it.Modules.Tag != nil && it.Modules.Tag.Text != "" {
+		raw["tag"] = it.Modules.Tag.Text
+	}
+	return Dynamic{IDStr: it.IDStr, OwnerMid: owner, Text: text, PublishedAt: published, Images: images(pics), Raw: raw}, true
+}
+
+// content is a text, picture or opus dynamic's bounded wording (an opus
+// title on its first line), its rich-text nodes, its title and its pictures.
+func (it spaceItem) content() (string, []richNode, string, []string) {
+	m := it.Modules.Dynamic
 	var nodes []richNode
 	title := ""
 	pics := []string{}
@@ -218,18 +292,58 @@ func (it spaceItem) dynamic(owner int64) (Dynamic, bool) {
 	if title != "" {
 		text = title + "\n" + text
 	}
-	raw := map[string]any{"type": it.Type, "nodes": nodes}
-	if title != "" {
-		raw["title"] = title
+	return boundText(text), nodes, title, pics
+}
+
+// quote projects the dynamic a forward forwards, from the listing item alone.
+// It never fails: a deleted dynamic, a missing one or one of another kind (a
+// live room, a collection, goods or a vote) is unavailable. A forwarded
+// forward shows its own wording only. selfURL is the forward's own opus page,
+// the link of an unavailable quote whose ID is unknown.
+func (it *spaceItem) quote(selfURL string) *Quote {
+	if it == nil || !dynamicIDPattern.MatchString(it.IDStr) {
+		return &Quote{URL: selfURL, Unavailable: true}
 	}
-	if it.Modules.Tag != nil && it.Modules.Tag.Text != "" {
-		raw["tag"] = it.Modules.Tag.Text
+	q := &Quote{ID: PostPrefix + it.IDStr, URL: "https://" + wwwHost + "/opus/" + it.IDStr, Unavailable: true}
+	m := it.Modules.Dynamic
+	major := ""
+	if m.Major != nil {
+		major = m.Major.Type
 	}
-	return Dynamic{
-		IDStr: it.IDStr, OwnerMid: owner, Text: boundText(text),
-		PublishedAt: time.Unix(int64(it.Modules.Author.PubTS), 0).UTC().Format(time.RFC3339),
-		Images:      images(pics), Raw: raw,
-	}, true
+	if it.Modules.Author.Mid <= 0 || it.Modules.Author.PubTS <= 0 || it.Visible != nil && !*it.Visible || major == "MAJOR_TYPE_NONE" {
+		return q
+	}
+	text, pics, link := "", []string{}, q.URL
+	switch {
+	case it.Type == "DYNAMIC_TYPE_WORD" || it.Type == "DYNAMIC_TYPE_DRAW" || it.Type == "DYNAMIC_TYPE_ARTICLE" && major == "MAJOR_TYPE_OPUS":
+		text, _, _, pics = it.content()
+	case it.Type == ForwardType:
+		if m.Desc != nil {
+			text = boundText(joinNodes(m.Desc.Nodes))
+		}
+	case it.Type == "DYNAMIC_TYPE_AV" && major == "MAJOR_TYPE_ARCHIVE" && m.Major.Archive != nil && bvidPattern.MatchString(m.Major.Archive.BVID):
+		a := m.Major.Archive
+		link = "https://" + wwwHost + "/video/" + a.BVID
+		text, pics = boundText(a.Title), []string{a.Cover}
+	default:
+		return q
+	}
+	media := images(pics)
+	if text == "" && len(media) == 0 {
+		return q
+	}
+	name := []rune(strings.TrimSpace(html.UnescapeString(it.Modules.Author.Name)))
+	if len(name) > maxAuthorName {
+		name = name[:maxAuthorName]
+	}
+	// Only an available upload links to its video page; an unavailable quote
+	// keeps the opus page.
+	q.Unavailable, q.URL = false, link
+	q.AuthorHandle = strconv.FormatInt(int64(it.Modules.Author.Mid), 10)
+	q.AuthorName = strings.TrimSpace(string(name))
+	q.Text, q.MediaURLs = text, media
+	q.PublishedAt = time.Unix(int64(it.Modules.Author.PubTS), 0).UTC().Format(time.RFC3339)
+	return q
 }
 
 // SpacePage is one page of the account's dynamics listing.

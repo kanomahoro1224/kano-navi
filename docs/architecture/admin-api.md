@@ -523,6 +523,8 @@ image's status, or is `none` for a text-only post.
 Each post also carries `quote`, the stored quoted status read-only (see
 [Quoted posts](data-model.md#quoted-posts)), or `null`:
 `{id, authorHandle, authorName, text, publishedAt, url, unavailable, media}`.
+A Bilibili forward's quote is the dynamic it forwards, with its author's mid
+as `authorHandle` and an empty `id` when the listing did not name it.
 Its `media` has the `{url, status, alt}` shape but lists only ready cached
 quote images, never the post's own. `quoteHiddenAt` is when an operator hid
 the quote from the public pages, `hiddenAt` when an operator hid the whole
@@ -653,10 +655,13 @@ last broadcast once the room is off air.
 `t.bilibili.com/<id>` link, reads that dynamic of the configured account from
 its opus page now, stores it and starts the `media` step for its pictures,
 answering `{post, started, run}` with the post in the list shape. Another
-input or a dynamic of another account answers `400 invalid_input`, a repost,
-video or other non-post dynamic `400 {"error":"bilibili_unsupported_dynamic"}`,
+input or a dynamic of another account answers `400 invalid_input`, a
+video or another non-post dynamic `400 {"error":"bilibili_unsupported_dynamic"}`,
 one Bilibili does not show `404 {"error":"post_not_found"}`, and a captcha,
-`force` and other upstream failures work as for uploads.
+`force` and other upstream failures work as for uploads. The read takes the
+dynamic as its page shows it, with no quote: forwards and their quotes come
+from the listing, and the read never rewrites a stored forward (see
+[Sources: Bilibili dynamics](sources.md#dynamics)).
 
 The live probe status adds `bilibili`: `{enabled, intervalMinutes,
 minIntervalMinutes, maxIntervalMinutes, available, nextCheckAt, targets}`,
@@ -775,8 +780,9 @@ deleted URL again. Files follow
 | `PUT /translations/{owner}/{id}/{locale}`    | `{text}`                                            | `{translation}`           |
 | `DELETE /translations/{owner}/{id}/{locale}` |                                                     | `{translation}`           |
 
-`owner` and `ownerType` are `post`, `video` or `x_status`, a pooled X status
-by its status ID (see [Translations](data-model.md#translations)); `locale`
+`owner` and `ownerType` are `post`, `video`, `x_status`, a pooled X status
+by its status ID, or `bilibili_status`, a pooled forwarded dynamic by its
+post ID (see [Translations](data-model.md#translations)); `locale`
 is `en` or `zh-CN`. `counts` maps `post` and `video` to `{total, incomplete,
 requested}` over the posts and videos the translate step covers. A translation summary is
 `{status, sourceLanguage, machineStatus, lastAttemptAt, lastError, requested,

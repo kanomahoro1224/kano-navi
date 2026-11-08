@@ -61,7 +61,7 @@ test("the post wall's title names no single platform", () => {
     assert.doesNotMatch(dashboardMessages[locale]["feed.title"], /\bX\b/u)
 })
 
-test("a Bilibili post names its source and shows no X-only parts", async () => {
+test("a Bilibili post names its source, shows its forward and no X-only parts", async () => {
   await withVite(async (load) => {
     const [
       { PostWall },
@@ -90,6 +90,21 @@ test("a Bilibili post names its source and shows no X-only parts", async () => {
       unavailable: false,
       media: [],
     }
+    // The dynamic a forward forwards: its author by mid and display name.
+    const forwarded = {
+      id: "bilibili-1000000000000000003",
+      authorHandle: "42",
+      authorName: "Synthetic Agency",
+      text: "被转发的合成动态",
+      publishedAt: "2026-10-07T12:00:00+09:00",
+      url: "https://www.bilibili.example.invalid/opus/1000000000000000003",
+      unavailable: false,
+      media: [],
+      translations: {
+        en: { text: "Synthetic forwarded dynamic", origin: "machine" },
+      },
+      sourceLanguage: "zh",
+    }
     const posts = [
       {
         ...base,
@@ -100,8 +115,7 @@ test("a Bilibili post names its source and shows no X-only parts", async () => {
         text: "合成动态",
         url: "https://www.bilibili.example.invalid/opus/1000000000000000001",
         media: [],
-        // The board ignores these on a Bilibili post even when present.
-        quote,
+        quote: forwarded,
       },
       {
         ...base,
@@ -120,6 +134,39 @@ test("a Bilibili post names its source and shows no X-only parts", async () => {
           },
         ],
         quote: null,
+      },
+      {
+        // A forward of a deleted dynamic, with wording of its own.
+        ...base,
+        id: "bilibili-1000000000000000004",
+        source: "bilibili",
+        accountHandle: "100000001",
+        accountUrl: "https://space.bilibili.example.invalid/100000001",
+        text: "原动态没了",
+        url: "https://www.bilibili.example.invalid/opus/1000000000000000004",
+        media: [],
+        quote: {
+          id: "bilibili-1000000000000000005",
+          authorHandle: null,
+          authorName: null,
+          text: null,
+          publishedAt: null,
+          url: "https://www.bilibili.example.invalid/opus/1000000000000000005",
+          unavailable: true,
+          media: [],
+        },
+      },
+      {
+        // A forward with no wording of its own.
+        ...base,
+        id: "bilibili-1000000000000000006",
+        source: "bilibili",
+        accountHandle: "100000001",
+        accountUrl: "https://space.bilibili.example.invalid/100000001",
+        text: "",
+        url: "https://www.bilibili.example.invalid/opus/1000000000000000006",
+        media: [],
+        quote: forwarded,
       },
       {
         ...base,
@@ -181,17 +228,16 @@ test("a Bilibili post names its source and shows no X-only parts", async () => {
         )
       })
       const notes = [...root!.container.querySelectorAll("article.post-note")]
-      assert.equal(notes.length, 3)
-      const [dynamic, imageOnly, xPost] = notes
+      assert.equal(notes.length, 5)
+      const [dynamic, imageOnly, gone, textless, xPost] = notes
       const links = (note: Element) =>
         [...note.querySelectorAll("a")].map((link) => link.getAttribute("href"))
 
-      for (const note of [dynamic, imageOnly]) {
+      for (const note of [dynamic, imageOnly, gone, textless]) {
         const handle = note.querySelector(".post-note-handle")!
         assert.equal(handle.textContent, "bilibili")
         assert.ok(handle.querySelector("svg"))
         assert.doesNotMatch(note.textContent || "", /@/u)
-        assert.equal(note.querySelector(".post-quote"), null)
         assert.equal(note.querySelector(".post-engagement"), null)
         assert.ok(links(note).every((href) => !/x\.example/u.test(href || "")))
         assert.equal(
@@ -202,8 +248,43 @@ test("a Bilibili post names its source and shows no X-only parts", async () => {
       assert.deepEqual(links(dynamic), [
         "https://space.bilibili.example.invalid/100000001",
         "https://www.bilibili.example.invalid/opus/1000000000000000001",
+        "https://www.bilibili.example.invalid/opus/1000000000000000003",
       ])
       assert.match(dynamic.textContent || "", /合成动态/u)
+      // The forwarded dynamic shows by its author's name and the bilibili
+      // mark, links to its page and has the translation switch.
+      const card = dynamic.querySelector(".post-quote")!
+      assert.ok(card.querySelector("svg.post-quote-mark"))
+      const name = card.querySelector(".post-quote-name")!
+      assert.equal(name.textContent, "Synthetic Agency")
+      assert.equal(
+        name.getAttribute("aria-label"),
+        "Open the forwarded post by Synthetic Agency on bilibili",
+      )
+      assert.equal(card.querySelector(".post-quote-handle"), null)
+      // An English reader sees the forwarded wording translated.
+      assert.match(card.textContent || "", /Synthetic forwarded dynamic/u)
+      assert.ok(card.querySelector(".translation-mark"))
+      assert.equal(imageOnly.querySelector(".post-quote"), null)
+      // A deleted dynamic shows the unavailable card under the wording.
+      assert.match(
+        gone.querySelector(".post-note-text")?.textContent || "",
+        /原动态没了/u,
+      )
+      const unavailable = gone.querySelector(".post-quote.is-unavailable")!
+      assert.equal(
+        unavailable.getAttribute("href"),
+        "https://www.bilibili.example.invalid/opus/1000000000000000005",
+      )
+      assert.match(unavailable.textContent || "", /Quoted post unavailable/u)
+      // No wording of its own: just the quote, without an empty text block.
+      assert.equal(textless.querySelector(".post-note-text"), null)
+      assert.equal(textless.querySelector(".post-note-more"), null)
+      assert.equal(
+        textless.querySelector(".post-quote-name")?.textContent,
+        "Synthetic Agency",
+      )
+      assert.equal(textless.querySelector(".post-quote.is-unavailable"), null)
       // An emoji-only dynamic keeps its images without an empty paragraph.
       assert.equal(imageOnly.querySelector(".post-note-text"), null)
       assert.ok(imageOnly.querySelector(".post-note-media img"))
@@ -227,14 +308,14 @@ test("a Bilibili post names its source and shows no X-only parts", async () => {
       ]
       assert.deepEqual(
         filters.map((button) => button.textContent),
-        ["All3", "@synthetic_account1", "bilibili2"],
+        ["All5", "@synthetic_account1", "bilibili4"],
       )
       assert.ok(filters[2].querySelector("svg.account-mark"))
       await click(filters[2])
       assert.equal(filters[2].getAttribute("aria-pressed"), "true")
       assert.equal(
         root!.container.querySelectorAll("article.post-note").length,
-        2,
+        4,
       )
     } finally {
       await act(async () => root?.unmount())

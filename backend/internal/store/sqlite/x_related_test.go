@@ -3,7 +3,10 @@ package sqlite
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -274,5 +277,49 @@ func TestOwnRepostsPoolARelatedStatus(t *testing.T) {
 	}
 	if ids[reposted.ID] != TranslationOwnerXStatus || ids[keyword.ID] != TranslationOwnerPost {
 		t.Fatalf("candidates=%v", ids)
+	}
+}
+
+func TestExternalListLinksEachStatusOnThePage(t *testing.T) {
+	f := newRelatedFixture(t)
+	ctx := context.Background()
+	if _, err := f.s.WriteXRelated(ctx, "agency_synthetic", xsource.Result{Posts: []xsource.Post{
+		relatedStatus(relatedMatch, "鹿乃まほろ 出演決定"),
+		relatedStatus(relatedOther, "another talent's news"),
+	}}, true); err != nil {
+		t.Fatal(err)
+	}
+	quote := func(id string) *xsource.Quote {
+		return &xsource.Quote{ID: id, AuthorHandle: "agency_synthetic", Text: "quoted", URL: "https://x.com/agency_synthetic/status/" + id}
+	}
+	// Six own posts quote one status and one quotes the other; the list keeps
+	// the newest five of each.
+	own := []xsource.Post{}
+	for i := 1; i <= 6; i++ {
+		own = append(own, quotingPost(fmt.Sprintf("190000000000000033%d", i), fmt.Sprintf("2026-10-11T0%d:00:00Z", i), quote(relatedMatch)))
+	}
+	own = append(own, quotingPost("1900000000000000340", "2026-10-11T07:00:00Z", quote(relatedOther)))
+	if err := f.s.WriteXRecent(ctx, "kano", xsource.Result{Account: "kano", Posts: own}, true); err != nil {
+		t.Fatal(err)
+	}
+	for _, repost := range [][2]string{{relatedMatch, "kano_b"}, {relatedMatch, "kano_a"}, {relatedOther, "kano_c"}} {
+		if _, err := f.s.DB().Exec(`INSERT INTO x_reposts (status_id, account_handle, first_seen_at) VALUES (?, ?, '2026-10-11T08:00:00.000Z')`, repost[0], repost[1]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page, err := f.s.ListAdminXStatuses(ctx, AdminXStatusFilter{IDs: []string{relatedMatch, relatedOther}})
+	if err != nil || len(page.Items) != 2 {
+		t.Fatalf("page=%+v err=%v", page, err)
+	}
+	got := map[string]string{}
+	for _, item := range page.Items {
+		got[item.ID] = strings.Join(item.QuotedBy, ",") + "|" + strings.Join(item.RepostedBy, ",")
+	}
+	want := map[string]string{
+		relatedMatch: "1900000000000000336,1900000000000000335,1900000000000000334,1900000000000000333,1900000000000000332|kano_a,kano_b",
+		relatedOther: "1900000000000000340|kano_c",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("links:\n got  %v\n want %v", got, want)
 	}
 }

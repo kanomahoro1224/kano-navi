@@ -2,6 +2,8 @@ package schedule
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"sort"
 	"strings"
 	"time"
@@ -33,6 +35,9 @@ type scanQueue struct {
 	// reading every shown X and Bilibili post.
 	postsRead int
 	elapsed   time.Duration
+	// states is every post_llm_states row as the queue was built, keyed by
+	// post; it orders the candidates and serves the preview's judging.
+	states map[string]*postState
 }
 
 // buildQueue selects and orders a scan's candidates: operator reprocess
@@ -86,13 +91,14 @@ func (e *Extractor) buildQueue(ctx context.Context) (scanQueue, error) {
 		queue = append(queue, candidate{post: item, detectionType: requestedDetectionType(item, keywordType[item.id]), force: true})
 		requested[item.id] = true
 	}
+	states, err := listPostStates(ctx, e.db)
+	if err != nil {
+		return scanQueue{}, err
+	}
+	scan.states = states
 	rest := []candidate{}
 	for _, item := range keyword {
-		state, err := getPostState(ctx, e.db, item.post.id)
-		if err != nil {
-			return scanQueue{}, err
-		}
-		if state != nil {
+		if state := states[item.post.id]; state != nil {
 			item.attemptedAt = instantMillis(state.lastAttemptAt)
 		}
 		if !requested[item.post.id] {
@@ -145,13 +151,150 @@ type candidateInput struct {
 	latest *extractionRow
 }
 
-// loadCandidate reads one post's candidate input, one query at a time.
-func (e *Extractor) loadCandidate(ctx context.Context, item post, detectionType string, force bool) (candidateInput, error) {
-	state, err := getPostState(ctx, e.db, item.id)
+// candidateReads is where judging reads a post's stored input: its
+// post_llm_states row, its linked post images, their media assets and the
+// latest extraction of an input. The run reads the snapshot one query at a
+// time (liveReads), since it writes between posts; the preview, which writes
+// nothing, reads each table once (previewReads).
+type candidateReads interface {
+	postState(ctx context.Context, postID string) (*postState, error)
+	imageLinks(ctx context.Context, postID string) ([]string, error)
+	mediaAsset(ctx context.Context, id string) (*mediaAsset, error)
+	latestExtraction(ctx context.Context, source, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error)
+}
+
+type liveReads struct{ q queryer }
+
+func (r liveReads) postState(ctx context.Context, postID string) (*postState, error) {
+	return getPostState(ctx, r.q, postID)
+}
+
+func (r liveReads) imageLinks(ctx context.Context, postID string) ([]string, error) {
+	return postImageLinks(ctx, r.q, postID)
+}
+
+func (r liveReads) mediaAsset(ctx context.Context, id string) (*mediaAsset, error) {
+	return getMediaAsset(ctx, r.q, id)
+}
+
+func (r liveReads) latestExtraction(ctx context.Context, source, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error) {
+	return latestExtraction(ctx, r.q, source, sourceItemID, fingerprint, versionPrefix)
+}
+
+// previewReads answers the same reads from tables read once, in the order
+// and with the matching rules of the live queries. Its extraction rows carry
+// no result_json: judging reads only their status.
+type previewReads struct {
+	states      map[string]*postState
+	links       map[string][]string
+	assets      map[string]*mediaAsset
+	extractions map[extractionKey][]versionedExtraction
+}
+
+type extractionKey struct{ source, sourceItemID, fingerprint string }
+
+// versionedExtraction is one stored extraction with its extractor version,
+// listed newest first per extractionKey.
+type versionedExtraction struct {
+	version string
+	row     extractionRow
+}
+
+// loadPreviewReads reads the post images, their assets and the stored
+// extractions once; states are the ones the queue was built with.
+func loadPreviewReads(ctx context.Context, q queryer, states map[string]*postState) (previewReads, error) {
+	reads := previewReads{states: states, links: map[string][]string{},
+		assets: map[string]*mediaAsset{}, extractions: map[extractionKey][]versionedExtraction{}}
+	rows, err := q.QueryContext(ctx, `SELECT owner_id, media_id FROM media_links
+		WHERE owner_type = 'post' AND role = 'post-image'
+		ORDER BY owner_id, position, id`)
+	if err != nil {
+		return previewReads{}, err
+	}
+	for rows.Next() {
+		var owner, media string
+		if err = rows.Scan(&owner, &media); err != nil {
+			rows.Close()
+			return previewReads{}, err
+		}
+		reads.links[owner] = append(reads.links[owner], media)
+	}
+	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+		return previewReads{}, err
+	}
+	rows, err = q.QueryContext(ctx, `SELECT id, cache_path, mime_type, sha256, status FROM media_assets
+		WHERE id IN (SELECT media_id FROM media_links WHERE owner_type = 'post' AND role = 'post-image')`)
+	if err != nil {
+		return previewReads{}, err
+	}
+	for rows.Next() {
+		var id string
+		var cachePath, mimeType, hash, status sql.NullString
+		if err = rows.Scan(&id, &cachePath, &mimeType, &hash, &status); err != nil {
+			rows.Close()
+			return previewReads{}, err
+		}
+		reads.assets[id] = &mediaAsset{id, cachePath.String, mimeType.String, hash.String, status.String}
+	}
+	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+		return previewReads{}, err
+	}
+	rows, err = q.QueryContext(ctx, `SELECT source, source_item_id, content_fingerprint, extractor_version,
+		id, model, status, updated_at
+		FROM schedule_extractions ORDER BY updated_at DESC, id DESC`)
+	if err != nil {
+		return previewReads{}, err
+	}
+	for rows.Next() {
+		var key extractionKey
+		var stored versionedExtraction
+		var model, status, updatedAt sql.NullString
+		if err = rows.Scan(&key.source, &key.sourceItemID, &key.fingerprint, &stored.version,
+			&stored.row.id, &model, &status, &updatedAt); err != nil {
+			rows.Close()
+			return previewReads{}, err
+		}
+		stored.row.model, stored.row.status, stored.row.updatedAt = model.String, status.String, updatedAt.String
+		reads.extractions[key] = append(reads.extractions[key], stored)
+	}
+	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+		return previewReads{}, err
+	}
+	return reads, nil
+}
+
+func (r previewReads) postState(_ context.Context, postID string) (*postState, error) {
+	return r.states[postID], nil
+}
+
+func (r previewReads) imageLinks(_ context.Context, postID string) ([]string, error) {
+	return append([]string{}, r.links[postID]...), nil
+}
+
+func (r previewReads) mediaAsset(_ context.Context, id string) (*mediaAsset, error) {
+	if !mediaIDPattern.MatchString(id) {
+		return nil, nil
+	}
+	return r.assets[id], nil
+}
+
+func (r previewReads) latestExtraction(_ context.Context, source, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error) {
+	for _, stored := range r.extractions[extractionKey{source, sourceItemID, fingerprint}] {
+		if strings.HasPrefix(stored.version, versionPrefix) {
+			row := stored.row
+			return &row, nil
+		}
+	}
+	return nil, nil
+}
+
+// loadCandidate reads one post's candidate input.
+func (e *Extractor) loadCandidate(ctx context.Context, reads candidateReads, item post, detectionType string, force bool) (candidateInput, error) {
+	state, err := reads.postState(ctx, item.id)
 	if err != nil {
 		return candidateInput{}, err
 	}
-	media, err := e.postImageState(ctx, item)
+	media, err := e.postImageState(ctx, reads, item)
 	if err != nil {
 		return candidateInput{}, err
 	}
@@ -160,7 +303,7 @@ func (e *Extractor) loadCandidate(ctx context.Context, item post, detectionType 
 	if effectiveForce(force, state) || inputMode == "" || (media.hasImages && !media.complete) {
 		return input, nil
 	}
-	input.latest, err = latestExtraction(ctx, e.db, item.extractionSource(), item.id,
+	input.latest, err = reads.latestExtraction(ctx, item.extractionSource(), item.id,
 		fingerprintOf(item, detectionType, inputMode, media), extractorVersionPrefix(detectionType, inputMode))
 	return input, err
 }
@@ -169,11 +312,11 @@ func (e *Extractor) loadCandidate(ctx context.Context, item post, detectionType 
 // preview share. A settled post is the cache hit its stored state records,
 // decided without loading or judging it: the stamp shows that its input,
 // detection stage and extractor version are those of that result.
-func (e *Extractor) judgeCandidate(ctx context.Context, item candidate, targets targetLookup, now time.Time) (candidateInput, decision, error) {
+func (e *Extractor) judgeCandidate(ctx context.Context, reads candidateReads, item candidate, targets targetLookup, now time.Time) (candidateInput, decision, error) {
 	if item.post.settled {
 		return candidateInput{post: item.post}, decision{disposition: dispositionCached, settled: true}, nil
 	}
-	input, err := e.loadCandidate(ctx, item.post, item.detectionType, item.force)
+	input, err := e.loadCandidate(ctx, reads, item.post, item.detectionType, item.force)
 	if err != nil {
 		return input, decision{}, err
 	}
@@ -459,6 +602,10 @@ func (e *Extractor) PreviewQueue(ctx context.Context) (QueuePreview, error) {
 		CandidateMs: scan.elapsed.Milliseconds(), Run: []QueueEntry{},
 	}
 	targets := e.memoTargets(ctx)
+	reads, err := loadPreviewReads(ctx, e.db, scan.states)
+	if err != nil {
+		return QueuePreview{}, previewError(ctx)
+	}
 	var nextBackoff time.Time
 	tally := func(decided decision) {
 		switch decided.disposition {
@@ -474,7 +621,7 @@ func (e *Extractor) PreviewQueue(ctx context.Context) (QueuePreview, error) {
 		}
 	}
 	judged := func(item candidate) (candidateInput, decision, error) {
-		return e.judgeCandidate(ctx, item, targets, now)
+		return e.judgeCandidate(ctx, reads, item, targets, now)
 	}
 	next, err := walkQueue(ctx, scan.queue, func(item candidate) (postResult, error) {
 		input, decided, err := judged(item)

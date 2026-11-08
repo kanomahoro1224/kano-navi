@@ -181,7 +181,7 @@ func (f *fixture) preview() QueuePreview {
 
 func TestPreviewMatchesTheRun(t *testing.T) {
 	f := newFixture(t)
-	f.addProvider("p-main", protocolChat, "https://provider.example.test/v1", "model-a", `["text"]`)
+	f.addProvider("p-main", protocolChat, "https://provider.example.test/v1", "model-a", `["text","image"]`)
 	f.queue("p-main")
 	reply := chatReply(scheduleReply(songTitle, songDate, songClock, "scheduled"))
 	f.provider.respond = func(request recordedRequest) (int, string) {
@@ -204,8 +204,17 @@ func TestPreviewMatchesTheRun(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		f.addPost(fmt.Sprintf("edited-%d", i), "", fmt.Sprintf("明日 21時から配信 edited %d", i), published(20+i), "")
 	}
+	// A post with two ready, linked images: its cache hit needs both images'
+	// assets in its fingerprint.
+	images := []string{"https://pbs.twimg.com/media/synthetic-ready-1.png", "https://pbs.twimg.com/media/synthetic-ready-2.png"}
+	f.addPost("ready-images", "", "明日 21時から配信 images", published(4), `{"media_urls":["`+images[0]+`","`+images[1]+`"]}`)
+	for position, imageURL := range images {
+		f.addCachedImage(imageURL, []byte(pngHeader+imageURL))
+		f.exec(`INSERT INTO media_links (media_id, owner_type, owner_id, role, position, created_at, updated_at)
+			VALUES (?, 'post', 'ready-images', 'post-image', ?, ?, ?)`, mediaIDForSourceURL(imageURL), position, testTimestamp, testTimestamp)
+	}
 	f.at(backoffStart)
-	if first := f.scan(); countOf(first.Counts, "attempted") != 11 {
+	if first := f.scan(); countOf(first.Counts, "attempted") != 12 {
 		t.Fatalf("first run = %v", first.Counts)
 	}
 	// failing-3 is out of automatic retries; the others wait until
@@ -259,13 +268,13 @@ func TestPreviewMatchesTheRun(t *testing.T) {
 	if !reflect.DeepEqual(order, wantOrder) || !reflect.DeepEqual(reasons, wantReasons) {
 		t.Fatalf("preview order:\n got  %v %v\n want %v %v", order, reasons, wantOrder, wantReasons)
 	}
-	if preview.Later != 3 || preview.Cached != 3 || preview.Backoff.Count != 2 || preview.RetryStopped.Count != 1 {
+	if preview.Later != 3 || preview.Cached != 4 || preview.Backoff.Count != 2 || preview.RetryStopped.Count != 1 {
 		t.Fatalf("preview counts = later %d cached %d backoff %+v stopped %+v", preview.Later, preview.Cached, preview.Backoff, preview.RetryStopped)
 	}
 	if preview.Backoff.NextAt != "2026-04-28T01:00:00.000Z" || preview.RetryStopped.NextAt != "" {
 		t.Fatalf("hold times = %+v %+v", preview.Backoff, preview.RetryStopped)
 	}
-	if preview.Requested != 2 || preview.Candidates != 29 || preview.Limit != scanLimit {
+	if preview.Requested != 2 || preview.Candidates != 30 || preview.Limit != scanLimit {
 		t.Fatalf("preview totals = requested %d candidates %d limit %d", preview.Requested, preview.Candidates, preview.Limit)
 	}
 	for _, entry := range preview.Run {

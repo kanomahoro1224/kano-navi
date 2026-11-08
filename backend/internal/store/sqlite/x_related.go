@@ -731,13 +731,13 @@ func (s *Store) ListAdminXStatuses(ctx context.Context, f AdminXStatusFilter) (A
 		return AdminPage[AdminXStatus]{}, dbErr(err)
 	}
 	rules := relatedKeywords(accounts)
+	if err = s.xStatusLinks(ctx, items); err != nil {
+		return AdminPage[AdminXStatus]{}, err
+	}
 	pooled := []string{}
 	for i := range items {
 		item := &items[i]
 		_, item.Related = rules[strings.ToLower(item.AuthorHandle)]
-		if err = s.xStatusLinks(ctx, item); err != nil {
-			return AdminPage[AdminXStatus]{}, err
-		}
 		if item.State == "stored" {
 			pooled = append(pooled, item.ID)
 		}
@@ -754,36 +754,55 @@ func (s *Store) ListAdminXStatuses(ctx context.Context, f AdminXStatusFilter) (A
 	return AdminPage[AdminXStatus]{Items: items, Page: page, PageSize: pageSize, Total: total, TotalPages: totalPages}, nil
 }
 
-// xStatusLinks fills the own posts that quote a pooled status and the own
-// accounts that reposted it.
-func (s *Store) xStatusLinks(ctx context.Context, item *AdminXStatus) error {
-	rows, err := s.db.QueryContext(ctx, `SELECT id FROM posts WHERE source='x' AND promoted_at IS NULL AND json_valid(quote_json)
-		AND json_extract(quote_json,'$.id')=? ORDER BY julianday(published_at) DESC,id LIMIT 5`, item.ID)
+// xStatusLinks fills, for a page of pooled statuses, the own posts that quote
+// each (newest first, at most five) and the own accounts that reposted it.
+// One scan of the posts' quotes serves the whole page.
+func (s *Store) xStatusLinks(ctx context.Context, items []AdminXStatus) error {
+	if len(items) == 0 {
+		return nil
+	}
+	index := make(map[string]*AdminXStatus, len(items))
+	ids := make([]string, 0, len(items))
+	for i := range items {
+		index[items[i].ID] = &items[i]
+		ids = append(ids, items[i].ID)
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT quoted, id FROM (
+		SELECT json_extract(quote_json,'$.id') AS quoted, id,
+			ROW_NUMBER() OVER (PARTITION BY json_extract(quote_json,'$.id') ORDER BY julianday(published_at) DESC,id) AS n
+		FROM posts WHERE source='x' AND promoted_at IS NULL AND json_valid(quote_json)
+			AND json_extract(quote_json,'$.id') IN (`+placeholders(len(ids))+`))
+		WHERE n<=5 ORDER BY quoted,n`, idArgs(ids)...)
 	if err != nil {
 		return dbErr(err)
 	}
 	for rows.Next() {
-		var id string
-		if err = rows.Scan(&id); err != nil {
+		var quoted, id string
+		if err = rows.Scan(&quoted, &id); err != nil {
 			rows.Close()
 			return dbErr(err)
 		}
-		item.QuotedBy = append(item.QuotedBy, id)
+		if item := index[quoted]; item != nil {
+			item.QuotedBy = append(item.QuotedBy, id)
+		}
 	}
 	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
 		return dbErr(err)
 	}
-	rows, err = s.db.QueryContext(ctx, `SELECT account_handle FROM x_reposts WHERE status_id=? ORDER BY account_handle`, item.ID)
+	rows, err = s.db.QueryContext(ctx, `SELECT status_id, account_handle FROM x_reposts
+		WHERE status_id IN (`+placeholders(len(ids))+`) ORDER BY status_id, account_handle`, idArgs(ids)...)
 	if err != nil {
 		return dbErr(err)
 	}
 	for rows.Next() {
-		var account string
-		if err = rows.Scan(&account); err != nil {
+		var status, account string
+		if err = rows.Scan(&status, &account); err != nil {
 			rows.Close()
 			return dbErr(err)
 		}
-		item.RepostedBy = append(item.RepostedBy, account)
+		if item := index[status]; item != nil {
+			item.RepostedBy = append(item.RepostedBy, account)
+		}
 	}
 	return dbErr(errors.Join(rows.Err(), rows.Close()))
 }

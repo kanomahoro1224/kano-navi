@@ -237,7 +237,10 @@ answers `{queue}`, and a route whose step the process does not run answers
 step off for the process.
 
 `GET /queue/schedule` judges every candidate with the scan's own order and
-judgement ([Schedule extraction pipeline](sources.md#schedule-extraction-pipeline)). Its size
+judgement ([Schedule extraction pipeline](sources.md#schedule-extraction-pipeline)).
+It reads the post LLM states, post images, their media assets and the stored
+extractions once and judges every candidate from them; the run reads them
+per post, since it writes between posts. Its size
 does not grow with the number of posts: `{generatedAt, disabled,
 boardEnabled, messageEnabled, allPosts, limit, postsRead, candidates,
 requested, candidateMs, elapsedMs, run, later, cached, backoff,

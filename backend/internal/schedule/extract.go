@@ -238,9 +238,9 @@ var supportedImageTypes = map[string]bool{
 // postImageState resolves every declared image of a post to a ready cache
 // file. complete=false keeps the post pending instead of sending it without
 // the images it was published with.
-func (e *Extractor) postImageState(ctx context.Context, item post) (postImages, error) {
+func (e *Extractor) postImageState(ctx context.Context, reads candidateReads, item post) (postImages, error) {
 	declared := item.declaredMediaURLs()
-	links, err := postImageLinks(ctx, e.db, item.id)
+	links, err := reads.imageLinks(ctx, item.id)
 	if err != nil {
 		return postImages{}, err
 	}
@@ -260,7 +260,7 @@ func (e *Extractor) postImageState(ctx context.Context, item post) (postImages, 
 		if !linked[id] {
 			continue
 		}
-		asset, err := getMediaAsset(ctx, e.db, id)
+		asset, err := reads.mediaAsset(ctx, id)
 		if err != nil {
 			return postImages{}, err
 		}
@@ -337,7 +337,7 @@ func (e *Extractor) useCachedExtraction(ctx context.Context, item post, route st
 // time loading and judging took to judging.
 func (e *Extractor) extractPost(ctx context.Context, item candidate, judging *time.Duration) (postResult, error) {
 	started := time.Now()
-	input, decided, err := e.judgeCandidate(ctx, item, e.liveTargets(ctx), e.now())
+	input, decided, err := e.judgeCandidate(ctx, liveReads{e.db}, item, e.liveTargets(ctx), e.now())
 	*judging += time.Since(started)
 	if err != nil {
 		return postResult{}, err

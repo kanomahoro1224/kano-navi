@@ -574,29 +574,55 @@ type storedState struct {
 	lastExtractionID, reprocess, failureCount                sql.NullInt64
 }
 
-func getPostState(ctx context.Context, q queryer, postID string) (*postState, error) {
-	var row storedState
-	err := q.QueryRowContext(ctx, `SELECT status, route, last_attempt_at, last_processed_at,
-		last_error, last_extraction_id, reprocess_requested,
-		failure_count, failure_fingerprint, next_attempt_at, settled_stamp
-		FROM post_llm_states WHERE post_id = ?`, postID).
-		Scan(&row.status, &row.route, &row.lastAttemptAt, &row.lastProcessedAt,
-			&row.lastError, &row.lastExtractionID, &row.reprocess,
-			&row.failureCount, &row.failureFingerprint, &row.nextAttemptAt, &row.settledStamp)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
+const postStateColumns = `status, route, last_attempt_at, last_processed_at,
+	last_error, last_extraction_id, reprocess_requested,
+	failure_count, failure_fingerprint, next_attempt_at, settled_stamp`
+
+func scanPostState(row rowScanner, leading ...any) (*postState, error) {
+	var stored storedState
+	err := row.Scan(append(leading, &stored.status, &stored.route, &stored.lastAttemptAt, &stored.lastProcessedAt,
+		&stored.lastError, &stored.lastExtractionID, &stored.reprocess,
+		&stored.failureCount, &stored.failureFingerprint, &stored.nextAttemptAt, &stored.settledStamp)...)
 	if err != nil {
 		return nil, err
 	}
 	return &postState{
-		lastAttemptAt:      row.lastAttemptAt.String,
-		reprocessRequested: row.reprocess.Int64 != 0,
-		failureCount:       int(row.failureCount.Int64),
-		failureFingerprint: row.failureFingerprint.String,
-		nextAttemptAt:      row.nextAttemptAt.String,
-		stored:             row,
+		lastAttemptAt:      stored.lastAttemptAt.String,
+		reprocessRequested: stored.reprocess.Int64 != 0,
+		failureCount:       int(stored.failureCount.Int64),
+		failureFingerprint: stored.failureFingerprint.String,
+		nextAttemptAt:      stored.nextAttemptAt.String,
+		stored:             stored,
 	}, nil
+}
+
+func getPostState(ctx context.Context, q queryer, postID string) (*postState, error) {
+	state, err := scanPostState(q.QueryRowContext(ctx, `SELECT `+postStateColumns+`
+		FROM post_llm_states WHERE post_id = ?`, postID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return state, err
+}
+
+// listPostStates reads every post_llm_states row in one query, keyed by post.
+// A post without a row has no entry, as getPostState returns nil for it.
+func listPostStates(ctx context.Context, q queryer) (map[string]*postState, error) {
+	rows, err := q.QueryContext(ctx, `SELECT post_id, `+postStateColumns+` FROM post_llm_states`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]*postState{}
+	for rows.Next() {
+		var postID string
+		state, err := scanPostState(rows, &postID)
+		if err != nil {
+			return nil, err
+		}
+		out[postID] = state
+	}
+	return out, rows.Err()
 }
 
 // holds reports whether markPost(update) would store exactly this row again

@@ -18,8 +18,9 @@ import (
 // duplicate-event reconciliation over everything written before it.
 var StepOrder = []string{"x", sqlite.XRelatedStep, "youtube", "bilibili", sqlite.BilibiliDynamicsSource, sqlite.ShopSource, "media", "schedule", StepTranslate, "reconcile"}
 
-// fetchSources are the steps a manual fetch's window can select.
-var fetchSources = []string{"x", sqlite.XRelatedStep, "youtube", sqlite.ShopSource}
+// fetchSources are the steps a manual fetch's window can select, each read
+// through the listing method its window names.
+var fetchSources = []string{history.SourceX, history.SourceXRelated, history.SourceYoutube, history.SourceBilibili, history.SourceBilibiliDynamics, history.SourceShop}
 
 // NormalizeSteps returns the known step IDs in catalog order.
 func NormalizeSteps(values []string) []string {

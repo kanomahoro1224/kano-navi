@@ -137,19 +137,37 @@ func seconds(raw json.RawMessage) int {
 // ParseUploads reads a recArchivesByKeywords page. Entries of another
 // uploader (a collaboration listed in the account's series) are skipped.
 func ParseUploads(data json.RawMessage, account string) ([]Video, error) {
+	page, err := ParseUploadsPage(data, account)
+	return page.Videos, err
+}
+
+// UploadsPage is one page of the account's uploads listing.
+type UploadsPage struct {
+	Videos []Video
+	// Seen counts every entry the page listed, kept or not, and Total the
+	// entries the whole listing holds, or 0 when the answer omits it.
+	Seen, Total int
+}
+
+// ParseUploadsPage is ParseUploads with the page's own counts, which tell a
+// paged read whether more pages follow.
+func ParseUploadsPage(data json.RawMessage, account string) (UploadsPage, error) {
 	var page struct {
 		Archives []upload `json:"archives"`
+		Page     struct {
+			Total int `json:"total"`
+		} `json:"page"`
 	}
 	if json.Unmarshal(data, &page) != nil || page.Archives == nil {
-		return nil, &Error{"bilibili_invalid_response"}
+		return UploadsPage{}, &Error{"bilibili_invalid_response"}
 	}
 	owner, _ := strconv.ParseInt(account, 10, 64)
-	out := []Video{}
+	out := UploadsPage{Videos: []Video{}, Seen: len(page.Archives), Total: max(page.Page.Total, 0)}
 	seen := map[string]bool{}
 	for _, item := range page.Archives {
 		if v, ok := item.video(); ok && !seen[v.BVID] && (v.OwnerMid == 0 || v.OwnerMid == owner) {
 			seen[v.BVID] = true
-			out = append(out, v)
+			out.Videos = append(out.Videos, v)
 		}
 	}
 	return out, nil

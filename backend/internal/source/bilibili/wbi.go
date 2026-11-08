@@ -137,6 +137,10 @@ func (c *Client) NavKeys(ctx context.Context, session Session, now time.Time) (W
 	return parseNavKeys(body, now)
 }
 
+// spaceOffset is a listing continuation as Bilibili answers it: a dynamic
+// ID, or empty for the first page.
+var spaceOffset = regexp.MustCompile(`^[0-9]{0,20}$`)
+
 // spaceFeatures are the listing features Bilibili's own space page asks for;
 // itemOpusStyle returns pictures and text as an opus card.
 const spaceFeatures = "itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,forwardListHidden,decorationCard,commentsNewVersion,onlyfansAssetsV2,ugcDelete,onlyfansQaCard"
@@ -144,6 +148,12 @@ const spaceFeatures = "itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,forw
 // SpaceDynamics reads the first page of an account's dynamics. It needs the
 // login cookie, which it sends, and a WBI signature.
 func (c *Client) SpaceDynamics(ctx context.Context, account string, session Session, keys WBIKeys, now time.Time) (SpacePage, error) {
+	return c.SpaceDynamicsPage(ctx, account, "", session, keys, now)
+}
+
+// SpaceDynamicsPage reads the page of an account's dynamics that follows
+// offset, the previous page's offset; an empty offset is the first page.
+func (c *Client) SpaceDynamicsPage(ctx context.Context, account, offset string, session Session, keys WBIKeys, now time.Time) (SpacePage, error) {
 	if !mid.MatchString(account) {
 		return SpacePage{}, &Error{"bilibili_invalid_account"}
 	}
@@ -156,7 +166,10 @@ func (c *Client) SpaceDynamics(ctx context.Context, account string, session Sess
 	if !keys.valid() {
 		return SpacePage{}, &Error{"bilibili_invalid_keys"}
 	}
-	query := url.Values{"host_mid": {account}, "offset": {""}, "timezone_offset": {"-480"}, "platform": {"web"}, "features": {spaceFeatures}, "web_location": {"333.1387"}}
+	if !spaceOffset.MatchString(offset) {
+		return SpacePage{}, &Error{"bilibili_invalid_page"}
+	}
+	query := url.Values{"host_mid": {account}, "offset": {offset}, "timezone_offset": {"-480"}, "platform": {"web"}, "features": {spaceFeatures}, "web_location": {"333.1387"}}
 	body, err := c.fetch(ctx, apiHost, "/x/polymer/web-dynamic/v1/feed/space", signWBI(query, keys, now), "https://space.bilibili.com/"+account+"/dynamic", "application/json", &session, true)
 	if err != nil {
 		return SpacePage{}, err

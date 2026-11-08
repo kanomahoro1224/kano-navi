@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
@@ -293,8 +294,20 @@ func TestMethodAvailabilityFollowsCredentialsAndAdapters(t *testing.T) {
 	if x, youtube := available("x"), available("youtube"); x != "" || youtube != "" {
 		t.Fatalf("without adapters x=%s youtube=%s", x, youtube)
 	}
-	if (*HistorySource)(nil).MethodAvailable("x", history.MethodTimeline) || len(source.Methods("bilibili")) != 0 {
+	if (*HistorySource)(nil).MethodAvailable("x", history.MethodTimeline) || len(source.Methods("rss")) != 0 {
 		t.Fatal("a missing source or fetcher offers methods")
+	}
+	// The Bilibili fetches need the adapter, and the dynamics its login.
+	if uploads, dynamics := available("bilibili"), available("bilibili_dynamics"); uploads != "" || dynamics != "" {
+		t.Fatalf("without the Bilibili adapter uploads=%s dynamics=%s", uploads, dynamics)
+	}
+	source.Bilibili = bilisource.NewAdapter(nil, bilisource.Options{Account: "1"})
+	if uploads, dynamics := available("bilibili"), available("bilibili_dynamics"); uploads != "space" || dynamics != "" {
+		t.Fatalf("anonymous uploads=%s dynamics=%s", uploads, dynamics)
+	}
+	source.Bilibili.Options.SESSDATA = "a1b2c3d4%2C1999999999%2Cabcde%2A11"
+	if dynamics := available("bilibili_dynamics"); dynamics != "space" {
+		t.Fatalf("signed-in dynamics=%s", dynamics)
 	}
 }
 

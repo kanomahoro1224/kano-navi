@@ -29,6 +29,7 @@ import type {
   FetchMethodId,
   FetchOptions,
   FetchSelection,
+  FetchSource,
   LlmCatalog,
   LlmFailure,
   Model,
@@ -112,7 +113,7 @@ export type StartRun =
   /** A manual fetch through one method; it never falls back to another. */
   | {
       kind: "fetch"
-      source: "x" | "youtube" | "shop"
+      source: FetchSource | "shop"
       method: FetchMethodId
       window: FetchSelection
       options?: FetchOptions
@@ -366,6 +367,13 @@ function createClient(run: Runner, slow: Runner) {
         "POST",
         "/videos/bilibili",
         force ? { input, force: true } : { input },
+      ),
+    /** `input` is a YouTube video ID or link of the configured channel. */
+    addYoutubeVideo: (input: string) =>
+      send<{ video: AdminVideo; started: boolean; run: Run | null }>(
+        "POST",
+        "/videos/youtube",
+        { input },
       ),
     /** `input` is a bilibili.com/opus or t.bilibili.com dynamic link. */
     addBilibiliPost: (input: string, force = false) =>

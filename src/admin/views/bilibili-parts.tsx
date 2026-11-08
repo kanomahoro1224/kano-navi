@@ -400,17 +400,17 @@ export function BilibiliDynamicsStatus({
 }
 
 /**
- * The operator's single read beside a Bilibili timer, as the manual fetch
- * sits beside X's and YouTube's: one form, disabled while the source does
- * not run here. It respects the shared captcha backoff and offers one
- * forced read after a refusal.
+ * The operator's single read beside a source's manual fetch: one form,
+ * disabled while the source does not run here. A Bilibili read respects the
+ * shared captcha backoff and offers one forced read after a refusal.
  */
-function AddPanel({
-  status,
+export function AddPanel({
+  usable,
   title,
   ...form
 }: {
-  status: Sources["bilibili"] | undefined
+  /** The source runs here; otherwise the panel is marked skipped. */
+  usable: boolean
   title: string
   label: string
   hint: string
@@ -420,14 +420,11 @@ function AddPanel({
   onAdded: () => void
 }) {
   const { t } = useAppSettings()
-  const usable = usableOf(status)
   return (
     <Panel
       icon={Plus}
       title={title}
-      actions={
-        status && !usable ? <Badge>{t("admin.overview.skipped")}</Badge> : null
-      }
+      actions={usable ? null : <Badge>{t("admin.overview.skipped")}</Badge>}
     >
       <AddForm {...form} disabled={!usable} />
     </Panel>
@@ -446,7 +443,7 @@ export function BilibiliAddUpload({
   const { api } = useAdmin()
   return (
     <AddPanel
-      status={status}
+      usable={usableOf(status)}
       title={t("admin.bilibili.add")}
       label={t("admin.bilibili.addField")}
       hint={t("admin.bilibili.addHint")}
@@ -470,7 +467,7 @@ export function BilibiliAddDynamic({
   const { api } = useAdmin()
   return (
     <AddPanel
-      status={status}
+      usable={usableOf(status)}
       title={t("admin.bilibili.addPost")}
       label={t("admin.bilibili.addPostField")}
       hint={t("admin.bilibili.addPostHint")}

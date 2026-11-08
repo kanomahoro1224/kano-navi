@@ -313,7 +313,7 @@ func writeBilibiliError(w http.ResponseWriter, err error, state bilisource.State
 // bilibiliStatus is the Bilibili source as the console sees it.
 func (a *api) bilibiliStatus(ctx context.Context) (map[string]any, error) {
 	if a.Bilibili == nil {
-		return map[string]any{"available": false, "skipped": a.skipped("bilibili")}, nil
+		return map[string]any{"available": false, "skipped": a.skipped("bilibili"), "methods": a.fetchMethods("bilibili")}, nil
 	}
 	status, err := a.Store.BilibiliStatus(ctx, a.Bilibili.Options.Account)
 	if err != nil {
@@ -323,7 +323,16 @@ func (a *api) bilibiliStatus(ctx context.Context) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	oldestVideo, err := a.Store.OldestSourceTimestamp(ctx, "bilibili", "")
+	if err != nil {
+		return nil, err
+	}
+	oldestPost, err := a.Store.OldestSourceTimestamp(ctx, sqlite.BilibiliDynamicsSource, a.Bilibili.Options.Account)
+	if err != nil {
+		return nil, err
+	}
 	return map[string]any{
+		"methods": a.fetchMethods("bilibili"), "oldest": oldestVideo,
 		"available": true, "skipped": a.skipped("bilibili"), "account": status.Account, "videos": status.Videos,
 		"signedIn": a.Bilibili.Options.SignedIn(),
 		"login":    a.Bilibili.LoginStatus(state), "loginCheckedAt": status.LoginCheckedAt,
@@ -333,6 +342,7 @@ func (a *api) bilibiliStatus(ctx context.Context) (map[string]any, error) {
 		"dynamics": map[string]any{
 			"posts": status.Dynamics.Posts, "lastAttemptAt": status.Dynamics.LastAttemptAt, "lastSuccessAt": status.Dynamics.LastSuccessAt,
 			"lastError": status.Dynamics.LastError, "skipped": dynamicsSkipped(a.Bilibili.LoginStatus(state), status),
+			"methods": a.fetchMethods(sqlite.BilibiliDynamicsSource), "oldest": oldestPost,
 		},
 		"live": status.Live,
 	}, nil

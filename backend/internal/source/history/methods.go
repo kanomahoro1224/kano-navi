@@ -19,6 +19,9 @@ const (
 	MethodYTDLP = "ytdlp"
 	// MethodCatalog pages the official shop's whole product catalog.
 	MethodCatalog = "catalog"
+	// MethodSpace pages the Bilibili account's space listing: its uploads,
+	// or its dynamics with the login cookie.
+	MethodSpace = "space"
 )
 
 // Method describes what one listing method of a source can serve.
@@ -68,7 +71,23 @@ var methods = map[string][]Method{
 	SourceXRelated: {
 		{ID: MethodTimeline, Modes: []string{ModeIncremental}, PageSize: 100, Extract: true},
 	},
+	// Every Bilibili read rewrites the records it lists, as the timed reads
+	// do, so these fetches have no refresh option either.
+	SourceBilibili: {
+		{ID: MethodSpace, Modes: []string{ModeCount, ModeAll}, MaxCount: MaxCount, PageSize: BilibiliUploadsPageSize},
+	},
+	SourceBilibiliDynamics: {
+		{ID: MethodSpace, Modes: []string{ModeCount, ModeAll}, MaxCount: MaxCount, PageSize: BilibiliDynamicsPageSize, Requires: "BILIBILI_SESSDATA", Extract: true},
+	},
 }
+
+// Page sizes of the Bilibili space listings: the uploads listing is asked
+// for 20 entries a page, as the timed read asks; the dynamics listing answers
+// about 12 a page whatever is asked.
+const (
+	BilibiliUploadsPageSize  = 20
+	BilibiliDynamicsPageSize = 12
+)
 
 // Methods lists a source's listing methods in the order the console offers
 // them. The slices are copies.

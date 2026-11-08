@@ -195,13 +195,13 @@ a saved workflow reports that ID there, and its name is not read.
   Known catalog steps run once in catalog order; an empty list or another
   value is `400 invalid_input`. Source steps read as their
   [source schedule](#sources) does.
-- `{"kind": "fetch", "source": "x" | "x_related" | "youtube" | "shop", "method": Method, "window":
+- `{"kind": "fetch", "source": "x" | "x_related" | "youtube" | "bilibili" | "bilibili_dynamics" | "shop", "method": Method, "window":
 Selection, "options"?: {"extract"?, "translate"?, "refresh"?}}`: one
   source plus media for a
   [manual fetch](workflows.md#manual-fetches-and-historical-backfill)
   through the one method it names. `Method` is `timeline` or `api` for X,
   `timeline` for a related account, `api`, `rss` or `ytdlp` for YouTube,
-  and `catalog` for the shop, whose
+  `space` for the Bilibili uploads and dynamics, and `catalog` for the shop, whose
   fetch is the `shop` step alone, with `{mode: "all"}` and no option. `Selection` is `{mode: "count", count}`
   (1 to the method's `maxCount`), `{mode: "all"}`, `{mode: "range",
 startDate, endDate}` or `{mode: "before", days}` (1–365), as the method's
@@ -210,8 +210,9 @@ startDate, endDate}` or `{mode: "before", days}` (1–365), as the method's
   `{mode: "incremental", account}`, where `account` is one of the
   [related accounts](#sources). Either handle may carry a leading `@` and
   any letter case, and the run freezes its configured spelling; another
-  account answers `400 invalid_input`, as does `account` on a YouTube or
-  shop fetch. `extract` (X and related-account methods) adds the `schedule` step,
+  account answers `400 invalid_input`, as does `account` on a YouTube,
+  Bilibili or shop fetch. `extract` (X, related-account and Bilibili
+  dynamics methods) adds the `schedule` step,
   `translate` the `translate` step, and `refresh` (YouTube methods)
   rewrites stored videos the listing names again; each is a boolean and
   defaults to false. An unknown method, a mode or count the method does not
@@ -339,8 +340,8 @@ refreshes lead.
   "schedules": [SourceSchedule],
   "x":       {"skipped", "methods": [FetchMethod], "accounts": [{"account", "oldest"}]},
   "youtube": {"skipped", "methods": [FetchMethod], "oldest", "push": PushStatus, "liveProbe": LiveProbeStatus},
-  "bilibili": {"available", "skipped", "account", "videos", "signedIn", "login", "loginCheckedAt", "minIntervalMinutes", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError",
-               "dynamics": {"posts", "lastAttemptAt", "lastSuccessAt", "lastError", "skipped"},
+  "bilibili": {"available", "skipped", "methods": [FetchMethod], "oldest", "account", "videos", "signedIn", "login", "loginCheckedAt", "minIntervalMinutes", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError",
+               "dynamics": {"posts", "methods": [FetchMethod], "oldest", "lastAttemptAt", "lastSuccessAt", "lastError", "skipped"},
                "live": {"roomId", "liveStatus", "title", "liveTime", "checkedAt", "lastLiveAt", "blockedUntil", "lastError"}},
   "shop": {"skipped", "methods": [FetchMethod], "status": {"sales", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError"}}
 }
@@ -366,7 +367,7 @@ manual fetch of one account, reads the accounts.
 `FetchMethod` describes one manual fetch method in the order the console
 offers them: `{id, modes, maxCount, pageSize, requires, refresh, extract,
 available}`. `requires` names the environment variable the method needs
-(`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY` or `YTDLP_BINARY`), never its value, and is absent
+(`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY` or `BILIBILI_SESSDATA`), never its value, and is absent
 for public methods; `available` is false while
 it, or the method's adapter, is missing. `refresh` and `extract` say which
 options the method takes.
@@ -722,6 +723,7 @@ pooled status use the [translation routes](#translations) with owner
 | `PUT /videos/{id}`           | `{title?, kind?, tag?, availability?, thumbnail?, isShort?}`                                                    | `{video}`                                    |
 | `POST /videos/{id}/refresh`  |                                                                                                                 | `202 {video, started, run}`                  |
 | `POST /videos/bilibili`      | `{input}` (BV ID or bilibili.com video link)                                                                    | `{video, started, run}`                      |
+| `POST /videos/youtube`       | `{input}` (YouTube video ID or link)                                                                            | `{video, started, run}`                      |
 | `GET /videos/merges`         |                                                                                                                 | `{items}` merge suggestions                  |
 | `GET /videos/{id}/merges`    |                                                                                                                 | `{items}` for one Bilibili upload            |
 | `POST /videos/{id}/merge`    | `{into}` (YouTube video ID or watch link)                                                                       | `{video}`                                    |
@@ -748,6 +750,25 @@ operator request: `refresh` (a YouTube refresh request made within the last
 day, which the YouTube step still takes first), `translation` (a machine
 translation) or `any` of them.
 
+### YouTube videos
+
+`POST /videos/youtube` reads one video of the configured channel now and
+stores it as a manual fetch stores a listed video and its details (see
+[YouTube methods](workflows.md#youtube-methods)), so manual locks and
+deletion tombstones hold; a stored video is read again and keeps a replaced
+title as history. The input is a video ID or a `youtube.com` watch,
+`/shorts/`, `/live/` or `/embed/` link or a `youtu.be` link. With
+`YOUTUBE_API_KEY` the Data API describes it under the recent step's rules
+(one `videos.list` call, plus the newest page of each format playlist for an
+ended broadcast that needs a verdict); without one, or when the answer
+cannot classify an ended broadcast, its watch page does. It then starts the
+`media` step for the thumbnail (`started` is false while another run holds
+the queue). Another input or field, a video of another channel, or a
+process that skips YouTube answers `400 invalid_input`; a video YouTube does
+not show publicly answers `404 {"error":"video_not_found", code}` with the
+watch page's `youtube_watch_*` code, and other upstream failures `502` with
+their `youtube_*` code.
+
 ### Bilibili uploads
 
 `POST /videos/bilibili` reads one upload of the configured Bilibili account
@@ -763,12 +784,13 @@ backoff; nothing is sent while it waits. Both reads accept `{force: true}`
 in the body, which sends that one read anyway: a success lifts the backoff
 and a failure extends it. Other upstream failures answer `502` with their
 `bilibili_*` code. `bilibili` in
-`GET /sources` reports the account, the stored uploads, whether a login cookie
+`GET /sources` reports the uploads' manual fetch `methods` and the
+`oldest` stored upload's publication time, the account, the stored uploads, whether a login cookie
 is configured (`signedIn`, never the cookie), `login` (`signed_in`,
 `expired`, `unchecked` or `not_configured`) with `loginCheckedAt`, the read
 interval and the
 latest attempt, success, backoff and error. Its `dynamics` reports the stored
-dynamics and the listing's latest attempt, success and error
+dynamics, their manual fetch `methods` and `oldest` stored dynamic, and the listing's latest attempt, success and error
 (`bilibili_login_expired` when the cookie no longer signs in), and `skipped`:
 `login_required` without a cookie, `login_expired` while the latest login
 check found it expired, `blocked` during the backoff, otherwise null. Its `live` is the room as the last check saw it (`liveStatus` 0 off

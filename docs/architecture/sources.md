@@ -596,6 +596,17 @@ can settle a premiere verdict that the API answer of an ended broadcast only
 repeats; when the page fails, the API answer is used. A request
 that no successful check answers within 24 hours stops going first.
 
+An operator also adds or re-reads one video by ID or link from `/admin` (see
+[Admin API](admin-api.md#youtube-videos)). That read runs at once, outside
+the queue: the Data API describes the video under the recent step's rules
+when a key is configured, and the watch page does without one or when the
+answer cannot classify an ended broadcast. Only a video whose channel
+(`channelId` in the API snippet or the page's video details) is
+`YOUTUBE_CHANNEL_ID` is accepted (`youtube_other_channel` otherwise). It is
+written like a manual fetch's listed and checked video, so manual locks and
+deletion tombstones hold. Neither the incremental cursor nor the detail
+queue moves.
+
 Every detail check stores the player's `lengthSeconds` as
 `duration_seconds` once a video is neither upcoming nor live. When a check
 reports a new title or thumbnail URL, the replaced platform state is kept as a
@@ -798,8 +809,10 @@ only endpoints that need no request signature:
   device identity and renewed six hours before it expires, and its answer
   also names the current WBI keys. A failed ticket request is not a
   failure: the read goes on without it.
-- `/x/series/recArchivesByKeywords` lists the account's newest 20 uploads
-  with title, cover, publication time, length and description. Entries of
+- `/x/series/recArchivesByKeywords` lists the account's uploads newest
+  first, 20 a page, with title, cover, publication time, length and
+  description; the timed read takes the first page and a
+  [manual fetch](workflows.md#bilibili-methods) pages on. Entries of
   another uploader are skipped.
 - `/x/web-interface/view` reads one upload for an operator, and the cover
   address of an upload on the Works page.
@@ -848,8 +861,8 @@ An operator's single read (one upload, one dynamic) answers
 `bilibili_blocked` during a backoff without a request, unless the operator
 forces it once from the console (`force`, see
 [Admin API](admin-api.md#bilibili-uploads)). A forced read that succeeds
-lifts the backoff; one that fails extends it as usual. Listing and timer
-reads are never forced.
+lifts the backoff; one that fails extends it as usual. Timer reads and
+[manual fetches](workflows.md#bilibili-methods) are never forced.
 
 Uploads are `videos` rows with `source = 'bilibili'` and the BV ID as their
 ID, linked to `https://www.bilibili.com/video/<BV>`. Their kind is `upload`:
@@ -892,9 +905,11 @@ rotated. A signed-out `nav` answer, or `-101` from the listing, is
 backoff and device identity, so a block either one met holds both back, and
 runs on its own clock at least `BILIBILI_MIN_INTERVAL_MINUTES` apart. The
 single-flight queue never runs the two steps at once, so their writes of the
-shared state never race. One read requests the first page only: the listing
-itself, plus `nav` for the daily login check or stale keys, and the device
-identity and ticket when they are due.
+shared state never race. One timed read requests the first page only: the
+listing itself, plus `nav` for the daily login check or stale keys, and the
+device identity and ticket when they are due. An operator's
+[manual fetch](workflows.md#bilibili-methods) follows the offset each page
+answers to older pages.
 
 A listing keeps the account's own `DYNAMIC_TYPE_WORD` and `DYNAMIC_TYPE_DRAW`
 items (the opus and picture cards), `DYNAMIC_TYPE_ARTICLE` items only in

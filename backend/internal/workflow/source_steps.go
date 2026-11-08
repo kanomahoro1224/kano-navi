@@ -58,6 +58,9 @@ type SourceSteps struct {
 	// Skip holds steps disabled for the whole process through SKIP_* flags.
 	// They are recorded as skipped instead of being silently dropped.
 	Skip map[string]bool
+	// BilibiliPageGap spaces the pages of an operator's Bilibili fetch; zero
+	// uses DefaultBilibiliPageGap and a negative gap waits not at all.
+	BilibiliPageGap time.Duration
 }
 
 // applySettings gives the source readers the operator's current bounds (see
@@ -161,10 +164,16 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 		if s.Bilibili == nil {
 			break
 		}
+		if in.Window != nil {
+			return s.bilibiliFetch(ctx, history.SourceBilibili, *in.Window)
+		}
 		return s.bilibiliRecent(ctx)
 	case sqlite.BilibiliDynamicsSource:
 		if s.Bilibili == nil {
 			break
+		}
+		if in.Window != nil {
+			return s.bilibiliFetch(ctx, history.SourceBilibiliDynamics, *in.Window)
 		}
 		return s.bilibiliDynamics(ctx)
 	case sqlite.ShopSource:

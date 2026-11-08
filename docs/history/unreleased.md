@@ -66,6 +66,14 @@
 > an event in the console, shows the event again.
 
 > [!NOTE]
+> A manual fetch accepts `source: "bilibili"` and `"bilibili_dynamics"` with
+> the `space` method, admin `GET /sources` adds the Bilibili `methods` and
+> `oldest` (also under `dynamics`), and the admin API adds
+> `POST /videos/youtube`. Bilibili fetch continuations are new
+> `bilibili-window` and `bilibili_dynamics-window` `sync_state` rows; no
+> column is added.
+
+> [!NOTE]
 > The admin API adds `GET /queue/schedule`, `/queue/youtube`,
 > `/queue/translate` and `/queue/x-refresh`, and the schedule step result
 > adds `candidateMs`, `postsRead`, `candidatePosts`, `judged`, `settled` and
@@ -320,10 +328,17 @@
   account, the last read and its error, whether the login cookie signs in
   and the captcha backoff. Bilibili uploads also holds the live room check
   (its switch, interval, followed streams and the room's last check) in the
-  main column, as YouTube holds its probe. Beside them each tab keeps only
-  its manual action, adding one upload or one dynamic by its link, as X and
-  YouTube keep their manual fetch. During a captcha backoff, adding or refreshing
-  one upload or dynamic offers **Try once anyway**. Translation views show
+  main column, as YouTube holds its probe. Beside them each tab has a manual
+  fetch, as X and YouTube do: the account's newest uploads or dynamics, or
+  the whole listing, 15 seconds a page within the manual fetch page budget
+  and resumed when repeated; the dynamics fetch needs the login cookie and
+  can go on to extract schedules. A fetch is never sent during a captcha
+  backoff. Below it each tab adds one upload or one dynamic by its link;
+  during a backoff, adding or refreshing one upload or dynamic offers **Try
+  once anyway**.
+- Sources → YouTube adds one video of the channel by its ID or link below the
+  manual fetch and reads it at once: through the Data API with a key,
+  otherwise from its watch page. A video of another channel is refused. Translation views show
   the Japanese locale, and bilibili posts offer no X-only actions. Posts
   shows a bilibili forward's forwarded dynamic as its quote, which can be
   hidden from the public pages like an X quote.

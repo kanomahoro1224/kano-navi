@@ -1,6 +1,7 @@
-// Package history serves the operator's manual X and YouTube fetches. Each
-// fetch names one listing method (see Methods) and a selection the method can
-// serve: the newest records by count, the whole listing, or for the X API a
+// Package history serves the operator's manual X and YouTube fetches and
+// describes every source's fetch methods; the Bilibili and shop fetches run
+// in their source steps. Each fetch names one listing method (see Methods)
+// and a selection the method can serve: the newest records by count, the whole listing, or for the X API a
 // Japan date range or a backfill before the oldest stored post. Pages are
 // bounded, and every page commits together with its continuation checkpoint.
 package history
@@ -232,6 +233,10 @@ func (w Window) checkpointKey(account string) string {
 	sum := sha256.Sum256([]byte(selection))
 	return account + ":" + hex.EncodeToString(sum[:])[:24]
 }
+
+// CheckpointKey is checkpointKey for fetches whose pages another package
+// commits, such as the Bilibili listings.
+func (w Window) CheckpointKey(account string) string { return w.checkpointKey(account) }
 
 func formatTime(value time.Time) string { return value.UTC().Format(isoLayout) }
 

@@ -22,7 +22,8 @@ type SyncSettings struct {
 	XRefreshKnown int `json:"xRefreshKnown"`
 	// YoutubeMaxDetailRequests is the reservation pages inspected per run.
 	YoutubeMaxDetailRequests int `json:"youtubeMaxDetailRequests"`
-	// FetchMaxPages bounds one manual fetch per X account or for the channel.
+	// FetchMaxPages bounds one manual fetch per X account, for the channel or
+	// per Bilibili listing.
 	FetchMaxPages int `json:"fetchMaxPages"`
 	// FetchTimeoutMS and FetchRequestDelayMS bound the requests of manual
 	// fetches and the X chain's API method.

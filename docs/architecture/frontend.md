@@ -443,12 +443,13 @@ The manual fetch sits beside the main column: method, for X every own
 account or one of them, mode, count or dates, options, then the newest
 fetch's summary. The X related tab's fetch picks one related account,
 shows its last read, and offers schedule extraction and translation; its
-summary counts the statuses listed, promoted and demoted. The shop's is one button
-that reads the whole catalog, disabled while a 429's wait lasts, then the
-newest read's listed products, dated products of Kano, sale periods and
-pages. The Bilibili tabs hold only
-their manual action there: one upload added by BV ID or link, or one dynamic
-by its link, disabled while the source does not run here. On a narrower screen the side column follows
+summary counts the statuses listed, promoted and demoted. The Bilibili tabs'
+fetch form is disabled while the captcha backoff lasts, with its end. The
+shop's is one button that reads the whole catalog, disabled while a 429's
+wait lasts, then the newest read's listed products, dated products of Kano,
+sale periods and pages. Below the fetch, YouTube adds one video by ID or
+link and the Bilibili tabs one upload by BV ID or link or one dynamic by its
+link, each disabled while the source does not run here. On a narrower screen the side column follows
 the main one, and on a phone the tabs share the width and show only the
 source names, and a fold's header controls move under its title.
 

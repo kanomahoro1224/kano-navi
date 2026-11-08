@@ -163,6 +163,10 @@ func (s *Store) OldestSourceTimestamp(ctx context.Context, source, account strin
 		row = s.db.QueryRowContext(ctx, `SELECT published_at FROM posts WHERE source='x' AND lower(account_handle)=lower(?) AND julianday(published_at) IS NOT NULL ORDER BY julianday(published_at) ASC LIMIT 1`, account)
 	case "youtube":
 		row = s.db.QueryRowContext(ctx, `SELECT published_at FROM videos WHERE source='youtube' AND julianday(published_at) IS NOT NULL ORDER BY julianday(published_at) ASC LIMIT 1`)
+	case "bilibili":
+		row = s.db.QueryRowContext(ctx, `SELECT published_at FROM videos WHERE source='bilibili' AND julianday(published_at) IS NOT NULL ORDER BY julianday(published_at) ASC LIMIT 1`)
+	case BilibiliDynamicsSource:
+		row = s.db.QueryRowContext(ctx, `SELECT published_at FROM posts WHERE source='bilibili' AND account_handle=? AND julianday(published_at) IS NOT NULL ORDER BY julianday(published_at) ASC LIMIT 1`, account)
 	default:
 		return nil, ErrWorkflowValidation
 	}

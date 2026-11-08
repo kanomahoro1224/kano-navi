@@ -21,6 +21,10 @@ const (
 	SourceYoutube = "youtube"
 	// SourceShop is the official shop; its one fetch reads the whole catalog.
 	SourceShop = "shop"
+	// SourceBilibili is the Bilibili account's uploads and
+	// SourceBilibiliDynamics its dynamics; each pages its own space listing.
+	SourceBilibili         = "bilibili"
+	SourceBilibiliDynamics = "bilibili_dynamics"
 	// SourceXRelated is one related X account (ADR-0009); its one fetch is
 	// the x_related timer's incremental read of that account alone.
 	SourceXRelated = "x_related"
@@ -274,6 +278,10 @@ func (f *Fetcher) wait(ctx context.Context) error {
 }
 
 const budgetMessage = "history_page_budget_reached; repeat this fetch to continue"
+
+// BudgetMessage reports a fetch that its page budget stopped before the end
+// of its selection; repeating the fetch continues it.
+const BudgetMessage = budgetMessage
 
 func (f *Fetcher) apiJSON(ctx context.Context, endpoint string, query url.Values, header, credential string) (map[string]any, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"?"+query.Encode(), nil)

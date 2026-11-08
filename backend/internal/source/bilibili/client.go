@@ -240,18 +240,28 @@ func (c *Client) NewSession(ctx context.Context) (Session, error) {
 
 // Uploads lists an account's newest uploads, newest first.
 func (c *Client) Uploads(ctx context.Context, account string, pageSize int, session Session) ([]Video, error) {
+	page, err := c.UploadsPage(ctx, account, pageSize, 1, session)
+	return page.Videos, err
+}
+
+// UploadsPage lists one page of an account's uploads, newest first; page 1
+// is the newest.
+func (c *Client) UploadsPage(ctx context.Context, account string, pageSize, number int, session Session) (UploadsPage, error) {
 	if !mid.MatchString(account) {
-		return nil, &Error{"bilibili_invalid_account"}
+		return UploadsPage{}, &Error{"bilibili_invalid_account"}
 	}
 	if !session.valid() {
-		return nil, &Error{"bilibili_invalid_session"}
+		return UploadsPage{}, &Error{"bilibili_invalid_session"}
 	}
-	query := url.Values{"mid": {account}, "keywords": {""}, "ps": {strconv.Itoa(pageSize)}, "pn": {"1"}, "orderby": {"pubdate"}}
+	if pageSize < 1 || pageSize > 50 || number < 1 {
+		return UploadsPage{}, &Error{"bilibili_invalid_page"}
+	}
+	query := url.Values{"mid": {account}, "keywords": {""}, "ps": {strconv.Itoa(pageSize)}, "pn": {strconv.Itoa(number)}, "orderby": {"pubdate"}}
 	data, err := c.get(ctx, "/x/series/recArchivesByKeywords", query, "https://space.bilibili.com/"+account, &session)
 	if err != nil {
-		return nil, err
+		return UploadsPage{}, err
 	}
-	return ParseUploads(data, account)
+	return ParseUploadsPage(data, account)
 }
 
 // Video reads one upload by its BV ID.

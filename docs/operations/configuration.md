@@ -141,19 +141,19 @@ limits when it
 starts, so a saved value applies from the next run; the attempts per model
 are read for each post, image or translation a model is called for.
 
-| Setting                      | Default | Range      | Purpose                                                                     |
-| ---------------------------- | ------- | ---------- | --------------------------------------------------------------------------- |
-| X status requests per run    | `12`    | 0–50       | X detail requests shared by all accounts; manual X fetch page budget        |
-| X known posts refreshed      | `1`     | 0–5        | Stored X posts read again per run                                           |
-| X first-run age limit (days) | `7`     | 1–30       | Age limit while an X account has no cursor yet                              |
-| X full-sync post cap         | `50`    | 1–200      | Full-sync cap of unstored X statuses per account; pages of 20               |
-| YouTube video pages per run  | `12`    | 1–50       | Watch pages inspected per run for reservations and details                  |
-| Manual fetch pages           | `4`     | 1–20       | Pages of one manual fetch per X account or for the channel, within X budget |
-| Request timeout (ms)         | `7000`  | 1000–60000 | Per request of manual fetches and the X API method                          |
-| Request spacing (ms)         | `0`     | 0–10000    | Wait between the pages of a manual fetch                                    |
-| Translation items per run    | `20`    | 1–200      | Posts and titles the translate step sends to a model                        |
-| Translation lookback (days)  | `30`    | 1–3650     | Age of posts and videos the translate step covers unrequested               |
-| Attempts per model           | `3`     | 1–10       | Calls one model gets for an input before the next queued model takes over   |
+| Setting                      | Default | Range      | Purpose                                                                   |
+| ---------------------------- | ------- | ---------- | ------------------------------------------------------------------------- |
+| X status requests per run    | `12`    | 0–50       | X detail requests shared by all accounts; manual X fetch page budget      |
+| X known posts refreshed      | `1`     | 0–5        | Stored X posts read again per run                                         |
+| X first-run age limit (days) | `7`     | 1–30       | Age limit while an X account has no cursor yet                            |
+| X full-sync post cap         | `50`    | 1–200      | Full-sync cap of unstored X statuses per account; pages of 20             |
+| YouTube video pages per run  | `12`    | 1–50       | Watch pages inspected per run for reservations and details                |
+| Manual fetch pages           | `4`     | 1–20       | Pages of one fetch per X account, the channel or a Bilibili listing       |
+| Request timeout (ms)         | `7000`  | 1000–60000 | Per request of manual fetches and the X API method                        |
+| Request spacing (ms)         | `0`     | 0–10000    | Wait between X and YouTube fetch pages; Bilibili pages wait 15 s          |
+| Translation items per run    | `20`    | 1–200      | Posts and titles the translate step sends to a model                      |
+| Translation lookback (days)  | `30`    | 1–3650     | Age of posts and videos the translate step covers unrequested             |
+| Attempts per model           | `3`     | 1–10       | Calls one model gets for an input before the next queued model takes over |
 
 On startup, each setting without a stored value takes the integer value of
 its environment variable, if set: `X_MAX_STATUS_REQUESTS`, `X_REFRESH_KNOWN`,

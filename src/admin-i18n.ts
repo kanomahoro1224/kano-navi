@@ -823,6 +823,10 @@ export const adminMessages = {
     "admin.bilibili.addButton": "Add",
     "admin.bilibili.addField": "BV ID or video link",
     "admin.bilibili.uploadsTitle": "Uploads",
+    "admin.youtube.add": "Add a video",
+    "admin.youtube.addField": "Video ID or link",
+    "admin.youtube.addHint":
+      "A video ID or a YouTube link to a video of the configured channel. It is read at once: through the Data API with YOUTUBE_API_KEY, otherwise from its watch page.",
     "admin.bilibili.addPostField": "Dynamic link",
     "admin.bilibili.addPost": "Add a dynamic",
     "admin.bilibili.addPostHint":
@@ -929,6 +933,8 @@ export const adminMessages = {
       plural(count, "day", "days"),
     "admin.fetch.count": "Posts per account",
     "admin.fetch.count.youtube": "Videos",
+    "admin.fetch.count.bilibili": "Uploads",
+    "admin.fetch.count.bilibili_dynamics": "Dynamics",
     "admin.fetch.postsCount": ({ count }: { count: number }) =>
       plural(count, "post", "posts"),
     "admin.fetch.videosCount": ({ count }: { count: number }) =>
@@ -950,6 +956,8 @@ export const adminMessages = {
     "admin.fetch.method.youtube.rss": "RSS feed",
     "admin.fetch.method.shop.catalog": "Whole catalog",
     "admin.fetch.method.youtube.ytdlp": "yt-dlp",
+    "admin.fetch.method.bilibili.space": "Space uploads",
+    "admin.fetch.method.bilibili_dynamics.space": "Space dynamics",
     "admin.fetch.methodHint.x.timeline":
       "The public timeline, 100 posts a page. Posts already stored keep what they have.",
     "admin.fetch.methodHint.x.api":
@@ -960,6 +968,12 @@ export const adminMessages = {
       "The public feed, which lists the newest 15 uploads.",
     "admin.fetch.methodHint.youtube.ytdlp":
       "The configured yt-dlp executable, which reads upload metadata without downloading media.",
+    "admin.fetch.methodHint.bilibili.space":
+      "The account's upload listing, 20 uploads a page and 15 seconds between pages. Listed uploads are rewritten from the listing.",
+    "admin.fetch.methodHint.bilibili_dynamics.space":
+      "The account's dynamics listing through BILIBILI_SESSDATA, about 12 a page and 15 seconds between pages. Listed dynamics are rewritten from the listing.",
+    "admin.fetch.bilibiliBlocked":
+      "Bilibili asked this server for a captcha; fetches wait until {time}.",
     "admin.fetch.needs": "Needs {variable} on the server.",
     "admin.fetch.unavailable": "This method is not available on the server.",
     "admin.fetch.selection": "Read",
@@ -972,6 +986,14 @@ export const adminMessages = {
       "Every page of each account's timeline. A fetch stops at its page budget; repeat it to continue.",
     "admin.fetch.modeHint.all.youtube":
       "Every page of the uploads playlist. A fetch stops at its page budget; repeat it to continue.",
+    "admin.fetch.modeHint.count.bilibili":
+      "The account's newest uploads, stored or not.",
+    "admin.fetch.modeHint.all.bilibili":
+      "Every page of the upload listing. A fetch stops at its page budget; repeat it to continue.",
+    "admin.fetch.modeHint.count.bilibili_dynamics":
+      "The account's newest dynamics, stored or not.",
+    "admin.fetch.modeHint.all.bilibili_dynamics":
+      "Every page of the dynamics listing. A fetch stops at its page budget; repeat it to continue.",
     "admin.fetch.modeHint.range.x":
       "An inclusive Japan date range of up to 365 days.",
     "admin.fetch.modeHint.before.x":
@@ -1287,6 +1309,7 @@ export const adminMessages = {
     "admin.notice.videoRefresh":
       "Refresh requested; the next YouTube step reads this video first",
     "admin.notice.bilibiliAdded": "Bilibili upload stored",
+    "admin.notice.youtubeAdded": "YouTube video stored",
     "admin.notice.bilibiliPostAdded": "Bilibili dynamic stored",
     "admin.notice.bilibiliRead": "Read again from Bilibili",
     "admin.notice.videoMerged": "Upload merged into its YouTube video",
@@ -1706,6 +1729,10 @@ export const adminMessages = {
       "Bilibili asked this server for a captcha: a WBI voucher challenge.",
     "admin.code.bilibili_blocked":
       "Bilibili reads wait for the captcha backoff to end.",
+    "admin.code.bilibili_login_required":
+      "The dynamics listing needs BILIBILI_SESSDATA on the server.",
+    "admin.code.bilibili_repeated_page":
+      "The listing answered the same page again, so the fetch stopped.",
     "admin.code.bilibili_unsupported_dynamic":
       "This dynamic is not a text or picture post (a repost, video or other kind).",
     "admin.code.source_api_request_failed": "The source API request failed.",
@@ -2261,6 +2288,8 @@ export const adminMessages = {
     "admin.bilibili.uploadsTitle": "投稿",
     "admin.bilibili.addPostField": "动态链接",
     "admin.bilibili.addPost": "添加动态",
+    "admin.youtube.add": "添加视频",
+    "admin.youtube.addField": "视频 ID 或链接",
     "admin.bilibili.addPostHint":
       "配置账号某条动态的 bilibili.com/opus 或 t.bilibili.com 链接，会立即读取。",
     "admin.bilibili.dynamics.title": "动态",
@@ -2339,6 +2368,10 @@ export const adminMessages = {
     "admin.fetch.daysCount": "{count} 天",
     "admin.fetch.count": "每个账号的条数",
     "admin.fetch.count.youtube": "视频数",
+    "admin.fetch.count.bilibili": "投稿数",
+    "admin.fetch.count.bilibili_dynamics": "动态数",
+    "admin.fetch.bilibiliBlocked":
+      "哔哩哔哩要求本服务器通过验证码；抓取将等到 {time}。",
     "admin.fetch.postsCount": "{count} 条",
     "admin.fetch.videosCount": "{count} 个视频",
     "admin.fetch.maxCount": "最多 {count} 条",
@@ -2523,6 +2556,7 @@ export const adminMessages = {
     "admin.notice.videoRefresh":
       "已请求刷新，下次 YouTube 步骤会先读取这个视频",
     "admin.notice.bilibiliAdded": "已收录哔哩哔哩投稿",
+    "admin.notice.youtubeAdded": "已收录 YouTube 视频",
     "admin.notice.bilibiliPostAdded": "已收录哔哩哔哩动态",
     "admin.notice.bilibiliRead": "已从哔哩哔哩重新读取",
     "admin.notice.videoMerged": "已将投稿合并到 YouTube 视频",

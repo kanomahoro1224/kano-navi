@@ -103,7 +103,7 @@ func newConsole(t *testing.T, mode, password string, steps *gatedSteps) *console
 		FetchMethods: func(source string) []history.MethodStatus {
 			out := []history.MethodStatus{}
 			for _, method := range history.Methods(source) {
-				out = append(out, history.MethodStatus{Method: method, Available: source == "youtube" || source == history.SourceShop || method.ID == history.MethodTimeline})
+				out = append(out, history.MethodStatus{Method: method, Available: source == "youtube" || source == history.SourceShop || source == history.SourceBilibili || method.ID == history.MethodTimeline})
 			}
 			return out
 		},
@@ -312,7 +312,7 @@ func TestRunsAreSingleFlightAndSurviveOneFailedSource(t *testing.T) {
 		`{"kind":"variants"}`:             "variants is not available",
 		`{"kind":"sync","source":"x"}`:    "source is not supported for sync",
 		`{"kind":"workflow"}`:             "steps must be an array of step ids",
-		`{"kind":"fetch","source":"rss"}`: "source must be x, x_related, youtube or shop",
+		`{"kind":"fetch","source":"rss"}`: "source must be x, x_related, youtube, bilibili, bilibili_dynamics or shop",
 	} {
 		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
 			t.Fatalf("%s => %d %v", body, code, payload)
@@ -406,6 +406,9 @@ func TestSourceFetchMethods(t *testing.T) {
 	if got := describe(shop); got != "catalog [all] 0 true <nil>" || shop["status"].(map[string]any)["sales"] != float64(0) {
 		t.Fatalf("shop=%v", shop)
 	}
+	if got := describe(payload["bilibili"].(map[string]any)); got != "space [count all] 200 true <nil>" {
+		t.Fatalf("bilibili methods=%s", got)
+	}
 	for body, message := range map[string]string{
 		`{"kind":"fetch","source":"x","window":{"mode":"count","count":5}}`:                                                           "method must be one of timeline, api",
 		`{"kind":"fetch","source":"x","method":"timeline"}`:                                                                           "fetch window is required",
@@ -423,6 +426,11 @@ func TestSourceFetchMethods(t *testing.T) {
 		`{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"count","count":5}}`:                                     "this fetch uses a retired selection; start a new fetch",
 		`{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"all"},"options":{"translate":true}}`:                    "translate is not supported for the shop",
 		`{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"all"},"options":{"extract":true}}`:                      "extract is not supported for this method",
+		`{"kind":"fetch","source":"bilibili","method":"api","window":{"mode":"all"}}`:                                                 "method must be one of space",
+		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"count","count":201}}`:                                 "count must be an integer from 1 to 200",
+		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"all"},"options":{"refresh":true}}`:                    "refresh is not supported for this method",
+		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"all"},"options":{"extract":true}}`:                    "extract is not supported for this method",
+		`{"kind":"fetch","source":"bilibili_dynamics","method":"space","window":{"mode":"all"},"options":{"extract":true}}`:           "BILIBILI_SESSDATA is required for the space method",
 	} {
 		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
 			t.Fatalf("%s => %d %v", body, code, payload)
@@ -440,6 +448,15 @@ func TestSourceFetchMethods(t *testing.T) {
 	}
 	if fmt.Sprint(all["steps"]) != "[youtube media translate reconcile]" {
 		t.Fatalf("steps=%v", all["steps"])
+	}
+	// A Bilibili fetch reads its uploads, then their covers.
+	code, payload = c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"count","count":30},"options":{"translate":true}}`)
+	if code != 202 {
+		t.Fatalf("bilibili=%d %v", code, payload)
+	}
+	uploads := c.waitForRun(t, runID(t, payload), "completed")
+	if window := uploads["fetchWindows"].(map[string]any)["bilibili"].(map[string]any); window["method"] != "space" || window["mode"] != "count" || window["count"] != float64(30) || fmt.Sprint(uploads["steps"]) != "[bilibili media translate reconcile]" {
+		t.Fatalf("bilibili run=%v", uploads)
 	}
 	// The shop's read-all has no media to download.
 	code, payload = c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"all"}}`)
@@ -518,12 +535,9 @@ func TestFetchesNameOneConfiguredAccount(t *testing.T) {
 
 func TestFetchMethodsFailClosedWithoutHistoryWiring(t *testing.T) {
 	a := &api{}
-	for _, source := range []string{"x", "youtube"} {
+	for _, source := range []string{"x", "youtube", "bilibili", "bilibili_dynamics"} {
 		methods := a.fetchMethods(source)
-		want := 2
-		if source == "youtube" {
-			want = 3
-		}
+		want := map[string]int{"x": 2, "youtube": 3, "bilibili": 1, "bilibili_dynamics": 1}[source]
 		if len(methods) != want {
 			t.Fatalf("%s methods=%v", source, methods)
 		}

@@ -121,8 +121,8 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 	case "fetch":
 		jobKind = jobs.KindWorkflow
 		var source, method string
-		if json.Unmarshal(body["source"], &source) != nil || (source != "x" && source != history.SourceXRelated && source != "youtube" && source != history.SourceShop) {
-			httpx.WriteError(w, httpx.Invalid("source must be x, x_related, youtube or shop"))
+		if json.Unmarshal(body["source"], &source) != nil || !slices.Contains(fetchSources, source) {
+			httpx.WriteError(w, httpx.Invalid("source must be x, x_related, youtube, bilibili, bilibili_dynamics or shop"))
 			return
 		}
 		_ = json.Unmarshal(body["method"], &method)
@@ -178,6 +178,9 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 	}
 	writeStart(w, result)
 }
+
+// fetchSources are the sources a manual fetch can name.
+var fetchSources = []string{history.SourceX, history.SourceXRelated, history.SourceYoutube, history.SourceBilibili, history.SourceBilibiliDynamics, history.SourceShop}
 
 // fetchAccount resolves a fetch's account to its configured spelling: one
 // of the own accounts (X_HANDLES) for an X fetch, or a related account for

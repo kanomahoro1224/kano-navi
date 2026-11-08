@@ -218,6 +218,80 @@ func (a *Adapter) FetchDynamics(ctx context.Context, state State) (DynamicsResul
 	return result, nil
 }
 
+// FetchUploadsPage reads one page of the account's uploads for an operator's
+// fetch, whatever the list interval; page 1 is the newest. While a block
+// lasts it answers bilibili_blocked without a request, and a fetch is never
+// forced. A success clears the backoff and records the read's success, a
+// failure its code and any backoff; the list read's attempt clock stays with
+// the timer. It also reports the requests it made, the device identity and
+// ticket included.
+func (a *Adapter) FetchUploadsPage(ctx context.Context, state State, page int) (UploadsPage, State, int, error) {
+	now := a.Now()
+	if now.Before(state.BlockedUntil) {
+		return UploadsPage{}, state, 0, &Error{"bilibili_blocked"}
+	}
+	requests := 0
+	session, err := a.session(ctx, &state, &requests, now)
+	var out UploadsPage
+	if err == nil {
+		requests++
+		out, err = a.Client.UploadsPage(ctx, a.Options.Account, a.Options.PageSize, page, session)
+	}
+	if err != nil {
+		return UploadsPage{}, failed(state, err, now), requests, err
+	}
+	return out, succeeded(state, now), requests, nil
+}
+
+// FetchDynamicsPage reads the page of the account's dynamics that follows
+// offset (empty for the newest) for an operator's fetch, whatever the
+// listing interval. Like FetchDynamics it needs a login cookie Bilibili
+// accepts, checks the login and WBI keys when they are due, and never asks
+// while the shared block lasts; each refusal is a code rather than a skip
+// (bilibili_login_required, bilibili_login_expired, bilibili_blocked), and a
+// fetch is never forced. A success clears the backoff and records the
+// listing's success, a failure its code and any backoff; the listing's
+// attempt clock stays with the timer.
+func (a *Adapter) FetchDynamicsPage(ctx context.Context, state State, offset string) (SpacePage, State, int, error) {
+	now := a.Now()
+	loginDue := state.Login.CheckedAt.IsZero() || now.Sub(state.Login.CheckedAt) >= loginCheckInterval
+	switch {
+	case !a.Options.SignedIn():
+		return SpacePage{}, state, 0, &Error{"bilibili_login_required"}
+	case now.Before(state.BlockedUntil):
+		return SpacePage{}, state, 0, &Error{"bilibili_blocked"}
+	case !loginDue && !state.Login.SignedIn:
+		return SpacePage{}, state, 0, &Error{"bilibili_login_expired"}
+	}
+	requests := 0
+	session, err := a.session(ctx, &state, &requests, now)
+	if err == nil && (loginDue || !state.WBI.fresh(now)) {
+		requests++
+		check := session
+		check.Login = a.Options.SESSDATA
+		var keys WBIKeys
+		var signedIn bool
+		if keys, signedIn, err = a.Client.NavKeys(ctx, check, now); err == nil {
+			state.WBI = keys
+			state.Login = LoginState{CheckedAt: now, SignedIn: signedIn}
+			if !signedIn {
+				state.Dynamics.LastError = "bilibili_login_expired"
+				return SpacePage{}, state, requests, &Error{"bilibili_login_expired"}
+			}
+			session.Login = a.Options.SESSDATA
+		}
+	}
+	var page SpacePage
+	if err == nil {
+		requests++
+		page, err = a.Client.SpaceDynamicsPage(ctx, a.Options.Account, offset, session, state.WBI, now)
+	}
+	if err != nil {
+		return SpacePage{}, failedDynamics(state, err, now), requests, err
+	}
+	return page, succeededDynamics(state, now), requests, nil
+}
+
 // FetchDynamic reads one dynamic for an operator from its opus page, which
 // needs no login, whatever the listing interval. A block and force work as
 // in FetchVideo. Only post-type dynamics of the configured account are

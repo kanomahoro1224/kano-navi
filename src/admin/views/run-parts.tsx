@@ -196,7 +196,9 @@ export function windowText(window: RunWindow, step: string, t: Translator) {
   if (window.max) parts.push(t("admin.fetch.maxCount", { count: window.max }))
   if (window.count) {
     const key =
-      step === "youtube" ? "admin.fetch.videosCount" : "admin.fetch.postsCount"
+      step === "youtube" || step === "bilibili"
+        ? "admin.fetch.videosCount"
+        : "admin.fetch.postsCount"
     parts.push(t(key, { count: window.count }))
   }
   if (window.startDate) parts.push(`${window.startDate} – ${window.endDate}`)

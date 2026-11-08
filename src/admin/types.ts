@@ -26,7 +26,11 @@ export type StepProgress =
   | "cancelled"
 
 /** A manual fetch's listing method; see the server's method table. */
-export type FetchMethodId = "timeline" | "api" | "rss" | "ytdlp" | "catalog"
+export type FetchMethodId =
+  "timeline" | "api" | "rss" | "ytdlp" | "catalog" | "space"
+
+/** The sources a manual fetch form reads through a method of their own. */
+export type FetchSource = "x" | "youtube" | "bilibili" | "bilibili_dynamics"
 
 /**
  * What a method reads: the newest `count` per X account or for the channel,
@@ -491,6 +495,10 @@ export interface Sources {
     /** False when the process has no Bilibili reader. */
     available: boolean
     skipped: boolean
+    /** The uploads' manual fetch methods. */
+    methods: FetchMethod[]
+    /** The oldest stored upload's publication time. */
+    oldest?: string | null
     account?: string
     videos?: number
     /** A login cookie (BILIBILI_SESSDATA) is configured; it is never shown. */
@@ -531,6 +539,10 @@ export type BilibiliLogin =
 /** The account's dynamics listing, read with the upload list. */
 export interface BilibiliDynamicsStatus {
   posts: number
+  /** The dynamics' manual fetch methods; they need the login cookie. */
+  methods: FetchMethod[]
+  /** The oldest stored dynamic's publication time. */
+  oldest: string | null
   lastAttemptAt: string | null
   lastSuccessAt: string | null
   lastError: string | null

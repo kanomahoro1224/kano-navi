@@ -48,6 +48,7 @@ import type {
   FetchItem,
   FetchMethod,
   FetchMode,
+  FetchSource,
   LiveProbeStatus,
   PushStatus,
   Run,
@@ -80,6 +81,7 @@ import {
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import {
+  AddPanel,
   BilibiliAddDynamic,
   BilibiliAddUpload,
   BilibiliDynamicsStatus,
@@ -116,16 +118,24 @@ const skipFlags: Record<ScheduleSource, string> = {
   shop: "SKIP_SHOP",
 }
 
-/** Both Bilibili timers: bounded by BILIBILI_MIN_INTERVAL_MINUTES, sharing
- * one captcha backoff and with no manual fetch. */
+/** Both Bilibili timers: bounded by BILIBILI_MIN_INTERVAL_MINUTES and
+ * sharing one captcha backoff. */
 const isBilibili = (
   source: ScheduleSource,
 ): source is "bilibili" | "bilibili_dynamics" =>
   source === "bilibili" || source === "bilibili_dynamics"
 
-/** The sources with listing methods, read settings and a manual fetch form. */
+/** The sources with listing methods and read settings. */
 const isListing = (source: ScheduleSource): source is "x" | "youtube" =>
   source === "x" || source === "youtube"
+
+/** The sources whose manual fetch form names a method and a selection. */
+const isFetchable = (source: ScheduleSource): source is FetchSource =>
+  isListing(source) || isBilibili(source)
+
+/** Whether a time is still ahead, such as a backoff's end. */
+const ahead = (value: string | null | undefined): value is string =>
+  Boolean(value && Date.parse(value) > Date.now())
 
 const sameSync = (a: SourceSync | null, b: SourceSync | null) =>
   JSON.stringify(a) === JSON.stringify(b)
@@ -973,7 +983,7 @@ function FetchForm({
   disabled,
   onStarted,
 }: {
-  source: "x" | "youtube"
+  source: FetchSource
   methods: FetchMethod[]
   /** X's own accounts (X_HANDLES), in their configured order. */
   accounts: string[]
@@ -989,7 +999,9 @@ function FetchForm({
   // "" reads every account.
   const [account, setAccount] = useState("")
   const [mode, setMode] = useState<FetchMode>("count")
-  const [count, setCount] = useState(source === "x" ? 50 : 15)
+  const [count, setCount] = useState(
+    source === "x" ? 50 : source === "youtube" ? 15 : 20,
+  )
   const [days, setDays] = useState(30)
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState(japanToday())
@@ -1094,9 +1106,9 @@ function FetchForm({
       {current === "count" ? (
         <Field
           label={t(
-            source === "youtube"
-              ? "admin.fetch.count.youtube"
-              : "admin.fetch.count",
+            source === "x"
+              ? "admin.fetch.count"
+              : `admin.fetch.count.${source}`,
           )}
           hint={t("admin.fetch.countRange", { max: method.maxCount })}
         >
@@ -1221,7 +1233,7 @@ function FetchSummary({
   onOpenRuns,
 }: {
   run: Run
-  source: "x" | "x_related" | "youtube" | "shop"
+  source: FetchSource | "x_related" | "shop"
   onOpenRuns: () => void
 }) {
   const { t, locale } = useAppSettings()
@@ -1359,6 +1371,54 @@ function FetchSummary({
   )
 }
 
+/**
+ * What a source's manual fetch reads through: its methods, whether the
+ * source runs in this process, the oldest stored record per account and,
+ * for Bilibili, the captcha backoff a fetch waits out rather than forces.
+ */
+function fetchState(
+  source: FetchSource,
+  sources: Sources,
+  t: ReturnType<typeof useAppSettings>["t"],
+) {
+  const bilibili = sources.bilibili
+  switch (source) {
+    case "x":
+      return {
+        methods: sources.x.methods,
+        skipped: sources.x.skipped,
+        oldest: sources.x.accounts.map(
+          (account) => [account.account, account.oldest] as const,
+        ),
+        blockedUntil: null,
+      }
+    case "youtube":
+      return {
+        methods: sources.youtube.methods,
+        skipped: sources.youtube.skipped,
+        oldest: [[t("admin.sources.channel"), sources.youtube.oldest] as const],
+        blockedUntil: null,
+      }
+    default:
+      return {
+        methods:
+          (source === "bilibili"
+            ? bilibili.methods
+            : bilibili.dynamics?.methods) ?? [],
+        skipped: !bilibili.available || bilibili.skipped,
+        oldest: [
+          [
+            t("admin.bilibili.account"),
+            source === "bilibili" ? bilibili.oldest : bilibili.dynamics?.oldest,
+          ] as const,
+        ],
+        blockedUntil: ahead(bilibili.blockedUntil)
+          ? bilibili.blockedUntil
+          : null,
+      }
+  }
+}
+
 /** The manual fetch of the selected source: the form, then the newest
  * fetch's summary. */
 function FetchPanel({
@@ -1366,13 +1426,13 @@ function FetchPanel({
   sources,
   onOpenRuns,
 }: {
-  source: "x" | "youtube"
+  source: FetchSource
   sources: Sources
   onOpenRuns: () => void
 }) {
   const { t, locale } = useAppSettings()
   const { api, overview } = useAdmin()
-  const state = sources[source]
+  const state = fetchState(source, sources, t)
   const [started, setStarted] = useState<string | null>(null)
   // The run started here, or else the newest manual fetch of this source
   // among the recent runs.
@@ -1385,12 +1445,7 @@ function FetchPanel({
       shown ? api.run(shown).then((data) => data.run) : Promise.resolve(null),
     [shown],
   )
-  const oldest =
-    source === "x"
-      ? sources.x.accounts.map(
-          (account) => [account.account, account.oldest] as const,
-        )
-      : [[t("admin.sources.channel"), sources.youtube.oldest] as const]
+  const oldest = state.oldest
   return (
     <Panel
       icon={Download}
@@ -1409,6 +1464,14 @@ function FetchPanel({
           ),
         ]}
       />
+      {state.blockedUntil ? (
+        <p className="adm-inline-error">
+          <ShieldAlert aria-hidden />
+          {t("admin.fetch.bilibiliBlocked", {
+            time: japanStamp(state.blockedUntil),
+          })}
+        </p>
+      ) : null}
       <FetchForm
         source={source}
         methods={state.methods}
@@ -1416,7 +1479,11 @@ function FetchPanel({
           source === "x" ? sources.x.accounts.map((entry) => entry.account) : []
         }
         hasRecords={oldest.some(([, time]) => Boolean(time))}
-        disabled={state.skipped || Boolean(overview?.activeRun)}
+        disabled={
+          state.skipped ||
+          Boolean(state.blockedUntil) ||
+          Boolean(overview?.activeRun)
+        }
         onStarted={(run) => setStarted(run.id)}
       />
       {last.data &&
@@ -1427,6 +1494,34 @@ function FetchPanel({
         <p className="adm-fetch-empty">{t("admin.fetch.noneYet")}</p>
       )}
     </Panel>
+  )
+}
+
+/**
+ * Adds or re-reads one video of the channel by ID or link, at once: through
+ * the Data API with a key, its watch page without. Disabled while the
+ * source does not run here.
+ */
+function YoutubeAddVideo({
+  youtube,
+  onAdded,
+}: {
+  youtube: Sources["youtube"]
+  onAdded: () => void
+}) {
+  const { t } = useAppSettings()
+  const { api } = useAdmin()
+  return (
+    <AddPanel
+      usable={!youtube.skipped}
+      title={t("admin.youtube.add")}
+      label={t("admin.youtube.addField")}
+      hint={t("admin.youtube.addHint")}
+      placeholder="https://www.youtube.com/watch?v=…"
+      notice="admin.notice.youtubeAdded"
+      send={(input) => api.addYoutubeVideo(input)}
+      onAdded={onAdded}
+    />
   )
 }
 
@@ -2305,9 +2400,10 @@ const sourceIds: ScheduleSource[] = [
  * progressive confirmation, the timed-read limits and yt-dlp, each folded,
  * the related X accounts beside their timer, or a Bilibili read's state (and
  * the uploads' live room). The manual actions sit beside them: the manual
- * fetch and its folded limits, a related account's fetch, or one Bilibili
- * upload or dynamic added by link. On a narrower screen the side column
- * follows the main one.
+ * fetch, a related account's fetch or the shop's read, then one YouTube
+ * video, Bilibili upload or dynamic added by link, then the fetches' folded
+ * limits for X and YouTube. On a narrower screen the side column follows
+ * the main one.
  */
 export function SourcesView({ tab, navigate }: ViewProps) {
   const { t, locale } = useAppSettings()
@@ -2475,38 +2571,46 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                       skipped={current.skipped}
                       onOpenRuns={() => navigate("runs")}
                     />
-                  ) : selected === "bilibili" ? (
-                    <BilibiliAddUpload
-                      status={data.bilibili}
-                      onAdded={() => void sources.reload()}
-                    />
-                  ) : selected === "bilibili_dynamics" ? (
-                    <BilibiliAddDynamic
-                      status={data.bilibili}
-                      onAdded={() => void sources.reload()}
-                    />
                   ) : selected === "shop" ? (
                     <ShopFetchPanel
                       sources={data}
                       onOpenRuns={() => navigate("runs")}
                     />
-                  ) : (
-                    <>
-                      <FetchPanel
-                        key={selected}
-                        source={selected}
-                        sources={data}
-                        onOpenRuns={() => navigate("runs")}
-                      />
-                      <LimitsPanel
-                        key={`${selected}-manual`}
-                        source={selected}
-                        section="manual"
-                        settings={limits.data}
-                        onSaved={limits.setData}
-                      />
-                    </>
-                  )}
+                  ) : isFetchable(selected) ? (
+                    <FetchPanel
+                      key={selected}
+                      source={selected}
+                      sources={data}
+                      onOpenRuns={() => navigate("runs")}
+                    />
+                  ) : null}
+                  {selected === "youtube" ? (
+                    <YoutubeAddVideo
+                      youtube={data.youtube}
+                      onAdded={() => void sources.reload()}
+                    />
+                  ) : null}
+                  {selected === "bilibili" ? (
+                    <BilibiliAddUpload
+                      status={data.bilibili}
+                      onAdded={() => void sources.reload()}
+                    />
+                  ) : null}
+                  {selected === "bilibili_dynamics" ? (
+                    <BilibiliAddDynamic
+                      status={data.bilibili}
+                      onAdded={() => void sources.reload()}
+                    />
+                  ) : null}
+                  {isListing(selected) ? (
+                    <LimitsPanel
+                      key={`${selected}-manual`}
+                      source={selected}
+                      section="manual"
+                      settings={limits.data}
+                      onSaved={limits.setData}
+                    />
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -3,22 +3,25 @@
 ## Manual Fetches and Historical Backfill
 
 The console's Sources page starts manual fetches of X, the related X
-accounts, YouTube and the official shop; it is the one place to start them. The Posts and Videos pages open on their lists and
+accounts, YouTube, the Bilibili uploads and dynamics, and the official shop;
+it is the one place to start them. The Posts and Videos pages open on their lists and
 link to it from their header. A fetch names one listing method first, then
 what the method reads. `POST /api/admin/runs` with
 `{ "kind": "fetch", "source": "x", "method": "timeline", "window": { "mode": "count", "count": 50 } }`
 starts one; the [Admin API](admin-api.md#runs) describes the body and its
 options.
 
-| Source    | Method     | Needs                | Modes                              | Listing                                                  |
-| --------- | ---------- | -------------------- | ---------------------------------- | -------------------------------------------------------- |
-| X         | `timeline` |                      | `count` (1–200), `all`             | public FxTwitter timeline, 20 statuses a page            |
-| X         | `api`      | `X_API_BEARER_TOKEN` | `count` (1–200), `range`, `before` | full-archive search, 100 posts a page                    |
-| X related | `timeline` |                      | `incremental`                      | one related account's FxTwitter timeline                 |
-| YouTube   | `api`      | `YOUTUBE_API_KEY`    | `count` (1–200), `all`             | uploads playlist, 50 entries and one quota unit a page   |
-| YouTube   | `rss`      |                      | `count` (1–15)                     | public feed, its newest 15 uploads in one request        |
-| YouTube   | `ytdlp`    | `YTDLP_BINARY`       | `count` (1–200), `all`             | configured yt-dlp upload listing, without media download |
-| Shop      | `catalog`  |                      | `all`                              | the whole product catalog, at most 6 pages of 250        |
+| Source            | Method     | Needs                | Modes                              | Listing                                                  |
+| ----------------- | ---------- | -------------------- | ---------------------------------- | -------------------------------------------------------- |
+| X                 | `timeline` |                      | `count` (1–200), `all`             | public FxTwitter timeline, 20 statuses a page            |
+| X                 | `api`      | `X_API_BEARER_TOKEN` | `count` (1–200), `range`, `before` | full-archive search, 100 posts a page                    |
+| X related         | `timeline` |                      | `incremental`                      | one related account's FxTwitter timeline                 |
+| YouTube           | `api`      | `YOUTUBE_API_KEY`    | `count` (1–200), `all`             | uploads playlist, 50 entries and one quota unit a page   |
+| YouTube           | `rss`      |                      | `count` (1–15)                     | public feed, its newest 15 uploads in one request        |
+| YouTube           | `ytdlp`    | `YTDLP_BINARY`       | `count` (1–200), `all`             | configured yt-dlp upload listing, without media download |
+| Bilibili uploads  | `space`    |                      | `count` (1–200), `all`             | the account's upload listing, 20 entries a page          |
+| Bilibili dynamics | `space`    | `BILIBILI_SESSDATA`  | `count` (1–200), `all`             | the account's dynamics listing, about 12 items a page    |
+| Shop              | `catalog`  |                      | `all`                              | the whole product catalog, at most 6 pages of 250        |
 
 An X fetch reads every account of `X_HANDLES`, or the one its selection's
 `account` names; a one-account fetch takes the whole X request budget and
@@ -31,8 +34,8 @@ once, without a retry, with the account's failure code, or with
 `x_related_account_unknown` when the account was removed while the fetch
 waited in the queue.
 
-- `count` reads the newest `count` records per X account or for the channel,
-  stored or not, whatever their age.
+- `count` reads the newest `count` records per X account, for the channel or
+  for the Bilibili account, stored or not, whatever their age.
 - The shop's `catalog` fetch is the `shop` step alone, with no option. It
   reads the sale periods that the timer's newest-50 window never listed and
   writes them as every [shop read](sources.md#official-shop) does; it waits
@@ -58,7 +61,7 @@ failure is not tolerated, so the steps after it do not run.
 
 The options add steps or change what is written:
 
-- `extract` (X and related-account methods) appends the `schedule` step. Schedule extraction picks
+- `extract` (X, related-account and Bilibili dynamics methods) appends the `schedule` step. Schedule extraction picks
   its candidates among all stored X posts by its keyword and message rules,
   unattempted posts first (see
   [Schedule extraction](sources.md#schedule-extraction-pipeline)), so fetched
@@ -75,6 +78,9 @@ The options add steps or change what is written:
 
 X fetches only fill gaps: a post that is already stored keeps the text, media
 and schedule candidate it has, so extraction fingerprints do not change.
+Bilibili fetches write every listed record as the timed reads do, since a
+listing describes the whole upload or dynamic, so they take no `refresh`
+option either.
 
 Each fetch step reports `listed`, the records the selection took from the
 listing, split into `new`, `stored` (already stored, refreshed or not) and
@@ -211,10 +217,35 @@ watch pages or the detail queue, and neither writes incremental state. The
 `ytdlp` method also writes only the listed video rows and does not advance the
 timed source cursor.
 
+### Bilibili methods
+
+The `space` method of the uploads pages
+`/x/series/recArchivesByKeywords` by page number, and that of the dynamics
+pages `/x/polymer/web-dynamic/v1/feed/space` by the offset each page
+answers, both newest first, through the Bilibili client the timers read with
+(see [Bilibili](sources.md#bilibili)). Pages are 15 seconds apart, far wider
+than the other sources' request spacing, because Bilibili answers quick runs
+of requests with a captcha. The dynamics fetch needs the login cookie and
+checks it and the WBI keys as the timed listing does when they are due; it
+fails with `bilibili_login_required` without a cookie and
+`bilibili_login_expired` while the latest check found it expired. Each page
+keeps only the account's own records, as the timed reads keep them.
+
+A fetch shares the timers' captcha backoff and is never forced: while the
+backoff lasts it fails at once with `bilibili_blocked` and makes no request,
+and the Sources page disables its form. A captcha met on the first page
+fails the fetch with its `bilibili_risk_control_*` code and starts the
+backoff; one met later keeps the committed pages, records the code and
+stops. A successful page lifts the backoff and records the read's success.
+A fetch ignores `BILIBILI_MIN_INTERVAL_MINUTES` and leaves the timers'
+attempt clocks alone, so it never delays or advances a timed read. The
+upload read's newest-upload cursor only moves forward.
+
 ### Budgets and checkpoints
 
-The manual fetch pages setting bounds the pages of one fetch per X account or
-for the channel (4 by default, 1–20), for every paging method. X fetches
+The manual fetch pages setting bounds the pages of one fetch per X account,
+for the channel or for a Bilibili listing (4 by default, 1–20), for every
+paging method. X fetches
 share the X status requests per run across accounts as a page budget, including failed
 requests: each account gets an even share of what is left, and the first
 account rotates across runs per mode (`sync_state` source `x-budget`, key
@@ -228,16 +259,20 @@ Each successful page and its continuation checkpoint commit in one
 transaction with the page's posts or videos and schedule candidates. The
 checkpoint is a `sync_state` row keyed by account and a hash of the selection
 (mode with its count or dates), under the method's own source:
-`x-timeline-window` for timeline cursors, `x-window` for X API next tokens and
-`youtube-window` for playlist page tokens. The RSS method reads one request and
-keeps no checkpoint. Repeating an interrupted fetch resumes its next page; a
+`x-timeline-window` for timeline cursors, `x-window` for X API next tokens,
+`youtube-window` for playlist page tokens, `bilibili-window` for upload page
+numbers and `bilibili_dynamics-window` for dynamics offsets, each Bilibili
+page in one transaction with the account state as well. The RSS method reads
+one request and keeps no checkpoint. Repeating an interrupted fetch resumes its next page; a
 completed one starts again at the newest page. When a resumed cursor or token
 fails before any page of the fetch is committed, the fetch starts again from
 the newest page, in the same run if the budget allows. A continuation the
 source rejects is cleared from its checkpoint at once, so the next fetch
 begins at the newest page even when this one had no page left: any failed
-timeline cursor, an X API `next_token` answered with HTTP 400, and a
-playlist token answered with an HTTP error or rejected as malformed. Other
+timeline cursor, an X API `next_token` answered with HTTP 400, a
+playlist token answered with an HTTP error or rejected as malformed, and a
+Bilibili page number or offset whose page failed with anything but a
+captcha, the backoff or a login problem. Other
 API answers, such as rate limits, quota and outages, keep the stored
 continuation. `before` runs finish a pending interval (`pendingWindow`) before
 moving farther back, using `x-backfill` search boundaries. A completed empty

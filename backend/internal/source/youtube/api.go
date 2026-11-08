@@ -92,6 +92,7 @@ type apiVideo struct {
 	ID      string `json:"id"`
 	Snippet struct {
 		Title       string        `json:"title"`
+		ChannelID   string        `json:"channelId"`
 		PublishedAt string        `json:"publishedAt"`
 		Broadcast   string        `json:"liveBroadcastContent"`
 		Thumbnails  apiThumbnails `json:"thumbnails"`
@@ -263,7 +264,7 @@ func needsListing(item apiVideo, old Video) bool {
 //     a stored premiere verdict is final.
 //   - After that, only the stored verdict of an earlier check tells.
 func fromAPI(item apiVideo, old Video, listed formatList) (Video, bool) {
-	v := Video{ID: item.ID, Title: strings.TrimSpace(item.Snippet.Title), URL: "https://www.youtube.com/watch?v=" + item.ID, PublishedAt: utcTime(item.Snippet.PublishedAt)}
+	v := Video{ID: item.ID, Title: strings.TrimSpace(item.Snippet.Title), URL: "https://www.youtube.com/watch?v=" + item.ID, PublishedAt: utcTime(item.Snippet.PublishedAt), ChannelID: item.Snippet.ChannelID}
 	if v.Title == "" {
 		return v, false
 	}

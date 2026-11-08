@@ -177,6 +177,7 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodPut, Path: "/videos/{id}", Handler: a.updateVideo},
 		{Method: http.MethodPost, Path: "/videos/{id}/refresh", Handler: a.refreshVideo},
 		{Method: http.MethodPost, Path: "/videos/bilibili", Handler: a.addBilibiliVideo},
+		{Method: http.MethodPost, Path: "/videos/youtube", Handler: a.addYoutubeVideo},
 		{Method: http.MethodPost, Path: "/posts/bilibili", Handler: a.addBilibiliPost},
 		{Method: http.MethodGet, Path: "/videos/merges", Handler: a.videoMerges},
 		{Method: http.MethodGet, Path: "/videos/works-conflicts", Handler: a.worksConflicts},

@@ -294,6 +294,7 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 			RequestLimit: max(1, xOptions.MaxDetailRequests),
 		},
 	}
+	steps.History.Bilibili = steps.Bilibili
 	executor := &workflow.Executor{
 		Store: store,
 		Steps: steps,

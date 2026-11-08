@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
@@ -25,6 +26,9 @@ type HistorySource struct {
 	ChannelID          string
 	// RequestLimit is the X page budget of one step, shared by all accounts.
 	RequestLimit int
+	// Bilibili is the adapter the Bilibili fetches read through; the source
+	// steps run them, so it only reports whether they can run.
+	Bilibili *bilisource.Adapter
 }
 
 // MethodAvailable reports whether a source's method can run now: the API
@@ -57,6 +61,11 @@ func (h *HistorySource) MethodAvailable(source, method string) bool {
 	case source == history.SourceShop && method == history.MethodCatalog:
 		// The shop step reads the catalog itself, with the shop client.
 		return true
+	case source == history.SourceBilibili && method == history.MethodSpace:
+		return h.Bilibili != nil
+	case source == history.SourceBilibiliDynamics && method == history.MethodSpace:
+		// The dynamics listing answers only a login cookie.
+		return h.Bilibili != nil && h.Bilibili.Options.SignedIn()
 	}
 	return false
 }

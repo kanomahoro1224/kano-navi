@@ -93,4 +93,8 @@ func TestReconcileStepMergesBilibiliUploads(t *testing.T) {
 	if got := withReconcile([]string{"bilibili", "media"}); strings.Join(got, ",") != "bilibili,media,reconcile" {
 		t.Fatalf("steps=%v", got)
 	}
+	// So is a run that only reads the dynamics step.
+	if got := withReconcile([]string{"bilibili-posts", "media"}); strings.Join(got, ",") != "bilibili-posts,media,reconcile" {
+		t.Fatalf("steps=%v", got)
+	}
 }

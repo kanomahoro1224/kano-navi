@@ -174,9 +174,10 @@ and YouTube 60 by default, 15 minutes through seven days; Bilibili 180 by
 default, never below `BILIBILI_MIN_INTERVAL_MINUTES`). `SKIP_X`,
 `SKIP_YOUTUBE` and `SKIP_BILIBILI` keep that source's timer from running.
 A source with no row yet gets a disabled one at process start, so an upgrade
-never leaves a source without a timer to turn on; the Bilibili step reads
-both uploads and dynamics, which means its timer has to be enabled for the
-dynamics to be fetched on a schedule.
+never leaves a source without a timer to turn on. The Bilibili chain reads
+uploads (`bilibili`) and dynamics (`bilibili-posts`) as separate steps on
+that one timer, so the timer has to be enabled for either to be fetched on
+a schedule.
 Per-source timers are the only timed sync
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)). See
 [Workflows](../architecture/workflows.md#source-schedules).

@@ -15,11 +15,14 @@ const TriggeredBySourceSchedule = "source-schedule"
 
 // SourceChains are the fixed steps a due source schedule submits
 // (ADR-0003). reconcile is appended as for every run with a source step.
-// YouTube pushes submit the youtube chain as well.
+// YouTube pushes submit the youtube chain as well. Bilibili's dynamics are
+// their own step: they have a separate last-read time and a separate result
+// in the run history, so an uploads interval or risk-control backoff cannot
+// quietly swallow the feed.
 var SourceChains = map[string][]string{
 	"x":        {"x", "media", "schedule", "translate"},
 	"youtube":  {"youtube", "media", "translate"},
-	"bilibili": {"bilibili", "media", "translate"},
+	"bilibili": {"bilibili", "bilibili-posts", "media", "translate"},
 }
 
 // Scheduler starts due source schedules through the single-flight queue.

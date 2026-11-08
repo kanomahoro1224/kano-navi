@@ -207,7 +207,7 @@ func withReconcile(steps []string) []string {
 		switch step {
 		case "reconcile":
 			return steps
-		case "x", "youtube", "bilibili", "schedule":
+		case "x", "youtube", "bilibili", "bilibili-posts", "schedule":
 			writes = true
 		}
 	}

@@ -6,10 +6,14 @@ import (
 )
 
 // ChainSource is the source whose method chain a step reads through
-// (ADR-0004): the live-status probe reads YouTube's.
+// (ADR-0004): the live-status probe reads YouTube's, and the dynamics step
+// reads Bilibili's.
 func ChainSource(step string) string {
-	if step == "live" {
+	switch step {
+	case "live":
 		return "youtube"
+	case "bilibili-posts":
+		return "bilibili"
 	}
 	return step
 }

@@ -58,7 +58,9 @@ When a source schedule is due, the scheduler submits an ad hoc run named
 
 - `x` → `[x, media, schedule, translate]`
 - `youtube` → `[youtube, media, translate]`
-- `bilibili` → `[bilibili, media, translate]`
+- `bilibili` → `[bilibili, bilibili-posts, media, translate]` (the dynamics
+  step was split out later so an uploads interval or backoff cannot suppress
+  the feed)
 
 `reconcile` is appended as it is for every run with a source step. WebSub
 pushes submit the `youtube` chain instead of `[youtube, media]`. The

@@ -35,7 +35,7 @@ import (
 
 // stepSkipFlags are the process-wide kill switches for each workflow step.
 // SKIP_LLM stops every model call: schedule extraction and translation.
-var stepSkipFlags = map[string]string{"x": "SKIP_X", "youtube": "SKIP_YOUTUBE", "bilibili": "SKIP_BILIBILI", "media": "SKIP_MEDIA", "schedule": "SKIP_LLM", jobs.StepTranslate: "SKIP_LLM"}
+var stepSkipFlags = map[string]string{"x": "SKIP_X", "youtube": "SKIP_YOUTUBE", "bilibili": "SKIP_BILIBILI", "bilibili-posts": "SKIP_BILIBILI", "media": "SKIP_MEDIA", "schedule": "SKIP_LLM", jobs.StepTranslate: "SKIP_LLM"}
 
 func fail(message string, code int) int {
 	fmt.Fprintln(os.Stderr, "kano-go: "+message)
@@ -277,10 +277,10 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		Store: store,
 		Steps: steps,
 		// Every catalog step has a real adapter here; none is synthetic.
-		SyntheticSteps: map[string]bool{"x": false, "youtube": false, "bilibili": false, jobs.StepLive: false, "media": false, "schedule": false, jobs.StepTranslate: false, jobs.StepVariants: false, "reconcile": false},
+		SyntheticSteps: map[string]bool{"x": false, "youtube": false, "bilibili": false, "bilibili-posts": false, jobs.StepLive: false, "media": false, "schedule": false, jobs.StepTranslate: false, jobs.StepVariants: false, "reconcile": false},
 		// One unavailable source keeps the other source and post-processing,
 		// and a failed translation keeps event reconciliation.
-		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, jobs.StepTranslate: true},
+		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, "bilibili-posts": true, jobs.StepTranslate: true},
 	}
 	return pipeline{steps: steps, executor: executor, skipped: skipped, xOptions: xOptions, proxies: proxies}
 }

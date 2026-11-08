@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -38,7 +39,7 @@ const dynamicsBody = `{"code":0,"data":{"items":[
    "module_dynamic":{"major":{"archive":{"bvid":"BV1AAAAAAAAA","title":"翻唱"}}}}}
 ],"offset":"1100000000000000002","has_more":true}}`
 
-func TestBilibiliStepStoresDynamicsOnlyForASignedInOperator(t *testing.T) {
+func TestBilibiliPostsStepStoresDynamicsOnlyForASignedInOperator(t *testing.T) {
 	s, err := sqlite.OpenInitialized(filepath.Join(t.TempDir(), "data", "database", "snapshot.sqlite"), true, true)
 	if err != nil {
 		t.Fatal(err)
@@ -69,16 +70,15 @@ func TestBilibiliStepStoresDynamicsOnlyForASignedInOperator(t *testing.T) {
 	steps := &SourceSteps{Store: s, Bilibili: adapter}
 	run := func() AttemptResult {
 		t.Helper()
-		result, err := steps.Execute(context.Background(), StepInput{StepID: "bilibili", WorkflowID: sqlite.AdhocSyncWorkflow})
+		result, err := steps.Execute(context.Background(), StepInput{StepID: "bilibili-posts", WorkflowID: sqlite.AdhocSyncWorkflow})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return result
 	}
-	// Without a login cookie the uploads are read as before and the dynamics
-	// are skipped without a request.
+	// Without a login cookie the space feed is skipped without a request.
 	anonymous := run()
-	if anonymous.Status != "succeeded" || anonymous.Result["postsSkipped"] != "login" || feedReads != 0 {
+	if anonymous.Status != "succeeded" || anonymous.Result["skipped"] != true || anonymous.Result["reason"] != "login" || feedReads != 0 {
 		t.Fatalf("anonymous=%#v feedReads=%d", anonymous, feedReads)
 	}
 	var posts int
@@ -110,5 +110,63 @@ func TestBilibiliStepStoresDynamicsOnlyForASignedInOperator(t *testing.T) {
 	again := run()
 	if again.Result["reason"] != "interval" || feedReads != 1 {
 		t.Fatalf("again=%#v feedReads=%d", again, feedReads)
+	}
+}
+
+// The uploads step used to read the dynamics as a side effect, passing them
+// the state of its own request: a video interval, backoff or failed read
+// silently suppressed the feed. A source schedule now runs a step of its own
+// for them, with its own last-read time in the account state.
+func TestBilibiliDynamicsHaveTheirOwnScheduledStep(t *testing.T) {
+	s, err := sqlite.OpenInitialized(filepath.Join(t.TempDir(), "data", "database", "snapshot.sqlite"), true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	feedReads := 0
+	rt := xTestRT(func(r *http.Request) (*http.Response, error) {
+		body := `{"code":0,"data":{"archives":[]}}`
+		switch r.URL.Path {
+		case "/x/frontend/finger/spi":
+			body = `{"code":0,"data":{"b_3":"0A1B2C3D-0A1B-0A1B-0A1B-0A1B2C3D4E5F12345infoc","b_4":"synthetic-buvid4=="}}`
+		case "/x/web-interface/nav":
+			body = `{"code":0,"data":{"wbi_img":{"img_url":"https://i0.hdslb.com/bfs/wbi/` + biliSigningKey + `.png","sub_url":"https://i0.hdslb.com/bfs/wbi/` + biliSigningSub + `.png"}}}`
+		case "/x/polymer/web-dynamic/v1/feed/space":
+			feedReads++
+			body = dynamicsBody
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
+	})
+	adapter := bilisource.NewAdapter(bilisource.NewClient(&http.Client{Transport: rt}), bilisource.Options{
+		Account: bilisource.DefaultAccount, MinInterval: 3 * time.Hour, PageSize: 20, SESSDATA: biliLoginCookies,
+	})
+	steps := &SourceSteps{Store: s, Bilibili: adapter}
+	execute := func(id string) AttemptResult {
+		t.Helper()
+		out, execErr := steps.Execute(context.Background(), StepInput{StepID: id, WorkflowID: sqlite.AdhocSyncWorkflow})
+		if execErr != nil {
+			t.Fatal(execErr)
+		}
+		return out
+	}
+	// Uploads no longer touch the space feed, and their interval does not
+	// decide when the dynamics are read.
+	uploads := execute("bilibili")
+	if uploads.Status != "succeeded" || uploads.Result["posts"] != nil || feedReads != 0 {
+		t.Fatalf("uploads=%#v feedReads=%d", uploads, feedReads)
+	}
+	if skipped := execute("bilibili"); skipped.Result["reason"] != "interval" {
+		t.Fatalf("uploads again=%#v", skipped)
+	}
+	posts := execute("bilibili-posts")
+	if posts.Status != "succeeded" || posts.Result["posts"] != 2 || posts.Result["newPosts"] != 2 || feedReads != 1 {
+		t.Fatalf("posts=%#v feedReads=%d", posts, feedReads)
+	}
+	var stored int
+	if err = s.DB().QueryRow(`SELECT COUNT(*) FROM posts WHERE source='bilibili'`).Scan(&stored); err != nil || stored != 2 {
+		t.Fatalf("stored=%d err=%v", stored, err)
+	}
+	if !slices.Contains(SourceChains["bilibili"], "bilibili-posts") {
+		t.Fatalf("chain=%v", SourceChains["bilibili"])
 	}
 }

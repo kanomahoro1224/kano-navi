@@ -84,8 +84,8 @@ func newConsole(t *testing.T, mode, password string, steps *gatedSteps) *console
 	steps.seen = make(chan string, 32)
 	executor := &workflow.Executor{
 		Store: store, Steps: steps,
-		SyntheticSteps:  map[string]bool{"x": false, "youtube": false, "bilibili": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
-		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, "translate": true},
+		SyntheticSteps:  map[string]bool{"x": false, "youtube": false, "bilibili": false, "bilibili-posts": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
+		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, "bilibili-posts": true, "translate": true},
 	}
 	queue := &workflow.Queue{Store: store, Executor: executor}
 	t.Cleanup(queue.Close)

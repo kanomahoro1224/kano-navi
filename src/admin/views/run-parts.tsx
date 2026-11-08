@@ -127,7 +127,7 @@ export function metricLabel(key: string, t: Translator) {
 }
 
 /** Steps a run may hold and still read as a fetch of its sources. */
-const fetchSteps = ["x", "youtube", "bilibili", "media", "reconcile"]
+const fetchSteps = ["x", "youtube", "bilibili", "bilibili-posts", "media", "reconcile"]
 
 /** The sources a run fetched through a named method. */
 function fetchedSources(run: Run) {

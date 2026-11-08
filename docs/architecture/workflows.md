@@ -236,7 +236,7 @@ page. A fresh installation keeps all three disabled.
 | ---------- | ------------------------------------------------- | ------------------------------------- |
 | `x`        | 30 min, 15 min – 7 days                           | `x`, `media`, `schedule`, `translate` |
 | `youtube`  | 60 min, 15 min – 7 days                           | `youtube`, `media`, `translate`       |
-| `bilibili` | 180 min, `BILIBILI_MIN_INTERVAL_MINUTES` – 7 days | `bilibili`, `media`, `translate`      |
+| `bilibili` | 180 min, `BILIBILI_MIN_INTERVAL_MINUTES` – 7 days | `bilibili`, `bilibili-posts`, `media`, `translate` |
 
 When a schedule is due, the server process submits its chain as the ad hoc
 run `@source-<source>` (`reconcile` is appended as for every run with a
@@ -362,7 +362,8 @@ stored Bilibili interval below `BILIBILI_MIN_INTERVAL_MINUTES` to that floor.
 
 Synchronization is split into modular steps declared in
 `backend/internal/jobs` (`StepOrder`), executed in this order: `x`,
-`youtube`, `bilibili`, `media`, `schedule`, `translate`, `reconcile`. `kano-go sync` (`make sync`) runs every step
+`youtube`, `bilibili`, `bilibili-posts`, `media`, `schedule`, `translate`,
+`reconcile`. `kano-go sync` (`make sync`) runs every step
 and records the ones disabled by `SKIP_*` as skipped.
 A one-off step run (the Runs page, `POST /api/admin/runs` with
 `{ "kind": "workflow", "steps": [...] }`) picks any subset from the catalog

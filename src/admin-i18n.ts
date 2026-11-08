@@ -81,6 +81,9 @@ export const adminMessages = {
     "admin.step.youtube.hint": "Read new and upcoming videos",
     "admin.step.bilibili": "Bilibili",
     "admin.step.bilibili.hint": "Read new uploads, at most once per interval",
+    "admin.step.bilibili-posts": "Bilibili dynamics",
+    "admin.step.bilibili-posts.hint":
+      "Read the account's newest dynamics, at most once per interval",
     "admin.step.media.hint": "Cache images and thumbnails locally",
     "admin.step.schedule.hint": "Turn candidate posts into schedule entries",
     "admin.step.translate": "Translation",
@@ -1513,6 +1516,8 @@ export const adminMessages = {
     "admin.step.youtube.hint": "读取新视频和预定直播",
     "admin.step.bilibili": "哔哩哔哩",
     "admin.step.bilibili.hint": "读取新投稿，受最小间隔限制",
+    "admin.step.bilibili-posts": "哔哩哔哩动态",
+    "admin.step.bilibili-posts.hint": "读取最新动态，受最小间隔限制",
     "admin.step.media.hint": "把图片和缩略图缓存到本地",
     "admin.step.schedule.hint": "把候选贴文转换为日程",
     "admin.step.translate": "翻译",

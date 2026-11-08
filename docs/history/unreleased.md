@@ -61,6 +61,11 @@
 > an event in the console, shows the event again.
 
 > [!NOTE]
+> The admin API adds `GET /queue/schedule`, `/queue/youtube`,
+> `/queue/translate` and `/queue/x-refresh`, and the schedule step result
+> adds `candidateMs`, `postsRead`, `candidatePosts`, `judged` and `judgeMs`.
+
+> [!NOTE]
 > Model calls rise a little after upgrading. Schedule extraction reads the
 > wording a post quotes, which changes the input of every post with a shown
 > quote, so those within the extraction lookback are extracted once more,
@@ -272,5 +277,12 @@
   read's state (sale entries, last read and error, a 429's wait) and
   **Read the whole catalog** beside it; the outbound proxy areas add the
   shop.
+- Queue, in the System group, shows what each step would work through if a
+  run started now: schedule extraction's posts in its real order with why
+  each is processed, its route and source, and counts of what waits for
+  later runs, sits in backoff or stopped retrying; the YouTube detail queue
+  with each run's budget; the translate step's candidates; and the X posts
+  waiting to be read again. The Overview links to it, and schedule runs
+  record how long choosing and judging their candidates took.
 
 </details>

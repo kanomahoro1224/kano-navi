@@ -7370,6 +7370,130 @@ blockquote.adm-verdict-reason {
   }
 }
 
+/* ------------------------------------------------------------ queue preview */
+
+.adm-now-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.adm-qp-tab {
+  display: grid;
+  gap: 14px;
+}
+
+.adm-qp-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.adm-qp-head p {
+  flex: 1 1 320px;
+  max-width: 72ch;
+  font-size: 13px;
+}
+
+.adm-qp-title {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.adm-qp-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-qp-row {
+  display: grid;
+  grid-template-columns: 2.4em minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-qp-position {
+  padding-top: 2px;
+  color: var(--adm-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.adm-qp-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adm-qp-copy p {
+  margin: 0;
+}
+
+.adm-qp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.adm-qp-text {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.adm-qp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-qp-meta code,
+.adm-qp-id {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.adm-qp-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.adm-qp-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.adm-qp-note svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+}
+
+@media (max-width: 560px) {
+  .adm-qp-row {
+    grid-template-columns: 2em minmax(0, 1fr);
+  }
+
+  .adm-qp-actions {
+    grid-column: 2;
+  }
+}
+
 /* An entry's platform the board shows without its announcing it. */
 .adm-badge-observed {
   border-style: dashed;

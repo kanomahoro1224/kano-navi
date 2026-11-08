@@ -1219,6 +1219,18 @@ Failures and blocked candidates move behind older
 unattempted work on later scans. Manual reprocess requests still run first. A post selected by the
 board path is not sent a second time through the message path in the same scan.
 
+Each post is judged before anything is written: no content or images still
+downloading is a skip, a stored success or `uncertain` result for the same
+input is a cache hit, a post in its failure backoff is held back, and any
+other post gets a model call. The scan and the console's
+[queue preview](admin-api.md#queue-preview) share that judgement and the
+order above, so the preview lists what a run started at that moment
+processes. The step result records the candidate phase as `candidateMs`
+(listing requests and candidates and ordering them), `postsRead` (rows the
+detection stages read, each stage reading every shown X and Bilibili post)
+and `candidatePosts` (the posts queued), then `judged` (posts the scan reached) and `judgeMs` (time
+spent loading and judging them, without model calls or writes).
+
 #### Source time zones
 
 A Bilibili dynamic gets its own prompt: a Chinese dynamic written for

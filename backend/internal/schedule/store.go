@@ -437,8 +437,8 @@ func isLikelyScheduleBoardText(value string) bool {
 
 // listCandidatePosts selects the posts a detector stage scans. With allPosts,
 // the message stage takes every post that has text or images. A hidden post
-// is never a candidate.
-func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, detectionType string, allPosts bool) ([]post, error) {
+// is never a candidate. read counts the rows the stage scanned.
+func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, detectionType string, allPosts bool) (out []post, read int, err error) {
 	lowered := []string{}
 	for _, keyword := range boundedKeywords(parseListValues(keywords)) {
 		lowered = append(lowered, jsToLower(keyword))
@@ -449,15 +449,16 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 		WHERE source IN ('x','bilibili') AND hidden_at IS NULL
 		ORDER BY published_at DESC`)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
-	out := []post{}
+	out = []post{}
 	for rows.Next() {
+		read++
 		var item post
 		var postType, label, text, publishedAt, postURL, mediaURL, rawJSON, quoteJSON sql.NullString
 		if err = rows.Scan(&item.source, &item.id, &postType, &label, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &quoteJSON); err != nil {
-			return nil, err
+			return nil, read, err
 		}
 		item.quote = quoteContextOf(item.source, quoteJSON)
 		item.postType, item.label, item.text = postType.String, label.String, text.String
@@ -498,7 +499,7 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 			out = append(out, item)
 		}
 	}
-	return out, rows.Err()
+	return out, read, rows.Err()
 }
 
 func arrayProperty(root *object, key string) ([]any, bool) {

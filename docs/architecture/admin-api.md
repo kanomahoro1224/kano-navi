@@ -217,6 +217,70 @@ null before the first). `PUT /runs/retention` accepts `{succeededDays?,
 failedDays?}`, each an integer from 0 to 3650; omitted fields keep their
 value, and another field or value answers `400 invalid_input`.
 
+## Queue preview
+
+Every step works out its queue when a run starts; nothing stores it. These
+read-only routes work a queue out the same way when the console asks, from
+the snapshot alone: they write nothing and contact no source or model. Each
+answers `{queue}`, and a route whose step the process does not run answers
+`503 unavailable`.
+
+| Method and path        | Result                             |
+| ---------------------- | ---------------------------------- |
+| `GET /queue/schedule`  | `{queue, skipped}`: extraction     |
+| `GET /queue/youtube`   | `{queue}`: YouTube detail checks   |
+| `GET /queue/translate` | `{queue, skipped}`: translate step |
+| `GET /queue/x-refresh` | `{queue}`: X post refresh requests |
+
+`skipped` (in `queue` for YouTube and X) is true while `SKIP_*` turns the
+step off for the process.
+
+`GET /queue/schedule` judges every candidate with the scan's own order and
+judgement ([Schedule extraction pipeline](sources.md#schedule-extraction-pipeline)). Its size
+does not grow with the number of posts: `{generatedAt, disabled,
+boardEnabled, messageEnabled, allPosts, limit, postsRead, candidates,
+requested, candidateMs, elapsedMs, run, later, cached, backoff,
+retryStopped}`. `run` lists, in order, the at most `limit` posts that take a
+place in a run started now, each `{postId, source, route, outcome, reason,
+inputMode?, publishedAt?, lastAttemptAt?, url?, excerpt}`: `outcome` is
+`call` with `reason` `requested`, `new` (never attempted), `changed`
+(attempted, with no stored result for its current input) or `backoffDue`,
+or `skip` with the skip code (`no_content`, `media_pending`,
+`no_route_target`, `no_compatible_provider`, `missing_api_key`). `later`
+counts the posts after them that would take a place in later runs; `cached`
+counts cache hits, and `backoff` and `retryStopped` are `{count, nextAt?}`,
+`nextAt` being the earliest retry. `disabled` is true when both detection
+stages are off and no reprocess is requested. The queue targets are read
+once per input mode.
+
+`GET /queue/youtube` answers `{generatedAt, skipped, api, apiVideos,
+watchPages, limit, counts, entries}`. `entries` is the YouTube step's detail
+queue in its order, each ID once (at most `limit`, 1000): operator refresh
+requests of the last day, the stored rotating queue (`sync_state`
+`youtube-details`), up to 30 active reservations, then due follow-ups, each
+`{id, title, url, group, publishedAt?, scheduledAt?, upcoming}` with `group`
+`refresh`, `queue`, `active` or `followUp`; `counts` gives each group's size
+before de-duplication. A run also queues the videos its listing turns up,
+after the rotating queue, which no preview can list. `watchPages` is the
+per-run watch-page budget and `apiVideos` the videos the Data API can answer
+per run (0 without `YOUTUBE_API_KEY`, `api` false).
+
+`GET /queue/translate` answers `{generatedAt, disabled, reason?, limit,
+lookbackDays, candidates}`: the candidates the translate step reads (twice
+`limit`, in its order), each `{ownerType, ownerId, source, requested,
+excerpt}`. `disabled` with `reason` (`no_route_target`,
+`no_compatible_provider`, `missing_api_key`) reports a translation queue
+with no usable target.
+
+`GET /queue/x-refresh` answers `{generatedAt, skipped, handles, perAccount,
+detailBudget, total, limit, entries}`: up to `limit` (500) posts with an open
+refresh request, oldest request first, each `{postId, source, accountHandle,
+text, url, publishedAt, requestedAt, status}`. `status` is `next` for the
+oldest `perAccount` requests of each account in `handles` (`X_HANDLES`),
+`later` for that account's others, and `notRead` for an account the X step
+does not read. `detailBudget` is the per-run X detail request budget the
+refreshes lead.
+
 ## Sources
 
 | Method and path                               | Body                                                                               | Result                         |

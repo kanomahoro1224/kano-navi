@@ -118,7 +118,7 @@ muted. Its styles are in
 in `src/index.css`. The hidden `/admin` console
 lives in `src/admin/` and is organized around operator tasks: `index.tsx`
 registers the views (Overview, Review queue, Schedule, Posts, Videos, Profile
-images, Runs, Sources, Detection, LLM, Site) and renders the shell
+images, Runs, Queue, Sources, Detection, LLM, Site) and renders the shell
 with hash routing (`#view/tab`; a `#content/<tab>` link opens the matching
 view and a `#models` link opens LLM); `use-admin-data.ts` owns every
 [Admin API](admin-api.md) call, the session and the overview poll that tracks
@@ -345,6 +345,24 @@ overview's `backlog`: each kind of operator request that has any (posts to
 extract again, X posts and videos to read again, posts and video titles to
 translate), with its count and the run that takes it. A row opens the post
 list or the video list on those requests; nothing shows while none waits.
+Beside Source timers, What runs next opens the Queue page.
+
+The Queue page (`src/admin/views/queue.tsx`) has one tab per step (`#queue/
+schedule`, `youtube`, `translate`, `x-refresh`), each read from its
+[queue preview](admin-api.md#queue-preview) when the tab opens, on Refresh
+and when a run finishes. Schedule extraction lists the posts one run
+processes in order, numbered, each with why (requested, new post, input
+changed, backoff over) or the skip that takes its place, its route and
+source, and Open post, which opens the post list searched for it; counts of
+the posts left for later runs, cache hits, posts in backoff with the next
+retry and stopped retries follow, and the candidate counts head the tab.
+YouTube details lists the detail queue in group order with each run's
+watch-page and Data API budget and notes that videos a run's listing turns
+up join it unlisted. Translation lists the step's candidates, marking those
+past the per-run calls that a run reaches only when earlier ones need no
+call. X refreshes lists refresh requests oldest first, each marked for the
+next run, a later run, or an account the X step does not read. A step turned
+off for the service or with nothing to work with says so above its list.
 
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
 tabs for X, YouTube, Bilibili uploads, Bilibili dynamics and the official

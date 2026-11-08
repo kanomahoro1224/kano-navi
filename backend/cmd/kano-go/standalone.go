@@ -146,6 +146,8 @@ func runStandalone(cfg config.Config) int {
 			Bilibili:      run.steps.Bilibili,
 			FetchMethods:  run.steps.History.Methods,
 			Variants:      run.steps.Variants,
+			Queues:        run.queues,
+			Youtube:       run.steps.Youtube,
 		}),
 		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin),
 		MCP:          standaloneMCP(store, manager),
@@ -225,6 +227,9 @@ type pipeline struct {
 	xOptions xsource.Options
 	// proxies routes every outbound request by area.
 	proxies *outboundproxy.Pool
+	// queues previews what the schedule and translate steps would work
+	// through, with the same extractor and translator.
+	queues adminapi.QueuePreviews
 }
 
 // newPipeline wires the source, media and schedule steps. key is the
@@ -261,6 +266,8 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 	if xToken != "" {
 		xAdapter.API = &history.XAPI{Fetcher: fetcher, Credential: xToken}
 	}
+	extractor := schedule.New(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})
+	translator := schedule.NewTranslator(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})
 	steps := &workflow.SourceSteps{
 		Store:     store,
 		Skip:      skip,
@@ -269,8 +276,8 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		Bilibili:  bilisource.NewAdapter(bilisource.NewClient(proxies.Client(outboundproxy.AreaBilibili)), bilisource.OptionsFromEnv()),
 		Shop:      shopsource.NewAdapter(shopsource.NewClient(proxies.Client(outboundproxy.AreaShop))),
 		Media:     mediadownload.NewClient(proxies.Client(outboundproxy.AreaMedia)),
-		Schedule:  scheduleStep{schedule.New(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})},
-		Translate: translateStep{schedule.NewTranslator(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})},
+		Schedule:  scheduleStep{extractor},
+		Translate: translateStep{translator},
 		History: &workflow.HistorySource{
 			Fetcher:      fetcher,
 			Store:        store,
@@ -290,7 +297,8 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		// and a failed translation keeps event reconciliation.
 		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, sqlite.BilibiliDynamicsSource: true, sqlite.ShopSource: true, jobs.StepTranslate: true},
 	}
-	return pipeline{steps: steps, executor: executor, skipped: skipped, xOptions: xOptions, proxies: proxies}
+	queues := adminapi.QueuePreviews{Schedule: extractor.PreviewQueue, Translation: translator.PreviewQueue}
+	return pipeline{steps: steps, executor: executor, skipped: skipped, xOptions: xOptions, proxies: proxies, queues: queues}
 }
 
 // ytdlpRoutes runs yt-dlp's YouTube reads through the YouTube proxy route.

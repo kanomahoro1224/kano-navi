@@ -16,7 +16,6 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
@@ -133,13 +132,6 @@ func scanStatus(counts map[string]any) string {
 	return "failed"
 }
 
-type candidate struct {
-	post          post
-	detectionType string
-	force         bool
-	attemptedAt   int64
-}
-
 const scanLimit = 20
 
 // extractionBackoff is how long the automatic scan leaves a post alone after
@@ -149,99 +141,53 @@ const scanLimit = 20
 var extractionBackoff = []time.Duration{time.Hour, 6 * time.Hour, 24 * time.Hour}
 
 func (e *Extractor) extractPending(ctx context.Context) (map[string]any, error) {
-	config, err := e.loadConfig(ctx)
+	scan, err := e.buildQueue(ctx)
 	if err != nil {
 		return nil, err
 	}
-	boardEnabled := config.keywordEnabled && config.visionEnabled
-	requestedPosts, err := e.listRequestedPosts(ctx, scanLimit)
-	if err != nil {
-		return nil, err
-	}
-	if !boardEnabled && !config.messageEnabled && len(requestedPosts) == 0 {
+	if scan.disabled {
 		return map[string]any{
 			"attempted": 0, "success": 0, "cached": 0, "skipped": 0, "failed": 0,
 			"disabled": true,
 		}, nil
 	}
-	// A post selected by the board path is not sent again through the message
-	// path in the same scan.
-	keyword := []candidate{}
-	keywordType := map[string]string{}
-	for _, stage := range []struct {
-		enabled       bool
-		detectionType string
-	}{{boardEnabled, "board"}, {config.messageEnabled, "message"}} {
-		if !stage.enabled {
-			continue
-		}
-		posts, err := e.listCandidatePosts(ctx, config.keywords, stage.detectionType, config.messageAllPosts)
-		if err != nil {
-			return nil, err
-		}
-		for _, item := range posts {
-			if _, known := keywordType[item.id]; !known {
-				keywordType[item.id] = stage.detectionType
-				keyword = append(keyword, candidate{post: item, detectionType: stage.detectionType})
-			}
-		}
-	}
-	// Operator reprocess requests run before keyword candidates so a full scan
-	// limit cannot starve them, and they bypass the keyword heuristic.
-	queue := []candidate{}
-	requested := map[string]bool{}
-	for _, item := range requestedPosts {
-		queue = append(queue, candidate{post: item, detectionType: requestedDetectionType(item, keywordType[item.id]), force: true})
-		requested[item.id] = true
-	}
-	rest := []candidate{}
-	for _, item := range keyword {
-		state, err := getPostState(ctx, e.db, item.post.id)
-		if err != nil {
-			return nil, err
-		}
-		if state != nil {
-			item.attemptedAt = instantMillis(state.lastAttemptAt)
-		}
-		if !requested[item.post.id] {
-			rest = append(rest, item)
-		}
-	}
-	sort.SliceStable(rest, func(i, j int) bool {
-		if rest[i].attemptedAt != rest[j].attemptedAt {
-			return rest[i].attemptedAt < rest[j].attemptedAt
-		}
-		return instantMillis(rest[i].post.publishedAt) > instantMillis(rest[j].post.publishedAt)
-	})
-	queue = append(queue, rest...)
-
 	counts := map[string]any{
 		"attempted": 0, "success": 0, "cached": 0, "skipped": 0, "failed": 0,
 		"uncertain": 0, "boardAttempted": 0, "messageAttempted": 0,
-		"keywords":  config.keywords,
-		"providers": config.providerOrder,
+		"keywords":  scan.config.keywords,
+		"providers": scan.config.providerOrder,
+		// The candidate phase: how long selecting and ordering the queue
+		// took, the rows the detection stages read, and the posts queued;
+		// then how many posts the scan judged and how long loading and
+		// judging them took, model calls and writes excluded.
+		"candidateMs":    scan.elapsed.Milliseconds(),
+		"postsRead":      scan.postsRead,
+		"candidatePosts": len(scan.queue),
+		"judged":         0,
+		"judgeMs":        int64(0),
 	}
-	for _, item := range queue {
-		if countOf(counts, "attempted") >= scanLimit {
-			break
-		}
-		if err = ctx.Err(); err != nil {
-			return counts, err
-		}
-		result, err := e.extractPost(ctx, item.post, item.detectionType, item.force)
+	var judging time.Duration
+	_, err = walkQueue(ctx, scan.queue, func(item candidate) (postResult, error) {
+		result, err := e.extractPost(ctx, item.post, item.detectionType, item.force, &judging)
+		counts["judged"] = countOf(counts, "judged") + 1
+		counts["judgeMs"] = judging.Milliseconds()
 		if err != nil {
-			return counts, err
+			return result, err
 		}
 		// Cache hits and posts held back by the failure backoff make no
 		// provider call and leave the limit to other work. The held posts are
 		// counted as backoff or retryStopped, keys present only when used.
-		if result.status != "cached" && !result.heldBack() {
+		if result.takesSlot() {
 			counts["attempted"] = countOf(counts, "attempted") + 1
 			counts[item.detectionType+"Attempted"] = countOf(counts, item.detectionType+"Attempted") + 1
 		}
 		counts[result.status] = countOf(counts, result.status) + 1
+		return result, nil
+	})
+	if err != nil {
+		return counts, err
 	}
-	if boardEnabled {
+	if scan.boardEnabled {
 		assets, err := e.verifyPendingAssets(ctx, scanLimit, false)
 		if assets != nil {
 			counts["assetVerification"] = assets
@@ -333,6 +279,12 @@ func (r postResult) heldBack() bool {
 	return r.status == "backoff" || r.status == "retryStopped"
 }
 
+// takesSlot reports whether the outcome uses one of the scan's scanLimit
+// places: every outcome but a cache hit and a held-back post.
+func (r postResult) takesSlot() bool {
+	return r.status != "cached" && !r.heldBack()
+}
+
 func (e *Extractor) skipPost(ctx context.Context, postID, route, reason string, force bool) (postResult, error) {
 	err := e.markPost(ctx, postID, stateUpdate{
 		status:        "skipped",
@@ -362,88 +314,40 @@ func (e *Extractor) useCachedExtraction(ctx context.Context, postID, route strin
 	return postResult{status: "cached"}, err
 }
 
-func (e *Extractor) extractPost(ctx context.Context, item post, detectionType string, force bool) (postResult, error) {
+// extractPost loads one candidate, judges it and carries the decision out,
+// adding the time loading and judging took to judging.
+func (e *Extractor) extractPost(ctx context.Context, item post, detectionType string, force bool, judging *time.Duration) (postResult, error) {
+	started := time.Now()
+	input, err := e.loadCandidate(ctx, item, detectionType, force)
+	if err != nil {
+		return postResult{}, err
+	}
+	decided, err := judge(input, detectionType, force, e.liveTargets(ctx), e.now())
+	*judging += time.Since(started)
+	if err != nil {
+		return postResult{}, err
+	}
+	return e.execute(ctx, input, decided, detectionType)
+}
+
+// execute carries out a decision: it records a skip or a cache hit, leaves a
+// held-back post alone, or calls the targets in order and records the
+// failure backoff when none succeeds.
+func (e *Extractor) execute(ctx context.Context, input candidateInput, decided decision, detectionType string) (postResult, error) {
+	item := input.post
 	route := routeForDetectionType(detectionType)
-	previous, err := getPostState(ctx, e.db, item.id)
-	if err != nil {
-		return postResult{}, err
+	switch decided.disposition {
+	case dispositionSkip:
+		return e.skipPost(ctx, item.id, route, decided.reason, decided.force)
+	case dispositionCached:
+		return e.useCachedExtraction(ctx, item.id, route, decided.cached)
+	case dispositionRetryStopped:
+		return postResult{status: "retryStopped"}, nil
+	case dispositionBackoff:
+		return postResult{status: "backoff"}, nil
 	}
-	force = force || (previous != nil && previous.reprocessRequested)
-	media, err := e.postImageState(ctx, item)
-	if err != nil {
-		return postResult{}, err
-	}
-	hasText := jsTrim(item.matchText()) != ""
-	inputMode := ""
-	switch {
-	case hasText && media.hasImages:
-		inputMode = "text_image"
-	case hasText:
-		inputMode = "text"
-	case media.hasImages:
-		inputMode = "image"
-	}
-	if inputMode == "" {
-		return e.skipPost(ctx, item.id, route, "no_content", force)
-	}
-	if media.hasImages && !media.complete {
-		return e.skipPost(ctx, item.id, route, "media_pending", force)
-	}
-	hashes := make([]any, len(media.images))
-	for i, image := range media.images {
-		hashes[i] = image.sha256
-	}
-	identity := obj("detectionType", detectionType, "inputMode", inputMode, "text", item.text)
-	if item.publishedAt != "" {
-		identity.set("publishedAt", item.publishedAt)
-	}
-	identity.set("url", item.url)
-	identity.set("images", hashes)
-	// A post without a shown quote keeps the fingerprint it always had.
-	if item.quote.text != "" {
-		identity.set("quote", obj("author", item.quote.author, "text", item.quote.text))
-	}
-	fingerprint := sha256Hex(stringify(identity))
-
-	// A success or uncertain result stands for this input whichever queue
-	// target produced it, so a queue change sends no post again. A newer
-	// failed attempt, a changed input or an operator request does.
-	if !force {
-		latest, err := latestExtraction(ctx, e.db, item.extractionSource(), item.id, fingerprint, extractorVersionPrefix(detectionType, inputMode))
-		if err != nil {
-			return postResult{}, err
-		}
-		if latest != nil && (latest.status == "success" || latest.status == "uncertain") {
-			return e.useCachedExtraction(ctx, item.id, route, latest)
-		}
-	}
-	providers, reason, err := e.configuredProviders(ctx, inputMode)
-	if err != nil {
-		return postResult{}, err
-	}
-	if len(providers) == 0 {
-		return e.skipPost(ctx, item.id, route, reason, force)
-	}
-
-	// The backoff belongs to this input and these targets: new content, a
-	// different queue or model, or an operator request starts it over.
-	targets := []any{fingerprint}
-	for _, target := range providers {
-		targets = append(targets, extractorVersionFor(target, detectionType, inputMode))
-	}
-	failureKey := sha256Hex(stringify(targets))
-	repeated := !force && previous != nil && previous.failureCount > 0 && previous.failureFingerprint == failureKey
-	if repeated {
-		if previous.nextAttemptAt == "" {
-			return postResult{status: "retryStopped"}, nil
-		}
-		if retryAt, ok := parseInstant(previous.nextAttemptAt); ok && e.now().Before(retryAt) {
-			return postResult{status: "backoff"}, nil
-		}
-	}
-
-	for _, target := range providers {
-		status, err := e.extractWithProvider(ctx, item, media.images, fingerprint, target, detectionType, inputMode, route, force)
+	for _, target := range decided.providers {
+		status, err := e.extractWithProvider(ctx, item, input.media.images, decided.fingerprint, target, detectionType, decided.inputMode, route, decided.force)
 		if err != nil {
 			return postResult{}, err
 		}
@@ -452,14 +356,14 @@ func (e *Extractor) extractPost(ctx context.Context, item post, detectionType st
 		}
 	}
 	failures := 1
-	if repeated {
-		failures = previous.failureCount + 1
+	if decided.repeated {
+		failures = input.state.failureCount + 1
 	}
 	retryAt := ""
 	if failures <= len(extractionBackoff) {
 		retryAt = sqlite.ISOTime(e.now().Add(extractionBackoff[failures-1]))
 	}
-	return postResult{status: "failed"}, e.recordFailure(ctx, item.id, failureKey, failures, retryAt)
+	return postResult{status: "failed"}, e.recordFailure(ctx, item.id, decided.failureKey, failures, retryAt)
 }
 
 const (

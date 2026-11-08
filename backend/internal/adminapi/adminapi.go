@@ -70,6 +70,11 @@ type Options struct {
 	// Variants locates the originals whose smaller copies the Site page
 	// reports; nil answers that route with 503 unavailable.
 	Variants *variants.Roots
+	// Queues are the steps' queue previews; Youtube names the channel and
+	// key the YouTube step reads with. Nil parts answer their routes with
+	// 503 unavailable.
+	Queues  QueuePreviews
+	Youtube *ytsource.Adapter
 	// Now is the clock for Japan-date aggregates; nil uses time.Now.
 	Now func() time.Time
 }
@@ -131,6 +136,11 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/runs/{id}", Handler: a.needRuns(a.getRun)},
 		{Method: http.MethodPost, Path: "/runs/{id}/cancel", Handler: a.needRuns(a.cancelRun)},
 		{Method: http.MethodPost, Path: "/runs/{id}/retry", Handler: a.needRuns(a.retryRun)},
+
+		{Method: http.MethodGet, Path: "/queue/schedule", Handler: a.scheduleQueue},
+		{Method: http.MethodGet, Path: "/queue/youtube", Handler: a.youtubeQueue},
+		{Method: http.MethodGet, Path: "/queue/translate", Handler: a.translationQueue},
+		{Method: http.MethodGet, Path: "/queue/x-refresh", Handler: a.xRefreshQueue},
 
 		{Method: http.MethodGet, Path: "/sources", Handler: a.sources},
 		{Method: http.MethodPut, Path: "/sources/{source}/schedule", Handler: a.updateSourceSchedule},

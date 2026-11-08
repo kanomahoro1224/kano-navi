@@ -16,6 +16,7 @@ import {
   KeyRound,
   LayoutDashboard,
   ListChecks,
+  ListOrdered,
   LockKeyhole,
   LogOut,
   Network,
@@ -39,6 +40,7 @@ import { OverviewView } from "@/admin/views/overview"
 import { PostsView } from "@/admin/views/posts"
 import { ProfileView } from "@/admin/views/profile"
 import { ProxyView } from "@/admin/views/proxy"
+import { QueueView } from "@/admin/views/queue"
 import { ReviewView } from "@/admin/views/review"
 import { RunsView } from "@/admin/views/runs"
 import { ScheduleView } from "@/admin/views/schedule"
@@ -97,6 +99,7 @@ const views: ViewEntry[] = [
   { id: "videos", group: "data", icon: Clapperboard, component: VideosView },
   { id: "profile", group: "data", icon: UserRound, component: ProfileView },
   { id: "runs", group: "system", icon: Workflow, component: RunsView },
+  { id: "queue", group: "system", icon: ListOrdered, component: QueueView },
   { id: "sources", group: "system", icon: Radio, component: SourcesView },
   {
     id: "detection",

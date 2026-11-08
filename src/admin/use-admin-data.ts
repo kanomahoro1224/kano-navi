@@ -44,9 +44,11 @@ import type {
   ProxySettings,
   ProxyTestResult,
   QueueRoute,
+  RefreshQueue,
   RouteTarget,
   Run,
   ScheduleImage,
+  ScheduleQueue,
   ScheduleSource,
   Session,
   SourceChainUpdate,
@@ -56,12 +58,14 @@ import type {
   StepCatalog,
   TranslationLocale,
   TranslationOwner,
+  TranslationQueue,
   TranslationRequestResult,
   TranslationSummary,
   AdminTranslation,
   VariantStatus,
   VisitorRegionSettings,
   AdminXStatus,
+  YoutubeQueue,
   XRelatedAccount,
   XRelatedAccounts,
   XStatusDecision,
@@ -157,6 +161,13 @@ function createClient(run: Runner, slow: Runner) {
     retryRun: (id: string) =>
       send<{ run: Run }>("POST", `/runs/${enc(id)}/retry`),
     stepCatalog: () => get<StepCatalog>("/runs/steps"),
+    /** What each step would work through if a run started now. */
+    scheduleQueue: () =>
+      get<{ queue: ScheduleQueue; skipped: boolean }>("/queue/schedule"),
+    youtubeQueue: () => get<{ queue: YoutubeQueue }>("/queue/youtube"),
+    translationQueue: () =>
+      get<{ queue: TranslationQueue; skipped: boolean }>("/queue/translate"),
+    refreshQueue: () => get<{ queue: RefreshQueue }>("/queue/x-refresh"),
     runRetention: () => get<RunRetention>("/runs/retention"),
     updateRunRetention: (body: {
       succeededDays?: number

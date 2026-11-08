@@ -507,3 +507,60 @@ func normalizeTranslation(value any, source string) (sqlite.MachineTranslation, 
 	}
 	return result, nil
 }
+
+// TranslationPreview is the candidate list a translate run started now
+// would work through, as the run reads it.
+type TranslationPreview struct {
+	GeneratedAt string `json:"generatedAt"`
+	// Disabled names why the run would translate nothing: no usable target
+	// on the translation queue.
+	Disabled bool   `json:"disabled"`
+	Reason   string `json:"reason,omitempty"`
+	// Limit is the model calls of one run; the run reads twice as many
+	// candidates because local skips use no call.
+	Limit        int                  `json:"limit"`
+	LookbackDays int                  `json:"lookbackDays"`
+	Candidates   []TranslationPending `json:"candidates"`
+}
+
+// TranslationPending is one owner whose current wording waits for a machine
+// translation.
+type TranslationPending struct {
+	OwnerType string `json:"ownerType"`
+	OwnerID   string `json:"ownerId"`
+	Source    string `json:"source"`
+	Requested bool   `json:"requested"`
+	Excerpt   string `json:"excerpt"`
+}
+
+// PreviewQueue lists the translate run's candidates in its order and with
+// its bounds. It writes nothing and calls no model.
+func (t *Translator) PreviewQueue(ctx context.Context) (TranslationPreview, error) {
+	e := t.e
+	if e == nil || e.db == nil {
+		return TranslationPreview{}, ErrStore
+	}
+	out := TranslationPreview{GeneratedAt: sqlite.ISOTime(e.now()), Candidates: []TranslationPending{}}
+	providers, reason, err := e.routeProviders(ctx, routeTranslate, "text")
+	if err != nil {
+		return out, ErrStore
+	}
+	out.Disabled, out.Reason = len(providers) == 0, reason
+	settings, err := e.store.SyncSettings(ctx)
+	if err != nil {
+		return out, ErrStore
+	}
+	out.Limit, out.LookbackDays = settings.TranslationScanLimit, settings.TranslationLookbackDays
+	since := e.now().Add(-time.Duration(out.LookbackDays) * 24 * time.Hour)
+	candidates, err := e.store.ListTranslationCandidates(ctx, since, out.Limit*2)
+	if err != nil {
+		return out, ErrStore
+	}
+	for _, item := range candidates {
+		out.Candidates = append(out.Candidates, TranslationPending{
+			OwnerType: item.OwnerType, OwnerID: item.OwnerID, Source: item.Source,
+			Requested: item.Requested, Excerpt: excerptOf(item.Text),
+		})
+	}
+	return out, nil
+}

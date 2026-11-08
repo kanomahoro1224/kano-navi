@@ -170,6 +170,18 @@ func jsonShape(t *testing.T, value any) any {
 	return out
 }
 
+// recordedShape is a scan's counts as the recorded original counted them:
+// without the candidate phase and judging counts, which only this extractor
+// records.
+func recordedShape(t *testing.T, counts map[string]any) any {
+	t.Helper()
+	shape := jsonShape(t, counts).(map[string]any)
+	for _, key := range []string{"candidateMs", "postsRead", "candidatePosts", "judged", "judgeMs"} {
+		delete(shape, key)
+	}
+	return shape
+}
+
 func (f *fixture) compareTables(label string, queries map[string]string, expected map[string][]map[string]any) {
 	f.t.Helper()
 	for name, query := range queries {
@@ -257,7 +269,7 @@ func TestParityWithTypeScriptExtractor(t *testing.T) {
 	if first.Status != "success" {
 		t.Errorf("first status = %q", first.Status)
 	}
-	if got := jsonShape(t, first.Counts); !reflect.DeepEqual(got, jsonShape(t, data.First)) {
+	if got := recordedShape(t, first.Counts); !reflect.DeepEqual(got, jsonShape(t, data.First)) {
 		t.Errorf("first counts:\n got  %v\n want %v", got, data.First)
 	}
 	if len(f.provider.requests) != len(data.Requests) {
@@ -285,7 +297,7 @@ func TestParityWithTypeScriptExtractor(t *testing.T) {
 	f.compareTables("first", parityQueries, data.AfterFirst)
 
 	second := f.scan()
-	if got := jsonShape(t, second.Counts); !reflect.DeepEqual(got, jsonShape(t, data.Second)) {
+	if got := recordedShape(t, second.Counts); !reflect.DeepEqual(got, jsonShape(t, data.Second)) {
 		t.Errorf("second counts:\n got  %v\n want %v", got, data.Second)
 	}
 	if got := len(f.provider.requests) - len(data.Requests); got != data.SecondRequests {
@@ -465,7 +477,7 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 	if first.Status != "success" {
 		t.Errorf("first status = %q", first.Status)
 	}
-	if got := jsonShape(t, first.Counts); !reflect.DeepEqual(got, jsonShape(t, data.First)) {
+	if got := recordedShape(t, first.Counts); !reflect.DeepEqual(got, jsonShape(t, data.First)) {
 		t.Errorf("first counts:\n got  %v\n want %v", got, data.First)
 	}
 	if len(f.provider.requests) != len(data.Requests) {
@@ -479,7 +491,7 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 	f.compareTables("first", mediaParityQueries, data.AfterFirst)
 
 	second := f.scan()
-	if got := jsonShape(t, second.Counts); !reflect.DeepEqual(got, jsonShape(t, data.Second)) {
+	if got := recordedShape(t, second.Counts); !reflect.DeepEqual(got, jsonShape(t, data.Second)) {
 		t.Errorf("second counts:\n got  %v\n want %v", got, data.Second)
 	}
 	if got := len(f.provider.requests) - len(data.Requests); got != len(data.SecondRequests) {

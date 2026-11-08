@@ -1057,3 +1057,107 @@ export interface DiscoveredModel {
   added: boolean
   tags: string[] | null
 }
+
+// --- queue preview -----------------------------------------------------------
+// What a run started now would work through, per step. Each is computed when
+// the page asks for it; nothing is stored.
+
+export interface ScheduleQueueEntry {
+  postId: string
+  source: "x" | "bilibili"
+  route: "board" | "message"
+  /** call: a model call; skip: recorded as skipped, using a place. */
+  outcome: "call" | "skip"
+  /** requested, new, changed or backoffDue for a call; a skip's code. */
+  reason: string
+  inputMode?: string
+  publishedAt?: string
+  lastAttemptAt?: string
+  url?: string
+  excerpt: string
+}
+
+export interface QueueHold {
+  count: number
+  nextAt?: string
+}
+
+export interface ScheduleQueue {
+  generatedAt: string
+  disabled: boolean
+  boardEnabled: boolean
+  messageEnabled: boolean
+  allPosts: boolean
+  limit: number
+  postsRead: number
+  candidates: number
+  requested: number
+  candidateMs: number
+  elapsedMs: number
+  run: ScheduleQueueEntry[]
+  later: number
+  cached: number
+  backoff: QueueHold
+  retryStopped: QueueHold
+}
+
+export interface YoutubeQueueEntry {
+  id: string
+  title: string
+  url: string
+  group: "refresh" | "queue" | "active" | "followUp"
+  publishedAt?: string
+  scheduledAt?: string
+  upcoming: boolean
+}
+
+export interface YoutubeQueue {
+  generatedAt: string
+  skipped: boolean
+  api: boolean
+  apiVideos: number
+  watchPages: number
+  limit: number
+  counts: Record<YoutubeQueueEntry["group"], number>
+  entries: YoutubeQueueEntry[]
+}
+
+export interface TranslationQueueEntry {
+  ownerType: string
+  ownerId: string
+  source: string
+  requested: boolean
+  excerpt: string
+}
+
+export interface TranslationQueue {
+  generatedAt: string
+  disabled: boolean
+  reason?: string
+  limit: number
+  lookbackDays: number
+  candidates: TranslationQueueEntry[]
+}
+
+export interface RefreshQueueEntry {
+  postId: string
+  source: string
+  accountHandle: string
+  text: string
+  url: string
+  publishedAt: string
+  requestedAt: string
+  /** next: this run; later: beyond the account's share; notRead: an account the X step does not read. */
+  status: "next" | "later" | "notRead"
+}
+
+export interface RefreshQueue {
+  generatedAt: string
+  skipped: boolean
+  handles: string[]
+  perAccount: number
+  detailBudget: number
+  total: number
+  limit: number
+  entries: RefreshQueueEntry[]
+}

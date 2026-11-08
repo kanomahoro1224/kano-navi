@@ -8,6 +8,7 @@ import {
   ImageOff,
   Languages,
   ListEnd,
+  ListOrdered,
   Play,
   RefreshCw,
   Sparkles,
@@ -384,14 +385,24 @@ export function OverviewView({ navigate }: ViewProps) {
             {overview.backlog ? (
               <BacklogList backlog={overview.backlog} navigate={navigate} />
             ) : null}
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={CalendarClock}
-              onClick={() => navigate("sources")}
-            >
-              {t("admin.overview.openTimers")}
-            </Button>
+            <div className="adm-now-links">
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={CalendarClock}
+                onClick={() => navigate("sources")}
+              >
+                {t("admin.overview.openTimers")}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={ListOrdered}
+                onClick={() => navigate("queue")}
+              >
+                {t("admin.overview.openQueue")}
+              </Button>
+            </div>
           </div>
         </Panel>
 

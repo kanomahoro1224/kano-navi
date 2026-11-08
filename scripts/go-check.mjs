@@ -26,11 +26,18 @@ const formatFiles = goFiles.map((file) => {
   writeFileSync(target, readFileSync(file, "utf8").replaceAll("\r\n", "\n"))
   return target
 })
+// gofmt reads the copies in batches: Windows bounds a command line at 32,767
+// characters, which every copy's path together exceeds.
+const formatBatch = 100
 try {
-  run("gofmt -d", "gofmt", ["-d", ...formatFiles], {
-    cwd: root,
-    failOnStdout: true,
-  })
+  for (let start = 0; start < formatFiles.length; start += formatBatch) {
+    run(
+      "gofmt -d",
+      "gofmt",
+      ["-d", ...formatFiles.slice(start, start + formatBatch)],
+      { cwd: root, failOnStdout: true },
+    )
+  }
 } finally {
   rmSync(formatRoot, { recursive: true, force: true })
 }

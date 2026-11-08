@@ -109,7 +109,7 @@ func TestVideoTagReadsEntryContentPastATargetForm(t *testing.T) {
 // A video whose entry carries only a form label from a notice, or that an
 // operator saved without a label, is left to its own title; content, a title
 // judgement, an operator's label or a pending reservation judgement keep it
-// out, and a Bilibili upload, never shown, is not asked about.
+// out, and a Bilibili upload, which has no entry, is asked about too.
 func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 	f := newMergeFixture(t)
 	add := func(video, day string, options ...string) {
@@ -142,7 +142,7 @@ func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 	for id, want := range map[string]bool{
 		"FORMNOTICE1": true, "FORMTITLE01": false, "CONTENTLLM1": false, "OPERATOR001": false,
 		"PENDINGRES1": false, "FORMRES0001": true, "MERGEDSONG1": false, "MERGEDFORM1": true,
-		"OPERATOR002": true, "LOCKEDRES01": true, "BV1BBBBBBBBB": false,
+		"OPERATOR002": true, "LOCKEDRES01": true, "BV1BBBBBBBBB": true,
 	} {
 		if got[id] != want {
 			t.Errorf("%s candidate=%v, want %v", id, got[id], want)

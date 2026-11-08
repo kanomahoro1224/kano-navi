@@ -137,9 +137,16 @@ export function groupVideos(
   )
   let lead = featured
   if (!lead) {
-    // A private or removed work never leads, as it has nothing to open.
+    // A private or removed work never leads, as it has nothing to open. An
+    // unlabelled work leads too: a missing label is no reason to pass over the
+    // work that was just published for an older cover.
     const watchable = split.works.filter((video) => !videoIsGone(video))
-    lead = watchable.find(isLeadWork) || watchable[0] || null
+    lead =
+      watchable.find(
+        (video) => isLeadWork(video) || videoTag(video) === null,
+      ) ||
+      watchable[0] ||
+      null
     if (lead) split.works.splice(split.works.indexOf(lead), 1)
   }
   return { ...split, lead, leadIsFeatured: Boolean(featured) }

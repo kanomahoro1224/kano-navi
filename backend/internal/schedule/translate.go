@@ -147,6 +147,15 @@ type tagJob struct {
 	fail            func() error
 }
 
+// videoPlatform names the site a video title comes from in the labelling
+// prompt, so a cover published only on Bilibili is read as one.
+func videoPlatform(source string) string {
+	if source == "bilibili" {
+		return "Bilibili"
+	}
+	return "YouTube"
+}
+
 // inferTags labels the calendar entries that carry no other evidence of
 // what they are, then the videos no entry labels. YouTube reservations are
 // created by the sync and never pass through the extraction prompt, and an
@@ -208,7 +217,7 @@ func (t *Translator) inferTags(ctx context.Context) (events, videos map[string]a
 	for _, item := range uploads {
 		id := item.ID
 		jobs = append(jobs, tagJob{
-			title: item.Title, platform: "YouTube",
+			title: item.Title, platform: videoPlatform(item.Source),
 			record: func(tag *string) error { _, err := e.store.RecordVideoTag(ctx, id, tag, e.now()); return err },
 			fail:   func() error { return e.store.RecordVideoTagFailure(ctx, id, e.now()) },
 		})

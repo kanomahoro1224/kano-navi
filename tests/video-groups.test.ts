@@ -210,6 +210,42 @@ test("the newest song or premiere leads and every video is listed once", () => {
   )
 })
 
+test("an unlabelled upload leads rather than an older cover", () => {
+  // A work nobody labelled yet is still the one just published, so it leads
+  // instead of a cover from weeks before.
+  const fresh = video("fresh", {
+    kind: "upload",
+    publishedAt: at(-2 * hour),
+  })
+  const olderCover = video("older-cover", {
+    kind: "premiere",
+    tag: "song",
+    scheduledAt: at(-30 * hour),
+  })
+  const groups = groupVideos([olderCover, fresh], null, now)
+  assert.equal(groups.lead?.id, "fresh")
+  assert.deepEqual(
+    groups.works.map((item) => item.id),
+    ["older-cover"],
+  )
+  // A labelled talk does not take the lead from an older cover either.
+  assert.equal(
+    groupVideos(
+      [
+        video("talk", {
+          kind: "upload",
+          tag: "talk",
+          publishedAt: at(-2 * hour),
+        }),
+        olderCover,
+      ],
+      null,
+      now,
+    ).lead?.id,
+    "older-cover",
+  )
+})
+
 test("lengths read like the platforms show them", () => {
   assert.equal(formatDuration(289), "4:49")
   assert.equal(formatDuration(33), "0:33")

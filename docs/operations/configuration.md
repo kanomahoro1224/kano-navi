@@ -31,6 +31,7 @@
 | `BILIBILI_SESSDATA`             | Empty                               | Optional login cookie; required for the dynamics listing           |
 | `SKIP_X`, `SKIP_YOUTUBE`        | `0`                                 | Set to `1` to skip that source's step and its timer                |
 | `SKIP_BILIBILI`                 | `0`                                 | Set to `1` to skip both Bilibili steps, timers and console reads   |
+| `SKIP_SHOP`                     | `0`                                 | Set to `1` to skip the official shop's step, timer and fetch       |
 | `SKIP_MEDIA`, `SKIP_LLM`        | `0`                                 | Set a post-processing stage flag to `1` to skip it                 |
 | `KANO_MEM_LIMIT`                | `1g` in production Compose          | Production Compose: the container's memory limit (`mem_limit`)     |
 | `GOMEMLIMIT`                    | `700MiB` in production Compose      | Go runtime soft memory limit, kept below the container's limit     |
@@ -190,8 +191,9 @@ uploads and dynamics timers 180 each by default, never below
 `BILIBILI_MIN_INTERVAL_MINUTES`). Both Bilibili timers reach the same
 address, so their requests add up: keep the dynamics timer no shorter than
 the uploads timer until the account has read without a captcha for a while.
-`SKIP_X`, `SKIP_YOUTUBE` and `SKIP_BILIBILI` keep that source's timers from
-running.
+The [official shop](../architecture/sources.md#official-shop)'s timer is 360
+minutes by default and never below 180. `SKIP_X`, `SKIP_YOUTUBE`,
+`SKIP_BILIBILI` and `SKIP_SHOP` keep that source's timers from running.
 Per-source timers are the only timed sync
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)). See
 [Workflows](../architecture/workflows.md#source-schedules).

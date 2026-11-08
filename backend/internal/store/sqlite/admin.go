@@ -1057,8 +1057,8 @@ func (s *Store) AdminCounts(ctx context.Context, today string) (AdminCounts, err
 // SourceLastSuccess reports the newest successful incremental read of each
 // source across its accounts, or nil when it never succeeded.
 func (s *Store) SourceLastSuccess(ctx context.Context) (map[string]*string, error) {
-	out := map[string]*string{"x": nil, "youtube": nil, "bilibili": nil}
-	rows, err := s.db.QueryContext(ctx, `SELECT source, MAX(last_success_at) FROM sync_state WHERE source IN ('x','youtube','bilibili') GROUP BY source`)
+	out := map[string]*string{"x": nil, "youtube": nil, "bilibili": nil, ShopSource: nil}
+	rows, err := s.db.QueryContext(ctx, `SELECT source, MAX(last_success_at) FROM sync_state WHERE source IN ('x','youtube','bilibili','shop') GROUP BY source`)
 	if err != nil {
 		return nil, fmt.Errorf("%w: sync state unavailable", ErrUnavailable)
 	}

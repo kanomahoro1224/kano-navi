@@ -25,6 +25,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/schedule"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
+	shopsource "github.com/yexca/kano-navi/backend/internal/source/shop"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/source/youtube/websub"
@@ -35,7 +36,7 @@ import (
 
 // stepSkipFlags are the process-wide kill switches for each workflow step.
 // SKIP_LLM stops every model call: schedule extraction and translation.
-var stepSkipFlags = map[string]string{"x": "SKIP_X", "youtube": "SKIP_YOUTUBE", "bilibili": "SKIP_BILIBILI", sqlite.BilibiliDynamicsSource: "SKIP_BILIBILI", "media": "SKIP_MEDIA", "schedule": "SKIP_LLM", jobs.StepTranslate: "SKIP_LLM"}
+var stepSkipFlags = map[string]string{"x": "SKIP_X", "youtube": "SKIP_YOUTUBE", "bilibili": "SKIP_BILIBILI", sqlite.BilibiliDynamicsSource: "SKIP_BILIBILI", sqlite.ShopSource: "SKIP_SHOP", "media": "SKIP_MEDIA", "schedule": "SKIP_LLM", jobs.StepTranslate: "SKIP_LLM"}
 
 func fail(message string, code int) int {
 	fmt.Fprintln(os.Stderr, "kano-go: "+message)
@@ -266,6 +267,7 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		X:         &workflow.XRecentExecutor{Store: store, Adapter: xAdapter, Options: xOptions},
 		Youtube:   youtubeAdapter,
 		Bilibili:  bilisource.NewAdapter(bilisource.NewClient(proxies.Client(outboundproxy.AreaBilibili)), bilisource.OptionsFromEnv()),
+		Shop:      shopsource.NewAdapter(shopsource.NewClient(proxies.Client(outboundproxy.AreaShop))),
 		Media:     mediadownload.NewClient(proxies.Client(outboundproxy.AreaMedia)),
 		Schedule:  scheduleStep{schedule.New(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})},
 		Translate: translateStep{schedule.NewTranslator(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})},
@@ -283,10 +285,10 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		Store: store,
 		Steps: steps,
 		// Every catalog step has a real adapter here; none is synthetic.
-		SyntheticSteps: map[string]bool{"x": false, "youtube": false, "bilibili": false, sqlite.BilibiliDynamicsSource: false, jobs.StepLive: false, "media": false, "schedule": false, jobs.StepTranslate: false, jobs.StepVariants: false, "reconcile": false},
+		SyntheticSteps: map[string]bool{"x": false, "youtube": false, "bilibili": false, sqlite.BilibiliDynamicsSource: false, sqlite.ShopSource: false, jobs.StepLive: false, "media": false, "schedule": false, jobs.StepTranslate: false, jobs.StepVariants: false, "reconcile": false},
 		// One unavailable source keeps the other source and post-processing,
 		// and a failed translation keeps event reconciliation.
-		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, sqlite.BilibiliDynamicsSource: true, jobs.StepTranslate: true},
+		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, sqlite.BilibiliDynamicsSource: true, sqlite.ShopSource: true, jobs.StepTranslate: true},
 	}
 	return pipeline{steps: steps, executor: executor, skipped: skipped, xOptions: xOptions, proxies: proxies}
 }

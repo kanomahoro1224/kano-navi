@@ -40,7 +40,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `media_links`            | Links from cached media to posts, videos, profiles, and focus items                                    |
 | `media_versions`         | Earlier cached files of an asset whose bytes a revalidation replaced                                   |
 | `sync_runs`              | Status, counts, error summaries, trigger, and asynchronous job identity                                |
-| `sync_state`             | Durable per-account X, YouTube and Bilibili cursors, read bookkeeping and X API chain state            |
+| `sync_state`             | Durable per-account X, YouTube, Bilibili and shop cursors, read bookkeeping and X API chain state      |
 | `app_settings`           | Model, extractor, X-account, Featured, YouTube push and proxy settings (secrets sealed)                |
 | `schedule_extractions`   | Versioned LLM inputs, outcomes, and structured result metadata                                         |
 | `post_llm_states`        | Per-post LLM status, last attempt, error, reprocess queue state, and extraction failure backoff        |
@@ -94,8 +94,8 @@ froze; new runs write `{}` there. A partial unique
 index admits one queued or running run at a time. `capability` keeps its
 constrained values (`synthetic`, `x_recent`, `capability_not_migrated`);
 `adapter_capability` names the adapter that runs the step (`x_recent`,
-`youtube_recent`, `bilibili_recent`, `bilibili_dynamics`, `youtube_live`,
-`media_download`,
+`youtube_recent`, `bilibili_recent`, `bilibili_dynamics`, `shop_sales`,
+`youtube_live`, `media_download`,
 `schedule_extract`, `text_translate`, `media_variants` or `event_reconcile`), and a step with
 neither finishes `blocked`. `recovery_count` counts how often a run was
 queued again by a retry or by recovery from an expired lease. Finished runs
@@ -104,11 +104,11 @@ and their steps, attempts and `sync_runs` rows are deleted after their
 
 `source_schedules` holds each source's timer
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)): `source`
-(`x`, `youtube`, `bilibili` or `bilibili_dynamics`, the primary key),
-`enabled`, `interval_minutes`, `sync_json` (`{"x": SourceSync}` or
-`{"youtube": SourceSync}`; `{}` for both Bilibili timers and as the
+(`x`, `youtube`, `bilibili`, `bilibili_dynamics` or `shop`, the primary
+key), `enabled`, `interval_minutes`, `sync_json` (`{"x": SourceSync}` or
+`{"youtube": SourceSync}`; `{}` for the Bilibili and shop timers and as the
 default), `chain_json` (X and YouTube: `{methods: [{id, enabled}], apiGate,
-apiDailyCap}`, the gate and cap for X only; `{}` for both Bilibili timers,
+apiDailyCap}`, the gate and cap for X only; `{}` for the Bilibili and shop timers,
 and a chain that is unreadable or does not
 list every method of its source once reads as the default;
 [ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)), `next_run_at`
@@ -149,6 +149,13 @@ The `bilibili` row's metadata also keeps the device's `bNut` and
 `blockedAt`/`clearedAt`, when the current block was recorded and when the
 latest successful read started, so a forced read's success lifts a block
 while a block a concurrent read stored is kept. Neither is returned by a public read.
+
+The `shop` row of account `shop.milpr.com` keeps the
+[official shop](sources.md#official-shop)'s last successful read in
+`last_success_at` and `{lastAttemptAt, blockedUntil, lastError}`, where
+`blockedUntil` is when a 429 answer's `Retry-After` passes. The shop's
+period groups are not kept here: their evidence is their `event_sources`
+rows.
 
 ## Seed versus Synchronization
 
@@ -280,7 +287,10 @@ apply for goods, media or tickets, and is the only type that stores a close:
 the nullable `ends_on` holds its Japan close date and `ends_at` its close
 instant when the time is known. A sale's `ends_at` always has its `ends_on`,
 the Japan date it falls on. Every other row has a null `ends_on`; the admin
-API rejects one and the extraction ignores it. A sale row takes one of three
+API rejects one and the extraction ignores it. Sales come from post
+extraction and from the [official shop](sources.md#official-shop), whose
+entries are periods with the opening time when known and the close date
+without a time. A sale row takes one of three
 shapes:
 
 | Shape        | `starts_on` / `starts_at`  | `ends_on` / `ends_at`                   |
@@ -305,7 +315,11 @@ index to existing snapshots without rewriting events.
 
 ## Event Precedence
 
-Automatic X extraction and YouTube reservations use `provenance = automatic`.
+`events.source` names the writer of an entry: `x` or `bilibili` for post
+extraction, `youtube` for reservations and broadcasts, `shop` for the
+[official shop](sources.md#official-shop)'s sale periods and `manual` for an
+entry an operator created. Automatic X extraction, YouTube reservations and
+shop reads use `provenance = automatic`.
 Creating, editing, or confirming an event through `/admin` changes it to
 `provenance = manual` and sets `manual_locked = 1`. Automatic upserts include a
 database-level lock condition and cannot replace those rows. Manual deletion is
@@ -725,7 +739,9 @@ adds the columns and the partial `events_merged_into_idx` index to existing
 snapshots without rewriting events.
 
 An entry of a Bilibili dynamic never merges into an X entry, by any rule; it
-is otherwise an X entry for Rules A and C.
+is otherwise an X entry for Rules A and C. A shop entry is an automatic sale
+like any other for Rule C, so a post's entry of the same sale merges into it
+or receives it, by link or title as the rule says.
 
 ### Bilibili releases
 

@@ -328,8 +328,8 @@ translate), with its count and the run that takes it. A row opens the post
 list or the video list on those requests; nothing shows while none waits.
 
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
-tabs for X, YouTube, Bilibili uploads and Bilibili dynamics, each with the
-platform's logo, a dot (or
+tabs for X, YouTube, Bilibili uploads, Bilibili dynamics and the official
+shop, each with the platform's logo (a shopping bag for the shop), a dot (or
 a lock) for whether its timer runs here and the state as its tooltip.
 The selected source opens with a summary: what it reads, its timer state,
 next run, last run and last successful read, the timer switch (which saves
@@ -341,7 +341,7 @@ summary the main column holds the timed reads, one form with one Save and
 Discard: the interval and, for X and YouTube, the sync setting; and the
 [method chain](workflows.md#method-chains), with every method's switch and
 up/down moves, a method the process cannot run greyed with the variable it
-needs, and each Bilibili timer's one fixed method read-only. Save sends only the
+needs, and the one fixed method of each Bilibili timer and the shop read-only. Save sends only the
 changed fields, and the timer switch keeps unsaved edits.
 
 Settings below the timed reads are folded: a header row with the title,
@@ -367,6 +367,9 @@ entries it follows, then the room's last check. Each Bilibili tab adds,
 below the timed reads, its read's state: the account, what is stored, the
 last read and its error, the login cookie and its last check, whether the
 source runs here and the shared captcha backoff, with the sign-in hints.
+The shop tab (`src/admin/views/shop-parts.tsx`) adds the shop read's state:
+its sale entries, last read and error, whether it runs here and the wait a
+429 answer set.
 X and YouTube fold their timed-read
 limits in the main column and the manual-fetch limits, which they share,
 under the manual fetch, one field per row with its label beside the input.
@@ -376,7 +379,10 @@ label: the chain, the X API limits, YouTube's per-run limit, its
 progressive confirmation and each of its steps, and yt-dlp.
 
 The manual fetch sits beside the main column: method, mode, count or
-dates, options, then the newest fetch's summary. The Bilibili tabs hold only
+dates, options, then the newest fetch's summary. The shop's is one button
+that reads the whole catalog, disabled while a 429's wait lasts, then the
+newest read's listed products, dated products of Kano, sale periods and
+pages. The Bilibili tabs hold only
 their manual action there: one upload added by BV ID or link, or one dynamic
 by its link, disabled while the source does not run here. On a narrower screen the side column follows
 the main one, and on a phone the tabs share the width and show only the
@@ -531,7 +537,7 @@ is neither `success` nor `partial` (needs review); a `partial` run is partial
 and a run older than 24 hours is out of date. Below it (on phones, before
 its dot on one row, with the state's wording left to screen readers and the
 dot's tooltip), the profile card lists
-the last successful X, YouTube and bilibili reads from `meta.sourceFetchedAt`,
+the last successful X, YouTube, bilibili and shop reads from `meta.sourceFetchedAt`,
 each marked out of date after 24 hours; these source times do not change the
 overall state. The local clock updates both warnings without a request.
 Missing timestamps, and ones more than five minutes ahead of the local clock

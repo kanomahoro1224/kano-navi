@@ -23,6 +23,7 @@ var workflowSteps = []map[string]string{
 	{"id": "youtube", "group": "source"},
 	{"id": "bilibili", "group": "source"},
 	{"id": sqlite.BilibiliDynamicsSource, "group": "source"},
+	{"id": sqlite.ShopSource, "group": "source"},
 	{"id": "media", "group": "process"},
 	{"id": "schedule", "group": "process"},
 	{"id": "translate", "group": "process"},
@@ -119,8 +120,8 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 	case "fetch":
 		jobKind = jobs.KindWorkflow
 		var source, method string
-		if json.Unmarshal(body["source"], &source) != nil || (source != "x" && source != "youtube") {
-			httpx.WriteError(w, httpx.Invalid("source must be x or youtube"))
+		if json.Unmarshal(body["source"], &source) != nil || (source != "x" && source != "youtube" && source != history.SourceShop) {
+			httpx.WriteError(w, httpx.Invalid("source must be x, youtube or shop"))
 			return
 		}
 		_ = json.Unmarshal(body["method"], &method)
@@ -134,6 +135,10 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, httpx.Invalid("%s", parseErr.Error()))
 			return
 		}
+		if source == history.SourceShop && chosen.Translate {
+			httpx.WriteError(w, httpx.Invalid("translate is not supported for the shop"))
+			return
+		}
 		if described, _ := history.Lookup(source, method); chosen.Extract && !described.Extract {
 			httpx.WriteError(w, httpx.Invalid("extract is not supported for this method"))
 			return
@@ -145,6 +150,10 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		options.Steps = []string{source, "media"}
+		if source == history.SourceShop {
+			// The shop's sale periods have no media.
+			options.Steps = []string{source}
+		}
 		if chosen.Extract {
 			options.Steps = append(options.Steps, "schedule")
 		}
@@ -345,11 +354,17 @@ func (a *api) sources(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
 		return
 	}
+	shop, err := a.Store.ShopStatus(ctx)
+	if err != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"schedules": schedules,
 		"x":         map[string]any{"skipped": a.skipped("x"), "methods": a.fetchMethods("x"), "accounts": accounts},
 		"youtube":   map[string]any{"skipped": a.skipped("youtube"), "methods": a.fetchMethods("youtube"), "oldest": oldest, "push": a.pushStatus(), "liveProbe": probe},
 		"bilibili":  bilibili,
+		"shop":      map[string]any{"skipped": a.skipped(sqlite.ShopSource), "methods": a.fetchMethods(history.SourceShop), "status": shop},
 	})
 }
 
@@ -600,7 +615,7 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		"timers":               timers,
 		"queue":                queue,
 		"backlog":              backlog,
-		"sources":              map[string]any{"x": source("x"), "youtube": youtube, "bilibili": source("bilibili"), sqlite.BilibiliDynamicsSource: dynamics},
+		"sources":              map[string]any{"x": source("x"), "youtube": youtube, "bilibili": source("bilibili"), sqlite.BilibiliDynamicsSource: dynamics, sqlite.ShopSource: source(sqlite.ShopSource)},
 		"review": map[string]int{
 			"pendingImages":          counts.PendingImages,
 			"suspectedCancellations": counts.SuspectedCancellations,

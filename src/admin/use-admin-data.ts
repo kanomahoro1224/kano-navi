@@ -106,7 +106,7 @@ export type StartRun =
   /** A manual fetch through one method; it never falls back to another. */
   | {
       kind: "fetch"
-      source: "x" | "youtube"
+      source: "x" | "youtube" | "shop"
       method: FetchMethodId
       window: FetchSelection
       options?: FetchOptions

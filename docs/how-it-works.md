@@ -35,6 +35,7 @@ explains how the board gets there and what it deliberately does not do.
 flowchart LR
   X["X and bilibili posts"] --> W["Server-side workflows"]
   YT["YouTube and bilibili"] --> W
+  SHOP["Official shop products"] --> W
   W -- "schedule extraction" --> LLM["Configured LLM providers"]
   W --> DB[("SQLite snapshot<br/>and media cache")]
   DB --> API["Go API, feeds and MCP"]
@@ -45,7 +46,9 @@ flowchart LR
 1. Source timers, an operator's Run now, or an authorized MCP client start a
    workflow. Workflows read public X and YouTube pages (Kano's X accounts and
    related accounts such as her agency, whose posts about her are promoted
-   onto the board; and bilibili posts, copies and live status),
+   onto the board; bilibili posts, copies and live status; and the official
+   shop's public product list, for the sale periods of goods she takes part
+   in),
    download their images into the media cache, and write a SQLite snapshot.
    A failed source keeps the previous snapshot and records its outcome.
 2. Schedule extraction reads candidate posts, the wording they quote, and

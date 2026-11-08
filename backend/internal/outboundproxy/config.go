@@ -1,6 +1,6 @@
 // Package outboundproxy holds the operator's forward proxies for outbound
-// requests: one ordered proxy queue, the areas (X, YouTube, Bilibili, media
-// and model providers) that route through it, and the transport that tries
+// requests: one ordered proxy queue, the areas (X, YouTube, Bilibili, the
+// shop, media and model providers) that route through it, and the transport that tries
 // an area's proxies one at a time. Settings live in app_settings; proxy
 // passwords are sealed with LLM_SECRETS_KEY and never leave the process.
 package outboundproxy
@@ -31,6 +31,8 @@ const (
 	AreaYoutube Area = "youtube"
 	// AreaBilibili covers the Bilibili API.
 	AreaBilibili Area = "bilibili"
+	// AreaShop covers the official shop's product JSON.
+	AreaShop Area = "shop"
 	// AreaMedia covers post, video and profile media downloads.
 	AreaMedia Area = "media"
 	// AreaLLM covers model provider requests: extraction, translation, tests
@@ -39,7 +41,7 @@ const (
 )
 
 // Areas lists every area in display order.
-var Areas = []Area{AreaX, AreaYoutube, AreaBilibili, AreaMedia, AreaLLM}
+var Areas = []Area{AreaX, AreaYoutube, AreaBilibili, AreaShop, AreaMedia, AreaLLM}
 
 const (
 	// MaxProxies bounds the queue and therefore the attempts per request.

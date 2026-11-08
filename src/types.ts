@@ -308,7 +308,7 @@ export interface Dashboard {
     fetchedAt: string | null
     /** Successful current-source reads; historical backfills do not refresh these. */
     sourceFetchedAt?: Partial<
-      Record<"x" | "youtube" | "bilibili", string | null>
+      Record<"x" | "youtube" | "bilibili" | "shop", string | null>
     >
     /** The latest completed run, whatever its outcome. */
     lastSync: {

@@ -19,7 +19,7 @@ func TestSourceFreshnessUsesRecentReadsAndOriginalWindowEnd(t *testing.T) {
 	freshness := func(x, youtube, bilibili string) {
 		t.Helper()
 		got, err := s.sourceFetchedAt(ctx)
-		if err != nil || len(got) != 3 || stringValue(got["x"]) != x || stringValue(got["youtube"]) != youtube || stringValue(got["bilibili"]) != bilibili {
+		if err != nil || len(got) != 4 || stringValue(got["x"]) != x || stringValue(got["youtube"]) != youtube || stringValue(got["bilibili"]) != bilibili {
 			t.Fatalf("freshness=%v err=%v, want x=%q youtube=%q bilibili=%q", got, err, x, youtube, bilibili)
 		}
 	}
@@ -104,7 +104,7 @@ func TestSourceFreshnessWithoutCheckpointTableRemainsUnknown(t *testing.T) {
 	}
 	defer s.Close()
 	got, err := s.sourceFetchedAt(context.Background())
-	if err != nil || len(got) != 3 || got["x"] != nil || got["youtube"] != nil || got["bilibili"] != nil {
+	if err != nil || len(got) != 4 || got["x"] != nil || got["youtube"] != nil || got["bilibili"] != nil || got["shop"] != nil {
 		t.Fatalf("freshness=%v err=%v", got, err)
 	}
 }

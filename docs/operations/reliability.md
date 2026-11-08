@@ -14,9 +14,9 @@
   dates, post/video publication dates, and API reads do not count as
   synchronization. This is synchronization freshness, not the latest message's
   publication time; original platform pages remain authoritative.
-- `meta.sourceFetchedAt` reports X, YouTube and Bilibili separately. Only
-  successful incremental, recent-window or latest-count reads, and Bilibili's
-  successful account reads, advance those times;
+- `meta.sourceFetchedAt` reports X, YouTube, Bilibili and the shop
+  separately. Only successful incremental, recent-window or latest-count
+  reads, and Bilibili's and the shop's successful reads, advance those times;
   historical backfills and media-only runs cannot make old sources look fresh.
   Recent-window timestamps never exceed the window's end. Timeline windows
   keep the successful head-page read time across resumed pages; clearing a

@@ -26,7 +26,9 @@ gameplay, talk, or song label.
 
 Below the ticket, an On sale row lists up to three merchandise orders,
 pre-orders, ticket sales or lotteries that are on sale now, closing soonest
-first, or that open within a week. Each shows when it closes (or opens) in
+first, or that open within a week. They include goods in the official shop
+that Kano takes part in, such as group collections, even when no post
+announces them; such a sale is named after its collection in the shop. Each shows when it closes (or opens) in
 Japan time and links to the shop or announcement. The row appears only when
 there is such a sale. On phones its cards scroll sideways, with the next one
 showing at the edge.
@@ -35,8 +37,8 @@ showing at the edge.
 
 Beside the ticket, the profile card shows Kano's banner, avatar, name,
 catchphrase, and counts, together with the latest collection run's outcome
-and time, the last successful read of X, YouTube and bilibili, and a reload
-button. Each count opens its section of the board: upcoming entries the
+and time, the last successful read of X, YouTube, bilibili and the official
+shop, and a reload button. Each count opens its section of the board: upcoming entries the
 schedule, posts the post wall, and videos the video shelf.
 Its links lead to both X accounts by handle and to the YouTube channel and
 bilibili space by their icons.
@@ -45,8 +47,8 @@ On phones the card comes first, above the ticket, as a compact identity row:
 a short banner strip with the avatar overlapping its lower left edge, as on
 wider screens, beside the name, and the catchphrase below them in line with
 the links. The role line above the
-name (Virtual Artist · ミリプロSONA) and the counts are left out, and the last row spreads the X, YouTube and bilibili
-read times across the card, with a dot in the run's state colour and the
+name (Virtual Artist · ミリプロSONA) and the counts are left out, and the last row spreads the X, YouTube, bilibili
+and shop read times across the card, with a dot in the run's state colour and the
 reload button at its end, so the schedule follows sooner. The ticket's
 countdown sits with its time, and the latest video card puts its labels above
 the thumbnail and title.

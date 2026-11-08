@@ -15,6 +15,7 @@ pool for one area:
 | `x`        | X profile, FxTwitter and vxtwitter reads, the X API (timed chain and manual fetches) |
 | `youtube`  | YouTube pages, feeds, the Data API, WebSub subscribe requests and yt-dlp reads       |
 | `bilibili` | The Bilibili API                                                                     |
+| `shop`     | The official shop's product and collection JSON                                      |
 | `media`    | Post, video and profile media downloads and profile page reads                       |
 | `llm`      | Model provider requests: extraction, translation, provider tests, model discovery    |
 
@@ -117,6 +118,7 @@ pages belong to hosts the area already reads:
 | `x`        | `https://api.fxtwitter.com/`           |
 | `youtube`  | `https://www.youtube.com/generate_204` |
 | `bilibili` | `https://www.bilibili.com/`            |
+| `shop`     | `https://shop.milpr.com/robots.txt`    |
 | `media`    | `https://pbs.twimg.com/`               |
 
 Model providers have no fixed page; a provider test on `/admin` → LLM

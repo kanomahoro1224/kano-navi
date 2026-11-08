@@ -159,7 +159,7 @@
     },
     {
       "host": "milpr.com",
-      "reason": "Public agency talent page, official shop, and news reference links."
+      "reason": "Public agency talent page, official shop, and news reference links; the server reads the shop's public product JSON (shop.milpr.com) for sale periods."
     },
     {
       "host": "amebaownd.com",

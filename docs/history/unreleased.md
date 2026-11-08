@@ -67,6 +67,17 @@
 > and quoted posts within the translation lookback are translated within
 > the translate step's per-run limit, after posts and videos.
 
+> [!NOTE]
+> The official shop is a new source, `shop`, with its own timer, which is
+> off after the upgrade and on a fresh install: turn it on in `/admin` →
+> Sources → Official shop (360 minutes by default, at least 180), and use
+> **Read the whole catalog** once to pick up sales the newest 50 products no
+> longer list. `SKIP_SHOP=1` disables it. Events may have `source: "shop"`,
+> `meta.sourceFetchedAt` adds `shop`, the step catalog, the source schedules,
+> the overview's sources and the outbound proxy areas add `shop`, admin
+> `GET /sources` adds `shop`, and a manual fetch accepts `source: "shop"`
+> with the `catalog` method. No column is added and no event is rewritten.
+
 <details>
 <summary><strong>Public pages</strong></summary>
 
@@ -117,6 +128,12 @@
 - Posts of the agency's account about Kano appear on the post wall, with the
   account's initial rather than Kano's portrait. A post Kano quotes shows
   only inside her post, and the agency never gets a tab of its own.
+- Sales of goods Kano takes part in reach the schedule and the On sale row
+  from the official shop, even when no post announces them, such as a
+  group collection where she is one of many voices. Each collection and
+  period is one entry named after the collection, opening at the time the
+  shop put it on sale and closing on its last day, and a post about the
+  same sale folds into it. The profile card adds the shop's last read.
 
 </details>
 
@@ -170,6 +187,15 @@
   the pool through the FxTwitter timeline only, with their own cursor.
   Statuses matching the account's keyword rules are promoted onto the board
   without schedule-image candidates; the rest stay in the pool.
+- A `shop` step reads the official shop's public product JSON on
+  `shop.milpr.com` as `kano-navi-go/shop`: the newest 50 products on each
+  timed run, the collection list only for products no stored sale holds,
+  and the whole catalog when the operator asks. Products tagged 鹿乃まほろ
+  with a dated order or sale period become one automatic sale per
+  collection or title prefix and period; permanent items are skipped. A
+  429 stores its `Retry-After`, and no read requests the shop before it
+  passes. Entries stay when products leave the listing, and operator edits
+  and deletions win.
 
 </details>
 
@@ -205,5 +231,9 @@
 - External posts, in the Data group, lists the status pool with its reasons
   and state, and promotes or demotes a status with a reason, as a lock the
   keyword rules never override. Posts marks promoted posts.
+- Sources has an Official shop tab with its timer and Run now, the shop
+  read's state (sale entries, last read and error, a 429's wait) and
+  **Read the whole catalog** beside it; the outbound proxy areas add the
+  shop.
 
 </details>

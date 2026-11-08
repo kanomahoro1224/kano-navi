@@ -417,6 +417,9 @@ export function OverviewView({ navigate }: ViewProps) {
                 health={overview.sources.bilibili_dynamics}
               />
             ) : null}
+            {overview.sources.shop ? (
+              <SourceRow id="shop" health={overview.sources.shop} />
+            ) : null}
           </ul>
         </Panel>
       </div>

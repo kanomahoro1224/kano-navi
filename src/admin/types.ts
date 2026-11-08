@@ -26,7 +26,7 @@ export type StepProgress =
   | "cancelled"
 
 /** A manual fetch's listing method; see the server's method table. */
-export type FetchMethodId = "timeline" | "api" | "rss" | "ytdlp"
+export type FetchMethodId = "timeline" | "api" | "rss" | "ytdlp" | "catalog"
 
 /**
  * What a method reads: the newest `count` per X account or for the channel,
@@ -135,7 +135,7 @@ export interface VisitorRegionSettings {
 }
 
 /** A part of the server's outbound requests with its own proxy route. */
-export type ProxyArea = "x" | "youtube" | "bilibili" | "media" | "llm"
+export type ProxyArea = "x" | "youtube" | "bilibili" | "shop" | "media" | "llm"
 
 export type ProxyScheme = "http" | "https" | "socks5" | "socks5h"
 
@@ -386,7 +386,8 @@ export interface SyncSettings {
   }[]
 }
 
-export type ScheduleSource = "x" | "youtube" | "bilibili" | "bilibili_dynamics"
+export type ScheduleSource =
+  "x" | "youtube" | "bilibili" | "bilibili_dynamics" | "shop"
 
 /** One listing method of a source's fallback chain (ADR-0004). */
 export interface ChainMethod {
@@ -468,6 +469,22 @@ export interface Sources {
     dynamics?: BilibiliDynamicsStatus
     live?: BilibiliLiveRoom
   }
+  shop: {
+    skipped: boolean
+    /** The read-all fetch. */
+    methods: FetchMethod[]
+    status: ShopStatus
+  }
+}
+
+/** The official shop's reads and the sale entries they keep. */
+export interface ShopStatus {
+  sales: number
+  lastAttemptAt: string | null
+  lastSuccessAt: string | null
+  /** No read requests the shop before then, after it answered 429. */
+  blockedUntil: string | null
+  lastError: string | null
 }
 
 export type BilibiliLogin =

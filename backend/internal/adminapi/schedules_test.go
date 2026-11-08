@@ -15,7 +15,7 @@ import (
 func scheduleBySource(t *testing.T, payload map[string]any, source string) map[string]any {
 	t.Helper()
 	schedules, ok := payload["schedules"].([]any)
-	if !ok || len(schedules) != 4 {
+	if !ok || len(schedules) != 5 {
 		t.Fatalf("schedules=%v", payload["schedules"])
 	}
 	for _, entry := range schedules {
@@ -181,10 +181,12 @@ func TestRunNowSubmitsTheSourceChainOnce(t *testing.T) {
 		t.Fatalf("x schedule=%v", x)
 	}
 	// Bilibili's chains have no sync setting: uploads need no schedule
-	// extraction, and dynamics are posts that do.
+	// extraction, and dynamics are posts that do. The shop writes its sale
+	// periods itself.
 	for source, want := range map[string]string{
 		"bilibili":          "[bilibili media translate reconcile]",
 		"bilibili_dynamics": "[bilibili_dynamics media schedule translate reconcile]",
+		"shop":              "[shop reconcile]",
 	} {
 		code, payload = c.call(t, "POST", "/api/admin/sources/"+source+"/run", "")
 		if code != 202 {

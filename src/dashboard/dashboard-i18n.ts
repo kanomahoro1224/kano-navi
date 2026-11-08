@@ -40,6 +40,7 @@ export const dashboardMessages = {
     "sync.stale": "数据较旧",
     "sync.latestRun": "最近运行",
     "sync.sourceTimes": "各来源最后成功同步时间",
+    "sync.source.shop": "官方商店",
     "toast.reloaded": "已重新读取快照",
     "toast.failed": ({ message }: { message: any }) => `读取失败 · ${message}`,
     "error.api": "暂时无法连接本地 API，页面保留当前内容。",
@@ -235,6 +236,7 @@ export const dashboardMessages = {
     "sync.stale": "更新が古い",
     "sync.latestRun": "最新の実行",
     "sync.sourceTimes": "ソースごとの最終同期成功日時",
+    "sync.source.shop": "公式ショップ",
     "toast.reloaded": "スナップショットを再読み込みしました",
     "toast.failed": ({ message }: { message: any }) =>
       `読み込み失敗 · ${message}`,
@@ -434,6 +436,7 @@ export const dashboardMessages = {
     "sync.stale": "Out of date",
     "sync.latestRun": "Latest run",
     "sync.sourceTimes": "Last successful sync by source",
+    "sync.source.shop": "Official shop",
     "toast.reloaded": "Snapshot reloaded",
     "toast.failed": ({ message }: { message: any }) =>
       `Load failed · ${message}`,

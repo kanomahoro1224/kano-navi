@@ -85,6 +85,9 @@ export const adminMessages = {
     "admin.step.bilibili_dynamics": "Bilibili dynamics",
     "admin.step.bilibili_dynamics.hint":
       "Read new dynamics with the login cookie, at most once per interval",
+    "admin.step.shop": "Official shop",
+    "admin.step.shop.hint":
+      "Read Kano's sale periods from the shop's product list",
     "admin.step.media.hint": "Cache images and thumbnails locally",
     "admin.step.schedule.hint": "Turn candidate posts into schedule entries",
     "admin.step.translate": "Translation",
@@ -791,6 +794,7 @@ export const adminMessages = {
     "admin.fetch.method.x.api": "X API",
     "admin.fetch.method.youtube.api": "Data API",
     "admin.fetch.method.youtube.rss": "RSS feed",
+    "admin.fetch.method.shop.catalog": "Whole catalog",
     "admin.fetch.method.youtube.ytdlp": "yt-dlp",
     "admin.fetch.methodHint.x.timeline":
       "The public timeline, 100 posts a page. Posts already stored keep what they have.",
@@ -829,6 +833,8 @@ export const adminMessages = {
     "admin.fetch.reachedEnd": "Reached the end of what it asked for.",
     "admin.fetch.repeat":
       "Stopped before the end; repeat this fetch to continue where it left off.",
+    "admin.fetch.shopPageLimit":
+      "Stopped at the six-page limit; products beyond it were not read.",
     "admin.fetch.newItems": ({ count }: { count: number }) =>
       `New: ${plural(count, "record", "records")}`,
     "admin.fetch.openRuns": "Open runs",
@@ -890,6 +896,8 @@ export const adminMessages = {
       "The account's public uploads, read at most once per BILIBILI_MIN_INTERVAL_MINUTES. Its live room is checked on its own interval.",
     "admin.sources.bilibili_dynamics.hint":
       "The account's dynamics, read with BILIBILI_SESSDATA at most once per BILIBILI_MIN_INTERVAL_MINUTES. They share the uploads' captcha backoff: a block met by either read holds both.",
+    "admin.sources.shop.hint":
+      "The official shop's newest 50 products. Products tagged 鹿乃まほろ with a dated order or sale period become On sale entries, one per collection and period.",
     "admin.timer.on": "Every {interval}",
     "admin.timer.enable": "Run on a timer",
     "admin.timer.enableHint":
@@ -920,6 +928,8 @@ export const adminMessages = {
       "Bilibili reads its upload list through one fixed method.",
     "admin.chain.fixed.bilibili_dynamics":
       "Bilibili reads its dynamics listing through one fixed method.",
+    "admin.chain.fixed.shop":
+      "The shop reads its newest products through one fixed method.",
     "admin.chain.up": "Move {method} up",
     "admin.chain.down": "Move {method} down",
     "admin.chain.needs": "Needs {variable}",
@@ -932,6 +942,7 @@ export const adminMessages = {
     "admin.chain.method.youtube.videos_page": "Uploads tab (IDs only)",
     "admin.chain.method.bilibili.list": "Upload list",
     "admin.chain.method.bilibili_dynamics.dynamics": "Dynamics listing",
+    "admin.chain.method.shop.new_arrivals": "Newest 50 products",
     "admin.chain.youtubeAPIOff":
       "With the Data API off, YouTube makes no Data API call at all: listing, details, the live-status probe and Shorts verdicts use public pages.",
     "admin.chain.apiGate": "Timeline failures before the X API",
@@ -1187,6 +1198,7 @@ export const adminMessages = {
     "admin.proxy.area.x": "X",
     "admin.proxy.area.youtube": "YouTube",
     "admin.proxy.area.bilibili": "Bilibili",
+    "admin.proxy.area.shop": "Official shop",
     "admin.proxy.area.media": "Media downloads",
     "admin.proxy.area.llm": "Model providers",
     "admin.proxy.areaHint.x":
@@ -1194,6 +1206,7 @@ export const adminMessages = {
     "admin.proxy.areaHint.youtube":
       "Pages, feeds, the Data API, push subscriptions and yt-dlp reads (at most three proxies per read).",
     "admin.proxy.areaHint.bilibili": "Upload lists and video details.",
+    "admin.proxy.areaHint.shop": "The shop's product and collection lists.",
     "admin.proxy.areaHint.media": "Post, video and profile images.",
     "admin.proxy.areaHint.llm":
       "Extraction, translation, provider tests and model discovery. Providers on this machine or the local network always connect directly.",
@@ -1367,6 +1380,8 @@ export const adminMessages = {
     "admin.metric.new": "New",
     "admin.metric.stored": "Already stored",
     "admin.metric.pages": "Pages",
+    "admin.metric.candidates": "Dated products of Kano",
+    "admin.metric.sales": "Sale periods",
     "admin.metric.reachedEnd": "Reached the end",
     "admin.metric.apiRequests": "Data API calls",
     "admin.metric.items": "New records",
@@ -1474,6 +1489,27 @@ export const adminMessages = {
     "admin.code.youtube_timeout": "YouTube took too long to answer.",
     "admin.code.youtube_rate_limited": "YouTube is limiting requests.",
     "admin.code.youtube_unavailable": "YouTube could not be reached.",
+    "admin.code.shop_rate_limited":
+      "The shop is limiting requests; reads wait for its Retry-After.",
+    "admin.code.shop_timeout": "The shop took too long to answer.",
+    "admin.code.shop_unavailable": "The shop could not be reached.",
+    "admin.code.shop_redirect_rejected":
+      "The shop answered with a redirect, which is not followed.",
+    "admin.code.shop_response_oversized":
+      "The shop's answer was larger than the 4 MiB limit.",
+    "admin.code.shop_invalid_json":
+      "The shop answered with something other than its product JSON.",
+    "admin.code.shop_invalid_request": "The shop request could not be built.",
+    "admin.shop.title": "Shop reads",
+    "admin.shop.description":
+      "Sale entries keep their last known period when a product leaves the listing. Operator edits and deletions win over the shop.",
+    "admin.shop.sales": "Sale entries",
+    "admin.shop.lastAttempt": "Last read",
+    "admin.shop.lastError": "Last error",
+    "admin.shop.blockedUntil": "Waiting until {time}",
+    "admin.shop.readAll": "Read the whole catalog",
+    "admin.shop.readAllHint":
+      "Reads every product page, at most six, three seconds apart, for sale periods the newest-50 window never listed. It waits out a 429 like the timer.",
     "admin.code.youtube_watch_login_required":
       "YouTube asked this server to sign in (its bot check), so the run read no more watch pages.",
     "admin.code.youtube_feed_http_error":
@@ -1665,6 +1701,8 @@ export const adminMessages = {
     "admin.step.bilibili_dynamics": "哔哩哔哩动态",
     "admin.step.bilibili_dynamics.hint":
       "使用登录 Cookie 读取新动态，受最小间隔限制",
+    "admin.step.shop": "官方商店",
+    "admin.step.shop.hint": "从商店商品列表读取鹿乃的发售期间",
     "admin.step.media.hint": "把图片和缩略图缓存到本地",
     "admin.step.schedule.hint": "把候选贴文转换为日程",
     "admin.step.translate": "翻译",
@@ -2188,6 +2226,8 @@ export const adminMessages = {
       "账号的公开投稿，每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次。直播间按自己的间隔检查。",
     "admin.sources.bilibili_dynamics.hint":
       "账号的动态，使用 BILIBILI_SESSDATA 读取，每 BILIBILI_MIN_INTERVAL_MINUTES 最多一次。它与投稿共用验证码退避：任一读取被拦截，两者都会暂停。",
+    "admin.sources.shop.hint":
+      "官方商店最新的 50 件商品。带有「鹿乃まほろ」标签并写明受注或发售期间的商品，会按系列和期间成为「发售中」条目。",
     "admin.timer.on": "每 {interval}",
     "admin.timer.enable": "定时运行",
     "admin.timer.enableHint":
@@ -2509,6 +2549,16 @@ export const adminMessages = {
     "admin.code.youtube_timeout": "YouTube 响应超时。",
     "admin.code.youtube_rate_limited": "YouTube 正在限流。",
     "admin.code.youtube_unavailable": "无法访问 YouTube。",
+    "admin.code.shop_rate_limited":
+      "商店正在限流；读取会等到它的 Retry-After 之后。",
+    "admin.code.shop_timeout": "商店响应超时。",
+    "admin.code.shop_unavailable": "无法访问商店。",
+    "admin.shop.title": "商店读取",
+    "admin.shop.sales": "发售条目",
+    "admin.shop.lastAttempt": "最近读取",
+    "admin.shop.lastError": "最近错误",
+    "admin.shop.blockedUntil": "等待至 {time}",
+    "admin.shop.readAll": "读取全部商品",
     "admin.code.youtube_watch_login_required":
       "YouTube 要求此服务器登录（机器人验证），本次运行不再读取视频页面。",
     "admin.code.youtube_feed_http_error":

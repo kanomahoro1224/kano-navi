@@ -194,14 +194,14 @@ func TestPrepareSourceSchedulesKeepsAFreshInstallationDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	schedules, err := s.SourceSchedules(ctx, 180)
-	if err != nil || len(schedules) != 4 {
+	if err != nil || len(schedules) != 5 {
 		t.Fatalf("schedules=%+v %v", schedules, err)
 	}
 	for i, want := range []struct {
 		source   string
 		interval int
 		sync     bool
-	}{{"x", 30, true}, {"youtube", 60, true}, {"bilibili", 180, false}, {BilibiliDynamicsSource, 180, false}} {
+	}{{"x", 30, true}, {"youtube", 60, true}, {"bilibili", 180, false}, {BilibiliDynamicsSource, 180, false}, {ShopSource, 360, false}} {
 		got := schedules[i]
 		if got.Source != want.source || got.Enabled || got.IntervalMinutes != want.interval || (got.Sync != nil) != want.sync || got.NextRunAt != nil || got.LastRun != nil {
 			t.Fatalf("default %s=%+v", want.source, got)

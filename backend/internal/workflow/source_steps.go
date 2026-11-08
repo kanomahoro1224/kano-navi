@@ -9,6 +9,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/mediadownload"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
+	shopsource "github.com/yexca/kano-navi/backend/internal/source/shop"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/variants"
@@ -30,7 +31,9 @@ type SourceSteps struct {
 	X        *XRecentExecutor
 	Youtube  *ytsource.Adapter
 	Bilibili *bilisource.Adapter
-	Media    *mediadownload.Client
+	// Shop reads the official shop's sale periods.
+	Shop  *shopsource.Adapter
+	Media *mediadownload.Client
 	// MediaBounds overrides mediadownload.StepBounds when set.
 	MediaBounds *mediadownload.Bounds
 	// Variants locates the originals of the variants step; nil leaves the
@@ -166,6 +169,11 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 			break
 		}
 		return s.bilibiliDynamics(ctx)
+	case sqlite.ShopSource:
+		if s.Shop == nil {
+			break
+		}
+		return s.shopSales(ctx, in)
 	case "media":
 		if s.Media == nil {
 			break
@@ -448,6 +456,50 @@ func (s *SourceSteps) bilibiliDynamics(ctx context.Context) (AttemptResult, erro
 	}
 	if fetchErr != nil {
 		counts["errors"] = []string{bilisource.ErrorCode(fetchErr)}
+		return AttemptResult{Status: "failed", Result: counts}, nil
+	}
+	return AttemptResult{Status: "succeeded", Result: counts}, nil
+}
+
+// shopSales reads the shop's sale periods: the newest products on a timed
+// read, the whole catalog for the operator's read-all fetch. During a 429's
+// Retry-After it is skipped without a request. A failure is recorded, not
+// retried in the run, and changes no entry.
+func (s *SourceSteps) shopSales(ctx context.Context, in StepInput) (AttemptResult, error) {
+	state, err := s.Store.ShopState(ctx)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	stored, err := s.Store.ShopSales(ctx)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	all := in.Window != nil
+	if all && (in.Window.Method != history.MethodCatalog || in.Window.Mode != history.ModeAll) {
+		return AttemptResult{}, NewStepError("retired_window", ErrPermanent)
+	}
+	result, fetchErr := s.Shop.Read(ctx, state, stored, all)
+	if ctx.Err() != nil {
+		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
+	}
+	if result.Skipped != "" {
+		// A read skipped without a request changes no state.
+		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": result.Skipped, "requested": 0}}, nil
+	}
+	changed, err := s.Store.WriteShopRead(ctx, result)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	counts := map[string]any{"count": len(result.Sales), "sales": len(result.Sales), "listed": result.Listed, "candidates": result.Candidates,
+		"requested": result.Requested, "collections": result.Collections, "changed": changed}
+	if len(result.Outcomes) > 0 {
+		counts["outcomes"] = result.Outcomes
+	}
+	if all {
+		counts["pages"], counts["reachedEnd"] = result.Pages, result.ReachedEnd
+	}
+	if fetchErr != nil {
+		counts["errors"] = []string{shopsource.ErrorCode(fetchErr)}
 		return AttemptResult{Status: "failed", Result: counts}, nil
 	}
 	return AttemptResult{Status: "succeeded", Result: counts}, nil

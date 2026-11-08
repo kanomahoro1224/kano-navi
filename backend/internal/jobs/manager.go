@@ -16,7 +16,7 @@ import (
 // StepOrder is the catalog execution order: sources first, then the
 // post-processing that consumes what the sources stored, and finally the
 // duplicate-event reconciliation over everything written before it.
-var StepOrder = []string{"x", "youtube", "bilibili", sqlite.BilibiliDynamicsSource, "media", "schedule", StepTranslate, "reconcile"}
+var StepOrder = []string{"x", "youtube", "bilibili", sqlite.BilibiliDynamicsSource, sqlite.ShopSource, "media", "schedule", StepTranslate, "reconcile"}
 
 // NormalizeSteps returns the known step IDs in catalog order.
 func NormalizeSteps(values []string) []string {
@@ -87,7 +87,7 @@ func (m *QueueManager) Start(ctx context.Context, kind, triggeredBy string, opti
 		}
 		for source, window := range options.FetchWindows {
 			normalized, windowErr := window.Normalize(source)
-			if windowErr != nil || (source != "x" && source != "youtube") {
+			if windowErr != nil || (source != "x" && source != "youtube" && source != sqlite.ShopSource) {
 				return StartResult{}, sqlite.ErrWorkflowValidation
 			}
 			definition.FetchWindows[source] = normalized
@@ -366,7 +366,7 @@ func toJob(run *sqlite.WorkflowRun, history *sqlite.JobRun) *Job {
 	if job.Kind == KindWorkflow {
 		windows := map[string]any{}
 		for _, step := range job.Steps {
-			if step != "x" && step != "youtube" {
+			if step != "x" && step != "youtube" && step != sqlite.ShopSource {
 				continue
 			}
 			if window, selected := run.FetchWindows[step]; selected {

@@ -38,12 +38,14 @@ const (
 // recent steps used before chains, so an upgrade changes nothing: X reads
 // the timeline, then the profile page, and leaves the API off; YouTube tries
 // the Data API (with a key), the feed, yt-dlp when configured, then the uploads tab. Each Bilibili
-// timer has one fixed method: the upload list or the dynamics listing.
+// timer has one fixed method: the upload list or the dynamics listing. The shop timer reads the
+// newest products of its new-arrivals collection.
 var chainMethods = map[string][]ChainMethod{
 	"x":                    {{ID: "timeline", Enabled: true}, {ID: "profile", Enabled: true}, {ID: "api", Enabled: false}},
 	"youtube":              {{ID: "api", Enabled: true}, {ID: "rss", Enabled: true}, {ID: "ytdlp", Enabled: false}, {ID: "videos_page", Enabled: true}},
 	"bilibili":             {{ID: "list", Enabled: true}},
 	BilibiliDynamicsSource: {{ID: "dynamics", Enabled: true}},
+	ShopSource:             {{ID: "new_arrivals", Enabled: true}},
 }
 
 // ChainSources are the sources whose chain the operator orders.

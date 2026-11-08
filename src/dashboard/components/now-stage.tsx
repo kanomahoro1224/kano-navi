@@ -1,3 +1,4 @@
+import type { ComponentType } from "react"
 import type { Dashboard, Locale, Profile, Translator } from "@/types"
 import {
   ArrowUpRight,
@@ -5,6 +6,7 @@ import {
   Play,
   Radio,
   RefreshCw,
+  ShoppingBag,
   Sparkles,
 } from "lucide-react"
 
@@ -50,10 +52,19 @@ import {
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import { TranslatedTitle } from "./translated-title"
 
-const SOURCES: Record<SyncSource, { name: string; Icon: typeof XLogo }> = {
+/** Each source's mark and brand name; the shop has neither, so its name is
+ * translated (sync.source.shop). */
+const SOURCES: Record<
+  SyncSource,
+  {
+    name: string | null
+    Icon: ComponentType<{ "aria-hidden"?: "true" }>
+  }
+> = {
   x: { name: "X", Icon: XLogo },
   youtube: { name: "YouTube", Icon: YouTubeLogo },
   bilibili: { name: "bilibili", Icon: BilibiliLogo },
+  shop: { name: null, Icon: ShoppingBag },
 }
 
 function dateOnlyParts(key: string, locale: Locale) {
@@ -679,7 +690,8 @@ function ProfileCard({
           {syncState.sources.length ? (
             <dl className="profile-sources" aria-label={t("sync.sourceTimes")}>
               {syncState.sources.map(({ source, timestamp, state }) => {
-                const { name, Icon } = SOURCES[source]
+                const { name: brand, Icon } = SOURCES[source]
+                const name = brand ?? t(`sync.source.${source}`)
                 const note =
                   state === "fresh"
                     ? null

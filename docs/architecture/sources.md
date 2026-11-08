@@ -1007,6 +1007,102 @@ entry: the dashboard reports it as `liveNow` (see
 [Public API](public-api.md#public-snapshot-contract)). Raw answers, counters
 and errors stay in the console.
 
+### Official shop
+
+The `shop` step reads the sale periods of goods Kano takes part in from the
+official shop, `https://shop.milpr.com`, a Shopify storefront, so a sale
+reaches the board even when no post announces it. It needs no model: the
+storefront's public product JSON states everything a period needs. The step
+has its own [timer](workflows.md#source-schedules) and runs only in
+server-side workflows; page loads never read the shop.
+
+`backend/internal/source/shop` builds three fixed URLs on that one host and
+nothing else; no address comes from data:
+
+- `/collections/new-arrivals/products.json?limit=50`, the newest 50
+  products, read by every timed run, Run now and full sync;
+- `/products.json?limit=250&page=<n>`, the whole catalog, read only by the
+  operator's [read-all fetch](workflows.md#manual-fetches-and-historical-backfill):
+  at most six pages, three seconds apart, until a page lists fewer than 250;
+- `/collections.json?limit=250`, the collection list, read at most once per
+  run, three seconds after the listing, and only when a listed product is in
+  no stored sale of its period.
+
+Every request names the client honestly as `kano-navi-go/shop`. The shop
+answers clients that pose as a browser with `429 local_rate_limited`, so the
+client never sends a browser's user agent. A 429 ends the run without a
+retry: its `Retry-After` (seconds or a date; a minute when missing, at most
+a day) is stored, and no read, timed or manual, requests the shop before it
+passes (`{ skipped: true, reason: "rate_limited" }`). The other failures are
+`shop_timeout`, `shop_unavailable`, `shop_redirect_rejected`,
+`shop_response_oversized`, `shop_http_<status>` and `shop_invalid_json`. Any
+failed request fails the read: it records its code and changes no entry.
+
+A product counts only when it carries the tag `鹿乃まほろ`, a constant of the
+code, since the board is Kano's, and when its description states a dated
+period: a label (受注期間, 販売期間, 受付期間 or 抽選受付期間), a dated
+opening, and on the same line `〜`, `～` or `~` and a dated close, such as
+`＜受注期間＞ 2026年10月24日 〜 2026年11月24日`. Full-width digits read as
+digits, a weekday or time may follow the opening, and a close without a
+year falls on or after the opening. A permanent item (`販売期間 2026年10月1日～`
+with no close), a product without a period and a period with impossible
+dates are skipped and counted by reason (`open_ended`, `no_period`,
+`invalid_period`, `untagged`). Stock (`variants[].available`) is not the
+period: a sold-out product still has its sale. Prices, stock and images are
+never decoded.
+
+The products of one period form one group, with one entry, not one entry
+per product. The shop writes some titles with decomposed kana (`ホ` followed
+by the combining voiced sound mark U+3099 for `ボ`) and others with the
+precomposed kana, so every product and collection title is stored with each
+kana and a following U+3099 or U+309A composed, as Unicode NFC composes
+them; nothing a reader sees changes. A group's key is its title without
+whitespace:
+
+1. A product that a stored group of the same period holds stays in it, so a
+   group keeps its identity however the newest-50 window cuts it.
+2. A new product joins the collection whose title, ignoring whitespace, its
+   own title starts with, the longest such of at least four characters
+   (`鹿乃まほろ 加入記念グッズ` for `鹿乃まほろ加入記念グッズ アクリルスタンド`).
+   The group takes the collection's title and links
+   `https://shop.milpr.com/collections/<handle>`.
+3. Any other product joins the group of its period whose key its title
+   starts with, the longest one.
+4. Any other starts a group titled by its title without the last word,
+   linking its first product's `https://shop.milpr.com/products/<handle>`.
+   Shorter titles are grouped first, so `… 2026 ランダム缶バッジ 全8種`
+   joins `… 2026`.
+
+Each group is an automatic `sale` event (see
+[Sale periods](data-model.md#sale-periods)) with `source` `shop`,
+`source_item_id` the group key and `source_key` the period
+(`<opens>/<closes>`), and an `event_sources` row of the same identity:
+
+| Field                     | Value                                                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `title`                   | the group title as the shop writes it                                                                                                      |
+| `starts_on` / `starts_at` | the opening date; `starts_at` is the earliest `published_at` of the group's products that falls on that Japan date, to the minute, or null |
+| `ends_on` / `ends_at`     | the close date; `ends_at` stays null, since the JSON gives no close time                                                                   |
+| `time_precision`          | `exact` with `starts_at`, otherwise `unknown`                                                                                              |
+| `url`                     | the collection page, or the first product's page                                                                                           |
+| `detail`                  | null                                                                                                                                       |
+| `platform`                | `other`                                                                                                                                    |
+
+`raw_json`, on the event and its source row, holds only the group's title,
+link and collection handle, the matched period line, and each product's ID,
+handle, title and publication time (at most 100 products). The source row
+follows every read, so a locked or deleted entry still keeps its products and
+its identity. A read rewrites an entry only when a shown field changed, and
+then advances the dashboard revision. Nothing is retired: a product that
+leaves the listing, or the shop, keeps its entry, and a changed period is a
+new group whose old entry stays. Manual edits, locks and tombstones win as
+for every automatic entry; an operator who adds the close time saves a
+locked entry the shop never rewrites. [Rule C](data-model.md#duplicate-merging)
+merges a post's entry of the same sale into the shop's, which states an
+opening time and a close date. The read's bookkeeping is the `sync_state`
+row of source `shop` and account `shop.milpr.com`; its last success is the
+shop's [freshness](public-api.md#public-snapshot-contract).
+
 ### Source Request Limits
 
 Every source client requests fixed destinations with a 10-second timeout
@@ -1015,8 +1111,9 @@ Every source client requests fixed destinations with a 10-second timeout
 that stays active through body consumption, rejects redirects, and records
 only controlled error codes. The Bilibili client builds its URLs itself on
 its three fixed hosts and checks the mid and the dynamic ID before a
-request. Response bodies are limited to 4 MiB for X and
-YouTube and 2 MiB for Bilibili; a timed-out or oversized stream is cancelled
+request; the shop client builds its three fixed paths on `shop.milpr.com`
+(see [Official shop](#official-shop)). Response bodies are limited to 4 MiB
+for X, YouTube and the shop and 2 MiB for Bilibili; a timed-out or oversized stream is cancelled
 and releases its reader so the single-flight queue can run a subsequent job.
 
 The YouTube client builds every public URL itself on `https://www.youtube.com`:

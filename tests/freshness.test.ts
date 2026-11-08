@@ -16,7 +16,12 @@ function meta(overrides: Partial<Dashboard["meta"]> = {}): Dashboard["meta"] {
   return {
     fetchedAt: recent,
     lastSync: { status: "success", startedAt: recent, finishedAt: recent },
-    sourceFetchedAt: { x: recent, youtube: recent, bilibili: recent },
+    sourceFetchedAt: {
+      x: recent,
+      youtube: recent,
+      bilibili: recent,
+      shop: recent,
+    },
     postWindowDays: 3,
     xAccounts: [],
     featuredVideoId: null,
@@ -38,7 +43,7 @@ test("freshness ages locally at the inclusive 24-hour boundary", () => {
   assert.equal(aged.label, "sync.stale")
   assert.deepEqual(
     aged.sources.map(({ state }) => state),
-    ["stale", "stale", "stale"],
+    ["stale", "stale", "stale", "stale"],
   )
 })
 
@@ -51,6 +56,7 @@ test("the overall state follows the latest run while each source keeps its last 
         x: "2025-12-30T00:00:00Z",
         youtube: recent,
         bilibili: null,
+        shop: recent,
       },
     }),
     null,
@@ -66,6 +72,7 @@ test("the overall state follows the latest run while each source keeps its last 
       ["x", "stale"],
       ["youtube", "fresh"],
       ["bilibili", "waiting"],
+      ["shop", "fresh"],
     ],
   )
   // A run without a finish time is dated by its start.
@@ -103,6 +110,7 @@ test("missing, invalid and future timestamps never look healthy", () => {
       [null, "waiting"],
       [null, "waiting"],
       [null, "waiting"],
+      [null, "waiting"],
     ],
   )
   const never = syncStateFor(meta({ lastSync: null }), null, now, t)
@@ -126,6 +134,7 @@ test("missing, invalid and future timestamps never look healthy", () => {
       ["x", null],
       ["youtube", null],
       ["bilibili", null],
+      ["shop", null],
     ],
   )
 })
@@ -144,7 +153,12 @@ test("a visitor clock slightly behind the server still shows fresh reads", () =>
   const skewed = syncStateFor(
     meta({
       lastSync: { status: "success", finishedAt: ahead },
-      sourceFetchedAt: { x: ahead, youtube: ahead, bilibili: ahead },
+      sourceFetchedAt: {
+        x: ahead,
+        youtube: ahead,
+        bilibili: ahead,
+        shop: ahead,
+      },
     }),
     null,
     now,
@@ -154,7 +168,7 @@ test("a visitor clock slightly behind the server still shows fresh reads", () =>
   assert.equal(skewed.runAt, ahead)
   assert.deepEqual(
     skewed.sources.map(({ timestamp }) => timestamp),
-    [ahead, ahead, ahead],
+    [ahead, ahead, ahead, ahead],
   )
 })
 

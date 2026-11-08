@@ -6,7 +6,7 @@ export const STALE_AFTER_MS = 24 * 60 * 60 * 1000
 // timestamp further ahead is not trusted.
 export const CLOCK_SKEW_MS = 5 * 60 * 1000
 
-export const SYNC_SOURCES = ["x", "youtube", "bilibili"] as const
+export const SYNC_SOURCES = ["x", "youtube", "bilibili", "shop"] as const
 export type SyncSource = (typeof SYNC_SOURCES)[number]
 
 type Freshness = "fresh" | "stale" | "waiting"

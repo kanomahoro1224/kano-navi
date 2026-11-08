@@ -53,10 +53,10 @@ against entries by platform and time, not by link. The calendar's items carry
 stored Bilibili posts; the post archive's `account` filter and its
 `accountCounts` take a mid like an X handle.
 
-`meta.sourceFetchedAt` contains only `x`, `youtube` and `bilibili` ISO
-timestamps or null, derived from successful incremental source reads, the head
-pages of manual timeline fetches and the Bilibili account's last successful
-read. Other manual fetches do not refresh it; a stored recent-window
+`meta.sourceFetchedAt` contains only `x`, `youtube`, `bilibili` and `shop`
+ISO timestamps or null, derived from successful incremental source reads, the
+head pages of manual timeline fetches, the Bilibili account's last successful
+read and the shop's. Other manual fetches do not refresh it; a stored recent-window
 checkpoint counts up to its window's end time. Timeline `count` and `all`
 fetches retain their successful head-page read time, so resuming old pages
 does not refresh the source; a timeline checkpoint without that time leaves

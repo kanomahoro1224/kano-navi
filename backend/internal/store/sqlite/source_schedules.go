@@ -39,9 +39,13 @@ type SourceScheduleRun struct {
 const (
 	// SourceScheduleMinMinutes and SourceScheduleMaxMinutes bound every
 	// source interval. The lower bound of both Bilibili timers is
-	// BILIBILI_MIN_INTERVAL_MINUTES instead.
+	// BILIBILI_MIN_INTERVAL_MINUTES instead, and the shop's
+	// ShopScheduleMinMinutes.
 	SourceScheduleMinMinutes = 15
 	SourceScheduleMaxMinutes = 7 * 24 * 60
+	// ShopScheduleMinMinutes is the shortest shop interval: its product
+	// listing changes a few times a month.
+	ShopScheduleMinMinutes = 180
 	// sourceSchedulePrefix names the ad hoc runs of a source's chain, from
 	// its timer or the operator's Run now.
 	sourceSchedulePrefix = "@source-"
@@ -53,7 +57,7 @@ const (
 const BilibiliDynamicsSource = "bilibili_dynamics"
 
 // ScheduleSources are the sources with a schedule, in catalog order.
-var ScheduleSources = []string{"x", "youtube", "bilibili", BilibiliDynamicsSource}
+var ScheduleSources = []string{"x", "youtube", "bilibili", BilibiliDynamicsSource, ShopSource}
 
 // IsBilibiliSchedule reports a Bilibili timer, bounded below by
 // BILIBILI_MIN_INTERVAL_MINUTES.
@@ -76,6 +80,9 @@ func SourceScheduleBounds(source string, floor int) (int, int) {
 	if IsBilibiliSchedule(source) {
 		return min(max(floor, SourceScheduleMinMinutes), SourceScheduleMaxMinutes), SourceScheduleMaxMinutes
 	}
+	if source == ShopSource {
+		return ShopScheduleMinMinutes, SourceScheduleMaxMinutes
+	}
 	return SourceScheduleMinMinutes, SourceScheduleMaxMinutes
 }
 
@@ -85,6 +92,8 @@ func defaultScheduleInterval(source string) int {
 		return 30
 	case "youtube":
 		return 60
+	case ShopSource:
+		return 360
 	}
 	return 180
 }
@@ -381,7 +390,8 @@ func (s *Store) SetScheduleOffset(draw func(spread int64) int64) { s.scheduleOff
 // plannedInterval is a source's interval with a random offset of up to a
 // tenth of it, so timed reads do not hit a platform on a fixed cadence. The
 // offset is whole seconds, uniform in ±10%, and is reflected into the
-// interval bounds: a plan never goes below the lower bound or above 7 days.
+// interval bounds: a plan never goes below the lower bound (the shop's
+// minimum for the shop) or above 7 days.
 // A Bilibili timer's offset is never negative, so a plan is never shorter
 // than its interval and therefore never below BILIBILI_MIN_INTERVAL_MINUTES,
 // and the adapter's own interval check does not skip the run.
@@ -397,6 +407,9 @@ func (s *Store) plannedInterval(source string, minutes int) time.Duration {
 	low, high := SourceScheduleMinMinutes*time.Minute, SourceScheduleMaxMinutes*time.Minute
 	if IsBilibiliSchedule(source) {
 		low = interval
+	}
+	if source == ShopSource {
+		low = ShopScheduleMinMinutes * time.Minute
 	}
 	if interval+offset < low || interval+offset > high {
 		offset = -offset

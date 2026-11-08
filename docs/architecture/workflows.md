@@ -2,8 +2,8 @@
 
 ## Manual Fetches and Historical Backfill
 
-The console's Sources page starts manual fetches of X and YouTube; it is the
-one place to start them. The Posts and Videos pages open on their lists and
+The console's Sources page starts manual fetches of X, YouTube and the
+official shop; it is the one place to start them. The Posts and Videos pages open on their lists and
 link to it from their header. A fetch names one listing method first, then
 what the method reads. `POST /api/admin/runs` with
 `{ "kind": "fetch", "source": "x", "method": "timeline", "window": { "mode": "count", "count": 50 } }`
@@ -17,9 +17,14 @@ options.
 | YouTube | `api`      | `YOUTUBE_API_KEY`    | `count` (1–200), `all`             | uploads playlist, 50 entries and one quota unit a page   |
 | YouTube | `rss`      |                      | `count` (1–15)                     | public feed, its newest 15 uploads in one request        |
 | YouTube | `ytdlp`    | `YTDLP_BINARY`       | `count` (1–200), `all`             | configured yt-dlp upload listing, without media download |
+| Shop    | `catalog`  |                      | `all`                              | the whole product catalog, at most 6 pages of 250        |
 
 - `count` reads the newest `count` records per X account or for the channel,
   stored or not, whatever their age.
+- The shop's `catalog` fetch is the `shop` step alone, with no option. It
+  reads the sale periods that the timer's newest-50 window never listed and
+  writes them as every [shop read](sources.md#official-shop) does; it waits
+  out a 429's `Retry-After` like the timer, and keeps no checkpoint.
 - `all` pages the listing to its end.
 - `range` reads `startDate` to `endDate`, at most 365 days; both dates are
   inclusive in `Asia/Tokyo`, and the internal bounds are start-inclusive and
@@ -233,7 +238,7 @@ checkpoint.
 Each source has its own timer
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)), stored in
 the additive `source_schedules` table and edited on the console's Sources
-page. A fresh installation keeps all four disabled.
+page. A fresh installation keeps all five disabled.
 
 | Source              | Interval (default, bounds)                        | Fixed chain                                           |
 | ------------------- | ------------------------------------------------- | ----------------------------------------------------- |
@@ -241,13 +246,17 @@ page. A fresh installation keeps all four disabled.
 | `youtube`           | 60 min, 15 min – 7 days                           | `youtube`, `media`, `translate`                       |
 | `bilibili`          | 180 min, `BILIBILI_MIN_INTERVAL_MINUTES` – 7 days | `bilibili`, `media`, `translate`                      |
 | `bilibili_dynamics` | 180 min, `BILIBILI_MIN_INTERVAL_MINUTES` – 7 days | `bilibili_dynamics`, `media`, `schedule`, `translate` |
+| `shop`              | 360 min, 180 min – 7 days                         | `shop`                                                |
 
 Bilibili has two timers because its two reads serve different purposes:
 the uploads are an archive, like YouTube's, while the dynamics announce
 schedules, like X posts, and need the login cookie. Each timer has its own
 interval, runs and Run now; both share the client, device identity and
 captcha backoff, so a captcha met by either read holds both, and their
-requests to the same address add up.
+requests to the same address add up. The
+[official shop](sources.md#official-shop) writes its sale periods itself, so
+its chain has no media, extraction or translation step; its listing changes
+a few times a month, hence the long default.
 
 When a schedule is due, the server process submits its chain as the ad hoc
 run `@source-<source>` (`reconcile` is appended as for every run with a
@@ -345,17 +354,18 @@ already due, and the claim plans the next run as for any timed run.
 
 Each plan adds a random offset of whole seconds, uniform in ±10% of the
 interval (a 30-minute X timer runs 27–33 minutes apart), so timed reads do
-not reach FxTwitter, YouTube or `api.bilibili.com` on a fixed cadence. An
-offset that would leave the interval bounds is reflected back, so a plan is
-never shorter than 15 minutes nor longer than 7 days. A Bilibili timer's
+not reach FxTwitter, YouTube, `api.bilibili.com` or the shop on a fixed
+cadence. An offset that would leave the interval bounds is reflected back, so
+a plan is never shorter than 15 minutes (the shop's 180) nor longer than 7
+days. A Bilibili timer's
 offset is never negative (0 to +10%): its interval is never below
 `BILIBILI_MIN_INTERVAL_MINUTES`, so a plan is never sooner than the floor and
 the adapter's interval check does not skip a timed run. Run now, YouTube
 pushes and the live-status probe have no offset. The draw is the store's
 injectable `SetScheduleOffset`, which tests replace for deterministic plans.
 `WORKFLOW_SCHEDULER_ENABLED=0` stops source schedules as well, and `SKIP_X`,
-`SKIP_YOUTUBE` and `SKIP_BILIBILI` disable that source's schedules (both
-Bilibili timers for `SKIP_BILIBILI`), which the console reports as
+`SKIP_YOUTUBE`, `SKIP_BILIBILI` and `SKIP_SHOP` disable that source's
+schedules (both Bilibili timers for `SKIP_BILIBILI`), which the console reports as
 `{ skipped: true, reason: "environment" }`.
 
 #### The `workflows` table
@@ -379,7 +389,7 @@ its own.
 
 Synchronization is split into modular steps declared in
 `backend/internal/jobs` (`StepOrder`), executed in this order: `x`,
-`youtube`, `bilibili`, `bilibili_dynamics`, `media`, `schedule`,
+`youtube`, `bilibili`, `bilibili_dynamics`, `shop`, `media`, `schedule`,
 `translate`, `reconcile`. `kano-go sync` (`make sync`) runs every step
 and records the ones disabled by `SKIP_*` as skipped.
 A one-off step run (the Runs page, `POST /api/admin/runs` with
@@ -396,16 +406,18 @@ step can be retried without any saved definition.
 account's upload list and `bilibili_dynamics`, with `BILIBILI_SESSDATA`, its
 dynamics, each at most once per `BILIBILI_MIN_INTERVAL_MINUTES` on its own
 clock and never during the shared captcha backoff, so either is safe in a
-manual run soon after its timer (see [Bilibili](sources.md#bilibili)). A
-read skipped without a request records `{ skipped: true, reason }` and
-succeeds; a failed read makes its step `failed`.
+manual run soon after its timer (see [Bilibili](sources.md#bilibili)).
+`shop` makes no request while a 429's `Retry-After` lasts (see
+[Official shop](sources.md#official-shop)). A read skipped without a request
+records `{ skipped: true, reason }` and succeeds; a failed read makes its step
+`failed`.
 
 `reconcile` derives the YouTube events of stored videos and applies the
 deterministic duplicate-merge rules in
 [Duplicate merging](data-model.md#duplicate-merging) to the Japan dates from
 30 days ago to 60 days ahead, then the
 [video merging](data-model.md#video-merging) rule to every Bilibili upload.
-Every run that includes `x`, `youtube`, `bilibili` or `schedule` (sync, scan,
+Every run that includes `x`, `youtube`, `bilibili`, `shop` or `schedule` (sync, scan,
 manual fetches, source schedules, Run now, step runs, WebSub pushes and MCP) appends it as its last
 step; it can also be selected alone. Its
 result counts `releasesPaired` (see

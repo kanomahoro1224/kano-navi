@@ -66,7 +66,8 @@ external work:
     "x":       {"skipped", "lastSuccessAt", "lastStep"},
     "youtube": {"skipped", "lastSuccessAt", "lastStep", "push": {"enabled", "verified"}},
     "bilibili": {"skipped", "lastSuccessAt", "lastStep"},
-    "bilibili_dynamics": {"skipped", "lastSuccessAt", "lastStep"} // lastSuccessAt: the listing's
+    "bilibili_dynamics": {"skipped", "lastSuccessAt", "lastStep"}, // lastSuccessAt: the listing's
+    "shop": {"skipped", "lastSuccessAt", "lastStep"}
   },
   "review": {
     "pendingImages",          // unlabelled images with a URL the model has not settled (pending, uncertain, failed)
@@ -172,12 +173,13 @@ a saved workflow reports that ID there, and its name is not read.
   Known catalog steps run once in catalog order; an empty list or another
   value is `400 invalid_input`. Source steps read as their
   [source schedule](#sources) does.
-- `{"kind": "fetch", "source": "x" | "youtube", "method": Method, "window":
+- `{"kind": "fetch", "source": "x" | "youtube" | "shop", "method": Method, "window":
 Selection, "options"?: {"extract"?, "translate"?, "refresh"?}}`: one
   source plus media for a
   [manual fetch](workflows.md#manual-fetches-and-historical-backfill)
-  through the one method it names. `Method` is `timeline` or `api` for X
-  and `api` or `rss` for YouTube. `Selection` is `{mode: "count", count}`
+  through the one method it names. `Method` is `timeline` or `api` for X,
+  `api`, `rss` or `ytdlp` for YouTube, and `catalog` for the shop, whose
+  fetch is the `shop` step alone, with `{mode: "all"}` and no option. `Selection` is `{mode: "count", count}`
   (1 to the method's `maxCount`), `{mode: "all"}`, `{mode: "range",
 startDate, endDate}` or `{mode: "before", days}` (1–365), as the method's
   `modes` allow. `extract` (X methods) adds the `schedule` step,
@@ -194,7 +196,7 @@ A busy queue answers `409` with the active run. There are no saved workflows
 `/workflows` routes (`404 not_found`).
 
 `GET /runs/steps` is the step catalog `[{id, group}]` in execution order
-(`x`, `youtube`, `bilibili`, `bilibili_dynamics` are `source`; `media`,
+(`x`, `youtube`, `bilibili`, `bilibili_dynamics`, `shop` are `source`; `media`,
 `schedule`,
 `translate`, `reconcile` are `process`), and `skippedSteps` lists the
 steps disabled through `SKIP_*`.
@@ -243,9 +245,13 @@ value, and another field or value answers `400 invalid_input`.
   "youtube": {"skipped", "methods": [FetchMethod], "oldest", "push": PushStatus, "liveProbe": LiveProbeStatus},
   "bilibili": {"available", "skipped", "account", "videos", "signedIn", "login", "loginCheckedAt", "minIntervalMinutes", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError",
                "dynamics": {"posts", "lastAttemptAt", "lastSuccessAt", "lastError", "skipped"},
-               "live": {"roomId", "liveStatus", "title", "liveTime", "checkedAt", "lastLiveAt", "blockedUntil", "lastError"}}
+               "live": {"roomId", "liveStatus", "title", "liveTime", "checkedAt", "lastLiveAt", "blockedUntil", "lastError"}},
+  "shop": {"skipped", "methods": [FetchMethod], "status": {"sales", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError"}}
 }
 ```
+
+`shop.status` counts the shop's visible sale entries and reports its read
+bookkeeping: `blockedUntil` is when a 429 answer's `Retry-After` passes.
 
 The related accounts answer is `{accounts, defaultKeywords, status}`:
 `accounts` lists `{handle, keywords}` (see
@@ -269,18 +275,19 @@ it, or the method's adapter, is missing. `refresh` and `extract` say which
 options the method takes.
 
 `schedules` lists the [source schedules](workflows.md#source-schedules) of
-`x`, `youtube`, `bilibili` and `bilibili_dynamics`, in that order.
+`x`, `youtube`, `bilibili`, `bilibili_dynamics` and `shop`, in that order.
 `SourceSchedule` is `{source,
 enabled, intervalMinutes, minIntervalMinutes, maxIntervalMinutes, sync,
 chain, nextRunAt, lastRun, skipped}`, plus `reason: "environment"` while `SKIP_*`
-disables the source. `sync` is `{mode: "incremental", max}` (default, `max` 50) or `{mode: "count", count}`, each 1–200, and null for both Bilibili timers.
+disables the source. `sync` is `{mode: "incremental", max}` (default, `max` 50) or `{mode: "count", count}`, each 1–200, and null for both Bilibili timers and the shop.
 `chain` is the source's [method chain](workflows.md#method-chains):
 `{methods, fixed}`, where `methods` lists `{id, enabled, available,
 requires}` in the order reads try them. `available` is false while the
 method's credential is missing, and `requires` names its variable
 (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY` or `YTDLP_BINARY`) for methods that need one. `fixed`
-is true for the Bilibili timers, whose one method (`list` for uploads,
-`dynamics` for the dynamics listing) cannot change. The X chain adds
+is true for the Bilibili and shop timers, whose one method (`list` for
+uploads, `dynamics` for the dynamics listing, `new_arrivals` for the shop)
+cannot change. The X chain adds
 `apiGate`, `apiDailyCap`, `apiUsage` (`{day, posts}`, the posts X API
 answers returned on the current Japan day) and `timelineFailures`, each
 account's current streak (see
@@ -289,7 +296,7 @@ account's current streak (see
 its timer or Run now
 (durable run status; `at` is when it finished, started or was queued), or
 null. The `minIntervalMinutes` of both Bilibili timers is
-`BILIBILI_MIN_INTERVAL_MINUTES`.
+`BILIBILI_MIN_INTERVAL_MINUTES`, and the shop's 180.
 `PUT /sources/{source}/schedule` takes any subset of `{enabled,
 intervalMinutes, sync, chain}` and keeps omitted fields. `chain` takes any
 subset of `{methods, apiGate, apiDailyCap}`: `methods` is `[{id, enabled}]`
@@ -297,9 +304,9 @@ in the new order and must list every method of the source once with at
 least one enabled; `apiGate` (0–100) and `apiDailyCap` (1–10,000) apply to X
 only. It answers `404 not_found` for another source and `400 invalid_input`
 for other fields, an interval outside the bounds, an invalid `sync` or a
-`sync` for either Bilibili timer, and for a chain with an unknown or repeated method, a
+`sync` for either Bilibili timer or the shop, and for a chain with an unknown or repeated method, a
 missing method, no enabled method, a gate or cap out of range or for
-YouTube, or any chain for either Bilibili timer. A method may be enabled while its
+YouTube, or any chain for either Bilibili timer or the shop. A method may be enabled while its
 credential is missing; reads skip it until it is set. Enabling a
 schedule or changing its interval plans the next run one interval later,
 with the timer's [random offset](workflows.md#source-schedules); a sync
@@ -873,18 +880,18 @@ stored fixed message, never upstream wording; `at` is when the call failed.
 
 ## Outbound proxies
 
-| Method and path         | Body                                                      | Result                                                |
-| ----------------------- | --------------------------------------------------------- | ----------------------------------------------------- |
-| `GET /proxy`            |                                                           | `{proxies, routes, directFallback, areas, testAreas}` |
-| `PUT /proxy`            | any subset of `{proxies, routes, directFallback}`         | the same settings                                     |
-| `POST /proxy/{id}/test` | `{area?}` (`x`, `youtube` (default), `bilibili`, `media`) | `{ok, status?, error?, latencyMs, proxy}`             |
+| Method and path         | Body                                                              | Result                                                |
+| ----------------------- | ----------------------------------------------------------------- | ----------------------------------------------------- |
+| `GET /proxy`            |                                                                   | `{proxies, routes, directFallback, areas, testAreas}` |
+| `PUT /proxy`            | any subset of `{proxies, routes, directFallback}`                 | the same settings                                     |
+| `POST /proxy/{id}/test` | `{area?}` (`x`, `youtube` (default), `bilibili`, `shop`, `media`) | `{ok, status?, error?, latencyMs, proxy}`             |
 
 `proxies` is the ordered queue; each proxy is `{id, name, scheme, host, port,
 username, hasPassword, passwordUnreadable, enabled, health}`, where `health`
 is `{lastSuccessAt, lastFailureAt, coolingUntil}` from this process. A save
 replaces each field it carries: `proxies` replaces the whole queue (a proxy
 without `id` is new), `routes` maps every area (`x`, `youtube`,
-`bilibili`, `media`, `llm`) to `{enabled, proxyIds}`. In a proxy write,
+`bilibili`, `shop`, `media`, `llm`) to `{enabled, proxyIds}`. In a proxy write,
 an omitted `password` keeps the stored password of the proxy with the same
 `id` while its scheme, host and port stay the same (a changed one is
 `400 invalid_input` until a password is sent), `""` clears it, and a

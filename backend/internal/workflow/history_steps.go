@@ -51,6 +51,9 @@ func (h *HistorySource) MethodAvailable(source, method string) bool {
 			return checker.YTDLPAvailable()
 		}
 		return true
+	case source == history.SourceShop && method == history.MethodCatalog:
+		// The shop step reads the catalog itself, with the shop client.
+		return true
 	}
 	return false
 }

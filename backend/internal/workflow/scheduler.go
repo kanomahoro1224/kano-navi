@@ -17,11 +17,14 @@ const TriggeredBySourceSchedule = "source-schedule"
 // (ADR-0003). reconcile is appended as for every run with a source step.
 // YouTube pushes submit the youtube chain as well. Bilibili uploads, like
 // YouTube's, need no schedule extraction; its dynamics are posts, as on X.
+// The shop writes its sale periods itself and has no media or text to
+// process.
 var SourceChains = map[string][]string{
 	"x":                           {"x", "media", "schedule", "translate"},
 	"youtube":                     {"youtube", "media", "translate"},
 	"bilibili":                    {"bilibili", "media", "translate"},
 	sqlite.BilibiliDynamicsSource: {sqlite.BilibiliDynamicsSource, "media", "schedule", "translate"},
+	sqlite.ShopSource:             {sqlite.ShopSource},
 }
 
 // Scheduler starts due source schedules through the single-flight queue.

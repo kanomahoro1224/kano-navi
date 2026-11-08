@@ -32,7 +32,7 @@ const emptyDashboard: Dashboard = {
   liveNow: null,
   meta: {
     fetchedAt: null,
-    sourceFetchedAt: { x: null, youtube: null, bilibili: null },
+    sourceFetchedAt: { x: null, youtube: null, bilibili: null, shop: null },
     lastSync: null,
     postWindowDays: POST_WINDOW_DAYS,
     xAccounts: ["kano_2525", "_Kanotic"],

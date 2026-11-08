@@ -96,6 +96,7 @@ import {
   stepResult,
   windowText,
 } from "@/admin/views/run-parts"
+import { ShopStatusPanel } from "@/admin/views/shop-parts"
 import { SyncSettingsForm } from "@/admin/views/sync-settings"
 import { cn } from "@/lib/utils"
 
@@ -110,6 +111,7 @@ const skipFlags: Record<ScheduleSource, string> = {
   youtube: "SKIP_YOUTUBE",
   bilibili: "SKIP_BILIBILI",
   bilibili_dynamics: "SKIP_BILIBILI",
+  shop: "SKIP_SHOP",
 }
 
 /** Both Bilibili timers: bounded by BILIBILI_MIN_INTERVAL_MINUTES, sharing
@@ -118,6 +120,10 @@ const isBilibili = (
   source: ScheduleSource,
 ): source is "bilibili" | "bilibili_dynamics" =>
   source === "bilibili" || source === "bilibili_dynamics"
+
+/** The sources with listing methods, read settings and a manual fetch form. */
+const isListing = (source: ScheduleSource): source is "x" | "youtube" =>
+  source === "x" || source === "youtube"
 
 const sameSync = (a: SourceSync | null, b: SourceSync | null) =>
   JSON.stringify(a) === JSON.stringify(b)
@@ -611,7 +617,7 @@ function TimedReadsPanel({
           <Field
             label={t("admin.timer.interval")}
             hint={
-              isBilibili(source)
+              isBilibili(source) || source === "shop"
                 ? t("admin.timer.floor", {
                     floor: formatInterval(schedule.minIntervalMinutes, t),
                   })
@@ -1164,6 +1170,10 @@ interface FetchCounts {
   items?: FetchItem[]
   errors?: string[]
   error?: string
+  /** Shop reads: tagged products with a dated period, and the period
+   * groups they make. */
+  candidates?: number
+  sales?: number
 }
 
 /**
@@ -1177,7 +1187,7 @@ function FetchSummary({
   onOpenRuns,
 }: {
   run: Run
-  source: "x" | "youtube"
+  source: "x" | "youtube" | "shop"
   onOpenRuns: () => void
 }) {
   const { t, locale } = useAppSettings()
@@ -1230,24 +1240,37 @@ function FetchSummary({
         {finished && counts.listed !== undefined ? (
           <>
             <Facts
-              items={[
-                [t("admin.metric.listed"), counts.listed],
-                [t("admin.metric.new"), counts.new],
-                [t("admin.metric.stored"), counts.stored],
-                [t("admin.metric.failed"), counts.failed],
-                [t("admin.metric.pages"), counts.pages],
-                ...(counts.inspected === undefined
-                  ? []
-                  : ([
-                      [t("admin.metric.inspected"), counts.inspected],
-                      [t("admin.metric.apiRequests"), counts.apiRequests],
-                    ] as [string, number | undefined][])),
-              ]}
+              items={
+                source === "shop"
+                  ? [
+                      [t("admin.metric.listed"), counts.listed],
+                      [t("admin.metric.candidates"), counts.candidates],
+                      [t("admin.metric.sales"), counts.sales],
+                      [t("admin.metric.pages"), counts.pages],
+                    ]
+                  : [
+                      [t("admin.metric.listed"), counts.listed],
+                      [t("admin.metric.new"), counts.new],
+                      [t("admin.metric.stored"), counts.stored],
+                      [t("admin.metric.failed"), counts.failed],
+                      [t("admin.metric.pages"), counts.pages],
+                      ...(counts.inspected === undefined
+                        ? []
+                        : ([
+                            [t("admin.metric.inspected"), counts.inspected],
+                            [t("admin.metric.apiRequests"), counts.apiRequests],
+                          ] as [string, number | undefined][])),
+                    ]
+              }
             />
             <p className="adm-field-hint">
               {counts.reachedEnd
                 ? t("admin.fetch.reachedEnd")
-                : t("admin.fetch.repeat")}
+                : t(
+                    source === "shop"
+                      ? "admin.fetch.shopPageLimit"
+                      : "admin.fetch.repeat",
+                  )}
             </p>
             {items.length ? (
               <div className="adm-fetch-items">
@@ -1350,6 +1373,79 @@ function FetchPanel({
       last.data.id === shown &&
       last.data.fetchWindows?.[source] ? (
         <FetchSummary run={last.data} source={source} onOpenRuns={onOpenRuns} />
+      ) : shown ? null : (
+        <p className="adm-fetch-empty">{t("admin.fetch.noneYet")}</p>
+      )}
+    </Panel>
+  )
+}
+
+/**
+ * The shop's manual read: the whole catalog, at most six pages three seconds
+ * apart, for products the timer's newest-50 window never listed. It waits
+ * out a 429's Retry-After like the timer. Then the newest read's summary.
+ */
+function ShopFetchPanel({
+  sources,
+  onOpenRuns,
+}: {
+  sources: Sources
+  onOpenRuns: () => void
+}) {
+  const { t } = useAppSettings()
+  const { api, overview, start } = useAdmin()
+  const shop = sources.shop
+  const method = shop.methods.find((item) => item.id === "catalog")
+  const [busy, setBusy] = useState(false)
+  const [started, setStarted] = useState<string | null>(null)
+  const recent = overview?.recentRuns.find(
+    (run) => run.fetchWindows?.shop?.method,
+  )
+  const shown = started || recent?.id || null
+  const last = useResource(
+    () =>
+      shown ? api.run(shown).then((data) => data.run) : Promise.resolve(null),
+    [shown],
+  )
+  const waiting = Boolean(
+    shop.status.blockedUntil &&
+    Date.parse(shop.status.blockedUntil) > Date.now(),
+  )
+  const readAll = async () => {
+    setBusy(true)
+    const run = await start({
+      kind: "fetch",
+      source: "shop",
+      method: "catalog",
+      window: { mode: "all" },
+    })
+    setBusy(false)
+    if (run) setStarted(run.id)
+  }
+  return (
+    <Panel
+      icon={Download}
+      title={t("admin.fetch.headingFor", { source: t("admin.step.shop") })}
+    >
+      <p className="adm-field-hint">{t("admin.shop.readAllHint")}</p>
+      <div className="adm-form-actions">
+        <Button
+          variant="primary"
+          icon={Download}
+          busy={busy}
+          disabled={
+            shop.skipped ||
+            waiting ||
+            !method?.available ||
+            Boolean(overview?.activeRun)
+          }
+          onClick={() => void readAll()}
+        >
+          {t("admin.shop.readAll")}
+        </Button>
+      </div>
+      {last.data && last.data.id === shown && last.data.fetchWindows?.shop ? (
+        <FetchSummary run={last.data} source="shop" onOpenRuns={onOpenRuns} />
       ) : shown ? null : (
         <p className="adm-fetch-empty">{t("admin.fetch.noneYet")}</p>
       )}
@@ -2023,6 +2119,7 @@ const sourceIds: ScheduleSource[] = [
   "youtube",
   "bilibili",
   "bilibili_dynamics",
+  "shop",
 ]
 
 /**
@@ -2151,6 +2248,9 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                   {selected === "bilibili_dynamics" ? (
                     <BilibiliDynamicsStatus status={data.bilibili} />
                   ) : null}
+                  {selected === "shop" ? (
+                    <ShopStatusPanel shop={data.shop} />
+                  ) : null}
                   {selected === "bilibili" &&
                   data.youtube.liveProbe.bilibili ? (
                     <BilibiliLivePanel
@@ -2164,7 +2264,7 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                       }
                     />
                   ) : null}
-                  {isBilibili(selected) ? null : (
+                  {isListing(selected) ? (
                     <LimitsPanel
                       key={`${selected}-timed`}
                       source={selected}
@@ -2172,7 +2272,7 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                       settings={limits.data}
                       onSaved={limits.setData}
                     />
-                  )}
+                  ) : null}
                   {selected === "youtube" ? (
                     <YTDLPPanel
                       status={ytdlp.data}
@@ -2190,6 +2290,11 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                     <BilibiliAddDynamic
                       status={data.bilibili}
                       onAdded={() => void sources.reload()}
+                    />
+                  ) : selected === "shop" ? (
+                    <ShopFetchPanel
+                      sources={data}
+                      onOpenRuns={() => navigate("runs")}
                     />
                   ) : (
                     <>

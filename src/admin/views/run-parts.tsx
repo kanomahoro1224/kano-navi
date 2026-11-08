@@ -7,6 +7,7 @@ import {
   Images,
   Languages,
   RadioTower,
+  ShoppingBag,
   Sparkles,
   TriangleAlert,
   X,
@@ -47,6 +48,7 @@ export const stepIcons: Record<string, StepIcon> = {
   youtube: YouTubeIcon,
   bilibili: BilibiliIcon,
   bilibili_dynamics: BilibiliIcon,
+  shop: ShoppingBag,
   media: ImageDown,
   schedule: Sparkles,
   translate: Languages,
@@ -128,7 +130,7 @@ export function metricLabel(key: string, t: Translator) {
 }
 
 /** Steps a run may hold and still read as a fetch of its sources. */
-const fetchSteps = ["x", "youtube", "bilibili", "media", "reconcile"]
+const fetchSteps = ["x", "youtube", "bilibili", "shop", "media", "reconcile"]
 
 /** The sources a run fetched through a named method. */
 function fetchedSources(run: Run) {

@@ -19,6 +19,8 @@ import (
 const (
 	SourceX       = "x"
 	SourceYoutube = "youtube"
+	// SourceShop is the official shop; its one fetch reads the whole catalog.
+	SourceShop = "shop"
 
 	xSearchURL = "https://api.x.com/2/tweets/search/all"
 	// xArchiveStart begins a count search. Without a start_time the search

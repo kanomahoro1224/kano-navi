@@ -25,7 +25,12 @@ on the day it opens and again on the day it closes, each marked Opens or
 Closes; when only the deadline is known it appears on that day alone. Both
 entries show whether the sale is upcoming, on sale, or over. They never take
 the place of the next stream at the top of the board; the
-[On sale](now.md#on-sale) row lists the current ones instead.
+[On sale](now.md#on-sale) row lists the current ones instead. Sales come from
+Kano's and her agency's posts and from the official shop, whose goods with
+Kano state their order or sale period; a shop sale opens at the time the
+shop put it on sale and closes on its last day, and links to the collection
+or the product. A post and the shop entry of the same sale show
+as one entry.
 
 Click or tap an entry to open its details: the whole title, its Japan time
 (and your own time when you are outside Japan), its labels, whether it is

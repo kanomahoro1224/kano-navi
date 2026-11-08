@@ -84,8 +84,8 @@ func newConsole(t *testing.T, mode, password string, steps *gatedSteps) *console
 	steps.seen = make(chan string, 64)
 	executor := &workflow.Executor{
 		Store: store, Steps: steps,
-		SyntheticSteps:  map[string]bool{"x": false, "youtube": false, "bilibili": false, "bilibili_dynamics": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
-		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, "bilibili_dynamics": true, "translate": true},
+		SyntheticSteps:  map[string]bool{"x": false, "youtube": false, "bilibili": false, "bilibili_dynamics": false, "shop": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
+		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, "bilibili_dynamics": true, "shop": true, "translate": true},
 	}
 	queue := &workflow.Queue{Store: store, Executor: executor}
 	t.Cleanup(queue.Close)
@@ -103,7 +103,7 @@ func newConsole(t *testing.T, mode, password string, steps *gatedSteps) *console
 		FetchMethods: func(source string) []history.MethodStatus {
 			out := []history.MethodStatus{}
 			for _, method := range history.Methods(source) {
-				out = append(out, history.MethodStatus{Method: method, Available: source == "youtube" || method.ID == history.MethodTimeline})
+				out = append(out, history.MethodStatus{Method: method, Available: source == "youtube" || source == history.SourceShop || method.ID == history.MethodTimeline})
 			}
 			return out
 		},
@@ -233,7 +233,7 @@ func TestSessionGuardsEveryRoute(t *testing.T) {
 func TestOneOffStepRunsReplaceSavedWorkflows(t *testing.T) {
 	c := newConsole(t, "development", "", &gatedSteps{})
 	code, payload := c.call(t, "GET", "/api/admin/runs/steps", "")
-	if code != 200 || len(payload["steps"].([]any)) != 8 {
+	if code != 200 || len(payload["steps"].([]any)) != 9 {
 		t.Fatalf("catalog=%d %v", code, payload)
 	}
 	if skipped := payload["skippedSteps"].([]any); len(skipped) != 1 || skipped[0] != "media" {
@@ -312,7 +312,7 @@ func TestRunsAreSingleFlightAndSurviveOneFailedSource(t *testing.T) {
 		`{"kind":"variants"}`:             "variants is not available",
 		`{"kind":"sync","source":"x"}`:    "source is not supported for sync",
 		`{"kind":"workflow"}`:             "steps must be an array of step ids",
-		`{"kind":"fetch","source":"rss"}`: "source must be x or youtube",
+		`{"kind":"fetch","source":"rss"}`: "source must be x, youtube or shop",
 	} {
 		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
 			t.Fatalf("%s => %d %v", body, code, payload)
@@ -402,6 +402,10 @@ func TestSourceFetchMethods(t *testing.T) {
 	if _, legacy := x["windows"]; legacy {
 		t.Fatalf("x=%v", x)
 	}
+	shop := payload["shop"].(map[string]any)
+	if got := describe(shop); got != "catalog [all] 0 true <nil>" || shop["status"].(map[string]any)["sales"] != float64(0) {
+		t.Fatalf("shop=%v", shop)
+	}
 	for body, message := range map[string]string{
 		`{"kind":"fetch","source":"x","window":{"mode":"count","count":5}}`:                                                           "method must be one of timeline, api",
 		`{"kind":"fetch","source":"x","method":"timeline"}`:                                                                           "fetch window is required",
@@ -416,6 +420,9 @@ func TestSourceFetchMethods(t *testing.T) {
 		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"all"},"options":{"translate":"yes"}}`:                     "options.translate must be true or false",
 		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"all"},"options":{"fallback":true}}`:                       "options.fallback is not supported",
 		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"all"},"options":[]}`:                                      "options must be an object",
+		`{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"count","count":5}}`:                                     "this fetch uses a retired selection; start a new fetch",
+		`{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"all"},"options":{"translate":true}}`:                    "translate is not supported for the shop",
+		`{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"all"},"options":{"extract":true}}`:                      "extract is not supported for this method",
 	} {
 		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
 			t.Fatalf("%s => %d %v", body, code, payload)
@@ -433,6 +440,15 @@ func TestSourceFetchMethods(t *testing.T) {
 	}
 	if fmt.Sprint(all["steps"]) != "[youtube media translate reconcile]" {
 		t.Fatalf("steps=%v", all["steps"])
+	}
+	// The shop's read-all has no media to download.
+	code, payload = c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"all"}}`)
+	if code != 202 {
+		t.Fatalf("shop=%d %v", code, payload)
+	}
+	catalog := c.waitForRun(t, runID(t, payload), "completed")
+	if window := catalog["fetchWindows"].(map[string]any)["shop"].(map[string]any); window["method"] != "catalog" || window["mode"] != "all" || fmt.Sprint(catalog["steps"]) != "[shop reconcile]" {
+		t.Fatalf("shop run=%v", catalog)
 	}
 	code, payload = c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"count","count":20},"options":{"extract":true,"translate":false}}`)
 	if code != 202 {

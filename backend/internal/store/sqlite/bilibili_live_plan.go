@@ -407,6 +407,10 @@ func (s *Store) attachEventPlatforms(ctx context.Context, events []DashboardEven
 // projectRoom attaches the room's broadcast to the read events and returns
 // the unmatched broadcast and the room's link ("" until a check learned it).
 func (s *Store) projectRoom(ctx context.Context, events []DashboardEvent, states []eventPlatformState, now time.Time) (*LiveNow, string, error) {
+	// A snapshot without live bookkeeping has never seen the room.
+	if exists, err := s.hasTable(ctx, "sync_state"); err != nil || !exists {
+		return nil, "", err
+	}
 	live, err := readBilibiliLive(ctx, s.db, bilisource.OptionsFromEnv().Account)
 	if err != nil {
 		return nil, "", dbErr(err)

@@ -15,12 +15,14 @@ const TriggeredBySourceSchedule = "source-schedule"
 
 // SourceChains are the fixed steps a due source schedule submits
 // (ADR-0003). reconcile is appended as for every run with a source step.
-// YouTube pushes submit the youtube chain as well. Bilibili uploads, like
+// YouTube pushes submit the youtube chain as well. The related X accounts'
+// statuses that their read promotes are posts, as on X. Bilibili uploads, like
 // YouTube's, need no schedule extraction; its dynamics are posts, as on X.
 // The shop writes its sale periods itself and has no media or text to
 // process.
 var SourceChains = map[string][]string{
 	"x":                           {"x", "media", "schedule", "translate"},
+	sqlite.XRelatedStep:           {sqlite.XRelatedStep, "media", "schedule", "translate"},
 	"youtube":                     {"youtube", "media", "translate"},
 	"bilibili":                    {"bilibili", "media", "translate"},
 	sqlite.BilibiliDynamicsSource: {sqlite.BilibiliDynamicsSource, "media", "schedule", "translate"},

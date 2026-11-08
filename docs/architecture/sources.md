@@ -146,19 +146,24 @@ stage later in the same command downloads pending image files from X's
 
 A related account (such as the agency, `@Mil_Pro_`) is a second account
 role beside the own accounts of `X_HANDLES`, configured on the console's
-Sources page with its keyword rules in the app setting `x_related_accounts`
+Sources page beside its timer, with its keyword rules in the app setting
+`x_related_accounts`
 (see [Configuration](../operations/configuration.md#related-x-accounts)) and
 decided in [ADR-0009](../decisions/ADR-0009-related-x-accounts-and-quoted-statuses.md).
 A handle is in one role at a time, and the setting starts empty.
 
-Each run of the `x` step, after the own accounts, reads every related
+The related accounts have their own timer and step, `x_related`
+([Source schedules](workflows.md#source-schedules), every 180 minutes by
+default), apart from the own accounts' `x`. Each run reads every related
 account's own timeline in full into the X status pool (`x_statuses`, see
-[Quoted posts](#quoted-posts)), whatever the X schedule's sync setting:
+[Quoted posts](#quoted-posts)):
 
-- It reads the FxTwitter timeline alone, with the own accounts' discovery
-  limit and first-run age. It has no profile-page fallback and no X API
-  method, and it makes no detail request, since a page carries each status;
-  a status without usable content is left out. Its reposts and other
+- It reads the FxTwitter timeline alone, at most the schedule's incremental
+  `max` (1–200, default 50) new statuses per account, else the X discovery
+  limit, and on a first read back the run's lookback days, else the X
+  first-run age. It has no `count` setting, no profile-page fallback and no
+  X API method, and it makes no detail request, since a page carries each
+  status; a status without usable content is left out. Its reposts and other
   authors' statuses are left out too.
 - The count-based model ([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md))
   holds as for an own account, with its own `sync_state` row of source
@@ -166,12 +171,18 @@ account's own timeline in full into the X status pool (`x_statuses`, see
   gap and the known statuses come from the pool's statuses that the
   account's timeline listed (`listed_at`), never from `posts`, so a role
   change never mixes cursors.
-- A failed read keeps the cursor and the pool, records its code in the row's
-  `lastError` and leaves the run partial, never failed. While FxTwitter is
-  down, related accounts are not read; a timeline gap covers the stretch.
+- A failed read keeps the cursor and the pool and records its code in the
+  row's `lastError`. While FxTwitter is down, related accounts are not read;
+  a timeline gap covers the stretch.
 
-The step result adds `related: {accounts, listed, promoted, demoted}` when
-any related account is configured.
+The step result is `{source: "x_related", accounts, listed, promoted,
+demoted}`. Without a related account the step records `{skipped: true,
+reason: "no_accounts"}` and makes no request. An account whose read failed,
+and a read's notes such as a timeline gap, leave the step `partial` with
+`errors` as `@<handle>: <code>`; when every account failed the step fails
+with `x_related_failed`. The own accounts' read and the related accounts'
+read never decide each other's outcome, and quotes and reposts of the own
+accounts write the pool in the `x` step whether or not `x_related` runs.
 
 Every pooled status stores the reasons that apply to it:
 

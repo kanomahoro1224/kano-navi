@@ -18,10 +18,11 @@ type SourceSchedule struct {
 	Source          string `json:"source"`
 	Enabled         bool   `json:"enabled"`
 	IntervalMinutes int    `json:"intervalMinutes"`
-	// Sync is how X and YouTube are read (ADR-0002); Bilibili has none.
+	// Sync is how X, its related accounts and YouTube are read (ADR-0002);
+	// Bilibili and the shop have none.
 	Sync *SourceSync `json:"sync"`
 	// Chain is the fallback over listing methods that X and YouTube reads
-	// try (ADR-0004); each Bilibili timer's is its one fixed method.
+	// try (ADR-0004); every other timer's is its one fixed method.
 	Chain     SourceChain        `json:"chain"`
 	NextRunAt *string            `json:"nextRunAt"`
 	UpdatedAt *string            `json:"updatedAt"`
@@ -56,8 +57,13 @@ const (
 // device identity and captcha backoff.
 const BilibiliDynamicsSource = "bilibili_dynamics"
 
+// XRelatedStep is the timer and step that read the related X accounts'
+// timelines into the X status pool; "x" reads the own accounts. Its runs
+// keep the x-related sync_state rows (XRelatedSource).
+const XRelatedStep = "x_related"
+
 // ScheduleSources are the sources with a schedule, in catalog order.
-var ScheduleSources = []string{"x", "youtube", "bilibili", BilibiliDynamicsSource, ShopSource}
+var ScheduleSources = []string{"x", XRelatedStep, "youtube", "bilibili", BilibiliDynamicsSource, ShopSource}
 
 // IsBilibiliSchedule reports a Bilibili timer, bounded below by
 // BILIBILI_MIN_INTERVAL_MINUTES.
@@ -90,6 +96,8 @@ func defaultScheduleInterval(source string) int {
 	switch source {
 	case "x":
 		return 30
+	case XRelatedStep:
+		return 180
 	case "youtube":
 		return 60
 	case ShopSource:
@@ -217,7 +225,7 @@ func (s *Store) SaveSourceSchedule(ctx context.Context, input SourceSchedule, fl
 		return SourceSchedule{}, err
 	}
 	low, high := SourceScheduleBounds(input.Source, floor)
-	if input.IntervalMinutes < low || input.IntervalMinutes > high || (input.Sync == nil) != (current.Sync == nil) || (input.Sync != nil && !input.Sync.Valid()) || (slices.Contains(ChainSources, input.Source) && input.Chain.Problem(input.Source) != "") {
+	if input.IntervalMinutes < low || input.IntervalMinutes > high || (input.Sync == nil) != (current.Sync == nil) || (input.Sync != nil && !input.Sync.ValidFor(input.Source)) || (slices.Contains(ChainSources, input.Source) && input.Chain.Problem(input.Source) != "") {
 		return SourceSchedule{}, ErrWorkflowValidation
 	}
 	tx, err := s.workflowTx(ctx)
@@ -343,7 +351,8 @@ func (s *Store) StartSourceScheduleNow(ctx context.Context, source string, now t
 	return s.SourceScheduleFor(ctx, source, floor)
 }
 
-// SourceScheduleSync is how each source schedule reads X and YouTube, which
+// SourceScheduleSync is how each source schedule reads X, its related
+// accounts and YouTube, which
 // every run with a source step reads with, except a full sync.
 func (s *Store) SourceScheduleSync(ctx context.Context) (map[string]SourceSync, error) {
 	schedules, err := s.SourceSchedules(ctx, SourceScheduleMinMinutes)
@@ -443,8 +452,10 @@ func (s *Store) planSourceSchedule(ctx context.Context, tx *sql.Tx, source strin
 // Bilibili timer below a raised floor is raised to it. A saved Bilibili timer
 // without a dynamics timer beside it gets one, as enabled and with the same
 // interval, planned half an interval after the upload read so the two never
-// fall due together. Timers live only in source_schedules (ADR-0003), so
-// nothing else is moved.
+// fall due together. A saved X timer without a related-accounts timer beside
+// it gets one, as enabled, with the default interval and sync, planned half
+// the X interval after the X timer's next run. Timers live only in
+// source_schedules (ADR-0003), so nothing else is moved.
 func (s *Store) PrepareSourceSchedules(ctx context.Context, floor int, now time.Time) error {
 	tx, err := s.workflowTx(ctx)
 	if err != nil {
@@ -456,6 +467,9 @@ func (s *Store) PrepareSourceSchedules(ctx context.Context, floor int, now time.
 		return ErrWorkflowStorage
 	}
 	if err = splitBilibiliDynamics(ctx, tx, now); err != nil {
+		return err
+	}
+	if err = splitXRelated(ctx, tx, now); err != nil {
 		return err
 	}
 	if tx.Commit() != nil {
@@ -494,6 +508,42 @@ func splitBilibiliDynamics(ctx context.Context, tx *sql.Tx, now time.Time) error
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO source_schedules(source,enabled,interval_minutes,sync_json,chain_json,next_run_at,updated_at) VALUES(?,?,?,'{}','{}',?,?)`,
 		BilibiliDynamicsSource, enabled, interval, planned, workflowTime(now)); err != nil {
+		return ErrWorkflowStorage
+	}
+	return nil
+}
+
+// splitXRelated adds the related-accounts timer beside a saved X timer that
+// has none, keeping its switch: the related accounts were read by the X
+// timer's runs before they had a timer of their own. The interval and sync
+// are the defaults; the row's '{}' sync reads as the incremental default.
+func splitXRelated(ctx context.Context, tx *sql.Tx, now time.Time) error {
+	var present int
+	if tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM source_schedules WHERE source=?`, XRelatedStep).Scan(&present) != nil {
+		return ErrWorkflowStorage
+	}
+	if present > 0 {
+		return nil
+	}
+	var enabled, interval int
+	var next sql.NullString
+	err := tx.QueryRowContext(ctx, `SELECT enabled,interval_minutes,next_run_at FROM source_schedules WHERE source='x'`).Scan(&enabled, &interval, &next)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return ErrWorkflowStorage
+	}
+	var planned any
+	if enabled != 0 {
+		base := now
+		if parsed, parseErr := time.Parse(time.RFC3339Nano, next.String); next.Valid && parseErr == nil {
+			base = parsed
+		}
+		planned = workflowTime(base.Add(time.Duration(interval) * time.Minute / 2))
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO source_schedules(source,enabled,interval_minutes,sync_json,chain_json,next_run_at,updated_at) VALUES(?,?,?,'{}','{}',?,?)`,
+		XRelatedStep, enabled, defaultScheduleInterval(XRelatedStep), planned, workflowTime(now)); err != nil {
 		return ErrWorkflowStorage
 	}
 	return nil

@@ -154,7 +154,7 @@ func scanStep(row workflowScanner, extra ...any) (WorkflowStep, error) {
 		return st, err
 	}
 	st.Status = workflowStatus(st.Status, true)
-	if st.Capability != "synthetic" && st.Capability != "x_recent" && st.Capability != "youtube_recent" && st.Capability != "bilibili_recent" && st.Capability != "bilibili_dynamics" && st.Capability != "shop_sales" && st.Capability != "youtube_live" && st.Capability != "media_download" && st.Capability != "schedule_extract" && st.Capability != "text_translate" && st.Capability != "media_variants" && st.Capability != "event_reconcile" {
+	if st.Capability != "synthetic" && st.Capability != "x_recent" && st.Capability != "x_related" && st.Capability != "youtube_recent" && st.Capability != "bilibili_recent" && st.Capability != "bilibili_dynamics" && st.Capability != "shop_sales" && st.Capability != "youtube_live" && st.Capability != "media_download" && st.Capability != "schedule_extract" && st.Capability != "text_translate" && st.Capability != "media_variants" && st.Capability != "event_reconcile" {
 		st.Capability = "capability_not_migrated"
 	}
 	st.StartedAt = nullableWorkflowString(sa)

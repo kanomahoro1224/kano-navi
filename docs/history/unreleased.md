@@ -39,9 +39,14 @@
 > ([ADR-0009](../decisions/ADR-0009-related-x-accounts-and-quoted-statuses.md))
 > start empty: the `x_related_accounts` setting is empty after the upgrade
 > and on a fresh install, so no account beyond `X_HANDLES` is read. To follow
-> Kano's agency, add `Mil_Pro_` on `/admin` → Sources → X. A new account
-> starts with the keyword rules `鹿乃`, `@kano_2525` and `#鹿乃まほろ`, and the
-> next X run reads its timeline through FxTwitter only.
+> Kano's agency, add `Mil_Pro_` on `/admin` → Sources → X related. A new
+> account starts with the keyword rules `鹿乃`, `@kano_2525` and `#鹿乃まほろ`.
+> Related accounts are read on their own `x_related` timer, through
+> FxTwitter only: startup gives a saved X timer an `x_related` timer beside it
+> with the same switch, every 180 minutes with the default incremental read,
+> planned half the X interval after the X timer's next run; a fresh install
+> keeps it off. `SKIP_X` covers both X timers. The step catalog, the source
+> schedules and the overview's sources add `x_related`.
 
 > [!NOTE]
 > Startup creates the `x_statuses` and `x_reposts` tables, adds
@@ -274,10 +279,13 @@
 - Quoted statuses are kept in a status pool that the public pages never
   read, and own accounts' reposts are recorded as links; neither becomes a
   post.
-- Each X run also reads related accounts, such as the agency, in full into
-  the pool through the FxTwitter timeline only, with their own cursor.
-  Statuses matching the account's keyword rules are promoted onto the board
-  without schedule-image candidates; the rest stay in the pool.
+- Related accounts, such as the agency, are read in full into the pool
+  through the FxTwitter timeline only, with their own cursor, on their own
+  `x_related` timer (every three hours by default), so a failed read of
+  Kano's accounts never stops them and their failures never make an X run
+  partial. Statuses matching the account's keyword rules are promoted onto
+  the board without schedule-image candidates, then extracted and translated
+  in the same run; the rest stay in the pool.
 - A `shop` step reads the official shop's public product JSON on
   `shop.milpr.com` as `kano-navi-go/shop`: the newest 50 products on each
   timed run, the collection list only for products no stored sale holds,
@@ -324,7 +332,9 @@
 - The schedule marks an automatic entry whose every source post is hidden
   as Hidden by its posts and dims it in the list and the calendar, since the
   public pages leave it out.
-- Sources → X lists related accounts with their keyword rules and last read.
+- Sources has an X related tab: the related accounts' timer (switch,
+  interval, most new statuses per account, next and last run, Run now) beside
+  the related accounts with their keyword rules and last read.
 - External posts, in the Data group, lists the status pool with its reasons
   and state, and promotes or demotes a status with a reason, as a lock the
   keyword rules never override. Posts marks promoted posts.

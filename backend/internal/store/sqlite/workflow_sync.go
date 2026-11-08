@@ -4,7 +4,8 @@ import "encoding/json"
 
 // SourceSync is how a source schedule reads one source (ADR-0002, ADR-0003):
 // "incremental" reads newest first until a stored record, at most Max per X
-// account or YouTube channel; "count" reads the newest Count every run.
+// account, related X account or YouTube channel; "count" reads the newest
+// Count every run.
 type SourceSync struct {
 	Mode  string `json:"mode"`
 	Max   int    `json:"max,omitempty"`
@@ -22,7 +23,13 @@ const (
 )
 
 // SyncSources are the sources whose schedule has a sync setting.
-var SyncSources = []string{"x", "youtube"}
+var SyncSources = []string{"x", XRelatedStep, "youtube"}
+
+// ValidFor reports whether the setting is valid for source: the related X
+// accounts read incrementally only.
+func (s SourceSync) ValidFor(source string) bool {
+	return s.Valid() && (source != XRelatedStep || s.Mode == SyncIncremental)
+}
 
 // Valid reports whether the setting names one mode with a bound in range.
 func (s SourceSync) Valid() bool {
@@ -51,7 +58,7 @@ func readSourceSync(raw string) map[string]SourceSync {
 	var stored map[string]SourceSync
 	if json.Unmarshal([]byte(raw), &stored) == nil {
 		for source, setting := range stored {
-			if _, known := out[source]; known && setting.Valid() {
+			if _, known := out[source]; known && setting.ValidFor(source) {
 				out[source] = setting
 			}
 		}

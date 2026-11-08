@@ -84,8 +84,8 @@ func newConsole(t *testing.T, mode, password string, steps *gatedSteps) *console
 	steps.seen = make(chan string, 64)
 	executor := &workflow.Executor{
 		Store: store, Steps: steps,
-		SyntheticSteps:  map[string]bool{"x": false, "youtube": false, "bilibili": false, "bilibili_dynamics": false, "shop": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
-		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, "bilibili_dynamics": true, "shop": true, "translate": true},
+		SyntheticSteps:  map[string]bool{"x": false, "x_related": false, "youtube": false, "bilibili": false, "bilibili_dynamics": false, "shop": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
+		TolerateFailure: map[string]bool{"x": true, "x_related": true, "youtube": true, "bilibili": true, "bilibili_dynamics": true, "shop": true, "translate": true},
 	}
 	queue := &workflow.Queue{Store: store, Executor: executor}
 	t.Cleanup(queue.Close)
@@ -233,7 +233,7 @@ func TestSessionGuardsEveryRoute(t *testing.T) {
 func TestOneOffStepRunsReplaceSavedWorkflows(t *testing.T) {
 	c := newConsole(t, "development", "", &gatedSteps{})
 	code, payload := c.call(t, "GET", "/api/admin/runs/steps", "")
-	if code != 200 || len(payload["steps"].([]any)) != 9 {
+	if code != 200 || len(payload["steps"].([]any)) != 10 {
 		t.Fatalf("catalog=%d %v", code, payload)
 	}
 	if skipped := payload["skippedSteps"].([]any); len(skipped) != 1 || skipped[0] != "media" {

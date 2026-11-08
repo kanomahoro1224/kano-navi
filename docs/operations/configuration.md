@@ -169,11 +169,11 @@ effect once stored and need not be set.
 ## Related X accounts
 
 Related X accounts are not environment variables: they live in the app
-setting `x_related_accounts` and are edited on `/admin` → Sources → X,
-beside the X API limits. Each account is a handle that is not one of
+setting `x_related_accounts` and are edited on `/admin` → Sources → X
+related, beside their timer. Each account is a handle that is not one of
 `X_HANDLES`, with keyword rules (`鹿乃`, `@kano_2525` and `#鹿乃まほろ` for a
-newly added account). Each X run reads them after the own accounts through
-the FxTwitter timeline only; see
+newly added account). Each run of the related-accounts timer reads them
+through the FxTwitter timeline only; see
 [Related accounts](../architecture/sources.md#related-accounts). The setting
 starts empty, and seeding leaves it as it is.
 
@@ -185,15 +185,17 @@ live-status probe. Manual runs from /admin, including each source's Run now,
 work either way. Page requests and admin reads never start a
 timer or a run. Each source's timer is an operator setting, not an
 environment variable: `/admin` → Sources turns it on or off and sets its
-interval and read mode, stored in the `source_schedules` table (X 30 minutes
-and YouTube 60 by default, 15 minutes through seven days; the Bilibili
+interval and read mode, stored in the `source_schedules` table (X 30
+minutes, its related accounts 180 and YouTube 60 by default, 15 minutes
+through seven days; the Bilibili
 uploads and dynamics timers 180 each by default, never below
 `BILIBILI_MIN_INTERVAL_MINUTES`). Both Bilibili timers reach the same
 address, so their requests add up: keep the dynamics timer no shorter than
 the uploads timer until the account has read without a captcha for a while.
 The [official shop](../architecture/sources.md#official-shop)'s timer is 360
 minutes by default and never below 180. `SKIP_X`, `SKIP_YOUTUBE`,
-`SKIP_BILIBILI` and `SKIP_SHOP` keep that source's timers from running.
+`SKIP_BILIBILI` and `SKIP_SHOP` keep that source's timers from running
+(`SKIP_X` both X timers).
 Per-source timers are the only timed sync
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)). See
 [Workflows](../architecture/workflows.md#source-schedules).

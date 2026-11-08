@@ -45,6 +45,7 @@ type StepIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>
 
 export const stepIcons: Record<string, StepIcon> = {
   x: XIcon,
+  x_related: XIcon,
   youtube: YouTubeIcon,
   bilibili: BilibiliIcon,
   bilibili_dynamics: BilibiliIcon,

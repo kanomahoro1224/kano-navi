@@ -12,6 +12,7 @@ const overview = {
   timers: { scheduled: 0, nextRunAt: null },
   sources: {
     x: { skipped: true, lastSuccessAt: null, lastStep: null },
+    x_related: { skipped: true, lastSuccessAt: null, lastStep: null },
     youtube: { skipped: true, lastSuccessAt: null, lastStep: null },
     bilibili: { skipped: true, lastSuccessAt: null, lastStep: null },
     bilibili_dynamics: { skipped: true, lastSuccessAt: null, lastStep: null },

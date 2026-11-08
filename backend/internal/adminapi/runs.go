@@ -20,6 +20,7 @@ import (
 // workflowSteps is the step catalog in execution order.
 var workflowSteps = []map[string]string{
 	{"id": "x", "group": "source"},
+	{"id": sqlite.XRelatedStep, "group": "source"},
 	{"id": "youtube", "group": "source"},
 	{"id": "bilibili", "group": "source"},
 	{"id": sqlite.BilibiliDynamicsSource, "group": "source"},
@@ -615,7 +616,7 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		"timers":               timers,
 		"queue":                queue,
 		"backlog":              backlog,
-		"sources":              map[string]any{"x": source("x"), "youtube": youtube, "bilibili": source("bilibili"), sqlite.BilibiliDynamicsSource: dynamics, sqlite.ShopSource: source(sqlite.ShopSource)},
+		"sources":              map[string]any{"x": source("x"), sqlite.XRelatedStep: source(sqlite.XRelatedStep), "youtube": youtube, "bilibili": source("bilibili"), sqlite.BilibiliDynamicsSource: dynamics, sqlite.ShopSource: source(sqlite.ShopSource)},
 		"review": map[string]int{
 			"pendingImages":          counts.PendingImages,
 			"suspectedCancellations": counts.SuspectedCancellations,

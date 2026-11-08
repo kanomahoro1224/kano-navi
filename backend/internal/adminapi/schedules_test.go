@@ -15,7 +15,7 @@ import (
 func scheduleBySource(t *testing.T, payload map[string]any, source string) map[string]any {
 	t.Helper()
 	schedules, ok := payload["schedules"].([]any)
-	if !ok || len(schedules) != 5 {
+	if !ok || len(schedules) != 6 {
 		t.Fatalf("schedules=%v", payload["schedules"])
 	}
 	for _, entry := range schedules {
@@ -44,6 +44,12 @@ func TestSourceSchedulesAPI(t *testing.T) {
 	if _, reported := x["reason"]; reported {
 		t.Fatalf("an active source has no skip reason: %v", x)
 	}
+	// The related accounts' timer reads incrementally only, every three
+	// hours by default.
+	related := scheduleBySource(t, payload, sqlite.XRelatedStep)
+	if sync, _ := json.Marshal(related["sync"]); related["enabled"] != false || related["intervalMinutes"] != float64(180) || related["minIntervalMinutes"] != float64(15) || related["maxIntervalMinutes"] != float64(10080) || string(sync) != `{"max":50,"mode":"incremental"}` {
+		t.Fatalf("x_related=%v", related)
+	}
 	// Without a Bilibili reader the floor is the environment default.
 	if bilibili := scheduleBySource(t, payload, "bilibili"); bilibili["sync"] != nil || bilibili["intervalMinutes"] != float64(180) || bilibili["minIntervalMinutes"] != float64(180) {
 		t.Fatalf("bilibili=%v", bilibili)
@@ -64,6 +70,12 @@ func TestSourceSchedulesAPI(t *testing.T) {
 			`{"intervalMinutes":10081}`:                      "intervalMinutes must be an integer from 15 to 10080",
 			`{"sync":{"mode":"incremental","max":201}}`:      "max must be an integer from 1 to 200",
 			`{"sync":{"mode":"count","count":200,"x":true}}`: "x is not a sync field",
+		},
+		"/api/admin/sources/x_related/schedule": {
+			`{"sync":{"mode":"count","count":20}}`:      "x_related reads incrementally only",
+			`{"intervalMinutes":10}`:                    "intervalMinutes must be an integer from 15 to 10080",
+			`{"sync":{"mode":"incremental","max":201}}`: "max must be an integer from 1 to 200",
+			`{"chain":{"methods":[]}}`:                  "the x_related chain is fixed",
 		},
 		"/api/admin/sources/bilibili/schedule": {
 			`{"intervalMinutes":120}`:                  "intervalMinutes must be an integer from 180 to 10080",
@@ -90,6 +102,10 @@ func TestSourceSchedulesAPI(t *testing.T) {
 	sync, _ = json.Marshal(payload["sync"])
 	if code != 200 || payload["intervalMinutes"] != float64(20) || payload["nextRunAt"] != "2026-03-02T03:20:00.000Z" || string(sync) != `{"count":40,"mode":"count"}` {
 		t.Fatalf("sync=%d %v", code, payload)
+	}
+	code, payload = c.call(t, "PUT", "/api/admin/sources/x_related/schedule", `{"sync":{"mode":"incremental","max":120},"intervalMinutes":360}`)
+	if sync, _ = json.Marshal(payload["sync"]); code != 200 || payload["intervalMinutes"] != float64(360) || payload["enabled"] != false || string(sync) != `{"max":120,"mode":"incremental"}` {
+		t.Fatalf("x_related=%d %v", code, payload)
 	}
 	if code, payload = c.call(t, "PUT", "/api/admin/sources/bilibili/schedule", `{"enabled":true}`); code != 200 || payload["nextRunAt"] != "2026-03-02T06:00:00.000Z" {
 		t.Fatalf("bilibili=%d %v", code, payload)
@@ -184,6 +200,7 @@ func TestRunNowSubmitsTheSourceChainOnce(t *testing.T) {
 	// extraction, and dynamics are posts that do. The shop writes its sale
 	// periods itself.
 	for source, want := range map[string]string{
+		sqlite.XRelatedStep: "[x_related media schedule translate reconcile]",
 		"bilibili":          "[bilibili media translate reconcile]",
 		"bilibili_dynamics": "[bilibili_dynamics media schedule translate reconcile]",
 		"shop":              "[shop reconcile]",
@@ -193,7 +210,7 @@ func TestRunNowSubmitsTheSourceChainOnce(t *testing.T) {
 			t.Fatalf("%s=%d %v", source, code, payload)
 		}
 		run := c.waitForRun(t, runID(t, payload), "completed")
-		if run["sourceSchedule"] != source || fmt.Sprint(run["steps"]) != want || run["fetchWindows"] != nil {
+		if run["sourceSchedule"] != source || fmt.Sprint(run["steps"]) != want || run["fetchWindows"] != nil || run["triggeredBy"] != "admin" {
 			t.Fatalf("%s run=%v", source, run)
 		}
 	}
@@ -219,6 +236,9 @@ func TestSourceScheduleChainAPI(t *testing.T) {
 	}
 	if bilibili, _ := json.Marshal(scheduleBySource(t, payload, "bilibili")["chain"]); string(bilibili) != `{"fixed":true,"methods":[{"available":true,"enabled":true,"id":"list"}]}` {
 		t.Fatalf("bilibili chain=%s", bilibili)
+	}
+	if related, _ := json.Marshal(scheduleBySource(t, payload, sqlite.XRelatedStep)["chain"]); string(related) != `{"fixed":true,"methods":[{"available":true,"enabled":true,"id":"timeline"}]}` {
+		t.Fatalf("x_related chain=%s", related)
 	}
 	for path, cases := range map[string]map[string]string{
 		"/api/admin/sources/x/schedule": {

@@ -420,6 +420,9 @@ export function OverviewView({ navigate }: ViewProps) {
         >
           <ul className="adm-source-list">
             <SourceRow id="x" health={overview.sources.x} />
+            {overview.sources.x_related ? (
+              <SourceRow id="x_related" health={overview.sources.x_related} />
+            ) : null}
             <SourceRow id="youtube" health={overview.sources.youtube} />
             <SourceRow id="bilibili" health={overview.sources.bilibili} />
             {overview.sources.bilibili_dynamics ? (

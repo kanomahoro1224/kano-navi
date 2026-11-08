@@ -134,6 +134,8 @@ func (s *Store) CreateWorkflowRun(ctx context.Context, definition WorkflowDefini
 			switch step {
 			case "x":
 				adapter = "x_recent"
+			case XRelatedStep:
+				adapter = "x_related"
 			case "youtube":
 				adapter = "youtube_recent"
 			case "bilibili":

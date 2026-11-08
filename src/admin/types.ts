@@ -387,7 +387,7 @@ export interface SyncSettings {
 }
 
 export type ScheduleSource =
-  "x" | "youtube" | "bilibili" | "bilibili_dynamics" | "shop"
+  "x" | "x_related" | "youtube" | "bilibili" | "bilibili_dynamics" | "shop"
 
 /** One listing method of a source's fallback chain (ADR-0004). */
 export interface ChainMethod {
@@ -401,7 +401,8 @@ export interface ChainMethod {
 /** The ordered fallback over listing methods that timed reads try. */
 export interface SourceChain {
   methods: ChainMethod[]
-  /** Bilibili's one method cannot be reordered. */
+  /** The one method of the related X accounts, Bilibili or the shop cannot
+   * be reordered. */
   fixed: boolean
   /** X only: timeline failures before the API runs, and its daily cap. */
   apiGate?: number
@@ -424,7 +425,7 @@ export interface SourceSchedule {
   intervalMinutes: number
   minIntervalMinutes: number
   maxIntervalMinutes: number
-  /** X and YouTube only. */
+  /** X, its related accounts (incremental only) and YouTube. */
   sync: SourceSync | null
   chain: SourceChain
   nextRunAt: string | null

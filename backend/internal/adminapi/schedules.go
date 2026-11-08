@@ -136,6 +136,10 @@ func (a *api) updateSourceSchedule(w http.ResponseWriter, r *http.Request) {
 				httpx.WriteError(w, syncErr)
 				return
 			}
+			if !setting.ValidFor(source) {
+				httpx.WriteError(w, httpx.Invalid("%s reads incrementally only", source))
+				return
+			}
 			schedule.Sync = &setting
 		case "chain":
 			chain, chainErr := sourceChain(source, raw, schedule.Chain)

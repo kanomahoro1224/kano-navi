@@ -64,6 +64,7 @@ external work:
   },
   "sources": {
     "x":       {"skipped", "lastSuccessAt", "lastStep"},
+    "x_related": {"skipped", "lastSuccessAt", "lastStep"}, // lastSuccessAt: the newest related account's read
     "youtube": {"skipped", "lastSuccessAt", "lastStep", "push": {"enabled", "verified"}},
     "bilibili": {"skipped", "lastSuccessAt", "lastStep"},
     "bilibili_dynamics": {"skipped", "lastSuccessAt", "lastStep"}, // lastSuccessAt: the listing's
@@ -196,7 +197,7 @@ A busy queue answers `409` with the active run. There are no saved workflows
 `/workflows` routes (`404 not_found`).
 
 `GET /runs/steps` is the step catalog `[{id, group}]` in execution order
-(`x`, `youtube`, `bilibili`, `bilibili_dynamics`, `shop` are `source`; `media`,
+(`x`, `x_related`, `youtube`, `bilibili`, `bilibili_dynamics`, `shop` are `source`; `media`,
 `schedule`,
 `translate`, `reconcile` are `process`), and `skippedSteps` lists the
 steps disabled through `SKIP_*`.
@@ -328,7 +329,8 @@ each a valid handle (a leading `@` is dropped) listed once and not one of
 characters; anything else answers `400 invalid_input` naming the problem.
 Saving evaluates every pooled status against the new rules in the same
 transaction, promoting and demoting, and moves the dashboard revision when a
-post changed. Neither route contacts X; the next X run reads the accounts.
+post changed. Neither route contacts X; the next `x_related` run reads the
+accounts.
 
 `FetchMethod` describes one manual fetch method in the order the console
 offers them: `{id, modes, maxCount, pageSize, requires, refresh, extract,
@@ -339,19 +341,20 @@ it, or the method's adapter, is missing. `refresh` and `extract` say which
 options the method takes.
 
 `schedules` lists the [source schedules](workflows.md#source-schedules) of
-`x`, `youtube`, `bilibili`, `bilibili_dynamics` and `shop`, in that order.
+`x`, `x_related`, `youtube`, `bilibili`, `bilibili_dynamics` and `shop`, in
+that order.
 `SourceSchedule` is `{source,
 enabled, intervalMinutes, minIntervalMinutes, maxIntervalMinutes, sync,
 chain, nextRunAt, lastRun, skipped}`, plus `reason: "environment"` while `SKIP_*`
-disables the source. `sync` is `{mode: "incremental", max}` (default, `max` 50) or `{mode: "count", count}`, each 1–200, and null for both Bilibili timers and the shop.
+disables the source. `sync` is `{mode: "incremental", max}` (default, `max` 50) or `{mode: "count", count}`, each 1–200; `x_related` takes the incremental form only, and `sync` is null for both Bilibili timers and the shop.
 `chain` is the source's [method chain](workflows.md#method-chains):
 `{methods, fixed}`, where `methods` lists `{id, enabled, available,
 requires}` in the order reads try them. `available` is false while the
 method's credential is missing, and `requires` names its variable
 (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY` or `YTDLP_BINARY`) for methods that need one. `fixed`
-is true for the Bilibili and shop timers, whose one method (`list` for
-uploads, `dynamics` for the dynamics listing, `new_arrivals` for the shop)
-cannot change. The X chain adds
+is true for the related-accounts, Bilibili and shop timers, whose one
+method (`timeline` for the related accounts, `list` for uploads, `dynamics`
+for the dynamics listing, `new_arrivals` for the shop) cannot change. The X chain adds
 `apiGate`, `apiDailyCap`, `apiUsage` (`{day, posts}`, the posts X API
 answers returned on the current Japan day) and `timelineFailures`, each
 account's current streak (see
@@ -367,10 +370,11 @@ subset of `{methods, apiGate, apiDailyCap}`: `methods` is `[{id, enabled}]`
 in the new order and must list every method of the source once with at
 least one enabled; `apiGate` (0–100) and `apiDailyCap` (1–10,000) apply to X
 only. It answers `404 not_found` for another source and `400 invalid_input`
-for other fields, an interval outside the bounds, an invalid `sync` or a
-`sync` for either Bilibili timer or the shop, and for a chain with an unknown or repeated method, a
-missing method, no enabled method, a gate or cap out of range or for
-YouTube, or any chain for either Bilibili timer or the shop. A method may be enabled while its
+for other fields, an interval outside the bounds, an invalid `sync`, a
+`count` sync for `x_related` or a `sync` for either Bilibili timer or the
+shop, and for a chain with an unknown or repeated method, a missing method,
+no enabled method, a gate or cap out of range or for YouTube, or any chain
+for the related-accounts, either Bilibili or the shop timer. A method may be enabled while its
 credential is missing; reads skip it until it is set. Enabling a
 schedule or changing its interval plans the next run one interval later,
 with the timer's [random offset](workflows.md#source-schedules); a sync

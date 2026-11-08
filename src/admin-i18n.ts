@@ -80,6 +80,9 @@ export const adminMessages = {
     "admin.step.schedule": "Schedule extraction",
     "admin.step.live": "Live status",
     "admin.step.x.hint": "Read new posts from the configured accounts",
+    "admin.step.x_related": "X related",
+    "admin.step.x_related.hint":
+      "Read the related accounts' timelines into External posts",
     "admin.step.youtube.hint": "Read new and upcoming videos",
     "admin.step.bilibili": "Bilibili uploads",
     "admin.step.bilibili.hint": "Read new uploads, at most once per interval",
@@ -450,7 +453,7 @@ export const adminMessages = {
 
     "admin.related.title": "Related accounts",
     "admin.related.description":
-      "Accounts such as the agency whose own timelines each X run reads in full, through the FxTwitter timeline only. A status containing one of the account's keywords is promoted onto the board; the rest stay in External posts.",
+      "Accounts such as the agency whose own timelines each run of this timer reads in full, through the FxTwitter timeline only. A status containing one of the account's keywords is promoted onto the board; the rest stay in External posts.",
     "admin.related.openExternal": "External posts",
     "admin.related.handle": "Handle",
     "admin.related.keywords": "Keyword rules",
@@ -882,6 +885,8 @@ export const adminMessages = {
     "admin.sources.title": "Sources",
     "admin.sources.x.hint":
       "The public FxTwitter timeline, or the full archive with X_API_BEARER_TOKEN.",
+    "admin.sources.x_related.hint":
+      "The related accounts' own FxTwitter timelines, on a timer apart from Kano's accounts. Statuses matching an account's keyword rules reach the board.",
     "admin.sources.youtube.hint":
       "The RSS feed, or older videos with YOUTUBE_API_KEY.",
     "admin.sources.lastSuccess": "Last successful read",
@@ -1034,6 +1039,10 @@ export const adminMessages = {
     "admin.timer.syncLimit.incremental.youtube": "Most new videos per run",
     "admin.timer.syncLimit.count.youtube": "Newest videos per run",
     "admin.timer.syncLimitHint.x": "1 to 200",
+    "admin.timer.syncLimit.incremental.x_related":
+      "Most new statuses per account",
+    "admin.timer.syncLimitHint.x_related":
+      "1 to 200. Related accounts always read incrementally.",
     "admin.timer.syncLimitHint.youtube":
       "1 to 200. Without YOUTUBE_API_KEY the RSS feed lists 15.",
     "admin.timer.nextRun": "Next run",
@@ -1047,6 +1056,8 @@ export const adminMessages = {
       "Timed reads, Run now, pushes and step runs try the enabled methods from the top and fall to the next when the first page fails, lists none of the account's own records, or hits quota or rate limits. Manual fetches pick their own method.",
     "admin.chain.fixed.bilibili":
       "Bilibili reads its upload list through one fixed method.",
+    "admin.chain.fixed.x_related":
+      "Related accounts read their FxTwitter timeline through one fixed method: no profile page, X API or detail request.",
     "admin.chain.fixed.bilibili_dynamics":
       "Bilibili reads its dynamics listing through one fixed method.",
     "admin.chain.fixed.shop":
@@ -1061,6 +1072,7 @@ export const adminMessages = {
     "admin.chain.method.youtube.rss": "RSS feed",
     "admin.chain.method.youtube.ytdlp": "yt-dlp upload metadata",
     "admin.chain.method.youtube.videos_page": "Uploads tab (IDs only)",
+    "admin.chain.method.x_related.timeline": "FxTwitter timeline",
     "admin.chain.method.bilibili.list": "Upload list",
     "admin.chain.method.bilibili_dynamics.dynamics": "Dynamics listing",
     "admin.chain.method.shop.new_arrivals": "Newest 50 products",
@@ -1598,6 +1610,8 @@ export const adminMessages = {
     "admin.code.no_structured_output":
       "The model did not answer in the required format.",
     "admin.code.x_no_accounts": "No X accounts are configured.",
+    "admin.code.x_related_failed":
+      "Every related account's timeline read failed; each keeps its cursor.",
     "admin.code.x_api_daily_cap":
       "The X API daily cap is spent; the chain skips the X API until midnight in Japan.",
     "admin.code.x_api_gated":
@@ -1822,6 +1836,7 @@ export const adminMessages = {
     "admin.step.youtube.hint": "读取新视频和预定直播",
     "admin.step.bilibili": "哔哩哔哩投稿",
     "admin.step.bilibili.hint": "读取新投稿，受最小间隔限制",
+    "admin.step.x_related": "X 关联账号",
     "admin.step.bilibili_dynamics": "哔哩哔哩动态",
     "admin.step.bilibili_dynamics.hint":
       "使用登录 Cookie 读取新动态，受最小间隔限制",

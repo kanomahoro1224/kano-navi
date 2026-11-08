@@ -238,15 +238,24 @@ checkpoint.
 Each source has its own timer
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)), stored in
 the additive `source_schedules` table and edited on the console's Sources
-page. A fresh installation keeps all five disabled.
+page. A fresh installation keeps all six disabled.
 
 | Source              | Interval (default, bounds)                        | Fixed chain                                           |
 | ------------------- | ------------------------------------------------- | ----------------------------------------------------- |
 | `x`                 | 30 min, 15 min – 7 days                           | `x`, `media`, `schedule`, `translate`                 |
+| `x_related`         | 180 min, 15 min – 7 days                          | `x_related`, `media`, `schedule`, `translate`         |
 | `youtube`           | 60 min, 15 min – 7 days                           | `youtube`, `media`, `translate`                       |
 | `bilibili`          | 180 min, `BILIBILI_MIN_INTERVAL_MINUTES` – 7 days | `bilibili`, `media`, `translate`                      |
 | `bilibili_dynamics` | 180 min, `BILIBILI_MIN_INTERVAL_MINUTES` – 7 days | `bilibili_dynamics`, `media`, `schedule`, `translate` |
 | `shop`              | 360 min, 180 min – 7 days                         | `shop`                                                |
+
+X has two timers because its two reads serve different purposes: `x`
+catches Kano's own posts quickly, while `x_related` reads the
+[related accounts](sources.md#related-accounts), whose announcements land
+days ahead of the event, at a slower cadence. Both reach FxTwitter, so the
+single-flight queue keeps their runs apart, and a failure of one leaves the
+other reading. The related accounts' chain carries `media`, `schedule` and
+`translate` so a status the read promotes is processed in the same run.
 
 Bilibili has two timers because its two reads serve different purposes:
 the uploads are an archive, like YouTube's, while the dynamics announce
@@ -282,28 +291,32 @@ YouTube changes and its timer is a fallback; neither Bilibili interval can
 go below the environment floor, and the adapter's own interval and backoff
 checks stay as the safety net.
 
-X and YouTube schedules carry a sync setting that says how much a run reads
+The X, related-accounts and YouTube schedules carry a sync setting that
+says how much a run reads
 ([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md)). Each run
 freezes it in `workflow_runs.source_sync_json`:
 
 - `{ "mode": "incremental", "max": 50 }`, the default: read newest first until
   a stored record, at most `max` (1–200) records that are not stored yet, per
-  X account or for the YouTube channel. An X run that stops short leaves a
+  X account, per related account or for the YouTube channel. An X run that
+  stops short leaves a
   [timeline gap](sources.md#x) that later runs read; a YouTube run that
   leaves new uploads above its cursor keeps the cursor, and later runs take
   them ([YouTube](sources.md#youtube)).
 - `{ "mode": "count", "count": N }`: read the newest `N` (1–200) every run,
   stored or not. X reads them as a `count` window from the timeline, which
   leaves the incremental cursor and pending queue alone. YouTube reads the
-  uploads listing.
+  uploads listing. The related accounts read incrementally only, so their
+  schedule refuses a `count` setting.
 
-Every other run with an X or YouTube step reads that source with these
+Every other run with an X, related-accounts or YouTube step reads that
+source with these
 settings too, frozen on the run: a YouTube push, Run now, a
 [one-off step run](#modular-steps-and-timers) and the operator's single-video refresh.
 A [manual fetch](#manual-fetches-and-historical-backfill) reads through its
 method instead. Full syncs (console, MCP, `kano-go sync`) carry no setting
-and run incrementally with the full-sync post cap for X and 50 uploads for
-YouTube.
+and run incrementally with the full-sync post cap for X and its related
+accounts and 50 uploads for YouTube.
 
 #### Method chains
 
@@ -316,11 +329,12 @@ or channel's own records, when the chain skips the method, or on quota and
 rate limits. A later page that fails keeps the earlier pages and leaves the
 run partial without falling back.
 
-| Source     | Methods, in default order                                                                                         | Default                                |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `x`        | `timeline` (FxTwitter timeline), `profile` (logged-out `x.com/<handle>`, IDs only), `api` (X API)                 | `api` off                              |
-| `youtube`  | `api` (Data API uploads playlist), `rss` (public feed), `ytdlp` (metadata), `videos_page` (uploads tab, IDs only) | api, rss and videos_page on; ytdlp off |
-| `bilibili` | `list` (the upload list)                                                                                          | fixed                                  |
+| Source      | Methods, in default order                                                                                         | Default                                |
+| ----------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `x`         | `timeline` (FxTwitter timeline), `profile` (logged-out `x.com/<handle>`, IDs only), `api` (X API)                 | `api` off                              |
+| `youtube`   | `api` (Data API uploads playlist), `rss` (public feed), `ytdlp` (metadata), `videos_page` (uploads tab, IDs only) | api, rss and videos_page on; ytdlp off |
+| `x_related` | `timeline` (FxTwitter timeline)                                                                                   | fixed                                  |
+| `bilibili`  | `list` (the upload list)                                                                                          | fixed                                  |
 
 The default keeps the existing order and leaves yt-dlp off until it is
 configured, so an unconfigured chain reads as the steps did without one. A method whose
@@ -365,7 +379,8 @@ pushes and the live-status probe have no offset. The draw is the store's
 injectable `SetScheduleOffset`, which tests replace for deterministic plans.
 `WORKFLOW_SCHEDULER_ENABLED=0` stops source schedules as well, and `SKIP_X`,
 `SKIP_YOUTUBE`, `SKIP_BILIBILI` and `SKIP_SHOP` disable that source's
-schedules (both Bilibili timers for `SKIP_BILIBILI`), which the console reports as
+schedules (both X timers for `SKIP_X`, both Bilibili timers for
+`SKIP_BILIBILI`), which the console reports as
 `{ skipped: true, reason: "environment" }`.
 
 #### The `workflows` table
@@ -382,15 +397,17 @@ stored interval of either Bilibili timer below
 `BILIBILI_MIN_INTERVAL_MINUTES` to that floor. A saved `bilibili` timer
 without a `bilibili_dynamics` timer beside it gets one with the same switch
 and interval, planned half an interval after the upload read, so the two
-never fall due together; once that row exists the operator's settings are
-its own.
+never fall due together. A saved `x` timer without an `x_related` timer
+beside it gets one with the same switch, the 180-minute default interval and
+the default sync, planned half the X interval after the X timer's next run.
+Once either row exists the operator's settings are its own.
 
 ## Modular Steps and Timers
 
 Synchronization is split into modular steps declared in
 `backend/internal/jobs` (`StepOrder`), executed in this order: `x`,
-`youtube`, `bilibili`, `bilibili_dynamics`, `shop`, `media`, `schedule`,
-`translate`, `reconcile`. `kano-go sync` (`make sync`) runs every step
+`x_related`, `youtube`, `bilibili`, `bilibili_dynamics`, `shop`, `media`,
+`schedule`, `translate`, `reconcile`. `kano-go sync` (`make sync`) runs every step
 and records the ones disabled by `SKIP_*` as skipped.
 A one-off step run (the Runs page, `POST /api/admin/runs` with
 `{ "kind": "workflow", "steps": [...] }`) picks any subset from the catalog
@@ -417,7 +434,7 @@ deterministic duplicate-merge rules in
 [Duplicate merging](data-model.md#duplicate-merging) to the Japan dates from
 30 days ago to 60 days ahead, then the
 [video merging](data-model.md#video-merging) rule to every Bilibili upload.
-Every run that includes `x`, `youtube`, `bilibili`, `shop` or `schedule` (sync, scan,
+Every run that includes `x`, `x_related`, `youtube`, `bilibili`, `shop` or `schedule` (sync, scan,
 manual fetches, source schedules, Run now, step runs, WebSub pushes and MCP) appends it as its last
 step; it can also be selected alone. Its
 result counts `releasesPaired` (see
@@ -431,11 +448,15 @@ to the label of a notice merged into them (see
 revision only when a merge decision, a derived YouTube event, an inherited
 label or a merged upload's translation changed.
 
-`x` reads the own accounts through the X method chain and then every
-related account's timeline into the X status pool, whatever the sync
-setting (see [Related accounts](sources.md#related-accounts)); a related
-account's failure leaves the run partial and adds its code to the result's
-errors (`relatedErrors` under a `count` setting).
+`x` reads the own accounts of `X_HANDLES` through the X method chain; their
+quotes and reposts write the X status pool with each post. `x_related` reads
+every related account's timeline into the pool (see
+[Related accounts](sources.md#related-accounts)): without a related account
+it records `{ skipped: true, reason: "no_accounts" }` and succeeds without a
+request; a failed account leaves it `partial` with `@<handle>: <code>` in
+`errors`, and when every account failed it fails with `x_related_failed`,
+retryable like `x_source_failed`. Neither step's outcome affects the
+other's.
 
 `translate` machine-translates X post text, YouTube titles and the X
 statuses own posts quote that lack a usable translation (see
@@ -559,7 +580,7 @@ projections omit raw payloads, stack traces, paths, credentials and provider
 text.
 
 Each step records the adapter that serves it in `adapter_capability`
-(`x_recent`, `youtube_recent`, `bilibili_recent`, `bilibili_dynamics`,
+(`x_recent`, `x_related`, `youtube_recent`, `bilibili_recent`, `bilibili_dynamics`,
 `youtube_live`,
 `media_download`, `schedule_extract`, `text_translate`, `media_variants` or
 `event_reconcile`), which projections read before the constrained

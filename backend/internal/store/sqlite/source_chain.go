@@ -36,12 +36,14 @@ const (
 // chainMethods are each source's listing methods in their default order,
 // with whether the default chain enables them. The default is the order the
 // recent steps used before chains, so an upgrade changes nothing: X reads
-// the timeline, then the profile page, and leaves the API off; YouTube tries
+// the timeline, then the profile page, and leaves the API off; its related
+// accounts read the FxTwitter timeline alone (ADR-0009); YouTube tries
 // the Data API (with a key), the feed, yt-dlp when configured, then the uploads tab. Each Bilibili
 // timer has one fixed method: the upload list or the dynamics listing. The shop timer reads the
 // newest products of its new-arrivals collection.
 var chainMethods = map[string][]ChainMethod{
 	"x":                    {{ID: "timeline", Enabled: true}, {ID: "profile", Enabled: true}, {ID: "api", Enabled: false}},
+	XRelatedStep:           {{ID: "timeline", Enabled: true}},
 	"youtube":              {{ID: "api", Enabled: true}, {ID: "rss", Enabled: true}, {ID: "ytdlp", Enabled: false}, {ID: "videos_page", Enabled: true}},
 	"bilibili":             {{ID: "list", Enabled: true}},
 	BilibiliDynamicsSource: {{ID: "dynamics", Enabled: true}},

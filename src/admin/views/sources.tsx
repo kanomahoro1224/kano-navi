@@ -108,6 +108,7 @@ const followUpOffsets = [60, 1440, 4320, 10080]
 
 const skipFlags: Record<ScheduleSource, string> = {
   x: "SKIP_X",
+  x_related: "SKIP_X",
   youtube: "SKIP_YOUTUBE",
   bilibili: "SKIP_BILIBILI",
   bilibili_dynamics: "SKIP_BILIBILI",
@@ -637,27 +638,30 @@ function TimedReadsPanel({
           </Field>
           {sync ? (
             <>
-              <FieldGroup label={t("admin.timer.sync")}>
-                <Segmented
-                  label={t("admin.timer.sync")}
-                  value={sync.mode}
-                  onChange={(mode) =>
-                    set({
-                      sync:
-                        mode === "count"
-                          ? { mode: "count", count: limit }
-                          : { mode: "incremental", max: limit },
-                    })
-                  }
-                  options={[
-                    {
-                      value: "incremental",
-                      label: t("admin.fetch.mode.incremental"),
-                    },
-                    { value: "count", label: t("admin.fetch.mode.count") },
-                  ]}
-                />
-              </FieldGroup>
+              {/* Related accounts read incrementally only. */}
+              {source === "x_related" ? null : (
+                <FieldGroup label={t("admin.timer.sync")}>
+                  <Segmented
+                    label={t("admin.timer.sync")}
+                    value={sync.mode}
+                    onChange={(mode) =>
+                      set({
+                        sync:
+                          mode === "count"
+                            ? { mode: "count", count: limit }
+                            : { mode: "incremental", max: limit },
+                      })
+                    }
+                    options={[
+                      {
+                        value: "incremental",
+                        label: t("admin.fetch.mode.incremental"),
+                      },
+                      { value: "count", label: t("admin.fetch.mode.count") },
+                    ]}
+                  />
+                </FieldGroup>
+              )}
               <HelpField
                 label={t(`admin.timer.syncLimit.${sync.mode}.${source}`)}
                 help={
@@ -2116,6 +2120,7 @@ function LimitsPanel({
 
 const sourceIds: ScheduleSource[] = [
   "x",
+  "x_related",
   "youtube",
   "bilibili",
   "bilibili_dynamics",
@@ -2127,10 +2132,11 @@ const sourceIds: ScheduleSource[] = [
  * (timer state, runs, the timer switch and Run now). Below it the timed-read
  * settings fill the main column, followed by X's API limits or YouTube's
  * progressive confirmation, the timed-read limits and yt-dlp, each folded,
- * or a Bilibili read's state (and the uploads' live room). The manual
- * actions sit beside them: the manual fetch and its folded limits, or one
- * Bilibili upload or dynamic added by link. On a narrower screen the side
- * column follows the main one.
+ * the related X accounts beside their timer, or a Bilibili read's state (and
+ * the uploads' live room). The manual actions sit beside them: the manual
+ * fetch and its folded limits, or one Bilibili upload or dynamic added by
+ * link; the related accounts have none, so their page is one column. On a
+ * narrower screen the side column follows the main one.
  */
 export function SourcesView({ tab, navigate }: ViewProps) {
   const { t, locale } = useAppSettings()
@@ -2217,7 +2223,12 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                 }
                 onChange={setSchedule}
               />
-              <div className="adm-sources-layout">
+              <div
+                className={cn(
+                  "adm-sources-layout",
+                  selected === "x_related" && "is-single",
+                )}
+              >
                 <div className="adm-source-main">
                   <TimedReadsPanel
                     key={selected}
@@ -2231,7 +2242,7 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                       onChange={setSchedule}
                     />
                   ) : null}
-                  {selected === "x" ? (
+                  {selected === "x_related" ? (
                     <RelatedAccountsPanel navigate={navigate} />
                   ) : null}
                   {selected === "youtube" ? (
@@ -2280,40 +2291,42 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                     />
                   ) : null}
                 </div>
-                <div className="adm-source-aside">
-                  {selected === "bilibili" ? (
-                    <BilibiliAddUpload
-                      status={data.bilibili}
-                      onAdded={() => void sources.reload()}
-                    />
-                  ) : selected === "bilibili_dynamics" ? (
-                    <BilibiliAddDynamic
-                      status={data.bilibili}
-                      onAdded={() => void sources.reload()}
-                    />
-                  ) : selected === "shop" ? (
-                    <ShopFetchPanel
-                      sources={data}
-                      onOpenRuns={() => navigate("runs")}
-                    />
-                  ) : (
-                    <>
-                      <FetchPanel
-                        key={selected}
-                        source={selected}
+                {selected === "x_related" ? null : (
+                  <div className="adm-source-aside">
+                    {selected === "bilibili" ? (
+                      <BilibiliAddUpload
+                        status={data.bilibili}
+                        onAdded={() => void sources.reload()}
+                      />
+                    ) : selected === "bilibili_dynamics" ? (
+                      <BilibiliAddDynamic
+                        status={data.bilibili}
+                        onAdded={() => void sources.reload()}
+                      />
+                    ) : selected === "shop" ? (
+                      <ShopFetchPanel
                         sources={data}
                         onOpenRuns={() => navigate("runs")}
                       />
-                      <LimitsPanel
-                        key={`${selected}-manual`}
-                        source={selected}
-                        section="manual"
-                        settings={limits.data}
-                        onSaved={limits.setData}
-                      />
-                    </>
-                  )}
-                </div>
+                    ) : (
+                      <>
+                        <FetchPanel
+                          key={selected}
+                          source={selected}
+                          sources={data}
+                          onOpenRuns={() => navigate("runs")}
+                        />
+                        <LimitsPanel
+                          key={`${selected}-manual`}
+                          source={selected}
+                          section="manual"
+                          settings={limits.data}
+                          onSaved={limits.setData}
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ) : null}

@@ -95,7 +95,7 @@ froze; new runs write `{}` there. A partial unique
 index admits one queued or running run at a time. `capability` keeps its
 constrained values (`synthetic`, `x_recent`, `capability_not_migrated`);
 `adapter_capability` names the adapter that runs the step (`x_recent`,
-`youtube_recent`, `bilibili_recent`, `bilibili_dynamics`, `shop_sales`,
+`x_related`, `youtube_recent`, `bilibili_recent`, `bilibili_dynamics`, `shop_sales`,
 `youtube_live`, `media_download`,
 `schedule_extract`, `text_translate`, `media_variants` or `event_reconcile`), and a step with
 neither finishes `blocked`. `recovery_count` counts how often a run was
@@ -105,11 +105,14 @@ and their steps, attempts and `sync_runs` rows are deleted after their
 
 `source_schedules` holds each source's timer
 ([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)): `source`
-(`x`, `youtube`, `bilibili`, `bilibili_dynamics` or `shop`, the primary
-key), `enabled`, `interval_minutes`, `sync_json` (`{"x": SourceSync}` or
+(`x`, `x_related`, `youtube`, `bilibili`, `bilibili_dynamics` or `shop`,
+the primary key), `enabled`, `interval_minutes`, `sync_json`
+(`{"x": SourceSync}`, `{"x_related": SourceSync}` or
 `{"youtube": SourceSync}`; `{}` for the Bilibili and shop timers and as the
-default), `chain_json` (X and YouTube: `{methods: [{id, enabled}], apiGate,
-apiDailyCap}`, the gate and cap for X only; `{}` for the Bilibili and shop timers,
+default, and a `count` setting of `x_related` reads as the default),
+`chain_json` (X and YouTube: `{methods: [{id, enabled}], apiGate,
+apiDailyCap}`, the gate and cap for X only; `{}` for the related-accounts,
+Bilibili and shop timers,
 and a chain that is unreadable or does not
 list every method of its source once reads as the default;
 [ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)), `next_run_at`
@@ -133,7 +136,8 @@ timeline failed, and the row `@usage` with `{day, posts}`, the posts X API
 answers returned on that Japan day. A count for an earlier day reads as
 zero, and the first read of a new day starts it over. Source `x-related`
 keeps one row per [related account](sources.md#related-accounts), keyed by
-the lower-case handle: the cursor of its own timeline and
+the lower-case handle and written by the `x_related` step: the cursor of its
+own timeline and
 `{handle, discovered, listed, discovery, timelineGap, lastError}`.
 
 The `bilibili` row of the account (the mid) keeps, besides the upload

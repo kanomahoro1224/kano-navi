@@ -194,14 +194,14 @@ func TestPrepareSourceSchedulesKeepsAFreshInstallationDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	schedules, err := s.SourceSchedules(ctx, 180)
-	if err != nil || len(schedules) != 5 {
+	if err != nil || len(schedules) != 6 {
 		t.Fatalf("schedules=%+v %v", schedules, err)
 	}
 	for i, want := range []struct {
 		source   string
 		interval int
 		sync     bool
-	}{{"x", 30, true}, {"youtube", 60, true}, {"bilibili", 180, false}, {BilibiliDynamicsSource, 180, false}, {ShopSource, 360, false}} {
+	}{{"x", 30, true}, {XRelatedStep, 180, true}, {"youtube", 60, true}, {"bilibili", 180, false}, {BilibiliDynamicsSource, 180, false}, {ShopSource, 360, false}} {
 		got := schedules[i]
 		if got.Source != want.source || got.Enabled || got.IntervalMinutes != want.interval || (got.Sync != nil) != want.sync || got.NextRunAt != nil || got.LastRun != nil {
 			t.Fatalf("default %s=%+v", want.source, got)
@@ -448,5 +448,107 @@ func TestPrepareSourceSchedulesSplitsADisabledBilibiliTimerDisabled(t *testing.T
 	}
 	if got := scheduleOf(t, s, BilibiliDynamicsSource, 180); got.Enabled || got.NextRunAt != nil || got.UpdatedAt == nil {
 		t.Fatalf("dynamics=%+v", got)
+	}
+}
+
+func TestPrepareSourceSchedulesAddsTheRelatedTimerBesideASavedXTimer(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	x := scheduleOf(t, s, "x", 180)
+	x.Enabled, x.IntervalMinutes = true, 60
+	x.Sync = &SourceSync{Mode: SyncCount, Count: 30}
+	if _, err := s.SaveSourceSchedule(ctx, x, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareSourceSchedules(ctx, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	// It keeps the X timer's switch with the default interval and sync, and
+	// falls due half the X interval after X's next run at 04:00.
+	related := scheduleOf(t, s, XRelatedStep, 180)
+	if !related.Enabled || related.IntervalMinutes != 180 || related.Sync == nil || *related.Sync != (SourceSync{Mode: SyncIncremental, Max: DefaultSyncMax}) ||
+		related.NextRunAt == nil || *related.NextRunAt != "2026-03-02T04:30:00.000Z" || related.Chain.Problem(XRelatedStep) != ChainFixed || related.Chain.Enabled()[0] != "timeline" {
+		t.Fatalf("related=%+v next=%v", related, related.NextRunAt)
+	}
+	// Once the row exists the operator's settings are its own.
+	related.Enabled, related.IntervalMinutes = false, 720
+	if _, err := s.SaveSourceSchedule(ctx, related, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareSourceSchedules(ctx, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := scheduleOf(t, s, XRelatedStep, 180); got.Enabled || got.IntervalMinutes != 720 || got.NextRunAt != nil {
+		t.Fatalf("after restart=%+v", got)
+	}
+}
+
+func TestPrepareSourceSchedulesAddsADisabledRelatedTimerBesideADisabledXTimer(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	if _, err := s.SaveSourceSchedule(ctx, scheduleOf(t, s, "x", 180), 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareSourceSchedules(ctx, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := scheduleOf(t, s, XRelatedStep, 180); got.Enabled || got.NextRunAt != nil || got.UpdatedAt == nil || got.IntervalMinutes != 180 {
+		t.Fatalf("related=%+v", got)
+	}
+}
+
+func TestRelatedTimerReadsIncrementallyWithinTheSourceBounds(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	if low, high := SourceScheduleBounds(XRelatedStep, 300); low != SourceScheduleMinMinutes || high != SourceScheduleMaxMinutes {
+		t.Fatalf("bounds=%d-%d", low, high)
+	}
+	related := scheduleOf(t, s, XRelatedStep, 180)
+	for _, bad := range []SourceSchedule{
+		{Source: XRelatedStep, IntervalMinutes: 14, Sync: related.Sync, Chain: related.Chain},
+		{Source: XRelatedStep, IntervalMinutes: SourceScheduleMaxMinutes + 1, Sync: related.Sync, Chain: related.Chain},
+		{Source: XRelatedStep, IntervalMinutes: 180, Sync: &SourceSync{Mode: SyncCount, Count: 20}, Chain: related.Chain},
+		{Source: XRelatedStep, IntervalMinutes: 180, Chain: related.Chain},
+	} {
+		if _, err := s.SaveSourceSchedule(ctx, bad, 180, now); !errors.Is(err, ErrWorkflowValidation) {
+			t.Fatalf("%+v: err=%v", bad, err)
+		}
+	}
+	related.Enabled, related.IntervalMinutes, related.Sync = true, 15, &SourceSync{Mode: SyncIncremental, Max: 200}
+	saved, err := s.SaveSourceSchedule(ctx, related, 180, now)
+	if err != nil || saved.NextRunAt == nil || *saved.NextRunAt != "2026-03-02T03:15:00.000Z" || saved.Sync.Max != 200 {
+		t.Fatalf("saved=%+v err=%v", saved, err)
+	}
+	// A stored count setting, which only a hand edit could leave, reads as
+	// the incremental default.
+	if _, err := s.db.ExecContext(ctx, `UPDATE source_schedules SET sync_json='{"x_related":{"mode":"count","count":20}}' WHERE source=?`, XRelatedStep); err != nil {
+		t.Fatal(err)
+	}
+	if got := scheduleOf(t, s, XRelatedStep, 180); *got.Sync != (SourceSync{Mode: SyncIncremental, Max: DefaultSyncMax}) {
+		t.Fatalf("sync=%+v", *got.Sync)
+	}
+	sync, err := s.SourceScheduleSync(ctx)
+	if err != nil || sync[XRelatedStep] != (SourceSync{Mode: SyncIncremental, Max: DefaultSyncMax}) {
+		t.Fatalf("schedule sync=%v err=%v", sync, err)
+	}
+}
+
+func TestRelatedReadsAreTheRelatedTimersLastSuccess(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	for _, row := range [][3]string{{XRelatedSource, "agency_synthetic", "2026-03-02T01:00:00.000Z"}, {XRelatedSource, "other_synthetic", "2026-03-02T02:00:00.000Z"}, {"x", "kano_2525", "2026-03-02T00:30:00.000Z"}} {
+		if _, err := s.db.ExecContext(ctx, `INSERT INTO sync_state(source,account_id,last_success_at,metadata_json) VALUES(?,?,?,'{}')`, row[0], row[1], row[2]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	last, err := s.SourceLastSuccess(ctx)
+	if err != nil || last[XRelatedStep] == nil || *last[XRelatedStep] != "2026-03-02T02:00:00.000Z" || last["x"] == nil || *last["x"] != "2026-03-02T00:30:00.000Z" {
+		t.Fatalf("last=%v err=%v", last, err)
+	}
+	if _, raw := last[XRelatedSource]; raw {
+		t.Fatalf("the sync_state source is not a timer: %v", last)
 	}
 }

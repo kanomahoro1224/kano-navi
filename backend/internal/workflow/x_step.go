@@ -190,13 +190,6 @@ func (x *XRecentExecutor) Execute(ctx context.Context, in StepInput) (AttemptRes
 	if total == 0 && len(errorsOut) > 0 {
 		return AttemptResult{}, NewStepError("x_source_failed", ErrDependency)
 	}
-	// Related accounts are read after the own ones; their failures leave the
-	// run partial and never fail it.
-	related, relatedNotes, relatedErr := x.ReadRelated(ctx, opts)
-	if relatedErr != nil {
-		return AttemptResult{}, relatedErr
-	}
-	notes = append(notes, relatedNotes...)
 	if len(notes) > 0 {
 		partial = true
 		errorsOut = append(errorsOut, notes...)
@@ -218,14 +211,39 @@ func (x *XRecentExecutor) Execute(ctx context.Context, in StepInput) (AttemptRes
 	if refreshed > 0 {
 		out["refreshed"] = refreshed
 	}
-	if related != nil {
-		out["related"] = related
-	}
 	return AttemptResult{Status: status, Result: out}, nil
 }
 
-// RelatedOptions are the read bounds of the related accounts' timelines in a
-// run of the X step: the own accounts' discovery limit and first-run age.
+// ExecuteRelated is the x_related step: it reads every related account's
+// timeline (ReadRelated) with the bounds of RelatedOptions. Without a related
+// account it succeeds as skipped without a request. An account whose read
+// failed leaves the run partial with its code in errors, as do the reads'
+// notes; when every account failed the step fails with x_related_failed.
+func (x *XRecentExecutor) ExecuteRelated(ctx context.Context, in StepInput) (AttemptResult, error) {
+	if x == nil || x.Store == nil || x.Adapter == nil {
+		return AttemptResult{}, NewStepError("x_source_unavailable", ErrDependency)
+	}
+	read, err := x.ReadRelated(ctx, x.RelatedOptions(in))
+	if err != nil {
+		return AttemptResult{}, err
+	}
+	if read.Accounts == 0 {
+		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": "no_accounts"}}, nil
+	}
+	if read.Failed == read.Accounts {
+		return AttemptResult{}, NewStepError("x_related_failed", ErrDependency)
+	}
+	out := map[string]any{"source": sqlite.XRelatedStep, "accounts": read.Accounts, "listed": read.Listed, "promoted": read.Promoted, "demoted": read.Demoted}
+	if len(read.Errors) == 0 {
+		return AttemptResult{Status: "succeeded", Result: out}, nil
+	}
+	out["errors"] = read.Errors
+	return AttemptResult{Status: "partial", Result: out}, nil
+}
+
+// RelatedOptions are the read bounds of the related accounts' timelines: the
+// x_related schedule's incremental cap, else the X discovery limit, and the
+// run's lookback days, else the X first-run age.
 func (x *XRecentExecutor) RelatedOptions(in StepInput) xsource.Options {
 	var opts xsource.Options
 	if x != nil {
@@ -243,33 +261,37 @@ func (x *XRecentExecutor) RelatedOptions(in StepInput) xsource.Options {
 	return opts
 }
 
+// RelatedRead is what one read of the related accounts did: how many
+// accounts it read and how many of them failed, the statuses their
+// timelines listed, promoted and demoted, and the failure codes and notes
+// as "@<handle>: <code>".
+type RelatedRead struct {
+	Accounts, Failed          int
+	Listed, Promoted, Demoted int
+	Errors                    []string
+}
+
 // ReadRelated reads each related account's own timeline into the X status
 // pool (ADR-0009). It uses the FxTwitter timeline alone: no profile page, no
 // X API and no detail request, since a page carries each status and
 // relevance needs its text. Each account keeps its own x-related cursor,
-// known statuses and gaps; its reposts and statuses without content are left
-// out. It returns the run's counts, nil without related accounts, and notes
-// for the accounts whose read failed.
-func (x *XRecentExecutor) ReadRelated(ctx context.Context, base xsource.Options) (map[string]any, []string, error) {
-	if x == nil || x.Store == nil || x.Adapter == nil {
-		return nil, nil, nil
-	}
+// known statuses and gaps, and records a failed read's code as its last
+// error; its reposts and statuses without content are left out.
+// Cancellation and store failures stop it.
+func (x *XRecentExecutor) ReadRelated(ctx context.Context, base xsource.Options) (RelatedRead, error) {
+	read := RelatedRead{Errors: []string{}}
 	accounts, err := x.Store.XRelatedAccounts(ctx)
 	if err != nil {
-		return nil, nil, NewStepError("schema_failure", ErrSchema)
+		return read, NewStepError("schema_failure", ErrSchema)
 	}
-	if len(accounts) == 0 {
-		return nil, nil, nil
-	}
-	listed, promoted, demoted := 0, 0, 0
-	notes := []string{}
+	read.Accounts = len(accounts)
 	for _, account := range accounts {
 		if ctx.Err() != nil {
-			return nil, nil, NewStepError("cancelled", ErrCancelled)
+			return read, NewStepError("cancelled", ErrCancelled)
 		}
 		state, stateErr := x.Store.XRelatedState(ctx, account.Handle)
 		if stateErr != nil {
-			return nil, nil, NewStepError("schema_failure", ErrSchema)
+			return read, NewStepError("schema_failure", ErrSchema)
 		}
 		opts := base
 		opts.Chain = []string{xsource.DiscoveryTimeline}
@@ -280,23 +302,24 @@ func (x *XRecentExecutor) ReadRelated(ctx context.Context, base xsource.Options)
 		result, fetchErr := x.Adapter.FetchRecent(ctx, account.Handle, opts)
 		if fetchErr != nil {
 			if ctx.Err() != nil {
-				return nil, nil, NewStepError("cancelled", ErrCancelled)
+				return read, NewStepError("cancelled", ErrCancelled)
 			}
 			result.Errors = append([]string{fetchErrorCode(fetchErr)}, result.Errors...)
-			notes = append(notes, "related @"+account.Handle+": "+fetchErrorCode(fetchErr))
+			read.Failed++
+			read.Errors = append(read.Errors, "@"+account.Handle+": "+fetchErrorCode(fetchErr))
 		}
 		written, writeErr := x.Store.WriteXRelated(ctx, account.Handle, result, fetchErr == nil)
 		if writeErr != nil {
-			return nil, nil, NewStepError("x_source_write_failed", ErrSchema)
+			return read, NewStepError("x_source_write_failed", ErrSchema)
 		}
-		listed += written.Listed
-		promoted += written.Promoted
-		demoted += written.Demoted
+		read.Listed += written.Listed
+		read.Promoted += written.Promoted
+		read.Demoted += written.Demoted
 		for _, note := range result.Notes {
-			notes = append(notes, "related @"+account.Handle+": "+note)
+			read.Errors = append(read.Errors, "@"+account.Handle+": "+note)
 		}
 	}
-	return map[string]any{"accounts": len(accounts), "listed": listed, "promoted": promoted, "demoted": demoted}, notes, nil
+	return read, nil
 }
 
 // fetchErrorCode is a source error's controlled code.

@@ -95,7 +95,7 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 	if s.Skip[in.StepID] {
 		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": "environment"}}, nil
 	}
-	if in.StepID == "x" || in.StepID == "youtube" || in.StepID == "live" {
+	if in.StepID == "x" || in.StepID == sqlite.XRelatedStep || in.StepID == "youtube" || in.StepID == "live" {
 		if err := s.applySettings(ctx); err != nil {
 			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 		}
@@ -135,26 +135,14 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 				}
 				out.Result["refreshed"] = refreshed
 			}
-			related, notes, relatedErr := s.X.ReadRelated(ctx, s.X.RelatedOptions(in))
-			if relatedErr != nil {
-				return AttemptResult{}, relatedErr
-			}
-			if related != nil {
-				if out.Result == nil {
-					out.Result = map[string]any{}
-				}
-				out.Result["related"] = related
-			}
-			if len(notes) > 0 {
-				out.Result["relatedErrors"] = notes
-				if out.Status == "succeeded" {
-					out.Status = "partial"
-				}
-			}
 			return out, nil
 		}
 		if s.X != nil {
 			return s.X.Execute(ctx, in)
+		}
+	case sqlite.XRelatedStep:
+		if s.X != nil {
+			return s.X.ExecuteRelated(ctx, in)
 		}
 	case "youtube":
 		if in.Window != nil {

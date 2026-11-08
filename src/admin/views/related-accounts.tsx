@@ -36,8 +36,8 @@ const accountsOf = (drafts: Draft[]): XRelatedAccount[] =>
   }))
 
 /**
- * The related X accounts on the X source's page: accounts such as the
- * agency whose own timelines each X run reads in full, through the
+ * The related X accounts on their timer's Sources page: accounts such as the
+ * agency whose own timelines each x_related run reads in full, through the
  * FxTwitter timeline only, into External posts. A status whose text contains
  * one of the account's keyword rules is promoted onto the board.
  */

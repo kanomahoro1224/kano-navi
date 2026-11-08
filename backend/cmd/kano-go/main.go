@@ -147,7 +147,7 @@ func main() {
 		if cfg.EnableXSync {
 			opts := xsource.OptionsFromEnv()
 			steps.X = &workflow.XRecentExecutor{Store: store, Adapter: xsource.NewAdapter(xsource.NewClient(&http.Client{Timeout: 10 * time.Second}), opts), Options: opts}
-			capabilities["x"] = false
+			capabilities["x"], capabilities[sqlite.XRelatedStep] = false, false
 		}
 		if cfg.EnableYoutubeSync {
 			steps.Youtube = ytsource.NewAdapter(nil, ytsource.OptionsFromEnv())

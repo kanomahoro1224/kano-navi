@@ -209,6 +209,7 @@ function metricTone(key: string, value: Scalar) {
 /** The counts that say what a step did, first in its one-line summary. */
 const headlineCounts: Record<string, string[]> = {
   x: ["posts", "discovered", "timelineGaps"],
+  x_related: ["promoted", "listed", "demoted"],
   youtube: ["videos", "updated", "discovered"],
   bilibili: ["videos", "discovered"],
   media: ["ready", "unchanged", "attempted"],

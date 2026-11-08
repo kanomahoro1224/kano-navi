@@ -207,7 +207,7 @@ func withReconcile(steps []string) []string {
 		switch step {
 		case "reconcile":
 			return steps
-		case "x", "youtube", "bilibili", sqlite.ShopSource, "schedule":
+		case "x", sqlite.XRelatedStep, "youtube", "bilibili", sqlite.ShopSource, "schedule":
 			writes = true
 		}
 	}

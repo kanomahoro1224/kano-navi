@@ -63,7 +63,17 @@
 > [!NOTE]
 > The admin API adds `GET /queue/schedule`, `/queue/youtube`,
 > `/queue/translate` and `/queue/x-refresh`, and the schedule step result
-> adds `candidateMs`, `postsRead`, `candidatePosts`, `judged` and `judgeMs`.
+> adds `candidateMs`, `postsRead`, `candidatePosts`, `judged`, `settled` and
+> `judgeMs`.
+
+> [!NOTE]
+> Startup adds the empty `post_llm_states.settled_stamp` column. Until a
+> post's next cache hit records its stamp, the schedule step judges it as
+> every run did before, so the first runs after the upgrade cost what a run
+> cost before; later runs count posts whose input has not changed as cache
+> hits without loading them and leave unchanged states unwritten. A post
+> whose cached image file was deleted from disk keeps its stored result
+> instead of waiting for the image again.
 
 > [!NOTE]
 > Model calls rise a little after upgrading. Schedule extraction reads the

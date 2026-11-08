@@ -171,12 +171,12 @@ func jsonShape(t *testing.T, value any) any {
 }
 
 // recordedShape is a scan's counts as the recorded original counted them:
-// without the candidate phase and judging counts, which only this extractor
+// without the candidate phase, judging and settled counts, which only this extractor
 // records.
 func recordedShape(t *testing.T, counts map[string]any) any {
 	t.Helper()
 	shape := jsonShape(t, counts).(map[string]any)
-	for _, key := range []string{"candidateMs", "postsRead", "candidatePosts", "judged", "judgeMs"} {
+	for _, key := range []string{"candidateMs", "postsRead", "candidatePosts", "judged", "judgeMs", "settled"} {
 		delete(shape, key)
 	}
 	return shape

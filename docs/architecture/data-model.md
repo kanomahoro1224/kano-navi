@@ -43,7 +43,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `sync_state`             | Durable per-account X, YouTube, Bilibili and shop cursors, read bookkeeping and X API chain state      |
 | `app_settings`           | Model, extractor, X-account, Featured, YouTube push and proxy settings (secrets sealed)                |
 | `schedule_extractions`   | Versioned LLM inputs, outcomes, and structured result metadata                                         |
-| `post_llm_states`        | Per-post LLM status, last attempt, error, reprocess queue state, and extraction failure backoff        |
+| `post_llm_states`        | Per-post LLM status, last attempt, error, reprocess queue state, failure backoff, settled input stamp  |
 | `schedule_asset_reviews` | Per-schedule-image LLM verdict, skip reason (`no_image` for a URL-less row), and optional manual label |
 | `llm_providers`          | OpenAI-compatible or Anthropic endpoints, Text/Image capabilities, health, and encrypted keys          |
 | `llm_models`             | Per-provider model catalog with tags (`text`/`image` routing; `reasoning`/`tools`/`embedding` labels)  |
@@ -1077,6 +1077,15 @@ provider's default model into a target naming that model. Once more (marker
 `llm_verify_queue_seeded`, which new databases start with), it copies the
 extraction queue's image-tagged targets in their order into an empty `verify`
 queue.
+
+`internal/httpapi/media.go` and `internal/store/sqlite/media.go` own cache-root
+path validation and serving; `internal/store/sqlite/source_write.go` owns
+source URL identities (see [Media cache](media-cache.md#database-model)). `internal/mediadownload` performs bounded downloads
+from the X and YouTube image hosts and promotes verified files to ready cache
+rows.
+
+### Post LLM states
+
 `post_llm_states.route` records which detection path (`schedule_message` or
 `schedule_board`) handled a post.
 
@@ -1091,11 +1100,35 @@ values, so a stored failure is retried once more before backing off. An
 operator's dismissal sets `status` to `dismissed` with a positive count and a
 null `next_attempt_at`, keeping `failure_fingerprint`. See [Extraction failure backoff](sources.md#extraction-failure-backoff).
 
-`internal/httpapi/media.go` and `internal/store/sqlite/media.go` own cache-root
-path validation and serving; `internal/store/sqlite/source_write.go` owns
-source URL identities (see [Media cache](media-cache.md#database-model)). `internal/mediadownload` performs bounded downloads
-from the X and YouTube image hosts and promotes verified files to ready cache
-rows.
+`post_llm_states.settled_stamp` names the input a post's cache hit recorded:
+the SQLite function `schedule_input_stamp`
+(`internal/store/sqlite/schedule_stamp.go`) hashes the detection stage, the
+extractor version, the post's `source`, `text`, `published_at`, `url` and
+`media_url`, the image lists `raw_json` declares (`mediaUrls`, `media_urls`,
+`mediaURLs`, or the whole record when it is not a JSON object), the shown
+quote's `authorHandle`, `authorName`, `text` and `unavailable` as the
+extractor decodes them, and every `post-image` link in `position, id` order
+with its media ID and the asset's `status`, `sha256`, `mime_type` and
+`cache_path`. It covers every input of the extraction identity and the image
+check, so a change to any of them changes the stamp; a stamp that changes
+when the identity does not only has the post judged once more.
+
+Only a cache hit writes the stamp, in the same statement as the state that
+hit records. Every other state the extractor writes, including a fresh
+model result, stores NULL, as do an operator reprocess request and a
+dismissal. A post is settled for a detection stage when its `status` is
+`success` or `uncertain`, its `route` is that stage's, `reprocess_requested`
+is 0, `last_error`, `failure_fingerprint` and `next_attempt_at` are NULL,
+`failure_count` is 0, and `settled_stamp` equals the stage's current stamp;
+the scan then counts it as a cache hit without loading it (see
+[Schedule extraction pipeline](sources.md#schedule-extraction-pipeline)).
+Startup adds the column empty, so every post is judged until a cache hit
+records its stamp.
+
+A settled post's images are not read, so a cached file deleted from disk
+after the post settled goes unnoticed: the post keeps its stored result
+instead of waiting as `media_pending`, until its input changes or an
+operator requests a reprocess.
 
 ## Related Docs
 

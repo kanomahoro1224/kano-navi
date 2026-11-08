@@ -49,6 +49,9 @@ type Extractor struct {
 	lookupEnv  func(string) (string, bool)
 	now        func() time.Time
 	sleep      func(context.Context, time.Duration) error
+	// ignoreSettled judges settled posts like any other; tests compare the
+	// two paths with it.
+	ignoreSettled bool
 }
 
 func New(store *sqlite.Store, opts Options) *Extractor {
@@ -159,17 +162,23 @@ func (e *Extractor) extractPending(ctx context.Context) (map[string]any, error) 
 		// The candidate phase: how long selecting and ordering the queue
 		// took, the rows the detection stages read, and the posts queued;
 		// then how many posts the scan judged and how long loading and
-		// judging them took, model calls and writes excluded.
+		// judging them took, model calls and writes excluded, and how many
+		// settled posts it counted as cache hits without loading them.
 		"candidateMs":    scan.elapsed.Milliseconds(),
 		"postsRead":      scan.postsRead,
 		"candidatePosts": len(scan.queue),
 		"judged":         0,
 		"judgeMs":        int64(0),
+		"settled":        0,
 	}
 	var judging time.Duration
 	_, err = walkQueue(ctx, scan.queue, func(item candidate) (postResult, error) {
-		result, err := e.extractPost(ctx, item.post, item.detectionType, item.force, &judging)
-		counts["judged"] = countOf(counts, "judged") + 1
+		result, err := e.extractPost(ctx, item, &judging)
+		if item.post.settled {
+			counts["settled"] = countOf(counts, "settled") + 1
+		} else {
+			counts["judged"] = countOf(counts, "judged") + 1
+		}
 		counts["judgeMs"] = judging.Milliseconds()
 		if err != nil {
 			return result, err
@@ -297,37 +306,43 @@ func (e *Extractor) skipPost(ctx context.Context, postID, route, reason string, 
 }
 
 // useCachedExtraction records a stored result as the post's state without a
-// provider call.
-func (e *Extractor) useCachedExtraction(ctx context.Context, postID, route string, cached *extractionRow) (postResult, error) {
+// provider call, with the post's input stamp as its settled stamp. A post
+// whose state already records exactly this is left unwritten, its
+// updated_at included. Only this write records a stamp: the state it leaves
+// is the one every later cache hit of the input would write again, so a
+// later scan may count the post as a cache hit without judging it.
+func (e *Extractor) useCachedExtraction(ctx context.Context, item post, route string, previous *postState, cached *extractionRow) (postResult, error) {
 	processedAt := cached.updatedAt
+	stamp := item.stamp
 	if processedAt == "" {
-		processedAt = e.nowISO()
+		// Every later cache hit would write a new time.
+		processedAt, stamp = e.nowISO(), ""
 	}
 	cleared := false
-	err := e.markPost(ctx, postID, stateUpdate{
+	update := stateUpdate{
 		status:           cached.status,
 		route:            route,
 		lastProcessedAt:  processedAt,
 		lastExtractionID: cached.id,
 		reprocess:        &cleared,
-	})
-	return postResult{status: "cached"}, err
+		stamp:            stamp,
+	}
+	if previous.holds(update) {
+		return postResult{status: "cached"}, nil
+	}
+	return postResult{status: "cached"}, e.markPost(ctx, item.id, update)
 }
 
-// extractPost loads one candidate, judges it and carries the decision out,
-// adding the time loading and judging took to judging.
-func (e *Extractor) extractPost(ctx context.Context, item post, detectionType string, force bool, judging *time.Duration) (postResult, error) {
+// extractPost judges one candidate and carries the decision out, adding the
+// time loading and judging took to judging.
+func (e *Extractor) extractPost(ctx context.Context, item candidate, judging *time.Duration) (postResult, error) {
 	started := time.Now()
-	input, err := e.loadCandidate(ctx, item, detectionType, force)
-	if err != nil {
-		return postResult{}, err
-	}
-	decided, err := judge(input, detectionType, force, e.liveTargets(ctx), e.now())
+	input, decided, err := e.judgeCandidate(ctx, item, e.liveTargets(ctx), e.now())
 	*judging += time.Since(started)
 	if err != nil {
 		return postResult{}, err
 	}
-	return e.execute(ctx, input, decided, detectionType)
+	return e.execute(ctx, input, decided, item.detectionType)
 }
 
 // execute carries out a decision: it records a skip or a cache hit, leaves a
@@ -340,7 +355,10 @@ func (e *Extractor) execute(ctx context.Context, input candidateInput, decided d
 	case dispositionSkip:
 		return e.skipPost(ctx, item.id, route, decided.reason, decided.force)
 	case dispositionCached:
-		return e.useCachedExtraction(ctx, item.id, route, decided.cached)
+		if decided.settled {
+			return postResult{status: "cached"}, nil
+		}
+		return e.useCachedExtraction(ctx, item, route, input.state, decided.cached)
 	case dispositionRetryStopped:
 		return postResult{status: "retryStopped"}, nil
 	case dispositionBackoff:

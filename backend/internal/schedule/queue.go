@@ -165,6 +165,22 @@ func (e *Extractor) loadCandidate(ctx context.Context, item post, detectionType 
 	return input, err
 }
 
+// judgeCandidate loads and judges one queued post: the step the run and the
+// preview share. A settled post is the cache hit its stored state records,
+// decided without loading or judging it: the stamp shows that its input,
+// detection stage and extractor version are those of that result.
+func (e *Extractor) judgeCandidate(ctx context.Context, item candidate, targets targetLookup, now time.Time) (candidateInput, decision, error) {
+	if item.post.settled {
+		return candidateInput{post: item.post}, decision{disposition: dispositionCached, settled: true}, nil
+	}
+	input, err := e.loadCandidate(ctx, item.post, item.detectionType, item.force)
+	if err != nil {
+		return input, decision{}, err
+	}
+	decided, err := judge(input, item.detectionType, item.force, targets, now)
+	return input, decided, err
+}
+
 // effectiveForce: a stored operator request forces the post like a request
 // listed for this scan.
 func effectiveForce(force bool, state *postState) bool {
@@ -234,6 +250,9 @@ type decision struct {
 	// retryAt is when a held-back post's backoff ends.
 	retryAt time.Time
 	cached  *extractionRow
+	// settled: a cache hit of a settled post, decided without loading it;
+	// its state already records the result.
+	settled bool
 }
 
 // result is the scan outcome a decision stands for before it is carried
@@ -455,12 +474,7 @@ func (e *Extractor) PreviewQueue(ctx context.Context) (QueuePreview, error) {
 		}
 	}
 	judged := func(item candidate) (candidateInput, decision, error) {
-		input, err := e.loadCandidate(ctx, item.post, item.detectionType, item.force)
-		if err != nil {
-			return input, decision{}, err
-		}
-		decided, err := judge(input, item.detectionType, item.force, targets, now)
-		return input, decided, err
+		return e.judgeCandidate(ctx, item, targets, now)
 	}
 	next, err := walkQueue(ctx, scan.queue, func(item candidate) (postResult, error) {
 		input, decided, err := judged(item)

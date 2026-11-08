@@ -61,7 +61,7 @@ func olderSnapshot(t *testing.T) (string, string) {
 		`INSERT INTO assets(id,kind,url,week_start) VALUES('synthetic-board','schedule','https://media.example.test/board.png','2026-03-02')`,
 		`INSERT INTO posts(id,source,text,published_at,url) VALUES('synthetic-post','x','retained','2026-03-01T00:00:00.000Z','https://x.com/synthetic_handle/status/1')`,
 		`ALTER TABLE post_llm_states DROP COLUMN failure_count`, `ALTER TABLE post_llm_states DROP COLUMN failure_fingerprint`,
-		`ALTER TABLE post_llm_states DROP COLUMN next_attempt_at`,
+		`ALTER TABLE post_llm_states DROP COLUMN next_attempt_at`, `ALTER TABLE post_llm_states DROP COLUMN settled_stamp`,
 		`INSERT INTO post_llm_states(post_id,status,last_error,updated_at) VALUES('synthetic-post','failed','LLM request failed','2026-03-01T00:00:00.000Z')`,
 		`INSERT INTO llm_providers(id,name,base_url,model,vision_capable,max_retries,created_at,updated_at) VALUES('synthetic','Synthetic','https://provider.example.test/v1','synthetic-model',0,0,'2026-03-01T00:00:00.000Z','2026-03-01T00:00:00.000Z')`,
 		`INSERT INTO llm_route_providers(route,provider_id,priority,created_at,updated_at) VALUES('schedule_vision','synthetic',0,'2026-03-01T00:00:00.000Z','2026-03-01T00:00:00.000Z')`,
@@ -132,6 +132,8 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN('workflow_runs','workflow_run_steps','workflow_step_attempts','workflow_leases','workflow_migrations')`: "5",
 		// The forwarded-dynamic pool starts empty: no forward was stored before.
 		`SELECT COUNT(*)||'/'||(SELECT COUNT(*) FROM bilibili_statuses) FROM sqlite_master WHERE type='table' AND name='bilibili_statuses'`: "1/0",
+		// An older state has no settled stamp: the next scan judges the post.
+		`SELECT COALESCE(settled_stamp,'none') FROM post_llm_states WHERE post_id='synthetic-post'`: "none",
 	} {
 		if got := query(statement); got != want {
 			t.Fatalf("%s = %q, want %q", statement, got, want)

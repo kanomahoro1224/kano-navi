@@ -204,7 +204,8 @@ CREATE TABLE post_llm_states (
     updated_at TEXT NOT NULL,
     failure_count INTEGER NOT NULL DEFAULT 0,
     failure_fingerprint TEXT,
-    next_attempt_at TEXT
+    next_attempt_at TEXT,
+    settled_stamp TEXT
   );
 
 CREATE TABLE posts (

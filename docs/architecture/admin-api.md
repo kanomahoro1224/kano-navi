@@ -248,7 +248,7 @@ inputMode?, publishedAt?, lastAttemptAt?, url?, excerpt}`: `outcome` is
 or `skip` with the skip code (`no_content`, `media_pending`,
 `no_route_target`, `no_compatible_provider`, `missing_api_key`). `later`
 counts the posts after them that would take a place in later runs; `cached`
-counts cache hits, and `backoff` and `retryStopped` are `{count, nextAt?}`,
+counts cache hits, settled posts included, and `backoff` and `retryStopped` are `{count, nextAt?}`,
 `nextAt` being the earliest retry. `disabled` is true when both detection
 stages are off and no reprocess is requested. The queue targets are read
 once per input mode.

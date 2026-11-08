@@ -1252,11 +1252,28 @@ input is a cache hit, a post in its failure backoff is held back, and any
 other post gets a model call. The scan and the console's
 [queue preview](admin-api.md#queue-preview) share that judgement and the
 order above, so the preview lists what a run started at that moment
-processes. The step result records the candidate phase as `candidateMs`
-(listing requests and candidates and ordering them), `postsRead` (rows the
-detection stages read, each stage reading every shown X and Bilibili post)
-and `candidatePosts` (the posts queued), then `judged` (posts the scan reached) and `judgeMs` (time
-spent loading and judging them, without model calls or writes).
+processes. A cache hit whose post state already records that result writes
+nothing.
+
+A settled post is a cache hit decided without loading it. Each detection
+stage reads every shown post with its input stamp for that stage, computed
+in SQLite from everything the extraction identity and the image check read
+(see [Post LLM states](data-model.md#post-llm-states)). A post whose state
+records a cache hit on that stage's route for exactly that stamp, with no
+reprocess request, error or failure backoff, keeps its place among the
+candidates but counts as a cache hit without its images, cached files or
+stored extractions being read. Its stage still selects it, so a board post
+that stays on the board path is not sent through the message path, and the
+order, the limit and the outcome of every other post are those of judging it.
+
+The step result records the candidate phase as `candidateMs`
+(listing requests and candidates, with their stamps, and ordering them),
+`postsRead` (rows the detection stages read, each stage reading every shown
+X and Bilibili post) and `candidatePosts` (the posts queued), then `judged`
+(posts the scan loaded and judged), `settled` (settled posts it counted as
+cache hits without loading them) and `judgeMs` (time spent loading and
+judging, without model calls or writes). `cached` counts both kinds of cache
+hit.
 
 #### Source time zones
 

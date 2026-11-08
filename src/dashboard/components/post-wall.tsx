@@ -53,6 +53,18 @@ import { SheetDialog } from "./sheet-dialog"
 const POST_MEDIA_SIZES =
   "(max-width: 640px) 100vw, (max-width: 1200px) 34vw, 420px"
 
+/**
+ * byPlatform keeps the X entries ahead of the Bilibili ones without changing
+ * the order inside either group, so a filter never shuffles when a newer post
+ * from the other platform arrives.
+ */
+function byPlatform<T>(entries: T[], sourceOf: (entry: T) => string): T[] {
+  return [
+    ...entries.filter((entry) => sourceOf(entry) !== "bilibili"),
+    ...entries.filter((entry) => sourceOf(entry) === "bilibili"),
+  ]
+}
+
 /** escapeRegExp makes a sticker caption safe to put in a pattern. */
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -555,7 +567,9 @@ export function PostWall({
       if (seen) seen.count += 1
       else counts.push({ source: post.source, count: 1 })
     }
-    return counts
+    // The wall mixes sources by time, but its filters group by platform: X
+    // leads and Bilibili follows, so neither segment lands in the middle.
+    return byPlatform(counts, (entry) => entry.source)
   }, [posts])
   const scoped = useMemo(
     () => (origin ? posts.filter((post) => post.source === origin) : posts),
@@ -574,7 +588,9 @@ export function PostWall({
     [account, scoped],
   )
   // An X post names a handle, a Bilibili dynamic an uploader; both filter the
-  // same way, so the chips follow whatever the current source holds.
+  // same way. The chips keep a fixed platform order rather than the order the
+  // newest posts happened to arrive in, so the two X accounts stay together
+  // and the Bilibili uploader sits after them.
   const handles = useMemo(() => {
     const names: { name: string; source: string }[] = []
     for (const post of scoped) {
@@ -584,7 +600,7 @@ export function PostWall({
         continue
       names.push({ name, source: post.source })
     }
-    return names
+    return byPlatform(names, (entry) => entry.source)
   }, [scoped])
   const countFor = (handle: string) =>
     scoped.filter(

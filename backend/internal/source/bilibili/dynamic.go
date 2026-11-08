@@ -53,10 +53,32 @@ const maxDynamicImages = 9
 var dynamicIDPattern = regexp.MustCompile(`^[0-9]{1,32}$`)
 
 // DynamicEmoji is one custom sticker a dynamic's text carries. Bilibili keeps
-// the caption in the text and the picture in icon_url.
+// the caption in the text and the picture in icon_url; a sticker that moves
+// also has a webp and a gif copy of itself, and Icon holds whichever moves,
+// because a still frame of an animated sticker reads as broken to a fan.
 type DynamicEmoji struct {
 	Text string `json:"text"`
 	Icon string `json:"icon"`
+}
+
+// sticker is the picture side of one custom sticker, in the three copies
+// Bilibili offers. The png is a still frame; the webp and the gif move.
+type sticker struct {
+	Text    string `json:"text"`
+	IconURL string `json:"icon_url"`
+	GifURL  string `json:"gif_url"`
+	WebpURL string `json:"webp_url"`
+}
+
+// picture picks the copy to show: an animated one when the sticker has it,
+// because a still frame of a moving sticker reads as a broken picture.
+func (s *sticker) picture() string {
+	for _, raw := range []string{s.WebpURL, s.GifURL, s.IconURL} {
+		if picture := thumbnail(raw); picture != "" {
+			return picture
+		}
+	}
+	return ""
 }
 
 // richTextNode is one piece of a dynamic's text. A modern dynamic splits its
@@ -64,13 +86,10 @@ type DynamicEmoji struct {
 // text field of the enclosing summary is a flattened copy that is often empty,
 // so the nodes are the reliable source.
 type richTextNode struct {
-	Type     string `json:"type"`
-	Text     string `json:"text"`
-	OrigText string `json:"orig_text"`
-	Emoji    *struct {
-		Text    string `json:"text"`
-		IconURL string `json:"icon_url"`
-	} `json:"emoji"`
+	Type     string   `json:"type"`
+	Text     string   `json:"text"`
+	OrigText string   `json:"orig_text"`
+	Emoji    *sticker `json:"emoji"`
 }
 
 // richText rebuilds a dynamic's body from its nodes, and collects the stickers
@@ -88,8 +107,8 @@ func richText(nodes []richTextNode) (string, []DynamicEmoji) {
 			if node.Emoji.Text != "" {
 				text = node.Emoji.Text
 			}
-			if icon := thumbnail(node.Emoji.IconURL); icon != "" {
-				emojis = append(emojis, DynamicEmoji{Text: text, Icon: icon})
+			if picture := node.Emoji.picture(); picture != "" {
+				emojis = append(emojis, DynamicEmoji{Text: text, Icon: picture})
 			}
 		}
 		if text == "" {

@@ -17,7 +17,7 @@ const dynamicsPage = `{"items":[
    "module_dynamic":{"desc":{"text":"今天的直播 &amp; 歌单"},"major":{"opus":{
      "title":null,"summary":{"text":"","rich_text_nodes":[
        {"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"今週のスケジュールです"},
-       {"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[鹿乃_飞了]","emoji":{"type":"3","text":"[鹿乃_飞了]","icon_url":"http://i0.hdslb.com/bfs/emote/flying.png"}}]},
+       {"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[鹿乃_飞了]","emoji":{"type":"3","text":"[鹿乃_飞了]","icon_url":"http://i0.hdslb.com/bfs/emote/flying.png","gif_url":"http://i0.hdslb.com/bfs/emote/flying.gif","webp_url":"http://i0.hdslb.com/bfs/emote/flying.webp"}}]},
      "pics":[{"url":"http://i0.hdslb.com/bfs/new_dyn/one.jpg"},{"url":"https://i1.hdslb.com/bfs/new_dyn/two.jpg"}]}}}}},
  {"id_str":"1100000000000000002","type":"DYNAMIC_TYPE_AV","modules":{
    "module_author":{"pub_ts":1767258000,"name":"鹿乃","mid":316381099},
@@ -57,7 +57,9 @@ func TestParseDynamicsKeepsPostsRepostsAndPictures(t *testing.T) {
 	if post.Text != "今週のスケジュールです[鹿乃_飞了]" || len(post.Images) != 2 || post.Images[0] != "https://i0.hdslb.com/bfs/new_dyn/one.jpg" {
 		t.Fatalf("text=%q images=%#v", post.Text, post.Images)
 	}
-	if len(post.Emojis) != 1 || post.Emojis[0].Text != "[鹿乃_飞了]" || post.Emojis[0].Icon != "https://i0.hdslb.com/bfs/emote/flying.png" {
+	// A moving sticker must travel as its animated copy, never as the png
+	// still that the feed also offers.
+	if len(post.Emojis) != 1 || post.Emojis[0].Text != "[鹿乃_飞了]" || post.Emojis[0].Icon != "https://i0.hdslb.com/bfs/emote/flying.webp" {
 		t.Fatalf("emoji=%#v", post.Emojis)
 	}
 	if post.Author != "鹿乃" || post.AuthorMid != 316381099 || post.PublishedAt != time.Unix(1767258000, 0).UTC().Format(time.RFC3339) {
@@ -178,5 +180,24 @@ func TestParseDynamicsReadsQuotedNumbers(t *testing.T) {
 	}
 	if items[0].AuthorMid != 316381099 {
 		t.Fatalf("mid=%d, want the quoted mid read", items[0].AuthorMid)
+	}
+}
+
+// Stickers without an animated copy still show their png, and an icon from
+// outside Bilibili's CDN is not trusted with a browser request.
+func TestStickerPictureFallsBackToTheStillFrame(t *testing.T) {
+	cases := []struct {
+		emoji sticker
+		want  string
+	}{
+		{sticker{IconURL: "http://i0.hdslb.com/bfs/emote/still.png"}, "https://i0.hdslb.com/bfs/emote/still.png"},
+		{sticker{GifURL: "https://i0.hdslb.com/bfs/emote/moving.gif", IconURL: "https://i0.hdslb.com/bfs/emote/still.png"}, "https://i0.hdslb.com/bfs/emote/moving.gif"},
+		{sticker{WebpURL: "https://example.invalid/a.webp", GifURL: "https://i0.hdslb.com/bfs/emote/moving.gif"}, "https://i0.hdslb.com/bfs/emote/moving.gif"},
+		{sticker{WebpURL: "https://example.invalid/a.webp"}, ""},
+	}
+	for _, c := range cases {
+		if got := c.emoji.picture(); got != c.want {
+			t.Fatalf("picture()=%q, want %q for %+v", got, c.want, c.emoji)
+		}
 	}
 }

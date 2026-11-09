@@ -570,7 +570,13 @@ Every check that can tell records who can watch a YouTube video in
   `rss`, under the channel feed's codes, retries and limits. A run whose
   channel feed read failed skips it, since both are the same feed endpoint.
   Each failure, such as the 404 of a channel without members-only uploads,
-  records its code and costs only the verdicts.
+  records its code and costs only the verdicts. The step result reports
+  `members`, how many videos the playlist named, and `membersFrom`, the read
+  that answered (`api` or `rss`, empty when none did). An operator's YouTube
+  [manual fetch](workflows.md#manual-fetches-and-historical-backfill) ends
+  with the same read and reports it the same way: through the Data API with
+  the `api` method unless a Data API call of the fetch failed, otherwise the
+  feed.
 - A watch page that passes the completeness checks, a playable page or a
   `LIVE_STREAM_OFFLINE` waiting room, is `public`, or `unlisted` when its
   microformat says so; an `UNPLAYABLE` or waiting-room page that names a

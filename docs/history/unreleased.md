@@ -377,7 +377,8 @@
   marks every stored video it names as members only, past streams included:
   its newest 50 entries through the Data API with a key (one more quota
   unit), otherwise, or when that call fails, the newest 15 from the
-  playlist's public feed.
+  playlist's public feed. An operator's YouTube fetch ends with the same
+  read, and both report `members` and `membersFrom` in the step result.
 - The console's video rows give the translation marks their own width, so
   they no longer run under the row's buttons on a wide screen, and on a
   phone the marks and the buttons each take a row.

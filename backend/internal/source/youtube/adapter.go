@@ -47,6 +47,67 @@ type Result struct {
 	// told (FailedAvailability), and members for the videos the members-only
 	// playlist names, stored or not; the checked videos carry theirs.
 	Availability map[string]string
+	// Members counts the videos the members-only playlist named this run,
+	// and MembersFrom names the read that answered ("api" or "rss"), "" when
+	// none did.
+	Members     int
+	MembersFrom string
+}
+
+// MembersRead is what one read of the channel's members-only playlist
+// found: the video IDs it names, the read that answered them ("api" or
+// "rss", "" when none did), its Data API calls and its failures' codes.
+type MembersRead struct {
+	IDs         []string
+	From        string
+	APIRequests int
+	Errors      []string
+}
+
+// MembersPlaylist reads the channel's members-only playlist: its newest page
+// (50 entries, one quota unit) through the Data API when useAPI is set and a
+// key is configured, else, or when that call fails, its public feed (newest
+// 15) unless skipFeed. Each failure is recorded by code; absence from the
+// list proves nothing.
+func (a *Adapter) MembersPlaylist(ctx context.Context, useAPI, skipFeed bool) MembersRead {
+	out := MembersRead{IDs: []string{}, Errors: []string{}}
+	if ctx.Err() != nil {
+		return out
+	}
+	var listed []Video
+	var err error
+	if useAPI && a.Options.APIKey != "" {
+		out.APIRequests++
+		var body []byte
+		if body, err = a.Client.MembersPlaylist(ctx, a.Options.APIKey, a.Options.ChannelID); err == nil {
+			listed, _, err = ParseUploadsPage(body)
+		}
+		if err == nil {
+			out.From = ListingAPI
+		} else if ctx.Err() == nil {
+			out.Errors = append(out.Errors, safeError(err))
+		}
+	}
+	if out.From == "" {
+		if ctx.Err() != nil || skipFeed {
+			return out
+		}
+		var body []byte
+		if body, err = a.Client.MembersFeed(ctx, a.Options.ChannelID); err == nil {
+			listed, err = ParseFeed(body)
+		}
+		if err != nil {
+			if ctx.Err() == nil {
+				out.Errors = append(out.Errors, safeError(err))
+			}
+			return out
+		}
+		out.From = ListingFeed
+	}
+	for _, v := range listed {
+		out.IDs = append(out.IDs, v.ID)
+	}
+	return out
 }
 
 // Upload listings, the YouTube chain's methods (ADR-0004), in the default
@@ -687,38 +748,14 @@ func (a *Adapter) playlistMembers(ctx context.Context, result *Result) {
 	failed := func(prefix string) bool {
 		return slices.ContainsFunc(result.Errors, func(code string) bool { return strings.HasPrefix(code, prefix) })
 	}
-	listed, err := []Video(nil), error(nil)
-	read := false
-	if a.Options.APIKey != "" && !failed("youtube_api_") {
-		result.APIRequests++
-		var body []byte
-		if body, err = a.Client.MembersPlaylist(ctx, a.Options.APIKey, a.Options.ChannelID); err == nil {
-			listed, _, err = ParseUploadsPage(body)
-		}
-		read = err == nil
-		if err != nil && ctx.Err() == nil {
-			result.Errors = append(result.Errors, safeError(err))
-		}
-	}
-	if !read {
-		if ctx.Err() != nil || failed("youtube_feed_") || failed("youtube_invalid_feed") {
-			return
-		}
-		var body []byte
-		if body, err = a.Client.MembersFeed(ctx, a.Options.ChannelID); err == nil {
-			listed, err = ParseFeed(body)
-		}
-		if err != nil {
-			if ctx.Err() == nil {
-				result.Errors = append(result.Errors, safeError(err))
-			}
-			return
-		}
-	}
+	read := a.MembersPlaylist(ctx, !failed("youtube_api_"), failed("youtube_feed_") || failed("youtube_invalid_feed"))
+	result.APIRequests += read.APIRequests
+	result.Errors = append(result.Errors, read.Errors...)
+	result.Members, result.MembersFrom = len(read.IDs), read.From
 	members := map[string]bool{}
-	for _, v := range listed {
-		members[v.ID] = true
-		result.Availability[v.ID] = AvailabilityMembers
+	for _, id := range read.IDs {
+		members[id] = true
+		result.Availability[id] = AvailabilityMembers
 	}
 	for i := range result.Videos {
 		if members[result.Videos[i].ID] {

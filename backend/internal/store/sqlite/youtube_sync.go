@@ -396,6 +396,44 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 	return changed, nil
 }
 
+// WriteYoutubeMembers records members for the stored YouTube videos the
+// channel's members-only playlist names, as a recent run does, for an
+// operator's fetch; IDs not stored are skipped and nothing else changes. It
+// advances the dashboard revision when a value changed, and reports that.
+func (s *Store) WriteYoutubeMembers(ctx context.Context, ids []string) (bool, error) {
+	if s == nil || !s.workflowWritable {
+		return false, ErrSourceWrite
+	}
+	if len(ids) == 0 {
+		return false, nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, ErrSourceWrite
+	}
+	defer tx.Rollback()
+	if err = fenceSourceWrite(ctx, tx); err != nil {
+		return false, err
+	}
+	availability := map[string]string{}
+	for _, id := range ids {
+		availability[id] = ytsource.AvailabilityMembers
+	}
+	changed, err := writeVideoAvailability(ctx, tx, availability)
+	if err != nil {
+		return false, err
+	}
+	if changed {
+		if err = bumpRevision(ctx, tx, workflowTime(time.Now())); err != nil {
+			return false, ErrSourceWrite
+		}
+	}
+	if tx.Commit() != nil {
+		return false, ErrSourceWrite
+	}
+	return changed, nil
+}
+
 // writeVideoAvailability records who can watch the stored YouTube videos
 // whose watch page failed but told (ytsource.FailedAvailability) or that the
 // members-only playlist names, leaving every other field as it was; IDs not

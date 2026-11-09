@@ -93,8 +93,11 @@ An X result also lists the same counts per account under `accounts`, with
 `scheduleAssets` and `discovery` (`timeline` or `api`); an `api` result adds
 `apiRead`, the posts its answers returned. A YouTube `api` result
 adds `inspected`, the videos whose details it checked, and `apiRequests`, its
-Data API calls (quota units). The Sources page shows the newest fetch of the
-source under its form.
+Data API calls (quota units). Every YouTube result also adds `members` and
+`membersFrom` from the channel's members-only playlist, which a YouTube fetch
+reads after its pages as the recent step does (see
+[Video availability](sources.md#video-availability)). The Sources page shows
+the newest fetch of the source under its form.
 
 The run freezes the validated selection (method, mode, its count, days or
 dates, and `refresh`) in `workflow_runs.fetch_windows_json`, so a recovered or

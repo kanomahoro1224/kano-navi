@@ -3,12 +3,14 @@ package workflow
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
+	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -280,10 +282,33 @@ func (h *HistorySource) FetchYoutube(ctx context.Context, window history.Window)
 		return failedResult(historyMessage(err)), nil
 	}
 	out := counts(result)
-	out["items"], out["errors"] = result.Items, tallyCodes(result.Errors)
-	// The API method spends quota on its listing and its detail checks.
+	errs := result.Errors
+	// The fetch also reads the members-only playlist, as a recent run does:
+	// through the Data API with the API method unless a Data API call of the
+	// fetch failed, else its public feed.
+	if members, ok := h.Fetcher.Uploads.(membersReader); ok {
+		apiFailed := slices.ContainsFunc(result.Errors, func(code string) bool { return strings.HasPrefix(code, "youtube_api_") })
+		read := members.MembersPlaylist(ctx, window.Method == history.MethodAPI && !apiFailed, false)
+		if ctx.Err() != nil {
+			return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
+		}
+		result.APIRequests += read.APIRequests
+		errs = append(errs, read.Errors...)
+		if _, err = h.Store.WriteYoutubeMembers(ctx, read.IDs); err != nil {
+			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+		}
+		out["members"], out["membersFrom"] = len(read.IDs), read.From
+	}
+	out["items"], out["errors"] = result.Items, tallyCodes(errs)
+	// The API method spends quota on its listing, its detail checks and the
+	// members-only playlist.
 	if window.Method == history.MethodAPI {
 		out["apiRequests"], out["inspected"] = result.APIRequests, result.Inspected
 	}
-	return AttemptResult{Status: stepStatus(result.Errors), Result: out}, nil
+	return AttemptResult{Status: stepStatus(errs), Result: out}, nil
+}
+
+// membersReader is the YouTube adapter's members-only playlist read.
+type membersReader interface {
+	MembersPlaylist(ctx context.Context, useAPI, skipFeed bool) ytsource.MembersRead
 }

@@ -386,7 +386,8 @@ func (s *SourceSteps) youtubeRecent(ctx context.Context, in StepInput) (AttemptR
 			shorts++
 		}
 	}
-	counts := map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "inspected": result.Inspected, "requested": result.Requested, "shorts": shorts, "listing": result.Listing, "tried": result.Tried, "apiRequests": result.APIRequests}
+	counts := map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "inspected": result.Inspected, "requested": result.Requested, "shorts": shorts, "listing": result.Listing, "tried": result.Tried, "apiRequests": result.APIRequests,
+		"members": result.Members, "membersFrom": result.MembersFrom}
 	if len(result.Errors) > 0 {
 		counts["errors"] = tallyCodes(result.Errors)
 	}

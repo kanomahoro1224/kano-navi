@@ -94,7 +94,7 @@ func TestMembersPlaylistMarksEveryVideoItNames(t *testing.T) {
 		return response(200, apiItems(playlistItem("AAAAAAAAAAA", "2026-01-02T06:00:00Z"), playlistItem("OOOOOOOOOOO", "2025-08-28T13:00:00Z"), playlistItem("MMMMMMMMMMM", "2025-10-01T00:00:00Z")))
 	}}, "synthetic-api-key")
 	// The uploads, members-only playlist pages and one videos.list call.
-	if playlist != 1 || feed != 0 || result.APIRequests != 3 || len(result.Errors) != 0 {
+	if playlist != 1 || feed != 0 || result.APIRequests != 3 || len(result.Errors) != 0 || result.Members != 3 || result.MembersFrom != ListingAPI {
 		t.Fatalf("result=%#v playlist=%d feed=%d", result, playlist, feed)
 	}
 	want := map[string]string{"AAAAAAAAAAA": AvailabilityMembers, "OOOOOOOOOOO": AvailabilityMembers, "MMMMMMMMMMM": AvailabilityMembers}
@@ -141,7 +141,7 @@ func TestAFailedDataAPICallLeavesTheMembersListToTheFeed(t *testing.T) {
 	// The quota runs out at videos.list, so the members-only page would fail
 	// too and is not asked for; the feed answers instead.
 	result, playlist, feed := membersRun(t, membersAnswers{videos: func() *http.Response { return response(403, "") }, feed: membersFeed}, "synthetic-api-key")
-	if playlist != 0 || feed != 1 || !slices.Equal(result.Errors, []string{"youtube_api_forbidden"}) {
+	if playlist != 0 || feed != 1 || !slices.Equal(result.Errors, []string{"youtube_api_forbidden"}) || result.MembersFrom != ListingFeed {
 		t.Fatalf("result=%#v playlist=%d feed=%d", result, playlist, feed)
 	}
 	if !maps.Equal(result.Availability, map[string]string{"OOOOOOOOOOO": AvailabilityMembers}) {

@@ -136,6 +136,10 @@ export const adminMessages = {
       count === 1 ? "uncertain addition" : "uncertain additions",
     "admin.overview.attention.merges": ({ count }: { count: number }) =>
       count === 1 ? "upload to merge or keep" : "uploads to merge or keep",
+    "admin.overview.attention.forms": ({ count }: { count: number }) =>
+      count === 1
+        ? "Bilibili upload whose form needs a decision"
+        : "Bilibili uploads whose form needs a decision",
     "admin.overview.attention.posts": ({ count }: { count: number }) =>
       count === 1 ? "post failed extraction" : "posts failed extraction",
     "admin.overview.allClear": "All clear",
@@ -341,6 +345,7 @@ export const adminMessages = {
     "admin.review.title": "Review queue",
     "admin.review.tab.schedule": "Schedule",
     "admin.review.tab.merges": "Video merges",
+    "admin.review.tab.forms": "Bilibili form",
     "admin.review.tab.posts": "Posts",
     "admin.review.filter": "Show",
     "admin.review.filter.review": "Needs review",
@@ -389,6 +394,14 @@ export const adminMessages = {
     "admin.review.periodStart": "First day",
     "admin.review.periodEnd": "Last day",
     "admin.review.noMerges": "No uploads wait for a merge decision",
+    "admin.review.noForms": "No Bilibili uploads wait for a form decision",
+    "admin.review.formsHint":
+      "Bilibili does not say whether an upload replays a live broadcast. These uploads stay off the board until you choose; the rules and the model could not tell.",
+    "admin.review.form.uncertain": "Model unsure",
+    "admin.review.form.failed": "Model failed three times",
+    "admin.review.form.broadcast": "Broadcast {start} – {end}",
+    "admin.review.form.upload": "Upload",
+    "admin.review.form.stream": "Live replay",
     "admin.review.cancelReason": "Cancellation reason",
     "admin.review.cancelReasonPlaceholder": "Reason, required to confirm",
     "admin.review.cancelSuspected": "Model suspects a cancellation",
@@ -801,6 +814,9 @@ export const adminMessages = {
     "admin.videos.merge.alsoOn": "Also on {source}",
     "admin.videos.merge.into": "Merged into {title}",
     "admin.videos.merge.byRule": "Merged by the matching rule",
+    "admin.videos.merge.byBroadcast":
+      "Merged as a replay of the same broadcast",
+    "admin.videos.merge.sameBroadcast": "replay of this broadcast",
     "admin.videos.merge.byOperator": "Merged by an operator",
     "admin.videos.merge.separate": "Kept separate",
     "admin.videos.merge.separateHint":
@@ -837,9 +853,17 @@ export const adminMessages = {
     "admin.videos.view": "Show",
     "admin.videos.view.all": "All",
     "admin.videos.view.upcoming": "Upcoming",
-    "admin.videos.view.bilibili": "Bilibili",
     "admin.videos.view.translation": "Missing translation",
     "admin.videos.view.queued": "Queued",
+    "admin.videos.platform": "Platform",
+    "admin.videos.platform.all": "All platforms",
+    "admin.videos.platform.youtube": "YouTube",
+    "admin.videos.platform.bilibili": "Bilibili",
+    "admin.videos.formSource.rule": "by rule",
+    "admin.videos.formSource.llm": "by model",
+    "admin.videos.formSource.manual": "by operator",
+    "admin.videos.form.unsettled": "Form not settled · not public yet",
+    "admin.videos.form.review": "Form needs your decision · not public yet",
     "admin.videos.noMatch": "No videos match",
     "admin.bilibili.signedIn": "Signed in",
     "admin.bilibili.anonymous": "Anonymous",

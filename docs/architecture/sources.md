@@ -866,21 +866,28 @@ lifts the backoff; one that fails extends it as usual. Timer reads and
 [manual fetches](workflows.md#bilibili-methods) are never forced.
 
 Uploads are `videos` rows with `source = 'bilibili'` and the BV ID as their
-ID, linked to `https://www.bilibili.com/video/<BV>`. Their kind is `upload`:
-Bilibili reports no broadcast facts, and its categories say nothing about the
-content, which the [video tag](data-model.md#video-form-and-tags) carries;
-the description and `aid` stay in `raw_json`. Every list read replaces the
-platform fields and keeps a replaced title or cover in `video_revisions`, as
-YouTube does; operator corrections survive. Covers and dynamic pictures come
+ID, linked to `https://www.bilibili.com/video/<BV>`. The list and view
+endpoints carry no live-replay flag, so a new upload is stored as an
+unsettled `upload` and its form (`upload` or `stream`) is settled later by
+rule, model or operator (see [Bilibili form](data-model.md#bilibili-form));
+Bilibili's categories say nothing about the content, which the
+[video tag](data-model.md#video-form-and-tags) carries. The description and
+`aid` stay in `raw_json`. Every list read replaces the other platform fields
+and keeps a replaced title or cover in `video_revisions`, as YouTube does;
+the form and operator corrections survive. Covers and dynamic pictures come
 only from `*.hdslb.com`, upgraded to HTTPS, and are cached under
 `data/bilibili/` by the media step.
 
-Bilibili uploads stay in the console: the board, the video archive and MCP
-list only YouTube videos, so one cover is never listed twice. The `reconcile`
-step merges an upload into the YouTube video of the same work, which then
+An upload whose form is settled is a public video like a YouTube one, on the
+board, the video archive, MCP and the Atom feed, until it is merged. The
+`reconcile` step merges an upload into the YouTube video of the same work
+(a live replay into the stream archive of the same broadcast), which then
 lists it in `alternates` and shows its title as the video's Chinese platform
-translation; operators confirm, add or undo merges in `/admin` (see
-[Video merging](data-model.md#video-merging)). Operators can
+translation, so one work is never listed twice; operators confirm, add or
+undo merges in `/admin` (see
+[Video merging](data-model.md#video-merging)). Bilibili answers no
+availability for a listed upload; an operator marks a deleted or hidden one
+`removed` or `private` through `manual_availability`. Operators can
 add an upload by BV ID or `bilibili.com` video link and read one again at
 once from `/admin` (see [Admin API](admin-api.md#bilibili-uploads)); those
 reads respect the same backoff and accept only uploads of the configured
@@ -1711,13 +1718,18 @@ check failed, and in a forced pass.
 ### Translation
 
 The `translate` step machine-translates X post and Bilibili dynamic text,
-YouTube video titles, the X statuses own posts quote or repost and the
+the titles of the unmerged videos public readers list (YouTube videos and
+Bilibili uploads whose form is settled), the X statuses own posts quote or
+repost and the
 dynamics own forwards forward into
 English, Japanese and Simplified Chinese, each
 locale only when it is not the detected source language (see
 [Translations](data-model.md#translations) for storage and precedence).
-Bilibili upload titles are already Chinese and are never sent to a model,
-and the step never requests a source. Its models come only from the separate
+A merged Bilibili upload's title is its video's platform translation and is
+never sent to a model, and the step never requests a source. Before any
+model call it settles [Bilibili forms](data-model.md#bilibili-form) by rule,
+whether or not a queue is configured, and the same queue then asks the
+unsettled uploads for form and tag. Its models come only from the separate
 translation queue (`llm_route_targets.route = 'translate'`), configured in
 `/admin` → Models; it never falls back to the extraction queue. Targets need
 the `text` tag. Each target gets at most three calls before moving to the

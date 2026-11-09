@@ -108,15 +108,12 @@ func worksListedIDs(index works.Index) map[string]bool {
 //
 //  1. the Japan date of COALESCE(scheduled_at, published_at) is after
 //     updatedAt;
-//  2. it is a YouTube video or a Bilibili upload, nobody marked it private or
+//  2. public readers list it (publicVideoScope), nobody marked it private or
 //     removed, and it is no longer upcoming;
 //  3. it is not merged into another video;
 //  4. its ID is not a video of the packaged list;
 //  5. the operator's decision includes it, or, without one, its shown tag is
 //     song, its form is upload or premiere and it is not a Short.
-//
-// Rule 2 admits Bilibili uploads for this list alone; publicVideoScope keeps
-// the board, the video archive and MCP on YouTube.
 func (s *Store) worksRecentRows(ctx context.Context, index works.Index, now time.Time) ([]worksRecentRow, error) {
 	after, ok := worksRecentAfter(index.UpdatedAt)
 	if !ok {
@@ -125,7 +122,7 @@ func (s *Store) worksRecentRows(ctx context.Context, index works.Index, now time
 	rows, err := s.db.QueryContext(ctx, `SELECT v.id,v.source,COALESCE(v.manual_title,v.title),v.published_at,v.scheduled_at,v.url,v.thumbnail_url,
 		COALESCE(v.manual_thumbnail_media_id,''),COALESCE(v.manual_thumbnail_sha256,''),COALESCE(v.manual_kind,v.kind),COALESCE(v.manual_is_short,v.is_short),
 		`+videoTagSQL("v")+`,COALESCE(v.manual_availability,v.availability),COALESCE(v.is_upcoming,0),v.manual_work
-		FROM videos v WHERE v.source IN('youtube','bilibili') AND v.merged_into IS NULL
+		FROM videos v WHERE `+publicVideoScope+` AND v.merged_into IS NULL
 			AND julianday(COALESCE(v.scheduled_at,v.published_at))>=julianday(?)
 		ORDER BY julianday(COALESCE(v.scheduled_at,v.published_at)) DESC,v.id ASC`, after)
 	if err != nil {

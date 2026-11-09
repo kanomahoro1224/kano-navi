@@ -77,7 +77,8 @@ external work:
     "failedPosts",            // posts with a failed extraction or translation
     "failedExtractions",      // posts whose last extraction failed
     "failedTranslations",     // X and Bilibili posts whose current wording failed machine translation and still lacks a translation
-    "videoMerges"             // unmerged Bilibili uploads the merge rule leaves to the operator
+    "videoMerges",            // unmerged Bilibili uploads the merge rule leaves to the operator
+    "bilibiliForms"           // unmerged Bilibili uploads waiting for the operator's form decision
   },
   "counts": {"upcomingEvents", "events", "posts", "videos"}
 }
@@ -780,6 +781,7 @@ translation routes with owner `bilibili_status`.
 | `POST /videos/bilibili`      | `{input}` (BV ID or bilibili.com video link)                                                                    | `{video, started, run}`                      |
 | `POST /videos/youtube`       | `{input}` (YouTube video ID or link)                                                                            | `{video, started, run}`                      |
 | `GET /videos/merges`         |                                                                                                                 | `{items}` merge suggestions                  |
+| `GET /videos/forms`          |                                                                                                                 | `{items}` Bilibili form decisions            |
 | `GET /videos/works-recent`   |                                                                                                                 | `{updatedAt, items}`                         |
 | `GET /videos/{id}/merges`    |                                                                                                                 | `{items}` for one Bilibili upload            |
 | `POST /videos/{id}/merge`    | `{into}` (YouTube video ID or watch link)                                                                       | `{video}`                                    |
@@ -903,8 +905,10 @@ rule), without writing; the overview's `review.videoMerges` counts the
 `ambiguous` and `unverified` uploads without the limit. Uploads an operator
 kept separate are left out.
 Each item has `bilibili` (the upload as listed) and up to five `candidates`:
-`{youtube, complete, titleMatch, durationDelta, gapMinutes}`, where
-`durationDelta` is null when a length is unknown. `GET /videos/{id}/merges`
+`{youtube, complete, titleMatch, broadcast, durationDelta, gapMinutes}`,
+where `durationDelta` is null when a length is unknown and `broadcast` marks
+the stream archive of the broadcast a live replay replays (the rule's only
+candidate for it). `GET /videos/{id}/merges`
 describes one upload whatever its state, adding `merged`, `separate` and
 `none`.
 
@@ -926,6 +930,25 @@ video and `null` for an excluded one, and `thumbnailUrl` is the local URL of
 the ready cached thumbnail or `null`. It reads the snapshot only. The Site
 page lists them, excludes an automatic one and returns a decided one to the
 rules; the video editor's Works page field sets the decision on any video.
+
+### Bilibili form
+
+Each video reports `formSource`: `manual` when `manualKind` is set, `rule` or
+`llm` for a Bilibili upload whose form a rule or the model settled, and
+`null` for an unsettled upload or a YouTube video's platform facts (see
+[Bilibili form](data-model.md#bilibili-form)). `formReview` is `uncertain`
+or `failed` while an unsettled upload waits for the operator, and `public`
+says whether public readers list the video. `PUT /videos/{id}` with
+`{kind}` answers the form; a Bilibili upload accepts only `upload` or
+`stream`, and anything else answers `400`.
+
+`GET /videos/forms` lists, newest first and at most 100, the unmerged
+Bilibili uploads waiting for the operator's form decision that nobody marked
+private or removed. Each item is `{video, review, broadcast}`: `review` is
+`uncertain` or `failed`, and `broadcast` is the broadcast the replay rule
+read, `{source, eventId, title, startsAt, endsAt}` with `source` `entry` or
+`room`, or `null`. The overview's `review.bilibiliForms` counts them without
+the limit.
 
 ### Video corrections and history
 

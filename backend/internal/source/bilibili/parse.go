@@ -52,10 +52,11 @@ func ParseBVID(input string) (string, bool) {
 	return "", false
 }
 
-// KindUpload is the form of every Bilibili upload. Bilibili reports no
-// broadcast facts for one, and its own categories say nothing about the
-// content (a cover and a stream clip can share one); what an upload is about
-// is its content tag.
+// KindUpload is the form a new Bilibili upload is stored with. Bilibili's
+// unsigned endpoints report no live-replay flag, so the store settles the
+// form (upload or stream) later by rule, model or operator, and its own
+// categories say nothing about the content (a cover and a stream clip can
+// share one); what an upload is about is its content tag.
 const KindUpload = "upload"
 
 // thumbnail keeps a cover only on Bilibili's image CDN, upgraded to HTTPS.

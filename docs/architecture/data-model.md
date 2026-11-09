@@ -598,15 +598,18 @@ locale whose language matches the detected source language needs no
 translation, and `none` needs none at all: a Japanese X post or YouTube title
 needs `en` and `zh-CN`, a Chinese Bilibili dynamic `en` and `ja`. Wording the
 step has not seen in its current form needs `en` and `zh-CN`, and `ja` only
-when it is a Bilibili dynamic, stored or pooled, since X posts and statuses
-and YouTube titles are presumed Japanese until detected; the console shows
-such a `ja` as the source. A post
+when it is a Bilibili dynamic, stored or pooled, or a Bilibili title, since X
+posts and statuses and YouTube titles are presumed Japanese until detected;
+the console shows such a `ja` as the source. A post
 or video is complete when every locale it needs has a usable row. The
-machine step translates posts of the sources `x` and `bilibili`. The public dashboard, archives and
+machine step translates posts of the sources `x` and `bilibili` and the
+unmerged videos public readers list (YouTube videos and Bilibili uploads
+whose form is settled, see [Video form and tags](#video-form-and-tags)). The
+public dashboard, archives and
 video lists add `translations` (`{locale: {text, origin, platform}}`) and
 `sourceLanguage` to posts and videos; providers, models and hashes stay in
-the console. A Bilibili video, which the machine step never translates,
-reports `sourceLanguage` `zh`. A video's translations follow its effective
+the console. A Bilibili video whose language the machine step has not
+detected reports `sourceLanguage` `zh`. A video's translations follow its effective
 title, `COALESCE(manual_title, title)`, so an operator's title correction
 retires its machine translations.
 
@@ -929,9 +932,12 @@ synchronization from platform facts only:
 - A listing (feed, uploads playlist, uploads tab, yt-dlp metadata, history
   window) inserts `unknown`, and a listing never replaces a stored row's
   kind; the detail check settles it.
-- Every Bilibili upload is `upload`.
+- A Bilibili upload is `upload` or `stream` (a live replay), settled as
+  [Bilibili form](#bilibili-form) describes. The list read inserts `upload`
+  for a new row and never replaces a stored row's kind.
 
-`manual_kind` corrects the form with `stream`, `premiere` or `upload`.
+`manual_kind` corrects the form with `stream`, `premiere` or `upload`, and a
+Bilibili upload's with `stream` or `upload`.
 Readers show `COALESCE(manual_kind, kind)`.
 
 **State.** Upcoming, live, ended and cancelled are not part of the kind:
@@ -956,11 +962,10 @@ never reach a video. A video without a tag is `other` in the archive's
 category filter.
 
 `tag`, `tag_source` and `tag_attempted_at` follow the entry inference's rules
-(see [Event labels](#event-labels)): the `translate` queue asks about public
-YouTube videos, and about Bilibili uploads whose Japan date is after the
-packaged Works list's `updatedAt` and that nobody marked private or removed
-(older Bilibili uploads are never asked about), each not merged into another
-and without a manual tag or judgement,
+(see [Event labels](#event-labels)): the `translate` queue asks about the
+videos public readers list (see [Video merging](#video-merging)), a Bilibili
+upload only while nobody marked it private or removed, each not merged into
+another and without a manual tag or judgement,
 whose entries, if any, carry neither a content label, a title judgement nor
 an operator's label, are not merged into such an entry, and are not
 automatic reservations still within the entry inference window. An
@@ -974,7 +979,47 @@ tag, or an operator's `manual_title`, keeps it); a failure only stamps
 `tag_attempted_at` and waits a day, as an entry does. Videos
 never attempted come first, then the least recently attempted, each newest
 first. Storing a tag advances the dashboard revision; a judgement without
-one or a failed attempt does not.
+one or a failed attempt does not. A Bilibili upload whose form is unsettled
+is asked for form and tag together instead (see [Bilibili form](#bilibili-form)),
+after the entries and before the other videos, from the same per-run limit.
+
+### Bilibili Form
+
+Bilibili's unsigned endpoints carry no live-replay flag, so a Bilibili
+upload's form is settled by the first of:
+
+1. the operator's `manual_kind`;
+2. a rule, applied by the `translate` step before any model call to every
+   upload nobody settled yet:
+   - a title naming a replay (`直播回放`, `录播`, `直播录像`, `回放`) is a
+     `stream`;
+   - an upload of at least thirty minutes published within 48 hours after a
+     Bilibili broadcast ended, at least half that broadcast's length, is a
+     `stream`. A broadcast is a `stream` entry shown on Bilibili (its
+     platforms, or an entry merged into it) that is neither deleted, merged
+     nor cancelled by an operator, ending at its `ends_at` or else its
+     YouTube archive's start plus length; or one of the live room's last two
+     broadcasts, the last one ending at the last check that saw it live;
+   - an upload shorter than ten minutes is an `upload`;
+3. the title inference: the `translate` queue asks about each unmerged
+   upload nobody settled or marked private or removed, with its title,
+   length and the first 200 characters of its description, for the form
+   (`upload`, `stream` or `uncertain`) and the content tag together.
+
+`kind_source` records who settled the stored `kind`: `rule` or `llm`, `NULL`
+while unsettled; an operator's `manual_kind` shows as `manual`. An
+`uncertain` answer sets `kind_review` to `uncertain`; a failed call counts
+`kind_attempts` and stamps `kind_attempted_at`, waits a day and on the third
+failure sets `kind_review` to `failed`. An upload with a `kind_review` and no
+settled form waits in the Review queue for the operator and is not asked
+again; a rule that later settles it clears the review. Settling the form of
+an unmerged upload advances the dashboard revision. Startup adds the columns
+to existing snapshots; existing Bilibili rows start unsettled and the next
+`translate` run settles them.
+
+A Bilibili upload has no premieres, Shorts or waiting room: `is_short`,
+`is_upcoming`, `live_status` and `availability` stay empty, and readers treat
+a `stream` as a stream archive.
 
 Startup rewrites a row that still carries an older title kind, once:
 `manual_kind` `GAMEPLAY`, `TALK` and `MUSIC` become `manual_tag` `game`,
@@ -998,13 +1043,25 @@ owner as for [event merges](#duplicate-merging):
 - `rule`: the `reconcile` workflow step
   (`backend/internal/store/sqlite/video_merge.go`), which recomputes its
   decisions from the current rows on every run and releases a merge whose
-  basis no longer holds. `merge_reason` is `rule:time_duration_title`.
+  basis no longer holds. `merge_reason` is `rule:broadcast` for a live
+  replay and `rule:time_duration_title` otherwise.
 - `manual`: an operator merge (`merge_reason` `manual`), which the rule never
   changes. `manual` with a null `merged_into` is an undone merge
   (`unmerged_from:<id>`) or an upload an operator kept apart
   (`kept_separate`); the rule never merges that upload again.
 
-An upload merges by rule into a YouTube video only when all of these hold:
+A live replay (an upload whose settled form is `stream`) merges by rule into
+the YouTube stream archive linked to the schedule entry of the broadcast it
+replays: among the Bilibili stream entries [Bilibili form](#bilibili-form)
+reads that link a YouTube video of form `stream` (its `youtube-<id>` event,
+source item or event source), the one that ended no more than 48 hours
+before the upload was published, the latest end first, with the upload at
+least half the broadcast's length when its length is known. A replay that
+matches no such archive, such as one of a Bilibili-only broadcast, is public
+on its own unless the rule below merges it.
+
+Any other upload merges by rule into a YouTube video only when all of these
+hold:
 
 - the YouTube anchor (`scheduled_at`, else `published_at`) is within six
   hours of the upload's `published_at`;
@@ -1031,11 +1088,14 @@ platform translation with platform `bilibili`; a release or undo removes it.
 A change of either moves the dashboard revision. The machine translation
 scope excludes merged rows.
 
-Public readers keep `source = 'youtube'`: the dashboard and video archive add
-`alternates` (`[{source, url}]`) to each YouTube video for its merged
-uploads, and Bilibili rows themselves stay in the console. Startup adds the
-columns and the partial `videos_merged_into_idx` index to existing snapshots
-without rewriting videos.
+Public readers (the board's shelf and summary, the video archive with its
+month index and category counts, the single-video read, the Works page's
+recent uploads, MCP and the Atom feed) list every YouTube video and each
+Bilibili upload that is not merged into another video and whose form is
+settled. They add `alternates` (`[{source, url}]`) to each YouTube video for
+its merged uploads; a merged upload is listed only that way, so a work shows
+once. Startup adds the columns and the partial `videos_merged_into_idx`
+index to existing snapshots without rewriting videos.
 
 ## Schema Changes
 

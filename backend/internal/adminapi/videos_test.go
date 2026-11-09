@@ -189,6 +189,7 @@ func TestWorksRecentDecisionRoutes(t *testing.T) {
 	c.exec(t, `INSERT INTO videos(id,source,title,published_at,url,kind,tag,tag_source) VALUES
 		('SONGUPLOAD1','youtube','Song','`+at+`','https://www.youtube.com/watch?v=SONGUPLOAD1','upload','song','title'),
 		('BV1ONLYUPLOAD','bilibili','Bilibili only','`+at+`','https://www.bilibili.com/video/BV1ONLYUPLOAD','upload',NULL,NULL)`)
+	c.exec(t, `UPDATE videos SET kind_source='rule' WHERE id='BV1ONLYUPLOAD'`)
 	listed := func() string {
 		t.Helper()
 		code, payload := c.call(t, "GET", "/api/admin/videos/works-recent", "")

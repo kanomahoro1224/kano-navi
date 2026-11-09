@@ -356,6 +356,8 @@ func TestTranslatorKeepsOperatorAndPlatformTranslations(t *testing.T) {
 		f.exec(`INSERT INTO videos (id, source, title, published_at, url, kind, tag_source) VALUES (?, ?, ?, ?, ?, 'upload', 'title')`,
 			video.id, video.source, video.title, recent(3), "https://video.example.test/"+video.id)
 	}
+	// A merged upload's title is its video's platform translation.
+	f.exec(`UPDATE videos SET merged_into='localized' WHERE id='bilibili'`)
 	for locale, text := range map[string]string{"en": "[Singing] Autumn night", "zh-CN": "【歌回】秋夜"} {
 		if err := f.store.UpsertPlatformTranslation(ctx, sqlite.TranslationWrite{
 			OwnerType: sqlite.TranslationOwnerVideo, OwnerID: "localized", Field: "title", Locale: locale,

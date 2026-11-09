@@ -300,6 +300,8 @@ export interface Overview {
     failedTranslations: number
     /** Bilibili uploads the merge rule leaves to the operator. */
     videoMerges: number
+    /** Bilibili uploads waiting for the operator's form decision. */
+    bilibiliForms: number
   }
   counts: {
     upcomingEvents: number
@@ -1013,6 +1015,29 @@ export interface AdminVideo {
   mergedAt: string | null
   /** The uploads merged into this video. */
   alternates: AdminVideoAlternate[]
+  /**
+   * Who settled the form: manual (manualKind), or rule or llm for a Bilibili
+   * upload; null for an unsettled upload or a YouTube video's own facts.
+   */
+  formSource: "manual" | "rule" | "llm" | null
+  /** Why a Bilibili upload waits for the operator's form decision. */
+  formReview: "uncertain" | "failed" | null
+  /** Public readers list the video. */
+  public: boolean
+}
+
+/** A Bilibili upload waiting for the operator's form decision. */
+export interface BilibiliFormReview {
+  video: AdminVideo
+  review: "uncertain" | "failed"
+  /** The broadcast the replay rule read, if any. */
+  broadcast: {
+    source: "entry" | "room"
+    eventId: string | null
+    title: string | null
+    startsAt: string
+    endsAt: string
+  } | null
 }
 
 export interface AdminVideoAlternate {
@@ -1031,6 +1056,8 @@ export interface VideoMergeCandidate {
   /** Every rule holds: titles, lengths within three seconds and timing. */
   complete: boolean
   titleMatch: boolean
+  /** The stream archive of the broadcast a live replay replays. */
+  broadcast: boolean
   /** Length difference in seconds; null when a length is unknown. */
   durationDelta: number | null
   gapMinutes: number

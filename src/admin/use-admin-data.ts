@@ -76,6 +76,7 @@ import type {
   VideoCorrection,
   VideoHistory,
   VideoMergeSuggestion,
+  BilibiliFormReview,
   WorksCoverStatus,
   WorksMergeConflict,
   WorksRecentReport,
@@ -395,6 +396,8 @@ function createClient(run: Runner, slow: Runner) {
       ),
     /** Uploads the merge rule would attach, or leaves to the operator. */
     videoMerges: () => get<{ items: VideoMergeSuggestion[] }>("/videos/merges"),
+    /** Bilibili uploads waiting for the operator's form decision. */
+    videoForms: () => get<{ items: BilibiliFormReview[] }>("/videos/forms"),
     worksConflicts: () =>
       get<{ items: WorksMergeConflict[] }>("/videos/works-conflicts"),
     worksRecent: () => get<WorksRecentReport>("/videos/works-recent"),

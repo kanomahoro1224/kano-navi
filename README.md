@@ -58,7 +58,7 @@ and Simplified Chinese, in light and dark themes, on phones and desktops.
     <td width="50%" valign="top">
       <h3>🎬 Streams and works</h3>
       The featured or newest work, upcoming reservations, stream archives, and
-      Shorts, with bilibili links for works uploaded there too.
+      Shorts, with bilibili uploads and links for works on both platforms.
     </td>
   </tr>
   <tr>

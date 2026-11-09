@@ -141,17 +141,34 @@
 > [!NOTE]
 > Startup adds the empty `videos.manual_work` column without rewriting
 > videos. `GET /api/works/uploads` adds `recent`, the uploads after the Works
-> collection date (the newest 48, with `recentTotal`), which can include a
-> Bilibili upload merged into nothing;
-> the board, the video archive and MCP still list YouTube videos only. Admin
+> collection date (the newest 48, with `recentTotal`). Admin
 > videos add `manualWork`, `PUT /videos/{id}` accepts `work`, and the admin
-> API adds `GET /videos/works-recent`. The title inference also asks about
-> unmerged Bilibili uploads dated after the collection date, a few more
-> model calls once such uploads are stored.
+> API adds `GET /videos/works-recent`.
+
+> [!NOTE]
+> Bilibili uploads that are not merged into a YouTube video become public
+> videos: the board, `/api/videos` with its month index and counts, MCP and
+> the Atom feed list them with `source: "bilibili"` once their form is
+> settled. Startup adds the empty `videos.kind_source`, `kind_review`,
+> `kind_attempted_at` and `kind_attempts` (0) columns without rewriting
+> videos, so every stored Bilibili upload starts unsettled and stays off
+> public readers until the next `translate` run settles it by rule or model
+> or sends it to `/admin` → Review queue → Bilibili form. That run asks the
+> translation queue once per unmerged upload no rule settles, and the
+> translation backlog of the newly public titles follows, so model calls
+> rise for a while. The list read no longer rewrites a stored upload's form.
+> `reconcile` adds `rule:broadcast` merges of live replays. The admin API
+> adds `GET /videos/forms`, `review.bilibiliForms`, the videos'
+> `formSource`, `formReview` and `public`, and merge candidates'
+> `broadcast`; `PUT /videos/{id}` accepts only `upload` or `stream` as a
+> Bilibili upload's `kind`. The `translate` result adds `bilibiliForms`.
 
 <details>
 <summary><strong>Public pages</strong></summary>
 
+- Bilibili-only uploads are videos on the board and in Past videos, with the
+  bilibili mark and link; a bilibili live replay is a stream archive, or the
+  bilibili link of its YouTube archive when the stream was simulcast.
 - Pages keep the same width when a scrollbar appears or disappears: a page
   that grows or shrinks, an image viewer or sheet, or the language and
   calendar menus no longer shift the layout sideways on desktops with
@@ -262,9 +279,12 @@
 <details>
 <summary><strong>Synchronization and extraction</strong></summary>
 
-- The title inference also tags Bilibili uploads dated after the Works
-  collection date that are merged into nothing, so the Works page can find
-  a Bilibili-only song; older Bilibili uploads are still not asked about.
+- Bilibili uploads have a form, an upload or a live replay: a replay title,
+  a long upload soon after a Bilibili broadcast or a short upload settles it
+  by rule, and otherwise the title inference answers it with the content
+  tag, sending an upload it is unsure of to the Review queue. The title
+  inference and machine translation cover every public Bilibili upload, and
+  a live replay merges into the YouTube archive of the same simulcast.
 - The extraction prompt defines each event type and returns one entry per
   sale period with its opening and its close, instead of separate entries
   of mixed types for the opening and the deadline.
@@ -338,6 +358,12 @@
 <details>
 <summary><strong>Operator console</strong></summary>
 
+- Videos has a platform filter (All platforms, YouTube, Bilibili) beside
+  its task tabs instead of a Bilibili tab, a merge badge opens the other
+  side of the merge, and a Bilibili row shows its form and who settled it,
+  or that it is not public yet. The Review queue adds a Bilibili form tab
+  with Upload and Live replay buttons for the uploads the model could not
+  settle, and a public Bilibili upload can be featured.
 - Editing a schedule entry shows the posts it was read from beside the
   form, between the same accounts' nearby posts, and a suspected
   cancellation in the Review queue opens the same timeline.

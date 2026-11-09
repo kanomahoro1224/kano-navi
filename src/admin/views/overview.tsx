@@ -274,6 +274,13 @@ export function OverviewView({ navigate }: ViewProps) {
       tone: "lavender",
     },
     {
+      key: "forms",
+      tab: "forms",
+      count: review.bilibiliForms,
+      icon: Combine,
+      tone: "honey",
+    },
+    {
       key: "posts",
       tab: "posts",
       count: review.failedPosts,

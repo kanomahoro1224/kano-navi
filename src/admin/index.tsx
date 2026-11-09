@@ -80,6 +80,7 @@ const views: ViewEntry[] = [
       review.suspectedCancellations +
       review.uncertainEvents +
       review.videoMerges +
+      review.bilibiliForms +
       review.failedPosts,
   },
   {

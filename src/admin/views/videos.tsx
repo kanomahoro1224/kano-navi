@@ -181,6 +181,29 @@ function VideoMarks({
   )
 }
 
+/**
+ * A Bilibili upload's form as the board reads it, with who settled it; an
+ * unsettled one is not public yet and says why it waits.
+ */
+function BilibiliForm({ video }: { video: AdminVideo }) {
+  const { t } = useAppSettings()
+  if (video.formSource)
+    return (
+      <span>
+        {video.kind} · {t(`admin.videos.formSource.${video.formSource}`)}
+      </span>
+    )
+  return (
+    <Badge tone="honey">
+      {t(
+        video.formReview
+          ? "admin.videos.form.review"
+          : "admin.videos.form.unsettled",
+      )}
+    </Badge>
+  )
+}
+
 /** The platform, when, kind, length and format on one line. */
 function VideoMeta({ video }: { video: AdminVideo }) {
   const { t, locale } = useAppSettings()
@@ -206,7 +229,11 @@ function VideoMeta({ video }: { video: AdminVideo }) {
             })
           : japanStamp(video.publishedAt)}
       </time>
-      {video.kind ? <span>{video.kind}</span> : null}
+      {video.source === "bilibili" ? (
+        <BilibiliForm video={video} />
+      ) : video.kind ? (
+        <span>{video.kind}</span>
+      ) : null}
       {video.tag ? <span>{video.tag}</span> : null}
       {length ? <span>{length}</span> : null}
       {video.isShort ? <span>{t("admin.videos.format.short")}</span> : null}
@@ -219,6 +246,7 @@ function VideoRow({
   featured,
   onFeature,
   onEdit,
+  onOpen,
   onTranslated,
   onMerged,
 }: {
@@ -226,13 +254,13 @@ function VideoRow({
   featured: boolean
   onFeature: (video: AdminVideo | null) => void
   onEdit: (video: AdminVideo) => void
+  /** Opens another video's editor, such as the other side of a merge. */
+  onOpen: (id: string) => void
   onTranslated: () => void
   onMerged: () => void
 }) {
   const { t } = useAppSettings()
   const thumbnail = localUrl(video.thumbnailUrl)
-  // Bilibili uploads are not on the board yet, so they cannot be featured.
-  const bilibili = video.source === "bilibili"
   return (
     <li
       className={`adm-video-row${featured ? " is-featured" : ""}${video.mergedInto ? " is-merged" : ""}`}
@@ -264,7 +292,12 @@ function VideoRow({
         </button>
         <VideoMeta video={video} />
         <VideoMarks video={video} featured={featured} />
-        <MergeLine video={video} onChanged={onMerged} onMerge={onEdit} />
+        <MergeLine
+          video={video}
+          onChanged={onMerged}
+          onMerge={onEdit}
+          onOpen={onOpen}
+        />
       </div>
       <div className="adm-video-translation">
         <TranslationCell
@@ -283,7 +316,7 @@ function VideoRow({
             className="is-on"
             onClick={() => onFeature(null)}
           />
-        ) : bilibili ? null : (
+        ) : !video.public ? null : (
           <IconButton
             icon={Star}
             label={t("admin.videos.feature")}
@@ -310,32 +343,44 @@ function VideoRow({
   )
 }
 
-const videoViews = [
-  "all",
-  "upcoming",
-  "bilibili",
-  "translation",
-  "queued",
-] as const
+const videoViews = ["all", "upcoming", "translation", "queued"] as const
 type VideoView = (typeof videoViews)[number]
 
+const videoSources = ["all", "youtube", "bilibili"] as const
+type VideoSource = (typeof videoSources)[number]
+
 /**
- * Each tab is an operator task. Uploads merged into another video show on
- * that video, so only the Bilibili tab lists them as rows of their own.
- * Queued lists the videos with an open refresh or translation request.
+ * Each tab is an operator task, narrowed to one platform by the source
+ * filter. Uploads merged into another video show on that video, so only the
+ * Bilibili filter lists them as rows of their own. Queued lists the videos
+ * with an open refresh or translation request.
  */
 const viewFilters: Record<VideoView, Record<string, string>> = {
   all: { merge: "visible" },
   upcoming: { status: "upcoming", merge: "visible" },
-  bilibili: { source: "bilibili" },
   translation: { translation: "incomplete" },
   queued: { queued: "any" },
 }
 
-function VideoList({ initial }: { initial: VideoView }) {
+function videoFilter(view: VideoView, source: VideoSource) {
+  if (source === "all") return viewFilters[view]
+  const { merge, ...rest } = viewFilters[view]
+  return source === "bilibili"
+    ? { ...rest, source }
+    : { ...rest, merge, source }
+}
+
+function VideoList({
+  initial,
+  initialSource,
+}: {
+  initial: VideoView
+  initialSource: VideoSource
+}) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
   const [view, setView] = useState<VideoView>(initial)
+  const [source, setSource] = useState<VideoSource>(initialSource)
   const [search, setSearch] = useState("")
   const [query, setQuery] = useState("")
   const [page, setPage] = useState(1)
@@ -345,12 +390,12 @@ function VideoList({ initial }: { initial: VideoView }) {
   const videos = useResource(
     () =>
       api.videos({
-        ...viewFilters[view],
+        ...videoFilter(view, source),
         search: query,
         page,
         pageSize: 30,
       }),
-    [view, query, page, merges],
+    [view, source, query, page, merges],
   )
   const submitSearch = () => {
     if (search === query) return
@@ -412,6 +457,18 @@ function VideoList({ initial }: { initial: VideoView }) {
               setPage(1)
             }}
           />
+          <Segmented
+            label={t("admin.videos.platform")}
+            value={source}
+            options={videoSources.map((value) => ({
+              value,
+              label: t(`admin.videos.platform.${value}`),
+            }))}
+            onChange={(value) => {
+              setSource(value)
+              setPage(1)
+            }}
+          />
           <form
             className="adm-search"
             role="search"
@@ -452,6 +509,7 @@ function VideoList({ initial }: { initial: VideoView }) {
                   featured={video.id === data.featuredVideoId}
                   onFeature={feature}
                   onEdit={(chosen) => setEditing(chosen.id)}
+                  onOpen={setEditing}
                   onTranslated={() => void videos.reload()}
                   onMerged={merged}
                 />
@@ -468,7 +526,7 @@ function VideoList({ initial }: { initial: VideoView }) {
           <Empty
             icon={ImageOff}
             title={
-              query || view !== "all"
+              query || view !== "all" || source !== "all"
                 ? t("admin.videos.noMatch")
                 : t("admin.videos.empty")
             }
@@ -491,10 +549,12 @@ function VideoList({ initial }: { initial: VideoView }) {
 
 export function VideosView({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
-  // A `#videos/<view>` link opens that tab.
+  // A `#videos/<view>` link opens that tab, and `#videos/bilibili` the
+  // Bilibili uploads.
   const initial = (videoViews as readonly string[]).includes(tab)
     ? (tab as VideoView)
     : "all"
+  const initialSource: VideoSource = tab === "bilibili" ? "bilibili" : "all"
   return (
     <div className="adm-view">
       <PageHeader
@@ -510,7 +570,7 @@ export function VideosView({ tab, navigate }: ViewProps) {
           </Button>
         }
       />
-      <VideoList key={initial} initial={initial} />
+      <VideoList key={tab} initial={initial} initialSource={initialSource} />
     </div>
   )
 }

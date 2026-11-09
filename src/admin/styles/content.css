@@ -384,6 +384,24 @@
   min-width: 0;
 }
 
+/* The badge opens the other side of the merge in its editor. */
+.adm-merge-badge-open {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.adm-merge-badge-open:hover .adm-badge {
+  text-decoration: underline;
+}
+
 .adm-video-merge-item .adm-link {
   min-width: 0;
   max-width: 100%;

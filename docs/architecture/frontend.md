@@ -345,14 +345,19 @@ Cancellation, between the same accounts' nearby posts, which are quieter
 and can be folded away; links of other evidence sit above it.
 
 The console's video list (`src/admin/views/videos.tsx`) puts the featured
-video above a list with a search field and task tabs: All, Upcoming,
-Bilibili, Missing translation and Queued (an open refresh or translation
-request); a `#videos/<tab>` link opens that tab. Uploads
-merged into another video appear on that video's row, so only the Bilibili
-tab lists them on their own. Each row shows the
+video above a list with task tabs (All, Upcoming, Missing translation and
+Queued, an open refresh or translation request), a platform filter (All
+platforms, YouTube, Bilibili) that narrows any tab, and a search field; a
+`#videos/<tab>` link opens that tab and `#videos/bilibili` the Bilibili
+filter. Uploads merged into another video appear on that video's row, so
+only the Bilibili filter lists them on their own. Each row shows the
 thumbnail, the title, which opens the correction dialog, the platform, time,
-kind, tag, length and format, its badges and merge line, the translation chips,
-and the feature, correct and open actions. The correction dialog
+kind (for a Bilibili upload with who settled it, or a honey badge while it
+is unsettled and not public), tag, length and format, its badges and merge
+line, the translation chips, and the feature (public videos only), correct
+and open actions. A merge badge opens the other side's correction dialog:
+the YouTube row's badge the upload, the upload's badge its YouTube video.
+The correction dialog
 (`video-editor.tsx`) carries no explanatory text. Its left column shows the
 board's row as the draft leaves it (the chosen thumbnail, title, source, kind,
 tag, format and the number of corrections) and when the page was last read,
@@ -390,7 +395,11 @@ confirmed, and its Source posts button opens the same evidence timeline in
 the card. The video merges tab (`merge-parts.tsx`) lists each Bilibili
 upload the merge rule merges at its next run or leaves to the operator,
 beside its candidates: Merge attaches it to one, and Keep separate keeps it
-apart so the rule never merges it. The posts tab has two labelled filters:
+apart so the rule never merges it; a live replay's candidate is marked as
+the archive of the same broadcast. The Bilibili form tab lists the uploads
+the model was unsure about or failed on, each with its cover, title, length,
+publication time and the broadcast the replay rule read, and Upload and Live
+replay buttons that set its form. The posts tab has two labelled filters:
 Step, Schedule extraction or Translation, each with the overview's failure
 count, and State within the step: Failed or Uncertain for extraction;
 translation has only failures and shows no State filter. A new step keeps

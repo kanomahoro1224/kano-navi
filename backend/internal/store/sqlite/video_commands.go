@@ -115,14 +115,19 @@ func (s *Store) SetVideoOverrides(ctx context.Context, id string, in VideoOverri
 		return AdminVideo{}, ErrUnavailable
 	}
 	defer tx.Rollback()
+	var source string
 	var title, kind, media, hash, tag, availability sql.NullString
 	var short, work sql.NullBool
-	err = tx.QueryRowContext(ctx, `SELECT manual_title,manual_kind,manual_thumbnail_media_id,manual_thumbnail_sha256,manual_is_short,manual_tag,manual_availability,manual_work FROM videos WHERE id=?`, id).Scan(&title, &kind, &media, &hash, &short, &tag, &availability, &work)
+	err = tx.QueryRowContext(ctx, `SELECT source,manual_title,manual_kind,manual_thumbnail_media_id,manual_thumbnail_sha256,manual_is_short,manual_tag,manual_availability,manual_work FROM videos WHERE id=?`, id).Scan(&source, &title, &kind, &media, &hash, &short, &tag, &availability, &work)
 	if errors.Is(err, sql.ErrNoRows) {
 		return AdminVideo{}, ErrVideoNotFound
 	}
 	if err != nil {
 		return AdminVideo{}, ErrUnavailable
+	}
+	// A Bilibili upload is an upload or a live replay; it has no premieres.
+	if in.SetKind && in.Kind != nil && source == "bilibili" && *in.Kind != BilibiliFormUpload && *in.Kind != BilibiliFormStream {
+		return AdminVideo{}, ErrVideoInvalid
 	}
 	before, shortBefore, workBefore := [6]sql.NullString{title, kind, media, hash, tag, availability}, short, work
 	set := func(target *sql.NullString, value *string) {

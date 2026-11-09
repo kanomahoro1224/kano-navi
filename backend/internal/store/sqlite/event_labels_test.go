@@ -131,7 +131,7 @@ func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 	f.add("formtarget", "x", "synthetic", "2026-10-03", "20:00", "stream", `tag='live'`, `tag_source='llm'`)
 	add("MERGEDFORM1", "2026-10-03", `merged_into='formtarget'`, `merge_source='rule'`)
 
-	candidates, err := f.s.ListVideoTagCandidates(context.Background(), "2026-10-20", "", tagNow, 20)
+	candidates, err := f.s.ListVideoTagCandidates(context.Background(), "2026-10-20", tagNow, 20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestClearedEntryLabelHoldsBackItsVideo(t *testing.T) {
 	ctx := context.Background()
 	candidates := func() int {
 		f.t.Helper()
-		items, err := f.s.ListVideoTagCandidates(ctx, "2026-09-01", "", tagNow, 20)
+		items, err := f.s.ListVideoTagCandidates(ctx, "2026-09-01", tagNow, 20)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -200,7 +200,7 @@ func TestAutomaticLabelReleasesALockedEntry(t *testing.T) {
 	f.add("youtube-CLEAREDLOC1", "youtube", "synthetic", "2026-10-01", "20:00", "stream", `source_key='reservation'`, `tag_source='manual'`, `provenance='manual'`, `manual_locked=1`)
 	candidates := func() string {
 		f.t.Helper()
-		items, err := f.s.ListVideoTagCandidates(ctx, "2026-09-01", "", tagNow, 20)
+		items, err := f.s.ListVideoTagCandidates(ctx, "2026-09-01", tagNow, 20)
 		if err != nil {
 			t.Fatal(err)
 		}

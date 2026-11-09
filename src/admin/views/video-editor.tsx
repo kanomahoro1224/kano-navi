@@ -32,6 +32,8 @@ import type { VideoAvailability } from "@/types"
 
 /** The forms an operator may set; an empty choice follows the platform. */
 export const videoKinds = ["stream", "premiere", "upload"]
+/** A Bilibili upload is an upload or a live replay; it has no premieres. */
+const bilibiliKinds = ["stream", "upload"]
 
 /** The content tags; an empty choice follows the schedule or inference. */
 export const videoTags = ["game", "talk", "song"]
@@ -435,7 +437,10 @@ export function VideoEditor({
                           kind: video.sourceKind || "—",
                         })}
                       </option>
-                      {videoKinds.map((kind) => (
+                      {(video.source === "bilibili"
+                        ? bilibiliKinds
+                        : videoKinds
+                      ).map((kind) => (
                         <option key={kind} value={kind}>
                           {kind}
                         </option>

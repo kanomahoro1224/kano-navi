@@ -153,6 +153,18 @@ func (a *api) videoMerges(w http.ResponseWriter, r *http.Request) {
 	a.writeMergeSuggestions(w, r, "")
 }
 
+// videoForms lists the Bilibili uploads waiting for the operator's form
+// decision: the model answered uncertain or failed three times. The operator
+// answers with the video's manualKind.
+func (a *api) videoForms(w http.ResponseWriter, r *http.Request) {
+	items, err := a.Store.BilibiliFormReviews(r.Context())
+	if err != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
 // worksConflicts lists the stored Bilibili uploads whose merge disagrees
 // with the packaged works list's pairing.
 func (a *api) worksConflicts(w http.ResponseWriter, r *http.Request) {

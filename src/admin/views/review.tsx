@@ -28,12 +28,12 @@ import {
   StatusBadge,
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
-import { MergeQueue } from "@/admin/views/merge-parts"
+import { FormQueue, MergeQueue } from "@/admin/views/merge-parts"
 import { PostImages, PostQuote } from "@/admin/views/posts"
 import { ScheduleAttentionQueue } from "@/admin/views/review-schedule"
 import { cn } from "@/lib/utils"
 
-const tabs = ["schedule", "merges", "posts"] as const
+const tabs = ["schedule", "merges", "forms", "posts"] as const
 type Tab = (typeof tabs)[number]
 
 /** The tab of an address; the schedule's former images and cancellations
@@ -732,6 +732,7 @@ export function ReviewView({ tab, navigate }: ViewProps) {
         review.uncertainEvents
       : undefined,
     merges: review?.videoMerges,
+    forms: review?.bilibiliForms,
     posts: review?.failedPosts,
   }
   return (
@@ -762,6 +763,7 @@ export function ReviewView({ tab, navigate }: ViewProps) {
             <ScheduleAttentionQueue navigate={navigate} />
           ) : null}
           {active === "merges" ? <MergeQueue /> : null}
+          {active === "forms" ? <FormQueue /> : null}
           {active === "posts" ? <PostsTab navigate={navigate} /> : null}
         </div>
       </Panel>

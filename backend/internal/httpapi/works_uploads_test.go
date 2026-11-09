@@ -78,7 +78,8 @@ func TestWorksUploadsListRecentUploadsWithPublicFieldsOnly(t *testing.T) {
 		 ('RECENTSONG1','youtube','Platform title','Corrected title','`+at+`','https://www.youtube.com/watch?v=RECENTSONG1','https://i.ytimg.com/vi/RECENTSONG1/hqdefault.jpg','upload','song','title','{"private":"synthetic"}',NULL,NULL),
 		 ('BV1MERGEDCOPY','bilibili','Copy','','`+at+`','https://www.bilibili.com/video/BV1MERGEDCOPY',NULL,'upload',NULL,NULL,'{}','RECENTSONG1',NULL),
 		 ('BV1ONLYUPLOAD','bilibili','Bilibili only','','`+at+`','https://www.bilibili.com/video/BV1ONLYUPLOAD',NULL,'upload',NULL,NULL,'{}',NULL,1),
-		 ('EXCLUDEDSNG','youtube','Excluded','','`+at+`','https://www.youtube.com/watch?v=EXCLUDEDSNG',NULL,'upload','song','title','{}',NULL,0);`)
+		 ('EXCLUDEDSNG','youtube','Excluded','','`+at+`','https://www.youtube.com/watch?v=EXCLUDEDSNG',NULL,'upload','song','title','{}',NULL,0);
+		UPDATE videos SET kind_source='rule' WHERE source='bilibili';`)
 	recorder := request(t, handler, http.MethodGet, "/api/works/uploads")
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body)
@@ -120,8 +121,10 @@ func TestWorksUploadsListRecentUploadsWithPublicFieldsOnly(t *testing.T) {
 		t.Fatalf("bilibili=%#v", bilibili)
 	}
 
+	// The archive lists the same public videos; the merged copy stays an
+	// alternate.
 	archive := decodeObject(t, request(t, handler, http.MethodGet, "/api/videos?from="+day+"&to="+day))
-	if ids := archiveIDs(t, archive); len(ids) != 2 || slices.Contains(ids, "BV1ONLYUPLOAD") {
+	if ids := archiveIDs(t, archive); len(ids) != 3 || !slices.Contains(ids, "BV1ONLYUPLOAD") || slices.Contains(ids, "BV1MERGEDCOPY") {
 		t.Fatalf("archive ids=%v", ids)
 	}
 }

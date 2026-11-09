@@ -129,9 +129,11 @@ list of its own. A stored video is listed when all of these hold:
 
 1. its Japan date, `COALESCE(scheduled_at, published_at)` in Asia/Tokyo, is
    after `updatedAt`;
-2. it is a YouTube video or a Bilibili upload whose shown availability is
-   not `private` or `removed`, and it is no longer upcoming (a waiting
-   premiere appears once it has aired);
+2. public readers list it (a YouTube video, or an unmerged Bilibili upload
+   whose form is settled, see
+   [Video merging](../architecture/data-model.md#video-merging)), its shown
+   availability is not `private` or `removed`, and it is no longer upcoming
+   (a waiting premiere appears once it has aired);
 3. it is not merged into another video (a merged Bilibili upload is its
    YouTube video's alternate);
 4. its ID is not a video of `videos.json`, so a late re-upload of a listed
@@ -140,9 +142,8 @@ list of its own. A stored video is listed when all of these hold:
    without a decision, its shown content tag is `song`, its form is
    `upload` or `premiere`, and it is not a Short.
 
-Rule 2 admits unmerged Bilibili uploads for this list alone: the board, the
-video archive and MCP keep listing YouTube videos only. The title inference
-also asks about unmerged Bilibili uploads dated after `updatedAt` (see
+The title inference asks about public Bilibili uploads as about YouTube
+videos (see
 [Video form and tags](../architecture/data-model.md#video-form-and-tags)),
 so a Bilibili-only song upload can be listed without the operator.
 

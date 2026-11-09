@@ -662,6 +662,7 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 			"failedExtractions":      counts.FailedExtractions,
 			"failedTranslations":     counts.FailedTranslations,
 			"videoMerges":            counts.VideoMerges,
+			"bilibiliForms":          counts.BilibiliForms,
 		},
 		"counts": map[string]int{
 			"upcomingEvents": counts.UpcomingEvents,

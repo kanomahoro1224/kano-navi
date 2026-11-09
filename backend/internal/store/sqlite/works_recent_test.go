@@ -29,9 +29,11 @@ func recentVideo(t *testing.T, s *Store, id, source, published, kind, tag string
 	if source == "bilibili" {
 		url = "https://www.bilibili.com/video/" + id
 	}
-	if _, err := s.db.Exec(`INSERT INTO videos(id,source,title,published_at,url,kind,tag,tag_source,raw_json)
-		VALUES(?,?,?,?,?,?,NULLIF(?,''),CASE WHEN ?<>'' THEN 'title' END,'{"synthetic":true}')`,
-		id, source, "title "+id, published, url, kind, tag, tag); err != nil {
+	// A Bilibili upload's form is settled by a rule unless extra says
+	// otherwise, so it is public like a YouTube video.
+	if _, err := s.db.Exec(`INSERT INTO videos(id,source,title,published_at,url,kind,tag,tag_source,raw_json,kind_source)
+		VALUES(?,?,?,?,?,?,NULLIF(?,''),CASE WHEN ?<>'' THEN 'title' END,'{"synthetic":true}',CASE WHEN ?='bilibili' THEN 'rule' END)`,
+		id, source, "title "+id, published, url, kind, tag, tag, source); err != nil {
 		t.Fatal(err)
 	}
 	if len(extra) > 0 {
@@ -245,35 +247,30 @@ func TestWorksRecentCoverIsTheCachedThumbnail(t *testing.T) {
 	}
 }
 
-// The title inference asks about unmerged Bilibili uploads after the works
-// list's date that nobody marked gone, and about no other Bilibili upload.
-func TestVideoTagCandidatesAskAboutRecentBilibiliUploadsOnly(t *testing.T) {
+// The title inference asks about every public Bilibili upload, whatever its
+// date: unmerged, with its form settled, and nobody marked it gone. An
+// unsettled upload is asked for form and tag together instead.
+func TestVideoTagCandidatesAskAboutPublicBilibiliUploads(t *testing.T) {
 	s := worksTestStore(t)
 	const after = "2026-07-01T03:00:00.000Z"
 	recentVideo(t, s, "YOUTUBEVID1", "youtube", "2026-06-01T03:00:00.000Z", "upload", "")
 	recentVideo(t, s, "BV1RECENT01", "bilibili", after, "upload", "")
-	recentVideo(t, s, "BV1OLDUPLD1", "bilibili", "2026-06-30T14:00:00.000Z", "upload", "")
+	recentVideo(t, s, "BV1OLDUPLD1", "bilibili", "2025-06-30T14:00:00.000Z", "upload", "", `kind_source=NULL`, `manual_kind='upload'`)
+	recentVideo(t, s, "BV1UNSETTLD", "bilibili", after, "upload", "", `kind_source=NULL`)
 	recentVideo(t, s, "BV1MERGED01", "bilibili", after, "upload", "", `merged_into='YOUTUBEVID1'`)
 	recentVideo(t, s, "BV1REMOVED1", "bilibili", after, "upload", "", `manual_availability='removed'`)
 	recentVideo(t, s, "BV1TAGGED01", "bilibili", after, "upload", "song")
-	asked := func(updatedAt string) string {
-		t.Helper()
-		items, err := s.ListVideoTagCandidates(context.Background(), "2026-07-01", updatedAt, recentNow, 20)
-		if err != nil {
-			t.Fatal(err)
-		}
-		ids := []string{}
-		for _, item := range items {
-			ids = append(ids, item.Source+":"+item.ID)
-		}
-		slices.Sort(ids)
-		return strings.Join(ids, ",")
+	items, err := s.ListVideoTagCandidates(context.Background(), "2026-07-01", recentNow, 20)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := asked("2026-06-30"); got != "bilibili:BV1RECENT01,youtube:YOUTUBEVID1" {
+	ids := []string{}
+	for _, item := range items {
+		ids = append(ids, item.Source+":"+item.ID)
+	}
+	slices.Sort(ids)
+	if got := strings.Join(ids, ","); got != "bilibili:BV1OLDUPLD1,bilibili:BV1RECENT01,youtube:YOUTUBEVID1" {
 		t.Fatalf("candidates=%q", got)
-	}
-	if got := asked(""); got != "youtube:YOUTUBEVID1" {
-		t.Fatalf("without a date candidates=%q", got)
 	}
 }
 

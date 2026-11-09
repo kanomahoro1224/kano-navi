@@ -11,6 +11,7 @@ import { useAppSettings } from "@/app-settings"
 import { japanStamp } from "@/admin/format"
 import type {
   AdminVideo,
+  BilibiliFormReview,
   VideoMergeCandidate,
   VideoMergeSuggestion,
   WorksMergeConflict,
@@ -26,6 +27,7 @@ import {
   type Tone,
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
+import { formatLength } from "@/admin/views/video-editor"
 
 /** Only local, already cached media is shown; never a remote CDN URL. */
 function localUrl(value: string | null | undefined) {
@@ -62,19 +64,56 @@ function UndoMerge({
   )
 }
 
+/** The message naming who merged an upload: the operator or which rule. */
+function mergeDecider(merge: {
+  mergeSource: string | null
+  mergeReason: string | null
+}) {
+  if (merge.mergeSource !== "rule") return "admin.videos.merge.byOperator"
+  return merge.mergeReason === "rule:broadcast"
+    ? "admin.videos.merge.byBroadcast"
+    : "admin.videos.merge.byRule"
+}
+
+/** A merge badge that opens the other side of the merge. */
+function MergeBadge({
+  label,
+  title,
+  onOpen,
+}: {
+  label: string
+  title?: string
+  onOpen: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="adm-merge-badge-open"
+      title={title}
+      onClick={onOpen}
+    >
+      <Badge tone="lavender" icon={Combine} className="adm-merge-badge">
+        <span>{label}</span>
+      </Badge>
+    </button>
+  )
+}
+
 /**
  * A card's merge line: the uploads merged into a YouTube video, or the video
- * a Bilibili upload is merged into, with the undo. An unmerged upload offers
- * the merge dialog.
+ * a Bilibili upload is merged into, with the undo. Each badge opens the other
+ * side. An unmerged upload offers the merge dialog.
  */
 export function MergeLine({
   video,
   onChanged,
   onMerge,
+  onOpen,
 }: {
   video: AdminVideo
   onChanged: () => void
   onMerge: (video: AdminVideo) => void
+  onOpen: (id: string) => void
 }) {
   const { t } = useAppSettings()
   if (video.source !== "bilibili")
@@ -82,11 +121,12 @@ export function MergeLine({
       <div className="adm-video-merge">
         {video.alternates.map((alternate) => (
           <span key={alternate.id} className="adm-video-merge-item">
-            <Badge tone="lavender" icon={Combine}>
-              {t("admin.videos.merge.alsoOn", {
+            <MergeBadge
+              label={t("admin.videos.merge.alsoOn", {
                 source: t(`admin.videos.source.${alternate.source}`),
               })}
-            </Badge>
+              onOpen={() => onOpen(alternate.id)}
+            />
             <a
               className="adm-link"
               href={alternate.url}
@@ -105,18 +145,14 @@ export function MergeLine({
     return (
       <div className="adm-video-merge">
         <span className="adm-video-merge-item">
-          <Badge tone="lavender" icon={Combine} className="adm-merge-badge">
-            <span title={video.mergeReason || undefined}>
-              {t("admin.videos.merge.into", {
-                title: video.mergedIntoTitle || video.mergedInto,
-              })}
-            </span>
-          </Badge>
-          <small>
-            {video.mergeSource === "rule"
-              ? t("admin.videos.merge.byRule")
-              : t("admin.videos.merge.byOperator")}
-          </small>
+          <MergeBadge
+            label={t("admin.videos.merge.into", {
+              title: video.mergedIntoTitle || video.mergedInto,
+            })}
+            title={video.mergeReason || undefined}
+            onOpen={() => onOpen(video.mergedInto!)}
+          />
+          <small>{t(mergeDecider(video))}</small>
           <UndoMerge uploadId={video.id} onChanged={onChanged} />
         </span>
       </div>
@@ -175,6 +211,7 @@ function useCandidateDetail() {
   const { t } = useAppSettings()
   return (candidate: VideoMergeCandidate) =>
     [
+      candidate.broadcast ? t("admin.videos.merge.sameBroadcast") : null,
       t("admin.videos.merge.gap", { count: candidate.gapMinutes }),
       candidate.durationDelta === null
         ? t("admin.videos.merge.lengthUnknown")
@@ -183,7 +220,9 @@ function useCandidateDetail() {
           : t("admin.videos.merge.lengthDelta", {
               count: candidate.durationDelta,
             }),
-      candidate.titleMatch ? null : t("admin.videos.merge.titleDiffers"),
+      candidate.titleMatch || candidate.broadcast
+        ? null
+        : t("admin.videos.merge.titleDiffers"),
     ]
       .filter(Boolean)
       .join(" · ")
@@ -326,6 +365,77 @@ export function MergeQueue() {
 }
 
 /**
+ * The Review queue's Bilibili form decisions: uploads the model was unsure
+ * about or failed on, with their length and the broadcast the replay rule
+ * read. Either answer sets the upload's form, which makes it public, and
+ * removes it from the list.
+ */
+export function FormQueue() {
+  const { t } = useAppSettings()
+  const { api, act, refreshOverview } = useAdmin()
+  const forms = useResource(() => api.videoForms(), [])
+  const [busy, setBusy] = useState("")
+  if (!forms.data) return <Loading />
+  const items: BilibiliFormReview[] = forms.data.items
+  if (!items.length)
+    return <Empty icon={CheckCircle2} title={t("admin.review.noForms")} />
+  const decide = async (id: string, kind: "upload" | "stream") => {
+    setBusy(id + kind)
+    const result = await act(
+      () => api.correctVideo(id, { kind }),
+      "admin.notice.videoSaved",
+    )
+    setBusy("")
+    if (!result) return
+    void forms.reload()
+    void refreshOverview().catch(() => {})
+  }
+  return (
+    <div className="adm-merge-queue">
+      <p className="adm-note">{t("admin.review.formsHint")}</p>
+      <ol>
+        {items.map(({ video, review, broadcast }) => (
+          <li key={video.id} className="adm-merge-row">
+            <div className="adm-merge-upload">
+              <MiniVideo
+                video={video}
+                detail={formatLength(video.durationSeconds) || undefined}
+              />
+              <div className="adm-chip-row">
+                <Badge tone={review === "failed" ? "danger" : "honey"}>
+                  {t(`admin.review.form.${review}`)}
+                </Badge>
+                {broadcast ? (
+                  <small className="adm-muted" title={broadcast.title || ""}>
+                    {t("admin.review.form.broadcast", {
+                      start: japanStamp(broadcast.startsAt),
+                      end: japanStamp(broadcast.endsAt),
+                    })}
+                  </small>
+                ) : null}
+              </div>
+            </div>
+            <div className="adm-actions">
+              {(["upload", "stream"] as const).map((kind) => (
+                <Button
+                  key={kind}
+                  size="sm"
+                  busy={busy === video.id + kind}
+                  disabled={Boolean(busy)}
+                  onClick={() => decide(video.id, kind)}
+                >
+                  {t(`admin.review.form.${kind}`)}
+                </Button>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+/**
  * Stored Bilibili uploads whose merge the packaged Works list pairs
  * differently. The list only reports; the operator decides.
  */
@@ -460,9 +570,7 @@ export function MergeSection({
                     </a>
                     <small>
                       {t(`admin.videos.source.${alternate.source}`)} ·{" "}
-                      {alternate.mergeSource === "rule"
-                        ? t("admin.videos.merge.byRule")
-                        : t("admin.videos.merge.byOperator")}
+                      {t(mergeDecider(alternate))}
                     </small>
                   </span>
                   <UndoMerge uploadId={alternate.id} onChanged={onChanged} />
@@ -487,12 +595,7 @@ export function MergeSection({
                 t("admin.videos.merge.mergedInto"),
                 video.mergedIntoTitle || video.mergedInto,
               ],
-              [
-                t("admin.videos.merge.decidedBy"),
-                video.mergeSource === "rule"
-                  ? t("admin.videos.merge.byRule")
-                  : t("admin.videos.merge.byOperator"),
-              ],
+              [t("admin.videos.merge.decidedBy"), t(mergeDecider(video))],
               [t("admin.videos.merge.since"), japanStamp(video.mergedAt)],
             ]}
           />

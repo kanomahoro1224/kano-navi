@@ -79,9 +79,12 @@ var (
 // correction retires its machine translations.
 const videoTitleSource = "COALESCE(%[1]s.manual_title, %[1]s.title)"
 
-// videoTranslationScope selects the videos the machine step translates.
-// Bilibili metadata is already Chinese and is not sent to a model.
-const videoTranslationScope = "%[1]s.source = 'youtube' AND %[1]s.merged_into IS NULL"
+// videoTranslationScope selects the videos the machine step translates: the
+// unmerged ones public readers list (publicVideoScope), so a Bilibili-only
+// upload's Chinese title gets its English and Japanese translations once its
+// form is settled. A merged upload's title is its video's platform
+// translation instead (video_merge.go).
+const videoTranslationScope = "(%[1]s.source = 'youtube' OR %[1]s.source = 'bilibili' AND (%[1]s.manual_kind IS NOT NULL OR %[1]s.kind_source IS NOT NULL)) AND %[1]s.merged_into IS NULL"
 
 // xStatusInstant is when a pooled status was last quoted or first seen
 // reposted by an own account: the lookback of its translation follows the
@@ -129,9 +132,11 @@ func quoteTranslationOwner(source string) string {
 
 // presumedJapanese reports whether an owner's wording counts as Japanese
 // until the machine step detects its language: X posts and statuses and
-// YouTube titles do, Bilibili dynamics, stored or pooled, do not.
+// YouTube titles do, Bilibili dynamics, stored or pooled, and Bilibili titles
+// (a twelve-character BV ID; YouTube IDs have eleven) do not.
 func presumedJapanese(ownerType, id string) bool {
-	return ownerType != TranslationOwnerBilibiliStatus && !(ownerType == TranslationOwnerPost && strings.HasPrefix(id, "bilibili-"))
+	return ownerType != TranslationOwnerBilibiliStatus && !(ownerType == TranslationOwnerPost && strings.HasPrefix(id, "bilibili-")) &&
+		!(ownerType == TranslationOwnerVideo && len(id) == 12 && strings.HasPrefix(id, "BV"))
 }
 
 func (o translationOwner) originSQL(alias string) string  { return fmt.Sprintf(o.origin, alias) }
@@ -183,7 +188,8 @@ func translationCoveredSQL(ownerType, alias, locale string) string {
 // translationNeededSQL is false only when the machine step found that the
 // current wording is already in the locale's language or has nothing to
 // translate. An owner whose current wording it never saw needs en and zh-CN,
-// and ja only when it is a Bilibili dynamic, stored or pooled: X posts and
+// and ja only when it is a Bilibili dynamic, stored or pooled, or a Bilibili
+// title: X posts and
 // YouTube titles are presumed Japanese until the step detects otherwise, so
 // a title that platform rows already cover is not sent for ja alone.
 func translationNeededSQL(ownerType, alias, locale string) string {
@@ -191,7 +197,7 @@ func translationNeededSQL(ownerType, alias, locale string) string {
 	if locale == "ja" {
 		presumed := "0"
 		switch ownerType {
-		case TranslationOwnerPost:
+		case TranslationOwnerPost, TranslationOwnerVideo:
 			presumed = alias + ".source = 'bilibili'"
 		case TranslationOwnerBilibiliStatus:
 			presumed = "1"

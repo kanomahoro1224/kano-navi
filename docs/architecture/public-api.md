@@ -19,7 +19,14 @@ or one of an account's eight, and the list and the post archive leave it out
 while a shown own post shows it as a shown quote. `counts.posts` counts
 the window only. `counts.videos` counts public videos whose publication time is
 within the most recent seven days; it is independent of the bounded homepage
-video list.
+video list. Public videos, on the board, the archive, the single-video read,
+MCP and the Atom feed, are every YouTube video and each Bilibili upload that
+is not merged into another video and whose form is settled (see
+[Video merging](data-model.md#video-merging)); a video's `source` is
+`youtube` or `bilibili` and its `url` its own platform's page, and a YouTube
+video lists its merged Bilibili uploads in `alternates` as `{source, url}`.
+A Bilibili upload is never upcoming or live; its `kind` is `upload` or
+`stream` (a live replay, shown as a stream archive).
 The summary contains `nextEvent`, `nextStream`, `latestVideo`, `latestPost`,
 and counts; `latestPost` survives an empty requested window. `nextEvent` is
 never a sale period. `latestVideo` is
@@ -270,9 +277,8 @@ sourceLanguage, alternates}`: `source` is `youtube` or `bilibili`,
 is its ready cached thumbnail in the shape above or `null`, `origin` is
 `auto` (listed by its tag, form and format) or `operator` (an operator's
 decision includes it), and `alternates` names, for a YouTube video, its
-merged Bilibili uploads as `{source, url}`. A Bilibili upload that is merged
-into nothing appears here although the board, the video archive and MCP
-never list one. No kind, artist, credits or albums are inferred, and the
+merged Bilibili uploads as `{source, url}`. No kind, artist, credits or
+albums are inferred, and the
 operator's decision itself, availability and counters stay out. Other videos
 outside the list never appear. The read revalidates through its
 [ETag](#public-snapshot-contract) and never fetches platforms.
@@ -308,8 +314,9 @@ event's detail, its provenance and its public link; only absolute HTTP(S)
 links are written. Text is escaped and lines are folded at 75 octets without
 splitting a character.
 
-`GET /api/feed.xml` is an Atom 1.0 feed of at most 50 YouTube videos and
-reservations dated 30 days before to 11 days after today, newest first. An
+`GET /api/feed.xml` is an Atom 1.0 feed of at most 50 public videos (YouTube
+videos and reservations and unmerged Bilibili uploads, as the video archive
+lists them) dated 30 days before to 11 days after today, newest first. An
 entry is dated by its publication (a future time is dated at the start of
 today's Japan day until it passes, so the entry does not move between polls),
 says when a reservation is scheduled, and links the video and any

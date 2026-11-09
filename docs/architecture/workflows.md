@@ -480,7 +480,7 @@ records `{ skipped: true, reason }` and succeeds; a failed read makes its step
 deterministic duplicate-merge rules in
 [Duplicate merging](data-model.md#duplicate-merging) to the Japan dates from
 30 days ago to 60 days ahead, then the
-[video merging](data-model.md#video-merging) rule to every Bilibili upload.
+[video merging](data-model.md#video-merging) rules to every Bilibili upload.
 Every run that includes `x`, `x_related`, `youtube`, `bilibili`, `shop` or `schedule` (sync, scan,
 manual fetches, source schedules, Run now, step runs, WebSub pushes and MCP) appends it as its last
 step; it can also be selected alone. Its
@@ -507,14 +507,18 @@ reads that account alone (see
 [Manual fetches](#manual-fetches-and-historical-backfill)). Neither step's
 outcome affects the other's.
 
-`translate` machine-translates X post text, YouTube titles and the X
+`translate` first settles the forms of Bilibili uploads by rule (see
+[Bilibili form](data-model.md#bilibili-form)), then machine-translates X
+post text, the titles of public videos and the X
 statuses own posts quote that lack a usable translation (see
 [Translation](sources.md#translation)), then labels
 unlabelled YouTube reservations from their title with the same queue (see
-[Event labels](data-model.md#event-labels)), then tags the videos no entry
-labels with what is left of the same per-run limit (see
+[Event labels](data-model.md#event-labels)), then asks the Bilibili uploads
+no rule settled for their form and tag, then tags the videos no entry
+labels, each with what is left of the same per-run limit (see
 [Video form and tags](data-model.md#video-form-and-tags)); its result
-counts them under `eventTags` and `videoTags`. A title that fails counts as
+counts them under `eventTags`, `bilibiliForms` (with `ruled`, the forms the
+rules settled, and `uncertain` answers) and `videoTags`. A title that fails counts as
 failed and the step goes on;
 only a store failure or cancellation stops it. Its final failure does not
 abort a run, so `reconcile` still runs after it. It reads

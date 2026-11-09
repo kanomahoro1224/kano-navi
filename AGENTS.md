@@ -95,7 +95,8 @@ reads belong to server-side workflows and their helpers.
   source/downloader/provider protections in
   [Secure development](docs/development/security.md#external-request-rules);
   privacy allowlisting alone does not make a destination safe.
-- Source media is ignored runtime data in `data/x/` or `data/youtube/`,
+- Source media is ignored runtime data in `data/x/`, `data/youtube/`,
+  `data/bilibili/`, or `data/niconico/`,
   registered through `media_assets`/`media_links`. Profile candidates follow
   their source; uploads and selected profile media use `data/avatar/`. Serve
   only ready, contained opaque-ID assets.
@@ -130,8 +131,9 @@ there. Where each topic belongs is in
 - Compatibility that still runs is current behavior. State it as a rule ("an
   `events` table without event sources is rebuilt on startup"), not as a story.
 - History belongs only in `docs/history/` (release notes, with pending changes
-  and per-release upgrade steps in `unreleased.md`) and in the context of ADRs
-  in `docs/decisions/`. Follow
+  and per-release upgrade steps in `unreleased.md`). Design reasons and current
+  rules belong in the relevant architecture, operations, or development document.
+  Follow
   [Release Notes](docs/development/commit-and-release.md#release-notes).
 - Reference docs contain no TODOs, plans, roadmaps, or dated measurement logs.
 - State each rule or fact in one place and link to it instead of restating it.

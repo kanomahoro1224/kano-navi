@@ -14,7 +14,7 @@ import (
 const TriggeredBySourceSchedule = "source-schedule"
 
 // SourceChains are the fixed steps a due source schedule submits
-// (ADR-0003). reconcile is appended as for every run with a source step.
+// Reconcile is appended as for every run with a source step.
 // YouTube pushes submit the youtube chain as well. The related X accounts'
 // statuses that their read promotes are posts, as on X. Bilibili uploads, like
 // YouTube's, need no schedule extraction; its dynamics are posts, as on X.

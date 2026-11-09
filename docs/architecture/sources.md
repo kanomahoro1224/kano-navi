@@ -38,7 +38,7 @@ before the floor closes the gap and every older one and reports
 `x_timeline_gap`, so an operator
 can fill it with a timeline `all` fetch or an X API date range. The step result counts
 accounts with an open gap as `timelineGaps`
-([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md)).
+([source schedules](../architecture/workflows.md#source-schedules)).
 
 The timeline is the first method of the X schedule's default
 [method chain](workflows.md#method-chains). When its first page fails, is
@@ -142,20 +142,23 @@ Each discovered image URL is registered and linked to its post. A bounded media
 stage later in the same command downloads pending image files from X's
 `*.twimg.com` media CDN subdomains.
 
+#### Related-account rationale
+
+Related accounts stay in a private status pool because their timelines contain announcements for many people. Keyword and operator promotion put only relevant statuses on the board, while quoted and reposted statuses can supply context and translation without becoming public cards. Separate cursors and a separate timer keep this filtering independent from Kano's own accounts.
+
 #### Related accounts
 
 A related account (such as the agency, `@Mil_Pro_`) is a second account
 role beside the own accounts of `X_HANDLES`, configured on the console's
 Sources page beside its timer, with its keyword rules in the app setting
-`x_related_accounts`
-(see [Configuration](../operations/configuration.md#related-x-accounts)) and
-decided in [ADR-0009](../decisions/ADR-0009-related-x-accounts-and-quoted-statuses.md).
+`x_related_accounts` (see [Configuration](../operations/configuration.md#related-x-accounts)
+and [Related accounts](../architecture/sources.md#related-accounts)).
 A handle is in one role at a time, and the setting starts empty.
 
 The related accounts have their own timer and step, `x_related`
 ([Source schedules](workflows.md#source-schedules), every 180 minutes by
-default), apart from the own accounts' `x`. Each run reads every related
-account's own timeline in full into the X status pool (`x_statuses`, see
+default), apart from the own accounts' `x`. Each run reads each related
+account's own timeline into the X status pool (`x_statuses`, see
 [Quoted posts](#quoted-posts)):
 
 - It reads the FxTwitter timeline alone, at most the schedule's incremental
@@ -165,9 +168,8 @@ account's own timeline in full into the X status pool (`x_statuses`, see
   X API method, and it makes no detail request, since a page carries each
   status; a status without usable content is left out. Its reposts and other
   authors' statuses are left out too.
-- The count-based model ([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md))
-  holds as for an own account, with its own `sync_state` row of source
-  `x-related` (the lower-case handle as account): the cursor, the timeline
+- The incremental cursor and gap model follows the own-account rules, with its
+  own `sync_state` row of source `x-related` (the lower-case handle as account): the cursor, the timeline
   gap and the known statuses come from the pool's statuses that the
   account's timeline listed (`listed_at`), never from `posts`, so a role
   change never mixes cursors.
@@ -222,7 +224,7 @@ pooled status that is an own post is never promoted or demoted.
 
 The X schedule's [method chain](workflows.md#method-chains) can enable the
 official API (`api`, off by default), which needs `X_API_BEARER_TOKEN`
-([ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)). It reads
+([method chains](../architecture/workflows.md#method-chains)). It reads
 `https://api.x.com/2/users/<id>/tweets` without reposts and replies, newest
 first, with the account's cursor as `since_id`, up to the run's cap of new
 posts in pages of 5 to 100 and at most 10 pages; before an account has a
@@ -977,13 +979,17 @@ than the writer's), with its failure count and code: a captcha backoff is
 never lost. A read that changes a merged upload's title rewrites the
 translation in the same transaction.
 
+#### Bilibili login boundary
+
+The dynamics listing requires a signed-in cookie because anonymous requests depend on browser fingerprint parameters and encounter captcha responses. The server therefore skips the listing without a login and keeps the cookie in memory for the Bilibili API only. An operator can still add one dynamic through its public opus page, which does not require the listing credential.
+
 #### Dynamics
 
 The dynamics listing,
 `/x/polymer/web-dynamic/v1/feed/space?host_mid=<mid>`, answers reliably only
 to a signed-in caller, so it runs only with a login (`BILIBILI_COOKIE` or
 `BILIBILI_SESSDATA`,
-[ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)).
+[Bilibili dynamics](../architecture/sources.md#dynamics)).
 Without the cookie the `bilibili_dynamics` step records `{ skipped: true,
 reason: "login_required" }` and makes no anonymous attempt. The listing is signed
 with Bilibili's WBI scheme (`wts` and `w_rid` from the rotating keys that
@@ -1398,6 +1404,10 @@ cache hits without loading them) and `judgeMs` (time spent loading and
 judging, without model calls or writes). `cached` counts both kinds of cache
 hit.
 
+#### Time-zone rationale
+
+The extraction model returns the date and time as written by the source, and code performs the fixed conversion to Asia/Tokyo. This keeps day rollovers deterministic and preserves the wording used for translation, while all stored schedule instants retain one display zone for readers, merging, and feeds.
+
 #### Source time zones
 
 A Bilibili dynamic gets its own prompt: a Chinese dynamic written for
@@ -1407,7 +1417,7 @@ model gives each entry's date and times as written and names their zone in
 `UTC+8`, `北京时间`, `JST` or `UTC+9`); code converts them to
 Asia/Tokyo, including the day rollover (Beijing 23:30 is 00:30 the next day
 in Japan), so the model does no time arithmetic
-([ADR-0008](../decisions/ADR-0008-source-time-zones-in-code.md)). An entry
+([source time zones](../architecture/sources.md#source-time-zones)). An entry
 without a known `timeZone` is in the source's zone, never an invalid
 entry. X posts keep the Japan prompt and schema, and their entries are always
 Asia/Tokyo whatever `timeZone` a model adds.

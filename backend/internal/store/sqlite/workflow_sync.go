@@ -2,7 +2,7 @@ package sqlite
 
 import "encoding/json"
 
-// SourceSync is how a source schedule reads one source (ADR-0002, ADR-0003):
+// SourceSync is how a source schedule reads one source:
 // "incremental" reads newest first until a stored record, at most Max per X
 // account, related X account or YouTube channel; "count" reads the newest
 // Count every run.

@@ -11,18 +11,18 @@ import (
 	"time"
 )
 
-// SourceSchedule is the timer of one source (ADR-0003). When it is due the
+// SourceSchedule is the timer of one source. When it is due the
 // scheduler submits the source's fixed chain as the ad hoc run
 // SourceScheduleWorkflow(source).
 type SourceSchedule struct {
 	Source          string `json:"source"`
 	Enabled         bool   `json:"enabled"`
 	IntervalMinutes int    `json:"intervalMinutes"`
-	// Sync is how X, its related accounts and YouTube are read (ADR-0002);
+	// Sync is how X, its related accounts and YouTube are read;
 	// Bilibili and the shop have none.
 	Sync *SourceSync `json:"sync"`
 	// Chain is the fallback over listing methods that X and YouTube reads
-	// try (ADR-0004); every other timer's is its one fixed method.
+	// try; every other timer's is its one fixed method.
 	Chain     SourceChain        `json:"chain"`
 	NextRunAt *string            `json:"nextRunAt"`
 	UpdatedAt *string            `json:"updatedAt"`
@@ -455,7 +455,7 @@ func (s *Store) planSourceSchedule(ctx context.Context, tx *sql.Tx, source strin
 // fall due together. A saved X timer without a related-accounts timer beside
 // it gets one, as enabled, with the default interval and sync, planned half
 // the X interval after the X timer's next run. Timers live only in
-// source_schedules (ADR-0003), so nothing else is moved.
+// source_schedules, so nothing else is moved.
 func (s *Store) PrepareSourceSchedules(ctx context.Context, floor int, now time.Time) error {
 	tx, err := s.workflowTx(ctx)
 	if err != nil {

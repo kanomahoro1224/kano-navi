@@ -97,7 +97,7 @@ function timedChanges(draft: TimedDraft, saved: TimedDraft) {
 
 /**
  * How the timer reads a source, saved together: the interval and, for X and
- * YouTube, how much each run reads; and the method chain (ADR-0004) that
+ * YouTube, how much each run reads; and the method chain that
  * timed reads try from the top. A method this process cannot run is greyed
  * with the variable it needs, a source SKIP_* disables keeps its chain
  * locked, and Bilibili's one method is read-only.

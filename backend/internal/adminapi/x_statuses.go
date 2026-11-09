@@ -10,7 +10,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
-// Related X accounts and the X status pool (ADR-0009). The Sources page
+// Related X accounts and the X status pool. The Sources page
 // configures the related accounts; the External posts view lists the pool
 // and records the operator's promote and demote decisions. None of these
 // routes contacts X: the next X run reads the related timelines.

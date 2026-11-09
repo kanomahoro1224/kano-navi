@@ -25,7 +25,7 @@ const (
 	// SourceBilibiliDynamics its dynamics; each pages its own space listing.
 	SourceBilibili         = "bilibili"
 	SourceBilibiliDynamics = "bilibili_dynamics"
-	// SourceXRelated is one related X account (ADR-0009); its one fetch is
+	// SourceXRelated is one related X account; its one fetch is
 	// the x_related timer's incremental read of that account alone.
 	SourceXRelated = "x_related"
 

@@ -14,7 +14,7 @@ import (
 
 // xUsersURL is the root of the user lookup and the user posts timeline
 // (https://docs.x.com/x-api/users/get-posts), which the timed X chain's API
-// method reads (ADR-0004).
+// method reads.
 const xUsersURL = "https://api.x.com/2/users/"
 
 var xUserIDPattern = regexp.MustCompile(`^\d{1,19}$`)

@@ -147,7 +147,7 @@ func (m *QueueManager) Start(ctx context.Context, kind, triggeredBy string, opti
 }
 
 // sourceSync freezes how each source step without a window reads: as given,
-// or else as its source schedule reads (ADR-0003). Full syncs, scans and
+// or else as its source schedule reads. Full syncs, scans and
 // the other kinds never get here and keep the environment's incremental
 // options.
 func (m *QueueManager) sourceSync(ctx context.Context, definition sqlite.WorkflowDefinition, given map[string]sqlite.SourceSync) (map[string]sqlite.SourceSync, error) {
@@ -177,7 +177,7 @@ func (m *QueueManager) sourceSync(ctx context.Context, definition sqlite.Workflo
 }
 
 // sourceChain freezes the method chain each source step without a window
-// reads through, as its source schedule orders it (ADR-0004). A manual
+// reads through, as its source schedule orders it. A manual
 // fetch names its own method; full syncs, scans and the other kinds never
 // get here and read through the default chains.
 func (m *QueueManager) sourceChain(ctx context.Context, steps []string, windows map[string]history.Window) (map[string]sqlite.SourceChain, error) {
@@ -344,7 +344,7 @@ func toJob(run *sqlite.WorkflowRun, history *sqlite.JobRun) *Job {
 		job.SourceSchedule = &source
 	}
 	// A stored run of a saved workflow keeps its ID; the definition is not
-	// read (ADR-0003).
+	// read.
 	if !sqlite.IsAdhocWorkflow(run.WorkflowID) {
 		id := run.WorkflowID
 		job.WorkflowID = &id

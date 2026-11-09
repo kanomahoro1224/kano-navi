@@ -74,7 +74,8 @@ be reserved for reviewed recovery work.
 The `/mcp` endpoint is intentionally narrower than `/admin`. Its public tools
 read the prepared snapshot and sanitized schedule/status views. Bearer-protected
 tools may request a revision, start a full synchronization, or run the automatic
-keyword/board/message scan; all of these return an asynchronous job result. MCP has no
+keyword/board/message scan. Revision requests return the new revision directly;
+synchronization and scans return asynchronous job results. MCP has no
 manual confirmation, edit, delete, profile-media selection/upload, SQL, file, or
 arbitrary URL-proxy operation. A page refresh or revision request never performs
 an external fetch.

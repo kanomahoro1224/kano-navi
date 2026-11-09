@@ -424,7 +424,7 @@ WHERE source='youtube' AND starts_at IS NOT NULL AND TRIM(starts_at)<>''
 }
 
 // backfillVideoForms moves rows that still carry a title-derived kind to the
-// form and content layers (ADR-0005). An operator's content kind becomes the
+// form and content layers. An operator's content kind becomes the
 // video's manual tag and clears the form correction; a stored kind is derived
 // again from the stored facts. Before the form layer, a detail check gave a
 // title kind to a scheduled video only when it was a premiere, so a start

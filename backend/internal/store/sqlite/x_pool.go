@@ -17,8 +17,8 @@ import (
 // projection stored on the quoting post (posts.quote_json) and the
 // translations keyed by its status ID. Both the pool row and the projection
 // come from the same xsource.Quote, so the pool text equals the quote text
-// the board shows. x_reposts records the own accounts' reposts. See
-// docs/decisions/ADR-0009-related-x-accounts-and-quoted-statuses.md.
+// the board shows. x_reposts records the own accounts' reposts. See the
+// related-account rules in the source architecture documentation.
 
 // poolRaw is the sanitized raw_json of a pooled status: what a later
 // promotion needs without a new request, including its images.

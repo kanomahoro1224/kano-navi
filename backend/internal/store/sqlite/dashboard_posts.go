@@ -26,7 +26,7 @@ const postColumns = `id,source,account_handle,type,label,text,published_at,url,l
 
 // wallPostSQL holds for a post of the unaliased posts table that the post
 // wall and the archive list: not hidden, and not a promoted post that a shown
-// own post's shown quote already carries (ADR-0009). The second is a display
+// own post's shown quote already carries. The second is a display
 // rule computed at read time; the quote card returns the post to the wall
 // when the quoting post or its quote is hidden.
 const wallPostSQL = `hidden_at IS NULL AND NOT (promoted_at IS NOT NULL AND EXISTS (SELECT 1 FROM posts wq WHERE wq.source='x' AND wq.promoted_at IS NULL AND wq.hidden_at IS NULL AND wq.quote_hidden_at IS NULL AND json_valid(wq.quote_json) AND json_extract(wq.quote_json,'$.id')=posts.id))`

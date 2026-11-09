@@ -12,7 +12,7 @@
 > [!NOTE]
 > Bilibili dynamics are listed only with a Bilibili login configured
 > (`BILIBILI_COOKIE`, a signed-in browser's cookies, or `BILIBILI_SESSDATA`,
-> [ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)).
+> [Bilibili dynamics](../architecture/sources.md#dynamics)).
 > Startup adds the empty `events.platform` column and sets it to `youtube`
 > on YouTube events, without rewriting other events. Japanese becomes a
 > translation target:
@@ -37,7 +37,7 @@
 
 > [!IMPORTANT]
 > Related X accounts
-> ([ADR-0009](../decisions/ADR-0009-related-x-accounts-and-quoted-statuses.md))
+> ([related accounts](../architecture/sources.md#related-accounts))
 > start empty: the `x_related_accounts` setting is empty after the upgrade
 > and on a fresh install, so no account beyond `X_HANDLES` is read. To follow
 > Kano's agency, add `Mil_Pro_` on `/admin` → Sources → X related. A new
@@ -178,7 +178,7 @@
   Sale entries on the schedule, shown on the day they open and the day they
   close (or on the deadline alone) with an On sale status. They never take
   the next-up ticket, and the calendar subscription lists their opening and
-  closing ([ADR-0006](../decisions/ADR-0006-sale-periods.md)). Reminders of
+  closing ([sale periods](../architecture/data-model.md#sale-periods)). Reminders of
   a sale, such as a last-day post, fold into the announced period instead of
   adding another entry. An On sale row below the next-up ticket lists up to
   three sales on sale now or opening within a week, with their close or
@@ -308,7 +308,7 @@
 - Bilibili dynamics go through schedule extraction with a Chinese prompt.
   The model gives times as written with their zone, and code converts
   Beijing time to Japan time, including the next-day rollover
-  ([ADR-0008](../decisions/ADR-0008-source-time-zones-in-code.md)). Every
+  ([source time zones](../architecture/sources.md#source-time-zones)). Every
   entry records its platform, and a bilibili release links to the upload it
   announced once that is read. An X notice of a bilibili stream merges into
   the dynamic's entry of it.

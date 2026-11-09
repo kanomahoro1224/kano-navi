@@ -89,7 +89,7 @@ func runStandalone(cfg config.Config) int {
 	}
 	queue.StartRecovery()
 	// A Bilibili interval below a raised floor is raised before the first
-	// tick (ADR-0003).
+	// tick.
 	floor := int(run.steps.Bilibili.Options.MinInterval / time.Minute)
 	if err = store.PrepareSourceSchedules(context.Background(), floor, time.Now()); err != nil {
 		return fail("source schedules unavailable", 1)

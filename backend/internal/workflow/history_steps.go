@@ -191,7 +191,7 @@ func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (Atte
 		total.Requested += result.Requested
 		remaining -= result.Requested
 		// A manual fetch ignores the timed chain's gate and cap, but the posts
-		// it reads count toward the day's X API usage (ADR-0004).
+		// it reads count toward the day's X API usage.
 		total.PostsRead += result.PostsRead
 		if h.Store.AddXAPIUsage(ctx, sqlite.JapanDay(time.Now()), result.PostsRead) != nil {
 			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)

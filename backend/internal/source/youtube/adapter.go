@@ -110,7 +110,7 @@ func (a *Adapter) MembersPlaylist(ctx context.Context, useAPI, skipFeed bool) Me
 	return out
 }
 
-// Upload listings, the YouTube chain's methods (ADR-0004), in the default
+// Upload listings, the YouTube chain's methods, in the default
 // order the recent step tries them.
 const (
 	ListingAPI        = "api"
@@ -394,7 +394,7 @@ func (a *Adapter) FetchUploads(ctx context.Context, state State, list List) (Res
 }
 
 // listUploads tries the chain's listings in order until one names uploads
-// (ADR-0004): the Data API's uploads playlist when a key is set, the RSS
+// The Data API's uploads playlist when a key is set, the RSS
 // feed, then the uploads tab. A listing falls through when its first page
 // fails, when it names no upload, or, for the API, without a key; each
 // failure is recorded in the result. The uploads tab has no publication

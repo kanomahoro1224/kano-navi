@@ -4,10 +4,14 @@ This is an unofficial, read-mostly fan board. Original public sources remain
 authoritative. Page views read a prepared local snapshot; synchronization owns
 external reads.
 
+## Boundary rationale
+
+The local snapshot boundary keeps page latency and behavior independent of upstream availability. External platforms, model providers, and media hosts have changing response shapes, rate limits, and access requirements, so only server workflows contact them. SQLite gives the operator one durable place for source cursors, failure outcomes, manual precedence, and the last usable data. Public projections remove internal identifiers, raw responses, credentials, and filesystem paths before the browser or MCP can read them.
+
 ## System Shape
 
 ```text
-Public X / YouTube pages          Configured LLM provider APIs
+Public X / YouTube / Bilibili / shop pages   Configured LLM provider APIs
           |                                ^
           v                                |
 workflow steps  ---- media download / schedule extraction
@@ -17,6 +21,8 @@ data/database/kano.sqlite  -- snapshot, cursors, settings, and media metadata
           |
           +--> data/x/       -- ignored content-addressed X media files
           +--> data/youtube/ -- ignored content-addressed YouTube media files
+          +--> data/bilibili/ -- ignored content-addressed Bilibili media files
+          +--> data/niconico/ -- ignored content-addressed niconico media files
           +--> data/avatar/  -- ignored selected profile media
           +--> data/lineblog/ -- ignored packaged LINE BLOG archive media
           +--> data/works/    -- ignored packaged works covers

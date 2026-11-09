@@ -50,7 +50,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `llm_route_targets`      | The ordered provider + model failover queues: `schedule`, `verify` and `translate`                     |
 | `llm_route_providers`    | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
 | `source_schedules`       | Each source's timer, sync setting and method chain                                                     |
-| `workflows`              | Saved workflow definitions (ADR-0003): kept in the schema, created empty, never read or written        |
+| `workflows`              | Saved workflow definitions: kept in the schema, created empty, never read or written                   |
 | `work_cover_lookups`     | Each niconico or Bilibili cover lookup of a Works upload video: outcome, image URL and retry time      |
 | `translations`           | Manual, platform, and machine translations of posts, videos and pooled statuses per target locale      |
 | `translation_states`     | Per-owner machine translation state: source hash and language, last attempt, operator request          |
@@ -85,7 +85,7 @@ checks that every table has the columns its recorded version requires:
 | `workflow_leases`        | The single `global` lease (owner, expiry, generation) that fences source and media writes              |
 
 A run freezes how its source steps read: `source_sync_json` holds the
-per-source sync ([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md);
+per-source sync ([source schedules](../architecture/workflows.md#source-schedules);
 `{}` reads as each step's incremental default), `fetch_windows_json` an
 operator's [manual fetch](workflows.md#manual-fetches-and-historical-backfill)
 (its method and selection), `source_chain_json` the per-source
@@ -104,7 +104,7 @@ and their steps, attempts and `sync_runs` rows are deleted after their
 [retention window](workflows.md#run-execution).
 
 `source_schedules` holds each source's timer
-([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)): `source`
+([source schedules](../architecture/workflows.md#source-schedules)): `source`
 (`x`, `x_related`, `youtube`, `bilibili`, `bilibili_dynamics` or `shop`,
 the primary key), `enabled`, `interval_minutes`, `sync_json`
 (`{"x": SourceSync}`, `{"x_related": SourceSync}` or
@@ -115,7 +115,7 @@ apiDailyCap}`, the gate and cap for X only; `{}` for the related-accounts,
 Bilibili and shop timers,
 and a chain that is unreadable or does not
 list every method of its source once reads as the default;
-[ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)), `next_run_at`
+[method chains](../architecture/workflows.md#method-chains)), `next_run_at`
 and `updated_at`. A missing row reads as that source's disabled default (see
 [Source schedules](workflows.md#source-schedules)). The `workflows` table and
 its columns, including `source_sync_json` and `source_lookback_json`, stay in
@@ -277,11 +277,15 @@ its event sources. The shown label is the first of:
 
 Video tags are content tags only, and with several videos the alphabetically
 first tag is taken. A video's tag reads the entry in the other direction (see
-[ADR-0005](../decisions/ADR-0005-video-form-and-content-tag.md#content-tag)),
+[video form and tags](../architecture/data-model.md#video-form-and-tags)),
 so the calendar and the video archive agree on content. Nothing is copied
 between the rows. The derivation looks every entry and video up by ID, and a
 store test checks the query plan for it. The admin event list shows the
 stored label and its source.
+
+## Sale-period rationale
+
+A sale is stored as one period and shown at its opening and closing dates. This keeps long order windows out of every intervening calendar day while preserving both dates for calendar feeds and status calculation.
 
 ## Sale Periods
 
@@ -916,10 +920,14 @@ date or scope stays stored without effect, and no public reader reports it.
 Startup adds the columns, both tables and `video_revisions_video_idx` to
 existing snapshots without rewriting videos or media rows.
 
+## Modeling rationale
+
+Events, video form, video content, and sale periods use separate fields because they answer different reader questions. A stream or premiere is a publication form; a game, talk, or song is content; a sale is a period with two endpoints. Keeping those dimensions independent lets calendar labels and archive filters agree without guessing from titles or overwriting operator corrections.
+
 ## Video Form and Tags
 
 A video has three independent layers, each with one owner
-([ADR-0005](../decisions/ADR-0005-video-form-and-content-tag.md)).
+([video form and tags](../architecture/data-model.md#video-form-and-tags)).
 
 **Form.** `kind` is `stream`, `premiere`, `upload` or `unknown`, written by
 synchronization from platform facts only:

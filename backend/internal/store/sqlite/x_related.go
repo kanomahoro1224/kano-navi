@@ -14,10 +14,11 @@ import (
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
 
-// Related X accounts (ADR-0009) are accounts such as Kano's agency whose own
-// timelines are read in full into the X status pool (x_statuses). Only a
-// status that matches the account's keyword rules, or that an operator
-// promotes, becomes a post (posts.promoted_at); the rest stay in the pool,
+// Related X accounts are accounts such as Kano's agency whose own
+// timelines are read into the X status pool (x_statuses) with the schedule's
+// incremental cap. A status that matches the account's keyword rules, or that
+// an operator promotes, becomes a post (posts.promoted_at); the rest stay in
+// the pool,
 // which no public reader reads. The account list lives in the app setting
 // x_related_accounts, apart from the own accounts (X_HANDLES).
 
@@ -364,7 +365,7 @@ func reconcileXStatuses(ctx context.Context, tx *sql.Tx, accounts []XRelatedAcco
 	return changes.any(), err
 }
 
-// reconcileXStatusChanges applies the promotion rules (ADR-0009):
+// reconcileXStatusChanges applies the promotion rules:
 //
 //   - keyword holds for a related account's status whose text contains one of
 //     the account's rules;

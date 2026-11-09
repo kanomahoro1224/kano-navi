@@ -157,7 +157,7 @@ type Options struct {
 	// known-post refreshes. A count setting, whose timeline read leaves the
 	// incremental state as it is, serves operator refreshes this way.
 	RefreshOnly bool
-	// Chain lists the listing methods a run tries in order (ADR-0004):
+	// Chain lists the listing methods a run tries in order:
 	// DiscoveryTimeline, DiscoveryProfile and DiscoveryAPI. Empty tries the
 	// timeline, then the profile page.
 	Chain []string

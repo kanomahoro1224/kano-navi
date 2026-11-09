@@ -40,7 +40,7 @@ func (x *XRecentExecutor) Execute(ctx context.Context, in StepInput) (AttemptRes
 	if len(opts.Handles) == 0 {
 		return AttemptResult{}, NewStepError("x_no_accounts", ErrValidation)
 	}
-	// The run reads through its frozen chain, or the default one (ADR-0004).
+	// The run reads through its frozen chain, or the default one.
 	chain := sqlite.DefaultSourceChain("x")
 	if in.Chain != nil {
 		chain = *in.Chain
@@ -289,7 +289,7 @@ type RelatedRead struct {
 }
 
 // ReadRelated reads each related account's own timeline, or only the one
-// named by only, into the X status pool (ADR-0009). It uses the FxTwitter timeline alone: no profile page, no
+// named by only, into the X status pool. It uses the FxTwitter timeline alone: no profile page, no
 // X API and no detail request, since a page carries each status and
 // relevance needs its text. Each account keeps its own x-related cursor,
 // known statuses and gaps, and records a failed read's code as its last

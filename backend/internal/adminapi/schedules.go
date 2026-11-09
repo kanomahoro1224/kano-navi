@@ -62,7 +62,7 @@ func (a *api) scheduleEntry(ctx context.Context, schedule sqlite.SourceSchedule)
 	return entry, nil
 }
 
-// chainEntry describes a schedule's method chain (ADR-0004): each method in
+// chainEntry describes a schedule's method chain: each method in
 // order with whether it is enabled, whether this process can run it and the
 // variable it needs. X adds its API gate and cap, today's usage and each
 // account's timeline failure streak. Bilibili's one method is fixed.

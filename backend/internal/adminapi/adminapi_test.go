@@ -239,7 +239,7 @@ func TestOneOffStepRunsReplaceSavedWorkflows(t *testing.T) {
 	if skipped := payload["skippedSteps"].([]any); len(skipped) != 1 || skipped[0] != "media" {
 		t.Fatalf("skipped=%v", skipped)
 	}
-	// There are no saved workflows (ADR-0003): the workflow endpoints are
+	// There are no saved workflows: the workflow endpoints are
 	// unknown routes and a workflowId is refused.
 	for _, route := range [][2]string{{"GET", "/api/admin/workflows"}, {"POST", "/api/admin/workflows"}, {"PUT", "/api/admin/workflows/full-refresh"}, {"DELETE", "/api/admin/workflows/full-refresh"}} {
 		if code, payload := c.call(t, route[0], route[1], `{"name":"Flow","steps":["x"]}`); code != 404 || payload["error"] != "not_found" {

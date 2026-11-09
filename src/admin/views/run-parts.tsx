@@ -213,7 +213,7 @@ export function runTitle(run: Run, t: Translator) {
       ? t("admin.run.sourceTitle", { source })
       : t("admin.run.sourceRunNow", { source })
   }
-  // A stored run of a saved workflow (see ADR-0003).
+  // A stored run of a saved workflow.
   if (run.workflowId)
     return t("admin.run.retiredWorkflow", { id: run.workflowId })
   // A manual fetch names its method, and may go on to extract and translate;

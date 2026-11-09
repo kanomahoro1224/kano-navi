@@ -23,8 +23,8 @@ const (
 	apiMaxPage = 100
 )
 
-// discover tries the chain's methods in order until one serves the account
-// (ADR-0004). A method falls through when its first page fails, when it lists
+// discover tries the chain's methods in order until one serves the account. A
+// method falls through when its first page fails, when it lists
 // none of the account's own statuses, or when the chain skips it (the API's
 // credential, gate or daily cap); a later page's failure keeps what was read.
 // An API read that finds nothing newer than the cursor serves. Every method

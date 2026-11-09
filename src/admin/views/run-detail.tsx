@@ -39,7 +39,7 @@ import type { Translator } from "@/types"
 import { cn } from "@/lib/utils"
 
 /** Pick steps from the catalog and run them once; nothing is saved. Sources
- * also run on their own timers on the Sources page (ADR-0003). */
+ * also run on their own timers on the Sources page. */
 export function StepRunDialog({ onClose }: { onClose: () => void }) {
   const { t } = useAppSettings()
   const { api, start, overview } = useAdmin()

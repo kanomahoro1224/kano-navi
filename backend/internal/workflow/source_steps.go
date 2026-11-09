@@ -104,7 +104,7 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 		}
 	}
 	// Source chains, step runs, full syncs and scans carry no window and read each
-	// source by its sync setting (ADR-0002), whatever credentials are set; a
+	// source by its sync setting, whatever credentials are set; a
 	// manual fetch reads through the one method its window names.
 	if in.Window != nil && (in.StepID == "x" || in.StepID == "youtube") && s.History == nil {
 		return AttemptResult{}, NewStepError("history_unavailable", ErrDependency)

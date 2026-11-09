@@ -283,10 +283,16 @@ interval also moves this boundary backward, preventing an endless retry over
 the same empty month. Failures retain all records and the last successful
 checkpoint.
 
+### Why source schedules and read modes are separate
+
+Each source has its own cadence because X, YouTube, Bilibili, related X accounts, and the shop have different freshness, quota, and access constraints. The single-flight queue remains shared so source writes are serialized and one process owns the timers. A schedule's incremental cap limits newly discovered records, while count mode intentionally re-reads a bounded newest window; timeline gaps preserve continuity when a capped or interrupted read cannot reach its cursor.
+
+Listing method chains are configurable for X and YouTube because a public fallback can keep a source readable during an upstream outage, while credentials and quota remain optional. The chain only covers listing methods. Detail and helper requests keep their own bounded behavior so a failed later page does not discard records already read.
+
 ### Source schedules
 
 Each source has its own timer
-([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)), stored in
+([source schedules](../architecture/workflows.md#source-schedules)), stored in
 the additive `source_schedules` table and edited on the console's Sources
 page. A fresh installation keeps all six disabled.
 
@@ -343,7 +349,7 @@ checks stay as the safety net.
 
 The X, related-accounts and YouTube schedules carry a sync setting that
 says how much a run reads
-([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md)). Each run
+([source schedules](../architecture/workflows.md#source-schedules)). Each run
 freezes it in `workflow_runs.source_sync_json`:
 
 - `{ "mode": "incremental", "max": 50 }`, the default: read newest first until
@@ -371,7 +377,7 @@ accounts and 50 uploads for YouTube.
 #### Method chains
 
 Each X and YouTube schedule also orders its listing methods into a fallback
-chain ([ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)), stored
+chain ([method chains](../architecture/workflows.md#method-chains)), stored
 in `source_schedules.chain_json` and edited in the timed reads of the
 Sources page. A read tries the enabled methods from the top and falls to the
 next when the first page fails, when the answer lists none of the account's
@@ -387,7 +393,7 @@ run partial without falling back.
 | `bilibili`  | `list` (the upload list)                                                                                          | fixed                                  |
 
 The default keeps the existing order and leaves yt-dlp off until it is
-configured, so an unconfigured chain reads as the steps did without one. A method whose
+configured, so the default chain applies when no stored chain is available. A method whose
 credential the process lacks is skipped with `x_api_unavailable` or
 `youtube_api_key_missing`. The chain covers listing methods only: detail
 requests (vxtwitter, watch pages) and fixed helper reads (the streams page,
@@ -435,22 +441,21 @@ schedules (both X timers for `SKIP_X`, both Bilibili timers for
 
 #### The `workflows` table
 
-Per-source timers are the only timers
-([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)). The
-`workflows` table, with its `source_sync_json` and `source_lookback_json`
-columns, stays in the schema and a fresh installation creates it empty;
-nothing reads or writes it, and no timer is derived from it. A run whose
-`workflow_id` is not a reserved `@` ID (see
-[Backend](backend.md#jobs-and-workflows)) keeps that ID, and the history
-labels it as a retired workflow. Every start of `kano-go serve` raises a
-stored interval of either Bilibili timer below
-`BILIBILI_MIN_INTERVAL_MINUTES` to that floor. A saved `bilibili` timer
-without a `bilibili_dynamics` timer beside it gets one with the same switch
-and interval, planned half an interval after the upload read, so the two
-never fall due together. A saved `x` timer without an `x_related` timer
-beside it gets one with the same switch, the 180-minute default interval and
+Per-source timers are the only timers. The `workflows` table, with its
+`source_sync_json` and `source_lookback_json` columns, remains in the schema
+and is empty on a fresh installation; no timer is derived from it and current
+runs do not read or write workflow definitions. A run whose `workflow_id` is
+not a reserved `@` ID keeps that identifier in history without joining
+`workflows`.
+
+Every start of `kano-go serve` raises a stored interval of either Bilibili
+timer below `BILIBILI_MIN_INTERVAL_MINUTES` to that floor. When a Bilibili
+upload timer has no dynamics timer beside it, the server creates the dynamics
+timer with the same switch and interval, planned half an interval after the
+upload read. When an X timer has no `x_related` timer beside it, the server
+creates that timer with the same switch, the 180-minute default interval and
 the default sync, planned half the X interval after the X timer's next run.
-Once either row exists the operator's settings are its own.
+Once either row exists, the operator's settings are independent.
 
 ## Modular Steps and Timers
 

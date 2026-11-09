@@ -433,7 +433,7 @@ export interface SyncSettings {
 export type ScheduleSource =
   "x" | "x_related" | "youtube" | "bilibili" | "bilibili_dynamics" | "shop"
 
-/** One listing method of a source's fallback chain (ADR-0004). */
+/** One listing method of a source's fallback chain. */
 export interface ChainMethod {
   id: string
   enabled: boolean
@@ -462,7 +462,7 @@ export interface SourceChainUpdate {
   apiDailyCap?: number
 }
 
-/** A source's own timer (ADR-0003). */
+/** A source's own timer. */
 export interface SourceSchedule {
   source: ScheduleSource
   enabled: boolean

@@ -106,7 +106,7 @@ func parseTimelineStatuses(body []byte, account string) (TimelineStatuses, error
 // Cursor is the FxTwitter continuation where reading resumes; empty restarts
 // at the newest page. Older is an earlier gap below Floor, read from its own
 // continuation once this one is. See
-// docs/decisions/ADR-0002-count-based-source-sync.md.
+// See the source schedule read contract in the architecture documentation.
 type Gap struct {
 	Cursor string `json:"cursor,omitempty"`
 	Floor  string `json:"floor"`

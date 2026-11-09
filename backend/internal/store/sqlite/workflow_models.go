@@ -20,16 +20,16 @@ var (
 
 // WorkflowDefinition is what one run executes. Every run is ad hoc: its ID
 // names the kind of work (AdhocSyncWorkflow, SourceScheduleWorkflow, ...)
-// and nothing is saved apart from the run (ADR-0003); the workflows table stays
+// and nothing is saved apart from the run; the workflows table stays
 // in the schema, unread.
 type WorkflowDefinition struct {
 	ID    string
 	Steps []string
 	// SourceSync is how each source step of a run reads, from the source
-	// schedules (ADR-0003). It is frozen on the run.
+	// schedules. It is frozen on the run.
 	SourceSync map[string]SourceSync
 	// SourceChain is the method fallback chain each source step of a run
-	// reads through (ADR-0004). It is frozen on the run.
+	// reads through. It is frozen on the run.
 	SourceChain map[string]SourceChain
 	// SourceLookbackDays are the days of an operator's recent fetch windows.
 	SourceLookbackDays map[string]int

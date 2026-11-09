@@ -93,7 +93,7 @@ as that account, which Bilibili's captcha blocks far less often than
 anonymous reads, the upload list falls back to the dynamics listing when it
 fails, and the `bilibili_dynamics` step reads the account's dynamics, which
 it skips without one
-([ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)). The
+([Bilibili dynamics](../architecture/sources.md#dynamics)). The
 login cookies are sent only to `api.bilibili.com`, never stored in SQLite,
 logged, or returned.
 
@@ -132,10 +132,10 @@ everything, MCP) keep that setting for X and read 50 YouTube uploads at most. Ea
 [method chain](../architecture/workflows.md#method-chains) decides whether
 its runs use `X_API_BEARER_TOKEN` and `YOUTUBE_API_KEY`: the X API only as a
 fallback behind its gate and daily cap, the YouTube Data API only while the
-chain enables it ([ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)).
+chain enables it ([method chains](../architecture/workflows.md#method-chains)).
 Full syncs read through the default chains, which leave the X API off, and
 no timed read turns a credential into a date search
-([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md)).
+([source schedules](../architecture/workflows.md#source-schedules)).
 
 The backend (`kano-go`) reads `.env` from its working directory; variables
 already present in the environment win. The database path is a command-line
@@ -222,7 +222,7 @@ minutes by default and never below 180. `SKIP_X`, `SKIP_YOUTUBE`,
 `SKIP_BILIBILI` and `SKIP_SHOP` keep that source's timers from running
 (`SKIP_X` both X timers).
 Per-source timers are the only timed sync
-([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)). See
+([source schedules](../architecture/workflows.md#source-schedules)). See
 [Workflows](../architecture/workflows.md#source-schedules).
 
 The YouTube live-status probe is an operator setting, not an environment

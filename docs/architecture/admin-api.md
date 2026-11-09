@@ -223,7 +223,7 @@ startDate, endDate}` or `{mode: "before", days}` (1–365), as the method's
   back to another method.
 
 A busy queue answers `409` with the active run. There are no saved workflows
-([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)): a
+([source schedules](../architecture/workflows.md#source-schedules)): a
 `workflowId` in the body answers `400 invalid_input`, and there are no
 `/workflows` routes (`404 not_found`).
 
@@ -765,7 +765,7 @@ newest first, as `{postId, hidden, quoteHidden, quoteAvailable}`, and
 every forward that shows it available is hidden or hides its quote, and
 `gone` when no forward shows it available. The pool has no decision route:
 a quoted status appears inside its quoting post and never as a post of its
-own ([ADR-0009](../decisions/ADR-0009-related-x-accounts-and-quoted-statuses.md)),
+own ([related accounts](../architecture/sources.md#related-accounts)),
 and the forward's quote already shows the dynamic. Its translations use the
 translation routes with owner `bilibili_status`.
 

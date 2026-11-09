@@ -595,7 +595,7 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
 		return
 	}
-	// The timers are the source schedules (ADR-0003); those SKIP_* disables
+	// The timers are the source schedules; those SKIP_* disables
 	// never run here.
 	timers := map[string]any{"scheduled": 0, "nextRunAt": nil}
 	queue := []map[string]any{}

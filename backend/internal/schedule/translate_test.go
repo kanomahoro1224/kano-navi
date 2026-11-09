@@ -442,7 +442,7 @@ func TestTranslationRequestsBypassTheLookback(t *testing.T) {
 	if f.provider.count() != 0 {
 		t.Fatalf("a post outside the lookback was translated")
 	}
-	queued, err := f.store.RequestMissingTranslations(context.Background(), "")
+	queued, err := f.store.RequestMissingTranslations(context.Background(), "", "")
 	if err != nil || queued != 1 {
 		t.Fatalf("queued=%d err=%v", queued, err)
 	}

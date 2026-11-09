@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -814,23 +815,59 @@ func TranslationErrorCode(message string) string {
 	return "provider_error"
 }
 
-// TranslationCounts are the console totals of one owner type.
-type TranslationCounts struct {
+// TranslationTotals are the console totals of a set of owners.
+type TranslationTotals struct {
 	Total      int `json:"total"`
 	Incomplete int `json:"incomplete"`
 	Requested  int `json:"requested"`
 }
 
+// TranslationCounts are the console totals of one owner type, with the same
+// totals per source (x or bilibili for posts, youtube or bilibili for
+// videos) so a platform's list can show its own.
+type TranslationCounts struct {
+	TranslationTotals
+	Sources map[string]TranslationTotals `json:"sources"`
+}
+
+// TranslationSources are the sources each owner type's list can narrow to.
+var TranslationSources = map[string][]string{
+	TranslationOwnerPost:  {"x", "bilibili"},
+	TranslationOwnerVideo: {"youtube", "bilibili"},
+}
+
 // TranslationSummary counts translatable owners, those lacking a usable
-// translation, and those waiting for a requested machine pass.
+// translation, and those waiting for a requested machine pass, in all and
+// per source.
 func (s *Store) TranslationSummary(ctx context.Context) (map[string]TranslationCounts, error) {
 	out := map[string]TranslationCounts{}
 	for _, ownerType := range []string{TranslationOwnerPost, TranslationOwnerVideo} {
 		o := translationOwners[ownerType]
-		var counts TranslationCounts
-		err := s.db.QueryRowContext(ctx, fmt.Sprintf(`SELECT COUNT(*), COALESCE(SUM(CASE WHEN %[2]s THEN 1 ELSE 0 END), 0), COALESCE(SUM(CASE WHEN %[3]s THEN 1 ELSE 0 END), 0) FROM %[1]s o WHERE %[4]s`,
-			o.table, TranslationIncompleteSQL(ownerType, "o"), TranslationRequestedSQL(ownerType, "o"), o.scopeSQL("o"))).
-			Scan(&counts.Total, &counts.Incomplete, &counts.Requested)
+		counts := TranslationCounts{Sources: map[string]TranslationTotals{}}
+		for _, source := range TranslationSources[ownerType] {
+			counts.Sources[source] = TranslationTotals{}
+		}
+		rows, err := s.db.QueryContext(ctx, fmt.Sprintf(`SELECT o.source, COUNT(*), COALESCE(SUM(CASE WHEN %[2]s THEN 1 ELSE 0 END), 0), COALESCE(SUM(CASE WHEN %[3]s THEN 1 ELSE 0 END), 0) FROM %[1]s o WHERE %[4]s GROUP BY o.source`,
+			o.table, TranslationIncompleteSQL(ownerType, "o"), TranslationRequestedSQL(ownerType, "o"), o.scopeSQL("o")))
+		if err != nil {
+			return nil, dbErr(err)
+		}
+		for rows.Next() {
+			var source string
+			var totals TranslationTotals
+			if err = rows.Scan(&source, &totals.Total, &totals.Incomplete, &totals.Requested); err != nil {
+				rows.Close()
+				return nil, dbErr(err)
+			}
+			counts.Total += totals.Total
+			counts.Incomplete += totals.Incomplete
+			counts.Requested += totals.Requested
+			if _, known := counts.Sources[source]; known {
+				counts.Sources[source] = totals
+			}
+		}
+		err = rows.Err()
+		rows.Close()
 		if err != nil {
 			return nil, dbErr(err)
 		}
@@ -1340,8 +1377,10 @@ func (s *Store) RequestTranslations(ctx context.Context, ownerType string, ids [
 
 // RequestMissingTranslations queues a machine pass for every owner of the
 // type (or of both types when ownerType is empty) that lacks a usable
-// translation, whatever its age. It returns the number queued.
-func (s *Store) RequestMissingTranslations(ctx context.Context, ownerType string) (int, error) {
+// translation, whatever its age; a source, which needs an owner type, keeps
+// to that platform's owners (see TranslationSources). It returns the number
+// queued.
+func (s *Store) RequestMissingTranslations(ctx context.Context, ownerType, source string) (int, error) {
 	if !s.Writable() {
 		return 0, ErrReadOnly
 	}
@@ -1352,6 +1391,13 @@ func (s *Store) RequestMissingTranslations(ctx context.Context, ownerType string
 		}
 		types = []string{ownerType}
 	}
+	sourceSQL, args := "", []any{}
+	if source != "" {
+		if ownerType == "" || !slices.Contains(TranslationSources[ownerType], source) {
+			return 0, ErrTranslationInvalid
+		}
+		sourceSQL, args = " AND o.source=?", []any{source}
+	}
 	now := ISOTime(time.Now())
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1361,8 +1407,8 @@ func (s *Store) RequestMissingTranslations(ctx context.Context, ownerType string
 	total := 0
 	for _, kind := range types {
 		o := translationOwners[kind]
-		query := fmt.Sprintf(requestTranslationSQL(kind), o.scopeSQL("o")+" AND "+TranslationIncompleteSQL(kind, "o"))
-		result, err := tx.ExecContext(ctx, query, now)
+		query := fmt.Sprintf(requestTranslationSQL(kind), o.scopeSQL("o")+" AND "+TranslationIncompleteSQL(kind, "o")+sourceSQL)
+		result, err := tx.ExecContext(ctx, query, append([]any{now}, args...)...)
 		if err != nil {
 			return 0, dbErr(err)
 		}

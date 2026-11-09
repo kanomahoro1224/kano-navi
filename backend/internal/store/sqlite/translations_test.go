@@ -104,3 +104,42 @@ func TestMachineTranslationForChangedWordingIsDropped(t *testing.T) {
 		t.Fatalf("a machine row outside the targets must be rejected: %v", err)
 	}
 }
+
+func TestTranslationBacklogIsCountedAndRequestedPerSource(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenInitialized(filepath.Join(t.TempDir(), "database", "kano.sqlite"), true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if _, err = store.DB().Exec(`INSERT INTO posts (id, source, type, text, published_at, url) VALUES
+		('x1', 'x', 'daily', 'こんばんは', '2026-10-01T00:00:00.000Z', 'https://x.example.invalid/x1'),
+		('x2', 'x', 'daily', 'おはよう', '2026-10-02T00:00:00.000Z', 'https://x.example.invalid/x2'),
+		('bilibili-900000000000000010', 'bilibili', 'daily', '晚上好', '2026-10-03T00:00:00.000Z', 'https://www.bilibili.com/opus/900000000000000010')`); err != nil {
+		t.Fatal(err)
+	}
+	summary, err := store.TranslationSummary(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	posts := summary[TranslationOwnerPost]
+	if posts.Total != 3 || posts.Incomplete != 3 || posts.Sources["x"].Total != 2 || posts.Sources["bilibili"].Total != 1 || posts.Sources["bilibili"].Incomplete != 1 {
+		t.Fatalf("posts=%#v", posts)
+	}
+	if videos := summary[TranslationOwnerVideo]; videos.Total != 0 || len(videos.Sources) != 2 {
+		t.Fatalf("videos=%#v", videos)
+	}
+	// A source queues only that platform's owners.
+	if queued, err := store.RequestMissingTranslations(ctx, TranslationOwnerPost, "bilibili"); err != nil || queued != 1 {
+		t.Fatalf("queued=%d err=%v", queued, err)
+	}
+	if summary, err = store.TranslationSummary(ctx); err != nil || summary[TranslationOwnerPost].Sources["bilibili"].Requested != 1 || summary[TranslationOwnerPost].Sources["x"].Requested != 0 {
+		t.Fatalf("summary=%#v err=%v", summary, err)
+	}
+	// A source needs its owner type and one of that type's platforms.
+	for _, pair := range [][2]string{{"", "x"}, {TranslationOwnerPost, "youtube"}, {TranslationOwnerVideo, "x"}} {
+		if _, err := store.RequestMissingTranslations(ctx, pair[0], pair[1]); !errors.Is(err, ErrTranslationInvalid) {
+			t.Fatalf("%v err=%v", pair, err)
+		}
+	}
+}

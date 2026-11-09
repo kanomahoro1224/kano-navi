@@ -46,6 +46,7 @@ import {
   Switch,
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
+import { PlatformTabs, useScopedPage } from "@/admin/views/platform-tabs"
 import { PostAccount, PostActions, PostStatus } from "@/admin/views/review"
 import {
   TranslationBacklog,
@@ -736,6 +737,20 @@ function queuedPreset(tab: string) {
   return tab.startsWith("queued-") && queuedKinds.includes(kind) ? kind : ""
 }
 
+const postPlatforms = ["all", "x", "bilibili"] as const
+type PostPlatform = (typeof postPlatforms)[number]
+
+/**
+ * `#posts/<platform>/<preset>`: the platform may be left out, and the preset
+ * (`queued-<kind>` or `find-<id>`) is what the list opens on.
+ */
+function readPostTab(tab: string) {
+  const [first = "", ...rest] = tab.split("/")
+  return first === "x" || first === "bilibili"
+    ? { platform: first as PostPlatform, preset: rest.join("/") }
+    : { platform: "all" as PostPlatform, preset: tab }
+}
+
 const llmStatuses = [
   "never",
   "pending",
@@ -748,11 +763,13 @@ const llmStatuses = [
 const translationStatuses = ["incomplete", "complete", "requested", "failed"]
 
 function PostList({
+  platform,
   sources,
   queued,
   find,
   navigate,
 }: {
+  platform: PostPlatform
   sources: Sources | undefined
   queued: string
   /** A status ID the list opens searched for, from External posts. */
@@ -767,10 +784,19 @@ function PostList({
     search: find,
   })
   const [search, setSearch] = useState(find)
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useScopedPage(platform)
+  // Bilibili has one account, so its tab has no account filter.
+  const accounts = platform !== "bilibili"
+  const applied = accounts ? filters : { ...filters, account: "" }
   const posts = useResource(
-    () => api.posts({ ...filters, page, pageSize: 30 }),
-    [filters, page],
+    () =>
+      api.posts({
+        ...applied,
+        source: platform === "all" ? "" : platform,
+        page,
+        pageSize: 30,
+      }),
+    [filters, platform, page],
   )
   const update = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch }))
@@ -778,7 +804,7 @@ function PostList({
   }
   const active = (
     Object.keys(blankFilters) as (keyof typeof blankFilters)[]
-  ).filter((key) => filters[key] !== blankFilters[key]).length
+  ).filter((key) => applied[key] !== blankFilters[key]).length
   const any = { value: "", label: t("admin.filter.any") }
   return (
     <>
@@ -800,18 +826,20 @@ function PostList({
             aria-label={t("admin.posts.search")}
           />
         </label>
-        <FilterSelect
-          label={t("admin.posts.account")}
-          value={filters.account}
-          onChange={(account) => update({ account })}
-          options={[
-            any,
-            ...(sources?.x.accounts || []).map(({ account }) => ({
-              value: account,
-              label: `@${account}`,
-            })),
-          ]}
-        />
+        {accounts ? (
+          <FilterSelect
+            label={t("admin.posts.account")}
+            value={filters.account}
+            onChange={(account) => update({ account })}
+            options={[
+              any,
+              ...(sources?.x.accounts || []).map(({ account }) => ({
+                value: account,
+                label: `@${account}`,
+              })),
+            ]}
+          />
+        ) : null}
         <FilterSelect
           label={t("admin.posts.llm")}
           value={filters.llm}
@@ -867,7 +895,11 @@ function PostList({
             ? t("admin.pager.total", { total: posts.data.total })
             : ""}
         </span>
-        <TranslationBacklog owner="post" onQueued={() => void posts.reload()} />
+        <TranslationBacklog
+          owner="post"
+          source={platform === "all" ? undefined : platform}
+          onQueued={() => void posts.reload()}
+        />
       </div>
       {!posts.data ? (
         <Loading />
@@ -900,8 +932,9 @@ function PostList({
 export function PostsView({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
   const { api } = useAdmin()
-  // The account filter lists the configured accounts.
+  // The account filter lists the configured X accounts.
   const sources = useResource(() => api.sources(), [])
+  const { platform, preset } = readPostTab(tab)
   return (
     <div className="adm-view">
       <PageHeader
@@ -917,15 +950,27 @@ export function PostsView({ tab, navigate }: ViewProps) {
           </Button>
         }
       />
-      <Panel>
-        <PostList
-          key={tab}
-          sources={sources.data}
-          queued={queuedPreset(tab)}
-          find={tab.startsWith("find-") ? tab.slice(5) : ""}
-          navigate={navigate}
-        />
-      </Panel>
+      <PlatformTabs
+        platforms={postPlatforms}
+        value={platform}
+        onSelect={(next) =>
+          navigate(
+            "posts",
+            [next, preset].filter((part) => part && part !== "all").join("/"),
+          )
+        }
+      >
+        <Panel>
+          <PostList
+            key={preset}
+            platform={platform}
+            sources={sources.data}
+            queued={queuedPreset(preset)}
+            find={preset.startsWith("find-") ? preset.slice(5) : ""}
+            navigate={navigate}
+          />
+        </Panel>
+      </PlatformTabs>
     </div>
   )
 }

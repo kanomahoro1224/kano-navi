@@ -142,12 +142,17 @@ in `src/index.css`. The hidden `/admin` console
 lives in `src/admin/` and is organized around operator tasks: `index.tsx`
 registers the views (Overview, Review queue, Schedule, Posts, Videos, Profile
 images, Runs, Queue, Sources, Detection, Site) and renders the shell
-with hash routing (`#view/tab`; a `#content/<tab>` link opens the matching
+with hash routing (`#view/tab`, where the tab is everything after the view
+and may hold several parts; a `#content/<tab>` link opens the matching
 view, and `#models` and `#llm/<provider>` links open Detection); `use-admin-data.ts` owns every
 [Admin API](admin-api.md) call, the session and the overview poll that tracks
 the active run while the console is visible; `api.ts` is the transport and error mapping; `types.ts` holds
 the wire shapes; `ui.tsx` the console primitives (buttons, panels, native
-modal dialog, toasts); `views/` one file per section; and `admin.css` styles
+modal dialog, toasts); `views/` one file per section, with
+`views/platform-tabs.tsx` the platform tab row that opens Posts, External
+posts and Videos: one icon tab per platform, styled like the Sources tabs,
+above a tab panel, the platform kept in the URL, and the arrow keys, Home and
+End moving between the tabs; and `admin.css` styles
 them with `adm-` prefixed selectors, importing one file per area from
 `styles/` in cascade order. `src/components/ui/` contains
 basic UI primitives, while the CSS files contain layout and design tokens. The
@@ -344,13 +349,14 @@ timeline of the posts it was read from, labelled Source, Merged entry or
 Cancellation, between the same accounts' nearby posts, which are quieter
 and can be folded away; links of other evidence sit above it.
 
-The console's video list (`src/admin/views/videos.tsx`) puts the featured
-video above a list with task tabs (All, Upcoming, Missing translation and
-Queued, an open refresh or translation request), a platform filter (All
-platforms, YouTube, Bilibili) that narrows any tab, and a search field; a
-`#videos/<tab>` link opens that tab and `#videos/bilibili` the Bilibili
-filter. Uploads merged into another video appear on that video's row, so
-only the Bilibili filter lists them on their own. Each row shows the
+The console's video list (`src/admin/views/videos.tsx`) has platform tabs
+(All, YouTube, Bilibili) above the featured video and a list with task tabs
+(All, Upcoming, Missing translation and Queued, an open refresh or
+translation request), which any platform narrows, and a search field.
+Both are in the URL, `#videos/<platform>/<task>`, and either part may be
+left out: `#videos/bilibili` opens the Bilibili uploads and `#videos/queued`
+the Queued tab on every platform. Uploads merged into another video appear
+on that video's row, so only the Bilibili tab lists them on their own. Each row shows the
 thumbnail, the title, which opens the correction dialog, the platform, time,
 kind (for a Bilibili upload with who settled it, or a honey badge while it
 is unsettled and not public), tag, length and format, its badges and merge
@@ -534,8 +540,9 @@ the main one, and on a phone the tabs share the width and show only the
 source names, and a fold's header controls move under its title.
 
 External posts (`src/admin/views/external-posts.tsx`, in the Data group
-after Posts) has a tab per status pool, X and Bilibili, styled like the
-Sources tabs and kept in the URL (`#external/bilibili`). The X tab lists the
+after Posts) has a platform tab per status pool, X and Bilibili, with no
+All tab since the pools take different actions (`#external/bilibili`). The
+X tab lists the
 X status pool, without Kano's own accounts' statuses, in the post list's
 feed layout:
 author, name and Japan time; the wording with its image count, links to the
@@ -561,7 +568,8 @@ Bilibili. It has no promote or demote, since the forward's quote shows the
 dynamic. Filters cover the text or ID, the author's mid or name, and the
 kind.
 
-The console's post list (`src/admin/views/posts.tsx`) is a feed of posts
+The console's post list (`src/admin/views/posts.tsx`) has platform tabs
+(All, X, Bilibili; `#posts/x`, `#posts/bilibili`) above a feed of posts
 separated by rules, one row of columns per post: the account over the Japan
 time, the wording (three lines) and its quote, the post's own cached images
 (up to three, "+N" counts the rest), the translation status, the extraction
@@ -577,8 +585,11 @@ state and actions on one line above the wording, images and translations,
 and under 560px the state gets a line of its own. A hidden post's wording is
 dimmed. Beside the account, extraction, translation and date filters,
 Queued for keeps the posts with an open operator request: any, Extract
-again, Read again from X or AI translation. A `#posts/queued-<kind>` link
-opens the list on one kind.
+again, Read again from X or AI translation. The account filter lists the X
+accounts and is absent on the Bilibili tab. A platform keeps the other
+filters and starts the list again at its first page. A
+`#posts/queued-<kind>` link opens the list on one kind, after the platform
+when there is one (`#posts/x/queued-refresh`).
 
 Edit opens the post in a dialog: the whole wording, every cached image, the
 translations, the quote, the schedule image form and a switch that hides the

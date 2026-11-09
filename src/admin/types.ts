@@ -931,10 +931,15 @@ export interface AdminTranslation {
   locales: AdminTranslationLocale[]
 }
 
-export interface TranslationCounts {
+export interface TranslationTotals {
   total: number
   incomplete: number
   requested: number
+}
+
+export interface TranslationCounts extends TranslationTotals {
+  /** The same totals per source: x or bilibili posts, youtube or bilibili videos. */
+  sources?: Record<string, TranslationTotals>
 }
 
 export interface TranslationSummary {

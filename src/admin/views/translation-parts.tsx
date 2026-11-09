@@ -400,24 +400,32 @@ export function TranslationCell({
 
 /**
  * How many posts or videos lack a usable translation, and the incremental
- * pass that queues every one of them for the translate step.
+ * pass that queues every one of them for the translate step; with a source,
+ * only that platform's.
  */
 export function TranslationBacklog({
   owner,
+  source,
   onQueued,
 }: {
   owner: TranslationOwner
+  source?: string
   onQueued: () => void
 }) {
   const { t } = useAppSettings()
   const { api, act, notify } = useAdmin()
   const summary = useResource(() => api.translations(), [])
   const [busy, setBusy] = useState(false)
-  const counts = summary.data?.counts[owner]
+  const all = summary.data?.counts[owner]
+  const counts = source ? all?.sources?.[source] : all
   const request = async () => {
     setBusy(true)
     const result = await act(() =>
-      api.requestTranslations({ missing: true, ownerType: owner }),
+      api.requestTranslations({
+        missing: true,
+        ownerType: owner,
+        ...(source ? { source } : {}),
+      }),
     )
     setBusy(false)
     if (!result) return

@@ -42,6 +42,7 @@ import {
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { stepIcons } from "@/admin/views/run-parts"
+import { PlatformTabs } from "@/admin/views/platform-tabs"
 import { TranslationCell } from "@/admin/views/translation-parts"
 import { cn } from "@/lib/utils"
 
@@ -637,7 +638,7 @@ function BilibiliStatusPool({ navigate }: Pick<ViewProps, "navigate">) {
         <>
           <ul
             className="adm-post-feed"
-            aria-label={t("admin.external.source.bilibili")}
+            aria-label={t("admin.platform.bilibili")}
           >
             {statuses.data.items.map((status) => (
               <BilibiliStatusItem
@@ -691,37 +692,17 @@ export function ExternalPostsView({ tab, navigate }: ViewProps) {
           ) : undefined
         }
       />
-      <div
-        className="adm-tabs is-bare adm-source-tabs"
-        role="tablist"
-        aria-label={t("admin.external.pools")}
+      <PlatformTabs
+        platforms={pools}
+        value={pool}
+        onSelect={(id) => navigate("external", id)}
       >
-        {pools.map((id) => {
-          const Icon = stepIcons[id]
-          return (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={pool === id}
-              className={cn(pool === id && "is-active")}
-              onClick={() => navigate("external", id)}
-            >
-              <span className="adm-source-icon">
-                <Icon aria-hidden />
-              </span>
-              <strong>{t(`admin.external.source.${id}`)}</strong>
-            </button>
-          )
-        })}
-      </div>
-      <div role="tabpanel" aria-label={t(`admin.external.source.${pool}`)}>
         {pool === "x" ? (
           <XStatusPool navigate={navigate} />
         ) : (
           <BilibiliStatusPool navigate={navigate} />
         )}
-      </div>
+      </PlatformTabs>
     </div>
   )
 }

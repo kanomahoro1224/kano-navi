@@ -351,7 +351,7 @@ function createClient(run: Runner, slow: Runner) {
     /** Queue machine passes for owners, or for everything missing one. */
     requestTranslations: (
       body:
-        | { missing: true; ownerType?: TranslationOwner }
+        | { missing: true; ownerType?: TranslationOwner; source?: string }
         | { ownerType: TranslationOwner; ids: string[] },
     ) => send<TranslationRequestResult>("POST", "/translations/request", body),
     videos: (filters: Record<string, any>) =>

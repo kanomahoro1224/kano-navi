@@ -376,8 +376,14 @@
 <details>
 <summary><strong>Operator console</strong></summary>
 
-- Videos has a platform filter (All platforms, YouTube, Bilibili) beside
-  its task tabs instead of a Bilibili tab, a merge badge opens the other
+- Posts, External posts and Videos switch platforms with one icon tab row
+  at the top of the page, kept in the link (`#posts/bilibili`,
+  `#videos/youtube/queued`). Posts adds All, X and Bilibili tabs, and its
+  Bilibili tab lists the dynamics without an account filter. On a platform
+  tab the count of posts or videos lacking a translation, and **Translate
+  missing**, cover that platform only.
+- Videos has platform tabs (All, YouTube, Bilibili) above its task tabs
+  instead of a Bilibili tab, a merge badge opens the other
   side of the merge, and a Bilibili row shows its form and who settled it,
   or that it is not public yet. The Review queue adds a Bilibili form tab
   with Upload and Live replay buttons for the uploads the model could not

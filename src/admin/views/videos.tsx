@@ -29,6 +29,7 @@ import {
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { MergeLine } from "@/admin/views/merge-parts"
+import { PlatformTabs, useScopedPage } from "@/admin/views/platform-tabs"
 import {
   TranslationBacklog,
   TranslationCell,
@@ -350,9 +351,28 @@ const videoSources = ["all", "youtube", "bilibili"] as const
 type VideoSource = (typeof videoSources)[number]
 
 /**
- * Each tab is an operator task, narrowed to one platform by the source
- * filter. Uploads merged into another video show on that video, so only the
- * Bilibili filter lists them as rows of their own. Queued lists the videos
+ * `#videos/<platform>/<task>`: either part may be left out, so
+ * `#videos/bilibili` and `#videos/queued` open a platform or a task alone.
+ */
+export function readVideoTab(tab: string) {
+  const parts = tab.split("/")
+  const source = (videoSources as readonly string[]).find(
+    (value) => value !== "all" && parts.includes(value),
+  ) as VideoSource | undefined
+  const view = (videoViews as readonly string[]).find(
+    (value) => value !== "all" && parts.includes(value),
+  ) as VideoView | undefined
+  return { source: source ?? "all", view: view ?? "all" }
+}
+
+export function videoTab(source: VideoSource, view: VideoView) {
+  return [source, view].filter((part) => part !== "all").join("/")
+}
+
+/**
+ * Each tab is an operator task, narrowed to one platform by the platform
+ * tabs. Uploads merged into another video show on that video, so only the
+ * Bilibili tab lists them as rows of their own. Queued lists the videos
  * with an open refresh or translation request.
  */
 const viewFilters: Record<VideoView, Record<string, string>> = {
@@ -371,19 +391,19 @@ function videoFilter(view: VideoView, source: VideoSource) {
 }
 
 function VideoList({
-  initial,
-  initialSource,
+  view,
+  source,
+  onView,
 }: {
-  initial: VideoView
-  initialSource: VideoSource
+  view: VideoView
+  source: VideoSource
+  onView: (view: VideoView) => void
 }) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
-  const [view, setView] = useState<VideoView>(initial)
-  const [source, setSource] = useState<VideoSource>(initialSource)
   const [search, setSearch] = useState("")
   const [query, setQuery] = useState("")
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useScopedPage(`${view}/${source}/${query}`)
   const [editing, setEditing] = useState<string | null>(null)
   // A merge or undo changes two rows, so the page reloads.
   const [merges, setMerges] = useState(0)
@@ -398,9 +418,7 @@ function VideoList({
     [view, source, query, page, merges],
   )
   const submitSearch = () => {
-    if (search === query) return
-    setQuery(search)
-    setPage(1)
+    if (search !== query) setQuery(search)
   }
   const merged = () => setMerges((value) => value + 1)
   const data = videos.data
@@ -452,22 +470,7 @@ function VideoList({
               value,
               label: t(`admin.videos.view.${value}`),
             }))}
-            onChange={(value) => {
-              setView(value)
-              setPage(1)
-            }}
-          />
-          <Segmented
-            label={t("admin.videos.platform")}
-            value={source}
-            options={videoSources.map((value) => ({
-              value,
-              label: t(`admin.videos.platform.${value}`),
-            }))}
-            onChange={(value) => {
-              setSource(value)
-              setPage(1)
-            }}
+            onChange={onView}
           />
           <form
             className="adm-search"
@@ -494,6 +497,7 @@ function VideoList({
           </span>
           <TranslationBacklog
             owner="video"
+            source={source === "all" ? undefined : source}
             onQueued={() => void videos.reload()}
           />
         </div>
@@ -549,12 +553,8 @@ function VideoList({
 
 export function VideosView({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
-  // A `#videos/<view>` link opens that tab, and `#videos/bilibili` the
-  // Bilibili uploads.
-  const initial = (videoViews as readonly string[]).includes(tab)
-    ? (tab as VideoView)
-    : "all"
-  const initialSource: VideoSource = tab === "bilibili" ? "bilibili" : "all"
+  // The platform and the task are both in the URL.
+  const { source, view } = readVideoTab(tab)
   return (
     <div className="adm-view">
       <PageHeader
@@ -570,7 +570,17 @@ export function VideosView({ tab, navigate }: ViewProps) {
           </Button>
         }
       />
-      <VideoList key={tab} initial={initial} initialSource={initialSource} />
+      <PlatformTabs
+        platforms={videoSources}
+        value={source}
+        onSelect={(next) => navigate("videos", videoTab(next, view))}
+      >
+        <VideoList
+          view={view}
+          source={source}
+          onView={(next) => navigate("videos", videoTab(source, next))}
+        />
+      </PlatformTabs>
     </div>
   )
 }

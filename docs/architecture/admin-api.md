@@ -1023,18 +1023,20 @@ deleted URL again. Files follow
 
 ## Translations
 
-| Method and path                              | Body                                                | Result                    |
-| -------------------------------------------- | --------------------------------------------------- | ------------------------- |
-| `GET /translations`                          |                                                     | `{counts, locales}`       |
-| `POST /translations/request`                 | `{missing: true, ownerType?}` or `{ownerType, ids}` | `202 {queued, run, busy}` |
-| `PUT /translations/{owner}/{id}/{locale}`    | `{text}`                                            | `{translation}`           |
-| `DELETE /translations/{owner}/{id}/{locale}` |                                                     | `{translation}`           |
+| Method and path                              | Body                                                         | Result                    |
+| -------------------------------------------- | ------------------------------------------------------------ | ------------------------- |
+| `GET /translations`                          |                                                              | `{counts, locales}`       |
+| `POST /translations/request`                 | `{missing: true, ownerType?, source?}` or `{ownerType, ids}` | `202 {queued, run, busy}` |
+| `PUT /translations/{owner}/{id}/{locale}`    | `{text}`                                                     | `{translation}`           |
+| `DELETE /translations/{owner}/{id}/{locale}` |                                                              | `{translation}`           |
 
 `owner` and `ownerType` are `post`, `video`, `x_status`, a pooled X status
 by its status ID, or `bilibili_status`, a pooled forwarded dynamic by its
 post ID (see [Translations](data-model.md#translations)); `locale`
 is `en`, `ja` or `zh-CN`. `counts` maps `post` and `video` to `{total, incomplete,
-requested}` over the posts and videos the translate step covers. A translation summary is
+requested, sources}` over the posts and videos the translate step covers;
+`sources` holds the same totals per source (`x` and `bilibili` for posts,
+`youtube` and `bilibili` for videos), which the console's platform tabs show. A translation summary is
 `{status, sourceLanguage, machineStatus, lastAttemptAt, lastError, requested,
 locales}` with `status` `complete` or `incomplete`, `machineStatus` `never`,
 `success`, `failed`, `skipped` or `outdated` (the wording changed after the
@@ -1058,7 +1060,8 @@ owner's new summary and `404 not_found` for an unknown owner. `POST
 /translations/request` queues forced machine passes for the listed owners
 (at most 200), or with `missing: true` for every owner of `ownerType`, or
 every post and video without one, lacking a usable translation, whatever
-its age. Owners outside the translate step's scope, such as a pooled status
+its age; `source` keeps such a request to one of the owner type's sources
+and needs `ownerType` (any other pairing answers `400`). Owners outside the translate step's scope, such as a pooled status
 that is a stored post, are not queued. When it
 queued any and the run queue is free it starts a `translate` run; `busy: true`
 means the requests wait for the next translate step.

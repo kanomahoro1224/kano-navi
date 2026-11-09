@@ -270,6 +270,13 @@
   gap: 20px;
 }
 
+/* The page under a platform tab row keeps the view's spacing. */
+.adm-platform-panel {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
 .adm-page-header {
   display: flex;
   flex-wrap: wrap;

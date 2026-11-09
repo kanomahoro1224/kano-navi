@@ -123,9 +123,11 @@ const legacyContent: Record<string, string> = {
 }
 
 function readHash() {
-  const [view = "", tab = ""] = window.location.hash
+  // The tab is everything after the view, so it may hold several parts.
+  const [view = "", ...parts] = window.location.hash
     .replace(/^#/u, "")
     .split("/")
+  const tab = parts.join("/")
   if (view === "content")
     return { view: legacyContent[tab] || "posts", tab: "" }
   // Model links open the Detection page, which holds the model setup.

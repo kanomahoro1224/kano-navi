@@ -13,6 +13,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
 // --- lists ------------------------------------------------------------------
@@ -295,6 +296,9 @@ func eventURL(raw json.RawMessage) (string, error) {
 	scheme := strings.ToLower(parsed.Scheme)
 	if scheme != "http" && scheme != "https" {
 		return "", httpx.Invalid("url must use HTTP or HTTPS")
+	}
+	if urlguard.ContainsCredentials(value) {
+		return "", httpx.Invalid("url must not contain credentials")
 	}
 	parsed.Scheme = scheme
 	parsed.Host = strings.ToLower(parsed.Host)

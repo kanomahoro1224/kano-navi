@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
 // SiteName is the English base-locale name feeds carry.
@@ -228,7 +229,7 @@ func publicLink(value *string) string {
 		return ""
 	}
 	parsed, err := url.Parse(strings.TrimSpace(*value))
-	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || urlguard.ContainsCredentials(parsed.String()) {
 		return ""
 	}
 	return parsed.String()

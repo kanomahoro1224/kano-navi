@@ -458,6 +458,7 @@ func TestOutboundAllowlists(t *testing.T) {
 		"http://example.test":                     "http://example.test/",
 		"http://example.test:8080/x":              "http://example.test:8080/x",
 		"mailto:someone@example.test":             "",
+		"https://example.test/a?token=synthetic":  "",
 		"/assets/a.png":                           "",
 	} {
 		if got, _ := normalizeSourceURL(input); got != want {

@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"path"
 	"strings"
+
+	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
 func Normalize(payload map[string]any, fallbackID, account string) *Post {
@@ -51,9 +53,9 @@ func Normalize(payload map[string]any, fallbackID, account string) *Post {
 		u = stringValue(payload["url"])
 	}
 	if u == "" {
-		u = "https://x.com/" + account + "/status/" + id
+		u = fallbackPostURL(account, id)
 	}
-	u = strings.ReplaceAll(u, "twitter.com", "x.com")
+	u = normalizePostURL(u, account, id)
 	p := &Post{ID: id, AccountHandle: account, Type: "daily", Label: "DAILY / 近况", Text: text, PublishedAt: published, URL: u, Likes: number(first(payload, "likes", "likeCount")), Reposts: number(first(payload, "retweets", "reposts", "retweetCount")), Replies: number(first(payload, "replies", "replyCount")), MediaURLs: media, AuthorScreenName: screen, Quote: quote, Raw: payload}
 	if strings.Contains(strings.ToLower(text), "schedule") || strings.Contains(text, "スケジュール") || strings.Contains(text, "配信予定") || strings.Contains(text, "週間予定") || strings.Contains(text, "今週の予定") {
 		p.Type = "notice"
@@ -63,6 +65,22 @@ func Normalize(payload map[string]any, fallbackID, account string) *Post {
 		p.Label = "ANNOUNCEMENT"
 	}
 	return p
+}
+
+func fallbackPostURL(account, id string) string {
+	return "https://x.com/" + account + "/status/" + id
+}
+
+func normalizePostURL(raw, account, id string) string {
+	fallback := fallbackPostURL(account, id)
+	raw = strings.ReplaceAll(strings.TrimSpace(raw), "twitter.com", "x.com")
+	parsed, err := url.Parse(raw)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || urlguard.ContainsCredentials(raw) {
+		return fallback
+	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	parsed.Host = strings.ToLower(parsed.Host)
+	return parsed.String()
 }
 func stringValue(v any) string {
 	if s, ok := v.(string); ok {

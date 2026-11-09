@@ -200,6 +200,13 @@ func TestMediaAndProfileMediaContainmentAndHeaders(t *testing.T) {
 	if head.Code != http.StatusOK || head.Body.Len() != 0 || head.Header().Get("Content-Length") != contentLengthString(len(body)) {
 		t.Fatalf("profile HEAD status=%d headers=%v body=%q", head.Code, head.Header(), head.Body.String())
 	}
+	profileRange := httptest.NewRequest(http.MethodGet, "/media/profile/avatar", nil)
+	profileRange.Header.Set("Range", "bytes=0-3")
+	profileRangeRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(profileRangeRecorder, profileRange)
+	if profileRangeRecorder.Code != http.StatusPartialContent || profileRangeRecorder.Body.String() != string(body[:4]) {
+		t.Fatalf("profile range status=%d headers=%v body=%x", profileRangeRecorder.Code, profileRangeRecorder.Header(), profileRangeRecorder.Body.Bytes())
+	}
 	rangedRequest := httptest.NewRequest(http.MethodGet, "/media/"+id, nil)
 	rangedRequest.Header.Set("Range", "bytes=0-3")
 	rangedRecorder := httptest.NewRecorder()

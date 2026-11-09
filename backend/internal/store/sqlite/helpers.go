@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
 type scanner interface{ Scan(...any) error }
@@ -55,7 +57,7 @@ func sha256Hex(v string) string { h := sha256.Sum256([]byte(v)); return hex.Enco
 
 func normalizeSourceURL(v string) string {
 	u, err := url.Parse(strings.TrimSpace(v))
-	if err != nil || u.Scheme != "http" && u.Scheme != "https" || u.Host == "" {
+	if err != nil || u.Scheme != "http" && u.Scheme != "https" || u.Host == "" || urlguard.ContainsCredentials(u.String()) {
 		return ""
 	}
 	u.Fragment = ""

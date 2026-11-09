@@ -1,17 +1,10 @@
 import { useState } from "react"
 
 import { useAppSettings } from "@/app-settings"
-import { useMainlandSite } from "@/lib/visitor-region"
+import { isVisitorRegionPath, useMainlandSite } from "@/lib/visitor-region"
 import "./visitor-region-toast.css"
 
 const SESSION_KEY = "kano-visitor-region-notice"
-const PUBLIC_PATHS = new Set([
-  "/",
-  "/index.html",
-  "/journey",
-  "/lineblog",
-  "/about",
-])
 
 function wasHandled() {
   try {
@@ -33,7 +26,7 @@ function rememberHandled() {
 export function VisitorRegionToast() {
   const { t } = useAppSettings()
   const [offered] = useState(
-    () => PUBLIC_PATHS.has(window.location.pathname) && !wasHandled(),
+    () => isVisitorRegionPath(window.location.pathname) && !wasHandled(),
   )
   const [dismissed, setDismissed] = useState(false)
   const site = useMainlandSite(offered)

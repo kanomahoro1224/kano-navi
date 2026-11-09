@@ -99,6 +99,12 @@ func New(options Options) http.Handler {
 	if a.Now == nil {
 		a.Now = time.Now
 	}
+	if a.Auth == nil {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Cache-Control", "no-store, no-transform")
+			httpx.WriteCode(w, http.StatusServiceUnavailable, "admin_unavailable")
+		})
+	}
 	groups := [][]httpx.Route{a.routes()}
 	for _, module := range a.Modules {
 		if module != nil {
@@ -111,7 +117,7 @@ func New(options Options) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store, no-transform")
 		switch {
-		case a.Auth == nil || a.Store == nil:
+		case a.Store == nil:
 			httpx.WriteCode(w, http.StatusServiceUnavailable, "admin_unavailable")
 		case r.URL.Path == httpx.AdminPrefix+"/session":
 			session.ServeHTTP(w, r)

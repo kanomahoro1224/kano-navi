@@ -61,6 +61,15 @@ type console struct {
 	cookie  string
 }
 
+func TestNewWithoutAuthReturnsUnavailable(t *testing.T) {
+	handler := New(Options{})
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/admin/overview", nil))
+	if recorder.Code != http.StatusServiceUnavailable || recorder.Body.String() != `{"error":"admin_unavailable"}` {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func newAuth(t *testing.T, mode, password string) *adminauth.Auth {
 	t.Helper()
 	cfg, err := adminauth.NewConfig(mode, password, "")
@@ -557,6 +566,9 @@ func TestOverviewCountsWhatNeedsReview(t *testing.T) {
 	}
 	if code, settings = c.call(t, "PUT", "/api/admin/settings/visitor-region", `{}`); code != 400 || settings["message"] != "enabled is required" {
 		t.Fatalf("visitor region missing=%d %v", code, settings)
+	}
+	if code, settings = c.call(t, "PUT", "/api/admin/settings/visitor-region", `{"enabled":true,"providerName":"Provider","providerUrl":"https://provider.example.test/?token=synthetic","mirrorUrl":"https://mirror.example.test"}`); code != 400 || settings["message"] == nil {
+		t.Fatalf("visitor region credential URL=%d %v", code, settings)
 	}
 	if code, settings = c.call(t, "PUT", "/api/admin/settings/visitor-region", `{"enabled":true,"providerName":"Provider","providerUrl":"https://provider.example.test","mirrorUrl":"https://mirror.example.test"}`); code != 200 || settings["enabled"] != true || settings["providerName"] != "Provider" {
 		t.Fatalf("visitor region enable=%d %v", code, settings)

@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"encoding/json"
+	"net/url"
 	"os"
 	"reflect"
 	"strings"
@@ -143,6 +144,15 @@ func TestURLNormalizationMatchesWHATWG(t *testing.T) {
 	}
 	if got := normalizePublicURL("javascript:alert(1)", "https://x.com/fallback"); got != "https://x.com/fallback" {
 		t.Errorf("non-http link was kept: %q", got)
+	}
+	withUserInfo := (&url.URL{Scheme: "https", User: url.UserPassword("synthetic", "synthetic"), Host: "example.invalid", Path: "/event"}).String()
+	for _, unsafe := range []string{
+		withUserInfo,
+		"https://example.invalid/event?token=synthetic",
+	} {
+		if got := normalizePublicURL(unsafe, "https://x.com/fallback"); got != "https://x.com/fallback" {
+			t.Errorf("credential-bearing link was kept: %q", got)
+		}
 	}
 	for _, item := range data.Endpoints {
 		if got := providerAPIRoot(item[0]); got != item[2] {

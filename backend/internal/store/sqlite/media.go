@@ -2,9 +2,7 @@ package sqlite
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"io"
 	"os"
@@ -24,6 +22,9 @@ var (
 // slice, so a corrupt or operator-edited cache row cannot trigger an
 // unbounded read.
 const maxCachedMediaBytes = 10 * 1024 * 1024
+
+// Profile candidates and selected files share the 15 MiB image bound.
+const maxProfileMediaBytes = 15 * 1024 * 1024
 
 type MediaFile struct {
 	Content      []byte
@@ -184,7 +185,67 @@ func (r *mediaRecord) lastModified(fallback time.Time) time.Time {
 	return fallback
 }
 
+// OpenProfileMedia opens selected profile media after checking its containment,
+// image signature and stored hash. The returned file is streamed by the HTTP
+// layer, so concurrent public reads do not allocate one full image each.
+func (s *Store) OpenProfileMedia(ctx context.Context, slot, version string) (*MediaStream, error) {
+	record, err := s.lookupProfileMedia(ctx, slot, version)
+	if err != nil {
+		return nil, err
+	}
+	path, err := s.resolveProfileMediaPath(record.cachePath)
+	if err != nil {
+		return nil, ErrMediaNotFound
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, ErrMediaNotFound
+	}
+	closeOnError := func() (*MediaStream, error) {
+		_ = file.Close()
+		return nil, ErrMediaNotFound
+	}
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maxProfileMediaBytes {
+		return closeOnError()
+	}
+	header := make([]byte, 12)
+	n, readErr := file.Read(header)
+	if readErr != nil && readErr != io.EOF && readErr != io.ErrUnexpectedEOF {
+		return closeOnError()
+	}
+	if mime := sniffImageMIME(header[:n]); mime == "" || mime != record.mime {
+		return closeOnError()
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		return closeOnError()
+	}
+	hash, err := s.FileHash(ctx, path, info, file)
+	if err != nil || hash != record.hash {
+		return closeOnError()
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		return closeOnError()
+	}
+	return &MediaStream{File: file, MIMEType: record.mime, ETag: record.hash, Size: info.Size(), LastModified: info.ModTime()}, nil
+}
+
+// ReadProfileMedia retains the checked whole-file API used by operator-side
+// previews. Public HTTP reads use OpenProfileMedia instead.
 func (s *Store) ReadProfileMedia(ctx context.Context, slot, version string) (*ProfileMediaFile, error) {
+	stream, err := s.OpenProfileMedia(ctx, slot, version)
+	if err != nil {
+		return nil, err
+	}
+	defer stream.File.Close()
+	content, err := io.ReadAll(io.LimitReader(stream.File, stream.Size+1))
+	if err != nil || int64(len(content)) != stream.Size {
+		return nil, ErrMediaNotFound
+	}
+	return &ProfileMediaFile{Content: content, MIMEType: stream.MIMEType, SHA256: stream.ETag, Size: stream.Size}, nil
+}
+
+func (s *Store) lookupProfileMedia(ctx context.Context, slot, version string) (*mediaRecord, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
@@ -209,29 +270,11 @@ func (s *Store) ReadProfileMedia(ctx context.Context, slot, version string) (*Pr
 			return nil, ErrMediaVersionNotFound
 		}
 	}
-	path, err := s.resolveProfileMediaPath(cachePath.String)
-	if err != nil {
+	mime, ok := allowedMediaMIME(activeMIME.String)
+	if !ok || !activeMIME.Valid {
 		return nil, ErrMediaNotFound
 	}
-	content, _, err := readContainedFile(path, 15*1024*1024)
-	if err != nil {
-		return nil, ErrMediaNotFound
-	}
-	mime := sniffImageMIME(content)
-	if mime == "" || !isAllowedMIME(mime) || !activeMIME.Valid || mime != activeMIME.String {
-		return nil, ErrMediaNotFound
-	}
-	actual := sha256.Sum256(content)
-	actualHash := hex.EncodeToString(actual[:])
-	if actualHash != activeHash.String {
-		return nil, ErrMediaNotFound
-	}
-	return &ProfileMediaFile{Content: content, MIMEType: mime, SHA256: activeHash.String, Size: int64(len(content))}, nil
-}
-
-func isAllowedMIME(value string) bool {
-	_, ok := allowedMediaMIME(value)
-	return ok
+	return &mediaRecord{cachePath: cachePath.String, mime: mime, hash: activeHash.String}, nil
 }
 
 func (s *Store) resolveMediaPath(relative string) (string, error) {

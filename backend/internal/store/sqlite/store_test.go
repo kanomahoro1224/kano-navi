@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,6 +35,15 @@ func TestReadContainedFileHonorsPublicMediaBound(t *testing.T) {
 	}
 	if _, _, err := readContainedFile(path, maxCachedMediaBytes); err == nil {
 		t.Fatal("oversized media file was accepted")
+	}
+}
+
+func TestNormalizeSourceURLRejectsCredentials(t *testing.T) {
+	withUserInfo := (&url.URL{Scheme: "https", User: url.UserPassword("synthetic", "synthetic"), Host: "example.invalid", Path: "/media.png"}).String()
+	for _, raw := range []string{withUserInfo, "https://example.invalid/media.png?token=synthetic"} {
+		if got := normalizeSourceURL(raw); got != "" {
+			t.Fatalf("normalizeSourceURL(%q)=%q, want empty", raw, got)
+		}
 	}
 }
 

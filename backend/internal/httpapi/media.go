@@ -99,26 +99,13 @@ func (h *Handler) profileMedia(w http.ResponseWriter, r *http.Request, slot stri
 		h.writeMediaError(w, sqlite.ErrMediaVersionNotFound, true, r.Method == http.MethodHead)
 		return
 	}
-	file, err := h.store.ReadProfileMedia(r.Context(), slot, version)
+	file, err := h.store.OpenProfileMedia(r.Context(), slot, version)
 	if err != nil {
 		h.writeMediaError(w, err, true, r.Method == http.MethodHead)
 		return
 	}
-	w.Header().Set("Content-Type", file.MIMEType)
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Cache-Control", mediaCacheControl(version != ""))
-	w.Header().Set("ETag", `"`+file.SHA256+`"`)
-	w.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
-	if mediaFresh(r, file.SHA256, time.Time{}) {
-		w.Header().Del("Content-Length")
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	if r.Method != http.MethodHead {
-		_, _ = w.Write(file.Content)
-	}
+	defer file.File.Close()
+	serveMediaStream(w, r, file, version != "")
 }
 
 func requestedVersion(r *http.Request) (string, bool, bool) {
@@ -189,29 +176,4 @@ func mediaCacheControl(immutable bool) string {
 		return "public, max-age=31536000, immutable"
 	}
 	return "public, max-age=0, must-revalidate"
-}
-
-func mediaFresh(r *http.Request, hash string, modified time.Time) bool {
-	if raw := r.Header.Get("If-None-Match"); raw != "" {
-		for _, candidate := range strings.Split(raw, ",") {
-			candidate = strings.TrimSpace(candidate)
-			if candidate == "*" {
-				return true
-			}
-			if strings.HasPrefix(candidate, "W/") {
-				candidate = strings.TrimSpace(strings.TrimPrefix(candidate, "W/"))
-			}
-			if candidate == `"`+hash+`"` {
-				return true
-			}
-		}
-	}
-	if !modified.IsZero() {
-		if raw := r.Header.Get("If-Modified-Since"); raw != "" {
-			if since, err := http.ParseTime(raw); err == nil && !modified.Truncate(time.Second).After(since) {
-				return true
-			}
-		}
-	}
-	return false
 }

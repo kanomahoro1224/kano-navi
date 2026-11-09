@@ -45,6 +45,9 @@ func TestRecentReadsLocalizedTitlesOfTheNewestUploadsInTheDetailCall(t *testing.
 	c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
 		switch r.URL.Path {
 		case "/youtube/v3/playlistItems":
+			if r.URL.Query().Get("playlistId") == "UUMO"+syntheticChannel[2:] {
+				return response(200, membersPage()), nil
+			}
 			return response(200, apiItems(playlistItem("NNNNNNNNNNN", "2026-01-02T06:00:00Z"), playlistItem("SSSSSSSSSSS", "2026-01-02T05:00:00Z"), playlistItem("TTTTTTTTTTT", "2026-01-02T04:00:00Z"))), nil
 		case "/youtube/v3/videos":
 			apiIDs = append(apiIDs, r.URL.Query().Get("id"))
@@ -80,7 +83,7 @@ func TestRecentReadsLocalizedTitlesOfTheNewestUploadsInTheDetailCall(t *testing.
 		t.Fatalf("result=%#v err=%v", result, err)
 	}
 	// One call: the queued new upload first, then the listed stored ones.
-	if strings.Join(apiIDs, ";") != "NNNNNNNNNNN,SSSSSSSSSSS,TTTTTTTTTTT" || !strings.Contains(parts, "localizations") || result.APIRequests != 2 || len(watched) != 0 {
+	if strings.Join(apiIDs, ";") != "NNNNNNNNNNN,SSSSSSSSSSS,TTTTTTTTTTT" || !strings.Contains(parts, "localizations") || result.APIRequests != 3 || len(watched) != 0 {
 		t.Fatalf("api=%v parts=%s requests=%d watched=%v", apiIDs, parts, result.APIRequests, watched)
 	}
 	// The stored uploads' answers refresh only their localized titles.

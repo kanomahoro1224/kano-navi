@@ -457,9 +457,10 @@ asks the YouTube Data API:
   step still revalidates the file. See [Video corrections](data-model.md#video-corrections-and-history)
   for what counts as the same image.
 
-A run that finds a stored video on its first playlist page spends two quota
-units (of the default 10,000 a day) while its detail queue holds at most 50
-IDs; each further 50 queued IDs add one, up to five `videos.list` calls,
+A run that finds a stored video on its first playlist page spends three
+quota units (of the default 10,000 a day), the members-only playlist page
+included (see [Video availability](#video-availability)), while its detail
+queue holds at most 50 IDs; each further 50 queued IDs add one, up to five `videos.list` calls,
 each further playlist page adds one, and the per-format playlists two more
 when a queued ended broadcast needs them. The key is sent only in the `X-Goog-Api-Key` header to
 `https://www.googleapis.com/youtube/v3/`, with the client's 10-second timeout,
@@ -475,9 +476,9 @@ reads the per-format playlists to their end rather than their newest pages
 (see [YouTube methods](workflows.md#youtube-methods)).
 
 A YouTube chain with `api` off makes no Data API call for its runs, key or
-not: no listing, `videos.list`, per-format or Shorts playlist, and the
+not: no listing, `videos.list`, per-format, Shorts or members-only playlist, and the
 [live-status probe](#live-status-probe) reads watch pages only. Watch pages
-take over as they do without a key.
+and the members-only feed take over as they do without a key.
 
 #### Localized Titles
 
@@ -553,6 +554,23 @@ Every check that can tell records who can watch a YouTube video in
   quota) gives `public` or `unlisted` from `status.privacyStatus`. The API
   cannot tell a members-only video from a public one, so it keeps a stored
   `members`.
+- Every recent step run ends with the channel's members-only playlist
+  (`UUMO` and the channel ID after `UC`): every stored video it names is
+  `members`, whatever its age, and a video checked in the same run carries
+  the verdict, so its entry is a `member` entry from that run on. The
+  playlist is undocumented, and absence from it proves nothing, so it records
+  no other value. With a key the run reads its newest page (50 entries), one
+  `playlistItems.list` call and one quota unit counted in `apiRequests`, at
+  the same Data API destination under the same rules as the uploads
+  playlist, unless an earlier Data API call of the run failed, since a
+  refused key, quota or rate limit holds for it too. Without a key, or when
+  that call is skipped or fails, the playlist's public feed
+  (`https://www.youtube.com/feeds/videos.xml?playlist_id=UUMO…`, its newest
+  15 entries) stands in, a fixed helper read whether or not the chain enables
+  `rss`, under the channel feed's codes, retries and limits. A run whose
+  channel feed read failed skips it, since both are the same feed endpoint.
+  Each failure, such as the 404 of a channel without members-only uploads,
+  records its code and costs only the verdicts.
 - A watch page that passes the completeness checks, a playable page or a
   `LIVE_STREAM_OFFLINE` waiting room, is `public`, or `unlisted` when its
   microformat says so; an `UNPLAYABLE` or waiting-room page that names a
@@ -564,8 +582,9 @@ Every check that can tell records who can watch a YouTube video in
   `private` and any other page without the details is `removed`. A page that
   was not answered (a timeout, a 5xx) and the bot check tell nothing.
 
-A failed page that told writes only the availability of the stored video and
-counts as no run error. A check that cannot tell keeps the stored value, and
+A failed page that told, and the members-only playlist, write only the
+availability of the stored video, and a failed page that told counts as no
+run error. A check that cannot tell keeps the stored value, and
 nothing writes `NULL` back. A `members` video is a `member` entry whatever its
 title says. Bilibili uploads keep `NULL`. An operator's correction
 (`manual_availability`, see

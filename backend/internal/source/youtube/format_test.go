@@ -108,10 +108,13 @@ func TestOnlyDetailChecksReadTheFormatPlaylists(t *testing.T) {
 	c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
 		switch r.URL.Path {
 		case "/youtube/v3/playlistItems":
-			if r.URL.Query().Get("playlistId") != "UU"+syntheticChannel[2:] {
-				t.Fatalf("playlist=%s", r.URL.Query().Get("playlistId"))
+			switch r.URL.Query().Get("playlistId") {
+			case "UUMO" + syntheticChannel[2:]:
+				return response(200, membersPage()), nil
+			case "UU" + syntheticChannel[2:]:
+				return response(200, apiItems(playlistItem("EEEEEEEEEEE", "2025-12-01T00:00:00Z"))), nil
 			}
-			return response(200, apiItems(playlistItem("EEEEEEEEEEE", "2025-12-01T00:00:00Z"))), nil
+			t.Fatalf("playlist=%s", r.URL.Query().Get("playlistId"))
 		case "/youtube/v3/videos":
 			return response(200, apiItems(endedBroadcast("EEEEEEEEEEE", "old stream", "PT2H"))), nil
 		case "/feeds/videos.xml":
@@ -128,7 +131,8 @@ func TestOnlyDetailChecksReadTheFormatPlaylists(t *testing.T) {
 	// its localized titles, so its verdict is not looked up.
 	state := State{Videos: map[string]Video{"EEEEEEEEEEE": {ID: "EEEEEEEEEEE", PublishedAt: "2025-12-01T00:00:00Z", ScheduledAt: "2025-12-01T00:00:00Z", Kind: KindStream}}, CheckedIDs: []string{"EEEEEEEEEEE"}}
 	result, err := a.FetchUploads(context.Background(), state, List{Limit: 50})
-	if err != nil || result.APIRequests != 2 || result.Inspected != 0 {
+	// The uploads and members-only playlists and videos.list.
+	if err != nil || result.APIRequests != 3 || result.Inspected != 0 {
 		t.Fatalf("result=%#v err=%v", result, err)
 	}
 }

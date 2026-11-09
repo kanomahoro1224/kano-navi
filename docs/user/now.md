@@ -16,7 +16,8 @@ When she goes live on bilibili without any entry, the ticket shows **Live
 now on bilibili** with the room's title and a link to watch. Its
 label names the activity with an icon when the video or the schedule says it
 is gameplay, talk, or singing, and otherwise the kind of stream or video. A
-members-only stream keeps its Members only mark beside that label.
+members-only stream keeps its Members only mark beside that label, and its
+cover adds YouTube's members star beside the YouTube mark.
 
 When nothing is scheduled, the latest video takes its place, passing over
 one that has been made private or removed. A schedule entry

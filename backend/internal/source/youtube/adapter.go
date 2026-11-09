@@ -44,7 +44,8 @@ type Result struct {
 	// it has none now. Videos no call answered are absent.
 	Localized map[string]map[string]string
 	// Availability holds who can watch the videos whose watch page failed but
-	// told (FailedAvailability); the checked videos carry theirs.
+	// told (FailedAvailability), and members for the videos the members-only
+	// playlist names, stored or not; the checked videos carry theirs.
 	Availability map[string]string
 }
 
@@ -315,6 +316,7 @@ func (a *Adapter) FetchUploads(ctx context.Context, state State, list List) (Res
 			result.Queue = withoutID(result.Queue, id)
 		}
 	}
+	a.playlistMembers(ctx, &result)
 	for _, id := range uniqueIDs(append(append(append(streamIDs, pageIDs...), feedIDs...), state.ActiveIDs...), 1000) {
 		if checked[id] {
 			result.CheckedIDs = append(result.CheckedIDs, id)
@@ -663,6 +665,64 @@ func (a *Adapter) playlistShorts(ctx context.Context, result *Result, uploads []
 	for _, v := range shorts {
 		if known[v.ID] {
 			result.Shorts[v.ID] = true
+		}
+	}
+}
+
+// playlistMembers records members for every video the channel's members-only
+// playlist names, the one signal the Data API's answers lack; the writer
+// applies it to the stored ones. With a key it reads the playlist's newest
+// page (50 entries, one quota unit), unless an earlier Data API call this run
+// failed, since a refused key, quota or rate limit holds for it too. Without a
+// key, or when the API skips or fails, the playlist's public feed (15 entries)
+// stands in, unless the channel's feed already failed this run: both are the
+// same feed endpoint. The videos this run checked carry the verdict too, so their
+// entries take the members-only type at once. Absence from the list proves
+// nothing, so it never records another availability. Each failure is recorded
+// and costs only the verdicts.
+func (a *Adapter) playlistMembers(ctx context.Context, result *Result) {
+	if ctx.Err() != nil {
+		return
+	}
+	failed := func(prefix string) bool {
+		return slices.ContainsFunc(result.Errors, func(code string) bool { return strings.HasPrefix(code, prefix) })
+	}
+	listed, err := []Video(nil), error(nil)
+	read := false
+	if a.Options.APIKey != "" && !failed("youtube_api_") {
+		result.APIRequests++
+		var body []byte
+		if body, err = a.Client.MembersPlaylist(ctx, a.Options.APIKey, a.Options.ChannelID); err == nil {
+			listed, _, err = ParseUploadsPage(body)
+		}
+		read = err == nil
+		if err != nil && ctx.Err() == nil {
+			result.Errors = append(result.Errors, safeError(err))
+		}
+	}
+	if !read {
+		if ctx.Err() != nil || failed("youtube_feed_") || failed("youtube_invalid_feed") {
+			return
+		}
+		var body []byte
+		if body, err = a.Client.MembersFeed(ctx, a.Options.ChannelID); err == nil {
+			listed, err = ParseFeed(body)
+		}
+		if err != nil {
+			if ctx.Err() == nil {
+				result.Errors = append(result.Errors, safeError(err))
+			}
+			return
+		}
+	}
+	members := map[string]bool{}
+	for _, v := range listed {
+		members[v.ID] = true
+		result.Availability[v.ID] = AvailabilityMembers
+	}
+	for i := range result.Videos {
+		if members[result.Videos[i].ID] {
+			result.Videos[i].Availability = AvailabilityMembers
 		}
 	}
 }

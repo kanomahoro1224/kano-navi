@@ -344,6 +344,10 @@ function FullTicket({
                 ? eventPlatforms(item.event)
                 : []
           }
+          members={
+            item.video?.availability === "members" ||
+            item.event?.eventType === "member"
+          }
         />
         {item.link === "watch" ? (
           <span className="ticket-play">
@@ -510,7 +514,10 @@ function LatestCard({
         ) : (
           <span className="ticket-art-fallback" />
         )}
-        <PlatformBadge platforms={videoPlatforms(companion.video, links)} />
+        <PlatformBadge
+          platforms={videoPlatforms(companion.video, links)}
+          members={companion.video.availability === "members"}
+        />
         <span className="latest-card-play">
           <Play fill="currentColor" />
         </span>

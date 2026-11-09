@@ -397,8 +397,9 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 }
 
 // writeVideoAvailability records who can watch the stored YouTube videos
-// whose watch page failed but told (ytsource.FailedAvailability), leaving
-// every other field as it was. It reports whether a value changed.
+// whose watch page failed but told (ytsource.FailedAvailability) or that the
+// members-only playlist names, leaving every other field as it was; IDs not
+// stored are skipped. It reports whether a value changed.
 func writeVideoAvailability(ctx context.Context, tx *sql.Tx, availability map[string]string) (bool, error) {
 	changed := false
 	for id, value := range availability {

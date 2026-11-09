@@ -1,7 +1,12 @@
 import type { Translator } from "@/types"
 import { ArrowUpRight, Radio } from "lucide-react"
 
-import { BilibiliLogo, ExternalLink, YouTubeLogo } from "@/site/links"
+import {
+  BilibiliLogo,
+  ExternalLink,
+  YouTubeLogo,
+  YouTubeMembersMark,
+} from "@/site/links"
 import type { VideoLink } from "../video-groups"
 
 const platformNames: Record<string, string> = {
@@ -70,16 +75,28 @@ export function PlatformLinks({
 }
 
 /**
- * A cover's mark for the platforms a work is on (`videoPlatforms`). It only
- * signals; the links follow the title, so a tap on the cover still opens the
- * card's link.
+ * A cover's mark for the platforms a work is on (`videoPlatforms`), with
+ * YouTube's members-only star beside the YouTube mark of a members-only
+ * video or entry. It only signals; the links follow the title, so a tap on
+ * the cover still opens the card's link.
  */
-export function PlatformBadge({ platforms }: { platforms: string[] }) {
+export function PlatformBadge({
+  platforms,
+  members = false,
+}: {
+  platforms: string[]
+  members?: boolean
+}) {
   if (!platforms.length) return null
   return (
     <span className="platform-badge" aria-hidden="true">
       {platforms.map((source, index) => (
-        <PlatformMark key={`${source}-${index}`} source={source} />
+        <span key={`${source}-${index}`} className="platform-badge-mark">
+          <PlatformMark source={source} />
+          {members && source === "youtube" ? (
+            <YouTubeMembersMark className="platform-members" />
+          ) : null}
+        </span>
       ))}
     </span>
   )

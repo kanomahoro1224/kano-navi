@@ -26,7 +26,9 @@ singing (as in the schedule) and a note for music. An **All / Streams / Works /
 Shorts** filter shows one kind at a time.
 
 Each cover carries the mark of every platform the video is on: YouTube,
-bilibili or both. A video on both also has a link for each platform. Chinese
+bilibili or both. A video only YouTube channel members can watch adds
+YouTube's members star beside the YouTube mark, and a **Members only** chip
+beside its labels. A video on both also has a link for each platform. Chinese
 readers open such past videos on bilibili first;
 reservations and live streams always open on YouTube. A bilibili-only video
 opens on bilibili; a bilibili live replay is a stream archive, and a new

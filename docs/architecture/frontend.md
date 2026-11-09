@@ -132,9 +132,12 @@ two or more links, the shelf cards, rows, tickets and the stage's latest
 video show `PlatformLinks` in that order. Every video cover carries an
 `aria-hidden` `PlatformBadge` (`src/dashboard/components/platform-links.tsx`)
 of `videoPlatforms`: the links' platforms, led by the video's own platform
-when it is private or removed. Such a cover with no link left fades
-(`is-closed`). `VideoAvailabilityChip` marks `members` in the solid `--leaf`
-green, as do the schedule's `member` entries, and `private` and `removed`
+when it is private or removed. A `members` video, or a stage ticket's
+`member` entry, adds YouTube's members star (`YouTubeMembersMark`, in
+YouTube's members green as on the Works page) after the YouTube mark. Such a
+cover with no link left fades (`is-closed`). `VideoAvailabilityChip` marks
+`members` with the same star in the solid `--leaf` green, as `MembersChip`
+does for the schedule's `member` entries, and `private` and `removed`
 muted. Its styles are in
 `src/dashboard/board.css`, which imports one file per area from
 `src/dashboard/styles/` in cascade order, on top of `src/site/site.css` and the shared tokens

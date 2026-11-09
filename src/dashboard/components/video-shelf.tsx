@@ -107,7 +107,10 @@ function Thumb({
           <span>{t("media.unavailable")}</span>
         </span>
       )}
-      <PlatformBadge platforms={videoPlatforms(video, links)} />
+      <PlatformBadge
+        platforms={videoPlatforms(video, links)}
+        members={video.availability === "members"}
+      />
       {badge ? (
         <span className="video-thumb-badge" aria-hidden="true">
           {badge === "upcoming" ? <Clock3 /> : <Play fill="currentColor" />}

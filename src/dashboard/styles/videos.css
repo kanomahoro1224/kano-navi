@@ -235,6 +235,17 @@
   height: 13px;
 }
 
+.platform-badge-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* YouTube's members-only star in its own green, as on the Works page. */
+.platform-badge .platform-members {
+  color: #2ba640;
+}
+
 .video-row .platform-badge,
 .latest-card-art .platform-badge {
   top: 6px;

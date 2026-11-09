@@ -103,7 +103,22 @@ func (c *Client) Feed(ctx context.Context, channel string) ([]byte, error) {
 	if !channelID.MatchString(channel) {
 		return nil, &Error{"youtube_invalid_channel"}
 	}
-	query := url.Values{"channel_id": {channel}}
+	return c.feed(ctx, url.Values{"channel_id": {channel}})
+}
+
+// MembersFeed reads the public feed of the channel's members-only playlist
+// ("UUMO" and the channel ID after "UC"), its newest 15 entries, without a
+// key. It shares the channel feed's codes and retries; a channel without
+// members-only uploads answers 404.
+func (c *Client) MembersFeed(ctx context.Context, channel string) ([]byte, error) {
+	if !channelID.MatchString(channel) {
+		return nil, &Error{"youtube_invalid_channel"}
+	}
+	return c.feed(ctx, url.Values{"playlist_id": {"UUMO" + channel[2:]}})
+}
+
+// feed reads one public feed, repeating it after a transient failure.
+func (c *Client) feed(ctx context.Context, query url.Values) ([]byte, error) {
 	for attempt := 0; ; attempt++ {
 		body, err := c.get(ctx, "/feeds/videos.xml", query, "youtube_feed")
 		if err == nil || attempt >= len(c.FeedRetryDelays) || !transient(err) {
@@ -199,6 +214,17 @@ func (c *Client) VideosPlaylist(ctx context.Context, key, channel string) ([]byt
 		return nil, &Error{"youtube_invalid_channel"}
 	}
 	return c.playlist(ctx, key, "UULF"+channel[2:], "")
+}
+
+// MembersPlaylist lists the newest page of the channel's members-only playlist
+// ("UUMO" and the channel ID after "UC"), the uploads only its members can
+// watch: one quota unit. It is undocumented too; a channel without one answers
+// 404.
+func (c *Client) MembersPlaylist(ctx context.Context, key, channel string) ([]byte, error) {
+	if !channelID.MatchString(channel) {
+		return nil, &Error{"youtube_invalid_channel"}
+	}
+	return c.playlist(ctx, key, "UUMO"+channel[2:], "")
 }
 
 // FormatPlaylistPage lists a page of the live (UULV) or long-form (UULF)

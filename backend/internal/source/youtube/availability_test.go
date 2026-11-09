@@ -89,7 +89,8 @@ func TestRecentStepRecordsWhoCanWatch(t *testing.T) {
 	if !slices.Equal(watched, ids[1:]) || len(result.Errors) != 0 {
 		t.Fatalf("watched=%v errors=%v", watched, result.Errors)
 	}
-	if result.Availability["BBBBBBBBBBB"] != AvailabilityRemoved || result.Availability["CCCCCCCCCCC"] != AvailabilityPrivate || len(result.Availability) != 2 {
+	// The members-only playlist names MMMMMMMMMMM.
+	if result.Availability["BBBBBBBBBBB"] != AvailabilityRemoved || result.Availability["CCCCCCCCCCC"] != AvailabilityPrivate || result.Availability["MMMMMMMMMMM"] != AvailabilityMembers || len(result.Availability) != 3 {
 		t.Fatalf("availability=%v", result.Availability)
 	}
 	if len(result.Videos) != 1 || result.Videos[0].Availability != AvailabilityUnlisted {

@@ -274,6 +274,9 @@
   in its gallery, the full-size SONA joining merchandise image, and a
   milestone for the March 29, 2020 VR concert 「ReBirth」 with its rehearsal
   photo.
+- A video only YouTube channel members can watch adds YouTube's members
+  star beside the YouTube mark on its cover, and its Members only chip uses
+  the same star.
 
 </details>
 
@@ -370,6 +373,11 @@
   429 stores its `Retry-After`, and no read requests the shop before it
   passes. Entries stay when products leave the listing, and operator edits
   and deletions win.
+- Each YouTube recent run reads the channel's members-only playlist and
+  marks every stored video it names as members only, past streams included:
+  its newest 50 entries through the Data API with a key (one more quota
+  unit), otherwise, or when that call fails, the newest 15 from the
+  playlist's public feed.
 
 </details>
 

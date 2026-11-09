@@ -334,8 +334,7 @@ export const adminMessages = {
     "admin.site.worksRecentClear": "Follow the rules",
     "admin.site.worksRecentEmpty":
       "No upload after the collection date is listed or excluded.",
-    "admin.site.worksRecentLimit":
-      "Showing the newest {count} of {total}. The Works page lists the newest 48 listed ones; moving the collection date in a release shortens both.",
+    "admin.site.worksRecentLimit": "Showing the newest {count} of {total}.",
     "admin.site.worksRecentHint":
       "To list a video the rules miss, such as a Bilibili-only upload, set Works page to Include in its video editor.",
 

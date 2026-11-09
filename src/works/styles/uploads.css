@@ -399,13 +399,6 @@ span.upload-links {
   text-transform: uppercase;
 }
 
-.works-recent-label p {
-  margin: 0;
-  color: var(--soft);
-  font-size: 12.5px;
-  line-height: 1.55;
-}
-
 /* Found automatically or added by hand: an outlined mark under the title. */
 .works-recent-origin {
   display: inline-flex;

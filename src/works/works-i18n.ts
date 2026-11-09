@@ -159,8 +159,6 @@ export const worksMessages = {
     "works.videoGone": "已无法观看",
     "works.recent.title": "最新投稿",
     "works.recent.since": "{date} 之后 · {count} 首",
-    "works.recent.note":
-      "收录日期之后的投稿，由本站自动识别或手动添加，尚未整理进下方的列表。",
     "works.recent.more": "再显示 {count} 首",
     "works.recent.fewer": "收起",
     "works.recent.limit": "仅显示最新的 {count} 首。",
@@ -325,8 +323,6 @@ export const worksMessages = {
     "works.videoGone": "視聴できません",
     "works.recent.title": "新しい投稿",
     "works.recent.since": "{date}以降 · {count} 曲",
-    "works.recent.note":
-      "収録日以降の投稿です。このサイトが自動で見つけたもの、または手動で追加したもので、下の一覧にはまだ入っていません。",
     "works.recent.more": "あと {count} 曲を表示",
     "works.recent.fewer": "閉じる",
     "works.recent.limit": "最新の {count} 曲だけを表示しています。",
@@ -494,8 +490,6 @@ export const worksMessages = {
     "works.recent.title": "Newer uploads",
     "works.recent.since": ({ date, count }: { date: any; count: any }) =>
       `After ${date} · ${count} ${count === 1 ? "song" : "songs"}`,
-    "works.recent.note":
-      "Posted after the collection date and not yet checked into the list below: found automatically or added by hand.",
     "works.recent.more": ({ count }: { count: any }) =>
       `Show ${count} more ${count === 1 ? "song" : "songs"}`,
     "works.recent.fewer": "Show fewer",

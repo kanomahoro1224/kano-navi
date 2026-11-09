@@ -182,7 +182,6 @@ export function RecentUploads({
             count: total,
           })}
         </small>
-        <p>{t("works.recent.note")}</p>
       </header>
       <div className="works-recent-body">
         <ul ref={grid} id="works-recent-list" className="upload-grid">

@@ -74,7 +74,9 @@ const (
 // DynamicsResult is what one dynamics read learned.
 type DynamicsResult struct {
 	Dynamics []Dynamic
-	State    State
+	// Uploads are the video dynamics the listing showed, read as uploads.
+	Uploads []Video
+	State   State
 	// Skipped is "login_required", "login_expired", "blocked" or
 	// "interval" when no listing request was made; a login check may still
 	// have been requested.
@@ -89,6 +91,16 @@ type Result struct {
 	// Skipped is "blocked" or "interval" when no request was made.
 	Skipped   string
 	Requested int
+	// Fallback is "dynamics" or "app" when the upload list failed and the
+	// uploads came from the signed-in dynamics listing or the official
+	// client's listing instead. ListError is the list's code then, and
+	// FallbackErrors the "<fallback>: <code>" of each fallback tried that
+	// failed too.
+	Fallback, ListError string
+	FallbackErrors      []string
+	// blockCounted is set once a failure of this read started the backoff,
+	// so a later fallback's captcha does not count it again.
+	blockCounted bool
 }
 
 type Adapter struct {
@@ -120,17 +132,84 @@ func (a *Adapter) FetchRecent(ctx context.Context, state State) (Result, error) 
 	}
 	result.State.LastAttemptAt = now
 	session, err := a.session(ctx, &result.State, &result.Requested, now)
-	if err == nil {
-		result.Requested++
-		result.Videos, err = a.Client.Uploads(ctx, a.Options.Account, a.Options.PageSize, session)
+	if err != nil {
+		result.State = failed(result.State, err, now)
+		return result, err
 	}
+	result.Requested++
+	result.Videos, err = a.Client.Uploads(ctx, a.Options.Account, a.Options.PageSize, session)
 	if err != nil {
 		result.State = failed(result.State, err, now)
 		result.Videos = []Video{}
+		if ctx.Err() != nil {
+			return result, err
+		}
+		result.ListError, result.blockCounted = ErrorCode(err), IsRiskControl(ErrorCode(err))
+		if videos, ok := a.uploadsFromDynamics(ctx, &result, session, now); ok {
+			result.Videos, result.Fallback = videos, "dynamics"
+			result.State = succeeded(result.State, now)
+			return result, nil
+		}
+		if ctx.Err() != nil {
+			return result, err
+		}
+		if videos, ok := a.uploadsFromApp(ctx, &result, now); ok {
+			result.Videos, result.Fallback = videos, "app"
+			result.State = succeeded(result.State, now)
+			return result, nil
+		}
 		return result, err
 	}
 	result.State = succeeded(result.State, now)
 	return result, nil
+}
+
+// uploadsFromDynamics reads the uploads from the account's signed-in
+// dynamics listing after the upload list failed: one listing request, plus
+// the login check and WBI keys when they are due, made at once whatever the
+// list's failure, since Bilibili accepts a signed-in listing more readily
+// than the anonymous list. It needs the login cookie and a login the last
+// check did not find expired, and leaves the dynamics read's own clock
+// alone. A captcha it meets starts the backoff unless the list's failure
+// already did.
+func (a *Adapter) uploadsFromDynamics(ctx context.Context, result *Result, session Session, now time.Time) ([]Video, bool) {
+	state := &result.State
+	loginDue := state.Login.CheckedAt.IsZero() || now.Sub(state.Login.CheckedAt) >= loginCheckInterval
+	if !a.Options.SignedIn() || !loginDue && !state.Login.SignedIn {
+		return nil, false
+	}
+	fail := func(err error) ([]Video, bool) {
+		code := ErrorCode(err)
+		switch code {
+		case "bilibili_risk_control_voucher", "bilibili_risk_control_352":
+			state.WBI = WBIKeys{}
+		case "bilibili_login_expired":
+			state.Login = LoginState{CheckedAt: now}
+		}
+		result.fallbackFailed("dynamics", err, now)
+		return nil, false
+	}
+	if loginDue || !state.WBI.fresh(now) {
+		result.Requested++
+		check := session
+		a.Options.signIn(&check)
+		keys, signedIn, err := a.Client.NavKeys(ctx, check, now)
+		if err != nil {
+			return fail(err)
+		}
+		state.WBI, state.Login = keys, LoginState{CheckedAt: now, SignedIn: signedIn}
+		if !signedIn {
+			result.FallbackErrors = append(result.FallbackErrors, "dynamics: bilibili_login_expired")
+			return nil, false
+		}
+	}
+	a.Options.signIn(&session)
+	result.Requested++
+	page, err := a.Client.SpaceDynamics(ctx, a.Options.Account, session, state.WBI, now)
+	if err != nil {
+		return fail(err)
+	}
+	return page.Uploads, true
 }
 
 // FetchVideo reads one upload for an operator, whatever the list interval.
@@ -190,7 +269,7 @@ func (a *Adapter) FetchDynamics(ctx context.Context, state State) (DynamicsResul
 		// expired, so a renewed cookie is noticed.
 		result.Requested++
 		check := session
-		check.Login = a.Options.SESSDATA
+		a.Options.signIn(&check)
 		var keys WBIKeys
 		var signedIn bool
 		if keys, signedIn, err = a.Client.NavKeys(ctx, check, now); err == nil {
@@ -201,7 +280,7 @@ func (a *Adapter) FetchDynamics(ctx context.Context, state State) (DynamicsResul
 				result.Skipped = "login_expired"
 				return result, nil
 			}
-			session.Login = a.Options.SESSDATA
+			a.Options.signIn(&session)
 		}
 	}
 	var page SpacePage
@@ -213,7 +292,7 @@ func (a *Adapter) FetchDynamics(ctx context.Context, state State) (DynamicsResul
 		result.State = failedDynamics(result.State, err, now)
 		return result, err
 	}
-	result.Dynamics = page.Dynamics
+	result.Dynamics, result.Uploads = page.Dynamics, page.Uploads
 	result.State = succeededDynamics(result.State, now)
 	return result, nil
 }
@@ -268,7 +347,7 @@ func (a *Adapter) FetchDynamicsPage(ctx context.Context, state State, offset str
 	if err == nil && (loginDue || !state.WBI.fresh(now)) {
 		requests++
 		check := session
-		check.Login = a.Options.SESSDATA
+		a.Options.signIn(&check)
 		var keys WBIKeys
 		var signedIn bool
 		if keys, signedIn, err = a.Client.NavKeys(ctx, check, now); err == nil {
@@ -278,7 +357,7 @@ func (a *Adapter) FetchDynamicsPage(ctx context.Context, state State, offset str
 				state.Dynamics.LastError = "bilibili_login_expired"
 				return SpacePage{}, state, requests, &Error{"bilibili_login_expired"}
 			}
-			session.Login = a.Options.SESSDATA
+			a.Options.signIn(&session)
 		}
 	}
 	var page SpacePage
@@ -372,9 +451,38 @@ func (a *Adapter) session(ctx context.Context, state *State, requests *int, now 
 	}
 	session := state.Session
 	if a.Options.SignedIn() && (state.Login.CheckedAt.IsZero() || state.Login.SignedIn) {
-		session.Login = a.Options.SESSDATA
+		a.Options.signIn(&session)
 	}
 	return session, nil
+}
+
+// uploadsFromApp reads the uploads from the official client's space listing
+// on app.bilibili.com after the upload list and any dynamics fallback
+// failed: one anonymous request signed with the configured app key pair, a
+// different service from the web API that meets the captcha. Without a pair
+// it is not tried. Like the other fallback it starts the backoff only when
+// no earlier failure of the read did.
+func (a *Adapter) uploadsFromApp(ctx context.Context, result *Result, now time.Time) ([]Video, bool) {
+	if !a.Options.App.Valid() {
+		return nil, false
+	}
+	result.Requested++
+	videos, err := a.Client.AppUploads(ctx, a.Options.Account, a.Options.PageSize, a.Options.App, now)
+	if err != nil {
+		result.fallbackFailed("app", err, now)
+		return nil, false
+	}
+	return videos, true
+}
+
+// fallbackFailed records a fallback's failure and starts the backoff for a
+// captcha unless an earlier failure of the read already did.
+func (r *Result) fallbackFailed(name string, err error, now time.Time) {
+	code := ErrorCode(err)
+	r.FallbackErrors = append(r.FallbackErrors, name+": "+code)
+	if IsRiskControl(code) && !r.blockCounted {
+		r.State, r.blockCounted = blocked(r.State, err, now), true
+	}
 }
 
 // ErrorCode is the fixed code of a source error.

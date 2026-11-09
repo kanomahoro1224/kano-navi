@@ -77,7 +77,7 @@ var methods = map[string][]Method{
 		{ID: MethodSpace, Modes: []string{ModeCount, ModeAll}, MaxCount: MaxCount, PageSize: BilibiliUploadsPageSize},
 	},
 	SourceBilibiliDynamics: {
-		{ID: MethodSpace, Modes: []string{ModeCount, ModeAll}, MaxCount: MaxCount, PageSize: BilibiliDynamicsPageSize, Requires: "BILIBILI_SESSDATA", Extract: true},
+		{ID: MethodSpace, Modes: []string{ModeCount, ModeAll}, MaxCount: MaxCount, PageSize: BilibiliDynamicsPageSize, Requires: "BILIBILI_COOKIE or BILIBILI_SESSDATA", Extract: true},
 	},
 }
 

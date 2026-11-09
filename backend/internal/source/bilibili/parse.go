@@ -174,6 +174,43 @@ func ParseUploadsPage(data json.RawMessage, account string) (UploadsPage, error)
 	return out, nil
 }
 
+// ParseAppUploads reads one page of the official client's space listing:
+// its ordinary uploads (goto av) with a BV ID, title and publication time,
+// as uploads of account. The listing carries no description.
+func ParseAppUploads(data json.RawMessage, account string) ([]Video, error) {
+	var page struct {
+		Items *[]struct {
+			Goto     string          `json:"goto"`
+			Param    string          `json:"param"`
+			BVID     string          `json:"bvid"`
+			Title    string          `json:"title"`
+			Cover    string          `json:"cover"`
+			Duration json.RawMessage `json:"duration"`
+			CTime    int64           `json:"ctime"`
+		} `json:"item"`
+	}
+	if json.Unmarshal(data, &page) != nil {
+		return nil, &Error{"bilibili_invalid_response"}
+	}
+	owner, _ := strconv.ParseInt(account, 10, 64)
+	out := []Video{}
+	if page.Items == nil {
+		return out, nil
+	}
+	seen := map[string]bool{}
+	for _, item := range *page.Items {
+		if item.Goto != "av" || seen[item.BVID] {
+			continue
+		}
+		aid, _ := strconv.ParseInt(item.Param, 10, 64)
+		if v, ok := (upload{BVID: item.BVID, AID: aid, Title: item.Title, Pic: item.Cover, PubDate: item.CTime, Duration: item.Duration, UpMid: owner}).video(); ok {
+			seen[v.BVID] = true
+			out = append(out, v)
+		}
+	}
+	return out, nil
+}
+
 // ParseView reads one /x/web-interface/view answer for bvid.
 func ParseView(data json.RawMessage, bvid string) (Video, error) {
 	var item upload

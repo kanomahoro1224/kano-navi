@@ -22,19 +22,21 @@ import (
 const bilibiliPostLabel = "DAILY / 近况"
 
 // WriteBilibiliDynamics stores what one listing read returned together with
-// the account state, in one transaction. A failed or skipped read stores only
-// the state, so known posts survive. It reports whether a public post
-// changed, and advances the dashboard revision only then.
+// the account state, in one transaction: the dynamics as posts and the video
+// dynamics as uploads, written as the upload list writes them (the upload
+// read's newest cursor stays its own). A failed or skipped read stores only
+// the state, so known posts and uploads survive. It reports whether a public
+// post or video changed, and advances the dashboard revision only then.
 func (s *Store) WriteBilibiliDynamics(ctx context.Context, account string, result bilisource.DynamicsResult) (bool, error) {
-	return s.writeBilibiliPosts(ctx, account, result.Dynamics, result.State)
+	return s.writeBilibiliPosts(ctx, account, result.Dynamics, result.Uploads, result.State)
 }
 
 // WriteBilibiliDynamic stores one dynamic an operator asked for and the state.
 func (s *Store) WriteBilibiliDynamic(ctx context.Context, account string, d bilisource.Dynamic, state bilisource.State) (bool, error) {
-	return s.writeBilibiliPosts(ctx, account, []bilisource.Dynamic{d}, state)
+	return s.writeBilibiliPosts(ctx, account, []bilisource.Dynamic{d}, nil, state)
 }
 
-func (s *Store) writeBilibiliPosts(ctx context.Context, account string, dynamics []bilisource.Dynamic, state bilisource.State) (bool, error) {
+func (s *Store) writeBilibiliPosts(ctx context.Context, account string, dynamics []bilisource.Dynamic, uploads []bilisource.Video, state bilisource.State) (bool, error) {
 	if s == nil || !s.workflowWritable {
 		return false, ErrSourceWrite
 	}
@@ -55,6 +57,11 @@ func (s *Store) writeBilibiliPosts(ctx context.Context, account string, dynamics
 		}
 		changed = changed || visible
 	}
+	written, err := writeBilibiliVideos(ctx, tx, uploads, now)
+	if err != nil {
+		return false, err
+	}
+	changed = changed || written
 	if err = writeBilibiliState(ctx, tx, account, state, "", ""); err != nil {
 		return false, err
 	}

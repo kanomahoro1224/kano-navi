@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
@@ -239,5 +240,46 @@ func TestStandaloneAddsTheEventPlatformColumn(t *testing.T) {
 		if err = s.db.QueryRow(`SELECT COALESCE(platform,'') FROM events WHERE id=?`, id).Scan(&got); err != nil || got != want {
 			t.Fatalf("%s platform=%q err=%v, want %q", id, got, err, want)
 		}
+	}
+}
+
+func TestBilibiliDynamicsStoreTheirVideoDynamicsAsUploads(t *testing.T) {
+	s := biliStore(t)
+	ctx := context.Background()
+	upload := bilisource.Video{BVID: "BV1SYNTHEABC", AID: 113000000000001, Title: "翻唱《合成》", URL: "https://www.bilibili.com/video/BV1SYNTHEABC",
+		ThumbnailURL: "https://i0.hdslb.com/bfs/archive/synthetic.jpg", Kind: bilisource.KindUpload, PublishedAt: "2026-11-07T04:00:00Z", DurationSeconds: 186}
+	state := bilisource.State{Dynamics: bilisource.DynamicsState{LastAttemptAt: time.Now(), LastSuccessAt: time.Now()}}
+	if _, err := s.WriteBilibiliDynamics(ctx, biliAccount, bilisource.DynamicsResult{Uploads: []bilisource.Video{upload}, State: state}); err != nil {
+		t.Fatal(err)
+	}
+	var source, title, kind string
+	var duration int
+	if err := s.DB().QueryRow(`SELECT source,title,kind,duration_seconds FROM videos WHERE id='BV1SYNTHEABC'`).Scan(&source, &title, &kind, &duration); err != nil ||
+		source != "bilibili" || title != "翻唱《合成》" || kind != "upload" || duration != 186 {
+		t.Fatalf("video=%s %s %s %d err=%v", source, title, kind, duration, err)
+	}
+	// The upload read's newest cursor stays its own.
+	var cursor sql.NullString
+	if err := s.DB().QueryRow(`SELECT cursor_id FROM sync_state WHERE source='bilibili' AND account_id=?`, biliAccount).Scan(&cursor); err != nil || cursor.Valid && cursor.String != "" {
+		t.Fatalf("cursor=%v err=%v", cursor, err)
+	}
+}
+
+func TestBilibiliListingWithoutADescriptionKeepsTheStoredOne(t *testing.T) {
+	s := biliStore(t)
+	ctx := context.Background()
+	upload := bilisource.Video{BVID: "BV1SYNTHEABC", AID: 113000000000001, Title: "翻唱《合成》", URL: "https://www.bilibili.com/video/BV1SYNTHEABC",
+		Kind: bilisource.KindUpload, PublishedAt: "2026-11-07T04:00:00Z", DurationSeconds: 186, Description: "synthetic description"}
+	if _, err := s.WriteBilibiliRecent(ctx, biliAccount, bilisource.Result{Videos: []bilisource.Video{upload}}); err != nil {
+		t.Fatal(err)
+	}
+	upload.Description, upload.Title = "", "翻唱《合成》 renamed"
+	if _, err := s.WriteBilibiliRecent(ctx, biliAccount, bilisource.Result{Videos: []bilisource.Video{upload}}); err != nil {
+		t.Fatal(err)
+	}
+	var title, description string
+	if err := s.DB().QueryRow(`SELECT title,json_extract(raw_json,'$.description') FROM videos WHERE id='BV1SYNTHEABC'`).Scan(&title, &description); err != nil ||
+		title != "翻唱《合成》 renamed" || description != "synthetic description" {
+		t.Fatalf("title=%q description=%q err=%v", title, description, err)
 	}
 }

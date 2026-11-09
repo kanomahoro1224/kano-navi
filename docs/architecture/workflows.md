@@ -11,17 +11,17 @@ what the method reads. `POST /api/admin/runs` with
 starts one; the [Admin API](admin-api.md#runs) describes the body and its
 options.
 
-| Source            | Method     | Needs                | Modes                              | Listing                                                  |
-| ----------------- | ---------- | -------------------- | ---------------------------------- | -------------------------------------------------------- |
-| X                 | `timeline` |                      | `count` (1–200), `all`             | public FxTwitter timeline, 20 statuses a page            |
-| X                 | `api`      | `X_API_BEARER_TOKEN` | `count` (1–200), `range`, `before` | full-archive search, 100 posts a page                    |
-| X related         | `timeline` |                      | `incremental`                      | one related account's FxTwitter timeline                 |
-| YouTube           | `api`      | `YOUTUBE_API_KEY`    | `count` (1–200), `all`             | uploads playlist, 50 entries and one quota unit a page   |
-| YouTube           | `rss`      |                      | `count` (1–15)                     | public feed, its newest 15 uploads in one request        |
-| YouTube           | `ytdlp`    | `YTDLP_BINARY`       | `count` (1–200), `all`             | configured yt-dlp upload listing, without media download |
-| Bilibili uploads  | `space`    |                      | `count` (1–200), `all`             | the account's upload listing, 20 entries a page          |
-| Bilibili dynamics | `space`    | `BILIBILI_SESSDATA`  | `count` (1–200), `all`             | the account's dynamics listing, about 12 items a page    |
-| Shop              | `catalog`  |                      | `all`                              | the whole product catalog, at most 6 pages of 250        |
+| Source            | Method     | Needs                                    | Modes                              | Listing                                                  |
+| ----------------- | ---------- | ---------------------------------------- | ---------------------------------- | -------------------------------------------------------- |
+| X                 | `timeline` |                                          | `count` (1–200), `all`             | public FxTwitter timeline, 20 statuses a page            |
+| X                 | `api`      | `X_API_BEARER_TOKEN`                     | `count` (1–200), `range`, `before` | full-archive search, 100 posts a page                    |
+| X related         | `timeline` |                                          | `incremental`                      | one related account's FxTwitter timeline                 |
+| YouTube           | `api`      | `YOUTUBE_API_KEY`                        | `count` (1–200), `all`             | uploads playlist, 50 entries and one quota unit a page   |
+| YouTube           | `rss`      |                                          | `count` (1–15)                     | public feed, its newest 15 uploads in one request        |
+| YouTube           | `ytdlp`    | `YTDLP_BINARY`                           | `count` (1–200), `all`             | configured yt-dlp upload listing, without media download |
+| Bilibili uploads  | `space`    |                                          | `count` (1–200), `all`             | the account's upload listing, 20 entries a page          |
+| Bilibili dynamics | `space`    | `BILIBILI_COOKIE` or `BILIBILI_SESSDATA` | `count` (1–200), `all`             | the account's dynamics listing, about 12 items a page    |
+| Shop              | `catalog`  |                                          | `all`                              | the whole product catalog, at most 6 pages of 250        |
 
 An X fetch reads every account of `X_HANDLES`, or the one its selection's
 `account` names; a one-account fetch takes the whole X request budget and
@@ -467,7 +467,7 @@ steps, sync settings and windows, so a failed run with a retryable failed
 step can be retried without any saved definition.
 
 `bilibili` and `bilibili_dynamics` pace themselves: `bilibili` reads the
-account's upload list and `bilibili_dynamics`, with `BILIBILI_SESSDATA`, its
+account's upload list and `bilibili_dynamics`, with a login, its
 dynamics, each at most once per `BILIBILI_MIN_INTERVAL_MINUTES` on its own
 clock and never during the shared captcha backoff, so either is safe in a
 manual run soon after its timer (see [Bilibili](sources.md#bilibili)).

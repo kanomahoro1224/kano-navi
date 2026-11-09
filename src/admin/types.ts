@@ -504,7 +504,7 @@ export interface Sources {
     oldest?: string | null
     account?: string
     videos?: number
-    /** A login cookie (BILIBILI_SESSDATA) is configured; it is never shown. */
+    /** A login cookie (BILIBILI_COOKIE or BILIBILI_SESSDATA) is configured; it is never shown. */
     signedIn?: boolean
     /** The cookie's state at the daily login check. */
     login?: BilibiliLogin

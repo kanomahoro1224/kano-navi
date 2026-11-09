@@ -26,10 +26,14 @@
 ## Admin Authentication
 
 Optional source API credentials (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`,
-`BILIBILI_SESSDATA`) exist only in the environment. The Bilibili cookie goes
-only to `api.bilibili.com`, never to its ticket endpoint; the opus page on
-`www.bilibili.com` and the live host `api.live.bilibili.com` are read without
-it. The `bili_ticket` request goes to the same fixed `api.bilibili.com` host
+`BILIBILI_COOKIE`, `BILIBILI_SESSDATA`) exist only in the environment. The
+Bilibili login cookies go only to `api.bilibili.com`, never to its ticket
+endpoint; the opus page on
+`www.bilibili.com`, the live host `api.live.bilibili.com` and the official
+client's listing on `app.bilibili.com` are read without it. That listing is
+signed with the app key pair the operator configures (`BILIBILI_APP_KEY`,
+`BILIBILI_APP_SECRET`), which stays in the environment like the other source
+credentials; without it the listing is never requested. The `bili_ticket` request goes to the same fixed `api.bilibili.com` host
 with a key Bilibili's public web script carries; the ticket it returns is a
 device cookie kept with the device identity, not a credential. Official source requests use
 Bearer or `X-Goog-Api-Key` headers with redirects blocked. The admin API

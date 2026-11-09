@@ -795,9 +795,10 @@ The `bilibili` step reads the uploads and the `bilibili_dynamics` step the
 dynamics (动态) of `BILIBILI_UID` (Kano's account by default), each on its
 own [timer](workflows.md#source-schedules); the [live-status
 probe](workflows.md#live-status-probe) checks its live room. Every request
-goes to one of three fixed hosts: `api.bilibili.com`, `www.bilibili.com`
-(the opus page of one dynamic only) and `api.live.bilibili.com`. Uploads use
-only endpoints that need no request signature:
+goes to one of four fixed hosts: `api.bilibili.com`, `www.bilibili.com`
+(the opus page of one dynamic only), `api.live.bilibili.com` and
+`app.bilibili.com` (the uploads' last fallback, below). Uploads use only
+endpoints that need no request signature, apart from that fallback:
 
 - `/x/frontend/finger/spi` returns the anonymous device identity
   (`buvid3`/`buvid4`) Bilibili's own pages send; its `b_nut` is when it was
@@ -845,18 +846,57 @@ shortest interval of either Bilibili timer. A skipped read records
 code as a failed step without a retry, keeps every stored upload and post,
 and lets the rest of the run continue.
 
-`BILIBILI_SESSDATA` optionally adds an operator's login cookie to the
+`BILIBILI_COOKIE` (the signed-in browser's cookies) or `BILIBILI_SESSDATA`
+(its `SESSDATA` alone) optionally adds an operator's login to the
 `api.bilibili.com` requests (never to the device-identity or ticket request,
-the opus page or the live host). Signed-in reads meet the captcha far less
-often, and the dynamics listing needs one. The cookie is verified at most once
+the opus page or the live host); see
+[Configuration](../operations/configuration.md) for the cookies kept. A
+signed-in request sends `SESSDATA` with the browser's `bili_jct`,
+`DedeUserID`, `DedeUserID__ckMd5` and `sid`, and the browser's device
+cookies (`buvid3`, `buvid4`, `b_nut`, `_uuid`, `buvid_fp`) in place of the
+anonymous identity where the login carries them, so the account and its
+device match. Signed-in reads meet the captcha far less often, and the
+dynamics listing needs one. The login is verified at most once
 a day through `nav`'s `isLogin`, when the listing runs; while the latest check
 found it expired, no request sends it and the listing waits for the next
 check (`{ skipped: true, reason: "login_expired" }` on the
 `bilibili_dynamics` step, error
 `bilibili_login_expired`). The console reports `signed_in`, `expired`,
-`unchecked` or `not_configured`. The cookie stays in memory: it is not part of
-the persisted state, not logged and not returned; see
-[Configuration](../operations/configuration.md).
+`unchecked` or `not_configured`. The login cookies stay in memory: they are
+not part of the persisted state, not logged and not returned.
+
+When the upload list fails (a captcha included), the same read falls back at
+once, in order, to:
+
+1. the first page of the signed-in [dynamics listing](#dynamics), when a
+   login is configured that the latest check did not find expired, storing
+   the uploads its video dynamics show: one listing request, plus `nav` when
+   the login check or the WBI keys are due. It leaves the dynamics read's own
+   clock and the dynamics themselves to the `bilibili_dynamics` step;
+2. the official client's space listing,
+   `app.bilibili.com/x/v2/space/archive/cursor?vmid=<mid>&ps=20&order=pubdate`,
+   when an app key pair is configured (`BILIBILI_APP_KEY` and
+   `BILIBILI_APP_SECRET`, see [Configuration](../operations/configuration.md);
+   without one it is not tried): one request without cookies or Referer,
+   signed as Bilibili's apps sign (`appkey` and `ts` added, `sign` the MD5 of
+   the key-sorted query followed by the app secret). It answers a different
+   service from the web API that shows the captcha. Its ordinary
+   uploads (`goto` `av`) with a BV ID, title and publication time (`ctime`)
+   are stored with their cover and length; it carries no description, so a
+   stored one is kept.
+
+The first success clears the backoff the list's failure started and leaves
+the step `partial` with `fallback` (`dynamics` or `app`), the list's code as
+`listError` and any earlier fallback's failure in `fallbackErrors`. When
+every listing fails, the step keeps the list's code and adds each
+fallback's as `<fallback>: <code>` to its errors; the backoff starts once,
+at the first captcha among them.
+
+Signing with an official client's key makes those requests read as that
+client rather than as this service. That is a trade-off each deployment
+accepts by configuring the pair, so the repository carries none: the pair
+grants no account access, and when Bilibili changes it the fallback fails
+with a controlled code until the operator configures the new one.
 
 An operator's single read (one upload, one dynamic) answers
 `bilibili_blocked` during a backoff without a request, unless the operator
@@ -901,8 +941,9 @@ translation in the same transaction.
 
 The dynamics listing,
 `/x/polymer/web-dynamic/v1/feed/space?host_mid=<mid>`, answers reliably only
-to a signed-in caller, so it runs only with `BILIBILI_SESSDATA`
-([ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)).
+to a signed-in caller, so it runs only with a login (`BILIBILI_COOKIE` or
+`BILIBILI_SESSDATA`,
+[ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)).
 Without the cookie the `bilibili_dynamics` step records `{ skipped: true,
 reason: "login_required" }` and makes no anonymous attempt. The listing is signed
 with Bilibili's WBI scheme (`wts` and `w_rid` from the rotating keys that
@@ -922,9 +963,14 @@ answers to older pages.
 A listing keeps the account's own `DYNAMIC_TYPE_WORD` and `DYNAMIC_TYPE_DRAW`
 items (the opus and picture cards), `DYNAMIC_TYPE_ARTICLE` items only in
 their `MAJOR_TYPE_OPUS` form, whose text comes from the opus summary, and
-forwards (`DYNAMIC_TYPE_FORWARD`, see [Forwards](#forwards)); uploads
-and collection updates belong to the upload read; a live-start notice is not
-a post. The stored text joins the nodes' text (words, topics, mentions,
+forwards (`DYNAMIC_TYPE_FORWARD`, see [Forwards](#forwards)); a live-start
+notice and a collection update are not posts. An upload's dynamic
+(`DYNAMIC_TYPE_AV` with a `MAJOR_TYPE_ARCHIVE` card) of the account is not a
+post either: the read stores it as the upload it publishes (BV ID, title,
+cover, description, length from `duration_text`, published at the dynamic's
+time), written as the upload list writes one, so a new upload reaches the
+store even while the list meets the captcha. The upload read's newest
+cursor stays its own. The stored text joins the nodes' text (words, topics, mentions,
 links) and leaves out emoji nodes (`RICH_TEXT_NODE_TYPE_EMOJI`); an opus
 title leads it, and a picture post's `desc` nodes give it beside its
 pictures. The nodes, emoji included, stay in `raw_json`. An

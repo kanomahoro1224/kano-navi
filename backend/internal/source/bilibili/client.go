@@ -13,6 +13,8 @@ package bilibili
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -30,12 +32,47 @@ import (
 const MaxResponseBytes = 2 * 1024 * 1024
 
 // The fixed destinations. The login cookie goes only to apiHost; the opus
-// page gets the device identity alone and the live host no cookie at all.
+// page gets the device identity alone, and the live host and appHost (the
+// official client's API, read only by the uploads' last fallback when an
+// app key pair is configured) no cookie at all.
 const (
 	apiHost  = "api.bilibili.com"
 	wwwHost  = "www.bilibili.com"
 	liveHost = "api.live.bilibili.com"
+	appHost  = "app.bilibili.com"
 )
+
+// AppKeys is an official Bilibili client's app key pair, from
+// BILIBILI_APP_KEY and BILIBILI_APP_SECRET. A request signed with it reads as
+// that client, which is the operator's deliberate trade-off for the uploads'
+// last fallback (see docs/architecture/sources.md); without a pair the
+// fallback is off. It stays in memory and is never stored, logged or
+// returned.
+type AppKeys struct{ Key, Secret string }
+
+var (
+	appKeyPattern    = regexp.MustCompile(`^[0-9a-f]{16}$`)
+	appSecretPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
+)
+
+// Valid reports a well-formed pair: 16 and 32 lowercase hex digits.
+func (k AppKeys) Valid() bool {
+	return appKeyPattern.MatchString(k.Key) && appSecretPattern.MatchString(k.Secret)
+}
+
+// sign adds appkey and ts to query and signs it as the official clients do:
+// the MD5 of the key-sorted query followed by the secret, as sign.
+func (k AppKeys) sign(query url.Values, now time.Time) string {
+	signed := url.Values{}
+	for key, values := range query {
+		signed[key] = append([]string{}, values...)
+	}
+	signed.Set("appkey", k.Key)
+	signed.Set("ts", strconv.FormatInt(now.Unix(), 10))
+	encoded := signed.Encode()
+	sum := md5.Sum([]byte(encoded + k.Secret))
+	return encoded + "&sign=" + hex.EncodeToString(sum[:])
+}
 
 type Error struct{ Code string }
 
@@ -57,6 +94,63 @@ type Session struct {
 	TicketAt  int64  `json:"ticketAt,omitempty"`
 	TicketTTL int64  `json:"ticketTTL,omitempty"`
 	Login     string `json:"-"`
+	// Account is the rest of the signed-in browser's cookies, sent with
+	// Login. Like Login it comes from the environment and is never stored;
+	// a pointer keeps Session comparable.
+	Account *LoginCookies `json:"-"`
+}
+
+// LoginCookies are the cookies of the operator's signed-in browser besides
+// SESSDATA, by name. Bilibili accepts a login more readily with the device
+// identity and account cookies the browser signed in with than with
+// SESSDATA beside an anonymous identity.
+type LoginCookies map[string]string
+
+// value is one well-formed cookie of the login, or "".
+func (c *LoginCookies) value(name string) string {
+	if c == nil {
+		return ""
+	}
+	if value := (*c)[name]; cookieValue.MatchString(value) {
+		return value
+	}
+	return ""
+}
+
+// loginDeviceCookies replace the anonymous device identity on a signed-in
+// request; loginAccountCookies follow it. Both lists are in the order sent,
+// and no other cookie of the browser is accepted.
+var (
+	loginDeviceCookies  = []string{"buvid3", "buvid4", "b_nut", "_uuid", "buvid_fp"}
+	loginAccountCookies = []string{"DedeUserID", "DedeUserID__ckMd5", "bili_jct", "sid"}
+	// cookieValue is one cookie value as browsers store it: no separator
+	// that could add another cookie or header.
+	cookieValue = regexp.MustCompile(`^[A-Za-z0-9%*,._+/=-]{1,512}$`)
+)
+
+// ParseLoginCookies reads a browser's Cookie header (name=value pairs split
+// by semicolons) and keeps SESSDATA and the known login cookies whose values
+// are well formed. Everything else is dropped.
+func ParseLoginCookies(header string) (string, LoginCookies) {
+	login, cookies := "", LoginCookies{}
+	known := map[string]bool{}
+	for _, name := range append(append([]string{}, loginDeviceCookies...), loginAccountCookies...) {
+		known[name] = true
+	}
+	for _, part := range strings.Split(header, ";") {
+		name, value, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if !ok {
+			continue
+		}
+		name, value = strings.TrimSpace(name), strings.TrimSpace(value)
+		switch {
+		case name == "SESSDATA" && sessdata.MatchString(value):
+			login = value
+		case known[name] && cookieValue.MatchString(value):
+			cookies[name] = value
+		}
+	}
+	return login, cookies
 }
 
 // BrowserUserAgent is the desktop browser every request names, as Bilibili's
@@ -65,16 +159,37 @@ type Session struct {
 const BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.163 Safari/537.36"
 
 // cookie is the Cookie header for a request: the device identity, then the
-// login cookie when login is set and the host is the API.
+// login cookies when login is set and the host is the API. A signed-in
+// request names the browser's own device cookies where the login carries
+// them, so the identity matches the account's.
 func (s Session) cookie(login bool, host string) string {
-	parts := []string{"buvid3=" + s.Buvid3, "buvid4=" + s.Buvid4}
+	signedIn := login && host == apiHost && sessdata.MatchString(s.Login)
+	device := map[string]string{"buvid3": s.Buvid3, "buvid4": s.Buvid4}
 	if s.Nut > 0 {
-		parts = append(parts, "b_nut="+strconv.FormatInt(s.Nut, 10))
+		device["b_nut"] = strconv.FormatInt(s.Nut, 10)
+	}
+	if signedIn {
+		for _, name := range loginDeviceCookies {
+			if value := s.Account.value(name); value != "" {
+				device[name] = value
+			}
+		}
+	}
+	parts := []string{}
+	for _, name := range loginDeviceCookies {
+		if value, ok := device[name]; ok {
+			parts = append(parts, name+"="+value)
+		}
 	}
 	if ticketPattern.MatchString(s.Ticket) {
 		parts = append(parts, "bili_ticket="+s.Ticket, "bili_ticket_expires="+strconv.FormatInt(s.TicketAt+s.TicketTTL, 10))
 	}
-	if login && host == apiHost && sessdata.MatchString(s.Login) {
+	if signedIn {
+		for _, name := range loginAccountCookies {
+			if value := s.Account.value(name); value != "" {
+				parts = append(parts, name+"="+value)
+			}
+		}
 		parts = append(parts, "SESSDATA="+s.Login)
 	}
 	return strings.Join(parts, "; ")
@@ -264,6 +379,31 @@ func (c *Client) UploadsPage(ctx context.Context, account string, pageSize, numb
 	return ParseUploadsPage(data, account)
 }
 
+// AppUploads lists an account's newest uploads from the official client's
+// space listing (/x/v2/space/archive/cursor), signed with keys and sent
+// without cookies or Referer. It is the uploads' last fallback.
+func (c *Client) AppUploads(ctx context.Context, account string, pageSize int, keys AppKeys, now time.Time) ([]Video, error) {
+	if !keys.Valid() {
+		return nil, &Error{"bilibili_app_keys_missing"}
+	}
+	if !mid.MatchString(account) {
+		return nil, &Error{"bilibili_invalid_account"}
+	}
+	if pageSize < 1 || pageSize > 50 {
+		return nil, &Error{"bilibili_invalid_page"}
+	}
+	query := url.Values{"vmid": {account}, "ps": {strconv.Itoa(pageSize)}, "order": {"pubdate"}}
+	body, err := c.do(ctx, http.MethodGet, appHost, "/x/v2/space/archive/cursor", keys.sign(query, now), "", "application/json", nil, false)
+	if err != nil {
+		return nil, err
+	}
+	data, err := envelope(body)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAppUploads(data, account)
+}
+
 // Video reads one upload by its BV ID.
 func (c *Client) Video(ctx context.Context, bvid string, session Session) (Video, error) {
 	if !bvidPattern.MatchString(bvid) {
@@ -285,10 +425,26 @@ type Options struct {
 	// MinInterval spaces list reads, whatever the source schedule.
 	MinInterval time.Duration
 	PageSize    int
-	// SESSDATA is an operator's Bilibili login cookie from BILIBILI_SESSDATA.
-	// Signed-in reads meet the captcha far less often. It is a credential of
-	// that account: it stays in memory and goes only to api.bilibili.com.
+	// SESSDATA is an operator's Bilibili login cookie, from BILIBILI_COOKIE
+	// or BILIBILI_SESSDATA. Signed-in reads meet the captcha far less often.
+	// It is a credential of that account: it stays in memory and goes only
+	// to api.bilibili.com.
 	SESSDATA string
+	// Cookies are the signed-in browser's other login cookies from
+	// BILIBILI_COOKIE, kept and sent like SESSDATA and only with it.
+	Cookies LoginCookies
+	// App is the official client's key pair that turns on the uploads' last
+	// fallback; it is off while the pair is empty or malformed.
+	App AppKeys
+}
+
+// signIn adds the configured login to a session.
+func (o Options) signIn(session *Session) {
+	session.Login, session.Account = o.SESSDATA, nil
+	if len(o.Cookies) > 0 {
+		cookies := o.Cookies
+		session.Account = &cookies
+	}
 }
 
 // SignedIn reports whether a valid login cookie is configured.
@@ -306,9 +462,18 @@ func OptionsFromEnv() Options {
 	if err != nil || minutes < 60 || minutes > 1440 {
 		minutes = 180
 	}
-	login := strings.TrimSpace(os.Getenv("BILIBILI_SESSDATA"))
-	if !sessdata.MatchString(login) {
-		login = ""
+	// BILIBILI_COOKIE is the signed-in browser's Cookie header; its SESSDATA
+	// wins over BILIBILI_SESSDATA, which alone signs in with SESSDATA only.
+	login, cookies := ParseLoginCookies(os.Getenv("BILIBILI_COOKIE"))
+	if login == "" {
+		cookies = LoginCookies{}
+		if single := strings.TrimSpace(os.Getenv("BILIBILI_SESSDATA")); sessdata.MatchString(single) {
+			login = single
+		}
 	}
-	return Options{Account: account, MinInterval: time.Duration(minutes) * time.Minute, PageSize: 20, SESSDATA: login}
+	app := AppKeys{Key: strings.TrimSpace(os.Getenv("BILIBILI_APP_KEY")), Secret: strings.TrimSpace(os.Getenv("BILIBILI_APP_SECRET"))}
+	if !app.Valid() {
+		app = AppKeys{}
+	}
+	return Options{Account: account, MinInterval: time.Duration(minutes) * time.Minute, PageSize: 20, SESSDATA: login, Cookies: cookies, App: app}
 }

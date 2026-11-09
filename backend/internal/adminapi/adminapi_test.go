@@ -430,7 +430,7 @@ func TestSourceFetchMethods(t *testing.T) {
 		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"count","count":201}}`:                                 "count must be an integer from 1 to 200",
 		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"all"},"options":{"refresh":true}}`:                    "refresh is not supported for this method",
 		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"all"},"options":{"extract":true}}`:                    "extract is not supported for this method",
-		`{"kind":"fetch","source":"bilibili_dynamics","method":"space","window":{"mode":"all"},"options":{"extract":true}}`:           "BILIBILI_SESSDATA is required for the space method",
+		`{"kind":"fetch","source":"bilibili_dynamics","method":"space","window":{"mode":"all"},"options":{"extract":true}}`:           "BILIBILI_COOKIE or BILIBILI_SESSDATA is required for the space method",
 	} {
 		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
 			t.Fatalf("%s => %d %v", body, code, payload)

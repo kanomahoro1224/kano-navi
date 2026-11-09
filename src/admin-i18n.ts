@@ -870,7 +870,7 @@ export const adminMessages = {
     "admin.bilibili.loginExpired": "Login expired",
     "admin.bilibili.loginUnchecked": "Login not checked yet",
     "admin.bilibili.loginExpiredHint":
-      "The login cookie expired. Set a fresh BILIBILI_SESSDATA in the server environment; the daily login check confirms it.",
+      "The login cookie expired. Set a fresh BILIBILI_COOKIE or BILIBILI_SESSDATA in the server environment; the daily login check confirms it.",
     "admin.bilibili.force": "Try once anyway",
     "admin.bilibili.forceHint":
       "Reads wait for the captcha backoff until {time}. This sends this one read now, which may extend the backoff.",
@@ -879,7 +879,7 @@ export const adminMessages = {
     "admin.bilibili.blockedUntil": "Waiting until {time}",
     "admin.bilibili.lastError": "Last error",
     "admin.bilibili.signInHint":
-      "Anonymous reads often meet Bilibili's captcha. Set BILIBILI_SESSDATA in the server environment to read as a signed-in account; see the configuration guide.",
+      "Anonymous reads often meet Bilibili's captcha. Set BILIBILI_COOKIE or BILIBILI_SESSDATA in the server environment to read as a signed-in account; see the configuration guide.",
     "admin.bilibili.add": "Add an upload",
     "admin.bilibili.addButton": "Add",
     "admin.bilibili.addField": "BV ID or video link",
@@ -888,7 +888,7 @@ export const adminMessages = {
     "admin.bilibili.addPostField": "Dynamic link",
     "admin.bilibili.addPost": "Add a dynamic",
     "admin.bilibili.dynamics.loginHint":
-      "The dynamics listing needs a login cookie. Set BILIBILI_SESSDATA in the server environment to read it.",
+      "The dynamics listing needs a login cookie. Set BILIBILI_COOKIE or BILIBILI_SESSDATA in the server environment to read it.",
     "admin.bilibili.live.title": "Live room",
     "admin.bilibili.live.on": "Live",
     "admin.bilibili.live.off": "Off air",
@@ -1085,7 +1085,7 @@ export const adminMessages = {
     "admin.sources.bilibili.hint":
       "The account's public uploads, read at most once per BILIBILI_MIN_INTERVAL_MINUTES. Its live room is checked on its own interval.",
     "admin.sources.bilibili_dynamics.hint":
-      "The account's dynamics, read with BILIBILI_SESSDATA at most once per BILIBILI_MIN_INTERVAL_MINUTES. They share the uploads' captcha backoff: a block met by either read holds both.",
+      "The account's dynamics, read with BILIBILI_COOKIE or BILIBILI_SESSDATA at most once per BILIBILI_MIN_INTERVAL_MINUTES. They share the uploads' captcha backoff: a block met by either read holds both.",
     "admin.sources.shop.hint":
       "The official shop's newest 50 products. Products tagged 鹿乃まほろ with a dated order or sale period become On sale entries, one per collection and period.",
     "admin.timer.on": "Every {interval}",
@@ -1506,7 +1506,7 @@ export const adminMessages = {
       "Bilibili is asking this server for a captcha. Reads resume after {time}.",
     "admin.error.bilibiliUnavailable": "Bilibili did not answer ({code}).",
     "admin.error.bilibiliLoginExpired":
-      "Bilibili's login cookie expired (BILIBILI_SESSDATA).",
+      "Bilibili's login cookie expired (BILIBILI_COOKIE or BILIBILI_SESSDATA).",
     "admin.error.postNotFound": "The source has no such post.",
     "admin.filter.any": "Any",
     "admin.filter.dates": "Dates",
@@ -1723,7 +1723,7 @@ export const adminMessages = {
     "admin.code.bilibili_risk_control":
       "Bilibili asked this server for a captcha; reads wait for the backoff to end.",
     "admin.code.bilibili_login_expired":
-      "Login cookie expired (BILIBILI_SESSDATA)",
+      "Login cookie expired (BILIBILI_COOKIE or BILIBILI_SESSDATA)",
     "admin.code.bilibili_risk_control_http":
       "Bilibili asked this server for a captcha: an HTTP 412 answer.",
     "admin.code.bilibili_risk_control_page":
@@ -1737,7 +1737,7 @@ export const adminMessages = {
     "admin.code.bilibili_blocked":
       "Bilibili reads wait for the captcha backoff to end.",
     "admin.code.bilibili_login_required":
-      "The dynamics listing needs BILIBILI_SESSDATA on the server.",
+      "The dynamics listing needs BILIBILI_COOKIE or BILIBILI_SESSDATA on the server.",
     "admin.code.bilibili_repeated_page":
       "The listing answered the same page again, so the fetch stopped.",
     "admin.code.bilibili_unsupported_dynamic":
@@ -2314,7 +2314,7 @@ export const adminMessages = {
     "admin.bilibili.loginExpired": "登录已过期",
     "admin.bilibili.loginUnchecked": "尚未检查登录",
     "admin.bilibili.loginExpiredHint":
-      "登录 Cookie 已过期。请在服务器环境中设置新的 BILIBILI_SESSDATA，每日登录检查会确认它。",
+      "登录 Cookie 已过期。请在服务器环境中设置新的 BILIBILI_COOKIE 或 BILIBILI_SESSDATA，每日登录检查会确认它。",
     "admin.bilibili.force": "仍然尝试一次",
     "admin.bilibili.forceHint":
       "验证码退避持续到 {time}。这会立即发送这一次读取，可能延长退避。",
@@ -2323,7 +2323,7 @@ export const adminMessages = {
     "admin.bilibili.blockedUntil": "等待至 {time}",
     "admin.bilibili.lastError": "最近错误",
     "admin.bilibili.signInHint":
-      "未登录读取经常会遇到哔哩哔哩的验证码。在服务器环境中设置 BILIBILI_SESSDATA 即可以登录账号读取，详见配置说明。",
+      "未登录读取经常会遇到哔哩哔哩的验证码。在服务器环境中设置 BILIBILI_COOKIE 或 BILIBILI_SESSDATA 即可以登录账号读取，详见配置说明。",
     "admin.bilibili.add": "添加投稿",
     "admin.bilibili.addButton": "添加",
     "admin.bilibili.addField": "BV 号或视频链接",
@@ -2332,7 +2332,7 @@ export const adminMessages = {
     "admin.youtube.add": "添加视频",
     "admin.youtube.addField": "视频 ID 或链接",
     "admin.bilibili.dynamics.loginHint":
-      "动态列表需要登录 Cookie。请在服务器环境中设置 BILIBILI_SESSDATA。",
+      "动态列表需要登录 Cookie。请在服务器环境中设置 BILIBILI_COOKIE 或 BILIBILI_SESSDATA。",
     "admin.bilibili.live.title": "直播间",
     "admin.bilibili.live.on": "直播中",
     "admin.bilibili.live.off": "未开播",
@@ -2457,7 +2457,7 @@ export const adminMessages = {
     "admin.sources.bilibili.hint":
       "账号的公开投稿，每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次。直播间按自己的间隔检查。",
     "admin.sources.bilibili_dynamics.hint":
-      "账号的动态，使用 BILIBILI_SESSDATA 读取，每 BILIBILI_MIN_INTERVAL_MINUTES 最多一次。它与投稿共用验证码退避：任一读取被拦截，两者都会暂停。",
+      "账号的动态，使用 BILIBILI_COOKIE 或 BILIBILI_SESSDATA 读取，每 BILIBILI_MIN_INTERVAL_MINUTES 最多一次。它与投稿共用验证码退避：任一读取被拦截，两者都会暂停。",
     "admin.sources.shop.hint":
       "官方商店最新的 50 件商品。带有「鹿乃まほろ」标签并写明受注或发售期间的商品，会按系列和期间成为「发售中」条目。",
     "admin.timer.on": "每 {interval}",
@@ -2676,7 +2676,7 @@ export const adminMessages = {
       "哔哩哔哩正在要求本服务器完成验证码，{time} 后恢复读取。",
     "admin.error.bilibiliUnavailable": "哔哩哔哩没有响应（{code}）。",
     "admin.error.bilibiliLoginExpired":
-      "哔哩哔哩登录 Cookie 已过期（BILIBILI_SESSDATA）。",
+      "哔哩哔哩登录 Cookie 已过期（BILIBILI_COOKIE 或 BILIBILI_SESSDATA）。",
     "admin.error.postNotFound": "来源中没有这条帖子。",
     "admin.filter.any": "全部",
     "admin.filter.dates": "日期",
@@ -2805,7 +2805,7 @@ export const adminMessages = {
     "admin.code.bilibili_risk_control":
       "哔哩哔哩要求本服务器完成验证码，读取会等待退避结束。",
     "admin.code.bilibili_login_expired":
-      "登录 Cookie 已过期（BILIBILI_SESSDATA）",
+      "登录 Cookie 已过期（BILIBILI_COOKIE 或 BILIBILI_SESSDATA）",
     "admin.code.bilibili_risk_control_http":
       "哔哩哔哩要求本服务器完成验证码：HTTP 412 响应。",
     "admin.code.bilibili_risk_control_page":

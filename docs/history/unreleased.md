@@ -10,8 +10,9 @@
 > joins the admin API's types.
 
 > [!NOTE]
-> Bilibili dynamics are listed only with `BILIBILI_SESSDATA` configured
-> ([ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)).
+> Bilibili dynamics are listed only with a Bilibili login configured
+> (`BILIBILI_COOKIE`, a signed-in browser's cookies, or `BILIBILI_SESSDATA`,
+> [ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)).
 > Startup adds the empty `events.platform` column and sets it to `youtube`
 > on YouTube events, without rewriting other events. Japanese becomes a
 > translation target:
@@ -310,6 +311,16 @@
   not sent while expired, and captcha answers name how Bilibili gave them
   (`bilibili_risk_control_http`, `_page`, `_352`, `_412`, `_voucher`), all
   with the same backoff.
+- `BILIBILI_COOKIE` takes a signed-in browser's cookies: signed-in requests
+  send its `SESSDATA` with the account's other login cookies and the
+  browser's own device identity, which Bilibili accepts more readily than
+  `SESSDATA` beside an anonymous identity. Other cookies are dropped.
+- When the Bilibili upload list fails, the read falls back to the signed-in
+  dynamics listing (with a login) and then, with an official client's app
+  key pair in `BILIBILI_APP_KEY` and `BILIBILI_APP_SECRET`, to that client's
+  space listing on `app.bilibili.com`, and stores the uploads the first
+  success shows; the dynamics read stores the uploads its video dynamics
+  show too.
 - The live-status probe checks the Bilibili live room, one request per run,
   around announced streams and once per operator interval (30 minutes by
   default) otherwise, and learns the room from the answer.

@@ -470,7 +470,7 @@ overview queue's Start now does, and reads Run next while a run holds the
 queue; while it is off, Run now runs the source's steps once and waits for a
 free queue. A source that `SKIP_*` turns off is locked. The Bilibili
 tabs' summaries add the login cookie's state and the shared captcha backoff
-as chips, with a note on setting `BILIBILI_SESSDATA` while no cookie is
+as chips, with a note on setting `BILIBILI_COOKIE` or `BILIBILI_SESSDATA` while no cookie is
 configured or the configured one expired. Below the
 summary the main column holds the timed reads
 (`src/admin/views/source-timed.tsx`), one form with one Save and

@@ -436,9 +436,19 @@ func (s *SourceSteps) bilibiliRecent(ctx context.Context) (AttemptResult, error)
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
 	counts := map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "requested": result.Requested, "changed": changed}
+	if result.Fallback != "" {
+		// The list failed and a fallback listing gave the uploads.
+		counts["fallback"], counts["listError"] = result.Fallback, result.ListError
+		if len(result.FallbackErrors) > 0 {
+			counts["fallbackErrors"] = result.FallbackErrors
+		}
+	}
 	if fetchErr != nil {
-		counts["errors"] = []string{bilisource.ErrorCode(fetchErr)}
+		counts["errors"] = append([]string{bilisource.ErrorCode(fetchErr)}, result.FallbackErrors...)
 		return AttemptResult{Status: "failed", Result: counts}, nil
+	}
+	if result.Fallback != "" {
+		return AttemptResult{Status: "partial", Result: counts}, nil
 	}
 	return AttemptResult{Status: "succeeded", Result: counts}, nil
 }
@@ -466,7 +476,7 @@ func (s *SourceSteps) bilibiliDynamics(ctx context.Context) (AttemptResult, erro
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
-	counts := map[string]any{"count": len(dynamics.Dynamics), "posts": len(dynamics.Dynamics), "requested": dynamics.Requested, "changed": changed}
+	counts := map[string]any{"count": len(dynamics.Dynamics), "posts": len(dynamics.Dynamics), "videos": len(dynamics.Uploads), "requested": dynamics.Requested, "changed": changed}
 	if dynamics.Skipped != "" {
 		// The login check found the cookie expired.
 		counts["skipped"], counts["reason"] = true, dynamics.Skipped

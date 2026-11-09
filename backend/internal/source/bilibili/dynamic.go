@@ -200,9 +200,12 @@ type spaceItem struct {
 					} `json:"items"`
 				} `json:"draw"`
 				Archive *struct {
-					BVID  string `json:"bvid"`
-					Title string `json:"title"`
-					Cover string `json:"cover"`
+					BVID         string  `json:"bvid"`
+					AID          flexInt `json:"aid"`
+					Title        string  `json:"title"`
+					Cover        string  `json:"cover"`
+					Desc         string  `json:"desc"`
+					DurationText string  `json:"duration_text"`
 				} `json:"archive"`
 			} `json:"major"`
 		} `json:"module_dynamic"`
@@ -346,9 +349,29 @@ func (it *spaceItem) quote(selfURL string) *Quote {
 	return q
 }
 
+// upload reads a video dynamic of the account as the upload it publishes:
+// the archive's BV ID, title, cover, description and length, published at
+// the dynamic's time. It reports false for any other item or an incomplete
+// one.
+func (it spaceItem) upload(owner int64) (Video, bool) {
+	m := it.Modules.Dynamic
+	if it.Type != "DYNAMIC_TYPE_AV" || m.Major == nil || m.Major.Type != "MAJOR_TYPE_ARCHIVE" || m.Major.Archive == nil ||
+		int64(it.Modules.Author.Mid) != owner || it.Visible != nil && !*it.Visible {
+		return Video{}, false
+	}
+	a := m.Major.Archive
+	duration, _ := json.Marshal(a.DurationText)
+	return upload{
+		BVID: a.BVID, AID: int64(a.AID), Title: a.Title, Pic: a.Cover, PubDate: int64(it.Modules.Author.PubTS),
+		Duration: duration, Desc: a.Desc, UpMid: owner,
+	}.video()
+}
+
 // SpacePage is one page of the account's dynamics listing.
 type SpacePage struct {
 	Dynamics []Dynamic
+	// Uploads are the account's video dynamics read as uploads.
+	Uploads []Video
 	// Seen counts every item the page listed, kept or not.
 	Seen    int
 	HasMore bool
@@ -374,12 +397,16 @@ func ParseSpaceFeed(data json.RawMessage, account string) (SpacePage, error) {
 		return SpacePage{}, &Error{"bilibili_invalid_response"}
 	}
 	owner, _ := strconv.ParseInt(account, 10, 64)
-	out := SpacePage{Dynamics: []Dynamic{}, Seen: len(page.Items), HasMore: page.HasMore, Offset: page.Offset}
+	out := SpacePage{Dynamics: []Dynamic{}, Uploads: []Video{}, Seen: len(page.Items), HasMore: page.HasMore, Offset: page.Offset}
 	seen := map[string]bool{}
 	for _, item := range page.Items {
 		if d, ok := item.dynamic(owner); ok && !seen[d.IDStr] {
 			seen[d.IDStr] = true
 			out.Dynamics = append(out.Dynamics, d)
+		}
+		if v, ok := item.upload(owner); ok && !seen[v.BVID] {
+			seen[v.BVID] = true
+			out.Uploads = append(out.Uploads, v)
 		}
 	}
 	return out, nil

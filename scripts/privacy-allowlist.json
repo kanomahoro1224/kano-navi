@@ -142,6 +142,10 @@
       "reason": "Bilibili live check: the configured account's live room status, one cookie-free request per probe run with a fixed host, timeout, size limit and backoff."
     },
     {
+      "host": "app.bilibili.com",
+      "reason": "Bilibili uploads' last fallback: the configured account's space listing from the official client's API (/x/v2/space/archive/cursor only), requested only when the operator configures an official client's app key pair, signed with it, cookie-free and read server-side with a fixed host, timeout, size limit, rejected redirects and the shared captcha backoff."
+    },
+    {
       "host": "live.bilibili.com",
       "reason": "Public link of the configured Bilibili live room on stream entries."
     },

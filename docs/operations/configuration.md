@@ -2,39 +2,41 @@
 
 ## Environment Variables
 
-| Variable                        | Default                             | Purpose                                                            |
-| ------------------------------- | ----------------------------------- | ------------------------------------------------------------------ |
-| `APP_MODE`                      | `production`                        | Explicit `development` bypasses login; production requires it      |
-| `ADMIN_PASSWORD`                | Empty                               | Production startup requires at least 12 non-padding characters     |
-| `ADMIN_ORIGIN`                  | Empty                               | Optional explicit origin accepted for admin mutations              |
-| `PUBLIC_ORIGIN`                 | Empty                               | Optional public origin for absolute share-tag and feed links       |
-| `LLM_SECRETS_KEY`               | Empty                               | Required non-blank encryption master key at startup in every mode  |
-| `PORT`                          | `7657`                              | Shared frontend/API port for development, preview, and production  |
-| `KANO_API_PORT`                 | `7658`                              | Development only: loopback port of the backend behind Vite         |
-| `KANO_WATCH_POLLING`            | `0`                                 | Development only: `1` makes Vite poll a mounted checkout           |
-| `SCHEDULE_EXTRACTION_ENABLED`   | `1`                                 | Default for stage flags without a stored or environment value      |
-| `SCHEDULE_KEYWORD_ENABLED`      | `1`                                 | Enable keyword candidate selection                                 |
-| `SCHEDULE_VISION_ENABLED`       | `1`                                 | Enable schedule-board LLM extraction                               |
-| `SCHEDULE_MESSAGE_ENABLED`      | `1`                                 | Enable single-message schedule detection                           |
-| `SCHEDULE_MESSAGE_ALL_POSTS`    | `0`                                 | Send every post through the message route, skipping the heuristic  |
-| `SCHEDULE_KEYWORDS`             | `schedule,...`                      | Comma-separated schedule candidate keywords                        |
-| `WORKFLOW_SCHEDULER_ENABLED`    | `1`                                 | Start the source timers in the server process                      |
-| `MCP_ENABLED`                   | `1`                                 | Expose the stateless `/mcp` endpoint                               |
-| `MCP_CONTROL_TOKEN`             | Empty                               | Bearer token for MCP mutation tools                                |
-| `X_HANDLES`                     | `kano_2525,_Kanotic`                | Comma-separated public X account names                             |
-| `X_API_BEARER_TOKEN`            | Empty                               | Optional environment-only X API credential: fetches, chain method  |
-| `YOUTUBE_API_KEY`               | Empty                               | Optional environment-only Data API key: YouTube sync and fetches   |
-| `YOUTUBE_CHANNEL_ID`            | Main channel                        | YouTube channel identifier                                         |
-| `YTDLP_BINARY`                  | `/app/yt-dlp` in production Compose | yt-dlp executable path; empty disables the method                  |
-| `BILIBILI_UID`                  | Kano's account                      | Bilibili account (numeric mid) whose uploads and dynamics are read |
-| `BILIBILI_MIN_INTERVAL_MINUTES` | `180`                               | Minimum minutes between Bilibili reads and timer runs (60–1440)    |
-| `BILIBILI_SESSDATA`             | Empty                               | Optional login cookie; required for the dynamics listing           |
-| `SKIP_X`, `SKIP_YOUTUBE`        | `0`                                 | Set to `1` to skip that source's step and its timer                |
-| `SKIP_BILIBILI`                 | `0`                                 | Set to `1` to skip both Bilibili steps, timers and console reads   |
-| `SKIP_SHOP`                     | `0`                                 | Set to `1` to skip the official shop's step, timer and fetch       |
-| `SKIP_MEDIA`, `SKIP_LLM`        | `0`                                 | Set a post-processing stage flag to `1` to skip it                 |
-| `KANO_MEM_LIMIT`                | `1g` in production Compose          | Production Compose: the container's memory limit (`mem_limit`)     |
-| `GOMEMLIMIT`                    | `700MiB` in production Compose      | Go runtime soft memory limit, kept below the container's limit     |
+| Variable                                  | Default                             | Purpose                                                                |
+| ----------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------- |
+| `APP_MODE`                                | `production`                        | Explicit `development` bypasses login; production requires it          |
+| `ADMIN_PASSWORD`                          | Empty                               | Production startup requires at least 12 non-padding characters         |
+| `ADMIN_ORIGIN`                            | Empty                               | Optional explicit origin accepted for admin mutations                  |
+| `PUBLIC_ORIGIN`                           | Empty                               | Optional public origin for absolute share-tag and feed links           |
+| `LLM_SECRETS_KEY`                         | Empty                               | Required non-blank encryption master key at startup in every mode      |
+| `PORT`                                    | `7657`                              | Shared frontend/API port for development, preview, and production      |
+| `KANO_API_PORT`                           | `7658`                              | Development only: loopback port of the backend behind Vite             |
+| `KANO_WATCH_POLLING`                      | `0`                                 | Development only: `1` makes Vite poll a mounted checkout               |
+| `SCHEDULE_EXTRACTION_ENABLED`             | `1`                                 | Default for stage flags without a stored or environment value          |
+| `SCHEDULE_KEYWORD_ENABLED`                | `1`                                 | Enable keyword candidate selection                                     |
+| `SCHEDULE_VISION_ENABLED`                 | `1`                                 | Enable schedule-board LLM extraction                                   |
+| `SCHEDULE_MESSAGE_ENABLED`                | `1`                                 | Enable single-message schedule detection                               |
+| `SCHEDULE_MESSAGE_ALL_POSTS`              | `0`                                 | Send every post through the message route, skipping the heuristic      |
+| `SCHEDULE_KEYWORDS`                       | `schedule,...`                      | Comma-separated schedule candidate keywords                            |
+| `WORKFLOW_SCHEDULER_ENABLED`              | `1`                                 | Start the source timers in the server process                          |
+| `MCP_ENABLED`                             | `1`                                 | Expose the stateless `/mcp` endpoint                                   |
+| `MCP_CONTROL_TOKEN`                       | Empty                               | Bearer token for MCP mutation tools                                    |
+| `X_HANDLES`                               | `kano_2525,_Kanotic`                | Comma-separated public X account names                                 |
+| `X_API_BEARER_TOKEN`                      | Empty                               | Optional environment-only X API credential: fetches, chain method      |
+| `YOUTUBE_API_KEY`                         | Empty                               | Optional environment-only Data API key: YouTube sync and fetches       |
+| `YOUTUBE_CHANNEL_ID`                      | Main channel                        | YouTube channel identifier                                             |
+| `YTDLP_BINARY`                            | `/app/yt-dlp` in production Compose | yt-dlp executable path; empty disables the method                      |
+| `BILIBILI_UID`                            | Kano's account                      | Bilibili account (numeric mid) whose uploads and dynamics are read     |
+| `BILIBILI_MIN_INTERVAL_MINUTES`           | `180`                               | Minimum minutes between Bilibili reads and timer runs (60–1440)        |
+| `BILIBILI_COOKIE`                         | Empty                               | Optional signed-in browser cookies; wins over `BILIBILI_SESSDATA`      |
+| `BILIBILI_SESSDATA`                       | Empty                               | Optional login cookie; a login is required for the dynamics            |
+| `BILIBILI_APP_KEY`, `BILIBILI_APP_SECRET` | Empty                               | Optional official-client key pair; turns on the uploads' last fallback |
+| `SKIP_X`, `SKIP_YOUTUBE`                  | `0`                                 | Set to `1` to skip that source's step and its timer                    |
+| `SKIP_BILIBILI`                           | `0`                                 | Set to `1` to skip both Bilibili steps, timers and console reads       |
+| `SKIP_SHOP`                               | `0`                                 | Set to `1` to skip the official shop's step, timer and fetch           |
+| `SKIP_MEDIA`, `SKIP_LLM`                  | `0`                                 | Set a post-processing stage flag to `1` to skip it                     |
+| `KANO_MEM_LIMIT`                          | `1g` in production Compose          | Production Compose: the container's memory limit (`mem_limit`)         |
+| `GOMEMLIMIT`                              | `700MiB` in production Compose      | Go runtime soft memory limit, kept below the container's limit         |
 
 Production Docker Compose limits the container to `KANO_MEM_LIMIT` and passes
 `GOMEMLIMIT` to the server. `GOMEMLIMIT` is the Go runtime's own setting,
@@ -75,14 +77,37 @@ Docker Compose also uses `KANO_IMAGE` (default
 `yexca/kano-navi:latest` from Docker Hub) for the published image and `KANO_PORT`
 (default `7657`) for the host port. The API also defaults to `7657` inside the container.
 
-`BILIBILI_SESSDATA` is the `SESSDATA` cookie of a browser signed in to
-Bilibili (developer tools → Application → Cookies → `.bilibili.com`). With
-it, the `bilibili` step and the console's reads are sent as that account,
-which Bilibili's captcha blocks far less often than anonymous reads, and the
-`bilibili_dynamics` step reads the account's dynamics, which it skips without
-one
-([ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)). It is
-sent only to `api.bilibili.com`, never stored in SQLite, logged, or returned.
+`BILIBILI_COOKIE` is the `Cookie` request header of a browser signed in to
+Bilibili (developer tools → Network → any `api.bilibili.com` request →
+Request Headers → `cookie`). The server keeps `SESSDATA` and the known login
+cookies of that browser (`bili_jct`, `DedeUserID`, `DedeUserID__ckMd5`,
+`sid`, and the device cookies `buvid3`, `buvid4`, `b_nut`, `_uuid`,
+`buvid_fp`) whose values are well formed, and drops every other cookie. A
+signed-in request sends the browser's own device cookies in place of the
+anonymous identity, so the account and its device match as they do in the
+browser. `BILIBILI_SESSDATA` is the `SESSDATA` value alone (Application →
+Cookies → `.bilibili.com`); it is read only when `BILIBILI_COOKIE` carries no
+`SESSDATA`, and Bilibili accepts it beside an anonymous identity less
+readily. With either, the `bilibili` step and the console's reads are sent
+as that account, which Bilibili's captcha blocks far less often than
+anonymous reads, the upload list falls back to the dynamics listing when it
+fails, and the `bilibili_dynamics` step reads the account's dynamics, which
+it skips without one
+([ADR-0007](../decisions/ADR-0007-bilibili-dynamics-need-a-login.md)). The
+login cookies are sent only to `api.bilibili.com`, never stored in SQLite,
+logged, or returned.
+
+`BILIBILI_APP_KEY` and `BILIBILI_APP_SECRET` are an official Bilibili
+client's app key pair (16 and 32 lowercase hex digits). With both set, an
+upload read whose list and dynamics fallback failed tries that client's
+space listing on `app.bilibili.com`, signed with the pair (see
+[Bilibili](../architecture/sources.md#bilibili)); a malformed or missing
+pair keeps that fallback off. Requests signed with it read as the official
+client rather than as this service, which is the trade-off an operator
+accepts by setting it. Open-source Bilibili clients publish such pairs; the
+repository carries none. The pair is kept, sent and protected like the
+other source credentials: only in the environment and memory, never stored,
+logged, or returned.
 "Signed in" in the console means Bilibili accepted the cookie at the latest
 daily check (`nav` `isLogin`); before the first check it reads as not
 checked yet, and an expired cookie is no longer sent until a check accepts a
@@ -90,7 +115,7 @@ renewed one. Prefer a secondary account,
 and replace the value when it expires or the account signs out.
 
 `.env.example` is the complete non-secret inventory. `ADMIN_PASSWORD` and
-`LLM_SECRETS_KEY`, `MCP_CONTROL_TOKEN`, `BILIBILI_SESSDATA`, and provider API keys are credentials;
+`LLM_SECRETS_KEY`, `MCP_CONTROL_TOKEN`, `BILIBILI_COOKIE`, `BILIBILI_SESSDATA`, `BILIBILI_APP_SECRET`, and provider API keys are credentials;
 never place real values in source code, SQLite plaintext, URLs, API responses,
 or logs. `OPENAI_API_KEY` is accepted only by the one-time
 `kano-go migrate-llm` command.

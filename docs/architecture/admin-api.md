@@ -369,7 +369,7 @@ manual fetch of one account, reads the accounts.
 `FetchMethod` describes one manual fetch method in the order the console
 offers them: `{id, modes, maxCount, pageSize, requires, refresh, extract,
 available}`. `requires` names the environment variable the method needs
-(`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY` or `BILIBILI_SESSDATA`), never its value, and is absent
+(`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY` or, for a Bilibili login, `BILIBILI_COOKIE or BILIBILI_SESSDATA`), never its value, and is absent
 for public methods; `available` is false while
 it, or the method's adapter, is missing. `refresh` and `extract` say which
 options the method takes.

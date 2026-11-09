@@ -329,7 +329,7 @@ above the form, side by side or stacked on a phone. A card's covered dates
 note when they come from the post's events, and a dated card offers Show
 its week, which opens the calendar on the day its dates start.
 
-The entry dialog is either timed or all day. A timed entry needs a start time. Its length
+The entry dialog (`event-dialog.tsx`) is either timed or all day. A timed entry needs a start time. Its length
 starts at the type default, the [calendar feed's](public-api.md#public-feeds)
 length for the type, and saves that end as `endsAt` like the presets and a
 custom end. **No end time** saves none, so the board treats a stream as

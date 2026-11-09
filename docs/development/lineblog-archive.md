@@ -54,6 +54,12 @@ gets its media.
   content-hashed chunk, so a view loads only the articles it shows, and the
   server caches them as immutable build files. A comments file that fails to
   load shows the article without comments.
+- `src/lineblog/lineblog-app.tsx` renders the page and remembers the
+  reader's translation and design. `navigation.ts` handles in-page addresses
+  and the phone layout switch, `translation.tsx` the translated lines,
+  `article.tsx` an article's blocks, `comments.tsx` the comments, `menus.tsx`
+  the menu bar's pickers, and `desktop.tsx` and `smartphone.tsx` the two
+  layouts.
 - The blog's own header art and profile photos, and the menu bar's Home icon,
   are archive media like the articles' pictures: nine JPEGs and one PNG in the
   recovery archive's `media/`, packaged into `data/lineblog/` and the media

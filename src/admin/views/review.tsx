@@ -1,12 +1,11 @@
-import { useEffect, useId, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   ArrowRight,
   Ban,
-  CalendarCheck,
-  CalendarX,
   CheckCircle2,
+  CircleAlert,
+  CircleHelp,
   ExternalLink,
-  Images,
   Languages,
   Sparkles,
   X,
@@ -15,7 +14,7 @@ import {
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import { japanStamp } from "@/admin/format"
-import type { AdminEvent, AdminPost } from "@/admin/types"
+import type { AdminPost } from "@/admin/types"
 import {
   Badge,
   Button,
@@ -29,173 +28,19 @@ import {
   StatusBadge,
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
-import { eventToInput, EventWhen } from "@/admin/views/event-parts"
 import { MergeQueue } from "@/admin/views/merge-parts"
-import {
-  ConfidenceMeter,
-  ScheduleImageList,
-} from "@/admin/views/schedule-images"
-import { eventDetailText } from "@/lib/event-text"
+import { PostImages, PostQuote } from "@/admin/views/posts"
+import { ScheduleAttentionQueue } from "@/admin/views/review-schedule"
 import { cn } from "@/lib/utils"
 
-const tabs = ["images", "cancellations", "merges", "posts"] as const
+const tabs = ["schedule", "merges", "posts"] as const
 type Tab = (typeof tabs)[number]
 
-/** Images that need a decision; every stored image is on the Schedule page. */
-function ImagesTab({ navigate }: Pick<ViewProps, "navigate">) {
-  const { t } = useAppSettings()
-  return (
-    <ScheduleImageList
-      filters={["review"]}
-      navigate={navigate}
-      actions={
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={Images}
-          onClick={() => navigate("schedule", "images")}
-        >
-          {t("admin.review.allImages")}
-        </Button>
-      }
-    />
-  )
-}
-
-function CancellationCard({
-  event,
-  onDone,
-}: {
-  event: AdminEvent
-  onDone: () => void
-}) {
-  const { t } = useAppSettings()
-  const { api, act } = useAdmin()
-  const [reason, setReason] = useState(event.cancellationReason || "")
-  const [busy, setBusy] = useState("")
-  const reasonId = useId()
-  const decide = async (status: "manual_confirmed" | "none") => {
-    setBusy(status)
-    const result = await act(
-      () =>
-        api.updateEvent(event.id, {
-          ...eventToInput(event),
-          cancellationStatus: status,
-          cancellationReason: status === "manual_confirmed" ? reason : "",
-        }),
-      status === "none"
-        ? "admin.notice.cancellationDismissed"
-        : "admin.notice.cancellationConfirmed",
-    )
-    setBusy("")
-    if (result) onDone()
-  }
-  return (
-    <article className="adm-decision is-event adm-tone-honey">
-      <div className="adm-decision-when">
-        <EventWhen event={event} />
-      </div>
-      <div className="adm-decision-body">
-        <header className="adm-decision-head">
-          <div className="adm-decision-title">
-            <h3>{event.title}</h3>
-            {event.detail ? (
-              <p className="adm-muted">{eventDetailText(event.detail, t)}</p>
-            ) : null}
-          </div>
-          {event.url ? (
-            <a
-              className="adm-link"
-              href={event.url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {t("admin.review.eventLink")}
-              <ExternalLink aria-hidden />
-            </a>
-          ) : null}
-        </header>
-        <section className="adm-verdict">
-          <div className="adm-verdict-head">
-            <span className="adm-verdict-label">
-              <Sparkles aria-hidden />
-              {t("admin.review.cancelSuspected")}
-            </span>
-            {event.cancellationConfidence != null ? (
-              <ConfidenceMeter
-                value={event.cancellationConfidence}
-                tone="honey"
-              />
-            ) : null}
-          </div>
-          {event.cancellationEvidence ? (
-            <blockquote className="adm-verdict-reason">
-              {event.cancellationEvidence}
-            </blockquote>
-          ) : null}
-        </section>
-        <footer className="adm-decision-bar">
-          <label className="adm-visually-hidden" htmlFor={reasonId}>
-            {t("admin.review.cancelReason")}
-          </label>
-          <input
-            id={reasonId}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder={t("admin.review.cancelReasonPlaceholder")}
-            maxLength={500}
-          />
-          <div className="adm-actions">
-            <Button
-              size="sm"
-              variant="danger"
-              icon={CalendarX}
-              disabled={!reason.trim()}
-              busy={busy === "manual_confirmed"}
-              onClick={() => decide("manual_confirmed")}
-            >
-              {t("admin.review.confirmCancelled")}
-            </Button>
-            <Button
-              size="sm"
-              icon={CalendarCheck}
-              busy={busy === "none"}
-              onClick={() => decide("none")}
-            >
-              {t("admin.review.notCancelled")}
-            </Button>
-          </div>
-        </footer>
-      </div>
-    </article>
-  )
-}
-
-function CancellationsTab() {
-  const { t } = useAppSettings()
-  const { api, refreshOverview } = useAdmin()
-  const events = useResource(
-    () =>
-      api.events({ cancellation: "llm_suspected", order: "asc", pageSize: 50 }),
-    [],
-  )
-  if (!events.data) return <Loading />
-  return events.data.items.length ? (
-    <div className="adm-decision-list">
-      {events.data.items.map((event) => (
-        <CancellationCard
-          key={event.id}
-          event={event}
-          onDone={() => {
-            void events.reload()
-            void refreshOverview().catch(() => {})
-          }}
-        />
-      ))}
-    </div>
-  ) : (
-    <Empty icon={CheckCircle2} title={t("admin.review.noCancellations")} />
-  )
+/** The tab of an address; the schedule's former images and cancellations
+ * tabs open its one queue. */
+function tabOf(tab: string): Tab {
+  if (tab === "images" || tab === "cancellations") return "schedule"
+  return (tabs as readonly string[]).includes(tab) ? (tab as Tab) : "schedule"
 }
 
 /**
@@ -313,40 +158,6 @@ export function PostActions({
   )
 }
 
-/**
- * The machine translation of the post's current wording: a failure with its
- * error, and the queue flag of a requested pass. `queued` false leaves the
- * flag out, for a row that only reports a failure.
- */
-function TranslationStatus({
-  post,
-  queued = true,
-}: {
-  post: AdminPost
-  queued?: boolean
-}) {
-  const { t } = useAppSettings()
-  const translation = post.translation
-  const failed = translation?.machineStatus === "failed"
-  if (!translation || (!failed && !(queued && translation.requested)))
-    return null
-  return (
-    <>
-      {failed ? (
-        <Badge tone="danger">{t("admin.review.failure.translation")}</Badge>
-      ) : null}
-      {failed && translation.lastError ? (
-        <Badge tone="danger">
-          {t(`admin.posts.error.${translation.lastError}`)}
-        </Badge>
-      ) : null}
-      {translation.requested ? (
-        <Badge tone="sky">{t("admin.posts.queued")}</Badge>
-      ) : null}
-    </>
-  )
-}
-
 /** The processing step a post list covers. */
 type PostStep = "extraction" | "translation"
 /**
@@ -388,10 +199,80 @@ const bulkActions: Record<
 const postPageSize = 50
 
 /**
- * One post of the Posts tab: where the list's step stands for it and why,
- * and that step's actions. A failed extraction can be dismissed, which stops
- * its retries; a translation can be queued again. A post in a list with bulk
- * actions has a selection box on its left edge.
+ * Where the list's step stands for a post, as one line under it: the state
+ * with its icon in the row's colour, the error, when the step last tried,
+ * the automatic retry and whether a run waits for it.
+ */
+function PostVerdict({ post, step }: { post: AdminPost; step: PostStep }) {
+  const { t } = useAppSettings()
+  if (step === "translation") {
+    const translation = post.translation
+    return (
+      <p className="adm-post-verdict">
+        <Languages aria-hidden />
+        <strong>{t("admin.review.failure.translation")}</strong>
+        {translation?.lastError ? (
+          <span>{t(`admin.posts.error.${translation.lastError}`)}</span>
+        ) : null}
+        {translation?.lastAttemptAt ? (
+          <span className="adm-muted">
+            {t("admin.review.posts.lastTried", {
+              time: japanStamp(translation.lastAttemptAt),
+            })}
+          </span>
+        ) : null}
+        {translation?.requested ? (
+          <Badge tone="sky">{t("admin.posts.queued")}</Badge>
+        ) : null}
+      </p>
+    )
+  }
+  const failed = post.llmStatus === "failed"
+  const Icon = failed ? CircleAlert : CircleHelp
+  return (
+    <p className="adm-post-verdict">
+      <Icon aria-hidden />
+      <strong>
+        {t(
+          failed
+            ? "admin.review.failure.extraction"
+            : "admin.review.posts.uncertain",
+        )}
+      </strong>
+      {post.llmLastError ? (
+        <span>{t(`admin.posts.error.${post.llmLastError}`)}</span>
+      ) : null}
+      {post.llmLastAttemptAt ? (
+        <span className="adm-muted">
+          {t("admin.review.posts.lastTried", {
+            time: japanStamp(post.llmLastAttemptAt),
+          })}
+        </span>
+      ) : null}
+      {post.llmRetryStopped ? (
+        <Badge tone="warning" className="adm-retry-badge">
+          {t("admin.posts.retryStopped")}
+        </Badge>
+      ) : post.llmRetryAt ? (
+        <span className="adm-muted">
+          {t("admin.posts.retryAt", { time: japanStamp(post.llmRetryAt) })}
+        </span>
+      ) : null}
+      {post.llmReprocessRequested ? (
+        <Badge tone="sky">{t("admin.posts.queued")}</Badge>
+      ) : null}
+    </p>
+  )
+}
+
+/**
+ * One post of the Posts tab as a card whose left edge takes its state's
+ * colour (danger for a failure, honey for an uncertain extraction): who and
+ * when with the link to the post, the wording beside its images and under it
+ * the quote, then the step's verdict and its actions along the bottom. A
+ * failed extraction can be dismissed, which stops its retries; a
+ * translation can be queued again. A post in a list with bulk actions has a
+ * selection box on its left edge.
  */
 function PostRow({
   post,
@@ -421,10 +302,12 @@ function PostRow({
     if (result) onDone()
   }
   const translation = step === "translation"
+  const tone = translation || post.llmStatus === "failed" ? "danger" : "honey"
   return (
     <article
       className={cn(
         "adm-post-row",
+        `adm-tone-${tone}`,
         onSelect && "is-selectable",
         selected && "is-selected",
       )}
@@ -442,57 +325,93 @@ function PostRow({
           />
         </label>
       ) : null}
-      <div className="adm-post-meta">
-        <strong>
-          <PostAccount post={post} />
-        </strong>
-        <time dateTime={post.publishedAt}>{japanStamp(post.publishedAt)}</time>
-        {translation && post.llmStatus !== "failed" ? null : (
-          <PostStatus post={post} />
-        )}
-        <TranslationStatus post={post} queued={translation} />
-      </div>
-      <p className="adm-post-text">{post.text}</p>
-      <div className="adm-actions">
-        {!translation && post.llmStatus === "failed" ? (
-          <Button
-            size="sm"
-            icon={Ban}
-            title={t("admin.posts.dismissTitle")}
-            busy={busy === "dismiss"}
-            onClick={() =>
-              run(
-                "dismiss",
-                () => api.dismissPost(post.id),
-                "admin.notice.postDismissed",
-              )
-            }
+      <div className="adm-post-row-main">
+        <header className="adm-post-row-head">
+          <strong>
+            <PostAccount post={post} />
+          </strong>
+          <time dateTime={post.publishedAt}>
+            {japanStamp(post.publishedAt)}
+          </time>
+          <a
+            className="adm-icon-button"
+            href={post.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={t("admin.posts.open")}
+            title={t("admin.posts.open")}
           >
-            {t("admin.posts.dismiss")}
-          </Button>
-        ) : null}
-        {translation ? (
-          <Button
-            size="sm"
-            icon={Languages}
-            busy={busy === "translate"}
-            disabled={Boolean(post.translation?.requested)}
-            onClick={() =>
-              run(
-                "translate",
-                () =>
-                  api.requestTranslations({
-                    ownerType: "post",
-                    ids: [post.id],
-                  }),
-                "admin.notice.translationQueued",
-              )
-            }
-          >
-            {t("admin.review.retryTranslation")}
-          </Button>
-        ) : null}
-        <PostActions post={post} onDone={onDone} reprocess={!translation} />
+            <ExternalLink aria-hidden />
+          </a>
+        </header>
+        <div className="adm-post-row-content">
+          <div className="adm-post-row-words">
+            <p className="adm-post-text">{post.text}</p>
+            <PostQuote post={post} onDone={onDone} />
+          </div>
+          <PostImages post={post} limit={3} />
+        </div>
+        <footer className="adm-post-row-foot">
+          <PostVerdict post={post} step={step} />
+          <div className="adm-actions">
+            {!translation && post.llmStatus === "failed" ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={Ban}
+                title={t("admin.posts.dismissTitle")}
+                busy={busy === "dismiss"}
+                onClick={() =>
+                  run(
+                    "dismiss",
+                    () => api.dismissPost(post.id),
+                    "admin.notice.postDismissed",
+                  )
+                }
+              >
+                {t("admin.posts.dismiss")}
+              </Button>
+            ) : null}
+            {translation ? (
+              <Button
+                size="sm"
+                icon={Languages}
+                busy={busy === "translate"}
+                disabled={Boolean(post.translation?.requested)}
+                onClick={() =>
+                  run(
+                    "translate",
+                    () =>
+                      api.requestTranslations({
+                        ownerType: "post",
+                        ids: [post.id],
+                      }),
+                    "admin.notice.translationQueued",
+                  )
+                }
+              >
+                {t("admin.review.retryTranslation")}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                icon={Sparkles}
+                title={t("admin.posts.reprocess")}
+                busy={busy === "reprocess"}
+                disabled={post.llmReprocessRequested}
+                onClick={() =>
+                  run(
+                    "reprocess",
+                    () => api.reprocessPost(post.id),
+                    "admin.notice.postQueued",
+                  )
+                }
+              >
+                {t("admin.review.bulkReprocess")}
+              </Button>
+            )}
+          </div>
+        </footer>
       </div>
     </article>
   )
@@ -804,14 +723,16 @@ function PostsTab({ navigate }: Pick<ViewProps, "navigate">) {
 export function ReviewView({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
   const { overview } = useAdmin()
-  const active: Tab = (tabs as readonly string[]).includes(tab)
-    ? (tab as Tab)
-    : "images"
+  const active = tabOf(tab)
+  const review = overview?.review
   const counts = {
-    images: overview?.review.pendingImages,
-    cancellations: overview?.review.suspectedCancellations,
-    merges: overview?.review.videoMerges,
-    posts: overview?.review.failedPosts,
+    schedule: review
+      ? review.pendingImages +
+        review.suspectedCancellations +
+        review.uncertainEvents
+      : undefined,
+    merges: review?.videoMerges,
+    posts: review?.failedPosts,
   }
   return (
     <div className="adm-view">
@@ -837,8 +758,9 @@ export function ReviewView({ tab, navigate }: ViewProps) {
           ))}
         </div>
         <div role="tabpanel" className="adm-tab-panel">
-          {active === "images" ? <ImagesTab navigate={navigate} /> : null}
-          {active === "cancellations" ? <CancellationsTab /> : null}
+          {active === "schedule" ? (
+            <ScheduleAttentionQueue navigate={navigate} />
+          ) : null}
           {active === "merges" ? <MergeQueue /> : null}
           {active === "posts" ? <PostsTab navigate={navigate} /> : null}
         </div>

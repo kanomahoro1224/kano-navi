@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   CalendarClock,
+  CalendarSearch,
   CheckCircle2,
   CircleSlash,
   Combine,
@@ -242,27 +243,39 @@ export function OverviewView({ navigate }: ViewProps) {
 
   const { review, counts, activeRun, scheduler } = overview
   const queue = overview.queue || []
+  // Each item opens its Review queue tab; the schedule's three share one.
   const attention = [
     {
       key: "images",
+      tab: "schedule",
       count: review.pendingImages,
       icon: ImageOff,
       tone: "honey",
     },
     {
       key: "cancellations",
+      tab: "schedule",
       count: review.suspectedCancellations,
       icon: CalendarClock,
       tone: "berry",
     },
     {
+      key: "uncertain",
+      tab: "schedule",
+      count: review.uncertainEvents,
+      icon: CalendarSearch,
+      tone: "sky",
+    },
+    {
       key: "merges",
+      tab: "merges",
       count: review.videoMerges,
       icon: Combine,
       tone: "lavender",
     },
     {
       key: "posts",
+      tab: "posts",
       count: review.failedPosts,
       icon: FileWarning,
       tone: "danger",
@@ -304,7 +317,7 @@ export function OverviewView({ navigate }: ViewProps) {
                   key={item.key}
                   type="button"
                   className={`adm-attention-item adm-tone-${item.tone}`}
-                  onClick={() => navigate("review", item.key)}
+                  onClick={() => navigate("review", item.tab)}
                 >
                   <Icon aria-hidden />
                   <span>

@@ -148,7 +148,7 @@ const shownImages = 3
  * The post's cached images, or why there are none to show yet; a text-only
  * post shows nothing. Clicking an image enlarges the images in the page.
  */
-function PostImages({
+export function PostImages({
   post,
   limit = shownImages,
 }: {
@@ -214,7 +214,7 @@ function PostImages({
  * all. A Bilibili forward shows the dynamic it forwards, its author by name
  * or mid; refreshes are X's only.
  */
-function PostQuote({
+export function PostQuote({
   post,
   onDone,
   full = false,

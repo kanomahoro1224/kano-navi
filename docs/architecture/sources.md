@@ -1692,7 +1692,8 @@ A schedule image (`assets.kind = schedule`) is public only after two gates:
 `/api/dashboard` returns a schedule asset only when an operator labelled it
 `schedule`, or when it has no manual label, still passes gate 1, and the model
 returned `schedule`. A manual `not_schedule` always hides it. Labels require a
-reason and are set in the `/admin` schedule-images view. A model verdict
+reason and are set on the `/admin` schedule calendar, in its list of
+images or in the Review queue. A model verdict
 belongs to the image URL it judged: when a post's asset receives a different
 URL, its `asset_version` increases and its model verdict returns to
 `pending`, while a manual label stays.

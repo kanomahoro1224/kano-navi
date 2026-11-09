@@ -21,6 +21,7 @@ const overview = {
   review: {
     pendingImages: 0,
     suspectedCancellations: 0,
+    uncertainEvents: 0,
     failedPosts: 0,
     failedExtractions: 0,
     failedTranslations: 0,

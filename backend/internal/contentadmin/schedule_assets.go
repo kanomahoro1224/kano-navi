@@ -166,9 +166,12 @@ func (m *Module) getScheduleAsset(ctx context.Context, id string) (*scheduleAsse
 
 // listScheduleAssets lists the newest schedule images, by period and then by
 // update; from and to, when both are dates, keep those whose period overlaps
-// them.
-func (m *Module) listScheduleAssets(ctx context.Context, limit int, from, to string) ([]scheduleAsset, error) {
+// them, and pending keeps those that wait for a decision.
+func (m *Module) listScheduleAssets(ctx context.Context, limit int, from, to string, pending bool) ([]scheduleAsset, error) {
 	where, args := `WHERE a.kind = 'schedule'`, []any{}
+	if pending {
+		where += ` AND ` + sqlite.ScheduleImagePendingSQL("a", "r")
+	}
 	if _, fromOK := calendarDate(from); fromOK {
 		if _, toOK := calendarDate(to); toOK {
 			where += ` AND ` + schedulePeriod.Start + ` <= ? AND ` + schedulePeriod.End + ` >= ?`
@@ -273,7 +276,7 @@ func boundedLimit(values []string) int {
 
 func (m *Module) listScheduleAssetsRoute(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	assets, err := m.listScheduleAssets(r.Context(), boundedLimit(query["limit"]), query.Get("from"), query.Get("to"))
+	assets, err := m.listScheduleAssets(r.Context(), boundedLimit(query["limit"]), query.Get("from"), query.Get("to"), false)
 	if err != nil {
 		writeFailure(w, err)
 		return

@@ -283,6 +283,9 @@ type AdminEvent struct {
 	Platforms         []string `json:"platforms"`
 	PlatformsInferred bool     `json:"platformsInferred"`
 	ShownPlatforms    []string `json:"shownPlatforms"`
+	// Review is why the entry needs an operator's look, or nil (see
+	// EventAttentionSQL).
+	Review *EventReview `json:"review"`
 }
 
 type AdminRun struct {
@@ -328,8 +331,10 @@ type AdminRunsPage struct {
 // AdminPostFilter narrows the post list.
 // LLM is a post_llm_states status (including "dismissed") or "never".
 type AdminPostFilter struct {
-	// ID narrows the list to the post with exactly this ID.
+	// ID narrows the list to the post with exactly this ID; IDs to the posts
+	// with any of these IDs.
 	ID                                     string
+	IDs                                    []string
 	Page, PageSize                         int
 	Source, Account, From, To, Search, LLM string
 	// Queued is "extraction", "refresh", "translation" or "any" open
@@ -370,16 +375,23 @@ type AdminEventFilter struct {
 	// Public leaves out the events hidden by their posts, as every public
 	// reader does.
 	Public bool
+	// Today is the Japan date the review rule reads uncertain additions
+	// from; Attention keeps only the entries that need a look.
+	Today     string
+	Attention bool
 }
 
 // AdminCounts are the bounded aggregates behind the console overview.
 type AdminCounts struct {
-	UpcomingEvents         int `json:"upcomingEvents"`
-	Events                 int `json:"events"`
-	Posts                  int `json:"posts"`
-	Videos                 int `json:"videos"`
+	UpcomingEvents int `json:"upcomingEvents"`
+	Events         int `json:"events"`
+	Posts          int `json:"posts"`
+	Videos         int `json:"videos"`
+	// PendingImages, SuspectedCancellations and UncertainEvents follow the
+	// review rule (see EventAttentionSQL and ScheduleImagePendingSQL).
 	PendingImages          int `json:"pendingImages"`
 	SuspectedCancellations int `json:"suspectedCancellations"`
+	UncertainEvents        int `json:"uncertainEvents"`
 	// FailedPosts are the posts with a failed extraction or translation;
 	// FailedExtractions and FailedTranslations count each step on its own.
 	FailedPosts        int `json:"failedPosts"`
@@ -474,6 +486,12 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	if f.ID != "" {
 		clauses = append(clauses, "p.id = ?")
 		args = append(args, f.ID)
+	}
+	if len(f.IDs) > 0 {
+		clauses = append(clauses, "p.id IN ("+placeholders(len(f.IDs))+")")
+		for _, id := range f.IDs {
+			args = append(args, id)
+		}
 	}
 	if source := strings.TrimSpace(f.Source); source != "" {
 		clauses = append(clauses, "p.source = ?")
@@ -966,6 +984,10 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	if f.Public {
 		clauses = append(clauses, eventShownSQL("e"))
 	}
+	attention := EventAttentionSQL("e", f.Today)
+	if f.Attention {
+		clauses = append(clauses, "("+attention+") IS NOT NULL")
+	}
 	if adminDateRE.MatchString(f.From) {
 		clauses = append(clauses, "e.starts_on >= ?")
 		args = append(args, f.From)
@@ -985,7 +1007,7 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	if f.Ascending {
 		direction = "ASC"
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT e.id,e.source,e.source_item_id,e.source_key,e.title,e.detail,e.starts_on,e.starts_at,e.ends_at,e.ends_on,e.timezone,e.time_precision,e.status,e.event_type,e.tag,e.tag_source,e.url,e.provenance,e.manual_locked,e.confidence,e.extraction_id,e.cancellation_status,e.cancellation_source,e.cancellation_reason,e.cancellation_evidence,e.cancellation_source_item_id,e.cancellation_confidence,e.cancellation_at,e.deleted_at,e.created_at,e.updated_at,e.merged_into,(SELECT t.title FROM events t WHERE t.id=e.merged_into),e.merge_source,e.merge_reason,e.merged_at,`+eventHiddenByPostsSQL("e")+`,e.platform,e.platforms,e.platforms_inferred FROM events e WHERE `+where+` ORDER BY COALESCE(julianday(e.starts_at),julianday(e.starts_on || 'T23:59:59.999+09:00')) `+direction+`,e.id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
+	rows, err := s.db.QueryContext(ctx, `SELECT e.id,e.source,e.source_item_id,e.source_key,e.title,e.detail,e.starts_on,e.starts_at,e.ends_at,e.ends_on,e.timezone,e.time_precision,e.status,e.event_type,e.tag,e.tag_source,e.url,e.provenance,e.manual_locked,e.confidence,e.extraction_id,e.cancellation_status,e.cancellation_source,e.cancellation_reason,e.cancellation_evidence,e.cancellation_source_item_id,e.cancellation_confidence,e.cancellation_at,e.deleted_at,e.created_at,e.updated_at,e.merged_into,(SELECT t.title FROM events t WHERE t.id=e.merged_into),e.merge_source,e.merge_reason,e.merged_at,`+eventHiddenByPostsSQL("e")+`,e.platform,e.platforms,e.platforms_inferred,`+attention+` FROM events e WHERE `+where+` ORDER BY COALESCE(julianday(e.starts_at),julianday(e.starts_on || 'T23:59:59.999+09:00')) `+direction+`,e.id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 	}
@@ -998,8 +1020,8 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 		var manual, hiddenByPosts, inferred int
 		var confidence, cancelConfidence sql.NullFloat64
 		var extraction sql.NullInt64
-		var platform, platforms sql.NullString
-		if err := rows.Scan(&e.ID, &e.Source, &sourceItem, &sourceKey, &e.Title, &detail, &e.StartsOn, &startsAt, &endsAt, &endsOn, &e.Timezone, &e.TimePrecision, &status, &eventType, &tag, &tagSource, &url, &e.Provenance, &manual, &confidence, &extraction, &e.CancellationStatus, &cancelSource, &cancelReason, &cancelEvidence, &cancelSourceItem, &cancelConfidence, &cancelAt, &deletedAt, &e.CreatedAt, &e.UpdatedAt, &mergedInto, &mergedIntoTitle, &mergeSource, &mergeReason, &mergedAt, &hiddenByPosts, &platform, &platforms, &inferred); err != nil {
+		var platform, platforms, review sql.NullString
+		if err := rows.Scan(&e.ID, &e.Source, &sourceItem, &sourceKey, &e.Title, &detail, &e.StartsOn, &startsAt, &endsAt, &endsOn, &e.Timezone, &e.TimePrecision, &status, &eventType, &tag, &tagSource, &url, &e.Provenance, &manual, &confidence, &extraction, &e.CancellationStatus, &cancelSource, &cancelReason, &cancelEvidence, &cancelSourceItem, &cancelConfidence, &cancelAt, &deletedAt, &e.CreatedAt, &e.UpdatedAt, &mergedInto, &mergedIntoTitle, &mergeSource, &mergeReason, &mergedAt, &hiddenByPosts, &platform, &platforms, &inferred, &review); err != nil {
 			return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 		}
 		e.Platforms, _ = readPlatforms(platforms, platform, url.String)
@@ -1031,6 +1053,7 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 		e.MergeReason = nullString(mergeReason)
 		e.MergedAt = nullString(mergedAt)
 		e.HiddenByPosts = hiddenByPosts != 0
+		e.Review = eventReview(review.String, e)
 		items = append(items, e)
 	}
 	if err := rows.Err(); err != nil {
@@ -1083,19 +1106,19 @@ func (s *Store) attachAdminPlatforms(ctx context.Context, items []AdminEvent) er
 func (s *Store) AdminCounts(ctx context.Context, today string) (AdminCounts, error) {
 	var c AdminCounts
 	failedTranslation := TranslationFailedSQL(TranslationOwnerPost, "p")
+	attention := EventAttentionSQL("events", today)
 	err := s.db.QueryRowContext(ctx, `SELECT
 	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on >= ? AND cancellation_status <> 'manual_confirmed'),
 	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL),
 	  (SELECT COUNT(*) FROM posts),
 	  (SELECT COUNT(*) FROM videos),
-	  (SELECT COUNT(*) FROM assets a LEFT JOIN schedule_asset_reviews r ON r.asset_id=a.id
-	     WHERE a.kind='schedule' AND TRIM(a.url)<>'' AND COALESCE(r.manual_status,'unreviewed')='unreviewed'
-	       AND COALESCE(r.llm_status,'pending') IN ('pending','uncertain','failed')),
-	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND cancellation_status='llm_suspected'),
+	  (SELECT COUNT(*) FROM assets a LEFT JOIN schedule_asset_reviews r ON r.asset_id=a.id WHERE `+ScheduleImagePendingSQL("a", "r")+`),
+	  (SELECT COUNT(*) FROM events WHERE `+attention+`='`+AttentionSuspected+`'),
+	  (SELECT COUNT(*) FROM events WHERE `+attention+`='`+AttentionUncertain+`'),
 	  (SELECT COUNT(*) FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE s.status='failed' OR (`+TranslatedPostSQL("p")+` AND `+failedTranslation+`)),
 	  (SELECT COUNT(*) FROM post_llm_states WHERE status='failed'),
 	  (SELECT COUNT(*) FROM posts p WHERE `+TranslatedPostSQL("p")+` AND `+failedTranslation+`)`, today).Scan(
-		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.FailedPosts, &c.FailedExtractions, &c.FailedTranslations)
+		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.UncertainEvents, &c.FailedPosts, &c.FailedExtractions, &c.FailedTranslations)
 	if err != nil {
 		return AdminCounts{}, fmt.Errorf("%w: admin counts unavailable", ErrUnavailable)
 	}

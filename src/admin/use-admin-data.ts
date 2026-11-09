@@ -24,6 +24,7 @@ import type {
   AdminVideo,
   AdminVideosPage,
   DiscoveredModel,
+  EventEvidence,
   EventInput,
   Extraction,
   FetchMethodId,
@@ -48,6 +49,7 @@ import type {
   RefreshQueue,
   RouteTarget,
   Run,
+  ScheduleAttention,
   ScheduleImage,
   ScheduleQueue,
   ScheduleSource,
@@ -255,6 +257,8 @@ function createClient(run: Runner, slow: Runner) {
 
     events: (filters: Record<string, any>) =>
       get<Page<AdminEvent>>(`/events${query(filters)}`),
+    eventEvidence: (id: string) =>
+      get<EventEvidence>(`/events/${enc(id)}/evidence`),
     createEvent: (body: EventInput) =>
       send<{ event: AdminEvent }>("POST", "/events", body),
     updateEvent: (id: string, body: EventInput) =>
@@ -275,6 +279,8 @@ function createClient(run: Runner, slow: Runner) {
       get<{ items: ScheduleImage[] }>(
         `/schedule-images${query({ limit: 100, ...range })}`,
       ),
+    /** What needs a look on the schedule, grouped by week. */
+    scheduleAttention: () => get<ScheduleAttention>("/schedule-attention"),
     reviewImage: (id: string, status: string, reason: string) =>
       send<{ image: ScheduleImage }>(
         "POST",

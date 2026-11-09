@@ -293,6 +293,7 @@ export interface Overview {
   review: {
     pendingImages: number
     suspectedCancellations: number
+    uncertainEvents: number
     /** Posts with a failed extraction or translation. */
     failedPosts: number
     failedExtractions: number
@@ -617,6 +618,38 @@ export interface AdminEvent {
   platformsInferred?: boolean
   /** What the public pages show: announced, merged entries' and observed. */
   shownPlatforms?: EventPlatform[]
+  /** Why the entry needs a look, or null; the server's review rule. */
+  review?: EventReview | null
+}
+
+/**
+ * Why an entry needs a look: the model suspects its cancellation, or it is an
+ * uncertain addition (an unconfirmed automatic entry from today on with low
+ * model confidence or a tentative status), with the reasons.
+ */
+export interface EventReview {
+  kind: "suspected" | "uncertain"
+  reasons: ("lowConfidence" | "tentative")[]
+}
+
+/** One week of the Review queue's schedule work. */
+export interface AttentionWeek {
+  /** The Monday the week starts on. */
+  weekStart: string
+  /** Pending schedule images whose dates start in the week. */
+  images: ScheduleImage[]
+  /** Entries in the week that need a look. */
+  events: AdminEvent[]
+}
+
+/** The Review queue's schedule work by week, oldest first. */
+export interface ScheduleAttention {
+  today: string
+  weeks: AttentionWeek[]
+  /** Pending schedule images without dates. */
+  undated: ScheduleImage[]
+  /** A kind had more items than one read lists. */
+  truncated: boolean
 }
 
 /** Where an entry happens; none means not known. */
@@ -748,6 +781,20 @@ export interface AdminPostSchedule {
  * only its id and url, and the id is empty for a forwarded dynamic the
  * listing did not name.
  */
+/** What an entry was read from: its stored posts with their roles, links of
+ * evidence that is not a stored post, and the same accounts' posts around
+ * them, each oldest first. */
+export interface EventEvidence {
+  event: AdminEvent
+  posts: (AdminPost & { roles: EvidenceRole[] })[]
+  links: { source: string; url: string; role: EvidenceRole }[]
+  nearby: AdminPost[]
+}
+
+/** A post the entry was extracted from, one of an entry merged into it, or
+ * the post that suggested its cancellation. */
+export type EvidenceRole = "source" | "merged" | "cancellation"
+
 export interface AdminQuote {
   id: string
   authorHandle: string | null

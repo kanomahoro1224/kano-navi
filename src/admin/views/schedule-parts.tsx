@@ -1,12 +1,17 @@
 import { useState } from "react"
 import {
+  CalendarCheck,
   CalendarPlus,
+  CalendarX,
   CheckCheck,
+  CircleHelp,
   Combine,
   ExternalLink,
+  FileSearch,
   Pencil,
   Split,
   Trash2,
+  TriangleAlert,
   Undo2,
 } from "lucide-react"
 
@@ -16,8 +21,10 @@ import type { AdminEvent } from "@/admin/types"
 import { eventDetailText } from "@/lib/event-text"
 import { Badge, Button, ConfirmButton, IconButton } from "@/admin/ui"
 import { useAdmin } from "@/admin/use-admin-data"
+import { EventEvidencePanel } from "@/admin/views/event-evidence"
 import {
   CancellationBadge,
+  eventToInput,
   HiddenByPostsBadge,
   MergeBadge,
   PlatformBadges,
@@ -37,6 +44,157 @@ export function groupByDay(events: AdminEvent[]) {
     else days.push({ day: event.startsOn, events: [event] })
   }
   return days
+}
+
+/** Below this model confidence an automatic entry is an uncertain addition. */
+/**
+ * What an entry asks of the operator, as the server's review rule decides:
+ * a suspected cancellation to decide, or an uncertain addition to confirm or
+ * delete, with the reasons; null when it asks nothing.
+ */
+export function reviewOf(event: AdminEvent) {
+  return event.review ?? null
+}
+
+/**
+ * The entry's review in place: the model's suspicion and its evidence with
+ * the cancellation decision, or why an addition is uncertain; either opens
+ * the source posts below. Confirming or deleting an uncertain addition uses
+ * the row's own actions.
+ */
+function ReviewNote({
+  event,
+  onChanged,
+}: {
+  event: AdminEvent
+  onChanged: () => void
+}) {
+  const { t } = useAppSettings()
+  const { api, act, refreshOverview } = useAdmin()
+  const [busy, setBusy] = useState("")
+  const [open, setOpen] = useState(false)
+  const review = reviewOf(event)
+  if (!review) return null
+  const decide = async (status: "manual_confirmed" | "none") => {
+    setBusy(status)
+    const result = await act(
+      () =>
+        api.updateEvent(event.id, {
+          ...eventToInput(event),
+          cancellationStatus: status,
+          cancellationReason:
+            status === "manual_confirmed"
+              ? event.cancellationEvidence ||
+                t("admin.schedule.review.cancelReason")
+              : "",
+        }),
+      status === "none"
+        ? "admin.notice.cancellationDismissed"
+        : "admin.notice.cancellationConfirmed",
+    )
+    setBusy("")
+    if (result) {
+      onChanged()
+      void refreshOverview().catch(() => {})
+    }
+  }
+  const suspected = review.kind === "suspected"
+  const Icon = suspected ? TriangleAlert : CircleHelp
+  const detail = suspected
+    ? event.cancellationConfidence != null
+      ? `${Math.round(event.cancellationConfidence * 100)}%`
+      : ""
+    : review.reasons
+        .map((reason) =>
+          t(`admin.schedule.review.reason.${reason}`, {
+            percent: Math.round((event.confidence ?? 0) * 100),
+          }),
+        )
+        .join(" · ")
+  return (
+    <div className={`adm-review-note is-${review.kind}`}>
+      <div className="adm-review-note-head">
+        <Icon aria-hidden />
+        <strong>{t(`admin.schedule.review.${review.kind}`)}</strong>
+        {detail ? <span>{detail}</span> : null}
+      </div>
+      {suspected && event.cancellationEvidence ? (
+        <p>{event.cancellationEvidence}</p>
+      ) : null}
+      <div className="adm-review-note-actions">
+        {suspected ? (
+          <>
+            <Button
+              size="sm"
+              variant="danger"
+              icon={CalendarX}
+              busy={busy === "manual_confirmed"}
+              onClick={() => decide("manual_confirmed")}
+            >
+              {t("admin.review.confirmCancelled")}
+            </Button>
+            <Button
+              size="sm"
+              icon={CalendarCheck}
+              busy={busy === "none"}
+              onClick={() => decide("none")}
+            >
+              {t("admin.review.notCancelled")}
+            </Button>
+          </>
+        ) : null}
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={FileSearch}
+          aria-expanded={open}
+          onClick={() => setOpen((shown) => !shown)}
+        >
+          {t(open ? "admin.evidence.hide" : "admin.evidence.show")}
+        </Button>
+      </div>
+      {open ? <EventEvidencePanel eventId={event.id} /> : null}
+    </div>
+  )
+}
+
+/** The duplicates merging hid behind an entry, each with its undo. */
+function MergedDuplicates({
+  merged,
+  onChanged,
+}: {
+  merged: AdminEvent[]
+  onChanged: () => void
+}) {
+  const { t, locale } = useAppSettings()
+  const { api, act } = useAdmin()
+  if (!merged.length) return null
+  return (
+    <ul className="adm-merged-list">
+      {merged.map((item) => (
+        <li key={item.id}>
+          <Combine aria-hidden />
+          <span>
+            {t("admin.schedule.review.mergedHere", { title: item.title })}
+            {item.startsAt ? ` · ${formatTime(item.startsAt, locale)}` : ""}
+          </span>
+          <IconButton
+            icon={Split}
+            label={t("admin.schedule.unmerge")}
+            onClick={async () => {
+              if (
+                await act(
+                  () => api.unmergeEvent(item.id),
+                  "admin.notice.eventUnmerged",
+                )
+              )
+                onChanged()
+            }}
+          />
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 /** The entry's time in Japan, or All day; date-only entries never gain one. */
@@ -63,11 +221,14 @@ export function EventTime({ event }: { event: AdminEvent }) {
 
 export function EventRow({
   event,
+  merged = [],
   onEdit,
   onMerge,
   onChanged,
 }: {
   event: AdminEvent
+  /** The duplicates merged into this entry, shown under it. */
+  merged?: AdminEvent[]
   onEdit: (event: AdminEvent) => void
   onMerge: (event: AdminEvent) => void
   onChanged: () => void
@@ -76,9 +237,10 @@ export function EventRow({
   const { api, act } = useAdmin()
   const [confirming, setConfirming] = useState(false)
   const deleted = Boolean(event.deletedAt)
+  const review = reviewOf(event)
   return (
     <li
-      className={`adm-event-row${deleted ? " is-deleted" : ""}${event.mergedInto ? " is-merged" : ""}${event.hiddenByPosts ? " is-hidden" : ""}`}
+      className={`adm-event-row${deleted ? " is-deleted" : ""}${event.mergedInto ? " is-merged" : ""}${event.hiddenByPosts ? " is-hidden" : ""}${review ? ` needs-review is-${review.kind}` : ""}`}
     >
       <EventTime event={event} />
       <div className="adm-event-main">
@@ -100,7 +262,9 @@ export function EventRow({
           ) : null}
           <PlatformBadges event={event} />
           <ProvenanceBadge event={event} />
-          <CancellationBadge event={event} />
+          {review?.kind === "suspected" ? null : (
+            <CancellationBadge event={event} />
+          )}
           <MergeBadge event={event} />
           <HiddenByPostsBadge event={event} />
           {event.status ? (
@@ -110,6 +274,8 @@ export function EventRow({
             <Badge tone="danger">{t("admin.schedule.deleted")}</Badge>
           ) : null}
         </span>
+        <ReviewNote event={event} onChanged={onChanged} />
+        <MergedDuplicates merged={merged} onChanged={onChanged} />
       </div>
       <div className="adm-row-actions adm-event-actions">
         {deleted ? (

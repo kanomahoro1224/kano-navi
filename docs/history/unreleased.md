@@ -77,7 +77,8 @@
 > The admin API adds `GET /queue/schedule`, `/queue/youtube`,
 > `/queue/translate` and `/queue/x-refresh`, and the schedule step result
 > adds `candidateMs`, `postsRead`, `candidatePosts`, `judged`, `settled` and
-> `judgeMs`.
+> `judgeMs`. It also adds `GET /events/{id}/evidence`, an entry's source
+> posts and the same accounts' nearby posts.
 
 > [!NOTE]
 > Startup adds the empty `post_llm_states.settled_stamp` column. Until a
@@ -311,6 +312,26 @@
 <details>
 <summary><strong>Operator console</strong></summary>
 
+- Editing a schedule entry shows the posts it was read from beside the
+  form, between the same accounts' nearby posts, and a suspected
+  cancellation in the Review queue opens the same timeline.
+- The schedule has a calendar and a list. The calendar works like a phone
+  calendar: a month grid with entry dots and week image marks beside the
+  selected week's days, with that week's schedule images under the grid
+  and buttons that move an image's dates a week earlier or later or fit
+  them to the week. Suspected cancellations and uncertain additions stand
+  out in their rows with the decision and source posts at hand, and merged
+  duplicates sit under the entry they joined. The list shows the entries
+  or every schedule image, with an Undated tab, and an image card's Show
+  its week opens the calendar on its week.
+- The Review queue's schedule tab replaces its images and cancellations
+  tabs: what needs a look, uncertain additions included, grouped by week
+  with Open in calendar, which shows that week with only what needs a look
+  and leads on to the next such week. The overview counts uncertain
+  additions as well.
+- The Review queue's posts are cards coloured by state, with the post's
+  images and quote beside its wording and one verdict line naming the
+  state, error, last try and retry.
 - The schedule editor offers the Sale type, with a close date and time in
   place of the length.
 - The schedule editor chooses an entry's platforms (YouTube, bilibili,

@@ -72,7 +72,8 @@ external work:
   },
   "review": {
     "pendingImages",          // unlabelled images with a URL the model has not settled (pending, uncertain, failed)
-    "suspectedCancellations", // events with an LLM cancellation overlay
+    "suspectedCancellations", // live events whose review is `suspected`
+    "uncertainEvents",        // live events whose review is `uncertain`
     "failedPosts",            // posts with a failed extraction or translation
     "failedExtractions",      // posts whose last extraction failed
     "failedTranslations",     // X and Bilibili posts whose current wording failed machine translation and still lacks a translation
@@ -471,12 +472,21 @@ not an integer within its range; the next run reads the saved values.
 | Method and path             | Body / query                                                                                                            | Result            |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | `GET /events`               | `page`, `pageSize` (≤ 100), `search`, `provenance`, `source`, `cancellation`, `merge`, `from`, `to`, `order`, `deleted` | list of events    |
+| `GET /events/{id}/evidence` |                                                                                                                         | evidence          |
 | `POST /events`              | event fields                                                                                                            | `201 {event}`     |
 | `PUT /events/{id}`          | event fields                                                                                                            | `{event}`         |
 | `POST /events/{id}/confirm` | optional overrides                                                                                                      | `{event}`         |
 | `POST /events/{id}/merge`   | `{into}` (event ID)                                                                                                     | `{event}`         |
 | `POST /events/{id}/unmerge` |                                                                                                                         | `{event}`         |
 | `DELETE /events/{id}`       |                                                                                                                         | `204` (tombstone) |
+
+Each event carries `review`, why it needs an operator's look, or `null`:
+`{kind: "suspected", reasons: []}` for a live suspected cancellation, or
+`{kind: "uncertain", reasons}` for an uncertain addition, an unconfirmed
+automatic entry starting on or after today in Japan whose model confidence
+is below 0.7 (`lowConfidence`) or whose status is `tentative`
+(`tentative`). Deleted and merged entries need no look. The overview's
+review counts and `GET /schedule-attention` follow the same rule.
 
 `provenance` is `automatic`, `manual` or `unconfirmed` (automatic and not
 locked by an operator); `cancellation` is `none`,
@@ -556,11 +566,25 @@ Editing or confirming a rule-merged event also shows it again, because a
 manual event is never merged away; an operator merge stays. Merging,
 unmerging and edits advance the dashboard revision.
 
+`evidence` answers what an operator needs to judge an entry, deleted and
+merged ones included, or `404 event_not_found`. `event` is the entry as the
+list reports it. `posts` are the stored posts it was read from, oldest first,
+each a post as `GET /posts` reports it with `roles`: `source` (one of its own
+event sources), `merged` (a source of an entry merged into it) and
+`cancellation` (the post that suggested its cancellation). `links` are the
+`{source, url, role}` of event sources that are not stored posts, such as a
+YouTube reservation. `nearby` are up to 20 other posts, nearest first and
+listed oldest first, by the same source accounts from a day before the first
+evidence post to a day after the last; an entry without a stored evidence
+post reads the own X and Bilibili accounts' posts in the 72 hours before it
+starts. Stored source JSON never appears.
+
 ## Schedule images
 
 | Method and path                     | Body / query                  | Result                                    |
 | ----------------------------------- | ----------------------------- | ----------------------------------------- |
 | `GET /schedule-images`              | `limit` (≤ 200), `from`, `to` | `{items}`                                 |
+| `GET /schedule-attention`           |                               | schedule work by week                     |
 | `POST /schedule-images/{id}/review` | `{status, reason}`            | `{image}`; `404 schedule_image_not_found` |
 | `PUT /schedule-images/{id}/period`  | `{start, end, reason}`        | `{image}`                                 |
 
@@ -570,6 +594,15 @@ a period derived from the source post's events, and `inferredPeriodStart` and
 `inferredPeriodEnd` give the period without the manual correction.
 `sourcePost` is the stored source post's `text` and `publishedAt`, or `null`;
 the board gate's stored search text stays on the server.
+
+`GET /schedule-attention` is the Review queue's schedule work:
+`{today, weeks: [{weekStart, images, events}], undated, truncated}`.
+`weeks`, oldest first, hold from Monday `weekStart` the images that wait for
+a decision (unlabelled, with a URL, and not settled by the model) whose
+period starts in the week, and the events whose `review` is set that start
+in it, as `GET /events` reports them; `undated` holds the waiting images
+without a period. Each kind reads at most 100 items; `truncated` says one
+had more.
 
 `status` is `schedule`, `not_schedule` or `unreviewed` (which clears the
 label; the others require `reason`). A `schedule` label is the manual gate

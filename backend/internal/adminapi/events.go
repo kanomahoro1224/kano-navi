@@ -31,12 +31,27 @@ func (a *api) listEvents(w http.ResponseWriter, r *http.Request) {
 		From:           query(r, "from"),
 		To:             query(r, "to"),
 		Merge:          query(r, "merge"),
+		Today:          a.Now().In(japanZone).Format("2006-01-02"),
 	})
 	if err != nil {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, page)
+}
+
+// eventEvidence answers the posts an entry was read from and the same
+// accounts' posts around them, for an operator's judgement.
+func (a *api) eventEvidence(w http.ResponseWriter, r *http.Request) {
+	evidence, err := a.Store.AdminEventEvidence(r.Context(), r.PathValue("id"))
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		httpx.WriteCode(w, http.StatusNotFound, "event_not_found")
+	case err != nil:
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+	default:
+		httpx.WriteJSON(w, http.StatusOK, evidence)
+	}
 }
 
 func (a *api) listPosts(w http.ResponseWriter, r *http.Request) {

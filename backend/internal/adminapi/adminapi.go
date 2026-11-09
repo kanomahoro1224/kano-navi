@@ -165,6 +165,7 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/bilibili-statuses", Handler: a.listBilibiliStatuses},
 
 		{Method: http.MethodGet, Path: "/events", Handler: a.listEvents},
+		{Method: http.MethodGet, Path: "/events/{id}/evidence", Handler: a.eventEvidence},
 		{Method: http.MethodPost, Path: "/events", Handler: a.createEvent},
 		{Method: http.MethodPut, Path: "/events/{id}", Handler: a.updateEvent},
 		{Method: http.MethodPost, Path: "/events/{id}/confirm", Handler: a.confirmEvent},

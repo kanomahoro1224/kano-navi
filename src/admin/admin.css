@@ -3453,12 +3453,20 @@ blockquote.adm-verdict-reason {
   }
 }
 
+/*
+ * A Review queue post as a card: its left edge takes the state's colour, as
+ * a decision card's does. Who and when lead with the post link at the end;
+ * the wording takes the width beside up to three images, the quote under
+ * it; a hairline sets off the step's verdict and the actions. Under 640px
+ * the images follow the wording.
+ */
 .adm-post-row {
   display: grid;
-  gap: 10px;
-  padding: 14px 16px;
+  overflow: hidden;
   border: 1px solid var(--adm-line);
-  border-radius: var(--adm-radius-sm);
+  border-left: 4px solid var(--tone, var(--adm-line));
+  border-radius: var(--adm-radius);
+  background: var(--adm-surface);
 }
 
 /*
@@ -3467,26 +3475,98 @@ blockquote.adm-verdict-reason {
  */
 .adm-post-row.is-selectable {
   grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 12px;
-  padding-left: 0;
-}
-
-.adm-post-row.is-selectable > :not(.adm-post-pick) {
-  grid-column: 2;
 }
 
 .adm-post-row.is-selected {
   border-color: color-mix(in oklab, var(--adm-accent) 45%, var(--adm-line));
-  background: var(--adm-accent-soft);
+  border-left-color: var(--tone);
+  background: color-mix(in oklab, var(--adm-accent) 6%, var(--adm-surface));
 }
 
 .adm-post-pick {
   display: flex;
-  grid-row: 1 / span 3;
   justify-content: center;
-  margin: -14px 0;
-  padding: 16px 4px 16px 14px;
+  padding: 18px 2px 18px 14px;
   cursor: pointer;
+}
+
+.adm-post-row-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px 12px;
+}
+
+.adm-post-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.adm-post-row-head time {
+  color: var(--adm-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-post-row-head .adm-icon-button {
+  margin: -6px -6px -6px auto;
+}
+
+.adm-post-row-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+}
+
+.adm-post-row-words {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.adm-post-row-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-post-row-foot .adm-actions {
+  margin-left: auto;
+}
+
+.adm-post-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+}
+
+.adm-shell .adm-post-verdict > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--tone);
+}
+
+.adm-post-verdict strong {
+  font-weight: 650;
+}
+
+@media (max-width: 640px) {
+  .adm-post-row-content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
 }
 
 /*
@@ -3549,19 +3629,6 @@ blockquote.adm-verdict-reason {
     justify-content: center;
     min-width: 0;
   }
-}
-
-.adm-post-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-
-.adm-post-meta time {
-  color: var(--adm-muted);
-  font-variant-numeric: tabular-nums;
 }
 
 .adm-post-text {
@@ -4164,16 +4231,52 @@ blockquote.adm-verdict-reason {
 }
 
 /*
- * The month grid. Chip styles show an entry's review state, which the
- * legend names: dashed for not yet confirmed, filled for confirmed or
- * manual, honey for a suspected and struck through for a confirmed
- * cancellation. A narrow grid shows dots instead of chips.
+ * The schedule calendar: a compact Monday-first month grid on the left with
+ * the selected week's schedule images under it, held in view, and that
+ * week's seven days on the right. Each grid row is a week that ends in its
+ * image mark (honey while an image waits for review); each day shows its
+ * entries as dots by review state, which the legend names. The selected
+ * week is tinted and the selected day filled. Under 1000px the parts stack.
  */
-.adm-cal-wrap {
+.adm-planner {
+  display: grid;
+  grid-template-columns: minmax(300px, 5fr) minmax(0, 7fr);
+  align-items: start;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.adm-planner-side {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.adm-planner-images {
+  display: grid;
+  gap: 14px;
+}
+
+.adm-planner-agenda {
   container-type: inline-size;
   display: grid;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 14px;
+  min-width: 0;
+}
+
+.adm-planner-week {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.adm-planner-week strong {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
 }
 
 .adm-cal {
@@ -4183,9 +4286,9 @@ blockquote.adm-verdict-reason {
 }
 
 .adm-cal-weekdays,
-.adm-cal-grid {
+.adm-cal-row {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr)) 26px;
 }
 
 .adm-cal-weekdays {
@@ -4193,55 +4296,55 @@ blockquote.adm-verdict-reason {
 }
 
 .adm-cal-weekdays span {
-  padding: 6px 8px;
+  padding: 6px 0;
   color: var(--adm-muted);
   font-size: 12px;
   font-weight: 600;
+  text-align: center;
+}
+
+.adm-cal-row {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-cal-row.is-selected {
+  background: var(--adm-accent-soft);
 }
 
 .adm-cal-cell {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  align-content: start;
+  justify-items: center;
   gap: 4px;
   min-width: 0;
-  min-height: 100px;
-  overflow: hidden;
-  padding: 6px;
-  border-top: 1px solid var(--adm-line);
-  border-left: 1px solid var(--adm-line);
-  cursor: pointer;
-}
-
-.adm-cal-cell:nth-child(7n + 1) {
-  border-left: 0;
-}
-
-.adm-cal-cell:hover {
-  background: color-mix(in oklab, hsl(var(--muted)) 35%, transparent);
-}
-
-.adm-cal-cell.is-outside {
-  background: var(--adm-sunken);
-}
-
-.adm-cal-cell.is-selected {
-  box-shadow: inset 0 0 0 2px var(--adm-accent);
-}
-
-.adm-cal-date {
-  align-self: flex-start;
-  min-width: 26px;
-  height: 26px;
-  padding: 0 6px;
+  min-height: 56px;
+  padding: 6px 2px;
   border: 0;
-  border-radius: 999px;
   background: none;
   color: var(--adm-text);
   font: inherit;
+  cursor: pointer;
+}
+
+.adm-cal-cell:hover {
+  background: color-mix(in oklab, hsl(var(--muted)) 45%, transparent);
+}
+
+.adm-cal-cell:focus-visible {
+  outline: none;
+  box-shadow: var(--adm-focus);
+}
+
+.adm-cal-date {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 4px;
+  border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  cursor: pointer;
 }
 
 .adm-cal-cell.is-outside .adm-cal-date {
@@ -4250,136 +4353,80 @@ blockquote.adm-verdict-reason {
 }
 
 .adm-cal-cell.is-today .adm-cal-date {
+  color: var(--adm-accent);
+  box-shadow: inset 0 0 0 1.5px var(--adm-accent);
+}
+
+.adm-cal-cell.is-selected .adm-cal-date {
   background: var(--adm-accent);
   color: hsl(var(--background));
-}
-
-.adm-cal-date:focus-visible,
-.adm-cal-chip:focus-visible {
-  outline: none;
-  box-shadow: var(--adm-focus);
-}
-
-.adm-cal-chips {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 3px;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.adm-cal-chip {
-  display: flex;
-  gap: 4px;
-  width: 100%;
-  min-width: 0;
-  padding: 2px 6px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: var(--adm-text);
-  font: inherit;
-  font-size: 12px;
-  line-height: 1.35;
-  text-align: left;
-  cursor: pointer;
-}
-
-.adm-cal-chip:hover {
-  border-color: var(--adm-accent);
-}
-
-.adm-cal-chip-time {
-  flex: none;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-}
-
-.adm-cal-chip-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.adm-cal-more {
-  padding-left: 6px;
-  color: var(--adm-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-:is(.adm-cal-chip, .adm-cal-swatch).is-unconfirmed {
-  border: 1px dashed color-mix(in oklab, var(--lavender) 70%, transparent);
-  background: color-mix(in oklab, var(--lavender) 8%, transparent);
-}
-
-:is(.adm-cal-chip, .adm-cal-swatch).is-confirmed {
-  background: color-mix(in oklab, var(--sky) 18%, transparent);
-}
-
-:is(.adm-cal-chip, .adm-cal-swatch).is-suspected {
-  background: color-mix(in oklab, var(--honey) 24%, transparent);
-}
-
-:is(.adm-cal-chip, .adm-cal-swatch).is-cancelled,
-.adm-cal-chip.is-deleted {
-  background: color-mix(in oklab, var(--danger) 10%, transparent);
-  color: var(--adm-muted);
-  text-decoration: line-through;
-}
-
-:is(.adm-cal-chip, .adm-cal-swatch).is-hidden {
-  border: 1px dashed color-mix(in oklab, var(--adm-muted) 70%, transparent);
-  color: var(--adm-muted);
+  box-shadow: none;
 }
 
 .adm-cal-dots {
-  display: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 7px;
 }
 
-.adm-cal-dots i {
-  width: 6px;
-  height: 6px;
+.adm-cal-dots small {
+  color: var(--adm-muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.adm-cal-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--sky);
 }
 
-.adm-cal-dots i.is-unconfirmed {
+.adm-cal-dot.is-uncertain {
   background: transparent;
   box-shadow: inset 0 0 0 1.5px var(--lavender);
 }
 
-.adm-cal-dots i.is-suspected {
+.adm-cal-dot.is-suspected {
   background: var(--honey);
 }
 
-.adm-cal-dots i:is(.is-cancelled, .is-deleted) {
+.adm-cal-dot.is-cancelled {
   background: var(--danger);
 }
 
-.adm-cal-dots i.is-hidden {
+.adm-cal-dot.is-hidden {
   background: transparent;
   box-shadow: inset 0 0 0 1.5px var(--adm-muted);
 }
 
-.adm-cal-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  font-size: 12px;
+.adm-cal-week-mark-cell {
+  display: grid;
+  place-items: center;
+  color: var(--leaf);
+}
+
+.adm-cal-week-mark-cell.is-pending {
+  color: var(--honey);
+}
+
+.adm-shell .adm-cal-week-mark {
+  width: 14px;
+  height: 14px;
 }
 
 .adm-cal-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
+  gap: 6px 14px;
   margin: 0;
   padding: 0;
   color: var(--adm-muted);
+  font-size: 12px;
   list-style: none;
 }
 
@@ -4389,42 +4436,126 @@ blockquote.adm-verdict-reason {
   gap: 6px;
 }
 
-.adm-cal-swatch {
-  width: 18px;
-  height: 10px;
-  border: 1px solid transparent;
-  border-radius: 3px;
+.adm-cal-legend .adm-cal-week-mark {
+  color: var(--leaf);
 }
 
-.adm-cal-empty {
-  padding: 12px 4px;
+.adm-week-day {
+  scroll-margin-top: 16px;
+}
+
+.adm-week-day.is-selected .adm-day-head {
+  border-bottom-color: var(--adm-accent);
+}
+
+.adm-week-day.is-selected .adm-day-head h3 {
+  color: var(--adm-accent);
+}
+
+/* The week's images labelled Not a schedule, folded under its others. */
+.adm-planner-excluded > .adm-planner-images {
+  margin-top: 10px;
+}
+
+/* While only what needs a look shows: the next such week and the queue. */
+.adm-look-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+@media (max-width: 1000px) {
+  .adm-planner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-planner-side {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/*
+ * An entry's review in place, in the row: honey for a suspected
+ * cancellation and lavender for an uncertain addition, which the row's edge
+ * repeats. Merged duplicates follow as quiet lines with their undo.
+ */
+.adm-event-row.needs-review {
+  box-shadow: inset 3px 0 0 var(--review-tone);
+}
+
+:is(.adm-event-row, .adm-review-note).is-suspected {
+  --review-tone: var(--honey);
+}
+
+:is(.adm-event-row, .adm-review-note).is-uncertain {
+  --review-tone: var(--lavender);
+}
+
+.adm-review-note {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--adm-radius-sm);
+  background: color-mix(in oklab, var(--review-tone) 12%, transparent);
   font-size: 13px;
 }
 
-@container (max-width: 640px) {
-  .adm-cal-weekdays span {
-    padding: 6px 2px;
-    text-align: center;
-  }
+.adm-review-note-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
 
-  .adm-cal-cell {
-    align-items: center;
-    min-height: 54px;
-    padding: 4px 2px;
-  }
+.adm-shell .adm-review-note-head svg {
+  width: 15px;
+  height: 15px;
+  color: var(--review-tone);
+}
 
-  .adm-cal-date {
-    align-self: center;
-  }
+.adm-review-note-head span {
+  color: var(--adm-muted);
+}
 
-  .adm-cal-chips {
-    display: none;
-  }
+.adm-review-note p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 
-  .adm-cal-dots {
-    display: flex;
-    gap: 3px;
-  }
+.adm-review-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.adm-merged-list {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  color: var(--adm-muted);
+  font-size: 12px;
+  list-style: none;
+}
+
+.adm-merged-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-shell .adm-merged-list li > svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+
+.adm-merged-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /*
@@ -4437,6 +4568,91 @@ blockquote.adm-verdict-reason {
   display: grid;
   gap: 18px;
   margin-top: 16px;
+}
+
+/* The selected week's schedule image cards and the note when it has none. */
+.adm-week-noimage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px dashed var(--adm-line-strong);
+  border-radius: var(--adm-radius-sm);
+  color: var(--adm-muted);
+  font-size: 13px;
+}
+
+.adm-shell .adm-week-noimage svg {
+  width: 16px;
+  height: 16px;
+}
+
+.adm-week-image {
+  overflow: hidden;
+  border: 1px solid var(--adm-line);
+  border-left: 4px solid var(--tone, var(--adm-line-strong));
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+}
+
+.adm-week-image-media {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  background: var(--adm-sunken);
+  color: var(--adm-muted);
+}
+
+.adm-week-image-media img {
+  width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+}
+
+.adm-week-image-media span {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.adm-week-image-body {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.adm-week-image-period {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-shell .adm-week-image-period svg {
+  width: 14px;
+  height: 14px;
+  color: var(--adm-muted);
+}
+
+.adm-week-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-week-image-actions .adm-spacer {
+  flex: 1;
+}
+
+/* An empty day keeps its heading and its new-entry button only. */
+.adm-week-day.is-empty .adm-day-head {
+  border-bottom-style: dashed;
+  color: var(--adm-muted);
 }
 
 .adm-day-head {
@@ -4600,7 +4816,7 @@ blockquote.adm-verdict-reason {
   font-size: 12px;
 }
 
-@container (max-width: 600px) {
+@container (max-width: 700px) {
   .adm-event-row {
     grid-template-columns: 64px minmax(0, 1fr);
     grid-template-areas:
@@ -5317,21 +5533,6 @@ blockquote.adm-verdict-reason {
   .adm-period-reference {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-
-/* The schedule images of the calendar's month, below its grid. */
-.adm-month-images {
-  display: grid;
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--adm-line);
-}
-
-.adm-month-images h2 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
 }
 
 /* A post's own images as choices for its schedule image. */
@@ -7014,6 +7215,155 @@ blockquote.adm-verdict-reason {
   border-radius: 19px;
 }
 
+/* An existing entry's dialog puts its evidence beside the form: the posts
+   it was read from between their accounts' nearby posts, scrolling on its
+   own so the form stays in view. Under 900px it follows the form. */
+.adm-modal.is-wide.adm-entry-dialog.has-evidence {
+  width: min(1120px, calc(100vw - 32px));
+}
+
+.has-evidence .adm-entry-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.adm-entry-evidence {
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 210px);
+  overflow: auto;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--adm-sunken);
+}
+
+@media (max-width: 900px) {
+  .has-evidence .adm-entry-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-entry-evidence {
+    position: static;
+    max-height: none;
+  }
+}
+
+.adm-evidence {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.adm-evidence-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.adm-evidence-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.adm-shell .adm-evidence-head h3 svg {
+  width: 15px;
+  height: 15px;
+  color: var(--adm-muted);
+}
+
+.adm-evidence-head em {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--adm-surface);
+  color: var(--adm-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.adm-evidence-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--adm-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.adm-evidence-links,
+.adm-evidence-timeline {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-evidence-links li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+/* Evidence posts are cards; nearby posts are quieter context between them. */
+.adm-evidence-post {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+}
+
+.adm-evidence-post.is-evidence {
+  border: 1px solid var(--adm-line);
+  background: var(--adm-surface);
+  box-shadow: inset 3px 0 0 var(--adm-accent);
+}
+
+.adm-evidence-post.is-hidden {
+  opacity: 0.6;
+}
+
+.adm-evidence-post > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  width: 100%;
+  font-size: 12px;
+}
+
+.adm-evidence-post > header time {
+  color: var(--adm-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-evidence-post > header .adm-icon-button {
+  margin-left: auto;
+}
+
+.adm-evidence-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.adm-evidence-post:not(.is-evidence) .adm-evidence-text {
+  color: var(--adm-muted);
+}
+
 .adm-entry-when {
   display: grid;
   gap: 14px;
@@ -7576,4 +7926,79 @@ blockquote.adm-verdict-reason {
 /* An entry's platform from its source's default. */
 .adm-badge-inferred {
   font-style: italic;
+}
+
+/*
+ * The Review queue's schedule work, one group per week: its dates and counts
+ * with the button that opens it on the calendar, the uncertain additions as
+ * quiet lines, then the decision cards. Earlier weeks fold away.
+ */
+.adm-attention-weeks {
+  display: grid;
+  gap: 20px;
+}
+
+.adm-attention-week {
+  display: grid;
+  gap: 12px;
+}
+
+.adm-attention-week-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-attention-week-head h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-attention-week-head p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.adm-attention-uncertain {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-attention-uncertain li {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--lavender);
+  border-radius: var(--adm-radius-sm);
+  background: color-mix(in oklab, var(--lavender) 10%, transparent);
+}
+
+.adm-attention-uncertain strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-attention-earlier > .adm-attention-weeks {
+  margin-top: 16px;
+}
+
+@media (max-width: 600px) {
+  .adm-attention-uncertain li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
 }

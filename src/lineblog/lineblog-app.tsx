@@ -146,9 +146,9 @@ export function LineblogApp() {
       ) : (
         <div className="lb">
           <header className="lb-banner">
-            <a href="/lineblog" className="lb-banner-link" lang="ja">
-              <span className="sr-only">鹿乃 オフィシャルブログ</span>
-            </a>
+            <span className="sr-only" lang="ja">
+              鹿乃 オフィシャルブログ
+            </span>
           </header>
 
           <nav className="lb-menu" aria-label={t("lineblog.menu")}>

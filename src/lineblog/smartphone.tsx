@@ -295,10 +295,8 @@ export function SmartphoneBlog({
   return (
     <div className="lb lb-lite">
       <header className="lbl-header">
-        <h1 className="lbl-blog-title">
-          <a href="/lineblog" lang="ja">
-            <span className="sr-only">鹿乃 オフィシャルブログ</span>
-          </a>
+        <h1 className="lbl-blog-title" lang="ja">
+          <span className="sr-only">鹿乃 オフィシャルブログ</span>
         </h1>
         <nav className="lbl-menu" aria-label={t("lineblog.menu")}>
           <ul>

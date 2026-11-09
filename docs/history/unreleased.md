@@ -195,6 +195,8 @@
 - The translation mark shows where a translation came from: the translate
   icon with AI for an AI translation, with the YouTube or bilibili logo for
   a translation the platform provides, and alone for the editor's own.
+- The LINE BLOG archive's header art is a picture only; the menu bar's Home
+  link returns to the archive's front page.
 - Posts of the agency's account about Kano appear on the post wall, with the
   account's initial rather than Kano's portrait. A post Kano quotes shows
   only inside her post, and the agency never gets a tab of its own.

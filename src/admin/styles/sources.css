@@ -1,0 +1,729 @@
+/* YouTube's progressive confirmation: push, the live-status probe and the
+   follow-up checks as one numbered sequence. */
+.adm-confirm-steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-panel > .adm-confirm-steps {
+  margin-top: 18px;
+}
+
+.adm-confirm-step + .adm-confirm-step {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-confirm-step > section {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px 0;
+}
+
+.adm-confirm-step:first-child > section {
+  padding-top: 0;
+}
+
+.adm-confirm-step:last-child > section {
+  padding-bottom: 0;
+}
+
+/* The live-status probe's active and stopped videos, each with its action. */
+.adm-live-videos {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-live-videos li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-sunken);
+}
+
+.adm-live-videos li.is-stopped .adm-live-videos-name {
+  opacity: 0.7;
+}
+
+.adm-live-videos-name {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.adm-live-videos-name a,
+.adm-live-videos-name strong,
+.adm-live-videos-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-live-videos-name a,
+.adm-live-videos-name strong {
+  color: inherit;
+  font-weight: 650;
+}
+
+.adm-live-videos-name small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-confirm-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.adm-confirm-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adm-confirm-step h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.adm-confirm-mark,
+.adm-confirm-step .adm-fold-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--adm-accent-soft);
+  color: var(--adm-accent);
+}
+
+.adm-shell .adm-confirm-mark svg,
+.adm-shell .adm-confirm-step .adm-fold-mark svg {
+  width: 16px;
+  height: 16px;
+}
+
+.adm-follow-ups {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Sources page: the selected source's summary across the top, then its
+   settings in the main column and its manual fetch beside them. */
+.adm-source-page {
+  display: grid;
+  gap: 20px;
+}
+
+.adm-sources-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  align-items: start;
+  gap: 20px;
+}
+
+/* Facts under a panel title keep the panel's spacing. */
+.adm-source-aside .adm-panel > .adm-facts:not(:first-child) {
+  margin-top: 16px;
+}
+
+.adm-source-main,
+.adm-source-aside {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.adm-source-summary {
+  display: grid;
+  gap: 16px;
+}
+
+.adm-panel.adm-source-summary > * + * {
+  margin-top: 0;
+}
+
+.adm-source-summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+}
+
+.adm-source-summary-head .adm-source-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--adm-accent-soft);
+  color: var(--adm-accent);
+}
+
+.adm-shell .adm-source-summary-head .adm-source-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.adm-source-summary-title {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.adm-source-summary-title h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.adm-source-summary-title p {
+  margin: 2px 0 0;
+  color: var(--adm-muted);
+  font-size: 13px;
+}
+
+.adm-source-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+/* The summary's numbers as one ruled strip. */
+.adm-source-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-source-stats > div {
+  min-width: 0;
+  padding: 14px 16px 0;
+}
+
+.adm-source-stats > div:first-child {
+  padding-left: 0;
+}
+
+.adm-source-stats > div + div {
+  border-left: 1px solid var(--adm-line);
+}
+
+.adm-source-stats dt {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-source-stats dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* A long timer state wraps inside its column. */
+.adm-source-stats .adm-badge {
+  max-width: 100%;
+  padding-block: 4px;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.adm-source-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--adm-line-strong);
+}
+
+.adm-source-dot.is-running {
+  background: var(--leaf);
+}
+
+.adm-source-dot.is-blocked {
+  background: var(--honey);
+}
+
+/* Timed reads: the interval row, the method chain and X's API fallback as
+   ruled sections of one form with one Save. */
+.adm-timed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  align-items: start;
+  gap: 14px 18px;
+}
+
+.adm-timed-section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid var(--adm-line);
+}
+
+/* A legend does not lay out inside a grid fieldset; floating it does. */
+.adm-timed-section > legend {
+  display: flex;
+  float: left;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.adm-timed-section > legend + * {
+  clear: both;
+}
+
+.adm-timed-section > .adm-field-hint {
+  max-width: 72ch;
+  margin: 0;
+}
+
+.adm-timed-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0 -20px -20px;
+  padding: 12px 20px;
+  border-top: 1px solid transparent;
+  border-radius: 0 0 var(--adm-radius) var(--adm-radius);
+  background: var(--adm-surface);
+}
+
+.adm-timed-actions.is-dirty {
+  border-top-color: var(--adm-line);
+  box-shadow: 0 -6px 16px -12px rgb(0 0 0 / 0.35);
+}
+
+/* A question mark beside a section title opens its explanation. */
+.adm-shell .adm-help-button {
+  width: 24px;
+  height: 24px;
+}
+
+.adm-shell .adm-help-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* A field label with its question mark. */
+.adm-label-help {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.adm-shell .adm-label-help .adm-help-button {
+  margin-block: -4px;
+}
+
+.adm-help {
+  display: grid;
+  gap: 12px;
+  max-width: 60ch;
+  color: var(--adm-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.adm-help p {
+  margin: 0;
+}
+
+.adm-help-terms {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.adm-help-terms dt {
+  margin-top: 8px;
+  color: var(--adm-text);
+  font-weight: 650;
+}
+
+.adm-help-terms dd {
+  margin: 0;
+}
+
+/* Counts against their limits: today's X API posts and each account's
+   timeline failures before the X API opens. */
+.adm-meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-meter {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-sunken);
+}
+
+.adm-meter-label {
+  overflow: hidden;
+  color: var(--adm-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-meter-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-meter-value strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.adm-meter-value small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-meter-bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--adm-line-strong) 70%, transparent);
+}
+
+.adm-meter-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--leaf);
+}
+
+.adm-meter.is-pending .adm-meter-value strong {
+  color: var(--adm-muted);
+}
+
+.adm-meter.is-full .adm-meter-bar i {
+  background: var(--honey);
+}
+
+/* The Works uploads without a cover: each upload above its videos. */
+.adm-works-covers {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-works-covers > li {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+}
+
+.adm-works-covers > li > .adm-chip-row time {
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-works-covers > li > ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  list-style: none;
+}
+
+.adm-works-covers code {
+  overflow-wrap: anywhere;
+}
+
+/* Limits in a narrow column: one field per row, the label beside its
+   input and the hint below both. */
+.adm-limit-rows {
+  display: grid;
+}
+
+.adm-field.adm-limit-row {
+  grid-template-columns: minmax(0, 1fr) 112px;
+  grid-template-areas:
+    "label input"
+    "hint hint";
+  align-items: center;
+  gap: 4px 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-field.adm-limit-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.adm-limit-row > .adm-field-label {
+  grid-area: label;
+}
+
+.adm-limit-row > input {
+  grid-area: input;
+}
+
+.adm-limit-row > .adm-field-hint {
+  grid-area: hint;
+}
+
+/* Read limits split by the runs they bound. */
+.adm-sync-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.adm-sync-section + .adm-sync-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-sync-section > legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.adm-sync-section > legend + * {
+  clear: both;
+}
+
+/* A folded section: a header row of icon, title, controls and chevron
+   that opens onto its body. As a panel the body sits below a rule; inside
+   the progressive confirmation it follows the step's header. */
+.adm-fold-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.adm-fold-mark {
+  display: inline-grid;
+  place-items: center;
+}
+
+.adm-shell .adm-fold-mark svg {
+  width: 18px;
+  height: 18px;
+  color: var(--adm-accent);
+}
+
+.adm-fold-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.adm-fold-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adm-fold-name :is(h3, h4) {
+  min-width: 0;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.adm-fold-name button {
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.adm-fold-name button:focus-visible {
+  outline: none;
+  box-shadow: var(--adm-focus);
+}
+
+.adm-fold-title small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-fold-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.adm-shell .adm-fold-chevron {
+  width: 18px;
+  height: 18px;
+  color: var(--adm-muted);
+  transition: transform 0.15s ease;
+}
+
+.adm-fold.is-open .adm-fold-chevron {
+  transform: rotate(180deg);
+}
+
+.adm-panel.adm-fold {
+  padding: 0;
+}
+
+.adm-panel.adm-fold > * + * {
+  margin-top: 0;
+}
+
+.adm-panel.adm-fold > .adm-fold-head {
+  padding: 16px 20px;
+}
+
+.adm-panel.adm-fold > .adm-fold-body {
+  padding: 18px 20px 20px;
+  border-top: 1px solid var(--adm-line);
+}
+
+/* A panel inside a fold lays out flat. */
+.adm-fold-body > .adm-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.adm-fold-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.adm-confirm-step .adm-fold-name h4 {
+  font-size: 14px;
+}
+
+.adm-panel-header p {
+  max-width: 64ch;
+  margin: 4px 0 0;
+  color: var(--adm-muted);
+  font-size: 13px;
+}
+
+.adm-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 28px 16px;
+  border: 1px dashed var(--adm-line-strong);
+  border-radius: var(--adm-radius-sm);
+  color: var(--adm-muted);
+  text-align: center;
+}
+
+.adm-empty svg {
+  width: 24px;
+  height: 24px;
+  color: var(--leaf);
+}
+
+.adm-empty strong {
+  color: var(--adm-text);
+}
+
+.adm-empty p {
+  max-width: 48ch;
+  margin: 0;
+  font-size: 13px;
+}
+
+.adm-loading-block,
+.adm-boot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px;
+  color: var(--adm-muted);
+}
+
+.adm-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+}
+
+.adm-facts dt {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-facts dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.adm-facts.is-compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}

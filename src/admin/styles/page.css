@@ -1,0 +1,125 @@
+.adm-tabs {
+  /* Positioned, so a tab's visually hidden text scrolls with the row
+     instead of widening the page when the tabs overflow a phone screen. */
+  position: relative;
+  display: flex;
+  gap: 4px;
+  margin: -6px -6px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--adm-muted);
+  font: inherit;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.adm-tabs button.is-active {
+  border-bottom-color: var(--adm-accent);
+  color: var(--adm-text);
+}
+
+.adm-tabs.is-bare {
+  margin: 0;
+}
+
+.adm-tab-panel {
+  padding-top: 4px;
+}
+
+/* The pager: the total, page numbers around the current page with the first
+   and last, and a jump to any page. It wraps on narrow screens. */
+.adm-pager,
+.adm-pager-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 16px;
+  margin: 16px 0 0;
+  color: var(--adm-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-pager-count {
+  margin-right: auto;
+}
+
+.adm-pager-pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.adm-pager-page {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--adm-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.adm-pager-page:hover {
+  background: var(--adm-sunken);
+}
+
+.adm-pager-page[aria-current="page"] {
+  border-color: color-mix(in oklab, var(--adm-accent) 45%, transparent);
+  background: var(--adm-accent-soft);
+  color: color-mix(in oklab, var(--adm-accent) 80%, var(--adm-text));
+  cursor: default;
+}
+
+.adm-pager-gap {
+  min-width: 20px;
+  text-align: center;
+}
+
+.adm-pager-jump {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-pager-jump label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-shell .adm-pager-jump input {
+  width: 64px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 999px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+}
+
+.adm-pager-jump input::-webkit-inner-spin-button,
+.adm-pager-jump input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}

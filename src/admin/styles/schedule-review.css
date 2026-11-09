@@ -1,0 +1,84 @@
+/* An entry's platform the board shows without its announcing it. */
+.adm-badge-observed {
+  border-style: dashed;
+}
+
+/* An entry's platform from its source's default. */
+.adm-badge-inferred {
+  font-style: italic;
+}
+
+/*
+ * The Review queue's schedule work, one group per week: its dates and counts
+ * with the button that opens it on the calendar, the uncertain additions as
+ * quiet lines, then the decision cards. Earlier weeks fold away.
+ */
+.adm-attention-weeks {
+  display: grid;
+  gap: 20px;
+}
+
+.adm-attention-week {
+  display: grid;
+  gap: 12px;
+}
+
+.adm-attention-week-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-attention-week-head h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-attention-week-head p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.adm-attention-uncertain {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-attention-uncertain li {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--lavender);
+  border-radius: var(--adm-radius-sm);
+  background: color-mix(in oklab, var(--lavender) 10%, transparent);
+}
+
+.adm-attention-uncertain strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-attention-earlier > .adm-attention-weeks {
+  margin-top: 16px;
+}
+
+@media (max-width: 600px) {
+  .adm-attention-uncertain li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}

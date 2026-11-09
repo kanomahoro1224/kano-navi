@@ -1,0 +1,782 @@
+.adm-form {
+  display: grid;
+  gap: 16px;
+}
+
+.adm-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.adm-form-row.is-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Fields whose hints differ in length keep their controls level. */
+.adm-form-row.is-top {
+  align-items: start;
+}
+
+.adm-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.adm-field-label {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.adm-field-hint {
+  color: var(--adm-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.adm-segmented button svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* A manual fetch's follow-up steps. */
+.adm-fetch-options {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.adm-fetch-options legend {
+  margin-bottom: 10px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* The newest manual fetch of a source, under its form. */
+.adm-fetch-empty {
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-line);
+  color: var(--adm-muted);
+  font-size: 13px;
+}
+
+.adm-fetch-summary {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-line);
+}
+
+/* The header folds the rest of the summary away. */
+.adm-fetch-summary > header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.adm-fetch-summary.is-open .adm-fold-chevron {
+  transform: rotate(180deg);
+}
+
+.adm-fetch-summary-body {
+  display: grid;
+  gap: 12px;
+}
+
+.adm-fetch-summary-body[hidden] {
+  display: none;
+}
+
+.adm-fetch-summary-title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.adm-fetch-summary-title button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.adm-fetch-summary-title button:focus-visible {
+  outline: none;
+  box-shadow: var(--adm-focus);
+}
+
+.adm-fetch-summary-title small {
+  color: var(--adm-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.adm-fetch-items {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.adm-fetch-items > span {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-fetch-items ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-fetch-items li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+/* A title takes its own line once the row is narrower than about 12em. */
+.adm-fetch-items li span {
+  flex: 1 1 12em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-fetch-items code,
+.adm-fetch-items small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-input-icon {
+  position: relative;
+  display: block;
+}
+
+.adm-input-icon svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  color: var(--adm-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.adm-input-icon input {
+  padding-left: 36px !important;
+}
+
+.adm-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.adm-fieldset {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.adm-fieldset legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.adm-fieldset.is-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.adm-fieldset.is-inline legend {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.adm-inline-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.adm-inline-form .adm-field {
+  flex: 1;
+}
+
+.adm-inline-form .adm-button {
+  margin-bottom: 3px;
+}
+
+.adm-switch {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.adm-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.adm-switch-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: var(--adm-line-strong);
+  transition: background 160ms ease;
+}
+
+.adm-switch-track::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  content: "";
+  transition: transform 160ms ease;
+}
+
+.adm-switch input:checked + .adm-switch-track {
+  background: var(--leaf);
+}
+
+.adm-switch input:checked + .adm-switch-track::after {
+  transform: translateX(16px);
+}
+
+.adm-switch input:focus-visible + .adm-switch-track {
+  box-shadow: var(--adm-focus);
+}
+
+.adm-switch.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.adm-switch-text {
+  display: grid;
+  gap: 2px;
+}
+
+.adm-switch-text strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.adm-switch-text small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--adm-sunken);
+}
+
+.adm-segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--adm-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.adm-segmented button.is-active {
+  background: var(--adm-surface);
+  color: var(--adm-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.adm-segmented em,
+.adm-tabs em,
+.adm-nav-item em {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--adm-accent);
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 750;
+  line-height: 16px;
+  text-align: center;
+}
+
+.adm-search {
+  position: relative;
+  display: block;
+  flex: 1 1 220px;
+}
+
+.adm-search svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  color: var(--adm-muted);
+  transform: translateY(-50%);
+}
+
+.adm-search input {
+  padding-left: 36px !important;
+}
+
+/* A list's filters: the search field, then one pill per filter. */
+.adm-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.adm-filters .adm-search {
+  flex: 1 1 260px;
+}
+
+.adm-filters .adm-search input {
+  height: 36px;
+  border-radius: 999px;
+}
+
+.adm-filter-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--adm-line-strong);
+  border-radius: 999px;
+  background: hsl(var(--background));
+  color: var(--adm-text);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.adm-filter-pill:hover {
+  border-color: var(--adm-muted);
+}
+
+.adm-filter-pill:focus-within {
+  border-color: var(--adm-accent);
+  box-shadow: var(--adm-focus);
+}
+
+.adm-filter-pill-label {
+  color: var(--adm-muted);
+  font-weight: 600;
+}
+
+.adm-shell .adm-filter-pill :is(select, input) {
+  width: auto;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 650;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+/* Sized to the chosen option rather than the longest one, where supported. */
+.adm-shell .adm-filter-pill select {
+  appearance: none;
+  field-sizing: content;
+  max-width: 220px;
+  padding-right: 18px;
+  text-overflow: ellipsis;
+}
+
+.adm-shell .adm-date-range input.is-empty {
+  color: var(--adm-muted);
+  font-weight: 500;
+}
+
+.adm-shell .adm-filter-pill :is(select, input):focus-visible {
+  box-shadow: none;
+}
+
+.adm-filter-pill > svg {
+  color: var(--adm-muted);
+}
+
+.adm-filter-pill > select + svg {
+  position: absolute;
+  right: 10px;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+.adm-filter-pill.is-active {
+  border-color: color-mix(in oklab, var(--adm-accent) 45%, transparent);
+  background: var(--adm-accent-soft);
+}
+
+.adm-filter-pill.is-active .adm-filter-pill-label,
+.adm-filter-pill.is-active > svg {
+  color: color-mix(in oklab, var(--adm-accent) 80%, var(--adm-text));
+}
+
+/* A filter that opens its own list of choices. The pill is the button; the
+   list hangs under it on the raised surface. */
+.adm-filter-pill.adm-select {
+  padding: 0;
+}
+
+.adm-select > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 12px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.adm-select > button:focus-visible {
+  outline: none;
+}
+
+.adm-select-value {
+  max-width: 220px;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+}
+
+.adm-select > button > svg {
+  width: 14px;
+  height: 14px;
+  color: var(--adm-muted);
+  transition: transform 140ms ease;
+}
+
+.adm-select.is-open > button > svg {
+  transform: rotate(180deg);
+}
+
+.adm-select.is-active > button > svg {
+  color: color-mix(in oklab, var(--adm-accent) 80%, var(--adm-text));
+}
+
+.adm-select-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  gap: 1px;
+  min-width: max(100%, 180px);
+  max-height: 300px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+  box-shadow: var(--shadow-lg);
+  list-style: none;
+  outline: none;
+  animation: adm-select-in 120ms ease-out;
+}
+
+.adm-select-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: calc(var(--adm-radius-sm) - 2px);
+  color: var(--adm-text);
+  cursor: pointer;
+}
+
+.adm-select-list li.is-cursor {
+  background: var(--adm-sunken);
+}
+
+.adm-select-list li[aria-selected="true"] {
+  color: color-mix(in oklab, var(--adm-accent) 80%, var(--adm-text));
+  font-weight: 650;
+}
+
+.adm-select-list li > svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+@keyframes adm-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-select-list {
+    animation: none;
+  }
+}
+
+.adm-filter-pill.is-toggle {
+  font-weight: 600;
+}
+
+.adm-date-range {
+  gap: 4px;
+}
+
+.adm-date-range > span {
+  color: var(--adm-muted);
+}
+
+.adm-shell .adm-date-range input {
+  width: 128px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-filter-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in oklab, var(--adm-accent) 85%, var(--adm-text));
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.adm-filter-reset:hover {
+  background: var(--adm-accent-soft);
+}
+
+.adm-filter-reset svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* The row under a list's filters: what the list holds and its bulk actions. */
+.adm-list-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--tone-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--tone-soft);
+  font-size: 13px;
+}
+
+.adm-callout > svg {
+  margin-top: 2px;
+  color: var(--tone);
+}
+
+.adm-callout > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adm-callout p {
+  margin: 0;
+}
+
+/* Short values edited as removable chips. */
+.adm-tag-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 7px 8px;
+  border: 1px solid var(--adm-line-strong);
+  border-radius: var(--adm-radius-sm);
+  background: hsl(var(--background));
+  cursor: text;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.adm-tag-input:focus-within {
+  border-color: var(--adm-accent);
+  box-shadow: var(--adm-focus);
+}
+
+.adm-shell .adm-tag-input input {
+  flex: 1 1 140px;
+  width: auto;
+  height: 28px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.adm-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 3px 0 11px;
+  border: 1px solid var(--adm-line);
+  border-radius: 999px;
+  background: var(--adm-sunken);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.adm-tag > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-tag button {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--adm-muted);
+  cursor: pointer;
+}
+
+.adm-tag button:hover {
+  background: color-mix(in oklab, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+
+.adm-shell .adm-tag button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.adm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* Two labelled filters side by side: the step, then its state. */
+.adm-post-filters {
+  justify-content: flex-start;
+  gap: 12px 24px;
+}
+
+.adm-filter-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.adm-filter-label {
+  min-width: 36px;
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+@media (max-width: 560px) {
+  .adm-filter-group {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .adm-filter-group .adm-segmented {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+
+  .adm-filter-group .adm-segmented button {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  .adm-filter-group .adm-segmented button svg {
+    display: none;
+  }
+}

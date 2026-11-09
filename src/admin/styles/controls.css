@@ -1,0 +1,303 @@
+.adm-shell
+  :is(
+    input:not([type="checkbox"], [type="radio"], [type="file"]),
+    select,
+    textarea
+  ),
+.adm-login input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--adm-line-strong);
+  border-radius: var(--adm-radius-sm);
+  background: hsl(var(--background));
+  color: var(--adm-text);
+  font: inherit;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.adm-shell textarea {
+  height: auto;
+  min-height: 84px;
+  padding: 9px 12px;
+  resize: vertical;
+}
+
+.adm-shell :is(input, select, textarea):focus-visible,
+.adm-login input:focus-visible {
+  border-color: var(--adm-accent);
+  outline: none;
+  box-shadow: var(--adm-focus);
+}
+
+.adm-shell :is(input, select, textarea):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.adm-shell input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--adm-accent);
+}
+
+.adm-shell :is(a, button):focus-visible,
+.adm-login button:focus-visible {
+  outline: none;
+  box-shadow: var(--adm-focus);
+}
+
+.adm-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid var(--adm-line-strong);
+  border-radius: 999px;
+  background: var(--adm-surface);
+  color: var(--adm-text);
+  font: inherit;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.adm-button:hover:not(:disabled) {
+  border-color: var(--adm-text);
+}
+
+.adm-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.adm-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.adm-button.is-small {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.adm-button.is-small svg {
+  width: 14px;
+  height: 14px;
+}
+
+.adm-button.is-primary {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.adm-button.is-primary:hover:not(:disabled) {
+  border-color: var(--adm-accent);
+  background: var(--adm-accent);
+  color: #fff;
+}
+
+.adm-button.is-ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.adm-button.is-ghost:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--adm-sunken);
+}
+
+.adm-button.is-danger {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+.adm-button.is-danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  filter: brightness(1.06);
+}
+
+.adm-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--adm-muted);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.adm-icon-button:hover:not(:disabled) {
+  background: var(--adm-sunken);
+  color: var(--adm-text);
+}
+
+.adm-icon-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* A destructive icon action; armed, it fills while it waits for the second click. */
+.adm-icon-button.is-danger {
+  color: var(--danger);
+}
+
+.adm-icon-button.is-danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.adm-icon-button.is-danger.is-armed,
+.adm-icon-button.is-danger.is-armed:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+.adm-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--adm-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.adm-link:hover {
+  color: var(--adm-accent);
+}
+
+.adm-link svg {
+  width: 13px;
+  height: 13px;
+}
+
+.adm-badge {
+  --tone: hsl(var(--muted-foreground));
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--tone-line, var(--adm-line));
+  border-radius: 999px;
+  background: var(--tone-soft, transparent);
+  color: color-mix(in oklab, var(--tone) 82%, var(--adm-text));
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.adm-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.adm-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tone, var(--adm-muted));
+}
+
+.adm-dot.is-on {
+  background: var(--leaf);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--leaf) 20%, transparent);
+}
+
+.adm-dot.is-off {
+  background: var(--adm-muted);
+}
+
+.adm-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-actions,
+.adm-row-actions,
+.adm-form-actions,
+.adm-page-actions,
+.adm-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.adm-row-actions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.adm-form-actions {
+  justify-content: flex-end;
+}
+
+.adm-muted {
+  margin: 0;
+  color: var(--adm-muted);
+}
+
+.adm-note {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-sunken);
+  color: var(--adm-muted);
+  font-size: 13px;
+}
+
+.adm-inline-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.adm-error-text {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.adm-quote {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--adm-line-strong);
+  color: var(--adm-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.adm-quote.is-manual {
+  border-left-color: var(--sky);
+}

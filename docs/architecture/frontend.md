@@ -147,7 +147,8 @@ view, and `#models` and `#llm/<provider>` links open Detection); `use-admin-data
 the active run while the console is visible; `api.ts` is the transport and error mapping; `types.ts` holds
 the wire shapes; `ui.tsx` the console primitives (buttons, panels, native
 modal dialog, toasts); `views/` one file per section; and `admin.css` styles
-them with `adm-` prefixed selectors. `src/components/ui/` contains
+them with `adm-` prefixed selectors, importing one file per area from
+`styles/` in cascade order. `src/components/ui/` contains
 basic UI primitives, while the CSS files contain layout and design tokens. The
 presentation layer must not open SQLite or call X, YouTube, OpenAI,
 or a third-party proxy directly. The optional mainland China site comes from

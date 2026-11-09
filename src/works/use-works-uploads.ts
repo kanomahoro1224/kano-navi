@@ -57,8 +57,10 @@ export type WorksUploadsOverlay = {
   updatedAt: string
   revision: number
   uploads: Record<string, WorksUploadState>
-  /** Newest first; absent from an older server. */
+  /** The newest of them, at most 48; absent from an older server. */
   recent?: WorksRecentUpload[]
+  /** How many there are in all, beyond recent's bound. */
+  recentTotal?: number
 }
 
 export type WorksUploadsStatus =
@@ -129,6 +131,15 @@ export function recentUploads(overlay: WorksUploadsOverlay | undefined) {
       typeof item.url === "string" &&
       recentSources.has(item.source),
   )
+}
+
+/**
+ * The recent uploads a folded block shows: two rows of its grid, or four of
+ * the phone's one-column list, whose rows are short.
+ */
+export function foldedCount(columns: number) {
+  const count = Math.max(1, Math.floor(columns))
+  return count === 1 ? 4 : count * 2
 }
 
 /** The sites a recent upload is on: its own, then its copies, once each. */

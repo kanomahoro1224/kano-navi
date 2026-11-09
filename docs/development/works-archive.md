@@ -156,11 +156,16 @@ the video editor sets the decision on any video
 dashboard revision.
 
 A release that moves `updatedAt` drops the earlier videos by rule 1, and
-rule 4 drops those the new list names; nothing is cleaned up. Covers are the
-videos' cached thumbnails; no lookup or download runs for them. The page
-shows the listed videos as their own block above the packaged list, each
-marked as found automatically or added by hand, outside the kind filters
-and the header's counts. Works no source reads, such as a niconico-only
+rule 4 drops those the new list names; nothing is cleaned up. Each read
+scans the videos after `updatedAt` and returns the newest 48 listed ones
+with the count of all, and the console reviews the newest 200; a list left
+without a release for long therefore stays bounded, while the block names
+how many it holds. Covers are the videos' cached thumbnails; no lookup or
+download runs for them. The page shows the listed videos as their own block
+above the packaged list, each marked as found automatically or added by
+hand, outside the kind filters and the header's counts. The block shows two
+rows of its grid (four rows of the phone list) until the reader opens the
+rest. Works no source reads, such as a niconico-only
 upload or one on another creator's channel, wait for the next collection
 update.
 

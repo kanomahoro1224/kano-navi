@@ -298,7 +298,7 @@ func WorksUploads(index works.Index, overlay *sqlite.WorksOverlay) map[string]an
 			"sourceLanguage": value(v.Translations.SourceLanguage), "alternates": publicAlternates(v.Alternates),
 		})
 	}
-	return map[string]any{"updatedAt": index.UpdatedAt, "revision": overlay.Revision, "uploads": uploads, "recent": recent}
+	return map[string]any{"updatedAt": index.UpdatedAt, "revision": overlay.Revision, "uploads": uploads, "recent": recent, "recentTotal": overlay.RecentTotal}
 }
 
 // worksRecentDate is when a recent upload went up: a premiere's scheduled

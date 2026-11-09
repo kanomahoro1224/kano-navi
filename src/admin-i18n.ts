@@ -287,8 +287,6 @@ export const adminMessages = {
     "admin.site.visitorRegionProviderUrl": "Provider website",
     "admin.site.visitorRegionMirrorUrl": "Mirror site",
     "admin.site.variants": "Image copies",
-    "admin.site.variantsDescription":
-      "Pages ask for smaller copies of large images. Requests never resize: an image without its copies is sent whole until a copies run makes them.",
     "admin.site.variantsGroup.lineblog": "LINE BLOG archive",
     "admin.site.variantsGroup.works": "Works covers",
     "admin.site.variantsGroup.journey": "Journey images",
@@ -303,8 +301,6 @@ export const adminMessages = {
     "admin.site.variantsMake": "Make missing copies",
     "admin.site.variantsRunning": "Making copies",
     "admin.site.worksCovers": "Works upload covers",
-    "admin.site.worksCoversDescription":
-      "Each upload on the Works page takes its cover from its first video with an image. The media step queues YouTube thumbnails and looks niconico and Bilibili covers up; an upload whose every video is gone shows a printed sleeve.",
     "admin.site.worksCoversCount.covered": "Covered",
     "admin.site.worksCoversCount.due": "Due for the next media step",
     "admin.site.worksCoversCount.waiting": "Waiting",
@@ -330,9 +326,7 @@ export const adminMessages = {
     "admin.site.worksCoversRefresh": "Check again",
     "admin.site.worksCoversFill": "Fill missing covers",
     "admin.site.worksCoversRunning": "Filling covers",
-    "admin.site.worksRecent": "Works uploads after the collection date",
-    "admin.site.worksRecentDescription":
-      "The Works page lists the uploads dated after {date} in their own block: song uploads and premieres that are not Shorts, found by their content tag, and the videos you include. Moving the date in a release drops the earlier ones.",
+    "admin.site.worksRecent": "Works uploads after {date}",
     "admin.site.worksRecentOrigin.auto": "Detected",
     "admin.site.worksRecentOrigin.operator": "Included",
     "admin.site.worksRecentOrigin.excluded": "Excluded",
@@ -340,6 +334,8 @@ export const adminMessages = {
     "admin.site.worksRecentClear": "Follow the rules",
     "admin.site.worksRecentEmpty":
       "No upload after the collection date is listed or excluded.",
+    "admin.site.worksRecentLimit":
+      "Showing the newest {count} of {total}. The Works page lists the newest 48 listed ones; moving the collection date in a release shortens both.",
     "admin.site.worksRecentHint":
       "To list a video the rules miss, such as a Bilibili-only upload, set Works page to Include in its video editor.",
 

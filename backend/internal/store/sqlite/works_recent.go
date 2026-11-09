@@ -14,6 +14,14 @@ import (
 // Works page lists on their own. They are derived on every read and never
 // stored, so a release that moves updatedAt drops the earlier ones.
 
+// Bounds of the recent Works uploads, newest first: the Works page reads at
+// most WorksRecentLimit and the console reviews at most
+// WorksRecentReportLimit; each read reports how many there are in all.
+const (
+	WorksRecentLimit       = 48
+	WorksRecentReportLimit = 200
+)
+
 // Origins of a recent Works upload.
 const (
 	// WorksOriginAuto is a video listed by its tag, form and format.
@@ -59,6 +67,8 @@ type WorksRecentReview struct {
 type WorksRecentReport struct {
 	UpdatedAt string              `json:"updatedAt"`
 	Items     []WorksRecentReview `json:"items"`
+	// Total counts every listed and excluded video, beyond the items' bound.
+	Total int `json:"total"`
 }
 
 // worksRecentRow is a video that passes the date, availability, merge and
@@ -199,31 +209,36 @@ func (s *Store) resolveWorksRecentCovers(ctx context.Context, rows []worksRecent
 	return nil
 }
 
-// worksRecentUploads lists the recent Works uploads with their covers,
-// translations and merged alternates.
-func (s *Store) worksRecentUploads(ctx context.Context, index works.Index, now time.Time) ([]WorksRecentUpload, error) {
+// worksRecentUploads lists the newest WorksRecentLimit recent Works uploads
+// with their covers, translations and merged alternates, and how many there
+// are in all.
+func (s *Store) worksRecentUploads(ctx context.Context, index works.Index, now time.Time) ([]WorksRecentUpload, int, error) {
 	all, err := s.worksRecentRows(ctx, index, now)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	rows := make([]worksRecentRow, 0, len(all))
+	rows := make([]worksRecentRow, 0, min(len(all), WorksRecentLimit))
+	total := 0
 	for _, row := range all {
-		if row.listed {
+		if !row.listed {
+			continue
+		}
+		if total++; len(rows) < WorksRecentLimit {
 			rows = append(rows, row)
 		}
 	}
 	if err = s.resolveWorksRecentCovers(ctx, rows); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	refs := make([]*Video, 0, len(rows))
 	for _, row := range rows {
 		refs = append(refs, &Video{ID: row.review.ID, Source: row.review.Source, Title: row.review.Title})
 	}
 	if err = s.attachVideoTranslations(ctx, refs...); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if err = s.attachVideoAlternates(ctx, refs...); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	out := make([]WorksRecentUpload, 0, len(rows))
 	for i, row := range rows {
@@ -233,12 +248,13 @@ func (s *Store) worksRecentUploads(ctx context.Context, index works.Index, now t
 			Origin: *row.review.Origin, Translations: refs[i].Translations, Alternates: refs[i].Alternates,
 		})
 	}
-	return out, nil
+	return out, total, nil
 }
 
-// WorksRecentReport lists, newest first, the videos after the list's date
-// that the Works page shows and those an operator's decision keeps out. It
-// never writes.
+// WorksRecentReport lists, newest first, at most WorksRecentReportLimit of
+// the videos after the list's date that the Works page shows and those an
+// operator's decision keeps out, with how many there are in all. It never
+// writes.
 func (s *Store) WorksRecentReport(ctx context.Context, index works.Index, now time.Time) (*WorksRecentReport, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
@@ -248,10 +264,12 @@ func (s *Store) WorksRecentReport(ctx context.Context, index works.Index, now ti
 	if err != nil {
 		return nil, err
 	}
+	total := len(rows)
+	rows = rows[:min(total, WorksRecentReportLimit)]
 	if err = s.resolveWorksRecentCovers(ctx, rows); err != nil {
 		return nil, err
 	}
-	report := &WorksRecentReport{UpdatedAt: index.UpdatedAt, Items: make([]WorksRecentReview, 0, len(rows))}
+	report := &WorksRecentReport{UpdatedAt: index.UpdatedAt, Items: make([]WorksRecentReview, 0, len(rows)), Total: total}
 	for _, row := range rows {
 		item := row.review
 		if row.cover != nil {

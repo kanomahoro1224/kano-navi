@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react"
-import { useState } from "react"
-import { Sparkles, UserRoundCheck } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { ChevronDown, Sparkles, UserRoundCheck } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import {
@@ -11,6 +11,7 @@ import { mediaSrcSet } from "@/lib/media"
 import { BilibiliLogo, ExternalLink, YouTubeLogo } from "@/site/links"
 import { dayLabel, fullDate, uploadTone } from "./content"
 import {
+  foldedCount,
   japanDay,
   recentLinks,
   type WorksRecentUpload,
@@ -128,20 +129,49 @@ function RecentCard({
   )
 }
 
+/** How many columns a grid lays out now, following its width; measured
+ * once the grid is shown. */
+function useGridColumns(shown: boolean) {
+  const ref = useRef<HTMLUListElement>(null)
+  const [columns, setColumns] = useState(1)
+  useEffect(() => {
+    const grid = ref.current
+    if (!grid) return
+    const measure = () =>
+      setColumns(
+        getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean)
+          .length || 1,
+      )
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(grid)
+    return () => observer.disconnect()
+  }, [shown])
+  return [ref, columns] as const
+}
+
 /**
  * The uploads posted after the collection's date, above the collection's
  * own list and outside its filters and counts. Each is marked as found
- * automatically or added by hand. Nothing shows when there are none.
+ * automatically or added by hand. Two rows show until the reader opens the
+ * rest; the server sends the newest 48 of total. Nothing shows when there
+ * are none.
  */
 export function RecentUploads({
   items,
+  total,
   updatedAt,
 }: {
   items: WorksRecentUpload[]
+  total: number
   updatedAt: string
 }) {
   const { t, locale } = useAppSettings()
+  const [grid, columns] = useGridColumns(items.length > 0)
+  const [open, setOpen] = useState(false)
   if (!items.length) return null
+  const folded = foldedCount(columns)
+  const shown = open ? items : items.slice(0, folded)
   return (
     <section className="works-recent" aria-labelledby="works-recent-title">
       <header className="works-recent-label">
@@ -149,16 +179,37 @@ export function RecentUploads({
         <small>
           {t("works.recent.since", {
             date: fullDate(updatedAt, locale),
-            count: items.length,
+            count: total,
           })}
         </small>
         <p>{t("works.recent.note")}</p>
       </header>
-      <ul className="upload-grid">
-        {items.map((item, index) => (
-          <RecentCard key={item.id} item={item} index={index} />
-        ))}
-      </ul>
+      <div className="works-recent-body">
+        <ul ref={grid} id="works-recent-list" className="upload-grid">
+          {shown.map((item, index) => (
+            <RecentCard key={item.id} item={item} index={index} />
+          ))}
+        </ul>
+        {items.length > folded ? (
+          <button
+            type="button"
+            className="pill-button works-recent-more"
+            aria-expanded={open}
+            aria-controls="works-recent-list"
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open
+              ? t("works.recent.fewer")
+              : t("works.recent.more", { count: items.length - folded })}
+            <ChevronDown aria-hidden="true" />
+          </button>
+        ) : null}
+        {open && total > items.length ? (
+          <p className="works-recent-limit">
+            {t("works.recent.limit", { count: items.length })}
+          </p>
+        ) : null}
+      </div>
     </section>
   )
 }

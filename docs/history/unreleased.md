@@ -141,7 +141,8 @@
 > [!NOTE]
 > Startup adds the empty `videos.manual_work` column without rewriting
 > videos. `GET /api/works/uploads` adds `recent`, the uploads after the Works
-> collection date, which can include a Bilibili upload merged into nothing;
+> collection date (the newest 48, with `recentTotal`), which can include a
+> Bilibili upload merged into nothing;
 > the board, the video archive and MCP still list YouTube videos only. Admin
 > videos add `manualWork`, `PUT /videos/{id}` accepts `work`, and the admin
 > API adds `GET /videos/works-recent`. The title inference also asks about
@@ -231,8 +232,9 @@
   list as their own block: song uploads and premieres the site finds by
   their content tag, Bilibili-only ones included, and those the operator
   adds, each marked as found automatically or added by hand, with its
-  cached thumbnail and site links. The block takes no part in the filters
-  or counts, and a release that moves the date leaves it to the list.
+  cached thumbnail and site links. Two rows show until the reader opens the
+  rest, up to the newest 48. The block takes no part in the filters or
+  counts, and a release that moves the date leaves it to the list.
 - A Works release's sheet and the Works and Journey image viewers keep one
   size whatever the release or image; on a wide screen the release's cover
   and figures stay on the left while its tracklist and details scroll beside
@@ -394,9 +396,9 @@
   lists each upload still without one with its videos (gone, waiting with
   the last error and retry time, or still to try), and **Fill missing
   covers** runs the media step once.
-- Site → Works uploads after the collection date lists the uploads the Works
-  page shows after the collection date and those kept off, with their
-  origin; **Exclude** takes an automatic one off and **Follow the rules**
+- Site → Works uploads after the collection date (titled with that date)
+  lists the uploads the Works page shows after it and those kept off, with
+  their origin, the newest 200 with the count of all; **Exclude** takes an automatic one off and **Follow the rules**
   clears a decision. The video editor's **Works page** field includes or
   excludes any video.
 - Source tabs that overflow a phone screen scroll within their row instead

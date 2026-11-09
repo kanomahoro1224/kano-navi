@@ -259,9 +259,11 @@ availability, translations, sourceLanguage}`. Uploads with neither are left
 out. A stored video's title is its shown one (an operator's correction
 first); raw JSON and thumbnails' source URLs never appear.
 
-`recent` lists, newest first, the stored videos dated after `updatedAt` that
-the page shows above the list, derived on each read under the rules in
-[Uploads after the collection date](../development/works-archive.md#uploads-after-the-collection-date).
+`recent` lists, newest first, at most 48 of the stored videos dated after
+`updatedAt` that the page shows above the list, derived on each read under
+the rules in
+[Uploads after the collection date](../development/works-archive.md#uploads-after-the-collection-date);
+`recentTotal` counts them all.
 Each is `{id, source, title, url, publishedAt, cover, origin, translations,
 sourceLanguage, alternates}`: `source` is `youtube` or `bilibili`,
 `publishedAt` is a premiere's scheduled time or the publish time, `cover`

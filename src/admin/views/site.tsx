@@ -214,7 +214,6 @@ function VariantsPanel({
     <Panel
       icon={Images}
       title={t("admin.site.variants")}
-      description={t("admin.site.variantsDescription")}
       actions={
         <>
           <Button
@@ -351,7 +350,6 @@ function WorksCoversPanel({
     <Panel
       icon={Clapperboard}
       title={t("admin.site.worksCovers")}
-      description={t("admin.site.worksCoversDescription")}
       actions={
         <>
           <Button
@@ -516,8 +514,7 @@ function WorksRecentPanel({
   return (
     <Panel
       icon={ListMusic}
-      title={t("admin.site.worksRecent")}
-      description={t("admin.site.worksRecentDescription", {
+      title={t("admin.site.worksRecent", {
         date: report?.updatedAt ?? "—",
       })}
     >
@@ -593,6 +590,14 @@ function WorksRecentPanel({
               : null}
         </p>
       )}
+      {report && report.total > items.length ? (
+        <p className="adm-field-hint">
+          {t("admin.site.worksRecentLimit", {
+            count: items.length,
+            total: report.total,
+          })}
+        </p>
+      ) : null}
       <p className="adm-field-hint">{t("admin.site.worksRecentHint")}</p>
     </Panel>
   )

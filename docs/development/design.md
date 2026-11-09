@@ -67,6 +67,11 @@ introduce a separate token system for a single page.
   of the albums including the recording and, for an upload of many songs,
   a list mark opens its numbered songs; and a
   printed sleeve in one of the palette's tones where no thumbnail is saved.
+  Uploads after the collection date sit above the toolbar like a year of
+  the list, the heading in its side column, each card with an outlined mark
+  under its title for found automatically or added by hand (in clay); two
+  rows of the grid, or four of the phone list, show until a pill under them
+  opens the rest.
   The order is a single icon that ends the toolbar's row; search and
   narrowing toggles join that row on a wide screen and take a second row
   otherwise, and search shows focus by thickening its clay underline rather

@@ -89,9 +89,10 @@ func TestWorksUploadsListRecentUploadsWithPublicFieldsOnly(t *testing.T) {
 			t.Fatalf("works uploads leaked %q: %s", leak, body)
 		}
 	}
-	recent := decodeObject(t, recorder)["recent"].([]any)
-	if len(recent) != 2 {
-		t.Fatalf("recent=%#v", recent)
+	payload := decodeObject(t, recorder)
+	recent := payload["recent"].([]any)
+	if len(recent) != 2 || payload["recentTotal"] != float64(2) {
+		t.Fatalf("recent=%#v total=%v", recent, payload["recentTotal"])
 	}
 	keys := func(item map[string]any) string {
 		names := []string{}

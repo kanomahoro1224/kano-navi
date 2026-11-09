@@ -914,9 +914,10 @@ YouTube videos than the one it is merged into, or with stored ones while it
 is unmerged. Each item is `{upload, bilibili, mergedInto, worksYoutube}`. The
 list only reports; the Review queue's merge decisions show the items.
 
-`GET /videos/works-recent` lists, newest first, the videos dated after the
-packaged Works list's `updatedAt` (also returned) that the Works page shows,
-and those the operator's Works decision keeps out, under the rules in
+`GET /videos/works-recent` lists, newest first, at most 200 of the videos
+dated after the packaged Works list's `updatedAt` (also returned) that the
+Works page shows, and those the operator's Works decision keeps out, with
+`total` counting them all, under the rules in
 [Uploads after the collection date](../development/works-archive.md#uploads-after-the-collection-date).
 Each item is `{id, source, title, url, publishedAt, scheduledAt, kind, tag,
 isShort, availability, work, origin, thumbnailUrl}`: `work` is the decision

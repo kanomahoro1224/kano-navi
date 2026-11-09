@@ -356,7 +356,11 @@ export function UploadsView() {
   return (
     <>
       {overlay ? (
-        <RecentUploads items={recent} updatedAt={overlay.updatedAt} />
+        <RecentUploads
+          items={recent}
+          total={Math.max(recent.length, overlay.recentTotal ?? 0)}
+          updatedAt={overlay.updatedAt}
+        />
       ) : null}
       <div className="works-toolbar">
         <FilterButtons

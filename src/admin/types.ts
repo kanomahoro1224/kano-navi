@@ -1117,7 +1117,10 @@ export interface WorksRecentItem {
 export interface WorksRecentReport {
   /** The Japan date the packaged collection was checked through. */
   updatedAt: string
+  /** The newest of them, at most 200. */
   items: WorksRecentItem[]
+  /** How many are listed or excluded in all. */
+  total: number
 }
 
 export interface AdminVideosPage extends Page<AdminVideo> {

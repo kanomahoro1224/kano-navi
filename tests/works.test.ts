@@ -38,6 +38,7 @@ import {
   uploadLinks,
 } from "../src/works/content.ts"
 import {
+  foldedCount,
   japanDay,
   recentLinks,
   recentUploads,
@@ -1334,6 +1335,13 @@ test("recent uploads keep well-formed items and link each site once", () => {
   assert.equal(japanDay(item.publishedAt), "2026-07-01")
   assert.equal(japanDay(null), "")
   assert.equal(japanDay("not a date"), "")
+})
+
+test("the newer uploads fold to two grid rows, or four list rows", () => {
+  assert.equal(foldedCount(4), 8)
+  assert.equal(foldedCount(3), 6)
+  assert.equal(foldedCount(1), 4)
+  assert.equal(foldedCount(0), 4)
 })
 
 test("the server's works index matches the packaged uploads", async () => {

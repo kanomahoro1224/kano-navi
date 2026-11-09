@@ -161,6 +161,9 @@ export const worksMessages = {
     "works.recent.since": "{date} 之后 · {count} 首",
     "works.recent.note":
       "收录日期之后的投稿，由本站自动识别或手动添加，尚未整理进下方的列表。",
+    "works.recent.more": "再显示 {count} 首",
+    "works.recent.fewer": "收起",
+    "works.recent.limit": "仅显示最新的 {count} 首。",
     "works.recent.origin.auto": "自动识别",
     "works.recent.origin.operator": "手动添加",
     "works.recent.originHint.auto": "自动识别为歌曲投稿，尚未收录",
@@ -324,6 +327,9 @@ export const worksMessages = {
     "works.recent.since": "{date}以降 · {count} 曲",
     "works.recent.note":
       "収録日以降の投稿です。このサイトが自動で見つけたもの、または手動で追加したもので、下の一覧にはまだ入っていません。",
+    "works.recent.more": "あと {count} 曲を表示",
+    "works.recent.fewer": "閉じる",
+    "works.recent.limit": "最新の {count} 曲だけを表示しています。",
     "works.recent.origin.auto": "自動検出",
     "works.recent.origin.operator": "手動追加",
     "works.recent.originHint.auto": "歌の投稿として自動で検出、まだ未収録",
@@ -490,6 +496,10 @@ export const worksMessages = {
       `After ${date} · ${count} ${count === 1 ? "song" : "songs"}`,
     "works.recent.note":
       "Posted after the collection date and not yet checked into the list below: found automatically or added by hand.",
+    "works.recent.more": ({ count }: { count: any }) =>
+      `Show ${count} more ${count === 1 ? "song" : "songs"}`,
+    "works.recent.fewer": "Show fewer",
+    "works.recent.limit": "Only the newest {count} are shown.",
     "works.recent.origin.auto": "Found automatically",
     "works.recent.origin.operator": "Added by hand",
     "works.recent.originHint.auto":

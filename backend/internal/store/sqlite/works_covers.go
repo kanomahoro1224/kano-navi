@@ -537,9 +537,11 @@ type WorksUpload struct {
 // has one, its cover and its stored videos, and the recent uploads dated
 // after the list (works_recent.go), newest first.
 type WorksOverlay struct {
-	Uploads  []WorksUpload
-	Recent   []WorksRecentUpload
-	Revision int64
+	Uploads []WorksUpload
+	Recent  []WorksRecentUpload
+	// RecentTotal counts the recent uploads beyond Recent's bound.
+	RecentTotal int
+	Revision    int64
 }
 
 // GetWorksOverlay joins the works list with stored videos and images by
@@ -590,7 +592,7 @@ func (s *Store) GetWorksOverlay(ctx context.Context, index works.Index) (*WorksO
 	for k, ref := range refs {
 		out.Uploads[slots[k].upload].Videos[slots[k].video].Translations = ref.Translations
 	}
-	if out.Recent, err = s.worksRecentUploads(ctx, index, state.now); err != nil {
+	if out.Recent, out.RecentTotal, err = s.worksRecentUploads(ctx, index, state.now); err != nil {
 		return nil, err
 	}
 	if out.Revision, err = s.GetDashboardRevision(ctx); err != nil {

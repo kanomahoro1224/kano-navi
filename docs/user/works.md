@@ -94,8 +94,9 @@ appear above the list under **Newer uploads**, newest first: song uploads
 and premieres the site finds by itself are marked **Found automatically**,
 and those the site's editor adds are marked **Added by hand**. Each shows
 its thumbnail once the site has saved it, otherwise a printed sleeve, with a
-mark for each site it is on. Newer uploads take no part in the filters,
-search or counts, and they move into the list when the collection is next
+mark for each site it is on. Two rows show at first, and the button
+under them opens the rest, up to the newest 48. Newer uploads take no part in the
+filters, search or counts, and they move into the list when the collection is next
 updated. Songs posted only where this site does not look, such as niconico,
 wait for that update.
 

@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -42,7 +43,7 @@ func recentVideo(t *testing.T, s *Store, id, source, published, kind, tag string
 
 func recentIDs(t *testing.T, s *Store) map[string]string {
 	t.Helper()
-	recent, err := s.worksRecentUploads(context.Background(), recentIndex, recentNow)
+	recent, _, err := s.worksRecentUploads(context.Background(), recentIndex, recentNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +106,7 @@ func TestWorksRecentUploadsFollowEachRule(t *testing.T) {
 		}
 	}
 
-	recent, err := s.worksRecentUploads(context.Background(), recentIndex, recentNow)
+	recent, _, err := s.worksRecentUploads(context.Background(), recentIndex, recentNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +133,7 @@ func TestWorksRecentUploadsFollowEachRule(t *testing.T) {
 	}
 	// A release that moves the date drops the earlier videos without cleanup.
 	moved := works.Index{UpdatedAt: "2026-07-01"}
-	if recent, err = s.worksRecentUploads(context.Background(), moved, recentNow); err != nil || len(recent) != 1 || recent[0].ID != "AIREDPREMIE" {
+	if recent, _, err = s.worksRecentUploads(context.Background(), moved, recentNow); err != nil || len(recent) != 1 || recent[0].ID != "AIREDPREMIE" {
 		t.Fatalf("after the move recent=%+v err=%v", recent, err)
 	}
 }
@@ -226,7 +227,7 @@ func TestWorksRecentCoverIsTheCachedThumbnail(t *testing.T) {
 		sha256Hex(thumb("CACHEDSONG1")), thumb("CACHEDSONG1"), hash, cache); err != nil {
 		t.Fatal(err)
 	}
-	recent, err := s.worksRecentUploads(context.Background(), recentIndex, recentNow)
+	recent, _, err := s.worksRecentUploads(context.Background(), recentIndex, recentNow)
 	if err != nil || len(recent) != 2 {
 		t.Fatalf("recent=%+v err=%v", recent, err)
 	}
@@ -273,5 +274,36 @@ func TestVideoTagCandidatesAskAboutRecentBilibiliUploadsOnly(t *testing.T) {
 	}
 	if got := asked(""); got != "youtube:YOUTUBEVID1" {
 		t.Fatalf("without a date candidates=%q", got)
+	}
+}
+
+// The Works page reads the newest WorksRecentLimit uploads and the console
+// the newest WorksRecentReportLimit videos, each with how many there are.
+func TestWorksRecentReadsAreBounded(t *testing.T) {
+	s := worksTestStore(t)
+	start := time.Date(2026, 7, 1, 3, 0, 0, 0, time.UTC)
+	tx, err := s.db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range WorksRecentReportLimit + 5 {
+		id := fmt.Sprintf("SONG%07d", i)
+		if _, err = tx.Exec(`INSERT INTO videos(id,source,title,published_at,url,kind,tag,tag_source) VALUES(?,'youtube',?,?,?,'upload','song','title')`,
+			id, id, ISOTime(start.Add(time.Duration(i)*time.Hour)), "https://www.youtube.com/watch?v="+id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	now := start.AddDate(0, 1, 0)
+	recent, total, err := s.worksRecentUploads(context.Background(), recentIndex, now)
+	newest := fmt.Sprintf("SONG%07d", WorksRecentReportLimit+4)
+	if err != nil || len(recent) != WorksRecentLimit || total != WorksRecentReportLimit+5 || recent[0].ID != newest {
+		t.Fatalf("recent=%d total=%d first=%v err=%v", len(recent), total, recent[0].ID, err)
+	}
+	report, err := s.WorksRecentReport(context.Background(), recentIndex, now)
+	if err != nil || len(report.Items) != WorksRecentReportLimit || report.Total != WorksRecentReportLimit+5 || report.Items[0].ID != newest {
+		t.Fatalf("report items=%d total=%d err=%v", len(report.Items), report.Total, err)
 	}
 }

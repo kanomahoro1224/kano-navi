@@ -253,11 +253,16 @@ test("the real admin Site route saves visitor-region settings, makes image copie
     assert.match(text, /LINE BLOG archive4\/ 4 imagesAll copies made/)
     assert.match(text, /Works covers0\/ 2 images2 without copies/)
     assert.match(text, /Journey images1\/ 3 images2 without copies/)
-    const button = (label: string) =>
-      [...root!.container.querySelectorAll("button")].find(
-        (element) => element.textContent === label,
-      )
-    await click(button("Check again"))
+    const button = (label: string, panel?: string) =>
+      [
+        ...(panel
+          ? [...root!.container.querySelectorAll("section.adm-panel")].find(
+              (section) => section.querySelector("h2")?.textContent === panel,
+            )!
+          : root!.container
+        ).querySelectorAll("button"),
+      ].find((element) => element.textContent === label)
+    await click(button("Check again", "Image copies"))
     assert.ok(
       requests.some(
         (request) =>

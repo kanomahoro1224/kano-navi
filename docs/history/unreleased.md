@@ -434,6 +434,8 @@
   the Japanese locale, and bilibili posts offer no X-only actions. Posts
   shows a bilibili forward's forwarded dynamic as its quote, which can be
   hidden from the public pages like an X quote.
+- Site leads with the Works panels, then Image copies, and ends with the
+  mainland China site suggestion.
 - Site → Image copies shows its panel and group meters at once and fills in
   the counts when the listing arrives.
 - Site → Works upload covers counts the uploads with and without a cover,

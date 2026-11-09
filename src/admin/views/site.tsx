@@ -603,9 +603,9 @@ function WorksRecentPanel({
   )
 }
 
-/** The Site page: settings that change what visitors see on the public
- * pages, the image copies the pages are served, and the Works upload
- * covers and recent uploads. */
+/** The Site page: the Works upload covers and recent uploads, the image
+ * copies the pages are served, and, last as the least used, the mainland
+ * China site suggestion. */
 export function SiteView() {
   const { t } = useAppSettings()
   const { api } = useAdmin()
@@ -616,19 +616,6 @@ export function SiteView() {
   return (
     <div className="adm-view">
       <PageHeader title={t("admin.site.title")} />
-      {!region.data ? (
-        <Loading />
-      ) : (
-        <VisitorRegionPanel
-          settings={region.data}
-          onChange={(next) => region.setData(next)}
-        />
-      )}
-      <VariantsPanel
-        status={variants.data}
-        loading={variants.loading}
-        onChange={(next) => variants.setData(next)}
-      />
       <WorksCoversPanel
         status={covers.data}
         loading={covers.loading}
@@ -639,6 +626,19 @@ export function SiteView() {
         loading={recent.loading}
         onChange={recent.reload}
       />
+      <VariantsPanel
+        status={variants.data}
+        loading={variants.loading}
+        onChange={(next) => variants.setData(next)}
+      />
+      {!region.data ? (
+        <Loading />
+      ) : (
+        <VisitorRegionPanel
+          settings={region.data}
+          onChange={(next) => region.setData(next)}
+        />
+      )}
     </div>
   )
 }

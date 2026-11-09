@@ -982,6 +982,12 @@ export interface AdminVideo {
   sourceAvailability: VideoAvailability | null
   manualAvailability: VideoAvailability | null
   /**
+   * The Works decision: true lists the video among the Works page's uploads
+   * after the collection date, false keeps it out, null leaves it to its
+   * tag, form and format.
+   */
+  manualWork: boolean | null
+  /**
    * The shown content tag (game, talk or song): manualTag, else the label of
    * the video's schedule entry, else the title inference's. inferredTagSource
    * is set once the inference judged the video, with or without a tag.
@@ -1085,6 +1091,33 @@ export interface VideoCorrection {
   thumbnail?: VideoThumbnailPin | null
   isShort?: boolean | null
   availability?: VideoAvailability | null
+  work?: boolean | null
+}
+
+/**
+ * A video after the Works collection date: one the Works page lists (origin
+ * auto or operator) or one the operator excluded (origin null).
+ */
+export interface WorksRecentItem {
+  id: string
+  source: string
+  title: string
+  url: string
+  publishedAt: string | null
+  scheduledAt: string | null
+  kind: string | null
+  tag: string | null
+  isShort: boolean | null
+  availability: VideoAvailability | null
+  work: boolean | null
+  origin: "auto" | "operator" | null
+  thumbnailUrl: string | null
+}
+
+export interface WorksRecentReport {
+  /** The Japan date the packaged collection was checked through. */
+  updatedAt: string
+  items: WorksRecentItem[]
 }
 
 export interface AdminVideosPage extends Page<AdminVideo> {

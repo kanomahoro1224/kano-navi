@@ -424,7 +424,8 @@ CREATE TABLE videos (
     tag_source TEXT,
     tag_attempted_at TEXT,
     availability TEXT,
-    manual_availability TEXT
+    manual_availability TEXT,
+    manual_work INTEGER
   );
 
 CREATE TABLE work_cover_lookups (

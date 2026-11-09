@@ -37,6 +37,13 @@ import {
   matches,
   uploadLinks,
 } from "../src/works/content.ts"
+import {
+  japanDay,
+  recentLinks,
+  recentUploads,
+  type WorksRecentUpload,
+  type WorksUploadsOverlay,
+} from "../src/works/use-works-uploads.ts"
 import type {
   ParticipationRelease,
   PersonalEdition,
@@ -1277,6 +1284,56 @@ test("works covers list the server's smaller copies", () => {
   )
   assert.equal(mediaSrcSet("/media/works/0123456789ab.gif", 700), undefined)
   assert.equal(mediaSrcSet("/media/works/../x.png", 700), undefined)
+})
+
+test("recent uploads keep well-formed items and link each site once", () => {
+  const item: WorksRecentUpload = {
+    id: "AAAAAAAAAAA",
+    source: "youtube",
+    title: "synthetic song",
+    url: "https://www.youtube.com/watch?v=AAAAAAAAAAA",
+    publishedAt: "2026-06-30T15:00:00Z",
+    cover: null,
+    origin: "auto",
+    alternates: [
+      {
+        source: "bilibili",
+        url: "https://www.bilibili.com/video/BV1synthetic",
+      },
+      {
+        source: "bilibili",
+        url: "https://www.bilibili.com/video/BV1synthetic",
+      },
+      { source: "niconico", url: "https://www.nicovideo.jp/watch/sm9" },
+    ],
+  }
+  const overlay = {
+    updatedAt: "2026-06-30",
+    revision: 1,
+    uploads: {},
+    recent: [item, { ...item, id: "x", source: "niconico" }],
+  } as unknown as WorksUploadsOverlay
+  assert.deepEqual(
+    recentUploads(overlay).map((upload) => upload.id),
+    ["AAAAAAAAAAA"],
+  )
+  // An older server without the field lists none.
+  assert.deepEqual(recentUploads({ ...overlay, recent: undefined }), [])
+  assert.deepEqual(recentUploads(undefined), [])
+  assert.deepEqual(recentLinks(item), [
+    {
+      platform: "youtube",
+      href: "https://www.youtube.com/watch?v=AAAAAAAAAAA",
+    },
+    {
+      platform: "bilibili",
+      href: "https://www.bilibili.com/video/BV1synthetic",
+    },
+  ])
+  // Dates are Japan dates: 15:00 UTC is the next day in Tokyo.
+  assert.equal(japanDay(item.publishedAt), "2026-07-01")
+  assert.equal(japanDay(null), "")
+  assert.equal(japanDay("not a date"), "")
 })
 
 test("the server's works index matches the packaged uploads", async () => {

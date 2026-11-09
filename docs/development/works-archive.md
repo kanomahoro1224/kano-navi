@@ -120,9 +120,49 @@ a merge; a stored bilibili upload whose merge disagrees with the list's
 pairing is listed for the operator
 ([Admin API](../architecture/admin-api.md#videos)).
 
-Uploads posted after `updatedAt` are not added to the list automatically: the
-page names the date and links to the board's video archive, filtered to
-songs.
+## Uploads After the Collection Date
+
+The packaged list stops at `updatedAt`. The server lists the uploads posted
+after it on each read of `GET /api/works/uploads` (as `recent`, see
+[Public API](../architecture/public-api.md#works-uploads)) and stores no
+list of its own. A stored video is listed when all of these hold:
+
+1. its Japan date, `COALESCE(scheduled_at, published_at)` in Asia/Tokyo, is
+   after `updatedAt`;
+2. it is a YouTube video or a Bilibili upload whose shown availability is
+   not `private` or `removed`, and it is no longer upcoming (a waiting
+   premiere appears once it has aired);
+3. it is not merged into another video (a merged Bilibili upload is its
+   YouTube video's alternate);
+4. its ID is not a video of `videos.json`, so a late re-upload of a listed
+   work stays out;
+5. the operator's Works decision (`videos.manual_work`) includes it, or,
+   without a decision, its shown content tag is `song`, its form is
+   `upload` or `premiere`, and it is not a Short.
+
+Rule 2 admits unmerged Bilibili uploads for this list alone: the board, the
+video archive and MCP keep listing YouTube videos only. The title inference
+also asks about unmerged Bilibili uploads dated after `updatedAt` (see
+[Video form and tags](../architecture/data-model.md#video-form-and-tags)),
+so a Bilibili-only song upload can be listed without the operator.
+
+The decision is the operator's override of rule 5. Include lists a song the
+tag missed; exclude takes off a video tagged `song` that is not a work, such
+as an album trailer or a crossfade. Neither overrides rules 1 to 4: a
+decision on an earlier video stays stored and has no effect. The Site page
+of the console lists the listed and excluded videos with their origin, and
+the video editor sets the decision on any video
+([Admin API](../architecture/admin-api.md#videos)); a change advances the
+dashboard revision.
+
+A release that moves `updatedAt` drops the earlier videos by rule 1, and
+rule 4 drops those the new list names; nothing is cleaned up. Covers are the
+videos' cached thumbnails; no lookup or download runs for them. The page
+shows the listed videos as their own block above the packaged list, each
+marked as found automatically or added by hand, outside the kind filters
+and the header's counts. Works no source reads, such as a niconico-only
+upload or one on another creator's channel, wait for the next collection
+update.
 
 ## Store Listings
 

@@ -45,7 +45,7 @@ func olderSnapshot(t *testing.T) (string, string) {
 		`DROP INDEX videos_merged_into_idx`, `ALTER TABLE videos DROP COLUMN merged_into`, `ALTER TABLE videos DROP COLUMN merge_source`,
 		`ALTER TABLE videos DROP COLUMN merge_reason`, `ALTER TABLE videos DROP COLUMN merged_at`,
 		`ALTER TABLE videos DROP COLUMN is_short`, `ALTER TABLE videos DROP COLUMN manual_is_short`, `ALTER TABLE videos DROP COLUMN is_premiere`,
-		`ALTER TABLE videos DROP COLUMN manual_tag`, `ALTER TABLE videos DROP COLUMN tag`, `ALTER TABLE videos DROP COLUMN tag_source`, `ALTER TABLE videos DROP COLUMN tag_attempted_at`, `ALTER TABLE videos DROP COLUMN availability`, `ALTER TABLE videos DROP COLUMN manual_availability`,
+		`ALTER TABLE videos DROP COLUMN manual_tag`, `ALTER TABLE videos DROP COLUMN tag`, `ALTER TABLE videos DROP COLUMN tag_source`, `ALTER TABLE videos DROP COLUMN tag_attempted_at`, `ALTER TABLE videos DROP COLUMN availability`, `ALTER TABLE videos DROP COLUMN manual_availability`, `ALTER TABLE videos DROP COLUMN manual_work`,
 		// Title kinds move to the form and content layers: an operator's content
 		// kind becomes a manual tag, and a scheduled title kind was a premiere's.
 		`INSERT INTO videos(id,source,title,published_at,scheduled_at,url,kind,manual_kind) VALUES('KKKKKKKKKKK','youtube','game stream','2026-03-01T00:00:00.000Z','2026-03-01T09:00:00.000Z','https://www.youtube.com/watch?v=KKKKKKKKKKK','LIVE ARCHIVE','GAMEPLAY')`,
@@ -105,8 +105,11 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 		`SELECT COUNT(*) FROM pragma_table_info('media_assets') WHERE name IN('retry_attempts','next_retry_at')`:             "2",
 		`SELECT period_start||'/'||period_end||'/'||period_basis||'/'||asset_version FROM assets WHERE id='synthetic-board'`: "2026-03-02/2026-03-08/legacy/1",
 		`SELECT COUNT(*) FROM pragma_table_info('assets') WHERE name='manual_image_at'`:                                      "1",
-		`SELECT account_handle FROM posts WHERE id='synthetic-post'`:                                                         "synthetic_handle",
-		`SELECT text FROM posts WHERE id='synthetic-post'`:                                                                   "retained",
+		// An older snapshot gains the Works decision without one for any video.
+		`SELECT COUNT(*)||'/'||COUNT(manual_work) FROM videos WHERE id='BV1synthetic0'`: "1/0",
+		`SELECT COUNT(*) FROM pragma_table_info('videos') WHERE name='manual_work'`:     "1",
+		`SELECT account_handle FROM posts WHERE id='synthetic-post'`:                    "synthetic_handle",
+		`SELECT text FROM posts WHERE id='synthetic-post'`:                              "retained",
 		// An older failure starts without a backoff: the next scan retries it.
 		`SELECT status||'/'||failure_count||'/'||COALESCE(failure_fingerprint,next_attempt_at,'none') FROM post_llm_states WHERE post_id='synthetic-post'`: "failed/0/none",
 		`SELECT title||'/'||COALESCE(merged_into,merge_source,merge_reason,merged_at,'unmerged') FROM events WHERE id='synthetic-event'`:                   "retained/unmerged",

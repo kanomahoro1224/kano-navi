@@ -19,10 +19,19 @@ import {
 } from "@/site/links"
 import data from "./uploads.json" with { type: "json" }
 import { mediaSrcSet } from "@/lib/media"
-import { byDate, dayLabel, groupByYear, matches, uploadLinks } from "./content"
+import {
+  byDate,
+  dayLabel,
+  groupByYear,
+  matches,
+  uploadLinks,
+  uploadTone,
+} from "./content"
+import { RecentUploads } from "./recent-uploads"
 import type { Upload } from "./types"
 import {
   durationLabel,
+  recentUploads,
   useWorksUploads,
   videoGone,
   type WorksUploadState,
@@ -64,13 +73,6 @@ function watchLabel(
     platform: t(`works.platform.${link.platform}`),
     title: upload.song,
   })
-}
-
-/** One of the page's tones, the same for an upload on every visit. */
-export function uploadTone(id: string) {
-  let hash = 0
-  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-  return hash % 5
 }
 
 /**
@@ -319,7 +321,9 @@ function UploadLinks({
 export function UploadsView() {
   const { t } = useAppSettings()
   const status = useWorksUploads()
-  const stored = status.state === "ready" ? status.overlay.uploads : undefined
+  const overlay = status.state === "ready" ? status.overlay : undefined
+  const stored = overlay?.uploads
+  const recent = recentUploads(overlay)
   const loading = status.state === "loading"
   const [filter, setFilter] = useState<KindFilter>("all")
   const [onlyLoose, setOnlyLoose] = useState(false)
@@ -351,6 +355,9 @@ export function UploadsView() {
   const shown = groups.reduce((sum, group) => sum + group.items.length, 0)
   return (
     <>
+      {overlay ? (
+        <RecentUploads items={recent} updatedAt={overlay.updatedAt} />
+      ) : null}
       <div className="works-toolbar">
         <FilterButtons
           label={t("works.kindFilter")}

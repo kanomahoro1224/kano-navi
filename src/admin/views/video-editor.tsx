@@ -45,6 +45,10 @@ const videoAvailabilities: VideoAvailability[] = [
   "removed",
 ]
 
+/** A Works choice: empty follows the rules, otherwise include or exclude. */
+const workChoice = (work: boolean | null) =>
+  work === null ? "" : work ? "include" : "exclude"
+
 /** A format choice: empty follows the feed, otherwise Short or not. */
 const formatChoice = (isShort: boolean | null) =>
   isShort === null ? "" : isShort ? "short" : "regular"
@@ -188,6 +192,7 @@ export function VideoEditor({
     thumbnail: string
     format: string
     availability: string
+    work: string
   } | null>(null)
   const [busy, setBusy] = useState<"" | "save" | "refresh">("")
   // A refresh request changes the listed row even when nothing is saved.
@@ -204,6 +209,7 @@ export function VideoEditor({
         thumbnail: pinKey(data.video.manualThumbnail),
         format: formatChoice(data.video.manualIsShort),
         availability: data.video.manualAvailability ?? "",
+        work: workChoice(data.video.manualWork),
       })
   }, [data, draft])
 
@@ -220,6 +226,7 @@ export function VideoEditor({
       thumbnail: file ? { mediaId: file.mediaId, sha256: file.sha256 } : null,
       isShort: draft.format ? draft.format === "short" : null,
       availability: (draft.availability || null) as VideoAvailability | null,
+      work: draft.work ? draft.work === "include" : null,
     }
     setBusy("save")
     const result = await act(
@@ -282,6 +289,7 @@ export function VideoEditor({
         draft.thumbnail,
         draft.format,
         draft.availability,
+        draft.work,
       ].filter(Boolean).length
     : 0
   return (
@@ -512,6 +520,29 @@ export function VideoEditor({
                           {t(`admin.videos.availability.${value}`)}
                         </option>
                       ))}
+                    </select>
+                  </CorrectionField>
+                  {/* Only videos after the Works collection date are listed. */}
+                  <CorrectionField
+                    id={`${fieldId}-work`}
+                    label={t("admin.videos.field.work")}
+                    corrected={Boolean(draft.work)}
+                    onReset={() => setDraft({ ...draft, work: "" })}
+                  >
+                    <select
+                      id={`${fieldId}-work`}
+                      value={draft.work}
+                      onChange={(e) =>
+                        setDraft({ ...draft, work: e.target.value })
+                      }
+                    >
+                      <option value="">{t("admin.videos.work.auto")}</option>
+                      <option value="include">
+                        {t("admin.videos.work.include")}
+                      </option>
+                      <option value="exclude">
+                        {t("admin.videos.work.exclude")}
+                      </option>
                     </select>
                   </CorrectionField>
                 </div>

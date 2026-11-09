@@ -126,6 +126,10 @@ type AdminVideo struct {
 	Availability       *string `json:"availability"`
 	SourceAvailability *string `json:"sourceAvailability"`
 	ManualAvailability *string `json:"manualAvailability"`
+	// ManualWork is the operator's Works decision: true includes the video
+	// among the Works page's recent uploads, false excludes it, nil leaves
+	// it to the rules (works_recent.go).
+	ManualWork *bool `json:"manualWork"`
 	// Tag is the shown content tag: ManualTag, else ScheduleTag (the label of
 	// the video's schedule entry), else InferredTag (the title inference's,
 	// with InferredTagSource set once the video was judged, tag or none).
@@ -747,20 +751,20 @@ var adminVideoColumns = `v.id,v.source,v.title,v.published_at,v.scheduled_at,v.u
  v.manual_title,v.manual_kind,v.manual_thumbnail_media_id,v.manual_thumbnail_sha256,v.duration_seconds,v.live_checked_at,v.refresh_requested_at,
  (SELECT COUNT(*) FROM video_revisions r WHERE r.video_id=v.id),
  v.merged_into,(SELECT COALESCE(t.manual_title,t.title) FROM videos t WHERE t.id=v.merged_into),v.merge_source,v.merge_reason,v.merged_at,v.is_short,v.manual_is_short,
- v.manual_tag,` + videoEventTagSQL("v") + `,v.tag,v.tag_source,v.availability,v.manual_availability`
+ v.manual_tag,` + videoEventTagSQL("v") + `,v.tag,v.tag_source,v.availability,v.manual_availability,v.manual_work`
 
 func scanAdminVideo(row scanner) (AdminVideo, error) {
 	var v AdminVideo
 	var published, scheduled, thumbnail, kind, manualTitle, manualKind, pinMedia, pinHash, checked, requested sql.NullString
 	var mergedInto, mergedTitle, mergeSource, mergeReason, mergedAt sql.NullString
 	var duration sql.NullInt64
-	var short, manualShort sql.NullBool
+	var short, manualShort, manualWork sql.NullBool
 	var manualTag, scheduleTag, inferredTag, inferredSource, availability, manualAvailability sql.NullString
 	var upcoming int
 	if err := row.Scan(&v.ID, &v.Source, &v.SourceTitle, &published, &scheduled, &v.URL, &thumbnail, &kind, &upcoming,
 		&manualTitle, &manualKind, &pinMedia, &pinHash, &duration, &checked, &requested, &v.Revisions,
 		&mergedInto, &mergedTitle, &mergeSource, &mergeReason, &mergedAt, &short, &manualShort,
-		&manualTag, &scheduleTag, &inferredTag, &inferredSource, &availability, &manualAvailability); err != nil {
+		&manualTag, &scheduleTag, &inferredTag, &inferredSource, &availability, &manualAvailability, &manualWork); err != nil {
 		return AdminVideo{}, err
 	}
 	v.MergedInto, v.MergedIntoTitle, v.MergeSource = nullString(mergedInto), nullString(mergedTitle), nullString(mergeSource)
@@ -789,6 +793,7 @@ func scanAdminVideo(row scanner) (AdminVideo, error) {
 	if v.ManualIsShort != nil {
 		v.IsShort = v.ManualIsShort
 	}
+	v.ManualWork = nullBool(manualWork)
 	v.SourceAvailability, v.ManualAvailability = nullString(availability), nullString(manualAvailability)
 	v.Availability = v.SourceAvailability
 	if v.ManualAvailability != nil {

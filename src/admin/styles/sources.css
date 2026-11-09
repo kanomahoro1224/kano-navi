@@ -477,6 +477,20 @@
   overflow-wrap: anywhere;
 }
 
+/* The Works uploads after the collection date: each video beside its
+   state and decision, stacked in a narrow column. */
+.adm-works-recent > li {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .adm-works-recent > li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Limits in a narrow column: one field per row, the label beside its
    input and the hint below both. */
 .adm-limit-rows {

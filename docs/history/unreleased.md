@@ -138,6 +138,16 @@
 > still missing and starts a media step to fill them. The admin API adds
 > `GET /media/works-covers`.
 
+> [!NOTE]
+> Startup adds the empty `videos.manual_work` column without rewriting
+> videos. `GET /api/works/uploads` adds `recent`, the uploads after the Works
+> collection date, which can include a Bilibili upload merged into nothing;
+> the board, the video archive and MCP still list YouTube videos only. Admin
+> videos add `manualWork`, `PUT /videos/{id}` accepts `work`, and the admin
+> API adds `GET /videos/works-recent`. The title inference also asks about
+> unmerged Bilibili uploads dated after the collection date, a few more
+> model calls once such uploads are stored.
+
 <details>
 <summary><strong>Public pages</strong></summary>
 
@@ -217,6 +227,12 @@
   site knows shows its length and whether it can still be watched, a disc
   beside an upload's title lists the albums that later included it. The page
   header names the date the whole collection covers.
+- Uploads posted after the Works collection date appear above the uploads
+  list as their own block: song uploads and premieres the site finds by
+  their content tag, Bilibili-only ones included, and those the operator
+  adds, each marked as found automatically or added by hand, with its
+  cached thumbnail and site links. The block takes no part in the filters
+  or counts, and a release that moves the date leaves it to the list.
 - A Works release's sheet and the Works and Journey image viewers keep one
   size whatever the release or image; on a wide screen the release's cover
   and figures stay on the left while its tracklist and details scroll beside
@@ -244,6 +260,9 @@
 <details>
 <summary><strong>Synchronization and extraction</strong></summary>
 
+- The title inference also tags Bilibili uploads dated after the Works
+  collection date that are merged into nothing, so the Works page can find
+  a Bilibili-only song; older Bilibili uploads are still not asked about.
 - The extraction prompt defines each event type and returns one entry per
   sale period with its opening and its close, instead of separate entries
   of mixed types for the opening and the deadline.
@@ -375,6 +394,11 @@
   lists each upload still without one with its videos (gone, waiting with
   the last error and retry time, or still to try), and **Fill missing
   covers** runs the media step once.
+- Site → Works uploads after the collection date lists the uploads the Works
+  page shows after the collection date and those kept off, with their
+  origin; **Exclude** takes an automatic one off and **Follow the rules**
+  clears a decision. The video editor's **Works page** field includes or
+  excludes any video.
 - Source tabs that overflow a phone screen scroll within their row instead
   of widening the page.
 - The schedule marks an automatic entry whose every source post is hidden

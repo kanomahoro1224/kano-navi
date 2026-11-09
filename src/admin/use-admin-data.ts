@@ -78,6 +78,7 @@ import type {
   VideoMergeSuggestion,
   WorksCoverStatus,
   WorksMergeConflict,
+  WorksRecentReport,
   SyncSettingField,
   SyncSettings,
   YTDLPStatus,
@@ -396,6 +397,7 @@ function createClient(run: Runner, slow: Runner) {
     videoMerges: () => get<{ items: VideoMergeSuggestion[] }>("/videos/merges"),
     worksConflicts: () =>
       get<{ items: WorksMergeConflict[] }>("/videos/works-conflicts"),
+    worksRecent: () => get<WorksRecentReport>("/videos/works-recent"),
     /** One upload's merge state and candidates, whatever its state. */
     uploadMerges: (id: string) =>
       get<{ items: VideoMergeSuggestion[] }>(`/videos/${enc(id)}/merges`),

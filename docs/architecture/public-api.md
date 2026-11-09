@@ -257,9 +257,23 @@ a local `/media/<id>?v=<sha256>` URL with smaller copies, or `null`) and
 as `{source, id, title, url, publishedAt, scheduledAt, durationSeconds,
 availability, translations, sourceLanguage}`. Uploads with neither are left
 out. A stored video's title is its shown one (an operator's correction
-first); raw JSON, thumbnails' source URLs and videos outside the list never
-appear. The read revalidates through its [ETag](#public-snapshot-contract)
-and never fetches platforms.
+first); raw JSON and thumbnails' source URLs never appear.
+
+`recent` lists, newest first, the stored videos dated after `updatedAt` that
+the page shows above the list, derived on each read under the rules in
+[Uploads after the collection date](../development/works-archive.md#uploads-after-the-collection-date).
+Each is `{id, source, title, url, publishedAt, cover, origin, translations,
+sourceLanguage, alternates}`: `source` is `youtube` or `bilibili`,
+`publishedAt` is a premiere's scheduled time or the publish time, `cover`
+is its ready cached thumbnail in the shape above or `null`, `origin` is
+`auto` (listed by its tag, form and format) or `operator` (an operator's
+decision includes it), and `alternates` names, for a YouTube video, its
+merged Bilibili uploads as `{source, url}`. A Bilibili upload that is merged
+into nothing appears here although the board, the video archive and MCP
+never list one. No kind, artist, credits or albums are inferred, and the
+operator's decision itself, availability and counters stay out. Other videos
+outside the list never appear. The read revalidates through its
+[ETag](#public-snapshot-contract) and never fetches platforms.
 
 ## Public Feeds
 

@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 // Translator is the machine translation step. It translates X post and
@@ -210,15 +211,20 @@ func (t *Translator) inferTags(ctx context.Context) (events, videos map[string]a
 	if limit -= len(entries); limit < 1 {
 		return events, videos, nil
 	}
-	uploads, err := e.store.ListVideoTagCandidates(ctx, from, retryBefore, limit)
+	// The Works page's recent uploads also ask about Bilibili uploads dated
+	// after its packaged list.
+	uploads, err := e.store.ListVideoTagCandidates(ctx, from, works.Packaged().UpdatedAt, retryBefore, limit)
 	if err != nil {
 		return events, videos, err
 	}
 	jobs = make([]tagJob, 0, len(uploads))
 	for _, item := range uploads {
-		id := item.ID
+		id, platform := item.ID, "YouTube"
+		if item.Source == "bilibili" {
+			platform = "Bilibili"
+		}
 		jobs = append(jobs, tagJob{
-			title: item.Title, platform: "YouTube",
+			title: item.Title, platform: platform,
 			record: func(tag *string) error { _, err := e.store.RecordVideoTag(ctx, id, tag, e.now()); return err },
 			fail:   func() error { return e.store.RecordVideoTagFailure(ctx, id, e.now()) },
 		})

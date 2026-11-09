@@ -28,8 +28,10 @@ func (a *api) videoHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 // updateVideo accepts { title?, kind?, tag?, availability?, thumbnail?,
-// isShort? }. A string, a { mediaId, sha256 } file from the history or a
-// boolean sets a correction, null clears it, and an omitted field keeps it.
+// isShort?, work? }. A string, a { mediaId, sha256 } file from the history or
+// a boolean sets a correction, null clears it, and an omitted field keeps it.
+// work is the Works decision: true includes the video among the Works page's
+// recent uploads, false excludes it.
 func (a *api) updateVideo(w http.ResponseWriter, r *http.Request) {
 	body, err := httpx.Body(w, r)
 	if err != nil {
@@ -73,17 +75,21 @@ func (a *api) updateVideo(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			in.ThumbnailMediaID, in.ThumbnailSHA256 = &file.MediaID, &file.SHA256
-		case "isShort":
-			in.SetShort = true
-			if jsonNull(raw) {
-				continue
+		case "isShort", "work":
+			var value *bool
+			if !jsonNull(raw) {
+				var flag bool
+				if json.Unmarshal(raw, &flag) != nil {
+					httpx.WriteError(w, httpx.Invalid("%s must be a boolean or null", key))
+					return
+				}
+				value = &flag
 			}
-			var short bool
-			if json.Unmarshal(raw, &short) != nil {
-				httpx.WriteError(w, httpx.Invalid("isShort must be a boolean or null"))
-				return
+			if key == "work" {
+				in.SetWork, in.Work = true, value
+			} else {
+				in.SetShort, in.Short = true, value
 			}
-			in.Short = &short
 		default:
 			httpx.WriteError(w, httpx.Invalid("%s is not supported", key))
 			return
@@ -156,6 +162,17 @@ func (a *api) worksConflicts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+// worksRecent lists the videos after the packaged works list's date that the
+// Works page shows, with their origin, and those an operator excluded.
+func (a *api) worksRecent(w http.ResponseWriter, r *http.Request) {
+	report, err := a.Store.WorksRecentReport(r.Context(), works.Packaged(), a.Now())
+	if err != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, report)
 }
 
 // uploadMerges describes one upload's merge state and candidates, whatever

@@ -360,6 +360,94 @@ span.upload-links {
   color: var(--ink);
 }
 
+/*
+ * The uploads after the collection date sit above the toolbar, laid out like
+ * a year of the list: the heading in the side column, a hairline below.
+ */
+.works-recent {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px 32px;
+  margin: 0 0 32px;
+  padding: 8px 0 40px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.works-recent-label {
+  position: sticky;
+  top: 88px;
+  display: grid;
+  align-self: start;
+  gap: 8px;
+}
+
+.works-recent-label h3 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(24px, 2.6vw, 32px);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+.works-recent-label small {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.works-recent-label p {
+  margin: 0;
+  color: var(--soft);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+/* Found automatically or added by hand: an outlined mark under the title. */
+.works-recent-origin {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--soft);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.works-recent-origin.is-operator {
+  border-color: color-mix(in oklab, var(--works-clay) 45%, transparent);
+  color: var(--works-clay);
+}
+
+.works-recent-origin svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.works-recent .upload-title .translation-mark {
+  margin-left: 4px;
+  vertical-align: 0.1em;
+}
+
+@media (max-width: 720px) {
+  .works-recent {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 0 28px;
+  }
+
+  .works-recent-label {
+    position: static;
+  }
+}
+
 /* On a phone each upload is a row: its thumbnail beside its words. */
 @media (max-width: 560px) {
   .upload-grid {

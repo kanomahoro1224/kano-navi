@@ -534,14 +534,16 @@ type WorksUpload struct {
 }
 
 // WorksOverlay is the store's side of the works list: for each upload that
-// has one, its cover and its stored videos.
+// has one, its cover and its stored videos, and the recent uploads dated
+// after the list (works_recent.go), newest first.
 type WorksOverlay struct {
 	Uploads  []WorksUpload
+	Recent   []WorksRecentUpload
 	Revision int64
 }
 
 // GetWorksOverlay joins the works list with stored videos and images by
-// video ID, on each read. It never writes.
+// video ID and derives the recent uploads, on each read. It never writes.
 func (s *Store) GetWorksOverlay(ctx context.Context, index works.Index) (*WorksOverlay, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
@@ -587,6 +589,9 @@ func (s *Store) GetWorksOverlay(ctx context.Context, index works.Index) (*WorksO
 	}
 	for k, ref := range refs {
 		out.Uploads[slots[k].upload].Videos[slots[k].video].Translations = ref.Translations
+	}
+	if out.Recent, err = s.worksRecentUploads(ctx, index, state.now); err != nil {
+		return nil, err
 	}
 	if out.Revision, err = s.GetDashboardRevision(ctx); err != nil {
 		return nil, err

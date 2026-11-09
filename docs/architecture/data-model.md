@@ -904,6 +904,12 @@ tell keeps the stored value. `manual_availability` is the operator's
 correction with the same values and `NULL` for none; synchronization never
 writes it. Public readers add
 `availability = COALESCE(manual_availability, availability)`.
+`manual_work` is the operator's Works decision: 1 lists the video among the
+Works page's uploads after the collection date, 0 keeps it off, `NULL`
+leaves it to the rules (see
+[Uploads after the collection date](../development/works-archive.md#uploads-after-the-collection-date)).
+Synchronization never writes it, a decision on a video outside the list's
+date or scope stays stored without effect, and no public reader reports it.
 Startup adds the columns, both tables and `video_revisions_video_idx` to
 existing snapshots without rewriting videos or media rows.
 
@@ -951,7 +957,10 @@ category filter.
 
 `tag`, `tag_source` and `tag_attempted_at` follow the entry inference's rules
 (see [Event labels](#event-labels)): the `translate` queue asks about public
-YouTube videos (not merged into another) without a manual tag or judgement,
+YouTube videos, and about Bilibili uploads whose Japan date is after the
+packaged Works list's `updatedAt` and that nobody marked private or removed
+(older Bilibili uploads are never asked about), each not merged into another
+and without a manual tag or judgement,
 whose entries, if any, carry neither a content label, a title judgement nor
 an operator's label, are not merged into such an entry, and are not
 automatic reservations still within the entry inference window. An

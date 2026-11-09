@@ -89,6 +89,16 @@ it to see them in order.
 **Not on an album** keeps only the uploads no album includes, and **Members
 only** keeps the members-only posts. Search by song, artist or partner.
 
+The list runs to the date the page header names. Songs posted after it
+appear above the list under **Newer uploads**, newest first: song uploads
+and premieres the site finds by itself are marked **Found automatically**,
+and those the site's editor adds are marked **Added by hand**. Each shows
+its thumbnail once the site has saved it, otherwise a printed sleeve, with a
+mark for each site it is on. Newer uploads take no part in the filters,
+search or counts, and they move into the list when the collection is next
+updated. Songs posted only where this site does not look, such as niconico,
+wait for that update.
+
 ## Dates and Sources
 
 Dates are the Japan date of first release or upload; an edition that came

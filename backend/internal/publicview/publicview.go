@@ -268,21 +268,44 @@ func Revision(revision int64, since *int64) PublicRevisionResponse {
 	return PublicRevisionResponse{Revision: revision, Changed: changed}
 }
 
+// worksCover is a ready cover's local URL and size, or nil.
+func worksCover(cover *sqlite.WorksCover) any {
+	if cover == nil {
+		return nil
+	}
+	return map[string]any{"url": cover.URL, "width": valueInt(cover.Width), "height": valueInt(cover.Height)}
+}
+
 // WorksUploads is the Works page's view of stored data: for each upload with
 // a ready cover or a stored video, the cover's local URL and size and the
-// videos' public fields. Uploads without either are left out.
+// videos' public fields, and the recent uploads dated after the list. Uploads
+// without either are left out.
 func WorksUploads(index works.Index, overlay *sqlite.WorksOverlay) map[string]any {
 	uploads := map[string]any{}
 	for _, upload := range overlay.Uploads {
-		var cover any
-		if upload.Cover != nil {
-			cover = map[string]any{"url": upload.Cover.URL, "width": valueInt(upload.Cover.Width), "height": valueInt(upload.Cover.Height)}
-		}
+		cover := worksCover(upload.Cover)
 		videos := make([]any, 0, len(upload.Videos))
 		for _, v := range upload.Videos {
 			videos = append(videos, map[string]any{"source": v.Source, "id": v.ID, "title": v.Title, "url": v.URL, "publishedAt": value(v.PublishedAt), "scheduledAt": value(v.ScheduledAt), "durationSeconds": valueInt(v.DurationSeconds), "availability": value(v.Availability), "translations": publicTranslations(v.Translations), "sourceLanguage": value(v.Translations.SourceLanguage)})
 		}
 		uploads[upload.ID] = map[string]any{"cover": cover, "videos": videos}
 	}
-	return map[string]any{"updatedAt": index.UpdatedAt, "revision": overlay.Revision, "uploads": uploads}
+	recent := make([]any, 0, len(overlay.Recent))
+	for _, v := range overlay.Recent {
+		recent = append(recent, map[string]any{
+			"id": v.ID, "source": v.Source, "title": v.Title, "url": v.URL, "publishedAt": worksRecentDate(v),
+			"cover": worksCover(v.Cover), "origin": v.Origin, "translations": publicTranslations(v.Translations),
+			"sourceLanguage": value(v.Translations.SourceLanguage), "alternates": publicAlternates(v.Alternates),
+		})
+	}
+	return map[string]any{"updatedAt": index.UpdatedAt, "revision": overlay.Revision, "uploads": uploads, "recent": recent}
+}
+
+// worksRecentDate is when a recent upload went up: a premiere's scheduled
+// time, else its published time.
+func worksRecentDate(v sqlite.WorksRecentUpload) any {
+	if v.ScheduledAt != nil {
+		return *v.ScheduledAt
+	}
+	return value(v.PublishedAt)
 }

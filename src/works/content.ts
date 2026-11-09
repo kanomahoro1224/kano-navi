@@ -26,6 +26,13 @@ export function coverUrl(cover: WorksCover) {
   return mediaUrl(cover.media)
 }
 
+/** One of the page's tones, the same for an upload on every visit. */
+export function uploadTone(id: string) {
+  let hash = 0
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  return hash % 5
+}
+
 /** MM.DD of a Japan date, shown under its year. */
 export function dayLabel(date: string) {
   const [, month, day] = date.split("-")

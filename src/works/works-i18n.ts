@@ -157,6 +157,14 @@ export const worksMessages = {
     "works.platform.bilibili": "bilibili",
     "works.noLink": "无公开链接",
     "works.videoGone": "已无法观看",
+    "works.recent.title": "最新投稿",
+    "works.recent.since": "{date} 之后 · {count} 首",
+    "works.recent.note":
+      "收录日期之后的投稿，由本站自动识别或手动添加，尚未整理进下方的列表。",
+    "works.recent.origin.auto": "自动识别",
+    "works.recent.origin.operator": "手动添加",
+    "works.recent.originHint.auto": "自动识别为歌曲投稿，尚未收录",
+    "works.recent.originHint.operator": "由本站手动添加，尚未收录",
     "works.uploadsOffline": "暂时无法读取本站的视频封面。",
   },
   ja: {
@@ -312,6 +320,14 @@ export const worksMessages = {
     "works.platform.bilibili": "bilibili",
     "works.noLink": "公開リンクなし",
     "works.videoGone": "視聴できません",
+    "works.recent.title": "新しい投稿",
+    "works.recent.since": "{date}以降 · {count} 曲",
+    "works.recent.note":
+      "収録日以降の投稿です。このサイトが自動で見つけたもの、または手動で追加したもので、下の一覧にはまだ入っていません。",
+    "works.recent.origin.auto": "自動検出",
+    "works.recent.origin.operator": "手動追加",
+    "works.recent.originHint.auto": "歌の投稿として自動で検出、まだ未収録",
+    "works.recent.originHint.operator": "このサイトが手動で追加、まだ未収録",
     "works.uploadsOffline":
       "このサイトの動画サムネイルを読み込めませんでした。",
   },
@@ -469,6 +485,17 @@ export const worksMessages = {
     "works.platform.bilibili": "bilibili",
     "works.noLink": "No public link",
     "works.videoGone": "No longer watchable",
+    "works.recent.title": "Newer uploads",
+    "works.recent.since": ({ date, count }: { date: any; count: any }) =>
+      `After ${date} · ${count} ${count === 1 ? "song" : "songs"}`,
+    "works.recent.note":
+      "Posted after the collection date and not yet checked into the list below: found automatically or added by hand.",
+    "works.recent.origin.auto": "Found automatically",
+    "works.recent.origin.operator": "Added by hand",
+    "works.recent.originHint.auto":
+      "Found automatically as a song upload; not yet in the collection",
+    "works.recent.originHint.operator":
+      "Added by this site by hand; not yet in the collection",
     "works.uploadsOffline": "This site's video thumbnails could not be loaded.",
   },
 }

@@ -775,11 +775,12 @@ translation routes with owner `bilibili_status`.
 | `GET /videos`                | `page`, `pageSize` (≤ 200), `status`, `kind`, `thumbnail`, `source`, `search`, `merge`, `translation`, `queued` | list plus `featuredVideoId`, `featuredVideo` |
 | `PUT /videos/featured`       | `{videoId}` (`null` restores automatic selection)                                                               | `{featuredVideoId}`                          |
 | `GET /videos/{id}/history`   |                                                                                                                 | `{video, revisions, thumbnails}`             |
-| `PUT /videos/{id}`           | `{title?, kind?, tag?, availability?, thumbnail?, isShort?}`                                                    | `{video}`                                    |
+| `PUT /videos/{id}`           | `{title?, kind?, tag?, availability?, thumbnail?, isShort?, work?}`                                             | `{video}`                                    |
 | `POST /videos/{id}/refresh`  |                                                                                                                 | `202 {video, started, run}`                  |
 | `POST /videos/bilibili`      | `{input}` (BV ID or bilibili.com video link)                                                                    | `{video, started, run}`                      |
 | `POST /videos/youtube`       | `{input}` (YouTube video ID or link)                                                                            | `{video, started, run}`                      |
 | `GET /videos/merges`         |                                                                                                                 | `{items}` merge suggestions                  |
+| `GET /videos/works-recent`   |                                                                                                                 | `{updatedAt, items}`                         |
 | `GET /videos/{id}/merges`    |                                                                                                                 | `{items}` for one Bilibili upload            |
 | `POST /videos/{id}/merge`    | `{into}` (YouTube video ID or watch link)                                                                       | `{video}`                                    |
 | `POST /videos/{id}/unmerge`  |                                                                                                                 | `{video}`                                    |
@@ -913,6 +914,18 @@ YouTube videos than the one it is merged into, or with stored ones while it
 is unmerged. Each item is `{upload, bilibili, mergedInto, worksYoutube}`. The
 list only reports; the Review queue's merge decisions show the items.
 
+`GET /videos/works-recent` lists, newest first, the videos dated after the
+packaged Works list's `updatedAt` (also returned) that the Works page shows,
+and those the operator's Works decision keeps out, under the rules in
+[Uploads after the collection date](../development/works-archive.md#uploads-after-the-collection-date).
+Each item is `{id, source, title, url, publishedAt, scheduledAt, kind, tag,
+isShort, availability, work, origin, thumbnailUrl}`: `work` is the decision
+(`true`, `false` or `null`), `origin` is `auto` or `operator` for a listed
+video and `null` for an excluded one, and `thumbnailUrl` is the local URL of
+the ready cached thumbnail or `null`. It reads the snapshot only. The Site
+page lists them, excludes an automatic one and returns a decided one to the
+rules; the video editor's Works page field sets the decision on any video.
+
 ### Video corrections and history
 
 An operator correction replaces a platform value on the board without
@@ -920,13 +933,17 @@ changing it: `title`, `kind`, `isShort`, `availability` and `thumbnailUrl`
 show the correction, while `sourceTitle`, `sourceKind`, `sourceIsShort` and
 `sourceAvailability` keep what the platform reported and `manualTitle`,
 `manualKind`, `manualIsShort`, `manualAvailability` and `manualThumbnail`
-(`{mediaId, sha256}`) are the corrections themselves.
+(`{mediaId, sha256}`) are the corrections themselves. `manualWork` is the
+operator's Works decision (`true` includes the video among the Works page's
+uploads after the collection date, `false` excludes it, `null` leaves it to
+the rules).
 `tag` is the shown content tag: `manualTag`, else `scheduleTag` (the label of
 the video's schedule entry), else `inferredTag` (the title inference's), with
 `inferredTagSource` set once the inference judged the video, with or without
 a tag (see [Video form and tags](data-model.md#video-form-and-tags)).
 `PUT /videos/{id}` sets a field from a string, for `isShort` from a boolean
-(`true` for a Short, `false` for any other upload), or for `thumbnail` from
+(`true` for a Short, `false` for any other upload), for `work` from a
+boolean (`true` includes, `false` excludes), or for `thumbnail` from
 one `{mediaId, sha256}` file listed in the history; `null` clears it and an
 omitted field keeps it. A title is 1–300 characters after trimming; a kind is
 `stream`, `premiere` or `upload`, a tag `game`, `talk` or `song`, and an

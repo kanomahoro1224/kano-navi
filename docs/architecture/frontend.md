@@ -51,10 +51,10 @@ viewer above it. Covers load from `/media/works/<name>`; see
 [Works collection maintenance](../development/works-archive.md). The upload
 section reads [`/api/works/uploads`](public-api.md#works-uploads) once per
 page load (`use-works-uploads.ts`) for the uploads' covers, lengths,
-availability and archive links; until it answers the art stays blank, and a
-failed read keeps the packaged list with printed sleeves. Its archive links
-open the board with `/?archive=videos`, which opens the video archive dialog
-once and leaves `/` in the address. The five
+availability, and for the uploads after the collection
+date, which `recent-uploads.tsx` shows as a block above the toolbar; until
+it answers the art stays blank, and a failed read keeps the packaged list
+with printed sleeves and no newer block. The five
 public pages share `src/site/`: `site-shell.tsx` (header with page navigation and
 Japan clock, footer, skip link, section title, empty and loading states;
 narrow screens show the site name and fold the page links into a menu behind

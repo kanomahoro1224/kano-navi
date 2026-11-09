@@ -3,7 +3,9 @@ import {
   Clapperboard,
   Globe,
   ImageDown,
+  ImageOff,
   Images,
+  ListMusic,
   RefreshCw,
   Save,
 } from "lucide-react"
@@ -16,6 +18,8 @@ import type {
   VisitorRegionSettings,
   WorksCoverStatus,
   WorksCoverVideo,
+  WorksRecentItem,
+  WorksRecentReport,
 } from "@/admin/types"
 import {
   Badge,
@@ -474,15 +478,136 @@ function WorksCoversPanel({
   )
 }
 
+const recentTones: Record<string, Tone> = {
+  auto: "sky",
+  operator: "leaf",
+  excluded: "neutral",
+}
+
+/**
+ * The Works page's uploads after the collection date: the videos it lists,
+ * by their tag, form and format (auto) or by the operator's decision, and
+ * those the operator keeps off. Exclude takes an automatic one off; Follow
+ * the rules clears a decision. A video the rules miss is included from its
+ * video editor.
+ */
+function WorksRecentPanel({
+  report,
+  loading,
+  onChange,
+}: {
+  report: WorksRecentReport | undefined
+  loading: boolean
+  onChange: () => Promise<unknown>
+}) {
+  const { t } = useAppSettings()
+  const { api, act } = useAdmin()
+  const [busy, setBusy] = useState("")
+  const decide = async (item: WorksRecentItem, work: boolean | null) => {
+    setBusy(item.id)
+    const result = await act(
+      () => api.correctVideo(item.id, { work }),
+      "admin.notice.worksDecisionSaved",
+    )
+    if (result) await onChange()
+    setBusy("")
+  }
+  const items = report?.items ?? []
+  return (
+    <Panel
+      icon={ListMusic}
+      title={t("admin.site.worksRecent")}
+      description={t("admin.site.worksRecentDescription", {
+        date: report?.updatedAt ?? "—",
+      })}
+    >
+      {items.length ? (
+        <ol className="adm-works-covers adm-works-recent">
+          {items.map((item) => {
+            const state = item.origin ?? "excluded"
+            return (
+              <li key={item.id}>
+                <span className="adm-merge-video">
+                  <span className="adm-video-thumb">
+                    {item.thumbnailUrl ? (
+                      <img src={item.thumbnailUrl} alt="" loading="lazy" />
+                    ) : (
+                      <ImageOff aria-hidden />
+                    )}
+                  </span>
+                  <span className="adm-merge-video-body">
+                    <a
+                      className="adm-link"
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <strong>{item.title}</strong>
+                    </a>
+                    <small>
+                      {[
+                        japanStamp(item.scheduledAt || item.publishedAt),
+                        t(`admin.site.worksCoversPlatform.${item.source}`),
+                        item.tag ?? t("admin.videos.tag.none"),
+                        item.kind ?? "—",
+                      ].join(" · ")}
+                    </small>
+                  </span>
+                </span>
+                <div className="adm-chip-row">
+                  <Badge tone={recentTones[state]}>
+                    {t(`admin.site.worksRecentOrigin.${state}`)}
+                  </Badge>
+                  {item.work === null ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      busy={busy === item.id}
+                      disabled={Boolean(busy)}
+                      onClick={() => void decide(item, false)}
+                    >
+                      {t("admin.site.worksRecentExclude")}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      busy={busy === item.id}
+                      disabled={Boolean(busy)}
+                      onClick={() => void decide(item, null)}
+                    >
+                      {t("admin.site.worksRecentClear")}
+                    </Button>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+      ) : (
+        <p className="adm-field-hint">
+          {report
+            ? t("admin.site.worksRecentEmpty")
+            : loading
+              ? t("admin.loading")
+              : null}
+        </p>
+      )}
+      <p className="adm-field-hint">{t("admin.site.worksRecentHint")}</p>
+    </Panel>
+  )
+}
+
 /** The Site page: settings that change what visitors see on the public
  * pages, the image copies the pages are served, and the Works upload
- * covers. */
+ * covers and recent uploads. */
 export function SiteView() {
   const { t } = useAppSettings()
   const { api } = useAdmin()
   const region = useResource(() => api.visitorRegion(), [])
   const variants = useResource(() => api.variantStatus(), [])
   const covers = useResource(() => api.worksCovers(), [])
+  const recent = useResource(() => api.worksRecent(), [])
   return (
     <div className="adm-view">
       <PageHeader title={t("admin.site.title")} />
@@ -503,6 +628,11 @@ export function SiteView() {
         status={covers.data}
         loading={covers.loading}
         onCheck={covers.reload}
+      />
+      <WorksRecentPanel
+        report={recent.data}
+        loading={recent.loading}
+        onChange={recent.reload}
       />
     </div>
   )

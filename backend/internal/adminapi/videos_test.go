@@ -3,8 +3,11 @@ package adminapi
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 func TestVideoCorrectionsHistoryAndRefresh(t *testing.T) {
@@ -171,5 +174,51 @@ func TestVideoAvailabilityCorrection(t *testing.T) {
 		if code, payload = c.call(t, "PUT", "/api/admin/videos/AAAAAAAAAAA", body); code != 400 {
 			t.Fatalf("%s=%d %v", body, code, payload)
 		}
+	}
+}
+
+// The console lists the Works page's recent uploads with their origin and
+// the excluded ones, and sets or clears the decision per video.
+func TestWorksRecentDecisionRoutes(t *testing.T) {
+	c := newConsole(t, "development", "", &gatedSteps{})
+	updated, err := time.Parse("2006-01-02", works.Packaged().UpdatedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := updated.AddDate(0, 0, 2).Format("2006-01-02") + "T03:00:00.000Z"
+	c.exec(t, `INSERT INTO videos(id,source,title,published_at,url,kind,tag,tag_source) VALUES
+		('SONGUPLOAD1','youtube','Song','`+at+`','https://www.youtube.com/watch?v=SONGUPLOAD1','upload','song','title'),
+		('BV1ONLYUPLOAD','bilibili','Bilibili only','`+at+`','https://www.bilibili.com/video/BV1ONLYUPLOAD','upload',NULL,NULL)`)
+	listed := func() string {
+		t.Helper()
+		code, payload := c.call(t, "GET", "/api/admin/videos/works-recent", "")
+		items, _ := payload["items"].([]any)
+		if code != 200 || payload["updatedAt"] != works.Packaged().UpdatedAt {
+			t.Fatalf("list=%d %v", code, payload)
+		}
+		out := []string{}
+		for _, raw := range items {
+			item := raw.(map[string]any)
+			out = append(out, fmt.Sprintf("%s=%v/%v", item["id"], item["origin"], item["work"]))
+		}
+		return strings.Join(out, ",")
+	}
+	if got := listed(); got != "SONGUPLOAD1=auto/<nil>" {
+		t.Fatalf("before=%s", got)
+	}
+	for id, body := range map[string]string{"SONGUPLOAD1": `{"work":false}`, "BV1ONLYUPLOAD": `{"work":true}`} {
+		code, payload := c.call(t, "PUT", "/api/admin/videos/"+id, body)
+		if video, _ := payload["video"].(map[string]any); code != 200 || video["manualWork"] == nil {
+			t.Fatalf("%s %s=%d %v", id, body, code, payload)
+		}
+	}
+	if got := listed(); got != "BV1ONLYUPLOAD=operator/true,SONGUPLOAD1=<nil>/false" {
+		t.Fatalf("after=%s", got)
+	}
+	if code, payload := c.call(t, "PUT", "/api/admin/videos/SONGUPLOAD1", `{"work":null}`); code != 200 || payload["video"].(map[string]any)["manualWork"] != nil {
+		t.Fatalf("clear=%d %v", code, payload)
+	}
+	if code, payload := c.call(t, "PUT", "/api/admin/videos/SONGUPLOAD1", `{"work":"yes"}`); code != 400 {
+		t.Fatalf("invalid=%d %v", code, payload)
 	}
 }

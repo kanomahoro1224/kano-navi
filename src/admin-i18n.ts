@@ -330,6 +330,18 @@ export const adminMessages = {
     "admin.site.worksCoversRefresh": "Check again",
     "admin.site.worksCoversFill": "Fill missing covers",
     "admin.site.worksCoversRunning": "Filling covers",
+    "admin.site.worksRecent": "Works uploads after the collection date",
+    "admin.site.worksRecentDescription":
+      "The Works page lists the uploads dated after {date} in their own block: song uploads and premieres that are not Shorts, found by their content tag, and the videos you include. Moving the date in a release drops the earlier ones.",
+    "admin.site.worksRecentOrigin.auto": "Detected",
+    "admin.site.worksRecentOrigin.operator": "Included",
+    "admin.site.worksRecentOrigin.excluded": "Excluded",
+    "admin.site.worksRecentExclude": "Exclude",
+    "admin.site.worksRecentClear": "Follow the rules",
+    "admin.site.worksRecentEmpty":
+      "No upload after the collection date is listed or excluded.",
+    "admin.site.worksRecentHint":
+      "To list a video the rules miss, such as a Bilibili-only upload, set Works page to Include in its video editor.",
 
     "admin.review.title": "Review queue",
     "admin.review.tab.schedule": "Schedule",
@@ -766,6 +778,11 @@ export const adminMessages = {
     "admin.videos.availability.private": "private",
     "admin.videos.availability.removed": "removed",
     "admin.videos.availability.unknown": "unknown",
+    "admin.videos.field.work": "Works page",
+    "admin.videos.work.auto":
+      "Follow the rules (song uploads after the collection date)",
+    "admin.videos.work.include": "Include",
+    "admin.videos.work.exclude": "Exclude",
     "admin.videos.field.thumbnail": "Thumbnail",
     "admin.videos.thumbnail.platform": "Follow the platform",
     "admin.videos.thumbnail.current": "Current on the platform",
@@ -1278,6 +1295,7 @@ export const adminMessages = {
     "admin.notice.quoteShown": "Quote shown on the public board again",
     "admin.notice.refreshQueued": "Queued for the next X sync",
     "admin.notice.videoSaved": "Video corrections saved",
+    "admin.notice.worksDecisionSaved": "Works decision saved",
     "admin.notice.videoRefresh":
       "Refresh requested; the next YouTube step reads this video first",
     "admin.notice.bilibiliAdded": "Bilibili upload stored",
@@ -2218,6 +2236,10 @@ export const adminMessages = {
     "admin.videos.availability.private": "私享",
     "admin.videos.availability.removed": "已删除",
     "admin.videos.availability.unknown": "未知",
+    "admin.videos.field.work": "作品页",
+    "admin.videos.work.auto": "按规则（收录日期之后的歌曲投稿）",
+    "admin.videos.work.include": "列入",
+    "admin.videos.work.exclude": "排除",
     "admin.videos.field.thumbnail": "封面",
     "admin.videos.thumbnail.platform": "跟随平台",
     "admin.videos.thumbnail.current": "平台当前封面",
@@ -2534,6 +2556,7 @@ export const adminMessages = {
     "admin.notice.quoteShown": "已恢复在公开看板显示引用",
     "admin.notice.refreshQueued": "已排入下次 X 同步",
     "admin.notice.videoSaved": "已保存视频修正",
+    "admin.notice.worksDecisionSaved": "已保存作品页决定",
     "admin.notice.videoRefresh":
       "已请求刷新，下次 YouTube 步骤会先读取这个视频",
     "admin.notice.bilibiliAdded": "已收录哔哩哔哩投稿",

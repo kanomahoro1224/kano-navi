@@ -14,24 +14,24 @@ export default defineConfig(({ mode }) => {
   const apiPort = Number(environment.KANO_API_PORT || 7658)
   const backend = process.env.KANO_API_ORIGIN || `http://127.0.0.1:${apiPort}`
   const proxy = { "^/(?:api|media|mcp)(?:/|$)": { target: backend } }
+  // The watcher covers the frontend sources only. Runtime data, local
+  // reference material, the Go module, build output and local tool state
+  // (agent worktrees included) hold tens of thousands of files; crawling them
+  // at startup holds every module request back until the crawl ends.
+  const ignored = [
+    "**/data/**",
+    "**/ref/**",
+    "**/backend/**",
+    "**/dist/**",
+    "**/.claude/**",
+    "**/.codegraph/**",
+  ]
   // A Windows or macOS checkout mounted into the development container sends
-  // no file events, so the container polls the sources instead. Runtime data,
-  // the Go module and local tool state are left out of the polled tree.
+  // no file events, so the container polls the sources instead.
   const watch =
     environment.KANO_WATCH_POLLING === "1"
-      ? {
-          usePolling: true,
-          interval: 500,
-          binaryInterval: 1000,
-          ignored: [
-            "**/data/**",
-            "**/backend/**",
-            "**/dist/**",
-            "**/.claude/**",
-            "**/.codegraph/**",
-          ],
-        }
-      : undefined
+      ? { usePolling: true, interval: 500, binaryInterval: 1000, ignored }
+      : { ignored }
   return {
     build: { manifest: true },
     plugins: [

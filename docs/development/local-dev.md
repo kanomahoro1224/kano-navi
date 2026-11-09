@@ -53,6 +53,13 @@ same with the built frontend and also defaults to `7657`, as does production.
 Set `PORT` in the environment or `.env` to override the default. Development
 and preview use `strictPort` and fail if that port is occupied.
 
+Vite watches only the frontend sources. `data/`, `ref/`, `backend/`, `dist/`,
+`.claude/` (including agent worktrees) and `.codegraph/` are outside the
+watched tree: they hold tens of thousands of files, and crawling them at
+startup delays the first page render until the crawl ends. A new large local
+directory in the repository root belongs in the same `server.watch.ignored`
+list in `vite.config.ts`.
+
 `make dev-server` builds and starts only the backend on `KANO_API_PORT`, and
 `make dev-client` starts only Vite; use the pair to keep the two logs apart.
 Restart the backend after changing Go source. The backend reads `.env`,

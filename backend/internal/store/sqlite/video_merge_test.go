@@ -150,6 +150,43 @@ func TestVideoMergeRuleAttachesTheSameWork(t *testing.T) {
 	}
 }
 
+// A copy posted more than six hours from its YouTube video, with the same
+// song and length, is never merged by rule but is put to the operator; a
+// different length or song, or a closer candidate, keeps it out.
+func TestALaterCopyIsPutToTheOperator(t *testing.T) {
+	f := newVideoMergeFixture(t)
+	f.youtube("EEEEEEEEEEE", "ロキ - 鹿乃まほろ cover", "2026-10-01T10:00:00Z", "", 240)
+	f.youtube("FFFFFFFFFFF", "シャルル 歌ってみた", "2026-10-01T10:00:00Z", "", 200)
+	f.bilibili("BV1latecopy00", "鹿乃 翻唱《ロキ》", "2026-10-04T10:00:00Z", 242)
+	f.bilibili("BV1otherlen00", "翻唱《シャルル》", "2026-10-04T10:00:00Z", 260)
+	f.bilibili("BV1othersong0", "翻唱《夜に駆ける》", "2026-10-04T10:00:00Z", 200)
+	if got := f.reconcile(); got.Merged != 0 || got.Ambiguous != 0 {
+		t.Fatalf("counts = %+v", got)
+	}
+	f.expect(map[string]string{"BV1latecopy00": "||", "BV1otherlen00": "||", "BV1othersong0": "||"})
+	items, err := f.s.VideoMergeSuggestions(context.Background(), "")
+	if err != nil || len(items) != 1 {
+		t.Fatalf("items = %+v err=%v", items, err)
+	}
+	late := items[0]
+	if late.Bilibili.ID != "BV1latecopy00" || late.Status != "unverified" || len(late.Candidates) != 1 {
+		t.Fatalf("late = %+v", late)
+	}
+	if c := late.Candidates[0]; c.YouTube.ID != "EEEEEEEEEEE" || c.Complete || !c.TitleMatch || c.DurationDelta == nil || *c.DurationDelta != 2 || c.GapMinutes != 3*24*60 {
+		t.Fatalf("late candidate = %+v", c)
+	}
+	if counts, err := f.s.AdminCounts(context.Background(), "2026-10-25"); err != nil || counts.VideoMerges != 1 {
+		t.Fatalf("decisions = %d err=%v", counts.VideoMerges, err)
+	}
+	// The operator's merge settles it.
+	if _, err = f.s.MergeVideo(context.Background(), "BV1latecopy00", "EEEEEEEEEEE", videoMergeNow); err != nil {
+		t.Fatal(err)
+	}
+	if counts, err := f.s.AdminCounts(context.Background(), "2026-10-25"); err != nil || counts.VideoMerges != 0 {
+		t.Fatalf("decisions after the merge = %d err=%v", counts.VideoMerges, err)
+	}
+}
+
 func TestVideoMergeLeavesUnclearUploadsToTheOperator(t *testing.T) {
 	f := newVideoMergeFixture(t)
 	// A video read before lengths were stored.

@@ -283,9 +283,13 @@
 - Bilibili uploads have a form, an upload or a live replay: a replay title,
   a long upload soon after a Bilibili broadcast or a short upload settles it
   by rule, and otherwise the title inference answers it with the content
-  tag, sending an upload it is unsure of to the Review queue. The title
-  inference and machine translation cover every public Bilibili upload, and
-  a live replay merges into the YouTube archive of the same simulcast.
+  tag, sending an upload it is unsure of to the Review queue; a rule that
+  applies once the broadcast is known replaces the model's answer. The
+  title inference and machine translation cover every public Bilibili
+  upload, a live replay merges into the YouTube archive of the same
+  simulcast (never into an earlier one), and a copy posted more than six
+  hours from its YouTube video is put to the operator rather than listed
+  twice unnoticed.
 - The extraction prompt defines each event type and returns one entry per
   sale period with its opening and its close, instead of separate entries
   of mixed types for the opening and the deadline.

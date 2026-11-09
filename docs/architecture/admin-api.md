@@ -901,7 +901,8 @@ upload answers `409 {"error":"merge_conflict"}` (undo it instead), an
 `GET /videos/merges` lists, newest first and at most 50, the unmerged
 Bilibili uploads the rule would merge (`status: "rule"`), or leaves to the
 operator (`ambiguous`, or `unverified` when no candidate satisfies every
-rule), without writing; the overview's `review.videoMerges` counts the
+rule, or when only a video published more than six hours apart matches the
+song title and length), without writing; the overview's `review.videoMerges` counts the
 `ambiguous` and `unverified` uploads without the limit. Uploads an operator
 kept separate are left out.
 Each item has `bilibili` (the upload as listed) and up to five `candidates`:

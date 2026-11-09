@@ -53,6 +53,18 @@ func TestMissingRequiredColumnFailsAtStartup(t *testing.T) {
 	}
 }
 
+// The Works and Bilibili form columns are read by public and console
+// queries, so a snapshot without them fails at startup, not on each read.
+func TestMissingVideoDecisionColumnsFailAtStartup(t *testing.T) {
+	for _, column := range []string{"manual_work", "kind_source", "kind_review", "kind_attempts", "kind_attempted_at"} {
+		path := testutil.NewSnapshot(t)
+		testutil.Exec(t, path, `ALTER TABLE videos DROP COLUMN `+column)
+		if _, err := OpenReadOnly(path); !errors.Is(err, ErrSchema) {
+			t.Fatalf("without %s error = %v, want ErrSchema", column, err)
+		}
+	}
+}
+
 func TestMissingDashboardRawJSONColumnFailsAtStartup(t *testing.T) {
 	path := testutil.NewSnapshot(t)
 	testutil.Exec(t, path, `ALTER TABLE posts DROP COLUMN raw_json`)

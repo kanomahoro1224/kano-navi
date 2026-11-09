@@ -142,6 +142,86 @@ func TestBilibiliReplaysMergeIntoTheSimulcastArchive(t *testing.T) {
 	f.expect(map[string]string{"BV1REPLAY001": "|manual|unmerged_from:STREAMARCH1"})
 }
 
+// A replay merges only into the archive of the broadcast it replays: a
+// Bilibili-only broadcast's replay stays on its own rather than reaching an
+// earlier simulcast's archive, and a live room's record stands for the
+// schedule entry it overlaps.
+func TestBilibiliReplaysMergeOnlyIntoTheirOwnBroadcast(t *testing.T) {
+	f := newVideoMergeFixture(t)
+	f.youtube("STREAMARCHA", "【歌枠】synthetic", "2026-03-01T12:00:00Z", "2026-03-01T12:00:00Z", 7200)
+	f.youtube("STREAMARCHC", "【雑談】synthetic", "2026-03-05T12:00:00Z", "2026-03-05T12:00:00Z", 10800)
+	f.youtube("STREAMARCHD", "【朗読】synthetic", "2026-03-07T12:00:00Z", "2026-03-07T12:00:00Z", 7200)
+	f.exec(`UPDATE videos SET kind='stream' WHERE source='youtube'`)
+	// A simulcast, then a Bilibili-only broadcast the next day.
+	f.broadcastEntry("youtube-STREAMARCHA", `["youtube","bilibili"]`, "2026-03-01T12:00:00Z", 0, "STREAMARCHA")
+	f.broadcastEntry("bilibili-only", `["bilibili"]`, "2026-03-02T12:00:00Z", 120, "")
+	// Simulcasts whose end is read from the archive; the room recorded the
+	// first one ending ten minutes after its archive, and then a broadcast
+	// with no schedule entry the day after the second.
+	f.broadcastEntry("youtube-STREAMARCHC", `["youtube","bilibili"]`, "2026-03-05T12:00:00Z", 0, "STREAMARCHC")
+	f.broadcastEntry("youtube-STREAMARCHD", `["youtube","bilibili"]`, "2026-03-07T12:00:00Z", 0, "STREAMARCHD")
+	f.exec(`INSERT INTO sync_state(source,account_id,metadata_json) VALUES('bilibili-live','1','{"lastBroadcast":"2026-03-08T12:00:00Z","lastLiveAt":"2026-03-08T14:00:00Z","endedAt":"2026-03-08T14:05:00Z","previousBroadcast":"2026-03-05T12:00:00Z","previousEndedAt":"2026-03-05T15:10:00Z"}')`)
+	f.bilibili("BV1REPLAYAAA", "【直播回放】synthetic simulcast", "2026-03-01T16:00:00Z", 7000)
+	f.bilibili("BV1REPLAYBBB", "【直播回放】synthetic bilibili only", "2026-03-02T15:00:00Z", 7000)
+	f.bilibili("BV1REPLAYCCC", "【直播回放】synthetic room", "2026-03-06T09:00:00Z", 10500)
+	f.bilibili("BV1REPLAYDDD", "【直播回放】synthetic room only", "2026-03-08T15:00:00Z", 7000)
+	f.exec(`UPDATE videos SET kind='upload' WHERE source='bilibili'`)
+	f.settle()
+	f.reconcile()
+	f.expect(map[string]string{
+		"BV1REPLAYAAA": "STREAMARCHA|rule|rule:broadcast",
+		"BV1REPLAYBBB": "||",
+		"BV1REPLAYCCC": "STREAMARCHC|rule|rule:broadcast",
+		"BV1REPLAYDDD": "||",
+	})
+	for _, id := range []string{"BV1REPLAYBBB", "BV1REPLAYDDD"} {
+		if got := f.form(id); got != "stream|rule|" {
+			t.Errorf("%s form=%q", id, got)
+		}
+	}
+}
+
+// A rule that applies only once its broadcast is known replaces the form
+// the model settled before, and the replay then merges; a model's form the
+// rule agrees with, and an operator's, stay as they are.
+func TestBilibiliRulesReplaceAnEarlierModelForm(t *testing.T) {
+	f := newVideoMergeFixture(t)
+	ctx := context.Background()
+	f.bilibili("BV1LATECAST1", "synthetic night", "2026-03-02T10:00:00Z", 6000)
+	f.bilibili("BV1AGREEING1", "synthetic clip", "2026-03-02T10:00:00Z", 300)
+	f.bilibili("BV1OPERATOR2", "synthetic operator", "2026-03-02T10:00:00Z", 6000)
+	f.exec(`UPDATE videos SET kind='upload' WHERE source='bilibili'`)
+	f.exec(`UPDATE videos SET kind_source='llm' WHERE id='BV1AGREEING1'`)
+	f.exec(`UPDATE videos SET manual_kind='upload' WHERE id='BV1OPERATOR2'`)
+	if counts := f.settle(); counts.Settled != 0 {
+		t.Fatalf("before the broadcast=%+v", counts)
+	}
+	if ok, err := f.s.RecordBilibiliForm(ctx, "BV1LATECAST1", BilibiliFormUpload, nil, formNow); err != nil || !ok {
+		t.Fatalf("model ok=%v err=%v", ok, err)
+	}
+	// The broadcast and its archive are read afterwards.
+	f.youtube("STREAMLATE1", "【歌枠】synthetic", "2026-03-01T12:00:00Z", "2026-03-01T12:00:00Z", 7200)
+	f.exec(`UPDATE videos SET kind='stream' WHERE source='youtube'`)
+	f.broadcastEntry("youtube-STREAMLATE1", `["youtube","bilibili"]`, "2026-03-01T12:00:00Z", 120, "STREAMLATE1")
+	if counts := f.settle(); counts.Settled != 1 || counts.Considered != 0 {
+		t.Fatalf("after the broadcast=%+v", counts)
+	}
+	for id, want := range map[string]string{
+		"BV1LATECAST1": "stream|rule|",
+		"BV1AGREEING1": "upload|llm|",
+		"BV1OPERATOR2": "upload||",
+	} {
+		if got := f.form(id); got != want {
+			t.Errorf("%s form=%q, want %q", id, got, want)
+		}
+	}
+	f.reconcile()
+	f.expect(map[string]string{"BV1LATECAST1": "STREAMLATE1|rule|rule:broadcast", "BV1OPERATOR2": "||"})
+	if again := f.settle(); again.Settled != 0 {
+		t.Fatalf("second run=%+v", again)
+	}
+}
+
 // The Review queue lists the uploads the model was uncertain about or gave
 // up on, with the broadcast the replay rule read, until the operator sets a
 // form; settled, merged and removed uploads stay out.

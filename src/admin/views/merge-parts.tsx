@@ -206,13 +206,19 @@ function MiniVideo({ video, detail }: { video: AdminVideo; detail?: string }) {
   )
 }
 
+const minutesPerDay = 24 * 60
+
 /** How a candidate compares with the upload, in a few words. */
 function useCandidateDetail() {
   const { t } = useAppSettings()
   return (candidate: VideoMergeCandidate) =>
     [
       candidate.broadcast ? t("admin.videos.merge.sameBroadcast") : null,
-      t("admin.videos.merge.gap", { count: candidate.gapMinutes }),
+      candidate.gapMinutes >= 2 * minutesPerDay
+        ? t("admin.videos.merge.gapDays", {
+            count: Math.round(candidate.gapMinutes / minutesPerDay),
+          })
+        : t("admin.videos.merge.gap", { count: candidate.gapMinutes }),
       candidate.durationDelta === null
         ? t("admin.videos.merge.lengthUnknown")
         : candidate.durationDelta === 0

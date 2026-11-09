@@ -22,7 +22,9 @@ import (
 //  2. a rule (SettleBilibiliForms): a title naming a replay is a stream; an
 //     upload of at least thirty minutes published within 48 hours after a
 //     Bilibili broadcast ended, at least half that broadcast's length, is a
-//     stream; an upload shorter than ten minutes is an upload;
+//     stream; an upload shorter than ten minutes is an upload. A rule that
+//     applies later, once the broadcast it reads is known, replaces the
+//     model's form;
 //  3. the title inference, which answers the form with the content tag
 //     (RecordBilibiliForm) and may answer uncertain.
 //
@@ -216,10 +218,13 @@ type BilibiliFormCounts struct {
 }
 
 // SettleBilibiliForms applies the form rules to every Bilibili upload whose
-// form nobody settled yet, merged or not, so a rule decides before the model
-// is asked. An upload the rules leave open keeps waiting for the model or the
-// operator; one in the Review queue leaves it when a rule settles it. The
-// revision moves when an unmerged upload becomes public.
+// form neither the operator nor a rule settled, merged or not, so a rule
+// decides before the model is asked and replaces a form the model settled
+// before the rule could apply (such as a replay read before its broadcast's
+// end was known). An upload the rules leave open keeps waiting for the model
+// or the operator; one in the Review queue leaves it when a rule settles it.
+// Considered counts the unsettled uploads; Settled every form a rule set.
+// The revision moves when an unmerged upload becomes public or changes form.
 func (s *Store) SettleBilibiliForms(ctx context.Context, now time.Time) (BilibiliFormCounts, error) {
 	counts := BilibiliFormCounts{}
 	tx, err := s.eventTx(ctx)
@@ -227,20 +232,20 @@ func (s *Store) SettleBilibiliForms(ctx context.Context, now time.Time) (Bilibil
 		return counts, err
 	}
 	defer tx.Rollback()
-	rows, err := tx.QueryContext(ctx, `SELECT id,title,COALESCE(published_at,''),COALESCE(duration_seconds,0),merged_into IS NULL FROM videos
-		WHERE source='bilibili' AND manual_kind IS NULL AND kind_source IS NULL ORDER BY id`)
+	rows, err := tx.QueryContext(ctx, `SELECT id,title,COALESCE(published_at,''),COALESCE(duration_seconds,0),merged_into IS NULL,COALESCE(kind,''),kind_source IS NOT NULL FROM videos
+		WHERE source='bilibili' AND manual_kind IS NULL AND (kind_source IS NULL OR kind_source=?) ORDER BY id`, FormSourceLLM)
 	if err != nil {
 		return counts, fmt.Errorf("%w: bilibili forms", ErrUnavailable)
 	}
 	type upload struct {
-		id, title, published string
-		duration             int64
-		unmerged             bool
+		id, title, published, kind string
+		duration                   int64
+		unmerged, modelled         bool
 	}
 	uploads := []upload{}
 	for rows.Next() {
 		var u upload
-		if err = rows.Scan(&u.id, &u.title, &u.published, &u.duration, &u.unmerged); err != nil {
+		if err = rows.Scan(&u.id, &u.title, &u.published, &u.duration, &u.unmerged, &u.kind, &u.modelled); err != nil {
 			rows.Close()
 			return counts, fmt.Errorf("%w: bilibili forms", ErrUnavailable)
 		}
@@ -258,13 +263,16 @@ func (s *Store) SettleBilibiliForms(ctx context.Context, now time.Time) (Bilibil
 	}
 	stamp, public := workflowTime(now), false
 	for _, u := range uploads {
-		counts.Considered++
+		if !u.modelled {
+			counts.Considered++
+		}
 		published, hasPublished := parseMergeInstant(u.published)
 		form, ok := bilibiliFormRule(u.title, u.duration, published, hasPublished, broadcasts)
-		if !ok {
+		if !ok || u.modelled && form == u.kind {
 			continue
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE videos SET kind=?,kind_source=?,kind_review=NULL WHERE id=? AND manual_kind IS NULL AND kind_source IS NULL`, form, FormSourceRule, u.id)
+		result, err := tx.ExecContext(ctx, `UPDATE videos SET kind=?,kind_source=?,kind_review=NULL WHERE id=? AND manual_kind IS NULL AND (kind_source IS NULL OR kind_source=?)`,
+			form, FormSourceRule, u.id, FormSourceLLM)
 		if err != nil {
 			return counts, fmt.Errorf("%w: bilibili forms", ErrUnavailable)
 		}

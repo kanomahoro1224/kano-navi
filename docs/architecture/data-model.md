@@ -990,7 +990,9 @@ upload's form is settled by the first of:
 
 1. the operator's `manual_kind`;
 2. a rule, applied by the `translate` step before any model call to every
-   upload nobody settled yet:
+   upload whose form neither the operator nor a rule settled. A rule that
+   applies only later, once the broadcast it reads is known, replaces a form
+   the model settled meanwhile:
    - a title naming a replay (`直播回放`, `录播`, `直播录像`, `回放`) is a
      `stream`;
    - an upload of at least thirty minutes published within 48 hours after a
@@ -1052,13 +1054,16 @@ owner as for [event merges](#duplicate-merging):
 
 A live replay (an upload whose settled form is `stream`) merges by rule into
 the YouTube stream archive linked to the schedule entry of the broadcast it
-replays: among the Bilibili stream entries [Bilibili form](#bilibili-form)
-reads that link a YouTube video of form `stream` (its `youtube-<id>` event,
-source item or event source), the one that ended no more than 48 hours
+replays. The replayed broadcast is the one among those
+[Bilibili form](#bilibili-form) reads that ended no more than 48 hours
 before the upload was published, the latest end first, with the upload at
-least half the broadcast's length when its length is known. A replay that
-matches no such archive, such as one of a Bilibili-only broadcast, is public
-on its own unless the rule below merges it.
+least half its length when that length is known; a live room's record
+stands for the schedule entry it overlaps. The replay merges only when that
+entry links a YouTube video of form `stream` (its `youtube-<id>` event,
+source item or event source). A replay whose broadcast links no such
+archive, such as one of a Bilibili-only broadcast, never reaches an earlier
+broadcast's archive: it is public on its own unless the rule below merges
+it.
 
 Any other upload merges by rule into a YouTube video only when all of these
 hold:
@@ -1079,7 +1084,10 @@ complete matches, or one video claimed by several uploads, leave the upload
 unmerged and are counted as `ambiguous`. A YouTube video receives at most
 one upload: a video an operator merged an upload into is no rule target. A
 video without `duration_seconds` leaves its upload to the operator. A Short of the same song, published another
-day or with another length, never matches.
+day or with another length, never matches. An upload with no candidate
+within six hours whose song title and known length (within three seconds)
+match a video published further apart, such as a copy posted days later,
+is never merged by rule; it is put to the operator as `unverified`.
 
 Whenever a merge is written or a merged upload's effective title changes (a
 Bilibili read, an operator correction or the reconcile step), the upload's

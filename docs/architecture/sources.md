@@ -797,8 +797,10 @@ own [timer](workflows.md#source-schedules); the [live-status
 probe](workflows.md#live-status-probe) checks its live room. Every request
 goes to one of four fixed hosts: `api.bilibili.com`, `www.bilibili.com`
 (the opus page of one dynamic only), `api.live.bilibili.com` and
-`app.bilibili.com` (the uploads' last fallback, below). Uploads use only
-endpoints that need no request signature, apart from that fallback:
+`app.bilibili.com` (the uploads' last fallback, below). The upload list
+uses only endpoints that need no request signature; its fallbacks are
+signed (the dynamics listing with WBI, the official client's listing with
+its app key):
 
 - `/x/frontend/finger/spi` returns the anonymous device identity
   (`buvid3`/`buvid4`) Bilibili's own pages send; its `b_nut` is when it was
@@ -839,7 +841,8 @@ and `bilibili_risk_control_voucher` (a `v_voucher` instead of the listing);
 `-799`/`-509`/429 are `bilibili_rate_limited`. Each starts the same backoff:
 the adapter waits 6 hours, doubled for each consecutive block up to a day,
 and neither step makes an `api.bilibili.com` or `www.bilibili.com` request
-until then; independently, upload reads are at least
+until then (the upload read may still ask `app.bilibili.com`, below), and
+only an `api.bilibili.com` success clears it; independently, upload reads are at least
 `BILIBILI_MIN_INTERVAL_MINUTES` (180 by default) apart, which is also the
 shortest interval of either Bilibili timer. A skipped read records
 `{ skipped: true, reason: "interval" | "blocked" }`; a failed one records its
@@ -865,11 +868,12 @@ check (`{ skipped: true, reason: "login_expired" }` on the
 `unchecked` or `not_configured`. The login cookies stay in memory: they are
 not part of the persisted state, not logged and not returned.
 
-When the upload list fails (a captcha included), the same read falls back at
-once, in order, to:
+When the upload list fails (a captcha included), or the device-identity
+request before it does, the same read falls back at once, in order, to:
 
 1. the first page of the signed-in [dynamics listing](#dynamics), when a
-   login is configured that the latest check did not find expired, storing
+   login is configured that the latest check did not find expired and the
+   device identity was read, storing
    the uploads its video dynamics show: one listing request, plus `nav` when
    the login check or the WBI keys are due. It leaves the dynamics read's own
    clock and the dynamics themselves to the `bilibili_dynamics` step;
@@ -883,14 +887,25 @@ once, in order, to:
    service from the web API that shows the captcha. Its ordinary
    uploads (`goto` `av`) with a BV ID, title and publication time (`ctime`)
    are stored with their cover and length; it carries no description, so a
-   stored one is kept.
+   stored one is kept. The listing names no uploader, so a co-created upload
+   (`is_cooperation`), which may be another account's, is left to the other
+   listings.
 
-The first success clears the backoff the list's failure started and leaves
-the step `partial` with `fallback` (`dynamics` or `app`), the list's code as
-`listError` and any earlier fallback's failure in `fallbackErrors`. When
-every listing fails, the step keeps the list's code and adds each
-fallback's as `<fallback>: <code>` to its errors; the backoff starts once,
-at the first captcha among them.
+The first success leaves the step `partial` with `fallback` (`dynamics` or
+`app`), the list's code as `listError` and any earlier fallback's failure in
+`fallbackErrors`. A dynamics success is an `api.bilibili.com` answer and
+clears the backoff the list's failure started; an app success keeps it.
+While a backoff lasts, an upload read due by its interval asks only the
+official client's listing when a key pair is configured (`listError`
+`bilibili_blocked`) and is skipped as `blocked` otherwise; that read never
+extends the backoff. When every listing fails, the step keeps the list's
+code and adds each fallback's as `<fallback>: <code>` to its errors; the
+backoff starts once, at the first captcha among them.
+
+The dynamics and the official client's listing date an upload by their own
+clocks and the latter omits its `aid`, so an upload either of them reads is
+partial: it keeps a stored upload's `published_at` and `aid` (the upload
+list still corrects them), and a missing `aid` never replaces a known one.
 
 Signing with an official client's key makes those requests read as that
 client rather than as this service. That is a trade-off each deployment

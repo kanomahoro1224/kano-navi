@@ -93,7 +93,8 @@ type Result struct {
 	Requested int
 	// Fallback is "dynamics" or "app" when the upload list failed and the
 	// uploads came from the signed-in dynamics listing or the official
-	// client's listing instead. ListError is the list's code then, and
+	// client's listing instead. ListError is the list's code then
+	// (bilibili_blocked when the block held the list back), and
 	// FallbackErrors the "<fallback>: <code>" of each fallback tried that
 	// failed too.
 	Fallback, ListError string
@@ -117,34 +118,56 @@ func NewAdapter(c *Client, options Options) *Adapter {
 }
 
 // FetchRecent reads the account's newest uploads at most once per
-// MinInterval and never while a block lasts. A failure is returned together
-// with the state to persist, which records the attempt and any backoff.
+// MinInterval. A failure is returned together with the state to persist,
+// which records the attempt and any backoff. When the upload list (or the
+// device identity before it) fails, the read falls back to the signed-in
+// dynamics listing and then to the official client's listing. The shared
+// block holds back every api.bilibili.com request, so while it lasts only
+// the official client's listing, another service, is read; a success there
+// leaves the block in force. Only an api.bilibili.com success, the list's
+// or the dynamics', clears it.
 func (a *Adapter) FetchRecent(ctx context.Context, state State) (Result, error) {
 	now := a.Now()
 	result := Result{Videos: []Video{}, State: state}
+	due := state.LastAttemptAt.IsZero() || now.Sub(state.LastAttemptAt) >= a.Options.MinInterval
+	held := now.Before(state.BlockedUntil)
 	switch {
-	case now.Before(state.BlockedUntil):
+	case held && (!due || !a.Options.App.Valid()):
 		result.Skipped = "blocked"
 		return result, nil
-	case !state.LastAttemptAt.IsZero() && now.Sub(state.LastAttemptAt) < a.Options.MinInterval:
+	case !due:
 		result.Skipped = "interval"
 		return result, nil
 	}
 	result.State.LastAttemptAt = now
-	session, err := a.session(ctx, &result.State, &result.Requested, now)
-	if err != nil {
-		result.State = failed(result.State, err, now)
+	if held {
+		err := &Error{"bilibili_blocked"}
+		result.ListError, result.blockCounted = err.Code, true
+		if videos, ok := a.uploadsFromApp(ctx, &result, now); ok {
+			result.Videos, result.Fallback = videos, "app"
+			result.State.LastSuccessAt = now
+			return result, nil
+		}
 		return result, err
 	}
-	result.Requested++
-	result.Videos, err = a.Client.Uploads(ctx, a.Options.Account, a.Options.PageSize, session)
-	if err != nil {
-		result.State = failed(result.State, err, now)
-		result.Videos = []Video{}
-		if ctx.Err() != nil {
-			return result, err
+	session, err := a.session(ctx, &result.State, &result.Requested, now)
+	listed := err == nil
+	if listed {
+		result.Requested++
+		result.Videos, err = a.Client.Uploads(ctx, a.Options.Account, a.Options.PageSize, session)
+		if err == nil {
+			result.State = succeeded(result.State, now)
+			return result, nil
 		}
-		result.ListError, result.blockCounted = ErrorCode(err), IsRiskControl(ErrorCode(err))
+	}
+	result.State = failed(result.State, err, now)
+	result.Videos = []Video{}
+	if ctx.Err() != nil {
+		return result, err
+	}
+	result.ListError, result.blockCounted = ErrorCode(err), IsRiskControl(ErrorCode(err))
+	// The dynamics listing needs the device identity the list failed with.
+	if listed {
 		if videos, ok := a.uploadsFromDynamics(ctx, &result, session, now); ok {
 			result.Videos, result.Fallback = videos, "dynamics"
 			result.State = succeeded(result.State, now)
@@ -153,15 +176,13 @@ func (a *Adapter) FetchRecent(ctx context.Context, state State) (Result, error) 
 		if ctx.Err() != nil {
 			return result, err
 		}
-		if videos, ok := a.uploadsFromApp(ctx, &result, now); ok {
-			result.Videos, result.Fallback = videos, "app"
-			result.State = succeeded(result.State, now)
-			return result, nil
-		}
-		return result, err
 	}
-	result.State = succeeded(result.State, now)
-	return result, nil
+	if videos, ok := a.uploadsFromApp(ctx, &result, now); ok {
+		result.Videos, result.Fallback = videos, "app"
+		result.State.LastSuccessAt = now
+		return result, nil
+	}
+	return result, err
 }
 
 // uploadsFromDynamics reads the uploads from the account's signed-in
@@ -458,10 +479,11 @@ func (a *Adapter) session(ctx context.Context, state *State, requests *int, now 
 
 // uploadsFromApp reads the uploads from the official client's space listing
 // on app.bilibili.com after the upload list and any dynamics fallback
-// failed: one anonymous request signed with the configured app key pair, a
-// different service from the web API that meets the captcha. Without a pair
-// it is not tried. Like the other fallback it starts the backoff only when
-// no earlier failure of the read did.
+// failed, or while the block holds them back: one anonymous request signed
+// with the configured app key pair, a different service from the web API
+// that meets the captcha. Without a pair it is not tried. Like the other
+// fallback it starts the backoff only when no earlier failure of the read
+// did, and never extends a block in force.
 func (a *Adapter) uploadsFromApp(ctx context.Context, result *Result, now time.Time) ([]Video, bool) {
 	if !a.Options.App.Valid() {
 		return nil, false

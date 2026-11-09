@@ -263,9 +263,12 @@ func mergeBilibiliMetadata(stored, incoming bilibiliMetadata, now time.Time) bil
 // of an upload, so it replaces the stored platform fields and keeps the
 // replaced title and cover as history. Operator corrections survive. A
 // listing without a description (the official client's) keeps the stored
-// one. The list carries no live-replay flag, so it writes the form only for
-// a new row (upload, unsettled); a stored form and who settled it
-// (bilibili_forms.go) are kept.
+// one, and a missing aid never replaces a known one. A partial upload (from
+// the dynamics or the official client's listing, which date an upload by
+// their own clocks) keeps a stored upload's publication time, so the
+// listings never move it back and forth. The list carries no live-replay
+// flag, so it writes the form only for a new row (upload, unsettled); a
+// stored form and who settled it (bilibili_forms.go) are kept.
 func writeBilibiliVideos(ctx context.Context, tx *sql.Tx, videos []bilisource.Video, now string) (bool, error) {
 	changed := false
 	for _, v := range videos {
@@ -283,9 +286,12 @@ func writeBilibiliVideos(ctx context.Context, tx *sql.Tx, videos []bilisource.Vi
 		}
 		raw, _ := json.Marshal(map[string]any{"aid": v.AID, "description": v.Description})
 		written, err := tx.ExecContext(ctx, `INSERT INTO videos(id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,live_checked_at,duration_seconds,raw_json) VALUES(?,'bilibili',?,?,NULL,?,?,?,0,?,?,?)
- ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=excluded.published_at,url=excluded.url,thumbnail_url=COALESCE(excluded.thumbnail_url,videos.thumbnail_url),live_checked_at=excluded.live_checked_at,duration_seconds=COALESCE(excluded.duration_seconds,videos.duration_seconds),raw_json=CASE WHEN COALESCE(json_extract(excluded.raw_json,'$.description'),'')='' AND json_valid(videos.raw_json) THEN json_set(videos.raw_json,'$.aid',json_extract(excluded.raw_json,'$.aid')) ELSE excluded.raw_json END,refresh_requested_at=NULL
+ ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=CASE WHEN ? AND videos.published_at IS NOT NULL THEN videos.published_at ELSE excluded.published_at END,url=excluded.url,thumbnail_url=COALESCE(excluded.thumbnail_url,videos.thumbnail_url),live_checked_at=excluded.live_checked_at,duration_seconds=COALESCE(excluded.duration_seconds,videos.duration_seconds),
+ raw_json=CASE WHEN NOT json_valid(videos.raw_json) THEN excluded.raw_json
+	ELSE json_set(CASE WHEN COALESCE(json_extract(excluded.raw_json,'$.description'),'')='' THEN videos.raw_json ELSE excluded.raw_json END,
+		'$.aid',CASE WHEN COALESCE(json_extract(excluded.raw_json,'$.aid'),0)=0 THEN json_extract(videos.raw_json,'$.aid') ELSE json_extract(excluded.raw_json,'$.aid') END) END,refresh_requested_at=NULL
  WHERE videos.source='bilibili'`,
-			v.BVID, v.Title, v.PublishedAt, v.URL, nullable(v.ThumbnailURL), v.Kind, now, duration, string(raw))
+			v.BVID, v.Title, v.PublishedAt, v.URL, nullable(v.ThumbnailURL), v.Kind, now, duration, string(raw), v.Partial)
 		if err != nil {
 			return false, ErrSourceWrite
 		}

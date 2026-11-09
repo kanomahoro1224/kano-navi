@@ -283,3 +283,68 @@ func TestBilibiliListingWithoutADescriptionKeepsTheStoredOne(t *testing.T) {
 		t.Fatalf("title=%q description=%q err=%v", title, description, err)
 	}
 }
+
+// A partial upload (the dynamics' or the official client's) dates an upload
+// by its own clock and may omit the aid: it keeps a stored upload's
+// publication time, aid and form, so alternating listings change nothing,
+// while the upload list still corrects the time.
+func TestPartialUploadsKeepTheStoredTimeAidAndForm(t *testing.T) {
+	s := biliStore(t)
+	ctx := context.Background()
+	listed := bilisource.Video{BVID: "BV1SYNTHEABC", AID: 113000000000001, Title: "翻唱《合成》", URL: "https://www.bilibili.com/video/BV1SYNTHEABC",
+		Kind: bilisource.KindUpload, PublishedAt: "2026-11-07T04:00:00Z", DurationSeconds: 186, Description: "synthetic description"}
+	if _, err := s.WriteBilibiliRecent(ctx, biliAccount, bilisource.Result{Videos: []bilisource.Video{listed}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DB().Exec(`UPDATE videos SET kind='stream',kind_source='rule' WHERE id='BV1SYNTHEABC'`); err != nil {
+		t.Fatal(err)
+	}
+	row := func() string {
+		t.Helper()
+		var out string
+		if err := s.DB().QueryRow(`SELECT published_at||'|'||json_extract(raw_json,'$.aid')||'|'||json_extract(raw_json,'$.description')||'|'||kind||'|'||kind_source FROM videos WHERE id='BV1SYNTHEABC'`).Scan(&out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	stored := row()
+	if stored != "2026-11-07T04:00:00Z|113000000000001|synthetic description|stream|rule" {
+		t.Fatalf("stored=%s", stored)
+	}
+	app := listed
+	app.PublishedAt, app.AID, app.Description, app.Partial = "2026-11-07T04:00:07Z", 0, "", true
+	dynamic := listed
+	dynamic.PublishedAt, dynamic.Description, dynamic.Partial = "2026-11-07T04:00:30Z", "synthetic", true
+	for _, write := range []func() (bool, error){
+		func() (bool, error) {
+			return s.WriteBilibiliRecent(ctx, biliAccount, bilisource.Result{Videos: []bilisource.Video{app}, Fallback: "app"})
+		},
+		func() (bool, error) {
+			return s.WriteBilibiliDynamics(ctx, biliAccount, bilisource.DynamicsResult{Uploads: []bilisource.Video{dynamic}})
+		},
+	} {
+		if changed, err := write(); err != nil || changed {
+			t.Fatalf("partial write changed=%v err=%v", changed, err)
+		}
+	}
+	if got := row(); got != "2026-11-07T04:00:00Z|113000000000001|synthetic|stream|rule" {
+		t.Fatalf("after partial writes=%s", got)
+	}
+	// A new upload takes a partial listing's time until the list reads it.
+	fresh := app
+	fresh.BVID, fresh.URL = "BV1SYNTHEABD", "https://www.bilibili.com/video/BV1SYNTHEABD"
+	if changed, err := s.WriteBilibiliRecent(ctx, biliAccount, bilisource.Result{Videos: []bilisource.Video{fresh}, Fallback: "app"}); err != nil || !changed {
+		t.Fatalf("new partial changed=%v err=%v", changed, err)
+	}
+	listed.PublishedAt = "2026-11-07T04:01:00Z"
+	if changed, err := s.WriteBilibiliRecent(ctx, biliAccount, bilisource.Result{Videos: []bilisource.Video{listed}}); err != nil || !changed {
+		t.Fatalf("list correction changed=%v err=%v", changed, err)
+	}
+	if got := row(); got != "2026-11-07T04:01:00Z|113000000000001|synthetic description|stream|rule" {
+		t.Fatalf("after the list=%s", got)
+	}
+	var published string
+	if err := s.DB().QueryRow(`SELECT published_at FROM videos WHERE id='BV1SYNTHEABD'`).Scan(&published); err != nil || published != "2026-11-07T04:00:07Z" {
+		t.Fatalf("new partial published=%q err=%v", published, err)
+	}
+}

@@ -349,10 +349,10 @@ func (it *spaceItem) quote(selfURL string) *Quote {
 	return q
 }
 
-// upload reads a video dynamic of the account as the upload it publishes:
-// the archive's BV ID, title, cover, description and length, published at
-// the dynamic's time. It reports false for any other item or an incomplete
-// one.
+// upload reads a video dynamic of the account as the partial upload it
+// publishes: the archive's BV ID, title, cover, description and length,
+// published at the dynamic's time. It reports false for any other item or an
+// incomplete one.
 func (it spaceItem) upload(owner int64) (Video, bool) {
 	m := it.Modules.Dynamic
 	if it.Type != "DYNAMIC_TYPE_AV" || m.Major == nil || m.Major.Type != "MAJOR_TYPE_ARCHIVE" || m.Major.Archive == nil ||
@@ -361,10 +361,12 @@ func (it spaceItem) upload(owner int64) (Video, bool) {
 	}
 	a := m.Major.Archive
 	duration, _ := json.Marshal(a.DurationText)
-	return upload{
+	v, ok := upload{
 		BVID: a.BVID, AID: int64(a.AID), Title: a.Title, Pic: a.Cover, PubDate: int64(it.Modules.Author.PubTS),
 		Duration: duration, Desc: a.Desc, UpMid: owner,
 	}.video()
+	v.Partial = ok
+	return v, ok
 }
 
 // SpacePage is one page of the account's dynamics listing.

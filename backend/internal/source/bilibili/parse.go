@@ -22,6 +22,10 @@ type Video struct {
 	OwnerMid int64
 	// Description is kept in raw_json only; cross-platform matching reads it.
 	Description string
+	// Partial marks an upload read from a listing other than the upload list
+	// (the dynamics or the official client's). Its publication time and aid
+	// may differ from the list's, so a stored upload keeps its own.
+	Partial bool
 }
 
 // maxDescription bounds the description kept from one upload, in runes.
@@ -176,17 +180,21 @@ func ParseUploadsPage(data json.RawMessage, account string) (UploadsPage, error)
 
 // ParseAppUploads reads one page of the official client's space listing:
 // its ordinary uploads (goto av) with a BV ID, title and publication time,
-// as uploads of account. The listing carries no description.
+// as partial uploads of account. The listing names no uploader, so a
+// co-created upload (is_cooperation), which may be another account's, is
+// left to the upload list and the dynamics. The listing carries no
+// description.
 func ParseAppUploads(data json.RawMessage, account string) ([]Video, error) {
 	var page struct {
 		Items *[]struct {
-			Goto     string          `json:"goto"`
-			Param    string          `json:"param"`
-			BVID     string          `json:"bvid"`
-			Title    string          `json:"title"`
-			Cover    string          `json:"cover"`
-			Duration json.RawMessage `json:"duration"`
-			CTime    int64           `json:"ctime"`
+			Goto        string          `json:"goto"`
+			Param       string          `json:"param"`
+			BVID        string          `json:"bvid"`
+			Title       string          `json:"title"`
+			Cover       string          `json:"cover"`
+			Duration    json.RawMessage `json:"duration"`
+			CTime       int64           `json:"ctime"`
+			Cooperation json.RawMessage `json:"is_cooperation"`
 		} `json:"item"`
 	}
 	if json.Unmarshal(data, &page) != nil {
@@ -199,16 +207,28 @@ func ParseAppUploads(data json.RawMessage, account string) ([]Video, error) {
 	}
 	seen := map[string]bool{}
 	for _, item := range *page.Items {
-		if item.Goto != "av" || seen[item.BVID] {
+		if item.Goto != "av" || seen[item.BVID] || truthy(item.Cooperation) {
 			continue
 		}
 		aid, _ := strconv.ParseInt(item.Param, 10, 64)
 		if v, ok := (upload{BVID: item.BVID, AID: aid, Title: item.Title, Pic: item.Cover, PubDate: item.CTime, Duration: item.Duration, UpMid: owner}).video(); ok {
 			seen[v.BVID] = true
+			v.Partial = true
 			out = append(out, v)
 		}
 	}
 	return out, nil
+}
+
+// truthy reads a flag given as a boolean or a number; anything else, an
+// absent flag included, is false.
+func truthy(raw json.RawMessage) bool {
+	var flag bool
+	if json.Unmarshal(raw, &flag) == nil {
+		return flag
+	}
+	var n int
+	return json.Unmarshal(raw, &n) == nil && n != 0
 }
 
 // ParseView reads one /x/web-interface/view answer for bvid.

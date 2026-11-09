@@ -320,7 +320,10 @@
   key pair in `BILIBILI_APP_KEY` and `BILIBILI_APP_SECRET`, to that client's
   space listing on `app.bilibili.com`, and stores the uploads the first
   success shows; the dynamics read stores the uploads its video dynamics
-  show too.
+  show too, keeping the list's publication times. The client's listing,
+  another service, is the only one read while the captcha backoff lasts and
+  never lifts it, and it skips co-created uploads, which it does not
+  attribute.
 - The live-status probe checks the Bilibili live room, one request per run,
   around announced streams and once per operator interval (30 minutes by
   default) otherwise, and learns the room from the answer.

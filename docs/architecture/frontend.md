@@ -461,14 +461,16 @@ free queue. A source that `SKIP_*` turns off is locked. The Bilibili
 tabs' summaries add the login cookie's state and the shared captcha backoff
 as chips, with a note on setting `BILIBILI_SESSDATA` while no cookie is
 configured or the configured one expired. Below the
-summary the main column holds the timed reads, one form with one Save and
+summary the main column holds the timed reads
+(`src/admin/views/source-timed.tsx`), one form with one Save and
 Discard: the interval and, for X and YouTube, the sync setting; and the
 [method chain](workflows.md#method-chains), with every method's switch and
 up/down moves, a method the process cannot run greyed with the variable it
 needs, and the one fixed method of each Bilibili timer and the shop read-only. Save sends only the
 changed fields, and the timer switch keeps unsaved edits.
 
-Settings below the timed reads are folded: a header row with the title,
+Settings below the timed reads are folded (`src/admin/views/source-parts.tsx`
+holds the fold and the question-mark help): a header row with the title,
 its state and any quick switch opens onto the settings and figures, and
 each fold saves on its own. X adds its X API limits (gate and daily cap,
 with the API's place in the chain and today's usage in the header, and
@@ -480,7 +482,9 @@ shared tag input, where Enter or a comma adds one, with its last read,
 stored and promoted counts and last error below, an Add account button that
 starts with the default rules, and one Save; a link opens External posts.
 The panel and the related manual fetch share the tab's one read of the
-accounts, made only while the tab is open. YouTube adds its progressive confirmation, where push and the
+accounts, made only while the tab is open. YouTube adds its progressive
+confirmation (`src/admin/views/source-live.tsx`, with the Bilibili live room
+fold), where push and the
 live-status probe are folds with their switch in the header (the probe's fold
 also lists its active videos, each with Stop checking, and its stopped
 videos, each with Check again), followed by
@@ -501,7 +505,8 @@ explanations sit in a dialog behind a question mark beside a title or
 label: the chain, the X API limits, YouTube's per-run limit, its
 progressive confirmation and each of its steps, and yt-dlp.
 
-The manual fetch sits beside the main column: method, for X every own
+The manual fetch (`src/admin/views/source-fetch.tsx`) sits beside the main
+column: method, for X every own
 account or one of them, mode, count or dates, options, then the newest
 fetch's summary. The method and mode pickers show only when there is more
 than one to pick, and only YouTube's methods and the date windows carry a

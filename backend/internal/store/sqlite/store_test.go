@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -102,6 +103,68 @@ func TestReadOnlyConnectionRejectsWrites(t *testing.T) {
 	defer store.Close()
 	if _, err := store.db.Exec(`INSERT INTO app_settings (key, value, updated_at) VALUES ('blocked', '1', '2026-10-11T00:00:00.000Z')`); err == nil {
 		t.Fatal("read-only store accepted a write")
+	}
+}
+
+func TestStandaloneKeepsSingleWriterAndOpensReadPool(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "database", "kano.sqlite")
+	store, err := OpenStandalone(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if store.readDB == nil {
+		t.Fatal("standalone store has no public read pool")
+	}
+	if got := store.db.Stats().MaxOpenConnections; got != 1 {
+		t.Fatalf("writer max connections=%d, want 1", got)
+	}
+	if got := store.readDB.Stats().MaxOpenConnections; got != publicReadConnections {
+		t.Fatalf("reader max connections=%d, want %d", got, publicReadConnections)
+	}
+	var mode string
+	if err := store.db.QueryRow(`PRAGMA journal_mode`).Scan(&mode); err != nil {
+		t.Fatal(err)
+	}
+	if mode != "wal" {
+		t.Fatalf("journal mode=%q, want wal", mode)
+	}
+}
+
+func TestStandaloneReadPoolSharesSnapshotWithWriter(t *testing.T) {
+	store, err := OpenStandalone(filepath.Join(t.TempDir(), "database", "kano.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	start := make(chan struct{})
+	errs := make(chan error, 9)
+	var group sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			<-start
+			_, readErr := store.GetDashboard(context.Background(), 3, time.Now())
+			errs <- readErr
+		}()
+	}
+	group.Add(1)
+	go func() {
+		defer group.Done()
+		<-start
+		errs <- store.BumpDashboardRevision(context.Background())
+	}()
+	close(start)
+	group.Wait()
+	close(errs)
+	for readErr := range errs {
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+	}
+	if revision, err := store.GetDashboardRevision(context.Background()); err != nil || revision < 1 {
+		t.Fatalf("revision=%d, err=%v", revision, err)
 	}
 }
 

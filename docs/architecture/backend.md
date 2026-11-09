@@ -79,14 +79,18 @@ is occupied.
 5. The selected avatar and banner are reconciled with the files on disk
    (`active_sha256`, `active_mime_type`), bumping the dashboard revision only
    when something changed.
-6. Interrupted workflow runs are recovered, a stored interval of either
+6. The standalone service enables SQLite WAL, keeps one writer connection for
+   operator and workflow mutations, and opens a four-connection read-only pool
+   for public projections. Read-only mode opens its own four-connection pool
+   without enabling WAL or creating sidecars.
+7. Interrupted workflow runs are recovered, a stored interval of either
    Bilibili timer below `BILIBILI_MIN_INTERVAL_MINUTES` is raised to it, and a
    saved Bilibili timer without a dynamics timer gets one beside it (see
    [Source schedules](workflows.md#the-workflows-table)). No other timers are
    seeded; [source schedules](workflows.md#source-schedules) hold them.
-7. The timer starts unless `WORKFLOW_SCHEDULER_ENABLED=0`. It submits due
+8. The timer starts unless `WORKFLOW_SCHEDULER_ENABLED=0`. It submits due
    source schedules, earliest first.
-8. The run history cleanup deletes finished runs past their
+9. The run history cleanup deletes finished runs past their
    [retention window](workflows.md#run-execution), then repeats daily.
 
 ## Package Ownership

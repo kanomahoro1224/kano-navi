@@ -50,6 +50,9 @@ var errVariantNotStored = errors.New("variant not stored")
 // width, or the original when there is none. Requests never decode: copies
 // are made ahead (MakeVariants).
 func (s *Store) OpenMediaVariant(ctx context.Context, id, version string, width int) (*MediaStream, error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().OpenMediaVariant(ctx, id, version, width)
+	}
 	if !mediavariant.ValidWidth(width) {
 		return nil, ErrMediaNotFound
 	}

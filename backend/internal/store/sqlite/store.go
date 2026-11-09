@@ -29,6 +29,8 @@ type SyncRun struct {
 
 type Store struct {
 	db               *sql.DB
+	readDB           *sql.DB
+	databasePath     string
 	dataRoot         string
 	writable         bool
 	workflowWritable bool
@@ -65,8 +67,8 @@ func OpenReadOnly(filename string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: snapshot could not be opened", ErrUnavailable)
 	}
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	db.SetMaxOpenConns(4)
+	db.SetMaxIdleConns(4)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -99,7 +101,7 @@ func OpenReadOnly(filename string) (*Store, error) {
 		_ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('workflow_runs') WHERE name='source_chain_json'`).Scan(&columns)
 		chain = columns == 1
 	}
-	return &Store{db: db, dataRoot: filepath.Dir(filepath.Dir(abs)), workflowVersion: version, sourceSync: sync, sourceChain: chain}, nil
+	return &Store{db: db, databasePath: abs, dataRoot: filepath.Dir(filepath.Dir(abs)), workflowVersion: version, sourceSync: sync, sourceChain: chain}, nil
 }
 
 // OpenAdminWrites opens an existing fixture in SQLite rw mode. It never creates
@@ -130,7 +132,7 @@ func OpenAdminWrites(filename string) (*Store, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	store := &Store{db: db, dataRoot: filepath.Dir(filepath.Dir(abs)), writable: true}
+	store := &Store{db: db, databasePath: abs, dataRoot: filepath.Dir(filepath.Dir(abs)), writable: true}
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := migrateWorkflowSchema(ctx, db); err != nil {
@@ -205,12 +207,18 @@ func (s *Store) Close() error {
 	if s == nil || s.db == nil {
 		return nil
 	}
+	if s.readDB != nil && s.readDB != s.db {
+		_ = s.readDB.Close()
+	}
 	return s.db.Close()
 }
 
 func (s *Store) GetLatestSync(ctx context.Context) (*SyncRun, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
+	}
+	if s.readDB != nil {
+		return s.publicReader().GetLatestSync(ctx)
 	}
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, source, started_at, finished_at, status
@@ -235,6 +243,9 @@ func (s *Store) GetLatestSync(ctx context.Context) (*SyncRun, error) {
 func (s *Store) GetDashboardRevision(ctx context.Context) (int64, error) {
 	if s == nil || s.db == nil {
 		return 0, ErrUnavailable
+	}
+	if s.readDB != nil {
+		return s.publicReader().GetDashboardRevision(ctx)
 	}
 	var value string
 	err := s.db.QueryRowContext(ctx, "SELECT value FROM app_settings WHERE key = 'dashboard_revision'").Scan(&value)

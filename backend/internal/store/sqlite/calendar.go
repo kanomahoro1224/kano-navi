@@ -58,6 +58,9 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
+	if s.readDB != nil {
+		return s.publicReader().GetCalendarPage(ctx, from, to, page, pageSize)
+	}
 	if err := validateCalendarRange(from, to); err != nil {
 		return nil, err
 	}

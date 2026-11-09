@@ -71,6 +71,9 @@ type mediaRecord struct {
 // OpenMedia opens a ready asset's file, or the earlier version version names,
 // for streaming.
 func (s *Store) OpenMedia(ctx context.Context, id, version string) (*MediaStream, error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().OpenMedia(ctx, id, version)
+	}
 	record, err := s.lookupMedia(ctx, id, version)
 	if err != nil {
 		return nil, err
@@ -189,6 +192,9 @@ func (r *mediaRecord) lastModified(fallback time.Time) time.Time {
 // image signature and stored hash. The returned file is streamed by the HTTP
 // layer, so concurrent public reads do not allocate one full image each.
 func (s *Store) OpenProfileMedia(ctx context.Context, slot, version string) (*MediaStream, error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().OpenProfileMedia(ctx, slot, version)
+	}
 	record, err := s.lookupProfileMedia(ctx, slot, version)
 	if err != nil {
 		return nil, err

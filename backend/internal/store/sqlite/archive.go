@@ -117,6 +117,9 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
+	if s.readDB != nil {
+		return s.publicReader().GetPostArchive(ctx, from, to, account, page, pageSize)
+	}
 	ctx = withReadMemo(ctx)
 	start, end, err := archiveBounds(from, to)
 	if err != nil {
@@ -230,6 +233,9 @@ type ArchiveMonth struct {
 // so the archive can offer a jump to any of them. Accounts are not filtered:
 // the counts let the board narrow each month to the chosen account.
 func (s *Store) GetPostMonths(ctx context.Context) ([]ArchiveMonth, int64, error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetPostMonths(ctx)
+	}
 	return s.archiveMonths(ctx, `SELECT strftime('%Y-%m', julianday(published_at) + 0.375) AS month,
 	     lower(COALESCE(account_handle,'')), COUNT(*)
 	   FROM posts WHERE `+wallPostSQL+` AND julianday(published_at) IS NOT NULL
@@ -240,6 +246,9 @@ func (s *Store) GetPostMonths(ctx context.Context) ([]ArchiveMonth, int64, error
 // first, with its videos per category, so the video timeline can offer a jump
 // to any month and narrow the counts to the chosen category.
 func (s *Store) GetVideoMonths(ctx context.Context) ([]ArchiveMonth, int64, error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetVideoMonths(ctx)
+	}
 	return s.archiveMonths(ctx, `SELECT strftime('%Y-%m', `+videoInstant+` + 0.375) AS month,
 	     `+videoCategorySQL+`, COUNT(*)
 	   FROM videos WHERE `+publicVideoScope+` AND `+videoInstant+` IS NOT NULL
@@ -292,6 +301,9 @@ const videoInstant = `julianday(COALESCE(scheduled_at,published_at))`
 // GetVideoArchive reads stored videos whose scheduled or published time falls
 // in a Japan-date range, newest first, optionally of one category.
 func (s *Store) GetVideoArchive(ctx context.Context, from, to, category string, page, pageSize int, now time.Time) (*ArchivePage[Video], error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetVideoArchive(ctx, from, to, category, page, pageSize, now)
+	}
 	start, end, err := archiveBounds(from, to)
 	if err != nil {
 		return nil, err
@@ -304,6 +316,9 @@ func (s *Store) GetVideoArchive(ctx context.Context, from, to, category string, 
 // is empty, newest first, optionally of one category. Its pages continue
 // through every month, so the board can scroll back without a date range.
 func (s *Store) GetVideoTimeline(ctx context.Context, until, category string, page, pageSize int, now time.Time) (*ArchivePage[Video], error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetVideoTimeline(ctx, until, category, page, pageSize, now)
+	}
 	end := ""
 	if until != "" {
 		if !validCalendarDate(until) {

@@ -547,6 +547,9 @@ type WorksOverlay struct {
 // GetWorksOverlay joins the works list with stored videos and images by
 // video ID and derives the recent uploads, on each read. It never writes.
 func (s *Store) GetWorksOverlay(ctx context.Context, index works.Index) (*WorksOverlay, error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetWorksOverlay(ctx, index)
+	}
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}

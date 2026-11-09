@@ -338,6 +338,9 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
+	if s.readDB != nil {
+		return s.publicReader().GetDashboard(ctx, days, now)
+	}
 	if days < 1 {
 		days = 1
 	}

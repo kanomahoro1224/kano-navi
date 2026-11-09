@@ -130,7 +130,7 @@ func TestWorksRecentUploadsFollowEachRule(t *testing.T) {
 	}
 
 	// A list without a valid date lists nothing.
-	if rows, err := s.worksRecentRows(context.Background(), works.Index{}, recentNow); err != nil || len(rows) != 0 {
+	if rows, total, err := s.worksRecentRows(context.Background(), works.Index{}, recentNow, true, WorksRecentReportLimit); err != nil || len(rows) != 0 || total != 0 {
 		t.Fatalf("rows=%v err=%v", rows, err)
 	}
 	// A release that moves the date drops the earlier videos without cleanup.

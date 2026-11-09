@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react"
-import { useEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import { ChevronDown, Sparkles, UserRoundCheck } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
@@ -130,11 +130,11 @@ function RecentCard({
 }
 
 /** How many columns a grid lays out now, following its width; measured
- * once the grid is shown. */
+ * before the shown grid is first painted, so the fold never jumps. */
 function useGridColumns(shown: boolean) {
   const ref = useRef<HTMLUListElement>(null)
   const [columns, setColumns] = useState(1)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const grid = ref.current
     if (!grid) return
     const measure = () =>

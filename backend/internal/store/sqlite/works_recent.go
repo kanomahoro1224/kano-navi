@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -71,11 +72,10 @@ type WorksRecentReport struct {
 	Total int `json:"total"`
 }
 
-// worksRecentRow is a video that passes the date, availability, merge and
-// list rules, with what the last rule reads.
+// worksRecentRow is a video the recent Works uploads review, with what its
+// cover reads.
 type worksRecentRow struct {
 	review      WorksRecentReview
-	listed      bool
 	cover       *WorksCover
 	thumbnail   *string
 	pinnedMedia string
@@ -93,18 +93,18 @@ func worksRecentAfter(updatedAt string) (string, bool) {
 }
 
 // worksListedIDs is every video ID of the packaged list, on any platform.
-func worksListedIDs(index works.Index) map[string]bool {
-	ids := map[string]bool{}
+func worksListedIDs(index works.Index) []string {
+	ids := []string{}
 	for _, upload := range index.Uploads {
 		for _, video := range upload.Videos {
-			ids[video.ID] = true
+			ids = append(ids, video.ID)
 		}
 	}
 	return ids
 }
 
-// worksRecentRows reads the videos that pass rules 1 to 4 of the recent Works
-// uploads, newest first, and decides rule 5 for each:
+// worksRecentRows reads, newest first, at most limit of the videos that pass
+// every rule of the recent Works uploads, and how many pass in all:
 //
 //  1. the Japan date of COALESCE(scheduled_at, published_at) is after
 //     updatedAt;
@@ -114,31 +114,54 @@ func worksListedIDs(index works.Index) map[string]bool {
 //  4. its ID is not a video of the packaged list;
 //  5. the operator's decision includes it, or, without one, its shown tag is
 //     song, its form is upload or premiere and it is not a Short.
-func (s *Store) worksRecentRows(ctx context.Context, index works.Index, now time.Time) ([]worksRecentRow, error) {
+//
+// With excluded, a video an operator's decision keeps out passes rule 5 too,
+// for the console. SQLite applies every rule, so a read walks the date index
+// only until limit videos pass, however many follow the list's date.
+func (s *Store) worksRecentRows(ctx context.Context, index works.Index, now time.Time, excluded bool, limit int) ([]worksRecentRow, int, error) {
 	after, ok := worksRecentAfter(index.UpdatedAt)
 	if !ok {
-		return []worksRecentRow{}, nil
+		return []worksRecentRow{}, 0, nil
+	}
+	listed, err := json.Marshal(worksListedIDs(index))
+	if err != nil {
+		return nil, 0, err
+	}
+	decided := `v.manual_work=1`
+	if excluded {
+		decided = `v.manual_work IS NOT NULL`
+	}
+	from := ` FROM videos v WHERE ` + publicVideoScope + ` AND v.merged_into IS NULL
+			AND julianday(COALESCE(v.scheduled_at,v.published_at))>=julianday(?1)
+			AND COALESCE(v.manual_availability,v.availability,'') NOT IN ('private','removed')
+			AND NOT COALESCE(CASE WHEN v.scheduled_at IS NOT NULL THEN julianday(v.scheduled_at)>=julianday(?2) ELSE v.is_upcoming<>0 END,0)
+			AND v.id NOT IN (SELECT value FROM json_each(?3))
+			AND (` + decided + ` OR v.manual_work IS NULL AND COALESCE(v.manual_kind,v.kind) IN ('upload','premiere')
+				AND COALESCE(v.manual_is_short,v.is_short,0)=0 AND ` + videoTagSQL("v") + `='song')`
+	args := []any{after, ISOTime(now), string(listed)}
+	var total int
+	if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*)`+from, args...).Scan(&total); err != nil {
+		return nil, 0, dbErr(err)
+	}
+	out := []worksRecentRow{}
+	if total == 0 || limit < 1 {
+		return out, total, nil
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT v.id,v.source,COALESCE(v.manual_title,v.title),v.published_at,v.scheduled_at,v.url,v.thumbnail_url,
 		COALESCE(v.manual_thumbnail_media_id,''),COALESCE(v.manual_thumbnail_sha256,''),COALESCE(v.manual_kind,v.kind),COALESCE(v.manual_is_short,v.is_short),
-		`+videoTagSQL("v")+`,COALESCE(v.manual_availability,v.availability),COALESCE(v.is_upcoming,0),v.manual_work
-		FROM videos v WHERE `+publicVideoScope+` AND v.merged_into IS NULL
-			AND julianday(COALESCE(v.scheduled_at,v.published_at))>=julianday(?)
-		ORDER BY julianday(COALESCE(v.scheduled_at,v.published_at)) DESC,v.id ASC`, after)
+		`+videoTagSQL("v")+`,COALESCE(v.manual_availability,v.availability),v.manual_work`+from+`
+		ORDER BY julianday(COALESCE(v.scheduled_at,v.published_at)) DESC,v.id ASC LIMIT ?4`, append(args, limit)...)
 	if err != nil {
-		return nil, dbErr(err)
+		return nil, 0, dbErr(err)
 	}
 	defer rows.Close()
-	listed := worksListedIDs(index)
-	out := []worksRecentRow{}
 	for rows.Next() {
 		var row worksRecentRow
 		var published, scheduled, thumbnail, kind, tag, availability sql.NullString
 		var short, work sql.NullBool
-		var upcoming int
 		if err = rows.Scan(&row.review.ID, &row.review.Source, &row.review.Title, &published, &scheduled, &row.review.URL, &thumbnail,
-			&row.pinnedMedia, &row.pinnedHash, &kind, &short, &tag, &availability, &upcoming, &work); err != nil {
-			return nil, dbErr(err)
+			&row.pinnedMedia, &row.pinnedHash, &kind, &short, &tag, &availability, &work); err != nil {
+			return nil, 0, dbErr(err)
 		}
 		v := &row.review
 		v.PublishedAt, v.ScheduledAt, v.Kind, v.Tag = nullString(published), nullString(scheduled), nullString(kind), nullString(tag)
@@ -146,30 +169,18 @@ func (s *Store) worksRecentRows(ctx context.Context, index works.Index, now time
 		if thumbnail.Valid && strings.TrimSpace(thumbnail.String) != "" {
 			row.thumbnail = &thumbnail.String
 		}
-		if gone(v.Availability) || listed[v.ID] || videoUpcoming(Video{ScheduledAt: v.ScheduledAt, IsUpcoming: upcoming != 0}, now) {
-			continue
-		}
 		switch {
-		case v.Work != nil && *v.Work:
-			row.listed, v.Origin = true, ptr(WorksOriginOperator)
-		case v.Work == nil && worksSong(v.Tag, v.Kind, v.IsShort):
-			row.listed, v.Origin = true, ptr(WorksOriginAuto)
 		case v.Work == nil:
-			// Neither listed nor excluded: the console does not list it.
-			continue
+			v.Origin = ptr(WorksOriginAuto)
+		case *v.Work:
+			v.Origin = ptr(WorksOriginOperator)
 		}
 		out = append(out, row)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, dbErr(err)
+		return nil, 0, dbErr(err)
 	}
-	return out, nil
-}
-
-// worksSong is rule 5 without a decision: a song upload or premiere that is
-// not a Short.
-func worksSong(tag, kind *string, short *bool) bool {
-	return tag != nil && *tag == "song" && kind != nil && (*kind == "upload" || *kind == "premiere") && (short == nil || !*short)
+	return out, total, nil
 }
 
 func ptr[T any](value T) *T { return &value }
@@ -210,19 +221,9 @@ func (s *Store) resolveWorksRecentCovers(ctx context.Context, rows []worksRecent
 // with their covers, translations and merged alternates, and how many there
 // are in all.
 func (s *Store) worksRecentUploads(ctx context.Context, index works.Index, now time.Time) ([]WorksRecentUpload, int, error) {
-	all, err := s.worksRecentRows(ctx, index, now)
+	rows, total, err := s.worksRecentRows(ctx, index, now, false, WorksRecentLimit)
 	if err != nil {
 		return nil, 0, err
-	}
-	rows := make([]worksRecentRow, 0, min(len(all), WorksRecentLimit))
-	total := 0
-	for _, row := range all {
-		if !row.listed {
-			continue
-		}
-		if total++; len(rows) < WorksRecentLimit {
-			rows = append(rows, row)
-		}
 	}
 	if err = s.resolveWorksRecentCovers(ctx, rows); err != nil {
 		return nil, 0, err
@@ -257,12 +258,10 @@ func (s *Store) WorksRecentReport(ctx context.Context, index works.Index, now ti
 		return nil, ErrUnavailable
 	}
 	ctx = withReadMemo(ctx)
-	rows, err := s.worksRecentRows(ctx, index, now)
+	rows, total, err := s.worksRecentRows(ctx, index, now, true, WorksRecentReportLimit)
 	if err != nil {
 		return nil, err
 	}
-	total := len(rows)
-	rows = rows[:min(total, WorksRecentReportLimit)]
 	if err = s.resolveWorksRecentCovers(ctx, rows); err != nil {
 		return nil, err
 	}

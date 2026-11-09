@@ -47,11 +47,7 @@ import {
   VideoShelf,
   VideoTimeline,
 } from "./components/video-shelf"
-import {
-  VIDEO_CATEGORIES,
-  type VideoCategory,
-  videoMonthKey,
-} from "./video-groups"
+import { type VideoCategory, videoMonthKey } from "./video-groups"
 import {
   ScheduleDayToggle,
   ScheduleMonth,
@@ -143,28 +139,6 @@ function archiveCopy(
   }
 }
 
-/**
- * The video archive another page links to, such as the Works page:
- * /?archive=videos with an optional month (YYYY-MM) and category.
- */
-function linkedArchive(): ArchiveRequest | null {
-  const query = new URLSearchParams(window.location.search)
-  if (query.get("archive") !== "videos") return null
-  const month = /^(\d{4})-(\d{2})$/.exec(query.get("month") ?? "")
-  const monthStart =
-    month && Number(month[2]) >= 1 && Number(month[2]) <= 12
-      ? new Date(Number(month[1]), Number(month[2]) - 1, 1)
-      : monthStartOf(japanToday())
-  const category = query.get("category")
-  return {
-    kind: "videos",
-    monthStart,
-    ...(VIDEO_CATEGORIES.includes(category as VideoCategory)
-      ? { category: category as VideoCategory }
-      : {}),
-  }
-}
-
 export function DashboardApp() {
   const { locale, t } = useAppSettings()
   const now = useNow()
@@ -186,14 +160,7 @@ export function DashboardApp() {
     calendarRange,
   } = useDashboard(now)
   // One month dialog at a time: the schedule grid, past posts or past videos.
-  const [archiveView, setArchiveView] = useState<ArchiveRequest | null>(
-    linkedArchive,
-  )
-  useEffect(() => {
-    // The link opened the dialog once; a reload starts on the board.
-    if (window.location.search.includes("archive="))
-      window.history.replaceState(window.history.state, "", "/")
-  }, [])
+  const [archiveView, setArchiveView] = useState<ArchiveRequest | null>(null)
   const [monthDetails, setMonthDetails] = useState(true)
   const archive = useArchive(
     archiveView,

@@ -14,7 +14,9 @@
 
 .adm-video-row {
   display: grid;
-  grid-template-columns: 128px minmax(0, 1fr) minmax(0, 220px) auto;
+  /* The translation pill takes its own width, so it never runs under the
+     actions; it ends at the same edge on every row. */
+  grid-template-columns: 128px minmax(0, 1fr) max-content auto;
   grid-template-areas: "thumb main translation actions";
   align-items: center;
   gap: 16px;
@@ -108,6 +110,7 @@
 
 .adm-video-translation {
   grid-area: translation;
+  justify-self: end;
   min-width: 0;
 }
 
@@ -139,14 +142,21 @@
     align-items: start;
     row-gap: 8px;
   }
+
+  .adm-video-translation {
+    justify-self: start;
+  }
 }
 
 @container (max-width: 520px) {
+  /* The translation pill is wider than what a phone row leaves beside the
+     actions, so each takes a row of its own. */
   .adm-video-row {
-    grid-template-columns: 96px minmax(0, 1fr) auto;
+    grid-template-columns: 96px minmax(0, 1fr);
     grid-template-areas:
-      "thumb main main"
-      "translation translation actions";
+      "thumb main"
+      "translation translation"
+      "actions actions";
     align-items: center;
     gap: 8px 12px;
   }
@@ -154,6 +164,10 @@
   .adm-video-row > .adm-video-thumb,
   .adm-video-main {
     align-self: start;
+  }
+
+  .adm-video-row-actions {
+    justify-self: end;
   }
 }
 

@@ -305,6 +305,7 @@ const pendingStatuses = [
 
 /** upcoming | live | open | done | pending | cancelled | cancellation_review */
 export function eventStatus(event: ScheduleEvent, now = Date.now()) {
+  if (event.view?.state) return event.view.state
   if (event.cancellationStatus === "manual_confirmed") return "cancelled"
   if (event.cancellationStatus === "llm_suspected") return "cancellation_review"
   const status = String(event.status || "")
@@ -455,6 +456,17 @@ function saleIsDeadline(window: SaleWindow) {
  * time. Every other event is its own single entry.
  */
 export function scheduleEntries(event: ScheduleEvent): ScheduleEvent[] {
+  if (event.view?.calendarEntries?.length) {
+    const window = eventIsSale(event) ? saleWindow(event) : null
+    return event.view.calendarEntries.map((entry) => ({
+      ...event,
+      ...(window ? { saleWindow: window } : {}),
+      startsOn: entry.startsOn,
+      startsAt: entry.startsAt,
+      timePrecision: entry.timePrecision,
+      ...(entry.saleMark ? { saleMark: entry.saleMark } : {}),
+    }))
+  }
   if (!eventIsSale(event)) return [event]
   const window = saleWindow(event)
   const closing: ScheduleEvent = {
@@ -555,6 +567,13 @@ export function eventTag(event: ScheduleEvent): EventTag | null {
  * is a cover or original rather than a singing stream.
  */
 export function eventKinds(event: ScheduleEvent) {
+  if (event.view) {
+    return {
+      typeKey: event.view.typeCode ? `event.type.${event.view.typeCode}` : null,
+      tag: event.view.activityCode as EventTag | null,
+      work: event.view.isWork,
+    }
+  }
   const type = String(event.eventType || "").toLowerCase()
   let tag = eventTag(event)
   if (
@@ -672,6 +691,22 @@ export function videoFormLabel(
   t: Translator,
   now = Date.now(),
 ): string | null {
+  if (video.view) {
+    if (!video.view.formCode) return null
+    return t(
+      video.view.formCode === "short"
+        ? "media.kind.short"
+        : video.view.formCode === "upcoming"
+          ? "media.kind.upcoming"
+          : video.view.formCode === "stream"
+            ? "event.type.stream"
+            : video.view.formCode === "archive"
+              ? "media.kind.liveArchive"
+              : video.view.formCode === "premiere"
+                ? "media.kind.premiere"
+                : "media.kind.video",
+    )
+  }
   if (video?.isShort === true) return t("media.kind.short")
   const kind = String(video?.kind || "")
   if (kind === "stream") {
@@ -691,7 +726,9 @@ export function videoFormLabel(
 export function videoTagLabel(video: Video, t: Translator) {
   const tag = videoTag(video)
   if (!tag) return null
-  return t(video.kind === "stream" ? `event.tag.${tag}` : workTagKeys[tag])
+  const context =
+    video.view?.tagContext || (video.kind === "stream" ? "stream" : "work")
+  return t(context === "stream" ? `event.tag.${tag}` : workTagKeys[tag])
 }
 
 /** Strip the trailing 【鹿乃まほろ/ミリプロ】 credit that every title repeats. */

@@ -25,9 +25,7 @@ import {
   eventIsManual,
   eventKinds,
   membersChipBeside,
-  eventTag,
   eventTagKey,
-  eventTypeKey,
   formatJapanDay,
   formatJapanTime,
   formatRelative,
@@ -165,16 +163,21 @@ function TicketHead({
   now: number
   t: Translator
 }) {
-  const typeKey = item.event ? eventTypeKey(item.event) : null
+  const eventView = item.event ? eventKinds(item.event) : null
+  const typeKey = eventView?.typeKey || null
   // The video's tag (which already follows its entry's label) or else the
   // entry's gameplay, talk or singing label outranks the form; a plain
   // stream or upload label says no more than the type already does.
-  const label = item.event ? eventTag(item.event) : null
-  const entryWork = item.event ? eventKinds(item.event).work : false
+  const label = eventView?.tag || null
+  const entryWork = eventView?.work || false
   const videoActivity = item.video ? videoTag(item.video) : null
   const activity: VideoTag | null =
     videoActivity ??
     (label === "game" || label === "talk" || label === "song" ? label : null)
+  const reservationOnAir =
+    isLive &&
+    (item.video?.view?.phase === "upcoming" ||
+      (!item.video?.view && item.video?.isUpcoming === true))
   const tag = item.liveNow
     ? t("spotlight.liveNow", { platform: platformNames[item.liveNow.platform] })
     : item.video && videoActivity
@@ -183,7 +186,7 @@ function TicketHead({
         ? t(eventTagKey(activity, entryWork))
         : // A reservation on air on another platform is a stream on air.
           (item.video &&
-            (isLive && item.video.isUpcoming
+            (reservationOnAir
               ? t("event.type.stream")
               : videoFormLabel(item.video, t, now))) ||
           (typeKey
@@ -191,11 +194,9 @@ function TicketHead({
             : eventDetailText(item.detail, t) || t("schedule.publicEvent"))
   // A members-only entry keeps saying so beside its activity or video form,
   // as the schedule does.
-  const membersChip = membersChipBeside(
-    item.event,
-    item.video,
-    Boolean(activity || item.video),
-  )
+  const membersChip =
+    item.membersChip ??
+    membersChipBeside(item.event, item.video, Boolean(activity || item.video))
   const manual = item.event ? eventIsManual(item.event) : false
   return (
     <span className="ticket-head">
@@ -216,7 +217,8 @@ function TicketHead({
             tag={activity}
             work={
               videoActivity && item.video
-                ? item.video.kind !== "stream"
+                ? item.video.view?.tagContext === "work" ||
+                  (!item.video.view && item.video.kind !== "stream")
                 : entryWork
             }
           />
@@ -557,6 +559,7 @@ function LatestCard({
 /** The single most useful thing to know right now: what airs next. */
 function NextTicket({
   summary,
+  projection,
   liveNow,
   isLoading,
   locale,
@@ -564,6 +567,7 @@ function NextTicket({
   t,
 }: {
   summary: Dashboard["summary"]
+  projection?: Dashboard["projection"]
   liveNow: Dashboard["liveNow"]
   isLoading: boolean
   locale: Locale
@@ -585,7 +589,7 @@ function NextTicket({
       </div>
     )
   }
-  const item = pickSpotlight(summary, now, liveNow)
+  const item = pickSpotlight(summary, now, liveNow, projection)
   if (!item) {
     return (
       <div className="ticket is-empty">
@@ -604,7 +608,7 @@ function NextTicket({
       <FullTicket item={item} isLive={isLive} locale={locale} now={now} t={t} />
     )
   }
-  const companion = pickCompanion(summary, item)
+  const companion = pickCompanion(summary, item, projection)
   return (
     <div className="stage-main">
       <CompactTicket
@@ -793,6 +797,7 @@ function ProfileCard({
 export function NowStage(props: {
   profile: Profile
   summary: Dashboard["summary"]
+  projection?: Dashboard["projection"]
   /** An unannounced live broadcast no schedule entry shows. */
   liveNow?: Dashboard["liveNow"]
   resources: Dashboard["resources"]
@@ -807,11 +812,12 @@ export function NowStage(props: {
   now: number
   t: Translator
 }) {
-  const { summary, liveNow, isLoading, locale, now, t } = props
+  const { summary, projection, liveNow, isLoading, locale, now, t } = props
   return (
     <section className="stage" id="now" aria-label={t("nav.now")}>
       <NextTicket
         summary={summary}
+        projection={projection}
         liveNow={liveNow ?? null}
         isLoading={isLoading}
         locale={locale}

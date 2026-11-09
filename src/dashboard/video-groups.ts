@@ -1,4 +1,4 @@
-import type { Locale, Video } from "../types.ts"
+import type { Dashboard, Locale, Video } from "../types.ts"
 import {
   confirmedLiveStatus,
   dateKey,
@@ -59,6 +59,7 @@ export function videoIsGone(video: Video) {
  * other video stays current only until an explicit end.
  */
 export function videoPhase(video: Video, now: number): VideoPhase {
+  if (video.view?.phase) return video.view.phase
   // An operator-confirmed cancellation is neither upcoming, live nor archived.
   if (video.isCancelled) return "cancelled"
   const start = Date.parse(video.scheduledAt || "")
@@ -97,12 +98,76 @@ export interface VideoShelfGroups extends VideoSplit {
   leadIsFeatured: boolean
 }
 
+type ProjectedShelf = NonNullable<Dashboard["projection"]>["shelf"]
+
+/** Reads the server's shelf order while keeping old snapshots usable. */
+function splitProjectedVideos(
+  videos: Video[],
+  projection: Dashboard["projection"] | undefined,
+): VideoSplit | null {
+  if (projection?.version !== 1) return null
+  const shelf: ProjectedShelf = projection.shelf
+  const byId = new Map(videos.map((video) => [video.id, video]))
+  const take = (ids: string[]) =>
+    ids.flatMap((id) => {
+      const video = byId.get(id)
+      return video ? [video] : []
+    })
+  return {
+    reservations: take(shelf.reservations),
+    works: take(shelf.works),
+    archives: take(shelf.archives),
+    shorts: take(shelf.shorts),
+  }
+}
+
 const newestFirst = (a: Video, b: Video) =>
   scheduleSortTime(videoTime(b)) - scheduleSortTime(videoTime(a)) ||
   a.id.localeCompare(b.id)
 
 /** Sorts videos into what is coming, what was uploaded and what aired. */
-export function splitVideos(videos: Video[], now: number): VideoSplit {
+export function splitVideos(
+  videos: Video[],
+  now: number,
+  projection?: Dashboard["projection"],
+): VideoSplit {
+  return splitVideosWithProjection(videos, now, projection)
+}
+
+function splitVideosWithProjection(
+  videos: Video[],
+  now: number,
+  projection?: Dashboard["projection"],
+): VideoSplit {
+  let projected = splitProjectedVideos(videos, projection)
+  if (projected) {
+    // A lead is omitted from the all-view shelf. Filtered views still include
+    // it, so place that one video using its server-assigned group.
+    const listed = new Set([
+      ...projected.reservations,
+      ...projected.works,
+      ...projected.archives,
+      ...projected.shorts,
+    ])
+    const missing = videos.filter((video) => !listed.has(video))
+    for (const video of missing) {
+      const group = video.view?.shelfGroup
+      if (
+        video.view?.phase === "cancelled" &&
+        Date.parse(video.scheduledAt || "") <= now
+      )
+        continue
+      if (group === "reservation") projected.reservations.push(video)
+      else if (group === "archive") projected.archives.push(video)
+      else if (group === "short") projected.shorts.push(video)
+      else if (group === "work") projected.works.push(video)
+      else {
+        projected = null
+        break
+      }
+    }
+    if (projected) return projected
+  }
   const reservations: Video[] = []
   const works: Video[] = []
   const archives: Video[] = []
@@ -133,6 +198,7 @@ export function groupVideos(
   videos: Video[],
   featuredVideoId: string | null,
   now: number,
+  projection?: Dashboard["projection"],
 ): VideoShelfGroups {
   const featured = featuredVideoId
     ? videos.find((video) => video.id === featuredVideoId) || null
@@ -140,6 +206,7 @@ export function groupVideos(
   const split = splitVideos(
     videos.filter((video) => video !== featured),
     now,
+    projection,
   )
   let lead = featured
   if (!lead) {

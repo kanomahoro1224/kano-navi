@@ -124,6 +124,29 @@ export interface EventLink {
   liveStatus?: LiveStatus | null
 }
 
+export interface EventView {
+  state:
+    | "upcoming"
+    | "live"
+    | "open"
+    | "done"
+    | "pending"
+    | "cancelled"
+    | "cancellation_review"
+  typeCode: string | null
+  activityCode: string | null
+  activityContext: "stream" | "work" | ""
+  isWork: boolean
+  calendarEntries: CalendarEntryView[]
+}
+
+export interface CalendarEntryView {
+  saleMark: "opens" | "closes" | null
+  startsOn: string
+  startsAt: string | null
+  timePrecision: string
+}
+
 export interface ScheduleEvent {
   id: string
   source: string
@@ -139,11 +162,7 @@ export interface ScheduleEvent {
   timePrecision: string
   status: string | null
   eventType: string
-  /**
-   * Which end of a sale period this calendar entry shows. The board derives
-   * it (see `scheduleEntries`); the closing entry carries the close as its
-   * start and the whole period in `saleWindow`.
-   */
+  /** Which end of a sale period this calendar entry shows. */
   saleMark?: SaleMark
   saleWindow?: SaleWindow
   /** The entry's activity label code (`live`, `game`, `talk`, `song`, `video`). */
@@ -175,6 +194,7 @@ export interface ScheduleEvent {
   /** The linked video's title translations while the event shows its title. */
   translations?: Translations
   sourceLanguage?: string | null
+  view?: EventView
 }
 
 export type VideoAvailability =
@@ -186,7 +206,7 @@ export interface Video {
   title: string
   publishedAt: string | null
   scheduledAt: string | null
-  /** Derived locally from the linked snapshot event for focus expiry. */
+  /** Derived from the linked snapshot event for focus expiry. */
   endsAt?: string | null
   url: string
   thumbnailUrl: string | null
@@ -215,6 +235,17 @@ export interface Video {
   sourceLanguage?: string | null
   /** The same work on other platforms, such as a merged Bilibili upload. */
   alternates?: VideoAlternate[]
+  view?: VideoView
+}
+
+export interface VideoView {
+  phase: "upcoming" | "live" | "started" | "past" | "cancelled"
+  formCode:
+    "short" | "upcoming" | "stream" | "archive" | "premiere" | "video" | null
+  shelfGroup: "reservation" | "work" | "archive" | "short" | ""
+  latestEligible: boolean
+  focusEligible: boolean
+  tagContext: "stream" | "work"
 }
 
 export interface VideoAlternate {
@@ -291,6 +322,7 @@ export interface Dashboard {
   profile: Profile
   /** An unannounced broadcast on air now; absent in older snapshots. */
   liveNow?: LiveNow | null
+  projection?: DashboardProjection
   summary: {
     nextEvent: ScheduleEvent | null
     nextStream: Video | null
@@ -340,5 +372,29 @@ export interface Dashboard {
     featuredVideoId: string | null
     eventWindow?: { from: string; to: string; paginated: boolean }
     revision?: number
+  }
+}
+
+export interface DashboardProjection {
+  version: number
+  nextTransitionAt: string | null
+  focus: { eventIds: string[]; videoIds: string[] }
+  spotlight: {
+    mode: "next" | "latest"
+    eventId: string | null
+    videoId: string | null
+    liveNow: boolean
+    isLive: boolean
+    membersChip: boolean
+    companionVideoId: string | null
+  } | null
+  sales: string[]
+  shelf: {
+    leadId: string | null
+    leadIsFeatured: boolean
+    reservations: string[]
+    works: string[]
+    archives: string[]
+    shorts: string[]
   }
 }

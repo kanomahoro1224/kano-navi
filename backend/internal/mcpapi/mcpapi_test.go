@@ -437,9 +437,13 @@ func TestDashboardReadIsAPublicProjection(t *testing.T) {
 	response := post(t, handler, toolCall("dashboard_read", nil))
 	dashboard := toolValue(t, response)
 
-	want := []string{"assets", "events", "focus", "liveNow", "meta", "posts", "profile", "profileMedia", "resources", "scheduleImages", "summary", "timeline", "videos"}
+	want := []string{"assets", "events", "focus", "liveNow", "meta", "posts", "profile", "profileMedia", "projection", "resources", "scheduleImages", "summary", "timeline", "videos"}
 	if got := keys(dashboard); !reflect.DeepEqual(got, want) {
 		t.Fatalf("dashboard keys = %v", got)
+	}
+	projection := dashboard["projection"].(map[string]any)
+	if projection["version"] != float64(1) {
+		t.Fatalf("projection = %v", projection)
 	}
 	events := dashboard["events"].([]any)
 	if len(events) != 2 {
@@ -453,9 +457,9 @@ func TestDashboardReadIsAPublicProjection(t *testing.T) {
 			}
 		}
 		// 19 schedule facts (a sale's close date included), the calendar
-		// label, the platform and the shown platforms, plus the linked
-		// video's translations and sourceLanguage.
-		if len(event) != 24 {
+		// label, the platform and the shown platforms, the shared view, plus
+		// the linked video's translations and sourceLanguage.
+		if len(event) != 25 {
 			t.Fatalf("event field count = %d: %v", len(event), keys(event))
 		}
 		// The label is read from the event row, so a reader sees it here just
@@ -504,8 +508,8 @@ func TestScheduleListHidesOperatorMetadata(t *testing.T) {
 				t.Fatalf("event exposes %s", field)
 			}
 		}
-		// The visitor facts plus the shown platforms.
-		if len(event) != 20 {
+		// The visitor facts, shared view and shown platforms.
+		if len(event) != 21 {
 			t.Fatalf("event field count = %d: %v", len(event), keys(event))
 		}
 	}

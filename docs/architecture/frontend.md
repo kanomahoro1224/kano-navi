@@ -77,32 +77,21 @@ below, so it keeps its label as `aria-label`. The board lives in
 `src/dashboard/`: `use-dashboard.ts` owns the snapshot request and the
 revision stream, `format.ts` owns Japan-time and event-status helpers, `content.ts` holds static public links, and
 `components/` renders the next-up stage and profile card, the on-sale strip
-(`sale-strip.tsx`: up to three sales from `currentSales`, on sale now by
-their close and then those opening within seven days by their opening,
-rendered only when one qualifies), the week guide,
+(`sale-strip.tsx`: up to three IDs from `projection.sales`, rendered in API
+order; snapshots without that projection use `currentSales`), the week guide,
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
 schedule, posts or videos, and `sheet-dialog.tsx`, the smaller modal sheet
 that shows one long post or one schedule entry in full and can open above
-the month sheet. `video-groups.ts` sorts the shelf's videos from
-the local snapshot: the `stream` kind is a stream and every other
-[form](data-model.md#video-form-and-tags) a work, whatever the video's tag;
-a video's phase follows the
-stage's live rule (a fresh confirmed state first, then the stream's
-three-hour grace or an explicit end), so a reservation past its start is a
-started ticket rather than an archive and an operator-confirmed cancellation
-leaves the shelf once its start passes. A past video whose `isShort` is
-`true` is a Short before its kind is read, so a Short broadcast is neither
-an archive nor a work; `null` (unknown) is an ordinary upload. The
-lead is the featured video, or else the newest work tagged `song` or
-premiere, or else the newest work, so a Short leads only when featured; each video appears
-once. A video carries two chips. The form chip (`videoFormLabel`) names a
-Short, then a stream's waiting room, then the form (stream while it may be
-on air by the same rule as a live entry, then stream archive, premiere
-while it waits or airs by `videoPhase`'s rule, then video); a premiere that
-has aired is an ordinary video and has no form chip (`null`); a reported end that has passed makes it an archive even while a
-`live` result is still fresh, as `videoPhase` files it, and every caller
-passes the board's clock. The tag chip (`VideoTagChip` in
+the month sheet. `video-groups.ts` consumes the dashboard's
+`projection.shelf` and each video's `view`: the API supplies the lead, group,
+phase and stable order, while the browser applies the active filter and
+renders the cards. A snapshot without the projection uses the legacy local
+grouping until the next API response. A video carries two chips. The form
+chip (`videoFormLabel`) translates `view.formCode`, and `VideoTagChip`
+translates the stored tag with the context in `view.tagContext`; neither
+helper reconstructs the phase or form when the projection is present. The
+tag chip (`VideoTagChip` in
 `src/dashboard/components/event-tag.tsx`) adds the tag with the schedule's
 icon, in the schedule's words for a stream (gameplay, talk, singing) and as
 the work's content otherwise (gameplay, talk, music, where a note replaces
@@ -111,14 +100,12 @@ card, row, ticket and the lead, including stream archives that hide the
 form chip. The Next Up ticket names the video's tag, else the entry's
 activity label, before the form; a `member` entry adds the members-only chip
 (`MembersChip`) beside it unless the video's availability chip already
-shows `members`, `private` or `removed`. Schedule entries follow the same split:
-`eventKinds` marks a release or video entry as a work, and `eventTagKey`
-names a work's `song` label music, any other singing. `scheduleEntries` turns
-a [sale period](data-model.md#sale-periods) into the guide's entries at its
-ends: the closing entry carries the close as its date and time, both carry
-`saleMark` (`opens` or `closes`, shown as a chip) and the stored period in
-`saleWindow`, and `eventStatus` gives both the period's status (`upcoming`,
-`open`, `done`). The filter offers All plus Streams, Works and Shorts for each kind
+shows `members`, `private` or `removed`. Schedule entries consume the event
+`view`: `eventKinds`, `scheduleEntries` and `eventStatus` translate its type,
+activity, calendar entries and state. The sale period's opening and closing
+dates come from `view.calendarEntries`, and the status codes are
+`upcoming`, `open` and `done`. A response without the view uses the stored
+fields as a compatibility fallback. The filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the
 centre of the 1280×720 cover (the vertical frame between YouTube's blurred
 pillarbox): one row of up to six in the All view, fewer as columns narrow and
@@ -676,11 +663,11 @@ consumption.
 
 Each successful snapshot is also kept in `localStorage`
 (`kano-dashboard-snapshot-v1`, with the time it was stored). The next visit
-renders a stored snapshot under a week old at once, through the same local
-time derivation, and reads the API as usual; the board reports a refresh
-rather than loading, and the first read replaces it or, on failure, leaves it
-shown with the error. The key's suffix changes when the snapshot's shape
-does. Without a usable stored snapshot the stage shows its placeholder, which
+renders a stored snapshot under a week old at once and reads the API as usual;
+the board reports a refresh rather than loading, and the first read replaces
+it or, on failure, leaves it shown with the error. Additive projection fields
+are filled with compatible defaults while a stored response does not contain
+them. Without a usable stored snapshot the stage shows its placeholder, which
 has a full ticket's shape (the 16:9 art band and a stub with a two-line
 title, three lines at 640px and below), so the usual ticket fills it in place.
 
@@ -702,7 +689,8 @@ stream and pauses its timer; becoming visible reopens the stream, whose first
 message is the current revision, and visibility/focus events coalesce into a
 prompt check while respecting failure backoff and a one-second minimum gap.
 Unmount closes the stream, aborts requests and removes deadlines, timers and
-wake listeners. The 30-second local time derivation below runs separately.
+wake listeners. The local clock updates freshness copy; snapshot revalidation
+keeps the time-dependent projection current without source synchronization.
 
 ## Time-dependent Snapshot State
 
@@ -720,43 +708,23 @@ Missing timestamps, and ones more than five minutes ahead of the local clock
 (a visitor clock slightly behind the server still shows a fresh read), remain
 waiting. This is a display threshold, not a synchronization timer.
 
-The board rederives event/video availability, counts, and focus candidates from
-its local snapshot every 30 seconds and when the page regains visibility/focus,
-even when `dashboard_revision` is unchanged. Expired activities yield to later
-events; date-only entries use the current Asia/Tokyo date and never acquire a
-synthetic start time. A fresh probe-confirmed `liveStatus` decides first:
-`live` stays live until a known end, while `ended` and `upcoming` are never
-on air, and the On air badge and the schedule's On air status use the same
-rule, so the week guide never folds a stream as past while the stage shows
-it on air; a confirmed `upcoming` waiting room past its reserved time stays
-upcoming there. Without one, streams and
-memberships retain a three-hour live grace period, or their explicit end time; other activities, including YouTube
-premieres, count as live only before an explicit end. A sale period is
-never a focus candidate. A started candidate
-without an explicit end or a confirmed live state is only presumed live: in `nextEvent`, `nextStream` and
-`pickSpotlight` it yields to a later timed candidate that has started or starts
-within 30 minutes, while a candidate with an explicit end keeps its place until
-that end. Events and videos for the same YouTube video, matched by the identity
-below, form one spotlight candidate. A video linked to an event inherits its explicit end time for
-both `nextStream` and `pickSpotlight`. YouTube watch, youtu.be, live, and shorts
-links match by the video identity parsed locally from their public URL, ignoring
-share/query parameters and supported YouTube subdomain differences. Other links
-retain exact URL matching; different videos and lookalike hosts do not match.
-`pickSpotlight` gives a candidate with artwork the full ticket and one without
-it the compact layout; `pickCompanion` then adds the latest video beneath a
-compact ticket unless it is the same link. Both read `summary.latestVideo`,
-which `deriveDashboardAt` recomputes as the newest non-upcoming video that is
-not a Short (`isShort === true`), unless it is the featured video
-(`featuredVideoIdOf`: `meta.featuredVideoId`, or the focus video of a
-snapshot without that field), and that is neither private nor removed
-(`videoIsGone`). An unknown format or availability stays eligible, and when every recent upload is a
-Short the stage shows no latest video. The play mark appears only on
-YouTube or Twitch links; X links read as an announcement.
-Matching needs no protected source item IDs or additional public API fields.
-At the end instant the video yields to later focus candidates. This derived video
-`endsAt` belongs to local snapshot state. Without an explicit end, a stream's
-three-hour grace ends exactly three hours after the start. Confirmed cancellation flags prevent local
-rederivation from restoring a cancelled reservation. Selected-media startup
+The API supplies event and video availability, counts, focus order, spotlight
+identity, sale IDs and shelf order in the dashboard projection. `view` fields
+travel with calendar and archive records so the same codes render in every
+reader. The minute revalidation obtains a fresh projection when time-dependent
+states can expire without a durable revision; a visibility or focus wake also
+uses the same request path. `deriveDashboardAt` returns a versioned projected
+snapshot as received. A response without the projection follows the compatible
+local derivation path, including the live grace, sale expansion, focus yield,
+latest-video eligibility and cancellation rules needed by that response.
+
+`pickSpotlight` joins the projected event and video IDs to the returned
+summary, translates the projected live and members-chip flags, and keeps the
+existing full or compact layout. `pickCompanion` follows the projected
+companion ID. URL identity matching remains a link presentation concern: it
+orders platform links and labels the destination without deciding focus or
+availability. The public API exposes only the stable IDs, codes and booleans;
+source item IDs and raw provider data remain on the server. Selected-media startup
 repairs follow the [durable revision contract](data-model.md#event-precedence),
 so the board's revision follow-up reloads a changed avatar URL without
 increasing full-snapshot request frequency. This requires no source

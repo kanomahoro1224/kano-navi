@@ -14,6 +14,21 @@ import type { VideoCategory } from "./video-groups"
 
 const emptyDashboard: Dashboard = {
   profile: fallbackProfile,
+  projection: {
+    version: 0,
+    nextTransitionAt: null,
+    focus: { eventIds: [], videoIds: [] },
+    spotlight: null,
+    sales: [],
+    shelf: {
+      leadId: null,
+      leadIsFeatured: false,
+      reservations: [],
+      works: [],
+      archives: [],
+      shorts: [],
+    },
+  },
   summary: {
     nextEvent: null,
     nextStream: null,
@@ -174,7 +189,7 @@ type LoadResult = { ok: true } | { ok: false; error: Error }
 
 /**
  * The last snapshot this browser read, shown on the next visit until the
- * first read replaces it. The suffix changes when the snapshot's shape does.
+ * first read replaces it. Additive fields are merged with safe defaults.
  */
 const SNAPSHOT_CACHE_KEY = "kano-dashboard-snapshot-v1"
 /** An older stored snapshot is dropped instead of shown. */
@@ -187,6 +202,20 @@ function mergeSnapshot(payload: Partial<Dashboard>): Dashboard {
     ...payload,
     profile: { ...fallbackProfile, ...(payload.profile || {}) },
     summary: { ...emptyDashboard.summary, ...(payload.summary || {}) },
+    projection: payload.projection
+      ? {
+          ...emptyDashboard.projection,
+          ...payload.projection,
+          focus: {
+            ...emptyDashboard.projection!.focus,
+            ...(payload.projection.focus || {}),
+          },
+          shelf: {
+            ...emptyDashboard.projection!.shelf,
+            ...(payload.projection.shelf || {}),
+          },
+        }
+      : emptyDashboard.projection,
     meta: { ...emptyDashboard.meta, ...(payload.meta || {}) },
   }
 }

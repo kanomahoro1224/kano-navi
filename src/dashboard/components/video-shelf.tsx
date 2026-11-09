@@ -432,12 +432,13 @@ function VideoWhen({
 }) {
   const time = videoTime(video)
   if (!time) return null
+  const phase = videoPhase(video, now)
   return (
     <time
       dateTime={time}
       title={`${formatStamp(time)} ${t("common.timezoneShort")}`}
     >
-      {video.isUpcoming || absoluteTime
+      {phase === "upcoming" || absoluteTime
         ? `${formatJapanDay(time, locale)} ${formatJapanTime(time)} ${t("common.timezoneShort")}`
         : formatRelative(time, locale, now)}
     </time>
@@ -460,16 +461,19 @@ function VideoRow({
   t: Translator
 }) {
   const title = cleanVideoTitle(video.title)
+  const phase = videoPhase(video, now)
   const links = videoLinks(video, locale, now)
   return (
     <li>
       <div
-        className={`video-row link-card${video.isUpcoming ? " is-upcoming" : ""}`}
+        className={`video-row link-card${phase === "upcoming" ? " is-upcoming" : ""}`}
         onClick={followCardLink}
       >
         <Thumb
           url={video.thumbnailUrl}
-          badge={video.isUpcoming ? "upcoming" : links.length ? "play" : null}
+          badge={
+            phase === "upcoming" ? "upcoming" : links.length ? "play" : null
+          }
           seconds={video.durationSeconds}
           video={video}
           links={links}
@@ -477,7 +481,7 @@ function VideoRow({
         />
         <span className="video-row-copy">
           <span className="video-meta">
-            {video.isUpcoming ? (
+            {phase === "upcoming" ? (
               <span className="tag tone-berry">{t("videos.reserved")}</span>
             ) : (
               <FormChip video={video} now={now} t={t} />
@@ -588,6 +592,7 @@ const FILTERED_ITEMS = 12
 export function VideoShelf({
   videos,
   featuredVideoId,
+  projection,
   focus,
   isLoading,
   onOpenArchive,
@@ -597,6 +602,7 @@ export function VideoShelf({
 }: {
   videos: Video[]
   featuredVideoId: string | null
+  projection?: Dashboard["projection"]
   focus: Dashboard["focus"]
   isLoading: boolean
   onOpenArchive: () => void
@@ -630,7 +636,7 @@ export function VideoShelf({
   if (isLoading) body = <Placeholder lines={4} />
   else if (!videos.length) body = <EmptyNote title={t("videos.empty")} />
   else if (active === "all") {
-    const groups = groupVideos(videos, featuredVideoId, now)
+    const groups = groupVideos(videos, featuredVideoId, now, projection)
     const reservations = groups.reservations.slice(0, SIDE_RESERVATIONS)
     const sideWorks = groups.works.slice(0, SIDE_WORKS)
     const archives = groups.archives.slice(0, ALL_ARCHIVES)
@@ -722,6 +728,7 @@ export function VideoShelf({
     const split = splitVideos(
       videos.filter((video) => videoMatchesFilter(video, active)),
       now,
+      projection,
     )
     const view = {
       streams: {

@@ -100,8 +100,12 @@ export function videoIsInFocus(video: Video, now: number) {
     : Boolean(video.isUpcoming)
 }
 
-/** Recompute time-dependent state from the local snapshot, without network work. */
+/** Apply the compatibility derivation for snapshots without a server projection. */
 export function deriveDashboardAt(snapshot: Dashboard, now: number): Dashboard {
+  // Current API snapshots carry the server-owned projection. The fallback
+  // below remains for cached snapshots and older API responses during the
+  // additive migration.
+  if (snapshot.projection?.version === 1) return snapshot
   const events = snapshot.events.map((event) => ({
     ...event,
     isUpcoming: eventIsUpcoming(event, now),

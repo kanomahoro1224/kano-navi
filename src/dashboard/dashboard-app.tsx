@@ -412,6 +412,7 @@ export function DashboardApp() {
         <NowStage
           profile={profile}
           summary={summary}
+          projection={dashboard.projection}
           liveNow={dashboard.liveNow}
           resources={dashboard.resources}
           counts={counts}
@@ -426,7 +427,13 @@ export function DashboardApp() {
           t={t}
         />
 
-        <SaleStrip events={dashboard.events} locale={locale} now={now} t={t} />
+        <SaleStrip
+          events={dashboard.events}
+          salesIds={dashboard.projection?.sales}
+          locale={locale}
+          now={now}
+          t={t}
+        />
 
         <WeekGuide
           range={calendarRange}
@@ -468,6 +475,7 @@ export function DashboardApp() {
         <VideoShelf
           videos={dashboard.videos}
           featuredVideoId={featuredVideoId}
+          projection={dashboard.projection}
           focus={dashboard.focus}
           isLoading={isLoading}
           onOpenArchive={openVideoArchive}

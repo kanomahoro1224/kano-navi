@@ -30,16 +30,22 @@ function when(instant: number, timed: boolean, locale: Locale, t: Translator) {
  */
 export function SaleStrip({
   events,
+  salesIds,
   locale,
   now,
   t,
 }: {
   events: ScheduleEvent[]
+  salesIds?: string[]
   locale: Locale
   now: number
   t: Translator
 }) {
-  const sales = currentSales(events, now)
+  const sales = salesIds
+    ? salesIds
+        .map((id) => events.find((event) => event.id === id) || null)
+        .filter((event): event is ScheduleEvent => event !== null)
+    : currentSales(events, now)
   if (!sales.length) return null
   return (
     <section className="sale-strip" aria-labelledby="sale-strip-title">

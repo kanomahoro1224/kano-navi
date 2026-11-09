@@ -12,6 +12,7 @@ import (
 type Dashboard struct {
 	Profile        *Profile
 	Summary        DashboardSummary
+	Projection     DashboardProjection
 	Posts          []Post
 	Events         []DashboardEvent
 	Videos         []Video
@@ -155,6 +156,29 @@ type DashboardEvent struct {
 	// Translations are the linked video's title translations while the
 	// event shows that video's title.
 	Translations TranslationSet
+	// View is the locale-neutral, time-dependent public event projection. It
+	// is computed on read and is never stored in SQLite.
+	View EventView
+}
+
+// EventView contains the event semantics shared by the dashboard and bounded
+// calendar reads. Codes are translated by the frontend.
+type EventView struct {
+	State           string
+	TypeCode        *string
+	ActivityCode    *string
+	ActivityContext string
+	IsWork          bool
+	CalendarEntries []CalendarEntry
+}
+
+// CalendarEntry is one display occurrence of an event. Sale periods have an
+// opening and/or closing occurrence; other events have one occurrence.
+type CalendarEntry struct {
+	SaleMark      *string
+	StartsOn      string
+	StartsAt      *string
+	TimePrecision string
 }
 
 // EventLink is one shown platform of an entry, the link to follow there
@@ -200,6 +224,18 @@ type Video struct {
 	Translations TranslationSet
 	// Alternates are the other platforms' uploads merged into this video.
 	Alternates []VideoAlternate
+	// View is the locale-neutral, time-dependent public video projection. It
+	// is computed on read and is never stored in SQLite.
+	View VideoView
+}
+
+type VideoView struct {
+	Phase          string
+	FormCode       *string
+	ShelfGroup     string
+	LatestEligible bool
+	FocusEligible  bool
+	TagContext     string
 }
 
 // VideoAlternate is the public link of an upload merged into a video.
@@ -279,6 +315,39 @@ type DashboardSummary struct {
 	LatestVideo *Video
 	LatestPost  *Post
 	Counts      DashboardCounts
+}
+
+type DashboardProjection struct {
+	Version          int
+	NextTransitionAt *string
+	Focus            DashboardFocusProjection
+	Spotlight        *DashboardSpotlight
+	Sales            []string
+	Shelf            DashboardShelf
+}
+
+type DashboardFocusProjection struct {
+	EventIDs []string
+	VideoIDs []string
+}
+
+type DashboardSpotlight struct {
+	Mode             string
+	EventID          *string
+	VideoID          *string
+	LiveNow          bool
+	IsLive           bool
+	MembersChip      bool
+	CompanionVideoID *string
+}
+
+type DashboardShelf struct {
+	LeadID         *string
+	LeadIsFeatured bool
+	Reservations   []string
+	Works          []string
+	Archives       []string
+	Shorts         []string
 }
 
 type DashboardCounts struct {
@@ -622,10 +691,12 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 	if latest == nil && len(posts) > 0 {
 		latest = &posts[0]
 	}
-	return &Dashboard{
+	dashboard := &Dashboard{
 		Profile: profile,
 		Summary: DashboardSummary{NextEvent: nextEvent, NextStream: nextStream, LatestVideo: latestVideo, LatestPost: latest, Counts: DashboardCounts{Posts: postCount, Events: totalEvents, UpcomingEvents: upcomingEvents, Videos: videoCount, Resources: int64(len(resources))}},
 		Posts:   posts, Events: events, Videos: videos, Focus: focus, Timeline: timeline, Resources: resources, Assets: assets, ScheduleImages: filterReadyAssets(calendarAssets), ProfileMedia: profileMedia, LiveNow: liveNow,
 		Meta: DashboardMeta{FetchedAt: fetchedAt, SourceFetchedAt: sourceFetchedAt, LastSync: lastSync, PostWindowDays: days, EventWindow: EventWindow{From: from, To: to, Paginated: true}, GeneratedAt: now.UTC().Format("2006-01-02T15:04:05.000Z"), MediaCache: mediaCache, Revision: revision, FeaturedVideoID: featuredID, XAccounts: xAccounts, BilibiliAccounts: bilibiliAccounts},
-	}, nil
+	}
+	applyDashboardProjection(dashboard, now)
+	return dashboard, nil
 }

@@ -35,6 +35,26 @@ unless the operator featured that Short, and that is neither private nor
 removed; a video of unknown format or unknown availability stays
 eligible. Metadata includes configured X accounts and the Featured video ID.
 
+The dashboard also carries a locale-neutral `projection` for shared board
+decisions. `projection.version` identifies the contract (`1` is the current
+version), `nextTransitionAt` is the next parseable ISO instant that can change
+a time-dependent decision, `focus.eventIds` and `focus.videoIds` are the
+ordered event and video candidates, and `sales` is the ordered list of sale
+event IDs shown in the sale strip. `spotlight` identifies the next or latest
+ticket, its live state, the members chip decision, and an optional companion
+video. `shelf` contains the lead ID, whether it is Featured, and the ordered
+reservation, work, archive and Short IDs. The browser uses these IDs to join
+the returned records; it does not infer their order from localized text.
+
+Each event has a `view` with the canonical `state`, `typeCode`,
+`activityCode`, `activityContext`, `isWork`, and sale-expanded
+`calendarEntries`. Each video has a `view` with its `phase`, `formCode`,
+`shelfGroup`, `latestEligible`, `focusEligible`, and `tagContext`. These values
+are codes and booleans, never localized copy. Calendar, archive and MCP
+`schedule_list` reads carry the same event and video `view` objects. Clients keep an additive fallback for
+responses without `projection` or `view` so a retained snapshot remains
+readable while a deployment serves mixed versions.
+
 A post's `source` is `x` or `bilibili`. A Bilibili dynamic has the ID
 `bilibili-<dynamic ID>`, its opus page as `url`, the account's mid as
 `accountHandle` and its space as `accountUrl` and zero engagement counts; its

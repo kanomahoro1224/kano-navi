@@ -477,13 +477,14 @@ type publicEvent struct {
 	URL           *string `json:"url"`
 	// Platforms are the platforms the entry is shown on, its own first, as
 	// every public read reports them.
-	Platforms            []string `json:"platforms"`
-	Provenance           string   `json:"provenance"`
-	CancellationStatus   string   `json:"cancellationStatus"`
-	CancellationSource   *string  `json:"cancellationSource"`
-	CancellationReason   *string  `json:"cancellationReason"`
-	CancellationEvidence *string  `json:"cancellationEvidence"`
-	CancellationAt       *string  `json:"cancellationAt"`
+	Platforms            []string       `json:"platforms"`
+	Provenance           string         `json:"provenance"`
+	CancellationStatus   string         `json:"cancellationStatus"`
+	CancellationSource   *string        `json:"cancellationSource"`
+	CancellationReason   *string        `json:"cancellationReason"`
+	CancellationEvidence *string        `json:"cancellationEvidence"`
+	CancellationAt       *string        `json:"cancellationAt"`
+	View                 map[string]any `json:"view"`
 }
 
 type schedulePage struct {
@@ -529,6 +530,11 @@ func (h *handler) scheduleList(ctx context.Context, arguments map[string]any) (a
 		if platforms == nil {
 			platforms = []string{}
 		}
+		view := sqlite.ProjectEventView(sqlite.DashboardEvent{
+			StartsOn: event.StartsOn, StartsAt: event.StartsAt, EndsAt: event.EndsAt, EndsOn: event.EndsOn,
+			TimePrecision: event.TimePrecision, Status: event.Status, EventType: event.EventType,
+			Tag: event.Tag, CancellationStatus: event.CancellationStatus,
+		}, h.now())
 		items = append(items, publicEvent{
 			ID: event.ID, Source: event.Source, Title: event.Title, Detail: event.Detail,
 			StartsOn: event.StartsOn, StartsAt: event.StartsAt, EndsAt: event.EndsAt, EndsOn: event.EndsOn,
@@ -536,7 +542,7 @@ func (h *handler) scheduleList(ctx context.Context, arguments map[string]any) (a
 			EventType: event.EventType, URL: link, Platforms: platforms, Provenance: event.Provenance,
 			CancellationStatus: event.CancellationStatus, CancellationSource: event.CancellationSource,
 			CancellationReason: event.CancellationReason, CancellationEvidence: event.CancellationEvidence,
-			CancellationAt: event.CancellationAt,
+			CancellationAt: event.CancellationAt, View: publicview.PublicEventView(view),
 		})
 	}
 	return schedulePage{

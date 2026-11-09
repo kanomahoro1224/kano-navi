@@ -55,6 +55,13 @@ func validateCalendarRange(from, to string) error {
 }
 
 func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, pageSize int) (*CalendarPage, error) {
+	return s.GetCalendarPageAt(ctx, from, to, page, pageSize, time.Now())
+}
+
+// GetCalendarPageAt is the deterministic form used by HTTP handlers and
+// projection tests. The legacy GetCalendarPage wrapper keeps internal callers
+// that do not inject a clock source-compatible.
+func (s *Store) GetCalendarPageAt(ctx context.Context, from, to string, page, pageSize int, now time.Time) (*CalendarPage, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
@@ -96,7 +103,6 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 		return nil, dbErr(err)
 	}
 	defer rows.Close()
-	now := time.Now()
 	items := make([]DashboardEvent, 0, pageSize)
 	for rows.Next() {
 		event, scanErr := scanEvent(rows, now)
@@ -116,6 +122,9 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	}
 	if err := s.attachEventTranslations(ctx, items); err != nil {
 		return nil, err
+	}
+	for index := range items {
+		applyEventView(&items[index], now)
 	}
 
 	dayCounts := make(map[string]int64)

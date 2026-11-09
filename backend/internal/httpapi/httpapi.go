@@ -336,7 +336,7 @@ func (h *Handler) calendar(w http.ResponseWriter, r *http.Request) {
 	} else {
 		pageSize = int(^uint(0) >> 1)
 	}
-	calendar, err := h.store.GetCalendarPage(r.Context(), r.URL.Query().Get("from"), r.URL.Query().Get("to"), page, pageSize)
+	calendar, err := h.store.GetCalendarPageAt(r.Context(), r.URL.Query().Get("from"), r.URL.Query().Get("to"), page, pageSize, h.now())
 	if err != nil {
 		if errors.Is(err, sqlite.ErrInvalidCalendarRange) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_calendar_range"}, "")

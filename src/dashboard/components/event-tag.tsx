@@ -45,7 +45,13 @@ export function VideoTagChip({ video, t }: { video: Video; t: Translator }) {
   if (!tag) return null
   return (
     <span className="tag video-tag">
-      <EventTagIcon tag={tag} work={video.kind !== "stream"} />
+      <EventTagIcon
+        tag={tag}
+        work={
+          video.view?.tagContext === "work" ||
+          (!video.view && video.kind !== "stream")
+        }
+      />
       {videoTagLabel(video, t)}
     </span>
   )

@@ -435,6 +435,7 @@ func (s *Store) videoArchive(ctx context.Context, start, end, category string, p
 	for i := range items {
 		items[i].IsUpcoming = videoUpcoming(items[i], now)
 		items[i].IsCancelled = cancelled[items[i].ID]
+		applyVideoView(&items[i], now)
 	}
 
 	if err = s.pinVideoThumbnails(ctx, items); err != nil {

@@ -55,6 +55,23 @@ test("Japanese readers see a Japanese translation only of wording not in Japanes
   })
 })
 
+test("the translation switch marks where a translation came from", async () => {
+  await withVite(async (load) => {
+    const { translationMarkKind } = await load(
+      "/src/components/translated-text.tsx",
+    )
+    const mark = (origin: string, platform?: string) =>
+      translationMarkKind({ text: "Synthetic", origin, platform })
+    assert.equal(mark("machine"), "ai")
+    assert.equal(mark("manual"), "icon")
+    assert.equal(mark("platform", "youtube"), "youtube")
+    assert.equal(mark("platform", "bilibili"), "bilibili")
+    // A platform without a mark shows the translate icon alone.
+    assert.equal(mark("platform", "example"), "icon")
+    assert.equal(mark("platform", "constructor"), "icon")
+  })
+})
+
 test("the post wall's title names no single platform", () => {
   assert.equal(dashboardMessages.en["feed.title"], "Recent Posts")
   for (const locale of ["en", "ja", "zh-CN"] as const)

@@ -192,6 +192,9 @@
   name.
 - A quoted post of any account is translated into the content language,
   with its own AI mark on the quoted card.
+- The translation mark shows where a translation came from: the translate
+  icon with AI for an AI translation, with the YouTube or bilibili logo for
+  a translation the platform provides, and alone for the editor's own.
 - Posts of the agency's account about Kano appear on the post wall, with the
   account's initial rather than Kano's portrait. A post Kano quotes shows
   only inside her post, and the agency never gets a tab of its own.

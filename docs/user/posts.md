@@ -21,11 +21,11 @@ Posts are laid out in whole rows; a long post shows its first lines and
   about Kano. They show the account's initial instead of Kano's portrait and
   appear under All, not under Kano's account tabs. One that Kano quotes
   shows only inside her post.
-- A post translated into your content language ends with the same **AI**
-  mark as video titles; select it to read the original post. Japanese
+- A post translated into your content language ends with the same
+  translation mark as video titles; select it to read the original post. Japanese
   readers see Japanese posts as written and a Chinese bilibili post in its
   Japanese translation.
-- A quoted or forwarded post is translated too, with its own **AI** mark at
+- A quoted or forwarded post is translated too, with its own mark at
   the end of the card's top line.
 
 ## Past Posts

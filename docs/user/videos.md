@@ -28,9 +28,12 @@ Each cover carries the mark of every platform the video is on: YouTube,
 bilibili or both. A video on both also has a link for each platform. Chinese
 readers open such past videos on bilibili first;
 reservations and live streams always open on YouTube. Video titles appear in
-your content language when a translation is available, followed by an **AI**
-mark that is lit while the translation shows; select it to see the original
-wording and again to bring the translation back.
+your content language when a translation is available, followed by a
+translation mark that is lit while the translation shows; select it to see
+the original wording and again to bring the translation back. The mark says
+where the translation came from: a translate icon with **AI** for an AI
+translation, with the YouTube or bilibili logo for a translation the platform
+provides, and alone for one written by the board's editor.
 
 A video that not everyone can watch says so beside its labels: **Members
 only** in green, as on YouTube, or a grey **Private** or **Removed**. A

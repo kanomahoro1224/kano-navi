@@ -600,9 +600,12 @@ defaults to "Same as interface", and the operator console shows only the
 interface choice. The LINE BLOG paragraph translations and the schedule
 month grid follow the same content locale, while feed links, history copy
 and the bilibili-first rule follow the interface locale. Translated wording
-is followed by `TranslationToggle`, a translate icon and "AI" whatever the
-translation's origin, lit (`is-active`, `aria-pressed`) while the
-translation shows; selecting it shows the source and turns it off. Its
+is followed by `TranslationToggle`, a translate icon followed by the
+origin's mark (`translationMarkKind`): "AI" for a machine translation, the
+YouTube or bilibili logo for a platform translation, and nothing for a manual
+translation or another platform's (`is-icon`). It is lit (`is-active`,
+`aria-pressed`) while the translation shows; selecting it shows the source
+and turns it off. Its
 tooltip and accessible name spell out the origin (AI, platform or editor),
 and on a title the tooltip holds the source. A post's switch follows its
 last word; while the board's six-line clamp hides the end of the post, it

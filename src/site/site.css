@@ -957,6 +957,19 @@
     border-color 160ms ease;
 }
 
+/*
+ * Icons only: an editor's translation, or a platform's with its mark. A
+ * zero-width strut keeps the text line, so the pill has the height and
+ * baseline of the "AI" one; the gap before it stands in for right padding.
+ */
+.translation-mark.is-icon {
+  padding: 0 2px 0 5px;
+}
+
+.translation-mark.is-icon::after {
+  content: "\200b";
+}
+
 .translation-mark:hover {
   border-color: color-mix(in oklab, var(--berry) 45%, transparent);
   color: var(--berry);

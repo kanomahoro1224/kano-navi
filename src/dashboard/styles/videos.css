@@ -1,0 +1,719 @@
+/*
+ * The shelf leads with one large work (or the featured video) beside the
+ * coming reservations, then a grid of stream archives and a row of Shorts.
+ * Artwork carries the section, so thumbnails stay large and titles stay to
+ * two lines.
+ */
+
+.videos-subhead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.videos-subhead small {
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.videos-block + .videos-block,
+.videos-lead + .videos-block {
+  margin-top: 40px;
+}
+
+.video-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0;
+  color: var(--soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.video-meta-length {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.tag.is-live svg {
+  animation: onair-pulse 1.6s ease-in-out infinite;
+}
+
+/* A video's tag chip: the schedule's icon, accented beside the plain form. */
+.tag.video-tag {
+  gap: 3px;
+  color: var(--ink);
+}
+
+.tag.video-tag svg {
+  width: 11px;
+  height: 11px;
+  color: var(--berry);
+}
+
+/*
+ * Who can watch a video, when not everyone can: members only in YouTube's
+ * solid members green, private and removed muted beside the tag.
+ */
+.tag.video-availability {
+  gap: 3px;
+  color: var(--soft);
+}
+
+.tag.video-availability svg {
+  width: 11px;
+  height: 11px;
+}
+
+.tag.video-availability.is-members {
+  background: var(--leaf);
+  color: #fff;
+}
+
+.dark .tag.video-availability.is-members {
+  color: hsl(var(--background));
+}
+
+/* A private or removed cover with nothing left to open fades. */
+:is(.video-thumb, .ticket-art).is-closed img {
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+
+/* Thumbnails */
+
+.video-thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--sunken);
+}
+
+.video-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms ease;
+}
+
+:is(a, .link-card):hover .video-thumb img {
+  transform: scale(1.04);
+}
+
+.video-thumb-missing {
+  display: grid;
+  height: 100%;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  color: var(--soft);
+  font-size: 11px;
+}
+
+.video-thumb-missing svg {
+  width: 18px;
+  height: 18px;
+}
+
+.video-thumb-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.62);
+  color: #fff;
+}
+
+.video-thumb-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.video-length {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.74);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+
+/* Platform links */
+
+.platform-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.platform-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.6;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.platform-chip:hover {
+  border-color: color-mix(in oklab, var(--berry) 50%, transparent);
+  color: var(--berry);
+}
+
+.platform-chip svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* The platform an entry is live on now. */
+.platform-chip.is-live {
+  border-color: var(--berry);
+  color: var(--berry);
+}
+
+.platform-links .platform-live {
+  animation: onair-pulse 1.6s ease-in-out infinite;
+}
+
+/* Fingers get a taller chip; a pointer keeps the meta line light. */
+@media (max-width: 720px), (pointer: coarse) {
+  .platform-chip {
+    min-height: 30px;
+    padding: 3px 12px;
+  }
+}
+
+/*
+ * A cover's mark for a work on more than one platform. Top left is free of
+ * the length and play marks; the mark lets taps through to the card.
+ */
+.platform-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.62);
+  color: #fff;
+  pointer-events: none;
+}
+
+.platform-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.video-row .platform-badge,
+.latest-card-art .platform-badge {
+  top: 6px;
+  left: 6px;
+  gap: 4px;
+  padding: 2px 5px;
+}
+
+.video-row .platform-badge svg,
+.latest-card-art .platform-badge svg {
+  width: 11px;
+  height: 11px;
+}
+
+.video-lead-art .platform-badge,
+.ticket-art .platform-badge {
+  top: 16px;
+  left: 16px;
+  gap: 7px;
+  padding: 5px 9px;
+  border-radius: 8px;
+}
+
+.video-lead-art .platform-badge svg,
+.ticket-art .platform-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Lead row */
+
+.videos-lead {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+  align-items: start;
+  gap: 28px;
+}
+
+/* Without a lead, the reservations line up across the row. */
+.videos-lead.is-tickets {
+  grid-template-columns: 1fr;
+}
+
+.videos-lead.is-tickets .video-tickets,
+.videos-tickets-wide .video-tickets {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* A lead alone sets its copy beside the artwork instead of under it. */
+.videos-lead.is-solo {
+  grid-template-columns: 1fr;
+}
+
+.videos-lead.is-solo .video-lead {
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 28px;
+}
+
+.video-lead {
+  display: grid;
+  gap: 18px;
+}
+
+.video-lead-art {
+  display: block;
+}
+
+.video-lead-art .video-thumb {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.video-lead-art .video-thumb-badge {
+  right: 18px;
+  bottom: 18px;
+  width: 56px;
+  height: 56px;
+  background: var(--berry);
+  box-shadow: 0 10px 24px -8px color-mix(in oklab, var(--berry) 80%, black);
+}
+
+.video-lead-art .video-thumb-badge svg {
+  width: 22px;
+  height: 22px;
+}
+
+.video-lead-art .video-thumb-badge .lucide-play {
+  margin-left: 3px;
+}
+
+.video-lead-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.video-lead-copy h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(21px, 2.2vw, 28px);
+  font-weight: 800;
+  line-height: 1.28;
+  text-wrap: balance;
+}
+
+.video-lead-copy > p:not(.video-meta) {
+  margin: 0;
+  color: var(--soft);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.video-lead-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 4px;
+}
+
+.videos-side {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+}
+
+/* Reservation tickets */
+
+.video-tickets {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-ticket {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.video-ticket:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--berry) 45%, transparent);
+  box-shadow: var(--shadow-md);
+}
+
+.video-ticket-date {
+  display: grid;
+  min-height: 58px;
+  align-content: center;
+  justify-items: center;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--berry-wash);
+  color: var(--berry);
+  line-height: 1.05;
+}
+
+.video-ticket-date strong {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.video-ticket-date small {
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.video-ticket-date svg {
+  width: 20px;
+  height: 20px;
+}
+
+.video-ticket.is-live {
+  border-color: var(--berry);
+}
+
+.video-ticket.is-live .video-ticket-date {
+  background: var(--berry);
+  color: #fff;
+}
+
+.video-ticket.is-started .video-ticket-date {
+  background: var(--honey-wash);
+  color: var(--honey);
+}
+
+.video-ticket.is-cancelled .video-ticket-date {
+  background: var(--sunken);
+  color: var(--soft);
+}
+
+.video-ticket.is-cancelled .video-ticket-title {
+  color: var(--soft);
+  text-decoration: line-through;
+}
+
+.video-ticket-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.video-ticket-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Rows: earlier works beside the lead, and the archive dialog */
+
+.video-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-row {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  transition: background 160ms ease;
+}
+
+.videos-side .video-row {
+  margin-inline: -8px;
+}
+
+.video-row:hover {
+  background: var(--sunken);
+}
+
+.video-row .video-thumb {
+  border-radius: var(--radius-sm);
+}
+
+/* The play mark keeps the right corner, so the length takes the left. */
+.video-row .video-length {
+  right: auto;
+  bottom: 6px;
+  left: 6px;
+  font-size: 10.5px;
+}
+
+.video-row-copy {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.video-row-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.video-row.is-upcoming .video-row-title {
+  color: var(--berry);
+}
+
+/* Archive grid */
+
+/*
+ * Positioned so the screen-reader-only text inside stays within the phone
+ * Shorts rail; otherwise it escapes the rail's clip and widens the page.
+ */
+.video-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 26px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-card {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 8px;
+}
+
+.video-card-link {
+  display: grid;
+  gap: 10px;
+}
+
+.video-card .video-thumb {
+  box-shadow: var(--shadow-sm);
+}
+
+.video-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  transition: color 160ms ease;
+}
+
+.video-card-link:hover .video-card-title {
+  color: var(--berry);
+}
+
+/*
+ * A translated title clamps its wording to the title's own line count, so
+ * the translation switch after it stays in view.
+ */
+.translated-title {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.translated-title > .translated-title-text {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: inherit;
+}
+
+/* Shorts */
+
+/*
+ * A cached Shorts cover is 1280×720 with YouTube's blurred pillarbox; the
+ * vertical frame is its middle 405 px, which a centred 9:16 crop keeps.
+ */
+.video-grid.is-shorts {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 22px 14px;
+}
+
+.video-grid.is-shorts .video-thumb {
+  aspect-ratio: 9 / 16;
+}
+
+.video-grid.is-shorts .video-thumb img {
+  object-position: 50% 50%;
+}
+
+@media (max-width: 1080px) {
+  .video-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* A Shorts row stays one line; the Shorts view lists the rest. */
+  .video-grid.is-shorts {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .video-grid.is-row > :nth-child(n + 6) {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .videos-lead,
+  .videos-lead.is-solo .video-lead {
+    grid-template-columns: 1fr;
+  }
+
+  .video-grid.is-shorts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .video-grid.is-row > :nth-child(n + 5) {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .video-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .video-grid.is-shorts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .video-grid.is-row > :nth-child(n + 4) {
+    display: none;
+  }
+}
+
+/*
+ * Phones: two columns, with the All view's preview cut to two rows. Shorts
+ * become a rail that scrolls inside the section.
+ */
+@media (max-width: 560px) {
+  .video-grid {
+    gap: 18px 12px;
+  }
+
+  .video-grid.is-preview > :nth-child(n + 5) {
+    display: none;
+  }
+
+  .video-grid.is-shorts {
+    grid-template-columns: none;
+    grid-auto-columns: min(42%, 180px);
+    grid-auto-flow: column;
+    margin-inline: calc(var(--gutter) * -1);
+    padding: 2px var(--gutter) 10px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: var(--gutter);
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+  }
+
+  .video-grid.is-shorts .video-card {
+    scroll-snap-align: start;
+  }
+
+  /* The rail scrolls, so a Shorts row shows every card again. */
+  .video-grid.is-row > :nth-child(n) {
+    display: grid;
+  }
+
+  /* The kind filter drops its counts to share a row with the archive button. */
+  .videos .segmented small {
+    display: none;
+  }
+
+  .video-lead-art .video-thumb-badge {
+    right: 12px;
+    bottom: 12px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .video-lead-art .video-thumb-badge svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .video-row {
+    grid-template-columns: 116px minmax(0, 1fr);
+    gap: 10px;
+    padding: 6px 0;
+  }
+
+  .videos-side .video-row {
+    margin-inline: 0;
+  }
+
+  .video-row-title {
+    font-size: 13px;
+  }
+}

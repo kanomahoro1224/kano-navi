@@ -1,0 +1,106 @@
+body:has(.site.works) {
+  --background: 48 33% 97%;
+  --foreground: 60 3% 8%;
+  --card: 0 0% 100%;
+  --muted: 45 22% 92%;
+  --muted-foreground: 50 3% 37%;
+  --border: 48 14% 87%;
+  --berry: #c96442;
+  --works-clay: #c96442;
+  --works-record: #151514;
+  --works-groove: #232220;
+  --works-hill-far: #efe9dd;
+  --works-hill-mid: #e6dece;
+  --works-hill-near: #ddd3bf;
+  --works-grass: #b3a589;
+  --works-members: #2ba640;
+}
+
+.dark body:has(.site.works) {
+  --background: 30 3% 12%;
+  --foreground: 48 23% 92%;
+  --card: 60 2% 15%;
+  --muted: 40 3% 19%;
+  --muted-foreground: 48 5% 64%;
+  --border: 45 4% 24%;
+  --berry: #e08a6d;
+  --works-clay: #e08a6d;
+  --works-record: #2f2e2b;
+  --works-groove: #3b3a36;
+  --works-hill-far: #2a2825;
+  --works-hill-mid: #312e2a;
+  --works-hill-near: #38342e;
+  --works-grass: #554e43;
+  --works-members: #2ba640;
+}
+
+.works {
+  --font-serif:
+    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia,
+    "Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP",
+    "Noto Serif CJK JP", "Songti SC", "Noto Serif SC", serif;
+  --works-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.works-eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.works-eyebrow > :first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--works-clay);
+}
+
+/* The official discography follows the years in the eyebrow, a small pill;
+   in one column it keeps to the row's right end. */
+.works-official {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 3px 8px 3px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--soft);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  transition:
+    border-color 200ms ease,
+    color 200ms ease;
+}
+
+.works-official svg {
+  width: 12px;
+  height: 12px;
+  transition: transform 300ms var(--works-ease);
+}
+
+.works-official:hover {
+  border-color: color-mix(in oklab, var(--works-clay) 55%, transparent);
+  color: var(--works-clay);
+}
+
+.works-official:hover svg {
+  transform: translate(1px, -1px);
+}
+
+.works-eyebrow > :first-child::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  content: "";
+  background: currentColor;
+}

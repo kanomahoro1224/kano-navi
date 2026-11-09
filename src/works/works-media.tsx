@@ -7,7 +7,7 @@ import { ExternalLink } from "@/site/links"
 import { coverUrl } from "./content"
 import type { WorksCover, WorksCredit } from "./types"
 
-/** How wide each cover shows (src/works/works.css). */
+/** How wide each cover shows (src/works/styles/). */
 export const WORKS_COVER_SIZES = {
   card: "(max-width: 480px) 45vw, (max-width: 900px) 30vw, 200px",
   sheet: "(max-width: 720px) 90vw, 340px",

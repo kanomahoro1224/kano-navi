@@ -1,0 +1,449 @@
+/* Month view */
+
+.guide .section-title-actions {
+  gap: 10px;
+}
+
+/* The week arrows stand apart from Subscribe and Month view. */
+.guide .guide-nav {
+  margin-left: 12px;
+}
+
+/* Phones: the actions span the row, with the week arrows at its end. */
+@media (max-width: 560px) {
+  .guide .section-title-actions {
+    flex-basis: 100%;
+  }
+
+  .guide .guide-nav {
+    margin-left: auto;
+  }
+}
+
+.month {
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+
+.month-weekdays,
+.month-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.month-weekdays span {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.month-weekdays span:nth-child(6) {
+  color: var(--sky);
+}
+
+.month-weekdays span:nth-child(7) {
+  color: var(--berry);
+}
+
+.month-days {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.month-day {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  min-height: 112px;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.month-day:nth-child(7n) {
+  border-right: 0;
+}
+
+.month-day:nth-last-child(-n + 7) {
+  border-bottom: 0;
+}
+
+/* The bottom corner days follow the grid's rounding, today's ring included. */
+.month-day:nth-last-child(7) {
+  border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+}
+
+.month-day:last-child {
+  border-bottom-right-radius: calc(var(--radius-lg) - 1px);
+}
+
+.month-day.is-saturday,
+.month-day.is-sunday {
+  background: color-mix(in oklab, hsl(var(--muted)) 35%, transparent);
+}
+
+.month-day.is-outside {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 6px,
+    color-mix(in oklab, hsl(var(--muted)) 55%, transparent) 6px 7px
+  );
+}
+
+.month-day.is-outside .month-day-number,
+.month-day.is-outside .month-events {
+  opacity: 0.5;
+}
+
+.month-day.is-today {
+  background: var(--berry-wash);
+  box-shadow: inset 0 0 0 2px var(--berry);
+}
+
+.month-day-number {
+  display: inline-grid;
+  min-width: 28px;
+  height: 28px;
+  align-self: flex-start;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.month-day-number:hover {
+  background: var(--sunken);
+  color: var(--berry);
+}
+
+.month-day.is-saturday .month-day-number {
+  color: var(--sky);
+}
+
+.month-day.is-sunday .month-day-number {
+  color: var(--berry);
+}
+
+.month-day.is-today .month-day-number {
+  background: var(--berry);
+  color: #fff;
+}
+
+.month-day.is-selected {
+  background: var(--sky-wash);
+}
+
+.month-day.is-selected .month-day-number {
+  background: var(--ink);
+  color: hsl(var(--background));
+}
+
+/*
+ * A day's titles take more lines the fewer entries it has, and more again
+ * in a tall day, as calendar apps do.
+ */
+.month-events {
+  --lines: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.month-events[data-count="1"] {
+  --lines: 4;
+}
+
+.month-events[data-count="2"] {
+  --lines: 2;
+}
+
+@container month-day (height >= 150px) {
+  .month-events[data-count="1"] {
+    --lines: 6;
+  }
+
+  .month-events[data-count="2"] {
+    --lines: 3;
+  }
+
+  .month-events[data-count="3"] {
+    --lines: 2;
+  }
+}
+
+.month-event {
+  display: -webkit-box;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 6px;
+  border-left: 3px solid var(--tone);
+  border-radius: 3px 6px 6px 3px;
+  background: var(--tone-wash);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  text-align: left;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--lines);
+}
+
+/* The icon and time stay together; the title wraps after them. */
+.month-event-lead {
+  white-space: nowrap;
+}
+
+.month-event strong {
+  margin-right: 1px;
+  color: var(--tone);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.month-event svg {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 3px;
+  color: var(--tone);
+  vertical-align: -1.5px;
+}
+
+.month-event:hover {
+  background: color-mix(in oklab, var(--tone) 20%, transparent);
+}
+
+.month-event.is-done,
+.month-event.is-pending,
+.month-day.is-past .month-event {
+  opacity: 0.6;
+}
+
+.month-event.is-cancelled {
+  --tone: var(--soft);
+  --tone-wash: var(--sunken);
+  text-decoration: line-through;
+}
+
+.month-event.is-cancellation_review {
+  outline: 1px dashed color-mix(in oklab, var(--honey) 70%, transparent);
+  outline-offset: -1px;
+}
+
+/* A stream that began before midnight is still on air in the day it left. */
+.month-event.is-live,
+.month-day.is-past .month-event.is-live {
+  outline: 1px solid var(--berry);
+  outline-offset: -1px;
+  opacity: 1;
+}
+
+.month-more {
+  padding-left: 4px;
+  color: var(--soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* The month dialog: the grid, and the picked day's entries beside it. */
+.month-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  gap: 20px;
+}
+
+.month-layout.is-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.month-detail {
+  position: sticky;
+  top: 0;
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+
+.month-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.month-detail-head h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.month-detail-head span {
+  color: var(--soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.month-detail-empty {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13px;
+}
+
+.month-detail .pill-button {
+  justify-self: start;
+}
+
+/* One column whatever width the week guide's day list takes. */
+.month-detail .guide-day-events,
+.month-detail .guide-day-more {
+  grid-row: auto;
+  grid-column: auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The month row's day-details switch keeps to the row's end. */
+.month-detail-toggle {
+  margin-left: auto;
+}
+
+/* Its icon points where the details sit: beside or below the grid. */
+.month-detail-narrow {
+  display: none;
+}
+
+/*
+ * Wide screens: the month fills the dialog, its weeks sharing the height
+ * and the day details scrolling beside it.
+ */
+@media (min-width: 901px) {
+  .archive-dialog-body:has(> .month-layout) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .month-layout {
+    flex: 1 0 auto;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .month {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .month-days {
+    grid-auto-rows: minmax(112px, 1fr);
+  }
+
+  .month-day {
+    container: month-day / size;
+  }
+
+  .month-detail {
+    max-height: 100%;
+    align-self: start;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .month-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .month-detail {
+    position: static;
+  }
+
+  .month-detail-wide {
+    display: none;
+  }
+
+  .month-detail-narrow {
+    display: block;
+  }
+}
+
+@media (max-width: 720px) {
+  .month-weekdays span {
+    padding: 6px 0;
+    text-align: center;
+  }
+
+  .month-day {
+    min-height: 64px;
+    align-items: center;
+    padding: 4px 2px;
+  }
+
+  .month-day-number {
+    align-self: center;
+    min-width: 30px;
+    height: 30px;
+  }
+
+  /*
+   * Phones: entries collapse to tone dots, too small to aim at, so a tap
+   * anywhere in the day opens its details instead of an entry's link.
+   */
+  .month-event {
+    pointer-events: none;
+  }
+
+  .month-events {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .month-event {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--tone);
+  }
+
+  .month-event > span[aria-hidden] {
+    display: none;
+  }
+
+  .month-event.is-cancelled {
+    background: var(--soft);
+  }
+
+  .month-more {
+    padding: 0;
+    font-size: 10px;
+  }
+}

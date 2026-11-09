@@ -136,7 +136,8 @@ when it is private or removed. Such a cover with no link left fades
 (`is-closed`). `VideoAvailabilityChip` marks `members` in the solid `--leaf`
 green, as do the schedule's `member` entries, and `private` and `removed`
 muted. Its styles are in
-`src/dashboard/board.css` on top of `src/site/site.css` and the shared tokens
+`src/dashboard/board.css`, which imports one file per area from
+`src/dashboard/styles/` in cascade order, on top of `src/site/site.css` and the shared tokens
 in `src/index.css`. The hidden `/admin` console
 lives in `src/admin/` and is organized around operator tasks: `index.tsx`
 registers the views (Overview, Review queue, Schedule, Posts, Videos, Profile

@@ -1,0 +1,520 @@
+.works-sections {
+  margin-top: 64px;
+}
+
+.works .works-tabs {
+  display: flex;
+  width: 100%;
+  height: auto;
+  justify-content: flex-start;
+  gap: 36px;
+  /* Room for the keyboard focus outline, which the scroller would clip. */
+  padding: 6px 6px 0;
+  margin-inline: -6px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  scrollbar-width: none;
+}
+
+.works .works-tabs [role="tab"] {
+  position: relative;
+  flex: none;
+  gap: 2px;
+  padding: 0 0 14px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--soft);
+  font-family: var(--font-serif);
+  font-size: clamp(19px, 2.2vw, 26px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  transition: color 200ms ease;
+}
+
+.works .works-tabs [role="tab"]::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  content: "";
+  background: var(--works-clay);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 400ms var(--works-ease);
+}
+
+.works .works-tabs [role="tab"]:focus-visible {
+  outline: 2px solid var(--works-clay);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.works .works-tabs[data-pointer] [role="tab"]:focus-visible {
+  outline: none;
+}
+
+.works .works-tabs [role="tab"]:hover {
+  color: var(--ink);
+}
+
+.works .works-tabs [role="tab"][data-state="active"] {
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.works .works-tabs [role="tab"][data-state="active"]::after {
+  transform: scaleX(1);
+}
+
+.works-tabs sup {
+  vertical-align: super;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.works-panel {
+  padding-top: 28px;
+}
+
+.works-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-bottom: 12px;
+}
+
+/* The filters take the row's free space, so the order icon ends it. */
+.works-toolbar > .segmented:first-child {
+  flex: 1 1 auto;
+}
+
+.works-order {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+}
+
+/*
+ * Search and any narrowing toggles sit on a row of their own below, except
+ * on a screen wide enough for one row: filters, toggles, search, order.
+ */
+.works-refine {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 8px;
+}
+
+.works-refine .works-search {
+  margin-right: 8px;
+}
+
+/* From here the toolbar is wide enough (about 1,160px) for the upload toggles. */
+@media (min-width: 1240px) {
+  .works-refine {
+    display: contents;
+  }
+
+  .works-refine .works-search {
+    flex: 0 1 260px;
+    order: 1;
+    margin: 0 4px 0 6px;
+  }
+
+  .works-toolbar > .works-order {
+    order: 2;
+  }
+}
+
+/* Filters read as outlined chips; the chosen one is inked. */
+.works .segmented {
+  gap: 6px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.works .segmented button,
+.works-chip,
+.works-toggle.pill-button {
+  display: inline-flex;
+  min-height: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--soft);
+  font-size: 13px;
+  font-weight: 600;
+  transition:
+    background 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease;
+}
+
+.works .segmented button:hover,
+.works-chip:hover,
+.works-toggle.pill-button:hover:not(:disabled, [aria-pressed="true"]) {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.works .segmented button[aria-pressed="true"],
+.works-toggle.pill-button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  box-shadow: none;
+  color: hsl(var(--background));
+}
+
+.works .segmented small,
+.works-toggle small {
+  margin-left: 2px;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  opacity: 0.6;
+}
+
+.works-toggle .works-members-mark {
+  width: 12px;
+  height: 12px;
+}
+
+.works-chip svg {
+  width: 14px;
+  height: 14px;
+}
+
+.works-search {
+  display: flex;
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 340px;
+  height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--soft);
+  transition: border-color 200ms ease;
+}
+
+/* Focus thickens the underline in clay instead of boxing the field. */
+.works-search:focus-within {
+  border-color: var(--works-clay);
+  box-shadow: 0 1px 0 var(--works-clay);
+}
+
+.works-search input:focus-visible {
+  outline: none;
+}
+
+.works-search svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.works-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  outline: none;
+}
+
+.works-result-count {
+  margin: 0;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.works-years {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Each year keeps its numeral in a column beside its works. */
+.works-year {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px 32px;
+  padding: 40px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.works-year:first-child {
+  border-top: 0;
+}
+
+.works-year-label {
+  position: sticky;
+  top: 88px;
+  display: grid;
+  align-self: start;
+  gap: 8px;
+  margin: 0;
+}
+
+.works-year-label span {
+  font-family: var(--font-serif);
+  font-size: clamp(34px, 4vw, 52px);
+  font-weight: 400;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.works-year-label small {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 720px) {
+  .works .works-tabs {
+    gap: 18px;
+  }
+
+  .works .works-tabs [role="tab"] {
+    font-size: 17px;
+  }
+
+  .works-year {
+    grid-template-columns: 1fr;
+    padding: 28px 0;
+  }
+
+  .works-year-label {
+    position: static;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .works-search {
+    max-width: none;
+  }
+}
+
+/*
+ * On a phone the filter chips run in one row that scrolls sideways from the
+ * screen's left edge, the order is one icon at that row's right end, the other
+ * controls take the rows below, and the type steps down with the hero's.
+ */
+@media (max-width: 480px) {
+  .works-sections {
+    margin-top: 48px;
+  }
+
+  .works .works-tabs {
+    gap: 16px;
+  }
+
+  .works .works-tabs [role="tab"] {
+    padding-bottom: 12px;
+    font-size: 16px;
+  }
+
+  .works-panel {
+    padding-top: 20px;
+  }
+
+  .works-toolbar {
+    gap: 10px 8px;
+  }
+
+  .works-toolbar > * {
+    order: 2;
+  }
+
+  .works-toolbar > .segmented:first-child {
+    order: 0;
+    flex: 1 1 calc(100% - 42px);
+    flex-wrap: nowrap;
+    min-width: 0;
+    /* Room for the focus outline, which the scroller would clip. */
+    padding: 3px 4px 3px 16px;
+    margin: -3px 0 -3px -16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    mask-image: linear-gradient(
+      90deg,
+      transparent,
+      #000 16px,
+      #000 calc(100% - 24px),
+      transparent
+    );
+  }
+
+  .works-toolbar > .works-order {
+    order: 1;
+  }
+
+  .works-toolbar > .segmented:first-child::-webkit-scrollbar {
+    display: none;
+  }
+
+  .works .segmented button,
+  .works-chip,
+  .works-toggle.pill-button {
+    flex: none;
+    gap: 5px;
+    padding: 5px 12px;
+    font-size: 12.5px;
+  }
+
+  .works-year {
+    gap: 20px;
+    padding: 24px 0;
+  }
+
+  .works-year-label span {
+    font-size: 28px;
+  }
+
+  .works-year-label small {
+    font-size: 10px;
+  }
+}
+
+/* Rows rise into place as they scroll in, where the browser can tie the
+   motion to scrolling. They move without fading: a fade tied to scrolling
+   holds each frame while the row's covers decode. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .release-card,
+    .credit-row,
+    .upload-card {
+      animation: works-slide-in linear both;
+      animation-range: entry 0% entry 40%;
+      animation-timeline: view();
+    }
+  }
+}
+
+@keyframes works-slide-in {
+  from {
+    transform: translateY(22px);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+.works-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.works-meta time {
+  color: var(--ink);
+}
+
+.works-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.works .tag {
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.works .tag.is-accent {
+  border-color: color-mix(in oklab, var(--works-clay) 45%, transparent);
+  color: var(--works-clay);
+}
+
+.works-empty,
+.works-load-failed,
+.works-loading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 28px 0;
+  color: var(--soft);
+  font-size: 14.5px;
+}
+
+.works-loading {
+  display: block;
+  max-width: 560px;
+}
+
+.works-empty svg {
+  width: 18px;
+  height: 18px;
+}
+
+.works-load-failed p {
+  margin: 0;
+}
+
+.works-quiet {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13px;
+}
+
+.works-missing {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 72px;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px;
+  color: var(--soft);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.works-missing svg {
+  width: 20px;
+  height: 20px;
+  opacity: 0.7;
+}

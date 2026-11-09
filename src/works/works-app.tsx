@@ -259,7 +259,7 @@ type Curve = { start: Point; segments: [Point, Point, Point][] }
  * stands at the left and two sits lowest in front of the rise; on side B two
  * sits lowest at the left, one stands in the middle and three on the rise.
  * Both curves use the same commands, so the ground morphs between them, and
- * each figure's base in works.css sits on its side's curve.
+ * each figure's base in styles/hero.css sits on its side's curve.
  */
 const GROUND: Record<Side, Curve> = {
   b: {

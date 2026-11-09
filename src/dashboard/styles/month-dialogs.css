@@ -1,0 +1,479 @@
+.archive-dialog {
+  width: min(1320px, calc(100vw - 48px));
+  max-width: none;
+  height: min(1000px, calc(100dvh - 48px));
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: hsl(var(--background));
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+}
+
+.archive-dialog::backdrop {
+  background: rgb(20 12 18 / 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.archive-dialog-frame {
+  container: archive-dialog / inline-size;
+  display: grid;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.archive-dialog-head {
+  position: relative;
+  container: archive-head / inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px 16px;
+  padding: 22px 24px 14px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.archive-dialog-head::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 6px;
+  content: "";
+  background: var(--gingham);
+  opacity: 0.6;
+}
+
+.archive-dialog-heading {
+  min-width: 0;
+}
+
+.archive-dialog-head > .round-button {
+  grid-row: 1;
+  grid-column: -2;
+}
+
+.archive-dialog-title {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.archive-dialog-bar {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+/*
+ * A wide dialog moves the month controls and the toolbar up to the title's
+ * row, leaving the body more height. The post archive's account filter needs
+ * a wider dialog than the month controls alone.
+ */
+@container archive-dialog (width >= 840px) {
+  .archive-dialog-head:not(:has(.archive-tools)) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 28px;
+  }
+
+  .archive-dialog-head:not(:has(.archive-tools)) > .archive-dialog-bar {
+    grid-row: 1;
+    grid-column: 2;
+  }
+}
+
+@container archive-dialog (width >= 1140px) {
+  .archive-dialog-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 28px;
+  }
+
+  .archive-dialog-head > .archive-dialog-bar {
+    grid-row: 1;
+    grid-column: 2;
+  }
+}
+
+.archive-month {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.archive-month-label {
+  min-width: 8.5em;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* A month label that opens the jump grid. */
+.archive-month-label.is-picker {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.archive-month-label.is-picker:hover,
+.archive-month-label.is-picker[aria-expanded="true"] {
+  border-color: color-mix(in oklab, var(--berry) 50%, transparent);
+  color: var(--berry);
+}
+
+.archive-month-label.is-picker svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  transition: transform 160ms ease;
+}
+
+.archive-month-label.is-picker[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/*
+ * The jump grid hangs below the month controls, over the dialog body, so the
+ * header stacks above the body and its sticky month headers while it is open.
+ */
+.archive-dialog-head:has(.month-picker) {
+  z-index: 3;
+}
+
+.month-picker {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  width: min(320px, calc(100vw - 32px));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  box-shadow: var(--shadow-lg);
+}
+
+.month-picker-year {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.month-picker-year-label {
+  display: grid;
+  margin: 0;
+  justify-items: center;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.month-picker-year-label strong {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.month-picker-year-label span {
+  color: var(--soft);
+  font-size: 12px;
+}
+
+.month-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.month-picker-month {
+  display: grid;
+  min-height: 48px;
+  align-content: center;
+  justify-items: center;
+  gap: 1px;
+  padding: 4px 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.month-picker-count {
+  color: var(--soft);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.month-picker-month:hover:not([aria-disabled="true"]) {
+  border-color: color-mix(in oklab, var(--berry) 50%, transparent);
+  color: var(--berry);
+}
+
+.month-picker-month.is-today {
+  border-color: var(--rule);
+}
+
+.month-picker-month[aria-current="date"] {
+  border-color: transparent;
+  background: var(--berry);
+  color: #fff;
+}
+
+.month-picker-month[aria-current="date"] .month-picker-count {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.month-picker-month[aria-disabled="true"] {
+  background: transparent;
+  color: var(--soft);
+  cursor: default;
+  opacity: 0.5;
+}
+
+.archive-summary {
+  color: var(--soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.archive-dialog-body {
+  /* Sticky headers inside offset by the top padding to meet the edge. */
+  --archive-body-top: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--archive-body-top) 24px 28px;
+}
+
+.archive-dialog-body > .inline-alert,
+.archive-dialog-body > .empty-note {
+  margin-bottom: 16px;
+}
+
+.archive-jumps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.archive-more {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+/*
+ * The video timeline: one section per Japan month, newest first. Each month's
+ * header sticks to the top of the dialog body while its videos scroll under
+ * it, so the month in view stays named. Months out of view skip layout and
+ * paint, keeping their last measured height, so a long loaded list costs
+ * little to scroll.
+ */
+.video-month {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
+
+.video-month + .video-month {
+  margin-top: 32px;
+}
+
+.video-month-head {
+  position: sticky;
+  top: calc(-1 * var(--archive-body-top, 0px));
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  background: hsl(var(--background));
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.video-month-head small {
+  color: var(--soft);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.archive-more.is-newer {
+  padding: 0 0 16px;
+}
+
+.video-timeline-status {
+  margin: 28px 0 0;
+  color: var(--soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/*
+ * The video archive: a grid of cards in the archive's newest-first order,
+ * each the cover above the title, then the Japan date, time and kind. The
+ * column count follows the dialog's width, so a month long enough to show a
+ * scrollbar keeps the same columns.
+ */
+.archive-videos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 28px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@container archive-dialog (width < 960px) {
+  .archive-videos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container archive-dialog (width < 720px) {
+  .archive-videos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.archive-card {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 8px;
+}
+
+.archive-card-link {
+  display: grid;
+  gap: 10px;
+}
+
+.archive-card .video-thumb {
+  box-shadow: var(--shadow-sm);
+}
+
+.archive-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  transition: color 160ms ease;
+}
+
+/* A translatable title keeps the switch after its clamped wording. */
+.archive-card-title.translated-title {
+  display: flex;
+}
+
+.archive-card-link:hover .archive-card-title,
+.archive-card.is-upcoming .archive-card-title,
+.archive-card.is-live .archive-card-title {
+  color: var(--berry);
+}
+
+.archive-card.is-cancelled .video-thumb {
+  opacity: 0.55;
+}
+
+.archive-card.is-cancelled .archive-card-title {
+  color: var(--soft);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+/* Phones: two columns of smaller covers. */
+@media (max-width: 640px) {
+  .archive-videos {
+    gap: 22px 12px;
+  }
+
+  .archive-card-title {
+    font-size: 13px;
+  }
+
+  .archive-card .video-thumb-missing {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 6px;
+    font-size: 10px;
+    text-align: center;
+  }
+}
+
+/* Phones: the dialog takes the whole screen. */
+@media (max-width: 640px) {
+  .archive-dialog {
+    width: 100vw;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .archive-dialog-head {
+    padding: 20px 16px 12px;
+  }
+
+  .archive-dialog-body {
+    --archive-body-top: 16px;
+    padding: var(--archive-body-top) 16px 24px;
+  }
+
+  .archive-month-label {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .archive-tools {
+    flex: 1 1 100%;
+  }
+
+  /* The month's day-details switch stays at the end of its last row. */
+  .archive-dialog-bar:has(> .month-detail-toggle) {
+    flex-wrap: nowrap;
+    align-items: flex-end;
+  }
+
+  .archive-dialog-bar:has(> .month-detail-toggle) .archive-month {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+}

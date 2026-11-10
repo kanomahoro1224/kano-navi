@@ -104,8 +104,14 @@ shows `members`, `private` or `removed`. Schedule entries consume the event
 `view`: `eventKinds`, `scheduleEntries` and `eventStatus` translate its type,
 activity, calendar entries and state. The sale period's opening and closing
 dates come from `view.calendarEntries`, and the status codes are
-`upcoming`, `open` and `done`. A response without the view uses the stored
-fields as a compatibility fallback. The filter offers All plus Streams, Works and Shorts for each kind
+`upcoming`, `open` and `done`. The canonical enum contract is in the [Public
+API](public-api.md#public-snapshot-contract): `event.view.state` has seven
+values (`upcoming`, `live`, `open`, `done`, `pending`, `cancelled`,
+`cancellation_review`), `video.view.phase` has five (`upcoming`, `live`,
+`started`, `past`, `cancelled`), and `formCode` has six non-null values
+(`short`, `upcoming`, `stream`, `archive`, `premiere`, `video`). A response
+without the view uses the stored fields as a compatibility fallback. The
+filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the
 centre of the 1280×720 cover (the vertical frame between YouTube's blurred
 pillarbox): one row of up to six in the All view, fewer as columns narrow and

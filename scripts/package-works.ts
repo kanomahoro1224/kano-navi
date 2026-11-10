@@ -1061,6 +1061,11 @@ async function uploads(root: string) {
   ])
   const items: Upload[] = []
   for (const row of rows) {
+    // The collection marks YouTube Shorts in the optional format column; the
+    // page lists full uploads only.
+    const format = row.format ?? ""
+    if (format === "Shorts") continue
+    if (format) throw new Error(`Unknown upload format: ${format}`)
     const kind = uploadKinds[row.kind]
     if (!kind) throw new Error(`Unknown upload kind: ${row.kind}`)
     const date = checkDate(row.date)

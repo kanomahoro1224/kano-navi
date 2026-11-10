@@ -1412,6 +1412,72 @@ test("works packaging refuses a list date before its newest upload", async (t) =
   })
 })
 
+test("works packaging leaves out uploads marked as Shorts", async (t) => {
+  const { root, library } = await collection(t)
+  const table = path.join(library, "投稿作品", "works.csv")
+  const header = [
+    "date",
+    "song",
+    "original_artist",
+    "kind",
+    "with",
+    "niconico",
+    "youtube",
+    "youtube_members",
+    "bilibili",
+    "bilibili_title",
+    "album",
+    "notes",
+    "tracks",
+    "format",
+  ]
+  const upload = (song: string, youtube: string, format: string) => [
+    "2013-06-01",
+    song,
+    "",
+    "翻唱",
+    "",
+    "",
+    youtube,
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    format,
+  ]
+  const options = {
+    contentDir: path.join(root, "content"),
+    mediaDir: path.join(root, "data", "works"),
+    indexFile: path.join(root, "videos.json"),
+  }
+  await fs.writeFile(
+    table,
+    csv([
+      header,
+      upload("Synthetic Song", "aaaaaaaaaaa", ""),
+      upload("Synthetic Short", "ddddddddddd", "Shorts"),
+    ]),
+  )
+  await packageWorks(library, options)
+  const uploads = JSON.parse(
+    await fs.readFile(path.join(options.contentDir, "uploads.json"), "utf8"),
+  ) as Upload[]
+  assert.deepEqual(
+    uploads.map((item) => item.song),
+    ["Synthetic Song"],
+  )
+  await fs.writeFile(
+    table,
+    csv([header, upload("Synthetic Short", "ddddddddddd", "Reel")]),
+  )
+  await assert.rejects(
+    packageWorks(library, options),
+    /Unknown upload format: Reel/u,
+  )
+})
+
 test("works packaging accepts calendar dates only", async (t) => {
   const { root, library } = await collection(t)
   const options = {

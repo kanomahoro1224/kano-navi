@@ -167,8 +167,8 @@ rows.
 `backend/internal/store/sqlite/static-seed.json` holds the static profile,
 milestone timeline, and resource directory. Every open inserts the static IDs
 that are missing, plus the `dashboard_revision`, the default `x_accounts`
-and the `llm_route_targets_migrated` and `llm_verify_queue_seeded` markers when
-absent. `x_related_accounts` starts empty, and seeding leaves it as it is. New environments have no X posts, events, YouTube videos, Featured item, schedule assets, or
+and the `llm_route_targets_migrated`, `llm_verify_queue_seeded` and
+`llm_image_queue_seeded` markers when absent. `x_related_accounts` starts empty, and seeding leaves it as it is. New environments have no X posts, events, YouTube videos, Featured item, schedule assets, or
 LLM providers/models/routes.
 `kano-go seed` (`npm run seed`) creates or upgrades the database and fills
 missing static IDs; `-overwrite` restores the shipped profile, timeline and
@@ -1168,10 +1168,12 @@ read `translate`. Startup folds any per-stage `schedule_message`,
 `schedule_board`, and `schedule_vision` targets into the text schedule queue in
 that order, keeping the first position of a repeated provider + model pair,
 and once (marker `llm_default_model_retired`) turns a target that followed a
-provider's default model into a target naming that model. Once more (marker
-`llm_verify_queue_seeded`, which new databases start with), it copies the
-legacy schedule queue's image-tagged targets in their order into an empty
-`verify` queue.
+provider's default model into a target naming that model. Once under each of
+the markers `llm_verify_queue_seeded` and `llm_image_queue_seeded`, which new
+databases start with, it copies the `schedule` queue's image-tagged targets in
+their order into an empty `verify` queue, so an install whose image posts
+read the text queue gets an image extraction queue; a `verify` queue with
+targets is kept as it is.
 
 `internal/httpapi/media.go` and `internal/store/sqlite/media.go` own cache-root
 path validation and serving; `internal/store/sqlite/source_write.go` owns

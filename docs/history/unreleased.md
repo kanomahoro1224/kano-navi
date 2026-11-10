@@ -1,5 +1,31 @@
 # Unreleased
 
+> [!IMPORTANT]
+> Schedule extraction reads two model queues under `/admin` → Detection:
+> Text extraction for text-only posts and Image extraction for posts with
+> images, which needs models tagged `image`. Posts with images read only
+> Image extraction. Startup copies the Text extraction queue's image-tagged
+> models into an empty Image extraction queue once. If the Text extraction
+> queue had no image model, check Image extraction after upgrading;
+> otherwise posts with images are not extracted (`no_route_target`).
+> Startup adds the empty `schedule_asset_reviews.llm_text` column, and admin
+> schedule images add `llmText`, the schedule text the image model read.
+
+> [!NOTE]
+> `GET /api/dashboard` adds `projection`, and events and videos on the
+> dashboard, the calendar, the archive and MCP `schedule_list` add `view`
+> ([public API](../architecture/public-api.md#public-snapshot-contract)).
+> `lastSync.message` in `/api/health` and the MCP health read is fixed
+> English text, and `null` for a status without a message. Public post and
+> calendar links that carry credentials fall back to the canonical link, and
+> the admin API refuses event and site URLs that carry them.
+
+> [!NOTE]
+> Startup switches the writable database to WAL journal mode, so
+> `kano.sqlite-wal` and `kano.sqlite-shm` sit beside it; a backup keeps them
+> ([Database](../operations/database.md)). Public reads use a separate
+> read-only connection pool. Startup adds a Wikipedia entry to Links.
+
 > [!NOTE]
 > Model calls rise for a while after upgrading. The extraction prompt
 > defines every event type and asks for sale periods, which changes the
@@ -11,7 +37,7 @@
 
 > [!NOTE]
 > Bilibili dynamics are listed only with a Bilibili login configured
-> (`BILIBILI_COOKIE`, a signed-in browser's cookies, or `BILIBILI_SESSDATA`,
+> (`BILIBILI_COOKIE` with a signed-in browser's cookies, or `BILIBILI_SESSDATA`,
 > [Bilibili dynamics](../architecture/sources.md#dynamics)).
 > Startup adds the empty `events.platform`, `events.platforms` and
 > `events.platforms_inferred` columns and sets `platform` to `youtube` on
@@ -55,7 +81,8 @@
 > `posts.promoted_at`, and fills the status pool from the quotes stored
 > posts already hold, without a request or a rewritten row. Public posts add
 > `promoted`; admin posts add `promotedAt` and admin events `hiddenByPosts`;
-> the admin API adds `/sources/x/related` and `/x-statuses`, and its
+> the admin API adds `/sources/x/related`, `/x-statuses` and
+> `PUT /x-statuses/{id}/decision`, and its
 > translation routes accept the owner `x_status`, which translation rows may
 > also carry.
 
@@ -71,7 +98,7 @@
 > A manual fetch accepts `source: "bilibili"` and `"bilibili_dynamics"` with
 > the `space` method, admin `GET /sources` adds the Bilibili `methods` and
 > `oldest` (also under `dynamics`), and the admin API adds
-> `POST /videos/youtube`. Bilibili fetch continuations are new
+> `POST /videos/youtube` and `POST /posts/bilibili`. Bilibili fetch continuations are new
 > `bilibili-window` and `bilibili_dynamics-window` `sync_state` rows; no
 > column is added.
 
@@ -110,8 +137,8 @@
 > with the `catalog` method. No column is added and no event is rewritten.
 
 > [!NOTE]
-> MCP `schedule_list` adds `platforms`, and `liveUrl` covers every stream
-> shown on bilibili; MCP `schedule_list` and the calendar subscription read
+> MCP `schedule_list` adds `platforms`, and a full public event's `liveUrl`
+> covers every stream shown on bilibili; MCP `schedule_list` and the calendar subscription read
 > a stored live-room link as none, the subscription linking the platform
 > instead; the admin
 > API's events accept `platforms`, report `platforms`, `platformsInferred`
@@ -136,10 +163,12 @@
 
 > [!NOTE]
 > Startup adds the empty `videos.manual_work` column without rewriting
-> videos. `GET /api/works/uploads` adds `recent`, the uploads after the Works
-> collection date (the newest 48, with `recentTotal`). Admin
+> videos. The public `GET /api/works/uploads` lists the Works uploads as
+> `uploads`, and the uploads after the Works collection date as `recent`
+> (the newest 48, with `recentTotal`); `/media/works/` and `/media/journey/`
+> serve the packaged images. Admin
 > videos add `manualWork`, `PUT /videos/{id}` accepts `work`, and the admin
-> API adds `GET /videos/works-recent`.
+> API adds `GET /videos/works-recent` and `GET /videos/works-conflicts`.
 
 > [!NOTE]
 > Bilibili uploads that are not merged into a YouTube video become public
@@ -190,6 +219,11 @@
   video shelf.
 - The About page shows each code contributor's GitHub avatar with the name
   below it, loaded from GitHub, and its technology list adds yt-dlp and MCP.
+  Its sources thank ZhFuwe for the Works list, its checks and disc photos,
+  and its overview is one short paragraph naming Journey, Works and LINE
+  BLOG.
+- The board's milestone card links to Journey and Works, and Wikipedia moves
+  to the Links list.
 - The post wall is **Recent Posts** and lists Kano's bilibili dynamics with
   her X posts, with the bilibili mark and a link to the dynamic; bilibili
   posts show no engagement counts. A bilibili forward shows the post it
@@ -239,7 +273,9 @@
   included) and bilibili uploads as a cover grid with filters and search.
   Each instance saves the uploads' video thumbnails itself; an upload the
   site knows shows its length and whether it can still be watched, a disc
-  beside an upload's title lists the albums that later included it. The page
+  beside an upload's title lists the albums that later included it, and an
+  upload that sings several songs shows a list mark with their count that
+  opens the numbered songs. The page
   header names the date the whole collection covers.
 - Uploads posted after the Works collection date appear above the uploads
   list as their own block: song uploads and premieres the site finds by
@@ -258,7 +294,9 @@
   初回限定盤 or 通常盤, is a card with its own cover and format; switching
   editions fades from one cover to the next without a blank in between.
 - The Journey page's address is `/journey`; `/history` links redirect to it.
-  Its Chinese name is 足迹.
+  Its Chinese name is 足迹, its title reads 从 NicoNico 的歌声，到虚拟舞台 (with
+  its Japanese and English counterparts), and its explanatory notes are
+  gone.
 - Journey's release milestones show their release's covers from the Works
   page, each linking to the release there; the doujin album one is dated
   December 29, 2017, and the ルル MV August 13, 2026.
@@ -374,9 +412,11 @@
   unit), otherwise, or when that call fails, the newest 15 from the
   playlist's public feed. An operator's YouTube fetch ends with the same
   read, and both report `members` and `membersFrom` in the step result.
-- The console's video rows give the translation marks their own width, so
-  they no longer run under the row's buttons on a wide screen, and on a
-  phone the marks and the buttons each take a row.
+- A Bilibili dynamic only the account's paying supporters may read
+  (充电专属) never becomes a post, and a forward of one quotes it as
+  unavailable, even when the configured login is a supporter's.
+- Posts with images are extracted by the Image extraction queue, which also
+  returns the schedule text it read from the images.
 
 </details>
 
@@ -492,7 +532,8 @@
   waiting to be read again. The Overview links to it, and schedule runs
   record how long choosing and judging their candidates took.
 - Detection holds the model setup: the detection mode and keywords, then
-  the model queues, providers, model limits and recent failures. The
+  the model queues (Text extraction, Image extraction, and Translation /
+  light tasks), providers, model limits and recent failures. The
   separate LLM page and the models-in-use summary are gone, and old LLM
   links open Detection.
 - The video correction dialog is simpler and calmer: the field hints, intro
@@ -501,5 +542,24 @@
   corrected control is tinted with an icon reset; the thumbnail picker and the
   replaced history appear only when they have entries; and the refresh is a
   quiet button.
+- The console's video rows give the translation marks their own width, so
+  they no longer run under the row's buttons on a wide screen, and on a
+  phone the marks and the buttons each take a row.
+- Schedule image cards show the schedule text the image model read.
+- Showing a promoted related-account post in Posts promotes it by hand, so
+  later keyword rules never hide it again; hiding it withdraws that
+  promotion.
+
+</details>
+
+<details>
+<summary><strong>Runtime and development</strong></summary>
+
+- Public reads run on their own read-only database connections beside the
+  writer, and the console's posts, videos, queue and external posts lists
+  read their media and evidence in batches, so pages answer faster while a
+  synchronization writes.
+- Profile media is streamed from its verified file rather than read into
+  memory first.
 
 </details>

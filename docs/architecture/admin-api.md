@@ -799,6 +799,10 @@ translation routes with owner `bilibili_status`.
 Each video's `thumbnailUrl` is the local `/media/<id>?v=<sha256>` URL of its
 cached thumbnail, or `null` until that file is ready; the remote CDN address is
 never returned. `thumbnailStatus` is `ready`, `pending`, `failed` or `missing`.
+A video's `translation` is its title's translation summary (see
+[Translations](#translations)) when the translate step covers it, a YouTube
+video or a public Bilibili upload, and `null` for a merged or unsettled
+Bilibili upload.
 
 `featuredVideo` is the pinned video in the same shape, whatever page or filter
 is listed, or `null` while the board chooses automatically.

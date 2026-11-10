@@ -240,3 +240,48 @@ test("shelf and spotlight consume projected ordering and identity", () => {
   assert.equal(item?.event?.id, "event")
   assert.equal(spotlightIsLive(item, now), true)
 })
+
+test("the shelf leads with the projected lead over an older cover", () => {
+  const past = {
+    phase: "past",
+    formCode: "video",
+    shelfGroup: "work",
+    latestEligible: true,
+    focusEligible: false,
+    tagContext: "work",
+  } as const
+  const lead = video("BV1aaaaaaaaa", {
+    source: "bilibili",
+    tag: "song",
+    publishedAt: "2026-11-01T00:00:00Z",
+    url: "https://www.bilibili.com/video/BV1aaaaaaaaa",
+    view: past,
+  })
+  const cover = video("cover", {
+    kind: "premiere",
+    tag: "song",
+    publishedAt: "2026-10-20T00:00:00Z",
+    view: past,
+  })
+  const older = video("older", {
+    tag: "song",
+    publishedAt: "2026-10-01T00:00:00Z",
+    view: past,
+  })
+  const groups = groupVideos([cover, lead, older], null, now, {
+    ...projection,
+    shelf: {
+      leadId: lead.id,
+      leadIsFeatured: false,
+      reservations: [],
+      works: ["cover", "older"],
+      archives: [],
+      shorts: [],
+    },
+  })
+  assert.equal(groups.lead?.id, lead.id)
+  assert.deepEqual(
+    groups.works.map((item) => item.id),
+    ["cover", "older"],
+  )
+})

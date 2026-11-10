@@ -215,12 +215,13 @@ func (s *Store) attachAdminVideoAlternates(ctx context.Context, videos []AdminVi
 	return nil
 }
 
-// attachAdminVideoTranslations fills each YouTube video's title translation
-// state; other sources are outside the translate step and stay nil.
+// attachAdminVideoTranslations fills the title translation state of each
+// video the translate step covers (videoTranslationScope): every YouTube
+// video and a public Bilibili upload. A merged or unsettled upload stays nil.
 func (s *Store) attachAdminVideoTranslations(ctx context.Context, videos []AdminVideo) error {
 	ids := []string{}
 	for i := range videos {
-		if videos[i].Source == "youtube" {
+		if videos[i].Source == "youtube" || videos[i].Source == "bilibili" && videos[i].Public {
 			ids = append(ids, videos[i].ID)
 		}
 	}

@@ -1875,9 +1875,11 @@ by a manual or platform row is not a reason to call a model.
 Wording with only links, hashtags, mentions or emoji is recorded as
 `skipped` with language `none` without a call; wording over 4000 characters
 is skipped without a call. The model receives the kind (X post, which a
-pooled status also is, Bilibili dynamic, which a pooled dynamic also is, or
-YouTube video title) and the text, returns `sourceLanguage` plus English, Japanese and
-Simplified Chinese, and is told to keep URLs, tags, mentions, emoji,
+pooled status also is, Bilibili dynamic, which a pooled dynamic also is,
+YouTube video title or Bilibili video title) and the text, returns `sourceLanguage` plus English, Japanese and
+Simplified Chinese, and is told to judge the language by the text's own
+wording rather than a song title or name it quotes (a Bilibili title in
+Chinese around a Japanese song title is `zh`) and to keep URLs, tags, mentions, emoji,
 bracketed emoji codes and bracketed channel tags, and to keep times as
 written with their zone (北京时间17点 becomes 17:00 Beijing time; converting
 a time belongs to extraction). A result is accepted only with a known language and a

@@ -324,3 +324,37 @@ func boolText(value bool) string {
 	}
 	return "false"
 }
+
+// The admin list shows a title translation state for every video the
+// translate step covers: a public Bilibili upload as well as a YouTube video,
+// and none for a merged or unsettled upload.
+func TestAdminVideoTranslationCoversPublicBilibiliUploads(t *testing.T) {
+	f := newVideoMergeFixture(t)
+	f.youtube("YOUTUBEVID1", "synthetic", "2026-03-01T00:00:00Z", "", 0)
+	f.bilibili("BV1MERGED001", "synthetic merged", "2026-03-01T00:00:00Z", 0)
+	f.bilibili("BV1SETTLED01", "synthetic settled", "2026-03-02T00:00:00Z", 0)
+	f.bilibili("BV1UNSETTLD1", "synthetic unsettled", "2026-03-03T00:00:00Z", 0)
+	f.exec(`UPDATE videos SET merged_into='YOUTUBEVID1',merge_source='manual' WHERE id='BV1MERGED001'`)
+	f.exec(`UPDATE videos SET kind='upload',kind_source='rule' WHERE id IN ('BV1MERGED001','BV1SETTLED01')`)
+	page, err := f.s.ListAdminVideos(context.Background(), AdminVideoFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]*AdminTranslation{}
+	for _, item := range page.Items {
+		got[item.ID] = item.Translation
+	}
+	for id, want := range map[string]bool{"YOUTUBEVID1": true, "BV1SETTLED01": true, "BV1MERGED001": false, "BV1UNSETTLD1": false} {
+		if (got[id] != nil) != want {
+			t.Errorf("%s translation shown = %v, want %v", id, got[id] != nil, want)
+		}
+	}
+	// A Bilibili title is not presumed Japanese, so ja waits for a translation.
+	if summary := got["BV1SETTLED01"]; summary != nil {
+		for _, locale := range summary.Locales {
+			if locale.Status != "missing" {
+				t.Errorf("BV1SETTLED01 %s = %s, want missing", locale.Locale, locale.Status)
+			}
+		}
+	}
+}

@@ -10,6 +10,21 @@
   the `dynamics` and `app` methods need, `PUT /sources/bilibili/schedule`
   accepts its `chain`, and the `bilibili` step result adds `listing`. A read
   none of whose enabled methods can run fails with `bilibili_no_method`.
+- Admin `GET /videos` gives a public Bilibili upload its title `translation`
+  summary, as for a YouTube video.
+- The translation prompt tells the model to judge a text's language by its
+  own wording rather than a quoted song title, so a Chinese Bilibili title
+  around a Japanese song title is `zh`. A Bilibili title already detected as
+  Japanese keeps that until its translation is requested again in Videos.
+
+</details>
+
+<details>
+<summary><strong>Public pages</strong></summary>
+
+- The video shelf's Latest work is the board's newest cover or premiere on
+  any platform, a Bilibili-only cover included, rather than the next older
+  one.
 
 </details>
 
@@ -21,6 +36,8 @@
   official client's listing, each with its switch and up/down moves, and a
   method the server lacks the credential for greyed with the variable it
   needs.
+- Videos shows the title translations of a public Bilibili upload, which
+  can be corrected or requested again like a YouTube video's.
 
 </details>
 

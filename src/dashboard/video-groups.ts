@@ -210,9 +210,17 @@ export function groupVideos(
   )
   let lead = featured
   if (!lead) {
+    // The server's lead wins, so a newer cover never loses to an older one
+    // still in the projected works; the local rule reads a snapshot without
+    // a projected lead.
+    const projectedId =
+      projection?.version === 1 ? projection.shelf.leadId : undefined
+    const projected = projectedId
+      ? split.works.find((video) => video.id === projectedId)
+      : undefined
     // A private or removed work never leads, as it has nothing to open.
     const watchable = split.works.filter((video) => !videoIsGone(video))
-    lead = watchable.find(isLeadWork) || watchable[0] || null
+    lead = projected || watchable.find(isLeadWork) || watchable[0] || null
     if (lead) split.works.splice(split.works.indexOf(lead), 1)
   }
   return { ...split, lead, leadIsFeatured: Boolean(featured) }

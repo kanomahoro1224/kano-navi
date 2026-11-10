@@ -24,7 +24,12 @@ const ZHFUWE_URL = "https://github.com/ZhFuwe"
 const MAINLAND_PROVIDER = "鹿可可"
 const MAINLAND_PROVIDER_URL = "https://space.bilibili.com/426276698"
 const MAINLAND_SITE_URL = "https://xiaolubao.com"
-const developmentModels = ["Claude Opus 5.5", "GPT-6.1-Sol", "GPT-5.6-Sol"]
+const developmentModels = [
+  "Claude Opus 5.5",
+  "GPT-6-Astra",
+  "GPT-6.1-Sol",
+  "GPT-5.6-Sol",
+]
 const technologyGroups = [
   {
     key: "frontend",

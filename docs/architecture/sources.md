@@ -886,8 +886,8 @@ signed-in request sends `SESSDATA` with the browser's `bili_jct`,
 `DedeUserID`, `DedeUserID__ckMd5` and `sid`, and the browser's device
 cookies (`buvid3`, `buvid4`, `b_nut`, `_uuid`, `buvid_fp`) in place of the
 anonymous identity where the login carries them, so the account and its
-device match. Signed-in reads meet the captcha far less often, and the
-dynamics listing needs one. The login is verified at most once
+device match. Signed-in reads meet the captcha far less often, and both
+dynamics methods require the login. The login is verified at most once
 a day through `nav`'s `isLogin`, when the listing runs; while the latest check
 found it expired, no request sends it and the listing waits for the next
 check (`{ skipped: true, reason: "login_expired" }` on the
@@ -989,30 +989,33 @@ translation in the same transaction.
 
 #### Bilibili login boundary
 
-The dynamics listing requires a signed-in cookie because anonymous requests depend on browser fingerprint parameters and encounter captcha responses. The server therefore skips the listing without a login and keeps the cookie in memory for the Bilibili API only. An operator can still add one dynamic through its public opus page, which does not require the listing credential.
+The dynamics methods require a signed-in cookie because anonymous requests depend on browser fingerprint parameters and encounter captcha responses. The server therefore skips the methods without a login and keeps the cookie in memory for the Bilibili API only. An operator can still add one dynamic through its public opus page, which does not require the listing credential.
 
 #### Dynamics
 
-The dynamics listing,
-`/x/polymer/web-dynamic/v1/feed/space?host_mid=<mid>`, answers reliably only
-to a signed-in caller, so it runs only with a login (`BILIBILI_COOKIE` or
-`BILIBILI_SESSDATA`,
-[Bilibili dynamics](../architecture/sources.md#dynamics)).
-Without the cookie the `bilibili_dynamics` step records `{ skipped: true,
-reason: "login_required" }` and makes no anonymous attempt. The listing is signed
-with Bilibili's WBI scheme (`wts` and `w_rid` from the rotating keys that
-the ticket or `/x/web-interface/nav` names); the keys are cached for 12
-hours and dropped after a `v_voucher` or `-352` answer, which may mean they
-rotated. A signed-out `nav` answer, or `-101` from the listing, is
-`bilibili_login_expired`. The listing shares the upload read's captcha
-backoff and device identity, so a block either one met holds both back, and
-runs on its own clock at least `BILIBILI_MIN_INTERVAL_MINUTES` apart. The
-single-flight queue never runs the two steps at once, so their writes of the
-shared state never race. One timed read requests the first page only: the
-listing itself, plus `nav` for the daily login check or stale keys, and the
-device identity and ticket when they are due. An operator's
-[manual fetch](workflows.md#bilibili-methods) follows the offset each page
-answers to older pages.
+The scheduled `bilibili_dynamics` source requires a signed-in caller
+(`BILIBILI_COOKIE` or `BILIBILI_SESSDATA`). Without the cookie it records
+`{ skipped: true, reason: "login_required" }` and makes no anonymous attempt.
+Its configurable [method chain](workflows.md#method-chains) tries the desktop
+feed, `/x/polymer/web-dynamic/desktop/v1/feed/space?host_mid=<mid>`, before
+the WBI listing, `/x/polymer/web-dynamic/v1/feed/space?host_mid=<mid>`.
+The desktop method does not use WBI signing; the `dynamics` method signs with
+Bilibili's WBI scheme (`wts` and `w_rid` from the rotating keys that the ticket
+or `/x/web-interface/nav` names). WBI keys are cached for 12 hours and dropped
+after a `v_voucher` or `-352` answer, which may mean they rotated.
+
+The desktop feed's dynamic IDs sort numerically descending, matching
+publication order. Ordinary endpoint failures can use the next enabled method.
+Login and risk-control failures, including 429, stop the chain and start or
+preserve the shared captcha backoff; no fallback request is made while blocked.
+A signed-out `nav` answer, or `-101` from either listing, is
+`bilibili_login_expired`. Both methods share the upload read's captcha
+backoff and device identity, so a block either one meets holds both back. The
+dynamics source runs on its own clock at least
+`BILIBILI_MIN_INTERVAL_MINUTES` apart. One timed read requests the first page
+only, plus the device identity and ticket when due; `nav` runs for the daily
+login check or when the WBI keys are stale. Manual fetches use their explicit
+WBI `space` method and follow each offset to older pages.
 
 A listing keeps the account's own `DYNAMIC_TYPE_WORD` and `DYNAMIC_TYPE_DRAW`
 items (the opus and picture cards), `DYNAMIC_TYPE_ARTICLE` items only in

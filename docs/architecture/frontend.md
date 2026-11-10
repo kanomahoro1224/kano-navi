@@ -480,7 +480,8 @@ summary the main column holds the timed reads
 Discard: the interval and, for X and YouTube, the sync setting; and the
 [method chain](workflows.md#method-chains), with every method's switch and
 up/down moves, a method the process cannot run greyed with the variable it
-needs, and the one fixed method of the related accounts, the Bilibili dynamics timer and the shop read-only. Save sends only the
+needs; the related-accounts and shop methods are read-only, while the Bilibili
+dynamics timer exposes its desktop and WBI methods for ordering and toggling. Save sends only the
 changed fields, and the timer switch keeps unsaved edits.
 
 Settings below the timed reads are folded (`src/admin/views/source-parts.tsx`

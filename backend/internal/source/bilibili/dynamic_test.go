@@ -50,6 +50,34 @@ func TestSpaceFeedKeepsOwnPostsAndDropsEmoji(t *testing.T) {
 	}
 }
 
+func TestDesktopSpaceFeedSortsDynamicsByDescendingID(t *testing.T) {
+	const feed = `{"code":0,"data":{"has_more":false,"items":[
+ {"id_str":"900000000000000008","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":316381099,"pub_ts":1794010000},"module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"older"}]}}}},
+ {"id_str":"10000000000000000000","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":316381099,"pub_ts":1794020000},"module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"newest"}]}}}},
+ {"id_str":"900000000000000009","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":316381099,"pub_ts":1794015000},"module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"middle"}]}}}}
+]}}`
+	data, err := envelope([]byte(feed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := ParseDesktopSpaceFeed(data, DefaultAccount)
+	if err != nil || len(page.Dynamics) != 3 || page.Dynamics[0].Text != "newest" || page.Dynamics[0].OwnerMid != 316381099 || page.Dynamics[0].PublishedAt != "2026-11-07T02:53:20Z" || page.Dynamics[1].Text != "middle" || page.Dynamics[2].Text != "older" {
+		t.Fatalf("page=%#v err=%v", page, err)
+	}
+}
+
+func TestDesktopSpaceFeedUsesPlainDescriptionTextAndRejectsIncompleteMetadata(t *testing.T) {
+	const feed = `{"has_more":false,"items":[{"id_str":"900000000000000008","type":"DYNAMIC_TYPE_WORD","modules":{"module_dynamic":{"desc":{"text":"plain text"}}}}]}`
+	if _, err := ParseDesktopSpaceFeed([]byte(feed), DefaultAccount); ErrorCode(err) != "bilibili_invalid_response" {
+		t.Fatalf("incomplete metadata err=%v", err)
+	}
+	const complete = `{"has_more":false,"items":[{"id_str":"900000000000000008","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":"316381099","pub_ts":"1794020000"},"module_dynamic":{"desc":{"text":"plain text"}}}}]}`
+	page, err := ParseDesktopSpaceFeed([]byte(complete), DefaultAccount)
+	if err != nil || len(page.Dynamics) != 1 || page.Dynamics[0].OwnerMid != 316381099 || page.Dynamics[0].Text != "plain text" || page.Dynamics[0].PublishedAt != "2026-11-07T02:53:20Z" {
+		t.Fatalf("page=%#v err=%v", page, err)
+	}
+}
+
 // A supporters-only dynamic never becomes a post, and a forward of one quotes
 // it as unavailable, even when a supporter's listing carries it in full.
 func TestSpaceFeedDropsSupportersOnlyDynamics(t *testing.T) {
@@ -171,7 +199,7 @@ func TestDynamicsNeedALoginAndShareTheBackoff(t *testing.T) {
 	login := "synthetic0login%2C1767225600%2Cabcde%2A11"
 	type call struct{ host, path, cookie, query string }
 	calls := []call{}
-	reply := map[string]string{"/x/frontend/finger/spi": session, ticketPath: ticket, "/x/web-interface/nav": navKeys, "/x/polymer/web-dynamic/v1/feed/space": spaceFeed}
+	reply := map[string]string{"/x/frontend/finger/spi": session, ticketPath: ticket, "/x/web-interface/nav": navKeys, "/x/polymer/web-dynamic/desktop/v1/feed/space": spaceFeed, "/x/polymer/web-dynamic/v1/feed/space": spaceFeed}
 	adapter := func(sessdata string) *Adapter {
 		c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
 			calls = append(calls, call{r.URL.Host, r.URL.Path, r.Header.Get("Cookie"), r.URL.RawQuery})
@@ -187,12 +215,12 @@ func TestDynamicsNeedALoginAndShareTheBackoff(t *testing.T) {
 	}
 	result, err := adapter(login).FetchDynamics(context.Background(), State{})
 	// The device identity, the ticket, the daily login check and the listing.
-	if err != nil || len(result.Dynamics) != 3 || result.Requested != 4 || !result.State.WBI.valid() || !result.State.Dynamics.LastSuccessAt.Equal(now) ||
+	if err != nil || len(result.Dynamics) != 3 || result.Requested != 4 || result.Listing != MethodDesktop || !result.State.WBI.valid() || !result.State.Dynamics.LastSuccessAt.Equal(now) ||
 		!result.State.Login.SignedIn || !result.State.Login.CheckedAt.Equal(now) {
 		t.Fatalf("signed in=%#v err=%v", result, err)
 	}
 	listing := calls[3]
-	if listing.host != "api.bilibili.com" || !strings.Contains(listing.cookie, "SESSDATA="+login) || !strings.Contains(listing.query, "host_mid=316381099") || !strings.Contains(listing.query, "&w_rid=") {
+	if listing.host != "api.bilibili.com" || listing.path != "/x/polymer/web-dynamic/desktop/v1/feed/space" || !strings.Contains(listing.cookie, "SESSDATA="+login) || !strings.Contains(listing.query, "host_mid=316381099") || !strings.Contains(listing.query, "features=itemOpusStyle") || !strings.Contains(listing.query, "timezone_offset=-480") || strings.Contains(listing.query, "w_rid=") {
 		t.Fatalf("listing=%#v", listing)
 	}
 	// Within the interval, and while the shared block lasts, no request.
@@ -207,15 +235,41 @@ func TestDynamicsNeedALoginAndShareTheBackoff(t *testing.T) {
 	}
 	// An expired login is a controlled code; a captcha starts the shared block.
 	state.BlockedUntil = time.Time{}
-	reply["/x/polymer/web-dynamic/v1/feed/space"] = `{"code":-101,"message":"账号未登录"}`
+	reply["/x/polymer/web-dynamic/desktop/v1/feed/space"] = `{"code":-101,"message":"账号未登录"}`
 	expired, err := adapter(login).FetchDynamics(context.Background(), state)
 	if ErrorCode(err) != "bilibili_login_expired" || expired.State.Dynamics.LastError != "bilibili_login_expired" || !expired.State.BlockedUntil.IsZero() || expired.Requested != 1 {
 		t.Fatalf("expired=%#v err=%v", expired, err)
 	}
-	reply["/x/polymer/web-dynamic/v1/feed/space"] = `{"code":0,"data":{"v_voucher":"voucher_synthetic"}}`
+	calls = nil
+	reply["/x/polymer/web-dynamic/desktop/v1/feed/space"] = `{"code":0,"data":{"v_voucher":"voucher_synthetic"}}`
 	captcha, err := adapter(login).FetchDynamics(context.Background(), state)
-	if ErrorCode(err) != "bilibili_risk_control_voucher" || !captcha.State.BlockedUntil.Equal(now.Add(6*time.Hour)) || captcha.State.Failures != 1 || captcha.State.WBI.valid() {
+	listingCalls := 0
+	for _, call := range calls {
+		if strings.Contains(call.path, "feed/space") {
+			listingCalls++
+		}
+	}
+	if ErrorCode(err) != "bilibili_risk_control_voucher" || !captcha.State.BlockedUntil.Equal(now.Add(6*time.Hour)) || captcha.State.Failures != 1 || captcha.State.WBI.valid() || listingCalls != 1 {
 		t.Fatalf("captcha=%#v err=%v", captcha, err)
+	}
+}
+
+func TestDynamicsFallsBackToWBIAfterANonRiskDesktopFailure(t *testing.T) {
+	now := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
+	login := "synthetic0login%2C1767225600%2Cabcde%2A11"
+	reply := map[string]string{"/x/frontend/finger/spi": session, ticketPath: ticket, "/x/web-interface/nav": navKeys,
+		"/x/polymer/web-dynamic/desktop/v1/feed/space": `{"code":0,"data":{}}`, "/x/polymer/web-dynamic/v1/feed/space": spaceFeed}
+	var paths []string
+	c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+		paths = append(paths, r.URL.Path)
+		return response(200, reply[r.URL.Path]), nil
+	})})
+	a := NewAdapter(c, Options{Account: DefaultAccount, MinInterval: 3 * time.Hour, SESSDATA: login})
+	a.Now = func() time.Time { return now }
+	result, err := a.FetchDynamics(context.Background(), State{})
+	if err != nil || result.Listing != MethodDynamics || result.Fallback != MethodDynamics || len(result.Errors) != 1 || result.Requested != 5 ||
+		paths[len(paths)-2] != "/x/polymer/web-dynamic/desktop/v1/feed/space" || paths[len(paths)-1] != "/x/polymer/web-dynamic/v1/feed/space" {
+		t.Fatalf("result=%#v paths=%v err=%v", result, paths, err)
 	}
 }
 

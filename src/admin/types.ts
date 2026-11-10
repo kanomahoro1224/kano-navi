@@ -445,8 +445,8 @@ export interface ChainMethod {
 /** The ordered fallback over listing methods that timed reads try. */
 export interface SourceChain {
   methods: ChainMethod[]
-  /** The one method of the related X accounts, Bilibili or the shop cannot
-   * be reordered. */
+  /** The one method of the related X accounts or the shop cannot be
+   * reordered. */
   fixed: boolean
   /** X only: timeline failures before the API runs, and its daily cap. */
   apiGate?: number

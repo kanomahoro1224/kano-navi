@@ -1133,6 +1133,7 @@ export const adminMessages = {
     "admin.chain.method.bilibili.list": "Upload list",
     "admin.chain.method.bilibili.dynamics": "Signed-in dynamics listing",
     "admin.chain.method.bilibili.app": "Official client listing",
+    "admin.chain.method.bilibili_dynamics.desktop": "Desktop dynamics feed",
     "admin.chain.method.bilibili_dynamics.dynamics": "Dynamics listing",
     "admin.chain.method.shop.new_arrivals": "Newest 50 products",
     "admin.chain.youtubeAPIOff":
@@ -2463,7 +2464,9 @@ export const adminMessages = {
     "admin.sources.bilibili.hint":
       "账号的公开投稿，每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次。直播间按自己的间隔检查。",
     "admin.sources.bilibili_dynamics.hint":
-      "账号的动态，使用 BILIBILI_COOKIE 或 BILIBILI_SESSDATA 读取，每 BILIBILI_MIN_INTERVAL_MINUTES 最多一次。它与投稿共用验证码退避：任一读取被拦截，两者都会暂停。",
+      "账号的动态，使用 BILIBILI_COOKIE 或 BILIBILI_SESSDATA 读取，默认先用桌面端列表。每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次；遇到验证码或限流时立即停止备用请求。",
+    "admin.chain.method.bilibili_dynamics.desktop": "桌面端动态列表",
+    "admin.chain.method.bilibili_dynamics.dynamics": "WBI 动态列表",
     "admin.sources.shop.hint":
       "官方商店最新的 50 件商品。带有「鹿乃まほろ」标签并写明受注或发售期间的商品，会按系列和期间成为「发售中」条目。",
     "admin.timer.on": "每 {interval}",

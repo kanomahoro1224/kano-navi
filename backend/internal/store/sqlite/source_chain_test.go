@@ -24,6 +24,9 @@ func TestSourceChainsDefaultToTheFormerOrderAndRoundTrip(t *testing.T) {
 	if got := scheduleOf(t, s, "bilibili", 180).Chain.Enabled(); len(got) != 3 || got[0] != "list" || got[1] != "dynamics" || got[2] != "app" {
 		t.Fatalf("bilibili chain=%v", got)
 	}
+	if got := scheduleOf(t, s, BilibiliDynamicsSource, 180).Chain.Enabled(); len(got) != 2 || got[0] != "desktop" || got[1] != "dynamics" {
+		t.Fatalf("bilibili dynamics chain=%v", got)
+	}
 	x.Chain = SourceChain{Methods: []ChainMethod{{"api", true}, {"timeline", true}, {"profile", false}}, APIGate: 0, APIDailyCap: 40}
 	if _, err := s.SaveSourceSchedule(ctx, x, 180, now); err != nil {
 		t.Fatal(err)
@@ -155,5 +158,12 @@ func TestBilibiliUploadChainRoundTripsAndReadsTheOldShapeAsTheDefault(t *testing
 	bilibili.Chain = SourceChain{Methods: []ChainMethod{{"list", true}, {"dynamics", true}, {"app", true}}, APIGate: 3}
 	if _, err := s.SaveSourceSchedule(ctx, bilibili, 180, now); !errors.Is(err, ErrWorkflowValidation) {
 		t.Fatalf("gate on bilibili err=%v", err)
+	}
+}
+
+func TestBilibiliDynamicsChainUpgradesTheFormerFixedMethod(t *testing.T) {
+	got := readSourceChain(BilibiliDynamicsSource, `{"methods":[{"id":"dynamics","enabled":true}]}`).Enabled()
+	if len(got) != 2 || got[0] != "desktop" || got[1] != "dynamics" {
+		t.Fatalf("upgraded chain=%v", got)
 	}
 }

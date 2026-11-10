@@ -66,14 +66,17 @@ func (a *api) scheduleEntry(ctx context.Context, schedule sqlite.SourceSchedule)
 // chainEntry describes a schedule's method chain: each method in
 // order with whether it is enabled, whether this process can run it and the
 // variable it needs. X adds its API gate and cap, today's usage and each
-// account's timeline failure streak. The Bilibili upload read's dynamics
-// and official-client methods name the credentials they need.
+// account's timeline failure streak. Bilibili dynamics and official-client
+// methods name the credentials they need.
 func (a *api) chainEntry(ctx context.Context, schedule sqlite.SourceSchedule) (map[string]any, error) {
 	methods := []map[string]any{}
 	for _, method := range schedule.Chain.Methods {
 		item := map[string]any{"id": method.ID, "enabled": method.Enabled, "available": true}
 		switch {
 		case schedule.Source == "bilibili" && method.ID == bilisource.MethodDynamics:
+			item["requires"] = "BILIBILI_COOKIE or BILIBILI_SESSDATA"
+			item["available"] = a.Bilibili != nil && a.Bilibili.Options.SignedIn()
+		case schedule.Source == sqlite.BilibiliDynamicsSource && (method.ID == bilisource.MethodDesktop || method.ID == bilisource.MethodDynamics):
 			item["requires"] = "BILIBILI_COOKIE or BILIBILI_SESSDATA"
 			item["available"] = a.Bilibili != nil && a.Bilibili.Options.SignedIn()
 		case schedule.Source == "bilibili" && method.ID == bilisource.MethodApp:

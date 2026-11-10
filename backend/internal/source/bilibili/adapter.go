@@ -77,6 +77,10 @@ type DynamicsResult struct {
 	Dynamics []Dynamic
 	// Uploads are the video dynamics the listing showed, read as uploads.
 	Uploads []Video
+	// Listing is the method that answered; Fallback is set when an earlier
+	// method failed. Errors contains only controlled method codes.
+	Listing, Fallback string
+	Errors            []string
 	State   State
 	// Skipped is "login_required", "login_expired", "blocked" or
 	// "interval" when no listing request was made; a login check may still
@@ -128,10 +132,15 @@ const (
 	// MethodDynamics is the signed-in dynamics listing on api.bilibili.com,
 	// read for its video dynamics; it needs the login cookie.
 	MethodDynamics = "dynamics"
+	// MethodDesktop is the signed-in desktop dynamics feed.
+	MethodDesktop = "desktop"
 	// MethodApp is the official client's space listing on app.bilibili.com;
 	// it needs the client's app key pair.
 	MethodApp = "app"
 )
+
+// DefaultDynamicsMethods tries the desktop feed before the WBI listing.
+var DefaultDynamicsMethods = []string{MethodDesktop, MethodDynamics}
 
 // DefaultMethods is the upload read's default order.
 var DefaultMethods = []string{MethodList, MethodDynamics, MethodApp}
@@ -351,8 +360,18 @@ func (a *Adapter) FetchVideo(ctx context.Context, state State, bvid string, forc
 // holds the listing back until the next check. It makes at most one listing
 // request, plus the device identity, the ticket and nav when they are due.
 func (a *Adapter) FetchDynamics(ctx context.Context, state State) (DynamicsResult, error) {
+	return a.FetchDynamicsWith(ctx, state, DefaultDynamicsMethods)
+}
+
+// FetchDynamicsWith reads the first page through the enabled methods in
+// order. Risk-control and login failures stop immediately; another method is
+// tried only after a non-risk failure.
+func (a *Adapter) FetchDynamicsWith(ctx context.Context, state State, methods []string) (DynamicsResult, error) {
+	if len(methods) == 0 {
+		methods = DefaultDynamicsMethods
+	}
 	now := a.Now()
-	result := DynamicsResult{Dynamics: []Dynamic{}, State: state}
+	result := DynamicsResult{Dynamics: []Dynamic{}, Uploads: []Video{}, Errors: []string{}, State: state}
 	loginDue := state.Login.CheckedAt.IsZero() || now.Sub(state.Login.CheckedAt) >= loginCheckInterval
 	switch {
 	case !a.Options.SignedIn():
@@ -370,7 +389,8 @@ func (a *Adapter) FetchDynamics(ctx context.Context, state State) (DynamicsResul
 	}
 	result.State.Dynamics.LastAttemptAt = now
 	session, err := a.session(ctx, &result.State, &result.Requested, now)
-	if err == nil && (loginDue || !result.State.WBI.fresh(now)) {
+	needWBI := slices.Contains(methods, MethodDynamics)
+	if err == nil && (loginDue || needWBI && !result.State.WBI.fresh(now)) {
 		// The check sends the cookie even when the last one found it
 		// expired, so a renewed cookie is noticed.
 		result.Requested++
@@ -389,18 +409,49 @@ func (a *Adapter) FetchDynamics(ctx context.Context, state State) (DynamicsResul
 			a.Options.signIn(&session)
 		}
 	}
-	var page SpacePage
-	if err == nil {
-		result.Requested++
-		page, err = a.Client.SpaceDynamics(ctx, a.Options.Account, session, result.State.WBI, now)
-	}
 	if err != nil {
 		result.State = failedDynamics(result.State, err, now)
 		return result, err
 	}
-	result.Dynamics, result.Uploads = page.Dynamics, page.Uploads
-	result.State = succeededDynamics(result.State, now)
-	return result, nil
+	var firstErr error
+	for _, method := range methods {
+		if ctx.Err() != nil {
+			return result, ctx.Err()
+		}
+		var page SpacePage
+		result.Requested++
+		switch method {
+		case MethodDesktop:
+			page, err = a.Client.DesktopSpaceDynamics(ctx, a.Options.Account, "", session)
+		case MethodDynamics:
+			page, err = a.Client.SpaceDynamics(ctx, a.Options.Account, session, result.State.WBI, now)
+		default:
+			result.Requested--
+			continue
+		}
+		if err == nil {
+			result.Dynamics, result.Uploads, result.Listing = page.Dynamics, page.Uploads, method
+			if firstErr != nil {
+				result.Fallback = method
+			}
+			result.State = succeededDynamics(result.State, now)
+			return result, nil
+		}
+		code := ErrorCode(err)
+		result.Errors = append(result.Errors, method+": "+code)
+		if firstErr == nil {
+			firstErr = err
+		}
+		if IsRiskControl(code) || code == "bilibili_login_expired" || code == "bilibili_login_required" {
+			result.State = failedDynamics(result.State, err, now)
+			return result, err
+		}
+	}
+	if firstErr == nil {
+		firstErr = &Error{"bilibili_no_method"}
+	}
+	result.State = failedDynamics(result.State, firstErr, now)
+	return result, firstErr
 }
 
 // FetchUploadsPage reads one page of the account's uploads for an operator's

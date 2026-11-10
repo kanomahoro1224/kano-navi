@@ -287,7 +287,7 @@ checkpoint.
 
 Each source has its own cadence because X, YouTube, Bilibili, related X accounts, and the shop have different freshness, quota, and access constraints. The single-flight queue remains shared so source writes are serialized and one process owns the timers. A schedule's incremental cap limits newly discovered records, while count mode intentionally re-reads a bounded newest window; timeline gaps preserve continuity when a capped or interrupted read cannot reach its cursor.
 
-Listing method chains are configurable for X, YouTube and the Bilibili upload read because a public fallback can keep a source readable during an upstream outage, while credentials and quota remain optional. The chain only covers listing methods. Detail and helper requests keep their own bounded behavior so a failed later page does not discard records already read.
+Listing method chains are configurable for X, YouTube, and both Bilibili timers. The Bilibili dynamics chain uses the desktop feed before its WBI fallback; risk-control and login failures stop that chain immediately. The chain only covers listing methods. Detail and helper requests keep their own bounded behavior so a failed later page does not discard records already read.
 
 ### Source schedules
 
@@ -376,14 +376,15 @@ accounts and 50 uploads for YouTube.
 
 #### Method chains
 
-Each X, YouTube and Bilibili upload schedule also orders its listing methods into a fallback
+Each X, YouTube and Bilibili source schedule orders its listing methods into a fallback
 chain ([method chains](../architecture/workflows.md#method-chains)), stored
 in `source_schedules.chain_json` and edited in the timed reads of the
 Sources page. A read tries the enabled methods from the top and falls to the
 next when the first page fails, when the answer lists none of the account's
-or channel's own records, when the chain skips the method, or on quota and
-rate limits. A later page that fails keeps the earlier pages and leaves the
-run partial without falling back.
+or channel's own records, or when a method is skipped. Bilibili dynamics
+stops on login and risk-control failures, including 429, without making a
+fallback request. A later page that fails keeps the earlier pages and leaves
+the run partial without falling back.
 
 | Source      | Methods, in default order                                                                                         | Default                                |
 | ----------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
@@ -391,19 +392,23 @@ run partial without falling back.
 | `youtube`   | `api` (Data API uploads playlist), `rss` (public feed), `ytdlp` (metadata), `videos_page` (uploads tab, IDs only) | api, rss and videos_page on; ytdlp off |
 | `x_related` | `timeline` (FxTwitter timeline)                                                                                   | fixed                                  |
 | `bilibili`  | `list` (the upload list), `dynamics` (signed-in dynamics listing), `app` (official client's listing)              | all on                                 |
+| `bilibili_dynamics` | `desktop` (signed-in desktop feed), `dynamics` (signed-in WBI listing) | both on; desktop first |
 
 The default keeps the existing order and leaves yt-dlp off until it is
 configured, so the default chain applies when no stored chain is available. A method whose
 credential the process lacks is skipped with `x_api_unavailable` or
 `youtube_api_key_missing`; a Bilibili method without its login or key pair
-is passed over without a request. The chain covers listing methods only: detail
+is passed over without a request. Risk-control and login failures on the
+Bilibili dynamics chain stop it before a fallback request. The chain covers listing methods only: detail
 requests (vxtwitter, watch pages) and fixed helper reads (the streams page,
 and the feed read for Shorts verdicts while the Data API lists) stay outside
 it. [X](sources.md#x), [YouTube](sources.md#youtube) and
 [Bilibili](sources.md#bilibili) describe the methods,
 and [X API in the chain](sources.md#x-api-in-the-chain) its gate and daily
 cap. An X `count` sync setting reads the timeline's count window whatever
-the chain says.
+the chain says. Manual Bilibili dynamics fetches use their explicit `space`
+method; this chain controls scheduled dynamics reads and runs of that
+source.
 
 Each run freezes its chain in `workflow_runs.source_chain_json`, so a retry
 or recovery reads the same way: timer runs, Run now, YouTube pushes, one-off

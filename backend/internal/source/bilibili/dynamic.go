@@ -6,6 +6,7 @@ import (
 	"html"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -263,7 +264,11 @@ func (it spaceItem) dynamic(owner int64) (Dynamic, bool) {
 		if m.Desc != nil && m.Desc.Nodes != nil {
 			nodes = m.Desc.Nodes
 		}
-		d := Dynamic{IDStr: it.IDStr, OwnerMid: owner, Text: boundText(joinNodes(nodes)), PublishedAt: published, Images: []string{}}
+		text := joinNodes(nodes)
+		if len(nodes) == 0 && m.Desc != nil {
+			text = m.Desc.Text
+		}
+		d := Dynamic{IDStr: it.IDStr, OwnerMid: owner, Text: boundText(text), PublishedAt: published, Images: []string{}}
 		// A forward without wording of its own whose dynamic is gone is still
 		// kept: the store rewrites a stored one and leaves out a new one.
 		forwarded := it.original()
@@ -291,6 +296,7 @@ func (it spaceItem) dynamic(owner int64) (Dynamic, bool) {
 func (it spaceItem) content() (string, []richNode, string, []string) {
 	m := it.Modules.Dynamic
 	var nodes []richNode
+	plainText := ""
 	title := ""
 	pics := []string{}
 	if m.Major != nil {
@@ -300,6 +306,7 @@ func (it spaceItem) content() (string, []richNode, string, []string) {
 				title = strings.TrimSpace(o.Title)
 				if o.Summary != nil {
 					nodes = o.Summary.Nodes
+					plainText = o.Summary.Text
 				}
 				for _, p := range o.Pics {
 					pics = append(pics, p.URL)
@@ -316,10 +323,18 @@ func (it spaceItem) content() (string, []richNode, string, []string) {
 			// Another card (a vote, a reservation or goods) leaves the text.
 		}
 	}
-	if nodes == nil && m.Desc != nil {
-		nodes = m.Desc.Nodes
+	if m.Desc != nil {
+		if nodes == nil {
+			nodes = m.Desc.Nodes
+		}
+		if plainText == "" {
+			plainText = m.Desc.Text
+		}
 	}
 	text := joinNodes(nodes)
+	if len(nodes) == 0 {
+		text = plainText
+	}
 	if title != "" {
 		text = title + "\n" + text
 	}
@@ -440,6 +455,31 @@ func ParseSpaceFeed(data json.RawMessage, account string) (SpacePage, error) {
 		}
 	}
 	return out, nil
+}
+
+// ParseDesktopSpaceFeed reads the desktop listing shape and orders its posts
+// by descending dynamic ID, which matches publication order for this feed.
+func ParseDesktopSpaceFeed(data json.RawMessage, account string) (SpacePage, error) {
+	page, err := ParseSpaceFeed(data, account)
+	if err != nil {
+		return SpacePage{}, err
+	}
+	var listing struct {
+		Items []spaceItem `json:"items"`
+	}
+	if json.Unmarshal(data, &listing) != nil {
+		return SpacePage{}, &Error{"bilibili_invalid_response"}
+	}
+	for _, item := range listing.Items {
+		if keptDynamicTypes[item.Type] && (!dynamicIDPattern.MatchString(item.IDStr) || item.Modules.Author.Mid <= 0 || item.Modules.Author.PubTS <= 0) {
+			return SpacePage{}, &Error{"bilibili_invalid_response"}
+		}
+	}
+	sort.SliceStable(page.Dynamics, func(i, j int) bool {
+		a, b := page.Dynamics[i].IDStr, page.Dynamics[j].IDStr
+		return len(a) > len(b) || len(a) == len(b) && a > b
+	})
+	return page, nil
 }
 
 // opusDetail is the item of the opus page's server state and of the

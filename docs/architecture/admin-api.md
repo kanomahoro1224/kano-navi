@@ -392,9 +392,10 @@ method's credential is missing, and `requires` names its variables
 (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY`,
 `BILIBILI_COOKIE or BILIBILI_SESSDATA`, or
 `BILIBILI_APP_KEY and BILIBILI_APP_SECRET`) for methods that need one. `fixed`
-is true for the related-accounts, Bilibili dynamics and shop timers, whose one
-method (`timeline` for the related accounts, `dynamics` for the dynamics
-listing, `new_arrivals` for the shop) cannot change. The X chain adds
+is true for the related-accounts and shop timers, whose one
+method (`timeline` for the related accounts, `new_arrivals` for the shop)
+cannot change. The Bilibili dynamics chain orders `desktop` and `dynamics`
+(the WBI listing); both require the configured login. The X chain adds
 `apiGate`, `apiDailyCap`, `apiUsage` (`{day, posts}`, the posts X API
 answers returned on the current Japan day) and `timelineFailures`, each
 account's current streak (see

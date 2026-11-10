@@ -384,8 +384,9 @@ or a suspected cancellation is a decision
 card: its left edge takes the state colour (honey
 while it needs a decision, leaf once the image reaches the board, neutral
 when rejected), the image or the entry's date sits on the left, and the body
-shows the badges and source link, the model's verdict with a confidence bar
-and its reason or evidence, the facts, and a bottom bar with the note field
+shows the badges and source link, the model's verdict with a confidence bar,
+the extracted schedule text when present, and its reason or evidence, the facts,
+and a bottom bar with the note field
 and the decision buttons. A cancellation needs a reason before it can be
 confirmed, and its Source posts button opens the same evidence timeline in
 the card. The video merges tab (`merge-parts.tsx`) lists each Bilibili
@@ -755,8 +756,9 @@ they never require a browser CDN request. The license ships in
 name, or stable ID to identify a mark; unknown custom providers retain their
 initial. Removing a preset does not delete saved providers.
 
-The Detection view shows the detection mode and keywords, then the
-extraction, schedule-image check and translation queues side by side, then
+The Detection view shows the detection mode and keywords, then the text
+schedule extraction, image extraction and translation/light-task queues side
+by side, then
 the providers as a list beside the selected provider's detail
 (`#detection/<provider>`), the model limits, and the recent failures. Recent failures
 lists each stored failure's stage, relative time (the Japan time on hover),

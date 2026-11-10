@@ -641,6 +641,7 @@ func inferredClassification(result any) (string, error) {
 type normalizedExtraction struct {
 	classification string
 	events         []normalizedEvent
+	extractedText  string
 	confidence     float64
 	evidence       string
 	reason         string
@@ -702,9 +703,11 @@ func (p sourceProfile) normalizeResult(result any, postID, postURL, text string,
 	}
 	evidence, _ := root.get("evidence")
 	reason, _ := root.get("reason")
+	extractedText, _ := root.get("text")
 	return normalizedExtraction{
 		classification: classification,
 		events:         events,
+		extractedText:  sliceUTF16(jsTrim(stringOr(extractedText, "")), 12000),
 		confidence:     confidence,
 		evidence:       sliceUTF16(jsTrim(stringOr(evidence, "")), 1000),
 		reason:         sliceUTF16(jsTrim(stringOr(reason, "")), 500),
@@ -714,6 +717,7 @@ func (p sourceProfile) normalizeResult(result any, postID, postURL, text string,
 
 type assetVerification struct {
 	classification string
+	extractedText  string
 	confidence     float64
 	evidence       string
 	reason         string
@@ -733,8 +737,10 @@ func normalizeAssetVerification(result any) (assetVerification, error) {
 	}
 	evidence, _ := root.get("evidence")
 	reason, _ := root.get("reason")
+	extractedText, _ := root.get("text")
 	return assetVerification{
 		classification: classification,
+		extractedText:  sliceUTF16(jsTrim(stringOr(extractedText, "")), 12000),
 		confidence:     confidence,
 		evidence:       sliceUTF16(jsTrim(stringOr(evidence, "")), 1000),
 		reason:         sliceUTF16(jsTrim(stringOr(reason, "")), 500),

@@ -546,9 +546,8 @@ func mergeRouteQueue(ctx context.Context, tx *sql.Tx, now string) error {
 }
 
 // seedVerifyQueue runs once, recorded as llm_verify_queue_seeded: the
-// schedule-image check queue takes the extraction queue's image-tagged
-// targets in their saved order, so each image goes to the model that checked
-// it while both stages shared one queue. A check queue that already has
+// image extraction queue takes the legacy schedule queue's image-tagged
+// targets in their saved order. A queue that already has
 // targets is kept as it is.
 func seedVerifyQueue(ctx context.Context, tx *sql.Tx, now string) error {
 	var seeded int

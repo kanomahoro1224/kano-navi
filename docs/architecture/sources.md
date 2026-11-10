@@ -1487,8 +1487,8 @@ short provider outage, the 24-hour wait a daily quota reset, and a post that
 still fails after about 31 hours most likely fails on its content.
 
 The backoff starts over when the input changes (edited text, publication
-time, URL or cached images), when the extraction queue's targets or models
-change, and when an operator requests a reprocess, which also clears it immediately. A
+time, URL or cached images), when the text or image extraction queue's targets
+or models change, and when an operator requests a reprocess, which also clears it immediately. A
 queued reprocess request always runs, whatever the backoff, and a forced pass
 that fails counts as the first failure. A success or `uncertain` result,
 including a cache hit, clears the backoff. A cancelled run is not a failure.
@@ -1502,9 +1502,10 @@ An operator can dismiss a failed post. It becomes `dismissed`, leaves the
 console's failed list, and is held back like a post whose retries stopped
 until its input or targets change or an operator requests a reprocess.
 
-Both paths draw from the extraction queue: an ordered list of targets, each
-a provider plus one of its catalog models, and a target's capabilities are
-its model's `text`/`image` tags.
+Text-only posts draw from the schedule extraction queue and posts with images
+draw from the image extraction queue. Each queue is an ordered list of targets, a
+provider plus one of its catalog models, and a target's capabilities are its
+model's `text`/`image` tags.
 Providers have no default model, and nothing reads the
 `llm_providers.model` column. A one-time startup upgrade, recorded as
 `llm_default_model_retired`, rewrites each queue target without a model
@@ -1513,7 +1514,8 @@ Where that pair is already queued, the earlier position stays, and a target
 whose provider has no stored model is dropped because it could never be
 called. Target selection follows
 the original post modality. Text-only input requires `text`; image-only input
-requires `image`; mixed input requires a model with both tags. Only ready cached images are sent to the model. A post that
+requires `image`; mixed input uses the image extraction queue and requires an
+image-capable model. Only ready cached images are sent to the model. A post that
 declares an image but whose cache is not ready is recorded as `media_pending`
 and is not silently reduced to text-only input. Each provider uses OpenAI
 Responses, Chat Completions, or Anthropic Messages, receives at most the
@@ -1571,7 +1573,8 @@ classification nor an events list, and a `schedule` result without entries
 unless its action is `cancel`; a rejected result is a failed attempt and
 leaves existing events untouched. So is a reply the provider reports as cut
 off at the token limit (`max_tokens`, `max_output_tokens`, `length`), refused,
-or incomplete, even when its tool call parses; schedule-image checks follow
+or incomplete, even when its tool call parses; image extraction and
+schedule-image reviews follow
 the same rule, and a refusal stores the fixed `LLM refused the request`. `schedule` results update automatic
 events. A model never deletes or definitively cancels an event: `action=cancel`
 matches the clearest existing event and writes an `llm_suspected` cancellation
@@ -1779,10 +1782,11 @@ A schedule image (`assets.kind = schedule`) is public only after two gates:
    its text) reads as a weekly or multi-day board notice. The stored post `label` is not part of that input, because the
    looser post classifier labels any `配信予定` post as `SCHEDULE / 日程`.
 2. The automatic scan sends each unreviewed candidate's ready cached image,
-   without the post text, to the separate schedule-image check queue
+   without the post text, to the image extraction queue
    (`llm_route_targets.route = 'verify'`), whose targets need the `image` tag
-   and which never falls back to the extraction queue, and records
-   `schedule`, `not_schedule`, or `uncertain` in `schedule_asset_reviews`. A candidate whose source post does not pass
+   and which never falls back to the text extraction queue. The model records
+   `schedule`, `not_schedule`, or `uncertain` plus the visible schedule text in
+   `schedule_asset_reviews`. A candidate whose source post does not pass
    gate 1 is recorded as `skipped` / `source_not_board` without a model
    call. A pending cache, or no queued, keyed Image model, is also `skipped`
    and retried. An asset without an image URL, such as a `weekly-schedule`
@@ -1827,7 +1831,7 @@ model call it settles [Bilibili forms](data-model.md#bilibili-form) by rule,
 whether or not a queue is configured, and the same queue then asks the
 unsettled uploads for form and tag. Its models come only from the separate
 translation queue (`llm_route_targets.route = 'translate'`), configured in
-`/admin` → Models; it never falls back to the extraction queue. Targets need
+`/admin` → Models; it never falls back to the schedule extraction queue. Targets need
 the `text` tag. Each target gets at most three calls before moving to the
 next configured target, in queue order.
 Without a usable target the step records `disabled` with the reason and

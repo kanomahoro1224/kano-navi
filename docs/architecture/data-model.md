@@ -1156,16 +1156,16 @@ protocols.
 `vision_capable` (API `visionCapable`) is derived from the `image`
 capability; a provider write without `capabilities` may send `visionCapable`
 instead. `llm_providers.model` is written empty and never read: providers have
-no default model. Both detection paths share the extraction queue
-(`schedule`); the schedule-image check reads only `verify`, and translation
-only `translate`. Startup folds any per-stage `schedule_message`,
-`schedule_board`, and `schedule_vision` targets into the extraction queue in
+no default model. Text schedule extraction reads `schedule`; image schedule
+extraction and schedule-image review read `verify`, and translation/light tasks
+read `translate`. Startup folds any per-stage `schedule_message`,
+`schedule_board`, and `schedule_vision` targets into the text schedule queue in
 that order, keeping the first position of a repeated provider + model pair,
 and once (marker `llm_default_model_retired`) turns a target that followed a
 provider's default model into a target naming that model. Once more (marker
 `llm_verify_queue_seeded`, which new databases start with), it copies the
-extraction queue's image-tagged targets in their order into an empty `verify`
-queue.
+legacy schedule queue's image-tagged targets in their order into an empty
+`verify` queue.
 
 `internal/httpapi/media.go` and `internal/store/sqlite/media.go` own cache-root
 path validation and serving; `internal/store/sqlite/source_write.go` owns

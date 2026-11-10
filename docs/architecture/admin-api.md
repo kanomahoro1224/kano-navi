@@ -595,6 +595,8 @@ a period derived from the source post's events, and `inferredPeriodStart` and
 `inferredPeriodEnd` give the period without the manual correction.
 `sourcePost` is the stored source post's `text` and `publishedAt`, or `null`;
 the board gate's stored search text stays on the server.
+Each item also includes `llmText`, the model's visible schedule transcription,
+or `null` when the image model has not returned one.
 
 `GET /schedule-attention` is the Review queue's schedule work:
 `{today, weeks: [{weekStart, images, events}], undated, truncated}`.
@@ -1088,13 +1090,13 @@ Extraction settings are `{enabled, keywordEnabled, visionEnabled,
 messageEnabled, messageAllPosts, keywords}`; `enabled` is derived: the message
 stage alone, or keyword candidates plus boards. `messageAllPosts` makes the
 message stage select every post instead of only heuristic matches. `queue` is
-the ordered `[{providerId, modelId}]` extraction list both detection paths draw
-from; every target names a catalog model (`modelId` is required), and a save
-replaces the whole list. `route` selects the queue a save replaces: `schedule`
-(the default); `verify`, the separate `verificationQueue` of the schedule-image
-check, whose targets must carry the `image` tag; or `translate`, the separate
-`translationQueue` of the translate step, whose targets must carry the `text`
-tag. Removing a model removes its targets from every queue. Providers have no default model: a provider response
+the ordered `[{providerId, modelId}]` text schedule extraction list; every
+target names a catalog model (`modelId` is required), and a save replaces the
+whole list. `route` selects the queue a save replaces: `schedule` (the
+default) for text extraction, `verify` for image schedule extraction and
+schedule-image review (targets must carry the `image` tag), or `translate` for
+translation and other short text tasks (targets must carry the `text` tag).
+Removing a model removes its targets from every queue. Providers have no default model: a provider response
 carries no `model` field, a `model` field in a provider write is ignored, and a
 provider test without `{model}` only lists the provider's models. Creating a
 provider or adding catalog models never queues anything. Model IDs may
@@ -1115,8 +1117,8 @@ special-purpose ranges are refused. Names are not resolved, so a public name
 is accepted wherever it points; only the operator sets provider addresses.
 
 `GET /llm/failures` lists the 30 newest stored model failures, newest first:
-failed schedule extractions (one per input and queue target), failed
-schedule-image checks and owners whose last machine translation failed. A
+failed schedule extractions (one per input and queue target), failed image
+extractions and schedule-image checks, and owners whose last machine translation failed. A
 stopped run (`LLM request cancelled`) is not listed. Each item is `{route,
 subject, subjectId, url, providerId, model, message, at}`: `route` is
 `schedule`, `verify` or `translate`; `subject` is `post`, `image` (a schedule

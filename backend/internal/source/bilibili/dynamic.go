@@ -171,6 +171,11 @@ type spaceItem struct {
 	IDStr   string `json:"id_str"`
 	Type    string `json:"type"`
 	Visible *bool  `json:"visible"`
+	// Basic.IsOnlyFans marks a dynamic only the account's paying supporters
+	// (充电专属) may read; a signed-in supporter's listing carries it in full.
+	Basic struct {
+		IsOnlyFans bool `json:"is_only_fans"`
+	} `json:"basic"`
 	Modules struct {
 		Author struct {
 			Mid   flexInt `json:"mid"`
@@ -240,12 +245,12 @@ func (it spaceItem) original() *spaceItem {
 }
 
 // dynamic validates one listing item of the account; it reports false for a
-// kind that is not a post or an incomplete item. A forward keeps its own
+// kind that is not a post, a supporters-only dynamic or an incomplete item. A forward keeps its own
 // wording and quotes the dynamic it forwards, whether or not that dynamic can
 // still be shown.
 func (it spaceItem) dynamic(owner int64) (Dynamic, bool) {
 	if !keptDynamicTypes[it.Type] || !dynamicIDPattern.MatchString(it.IDStr) || it.Modules.Author.PubTS <= 0 ||
-		int64(it.Modules.Author.Mid) != owner || it.Visible != nil && !*it.Visible {
+		int64(it.Modules.Author.Mid) != owner || it.Visible != nil && !*it.Visible || it.Basic.IsOnlyFans {
 		return Dynamic{}, false
 	}
 	m := it.Modules.Dynamic
@@ -336,7 +341,7 @@ func (it *spaceItem) quote(selfURL string) *Quote {
 	if m.Major != nil {
 		major = m.Major.Type
 	}
-	if it.Modules.Author.Mid <= 0 || it.Modules.Author.PubTS <= 0 || it.Visible != nil && !*it.Visible || major == "MAJOR_TYPE_NONE" {
+	if it.Modules.Author.Mid <= 0 || it.Modules.Author.PubTS <= 0 || it.Visible != nil && !*it.Visible || it.Basic.IsOnlyFans || major == "MAJOR_TYPE_NONE" {
 		return q
 	}
 	text, pics, link := "", []string{}, q.URL

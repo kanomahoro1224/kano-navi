@@ -1011,7 +1011,9 @@ A listing keeps the account's own `DYNAMIC_TYPE_WORD` and `DYNAMIC_TYPE_DRAW`
 items (the opus and picture cards), `DYNAMIC_TYPE_ARTICLE` items only in
 their `MAJOR_TYPE_OPUS` form, whose text comes from the opus summary, and
 forwards (`DYNAMIC_TYPE_FORWARD`, see [Forwards](#forwards)); a live-start
-notice and a collection update are not posts. An upload's dynamic
+notice and a collection update are not posts. A supporters-only dynamic
+(`basic.is_only_fans`, 充电专属) is never a post, even when a supporter's
+login carries it in full. An upload's dynamic
 (`DYNAMIC_TYPE_AV` with a `MAJOR_TYPE_ARCHIVE` card) of the account is not a
 post either: the read stores it as the upload it publishes (BV ID, title,
 cover, description, length from `duration_text`, published at the dynamic's
@@ -1084,8 +1086,8 @@ Its pictures (HTTPS on `*.hdslb.com`, at most nine) are `quote-image` links
 of the forward and never schedule candidates; `quote_json` holds no image
 address. A deleted dynamic (`DYNAMIC_TYPE_NONE`, `MAJOR_TYPE_NONE`), a
 missing `orig`, a dynamic of any other kind (a live room, a collection,
-goods, a vote, an article in its old form) or one with neither wording nor
-pictures is unavailable, with only its ID and its opus page as URL (an
+goods, a vote, an article in its old form), a supporters-only dynamic or one
+with neither wording nor pictures is unavailable, with only its ID and its opus page as URL (an
 upload too); when even its ID is unknown, `id` is empty and `url` is the
 forward's own opus page. An `orig` of an unexpected shape is unavailable
 as well, keeping its ID when `id_str` still reads, and never fails the page.

@@ -14,8 +14,6 @@ type Freshness = "fresh" | "stale" | "waiting"
 export interface SyncState {
   tone: "leaf" | "honey" | "danger" | "muted"
   label: string
-  /** When the latest completed run finished, or null before any run. */
-  runAt: string | null
   sources: {
     source: SyncSource
     timestamp: string | null
@@ -33,9 +31,10 @@ export function freshnessAt(
 }
 
 /**
- * The overall state is the latest run's outcome and age; each source keeps its
- * own last successful read. Recomputed from the retained snapshot when the
- * local clock changes.
+ * The overall state is what a visitor can tell from the page: whether the API
+ * answers and how old the sources' last successful reads are. A run's outcome
+ * is operator diagnosis; a failing source shows here once its read ages out.
+ * Recomputed from the retained snapshot when the local clock changes.
  */
 export function syncStateFor(
   meta: Dashboard["meta"],
@@ -48,31 +47,17 @@ export function syncStateFor(
     const state = freshnessAt(timestamp, now)
     return { source, timestamp: state === "waiting" ? null : timestamp, state }
   })
-  const run = meta.lastSync
-  const runAt = run ? (run.finishedAt ?? run.startedAt ?? null) : null
-  const runState = freshnessAt(runAt, now)
   let tone: SyncState["tone"] = "leaf"
-  let key = "sync.snapshot"
+  let key = "sync.current"
   if (error) {
     tone = "danger"
     key = "sync.apiUnavailable"
-  } else if (run && !["success", "partial"].includes(run.status)) {
-    tone = "danger"
-    key = "sync.needsReview"
-  } else if (runState === "waiting") {
+  } else if (sources.every(({ state }) => state === "waiting")) {
     tone = "muted"
     key = "sync.waiting"
-  } else if (runState === "stale") {
+  } else if (sources.some(({ state }) => state === "stale")) {
     tone = "honey"
     key = "sync.stale"
-  } else if (run?.status === "partial") {
-    tone = "honey"
-    key = "sync.partial"
   }
-  return {
-    tone,
-    label: t(key),
-    runAt: runState === "waiting" ? null : runAt,
-    sources,
-  }
+  return { tone, label: t(key), sources }
 }

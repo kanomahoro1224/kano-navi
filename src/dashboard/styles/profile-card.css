@@ -117,13 +117,12 @@
   color: var(--berry);
 }
 
+/*
+ * One row: each source's last read on the left, and the freshness dot, whose
+ * wording stays for screen readers and as its tooltip, with the reload on the
+ * right.
+ */
 .profile-status {
-  display: grid;
-  width: 100%;
-  gap: 8px;
-}
-
-.profile-sync {
   display: flex;
   width: 100%;
   align-items: center;
@@ -134,32 +133,24 @@
   background: var(--sunken);
 }
 
-.profile-sync-copy {
+.profile-sync {
+  display: flex;
+  flex: none;
+  order: 1;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Platform icons, each followed by its last successful read, two a line. */
+.profile-sources {
   display: grid;
   min-width: 0;
   flex: 1;
-  line-height: 1.3;
-}
-
-.profile-sync-copy strong {
-  font-size: 13px;
-}
-
-.profile-sync-copy small {
-  color: var(--soft);
-  font-size: 11.5px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* One line of platform icons, each followed by its last successful sync. */
-.profile-sources {
-  display: flex;
-  width: 100%;
-  flex-wrap: wrap;
+  grid-template-columns: repeat(2, max-content);
   justify-content: space-between;
   gap: 4px 12px;
   margin: 0;
-  padding: 0 12px;
+  padding: 0;
   color: var(--soft);
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
@@ -212,6 +203,14 @@
 
   .profile-avatar {
     margin-top: 0;
+  }
+
+  /* The wide card fits every source on one line. */
+  .profile-sources {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 4px 20px;
   }
 }
 
@@ -294,31 +293,22 @@
     display: none;
   }
 
-  /*
-   * The last row holds each source's last read on the left and the run's
-   * state dot and the reload on the right. The state's wording stays for
-   * screen readers and as the dot's tooltip.
-   */
+  /* The status row sits under a rule instead of in its own panel. */
   .profile-status {
-    display: flex;
-    align-items: center;
     gap: 6px;
     margin-top: 6px;
-    padding-top: 10px;
+    padding: 10px 0 0;
     border-top: 1px solid var(--rule);
+    border-radius: 0;
+    background: none;
   }
 
-  /*
-   * The three times spread across the row: about 18px apart on a 375px
-   * phone, and never under 8px, so a 360px phone keeps one line.
-   */
+  /* Two sources a line, as in the narrow desktop card. */
   .profile-sources {
-    min-width: 0;
-    flex: 1;
+    display: grid;
     justify-content: space-between;
     gap: 4px 8px;
     margin-right: 6px;
-    padding: 0;
     font-size: 11px;
     letter-spacing: -0.01em;
   }
@@ -328,22 +318,7 @@
   }
 
   .profile-sync {
-    width: auto;
-    flex: none;
-    order: 1;
     gap: 6px;
-    margin: 0;
-    padding: 0;
-    background: none;
-  }
-
-  .profile-sync-copy {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 
   .profile-sync .round-button {

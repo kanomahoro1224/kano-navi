@@ -721,26 +721,15 @@ function ProfileCard({
             </a>
           </li>
         </ul>
-        {/* The run's state and the reload above each source's last read; on
-            phones they share one row, the source times first. */}
+        {/* Each source's last read, then the freshness dot and the reload;
+            the dot's wording is for screen readers and its tooltip. */}
         <div className="profile-status">
           <div
             className={`profile-sync tone-${syncState.tone}`}
             title={syncState.label}
           >
             <span className="sync-dot" aria-hidden="true" />
-            <span className="profile-sync-copy">
-              <strong>{syncState.label}</strong>
-              {syncState.runAt ? (
-                <small>
-                  {t("sync.latestRun")}{" "}
-                  <time dateTime={syncState.runAt}>
-                    {formatStamp(syncState.runAt)}
-                  </time>{" "}
-                  {t("common.timezoneShort")}
-                </small>
-              ) : null}
-            </span>
+            <span className="sr-only">{syncState.label}</span>
             <button
               type="button"
               className={`round-button${isRefreshing ? " is-spinning" : ""}`}

@@ -27,6 +27,10 @@
   one.
 - Hovering a video or schedule title that its card cuts to two lines shows
   the whole title.
+- The profile card drops the latest run's outcome and time. Its status
+  row lists each platform's last successful read with the reload, and the
+  status dots turn amber only when a platform's read is a day old, not when
+  a single collection run fails.
 
 </details>
 

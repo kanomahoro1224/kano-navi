@@ -36,22 +36,21 @@ test("freshness ages locally at the inclusive 24-hour boundary", () => {
     "fresh",
   )
   const snapshot = meta()
-  const healthy = syncStateFor(snapshot, null, now, t)
-  assert.equal(healthy.label, "sync.snapshot")
-  assert.equal(healthy.runAt, recent)
+  const current = syncStateFor(snapshot, null, now, t)
+  assert.equal(current.label, "sync.current")
+  assert.equal(current.tone, "leaf")
   const aged = syncStateFor(snapshot, null, now + STALE_AFTER_MS, t)
   assert.equal(aged.label, "sync.stale")
+  assert.equal(aged.tone, "honey")
   assert.deepEqual(
     aged.sources.map(({ state }) => state),
     ["stale", "stale", "stale", "stale"],
   )
 })
 
-test("the overall state follows the latest run while each source keeps its last success", () => {
-  const running = "2026-01-01T23:30:00Z"
+test("one out-of-date source marks the overall state; an unread one does not", () => {
   const state = syncStateFor(
     meta({
-      lastSync: { status: "success", startedAt: recent, finishedAt: running },
       sourceFetchedAt: {
         x: "2025-12-30T00:00:00Z",
         youtube: recent,
@@ -63,9 +62,8 @@ test("the overall state follows the latest run while each source keeps its last 
     now,
     t,
   )
-  assert.equal(state.label, "sync.snapshot")
-  assert.equal(state.tone, "leaf")
-  assert.equal(state.runAt, running)
+  assert.equal(state.label, "sync.stale")
+  assert.equal(state.tone, "honey")
   assert.deepEqual(
     state.sources.map(({ source, state }) => [source, state]),
     [
@@ -75,19 +73,16 @@ test("the overall state follows the latest run while each source keeps its last 
       ["shop", "fresh"],
     ],
   )
-  // A run without a finish time is dated by its start.
-  assert.equal(
-    syncStateFor(
-      meta({ lastSync: { status: "partial", startedAt: recent } }),
-      null,
-      now,
-      t,
-    ).runAt,
-    recent,
+  const unread = syncStateFor(
+    meta({ sourceFetchedAt: { x: recent, youtube: recent, shop: recent } }),
+    null,
+    now,
+    t,
   )
+  assert.equal(unread.label, "sync.current")
 })
 
-test("missing, invalid and future timestamps never look healthy", () => {
+test("missing, invalid and future timestamps never look current", () => {
   for (const timestamp of [
     null,
     undefined,
@@ -113,21 +108,10 @@ test("missing, invalid and future timestamps never look healthy", () => {
       [null, "waiting"],
     ],
   )
-  const never = syncStateFor(meta({ lastSync: null }), null, now, t)
-  assert.equal(never.label, "sync.waiting")
-  assert.equal(never.tone, "muted")
-  assert.equal(never.runAt, null)
-  const future = syncStateFor(
-    meta({
-      lastSync: { status: "success", finishedAt: "2026-01-03T00:00:00Z" },
-    }),
-    null,
-    now,
-    t,
-  )
-  assert.equal(future.label, "sync.waiting")
-  assert.equal(future.runAt, null)
+  assert.equal(invalid.label, "sync.waiting")
+  assert.equal(invalid.tone, "muted")
   const empty = syncStateFor(meta({ sourceFetchedAt: undefined }), null, now, t)
+  assert.equal(empty.label, "sync.waiting")
   assert.deepEqual(
     empty.sources.map(({ source, timestamp }) => [source, timestamp]),
     [
@@ -152,7 +136,6 @@ test("a visitor clock slightly behind the server still shows fresh reads", () =>
   )
   const skewed = syncStateFor(
     meta({
-      lastSync: { status: "success", finishedAt: ahead },
       sourceFetchedAt: {
         x: ahead,
         youtube: ahead,
@@ -164,31 +147,31 @@ test("a visitor clock slightly behind the server still shows fresh reads", () =>
     now,
     t,
   )
-  assert.equal(skewed.label, "sync.snapshot")
-  assert.equal(skewed.runAt, ahead)
+  assert.equal(skewed.label, "sync.current")
   assert.deepEqual(
     skewed.sources.map(({ timestamp }) => timestamp),
     [ahead, ahead, ahead, ahead],
   )
 })
 
-test("API and run failures take precedence while retaining run and source times", () => {
-  const snapshot = meta({
-    lastSync: { status: "failed", startedAt: recent, finishedAt: recent },
-  })
-  const failed = syncStateFor(snapshot, null, now, t)
-  assert.equal(failed.label, "sync.needsReview")
-  assert.equal(failed.tone, "danger")
-  assert.equal(failed.runAt, recent)
-  const offline = syncStateFor(snapshot, new Error("offline"), now, t)
+test("a failed or partial run stays operator diagnosis while sources are fresh", () => {
+  for (const status of ["failed", "partial"]) {
+    const state = syncStateFor(
+      meta({ lastSync: { status, startedAt: recent, finishedAt: recent } }),
+      null,
+      now,
+      t,
+    )
+    assert.equal(state.label, "sync.current")
+    assert.equal(state.tone, "leaf")
+  }
+  const never = syncStateFor(meta({ lastSync: null }), null, now, t)
+  assert.equal(never.label, "sync.current")
+})
+
+test("an unreachable API takes precedence and keeps the source times", () => {
+  const offline = syncStateFor(meta(), new Error("offline"), now, t)
   assert.equal(offline.label, "sync.apiUnavailable")
+  assert.equal(offline.tone, "danger")
   assert.equal(offline.sources[0].timestamp, recent)
-  const partial = syncStateFor(
-    meta({ lastSync: { status: "partial", finishedAt: recent } }),
-    null,
-    now,
-    t,
-  )
-  assert.equal(partial.label, "sync.partial")
-  assert.equal(partial.tone, "honey")
 })

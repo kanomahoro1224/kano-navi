@@ -50,7 +50,7 @@ test("the stage shows an unannounced broadcast as live with its watch link", asy
         counts: { posts: 0, upcomingEvents: 0, videos: 0 },
         postWindowDays: 14,
         videoWindowDays: 30,
-        syncState: { tone: "leaf", label: "Synced", runAt: null, sources: [] },
+        syncState: { tone: "leaf", label: "Synced", sources: [] },
         isLoading: false,
         isRefreshing: false,
         onRefresh: () => {},

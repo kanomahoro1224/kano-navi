@@ -56,7 +56,7 @@ flowchart LR
    configured LLM providers for structured events. Uncertain results create no
    events; manual edits and confirmations lock an event against automatic
    replacement.
-3. Page loads, the reload button, and revision checks only read the stored
+3. Page loads, retries, and revision checks only read the stored
    snapshot through the local API. They never contact X, YouTube, or a model
    provider.
 4. Each completed workflow or operator change advances a small revision

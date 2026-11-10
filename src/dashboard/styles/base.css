@@ -49,13 +49,3 @@
 .inline-alert .pill-button {
   margin-left: auto;
 }
-
-.is-spinning svg {
-  animation: board-spin 0.9s linear infinite;
-}
-
-@keyframes board-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}

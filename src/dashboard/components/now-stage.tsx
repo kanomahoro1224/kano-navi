@@ -3,9 +3,10 @@ import type { Dashboard, Locale, Profile, Translator } from "@/types"
 import {
   ArrowUpRight,
   BadgeCheck,
+  CalendarDays,
+  MessageSquare,
   Play,
   Radio,
-  RefreshCw,
   ShoppingBag,
   Sparkles,
 } from "lucide-react"
@@ -632,8 +633,6 @@ function ProfileCard({
   postWindowDays,
   videoWindowDays,
   syncState,
-  isRefreshing,
-  onRefresh,
   t,
 }: {
   profile: Profile
@@ -642,8 +641,6 @@ function ProfileCard({
   postWindowDays: number
   videoWindowDays: number
   syncState: SyncState
-  isRefreshing: boolean
-  onRefresh: () => void
   t: Translator
 }) {
   // Every X account in the link directory, main first; the profile's own
@@ -700,54 +697,47 @@ function ProfileCard({
             </ExternalLink>
           ) : null}
         </div>
-        {/* Each count opens the board section it counts. */}
-        <ul className="profile-stats">
-          <li>
-            <a href="#schedule">
-              <span>{t("stats.upcoming")}</span>
-              <strong>{counts.upcomingEvents}</strong>
-            </a>
-          </li>
-          <li>
-            <a href="#feed">
-              <span>{t("stats.posts", { days: postWindowDays })}</span>
-              <strong>{counts.posts}</strong>
-            </a>
-          </li>
-          <li>
-            <a href="#videos">
-              <span>{t("stats.videos", { days: videoWindowDays })}</span>
-              <strong>{counts.videos}</strong>
-            </a>
-          </li>
-        </ul>
-        {/* Each source's last read, then the freshness dot and the reload;
-            the dot's wording is for screen readers and its tooltip. */}
-        <div className="profile-status">
-          <div
-            className={`profile-sync tone-${syncState.tone}`}
-            title={syncState.label}
-          >
-            <span className="sync-dot" aria-hidden="true" />
-            <span className="sr-only">{syncState.label}</span>
-            <button
-              type="button"
-              className={`round-button${isRefreshing ? " is-spinning" : ""}`}
-              onClick={onRefresh}
-              disabled={isRefreshing}
-              aria-label={t(
-                isRefreshing ? "common.refreshing" : "common.refresh",
-              )}
-              title={t(isRefreshing ? "common.refreshing" : "common.refresh")}
-            >
-              <RefreshCw aria-hidden="true" />
-            </button>
-          </div>
+        {/* One row: the counts, each opening the board section it counts,
+            then the platforms. A count's label is its tooltip. */}
+        <div className="profile-meta">
+          <ul className="profile-stats">
+            {[
+              {
+                href: "#schedule",
+                Icon: CalendarDays,
+                label: t("stats.upcoming"),
+                count: counts.upcomingEvents,
+              },
+              {
+                href: "#feed",
+                Icon: MessageSquare,
+                label: t("stats.posts", { days: postWindowDays }),
+                count: counts.posts,
+              },
+              {
+                href: "#videos",
+                Icon: Play,
+                label: t("stats.videos", { days: videoWindowDays }),
+                count: counts.videos,
+              },
+            ].map(({ href, Icon, label, count }) => (
+              <li key={href}>
+                <a href={href} title={label}>
+                  <Icon aria-hidden="true" />
+                  <strong>{count}</strong>
+                  <span className="sr-only"> {label}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          {/* Each platform's icon; an out-of-date read adds a dot, and the
+              time of the last successful read is the icon's tooltip. */}
           {syncState.sources.length ? (
             <dl className="profile-sources" aria-label={t("sync.sourceTimes")}>
               {syncState.sources.map(({ source, timestamp, state }) => {
                 const { name: brand, Icon } = SOURCES[source]
                 const name = brand ?? t(`sync.source.${source}`)
+                const when = timestamp ? formatStamp(timestamp) : "—"
                 const note =
                   state === "fresh"
                     ? null
@@ -755,22 +745,18 @@ function ProfileCard({
                 return (
                   <div
                     key={source}
-                    className={state === "stale" ? "is-stale" : undefined}
-                    title={note ? `${name} · ${note}` : name}
+                    className={`is-${state}`}
+                    title={[name, when, note].filter(Boolean).join(" · ")}
                   >
                     <dt>
                       <Icon aria-hidden="true" />
                       <span className="sr-only">{name}</span>
                     </dt>
-                    <dd>
+                    <dd className="sr-only">
                       {timestamp ? (
-                        <time dateTime={timestamp}>
-                          {formatStamp(timestamp)}
-                        </time>
-                      ) : (
-                        <span aria-hidden="true">—</span>
-                      )}
-                      {note ? <span className="sr-only">{note}</span> : null}
+                        <time dateTime={timestamp}>{when}</time>
+                      ) : null}
+                      {note ? ` ${note}` : null}
                     </dd>
                   </div>
                 )
@@ -795,8 +781,6 @@ export function NowStage(props: {
   videoWindowDays: number
   syncState: SyncState
   isLoading: boolean
-  isRefreshing: boolean
-  onRefresh: () => void
   locale: Locale
   now: number
   t: Translator

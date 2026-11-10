@@ -146,7 +146,6 @@ export function DashboardApp() {
     dashboard,
     snapshotVersion,
     isLoading,
-    isRefreshing,
     error,
     reload,
     calendar,
@@ -420,8 +419,6 @@ export function DashboardApp() {
           videoWindowDays={VIDEO_WINDOW_DAYS}
           syncState={syncState}
           isLoading={isLoading}
-          isRefreshing={isRefreshing}
-          onRefresh={refresh}
           locale={locale}
           now={now}
           t={t}

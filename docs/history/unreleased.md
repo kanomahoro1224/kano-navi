@@ -27,10 +27,12 @@
   one.
 - Hovering a video or schedule title that its card cuts to two lines shows
   the whole title.
-- The profile card drops the latest run's outcome and time. Its status
-  row lists each platform's last successful read with the reload, and the
-  status dots turn amber only when a platform's read is a day old, not when
-  a single collection run fails.
+- The profile card drops the latest run's outcome and time and the reload
+  button. A row of platform icons shows each platform's last successful read
+  on hover, and an icon, like the header dot, turns amber only when that
+  platform's read is a day old, not when a single collection run fails.
+- The profile card's counts become small icons with numbers on the same row
+  as the platform icons, on phones as well.
 
 </details>
 

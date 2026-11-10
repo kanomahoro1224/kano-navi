@@ -73,95 +73,69 @@
   margin-top: 4px;
 }
 
-.profile-stats {
-  display: grid;
+/* The counts on the left and the platforms on the right share one row. */
+.profile-meta {
+  display: flex;
   width: 100%;
-  grid-template-columns: repeat(3, 1fr);
-  margin: 10px 0 0;
-  padding: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid var(--rule);
+}
+
+.profile-stats {
+  display: flex;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
   list-style: none;
 }
 
-.profile-stats li + li {
-  padding-left: 14px;
-  border-left: 1px solid var(--rule);
-}
-
-/* The count reads after its label but sits above it. */
 .profile-stats a {
   display: flex;
-  flex-direction: column-reverse;
-  gap: 2px;
-  padding: 12px 0 2px;
-  color: inherit;
-  text-decoration: none;
-}
-
-.profile-stats a span {
+  align-items: center;
+  gap: 4px;
   color: var(--soft);
-  font-size: 11.5px;
-  line-height: 1.3;
-}
-
-.profile-stats a strong {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
+  text-decoration: none;
   transition: color 160ms ease;
 }
 
+.profile-stats a svg {
+  width: 14px;
+  height: 14px;
+}
+
+.profile-stats a strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition: color 160ms ease;
+}
+
+.profile-stats a:hover,
 .profile-stats a:hover strong {
   color: var(--berry);
 }
 
 /*
- * One row: each source's last read on the left, and the freshness dot, whose
- * wording stays for screen readers and as its tooltip, with the reload on the
- * right.
+ * One quiet row of platform icons. An out-of-date read turns its icon honey
+ * with a dot, and a platform never read fades; the times are tooltips.
  */
-.profile-status {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: var(--sunken);
-}
-
-.profile-sync {
-  display: flex;
-  flex: none;
-  order: 1;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Platform icons, each followed by its last successful read, two a line. */
 .profile-sources {
-  display: grid;
-  min-width: 0;
-  flex: 1;
-  grid-template-columns: repeat(2, max-content);
-  justify-content: space-between;
-  gap: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 0;
   padding: 0;
   color: var(--soft);
-  font-size: 11.5px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.4;
 }
 
 .profile-sources > div {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 5px;
-  white-space: nowrap;
 }
 
 .profile-sources dt {
@@ -169,17 +143,31 @@
 }
 
 .profile-sources dt svg {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
 }
 
 .profile-sources dd {
   margin: 0;
 }
 
+.profile-sources > .is-waiting {
+  opacity: 0.4;
+}
+
 .profile-sources > .is-stale {
   color: var(--honey);
-  font-weight: 700;
+}
+
+.profile-sources > .is-stale::after {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--honey);
+  content: "";
 }
 
 @media (max-width: 980px) {
@@ -203,14 +191,6 @@
 
   .profile-avatar {
     margin-top: 0;
-  }
-
-  /* The wide card fits every source on one line. */
-  .profile-sources {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 4px 20px;
   }
 }
 
@@ -288,42 +268,8 @@
     margin-top: 8px;
   }
 
-  /* The counts stay on wider screens; the sections follow right below. */
-  .profile-stats {
-    display: none;
-  }
-
-  /* The status row sits under a rule instead of in its own panel. */
-  .profile-status {
-    gap: 6px;
+  .profile-meta {
     margin-top: 6px;
-    padding: 10px 0 0;
-    border-top: 1px solid var(--rule);
-    border-radius: 0;
-    background: none;
-  }
-
-  /* Two sources a line, as in the narrow desktop card. */
-  .profile-sources {
-    display: grid;
-    justify-content: space-between;
-    gap: 4px 8px;
-    margin-right: 6px;
-    font-size: 11px;
-    letter-spacing: -0.01em;
-  }
-
-  .profile-sources > div {
-    gap: 3px;
-  }
-
-  .profile-sync {
-    gap: 6px;
-  }
-
-  .profile-sync .round-button {
-    width: 30px;
-    height: 30px;
   }
 
   /*

@@ -52,8 +52,6 @@ test("the stage shows an unannounced broadcast as live with its watch link", asy
         videoWindowDays: 30,
         syncState: { tone: "leaf", label: "Synced", sources: [] },
         isLoading: false,
-        isRefreshing: false,
-        onRefresh: () => {},
         locale,
         now: Date.parse("2026-10-21T12:00:00Z"),
         t,

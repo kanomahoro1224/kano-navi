@@ -702,13 +702,16 @@ keeps the time-dependent projection current without source synchronization.
 
 ## Time-dependent Snapshot State
 
-The profile card's status row lists the last successful X, YouTube, bilibili
-and shop reads from `meta.sourceFetchedAt`, each marked out of date after 24
-hours, followed by the overall state's dot and the reload. The overall state,
-shown by that dot and the header dot with its wording left to screen readers
-and the dots' tooltips, is what a visitor can tell from the page: an API
-failure takes priority, then any out-of-date source; with no source read yet
-the board is waiting, and otherwise up to date. A run's outcome in
+The profile card ends with one row: the counts, each an icon and a number
+whose window label is its tooltip and screen-reader text, then one icon per
+source, X, YouTube, bilibili and the shop, whose tooltip and screen-reader text carry its last successful read
+from `meta.sourceFetchedAt`; a read older than 24 hours marks the icon out of
+date with a dot, and a source never read fades. The card has no reload: the
+board revalidates by itself, and the API failure alert carries the retry. The
+overall state, shown by the header dot with its wording left to screen
+readers and the dot's tooltip, is what a visitor can tell from the page: an
+API failure takes priority, then any out-of-date source; with no source read
+yet the board is waiting, and otherwise up to date. A run's outcome in
 `meta.lastSync` is operator diagnosis and does not change it; a source that
 keeps failing shows once its last read ages out. The local clock updates
 these warnings without a request.

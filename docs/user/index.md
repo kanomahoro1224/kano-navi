@@ -52,12 +52,12 @@ models that helped build the site, and states the license.
 ## Freshness and Sources
 
 The board shows what it last collected from X, YouTube and bilibili; it is not
-a live feed. The profile card shows when each of X, YouTube, bilibili and the
-official shop was last read successfully, and a reload button that loads the
-latest snapshot. A platform not read successfully for a day is marked out of
-date, and a small dot in the header and the profile card turns from green to
-amber; it turns red when the board cannot reach the site. An open board picks
-up a newly stored snapshot by itself within a few seconds, without a reload.
+a live feed. The profile card's platform icons show, on hover, when each of
+X, YouTube, bilibili and the official shop was last read successfully. A
+platform not read successfully for a day is marked out of date: its icon
+turns amber, and the small dot in the header turns from green to amber; the
+dot turns red when the board cannot reach the site. An open board picks up a
+newly stored snapshot by itself within a few seconds, without a reload.
 When a platform is unavailable, the board keeps showing what it already
 knows. Returning to the board shows what this device last saw at once, then
 updates it in place.

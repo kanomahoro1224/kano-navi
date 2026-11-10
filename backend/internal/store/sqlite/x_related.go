@@ -447,7 +447,7 @@ func reconcileXStatuses(ctx context.Context, tx *sql.Tx, accounts []XRelatedAcco
 //   - demotion sets posts.hidden_at and keeps the row, its media and events.
 //     An automatic demotion records demoted_at, so only a hide the pool made
 //     is undone by a later automatic promotion; an operator's hide in Posts
-//     stays.
+//     stays. Showing a promoted post in Posts records a manual promote.
 //
 // A pooled status that is an own post is never touched.
 func reconcileXStatusChanges(ctx context.Context, tx *sql.Tx, accounts []XRelatedAccount, ids []string, now string) (xStatusChanges, error) {

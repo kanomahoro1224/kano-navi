@@ -214,7 +214,8 @@ keeps the row, its media and its events, whose automatic ones then leave the
 public pages (see [Events of hidden posts](data-model.md#events-of-hidden-posts)).
 An automatic demotion records `x_statuses.demoted_at`, so an automatic
 promotion shows again only a post the rules hid; an operator's hide in Posts
-stays. An operator's promote or demote (`manual_decision`, with its reason
+stays. Showing a promoted post in Posts records a manual promote, and hiding
+it withdraws that promote. An operator's promote or demote (`manual_decision`, with its reason
 and time) is a durable lock that the rules never override; a manual promote
 shows a hidden promoted post, and returning a status to the rules lets them
 decide again. Only a related account's status can be promoted by hand, and a

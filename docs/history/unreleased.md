@@ -25,6 +25,8 @@
 - The video shelf's Latest work is the board's newest cover or premiere on
   any platform, a Bilibili-only cover included, rather than the next older
   one.
+- Hovering a video or schedule title that its card cuts to two lines shows
+  the whole title.
 
 </details>
 

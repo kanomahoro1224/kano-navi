@@ -636,7 +636,8 @@ not links themselves: the title is the link (`.card-link`), and
 `followCardLink` in `src/site/links.tsx` opens it from anywhere else on the
 card. A week-guide entry's title is instead the button that opens the
 entry's sheet, which holds its link, and `followCardLink` presses it the
-same way. A clamped title clamps only its wording, so the switch stays visible.
+same way. A clamped title clamps only its wording, so the switch stays visible,
+and while the clamp cuts it, hovering the wording shows it whole as its tooltip.
 Month-grid chips are too small for a switch and show the reader's wording
 unmarked. An operator's
 Featured title from the focus record shows as written. The wording shown

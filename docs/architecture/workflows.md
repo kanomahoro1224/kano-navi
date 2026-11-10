@@ -287,7 +287,7 @@ checkpoint.
 
 Each source has its own cadence because X, YouTube, Bilibili, related X accounts, and the shop have different freshness, quota, and access constraints. The single-flight queue remains shared so source writes are serialized and one process owns the timers. A schedule's incremental cap limits newly discovered records, while count mode intentionally re-reads a bounded newest window; timeline gaps preserve continuity when a capped or interrupted read cannot reach its cursor.
 
-Listing method chains are configurable for X and YouTube because a public fallback can keep a source readable during an upstream outage, while credentials and quota remain optional. The chain only covers listing methods. Detail and helper requests keep their own bounded behavior so a failed later page does not discard records already read.
+Listing method chains are configurable for X, YouTube and the Bilibili upload read because a public fallback can keep a source readable during an upstream outage, while credentials and quota remain optional. The chain only covers listing methods. Detail and helper requests keep their own bounded behavior so a failed later page does not discard records already read.
 
 ### Source schedules
 
@@ -376,7 +376,7 @@ accounts and 50 uploads for YouTube.
 
 #### Method chains
 
-Each X and YouTube schedule also orders its listing methods into a fallback
+Each X, YouTube and Bilibili upload schedule also orders its listing methods into a fallback
 chain ([method chains](../architecture/workflows.md#method-chains)), stored
 in `source_schedules.chain_json` and edited in the timed reads of the
 Sources page. A read tries the enabled methods from the top and falls to the
@@ -390,15 +390,17 @@ run partial without falling back.
 | `x`         | `timeline` (FxTwitter timeline), `profile` (logged-out `x.com/<handle>`, IDs only), `api` (X API)                 | `api` off                              |
 | `youtube`   | `api` (Data API uploads playlist), `rss` (public feed), `ytdlp` (metadata), `videos_page` (uploads tab, IDs only) | api, rss and videos_page on; ytdlp off |
 | `x_related` | `timeline` (FxTwitter timeline)                                                                                   | fixed                                  |
-| `bilibili`  | `list` (the upload list)                                                                                          | fixed                                  |
+| `bilibili`  | `list` (the upload list), `dynamics` (signed-in dynamics listing), `app` (official client's listing)              | all on                                 |
 
 The default keeps the existing order and leaves yt-dlp off until it is
 configured, so the default chain applies when no stored chain is available. A method whose
 credential the process lacks is skipped with `x_api_unavailable` or
-`youtube_api_key_missing`. The chain covers listing methods only: detail
+`youtube_api_key_missing`; a Bilibili method without its login or key pair
+is passed over without a request. The chain covers listing methods only: detail
 requests (vxtwitter, watch pages) and fixed helper reads (the streams page,
 and the feed read for Shorts verdicts while the Data API lists) stay outside
-it. [X](sources.md#x) and [YouTube](sources.md#youtube) describe the methods,
+it. [X](sources.md#x), [YouTube](sources.md#youtube) and
+[Bilibili](sources.md#bilibili) describe the methods,
 and [X API in the chain](sources.md#x-api-in-the-chain) its gate and daily
 cap. An X `count` sync setting reads the timeline's count window whatever
 the chain says.

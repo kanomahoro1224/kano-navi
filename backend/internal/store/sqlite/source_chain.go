@@ -38,20 +38,21 @@ const (
 // recent steps used before chains, so an upgrade changes nothing: X reads
 // the timeline, then the profile page, and leaves the API off; its related
 // accounts read the FxTwitter timeline alone; YouTube tries
-// the Data API (with a key), the feed, yt-dlp when configured, then the uploads tab. Each Bilibili
-// timer has one fixed method: the upload list or the dynamics listing. The shop timer reads the
-// newest products of its new-arrivals collection.
+// the Data API (with a key), the feed, yt-dlp when configured, then the uploads tab. The Bilibili
+// upload read tries the upload list, the signed-in dynamics listing, then the official client's
+// listing; the dynamics timer has one fixed method. The shop timer reads the newest products of
+// its new-arrivals collection.
 var chainMethods = map[string][]ChainMethod{
 	"x":                    {{ID: "timeline", Enabled: true}, {ID: "profile", Enabled: true}, {ID: "api", Enabled: false}},
 	XRelatedStep:           {{ID: "timeline", Enabled: true}},
 	"youtube":              {{ID: "api", Enabled: true}, {ID: "rss", Enabled: true}, {ID: "ytdlp", Enabled: false}, {ID: "videos_page", Enabled: true}},
-	"bilibili":             {{ID: "list", Enabled: true}},
+	"bilibili":             {{ID: "list", Enabled: true}, {ID: "dynamics", Enabled: true}, {ID: "app", Enabled: true}},
 	BilibiliDynamicsSource: {{ID: "dynamics", Enabled: true}},
 	ShopSource:             {{ID: "new_arrivals", Enabled: true}},
 }
 
 // ChainSources are the sources whose chain the operator orders.
-var ChainSources = []string{"x", "youtube"}
+var ChainSources = []string{"x", "youtube", "bilibili"}
 
 // DefaultSourceChain is a source's chain before the operator saves one.
 func DefaultSourceChain(source string) SourceChain {

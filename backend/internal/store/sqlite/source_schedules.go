@@ -21,8 +21,8 @@ type SourceSchedule struct {
 	// Sync is how X, its related accounts and YouTube are read;
 	// Bilibili and the shop have none.
 	Sync *SourceSync `json:"sync"`
-	// Chain is the fallback over listing methods that X and YouTube reads
-	// try; every other timer's is its one fixed method.
+	// Chain is the fallback over listing methods that X, YouTube and
+	// Bilibili upload reads try; every other timer's is its one fixed method.
 	Chain     SourceChain        `json:"chain"`
 	NextRunAt *string            `json:"nextRunAt"`
 	UpdatedAt *string            `json:"updatedAt"`
@@ -368,7 +368,7 @@ func (s *Store) SourceScheduleSync(ctx context.Context) (map[string]SourceSync, 
 	return out, nil
 }
 
-// SourceScheduleChains is the chain of each X and YouTube schedule, which
+// SourceScheduleChains is the chain of each X, YouTube and Bilibili schedule, which
 // every run with a source step reads through, except a full sync.
 func (s *Store) SourceScheduleChains(ctx context.Context) (map[string]SourceChain, error) {
 	schedules, err := s.SourceSchedules(ctx, SourceScheduleMinMinutes)

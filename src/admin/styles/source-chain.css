@@ -77,7 +77,8 @@
   margin-right: 6px;
 }
 
-/* On a phone a fold's controls move under its title. */
+/* On a phone a fold's controls, and a chain method's switch and moves, go
+   under its title so the name and what it needs keep the width. */
 @media (max-width: 560px) {
   .adm-fold-head {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -87,5 +88,14 @@
     grid-row: 2;
     grid-column: 2 / -1;
     justify-content: flex-start;
+  }
+
+  .adm-chain-item {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 6px;
+  }
+
+  .adm-chain-actions {
+    grid-column: 2;
   }
 }

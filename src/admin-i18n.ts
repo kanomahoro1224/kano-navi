@@ -1131,6 +1131,8 @@ export const adminMessages = {
     "admin.chain.method.youtube.videos_page": "Uploads tab (IDs only)",
     "admin.chain.method.x_related.timeline": "FxTwitter timeline",
     "admin.chain.method.bilibili.list": "Upload list",
+    "admin.chain.method.bilibili.dynamics": "Signed-in dynamics listing",
+    "admin.chain.method.bilibili.app": "Official client listing",
     "admin.chain.method.bilibili_dynamics.dynamics": "Dynamics listing",
     "admin.chain.method.shop.new_arrivals": "Newest 50 products",
     "admin.chain.youtubeAPIOff":
@@ -1736,6 +1738,8 @@ export const adminMessages = {
       "Bilibili asked this server for a captcha: a WBI voucher challenge.",
     "admin.code.bilibili_blocked":
       "Bilibili reads wait for the captcha backoff to end.",
+    "admin.code.bilibili_no_method":
+      "No enabled upload method could run: the enabled ones lack their credentials on the server.",
     "admin.code.bilibili_login_required":
       "The dynamics listing needs BILIBILI_COOKIE or BILIBILI_SESSDATA on the server.",
     "admin.code.bilibili_repeated_page":
@@ -2823,6 +2827,8 @@ export const adminMessages = {
     "admin.code.bilibili_risk_control_voucher":
       "哔哩哔哩要求本服务器完成验证码：WBI voucher 验证。",
     "admin.code.bilibili_blocked": "哔哩哔哩读取正在等待验证码退避结束。",
+    "admin.code.bilibili_no_method":
+      "没有可运行的投稿读取方式：已启用的方式在服务器上缺少所需凭据。",
     "admin.code.bilibili_unsupported_dynamic":
       "这条动态不是文字或图片帖子（转发、视频或其他类型）。",
     "admin.code.source_api_request_failed": "来源 API 请求失败。",

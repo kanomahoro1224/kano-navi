@@ -275,3 +275,67 @@ func TestAppKeysComeOnlyFromAWellFormedPair(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+// The timed chain orders the listings and leaves out the ones it disables;
+// a method without its credential is passed over without a request.
+func TestTheChainOrdersAndLimitsTheListings(t *testing.T) {
+	now := time.Date(2026, 11, 9, 9, 0, 0, 0, time.UTC)
+	var paths []string
+	listStatus := 0
+	reply := map[string]string{"/x/frontend/finger/spi": session, ticketPath: ticket, "/x/web-interface/nav": navKeys,
+		"/x/polymer/web-dynamic/v1/feed/space": videoFeed, "/x/v2/space/archive/cursor": appListing}
+	adapter := func(login string, app AppKeys) *Adapter {
+		c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+			paths = append(paths, r.URL.Path)
+			if r.URL.Path == "/x/series/recArchivesByKeywords" && listStatus != 0 {
+				return response(listStatus, "<!DOCTYPE html><title>412</title>"), nil
+			}
+			return response(200, reply[r.URL.Path]), nil
+		})})
+		a := NewAdapter(c, Options{Account: DefaultAccount, MinInterval: 3 * time.Hour, PageSize: 20, SESSDATA: login, App: app})
+		a.Now = func() time.Time { return now }
+		return a
+	}
+	read := func(a *Adapter, state State, methods ...string) (Result, error) {
+		paths = nil
+		return a.FetchRecentWith(context.Background(), state, methods)
+	}
+
+	// The official client's listing first answers without a web request, so
+	// it is no fallback.
+	result, err := read(adapter(syntheticLogin, syntheticAppKeys), State{}, MethodApp, MethodList)
+	if err != nil || result.Listing != MethodApp || result.Fallback != "" || result.ListError != "" || len(result.Videos) != 1 ||
+		strings.Join(paths, " ") != "/x/v2/space/archive/cursor" || !result.State.LastSuccessAt.Equal(now) {
+		t.Fatalf("app first=%#v paths=%v err=%v", result, paths, err)
+	}
+
+	// A chain of the list alone does not fall back.
+	listStatus = 412
+	result, err = read(adapter(syntheticLogin, syntheticAppKeys), State{}, MethodList)
+	if ErrorCode(err) != "bilibili_risk_control_http" || result.Fallback != "" || len(result.FallbackErrors) != 0 ||
+		strings.Join(paths, " ") != "/x/frontend/finger/spi "+ticketPath+" /x/series/recArchivesByKeywords" || result.State.Failures != 1 {
+		t.Fatalf("list alone=%#v paths=%v err=%v", result, paths, err)
+	}
+
+	// Without the login the dynamics listing is passed over.
+	result, err = read(adapter("", syntheticAppKeys), State{}, MethodDynamics, MethodApp)
+	if err != nil || result.Listing != MethodApp || result.Fallback != "" || strings.Join(paths, " ") != "/x/v2/space/archive/cursor" {
+		t.Fatalf("dynamics without login=%#v paths=%v err=%v", result, paths, err)
+	}
+
+	// A chain none of whose methods can run makes no request and starts no
+	// backoff.
+	result, err = read(adapter("", AppKeys{}), State{}, MethodDynamics, MethodApp)
+	if ErrorCode(err) != "bilibili_no_method" || len(paths) != 0 || result.State.LastError != "bilibili_no_method" ||
+		!result.State.BlockedUntil.IsZero() || !result.State.LastAttemptAt.Equal(now) {
+		t.Fatalf("no method=%#v paths=%v err=%v", result, paths, err)
+	}
+
+	// While the block lasts, a chain without the official client's listing
+	// waits even with a key pair configured.
+	held := State{BlockedUntil: now.Add(time.Hour), LastAttemptAt: now.Add(-4 * time.Hour)}
+	result, err = read(adapter(syntheticLogin, syntheticAppKeys), held, MethodList, MethodDynamics)
+	if err != nil || result.Skipped != "blocked" || len(paths) != 0 {
+		t.Fatalf("held without app=%#v paths=%v err=%v", result, paths, err)
+	}
+}

@@ -21,8 +21,8 @@ func TestSourceChainsDefaultToTheFormerOrderAndRoundTrip(t *testing.T) {
 	if got := scheduleOf(t, s, "youtube", 180).Chain.Enabled(); len(got) != 3 || got[0] != "api" || got[1] != "rss" || got[2] != "videos_page" {
 		t.Fatalf("youtube chain=%v", got)
 	}
-	if b := scheduleOf(t, s, "bilibili", 180).Chain; len(b.Methods) != 1 || b.Methods[0].ID != "list" {
-		t.Fatalf("bilibili chain=%+v", b)
+	if got := scheduleOf(t, s, "bilibili", 180).Chain.Enabled(); len(got) != 3 || got[0] != "list" || got[1] != "dynamics" || got[2] != "app" {
+		t.Fatalf("bilibili chain=%v", got)
 	}
 	x.Chain = SourceChain{Methods: []ChainMethod{{"api", true}, {"timeline", true}, {"profile", false}}, APIGate: 0, APIDailyCap: 40}
 	if _, err := s.SaveSourceSchedule(ctx, x, 180, now); err != nil {
@@ -131,5 +131,29 @@ func TestGapCeilingsAreTheOldestStoredStatusAboveEachFloor(t *testing.T) {
 	}
 	if state.GapCeilings["1900000000000000010"] != "1900000000000000020" || state.GapCeilings["999999999999999998"] != "999999999999999999" {
 		t.Fatalf("ceilings=%v", state.GapCeilings)
+	}
+}
+
+// The Bilibili upload read's chain is ordered and switched like YouTube's; a
+// chain stored when it had one fixed method reads as the default, whose
+// fallbacks are on.
+func TestBilibiliUploadChainRoundTripsAndReadsTheOldShapeAsTheDefault(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	if got := readSourceChain("bilibili", `{"methods":[{"id":"list","enabled":true}]}`).Enabled(); len(got) != 3 || got[0] != "list" || got[2] != "app" {
+		t.Fatalf("old shape=%v", got)
+	}
+	bilibili := scheduleOf(t, s, "bilibili", 180)
+	bilibili.Chain = SourceChain{Methods: []ChainMethod{{"app", true}, {"list", true}, {"dynamics", false}}}
+	if _, err := s.SaveSourceSchedule(ctx, bilibili, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := scheduleOf(t, s, "bilibili", 180).Chain.Enabled(); len(got) != 2 || got[0] != "app" || got[1] != "list" {
+		t.Fatalf("saved=%v", got)
+	}
+	bilibili.Chain = SourceChain{Methods: []ChainMethod{{"list", true}, {"dynamics", true}, {"app", true}}, APIGate: 3}
+	if _, err := s.SaveSourceSchedule(ctx, bilibili, 180, now); !errors.Is(err, ErrWorkflowValidation) {
+		t.Fatalf("gate on bilibili err=%v", err)
 	}
 }

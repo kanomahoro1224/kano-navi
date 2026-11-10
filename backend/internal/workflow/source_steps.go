@@ -167,7 +167,7 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 		if in.Window != nil {
 			return s.bilibiliFetch(ctx, history.SourceBilibili, *in.Window)
 		}
-		return s.bilibiliRecent(ctx)
+		return s.bilibiliRecent(ctx, in)
 	case sqlite.BilibiliDynamicsSource:
 		if s.Bilibili == nil {
 			break
@@ -415,16 +415,22 @@ func tallyCodes(codes []string) []string {
 }
 
 // bilibiliRecent reads the account's newest uploads at most once per
-// interval and never during a backoff, so no timer or manual run can drive
-// Bilibili's captcha. A failed read is recorded, not retried: the next run
-// after the interval or backoff asks again.
-func (s *SourceSteps) bilibiliRecent(ctx context.Context) (AttemptResult, error) {
+// interval through the run's chain (the default chain for a full sync).
+// During a backoff only the official client's listing, another service, is
+// read, so no timer or manual run can drive Bilibili's captcha. A failed
+// read is recorded, not retried: the next run after the interval or backoff
+// asks again.
+func (s *SourceSteps) bilibiliRecent(ctx context.Context, in StepInput) (AttemptResult, error) {
 	account := s.Bilibili.Options.Account
 	state, err := s.Store.BilibiliState(ctx, account)
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
-	result, fetchErr := s.Bilibili.FetchRecent(ctx, state)
+	chain := sqlite.DefaultSourceChain("bilibili")
+	if in.Chain != nil {
+		chain = *in.Chain
+	}
+	result, fetchErr := s.Bilibili.FetchRecentWith(ctx, state, chain.Enabled())
 	if ctx.Err() != nil {
 		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
 	}
@@ -437,8 +443,12 @@ func (s *SourceSteps) bilibiliRecent(ctx context.Context) (AttemptResult, error)
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
 	counts := map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "requested": result.Requested, "changed": changed}
+	if result.Listing != "" {
+		counts["listing"] = result.Listing
+	}
 	if result.Fallback != "" {
-		// The list failed and a fallback listing gave the uploads.
+		// An earlier method of the chain failed and a later one gave the
+		// uploads.
 		counts["fallback"], counts["listError"] = result.Fallback, result.ListError
 		if len(result.FallbackErrors) > 0 {
 			counts["fallbackErrors"] = result.FallbackErrors

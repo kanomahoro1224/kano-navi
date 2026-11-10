@@ -388,11 +388,13 @@ disables the source. `sync` is `{mode: "incremental", max}` (default, `max` 50) 
 `chain` is the source's [method chain](workflows.md#method-chains):
 `{methods, fixed}`, where `methods` lists `{id, enabled, available,
 requires}` in the order reads try them. `available` is false while the
-method's credential is missing, and `requires` names its variable
-(`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY` or `YTDLP_BINARY`) for methods that need one. `fixed`
-is true for the related-accounts, Bilibili and shop timers, whose one
-method (`timeline` for the related accounts, `list` for uploads, `dynamics`
-for the dynamics listing, `new_arrivals` for the shop) cannot change. The X chain adds
+method's credential is missing, and `requires` names its variables
+(`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY`,
+`BILIBILI_COOKIE or BILIBILI_SESSDATA`, or
+`BILIBILI_APP_KEY and BILIBILI_APP_SECRET`) for methods that need one. `fixed`
+is true for the related-accounts, Bilibili dynamics and shop timers, whose one
+method (`timeline` for the related accounts, `dynamics` for the dynamics
+listing, `new_arrivals` for the shop) cannot change. The X chain adds
 `apiGate`, `apiDailyCap`, `apiUsage` (`{day, posts}`, the posts X API
 answers returned on the current Japan day) and `timelineFailures`, each
 account's current streak (see

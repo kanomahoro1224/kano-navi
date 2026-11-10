@@ -3,6 +3,7 @@ package bilibili
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -91,17 +92,19 @@ type Result struct {
 	// Skipped is "blocked" or "interval" when no request was made.
 	Skipped   string
 	Requested int
-	// Fallback is "dynamics" or "app" when the upload list failed and the
-	// uploads came from the signed-in dynamics listing or the official
-	// client's listing instead. ListError is the list's code then
-	// (bilibili_blocked when the block held the list back), and
-	// FallbackErrors the "<fallback>: <code>" of each fallback tried that
-	// failed too.
-	Fallback, ListError string
-	FallbackErrors      []string
+	// Listing is the method that gave the uploads. Fallback is the same
+	// method when an earlier method of the read failed; ListError is the
+	// code of that first failure then (bilibili_blocked when the block held
+	// the web API methods back), and FallbackErrors the "<method>: <code>"
+	// of each later method that failed too.
+	Listing, Fallback, ListError string
+	FallbackErrors               []string
 	// blockCounted is set once a failure of this read started the backoff,
 	// so a later fallback's captcha does not count it again.
 	blockCounted bool
+	// firstErr is the read's first failure, which it returns when no method
+	// answers.
+	firstErr error
 }
 
 type Adapter struct {
@@ -117,22 +120,48 @@ func NewAdapter(c *Client, options Options) *Adapter {
 	return &Adapter{c, options, time.Now}
 }
 
-// FetchRecent reads the account's newest uploads at most once per
-// MinInterval. A failure is returned together with the state to persist,
-// which records the attempt and any backoff. When the upload list (or the
-// device identity before it) fails, the read falls back to the signed-in
-// dynamics listing and then to the official client's listing. The shared
-// block holds back every api.bilibili.com request, so while it lasts only
-// the official client's listing, another service, is read; a success there
-// leaves the block in force. Only an api.bilibili.com success, the list's
-// or the dynamics', clears it.
+// Listing methods of the upload read, by the stable IDs the timed chain
+// names them with.
+const (
+	// MethodList is the account's upload list on api.bilibili.com.
+	MethodList = "list"
+	// MethodDynamics is the signed-in dynamics listing on api.bilibili.com,
+	// read for its video dynamics; it needs the login cookie.
+	MethodDynamics = "dynamics"
+	// MethodApp is the official client's space listing on app.bilibili.com;
+	// it needs the client's app key pair.
+	MethodApp = "app"
+)
+
+// DefaultMethods is the upload read's default order.
+var DefaultMethods = []string{MethodList, MethodDynamics, MethodApp}
+
+// FetchRecent reads the newest uploads through DefaultMethods.
 func (a *Adapter) FetchRecent(ctx context.Context, state State) (Result, error) {
+	return a.FetchRecentWith(ctx, state, DefaultMethods)
+}
+
+// FetchRecentWith reads the account's newest uploads at most once per
+// MinInterval through methods, the timed chain's enabled methods in order:
+// the first that answers gives the uploads. A method that lacks its
+// credential (the login cookie, or the app key pair) is passed over without
+// a request. A failure is returned together with the state to persist, which
+// records the attempt and any backoff. The shared block holds back every
+// api.bilibili.com request, so while it lasts only the official client's
+// listing, another service, is read when the chain enables it; a success
+// there leaves the block in force. Only an api.bilibili.com success, the
+// list's or the dynamics', clears it.
+func (a *Adapter) FetchRecentWith(ctx context.Context, state State, methods []string) (Result, error) {
+	if len(methods) == 0 {
+		methods = DefaultMethods
+	}
 	now := a.Now()
 	result := Result{Videos: []Video{}, State: state}
 	due := state.LastAttemptAt.IsZero() || now.Sub(state.LastAttemptAt) >= a.Options.MinInterval
 	held := now.Before(state.BlockedUntil)
+	app := slices.Contains(methods, MethodApp) && a.Options.App.Valid()
 	switch {
-	case held && (!due || !a.Options.App.Valid()):
+	case held && (!due || !app):
 		result.Skipped = "blocked"
 		return result, nil
 	case !due:
@@ -142,47 +171,103 @@ func (a *Adapter) FetchRecent(ctx context.Context, state State) (Result, error) 
 	result.State.LastAttemptAt = now
 	if held {
 		err := &Error{"bilibili_blocked"}
-		result.ListError, result.blockCounted = err.Code, true
+		result.firstErr, result.ListError, result.blockCounted = err, err.Code, true
 		if videos, ok := a.uploadsFromApp(ctx, &result, now); ok {
-			result.Videos, result.Fallback = videos, "app"
+			result.answered(MethodApp, videos)
 			result.State.LastSuccessAt = now
 			return result, nil
 		}
 		return result, err
 	}
-	session, err := a.session(ctx, &result.State, &result.Requested, now)
-	listed := err == nil
-	if listed {
-		result.Requested++
-		result.Videos, err = a.Client.Uploads(ctx, a.Options.Account, a.Options.PageSize, session)
-		if err == nil {
-			result.State = succeeded(result.State, now)
-			return result, nil
+	var session Session
+	var sessionErr error
+	opened := false
+	// The web API methods share one device identity, made at most once.
+	open := func(method string) bool {
+		if !opened {
+			opened = true
+			session, sessionErr = a.session(ctx, &result.State, &result.Requested, now)
+			if sessionErr != nil {
+				result.methodFailed(method, sessionErr, now)
+			}
 		}
+		return sessionErr == nil
 	}
-	result.State = failed(result.State, err, now)
-	result.Videos = []Video{}
-	if ctx.Err() != nil {
-		return result, err
-	}
-	result.ListError, result.blockCounted = ErrorCode(err), IsRiskControl(ErrorCode(err))
-	// The dynamics listing needs the device identity the list failed with.
-	if listed {
-		if videos, ok := a.uploadsFromDynamics(ctx, &result, session, now); ok {
-			result.Videos, result.Fallback = videos, "dynamics"
-			result.State = succeeded(result.State, now)
-			return result, nil
-		}
+	for _, method := range methods {
 		if ctx.Err() != nil {
-			return result, err
+			return result, ctx.Err()
+		}
+		switch method {
+		case MethodList:
+			if !open(method) {
+				continue
+			}
+			result.Requested++
+			videos, err := a.Client.Uploads(ctx, a.Options.Account, a.Options.PageSize, session)
+			if err != nil {
+				result.methodFailed(method, err, now)
+				continue
+			}
+			result.answered(method, videos)
+			result.State = succeeded(result.State, now)
+			return result, nil
+		case MethodDynamics:
+			if !a.loginUsable(result.State, now) || !open(method) {
+				continue
+			}
+			if videos, ok := a.uploadsFromDynamics(ctx, &result, session, now); ok {
+				result.answered(method, videos)
+				result.State = succeeded(result.State, now)
+				return result, nil
+			}
+		case MethodApp:
+			if videos, ok := a.uploadsFromApp(ctx, &result, now); ok {
+				result.answered(method, videos)
+				result.State.LastSuccessAt = now
+				return result, nil
+			}
 		}
 	}
-	if videos, ok := a.uploadsFromApp(ctx, &result, now); ok {
-		result.Videos, result.Fallback = videos, "app"
-		result.State.LastSuccessAt = now
-		return result, nil
+	if ctx.Err() != nil {
+		return result, ctx.Err()
 	}
-	return result, err
+	if result.firstErr == nil {
+		// No enabled method could make a request: the chain's methods all
+		// lack their credentials.
+		result.methodFailed("", &Error{"bilibili_no_method"}, now)
+	}
+	return result, result.firstErr
+}
+
+// answered records the method that gave the uploads; it is a fallback when
+// an earlier method of the read failed.
+func (r *Result) answered(method string, videos []Video) {
+	r.Videos, r.Listing = videos, method
+	if r.ListError != "" {
+		r.Fallback = method
+	}
+}
+
+// methodFailed records one method's failure. The read's first failure sets
+// the account's last error and starts the backoff for a captcha; a later one
+// is a fallback error and starts the backoff only when no earlier failure
+// of the read did.
+func (r *Result) methodFailed(method string, err error, now time.Time) {
+	if r.firstErr == nil {
+		code := ErrorCode(err)
+		r.firstErr, r.ListError = err, code
+		r.State, r.blockCounted = failed(r.State, err, now), IsRiskControl(code)
+		return
+	}
+	r.fallbackFailed(method, err, now)
+}
+
+// loginUsable reports whether the signed-in dynamics listing may be tried:
+// a login cookie is configured and the last check did not find it expired,
+// or a check is due.
+func (a *Adapter) loginUsable(state State, now time.Time) bool {
+	loginDue := state.Login.CheckedAt.IsZero() || now.Sub(state.Login.CheckedAt) >= loginCheckInterval
+	return a.Options.SignedIn() && (loginDue || state.Login.SignedIn)
 }
 
 // uploadsFromDynamics reads the uploads from the account's signed-in
@@ -196,7 +281,7 @@ func (a *Adapter) FetchRecent(ctx context.Context, state State) (Result, error) 
 func (a *Adapter) uploadsFromDynamics(ctx context.Context, result *Result, session Session, now time.Time) ([]Video, bool) {
 	state := &result.State
 	loginDue := state.Login.CheckedAt.IsZero() || now.Sub(state.Login.CheckedAt) >= loginCheckInterval
-	if !a.Options.SignedIn() || !loginDue && !state.Login.SignedIn {
+	if !a.loginUsable(*state, now) {
 		return nil, false
 	}
 	fail := func(err error) ([]Video, bool) {
@@ -207,7 +292,7 @@ func (a *Adapter) uploadsFromDynamics(ctx context.Context, result *Result, sessi
 		case "bilibili_login_expired":
 			state.Login = LoginState{CheckedAt: now}
 		}
-		result.fallbackFailed("dynamics", err, now)
+		result.methodFailed(MethodDynamics, err, now)
 		return nil, false
 	}
 	if loginDue || !state.WBI.fresh(now) {
@@ -220,7 +305,7 @@ func (a *Adapter) uploadsFromDynamics(ctx context.Context, result *Result, sessi
 		}
 		state.WBI, state.Login = keys, LoginState{CheckedAt: now, SignedIn: signedIn}
 		if !signedIn {
-			result.FallbackErrors = append(result.FallbackErrors, "dynamics: bilibili_login_expired")
+			result.methodFailed(MethodDynamics, &Error{"bilibili_login_expired"}, now)
 			return nil, false
 		}
 	}
@@ -491,7 +576,7 @@ func (a *Adapter) uploadsFromApp(ctx context.Context, result *Result, now time.T
 	result.Requested++
 	videos, err := a.Client.AppUploads(ctx, a.Options.Account, a.Options.PageSize, a.Options.App, now)
 	if err != nil {
-		result.fallbackFailed("app", err, now)
+		result.methodFailed(MethodApp, err, now)
 		return nil, false
 	}
 	return videos, true

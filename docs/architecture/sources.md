@@ -825,7 +825,7 @@ own [timer](workflows.md#source-schedules); the [live-status
 probe](workflows.md#live-status-probe) checks its live room. Every request
 goes to one of four fixed hosts: `api.bilibili.com`, `www.bilibili.com`
 (the opus page of one dynamic only), `api.live.bilibili.com` and
-`app.bilibili.com` (the uploads' last fallback, below). The upload list
+`app.bilibili.com` (the uploads' official-client method, below). The upload list
 uses only endpoints that need no request signature; its fallbacks are
 signed (the dynamics listing with WBI, the official client's listing with
 its app key):
@@ -896,20 +896,23 @@ check (`{ skipped: true, reason: "login_expired" }` on the
 `unchecked` or `not_configured`. The login cookies stay in memory: they are
 not part of the persisted state, not logged and not returned.
 
-When the upload list fails (a captcha included), or the device-identity
-request before it does, the same read falls back at once, in order, to:
+The upload read tries the enabled methods of the Bilibili timer's
+[method chain](workflows.md#method-chains) in its order, by default `list`,
+`dynamics`, then `app`. When one fails (a captcha included), or the
+device-identity request the web API methods share fails, the same read goes
+on at once to the next. Besides the upload list (`list`, above), they are:
 
-1. the first page of the signed-in [dynamics listing](#dynamics), when a
-   login is configured that the latest check did not find expired and the
-   device identity was read, storing
+1. `dynamics`, the first page of the signed-in
+   [dynamics listing](#dynamics), when a login is configured that the latest
+   check did not find expired and the device identity was read, storing
    the uploads its video dynamics show: one listing request, plus `nav` when
    the login check or the WBI keys are due. It leaves the dynamics read's own
    clock and the dynamics themselves to the `bilibili_dynamics` step;
-2. the official client's space listing,
+2. `app`, the official client's space listing,
    `app.bilibili.com/x/v2/space/archive/cursor?vmid=<mid>&ps=20&order=pubdate`,
    when an app key pair is configured (`BILIBILI_APP_KEY` and
-   `BILIBILI_APP_SECRET`, see [Configuration](../operations/configuration.md);
-   without one it is not tried): one request without cookies or Referer,
+   `BILIBILI_APP_SECRET`, see [Configuration](../operations/configuration.md)):
+   one request without cookies or Referer,
    signed as Bilibili's apps sign (`appkey` and `ts` added, `sign` the MD5 of
    the key-sorted query followed by the app secret). It answers a different
    service from the web API that shows the captcha. Its ordinary
@@ -919,16 +922,20 @@ request before it does, the same read falls back at once, in order, to:
    (`is_cooperation`), which may be another account's, is left to the other
    listings.
 
-The first success leaves the step `partial` with `fallback` (`dynamics` or
-`app`), the list's code as `listError` and any earlier fallback's failure in
-`fallbackErrors`. A dynamics success is an `api.bilibili.com` answer and
-clears the backoff the list's failure started; an app success keeps it.
-While a backoff lasts, an upload read due by its interval asks only the
-official client's listing when a key pair is configured (`listError`
-`bilibili_blocked`) and is skipped as `blocked` otherwise; that read never
-extends the backoff. When every listing fails, the step keeps the list's
-code and adds each fallback's as `<fallback>: <code>` to its errors; the
-backoff starts once, at the first captcha among them.
+A method without its credential (the login, or the key pair) is passed
+over without a request, and a read none of whose enabled methods can run
+fails with `bilibili_no_method` without a request or a backoff. The step
+result names the method that answered as `listing`. When an earlier method
+failed, the step is `partial` with that method as `fallback`, the first
+failure's code as `listError` and each later failure in `fallbackErrors`.
+A `list` or `dynamics` success is an `api.bilibili.com` answer and clears
+the backoff an earlier failure started; an `app` success keeps it. While a
+backoff lasts, an upload read due by its interval asks only the official
+client's listing when the chain enables it and a key pair is configured
+(`listError` `bilibili_blocked`) and is skipped as `blocked` otherwise; that
+read never extends the backoff. When every method fails, the step keeps the
+first failure's code and adds each later one as `<method>: <code>` to its
+errors; the backoff starts once, at the first captcha among them.
 
 The dynamics and the official client's listing date an upload by their own
 clocks and the latter omits its `aid`, so an upload either of them reads is
@@ -938,7 +945,7 @@ list still corrects them), and a missing `aid` never replaces a known one.
 Signing with an official client's key makes those requests read as that
 client rather than as this service. That is a trade-off each deployment
 accepts by configuring the pair, so the repository carries none: the pair
-grants no account access, and when Bilibili changes it the fallback fails
+grants no account access, and when Bilibili changes it the `app` method fails
 with a controlled code until the operator configures the new one.
 
 An operator's single read (one upload, one dynamic) answers

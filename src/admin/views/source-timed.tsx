@@ -100,7 +100,7 @@ function timedChanges(draft: TimedDraft, saved: TimedDraft) {
  * YouTube, how much each run reads; and the method chain that
  * timed reads try from the top. A method this process cannot run is greyed
  * with the variable it needs, a source SKIP_* disables keeps its chain
- * locked, and Bilibili's one method is read-only.
+ * locked, and a timer with one fixed method shows it read-only.
  */
 export function TimedReadsPanel({
   schedule,

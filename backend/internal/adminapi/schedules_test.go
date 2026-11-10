@@ -234,7 +234,8 @@ func TestSourceScheduleChainAPI(t *testing.T) {
 		!strings.Contains(string(chain), `"apiGate":3`) || !strings.Contains(string(chain), `"apiDailyCap":100`) || !strings.Contains(string(chain), `"apiUsage":{"day":"2026-03-02","posts":0}`) {
 		t.Fatalf("x chain=%s", chain)
 	}
-	if bilibili, _ := json.Marshal(scheduleBySource(t, payload, "bilibili")["chain"]); string(bilibili) != `{"fixed":true,"methods":[{"available":true,"enabled":true,"id":"list"}]}` {
+	// The upload read's fallbacks name the credentials this process lacks.
+	if bilibili, _ := json.Marshal(scheduleBySource(t, payload, "bilibili")["chain"]); string(bilibili) != `{"fixed":false,"methods":[{"available":true,"enabled":true,"id":"list"},{"available":false,"enabled":true,"id":"dynamics","requires":"BILIBILI_COOKIE or BILIBILI_SESSDATA"},{"available":false,"enabled":true,"id":"app","requires":"BILIBILI_APP_KEY and BILIBILI_APP_SECRET"}]}` {
 		t.Fatalf("bilibili chain=%s", bilibili)
 	}
 	if related, _ := json.Marshal(scheduleBySource(t, payload, sqlite.XRelatedStep)["chain"]); string(related) != `{"fixed":true,"methods":[{"available":true,"enabled":true,"id":"timeline"}]}` {
@@ -255,7 +256,11 @@ func TestSourceScheduleChainAPI(t *testing.T) {
 			`{"chain":{"apiGate":3}}`: "apiGate is not a field of the youtube chain",
 		},
 		"/api/admin/sources/bilibili/schedule": {
-			`{"chain":{"methods":[{"id":"list","enabled":true}]}}`: "the bilibili chain is fixed",
+			`{"chain":{"methods":[{"id":"list","enabled":true}]}}`: "the chain must list every method: list, dynamics, app",
+			`{"chain":{"apiGate":3}}`:                              "apiGate is not a field of the bilibili chain",
+		},
+		"/api/admin/sources/bilibili_dynamics/schedule": {
+			`{"chain":{"methods":[{"id":"dynamics","enabled":true}]}}`: "the bilibili_dynamics chain is fixed",
 		},
 	} {
 		for body, message := range cases {
@@ -269,6 +274,11 @@ func TestSourceScheduleChainAPI(t *testing.T) {
 	if code != 200 || !strings.Contains(string(chain), `"methods":[{"available":false,"enabled":true,"id":"api","requires":"X_API_BEARER_TOKEN"},{"available":true,"enabled":true,"id":"timeline"},{"available":true,"enabled":false,"id":"profile"}]`) ||
 		!strings.Contains(string(chain), `"apiGate":0`) || !strings.Contains(string(chain), `"apiDailyCap":40`) {
 		t.Fatalf("saved=%d %s", code, chain)
+	}
+	// The Bilibili upload read's chain is ordered and switched like the others.
+	code, payload = c.call(t, "PUT", "/api/admin/sources/bilibili/schedule", `{"chain":{"methods":[{"id":"app","enabled":true},{"id":"list","enabled":true},{"id":"dynamics","enabled":false}]}}`)
+	if chain, _ = json.Marshal(payload["chain"]); code != 200 || !strings.Contains(string(chain), `"methods":[{"available":false,"enabled":true,"id":"app","requires":"BILIBILI_APP_KEY and BILIBILI_APP_SECRET"},{"available":true,"enabled":true,"id":"list"},{"available":false,"enabled":false,"id":"dynamics","requires":"BILIBILI_COOKIE or BILIBILI_SESSDATA"}]`) {
+		t.Fatalf("bilibili saved=%d %s", code, chain)
 	}
 	// Omitted fields keep their value, the chain included.
 	if code, payload = c.call(t, "PUT", "/api/admin/sources/x/schedule", `{"chain":{"apiDailyCap":50}}`); code != 200 {

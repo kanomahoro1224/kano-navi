@@ -110,9 +110,9 @@ the primary key), `enabled`, `interval_minutes`, `sync_json`
 (`{"x": SourceSync}`, `{"x_related": SourceSync}` or
 `{"youtube": SourceSync}`; `{}` for the Bilibili and shop timers and as the
 default, and a `count` setting of `x_related` reads as the default),
-`chain_json` (X and YouTube: `{methods: [{id, enabled}], apiGate,
+`chain_json` (X, YouTube and Bilibili uploads: `{methods: [{id, enabled}], apiGate,
 apiDailyCap}`, the gate and cap for X only; `{}` for the related-accounts,
-Bilibili and shop timers,
+Bilibili dynamics and shop timers,
 and a chain that is unreadable or does not
 list every method of its source once reads as the default;
 [method chains](../architecture/workflows.md#method-chains)), `next_run_at`

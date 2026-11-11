@@ -649,7 +649,9 @@ export function WorksApp() {
               <Info aria-hidden="true" />
               <span>
                 {before}
-                <ExternalLink href={`${REPOSITORY_URL}/issues`}>
+                <ExternalLink
+                  href={`${REPOSITORY_URL}/issues/new?template=works_correction.yml`}
+                >
                   {t("works.feedback")}
                 </ExternalLink>
                 {after}

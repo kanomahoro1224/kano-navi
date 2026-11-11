@@ -284,6 +284,10 @@ Node and Go toolchains and the Docker base images are upgraded by hand; see
 Issue forms in `.github/ISSUE_TEMPLATE/` collect bug reports and feature
 requests with synthetic data, and route suspected vulnerabilities to private
 security reporting as the [security policy](../../SECURITY.md) describes.
+The Works correction form, which the Works page's feedback link opens,
+collects one work's wrong or missing information with a source; a
+correction lands in the reference collection and reaches the page with the
+next packaging ([Works collection](works-archive.md#packaging)).
 
 ## Related Docs
 

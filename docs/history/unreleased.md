@@ -42,6 +42,8 @@
 - Stickers in a bilibili post show as small pictures in its original
   wording, or as their names until the picture is cached; translations
   leave them out.
+- The Works page's feedback link opens a correction form that asks for the
+  work, what is wrong and a source.
 
 </details>
 

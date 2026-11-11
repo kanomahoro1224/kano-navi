@@ -67,7 +67,7 @@ type StepInput struct {
 	// is the step's incremental default.
 	Sync sqlite.SourceSync
 	// Chain is the source's method fallback chain frozen on the run, or nil
-	// for its default chain (ADR-0004). The live probe reads YouTube's.
+	// for its default chain. The live probe reads YouTube's.
 	Chain *sqlite.SourceChain
 	// Window is the operator-selected source window frozen on the run, or nil
 	// for the incremental synchronization.
@@ -207,7 +207,7 @@ func withReconcile(steps []string) []string {
 		switch step {
 		case "reconcile":
 			return steps
-		case "x", "youtube", "bilibili", "schedule":
+		case "x", sqlite.XRelatedStep, "youtube", "bilibili", sqlite.ShopSource, "schedule":
 			writes = true
 		}
 	}

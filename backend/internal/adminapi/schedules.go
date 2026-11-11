@@ -11,6 +11,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
 	"github.com/yexca/kano-navi/backend/internal/jobs"
+	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -62,15 +63,23 @@ func (a *api) scheduleEntry(ctx context.Context, schedule sqlite.SourceSchedule)
 	return entry, nil
 }
 
-// chainEntry describes a schedule's method chain (ADR-0004): each method in
+// chainEntry describes a schedule's method chain: each method in
 // order with whether it is enabled, whether this process can run it and the
 // variable it needs. X adds its API gate and cap, today's usage and each
-// account's timeline failure streak. Bilibili's one method is fixed.
+// account's timeline failure streak. The Bilibili upload read's dynamics
+// and official-client methods name the credentials they need.
 func (a *api) chainEntry(ctx context.Context, schedule sqlite.SourceSchedule) (map[string]any, error) {
 	methods := []map[string]any{}
 	for _, method := range schedule.Chain.Methods {
 		item := map[string]any{"id": method.ID, "enabled": method.Enabled, "available": true}
-		if method.ID == history.MethodAPI || method.ID == history.MethodYTDLP {
+		switch {
+		case schedule.Source == "bilibili" && method.ID == bilisource.MethodDynamics:
+			item["requires"] = "BILIBILI_COOKIE or BILIBILI_SESSDATA"
+			item["available"] = a.Bilibili != nil && a.Bilibili.Options.SignedIn()
+		case schedule.Source == "bilibili" && method.ID == bilisource.MethodApp:
+			item["requires"] = "BILIBILI_APP_KEY and BILIBILI_APP_SECRET"
+			item["available"] = a.Bilibili != nil && a.Bilibili.Options.App.Valid()
+		case method.ID == history.MethodAPI || method.ID == history.MethodYTDLP:
 			if described, ok := history.Lookup(schedule.Source, method.ID); ok {
 				if described.Requires != "" {
 					item["requires"] = described.Requires
@@ -134,6 +143,10 @@ func (a *api) updateSourceSchedule(w http.ResponseWriter, r *http.Request) {
 			setting, syncErr := sourceSync(raw)
 			if syncErr != nil {
 				httpx.WriteError(w, syncErr)
+				return
+			}
+			if !setting.ValidFor(source) {
+				httpx.WriteError(w, httpx.Invalid("%s reads incrementally only", source))
 				return
 			}
 			schedule.Sync = &setting

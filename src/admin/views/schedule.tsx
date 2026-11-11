@@ -1,33 +1,23 @@
-import { useEffect, useState, type SubmitEvent } from "react"
+import { useEffect, useState } from "react"
 import {
-  CalendarCheck,
+  ArrowRight,
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
-  Link2,
+  ListChecks,
   Search,
 } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
-import {
-  formatDay,
-  formatMonth,
-  japanClock,
-  japanDay,
-  japanInstant,
-  japanStamp,
-  japanToday,
-} from "@/admin/format"
-import type { AdminEvent, EventInput } from "@/admin/types"
+import { formatMonth, japanToday } from "@/admin/format"
+import { type AdminEvent } from "@/admin/types"
 import {
   Button,
   DateRange,
   Empty,
-  Field,
   IconButton,
   Loading,
-  Modal,
   PageHeader,
   Pager,
   Panel,
@@ -35,448 +25,14 @@ import {
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { EventMergeDialog, shiftDay } from "@/admin/views/event-parts"
-import { ScheduleCalendar, shiftMonth } from "@/admin/views/schedule-calendar"
 import {
-  MonthScheduleImages,
-  ScheduleImageList,
-} from "@/admin/views/schedule-images"
+  ScheduleCalendar,
+  shiftMonth,
+  weekStart,
+} from "@/admin/views/schedule-calendar"
+import { ScheduleImageList } from "@/admin/views/schedule-images"
 import { DayHeading, EventRow, groupByDay } from "@/admin/views/schedule-parts"
-
-const eventTypes = ["stream", "member", "appearance", "release", "event"]
-
-/**
- * The calendar labels an entry can carry. "" is the operator's "no label";
- * "auto" hands the label back to the title inference and the entry's videos.
- */
-const eventTags = ["live", "game", "talk", "song", "video"]
-
-/** The form's limit on an entry's detail, shown by its counter. */
-const detailLimit = 500
-
-/** Preset lengths, in minutes, that save an end time. */
-const lengths = [30, 60, 120, 180]
-
-/** The calendar feed's length for a timed entry without an end: an hour for
- * the stream types and half an hour otherwise (see the public feeds). */
-function defaultMinutes(eventType: string) {
-  return eventType === "stream" || eventType === "member" ? 60 : 30
-}
-
-interface Draft {
-  title: string
-  detail: string
-  startsOn: string
-  timed: boolean
-  start: string
-  /** "" keeps the end open, a preset is minutes, "custom" uses end. */
-  length: string
-  end: string
-  approximate: boolean
-  eventType: string
-  tag: string
-  status: string
-  url: string
-  cancellationStatus: "none" | "llm_suspected" | "manual_confirmed"
-  cancellationReason: string
-}
-
-function draftOf(event: AdminEvent | null, day?: string): Draft {
-  const startsAt = Date.parse(event?.startsAt || "")
-  const minutes = (Date.parse(event?.endsAt || "") - startsAt) / 60_000
-  return {
-    title: event?.title || "",
-    detail: event?.detail || "",
-    startsOn: event?.startsOn || day || japanToday(),
-    // A new entry starts timed so a date-only entry is a deliberate choice.
-    timed: event ? Boolean(event.startsAt) : true,
-    start: japanClock(event?.startsAt),
-    length: !event?.endsAt
-      ? ""
-      : lengths.includes(minutes)
-        ? String(minutes)
-        : "custom",
-    end: japanClock(event?.endsAt),
-    approximate: event?.timePrecision === "approximate",
-    eventType: event?.eventType || "stream",
-    // An entry without an operator's label reads as automatic, so saving it
-    // hands the label back rather than recording the operator's "no label".
-    tag: event?.tag || (event?.tagSource === "manual" ? "" : "auto"),
-    status: event?.status || "",
-    url: event?.url || "",
-    cancellationStatus: event?.cancellationStatus || "none",
-    cancellationReason: event?.cancellationReason || "",
-  }
-}
-
-/** The saved end instant; a custom end clock before the start is the next day. */
-function endOf(draft: Draft, startsAt: string) {
-  if (!startsAt || !draft.length) return ""
-  if (draft.length !== "custom") {
-    const end = new Date(Date.parse(startsAt) + Number(draft.length) * 60_000)
-    return japanInstant(
-      japanDay(end.toISOString()),
-      japanClock(end.toISOString()),
-    )
-  }
-  if (!draft.end) return ""
-  let endDay = draft.startsOn
-  if (draft.end < draft.start) {
-    const next = new Date(`${draft.startsOn}T12:00:00+09:00`)
-    next.setUTCDate(next.getUTCDate() + 1)
-    endDay = japanDay(next.toISOString())
-  }
-  return japanInstant(endDay, draft.end)
-}
-
-function inputOf(draft: Draft): EventInput {
-  const startsAt =
-    draft.timed && draft.start ? japanInstant(draft.startsOn, draft.start) : ""
-  return {
-    title: draft.title,
-    detail: draft.detail,
-    startsOn: draft.startsOn,
-    startsAt,
-    endsAt: endOf(draft, startsAt),
-    timePrecision: startsAt
-      ? draft.approximate
-        ? "approximate"
-        : "exact"
-      : undefined,
-    eventType: draft.eventType,
-    tag: draft.tag,
-    status: draft.status,
-    url: draft.url,
-    cancellationStatus: draft.cancellationStatus,
-    cancellationReason:
-      draft.cancellationStatus === "manual_confirmed"
-        ? draft.cancellationReason
-        : "",
-  }
-}
-
-function EventDialog({
-  event,
-  day,
-  onClose,
-}: {
-  event: AdminEvent | null
-  /** The date a new entry starts on; today when unset. */
-  day?: string
-  onClose: (saved?: boolean) => void
-}) {
-  const { t, locale } = useAppSettings()
-  const { api, act } = useAdmin()
-  const [draft, setDraft] = useState(() => draftOf(event, day))
-  const [busy, setBusy] = useState(false)
-  // The rarer fields open on their own only when the entry already uses them.
-  const [moreOpen] = useState(
-    () => Boolean(draft.status) || draft.cancellationStatus !== "none",
-  )
-  const set = (patch: Partial<Draft>) =>
-    setDraft((current) => ({ ...current, ...patch }))
-  const save = async (submit: SubmitEvent<HTMLFormElement>) => {
-    submit.preventDefault()
-    setBusy(true)
-    const input = inputOf(draft)
-    const result = await act(
-      () => (event ? api.updateEvent(event.id, input) : api.createEvent(input)),
-      event ? "admin.notice.eventSaved" : "admin.notice.eventCreated",
-    )
-    setBusy(false)
-    if (result) onClose(true)
-  }
-  const minutesLabel = (minutes: number) =>
-    minutes < 60
-      ? t("admin.interval.minutes", { count: minutes })
-      : t("admin.interval.hours", { count: minutes / 60 })
-  const fallback = minutesLabel(defaultMinutes(draft.eventType))
-
-  // What a calendar subscriber sees for this entry once it is saved.
-  const input = inputOf(draft)
-  let preview = `${formatDay(draft.startsOn, locale)} · ${t("admin.schedule.allDay")}`
-  if (input.startsAt) {
-    const end =
-      input.endsAt ||
-      new Date(
-        Date.parse(input.startsAt) + defaultMinutes(draft.eventType) * 60_000,
-      ).toISOString()
-    const nextDay = japanDay(end) !== draft.startsOn ? " (+1)" : ""
-    preview = `${formatDay(draft.startsOn, locale)} · ${draft.approximate ? "~" : ""}${draft.start}–${japanClock(end)}${nextDay} JST`
-  } else if (draft.timed) {
-    preview = t("admin.schedule.preview.needsStart")
-  }
-
-  return (
-    <Modal
-      open
-      wide
-      className="adm-entry-dialog"
-      title={event ? t("admin.schedule.edit") : t("admin.schedule.create")}
-      onClose={() => onClose()}
-      footer={
-        <>
-          <span className="adm-muted">{t("admin.schedule.lockHint")}</span>
-          <Button onClick={() => onClose()}>{t("admin.action.cancel")}</Button>
-          <Button
-            type="submit"
-            form="adm-entry-form"
-            variant="primary"
-            busy={busy}
-          >
-            {event?.deletedAt
-              ? t("admin.schedule.restore")
-              : t("admin.action.save")}
-          </Button>
-        </>
-      }
-    >
-      <form id="adm-entry-form" className="adm-form" onSubmit={save}>
-        {event ? (
-          <p className="adm-muted adm-entry-updated">
-            {t("admin.schedule.updated", {
-              time: japanStamp(event.updatedAt),
-            })}
-          </p>
-        ) : null}
-        <Field label={t("admin.schedule.field.title")}>
-          <input
-            className="adm-entry-title"
-            value={draft.title}
-            onChange={(e) => set({ title: e.target.value })}
-            maxLength={240}
-            required
-            autoFocus
-          />
-        </Field>
-        <div className="adm-field">
-          <span className="adm-field-label">
-            {t("admin.schedule.field.type")}
-          </span>
-          <Segmented
-            label={t("admin.schedule.field.type")}
-            value={draft.eventType}
-            options={eventTypes.map((type) => ({
-              value: type,
-              label: t(`admin.event.type.${type}`),
-            }))}
-            onChange={(eventType) => set({ eventType })}
-          />
-        </div>
-        <Field
-          label={t("admin.schedule.field.tag")}
-          hint={
-            event
-              ? `${t("admin.schedule.field.tagHint")} · ${t(
-                  event.tagSource === "manual"
-                    ? "admin.schedule.tag.decidedManual"
-                    : "admin.schedule.tag.decidedAutomatic",
-                )}`
-              : t("admin.schedule.field.tagHint")
-          }
-        >
-          <select
-            value={draft.tag}
-            onChange={(e) => set({ tag: e.target.value })}
-          >
-            <option value="auto">{t("admin.schedule.tag.auto")}</option>
-            <option value="">{t("admin.schedule.tag.none")}</option>
-            {eventTags.map((tag) => (
-              <option key={tag} value={tag}>
-                {t(`admin.event.tag.${tag}`)}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <section
-          className="adm-entry-when"
-          aria-label={t("admin.schedule.when")}
-        >
-          <header>
-            <strong>{t("admin.schedule.when")}</strong>
-            <Segmented
-              label={t("admin.schedule.when")}
-              value={draft.timed ? "timed" : "allDay"}
-              options={[
-                { value: "timed", label: t("admin.schedule.timed") },
-                { value: "allDay", label: t("admin.schedule.allDay") },
-              ]}
-              onChange={(mode) => set({ timed: mode === "timed" })}
-            />
-          </header>
-          <div
-            className={`adm-form-row is-top${draft.timed ? " is-three" : ""}`}
-          >
-            <Field
-              label={t("admin.schedule.field.date")}
-              hint={t("admin.schedule.field.dateHint")}
-            >
-              <input
-                type="date"
-                value={draft.startsOn}
-                onChange={(e) => set({ startsOn: e.target.value })}
-                required
-              />
-            </Field>
-            {draft.timed ? (
-              <>
-                <Field
-                  label={t("admin.schedule.field.start")}
-                  hint={t("admin.schedule.field.startHint")}
-                >
-                  <input
-                    type="time"
-                    value={draft.start}
-                    onChange={(e) => set({ start: e.target.value })}
-                    required
-                  />
-                </Field>
-                <Field
-                  label={t("admin.schedule.field.length")}
-                  hint={
-                    draft.length
-                      ? undefined
-                      : t("admin.schedule.length.openHint", {
-                          length: fallback,
-                        })
-                  }
-                >
-                  <select
-                    value={draft.length}
-                    onChange={(e) => set({ length: e.target.value })}
-                  >
-                    <option value="">
-                      {t("admin.schedule.length.default", {
-                        length: fallback,
-                      })}
-                    </option>
-                    {lengths.map((minutes) => (
-                      <option key={minutes} value={minutes}>
-                        {minutesLabel(minutes)}
-                      </option>
-                    ))}
-                    <option value="custom">
-                      {t("admin.schedule.length.custom")}
-                    </option>
-                  </select>
-                </Field>
-              </>
-            ) : null}
-          </div>
-          {draft.timed && draft.length === "custom" ? (
-            <div className="adm-form-row is-three">
-              <Field
-                label={t("admin.schedule.field.end")}
-                hint={t("admin.schedule.field.endHint")}
-              >
-                <input
-                  type="time"
-                  value={draft.end}
-                  onChange={(e) => set({ end: e.target.value })}
-                  required
-                />
-              </Field>
-            </div>
-          ) : null}
-          {draft.timed ? (
-            <label className="adm-check">
-              <input
-                type="checkbox"
-                checked={draft.approximate}
-                onChange={(e) => set({ approximate: e.target.checked })}
-              />
-              {t("admin.schedule.field.approximate")}
-            </label>
-          ) : null}
-          <p className="adm-entry-preview" aria-live="polite">
-            <CalendarCheck aria-hidden />
-            <span>
-              <small>{t("admin.schedule.preview")}</small>
-              {preview}
-            </span>
-          </p>
-        </section>
-
-        <Field label={t("admin.schedule.field.url")}>
-          <span className="adm-input-icon">
-            <Link2 aria-hidden />
-            <input
-              type="url"
-              value={draft.url}
-              onChange={(e) => set({ url: e.target.value })}
-              maxLength={2000}
-              placeholder="https://"
-            />
-          </span>
-        </Field>
-        <Field label={t("admin.schedule.field.detail")}>
-          <span className="adm-entry-detail">
-            <textarea
-              value={draft.detail}
-              onChange={(e) => set({ detail: e.target.value })}
-              maxLength={detailLimit}
-              rows={2}
-              placeholder={t("admin.schedule.field.detailPlaceholder")}
-            />
-            <span
-              className={`adm-entry-count${draft.detail.length > detailLimit - 50 ? " is-near" : ""}`}
-              aria-hidden
-            >
-              {draft.detail.length} / {detailLimit}
-            </span>
-          </span>
-        </Field>
-
-        <details className="adm-disclosure adm-entry-more" open={moreOpen}>
-          <summary>{t("admin.schedule.more")}</summary>
-          <div className="adm-form-row is-top">
-            <Field
-              label={t("admin.schedule.field.status")}
-              hint={t("admin.schedule.field.statusHint")}
-            >
-              <input
-                value={draft.status}
-                onChange={(e) => set({ status: e.target.value })}
-                maxLength={80}
-              />
-            </Field>
-            <Field label={t("admin.schedule.field.cancellation")}>
-              <select
-                value={draft.cancellationStatus}
-                onChange={(e) =>
-                  set({
-                    cancellationStatus: e.target
-                      .value as Draft["cancellationStatus"],
-                  })
-                }
-              >
-                <option value="none">{t("admin.schedule.cancel.none")}</option>
-                {event?.cancellationStatus === "llm_suspected" ? (
-                  <option value="llm_suspected">
-                    {t("admin.schedule.cancel.keep")}
-                  </option>
-                ) : null}
-                <option value="manual_confirmed">
-                  {t("admin.schedule.cancel.confirmed")}
-                </option>
-              </select>
-            </Field>
-          </div>
-          {draft.cancellationStatus === "manual_confirmed" ? (
-            <Field label={t("admin.review.cancelReason")}>
-              <input
-                value={draft.cancellationReason}
-                onChange={(e) => set({ cancellationReason: e.target.value })}
-                maxLength={500}
-                required
-              />
-            </Field>
-          ) : null}
-        </details>
-      </form>
-    </Modal>
-  )
-}
+import { EventDialog } from "@/admin/views/event-dialog"
 
 type Scope = "upcoming" | "past" | "all"
 
@@ -496,7 +52,11 @@ function scopeOf(from: string, to: string, today: string): Scope | "" {
   )
 }
 
-type ScheduleMode = "list" | "calendar"
+type ScheduleMode = "calendar" | "list"
+
+/** What the list shows: the entries or the schedule images. */
+type Records = "entries" | "images"
+
 type Status = "all" | "unconfirmed" | "suspected" | "deleted"
 
 /** Each status tab is a review task; All keeps merged duplicates, dimmed. */
@@ -509,36 +69,47 @@ const statusFilters: Record<Status, Record<string, string>> = {
 
 const modeKey = "adm-schedule-view"
 
-/** The view this browser used last; storage may be unavailable. */
+/** The view this browser used last, the calendar by default; storage may be
+ * unavailable. */
 function storedMode(): ScheduleMode {
   try {
-    return window.localStorage.getItem(modeKey) === "calendar"
-      ? "calendar"
-      : "list"
+    return window.localStorage.getItem(modeKey) === "list" ? "list" : "calendar"
   } catch {
-    return "list"
+    return "calendar"
   }
 }
 
 export function ScheduleView({ tab, navigate }: ViewProps) {
   const { t, locale } = useAppSettings()
-  const { api } = useAdmin()
+  const { api, overview } = useAdmin()
   const today = japanToday()
   const [mode, setMode] = useState(storedMode)
-  // The images tab has its own address, so the Review queue links to it.
-  // A month tab (YYYY-MM) opens the calendar on that month.
-  const images = tab === "images"
+  const [records, setRecords] = useState<Records>("entries")
+  // The calendar shows the selected day's month and week.
+  const [day, setDay] = useState(today)
+  const [reviewOnly, setReviewOnly] = useState(false)
+  // A month tab (YYYY-MM) opens the calendar on that month, a date tab
+  // (YYYY-MM-DD) on that day, a look tab (look-YYYY-MM-DD) on that day with
+  // only what needs a look, and the images tab lists the schedule images.
   useEffect(() => {
-    if (!/^\d{4}-\d{2}$/u.test(tab)) return
-    setMode("calendar")
-    setMonth(`${tab}-01`)
+    if (tab === "images") {
+      setMode("list")
+      setRecords("images")
+    } else if (/^\d{4}-\d{2}$/u.test(tab)) {
+      setMode("calendar")
+      setDay(`${tab}-01`)
+    } else if (/^(?:look-)?\d{4}-\d{2}-\d{2}$/u.test(tab)) {
+      setMode("calendar")
+      setDay(tab.slice(-10))
+      setReviewOnly(tab.startsWith("look-"))
+    }
   }, [tab])
+  const [reviewCount, setReviewCount] = useState<number | undefined>()
   const [status, setStatus] = useState<Status>("all")
   const [search, setSearch] = useState("")
   const [query, setQuery] = useState("")
-  // The list opens on today onward; the calendar on this month.
+  // The list opens on today onward.
   const [range, setRange] = useState(() => scopeRange("upcoming", today))
-  const [month, setMonth] = useState(() => shiftMonth(today, 0))
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<
     { event: AdminEvent | null; day?: string } | undefined
@@ -547,13 +118,33 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
   // Bumped after a dialog saves, so whichever view is shown reads again.
   const [reloadKey, setReloadKey] = useState(0)
   const reload = () => setReloadKey((value) => value + 1)
-  const filters = { ...statusFilters[status], search: query }
   const scope = scopeOf(range.from, range.to, today)
+  // While only what needs a look shows, the weeks that hold some lead from
+  // one to the next, round to the earliest after the last.
+  const attention = useResource(
+    () =>
+      mode === "calendar" && reviewOnly
+        ? api.scheduleAttention()
+        : Promise.resolve(null),
+    [mode, reviewOnly, reloadKey],
+  )
+  const lookWeeks = (attention.data?.weeks ?? [])
+    .map((week) => week.weekStart)
+    .filter((week) => week !== weekStart(day))
+  const nextWeek =
+    lookWeeks.find((week) => week > weekStart(day)) ?? lookWeeks[0]
+  const queued = overview
+    ? overview.review.pendingImages +
+      overview.review.suspectedCancellations +
+      overview.review.uncertainEvents
+    : 0
+  const showImages = mode === "list" && records === "images"
   const events = useResource(
     () =>
-      mode === "list" && !images
+      mode === "list" && records === "entries"
         ? api.events({
-            ...filters,
+            ...statusFilters[status],
+            search: query,
             ...range,
             page,
             pageSize: 50,
@@ -562,29 +153,45 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
             order: range.from ? "asc" : "desc",
           })
         : Promise.resolve(null),
-    [mode, images, status, query, range, page, reloadKey],
+    [mode, records, status, query, range, page, reloadKey],
   )
-  const changeMode = (next: ScheduleMode | "images") => {
-    if (next === "images") return navigate("schedule", "images")
+  /** Switches the view; a search's switch to the list is not remembered. */
+  const changeMode = (next: ScheduleMode, remember = true) => {
     if (tab) navigate("schedule")
     setMode(next)
+    if (!remember) return
     try {
       window.localStorage.setItem(modeKey, next)
     } catch {
       // The choice simply is not remembered.
     }
   }
-  // Paging the calendar leaves a month address behind, so a later link to
-  // that month opens it again.
-  const showMonth = (next: string) => {
-    setMonth(next)
+  // Moving leaves a dated address behind, so a later link opens it again.
+  const showDay = (next: string) => {
+    setDay(next)
     if (tab) navigate("schedule")
+  }
+  // Paging months selects the first day, or today in the current month.
+  const showMonth = (months: number) => {
+    const first = shiftMonth(day, months)
+    showDay(first.slice(0, 7) === today.slice(0, 7) ? today : first)
   }
   const changeRange = (patch: { from?: string; to?: string }) => {
     setRange((current) => ({ ...current, ...patch }))
     setPage(1)
   }
+  // The calendar has no search of its own: a search lists its matches on
+  // every date.
   const submitSearch = () => {
+    if (mode === "calendar") {
+      if (!search.trim()) return
+      setQuery(search)
+      setStatus("all")
+      setRange(scopeRange("all", today))
+      setPage(1)
+      changeMode("list", false)
+      return
+    }
     if (search === query) return
     setQuery(search)
     setPage(1)
@@ -599,7 +206,12 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
           <Button
             variant="primary"
             icon={CalendarPlus}
-            onClick={() => setEditing({ event: null })}
+            onClick={() =>
+              setEditing({
+                event: null,
+                day: mode === "calendar" ? day : undefined,
+              })
+            }
           >
             {t("admin.schedule.create")}
           </Button>
@@ -609,15 +221,31 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
         <div className="adm-schedule-bar">
           <Segmented
             label={t("admin.schedule.view")}
-            value={images ? "images" : mode}
+            value={mode}
             options={[
-              { value: "list", label: t("admin.schedule.view.list") },
               { value: "calendar", label: t("admin.schedule.view.calendar") },
-              { value: "images", label: t("admin.schedule.view.images") },
+              { value: "list", label: t("admin.schedule.view.list") },
             ]}
-            onChange={changeMode}
+            onChange={(next) => changeMode(next)}
           />
-          {images ? null : mode === "list" ? (
+          {mode === "list" ? (
+            <Segmented
+              label={t("admin.schedule.records")}
+              value={records}
+              options={[
+                {
+                  value: "entries",
+                  label: t("admin.schedule.records.entries"),
+                },
+                { value: "images", label: t("admin.schedule.records.images") },
+              ]}
+              onChange={(next) => {
+                if (tab) navigate("schedule")
+                setRecords(next)
+              }}
+            />
+          ) : null}
+          {showImages ? null : mode === "list" ? (
             <div className="adm-schedule-dates">
               <Segmented
                 label={t("admin.schedule.scope")}
@@ -643,41 +271,81 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
               <IconButton
                 icon={ChevronLeft}
                 label={t("admin.schedule.month.previous")}
-                onClick={() => showMonth(shiftMonth(month, -1))}
+                onClick={() => showMonth(-1)}
               />
-              <strong aria-live="polite">{formatMonth(month, locale)}</strong>
+              <strong aria-live="polite">{formatMonth(day, locale)}</strong>
               <IconButton
                 icon={ChevronRight}
                 label={t("admin.schedule.month.next")}
-                onClick={() => showMonth(shiftMonth(month, 1))}
+                onClick={() => showMonth(1)}
               />
               <Button
                 size="sm"
                 variant="ghost"
-                disabled={month === shiftMonth(today, 0)}
-                onClick={() => showMonth(shiftMonth(today, 0))}
+                disabled={day === today}
+                onClick={() => showDay(today)}
               >
-                {t("admin.schedule.month.today")}
+                {t("admin.schedule.day.today")}
               </Button>
             </div>
           )}
         </div>
-        {images ? null : (
+        {showImages ? null : (
           <div className="adm-list-tools">
-            <Segmented
-              label={t("admin.schedule.status")}
-              value={status}
-              options={(
-                ["all", "unconfirmed", "suspected", "deleted"] as const
-              ).map((value) => ({
-                value,
-                label: t(`admin.schedule.status.${value}`),
-              }))}
-              onChange={(value) => {
-                setStatus(value)
-                setPage(1)
-              }}
-            />
+            {mode === "list" ? (
+              <Segmented
+                label={t("admin.schedule.status")}
+                value={status}
+                options={(
+                  ["all", "unconfirmed", "suspected", "deleted"] as const
+                ).map((value) => ({
+                  value,
+                  label: t(`admin.schedule.status.${value}`),
+                }))}
+                onChange={(value) => {
+                  setStatus(value)
+                  setPage(1)
+                }}
+              />
+            ) : (
+              <Segmented
+                label={t("admin.schedule.status")}
+                value={reviewOnly ? "review" : "all"}
+                options={[
+                  { value: "all", label: t("admin.schedule.status.all") },
+                  {
+                    value: "review",
+                    label: t("admin.schedule.review.filter"),
+                    count: reviewCount || undefined,
+                  },
+                ]}
+                onChange={(value) => {
+                  if (tab) navigate("schedule")
+                  setReviewOnly(value === "review")
+                }}
+              />
+            )}
+            {mode === "calendar" && reviewOnly ? (
+              <div className="adm-look-nav">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={ArrowRight}
+                  disabled={!nextWeek}
+                  onClick={() => nextWeek && showDay(nextWeek)}
+                >
+                  {t("admin.schedule.review.nextWeek")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={ListChecks}
+                  onClick={() => navigate("review", "schedule")}
+                >
+                  {t("admin.schedule.review.queue", { count: queued })}
+                </Button>
+              </div>
+            ) : null}
             <form
               className="adm-search"
               role="search"
@@ -691,40 +359,41 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
                 type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                onBlur={submitSearch}
+                onBlur={() => {
+                  if (mode === "list") submitSearch()
+                }}
                 placeholder={t("admin.schedule.search")}
                 aria-label={t("admin.schedule.search")}
               />
             </form>
           </div>
         )}
-        {images ? (
+        {showImages ? (
           <ScheduleImageList
-            filters={["active", "approved", "review", "rejected"]}
+            filters={["active", "approved", "undated", "rejected"]}
             navigate={navigate}
           />
         ) : mode === "calendar" ? (
-          <>
-            <ScheduleCalendar
-              month={month}
-              // Merged duplicates stay off the grid; the list shows them.
-              filters={{ ...filters, merge: "visible" }}
-              reloadKey={reloadKey}
-              onEdit={(event) => setEditing({ event })}
-              onMerge={setMerging}
-              onCreate={(day) => setEditing({ event: null, day })}
-            />
-            <MonthScheduleImages month={month} />
-          </>
+          <ScheduleCalendar
+            day={day}
+            reviewOnly={reviewOnly}
+            reloadKey={reloadKey}
+            onDay={showDay}
+            onEdit={(event) => setEditing({ event })}
+            onMerge={setMerging}
+            onCreate={(chosen) => setEditing({ event: null, day: chosen })}
+            onChanged={reload}
+            onCounts={setReviewCount}
+          />
         ) : !data ? (
           <Loading />
         ) : data.items.length ? (
           <>
             <div className="adm-schedule-days">
-              {groupByDay(data.items).map(({ day, events: items }) => (
-                <section key={day} className="adm-day">
+              {groupByDay(data.items).map(({ day: date, events: items }) => (
+                <section key={date} className="adm-day">
                   <DayHeading
-                    day={day}
+                    day={date}
                     today={today}
                     count={items.length}
                     onCreate={(chosen) =>

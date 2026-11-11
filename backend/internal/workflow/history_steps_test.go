@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
@@ -293,8 +294,20 @@ func TestMethodAvailabilityFollowsCredentialsAndAdapters(t *testing.T) {
 	if x, youtube := available("x"), available("youtube"); x != "" || youtube != "" {
 		t.Fatalf("without adapters x=%s youtube=%s", x, youtube)
 	}
-	if (*HistorySource)(nil).MethodAvailable("x", history.MethodTimeline) || len(source.Methods("bilibili")) != 0 {
+	if (*HistorySource)(nil).MethodAvailable("x", history.MethodTimeline) || len(source.Methods("rss")) != 0 {
 		t.Fatal("a missing source or fetcher offers methods")
+	}
+	// The Bilibili fetches need the adapter, and the dynamics its login.
+	if uploads, dynamics := available("bilibili"), available("bilibili_dynamics"); uploads != "" || dynamics != "" {
+		t.Fatalf("without the Bilibili adapter uploads=%s dynamics=%s", uploads, dynamics)
+	}
+	source.Bilibili = bilisource.NewAdapter(nil, bilisource.Options{Account: "1"})
+	if uploads, dynamics := available("bilibili"), available("bilibili_dynamics"); uploads != "space" || dynamics != "" {
+		t.Fatalf("anonymous uploads=%s dynamics=%s", uploads, dynamics)
+	}
+	source.Bilibili.Options.SESSDATA = "a1b2c3d4%2C1999999999%2Cabcde%2A11"
+	if dynamics := available("bilibili_dynamics"); dynamics != "space" {
+		t.Fatalf("signed-in dynamics=%s", dynamics)
 	}
 }
 
@@ -391,5 +404,33 @@ func TestHistoryXBeforeFailsWhenNoAttemptedAccountAnswers(t *testing.T) {
 	out, err := source.FetchX(ctx, history.Window{Method: history.MethodAPI, Mode: history.ModeBefore, Days: 3})
 	if err != nil || out.Status != "failed" {
 		t.Fatalf("before=%+v err=%v", out, err)
+	}
+}
+
+func TestHistoryXNamedAccountTakesTheBudgetAndLeavesTheRotation(t *testing.T) {
+	transport := &historyTransport{respond: func(*http.Request) (int, string) {
+		return 200, `{"data":[{"id":"1900000000000000001","text":"stored","created_at":"2026-03-05T03:00:00.000Z"}],"meta":{}}`
+	}}
+	source, _ := newHistorySource(t, transport)
+	ctx := context.Background()
+	window := apiRange()
+	window.Account = "SYNTHETIC_TWO"
+	out, err := source.FetchX(ctx, window)
+	if err != nil || out.Status != "succeeded" {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	if accounts := out.Result["accounts"].([]map[string]any); len(accounts) != 1 || accounts[0]["handle"] != "synthetic_two" {
+		t.Fatalf("accounts=%v", accounts)
+	}
+	// The rotation still starts with the first account.
+	if _, err = source.FetchX(ctx, apiRange()); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(transport.accounts, ","); got != "synthetic_two,synthetic_one,synthetic_two" {
+		t.Fatalf("order=%s", got)
+	}
+	window.Account = "someone_else"
+	if out, err = source.FetchX(ctx, window); err != nil || out.Status != "failed" || out.Result["error"] != "x_account_unknown" {
+		t.Fatalf("unknown=%+v err=%v", out, err)
 	}
 }

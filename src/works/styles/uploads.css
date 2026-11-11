@@ -1,0 +1,515 @@
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 32px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upload-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.upload-art {
+  display: block;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--sunken);
+  box-shadow: 0 18px 32px -22px rgb(20 20 19 / 0.55);
+  transition:
+    transform 450ms var(--works-ease),
+    box-shadow 450ms var(--works-ease);
+}
+
+a.upload-art:hover {
+  box-shadow: 0 26px 40px -24px rgb(20 20 19 / 0.6);
+  transform: translateY(-4px);
+}
+
+.upload-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-art .works-missing {
+  min-height: 0;
+  height: 100%;
+}
+
+/* A printed sleeve for an upload without a saved thumbnail. */
+.upload-print {
+  --print-bg: #c96442;
+  --print-ink: #faf9f5;
+  display: grid;
+  position: absolute;
+  inset: 0;
+  grid-template-rows: auto 1fr auto;
+  gap: 4px;
+  overflow: hidden;
+  padding: 12px 14px;
+  background: var(--print-bg);
+  color: var(--print-ink);
+}
+
+.upload-print.is-tone-1 {
+  --print-bg: #141413;
+  --print-ink: #f0eee6;
+}
+
+.upload-print.is-tone-2 {
+  --print-bg: #d4a27f;
+  --print-ink: #191917;
+}
+
+.upload-print.is-tone-3 {
+  --print-bg: #788c5d;
+  --print-ink: #faf9f5;
+}
+
+.upload-print.is-tone-4 {
+  --print-bg: #cbcadb;
+  --print-ink: #191917;
+}
+
+.dark .upload-print.is-tone-1 {
+  --print-bg: #3a3936;
+}
+
+/* A record's edge, peeking out on the right. */
+.upload-print::after {
+  position: absolute;
+  top: 50%;
+  right: -34%;
+  width: 78%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle,
+      var(--print-bg) 0 9%,
+      transparent 9.5% 22%,
+      color-mix(in oklab, var(--print-ink) 30%, transparent) 22.5% 23%,
+      transparent 23.5%
+    ),
+    repeating-radial-gradient(
+      circle,
+      color-mix(in oklab, var(--print-ink) 14%, transparent) 0 1px,
+      transparent 1px 5px
+    );
+  content: "";
+  opacity: 0.55;
+  transform: translateY(-50%);
+  transition: transform 900ms var(--works-ease);
+}
+
+a.upload-art:hover .upload-print::after {
+  transform: translateY(-50%) rotate(40deg);
+}
+
+.upload-print > span {
+  position: relative;
+  z-index: 1;
+  max-width: 72%;
+}
+
+.upload-print-kind {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  opacity: 0.75;
+  text-transform: uppercase;
+}
+
+.upload-print-title {
+  display: -webkit-box;
+  align-self: end;
+  overflow: hidden;
+  font-family: var(--font-serif);
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.upload-print-artist {
+  overflow: hidden;
+  font-size: 11px;
+  opacity: 0.8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-print-year {
+  position: absolute !important;
+  top: 9px;
+  right: 12px;
+  max-width: none !important;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.upload-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* The date line carries the site marks at its end. */
+.upload-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 26px;
+}
+
+.upload-copy .works-meta {
+  min-width: 0;
+  margin: 0;
+}
+
+/* YouTube's own members-only badge: its star mark and green. */
+.works-members {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--works-members);
+  font-weight: 500;
+}
+
+.works-members svg {
+  width: 12px;
+  height: 12px;
+}
+
+.works-members-mark {
+  flex: none;
+  color: var(--works-members);
+}
+
+/* The title, with a disc at its end when albums later included the song. */
+.upload-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.upload-title {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.upload-people {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.upload-title-marks {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  margin: -1px -5px 0 0;
+}
+
+.upload-list-button {
+  display: inline-flex;
+  height: 26px;
+  min-width: 26px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 5px;
+  border-radius: 6px;
+  color: var(--soft);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
+}
+
+.upload-list-button:hover,
+.upload-list-button[data-state="open"] {
+  background: var(--sunken);
+  color: var(--ink);
+}
+
+.upload-list-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* A long list of songs scrolls inside the menu. */
+.upload-list-menu {
+  max-width: min(320px, calc(100vw - 32px));
+  max-height: min(420px, var(--radix-dropdown-menu-content-available-height));
+  overflow-y: auto;
+  border-radius: 12px;
+}
+
+.upload-list-menu [role="menuitem"] {
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.upload-list-number {
+  flex: none;
+  min-width: 1.5em;
+  color: var(--soft);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.upload-links {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  margin: 0 -5px 0 0;
+}
+
+span.upload-links {
+  margin: 0;
+  font-size: 11.5px;
+}
+
+.upload-link {
+  display: inline-flex;
+  height: 26px;
+  min-width: 26px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 5px;
+  border-radius: 6px;
+  color: var(--soft);
+  transition:
+    color 200ms ease,
+    background 200ms ease;
+}
+
+.upload-link:hover {
+  background: var(--sunken);
+}
+
+.upload-link svg {
+  width: 15px;
+  height: 15px;
+}
+
+.upload-link .works-members-mark {
+  width: 11px;
+  height: 11px;
+}
+
+/* A video nobody can watch any more keeps its link, dimmed. */
+.upload-link.is-gone {
+  opacity: 0.45;
+}
+
+.works-gone {
+  color: var(--soft);
+  text-decoration: line-through;
+}
+
+/* The sunken ground of the art, while the server's covers are on their way. */
+.upload-wait {
+  position: absolute;
+  inset: 0;
+}
+
+.works-notice {
+  margin: 32px 0 0;
+  color: var(--soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.upload-link.is-youtube:hover {
+  color: #ff0033;
+}
+
+.upload-link.is-bilibili:hover {
+  color: #00a1d6;
+}
+
+.upload-link.is-niconico:hover {
+  color: var(--ink);
+}
+
+/*
+ * The uploads after the collection date sit above the toolbar, laid out like
+ * a year of the list: the heading in the side column, a hairline below.
+ */
+.works-recent {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px 32px;
+  margin: 0 0 32px;
+  padding: 8px 0 40px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.works-recent-label {
+  position: sticky;
+  top: 88px;
+  display: grid;
+  align-self: start;
+  gap: 8px;
+}
+
+.works-recent-label h3 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(24px, 2.6vw, 32px);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+.works-recent-label small {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Found automatically or added by hand: an outlined mark under the title. */
+.works-recent-origin {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--soft);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.works-recent-origin.is-operator {
+  border-color: color-mix(in oklab, var(--works-clay) 45%, transparent);
+  color: var(--works-clay);
+}
+
+.works-recent-origin svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.works-recent-body {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+.works-recent-more {
+  justify-self: start;
+}
+
+.works-recent-more svg {
+  transition: transform 300ms var(--works-ease);
+}
+
+.works-recent-more[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.works-recent-limit {
+  margin: -12px 0 0;
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+.works-recent .upload-title .translation-mark {
+  margin-left: 4px;
+  vertical-align: 0.1em;
+}
+
+@media (max-width: 720px) {
+  .works-recent {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 0 28px;
+  }
+
+  .works-recent-label {
+    position: static;
+  }
+}
+
+/* On a phone each upload is a row: its thumbnail beside its words. */
+@media (max-width: 560px) {
+  .upload-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .upload-card {
+    grid-template-columns: 136px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+  }
+
+  .upload-copy {
+    gap: 3px;
+  }
+
+  .upload-head {
+    min-height: 24px;
+  }
+
+  .upload-copy .works-meta {
+    font-size: 10px;
+  }
+
+  .upload-print {
+    padding: 6px 8px;
+  }
+
+  .upload-print-kind,
+  .upload-print-artist,
+  .upload-print-year {
+    display: none;
+  }
+
+  .upload-print-title {
+    font-size: 13px;
+    -webkit-line-clamp: 2;
+  }
+
+  .upload-title {
+    font-size: 15px;
+  }
+
+  .upload-people {
+    font-size: 12px;
+  }
+}

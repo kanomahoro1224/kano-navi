@@ -5,16 +5,14 @@ import (
 	"database/sql"
 	"errors"
 	"regexp"
+	"strings"
 	"time"
 )
 
-// ErrInvalidAccount rejects a post archive filter that cannot be an account
-// name.
+// ErrInvalidAccount rejects a post archive filter that is not an X handle.
 var ErrInvalidAccount = errors.New("invalid account")
 
-// accountPattern allows the letters of any script: an X handle is ASCII, but a
-// Bilibili author is a display name that is usually Japanese or Chinese.
-var accountPattern = regexp.MustCompile(`^[\p{L}\p{N}_ .·-]{1,64}$`)
+var accountPattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
 
 // ErrInvalidVideoCategory rejects a video archive filter outside
 // VideoCategories.
@@ -119,6 +117,9 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
+	if s.readDB != nil {
+		return s.publicReader().GetPostArchive(ctx, from, to, account, page, pageSize)
+	}
 	ctx = withReadMemo(ctx)
 	start, end, err := archiveBounds(from, to)
 	if err != nil {
@@ -128,7 +129,7 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 		return nil, ErrInvalidAccount
 	}
 	const instant = `julianday(published_at)`
-	inRange := ` WHERE hidden_at IS NULL AND ` + instant + ` >= julianday(?) AND ` + instant + ` < julianday(?)`
+	inRange := ` WHERE ` + wallPostSQL + ` AND ` + instant + ` >= julianday(?) AND ` + instant + ` < julianday(?)`
 	filter, filterArgs := "", []any{}
 	if account != "" {
 		filter, filterArgs = ` AND lower(account_handle)=lower(?)`, []any{account}
@@ -162,7 +163,7 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 		return nil, dbErr(err)
 	}
 	page, pageSize, totalPages := archivePaging(total, page, pageSize)
-	rows, err := s.db.QueryContext(ctx, `SELECT id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END,repost_json FROM posts`+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+postColumns+` FROM posts`+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -170,7 +171,7 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 	for rows.Next() {
 		var r postRow
 		var handle, label, mu, ma sql.NullString
-		if err := rows.Scan(&r.id, &r.source, &handle, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.repostJSON); err != nil {
+		if err := rows.Scan(&r.id, &r.source, &handle, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted, &r.rawJSON, &r.repostJSON); err != nil {
 			_ = rows.Close()
 			return nil, dbErr(err)
 		}
@@ -219,30 +220,143 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 	}, nil
 }
 
+// ArchiveMonth is one Japan month that holds stored posts or videos: its
+// total and its records per key, a lowercase handle for posts and a category
+// for videos.
+type ArchiveMonth struct {
+	Month  string
+	Total  int64
+	Counts map[string]int64
+}
+
+// GetPostMonths lists every Japan month holding a shown post, oldest first,
+// so the archive can offer a jump to any of them. Accounts are not filtered:
+// the counts let the board narrow each month to the chosen account.
+func (s *Store) GetPostMonths(ctx context.Context) ([]ArchiveMonth, int64, error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetPostMonths(ctx)
+	}
+	return s.archiveMonths(ctx, `SELECT strftime('%Y-%m', julianday(published_at) + 0.375) AS month,
+	     lower(COALESCE(account_handle,'')), COUNT(*)
+	   FROM posts WHERE `+wallPostSQL+` AND julianday(published_at) IS NOT NULL
+	   GROUP BY 1, 2 ORDER BY 1, 2`)
+}
+
+// GetVideoMonths lists every Japan month holding a public video, oldest
+// first, with its videos per category, so the video timeline can offer a jump
+// to any month and narrow the counts to the chosen category.
+func (s *Store) GetVideoMonths(ctx context.Context) ([]ArchiveMonth, int64, error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetVideoMonths(ctx)
+	}
+	return s.archiveMonths(ctx, `SELECT strftime('%Y-%m', `+videoInstant+` + 0.375) AS month,
+	     `+videoCategorySQL+`, COUNT(*)
+	   FROM videos WHERE `+publicVideoScope+` AND `+videoInstant+` IS NOT NULL
+	   GROUP BY 1, 2 ORDER BY 1, 2`)
+}
+
+// archiveMonths folds (month, key, count) rows into months; an empty key adds
+// to the total only.
+func (s *Store) archiveMonths(ctx context.Context, query string) ([]ArchiveMonth, int64, error) {
+	if s == nil || s.db == nil {
+		return nil, 0, ErrUnavailable
+	}
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, 0, dbErr(err)
+	}
+	months := []ArchiveMonth{}
+	for rows.Next() {
+		var month, key string
+		var count int64
+		if err := rows.Scan(&month, &key, &count); err != nil {
+			_ = rows.Close()
+			return nil, 0, dbErr(err)
+		}
+		if n := len(months); n == 0 || months[n-1].Month != month {
+			months = append(months, ArchiveMonth{Month: month, Counts: map[string]int64{}})
+		}
+		current := &months[len(months)-1]
+		current.Total += count
+		if key != "" {
+			current.Counts[key] = count
+		}
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, 0, dbErr(err)
+	}
+	_ = rows.Close()
+	revision, err := s.GetDashboardRevision(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	return months, revision, nil
+}
+
+// videoInstant is the SQL time of a video: its scheduled start, else its
+// publication.
+const videoInstant = `julianday(COALESCE(scheduled_at,published_at))`
+
 // GetVideoArchive reads stored videos whose scheduled or published time falls
 // in a Japan-date range, newest first, optionally of one category.
 func (s *Store) GetVideoArchive(ctx context.Context, from, to, category string, page, pageSize int, now time.Time) (*ArchivePage[Video], error) {
-	if s == nil || s.db == nil {
-		return nil, ErrUnavailable
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetVideoArchive(ctx, from, to, category, page, pageSize, now)
 	}
-	ctx = withReadMemo(ctx)
 	start, end, err := archiveBounds(from, to)
 	if err != nil {
 		return nil, err
 	}
+	return s.videoArchive(ctx, start, end, category, page, pageSize, now)
+}
+
+// GetVideoTimeline reads stored videos whose scheduled or published time
+// falls on or before an inclusive Japan date, or every dated video when until
+// is empty, newest first, optionally of one category. Its pages continue
+// through every month, so the board can scroll back without a date range.
+func (s *Store) GetVideoTimeline(ctx context.Context, until, category string, page, pageSize int, now time.Time) (*ArchivePage[Video], error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetVideoTimeline(ctx, until, category, page, pageSize, now)
+	}
+	end := ""
+	if until != "" {
+		if !validCalendarDate(until) {
+			return nil, ErrInvalidCalendarRange
+		}
+		day, _ := time.ParseInLocation("2006-01-02", until, time.FixedZone("JST", 9*60*60))
+		end = day.AddDate(0, 0, 1).UTC().Format(time.RFC3339)
+	}
+	return s.videoArchive(ctx, "", end, category, page, pageSize, now)
+}
+
+// videoArchive reads one page of videos in the UTC instants [start, end); an
+// empty bound leaves that side open.
+func (s *Store) videoArchive(ctx context.Context, start, end, category string, page, pageSize int, now time.Time) (*ArchivePage[Video], error) {
+	if s == nil || s.db == nil {
+		return nil, ErrUnavailable
+	}
+	ctx = withReadMemo(ctx)
 	if category != "" && !validVideoCategory(category) {
 		return nil, ErrInvalidVideoCategory
 	}
-	const instant = `julianday(COALESCE(scheduled_at,published_at))`
-	inRange := ` WHERE ` + instant + ` >= julianday(?) AND ` + instant + ` < julianday(?) AND ` + publicVideoScope
+	const instant = videoInstant
+	conditions, bounds := []string{instant + ` IS NOT NULL`}, []any{}
+	if start != "" {
+		conditions, bounds = append(conditions, instant+` >= julianday(?)`), append(bounds, start)
+	}
+	if end != "" {
+		conditions, bounds = append(conditions, instant+` < julianday(?)`), append(bounds, end)
+	}
+	inRange := ` WHERE ` + strings.Join(append(conditions, publicVideoScope), " AND ")
 	filter, filterArgs := "", []any{}
 	if category != "" {
 		filter, filterArgs = ` AND `+videoCategorySQL+`=?`, []any{category}
 	}
-	args := append([]any{start, end}, filterArgs...)
+	args := append(append([]any{}, bounds...), filterArgs...)
 
 	counts := map[string]int64{}
-	countRows, err := s.db.QueryContext(ctx, `SELECT `+videoCategorySQL+`, COUNT(*) FROM videos`+inRange+` GROUP BY 1`, start, end)
+	countRows, err := s.db.QueryContext(ctx, `SELECT `+videoCategorySQL+`, COUNT(*) FROM videos`+inRange+` GROUP BY 1`, bounds...)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -321,6 +435,7 @@ func (s *Store) GetVideoArchive(ctx context.Context, from, to, category string, 
 	for i := range items {
 		items[i].IsUpcoming = videoUpcoming(items[i], now)
 		items[i].IsCancelled = cancelled[items[i].ID]
+		applyVideoView(&items[i], now)
 	}
 
 	if err = s.pinVideoThumbnails(ctx, items); err != nil {
@@ -336,6 +451,7 @@ func (s *Store) GetVideoArchive(ctx context.Context, from, to, category string, 
 	if err = s.attachVideoAlternates(ctx, refs...); err != nil {
 		return nil, err
 	}
+	// An open bound has no neighbor: julianday('') is NULL and matches nothing.
 	previous, next, err := s.adjacentDates(ctx, "videos", instant, " AND "+publicVideoScope+filter, filterArgs, start, end)
 	if err != nil {
 		return nil, err

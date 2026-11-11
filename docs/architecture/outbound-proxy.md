@@ -15,7 +15,8 @@ pool for one area:
 | `x`        | X profile, FxTwitter and vxtwitter reads, the X API (timed chain and manual fetches) |
 | `youtube`  | YouTube pages, feeds, the Data API, WebSub subscribe requests and yt-dlp reads       |
 | `bilibili` | The Bilibili API                                                                     |
-| `media`    | Post, video and profile media downloads and profile page reads                       |
+| `shop`     | The official shop's product and collection JSON                                      |
+| `media`    | Post, video and profile media downloads, profile page reads, niconico cover lookups  |
 | `llm`      | Model provider requests: extraction, translation, provider tests, model discovery    |
 
 The health check and the read-only flag mode make no source requests and are
@@ -117,10 +118,11 @@ pages belong to hosts the area already reads:
 | `x`        | `https://api.fxtwitter.com/`           |
 | `youtube`  | `https://www.youtube.com/generate_204` |
 | `bilibili` | `https://www.bilibili.com/`            |
+| `shop`     | `https://shop.milpr.com/robots.txt`    |
 | `media`    | `https://pbs.twimg.com/`               |
 
-Model providers have no fixed page; a provider test on `/admin` → LLM
-already goes through the `llm` route. A test is an operator action, bounded
+Model providers have no fixed page; a provider test on `/admin` →
+Detection already goes through the `llm` route. A test is an operator action, bounded
 at 10 seconds and 64 KiB of response, and its outcome updates the proxy's
 health.
 

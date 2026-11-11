@@ -1,0 +1,83 @@
+/* Outbound proxies: the ordered queue beside the areas that use it. */
+.adm-proxy-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.adm-queue-list.adm-proxy-list li {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding-left: 8px;
+  cursor: default;
+}
+
+.adm-proxy-list li.is-off .adm-route-model > strong,
+.adm-proxy-list li.is-off .adm-proxy-endpoint-text {
+  opacity: 0.6;
+}
+
+.adm-proxy-endpoint-text {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.adm-proxy-list .adm-row-actions {
+  flex-wrap: nowrap;
+}
+
+.adm-proxy-test-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.adm-proxy-areas {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-proxy-area {
+  display: grid;
+  gap: 10px;
+}
+
+.adm-proxy-area > .adm-field,
+.adm-proxy-area > .adm-inline-error {
+  margin-left: 46px;
+}
+
+@media (max-width: 1100px) {
+  .adm-proxy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .adm-queue-list.adm-proxy-list li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .adm-proxy-list .adm-row-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .adm-proxy-endpoint.adm-form-row.is-three {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+
+  .adm-proxy-endpoint.adm-form-row.is-three > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .adm-proxy-area > .adm-field,
+  .adm-proxy-area > .adm-inline-error {
+    margin-left: 0;
+  }
+}

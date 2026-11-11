@@ -1,6 +1,7 @@
-// Package history serves the operator's manual X and YouTube fetches. Each
-// fetch names one listing method (see Methods) and a selection the method can
-// serve: the newest records by count, the whole listing, or for the X API a
+// Package history serves the operator's manual X and YouTube fetches and
+// describes every source's fetch methods; the Bilibili and shop fetches run
+// in their source steps. Each fetch names one listing method (see Methods)
+// and a selection the method can serve: the newest records by count, the whole listing, or for the X API a
 // Japan date range or a backfill before the oldest stored post. Pages are
 // bounded, and every page commits together with its continuation checkpoint.
 package history
@@ -13,6 +14,7 @@ import (
 	"math"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -24,6 +26,9 @@ const (
 	ModeAll    = "all"
 	ModeRange  = "range"
 	ModeBefore = "before"
+	// ModeIncremental reads a related account's timeline down to its cursor,
+	// as the x_related timer does.
+	ModeIncremental = "incremental"
 	// MaxCount bounds a count selection per account.
 	MaxCount = 200
 
@@ -47,11 +52,14 @@ var ErrNoRecords = invalid("no stored records to backfill; select a date range f
 var ErrRetired = invalid("this fetch uses a retired selection; start a new fetch")
 
 // Window is an operator-selected fetch: the method, its mode and the mode's
-// count or dates. StartTime and EndTime are the resolved half-open bounds of
-// a date selection and stay empty until Resolve.
+// count or dates. Account narrows an X fetch to one of the own accounts and
+// names the related account of an x_related fetch. StartTime and EndTime are
+// the resolved half-open bounds of a date selection and stay empty until
+// Resolve.
 type Window struct {
 	Method    string `json:"method,omitempty"`
 	Mode      string `json:"mode"`
+	Account   string `json:"account,omitempty"`
 	Days      int    `json:"days,omitempty"`
 	Count     int    `json:"count,omitempty"`
 	StartDate string `json:"startDate,omitempty"`
@@ -64,8 +72,9 @@ type Window struct {
 }
 
 var (
-	datePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
-	japan       = time.FixedZone("JST", 9*3600)
+	datePattern    = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+	accountPattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
+	japan          = time.FixedZone("JST", 9*3600)
 )
 
 func japanMidnight(value string) (time.Time, error) {
@@ -83,7 +92,7 @@ func jsonNull(raw json.RawMessage) bool { return len(raw) == 0 || string(raw) ==
 
 // Select validates a fetch request: the source's method, then {mode},
 // {mode, count}, {mode, days} or {mode, startDate, endDate} as that method
-// serves it, and the refresh option.
+// serves it, an optional X account, and the refresh option.
 func Select(source, method string, raw json.RawMessage, refresh bool) (Window, error) {
 	described, ok := Lookup(source, method)
 	if !ok {
@@ -96,6 +105,9 @@ func Select(source, method string, raw json.RawMessage, refresh bool) (Window, e
 	var mode string
 	_ = json.Unmarshal(input["mode"], &mode)
 	window := Window{Method: method, Mode: mode, Refresh: refresh}
+	if !jsonNull(input["account"]) && json.Unmarshal(input["account"], &window.Account) != nil {
+		return Window{}, invalid("account must be an X handle")
+	}
 	switch mode {
 	case ModeCount:
 		var count float64
@@ -123,6 +135,8 @@ func countError(method Method) error {
 
 // Normalize drops resolved bounds and validates the selection against its
 // source's method. A selection without a known method and mode is ErrRetired.
+// An account is a handle without "@": optional for X, required for a related
+// account and refused elsewhere.
 func (w Window) Normalize(source string) (Window, error) {
 	method, ok := Lookup(source, w.Method)
 	if !ok || !method.serves(w.Mode) {
@@ -131,7 +145,15 @@ func (w Window) Normalize(source string) (Window, error) {
 	if w.Refresh && !method.Refresh {
 		return Window{}, invalid("refresh is not supported for this method")
 	}
-	out := Window{Method: w.Method, Mode: w.Mode, Refresh: w.Refresh}
+	out := Window{Method: w.Method, Mode: w.Mode, Refresh: w.Refresh, Account: strings.TrimPrefix(strings.TrimSpace(w.Account), "@")}
+	switch {
+	case out.Account == "" && source == SourceXRelated:
+		return Window{}, invalid("account is required")
+	case out.Account != "" && source != SourceX && source != SourceXRelated:
+		return Window{}, invalid("account is not supported for this source")
+	case out.Account != "" && !accountPattern.MatchString(out.Account):
+		return Window{}, invalid("account must be an X handle")
+	}
 	switch w.Mode {
 	case ModeCount:
 		if w.Count < 1 || w.Count > method.MaxCount {
@@ -211,6 +233,10 @@ func (w Window) checkpointKey(account string) string {
 	sum := sha256.Sum256([]byte(selection))
 	return account + ":" + hex.EncodeToString(sum[:])[:24]
 }
+
+// CheckpointKey is checkpointKey for fetches whose pages another package
+// commits, such as the Bilibili listings.
+func (w Window) CheckpointKey(account string) string { return w.checkpointKey(account) }
 
 func formatTime(value time.Time) string { return value.UTC().Format(isoLayout) }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"testing"
@@ -163,6 +164,26 @@ func TestTimelineAndDetailStoreTheSameValues(t *testing.T) {
 				t.Errorf("quote=%+v", fromDetail.Quote)
 			}
 		})
+	}
+}
+
+func TestNormalizeFallsBackFromCredentialBearingPostURLs(t *testing.T) {
+	fallback := "https://x.com/kano/status/1900000000000000001"
+	withUserInfo := (&url.URL{Scheme: "https", User: url.UserPassword("synthetic", "synthetic"), Host: "example.invalid", Path: "/status/1900000000000000001"}).String()
+	for _, raw := range []string{
+		withUserInfo,
+		"https://x.com/kano/status/1900000000000000001?access_token=synthetic",
+		"javascript:alert(1)",
+	} {
+		post := Normalize(map[string]any{
+			"id":         "1900000000000000001",
+			"text":       "synthetic",
+			"date_epoch": float64(1790000000),
+			"tweetURL":   raw,
+		}, "1900000000000000001", "kano")
+		if post == nil || post.URL != fallback {
+			t.Fatalf("Normalize(%q) URL=%v, want %q", raw, post, fallback)
+		}
 	}
 }
 

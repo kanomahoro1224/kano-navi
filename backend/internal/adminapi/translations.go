@@ -108,7 +108,7 @@ func (a *api) requestTranslations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for key := range body {
-		if key != "ownerType" && key != "ids" && key != "missing" {
+		if key != "ownerType" && key != "ids" && key != "missing" && key != "source" {
 			httpx.WriteError(w, httpx.Invalid("%s is not supported", key))
 			return
 		}
@@ -116,9 +116,14 @@ func (a *api) requestTranslations(w http.ResponseWriter, r *http.Request) {
 	var owner string
 	if raw, present := body["ownerType"]; present {
 		if json.Unmarshal(raw, &owner) != nil || sqlite.TranslationField(owner) == "" {
-			httpx.WriteError(w, httpx.Invalid("ownerType must be post or video"))
+			httpx.WriteError(w, httpx.Invalid("ownerType must be post, video, x_status or bilibili_status"))
 			return
 		}
+	}
+	var source string
+	if raw, present := body["source"]; present && json.Unmarshal(raw, &source) != nil {
+		httpx.WriteError(w, httpx.Invalid("source must be a string"))
+		return
 	}
 	var ids []string
 	var missing bool
@@ -133,8 +138,8 @@ func (a *api) requestTranslations(w http.ResponseWriter, r *http.Request) {
 	var queued int
 	switch {
 	case missing && len(ids) == 0:
-		queued, err = a.Store.RequestMissingTranslations(r.Context(), owner)
-	case !missing && len(ids) > 0 && owner != "":
+		queued, err = a.Store.RequestMissingTranslations(r.Context(), owner, source)
+	case !missing && len(ids) > 0 && owner != "" && source == "":
 		queued, err = a.Store.RequestTranslations(r.Context(), owner, ids)
 	default:
 		httpx.WriteError(w, httpx.Invalid("send missing: true, or ownerType with ids"))

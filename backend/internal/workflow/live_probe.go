@@ -9,8 +9,9 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
-// LiveProbe starts the YouTube live-status probe whenever an active video is
-// due by its phase (see sqlite.LiveProbeTargets). It runs in the API process
+// LiveProbe starts the live-status probe whenever an active YouTube video is
+// due by its phase (see sqlite.LiveProbeTargets) or the Bilibili room check is
+// due (see sqlite.BilibiliLivePlan). It runs in the API process
 // only and submits through the single-flight queue, so it never overlaps
 // another run. A busy queue, nothing due or a failed lookup simply waits for
 // the next tick.
@@ -20,9 +21,14 @@ type LiveProbe struct {
 	Submit func(context.Context) (bool, error)
 	// Enabled is false when timers or the YouTube source are disabled for the
 	// process (WORKFLOW_SCHEDULER_ENABLED=0, SKIP_YOUTUBE=1).
-	Enabled      bool
-	TickInterval time.Duration
-	Now          func() time.Time
+	Enabled bool
+	// SkipYoutube leaves the YouTube videos out (SKIP_YOUTUBE=1).
+	SkipYoutube bool
+	// BilibiliAccount is the account whose room is checked, or "" when the
+	// Bilibili source is disabled for the process (SKIP_BILIBILI=1).
+	BilibiliAccount string
+	TickInterval    time.Duration
+	Now             func() time.Time
 	// mu orders Start and Stop; running is what Status reads from request
 	// goroutines without waiting for a Stop.
 	mu      sync.Mutex
@@ -91,16 +97,25 @@ func (p *LiveProbe) Tick(ctx context.Context) (bool, error) {
 		now = p.Now()
 	}
 	settings, err := p.Store.LiveProbeSettings(ctx)
-	if err != nil || !settings.Enabled {
+	if err != nil {
 		return false, err
 	}
 	last, err := p.Store.LastLiveProbeAt(ctx)
 	if err != nil {
 		return false, err
 	}
-	targets, err := p.Store.LiveProbeTargets(ctx, now, settings)
-	if err != nil {
-		return false, err
+	targets := []sqlite.LiveProbeTarget{}
+	if settings.Enabled && !p.SkipYoutube {
+		if targets, err = p.Store.LiveProbeTargets(ctx, now, settings); err != nil {
+			return false, err
+		}
+	}
+	if settings.BilibiliEnabled && p.BilibiliAccount != "" {
+		plan, err := p.Store.BilibiliLivePlan(ctx, p.BilibiliAccount, now, settings)
+		if err != nil {
+			return false, err
+		}
+		targets = append(targets, sqlite.LiveProbeTarget{Phase: plan.Phase, DueAt: plan.DueAt})
 	}
 	if next := sqlite.NextLiveProbeAt(targets, last, now); next == nil || now.Before(*next) {
 		return false, nil

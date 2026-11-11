@@ -21,7 +21,8 @@ the latter requires an authenticated GitHub CLI.
 `make test-frontend` runs the frontend tests in `tests/`: the dashboard and
 admin request hooks, the month archive reads, polling, the pure view and
 filter helpers, `robots.txt`, the board's preload in `index.html` and its
-own copy, and the history catalog and packaging.
+own copy, the history catalog and packaging, and the works packaging and
+views.
 
 The Makefile is the canonical validation entry point. GitHub Actions invokes
 its targets so local and hosted checks protect the same contracts. Use
@@ -155,8 +156,10 @@ latest waiting order and drop edits made on top of a refused save.
 `tests/history-media.test.ts` checks
 the history catalog, the shipped image bytes and packaging validation.
 `tests/lineblog.test.ts` packages a synthetic LINE BLOG archive and checks the
-tracked article and media catalogs and the page's query views. No
-timing thresholds enter CI.
+tracked article and media catalogs and the page's query views.
+`tests/works.test.ts` packages a synthetic works collection and checks its
+tables, code mappings, wording rules, cover validation and the page's sort,
+search and link helpers. No timing thresholds enter CI.
 
 To review the real hooks and responsive UI against a backend, start an
 isolated instance: run `kano-go serve` from a temporary directory with

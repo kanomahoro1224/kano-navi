@@ -7,13 +7,21 @@ import type {
 } from "@/types"
 import {
   ArrowUpRight,
+  ChevronUp,
   Clock3,
   History,
   ImageOff,
   Play,
   Radio,
 } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 
 import { EmptyNote, Placeholder, SectionTitle } from "@/site/site-shell"
 import {
@@ -27,6 +35,7 @@ import {
   formatDuration,
   formatJapanDay,
   formatJapanTime,
+  formatMonth,
   formatRelative,
   formatStamp,
   japanDateParts,
@@ -40,6 +49,7 @@ import {
   videoIsStream,
   videoLinks,
   videoMatchesFilter,
+  videoMonthKey,
   videoPhase,
   videoPlatforms,
   VIDEO_CATEGORIES,
@@ -97,7 +107,10 @@ function Thumb({
           <span>{t("media.unavailable")}</span>
         </span>
       )}
-      <PlatformBadge platforms={videoPlatforms(video, links)} />
+      <PlatformBadge
+        platforms={videoPlatforms(video, links)}
+        members={video.availability === "members"}
+      />
       {badge ? (
         <span className="video-thumb-badge" aria-hidden="true">
           {badge === "upcoming" ? <Clock3 /> : <Play fill="currentColor" />}
@@ -176,7 +189,21 @@ function PhaseTag({
     return <span className="tag tone-danger">{t("videos.cancelled")}</span>
   if (phase === "upcoming")
     return <span className="tag tone-sky">{t("videos.reserved")}</span>
-  return <span className="tag">{videoFormLabel(video, t, now)}</span>
+  return <FormChip video={video} now={now} t={t} />
+}
+
+/** A video's form chip, or nothing for a form without one (a premiere). */
+function FormChip({
+  video,
+  now,
+  t,
+}: {
+  video: Video
+  now: number
+  t: Translator
+}) {
+  const label = videoFormLabel(video, t, now)
+  return label ? <span className="tag">{label}</span> : null
 }
 
 function Subhead({ children, count }: { children: ReactNode; count?: number }) {
@@ -237,7 +264,7 @@ function LeadCard({
             {isFeatured ? t("videos.featured") : t("videos.latestWork")}
           </span>
           {phase === "past" ? (
-            <span className="tag">{videoFormLabel(video, t, now)}</span>
+            <FormChip video={video} now={now} t={t} />
           ) : (
             <PhaseTag phase={phase} video={video} now={now} t={t} />
           )}
@@ -313,7 +340,7 @@ function VideoTicket({
           <span className="video-meta">
             <PhaseTag phase={phase} video={video} now={now} t={t} />
             {videoIsStream(video) ? null : (
-              <span className="tag">{videoFormLabel(video, t, now)}</span>
+              <FormChip video={video} now={now} t={t} />
             )}
             <VideoTagChip video={video} t={t} />
             <VideoAvailabilityChip video={video} t={t} />
@@ -331,6 +358,7 @@ function VideoTicket({
             className="video-ticket-title"
             title={title}
             translations={video.translations}
+            sourceLanguage={video.sourceLanguage}
             href={links[0]?.url}
             t={t}
           />
@@ -370,15 +398,14 @@ function VideoCard({
           className="video-card-title"
           title={title}
           translations={video.translations}
+          sourceLanguage={video.sourceLanguage}
           href={links[0]?.url}
           t={t}
         />
       </div>
       <p className="video-meta">
         <JapanDate video={video} locale={locale} t={t} />
-        {showKind ? (
-          <span className="tag">{videoFormLabel(video, t, now)}</span>
-        ) : null}
+        {showKind ? <FormChip video={video} now={now} t={t} /> : null}
         <VideoTagChip video={video} t={t} />
         <VideoAvailabilityChip video={video} t={t} />
         <LengthNote video={video} t={t} />
@@ -405,12 +432,13 @@ function VideoWhen({
 }) {
   const time = videoTime(video)
   if (!time) return null
+  const phase = videoPhase(video, now)
   return (
     <time
       dateTime={time}
       title={`${formatStamp(time)} ${t("common.timezoneShort")}`}
     >
-      {video.isUpcoming || absoluteTime
+      {phase === "upcoming" || absoluteTime
         ? `${formatJapanDay(time, locale)} ${formatJapanTime(time)} ${t("common.timezoneShort")}`
         : formatRelative(time, locale, now)}
     </time>
@@ -433,16 +461,19 @@ function VideoRow({
   t: Translator
 }) {
   const title = cleanVideoTitle(video.title)
+  const phase = videoPhase(video, now)
   const links = videoLinks(video, locale, now)
   return (
     <li>
       <div
-        className={`video-row link-card${video.isUpcoming ? " is-upcoming" : ""}`}
+        className={`video-row link-card${phase === "upcoming" ? " is-upcoming" : ""}`}
         onClick={followCardLink}
       >
         <Thumb
           url={video.thumbnailUrl}
-          badge={video.isUpcoming ? "upcoming" : links.length ? "play" : null}
+          badge={
+            phase === "upcoming" ? "upcoming" : links.length ? "play" : null
+          }
           seconds={video.durationSeconds}
           video={video}
           links={links}
@@ -450,11 +481,11 @@ function VideoRow({
         />
         <span className="video-row-copy">
           <span className="video-meta">
-            <span className={`tag${video.isUpcoming ? " tone-berry" : ""}`}>
-              {video.isUpcoming
-                ? t("videos.reserved")
-                : videoFormLabel(video, t, now)}
-            </span>
+            {phase === "upcoming" ? (
+              <span className="tag tone-berry">{t("videos.reserved")}</span>
+            ) : (
+              <FormChip video={video} now={now} t={t} />
+            )}
             <VideoTagChip video={video} t={t} />
             <VideoAvailabilityChip video={video} t={t} />
             <VideoWhen
@@ -473,6 +504,7 @@ function VideoRow({
             className="video-row-title"
             title={title}
             translations={video.translations}
+            sourceLanguage={video.sourceLanguage}
             href={links[0]?.url}
             t={t}
           />
@@ -560,6 +592,7 @@ const FILTERED_ITEMS = 12
 export function VideoShelf({
   videos,
   featuredVideoId,
+  projection,
   focus,
   isLoading,
   onOpenArchive,
@@ -569,6 +602,7 @@ export function VideoShelf({
 }: {
   videos: Video[]
   featuredVideoId: string | null
+  projection?: Dashboard["projection"]
   focus: Dashboard["focus"]
   isLoading: boolean
   onOpenArchive: () => void
@@ -602,7 +636,7 @@ export function VideoShelf({
   if (isLoading) body = <Placeholder lines={4} />
   else if (!videos.length) body = <EmptyNote title={t("videos.empty")} />
   else if (active === "all") {
-    const groups = groupVideos(videos, featuredVideoId, now)
+    const groups = groupVideos(videos, featuredVideoId, now, projection)
     const reservations = groups.reservations.slice(0, SIDE_RESERVATIONS)
     const sideWorks = groups.works.slice(0, SIDE_WORKS)
     const archives = groups.archives.slice(0, ALL_ARCHIVES)
@@ -694,6 +728,7 @@ export function VideoShelf({
     const split = splitVideos(
       videos.filter((video) => videoMatchesFilter(video, active)),
       now,
+      projection,
     )
     const view = {
       streams: {
@@ -803,8 +838,12 @@ export function VideoShelf({
   )
 }
 
-/** An archive card: the cover above the title, then the Japan time and kind. */
-function ArchiveCard({
+/**
+ * An archive card: the cover above the title, then the Japan time and kind.
+ * Memoized, so the timeline's scrolled-to month can change without rendering
+ * every loaded card again.
+ */
+const ArchiveCard = memo(function ArchiveCard({
   video,
   locale,
   now,
@@ -834,6 +873,7 @@ function ArchiveCard({
           className="archive-card-title"
           title={title}
           translations={video.translations}
+          sourceLanguage={video.sourceLanguage}
           href={links[0]?.url}
           t={t}
         />
@@ -858,7 +898,7 @@ function ArchiveCard({
       </p>
     </li>
   )
-}
+})
 
 /** The video archive's category filter, with each category's monthly total. */
 export function VideoArchiveFilter({
@@ -907,14 +947,26 @@ export function VideoArchiveFilter({
   )
 }
 
-/** The video archive dialog's body: one month of stored videos, newest first. */
-export function VideoArchive({
+/** How far below the body's top edge a month header still counts as shown. */
+const VISIBLE_MONTH_OFFSET = 64
+
+/**
+ * The video archive dialog's body: every stored video, newest first, under a
+ * header per Japan month. The next page loads as the end scrolls near, the
+ * month in view is reported as the body scrolls, and `jump` scrolls a loaded
+ * month to the top. A timeline that starts from an earlier month offers the
+ * newer videos above it.
+ */
+export function VideoTimeline({
   archive,
   isLoading,
   error,
   onRetry,
   onLoadMore,
-  onJump,
+  monthCounts,
+  jump,
+  onVisibleMonth,
+  onNewer,
   locale,
   now,
   t,
@@ -924,46 +976,144 @@ export function VideoArchive({
   error: Error | null
   onRetry: () => unknown
   onLoadMore: () => unknown
-  onJump: (month: Date) => void
+  /** Videos per `YYYY-MM` in the chosen category; null while unknown. */
+  monthCounts: ReadonlyMap<string, number> | null
+  /** A loaded month to scroll to; a new nonce scrolls again. */
+  jump: { month: string; nonce: number } | null
+  onVisibleMonth: (month: string) => void
+  onNewer: () => void
   locale: Locale
   now: number
   t: Translator
 }) {
+  const listRef = useRef<HTMLDivElement>(null)
+  const items = archive?.items
+  const groups = useMemo(() => {
+    const months: { month: string; videos: Video[] }[] = []
+    for (const video of items || []) {
+      const month = videoMonthKey(video)
+      const last = months[months.length - 1]
+      if (last?.month === month) last.videos.push(video)
+      else months.push({ month, videos: [video] })
+    }
+    return months
+  }, [items])
+  const monthList = groups.map((group) => group.month).join(",")
+
+  const reportRef = useRef(onVisibleMonth)
+  reportRef.current = onVisibleMonth
+  const shownRef = useRef<string | null>(null)
+  // The month in view is the last one whose header has reached the top.
+  useEffect(() => {
+    const body = listRef.current?.closest<HTMLElement>(".archive-dialog-body")
+    if (!body || !monthList) return undefined
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const top = body.getBoundingClientRect().top + VISIBLE_MONTH_OFFSET
+      let shown: string | undefined
+      for (const section of body.querySelectorAll<HTMLElement>(
+        "[data-month]",
+      )) {
+        if (shown && section.getBoundingClientRect().top > top) break
+        shown = section.dataset.month
+      }
+      if (shown && shown !== shownRef.current) {
+        shownRef.current = shown
+        reportRef.current(shown)
+      }
+    }
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(measure)
+    }
+    measure()
+    body.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      body.removeEventListener("scroll", onScroll)
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [monthList])
+
+  useEffect(() => {
+    if (!jump) return
+    const body = listRef.current?.closest<HTMLElement>(".archive-dialog-body")
+    const section = body?.querySelector<HTMLElement>(
+      `[data-month="${jump.month}"]`,
+    )
+    if (!body || !section) return
+    if (section === body.querySelector("[data-month]"))
+      body.scrollTo?.({ top: 0 })
+    else section.scrollIntoView?.({ block: "start" })
+  }, [jump])
+
+  const total = archive?.total ?? 0
   return (
-    <>
+    <div className="video-timeline" ref={listRef}>
       <ArchiveState
         error={error}
         onRetry={onRetry}
         loading={!archive && isLoading}
         empty={Boolean(archive && !archive.items.length)}
         emptyTitle={t("videos.archiveEmpty")}
-        adjacent={archive?.adjacent}
-        onJump={onJump}
+        onJump={onNewer}
         locale={locale}
         t={t}
       />
+      {archive?.adjacent.next ? (
+        <div className="archive-more is-newer">
+          <button type="button" className="pill-button" onClick={onNewer}>
+            <ChevronUp aria-hidden="true" />
+            {t("videos.newer")}
+          </button>
+        </div>
+      ) : null}
+      {groups.map(({ month, videos }) => {
+        const [year, monthNumber] = month.split("-").map(Number)
+        const count = monthCounts?.get(month) ?? videos.length
+        return (
+          <section
+            key={month}
+            className="video-month"
+            data-month={month}
+            aria-labelledby={`video-month-${month}`}
+          >
+            <h3 className="video-month-head" id={`video-month-${month}`}>
+              <span>
+                {month
+                  ? formatMonth(new Date(year, monthNumber - 1, 1), locale)
+                  : t("videos.archiveTitle")}
+              </span>
+              <small>{t("videos.monthCount", { count })}</small>
+            </h3>
+            <ol className="archive-videos">
+              {videos.map((video) => (
+                <ArchiveCard
+                  key={video.id}
+                  video={video}
+                  locale={locale}
+                  now={now}
+                  t={t}
+                />
+              ))}
+            </ol>
+          </section>
+        )
+      })}
       {archive?.items.length ? (
-        <ol className="archive-videos">
-          {archive.items.map((video) => (
-            <ArchiveCard
-              key={video.id}
-              video={video}
-              locale={locale}
-              now={now}
-              t={t}
-            />
-          ))}
-        </ol>
+        <p className="video-timeline-status" aria-live="polite">
+          {t("videos.shown", { shown: archive.items.length, total })}
+        </p>
       ) : null}
       {archive ? (
         <ArchiveMore
           hasNext={archive.hasNext}
           isLoading={isLoading}
-          label={t("videos.moreInMonth")}
+          label={t("videos.loadMore")}
           onLoadMore={onLoadMore}
+          auto={{ failed: Boolean(error), loaded: archive.items.length }}
           t={t}
         />
       ) : null}
-    </>
+    </div>
   )
 }

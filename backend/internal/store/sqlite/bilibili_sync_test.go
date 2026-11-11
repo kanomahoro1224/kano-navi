@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -107,36 +108,79 @@ func TestBilibiliReadsStoreUploadsHistoryAndBackoffState(t *testing.T) {
 	}
 }
 
-func TestPublicReadersListBilibiliUploadsWithoutACopy(t *testing.T) {
+// Public readers list a Bilibili upload once its form is settled and while
+// it is not merged; the list read writes a new row unsettled and keeps a
+// stored form.
+func TestPublicReadersListSettledUnmergedBilibiliUploads(t *testing.T) {
 	_, path := snapshotUnderRoot(t)
 	s, err := OpenWorkflowCore(path, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
+	exec := func(statement string) {
+		t.Helper()
+		if _, e := s.DB().Exec(statement); e != nil {
+			t.Fatal(e)
+		}
+	}
 	if err = s.WriteYoutubeRecent(ctx, historyChannel, ytsource.Result{Videos: []ytsource.Video{checkedVideo("AAAAAAAAAAA", "奏 cover", "")}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.WriteBilibiliRecent(ctx, biliAccount, bilisource.Result{Videos: []bilisource.Video{biliVideo("鹿乃 翻唱《奏》", "")}}); err != nil {
+	upload := biliVideo("鹿乃 翻唱《奏》", "")
+	upload.Kind = bilisource.KindUpload
+	if _, err = s.WriteBilibiliRecent(ctx, biliAccount, bilisource.Result{Videos: []bilisource.Video{upload}}); err != nil {
 		t.Fatal(err)
 	}
-	// The upload has no YouTube copy of the same work, so readers get it on its
-	// own cover; merging it would hide it behind that copy instead.
+	if got := scalar(t, s, `SELECT kind||'|'||COALESCE(kind_source,'') FROM videos WHERE id='BV1AAAAAAAAA'`); got != "upload|" {
+		t.Fatalf("new row=%q", got)
+	}
+	exec(`INSERT INTO app_settings(key,value,updated_at) VALUES('featured_video_id','BV1AAAAAAAAA','2026-01-02T00:00:00Z')`)
 	now := time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC)
-	board, err := s.GetDashboard(ctx, 3, now)
-	if err != nil || len(board.Videos) != 2 {
-		t.Fatalf("board videos=%#v err=%v", board.Videos, err)
+	ids := func() (board, archive []string, featured string) {
+		t.Helper()
+		dashboard, err := s.GetDashboard(ctx, 3, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, v := range dashboard.Videos {
+			board = append(board, v.ID+"/"+strings.Join(alternateSources(v), "+"))
+		}
+		if dashboard.Meta.FeaturedVideoID != nil {
+			featured = *dashboard.Meta.FeaturedVideoID
+		}
+		page, err := s.GetVideoArchive(ctx, "2026-01-01", "2026-01-31", "", 1, 20, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, v := range page.Items {
+			archive = append(archive, v.ID)
+		}
+		return board, archive, featured
 	}
-	listed := map[string]bool{}
-	for _, video := range board.Videos {
-		listed[video.ID] = true
+	// Unsettled: the board, the archive and featuring leave it out.
+	if board, archive, featured := ids(); strings.Join(board, ",") != "AAAAAAAAAAA/" || strings.Join(archive, ",") != "AAAAAAAAAAA" || featured != "" {
+		t.Fatalf("unsettled board=%v archive=%v featured=%q", board, archive, featured)
 	}
-	if !listed["AAAAAAAAAAA"] || !listed["BV1AAAAAAAAA"] {
-		t.Fatalf("board ids=%v", listed)
+	// Settled as a live replay: listed on its own, with no alternates, and
+	// a later list read keeps the form.
+	exec(`UPDATE videos SET kind='stream',kind_source='rule' WHERE id='BV1AAAAAAAAA'`)
+	if _, err = s.WriteBilibiliRecent(ctx, biliAccount, bilisource.Result{Videos: []bilisource.Video{upload}}); err != nil {
+		t.Fatal(err)
 	}
-	archive, err := s.GetVideoArchive(ctx, "2026-01-01", "2026-01-31", "", 1, 20, now)
-	if err != nil || archive.Total != 2 {
-		t.Fatalf("archive=%#v err=%v", archive, err)
+	if got := scalar(t, s, `SELECT kind||'|'||kind_source FROM videos WHERE id='BV1AAAAAAAAA'`); got != "stream|rule" {
+		t.Fatalf("reread form=%q", got)
+	}
+	if board, archive, featured := ids(); len(board) != 2 || !slices.Contains(board, "BV1AAAAAAAAA/") || len(archive) != 2 || featured != "BV1AAAAAAAAA" {
+		t.Fatalf("settled board=%v archive=%v featured=%q", board, archive, featured)
+	}
+	if single, err := s.getVideo(ctx, "BV1AAAAAAAAA", now); err != nil || single == nil || single.Source != "bilibili" || *single.Kind != "stream" {
+		t.Fatalf("single=%#v err=%v", single, err)
+	}
+	// Merged: it is its video's alternate only.
+	exec(`UPDATE videos SET merged_into='AAAAAAAAAAA',merge_source='rule' WHERE id='BV1AAAAAAAAA'`)
+	if board, archive, _ := ids(); strings.Join(board, ",") != "AAAAAAAAAAA/bilibili" || strings.Join(archive, ",") != "AAAAAAAAAAA" {
+		t.Fatalf("merged board=%v archive=%v", board, archive)
 	}
 	s.Close()
 	admin, err := OpenReadOnly(path)
@@ -206,4 +250,23 @@ func TestBilibiliWriteKeepsAConcurrentCaptchaBlock(t *testing.T) {
 	if read, err = s.BilibiliState(ctx, biliAccount); err != nil || !read.BlockedUntil.IsZero() || read.Failures != 0 || read.LastError != "" {
 		t.Fatalf("cleared=%#v err=%v", read, err)
 	}
+}
+
+// scalar reads one text value from the store.
+func scalar(t *testing.T, s *Store, query string) string {
+	t.Helper()
+	var value string
+	if err := s.DB().QueryRow(query).Scan(&value); err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+// alternateSources lists the platforms of a video's merged copies.
+func alternateSources(v Video) []string {
+	out := []string{}
+	for _, alternate := range v.Alternates {
+		out = append(out, alternate.Source)
+	}
+	return out
 }

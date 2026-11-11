@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   CalendarClock,
+  CalendarSearch,
   CheckCircle2,
   CircleSlash,
   Combine,
@@ -8,6 +9,7 @@ import {
   ImageOff,
   Languages,
   ListEnd,
+  ListOrdered,
   Play,
   RefreshCw,
   Sparkles,
@@ -41,7 +43,7 @@ function SourceRow({
   id,
   health,
 }: {
-  id: "x" | "youtube" | "bilibili"
+  id: ScheduleSource
   health: SourceHealth
 }) {
   const { t, locale } = useAppSettings()
@@ -241,27 +243,46 @@ export function OverviewView({ navigate }: ViewProps) {
 
   const { review, counts, activeRun, scheduler } = overview
   const queue = overview.queue || []
+  // Each item opens its Review queue tab; the schedule's three share one.
   const attention = [
     {
       key: "images",
+      tab: "schedule",
       count: review.pendingImages,
       icon: ImageOff,
       tone: "honey",
     },
     {
       key: "cancellations",
+      tab: "schedule",
       count: review.suspectedCancellations,
       icon: CalendarClock,
       tone: "berry",
     },
     {
+      key: "uncertain",
+      tab: "schedule",
+      count: review.uncertainEvents,
+      icon: CalendarSearch,
+      tone: "sky",
+    },
+    {
       key: "merges",
+      tab: "merges",
       count: review.videoMerges,
       icon: Combine,
       tone: "lavender",
     },
     {
+      key: "forms",
+      tab: "forms",
+      count: review.bilibiliForms,
+      icon: Combine,
+      tone: "honey",
+    },
+    {
       key: "posts",
+      tab: "posts",
       count: review.failedPosts,
       icon: FileWarning,
       tone: "danger",
@@ -303,7 +324,7 @@ export function OverviewView({ navigate }: ViewProps) {
                   key={item.key}
                   type="button"
                   className={`adm-attention-item adm-tone-${item.tone}`}
-                  onClick={() => navigate("review", item.key)}
+                  onClick={() => navigate("review", item.tab)}
                 >
                   <Icon aria-hidden />
                   <span>
@@ -384,14 +405,24 @@ export function OverviewView({ navigate }: ViewProps) {
             {overview.backlog ? (
               <BacklogList backlog={overview.backlog} navigate={navigate} />
             ) : null}
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={CalendarClock}
-              onClick={() => navigate("sources")}
-            >
-              {t("admin.overview.openTimers")}
-            </Button>
+            <div className="adm-now-links">
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={CalendarClock}
+                onClick={() => navigate("sources")}
+              >
+                {t("admin.overview.openTimers")}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={ListOrdered}
+                onClick={() => navigate("queue")}
+              >
+                {t("admin.overview.openQueue")}
+              </Button>
+            </div>
           </div>
         </Panel>
 
@@ -409,8 +440,20 @@ export function OverviewView({ navigate }: ViewProps) {
         >
           <ul className="adm-source-list">
             <SourceRow id="x" health={overview.sources.x} />
+            {overview.sources.x_related ? (
+              <SourceRow id="x_related" health={overview.sources.x_related} />
+            ) : null}
             <SourceRow id="youtube" health={overview.sources.youtube} />
             <SourceRow id="bilibili" health={overview.sources.bilibili} />
+            {overview.sources.bilibili_dynamics ? (
+              <SourceRow
+                id="bilibili_dynamics"
+                health={overview.sources.bilibili_dynamics}
+              />
+            ) : null}
+            {overview.sources.shop ? (
+              <SourceRow id="shop" health={overview.sources.shop} />
+            ) : null}
           </ul>
         </Panel>
       </div>

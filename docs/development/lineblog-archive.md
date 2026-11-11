@@ -54,6 +54,12 @@ gets its media.
   content-hashed chunk, so a view loads only the articles it shows, and the
   server caches them as immutable build files. A comments file that fails to
   load shows the article without comments.
+- `src/lineblog/lineblog-app.tsx` renders the page and remembers the
+  reader's translation and design. `navigation.ts` handles in-page addresses
+  and the phone layout switch, `translation.tsx` the translated lines,
+  `article.tsx` an article's blocks, `comments.tsx` the comments, `menus.tsx`
+  the menu bar's pickers, and `desktop.tsx` and `smartphone.tsx` the two
+  layouts.
 - The blog's own header art and profile photos, and the menu bar's Home icon,
   are archive media like the articles' pictures: nine JPEGs and one PNG in the
   recovery archive's `media/`, packaged into `data/lineblog/` and the media
@@ -149,11 +155,10 @@ and it holds nothing else; the file-hash records the command writes under
 `-data` name the workstation's paths and stay there. Rebuild it whenever the
 archive images change, in a checkout whose `data/lineblog/` holds the
 packaged media, into an empty `lineblog-variants/` so that copies of images
-the archive no longer holds are left out. An empty `-static` leaves out the
-history images:
+the archive no longer holds are left out:
 
 ```bash
-npm run variants -- -static= -out lineblog-variants/data
+npm run variants -- -out lineblog-variants/data
 ```
 
 The command prints `0 failed, 0 remaining` for `lineblog` when every image is

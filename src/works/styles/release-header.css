@@ -1,0 +1,437 @@
+/*
+ * The sheet keeps one size for every release and edition, so switching
+ * editions or opening a single beside a long album never resizes it.
+ */
+.works-sheet {
+  width: min(960px, calc(100vw - 24px));
+  height: min(860px, calc(100dvh - 24px));
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: hsl(var(--background));
+  color: var(--ink);
+  box-shadow: 0 40px 80px -30px rgb(20 20 19 / 0.5);
+  overscroll-behavior: contain;
+}
+
+.works-sheet::backdrop {
+  background: rgb(20 20 19 / 0.55);
+  backdrop-filter: blur(6px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .works-sheet[open] {
+    animation: works-sheet-in 450ms var(--works-ease);
+  }
+}
+
+@keyframes works-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+}
+
+body.has-works-sheet {
+  overflow: hidden;
+}
+
+/* The sheet's scrolling panes keep a thin scrollbar that shows while the
+   pointer is over the pane. */
+.works-sheet,
+.release-head-inner,
+.release-body,
+.release-tracks,
+.release-aside {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+.works-sheet:hover,
+.release-head-inner:hover,
+.release-body:hover,
+.release-tracks:hover,
+.release-aside:hover {
+  scrollbar-color: color-mix(in oklab, var(--ink) 24%, transparent) transparent;
+}
+
+@media (hover: none) {
+  .works-sheet,
+  .release-head-inner,
+  .release-body,
+  .release-tracks,
+  .release-aside {
+    scrollbar-color: auto;
+  }
+}
+
+/* The close button rides over the header without taking room. */
+.works-sheet-close {
+  position: sticky;
+  z-index: 3;
+  top: 14px;
+  display: grid;
+  margin: 14px 14px -58px auto;
+}
+
+.release-sheet {
+  display: block;
+}
+
+/* Header: the cover in its sleeve over a wash of its own colours. */
+.release-head {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--rule);
+  isolation: isolate;
+}
+
+.release-head-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  align-items: end;
+  gap: 28px 56px;
+  padding: 64px 48px 40px;
+}
+
+.release-head-backdrop {
+  position: absolute;
+  z-index: -2;
+  inset: -25%;
+  opacity: 0.55;
+  filter: blur(64px) saturate(1.4);
+}
+
+.release-head-backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.release-head::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, hsl(var(--background)) 35%, transparent),
+    hsl(var(--background)) 92%
+  );
+  content: "";
+}
+
+/* The sleeve holds its place while the pickers under it come and go. */
+.release-head-art {
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.release-head-art > .works-sleeve,
+.release-head-cover {
+  display: block;
+  width: 78%;
+  color: inherit;
+}
+
+.works-sleeve.is-sheet .works-record {
+  transform: translateX(26%);
+}
+
+.release-head-cover:hover .works-record,
+.release-head-cover:focus-visible .works-record {
+  transform: translateX(36%);
+}
+
+.works-sleeve.is-sheet .works-cover {
+  box-shadow:
+    0 1px 2px rgb(20 20 19 / 0.1),
+    0 30px 50px -24px rgb(20 20 19 / 0.6);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .works-sleeve.is-sheet .works-record-label,
+  .works-sleeve.is-sheet .works-record-disc {
+    animation-duration: 9s;
+    animation-play-state: running;
+  }
+}
+
+.release-head-copy {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+
+.release-head-copy .works-eyebrow {
+  padding-right: 48px;
+}
+
+.release-head-copy h2 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(36px, 5vw, 62px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+}
+
+.release-sheet-unit {
+  margin: -4px 0 0;
+  color: var(--soft);
+  font-size: 15px;
+}
+
+.release-head-label {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13.5px;
+}
+
+/* The figures keep to one row; a long label wraps under its number. */
+.release-head-figures {
+  display: flex;
+  align-items: start;
+  gap: 22px;
+  margin: 6px 0 2px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.release-head-figures > span {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.release-head-figures > span:last-child {
+  max-width: 11em;
+}
+
+.release-head-figures strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.release-sheet-caption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+.release-sheet-caption > span {
+  color: var(--ink);
+}
+
+.release-sheet-editions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.release-sheet-editions button {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 4px;
+  background: var(--sunken);
+  opacity: 0.55;
+  outline: 1px solid transparent;
+  outline-offset: 2px;
+  transition:
+    opacity 200ms ease,
+    outline-color 200ms ease;
+}
+
+.release-sheet-editions button:hover,
+.release-sheet-editions button[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.release-sheet-editions button[aria-pressed="true"] {
+  outline-color: var(--ink);
+}
+
+.release-sheet-editions img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The discs that can turn in the header, as small round photos. */
+.release-sheet-discs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.release-sheet-discs button {
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--sunken);
+  opacity: 0.55;
+  outline: 1px solid transparent;
+  outline-offset: 2px;
+  transition:
+    opacity 200ms ease,
+    outline-color 200ms ease;
+}
+
+.release-sheet-discs button:hover,
+.release-sheet-discs button[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.release-sheet-discs button[aria-pressed="true"] {
+  outline-color: var(--ink);
+}
+
+.release-sheet-discs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.release-sheet-discs .works-missing {
+  display: none;
+}
+
+/* A record being changed slides back into its sleeve first. */
+.works-sleeve.is-sheet.is-swapping .works-record {
+  transform: translateX(0);
+  transition-duration: 260ms;
+}
+
+/*
+ * A picker only some editions have folds to nothing, gap included, for the
+ * others. Its padding keeps the chosen button's outline clear of the clip.
+ */
+.release-sheet-slot {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: -14px;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.release-sheet-slot.is-open {
+  grid-template-rows: 1fr;
+  margin-top: 0;
+  opacity: 1;
+  visibility: visible;
+}
+
+.release-sheet-slot > div {
+  min-height: 0;
+  overflow: hidden;
+  margin: -4px;
+  padding: 4px;
+}
+
+/*
+ * A cover being changed stays until the next has loaded, which fades in over
+ * it. A cover taking a moment to load shows a sheen sweeping the skeleton, or
+ * the cover before it; a quick load shows none.
+ */
+.works-fade {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+}
+
+.works-fade > span {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-area: 1 / 1;
+  opacity: 0;
+}
+
+.works-fade > span.is-ready {
+  opacity: 1;
+}
+
+.works-fade.is-pending::after {
+  z-index: 1;
+  grid-area: 1 / 1;
+  background: linear-gradient(
+      100deg,
+      transparent 35%,
+      rgb(255 255 255 / 0.16) 50%,
+      transparent 65%
+    )
+    0 0 / 250% 100%;
+  content: "";
+  opacity: 0;
+}
+
+/*
+ * Changing the edition: the pickers fold, the covers fade, and the tracklist
+ * and facts fade in place.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .release-sheet-slot {
+    transition:
+      grid-template-rows 300ms var(--works-ease),
+      margin-top 300ms var(--works-ease),
+      opacity 220ms ease,
+      visibility 300ms;
+  }
+
+  .works-fade > span {
+    transition: opacity 320ms ease;
+  }
+
+  .works-fade.is-pending::after {
+    animation: works-sheen 1300ms 150ms ease-in-out infinite;
+  }
+
+  .release-sheet-caption,
+  .release-body {
+    animation: works-swap-in 220ms ease both;
+  }
+}
+
+@keyframes works-sheen {
+  from {
+    background-position: 100% 0;
+    opacity: 1;
+  }
+
+  to {
+    background-position: -50% 0;
+    opacity: 1;
+  }
+}
+
+@keyframes works-swap-in {
+  from {
+    opacity: 0.35;
+  }
+}

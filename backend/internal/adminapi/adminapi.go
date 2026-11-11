@@ -24,6 +24,7 @@ import (
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/variants"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 // RunManager is the durable single-flight queue as the console sees it.
@@ -76,6 +77,14 @@ type Options struct {
 	// Variants locates the originals whose smaller copies the Site page
 	// reports; nil answers that route with 503 unavailable.
 	Variants *variants.Roots
+	// Works is the packaged upload list whose covers the Site page
+	// reports; nil answers that route with 503 unavailable.
+	Works *works.Index
+	// Queues are the steps' queue previews; Youtube names the channel and
+	// key the YouTube step reads with. Nil parts answer their routes with
+	// 503 unavailable.
+	Queues  QueuePreviews
+	Youtube *ytsource.Adapter
 	// Now is the clock for Japan-date aggregates; nil uses time.Now.
 	Now func() time.Time
 	// Push reports and tests Huawei Push Kit delivery; nil leaves the push
@@ -106,6 +115,12 @@ func New(options Options) http.Handler {
 	if a.Now == nil {
 		a.Now = time.Now
 	}
+	if a.Auth == nil {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Cache-Control", "no-store, no-transform")
+			httpx.WriteCode(w, http.StatusServiceUnavailable, "admin_unavailable")
+		})
+	}
 	groups := [][]httpx.Route{a.routes()}
 	for _, module := range a.Modules {
 		if module != nil {
@@ -118,7 +133,7 @@ func New(options Options) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store, no-transform")
 		switch {
-		case a.Auth == nil || a.Store == nil:
+		case a.Store == nil:
 			httpx.WriteCode(w, http.StatusServiceUnavailable, "admin_unavailable")
 		case r.URL.Path == httpx.AdminPrefix+"/session":
 			session.ServeHTTP(w, r)
@@ -138,6 +153,7 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/settings/visitor-region", Handler: a.visitorRegionSettings},
 		{Method: http.MethodPut, Path: "/settings/visitor-region", Handler: a.updateVisitorRegionSettings},
 		{Method: http.MethodGet, Path: "/media/variants", Handler: a.variantStatus},
+		{Method: http.MethodGet, Path: "/media/works-covers", Handler: a.worksCovers},
 
 		{Method: http.MethodGet, Path: "/runs", Handler: a.needRuns(a.listRuns)},
 		{Method: http.MethodPost, Path: "/runs", Handler: a.needRuns(a.startRun)},
@@ -147,6 +163,11 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/runs/{id}", Handler: a.needRuns(a.getRun)},
 		{Method: http.MethodPost, Path: "/runs/{id}/cancel", Handler: a.needRuns(a.cancelRun)},
 		{Method: http.MethodPost, Path: "/runs/{id}/retry", Handler: a.needRuns(a.retryRun)},
+
+		{Method: http.MethodGet, Path: "/queue/schedule", Handler: a.scheduleQueue},
+		{Method: http.MethodGet, Path: "/queue/youtube", Handler: a.youtubeQueue},
+		{Method: http.MethodGet, Path: "/queue/translate", Handler: a.translationQueue},
+		{Method: http.MethodGet, Path: "/queue/x-refresh", Handler: a.xRefreshQueue},
 
 		{Method: http.MethodGet, Path: "/sources", Handler: a.sources},
 		{Method: http.MethodPut, Path: "/sources/{source}/schedule", Handler: a.updateSourceSchedule},
@@ -162,8 +183,14 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/bili/login/poll", Handler: a.biliLoginPoll},
 		{Method: http.MethodGet, Path: "/sync-settings", Handler: a.syncSettings},
 		{Method: http.MethodPut, Path: "/sync-settings", Handler: a.updateSyncSettings},
+		{Method: http.MethodGet, Path: "/sources/x/related", Handler: a.relatedAccounts},
+		{Method: http.MethodPut, Path: "/sources/x/related", Handler: a.updateRelatedAccounts},
+		{Method: http.MethodGet, Path: "/x-statuses", Handler: a.listXStatuses},
+		{Method: http.MethodPut, Path: "/x-statuses/{id}/decision", Handler: a.decideXStatus},
+		{Method: http.MethodGet, Path: "/bilibili-statuses", Handler: a.listBilibiliStatuses},
 
 		{Method: http.MethodGet, Path: "/events", Handler: a.listEvents},
+		{Method: http.MethodGet, Path: "/events/{id}/evidence", Handler: a.eventEvidence},
 		{Method: http.MethodPost, Path: "/events", Handler: a.createEvent},
 		{Method: http.MethodPut, Path: "/events/{id}", Handler: a.updateEvent},
 		{Method: http.MethodPost, Path: "/events/{id}/confirm", Handler: a.confirmEvent},
@@ -177,7 +204,12 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodPut, Path: "/videos/{id}", Handler: a.updateVideo},
 		{Method: http.MethodPost, Path: "/videos/{id}/refresh", Handler: a.refreshVideo},
 		{Method: http.MethodPost, Path: "/videos/bilibili", Handler: a.addBilibiliVideo},
+		{Method: http.MethodPost, Path: "/videos/youtube", Handler: a.addYoutubeVideo},
+		{Method: http.MethodPost, Path: "/posts/bilibili", Handler: a.addBilibiliPost},
 		{Method: http.MethodGet, Path: "/videos/merges", Handler: a.videoMerges},
+		{Method: http.MethodGet, Path: "/videos/forms", Handler: a.videoForms},
+		{Method: http.MethodGet, Path: "/videos/works-conflicts", Handler: a.worksConflicts},
+		{Method: http.MethodGet, Path: "/videos/works-recent", Handler: a.worksRecent},
 		{Method: http.MethodGet, Path: "/videos/{id}/merges", Handler: a.uploadMerges},
 		{Method: http.MethodPost, Path: "/videos/{id}/merge", Handler: a.mergeVideo},
 		{Method: http.MethodPost, Path: "/videos/{id}/unmerge", Handler: a.unmergeVideo},

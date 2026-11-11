@@ -14,10 +14,10 @@ import (
 // instead, so one work never shows two covers.
 func TestDashboardListsBilibiliUploadsOnlyWithoutACopy(t *testing.T) {
 	path := testutil.NewSnapshot(t)
-	testutil.Exec(t, path, `INSERT INTO videos (id,source,title,published_at,url,kind) VALUES
-		('yt1','youtube','YouTube cover','2026-10-20T00:00:00.000Z','https://www.youtube.com/watch?v=yt1','upload'),
-		('BV1own','bilibili','Bilibili only','2026-10-21T00:00:00.000Z','https://www.bilibili.com/video/BV1own','upload'),
-		('BV1copy','bilibili','YouTube copy','2026-10-20T00:00:00.000Z','https://www.bilibili.com/video/BV1copy','upload')`)
+	testutil.Exec(t, path, `INSERT INTO videos (id,source,title,published_at,url,kind,kind_source) VALUES
+		('yt1','youtube','YouTube cover','2026-10-20T00:00:00.000Z','https://www.youtube.com/watch?v=yt1','upload',NULL),
+		('BV1own','bilibili','Bilibili only','2026-10-21T00:00:00.000Z','https://www.bilibili.com/video/BV1own','upload','rule'),
+		('BV1copy','bilibili','YouTube copy','2026-10-20T00:00:00.000Z','https://www.bilibili.com/video/BV1copy','upload','rule')`)
 	testutil.Exec(t, path, `UPDATE videos SET merged_into='yt1',merge_source='rule',merged_at='2026-10-20T01:00:00.000Z' WHERE id='BV1copy'`)
 
 	store, err := OpenReadOnly(path)

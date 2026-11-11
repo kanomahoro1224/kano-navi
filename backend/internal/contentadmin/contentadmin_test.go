@@ -458,6 +458,7 @@ func TestOutboundAllowlists(t *testing.T) {
 		"http://example.test":                     "http://example.test/",
 		"http://example.test:8080/x":              "http://example.test:8080/x",
 		"mailto:someone@example.test":             "",
+		"https://example.test/a?token=synthetic":  "",
 		"/assets/a.png":                           "",
 	} {
 		if got, _ := normalizeSourceURL(input); got != want {
@@ -811,7 +812,7 @@ func seedScheduleAssets(f *fixture) (boardURL, thumbURL, thumbHash string) {
 		boardURL, "https://x.com/synthetic/status/1", "weekly board", "2026-10-05", stamp, "2026-10-05", "2026-10-11")
 	f.exec(`INSERT INTO assets(id,kind,url,source_url,week_start,updated_at) VALUES('thumb','schedule',?,?,?,?)`, thumbURL, "https://x.com/synthetic/status/2", "2026-09-28", stamp)
 	f.exec(`INSERT INTO assets(id,kind,url,updated_at) VALUES('logo','brand','/assets/logo.png',?)`, stamp)
-	f.exec(`INSERT INTO schedule_asset_reviews(asset_id,llm_status,llm_confidence,llm_reason,updated_at) VALUES('board','schedule',0.9,'weekly grid',?)`, stamp)
+	f.exec(`INSERT INTO schedule_asset_reviews(asset_id,llm_status,llm_confidence,llm_text,llm_reason,updated_at) VALUES('board','schedule',0.9,'月曜 20:00 配信','weekly grid',?)`, stamp)
 	f.exec(`INSERT INTO schedule_asset_reviews(asset_id,llm_status,llm_confidence,updated_at) VALUES('thumb','schedule',0.7,?)`, stamp)
 
 	image := syntheticPNG(40)
@@ -840,7 +841,7 @@ func TestScheduleAssetListAndManualReview(t *testing.T) {
 	}
 	board, thumb := object(t, assets[0]), object(t, assets[1])
 	if board["id"] != "board" || board["approved"] != true || board["sourceMatchesBoard"] != true || board["effectiveStatus"] != "schedule" ||
-		board["llmConfidence"] != 0.9 || board["manualStatus"] != "unreviewed" || board["periodBasis"] != "inferred" || board["weekStart"] != "2026-10-05" {
+		board["llmConfidence"] != 0.9 || board["llmText"] != "月曜 20:00 配信" || board["manualStatus"] != "unreviewed" || board["periodBasis"] != "inferred" || board["weekStart"] != "2026-10-05" {
 		t.Fatalf("unexpected board review: %#v", board)
 	}
 	if board["mediaStatus"] != "pending" || board["mediaId"] != sha256Hex([]byte(boardURL)) || board["mediaSourceUrl"] != boardURL || board["previewUrl"] != nil {
@@ -973,8 +974,8 @@ func TestScheduleAssetPeriod(t *testing.T) {
 func TestPostReprocessRequest(t *testing.T) {
 	f := newFixture(t, true)
 	f.exec(`INSERT INTO posts(id,source,text,published_at,url) VALUES('p/1','x','synthetic','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/1')`)
-	f.exec(`INSERT INTO post_llm_states(post_id,status,last_error,last_extraction_id,last_processed_at,updated_at,failure_count,failure_fingerprint,next_attempt_at)
-		VALUES('p/1','failed','synthetic failure',7,'2026-10-02T00:00:00.000Z','2026-10-02T00:00:00.000Z',4,'synthetic-input',NULL)`)
+	f.exec(`INSERT INTO post_llm_states(post_id,status,last_error,last_extraction_id,last_processed_at,updated_at,failure_count,failure_fingerprint,next_attempt_at,settled_stamp)
+		VALUES('p/1','failed','synthetic failure',7,'2026-10-02T00:00:00.000Z','2026-10-02T00:00:00.000Z',4,'synthetic-input',NULL,'synthetic-stamp')`)
 	module := f.module
 	module.now = func() time.Time { return time.Date(2026, 10, 13, 1, 2, 3, 4_000_000, time.UTC) }
 
@@ -987,8 +988,9 @@ func TestPostReprocessRequest(t *testing.T) {
 		state["lastAttemptAt"] != nil || state["updatedAt"] != "2026-10-13T01:02:03.004Z" {
 		t.Fatalf("unexpected reprocess state: %#v", state)
 	}
-	// The request starts the failure backoff over, even after retries stopped.
-	if got := f.text(`SELECT failure_count || '|' || COALESCE(failure_fingerprint, '-') || '|' || COALESCE(next_attempt_at, '-') FROM post_llm_states`); got != "0|-|-" {
+	// The request starts the failure backoff over, even after retries
+	// stopped, and the next scan judges the post whatever its stamp.
+	if got := f.text(`SELECT failure_count || '|' || COALESCE(failure_fingerprint, '-') || '|' || COALESCE(next_attempt_at, '-') || '|' || COALESCE(settled_stamp, '-') FROM post_llm_states`); got != "0|-|-|-" {
 		t.Fatalf("failure backoff kept: %s", got)
 	}
 	// An unknown route never replaces the stored one.
@@ -1007,22 +1009,25 @@ func TestPostDismissalHoldsTheFailedInput(t *testing.T) {
 	f := newFixture(t, true)
 	f.exec(`INSERT INTO posts(id,source,text,published_at,url) VALUES('p1','x','synthetic','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/1'),
 		('p2','x','synthetic','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/2')`)
-	f.exec(`INSERT INTO post_llm_states(post_id,status,last_error,reprocess_requested,updated_at,failure_count,failure_fingerprint,next_attempt_at) VALUES
-		('p1','failed','synthetic failure',1,'2026-10-02T00:00:00.000Z',2,'synthetic-input','2026-10-03T00:00:00.000Z'),
-		('p2','success',NULL,0,'2026-10-02T00:00:00.000Z',0,NULL,NULL)`)
+	f.exec(`INSERT INTO post_llm_states(post_id,status,last_error,reprocess_requested,updated_at,failure_count,failure_fingerprint,next_attempt_at,settled_stamp) VALUES
+		('p1','failed','synthetic failure',1,'2026-10-02T00:00:00.000Z',2,'synthetic-input','2026-10-03T00:00:00.000Z','synthetic-stamp'),
+		('p2','success',NULL,0,'2026-10-02T00:00:00.000Z',0,NULL,NULL,'synthetic-stamp')`)
 
 	dismissed := f.post("/posts/p1/dismiss", map[string]any{})
 	dismissed.expect(t, http.StatusOK, "")
 	if state := object(t, dismissed.json["state"]); state["postId"] != "p1" || state["status"] != "dismissed" {
 		t.Fatalf("unexpected dismissal: %s", dismissed.raw)
 	}
-	// The failure stays keyed to its input with no retry time, which the scan
-	// reads as out of automatic retries.
-	if got := f.text(`SELECT status||'|'||reprocess_requested||'|'||failure_count||'|'||failure_fingerprint||'|'||COALESCE(next_attempt_at,'-') FROM post_llm_states WHERE post_id='p1'`); got != "dismissed|0|2|synthetic-input|-" {
+	// The failure stays keyed to its input with no retry time and no settled
+	// stamp, which the scan reads as out of automatic retries.
+	if got := f.text(`SELECT status||'|'||reprocess_requested||'|'||failure_count||'|'||failure_fingerprint||'|'||COALESCE(next_attempt_at,'-')||'|'||COALESCE(settled_stamp,'-') FROM post_llm_states WHERE post_id='p1'`); got != "dismissed|0|2|synthetic-input|-|-" {
 		t.Fatalf("dismissed state: %s", got)
 	}
 	f.post("/posts/p1/dismiss", map[string]any{}).expect(t, http.StatusConflict, "post_not_failed")
 	f.post("/posts/p2/dismiss", map[string]any{}).expect(t, http.StatusConflict, "post_not_failed")
+	if got := f.text(`SELECT status||'|'||settled_stamp FROM post_llm_states WHERE post_id='p2'`); got != "success|synthetic-stamp" {
+		t.Fatalf("a refused dismissal changed the settled post: %s", got)
+	}
 	f.post("/posts/unknown/dismiss", map[string]any{}).expect(t, http.StatusNotFound, "post_not_found")
 }
 

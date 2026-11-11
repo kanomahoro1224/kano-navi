@@ -6,14 +6,14 @@ import (
 )
 
 // ChainMethod is one listing method of a source's fallback chain
-// (ADR-0004), by its stable ID.
+// by its stable ID.
 type ChainMethod struct {
 	ID      string `json:"id"`
 	Enabled bool   `json:"enabled"`
 }
 
 // SourceChain is the ordered fallback over a source's listing methods that
-// timed reads try (ADR-0004). APIGate and APIDailyCap bound X's official API
+// timed reads try. APIGate and APIDailyCap bound X's official API
 // in the chain: it runs only after the timeline failed APIGate consecutive
 // runs of an account, and reads at most APIDailyCap posts a Japan day.
 type SourceChain struct {
@@ -36,17 +36,23 @@ const (
 // chainMethods are each source's listing methods in their default order,
 // with whether the default chain enables them. The default is the order the
 // recent steps used before chains, so an upgrade changes nothing: X reads
-// the timeline, then the profile page, and leaves the API off; YouTube tries
-// the Data API (with a key), the feed, yt-dlp when configured, then the uploads tab. Bilibili has one
-// fixed method.
+// the timeline, then the profile page, and leaves the API off; its related
+// accounts read the FxTwitter timeline alone; YouTube tries
+// the Data API (with a key), the feed, yt-dlp when configured, then the uploads tab. The Bilibili
+// upload read tries the upload list, the signed-in dynamics listing, then the official client's
+// listing; the dynamics timer has one fixed method. The shop timer reads the newest products of
+// its new-arrivals collection.
 var chainMethods = map[string][]ChainMethod{
-	"x":        {{ID: "timeline", Enabled: true}, {ID: "profile", Enabled: true}, {ID: "api", Enabled: false}},
-	"youtube":  {{ID: "api", Enabled: true}, {ID: "rss", Enabled: true}, {ID: "ytdlp", Enabled: false}, {ID: "videos_page", Enabled: true}},
-	"bilibili": {{ID: "list", Enabled: true}},
+	"x":                    {{ID: "timeline", Enabled: true}, {ID: "profile", Enabled: true}, {ID: "api", Enabled: false}},
+	XRelatedStep:           {{ID: "timeline", Enabled: true}},
+	"youtube":              {{ID: "api", Enabled: true}, {ID: "rss", Enabled: true}, {ID: "ytdlp", Enabled: false}, {ID: "videos_page", Enabled: true}},
+	"bilibili":             {{ID: "list", Enabled: true}, {ID: "dynamics", Enabled: true}, {ID: "app", Enabled: true}},
+	BilibiliDynamicsSource: {{ID: "dynamics", Enabled: true}},
+	ShopSource:             {{ID: "new_arrivals", Enabled: true}},
 }
 
 // ChainSources are the sources whose chain the operator orders.
-var ChainSources = []string{"x", "youtube"}
+var ChainSources = []string{"x", "youtube", "bilibili"}
 
 // DefaultSourceChain is a source's chain before the operator saves one.
 func DefaultSourceChain(source string) SourceChain {

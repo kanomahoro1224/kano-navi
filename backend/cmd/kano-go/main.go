@@ -34,7 +34,7 @@ Commands:
   seed         Create the database if missing and add missing static records (-overwrite restores them)
   sync         Run one full synchronization and exit
   migrate-llm  Store OPENAI_API_KEY as the encrypted key of the openai-default provider (-force replaces)
-  variants     Make the smaller copies of the LINE BLOG and history images (-data, -static, -out)
+  variants     Make the smaller copies of the LINE BLOG, Works and Journey images (-data, -out)
   webpush-key  Print a fresh VAPID key pair for WEB_PUSH_VAPID_*
   healthcheck  Probe the local service and exit
 
@@ -150,7 +150,7 @@ func main() {
 		if cfg.EnableXSync {
 			opts := xsource.OptionsFromEnv()
 			steps.X = &workflow.XRecentExecutor{Store: store, Adapter: xsource.NewAdapter(xsource.NewClient(&http.Client{Timeout: 10 * time.Second}), opts), Options: opts}
-			capabilities["x"] = false
+			capabilities["x"], capabilities[sqlite.XRelatedStep] = false, false
 		}
 		if cfg.EnableYoutubeSync {
 			steps.Youtube = ytsource.NewAdapter(nil, ytsource.OptionsFromEnv())

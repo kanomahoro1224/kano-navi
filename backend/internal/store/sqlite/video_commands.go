@@ -33,14 +33,17 @@ const maxVideoTitle = 300
 // it. Synchronization keeps writing the platform fields underneath, and the
 // board shows a correction in their place.
 type VideoOverrides struct {
-	SetTitle, SetKind, SetThumbnail, SetShort, SetTag, SetAvailability bool
-	Title, Kind                                                        *string
+	SetTitle, SetKind, SetThumbnail, SetShort, SetTag, SetAvailability, SetWork bool
+	Title, Kind                                                                 *string
 	// Tag is the operator's content tag (VideoTags). It ranks above the
 	// schedule entry's label and the title inference.
 	Tag *string
 	// Short marks the video a Short (true) or not (false) over the feed's
 	// format link.
 	Short *bool
+	// Work includes (true) or excludes (false) the video from the Works
+	// page's recent uploads over its tag, form and format (works_recent.go).
+	Work *bool
 	// Availability is who can watch the video (VideoAvailabilities) over what
 	// the checks recorded.
 	Availability *string
@@ -112,16 +115,21 @@ func (s *Store) SetVideoOverrides(ctx context.Context, id string, in VideoOverri
 		return AdminVideo{}, ErrUnavailable
 	}
 	defer tx.Rollback()
+	var source string
 	var title, kind, media, hash, tag, availability sql.NullString
-	var short sql.NullBool
-	err = tx.QueryRowContext(ctx, `SELECT manual_title,manual_kind,manual_thumbnail_media_id,manual_thumbnail_sha256,manual_is_short,manual_tag,manual_availability FROM videos WHERE id=?`, id).Scan(&title, &kind, &media, &hash, &short, &tag, &availability)
+	var short, work sql.NullBool
+	err = tx.QueryRowContext(ctx, `SELECT source,manual_title,manual_kind,manual_thumbnail_media_id,manual_thumbnail_sha256,manual_is_short,manual_tag,manual_availability,manual_work FROM videos WHERE id=?`, id).Scan(&source, &title, &kind, &media, &hash, &short, &tag, &availability, &work)
 	if errors.Is(err, sql.ErrNoRows) {
 		return AdminVideo{}, ErrVideoNotFound
 	}
 	if err != nil {
 		return AdminVideo{}, ErrUnavailable
 	}
-	before, shortBefore := [6]sql.NullString{title, kind, media, hash, tag, availability}, short
+	// A Bilibili upload is an upload or a live replay; it has no premieres.
+	if in.SetKind && in.Kind != nil && source == "bilibili" && *in.Kind != BilibiliFormUpload && *in.Kind != BilibiliFormStream {
+		return AdminVideo{}, ErrVideoInvalid
+	}
+	before, shortBefore, workBefore := [6]sql.NullString{title, kind, media, hash, tag, availability}, short, work
 	set := func(target *sql.NullString, value *string) {
 		*target = sql.NullString{}
 		if value != nil {
@@ -150,8 +158,14 @@ func (s *Store) SetVideoOverrides(ctx context.Context, id string, in VideoOverri
 			short = sql.NullBool{Bool: *in.Short, Valid: true}
 		}
 	}
-	if before != [6]sql.NullString{title, kind, media, hash, tag, availability} || shortBefore != short {
-		if _, err = tx.ExecContext(ctx, `UPDATE videos SET manual_title=?,manual_kind=?,manual_thumbnail_media_id=?,manual_thumbnail_sha256=?,manual_is_short=?,manual_tag=?,manual_availability=?,manual_updated_at=? WHERE id=?`, title, kind, media, hash, short, tag, availability, stamp, id); err != nil {
+	if in.SetWork {
+		work = sql.NullBool{}
+		if in.Work != nil {
+			work = sql.NullBool{Bool: *in.Work, Valid: true}
+		}
+	}
+	if before != [6]sql.NullString{title, kind, media, hash, tag, availability} || shortBefore != short || workBefore != work {
+		if _, err = tx.ExecContext(ctx, `UPDATE videos SET manual_title=?,manual_kind=?,manual_thumbnail_media_id=?,manual_thumbnail_sha256=?,manual_is_short=?,manual_tag=?,manual_availability=?,manual_work=?,manual_updated_at=? WHERE id=?`, title, kind, media, hash, short, tag, availability, work, stamp, id); err != nil {
 			return AdminVideo{}, ErrUnavailable
 		}
 		// A corrected title of a merged upload is its video's translation.

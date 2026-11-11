@@ -48,6 +48,9 @@ type Video struct {
 	// Availability is who can watch the video (AvailabilityPublic and the
 	// rest) as a check could tell, or empty while unknown.
 	Availability string
+	// ChannelID is the uploading channel as a detail check reports it, or
+	// empty while unknown; only an operator's single read compares it.
+	ChannelID string
 }
 
 // Broadcast states a watch page can report.
@@ -174,6 +177,7 @@ var encodedPlayerPattern = regexp.MustCompile(`"player_response"\s*:\s*("(?:\\.|
 type playerResponse struct {
 	VideoDetails struct {
 		VideoID     string `json:"videoId"`
+		ChannelID   string `json:"channelId"`
 		Title       string `json:"title"`
 		Upcoming    bool   `json:"isUpcoming"`
 		LiveContent *bool  `json:"isLiveContent"`
@@ -355,6 +359,7 @@ func ParseWatch(body []byte, id string) (Video, error) {
 		return v, &Error{"youtube_watch_details_incomplete"}
 	}
 	v.Title = strings.TrimSpace(player.VideoDetails.Title)
+	v.ChannelID = player.VideoDetails.ChannelID
 	if v.Title == "" {
 		v.Title = meta(text, "og:title")
 	}

@@ -27,6 +27,7 @@ import { SiteFooter, SiteHeader, SkipLink } from "@/site/site-shell"
 import { branches, milestones } from "./milestones"
 import {
   branchPortraits,
+  fixedMedia,
   historyMedia,
   localized,
   mediaByMilestone,
@@ -406,7 +407,7 @@ export function HistoryApp() {
     (count, group) => count + group.items.length,
     0,
   )
-  const portrait = historyMedia.find((item) => item.id === branchPortraits.sona)
+  const portrait = fixedMedia.find((item) => item.id === branchPortraits.sona)
 
   const openMedia = useCallback(
     (items: HistoryMediaItem[], index: number) => setViewer({ items, index }),
@@ -504,11 +505,7 @@ export function HistoryApp() {
           ) : null}
         </section>
 
-        <section className="identities" aria-labelledby="identities-title">
-          <div className="identities-head">
-            <h2 id="identities-title">{t("history.identities")}</h2>
-            <p>{t("history.identitiesNote")}</p>
-          </div>
+        <section className="identities">
           <div
             className="identity-picker"
             role="group"
@@ -533,7 +530,7 @@ export function HistoryApp() {
               </span>
             </button>
             {branches.map((branch) => {
-              const image = historyMedia.find(
+              const image = fixedMedia.find(
                 (item) => item.id === branchPortraits[branch.id],
               )
               const count = milestones.filter(
@@ -668,7 +665,6 @@ export function HistoryApp() {
 
           <TabsContent value="gallery" className="gallery-view">
             <div className="gallery-bar">
-              <p>{t("history.galleryLead")}</p>
               <div
                 className="segmented"
                 role="group"
@@ -714,7 +710,6 @@ export function HistoryApp() {
             )}
           </TabsContent>
         </Tabs>
-        <p className="history-note">{t("history.note")}</p>
       </main>
 
       <SiteFooter disclaimer={t("history.disclaimer")} />
@@ -726,6 +721,7 @@ export function HistoryApp() {
         }
         onClose={closeMedia}
         onStep={stepMedia}
+        scaleUp
         renderImage={(item) => (
           <HistoryImage key={item.id} item={item} locale={locale} t={t} eager />
         )}

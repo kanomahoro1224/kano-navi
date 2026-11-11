@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
-import { useEffect, useState } from "react"
-import { ArrowUp, ArrowUpRight, Check } from "lucide-react"
+import { useEffect, useId, useState } from "react"
+import { ArrowUp, ArrowUpRight, Check, ChevronDown } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import { PreferenceControls } from "@/components/preference-controls"
@@ -15,11 +15,12 @@ import { KanoSeal } from "./kano-seal"
 import { ExternalLink } from "./links"
 import "./site.css"
 
-export type PublicPage = "board" | "history" | "lineblog" | "about"
+export type PublicPage = "board" | "history" | "works" | "lineblog" | "about"
 
 const pages: { id: PublicPage; href: string; labelKey: string }[] = [
   { id: "board", href: "/", labelKey: "nav.now" },
-  { id: "history", href: "/history", labelKey: "history.eyebrow" },
+  { id: "history", href: "/journey", labelKey: "history.eyebrow" },
+  { id: "works", href: "/works", labelKey: "works.label" },
   { id: "lineblog", href: "/lineblog", labelKey: "lineblog.label" },
   { id: "about", href: "/about", labelKey: "about.label" },
 ]
@@ -165,37 +166,57 @@ function MainlandSiteLink() {
   )
 }
 
+/**
+ * The shared footer: one line saying the site is fan-made and unaffiliated,
+ * the page's `disclaimer` behind a `disclaimerLabel` switch, and links to
+ * About and the top. The header holds the other pages.
+ */
 export function SiteFooter({
   disclaimer,
+  disclaimerLabel,
   topHref = "#top",
 }: {
   disclaimer: string
+  disclaimerLabel?: string
   topHref?: string
 }) {
   const { locale, t } = useAppSettings()
+  const [open, setOpen] = useState(false)
+  const moreId = useId()
+  const about = pages.find((item) => item.id === "about")!
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
-        <div className="site-footer-mark" aria-hidden="true">
-          <span>🍓</span>
-          <span>🦌</span>
-        </div>
         <div className="site-footer-copy">
-          <strong>{t("footer.fanMade")}</strong>
-          <p>{disclaimer}</p>
+          <p className="site-footer-lead">
+            <strong>{t("footer.fanMade")}</strong>
+            <span className="site-footer-sep" aria-hidden="true">
+              {" · "}
+            </span>
+            <span>{t("footer.unaffiliated")}</span>
+          </p>
           {locale === "zh-CN" && <MainlandSiteLink />}
         </div>
         <nav className="site-footer-links" aria-label={t("header.pages")}>
-          {pages.map((item) => (
-            <a key={item.id} href={item.href}>
-              {t(item.labelKey)}
-            </a>
-          ))}
-          <a href={topHref} className="site-footer-top">
+          <button
+            type="button"
+            className="site-footer-toggle"
+            aria-expanded={open}
+            aria-controls={moreId}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {disclaimerLabel || t("footer.notes")}
+            <ChevronDown aria-hidden="true" />
+          </button>
+          <a href={about.href}>{t(about.labelKey)}</a>
+          <a href={topHref}>
             <ArrowUp aria-hidden="true" />
             {t("footer.backToTop")}
           </a>
         </nav>
+        <p id={moreId} className="site-footer-more" hidden={!open}>
+          {disclaimer}
+        </p>
       </div>
     </footer>
   )

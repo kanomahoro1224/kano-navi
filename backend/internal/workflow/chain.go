@@ -5,8 +5,8 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
-// ChainSource is the source whose method chain a step reads through
-// (ADR-0004): the live-status probe reads YouTube's.
+// ChainSource is the source whose method chain a step reads through. The
+// live-status probe reads YouTube's.
 func ChainSource(step string) string {
 	if step == "live" {
 		return "youtube"

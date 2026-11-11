@@ -1,8 +1,9 @@
 # Database and Maintenance
 
 SQLite and dynamic media live under the ignored data/ directory, together with
-the packaged LINE BLOG archive media in data/lineblog/. Static history
-images ship in public/assets/history/ and are included in the image. A fresh
+the packaged LINE BLOG archive media in data/lineblog/, the packaged
+discography covers in data/works/, which the Journey page's release
+milestones also show, and the Journey page's own images in data/journey/. A fresh
 installation starts with static profile, timeline, and resources, plus empty
 source snapshots and LLM provider/model routes.
 
@@ -73,7 +74,8 @@ be reserved for reviewed recovery work.
 The `/mcp` endpoint is intentionally narrower than `/admin`. Its public tools
 read the prepared snapshot and sanitized schedule/status views. Bearer-protected
 tools may request a revision, start a full synchronization, or run the automatic
-keyword/board/message scan; all of these return an asynchronous job result. MCP has no
+keyword/board/message scan. Revision requests return the new revision directly;
+synchronization and scans return asynchronous job results. MCP has no
 manual confirmation, edit, delete, profile-media selection/upload, SQL, file, or
 arbitrary URL-proxy operation. A page refresh or revision request never performs
 an external fetch.

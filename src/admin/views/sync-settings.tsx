@@ -51,6 +51,9 @@ export const syncSettingGroups = {
   ],
 } satisfies Record<string, SyncSettingSection[]>
 
+/** Fields whose label needs no hint beyond the range. */
+const unexplained = new Set<SyncSettingField>(["fetchMaxPages"])
+
 /**
  * The run bounds of one group: whole numbers within each field's range,
  * saved together. The next run reads them; a running one keeps its values.
@@ -125,7 +128,10 @@ export function SyncSettingsForm({
             className={rows ? "adm-limit-row" : undefined}
             label={t(`admin.syncSettings.field.${field}`)}
             hint={[
-              t(`admin.syncSettings.hint.${field}`),
+              // A field whose label says it all has only its range.
+              ...(unexplained.has(field)
+                ? []
+                : [t(`admin.syncSettings.hint.${field}`)]),
               t("admin.syncSettings.range", {
                 min: spec.min,
                 max: spec.max,

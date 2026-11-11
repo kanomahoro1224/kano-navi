@@ -25,6 +25,8 @@ func shortsClient(t *testing.T, shorts func() *http.Response, requests *int) *Cl
 			case "UUSH" + syntheticChannel[2:]:
 				*requests++
 				return shorts(), nil
+			case "UUMO" + syntheticChannel[2:]:
+				return response(200, membersPage()), nil
 			}
 		case "/youtube/v3/videos":
 			return response(200, `{"items":[]}`), nil
@@ -52,7 +54,8 @@ func TestFeedFailureMarksShortsFromTheShortsPlaylist(t *testing.T) {
 	a.Now = syntheticNow
 	stored := State{Videos: map[string]Video{"CCCCCCCCCCC": {ID: "CCCCCCCCCCC", PublishedAt: "2025-12-01T00:00:00Z"}}}
 	result, err := a.FetchUploads(context.Background(), stored, List{Limit: 50})
-	if err != nil || result.Listing != ListingAPI || requests != 1 || result.APIRequests != 3 {
+	// The uploads, Shorts and members-only playlist pages.
+	if err != nil || result.Listing != ListingAPI || requests != 1 || result.APIRequests != 4 {
 		t.Fatalf("result=%#v requests=%d err=%v", result, requests, err)
 	}
 	if !maps.Equal(result.Shorts, map[string]bool{"AAAAAAAAAAA": true, "CCCCCCCCCCC": true}) {

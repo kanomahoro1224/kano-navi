@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 func value(v *string) any {
@@ -92,7 +93,7 @@ func Dashboard(d *sqlite.Dashboard) map[string]any {
 	if d.Summary.NextStream != nil {
 		nextStream = publicVideo(*d.Summary.NextStream)
 	}
-	return map[string]any{"profile": profile, "summary": map[string]any{"nextEvent": nextEvent, "nextStream": nextStream, "latestVideo": latestVideo, "latestPost": latestPost, "counts": map[string]any{"posts": d.Summary.Counts.Posts, "events": d.Summary.Counts.Events, "upcomingEvents": d.Summary.Counts.UpcomingEvents, "videos": d.Summary.Counts.Videos, "resources": d.Summary.Counts.Resources}}, "posts": posts, "events": events, "videos": videos, "focus": focus, "timeline": timeline, "resources": resources, "assets": assets, "scheduleImages": schedule, "profileMedia": map[string]any{"avatar": publicProfileMedia(d.ProfileMedia.Avatar), "banner": publicProfileMedia(d.ProfileMedia.Banner)}, "meta": map[string]any{"fetchedAt": value(d.Meta.FetchedAt), "sourceFetchedAt": d.Meta.SourceFetchedAt, "lastSync": PublicSyncRun(d.Meta.LastSync), "postWindowDays": d.Meta.PostWindowDays, "eventWindow": map[string]any{"from": d.Meta.EventWindow.From, "to": d.Meta.EventWindow.To, "paginated": d.Meta.EventWindow.Paginated}, "generatedAt": d.Meta.GeneratedAt, "mediaCache": d.Meta.MediaCache, "revision": d.Meta.Revision, "featuredVideoId": value(d.Meta.FeaturedVideoID), "xAccounts": d.Meta.XAccounts}}
+	return map[string]any{"profile": profile, "summary": map[string]any{"nextEvent": nextEvent, "nextStream": nextStream, "latestVideo": latestVideo, "latestPost": latestPost, "counts": map[string]any{"posts": d.Summary.Counts.Posts, "events": d.Summary.Counts.Events, "upcomingEvents": d.Summary.Counts.UpcomingEvents, "videos": d.Summary.Counts.Videos, "resources": d.Summary.Counts.Resources}}, "projection": publicDashboardProjection(d.Projection), "posts": posts, "events": events, "videos": videos, "focus": focus, "timeline": timeline, "resources": resources, "assets": assets, "scheduleImages": schedule, "profileMedia": map[string]any{"avatar": publicProfileMedia(d.ProfileMedia.Avatar), "banner": publicProfileMedia(d.ProfileMedia.Banner)}, "liveNow": publicLiveNow(d.LiveNow), "meta": map[string]any{"fetchedAt": value(d.Meta.FetchedAt), "sourceFetchedAt": d.Meta.SourceFetchedAt, "lastSync": PublicSyncRun(d.Meta.LastSync), "postWindowDays": d.Meta.PostWindowDays, "eventWindow": map[string]any{"from": d.Meta.EventWindow.From, "to": d.Meta.EventWindow.To, "paginated": d.Meta.EventWindow.Paginated}, "generatedAt": d.Meta.GeneratedAt, "mediaCache": d.Meta.MediaCache, "revision": d.Meta.Revision, "featuredVideoId": value(d.Meta.FeaturedVideoID), "xAccounts": d.Meta.XAccounts, "bilibiliAccounts": d.Meta.BilibiliAccounts}}
 }
 
 func valueInt(v *int64) any {
@@ -109,17 +110,120 @@ func valueBool(v *bool) any {
 	return *v
 }
 
+// publicLiveNow is the account's unannounced Bilibili broadcast, or nil.
+func publicLiveNow(l *sqlite.LiveNow) any {
+	if l == nil {
+		return nil
+	}
+	return map[string]any{"platform": l.Platform, "url": l.URL, "title": l.Title, "startedAt": l.StartedAt}
+}
+
 func PublicEvent(e sqlite.DashboardEvent, extras bool) map[string]any {
-	out := map[string]any{"id": e.ID, "source": e.Source, "title": e.Title, "detail": value(e.Detail), "startsOn": e.StartsOn, "startsAt": value(e.StartsAt), "endsAt": value(e.EndsAt), "timezone": e.Timezone, "timePrecision": e.TimePrecision, "status": value(e.Status), "eventType": value(e.EventType), "tag": value(e.Tag), "url": value(e.URL), "provenance": e.Provenance, "cancellationStatus": e.CancellationStatus, "cancellationSource": value(e.CancellationSource), "cancellationReason": value(e.CancellationReason), "cancellationEvidence": value(e.CancellationEvidence), "cancellationAt": value(e.CancellationAt), "translations": publicTranslations(e.Translations), "sourceLanguage": value(e.Translations.SourceLanguage)}
+	out := map[string]any{"id": e.ID, "source": e.Source, "platform": value(e.Platform), "platforms": publicPlatforms(e.Platforms), "title": e.Title, "detail": value(e.Detail), "startsOn": e.StartsOn, "startsAt": value(e.StartsAt), "endsAt": value(e.EndsAt), "endsOn": value(e.EndsOn), "timezone": e.Timezone, "timePrecision": e.TimePrecision, "status": value(e.Status), "eventType": value(e.EventType), "tag": value(e.Tag), "url": value(e.URL), "provenance": e.Provenance, "cancellationStatus": e.CancellationStatus, "cancellationSource": value(e.CancellationSource), "cancellationReason": value(e.CancellationReason), "cancellationEvidence": value(e.CancellationEvidence), "cancellationAt": value(e.CancellationAt), "view": publicEventView(e.View), "translations": publicTranslations(e.Translations), "sourceLanguage": value(e.Translations.SourceLanguage)}
 	if extras {
 		out["manualLocked"] = e.ManualLocked
 		out["isUpcoming"] = e.IsUpcoming
 		out["liveStatus"] = value(e.LiveStatus)
+		out["liveUrl"] = value(e.LiveURL)
+		out["links"] = PublicEventLinks(e.Links)
+	}
+	return out
+}
+
+// publicPlatforms is an entry's shown platforms, never null.
+func publicPlatforms(platforms []string) []string {
+	if platforms == nil {
+		return []string{}
+	}
+	return platforms
+}
+
+func publicEventView(view sqlite.EventView) map[string]any {
+	entries := make([]any, 0, len(view.CalendarEntries))
+	for _, entry := range view.CalendarEntries {
+		entries = append(entries, map[string]any{
+			"saleMark": value(entry.SaleMark), "startsOn": entry.StartsOn,
+			"startsAt": value(entry.StartsAt), "timePrecision": entry.TimePrecision,
+		})
+	}
+	return map[string]any{
+		"state": view.State, "typeCode": value(view.TypeCode),
+		"activityCode": value(view.ActivityCode), "activityContext": view.ActivityContext,
+		"isWork": view.IsWork, "calendarEntries": entries,
+	}
+}
+
+// PublicEventView exposes the shared event view to bounded readers whose
+// query path does not build a full dashboard event.
+func PublicEventView(view sqlite.EventView) map[string]any { return publicEventView(view) }
+
+func publicVideoView(view sqlite.VideoView) map[string]any {
+	return map[string]any{
+		"phase": view.Phase, "formCode": value(view.FormCode), "shelfGroup": view.ShelfGroup,
+		"latestEligible": view.LatestEligible, "focusEligible": view.FocusEligible,
+		"tagContext": view.TagContext,
+	}
+}
+
+func publicDashboardProjection(projection sqlite.DashboardProjection) map[string]any {
+	focus := map[string]any{
+		"eventIds": projection.Focus.EventIDs,
+		"videoIds": projection.Focus.VideoIDs,
+	}
+	spotlight := any(nil)
+	if value := projection.Spotlight; value != nil {
+		spotlight = map[string]any{
+			"mode": value.Mode, "eventId": valueOrString(value.EventID), "videoId": valueOrString(value.VideoID),
+			"liveNow": value.LiveNow, "isLive": value.IsLive, "membersChip": value.MembersChip,
+			"companionVideoId": valueOrString(value.CompanionVideoID),
+		}
+	}
+	shelf := projection.Shelf
+	return map[string]any{
+		"version": projection.Version, "nextTransitionAt": value(projection.NextTransitionAt),
+		"focus": focus, "spotlight": spotlight, "sales": projection.Sales,
+		"shelf": map[string]any{
+			"leadId": valueOrString(shelf.LeadID), "leadIsFeatured": shelf.LeadIsFeatured,
+			"reservations": shelf.Reservations, "works": shelf.Works,
+			"archives": shelf.Archives, "shorts": shelf.Shorts,
+		},
+	}
+}
+
+func valueOrString(value *string) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+// PublicEventLinks is one {platform, url, liveStatus} per shown platform.
+func PublicEventLinks(links []sqlite.EventLink) []any {
+	out := make([]any, 0, len(links))
+	for _, link := range links {
+		out = append(out, map[string]any{"platform": link.Platform, "url": value(link.URL), "liveStatus": value(link.LiveStatus)})
 	}
 	return out
 }
 func publicPost(p sqlite.Post) map[string]any {
-	return map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "emoji": publicEmojis(p.Emojis), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "repost": publicRepost(p.Repost)}
+	out := map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "promoted": p.Promoted}
+	if len(p.Emojis) > 0 {
+		out["emoji"] = publicEmojis(p.Emojis)
+	}
+	if p.Repost != nil {
+		out["repost"] = publicRepost(p.Repost)
+	}
+	return out
+}
+
+func publicRepost(r *sqlite.PostRepost) any {
+	text := func(s string) any {
+		if s == "" {
+			return nil
+		}
+		return s
+	}
+	return map[string]any{"id": r.ID, "authorHandle": text(r.AuthorHandle), "authorName": text(r.AuthorName), "authorAvatar": text(r.AuthorAvatar), "publishedAt": text(r.PublishedAt), "url": r.URL}
 }
 
 // publicEmojis is the stickers a post's text uses: the caption the wording
@@ -141,7 +245,9 @@ func publicMedia(items []sqlite.PostMedia) []any {
 }
 
 // publicQuote is the quoted status a post shows: its author, wording, time,
-// x.com link and ready images. Empty fields are null.
+// link (an x.com status, or a Bilibili dynamic or upload page for a forward)
+// and ready images. Empty fields are null; only an unavailable forward of a
+// dynamic whose ID is unknown has a null id.
 func publicQuote(q *sqlite.PostQuote) any {
 	if q == nil {
 		return nil
@@ -152,26 +258,10 @@ func publicQuote(q *sqlite.PostQuote) any {
 		}
 		return s
 	}
-	return map[string]any{"id": q.ID, "authorHandle": text(q.AuthorHandle), "authorName": text(q.AuthorName), "text": text(q.Text), "publishedAt": text(q.PublishedAt), "url": q.URL, "unavailable": q.Unavailable, "media": publicMedia(q.Media), "translations": publicTranslations(q.Translations), "sourceLanguage": value(q.Translations.SourceLanguage)}
+	return map[string]any{"id": text(q.ID), "authorHandle": text(q.AuthorHandle), "authorName": text(q.AuthorName), "text": text(q.Text), "publishedAt": text(q.PublishedAt), "url": q.URL, "unavailable": q.Unavailable, "media": publicMedia(q.Media), "translations": publicTranslations(q.Translations), "sourceLanguage": value(q.Translations.SourceLanguage)}
 }
-
-// publicRepost is the original status of a repost: its author, wording time
-// and x.com link. The post itself carries the wording and images.
-func publicRepost(r *sqlite.PostRepost) any {
-	if r == nil {
-		return nil
-	}
-	text := func(s string) any {
-		if s == "" {
-			return nil
-		}
-		return s
-	}
-	return map[string]any{"id": r.ID, "authorHandle": text(r.AuthorHandle), "authorName": text(r.AuthorName), "authorAvatar": text(r.AuthorAvatar), "publishedAt": text(r.PublishedAt), "url": r.URL}
-}
-
 func publicVideo(v sqlite.Video) map[string]any {
-	return map[string]any{"id": v.ID, "source": v.Source, "title": v.Title, "publishedAt": value(v.PublishedAt), "scheduledAt": value(v.ScheduledAt), "url": v.URL, "thumbnailUrl": value(v.ThumbnailURL), "kind": value(v.Kind), "isUpcoming": v.IsUpcoming, "endsAt": value(v.EndsAt), "thumbnailId": value(v.ThumbnailID), "thumbnailStatus": v.ThumbnailStatus, "thumbnailSourceUrl": value(v.ThumbnailSourceURL), "isCancelled": v.IsCancelled, "liveStatus": value(v.LiveStatus), "durationSeconds": valueInt(v.DurationSeconds), "isShort": valueBool(v.IsShort), "tag": value(v.Tag), "availability": value(v.Availability), "translations": publicTranslations(v.Translations), "sourceLanguage": value(v.Translations.SourceLanguage), "alternates": publicAlternates(v.Alternates)}
+	return map[string]any{"id": v.ID, "source": v.Source, "title": v.Title, "publishedAt": value(v.PublishedAt), "scheduledAt": value(v.ScheduledAt), "url": v.URL, "thumbnailUrl": value(v.ThumbnailURL), "kind": value(v.Kind), "isUpcoming": v.IsUpcoming, "endsAt": value(v.EndsAt), "thumbnailId": value(v.ThumbnailID), "thumbnailStatus": v.ThumbnailStatus, "thumbnailSourceUrl": value(v.ThumbnailSourceURL), "isCancelled": v.IsCancelled, "liveStatus": value(v.LiveStatus), "durationSeconds": valueInt(v.DurationSeconds), "isShort": valueBool(v.IsShort), "tag": value(v.Tag), "availability": value(v.Availability), "view": publicVideoView(v.View), "translations": publicTranslations(v.Translations), "sourceLanguage": value(v.Translations.SourceLanguage), "alternates": publicAlternates(v.Alternates)}
 }
 
 // publicAlternates lists the other platforms' copies of a video by their
@@ -228,10 +318,10 @@ func PublicSyncRun(run *sqlite.SyncRun) *PublicSyncRunResponse {
 		return nil
 	}
 	message, ok := map[string]string{
-		"success": "同步完成",
-		"partial": "部分数据源不可用或存在警告，保留已有快照",
-		"failed":  "同步失败，保留已有快照",
-		"running": "同步进行中",
+		"success": "Sync completed",
+		"partial": "Some data sources are unavailable or reported warnings; the existing snapshot remains",
+		"failed":  "Sync failed; the existing snapshot remains",
+		"running": "Sync in progress",
 	}[run.Status]
 	var publicMessage *string
 	if ok {
@@ -262,4 +352,46 @@ func Revision(revision int64, since *int64) PublicRevisionResponse {
 		changed = revision != *since
 	}
 	return PublicRevisionResponse{Revision: revision, Changed: changed}
+}
+
+// worksCover is a ready cover's local URL and size, or nil.
+func worksCover(cover *sqlite.WorksCover) any {
+	if cover == nil {
+		return nil
+	}
+	return map[string]any{"url": cover.URL, "width": valueInt(cover.Width), "height": valueInt(cover.Height)}
+}
+
+// WorksUploads is the Works page's view of stored data: for each upload with
+// a ready cover or a stored video, the cover's local URL and size and the
+// videos' public fields, and the recent uploads dated after the list. Uploads
+// without either are left out.
+func WorksUploads(index works.Index, overlay *sqlite.WorksOverlay) map[string]any {
+	uploads := map[string]any{}
+	for _, upload := range overlay.Uploads {
+		cover := worksCover(upload.Cover)
+		videos := make([]any, 0, len(upload.Videos))
+		for _, v := range upload.Videos {
+			videos = append(videos, map[string]any{"source": v.Source, "id": v.ID, "title": v.Title, "url": v.URL, "publishedAt": value(v.PublishedAt), "scheduledAt": value(v.ScheduledAt), "durationSeconds": valueInt(v.DurationSeconds), "availability": value(v.Availability), "translations": publicTranslations(v.Translations), "sourceLanguage": value(v.Translations.SourceLanguage)})
+		}
+		uploads[upload.ID] = map[string]any{"cover": cover, "videos": videos}
+	}
+	recent := make([]any, 0, len(overlay.Recent))
+	for _, v := range overlay.Recent {
+		recent = append(recent, map[string]any{
+			"id": v.ID, "source": v.Source, "title": v.Title, "url": v.URL, "publishedAt": worksRecentDate(v),
+			"cover": worksCover(v.Cover), "origin": v.Origin, "translations": publicTranslations(v.Translations),
+			"sourceLanguage": value(v.Translations.SourceLanguage), "alternates": publicAlternates(v.Alternates),
+		})
+	}
+	return map[string]any{"updatedAt": index.UpdatedAt, "revision": overlay.Revision, "uploads": uploads, "recent": recent, "recentTotal": overlay.RecentTotal}
+}
+
+// worksRecentDate is when a recent upload went up: a premiere's scheduled
+// time, else its published time.
+func worksRecentDate(v sqlite.WorksRecentUpload) any {
+	if v.ScheduledAt != nil {
+		return *v.ScheduledAt
+	}
+	return value(v.PublishedAt)
 }

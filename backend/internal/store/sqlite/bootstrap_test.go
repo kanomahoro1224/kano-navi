@@ -29,7 +29,7 @@ func TestGoInitializationStartsEmptyAndPreservesSnapshotsOnReseed(t *testing.T) 
 	_ = db.QueryRow(`SELECT COUNT(*) FROM profiles`).Scan(&profile)
 	_ = db.QueryRow(`SELECT COUNT(*) FROM timeline`).Scan(&timeline)
 	_ = db.QueryRow(`SELECT COUNT(*) FROM resources`).Scan(&resources)
-	if profile != 1 || timeline != 7 || resources != 10 {
+	if profile != 1 || timeline != 7 || resources != 11 {
 		t.Fatalf("static seed=%d %d %d", profile, timeline, resources)
 	}
 	if _, err = db.Exec(`UPDATE profiles SET display_name='operator'; INSERT INTO app_settings(key,value,updated_at) VALUES('operator_setting','retained','2026-01-01T00:00:00Z'); INSERT INTO posts(id,source,text,published_at,url) VALUES('fixture','x','retained','2026-01-01T00:00:00Z','https://example.invalid/post')`); err != nil {

@@ -13,7 +13,7 @@ import (
 // applyExtraction writes one accepted model result in a single transaction:
 // cancellation targets are resolved first, the post's automatic events are
 // replaced, and the cancellation overlay is applied last.
-func (e *Extractor) applyExtraction(ctx context.Context, postID string, extractionID int64, result normalizedExtraction) error {
+func (e *Extractor) applyExtraction(ctx context.Context, source, postID string, extractionID int64, result normalizedExtraction) error {
 	cancellations := []normalizedEvent{}
 	scheduled := []normalizedEvent{}
 	for _, event := range result.events {
@@ -35,7 +35,7 @@ func (e *Extractor) applyExtraction(ctx context.Context, postID string, extracti
 	}
 	// Cancellation evidence must not retire a source's existing schedules.
 	if result.classification == "schedule" && result.action != "cancel" && (len(scheduled) > 0 || len(cancellations) == 0) {
-		if err = e.replaceAutomaticEvents(ctx, tx, postID, extractionID, scheduled, targets); err != nil {
+		if err = e.replaceAutomaticEvents(ctx, tx, source, postID, extractionID, scheduled, targets); err != nil {
 			return err
 		}
 	}
@@ -138,22 +138,22 @@ func findCancellationTargets(ctx context.Context, q queryer, candidates []normal
 
 const upsertEventSQL = `INSERT INTO events (
 		id, source, source_item_id, source_key, title, detail, starts_on, starts_at,
-		ends_at, timezone, time_precision, status, event_type, tag, tag_source, url, is_upcoming,
+		ends_at, ends_on, timezone, time_precision, status, event_type, tag, tag_source, url, is_upcoming,
 		provenance, manual_locked, confidence, extraction_id,
 		cancellation_status, cancellation_source, cancellation_reason,
 		cancellation_evidence, cancellation_source_item_id,
 		cancellation_confidence, cancellation_at, deleted_at,
-		created_at, updated_at, raw_json
+		created_at, updated_at, raw_json, platform, platforms, platforms_inferred
 	) VALUES (
-		?, ?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Tokyo', ?, ?, ?, ?, ?, ?, ?,
+		?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Tokyo', ?, ?, ?, ?, ?, ?, ?,
 		'automatic', 0, ?, ?, 'none', NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-		?, ?, ?
+		?, ?, ?, ?, ?, ?
 	)
 	ON CONFLICT(id) DO UPDATE SET
 		source=excluded.source, source_item_id=excluded.source_item_id,
 		source_key=excluded.source_key, title=excluded.title, detail=excluded.detail,
 		starts_on=excluded.starts_on, starts_at=excluded.starts_at,
-		ends_at=excluded.ends_at, timezone=excluded.timezone,
+		ends_at=excluded.ends_at, ends_on=excluded.ends_on, timezone=excluded.timezone,
 		time_precision=excluded.time_precision, status=excluded.status,
 		event_type=excluded.event_type,
 		tag=CASE WHEN excluded.tag IS NULL OR events.tag_source='manual'
@@ -180,7 +180,8 @@ const upsertEventSQL = `INSERT INTO events (
 			THEN events.cancellation_confidence ELSE excluded.cancellation_confidence END,
 		cancellation_at=CASE WHEN events.cancellation_status IN ('llm_suspected', 'manual_confirmed')
 			THEN events.cancellation_at ELSE excluded.cancellation_at END,
-		updated_at=excluded.updated_at, raw_json=excluded.raw_json
+		updated_at=excluded.updated_at, raw_json=excluded.raw_json, platform=excluded.platform,
+		platforms=excluded.platforms, platforms_inferred=excluded.platforms_inferred
 	WHERE events.manual_locked = 0`
 
 func nullableText(value *string) any {
@@ -201,13 +202,12 @@ func llmTagSource(tag *string) any {
 	return sqlite.TagSourceLLM
 }
 
-// replaceAutomaticEvents mirrors replaceAutomaticEventsForSource for the X
-// source scope. The upsert is guarded by manual_locked = 0, so an operator's
+// replaceAutomaticEvents mirrors replaceAutomaticEventsForSource for the
+// post's source scope (x or bilibili). The upsert is guarded by manual_locked = 0, so an operator's
 // edit or tombstone keeps its fields while the source evidence row is still
 // attached to it; events the post no longer lists are retired only when they
 // are automatic, unlocked and have no other live source.
-func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, postID string, extractionID int64, events []normalizedEvent, preserve []string) error {
-	const source = "x"
+func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, source, postID string, extractionID int64, events []normalizedEvent, preserve []string) error {
 	timestamp := e.nowISO()
 	activeKeys := map[string]bool{}
 	for _, event := range events {
@@ -219,9 +219,9 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, post
 			var previous string
 			err := tx.QueryRowContext(ctx, `SELECT s.event_id FROM event_sources s
 				JOIN events e ON e.id=s.event_id
-				WHERE s.source=? AND s.source_key=? AND e.source='x' AND e.source_key=?
+				WHERE s.source=? AND s.source_key=? AND e.source=? AND e.source_key=?
 				ORDER BY (s.source_item_id=?) DESC, s.id ASC LIMIT 1`,
-				source, event.sourceKey, event.canonicalSourceKey, postID).Scan(&previous)
+				source, event.sourceKey, source, event.canonicalSourceKey, postID).Scan(&previous)
 			if err == nil {
 				eventID = previous
 			} else if !errors.Is(err, sql.ErrNoRows) {
@@ -256,8 +256,8 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, post
 		if _, err = tx.ExecContext(ctx, upsertEventSQL,
 			eventID, event.canonicalSource, event.canonicalSourceItemID, event.canonicalSourceKey,
 			event.title, nullableText(event.detail), event.startsOn, nullableText(event.startsAt),
-			nullableText(event.endsAt), event.timePrecision, nullable(event.status), event.eventType,
-			nullableText(event.tag), llmTagSource(event.tag), nullable(event.url), upcoming, event.confidence, extractionID, now, now, stringify(raw)); err != nil {
+			nullableText(event.endsAt), nullableText(event.endsOn), event.timePrecision, nullable(event.status), event.eventType,
+			nullableText(event.tag), llmTagSource(event.tag), nullable(event.url), upcoming, event.confidence, extractionID, now, now, stringify(raw), event.platform, sqlite.EncodePlatforms(event.platforms), event.platformsInferred); err != nil {
 			return err
 		}
 		evidence := event.rawObject()
@@ -273,7 +273,7 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, post
 				raw_json=COALESCE(excluded.raw_json, event_sources.raw_json),
 				deleted_at=NULL,
 				updated_at=excluded.updated_at`,
-			eventID, source, postID, event.sourceKey, nullable(event.url), stringify(evidence), timestamp, timestamp); err != nil {
+			eventID, source, postID, event.sourceKey, nullable(event.evidenceURL), stringify(evidence), timestamp, timestamp); err != nil {
 			return err
 		}
 	}
@@ -312,7 +312,9 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, post
 			return err
 		}
 		var remaining int
-		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM event_sources WHERE event_id=? AND deleted_at IS NULL`, row.eventID).Scan(&remaining); err != nil {
+		// An upload the release was paired with is not an announcement: it
+		// keeps no retired entry alive.
+		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM event_sources WHERE event_id=? AND deleted_at IS NULL AND source<>'bilibili-video'`, row.eventID).Scan(&remaining); err != nil {
 			return err
 		}
 		if remaining == 0 {

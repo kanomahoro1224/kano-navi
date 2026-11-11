@@ -29,17 +29,20 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/schedule"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
+	"github.com/yexca/kano-navi/backend/internal/source/niconico"
+	shopsource "github.com/yexca/kano-navi/backend/internal/source/shop"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/source/youtube/websub"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/variants"
 	"github.com/yexca/kano-navi/backend/internal/workflow"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 // stepSkipFlags are the process-wide kill switches for each workflow step.
 // SKIP_LLM stops every model call: schedule extraction and translation.
-var stepSkipFlags = map[string]string{"x": "SKIP_X", "youtube": "SKIP_YOUTUBE", "bilibili": "SKIP_BILIBILI", "media": "SKIP_MEDIA", "schedule": "SKIP_LLM", jobs.StepTranslate: "SKIP_LLM"}
+var stepSkipFlags = map[string]string{"x": "SKIP_X", sqlite.XRelatedStep: "SKIP_X", "youtube": "SKIP_YOUTUBE", "bilibili": "SKIP_BILIBILI", sqlite.BilibiliDynamicsSource: "SKIP_BILIBILI", sqlite.ShopSource: "SKIP_SHOP", "media": "SKIP_MEDIA", "schedule": "SKIP_LLM", jobs.StepTranslate: "SKIP_LLM"}
 
 // splitCommaList parses the comma-separated host list an environment variable
 // carries. An empty value means "use the built-in default".
@@ -92,9 +95,9 @@ func runStandalone(cfg config.Config) int {
 	}
 
 	run := newPipeline(store, secretsKey)
-	// The variants step and the Site page's copies status read the archive
-	// under the data directory and the history images of the served site.
-	run.steps.Variants = &variants.Roots{Data: store.DataRoot(), Static: cfg.StaticDirectory}
+	// The variants step and the Site page's copies status read the archives
+	// under the data directory.
+	run.steps.Variants = &variants.Roots{Data: store.DataRoot()}
 	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies)
 	queue := &workflow.Queue{Store: store, Executor: run.executor}
 	defer queue.Close()
@@ -103,10 +106,14 @@ func runStandalone(cfg config.Config) int {
 	}
 	queue.StartRecovery()
 	// A Bilibili interval below a raised floor is raised before the first
-	// tick (ADR-0003).
+	// tick.
 	floor := int(run.steps.Bilibili.Options.MinInterval / time.Minute)
 	if err = store.PrepareSourceSchedules(context.Background(), floor, time.Now()); err != nil {
 		return fail("source schedules unavailable", 1)
+	}
+	// An account named in X_HANDLES is an own account only.
+	if err = store.SettleXRelatedRoles(context.Background(), run.xOptions.Handles); err != nil {
+		return fail("related accounts unavailable", 1)
 	}
 	// Source schedules are started by this process only.
 	scheduler := &workflow.Scheduler{
@@ -217,6 +224,11 @@ func runStandalone(cfg config.Config) int {
 		Store:   store,
 		Submit:  liveProbeTrigger(manager),
 		Enabled: scheduler.Enabled && !run.steps.Skip[jobs.StepLive],
+		// Each part of the probe stops with its source.
+		SkipYoutube: run.steps.Skip["youtube"],
+	}
+	if run.steps.Bilibili != nil && !run.steps.Skip["bilibili"] {
+		probe.BilibiliAccount = run.steps.Bilibili.Options.Account
 	}
 	probe.Start()
 	defer probe.Stop()
@@ -257,6 +269,9 @@ func runStandalone(cfg config.Config) int {
 			// login goes through its loopback listener. No URL leaves the
 			// panel reporting the feature as off.
 			BiliAuthURL: strings.TrimSpace(os.Getenv("BILI_AUTH_URL")),
+			Works:       run.steps.Works,
+			Queues:      run.queues,
+			Youtube:     run.steps.Youtube,
 		}),
 		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin),
 		MCP:          standaloneMCP(store, manager),
@@ -339,6 +354,9 @@ type pipeline struct {
 	xOptions xsource.Options
 	// proxies routes every outbound request by area.
 	proxies *outboundproxy.Pool
+	// queues previews what the schedule and translate steps would work
+	// through, with the same extractor and translator.
+	queues adminapi.QueuePreviews
 }
 
 // newPipeline wires the source, media and schedule steps. key is the
@@ -353,8 +371,9 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 			skipped = append(skipped, step)
 		}
 	}
-	// The live-status probe is part of the YouTube source.
-	skip[jobs.StepLive] = skip["youtube"]
+	// The live-status probe checks the YouTube videos and the Bilibili room;
+	// each part stops with its source.
+	skip[jobs.StepLive] = skip["youtube"] && skip["bilibili"]
 	xOptions := xsource.OptionsFromEnv()
 	youtubeOptions := ytsource.OptionsFromEnv()
 	// Each client's outbound requests follow its area's proxy route.
@@ -374,15 +393,21 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 	if xToken != "" {
 		xAdapter.API = &history.XAPI{Fetcher: fetcher, Credential: xToken}
 	}
+	extractor := schedule.New(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})
+	translator := schedule.NewTranslator(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})
+	worksIndex := works.Packaged()
 	steps := &workflow.SourceSteps{
 		Store:     store,
 		Skip:      skip,
 		X:         &workflow.XRecentExecutor{Store: store, Adapter: xAdapter, Options: xOptions},
 		Youtube:   youtubeAdapter,
 		Bilibili:  bilisource.NewAdapter(bilisource.NewClient(proxies.Client(outboundproxy.AreaBilibili)), bilisource.OptionsFromEnv()),
+		Shop:      shopsource.NewAdapter(shopsource.NewClient(proxies.Client(outboundproxy.AreaShop))),
 		Media:     mediadownload.NewClient(proxies.Client(outboundproxy.AreaMedia)),
-		Schedule:  scheduleStep{schedule.New(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})},
-		Translate: translateStep{schedule.NewTranslator(store, schedule.Options{SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)})},
+		Niconico:  niconico.NewClient(proxies.Client(outboundproxy.AreaMedia)),
+		Works:     &worksIndex,
+		Schedule:  scheduleStep{extractor},
+		Translate: translateStep{translator},
 		History: &workflow.HistorySource{
 			Fetcher:      fetcher,
 			Store:        store,
@@ -393,16 +418,18 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 			RequestLimit: max(1, xOptions.MaxDetailRequests),
 		},
 	}
+	steps.History.Bilibili = steps.Bilibili
 	executor := &workflow.Executor{
 		Store: store,
 		Steps: steps,
 		// Every catalog step has a real adapter here; none is synthetic.
-		SyntheticSteps: map[string]bool{"x": false, "youtube": false, "bilibili": false, jobs.StepLive: false, "media": false, "schedule": false, jobs.StepTranslate: false, jobs.StepVariants: false, "reconcile": false},
+		SyntheticSteps: map[string]bool{"x": false, sqlite.XRelatedStep: false, "youtube": false, "bilibili": false, sqlite.BilibiliDynamicsSource: false, sqlite.ShopSource: false, jobs.StepLive: false, "media": false, "schedule": false, jobs.StepTranslate: false, jobs.StepVariants: false, "reconcile": false},
 		// One unavailable source keeps the other source and post-processing,
 		// and a failed translation keeps event reconciliation.
-		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, jobs.StepTranslate: true},
+		TolerateFailure: map[string]bool{"x": true, sqlite.XRelatedStep: true, "youtube": true, "bilibili": true, sqlite.BilibiliDynamicsSource: true, sqlite.ShopSource: true, jobs.StepTranslate: true},
 	}
-	return pipeline{steps: steps, executor: executor, skipped: skipped, xOptions: xOptions, proxies: proxies}
+	queues := adminapi.QueuePreviews{Schedule: extractor.PreviewQueue, Translation: translator.PreviewQueue}
+	return pipeline{steps: steps, executor: executor, skipped: skipped, xOptions: xOptions, proxies: proxies, queues: queues}
 }
 
 // ytdlpRoutes runs yt-dlp's YouTube reads through the YouTube proxy route.

@@ -7,10 +7,11 @@ import (
 	"time"
 )
 
-// DB exposes the store's single SQLite connection to sibling feature packages
-// (LLM configuration, profile media, schedule extraction, MCP). The pool holds
-// exactly one connection: close every *sql.Rows before issuing another
-// statement, and never keep a transaction open across a network request.
+// DB exposes the store's single writer connection to sibling feature packages
+// (LLM configuration, profile media, schedule extraction, MCP). Public read
+// projections use the store's separate read-only pool; callers here still own
+// every *sql.Rows and must never keep a transaction open across a network
+// request.
 func (s *Store) DB() *sql.DB {
 	if s == nil {
 		return nil

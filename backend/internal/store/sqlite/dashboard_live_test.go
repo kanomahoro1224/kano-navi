@@ -85,6 +85,44 @@ func TestDashboardLiveShortlistGivesGraceOnlyToStreams(t *testing.T) {
 	}
 }
 
+func TestDashboardNextEventLooksPastTheCurrentWeek(t *testing.T) {
+	path := testutil.NewSnapshot(t)
+	// Sunday 22:00 in Japan: the week's only entry is over, and the next ones
+	// fall in later weeks, one timed and one date-only.
+	for _, row := range []struct {
+		id, startsOn string
+		startsAt     *string
+	}{
+		{"week-over", "2026-11-08", strPtr("2026-11-08T03:00:00.000Z")},
+		{"later-timed", "2026-11-20", strPtr("2026-11-20T11:00:00.000Z")},
+		{"later-date-only", "2026-11-25", nil},
+	} {
+		testutil.Exec(t, path, `INSERT INTO events (id,source,title,starts_on,starts_at,event_type,status,created_at,updated_at) VALUES (?,'x',?,?,?,'release','scheduled','2026-11-01T00:00:00.000Z','2026-11-01T00:00:00.000Z')`, row.id, row.id, row.startsOn, row.startsAt)
+	}
+	store, err := OpenReadOnly(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	dashboard, err := store.GetDashboard(context.Background(), 3, time.Date(2026, 11, 8, 13, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next := dashboard.Summary.NextEvent; next == nil || next.ID != "later-timed" {
+		t.Fatalf("next event = %+v, want later-timed", next)
+	}
+	// The board rederives the next entry from its event list once the first
+	// one passes, so the later ones travel with the snapshot too.
+	for _, id := range []string{"later-timed", "later-date-only"} {
+		if !containsEvent(dashboard.Events, id) {
+			t.Fatalf("event %q missing from the board's list", id)
+		}
+	}
+	if got := dashboard.Summary.Counts.UpcomingEvents; got != 2 {
+		t.Fatalf("upcoming events = %d, want 2", got)
+	}
+}
+
 func TestCalendarCarriesTheBoardsLiveStatus(t *testing.T) {
 	path := testutil.NewSnapshot(t)
 	now := time.Now().UTC()

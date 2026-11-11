@@ -1,0 +1,88 @@
+.adm-shell,
+.adm-login,
+.adm-boot {
+  --adm-radius: 16px;
+  --adm-radius-sm: 10px;
+  --adm-sidebar: 248px;
+  --adm-surface: hsl(var(--card));
+  --adm-sunken: color-mix(in oklab, hsl(var(--muted)) 70%, transparent);
+  --adm-line: hsl(var(--border));
+  --adm-line-strong: hsl(var(--input));
+  --adm-text: hsl(var(--foreground));
+  --adm-muted: hsl(var(--muted-foreground));
+  --adm-accent: var(--berry);
+  --adm-accent-soft: color-mix(in oklab, var(--berry) 11%, transparent);
+  --adm-focus: 0 0 0 3px color-mix(in oklab, var(--berry) 30%, transparent);
+
+  min-height: 100vh;
+  background: hsl(var(--background));
+  color: var(--adm-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.adm-shell svg,
+.adm-login svg,
+.adm-boot svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.adm-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.adm-spin {
+  animation: adm-spin 900ms linear infinite;
+}
+
+@keyframes adm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-spin,
+  .adm-live-dot {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ tones */
+
+.adm-tone-neutral {
+  --tone: hsl(var(--muted-foreground));
+}
+.adm-tone-berry {
+  --tone: var(--berry);
+}
+.adm-tone-sky,
+.adm-tone-running {
+  --tone: var(--sky);
+}
+.adm-tone-leaf,
+.adm-tone-success {
+  --tone: var(--leaf);
+}
+.adm-tone-honey,
+.adm-tone-warning {
+  --tone: var(--honey);
+}
+.adm-tone-lavender {
+  --tone: var(--lavender);
+}
+.adm-tone-danger {
+  --tone: var(--danger);
+}
+
+[class*="adm-tone-"] {
+  --tone-soft: color-mix(in oklab, var(--tone) 12%, transparent);
+  --tone-line: color-mix(in oklab, var(--tone) 32%, transparent);
+}

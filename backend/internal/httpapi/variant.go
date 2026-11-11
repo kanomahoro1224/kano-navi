@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/variants"
 )
 
 // fileHasher remembers files' hashes across requests and restarts
@@ -22,9 +23,9 @@ type variantReader interface {
 	OpenVariant(hash string, width int) (*sqlite.MediaStream, bool)
 }
 
-// maxVariantSourceBytes matches the cached-media bound: a larger fixed image
-// has no copies and is always served whole.
-const maxVariantSourceBytes = 10 * 1024 * 1024
+// maxVariantSourceBytes matches the packaged-original bound: a larger fixed
+// image has no copies and is always served whole.
+const maxVariantSourceBytes = variants.MaxSource
 
 // fixedFileHash returns the SHA-256 of the opened fixed file at path, whose
 // stat is info, remembered by store or, when store is nil, by this process

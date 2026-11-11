@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { fallbackProfile, POST_WINDOW_DAYS } from "./content"
-import type { ArchiveSnapshot, Dashboard, CalendarSnapshot } from "@/types"
+import type {
+  ArchiveMonth,
+  ArchiveSnapshot,
+  Dashboard,
+  CalendarSnapshot,
+} from "@/types"
 import { createRequestScope, startPolling } from "../lib/polling"
 import { startOfWeek, japanToday, localDateKey, addDays } from "./format"
 import { deriveDashboardAt } from "./derive-dashboard"
@@ -9,6 +14,21 @@ import type { VideoCategory } from "./video-groups"
 
 const emptyDashboard: Dashboard = {
   profile: fallbackProfile,
+  projection: {
+    version: 0,
+    nextTransitionAt: null,
+    focus: { eventIds: [], videoIds: [] },
+    spotlight: null,
+    sales: [],
+    shelf: {
+      leadId: null,
+      leadIsFeatured: false,
+      reservations: [],
+      works: [],
+      archives: [],
+      shorts: [],
+    },
+  },
   summary: {
     nextEvent: null,
     nextStream: null,
@@ -24,9 +44,10 @@ const emptyDashboard: Dashboard = {
   resources: [],
   assets: [],
   scheduleImages: [],
+  liveNow: null,
   meta: {
     fetchedAt: null,
-    sourceFetchedAt: { x: null, youtube: null, bilibili: null },
+    sourceFetchedAt: { x: null, youtube: null, bilibili: null, shop: null },
     lastSync: null,
     postWindowDays: POST_WINDOW_DAYS,
     xAccounts: ["kano_2525", "_Kanotic"],
@@ -46,11 +67,17 @@ export type ArchiveKind = "schedule" | "posts" | "videos"
 
 export interface ArchiveRequest {
   kind: ArchiveKind
+  /** The schedule or post month shown; the video timeline ignores it. */
   monthStart: Date
-  /** Post archives only: one X handle, or null for every account. */
+  /** Post archives only: an X handle or Bilibili mid, or null for all. */
   account?: string | null
   /** Video archives only: one category, or null for every video. */
   category?: VideoCategory | null
+  /**
+   * Video archives only: the month the timeline starts from, reading that
+   * month and everything older; null starts from the newest video.
+   */
+  anchor?: Date | null
 }
 
 /**
@@ -69,23 +96,38 @@ export function archiveRange(kind: ArchiveKind, monthStart: Date) {
     : { from: localDateKey(first), to: localDateKey(last) }
 }
 
+/** The inclusive Japan date the video timeline ends on, or "" for none. */
+function timelineUntil(anchor: Date | null | undefined) {
+  return anchor
+    ? localDateKey(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0))
+    : ""
+}
+
 function archiveUrl(request: ArchiveRequest, page: number) {
+  if (request.kind === "videos") {
+    const until = timelineUntil(request.anchor)
+    const category = request.category ? `&category=${request.category}` : ""
+    return `/api/videos?page=${page}${until ? `&until=${until}` : ""}${category}`
+  }
   const { from, to } = archiveRange(request.kind, request.monthStart)
-  const path = { schedule: "calendar", posts: "posts", videos: "videos" }[
-    request.kind
-  ]
+  const path = request.kind === "schedule" ? "calendar" : "posts"
   const account =
     request.kind === "posts" && request.account
       ? `&account=${encodeURIComponent(request.account)}`
       : ""
-  const category =
-    request.kind === "videos" && request.category
-      ? `&category=${request.category}`
-      : ""
-  return `/api/${path}?from=${from}&to=${to}&page=${page}${account}${category}`
+  return `/api/${path}?from=${from}&to=${to}&page=${page}${account}`
 }
 
 const rangeKey = ({ from, to }: { from: string; to: string }) => `${from}/${to}`
+
+/** What identifies one archive read: its month or timeline start and filter. */
+function archiveKey(request: ArchiveRequest) {
+  const span =
+    request.kind === "videos"
+      ? `until:${timelineUntil(request.anchor)}`
+      : rangeKey(archiveRange(request.kind, request.monthStart))
+  return `${request.kind}:${span}:${request.account || ""}:${request.category || ""}`
+}
 
 async function readScopedJson(url: string, signal: AbortSignal) {
   const response = await fetch(url, {
@@ -147,7 +189,7 @@ type LoadResult = { ok: true } | { ok: false; error: Error }
 
 /**
  * The last snapshot this browser read, shown on the next visit until the
- * first read replaces it. The suffix changes when the snapshot's shape does.
+ * first read replaces it. Additive fields are merged with safe defaults.
  */
 const SNAPSHOT_CACHE_KEY = "kano-dashboard-snapshot-v1"
 /** An older stored snapshot is dropped instead of shown. */
@@ -160,6 +202,20 @@ function mergeSnapshot(payload: Partial<Dashboard>): Dashboard {
     ...payload,
     profile: { ...fallbackProfile, ...(payload.profile || {}) },
     summary: { ...emptyDashboard.summary, ...(payload.summary || {}) },
+    projection: payload.projection
+      ? {
+          ...emptyDashboard.projection,
+          ...payload.projection,
+          focus: {
+            ...emptyDashboard.projection!.focus,
+            ...(payload.projection.focus || {}),
+          },
+          shelf: {
+            ...emptyDashboard.projection!.shelf,
+            ...(payload.projection.shelf || {}),
+          },
+        }
+      : emptyDashboard.projection,
     meta: { ...emptyDashboard.meta, ...(payload.meta || {}) },
   }
 }
@@ -180,7 +236,8 @@ function readCachedSnapshot(): Dashboard | null {
       )
     )
       return null
-    return mergeSnapshot(snapshot)
+    // A stored broadcast may have ended; only a fresh read says it is live.
+    return mergeSnapshot({ ...snapshot, liveNow: null })
   } catch {
     return null
   }
@@ -677,8 +734,84 @@ export function useDashboard(now = Date.now()) {
   }
 }
 
+const monthKeyPattern = /^\d{4}-(0[1-9]|1[0-2])$/
+
+/** Where each month index lives and which field holds its per-key counts. */
+const monthIndexes = {
+  posts: { url: "/api/posts/months", counts: "accountCounts" },
+  videos: { url: "/api/videos/months", counts: "categoryCounts" },
+} as const
+
+function readArchiveMonth(
+  value: unknown,
+  countsField: string,
+): ArchiveMonth | null {
+  if (!value || typeof value !== "object") return null
+  const month = value as Record<string, unknown>
+  const counts = month[countsField]
+  if (
+    typeof month.month !== "string" ||
+    !monthKeyPattern.test(month.month) ||
+    !Number.isInteger(month.total) ||
+    !counts ||
+    typeof counts !== "object"
+  )
+    return null
+  return {
+    month: month.month,
+    total: month.total as number,
+    counts: counts as Record<string, number>,
+  }
+}
+
 /**
- * Reads one month of the stored schedule, posts or videos for a dialog, page
+ * Reads the month index of the post archive or the video timeline while
+ * `enabled`: every Japan month holding records, oldest first. It rereads when
+ * the board's revision changes. A failed read keeps the known index, and with
+ * none `months` stays null, so the picker offers every month.
+ */
+export function useArchiveMonths(
+  kind: "posts" | "videos",
+  enabled: boolean,
+  revision?: number | null,
+) {
+  const scope = useMemo(() => createRequestScope(), [])
+  const [state, setState] = useState<{
+    kind: string
+    months: ArchiveMonth[]
+  } | null>(null)
+
+  useEffect(() => {
+    scope.activate()
+    return () => scope.dispose()
+  }, [scope])
+
+  useEffect(() => {
+    if (!enabled) return undefined
+    const index = monthIndexes[kind]
+    scope
+      .run("months", async (signal) => {
+        const result = await readScopedJson(index.url, signal)
+        if (!Array.isArray(result?.months))
+          throw new Error("Invalid month index")
+        return (result.months as unknown[])
+          .map((month) => readArchiveMonth(month, index.counts))
+          .filter((month): month is ArchiveMonth => month !== null)
+      })
+      .then(
+        (months) => setState({ kind, months }),
+        () => {
+          // A failed read keeps a known index; the picker works without one.
+        },
+      )
+    return () => scope.cancelKey("months")
+  }, [kind, enabled, revision, scope])
+
+  return state?.kind === kind ? state.months : null
+}
+
+/**
+ * Reads one schedule or post month, or the video timeline, for a dialog, page
  * by page. Like the calendar it follows the board's revision: a change rereads
  * the loaded pages atomically, and a later page from another revision restarts
  * the read instead of being appended. Schedule and video archives also follow
@@ -691,9 +824,7 @@ export function useArchive<T>(
   snapshotVersion?: number,
 ) {
   const scope = useMemo(() => createRequestScope(), [])
-  const key = request
-    ? `${request.kind}:${rangeKey(archiveRange(request.kind, request.monthStart))}:${request.account || ""}:${request.category || ""}`
-    : null
+  const key = request ? archiveKey(request) : null
   const [state, setState] = useState<{
     key: string | null
     snapshot: ArchiveSnapshot<T> | null

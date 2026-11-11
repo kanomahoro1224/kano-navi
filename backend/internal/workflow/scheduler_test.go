@@ -55,8 +55,7 @@ func TestSchedulerRunsOnlySourceSchedulesEarliestFirst(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 3, 2, 3, 10, 0, 0, time.UTC)
 	now := func() time.Time { return clock }
-	// A timed row in the workflows table is never read, run or changed
-	// (ADR-0003).
+	// A timed row in the workflows table is never read, run or changed.
 	const retired = `INSERT INTO workflows(id,name,steps_json,schedule_enabled,interval_minutes,next_run_at,created_at,updated_at) VALUES('sweep','Sweep','["translate"]',1,15,'2026-03-02T03:00:00.000Z','2026-03-01T00:00:00.000Z','2026-03-01T00:00:00.000Z')`
 	testutil.Exec(t, p, retired)
 	enable := func(source string, interval int, sync *sqlite.SourceSync) {
@@ -77,7 +76,7 @@ func TestSchedulerRunsOnlySourceSchedulesEarliestFirst(t *testing.T) {
 	enable("bilibili", 60, nil)
 	testutil.Exec(t, p, `UPDATE source_schedules SET next_run_at=CASE source WHEN 'x' THEN '2026-03-02T03:05:00.000Z' ELSE '2026-03-02T02:50:00.000Z' END`)
 
-	all := map[string]bool{"x": true, "youtube": true, "bilibili": true, "media": true, "schedule": true, "translate": true, "reconcile": true}
+	all := map[string]bool{"x": true, "youtube": true, "bilibili": true, "bilibili_dynamics": true, "media": true, "schedule": true, "translate": true, "reconcile": true}
 	scheduler := &Scheduler{
 		Store: s, Executor: &Executor{Store: s, Clock: now, SyntheticSteps: all},
 		Enabled: true, BilibiliFloor: 60, Now: now,

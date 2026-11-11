@@ -1,0 +1,540 @@
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+  align-items: start;
+  gap: 20px;
+  padding-top: 28px;
+  scroll-margin-top: 72px;
+}
+
+/*
+ * A card whose title is its link: followCardLink opens it from anywhere on
+ * the card, and the card shows the title link's keyboard focus.
+ */
+.link-card {
+  cursor: pointer;
+}
+
+.link-card:has(.card-link:focus-visible) {
+  outline: 2px solid var(--berry);
+  outline-offset: 2px;
+}
+
+.card-link:focus-visible {
+  outline: none;
+}
+
+.ticket {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  box-shadow: var(--shadow-md);
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.ticket.link-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/*
+ * The first read's placeholder: the art band and a stub whose lines stand
+ * in for the head, a two-line title and the time, at their own heights.
+ */
+.ticket.is-loading .ticket-art,
+.ticket-placeholder {
+  background: linear-gradient(
+      90deg,
+      var(--sunken),
+      color-mix(in oklab, hsl(var(--muted)) 35%, transparent),
+      var(--sunken)
+    )
+    0 0 / 200% 100%;
+  animation: placeholder-shine 1.4s ease-in-out infinite;
+}
+
+.ticket-placeholder {
+  grid-column: 1 / -1;
+  border-radius: var(--radius-sm);
+}
+
+.ticket-placeholder.is-head {
+  width: 30%;
+  height: 22px;
+}
+
+/* Two lines of .ticket-title, a typical title's wrap beside the profile. */
+.ticket-placeholder.is-title {
+  width: 85%;
+  height: calc(clamp(20px, 2.2vw, 27px) * 2.5);
+}
+
+/* The time sits closer under the title, as in .ticket-copy. */
+.ticket-placeholder.is-when {
+  width: 20%;
+  height: 18px;
+  margin-top: -8px;
+}
+
+.ticket.is-live {
+  border: 2px solid var(--berry);
+}
+
+.ticket-art {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  max-height: 420px;
+  overflow: hidden;
+  background: var(--sunken);
+}
+
+.ticket-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 400ms ease;
+}
+
+.ticket.link-card:hover .ticket-art img {
+  transform: scale(1.025);
+}
+
+.ticket-art-fallback {
+  position: absolute;
+  inset: 0;
+  background: var(--gingham);
+  opacity: 0.35;
+}
+
+.ticket-play {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--berry);
+  color: #fff;
+  box-shadow: 0 10px 24px -8px color-mix(in oklab, var(--berry) 80%, black);
+}
+
+.ticket-play svg {
+  width: 22px;
+  height: 22px;
+  margin-left: 3px;
+}
+
+.ticket.is-empty .ticket-art,
+.ticket:not(.has-art) .ticket-art {
+  aspect-ratio: auto;
+  height: 96px;
+}
+
+.ticket-stub {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px 24px;
+  padding: 22px 26px 24px;
+  border-top: 2px dashed var(--rule);
+}
+
+/* Ticket perforation notches. */
+.ticket-stub::before,
+.ticket-stub::after {
+  position: absolute;
+  top: -11px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  content: "";
+  background: hsl(var(--background));
+}
+
+.ticket-stub::before {
+  left: -11px;
+}
+
+.ticket-stub::after {
+  right: -11px;
+}
+
+.ticket.is-empty .ticket-stub {
+  grid-template-columns: 1fr;
+  border-top: 0;
+}
+
+.ticket.is-empty .ticket-stub::before,
+.ticket.is-empty .ticket-stub::after {
+  display: none;
+}
+
+.ticket-head {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 10px;
+}
+
+.ticket-onair {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.ticket-onair svg {
+  width: 13px;
+  height: 13px;
+  animation: onair-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes onair-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.ticket-body {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 18px;
+}
+
+.ticket-date {
+  display: grid;
+  min-width: 64px;
+  justify-items: center;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--berry-wash);
+  color: var(--berry);
+  line-height: 1.05;
+}
+
+.ticket-date strong {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket-date small {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ticket-copy {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.ticket-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.2vw, 27px);
+  font-weight: 800;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.ticket-when {
+  display: grid;
+  gap: 2px;
+}
+
+.ticket-when strong {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket-when small,
+.ticket-note {
+  margin: 0;
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+.ticket-countdown {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.ticket-countdown-label {
+  color: var(--soft);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.ticket-countdown-cells {
+  display: flex;
+  gap: 6px;
+}
+
+.ticket-countdown-cell {
+  display: grid;
+  min-width: 58px;
+  justify-items: center;
+  padding: 6px 8px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: hsl(var(--background));
+  line-height: 1;
+}
+
+.ticket-countdown-cell strong {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket-countdown-cell small {
+  margin-top: 4px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* The time, with the phone countdown beside it. */
+.ticket-when-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.ticket-countdown.is-inline {
+  display: none;
+}
+
+.ticket-open {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--soft);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.ticket-open svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ticket.link-card:hover .ticket-open {
+  color: var(--berry);
+}
+
+.ticket-provenance {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--soft);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.ticket-provenance svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ticket-provenance.is-manual {
+  color: var(--leaf);
+}
+
+/* A schedule entry without artwork: the date stub replaces the art band. */
+.stage-main {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.ticket.is-compact {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.ticket-side {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 24px 26px;
+  background: var(--berry-wash);
+}
+
+.ticket-side::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: var(--gingham);
+  opacity: 0.18;
+}
+
+.ticket.is-compact .ticket-date {
+  position: relative;
+  min-width: 84px;
+  padding: 0;
+  background: transparent;
+}
+
+.ticket.is-compact .ticket-date strong {
+  font-size: 52px;
+}
+
+.ticket.is-compact .ticket-date small {
+  font-size: 12.5px;
+}
+
+.ticket.is-compact .ticket-stub {
+  align-content: center;
+  border-top: 0;
+  border-left: 2px dashed var(--rule);
+}
+
+.ticket.is-compact .ticket-stub::before {
+  top: -11px;
+  left: -11px;
+}
+
+.ticket.is-compact .ticket-stub::after {
+  top: auto;
+  right: auto;
+  bottom: -11px;
+  left: -11px;
+}
+
+.ticket-link {
+  display: inline-flex;
+  grid-column: 1 / -1;
+  justify-self: start;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.ticket-link svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ticket.link-card:hover .ticket-link {
+  border-color: var(--berry);
+  color: var(--berry);
+}
+
+.latest-card {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 18px 12px 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.latest-card.link-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.latest-card-art {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--sunken);
+}
+
+.latest-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.latest-card-play {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--berry);
+  color: #fff;
+}
+
+.latest-card-play svg {
+  width: 13px;
+  height: 13px;
+  margin-left: 2px;
+}
+
+.latest-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.latest-card-copy small {
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+.latest-card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.latest-card-open {
+  width: 16px;
+  height: 16px;
+  color: var(--soft);
+}
+
+.latest-card.link-card:hover .latest-card-open {
+  color: var(--berry);
+}

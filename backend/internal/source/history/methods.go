@@ -3,6 +3,8 @@ package history
 import (
 	"slices"
 	"strings"
+
+	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
 
 // Listing methods. The IDs are stable: runs freeze them, and the console and
@@ -17,6 +19,11 @@ const (
 	MethodRSS = "rss"
 	// MethodYTDLP reads YouTube through the locally installed yt-dlp binary.
 	MethodYTDLP = "ytdlp"
+	// MethodCatalog pages the official shop's whole product catalog.
+	MethodCatalog = "catalog"
+	// MethodSpace pages the Bilibili account's space listing: its uploads,
+	// or its dynamics with the login cookie.
+	MethodSpace = "space"
 )
 
 // Method describes what one listing method of a source can serve.
@@ -48,7 +55,7 @@ const feedLimit = 15
 
 var methods = map[string][]Method{
 	SourceX: {
-		{ID: MethodTimeline, Modes: []string{ModeCount, ModeAll}, MaxCount: MaxCount, PageSize: 100, Extract: true},
+		{ID: MethodTimeline, Modes: []string{ModeCount, ModeAll}, MaxCount: MaxCount, PageSize: xsource.TimelinePageSize, Extract: true},
 		{ID: MethodAPI, Modes: []string{ModeCount, ModeRange, ModeBefore}, MaxCount: MaxCount, PageSize: 100, Requires: "X_API_BEARER_TOKEN", Extract: true},
 	},
 	SourceYoutube: {
@@ -56,7 +63,33 @@ var methods = map[string][]Method{
 		{ID: MethodRSS, Modes: []string{ModeCount}, MaxCount: feedLimit, PageSize: feedLimit, Refresh: true},
 		{ID: MethodYTDLP, Modes: []string{ModeCount, ModeAll}, MaxCount: MaxCount, PageSize: MaxCount, Requires: "YTDLP_BINARY", Refresh: true},
 	},
+	// Every shop read rewrites the period groups it lists, so its fetch has
+	// no refresh option.
+	SourceShop: {
+		{ID: MethodCatalog, Modes: []string{ModeAll}, PageSize: 250},
+	},
+	// A related account reads its FxTwitter timeline from its own cursor,
+	// bounded as the x_related timer reads it.
+	SourceXRelated: {
+		{ID: MethodTimeline, Modes: []string{ModeIncremental}, PageSize: xsource.TimelinePageSize, Extract: true},
+	},
+	// Every Bilibili read rewrites the records it lists, as the timed reads
+	// do, so these fetches have no refresh option either.
+	SourceBilibili: {
+		{ID: MethodSpace, Modes: []string{ModeCount, ModeAll}, MaxCount: MaxCount, PageSize: BilibiliUploadsPageSize},
+	},
+	SourceBilibiliDynamics: {
+		{ID: MethodSpace, Modes: []string{ModeCount, ModeAll}, MaxCount: MaxCount, PageSize: BilibiliDynamicsPageSize, Requires: "BILIBILI_COOKIE or BILIBILI_SESSDATA", Extract: true},
+	},
 }
+
+// Page sizes of the Bilibili space listings: the uploads listing is asked
+// for 20 entries a page, as the timed read asks; the dynamics listing answers
+// about 12 a page whatever is asked.
+const (
+	BilibiliUploadsPageSize  = 20
+	BilibiliDynamicsPageSize = 12
+)
 
 // Methods lists a source's listing methods in the order the console offers
 // them. The slices are copies.

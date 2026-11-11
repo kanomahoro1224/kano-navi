@@ -1,10 +1,13 @@
+import type { ComponentType } from "react"
 import type { Dashboard, Locale, Profile, Translator } from "@/types"
 import {
   ArrowUpRight,
   BadgeCheck,
+  CalendarDays,
+  MessageSquare,
   Play,
   Radio,
-  RefreshCw,
+  ShoppingBag,
   Sparkles,
 } from "lucide-react"
 
@@ -23,9 +26,7 @@ import {
   eventIsManual,
   eventKinds,
   membersChipBeside,
-  eventTag,
   eventTagKey,
-  eventTypeKey,
   formatJapanDay,
   formatJapanTime,
   formatRelative,
@@ -36,11 +37,19 @@ import {
   videoTag,
   videoTagLabel,
   visitorIsInJapan,
+  eventLinks,
+  eventPlatforms,
+  eventShowsPlatformLinks,
   type VideoTag,
 } from "../format"
 import { pickCompanion, pickSpotlight, spotlightIsLive } from "../spotlight"
 import type { SyncSource, SyncState } from "../freshness"
-import { videoIsGone, videoLinks, videoPlatforms } from "../video-groups"
+import {
+  videoIsGone,
+  videoLinks,
+  videoPlatforms,
+  type VideoLink,
+} from "../video-groups"
 import {
   EventTagIcon,
   MembersChip,
@@ -50,10 +59,46 @@ import {
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import { TranslatedTitle } from "./translated-title"
 
-const SOURCES: Record<SyncSource, { name: string; Icon: typeof XLogo }> = {
+/** Each source's mark and brand name; the shop has neither, so its name is
+ * translated (sync.source.shop). */
+const SOURCES: Record<
+  SyncSource,
+  {
+    name: string | null
+    Icon: ComponentType<{ "aria-hidden"?: "true" }>
+  }
+> = {
   x: { name: "X", Icon: XLogo },
   youtube: { name: "YouTube", Icon: YouTubeLogo },
   bilibili: { name: "bilibili", Icon: BilibiliLogo },
+  shop: { name: null, Icon: ShoppingBag },
+}
+
+/**
+ * A ticket's platform links: a video's, with the other platforms of an
+ * entry of the same broadcast, or an entry's. A live platform leads.
+ */
+function ticketLinks(
+  item: SpotlightItem,
+  locale: Locale,
+  now: number,
+): VideoLink[] {
+  if (!item.video) {
+    if (!item.event) return []
+    const links = eventLinks(item.event, locale, now)
+    return eventShowsPlatformLinks(item.event, links) ? links : []
+  }
+  // The video's own link is marked while the probe confirms it live.
+  const live = confirmedLiveStatus(item.video) === "live"
+  const links: VideoLink[] = [
+    ...videoLinks(item.video, locale, now).map((link) =>
+      live && link.url === item.video?.url ? { ...link, live } : link,
+    ),
+    ...(item.extraLinks || []),
+  ]
+  const lead = links.findIndex((link) => link.live)
+  if (lead <= 0) return links
+  return [links[lead], ...links.slice(0, lead), ...links.slice(lead + 1)]
 }
 
 function dateOnlyParts(key: string, locale: Locale) {
@@ -62,14 +107,20 @@ function dateOnlyParts(key: string, locale: Locale) {
   return japanDateParts(date.toISOString(), locale)
 }
 
+/**
+ * The countdown under the stub, or with inline set the copy beside the time
+ * that phones show instead; the stylesheet shows one of the two.
+ */
 function Countdown({
   time,
   now,
   t,
+  inline = false,
 }: {
   time: string
   now: number
   t: Translator
+  inline?: boolean
 }) {
   const parts = countdownParts(time, now)
   if (!parts || parts.past) return null
@@ -83,7 +134,7 @@ function Countdown({
         [parts.minutes, t("countdown.unitMinutes")],
       ]
   return (
-    <div className="ticket-countdown">
+    <span className={`ticket-countdown${inline ? " is-inline" : ""}`}>
       <span className="ticket-countdown-label">{t("spotlight.startsIn")}</span>
       <span className="ticket-countdown-cells">
         {cells.map(([value, unit]) => (
@@ -93,11 +144,13 @@ function Countdown({
           </span>
         ))}
       </span>
-    </div>
+    </span>
   )
 }
 
 type SpotlightItem = NonNullable<ReturnType<typeof pickSpotlight>>
+
+const platformNames: Record<string, string> = { bilibili: "bilibili" }
 type Companion = NonNullable<ReturnType<typeof pickCompanion>>
 
 function TicketHead({
@@ -111,33 +164,40 @@ function TicketHead({
   now: number
   t: Translator
 }) {
-  const typeKey = item.event ? eventTypeKey(item.event) : null
+  const eventView = item.event ? eventKinds(item.event) : null
+  const typeKey = eventView?.typeKey || null
   // The video's tag (which already follows its entry's label) or else the
   // entry's gameplay, talk or singing label outranks the form; a plain
   // stream or upload label says no more than the type already does.
-  const label = item.event ? eventTag(item.event) : null
-  const entryWork = item.event ? eventKinds(item.event).work : false
+  const label = eventView?.tag || null
+  const entryWork = eventView?.work || false
   const videoActivity = item.video ? videoTag(item.video) : null
   const activity: VideoTag | null =
     videoActivity ??
     (label === "game" || label === "talk" || label === "song" ? label : null)
-  const tag =
-    item.video && videoActivity
+  const reservationOnAir =
+    isLive &&
+    (item.video?.view?.phase === "upcoming" ||
+      (!item.video?.view && item.video?.isUpcoming === true))
+  const tag = item.liveNow
+    ? t("spotlight.liveNow", { platform: platformNames[item.liveNow.platform] })
+    : item.video && videoActivity
       ? videoTagLabel(item.video, t)
       : activity
         ? t(eventTagKey(activity, entryWork))
-        : item.video
-          ? videoFormLabel(item.video, t, now)
-          : typeKey
+        : // A reservation on air on another platform is a stream on air.
+          (item.video &&
+            (reservationOnAir
+              ? t("event.type.stream")
+              : videoFormLabel(item.video, t, now))) ||
+          (typeKey
             ? t(typeKey)
-            : eventDetailText(item.detail, t) || t("schedule.publicEvent")
+            : eventDetailText(item.detail, t) || t("schedule.publicEvent"))
   // A members-only entry keeps saying so beside its activity or video form,
   // as the schedule does.
-  const membersChip = membersChipBeside(
-    item.event,
-    item.video,
-    Boolean(activity || item.video),
-  )
+  const membersChip =
+    item.membersChip ??
+    membersChipBeside(item.event, item.video, Boolean(activity || item.video))
   const manual = item.event ? eventIsManual(item.event) : false
   return (
     <span className="ticket-head">
@@ -152,12 +212,14 @@ function TicketHead({
         </span>
       )}
       <span className="tag tone-berry">
+        {item.liveNow ? <BilibiliLogo aria-hidden="true" /> : null}
         {activity ? (
           <EventTagIcon
             tag={activity}
             work={
               videoActivity && item.video
-                ? item.video.kind !== "stream"
+                ? item.video.view?.tagContext === "work" ||
+                  (!item.video.view && item.video.kind !== "stream")
                 : entryWork
             }
           />
@@ -254,7 +316,7 @@ function FullTicket({
   now: number
   t: Translator
 }) {
-  const links = item.video ? videoLinks(item.video, locale, now) : []
+  const links = ticketLinks(item, locale, now)
   // A private or removed video has no page of its own left to open.
   const url =
     links[0]?.url || (item.video && videoIsGone(item.video) ? null : item.url)
@@ -278,7 +340,17 @@ function FullTicket({
           <span className="ticket-art-fallback" />
         )}
         <PlatformBadge
-          platforms={item.video ? videoPlatforms(item.video, links) : []}
+          platforms={
+            item.video
+              ? videoPlatforms(item.video, links)
+              : item.event
+                ? eventPlatforms(item.event)
+                : []
+          }
+          members={
+            item.video?.availability === "members" ||
+            item.event?.eventType === "member"
+          }
         />
         {item.link === "watch" ? (
           <span className="ticket-play">
@@ -297,11 +369,17 @@ function FullTicket({
               className="ticket-title"
               title={item.title}
               translations={(item.video || item.event)?.translations}
+              sourceLanguage={(item.video || item.event)?.sourceLanguage}
               href={url}
               t={t}
             />
-            <TicketWhen item={item} locale={locale} now={now} t={t} />
-            {links.length > 1 ? (
+            <span className="ticket-when-row">
+              <TicketWhen item={item} locale={locale} now={now} t={t} />
+              {item.mode === "next" && item.time && !isLive ? (
+                <Countdown time={item.time} now={now} t={t} inline />
+              ) : null}
+            </span>
+            {links.length > (item.video ? 1 : 0) ? (
               <PlatformLinks
                 links={links}
                 title={item.title}
@@ -314,12 +392,14 @@ function FullTicket({
         {item.mode === "next" && item.time && !isLive ? (
           <Countdown time={item.time} now={now} t={t} />
         ) : null}
-        {isLive && !confirmedLiveStatus(item.event || item.video) ? (
+        {isLive &&
+        !item.liveNow &&
+        !confirmedLiveStatus(item.event || item.video) ? (
           <span className="ticket-note">{t("spotlight.started")}</span>
         ) : null}
         {url ? (
           <span className="ticket-open">
-            {t("spotlight.open")}
+            <span className="ticket-open-label">{t("spotlight.open")}</span>
             <ArrowUpRight aria-hidden="true" />
           </span>
         ) : null}
@@ -342,10 +422,13 @@ function CompactTicket({
   now: number
   t: Translator
 }) {
+  const links = ticketLinks(item, locale, now)
+  // A video's ticket follows the platform that is live, as its links lead.
+  const url = (item.video && links[0]?.url) || item.url
   return (
     <div
-      className={`ticket is-compact is-${isLive ? "live" : item.mode}${item.url ? " link-card" : ""}`}
-      onClick={item.url ? followCardLink : undefined}
+      className={`ticket is-compact is-${isLive ? "live" : item.mode}${url ? " link-card" : ""}`}
+      onClick={url ? followCardLink : undefined}
     >
       <span className="ticket-side">
         <DateBlock item={item} locale={locale} />
@@ -357,18 +440,34 @@ function CompactTicket({
             className="ticket-title"
             title={item.title}
             translations={(item.video || item.event)?.translations}
-            href={item.url}
+            sourceLanguage={(item.video || item.event)?.sourceLanguage}
+            href={url}
             t={t}
           />
-          <TicketWhen item={item} locale={locale} now={now} t={t} />
+          <span className="ticket-when-row">
+            <TicketWhen item={item} locale={locale} now={now} t={t} />
+            {item.time && !isLive ? (
+              <Countdown time={item.time} now={now} t={t} inline />
+            ) : null}
+          </span>
+          {links.length > (item.video ? 1 : 0) ? (
+            <PlatformLinks
+              links={links}
+              title={item.title}
+              variant="chip"
+              t={t}
+            />
+          ) : null}
         </span>
         {item.time && !isLive ? (
           <Countdown time={item.time} now={now} t={t} />
         ) : null}
-        {isLive && !confirmedLiveStatus(item.event || item.video) ? (
+        {isLive &&
+        !item.liveNow &&
+        !confirmedLiveStatus(item.event || item.video) ? (
           <span className="ticket-note">{t("spotlight.started")}</span>
         ) : null}
-        {item.url ? (
+        {url ? (
           <span className="ticket-link">
             {item.link === "announcement" ? (
               <XLogo aria-hidden="true" />
@@ -403,6 +502,7 @@ function LatestCard({
   t: Translator
 }) {
   const links = videoLinks(companion.video, locale, now)
+  const companionForm = videoFormLabel(companion.video, t, now)
   return (
     <div className="latest-card link-card" onClick={followCardLink}>
       <span className="latest-card-art" aria-hidden="true">
@@ -417,7 +517,10 @@ function LatestCard({
         ) : (
           <span className="ticket-art-fallback" />
         )}
-        <PlatformBadge platforms={videoPlatforms(companion.video, links)} />
+        <PlatformBadge
+          platforms={videoPlatforms(companion.video, links)}
+          members={companion.video.availability === "members"}
+        />
         <span className="latest-card-play">
           <Play fill="currentColor" />
         </span>
@@ -425,7 +528,7 @@ function LatestCard({
       <span className="latest-card-copy">
         <span className="ticket-head">
           <span className="kicker">{t("spotlight.latest")}</span>
-          <span className="tag">{videoFormLabel(companion.video, t, now)}</span>
+          {companionForm ? <span className="tag">{companionForm}</span> : null}
           <VideoTagChip video={companion.video} t={t} />
           <VideoAvailabilityChip video={companion.video} t={t} />
         </span>
@@ -433,6 +536,7 @@ function LatestCard({
           className="latest-card-title"
           title={companion.title}
           translations={companion.video.translations}
+          sourceLanguage={companion.video.sourceLanguage}
           href={links[0]?.url}
           t={t}
         />
@@ -456,12 +560,16 @@ function LatestCard({
 /** The single most useful thing to know right now: what airs next. */
 function NextTicket({
   summary,
+  projection,
+  liveNow,
   isLoading,
   locale,
   now,
   t,
 }: {
   summary: Dashboard["summary"]
+  projection?: Dashboard["projection"]
+  liveNow: Dashboard["liveNow"]
   isLoading: boolean
   locale: Locale
   now: number
@@ -482,7 +590,7 @@ function NextTicket({
       </div>
     )
   }
-  const item = pickSpotlight(summary, now)
+  const item = pickSpotlight(summary, now, liveNow, projection)
   if (!item) {
     return (
       <div className="ticket is-empty">
@@ -501,7 +609,7 @@ function NextTicket({
       <FullTicket item={item} isLive={isLive} locale={locale} now={now} t={t} />
     )
   }
-  const companion = pickCompanion(summary, item)
+  const companion = pickCompanion(summary, item, projection)
   return (
     <div className="stage-main">
       <CompactTicket
@@ -525,8 +633,6 @@ function ProfileCard({
   postWindowDays,
   videoWindowDays,
   syncState,
-  isRefreshing,
-  onRefresh,
   t,
 }: {
   profile: Profile
@@ -535,8 +641,6 @@ function ProfileCard({
   postWindowDays: number
   videoWindowDays: number
   syncState: SyncState
-  isRefreshing: boolean
-  onRefresh: () => void
   t: Translator
 }) {
   // Every X account in the link directory, main first; the profile's own
@@ -593,78 +697,73 @@ function ProfileCard({
             </ExternalLink>
           ) : null}
         </div>
-        <dl className="profile-stats">
-          <div>
-            <dt>{t("stats.upcoming")}</dt>
-            <dd>{counts.upcomingEvents}</dd>
-          </div>
-          <div>
-            <dt>{t("stats.posts", { days: postWindowDays })}</dt>
-            <dd>{counts.posts}</dd>
-          </div>
-          <div>
-            <dt>{t("stats.videos", { days: videoWindowDays })}</dt>
-            <dd>{counts.videos}</dd>
-          </div>
-        </dl>
-        <div className={`profile-sync tone-${syncState.tone}`}>
-          <span className="sync-dot" aria-hidden="true" />
-          <span className="profile-sync-copy">
-            <strong>{syncState.label}</strong>
-            {syncState.runAt ? (
-              <small>
-                {t("sync.latestRun")}{" "}
-                <time dateTime={syncState.runAt}>
-                  {formatStamp(syncState.runAt)}
-                </time>{" "}
-                {t("common.timezoneShort")}
-              </small>
-            ) : null}
-          </span>
-          <button
-            type="button"
-            className={`round-button${isRefreshing ? " is-spinning" : ""}`}
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            aria-label={t(
-              isRefreshing ? "common.refreshing" : "common.refresh",
-            )}
-            title={t(isRefreshing ? "common.refreshing" : "common.refresh")}
-          >
-            <RefreshCw aria-hidden="true" />
-          </button>
+        {/* One row: the counts, each opening the board section it counts,
+            then the platforms. A count's label is its tooltip. */}
+        <div className="profile-meta">
+          <ul className="profile-stats">
+            {[
+              {
+                href: "#schedule",
+                Icon: CalendarDays,
+                label: t("stats.upcoming"),
+                count: counts.upcomingEvents,
+              },
+              {
+                href: "#feed",
+                Icon: MessageSquare,
+                label: t("stats.posts", { days: postWindowDays }),
+                count: counts.posts,
+              },
+              {
+                href: "#videos",
+                Icon: Play,
+                label: t("stats.videos", { days: videoWindowDays }),
+                count: counts.videos,
+              },
+            ].map(({ href, Icon, label, count }) => (
+              <li key={href}>
+                <a href={href} title={label}>
+                  <Icon aria-hidden="true" />
+                  <strong>{count}</strong>
+                  <span className="sr-only"> {label}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          {/* Each platform's icon; an out-of-date read adds a dot, and the
+              time of the last successful read is the icon's tooltip. */}
+          {syncState.sources.length ? (
+            <dl className="profile-sources" aria-label={t("sync.sourceTimes")}>
+              {syncState.sources.map(({ source, timestamp, state }) => {
+                const { name: brand, Icon } = SOURCES[source]
+                const name = brand ?? t(`sync.source.${source}`)
+                const when = timestamp ? formatStamp(timestamp) : "—"
+                const note =
+                  state === "fresh"
+                    ? null
+                    : t(state === "stale" ? "sync.stale" : "sync.waiting")
+                return (
+                  <div
+                    key={source}
+                    className={`is-${state}`}
+                    title={[name, when, note].filter(Boolean).join(" · ")}
+                  >
+                    <dt>
+                      <Icon aria-hidden="true" />
+                      <span className="sr-only">{name}</span>
+                    </dt>
+                    <dd className="sr-only">
+                      {timestamp ? (
+                        <time dateTime={timestamp}>{when}</time>
+                      ) : null}
+                      {note ? ` ${note}` : null}
+                    </dd>
+                  </div>
+                )
+              })}
+            </dl>
+          ) : null}
         </div>
-        {syncState.sources.length ? (
-          <dl className="profile-sources" aria-label={t("sync.sourceTimes")}>
-            {syncState.sources.map(({ source, timestamp, state }) => {
-              const { name, Icon } = SOURCES[source]
-              const note =
-                state === "fresh"
-                  ? null
-                  : t(state === "stale" ? "sync.stale" : "sync.waiting")
-              return (
-                <div
-                  key={source}
-                  className={state === "stale" ? "is-stale" : undefined}
-                  title={note ? `${name} · ${note}` : name}
-                >
-                  <dt>
-                    <Icon aria-hidden="true" />
-                    <span className="sr-only">{name}</span>
-                  </dt>
-                  <dd>
-                    {timestamp ? (
-                      <time dateTime={timestamp}>{formatStamp(timestamp)}</time>
-                    ) : (
-                      <span aria-hidden="true">—</span>
-                    )}
-                    {note ? <span className="sr-only">{note}</span> : null}
-                  </dd>
-                </div>
-              )
-            })}
-          </dl>
-        ) : null}
       </div>
     </aside>
   )
@@ -673,23 +772,26 @@ function ProfileCard({
 export function NowStage(props: {
   profile: Profile
   summary: Dashboard["summary"]
+  projection?: Dashboard["projection"]
+  /** An unannounced live broadcast no schedule entry shows. */
+  liveNow?: Dashboard["liveNow"]
   resources: Dashboard["resources"]
   counts: { posts: number; upcomingEvents: number; videos: number }
   postWindowDays: number
   videoWindowDays: number
   syncState: SyncState
   isLoading: boolean
-  isRefreshing: boolean
-  onRefresh: () => void
   locale: Locale
   now: number
   t: Translator
 }) {
-  const { summary, isLoading, locale, now, t } = props
+  const { summary, projection, liveNow, isLoading, locale, now, t } = props
   return (
     <section className="stage" id="now" aria-label={t("nav.now")}>
       <NextTicket
         summary={summary}
+        projection={projection}
+        liveNow={liveNow ?? null}
         isLoading={isLoading}
         locale={locale}
         now={now}

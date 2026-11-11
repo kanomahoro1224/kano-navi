@@ -137,7 +137,7 @@ try {
   // The server assigns manual event IDs; a client-supplied ID is ignored.
   const eventId = (await event.json()).event.id
   assert.match(eventId, /^manual-[0-9a-f-]{36}$/u)
-  // A one-off step run (ADR-0003). These read-only mode flags wire no
+  // A one-off step run. These read-only mode flags wire no
   // schedule adapter, so the step is blocked.
   const submitted = await send("/api/admin/runs", "POST", {
     kind: "workflow",

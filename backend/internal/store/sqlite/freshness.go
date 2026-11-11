@@ -10,17 +10,17 @@ import (
 
 // Source freshness records successful recent reads, rather than the time a
 // historical page or unrelated workflow last updated the snapshot. Bilibili
-// has no windows: its account's last successful read counts.
+// and the shop have no windows: their last successful read counts.
 func (s *Store) sourceFetchedAt(ctx context.Context) (map[string]*string, error) {
-	out := map[string]*string{"x": nil, "youtube": nil, "bilibili": nil}
-	var exists int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='sync_state'`).Scan(&exists); err != nil {
-		return nil, dbErr(err)
+	out := map[string]*string{"x": nil, "youtube": nil, "bilibili": nil, ShopSource: nil}
+	exists, err := s.hasTable(ctx, "sync_state")
+	if err != nil {
+		return nil, err
 	}
-	if exists == 0 {
+	if !exists {
 		return out, nil
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT source,last_success_at,metadata_json FROM sync_state WHERE source IN ('x','youtube','bilibili','x-window','youtube-window','x-timeline-window') AND last_success_at IS NOT NULL`)
+	rows, err := s.db.QueryContext(ctx, `SELECT source,last_success_at,metadata_json FROM sync_state WHERE source IN ('x','youtube','bilibili','shop','x-window','youtube-window','x-timeline-window') AND last_success_at IS NOT NULL`)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -85,4 +85,15 @@ func (s *Store) sourceFetchedAt(ctx context.Context) (map[string]*string, error)
 		}
 	}
 	return out, dbErr(rows.Err())
+}
+
+// hasTable tells whether the snapshot has a table. A snapshot made without
+// the workflow, such as a read-only fixture, may lack its bookkeeping tables;
+// public reads treat their rows as absent.
+func (s *Store) hasTable(ctx context.Context, name string) (bool, error) {
+	var count int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, name).Scan(&count); err != nil {
+		return false, dbErr(err)
+	}
+	return count > 0, nil
 }

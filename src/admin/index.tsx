@@ -8,7 +8,6 @@ import {
 } from "react"
 import {
   BellRing,
-  Bot,
   CalendarDays,
   Clapperboard,
   ExternalLink,
@@ -17,9 +16,11 @@ import {
   KeyRound,
   LayoutDashboard,
   ListChecks,
+  ListOrdered,
   LockKeyhole,
   LogOut,
   Network,
+  Newspaper,
   Radio,
   ScanText,
   UserRound,
@@ -33,12 +34,13 @@ import type { Overview } from "@/admin/types"
 import { Badge, Button, Spinner, Toasts } from "@/admin/ui"
 import { AdminContext, useAdminData } from "@/admin/use-admin-data"
 import { DetectionView } from "@/admin/views/detection"
-import { LlmView } from "@/admin/views/llm"
+import { ExternalPostsView } from "@/admin/views/external-posts"
 import { OverviewView } from "@/admin/views/overview"
 import { PostsView } from "@/admin/views/posts"
 import { ProfileView } from "@/admin/views/profile"
 import { ProxyView } from "@/admin/views/proxy"
 import { PushView } from "@/admin/views/push"
+import { QueueView } from "@/admin/views/queue"
 import { ReviewView } from "@/admin/views/review"
 import { RunsView } from "@/admin/views/runs"
 import { ScheduleView } from "@/admin/views/schedule"
@@ -79,7 +81,9 @@ const views: ViewEntry[] = [
     badge: ({ review }) =>
       review.pendingImages +
       review.suspectedCancellations +
+      review.uncertainEvents +
       review.videoMerges +
+      review.bilibiliForms +
       review.failedPosts,
   },
   {
@@ -89,9 +93,16 @@ const views: ViewEntry[] = [
     component: ScheduleView,
   },
   { id: "posts", group: "data", icon: FileText, component: PostsView },
+  {
+    id: "external",
+    group: "data",
+    icon: Newspaper,
+    component: ExternalPostsView,
+  },
   { id: "videos", group: "data", icon: Clapperboard, component: VideosView },
   { id: "profile", group: "data", icon: UserRound, component: ProfileView },
   { id: "runs", group: "system", icon: Workflow, component: RunsView },
+  { id: "queue", group: "system", icon: ListOrdered, component: QueueView },
   { id: "sources", group: "system", icon: Radio, component: SourcesView },
   {
     id: "detection",
@@ -99,7 +110,6 @@ const views: ViewEntry[] = [
     icon: ScanText,
     component: DetectionView,
   },
-  { id: "llm", group: "system", icon: Bot, component: LlmView },
   { id: "proxy", group: "system", icon: Network, component: ProxyView },
   { id: "site", group: "system", icon: Globe, component: SiteView },
   { id: "push", group: "system", icon: BellRing, component: PushView },
@@ -118,13 +128,16 @@ const legacyContent: Record<string, string> = {
 }
 
 function readHash() {
-  const [view = "", tab = ""] = window.location.hash
+  // The tab is everything after the view, so it may hold several parts.
+  const [view = "", ...parts] = window.location.hash
     .replace(/^#/u, "")
     .split("/")
+  const tab = parts.join("/")
   if (view === "content")
     return { view: legacyContent[tab] || "posts", tab: "" }
-  // Models & detection became two views; old links open the model setup.
-  if (view === "models") return { view: "llm", tab: "" }
+  // Model links open the Detection page, which holds the model setup.
+  if (view === "models") return { view: "detection", tab: "" }
+  if (view === "llm") return { view: "detection", tab }
   return views.some((entry) => entry.id === view)
     ? { view, tab }
     : { view: "overview", tab: "" }

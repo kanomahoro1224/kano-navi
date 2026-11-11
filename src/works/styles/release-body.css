@@ -1,0 +1,715 @@
+/* Body: the tracklist, with the edition's facts and bonuses beside it. */
+.release-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  gap: 40px 52px;
+  padding: 36px 48px 52px;
+}
+
+.release-tracks,
+.release-aside,
+.release-bonuses {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.release-aside {
+  gap: 26px;
+}
+
+.release-tracks > .works-field-label,
+.release-bonuses > .works-field-label {
+  margin-top: 0;
+}
+
+.works-listen {
+  display: flex;
+  flex-wrap: wrap;
+  align-self: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.works-listen-link {
+  display: inline-flex;
+  height: 26px;
+  min-width: 26px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 6px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--soft);
+  transition:
+    color 200ms ease,
+    border-color 200ms ease;
+}
+
+.works-listen-link svg {
+  width: 13px;
+  height: 13px;
+}
+
+.works-listen-link .works-members-mark {
+  width: 11px;
+  height: 11px;
+}
+
+.works-listen-link.is-youtube:hover {
+  border-color: #ff0033;
+  color: #ff0033;
+}
+
+.works-listen-link.is-bilibili:hover {
+  border-color: #00a1d6;
+  color: #00a1d6;
+}
+
+.works-listen-link.is-niconico:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.works-facts {
+  display: grid;
+  margin: 8px 0 0;
+  border-top: 1px solid var(--rule);
+}
+
+.works-facts div {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.works-facts dt {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 2.1;
+  text-transform: uppercase;
+}
+
+.works-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.works-field-label {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 14px 0 0;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.works-field-label small {
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.works-tracklist {
+  display: grid;
+  gap: 16px;
+}
+
+.works-tracklist ol,
+.credit-tracks {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.works-tracklist li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--rule);
+  font-size: 14.5px;
+}
+
+.works-tracklist li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+
+.works-tracklist li.is-kano strong {
+  color: var(--works-clay);
+}
+
+.works-tracklist li.is-kano .works-track-no {
+  color: var(--works-clay);
+}
+
+.works-track-no {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.95;
+}
+
+.works-track-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.works-track-copy strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.works-track-copy small {
+  color: var(--soft);
+  font-size: 12.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.works-kano-credit {
+  color: var(--works-clay);
+  font-weight: 600;
+}
+
+/* A disc's heading, with its photo when the collection has one. */
+.works-disc-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 10px;
+}
+
+.works-disc-head .works-disc {
+  margin: 0;
+}
+
+/* The disc turning in the header. */
+.works-disc-head.is-on-record .works-disc-photo {
+  box-shadow:
+    0 0 0 1.5px var(--ink),
+    0 6px 14px rgb(0 0 0 / 0.18);
+}
+
+.works-disc-head.is-on-record .works-disc {
+  color: var(--ink);
+}
+
+.works-disc-photo {
+  position: relative;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px var(--rule),
+    0 6px 14px rgb(0 0 0 / 0.18);
+  transition: transform 500ms var(--works-ease);
+}
+
+.works-disc-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.works-disc-photo .works-missing {
+  display: none;
+}
+
+.works-disc-photo:hover,
+.works-disc-photo:focus-visible {
+  transform: rotate(60deg) scale(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .works-disc-photo {
+    transition: none;
+  }
+}
+
+.works-disc {
+  margin: 0 0 6px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/*
+ * Editions: a card for each, with its own cover and format, so 初回限定盤
+ * and 通常盤 read apart at a glance; the chosen one is drawn in ink. The
+ * chosen edition's own facts follow beside or below the tracklist.
+ */
+.works-edition-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 6px;
+}
+
+.works-edition-picker button {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px 5px 5px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: color-mix(in oklab, hsl(var(--background)) 72%, transparent);
+  color: var(--soft);
+  text-align: left;
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+.works-edition-picker button:hover {
+  border-color: color-mix(in oklab, var(--ink) 40%, transparent);
+  color: var(--ink);
+}
+
+.works-edition-picker button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.works-edition-art {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 3px;
+  background: var(--sunken);
+  opacity: 0.6;
+  transition: opacity 200ms ease;
+}
+
+.works-edition-picker button:hover .works-edition-art,
+.works-edition-picker button[aria-pressed="true"] .works-edition-art {
+  opacity: 1;
+}
+
+.works-edition-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.works-edition-art svg {
+  width: 16px;
+  height: 16px;
+}
+
+.works-edition-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.works-edition-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.works-edition-text small {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.release-edition {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: color-mix(in oklab, hsl(var(--card)) 60%, transparent);
+}
+
+.release-edition .works-facts {
+  margin-top: 0;
+}
+
+.release-edition .works-field-label {
+  margin-top: 6px;
+}
+
+.release-edition-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.works-package,
+.works-bonuses {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.works-package li {
+  position: relative;
+  padding: 3px 0 3px 18px;
+  overflow-wrap: anywhere;
+}
+
+.works-package li::before {
+  position: absolute;
+  top: 0.95em;
+  left: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--works-clay);
+  content: "";
+}
+
+.works-bonuses li {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: 16px;
+  padding: 9px 0;
+  border-top: 1px solid var(--rule);
+  overflow-wrap: anywhere;
+}
+
+.works-bonuses li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+
+.works-bonus-store {
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+.works-stores ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.works-stores + .works-stores {
+  margin-top: 4px;
+}
+
+.works-store {
+  padding: 5px 12px;
+  font-size: 12.5px;
+}
+
+.works-store small {
+  color: var(--works-clay);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.works-store svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
+}
+
+/* The official page listing every store leads, drawn in ink. */
+.works-store.is-smart_link {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.works-bonus-scope {
+  margin: 6px 0 -6px;
+  color: var(--works-clay);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.works-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.works-thumbs button {
+  display: grid;
+  width: 76px;
+  height: 76px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--sunken);
+  outline: 1px solid var(--rule);
+  transition:
+    outline-color 200ms ease,
+    transform 300ms var(--works-ease);
+}
+
+.works-thumbs button:hover,
+.works-thumbs button:focus-visible {
+  outline-color: var(--ink);
+  transform: translateY(-2px);
+}
+
+.works-thumbs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .release-edition {
+    padding: 16px;
+  }
+
+  .works-bonuses li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+@media (max-width: 720px) {
+  .release-head-inner {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 60px 20px 26px;
+  }
+
+  .release-head-art {
+    max-width: 280px;
+  }
+
+  .release-body {
+    grid-template-columns: 1fr;
+    padding: 26px 20px 36px;
+  }
+
+  .works-facts div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+/*
+ * On a wide screen the sheet splits in two: the cover and the release's
+ * figures stay in the left pane, and the tracklist, edition facts and
+ * bonuses scroll in the right. Each pane scrolls on its own, so a short
+ * single fills the sheet as well as a long album.
+ */
+@media (min-width: 900px) {
+  .works-sheet {
+    height: min(860px, calc(100dvh - 48px));
+    overflow: hidden;
+  }
+
+  .works-sheet-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    margin: 0;
+  }
+
+  .release-sheet {
+    display: grid;
+    height: 100%;
+    grid-template-columns: 360px minmax(0, 1fr);
+  }
+
+  .release-head {
+    border-right: 1px solid var(--rule);
+    border-bottom: 0;
+  }
+
+  .release-head-inner {
+    height: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    align-items: start;
+    gap: 26px;
+    overflow-y: auto;
+    padding: 52px 32px 32px;
+    overscroll-behavior: contain;
+  }
+
+  .release-head-copy .works-eyebrow {
+    padding-right: 0;
+  }
+
+  .release-head-copy h2 {
+    font-size: clamp(30px, 2.6vw, 38px);
+  }
+
+  .release-body {
+    min-height: 0;
+    align-content: start;
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+    padding: 60px 40px 48px;
+    overscroll-behavior: contain;
+  }
+}
+
+/*
+ * On a wider screen the right pane splits again: the tracklist in the middle
+ * and the edition's facts and bonuses in a column of their own, each
+ * scrolling on its own, so switching editions changes what is in view.
+ */
+@media (min-width: 1320px) {
+  .works-sheet {
+    width: min(1240px, calc(100vw - 48px));
+  }
+
+  .release-sheet {
+    grid-template-columns: 340px minmax(0, 1fr);
+  }
+
+  .release-body {
+    height: 100%;
+    align-content: stretch;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .release-tracks,
+  .release-aside {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .release-tracks {
+    padding: 56px 36px 48px;
+  }
+
+  .release-aside {
+    padding: 64px 28px 48px;
+    border-left: 1px solid var(--rule);
+    background: color-mix(in oklab, hsl(var(--card)) 45%, transparent);
+  }
+
+  .release-aside .release-edition {
+    margin-top: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .release-aside .works-facts div {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .release-aside .release-edition-name {
+    font-size: 19px;
+  }
+
+  .release-aside .works-bonuses li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1px;
+    padding: 8px 0;
+  }
+
+  .release-aside .works-bonus-store {
+    font-size: 11.5px;
+  }
+}
+
+/* Cover details in the image viewer's panel. */
+.works .media-dialog-stage .works-missing {
+  min-width: 240px;
+  min-height: 240px;
+  color: #fff;
+}
+
+.works-cover-details {
+  display: grid;
+  gap: 10px;
+}
+
+.works-cover-details h2 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.works-cover-details p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.works-cover-details dl {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.works-cover-details dl div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 10px;
+  font-size: 12.5px;
+}
+
+.works-cover-details dt {
+  color: var(--soft);
+  font-weight: 600;
+}
+
+.works-cover-details dd {
+  margin: 0;
+}
+
+.works-cover-origin {
+  color: var(--soft);
+}

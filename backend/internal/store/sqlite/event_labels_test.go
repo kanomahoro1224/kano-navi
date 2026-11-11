@@ -142,7 +142,7 @@ func TestVideoTagCandidatesSkipOnlyDecidedEntries(t *testing.T) {
 	for id, want := range map[string]bool{
 		"FORMNOTICE1": true, "FORMTITLE01": false, "CONTENTLLM1": false, "OPERATOR001": false,
 		"PENDINGRES1": false, "FORMRES0001": true, "MERGEDSONG1": false, "MERGEDFORM1": true,
-		"OPERATOR002": true, "LOCKEDRES01": true, "BV1BBBBBBBBB": true,
+		"OPERATOR002": true, "LOCKEDRES01": true, "BV1BBBBBBBBB": false,
 	} {
 		if got[id] != want {
 			t.Errorf("%s candidate=%v, want %v", id, got[id], want)

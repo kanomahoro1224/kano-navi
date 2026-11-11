@@ -1,12 +1,15 @@
 package adminapi
 
 import (
+	"net/url"
 	"regexp"
+	"strconv"
 	"testing"
 )
 
 func TestManualEventLifecycleLocksAndTombstones(t *testing.T) {
 	c := newConsole(t, "development", "", &gatedSteps{})
+	withUserInfo := (&url.URL{Scheme: "https", User: url.UserPassword("synthetic", "synthetic"), Host: "example.invalid", Path: "/a"}).String()
 	for body, message := range map[string]string{
 		`{}`:                                    "startsOn is required",
 		`{"startsOn":"2026-02-30","title":"x"}`: "startsOn is invalid",
@@ -19,10 +22,14 @@ func TestManualEventLifecycleLocksAndTombstones(t *testing.T) {
 		`{"startsOn":"2026-03-02","title":"x","cancellationStatus":"maybe"}`:                                          "cancellationStatus is invalid",
 		`{"startsOn":"2026-03-02","title":"x","cancellationStatus":"manual_confirmed"}`:                               "cancellationReason is required",
 		`{"startsOn":"2026-03-02","title":"x","url":"ftp://files.example.test/a"}`:                                    "url must use HTTP or HTTPS",
+		`{"startsOn":"2026-03-02","title":"x","url":"https://example.invalid/a?access_token=synthetic"}`:              "url must not contain credentials",
 	} {
 		if code, payload := c.call(t, "POST", "/api/admin/events", body); code != 400 || payload["error"] != "invalid_input" || payload["message"] != message {
 			t.Fatalf("%s => %d %v", body, code, payload)
 		}
+	}
+	if code, payload := c.call(t, "POST", "/api/admin/events", `{"startsOn":"2026-03-02","title":"x","url":`+strconv.Quote(withUserInfo)+`}`); code != 400 || payload["message"] != "url must not contain credentials" {
+		t.Fatalf("userinfo URL => %d %v", code, payload)
 	}
 	revision := c.text(t, `SELECT value FROM app_settings WHERE key='dashboard_revision'`)
 	code, payload := c.call(t, "POST", "/api/admin/events", `{"title":" Synthetic stream ","startsOn":"2026-03-02","startsAt":"2026-03-02T20:00:00+09:00","endsAt":"2026-03-02T13:00:00.000Z","eventType":"stream","url":"https://Stream.Example.test"}`)

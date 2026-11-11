@@ -46,7 +46,8 @@ import {
   Switch,
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
-import { PostActions, PostStatus } from "@/admin/views/review"
+import { PlatformTabs, useScopedPage } from "@/admin/views/platform-tabs"
+import { PostAccount, PostActions, PostStatus } from "@/admin/views/review"
 import {
   TranslationBacklog,
   TranslationCell,
@@ -60,14 +61,6 @@ function localUrl(value: string | null | undefined) {
 /** The message key for an image that has no cached file to show yet. */
 function missingKey(status: string) {
   return `admin.review.media.${["pending", "failed"].includes(status) ? status : "missing"}`
-}
-
-function PostAccount({ post }: { post: AdminPost }) {
-  const { t } = useAppSettings()
-  if (!post.accountHandle) return t(`admin.step.${post.source}`)
-  // Only X names are handles; a Bilibili author is a plain display name.
-  const name = post.accountHandle.replace(/^@/, "")
-  return post.source === "x" ? `@${name}` : name
 }
 
 /**
@@ -156,7 +149,7 @@ const shownImages = 3
  * The post's cached images, or why there are none to show yet; a text-only
  * post shows nothing. Clicking an image enlarges the images in the page.
  */
-function PostImages({
+export function PostImages({
   post,
   limit = shownImages,
 }: {
@@ -219,9 +212,10 @@ function PostImages({
  * (hide from the public pages or show again, queue a refresh from the source
  * for the next X synchronization, open it), then its wording and its cached
  * thumbnails. Wording past three lines folds behind a toggle; `full` shows it
- * all.
+ * all. A Bilibili forward shows the dynamic it forwards, its author by name
+ * or mid; refreshes are X's only.
  */
-function PostQuote({
+export function PostQuote({
   post,
   onDone,
   full = false,
@@ -250,7 +244,8 @@ function PostQuote({
     return () => observer.disconnect()
   }, [expanded, quote?.text])
   const queued = post.refreshRequestedAt
-  if (!quote && !queued) return null
+  const bilibili = post.source === "bilibili"
+  if ((post.source !== "x" && !bilibili) || (!quote && !queued)) return null
   const hidden = Boolean(post.quoteHiddenAt)
   const images = (quote?.media || []).filter((image) => localUrl(image.url))
   const run = async (
@@ -275,10 +270,14 @@ function PostQuote({
           <span className="adm-post-quote-author">
             <strong>
               {quote.authorName ||
-                (quote.authorHandle ? `@${quote.authorHandle}` : "")}
+                (quote.authorHandle && !bilibili
+                  ? `@${quote.authorHandle}`
+                  : quote.authorHandle || "")}
             </strong>
             {quote.authorName && quote.authorHandle ? (
-              <span>@{quote.authorHandle}</span>
+              <span>
+                {bilibili ? quote.authorHandle : `@${quote.authorHandle}`}
+              </span>
             ) : null}
             {quote.publishedAt ? (
               <time dateTime={quote.publishedAt}>
@@ -686,6 +685,16 @@ function PostItem({
             {t("admin.posts.hidden")}
           </Badge>
         ) : null}
+        {post.promotedAt ? (
+          <button
+            type="button"
+            className="adm-badge-button"
+            onClick={() => navigate("external")}
+            title={t("admin.posts.promotedHint")}
+          >
+            <Badge tone="lavender">{t("admin.posts.promoted")}</Badge>
+          </button>
+        ) : null}
         <PostStatus post={post} />
         <ScheduleImageBadge post={post} />
       </span>
@@ -728,6 +737,20 @@ function queuedPreset(tab: string) {
   return tab.startsWith("queued-") && queuedKinds.includes(kind) ? kind : ""
 }
 
+const postPlatforms = ["all", "x", "bilibili"] as const
+type PostPlatform = (typeof postPlatforms)[number]
+
+/**
+ * `#posts/<platform>/<preset>`: the platform may be left out, and the preset
+ * (`queued-<kind>` or `find-<id>`) is what the list opens on.
+ */
+function readPostTab(tab: string) {
+  const [first = "", ...rest] = tab.split("/")
+  return first === "x" || first === "bilibili"
+    ? { platform: first as PostPlatform, preset: rest.join("/") }
+    : { platform: "all" as PostPlatform, preset: tab }
+}
+
 const llmStatuses = [
   "never",
   "pending",
@@ -740,22 +763,40 @@ const llmStatuses = [
 const translationStatuses = ["incomplete", "complete", "requested", "failed"]
 
 function PostList({
+  platform,
   sources,
   queued,
+  find,
   navigate,
 }: {
+  platform: PostPlatform
   sources: Sources | undefined
   queued: string
+  /** A status ID the list opens searched for, from External posts. */
+  find: string
   navigate: ViewProps["navigate"]
 }) {
   const { t } = useAppSettings()
   const { api } = useAdmin()
-  const [filters, setFilters] = useState({ ...blankFilters, queued })
-  const [search, setSearch] = useState("")
-  const [page, setPage] = useState(1)
+  const [filters, setFilters] = useState({
+    ...blankFilters,
+    queued,
+    search: find,
+  })
+  const [search, setSearch] = useState(find)
+  const [page, setPage] = useScopedPage(platform)
+  // Bilibili has one account, so its tab has no account filter.
+  const accounts = platform !== "bilibili"
+  const applied = accounts ? filters : { ...filters, account: "" }
   const posts = useResource(
-    () => api.posts({ ...filters, page, pageSize: 30 }),
-    [filters, page],
+    () =>
+      api.posts({
+        ...applied,
+        source: platform === "all" ? "" : platform,
+        page,
+        pageSize: 30,
+      }),
+    [filters, platform, page],
   )
   const update = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch }))
@@ -763,7 +804,7 @@ function PostList({
   }
   const active = (
     Object.keys(blankFilters) as (keyof typeof blankFilters)[]
-  ).filter((key) => filters[key] !== blankFilters[key]).length
+  ).filter((key) => applied[key] !== blankFilters[key]).length
   const any = { value: "", label: t("admin.filter.any") }
   return (
     <>
@@ -785,18 +826,20 @@ function PostList({
             aria-label={t("admin.posts.search")}
           />
         </label>
-        <FilterSelect
-          label={t("admin.posts.account")}
-          value={filters.account}
-          onChange={(account) => update({ account })}
-          options={[
-            any,
-            ...(sources?.x.accounts || []).map(({ account }) => ({
-              value: account,
-              label: `@${account}`,
-            })),
-          ]}
-        />
+        {accounts ? (
+          <FilterSelect
+            label={t("admin.posts.account")}
+            value={filters.account}
+            onChange={(account) => update({ account })}
+            options={[
+              any,
+              ...(sources?.x.accounts || []).map(({ account }) => ({
+                value: account,
+                label: `@${account}`,
+              })),
+            ]}
+          />
+        ) : null}
         <FilterSelect
           label={t("admin.posts.llm")}
           value={filters.llm}
@@ -852,7 +895,11 @@ function PostList({
             ? t("admin.pager.total", { total: posts.data.total })
             : ""}
         </span>
-        <TranslationBacklog owner="post" onQueued={() => void posts.reload()} />
+        <TranslationBacklog
+          owner="post"
+          source={platform === "all" ? undefined : platform}
+          onQueued={() => void posts.reload()}
+        />
       </div>
       {!posts.data ? (
         <Loading />
@@ -885,8 +932,9 @@ function PostList({
 export function PostsView({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
   const { api } = useAdmin()
-  // The account filter lists the configured accounts.
+  // The account filter lists the configured X accounts.
   const sources = useResource(() => api.sources(), [])
+  const { platform, preset } = readPostTab(tab)
   return (
     <div className="adm-view">
       <PageHeader
@@ -902,14 +950,27 @@ export function PostsView({ tab, navigate }: ViewProps) {
           </Button>
         }
       />
-      <Panel>
-        <PostList
-          key={tab}
-          sources={sources.data}
-          queued={queuedPreset(tab)}
-          navigate={navigate}
-        />
-      </Panel>
+      <PlatformTabs
+        platforms={postPlatforms}
+        value={platform}
+        onSelect={(next) =>
+          navigate(
+            "posts",
+            [next, preset].filter((part) => part && part !== "all").join("/"),
+          )
+        }
+      >
+        <Panel>
+          <PostList
+            key={preset}
+            platform={platform}
+            sources={sources.data}
+            queued={queuedPreset(preset)}
+            find={preset.startsWith("find-") ? preset.slice(5) : ""}
+            navigate={navigate}
+          />
+        </Panel>
+      </PlatformTabs>
     </div>
   )
 }

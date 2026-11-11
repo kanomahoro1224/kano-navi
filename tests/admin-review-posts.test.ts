@@ -40,6 +40,7 @@ function post(id: string, patch: Partial<AdminPost>): AdminPost {
     quoteHiddenAt: null,
     refreshRequestedAt: null,
     hiddenAt: null,
+    promotedAt: null,
     scheduleImage: null,
     ...patch,
   }
@@ -89,6 +90,7 @@ test("review posts filter by step and state, link to the posts queued for a run 
         review: {
           pendingImages: 0,
           suspectedCancellations: 0,
+          uncertainEvents: 0,
           failedPosts: 2,
           failedExtractions: 1,
           failedTranslations: 1,
@@ -206,7 +208,7 @@ test("review posts filter by step and state, link to the posts queued for a run 
     assert.match(row().textContent!, /admin\.review\.failure\.extraction/)
     assert.match(row().textContent!, /admin\.posts\.error\.provider_error/)
     assert.match(row().textContent!, /2026-01-02 00:00/)
-    assert.ok(button("admin.posts.reprocess"))
+    assert.ok(button("admin.review.bulkReprocess"))
     await click(button("admin.posts.dismiss")!)
     assert.deepEqual(calls, ["dismiss:extraction"])
 

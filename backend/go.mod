@@ -5,7 +5,7 @@ go 1.26.10
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	golang.org/x/image v0.47.0
-	modernc.org/sqlite v1.61.0
+	modernc.org/sqlite v1.61.1
 )
 
 require (

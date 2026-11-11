@@ -16,12 +16,13 @@ import (
 // videos and are not revisions.
 
 // publicVideoScope selects the videos public readers (the board, the video
-// archive and MCP) list. An upload merged into the YouTube copy of the same
-// work stays out, so the board never lists one cover twice: it reaches
-// readers as that video's alternate instead (video_merge.go). An upload with
-// no copy to merge into is a work published only on Bilibili, and nothing
-// else would show it, so it is listed on its own.
-const publicVideoScope = "(source = 'youtube' OR (source = 'bilibili' AND merged_into IS NULL))"
+// archive and its counts, the single-video read, MCP and the Atom feed) list:
+// every YouTube video, and a Bilibili upload that is not merged into another
+// video and whose form is settled (bilibili_forms.go). An upload merged into
+// the YouTube copy of the same work reaches readers as that video's alternate
+// (video_merge.go), so the board never lists one work twice. The columns are
+// unqualified, so the scope reads the only videos row of its query level.
+const publicVideoScope = "(source = 'youtube' OR source = 'bilibili' AND merged_into IS NULL AND (manual_kind IS NOT NULL OR kind_source IS NOT NULL))"
 
 // Revision origins: a detail check that reported a new title or thumbnail
 // URL, or a thumbnail revalidation that downloaded new bytes for the same URL.

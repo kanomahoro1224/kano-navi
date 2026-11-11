@@ -1,4 +1,10 @@
-import type { LiveStatus, ScheduleEvent, Translator, Video } from "../types.ts"
+import type {
+  LiveStatus,
+  SaleWindow,
+  ScheduleEvent,
+  Translator,
+  Video,
+} from "../types.ts"
 
 export const JAPAN_TIME_ZONE = "Asia/Tokyo"
 
@@ -94,6 +100,11 @@ export function formatWeekRange(weekStart: Date, locale: string) {
 
 export function formatMonth(date: Date, locale: string) {
   return formatter(locale, { year: "numeric", month: "long" }).format(date)
+}
+
+/** A month's short name alone: "Jan", "1月". */
+export function formatMonthName(date: Date, locale: string) {
+  return formatter(locale, { month: "short" }).format(date)
 }
 
 /** The first day of a calendar date's month, as a local Date. */
@@ -292,8 +303,9 @@ const pendingStatuses = [
   "未定",
 ]
 
-/** upcoming | live | done | pending | cancelled | cancellation_review */
+/** upcoming | live | open | done | pending | cancelled | cancellation_review */
 export function eventStatus(event: ScheduleEvent, now = Date.now()) {
+  if (event.view?.state) return event.view.state
   if (event.cancellationStatus === "manual_confirmed") return "cancelled"
   if (event.cancellationStatus === "llm_suspected") return "cancellation_review"
   const status = String(event.status || "")
@@ -301,6 +313,8 @@ export function eventStatus(event: ScheduleEvent, now = Date.now()) {
     .toLowerCase()
   if (cancelledStatuses.includes(status) || status.startsWith("cancel"))
     return "cancelled"
+  // A sale period follows its window, never a broadcast state.
+  if (eventIsSale(event)) return saleStatus(event, now)
   // The stage's On air rule, so the schedule never calls it ended meanwhile.
   if (eventIsLive(event, now)) return "live"
   // A waiting room past its reserved time has not started, as the stage shows.
@@ -311,15 +325,227 @@ export function eventStatus(event: ScheduleEvent, now = Date.now()) {
   return "done"
 }
 
+/** One platform link of an entry, marked while that platform is live. */
+export interface EventPlatformLink {
+  source: string
+  url: string
+  live?: boolean
+}
+
+/**
+ * An entry's platform links, as videos order theirs: a live platform
+ * first, Bilibili first for zh-CN once the entry is over, its own platform
+ * first otherwise. A platform without a link is left out.
+ */
+export function eventLinks(
+  event: ScheduleEvent,
+  locale?: string,
+  now?: number,
+): EventPlatformLink[] {
+  const links: EventPlatformLink[] = (event.links || []).flatMap((link) =>
+    link.url
+      ? [
+          {
+            source: link.platform,
+            url: link.url,
+            ...(link.liveStatus === "live" ? { live: true } : {}),
+          },
+        ]
+      : [],
+  )
+  let lead = links.findIndex((link) => link.live)
+  if (lead < 0 && locale === "zh-CN" && now !== undefined)
+    lead =
+      eventStatus(event, now) === "done"
+        ? links.findIndex((link) => link.source === "bilibili")
+        : -1
+  if (lead <= 0) return links
+  return [links[lead], ...links.slice(0, lead), ...links.slice(lead + 1)]
+}
+
+/**
+ * The link an entry follows: its first platform link (a live platform's,
+ * else its own platform's), or for a snapshot without links a stream's
+ * Bilibili live room once known, else its own link (the source post or
+ * operator's link).
+ */
+export function eventLink(event: ScheduleEvent) {
+  const [first] = eventLinks(event)
+  if (first) return first.url
+  if (event.liveUrl && ["stream", "member"].includes(event.eventType))
+    return event.liveUrl
+  return event.url
+}
+
+/**
+ * The entry's own link (its announcement, or an operator's link) when no
+ * platform link is that page; it is never labelled as a platform.
+ */
+export function eventAnnouncement(
+  event: ScheduleEvent,
+  links: EventPlatformLink[],
+): string | null {
+  if (!event.url || links.some((link) => link.url === event.url)) return null
+  return event.url
+}
+
+/**
+ * Whether an entry shows its platform links: more than one, or one beside
+ * an announcement of its own, which then keeps the open arrow.
+ */
+export function eventShowsPlatformLinks(
+  event: ScheduleEvent,
+  links: EventPlatformLink[],
+) {
+  return (
+    links.length > 1 ||
+    (links.length === 1 && Boolean(eventAnnouncement(event, links)))
+  )
+}
+
+/** The platforms an entry is shown on, for its mark. */
+export function eventPlatforms(event: ScheduleEvent): string[] {
+  return (event.platforms || []).filter((platform) => platform !== "unknown")
+}
+
 export function eventIsManual(event: ScheduleEvent) {
   return event.provenance === "manual" || Boolean(event.manualLocked)
 }
 
 export function eventTypeKey(event: ScheduleEvent) {
   const type = String(event.eventType || "").toLowerCase()
-  return ["stream", "member", "event", "release", "video"].includes(type)
+  return ["stream", "member", "event", "release", "video", "sale"].includes(
+    type,
+  )
     ? `event.type.${type}`
     : null
+}
+
+// ---------------------------------------------------------------------------
+// Sale periods
+
+export function eventIsSale(event: Pick<ScheduleEvent, "eventType">) {
+  return String(event.eventType || "").toLowerCase() === "sale"
+}
+
+/** The stored period of a sale entry, also from one of its calendar entries. */
+export function saleWindow(event: ScheduleEvent): SaleWindow {
+  return (
+    event.saleWindow || {
+      startsOn: event.startsOn,
+      startsAt: event.startsAt,
+      endsOn: event.endsOn ?? null,
+      endsAt: event.endsAt,
+    }
+  )
+}
+
+/**
+ * A deadline whose opening is not known: the close date is the start date
+ * and there is no start time.
+ */
+function saleIsDeadline(window: SaleWindow) {
+  return window.endsOn === window.startsOn && !window.startsAt
+}
+
+/**
+ * The calendar entries of an event. A sale period shows at its ends rather
+ * than on every day it runs: a period that closes on a later date gives an
+ * opening and a closing entry, a deadline its closing entry alone, and any
+ * other sale its opening. The closing entry carries the close as its date and
+ * time. Every other event is its own single entry.
+ */
+export function scheduleEntries(event: ScheduleEvent): ScheduleEvent[] {
+  if (event.view?.calendarEntries?.length) {
+    const window = eventIsSale(event) ? saleWindow(event) : null
+    return event.view.calendarEntries.map((entry) => ({
+      ...event,
+      ...(window ? { saleWindow: window } : {}),
+      startsOn: entry.startsOn,
+      startsAt: entry.startsAt,
+      timePrecision: entry.timePrecision,
+      ...(entry.saleMark ? { saleMark: entry.saleMark } : {}),
+    }))
+  }
+  if (!eventIsSale(event)) return [event]
+  const window = saleWindow(event)
+  const closing: ScheduleEvent = {
+    ...event,
+    startsOn: window.endsOn || window.startsOn,
+    startsAt: window.endsAt,
+    timePrecision: window.endsAt ? "exact" : "unknown",
+    saleMark: "closes",
+    saleWindow: window,
+  }
+  if (saleIsDeadline(window)) return [closing]
+  const opening: ScheduleEvent = {
+    ...event,
+    saleMark: "opens",
+    saleWindow: window,
+  }
+  return window.endsOn && window.endsOn > window.startsOn
+    ? [opening, closing]
+    : [opening]
+}
+
+const japanDayStart = (day: string) => Date.parse(`${day}T00:00:00+09:00`)
+const japanDayEnd = (day: string) => Date.parse(`${day}T23:59:59.999+09:00`)
+
+/** The instant a sale opens; -Infinity for a deadline whose opening is unknown. */
+export function saleOpensAt(event: ScheduleEvent) {
+  const window = saleWindow(event)
+  return saleIsDeadline(window)
+    ? -Infinity
+    : Date.parse(window.startsAt || "") || japanDayStart(window.startsOn)
+}
+
+/** The instant a sale closes: its close time, else the end of its close day. */
+export function saleClosesAt(event: ScheduleEvent) {
+  const window = saleWindow(event)
+  return (
+    Date.parse(window.endsAt || "") ||
+    japanDayEnd(window.endsOn || window.startsOn)
+  )
+}
+
+/** How far ahead the on-sale list looks for a sale that has not opened. */
+export const SALE_LOOKAHEAD_MS = 7 * 86_400_000
+
+/**
+ * The sales the board lists as on sale now or opening within a week:
+ * cancelled ones and those under cancellation review stay out, open ones
+ * come first by their close, then the others by their opening.
+ */
+export function currentSales(events: ScheduleEvent[], now: number, limit = 3) {
+  const listed = events.filter((event) => {
+    if (!eventIsSale(event)) return false
+    const status = eventStatus(event, now)
+    return (
+      status === "open" ||
+      (status === "upcoming" && saleOpensAt(event) <= now + SALE_LOOKAHEAD_MS)
+    )
+  })
+  const open = (event: ScheduleEvent) => saleStatus(event, now) === "open"
+  return listed
+    .sort(
+      (a, b) =>
+        Number(open(b)) - Number(open(a)) ||
+        (open(a)
+          ? saleClosesAt(a) - saleClosesAt(b)
+          : saleOpensAt(a) - saleOpensAt(b)) ||
+        a.id.localeCompare(b.id),
+    )
+    .slice(0, limit)
+}
+
+/**
+ * upcoming before a sale opens, open until it closes, done after. A deadline
+ * counts as open until it passes, and a period without a close as open for
+ * its opening day.
+ */
+export function saleStatus(event: ScheduleEvent, now: number) {
+  if (now < saleOpensAt(event)) return "upcoming"
+  return now < saleClosesAt(event) ? "open" : "done"
 }
 
 export const eventTags = ["live", "game", "talk", "song", "video"] as const
@@ -341,6 +567,13 @@ export function eventTag(event: ScheduleEvent): EventTag | null {
  * is a cover or original rather than a singing stream.
  */
 export function eventKinds(event: ScheduleEvent) {
+  if (event.view) {
+    return {
+      typeKey: event.view.typeCode ? `event.type.${event.view.typeCode}` : null,
+      tag: event.view.activityCode as EventTag | null,
+      work: event.view.isWork,
+    }
+  }
   const type = String(event.eventType || "").toLowerCase()
   let tag = eventTag(event)
   if (
@@ -434,12 +667,46 @@ function streamMayBeOnAir(video: Video, now: number) {
   return start > now - LIVE_GRACE_MS
 }
 
+// A premiere before or during its showing, by videoPhase's rule: a fresh
+// confirmed state decides, else a start still ahead or an end not yet passed.
+function premiereIsCurrent(video: Video, now: number) {
+  const start = Date.parse(video.scheduledAt || "")
+  const end = Date.parse(video.endsAt || "")
+  const confirmed = confirmedLiveStatus(video)
+  if (confirmed === "live") return !(end <= now)
+  if (confirmed) return confirmed === "upcoming"
+  if (!Number.isFinite(start)) return video.isUpcoming === true
+  return start > now || end > now
+}
+
 /**
  * A video's form chip: a Short, then a stream's waiting room, then its form.
  * A stream that may be on air reads as a stream and one past that as its
- * archive. What the video is about is its tag chip.
+ * archive. A premiere is named only while it is waiting or airing, by the
+ * same rule as `videoPhase`; once it has aired it is an ordinary video with
+ * no form chip (null). What the video is about is its tag chip.
  */
-export function videoFormLabel(video: Video, t: Translator, now = Date.now()) {
+export function videoFormLabel(
+  video: Video,
+  t: Translator,
+  now = Date.now(),
+): string | null {
+  if (video.view) {
+    if (!video.view.formCode) return null
+    return t(
+      video.view.formCode === "short"
+        ? "media.kind.short"
+        : video.view.formCode === "upcoming"
+          ? "media.kind.upcoming"
+          : video.view.formCode === "stream"
+            ? "event.type.stream"
+            : video.view.formCode === "archive"
+              ? "media.kind.liveArchive"
+              : video.view.formCode === "premiere"
+                ? "media.kind.premiere"
+                : "media.kind.video",
+    )
+  }
   if (video?.isShort === true) return t("media.kind.short")
   const kind = String(video?.kind || "")
   if (kind === "stream") {
@@ -450,7 +717,8 @@ export function videoFormLabel(video: Video, t: Translator, now = Date.now()) {
         : "media.kind.liveArchive",
     )
   }
-  if (kind === "premiere") return t("media.kind.premiere")
+  if (kind === "premiere")
+    return premiereIsCurrent(video, now) ? t("media.kind.premiere") : null
   return t("media.kind.video")
 }
 
@@ -458,7 +726,9 @@ export function videoFormLabel(video: Video, t: Translator, now = Date.now()) {
 export function videoTagLabel(video: Video, t: Translator) {
   const tag = videoTag(video)
   if (!tag) return null
-  return t(video.kind === "stream" ? `event.tag.${tag}` : workTagKeys[tag])
+  const context =
+    video.view?.tagContext || (video.kind === "stream" ? "stream" : "work")
+  return t(context === "stream" ? `event.tag.${tag}` : workTagKeys[tag])
 }
 
 /** Strip the trailing 【鹿乃まほろ/ミリプロ】 credit that every title repeats. */

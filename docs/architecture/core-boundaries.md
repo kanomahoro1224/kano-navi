@@ -4,10 +4,14 @@ This is an unofficial, read-mostly fan board. Original public sources remain
 authoritative. Page views read a prepared local snapshot; synchronization owns
 external reads.
 
+## Boundary rationale
+
+The local snapshot boundary keeps page latency and behavior independent of upstream availability. External platforms, model providers, and media hosts have changing response shapes, rate limits, and access requirements, so only server workflows contact them. SQLite gives the operator one durable place for source cursors, failure outcomes, manual precedence, and the last usable data. Public projections remove internal identifiers, raw responses, credentials, and filesystem paths before the browser or MCP can read them.
+
 ## System Shape
 
 ```text
-Public X / YouTube pages          Configured LLM provider APIs
+Public X / YouTube / Bilibili / shop pages   Configured LLM provider APIs
           |                                ^
           v                                |
 workflow steps  ---- media download / schedule extraction
@@ -17,13 +21,16 @@ data/database/kano.sqlite  -- snapshot, cursors, settings, and media metadata
           |
           +--> data/x/       -- ignored content-addressed X media files
           +--> data/youtube/ -- ignored content-addressed YouTube media files
+          +--> data/bilibili/ -- ignored content-addressed Bilibili media files
+          +--> data/niconico/ -- ignored content-addressed niconico media files
           +--> data/avatar/  -- ignored selected profile media
           +--> data/lineblog/ -- ignored packaged LINE BLOG archive media
+          +--> data/works/    -- ignored packaged works covers
           |
           v
-kano-go serve     -- dashboard, admin API, health, /media/<id>, /media/lineblog/<name>, and /mcp
+kano-go serve     -- dashboard, admin API, health, /media/<id>, /media/lineblog/<name>, /media/works/<name>, and /mcp
           |
-          +--> src/site/, src/dashboard/, src/history/, src/lineblog/, src/about/ -- public pages
+          +--> src/site/, src/dashboard/, src/history/, src/works/, src/lineblog/, src/about/ -- public pages
           +--> src/admin/ -- hidden operator console
           |
           +--> internal/jobs, internal/workflow -- single-flight durable jobs
@@ -38,9 +45,10 @@ successful snapshot while a source is unavailable.
 ## Request and Failure Flow
 
 1. The browser requests `/api/dashboard?days=3` after loading.
-2. The API reads SQLite, calculates each event's `isUpcoming`, resolves ready
-   media to `/media/<id>`, derives the `summary` block, and returns the snapshot
-   plus public synchronization metadata (`backend/internal/publicview`).
+2. The API reads SQLite, calculates the locale-neutral event and video views,
+   resolves ready media to `/media/<id>`, builds the dashboard projection and
+   `summary` block, and returns the snapshot plus public synchronization
+   metadata (`backend/internal/publicview`).
 3. The page shows the snapshot time. If the API is unavailable after a load, it keeps the known state and shows a retry affordance.
 4. A maintainer or an authorized MCP client starts an asynchronous job. The
    single-flight job manager writes a `sync_runs` row with `job_id` and

@@ -17,6 +17,12 @@ func response(status int, body string) *http.Response {
 	return &http.Response{StatusCode: status, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}
 }
 
+// ticketPath is the bili_ticket request, which the fake transports answer
+// with a synthetic ticket.
+const ticketPath = "/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket"
+
+const ticket = `{"code":0,"message":"OK","data":{"ticket":"eyJhbGciOiJIUzI1NiJ9.eyJzeW50aGV0aWMiOnRydWV9.c3ludGhldGljLXNpZ25hdHVyZQ","created_at":1767225600,"ttl":259200,"context":{},"nav":{"img":"https://i0.hdslb.com/bfs/wbi/0123456789abcdef0123456789abcdef.png","sub":"https://i0.hdslb.com/bfs/wbi/fedcba9876543210fedcba9876543210.png"}}}`
+
 const session = `{"code":0,"message":"ok","data":{"b_3":"0A1B2C3D-0A1B-0A1B-0A1B-0A1B2C3D4E5F12345infoc","b_4":"0A1B2C3D-0A1B-0A1B-0A1B-0A1B2C3D4E5F12345-026010100-syntheticBuvid=="}}`
 
 const uploads = `{"code":0,"message":"0","data":{"archives":[
@@ -28,9 +34,9 @@ const uploads = `{"code":0,"message":"0","data":{"archives":[
 
 func TestEnvelopeReportsCaptchaRateLimitsAndMissingVideos(t *testing.T) {
 	for body, code := range map[string]string{
-		"<!DOCTYPE html><html><title>出错啦!</title></html>": "bilibili_risk_control",
-		`{"code":-352,"message":"-352"}`:                  "bilibili_risk_control",
-		`{"code":-412,"message":"请求被拦截"}`:                 "bilibili_risk_control",
+		"<!DOCTYPE html><html><title>出错啦!</title></html>": "bilibili_risk_control_page",
+		`{"code":-352,"message":"-352"}`:                  "bilibili_risk_control_352",
+		`{"code":-412,"message":"请求被拦截"}`:                 "bilibili_risk_control_412",
 		`{"code":-799,"message":"请求过于频繁"}`:                "bilibili_rate_limited",
 		`{"code":62002,"message":"稿件不可见"}`:                "bilibili_not_found",
 		`{"code":-400,"message":"bad request"}`:           "bilibili_api_error",
@@ -48,7 +54,7 @@ func TestClientMapsStatusesAndLimitsResponses(t *testing.T) {
 		body   string
 		code   string
 	}{
-		{412, "<!DOCTYPE html>", "bilibili_risk_control"},
+		{412, "<!DOCTYPE html>", "bilibili_risk_control_http"},
 		{429, "", "bilibili_rate_limited"},
 		{302, "", "bilibili_redirect_rejected"},
 		{503, "", "bilibili_upstream_5xx"},
@@ -126,6 +132,9 @@ type script struct {
 
 func (s *script) adapter(now time.Time) *Adapter {
 	c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path == ticketPath {
+			return response(200, ticket), nil
+		}
 		s.paths = append(s.paths, r.URL.Path)
 		return s.reply(r.URL.Path), nil
 	})})
@@ -147,7 +156,7 @@ func TestRecentReadsRespectTheIntervalAndBackOffAfterACaptcha(t *testing.T) {
 		return response(200, uploads)
 	}}
 	result, err := s.adapter(now).FetchRecent(context.Background(), State{})
-	if ErrorCode(err) != "bilibili_risk_control" || result.Requested != 2 || !result.State.BlockedUntil.Equal(now.Add(6*time.Hour)) || result.State.Failures != 1 || !result.State.Session.valid() {
+	if ErrorCode(err) != "bilibili_risk_control_http" || result.Requested != 3 || !result.State.BlockedUntil.Equal(now.Add(6*time.Hour)) || result.State.Failures != 1 || !result.State.Session.valid() {
 		t.Fatalf("first=%#v err=%v", result, err)
 	}
 	// While blocked, and within the interval, nothing is requested.
@@ -158,7 +167,7 @@ func TestRecentReadsRespectTheIntervalAndBackOffAfterACaptcha(t *testing.T) {
 	}
 	// A second captcha doubles the wait; the stored session is reused.
 	again, err := s.adapter(now.Add(7*time.Hour)).FetchRecent(context.Background(), result.State)
-	if ErrorCode(err) != "bilibili_risk_control" || strings.Join(s.paths, ",") != "/x/series/recArchivesByKeywords" || !again.State.BlockedUntil.Equal(now.Add(19*time.Hour)) {
+	if ErrorCode(err) != "bilibili_risk_control_http" || strings.Join(s.paths, ",") != "/x/series/recArchivesByKeywords" || !again.State.BlockedUntil.Equal(now.Add(19*time.Hour)) {
 		t.Fatalf("again=%#v paths=%v err=%v", again, s.paths, err)
 	}
 	blocked = false
@@ -181,16 +190,16 @@ func TestOperatorReadsOnlyAcceptTheConfiguredAccount(t *testing.T) {
 		}
 		return response(200, `{"code":0,"data":{"bvid":"BV1AAAAAAAAA","aid":1,"title":"song","pubdate":1767258000,"duration":60,"owner":{"mid":`+owner+`}}}`)
 	}}
-	v, state, err := s.adapter(now).FetchVideo(context.Background(), State{}, "BV1AAAAAAAAA")
+	v, state, err := s.adapter(now).FetchVideo(context.Background(), State{}, "BV1AAAAAAAAA", false)
 	if err != nil || v.BVID != "BV1AAAAAAAAA" || !state.LastSuccessAt.Equal(now) {
 		t.Fatalf("video=%#v state=%#v err=%v", v, state, err)
 	}
 	owner = "42"
-	if _, _, err = s.adapter(now).FetchVideo(context.Background(), state, "BV1AAAAAAAAA"); ErrorCode(err) != "bilibili_other_account" {
+	if _, _, err = s.adapter(now).FetchVideo(context.Background(), state, "BV1AAAAAAAAA", false); ErrorCode(err) != "bilibili_other_account" {
 		t.Fatalf("other account err=%v", err)
 	}
 	s.paths = nil
-	if _, _, err = s.adapter(now).FetchVideo(context.Background(), State{BlockedUntil: now.Add(time.Hour)}, "BV1AAAAAAAAA"); ErrorCode(err) != "bilibili_risk_control" || len(s.paths) != 0 {
+	if _, _, err = s.adapter(now).FetchVideo(context.Background(), State{BlockedUntil: now.Add(time.Hour)}, "BV1AAAAAAAAA", false); ErrorCode(err) != "bilibili_blocked" || len(s.paths) != 0 {
 		t.Fatalf("blocked err=%v paths=%v", err, s.paths)
 	}
 }
@@ -223,7 +232,12 @@ func TestLoginCookieGoesOnlyToApiReadsWhenValid(t *testing.T) {
 				cookies[r.URL.Path] = r.Header.Get("Cookie")
 				return s.reply(r.URL.Path), nil
 			})})
-			a.Options.SESSDATA = tc.cookie
+			if tc.name == "whole cookie" {
+				loginValue, extra := ParseLoginCookies(tc.cookie)
+				a.Options.SESSDATA, a.Options.Cookies = loginValue, extra
+			} else {
+				a.Options.SESSDATA = tc.cookie
+			}
 			if a.Options.SignedIn() != tc.signedIn {
 				t.Fatalf("signed in=%v", a.Options.SignedIn())
 			}

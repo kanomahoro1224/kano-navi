@@ -16,6 +16,19 @@ CREATE TABLE assets (
     raw_json TEXT
   , asset_version INTEGER NOT NULL DEFAULT 1, period_start TEXT, period_end TEXT, period_basis TEXT NOT NULL DEFAULT 'legacy', manual_period_start TEXT, manual_period_end TEXT, manual_period_reason TEXT, manual_image_at TEXT);
 
+CREATE TABLE bilibili_statuses (
+    id TEXT PRIMARY KEY,
+    author_mid TEXT NOT NULL,
+    author_name TEXT,
+    text TEXT NOT NULL,
+    published_at TEXT,
+    url TEXT NOT NULL,
+    raw_json TEXT,
+    forwarded_at TEXT,
+    first_seen_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
 CREATE TABLE event_sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id TEXT NOT NULL REFERENCES events (id) ON DELETE CASCADE,
@@ -63,7 +76,7 @@ CREATE TABLE events (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     raw_json TEXT
-  , merged_into TEXT, merge_source TEXT, merge_reason TEXT, merged_at TEXT);
+  , merged_into TEXT, merge_source TEXT, merge_reason TEXT, merged_at TEXT, ends_on TEXT, platform TEXT, platforms TEXT, platforms_inferred INTEGER NOT NULL DEFAULT 0);
 
 CREATE TABLE focus (
     id INTEGER PRIMARY KEY,
@@ -191,7 +204,8 @@ CREATE TABLE post_llm_states (
     updated_at TEXT NOT NULL,
     failure_count INTEGER NOT NULL DEFAULT 0,
     failure_fingerprint TEXT,
-    next_attempt_at TEXT
+    next_attempt_at TEXT,
+    settled_stamp TEXT
   );
 
 CREATE TABLE posts (
@@ -213,7 +227,8 @@ CREATE TABLE posts (
     repost_json TEXT,
     quote_hidden_at TEXT,
     refresh_requested_at TEXT,
-    hidden_at TEXT
+    hidden_at TEXT,
+    promoted_at TEXT
   );
 
 CREATE TABLE profile_media (
@@ -312,6 +327,7 @@ CREATE TABLE schedule_asset_reviews (
     asset_id TEXT PRIMARY KEY REFERENCES assets (id) ON DELETE CASCADE,
     llm_status TEXT NOT NULL DEFAULT 'pending',
     llm_confidence REAL,
+    llm_text TEXT,
     llm_reason TEXT,
     llm_evidence TEXT,
     llm_model TEXT,
@@ -452,7 +468,24 @@ CREATE TABLE videos (
     tag_source TEXT,
     tag_attempted_at TEXT,
     availability TEXT,
-    manual_availability TEXT
+    manual_availability TEXT,
+    manual_work INTEGER,
+    kind_source TEXT,
+    kind_review TEXT,
+    kind_attempts INTEGER NOT NULL DEFAULT 0,
+    kind_attempted_at TEXT
+  );
+
+CREATE TABLE work_cover_lookups (
+    platform TEXT NOT NULL,
+    video_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    source_url TEXT,
+    last_error TEXT,
+    retry_attempts INTEGER NOT NULL DEFAULT 0,
+    next_retry_at TEXT,
+    checked_at TEXT NOT NULL,
+    PRIMARY KEY (platform, video_id)
   );
 
 CREATE TABLE workflows (
@@ -471,10 +504,40 @@ CREATE TABLE workflows (
     updated_at TEXT NOT NULL
   );
 
+CREATE TABLE x_reposts (
+    status_id TEXT NOT NULL,
+    account_handle TEXT NOT NULL,
+    author_handle TEXT,
+    first_seen_at TEXT NOT NULL,
+    PRIMARY KEY (status_id, account_handle)
+  );
+
+CREATE TABLE x_statuses (
+    id TEXT PRIMARY KEY,
+    author_handle TEXT NOT NULL,
+    author_name TEXT,
+    text TEXT NOT NULL,
+    published_at TEXT,
+    url TEXT NOT NULL,
+    raw_json TEXT,
+    quoted_at TEXT,
+    reposted_at TEXT,
+    listed_at TEXT,
+    keyword INTEGER NOT NULL DEFAULT 0,
+    manual_decision TEXT,
+    manual_reason TEXT,
+    manual_at TEXT,
+    demoted_at TEXT,
+    first_seen_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
 CREATE INDEX event_sources_event_idx ON event_sources (event_id);
 
 CREATE UNIQUE INDEX event_sources_identity_idx
     ON event_sources (source, source_item_id, source_key);
+
+CREATE INDEX events_ends_on_idx ON events (ends_on) WHERE ends_on IS NOT NULL;
 
 CREATE INDEX events_instant_idx ON events (COALESCE(julianday(starts_at), julianday(starts_on || 'T23:59:59.999+09:00')), id) WHERE deleted_at IS NULL;
 
@@ -544,3 +607,5 @@ CREATE INDEX videos_instant_idx ON videos (julianday(COALESCE(scheduled_at, publ
 CREATE INDEX videos_merged_into_idx ON videos (merged_into) WHERE merged_into IS NOT NULL;
 
 CREATE INDEX videos_schedule_instant_idx ON videos (julianday(scheduled_at), id);
+
+CREATE INDEX x_statuses_author_idx ON x_statuses (lower(author_handle), length(id), id);

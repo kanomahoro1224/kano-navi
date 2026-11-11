@@ -15,6 +15,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
 // jsString mirrors JavaScript String(value) for a decoded JSON value closely
@@ -132,7 +133,7 @@ func normalizeSourceURL(value string) (string, *url.URL) {
 		return "", nil
 	}
 	parsed, err := url.Parse(trimmed)
-	if err != nil || parsed.Opaque != "" || parsed.User != nil {
+	if err != nil || parsed.Opaque != "" || parsed.User != nil || urlguard.ContainsCredentials(trimmed) {
 		return "", nil
 	}
 	scheme := strings.ToLower(parsed.Scheme)

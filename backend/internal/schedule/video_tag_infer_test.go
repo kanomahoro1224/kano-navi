@@ -90,17 +90,18 @@ func TestVideoTagsLabelVideosTheScheduleCannot(t *testing.T) {
 
 // Entries spend the per-run limit first; a failed video title only stamps
 // its attempt, so it stays unjudged, is asked after the others and not
-// before its retry delay has passed. A Bilibili upload is asked about as
-// well: its own tag labels the cover readers see.
+// before its retry delay has passed. A merged Bilibili upload is shown
+// through its video, so it is never asked about.
 func TestVideoTagsShareTheLimitAndFailuresStayUnjudged(t *testing.T) {
 	f, translator := newTranslatorFixture(t)
 	f.addProvider("main", protocolChat, "https://translate.example.test", "synthetic-model", `["text"]`)
 	f.queueTranslation("main")
 	f.exec(`INSERT INTO app_settings (key,value,updated_at) VALUES ('sync_translation_scan_limit','1',?)`, testTimestamp)
 	f.addReservation("entry", "entry title", 1)
-	f.addVideo("BV1CCCCCCCCC", "bilibili", "video bilibili", "upload", "2020-02-28T00:00:00Z")
+	f.addVideo("BV1CCCCCCCCC", "bilibili", "video bilibili", "upload", "2020-03-03T00:00:00Z")
 	f.addVideo("failing", "youtube", "video failing", "upload", "2020-03-02T00:00:00Z")
 	f.addVideo("later", "youtube", "video later", "upload", "2020-03-01T00:00:00Z")
+	f.exec(`UPDATE videos SET merged_into='later' WHERE id='BV1CCCCCCCCC'`)
 	f.provider.respond = func(request recordedRequest) (int, string) {
 		if strings.Contains(request.body, "failing") {
 			return http.StatusBadRequest, `{}`
@@ -122,17 +123,8 @@ func TestVideoTagsShareTheLimitAndFailuresStayUnjudged(t *testing.T) {
 	if got := f.videoTagState("later"); got != "game|title|attempted" {
 		t.Fatalf("later state=%q", got)
 	}
-	// The Bilibili upload is asked too, and the prompt names its site.
-	asked := f.provider.count()
-	runTranslator(t, translator)
-	if got := f.videoTagState("BV1CCCCCCCCC"); got != "game|title|attempted" {
-		t.Fatalf("bilibili state=%q", got)
-	}
-	if f.provider.count() != asked+1 || !strings.Contains(f.provider.requests[asked].body, "Bilibili title: video bilibili") {
-		t.Fatalf("bilibili request=%v", f.provider.requests[asked].body)
-	}
 	// Every other title is judged: the failed one waits out its delay.
-	asked = f.provider.count()
+	asked := f.provider.count()
 	runTranslator(t, translator)
 	if f.provider.count() != asked {
 		t.Fatalf("failed title sent again before its delay: %d requests", f.provider.count())
@@ -141,5 +133,13 @@ func TestVideoTagsShareTheLimitAndFailuresStayUnjudged(t *testing.T) {
 	runTranslator(t, translator)
 	if f.provider.count() != asked+1 {
 		t.Fatalf("failed title not asked after its delay: %d requests", f.provider.count())
+	}
+	for _, request := range f.provider.requests {
+		if strings.Contains(request.body, "video bilibili") {
+			t.Fatalf("a Bilibili upload was asked about: %s", request.body)
+		}
+	}
+	if got := f.videoTagState("BV1CCCCCCCCC"); got != "||" {
+		t.Fatalf("bilibili state=%q", got)
 	}
 }

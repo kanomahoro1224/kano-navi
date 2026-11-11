@@ -68,11 +68,6 @@
   }
 }
 
-.lb-banner-link {
-  display: block;
-  height: 100%;
-}
-
 /* The blog's menu bar: 13px bold grey links, 65px tall, that turn the accent
    colour with a 3px bar under them on hover. Home is the platform's icon,
    whose house sits at its centre. The current Home of the index shows no bar,
@@ -1120,13 +1115,8 @@
    blog's drawn title and its figure; the phone art was never archived. */
 .lbl-blog-title {
   margin: 0;
-  background: var(--lbl-page);
-}
-
-.lbl-blog-title a {
-  display: block;
   aspect-ratio: 1040 / 390;
-  background: var(--lb-header) center / auto 100% no-repeat;
+  background: var(--lb-header) center / auto 100% no-repeat var(--lbl-page);
 }
 
 /* The menu bar: 39px of 13px grey links that scroll sideways; the current

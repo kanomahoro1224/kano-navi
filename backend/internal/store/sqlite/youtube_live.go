@@ -28,6 +28,19 @@ const (
 	settingLiveProbeInterval = "youtube_live_probe_interval_minutes"
 )
 
+// The Bilibili live check has its own operator settings: whether it runs and
+// its baseline interval, how often the room is asked about when no announced
+// stream is due, so an unannounced stream is still seen. One check is one
+// request about the account's room.
+const (
+	BilibiliLiveDefaultMinutes = 30
+	BilibiliLiveMinMinutes     = 10
+	BilibiliLiveMaxMinutes     = 360
+
+	settingBilibiliLiveEnabled  = "bilibili_live_probe_enabled"
+	settingBilibiliLiveInterval = "bilibili_live_probe_interval_minutes"
+)
+
 // liveProbeLead is how soon a reservation must start to be probed.
 const liveProbeLead = 15 * time.Minute
 
@@ -72,6 +85,10 @@ type LiveProbeTarget struct {
 type LiveProbeSettings struct {
 	Enabled         bool `json:"enabled"`
 	IntervalMinutes int  `json:"intervalMinutes"`
+	// BilibiliEnabled and BilibiliIntervalMinutes are the Bilibili live
+	// check's settings.
+	BilibiliEnabled         bool `json:"bilibiliEnabled"`
+	BilibiliIntervalMinutes int  `json:"bilibiliIntervalMinutes"`
 }
 
 // Freshness is how long a "live" or "upcoming" result counts on the board:
@@ -129,8 +146,8 @@ func NextLiveProbeAt(targets []LiveProbeTarget, last *time.Time, now time.Time) 
 // LiveProbeSettings reads the operator settings; absent or invalid values
 // use the defaults.
 func (s *Store) LiveProbeSettings(ctx context.Context) (LiveProbeSettings, error) {
-	out := LiveProbeSettings{Enabled: true, IntervalMinutes: LiveProbeDefaultMinutes}
-	rows, err := s.db.QueryContext(ctx, `SELECT key,value FROM app_settings WHERE key IN (?,?)`, settingLiveProbeEnabled, settingLiveProbeInterval)
+	out := LiveProbeSettings{Enabled: true, IntervalMinutes: LiveProbeDefaultMinutes, BilibiliEnabled: true, BilibiliIntervalMinutes: BilibiliLiveDefaultMinutes}
+	rows, err := s.db.QueryContext(ctx, `SELECT key,value FROM app_settings WHERE key IN (?,?,?,?)`, settingLiveProbeEnabled, settingLiveProbeInterval, settingBilibiliLiveEnabled, settingBilibiliLiveInterval)
 	if err != nil {
 		return out, dbErr(err)
 	}
@@ -147,6 +164,12 @@ func (s *Store) LiveProbeSettings(ctx context.Context) (LiveProbeSettings, error
 			if n, e := strconv.Atoi(value); e == nil && n >= LiveProbeMinMinutes && n <= LiveProbeMaxMinutes {
 				out.IntervalMinutes = n
 			}
+		case settingBilibiliLiveEnabled:
+			out.BilibiliEnabled = value != "0"
+		case settingBilibiliLiveInterval:
+			if n, e := strconv.Atoi(value); e == nil && n >= BilibiliLiveMinMinutes && n <= BilibiliLiveMaxMinutes {
+				out.BilibiliIntervalMinutes = n
+			}
 		}
 	}
 	if err = rows.Err(); err != nil {
@@ -155,17 +178,22 @@ func (s *Store) LiveProbeSettings(ctx context.Context) (LiveProbeSettings, error
 	return out, nil
 }
 
-// SaveLiveProbeSettings stores validated operator settings.
+// SaveLiveProbeSettings stores validated operator settings. A zero Bilibili
+// interval leaves both Bilibili settings as stored.
 func (s *Store) SaveLiveProbeSettings(ctx context.Context, settings LiveProbeSettings) error {
 	if !s.Writable() {
 		return ErrReadOnly
 	}
-	if settings.IntervalMinutes < LiveProbeMinMinutes || settings.IntervalMinutes > LiveProbeMaxMinutes {
+	keepBilibili := settings.BilibiliIntervalMinutes == 0
+	if settings.IntervalMinutes < LiveProbeMinMinutes || settings.IntervalMinutes > LiveProbeMaxMinutes ||
+		!keepBilibili && (settings.BilibiliIntervalMinutes < BilibiliLiveMinMinutes || settings.BilibiliIntervalMinutes > BilibiliLiveMaxMinutes) {
 		return ErrWorkflowValidation
 	}
-	enabled := "0"
-	if settings.Enabled {
-		enabled = "1"
+	flag := func(on bool) string {
+		if on {
+			return "1"
+		}
+		return "0"
 	}
 	now := workflowTime(time.Now())
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -173,7 +201,11 @@ func (s *Store) SaveLiveProbeSettings(ctx context.Context, settings LiveProbeSet
 		return ErrUnavailable
 	}
 	defer tx.Rollback()
-	for key, value := range map[string]string{settingLiveProbeEnabled: enabled, settingLiveProbeInterval: strconv.Itoa(settings.IntervalMinutes)} {
+	values := map[string]string{settingLiveProbeEnabled: flag(settings.Enabled), settingLiveProbeInterval: strconv.Itoa(settings.IntervalMinutes)}
+	if !keepBilibili {
+		values[settingBilibiliLiveEnabled], values[settingBilibiliLiveInterval] = flag(settings.BilibiliEnabled), strconv.Itoa(settings.BilibiliIntervalMinutes)
+	}
+	for key, value := range values {
 		if _, err = tx.ExecContext(ctx, `INSERT INTO app_settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`, key, value, now); err != nil {
 			return ErrUnavailable
 		}

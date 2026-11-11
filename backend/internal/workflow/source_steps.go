@@ -9,9 +9,12 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/mediadownload"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
+	"github.com/yexca/kano-navi/backend/internal/source/niconico"
+	shopsource "github.com/yexca/kano-navi/backend/internal/source/shop"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/variants"
+	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
 // ScheduleRunner is the schedule extraction step. Status is success, partial
@@ -30,9 +33,19 @@ type SourceSteps struct {
 	X        *XRecentExecutor
 	Youtube  *ytsource.Adapter
 	Bilibili *bilisource.Adapter
-	Media    *mediadownload.Client
+	// Shop reads the official shop's sale periods.
+	Shop  *shopsource.Adapter
+	Media *mediadownload.Client
 	// MediaBounds overrides mediadownload.StepBounds when set.
 	MediaBounds *mediadownload.Bounds
+	// Works is the Works page's upload list whose covers the media step
+	// fetches; nil fetches none. Niconico looks up its niconico thumbnails
+	// (nil leaves them uncovered), WorkCoverBounds overrides the lookup
+	// bounds and Now is the clock of the lookups.
+	Niconico        *niconico.Client
+	Works           *works.Index
+	WorkCoverBounds *WorkCoverBounds
+	Now             func() time.Time
 	// Variants locates the originals of the variants step; nil leaves the
 	// step unavailable. VariantBudget overrides VariantsBudget when set.
 	Variants      *variants.Roots
@@ -49,6 +62,9 @@ type SourceSteps struct {
 	// Skip holds steps disabled for the whole process through SKIP_* flags.
 	// They are recorded as skipped instead of being silently dropped.
 	Skip map[string]bool
+	// BilibiliPageGap spaces the pages of an operator's Bilibili fetch; zero
+	// uses DefaultBilibiliPageGap and a negative gap waits not at all.
+	BilibiliPageGap time.Duration
 }
 
 // applySettings gives the source readers the operator's current bounds (see
@@ -86,13 +102,13 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 	if s.Skip[in.StepID] {
 		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": "environment"}}, nil
 	}
-	if in.StepID == "x" || in.StepID == "youtube" || in.StepID == "live" {
+	if in.StepID == "x" || in.StepID == sqlite.XRelatedStep || in.StepID == "youtube" || in.StepID == "live" {
 		if err := s.applySettings(ctx); err != nil {
 			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 		}
 	}
 	// Source chains, step runs, full syncs and scans carry no window and read each
-	// source by its sync setting (ADR-0002), whatever credentials are set; a
+	// source by its sync setting, whatever credentials are set; a
 	// manual fetch reads through the one method its window names.
 	if in.Window != nil && (in.StepID == "x" || in.StepID == "youtube") && s.History == nil {
 		return AttemptResult{}, NewStepError("history_unavailable", ErrDependency)
@@ -131,6 +147,10 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 		if s.X != nil {
 			return s.X.Execute(ctx, in)
 		}
+	case sqlite.XRelatedStep:
+		if s.X != nil {
+			return s.X.ExecuteRelated(ctx, in)
+		}
 	case "youtube":
 		if in.Window != nil {
 			return s.History.FetchYoutube(ctx, *in.Window)
@@ -140,37 +160,49 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 		}
 		return s.youtubeRecent(ctx, in)
 	case "live":
-		if s.Youtube == nil {
+		if s.Youtube == nil && s.Bilibili == nil {
 			break
 		}
-		return s.youtubeLive(ctx, in)
+		return s.live(ctx, in)
 	case "bilibili":
 		if s.Bilibili == nil {
 			break
 		}
-		return s.bilibiliRecent(ctx)
+		if in.Window != nil {
+			return s.bilibiliFetch(ctx, history.SourceBilibili, *in.Window)
+		}
+		return s.bilibiliRecent(ctx, in)
+	case sqlite.BilibiliDynamicsSource:
+		if s.Bilibili == nil {
+			break
+		}
+		if in.Window != nil {
+			return s.bilibiliFetch(ctx, history.SourceBilibiliDynamics, *in.Window)
+		}
+		return s.bilibiliDynamics(ctx)
+	case sqlite.ShopSource:
+		if s.Shop == nil {
+			break
+		}
+		return s.shopSales(ctx, in)
 	case "media":
 		if s.Media == nil {
 			break
 		}
-		result, err := s.Media.DownloadPending(ctx, s.Store, s.mediaBounds())
-		if err != nil {
-			if ctx.Err() != nil {
-				return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
+		// The Works list's covers join the queue first, so this download
+		// fetches them.
+		covers, err := s.workCovers(ctx)
+		if err == nil {
+			var result mediadownload.Summary
+			result, err = s.Media.DownloadPending(ctx, s.Store, s.mediaBounds())
+			if err == nil {
+				return mediaResult(result, covers), nil
 			}
-			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 		}
-		// Images a bound left queued make the step partial; the next run
-		// continues with them.
-		status := "succeeded"
-		if result.Failed > 0 || result.Missing > 0 || result.Remaining > 0 {
-			status = "partial"
+		if ctx.Err() != nil {
+			return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
 		}
-		counts := map[string]any{"attempted": result.Attempted, "ready": result.Ready, "unchanged": result.Unchanged, "failed": result.Failed, "measured": result.Measured, "resized": result.Resized, "remaining": result.Remaining}
-		if result.Stopped != "" {
-			counts["stopped"] = result.Stopped
-		}
-		return AttemptResult{Status: status, Result: counts}, nil
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	case "variants":
 		if s.Variants == nil {
 			break
@@ -290,6 +322,20 @@ func (s *SourceSteps) makeVariants(ctx context.Context) (AttemptResult, error) {
 	return AttemptResult{Status: status, Result: counts}, nil
 }
 
+// mediaResult is the media step's outcome. Images a bound left queued and
+// failed Works lookups make it partial; the next run continues with them.
+func mediaResult(result mediadownload.Summary, covers workCoverCounts) AttemptResult {
+	status := "succeeded"
+	if result.Failed > 0 || result.Missing > 0 || result.Remaining > 0 || covers.Failed > 0 {
+		status = "partial"
+	}
+	counts := map[string]any{"attempted": result.Attempted, "ready": result.Ready, "unchanged": result.Unchanged, "failed": result.Failed, "measured": result.Measured, "resized": result.Resized, "remaining": result.Remaining, "works": covers.result()}
+	if result.Stopped != "" {
+		counts["stopped"] = result.Stopped
+	}
+	return AttemptResult{Status: status, Result: counts}
+}
+
 func (s *SourceSteps) mediaBounds() mediadownload.Bounds {
 	if s.MediaBounds != nil {
 		return *s.MediaBounds
@@ -347,7 +393,8 @@ func (s *SourceSteps) youtubeRecent(ctx context.Context, in StepInput) (AttemptR
 			shorts++
 		}
 	}
-	counts := map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "inspected": result.Inspected, "requested": result.Requested, "shorts": shorts, "listing": result.Listing, "tried": result.Tried, "apiRequests": result.APIRequests}
+	counts := map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "inspected": result.Inspected, "requested": result.Requested, "shorts": shorts, "listing": result.Listing, "tried": result.Tried, "apiRequests": result.APIRequests,
+		"members": result.Members, "membersFrom": result.MembersFrom}
 	if len(result.Errors) > 0 {
 		counts["errors"] = tallyCodes(result.Errors)
 	}
@@ -375,28 +422,27 @@ func tallyCodes(codes []string) []string {
 }
 
 // bilibiliRecent reads the account's newest uploads at most once per
-// interval and never during a backoff, so no timer or manual run can drive
-// Bilibili's captcha. A failed read is recorded, not retried: the next run
-// after the interval or backoff asks again. The account's dynamics are read
-// in the same step, on their own interval and only when an operator's login
-// cookie is configured: Bilibili refuses anonymous reads of them.
-func (s *SourceSteps) bilibiliRecent(ctx context.Context) (AttemptResult, error) {
+// interval through the run's chain (the default chain for a full sync).
+// During a backoff only the official client's listing, another service, is
+// read, so no timer or manual run can drive Bilibili's captcha. A failed
+// read is recorded, not retried: the next run after the interval or backoff
+// asks again.
+func (s *SourceSteps) bilibiliRecent(ctx context.Context, in StepInput) (AttemptResult, error) {
 	account := s.Bilibili.Options.Account
 	state, err := s.Store.BilibiliState(ctx, account)
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
-	result, fetchErr := s.Bilibili.FetchRecent(ctx, state)
+	chain := sqlite.DefaultSourceChain("bilibili")
+	if in.Chain != nil {
+		chain = *in.Chain
+	}
+	result, fetchErr := s.Bilibili.FetchRecentWith(ctx, state, chain.Enabled())
 	if ctx.Err() != nil {
 		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
 	}
-	posts, postsErr := s.Bilibili.FetchDynamics(ctx, result.State)
-	if ctx.Err() != nil {
-		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
-	}
-	if result.Skipped != "" && posts.Skipped != "" {
-		// The uploads read decides why the step asked nothing; its reason is
-		// the one the console has always shown.
+	if result.Skipped != "" {
+		// A read skipped without a request changes no state.
 		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": result.Skipped, "requested": 0}}, nil
 	}
 	changed, err := s.Store.WriteBilibiliRecent(ctx, account, result)
@@ -404,31 +450,173 @@ func (s *SourceSteps) bilibiliRecent(ctx context.Context) (AttemptResult, error)
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
 	counts := map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "requested": result.Requested, "changed": changed}
-	// The dynamics write commits after the uploads write, so the state it
-	// carries includes both attempts.
-	switch {
-	case posts.Skipped != "":
-		counts["postsSkipped"] = posts.Skipped
-	case postsErr == nil:
-		fresh, writeErr := s.Store.WriteBilibiliDynamics(ctx, account, posts)
-		if writeErr != nil {
-			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	if result.Listing != "" {
+		counts["listing"] = result.Listing
+	}
+	if result.Fallback != "" {
+		// An earlier method of the chain failed and a later one gave the
+		// uploads.
+		counts["fallback"], counts["listError"] = result.Fallback, result.ListError
+		if len(result.FallbackErrors) > 0 {
+			counts["fallbackErrors"] = result.FallbackErrors
 		}
-		counts["posts"], counts["newPosts"] = len(posts.Dynamics), fresh
-		counts["requested"] = result.Requested + posts.Requested
 	}
-	errs := []string{}
 	if fetchErr != nil {
-		errs = append(errs, bilisource.ErrorCode(fetchErr))
+		counts["errors"] = append([]string{bilisource.ErrorCode(fetchErr)}, result.FallbackErrors...)
+		return AttemptResult{Status: "failed", Result: counts}, nil
 	}
-	if postsErr != nil {
-		errs = append(errs, bilisource.ErrorCode(postsErr))
+	if result.Fallback != "" {
+		return AttemptResult{Status: "partial", Result: counts}, nil
 	}
-	if len(errs) > 0 {
-		counts["errors"] = errs
+	return AttemptResult{Status: "succeeded", Result: counts}, nil
+}
+
+// bilibiliDynamics reads the first page of the account's dynamics with the
+// login cookie, at most once per interval and never during the backoff it
+// shares with the upload read: a captcha either read meets holds both back.
+// Without a cookie, or while its last check found it expired, the step is
+// skipped without a listing request. A failure is recorded, not retried.
+func (s *SourceSteps) bilibiliDynamics(ctx context.Context) (AttemptResult, error) {
+	account := s.Bilibili.Options.Account
+	state, err := s.Store.BilibiliState(ctx, account)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	dynamics, fetchErr := s.Bilibili.FetchDynamics(ctx, state)
+	if ctx.Err() != nil {
+		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
+	}
+	if dynamics.Skipped != "" && dynamics.Requested == 0 {
+		// A listing skipped without a request changes no state.
+		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": dynamics.Skipped, "requested": 0}}, nil
+	}
+	changed, err := s.Store.WriteBilibiliDynamics(ctx, account, dynamics)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	counts := map[string]any{"count": len(dynamics.Dynamics), "posts": len(dynamics.Dynamics), "videos": len(dynamics.Uploads), "requested": dynamics.Requested, "changed": changed}
+	if dynamics.Skipped != "" {
+		// The login check found the cookie expired.
+		counts["skipped"], counts["reason"] = true, dynamics.Skipped
+	}
+	if fetchErr != nil {
+		counts["errors"] = []string{bilisource.ErrorCode(fetchErr)}
 		return AttemptResult{Status: "failed", Result: counts}, nil
 	}
 	return AttemptResult{Status: "succeeded", Result: counts}, nil
+}
+
+// shopSales reads the shop's sale periods: the newest products on a timed
+// read, the whole catalog for the operator's read-all fetch. During a 429's
+// Retry-After it is skipped without a request. A failure is recorded, not
+// retried in the run, and changes no entry.
+func (s *SourceSteps) shopSales(ctx context.Context, in StepInput) (AttemptResult, error) {
+	state, err := s.Store.ShopState(ctx)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	stored, err := s.Store.ShopSales(ctx)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	// The shop's only window is the whole catalog (history.MethodCatalog).
+	all := in.Window != nil
+	result, fetchErr := s.Shop.Read(ctx, state, stored, all)
+	if ctx.Err() != nil {
+		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
+	}
+	if result.Skipped != "" {
+		// A read skipped without a request changes no state.
+		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": result.Skipped, "requested": 0}}, nil
+	}
+	changed, err := s.Store.WriteShopRead(ctx, result)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	counts := map[string]any{"count": len(result.Sales), "sales": len(result.Sales), "listed": result.Listed, "candidates": result.Candidates,
+		"requested": result.Requested, "collections": result.Collections, "changed": changed}
+	if len(result.Outcomes) > 0 {
+		counts["outcomes"] = result.Outcomes
+	}
+	if all {
+		counts["pages"], counts["reachedEnd"] = result.Pages, result.ReachedEnd
+	}
+	if fetchErr != nil {
+		counts["errors"] = []string{shopsource.ErrorCode(fetchErr)}
+		return AttemptResult{Status: "failed", Result: counts}, nil
+	}
+	return AttemptResult{Status: "succeeded", Result: counts}, nil
+}
+
+// live runs the live-status probe: the YouTube videos due by their phase
+// and, in the same run, at most one check of the Bilibili room when it is
+// due. Each platform's part is left out while its source is disabled.
+func (s *SourceSteps) live(ctx context.Context, in StepInput) (AttemptResult, error) {
+	out := AttemptResult{Status: "succeeded", Result: map[string]any{}}
+	if s.Youtube != nil && !s.Skip["youtube"] {
+		var err error
+		if out, err = s.youtubeLive(ctx, in); err != nil {
+			return out, err
+		}
+	}
+	if s.Bilibili == nil || s.Skip["bilibili"] {
+		return out, nil
+	}
+	counts, status, err := s.bilibiliLive(ctx)
+	if err != nil {
+		return AttemptResult{}, err
+	}
+	if counts == nil {
+		return out, nil
+	}
+	out.Result["bilibili"] = counts
+	switch {
+	case status == "succeeded":
+	case out.Status == "succeeded" && (s.Youtube == nil || s.Skip["youtube"] || out.Result["candidates"] == 0):
+		out.Status = status
+	default:
+		out.Status = "partial"
+	}
+	return out, nil
+}
+
+// bilibiliLive checks the configured room once when the plan says it is
+// due. It returns nil counts when the check is off or not due.
+func (s *SourceSteps) bilibiliLive(ctx context.Context) (map[string]any, string, error) {
+	now := s.Bilibili.Now()
+	settings, err := s.Store.LiveProbeSettings(ctx)
+	if err != nil {
+		return nil, "", NewStepError("schema_failure", ErrSchema)
+	}
+	if !settings.BilibiliEnabled {
+		return nil, "", nil
+	}
+	account := s.Bilibili.Options.Account
+	plan, err := s.Store.BilibiliLivePlan(ctx, account, now, settings)
+	if err != nil {
+		return nil, "", NewStepError("schema_failure", ErrSchema)
+	}
+	if now.Before(plan.DueAt) {
+		return nil, "", nil
+	}
+	state, requested, checkErr := s.Bilibili.CheckLive(ctx, plan.Live.State)
+	if ctx.Err() != nil {
+		return nil, "", NewStepError("cancelled", ErrCancelled)
+	}
+	counts := map[string]any{"targets": len(plan.Targets), "phase": plan.Phase, "requested": 0, "live": false, "changed": false}
+	if !requested {
+		return counts, "succeeded", nil
+	}
+	changed, err := s.Store.WriteBilibiliLive(ctx, account, state)
+	if err != nil {
+		return nil, "", NewStepError("schema_failure", ErrSchema)
+	}
+	counts["requested"], counts["live"], counts["changed"] = 1, checkErr == nil && state.Room.LiveStatus == bilisource.RoomLive, changed
+	if checkErr != nil {
+		counts["errors"] = []string{bilisource.ErrorCode(checkErr)}
+		return counts, "failed", nil
+	}
+	return counts, "succeeded", nil
 }
 
 // youtubeLive asks about only the few active videos that are due by their
@@ -443,6 +631,11 @@ func (s *SourceSteps) youtubeLive(ctx context.Context, in StepInput) (AttemptRes
 	settings, err := s.Store.LiveProbeSettings(ctx)
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	if !settings.Enabled {
+		// The operator turned the YouTube part off: no YouTube request, even
+		// when the run is for the Bilibili room.
+		return AttemptResult{Status: "succeeded", Result: map[string]any{"active": 0, "candidates": 0, "requested": 0, "inspected": 0, "live": 0, "changed": false, "apiRequests": 0, "disabled": true}}, nil
 	}
 	targets, err := s.Store.LiveProbeTargets(ctx, now, settings)
 	if err != nil {

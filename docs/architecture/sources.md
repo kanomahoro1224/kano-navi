@@ -7,13 +7,15 @@
 The synchronizer discovers status IDs for each account named by `X_HANDLES`
 (default `kano_2525,_Kanotic`) from the public FxTwitter timeline
 `api.fxtwitter.com/2/profile/<handle>/statuses`, which lists the account's
-statuses newest first in pages of 20 with a continuation cursor. Discovery
+statuses newest first in pages of 20 with a continuation cursor; the page
+size is fixed whatever `count` a request names. Discovery
 pages back until a page's oldest own status is already stored or is not newer
 than the account's stored cursor, so posts published between runs are found
 even when several arrive at once. Before an account has a cursor, statuses
 older than the first-run age limit (seven days by default; see
-[sync settings](../operations/configuration.md#sync-settings)) also end the first run. Reposts carry
-another author and are skipped. The cap, the full-sync post cap or
+[sync settings](../operations/configuration.md#sync-settings)) also end the first run. A repost
+lists the original status's ID, time and author, so it is never a post: the
+run records it as a repost link (see [Reposts](#reposts)). The cap, the full-sync post cap or
 the X schedule's incremental `max` (see
 [source schedules](workflows.md#source-schedules)), counts the
 statuses that are not stored yet and sets the pages of 20 (at most 10) per
@@ -36,7 +38,7 @@ before the floor closes the gap and every older one and reports
 `x_timeline_gap`, so an operator
 can fill it with a timeline `all` fetch or an X API date range. The step result counts
 accounts with an open gap as `timelineGaps`
-([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md)).
+([source schedules](../architecture/workflows.md#source-schedules)).
 
 The timeline is the first method of the X schedule's default
 [method chain](workflows.md#method-chains). When its first page fails, is
@@ -90,7 +92,7 @@ quoted status is read into the same
 
 The operator's timeline fetches read the same timeline differently (see
 [Manual fetches](workflows.md#manual-fetches-and-historical-backfill)): they
-request pages of 100 and store each own status from the page itself.
+read the same pages of 20 and store each own status from the page itself.
 The adapter maps FxTwitter's `created_timestamp`, `text`, counters and
 `media` (a photo's URL without the `?name=orig` size, or a video's or GIF's
 thumbnail, in post order; a quoted status's images belong to its quote) onto
@@ -140,11 +142,90 @@ Each discovered image URL is registered and linked to its post. A bounded media
 stage later in the same command downloads pending image files from X's
 `*.twimg.com` media CDN subdomains.
 
+#### Related-account rationale
+
+Related accounts stay in a private status pool because their timelines contain announcements for many people. Keyword and operator promotion put only relevant statuses on the board, while quoted and reposted statuses can supply context and translation without becoming public cards. Separate cursors and a separate timer keep this filtering independent from Kano's own accounts.
+
+#### Related accounts
+
+A related account (such as the agency, `@Mil_Pro_`) is a second account
+role beside the own accounts of `X_HANDLES`, configured on the console's
+Sources page beside its timer, with its keyword rules in the app setting
+`x_related_accounts` (see [Configuration](../operations/configuration.md#related-x-accounts)
+and [Related accounts](../architecture/sources.md#related-accounts)).
+A handle is in one role at a time, and the setting starts empty.
+
+The related accounts have their own timer and step, `x_related`
+([Source schedules](workflows.md#source-schedules), every 180 minutes by
+default), apart from the own accounts' `x`. Each run reads each related
+account's own timeline into the X status pool (`x_statuses`, see
+[Quoted posts](#quoted-posts)):
+
+- It reads the FxTwitter timeline alone, at most the schedule's incremental
+  `max` (1–200, default 50) new statuses per account, else the X discovery
+  limit, and on a first read back the run's lookback days, else the X
+  first-run age. It has no `count` setting, no profile-page fallback and no
+  X API method, and it makes no detail request, since a page carries each
+  status; a status without usable content is left out. Its reposts and other
+  authors' statuses are left out too.
+- The incremental cursor and gap model follows the own-account rules, with its
+  own `sync_state` row of source `x-related` (the lower-case handle as account): the cursor, the timeline
+  gap and the known statuses come from the pool's statuses that the
+  account's timeline listed (`listed_at`), never from `posts`, so a role
+  change never mixes cursors.
+- A failed read keeps the cursor and the pool and records its code in the
+  row's `lastError`. While FxTwitter is down, related accounts are not read;
+  a timeline gap covers the stretch.
+
+The step result is `{source: "x_related", accounts, listed, promoted,
+demoted}`. Without a related account the step records `{skipped: true,
+reason: "no_accounts"}` and makes no request. An account whose read failed,
+and a read's notes such as a timeline gap, leave the step `partial` with
+`errors` as `@<handle>: <code>`; when every account failed the step fails
+with `x_related_failed`. An operator's
+[manual fetch](workflows.md#manual-fetches-and-historical-backfill) of one
+related account runs the same read for that account alone and fails once
+with its code. The own accounts' read and the related accounts'
+read never decide each other's outcome, and quotes and reposts of the own
+accounts write the pool in the `x` step whether or not `x_related` runs.
+
+Every pooled status stores the reasons that apply to it:
+
+| Reason     | When                                                                    | Effect              |
+| ---------- | ----------------------------------------------------------------------- | ------------------- |
+| `keyword`  | a related account's status whose text contains one of its keyword rules | promoted            |
+| `manual`   | an operator promoted a related account's status                         | promoted            |
+| `quoted`   | an own account quoted it, whatever its author                           | translated, no card |
+| `reposted` | an own account reposted it, and its author is a related account         | translated, no card |
+| `none`     | none of the above                                                       | stored only         |
+
+Keyword rules match anywhere in the text, ignoring letter case. Reasons are
+evaluated when a related timeline lists a status, when an own account
+reposts it, when an operator decides on it, and for every pooled status when
+the related accounts or their rules are saved.
+
+**Promotion** writes the status from its pooled `raw_json` to `posts` under
+its author's handle, with `posts.promoted_at` set. It registers the status's
+own images and quoted images as any post does, but never a schedule-image
+candidate, and gives the status it quotes no `quoted` reason. From then on
+the post takes the paths every post takes: the wall, the archive,
+translation, extraction and media. **Demotion** sets `posts.hidden_at` and
+keeps the row, its media and its events, whose automatic ones then leave the
+public pages (see [Events of hidden posts](data-model.md#events-of-hidden-posts)).
+An automatic demotion records `x_statuses.demoted_at`, so an automatic
+promotion shows again only a post the rules hid; an operator's hide in Posts
+stays. Showing a promoted post in Posts records a manual promote, and hiding
+it withdraws that promote. An operator's promote or demote (`manual_decision`, with its reason
+and time) is a durable lock that the rules never override; a manual promote
+shows a hidden promoted post, and returning a status to the rules lets them
+decide again. Only a related account's status can be promoted by hand, and a
+pooled status that is an own post is never promoted or demoted.
+
 #### X API in the chain
 
 The X schedule's [method chain](workflows.md#method-chains) can enable the
 official API (`api`, off by default), which needs `X_API_BEARER_TOKEN`
-([ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)). It reads
+([method chains](../architecture/workflows.md#method-chains)). It reads
 `https://api.x.com/2/users/<id>/tweets` without reposts and replies, newest
 first, with the account's cursor as `since_id`, up to the run's cap of new
 posts in pages of 5 to 100 and at most 10 pages; before an account has a
@@ -379,9 +460,10 @@ asks the YouTube Data API:
   step still revalidates the file. See [Video corrections](data-model.md#video-corrections-and-history)
   for what counts as the same image.
 
-A run that finds a stored video on its first playlist page spends two quota
-units (of the default 10,000 a day) while its detail queue holds at most 50
-IDs; each further 50 queued IDs add one, up to five `videos.list` calls,
+A run that finds a stored video on its first playlist page spends three
+quota units (of the default 10,000 a day), the members-only playlist page
+included (see [Video availability](#video-availability)), while its detail
+queue holds at most 50 IDs; each further 50 queued IDs add one, up to five `videos.list` calls,
 each further playlist page adds one, and the per-format playlists two more
 when a queued ended broadcast needs them. The key is sent only in the `X-Goog-Api-Key` header to
 `https://www.googleapis.com/youtube/v3/`, with the client's 10-second timeout,
@@ -397,9 +479,9 @@ reads the per-format playlists to their end rather than their newest pages
 (see [YouTube methods](workflows.md#youtube-methods)).
 
 A YouTube chain with `api` off makes no Data API call for its runs, key or
-not: no listing, `videos.list`, per-format or Shorts playlist, and the
+not: no listing, `videos.list`, per-format, Shorts or members-only playlist, and the
 [live-status probe](#live-status-probe) reads watch pages only. Watch pages
-take over as they do without a key.
+and the members-only feed take over as they do without a key.
 
 #### Localized Titles
 
@@ -475,6 +557,29 @@ Every check that can tell records who can watch a YouTube video in
   quota) gives `public` or `unlisted` from `status.privacyStatus`. The API
   cannot tell a members-only video from a public one, so it keeps a stored
   `members`.
+- Every recent step run ends with the channel's members-only playlist
+  (`UUMO` and the channel ID after `UC`): every stored video it names is
+  `members`, whatever its age, and a video checked in the same run carries
+  the verdict, so its entry is a `member` entry from that run on. The
+  playlist is undocumented, and absence from it proves nothing, so it records
+  no other value. With a key the run reads its newest page (50 entries), one
+  `playlistItems.list` call and one quota unit counted in `apiRequests`, at
+  the same Data API destination under the same rules as the uploads
+  playlist, unless an earlier Data API call of the run failed, since a
+  refused key, quota or rate limit holds for it too. Without a key, or when
+  that call is skipped or fails, the playlist's public feed
+  (`https://www.youtube.com/feeds/videos.xml?playlist_id=UUMO…`, its newest
+  15 entries) stands in, a fixed helper read whether or not the chain enables
+  `rss`, under the channel feed's codes, retries and limits. A run whose
+  channel feed read failed skips it, since both are the same feed endpoint.
+  Each failure, such as the 404 of a channel without members-only uploads,
+  records its code and costs only the verdicts. The step result reports
+  `members`, how many videos the playlist named, and `membersFrom`, the read
+  that answered (`api` or `rss`, empty when none did). An operator's YouTube
+  [manual fetch](workflows.md#manual-fetches-and-historical-backfill) ends
+  with the same read and reports it the same way: through the Data API with
+  the `api` method unless a Data API call of the fetch failed, otherwise the
+  feed.
 - A watch page that passes the completeness checks, a playable page or a
   `LIVE_STREAM_OFFLINE` waiting room, is `public`, or `unlisted` when its
   microformat says so; an `UNPLAYABLE` or waiting-room page that names a
@@ -486,8 +591,9 @@ Every check that can tell records who can watch a YouTube video in
   `private` and any other page without the details is `removed`. A page that
   was not answered (a timeout, a 5xx) and the bot check tell nothing.
 
-A failed page that told writes only the availability of the stored video and
-counts as no run error. A check that cannot tell keeps the stored value, and
+A failed page that told, and the members-only playlist, write only the
+availability of the stored video, and a failed page that told counts as no
+run error. A check that cannot tell keeps the stored value, and
 nothing writes `NULL` back. A `members` video is a `member` entry whatever its
 title says. Bilibili uploads keep `NULL`. An operator's correction
 (`manual_availability`, see
@@ -517,6 +623,17 @@ read even when the [Data API](#data-api) describes the video, so a refresh
 can settle a premiere verdict that the API answer of an ended broadcast only
 repeats; when the page fails, the API answer is used. A request
 that no successful check answers within 24 hours stops going first.
+
+An operator also adds or re-reads one video by ID or link from `/admin` (see
+[Admin API](admin-api.md#youtube-videos)). That read runs at once, outside
+the queue: the Data API describes the video under the recent step's rules
+when a key is configured, and the watch page does without one or when the
+answer cannot classify an ended broadcast. Only a video whose channel
+(`channelId` in the API snippet or the page's video details) is
+`YOUTUBE_CHANNEL_ID` is accepted (`youtube_other_channel` otherwise). It is
+written like a manual fetch's listed and checked video, so manual locks and
+deletion tombstones hold. Neither the incremental cursor nor the detail
+queue moves.
 
 Every detail check stores the player's `lengthSeconds` as
 `duration_seconds` once a video is neither upcoming nor live. When a check
@@ -636,9 +753,10 @@ listed beyond that grace. Run timing is described in
 
 #### WebSub Push
 
-Polling remains the baseline. The operator turns push on in `/admin` (Content
-& media → YouTube push) by entering a public HTTPS callback URL that forwards to
-`/api/websub/youtube`. The standalone process then subscribes the channel's
+Polling remains the baseline. The operator turns push on in `/admin`
+(Sources → YouTube → YouTube push) by entering the deployment's public HTTPS
+address; the console adds `/api/websub/youtube` and saves the result as the
+callback URL. The standalone process then subscribes the channel's
 feed topic at Google's hub (`https://pubsubhubbub.appspot.com/subscribe`)
 within seconds, without a restart, and again at every startup.
 `backend/internal/source/youtube/websub` owns the protocol and its admin
@@ -701,54 +819,165 @@ poll.
 
 ### Bilibili
 
-The `bilibili` step reads the uploads of `BILIBILI_UID` (Kano's account by
-default) from Bilibili's public web API, `api.bilibili.com`, using only
-endpoints that need no request signature:
+The `bilibili` step reads the uploads and the `bilibili_dynamics` step the
+dynamics (动态) of `BILIBILI_UID` (Kano's account by default), each on its
+own [timer](workflows.md#source-schedules); the [live-status
+probe](workflows.md#live-status-probe) checks its live room. Every request
+goes to one of four fixed hosts: `api.bilibili.com`, `www.bilibili.com`
+(the opus page of one dynamic only), `api.live.bilibili.com` and
+`app.bilibili.com` (the uploads' official-client method, below). The upload list
+uses only endpoints that need no request signature; its fallbacks are
+signed (the dynamics listing with WBI, the official client's listing with
+its app key):
 
 - `/x/frontend/finger/spi` returns the anonymous device identity
-  (`buvid3`/`buvid4`) Bilibili's own pages send. It is reused for seven days
-  and kept in `sync_state` (source `bilibili`).
-- `/x/series/recArchivesByKeywords` lists the account's newest 20 uploads
-  with title, cover, publication time, length and description. Entries of
+  (`buvid3`/`buvid4`) Bilibili's own pages send; its `b_nut` is when it was
+  issued. It is reused for seven days and kept in `sync_state` (source
+  `bilibili`).
+- `POST /bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket` returns the
+  `bili_ticket` cookie (a JWT valid about three days), signed as Bilibili's
+  web script signs it (`key_id` `ec02`, `hexsign` an HMAC-SHA256 of
+  `ts<unix seconds>`, `context[ts]`, an empty `csrf`). It is kept with the
+  device identity and renewed six hours before it expires, and its answer
+  also names the current WBI keys. A failed ticket request is not a
+  failure: the read goes on without it.
+- `/x/series/recArchivesByKeywords` lists the account's uploads newest
+  first, 20 a page, with title, cover, publication time, length and
+  description; the timed read takes the first page and a
+  [manual fetch](workflows.md#bilibili-methods) pages on. Entries of
   another uploader are skipped.
-- `/x/web-interface/view` reads one upload for an operator.
+- `/x/web-interface/view` reads one upload for an operator, and the cover
+  address of an upload on the Works page.
 
-Bilibili answers a few anonymous requests and then puts the server's address
-behind a captcha for hours: HTTP 412, an HTML page, or the JSON codes `-352`
-and `-412`. The client never retries and reports these as
-`bilibili_risk_control` (`-799`/`-509`/429 as `bilibili_rate_limited`). The
-adapter then waits 6 hours, doubled for each consecutive block up to a day,
-and the step makes no request until then; independently, list reads are at
-least `BILIBILI_MIN_INTERVAL_MINUTES` (180 by default) apart, which is also
-the shortest Bilibili schedule interval. A skipped read records `{ skipped: true, reason: "interval" |
-"blocked" }`; a failed one records its code as a failed step without a retry,
-keeps every stored upload, and lets the rest of the run continue.
+Every request reads like Bilibili's own pages: one desktop browser user
+agent (`BrowserUserAgent` in `backend/internal/source/bilibili/client.go`,
+updated deliberately together with this page), `Accept-Language:
+zh-CN,zh;q=0.9`, the page it comes from as `Referer` (the space for the
+upload list and the listing, the video page for one upload, the home page
+for the device identity, ticket and `nav`, `https://live.bilibili.com/` for
+the live host) and, on the API hosts, that page's `Origin`. The device
+cookies (`buvid3`, `buvid4`, `b_nut`, `bili_ticket` and
+`bili_ticket_expires`) go to `api.bilibili.com` and the opus page, never to
+the live host; the device-identity request sends none.
 
-`BILIBILI_SESSDATA` optionally adds an operator's login cookie to the API
-requests (never to the device-identity request). Signed-in reads meet the
-captcha far less often. The cookie stays in memory: it is not part of the
-persisted state, not logged and not returned; see
-[Configuration](../operations/configuration.md).
+Bilibili still puts an address behind a captcha for hours at times. The
+client never retries and names how Bilibili answered:
+`bilibili_risk_control_http` (HTTP 412), `bilibili_risk_control_page` (an
+HTML captcha page, or an opus page without its state),
+`bilibili_risk_control_352` and `bilibili_risk_control_412` (the JSON codes)
+and `bilibili_risk_control_voucher` (a `v_voucher` instead of the listing);
+`-799`/`-509`/429 are `bilibili_rate_limited`. Each starts the same backoff:
+the adapter waits 6 hours, doubled for each consecutive block up to a day,
+and neither step makes an `api.bilibili.com` or `www.bilibili.com` request
+until then (the upload read may still ask `app.bilibili.com`, below), and
+only an `api.bilibili.com` success clears it; independently, upload reads are at least
+`BILIBILI_MIN_INTERVAL_MINUTES` (180 by default) apart, which is also the
+shortest interval of either Bilibili timer. A skipped read records
+`{ skipped: true, reason: "interval" | "blocked" }`; a failed one records its
+code as a failed step without a retry, keeps every stored upload and post,
+and lets the rest of the run continue.
+
+`BILIBILI_COOKIE` (the signed-in browser's cookies) or `BILIBILI_SESSDATA`
+(its `SESSDATA` alone) optionally adds an operator's login to the
+`api.bilibili.com` requests (never to the device-identity or ticket request,
+the opus page or the live host); see
+[Configuration](../operations/configuration.md) for the cookies kept. A
+signed-in request sends `SESSDATA` with the browser's `bili_jct`,
+`DedeUserID`, `DedeUserID__ckMd5` and `sid`, and the browser's device
+cookies (`buvid3`, `buvid4`, `b_nut`, `_uuid`, `buvid_fp`) in place of the
+anonymous identity where the login carries them, so the account and its
+device match. Signed-in reads meet the captcha far less often, and the
+dynamics listing needs one. The login is verified at most once
+a day through `nav`'s `isLogin`, when the listing runs; while the latest check
+found it expired, no request sends it and the listing waits for the next
+check (`{ skipped: true, reason: "login_expired" }` on the
+`bilibili_dynamics` step, error
+`bilibili_login_expired`). The console reports `signed_in`, `expired`,
+`unchecked` or `not_configured`. The login cookies stay in memory: they are
+not part of the persisted state, not logged and not returned.
+
+The upload read tries the enabled methods of the Bilibili timer's
+[method chain](workflows.md#method-chains) in its order, by default `list`,
+`dynamics`, then `app`. When one fails (a captcha included), or the
+device-identity request the web API methods share fails, the same read goes
+on at once to the next. Besides the upload list (`list`, above), they are:
+
+1. `dynamics`, the first page of the signed-in
+   [dynamics listing](#dynamics), when a login is configured that the latest
+   check did not find expired and the device identity was read, storing
+   the uploads its video dynamics show: one listing request, plus `nav` when
+   the login check or the WBI keys are due. It leaves the dynamics read's own
+   clock and the dynamics themselves to the `bilibili_dynamics` step;
+2. `app`, the official client's space listing,
+   `app.bilibili.com/x/v2/space/archive/cursor?vmid=<mid>&ps=20&order=pubdate`,
+   when an app key pair is configured (`BILIBILI_APP_KEY` and
+   `BILIBILI_APP_SECRET`, see [Configuration](../operations/configuration.md)):
+   one request without cookies or Referer,
+   signed as Bilibili's apps sign (`appkey` and `ts` added, `sign` the MD5 of
+   the key-sorted query followed by the app secret). It answers a different
+   service from the web API that shows the captcha. Its ordinary
+   uploads (`goto` `av`) with a BV ID, title and publication time (`ctime`)
+   are stored with their cover and length; it carries no description, so a
+   stored one is kept. The listing names no uploader, so a co-created upload
+   (`is_cooperation`), which may be another account's, is left to the other
+   listings.
+
+A method without its credential (the login, or the key pair) is passed
+over without a request, and a read none of whose enabled methods can run
+fails with `bilibili_no_method` without a request or a backoff. The step
+result names the method that answered as `listing`. When an earlier method
+failed, the step is `partial` with that method as `fallback`, the first
+failure's code as `listError` and each later failure in `fallbackErrors`.
+A `list` or `dynamics` success is an `api.bilibili.com` answer and clears
+the backoff an earlier failure started; an `app` success keeps it. While a
+backoff lasts, an upload read due by its interval asks only the official
+client's listing when the chain enables it and a key pair is configured
+(`listError` `bilibili_blocked`) and is skipped as `blocked` otherwise; that
+read never extends the backoff. When every method fails, the step keeps the
+first failure's code and adds each later one as `<method>: <code>` to its
+errors; the backoff starts once, at the first captcha among them.
+
+The dynamics and the official client's listing date an upload by their own
+clocks and the latter omits its `aid`, so an upload either of them reads is
+partial: it keeps a stored upload's `published_at` and `aid` (the upload
+list still corrects them), and a missing `aid` never replaces a known one.
+
+Signing with an official client's key makes those requests read as that
+client rather than as this service. That is a trade-off each deployment
+accepts by configuring the pair, so the repository carries none: the pair
+grants no account access, and when Bilibili changes it the `app` method fails
+with a controlled code until the operator configures the new one.
+
+An operator's single read (one upload, one dynamic) answers
+`bilibili_blocked` during a backoff without a request, unless the operator
+forces it once from the console (`force`, see
+[Admin API](admin-api.md#bilibili-uploads)). A forced read that succeeds
+lifts the backoff; one that fails extends it as usual. Timer reads and
+[manual fetches](workflows.md#bilibili-methods) are never forced.
 
 Uploads are `videos` rows with `source = 'bilibili'` and the BV ID as their
-ID, linked to `https://www.bilibili.com/video/<BV>`. Their kind is `upload`:
-Bilibili reports no broadcast facts, and its categories say nothing about the
-content, which the [video tag](data-model.md#video-form-and-tags) carries;
-the description and `aid` stay in `raw_json`. Every list read replaces the
-platform fields and keeps a replaced title or cover in `video_revisions`, as
-YouTube does; operator corrections survive. Covers come only from
-`*.hdslb.com`, upgraded to HTTPS, and are cached under `data/bilibili/` by
-the media step.
+ID, linked to `https://www.bilibili.com/video/<BV>`. The list and view
+endpoints carry no live-replay flag, so a new upload is stored as an
+unsettled `upload` and its form (`upload` or `stream`) is settled later by
+rule, model or operator (see [Bilibili form](data-model.md#bilibili-form));
+Bilibili's categories say nothing about the content, which the
+[video tag](data-model.md#video-form-and-tags) carries. The description and
+`aid` stay in `raw_json`. Every list read replaces the other platform fields
+and keeps a replaced title or cover in `video_revisions`, as YouTube does;
+the form and operator corrections survive. Covers and dynamic pictures come
+only from `*.hdslb.com`, upgraded to HTTPS, and are cached under
+`data/bilibili/` by the media step.
 
-Bilibili uploads reach readers on their own cover only when YouTube carries
-no copy of the same work: the `reconcile` step merges an upload into the
-YouTube video of the same work, and a merged upload stays out of the board,
-the video archive and MCP, which list it in that video's `alternates` and
-show its title as the video's Chinese platform translation instead. A work
-published only on Bilibili has no copy to merge into, so it is listed as its
-own video: one cover is never listed twice and nothing is hidden behind a
-video that does not exist. Operators confirm, add or undo merges in `/admin` (see
-[Video merging](data-model.md#video-merging)). Operators can
+An upload whose form is settled is a public video like a YouTube one, on the
+board, the video archive, MCP and the Atom feed, until it is merged. The
+`reconcile` step merges an upload into the YouTube video of the same work
+(a live replay into the stream archive of the same broadcast), which then
+lists it in `alternates` and shows its title as the video's Chinese platform
+translation, so one work is never listed twice; operators confirm, add or
+undo merges in `/admin` (see
+[Video merging](data-model.md#video-merging)). Bilibili answers no
+availability for a listed upload; an operator marks a deleted or hidden one
+`removed` or `private` through `manual_availability`. Operators can
 add an upload by BV ID or `bilibili.com` video link and read one again at
 once from `/admin` (see [Admin API](admin-api.md#bilibili-uploads)); those
 reads respect the same backoff and accept only uploads of the configured
@@ -758,14 +987,325 @@ than the writer's), with its failure count and code: a captcha backoff is
 never lost. A read that changes a merged upload's title rewrites the
 translation in the same transaction.
 
+#### Bilibili login boundary
+
+The dynamics listing requires a signed-in cookie because anonymous requests depend on browser fingerprint parameters and encounter captcha responses. The server therefore skips the listing without a login and keeps the cookie in memory for the Bilibili API only. An operator can still add one dynamic through its public opus page, which does not require the listing credential.
+
+#### Dynamics
+
+The dynamics listing,
+`/x/polymer/web-dynamic/v1/feed/space?host_mid=<mid>`, answers reliably only
+to a signed-in caller, so it runs only with a login (`BILIBILI_COOKIE` or
+`BILIBILI_SESSDATA`,
+[Bilibili dynamics](../architecture/sources.md#dynamics)).
+Without the cookie the `bilibili_dynamics` step records `{ skipped: true,
+reason: "login_required" }` and makes no anonymous attempt. The listing is signed
+with Bilibili's WBI scheme (`wts` and `w_rid` from the rotating keys that
+the ticket or `/x/web-interface/nav` names); the keys are cached for 12
+hours and dropped after a `v_voucher` or `-352` answer, which may mean they
+rotated. A signed-out `nav` answer, or `-101` from the listing, is
+`bilibili_login_expired`. The listing shares the upload read's captcha
+backoff and device identity, so a block either one met holds both back, and
+runs on its own clock at least `BILIBILI_MIN_INTERVAL_MINUTES` apart. The
+single-flight queue never runs the two steps at once, so their writes of the
+shared state never race. One timed read requests the first page only: the
+listing itself, plus `nav` for the daily login check or stale keys, and the
+device identity and ticket when they are due. An operator's
+[manual fetch](workflows.md#bilibili-methods) follows the offset each page
+answers to older pages.
+
+A listing keeps the account's own `DYNAMIC_TYPE_WORD` and `DYNAMIC_TYPE_DRAW`
+items (the opus and picture cards), `DYNAMIC_TYPE_ARTICLE` items only in
+their `MAJOR_TYPE_OPUS` form, whose text comes from the opus summary, and
+forwards (`DYNAMIC_TYPE_FORWARD`, see [Forwards](#forwards)); a live-start
+notice and a collection update are not posts. A supporters-only dynamic
+(`basic.is_only_fans`, 充电专属) is never a post, even when a supporter's
+login carries it in full. An upload's dynamic
+(`DYNAMIC_TYPE_AV` with a `MAJOR_TYPE_ARCHIVE` card) of the account is not a
+post either: the read stores it as the upload it publishes (BV ID, title,
+cover, description, length from `duration_text`, published at the dynamic's
+time), written as the upload list writes one, so a new upload reaches the
+store even while the list meets the captcha. The upload read's newest
+cursor stays its own. The stored text joins the nodes' text (words, topics, mentions,
+links) and leaves out emoji nodes (`RICH_TEXT_NODE_TYPE_EMOJI`); an opus
+title leads it, and a picture post's `desc` nodes give it beside its
+pictures. The nodes, emoji included, stay in `raw_json`. An
+emoji-only dynamic therefore has empty text and is translated as `none`
+without a model call. Up to nine pictures are kept as the post's images.
+
+Dynamics are `posts` rows with `source = 'bilibili'`, the ID
+`bilibili-<id_str>` (dynamic and X status IDs are both numbers of about 19
+digits and share `posts.id`), `account_handle` the mid, `url`
+`https://www.bilibili.com/opus/<id_str>` and `published_at` the publication
+time in UTC. They have no engagement counts; a forward has a quote. A read
+replaces a dynamic's text, time, pictures and quote, keeps an operator's
+hide, and advances the dashboard revision only when the text, time, link,
+pictures, quote, quoted pictures or hide changed. Its pictures are
+`post-image` links, so they feed
+[schedule extraction](#schedule-extraction-pipeline) once cached; a
+schedule board on a Bilibili picture is not registered as a
+[schedule image](#schedule-images).
+
+An operator adds or re-reads one dynamic by its `bilibili.com/opus/<id>` or
+`t.bilibili.com/<id>` link from `/admin` (see
+[Admin API](admin-api.md#bilibili-uploads)). That read takes the dynamic from
+the server-rendered state (`window.__INITIAL_STATE__`) of its
+`www.bilibili.com/opus/<id>` page, which needs no login; it respects the
+captcha backoff and accepts only dynamics of the configured account whose
+comment area is a post's (`basic.comment_type` 11 pictures, 12 article, 17
+text) and that the page shows without a fallback; any other is
+`bilibili_unsupported_dynamic`. The read takes the dynamic as its page
+shows it, with no quote: a forward and its quote come from the listing, and
+a single read never rewrites a stored forward (`raw_json.type`
+`DYNAMIC_TYPE_FORWARD`), whose row stays as the listing stored it.
+
+#### Forwards
+
+A forward is the account's own post that quotes the dynamic it forwards, the
+way an X post [quotes a status](#quoted-posts): it has its own dynamic ID,
+publication time and wording, and the listing carries the forwarded
+dynamic in full in its `orig` object, so a forward needs no request of its
+own. Its text is its `desc` nodes without emoji, and it has no pictures of
+its own. The listing keeps every forward of the account. The store leaves
+out a new forward that has no wording of its own and an unavailable quote,
+which would be an empty card; a stored forward whose dynamic becomes
+unavailable is rewritten with the unavailable quote, loses its
+`quote-image` links and advances the dashboard revision, with or without
+wording of its own.
+
+`backend/internal/source/bilibili/dynamic.go` reads `orig` into the same
+sanitized projection an X quote has, stored in `posts.quote_json`:
+
+- `id` is `bilibili-<orig id_str>`, the post ID that dynamic has (or would
+  have) as a stored post, so a forward of an own dynamic resolves to that
+  post like an X self-quote;
+- `authorHandle` is the author's mid and `authorName` the display name,
+  HTML-unescaped, trimmed and at most 50 characters;
+- `text` is built like a listed dynamic's (opus title and summary, or `desc`
+  nodes, emoji left out); a forwarded forward shows its own wording only and
+  is not followed further;
+- `publishedAt` is its publication time in UTC, and `url` its
+  `https://www.bilibili.com/opus/<id>` page, or for a forwarded upload
+  (`DYNAMIC_TYPE_AV`) the `https://www.bilibili.com/video/<BV ID>` page, with
+  the video title as text and its cover as the one image.
+
+Its pictures (HTTPS on `*.hdslb.com`, at most nine) are `quote-image` links
+of the forward and never schedule candidates; `quote_json` holds no image
+address. A deleted dynamic (`DYNAMIC_TYPE_NONE`, `MAJOR_TYPE_NONE`), a
+missing `orig`, a dynamic of any other kind (a live room, a collection,
+goods, a vote, an article in its old form), a supporters-only dynamic or one
+with neither wording nor pictures is unavailable, with only its ID and its opus page as URL (an
+upload too); when even its ID is unknown, `id` is empty and `url` is the
+forward's own opus page. An `orig` of an unexpected shape is unavailable
+as well, keeping its ID when `id_str` still reads, and never fails the page.
+An unavailable quote leaves the dynamic's pool row as it was.
+
+Every available forwarded dynamic also enters the Bilibili status pool,
+`bilibili_statuses`, in the forward's transaction, whatever its author. The
+pool row and `quote_json` come from the same projection. The row keeps the
+post ID, the author's mid and name, the wording, publication time, URL, a
+sanitized `raw_json` with the pictures' addresses, and `forwarded_at`, the
+publication time of the newest own forward of it. No public reader reads or
+joins the pool. The [translate step](#translation) translates a forwarded
+dynamic that is not a stored post by its post ID (`owner_type`
+`bilibili_status`), so it is translated once however often it is forwarded,
+and [schedule extraction](#schedule-extraction-pipeline) reads its wording
+as context of the forward. A forward's events are Bilibili-sourced events
+like any dynamic's.
+
+#### Live room
+
+The account's live room is not configured: each live check learns it.
+The [live-status probe](workflows.md#live-status-probe) asks
+`api.live.bilibili.com/room/v1/Room/get_status_info_by_uids?uids[]=<mid>`,
+which needs no cookie, about the account's room in one request, and keeps
+the answer's `room_id` with the rest of the state. Only `live_status` 1 is a
+broadcast (0 is off air and 2 a rotation of recordings, which is not live);
+`live_time` is its actual start. A live answer without `live_time` is live
+with an unknown start: the broadcast already seen, or one that started by
+that check; it never ends a broadcast. The live host has its own captcha backoff,
+with the same 6-hour doubling. The state (room, title, status, start,
+checked and attempted times, backoff) is kept in `sync_state` (source
+`bilibili-live`, the mid as account), together with the start of the last
+broadcast seen live, the last check that saw it live and the first later
+check that saw the room off air, and the start and observed end of the
+broadcast before it when a check saw that one end.
+
+Entries are tied to the room by their [platforms](data-model.md#event-platforms),
+never by a link: the room's link is the same for every broadcast, while
+readers treat an entry's link as the identity of one broadcast. Public reads
+add the room as `liveUrl` and as the bilibili link to every `stream` or
+`member` entry shown on Bilibili once a check learned the room, so entries
+extracted before the first check get it too and a changed room needs no
+rewrite. A broadcast starting at L is matched against the active, timed
+stream and members-only entries that are not merged away or a confirmed
+cancellation, all of them rather than one read's, so every page agrees:
+
+1. the entry shown on Bilibili (its platforms, with those its merged
+   entries lend it, include `bilibili`) starting at S when
+   S−2h ≤ L ≤ S+3h and not ended before L (its `ends_at`), the nearest of
+   several;
+2. otherwise the YouTube event whose video a check saw `live` or `ended`,
+   whose broadcast started within 30 minutes of L and had not ended before
+   L, the nearest of several: the broadcast is its simulcast, and its shown
+   platforms gain an observed `bilibili`. A reservation that has not started,
+   or that no check has seen, never takes it.
+
+One broadcast matches one entry at most. The entry the previous broadcast
+matched takes no broadcast that starts more than 30 minutes after a check
+saw that one end: it is another broadcast, not a restart. That entry is `live` while the
+check is younger than two Bilibili check intervals, and `ended` once a
+later check saw the room off air, unless its YouTube broadcast already
+reports a state; a live room always makes it `live`. The last check that saw the
+broadcast live is its approximate end, kept in the state and shown in the
+console; it is never written as the entry's `ends_at`. Bilibili has no
+reservation state, so no entry is `upcoming` from the room; an entry's own
+start drives that. A live broadcast that matches no stored entry creates no
+entry: the dashboard reports it as `liveNow` (see
+[Public API](public-api.md#public-snapshot-contract)). Raw answers, counters
+and errors stay in the console.
+
+### Official shop
+
+The `shop` step reads the sale periods of goods Kano takes part in from the
+official shop, `https://shop.milpr.com`, a Shopify storefront, so a sale
+reaches the board even when no post announces it. It needs no model: the
+storefront's public product JSON states everything a period needs. The step
+has its own [timer](workflows.md#source-schedules) and runs only in
+server-side workflows; page loads never read the shop.
+
+`backend/internal/source/shop` builds three fixed URLs on that one host and
+nothing else; no address comes from data:
+
+- `/collections/new-arrivals/products.json?limit=50`, the newest 50
+  products, read by every timed run, Run now and full sync;
+- `/products.json?limit=250&page=<n>`, the whole catalog, read only by the
+  operator's [read-all fetch](workflows.md#manual-fetches-and-historical-backfill):
+  at most six pages, three seconds apart, until a page lists fewer than 250
+  products, counting those left out as unusable;
+- `/collections.json?limit=250`, the collection list, read at most once per
+  run, three seconds after the listing, and only when a listed product is in
+  no stored sale of its period.
+
+Every request names the client honestly as `kano-navi-go/shop`. The shop
+answers clients that pose as a browser with `429 local_rate_limited`, so the
+client never sends a browser's user agent. A 429 ends the run without a
+retry: its `Retry-After` (seconds or a date; a minute when missing, at most
+a day) is stored, and no read, timed or manual, requests the shop before it
+passes (`{ skipped: true, reason: "rate_limited" }`). The other failures are
+`shop_timeout`, `shop_unavailable`, `shop_redirect_rejected`,
+`shop_response_oversized`, `shop_http_<status>` and `shop_invalid_json`. Any
+failed request fails the read: it records its code and changes no entry.
+
+A product counts only when it carries the tag `鹿乃まほろ`, a constant of the
+code, since the board is Kano's, and when its description states a dated
+period: a label (受注期間, 販売期間, 受付期間 or 抽選受付期間), a dated
+opening, and on the same line `〜`, `～` or `~` and a dated close, such as
+`＜受注期間＞ 2026年10月24日 〜 2026年11月24日`. Full-width digits read as
+digits, every Unicode space (such as the no-break space of `&nbsp;`) reads
+as a plain space, a weekday or time may follow the opening, and a close
+without a year falls on or after the opening: in the opening's year, or the
+next one when its month and day come earlier, and only then is the date
+checked, so `2027年12月1日 〜 2月29日` closes on 2028-02-29. A permanent item (`販売期間 2026年10月1日～`
+with no close), a product without a period and a period with impossible
+dates are skipped and counted by reason (`open_ended`, `no_period`,
+`invalid_period`, `untagged`). Stock (`variants[].available`) is not the
+period: a sold-out product still has its sale. Prices, stock and images are
+never decoded.
+
+The products of one period form one group, with one entry, not one entry
+per product. The shop writes some titles with decomposed kana (`ホ` followed
+by the combining voiced sound mark U+3099 for `ボ`) and others with the
+precomposed kana, so every product and collection title is stored with each
+kana and a following U+3099 or U+309A composed, as Unicode NFC composes
+them; nothing a reader sees changes. A group's key is its title without
+whitespace:
+
+1. A product that a stored group of the same period holds stays in it, so a
+   group keeps its identity however the newest-50 window cuts it.
+2. A new product joins the collection whose title, ignoring whitespace, its
+   own title starts with, the longest such of at least four characters
+   (`鹿乃まほろ 加入記念グッズ` for `鹿乃まほろ加入記念グッズ アクリルスタンド`).
+   The group takes the collection's title and links
+   `https://shop.milpr.com/collections/<handle>`.
+3. Any other product joins the group of its period whose key its title
+   starts with, the longest one.
+4. Any other starts a group titled by its title without the last word,
+   linking its first product's `https://shop.milpr.com/products/<handle>`.
+   Shorter titles are grouped first, so `… 2026 ランダム缶バッジ 全8種`
+   joins `… 2026`.
+
+Each group is an automatic `sale` event (see
+[Sale periods](data-model.md#sale-periods)) with `source` `shop`,
+`source_item_id` the group key and `source_key` the period
+(`<opens>/<closes>`), and an `event_sources` row of the same identity:
+
+| Field                     | Value                                                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `title`                   | the group title as the shop writes it                                                                                                      |
+| `starts_on` / `starts_at` | the opening date; `starts_at` is the earliest `published_at` of the group's products that falls on that Japan date, to the minute, or null |
+| `ends_on` / `ends_at`     | the close date; `ends_at` stays null, since the JSON gives no close time                                                                   |
+| `time_precision`          | `exact` with `starts_at`, otherwise `unknown`                                                                                              |
+| `url`                     | the collection page, or the first product's page                                                                                           |
+| `detail`                  | null                                                                                                                                       |
+| `platform` / `platforms`  | `other` / `["other"]`, stated (`platforms_inferred` 0)                                                                                     |
+
+`raw_json`, on the event and its source row, holds only the group's title,
+link and collection handle, the matched period line, and each product's ID,
+handle, title and publication time (at most 100 products). The source row
+follows every read, so a locked or deleted entry still keeps its products and
+its identity. A read rewrites an entry only when a shown field changed, and
+then advances the dashboard revision. Nothing is retired: a product that
+leaves the listing, or the shop, keeps its entry, and a changed period is a
+new group whose old entry stays. Manual edits, locks and tombstones win as
+for every automatic entry; an operator who adds the close time saves a
+locked entry the shop never rewrites. [Rule C](data-model.md#duplicate-merging)
+merges a post's entry of the same sale into the shop's, which states an
+opening time and a close date. The read's bookkeeping is the `sync_state`
+row of source `shop` and account `shop.milpr.com`; its last success is the
+shop's [freshness](public-api.md#public-snapshot-contract).
+
+### Works Cover Lookups
+
+The media step finds covers for the Works page's uploads that no stored
+video covers (see
+[Works upload covers](media-cache.md#works-upload-covers)). YouTube needs no
+lookup. The others are bounded per step: at most 30 niconico and 5 Bilibili
+lookups, none started after two minutes, newest upload first.
+
+- niconico: `https://ext.nicovideo.jp/api/getthumbinfo/<sm|nm|so ID>`, one
+  request per video through the media
+  [outbound proxy](outbound-proxy.md) area, with a 10-second timeout, a
+  256 KiB body limit and no redirects. Only the answer's video ID and a
+  thumbnail URL on `https://nicovideo.cdn.nimg.jp/thumbnails/<n>/<n>[.<hash>]`,
+  where both `<n>` are the requested video's number, are read; `DELETED`,
+  `NOT_FOUND` and `COMMUNITY` mean the video is gone. A deadline before or
+  during the body is `niconico_timeout`. The first 429
+  (`niconico_rate_limited`) is recorded as a failed lookup and ends the
+  step's niconico lookups.
+- Bilibili: the view endpoint above, for any uploader, with the account's
+  device identity and backoff. A blocked source makes no request, and the
+  first captcha or rate-limit answer starts the shared backoff and ends the
+  step's lookups. A lookup never changes the list read's interval, last
+  success or last error, and the step stops looking up while
+  `SKIP_BILIBILI` is set.
+
+The step's result adds `works`: `queued` YouTube images, `lookups`,
+`resolved`, `missing` and `failed` lookups, the `covered`, `waiting` and
+`uncovered` uploads, and `bilibili: "blocked"` or `"skipped"` when that source
+was not asked. A failed lookup makes the step `partial`.
+
 ### Source Request Limits
 
 Every source client requests fixed destinations with a 10-second timeout
 (the X API, manual or in the chain, uses the request timeout setting; see
 [X API method](workflows.md#x-api-method))
 that stays active through body consumption, rejects redirects, and records
-only controlled error codes. Response bodies are limited to 4 MiB for X and
-YouTube and 2 MiB for Bilibili; a timed-out or oversized stream is cancelled
+only controlled error codes. The Bilibili client builds its URLs itself on
+its three fixed hosts and checks the mid and the dynamic ID before a
+request; the shop client builds its three fixed paths on `shop.milpr.com`
+(see [Official shop](#official-shop)). Response bodies are limited to 4 MiB
+for X, YouTube and the shop and 2 MiB for Bilibili; a timed-out or oversized stream is cancelled
 and releases its reader so the single-flight queue can run a subsequent job.
 
 The YouTube client builds every public URL itself on `https://www.youtube.com`:
@@ -786,22 +1326,26 @@ Schedule extraction has two independent candidate paths:
    posts that look like a schedule image or board; its posts are recorded with
    the `schedule_board` detection route.
 2. The single-message path applies a cheap local date/time and scheduling-verb
-   heuristic to ordinary X messages, including messages without a configured
-   keyword. Suspected messages are recorded with the `schedule_message`
+   heuristic to ordinary X posts and Bilibili dynamics, including messages
+   without a configured keyword. A Bilibili dynamic also matches the Chinese
+   words 今天, 明天, 后天, `<n>点`, 北京时间, 直播, 开播, 播, 开始, 预约,
+   上传 and 投稿. Suspected messages are recorded with the `schedule_message`
    detection route, and the model first classifies the post as `schedule`,
    `not_schedule`, or `uncertain` before extracting events. With `schedule_message_all_posts`
-   enabled, the path skips the heuristic and selects every X post with text or
+   enabled, the path skips the heuristic and selects every post with text or
    images; each new post then costs one model call, still within the shared
    scan limit.
 
 The model text starts with the stored publication timestamp followed by its
-Asia/Tokyo date, weekday, and time, so relative dates such as 今日, 明日, or a
-bare weekday resolve without a UTC conversion. Fingerprints use the stored
-timestamp alone.
+date, weekday, and time in the source's zone (Asia/Tokyo for X, Asia/Shanghai
+for Bilibili), so relative dates such as 今日, 明天, or a bare weekday resolve
+without a UTC conversion. Fingerprints use the stored timestamp alone.
 
 Every returned entry must pass the event check: a non-blank title, a real
-`YYYY-MM-DD` date, `HH:MM` times (an end time only with a start time), known
-`timePrecision` and `eventType` codes and a confidence from 0 to 1. One
+`YYYY-MM-DD` date, `HH:MM` times (an end time only with a start time, or for
+a sale with a close date), for a sale a close date (`endDate`) that is a real
+date not before its opening date, known `timePrecision` and `eventType` codes
+and a confidence from 0 to 1. One
 entry that fails it fails the whole extraction with `schedule extraction
 contained an invalid event`. The prompt therefore states these formats and
 asks the model to leave out entries that give only a month, a season or a
@@ -810,13 +1354,141 @@ vague period, and to classify a post with no remaining entry as
 [recent failures](admin-api.md#extraction-and-models) show the newest
 stored failures with their messages.
 
-The two candidate lists are merged, de-duplicated by X post ID, sorted by
+The prompt defines each `eventType` in one sentence; a `sale` is a period to
+buy, pre-order, order or apply for goods, media or tickets, and a `release`
+the date a work becomes available. It asks for one entry per sale period with
+its opening as `date` and `time` and its close as `endDate` and `endTime`;
+本日から means the post date. A post that names only the deadline gives the
+deadline as both dates and no start time. The close is stored as the
+[sale period](data-model.md#sale-periods) for a sale and ignored for every
+other type, and a shipping or delivery date is not an entry. A sale's
+`endTime` without `endDate` closes it on the Japan date that time falls on.
+
+Neither path, nor an operator's reprocess request, selects a post with
+`posts.hidden_at` set; a request for a hidden post waits until the post is
+shown again, and showing it makes it a candidate again. The events such a
+post alone supports leave the public pages while it is hidden (see
+[Events of hidden posts](data-model.md#events-of-hidden-posts)).
+
+A post that quotes another status gives the model the quoted wording after
+its own text, marked as quoted context (`[Quoted post by @handle. …]`),
+because a quoted status reaches extraction no other way: posts often say
+little more than 「これ！」 over a quoted announcement. A Bilibili
+[forward](#forwards) marks the forwarded dynamic's wording the same way but
+names its author by display name (`[Forwarded dynamic by <name>. …]`) and
+says that times written in it without a zone are Beijing time, as in the
+forward's own. The quoted wording joins the post's extraction fingerprint,
+the single-message heuristic (the Chinese one for a forward too) and the
+reading of the entry's platform; a post without a quote has the
+fingerprint of its own wording alone. An unavailable quote, or one an
+operator hid from the public pages (`posts.quote_hidden_at`), adds nothing,
+so hiding or showing a quote changes the input and the post is extracted
+again. Quoted images never join the input (see
+[Quoted posts](#quoted-posts)).
+
+The two candidate lists are merged, de-duplicated by post ID, sorted by
 least recent attempt (unattempted posts first), with publication time as a tie
 breaker. The shared limit counts candidates requiring work; unchanged fingerprint
 cache hits and posts held back by the failure backoff below do not consume it.
 Failures and blocked candidates move behind older
 unattempted work on later scans. Manual reprocess requests still run first. A post selected by the
 board path is not sent a second time through the message path in the same scan.
+
+Each post is judged before anything is written: no content or images still
+downloading is a skip, a stored success or `uncertain` result for the same
+input is a cache hit, a post in its failure backoff is held back, and any
+other post gets a model call. The scan and the console's
+[queue preview](admin-api.md#queue-preview) share that judgement and the
+order above, so the preview lists what a run started at that moment
+processes. A cache hit whose post state already records that result writes
+nothing.
+
+A settled post is a cache hit decided without loading it. Each detection
+stage reads every shown post with its input stamp for that stage, computed
+in SQLite from everything the extraction identity and the image check read
+(see [Post LLM states](data-model.md#post-llm-states)). A post whose state
+records a cache hit on that stage's route for exactly that stamp, with no
+reprocess request, error or failure backoff, keeps its place among the
+candidates but counts as a cache hit without its images, cached files or
+stored extractions being read. Its stage still selects it, so a board post
+that stays on the board path is not sent through the message path, and the
+order, the limit and the outcome of every other post are those of judging it.
+
+The step result records the candidate phase as `candidateMs`
+(listing requests and candidates, with their stamps, and ordering them),
+`postsRead` (rows the detection stages read, each stage reading every shown
+X and Bilibili post) and `candidatePosts` (the posts queued), then `judged`
+(posts the scan loaded and judged), `settled` (settled posts it counted as
+cache hits without loading them) and `judgeMs` (time spent loading and
+judging, without model calls or writes). `cached` counts both kinds of cache
+hit.
+
+#### Time-zone rationale
+
+The extraction model returns the date and time as written by the source, and code performs the fixed conversion to Asia/Tokyo. This keeps day rollovers deterministic and preserves the wording used for translation, while all stored schedule instants retain one display zone for readers, merging, and feeds.
+
+#### Source time zones
+
+A Bilibili dynamic gets its own prompt: a Chinese dynamic written for
+Chinese viewers, with times in Beijing time unless it says Japan time. The
+model gives each entry's date and times as written and names their zone in
+`timeZone` (`Asia/Tokyo` or `Asia/Shanghai`, or an alias such as `CST`,
+`UTC+8`, `北京时间`, `JST` or `UTC+9`); code converts them to
+Asia/Tokyo, including the day rollover (Beijing 23:30 is 00:30 the next day
+in Japan), so the model does no time arithmetic
+([source time zones](../architecture/sources.md#source-time-zones)). An entry
+without a known `timeZone` is in the source's zone, never an invalid
+entry. X posts keep the Japan prompt and schema, and their entries are always
+Asia/Tokyo whatever `timeZone` a model adds.
+
+Events of a Bilibili dynamic have IDs `bilibili-schedule-<date>-<hash>`,
+`events.source` and `event_sources.source` `bilibili`, and the dynamic's opus
+page as the `event_sources` link. Extraction results and post states of a
+dynamic are stored with source `bilibili` under its post ID.
+
+Every entry, of either source, has its [announced
+platforms](data-model.md#event-platforms) from `youtube`, `bilibili` and
+`other` (another platform, or someone else's channel or room such as a
+collaboration), in announced order. An entry's **wording** is its title,
+detail and cited evidence, and the post's text when the post has this one
+entry. **Bilibili-only wording** calls it Bilibili-only (bilibili限定,
+B站限定, B限 as its own word rather than the end of WEB限定, ビリビリ限定)
+without also naming YouTube.
+
+The Bilibili schema asks for a `platforms` array of the platforms the post
+names for the entry, both for a simulcast, and none for a plain 直播; a
+value outside the enum is dropped, never an invalid entry. Code decides
+whether Bilibili alone is stated: `["bilibili"]` from the model or a room
+link is stated only for Bilibili-only wording, and so is a stream or
+release that names none with such wording; otherwise a dynamic's
+`["bilibili"]`, and a stream or members-only stream naming none, is
+inferred, the source's default.
+
+The X schema keeps its single `platform` (`unknown` when the post does not
+say, and for an invalid value), and code derives the set, always stated: a
+stream or release of a post with Bilibili-only wording is `bilibili` when
+the model named none, and else the model's platform holds. A stream or
+release whose wording announces a simulcast (同時配信, 同时直播, 同步直播,
+simulcast, or YouTube and Bilibili both named together with 同時) adds the
+other of `youtube` and `bilibili` after the model's platform (`youtube`
+first when the model named none), so a notice whose model named Bilibili
+still meets the dynamic's entry by Rule D; naming both sites without 同時
+is no simulcast, and an `other` entry, a collaboration elsewhere, stays
+`other`. On either source a YouTube link adds `youtube`. The model gives a link only when the post
+does: an entry keeps the post's link, or the model's explicit one. A
+live-room link (`live.bilibili.com`) never stays as an entry's link, since
+reads add the room (see [Live room](#live-room)): it makes the entry
+`bilibili` (on X in place of its single platform) and the entry keeps the
+post's link, unless the entry is `other`, a collaboration in someone else's
+room, which keeps that link and gets no live state.
+
+Extraction identities name neither prompt nor schema, so a schema change
+of one source extracts no stored post again: an entry keeps its platforms
+until its post's content changes or an operator asks for its extraction.
+
+Reconciliation links a dynamic's release to the upload it announced and
+merges an X notice of a Bilibili stream into the dynamic's entry (see
+[Duplicate merging](data-model.md#duplicate-merging)).
 
 #### Extraction Failure Backoff
 
@@ -834,8 +1506,8 @@ short provider outage, the 24-hour wait a daily quota reset, and a post that
 still fails after about 31 hours most likely fails on its content.
 
 The backoff starts over when the input changes (edited text, publication
-time, URL or cached images), when the extraction queue's targets or models
-change, and when an operator requests a reprocess, which also clears it immediately. A
+time, URL or cached images), when the text or image extraction queue's targets
+or models change, and when an operator requests a reprocess, which also clears it immediately. A
 queued reprocess request always runs, whatever the backoff, and a forced pass
 that fails counts as the first failure. A success or `uncertain` result,
 including a cache hit, clears the backoff. A cancelled run is not a failure.
@@ -849,9 +1521,10 @@ An operator can dismiss a failed post. It becomes `dismissed`, leaves the
 console's failed list, and is held back like a post whose retries stopped
 until its input or targets change or an operator requests a reprocess.
 
-Both paths draw from the extraction queue: an ordered list of targets, each
-a provider plus one of its catalog models, and a target's capabilities are
-its model's `text`/`image` tags.
+Text-only posts draw from the schedule extraction queue and posts with images
+draw from the image extraction queue. Each queue is an ordered list of targets, a
+provider plus one of its catalog models, and a target's capabilities are its
+model's `text`/`image` tags.
 Providers have no default model, and nothing reads the
 `llm_providers.model` column. A one-time startup upgrade, recorded as
 `llm_default_model_retired`, rewrites each queue target without a model
@@ -860,7 +1533,8 @@ Where that pair is already queued, the earlier position stays, and a target
 whose provider has no stored model is dropped because it could never be
 called. Target selection follows
 the original post modality. Text-only input requires `text`; image-only input
-requires `image`; mixed input requires a model with both tags. Only ready cached images are sent to the model. A post that
+requires `image`; mixed input uses the image extraction queue and requires an
+image-capable model. Only ready cached images are sent to the model. A post that
 declares an image but whose cache is not ready is recorded as `media_pending`
 and is not silently reduced to text-only input. Each provider uses OpenAI
 Responses, Chat Completions, or Anthropic Messages, receives at most the
@@ -918,7 +1592,8 @@ classification nor an events list, and a `schedule` result without entries
 unless its action is `cancel`; a rejected result is a failed attempt and
 leaves existing events untouched. So is a reply the provider reports as cut
 off at the token limit (`max_tokens`, `max_output_tokens`, `length`), refused,
-or incomplete, even when its tool call parses; schedule-image checks follow
+or incomplete, even when its tool call parses; image extraction and
+schedule-image reviews follow
 the same rule, and a refusal stores the fixed `LLM refused the request`. `schedule` results update automatic
 events. A model never deletes or definitively cancels an event: `action=cancel`
 matches the clearest existing event and writes an `llm_suspected` cancellation
@@ -1003,7 +1678,8 @@ bypass that readiness gate.
 
 A status a post quotes (`qrt` in the detail answer, `quote` on a timeline
 page) is never a post of its own: it does not enter `posts`, the timeline
-cursor, the pending queue or extraction. The adapter
+cursor or the pending queue, and extraction reads it only as context of the
+quoting post. The adapter
 (`backend/internal/source/x/quote.go`) reads it into a sanitized
 projection stored beside the quoting post in `posts.quote_json`: the quoted
 status ID, its author's handle and display name, its wording (as written,
@@ -1020,12 +1696,51 @@ without an author or content. A payload that names no usable status ID
 stores no quote. X API answers carry the quoted status as an expansion; one
 X does not return is stored as unavailable in the same way.
 
+Every available quote also enters the X status pool, `x_statuses`, in the
+quoting post's transaction, whatever its author (`backend/internal/store/sqlite/x_pool.go`).
+The pool row and `quote_json` come from the same projection, so the pool
+text is the text the quote card shows. The row keeps the status ID, author,
+wording, publication time, x.com URL and a sanitized `raw_json` with the
+quoted images' addresses, and `quoted_at`, the publication time of the
+newest own post that quotes it. A quote of a stored post (a self-quote)
+enters the pool too, but its translations stay the stored post's. No public
+reader reads or joins the pool, and nothing of a pooled status gets a card,
+a media link or a schedule candidate of its own. Startup fills the pool from
+the quotes stored posts' `raw_json` already hold, with no request.
+
+The [translate step](#translation) translates quoted statuses by status ID,
+so a status quoted several times is translated once, and the quote card
+resolves those translations against its own wording (see
+[Translations](data-model.md#translations)). Schedule extraction reads the
+quoted wording as context of the quoting post (see
+[Schedule extraction pipeline](#schedule-extraction-pipeline)).
+
 An operator can hide a post's quote from the public pages
 (`posts.quote_hidden_at`); synchronization, the X API fetch method and the
 startup quote backfill (which fills a missing `quote_json` from the post's
 stored `raw_json`) keep updating the stored quote underneath and never write
 that decision. Hiding the whole post (`posts.hidden_at`) works the same way:
-synchronization keeps rewriting the stored post and never clears it.
+synchronization keeps rewriting the stored post and never clears it, while
+extraction skips it (see
+[Schedule extraction pipeline](#schedule-extraction-pipeline)).
+
+#### Reposts
+
+Timeline pages list an own account's repost under the original status's ID,
+time and author, with `reposted_by` naming the account; X API answers list
+it as a post that references the status as `retweeted`. Neither is ever a
+post or a cursor, pending or gap entry. Recent synchronization and manual
+fetches record each one in `x_reposts`: the reposted status ID, the
+reposting account and, when known, the status's author, with the time it
+was first seen, which a later listing keeps. The board shows no reposts. The
+timed X API method asks for the account's posts without retweets, so it
+records none.
+
+A reposted status of a [related account](#related-accounts) also enters the
+pool with `reposted_at`, from the repost item when the account's own
+timeline has not stored it yet, and its reasons are evaluated again: it is
+translated for the `reposted` reason and promoted only by a keyword or by
+hand. A repost of any other author records the link alone.
 
 #### Refresh from the Source
 
@@ -1093,10 +1808,11 @@ A schedule image (`assets.kind = schedule`) is public only after two gates:
    its text) reads as a weekly or multi-day board notice. The stored post `label` is not part of that input, because the
    looser post classifier labels any `配信予定` post as `SCHEDULE / 日程`.
 2. The automatic scan sends each unreviewed candidate's ready cached image,
-   without the post text, to the separate schedule-image check queue
+   without the post text, to the image extraction queue
    (`llm_route_targets.route = 'verify'`), whose targets need the `image` tag
-   and which never falls back to the extraction queue, and records
-   `schedule`, `not_schedule`, or `uncertain` in `schedule_asset_reviews`. A candidate whose source post does not pass
+   and which never falls back to the text extraction queue. The model records
+   `schedule`, `not_schedule`, or `uncertain` plus the visible schedule text in
+   `schedule_asset_reviews`. A candidate whose source post does not pass
    gate 1 is recorded as `skipped` / `source_not_board` without a model
    call. A pending cache, or no queued, keyed Image model, is also `skipped`
    and retried. An asset without an image URL, such as a `weekly-schedule`
@@ -1109,7 +1825,8 @@ A schedule image (`assets.kind = schedule`) is public only after two gates:
 `/api/dashboard` returns a schedule asset only when an operator labelled it
 `schedule`, or when it has no manual label, still passes gate 1, and the model
 returned `schedule`. A manual `not_schedule` always hides it. Labels require a
-reason and are set in the `/admin` schedule-images view. A model verdict
+reason and are set on the `/admin` schedule calendar, in its list of
+images or in the Review queue. A model verdict
 belongs to the image URL it judged: when a post's asset receives a different
 URL, its `asset_version` increases and its model verdict returns to
 `pending`, while a manual label stays.
@@ -1126,33 +1843,53 @@ check failed, and in a forced pass.
 
 ### Translation
 
-The `translate` step machine-translates X post text and YouTube video titles
-into English and Simplified Chinese (see
+The `translate` step machine-translates X post and Bilibili dynamic text,
+the titles of the unmerged videos public readers list (YouTube videos and
+Bilibili uploads whose form is settled), the X statuses own posts quote or
+repost and the
+dynamics own forwards forward into
+English, Japanese and Simplified Chinese, each
+locale only when it is not the detected source language (see
 [Translations](data-model.md#translations) for storage and precedence).
-Bilibili metadata is already Chinese and is never sent to a model, and the
-step never requests a source. Its models come only from the separate
+A merged Bilibili upload's title is its video's platform translation and is
+never sent to a model, and the step never requests a source. Before any
+model call it settles [Bilibili forms](data-model.md#bilibili-form) by rule,
+whether or not a queue is configured, and the same queue then asks the
+unsettled uploads for form and tag. Its models come only from the separate
 translation queue (`llm_route_targets.route = 'translate'`), configured in
-`/admin` → Models; it never falls back to the extraction queue. Targets need
+`/admin` → Models; it never falls back to the schedule extraction queue. Targets need
 the `text` tag. Each target gets at most three calls before moving to the
 next configured target, in queue order.
 Without a usable target the step records `disabled` with the reason and
 keeps operator requests.
 
-Candidates are posts and YouTube videos whose current wording lacks a usable
-translation of a needed locale: operator requests first (forced passes that
-replace machine rows, whatever their age), then never-attempted wording, then
-the least recently attempted, newest first. Unrequested candidates are
-limited to the translation lookback (30 days by default) by publication, and
-at most the translation items per run (20 by default) are sent per run (see
+Candidates are posts, YouTube videos, pooled quoted or reposted X
+statuses that are not stored posts (`owner_type` `x_status`, see
+[Quoted posts](#quoted-posts)) and pooled forwarded dynamics that are not
+stored posts (`owner_type` `bilibili_status`, see [Forwards](#forwards))
+whose current wording lacks a usable translation of a needed locale:
+operator requests first (forced passes that replace machine rows, whatever
+their age), then posts and videos, then pooled X statuses, then pooled
+dynamics; within each, never-attempted wording, then the least recently
+attempted, newest first. Unrequested candidates are limited to the
+translation lookback (30 days by default), by publication, for a pooled
+status by when an own post last quoted it, and for a pooled dynamic by when
+an own forward last forwarded it, and at most the translation items per run
+(20 by default) are sent per run, pooled statuses included (see
 [sync settings](../operations/configuration.md#sync-settings)). A locale already covered
 by a manual or platform row is not a reason to call a model.
 
 Wording with only links, hashtags, mentions or emoji is recorded as
 `skipped` with language `none` without a call; wording over 4000 characters
-is skipped without a call. The model receives the kind (X post or YouTube video
-title) and the text, returns `sourceLanguage` plus English and Simplified
-Chinese, and is told to keep URLs, tags, mentions, emoji and bracketed
-channel tags. A result is accepted only with a known language and a
+is skipped without a call. The model receives the kind (X post, which a
+pooled status also is, Bilibili dynamic, which a pooled dynamic also is,
+YouTube video title or Bilibili video title) and the text, returns `sourceLanguage` plus English, Japanese and
+Simplified Chinese, and is told to judge the language by the text's own
+wording rather than a song title or name it quotes (a Bilibili title in
+Chinese around a Japanese song title is `zh`) and to keep URLs, tags, mentions, emoji,
+bracketed emoji codes and bracketed channel tags, and to keep times as
+written with their zone (北京时间17点 becomes 17:00 Beijing time; converting
+a time belongs to extraction). A result is accepted only with a known language and a
 non-empty, bounded translation for every locale that differs from it. The
 result is stored only if the wording still has the hash that was sent.
 The translation fields hold the complete displayed text. Preserving an

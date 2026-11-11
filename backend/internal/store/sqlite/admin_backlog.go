@@ -22,7 +22,8 @@ type AdminBacklog struct {
 // joined with post_llm_states s: "extraction", "refresh", "translation" or
 // "any" of them. Anything else adds no condition.
 func postQueuedSQL(queue string) string {
-	extraction := "COALESCE(s.reprocess_requested, 0) = 1"
+	// A hidden post is not extracted, so its request waits until it is shown.
+	extraction := "(COALESCE(s.reprocess_requested, 0) = 1 AND p.hidden_at IS NULL)"
 	refresh := "p.refresh_requested_at IS NOT NULL"
 	translation := TranslationRequestedSQL(TranslationOwnerPost, "p")
 	switch queue {
@@ -71,4 +72,44 @@ func (s *Store) AdminBacklog(ctx context.Context, now time.Time) (AdminBacklog, 
 		return AdminBacklog{}, fmt.Errorf("%w: admin backlog unavailable", ErrUnavailable)
 	}
 	return b, nil
+}
+
+// XRefreshPerAccount is how many refresh requests of one account a run
+// reads; the rest wait for a later run.
+const XRefreshPerAccount = maxRefreshIDs
+
+// RefreshRequest is a post an operator asked the X step to read again.
+type RefreshRequest struct {
+	PostID        string `json:"postId"`
+	Source        string `json:"source"`
+	AccountHandle string `json:"accountHandle"`
+	Text          string `json:"text"`
+	URL           string `json:"url"`
+	PublishedAt   string `json:"publishedAt"`
+	RequestedAt   string `json:"requestedAt"`
+}
+
+// RefreshRequests lists up to limit post refresh requests oldest first, the
+// order the X step reads each account's, with the total count.
+func (s *Store) RefreshRequests(ctx context.Context, limit int) ([]RefreshRequest, int, error) {
+	out := []RefreshRequest{}
+	var total int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts p WHERE `+postQueuedSQL("refresh")).Scan(&total); err != nil {
+		return nil, 0, dbErr(err)
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT p.id, p.source, COALESCE(p.account_handle, ''), COALESCE(p.text, ''), COALESCE(p.url, ''),
+		COALESCE(p.published_at, ''), p.refresh_requested_at
+		FROM posts p WHERE `+postQueuedSQL("refresh")+` ORDER BY p.refresh_requested_at, p.id LIMIT ?`, limit)
+	if err != nil {
+		return nil, 0, dbErr(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var item RefreshRequest
+		if err = rows.Scan(&item.PostID, &item.Source, &item.AccountHandle, &item.Text, &item.URL, &item.PublishedAt, &item.RequestedAt); err != nil {
+			return nil, 0, dbErr(err)
+		}
+		out = append(out, item)
+	}
+	return out, total, dbErr(rows.Err())
 }

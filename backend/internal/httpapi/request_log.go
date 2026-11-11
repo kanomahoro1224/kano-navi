@@ -19,12 +19,16 @@ func RequestLog(next http.Handler, output io.Writer) http.Handler {
 		next.ServeHTTP(measured, r)
 		route := "unmatched"
 		switch r.URL.Path {
-		case "/api/health", "/api/visitor-region", "/api/dashboard/revision", "/api/dashboard/events", "/api/dashboard", "/api/calendar", "/api/posts", "/api/videos", "/api/websub/youtube":
+		case "/api/health", "/api/visitor-region", "/api/dashboard/revision", "/api/dashboard/events", "/api/dashboard", "/api/calendar", "/api/posts", "/api/posts/months", "/api/videos", "/api/videos/months", "/api/works/uploads", "/api/websub/youtube":
 			route = r.URL.Path
 		default:
 			switch {
 			case strings.HasPrefix(r.URL.Path, "/media/lineblog/"):
 				route = "/media/lineblog/:name"
+			case strings.HasPrefix(r.URL.Path, "/media/works/"):
+				route = "/media/works/:name"
+			case strings.HasPrefix(r.URL.Path, "/media/journey/"):
+				route = "/media/journey/:name"
 			case strings.HasPrefix(r.URL.Path, "/media/profile/"):
 				route = "/media/profile/:slot"
 			case strings.HasPrefix(r.URL.Path, "/media/"):

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf16"
@@ -461,24 +462,29 @@ func (h *handler) postsList(ctx context.Context, arguments map[string]any) (any,
 // source identities, extraction IDs, confidence and lock flags are operator
 // metadata and never leave through MCP.
 type publicEvent struct {
-	ID                   string  `json:"id"`
-	Source               string  `json:"source"`
-	Title                string  `json:"title"`
-	Detail               *string `json:"detail"`
-	StartsOn             string  `json:"startsOn"`
-	StartsAt             *string `json:"startsAt"`
-	EndsAt               *string `json:"endsAt"`
-	Timezone             string  `json:"timezone"`
-	TimePrecision        string  `json:"timePrecision"`
-	Status               *string `json:"status"`
-	EventType            *string `json:"eventType"`
-	URL                  *string `json:"url"`
-	Provenance           string  `json:"provenance"`
-	CancellationStatus   string  `json:"cancellationStatus"`
-	CancellationSource   *string `json:"cancellationSource"`
-	CancellationReason   *string `json:"cancellationReason"`
-	CancellationEvidence *string `json:"cancellationEvidence"`
-	CancellationAt       *string `json:"cancellationAt"`
+	ID            string  `json:"id"`
+	Source        string  `json:"source"`
+	Title         string  `json:"title"`
+	Detail        *string `json:"detail"`
+	StartsOn      string  `json:"startsOn"`
+	StartsAt      *string `json:"startsAt"`
+	EndsAt        *string `json:"endsAt"`
+	EndsOn        *string `json:"endsOn"`
+	Timezone      string  `json:"timezone"`
+	TimePrecision string  `json:"timePrecision"`
+	Status        *string `json:"status"`
+	EventType     *string `json:"eventType"`
+	URL           *string `json:"url"`
+	// Platforms are the platforms the entry is shown on, its own first, as
+	// every public read reports them.
+	Platforms            []string       `json:"platforms"`
+	Provenance           string         `json:"provenance"`
+	CancellationStatus   string         `json:"cancellationStatus"`
+	CancellationSource   *string        `json:"cancellationSource"`
+	CancellationReason   *string        `json:"cancellationReason"`
+	CancellationEvidence *string        `json:"cancellationEvidence"`
+	CancellationAt       *string        `json:"cancellationAt"`
+	View                 map[string]any `json:"view"`
 }
 
 type schedulePage struct {
@@ -496,7 +502,8 @@ func (h *handler) scheduleList(ctx context.Context, arguments map[string]any) (a
 	if h.store == nil {
 		return nil, failureSnapshot
 	}
-	// Newest first, never including deleted tombstones or merged duplicates.
+	// Newest first, never including deleted tombstones, merged duplicates or
+	// events hidden by their posts.
 	page, err := h.store.ListAdminEvents(ctx, sqlite.AdminEventFilter{
 		Page:       integerArgumentValue(arguments, "page", 1),
 		PageSize:   integerArgumentValue(arguments, "pageSize", 25),
@@ -506,20 +513,36 @@ func (h *handler) scheduleList(ctx context.Context, arguments map[string]any) (a
 		From:       stringArgumentValue(arguments, "from"),
 		To:         stringArgumentValue(arguments, "to"),
 		Merge:      "visible",
+		Public:     true,
 	})
 	if err != nil {
 		return nil, failureSnapshot
 	}
 	items := make([]publicEvent, 0, len(page.Items))
 	for _, event := range page.Items {
+		// A live-room link is the same for every broadcast and reads as no
+		// link of a Bilibili entry, as on the other public reads.
+		link := event.URL
+		if link != nil && sqlite.IsBilibiliRoomURL(*link) && !slices.Contains(event.Platforms, sqlite.PlatformOther) {
+			link = nil
+		}
+		platforms := event.ShownPlatforms
+		if platforms == nil {
+			platforms = []string{}
+		}
+		view := sqlite.ProjectEventView(sqlite.DashboardEvent{
+			StartsOn: event.StartsOn, StartsAt: event.StartsAt, EndsAt: event.EndsAt, EndsOn: event.EndsOn,
+			TimePrecision: event.TimePrecision, Status: event.Status, EventType: event.EventType,
+			Tag: event.Tag, CancellationStatus: event.CancellationStatus,
+		}, h.now())
 		items = append(items, publicEvent{
 			ID: event.ID, Source: event.Source, Title: event.Title, Detail: event.Detail,
-			StartsOn: event.StartsOn, StartsAt: event.StartsAt, EndsAt: event.EndsAt,
+			StartsOn: event.StartsOn, StartsAt: event.StartsAt, EndsAt: event.EndsAt, EndsOn: event.EndsOn,
 			Timezone: event.Timezone, TimePrecision: event.TimePrecision, Status: event.Status,
-			EventType: event.EventType, URL: event.URL, Provenance: event.Provenance,
+			EventType: event.EventType, URL: link, Platforms: platforms, Provenance: event.Provenance,
 			CancellationStatus: event.CancellationStatus, CancellationSource: event.CancellationSource,
 			CancellationReason: event.CancellationReason, CancellationEvidence: event.CancellationEvidence,
-			CancellationAt: event.CancellationAt,
+			CancellationAt: event.CancellationAt, View: publicview.PublicEventView(view),
 		})
 	}
 	return schedulePage{

@@ -437,9 +437,13 @@ func TestDashboardReadIsAPublicProjection(t *testing.T) {
 	response := post(t, handler, toolCall("dashboard_read", nil))
 	dashboard := toolValue(t, response)
 
-	want := []string{"assets", "events", "focus", "meta", "posts", "profile", "profileMedia", "resources", "scheduleImages", "summary", "timeline", "videos"}
+	want := []string{"assets", "events", "focus", "liveNow", "meta", "posts", "profile", "profileMedia", "projection", "resources", "scheduleImages", "summary", "timeline", "videos"}
 	if got := keys(dashboard); !reflect.DeepEqual(got, want) {
 		t.Fatalf("dashboard keys = %v", got)
+	}
+	projection := dashboard["projection"].(map[string]any)
+	if projection["version"] != float64(1) {
+		t.Fatalf("projection = %v", projection)
 	}
 	events := dashboard["events"].([]any)
 	if len(events) != 2 {
@@ -452,9 +456,10 @@ func TestDashboardReadIsAPublicProjection(t *testing.T) {
 				t.Fatalf("event exposes %s: %v", field, event)
 			}
 		}
-		// 18 schedule facts, the calendar label, plus the linked video's
-		// translations and sourceLanguage.
-		if len(event) != 21 {
+		// 19 schedule facts (a sale's close date included), the calendar
+		// label, the platform and the shown platforms, the shared view, plus
+		// the linked video's translations and sourceLanguage.
+		if len(event) != 25 {
 			t.Fatalf("event field count = %d: %v", len(event), keys(event))
 		}
 		// The label is read from the event row, so a reader sees it here just
@@ -503,7 +508,8 @@ func TestScheduleListHidesOperatorMetadata(t *testing.T) {
 				t.Fatalf("event exposes %s", field)
 			}
 		}
-		if len(event) != 18 {
+		// The visitor facts, shared view and shown platforms.
+		if len(event) != 21 {
 			t.Fatalf("event field count = %d: %v", len(event), keys(event))
 		}
 	}
@@ -526,6 +532,30 @@ func TestScheduleListHidesOperatorMetadata(t *testing.T) {
 	defaults := toolValue(t, post(t, handler, toolCall("schedule_list", map[string]any{"page": 999})))
 	if defaults["pageSize"] != float64(25) || defaults["page"] != float64(1) {
 		t.Fatalf("defaults = %v", defaults)
+	}
+}
+
+func TestScheduleListLeavesOutEventsOfHiddenPosts(t *testing.T) {
+	handler, store := newHandler(t, nil)
+	for _, statement := range []string{
+		`UPDATE posts SET hidden_at='2026-09-01T13:00:00.000Z' WHERE id='post-1'`,
+		`INSERT INTO event_sources (event_id,source,source_item_id,source_key,created_at,updated_at)
+		 VALUES ('automatic-public-event','x','post-1','date-key-placeholder','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z')`,
+	} {
+		if _, err := store.DB().Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page := toolValue(t, post(t, handler, toolCall("schedule_list", map[string]any{"pageSize": 100})))
+	items := page["items"].([]any)
+	if page["total"] != float64(1) || len(items) != 1 || items[0].(map[string]any)["id"] != "manual-public-event" {
+		t.Fatalf("page = %v", page)
+	}
+	dashboard := toolValue(t, post(t, handler, toolCall("dashboard_read", map[string]any{"days": 30})))
+	for _, entry := range dashboard["events"].([]any) {
+		if entry.(map[string]any)["id"] == "automatic-public-event" {
+			t.Fatal("dashboard_read lists an event of a hidden post")
+		}
 	}
 }
 
@@ -575,7 +605,7 @@ func TestHealthReadReportsSanitizedSyncSummary(t *testing.T) {
 	if got := keys(lastSync); !reflect.DeepEqual(got, []string{"finishedAt", "id", "message", "source", "startedAt", "status"}) {
 		t.Fatalf("lastSync keys = %v", got)
 	}
-	if lastSync["source"] != "schedule" || lastSync["status"] != "success" || lastSync["message"] != "同步完成" {
+	if lastSync["source"] != "schedule" || lastSync["status"] != "success" || lastSync["message"] != "Sync completed" {
 		t.Fatalf("lastSync = %v", lastSync)
 	}
 	assertNoOperatorData(t, "health_read", response.body)
@@ -1276,5 +1306,25 @@ func TestScheduleListOmitsMergedDuplicates(t *testing.T) {
 	}
 	if strings.Contains(response.body, "merged-duplicate") || strings.Contains(response.body, "rule_a") {
 		t.Fatalf("merged duplicate leaked: %s", response.body)
+	}
+}
+
+// A manual entry stored with the live room as its link, as the console
+// saved it before the room link was refused, lists as a Bilibili entry
+// without a link, as on every other public read.
+func TestScheduleListReadsALiveRoomLinkAsTheBilibiliPlatform(t *testing.T) {
+	handler, store := newHandler(t, nil)
+	if _, err := store.DB().Exec(`INSERT INTO events(id,source,source_item_id,source_key,title,starts_on,timezone,time_precision,event_type,url,provenance,manual_locked,cancellation_status,created_at,updated_at)
+ VALUES ('manual-room-event','manual','manual-room-event','manual-room-event','Bilibili 限定雑談','2026-09-04','Asia/Tokyo','unknown','stream','https://live.bilibili.com/1000001','manual',1,'none','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z')`); err != nil {
+		t.Fatal(err)
+	}
+	page := toolValue(t, post(t, handler, toolCall("schedule_list", map[string]any{"search": "Bilibili 限定"})))
+	items := page["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("items = %v", items)
+	}
+	event := items[0].(map[string]any)
+	if event["url"] != nil || !reflect.DeepEqual(event["platforms"], []any{"bilibili"}) {
+		t.Fatalf("event = %v", event)
 	}
 }

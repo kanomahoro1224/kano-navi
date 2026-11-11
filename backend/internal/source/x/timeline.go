@@ -24,9 +24,11 @@ type TimelineStatus struct {
 	Post            *Post
 }
 
-// TimelineStatuses is one newest-first page of the account's own statuses.
+// TimelineStatuses is one newest-first page of the account's own statuses,
+// and the account's reposts the page lists.
 type TimelineStatuses struct {
 	Statuses []TimelineStatus
+	Reposts  []Repost
 	Next     string
 }
 
@@ -34,7 +36,7 @@ var handlePattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
 
 // TimelineStatuses reads one timeline page of up to count statuses and
 // normalizes each own status from the page itself, so an operator window
-// needs no detail requests. Reposts are left out as in discovery.
+// needs no detail requests. Reposts are listed apart, never as statuses.
 func (a *Adapter) TimelineStatuses(ctx context.Context, account, cursor string, count int) (TimelineStatuses, error) {
 	account = strings.TrimPrefix(strings.TrimSpace(account), "@")
 	if !handlePattern.MatchString(account) {
@@ -61,11 +63,17 @@ func parseTimelineStatuses(body []byte, account string) (TimelineStatuses, error
 	if (payload.Code != 0 && payload.Code != 200) || payload.Results == nil {
 		return TimelineStatuses{}, &Error{Code: ErrInvalidResponse, Err: errors.New("timeline without results")}
 	}
-	page := TimelineStatuses{Statuses: []TimelineStatus{}, Next: payload.Cursor.Bottom}
+	page := TimelineStatuses{Statuses: []TimelineStatus{}, Reposts: []Repost{}, Next: payload.Cursor.Bottom}
 	for _, status := range payload.Results {
 		id := stringValue(status["id"])
 		author := object(status["author"])
 		if !statusIDPattern.MatchString(id) || !strings.EqualFold(stringValue(author["screen_name"]), account) {
+			if len(author) > 0 {
+				status["author"] = map[string]any{"screen_name": author["screen_name"], "name": author["name"]}
+			}
+			if repost, ok := timelineRepost(status, account); ok {
+				page.Reposts = append(page.Reposts, repost)
+			}
 			continue
 		}
 		// Every status repeats the whole author profile; the post keeps its name.
@@ -98,7 +106,7 @@ func parseTimelineStatuses(body []byte, account string) (TimelineStatuses, error
 // Cursor is the FxTwitter continuation where reading resumes; empty restarts
 // at the newest page. Older is an earlier gap below Floor, read from its own
 // continuation once this one is. See
-// docs/decisions/ADR-0002-count-based-source-sync.md.
+// See the source schedule read contract in the architecture documentation.
 type Gap struct {
 	Cursor string `json:"cursor,omitempty"`
 	Floor  string `json:"floor"`
@@ -142,10 +150,11 @@ func withGap(earlier *Gap, opened Gap) *Gap {
 // a page listed with usable content, by ID; gap is the account's gap after the
 // run; notes are controlled codes about it.
 type discovery struct {
-	ids   []string
-	posts map[string]*Post
-	gap   *Gap
-	notes []string
+	ids     []string
+	posts   map[string]*Post
+	reposts []Repost
+	gap     *Gap
+	notes   []string
 }
 
 // timelinePage is one page's own status IDs, newest first, and continuation.
@@ -163,7 +172,7 @@ type timelinePage struct {
 // fall back to the profile page; a later failure keeps the newer pages
 // already read.
 func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Options, cutoff time.Time) (discovery, error) {
-	pages := (opts.DiscoveryLimit + timelinePageSize - 1) / timelinePageSize
+	pages := (opts.DiscoveryLimit + TimelinePageSize - 1) / TimelinePageSize
 	pages = min(max(pages, 1), maxTimelinePages)
 	found := discovery{ids: []string{}, posts: map[string]*Post{}, gap: opts.Gap}
 	seen := map[string]bool{}
@@ -194,7 +203,7 @@ func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Opt
 	read := 0
 	timeline := func(cursor string) (timelinePage, error) {
 		read++
-		body, err := a.Client.Timeline(ctx, account, cursor, timelinePageSize)
+		body, err := a.Client.Timeline(ctx, account, cursor, TimelinePageSize)
 		if err != nil {
 			return timelinePage{}, err
 		}
@@ -211,6 +220,7 @@ func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Opt
 				found.posts[status.ID] = status.Post
 			}
 		}
+		found.reposts = append(found.reposts, statuses.Reposts...)
 		return page, nil
 	}
 	all := func(string) bool { return true }

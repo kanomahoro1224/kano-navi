@@ -1,6 +1,7 @@
 package feeds
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -22,6 +23,19 @@ func TestCalendarFoldsMultibyteTextWithoutSplittingCharacters(t *testing.T) {
 	want := "SUMMARY:" + strings.NewReplacer(",", `\,`, ";", `\;`, "、", "、").Replace(title) + `\nsecondline` + "\r\n"
 	if !strings.Contains(unfolded, want) {
 		t.Fatalf("summary not round-tripped:\n%s", unfolded)
+	}
+}
+
+func TestPublicLinkRejectsCredentialBearingURLs(t *testing.T) {
+	withUserInfo := (&url.URL{Scheme: "https", User: url.UserPassword("synthetic", "synthetic"), Host: "example.invalid", Path: "/event"}).String()
+	for _, raw := range []string{
+		withUserInfo,
+		"https://example.invalid/event?token=synthetic",
+		"javascript:alert(1)",
+	} {
+		if got := publicLink(&raw); got != "" {
+			t.Errorf("publicLink(%q)=%q, want empty", raw, got)
+		}
 	}
 }
 

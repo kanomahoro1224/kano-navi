@@ -26,6 +26,7 @@ var testTargets = map[Area]string{
 	AreaX:        "https://api.fxtwitter.com/",
 	AreaYoutube:  "https://www.youtube.com/generate_204",
 	AreaBilibili: "https://www.bilibili.com/",
+	AreaShop:     "https://shop.milpr.com/robots.txt",
 	AreaMedia:    "https://pbs.twimg.com/",
 }
 
@@ -243,7 +244,7 @@ func (a *Admin) test(w http.ResponseWriter, r *http.Request) {
 	}
 	target := testTargets[area]
 	if target == "" {
-		httpx.WriteError(w, httpx.Invalid("area must be x, youtube, bilibili or media"))
+		httpx.WriteError(w, httpx.Invalid("area must be x, youtube, bilibili, shop or media"))
 		return
 	}
 	config, err := a.pool.Config(r.Context())

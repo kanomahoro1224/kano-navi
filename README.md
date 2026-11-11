@@ -17,9 +17,9 @@
 </p>
 
 Kano Navi gathers the public activity of **Kano Mahoro (鹿乃まほろ)** into one
-page: what airs next, the week's schedule, recent posts on X, streams and
-works on YouTube, her journey since 2010, and an archive of her 2015–2019
-LINE BLOG. It reads in English, Japanese,
+page: what airs next, the week's schedule, recent posts on X and bilibili,
+streams and works on YouTube, her journey since 2010, her discography, and
+an archive of her 2015–2019 LINE BLOG. It reads in English, Japanese,
 and Simplified Chinese, in light and dark themes, on phones and desktops.
 
 **[Visit kano.yexca.net](https://kano.yexca.net/)**
@@ -50,14 +50,15 @@ and Simplified Chinese, in light and dark themes, on phones and desktops.
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>💬 Recent Posts on X</h3>
-      Recent posts from both accounts, with images, quoted posts, an account
-      filter, and a month-by-month archive.
+      <h3>💬 Recent Posts</h3>
+      Recent posts from both X accounts and bilibili, with images, translated
+      quoted posts, the agency's posts about Kano, an account filter, and a
+      month-by-month archive.
     </td>
     <td width="50%" valign="top">
       <h3>🎬 Streams and works</h3>
       The featured or newest work, upcoming reservations, stream archives, and
-      Shorts, with bilibili links for works uploaded there too.
+      Shorts, with bilibili uploads and links for works on both platforms.
     </td>
   </tr>
   <tr>
@@ -73,7 +74,12 @@ and Simplified Chinese, in light and dark themes, on phones and desktops.
     </td>
   </tr>
   <tr>
-    <td colspan="2" valign="top">
+    <td width="50%" valign="top">
+      <h3>💿 Works</h3>
+      Her albums, singles and doujin works with each edition
+      and its bonuses, the works she is featured on, and every song she uploaded.
+    </td>
+    <td width="50%" valign="top">
       <h3>🌏 Your language</h3>
       English, Japanese, and Simplified Chinese, with video titles and posts
       in your language when a translation exists. Content can follow the
@@ -101,7 +107,7 @@ the last known state when a platform is unavailable. See
 
 ```mermaid
 flowchart LR
-  X["X posts"] --> S[("Board snapshot")]
+  X["X and bilibili posts"] --> S[("Board snapshot")]
   YT["YouTube and bilibili"] --> S
   S --> B["Board · Journey · About"]
   S --> C["Calendar and video feeds"]
@@ -118,7 +124,7 @@ with [Local development](docs/development/local-dev.md) and the
 ## Documentation
 
 - [User guide](docs/user/index.md): the board, schedule, posts, videos,
-  Journey, and the LINE BLOG archive.
+  Journey, Works, and the LINE BLOG archive.
 - [How it works](docs/how-it-works.md) and [Architecture](docs/architecture/index.md):
   data flow and system boundaries.
 - [Operations](docs/operations/index.md): running an instance.
@@ -135,7 +141,8 @@ with [Local development](docs/development/local-dev.md) and the
 - Artwork, artist names, and other third-party content keep their original
   rights; the code license does not grant rights to them. Image sources and
   credits are recorded in the
-  [history archive](docs/development/history-archive.md) and the
+  [history archive](docs/development/history-archive.md), the
+  [works collection](docs/development/works-archive.md) and the
   [LINE BLOG archive](docs/development/lineblog-archive.md).
 
 ## License

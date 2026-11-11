@@ -29,7 +29,6 @@ import {
 } from "@/components/translated-text"
 import { EmptyNote, Placeholder, SectionTitle } from "@/site/site-shell"
 import { BilibiliLogo, ExternalLink, XLogo, followCardLink } from "@/site/links"
-import { WebPushButton } from "@/site/web-push-button"
 import { mediaSrcSet } from "@/lib/media"
 import {
   formatCompact,
@@ -52,18 +51,6 @@ import { SheetDialog } from "./sheet-dialog"
 // wall; a lone image can take the whole card.
 const POST_MEDIA_SIZES =
   "(max-width: 640px) 100vw, (max-width: 1200px) 34vw, 420px"
-
-/**
- * byPlatform keeps the X entries ahead of the Bilibili ones without changing
- * the order inside either group, so a filter never shuffles when a newer post
- * from the other platform arrives.
- */
-function byPlatform<T>(entries: T[], sourceOf: (entry: T) => string): T[] {
-  return [
-    ...entries.filter((entry) => sourceOf(entry) !== "bilibili"),
-    ...entries.filter((entry) => sourceOf(entry) === "bilibili"),
-  ]
-}
 
 /** escapeRegExp makes a sticker caption safe to put in a pattern. */
 function escapeRegExp(value: string) {
@@ -154,6 +141,41 @@ export function postMedia(post: Post): MediaItem[] {
     : []
 }
 
+/**
+ * Whether a post is a Bilibili dynamic: it names its source instead of a
+ * handle and has no engagement counts. A forward quotes the dynamic it
+ * forwards.
+ */
+export function isBilibiliPost(post: Pick<Post, "source">) {
+  return post.source === "bilibili"
+}
+
+/** One account the post filters offer: an X handle or a Bilibili mid. */
+interface PostAccount {
+  handle: string
+  bilibili: boolean
+}
+
+/** The accounts in filter order: the X handles, then the Bilibili mids. */
+function postAccounts(xAccounts: string[], bilibiliAccounts: string[]) {
+  return [
+    ...xAccounts.map((handle) => ({ handle, bilibili: false })),
+    ...bilibiliAccounts.map((handle) => ({ handle, bilibili: true })),
+  ]
+}
+
+/** A filter's name: the @handle, or the bilibili mark for a Bilibili mid. */
+function PostAccountLabel({ account }: { account: PostAccount }) {
+  return account.bilibili ? (
+    <>
+      <BilibiliLogo className="account-mark" aria-hidden="true" />
+      bilibili
+    </>
+  ) : (
+    <>@{account.handle}</>
+  )
+}
+
 function Engagement({
   post,
   locale,
@@ -187,12 +209,15 @@ const QUOTE_THUMBS = 3
 
 /**
  * The status a post quotes, nested in the note: author, time, wording and
- * small thumbnails. The card follows the quoted post's x.com link, while its
- * thumbnails and translation switch keep their own actions. A quote of a
- * tracked account's post shows that post's translation.
+ * small thumbnails. The card follows the quoted post's link (its x.com page,
+ * or the forwarded dynamic's Bilibili page), while its thumbnails and
+ * translation switch keep their own actions. A quote of a tracked account's
+ * post shows that post's translation. A forwarded dynamic's author shows by
+ * name beside the bilibili mark, never by mid.
  */
 function QuoteCard({
   quote,
+  bilibili,
   wording,
   absoluteTime,
   clamp,
@@ -203,6 +228,8 @@ function QuoteCard({
   onOpenMedia,
 }: {
   quote: PostQuote
+  /** The quote of a Bilibili forward. */
+  bilibili: boolean
   /** The note keeps the quote's switch, shared by the board and the dialog. */
   wording: TranslatedTextState
   absoluteTime: boolean
@@ -226,22 +253,31 @@ function QuoteCard({
   const media = quote.media.filter((item) => item.url)
   const shown = clamp ? media.slice(0, QUOTE_THUMBS) : media
   const hidden = media.length - shown.length
-  const name =
-    quote.authorName || (quote.authorHandle ? `@${quote.authorHandle}` : "X")
+  const name = bilibili
+    ? quote.authorName || "bilibili"
+    : quote.authorName || (quote.authorHandle ? `@${quote.authorHandle}` : "X")
   return (
     <div
       className={`post-quote link-card${clamp ? "" : " is-full"}`}
       onClick={followCardLink}
     >
       <p className="post-quote-head">
+        {bilibili ? (
+          <BilibiliLogo className="post-quote-mark" aria-hidden="true" />
+        ) : null}
         <ExternalLink
           className="card-link post-quote-name"
           href={quote.url}
-          aria-label={t("feed.openQuote", { name })}
+          aria-label={t(
+            bilibili ? "feed.openQuoteBilibili" : "feed.openQuote",
+            {
+              name,
+            },
+          )}
         >
           {name}
         </ExternalLink>
-        {quote.authorName && quote.authorHandle ? (
+        {!bilibili && quote.authorName && quote.authorHandle ? (
           <span className="post-quote-handle">@{quote.authorHandle}</span>
         ) : null}
         {quote.publishedAt ? (
@@ -321,6 +357,7 @@ function PostNote({
 }) {
   const media = postMedia(post)
   const ready = media.filter((item) => item.url)
+  const bilibili = isBilibiliPost(post)
   const wording = useTranslatedText(
     post.text,
     post.translations,
@@ -359,6 +396,7 @@ function PostNote({
     post.quote ? (
       <QuoteCard
         quote={post.quote}
+        bilibili={bilibili}
         wording={quoteWording}
         absoluteTime={absoluteTime}
         clamp={clamp && !full}
@@ -370,73 +408,59 @@ function PostNote({
       />
     ) : null
 
-  const repost = post.repost
-  // Bilibili dynamics share the wall with X. Their author is a display name
-  // rather than an @handle, and the site has no Bilibili profile card to link
-  // to, so the name stays plain text.
-  const bilibili = post.source === "bilibili"
-  const shownAt = repost?.publishedAt || post.publishedAt
+  const originalLabel = t(
+    bilibili ? "feed.originalPostBilibili" : "feed.originalPost",
+  )
+  const engagement = bilibili ? null : (
+    <Engagement post={post} locale={locale} t={t} />
+  )
   const head = (close?: ReactNode) => (
-    <>
-      {repost ? (
-        <div className="post-note-repost">
-          <Repeat2 aria-hidden="true" />
-          <span>{t("feed.reposted")}</span>
-        </div>
-      ) : null}
-      <header className="post-note-head">
-        {repost ? (
-          repost.authorAvatar ? (
-            <img src={repost.authorAvatar} alt="" />
-          ) : (
-            <span className="post-note-avatar-fallback" aria-hidden="true">
-              {repost.authorName?.trim().charAt(0) ||
-                repost.authorHandle?.charAt(0) ||
-                "X"}
-            </span>
-          )
-        ) : (
-          <img src={avatarUrl || undefined} alt="" />
-        )}
-        {repost ? (
-          <ExternalLink className="post-note-handle" href={repost.url}>
-            {repost.authorHandle
-              ? `@${repost.authorHandle}`
-              : repost.authorName}
-          </ExternalLink>
-        ) : post.accountHandle ? (
-          bilibili ? (
-            <span className="post-note-handle">{post.accountHandle}</span>
-          ) : (
-            <ExternalLink
-              className="post-note-handle"
-              href={post.accountUrl || `https://x.com/${post.accountHandle}`}
-            >
-              @{post.accountHandle}
-            </ExternalLink>
-          )
-        ) : (
-          <span className="post-note-handle">{bilibili ? "Bilibili" : "X"}</span>
-        )}
-        <time
-          dateTime={shownAt}
-          title={`${formatJapanDay(shownAt, locale)} ${formatJapanTime(shownAt)} ${t("common.timezoneShort")}`}
-        >
-          {absoluteTime
-            ? formatStamp(shownAt)
-            : formatRelative(shownAt, locale, now)}
-        </time>
+    <header className="post-note-head">
+      {post.promoted ? (
+        // Another account's post shown for Kano: its initial, never her
+        // portrait.
+        <span className="post-note-initial" aria-hidden="true">
+          {(post.accountHandle || "X").replace(/^@/u, "").charAt(0)}
+        </span>
+      ) : (
+        <img src={avatarUrl || undefined} alt="" />
+      )}
+      {bilibili ? (
         <ExternalLink
-          className="post-note-open"
-          href={repost?.url || post.url}
-          aria-label={t("feed.originalPost")}
-          title={t("feed.originalPost")}
+          className="post-note-handle is-source"
+          href={post.accountUrl || post.url}
         >
-          <ArrowUpRight aria-hidden="true" />
+          <BilibiliLogo aria-hidden="true" />
+          bilibili
         </ExternalLink>
-        {close}
-      </header>
-    </>
+      ) : post.accountHandle ? (
+        <ExternalLink
+          className="post-note-handle"
+          href={post.accountUrl || `https://x.com/${post.accountHandle}`}
+        >
+          @{post.accountHandle}
+        </ExternalLink>
+      ) : (
+        <span className="post-note-handle">X</span>
+      )}
+      <time
+        dateTime={post.publishedAt}
+        title={`${formatJapanDay(post.publishedAt, locale)} ${formatJapanTime(post.publishedAt)} ${t("common.timezoneShort")}`}
+      >
+        {absoluteTime
+          ? formatStamp(post.publishedAt)
+          : formatRelative(post.publishedAt, locale, now)}
+      </time>
+      <ExternalLink
+        className="post-note-open"
+        href={post.url}
+        aria-label={originalLabel}
+        title={originalLabel}
+      >
+        <ArrowUpRight aria-hidden="true" />
+      </ExternalLink>
+      {close}
+    </header>
   )
   const mediaGrid = media.length ? (
     <div className={`post-note-media count-${Math.min(4, media.length)}`}>
@@ -472,18 +496,20 @@ function PostNote({
   return (
     <article className="post-note">
       {head()}
-      <p
-        ref={textRef}
-        className={`post-note-text${clamp ? " is-clamped" : ""}`}
-        lang={wording.lang}
-      >
-        <PostWording text={wording.text} emojis={post.emoji} />
-        <TranslationToggle
-          state={wording}
-          t={t}
-          className={clamp && textClipped ? "is-clipped" : undefined}
-        />
-      </p>
+      {wording.text ? (
+        <p
+          ref={textRef}
+          className={`post-note-text${clamp ? " is-clamped" : ""}`}
+          lang={wording.lang}
+        >
+          <PostWording text={wording.text} emojis={post.emoji} />
+          <TranslationToggle
+            state={wording}
+            t={t}
+            className={clamp && textClipped ? "is-clipped" : undefined}
+          />
+        </p>
+      ) : null}
       {clamp && overflows ? (
         <div className="post-note-more">
           <button
@@ -499,7 +525,7 @@ function PostNote({
       ) : null}
       {mediaGrid}
       {quote(false)}
-      <Engagement post={post} locale={locale} t={t} />
+      {engagement}
       {reading ? (
         <SheetDialog
           label={t("feed.fullPost")}
@@ -517,13 +543,15 @@ function PostNote({
                 <X aria-hidden="true" />
               </button>,
             )}
-            <p className="post-note-text" lang={wording.lang}>
-              <PostWording text={wording.text} emojis={post.emoji} />
-              <TranslationToggle state={wording} t={t} />
-            </p>
+            {wording.text ? (
+              <p className="post-note-text" lang={wording.lang}>
+                <PostWording text={wording.text} emojis={post.emoji} />
+                <TranslationToggle state={wording} t={t} />
+              </p>
+            ) : null}
             {mediaGrid}
             {quote(true)}
-            <Engagement post={post} locale={locale} t={t} />
+            {engagement}
           </article>
         </SheetDialog>
       ) : null}
@@ -535,6 +563,7 @@ export function PostWall({
   posts,
   latestPost,
   accounts,
+  bilibiliAccounts = [],
   avatarUrl,
   windowDays,
   isLoading,
@@ -547,6 +576,8 @@ export function PostWall({
   posts: Post[]
   latestPost: Post | null
   accounts: string[]
+  /** The mids of stored Bilibili posts, filtered as one more account. */
+  bilibiliAccounts?: string[]
   avatarUrl: string | null
   windowDays: number
   isLoading: boolean
@@ -556,80 +587,23 @@ export function PostWall({
   onOpenMedia: (media: MediaItem[], index: number) => void
   onOpenArchive: (account: string | null) => void
 }) {
-  // One wall holds both sources, ordered by publication time: an X post and a
-  // Bilibili dynamic sit side by side. The platform segments appear only when
-  // the payload carries both, so a single-source board keeps its old look.
-  const [origin, setOrigin] = useState<string | null>(null)
-  const origins = useMemo(() => {
-    const counts: { source: string; count: number }[] = []
-    for (const post of posts) {
-      const seen = counts.find((entry) => entry.source === post.source)
-      if (seen) seen.count += 1
-      else counts.push({ source: post.source, count: 1 })
-    }
-    // The wall mixes sources by time, but its filters group by platform: X
-    // leads and Bilibili follows, so neither segment lands in the middle.
-    return byPlatform(counts, (entry) => entry.source)
-  }, [posts])
-  const scoped = useMemo(
-    () => (origin ? posts.filter((post) => post.source === origin) : posts),
-    [origin, posts],
-  )
   const [account, setAccount] = useState<string | null>(null)
   const visible = useMemo(
     () =>
       account
-        ? scoped.filter(
+        ? posts.filter(
             (post) =>
               String(post.accountHandle || "").toLowerCase() ===
               account.toLowerCase(),
           )
-        : scoped,
-    [account, scoped],
+        : posts,
+    [account, posts],
   )
-  // An X post names a handle, a Bilibili dynamic an uploader; both filter the
-  // same way. The chips keep a fixed platform order rather than the order the
-  // newest posts happened to arrive in, so the two X accounts stay together
-  // and the Bilibili uploader sits after them.
-  //
-  // Crucially the group is built from the whole payload, not the current
-  // platform: switching platforms must never unmount a chip and slide the
-  // controls under the pointer. Accounts outside the selected platform stay
-  // in place (dimmed) and act as shortcuts to their own platform.
-  const handles = useMemo(() => {
-    const names: { name: string; source: string }[] = []
-    for (const post of posts) {
-      const name = String(post.accountHandle || "").trim()
-      if (!name) continue
-      if (names.some((entry) => entry.name.toLowerCase() === name.toLowerCase()))
-        continue
-      names.push({ name, source: post.source })
-    }
-    return byPlatform(names, (entry) => entry.source)
-  }, [posts])
   const countFor = (handle: string) =>
-    scoped.filter(
-      (post) =>
-        String(post.accountHandle || "").toLowerCase() === handle.toLowerCase(),
-    ).length
-  // A chip outside the selected platform still says how much is waiting
-  // there, rather than showing a misleading zero.
-  const totalFor = (handle: string) =>
     posts.filter(
       (post) =>
         String(post.accountHandle || "").toLowerCase() === handle.toLowerCase(),
     ).length
-  // The section kicker names every source on the wall, whatever the segments
-  // currently show.
-  const uploaders = useMemo(() => {
-    const names: string[] = []
-    for (const post of posts) {
-      if (post.source !== "bilibili") continue
-      const name = String(post.accountHandle || "").trim()
-      if (name && !names.includes(name)) names.push(name)
-    }
-    return names
-  }, [posts])
   // The board shows whole rows of the wall's current column count (see
   // postWallCount); older posts stay in the Past posts dialog.
   const [wall, setWall] = useState<HTMLDivElement | null>(null)
@@ -650,6 +624,10 @@ export function PostWall({
     return () => observer.disconnect()
   }, [wall])
   const shown = visible.slice(0, postWallCount(visible.length, columns))
+  const filters = postAccounts(accounts, bilibiliAccounts)
+  const hasBilibili =
+    bilibiliAccounts.length > 0 ||
+    [...posts, latestPost].some((post) => post && isBilibiliPost(post))
 
   return (
     <section className="section posts" id="feed" aria-labelledby="posts-title">
@@ -659,54 +637,18 @@ export function PostWall({
           <>
             <XLogo className="kicker-icon" aria-hidden="true" />{" "}
             {accounts.map((handle) => `@${handle}`).join(" · ")}
-            {uploaders.length ? (
+            {hasBilibili ? (
               <>
-                <span aria-hidden="true"> · </span>
+                {" · "}
                 <BilibiliLogo className="kicker-icon" aria-hidden="true" />{" "}
-                {uploaders.join(" · ")}
+                bilibili
               </>
             ) : null}
           </>
         }
         title={t("feed.title")}
       >
-        <WebPushButton t={t} locale={locale} />
-        {origins.length > 1 ? (
-          <div
-            className="segmented"
-            role="group"
-            aria-label={t("feed.sourceFilter")}
-          >
-            <button
-              type="button"
-              aria-pressed={!origin}
-              onClick={() => {
-                setOrigin(null)
-                setAccount(null)
-              }}
-            >
-              {t("common.all")}
-              <small>{posts.length}</small>
-            </button>
-            {origins.map((entry) => (
-              <button
-                type="button"
-                key={entry.source}
-                aria-pressed={origin === entry.source}
-                onClick={() => {
-                  setOrigin(entry.source)
-                  setAccount(null)
-                }}
-              >
-                {entry.source === "bilibili"
-                  ? t("feed.sourceBilibili")
-                  : t("feed.sourceX")}
-                <small>{entry.count}</small>
-              </button>
-            ))}
-          </div>
-        ) : null}
-        {handles.length > 1 ? (
+        {filters.length > 1 ? (
           <div className="segmented" role="group" aria-label={t("feed.filter")}>
             <button
               type="button"
@@ -714,28 +656,19 @@ export function PostWall({
               onClick={() => setAccount(null)}
             >
               {t("common.all")}
-              <small>{scoped.length}</small>
+              <small>{posts.length}</small>
             </button>
-            {handles.map((entry) => {
-              const outside = !!origin && origin !== entry.source
-              return (
-                <button
-                  type="button"
-                  key={entry.name}
-                  className={outside ? "is-out-of-scope" : undefined}
-                  aria-pressed={account === entry.name && !outside}
-                  onClick={() => {
-                    // An account belongs to one platform, so choosing it from
-                    // the other platform brings that platform along.
-                    if (outside) setOrigin(entry.source)
-                    setAccount(entry.name)
-                  }}
-                >
-                  {entry.source === "bilibili" ? entry.name : `@${entry.name}`}
-                  <small>{outside ? totalFor(entry.name) : countFor(entry.name)}</small>
-                </button>
-              )
-            })}
+            {filters.map((item) => (
+              <button
+                type="button"
+                key={item.handle}
+                aria-pressed={account === item.handle}
+                onClick={() => setAccount(item.handle)}
+              >
+                <PostAccountLabel account={item} />
+                <small>{countFor(item.handle)}</small>
+              </button>
+            ))}
           </div>
         ) : null}
         <button
@@ -789,25 +722,31 @@ export function PostWall({
   )
 }
 
-/** The post archive's account filter, counting the month's posts per account. */
+/**
+ * The post archive's account filter, counting the month's posts per account
+ * (keyed by lowercase handle or mid).
+ */
 export function PostArchiveFilter({
   accounts,
+  bilibiliAccounts = [],
   account,
   setAccount,
   counts,
   t,
 }: {
   accounts: string[]
+  bilibiliAccounts?: string[]
   account: string | null
   setAccount: (account: string | null) => void
   counts: Record<string, number> | undefined
   t: Translator
 }) {
-  if (accounts.length < 2) return null
+  const filters = postAccounts(accounts, bilibiliAccounts)
+  if (filters.length < 2) return null
   const countFor = (handle: string) =>
     counts ? (counts[handle.toLowerCase()] ?? 0) : null
   const all = counts
-    ? accounts.reduce((sum, handle) => sum + (countFor(handle) || 0), 0)
+    ? filters.reduce((sum, item) => sum + (countFor(item.handle) || 0), 0)
     : null
   return (
     <div className="segmented" role="group" aria-label={t("feed.filter")}>
@@ -819,15 +758,15 @@ export function PostArchiveFilter({
         {t("common.all")}
         {all != null ? <small>{all}</small> : null}
       </button>
-      {accounts.map((handle) => (
+      {filters.map((item) => (
         <button
           type="button"
-          key={handle}
-          aria-pressed={account?.toLowerCase() === handle.toLowerCase()}
-          onClick={() => setAccount(handle)}
+          key={item.handle}
+          aria-pressed={account?.toLowerCase() === item.handle.toLowerCase()}
+          onClick={() => setAccount(item.handle)}
         >
-          @{handle}
-          {counts ? <small>{countFor(handle)}</small> : null}
+          <PostAccountLabel account={item} />
+          {counts ? <small>{countFor(item.handle)}</small> : null}
         </button>
       ))}
     </div>

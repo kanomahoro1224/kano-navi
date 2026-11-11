@@ -4,6 +4,7 @@
 package feeds
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
 // SiteName is the English base-locale name feeds carry.
@@ -39,45 +41,105 @@ func Calendar(events []sqlite.DashboardEvent, stamp time.Time, locale Locale) []
 	line("X-PUBLISHED-TTL", "PT1H")
 	dtstamp := stamp.UTC().Format("20060102T150405Z")
 	for _, e := range events {
-		day, err := time.ParseInLocation("2006-01-02", e.StartsOn, japan)
-		if err != nil {
-			continue
-		}
-		line("BEGIN", "VEVENT")
-		line("UID", escapeText(e.ID+"@kano-navi"))
-		line("DTSTAMP", dtstamp)
-		if updated, ok := parseInstant(&e.UpdatedAt); ok {
-			line("LAST-MODIFIED", updated.UTC().Format("20060102T150405Z"))
-			line("SEQUENCE", strconv.FormatInt(sequence(updated), 10))
-		}
-		start, timed := eventStart(e)
-		if timed {
-			line("DTSTART", start.UTC().Format("20060102T150405Z"))
-			end, ok := parseInstant(e.EndsAt)
-			if !ok || !end.After(start) {
-				end = start.Add(defaultDuration(e))
+		for _, entry := range calendarEntries(e) {
+			day, err := time.ParseInLocation("2006-01-02", entry.day, japan)
+			if err != nil {
+				continue
 			}
-			line("DTEND", end.UTC().Format("20060102T150405Z"))
-		} else {
-			line("DTSTART;VALUE=DATE", day.Format("20060102"))
-			line("DTEND;VALUE=DATE", day.AddDate(0, 0, 1).Format("20060102"))
-			// Outlook keeps an entry with this flag a single all-day event
-			// instead of converting its dates into a span across two days.
-			line("X-MICROSOFT-CDO-ALLDAYEVENT", "TRUE")
+			line("BEGIN", "VEVENT")
+			line("UID", escapeText(entry.uid+"@kano-navi"))
+			line("DTSTAMP", dtstamp)
+			if updated, ok := parseInstant(&e.UpdatedAt); ok {
+				line("LAST-MODIFIED", updated.UTC().Format("20060102T150405Z"))
+				line("SEQUENCE", strconv.FormatInt(sequence(updated), 10))
+			}
+			if entry.timed {
+				line("DTSTART", entry.start.UTC().Format("20060102T150405Z"))
+				line("DTEND", entry.end.UTC().Format("20060102T150405Z"))
+			} else {
+				line("DTSTART;VALUE=DATE", day.Format("20060102"))
+				line("DTEND;VALUE=DATE", day.AddDate(0, 0, 1).Format("20060102"))
+				// Outlook keeps an entry with this flag a single all-day event
+				// instead of converting its dates into a span across two days.
+				line("X-MICROSOFT-CDO-ALLDAYEVENT", "TRUE")
+			}
+			title := localizedTitle(e.Title, e.Translations, locale)
+			switch entry.mark {
+			case saleOpens:
+				title = fmt.Sprintf(locale.messages().saleOpens, title)
+			case saleCloses:
+				title = fmt.Sprintf(locale.messages().saleCloses, title)
+			}
+			line("SUMMARY", escapeText(title))
+			if description := eventDescription(e, entry.timed, locale); description != "" {
+				line("DESCRIPTION", escapeText(description))
+			}
+			if link := publicLink(eventFeedLink(e)); link != "" {
+				line("URL", link)
+			}
+			line("STATUS", eventStatus(e))
+			line("TRANSP", "TRANSPARENT")
+			line("END", "VEVENT")
 		}
-		line("SUMMARY", escapeText(localizedTitle(e.Title, e.Translations, locale)))
-		if description := eventDescription(e, timed, locale); description != "" {
-			line("DESCRIPTION", escapeText(description))
-		}
-		if link := publicLink(e.URL); link != "" {
-			line("URL", link)
-		}
-		line("STATUS", eventStatus(e))
-		line("TRANSP", "TRANSPARENT")
-		line("END", "VEVENT")
 	}
 	line("END", "VCALENDAR")
 	return []byte(b.String())
+}
+
+// saleMark names which end of a sale period a calendar entry shows.
+type saleMark int
+
+const (
+	noSaleMark saleMark = iota
+	saleOpens
+	saleCloses
+)
+
+// calendarEntry is one VEVENT: an event, or one end of a sale period.
+type calendarEntry struct {
+	uid        string
+	day        string
+	mark       saleMark
+	timed      bool
+	start, end time.Time
+}
+
+// calendarEntries turns an event into its VEVENTs. A sale period is shown at
+// its ends, as the board shows it, rather than as one block across weeks: a
+// period that closes on a later date gives an opening entry (the event's own
+// UID) and a closing entry, and a deadline whose opening is not known (the
+// close date is the start date and there is no start time) gives the closing
+// entry alone. A closing time ends its entry, which starts half an hour
+// earlier.
+func calendarEntries(e sqlite.DashboardEvent) []calendarEntry {
+	opening := calendarEntry{uid: e.ID, day: e.StartsOn}
+	if start, ok := eventStart(e); ok {
+		opening.timed, opening.start = true, start
+		end, ok := parseInstant(e.EndsAt)
+		if !ok || !end.After(start) || e.EndsOn != nil && *e.EndsOn != e.StartsOn {
+			end = start.Add(defaultDuration(e))
+		}
+		opening.end = end
+	}
+	if !sqlite.SaleEvent(e.EventType) {
+		return []calendarEntry{opening}
+	}
+	// A stored start time makes a same-day sale an opening whatever its
+	// precision, as on the board; an unknown precision keeps it all-day.
+	started := e.StartsAt != nil && strings.TrimSpace(*e.StartsAt) != ""
+	if e.EndsOn == nil || *e.EndsOn < e.StartsOn || *e.EndsOn == e.StartsOn && started {
+		opening.mark = saleOpens
+		return []calendarEntry{opening}
+	}
+	closing := calendarEntry{uid: e.ID, day: *e.EndsOn, mark: saleCloses}
+	if end, ok := parseInstant(e.EndsAt); ok {
+		closing.timed, closing.start, closing.end = true, end.Add(-defaultEventDuration), end
+	}
+	if *e.EndsOn == e.StartsOn {
+		return []calendarEntry{closing}
+	}
+	opening.mark, closing.uid = saleOpens, e.ID+"-close"
+	return []calendarEntry{opening, closing}
 }
 
 // Default lengths for timed events without a stored end. RFC 5545 makes an
@@ -157,7 +219,7 @@ func eventDescription(e sqlite.DashboardEvent, timed bool, locale Locale) string
 	} else {
 		parts = append(parts, m.automatic)
 	}
-	if link := publicLink(e.URL); link != "" {
+	if link := publicLink(eventFeedLink(e)); link != "" {
 		parts = append(parts, link)
 	}
 	parts = append(parts, m.unofficial)
@@ -170,7 +232,7 @@ func publicLink(value *string) string {
 		return ""
 	}
 	parsed, err := url.Parse(strings.TrimSpace(*value))
-	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || urlguard.ContainsCredentials(parsed.String()) {
 		return ""
 	}
 	return parsed.String()
@@ -200,4 +262,19 @@ func writeFolded(b *strings.Builder, content string) {
 		width += size
 	}
 	b.WriteString("\r\n")
+}
+
+// eventFeedLink is the link a calendar entry carries: the entry's own, or,
+// for an entry without one (a stored live-room link reads as none), its
+// first platform link.
+func eventFeedLink(e sqlite.DashboardEvent) *string {
+	if e.URL != nil {
+		return e.URL
+	}
+	for _, link := range e.Links {
+		if link.URL != nil {
+			return link.URL
+		}
+	}
+	return e.LiveURL
 }

@@ -262,7 +262,29 @@ test("the form chip names the waiting room or the form, never the tag", () => {
   const form = (fields: Partial<Video>) => videoFormLabel(video("v", fields), t)
   assert.equal(form({ isUpcoming: true, tag: "game" }), "media.kind.upcoming")
   assert.equal(form({ tag: "game" }), "media.kind.liveArchive")
-  assert.equal(form({ kind: "premiere", tag: "song" }), "media.kind.premiere")
+})
+
+test("a premiere is named only until it has aired", () => {
+  const t = (key: string) => key
+  const form = (fields: Partial<Video>) =>
+    videoFormLabel(
+      video("v", { kind: "premiere", tag: "song", ...fields }),
+      t,
+      now,
+    )
+  assert.equal(
+    form({ scheduledAt: at(hour), isUpcoming: true }),
+    "media.kind.premiere",
+  )
+  assert.equal(
+    form({ scheduledAt: at(-hour), endsAt: at(hour) }),
+    "media.kind.premiere",
+  )
+  assert.equal(form({ liveStatus: "live" }), "media.kind.premiere")
+  // Once aired it is an ordinary video: no form chip at all.
+  assert.equal(form({ scheduledAt: at(-hour), endsAt: at(-1) }), null)
+  assert.equal(form({ scheduledAt: at(-hour) }), null)
+  assert.equal(form({ publishedAt: at(-24 * hour) }), null)
 })
 
 test("a stream that may be on air reads as a stream, not its archive", () => {

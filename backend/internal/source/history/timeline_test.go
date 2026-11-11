@@ -3,6 +3,7 @@ package history
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -94,7 +95,7 @@ func TestTimelineAllPagesToTheEndAndResumes(t *testing.T) {
 	if last := store.pages[len(store.pages)-1]; last.Next != "" || last.Discovered != 3 {
 		t.Fatalf("last page=%+v", last)
 	}
-	if strings.Join(timeline.cursors, ",") != ",c2,c3" || timeline.counts[0] != xsource.MaxTimelinePageSize {
+	if strings.Join(timeline.cursors, ",") != ",c2,c3" || timeline.counts[0] != xsource.TimelinePageSize {
 		t.Fatalf("cursors=%v counts=%v", timeline.cursors, timeline.counts)
 	}
 	if _, ok := store.states["x-window/"+first.CheckpointKey]; ok {
@@ -231,5 +232,52 @@ func TestTimelineFailuresRestartStaleCursorsAndKeepCommittedPages(t *testing.T) 
 	}
 	if len(timeline.cursors) != 0 {
 		t.Fatalf("requests=%v", timeline.cursors)
+	}
+}
+
+// fixedPage lists FxTwitter's fixed page of synthetic own statuses, newest
+// first, starting at the given ID suffix.
+func fixedPage(next string, from int) xsource.TimelineStatuses {
+	statuses := make([]xsource.TimelineStatus, 0, xsource.TimelinePageSize)
+	for i := range xsource.TimelinePageSize {
+		statuses = append(statuses, timelineStatus(fmt.Sprintf("19000000000%08d", from-i), "2026-03-01T03:00:00Z", "status"))
+	}
+	return timelinePage(next, statuses...)
+}
+
+func TestTimelineCountSpansFixedPagesAcrossThePageBudget(t *testing.T) {
+	// FxTwitter lists its fixed page whatever count asks for, so a count of
+	// 50 takes three pages; a budget of two ends the first fetch early.
+	store := &memoryStore{}
+	timeline := &fakeTimeline{pages: map[string]xsource.TimelineStatuses{
+		"":   fixedPage("c2", 100),
+		"c2": fixedPage("c3", 80),
+		"c3": fixedPage("c4", 60),
+	}}
+	fetcher := timelineFetcher(store, timeline, 2)
+	request := Request{Source: SourceX, Account: testAccount, Window: timelineCount(50)}
+	result, err := fetcher.FetchTimeline(context.Background(), request)
+	if err != nil || result.Requested != 2 || result.Listed != 40 || result.New != 40 || !result.HasMore {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	// Short pages are no end of the timeline: only the budget stops it.
+	if len(result.Errors) != 1 || result.Errors[0] != budgetMessage {
+		t.Fatalf("errors=%v", result.Errors)
+	}
+	if last := store.pages[len(store.pages)-1]; last.Next != "c3" || last.Discovered != 40 {
+		t.Fatalf("checkpoint page=%+v", last)
+	}
+	// Repeating the fetch takes the rest of the count from the next page and
+	// leaves the statuses beyond it.
+	result, err = fetcher.FetchTimeline(context.Background(), request)
+	if err != nil || result.Requested != 1 || result.Listed != 10 || result.New != 10 || result.HasMore || len(result.Errors) != 0 {
+		t.Fatalf("resume=%+v err=%v", result, err)
+	}
+	last := store.pages[len(store.pages)-1]
+	if last.Next != "" || last.Discovered != 50 || len(last.Posts) != 10 || last.Posts[9].ID != fmt.Sprintf("19000000000%08d", 51) {
+		t.Fatalf("last page=%+v", last)
+	}
+	if strings.Join(timeline.cursors, ",") != ",c2,c3" || fmt.Sprint(timeline.counts) != "[20 20 10]" {
+		t.Fatalf("cursors=%v counts=%v", timeline.cursors, timeline.counts)
 	}
 }

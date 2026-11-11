@@ -29,6 +29,8 @@ type SyncRun struct {
 
 type Store struct {
 	db               *sql.DB
+	readDB           *sql.DB
+	databasePath     string
 	dataRoot         string
 	writable         bool
 	workflowWritable bool
@@ -65,8 +67,8 @@ func OpenReadOnly(filename string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: snapshot could not be opened", ErrUnavailable)
 	}
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	db.SetMaxOpenConns(4)
+	db.SetMaxIdleConns(4)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -99,7 +101,7 @@ func OpenReadOnly(filename string) (*Store, error) {
 		_ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('workflow_runs') WHERE name='source_chain_json'`).Scan(&columns)
 		chain = columns == 1
 	}
-	return &Store{db: db, dataRoot: filepath.Dir(filepath.Dir(abs)), workflowVersion: version, sourceSync: sync, sourceChain: chain}, nil
+	return &Store{db: db, databasePath: abs, dataRoot: filepath.Dir(filepath.Dir(abs)), workflowVersion: version, sourceSync: sync, sourceChain: chain}, nil
 }
 
 // OpenAdminWrites opens an existing fixture in SQLite rw mode. It never creates
@@ -130,7 +132,7 @@ func OpenAdminWrites(filename string) (*Store, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	store := &Store{db: db, dataRoot: filepath.Dir(filepath.Dir(abs)), writable: true}
+	store := &Store{db: db, databasePath: abs, dataRoot: filepath.Dir(filepath.Dir(abs)), writable: true}
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := migrateWorkflowSchema(ctx, db); err != nil {
@@ -150,11 +152,11 @@ type schemaQuerier interface {
 func verifySchema(ctx context.Context, db schemaQuerier) error {
 	required := map[string][]string{
 		"profiles":               {"id", "display_name", "romanized_name", "bio", "avatar_url", "banner_url", "x_url", "youtube_url", "updated_at"},
-		"posts":                  {"id", "source", "account_handle", "type", "label", "text", "published_at", "url", "likes", "reposts", "replies", "media_url", "media_alt", "raw_json", "quote_json", "repost_json", "quote_hidden_at", "refresh_requested_at", "hidden_at"},
-		"post_llm_states":        {"post_id", "status", "route", "last_attempt_at", "last_processed_at", "last_error", "last_extraction_id", "reprocess_requested", "failure_count", "failure_fingerprint", "next_attempt_at"},
-		"events":                 {"id", "source", "source_item_id", "source_key", "title", "detail", "starts_on", "starts_at", "ends_at", "timezone", "time_precision", "status", "event_type", "url", "provenance", "manual_locked", "cancellation_status", "cancellation_source", "cancellation_reason", "cancellation_evidence", "cancellation_source_item_id", "cancellation_confidence", "cancellation_at", "deleted_at", "created_at", "updated_at", "merged_into", "merge_source", "merge_reason", "merged_at"},
+		"posts":                  {"id", "source", "account_handle", "type", "label", "text", "published_at", "url", "likes", "reposts", "replies", "media_url", "media_alt", "raw_json", "quote_json", "repost_json", "quote_hidden_at", "refresh_requested_at", "hidden_at", "promoted_at"},
+		"post_llm_states":        {"post_id", "status", "route", "last_attempt_at", "last_processed_at", "last_error", "last_extraction_id", "reprocess_requested", "failure_count", "failure_fingerprint", "next_attempt_at", "settled_stamp"},
+		"events":                 {"id", "source", "source_item_id", "source_key", "title", "detail", "starts_on", "starts_at", "ends_at", "timezone", "time_precision", "status", "event_type", "url", "provenance", "manual_locked", "cancellation_status", "cancellation_source", "cancellation_reason", "cancellation_evidence", "cancellation_source_item_id", "cancellation_confidence", "cancellation_at", "deleted_at", "created_at", "updated_at", "merged_into", "merge_source", "merge_reason", "merged_at", "ends_on", "platform", "platforms", "platforms_inferred"},
 		"event_sources":          {"event_id", "source", "source_item_id", "deleted_at"},
-		"videos":                 {"id", "source", "title", "published_at", "scheduled_at", "url", "thumbnail_url", "kind", "is_upcoming", "live_status", "live_checked_at", "duration_seconds", "manual_title", "manual_kind", "manual_thumbnail_media_id", "manual_thumbnail_sha256", "refresh_requested_at", "merged_into", "merge_source", "merge_reason", "merged_at", "is_short", "manual_is_short", "manual_tag", "tag", "availability", "manual_availability"},
+		"videos":                 {"id", "source", "title", "published_at", "scheduled_at", "url", "thumbnail_url", "kind", "is_upcoming", "live_status", "live_checked_at", "duration_seconds", "manual_title", "manual_kind", "manual_thumbnail_media_id", "manual_thumbnail_sha256", "refresh_requested_at", "merged_into", "merge_source", "merge_reason", "merged_at", "is_short", "manual_is_short", "manual_tag", "tag", "availability", "manual_availability", "manual_work", "kind_source", "kind_review", "kind_attempts", "kind_attempted_at"},
 		"video_revisions":        {"id", "video_id", "origin", "title", "thumbnail_url", "thumbnail_media_id", "thumbnail_sha256", "replaced_at"},
 		"media_versions":         {"media_id", "sha256", "cache_path", "mime_type", "replaced_at"},
 		"focus":                  {"id", "video_id", "date_label", "title", "description", "image_url", "url", "source_url", "updated_at"},
@@ -205,12 +207,18 @@ func (s *Store) Close() error {
 	if s == nil || s.db == nil {
 		return nil
 	}
+	if s.readDB != nil && s.readDB != s.db {
+		_ = s.readDB.Close()
+	}
 	return s.db.Close()
 }
 
 func (s *Store) GetLatestSync(ctx context.Context) (*SyncRun, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
+	}
+	if s.readDB != nil {
+		return s.publicReader().GetLatestSync(ctx)
 	}
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, source, started_at, finished_at, status
@@ -235,6 +243,9 @@ func (s *Store) GetLatestSync(ctx context.Context) (*SyncRun, error) {
 func (s *Store) GetDashboardRevision(ctx context.Context) (int64, error) {
 	if s == nil || s.db == nil {
 		return 0, ErrUnavailable
+	}
+	if s.readDB != nil {
+		return s.publicReader().GetDashboardRevision(ctx)
 	}
 	var value string
 	err := s.db.QueryRowContext(ctx, "SELECT value FROM app_settings WHERE key = 'dashboard_revision'").Scan(&value)

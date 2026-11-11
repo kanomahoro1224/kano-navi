@@ -33,24 +33,30 @@ explains how the board gets there and what it deliberately does not do.
 
 ```mermaid
 flowchart LR
-  X["X posts"] --> W["Server-side workflows"]
+  X["X and bilibili posts"] --> W["Server-side workflows"]
   YT["YouTube and bilibili"] --> W
+  SHOP["Official shop products"] --> W
   W -- "schedule extraction" --> LLM["Configured LLM providers"]
   W --> DB[("SQLite snapshot<br/>and media cache")]
   DB --> API["Go API, feeds and MCP"]
-  API --> B["Board, Journey, Blog and About"]
+  API --> B["Board, Journey, Works, Blog and About"]
   OP["Operator console"] --> API
 ```
 
 1. Source timers, an operator's Run now, or an authorized MCP client start a
-   workflow. Workflows read public X and YouTube pages (and bilibili copies),
+   workflow. Workflows read public X and YouTube pages (Kano's X accounts and
+   related accounts such as her agency, whose posts about her are promoted
+   onto the board; bilibili posts, copies and live status; and the official
+   shop's public product list, for the sale periods of goods she takes part
+   in),
    download their images into the media cache, and write a SQLite snapshot.
    A failed source keeps the previous snapshot and records its outcome.
-2. Schedule extraction reads candidate posts and schedule images and asks the
+2. Schedule extraction reads candidate posts, the wording they quote, and
+   schedule images, skips hidden posts, and asks the
    configured LLM providers for structured events. Uncertain results create no
    events; manual edits and confirmations lock an event against automatic
    replacement.
-3. Page loads, the reload button, and revision checks only read the stored
+3. Page loads, retries, and revision checks only read the stored
    snapshot through the local API. They never contact X, YouTube, or a model
    provider.
 4. Each completed workflow or operator change advances a small revision
@@ -60,9 +66,12 @@ flowchart LR
    also revalidates its snapshot once a minute, because times such as a
    stream's start pass without a stored change.
 
-The profile, milestones, resource links, the Journey images, and the LINE BLOG
-archive's articles and archived comments ship with the code; the archive's photos and videos are
-packaged into `data/lineblog/` from a local recovery archive. Source snapshots and LLM providers start empty on a fresh installation.
+The profile, milestones, resource links, the Journey images, the works
+tables, and the LINE BLOG archive's articles and archived comments ship with
+the code; the works covers are packaged into `data/works/` from the local
+reference collection (the uploads' video thumbnails are saved by each
+instance's media step), and the archive's photos and videos into
+`data/lineblog/` from a local recovery archive. Source snapshots and LLM providers start empty on a fresh installation.
 See [Core boundaries](architecture/core-boundaries.md) for the full contract.
 
 ## Operator Console and MCP
@@ -74,8 +83,8 @@ extractions,
 schedule curation with durable locks, posts, videos and the featured video,
 profile images, the run history and one-off step runs, sources with their
 timers, manual fetches and YouTube push, schedule detection settings, and the
-LLM provider catalog with its ordered extraction, schedule-image check and
-translation queues. See the
+LLM provider catalog with its ordered text extraction, image extraction and
+translation/light-task queues. See the
 [Admin API](architecture/admin-api.md).
 
 `/mcp` offers sanitized read tools without a key and narrowly scoped

@@ -378,7 +378,7 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 			// re-extraction retired (its source evidence was retired), as new X
 			// evidence would.
 			var event sql.Result
-			event, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,created_at,updated_at,raw_json) VALUES(?,'youtube',?,'reservation',?,?,?,?,?,'Asia/Tokyo','exact',?,?,?,?,'automatic',0,?,?,'{}') ON CONFLICT(id) DO UPDATE SET title=excluded.title,detail=excluded.detail,starts_on=excluded.starts_on,starts_at=excluded.starts_at,ends_at=COALESCE(excluded.ends_at,events.ends_at),time_precision=excluded.time_precision,status=excluded.status,event_type=excluded.event_type,url=excluded.url,is_upcoming=excluded.is_upcoming,deleted_at=NULL,`+retitledJudgementSQL("events", retitledEventJudgement)+`,updated_at=excluded.updated_at WHERE events.manual_locked=0 AND (events.deleted_at IS NULL OR `+restorableEventSQL("events")+`) AND (events.deleted_at IS NOT NULL OR events.title IS NOT excluded.title OR events.detail IS NOT excluded.detail OR events.starts_on IS NOT excluded.starts_on OR events.starts_at IS NOT excluded.starts_at OR events.ends_at IS NOT COALESCE(excluded.ends_at,events.ends_at) OR events.time_precision IS NOT excluded.time_precision OR events.status IS NOT excluded.status OR events.event_type IS NOT excluded.event_type OR events.url IS NOT excluded.url OR events.is_upcoming IS NOT excluded.is_upcoming)`, eventID, v.ID, v.Title, detail, start.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02"), v.ScheduledAt, nullable(v.EndedAt), status, typeName, v.URL, v.IsUpcoming, now, now)
+			event, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,created_at,updated_at,raw_json,platform,platforms,platforms_inferred) VALUES(?,'youtube',?,'reservation',?,?,?,?,?,'Asia/Tokyo','exact',?,?,?,?,'automatic',0,?,?,'{}','youtube','["youtube"]',0) ON CONFLICT(id) DO UPDATE SET title=excluded.title,detail=excluded.detail,starts_on=excluded.starts_on,starts_at=excluded.starts_at,ends_at=COALESCE(excluded.ends_at,events.ends_at),time_precision=excluded.time_precision,status=excluded.status,event_type=excluded.event_type,url=excluded.url,is_upcoming=excluded.is_upcoming,deleted_at=NULL,`+retitledJudgementSQL("events", retitledEventJudgement)+`,updated_at=excluded.updated_at WHERE events.manual_locked=0 AND (events.deleted_at IS NULL OR `+restorableEventSQL("events")+`) AND (events.deleted_at IS NOT NULL OR events.title IS NOT excluded.title OR events.detail IS NOT excluded.detail OR events.starts_on IS NOT excluded.starts_on OR events.starts_at IS NOT excluded.starts_at OR events.ends_at IS NOT COALESCE(excluded.ends_at,events.ends_at) OR events.time_precision IS NOT excluded.time_precision OR events.status IS NOT excluded.status OR events.event_type IS NOT excluded.event_type OR events.url IS NOT excluded.url OR events.is_upcoming IS NOT excluded.is_upcoming)`, eventID, v.ID, v.Title, detail, start.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02"), v.ScheduledAt, nullable(v.EndedAt), status, typeName, v.URL, v.IsUpcoming, now, now)
 			if err != nil {
 				return false, ErrSourceWrite
 			}
@@ -396,9 +396,48 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 	return changed, nil
 }
 
+// WriteYoutubeMembers records members for the stored YouTube videos the
+// channel's members-only playlist names, as a recent run does, for an
+// operator's fetch; IDs not stored are skipped and nothing else changes. It
+// advances the dashboard revision when a value changed, and reports that.
+func (s *Store) WriteYoutubeMembers(ctx context.Context, ids []string) (bool, error) {
+	if s == nil || !s.workflowWritable {
+		return false, ErrSourceWrite
+	}
+	if len(ids) == 0 {
+		return false, nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, ErrSourceWrite
+	}
+	defer tx.Rollback()
+	if err = fenceSourceWrite(ctx, tx); err != nil {
+		return false, err
+	}
+	availability := map[string]string{}
+	for _, id := range ids {
+		availability[id] = ytsource.AvailabilityMembers
+	}
+	changed, err := writeVideoAvailability(ctx, tx, availability)
+	if err != nil {
+		return false, err
+	}
+	if changed {
+		if err = bumpRevision(ctx, tx, workflowTime(time.Now())); err != nil {
+			return false, ErrSourceWrite
+		}
+	}
+	if tx.Commit() != nil {
+		return false, ErrSourceWrite
+	}
+	return changed, nil
+}
+
 // writeVideoAvailability records who can watch the stored YouTube videos
-// whose watch page failed but told (ytsource.FailedAvailability), leaving
-// every other field as it was. It reports whether a value changed.
+// whose watch page failed but told (ytsource.FailedAvailability) or that the
+// members-only playlist names, leaving every other field as it was; IDs not
+// stored are skipped. It reports whether a value changed.
 func writeVideoAvailability(ctx context.Context, tx *sql.Tx, availability map[string]string) (bool, error) {
 	changed := false
 	for id, value := range availability {

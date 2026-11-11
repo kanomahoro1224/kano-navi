@@ -25,6 +25,8 @@ type APIPage struct {
 	Posts []Post
 	Next  string
 	Read  int
+	// Reposts are the account's reposts the answer lists (see APIReposts).
+	Reposts []Repost
 }
 
 // APIReader reads an account's posts through the official X API. It holds

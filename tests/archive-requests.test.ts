@@ -126,7 +126,7 @@ test("month archives page by revision, follow the board and cancel on close", as
             await act(async () => void fixture.current().reload())
             await fixture.respond(2, page(1, null))
             assert.deepEqual(states(), ["live", "upcoming"])
-            assert.match(fixture.requests[3].url, /&page=2$/)
+            assert.match(fixture.requests[3].url, /[?&]page=2$/)
             await fixture.respond(3, page(2, null))
             assert.deepEqual(states(), [null, null])
             assert.equal(fixture.current().archive.page, 2)
@@ -298,23 +298,30 @@ test("month archives page by revision, follow the board and cancel on close", as
     )
 
     await t.test(
-      "changing the month or closing cancels the read and ignores late pages",
+      "changing the video timeline's start or closing cancels the read and ignores late pages",
       async (context) => {
-        const fixture = await setup(context, {
-          request: { kind: "videos", monthStart: october },
-          revision: 1,
-        })
+        const latest = { kind: "videos", monthStart: october, anchor: null }
+        const fixture = await setup(context, { request: latest, revision: 1 })
         try {
-          assert.equal(
-            fixture.requests[0].url,
-            "/api/videos?from=2026-10-01&to=2026-10-31&page=1",
-          )
-          const september = { kind: "videos", monthStart: new Date(2026, 8, 1) }
+          // The timeline reads every month from the newest video.
+          assert.equal(fixture.requests[0].url, "/api/videos?page=1")
+          // Its month is only what scrolled into view: no new read.
+          await fixture.rerender({
+            request: { ...latest, monthStart: new Date(2026, 8, 1) },
+            revision: 1,
+          })
+          assert.equal(fixture.requests.length, 1)
+          // A start month reads it and everything older, through its last day.
+          const september = {
+            ...latest,
+            anchor: new Date(2026, 8, 1),
+            category: "game",
+          }
           await fixture.rerender({ request: september, revision: 1 })
           assert.equal(fixture.requests[0].signal.aborted, true)
           assert.equal(
             fixture.requests[1].url,
-            "/api/videos?from=2026-09-01&to=2026-09-30&page=1",
+            "/api/videos?page=1&until=2026-09-30&category=game",
           )
           await fixture.respond(0, fixture.page(1, 1, ["late"]))
           assert.equal(fixture.current().archive, null)

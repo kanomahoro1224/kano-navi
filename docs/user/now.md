@@ -28,14 +28,20 @@ gameplay, talk, or song label.
 
 ## On Sale
 
-Below the ticket, an On sale row lists up to three merchandise orders,
-pre-orders, ticket sales or lotteries that are on sale now, closing soonest
-first, or that open within a week. They include goods in the official shop
-that Kano takes part in, such as group collections, even when no post
-announces them; such a sale is named after its collection in the shop. Each shows when it closes (or opens) in
-Japan time and links to the shop or announcement. The row appears only when
-there is such a sale. On phones its cards scroll sideways, with the next one
-showing at the edge.
+The On sale list shows merchandise orders, pre-orders, ticket sales or
+lotteries that are on sale now, closing soonest first, or that open within a
+week. They include goods in the official shop that Kano takes part in, such
+as group collections, even when no post announces them; such a sale is named
+after its collection in the shop. Each shows when it closes (or opens) in
+Japan time and links to the shop or announcement. The list appears only when
+there is such a sale.
+
+On wide screens it fills the shorter side of the top of the board: beside a
+ticket with artwork, two sales stack under the profile card; under a compact
+date ticket, three run as a row. On narrower screens three follow the profile
+card as a row, and on phones the row scrolls sideways, with the next card
+showing at the edge. When there are more, an All button with the count opens
+every sale in a sheet.
 
 ## Profile Card
 

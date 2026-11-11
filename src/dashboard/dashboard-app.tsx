@@ -422,14 +422,16 @@ export function DashboardApp() {
           locale={locale}
           now={now}
           t={t}
-        />
-
-        <SaleStrip
-          events={dashboard.events}
-          salesIds={dashboard.projection?.sales}
-          locale={locale}
-          now={now}
-          t={t}
+          sales={(placement) => (
+            <SaleStrip
+              events={dashboard.events}
+              salesIds={dashboard.projection?.sales}
+              placement={placement}
+              locale={locale}
+              now={now}
+              t={t}
+            />
+          )}
         />
 
         <WeekGuide

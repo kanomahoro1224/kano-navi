@@ -44,10 +44,10 @@ The dashboard also carries a locale-neutral `projection` for shared board
 decisions. `projection.version` identifies the contract (`1` is the current
 version), `nextTransitionAt` is the next parseable ISO instant that can change
 a time-dependent decision, `focus.eventIds` and `focus.videoIds` are the
-ordered event and video candidates, and `sales` is the ordered list of sale
-event IDs shown in the sale strip. `spotlight` identifies the next or latest
-ticket, its live state, the members chip decision, and an optional companion
-video. `shelf` contains the lead ID, whether it is Featured, and the ordered
+ordered event and video candidates, and `sales` is the ordered list of every
+sale event ID the board's on-sale list shows, in place or in its sheet.
+`spotlight` identifies the next or latest ticket, its live state, the members
+chip decision, and an optional companion video. `shelf` contains the lead ID, whether it is Featured, and the ordered
 reservation, work, archive and Short IDs. The browser uses these IDs to join
 the returned records; it does not infer their order from localized text.
 

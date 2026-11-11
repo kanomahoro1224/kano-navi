@@ -76,9 +76,12 @@ the dialog). A `pill-button is-collapsible` shows only its icon at 560px and
 below, so it keeps its label as `aria-label`. The board lives in
 `src/dashboard/`: `use-dashboard.ts` owns the snapshot request and the
 revision stream, `format.ts` owns Japan-time and event-status helpers, `content.ts` holds static public links, and
-`components/` renders the next-up stage and profile card, the on-sale strip
-(`sale-strip.tsx`: up to three IDs from `projection.sales`, rendered in API
-order; snapshots without that projection use `currentSales`), the week guide,
+`components/` renders the next-up stage and profile card, the on-sale list
+(`sale-strip.tsx`: the IDs from `projection.sales`, rendered in API order;
+snapshots without that projection use `currentSales`; the stage passes its
+placement, `side` under the profile card beside a full ticket or `main` under
+a compact one, which sets how many show in place, and the rest open in a
+`sheet-dialog.tsx` sheet), the week guide,
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
 schedule, posts or videos, and `sheet-dialog.tsx`, the smaller modal sheet

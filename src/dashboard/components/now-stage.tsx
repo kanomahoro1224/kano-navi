@@ -1,4 +1,4 @@
-import type { ComponentType } from "react"
+import type { ComponentType, ReactNode } from "react"
 import type { Dashboard, Locale, Profile, Translator } from "@/types"
 import {
   ArrowUpRight,
@@ -57,6 +57,7 @@ import {
   VideoTagChip,
 } from "./event-tag"
 import { PlatformBadge, PlatformLinks } from "./platform-links"
+import type { SalePlacement } from "./sale-strip"
 import { TranslatedTitle } from "./translated-title"
 
 /** Each source's mark and brand name; the shop has neither, so its name is
@@ -784,10 +785,25 @@ export function NowStage(props: {
   locale: Locale
   now: number
   t: Translator
+  /**
+   * The on-sale list for its place on the stage: beside a full ticket it
+   * stacks under the profile card, and under a compact one it takes the
+   * room below the ticket.
+   */
+  sales?: (placement: SalePlacement) => ReactNode
 }) {
-  const { summary, projection, liveNow, isLoading, locale, now, t } = props
+  const { summary, projection, liveNow, isLoading, locale, now, t, sales } =
+    props
+  // The loading placeholder has a full ticket's shape.
+  const full =
+    isLoading ||
+    pickSpotlight(summary, now, liveNow ?? null, projection)?.layout === "full"
   return (
-    <section className="stage" id="now" aria-label={t("nav.now")}>
+    <section
+      className={`stage ${full ? "is-full" : "is-compact"}`}
+      id="now"
+      aria-label={t("nav.now")}
+    >
       <NextTicket
         summary={summary}
         projection={projection}
@@ -798,6 +814,7 @@ export function NowStage(props: {
         t={t}
       />
       <ProfileCard {...props} />
+      {sales?.(full ? "side" : "main")}
     </section>
   )
 }

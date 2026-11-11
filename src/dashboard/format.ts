@@ -516,7 +516,11 @@ export const SALE_LOOKAHEAD_MS = 7 * 86_400_000
  * cancelled ones and those under cancellation review stay out, open ones
  * come first by their close, then the others by their opening.
  */
-export function currentSales(events: ScheduleEvent[], now: number, limit = 3) {
+export function currentSales(
+  events: ScheduleEvent[],
+  now: number,
+  limit = Infinity,
+) {
   const listed = events.filter((event) => {
     if (!eventIsSale(event)) return false
     const status = eventStatus(event, now)

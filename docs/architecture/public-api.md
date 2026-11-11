@@ -455,7 +455,7 @@ public key that signs the shop source's outbound requests, as
 key (`kty`, `crv`, `x`) and never a private member. The response carries its
 own `Signature-Input` and `Signature` over `("@authority";req)`, tagged
 `http-message-signatures-directory`. It answers `404 {error: "not_found"}`
-while `WEB_BOT_AUTH_KEY` is unset and 405 to other methods. See
+while Web Bot Auth signing is not active and 405 to other methods. See
 [Web Bot Auth](web-bot-auth.md#key-directory).
 
 ## Related Docs

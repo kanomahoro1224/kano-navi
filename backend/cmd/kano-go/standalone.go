@@ -33,6 +33,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/variants"
 	"github.com/yexca/kano-navi/backend/internal/webbotauth"
+	"github.com/yexca/kano-navi/backend/internal/webbotauth/keyadmin"
 	"github.com/yexca/kano-navi/backend/internal/workflow"
 	"github.com/yexca/kano-navi/backend/internal/works"
 )
@@ -62,7 +63,7 @@ func runStandalone(cfg config.Config) int {
 	if secretsKey == "" {
 		return fail("LLM_SECRETS_KEY is not configured; refusing to start", 2)
 	}
-	signer, err := webbotauth.FromEnv(os.Getenv, cfg.PublicOrigin)
+	envKey, err := webbotauth.KeyFromEnv(os.Getenv)
 	if err != nil {
 		return fail(err.Error(), 2)
 	}
@@ -82,7 +83,14 @@ func runStandalone(cfg config.Config) int {
 		return fail("detection settings unavailable", 1)
 	}
 
-	run := newPipeline(store, secretsKey, signer)
+	// The Web Bot Auth key is managed in /admin unless WEB_BOT_AUTH_KEY
+	// overrides it; the shop client and the key directory read the holder.
+	signing := webbotauth.NewHolder()
+	keyAdmin := keyadmin.New(store, signing, secretsKey, envKey, cfg.PublicOrigin)
+	if err = keyAdmin.Load(context.Background()); err != nil {
+		return fail("Web Bot Auth settings unavailable", 1)
+	}
+	run := newPipeline(store, secretsKey, signing)
 	// The variants step and the Site page's copies status read the archives
 	// under the data directory.
 	run.steps.Variants = &variants.Roots{Data: store.DataRoot()}
@@ -143,30 +151,30 @@ func runStandalone(cfg config.Config) int {
 			Store:     store,
 			Auth:      auth,
 			Runs:      manager,
-			Modules:   append(modules, pushAdmin),
+			Modules:   append(modules, pushAdmin, keyAdmin),
 			Scheduler: scheduler.Status,
 			// A timer the operator starts is submitted at once when the
 			// queue is free.
-			TickScheduler: func(ctx context.Context) { _, _ = scheduler.Tick(ctx) },
-			YoutubePush:   pushAdmin.Status,
-			LiveProbe:     probe.Status,
-			RunPruner:     pruner.Status,
-			YoutubeYTDLP:  run.steps.Youtube.YTDLP,
-			SkippedSteps:  run.skipped,
-			XHandles:      run.xOptions.Handles,
-			Bilibili:      run.steps.Bilibili,
-			FetchMethods:  run.steps.History.Methods,
-			Variants:      run.steps.Variants,
-			Works:         run.steps.Works,
-			Queues:        run.queues,
-			Youtube:       run.steps.Youtube,
-			ShopSigning:   signer != nil,
+			TickScheduler:  func(ctx context.Context) { _, _ = scheduler.Tick(ctx) },
+			YoutubePush:    pushAdmin.Status,
+			LiveProbe:      probe.Status,
+			RunPruner:      pruner.Status,
+			YoutubeYTDLP:   run.steps.Youtube.YTDLP,
+			SkippedSteps:   run.skipped,
+			XHandles:       run.xOptions.Handles,
+			Bilibili:       run.steps.Bilibili,
+			FetchMethods:   run.steps.History.Methods,
+			Variants:       run.steps.Variants,
+			Works:          run.steps.Works,
+			Queues:         run.queues,
+			Youtube:        run.steps.Youtube,
+			ShopWebBotAuth: keyAdmin.Status,
 		}),
 		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin),
 		MCP:          standaloneMCP(store, manager),
 		WebSub:       push,
 		PublicOrigin: cfg.PublicOrigin,
-		Signer:       signer,
+		WebBotAuth:   signing,
 	})
 	server := httpapi.NewServer(httpapi.RequestLog(httpapi.Compress(handler), os.Stdout), cfg)
 	// Revision streams stay open until the client leaves; end them when
@@ -249,7 +257,7 @@ type pipeline struct {
 // newPipeline wires the source, media and schedule steps. key is the
 // LLM_SECRETS_KEY that unseals provider credentials for schedule extraction.
 // Source API credentials are read from the environment and stay in memory.
-func newPipeline(store *sqlite.Store, key string, signer *webbotauth.Signer) pipeline {
+func newPipeline(store *sqlite.Store, key string, signer webbotauth.Source) pipeline {
 	skip := map[string]bool{}
 	skipped := []string{}
 	for _, step := range jobs.StepOrder {
@@ -383,8 +391,8 @@ func standaloneMCP(store *sqlite.Store, manager jobs.Manager) http.Handler {
 }
 
 // shopClient reads the shop through its outbound proxy area and signs the
-// requests a read asks to sign when WEB_BOT_AUTH_KEY is configured.
-func shopClient(proxies *outboundproxy.Pool, signer *webbotauth.Signer) *shopsource.Client {
+// requests a read asks to sign with the current Web Bot Auth key.
+func shopClient(proxies *outboundproxy.Pool, signer webbotauth.Source) *shopsource.Client {
 	client := shopsource.NewClient(proxies.Client(outboundproxy.AreaShop))
 	client.Signer = signer
 	return client

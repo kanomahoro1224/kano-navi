@@ -84,14 +84,18 @@ operator actions, and share the bounded single-flight synchronization queue.
 
 ## Web Bot Auth Key
 
-`WEB_BOT_AUTH_KEY` is the private key that identifies the shop source's
-requests. It stays in the environment and process memory: it is never stored
-in SQLite, written to `raw_json`, logged, or returned by the admin API, which
-reports only whether the `signed` method can run. The public directory at
-`/.well-known/http-message-signatures-directory` holds the public key only.
-Anyone holding the seed can sign as this site, so replace it with a new one
-from `kano-go web-bot-auth-key` when it may have leaked; requests signed with
-the old key stop verifying once sites refresh the directory. See
+The Web Bot Auth key identifies the shop source's requests as this site's.
+It is an identity key this server generates, not a credential a source
+issued: the operator makes it in `/admin`, and its private seed is sealed
+with `LLM_SECRETS_KEY` in `app_settings`, like the YouTube push signing
+secret. The seed is never returned by the admin API, which reports its
+keyid and state, and never logged or written to `raw_json`; the public
+directory at `/.well-known/http-message-signatures-directory` holds public
+keys only. The optional `WEB_BOT_AUTH_KEY` override stays in the
+environment and process memory. Anyone holding the seed can sign as this
+site, so rotate the key in `/admin` (or replace the override) when it may
+have leaked; the replaced public key stays listed for 24 hours, and
+removing the key withdraws it at once. See
 [Web Bot Auth](../architecture/web-bot-auth.md).
 
 ## LLM Secrets and Dependencies

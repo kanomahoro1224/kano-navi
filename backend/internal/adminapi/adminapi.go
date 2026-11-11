@@ -61,9 +61,10 @@ type Options struct {
 	// Bilibili reads single uploads for operators; nil disables the routes
 	// that need it.
 	Bilibili *bilisource.Adapter
-	// ShopSigning reports a configured Web Bot Auth key, which the shop's
-	// signed method needs.
-	ShopSigning bool
+	// ShopWebBotAuth reports the Web Bot Auth key's state
+	// (internal/webbotauth/keyadmin); the shop's signed method runs while it
+	// is "active". Nil reports no key.
+	ShopWebBotAuth func() map[string]any
 	// YoutubeYTDLP is the optional local yt-dlp runner used by the YouTube
 	// source and its operator update route.
 	YoutubeYTDLP *ytsource.YTDLP

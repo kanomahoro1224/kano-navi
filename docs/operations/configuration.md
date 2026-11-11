@@ -31,7 +31,7 @@
 | `BILIBILI_COOKIE`                         | Empty                               | Optional signed-in browser cookies; wins over `BILIBILI_SESSDATA`     |
 | `BILIBILI_SESSDATA`                       | Empty                               | Optional login cookie; a login is required for the dynamics           |
 | `BILIBILI_APP_KEY`, `BILIBILI_APP_SECRET` | Empty                               | Optional official-client key pair; lets the uploads' `app` method run |
-| `WEB_BOT_AUTH_KEY`                        | Empty                               | Optional Ed25519 seed that signs the shop's requests (Web Bot Auth)   |
+| `WEB_BOT_AUTH_KEY`                        | Empty                               | Optional override of the console's Web Bot Auth signing key           |
 | `SKIP_X`, `SKIP_YOUTUBE`                  | `0`                                 | Set to `1` to skip that source's step and its timer                   |
 | `SKIP_BILIBILI`                           | `0`                                 | Set to `1` to skip both Bilibili steps, timers and console reads      |
 | `SKIP_SHOP`                               | `0`                                 | Set to `1` to skip the official shop's step, timer and fetch          |
@@ -64,32 +64,40 @@ lowercased; a path, query, credentials, or a host that is not a DNS name or
 IP address with an optional port fail startup). It only completes the link-preview tags of
 `index.html` (see [Share tags](../architecture/backend.md#share-tags)) and the
 Atom feed's site and self links (see
-[Public feeds](../architecture/public-api.md#public-feeds)), and with
-`WEB_BOT_AUTH_KEY` it names the signing agent (see [Web Bot Auth](#web-bot-auth));
-it grants no access and is not an admin origin.
+[Public feeds](../architecture/public-api.md#public-feeds)), and, when it is
+`https` and no signing origin is set, names the Web Bot Auth signing agent
+(see [Web Bot Auth](#web-bot-auth)); it grants no access and is not an admin
+origin.
 
 ### Web Bot Auth
 
-`WEB_BOT_AUTH_KEY` is an Ed25519 private key, its 32-byte seed in base64url.
-With it the [official shop](../architecture/sources.md#official-shop)'s
-requests carry a [Web Bot Auth](../architecture/web-bot-auth.md) signature,
-the shop chain's `signed` method can run, and the site serves the public key
-at `/.well-known/http-message-signatures-directory`. It needs an `https`
-`PUBLIC_ORIGIN`, the origin the signatures name as their agent and where a
-verifier fetches that directory, so the public site must answer there.
-`kano-go serve` and `kano-go sync` refuse to start, before opening SQLite,
-when the seed is malformed or `PUBLIC_ORIGIN` is empty or `http`. Make a key
-with:
+The [official shop](../architecture/sources.md#official-shop)'s requests
+carry a [Web Bot Auth](../architecture/web-bot-auth.md) signature once the
+operator generates a key in `/admin` → Sources → Official shop → Web Bot
+Auth; no environment variable is needed. The key is sealed with
+`LLM_SECRETS_KEY` in SQLite, so a backup of the data directory keeps it and
+a changed `LLM_SECRETS_KEY` makes it unreadable until a new one is
+generated. Signing also needs an `https` origin that reaches this site, where
+verifiers fetch `/.well-known/http-message-signatures-directory`: the
+panel's signing origin, or `PUBLIC_ORIGIN` when it is `https` and no signing
+origin is set. Generating, rotating, removing and the origin apply without a
+restart; a rotation keeps the replaced public key in the directory for 24
+hours.
+
+`WEB_BOT_AUTH_KEY` overrides the console's key for a deployment that
+manages it outside SQLite: a 32-byte Ed25519 seed in base64url. While it is
+set the panel shows the key as environment-managed and cannot generate,
+rotate or remove one. A malformed value stops `kano-go serve` and
+`kano-go sync` before SQLite opens. Make a value with:
 
 ```bash
 kano-go web-bot-auth-key
 ```
 
 It prints the `WEB_BOT_AUTH_KEY=` line and, as a comment, the key's keyid
-(its RFC 7638 JWK thumbprint), which a site's logs or a verifier may show. A
-new key takes effect after a restart; the directory then serves only the new
-public key, so a site that cached the old one verifies again after its cache
-expires. The key is a credential like the others below.
+(its RFC 7638 JWK thumbprint). A changed value takes effect after a restart,
+and the directory then lists only the new public key. The value is a
+credential like the others below.
 
 `YTDLP_BINARY` enables the optional YouTube yt-dlp method. The production
 Compose deployment points it at the bundled `/app/yt-dlp`; other deployments

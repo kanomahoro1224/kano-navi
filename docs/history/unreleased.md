@@ -40,15 +40,21 @@
 <details>
 <summary><strong>Upgrade notes</strong></summary>
 
-- The optional `WEB_BOT_AUTH_KEY` (an Ed25519 seed; make one with
-  `kano-go web-bot-auth-key`) signs the shop's requests with Web Bot Auth
-  and serves `GET /.well-known/http-message-signatures-directory`. It needs
-  an `https` `PUBLIC_ORIGIN`; a malformed key or a missing or `http` origin
+- The shop's requests can be signed with Web Bot Auth. The operator
+  generates, rotates and removes the key in `/admin` → Sources → Official
+  shop; it is stored sealed with `LLM_SECRETS_KEY` and served publicly at
+  `GET /.well-known/http-message-signatures-directory`. Signing needs an
+  `https` origin: the panel's signing origin, or an `https` `PUBLIC_ORIGIN`.
+  The optional `WEB_BOT_AUTH_KEY` (make one with
+  `kano-go web-bot-auth-key`) overrides the stored key; a malformed value
   stops startup.
+- Admin adds `GET`/`PUT /sources/shop/web-bot-auth` and
+  `POST`/`DELETE /sources/shop/web-bot-auth/key`, and `GET /sources` adds
+  `shop.webBotAuth`.
 - The shop timer has a method chain: `signed`, `new_arrivals` and `atom`,
   all on. A stored shop chain gains `signed` before `new_arrivals` and `atom`
   after it. Admin `GET /sources` reports it with `fixed: false` and
-  `WEB_BOT_AUTH_KEY` for `signed`, and `PUT /sources/shop/schedule` accepts
+  `a Web Bot Auth key` for `signed`, and `PUT /sources/shop/schedule` accepts
   its `chain`.
 - The `shop` step result adds `listing`, `tried`, `signed` and, after a
   fallback, `fallback`; a fallback makes the run `partial`. New codes:
@@ -131,6 +137,8 @@
 <summary><strong>Operator console</strong></summary>
 
 - The shop's timed reads show its method chain for ordering and switching,
-  with the signed read greyed until `WEB_BOT_AUTH_KEY` is set.
+  with the signed read greyed until a Web Bot Auth key is active.
+- Sources → Official shop has a Web Bot Auth panel: the key's state, keyid,
+  age and directory, the signing origin, and Generate, Rotate and Remove.
 
 </details>

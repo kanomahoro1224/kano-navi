@@ -19,7 +19,7 @@ kano-go sync         Run one full synchronization and exit
 kano-go responses    List capture metadata or export a captured source response
 kano-go migrate-llm  Seal OPENAI_API_KEY as the key of the openai-default provider
 kano-go variants     Make the resized copies of the LINE BLOG, Works and Journey images
-kano-go web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY line and its keyid
+kano-go web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY override line and its keyid
 kano-go healthcheck  Probe the local service and exit
 ```
 
@@ -71,8 +71,10 @@ is occupied.
 
 1. `ADMIN_PASSWORD` (production default, at least 12 non-padding characters)
    and a non-blank `LLM_SECRETS_KEY` are validated before SQLite is opened,
-   as is an optional `WEB_BOT_AUTH_KEY` with its `https` `PUBLIC_ORIGIN`
-   ([Web Bot Auth](web-bot-auth.md#key)).
+   as is an optional `WEB_BOT_AUTH_KEY` override
+   ([Web Bot Auth](web-bot-auth.md#key)). The stored Web Bot Auth key is
+   loaded once the database is open; an unreadable key or a missing
+   origin leaves signing off rather than failing the start.
 2. A missing database is created from the embedded schema
    (`internal/store/sqlite/bootstrap.sql`) and public static seeds. Source
    snapshots, Featured data and providers start empty.
@@ -119,7 +121,7 @@ is occupied.
 | Profile media, schedule images, post reprocess | `internal/contentadmin`                                         |
 | Schedule extraction step                       | `internal/schedule`                                             |
 | Outbound proxy queue and routes                | `internal/outboundproxy`                                        |
-| Web Bot Auth key, signing and key directory    | `internal/webbotauth`                                           |
+| Web Bot Auth key, signing and key directory    | `internal/webbotauth`, `internal/webbotauth/keyadmin`           |
 | `/mcp`                                         | `internal/mcpapi`                                               |
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
 
@@ -127,8 +129,8 @@ is occupied.
 listener; `internal/httpapi` builds the handler around an injected store.
 `internal/adminapi` owns the single `/api/admin` route table described in the
 [Admin API](admin-api.md). Feature packages (`internal/llmadmin`,
-`internal/contentadmin`, `internal/outboundproxy` and the YouTube `websub`
-package) implement
+`internal/contentadmin`, `internal/outboundproxy`, `internal/webbotauth/keyadmin`
+and the YouTube `websub` package) implement
 `httpx.AdminModule` by returning their routes; the router authenticates the
 session, applies the origin guard and refuses writes to a read-only database
 before a module handler runs.

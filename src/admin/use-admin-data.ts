@@ -82,6 +82,7 @@ import type {
   WorksRecentReport,
   SyncSettingField,
   SyncSettings,
+  WebBotAuthStatus,
   YTDLPStatus,
 } from "@/admin/types"
 
@@ -237,6 +238,12 @@ function createClient(run: Runner, slow: Runner) {
         `/sources/youtube/live-probe/videos/${enc(id)}`,
         { stopped },
       ),
+    updateWebBotAuth: (body: { origin: string | null }) =>
+      send<WebBotAuthStatus>("PUT", "/sources/shop/web-bot-auth", body),
+    generateWebBotAuthKey: () =>
+      send<WebBotAuthStatus>("POST", "/sources/shop/web-bot-auth/key"),
+    removeWebBotAuthKey: () =>
+      send<WebBotAuthStatus>("DELETE", "/sources/shop/web-bot-auth/key"),
     rotatePushSecret: () =>
       send<Sources["youtube"]["push"]>(
         "POST",

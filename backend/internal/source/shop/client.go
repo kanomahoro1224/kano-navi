@@ -81,13 +81,23 @@ type Client struct {
 	http *http.Client
 	// now reads the clock for an HTTP-date Retry-After.
 	now func() time.Time
-	// Signer signs the requests a read asks to sign; nil leaves every
-	// request unsigned and the signed method unavailable.
-	Signer *webbotauth.Signer
+	// Signer gives the signer of the requests a read asks to sign, read
+	// afresh for every request so a key the operator changes applies at
+	// once; nil, or no current signer, leaves every request unsigned and the
+	// signed method unavailable.
+	Signer webbotauth.Source
 }
 
-// Signs reports whether a Web Bot Auth key is configured.
-func (c *Client) Signs() bool { return c.Signer != nil }
+// signer is the signer in use, or nil.
+func (c *Client) signer() *webbotauth.Signer {
+	if c.Signer == nil {
+		return nil
+	}
+	return c.Signer.Current()
+}
+
+// Signs reports whether a Web Bot Auth key is in use.
+func (c *Client) Signs() bool { return c.signer() != nil }
 
 // NewClient wraps an HTTP client (for its transport) with the request
 // timeout and redirect rejection.
@@ -148,7 +158,8 @@ func (c *Client) Atom(ctx context.Context, sign bool) ([]Product, error) {
 // get requests one fixed path on Host and returns the bounded body. A
 // signed request without a key fails before any request.
 func (c *Client) get(ctx context.Context, path string, query url.Values, accept string, sign bool) ([]byte, error) {
-	if sign && c.Signer == nil {
+	signer := c.signer()
+	if sign && signer == nil {
 		return nil, &Error{Code: ErrNoSigningKey}
 	}
 	u := url.URL{Scheme: "https", Host: Host, Path: path, RawQuery: query.Encode()}
@@ -158,7 +169,7 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, accept 
 	}
 	req.Header.Set("User-Agent", UserAgent)
 	req.Header.Set("Accept", accept)
-	if sign && c.Signer.SignRequest(req) != nil {
+	if sign && signer.SignRequest(req) != nil {
 		return nil, &Error{Code: "shop_signing_failed"}
 	}
 	resp, err := c.http.Do(req)

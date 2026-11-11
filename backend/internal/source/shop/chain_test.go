@@ -265,3 +265,24 @@ func TestAtomSalesKeepNoPrice(t *testing.T) {
 		t.Fatalf("sale=%+v", result.Sales[0])
 	}
 }
+
+// The client reads the holder for every request, so a key the operator
+// generates or removes applies to the next read without a new client.
+func TestClientFollowsTheHolder(t *testing.T) {
+	holder := webbotauth.NewHolder()
+	adapter, seen := chainShop(t, nil, nil)
+	adapter.Client.Signer = holder
+	if result, err := adapter.Read(context.Background(), State{}, nil, false, nil); err != nil || result.Listing != MethodArrivals || result.Signed {
+		t.Fatalf("no key: %+v %v", result, err)
+	}
+	holder.Set(testSigner(t), nil)
+	*seen = nil
+	if result, err := adapter.Read(context.Background(), State{}, nil, false, nil); err != nil || result.Listing != MethodSigned || !(*seen)[0].signed {
+		t.Fatalf("with key: %+v %v %v", result, err, *seen)
+	}
+	holder.Set(nil, nil)
+	*seen = nil
+	if result, err := adapter.Read(context.Background(), State{}, nil, false, nil); err != nil || result.Listing != MethodArrivals || (*seen)[0].signed {
+		t.Fatalf("removed: %+v %v %v", result, err, *seen)
+	}
+}

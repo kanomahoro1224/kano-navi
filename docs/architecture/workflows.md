@@ -407,7 +407,7 @@ configured, so the default chain applies when no stored chain is available. A me
 credential the process lacks is skipped with `x_api_unavailable` or
 `youtube_api_key_missing`; a Bilibili method without its login or key pair
 is passed over without a request, and so is the shop's `signed` without
-`WEB_BOT_AUTH_KEY` (`shop_no_signing_key`). Risk-control and login failures on the
+an active Web Bot Auth key (`shop_no_signing_key`). Risk-control and login failures on the
 Bilibili dynamics chain stop it before a fallback request. The chain covers listing methods only: detail
 requests (vxtwitter, watch pages) and fixed helper reads (the streams page,
 and the feed read for Shorts verdicts while the Data API lists) stay outside

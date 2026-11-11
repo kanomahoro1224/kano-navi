@@ -431,7 +431,7 @@ func (a *api) sources(w http.ResponseWriter, r *http.Request) {
 		"x":         map[string]any{"skipped": a.skipped("x"), "methods": a.fetchMethods("x"), "accounts": accounts},
 		"youtube":   map[string]any{"skipped": a.skipped("youtube"), "methods": a.fetchMethods("youtube"), "oldest": oldest, "push": a.pushStatus(), "liveProbe": probe},
 		"bilibili":  bilibili,
-		"shop":      map[string]any{"skipped": a.skipped(sqlite.ShopSource), "methods": a.fetchMethods(history.SourceShop), "status": shop},
+		"shop":      map[string]any{"skipped": a.skipped(sqlite.ShopSource), "methods": a.fetchMethods(history.SourceShop), "status": shop, "webBotAuth": a.webBotAuthStatus()},
 	})
 }
 
@@ -591,6 +591,14 @@ func (a *api) updateLiveProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.liveProbe(w, r)
+}
+
+// webBotAuthStatus is the shop's signing key state.
+func (a *api) webBotAuthStatus() map[string]any {
+	if a.ShopWebBotAuth == nil {
+		return map[string]any{"state": "no_key"}
+	}
+	return a.ShopWebBotAuth()
 }
 
 func (a *api) pushStatus() map[string]any {

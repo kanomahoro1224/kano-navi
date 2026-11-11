@@ -333,6 +333,10 @@ account's refreshes leave passing to the next account.
 | `GET /sources/youtube/push`                   |                                                                                    | push status                    |
 | `PUT /sources/youtube/push`                   | `{enabled, callbackUrl}`                                                           | push status                    |
 | `POST /sources/youtube/push/rotate-secret`    |                                                                                    | push status                    |
+| `GET /sources/shop/web-bot-auth`              |                                                                                    | key status (below)             |
+| `PUT /sources/shop/web-bot-auth`              | `{origin}`                                                                         | key status                     |
+| `POST /sources/shop/web-bot-auth/key`         |                                                                                    | key status                     |
+| `DELETE /sources/shop/web-bot-auth/key`       |                                                                                    | key status                     |
 | `GET /sources/youtube/live-probe`             |                                                                                    | live probe status              |
 | `PUT /sources/youtube/live-probe`             | `{enabled, intervalMinutes, bilibiliEnabled, bilibiliIntervalMinutes}`, any subset | live probe status              |
 | `PUT /sources/youtube/live-probe/videos/{id}` | `{stopped}`                                                                        | live probe status              |
@@ -351,12 +355,45 @@ account's refreshes leave passing to the next account.
   "bilibili": {"available", "skipped", "methods": [FetchMethod], "oldest", "account", "videos", "signedIn", "login", "loginCheckedAt", "minIntervalMinutes", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError",
                "dynamics": {"posts", "methods": [FetchMethod], "oldest", "lastAttemptAt", "lastSuccessAt", "lastError", "skipped"},
                "live": {"roomId", "liveStatus", "title", "liveTime", "checkedAt", "lastLiveAt", "blockedUntil", "lastError"}},
-  "shop": {"skipped", "methods": [FetchMethod], "status": {"sales", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError"}}
+  "shop": {"skipped", "methods": [FetchMethod], "status": {"sales", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError"},
+           "webBotAuth": WebBotAuthStatus}
 }
 ```
 
 `shop.status` counts the shop's visible sale entries and reports its read
 bookkeeping: `blockedUntil` is when a 429 answer's `Retry-After` passes.
+
+### Web Bot Auth key
+
+`WebBotAuthStatus`, from `GET /sources/shop/web-bot-auth` and in
+`shop.webBotAuth`, describes the [Web Bot Auth](web-bot-auth.md) key that
+signs the shop's requests:
+
+```json
+{"state", "source", "keyId", "createdAt", "origin", "originSetting", "publicOrigin",
+ "directoryUrl", "previous": {"keyId", "until"} | null, "environmentManaged"}
+```
+
+`state` is `active`, `no_key`, `no_origin` or `key_unreadable` (see
+[Signing state](web-bot-auth.md#signing-state)); `source` is `stored`,
+`environment` or null without a key. `keyId` is the key's JWK thumbprint and
+`createdAt` when the console made it (null for an environment key).
+`origin` is the origin requests name as their agent, `originSetting` the
+operator's and `publicOrigin` the normalized `PUBLIC_ORIGIN`;
+`directoryUrl` is the key directory's address while signing is active.
+`previous` is the key a rotation replaced while the directory still lists
+it. No answer carries a private key or its sealed form.
+
+`PUT` takes `{origin}`: a bare `https` origin (scheme and host, with an
+optional port and trailing slash), or `""` or null to clear it so
+`PUBLIC_ORIGIN` applies; anything else, or another field, is
+`400 invalid_input`. `POST …/key` generates a key, or rotates: the new key
+signs at once and the replaced one stays listed for 24 hours. `DELETE …/key`
+removes the key and any replaced one. Both answer
+`409 environment_managed` while `WEB_BOT_AUTH_KEY` is set, and
+`503 secrets_key_unavailable` when the key cannot be sealed. Every write
+answers the new status, applies without a restart, and answers
+`503 read_only` on a read-only snapshot.
 
 The related accounts answer is `{accounts, defaultKeywords, status}`:
 `accounts` lists `{handle, keywords}` (see
@@ -393,8 +430,9 @@ requires}` in the order reads try them. `available` is false while the
 method's credential is missing, and `requires` names its variables
 (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY`,
 `BILIBILI_COOKIE or BILIBILI_SESSDATA`,
-`BILIBILI_APP_KEY and BILIBILI_APP_SECRET`, or `WEB_BOT_AUTH_KEY` for the
-shop's `signed`) for methods that need one. `fixed` is true for the
+`BILIBILI_APP_KEY and BILIBILI_APP_SECRET`, or `a Web Bot Auth key` for the
+shop's `signed`, available while the [key](#web-bot-auth-key) is active)
+for methods that need one. `fixed` is true for the
 related-accounts timer, whose one method, `timeline`, cannot change. The shop
 chain orders `signed`, `new_arrivals` and `atom`. The Bilibili dynamics chain orders `desktop` and `dynamics`
 (the WBI listing); both require the configured login. The X chain adds

@@ -31,8 +31,9 @@ type Handler struct {
 	// publicOrigin is the normalized PUBLIC_ORIGIN or empty; the Atom feed
 	// uses it for absolute links.
 	publicOrigin string
-	// signer serves the Web Bot Auth key directory; nil answers it 404.
-	signer *webbotauth.Signer
+	// webBotAuth serves the Web Bot Auth key directory; nil, or a holder
+	// without a signer, answers it 404.
+	webBotAuth *webbotauth.Holder
 	// streams pushes revision changes to /api/dashboard/events.
 	streams *revisionHub
 }
@@ -49,9 +50,9 @@ type Standalone struct {
 	WebSub http.Handler
 	// PublicOrigin is the normalized PUBLIC_ORIGIN, or empty.
 	PublicOrigin string
-	// Signer is the Web Bot Auth signer whose key directory the site
-	// serves, or nil without WEB_BOT_AUTH_KEY.
-	Signer *webbotauth.Signer
+	// WebBotAuth holds the Web Bot Auth signer whose key directory the
+	// site serves; nil serves none.
+	WebBotAuth *webbotauth.Holder
 }
 
 // NewStandaloneHandler serves the whole product from this process.
@@ -67,7 +68,7 @@ func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Sta
 		mcp:          options.MCP,
 		websub:       options.WebSub,
 		publicOrigin: options.PublicOrigin,
-		signer:       options.Signer,
+		webBotAuth:   options.WebBotAuth,
 		streams:      newRevisionHub(store.GetDashboardRevision),
 	}
 }
@@ -159,11 +160,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case webbotauth.DirectoryPath:
 		// The key directory a site fetches from the Signature-Agent origin
 		// to verify the shop source's signed requests.
-		if h.signer == nil && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+		if !h.webBotAuth.Serves() && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"}, "")
 			return
 		}
-		h.signer.ServeDirectory(w, r)
+		h.webBotAuth.ServeDirectory(w, r)
 	case "/api/posts":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {

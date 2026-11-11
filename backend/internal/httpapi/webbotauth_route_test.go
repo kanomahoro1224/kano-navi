@@ -24,7 +24,13 @@ func TestWebBotAuthDirectoryIsServedOnlyWithAKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	with := NewStandaloneHandler(store, nil, Standalone{Signer: signer})
+	holder := webbotauth.NewHolder()
+	// A holder without a signer answers like no key.
+	if got := request(t, NewStandaloneHandler(store, nil, Standalone{WebBotAuth: holder}), http.MethodGet, webbotauth.DirectoryPath); got.Code != http.StatusNotFound {
+		t.Fatalf("empty holder: status=%d", got.Code)
+	}
+	holder.Set(signer, nil)
+	with := NewStandaloneHandler(store, nil, Standalone{WebBotAuth: holder})
 	got := request(t, with, http.MethodGet, webbotauth.DirectoryPath)
 	if got.Code != http.StatusOK || got.Header().Get("Content-Type") != webbotauth.DirectoryContentType ||
 		!strings.HasPrefix(got.Header().Get("Signature-Input"), `sig1=("@authority";req);alg="ed25519";keyid="`+key.Thumbprint()+`";tag="http-message-signatures-directory";`) ||

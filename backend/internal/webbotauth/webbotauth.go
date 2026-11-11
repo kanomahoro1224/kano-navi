@@ -2,9 +2,10 @@
 // Auth (draft-meunier-web-bot-auth-architecture over RFC 9421 HTTP Message
 // Signatures) and serves the key directory that lets a site verify them.
 //
-// The private key is an Ed25519 seed from WEB_BOT_AUTH_KEY. It stays in
-// process memory: nothing here logs, stores or returns it, and the directory
-// holds the public key only.
+// A Key is an Ed25519 key. Nothing here logs, stores or returns its private
+// half; the directory holds public keys only. A Holder carries the signer in
+// use and the keys a rotation keeps listed, and is swapped while the process
+// runs (internal/webbotauth/keyadmin stores the key sealed and fills it).
 package webbotauth
 
 import (
@@ -19,10 +20,13 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/config"
 )
 
-// EnvKey is the variable that holds the signing key.
+// EnvKey is the variable that overrides the stored signing key.
 const EnvKey = "WEB_BOT_AUTH_KEY"
 
 // DirectoryPath is where the key directory is served.
@@ -38,21 +42,17 @@ const (
 )
 
 // RequestLifetime is how long a request signature is valid, and
-// DirectoryLifetime how long the directory's own signature is.
+// DirectoryLifetime how long the directory's own signatures are.
 const (
 	RequestLifetime   = time.Minute
 	DirectoryLifetime = time.Hour
 )
 
-// signatureLabel names the one signature each message carries.
-const signatureLabel = "sig1"
-
-// ErrInvalidKey is a WEB_BOT_AUTH_KEY that is not a 32-byte Ed25519 seed.
+// ErrInvalidKey is a key value that is not a 32-byte Ed25519 seed.
 var ErrInvalidKey = errors.New("WEB_BOT_AUTH_KEY must be a base64url Ed25519 seed of 32 bytes")
 
-// ErrInvalidAgent is a signer without an https PUBLIC_ORIGIN to name as its
-// Signature-Agent.
-var ErrInvalidAgent = errors.New("WEB_BOT_AUTH_KEY needs an https PUBLIC_ORIGIN")
+// ErrInvalidAgent is a signing origin that is not a bare https origin.
+var ErrInvalidAgent = errors.New("the Web Bot Auth origin must be a bare https origin")
 
 // Key is an Ed25519 signing key and its RFC 7638 thumbprint.
 type Key struct {
@@ -73,6 +73,16 @@ func ParseKey(raw string) (*Key, error) {
 	return newKey(ed25519.NewKeyFromSeed(seed)), nil
 }
 
+// KeyFromEnv reads the WEB_BOT_AUTH_KEY override: nil without one, and
+// ErrInvalidKey when it is set but malformed.
+func KeyFromEnv(getenv func(string) string) (*Key, error) {
+	raw := strings.TrimSpace(getenv(EnvKey))
+	if raw == "" {
+		return nil, nil
+	}
+	return ParseKey(raw)
+}
+
 // GenerateKey makes a new key from random (crypto/rand when nil).
 func GenerateKey(random io.Reader) (*Key, error) {
 	if random == nil {
@@ -90,7 +100,9 @@ func newKey(private ed25519.PrivateKey) *Key {
 	return &Key{private: private, public: public, thumbprint: Thumbprint(public)}
 }
 
-// Seed is the key's WEB_BOT_AUTH_KEY value, for the key command only.
+// Seed is the key's private seed in base64url: the value the key command
+// prints and the plaintext that storage seals. It is never logged or
+// returned by an API.
 func (k *Key) Seed() string { return base64.RawURLEncoding.EncodeToString(k.private.Seed()) }
 
 // Public is the verification key.
@@ -120,7 +132,17 @@ func Thumbprint(public ed25519.PublicKey) string {
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
-// Signer signs requests as the agent whose directory is at Agent.
+// HTTPSOrigin normalizes a bare https origin (scheme://host[:port], a
+// trailing slash allowed) and reports whether raw is one.
+func HTTPSOrigin(raw string) (string, bool) {
+	origin, err := config.PublicOrigin(raw)
+	if err != nil || !strings.HasPrefix(origin, "https://") {
+		return "", false
+	}
+	return origin, true
+}
+
+// Signer signs requests as the agent whose directory is at its origin.
 type Signer struct {
 	key *Key
 	// agent is the https origin the Signature-Agent header names.
@@ -132,29 +154,22 @@ type Signer struct {
 	Random io.Reader
 }
 
-// NewSigner signs with key as the agent at origin, an https origin such as
-// a normalized PUBLIC_ORIGIN.
+// NewSigner signs with key as the agent at origin, a bare https origin.
 func NewSigner(key *Key, origin string) (*Signer, error) {
-	parsed, err := url.Parse(origin)
-	if key == nil || err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.User != nil {
+	normalized, ok := HTTPSOrigin(origin)
+	if key == nil || !ok {
 		return nil, ErrInvalidAgent
 	}
-	return &Signer{key: key, agent: "https://" + parsed.Host, authority: strings.ToLower(parsed.Host)}, nil
+	parsed, _ := url.Parse(normalized)
+	return &Signer{key: key, agent: normalized, authority: parsed.Host}, nil
 }
 
-// FromEnv reads WEB_BOT_AUTH_KEY: nil without one, and an error when it is
-// set but invalid or origin is not https.
-func FromEnv(getenv func(string) string, origin string) (*Signer, error) {
-	raw := strings.TrimSpace(getenv(EnvKey))
-	if raw == "" {
-		return nil, nil
-	}
-	key, err := ParseKey(raw)
-	if err != nil {
-		return nil, err
-	}
-	return NewSigner(key, origin)
-}
+// Source gives the signer a request uses, or nil when none is configured.
+// A *Signer is its own source and a *Holder gives the current one.
+type Source interface{ Current() *Signer }
+
+// Current is the signer itself.
+func (s *Signer) Current() *Signer { return s }
 
 // Key is the signing key.
 func (s *Signer) Key() *Key { return s.key }
@@ -212,6 +227,26 @@ func Authority(u *url.URL) string {
 	return host + ":" + port
 }
 
+// signature is one labelled entry of Signature-Input and Signature.
+type signature struct{ input, value string }
+
+func sign(key *Key, label string, components []component, params string) signature {
+	list := innerList(components, params)
+	raw := ed25519.Sign(key.private, []byte(signatureBase(components, list)))
+	return signature{label + "=" + list, label + "=:" + base64.StdEncoding.EncodeToString(raw) + ":"}
+}
+
+// setSignatures writes the entries as the Signature-Input and Signature
+// dictionaries.
+func setSignatures(header http.Header, entries []signature) {
+	inputs, values := make([]string, len(entries)), make([]string, len(entries))
+	for i, entry := range entries {
+		inputs[i], values[i] = entry.input, entry.value
+	}
+	header.Set("Signature-Input", strings.Join(inputs, ", "))
+	header.Set("Signature", strings.Join(values, ", "))
+}
+
 // SignRequest adds Signature-Agent, Signature-Input and Signature to an
 // outbound request. The signature covers @authority and signature-agent,
 // expires a minute after it is made and carries a fresh nonce.
@@ -229,56 +264,131 @@ func (s *Signer) SignRequest(req *http.Request) error {
 	params := ";created=" + strconv.FormatInt(created, 10) +
 		";expires=" + strconv.FormatInt(created+int64(RequestLifetime/time.Second), 10) +
 		`;keyid="` + s.key.thumbprint + `";alg="ed25519";tag="` + RequestTag + `";nonce="` + base64.StdEncoding.EncodeToString(nonce) + `"`
-	components := []component{{`"@authority"`, Authority(req.URL)}, {`"signature-agent"`, agent}}
 	req.Header.Set("Signature-Agent", agent)
-	s.sign(req.Header, components, params)
+	setSignatures(req.Header, []signature{sign(s.key, "sig1", []component{{`"@authority"`, Authority(req.URL)}, {`"signature-agent"`, agent}}, params)})
 	return nil
 }
 
-// DirectoryHeaders signs a directory response: the signature covers the
-// request's @authority, which is the agent's own, since verifiers fetch the
-// directory from the Signature-Agent origin and a reverse proxy may rewrite
-// Host on the way in.
-func (s *Signer) DirectoryHeaders(header http.Header) {
-	created := s.now().Unix()
-	params := `;alg="ed25519";keyid="` + s.key.thumbprint + `";tag="` + DirectoryTag + `";created=` + strconv.FormatInt(created, 10) +
-		";expires=" + strconv.FormatInt(created+int64(DirectoryLifetime/time.Second), 10)
-	s.sign(header, []component{{`"@authority";req`, s.authority}}, params)
+// Retired is a key a rotation replaced, listed in the directory until Until
+// but no longer signing requests.
+type Retired struct {
+	Key   *Key
+	Until time.Time
 }
 
-func (s *Signer) sign(header http.Header, components []component, params string) {
-	list := innerList(components, params)
-	signature := ed25519.Sign(s.key.private, []byte(signatureBase(components, list)))
-	header.Set("Signature-Input", signatureLabel+"="+list)
-	header.Set("Signature", signatureLabel+"=:"+base64.StdEncoding.EncodeToString(signature)+":")
+// Holder carries the signer requests use and the retired keys the directory
+// still lists. It is safe for concurrent use: Set swaps both at once while
+// requests and directory reads load them. A nil Holder holds nothing.
+type Holder struct {
+	state atomic.Pointer[holderState]
+	// Now reads the clock for the directory; nil is time.Now.
+	Now func() time.Time
 }
 
-// Directory is the key directory's body: a JWKS with the public key only.
-func (s *Signer) Directory() []byte {
+type holderState struct {
+	signer  *Signer
+	retired []Retired
+}
+
+// NewHolder holds nothing until Set.
+func NewHolder() *Holder { return &Holder{} }
+
+// Set makes signer the one requests use (nil stops signing and the
+// directory) and retired the keys the directory keeps listing.
+func (h *Holder) Set(signer *Signer, retired []Retired) {
+	h.state.Store(&holderState{signer: signer, retired: retired})
+}
+
+// Current is the signer in use, or nil.
+func (h *Holder) Current() *Signer {
+	if h == nil {
+		return nil
+	}
+	if state := h.state.Load(); state != nil {
+		return state.signer
+	}
+	return nil
+}
+
+func (h *Holder) now() time.Time {
+	if h.Now != nil {
+		return h.Now()
+	}
+	return time.Now()
+}
+
+// directory is what one directory answer lists: the agent's authority and
+// the current key followed by each retired key whose grace has not passed.
+func (h *Holder) directory() (string, []*Key) {
+	if h == nil {
+		return "", nil
+	}
+	state := h.state.Load()
+	if state == nil || state.signer == nil {
+		return "", nil
+	}
+	keys := []*Key{state.signer.key}
+	now := h.now()
+	for _, retired := range state.retired {
+		if retired.Key != nil && now.Before(retired.Until) && retired.Key.thumbprint != state.signer.key.thumbprint {
+			keys = append(keys, retired.Key)
+		}
+	}
+	return state.signer.authority, keys
+}
+
+// Serves reports whether the directory has a key to list.
+func (h *Holder) Serves() bool {
+	_, keys := h.directory()
+	return len(keys) > 0
+}
+
+// DirectoryBody is a JWKS of the keys, public halves only.
+func DirectoryBody(keys []*Key) []byte {
+	jwks := make([]JWK, len(keys))
+	for i, key := range keys {
+		jwks[i] = key.JWK()
+	}
 	body, _ := json.Marshal(struct {
 		Keys []JWK `json:"keys"`
-	}{[]JWK{s.key.JWK()}})
+	}{jwks})
 	return body
 }
 
+// signDirectory signs a directory answer once per listed key (sig1 for the
+// first): each signature covers the request's @authority, which is the
+// agent's own, since verifiers fetch the directory from the Signature-Agent
+// origin and a reverse proxy may rewrite Host on the way in.
+func signDirectory(header http.Header, authority string, keys []*Key, now time.Time) {
+	created := now.Unix()
+	entries := make([]signature, len(keys))
+	for i, key := range keys {
+		params := `;alg="ed25519";keyid="` + key.thumbprint + `";tag="` + DirectoryTag + `";created=` + strconv.FormatInt(created, 10) +
+			";expires=" + strconv.FormatInt(created+int64(DirectoryLifetime/time.Second), 10)
+		entries[i] = sign(key, "sig"+strconv.Itoa(i+1), []component{{`"@authority";req`, authority}}, params)
+	}
+	setSignatures(header, entries)
+}
+
 // ServeDirectory answers GET and HEAD on DirectoryPath with the signed
-// directory. A nil signer answers 404: no key is configured.
-func (s *Signer) ServeDirectory(w http.ResponseWriter, r *http.Request) {
+// directory of the keys the holder lists, and 404 while it lists none.
+func (h *Holder) ServeDirectory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s == nil {
+	authority, keys := h.directory()
+	if len(keys) == 0 {
 		http.NotFound(w, r)
 		return
 	}
-	body := s.Directory()
+	body := DirectoryBody(keys)
 	header := w.Header()
 	header.Set("Content-Type", DirectoryContentType)
 	header.Set("Cache-Control", "public, max-age=300")
 	header.Set("X-Content-Type-Options", "nosniff")
-	s.DirectoryHeaders(header)
+	signDirectory(header, authority, keys, h.now())
 	header.Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(http.StatusOK)
 	if r.Method == http.MethodGet {

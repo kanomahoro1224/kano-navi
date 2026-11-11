@@ -525,7 +525,29 @@ export interface Sources {
     /** The read-all fetch. */
     methods: FetchMethod[]
     status: ShopStatus
+    webBotAuth: WebBotAuthStatus
   }
+}
+
+export type WebBotAuthState =
+  "active" | "no_key" | "no_origin" | "key_unreadable"
+
+/** The Web Bot Auth key that signs the shop's requests. Never carries the
+ * private key. */
+export interface WebBotAuthStatus {
+  state: WebBotAuthState
+  source: "environment" | "stored" | null
+  keyId: string | null
+  createdAt: string | null
+  /** The origin requests name as their agent: the operator's, otherwise an
+   * https PUBLIC_ORIGIN. */
+  origin: string | null
+  originSetting: string | null
+  publicOrigin: string | null
+  directoryUrl: string | null
+  /** A key a rotation replaced, still listed in the directory. */
+  previous: { keyId: string; until: string } | null
+  environmentManaged: boolean
 }
 
 /** The official shop's reads and the sale entries they keep. */

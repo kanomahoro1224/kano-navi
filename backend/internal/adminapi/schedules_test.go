@@ -241,8 +241,8 @@ func TestSourceScheduleChainAPI(t *testing.T) {
 	if related, _ := json.Marshal(scheduleBySource(t, payload, sqlite.XRelatedStep)["chain"]); string(related) != `{"fixed":true,"methods":[{"available":true,"enabled":true,"id":"timeline"}]}` {
 		t.Fatalf("x_related chain=%s", related)
 	}
-	// The shop's signed read needs the Web Bot Auth key this process lacks.
-	if shop, _ := json.Marshal(scheduleBySource(t, payload, sqlite.ShopSource)["chain"]); string(shop) != `{"fixed":false,"methods":[{"available":false,"enabled":true,"id":"signed","requires":"WEB_BOT_AUTH_KEY"},{"available":true,"enabled":true,"id":"new_arrivals"},{"available":true,"enabled":true,"id":"atom"}]}` {
+	// The shop's signed read needs a Web Bot Auth key, which this console lacks.
+	if shop, _ := json.Marshal(scheduleBySource(t, payload, sqlite.ShopSource)["chain"]); string(shop) != `{"fixed":false,"methods":[{"available":false,"enabled":true,"id":"signed","requires":"a Web Bot Auth key"},{"available":true,"enabled":true,"id":"new_arrivals"},{"available":true,"enabled":true,"id":"atom"}]}` {
 		t.Fatalf("shop chain=%s", shop)
 	}
 	dynamicChain, _ := json.Marshal(scheduleBySource(t, payload, sqlite.BilibiliDynamicsSource)["chain"])

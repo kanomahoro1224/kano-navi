@@ -1215,8 +1215,8 @@ nothing else; no address comes from data:
 
 Every request names the client honestly as `kano-navi-go/shop`. The shop
 answers clients that pose as a browser with `429 local_rate_limited`, so the
-client never sends a browser's user agent. With `WEB_BOT_AUTH_KEY` set, the
-client also identifies itself with a [Web Bot Auth](web-bot-auth.md)
+client never sends a browser's user agent. With an active
+[Web Bot Auth](web-bot-auth.md) key, the client also identifies itself with a
 signature: Shopify limits unsigned automated traffic most strictly and gives
 signed requests a higher limit, and the shop asks server-to-server clients to
 sign. A request is signed after the `shop` [proxy area](outbound-proxy.md)'s

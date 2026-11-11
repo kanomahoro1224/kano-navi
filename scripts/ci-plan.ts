@@ -44,6 +44,8 @@ export const scriptJobs: Record<string, Job[]> = {
   "package-lineblog-comments.ts": ["frontend"],
   "package-lineblog.ts": ["frontend"],
   "package-works.ts": ["frontend"],
+  // Packaging's phrase dictionary, which the works tests exercise.
+  "works-phrases.ts": ["frontend"],
   "privacy-allowlist.json": [],
   "production-smoke.ts": ["frontend", "docker"],
   "run-app.mjs": [],

@@ -79,7 +79,14 @@
   letter-spacing: 0;
 }
 
+/*
+ * A panel is at least a screen tall, so the page never gets shorter than
+ * the tabs' place under the header: switching sections, or a section still
+ * loading or filtered down to a few entries, leaves the tabs where they are
+ * instead of letting the browser pull the page back towards the top.
+ */
 .works-panel {
+  min-height: 100vh;
   padding-top: 28px;
 }
 

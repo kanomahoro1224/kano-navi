@@ -124,6 +124,9 @@ webpush-key`), and the bell stays hidden while they are empty. It adds
   on; every real notification is important regardless.
 - A console page reloads its data when its tab becomes visible again, so a
   switch a reader flips on the site shows up without a manual refresh.
+- The operator console uses the same labels in English, Japanese and
+  Simplified Chinese, including Site, source timers, works covers,
+  thumbnails, external posts and the queue.
 
 </details>
 

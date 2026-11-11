@@ -44,6 +44,8 @@
   leave them out.
 - The Works page's feedback link opens a correction form that asks for the
   work, what is wrong and a source.
+- In a Works release's Where to listen, the name of an extra item such as
+  an instrumental sits above its store links instead of overlapping them.
 
 </details>
 

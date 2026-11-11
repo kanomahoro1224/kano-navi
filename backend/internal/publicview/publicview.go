@@ -1,6 +1,7 @@
 package publicview
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -207,12 +208,27 @@ func PublicEventLinks(links []sqlite.EventLink) []any {
 	return out
 }
 func publicPost(p sqlite.Post) map[string]any {
-	out := map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "promoted": p.Promoted}
+	out := map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "promoted": p.Promoted, "repostedBy": publicRepostedBy(p.RepostedBy)}
 	if rich := publicRich(p.Rich); rich != nil {
 		out["rich"] = rich
 	}
 	return out
 }
+
+// publicRepostedBy lists the own X accounts, without "@", that reposted a
+// promoted post, first sighting first: never null, empty for every other
+// post. Only X handles leave.
+func publicRepostedBy(accounts []string) []string {
+	out := make([]string, 0, len(accounts))
+	for _, account := range accounts {
+		if xHandle.MatchString(account) {
+			out = append(out, account)
+		}
+	}
+	return out
+}
+
+var xHandle = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
 
 // publicRich is the original wording of a Bilibili dynamic with stickers:
 // {text} segments and {emoji, url} stickers, whose url is the local /media

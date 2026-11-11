@@ -217,10 +217,12 @@ event status codes and the generated YouTube details become labels through
 while other details and operator notes show as stored (see
 [Stored event text](data-model.md#stored-event-text)).
 
-A related account's promoted post (`post.promoted`) shows the account's
-initial on the sunken surface in place of Kano's portrait, beside its
-handle; it appears in the All tab and the archive, never under an own
-account's tab.
+A promoted post (`post.promoted`), a related account's or a reposted one,
+shows its author's initial on the sunken surface in place of Kano's
+portrait, beside its handle; it appears in the All tab and the archive,
+never under an own account's tab, even an account that reposted it. A post
+with `repostedBy` opens with a muted repost mark, "Reposted by @account",
+naming those accounts as one locale list (`Intl.ListFormat`).
 
 A post that quotes another status (`post.quote`, see
 [Quoted posts](data-model.md#quoted-posts)) shows it nested in the post note,
@@ -565,8 +567,8 @@ own posts that quote it (opening Posts searched for the post), the accounts
 that reposted it, a link to a promoted status's post in Posts and a locked
 decision's reason; the translation summary of a status that has no post;
 badges for its state (On the board, Demoted, Stored only), a lock
-and its reasons; and icon actions to promote a related account's status,
-demote a promoted one, return a locked one to the keyword rules and open it
+and its reasons; and icon actions to promote a related account's status or
+a reposted one, demote a promoted one, return a locked one to the keyword rules and open it
 on X. Promote and demote open a dialog that shows the wording and requires
 a reason. Filters cover the text or ID, the author (the related accounts),
 the reason and the state; a header link opens the related accounts on

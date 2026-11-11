@@ -206,14 +206,15 @@ Every pooled status stores the reasons that apply to it:
 | Reason     | When                                                                    | Effect              |
 | ---------- | ----------------------------------------------------------------------- | ------------------- |
 | `keyword`  | a related account's status whose text contains one of its keyword rules | promoted            |
-| `manual`   | an operator promoted a related account's status                         | promoted            |
+| `manual`   | an operator promoted a related account's status or a reposted status    | promoted            |
 | `quoted`   | an own account quoted it, whatever its author                           | translated, no card |
 | `reposted` | an own account reposted it, whatever its author                         | see below, no card  |
 | `none`     | none of the above                                                       | stored only         |
 
 A reposted status of a related account is translated; any other author's is
-stored only, never translated or promoted. Keyword rules match anywhere in
-the text, ignoring letter case. Reasons are
+stored untranslated until an operator promotes it (see [Reposts](#reposts)).
+Keyword rules apply to related accounts' statuses alone and match anywhere
+in the text, ignoring letter case. Reasons are
 evaluated when a related timeline lists a status, when an own account
 reposts it, when an operator decides on it, and for every pooled status when
 the related accounts or their rules are saved.
@@ -232,8 +233,11 @@ stays. Showing a promoted post in Posts records a manual promote, and hiding
 it withdraws that promote. An operator's promote or demote (`manual_decision`, with its reason
 and time) is a durable lock that the rules never override; a manual promote
 shows a hidden promoted post, and returning a status to the rules lets them
-decide again. Only a related account's status can be promoted by hand, and a
-pooled status that is an own post is never promoted or demoted.
+decide again. A related account's status and any reposted status can be
+promoted by hand. Returned to the rules, a status they do not promote (any
+but a related account's status that matches its keywords) stays unpromoted,
+or hidden when it was promoted. A pooled status that is an own post is never
+promoted or demoted.
 
 #### X API in the chain
 
@@ -1832,7 +1836,8 @@ entry: a detail answer with `retweet` drops a pending ID with
 requests and manual fetches record each repost in `x_reposts`: the reposted
 status ID, the reposting account and, when known, the status's author and
 the repost's own ID, with the time it was first seen, which a later listing
-keeps. The board shows no reposts. The timed X API method asks for the
+keeps. The board shows a reposted status only once an operator promotes it
+(below). The timed X API method asks for the
 account's posts without retweets, so it records none.
 
 A stored own post under a repost's own ID (an archive import can write one)
@@ -1845,9 +1850,21 @@ Every reposted status the listing or answer carries enters the pool with
 `reposted_at`, whatever its author, and its reasons are evaluated again; a
 repost item without the status only marks a pooled row reposted. A
 [related account](#related-accounts)'s status, unless its own timeline
-stored it first, is translated for the `reposted` reason and promoted only
-by a keyword or by hand; another author's is stored only. The console's
-External posts list both under `reposted` with the reposting accounts.
+stored it first, is translated for the `reposted` reason and promoted by a
+keyword or by hand; another author's is stored untranslated and promoted
+only by hand. The console's External posts list both under `reposted` with
+the reposting accounts.
+
+The wall is Kano's own words and a repost is someone else's, so no rule puts
+a repost on the board; an operator picks the few worth showing, such as a
+collaborator's song release, through the
+[related-account promotion](#related-accounts) and its lock. A promoted
+repost is its author's post like any promoted post: it shows their handle,
+name, wording and images, appears only on the combined wall and in the
+archive, and is translated, extracted and cached as a post. The public post
+names the own accounts that reposted it, from `x_reposts` and first
+sighting first, as `repostedBy` (see
+[Public snapshot contract](public-api.md#public-snapshot-contract)).
 
 #### Refresh from the Source
 

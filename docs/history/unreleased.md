@@ -27,9 +27,15 @@
   failure or retry.
 - Every own-account repost a listing or detail answer carries enters the X
   status pool under the `reposted` reason, whatever its author. Only a
-  related account's reposted status is translated; another author's is
-  stored only and is never promoted. An operator translation request for it
-  queues nothing.
+  related account's reposted status is translated in the pool; another
+  author's is stored untranslated, and an operator translation request for
+  it queues nothing, until an operator promotes it.
+- `PUT /x-statuses/{id}/decision` accepts `promote` for any reposted status,
+  whatever its author; keyword rules still promote related accounts'
+  statuses alone.
+- Public dashboard, post archive and MCP posts add `repostedBy`: the own X
+  accounts that reposted a promoted post, first sighting first, and `[]` for
+  every other post.
 - Public dashboard, post archive and MCP post media and quote media add
   `kind`: `photo`, `video` or `gif`.
 - Startup adds `media_links.kind` and, once, marks the video and GIF links of
@@ -59,6 +65,9 @@
 - A post's or quoted post's video or GIF shows its still with a play mark or
   a GIF tag, on the board, in the post archive and in the image viewer, and
   opens the post on X instead of the viewer.
+- A reposted post the operator picks shows on the wall and in Past posts as
+  its author's post, marked Reposted by and the account of Kano's that
+  reposted it, under All only.
 
 </details>
 
@@ -72,7 +81,8 @@
   source in one request; Review's extraction lists offer the same bulk
   refresh beside Process again.
 - External posts lists every status an own account reposted under Reposted,
-  with the reposting accounts.
+  with the reposting accounts, and promotes or demotes any of them by hand
+  with a reason, as a lock. A promoted repost is translated as a post.
 
 </details>
 

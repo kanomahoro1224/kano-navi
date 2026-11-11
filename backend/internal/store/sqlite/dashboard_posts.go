@@ -18,7 +18,7 @@ type postRow struct {
 	hasAccount, hasLabel, hasMediaURL, hasMediaAlt                                    bool
 	// quoteJSON is NULL in public reads when an operator hid the quote.
 	quoteJSON sql.NullString
-	// promoted marks a related account's status promoted into posts.
+	// promoted marks a pooled status promoted into posts.
 	promoted bool
 	// stickerRaw is the raw_json of a Bilibili dynamic that has emoji
 	// nodes, the source of its sticker segments; NULL for any other post.
@@ -121,7 +121,14 @@ func (s *Store) queryRecentVideoCount(ctx context.Context, now time.Time) (int64
 }
 
 func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
-	p := Post{ID: r.id, Source: r.source, Type: r.typ, Text: r.text, PublishedAt: r.publishedAt, URL: r.url, Likes: r.likes, Reposts: r.reposts, Replies: r.replies, Promoted: r.promoted}
+	p := Post{ID: r.id, Source: r.source, Type: r.typ, Text: r.text, PublishedAt: r.publishedAt, URL: r.url, Likes: r.likes, Reposts: r.reposts, Replies: r.replies, Promoted: r.promoted, RepostedBy: []string{}}
+	if r.promoted && r.source == "x" {
+		reposters, err := s.queryRepostedBy(ctx, r.id)
+		if err != nil {
+			return p, err
+		}
+		p.RepostedBy = reposters
+	}
 	if r.hasAccount {
 		p.AccountHandle = strPtr(r.accountHandle)
 	} else if h := xHandleFromURL(r.url); h != "" {
@@ -171,6 +178,28 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 		}
 	}
 	return p, nil
+}
+
+// queryRepostedBy lists the own accounts that reposted a promoted post, first
+// sighting first. x_reposts keeps the account in lower case; each takes the
+// spelling of its own stored posts when it has any.
+func (s *Store) queryRepostedBy(ctx context.Context, id string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT COALESCE((SELECT o.account_handle FROM posts o
+			WHERE o.source='x' AND o.promoted_at IS NULL AND lower(o.account_handle)=r.account_handle LIMIT 1), r.account_handle)
+		FROM x_reposts r WHERE r.status_id=? ORDER BY julianday(r.first_seen_at), r.account_handle`, id)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var account string
+		if err = rows.Scan(&account); err != nil {
+			return nil, dbErr(err)
+		}
+		out = append(out, account)
+	}
+	return out, dbErr(rows.Err())
 }
 
 var (

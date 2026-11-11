@@ -379,6 +379,12 @@ function QuoteCard({
   )
 }
 
+/** The reposting accounts as one list in the locale's form ("@a and @b"). */
+export function repostingAccounts(accounts: string[], locale: Locale) {
+  const handles = accounts.map((account) => `@${account.replace(/^@/u, "")}`)
+  return new Intl.ListFormat(locale, { type: "conjunction" }).format(handles)
+}
+
 function PostNote({
   post,
   avatarUrl,
@@ -459,6 +465,14 @@ function PostNote({
   const engagement = bilibili ? null : (
     <Engagement post={post} locale={locale} t={t} />
   )
+  const reposted = post.repostedBy?.length ? (
+    <p className="post-note-reposted">
+      <Repeat2 aria-hidden="true" />
+      {t("feed.repostedBy", {
+        accounts: repostingAccounts(post.repostedBy, locale),
+      })}
+    </p>
+  ) : null
   const head = (close?: ReactNode) => (
     <header className="post-note-head">
       {post.promoted ? (
@@ -559,6 +573,7 @@ function PostNote({
 
   return (
     <article className="post-note">
+      {reposted}
       {head()}
       {hasWording(wording, post.rich) ? (
         <p
@@ -596,6 +611,7 @@ function PostNote({
           onClose={() => setReading(false)}
         >
           <article className="post-note is-full">
+            {reposted}
             {head(
               <button
                 type="button"

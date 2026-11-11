@@ -90,8 +90,13 @@ export interface Post {
   sourceLanguage?: string | null
   /** The status this post quotes, shown nested in the post. */
   quote?: PostQuote | null
-  /** A related account's status promoted onto the board, not Kano's own. */
+  /**
+   * Another account's status promoted onto the board, not Kano's own: a
+   * related account's, or one her accounts reposted.
+   */
   promoted?: boolean
+  /** The own X accounts that reposted a promoted post, first seen first. */
+  repostedBy?: string[]
   /** The original wording with its stickers, when it has any. */
   rich?: RichSegment[]
 }

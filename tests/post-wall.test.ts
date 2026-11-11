@@ -666,3 +666,127 @@ test("a post's video and GIF stills carry their mark and open the post on X", as
     }
   })
 })
+
+test("a promoted repost names the own accounts that reposted it", async () => {
+  await withVite(async (load) => {
+    const [
+      { PostWall, repostingAccounts },
+      { AppSettingsProvider, PageMessagesProvider, useAppSettings },
+    ] = await Promise.all([
+      load("/src/dashboard/components/post-wall.tsx"),
+      load("/src/app-settings.tsx"),
+    ])
+    const base = {
+      source: "x",
+      mediaUrl: null,
+      mediaStatus: "none",
+      media: [],
+      translations: {},
+      sourceLanguage: "en",
+      quote: null,
+    }
+    const reposted = {
+      ...base,
+      id: "1900000000000000950",
+      accountHandle: "composer_example",
+      accountUrl: "https://x.example.invalid/composer_example",
+      url: "https://x.example.invalid/composer_example/status/1900000000000000950",
+      text: "Synthetic song release",
+      publishedAt: "2026-10-08T12:00:00+09:00",
+      promoted: true,
+      repostedBy: ["_SyntheticB", "kano_example"],
+    }
+    const own = {
+      ...base,
+      id: "1900000000000000951",
+      accountHandle: "kano_example",
+      accountUrl: "https://x.example.invalid/kano_example",
+      url: "https://x.example.invalid/kano_example/status/1900000000000000951",
+      text: "Synthetic own post",
+      publishedAt: "2026-10-08T11:00:00+09:00",
+      promoted: false,
+      repostedBy: [],
+    }
+    function Harness() {
+      const { locale, t } = useAppSettings()
+      return createElement(PostWall, {
+        posts: [reposted, own],
+        latestPost: own,
+        accounts: ["kano_example", "_SyntheticB"],
+        bilibiliAccounts: [],
+        avatarUrl: null,
+        windowDays: 3,
+        isLoading: false,
+        locale,
+        now: Date.parse("2026-10-08T21:00:00+09:00"),
+        t,
+        onOpenMedia: () => {},
+        onOpenArchive: () => {},
+      })
+    }
+    const globals = globalThis as any
+    const previous = {
+      act: globals.IS_REACT_ACT_ENVIRONMENT,
+      ResizeObserver: globals.ResizeObserver,
+      getComputedStyle: globals.getComputedStyle,
+    }
+    globals.IS_REACT_ACT_ENVIRONMENT = true
+    globals.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    }
+    globals.getComputedStyle = (element: Element) =>
+      browser.getComputedStyle(element as any)
+    let root: Rendered | undefined
+    try {
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: dashboardMessages },
+              createElement(Harness),
+            ),
+          ),
+        )
+      })
+      const notes = [...root!.container.querySelectorAll("article.post-note")]
+      const marks = notes.map(
+        (note) =>
+          note.querySelector(".post-note-reposted")?.textContent ?? null,
+      )
+      // The repost shows its author and names both reposting accounts in
+      // their order; an own post carries no mark.
+      assert.deepEqual(marks, [
+        "Reposted by @_SyntheticB and @kano_example",
+        null,
+      ])
+      assert.equal(
+        notes[0].querySelector(".post-note-handle")!.textContent,
+        "@composer_example",
+      )
+    } finally {
+      if (root) await act(async () => root!.unmount())
+      globals.IS_REACT_ACT_ENVIRONMENT = previous.act
+      globals.ResizeObserver = previous.ResizeObserver
+      globals.getComputedStyle = previous.getComputedStyle
+    }
+    // Every board locale names the accounts in its own list form.
+    for (const locale of ["en", "ja", "zh-CN"] as const)
+      assert.match(
+        dashboardMessages[locale]["feed.repostedBy"],
+        /\{accounts\}/u,
+      )
+    assert.equal(repostingAccounts(["kano_example"], "ja"), "@kano_example")
+    for (const locale of ["ja", "zh-CN"] as const)
+      assert.equal(
+        repostingAccounts(["_SyntheticB", "kano_example"], locale),
+        new Intl.ListFormat(locale, { type: "conjunction" }).format([
+          "@_SyntheticB",
+          "@kano_example",
+        ]),
+      )
+  })
+})

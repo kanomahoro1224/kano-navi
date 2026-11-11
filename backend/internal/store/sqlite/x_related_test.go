@@ -283,10 +283,9 @@ func TestOwnRepostsPoolEveryStatus(t *testing.T) {
 	if want := (map[string]string{reposted.ID: "reposted|stored|true|kano_2525", keyword.ID: "keyword,reposted|promoted|true|kano_2525", other.ID: "reposted|stored|false|kano_2525"}); !reflect.DeepEqual(listed, want) {
 		t.Fatalf("listed=%v", listed)
 	}
-	// An operator cannot promote it by hand, and a rule change leaves it.
-	if _, err = f.s.SetXStatusDecision(ctx, other.ID, xDecisionPromote, "synthetic"); !errors.Is(err, ErrXRelatedInvalid) {
-		t.Fatalf("promote other author: %v", err)
-	}
+	// Keyword rules never promote another author's repost, even when its
+	// wording matches; only an operator does (see
+	// TestOperatorPromotesAnotherAuthorsRepost).
 	f.rules("x")
 	if f.state(other.ID) != "missing" {
 		t.Fatalf("a rule change promoted another author's repost")
@@ -305,6 +304,131 @@ func TestOwnRepostsPoolEveryStatus(t *testing.T) {
 	}
 	if queued, requestErr := f.s.RequestTranslations(ctx, TranslationOwnerXStatus, []string{other.ID}); requestErr != nil || queued != 0 {
 		t.Fatalf("an operator request queued another author's repost: %d %v", queued, requestErr)
+	}
+}
+
+// An operator promotes another author's repost by hand: a durable lock that
+// the rules never override. It shows on the combined wall and in the archive
+// as its author's post, naming the own accounts that reposted it, and is
+// translated as a post. Demoting hides it; returned to the rules, which never
+// promote it, it stays hidden.
+func TestOperatorPromotesAnotherAuthorsRepost(t *testing.T) {
+	f := newRelatedFixture(t)
+	ctx := context.Background()
+	const otherID = "1900000000000000350"
+	other := &xsource.Quote{ID: otherID, AuthorHandle: "composer_example", AuthorName: "Composer", Text: "new song out now",
+		PublishedAt: "2026-10-10T00:00:00Z", URL: "https://x.com/composer_example/status/" + otherID, MediaURLs: []string{twimg("jacket")}}
+	// Two own accounts repost it; each has an own post that spells its handle.
+	for _, account := range []string{"kano_2525", "_SyntheticB"} {
+		own := quotingPost(map[string]string{"kano_2525": "1900000000000000351", "_SyntheticB": "1900000000000000352"}[account], "2026-10-11T00:00:00Z", nil)
+		own.AccountHandle, own.Text = account, "own words"
+		if err := f.s.WriteXRecent(ctx, account, xsource.Result{Account: account, Posts: []xsource.Post{own},
+			Reposts: []xsource.Repost{{ID: otherID, Author: "composer_example", Status: other}}}, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// _SyntheticB saw it first, though kano_2525 sorts first.
+	for account, seen := range map[string]string{"kano_2525": "2026-10-11T02:00:00.000Z", "_syntheticb": "2026-10-11T01:00:00.000Z"} {
+		if _, err := f.s.DB().Exec(`UPDATE x_reposts SET first_seen_at=? WHERE status_id=? AND account_handle=?`, seen, otherID, account); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if f.state(otherID) != "missing" {
+		t.Fatalf("stored repost is on the board: %s", f.state(otherID))
+	}
+	if _, err := f.s.SetXStatusDecision(ctx, otherID, xDecisionPromote, ""); !errors.Is(err, ErrXRelatedInvalid) {
+		t.Fatalf("promote without a reason: %v", err)
+	}
+	status, err := f.s.SetXStatusDecision(ctx, otherID, xDecisionPromote, "collaborator's song")
+	if err != nil || status.State != "promoted" || status.Related || status.Decision == nil || *status.Decision != xDecisionPromote ||
+		strings.Join(status.Reasons, ",") != "manual,reposted" || strings.Join(status.RepostedBy, ",") != "_syntheticb,kano_2525" {
+		t.Fatalf("promote=%+v err=%v", status, err)
+	}
+	// The post is its author's, with its image and no schedule candidate.
+	if got := f.text(`SELECT account_handle||'|'||text||'|'||(promoted_at IS NOT NULL)||'|'||(SELECT COUNT(*) FROM media_links WHERE owner_id=posts.id AND role='post-image')||'|'||(SELECT COUNT(*) FROM assets) FROM posts WHERE id=?`, otherID); got != "composer_example|new song out now|1|1|0" {
+		t.Fatalf("promoted post=%s", got)
+	}
+	// The combined wall shows it with its reposters in first-seen order, in
+	// their own posts' spelling; it is never the latest post (wall checks)
+	// or one of an account's own posts.
+	if wall := f.wall(); !wall[otherID] || wall["1900000000000000351"] || wall["1900000000000000352"] {
+		t.Fatalf("wall=%v", wall)
+	}
+	d, err := f.s.GetDashboard(ctx, 30, time.Date(2026, 10, 12, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reposters := map[string]string{}
+	for _, p := range d.Posts {
+		if p.RepostedBy == nil {
+			t.Fatalf("post %s has a nil repostedBy", p.ID)
+		}
+		reposters[p.ID] = strings.Join(p.RepostedBy, ",")
+	}
+	if want := (map[string]string{otherID: "_SyntheticB,kano_2525", "1900000000000000351": "", "1900000000000000352": ""}); !reflect.DeepEqual(reposters, want) {
+		t.Fatalf("repostedBy=%v", reposters)
+	}
+	archive, err := f.s.GetPostArchive(ctx, "2026-10-01", "2026-10-31", "", 1, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inArchive := false
+	for _, p := range archive.Items {
+		if p.ID == otherID {
+			inArchive = strings.Join(p.RepostedBy, ",") == "_SyntheticB,kano_2525"
+		}
+	}
+	if !inArchive {
+		t.Fatalf("archive=%+v", archive.Items)
+	}
+	// An account's archive filter is its own posts only.
+	own, err := f.s.GetPostArchive(ctx, "2026-10-01", "2026-10-31", "_SyntheticB", 1, 50)
+	if err != nil || len(own.Items) != 1 || own.Items[0].ID != "1900000000000000352" {
+		t.Fatalf("account archive=%+v err=%v", own, err)
+	}
+	// Promoted, it is translated as a post, not as a pooled status.
+	candidates, err := f.s.ListTranslationCandidates(ctx, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owners := map[string]string{}
+	for _, c := range candidates {
+		owners[c.OwnerID] = c.OwnerType
+	}
+	if owners[otherID] != TranslationOwnerPost {
+		t.Fatalf("candidates=%v", owners)
+	}
+	// The lock outlives a rule change.
+	f.rules("存在しない語")
+	if f.state(otherID) != "shown" {
+		t.Fatalf("rules demoted a manual promote: %s", f.state(otherID))
+	}
+	// A demote hides it and outlives any rule.
+	if status, err = f.s.SetXStatusDecision(ctx, otherID, xDecisionDemote, "song moved"); err != nil || status.State != "demoted" {
+		t.Fatalf("demote=%+v err=%v", status, err)
+	}
+	f.rules("song")
+	if f.state(otherID) != "hidden" {
+		t.Fatalf("rules showed a manual demote")
+	}
+	if wall := f.wall(); wallHas(wall, otherID) {
+		t.Fatalf("a demoted repost is on the wall")
+	}
+	// Returned to the rules, which never promote another author, it stays
+	// hidden, and a later promote shows it again.
+	if status, err = f.s.SetXStatusDecision(ctx, otherID, xDecisionAutomatic, ""); err != nil || status.Decision != nil || f.state(otherID) != "hidden" {
+		t.Fatalf("automatic=%+v state=%s err=%v", status, f.state(otherID), err)
+	}
+	f.rules(DefaultXRelatedKeywords...)
+	if f.state(otherID) != "hidden" {
+		t.Fatalf("rules showed another author's repost")
+	}
+	if _, err = f.s.SetXStatusDecision(ctx, otherID, xDecisionPromote, "back"); err != nil || f.state(otherID) != "shown" {
+		t.Fatalf("promote again: state=%s err=%v", f.state(otherID), err)
+	}
+	// Returning a promote lock to the rules hides it.
+	if _, err = f.s.SetXStatusDecision(ctx, otherID, xDecisionAutomatic, ""); err != nil || f.state(otherID) != "hidden" {
+		t.Fatalf("automatic after promote: state=%s err=%v", f.state(otherID), err)
 	}
 }
 

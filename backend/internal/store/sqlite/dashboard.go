@@ -67,9 +67,13 @@ type Post struct {
 	MediaID        *string
 	MediaStatus    string
 	MediaSourceURL *string
-	// Promoted marks a related account's status promoted onto the board,
-	// which is not one of Kano's own posts.
+	// Promoted marks a pooled status (a related account's or one an own
+	// account reposted) promoted onto the board, which is not one of Kano's
+	// own posts.
 	Promoted bool
+	// RepostedBy lists the own accounts that reposted a promoted post, first
+	// sighting first; it is empty for every other post.
+	RepostedBy []string
 	// Translations resolves the text's translations by precedence.
 	Translations TranslationSet
 	// Quote is the status the post quotes, nil when it quotes none.

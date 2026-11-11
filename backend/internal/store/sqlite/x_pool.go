@@ -72,10 +72,10 @@ func writeQuotedStatus(ctx context.Context, tx *sql.Tx, q *xsource.Quote, quoted
 // status the listing carries enters the pool with reposted_at, whatever its
 // author; one it does not carry only marks a pooled row reposted. The
 // reasons of a related account's status are evaluated again; another
-// author's is stored only. A post stored under the repost's own status ID
-// (from an import, say) is removed with everything keyed to it (see
-// removeRepostPost). The board shows no reposts. It reports whether a post
-// changed.
+// author's is stored until an operator promotes it. A post stored under the
+// repost's own status ID (from an import, say) is removed with everything
+// keyed to it (see removeRepostPost). The board shows a reposted status only
+// once it is promoted. It reports whether a post changed.
 func writeXReposts(ctx context.Context, tx *sql.Tx, account string, reposts []xsource.Repost, now string) (bool, error) {
 	if len(reposts) == 0 {
 		return false, nil

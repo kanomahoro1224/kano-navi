@@ -524,8 +524,9 @@ the newest own forward of it, `first_seen_at` and `updated_at`. Its `text`
 equals the forward's `quote_json` `text`, and no public reader reads or joins
 the table. A fresh database and an upgraded snapshot start with it empty.
 
-`posts.promoted_at` marks a related account's status promoted into `posts`
-(`NULL` for an own post), whose `account_handle` is its author. Readers that
+`posts.promoted_at` marks a pooled status, a related account's or a reposted
+one, promoted into `posts` (`NULL` for an own post), whose `account_handle`
+is its author. Readers that
 are an own account's (the dashboard's latest post and per-account newest
 posts) leave it out, so a promoted post appears only in the combined post
 wall and the archive, which also leave out a promoted post that a shown own
@@ -535,7 +536,9 @@ when the quoting post or its quote is hidden. `x_reposts` holds one row per repo
 status and own account (`status_id`, `account_handle` in lower case,
 `author_handle` or `NULL`, `first_seen_at`, and `retweet_id`, the repost's
 own status ID once a detail answer or an X API answer named it, else
-`NULL`); see [Reposts](sources.md#reposts). No post is ever stored under a
+`NULL`); see [Reposts](sources.md#reposts). Public post reads list a
+promoted post's rows as its `repostedBy`, each account in the spelling of
+its stored own posts. No post is ever stored under a
 `retweet_id` (see [Reposts stored as posts](#reposts-stored-as-posts)).
 
 `posts.quote_hidden_at` records an operator's decision to keep a post's

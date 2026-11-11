@@ -91,6 +91,24 @@
   text-transform: uppercase;
 }
 
+/* A promoted repost names the own accounts that reposted it. */
+.post-note-reposted {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 -4px;
+  color: var(--soft);
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.post-note-reposted svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
 .post-note-handle {
   font-weight: 800;
 }

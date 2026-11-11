@@ -18,10 +18,15 @@ profile, summary, posts, events, videos, focus, timeline, resources, schedule
 assets, media status, and metadata. Posts are the newest 100 published within
 the window plus, however old, the eight newest of each own account; MCP
 `dashboard_read` and `posts_list` read the same list. A post with
-`promoted: true` is a related account's status promoted onto the board (see
-[Related accounts](sources.md#related-accounts)): it is never `latestPost`
+`promoted: true` is another account's status promoted onto the board, a
+related account's or a reposted one (see
+[Related accounts](sources.md#related-accounts) and
+[Reposts](sources.md#reposts)): it is never `latestPost`
 or one of an account's eight, and the list and the post archive leave it out
-while a shown own post shows it as a shown quote. `counts.posts` counts
+while a shown own post shows it as a shown quote. Its `accountHandle` is its
+author. `repostedBy` lists, as handles without `@` and first sighting first,
+the own accounts that reposted a promoted post; it is `[]` for every other
+post. `counts.posts` counts
 the window only. `counts.videos` counts public videos whose publication time is
 within the most recent seven days; it is independent of the bounded homepage
 video list. Public videos, on the board, the archive, the single-video read,

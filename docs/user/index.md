@@ -12,7 +12,7 @@ These pages describe what you can see and do on the site.
 - [Schedule](schedule.md): the weekly guide, the month view, and calendar
   subscriptions.
 - [Posts](posts.md): recent posts from both X accounts, the agency's posts
-  about Kano, and the post archive.
+  about Kano, reposts picked for the wall, and the post archive.
 - [Videos](videos.md): streams, works, Shorts, and the video archive.
 - [Journey](journey.md): milestones since 2010 and the visual archive.
 - [Works](works.md): her own releases, the works she is featured on, and her

@@ -17,6 +17,7 @@ import {
 import {
   memo,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -853,7 +854,7 @@ const ArchiveCard = memo(function ArchiveCard({
   const title = cleanVideoTitle(video.title)
   const links = videoLinks(video, locale, now)
   return (
-    <li className={`archive-card is-${phase}`}>
+    <li className={`archive-card is-${phase}`} data-video-id={video.id}>
       <div className="archive-card-link link-card" onClick={followCardLink}>
         <Thumb
           url={video.thumbnailUrl}
@@ -941,6 +942,47 @@ export function VideoArchiveFilter({
   )
 }
 
+/**
+ * Keeps an element at a viewport offset in the dialog body while the months
+ * around it settle: a month coming into view swaps its estimated height for
+ * its real one, which would push the element away. Each resize of the list
+ * re-aligns it, for a second at most, and the hold ends as soon as the reader
+ * scrolls or presses a key.
+ */
+function holdInView(
+  body: HTMLElement,
+  list: HTMLElement,
+  find: () => HTMLElement | null,
+  top: number,
+) {
+  const events = ["wheel", "touchstart", "pointerdown", "keydown"]
+  const align = () => {
+    const element = find()
+    const offset = element ? element.getBoundingClientRect().top - top : 0
+    if (Math.abs(offset) >= 1) body.scrollTop += offset
+  }
+  const observer =
+    typeof ResizeObserver === "function" ? new ResizeObserver(align) : null
+  const stop = () => {
+    window.clearTimeout(timer)
+    observer?.disconnect()
+    for (const name of events) body.removeEventListener(name, stop)
+  }
+  for (const name of events)
+    body.addEventListener(name, stop, { passive: true })
+  observer?.observe(list)
+  const timer = window.setTimeout(stop, 1000)
+  align()
+  return stop
+}
+
+/** A video's card in the timeline. */
+function videoCard(root: HTMLElement, id: string) {
+  for (const card of root.querySelectorAll<HTMLElement>("[data-video-id]"))
+    if (card.dataset.videoId === id) return card
+  return null
+}
+
 /** How far below the body's top edge a month header still counts as shown. */
 const VISIBLE_MONTH_OFFSET = 64
 
@@ -948,8 +990,9 @@ const VISIBLE_MONTH_OFFSET = 64
  * The video archive dialog's body: every stored video, newest first, under a
  * header per Japan month. The next page loads as the end scrolls near, the
  * month in view is reported as the body scrolls, and `jump` scrolls a loaded
- * month to the top. A timeline that starts from an earlier month offers the
- * newer videos above it.
+ * month to the top, once that month is loaded. A timeline that starts from an
+ * earlier month offers the newer videos above it; when they load above, the
+ * video that was first stays where it was on screen.
  */
 export function VideoTimeline({
   archive,
@@ -1028,17 +1071,53 @@ export function VideoTimeline({
     }
   }, [monthList])
 
+  // A jump waits for its month to load, then scrolls there once.
+  const jumpedRef = useRef<number | null>(null)
   useEffect(() => {
-    if (!jump) return
-    const body = listRef.current?.closest<HTMLElement>(".archive-dialog-body")
+    if (!jump || jumpedRef.current === jump.nonce) return
+    const list = listRef.current
+    const body = list?.closest<HTMLElement>(".archive-dialog-body")
     const section = body?.querySelector<HTMLElement>(
       `[data-month="${jump.month}"]`,
     )
-    if (!body || !section) return
-    if (section === body.querySelector("[data-month]"))
+    if (!list || !body || !section) return
+    jumpedRef.current = jump.nonce
+    if (section === body.querySelector("[data-month]")) {
       body.scrollTo?.({ top: 0 })
-    else section.scrollIntoView?.({ block: "start" })
-  }, [jump])
+      return
+    }
+    section.scrollIntoView?.({ block: "start" })
+    const month = jump.month
+    return holdInView(
+      body,
+      list,
+      () => body.querySelector<HTMLElement>(`[data-month="${month}"]`),
+      section.getBoundingClientRect().top,
+    )
+  }, [jump, monthList])
+
+  // Where the first video stood before newer ones loaded above it.
+  const keepRef = useRef<{ id: string; top: number } | null>(null)
+  const firstId = items?.[0]?.id
+  const firstPage = archive?.firstPage ?? 1
+  useLayoutEffect(() => {
+    const keep = keepRef.current
+    if (!keep || keep.id === firstId) return
+    keepRef.current = null
+    const list = listRef.current
+    const body = list?.closest<HTMLElement>(".archive-dialog-body")
+    if (!list || !body) return
+    return holdInView(body, list, () => videoCard(body, keep.id), keep.top)
+  }, [firstId])
+  const showNewer = () => {
+    const card =
+      firstId && listRef.current ? videoCard(listRef.current, firstId) : null
+    keepRef.current =
+      card && firstPage > 1
+        ? { id: firstId!, top: card.getBoundingClientRect().top }
+        : null
+    onNewer()
+  }
 
   const total = archive?.total ?? 0
   return (
@@ -1053,11 +1132,16 @@ export function VideoTimeline({
         locale={locale}
         t={t}
       />
-      {archive?.adjacent.next ? (
+      {archive?.adjacent.next || firstPage > 1 ? (
         <div className="archive-more is-newer">
-          <button type="button" className="pill-button" onClick={onNewer}>
+          <button
+            type="button"
+            className="pill-button"
+            disabled={isLoading}
+            onClick={showNewer}
+          >
             <ChevronUp aria-hidden="true" />
-            {t("videos.newer")}
+            {isLoading ? t("common.refreshing") : t("videos.newer")}
           </button>
         </div>
       ) : null}

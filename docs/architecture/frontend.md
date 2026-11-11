@@ -882,8 +882,9 @@ The archive dialogs read through `useArchive` in `use-dashboard.ts`, only
 while one is open: the schedule reads the Monday-first weeks covering the month
 from `/api/calendar`, past posts read the month's own days from
 [`/api/posts`](public-api.md#bounded-public-archives), and past videos read
-the [video timeline](public-api.md#bounded-public-archives) from `/api/videos`,
-from the newest video or from the last day of a chosen start month. They
+the [video timeline](public-api.md#bounded-public-archives) from `/api/videos`
+in pages of 30, from the newest video or from the page holding a chosen
+month. They
 follow the same rules as the calendar: pages of one revision are appended, a
 later page from another revision rereads the loaded pages atomically (up to
 three attempts under the 12-second deadline), and a board revision change
@@ -949,9 +950,22 @@ change of the scrolled-to month renders no card again. In the
 dialog's timeline mode (`ArchiveDialog`'s `timeline`), the month label follows
 the scroll (the last month whose header has reached the top of the body) and
 is not a live region, and the month arrows give way to a Latest button. A
-month chosen in the jump grid scrolls into view when it is loaded; otherwise
-the timeline restarts from that month, offering a button for the newer videos,
-and Latest returns to the newest. The
+month chosen in the jump grid scrolls into view when it is loaded. Otherwise
+the timeline restarts at the page of the whole newest-first timeline that
+holds the month's newest video (`timelineStartPage`: the month index's videos
+of the later months, in the chosen category, over the page size), reads the
+following page with it so the month can reach the top, and scrolls to the
+month once it is read. Its first loaded page is the snapshot's `firstPage`;
+while that is after page 1, a button above the list reads the page before it
+and puts its videos above, and the video that was first keeps its place on
+screen. A refresh rereads the whole loaded run, from `firstPage` on. While
+the months around a jump or the newly read videos render at their real height
+in place of the `content-visibility` estimate, a `ResizeObserver` keeps the
+target in place for up to a second, letting go as soon as the reader scrolls.
+Without a month index the timeline reads from the chosen month's last day
+(`until`), and the button above returns to the newest. Latest scrolls to the
+top once the loaded run reaches the newest video, and otherwise restarts the
+timeline from it. The
 category buttons (`VideoArchiveFilter`) carry the tag icons, pass the API's
 `category` filter, show the index's per-category totals over every month
 (`categoryCounts` of the loaded timeline while the index is unknown), and keep

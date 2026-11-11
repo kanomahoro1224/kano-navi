@@ -25,6 +25,7 @@ import {
 } from "./format"
 import {
   type ArchiveRequest,
+  timelineStartPage,
   useArchive,
   useArchiveMonths,
   useDashboard,
@@ -226,6 +227,13 @@ export function DashboardApp() {
   )
   const timelineAnchor =
     archiveView?.kind === "videos" ? archiveView.anchor || null : null
+  // Whether the loaded videos reach the newest one: a timeline from a chosen
+  // month does once its newer pages are loaded, or when it starts on page 1.
+  const timelineStartsAtNewest =
+    !timelineAnchor ||
+    (archiveView?.kind === "videos" && archiveView.startPage
+      ? (videoArchive?.firstPage ?? archiveView.startPage) === 1
+      : false)
   const timelineShown =
     timelineMonth ||
     loadedVideoMonths[0] ||
@@ -313,29 +321,45 @@ export function DashboardApp() {
       anchor: null,
     })
   }, [])
-  // A loaded month scrolls into view; any other restarts the timeline there.
+  const jumpTimeline = useCallback(
+    (month: string) =>
+      setTimelineJump((current) => ({
+        month,
+        nonce: (current?.nonce || 0) + 1,
+      })),
+    [],
+  )
+  // A loaded month scrolls into view. Any other restarts the timeline at the
+  // page holding it, found from the month index, and scrolls to it once read.
+  const videoMonths = indexKind === "videos" ? archiveMonths : null
   const chooseTimelineMonth = useCallback(
     (month: Date) => {
       const key = monthKeyOf(month)
       if (loadedVideoMonths.includes(key)) {
-        setTimelineJump((current) => ({
-          month: key,
-          nonce: (current?.nonce || 0) + 1,
-        }))
+        jumpTimeline(key)
         return
       }
       setTimelineMonth(null)
       setArchiveView((current) =>
-        current ? { ...current, anchor: monthStartOf(month) } : null,
+        current
+          ? {
+              ...current,
+              anchor: monthStartOf(month),
+              startPage: videoMonths
+                ? timelineStartPage(videoMonths, key, current.category)
+                : undefined,
+            }
+          : null,
       )
+      jumpTimeline(key)
     },
-    [loadedVideoMonths],
+    [loadedVideoMonths, videoMonths, jumpTimeline],
   )
   const showLatestVideos = useCallback(() => {
-    if (timelineAnchor) {
+    if (!timelineStartsAtNewest) {
       setTimelineMonth(null)
       setArchiveView((current) =>
-        current ? { ...current, anchor: null } : null,
+        current ? { ...current, anchor: null, startPage: undefined } : null,
       )
     } else if (loadedVideoMonths[0]) {
       const month = loadedVideoMonths[0]
@@ -344,7 +368,7 @@ export function DashboardApp() {
         nonce: (current?.nonce || 0) + 1,
       }))
     }
-  }, [timelineAnchor, loadedVideoMonths])
+  }, [timelineStartsAtNewest, loadedVideoMonths])
   const closeArchive = useCallback(() => setArchiveView(null), [])
   const setArchiveMonth = useCallback(
     (monthStart: Date) =>
@@ -358,10 +382,32 @@ export function DashboardApp() {
       setArchiveView((current) => (current ? { ...current, account } : null)),
     [],
   )
-  const setArchiveCategory = useCallback((category: VideoCategory | null) => {
-    setTimelineMonth(null)
-    setArchiveView((current) => (current ? { ...current, category } : null))
-  }, [])
+  // A timeline from a chosen month keeps that month, at its page among the
+  // category's videos.
+  const setArchiveCategory = useCallback(
+    (category: VideoCategory | null) => {
+      setTimelineMonth(null)
+      const anchor = archiveView?.kind === "videos" ? archiveView.anchor : null
+      setArchiveView((current) =>
+        current
+          ? {
+              ...current,
+              category,
+              startPage:
+                current.anchor && videoMonths
+                  ? timelineStartPage(
+                      videoMonths,
+                      monthKeyOf(current.anchor),
+                      category,
+                    )
+                  : undefined,
+            }
+          : null,
+      )
+      if (anchor) jumpTimeline(monthKeyOf(anchor))
+    },
+    [archiveView, videoMonths, jumpTimeline],
+  )
   const openWeek = useCallback(
     (day: Date) => {
       setWeekStart(startOfWeek(day))
@@ -561,7 +607,7 @@ export function DashboardApp() {
               ? {
                   onLatest: showLatestVideos,
                   atLatest:
-                    !timelineAnchor &&
+                    timelineStartsAtNewest &&
                     (!timelineMonth || timelineMonth === loadedVideoMonths[0]),
                   resetKey: `${timelineAnchor ? monthKeyOf(timelineAnchor) : "latest"}:${archiveView.category || ""}`,
                 }
@@ -637,7 +683,11 @@ export function DashboardApp() {
               monthCounts={archiveMonthCounts}
               jump={timelineJump}
               onVisibleMonth={setTimelineMonth}
-              onNewer={showLatestVideos}
+              onNewer={
+                (videoArchive?.firstPage ?? 1) > 1
+                  ? archive.loadNewer
+                  : showLatestVideos
+              }
               locale={locale}
               now={now}
               t={t}

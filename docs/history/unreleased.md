@@ -15,5 +15,8 @@
   it.
 - Month view jumps to any month: select the month name to pick a year and
   month, as in Past posts.
+- After a jump to an earlier month in Past videos, Show newer videos loads
+  the next newer videos above the list, keeping what you were looking at in
+  place, instead of returning to the newest.
 
 </details>

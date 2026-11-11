@@ -74,10 +74,34 @@ export interface ArchiveRequest {
   /** Video archives only: one category, or null for every video. */
   category?: VideoCategory | null
   /**
-   * Video archives only: the month the timeline starts from, reading that
-   * month and everything older; null starts from the newest video.
+   * Video archives only: the month the timeline starts from; null starts from
+   * the newest video. With `startPage`, the timeline reads the newest-first
+   * pages from the one holding that month, so the newer pages before it can
+   * load later; without it, from that month's last day, as nothing newer.
    */
   anchor?: Date | null
+  /** Video archives only: the page of the whole timeline holding `anchor`. */
+  startPage?: number
+}
+
+/** Videos per timeline page; the board's page numbers count in these. */
+export const VIDEO_TIMELINE_PAGE_SIZE = 30
+
+/**
+ * The page of the newest-first video timeline that holds a month's newest
+ * video: every video of the later months comes before it. The month index
+ * counts per category, so a chosen category counts its own videos alone.
+ */
+export function timelineStartPage(
+  months: readonly ArchiveMonth[],
+  month: string,
+  category: string | null | undefined,
+) {
+  let newer = 0
+  for (const entry of months)
+    if (entry.month > month)
+      newer += category ? entry.counts[category] || 0 : entry.total
+  return Math.floor(newer / VIDEO_TIMELINE_PAGE_SIZE) + 1
 }
 
 /**
@@ -105,9 +129,9 @@ function timelineUntil(anchor: Date | null | undefined) {
 
 function archiveUrl(request: ArchiveRequest, page: number) {
   if (request.kind === "videos") {
-    const until = timelineUntil(request.anchor)
+    const until = request.startPage ? "" : timelineUntil(request.anchor)
     const category = request.category ? `&category=${request.category}` : ""
-    return `/api/videos?page=${page}${until ? `&until=${until}` : ""}${category}`
+    return `/api/videos?page=${page}&pageSize=${VIDEO_TIMELINE_PAGE_SIZE}${until ? `&until=${until}` : ""}${category}`
   }
   const { from, to } = archiveRange(request.kind, request.monthStart)
   const path = request.kind === "schedule" ? "calendar" : "posts"
@@ -124,7 +148,9 @@ const rangeKey = ({ from, to }: { from: string; to: string }) => `${from}/${to}`
 function archiveKey(request: ArchiveRequest) {
   const span =
     request.kind === "videos"
-      ? `until:${timelineUntil(request.anchor)}`
+      ? request.startPage
+        ? `from-page:${request.startPage}`
+        : `until:${timelineUntil(request.anchor)}`
       : rangeKey(archiveRange(request.kind, request.monthStart))
   return `${request.kind}:${span}:${request.account || ""}:${request.category || ""}`
 }
@@ -142,22 +168,25 @@ async function readScopedJson(url: string, signal: AbortSignal) {
 type PagedSnapshot = { page: number; hasNext: boolean; revision: number }
 
 /**
- * Rereads the pages already loaded for one range and replaces them
- * atomically. If a write lands between pages, it restarts under the caller's
- * deadline; it never appends pages from different revisions.
+ * Rereads the pages already loaded for one range, from `first` through
+ * `through`, and replaces them atomically. If a write lands between pages, it
+ * restarts under the caller's deadline; it never appends pages from different
+ * revisions.
  */
 async function readLoadedPages<T extends PagedSnapshot>(
   readPage: (page: number) => Promise<T>,
   current: T | null,
   join: (loaded: T, next: T) => T,
+  first = 1,
+  through = current?.page || 1,
 ): Promise<T> {
   for (let attempt = 0; attempt < 3; attempt++) {
-    let next = await readPage(1)
+    let next = await readPage(first)
     // Public projections such as liveStatus can expire without a stored
     // write, so even an unchanged revision must replace the loaded pages.
     const revision = next.revision
     let consistent = true
-    while (next.hasNext && next.page < (current?.page || 1)) {
+    while (next.hasNext && next.page < through) {
       const page = await readPage(next.page + 1)
       if (page.revision !== revision) {
         consistent = false
@@ -875,18 +904,28 @@ export function useArchive<T>(
         ? { ...value, isLoading: true }
         : { key: currentKey, snapshot: null, isLoading: true, error: null },
     )
+    // A refresh rereads the run it has loaded, from its first page. A timeline
+    // from a chosen month first reads the page after the month's too, so the
+    // month always has enough below it to scroll to the top.
+    const first = loaded?.firstPage ?? current.startPage ?? 1
+    const through = loaded ? loaded.page : current.startPage ? first + 1 : 1
     try {
-      const snapshot = await scope.run("archive", (signal) =>
+      const read = await scope.run("archive", (signal) =>
         readLoadedPages(
           (page) => readPage(current, page, signal),
           loaded,
           (before, page) => ({
             ...page,
+            firstPage: before.firstPage ?? before.page,
             items: [...before.items, ...page.items],
           }),
+          first,
+          through,
         ),
       )
       if (keyRef.current !== currentKey) return
+      // The first read names its page: a shorter timeline clamps it.
+      const snapshot = { ...read, firstPage: read.firstPage ?? read.page }
       setState({ key: currentKey, snapshot, isLoading: false, error: null })
     } catch (caught) {
       const error = caught instanceof Error ? caught : new Error(String(caught))
@@ -925,7 +964,56 @@ export function useArchive<T>(
       }
       setState({
         key: currentKey,
-        snapshot: { ...next, items: [...snapshot.items, ...next.items] },
+        snapshot: {
+          ...next,
+          firstPage: snapshot.firstPage,
+          items: [...snapshot.items, ...next.items],
+        },
+        isLoading: false,
+        error: null,
+      })
+    } catch (caught) {
+      const error = caught instanceof Error ? caught : new Error(String(caught))
+      if (
+        scope.active &&
+        keyRef.current === currentKey &&
+        error.name !== "AbortError"
+      )
+        setState((value) => ({ ...value, isLoading: false, error }))
+    }
+  }, [scope, load])
+
+  // Reads the page before the first loaded one and puts its newer records
+  // above the loaded ones; a write in between rereads the whole run instead.
+  const loadNewer = useCallback(async () => {
+    const current = requestRef.current
+    const { key: currentKey, snapshot } = stateRef.current
+    const first = snapshot?.firstPage ?? 1
+    if (
+      !current ||
+      !snapshot ||
+      first <= 1 ||
+      currentKey !== keyRef.current ||
+      scope.busy("archive")
+    )
+      return
+    setState((value) => ({ ...value, isLoading: true }))
+    try {
+      const newer = await scope.run("archive", (signal) =>
+        readPage(current, first - 1, signal),
+      )
+      if (keyRef.current !== currentKey) return
+      if (newer.revision !== snapshot.revision || newer.page !== first - 1) {
+        await load()
+        return
+      }
+      setState({
+        key: currentKey,
+        snapshot: {
+          ...snapshot,
+          firstPage: newer.page,
+          items: [...newer.items, ...snapshot.items],
+        },
         isLoading: false,
         error: null,
       })
@@ -969,6 +1057,7 @@ export function useArchive<T>(
     error: current?.error || null,
     reload: load,
     loadMore,
+    loadNewer,
   }
 }
 

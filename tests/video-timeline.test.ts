@@ -278,10 +278,19 @@ test("the timeline dialog swaps the month arrows for a Latest button", async () 
         null,
       )
 
+      // A timeline started at a later page offers the pages before it.
+      await update({
+        archive: snapshot(items.slice(3), { firstPage: 3 }),
+        atLatest: false,
+      })
+      await click(container.querySelector(".archive-more.is-newer button"))
+      assert.equal(calls.newer, 2)
+
       await update({
         archive: snapshot(items),
         atLatest: true,
       })
+      assert.equal(container.querySelector(".archive-more.is-newer"), null)
       assert.equal(
         Array.from(
           bar.querySelectorAll<HTMLButtonElement>(".pill-button"),
@@ -320,12 +329,22 @@ test("a jump scrolls its loaded month into view, and the first month to the top"
         archive: snapshot(items),
         jump: { month: "2026-10", nonce: 2 },
       })
-      // A month not on the page is left to the caller.
+      // A month not loaded yet waits, and scrolls once it arrives.
       await update({
         archive: snapshot(items),
         jump: { month: "2020-01", nonce: 3 },
       })
       assert.deepEqual(scrolled, ["into:2015-02", "top"])
+      const later = [...items, video("jan", "2020-01-10T03:00:00Z")]
+      await update({
+        archive: snapshot(later),
+        jump: { month: "2020-01", nonce: 3 },
+      })
+      await update({
+        archive: snapshot([...later, video("older", "2019-05-10T03:00:00Z")]),
+        jump: { month: "2020-01", nonce: 3 },
+      })
+      assert.deepEqual(scrolled, ["into:2015-02", "top", "into:2020-01"])
     } finally {
       Element.scrollIntoView = previousInto
       Element.scrollTo = previousTo

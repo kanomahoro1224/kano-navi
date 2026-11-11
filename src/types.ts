@@ -311,7 +311,7 @@ export interface ArchiveMonth {
 }
 
 /**
- * One loaded prefix of an archive (a schedule or post month, or the video
+ * One loaded run of an archive's pages (a schedule or post month, or the video
  * timeline), newest page last. Schedule pages also carry dayCounts; post pages
  * carry the month's per-account counts, keyed by lowercase handle, and video
  * pages the per-category counts of everything they page through.
@@ -320,7 +320,14 @@ export interface ArchiveSnapshot<T> {
   items: T[]
   adjacent: { previous: string | null; next: string | null }
   total: number
+  /** The last loaded page. */
   page: number
+  /**
+   * The first loaded page, set by the board: a video timeline that starts
+   * from a chosen month starts at the page holding it, and loads the newer
+   * pages before it on request.
+   */
+  firstPage?: number
   hasNext: boolean
   revision: number
   dayCounts?: Record<string, number>

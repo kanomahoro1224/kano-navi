@@ -847,7 +847,45 @@ function PostMasonry({ children }: { children: ReactElement[] }) {
   )
 }
 
-/** The post archive dialog's body: one month of stored posts, newest first. */
+/**
+ * The cards a month shows while its posts load: their text lines and whether
+ * a picture follows, varied so the wall reads as posts of different lengths.
+ */
+const ARCHIVE_SKELETON = [
+  { lines: 3, media: true },
+  { lines: 2, media: false },
+  { lines: 4, media: false },
+  { lines: 2, media: false },
+  { lines: 3, media: true },
+  { lines: 5, media: false },
+  { lines: 3, media: false },
+  { lines: 2, media: true },
+  { lines: 4, media: false },
+]
+
+/** One stand-in card: a name line, text lines and maybe a picture. */
+function PostSkeleton({ lines, media }: { lines: number; media: boolean }) {
+  return (
+    <div className="post-note is-skeleton" aria-hidden="true">
+      <div className="placeholder">
+        <span style={{ width: "38%" }} />
+        {Array.from({ length: lines }, (_, index) => (
+          <span
+            key={index}
+            style={{ width: index === lines - 1 ? "56%" : "92%" }}
+          />
+        ))}
+      </div>
+      {media ? <span className="post-skeleton-media" /> : null}
+    </div>
+  )
+}
+
+/**
+ * The post archive dialog's body: one month of stored posts, newest first.
+ * Until a month's first page arrives, skeleton cards hold the wall's place
+ * in the chosen layout.
+ */
 export function PostArchive({
   archive,
   layout,
@@ -888,12 +926,18 @@ export function PostArchive({
       onOpenMedia={onOpenMedia}
     />
   ))
+  const cells =
+    !archive && isLoading
+      ? ARCHIVE_SKELETON.map((card, index) => (
+          <PostSkeleton key={`skeleton-${index}`} {...card} />
+        ))
+      : notes
   return (
     <>
       <ArchiveState
         error={error}
         onRetry={onRetry}
-        loading={!archive && isLoading}
+        loading={false}
         empty={Boolean(archive && !archive.items.length)}
         emptyTitle={t("feed.archiveEmpty")}
         adjacent={archive?.adjacent}
@@ -901,10 +945,10 @@ export function PostArchive({
         locale={locale}
         t={t}
       />
-      {!notes.length ? null : layout === "list" ? (
-        <div className="post-wall is-archive is-list">{notes}</div>
+      {!cells.length ? null : layout === "list" ? (
+        <div className="post-wall is-archive is-list">{cells}</div>
       ) : (
-        <PostMasonry>{notes}</PostMasonry>
+        <PostMasonry>{cells}</PostMasonry>
       )}
       {archive ? (
         <ArchiveMore

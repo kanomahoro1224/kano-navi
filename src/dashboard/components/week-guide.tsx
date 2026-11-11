@@ -559,6 +559,7 @@ function MonthGrid({
   dayCounts,
   todayKey,
   selectedKey,
+  loading,
   onPickDay,
   locale,
   now,
@@ -569,6 +570,8 @@ function MonthGrid({
   dayCounts: Record<string, number>
   todayKey: string
   selectedKey: string | null
+  /** The month's entries are on their way: its days shimmer meanwhile. */
+  loading: boolean
   onPickDay: (day: Date, eventId?: string) => void
   locale: Locale
   now: number
@@ -586,7 +589,10 @@ function MonthGrid({
   const weekdays = t("schedule.weekdays") as unknown as string[]
 
   return (
-    <div className="month">
+    <div
+      className={`month${loading ? " is-loading" : ""}`}
+      aria-busy={loading || undefined}
+    >
       <div className="month-weekdays" aria-hidden="true">
         {weekdays.map((name, index) => (
           <span key={index} className={index >= 5 ? "is-weekend" : undefined}>
@@ -723,8 +729,8 @@ function ScheduleLegend({ t }: { t: Translator }) {
 
 /**
  * The month dialog's body: the month grid and, beside it on wide screens
- * (below it on narrow ones), the selected day's full entries. Remount it per
- * month so the selection starts over.
+ * (below it on narrow ones), an empty month's note and the selected day's full
+ * entries. Remount it per month so the selection starts over.
  */
 export function ScheduleMonth({
   monthStart,
@@ -788,34 +794,40 @@ export function ScheduleMonth({
     })
   }
 
+  // Until the month arrives the grid stands with its dates and no entries,
+  // so a month change never collapses the layout.
+  const loading = !archive
+  const empty = Boolean(archive && !archive.total)
+
   return (
     <>
-      <ArchiveState
-        error={error}
-        onRetry={onRetry}
-        loading={!archive && isLoading}
-        empty={Boolean(archive && !archive.total)}
-        emptyTitle={t("schedule.emptyMonth")}
-        hint={t("schedule.emptyHint")}
-        adjacent={archive?.adjacent}
-        onJump={onJump}
-        locale={locale}
-        t={t}
-      />
-      {archive ? (
-        <div className="month-layout">
-          <MonthGrid
-            monthStart={monthStart}
-            byDay={byDay}
-            dayCounts={dayCounts}
-            todayKey={todayKey}
-            selectedKey={selectedKey}
-            onPickDay={pickDay}
+      <div className="month-layout">
+        <MonthGrid
+          monthStart={monthStart}
+          byDay={byDay}
+          dayCounts={dayCounts}
+          todayKey={todayKey}
+          selectedKey={selectedKey}
+          loading={loading && isLoading}
+          onPickDay={pickDay}
+          locale={locale}
+          now={now}
+          t={t}
+        />
+        <div className="month-side">
+          <ArchiveState
+            error={error}
+            onRetry={onRetry}
+            loading={false}
+            empty={empty}
+            emptyTitle={t("schedule.emptyMonth")}
+            hint={t("schedule.emptyHint")}
+            adjacent={archive?.adjacent}
+            onJump={onJump}
             locale={locale}
-            now={now}
             t={t}
           />
-          {!selected ? (
+          {!selected && !empty ? (
             <div className="month-detail is-unpicked" aria-live="polite">
               <p className="month-detail-empty">{t("schedule.pickDay")}</p>
             </div>
@@ -830,9 +842,15 @@ export function ScheduleMonth({
                 aria-atomic="true"
               >
                 <h3>{formatLongDate(selected, locale)}</h3>
-                <span>{t("schedule.weekCount", { count: selectedCount })}</span>
+                {loading ? null : (
+                  <span>
+                    {t("schedule.weekCount", { count: selectedCount })}
+                  </span>
+                )}
               </div>
-              {selectedItems.length ? (
+              {loading ? (
+                <Placeholder lines={2} />
+              ) : selectedItems.length ? (
                 <ol className="guide-day-events">
                   {selectedItems.map((event) => (
                     <GuideEvent
@@ -871,12 +889,12 @@ export function ScheduleMonth({
             </div>
           ) : null}
         </div>
-      ) : null}
-      {archive ? (
-        <div className="guide-foot">
-          <p className="guide-legend">
-            <ScheduleLegend t={t} />
-          </p>
+      </div>
+      <div className="guide-foot">
+        <p className="guide-legend">
+          <ScheduleLegend t={t} />
+        </p>
+        {archive ? (
           <ArchiveMore
             hasNext={archive.hasNext}
             isLoading={isLoading}
@@ -884,8 +902,8 @@ export function ScheduleMonth({
             onLoadMore={onLoadMore}
             t={t}
           />
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </>
   )
 }

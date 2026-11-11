@@ -508,6 +508,25 @@
   margin-inline: auto;
 }
 
+/* A stand-in card while a month of posts loads. */
+.post-note.is-skeleton .placeholder {
+  padding: 0;
+}
+
+.post-skeleton-media {
+  display: block;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--sunken),
+    color-mix(in oklab, hsl(var(--muted)) 40%, transparent),
+    var(--sunken)
+  );
+  background-size: 200% 100%;
+  animation: placeholder-shine 1.4s ease-in-out infinite;
+}
+
 .post-wall.is-archive .post-note-media {
   grid-template-rows: none;
   aspect-ratio: auto;

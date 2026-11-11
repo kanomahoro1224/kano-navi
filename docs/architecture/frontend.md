@@ -908,11 +908,19 @@ filter. Months without posts and months
 after the latest are marked `aria-disabled`; arrow keys move between months,
 Page Up and Page Down change the year, and Escape or a press outside closes the
 grid before the dialog. A failed index read keeps a known index, and without
-one every month up to the latest is offered.
+one every month up to the latest is offered. The schedule's month label opens
+the same grid without an index: every month is offered and the year stepper
+is unbounded.
+Until a month's first page arrives, the schedule dialog shows the month grid
+with its dates and a shimmering bar in each day, and the post archive shows
+skeleton cards in the chosen layout, so a month change keeps the body in
+place. The post account filter takes its counts from the month index when it
+has one, so they stay while the month loads.
 A click anywhere in a month-grid day picks it, listing its entries beside the
 grid (below it on phones). The current month opens on today; in another month
-the side panel asks for a day, and on phones nothing shows below the grid until
-one is picked. A grid entry is a button: it picks its day, marks
+the side panel asks for a day, and on phones the day list waits below the
+grid until one is picked. An empty month's note and a failed read sit in the
+side panel (below the grid on phones), never above the grid. A grid entry is a button: it picks its day, marks
 the entry in that list and scrolls it into view, again on every pick, and the
 list's entries open the details sheet. Only the day heading of the list is a
 live region, so an opened sheet is not announced as an update. The panel can

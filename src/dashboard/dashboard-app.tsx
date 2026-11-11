@@ -89,7 +89,11 @@ function latestArchiveMonth(months: { month: string }[] | null) {
   return indexed && indexed > thisMonth ? indexed : thisMonth
 }
 
-/** Heading copy of each archive dialog, with the month's or timeline's total. */
+/**
+ * Heading copy of each archive dialog. The post and video kickers name the
+ * platforms only, since the filter names each account. The total shows only
+ * where no filter does: a filter's pressed button already counts it.
+ */
 function archiveCopy(
   view: ArchiveRequest,
   archive: ArchiveSnapshot<unknown> | null,
@@ -108,8 +112,7 @@ function archiveCopy(
     return {
       kicker: (
         <>
-          <XLogo className="kicker-icon" aria-hidden="true" />{" "}
-          {accounts.map((handle) => `@${handle}`).join(" · ")}
+          <XLogo className="kicker-icon" aria-hidden="true" /> X
           {bilibiliAccounts.length ? (
             <>
               {" · "}
@@ -120,7 +123,10 @@ function archiveCopy(
         </>
       ),
       title: t("feed.archiveTitle"),
-      summary: total == null ? null : t("feed.monthCount", { count: total }),
+      summary:
+        total == null || accounts.length + bilibiliAccounts.length > 1
+          ? null
+          : t("feed.monthCount", { count: total }),
     }
   return {
     kicker: (
@@ -131,7 +137,7 @@ function archiveCopy(
       </>
     ),
     title: t("videos.archiveTitle"),
-    summary: total == null ? null : t("videos.monthCount", { count: total }),
+    summary: null,
   }
 }
 
@@ -183,6 +189,17 @@ export function DashboardApp() {
       ]),
     )
   }, [archiveMonths, indexFilter])
+  // The shown post month's counts per account from the index, known before
+  // the month's posts arrive, so the account filter keeps its numbers.
+  const postMonthKey =
+    archiveView?.kind === "posts" ? monthKeyOf(archiveView.monthStart) : null
+  const postAccountCounts = useMemo(() => {
+    if (indexKind !== "posts" || !archiveMonths || !postMonthKey)
+      return undefined
+    return (
+      archiveMonths.find(({ month }) => month === postMonthKey)?.counts ?? {}
+    )
+  }, [indexKind, archiveMonths, postMonthKey])
   // Every video's category over the whole index, so the filter keeps its
   // totals wherever the timeline starts.
   const videoCategoryCounts = useMemo(() => {
@@ -526,7 +543,8 @@ export function DashboardApp() {
           }
           picker={
             archiveView.kind === "schedule"
-              ? undefined
+              ? // The schedule has no month index: every month is offered.
+                { counts: null }
               : {
                   counts: archiveMonthCounts,
                   countLabel: (count) =>
@@ -557,7 +575,7 @@ export function DashboardApp() {
                   bilibiliAccounts={meta.bilibiliAccounts || []}
                   account={archiveView.account || null}
                   setAccount={setArchiveAccount}
-                  counts={archive.archive?.accountCounts}
+                  counts={postAccountCounts ?? archive.archive?.accountCounts}
                   t={t}
                 />
                 <PostArchiveLayoutToggle

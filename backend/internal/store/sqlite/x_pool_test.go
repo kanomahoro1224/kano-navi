@@ -57,7 +57,7 @@ func TestQuotedStatusesAndRepostsEnterThePool(t *testing.T) {
 	if err = db.QueryRow(`SELECT json_extract(quote_json,'$.text') FROM posts WHERE id=?`, first.ID).Scan(&projected); err != nil {
 		t.Fatal(err)
 	}
-	if text != projected || quotedAt != first.PublishedAt || raw != `{"author":{"name":"Agency","screen_name":"agency_synthetic"},"created_at":"2026-10-09T00:00:00Z","id":"`+agencyID+`","mediaURLs":["`+twimg("agency")+`"],"text":"10月20日 20時から配信","url":"https://x.com/agency_synthetic/status/`+agencyID+`"}` {
+	if text != projected || quotedAt != first.PublishedAt || raw != `{"author":{"name":"Agency","screen_name":"agency_synthetic"},"created_at":"2026-10-09T00:00:00Z","id":"`+agencyID+`","mediaKinds":["photo"],"mediaURLs":["`+twimg("agency")+`"],"text":"10月20日 20時から配信","url":"https://x.com/agency_synthetic/status/`+agencyID+`"}` {
 		t.Fatalf("pool text=%q projected=%q quoted_at=%q raw=%s", text, projected, quotedAt, raw)
 	}
 	// An unavailable quote carries no status; nothing of the quote gets a
@@ -69,8 +69,8 @@ func TestQuotedStatusesAndRepostsEnterThePool(t *testing.T) {
 	if pooled != 1 || links != 0 || assets != 0 {
 		t.Fatalf("pooled=%d links=%d assets=%d", pooled, links, assets)
 	}
-	// Reposts record links only: the board shows none, and a status of an
-	// author that is not a related account stays out of the pool.
+	// Reposts record their links, and the board shows none; a repost whose
+	// listing carries none of its status stays out of the pool.
 	var reposts int
 	var author sql.NullString
 	if err = db.QueryRow(`SELECT COUNT(*),MAX(author_handle) FROM x_reposts WHERE account_handle='kano'`).Scan(&reposts, &author); err != nil {

@@ -55,7 +55,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `translations`           | Manual, platform, and machine translations of posts, videos and pooled statuses per target locale      |
 | `translation_states`     | Per-owner machine translation state: source hash and language, last attempt, operator request          |
 | `x_statuses`             | The X status pool: related accounts' statuses and statuses own posts quote or repost; never public     |
-| `x_reposts`              | The own X accounts' reposts: reposted status, account, author and first sighting                       |
+| `x_reposts`              | The own X accounts' reposts: reposted status, account, author, first sighting and the repost's own ID  |
 | `bilibili_statuses`      | The Bilibili status pool: dynamics own forwards forward; never public                                  |
 
 The API maps snake_case columns to camelCase and removes `raw_json`. The
@@ -434,6 +434,15 @@ same transaction as the post write. An empty list removes all display links;
 omitted media fields preserve the known declaration. Failed source reads never
 call this writer. Cache rows/files may remain after a link is removed.
 
+An X post's `post-image` and `quote-image` links carry `kind`: `photo`, or
+`video` or `gif` when the image is the thumbnail of one (see
+[Media cache](media-cache.md#database-model)); other links and links the
+source did not type keep `NULL`, which every reader takes as `photo`. When
+startup adds the column, it marks the video and GIF links of every stored X
+post whose `raw_json` types its images (`media_extended`, FxTwitter's
+`media` or `mediaKinds`) once, without a request; a post whose payload holds
+no types keeps photo links until its next refresh.
+
 ## Quoted Posts
 
 A post that quotes another status keeps it in `posts.quote_json`, a
@@ -497,7 +506,7 @@ Every available X quote is also a row of the X status pool `x_statuses` (see
 quote's `{id, text, created_at, url, author, mediaURLs}`, or the timeline
 status as an own post stores it), `quoted_at`, the publication time of the
 newest own post that quotes it, `reposted_at`, when an own account's repost
-of a related account's status was first seen, `listed_at`, when its related
+of it was first seen, `listed_at`, when its related
 author's timeline first listed it, `keyword` (1 while a keyword rule
 matches), the operator's `manual_decision` (`promote` or `demote`) with
 `manual_reason` and `manual_at`, `demoted_at`, set while an automatic
@@ -524,7 +533,10 @@ post quotes with its quote shown: the quote card already shows it. That is a
 display rule computed at read time; it sets nothing, and the post returns
 when the quoting post or its quote is hidden. `x_reposts` holds one row per reposted
 status and own account (`status_id`, `account_handle` in lower case,
-`author_handle` or `NULL`, `first_seen_at`); see [Reposts](sources.md#reposts).
+`author_handle` or `NULL`, `first_seen_at`, and `retweet_id`, the repost's
+own status ID once a detail answer or an X API answer named it, else
+`NULL`); see [Reposts](sources.md#reposts). No post is ever stored under a
+`retweet_id` (see [Reposts stored as posts](#reposts-stored-as-posts)).
 
 `posts.quote_hidden_at` records an operator's decision to keep a post's
 quote off the public pages: the dashboard, the post archive and MCP then
@@ -542,10 +554,14 @@ detail request (see
 [Refresh from the source](sources.md#refresh-from-the-source)). All three are
 additive columns, `NULL` by default.
 
-Startup creates both tables in existing snapshots. On every start it adds
+Startup creates both tables in existing snapshots and adds
+`x_reposts.retweet_id` empty. On every start it adds
 to the pool the quote of every stored X post whose available quote the pool
 does not hold as quoted by that post yet, mapped from the post's `raw_json`
-like a source write, without a request.
+like a source write, without a request, and marks every pooled status that
+an `x_reposts` row names as reposted, with the earliest sighting as
+`reposted_at`. A repost link whose status the pool does not hold stays a
+link: no stored data carries its wording.
 
 Startup adds `quote_json` additively. It then fills it for every X post
 whose `raw_json` names a quoted status (an object under `qrt`, `quote`,
@@ -672,9 +688,10 @@ Bilibili forward, resolved against the quote's own `text` in `quote_json`: a
 machine row and the detected language count only while their source hash
 matches that text, and manual and platform rows always count. The read uses
 the translation tables alone and never reads a pool table. The machine step
-translates a pooled X status while an own post quotes or reposts it, and a
-pooled dynamic while an own forward forwards it, when it is not a stored
-post (see [Translation](sources.md#translation)).
+translates a pooled X status while an own post quotes it or, for a related
+account's status, an own account reposts it, and a pooled dynamic while an
+own forward forwards it, when it is not a stored post (see
+[Translation](sources.md#translation)).
 
 Startup creates both translation tables in existing snapshots; no post,
 video or event row is rewritten.
@@ -851,6 +868,24 @@ such as a YouTube reservation or a visible post, or with no evidence at all,
 stays shown. Every public event reader leaves such an event out, as it leaves
 out merged rows (see [Duplicate merging](#duplicate-merging)), and so does a
 video's linked event. The console lists it with `hiddenByPosts`.
+
+## Reposts Stored as Posts
+
+An own account's repost has a status ID of its own, which a detail answer
+or an X API answer names (see [Reposts](sources.md#reposts)). An own X
+post stored under that ID, such as one an archive import wrote, is removed
+in the transaction that records the repost: the `posts` row with its
+`media_links`, its `schedule-x-<id>` asset with that asset's links and
+review, `post_llm_states`, `schedule_extractions`, its `post` translations
+and translation state, and its refresh request. Its active `event_sources`
+rows are retired as an extraction that no longer names them retires them:
+an automatic, unlocked event left without active evidence is retired, which
+releases the rule merges into it, while an event with other active evidence
+stays and a manual or locked event keeps its row and decisions (see
+[Event precedence](#event-precedence)). A promoted post or another account's
+post is never removed this way. The ID stays in `x_reposts.retweet_id`, so
+no synchronization, fetch or promotion writes a post under it again; a write
+that names it skips it, with its schedule candidate.
 
 ## Event Platforms
 

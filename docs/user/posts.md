@@ -10,7 +10,9 @@ Posts are laid out in whole rows; a long post shows its first lines and
 - Filter by account to see one account at a time, bilibili included; each
   account fills the wall with its own newest posts, even when another one
   posted more recently.
-- Open images in a viewer and step through them.
+- Open images in a viewer and step through them. A video or GIF shows its
+  still with a play mark or a GIF tag; it opens the post on X, where it
+  plays.
 - See like, repost, and reply counts of X posts as they were last collected.
 - A post that quotes another one shows the quoted post as a nested card that
   links to it on X. A bilibili post that forwards another one shows the

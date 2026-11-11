@@ -26,7 +26,8 @@ type postLLMState struct {
 
 var errPostNotFound = errors.New("post not found")
 
-// maxBatchPosts bounds the posts one bulk reprocess or dismissal names.
+// maxBatchPosts bounds the posts one bulk reprocess, dismissal or refresh
+// names.
 const maxBatchPosts = 200
 
 // queuePostReprocess marks one post queued for the next extraction run and
@@ -151,6 +152,35 @@ func (m *Module) dismissPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"dismissed": dismissed})
+}
+
+// refreshPosts queues every listed own X post for a refresh from the source
+// in one transaction (see queuePostRefresh); unknown IDs and posts that
+// cannot be refreshed are skipped. It answers how many are queued, a post
+// already queued included.
+func (m *Module) refreshPosts(w http.ResponseWriter, r *http.Request) {
+	ids, ok := batchPostIDs(w, r)
+	if !ok {
+		return
+	}
+	ctx, now, queued := r.Context(), m.timestamp(), 0
+	err := m.inTx(ctx, func(tx *sql.Tx) error {
+		for _, id := range ids {
+			switch err := queuePostRefresh(ctx, tx, id, now); {
+			case errors.Is(err, errPostNotFound), errors.Is(err, errNotRefreshable):
+			case err != nil:
+				return err
+			default:
+				queued++
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		writeFailure(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"queued": queued})
 }
 
 // requestPostReprocess queues a post for the next extraction run and clears

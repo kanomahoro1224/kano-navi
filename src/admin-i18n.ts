@@ -1322,6 +1322,8 @@ export const adminMessages = {
     "admin.notice.postShown": "Post shown on the public pages again",
     "admin.notice.quoteShown": "Quote shown on the public board again",
     "admin.notice.refreshQueued": "Queued for the next X sync",
+    "admin.notice.refreshesQueued": ({ count }: { count: number }) =>
+      `${plural(count, "post", "posts")} queued for the next X sync`,
     "admin.notice.videoSaved": "Video corrections saved",
     "admin.notice.worksDecisionSaved": "Works decision saved",
     "admin.notice.videoRefresh":

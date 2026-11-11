@@ -51,6 +51,12 @@ chip decision, and an optional companion video. `shelf` contains the lead ID, wh
 reservation, work, archive and Short IDs. The browser uses these IDs to join
 the returned records; it does not infer their order from localized text.
 
+A post's `media` and its quote's `media` list images as `{id, url, status,
+sourceUrl, alt, position, width, height, kind}`. `kind` is `photo`, `video`
+or `gif`: a video's or GIF's entry is its thumbnail, and the board links it
+to the post or the quoted status on X. Every image that is not an X video or
+GIF, a Bilibili one included, is a `photo`.
+
 Each event has a `view` with the canonical `state`, `typeCode`,
 `activityCode`, `activityContext`, `isWork`, and sale-expanded
 `calendarEntries`. `state` has exactly seven values: `upcoming` means the

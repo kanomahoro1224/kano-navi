@@ -238,8 +238,11 @@ type Post struct {
 	ID, AccountHandle, Type, Label, Text, PublishedAt, URL string
 	Likes, Reposts, Replies                                int
 	MediaURLs                                              []string
-	MediaAlt                                               string
-	AuthorScreenName                                       string
+	// MediaKinds holds each own image's kind (MediaPhoto, MediaVideo or
+	// MediaGIF), in MediaURLs order.
+	MediaKinds       []string
+	MediaAlt         string
+	AuthorScreenName string
 	// Quote is the status the post quotes, nil when it quotes none. Its
 	// images are never the post's own MediaURLs.
 	Quote *Quote
@@ -433,7 +436,9 @@ func (a *Adapter) FetchRecent(ctx context.Context, account string, opts Options)
 	detail = detail[:min(max(opts.MaxDetailRequests, 0), len(detail))]
 	attempted := map[string]bool{}
 	failed := []string{}
-	foreign := 0
+	// settled counts answers that were no failure and no post: another
+	// account's status or the account's repost.
+	settled := 0
 	var firstDetailErr error
 	fail := func(id, code string, err error, gone bool) {
 		if firstDetailErr == nil && err != nil {
@@ -473,6 +478,15 @@ func (a *Adapter) FetchRecent(ctx context.Context, account string, opts Options)
 			fail(id, string(ErrInvalidJSON), &Error{Code: ErrInvalidJSON}, false)
 			continue
 		}
+		// The account's repost has a status ID of its own, but it is never
+		// a post: it is recorded as a repost and leaves the queue at once,
+		// without a failure.
+		if repost, ok := detailRepost(payload, id, account); ok {
+			result.Reposts = append(result.Reposts, repost)
+			result.Dropped = append(result.Dropped, DroppedStatus{ID: id, Code: DroppedRepost})
+			settled++
+			continue
+		}
 		post := Normalize(payload, id, account)
 		if post == nil || post.ID != id {
 			fail(id, string(ErrInvalidResponse), &Error{Code: ErrInvalidResponse}, false)
@@ -482,7 +496,7 @@ func (a *Adapter) FetchRecent(ctx context.Context, account string, opts Options)
 		// no failure either: the ID leaves the queue at once.
 		if !accept(post) {
 			result.Dropped = append(result.Dropped, DroppedStatus{ID: id, Code: DroppedForeign})
-			foreign++
+			settled++
 		}
 	}
 	for _, id := range detail {
@@ -513,8 +527,9 @@ func (a *Adapter) FetchRecent(ctx context.Context, account string, opts Options)
 		result.NextCursor = result.NewestID(newest)
 		result.NextCursorTime = newest.PublishedAt
 	}
-	// Requests answered only with other accounts' statuses fail nothing.
-	if result.RequestedCount > foreign && len(result.Posts) == 0 {
+	// Requests answered only with other accounts' statuses or reposts fail
+	// nothing.
+	if result.RequestedCount > settled && len(result.Posts) == 0 {
 		if firstDetailErr != nil {
 			return result, firstDetailErr
 		}

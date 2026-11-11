@@ -35,7 +35,8 @@ func Normalize(payload map[string]any, fallbackID, account string) *Post {
 		payload["mediaURLs"] = own
 	}
 	// A quoted status's images stay out of the post's own media.
-	media := mediaURLs(payload)
+	items := mediaItems(payload)
+	media := itemURLs(items)
 	quote := QuoteOf(payload)
 	if id == "" || published == "" || (text == "" && len(media) == 0 && quote == nil) {
 		return nil
@@ -56,7 +57,7 @@ func Normalize(payload map[string]any, fallbackID, account string) *Post {
 		u = fallbackPostURL(account, id)
 	}
 	u = normalizePostURL(u, account, id)
-	p := &Post{ID: id, AccountHandle: account, Type: "daily", Label: "DAILY / 近况", Text: text, PublishedAt: published, URL: u, Likes: number(first(payload, "likes", "likeCount")), Reposts: number(first(payload, "retweets", "reposts", "retweetCount")), Replies: number(first(payload, "replies", "replyCount")), MediaURLs: media, AuthorScreenName: screen, Quote: quote, Raw: payload}
+	p := &Post{ID: id, AccountHandle: account, Type: "daily", Label: "DAILY / 近况", Text: text, PublishedAt: published, URL: u, Likes: number(first(payload, "likes", "likeCount")), Reposts: number(first(payload, "retweets", "reposts", "retweetCount")), Replies: number(first(payload, "replies", "replyCount")), MediaURLs: media, MediaKinds: itemKinds(items), AuthorScreenName: screen, Quote: quote, Raw: payload}
 	if strings.Contains(strings.ToLower(text), "schedule") || strings.Contains(text, "スケジュール") || strings.Contains(text, "配信予定") || strings.Contains(text, "週間予定") || strings.Contains(text, "今週の予定") {
 		p.Type = "notice"
 		p.Label = "SCHEDULE / 日程"
@@ -119,92 +120,173 @@ func number(v any) int {
 	return 0
 }
 
-// mediaURLs lists a status's own images, never those of a status it quotes.
-func mediaURLs(payload map[string]any) []string {
-	out := []string{}
-	add := func(v any) {
-		if s, ok := v.(string); ok && s != "" {
-			for _, x := range out {
-				if x == s {
-					return
-				}
-			}
-			out = append(out, s)
+// Media kinds: what one of a status's images shows. A video's or GIF's image
+// is its thumbnail; the file itself is never read.
+const (
+	MediaPhoto = "photo"
+	MediaVideo = "video"
+	MediaGIF   = "gif"
+)
+
+// mediaKind maps a source's media type (vxtwitter image, video or gif,
+// FxTwitter photo, video or gif, X API photo, video or animated_gif) to a
+// kind, or "" for a type it does not name.
+func mediaKind(kind string) string {
+	switch strings.ToLower(kind) {
+	case "photo", "image":
+		return MediaPhoto
+	case "video":
+		return MediaVideo
+	case "gif", "animated_gif":
+		return MediaGIF
+	}
+	return ""
+}
+
+// mediaItem is one of a status's images and its kind.
+type mediaItem struct{ url, kind string }
+
+func itemURLs(items []mediaItem) []string {
+	out := make([]string, 0, len(items))
+	for _, m := range items {
+		out = append(out, m.url)
+	}
+	return out
+}
+
+func itemKinds(items []mediaItem) []string {
+	out := make([]string, 0, len(items))
+	for _, m := range items {
+		out = append(out, m.kind)
+	}
+	return out
+}
+
+// mediaItems lists a status's own images with their kinds, never those of a
+// status it quotes. An image listed twice keeps its first place and the
+// first kind a source names; an image no source types is a photo.
+func mediaItems(payload map[string]any) []mediaItem {
+	out := []mediaItem{}
+	index := map[string]int{}
+	add := func(u, kind string) {
+		if u == "" {
+			return
 		}
+		if i, ok := index[u]; ok {
+			if out[i].kind == "" {
+				out[i].kind = kind
+			}
+			return
+		}
+		index[u] = len(out)
+		out = append(out, mediaItem{url: u, kind: kind})
 	}
 	// vxtwitter builds mediaURLs from media_extended, which also names a
-	// video's thumbnail; the list is read only without it.
-	if own := extendedMediaURLs(payload); own != nil {
-		for _, v := range own {
-			add(v)
+	// video's thumbnail; the list is read only without it, with the kinds a
+	// stored payload lists beside it in mediaKinds.
+	if own := extendedMedia(payload); own != nil {
+		for _, m := range own {
+			add(m.url, m.kind)
 		}
 	} else {
+		kinds := list(payload["mediaKinds"])
 		for _, k := range []string{"mediaURLs", "media_urls"} {
 			if vals, ok := payload[k].([]any); ok {
-				for _, v := range vals {
-					add(v)
+				for i, v := range vals {
+					kind := ""
+					if i < len(kinds) {
+						kind = mediaKind(stringValue(kinds[i]))
+					}
+					add(stringValue(v), kind)
 				}
 			}
 			if s, ok := payload[k].(string); ok {
-				add(s)
+				add(s, "")
 			}
 		}
 	}
-	for _, u := range fxMediaURLs(object(payload["media"])) {
-		add(u)
+	for _, m := range fxMedia(object(payload["media"])) {
+		add(m.url, m.kind)
 	}
-	uniq := []string{}
-	seen := map[string]bool{}
-	for _, s := range out {
-		if s != "" && !seen[s] {
-			seen[s] = true
-			uniq = append(uniq, s)
-		}
-	}
-	return uniq
-}
-
-// extendedMediaURLs reads vxtwitter's media_extended in post order: an image's
-// URL, or a video's or GIF's thumbnail. It is nil without such a list.
-func extendedMediaURLs(payload map[string]any) []any {
-	items, _ := payload["media_extended"].([]any)
-	if len(items) == 0 {
-		return nil
-	}
-	out := []any{}
-	for _, item := range items {
-		m := object(item)
-		u := firstString(m, "url", "media_url")
-		if t := stringValue(m["type"]); t == "video" || t == "gif" {
-			u = stringValue(m["thumbnail_url"])
-		}
-		if u != "" {
-			out = append(out, u)
+	for i := range out {
+		if out[i].kind == "" {
+			out[i].kind = MediaPhoto
 		}
 	}
 	return out
 }
 
-// fxMediaURLs reads FxTwitter's media object in post order: a photo's image,
-// or a video's or GIF's thumbnail, which is the image the board can show.
-func fxMediaURLs(media map[string]any) []string {
+// mediaURLs lists a status's own images, never those of a status it quotes.
+func mediaURLs(payload map[string]any) []string { return itemURLs(mediaItems(payload)) }
+
+// extendedMedia reads vxtwitter's media_extended in post order: an image's
+// URL, or a video's or GIF's thumbnail, with its kind. It is nil without
+// such a list.
+func extendedMedia(payload map[string]any) []mediaItem {
+	items, _ := payload["media_extended"].([]any)
+	if len(items) == 0 {
+		return nil
+	}
+	out := []mediaItem{}
+	for _, item := range items {
+		m := object(item)
+		kind := mediaKind(stringValue(m["type"]))
+		u := firstString(m, "url", "media_url")
+		if kind == MediaVideo || kind == MediaGIF {
+			u = stringValue(m["thumbnail_url"])
+		}
+		if u != "" {
+			out = append(out, mediaItem{url: u, kind: kind})
+		}
+	}
+	return out
+}
+
+// extendedMediaURLs is extendedMedia's URLs, as raw_json.mediaURLs lists
+// them; nil without media_extended.
+func extendedMediaURLs(payload map[string]any) []any {
+	items := extendedMedia(payload)
+	if items == nil {
+		return nil
+	}
+	out := []any{}
+	for _, m := range items {
+		out = append(out, m.url)
+	}
+	return out
+}
+
+// fxMedia reads FxTwitter's media object in post order: a photo's image, or
+// a video's or GIF's thumbnail, which is the image the board can show, with
+// its kind.
+func fxMedia(media map[string]any) []mediaItem {
 	items, _ := media["all"].([]any)
 	if items == nil {
 		photos, _ := media["photos"].([]any)
 		videos, _ := media["videos"].([]any)
 		items = append(append([]any{}, photos...), videos...)
 	}
-	out := []string{}
+	out := []mediaItem{}
 	for _, item := range items {
 		m := object(item)
-		switch stringValue(m["type"]) {
-		case "photo":
-			out = append(out, detailPhotoURL(stringValue(m["url"])))
-		case "video", "gif":
-			out = append(out, stringValue(m["thumbnail_url"]))
+		switch kind := mediaKind(stringValue(m["type"])); kind {
+		case MediaPhoto:
+			out = append(out, mediaItem{url: detailPhotoURL(stringValue(m["url"])), kind: kind})
+		case MediaVideo, MediaGIF:
+			out = append(out, mediaItem{url: stringValue(m["thumbnail_url"]), kind: kind})
 		}
 	}
 	return out
+}
+
+// fxMediaURLs is fxMedia's URLs.
+func fxMediaURLs(media map[string]any) []string { return itemURLs(fxMedia(media)) }
+
+// OwnMedia lists a stored payload's own images and their kinds as Normalize
+// reads them, without those of a status it quotes.
+func OwnMedia(payload map[string]any) (urls, kinds []string) {
+	items := mediaItems(payload)
+	return itemURLs(items), itemKinds(items)
 }
 
 // detailPhotoURL drops the size FxTwitter appends to a photo

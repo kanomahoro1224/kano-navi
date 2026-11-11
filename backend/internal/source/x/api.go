@@ -106,16 +106,13 @@ func APIPosts(payload map[string]any, account string) ([]Post, int, string, erro
 			handle = account
 		}
 		metrics := object(entry["public_metrics"])
-		own := []any{}
-		for _, u := range apiMedia(entry, media) {
-			own = append(own, u)
-		}
+		own, kinds := apiMediaLists(apiMedia(entry, media))
 		raw := map[string]any{
 			"id": id, "text": apiText(entry), "created_at": entry["created_at"],
 			"url":       "https://x.com/" + handle + "/status/" + id,
 			"author":    map[string]any{"screen_name": handle, "name": author["name"]},
-			"mediaURLs": own,
-			"likes":     metrics["like_count"], "retweets": first(metrics, "retweet_count", "repost_count"), "replies": metrics["reply_count"],
+			"mediaURLs": own, "mediaKinds": kinds,
+			"likes": metrics["like_count"], "retweets": first(metrics, "retweet_count", "repost_count"), "replies": metrics["reply_count"],
 		}
 		if quoted := referenceOf(entry, "quoted"); quoted != "" {
 			if status, found := referenced[quoted]; found {
@@ -137,14 +134,11 @@ func APIPosts(payload map[string]any, account string) ([]Post, int, string, erro
 // apiQuote is a referenced status in the shape QuoteOf reads.
 func apiQuote(status map[string]any, users, media map[string]map[string]any) map[string]any {
 	author := users[stringValue(status["author_id"])]
-	own := []any{}
-	for _, u := range apiMedia(status, media) {
-		own = append(own, u)
-	}
+	own, kinds := apiMediaLists(apiMedia(status, media))
 	return map[string]any{
 		"id": status["id"], "text": apiText(status), "created_at": status["created_at"],
 		"author":    map[string]any{"screen_name": author["username"], "name": author["name"]},
-		"mediaURLs": own,
+		"mediaURLs": own, "mediaKinds": kinds,
 	}
 }
 
@@ -189,9 +183,9 @@ func apiText(entry map[string]any) string {
 }
 
 // apiMedia lists a post's own images in attachment order: a photo's URL, or
-// a video's or GIF's thumbnail.
-func apiMedia(entry map[string]any, media map[string]map[string]any) []string {
-	out := []string{}
+// a video's or GIF's thumbnail, with its kind.
+func apiMedia(entry map[string]any, media map[string]map[string]any) []mediaItem {
+	out := []mediaItem{}
 	for _, key := range list(object(entry["attachments"])["media_keys"]) {
 		// Only a photo has url; a video or GIF has its preview_image_url.
 		m := media[stringValue(key)]
@@ -200,10 +194,24 @@ func apiMedia(entry map[string]any, media map[string]map[string]any) []string {
 			u = stringValue(m["preview_image_url"])
 		}
 		if u != "" {
-			out = append(out, u)
+			out = append(out, mediaItem{url: u, kind: mediaKind(stringValue(m["type"]))})
 		}
 	}
 	return out
+}
+
+// apiMediaLists is the raw_json mediaURLs and mediaKinds of apiMedia's
+// images; an untyped image is a photo.
+func apiMediaLists(items []mediaItem) (urls, kinds []any) {
+	urls, kinds = []any{}, []any{}
+	for _, m := range items {
+		kind := m.kind
+		if kind == "" {
+			kind = MediaPhoto
+		}
+		urls, kinds = append(urls, m.url), append(kinds, kind)
+	}
+	return urls, kinds
 }
 
 func list(v any) []any { l, _ := v.([]any); return l }

@@ -49,6 +49,8 @@ export const dashboardMessages = {
     "common.timezoneShort": "JST",
     "feed.title": "最新动态",
     "feed.openMedia": "查看图片",
+    "feed.playVideo": "在 X 上播放视频",
+    "feed.playGif": "在 X 上播放 GIF",
     "feed.originalPost": "在 X 打开原帖",
     "feed.originalPostBilibili": "在 bilibili 打开原动态",
     "feed.empty": ({ days }: { days: any }) => `最近 ${days} 天没有新的动态。`,
@@ -241,6 +243,8 @@ export const dashboardMessages = {
     "common.timezoneShort": "JST",
     "feed.title": "最近の投稿",
     "feed.openMedia": "画像を開く",
+    "feed.playVideo": "X で動画を再生",
+    "feed.playGif": "X で GIF を再生",
     "feed.originalPost": "X で元のポストを開く",
     "feed.originalPostBilibili": "bilibili で元の投稿を開く",
     "feed.empty": ({ days }: { days: any }) =>
@@ -435,6 +439,8 @@ export const dashboardMessages = {
     "common.timezoneShort": "JST",
     "feed.title": "Recent Posts",
     "feed.openMedia": "Open image",
+    "feed.playVideo": "Play video on X",
+    "feed.playGif": "Play GIF on X",
     "feed.originalPost": "Open the original post on X",
     "feed.originalPostBilibili": "Open the original post on bilibili",
     "feed.empty": ({ days }: { days: any }) =>

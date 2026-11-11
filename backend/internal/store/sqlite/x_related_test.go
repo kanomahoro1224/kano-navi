@@ -248,7 +248,10 @@ func TestRuleChangesAndOperatorDecisionsPromoteAndDemote(t *testing.T) {
 	}
 }
 
-func TestOwnRepostsPoolARelatedStatus(t *testing.T) {
+// Every own repost enters the pool with the reposted reason. A related
+// account's status is translated and promoted by its keywords; another
+// author's is stored only: never translated or promoted.
+func TestOwnRepostsPoolEveryStatus(t *testing.T) {
 	f := newRelatedFixture(t)
 	ctx := context.Background()
 	reposted := &xsource.Quote{ID: "1900000000000000330", AuthorHandle: "agency_synthetic", AuthorName: "Agency", Text: "グッズ発売", URL: "https://x.com/agency_synthetic/status/1900000000000000330"}
@@ -261,12 +264,34 @@ func TestOwnRepostsPoolARelatedStatus(t *testing.T) {
 	}}, true); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.text(`SELECT group_concat(id||':'||(reposted_at IS NOT NULL),',') FROM (SELECT * FROM x_statuses ORDER BY id)`); got != reposted.ID+":1,"+keyword.ID+":1" {
+	if got := f.text(`SELECT group_concat(id||':'||(reposted_at IS NOT NULL),',') FROM (SELECT * FROM x_statuses ORDER BY id)`); got != reposted.ID+":1,"+keyword.ID+":1,"+other.ID+":1" {
 		t.Fatalf("pool=%s", got)
 	}
-	if f.state(reposted.ID) != "missing" || f.state(keyword.ID) != "shown" {
-		t.Fatalf("states=%s,%s", f.state(reposted.ID), f.state(keyword.ID))
+	if f.state(reposted.ID) != "missing" || f.state(keyword.ID) != "shown" || f.state(other.ID) != "missing" {
+		t.Fatalf("states=%s,%s,%s", f.state(reposted.ID), f.state(keyword.ID), f.state(other.ID))
 	}
+	// The External view lists the other author's repost under the reposted
+	// reason, stored and not related.
+	page, err := f.s.ListAdminXStatuses(ctx, AdminXStatusFilter{Reason: "reposted", ExcludeOwn: true, Own: []string{"kano_2525"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed := map[string]string{}
+	for _, item := range page.Items {
+		listed[item.ID] = fmt.Sprintf("%s|%s|%t|%s", strings.Join(item.Reasons, ","), item.State, item.Related, strings.Join(item.RepostedBy, ","))
+	}
+	if want := (map[string]string{reposted.ID: "reposted|stored|true|kano_2525", keyword.ID: "keyword,reposted|promoted|true|kano_2525", other.ID: "reposted|stored|false|kano_2525"}); !reflect.DeepEqual(listed, want) {
+		t.Fatalf("listed=%v", listed)
+	}
+	// An operator cannot promote it by hand, and a rule change leaves it.
+	if _, err = f.s.SetXStatusDecision(ctx, other.ID, xDecisionPromote, "synthetic"); !errors.Is(err, ErrXRelatedInvalid) {
+		t.Fatalf("promote other author: %v", err)
+	}
+	f.rules("x")
+	if f.state(other.ID) != "missing" {
+		t.Fatalf("a rule change promoted another author's repost")
+	}
+	f.rules(DefaultXRelatedKeywords...)
 	candidates, err := f.s.ListTranslationCandidates(ctx, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), 10)
 	if err != nil {
 		t.Fatal(err)
@@ -275,8 +300,11 @@ func TestOwnRepostsPoolARelatedStatus(t *testing.T) {
 	for _, c := range candidates {
 		ids[c.OwnerID] = c.OwnerType
 	}
-	if ids[reposted.ID] != TranslationOwnerXStatus || ids[keyword.ID] != TranslationOwnerPost {
+	if ids[reposted.ID] != TranslationOwnerXStatus || ids[keyword.ID] != TranslationOwnerPost || ids[other.ID] != "" {
 		t.Fatalf("candidates=%v", ids)
+	}
+	if queued, requestErr := f.s.RequestTranslations(ctx, TranslationOwnerXStatus, []string{other.ID}); requestErr != nil || queued != 0 {
+		t.Fatalf("an operator request queued another author's repost: %d %v", queued, requestErr)
 	}
 }
 

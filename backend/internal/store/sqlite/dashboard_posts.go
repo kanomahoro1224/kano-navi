@@ -152,7 +152,7 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 	p.MediaID, p.MediaStatus, p.MediaSourceURL = ref.ID, ref.Status, ref.SourceURL
 	if p.MediaURL != nil {
 		p.MediaURL = ref.PublicURL
-		p.Media = []PostMedia{{ID: ref.ID, URL: ref.PublicURL, Status: ref.Status, SourceURL: ref.SourceURL, Alt: p.MediaAlt, Position: 0, Width: ref.Width, Height: ref.Height}}
+		p.Media = []PostMedia{{ID: ref.ID, URL: ref.PublicURL, Status: ref.Status, SourceURL: ref.SourceURL, Alt: p.MediaAlt, Position: 0, Width: ref.Width, Height: ref.Height, Kind: mediaKindPhoto}}
 	}
 	links, err := s.queryPostMedia(ctx, r.id, "post-image")
 	if err != nil {
@@ -254,7 +254,7 @@ func (s *Store) mapQuote(ctx context.Context, source, postID string, stored sql.
 
 // postMediaColumns are scanPostMedia's columns of a media link joined with
 // its asset.
-const postMediaColumns = `ml.media_id,ml.position,ml.alt,ma.source_url,ma.cache_path,ma.mime_type,ma.byte_size,ma.sha256,NULLIF(ma.width,0),NULLIF(ma.height,0),ma.status`
+const postMediaColumns = `ml.media_id,ml.position,ml.alt,ma.source_url,ma.cache_path,ma.mime_type,ma.byte_size,ma.sha256,NULLIF(ma.width,0),NULLIF(ma.height,0),ma.status,COALESCE(ml.kind,'photo')`
 
 func (s *Store) queryPostMedia(ctx context.Context, id, role string) ([]PostMedia, error) {
 	if memo := readMemoFrom(ctx); memo != nil && memo.postsLoaded[id] {
@@ -286,7 +286,8 @@ func (s *Store) scanPostMedia(ctx context.Context, row scanner, lead ...any) (Po
 	var alt, src, cp, mime, sha sql.NullString
 	var bs, w, h sql.NullInt64
 	var status sql.NullString
-	if err := row.Scan(append(lead, &mid, &pos, &alt, &src, &cp, &mime, &bs, &sha, &w, &h, &status)...); err != nil {
+	var kind string
+	if err := row.Scan(append(lead, &mid, &pos, &alt, &src, &cp, &mime, &bs, &sha, &w, &h, &status, &kind)...); err != nil {
 		return PostMedia{}, false, dbErr(err)
 	}
 	if !src.Valid || !status.Valid {
@@ -319,5 +320,5 @@ func (s *Store) scanPostMedia(ctx context.Context, row scanner, lead ...any) (Po
 	if alt.Valid {
 		ap = &alt.String
 	}
-	return PostMedia{ID: ref.ID, URL: ref.PublicURL, Status: ref.Status, SourceURL: ref.SourceURL, Alt: ap, Position: pos, Width: ref.Width, Height: ref.Height}, true, nil
+	return PostMedia{ID: ref.ID, URL: ref.PublicURL, Status: ref.Status, SourceURL: ref.SourceURL, Alt: ap, Position: pos, Width: ref.Width, Height: ref.Height, Kind: kind}, true, nil
 }

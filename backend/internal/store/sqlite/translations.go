@@ -87,15 +87,23 @@ const videoTitleSource = "COALESCE(%[1]s.manual_title, %[1]s.title)"
 // translation instead (video_merge.go).
 const videoTranslationScope = "(%[1]s.source = 'youtube' OR %[1]s.source = 'bilibili' AND (%[1]s.manual_kind IS NOT NULL OR %[1]s.kind_source IS NOT NULL)) AND %[1]s.merged_into IS NULL"
 
+// xRelatedAuthorSQL holds for a pooled status whose author is one of the
+// related accounts in the x_related_accounts setting.
+const xRelatedAuthorSQL = "EXISTS (SELECT 1 FROM app_settings xra, json_each(CASE WHEN json_valid(xra.value) AND json_type(xra.value) = 'array' THEN xra.value ELSE '[]' END) xrj WHERE xra.key = 'x_related_accounts' AND lower(json_extract(xrj.value, '$.handle')) = lower(%[1]s.author_handle))"
+
+// xStatusReposted is when an own account first reposted a related account's
+// status; another author's repost is stored only, so it is never translated.
+const xStatusReposted = "CASE WHEN " + xRelatedAuthorSQL + " THEN %[1]s.reposted_at END"
+
 // xStatusInstant is when a pooled status was last quoted or first seen
 // reposted by an own account: the lookback of its translation follows the
 // quoting or reposting post, not the status's own age.
-const xStatusInstant = "CASE WHEN %[1]s.reposted_at IS NULL OR julianday(%[1]s.quoted_at) >= julianday(%[1]s.reposted_at) THEN COALESCE(%[1]s.quoted_at, %[1]s.reposted_at) ELSE %[1]s.reposted_at END"
+const xStatusInstant = "CASE WHEN (" + xStatusReposted + ") IS NULL OR julianday(%[1]s.quoted_at) >= julianday(" + xStatusReposted + ") THEN COALESCE(%[1]s.quoted_at, " + xStatusReposted + ") ELSE " + xStatusReposted + " END"
 
 // xStatusTranslationScope selects the pooled statuses the machine step
-// translates: quoted or reposted ones that are not stored posts, whose own
-// translations a quote of them reuses.
-const xStatusTranslationScope = "(%[1]s.quoted_at IS NOT NULL OR %[1]s.reposted_at IS NOT NULL) AND NOT EXISTS (SELECT 1 FROM posts xp WHERE xp.id = %[1]s.id)"
+// translates: quoted ones and a related account's reposted ones that are
+// not stored posts, whose own translations a quote of them reuses.
+const xStatusTranslationScope = "(%[1]s.quoted_at IS NOT NULL OR %[1]s.reposted_at IS NOT NULL AND " + xRelatedAuthorSQL + ") AND NOT EXISTS (SELECT 1 FROM posts xp WHERE xp.id = %[1]s.id)"
 
 // bilibiliStatusTranslationScope selects the pooled dynamics the machine
 // step translates: forwarded ones that are not stored posts. Their lookback

@@ -142,6 +142,10 @@ test("review posts filter by step and state, link to the posts queued for a run 
           calls.push(`dismiss:${ids.join(",")}`)
           return { dismissed: ids.length }
         },
+        refreshPosts: async (ids: string[]) => {
+          calls.push(`refresh:${ids.join(",")}`)
+          return { queued: ids.length }
+        },
       },
     }
     await act(async () => {
@@ -240,6 +244,11 @@ test("review posts filter by step and state, link to the posts queued for a run 
     await click(barButton("admin.posts.dismiss"))
     assert.equal(calls.at(-1), "dismiss:extraction2")
     assert.equal(notices.at(-1), "admin.notice.postsDismissed:1")
+    // An extraction failure's X posts can be read again from the source.
+    await click(picks()[2])
+    await click(barButton("admin.posts.refresh"))
+    assert.equal(calls.at(-1), "refresh:extraction3")
+    assert.equal(notices.at(-1), "admin.notice.refreshesQueued:1")
 
     // Translation has only failures, so Uncertain falls back to Failed and
     // there is no state to pick. No translation waits for a run.

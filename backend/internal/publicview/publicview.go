@@ -237,10 +237,16 @@ func publicRich(segments []sqlite.RichSegment) []any {
 	return out
 }
 
+// publicMedia lists a post's or quote's images. kind is what the image
+// shows: photo, or the thumbnail of a video or gif on the source.
 func publicMedia(items []sqlite.PostMedia) []any {
 	media := make([]any, 0, len(items))
 	for _, m := range items {
-		media = append(media, map[string]any{"id": value(m.ID), "url": value(m.URL), "status": m.Status, "sourceUrl": value(m.SourceURL), "alt": value(m.Alt), "position": m.Position, "width": valueInt(m.Width), "height": valueInt(m.Height)})
+		kind := m.Kind
+		if kind != "video" && kind != "gif" {
+			kind = "photo"
+		}
+		media = append(media, map[string]any{"id": value(m.ID), "url": value(m.URL), "status": m.Status, "sourceUrl": value(m.SourceURL), "alt": value(m.Alt), "position": m.Position, "width": valueInt(m.Width), "height": valueInt(m.Height), "kind": kind})
 	}
 	return media
 }

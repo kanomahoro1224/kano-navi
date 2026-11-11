@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   MessageCircle,
   MessageSquareOff,
+  Play,
   Repeat2,
   Rows3,
   X,
@@ -51,6 +52,64 @@ import { SheetDialog } from "./sheet-dialog"
 // wall; a lone image can take the whole card.
 const POST_MEDIA_SIZES =
   "(max-width: 640px) 100vw, (max-width: 1200px) 34vw, 420px"
+
+/** A video's or GIF's still, which opens its post on X instead of the viewer. */
+export function isPlayable(item: Pick<MediaItem, "kind">) {
+  return item.kind === "video" || item.kind === "gif"
+}
+
+/** The accessible name of a video's or GIF's link. */
+export function playLabel(item: Pick<MediaItem, "kind">, t: Translator) {
+  return t(item.kind === "gif" ? "feed.playGif" : "feed.playVideo")
+}
+
+/** A set for the viewer, its videos and GIFs linked to the page they play on. */
+function linkedMedia(media: MediaItem[], href: string): MediaItem[] {
+  return media.map((item) => (isPlayable(item) ? { ...item, href } : item))
+}
+
+/** The mark over a video's or GIF's still: a play button or a GIF tag. */
+export function MediaKindMark({ kind }: { kind?: MediaItem["kind"] }) {
+  if (kind === "video")
+    return (
+      <span className="media-kind-mark is-video" aria-hidden="true">
+        <Play />
+      </span>
+    )
+  if (kind === "gif")
+    return (
+      <span className="media-kind-mark is-gif" aria-hidden="true">
+        GIF
+      </span>
+    )
+  return null
+}
+
+/**
+ * One image of a post in the viewer. A video's or GIF's still carries its
+ * mark and opens the page it plays on.
+ */
+export function PostMediaView({
+  item,
+  t,
+}: {
+  item: Pick<MediaItem, "url" | "alt" | "kind" | "href">
+  t: Translator
+}) {
+  const image = <img src={item.url || undefined} alt={item.alt || ""} />
+  return item.href && isPlayable(item) ? (
+    <ExternalLink
+      className="media-dialog-play"
+      href={item.href}
+      aria-label={playLabel(item, t)}
+    >
+      {image}
+      <MediaKindMark kind={item.kind} />
+    </ExternalLink>
+  ) : (
+    image
+  )
+}
 
 /** Ready local media can open in the viewer; anything else stays labelled. */
 export function postMedia(post: Post): MediaItem[] {
@@ -215,7 +274,10 @@ function QuoteCard({
       </ExternalLink>
     )
   }
-  const media = quote.media.filter((item) => item.url)
+  const media = linkedMedia(
+    quote.media.filter((item) => item.url),
+    quote.url,
+  )
   const shown = clamp ? media.slice(0, QUOTE_THUMBS) : media
   const hidden = media.length - shown.length
   const name = bilibili
@@ -271,28 +333,46 @@ function QuoteCard({
       ) : null}
       {shown.length ? (
         <div className="post-quote-media">
-          {shown.map((item, index) => (
-            <button
-              className="media-opener"
-              type="button"
-              key={item.id || item.url}
-              onClick={() => onOpenMedia(media, index)}
-              aria-label={`${t("feed.openQuoteMedia")} ${index + 1}`}
-            >
-              <img
-                src={item.url || undefined}
-                srcSet={mediaSrcSet(item.url, item.width)}
-                sizes={clamp ? "72px" : "(max-width: 640px) 30vw, 160px"}
-                alt={item.alt || ""}
-                loading="lazy"
-              />
-              {hidden > 0 && index === shown.length - 1 ? (
-                <span className="post-quote-more" aria-hidden="true">
-                  +{hidden}
-                </span>
-              ) : null}
-            </button>
-          ))}
+          {shown.map((item, index) => {
+            const content = (
+              <>
+                <img
+                  src={item.url || undefined}
+                  srcSet={mediaSrcSet(item.url, item.width)}
+                  sizes={clamp ? "72px" : "(max-width: 640px) 30vw, 160px"}
+                  alt={item.alt || ""}
+                  loading="lazy"
+                />
+                <MediaKindMark kind={item.kind} />
+                {hidden > 0 && index === shown.length - 1 ? (
+                  <span className="post-quote-more" aria-hidden="true">
+                    +{hidden}
+                  </span>
+                ) : null}
+              </>
+            )
+            // A quoted video or GIF plays on X, from the quote's page.
+            return isPlayable(item) ? (
+              <ExternalLink
+                className="media-opener is-playable"
+                key={item.id || item.url}
+                href={quote.url}
+                aria-label={`${playLabel(item, t)} ${index + 1}`}
+              >
+                {content}
+              </ExternalLink>
+            ) : (
+              <button
+                className="media-opener"
+                type="button"
+                key={item.id || item.url}
+                onClick={() => onOpenMedia(media, index)}
+                aria-label={`${t("feed.openQuoteMedia")} ${index + 1}`}
+              >
+                {content}
+              </button>
+            )
+          })}
         </div>
       ) : null}
     </div>
@@ -320,7 +400,7 @@ function PostNote({
   t: Translator
   onOpenMedia: (media: MediaItem[], index: number) => void
 }) {
-  const media = postMedia(post)
+  const media = linkedMedia(postMedia(post), post.url)
   const ready = media.filter((item) => item.url)
   const bilibili = isBilibiliPost(post)
   const wording = useTranslatedText(
@@ -430,7 +510,26 @@ function PostNote({
   const mediaGrid = media.length ? (
     <div className={`post-note-media count-${Math.min(4, media.length)}`}>
       {media.slice(0, 4).map((item, index) =>
-        item.url ? (
+        item.url && isPlayable(item) ? (
+          // A video or GIF plays on X; its still never opens the viewer.
+          <ExternalLink
+            className="media-opener is-playable"
+            key={item.id || item.url}
+            href={post.url}
+            aria-label={`${playLabel(item, t)} ${index + 1}`}
+          >
+            <img
+              src={item.url}
+              srcSet={mediaSrcSet(item.url, item.width)}
+              sizes={POST_MEDIA_SIZES}
+              width={item.width ?? undefined}
+              height={item.height ?? undefined}
+              alt={item.alt || ""}
+              loading="lazy"
+            />
+            <MediaKindMark kind={item.kind} />
+          </ExternalLink>
+        ) : item.url ? (
           <button
             className="media-opener"
             type="button"

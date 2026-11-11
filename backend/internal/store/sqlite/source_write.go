@@ -42,6 +42,13 @@ func mediaIdentity(raw string) (string, string, error) {
 	return hex.EncodeToString(h[:]), normalized, nil
 }
 func replaceMediaLink(ctx context.Context, tx *sql.Tx, source, raw, ownerType, ownerID, role string, pos int, now string) error {
+	return replaceMediaLinkKind(ctx, tx, source, raw, ownerType, ownerID, role, pos, "", now)
+}
+
+// replaceMediaLinkKind is replaceMediaLink for an X post's image, whose link
+// records what the image shows: photo, video or gif (a thumbnail). An empty
+// kind stores NULL, which readers take as a photo.
+func replaceMediaLinkKind(ctx context.Context, tx *sql.Tx, source, raw, ownerType, ownerID, role string, pos int, kind, now string) error {
 	id, u, err := mediaIdentity(raw)
 	if err != nil {
 		return err
@@ -66,7 +73,7 @@ func replaceMediaLink(ctx context.Context, tx *sql.Tx, source, raw, ownerType, o
 	if _, err = tx.ExecContext(ctx, `DELETE FROM media_links WHERE owner_type=? AND owner_id=? AND role=? AND position=?`, ownerType, ownerID, role, pos); err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, id, ownerType, ownerID, role, pos, now, now)
+	_, err = tx.ExecContext(ctx, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,kind,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)`, id, ownerType, ownerID, role, pos, nullable(mediaLinkKind(kind)), now, now)
 	return err
 }
 

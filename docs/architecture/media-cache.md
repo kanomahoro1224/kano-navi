@@ -166,7 +166,10 @@ thumbnail / 0`. A post's own images use `post-image`; the images of a status
 it quotes, or of the dynamic a Bilibili forward forwards, use `quote-image`
 under the same post, so the board shows them in the quote card and
 extraction never reads them (see [Quoted posts](sources.md#quoted-posts) and
-[Forwards](sources.md#forwards)). A Bilibili dynamic's stickers use
+[Forwards](sources.md#forwards)). An X post's `post-image` and `quote-image`
+links record in `kind` what the image shows: `photo`, or `video` or `gif`
+for the thumbnail of one; `NULL` reads as `photo`. The asset is always the
+image: the cache never downloads a video or GIF file. A Bilibili dynamic's stickers use
 `post-emoji`, and those of the dynamic a forward forwards `quote-emoji`,
 under the same post: one link per distinct picture, at most 32 each, and one
 asset per picture however many posts use it. They are downloaded like any

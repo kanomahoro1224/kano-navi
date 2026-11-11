@@ -96,6 +96,7 @@ func (m *Module) AdminRoutes() []httpx.Route {
 		{Method: http.MethodPut, Path: "/schedule-images/{id}/period", Handler: m.guard(id(m.periodRoute))},
 		{Method: http.MethodPost, Path: "/posts/reprocess", Handler: m.guard(m.reprocessPosts)},
 		{Method: http.MethodPost, Path: "/posts/dismiss", Handler: m.guard(m.dismissPosts)},
+		{Method: http.MethodPost, Path: "/posts/refresh", Handler: m.guard(m.refreshPosts)},
 		{Method: http.MethodPost, Path: "/posts/{id}/reprocess", Handler: m.guard(id(m.reprocessPost))},
 		{Method: http.MethodPost, Path: "/posts/{id}/dismiss", Handler: m.guard(id(m.dismissPost))},
 		{Method: http.MethodPut, Path: "/posts/{id}/schedule-image", Handler: m.guard(id(m.pickScheduleImageRoute))},

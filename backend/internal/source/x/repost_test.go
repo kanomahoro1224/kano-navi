@@ -1,7 +1,10 @@
 package x
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -62,14 +65,78 @@ func TestAPIRepostsReadRetweetedReferences(t *testing.T) {
 	if len(reposts) != 2 {
 		t.Fatalf("reposts=%+v", reposts)
 	}
-	if r := reposts[0]; r.ID != "1900000000000000001" || r.Author != "agency_synthetic" || r.Status == nil || r.Status.Text != "notice" {
+	if r := reposts[0]; r.ID != "1900000000000000001" || r.RetweetID != "1900000000000000501" || r.Author != "agency_synthetic" || r.Status == nil || r.Status.Text != "notice" {
 		t.Fatalf("first=%+v status=%+v", r, r.Status)
 	}
-	if r := reposts[1]; r.ID != "1900000000000000002" || r.Author != "" || r.Status != nil {
+	if r := reposts[1]; r.ID != "1900000000000000002" || r.RetweetID != "1900000000000000502" || r.Author != "" || r.Status != nil {
 		t.Fatalf("second=%+v", r)
 	}
 	// The posts themselves still leave the reposts out.
 	if posts, _, _, err := APIPosts(payload, "kano"); err != nil || len(posts) != 1 {
 		t.Fatalf("posts=%+v err=%v", posts, err)
+	}
+}
+
+// retweetAnswer is a vxtwitter detail answer for an own account's repost:
+// the reposting account as author, "RT @…" wording and the reposted status
+// under retweet.
+func retweetAnswer(id, by, original, author string) string {
+	return `{"tweetID":"` + id + `","text":"RT @` + author + `: notice","date_epoch":1792540800,"user_screen_name":"` + by + `","user_name":"Synthetic",` +
+		`"mediaURLs":["https://pbs.twimg.com/media/notice.jpg"],"retweet":{"tweetID":"` + original + `","text":"notice","date_epoch":1792537200,` +
+		`"user_screen_name":"` + author + `","user_name":"Agency","mediaURLs":["https://pbs.twimg.com/media/notice.jpg"],` +
+		`"media_extended":[{"type":"image","url":"https://pbs.twimg.com/media/notice.jpg"}],"tweetURL":"https://twitter.com/` + author + `/status/` + original + `"}}`
+}
+
+// A detail answer that is the account's repost is never a post: it is
+// recorded as a repost with its own status ID, drops a pending ID at once
+// with its own code and fails nothing, and an operator's refresh of it is
+// done.
+func TestDetailRepostIsRecordedNotStored(t *testing.T) {
+	const own, retweet, original, foreign = "1900000000000000600", "1900000000000000601", "1900000000000000001", "1900000000000000602"
+	rt := fakeRoundTripper(func(r *http.Request) (*http.Response, error) {
+		switch {
+		case r.URL.Host == profileHost:
+			return response(200, `<a href="/kano/status/`+own+`">own</a>`), nil
+		case strings.HasSuffix(r.URL.Path, "/"+own):
+			return response(200, `{"tweetID":"`+own+`","text":"own","date_epoch":1792540800,"user_screen_name":"kano"}`), nil
+		case strings.HasSuffix(r.URL.Path, "/"+retweet):
+			return response(200, retweetAnswer(retweet, "Kano", original, "agency_synthetic")), nil
+		default:
+			// Another account's repost is that account's status.
+			return response(200, retweetAnswer(foreign, "someone", original, "agency_synthetic")), nil
+		}
+	})
+	opts := Options{Chain: []string{DiscoveryProfile}, DiscoveryLimit: 10, MaxDetailRequests: 5, PendingIDs: []string{retweet, foreign},
+		PendingRetries: map[string]PendingRetry{retweet: {Failures: 1}}}
+	a := NewAdapter(NewClient(&http.Client{Transport: rt}), opts)
+	got, err := a.FetchRecent(context.Background(), "kano", opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Posts) != 1 || got.Posts[0].ID != own || len(got.Errors) != 0 || len(got.PendingIDs) != 0 || len(got.PendingRetries) != 0 {
+		t.Fatalf("posts=%+v errors=%v pending=%v retries=%v", got.Posts, got.Errors, got.PendingIDs, got.PendingRetries)
+	}
+	dropped := map[string]string{}
+	for _, d := range got.Dropped {
+		dropped[d.ID] = d.Code
+	}
+	if len(dropped) != 2 || dropped[retweet] != DroppedRepost || dropped[foreign] != DroppedForeign {
+		t.Fatalf("dropped=%+v", got.Dropped)
+	}
+	if len(got.Reposts) != 1 {
+		t.Fatalf("reposts=%+v", got.Reposts)
+	}
+	r := got.Reposts[0]
+	if r.ID != original || r.RetweetID != retweet || r.Author != "agency_synthetic" || r.Status == nil || r.Status.Text != "notice" ||
+		strings.Join(r.Status.MediaURLs, ",") != "https://pbs.twimg.com/media/notice.jpg" || r.Status.URL != "https://x.com/agency_synthetic/status/"+original {
+		t.Fatalf("repost=%+v status=%+v", r, r.Status)
+	}
+
+	// An operator's refresh of a stored retweet answers the same way: the
+	// refresh is done and the run fails nothing, with no post to write.
+	refresh := Options{RefreshOnly: true, RefreshIDs: []string{retweet}, MaxDetailRequests: 5}
+	got, err = a.FetchRecent(context.Background(), "kano", refresh)
+	if err != nil || len(got.Posts) != 0 || len(got.Errors) != 0 || strings.Join(got.Refreshed, ",") != retweet || len(got.Reposts) != 1 || got.Reposts[0].RetweetID != retweet {
+		t.Fatalf("refresh=%+v err=%v", got, err)
 	}
 }

@@ -107,6 +107,9 @@ type PostMedia struct {
 	Position  int64
 	Width     *int64
 	Height    *int64
+	// Kind is what an X image shows: photo, or the thumbnail of a video or
+	// gif. Every other image is a photo.
+	Kind string
 }
 
 type DashboardEvent struct {

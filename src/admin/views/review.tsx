@@ -7,6 +7,7 @@ import {
   CircleHelp,
   ExternalLink,
   Languages,
+  RefreshCw,
   Sparkles,
   X,
 } from "lucide-react"
@@ -93,8 +94,29 @@ export function PostStatus({ post }: { post: AdminPost }) {
 }
 
 /**
- * Have the LLM process a post again in the next schedule scan, and open it.
- * Compact actions are icons that fit a row; the caller lays them out.
+ * Whether the X synchronization can read the post again from the source:
+ * an own X post, not a related account's promoted status.
+ */
+export function refreshable(post: AdminPost) {
+  return post.source === "x" && !post.promotedAt
+}
+
+/** A refresh from the source that waits for the next X synchronization. */
+export function RefreshQueued({ post }: { post: AdminPost }) {
+  const { t } = useAppSettings()
+  return post.refreshRequestedAt ? (
+    <Badge tone="running" icon={RefreshCw} className="adm-retry-badge">
+      {t("admin.posts.refreshQueued", {
+        time: japanStamp(post.refreshRequestedAt),
+      })}
+    </Badge>
+  ) : null
+}
+
+/**
+ * Have the LLM process a post again in the next schedule scan, queue an own
+ * X post's refresh from the source for the next X synchronization, and open
+ * it. Compact actions are icons that fit a row; the caller lays them out.
  */
 export function PostActions({
   post,
@@ -110,16 +132,26 @@ export function PostActions({
 }) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
-  const [busy, setBusy] = useState(false)
-  const reprocess = async () => {
-    setBusy(true)
-    const result = await act(
+  const [busy, setBusy] = useState<"" | "reprocess" | "refresh">("")
+  const run = async (
+    kind: "reprocess" | "refresh",
+    call: () => Promise<unknown>,
+    notice: string,
+  ) => {
+    setBusy(kind)
+    const result = await act(call, notice)
+    setBusy("")
+    if (result) onDone()
+  }
+  const reprocess = () =>
+    run(
+      "reprocess",
       () => api.reprocessPost(post.id),
       "admin.notice.postQueued",
     )
-    setBusy(false)
-    if (result) onDone()
-  }
+  const refresh = () =>
+    run("refresh", () => api.refreshPost(post.id), "admin.notice.refreshQueued")
+  const queued = Boolean(post.refreshRequestedAt)
   if (compact)
     return (
       <>
@@ -127,8 +159,17 @@ export function PostActions({
           <IconButton
             icon={Sparkles}
             label={t("admin.posts.reprocess")}
-            busy={busy}
+            busy={busy === "reprocess"}
             onClick={reprocess}
+          />
+        ) : null}
+        {refreshable(post) ? (
+          <IconButton
+            icon={RefreshCw}
+            label={t("admin.posts.refresh")}
+            busy={busy === "refresh"}
+            disabled={queued}
+            onClick={refresh}
           />
         ) : null}
         <a
@@ -146,8 +187,25 @@ export function PostActions({
   return (
     <>
       {withReprocess ? (
-        <Button size="sm" icon={Sparkles} busy={busy} onClick={reprocess}>
+        <Button
+          size="sm"
+          icon={Sparkles}
+          busy={busy === "reprocess"}
+          onClick={reprocess}
+        >
           {t("admin.posts.reprocess")}
+        </Button>
+      ) : null}
+      {refreshable(post) ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={RefreshCw}
+          busy={busy === "refresh"}
+          disabled={queued}
+          onClick={refresh}
+        >
+          {t("admin.posts.refresh")}
         </Button>
       ) : null}
       <a className="adm-link" href={post.url} target="_blank" rel="noreferrer">
@@ -185,14 +243,17 @@ const postFilters: Record<
   },
 }
 
-type BulkAction = "dismiss" | "reprocess" | "translate"
+export type BulkAction = "dismiss" | "reprocess" | "refresh" | "translate"
 
 /** What a step's selected posts in one state can have done to them at once. */
 const bulkActions: Record<
   PostStep,
   Partial<Record<PostState, BulkAction[]>>
 > = {
-  extraction: { failed: ["dismiss", "reprocess"], uncertain: ["reprocess"] },
+  extraction: {
+    failed: ["dismiss", "reprocess", "refresh"],
+    uncertain: ["reprocess", "refresh"],
+  },
   translation: { failed: ["translate"] },
 }
 
@@ -422,7 +483,7 @@ function PostRow({
  * checked, mixed or empty, the count, and the filter's bulk actions. It
  * stays under the top bar while the list scrolls.
  */
-function PostSelectionBar({
+export function PostSelectionBar({
   actions,
   selected,
   pageCount,
@@ -442,10 +503,16 @@ function PostSelectionBar({
   const { t } = useAppSettings()
   const all = selected > 0 && selected === pageCount
   const mixed = selected > 0 && !all
-  const icons = { dismiss: Ban, reprocess: Sparkles, translate: Languages }
+  const icons = {
+    dismiss: Ban,
+    reprocess: Sparkles,
+    refresh: RefreshCw,
+    translate: Languages,
+  }
   const labels = {
     dismiss: t("admin.posts.dismiss"),
     reprocess: t("admin.review.bulkReprocess"),
+    refresh: t("admin.posts.refresh"),
     translate: t("admin.review.retryTranslation"),
   }
   const titles: Partial<Record<BulkAction, string>> = {
@@ -485,7 +552,9 @@ function PostSelectionBar({
           <Button
             key={action}
             size="sm"
-            variant={action === "dismiss" ? "ghost" : undefined}
+            variant={
+              action === "dismiss" || action === "refresh" ? "ghost" : undefined
+            }
             icon={icons[action]}
             title={titles[action]}
             disabled={!selected || (Boolean(busy) && busy !== action)}
@@ -577,6 +646,7 @@ function PostsTab({ navigate }: Pick<ViewProps, "navigate">) {
     const count = await act(async () => {
       if (action === "dismiss") return (await api.dismissPosts(ids)).dismissed
       if (action === "reprocess") return (await api.reprocessPosts(ids)).queued
+      if (action === "refresh") return (await api.refreshPosts(ids)).queued
       return (await api.requestTranslations({ ownerType: "post", ids })).queued
     })
     setBusy("")
@@ -585,6 +655,7 @@ function PostsTab({ navigate }: Pick<ViewProps, "navigate">) {
       {
         dismiss: "admin.notice.postsDismissed",
         reprocess: "admin.notice.postsQueued",
+        refresh: "admin.notice.refreshesQueued",
         translate: "admin.notice.translationsQueued",
       }[action],
       { count },

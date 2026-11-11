@@ -328,8 +328,16 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 	if err := backfillQuotes(ctx, tx); err != nil {
 		return err
 	}
+	if added["media_links.kind"] {
+		if err := backfillMediaKinds(ctx, tx); err != nil {
+			return fmt.Errorf("%w: media kind backfill failed", ErrSchema)
+		}
+	}
 	if err := backfillQuotedStatuses(ctx, tx, workflowTime(time.Now())); err != nil {
 		return fmt.Errorf("%w: quoted status backfill failed", ErrSchema)
+	}
+	if err := backfillRepostedStatuses(ctx, tx); err != nil {
+		return fmt.Errorf("%w: reposted status backfill failed", ErrSchema)
 	}
 	if added["llm_providers.capabilities_json"] {
 		if err := exec(`UPDATE llm_providers SET capabilities_json=CASE WHEN vision_capable=0 THEN '["text"]' ELSE '["text","image"]' END`); err != nil {

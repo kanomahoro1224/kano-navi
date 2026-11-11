@@ -1,5 +1,6 @@
 import type {
   ArchiveSnapshot,
+  MediaItem,
   Post,
   ScheduleAsset,
   ScheduleEvent,
@@ -41,6 +42,7 @@ import {
   PostArchive,
   PostArchiveFilter,
   PostArchiveLayoutToggle,
+  PostMediaView,
   PostWall,
 } from "./components/post-wall"
 import {
@@ -55,6 +57,9 @@ import "./board.css"
 interface ViewerImage {
   url: string
   alt?: string
+  /** A post's video or GIF still, and the page it plays on. */
+  kind?: MediaItem["kind"]
+  href?: string
 }
 
 /** Images offered to the viewer; entries whose media is not cached are skipped. */
@@ -701,7 +706,7 @@ export function DashboardApp() {
         label={t("feed.openMedia")}
         onClose={closeViewer}
         onStep={stepViewer}
-        renderImage={(item) => <img src={item.url} alt={item.alt || ""} />}
+        renderImage={(item) => <PostMediaView item={item} t={t} />}
       />
     </div>
   )

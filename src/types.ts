@@ -24,6 +24,10 @@ export interface MediaItem {
   width?: number | null
   height?: number | null
   alt?: string
+  /** What the image shows: a photo, or the still of a video or GIF on X. */
+  kind?: "photo" | "video" | "gif"
+  /** The post or quote a video's or GIF's still opens; set by the board. */
+  href?: string
 }
 
 /**

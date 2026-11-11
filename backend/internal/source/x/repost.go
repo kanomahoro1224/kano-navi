@@ -6,12 +6,43 @@ import "strings"
 // the original's ID and publication time, so it has neither of its own. ID is
 // the reposted status; Author its author's handle, empty when unknown;
 // Status the reposted status as the listing carries it, mapped like a quote,
-// or nil when the listing carries none. The board shows no reposts: the link
-// and the status are stored apart from posts.
+// or nil when the listing carries none. RetweetID is the repost's own status
+// ID, known only when a detail request named it; a post with that ID is
+// never stored. The board shows no reposts: the link and the status are
+// stored apart from posts.
 type Repost struct {
-	ID     string
-	Author string
-	Status *Quote
+	ID        string
+	Author    string
+	Status    *Quote
+	RetweetID string
+}
+
+// detailRepost reads a vxtwitter detail answer for id as the account's
+// repost. Such an answer names the reposting account as its author, words
+// itself "RT @author: …" and carries the reposted status under retweet. It
+// reports false for an answer without a usable retweet or of another
+// account, which the caller treats as any other answer.
+func detailRepost(payload map[string]any, id, account string) (Repost, bool) {
+	retweet := object(payload["retweet"])
+	if len(retweet) == 0 {
+		return Repost{}, false
+	}
+	by := firstString(object(payload["user"]), "screen_name", "screenName")
+	if by == "" {
+		by = stringValue(payload["user_screen_name"])
+	}
+	if !strings.EqualFold(strings.TrimPrefix(by, "@"), account) {
+		return Repost{}, false
+	}
+	original := quoteFrom(retweet)
+	if original == nil || original.ID == id {
+		return Repost{}, false
+	}
+	repost := Repost{ID: original.ID, Author: original.AuthorHandle, RetweetID: id}
+	if !original.Unavailable {
+		repost.Status = original
+	}
+	return repost, true
 }
 
 // repostedBy is the handle FxTwitter names in a timeline item's reposted_by:
@@ -43,8 +74,8 @@ func timelineRepost(status map[string]any, account string) (Repost, bool) {
 }
 
 // APIReposts lists the account's reposts in an X API v2 posts answer: its
-// posts that reference a status as retweeted, with the status when the
-// answer's includes carry it.
+// posts that reference a status as retweeted, with the repost's own ID and
+// the status when the answer's includes carry it.
 func APIReposts(payload map[string]any, account string) []Repost {
 	includes := object(payload["includes"])
 	users := map[string]map[string]any{}
@@ -81,6 +112,9 @@ func APIReposts(payload map[string]any, account string) []Repost {
 		}
 		seen[id] = true
 		repost := Repost{ID: id}
+		if own := stringValue(entry["id"]); statusIDPattern.MatchString(own) && own != id {
+			repost.RetweetID = own
+		}
 		if status, found := referenced[id]; found {
 			if author := stringValue(users[stringValue(status["author_id"])]["username"]); handlePattern.MatchString(author) {
 				repost.Author = author

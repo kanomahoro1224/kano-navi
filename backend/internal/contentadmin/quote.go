@@ -129,29 +129,39 @@ func (m *Module) setPostHidden(ctx context.Context, postID string, hidden bool) 
 	return state, err
 }
 
-// requestPostRefresh queues an X post for a detail request in the next X
-// synchronization and clears the failure backoff of its pending status. No
-// source is contacted here; the workflow reads the request.
+// queuePostRefresh queues one own X post for a detail request in the next X
+// synchronization and clears the failure backoff of its pending status, or
+// answers errPostNotFound or errNotRefreshable. A promoted post is a related
+// account's status, which the own accounts' synchronization never reads.
+func queuePostRefresh(ctx context.Context, tx *sql.Tx, postID, now string) error {
+	var source string
+	var account sql.NullString
+	var promoted bool
+	if err := tx.QueryRowContext(ctx, `SELECT source, account_handle, promoted_at IS NOT NULL FROM posts WHERE id = ?`, postID).Scan(&source, &account, &promoted); errors.Is(err, sql.ErrNoRows) {
+		return errPostNotFound
+	} else if err != nil {
+		return err
+	}
+	if source != "x" || promoted || !statusIDPattern.MatchString(postID) || !refreshHandleRegex.MatchString(account.String) {
+		return errNotRefreshable
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE posts SET refresh_requested_at = COALESCE(refresh_requested_at, ?) WHERE id = ?`, now, postID); err != nil {
+		return err
+	}
+	// The status ID is digits only, so it is a safe JSON path key.
+	_, err := tx.ExecContext(ctx, `UPDATE sync_state SET metadata_json = json_remove(metadata_json, '$.pendingRetries."' || ? || '"')
+	  WHERE source = 'x' AND lower(account_id) = lower(?) AND json_valid(metadata_json)`, postID, account.String)
+	return err
+}
+
+// requestPostRefresh queues an own X post for a detail request in the next
+// X synchronization (see queuePostRefresh). No source is contacted here; the
+// workflow reads the request.
 func (m *Module) requestPostRefresh(ctx context.Context, postID string) (*postQuoteState, error) {
 	var state *postQuoteState
 	now := m.timestamp()
 	err := m.inTx(ctx, func(tx *sql.Tx) error {
-		var source string
-		var account sql.NullString
-		if err := tx.QueryRowContext(ctx, `SELECT source, account_handle FROM posts WHERE id = ?`, postID).Scan(&source, &account); errors.Is(err, sql.ErrNoRows) {
-			return errPostNotFound
-		} else if err != nil {
-			return err
-		}
-		if source != "x" || !statusIDPattern.MatchString(postID) || !refreshHandleRegex.MatchString(account.String) {
-			return errNotRefreshable
-		}
-		if _, err := tx.ExecContext(ctx, `UPDATE posts SET refresh_requested_at = COALESCE(refresh_requested_at, ?) WHERE id = ?`, now, postID); err != nil {
-			return err
-		}
-		// The status ID is digits only, so it is a safe JSON path key.
-		if _, err := tx.ExecContext(ctx, `UPDATE sync_state SET metadata_json = json_remove(metadata_json, '$.pendingRetries."' || ? || '"')
-		  WHERE source = 'x' AND lower(account_id) = lower(?) AND json_valid(metadata_json)`, postID, account.String); err != nil {
+		if err := queuePostRefresh(ctx, tx, postID, now); err != nil {
 			return err
 		}
 		var err error
@@ -168,7 +178,7 @@ func (m *Module) writeQuoteState(w http.ResponseWriter, state *postQuoteState, e
 	case errors.Is(err, errQuoteNotFound):
 		httpx.WriteCode(w, http.StatusNotFound, "quote_not_found")
 	case errors.Is(err, errNotRefreshable):
-		httpx.WriteError(w, httpx.Invalid("only stored X posts can be refreshed from the source"))
+		httpx.WriteError(w, httpx.Invalid("only own X posts can be refreshed from the source"))
 	case err != nil:
 		writeFailure(w, err)
 	default:

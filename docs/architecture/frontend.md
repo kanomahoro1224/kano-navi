@@ -439,8 +439,9 @@ pass. The list pages 50 posts at a time.
 Each row has a selection box on its left edge, and shift-click selects the range from the last toggled row. A selection
 bar above the list, which sticks under the top bar, selects the whole page
 and applies the state's actions to every selected post in one request:
-Dismiss and Process again for failed extractions, Process again for
-uncertain posts, Translate again for failed translations. A new filter or
+Dismiss, Process again and Refresh from source for failed extractions,
+Process again and Refresh from source for uncertain posts, Translate again
+for failed translations; a refresh skips posts that are not own X posts. A new filter or
 page clears the selection.
 
 Console dates are `YYYY-MM-DD` and times `YYYY-MM-DD HH:mm`, in Japan time
@@ -589,15 +590,21 @@ time, the wording (three lines) and its quote, the post's own cached images
 (up to three, "+N" counts the rest), the translation status, the extraction
 state with a Hidden badge for a post hidden from the public pages, a
 Promoted badge, which opens External posts, for a related account's
-promoted status, and a
+promoted status, a Refresh queued badge with the request's time, and a
 Schedule image badge for a post with a schedule image record, and the
-edit, "process again with the LLM" and open actions. The columns after the
+edit, "process again with the LLM", refresh from the source (an own X post
+only, disabled while one is queued) and open actions. The columns after the
 wording have fixed widths, so they line up from post to post. A text-only
 post shows no image cell; a post whose images are not cached yet shows one
 placeholder with the reason. A feed under 1000px puts the account, time,
 state and actions on one line above the wording, images and translations,
 and under 560px the state gets a line of its own. A hidden post's wording is
-dimmed. Beside the account, extraction, translation and date filters,
+dimmed. An own X post has a selection box before its account; shift-click
+selects the range from the last toggled post. A selection bar above the
+feed, which sticks under the top bar, selects every own X post on the page
+and queues a refresh from the source for the selected posts in one request;
+a new filter, platform or page clears the selection. Beside the account,
+extraction, translation and date filters,
 Queued for keeps the posts with an open operator request: any, Extract
 again, Read again from X or AI translation. The account filter lists the X
 accounts and is absent on the Bilibili tab. A platform keeps the other
@@ -607,18 +614,17 @@ when there is one (`#posts/x/queued-refresh`).
 
 Edit opens the post in a dialog: the whole wording, every cached image, the
 translations, the quote, the schedule image form and a switch that hides the
-post from the public pages or shows it again, with the LLM and open actions
-in its footer. An X post with images can be marked as a schedule image there:
+post from the public pages or shows it again, with the LLM, refresh and open
+actions in its footer. An X post with images can be marked as a schedule image there:
 the image (a choice when the post has several), a required reason and an
 optional first and last day; a post with a record shows its badge and a link
 to the Schedule list's images.
 
 The quote is a read-only card on the sunken surface under the wording, so
 its thumbnails never read as the post's own images. Its header holds the
-author, handle and time, badges for a quote hidden from the board and a
-queued refresh, and icon actions that hide the quote from the board or show
-it again, queue a refresh from the source (disabled while one is queued) and
-open the quoted post. Below come the wording, folded to three lines with a
+author, handle and time, a badge for a quote hidden from the board, and icon
+actions that hide the quote from the board or show it again and open the
+quoted post. Below come the wording, folded to three lines with a
 "Show full quote" toggle that appears only when the clamp cuts it, the ready
 quote thumbnails that open the image viewer, or the unavailable state. The
 edit dialog shows the quote's whole wording. Nothing edits the quote itself.

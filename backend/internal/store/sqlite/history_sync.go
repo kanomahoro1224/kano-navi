@@ -109,6 +109,15 @@ func (s *Store) WriteHistoryPage(ctx context.Context, page history.Page) (histor
 	if page.Source == history.SourceX {
 		kept := map[string]bool{}
 		for _, post := range page.Posts {
+			// A known repost's own status ID is never a post again.
+			repost, lookupErr := isRepostID(ctx, tx, post.ID)
+			if lookupErr != nil {
+				return history.Written{}, ErrSourceWrite
+			}
+			if repost {
+				kept[post.ID] = true
+				continue
+			}
 			existed, lookupErr := rowExists(ctx, tx, `SELECT 1 FROM posts WHERE id=?`, post.ID)
 			if lookupErr != nil {
 				return history.Written{}, ErrSourceWrite

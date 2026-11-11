@@ -227,7 +227,7 @@ func TestReadOnlyStoreRejectsEveryMutation(t *testing.T) {
 		"/profile-media", "/profile-media/discover", "/profile-media/upload?slot=avatar",
 		"/profile-media/abc/download", "/profile-media/abc/select",
 		"/schedule-images/abc/review", "/posts/abc/reprocess", "/posts/abc/dismiss", "/posts/1900000000000000100/refresh",
-		"/posts/reprocess", "/posts/dismiss",
+		"/posts/reprocess", "/posts/dismiss", "/posts/refresh",
 	} {
 		f.request(http.MethodPost, path, "application/json", []byte(`{}`)).expect(t, http.StatusServiceUnavailable, "read_only")
 	}

@@ -672,6 +672,7 @@ alias); `none` never needs review and keeps `previewUrl` null.
 | `POST /posts/{id}/dismiss`       | none                                                                                                    | `{state}`; `409 post_not_failed` |
 | `POST /posts/reprocess`          | `{ids}`                                                                                                 | `{queued}`                       |
 | `POST /posts/dismiss`            | `{ids}`                                                                                                 | `{dismissed}`                    |
+| `POST /posts/refresh`            | `{ids}`                                                                                                 | `{queued}`                       |
 | `PUT /posts/{id}/schedule-image` | `{index, reason, start?, end?}`                                                                         | `{image}`                        |
 | `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                              | `{state}`                        |
 | `POST /posts/{id}/refresh`       | none                                                                                                    | `{state}`                        |
@@ -703,10 +704,13 @@ stops its automatic retries (see
 [Failure backoff](sources.md#extraction-failure-backoff)); any other state
 answers `409 post_not_failed`.
 
-`POST /posts/reprocess` and `POST /posts/dismiss` apply the same changes to
-1 to 200 listed posts in one transaction. They skip unknown IDs and, for a
-dismissal, posts whose extraction has not failed, and answer how many posts
-they queued or dismissed; a reprocess keeps each stored route.
+`POST /posts/reprocess`, `POST /posts/dismiss` and `POST /posts/refresh`
+apply the same changes as their single-post routes to 1 to 200 listed posts
+in one transaction. They skip unknown IDs and, for a dismissal, posts whose
+extraction has not failed, for a refresh, posts that cannot be refreshed,
+and answer how many posts they queued or dismissed; a reprocess keeps each
+stored route, and a post whose refresh is already queued counts as queued
+and keeps its place.
 
 `scheduleImage` is the post's schedule image record, or `null`: its asset
 `id`, the `index` of the post's own image it shows (`null` for none of them),
@@ -755,11 +759,11 @@ time. A post without a stored quote answers `404 quote_not_found`.
 Synchronization never writes the decision, so it outlives every rewrite of
 the stored quote. A change increments the dashboard revision.
 
-`POST /posts/{id}/refresh` queues a stored X post for a detail request in
+`POST /posts/{id}/refresh` queues an own X post for a detail request in
 the next X synchronization and removes its pending failure backoff; it
 contacts no source itself. A repeated request keeps the first request's
-place. Posts that are not X statuses with a known account answer
-`400 invalid_input`. See
+place. Posts that are not own X statuses with a known account, promoted
+statuses included, answer `400 invalid_input`. See
 [Refresh from the source](sources.md#refresh-from-the-source). The three
 routes answer `{state: {postId, hiddenAt, quoteHiddenAt, refreshRequestedAt}}`;
 MCP control has none of them.

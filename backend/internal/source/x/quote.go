@@ -10,7 +10,8 @@ import (
 // beside the quoting post and never becomes a post, a timeline entry or an
 // extraction input of its own. Unavailable marks a quoted status the payload
 // names but does not carry (deleted, withheld or protected): only its ID and
-// URL are known then. MediaURLs are the quoted status's images, which the
+// URL are known then. MediaURLs are the quoted status's images, with their
+// kinds in MediaKinds, which the
 // store links as quote-image media and never as schedule candidates.
 type Quote struct {
 	ID           string   `json:"id"`
@@ -21,6 +22,7 @@ type Quote struct {
 	URL          string   `json:"url"`
 	Unavailable  bool     `json:"unavailable,omitempty"`
 	MediaURLs    []string `json:"-"`
+	MediaKinds   []string `json:"-"`
 }
 
 const (
@@ -70,7 +72,8 @@ func quoteFrom(m map[string]any) *Quote {
 	}
 	q := &Quote{ID: id, URL: quoteURL(handle, id)}
 	text := strings.TrimSpace(firstString(m, "text", "tweetText"))
-	media := mediaURLs(m)
+	items := mediaItems(m)
+	media := itemURLs(items)
 	// FxTwitter types a status it cannot show (a tombstone) as something
 	// other than a status; without an author or content there is nothing to
 	// show either.
@@ -85,6 +88,7 @@ func quoteFrom(m map[string]any) *Quote {
 	q.AuthorHandle, q.AuthorName, q.Text = handle, clip(strings.TrimSpace(name), maxQuoteName), clip(text, maxQuoteText)
 	q.PublishedAt = parseDate(first(m, "date_epoch", "dateEpoch", "created_timestamp", "date", "created_at"))
 	q.MediaURLs = media[:min(len(media), maxQuoteMedia)]
+	q.MediaKinds = itemKinds(items)[:len(q.MediaURLs)]
 	return q
 }
 

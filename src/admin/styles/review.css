@@ -479,6 +479,26 @@ blockquote.adm-verdict-reason {
   overflow-wrap: anywhere;
 }
 
+/* A selectable post's box sits before its account, which shares the hit
+   area; a selected post takes the accent. */
+.adm-post-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.adm-post-select input {
+  flex: none;
+  margin: 0;
+}
+
+.adm-post.is-selected,
+.adm-post.is-selected:hover {
+  background: color-mix(in oklab, var(--adm-accent) 6%, transparent);
+}
+
 /* A pooled dynamic's author, after its platform mark. */
 .adm-post-origin .adm-post-mark {
   display: inline-flex;

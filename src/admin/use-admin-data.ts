@@ -315,6 +315,9 @@ function createClient(run: Runner, slow: Runner) {
     /** Dismiss the failed extractions among up to 200 posts. */
     dismissPosts: (ids: string[]) =>
       send<{ dismissed: number }>("POST", "/posts/dismiss", { ids }),
+    /** Queue up to 200 own X posts for a refresh from the source at once. */
+    refreshPosts: (ids: string[]) =>
+      send<{ queued: number }>("POST", "/posts/refresh", { ids }),
     /** Make one of the post's own images its schedule image. */
     pickScheduleImage: (
       id: string,

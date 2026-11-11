@@ -317,6 +317,41 @@ function EntrySheet({
 }
 
 /**
+ * Scrolls `element` into view the way `block: "nearest"` does, moving only
+ * its nearest scrolling ancestor. Safari's own scrollIntoView also scrolls
+ * the overflow-hidden ancestors around a dialog body when the element is
+ * taller than the body, pushing the dialog's header off screen.
+ */
+function revealNearest(element: HTMLElement) {
+  const view = element.ownerDocument.defaultView
+  let scroller = element.parentElement
+  while (view && scroller && scroller !== element.ownerDocument.body) {
+    const { overflowY } = view.getComputedStyle(scroller)
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      scroller.scrollHeight > scroller.clientHeight
+    )
+      break
+    scroller = scroller.parentElement
+  }
+  if (!view || !scroller || scroller === element.ownerDocument.body) {
+    element.scrollIntoView?.({ block: "nearest", behavior: "smooth" })
+    return
+  }
+  const rect = element.getBoundingClientRect()
+  const top = scroller.getBoundingClientRect().top + scroller.clientTop
+  const bottom = top + scroller.clientHeight
+  const above = rect.top < top
+  const below = rect.bottom > bottom
+  if (above === below) return
+  // An edge outside the view lines up with its side, unless the element is
+  // taller than the view, when its start does.
+  const taller = rect.height > scroller.clientHeight
+  const delta = above !== taller ? rect.top - top : rect.bottom - bottom
+  scroller.scrollBy?.({ top: delta, behavior: "smooth" })
+}
+
+/**
  * An entry's card. The card opens the entry's sheet; the arrow in its
  * bottom corner follows the entry's link directly.
  * The month's day details show it `full`, with the whole title, and mark
@@ -346,11 +381,7 @@ function GuideEvent({
   const itemRef = useRef<HTMLLIElement>(null)
   const highlighted = pickTurn > 0
   useEffect(() => {
-    if (pickTurn > 0)
-      itemRef.current?.scrollIntoView?.({
-        block: "nearest",
-        behavior: "smooth",
-      })
+    if (pickTurn > 0 && itemRef.current) revealNearest(itemRef.current)
   }, [pickTurn])
   const facts = entryFacts(event, now, locale, t)
 
@@ -795,12 +826,9 @@ export function ScheduleMonth({
     // On narrow screens the details sit below the grid; a picked entry
     // scrolls itself into view.
     if (eventId) return
-    window.requestAnimationFrame?.(() =>
-      detailRef.current?.scrollIntoView?.({
-        block: "nearest",
-        behavior: "smooth",
-      }),
-    )
+    window.requestAnimationFrame?.(() => {
+      if (detailRef.current) revealNearest(detailRef.current)
+    })
   }
 
   return (

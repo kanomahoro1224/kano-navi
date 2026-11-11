@@ -5,7 +5,10 @@
   max-height: none;
   margin: auto;
   padding: 0;
+  /* Clipped rather than hidden: a hidden box still scrolls from script,
+     and Safari scrolls it to reveal a tall entry in the body. */
   overflow: hidden;
+  overflow: clip;
   border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
   background: hsl(var(--background));

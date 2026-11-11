@@ -33,6 +33,7 @@ Commands:
   serve        Serve the public API, operator console, workflows, MCP and built frontend
   seed         Create the database if missing and add missing static records (-overwrite restores them)
   sync         Run one full synchronization and exit
+  responses    List or export captured source responses
   migrate-llm  Store OPENAI_API_KEY as the encrypted key of the openai-default provider (-force replaces)
   variants     Make the smaller copies of the LINE BLOG, Works and Journey images (-data, -out)
   healthcheck  Probe the local service and exit
@@ -53,6 +54,8 @@ func main() {
 		args = append([]string{"-healthcheck"}, args...)
 	case "seed", "sync", "migrate-llm":
 		os.Exit(runCommand(command, args))
+	case "responses":
+		os.Exit(runResponses(args))
 	case "variants":
 		os.Exit(runVariants(args))
 	case "help":

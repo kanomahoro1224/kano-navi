@@ -23,6 +23,12 @@
   passwords and provider secrets. Request bodies are bounded before parsing;
   invalid JSON and oversized bodies return 400/413 with a controlled error
   code.
+- Source workflow runs retain bounded textual response bodies in the local
+  SQLite snapshot for diagnosis. Captures omit request headers and query
+  strings, are limited to 4 MiB each and 512 MiB total, and expire after 30
+  days for successful responses or 90 days for errors. The local read-only
+  `kano-go responses` command is the only body access path; treat database
+  backups and exported captures as source data and keep them access-controlled.
 
 The model boundary is opt-in. Matching public schedule-post text and ready
 cached post images are sent only to the ordered, administrator-configured

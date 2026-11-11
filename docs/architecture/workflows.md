@@ -386,13 +386,13 @@ stops on login and risk-control failures, including 429, without making a
 fallback request. A later page that fails keeps the earlier pages and leaves
 the run partial without falling back.
 
-| Source      | Methods, in default order                                                                                         | Default                                |
-| ----------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `x`         | `timeline` (FxTwitter timeline), `profile` (logged-out `x.com/<handle>`, IDs only), `api` (X API)                 | `api` off                              |
-| `youtube`   | `api` (Data API uploads playlist), `rss` (public feed), `ytdlp` (metadata), `videos_page` (uploads tab, IDs only) | api, rss and videos_page on; ytdlp off |
-| `x_related` | `timeline` (FxTwitter timeline)                                                                                   | fixed                                  |
-| `bilibili`  | `list` (the upload list), `dynamics` (signed-in dynamics listing), `app` (official client's listing)              | all on                                 |
-| `bilibili_dynamics` | `desktop` (signed-in desktop feed), `dynamics` (signed-in WBI listing) | both on; desktop first |
+| Source              | Methods, in default order                                                                                         | Default                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `x`                 | `timeline` (FxTwitter timeline), `profile` (logged-out `x.com/<handle>`, IDs only), `api` (X API)                 | `api` off                              |
+| `youtube`           | `api` (Data API uploads playlist), `rss` (public feed), `ytdlp` (metadata), `videos_page` (uploads tab, IDs only) | api, rss and videos_page on; ytdlp off |
+| `x_related`         | `timeline` (FxTwitter timeline)                                                                                   | fixed                                  |
+| `bilibili`          | `list` (the upload list), `dynamics` (signed-in dynamics listing), `app` (official client's listing)              | all on                                 |
+| `bilibili_dynamics` | `desktop` (signed-in desktop feed), `dynamics` (signed-in WBI listing)                                            | both on; desktop first                 |
 
 The default keeps the existing order and leaves yt-dlp off until it is
 configured, so the default chain applies when no stored chain is available. A method whose
@@ -709,6 +709,10 @@ successful `sync_runs` row (the board's freshness reads it), whatever their
 age. A deleted run can no longer be retried. The pass is local database
 work, not a run: it does not use the queue, and
 `WORKFLOW_SCHEDULER_ENABLED=0` does not stop it.
+
+The same daily maintenance pass prunes the source response archive on its own
+30-day success and 90-day HTTP-error windows and enforces its 512 MiB compressed
+body limit. Capture retention does not depend on workflow-run retention.
 
 Schedule-step outcomes combine post extraction and image verification. An
 image-only failure cannot be reported as success: a scan with failures and no

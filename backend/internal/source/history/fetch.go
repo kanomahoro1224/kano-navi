@@ -14,6 +14,7 @@ import (
 
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
+	"github.com/yexca/kano-navi/backend/internal/sourcecapture"
 )
 
 const (
@@ -160,7 +161,7 @@ func NewFetcher(store Store, options Options, transport http.RoundTripper) *Fetc
 	}
 	client := &http.Client{
 		Timeout:       options.Timeout,
-		Transport:     transport,
+		Transport:     sourcecapture.NewTransport("x", transport),
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	return &Fetcher{HTTP: client, Store: store, Options: options, Now: time.Now}

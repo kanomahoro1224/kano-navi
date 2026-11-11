@@ -18,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/sourcecapture"
 )
 
 // Host is the shop's storefront, the only host the client requests.
@@ -83,6 +85,7 @@ func NewClient(client *http.Client) *Client {
 	}
 	copy := *client
 	copy.Timeout = RequestTimeout
+	copy.Transport = sourcecapture.NewTransport("shop", copy.Transport)
 	copy.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &Client{http: &copy, now: time.Now}
 }

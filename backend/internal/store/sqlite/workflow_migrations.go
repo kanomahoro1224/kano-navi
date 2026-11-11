@@ -59,6 +59,15 @@ func migrateWorkflowSchema(ctx context.Context, db *sql.DB) error {
 	if _, err = tx.ExecContext(ctx, statements[0]); err != nil {
 		return ErrWorkflowSchema
 	}
+	for _, statement := range []string{
+		"CREATE TABLE IF NOT EXISTS source_response_captures (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, endpoint TEXT NOT NULL, method TEXT NOT NULL, status_code INTEGER NOT NULL, content_type TEXT NOT NULL, captured_at TEXT NOT NULL, run_id TEXT, workflow_id TEXT, step_id TEXT, attempt INTEGER, body_sha256 TEXT NOT NULL, body_bytes INTEGER NOT NULL, stored_bytes INTEGER NOT NULL, body_gzip BLOB NOT NULL, truncated INTEGER NOT NULL DEFAULT 0 CHECK(truncated IN (0,1)))",
+		"CREATE INDEX IF NOT EXISTS source_response_captures_recent_idx ON source_response_captures(captured_at DESC,id DESC)",
+		"CREATE INDEX IF NOT EXISTS source_response_captures_source_idx ON source_response_captures(source,captured_at DESC,id DESC)",
+	} {
+		if _, err = tx.ExecContext(ctx, statement); err != nil {
+			return ErrWorkflowSchema
+		}
+	}
 	var version int
 	if err = tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM workflow_migrations`).Scan(&version); err != nil || version > WorkflowSchemaVersion {
 		return ErrWorkflowSchema

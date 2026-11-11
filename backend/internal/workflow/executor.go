@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/source/history"
+	"github.com/yexca/kano-navi/backend/internal/sourcecapture"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -317,7 +318,14 @@ func (e *Executor) ExecuteRun(ctx context.Context, run *Run) (*Run, error) {
 				if chain, frozen := run.SourceChain[ChainSource(step.StepID)]; frozen {
 					input.Chain = &chain
 				}
-				out, execErr = e.Steps.Execute(ctx, input)
+				var recorder sourcecapture.Recorder
+				if available, ok := e.Store.(sourcecapture.Recorder); ok {
+					recorder = available
+				}
+				captureCtx := sourcecapture.WithExecution(ctx, recorder, sourcecapture.Execution{
+					RunID: run.ID, WorkflowID: run.WorkflowID, StepID: step.StepID, Attempt: num,
+				})
+				out, execErr = e.Steps.Execute(captureCtx, input)
 			}
 			stopStatus := ""
 			if ctx.Err() != nil {

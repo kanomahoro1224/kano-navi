@@ -76,13 +76,26 @@ downloader boundary.
 run queue with `CREATE TABLE IF NOT EXISTS` and adds missing columns, then
 checks that every table has the columns its recorded version requires:
 
-| Table                    | Purpose                                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `workflow_migrations`    | Applied workflow schema versions (current: 3); a newer recorded version fails the open                 |
-| `workflow_runs`          | One row per run: `workflow_id`, status, trigger/execution source, idempotency key, times, cancellation |
-| `workflow_run_steps`     | Ordered steps of a run: status, error code, retryability, `capability` and `adapter_capability`        |
-| `workflow_step_attempts` | Every attempt of a step, kept across retries                                                           |
-| `workflow_leases`        | The single `global` lease (owner, expiry, generation) that fences source and media writes              |
+| Table                      | Purpose                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `workflow_migrations`      | Applied workflow schema versions (current: 3); a newer recorded version fails the open                 |
+| `workflow_runs`            | One row per run: `workflow_id`, status, trigger/execution source, idempotency key, times, cancellation |
+| `workflow_run_steps`       | Ordered steps of a run: status, error code, retryability, `capability` and `adapter_capability`        |
+| `workflow_step_attempts`   | Every attempt of a step, kept across retries                                                           |
+| `source_response_captures` | Bounded, compressed source HTTP response bodies and request/run metadata                               |
+| `workflow_leases`          | The single `global` lease (owner, expiry, generation) that fences source and media writes              |
+
+`source_response_captures` records the textual response body presented to a
+source parser, after HTTP content decoding and before parsing. It stores a
+gzip-compressed body, its SHA-256, status, content type, normalized endpoint,
+and the workflow run, step and attempt when available. Request query strings
+and headers are not stored. A capture has no cascading run foreign key, so
+removing workflow history does not remove its response. Successful HTTP
+statuses are kept 30 days, error statuses 90 days, and the oldest captures are
+removed when compressed bodies exceed 512 MiB. Bodies are limited to 4 MiB;
+truncated captures are marked and their hash covers only the stored prefix.
+The local `kano-go responses` command lists capture metadata and exports a
+verified body; the HTTP API does not return capture bodies.
 
 A run freezes how its source steps read: `source_sync_json` holds the
 per-source sync ([source schedules](../architecture/workflows.md#source-schedules);

@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/sourcecapture"
 )
 
 const (
@@ -68,11 +70,13 @@ func NewClient(httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 10 * time.Second}
 	}
-	if httpClient.Timeout <= 0 {
-		httpClient.Timeout = 10 * time.Second
+	copy := *httpClient
+	if copy.Timeout <= 0 {
+		copy.Timeout = 10 * time.Second
 	}
-	httpClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
-	return &Client{HTTP: httpClient}
+	copy.Transport = sourcecapture.NewTransport("x", copy.Transport)
+	copy.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
+	return &Client{HTTP: &copy}
 }
 func (c *Client) request(ctx context.Context, host, path string, query url.Values) ([]byte, error) {
 	if host != profileHost && host != timelineHost && host != detailHost {

@@ -16,19 +16,26 @@ routes are in the [Admin API](admin-api.md).
 kano-go serve        Serve the whole site (API, console, workflows, MCP, frontend)
 kano-go seed         Create the database if missing and add missing static records
 kano-go sync         Run one full synchronization and exit
+kano-go responses    List capture metadata or export a captured source response
 kano-go migrate-llm  Seal OPENAI_API_KEY as the key of the openai-default provider
 kano-go variants     Make the resized copies of the LINE BLOG, Works and Journey images
 kano-go healthcheck  Probe the local service and exit
 ```
 
-Every command but `variants` reads `.env` from the working directory; variables already in
-the environment win. `-database` overrides `data/database/kano.sqlite`, and
+`serve`, `seed`, `sync` and `migrate-llm` read `.env` from the working
+directory; variables already in the environment win. `responses` opens the
+database read-only and does not read `.env`; its `-database` flag overrides
+`data/database/kano.sqlite`. The other database commands also accept
+`-database`, and
 `serve` also accepts `-static` (default `dist`) and `-listen` (default `PORT`,
 `7657`). `seed -overwrite` restores the shipped profile, timeline and resource
 wording; it never touches source snapshots, events, media or providers.
 `migrate-llm -force` replaces an already stored key. `variants` takes `-data`
 and `-out` instead of `-database`
 ([Variants command](media-cache.md#variants-command)).
+`responses list` accepts `-source` and `-limit`; `responses export` writes a
+verified response body to standard output and accepts `-database` before the
+capture ID.
 
 From the repository root:
 

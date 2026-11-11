@@ -20,9 +20,10 @@ type RunPruner struct {
 	wg       sync.WaitGroup
 	// last is the newest pass, read by Status.
 	last struct {
-		at      *time.Time
-		deleted int
-		failed  bool
+		at              *time.Time
+		deleted         int
+		deletedCaptures int
+		failed          bool
 	}
 }
 
@@ -77,14 +78,18 @@ func (p *RunPruner) Prune(ctx context.Context) (int, error) {
 	}
 	settings, err := p.Store.RunRetention(ctx)
 	deleted := 0
+	deletedCaptures := 0
 	if err == nil {
 		deleted, err = p.Store.PruneRuns(ctx, settings, now)
+	}
+	if err == nil {
+		deletedCaptures, err = p.Store.PruneSourceResponseCaptures(ctx, now)
 	}
 	if ctx.Err() != nil {
 		return deleted, ctx.Err()
 	}
 	p.mu.Lock()
-	p.last.at, p.last.deleted, p.last.failed = &now, deleted, err != nil
+	p.last.at, p.last.deleted, p.last.deletedCaptures, p.last.failed = &now, deleted, deletedCaptures, err != nil
 	p.mu.Unlock()
 	return deleted, err
 }
@@ -99,6 +104,6 @@ func (p *RunPruner) Status() map[string]any {
 	}
 	return map[string]any{
 		"available": true, "running": p.cancel != nil, "intervalHours": int(p.interval() / time.Hour),
-		"lastPrunedAt": at, "lastDeleted": p.last.deleted, "lastFailed": p.last.failed,
+		"lastPrunedAt": at, "lastDeleted": p.last.deleted, "lastDeletedCaptures": p.last.deletedCaptures, "lastFailed": p.last.failed,
 	}
 }

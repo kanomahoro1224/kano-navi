@@ -14,6 +14,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/sourcecapture"
 )
 
 // APIHost answers getthumbinfo.
@@ -64,6 +66,7 @@ func NewClient(client *http.Client) *Client {
 	}
 	copy := *client
 	copy.Timeout = Timeout
+	copy.Transport = sourcecapture.NewTransport("niconico", copy.Transport)
 	copy.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &Client{http: &copy}
 }

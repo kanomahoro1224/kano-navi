@@ -17,9 +17,12 @@ works remain beside those reservations.
 Below the lead, stream archives appear as a grid of large thumbnails (two rows
 of two on phones), followed by a row of Shorts.
 
-Each video says how it was published (a stream archive, a video or a Short,
-or a premiere until it has aired; an aired premiere is an ordinary video and
-shows no such label) and, beside that, what it is about when known: a gameplay, talk or
+On the board, the section a video sits in names how it was published, so
+only a featured stream archive or Short in the lead and an upcoming premiere
+say so. Under Past videos each video says how it was published (a stream
+archive, a video or a Short, or a premiere until it has aired; an aired
+premiere is an ordinary video and shows no such label). Each video also says
+what it is about when known: a gameplay, talk or
 singing stream, or a game, talk or music video, each with an icon: a
 controller for games, a speech bubble for talk, a vocal microphone for
 singing (as in the schedule) and a note for music. An **All / Streams / Works /

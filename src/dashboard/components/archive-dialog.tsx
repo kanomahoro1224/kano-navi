@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react"
 
 import { EmptyNote, Placeholder } from "@/site/site-shell"
-import { formatMonth, japanToday, monthStartOf } from "../format"
+import {
+  formatMonth,
+  formatShortMonth,
+  japanToday,
+  monthStartOf,
+} from "../format"
 import { MonthPicker } from "./month-picker"
 
 /** A month dialog's jump grid: its month index and how a count reads. */
@@ -125,6 +130,15 @@ export function ArchiveDialog({
   const isCurrent = monthStart.getTime() === thisMonth.getTime()
   const atLatest = latestMonth ? monthStart >= latestMonth : false
   const label = formatMonth(monthStart, locale)
+  // Phones show the short name; the one not shown is hidden from everyone.
+  const monthText = (
+    <>
+      <span className="archive-month-long">{label}</span>
+      <span className="archive-month-short">
+        {formatShortMonth(monthStart, locale)}
+      </span>
+    </>
+  )
 
   return (
     <dialog
@@ -192,13 +206,13 @@ export function ArchiveDialog({
                 >
                   {/* A scrolled month changes too often to announce. */}
                   <span aria-live={timeline ? undefined : "polite"}>
-                    {label}
+                    {monthText}
                   </span>
                   <ChevronDown aria-hidden="true" />
                 </button>
               ) : (
                 <strong className="archive-month-label" aria-live="polite">
-                  {label}
+                  {monthText}
                 </strong>
               )}
               {timeline ? (

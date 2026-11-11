@@ -57,9 +57,7 @@ between months, click or tap a day to list its entries beside the grid (below
 it on phones) with their whole titles, and show that date's week on the
 board. On wide screens clicking an entry in the grid lists its day and marks
 that entry; on phones a tap shows the day's entries. An entry in the list
-opens its details as in the weekly guide. The button at the end of the month row folds the day details away
-and brings them back, and picking a day brings them back too; the choice holds
-while you move between months.
+opens its details as in the weekly guide.
 
 ## Calendar Subscription
 

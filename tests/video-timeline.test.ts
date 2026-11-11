@@ -249,7 +249,15 @@ test("the timeline dialog swaps the month arrows for a Latest button", async () 
       )
       assert.equal(bar.querySelector('[aria-label="Next month"]'), null)
       const label = bar.querySelector(".archive-month-label.is-picker")
-      assert.equal(label?.textContent, "September 2026")
+      assert.equal(
+        label?.querySelector(".archive-month-long")?.textContent,
+        "September 2026",
+      )
+      // Phones show the short name in its place.
+      assert.equal(
+        label?.querySelector(".archive-month-short")?.textContent,
+        "Sep 2026",
+      )
       // A label that follows the scroll is not announced on every change.
       assert.equal(label?.querySelector("[aria-live]"), null)
       const latest = Array.from(

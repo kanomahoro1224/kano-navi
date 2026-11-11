@@ -40,6 +40,15 @@
 <details>
 <summary><strong>Public pages</strong></summary>
 
+- On phones, Month view, Past posts and Past videos open straight onto their
+  controls: the month row sits beside the close button, without the title or
+  the month's count above it. The account filter of Recent Posts stays on one
+  row beside the Past posts button and scrolls sideways when it is too long.
+- Month view always lists the picked day's entries; the button that folded
+  the day details away is gone. On phones the list appears once a day is
+  picked.
+- Videos in Streams and works no longer repeat their form (video, stream
+  archive, Short) where the section already names it; Past videos keeps it.
 - In Safari on iPhone, picking a day with four or more entries in the month
   view keeps the month controls on screen instead of pushing them off the top
   and leaving a blank strip at the bottom.

@@ -102,6 +102,11 @@ export function formatMonth(date: Date, locale: string) {
   return formatter(locale, { year: "numeric", month: "long" }).format(date)
 }
 
+/** A month with its year, short where the locale has a short name: "Jan 2026". */
+export function formatShortMonth(date: Date, locale: string) {
+  return formatter(locale, { year: "numeric", month: "short" }).format(date)
+}
+
 /** A month's short name alone: "Jan", "1月". */
 export function formatMonthName(date: Date, locale: string) {
   return formatter(locale, { month: "short" }).format(date)

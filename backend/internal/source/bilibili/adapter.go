@@ -81,7 +81,7 @@ type DynamicsResult struct {
 	// method failed. Errors contains only controlled method codes.
 	Listing, Fallback string
 	Errors            []string
-	State   State
+	State             State
 	// Skipped is "login_required", "login_expired", "blocked" or
 	// "interval" when no listing request was made; a login check may still
 	// have been requested.

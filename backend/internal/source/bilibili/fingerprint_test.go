@@ -43,15 +43,15 @@ func (r *recorder) request(path string) *http.Request {
 
 func newRecorder() *recorder {
 	return &recorder{status: map[string]int{}, replies: map[string]string{
-		"/x/frontend/finger/spi":                session,
-		ticketPath:                              ticket,
-		"/x/web-interface/nav":                  navKeys,
+		"/x/frontend/finger/spi": session,
+		ticketPath:               ticket,
+		"/x/web-interface/nav":   navKeys,
 		"/x/polymer/web-dynamic/desktop/v1/feed/space": spaceFeed,
-		"/x/polymer/web-dynamic/v1/feed/space":  spaceFeed,
-		"/x/series/recArchivesByKeywords":       uploads,
-		"/x/web-interface/view":                 `{"code":0,"data":{"bvid":"BV1AAAAAAAAA","aid":1,"title":"song","pubdate":1767258000,"duration":60,"owner":{"mid":316381099}}}`,
-		"/opus/900000000000000010":              opusPage,
-		"/room/v1/Room/get_status_info_by_uids": `{"code":0,"data":{"316381099":{"title":"t","room_id":1000001,"live_status":0,"live_time":0}}}`,
+		"/x/polymer/web-dynamic/v1/feed/space":         spaceFeed,
+		"/x/series/recArchivesByKeywords":              uploads,
+		"/x/web-interface/view":                        `{"code":0,"data":{"bvid":"BV1AAAAAAAAA","aid":1,"title":"song","pubdate":1767258000,"duration":60,"owner":{"mid":316381099}}}`,
+		"/opus/900000000000000010":                     opusPage,
+		"/room/v1/Room/get_status_info_by_uids":        `{"code":0,"data":{"316381099":{"title":"t","room_id":1000001,"live_status":0,"live_time":0}}}`,
 	}}
 }
 
@@ -77,14 +77,14 @@ func TestRequestsLookLikeTheBrowserPagesTheyComeFrom(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, want := range map[string]struct{ referer, origin, method string }{
-		"/x/frontend/finger/spi":                {"https://www.bilibili.com/", "https://www.bilibili.com", "GET"},
-		ticketPath:                              {"https://www.bilibili.com/", "https://www.bilibili.com", "POST"},
-		"/x/web-interface/nav":                  {"https://www.bilibili.com/", "https://www.bilibili.com", "GET"},
-		"/x/series/recArchivesByKeywords":       {"https://space.bilibili.com/316381099", "https://space.bilibili.com", "GET"},
+		"/x/frontend/finger/spi":                       {"https://www.bilibili.com/", "https://www.bilibili.com", "GET"},
+		ticketPath:                                     {"https://www.bilibili.com/", "https://www.bilibili.com", "POST"},
+		"/x/web-interface/nav":                         {"https://www.bilibili.com/", "https://www.bilibili.com", "GET"},
+		"/x/series/recArchivesByKeywords":              {"https://space.bilibili.com/316381099", "https://space.bilibili.com", "GET"},
 		"/x/polymer/web-dynamic/desktop/v1/feed/space": {"https://space.bilibili.com/316381099/dynamic", "https://space.bilibili.com", "GET"},
-		"/x/web-interface/view":                 {"https://www.bilibili.com/video/BV1AAAAAAAAA", "https://www.bilibili.com", "GET"},
-		"/opus/900000000000000010":              {"https://www.bilibili.com/", "", "GET"},
-		"/room/v1/Room/get_status_info_by_uids": {"https://live.bilibili.com/", "https://live.bilibili.com", "GET"},
+		"/x/web-interface/view":                        {"https://www.bilibili.com/video/BV1AAAAAAAAA", "https://www.bilibili.com", "GET"},
+		"/opus/900000000000000010":                     {"https://www.bilibili.com/", "", "GET"},
+		"/room/v1/Room/get_status_info_by_uids":        {"https://live.bilibili.com/", "https://live.bilibili.com", "GET"},
 	} {
 		req := rec.request(path)
 		if req == nil {

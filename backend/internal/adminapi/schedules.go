@@ -13,7 +13,9 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/jobs"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
+	shopsource "github.com/yexca/kano-navi/backend/internal/source/shop"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/webbotauth"
 )
 
 // --- source schedules -------------------------------------------------------
@@ -67,7 +69,7 @@ func (a *api) scheduleEntry(ctx context.Context, schedule sqlite.SourceSchedule)
 // order with whether it is enabled, whether this process can run it and the
 // variable it needs. X adds its API gate and cap, today's usage and each
 // account's timeline failure streak. Bilibili dynamics and official-client
-// methods name the credentials they need.
+// methods, and the shop's signed read, name the credentials they need.
 func (a *api) chainEntry(ctx context.Context, schedule sqlite.SourceSchedule) (map[string]any, error) {
 	methods := []map[string]any{}
 	for _, method := range schedule.Chain.Methods {
@@ -79,6 +81,9 @@ func (a *api) chainEntry(ctx context.Context, schedule sqlite.SourceSchedule) (m
 		case schedule.Source == sqlite.BilibiliDynamicsSource && (method.ID == bilisource.MethodDesktop || method.ID == bilisource.MethodDynamics):
 			item["requires"] = "BILIBILI_COOKIE or BILIBILI_SESSDATA"
 			item["available"] = a.Bilibili != nil && a.Bilibili.Options.SignedIn()
+		case schedule.Source == sqlite.ShopSource && method.ID == shopsource.MethodSigned:
+			item["requires"] = webbotauth.EnvKey
+			item["available"] = a.ShopSigning
 		case schedule.Source == "bilibili" && method.ID == bilisource.MethodApp:
 			item["requires"] = "BILIBILI_APP_KEY and BILIBILI_APP_SECRET"
 			item["available"] = a.Bilibili != nil && a.Bilibili.Options.App.Valid()

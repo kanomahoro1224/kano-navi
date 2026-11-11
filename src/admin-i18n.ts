@@ -1089,7 +1089,7 @@ export const adminMessages = {
     "admin.sources.bilibili_dynamics.hint":
       "The account's dynamics, read with BILIBILI_COOKIE or BILIBILI_SESSDATA at most once per BILIBILI_MIN_INTERVAL_MINUTES. They share the uploads' captcha backoff: a block met by either read holds both.",
     "admin.sources.shop.hint":
-      "The official shop's newest 50 products. Products tagged 鹿乃まほろ with a dated order or sale period become On sale entries, one per collection and period.",
+      "The official shop's newest products. Products tagged 鹿乃まほろ with a dated order or sale period become On sale entries, one per collection and period.",
     "admin.timer.on": "Every {interval}",
     "admin.timer.enable": "Run on a timer",
     "admin.timer.enableHint":
@@ -1119,8 +1119,6 @@ export const adminMessages = {
     "admin.chain.title": "Method chain",
     "admin.chain.description":
       "Timed reads, Run now, pushes and step runs try the enabled methods from the top and fall to the next when the first page fails, lists none of the account's own records, or hits quota or rate limits. Manual fetches pick their own method.",
-    "admin.chain.fixed.shop":
-      "The shop reads its newest products through one fixed method.",
     "admin.chain.up": "Move {method} up",
     "admin.chain.down": "Move {method} down",
     "admin.chain.needs": "Needs {variable}",
@@ -1137,7 +1135,9 @@ export const adminMessages = {
     "admin.chain.method.bilibili.app": "Official client listing",
     "admin.chain.method.bilibili_dynamics.desktop": "Desktop dynamics feed",
     "admin.chain.method.bilibili_dynamics.dynamics": "Dynamics listing",
-    "admin.chain.method.shop.new_arrivals": "Newest 50 products",
+    "admin.chain.method.shop.signed": "Newest 50 products, signed",
+    "admin.chain.method.shop.new_arrivals": "Newest 50 products, unsigned",
+    "admin.chain.method.shop.atom": "Catalog Atom feed (newest 25)",
     "admin.chain.youtubeAPIOff":
       "With the Data API off, YouTube makes no Data API call at all: listing, details, the live-status probe and Shorts verdicts use public pages.",
     "admin.chain.apiGate": "Timeline failures before the X API",
@@ -1709,6 +1709,12 @@ export const adminMessages = {
     "admin.code.shop_invalid_json":
       "The shop answered with something other than its product JSON.",
     "admin.code.shop_invalid_request": "The shop request could not be built.",
+    "admin.code.shop_invalid_atom":
+      "The shop answered with something other than its Atom feed.",
+    "admin.code.shop_no_signing_key":
+      "No WEB_BOT_AUTH_KEY is configured, so the signed read made no request.",
+    "admin.code.shop_signing_failed": "The shop request could not be signed.",
+    "admin.code.shop_no_method": "No enabled shop method could make a request.",
     "admin.shop.title": "Shop reads",
     "admin.shop.sales": "Sale entries",
     "admin.shop.lastAttempt": "Last read",

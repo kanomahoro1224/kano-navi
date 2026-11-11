@@ -36,6 +36,7 @@ Commands:
   responses    List or export captured source responses
   migrate-llm  Store OPENAI_API_KEY as the encrypted key of the openai-default provider (-force replaces)
   variants     Make the smaller copies of the LINE BLOG, Works and Journey images (-data, -out)
+  web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY line and its keyid
   healthcheck  Probe the local service and exit
 
 Common flags: -database <path>  -static <directory>  -listen <address>`
@@ -58,6 +59,8 @@ func main() {
 		os.Exit(runResponses(args))
 	case "variants":
 		os.Exit(runVariants(args))
+	case "web-bot-auth-key":
+		os.Exit(runWebBotAuthKey(args, os.Stdout))
 	case "help":
 		fmt.Println(usage)
 		return

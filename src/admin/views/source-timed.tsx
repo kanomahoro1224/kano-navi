@@ -252,11 +252,6 @@ export function TimedReadsPanel({
               <p>{t("admin.chain.description")}</p>
             </HelpButton>
           </legend>
-          {/* Only the shop's one method needs a word; the others speak for
-          themselves. */}
-          {chain.fixed && source === "shop" ? (
-            <p className="adm-field-hint">{t("admin.chain.fixed.shop")}</p>
-          ) : null}
           <ol className="adm-chain-list">
             {methods.map((method, index) => (
               <li

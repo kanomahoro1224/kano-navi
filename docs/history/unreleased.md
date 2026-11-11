@@ -38,6 +38,26 @@
 </details>
 
 <details>
+<summary><strong>Upgrade notes</strong></summary>
+
+- The optional `WEB_BOT_AUTH_KEY` (an Ed25519 seed; make one with
+  `kano-go web-bot-auth-key`) signs the shop's requests with Web Bot Auth
+  and serves `GET /.well-known/http-message-signatures-directory`. It needs
+  an `https` `PUBLIC_ORIGIN`; a malformed key or a missing or `http` origin
+  stops startup.
+- The shop timer has a method chain: `signed`, `new_arrivals` and `atom`,
+  all on. A stored shop chain gains `signed` before `new_arrivals` and `atom`
+  after it. Admin `GET /sources` reports it with `fixed: false` and
+  `WEB_BOT_AUTH_KEY` for `signed`, and `PUT /sources/shop/schedule` accepts
+  its `chain`.
+- The `shop` step result adds `listing`, `tried`, `signed` and, after a
+  fallback, `fallback`; a fallback makes the run `partial`. New codes:
+  `shop_no_signing_key`, `shop_no_method`, `shop_invalid_atom` and
+  `shop_signing_failed`.
+
+</details>
+
+<details>
 <summary><strong>Public pages</strong></summary>
 
 - On phones, Month view, Past posts and Past videos open straight onto their
@@ -94,5 +114,23 @@
 
 - Detection's model limits add Extraction lookback (days), and the schedule
   queue preview shows the lookback it selected its candidates with.
+
+</details>
+
+<details>
+<summary><strong>Synchronization and extraction</strong></summary>
+
+- The official shop read can identify itself with a Web Bot Auth signature,
+  which the storefront rate-limits less than anonymous automated reads, and
+  can fall back to the catalog's Atom feed. A 429 still ends the read at
+  once, and a read makes at most three requests.
+
+</details>
+
+<details>
+<summary><strong>Operator console</strong></summary>
+
+- The shop's timed reads show its method chain for ordering and switching,
+  with the signed read greyed until `WEB_BOT_AUTH_KEY` is set.
 
 </details>

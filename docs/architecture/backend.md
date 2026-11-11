@@ -19,6 +19,7 @@ kano-go sync         Run one full synchronization and exit
 kano-go responses    List capture metadata or export a captured source response
 kano-go migrate-llm  Seal OPENAI_API_KEY as the key of the openai-default provider
 kano-go variants     Make the resized copies of the LINE BLOG, Works and Journey images
+kano-go web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY line and its keyid
 kano-go healthcheck  Probe the local service and exit
 ```
 
@@ -36,6 +37,8 @@ and `-out` instead of `-database`
 `responses list` accepts `-source` and `-limit`; `responses export` writes a
 verified response body to standard output and accepts `-database` before the
 capture ID.
+`web-bot-auth-key` takes no flags and stores nothing
+([Web Bot Auth](web-bot-auth.md#key)).
 
 From the repository root:
 
@@ -67,7 +70,9 @@ is occupied.
 ## Startup Order
 
 1. `ADMIN_PASSWORD` (production default, at least 12 non-padding characters)
-   and a non-blank `LLM_SECRETS_KEY` are validated before SQLite is opened.
+   and a non-blank `LLM_SECRETS_KEY` are validated before SQLite is opened,
+   as is an optional `WEB_BOT_AUTH_KEY` with its `https` `PUBLIC_ORIGIN`
+   ([Web Bot Auth](web-bot-auth.md#key)).
 2. A missing database is created from the embedded schema
    (`internal/store/sqlite/bootstrap.sql`) and public static seeds. Source
    snapshots, Featured data and providers start empty.
@@ -114,6 +119,7 @@ is occupied.
 | Profile media, schedule images, post reprocess | `internal/contentadmin`                                         |
 | Schedule extraction step                       | `internal/schedule`                                             |
 | Outbound proxy queue and routes                | `internal/outboundproxy`                                        |
+| Web Bot Auth key, signing and key directory    | `internal/webbotauth`                                           |
 | `/mcp`                                         | `internal/mcpapi`                                               |
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
 

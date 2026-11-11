@@ -1194,15 +1194,17 @@ and errors stay in the console.
 The `shop` step reads the sale periods of goods Kano takes part in from the
 official shop, `https://shop.milpr.com`, a Shopify storefront, so a sale
 reaches the board even when no post announces it. It needs no model: the
-storefront's public product JSON states everything a period needs. The step
-has its own [timer](workflows.md#source-schedules) and runs only in
-server-side workflows; page loads never read the shop.
+storefront's public product JSON and catalog feed state everything a period
+needs. The step has its own [timer](workflows.md#source-schedules) and runs
+only in server-side workflows; page loads never read the shop.
 
-`backend/internal/source/shop` builds three fixed URLs on that one host and
+`backend/internal/source/shop` builds four fixed URLs on that one host and
 nothing else; no address comes from data:
 
 - `/collections/new-arrivals/products.json?limit=50`, the newest 50
-  products, read by every timed run, Run now and full sync;
+  products, read by the `signed` and `new_arrivals` methods;
+- `/collections/all.atom`, the catalog's Atom feed, read by the `atom`
+  method: the newest 25 products, with no further pages;
 - `/products.json?limit=250&page=<n>`, the whole catalog, read only by the
   operator's [read-all fetch](workflows.md#manual-fetches-and-historical-backfill):
   at most six pages, three seconds apart, until a page lists fewer than 250
@@ -1213,13 +1215,60 @@ nothing else; no address comes from data:
 
 Every request names the client honestly as `kano-navi-go/shop`. The shop
 answers clients that pose as a browser with `429 local_rate_limited`, so the
-client never sends a browser's user agent. A 429 ends the run without a
-retry: its `Retry-After` (seconds or a date; a minute when missing, at most
-a day) is stored, and no read, timed or manual, requests the shop before it
-passes (`{ skipped: true, reason: "rate_limited" }`). The other failures are
-`shop_timeout`, `shop_unavailable`, `shop_redirect_rejected`,
-`shop_response_oversized`, `shop_http_<status>` and `shop_invalid_json`. Any
-failed request fails the read: it records its code and changes no entry.
+client never sends a browser's user agent. With `WEB_BOT_AUTH_KEY` set, the
+client also identifies itself with a [Web Bot Auth](web-bot-auth.md)
+signature: Shopify limits unsigned automated traffic most strictly and gives
+signed requests a higher limit, and the shop asks server-to-server clients to
+sign. A request is signed after the `shop` [proxy area](outbound-proxy.md)'s
+transport is chosen.
+
+Timed runs, Run now and full syncs list the newest products through the
+shop's [method chain](workflows.md#method-chains), in the operator's order:
+
+| Method         | Request                                   | Signed            |
+| -------------- | ----------------------------------------- | ----------------- |
+| `signed`       | the newest 50 of the new-arrivals listing | always            |
+| `new_arrivals` | the newest 50 of the new-arrivals listing | never             |
+| `atom`         | the catalog's Atom feed, newest 25        | when a key is set |
+
+Without a key, `signed` is passed over without a request
+(`signed: shop_no_signing_key` in `tried`). Signing is a method of its own
+for the JSON listing so an operator can keep an unsigned read beside it,
+while the feed, which has no unsigned twin in the chain, is signed whenever
+a key exists. The collection list follows the listing that served: signed
+after `signed`, or after `atom` with a key, unsigned after `new_arrivals`.
+The read-all fetch signs every catalog page when a key is set.
+
+The chain stays polite to an address the shop may already be holding back.
+A 429 is the shop's verdict on the whole address, so it ends the run without
+another method: a signed 429 is never retried unsigned, and an unsigned one
+never moves on to the feed. A timeout (`shop_timeout`) or an unreachable host
+(`shop_unavailable`) ends it too. A failure of the method alone
+(`shop_http_<status>`, `shop_redirect_rejected`, `shop_response_oversized`,
+`shop_invalid_json`, `shop_invalid_atom`) lets the next enabled method try,
+three seconds later, but a run makes at most two listing requests; with the
+collection list that is at most three requests. A run whose enabled methods
+can make no request fails with `shop_no_method` and makes none.
+
+A 429's `Retry-After` (seconds or a date; a minute when missing, at most a
+day) is stored for the source, not the method, and no read, timed or manual,
+signed or not, requests the shop before it passes
+(`{ skipped: true, reason: "rate_limited" }`). A read whose listing or
+collection list fails records the last code and changes no entry. The step
+result names the method that served in `listing`, each method reached in
+`tried` (`<method>` for the one that served, `<method>: <code>` for the
+others), the failed requests' codes in `errors`, and whether the listing was
+`signed`; a later method that served makes the run `partial`, with
+`fallback` naming it.
+
+The Atom feed is read with `encoding/xml`: an entry's ID
+`https://shop.milpr.com/products/<numeric id>` gives the product ID, its
+alternate link `https://shop.milpr.com/products/<handle>` the handle, and its
+`title`, `published` and Shopify `s:tag` elements the rest. The HTML of its
+`summary` is the description the period is read from, as `body_html` is for
+the JSON. An entry whose ID or link names another host, or that lacks a
+title or publication time, is left out. The feed states no stock, and its
+prices, in the summary and the variant elements, are never decoded or kept.
 
 A product counts only when it carries the tag `鹿乃まほろ`, a constant of the
 code, since the board is Kano's, and when its description states a dated
@@ -1235,7 +1284,8 @@ with no close), a product without a period and a period with impossible
 dates are skipped and counted by reason (`open_ended`, `no_period`,
 `invalid_period`, `untagged`). Stock (`variants[].available`) is not the
 period: a sold-out product still has its sale. Prices, stock and images are
-never decoded.
+never decoded. Products from either listing reach the same grouping and
+writing below.
 
 The products of one period form one group, with one entry, not one entry
 per product. The shop writes some titles with decomposed kana (`ホ` followed
@@ -1327,7 +1377,7 @@ Every source client requests fixed destinations with a 10-second timeout
 that stays active through body consumption, rejects redirects, and records
 only controlled error codes. The Bilibili client builds its URLs itself on
 its three fixed hosts and checks the mid and the dynamic ID before a
-request; the shop client builds its three fixed paths on `shop.milpr.com`
+request; the shop client builds its four fixed paths on `shop.milpr.com`
 (see [Official shop](#official-shop)). Response bodies are limited to 4 MiB
 for X, YouTube and the shop and 2 MiB for Bilibili; a timed-out or oversized stream is cancelled
 and releases its reader so the single-flight queue can run a subsequent job.

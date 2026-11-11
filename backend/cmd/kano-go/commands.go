@@ -19,6 +19,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/jobs"
 	"github.com/yexca/kano-navi/backend/internal/llmadmin"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/webbotauth"
 	"github.com/yexca/kano-navi/backend/internal/workflow"
 )
 
@@ -147,12 +148,20 @@ func runSync(database string) int {
 	if secretsKey == "" {
 		return fail("LLM_SECRETS_KEY is not configured; refusing to start", 2)
 	}
+	origin, err := config.PublicOrigin(os.Getenv("PUBLIC_ORIGIN"))
+	if err != nil {
+		return fail("invalid configuration", 2)
+	}
+	signer, err := webbotauth.FromEnv(os.Getenv, origin)
+	if err != nil {
+		return fail(err.Error(), 2)
+	}
 	store, err := sqlite.OpenStandalone(database)
 	if err != nil {
 		return fail("database unavailable", 1)
 	}
 	defer store.Close()
-	run := newPipeline(store, secretsKey)
+	run := newPipeline(store, secretsKey, signer)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)

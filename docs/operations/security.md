@@ -82,6 +82,18 @@ operator actions, and share the bounded single-flight synchronization queue.
   `dashboard_request_reload` reads the existing SQLite snapshot; only the
   server-side synchronization job performs external source requests.
 
+## Web Bot Auth Key
+
+`WEB_BOT_AUTH_KEY` is the private key that identifies the shop source's
+requests. It stays in the environment and process memory: it is never stored
+in SQLite, written to `raw_json`, logged, or returned by the admin API, which
+reports only whether the `signed` method can run. The public directory at
+`/.well-known/http-message-signatures-directory` holds the public key only.
+Anyone holding the seed can sign as this site, so replace it with a new one
+from `kano-go web-bot-auth-key` when it may have leaked; requests signed with
+the old key stop verifying once sites refresh the directory. See
+[Web Bot Auth](../architecture/web-bot-auth.md).
+
 ## LLM Secrets and Dependencies
 
 LLM_SECRETS_KEY stays in the environment; provider keys are encrypted before

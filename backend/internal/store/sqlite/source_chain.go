@@ -42,18 +42,19 @@ const (
 // Bilibili upload read tries the upload list, the signed-in dynamics listing,
 // then the official client's listing; the dynamics timer tries the desktop
 // feed before the WBI listing. The shop timer reads the newest products of
-// its new-arrivals collection.
+// its new-arrivals collection signed with Web Bot Auth, then unsigned, then
+// from the catalog's Atom feed.
 var chainMethods = map[string][]ChainMethod{
 	"x":                    {{ID: "timeline", Enabled: true}, {ID: "profile", Enabled: true}, {ID: "api", Enabled: false}},
 	XRelatedStep:           {{ID: "timeline", Enabled: true}},
 	"youtube":              {{ID: "api", Enabled: true}, {ID: "rss", Enabled: true}, {ID: "ytdlp", Enabled: false}, {ID: "videos_page", Enabled: true}},
 	"bilibili":             {{ID: "list", Enabled: true}, {ID: "dynamics", Enabled: true}, {ID: "app", Enabled: true}},
 	BilibiliDynamicsSource: {{ID: "desktop", Enabled: true}, {ID: "dynamics", Enabled: true}},
-	ShopSource:             {{ID: "new_arrivals", Enabled: true}},
+	ShopSource:             {{ID: "signed", Enabled: true}, {ID: "new_arrivals", Enabled: true}, {ID: "atom", Enabled: true}},
 }
 
 // ChainSources are the sources whose chain the operator orders.
-var ChainSources = []string{"x", "youtube", "bilibili", BilibiliDynamicsSource}
+var ChainSources = []string{"x", "youtube", "bilibili", BilibiliDynamicsSource, ShopSource}
 
 // DefaultSourceChain is a source's chain before the operator saves one.
 func DefaultSourceChain(source string) SourceChain {
@@ -156,6 +157,16 @@ func upgradeSourceChain(source string, stored SourceChain) SourceChain {
 	}
 	if source == BilibiliDynamicsSource && !slices.ContainsFunc(stored.Methods, func(method ChainMethod) bool { return method.ID == "desktop" }) {
 		stored.Methods = append([]ChainMethod{{ID: "desktop", Enabled: true}}, stored.Methods...)
+	}
+	// A shop chain of the unsigned read alone gains the signed read before
+	// it and the Atom read after it, both enabled.
+	if source == ShopSource && len(stored.Methods) > 0 {
+		if !slices.ContainsFunc(stored.Methods, func(method ChainMethod) bool { return method.ID == "signed" }) {
+			stored.Methods = append([]ChainMethod{{ID: "signed", Enabled: true}}, stored.Methods...)
+		}
+		if !slices.ContainsFunc(stored.Methods, func(method ChainMethod) bool { return method.ID == "atom" }) {
+			stored.Methods = append(stored.Methods, ChainMethod{ID: "atom", Enabled: true})
+		}
 	}
 	return stored
 }

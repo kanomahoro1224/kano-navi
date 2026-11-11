@@ -104,17 +104,17 @@ func TestClientRequestsFixedPathsWithAnHonestAgent(t *testing.T) {
 		return answer(200, products()), nil
 	})})
 	ctx := context.Background()
-	if _, err := client.NewArrivals(ctx, ArrivalsLimit); err != nil {
+	if _, err := client.NewArrivals(ctx, ArrivalsLimit, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := client.CatalogPage(ctx, 2); err != nil {
+	if _, _, err := client.CatalogPage(ctx, 2, false); err != nil {
 		t.Fatal(err)
 	}
-	collections, err := client.Collections(ctx)
+	collections, err := client.Collections(ctx, false)
 	if err != nil || len(collections) != 1 || collections[0].Handle != "sample_2026" {
 		t.Fatalf("collections=%+v err=%v", collections, err)
 	}
-	if _, _, err := client.CatalogPage(ctx, MaxCatalogPages+1); ErrorCode(err) != "shop_invalid_request" {
+	if _, _, err := client.CatalogPage(ctx, MaxCatalogPages+1, false); ErrorCode(err) != "shop_invalid_request" {
 		t.Fatalf("page beyond the bound: %v", err)
 	}
 	want := []string{
@@ -147,7 +147,7 @@ func TestClientMapsAnswersToControlledCodes(t *testing.T) {
 	} {
 		client := NewClient(&http.Client{Transport: fakeTransport(func(*http.Request) (*http.Response, error) { return tc.response, nil })})
 		client.now = func() time.Time { return now }
-		_, err := client.NewArrivals(context.Background(), ArrivalsLimit)
+		_, err := client.NewArrivals(context.Background(), ArrivalsLimit, false)
 		var shopErr *Error
 		if ErrorCode(err) != tc.code || tc.wait > 0 && (!errorAs(err, &shopErr) || shopErr.RetryAfter != tc.wait) {
 			t.Errorf("%d %s: err=%#v, want %s after %s", tc.response.StatusCode, tc.response.Header, err, tc.code, tc.wait)
@@ -274,36 +274,36 @@ func TestReadListsOnceReadsCollectionsOnlyForNewProductsAndHonorsRetryAfter(t *t
 	adapter.Options = Options{Now: func() time.Time { return now }}
 	ctx := context.Background()
 
-	first, err := adapter.Read(ctx, State{}, nil, false)
+	first, err := adapter.Read(ctx, State{}, nil, false, nil)
 	if err != nil || first.Requested != 2 || !first.Collections || len(first.Sales) != 1 || first.Sales[0].Collection != "join_goods" || first.State.LastSuccessAt != now {
 		t.Fatalf("first=%+v err=%v", first, err)
 	}
 	// A product a stored sale holds needs only the listing.
 	paths = nil
-	again, err := adapter.Read(ctx, first.State, first.Sales, false)
+	again, err := adapter.Read(ctx, first.State, first.Sales, false, nil)
 	if err != nil || again.Requested != 1 || again.Collections || len(paths) != 1 {
 		t.Fatalf("again=%+v paths=%v err=%v", again, paths, err)
 	}
 	// The full read pages until a short page.
 	paths = nil
-	all, err := adapter.Read(ctx, again.State, again.Sales, true)
+	all, err := adapter.Read(ctx, again.State, again.Sales, true, nil)
 	if err != nil || all.Pages != 2 || !all.ReachedEnd || all.Listed != CatalogPageSize+3+1 || len(all.Sales) != 1 {
 		t.Fatalf("all=%+v err=%v", all, err)
 	}
 	// A 429 fails the read without sales and holds every read back until
 	// its Retry-After passes.
 	limited, paths = true, nil
-	failed, err := adapter.Read(ctx, all.State, all.Sales, false)
+	failed, err := adapter.Read(ctx, all.State, all.Sales, false, nil)
 	if ErrorCode(err) != "shop_rate_limited" || failed.Sales != nil || failed.State.LastError != "shop_rate_limited" || !failed.State.BlockedUntil.Equal(now.Add(time.Minute)) || failed.State.LastSuccessAt != now {
 		t.Fatalf("failed=%+v err=%v", failed, err)
 	}
 	paths = nil
-	held, err := adapter.Read(ctx, failed.State, all.Sales, true)
+	held, err := adapter.Read(ctx, failed.State, all.Sales, true, nil)
 	if err != nil || held.Skipped != SkippedRateLimited || len(paths) != 0 {
 		t.Fatalf("held=%+v paths=%v err=%v", held, paths, err)
 	}
 	now, limited = now.Add(2*time.Minute), false
-	if after, err := adapter.Read(ctx, failed.State, all.Sales, false); err != nil || after.Skipped != "" || !after.State.BlockedUntil.IsZero() || after.State.LastError != "" {
+	if after, err := adapter.Read(ctx, failed.State, all.Sales, false, nil); err != nil || after.Skipped != "" || !after.State.BlockedUntil.IsZero() || after.State.LastError != "" {
 		t.Fatalf("after=%+v err=%v", after, err)
 	}
 }
@@ -328,7 +328,7 @@ func TestFullReadCountsAFullPageWithAnUnusableProduct(t *testing.T) {
 	})})
 	adapter := NewAdapter(client)
 	adapter.Options = Options{}
-	all, err := adapter.Read(context.Background(), State{}, nil, true)
+	all, err := adapter.Read(context.Background(), State{}, nil, true, nil)
 	if err != nil || all.Pages != 2 || requested != 2 || !all.ReachedEnd || all.Listed != CatalogPageSize-1 {
 		t.Fatalf("all=%+v requested=%d err=%v", all, requested, err)
 	}

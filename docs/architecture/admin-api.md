@@ -392,11 +392,11 @@ disables the source. `sync` is `{mode: "incremental", max}` (default, `max` 50) 
 requires}` in the order reads try them. `available` is false while the
 method's credential is missing, and `requires` names its variables
 (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY`,
-`BILIBILI_COOKIE or BILIBILI_SESSDATA`, or
-`BILIBILI_APP_KEY and BILIBILI_APP_SECRET`) for methods that need one. `fixed`
-is true for the related-accounts and shop timers, whose one
-method (`timeline` for the related accounts, `new_arrivals` for the shop)
-cannot change. The Bilibili dynamics chain orders `desktop` and `dynamics`
+`BILIBILI_COOKIE or BILIBILI_SESSDATA`,
+`BILIBILI_APP_KEY and BILIBILI_APP_SECRET`, or `WEB_BOT_AUTH_KEY` for the
+shop's `signed`) for methods that need one. `fixed` is true for the
+related-accounts timer, whose one method, `timeline`, cannot change. The shop
+chain orders `signed`, `new_arrivals` and `atom`. The Bilibili dynamics chain orders `desktop` and `dynamics`
 (the WBI listing); both require the configured login. The X chain adds
 `apiGate`, `apiDailyCap`, `apiUsage` (`{day, posts}`, the posts X API
 answers returned on the current Japan day) and `timelineFailures`, each
@@ -416,8 +416,8 @@ only. It answers `404 not_found` for another source and `400 invalid_input`
 for other fields, an interval outside the bounds, an invalid `sync`, a
 `count` sync for `x_related` or a `sync` for either Bilibili timer or the
 shop, and for a chain with an unknown or repeated method, a missing method,
-no enabled method, a gate or cap out of range or for YouTube, or any chain
-for the related-accounts, either Bilibili or the shop timer. A method may be enabled while its
+no enabled method, a gate or cap out of range or for a source other than X,
+or any chain for the related-accounts timer. A method may be enabled while its
 credential is missing; reads skip it until it is set. Enabling a
 schedule or changing its interval plans the next run one interval later,
 with the timer's [random offset](workflows.md#source-schedules); a sync

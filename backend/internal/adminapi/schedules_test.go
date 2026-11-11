@@ -241,6 +241,10 @@ func TestSourceScheduleChainAPI(t *testing.T) {
 	if related, _ := json.Marshal(scheduleBySource(t, payload, sqlite.XRelatedStep)["chain"]); string(related) != `{"fixed":true,"methods":[{"available":true,"enabled":true,"id":"timeline"}]}` {
 		t.Fatalf("x_related chain=%s", related)
 	}
+	// The shop's signed read needs the Web Bot Auth key this process lacks.
+	if shop, _ := json.Marshal(scheduleBySource(t, payload, sqlite.ShopSource)["chain"]); string(shop) != `{"fixed":false,"methods":[{"available":false,"enabled":true,"id":"signed","requires":"WEB_BOT_AUTH_KEY"},{"available":true,"enabled":true,"id":"new_arrivals"},{"available":true,"enabled":true,"id":"atom"}]}` {
+		t.Fatalf("shop chain=%s", shop)
+	}
 	dynamicChain, _ := json.Marshal(scheduleBySource(t, payload, sqlite.BilibiliDynamicsSource)["chain"])
 	if string(dynamicChain) != `{"fixed":false,"methods":[{"available":false,"enabled":true,"id":"desktop","requires":"BILIBILI_COOKIE or BILIBILI_SESSDATA"},{"available":false,"enabled":true,"id":"dynamics","requires":"BILIBILI_COOKIE or BILIBILI_SESSDATA"}]}` {
 		t.Fatalf("bilibili dynamics chain=%s", dynamicChain)

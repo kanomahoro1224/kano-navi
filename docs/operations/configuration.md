@@ -31,6 +31,7 @@
 | `BILIBILI_COOKIE`                         | Empty                               | Optional signed-in browser cookies; wins over `BILIBILI_SESSDATA`     |
 | `BILIBILI_SESSDATA`                       | Empty                               | Optional login cookie; a login is required for the dynamics           |
 | `BILIBILI_APP_KEY`, `BILIBILI_APP_SECRET` | Empty                               | Optional official-client key pair; lets the uploads' `app` method run |
+| `WEB_BOT_AUTH_KEY`                        | Empty                               | Optional Ed25519 seed that signs the shop's requests (Web Bot Auth)   |
 | `SKIP_X`, `SKIP_YOUTUBE`                  | `0`                                 | Set to `1` to skip that source's step and its timer                   |
 | `SKIP_BILIBILI`                           | `0`                                 | Set to `1` to skip both Bilibili steps, timers and console reads      |
 | `SKIP_SHOP`                               | `0`                                 | Set to `1` to skip the official shop's step, timer and fetch          |
@@ -63,8 +64,32 @@ lowercased; a path, query, credentials, or a host that is not a DNS name or
 IP address with an optional port fail startup). It only completes the link-preview tags of
 `index.html` (see [Share tags](../architecture/backend.md#share-tags)) and the
 Atom feed's site and self links (see
-[Public feeds](../architecture/public-api.md#public-feeds)); it grants no access
-and is not an admin origin.
+[Public feeds](../architecture/public-api.md#public-feeds)), and with
+`WEB_BOT_AUTH_KEY` it names the signing agent (see [Web Bot Auth](#web-bot-auth));
+it grants no access and is not an admin origin.
+
+### Web Bot Auth
+
+`WEB_BOT_AUTH_KEY` is an Ed25519 private key, its 32-byte seed in base64url.
+With it the [official shop](../architecture/sources.md#official-shop)'s
+requests carry a [Web Bot Auth](../architecture/web-bot-auth.md) signature,
+the shop chain's `signed` method can run, and the site serves the public key
+at `/.well-known/http-message-signatures-directory`. It needs an `https`
+`PUBLIC_ORIGIN`, the origin the signatures name as their agent and where a
+verifier fetches that directory, so the public site must answer there.
+`kano-go serve` and `kano-go sync` refuse to start, before opening SQLite,
+when the seed is malformed or `PUBLIC_ORIGIN` is empty or `http`. Make a key
+with:
+
+```bash
+kano-go web-bot-auth-key
+```
+
+It prints the `WEB_BOT_AUTH_KEY=` line and, as a comment, the key's keyid
+(its RFC 7638 JWK thumbprint), which a site's logs or a verifier may show. A
+new key takes effect after a restart; the directory then serves only the new
+public key, so a site that cached the old one verifies again after its cache
+expires. The key is a credential like the others below.
 
 `YTDLP_BINARY` enables the optional YouTube yt-dlp method. The production
 Compose deployment points it at the bundled `/app/yt-dlp`; other deployments
@@ -115,7 +140,7 @@ renewed one. Prefer a secondary account,
 and replace the value when it expires or the account signs out.
 
 `.env.example` is the complete non-secret inventory. `ADMIN_PASSWORD` and
-`LLM_SECRETS_KEY`, `MCP_CONTROL_TOKEN`, `BILIBILI_COOKIE`, `BILIBILI_SESSDATA`, `BILIBILI_APP_SECRET`, and provider API keys are credentials;
+`LLM_SECRETS_KEY`, `MCP_CONTROL_TOKEN`, `BILIBILI_COOKIE`, `BILIBILI_SESSDATA`, `BILIBILI_APP_SECRET`, `WEB_BOT_AUTH_KEY`, and provider API keys are credentials;
 never place real values in source code, SQLite plaintext, URLs, API responses,
 or logs. `OPENAI_API_KEY` is accepted only by the one-time
 `kano-go migrate-llm` command.

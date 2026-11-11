@@ -11,6 +11,10 @@
   new client joins an existing area or adds one; proxy passwords are sealed
   with `LLM_SECRETS_KEY` and transport errors from a proxied attempt carry a
   fixed message.
+- A client that identifies itself signs with the
+  [Web Bot Auth](../architecture/web-bot-auth.md) key through
+  `internal/webbotauth` after its proxy transport is chosen; the key never
+  leaves process memory.
 - Never embed usernames, passwords, tokens, or cookies in a URL. Do not write credentials from a response into `raw_json`, logs, or the UI.
 - Register a new source host and its purpose in `scripts/privacy-allowlist.json` first. The allowlist is a reviewable source record, not a comment-based way to bypass secret detection.
 - An inbound push endpoint (the YouTube WebSub callback is the only one) must

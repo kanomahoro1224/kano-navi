@@ -447,10 +447,22 @@ accepts signed Atom notifications, which only wake a queued YouTube sync. See
 [Sources](sources.md#websub-push) for the settings, verification, signature,
 debounce and queue rules.
 
+## Web Bot Auth Key Directory
+
+`GET /.well-known/http-message-signatures-directory` (and `HEAD`) serves the
+public key that signs the shop source's outbound requests, as
+`application/http-message-signatures-directory+json`: a JWKS with one Ed25519
+key (`kty`, `crv`, `x`) and never a private member. The response carries its
+own `Signature-Input` and `Signature` over `("@authority";req)`, tagged
+`http-message-signatures-directory`. It answers `404 {error: "not_found"}`
+while `WEB_BOT_AUTH_KEY` is unset and 405 to other methods. See
+[Web Bot Auth](web-bot-auth.md#key-directory).
+
 ## Related Docs
 
 - [Backend](backend.md)
 - [Admin API](admin-api.md)
 - [Data model](data-model.md)
+- [Web Bot Auth](web-bot-auth.md)
 - [Media cache](media-cache.md)
 - [Deployment security](../operations/security.md)

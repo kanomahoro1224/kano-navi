@@ -21,6 +21,7 @@ external sources.
 | [Workflows](workflows.md)             | Step catalog, single-flight queue, timers, manual fetches          |
 | [Media cache](media-cache.md)         | Media identity, downloader, layout, HTTP contract                  |
 | [Outbound proxies](outbound-proxy.md) | Proxy queue, per-area routes, attempts and tests                   |
+| [Web Bot Auth](web-bot-auth.md)       | Signing key, request signatures, the key directory                 |
 
 ## When To Read What
 

@@ -517,10 +517,12 @@ func (s *SourceSteps) bilibiliDynamics(ctx context.Context, in StepInput) (Attem
 	return AttemptResult{Status: "succeeded", Result: counts}, nil
 }
 
-// shopSales reads the shop's sale periods: the newest products on a timed
-// read, the whole catalog for the operator's read-all fetch. During a 429's
-// Retry-After it is skipped without a request. A failure is recorded, not
-// retried in the run, and changes no entry.
+// shopSales reads the shop's sale periods: the newest products through the
+// run's chain (the default chain for a full sync) on a timed read, the whole
+// catalog for the operator's read-all fetch. During a 429's Retry-After it is
+// skipped without a request. A failure is recorded, not retried after the
+// run, and changes no entry; a later method that served makes the run
+// partial.
 func (s *SourceSteps) shopSales(ctx context.Context, in StepInput) (AttemptResult, error) {
 	state, err := s.Store.ShopState(ctx)
 	if err != nil {
@@ -532,7 +534,11 @@ func (s *SourceSteps) shopSales(ctx context.Context, in StepInput) (AttemptResul
 	}
 	// The shop's only window is the whole catalog (history.MethodCatalog).
 	all := in.Window != nil
-	result, fetchErr := s.Shop.Read(ctx, state, stored, all)
+	chain := sqlite.DefaultSourceChain(sqlite.ShopSource)
+	if in.Chain != nil {
+		chain = *in.Chain
+	}
+	result, fetchErr := s.Shop.Read(ctx, state, stored, all, chain.Enabled())
 	if ctx.Err() != nil {
 		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
 	}
@@ -545,16 +551,27 @@ func (s *SourceSteps) shopSales(ctx context.Context, in StepInput) (AttemptResul
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
 	counts := map[string]any{"count": len(result.Sales), "sales": len(result.Sales), "listed": result.Listed, "candidates": result.Candidates,
-		"requested": result.Requested, "collections": result.Collections, "changed": changed}
+		"requested": result.Requested, "collections": result.Collections, "changed": changed, "signed": result.Signed}
 	if len(result.Outcomes) > 0 {
 		counts["outcomes"] = result.Outcomes
 	}
 	if all {
 		counts["pages"], counts["reachedEnd"] = result.Pages, result.ReachedEnd
+	} else {
+		counts["listing"], counts["tried"] = result.Listing, result.Tried
+	}
+	if len(result.Errors) > 0 {
+		counts["errors"] = result.Errors
 	}
 	if fetchErr != nil {
-		counts["errors"] = []string{shopsource.ErrorCode(fetchErr)}
+		if len(result.Errors) == 0 {
+			counts["errors"] = []string{shopsource.ErrorCode(fetchErr)}
+		}
 		return AttemptResult{Status: "failed", Result: counts}, nil
+	}
+	if result.Fallback {
+		counts["fallback"] = result.Listing
+		return AttemptResult{Status: "partial", Result: counts}, nil
 	}
 	return AttemptResult{Status: "succeeded", Result: counts}, nil
 }

@@ -13,12 +13,13 @@ import { Badge, Button, Modal, type Tone } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { cn } from "@/lib/utils"
 
-// Translations of X post text and YouTube video titles: readers see a manual
+// Translations of post text and video titles: readers see a manual
 // translation, then a platform's, then a model's. Posts and videos share
 // these parts; the owner type names which one an ID belongs to.
 
 const localeShort: Record<TranslationLocale, string> = {
   en: "EN",
+  ja: "日",
   "zh-CN": "中",
 }
 
@@ -399,24 +400,32 @@ export function TranslationCell({
 
 /**
  * How many posts or videos lack a usable translation, and the incremental
- * pass that queues every one of them for the translate step.
+ * pass that queues every one of them for the translate step; with a source,
+ * only that platform's.
  */
 export function TranslationBacklog({
   owner,
+  source,
   onQueued,
 }: {
   owner: TranslationOwner
+  source?: string
   onQueued: () => void
 }) {
   const { t } = useAppSettings()
   const { api, act, notify } = useAdmin()
   const summary = useResource(() => api.translations(), [])
   const [busy, setBusy] = useState(false)
-  const counts = summary.data?.counts[owner]
+  const all = summary.data?.counts[owner]
+  const counts = source ? all?.sources?.[source] : all
   const request = async () => {
     setBusy(true)
     const result = await act(() =>
-      api.requestTranslations({ missing: true, ownerType: owner }),
+      api.requestTranslations({
+        missing: true,
+        ownerType: owner,
+        ...(source ? { source } : {}),
+      }),
     )
     setBusy(false)
     if (!result) return

@@ -312,6 +312,8 @@ func (e *Extractor) updateProviderStatus(ctx context.Context, id, status, messag
 // ---- posts ----
 
 type post struct {
+	// source is the post's source, x or bilibili.
+	source      string
 	id          string
 	postType    string
 	label       string
@@ -322,6 +324,50 @@ type post struct {
 	mediaURLs   []any
 	raw         *object
 	llmRoute    string
+	// stamp is the post's input stamp for the detection stage that listed
+	// it (sqlite.ScheduleInputStampSQL), empty for a requested post.
+	// settled: the post's state records a success or uncertain result for
+	// exactly this stamp and no request, so judging it finds that result.
+	stamp   string
+	settled bool
+	// quote is the wording of the status the post quotes, as the public
+	// pages show it, or empty: without a quote, with an unavailable one, or
+	// with one an operator hid.
+	quote quotedContext
+}
+
+// quotedContext is a quoted status's author and text. The author is an X
+// status's handle, or the display name of a dynamic a Bilibili forward
+// forwards (forward set), whose handle is only a mid.
+type quotedContext struct {
+	author, text string
+	forward      bool
+}
+
+// quoteContextOf reads the quote projection the public pages show on a post
+// of the source. The caller passes NULL for a hidden quote.
+func quoteContextOf(source string, stored sql.NullString) quotedContext {
+	if !stored.Valid || stored.String == "" {
+		return quotedContext{}
+	}
+	// The input stamp reads the projection through the same decoder.
+	quote, ok := sqlite.DecodeScheduleQuote(stored.String)
+	if !ok || quote.Unavailable || jsTrim(quote.Text) == "" {
+		return quotedContext{}
+	}
+	if source == "bilibili" {
+		return quotedContext{author: quote.AuthorName, text: quote.Text, forward: true}
+	}
+	return quotedContext{author: quote.AuthorHandle, text: quote.Text}
+}
+
+// matchText is the wording the message heuristic and the source platform read:
+// the post's own text and the text it quotes.
+func (p post) matchText() string {
+	if p.quote.text == "" {
+		return p.text
+	}
+	return p.text + "\n" + p.quote.text
 }
 
 // rawObjectOf returns the stored source record when it is a JSON object.
@@ -344,7 +390,8 @@ func (p post) declaredMediaURLs() []string {
 	if p.mediaURL != "" {
 		values = append(values, p.mediaURL)
 	}
-	for _, key := range []string{"mediaUrls", "media_urls", "mediaURLs"} {
+	// The input stamp covers the same properties.
+	for _, key := range sqlite.ScheduleMediaKeys {
 		value, ok := p.raw.get(key)
 		if !ok {
 			continue
@@ -379,6 +426,9 @@ var (
 	// excludes every line terminator, so both are spelled out for RE2.
 	noticeLabelPattern     = regexp.MustCompile(`(?i)(?:notice|schedule|日程|告知|お知らせ|公告)`)
 	scheduleMessagePattern = regexp.MustCompile(`(?i)(?:今日|明日|明後日|今週|来週|(?:\d{1,2})` + jsSpaceClass + `*[/:月日]` + jsSpaceClass + `*(?:\d{1,2})?|(?:\d{1,2})` + jsSpaceClass + `*時)|(?:配信|放送|出演|イベント|ライブ|開始|開催|予定|告知)`)
+	// bilibiliMessagePattern adds the Chinese date, time and scheduling words
+	// of a Bilibili dynamic to the single-message heuristic.
+	bilibiliMessagePattern = regexp.MustCompile(`(?:今天|明天|后天|\d{1,2}` + jsSpaceClass + `*点|北京时间|直播|开播|播|开始|预约|上传|投稿)`)
 	scheduleBoardPattern   = regexp.MustCompile(`(?i)(?:\b(?:weekly(?:` + jsSpaceClass + `|[_-])+)?schedule(?:(?:` + jsSpaceClass + `|[_-])+(?:board|table))?\b|\bthis` + jsSpaceClass + `+week(?:'s)?` + jsSpaceClass + `+schedule\b|スケジュール|予定表|(?:今週|来週|今月|週間)[^\n\r\x{2028}\x{2029}]{0,4}(?:予定|スケジュール))`)
 )
 
@@ -388,27 +438,42 @@ func isLikelyScheduleBoardText(value string) bool {
 }
 
 // listCandidatePosts selects the posts a detector stage scans. With allPosts,
-// the message stage takes every post that has text or images.
-func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, detectionType string, allPosts bool) ([]post, error) {
+// the message stage takes every post that has text or images. A hidden post
+// is never a candidate. read counts the rows the stage scanned. Each post
+// carries its input stamp for the stage and whether it is settled: its
+// state is the one a cache hit of a success or uncertain result on this
+// stage's route writes, recorded for exactly this stamp, with no request
+// and no failure.
+func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, detectionType string, allPosts bool) (out []post, read int, err error) {
 	lowered := []string{}
 	for _, keyword := range boundedKeywords(parseListValues(keywords)) {
 		lowered = append(lowered, jsToLower(keyword))
 	}
-	rows, err := e.db.QueryContext(ctx, `SELECT id, type, label, text, published_at, url, media_url, raw_json
-		FROM posts
-		WHERE source='x'
-		ORDER BY published_at DESC`)
+	rows, err := e.db.QueryContext(ctx, `SELECT p.source, p.id, p.type, p.label, p.text, p.published_at, p.url, p.media_url, p.raw_json,
+		CASE WHEN p.quote_hidden_at IS NULL THEN p.quote_json END,
+		`+sqlite.ScheduleInputStampSQL("p")+`,
+		s.status IN ('success', 'uncertain') AND s.reprocess_requested = 0 AND s.route = ? AND s.last_error IS NULL
+			AND s.failure_count = 0 AND s.failure_fingerprint IS NULL AND s.next_attempt_at IS NULL,
+		s.settled_stamp
+		FROM posts p LEFT JOIN post_llm_states s ON s.post_id = p.id
+		WHERE p.source IN ('x','bilibili') AND p.hidden_at IS NULL
+		ORDER BY p.published_at DESC`, detectionType, extractorVersion, routeForDetectionType(detectionType))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
-	out := []post{}
+	out = []post{}
 	for rows.Next() {
+		read++
 		var item post
-		var postType, label, text, publishedAt, postURL, mediaURL, rawJSON sql.NullString
-		if err = rows.Scan(&item.id, &postType, &label, &text, &publishedAt, &postURL, &mediaURL, &rawJSON); err != nil {
-			return nil, err
+		var postType, label, text, publishedAt, postURL, mediaURL, rawJSON, quoteJSON, settledStamp sql.NullString
+		var resolved sql.NullBool
+		if err = rows.Scan(&item.source, &item.id, &postType, &label, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &quoteJSON,
+			&item.stamp, &resolved, &settledStamp); err != nil {
+			return nil, read, err
 		}
+		item.settled = !e.ignoreSettled && resolved.Bool && settledStamp.Valid && settledStamp.String == item.stamp
+		item.quote = quoteContextOf(item.source, quoteJSON)
 		item.postType, item.label, item.text = postType.String, label.String, text.String
 		item.publishedAt, item.url, item.mediaURL = publishedAt.String, postURL.String, mediaURL.String
 		item.raw = rawObjectOf(rawJSON)
@@ -434,17 +499,20 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 		case detectionType != "message":
 			selected = matchesKeyword()
 		case allPosts:
-			selected = jsTrim(item.text) != "" || len(item.mediaURLs) > 0
-		case jsTrim(item.text) == "":
+			selected = jsTrim(item.matchText()) != "" || len(item.mediaURLs) > 0
+		case jsTrim(item.matchText()) == "":
 			selected = len(item.mediaURLs) > 0 && noticeLabelPattern.MatchString(item.postType+" "+item.label)
 		default:
-			selected = matchesKeyword() || scheduleMessagePattern.MatchString(item.text)
+			// The quoted wording counts: a post that only points at a quoted
+			// announcement carries its schedule there.
+			selected = matchesKeyword() || scheduleMessagePattern.MatchString(item.matchText()) ||
+				item.source == "bilibili" && bilibiliMessagePattern.MatchString(item.matchText())
 		}
 		if selected {
 			out = append(out, item)
 		}
 	}
-	return out, rows.Err()
+	return out, read, rows.Err()
 }
 
 func arrayProperty(root *object, key string) ([]any, bool) {
@@ -456,11 +524,13 @@ func arrayProperty(root *object, key string) ([]any, bool) {
 	return list, isArray
 }
 
+// listRequestedPosts lists operator reprocess requests. A request for a hidden
+// post waits until the post is shown again.
 func (e *Extractor) listRequestedPosts(ctx context.Context, limit int) ([]post, error) {
-	rows, err := e.db.QueryContext(ctx, `SELECT p.id, p.text, p.published_at, p.url, p.media_url,
-		p.raw_json, s.route
+	rows, err := e.db.QueryContext(ctx, `SELECT p.source, p.id, p.text, p.published_at, p.url, p.media_url,
+		p.raw_json, s.route, CASE WHEN p.quote_hidden_at IS NULL THEN p.quote_json END
 		FROM posts p LEFT JOIN post_llm_states s ON s.post_id = p.id
-		WHERE s.reprocess_requested = 1
+		WHERE s.reprocess_requested = 1 AND p.hidden_at IS NULL
 		ORDER BY p.published_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
@@ -469,10 +539,11 @@ func (e *Extractor) listRequestedPosts(ctx context.Context, limit int) ([]post, 
 	out := []post{}
 	for rows.Next() {
 		var item post
-		var text, publishedAt, postURL, mediaURL, rawJSON, route sql.NullString
-		if err = rows.Scan(&item.id, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &route); err != nil {
+		var text, publishedAt, postURL, mediaURL, rawJSON, route, quoteJSON sql.NullString
+		if err = rows.Scan(&item.source, &item.id, &text, &publishedAt, &postURL, &mediaURL, &rawJSON, &route, &quoteJSON); err != nil {
 			return nil, err
 		}
+		item.quote = quoteContextOf(item.source, quoteJSON)
 		item.text, item.publishedAt, item.url = text.String, publishedAt.String, postURL.String
 		item.mediaURL, item.llmRoute = mediaURL.String, route.String
 		item.raw = rawObjectOf(rawJSON)
@@ -491,28 +562,105 @@ type postState struct {
 	failureCount       int
 	failureFingerprint string
 	nextAttemptAt      string
+	// stored is the row as written, NULLs kept, for holds.
+	stored storedState
 }
 
-func getPostState(ctx context.Context, q queryer, postID string) (*postState, error) {
-	var lastAttemptAt, fingerprint, nextAttemptAt sql.NullString
-	var reprocess, failures sql.NullInt64
-	err := q.QueryRowContext(ctx, `SELECT last_attempt_at, reprocess_requested,
-		failure_count, failure_fingerprint, next_attempt_at
-		FROM post_llm_states WHERE post_id = ?`, postID).
-		Scan(&lastAttemptAt, &reprocess, &failures, &fingerprint, &nextAttemptAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
+// storedState is the part of a post_llm_states row markPost writes, apart
+// from updated_at, with its NULLs.
+type storedState struct {
+	status, route, lastAttemptAt, lastProcessedAt, lastError sql.NullString
+	failureFingerprint, nextAttemptAt, settledStamp          sql.NullString
+	lastExtractionID, reprocess, failureCount                sql.NullInt64
+}
+
+const postStateColumns = `status, route, last_attempt_at, last_processed_at,
+	last_error, last_extraction_id, reprocess_requested,
+	failure_count, failure_fingerprint, next_attempt_at, settled_stamp`
+
+func scanPostState(row rowScanner, leading ...any) (*postState, error) {
+	var stored storedState
+	err := row.Scan(append(leading, &stored.status, &stored.route, &stored.lastAttemptAt, &stored.lastProcessedAt,
+		&stored.lastError, &stored.lastExtractionID, &stored.reprocess,
+		&stored.failureCount, &stored.failureFingerprint, &stored.nextAttemptAt, &stored.settledStamp)...)
 	if err != nil {
 		return nil, err
 	}
 	return &postState{
-		lastAttemptAt:      lastAttemptAt.String,
-		reprocessRequested: reprocess.Int64 != 0,
-		failureCount:       int(failures.Int64),
-		failureFingerprint: fingerprint.String,
-		nextAttemptAt:      nextAttemptAt.String,
+		lastAttemptAt:      stored.lastAttemptAt.String,
+		reprocessRequested: stored.reprocess.Int64 != 0,
+		failureCount:       int(stored.failureCount.Int64),
+		failureFingerprint: stored.failureFingerprint.String,
+		nextAttemptAt:      stored.nextAttemptAt.String,
+		stored:             stored,
 	}, nil
+}
+
+func getPostState(ctx context.Context, q queryer, postID string) (*postState, error) {
+	state, err := scanPostState(q.QueryRowContext(ctx, `SELECT `+postStateColumns+`
+		FROM post_llm_states WHERE post_id = ?`, postID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return state, err
+}
+
+// listPostStates reads every post_llm_states row in one query, keyed by post.
+// A post without a row has no entry, as getPostState returns nil for it.
+func listPostStates(ctx context.Context, q queryer) (map[string]*postState, error) {
+	rows, err := q.QueryContext(ctx, `SELECT post_id, `+postStateColumns+` FROM post_llm_states`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]*postState{}
+	for rows.Next() {
+		var postID string
+		state, err := scanPostState(rows, &postID)
+		if err != nil {
+			return nil, err
+		}
+		out[postID] = state
+	}
+	return out, rows.Err()
+}
+
+// holds reports whether markPost(update) would store exactly this row again
+// apart from updated_at, so the write can be left out. It mirrors markPost's
+// statement for an update that names its request flag.
+func (s *postState) holds(update stateUpdate) bool {
+	if s == nil || update.reprocess == nil {
+		return false
+	}
+	row := s.stored
+	same := func(stored sql.NullString, value string) bool {
+		return stored.Valid && stored.String == value
+	}
+	// An empty value is stored as NULL in last_error and keeps the stored
+	// value in the other columns.
+	kept := func(stored sql.NullString, value string) bool {
+		return value == "" || same(stored, value)
+	}
+	status := normalizedPostStatus(update.status)
+	flag := int64(0)
+	if *update.reprocess {
+		flag = 1
+	}
+	if !same(row.status, status) || !kept(row.route, update.route) ||
+		!kept(row.lastAttemptAt, update.lastAttemptAt) || !kept(row.lastProcessedAt, update.lastProcessedAt) ||
+		row.lastError.Valid != (update.lastError != "") || (update.lastError != "" && row.lastError.String != update.lastError) ||
+		(update.lastExtractionID > 0 && (!row.lastExtractionID.Valid || row.lastExtractionID.Int64 != update.lastExtractionID)) ||
+		!row.reprocess.Valid || row.reprocess.Int64 != flag {
+		return false
+	}
+	stamp := update.settledStampFor(status)
+	if row.settledStamp.Valid != (stamp != "") || row.settledStamp.String != stamp {
+		return false
+	}
+	if settledStatus(status) {
+		return row.failureCount.Valid && row.failureCount.Int64 == 0 && !row.failureFingerprint.Valid && !row.nextAttemptAt.Valid
+	}
+	return true
 }
 
 // recordFailure stores the consecutive failure count of one input and when
@@ -529,6 +677,18 @@ var postStatuses = map[string]bool{
 	"uncertain": true, "failed": true, "skipped": true,
 }
 
+// normalizedPostStatus is the status markPost stores for a requested one.
+func normalizedPostStatus(value string) string {
+	status := jsToLower(jsTrim(value))
+	if !postStatuses[status] {
+		return "never"
+	}
+	return status
+}
+
+// settledStatus: a success or uncertain outcome, cached or not.
+func settledStatus(status string) bool { return status == "success" || status == "uncertain" }
+
 type stateUpdate struct {
 	status           string
 	route            string
@@ -538,12 +698,24 @@ type stateUpdate struct {
 	lastExtractionID int64
 	// reprocess nil keeps the stored request flag.
 	reprocess *bool
+	// stamp is the input stamp a success or uncertain outcome records as the
+	// post's settled stamp; every other outcome clears it.
+	stamp string
+}
+
+// settledStampFor is the settled stamp markPost stores with status.
+func (u stateUpdate) settledStampFor(status string) string {
+	if settledStatus(status) {
+		return u.stamp
+	}
+	return ""
 }
 
 // markPost mirrors markPostLlm + upsertPostLlmState. Empty strings are stored
 // as NULL, and NULL keeps the previous route, timestamps and extraction ID.
 // A success or uncertain outcome, cached or not, clears the failure backoff;
-// every other status keeps it.
+// every other status keeps it. The settled stamp is the update's for a
+// success or uncertain outcome and NULL for every other.
 func (e *Extractor) markPost(ctx context.Context, postID string, update stateUpdate) error {
 	if postID == "" {
 		return nil
@@ -572,8 +744,8 @@ func (e *Extractor) markPost(ctx context.Context, postID string, update stateUpd
 	}
 	_, err := e.db.ExecContext(ctx, `INSERT INTO post_llm_states (
 			post_id, status, route, last_attempt_at, last_processed_at,
-			last_error, last_extraction_id, reprocess_requested, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			last_error, last_extraction_id, reprocess_requested, updated_at, settled_stamp
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(post_id) DO UPDATE SET
 			status=excluded.status, route=COALESCE(excluded.route, post_llm_states.route),
 			last_attempt_at=COALESCE(excluded.last_attempt_at, post_llm_states.last_attempt_at),
@@ -584,9 +756,11 @@ func (e *Extractor) markPost(ctx context.Context, postID string, update stateUpd
 			updated_at=excluded.updated_at,
 			failure_count=CASE WHEN excluded.status IN ('success', 'uncertain') THEN 0 ELSE post_llm_states.failure_count END,
 			failure_fingerprint=CASE WHEN excluded.status IN ('success', 'uncertain') THEN NULL ELSE post_llm_states.failure_fingerprint END,
-			next_attempt_at=CASE WHEN excluded.status IN ('success', 'uncertain') THEN NULL ELSE post_llm_states.next_attempt_at END`,
+			next_attempt_at=CASE WHEN excluded.status IN ('success', 'uncertain') THEN NULL ELSE post_llm_states.next_attempt_at END,
+			settled_stamp=excluded.settled_stamp`,
 		postID, status, nullable(update.route), nullable(update.lastAttemptAt),
-		nullable(update.lastProcessedAt), nullable(update.lastError), extractionID, flag, e.nowISO())
+		nullable(update.lastProcessedAt), nullable(update.lastError), extractionID, flag, e.nowISO(),
+		nullable(update.settledStampFor(status)))
 	return err
 }
 
@@ -600,13 +774,13 @@ type extractionRow struct {
 	updatedAt  string
 }
 
-func getExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint, version string) (*extractionRow, error) {
+func getExtraction(ctx context.Context, q queryer, source, sourceItemID, fingerprint, version string) (*extractionRow, error) {
 	var row extractionRow
 	var model, status, updatedAt sql.NullString
 	err := q.QueryRowContext(ctx, `SELECT id, model, status, result_json, updated_at
 		FROM schedule_extractions
 		WHERE source=? AND source_item_id=? AND content_fingerprint=?
-			AND extractor_version=?`, "x", sourceItemID, fingerprint, version).
+			AND extractor_version=?`, source, sourceItemID, fingerprint, version).
 		Scan(&row.id, &model, &status, &row.resultJSON, &updatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -620,7 +794,7 @@ func getExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint, ve
 
 // latestExtraction is the most recent extraction of this input by any queue
 // target, matched on the extractor version up to the target identity.
-func latestExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error) {
+func latestExtraction(ctx context.Context, q queryer, source, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error) {
 	var row extractionRow
 	var model, status, updatedAt sql.NullString
 	err := q.QueryRowContext(ctx, `SELECT id, model, status, result_json, updated_at
@@ -628,7 +802,7 @@ func latestExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint,
 		WHERE source=? AND source_item_id=? AND content_fingerprint=?
 			AND substr(extractor_version, 1, ?)=?
 		ORDER BY updated_at DESC, id DESC LIMIT 1`,
-		"x", sourceItemID, fingerprint, len(versionPrefix), versionPrefix).
+		source, sourceItemID, fingerprint, len(versionPrefix), versionPrefix).
 		Scan(&row.id, &model, &status, &row.resultJSON, &updatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -641,7 +815,7 @@ func latestExtraction(ctx context.Context, q queryer, sourceItemID, fingerprint,
 }
 
 // upsertExtraction stores result (nil -> NULL) the way JSON.stringify did.
-func (e *Extractor) upsertExtraction(ctx context.Context, sourceItemID, fingerprint, version, model, status string, result any, message string) (*extractionRow, error) {
+func (e *Extractor) upsertExtraction(ctx context.Context, source, sourceItemID, fingerprint, version, model, status string, result any, message string) (*extractionRow, error) {
 	timestamp := e.nowISO()
 	var resultJSON any
 	if result != nil {
@@ -655,11 +829,11 @@ func (e *Extractor) upsertExtraction(ctx context.Context, sourceItemID, fingerpr
 		DO UPDATE SET model=excluded.model, status=excluded.status,
 			result_json=excluded.result_json, error=excluded.error,
 			updated_at=excluded.updated_at`,
-		"x", sourceItemID, fingerprint, version, model, status, resultJSON, nullable(message), timestamp, timestamp)
+		source, sourceItemID, fingerprint, version, model, status, resultJSON, nullable(message), timestamp, timestamp)
 	if err != nil {
 		return nil, err
 	}
-	row, err := getExtraction(ctx, e.db, sourceItemID, fingerprint, version)
+	row, err := getExtraction(ctx, e.db, source, sourceItemID, fingerprint, version)
 	if err == nil && row == nil {
 		err = sql.ErrNoRows
 	}
@@ -739,7 +913,7 @@ func (e *Extractor) cachedFile(relative string) (string, bool) {
 		base = filepath.Join(root, "cache", "media")
 	} else {
 		switch strings.ToLower(jsTrim(parts[0])) {
-		case "x", "youtube", "avatar":
+		case "x", "youtube", "bilibili", "avatar":
 		default:
 			return "", false
 		}
@@ -772,6 +946,7 @@ type assetReview struct {
 	assetVersion        int64
 	llmStatus           string
 	llmConfidence       sql.NullFloat64
+	llmText             string
 	llmReason           string
 	llmEvidence         string
 	llmModel            string
@@ -789,7 +964,7 @@ const assetReviewColumns = `a.id, a.url, a.source_url, a.asset_version,
 	(SELECT COALESCE(CASE WHEN json_valid(p.raw_json) THEN json_extract(p.raw_json, '$.search_text') END, p.text)
 		FROM posts p WHERE p.url = a.source_url
 		ORDER BY p.published_at DESC LIMIT 1),
-	r.llm_status, r.llm_confidence, r.llm_reason, r.llm_evidence, r.llm_model,
+	r.llm_status, r.llm_confidence, r.llm_text, r.llm_reason, r.llm_evidence, r.llm_model,
 	r.llm_checked_at, r.llm_input_fingerprint,
 	COALESCE(r.manual_status, 'unreviewed'), r.updated_at`
 
@@ -816,9 +991,9 @@ type rowScanner interface{ Scan(dest ...any) error }
 
 func scanAssetReview(row rowScanner) (*assetReview, error) {
 	var review assetReview
-	var sourceText, llmStatus, reason, evidence, model, checkedAt, fingerprint, manual, updatedAt sql.NullString
+	var sourceText, llmStatus, llmText, reason, evidence, model, checkedAt, fingerprint, manual, updatedAt sql.NullString
 	err := row.Scan(&review.id, &review.url, &review.sourceURL, &review.assetVersion, &sourceText,
-		&llmStatus, &review.llmConfidence, &reason, &evidence, &model, &checkedAt, &fingerprint,
+		&llmStatus, &review.llmConfidence, &llmText, &reason, &evidence, &model, &checkedAt, &fingerprint,
 		&manual, &updatedAt)
 	if err != nil {
 		return nil, err
@@ -828,7 +1003,7 @@ func scanAssetReview(row rowScanner) (*assetReview, error) {
 	if !assetManualStatuses[review.manualStatus] {
 		review.manualStatus = "unreviewed"
 	}
-	review.llmReason, review.llmEvidence, review.llmModel = reason.String, evidence.String, model.String
+	review.llmText, review.llmReason, review.llmEvidence, review.llmModel = llmText.String, reason.String, evidence.String, model.String
 	review.llmCheckedAt, review.llmInputFingerprint = checkedAt.String, fingerprint.String
 	review.reviewUpdatedAt = updatedAt.String
 	review.sourceMatchesBoard = !sourceText.Valid || isLikelyScheduleBoardText(sourceText.String)
@@ -873,6 +1048,7 @@ type reviewUpdate struct {
 	expectSHA           string
 	llmStatus           string
 	llmConfidence       *float64
+	llmText             string
 	llmReason           string
 	llmEvidence         string
 	llmModel            string
@@ -914,20 +1090,21 @@ func (e *Extractor) upsertAssetReview(ctx context.Context, update reviewUpdate) 
 		confidence = min(1, max(0, *update.llmConfidence))
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO schedule_asset_reviews (
-			asset_id, llm_status, llm_confidence, llm_reason, llm_evidence,
+			asset_id, llm_status, llm_confidence, llm_text, llm_reason, llm_evidence,
 			llm_model, llm_checked_at, llm_input_fingerprint, manual_status, manual_reason,
 			manual_checked_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unreviewed', NULL, NULL, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'unreviewed', NULL, NULL, ?)
 		ON CONFLICT(asset_id) DO UPDATE SET
 			llm_status=excluded.llm_status,
 			llm_confidence=excluded.llm_confidence,
+			llm_text=excluded.llm_text,
 			llm_reason=excluded.llm_reason,
 			llm_evidence=excluded.llm_evidence,
 			llm_model=excluded.llm_model,
 			llm_checked_at=excluded.llm_checked_at,
 			llm_input_fingerprint=excluded.llm_input_fingerprint,
 			updated_at=excluded.updated_at`,
-		assetID, normalizedAssetLLMStatus(update.llmStatus), confidence, nullable(update.llmReason),
+		assetID, normalizedAssetLLMStatus(update.llmStatus), confidence, nullable(update.llmText), nullable(update.llmReason),
 		nullable(update.llmEvidence), nullable(update.llmModel), nullable(update.llmCheckedAt),
 		nullable(update.llmInputFingerprint), e.nowISO())
 	if err != nil {

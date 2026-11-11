@@ -27,8 +27,8 @@ own transaction, and the selected profile media is reconciled with its files
 | ------------------------ | ------------------------------------------------------------------------------------------------------ |
 | `profiles`               | Name, bio, avatar, banner, and official entry points                                                   |
 | `profile_media`          | Avatar and banner candidates, their downloads, and the operator's selected file                        |
-| `posts`                  | X posts and Bilibili dynamics, account source, engagement counts, media, and the quoted status         |
-| `events`                 | Unified schedules, provenance, confidence, manual locks, tombstones, and duplicate merges              |
+| `posts`                  | X posts and Bilibili dynamics, account, publication time, engagement counts, media, and the quote      |
+| `events`                 | Unified schedules, platform, provenance, confidence, manual locks, tombstones, and duplicate merges    |
 | `event_sources`          | Source post/reservation identities attached to each event                                              |
 | `videos`                 | YouTube videos and streams, Bilibili uploads and their merges, corrections, and refresh requests       |
 | `video_revisions`        | Titles and thumbnails a platform replaced, one row per change                                          |
@@ -37,22 +37,26 @@ own transaction, and the selected profile media is reconciled with its files
 | `resources`              | X, YouTube, Wikipedia, and other resource links                                                        |
 | `assets`                 | Schedule images and their sources                                                                      |
 | `media_assets`           | Remote media identities, cache metadata, and fetch status                                              |
-| `media_links`            | Links from cached media to posts, videos, profiles, and focus items                                    |
+| `media_links`            | Links from cached media to posts, videos, profiles, focus items and Works upload videos                |
 | `media_versions`         | Earlier cached files of an asset whose bytes a revalidation replaced                                   |
 | `sync_runs`              | Status, counts, error summaries, trigger, and asynchronous job identity                                |
-| `sync_state`             | Durable per-account X, YouTube and Bilibili cursors, read bookkeeping and X API chain state            |
+| `sync_state`             | Durable per-account X, YouTube, Bilibili and shop cursors, read bookkeeping and X API chain state      |
 | `app_settings`           | Model, extractor, X-account, Featured, YouTube push and proxy settings (secrets sealed)                |
 | `schedule_extractions`   | Versioned LLM inputs, outcomes, and structured result metadata                                         |
-| `post_llm_states`        | Per-post LLM status, last attempt, error, reprocess queue state, and extraction failure backoff        |
+| `post_llm_states`        | Per-post LLM status, last attempt, error, reprocess queue state, failure backoff, settled input stamp  |
 | `schedule_asset_reviews` | Per-schedule-image LLM verdict, skip reason (`no_image` for a URL-less row), and optional manual label |
 | `llm_providers`          | OpenAI-compatible or Anthropic endpoints, Text/Image capabilities, health, and encrypted keys          |
 | `llm_models`             | Per-provider model catalog with tags (`text`/`image` routing; `reasoning`/`tools`/`embedding` labels)  |
 | `llm_route_targets`      | The ordered provider + model failover queues: `schedule`, `verify` and `translate`                     |
 | `llm_route_providers`    | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
 | `source_schedules`       | Each source's timer, sync setting and method chain                                                     |
-| `workflows`              | Saved workflow definitions (ADR-0003): kept in the schema, created empty, never read or written        |
-| `translations`           | Manual, platform, and machine translations of post text and video titles per target locale             |
-| `translation_states`     | Per-post/video machine translation state: source hash and language, last attempt, operator request     |
+| `workflows`              | Saved workflow definitions: kept in the schema, created empty, never read or written                   |
+| `work_cover_lookups`     | Each niconico or Bilibili cover lookup of a Works upload video: outcome, image URL and retry time      |
+| `translations`           | Manual, platform, and machine translations of posts, videos and pooled statuses per target locale      |
+| `translation_states`     | Per-owner machine translation state: source hash and language, last attempt, operator request          |
+| `x_statuses`             | The X status pool: related accounts' statuses and statuses own posts quote or repost; never public     |
+| `x_reposts`              | The own X accounts' reposts: reposted status, account, author and first sighting                       |
+| `bilibili_statuses`      | The Bilibili status pool: dynamics own forwards forward; never public                                  |
 
 The API maps snake_case columns to camelCase and removes `raw_json`. The
 frontend must not depend on database fields that are not declared in the API
@@ -81,7 +85,7 @@ checks that every table has the columns its recorded version requires:
 | `workflow_leases`        | The single `global` lease (owner, expiry, generation) that fences source and media writes              |
 
 A run freezes how its source steps read: `source_sync_json` holds the
-per-source sync ([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md);
+per-source sync ([source schedules](../architecture/workflows.md#source-schedules);
 `{}` reads as each step's incremental default), `fetch_windows_json` an
 operator's [manual fetch](workflows.md#manual-fetches-and-historical-backfill)
 (its method and selection), `source_chain_json` the per-source
@@ -91,7 +95,8 @@ froze; new runs write `{}` there. A partial unique
 index admits one queued or running run at a time. `capability` keeps its
 constrained values (`synthetic`, `x_recent`, `capability_not_migrated`);
 `adapter_capability` names the adapter that runs the step (`x_recent`,
-`youtube_recent`, `bilibili_recent`, `youtube_live`, `media_download`,
+`x_related`, `youtube_recent`, `bilibili_recent`, `bilibili_dynamics`, `shop_sales`,
+`youtube_live`, `media_download`,
 `schedule_extract`, `text_translate`, `media_variants` or `event_reconcile`), and a step with
 neither finishes `blocked`. `recovery_count` counts how often a run was
 queued again by a retry or by recovery from an expired lease. Finished runs
@@ -99,14 +104,18 @@ and their steps, attempts and `sync_runs` rows are deleted after their
 [retention window](workflows.md#run-execution).
 
 `source_schedules` holds each source's timer
-([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)): `source`
-(`x`, `youtube` or `bilibili`, the primary key), `enabled`,
-`interval_minutes`, `sync_json` (`{"x": SourceSync}` or `{"youtube":
-SourceSync}`; `{}` for Bilibili and as the default), `chain_json` (X and
-YouTube: `{methods: [{id, enabled}], apiGate, apiDailyCap}`, the gate and cap
-for X only; `{}` for Bilibili, and a chain that is unreadable or does not
+([source schedules](../architecture/workflows.md#source-schedules)): `source`
+(`x`, `x_related`, `youtube`, `bilibili`, `bilibili_dynamics` or `shop`,
+the primary key), `enabled`, `interval_minutes`, `sync_json`
+(`{"x": SourceSync}`, `{"x_related": SourceSync}` or
+`{"youtube": SourceSync}`; `{}` for the Bilibili and shop timers and as the
+default, and a `count` setting of `x_related` reads as the default),
+`chain_json` (X, YouTube and Bilibili uploads: `{methods: [{id, enabled}], apiGate,
+apiDailyCap}`, the gate and cap for X only; `{}` for the related-accounts,
+Bilibili dynamics and shop timers,
+and a chain that is unreadable or does not
 list every method of its source once reads as the default;
-[ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)), `next_run_at`
+[method chains](../architecture/workflows.md#method-chains)), `next_run_at`
 and `updated_at`. A missing row reads as that source's disabled default (see
 [Source schedules](workflows.md#source-schedules)). The `workflows` table and
 its columns, including `source_sync_json` and `source_lookback_json`, stay in
@@ -125,15 +134,41 @@ each source's incremental cursors and the fetch checkpoints (see
 per X account with `{timelineFailures}`, its current streak of runs whose
 timeline failed, and the row `@usage` with `{day, posts}`, the posts X API
 answers returned on that Japan day. A count for an earlier day reads as
-zero, and the first read of a new day starts it over.
+zero, and the first read of a new day starts it over. Source `x-related`
+keeps one row per [related account](sources.md#related-accounts), keyed by
+the lower-case handle and written by the `x_related` step: the cursor of its
+own timeline and
+`{handle, discovered, listed, discovery, timelineGap, lastError}`.
+
+The `bilibili` row of the account (the mid) keeps, besides the upload
+read's device identity, clock and captcha backoff, the dynamics listing's
+`dynamics` `{lastAttemptAt, lastSuccessAt, lastError}` and the cached WBI
+signature keys `wbi` `{img, sub, at}`; the cursor names the newest upload.
+The `bilibili-live` row of the same account keeps the
+[live room](sources.md#live-room) state `{roomId, title, liveStatus,
+liveTime, checkedAt, lastAttemptAt, blockedUntil, failures, lastError,
+lastBroadcast, lastLiveAt, endedAt}`; the room ID is learned from the checks.
+The `bilibili` row's metadata also keeps the device's `bNut` and
+`bili_ticket` (with when it was issued and its lifetime) inside `session`,
+`login` `{checkedAt, signedIn}` from the latest login check, and
+`blockedAt`/`clearedAt`, when the current block was recorded and when the
+latest successful read started, so a forced read's success lifts a block
+while a block a concurrent read stored is kept. Neither is returned by a public read.
+
+The `shop` row of account `shop.milpr.com` keeps the
+[official shop](sources.md#official-shop)'s last successful read in
+`last_success_at` and `{lastAttemptAt, blockedUntil, lastError}`, where
+`blockedUntil` is when a 429 answer's `Retry-After` passes. The shop's
+period groups are not kept here: their evidence is their `event_sources`
+rows.
 
 ## Seed versus Synchronization
 
 `backend/internal/store/sqlite/static-seed.json` holds the static profile,
 milestone timeline, and resource directory. Every open inserts the static IDs
 that are missing, plus the `dashboard_revision`, the default `x_accounts`
-and the `llm_route_targets_migrated` and `llm_verify_queue_seeded` markers when
-absent. New environments have no X posts, events, YouTube videos, Featured item, schedule assets, or
+and the `llm_route_targets_migrated`, `llm_verify_queue_seeded` and
+`llm_image_queue_seeded` markers when absent. `x_related_accounts` starts empty, and seeding leaves it as it is. New environments have no X posts, events, YouTube videos, Featured item, schedule assets, or
 LLM providers/models/routes.
 `kano-go seed` (`npm run seed`) creates or upgrades the database and fills
 missing static IDs; `-overwrite` restores the shipped profile, timeline and
@@ -242,15 +277,59 @@ its event sources. The shown label is the first of:
 
 Video tags are content tags only, and with several videos the alphabetically
 first tag is taken. A video's tag reads the entry in the other direction (see
-[ADR-0005](../decisions/ADR-0005-video-form-and-content-tag.md#content-tag)),
+[video form and tags](../architecture/data-model.md#video-form-and-tags)),
 so the calendar and the video archive agree on content. Nothing is copied
 between the rows. The derivation looks every entry and video up by ID, and a
 store test checks the query plan for it. The admin event list shows the
 stored label and its source.
 
+## Sale-period rationale
+
+A sale is stored as one period and shown at its opening and closing dates. This keeps long order windows out of every intervening calendar day while preserving both dates for calendar feeds and status calculation.
+
+## Sale Periods
+
+`events.event_type` is `stream`, `member` (a members-only stream),
+`appearance`, `release` (the date a work becomes available), `sale` or
+`event` (any other entry). A `sale` is a period to buy, pre-order, order or
+apply for goods, media or tickets, and is the only type that stores a close:
+the nullable `ends_on` holds its Japan close date and `ends_at` its close
+instant when the time is known. A sale's `ends_at` always has its `ends_on`,
+the Japan date it falls on; the store rejects a manual entry whose close
+time falls on another date. Every other row has a null `ends_on`; the admin
+API rejects one and the extraction ignores it. Sales come from post
+extraction and from the [official shop](sources.md#official-shop), whose
+entries are periods with the opening time when known and the close date
+without a time. A sale row takes one of three
+shapes:
+
+| Shape        | `starts_on` / `starts_at`  | `ends_on` / `ends_at`                   |
+| ------------ | -------------------------- | --------------------------------------- |
+| Period       | opening date, opening time | a later close date, close time          |
+| Deadline     | the close date, no time    | the same date, close time or null       |
+| Opening only | opening date, opening time | null, or the same date and a close time |
+
+Every reader shows a sale at its ends rather than across its days: a period
+on its opening date and on its close date, a deadline on its date alone, and
+any other sale on its opening date. Calendar pages therefore include a sale
+whose `ends_on` falls in the range, count it in `dayCounts` on its close date
+when that is later than its opening date, and take close dates into the
+adjacent dates; the dashboard's current-week selection includes it the same
+way. The dashboard also carries up to 10 sales that are on sale on the
+current Japan date or open within seven days (a deadline counts as on sale
+until its date), closing soonest first, so a period that opened weeks ago
+reaches the board's on-sale list. A sale is never `nextEvent`. Reminders of one sale merge into its
+period ([Rule C](#duplicate-merging)). The partial `events_ends_on_idx` index
+supports the close-date reads, and startup adds the column empty and the
+index to existing snapshots without rewriting events.
+
 ## Event Precedence
 
-Automatic X extraction and YouTube reservations use `provenance = automatic`.
+`events.source` names the writer of an entry: `x` or `bilibili` for post
+extraction, `youtube` for reservations and broadcasts, `shop` for the
+[official shop](sources.md#official-shop)'s sale periods and `manual` for an
+entry an operator created. Automatic X extraction, YouTube reservations and
+shop reads use `provenance = automatic`.
 Creating, editing, or confirming an event through `/admin` changes it to
 `provenance = manual` and sets `manual_locked = 1`. Automatic upserts include a
 database-level lock condition and cannot replace those rows. Manual deletion is
@@ -347,7 +426,10 @@ call this writer. Cache rows/files may remain after a link is removed.
 A post that quotes another status keeps it in `posts.quote_json`, a
 sanitized projection (`id`, `authorHandle`, `authorName`, `text`,
 `publishedAt`, `url`, and `unavailable` for a quote the source names but
-does not carry). The quoted status's images are `media_links` with the role
+does not carry). An X post quotes an X status; a Bilibili
+[forward](sources.md#forwards) quotes the dynamic it forwards, with the
+author's mid as `authorHandle` and the post ID `bilibili-<dynamic ID>` as
+`id`. The quoted status's images are `media_links` with the role
 `quote-image` and the quoting post as owner; `quote_json` holds no image
 address, and a post's `post-image` links, `media_url` and
 `raw_json.mediaURLs` are its own images only. A post without a quote stores
@@ -359,9 +441,51 @@ The public dashboard, the post archive and MCP add `quote` to each post:
 translations, sourceLanguage}`, where empty fields are `null` and `media` has
 the shape of the post's own `media` but lists only ready, contained opaque-ID
 images ([Translations](#translations) describes the last two). The read path
-drops a stored projection whose ID is not a status ID or whose URL is not
-that status's x.com address. An unavailable quote has only `id` and `url`.
-The console's post list keeps a post's own images apart from its quote.
+accepts a projection only for its post's source. On an X post, it drops one
+whose ID is not a status ID or whose URL is not that status's x.com address.
+On a Bilibili post, it drops one whose ID is not `bilibili-<digits>` or
+whose URL is not exactly that dynamic's `https://www.bilibili.com/opus/` page
+or, for an available forwarded upload, a `https://www.bilibili.com/video/`
+page. An unavailable quote has only `id` and `url`; an unavailable forward
+of a dynamic whose ID the listing did not give has a `null` `id` and the
+forward's own opus page as `url`. The console's post list keeps a post's own
+images apart from its quote.
+
+Every available X quote is also a row of the X status pool `x_statuses` (see
+[Quoted posts](sources.md#quoted-posts)), which also holds every status of a
+[related account](sources.md#related-accounts): `id`, `author_handle`,
+`author_name`, `text`, `published_at`, `url`, a sanitized `raw_json` (a
+quote's `{id, text, created_at, url, author, mediaURLs}`, or the timeline
+status as an own post stores it), `quoted_at`, the publication time of the
+newest own post that quotes it, `reposted_at`, when an own account's repost
+of a related account's status was first seen, `listed_at`, when its related
+author's timeline first listed it, `keyword` (1 while a keyword rule
+matches), the operator's `manual_decision` (`promote` or `demote`) with
+`manual_reason` and `manual_at`, `demoted_at`, set while an automatic
+demotion hides its post, `first_seen_at` and `updated_at`. A quote's `text`
+equals the `text` of the `quote_json` written with it, since both come from
+one projection; a status its related author's timeline listed keeps that
+listing's wording and payload. No public reader reads or joins the table.
+
+Every available forwarded dynamic is likewise a row of the Bilibili status
+pool `bilibili_statuses` (see [Forwards](sources.md#forwards)): `id` (the
+post ID `bilibili-<dynamic ID>`), `author_mid`, `author_name`, `text`,
+`published_at`, `url`, a sanitized `raw_json` (`{id, text, publishedAt, url,
+author: {mid, name}, mediaURLs}`), `forwarded_at`, the publication time of
+the newest own forward of it, `first_seen_at` and `updated_at`. Its `text`
+equals the forward's `quote_json` `text`, and no public reader reads or joins
+the table. A fresh database and an upgraded snapshot start with it empty.
+
+`posts.promoted_at` marks a related account's status promoted into `posts`
+(`NULL` for an own post), whose `account_handle` is its author. Readers that
+are an own account's (the dashboard's latest post and per-account newest
+posts) leave it out, so a promoted post appears only in the combined post
+wall and the archive, which also leave out a promoted post that a shown own
+post quotes with its quote shown: the quote card already shows it. That is a
+display rule computed at read time; it sets nothing, and the post returns
+when the quoting post or its quote is hidden. `x_reposts` holds one row per reposted
+status and own account (`status_id`, `account_handle` in lower case,
+`author_handle` or `NULL`, `first_seen_at`); see [Reposts](sources.md#reposts).
 
 `posts.quote_hidden_at` records an operator's decision to keep a post's
 quote off the public pages: the dashboard, the post archive and MCP then
@@ -370,12 +494,19 @@ path, refresh or backfill writes this column, so the decision survives every
 rewrite of `quote_json` and the `quote-image` links, like a manual lock.
 `posts.hidden_at` is the same decision for the whole post: the dashboard
 (its post wall, latest post and post count), the post archive and MCP leave
-the post out, while the console lists it, extraction still reads it and no
-synchronization path writes the column. `posts.refresh_requested_at` is a
+the post out, extraction never selects it, and the automatic events it alone
+supports leave the public pages (see
+[Events of hidden posts](#events-of-hidden-posts)). The console still lists
+the post, and no synchronization path writes the column. `posts.refresh_requested_at` is a
 queued refresh from the source, cleared once the X synchronization made its
 detail request (see
 [Refresh from the source](sources.md#refresh-from-the-source)). All three are
 additive columns, `NULL` by default.
+
+Startup creates both tables in existing snapshots. On every start it adds
+to the pool the quote of every stored X post whose available quote the pool
+does not hold as quoted by that post yet, mapped from the post's `raw_json`
+like a source write, without a request.
 
 Startup adds `quote_json` additively. It then fills it for every X post
 whose `raw_json` names a quoted status (an object under `qrt`, `quote`,
@@ -436,9 +567,11 @@ as the same codes and wording.
 
 Post text and video titles keep their source wording in `posts.text` and
 `videos.title`. `translations` stores their translations for the target
-locales `en` and `zh-CN` (Japanese readers see the source), keyed by
+locales `en`, `ja` and `zh-CN`, keyed by
 `(owner_type, owner_id, field, locale, origin, platform)`: `owner_type` is
-`post` (field `text`) or `video` (field `title`), `origin` is `manual`,
+`post` (field `text`), `video` (field `title`), `x_status` (field `text`,
+a pooled X status keyed by its status ID) or `bilibili_status` (field
+`text`, a pooled forwarded dynamic keyed by its post ID), `origin` is `manual`,
 `platform` or `machine`, and `platform` names the platform of a platform row
 (`youtube`, `bilibili`) and is empty otherwise. One row per origin lets the
 three coexist; readers resolve each locale by precedence: manual, then
@@ -467,12 +600,21 @@ seen: the hash and detected `source_language` (`ja`, `en`, `zh`, `ko`,
 attempted, its `status` (`success`, `failed`, `skipped`), the last attempt and
 sanitized error, and `requested`, an operator's request for a forced pass. A
 locale whose language matches the detected source language needs no
-translation, and `none` needs none at all. A post or video is complete when
-every locale it needs has a usable row. The public dashboard, archives and
+translation, and `none` needs none at all: a Japanese X post or YouTube title
+needs `en` and `zh-CN`, a Chinese Bilibili dynamic `en` and `ja`. Wording the
+step has not seen in its current form needs `en` and `zh-CN`, and `ja` only
+when it is a Bilibili dynamic, stored or pooled, or a Bilibili title, since X
+posts and statuses and YouTube titles are presumed Japanese until detected;
+the console shows such a `ja` as the source. A post
+or video is complete when every locale it needs has a usable row. The
+machine step translates posts of the sources `x` and `bilibili` and the
+unmerged videos public readers list (YouTube videos and Bilibili uploads
+whose form is settled, see [Video form and tags](#video-form-and-tags)). The
+public dashboard, archives and
 video lists add `translations` (`{locale: {text, origin, platform}}`) and
 `sourceLanguage` to posts and videos; providers, models and hashes stay in
-the console. A Bilibili video, which the machine step never translates,
-reports `sourceLanguage` `zh`. A video's translations follow its effective
+the console. A Bilibili video whose language the machine step has not
+detected reports `sourceLanguage` `zh`. A video's translations follow its effective
 title, `COALESCE(manual_title, title)`, so an operator's title correction
 retires its machine translations.
 
@@ -483,14 +625,20 @@ while its trimmed title equals the video's effective title; an event with
 an operator's or an extraction's own wording carries none. The projection is
 computed at read time, so a video translation's revision already covers it.
 
-Quoted statuses have no translation rows of their own either. A post's
-available `quote` carries the `translations` and `sourceLanguage` of the
-stored post with the same status ID, which a quote of a tracked account's
-post has; any other quote carries an empty `translations` and a `null`
-`sourceLanguage`. Like events, this is computed at read time.
+A post's available `quote` carries `translations` and `sourceLanguage`,
+computed at read time. A quote of a stored post (a self-quote, or a forward
+of an own stored dynamic) carries that post's. Any other quote carries the
+pool rows of its ID, `x_status` on an X post and `bilibili_status` on a
+Bilibili forward, resolved against the quote's own `text` in `quote_json`: a
+machine row and the detected language count only while their source hash
+matches that text, and manual and platform rows always count. The read uses
+the translation tables alone and never reads a pool table. The machine step
+translates a pooled X status while an own post quotes or reposts it, and a
+pooled dynamic while an own forward forwards it, when it is not a stored
+post (see [Translation](sources.md#translation)).
 
-Startup creates both tables in existing snapshots; no post, video or event
-row is rewritten.
+Startup creates both translation tables in existing snapshots; no post,
+video or event row is rewritten.
 
 Translation model attempts also record bounded diagnostics in
 `sync_runs.counts_json` under `translate.diagnostics`: configured model and
@@ -540,8 +688,62 @@ after the current Japan date:
   own (one contains the other or they share a token of at least two
   characters after punctuation, brackets and medium words such as 配信 are
   removed). Without a title overlap it merges only when the date has exactly
-  one date-only event and one timed stream. A YouTube event never merges into
-  an X event.
+  one date-only event and one timed stream, and not into a stream of platform
+  `bilibili` unless the date-only entry is `bilibili` as well. An entry
+  stated Bilibili-only (see [Event platforms](#event-platforms)) never
+  merges into a stream whose own platforms lack `bilibili`. A YouTube event
+  never merges into an X or Bilibili event.
+
+- Rule B also moves an automatic entry of a Bilibili dynamic whose platform
+  is `youtube` (such as 「今晚8点YouTube直播」), under the same constraints. A
+  `stream` or `member` entry whose platforms include both `youtube` and
+  `bilibili` is never a Rule B notice; Rule E moves it.
+- Rule D (after Rule B): an automatic X `stream`, `member` or `release`
+  whose platforms include `bilibili`, with an exact or approximate time,
+  merges into the only
+  compatible entry of a Bilibili dynamic (`source` `bilibili`) on the same
+  date that starts within 30 minutes; a release only into a release. The
+  dynamic is the platform's first-party post, as the YouTube event is for
+  Rule B, and an X entry of platform `bilibili` is never a Rule B notice.
+  An X notice of a simulcast whose model named Bilibili keeps `bilibili`
+  first and merges here, then follows the dynamic's entry (below).
+  Without a dynamics listing the X entry stands alone and still gets the
+  room as `liveUrl`.
+
+- Rule E (after Rule D): an automatic `stream` or `member` entry, of any
+  source but YouTube, whose announced platforms are `bilibili` by a
+  source's default (inferred) or include both `youtube` and `bilibili`
+  merges into the only compatible YouTube `stream` or `member` event on the
+  same date that starts within 30 minutes, as in Rule B
+  (`merge_reason` `rule_e:simulcast`): it is the Bilibili side of a
+  simulcast, and the YouTube event's shown platforms include `bilibili`
+  (see [Event platforms](#event-platforms)). An entry stated Bilibili-only,
+  such as 「B站限定」, and a release never merge by this rule.
+
+After every rule, an entry whose target is itself merged away goes on to
+the final target, whichever rules made the two merges (an X notice Rule D
+merged into a dynamic's entry that Rule E moves ends on the YouTube event),
+so no merge points at a merged event.
+
+- Rule C: an automatic `sale` merges into another sale of the same shop
+  whose [period](#sale-periods) covers its own, such as a deadline reminder
+  into the announced period. Two sales are of the same shop when their links
+  name the same page (host without `www`, path without a trailing slash, and
+  query; a link to an X post names no shop), or, when either has no shop
+  link, when their titles overlap as in Rule A once the words and counts
+  every sale title uses (such as 受注, 受付, 締切, グッズ, 本日まで or 残り2日)
+  and Kano's own name (鹿乃まほろ, its parts 鹿乃 and まほろ, and its
+  romanization) are removed as well, so a title naming no goods or event
+  matches no other sale. A period covers another that
+  opens no earlier and closes no later, and a sale whose close is not known
+  when its opening date falls inside; a deadline is covered only by a period
+  that closes on its date, or by the same deadline. Of two sales covering
+  each other the one that states more (a known opening, a close date, a start
+  time, a close time) stays, then the smaller ID. Among several covering
+  sales the one no other covers is the target; several leave the sale
+  unmerged. A sale counts in the window by its close date as well as its
+  opening date, and its `merge_reason` is `rule_c:sale_period`. Because the
+  target covers the merged sale, the surviving entry shows the whole period.
 - Several plausible targets leave the event unmerged and are counted as
   `ambiguous`. A cancellation overlay (`llm_suspected` or `manual_confirmed`)
   on either side freezes the current decision.
@@ -564,12 +766,102 @@ exists and carries its time whichever source was read first:
 Manual locks and tombstones keep their rows, and no video gets a second
 event identity.
 
-Every public reader excludes merged rows: the dashboard events, totals,
-upcoming counts and summary/spotlight candidates, calendar items, totals,
-pagination, day counts and adjacent dates, and MCP `schedule_list`. The
+Every public reader excludes merged rows, and the events
+[hidden by their posts](#events-of-hidden-posts): the dashboard events,
+totals, upcoming counts and summary/spotlight candidates, calendar items,
+totals, pagination, day counts and adjacent dates, and MCP `schedule_list`. The
 operator console lists them with their target and can undo a merge. Startup
 adds the columns and the partial `events_merged_into_idx` index to existing
 snapshots without rewriting events.
+
+An entry of a Bilibili dynamic never merges into an X entry, by any rule; it
+is otherwise an X entry for Rules A and C. A shop entry is an automatic sale
+like any other for Rule C, so a post's entry of the same sale merges into it
+or receives it, by link or title as the rule says.
+
+### Bilibili releases
+
+Before merging, `reconcile` recomputes the pairing of the automatic,
+unlocked `release` entries of Bilibili dynamics in its window with the
+account's Bilibili uploads. A release and an upload pair when each is the
+other's only match within 30 minutes: the entry's link becomes the upload's
+page and an active `bilibili-video` event source (`source_key` `upload`)
+names it. A pairing that no longer holds (the release moved, or a second
+release or upload made it ambiguous) is released first: its source row is
+retired and the link goes back to the dynamic's. An upload another entry
+still holds is not paired: a locked or manual entry keeps its upload row
+whatever its state, and so does any other entry that is not deleted and
+whose row is active, so a locked entry's row is never rewritten. An
+unchanged run writes nothing; an
+extraction that rewrites the link restores the dynamic's link until the next
+run pairs it again. The upload source is evidence of the work, not an
+announcement, so it keeps no entry alive that its dynamic no longer lists.
+
+## Events of Hidden Posts
+
+An automatic, unlocked event whose every active source is a hidden post is
+hidden by its posts: the active `event_sources` rows of the event and of the
+events merged into it all name a stored X or Bilibili post with
+`posts.hidden_at` set, and there is at least one. It is a visibility rule
+computed at read time, not a deletion or tombstone: the row, its evidence and
+its merges stay, and showing a source post shows the event again. An event
+with `manual_locked = 1` or `provenance = manual` is never hidden this way,
+since the operator's decision outranks hiding; confirming an event keeps it
+shown while its post stays hidden. An event with any other active source,
+such as a YouTube reservation or a visible post, or with no evidence at all,
+stays shown. Every public event reader leaves such an event out, as it leaves
+out merged rows (see [Duplicate merging](#duplicate-merging)), and so does a
+video's linked event. The console lists it with `hiddenByPosts`.
+
+## Event Platforms
+
+An entry happens on one or more platforms. `events.platforms` is the JSON
+array of its **announced platforms**, each of `youtube`, `bilibili` and
+`other` at most once, in announced order (the entry's own platform first),
+and `events.platforms_inferred` is 1 when the array came from a source's
+default rather than from the wording or an operator; a Bilibili-only entry
+is one whose array is `["bilibili"]`, stated. `events.platform` is
+the first announced platform, or `unknown`, for readers of the single
+value. Startup adds the columns without rewriting the array: `platform` is
+null on rows written before it existed, and the startup that adds it sets
+`youtube` on the YouTube writers' events. A row whose array is null reads as
+`["youtube"]`, stated, when its `platform` is `youtube`, and as no platform
+otherwise.
+
+Extraction writes the announced platforms with the other fields of an
+automatic entry, under the same manual locks and tombstones (see
+[Source time zones](sources.md#source-time-zones)); the YouTube writers
+write `["youtube"]` and the shop step `["other"]`, both stated. An operator's entry carries the operator's platforms,
+which are part of its manual lock.
+
+`events.url` is the announcement's link (a post, an operator's link, a
+paired upload, a watch link), never the live room, because readers use the
+link as the identity of one broadcast. A stored row whose `url` is a
+live-room link (`live.bilibili.com`) and whose platforms do not include
+`other` reads as announced on `bilibili` with no `url`; the row is not
+rewritten.
+
+Readers compute an entry's **shown platforms**: its announced platforms,
+those the automatic entries merged into it lend, and `bilibili` when the
+live room's broadcast is the simulcast of its YouTube broadcast (observed;
+see [Live room](sources.md#live-room)). Only merges that join platforms
+lend: Rule D, Rule E and an operator's merge; Rules A, B and C join
+duplicates of one entry. Nothing observed is written. Each shown platform
+has a link only to a page on that platform: YouTube's is the watch link (the
+entry's `url` when it names a YouTube video, or that of a YouTube event an
+operator merged into it), Bilibili's the account's live room for a `stream`
+or `member` entry once a live check learned the room (or the stored room
+link of an older row) and a release's Bilibili upload page, and `other`'s
+the entry's `url`. A platform without such a page has a null link: the
+announcement (a post) stays the entry's own `url`, never labelled as a
+platform. The entry's `liveStatus` is `live` while any of its platforms is:
+its own video's state, then a merged YouTube event's, then the room's.
+Public events report the single value as `platform` and the shown platforms
+as `platforms`; full reads add `links`, and `liveUrl`, the room, to every
+`stream` or `member` entry shown on Bilibili (see
+[Public API](public-api.md#public-snapshot-contract)). The dashboard's
+`liveNow` reports a live broadcast that matches no entry; no entry is
+created for it.
 
 ## Video Corrections and History
 
@@ -625,13 +917,23 @@ tell keeps the stored value. `manual_availability` is the operator's
 correction with the same values and `NULL` for none; synchronization never
 writes it. Public readers add
 `availability = COALESCE(manual_availability, availability)`.
+`manual_work` is the operator's Works decision: 1 lists the video among the
+Works page's uploads after the collection date, 0 keeps it off, `NULL`
+leaves it to the rules (see
+[Uploads after the collection date](../development/works-archive.md#uploads-after-the-collection-date)).
+Synchronization never writes it, a decision on a video outside the list's
+date or scope stays stored without effect, and no public reader reports it.
 Startup adds the columns, both tables and `video_revisions_video_idx` to
 existing snapshots without rewriting videos or media rows.
+
+## Modeling rationale
+
+Events, video form, video content, and sale periods use separate fields because they answer different reader questions. A stream or premiere is a publication form; a game, talk, or song is content; a sale is a period with two endpoints. Keeping those dimensions independent lets calendar labels and archive filters agree without guessing from titles or overwriting operator corrections.
 
 ## Video Form and Tags
 
 A video has three independent layers, each with one owner
-([ADR-0005](../decisions/ADR-0005-video-form-and-content-tag.md)).
+([video form and tags](../architecture/data-model.md#video-form-and-tags)).
 
 **Form.** `kind` is `stream`, `premiere`, `upload` or `unknown`, written by
 synchronization from platform facts only:
@@ -644,9 +946,12 @@ synchronization from platform facts only:
 - A listing (feed, uploads playlist, uploads tab, yt-dlp metadata, history
   window) inserts `unknown`, and a listing never replaces a stored row's
   kind; the detail check settles it.
-- Every Bilibili upload is `upload`.
+- A Bilibili upload is `upload` or `stream` (a live replay), settled as
+  [Bilibili form](#bilibili-form) describes. The list read inserts `upload`
+  for a new row and never replaces a stored row's kind.
 
-`manual_kind` corrects the form with `stream`, `premiere` or `upload`.
+`manual_kind` corrects the form with `stream`, `premiere` or `upload`, and a
+Bilibili upload's with `stream` or `upload`.
 Readers show `COALESCE(manual_kind, kind)`.
 
 **State.** Upcoming, live, ended and cancelled are not part of the kind:
@@ -671,8 +976,10 @@ never reach a video. A video without a tag is `other` in the archive's
 category filter.
 
 `tag`, `tag_source` and `tag_attempted_at` follow the entry inference's rules
-(see [Event labels](#event-labels)): the `translate` queue asks about public
-YouTube videos (not merged into another) without a manual tag or judgement,
+(see [Event labels](#event-labels)): the `translate` queue asks about the
+videos public readers list (see [Video merging](#video-merging)), a Bilibili
+upload only while nobody marked it private or removed, each not merged into
+another and without a manual tag or judgement,
 whose entries, if any, carry neither a content label, a title judgement nor
 an operator's label, are not merged into such an entry, and are not
 automatic reservations still within the entry inference window. An
@@ -686,7 +993,49 @@ tag, or an operator's `manual_title`, keeps it); a failure only stamps
 `tag_attempted_at` and waits a day, as an entry does. Videos
 never attempted come first, then the least recently attempted, each newest
 first. Storing a tag advances the dashboard revision; a judgement without
-one or a failed attempt does not.
+one or a failed attempt does not. A Bilibili upload whose form is unsettled
+is asked for form and tag together instead (see [Bilibili form](#bilibili-form)),
+after the entries and before the other videos, from the same per-run limit.
+
+### Bilibili Form
+
+Bilibili's unsigned endpoints carry no live-replay flag, so a Bilibili
+upload's form is settled by the first of:
+
+1. the operator's `manual_kind`;
+2. a rule, applied by the `translate` step before any model call to every
+   upload whose form neither the operator nor a rule settled. A rule that
+   applies only later, once the broadcast it reads is known, replaces a form
+   the model settled meanwhile:
+   - a title naming a replay (`直播回放`, `录播`, `直播录像`, `回放`) is a
+     `stream`;
+   - an upload of at least thirty minutes published within 48 hours after a
+     Bilibili broadcast ended, at least half that broadcast's length, is a
+     `stream`. A broadcast is a `stream` entry shown on Bilibili (its
+     platforms, or an entry merged into it) that is neither deleted, merged
+     nor cancelled by an operator, ending at its `ends_at` or else its
+     YouTube archive's start plus length; or one of the live room's last two
+     broadcasts, the last one ending at the last check that saw it live;
+   - an upload shorter than ten minutes is an `upload`;
+3. the title inference: the `translate` queue asks about each unmerged
+   upload nobody settled or marked private or removed, with its title,
+   length and the first 200 characters of its description, for the form
+   (`upload`, `stream` or `uncertain`) and the content tag together.
+
+`kind_source` records who settled the stored `kind`: `rule` or `llm`, `NULL`
+while unsettled; an operator's `manual_kind` shows as `manual`. An
+`uncertain` answer sets `kind_review` to `uncertain`; a failed call counts
+`kind_attempts` and stamps `kind_attempted_at`, waits a day and on the third
+failure sets `kind_review` to `failed`. An upload with a `kind_review` and no
+settled form waits in the Review queue for the operator and is not asked
+again; a rule that later settles it clears the review. Settling the form of
+an unmerged upload advances the dashboard revision. Startup adds the columns
+to existing snapshots; existing Bilibili rows start unsettled and the next
+`translate` run settles them.
+
+A Bilibili upload has no premieres, Shorts or waiting room: `is_short`,
+`is_upcoming`, `live_status` and `availability` stay empty, and readers treat
+a `stream` as a stream archive.
 
 Startup rewrites a row that still carries an older title kind, once:
 `manual_kind` `GAMEPLAY`, `TALK` and `MUSIC` become `manual_tag` `game`,
@@ -710,13 +1059,28 @@ owner as for [event merges](#duplicate-merging):
 - `rule`: the `reconcile` workflow step
   (`backend/internal/store/sqlite/video_merge.go`), which recomputes its
   decisions from the current rows on every run and releases a merge whose
-  basis no longer holds. `merge_reason` is `rule:time_duration_title`.
+  basis no longer holds. `merge_reason` is `rule:broadcast` for a live
+  replay and `rule:time_duration_title` otherwise.
 - `manual`: an operator merge (`merge_reason` `manual`), which the rule never
   changes. `manual` with a null `merged_into` is an undone merge
   (`unmerged_from:<id>`) or an upload an operator kept apart
   (`kept_separate`); the rule never merges that upload again.
 
-An upload merges by rule into a YouTube video only when all of these hold:
+A live replay (an upload whose settled form is `stream`) merges by rule into
+the YouTube stream archive linked to the schedule entry of the broadcast it
+replays. The replayed broadcast is the one among those
+[Bilibili form](#bilibili-form) reads that ended no more than 48 hours
+before the upload was published, the latest end first, with the upload at
+least half its length when that length is known; a live room's record
+stands for the schedule entry it overlaps. The replay merges only when that
+entry links a YouTube video of form `stream` (its `youtube-<id>` event,
+source item or event source). A replay whose broadcast links no such
+archive, such as one of a Bilibili-only broadcast, never reaches an earlier
+broadcast's archive: it is public on its own unless the rule below merges
+it.
+
+Any other upload merges by rule into a YouTube video only when all of these
+hold:
 
 - the YouTube anchor (`scheduled_at`, else `published_at`) is within six
   hours of the upload's `published_at`;
@@ -734,7 +1098,10 @@ complete matches, or one video claimed by several uploads, leave the upload
 unmerged and are counted as `ambiguous`. A YouTube video receives at most
 one upload: a video an operator merged an upload into is no rule target. A
 video without `duration_seconds` leaves its upload to the operator. A Short of the same song, published another
-day or with another length, never matches.
+day or with another length, never matches. An upload with no candidate
+within six hours whose song title and known length (within three seconds)
+match a video published further apart, such as a copy posted days later,
+is never merged by rule; it is put to the operator as `unverified`.
 
 Whenever a merge is written or a merged upload's effective title changes (a
 Bilibili read, an operator correction or the reconcile step), the upload's
@@ -743,11 +1110,14 @@ platform translation with platform `bilibili`; a release or undo removes it.
 A change of either moves the dashboard revision. The machine translation
 scope excludes merged rows.
 
-Public readers keep `source = 'youtube'`: the dashboard and video archive add
-`alternates` (`[{source, url}]`) to each YouTube video for its merged
-uploads, and Bilibili rows themselves stay in the console. Startup adds the
-columns and the partial `videos_merged_into_idx` index to existing snapshots
-without rewriting videos.
+Public readers (the board's shelf and summary, the video archive with its
+month index and category counts, the single-video read, the Works page's
+recent uploads, MCP and the Atom feed) list every YouTube video and each
+Bilibili upload that is not merged into another video and whose form is
+settled. They add `alternates` (`[{source, url}]`) to each YouTube video for
+its merged uploads; a merged upload is listed only that way, so a work shows
+once. Startup adds the columns and the partial `videos_merged_into_idx`
+index to existing snapshots without rewriting videos.
 
 ## Schema Changes
 
@@ -792,16 +1162,27 @@ protocols.
 `vision_capable` (API `visionCapable`) is derived from the `image`
 capability; a provider write without `capabilities` may send `visionCapable`
 instead. `llm_providers.model` is written empty and never read: providers have
-no default model. Both detection paths share the extraction queue
-(`schedule`); the schedule-image check reads only `verify`, and translation
-only `translate`. Startup folds any per-stage `schedule_message`,
-`schedule_board`, and `schedule_vision` targets into the extraction queue in
+no default model. Text schedule extraction reads `schedule`; image schedule
+extraction and schedule-image review read `verify`, and translation/light tasks
+read `translate`. Startup folds any per-stage `schedule_message`,
+`schedule_board`, and `schedule_vision` targets into the text schedule queue in
 that order, keeping the first position of a repeated provider + model pair,
 and once (marker `llm_default_model_retired`) turns a target that followed a
-provider's default model into a target naming that model. Once more (marker
-`llm_verify_queue_seeded`, which new databases start with), it copies the
-extraction queue's image-tagged targets in their order into an empty `verify`
-queue.
+provider's default model into a target naming that model. Once under each of
+the markers `llm_verify_queue_seeded` and `llm_image_queue_seeded`, which new
+databases start with, it copies the `schedule` queue's image-tagged targets in
+their order into an empty `verify` queue, so an install whose image posts
+read the text queue gets an image extraction queue; a `verify` queue with
+targets is kept as it is.
+
+`internal/httpapi/media.go` and `internal/store/sqlite/media.go` own cache-root
+path validation and serving; `internal/store/sqlite/source_write.go` owns
+source URL identities (see [Media cache](media-cache.md#database-model)). `internal/mediadownload` performs bounded downloads
+from the X and YouTube image hosts and promotes verified files to ready cache
+rows.
+
+### Post LLM states
+
 `post_llm_states.route` records which detection path (`schedule_message` or
 `schedule_board`) handled a post.
 
@@ -816,11 +1197,35 @@ values, so a stored failure is retried once more before backing off. An
 operator's dismissal sets `status` to `dismissed` with a positive count and a
 null `next_attempt_at`, keeping `failure_fingerprint`. See [Extraction failure backoff](sources.md#extraction-failure-backoff).
 
-`internal/httpapi/media.go` and `internal/store/sqlite/media.go` own cache-root
-path validation and serving; `internal/store/sqlite/source_write.go` owns
-source URL identities (see [Media cache](media-cache.md#database-model)). `internal/mediadownload` performs bounded downloads
-from the X and YouTube image hosts and promotes verified files to ready cache
-rows.
+`post_llm_states.settled_stamp` names the input a post's cache hit recorded:
+the SQLite function `schedule_input_stamp`
+(`internal/store/sqlite/schedule_stamp.go`) hashes the detection stage, the
+extractor version, the post's `source`, `text`, `published_at`, `url` and
+`media_url`, the image lists `raw_json` declares (`mediaUrls`, `media_urls`,
+`mediaURLs`, or the whole record when it is not a JSON object), the shown
+quote's `authorHandle`, `authorName`, `text` and `unavailable` as the
+extractor decodes them, and every `post-image` link in `position, id` order
+with its media ID and the asset's `status`, `sha256`, `mime_type` and
+`cache_path`. It covers every input of the extraction identity and the image
+check, so a change to any of them changes the stamp; a stamp that changes
+when the identity does not only has the post judged once more.
+
+Only a cache hit writes the stamp, in the same statement as the state that
+hit records. Every other state the extractor writes, including a fresh
+model result, stores NULL, as do an operator reprocess request and a
+dismissal. A post is settled for a detection stage when its `status` is
+`success` or `uncertain`, its `route` is that stage's, `reprocess_requested`
+is 0, `last_error`, `failure_fingerprint` and `next_attempt_at` are NULL,
+`failure_count` is 0, and `settled_stamp` equals the stage's current stamp;
+the scan then counts it as a cache hit without loading it (see
+[Schedule extraction pipeline](sources.md#schedule-extraction-pipeline)).
+Startup adds the column empty, so every post is judged until a cache hit
+records its stamp.
+
+A settled post's images are not read, so a cached file deleted from disk
+after the post settled goes unnoticed: the post keeps its stored result
+instead of waiting as `media_pending`, until its input changes or an
+operator requests a reprocess.
 
 ## Related Docs
 

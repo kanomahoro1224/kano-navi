@@ -2,7 +2,7 @@
 
 ## Trust Boundary
 
-- The browser trusts only the prepared snapshot returned by the local API. X, YouTube, image CDNs, and other public pages are untrusted input.
+- The browser trusts only the prepared snapshot returned by the local API. X, YouTube, Bilibili, image CDNs, and other public pages are untrusted input.
 - SQLite, runtime directories, and environment variables belong to the local maintainer boundary and must not be exposed verbatim through the API.
 - `/mcp` is a separate integration boundary: public tools expose only prepared
   read-only facts, while mutation tools require a dedicated bearer token. The
@@ -16,17 +16,26 @@
   from the YouTube push card, which resubscribes with the new value.
 - Cached media is runtime state. The file read routes are `/media/:id`, which
   validates an opaque database ID, a ready status, and a resolved path below the
-  cache root, the selected profile media, and `/media/lineblog/<name>`, which
-  accepts only an archive name and a regular file directly inside
-  `data/lineblog/`.
+  cache root, the selected profile media, and `/media/lineblog/<name>` and
+  `/media/works/<name>`, which accept only an archive name and a regular file
+  directly inside `data/lineblog/` or `data/works/`.
 - This is a public fan-made project; the public dashboard does not collect
   visitor accounts or profiles. The production admin API uses one local session
   cookie after password authentication.
 
 ## Admin Authentication
 
-Optional source API credentials (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`)
-exist only in the environment. Official source requests use
+Optional source API credentials (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`,
+`BILIBILI_COOKIE`, `BILIBILI_SESSDATA`) exist only in the environment. The
+Bilibili login cookies go only to `api.bilibili.com`, never to its ticket
+endpoint; the opus page on
+`www.bilibili.com`, the live host `api.live.bilibili.com` and the official
+client's listing on `app.bilibili.com` are read without it. That listing is
+signed with the app key pair the operator configures (`BILIBILI_APP_KEY`,
+`BILIBILI_APP_SECRET`), which stays in the environment like the other source
+credentials; without it the listing is never requested. The `bili_ticket` request goes to the same fixed `api.bilibili.com` host
+with a key Bilibili's public web script carries; the ticket it returns is a
+device cookie kept with the device identity, not a credential. Official source requests use
 Bearer or `X-Goog-Api-Key` headers with redirects blocked. The admin API
 returns availability flags, not credentials; error reports contain controlled
 codes rather than upstream response bodies or request exceptions. Time-window

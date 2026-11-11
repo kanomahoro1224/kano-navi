@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,9 @@ func TestBilibiliStepStoresUploadsOncePerIntervalAndRecordsCaptchas(t *testing.T
 		switch {
 		case r.URL.Path == "/x/frontend/finger/spi":
 			body = `{"code":0,"data":{"b_3":"0A1B2C3D-0A1B-0A1B-0A1B-0A1B2C3D4E5F12345infoc","b_4":"synthetic-buvid4=="}}`
+		case r.URL.Path == "/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket":
+			// A ticket that expires long after the test's clock.
+			body = strings.Replace(syntheticTicket, "1767225600", strconv.FormatInt(time.Now().Unix(), 10), 1)
 		case blocked:
 			status, body = 412, "<!DOCTYPE html>"
 		}
@@ -44,24 +48,31 @@ func TestBilibiliStepStoresUploadsOncePerIntervalAndRecordsCaptchas(t *testing.T
 		}
 		return result
 	}
-	if first := run(); first.Status != "succeeded" || first.Result["videos"] != 1 || requests != 2 {
+	if first := run(); first.Status != "succeeded" || first.Result["videos"] != 1 || requests != 3 {
 		t.Fatalf("first=%#v requests=%d", first, requests)
 	}
 	// Within the interval the step makes no request.
-	if soon := run(); soon.Status != "succeeded" || soon.Result["reason"] != "interval" || requests != 2 {
+	if soon := run(); soon.Status != "succeeded" || soon.Result["reason"] != "interval" || requests != 3 {
 		t.Fatalf("soon=%#v requests=%d", soon, requests)
 	}
 	now, blocked = now.Add(4*time.Hour), true
 	captcha := run()
-	if captcha.Status != "failed" || requests != 3 {
+	if captcha.Status != "failed" || requests != 4 {
 		t.Fatalf("captcha=%#v requests=%d", captcha, requests)
 	}
-	if errs, _ := captcha.Result["errors"].([]string); len(errs) != 1 || errs[0] != "bilibili_risk_control" {
+	if errs, _ := captcha.Result["errors"].([]string); len(errs) != 1 || errs[0] != "bilibili_risk_control_http" {
 		t.Fatalf("captcha errors=%#v", captcha.Result)
 	}
 	state, err := s.BilibiliState(context.Background(), bilisource.DefaultAccount)
 	if err != nil || !state.BlockedUntil.After(now) {
 		t.Fatalf("state=%#v err=%v", state, err)
+	}
+	// The backoff is shared: the dynamics step waits too, even with a login
+	// and its own interval elapsed, and makes no request.
+	adapter.Options.SESSDATA = syntheticLogin
+	held, err := steps.Execute(context.Background(), StepInput{StepID: sqlite.BilibiliDynamicsSource, WorkflowID: sqlite.AdhocSyncWorkflow})
+	if err != nil || held.Status != "succeeded" || held.Result["reason"] != "blocked" || requests != 4 {
+		t.Fatalf("held=%#v err=%v requests=%d", held, err, requests)
 	}
 	// The stored upload survives the failed read.
 	page, err := s.ListAdminVideos(context.Background(), sqlite.AdminVideoFilter{Source: "bilibili"})
@@ -91,10 +102,6 @@ func TestReconcileStepMergesBilibiliUploads(t *testing.T) {
 	}
 	// A run that only reads Bilibili is reconciled afterwards.
 	if got := withReconcile([]string{"bilibili", "media"}); strings.Join(got, ",") != "bilibili,media,reconcile" {
-		t.Fatalf("steps=%v", got)
-	}
-	// So is a run that only reads the dynamics step.
-	if got := withReconcile([]string{"bilibili-posts", "media"}); strings.Join(got, ",") != "bilibili-posts,media,reconcile" {
 		t.Fatalf("steps=%v", got)
 	}
 }

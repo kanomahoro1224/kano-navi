@@ -6,139 +6,193 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/url"
+	"path"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// The dynamics API answers only with a signed query (Bilibili's wbi scheme):
-// the caller hashes its parameters together with a key derived from two image
-// names that /x/web-interface/nav publishes, and sends the hash as w_rid.
-// Bilibili rotates those images a few times a day, so the key is cached per
-// client and fetched again once it is stale.
-
-// mixinKeyEncTab permutes the concatenated image names into the signing key.
-var mixinKeyEncTab = []int{
-	46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5,
-	49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55,
-	40, 61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57,
-	62, 11, 36, 20, 34, 44, 52,
+// WBIKeys are the rotating keys Bilibili's web pages sign some API requests
+// with. They come from /x/web-interface/nav and change about daily.
+type WBIKeys struct {
+	Img string `json:"img"`
+	Sub string `json:"sub"`
+	// At is when the keys were read.
+	At string `json:"at,omitempty"`
 }
 
-// wbiKeyTTL is how long a fetched signing key is reused.
-const wbiKeyTTL = 6 * time.Hour
+// wbiTTL is how long read keys are reused.
+const wbiTTL = 12 * time.Hour
 
-type wbiKey struct {
-	mixin string
-	at    time.Time
+var wbiKeyPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
+
+func (k WBIKeys) valid() bool {
+	return wbiKeyPattern.MatchString(k.Img) && wbiKeyPattern.MatchString(k.Sub)
 }
 
-// mixinKey returns the signing key, fetching it when none is cached or the
-// cached one is stale.
-func (c *Client) mixinKey(ctx context.Context) (string, error) {
-	now := time.Now()
-	c.mu.Lock()
-	key := c.wbi
-	c.mu.Unlock()
-	if key.mixin != "" && now.Sub(key.at) < wbiKeyTTL {
-		return key.mixin, nil
-	}
-	data, err := c.get(ctx, "/x/web-interface/nav", nil, "https://www.bilibili.com/", nil)
-	if err != nil {
-		return "", err
-	}
-	var nav struct {
-		WbiImg *struct {
-			ImgURL string `json:"img_url"`
-			SubURL string `json:"sub_url"`
-		} `json:"wbi_img"`
-	}
-	if json.Unmarshal(data, &nav) != nil || nav.WbiImg == nil {
-		return "", &Error{"bilibili_invalid_response"}
-	}
-	img, sub := imageStem(nav.WbiImg.ImgURL), imageStem(nav.WbiImg.SubURL)
-	if img == "" || sub == "" {
-		return "", &Error{"bilibili_invalid_response"}
-	}
-	mixin := deriveMixinKey(img + sub)
-	if mixin == "" {
-		return "", &Error{"bilibili_invalid_response"}
-	}
-	c.mu.Lock()
-	c.wbi = wbiKey{mixin: mixin, at: now}
-	c.mu.Unlock()
-	return mixin, nil
+func (k WBIKeys) fresh(now time.Time) bool {
+	at, err := time.Parse(time.RFC3339Nano, k.At)
+	return k.valid() && err == nil && now.Sub(at) < wbiTTL && !at.After(now)
 }
 
-// forgetMixinKey drops the cached key, so a refused signature asks for a new
-// one instead of repeating the same mismatch for hours.
-func (c *Client) forgetMixinKey() {
-	c.mu.Lock()
-	c.wbi = wbiKey{}
-	c.mu.Unlock()
+var mixinKeyEncTab = [64]int{
+	46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
+	33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
+	61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
+	36, 20, 34, 44, 52,
 }
 
-// keysStale reports whether the next signed read has to fetch a signing key
-// first, which the caller counts as an extra request.
-func (c *Client) keysStale() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.wbi.mixin == "" || time.Since(c.wbi.at) >= wbiKeyTTL
-}
-
-// imageStem is the name part of a wbi image URL, such as 7cd084941338484a...
-// from https://i0.hdslb.com/bfs/wbi/7cd084941338484a....png.
-func imageStem(raw string) string {
-	stem := raw
-	if i := strings.LastIndex(raw, "/"); i >= 0 {
-		stem = raw[i+1:]
-	}
-	if i := strings.LastIndex(stem, "."); i > 0 {
-		stem = stem[:i]
-	}
-	if len(stem) < 32 {
-		return ""
-	}
-	return stem
-}
-
-// deriveMixinKey takes the first 32 characters of the permuted image names.
-func deriveMixinKey(raw string) string {
-	if len(raw) < 64 {
-		return ""
-	}
+// mixinKey reorders img+sub and keeps 32 characters.
+func (k WBIKeys) mixinKey() string {
+	raw := k.Img + k.Sub
 	var b strings.Builder
 	for _, i := range mixinKeyEncTab {
-		b.WriteByte(raw[i])
+		if i < len(raw) {
+			b.WriteByte(raw[i])
+		}
 	}
-	return b.String()[:32]
+	out := b.String()
+	return out[:min(32, len(out))]
 }
 
-// signWBI returns the signed query as Bilibili expects it: parameters sorted
-// by name, their values stripped of characters the signature cannot carry,
-// the timestamp included, and w_rid last.
-func signWBI(query url.Values, mixinKey string, at time.Time) string {
-	params := url.Values{}
-	for name, values := range query {
-		if len(values) == 0 {
-			continue
-		}
-		params.Set(name, stripSigningCharacters(values[0]))
-	}
-	params.Set("wts", strconv.FormatInt(at.Unix(), 10))
-	// Values.Encode sorts by name, which the signature requires.
-	signed := params.Encode()
-	sum := md5.Sum([]byte(signed + mixinKey))
-	return signed + "&w_rid=" + hex.EncodeToString(sum[:])
+// wbiEscape is encodeURIComponent: uppercase escapes and %20 for a space.
+func wbiEscape(value string) string {
+	return strings.ReplaceAll(url.QueryEscape(value), "+", "%20")
 }
 
-// stripSigningCharacters removes the punctuation Bilibili's own signer
-// removes before hashing.
-func stripSigningCharacters(value string) string {
-	return strings.Map(func(r rune) rune {
-		if strings.ContainsRune("!'()*", r) {
-			return -1
+// signWBI returns the query with wts and w_rid added. Values lose the
+// characters !'()* first, as Bilibili's own script does.
+func signWBI(query url.Values, keys WBIKeys, now time.Time) string {
+	params := map[string]string{"wts": strconv.FormatInt(now.Unix(), 10)}
+	for key, values := range query {
+		if len(values) > 0 {
+			params[key] = strings.Map(func(r rune) rune {
+				if strings.ContainsRune("!'()*", r) {
+					return -1
+				}
+				return r
+			}, values[0])
 		}
-		return r
-	}, value)
+	}
+	names := make([]string, 0, len(params))
+	for key := range params {
+		names = append(names, key)
+	}
+	sort.Strings(names)
+	parts := make([]string, 0, len(names)+1)
+	for _, key := range names {
+		parts = append(parts, wbiEscape(key)+"="+wbiEscape(params[key]))
+	}
+	encoded := strings.Join(parts, "&")
+	sum := md5.Sum([]byte(encoded + keys.mixinKey()))
+	return encoded + "&w_rid=" + hex.EncodeToString(sum[:])
+}
+
+// parseNavKeys reads the key file names from a nav answer. A signed-out
+// answer (-101) still carries them.
+func parseNavKeys(body []byte, now time.Time) (WBIKeys, bool, error) {
+	var out struct {
+		Code *int `json:"code"`
+		Data struct {
+			IsLogin bool `json:"isLogin"`
+			WBI     struct {
+				Img string `json:"img_url"`
+				Sub string `json:"sub_url"`
+			} `json:"wbi_img"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(body, &out) != nil || out.Code == nil {
+		if _, err := envelope(body); err != nil {
+			return WBIKeys{}, false, err
+		}
+		return WBIKeys{}, false, &Error{"bilibili_invalid_response"}
+	}
+	if *out.Code != 0 && *out.Code != -101 {
+		_, err := envelope(body)
+		return WBIKeys{}, false, err
+	}
+	stem := func(raw string) string {
+		u, err := url.Parse(raw)
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSuffix(path.Base(u.Path), path.Ext(u.Path))
+	}
+	keys := WBIKeys{Img: stem(out.Data.WBI.Img), Sub: stem(out.Data.WBI.Sub), At: now.UTC().Format(time.RFC3339Nano)}
+	if !keys.valid() {
+		return WBIKeys{}, false, &Error{"bilibili_invalid_response"}
+	}
+	return keys, out.Data.IsLogin, nil
+}
+
+// NavKeys reads the current WBI keys and whether the login cookie is
+// accepted.
+func (c *Client) NavKeys(ctx context.Context, session Session, now time.Time) (WBIKeys, bool, error) {
+	body, err := c.fetch(ctx, apiHost, "/x/web-interface/nav", "", "https://www.bilibili.com/", "application/json", &session, true)
+	if err != nil {
+		return WBIKeys{}, false, err
+	}
+	return parseNavKeys(body, now)
+}
+
+// spaceOffset is a listing continuation as Bilibili answers it: a dynamic
+// ID, or empty for the first page.
+var spaceOffset = regexp.MustCompile(`^[0-9]{0,20}$`)
+
+// spaceFeatures are the listing features Bilibili's own space page asks for;
+// itemOpusStyle returns pictures and text as an opus card.
+const spaceFeatures = "itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,forwardListHidden,decorationCard,commentsNewVersion,onlyfansAssetsV2,ugcDelete,onlyfansQaCard"
+
+// SpaceDynamics reads the first page of an account's dynamics. It needs the
+// login cookie, which it sends, and a WBI signature.
+func (c *Client) SpaceDynamics(ctx context.Context, account string, session Session, keys WBIKeys, now time.Time) (SpacePage, error) {
+	return c.SpaceDynamicsPage(ctx, account, "", session, keys, now)
+}
+
+// SpaceDynamicsPage reads the page of an account's dynamics that follows
+// offset, the previous page's offset; an empty offset is the first page.
+func (c *Client) SpaceDynamicsPage(ctx context.Context, account, offset string, session Session, keys WBIKeys, now time.Time) (SpacePage, error) {
+	if !mid.MatchString(account) {
+		return SpacePage{}, &Error{"bilibili_invalid_account"}
+	}
+	if !session.valid() {
+		return SpacePage{}, &Error{"bilibili_invalid_session"}
+	}
+	if !sessdata.MatchString(session.Login) {
+		return SpacePage{}, &Error{"bilibili_login_required"}
+	}
+	if !keys.valid() {
+		return SpacePage{}, &Error{"bilibili_invalid_keys"}
+	}
+	if !spaceOffset.MatchString(offset) {
+		return SpacePage{}, &Error{"bilibili_invalid_page"}
+	}
+	query := url.Values{"host_mid": {account}, "offset": {offset}, "timezone_offset": {"-480"}, "platform": {"web"}, "features": {spaceFeatures}, "web_location": {"333.1387"}}
+	body, err := c.fetch(ctx, apiHost, "/x/polymer/web-dynamic/v1/feed/space", signWBI(query, keys, now), "https://space.bilibili.com/"+account+"/dynamic", "application/json", &session, true)
+	if err != nil {
+		return SpacePage{}, err
+	}
+	data, err := envelope(body)
+	if err != nil {
+		return SpacePage{}, err
+	}
+	return ParseSpaceFeed(data, account)
+}
+
+// OpusPage reads one dynamic from its www.bilibili.com/opus page, which
+// renders the dynamic's state on the server and needs no login.
+func (c *Client) OpusPage(ctx context.Context, id string, session Session) (Dynamic, error) {
+	if !dynamicIDPattern.MatchString(id) {
+		return Dynamic{}, &Error{"bilibili_invalid_dynamic"}
+	}
+	if !session.valid() {
+		return Dynamic{}, &Error{"bilibili_invalid_session"}
+	}
+	body, err := c.fetch(ctx, wwwHost, "/opus/"+id, "", "https://www.bilibili.com/", "text/html", &session, false)
+	if err != nil {
+		return Dynamic{}, err
+	}
+	return ParseOpusPage(body, id)
 }

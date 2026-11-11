@@ -38,7 +38,7 @@ func TestListingsFollowTheChainOrder(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			requests := []string{}
 			c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
-				requests = append(requests, r.URL.Path)
+				requests = append(requests, r.URL.Path+" "+r.URL.Query().Get("playlistId"))
 				switch r.URL.Path {
 				case "/feeds/videos.xml":
 					return tc.feed, nil
@@ -56,7 +56,7 @@ func TestListingsFollowTheChainOrder(t *testing.T) {
 				t.Fatalf("listing=%q tried=%v err=%v", result.Listing, result.Tried, err)
 			}
 			for _, path := range requests {
-				if path == "/youtube/v3/playlistItems" {
+				if path == "/youtube/v3/playlistItems UU"+syntheticChannel[2:] {
 					t.Fatalf("the uploads playlist was read: %v", requests)
 				}
 			}

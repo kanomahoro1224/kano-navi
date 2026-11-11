@@ -11,17 +11,18 @@ import (
 	"time"
 )
 
-// SourceSchedule is the timer of one source (ADR-0003). When it is due the
+// SourceSchedule is the timer of one source. When it is due the
 // scheduler submits the source's fixed chain as the ad hoc run
 // SourceScheduleWorkflow(source).
 type SourceSchedule struct {
 	Source          string `json:"source"`
 	Enabled         bool   `json:"enabled"`
 	IntervalMinutes int    `json:"intervalMinutes"`
-	// Sync is how X and YouTube are read (ADR-0002); Bilibili has none.
+	// Sync is how X, its related accounts and YouTube are read;
+	// Bilibili and the shop have none.
 	Sync *SourceSync `json:"sync"`
-	// Chain is the fallback over listing methods that X and YouTube reads
-	// try (ADR-0004); Bilibili's is its one fixed method.
+	// Chain is the fallback over listing methods that X, YouTube and
+	// Bilibili upload reads try; every other timer's is its one fixed method.
 	Chain     SourceChain        `json:"chain"`
 	NextRunAt *string            `json:"nextRunAt"`
 	UpdatedAt *string            `json:"updatedAt"`
@@ -38,17 +39,37 @@ type SourceScheduleRun struct {
 
 const (
 	// SourceScheduleMinMinutes and SourceScheduleMaxMinutes bound every
-	// source interval. Bilibili's lower bound is BILIBILI_MIN_INTERVAL_MINUTES
-	// instead.
+	// source interval. The lower bound of both Bilibili timers is
+	// BILIBILI_MIN_INTERVAL_MINUTES instead, and the shop's
+	// ShopScheduleMinMinutes.
 	SourceScheduleMinMinutes = 15
 	SourceScheduleMaxMinutes = 7 * 24 * 60
+	// ShopScheduleMinMinutes is the shortest shop interval: its product
+	// listing changes a few times a month.
+	ShopScheduleMinMinutes = 180
 	// sourceSchedulePrefix names the ad hoc runs of a source's chain, from
 	// its timer or the operator's Run now.
 	sourceSchedulePrefix = "@source-"
 )
 
+// BilibiliDynamicsSource is the timer and step that read the Bilibili
+// account's dynamics; "bilibili" reads its uploads. Both share one client,
+// device identity and captcha backoff.
+const BilibiliDynamicsSource = "bilibili_dynamics"
+
+// XRelatedStep is the timer and step that read the related X accounts'
+// timelines into the X status pool; "x" reads the own accounts. Its runs
+// keep the x-related sync_state rows (XRelatedSource).
+const XRelatedStep = "x_related"
+
 // ScheduleSources are the sources with a schedule, in catalog order.
-var ScheduleSources = []string{"x", "youtube", "bilibili"}
+var ScheduleSources = []string{"x", XRelatedStep, "youtube", "bilibili", BilibiliDynamicsSource, ShopSource}
+
+// IsBilibiliSchedule reports a Bilibili timer, bounded below by
+// BILIBILI_MIN_INTERVAL_MINUTES.
+func IsBilibiliSchedule(source string) bool {
+	return source == "bilibili" || source == BilibiliDynamicsSource
+}
 
 // SourceScheduleWorkflow is the ad hoc workflow ID of a source's runs.
 func SourceScheduleWorkflow(source string) string { return sourceSchedulePrefix + source }
@@ -62,8 +83,11 @@ func SourceScheduleOf(workflowID string) (string, bool) {
 // SourceScheduleBounds are the interval bounds of a source. floor is the
 // Bilibili list interval in minutes.
 func SourceScheduleBounds(source string, floor int) (int, int) {
-	if source == "bilibili" {
+	if IsBilibiliSchedule(source) {
 		return min(max(floor, SourceScheduleMinMinutes), SourceScheduleMaxMinutes), SourceScheduleMaxMinutes
+	}
+	if source == ShopSource {
+		return ShopScheduleMinMinutes, SourceScheduleMaxMinutes
 	}
 	return SourceScheduleMinMinutes, SourceScheduleMaxMinutes
 }
@@ -72,8 +96,12 @@ func defaultScheduleInterval(source string) int {
 	switch source {
 	case "x":
 		return 30
+	case XRelatedStep:
+		return 180
 	case "youtube":
 		return 60
+	case ShopSource:
+		return 360
 	}
 	return 180
 }
@@ -197,7 +225,7 @@ func (s *Store) SaveSourceSchedule(ctx context.Context, input SourceSchedule, fl
 		return SourceSchedule{}, err
 	}
 	low, high := SourceScheduleBounds(input.Source, floor)
-	if input.IntervalMinutes < low || input.IntervalMinutes > high || (input.Sync == nil) != (current.Sync == nil) || (input.Sync != nil && !input.Sync.Valid()) || (slices.Contains(ChainSources, input.Source) && input.Chain.Problem(input.Source) != "") {
+	if input.IntervalMinutes < low || input.IntervalMinutes > high || (input.Sync == nil) != (current.Sync == nil) || (input.Sync != nil && !input.Sync.ValidFor(input.Source)) || (slices.Contains(ChainSources, input.Source) && input.Chain.Problem(input.Source) != "") {
 		return SourceSchedule{}, ErrWorkflowValidation
 	}
 	tx, err := s.workflowTx(ctx)
@@ -323,7 +351,8 @@ func (s *Store) StartSourceScheduleNow(ctx context.Context, source string, now t
 	return s.SourceScheduleFor(ctx, source, floor)
 }
 
-// SourceScheduleSync is how each source schedule reads X and YouTube, which
+// SourceScheduleSync is how each source schedule reads X, its related
+// accounts and YouTube, which
 // every run with a source step reads with, except a full sync.
 func (s *Store) SourceScheduleSync(ctx context.Context) (map[string]SourceSync, error) {
 	schedules, err := s.SourceSchedules(ctx, SourceScheduleMinMinutes)
@@ -339,7 +368,7 @@ func (s *Store) SourceScheduleSync(ctx context.Context) (map[string]SourceSync, 
 	return out, nil
 }
 
-// SourceScheduleChains is the chain of each X and YouTube schedule, which
+// SourceScheduleChains is the chain of each X, YouTube and Bilibili schedule, which
 // every run with a source step reads through, except a full sync.
 func (s *Store) SourceScheduleChains(ctx context.Context) (map[string]SourceChain, error) {
 	schedules, err := s.SourceSchedules(ctx, SourceScheduleMinMinutes)
@@ -370,10 +399,11 @@ func (s *Store) SetScheduleOffset(draw func(spread int64) int64) { s.scheduleOff
 // plannedInterval is a source's interval with a random offset of up to a
 // tenth of it, so timed reads do not hit a platform on a fixed cadence. The
 // offset is whole seconds, uniform in ±10%, and is reflected into the
-// interval bounds: a plan never goes below the lower bound or above 7 days.
-// Bilibili's offset is never negative, so a plan is never shorter than its
-// interval and therefore never below BILIBILI_MIN_INTERVAL_MINUTES, and the
-// adapter's own interval check does not skip the run.
+// interval bounds: a plan never goes below the lower bound (the shop's
+// minimum for the shop) or above 7 days.
+// A Bilibili timer's offset is never negative, so a plan is never shorter
+// than its interval and therefore never below BILIBILI_MIN_INTERVAL_MINUTES,
+// and the adapter's own interval check does not skip the run.
 func (s *Store) plannedInterval(source string, minutes int) time.Duration {
 	minutes = min(max(minutes, SourceScheduleMinMinutes), SourceScheduleMaxMinutes)
 	interval := time.Duration(minutes) * time.Minute
@@ -384,8 +414,11 @@ func (s *Store) plannedInterval(source string, minutes int) time.Duration {
 	}
 	offset := time.Duration(min(max(draw(spread), -spread), spread)) * time.Second
 	low, high := SourceScheduleMinMinutes*time.Minute, SourceScheduleMaxMinutes*time.Minute
-	if source == "bilibili" {
+	if IsBilibiliSchedule(source) {
 		low = interval
+	}
+	if source == ShopSource {
+		low = ShopScheduleMinMinutes * time.Minute
 	}
 	if interval+offset < low || interval+offset > high {
 		offset = -offset
@@ -415,21 +448,20 @@ func (s *Store) planSourceSchedule(ctx context.Context, tx *sql.Tx, source strin
 }
 
 // PrepareSourceSchedules runs at every start of the process that owns the
-// timers. floor is BILIBILI_MIN_INTERVAL_MINUTES: a stored Bilibili interval
-// below a raised floor is raised to it. Timers live only in source_schedules
-// (ADR-0003), so nothing else is moved.
+// timers. floor is BILIBILI_MIN_INTERVAL_MINUTES: a stored interval of either
+// Bilibili timer below a raised floor is raised to it. Timers live only in
+// source_schedules, so nothing else is moved.
 func (s *Store) PrepareSourceSchedules(ctx context.Context, floor int, now time.Time) error {
 	tx, err := s.workflowTx(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	// A source the console lists may have no row at all: older installations
-	// only saved the sources an operator had touched, and the scheduler reads
-	// rows, not defaults. Seed the missing timers disabled so enabling one is
-	// all that stands between an upgrade and its first timed read. In
-	// particular, Bilibili's dynamics are read by its own source step, so a
-	// missing bilibili timer means no timed run ever asks for them.
+	// A source the console lists may have no row at all: an installation may
+	// only have saved the sources an operator touched, and the scheduler
+	// reads rows, not defaults. Seed each missing timer disabled so enabling
+	// it is all that stands between a start and its first timed read.
+	// Dynamics are their own source, so they need their own row.
 	for _, source := range ScheduleSources {
 		low, high := SourceScheduleBounds(source, floor)
 		interval := min(max(defaultScheduleInterval(source), low), high)
@@ -438,7 +470,7 @@ func (s *Store) PrepareSourceSchedules(ctx context.Context, floor int, now time.
 		}
 	}
 	low, _ := SourceScheduleBounds("bilibili", floor)
-	if _, err = tx.ExecContext(ctx, `UPDATE source_schedules SET interval_minutes=?,updated_at=? WHERE source='bilibili' AND interval_minutes<?`, low, workflowTime(now), low); err != nil {
+	if _, err = tx.ExecContext(ctx, `UPDATE source_schedules SET interval_minutes=?,updated_at=? WHERE source IN ('bilibili',?) AND interval_minutes<?`, low, workflowTime(now), BilibiliDynamicsSource, low); err != nil {
 		return ErrWorkflowStorage
 	}
 	if tx.Commit() != nil {

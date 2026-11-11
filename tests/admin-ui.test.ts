@@ -12,12 +12,16 @@ const overview = {
   timers: { scheduled: 0, nextRunAt: null },
   sources: {
     x: { skipped: true, lastSuccessAt: null, lastStep: null },
+    x_related: { skipped: true, lastSuccessAt: null, lastStep: null },
     youtube: { skipped: true, lastSuccessAt: null, lastStep: null },
     bilibili: { skipped: true, lastSuccessAt: null, lastStep: null },
+    bilibili_dynamics: { skipped: true, lastSuccessAt: null, lastStep: null },
+    shop: { skipped: true, lastSuccessAt: null, lastStep: null },
   },
   review: {
     pendingImages: 0,
     suspectedCancellations: 0,
+    uncertainEvents: 0,
     failedPosts: 0,
     failedExtractions: 0,
     failedTranslations: 0,
@@ -44,8 +48,59 @@ const variantStatus = {
   checkedAt: "2026-03-02T03:00:00.000Z",
   groups: [
     { group: "lineblog", originals: 4, ready: 4, unhashed: 0, widths: [] },
-    { group: "history", originals: 3, ready: 1, unhashed: 2, widths: [] },
+    { group: "works", originals: 2, ready: 0, unhashed: 2, widths: [] },
+    { group: "journey", originals: 3, ready: 1, unhashed: 2, widths: [] },
     { group: "media", originals: 0, ready: 0, unhashed: 0, widths: [] },
+  ],
+}
+
+const worksCovers = {
+  total: 3,
+  covered: 1,
+  due: 1,
+  waiting: 0,
+  uncovered: 1,
+  skipped: false,
+  checkedAt: "2026-03-02T03:00:00.000Z",
+  uploads: [
+    {
+      id: "2026-01-02-abcdef",
+      date: "2026-01-02",
+      state: "due",
+      videos: [
+        {
+          platform: "niconico",
+          id: "sm2",
+          members: false,
+          state: "gone",
+          code: "niconico_not_found",
+          retryAt: null,
+        },
+        {
+          platform: "bilibili",
+          id: "BV1BBBBBBBBB",
+          members: false,
+          state: "due",
+          code: null,
+          retryAt: null,
+        },
+      ],
+    },
+    {
+      id: "2026-01-01-abcdef",
+      date: "2026-01-01",
+      state: "uncovered",
+      videos: [
+        {
+          platform: "niconico",
+          id: "sm1",
+          members: false,
+          state: "gone",
+          code: "niconico_not_found",
+          retryAt: null,
+        },
+      ],
+    },
   ],
 }
 
@@ -98,7 +153,7 @@ function restoreBrowser(
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previous.act
 }
 
-test("the real admin Site route saves visitor-region settings and makes image copies", async () => {
+test("the real admin Site route saves visitor-region settings, makes image copies and fills Works covers", async () => {
   const vite = await createServer({
     configFile: false,
     envDir: false,
@@ -135,9 +190,11 @@ test("the real admin Site route saves visitor-region settings and makes image co
               ? visitorRegion
               : path.startsWith("/media/variants")
                 ? variantStatus
-                : method === "POST" && path === "/runs"
-                  ? { run: { id: "synthetic-run" } }
-                  : {}
+                : path === "/media/works-covers"
+                  ? worksCovers
+                  : method === "POST" && path === "/runs"
+                    ? { run: { id: "synthetic-run" } }
+                    : {}
     return new Response(JSON.stringify(payload), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -194,12 +251,18 @@ test("the real admin Site route saves visitor-region settings and makes image co
     // a new listing and Make missing copies queues the variants run.
     const text = root!.container.textContent
     assert.match(text, /LINE BLOG archive4\/ 4 imagesAll copies made/)
+    assert.match(text, /Works covers0\/ 2 images2 without copies/)
     assert.match(text, /Journey images1\/ 3 images2 without copies/)
-    const button = (label: string) =>
-      [...root!.container.querySelectorAll("button")].find(
-        (element) => element.textContent === label,
-      )
-    await click(button("Check again"))
+    const button = (label: string, panel?: string) =>
+      [
+        ...(panel
+          ? [...root!.container.querySelectorAll("section.adm-panel")].find(
+              (section) => section.querySelector("h2")?.textContent === panel,
+            )!
+          : root!.container
+        ).querySelectorAll("button"),
+      ].find((element) => element.textContent === label)
+    await click(button("Check again", "Image copies"))
     assert.ok(
       requests.some(
         (request) =>
@@ -212,6 +275,18 @@ test("the real admin Site route saves visitor-region settings and makes image co
       (request) => request.method === "POST" && request.path === "/runs",
     )
     assert.deepEqual(run?.body, { kind: "variants" })
+    // The covers card counts the uploads, lists those without a cover with
+    // their videos' states, and Fill missing covers queues a media step.
+    assert.match(text, /Covered1\/ 3 uploads/)
+    assert.match(text, /Every video gone1\/ 3 uploads/)
+    assert.match(text, /Uploads without a cover \(2\)/)
+    assert.match(text, /2026-01-022026-01-02-abcdefDue/)
+    assert.match(text, /niconicosm2Goneniconico_not_found/)
+    await click(button("Fill missing covers"))
+    const runs = requests.filter(
+      (request) => request.method === "POST" && request.path === "/runs",
+    )
+    assert.deepEqual(runs.at(-1)?.body, { kind: "workflow", steps: ["media"] })
   } finally {
     await act(async () => root?.unmount())
     restoreBrowser(installed.previous)

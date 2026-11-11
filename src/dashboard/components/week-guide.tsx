@@ -36,6 +36,10 @@ import {
   eventIsManual,
   eventKinds,
   eventTagKey,
+  eventAnnouncement,
+  eventLink,
+  eventLinks,
+  eventShowsPlatformLinks,
   eventStatus,
   eventTags,
   formatJapanTime,
@@ -44,6 +48,7 @@ import {
   formatWeekRange,
   japanToday,
   localDateKey,
+  scheduleEntries,
   sortEvents,
   startOfWeek,
   visitorIsInJapan,
@@ -52,6 +57,7 @@ import { archiveRange } from "../use-dashboard"
 import { ArchiveMore, ArchiveState } from "./archive-dialog"
 import { CalendarSubscribe } from "./calendar-subscribe"
 import { EventTagIcon } from "./event-tag"
+import { PlatformLinks } from "./platform-links"
 import { SheetDialog } from "./sheet-dialog"
 import { TranslatedTitle } from "./translated-title"
 
@@ -60,13 +66,16 @@ function keyToDate(key: string) {
   return new Date(year, month - 1, day)
 }
 
-/** Events of an inclusive date range, in schedule order, keyed by Japan date. */
+/**
+ * Calendar entries of an inclusive date range, in schedule order, keyed by
+ * Japan date. A sale period shows at its opening and its close.
+ */
 function groupByDay(
   events: ScheduleEvent[],
   range: { from: string; to: string },
 ) {
   const grouped = new Map<string, ScheduleEvent[]>()
-  for (const event of sortEvents(events)) {
+  for (const event of sortEvents(events.flatMap(scheduleEntries))) {
     const key = eventDateKey(event)
     if (key < range.from || key > range.to) continue
     let day = grouped.get(key)
@@ -89,16 +98,23 @@ const typeTones: Record<string, string> = {
   event: "sky",
   release: "honey",
   video: "lavender",
+  sale: "lavender",
 }
 
 const statusTones: Record<string, string> = {
   live: "berry",
+  open: "leaf",
   cancelled: "danger",
   cancellation_review: "honey",
 }
 
 /** What an entry's card and its sheet both show. */
-function entryFacts(event: ScheduleEvent, now: number, t: Translator) {
+function entryFacts(
+  event: ScheduleEvent,
+  now: number,
+  locale: Locale,
+  t: Translator,
+) {
   const status = eventStatus(event, now)
   const { typeKey, tag, work } = eventKinds(event)
   const cancellationNote =
@@ -123,6 +139,22 @@ function entryFacts(event: ScheduleEvent, now: number, t: Translator) {
     time: event.startsAt ? formatJapanTime(event.startsAt) : null,
     manual: eventIsManual(event),
     note: cancellationNote?.filter(Boolean).join(" · ") || null,
+    saleMark: event.saleMark || null,
+    link: eventLink(event),
+    ...entryLinks(event, locale, now),
+  }
+}
+
+/**
+ * An entry's platform links and, when they show, its own announcement link
+ * beside them.
+ */
+function entryLinks(event: ScheduleEvent, locale: Locale, now: number) {
+  const links = eventLinks(event, locale, now)
+  const shown = eventShowsPlatformLinks(event, links)
+  return {
+    links: shown ? links : [],
+    announcement: shown ? eventAnnouncement(event, links) : null,
   }
 }
 
@@ -170,12 +202,15 @@ function EntryTags({
   t: Translator
   children?: ReactNode
 }) {
-  const { typeKey, tag, work, status } = facts
+  const { typeKey, tag, work, status, saleMark } = facts
   const showStatus = !quietStatuses.includes(status)
   if (!typeKey && !tag && !showStatus && !children) return null
   return (
     <span className="guide-event-tags">
       {typeKey ? <span className="tag">{t(typeKey)}</span> : null}
+      {saleMark ? (
+        <span className="tag">{t(`schedule.sale.${saleMark}`)}</span>
+      ) : null}
       {tag ? (
         <span className="tag guide-event-kind">
           <EventTagIcon tag={tag} work={work} />
@@ -246,6 +281,7 @@ function EntrySheet({
             className="entry-sheet-title-text"
             title={cleanVideoTitle(event.title)}
             translations={event.translations}
+            sourceLanguage={event.sourceLanguage}
             t={t}
           />
         </h3>
@@ -258,10 +294,18 @@ function EntrySheet({
           <Provenance manual={facts.manual} labelled t={t} />
         </EntryTags>
         {facts.note ? <p className="guide-event-note">{facts.note}</p> : null}
-        {event.url ? (
+        {facts.links.length ? (
+          <PlatformLinks
+            links={facts.links}
+            title={cleanVideoTitle(event.title)}
+            variant="pill"
+            t={t}
+          />
+        ) : null}
+        {(facts.links.length ? facts.announcement : facts.link) ? (
           <ExternalLink
             className="pill-button entry-sheet-open"
-            href={event.url}
+            href={(facts.links.length ? facts.announcement : facts.link)!}
           >
             {t("schedule.openLink")}
             <ArrowUpRight aria-hidden="true" />
@@ -308,7 +352,7 @@ function GuideEvent({
         behavior: "smooth",
       })
   }, [pickTurn])
-  const facts = entryFacts(event, now, t)
+  const facts = entryFacts(event, now, locale, t)
 
   return (
     <li ref={itemRef}>
@@ -334,6 +378,7 @@ function GuideEvent({
           className="guide-event-title"
           title={cleanVideoTitle(event.title)}
           translations={event.translations}
+          sourceLanguage={event.sourceLanguage}
           onOpen={() => setOpen(true)}
           t={t}
         />
@@ -345,10 +390,18 @@ function GuideEvent({
               </span>
             ) : null}
             <EntryTags facts={facts} t={t}>
-              {event.url ? (
+              {facts.links.length ? (
+                <PlatformLinks
+                  links={facts.links}
+                  title={cleanVideoTitle(event.title)}
+                  variant="chip"
+                  t={t}
+                />
+              ) : null}
+              {(facts.links.length ? facts.announcement : facts.link) ? (
                 <ExternalLink
                   className="guide-event-open"
-                  href={event.url}
+                  href={(facts.links.length ? facts.announcement : facts.link)!}
                   aria-label={t("schedule.openLink")}
                   title={t("schedule.openLink")}
                 >
@@ -561,11 +614,17 @@ function MonthGrid({
                       ? formatJapanTime(event.startsAt)
                       : null
                     const title = cleanVideoTitle(
-                      pickTranslation(event.translations, contentLocale)
-                        ?.text || event.title,
+                      pickTranslation(
+                        event.translations,
+                        contentLocale,
+                        event.sourceLanguage,
+                      )?.text || event.title,
                     )
                     const label = [
                       `${time || t("common.pendingConfirmation")} ${title}`,
+                      event.saleMark
+                        ? t(`schedule.sale.${event.saleMark}`)
+                        : null,
                       tag ? t(eventTagKey(tag, work)) : null,
                       quietStatuses.includes(status)
                         ? null

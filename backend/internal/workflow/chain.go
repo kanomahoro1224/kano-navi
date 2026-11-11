@@ -5,15 +5,11 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
-// ChainSource is the source whose method chain a step reads through
-// (ADR-0004): the live-status probe reads YouTube's, and the dynamics step
-// reads Bilibili's.
+// ChainSource is the source whose method chain a step reads through. The
+// live-status probe reads YouTube's.
 func ChainSource(step string) string {
-	switch step {
-	case "live":
+	if step == "live" {
 		return "youtube"
-	case "bilibili-posts":
-		return "bilibili"
 	}
 	return step
 }

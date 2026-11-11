@@ -248,7 +248,7 @@ func fullResolution(path string) resolution {
 }
 
 // eventColumns are scanEvent's columns.
-const eventColumns = `id,source,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,tag,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_at,updated_at`
+const eventColumns = `id,source,title,detail,starts_on,starts_at,ends_at,ends_on,timezone,time_precision,status,event_type,tag,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_at,updated_at,platform,platforms`
 
 // queryLinkedEvents finds each video's linked event in one query: the
 // non-deleted event that names the video by ID, source evidence or stream
@@ -261,10 +261,25 @@ func (s *Store) queryLinkedEvents(ctx context.Context, videos []Video, now time.
 		for _, v := range chunk {
 			args = append(args, v.ID, v.URL, stringValue(v.ScheduledAt))
 		}
-		rows, err := s.db.QueryContext(ctx, `WITH v(vid,vurl,vat) AS (VALUES `+strings.TrimSuffix(strings.Repeat("(?,?,?),", len(chunk)), ",")+`)
- SELECT vid,`+eventColumns+` FROM (
- SELECT v.vid,`+eventColumnsAs("e")+`,ROW_NUMBER() OVER (PARTITION BY v.vid ORDER BY ABS(julianday(e.starts_at)-julianday(v.vat)),e.id ASC) AS pick FROM v JOIN events e ON e.deleted_at IS NULL AND (e.id='youtube-'||v.vid OR (e.source='youtube' AND e.source_item_id=v.vid) OR EXISTS (SELECT 1 FROM event_sources es WHERE es.event_id=e.id AND es.source='youtube' AND es.source_item_id=v.vid) OR (e.url IS NOT NULL AND stream_identity(e.url)=stream_identity(v.vurl)))
- ) WHERE pick=1`, args...)
+		// Keep each identity match as a separate indexed branch. Combining the
+		// branches in one OR forces SQLite to scan the events table for every
+		// video, even though the snapshot has indexes for all four identities.
+		// The window rank removes duplicates when one event matches more than one
+		// identity while retaining the nearest event for each video.
+		values := strings.TrimSuffix(strings.Repeat("(?,?,?),", len(chunk)), ",")
+		base := `e.deleted_at IS NULL AND ` + eventShownSQL("e")
+		matchColumns := `v.vid AS vid,v.vat AS vat,` + eventColumnsAs("e")
+		rows, err := s.db.QueryContext(ctx, `WITH v(vid,vurl,vat) AS (VALUES `+values+`), matches AS (
+	 SELECT `+matchColumns+` FROM v JOIN events e ON e.id='youtube-'||v.vid WHERE `+base+`
+	 UNION ALL
+	 SELECT `+matchColumns+` FROM v JOIN events e ON e.source='youtube' AND e.source_item_id=v.vid WHERE `+base+`
+	 UNION ALL
+	 SELECT `+matchColumns+` FROM v JOIN event_sources es ON es.source='youtube' AND es.source_item_id=v.vid JOIN events e ON e.id=es.event_id WHERE `+base+`
+	 UNION ALL
+	 SELECT `+matchColumns+` FROM v JOIN events e ON e.url IS NOT NULL AND stream_identity(e.url)=stream_identity(v.vurl) WHERE `+base+`
+	 ), ranked AS (
+	 SELECT vid,`+eventColumns+`,ROW_NUMBER() OVER (PARTITION BY vid ORDER BY ABS(julianday(starts_at)-julianday(vat)),id ASC) AS pick FROM matches
+	 ) SELECT vid,`+eventColumns+` FROM ranked WHERE pick=1`, args...)
 		if err != nil {
 			return nil, dbErr(err)
 		}

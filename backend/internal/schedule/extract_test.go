@@ -443,7 +443,7 @@ func boardFixture(t *testing.T) (*fixture, string) {
 	f.addCachedImage(imageURL, []byte(pngHeader))
 	f.exec(`INSERT INTO assets (id, kind, url, source_url, week_start) VALUES ('schedule-2026-04-27', 'schedule', ?, ?, '2026-04-27')`, imageURL, sourceURL)
 	f.provider.respond = func(recordedRequest) (int, string) {
-		return http.StatusOK, stringify(obj("output_text", `{"classification":"schedule","confidence":0.91,"evidence":"weekly grid","reason":"table of days"}`))
+		return http.StatusOK, stringify(obj("output_text", `{"classification":"schedule","text":"月曜 20:00 配信","confidence":0.91,"evidence":"weekly grid","reason":"table of days"}`))
 	}
 	return f, imageURL
 }
@@ -472,12 +472,12 @@ func TestScheduleImageVerificationApprovesAsset(t *testing.T) {
 	if result.Status != "success" || countOf(assets, "success") != 1 || countOf(assets, "schedule") != 1 || countOf(assets, "skipped") != 1 || countOf(assets, "attempted") != 2 {
 		t.Errorf("result = %q %v", result.Status, result.Counts)
 	}
-	review := `SELECT llm_status || '|' || COALESCE(llm_confidence,'') || '|' || COALESCE(llm_reason,'') || '|' || COALESCE(llm_evidence,'') || '|' ||
+	review := `SELECT llm_status || '|' || COALESCE(llm_confidence,'') || '|' || COALESCE(llm_text,'') || '|' || COALESCE(llm_reason,'') || '|' || COALESCE(llm_evidence,'') || '|' ||
 		COALESCE(llm_model,'') || '|' || manual_status || '|' || (llm_input_fingerprint IS NOT NULL) || '|' || (llm_checked_at IS NOT NULL) FROM schedule_asset_reviews WHERE asset_id=?`
-	if got := f.text(review, "schedule-2026-04-27"); got != "schedule|0.91|table of days|weekly grid|model-v|unreviewed|1|1" {
+	if got := f.text(review, "schedule-2026-04-27"); got != "schedule|0.91|月曜 20:00 配信|table of days|weekly grid|model-v|unreviewed|1|1" {
 		t.Errorf("approved review = %q", got)
 	}
-	if got := f.text(review, "schedule-2026-04-20"); got != "skipped||source_not_board|||unreviewed|0|0" {
+	if got := f.text(review, "schedule-2026-04-20"); got != "skipped|||source_not_board|||unreviewed|0|0" {
 		t.Errorf("gated review = %q", got)
 	}
 	if got := f.text(`SELECT llm_status || '|' || manual_status || '|' || manual_reason FROM schedule_asset_reviews WHERE asset_id='schedule-2026-04-13'`); got != "pending|not_schedule|operator" {
@@ -746,7 +746,7 @@ func TestPostsWithoutUsableInputAreSkipped(t *testing.T) {
 		f.exec(`INSERT INTO media_links (media_id, owner_type, owner_id, role, position, created_at, updated_at) VALUES (?, 'post', 'post-img', 'post-image', 0, ?, ?)`,
 			mediaIDForSourceURL(imageURL), testTimestamp, testTimestamp)
 		f.scan()
-		if f.provider.count() != 0 || f.text(state) != "skipped|no_compatible_provider" {
+		if f.provider.count() != 0 || f.text(state) != "skipped|no_route_target" {
 			t.Errorf("state = %q, requests = %d", f.text(state), f.provider.count())
 		}
 	})
@@ -800,5 +800,64 @@ func TestRunStopsWhenContextIsCancelled(t *testing.T) {
 
 	if _, err = f.run.Run(ctx); !errors.Is(err, context.Canceled) || f.provider.count() != 1 {
 		t.Errorf("a cancelled context still ran: %v, %d requests", err, f.provider.count())
+	}
+}
+
+func TestHiddenPostsAreNeverExtracted(t *testing.T) {
+	f := messageFixture(t)
+	f.exec(`UPDATE posts SET hidden_at=? WHERE id='post-1'`, testTimestamp)
+	f.scan()
+	if f.provider.count() != 0 || f.number(`SELECT COUNT(*) FROM post_llm_states`) != 0 {
+		t.Fatalf("hidden post was extracted: %d requests", f.provider.count())
+	}
+	// An operator's reprocess request waits until the post is shown again.
+	f.requestReprocess("post-1")
+	f.scan()
+	if f.provider.count() != 0 {
+		t.Fatalf("requested hidden post was extracted: %d requests", f.provider.count())
+	}
+	f.exec(`UPDATE posts SET hidden_at=NULL WHERE id='post-1'`)
+	f.scan()
+	if f.provider.count() != 1 || f.number(`SELECT COUNT(*) FROM events WHERE source_item_id='post-1'`) != 1 {
+		t.Fatalf("shown post was not extracted: %d requests", f.provider.count())
+	}
+	if got := f.text(`SELECT reprocess_requested FROM post_llm_states WHERE post_id='post-1'`); got != "0" {
+		t.Errorf("request was not cleared: %q", got)
+	}
+}
+
+func TestQuotedWordingIsMarkedContext(t *testing.T) {
+	f := messageFixture(t)
+	// The post only points at the quote; the schedule is in the quoted wording.
+	f.exec(`UPDATE posts SET text='これ！', quote_json=? WHERE id='post-1'`,
+		`{"id":"1900000000000000001","authorHandle":"agency_synthetic","text":"明日 21時から歌枠配信します","url":"https://x.com/agency_synthetic/status/1900000000000000001"}`)
+	f.scan()
+	if f.provider.count() != 1 {
+		t.Fatalf("quoting post was not selected: %d requests", f.provider.count())
+	}
+	body := f.provider.requests[0].body
+	if !strings.Contains(body, `これ！\n\n[Quoted post by @agency_synthetic. The source post quotes this wording; it is context, not the source post's own text.]\n明日 21時から歌枠配信します`) {
+		t.Fatalf("request lacks the marked quote: %s", body)
+	}
+	if got := f.number(`SELECT COUNT(*) FROM events WHERE source_item_id='post-1'`); got != 1 {
+		t.Fatalf("events = %d", got)
+	}
+	// The same input is cached.
+	f.scan()
+	if f.provider.count() != 1 {
+		t.Fatalf("unchanged input was sent again")
+	}
+	// A hidden quote gives no context and changes the input.
+	f.exec(`UPDATE posts SET text='明日 21時から配信', quote_hidden_at=? WHERE id='post-1'`, testTimestamp)
+	f.scan()
+	if f.provider.count() != 2 || strings.Contains(f.provider.requests[1].body, "Quoted post") {
+		t.Fatalf("hidden quote reached the model: %d requests", f.provider.count())
+	}
+	// An unavailable quote adds nothing.
+	f.exec(`UPDATE posts SET quote_hidden_at=NULL, quote_json=? WHERE id='post-1'`,
+		`{"id":"1900000000000000001","url":"https://x.com/i/status/1900000000000000001","unavailable":true}`)
+	f.scan()
+	if f.provider.count() != 2 {
+		t.Fatalf("an unavailable quote changed the input: %d requests", f.provider.count())
 	}
 }

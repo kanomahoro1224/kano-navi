@@ -1,0 +1,83 @@
+.adm-modal {
+  /* Preflight zeroes margins; a modal dialog centers itself with auto. */
+  inset: 0;
+  margin: auto;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: var(--adm-surface);
+  color: var(--adm-text);
+  box-shadow: var(--shadow-lg);
+}
+
+.adm-modal.is-wide {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.adm-modal::backdrop {
+  background: rgb(30 14 22 / 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.adm-modal-body > header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--adm-line);
+  background: var(--adm-surface);
+}
+
+.adm-modal-body h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.adm-modal-content {
+  padding: 20px;
+}
+
+.adm-toasts {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 50;
+  display: grid;
+  gap: 8px;
+  width: min(380px, calc(100vw - 32px));
+}
+
+.adm-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 10px 14px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+}
+
+.adm-toast > svg {
+  color: var(--leaf);
+}
+
+.adm-toast.is-danger {
+  border-color: color-mix(in oklab, var(--danger) 40%, transparent);
+}
+
+.adm-toast.is-danger > svg {
+  color: var(--danger);
+}
+
+.adm-toast span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}

@@ -14,6 +14,21 @@ import type { VideoCategory } from "./video-groups"
 
 const emptyDashboard: Dashboard = {
   profile: fallbackProfile,
+  projection: {
+    version: 0,
+    nextTransitionAt: null,
+    focus: { eventIds: [], videoIds: [] },
+    spotlight: null,
+    sales: [],
+    shelf: {
+      leadId: null,
+      leadIsFeatured: false,
+      reservations: [],
+      works: [],
+      archives: [],
+      shorts: [],
+    },
+  },
   summary: {
     nextEvent: null,
     nextStream: null,
@@ -29,9 +44,10 @@ const emptyDashboard: Dashboard = {
   resources: [],
   assets: [],
   scheduleImages: [],
+  liveNow: null,
   meta: {
     fetchedAt: null,
-    sourceFetchedAt: { x: null, youtube: null, bilibili: null },
+    sourceFetchedAt: { x: null, youtube: null, bilibili: null, shop: null },
     lastSync: null,
     postWindowDays: POST_WINDOW_DAYS,
     xAccounts: ["kano_2525", "_Kanotic"],
@@ -53,7 +69,7 @@ export interface ArchiveRequest {
   kind: ArchiveKind
   /** The schedule or post month shown; the video timeline ignores it. */
   monthStart: Date
-  /** Post archives only: one X handle, or null for every account. */
+  /** Post archives only: an X handle or Bilibili mid, or null for all. */
   account?: string | null
   /** Video archives only: one category, or null for every video. */
   category?: VideoCategory | null
@@ -173,7 +189,7 @@ type LoadResult = { ok: true } | { ok: false; error: Error }
 
 /**
  * The last snapshot this browser read, shown on the next visit until the
- * first read replaces it. The suffix changes when the snapshot's shape does.
+ * first read replaces it. Additive fields are merged with safe defaults.
  */
 const SNAPSHOT_CACHE_KEY = "kano-dashboard-snapshot-v1"
 /** An older stored snapshot is dropped instead of shown. */
@@ -186,6 +202,20 @@ function mergeSnapshot(payload: Partial<Dashboard>): Dashboard {
     ...payload,
     profile: { ...fallbackProfile, ...(payload.profile || {}) },
     summary: { ...emptyDashboard.summary, ...(payload.summary || {}) },
+    projection: payload.projection
+      ? {
+          ...emptyDashboard.projection,
+          ...payload.projection,
+          focus: {
+            ...emptyDashboard.projection!.focus,
+            ...(payload.projection.focus || {}),
+          },
+          shelf: {
+            ...emptyDashboard.projection!.shelf,
+            ...(payload.projection.shelf || {}),
+          },
+        }
+      : emptyDashboard.projection,
     meta: { ...emptyDashboard.meta, ...(payload.meta || {}) },
   }
 }
@@ -206,7 +236,8 @@ function readCachedSnapshot(): Dashboard | null {
       )
     )
       return null
-    return mergeSnapshot(snapshot)
+    // A stored broadcast may have ended; only a fresh read says it is live.
+    return mergeSnapshot({ ...snapshot, liveNow: null })
   } catch {
     return null
   }

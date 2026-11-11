@@ -8,25 +8,122 @@ described in [Backend](backend.md).
 
 `GET /api/health` returns service status, the current ISO timestamp, and a
 whitelisted synchronization summary; it does not return a database path or
-label. `GET /api/dashboard?days=3` clamps days to 1 through 30 and returns
+label. `lastSync.message` is fixed English base text, not localized copy: it
+is `Sync completed`, `Some data sources are unavailable or reported warnings;
+the existing snapshot remains`, `Sync failed; the existing snapshot remains`,
+or `Sync in progress` for the corresponding `success`, `partial`, `failed`,
+and `running` statuses. It is `null` for any other status. `GET /api/dashboard?days=3`
+clamps days to 1 through 30 and returns
 profile, summary, posts, events, videos, focus, timeline, resources, schedule
 assets, media status, and metadata. Posts are the newest 100 published within
-the window plus, however old, the eight newest of each account; MCP
-`dashboard_read` and `posts_list` read the same list. `counts.posts` counts
+the window plus, however old, the eight newest of each own account; MCP
+`dashboard_read` and `posts_list` read the same list. A post with
+`promoted: true` is a related account's status promoted onto the board (see
+[Related accounts](sources.md#related-accounts)): it is never `latestPost`
+or one of an account's eight, and the list and the post archive leave it out
+while a shown own post shows it as a shown quote. `counts.posts` counts
 the window only. `counts.videos` counts public videos whose publication time is
 within the most recent seven days; it is independent of the bounded homepage
-video list.
+video list. Public videos, on the board, the archive, the single-video read,
+MCP and the Atom feed, are every YouTube video and each Bilibili upload that
+is not merged into another video and whose form is settled (see
+[Video merging](data-model.md#video-merging)); a video's `source` is
+`youtube` or `bilibili` and its `url` its own platform's page, and a YouTube
+video lists its merged Bilibili uploads in `alternates` as `{source, url}`.
+A Bilibili upload is never upcoming or live; its `kind` is `upload` or
+`stream` (a live replay, shown as a stream archive).
 The summary contains `nextEvent`, `nextStream`, `latestVideo`, `latestPost`,
-and counts; `latestPost` survives an empty requested window. `latestVideo` is
+and counts; `latestPost` survives an empty requested window. `nextEvent` is
+never a sale period. `latestVideo` is
 the stage's fallback: the newest non-upcoming video that is not a Short,
 unless the operator featured that Short, and that is neither private nor
 removed; a video of unknown format or unknown availability stays
 eligible. Metadata includes configured X accounts and the Featured video ID.
 
-`meta.sourceFetchedAt` contains only `x`, `youtube` and `bilibili` ISO
-timestamps or null, derived from successful incremental source reads, the head
-pages of manual timeline fetches and the Bilibili account's last successful
-read. Other manual fetches do not refresh it; a stored recent-window
+The dashboard also carries a locale-neutral `projection` for shared board
+decisions. `projection.version` identifies the contract (`1` is the current
+version), `nextTransitionAt` is the next parseable ISO instant that can change
+a time-dependent decision, `focus.eventIds` and `focus.videoIds` are the
+ordered event and video candidates, and `sales` is the ordered list of sale
+event IDs shown in the sale strip. `spotlight` identifies the next or latest
+ticket, its live state, the members chip decision, and an optional companion
+video. `shelf` contains the lead ID, whether it is Featured, and the ordered
+reservation, work, archive and Short IDs. The browser uses these IDs to join
+the returned records; it does not infer their order from localized text.
+
+Each event has a `view` with the canonical `state`, `typeCode`,
+`activityCode`, `activityContext`, `isWork`, and sale-expanded
+`calendarEntries`. `state` has exactly seven values: `upcoming` means the
+entry has not started, `live` means a linked broadcast is on air, `open` means
+a sale period is open, `done` means a non-pending entry or sale has ended,
+`pending` means the time or status still needs confirmation, `cancelled` means
+the entry is cancelled, and `cancellation_review` means cancellation evidence
+is awaiting confirmation. `typeCode` is one of `stream`, `member`, `event`,
+`release`, `video` or `sale`, or null when the stored type is outside the
+public set. `activityCode` is one of `live`, `game`, `talk`, `song` or `video`,
+or null. `activityContext` is `stream` or `work` when an activity code is
+present, otherwise the empty string. `isWork` is true only for `release` and
+`video` types. `calendarEntries` keeps the stored `timePrecision` code
+(`exact`, `approximate` or `unknown`); `saleMark` is null for ordinary events,
+`opens` for a sale opening and `closes` for a sale closing. A sale deadline
+has only its closing entry.
+
+Each video has a `view` with its `phase`, `formCode`, `shelfGroup`,
+`latestEligible`, `focusEligible`, and `tagContext`. `phase` is one of
+`upcoming`, `live`, `started`, `past` or `cancelled`. `formCode` is one of
+`short`, `upcoming`, `stream`, `archive`, `premiere` or `video`, or null when
+no public form applies. `shelfGroup` is one of `reservation`, `work`,
+`archive` or `short`, or the empty string for a video omitted from the shelf.
+`tagContext` is `stream` or `work`; the two eligibility fields are booleans.
+These values are codes and booleans, never localized copy. Calendar, archive
+and MCP `schedule_list` reads carry the same event and video `view` objects.
+Clients keep an additive fallback for responses without `projection` or
+`view` so a retained snapshot remains readable while a deployment serves
+mixed versions.
+
+The remaining projection fields use these fixed values. `spotlight.mode` is
+`next` when a current or upcoming candidate exists and `latest` when the
+latest eligible video is the fallback; `spotlight` is null when neither
+exists. `shelf.leadId` is null when there is no work lead, and
+`leadIsFeatured` distinguishes the operator featured video from the derived
+lead. `nextTransitionAt` is null when no scheduled transition is known.
+
+A post's `source` is `x` or `bilibili`. A Bilibili dynamic has the ID
+`bilibili-<dynamic ID>`, its opus page as `url`, the account's mid as
+`accountHandle` and its space as `accountUrl` and zero engagement counts; its
+text may be empty when the dynamic held only emoji. A forward's `quote` is
+the dynamic it forwards (see [Quoted posts](data-model.md#quoted-posts)),
+with that dynamic's post ID as `id` (`null` when the listing did not name
+it), the author's mid as `authorHandle`, and its Bilibili page as `url`; a
+forward's own text may be empty.
+
+Every public event reports its `platform` (`youtube`, `bilibili`, `other`,
+`unknown`, or null for an entry stored before platforms were recorded) and
+`platforms`, the platforms it is shown on with its own first (an empty array
+when none is known; see
+[Event platforms](data-model.md#event-platforms)). Full event reads (the
+board, the calendar) add `links`, one `{platform, url, liveStatus}` per
+shown platform in that order, where `url` is a page on that platform or
+null (an announcement post stays the event's `url`) and `liveStatus` is
+that platform's broadcast state, and `liveUrl`: the
+account's Bilibili live room for an entry of type `stream` or `member` shown
+on Bilibili once a live check learned the room, null otherwise. `url` stays
+the announcement's link, except that a stored live-room link reads as null.
+An entry's `liveStatus` follows its linked video, a YouTube event an
+operator merged into it, or the room when the room's broadcast matched it
+(see [Live room](sources.md#live-room)), and is `live` while any of them
+is. The
+dashboard adds `liveNow`, `{platform: "bilibili", url, title, startedAt}`,
+while the room is live within two Bilibili check intervals and the
+broadcast matches no stored entry, and null otherwise; it is never an event,
+and readers match it against entries by platform and time, not by link. `meta.bilibiliAccounts` lists the accounts (mids) of the
+stored Bilibili posts; the post archive's `account` filter and its
+`accountCounts` take a mid like an X handle.
+
+`meta.sourceFetchedAt` contains only `x`, `youtube`, `bilibili` and `shop`
+ISO timestamps or null, derived from successful incremental source reads, the
+head pages of manual timeline fetches, the Bilibili account's last successful
+read and the shop's. Other manual fetches do not refresh it; a stored recent-window
 checkpoint counts up to its window's end time. Timeline `count` and `all`
 fetches retain their successful head-page read time, so resuming old pages
 does not refresh the source; a timeline checkpoint without that time leaves
@@ -60,7 +157,7 @@ changes. Timestamps are parseable ISO 8601 strings; display and date-window
 boundaries use Asia/Tokyo.
 
 `/api/dashboard`, `/api/calendar`, `/api/posts`, `/api/posts/months`,
-`/api/videos` and `/api/videos/months` send
+`/api/videos`, `/api/videos/months` and `/api/works/uploads` send
 `Cache-Control: no-cache` and a weak ETag, a SHA-256 prefix of the
 uncompressed JSON body. The dashboard's tag leaves out `meta.generatedAt`,
 which changes on every read; the other time-derived fields, such as
@@ -97,8 +194,9 @@ the stream needs are with the deployment guide.
 
 Media responses follow the [media HTTP contract](media-cache.md#http-contract).
 Selected profile media uses `/media/profile/avatar` and
-`/media/profile/banner`, and the LINE BLOG archive's files use
-[`/media/lineblog/<name>`](media-cache.md#line-blog-archive-media).
+`/media/profile/banner`, the LINE BLOG archive's files use
+[`/media/lineblog/<name>`](media-cache.md#line-blog-archive-media), and the
+discography covers use [`/media/works/<name>`](media-cache.md#discography-covers).
 
 ## Bounded Public Calendar
 
@@ -111,10 +209,16 @@ order. It returns sanitized `items` / `events`, `total`, `totalPages`,
 Every read uses the same public event projection as the board, including the
 trusted `liveStatus` of an event's linked video; it does not fetch platforms
 or models. MCP `schedule_list` is the bounded, paginated history reader;
-`dashboard_read` shares the bounded snapshot. Events merged into another event
-are excluded from every one of these reads, including totals, day counts,
-adjacent dates and summary candidates (see
-[Duplicate merging](data-model.md#duplicate-merging)).
+`dashboard_read` shares the bounded snapshot. Events merged into another event,
+and automatic events whose every source post is hidden, are excluded from
+every one of these reads, including totals, day counts, adjacent dates and
+summary candidates (see [Duplicate merging](data-model.md#duplicate-merging)
+and [Events of hidden posts](data-model.md#events-of-hidden-posts)).
+
+Every public event carries `endsOn`, the Japan close date of a
+[sale period](data-model.md#sale-periods) or null. A range lists a sale when
+it contains the sale's opening or close date, and `dayCounts` and the adjacent
+dates count the close date too.
 
 Every public event carries `tag`: `live`, `game`, `talk`, `song` or `video`,
 or null when the entry is unlabelled. Every read derives it the same way from
@@ -126,7 +230,9 @@ and fall back to the title when it is null; see
 
 Dashboard SQL selects up to 100 recent post previews plus the latest-post
 fallback, up to 100 current-week event previews plus 30 upcoming and 30 live
-focus candidates and at most one linked event per returned video, and bounded
+focus candidates, up to 10 [sale periods](data-model.md#sale-periods) on sale
+or opening within seven days (closing soonest first), and at most one linked
+event per returned video, and bounded
 video candidates plus Featured selection and the latest completed video.
 Live event eligibility is applied before the 30-row limit: cancelled and
 suspected cancellations, tombstones, non-stream activities and expired streams
@@ -199,6 +305,37 @@ per category, plus the `revision`. Hidden posts and records without a
 parseable time are not counted. They take no parameters, revalidate through
 their ETags and negotiate gzip like the archive pages.
 
+## Works Uploads
+
+`GET /api/works/uploads` joins the Works page's packaged upload list
+([Upload covers](../development/works-archive.md#upload-covers)) with stored
+data by video ID, on each read and without writing. It returns `updatedAt`,
+the list's date, `revision`, and `uploads`, keyed by upload ID, for each
+upload with a ready cover or a stored video: `cover` (`{url, width, height}`,
+a local `/media/<id>?v=<sha256>` URL with smaller copies, or `null`) and
+`videos`, the stored YouTube and Bilibili videos of the upload in list order
+as `{source, id, title, url, publishedAt, scheduledAt, durationSeconds,
+availability, translations, sourceLanguage}`. Uploads with neither are left
+out. A stored video's title is its shown one (an operator's correction
+first); raw JSON and thumbnails' source URLs never appear.
+
+`recent` lists, newest first, at most 48 of the stored videos dated after
+`updatedAt` that the page shows above the list, derived on each read under
+the rules in
+[Uploads after the collection date](../development/works-archive.md#uploads-after-the-collection-date);
+`recentTotal` counts them all.
+Each is `{id, source, title, url, publishedAt, cover, origin, translations,
+sourceLanguage, alternates}`: `source` is `youtube` or `bilibili`,
+`publishedAt` is a premiere's scheduled time or the publish time, `cover`
+is its ready cached thumbnail in the shape above or `null`, `origin` is
+`auto` (listed by its tag, form and format) or `operator` (an operator's
+decision includes it), and `alternates` names, for a YouTube video, its
+merged Bilibili uploads as `{source, url}`. No kind, artist, credits or
+albums are inferred, and the
+operator's decision itself, availability and counters stay out. Other videos
+outside the list never appear. The read revalidates through its
+[ETag](#public-snapshot-contract) and never fetches platforms.
+
 ## Public Feeds
 
 `GET /api/calendar.ics` is an iCalendar (RFC 5545) subscription of the events
@@ -213,8 +350,15 @@ date. All-day entries also carry `X-MICROSOFT-CDO-ALLDAYEVENT:TRUE`, which
 keeps Outlook from drawing them across two days; timed entries do not. A
 timed event without a stored end after its start lasts an hour when it is a
 stream (the `stream` and `member` types the board treats as streams) and half
-an hour otherwise, since RFC 5545 would make it zero-length. A UID is the
-public event ID with `@kano-navi`. `LAST-MODIFIED` is the event's stored
+an hour otherwise, since RFC 5545 would make it zero-length. A sale period
+is written at its ends, as the board shows it: its opening (titled "Sales
+open:" in the feed's language) and, when it closes on a later date, its close
+("Sales close:"), or the close alone for a deadline (a close on the opening
+date without a stored opening time; a stored time of `unknown` precision
+makes an all-day opening, as on the board). A closing entry with a
+time ends at that time and starts half an hour earlier. A UID is the
+public event ID with `@kano-navi`; the closing entry of a period adds
+`-close` to the ID. `LAST-MODIFIED` is the event's stored
 `updated_at`, and `SEQUENCE` is that time in whole seconds since 2020-01-01
 UTC, so it grows whenever the event is written and clients replace a changed
 entry; an event without a parseable update time has neither. `STATUS` is
@@ -225,8 +369,9 @@ event's detail, its provenance and its public link; only absolute HTTP(S)
 links are written. Text is escaped and lines are folded at 75 octets without
 splitting a character.
 
-`GET /api/feed.xml` is an Atom 1.0 feed of at most 50 YouTube videos and
-reservations dated 30 days before to 11 days after today, newest first. An
+`GET /api/feed.xml` is an Atom 1.0 feed of at most 50 public videos (YouTube
+videos and reservations and unmerged Bilibili uploads, as the video archive
+lists them) dated 30 days before to 11 days after today, newest first. An
 entry is dated by its publication (a future time is dated at the start of
 today's Japan day until it passes, so the entry does not move between polls),
 says when a reservation is scheduled, and links the video and any
@@ -240,8 +385,8 @@ feed links the site absolutely and adds a `rel="self"` link to
 Both take an optional `lang` query, `en`, `ja` or `zh-CN`; a missing or
 unknown value is the English base, so the bare paths stay English. Titles
 resolve [translations](data-model.md#translations) the way the board does:
-Japanese readers get the source wording, and English and Chinese readers get
-the locale's translation when one exists (an event only through its linked
+each reader gets the locale's translation when one exists, except that
+Japanese readers keep wording detected as Japanese (an event only through its linked
 video's title). The fixed wording the server writes — the calendar and feed
 names (the board's `site.name`), the event descriptions' provenance and
 unofficial notes, the generated YouTube details (`YouTube Live`,

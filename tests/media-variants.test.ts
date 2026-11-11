@@ -31,7 +31,7 @@ test("cached media of unknown width lists every copy", () => {
   assert.equal(mediaVariantUrl(`/media/${id}`, 640), `/media/${id}?w=640`)
 })
 
-test("archive and history images list smaller copies too", () => {
+test("archive, Works and Journey images list smaller copies too", () => {
   const archived = "/media/lineblog/0123456789ab.jpg"
   assert.equal(
     mediaSrcSet(archived, 700),
@@ -41,9 +41,13 @@ test("archive and history images list smaller copies too", () => {
       `${archived} 700w`,
     ].join(", "),
   )
-  const fixed = `/assets/history/01_synthetic.png?v=${"c".repeat(64)}`
-  assert.equal(mediaVariantUrl(fixed, 320), `${fixed}&w=320`)
-  assert.equal(mediaSrcSet(fixed, 320), `${fixed} 320w`)
+  const journey = "/media/journey/0123456789ab.png"
+  assert.equal(mediaVariantUrl(journey, 320), `${journey}?w=320`)
+  assert.equal(mediaSrcSet(journey, 320), `${journey} 320w`)
+  assert.equal(
+    mediaVariantUrl("/media/works/0123456789ab.jpg", 640),
+    "/media/works/0123456789ab.jpg?w=640",
+  )
 })
 
 test("other image URLs get no srcset", () => {
@@ -52,8 +56,9 @@ test("other image URLs get no srcset", () => {
     undefined,
     "",
     "/assets/kano-banner.jpg",
-    "/assets/history/01_synthetic.gif",
-    "/assets/history/nested/01_synthetic.jpg",
+    "/assets/history/01_synthetic.jpg",
+    "/media/journey/0123456789ab.gif",
+    "/media/journey/nested/0123456789ab.jpg",
     "/media/lineblog/0123456789ab.mp4",
     "/media/lineblog/0123456789AB.jpg",
     "/media/profile/banner?v=abc",

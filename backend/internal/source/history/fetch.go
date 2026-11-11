@@ -19,6 +19,15 @@ import (
 const (
 	SourceX       = "x"
 	SourceYoutube = "youtube"
+	// SourceShop is the official shop; its one fetch reads the whole catalog.
+	SourceShop = "shop"
+	// SourceBilibili is the Bilibili account's uploads and
+	// SourceBilibiliDynamics its dynamics; each pages its own space listing.
+	SourceBilibili         = "bilibili"
+	SourceBilibiliDynamics = "bilibili_dynamics"
+	// SourceXRelated is one related X account; its one fetch is
+	// the x_related timer's incremental read of that account alone.
+	SourceXRelated = "x_related"
 
 	xSearchURL = "https://api.x.com/2/tweets/search/all"
 	// xArchiveStart begins a count search. Without a start_time the search
@@ -77,7 +86,9 @@ type Page struct {
 	Discovered         int
 	Posts              []xsource.Post
 	ScheduleCandidates []xsource.ScheduleCandidate
-	Videos             []ytsource.Video
+	// Reposts are the account's reposts an X page lists.
+	Reposts []xsource.Repost
+	Videos  []ytsource.Video
 	// Described are the listed videos the Data API answered for, written
 	// through the recent step's upsert, and Localized their localized titles.
 	Described []ytsource.Video
@@ -267,6 +278,10 @@ func (f *Fetcher) wait(ctx context.Context) error {
 }
 
 const budgetMessage = "history_page_budget_reached; repeat this fetch to continue"
+
+// BudgetMessage reports a fetch that its page budget stopped before the end
+// of its selection; repeating the fetch continues it.
+const BudgetMessage = budgetMessage
 
 func (f *Fetcher) apiJSON(ctx context.Context, endpoint string, query url.Values, header, credential string) (map[string]any, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"?"+query.Encode(), nil)
@@ -497,6 +512,7 @@ func (f *Fetcher) mapSearchPage(request Request, payload map[string]any, page *P
 	if err != nil {
 		return read, &Error{Code: "source_api_invalid_records"}
 	}
+	page.Reposts = append(page.Reposts, xsource.APIReposts(payload, request.Account)...)
 	for _, post := range posts {
 		if !page.Window.Contains(post.PublishedAt) {
 			continue

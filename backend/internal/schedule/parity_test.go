@@ -30,25 +30,36 @@ type parityData struct {
 	AfterSecond    map[string][]map[string]any `json:"afterSecond"`
 }
 
-// The recording predates four deliberate request changes, applied to the
+// The recording predates five deliberate request changes, applied to the
 // recorded bodies here: the Asia/Tokyo publication time in the model text,
 // Anthropic's "auto" tool choice with a system instruction naming the tool,
-// the instruction asking for English detail, reason and status, and the
-// instruction on date and time formats. Identities and
+// the instruction asking for English detail, reason and status, the
+// instruction on date and time formats, and the instructions on event types
+// and sale periods. Identities and
 // fingerprints are compared unchanged; stored rows differ only in the English
 // pending status that replaced the recorded Chinese default.
 var (
 	recordedPublishedAt  = regexp.MustCompile(`Source post published at ([^ ]+)\. Source URL`)
 	recordedForcedTool   = regexp.MustCompile(`"tool_choice":\{"type":"tool","name":"([^"]+)"\}`)
-	recordedInstructions = strings.TrimSuffix(strings.NewReplacer(" "+scheduleLanguageInstruction, "", " "+scheduleDateInstruction, "").Replace(scheduleInstructions), " "+scheduleTagInstruction)
+	recordedInstructions = strings.TrimSuffix(strings.NewReplacer(" "+schedulePlatformInstruction, "", " "+scheduleLanguageInstruction, "", " "+scheduleDateInstruction, "", " "+scheduleTypeInstruction, "", " "+scheduleSaleInstruction, "").Replace(scheduleInstructions), " "+scheduleTagInstruction)
 	recordedPending      = strings.NewReplacer(`"status":"待确认"`, `"status":"pending"`)
 
-	// The tag property and its required entry are newer than the recording;
-	// removing them restates the schema the recording was made with.
-	recordedTagProperty    = `"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]},`
-	recordedScheduleSchema = strings.Replace(
-		strings.Replace(string(scheduleSchema), recordedTagProperty, "", 1),
-		`"eventType","tag","url"`, `"eventType","url"`, 1)
+	// The tag and endDate properties, their required entries and the sale
+	// type are newer than the recording; removing them restates the schema
+	// the recording was made with.
+	recordedTagProperty     = `"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]},`
+	recordedEndDateProperty = `"endDate":{"anyOf":[{"type":"string"},{"type":"null"}]},`
+	recordedScheduleSchema  = strings.NewReplacer(
+		`"platform":{"type":"string","enum":["youtube","bilibili","other","unknown"]},`, "",
+		`"platform","confidence"`, `"confidence"`,
+		recordedTagProperty, "",
+		recordedEndDateProperty, "",
+		`"eventType","tag","url"`, `"eventType","url"`,
+		`"endTime","endDate","timePrecision"`, `"endTime","timePrecision"`,
+		`"appearance","sale"]`, `"appearance"]`,
+	).Replace(string(scheduleSchema))
+	recordedVerificationSchema = `{"type":"object","additionalProperties":false,"properties":{"classification":{"type":"string","enum":["schedule","not_schedule","uncertain"]},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"},"reason":{"type":"string"}},"required":["classification","confidence","evidence","reason"]}`
+	recordedAssetInstructions  = "Inspect the attached image only and decide whether it is a weekly or multi-day schedule board for the creator. Return schedule only when the image itself visibly contains a structured calendar or schedule table with days or dates and planned items. Return not_schedule for a stream thumbnail, promotional art, character art, a single video card, or any ordinary post image. Return uncertain when the image is unreadable or the evidence is insufficient. Do not infer a schedule from the source post wording. Cite visible image evidence briefly."
 )
 
 // withPendingCode rewrites the recorded Chinese pending status in stored rows.
@@ -83,7 +94,14 @@ func withExtractorVersion(tables ...map[string][]map[string]any) {
 
 func withLocalPublishedAt(body string) string {
 	body = strings.ReplaceAll(body, recordedInstructions, scheduleInstructions)
+	body = strings.ReplaceAll(body, recordedAssetInstructions, scheduleAssetVerificationInstructions)
 	body = strings.ReplaceAll(body, recordedScheduleSchema, string(scheduleSchema))
+	body = strings.ReplaceAll(body, recordedVerificationSchema, string(scheduleAssetVerificationSchema))
+	if strings.Contains(body, `"input_image"`) && !strings.Contains(body, verificationToolName) {
+		body = strings.ReplaceAll(body, scheduleInstructions, imageScheduleInstructions+" "+scheduleInstructions)
+		body = strings.ReplaceAll(body, `"name":"kano_schedule_extraction"`, `"name":"`+imageExtractionToolName+`"`)
+		body = strings.ReplaceAll(body, string(scheduleSchema), string(imageScheduleSchema(scheduleSchema)))
+	}
 	body = recordedPublishedAt.ReplaceAllStringFunc(body, func(match string) string {
 		value := recordedPublishedAt.FindStringSubmatch(match)[1]
 		return "Source post published at " + publishedAtText(value) + ". Source URL"
@@ -159,6 +177,18 @@ func jsonShape(t *testing.T, value any) any {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	return out
+}
+
+// recordedShape is a scan's counts as the recorded original counted them:
+// without the candidate phase, judging and settled counts, which only this extractor
+// records.
+func recordedShape(t *testing.T, counts map[string]any) any {
+	t.Helper()
+	shape := jsonShape(t, counts).(map[string]any)
+	for _, key := range []string{"candidateMs", "postsRead", "candidatePosts", "judged", "judgeMs", "settled"} {
+		delete(shape, key)
+	}
+	return shape
 }
 
 func (f *fixture) compareTables(label string, queries map[string]string, expected map[string][]map[string]any) {
@@ -248,7 +278,7 @@ func TestParityWithTypeScriptExtractor(t *testing.T) {
 	if first.Status != "success" {
 		t.Errorf("first status = %q", first.Status)
 	}
-	if got := jsonShape(t, first.Counts); !reflect.DeepEqual(got, jsonShape(t, data.First)) {
+	if got := recordedShape(t, first.Counts); !reflect.DeepEqual(got, jsonShape(t, data.First)) {
 		t.Errorf("first counts:\n got  %v\n want %v", got, data.First)
 	}
 	if len(f.provider.requests) != len(data.Requests) {
@@ -276,7 +306,7 @@ func TestParityWithTypeScriptExtractor(t *testing.T) {
 	f.compareTables("first", parityQueries, data.AfterFirst)
 
 	second := f.scan()
-	if got := jsonShape(t, second.Counts); !reflect.DeepEqual(got, jsonShape(t, data.Second)) {
+	if got := recordedShape(t, second.Counts); !reflect.DeepEqual(got, jsonShape(t, data.Second)) {
 		t.Errorf("second counts:\n got  %v\n want %v", got, data.Second)
 	}
 	if got := len(f.provider.requests) - len(data.Requests); got != data.SecondRequests {
@@ -456,7 +486,7 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 	if first.Status != "success" {
 		t.Errorf("first status = %q", first.Status)
 	}
-	if got := jsonShape(t, first.Counts); !reflect.DeepEqual(got, jsonShape(t, data.First)) {
+	if got := recordedShape(t, first.Counts); !reflect.DeepEqual(got, jsonShape(t, data.First)) {
 		t.Errorf("first counts:\n got  %v\n want %v", got, data.First)
 	}
 	if len(f.provider.requests) != len(data.Requests) {
@@ -470,7 +500,7 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 	f.compareTables("first", mediaParityQueries, data.AfterFirst)
 
 	second := f.scan()
-	if got := jsonShape(t, second.Counts); !reflect.DeepEqual(got, jsonShape(t, data.Second)) {
+	if got := recordedShape(t, second.Counts); !reflect.DeepEqual(got, jsonShape(t, data.Second)) {
 		t.Errorf("second counts:\n got  %v\n want %v", got, data.Second)
 	}
 	if got := len(f.provider.requests) - len(data.Requests); got != len(data.SecondRequests) {

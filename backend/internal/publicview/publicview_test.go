@@ -150,10 +150,10 @@ func TestDashboardProjectionKeepsOperatorColumnsOut(t *testing.T) {
 func TestPublicSyncRunReplacesTheStoredMessage(t *testing.T) {
 	finished := "2026-01-02T00:01:00.000Z"
 	for status, message := range map[string]string{
-		"success": "同步完成",
-		"partial": "部分数据源不可用或存在警告，保留已有快照",
-		"failed":  "同步失败，保留已有快照",
-		"running": "同步进行中",
+		"success": "Sync completed",
+		"partial": "Some data sources are unavailable or reported warnings; the existing snapshot remains",
+		"failed":  "Sync failed; the existing snapshot remains",
+		"running": "Sync in progress",
 	} {
 		got := PublicSyncRun(&sqlite.SyncRun{ID: 3, Source: "workflow", StartedAt: "2026-01-02T00:00:00.000Z", FinishedAt: &finished, Status: status})
 		if got.Message == nil || *got.Message != message || got.ID != 3 || got.Source != "workflow" || got.FinishedAt != &finished || got.Status != status {
@@ -187,7 +187,7 @@ func TestHealthAndRevision(t *testing.T) {
 func TestPublicEventExtrasAreDashboardOnly(t *testing.T) {
 	live := "live"
 	event := sqlite.DashboardEvent{ID: "e", Title: "Event", ManualLocked: true, IsUpcoming: true, LiveStatus: &live}
-	extras := []string{"manualLocked", "isUpcoming", "liveStatus"}
+	extras := []string{"manualLocked", "isUpcoming", "liveStatus", "liveUrl", "links"}
 	full, compact := PublicEvent(event, true), PublicEvent(event, false)
 	for _, key := range extras {
 		if _, ok := compact[key]; ok {
@@ -220,5 +220,22 @@ func TestDashboardSharesTheLatestPostAndKeepsTranslationText(t *testing.T) {
 	projected = Dashboard(&sqlite.Dashboard{Posts: []sqlite.Post{listed}, Summary: sqlite.DashboardSummary{LatestPost: &older}})
 	if got := projected["summary"].(map[string]any)["latestPost"]; !reflect.DeepEqual(got, PublicPost(older)) {
 		t.Fatalf("latest outside the window=%v", got)
+	}
+}
+
+// Each shown platform of an entry is one link with its own state; the
+// shown platforms are in every event read, never null.
+func TestPublicEventLinks(t *testing.T) {
+	watch, room, live := "https://www.youtube.com/watch?v=AAAAAAAAAAA", "https://live.bilibili.com/1000001", "live"
+	event := sqlite.DashboardEvent{ID: "e", Title: "Event", Platforms: []string{"youtube", "bilibili"},
+		Links: []sqlite.EventLink{{Platform: "youtube", URL: &watch}, {Platform: "bilibili", URL: &room, LiveStatus: &live}}}
+	full := PublicEvent(event, true)
+	links := full["links"].([]any)
+	if len(links) != 2 || links[0].(map[string]any)["url"] != watch || links[0].(map[string]any)["liveStatus"] != nil ||
+		links[1].(map[string]any)["platform"] != "bilibili" || links[1].(map[string]any)["liveStatus"] != "live" {
+		t.Fatalf("links=%v", links)
+	}
+	if platforms := PublicEvent(sqlite.DashboardEvent{ID: "e"}, false)["platforms"].([]string); platforms == nil || len(platforms) != 0 {
+		t.Fatalf("platforms=%v", platforms)
 	}
 }

@@ -31,6 +31,10 @@ func OpenStandalone(filename string) (*Store, error) {
 		store.Close()
 		return nil, err
 	}
+	if err = store.openReadPool(ctx); err != nil {
+		store.Close()
+		return nil, err
+	}
 	return store, nil
 }
 
@@ -291,6 +295,13 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 	if err := backfillVideoForms(ctx, tx); err != nil {
 		return err
 	}
+	// The platform of the YouTube writers' events is known; every other
+	// stored event keeps an unknown platform.
+	if added["events.platform"] {
+		if err := exec(`UPDATE events SET platform='youtube' WHERE source='youtube'`); err != nil {
+			return err
+		}
+	}
 	if added["assets.period_start"] {
 		if err := exec(`UPDATE assets SET period_start=week_start,period_end=date(week_start,'+6 days') WHERE kind='schedule'`); err != nil {
 			return err
@@ -316,6 +327,9 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 	}
 	if err := backfillQuotes(ctx, tx); err != nil {
 		return err
+	}
+	if err := backfillQuotedStatuses(ctx, tx, workflowTime(time.Now())); err != nil {
+		return fmt.Errorf("%w: quoted status backfill failed", ErrSchema)
 	}
 	if added["llm_providers.capabilities_json"] {
 		if err := exec(`UPDATE llm_providers SET capabilities_json=CASE WHEN vision_capable=0 THEN '["text"]' ELSE '["text","image"]' END`); err != nil {
@@ -362,7 +376,13 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 			return err
 		}
 	}
-	return seedVerifyQueue(ctx, tx, now)
+	if err := seedVerifyQueue(ctx, tx, now, "llm_verify_queue_seeded"); err != nil {
+		return err
+	}
+	// Image posts read only the image extraction queue, so an install whose
+	// image queue is still empty takes the schedule queue's image-tagged
+	// targets once more under its own marker.
+	return seedVerifyQueue(ctx, tx, now, "llm_image_queue_seeded")
 }
 
 // backfillEventCodes replaces generated Chinese status and detail text on
@@ -414,7 +434,7 @@ WHERE source='youtube' AND starts_at IS NOT NULL AND TRIM(starts_at)<>''
 }
 
 // backfillVideoForms moves rows that still carry a title-derived kind to the
-// form and content layers (ADR-0005). An operator's content kind becomes the
+// form and content layers. An operator's content kind becomes the
 // video's manual tag and clears the form correction; a stored kind is derived
 // again from the stored facts. Before the form layer, a detail check gave a
 // title kind to a scheduled video only when it was a premiere, so a start
@@ -531,14 +551,12 @@ func mergeRouteQueue(ctx context.Context, tx *sql.Tx, now string) error {
 	return err
 }
 
-// seedVerifyQueue runs once, recorded as llm_verify_queue_seeded: the
-// schedule-image check queue takes the extraction queue's image-tagged
-// targets in their saved order, so each image goes to the model that checked
-// it while both stages shared one queue. A check queue that already has
-// targets is kept as it is.
-func seedVerifyQueue(ctx context.Context, tx *sql.Tx, now string) error {
+// seedVerifyQueue runs once per marker key: the image extraction queue takes
+// the schedule queue's image-tagged targets in their saved order. A queue
+// that already has targets is kept as it is.
+func seedVerifyQueue(ctx context.Context, tx *sql.Tx, now, marker string) error {
 	var seeded int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM app_settings WHERE key='llm_verify_queue_seeded'`).Scan(&seeded); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM app_settings WHERE key=?`, marker).Scan(&seeded); err != nil {
 		return ErrSchema
 	}
 	if seeded > 0 {
@@ -581,7 +599,7 @@ func seedVerifyQueue(ctx context.Context, tx *sql.Tx, now string) error {
 			}
 		}
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO app_settings(key,value,updated_at) VALUES('llm_verify_queue_seeded','1',?)`, now)
+	_, err = tx.ExecContext(ctx, `INSERT INTO app_settings(key,value,updated_at) VALUES(?,'1',?)`, marker, now)
 	return err
 }
 

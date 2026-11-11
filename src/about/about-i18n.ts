@@ -11,17 +11,14 @@ export const aboutMessages = {
     "about.sourceCode": "源代码",
     "about.license": "许可证",
     "about.overview": "项目概览",
-    "about.overviewOne":
-      "本站是为鹿乃まほろ的粉丝制作的非官方近况整理页，汇集公开的 X 动态、配信与活动日程、YouTube 更新，以及相关资料入口。独立的旅程页面记录从 2010 年至今的公开活动节点与图片档案。LINE BLOG 页面是鹿乃 2015–2019 年 LINE BLOG 的非官方存档，文章保留日文原文。",
-    "about.overviewTwo":
-      "页面读取服务端保存的本地快照，浏览或刷新页面不会直接抓取外部平台。日程时间以日本时间显示，信息的新鲜度取决于同步频率；来源暂时不可用时，保留已有记录。",
+    "about.overviewText":
+      "本站是鹿乃まほろ的非官方粉丝整理页。首页汇集 X 与 bilibili 动态、配信与活动日程和 YouTube 更新；足迹、作品与 LINE BLOG 页面分别整理她的活动历程、作品与投稿，以及 LINE BLOG 存档。内容定期同步，可能稍有延迟，时间以日本时间显示。",
     "about.builtWithAi": "使用 AI 构建",
     "about.aiCredit":
       "本项目由 {author} 在 AI Agent 的协助下开发。以下是参与项目开发的模型。",
     "about.models": "参与开发的 AI 模型",
     "about.contributors": "贡献者",
-    "about.contributorsText":
-      "本项目由 {author} 发起并维护。感谢以下开发者为项目贡献代码。",
+    "about.contributorsText": "感谢以下开发者为项目贡献代码。",
     "about.contributorList": "代码贡献者",
     "about.contributorsAll": "在 GitHub 查看全部贡献者",
     "about.technologies": "主要技术栈",
@@ -30,8 +27,11 @@ export const aboutMessages = {
     "about.group.delivery": "运行与交付",
     "about.credits": "资料来源与致谢",
     "about.creditsLineblog":
-      "LINE BLOG 页面的文章、图片、视频和中文翻译主要来自 ZhFuwe 整理的 Kano_LINE_Blog_Recovery 项目。",
+      "LINE BLOG 页面的文章、图片、视频和中文翻译主要来自 {name} 整理的 Kano_LINE_Blog_Recovery 项目。",
     "about.creditsRecovery": "查看 Kano_LINE_Blog_Recovery",
+    "about.creditsWorks":
+      "作品页面得到了 {name} 的大力协助，包括提供作品列表、全程参与资料核对、提供部分盘面照片与扫描等。",
+    "about.creditsWorksPage": "查看作品页面",
     "about.creditsMainland":
       "中国大陆服务器站点由 {provider} 提供并独立部署，感谢其为中国大陆的访客提供服务器。",
     "about.creditsMainlandSite": "访问中国大陆服务器站点",
@@ -58,17 +58,15 @@ export const aboutMessages = {
     "about.sourceCode": "ソースコード",
     "about.license": "ライセンス",
     "about.overview": "プロジェクト概要",
-    "about.overviewOne":
-      "本サイトは鹿乃まほろのファンによる非公式の近況まとめサイトです。公開 X 投稿、配信・イベント予定、YouTube 更新、関連リンクをまとめています。別ページの活動記録では、2010 年から現在までの公開活動と画像資料を紹介しています。LINE BLOG ページは、鹿乃の 2015〜2019 年の LINE BLOG の非公式アーカイブで、記事は日本語の原文のままです。",
-    "about.overviewTwo":
-      "ページはサーバーに保存されたローカルのスナップショットを読み込み、閲覧や更新操作で外部サービスを直接取得することはありません。予定は日本時間で表示し、情報の鮮度は同期頻度によります。取得元が一時的に利用できない場合も既存の記録を保持します。",
+    "about.overviewText":
+      "本サイトは鹿乃まほろのファンによる非公式まとめサイトです。トップでは X・bilibili の投稿、配信・イベント予定、YouTube の更新をまとめ、あゆみ・作品・LINE BLOG の各ページでは、これまでの活動、作品と投稿、LINE BLOG のアーカイブを紹介しています。内容は定期的に同期するため少し遅れることがあり、時刻は日本時間で表示します。",
     "about.builtWithAi": "AI とともに開発",
     "about.aiCredit":
       "本プロジェクトは {author} が AI Agent の支援を受けて開発しました。以下は開発に使用したモデルです。",
     "about.models": "開発に使用した AI モデル",
     "about.contributors": "コントリビューター",
     "about.contributorsText":
-      "本プロジェクトは {author} が立ち上げ、メンテナンスしています。コードを寄せてくださった以下の開発者の皆さんに感謝します。",
+      "コードを寄せてくださった以下の開発者の皆さんに感謝します。",
     "about.contributorList": "コードのコントリビューター",
     "about.contributorsAll": "GitHub ですべてのコントリビューターを見る",
     "about.technologies": "主な技術構成",
@@ -77,8 +75,11 @@ export const aboutMessages = {
     "about.group.delivery": "実行環境・配布",
     "about.credits": "出典と謝辞",
     "about.creditsLineblog":
-      "LINE BLOG ページの記事、画像、動画、簡体字中国語訳は、主に ZhFuwe さんによる Kano_LINE_Blog_Recovery プロジェクトに基づいています。",
+      "LINE BLOG ページの記事、画像、動画、簡体字中国語訳は、主に {name} さんによる Kano_LINE_Blog_Recovery プロジェクトに基づいています。",
     "about.creditsRecovery": "Kano_LINE_Blog_Recovery を見る",
+    "about.creditsWorks":
+      "作品ページは {name} さんに多大なご協力をいただきました。作品リストの提供、資料確認への全面的な参加、一部ディスクの写真とスキャンの提供などに感謝します。",
+    "about.creditsWorksPage": "作品ページを見る",
     "about.creditsMainland":
       "中国大陸向けサーバーのサイトは{provider}さんが提供し、独自にデプロイしています。中国大陸からの閲覧のためにサーバーを提供していただき、ありがとうございます。",
     "about.creditsMainlandSite": "中国大陸向けサーバーのサイトへ",
@@ -105,17 +106,15 @@ export const aboutMessages = {
     "about.sourceCode": "Source code",
     "about.license": "License",
     "about.overview": "Project overview",
-    "about.overviewOne":
-      "This site is an unofficial status board made for Kano Mahoro fans. It brings together public X posts, stream and event schedules, YouTube updates, and resource links. A separate journey page collects public milestones and visual archives from 2010 to the present. The LINE BLOG page is an unofficial archive of Kano's 2015–2019 LINE BLOG, with posts in their original Japanese.",
-    "about.overviewTwo":
-      "Pages read local snapshots saved by the server. Browsing or refreshing a page does not fetch external platforms directly. Schedules use Japan time, and freshness depends on synchronization frequency. Existing records remain available when a source is temporarily unavailable.",
+    "about.overviewText":
+      "An unofficial fan-made status board for Kano Mahoro. The board gathers her X and bilibili posts, stream and event schedules, and YouTube updates; the Journey, Works and LINE BLOG pages cover her milestones, her releases and uploads, and her LINE BLOG archive. Content is synced periodically, so it may lag a little; times are in Japan time.",
     "about.builtWithAi": "Built with AI",
     "about.aiCredit":
       "This project was developed by {author} with assistance from AI Agents. These models contributed to its development.",
     "about.models": "AI models used in development",
     "about.contributors": "Contributors",
     "about.contributorsText":
-      "{author} started and maintains this project. Thanks to these developers for contributing code.",
+      "Thanks to these developers for contributing code.",
     "about.contributorList": "Code contributors",
     "about.contributorsAll": "See all contributors on GitHub",
     "about.technologies": "Main technologies",
@@ -124,8 +123,11 @@ export const aboutMessages = {
     "about.group.delivery": "Runtime & delivery",
     "about.credits": "Sources & credits",
     "about.creditsLineblog":
-      "The LINE BLOG page's posts, images, videos, and Simplified Chinese translations come mainly from the Kano_LINE_Blog_Recovery project by ZhFuwe.",
+      "The LINE BLOG page's posts, images, videos, and Simplified Chinese translations come mainly from the Kano_LINE_Blog_Recovery project by {name}.",
     "about.creditsRecovery": "View Kano_LINE_Blog_Recovery",
+    "about.creditsWorks":
+      "The Works page owes much to {name}, who supplied the list of works, checked the details with us throughout, and provided some of the disc photos and scans, among other things.",
+    "about.creditsWorksPage": "View the Works page",
     "about.creditsMainland":
       "The mainland China server site is provided and independently deployed by {provider}. Thanks for hosting it for visitors in mainland China.",
     "about.creditsMainlandSite": "Visit the mainland China server site",

@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
+
+	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 )
 
 type AdminPost struct {
@@ -36,7 +39,8 @@ type AdminPost struct {
 	// image's status, or "none" for a text-only post.
 	Media       []AdminPostImage `json:"media"`
 	MediaStatus string           `json:"mediaStatus"`
-	// Translation is nil for posts outside the machine scope (non-X).
+	// Translation is nil for posts outside the machine scope
+	// (TranslationPostSources).
 	Translation *AdminTranslation `json:"translation"`
 	// Quote is the quoted status as the board would show it, nil when the
 	// post quotes none. QuoteHiddenAt is when an operator hid it from the
@@ -46,6 +50,9 @@ type AdminPost struct {
 	RefreshRequestedAt *string     `json:"refreshRequestedAt"`
 	// HiddenAt is when an operator hid the whole post from the public pages.
 	HiddenAt *string `json:"hiddenAt"`
+	// PromotedAt is when a related account's status was promoted into posts;
+	// nil for an own post. Such a post is managed in External posts.
+	PromotedAt *string `json:"promotedAt"`
 	// ScheduleImage is the post's schedule image record, nil when it has none.
 	ScheduleImage *AdminPostSchedule `json:"scheduleImage"`
 }
@@ -119,6 +126,10 @@ type AdminVideo struct {
 	Availability       *string `json:"availability"`
 	SourceAvailability *string `json:"sourceAvailability"`
 	ManualAvailability *string `json:"manualAvailability"`
+	// ManualWork is the operator's Works decision: true includes the video
+	// among the Works page's recent uploads, false excludes it, nil leaves
+	// it to the rules (works_recent.go).
+	ManualWork *bool `json:"manualWork"`
 	// Tag is the shown content tag: ManualTag, else ScheduleTag (the label of
 	// the video's schedule entry), else InferredTag (the title inference's,
 	// with InferredTagSource set once the video was judged, tag or none).
@@ -144,6 +155,14 @@ type AdminVideo struct {
 	MergedAt        *string `json:"mergedAt"`
 	// Alternates are the uploads merged into this video.
 	Alternates []AdminVideoAlternate `json:"alternates"`
+	// FormSource is who settled the form: manual (ManualKind), or rule or
+	// llm for a Bilibili upload; nil for an unsettled upload or a YouTube
+	// video's platform facts. FormReview is uncertain or failed while a
+	// Bilibili upload waits for the operator's form decision
+	// (bilibili_forms.go). Public is whether public readers list the video.
+	FormSource *string `json:"formSource"`
+	FormReview *string `json:"formReview"`
+	Public     bool    `json:"public"`
 	// sourceThumbnail is the platform URL the board falls back to.
 	sourceThumbnail *string
 }
@@ -196,12 +215,13 @@ func (s *Store) attachAdminVideoAlternates(ctx context.Context, videos []AdminVi
 	return nil
 }
 
-// attachAdminVideoTranslations fills each YouTube video's title translation
-// state; other sources are outside the translate step and stay nil.
+// attachAdminVideoTranslations fills the title translation state of each
+// video the translate step covers (videoTranslationScope): every YouTube
+// video and a public Bilibili upload. A merged or unsettled upload stays nil.
 func (s *Store) attachAdminVideoTranslations(ctx context.Context, videos []AdminVideo) error {
 	ids := []string{}
 	for i := range videos {
-		if videos[i].Source == "youtube" {
+		if videos[i].Source == "youtube" || videos[i].Source == "bilibili" && videos[i].Public {
 			ids = append(ids, videos[i].ID)
 		}
 	}
@@ -224,15 +244,17 @@ type AdminThumbnailPin struct {
 }
 
 type AdminEvent struct {
-	ID            string  `json:"id"`
-	Source        string  `json:"source"`
-	SourceItemID  *string `json:"sourceItemId"`
-	SourceKey     *string `json:"sourceKey"`
-	Title         string  `json:"title"`
-	Detail        *string `json:"detail"`
-	StartsOn      string  `json:"startsOn"`
-	StartsAt      *string `json:"startsAt"`
-	EndsAt        *string `json:"endsAt"`
+	ID           string  `json:"id"`
+	Source       string  `json:"source"`
+	SourceItemID *string `json:"sourceItemId"`
+	SourceKey    *string `json:"sourceKey"`
+	Title        string  `json:"title"`
+	Detail       *string `json:"detail"`
+	StartsOn     string  `json:"startsOn"`
+	StartsAt     *string `json:"startsAt"`
+	EndsAt       *string `json:"endsAt"`
+	// EndsOn is the Japan close date of a sale period, or nil.
+	EndsOn        *string `json:"endsOn"`
 	Timezone      string  `json:"timezone"`
 	TimePrecision string  `json:"timePrecision"`
 	Status        *string `json:"status"`
@@ -264,6 +286,19 @@ type AdminEvent struct {
 	MergeSource     *string `json:"mergeSource"`
 	MergeReason     *string `json:"mergeReason"`
 	MergedAt        *string `json:"mergedAt"`
+	// HiddenByPosts: an automatic event whose every source post is hidden,
+	// which every public reader leaves out (see eventHiddenByPostsSQL).
+	HiddenByPosts bool `json:"hiddenByPosts"`
+	// Platforms are the announced platforms as readers see them, inferred
+	// when they came from a source default. ShownPlatforms add those of the
+	// automatic entries merged into it and a Bilibili broadcast observed on
+	// the room as its simulcast; the public reads show these.
+	Platforms         []string `json:"platforms"`
+	PlatformsInferred bool     `json:"platformsInferred"`
+	ShownPlatforms    []string `json:"shownPlatforms"`
+	// Review is why the entry needs an operator's look, or nil (see
+	// EventAttentionSQL).
+	Review *EventReview `json:"review"`
 }
 
 type AdminRun struct {
@@ -309,6 +344,10 @@ type AdminRunsPage struct {
 // AdminPostFilter narrows the post list.
 // LLM is a post_llm_states status (including "dismissed") or "never".
 type AdminPostFilter struct {
+	// ID narrows the list to the post with exactly this ID; IDs to the posts
+	// with any of these IDs.
+	ID                                     string
+	IDs                                    []string
 	Page, PageSize                         int
 	Source, Account, From, To, Search, LLM string
 	// Queued is "extraction", "refresh", "translation" or "any" open
@@ -346,16 +385,26 @@ type AdminEventFilter struct {
 	// Merge is "merged" (only merged duplicates), "visible" (excluding them,
 	// as every public reader does) or empty for both.
 	Merge string
+	// Public leaves out the events hidden by their posts, as every public
+	// reader does.
+	Public bool
+	// Today is the Japan date the review rule reads uncertain additions
+	// from; Attention keeps only the entries that need a look.
+	Today     string
+	Attention bool
 }
 
 // AdminCounts are the bounded aggregates behind the console overview.
 type AdminCounts struct {
-	UpcomingEvents         int `json:"upcomingEvents"`
-	Events                 int `json:"events"`
-	Posts                  int `json:"posts"`
-	Videos                 int `json:"videos"`
+	UpcomingEvents int `json:"upcomingEvents"`
+	Events         int `json:"events"`
+	Posts          int `json:"posts"`
+	Videos         int `json:"videos"`
+	// PendingImages, SuspectedCancellations and UncertainEvents follow the
+	// review rule (see EventAttentionSQL and ScheduleImagePendingSQL).
 	PendingImages          int `json:"pendingImages"`
 	SuspectedCancellations int `json:"suspectedCancellations"`
+	UncertainEvents        int `json:"uncertainEvents"`
 	// FailedPosts are the posts with a failed extraction or translation;
 	// FailedExtractions and FailedTranslations count each step on its own.
 	FailedPosts        int `json:"failedPosts"`
@@ -364,6 +413,9 @@ type AdminCounts struct {
 	// VideoMerges are the Bilibili uploads the merge rule leaves to the
 	// operator.
 	VideoMerges int `json:"videoMerges"`
+	// BilibiliForms are the Bilibili uploads waiting for the operator's form
+	// decision (bilibili_forms.go).
+	BilibiliForms int `json:"bilibiliForms"`
 }
 
 var adminDateRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
@@ -431,10 +483,32 @@ func nullFloat(v sql.NullFloat64) *float64 {
 	return &n
 }
 
+// AdminPostByID is one post as the console lists it.
+func (s *Store) AdminPostByID(ctx context.Context, id string) (AdminPost, error) {
+	page, err := s.ListAdminPosts(ctx, AdminPostFilter{ID: id, Page: 1, PageSize: 1})
+	if err != nil {
+		return AdminPost{}, err
+	}
+	if len(page.Items) != 1 {
+		return AdminPost{}, ErrUnavailable
+	}
+	return page.Items[0], nil
+}
+
 func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPage[AdminPost], error) {
 	page, pageSize := boundPage(f.Page, f.PageSize, 200, 50)
 	clauses := []string{"1=1"}
 	args := []any{}
+	if f.ID != "" {
+		clauses = append(clauses, "p.id = ?")
+		args = append(args, f.ID)
+	}
+	if len(f.IDs) > 0 {
+		clauses = append(clauses, "p.id IN ("+placeholders(len(f.IDs))+")")
+		for _, id := range f.IDs {
+			args = append(args, id)
+		}
+	}
 	if source := strings.TrimSpace(f.Source); source != "" {
 		clauses = append(clauses, "p.source = ?")
 		args = append(args, source)
@@ -466,13 +540,13 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	}
 	switch f.Translation {
 	case "incomplete":
-		clauses = append(clauses, "p.source = 'x' AND "+TranslationIncompleteSQL(TranslationOwnerPost, "p"))
+		clauses = append(clauses, TranslatedPostSQL("p")+" AND "+TranslationIncompleteSQL(TranslationOwnerPost, "p"))
 	case "complete":
-		clauses = append(clauses, "p.source = 'x' AND NOT "+TranslationIncompleteSQL(TranslationOwnerPost, "p"))
+		clauses = append(clauses, TranslatedPostSQL("p")+" AND NOT "+TranslationIncompleteSQL(TranslationOwnerPost, "p"))
 	case "requested":
 		clauses = append(clauses, TranslationRequestedSQL(TranslationOwnerPost, "p"))
 	case "failed":
-		clauses = append(clauses, "p.source = 'x' AND "+TranslationFailedSQL(TranslationOwnerPost, "p"))
+		clauses = append(clauses, TranslatedPostSQL("p")+" AND "+TranslationFailedSQL(TranslationOwnerPost, "p"))
 	}
 	where := strings.Join(clauses, " AND ")
 	var total int
@@ -482,7 +556,7 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	totalPages := pageCount(total, pageSize)
 	page = safePage(page, totalPages)
 	offset := (page - 1) * pageSize
-	query := `SELECT p.id,p.source,p.account_handle,p.text,p.published_at,p.url,p.media_url,p.media_alt,COALESCE(s.status,'never'),s.route,s.last_attempt_at,s.last_processed_at,s.last_error,s.last_extraction_id,COALESCE(s.reprocess_requested,0),COALESCE(s.failure_count,0),s.next_attempt_at,p.quote_json,p.quote_hidden_at,p.refresh_requested_at,p.hidden_at FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE ` + where + ` ORDER BY julianday(p.published_at) DESC,p.id ASC LIMIT ? OFFSET ?`
+	query := `SELECT p.id,p.source,p.account_handle,p.text,p.published_at,p.url,p.media_url,p.media_alt,COALESCE(s.status,'never'),s.route,s.last_attempt_at,s.last_processed_at,s.last_error,s.last_extraction_id,COALESCE(s.reprocess_requested,0),COALESCE(s.failure_count,0),s.next_attempt_at,p.quote_json,p.quote_hidden_at,p.refresh_requested_at,p.hidden_at,p.promoted_at FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE ` + where + ` ORDER BY julianday(p.published_at) DESC,p.id ASC LIMIT ? OFFSET ?`
 	rows, err := s.db.QueryContext(ctx, query, append(args, pageSize, offset)...)
 	if err != nil {
 		return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
@@ -492,11 +566,11 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	quotes := map[string]sql.NullString{}
 	for rows.Next() {
 		var p AdminPost
-		var quote, quoteHidden, refreshRequested, hidden sql.NullString
+		var quote, quoteHidden, refreshRequested, hidden, promoted sql.NullString
 		var account, mediaURL, mediaAlt, route, lastAttempt, lastProcessed, lastError, retryAt sql.NullString
 		var extraction sql.NullInt64
 		var requested, failures int
-		if err := rows.Scan(&p.ID, &p.Source, &account, &p.Text, &p.PublishedAt, &p.URL, &mediaURL, &mediaAlt, &p.LLMStatus, &route, &lastAttempt, &lastProcessed, &lastError, &extraction, &requested, &failures, &retryAt, &quote, &quoteHidden, &refreshRequested, &hidden); err != nil {
+		if err := rows.Scan(&p.ID, &p.Source, &account, &p.Text, &p.PublishedAt, &p.URL, &mediaURL, &mediaAlt, &p.LLMStatus, &route, &lastAttempt, &lastProcessed, &lastError, &extraction, &requested, &failures, &retryAt, &quote, &quoteHidden, &refreshRequested, &hidden, &promoted); err != nil {
 			return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
 		}
 		p.AccountHandle = nullString(account)
@@ -511,6 +585,7 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 		p.QuoteHiddenAt = nullString(quoteHidden)
 		p.RefreshRequestedAt = nullString(refreshRequested)
 		p.HiddenAt = nullString(hidden)
+		p.PromotedAt = nullString(promoted)
 		quotes[p.ID] = quote
 		// A queued request runs regardless of the backoff; a dismissed
 		// failure is not waiting for a retry.
@@ -525,14 +600,20 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	}
 	// Release the single connection before resolving each cached image.
 	rows.Close()
+	// The page's images, quote images and schedule records are read in
+	// batches; each post then resolves from the read's memo.
+	ctx = withReadMemo(ctx)
+	if err := s.prefetchAdminPostMedia(ctx, items); err != nil {
+		return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
+	}
+	if err := s.attachAdminPostSchedules(ctx, items); err != nil {
+		return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
+	}
 	for i := range items {
 		if err := s.resolveAdminPostMedia(ctx, &items[i]); err != nil {
 			return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
 		}
-		if err := s.attachAdminPostSchedule(ctx, &items[i]); err != nil {
-			return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
-		}
-		quote, err := s.mapQuote(ctx, items[i].ID, quotes[items[i].ID])
+		quote, err := s.mapQuote(ctx, items[i].Source, items[i].ID, quotes[items[i].ID])
 		if err != nil {
 			return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
 		}
@@ -540,7 +621,7 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	}
 	ids := []string{}
 	for _, item := range items {
-		if item.Source == "x" {
+		if slices.Contains(TranslationPostSources, item.Source) {
 			ids = append(ids, item.ID)
 		}
 	}
@@ -554,6 +635,21 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 		}
 	}
 	return AdminPage[AdminPost]{Items: items, Page: page, PageSize: pageSize, Total: total, TotalPages: totalPages}, nil
+}
+
+// prefetchAdminPostMedia loads the media links of these posts and the media
+// rows of their stored media URLs into the read's memo.
+func (s *Store) prefetchAdminPostMedia(ctx context.Context, posts []AdminPost) error {
+	ids := make([]string, 0, len(posts))
+	sources := make([]*string, 0, len(posts))
+	for i := range posts {
+		ids = append(ids, posts[i].ID)
+		sources = append(sources, posts[i].MediaURL)
+	}
+	if err := s.prefetchMedia(ctx, sources...); err != nil {
+		return err
+	}
+	return s.prefetchPostMedia(ctx, ids...)
 }
 
 // resolveAdminPostMedia lists a post's images as the board does: linked post
@@ -662,10 +758,8 @@ func (s *Store) ListAdminVideos(ctx context.Context, f AdminVideoFilter) (AdminV
 	}
 	// Release the single connection before resolving each cached thumbnail.
 	rows.Close()
-	for i := range items {
-		if err := s.resolveAdminThumbnail(ctx, &items[i]); err != nil {
-			return AdminVideosPage{}, fmt.Errorf("%w: admin videos unavailable", ErrUnavailable)
-		}
+	if err := s.resolveAdminThumbnails(ctx, items); err != nil {
+		return AdminVideosPage{}, fmt.Errorf("%w: admin videos unavailable", ErrUnavailable)
 	}
 	if err := s.attachAdminVideoTranslations(ctx, items); err != nil {
 		return AdminVideosPage{}, fmt.Errorf("%w: admin videos unavailable", ErrUnavailable)
@@ -688,21 +782,28 @@ var adminVideoColumns = `v.id,v.source,v.title,v.published_at,v.scheduled_at,v.u
  v.manual_title,v.manual_kind,v.manual_thumbnail_media_id,v.manual_thumbnail_sha256,v.duration_seconds,v.live_checked_at,v.refresh_requested_at,
  (SELECT COUNT(*) FROM video_revisions r WHERE r.video_id=v.id),
  v.merged_into,(SELECT COALESCE(t.manual_title,t.title) FROM videos t WHERE t.id=v.merged_into),v.merge_source,v.merge_reason,v.merged_at,v.is_short,v.manual_is_short,
- v.manual_tag,` + videoEventTagSQL("v") + `,v.tag,v.tag_source,v.availability,v.manual_availability`
+ v.manual_tag,` + videoEventTagSQL("v") + `,v.tag,v.tag_source,v.availability,v.manual_availability,v.manual_work,
+ v.kind_source,v.kind_review,` + publicVideoScope
 
 func scanAdminVideo(row scanner) (AdminVideo, error) {
 	var v AdminVideo
 	var published, scheduled, thumbnail, kind, manualTitle, manualKind, pinMedia, pinHash, checked, requested sql.NullString
 	var mergedInto, mergedTitle, mergeSource, mergeReason, mergedAt sql.NullString
 	var duration sql.NullInt64
-	var short, manualShort sql.NullBool
+	var short, manualShort, manualWork sql.NullBool
 	var manualTag, scheduleTag, inferredTag, inferredSource, availability, manualAvailability sql.NullString
+	var kindSource, kindReview sql.NullString
 	var upcoming int
 	if err := row.Scan(&v.ID, &v.Source, &v.SourceTitle, &published, &scheduled, &v.URL, &thumbnail, &kind, &upcoming,
 		&manualTitle, &manualKind, &pinMedia, &pinHash, &duration, &checked, &requested, &v.Revisions,
 		&mergedInto, &mergedTitle, &mergeSource, &mergeReason, &mergedAt, &short, &manualShort,
-		&manualTag, &scheduleTag, &inferredTag, &inferredSource, &availability, &manualAvailability); err != nil {
+		&manualTag, &scheduleTag, &inferredTag, &inferredSource, &availability, &manualAvailability, &manualWork,
+		&kindSource, &kindReview, &v.Public); err != nil {
 		return AdminVideo{}, err
+	}
+	v.FormSource = adminFormSource(v.Source, nullString(manualKind), nullString(kindSource))
+	if v.Source == "bilibili" && v.FormSource == nil {
+		v.FormReview = nullString(kindReview)
 	}
 	v.MergedInto, v.MergedIntoTitle, v.MergeSource = nullString(mergedInto), nullString(mergedTitle), nullString(mergeSource)
 	v.MergeReason, v.MergedAt = nullString(mergeReason), nullString(mergedAt)
@@ -730,6 +831,7 @@ func scanAdminVideo(row scanner) (AdminVideo, error) {
 	if v.ManualIsShort != nil {
 		v.IsShort = v.ManualIsShort
 	}
+	v.ManualWork = nullBool(manualWork)
 	v.SourceAvailability, v.ManualAvailability = nullString(availability), nullString(manualAvailability)
 	v.Availability = v.SourceAvailability
 	if v.ManualAvailability != nil {
@@ -765,6 +867,25 @@ func (s *Store) resolveAdminThumbnail(ctx context.Context, v *AdminVideo) error 
 		return err
 	}
 	v.ThumbnailURL, v.ThumbnailStatus = ref.PublicURL, ref.Status
+	return nil
+}
+
+// resolveAdminThumbnails resolves the thumbnails of a listed page. Their media
+// rows are read in batches and their files checked through one read's memo.
+func (s *Store) resolveAdminThumbnails(ctx context.Context, videos []AdminVideo) error {
+	ctx = withReadMemo(ctx)
+	sources := make([]*string, len(videos))
+	for i := range videos {
+		sources[i] = videos[i].sourceThumbnail
+	}
+	if err := s.prefetchMedia(ctx, sources...); err != nil {
+		return err
+	}
+	for i := range videos {
+		if err := s.resolveAdminThumbnail(ctx, &videos[i]); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -820,10 +941,8 @@ func (s *Store) adminVideosByID(ctx context.Context, ids []string) (map[string]A
 			return nil, fmt.Errorf("%w: videos unavailable", ErrUnavailable)
 		}
 	}
-	for i := range items {
-		if err := s.resolveAdminThumbnail(ctx, &items[i]); err != nil {
-			return nil, fmt.Errorf("%w: videos unavailable", ErrUnavailable)
-		}
+	if err := s.resolveAdminThumbnails(ctx, items); err != nil {
+		return nil, fmt.Errorf("%w: videos unavailable", ErrUnavailable)
 	}
 	if err := s.attachAdminVideoTranslations(ctx, items); err != nil {
 		return nil, fmt.Errorf("%w: videos unavailable", ErrUnavailable)
@@ -922,6 +1041,13 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	case "visible":
 		clauses = append(clauses, "e.merged_into IS NULL")
 	}
+	if f.Public {
+		clauses = append(clauses, eventShownSQL("e"))
+	}
+	attention := EventAttentionSQL("e", f.Today)
+	if f.Attention {
+		clauses = append(clauses, "("+attention+") IS NOT NULL")
+	}
 	if adminDateRE.MatchString(f.From) {
 		clauses = append(clauses, "e.starts_on >= ?")
 		args = append(args, f.From)
@@ -941,7 +1067,7 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	if f.Ascending {
 		direction = "ASC"
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT e.id,e.source,e.source_item_id,e.source_key,e.title,e.detail,e.starts_on,e.starts_at,e.ends_at,e.timezone,e.time_precision,e.status,e.event_type,e.tag,e.tag_source,e.url,e.provenance,e.manual_locked,e.confidence,e.extraction_id,e.cancellation_status,e.cancellation_source,e.cancellation_reason,e.cancellation_evidence,e.cancellation_source_item_id,e.cancellation_confidence,e.cancellation_at,e.deleted_at,e.created_at,e.updated_at,e.merged_into,(SELECT t.title FROM events t WHERE t.id=e.merged_into),e.merge_source,e.merge_reason,e.merged_at FROM events e WHERE `+where+` ORDER BY COALESCE(julianday(e.starts_at),julianday(e.starts_on || 'T23:59:59.999+09:00')) `+direction+`,e.id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
+	rows, err := s.db.QueryContext(ctx, `SELECT e.id,e.source,e.source_item_id,e.source_key,e.title,e.detail,e.starts_on,e.starts_at,e.ends_at,e.ends_on,e.timezone,e.time_precision,e.status,e.event_type,e.tag,e.tag_source,e.url,e.provenance,e.manual_locked,e.confidence,e.extraction_id,e.cancellation_status,e.cancellation_source,e.cancellation_reason,e.cancellation_evidence,e.cancellation_source_item_id,e.cancellation_confidence,e.cancellation_at,e.deleted_at,e.created_at,e.updated_at,e.merged_into,(SELECT t.title FROM events t WHERE t.id=e.merged_into),e.merge_source,e.merge_reason,e.merged_at,`+eventHiddenByPostsSQL("e")+`,e.platform,e.platforms,e.platforms_inferred,`+attention+` FROM events e WHERE `+where+` ORDER BY COALESCE(julianday(e.starts_at),julianday(e.starts_on || 'T23:59:59.999+09:00')) `+direction+`,e.id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 	}
@@ -949,19 +1075,23 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 	items := []AdminEvent{}
 	for rows.Next() {
 		var e AdminEvent
-		var sourceItem, sourceKey, detail, startsAt, endsAt, status, eventType, tag, tagSource, url, cancelSource, cancelReason, cancelEvidence, cancelSourceItem, cancelAt, deletedAt sql.NullString
+		var sourceItem, sourceKey, detail, startsAt, endsAt, endsOn, status, eventType, tag, tagSource, url, cancelSource, cancelReason, cancelEvidence, cancelSourceItem, cancelAt, deletedAt sql.NullString
 		var mergedInto, mergedIntoTitle, mergeSource, mergeReason, mergedAt sql.NullString
-		var manual int
+		var manual, hiddenByPosts, inferred int
 		var confidence, cancelConfidence sql.NullFloat64
 		var extraction sql.NullInt64
-		if err := rows.Scan(&e.ID, &e.Source, &sourceItem, &sourceKey, &e.Title, &detail, &e.StartsOn, &startsAt, &endsAt, &e.Timezone, &e.TimePrecision, &status, &eventType, &tag, &tagSource, &url, &e.Provenance, &manual, &confidence, &extraction, &e.CancellationStatus, &cancelSource, &cancelReason, &cancelEvidence, &cancelSourceItem, &cancelConfidence, &cancelAt, &deletedAt, &e.CreatedAt, &e.UpdatedAt, &mergedInto, &mergedIntoTitle, &mergeSource, &mergeReason, &mergedAt); err != nil {
+		var platform, platforms, review sql.NullString
+		if err := rows.Scan(&e.ID, &e.Source, &sourceItem, &sourceKey, &e.Title, &detail, &e.StartsOn, &startsAt, &endsAt, &endsOn, &e.Timezone, &e.TimePrecision, &status, &eventType, &tag, &tagSource, &url, &e.Provenance, &manual, &confidence, &extraction, &e.CancellationStatus, &cancelSource, &cancelReason, &cancelEvidence, &cancelSourceItem, &cancelConfidence, &cancelAt, &deletedAt, &e.CreatedAt, &e.UpdatedAt, &mergedInto, &mergedIntoTitle, &mergeSource, &mergeReason, &mergedAt, &hiddenByPosts, &platform, &platforms, &inferred, &review); err != nil {
 			return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 		}
+		e.Platforms, _ = readPlatforms(platforms, platform, url.String)
+		e.PlatformsInferred = inferred != 0
 		e.SourceItemID = nullString(sourceItem)
 		e.SourceKey = nullString(sourceKey)
 		e.Detail = nullString(detail)
 		e.StartsAt = nullString(startsAt)
 		e.EndsAt = nullString(endsAt)
+		e.EndsOn = nullString(endsOn)
 		e.Status = nullString(status)
 		e.EventType = nullString(eventType)
 		e.Tag = nullString(tag)
@@ -982,12 +1112,53 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 		e.MergeSource = nullString(mergeSource)
 		e.MergeReason = nullString(mergeReason)
 		e.MergedAt = nullString(mergedAt)
+		e.HiddenByPosts = hiddenByPosts != 0
+		e.Review = eventReview(review.String, e)
 		items = append(items, e)
 	}
 	if err := rows.Err(); err != nil {
 		return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
 	}
+	_ = rows.Close()
+	if err := s.attachAdminPlatforms(ctx, items); err != nil {
+		return AdminPage[AdminEvent]{}, fmt.Errorf("%w: admin events unavailable", ErrUnavailable)
+	}
 	return AdminPage[AdminEvent]{Items: items, Page: page, PageSize: pageSize, Total: total, TotalPages: totalPages}, nil
+}
+
+// attachAdminPlatforms fills ShownPlatforms as the public reads compute
+// them: the announced platforms, those of the automatic entries merged into
+// the event, and bilibili when the room's last broadcast matched its
+// YouTube broadcast.
+func (s *Store) attachAdminPlatforms(ctx context.Context, items []AdminEvent) error {
+	ids := make([]string, len(items))
+	for i, e := range items {
+		ids[i] = e.ID
+	}
+	merged, err := readMergedPlatforms(ctx, s.db, ids)
+	if err != nil {
+		return err
+	}
+	live, err := readBilibiliLive(ctx, s.db, bilisource.OptionsFromEnv().Account)
+	if err != nil {
+		return err
+	}
+	match, matched, err := roomBroadcastMatch(ctx, s.db, live)
+	if err != nil {
+		return err
+	}
+	for i := range items {
+		e := &items[i]
+		if e.Platforms == nil {
+			e.Platforms = []string{}
+		}
+		shown := append(append([]string{}, e.Platforms...), merged.platforms[e.ID]...)
+		if matched && match.observed && match.id == e.ID {
+			shown = append(shown, PlatformBilibili)
+		}
+		e.ShownPlatforms = orderPlatforms(shown, PrimaryPlatform(e.Platforms))
+	}
+	return nil
 }
 
 // AdminCounts reads the overview aggregates. today is the current Japan date;
@@ -995,23 +1166,26 @@ func (s *Store) ListAdminEvents(ctx context.Context, f AdminEventFilter) (AdminP
 func (s *Store) AdminCounts(ctx context.Context, today string) (AdminCounts, error) {
 	var c AdminCounts
 	failedTranslation := TranslationFailedSQL(TranslationOwnerPost, "p")
+	attention := EventAttentionSQL("events", today)
 	err := s.db.QueryRowContext(ctx, `SELECT
 	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on >= ? AND cancellation_status <> 'manual_confirmed'),
 	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL),
 	  (SELECT COUNT(*) FROM posts),
 	  (SELECT COUNT(*) FROM videos),
-	  (SELECT COUNT(*) FROM assets a LEFT JOIN schedule_asset_reviews r ON r.asset_id=a.id
-	     WHERE a.kind='schedule' AND TRIM(a.url)<>'' AND COALESCE(r.manual_status,'unreviewed')='unreviewed'
-	       AND COALESCE(r.llm_status,'pending') IN ('pending','uncertain','failed')),
-	  (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND cancellation_status='llm_suspected'),
-	  (SELECT COUNT(*) FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE s.status='failed' OR (p.source='x' AND `+failedTranslation+`)),
+	  (SELECT COUNT(*) FROM assets a LEFT JOIN schedule_asset_reviews r ON r.asset_id=a.id WHERE `+ScheduleImagePendingSQL("a", "r")+`),
+	  (SELECT COUNT(*) FROM events WHERE `+attention+`='`+AttentionSuspected+`'),
+	  (SELECT COUNT(*) FROM events WHERE `+attention+`='`+AttentionUncertain+`'),
+	  (SELECT COUNT(*) FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE s.status='failed' OR (`+TranslatedPostSQL("p")+` AND `+failedTranslation+`)),
 	  (SELECT COUNT(*) FROM post_llm_states WHERE status='failed'),
-	  (SELECT COUNT(*) FROM posts p WHERE p.source='x' AND `+failedTranslation+`)`, today).Scan(
-		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.FailedPosts, &c.FailedExtractions, &c.FailedTranslations)
+	  (SELECT COUNT(*) FROM posts p WHERE `+TranslatedPostSQL("p")+` AND `+failedTranslation+`)`, today).Scan(
+		&c.UpcomingEvents, &c.Events, &c.Posts, &c.Videos, &c.PendingImages, &c.SuspectedCancellations, &c.UncertainEvents, &c.FailedPosts, &c.FailedExtractions, &c.FailedTranslations)
 	if err != nil {
 		return AdminCounts{}, fmt.Errorf("%w: admin counts unavailable", ErrUnavailable)
 	}
 	if c.VideoMerges, err = videoMergeDecisions(ctx, s.db); err != nil {
+		return AdminCounts{}, fmt.Errorf("%w: admin counts unavailable", ErrUnavailable)
+	}
+	if c.BilibiliForms, err = bilibiliFormDecisions(ctx, s.db); err != nil {
 		return AdminCounts{}, fmt.Errorf("%w: admin counts unavailable", ErrUnavailable)
 	}
 	return c, nil
@@ -1020,8 +1194,8 @@ func (s *Store) AdminCounts(ctx context.Context, today string) (AdminCounts, err
 // SourceLastSuccess reports the newest successful incremental read of each
 // source across its accounts, or nil when it never succeeded.
 func (s *Store) SourceLastSuccess(ctx context.Context) (map[string]*string, error) {
-	out := map[string]*string{"x": nil, "youtube": nil, "bilibili": nil}
-	rows, err := s.db.QueryContext(ctx, `SELECT source, MAX(last_success_at) FROM sync_state WHERE source IN ('x','youtube','bilibili') GROUP BY source`)
+	out := map[string]*string{"x": nil, XRelatedStep: nil, "youtube": nil, "bilibili": nil, ShopSource: nil}
+	rows, err := s.db.QueryContext(ctx, `SELECT source, MAX(last_success_at) FROM sync_state WHERE source IN ('x',?,'youtube','bilibili','shop') GROUP BY source`, XRelatedSource)
 	if err != nil {
 		return nil, fmt.Errorf("%w: sync state unavailable", ErrUnavailable)
 	}
@@ -1031,6 +1205,10 @@ func (s *Store) SourceLastSuccess(ctx context.Context) (map[string]*string, erro
 		var at sql.NullString
 		if err := rows.Scan(&source, &at); err != nil {
 			return nil, fmt.Errorf("%w: sync state unavailable", ErrUnavailable)
+		}
+		// The related accounts' rows are the x_related timer's reads.
+		if source == XRelatedSource {
+			source = XRelatedStep
 		}
 		out[source] = nullString(at)
 	}

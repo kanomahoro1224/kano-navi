@@ -1,0 +1,144 @@
+.adm-modal.adm-translation-editor {
+  width: min(920px, calc(100vw - 32px));
+}
+
+.adm-translation-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 20px;
+}
+
+.adm-translation-original {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  margin: 0;
+}
+
+.adm-translation-original figcaption,
+.adm-translation-reference figcaption {
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.adm-translation-original blockquote {
+  max-height: 340px;
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-sunken);
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.adm-translation-side {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.adm-translation-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-translation-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  margin-bottom: -1px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--adm-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.adm-translation-tabs button.is-active {
+  border-bottom-color: var(--adm-accent);
+  color: var(--adm-text);
+}
+
+.adm-shell .adm-translation-tabs svg {
+  width: 13px;
+  height: 13px;
+  color: var(--honey);
+}
+
+.adm-translation-locale {
+  display: grid;
+  gap: 10px;
+}
+
+.adm-translation-locale header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.adm-translation-locale header label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.adm-translation-locale header small {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.adm-translation-locale textarea {
+  width: 100%;
+  min-height: 140px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.adm-translation-reference {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--adm-line-strong);
+  border-radius: var(--adm-radius-sm);
+}
+
+.adm-translation-reference p {
+  margin: 0;
+  color: var(--adm-muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.adm-translation-reference .adm-button {
+  justify-self: start;
+}
+
+.adm-translation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .adm-translation-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-translation-original blockquote {
+    max-height: 160px;
+  }
+}

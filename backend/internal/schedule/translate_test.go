@@ -33,8 +33,14 @@ func (f *fixture) queueTranslation(providerIDs ...string) {
 	f.queueOn(routeTranslate, providerIDs...)
 }
 
+// translationReply answers with a Japanese field derived from the others,
+// filled only when Japanese is not the source language.
 func translationReply(language, english, chinese string) string {
-	return chatReply(stringify(obj("sourceLanguage", language, "english", english, "simplifiedChinese", chinese)))
+	japanese := ""
+	if language != "ja" && language != "none" {
+		japanese = "ja:" + english + chinese
+	}
+	return chatReply(stringify(obj("sourceLanguage", language, "english", english, "japanese", japanese, "simplifiedChinese", chinese)))
 }
 
 func recent(hours int) string {
@@ -350,6 +356,8 @@ func TestTranslatorKeepsOperatorAndPlatformTranslations(t *testing.T) {
 		f.exec(`INSERT INTO videos (id, source, title, published_at, url, kind, tag_source) VALUES (?, ?, ?, ?, ?, 'upload', 'title')`,
 			video.id, video.source, video.title, recent(3), "https://video.example.test/"+video.id)
 	}
+	// A merged upload's title is its video's platform translation.
+	f.exec(`UPDATE videos SET merged_into='localized' WHERE id='bilibili'`)
 	for locale, text := range map[string]string{"en": "[Singing] Autumn night", "zh-CN": "【歌回】秋夜"} {
 		if err := f.store.UpsertPlatformTranslation(ctx, sqlite.TranslationWrite{
 			OwnerType: sqlite.TranslationOwnerVideo, OwnerID: "localized", Field: "title", Locale: locale,
@@ -384,8 +392,8 @@ func TestTranslatorKeepsOperatorAndPlatformTranslations(t *testing.T) {
 		t.Fatal(err)
 	}
 	item := items["1"]
-	if item.Status != "incomplete" || item.MachineStatus != "outdated" || item.Locales[0].Text == nil || *item.Locales[0].Text != "Morning!" || !item.Locales[0].ManualStale || item.Locales[1].Status != "stale" {
-		t.Fatalf("admin=%+v en=%+v zh=%+v", item, item.Locales[0], item.Locales[1])
+	if item.Status != "incomplete" || item.MachineStatus != "outdated" || item.Locales[0].Text == nil || *item.Locales[0].Text != "Morning!" || !item.Locales[0].ManualStale || item.Locales[2].Status != "stale" {
+		t.Fatalf("admin=%+v en=%+v zh=%+v", item, item.Locales[0], item.Locales[2])
 	}
 	f.provider.respond = func(recordedRequest) (int, string) {
 		return http.StatusOK, translationReply("ja", "Good morning to you", "早上好呀")
@@ -434,7 +442,7 @@ func TestTranslationRequestsBypassTheLookback(t *testing.T) {
 	if f.provider.count() != 0 {
 		t.Fatalf("a post outside the lookback was translated")
 	}
-	queued, err := f.store.RequestMissingTranslations(context.Background(), "")
+	queued, err := f.store.RequestMissingTranslations(context.Background(), "", "")
 	if err != nil || queued != 1 {
 		t.Fatalf("queued=%d err=%v", queued, err)
 	}

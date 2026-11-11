@@ -18,7 +18,6 @@ They describe the current system only.
 - [Development](development/index.md): local setup, design, testing, history
   and LINE BLOG archive maintenance, commits, and releases.
 - [Repository agent guide](../AGENTS.md): boundaries and validation rules.
-- [Decisions](decisions/index.md): durable architecture trade-offs.
 
 ## For Operators
 
@@ -42,7 +41,8 @@ Where each topic belongs:
 - Security reporting belongs in [SECURITY.md](../SECURITY.md); technical
   boundaries belong in [Deployment security](operations/security.md) and
   [Secure development](development/security.md).
-- Durable design choices belong in [ADRs](decisions/index.md).
+- Design reasons and current rules belong in the relevant architecture, operations,
+  or development document.
 - Release notes, pending changes, and per-release upgrade steps belong in
   [History](history/index.md). Every other page describes only the current
   system; see the writing rules in the

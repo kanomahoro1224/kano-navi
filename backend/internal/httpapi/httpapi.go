@@ -53,10 +53,6 @@ func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Sta
 	if now == nil {
 		now = time.Now
 	}
-	// The fixed history images share the store's variant cache.
-	if site, ok := options.Static.(*staticSite); ok && store != nil {
-		site.variants = store
-	}
 	return &Handler{
 		store:        store,
 		now:          now,
@@ -181,6 +177,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.videoMonths(w, r)
+	case "/api/works/uploads":
+		w.Header().Set("Vary", "Accept-Encoding")
+		if r.Method != http.MethodGet {
+			writeMethodNotAllowed(w, http.MethodGet)
+			return
+		}
+		h.worksUploads(w, r)
 	default:
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/media/lineblog/"):
@@ -188,7 +191,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				writeMethodNotAllowed(w, "GET, HEAD")
 				return
 			}
-			h.lineblogMedia(w, r, strings.TrimPrefix(r.URL.Path, "/media/lineblog/"))
+			lineblogArchive.serve(w, r, h, strings.TrimPrefix(r.URL.Path, "/media/lineblog/"))
+		case strings.HasPrefix(r.URL.Path, "/media/works/"):
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				writeMethodNotAllowed(w, "GET, HEAD")
+				return
+			}
+			worksArchive.serve(w, r, h, strings.TrimPrefix(r.URL.Path, "/media/works/"))
+		case strings.HasPrefix(r.URL.Path, "/media/journey/"):
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				writeMethodNotAllowed(w, "GET, HEAD")
+				return
+			}
+			journeyArchive.serve(w, r, h, strings.TrimPrefix(r.URL.Path, "/media/journey/"))
 		case strings.HasPrefix(r.URL.Path, "/media/profile/"):
 			if r.Method != http.MethodGet && r.Method != http.MethodHead {
 				writeMethodNotAllowed(w, "GET, HEAD")
@@ -321,7 +336,7 @@ func (h *Handler) calendar(w http.ResponseWriter, r *http.Request) {
 	} else {
 		pageSize = int(^uint(0) >> 1)
 	}
-	calendar, err := h.store.GetCalendarPage(r.Context(), r.URL.Query().Get("from"), r.URL.Query().Get("to"), page, pageSize)
+	calendar, err := h.store.GetCalendarPageAt(r.Context(), r.URL.Query().Get("from"), r.URL.Query().Get("to"), page, pageSize, h.now())
 	if err != nil {
 		if errors.Is(err, sqlite.ErrInvalidCalendarRange) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_calendar_range"}, "")
@@ -341,6 +356,8 @@ func (h *Handler) calendar(w http.ResponseWriter, r *http.Request) {
 		// state to the public event, while omitting dashboard-only isUpcoming.
 		projected["manualLocked"] = event.ManualLocked
 		projected["liveStatus"] = event.LiveStatus
+		projected["liveUrl"] = event.LiveURL
+		projected["links"] = publicview.PublicEventLinks(event.Links)
 		items = append(items, projected)
 	}
 	images := make([]any, 0, len(calendar.ScheduleImages))

@@ -19,10 +19,43 @@ type bilibiliMetadata struct {
 	Session       bilisource.Session `json:"session"`
 	SessionAt     string             `json:"sessionAt,omitempty"`
 	LastAttemptAt string             `json:"lastAttemptAt,omitempty"`
-	LastPostsAt   string             `json:"lastPostsAt,omitempty"`
 	BlockedUntil  string             `json:"blockedUntil,omitempty"`
 	Failures      int                `json:"failures,omitempty"`
 	LastError     string             `json:"lastError,omitempty"`
+	BlockedAt     string             `json:"blockedAt,omitempty"`
+	ClearedAt     string             `json:"clearedAt,omitempty"`
+	// Dynamics is the dynamics listing's clock and outcome, and WBI its
+	// cached signature keys (see bilibili_dynamics.go).
+	Dynamics bilibiliDynamicsMetadata `json:"dynamics"`
+	WBI      bilisource.WBIKeys       `json:"wbi"`
+	// Login is the latest login check of the configured cookie (never the
+	// cookie itself).
+	Login bilibiliLoginMetadata `json:"login"`
+}
+
+type bilibiliLoginMetadata struct {
+	CheckedAt string `json:"checkedAt,omitempty"`
+	SignedIn  bool   `json:"signedIn,omitempty"`
+}
+
+type bilibiliDynamicsMetadata struct {
+	LastAttemptAt string `json:"lastAttemptAt,omitempty"`
+	LastSuccessAt string `json:"lastSuccessAt,omitempty"`
+	LastError     string `json:"lastError,omitempty"`
+}
+
+func bilibiliMetadataOf(state bilisource.State) bilibiliMetadata {
+	return bilibiliMetadata{
+		Session: state.Session, SessionAt: formatInstant(state.SessionAt), LastAttemptAt: formatInstant(state.LastAttemptAt),
+		BlockedUntil: formatInstant(state.BlockedUntil), Failures: state.Failures, LastError: state.LastError,
+		BlockedAt: formatInstant(state.BlockedAt), ClearedAt: formatInstant(state.ClearedAt),
+		Dynamics: bilibiliDynamicsMetadata{
+			LastAttemptAt: formatInstant(state.Dynamics.LastAttemptAt), LastSuccessAt: formatInstant(state.Dynamics.LastSuccessAt),
+			LastError: state.Dynamics.LastError,
+		},
+		WBI:   state.WBI,
+		Login: bilibiliLoginMetadata{CheckedAt: formatInstant(state.Login.CheckedAt), SignedIn: state.Login.SignedIn},
+	}
 }
 
 func parseInstant(value string) time.Time {
@@ -53,8 +86,14 @@ func (s *Store) BilibiliState(ctx context.Context, account string) (bilisource.S
 	return bilisource.State{
 		Session: data.Session, SessionAt: parseInstant(data.SessionAt),
 		LastAttemptAt: parseInstant(data.LastAttemptAt), LastSuccessAt: parseInstant(lastSuccess),
-		LastPostsAt:  parseInstant(data.LastPostsAt),
 		BlockedUntil: parseInstant(data.BlockedUntil), Failures: data.Failures, LastError: data.LastError,
+		BlockedAt: parseInstant(data.BlockedAt), ClearedAt: parseInstant(data.ClearedAt),
+		Dynamics: bilisource.DynamicsState{
+			LastAttemptAt: parseInstant(data.Dynamics.LastAttemptAt), LastSuccessAt: parseInstant(data.Dynamics.LastSuccessAt),
+			LastError: data.Dynamics.LastError,
+		},
+		WBI:   data.WBI,
+		Login: bilisource.LoginState{CheckedAt: parseInstant(data.Login.CheckedAt), SignedIn: data.Login.SignedIn},
 	}, nil
 }
 
@@ -67,6 +106,32 @@ type BilibiliStatus struct {
 	LastSuccessAt *string `json:"lastSuccessAt"`
 	BlockedUntil  *string `json:"blockedUntil"`
 	LastError     *string `json:"lastError"`
+	// Dynamics is the dynamics listing; it never includes the WBI keys.
+	Dynamics BilibiliDynamicsStatus `json:"dynamics"`
+	// LoginCheckedAt is when the login cookie was last verified.
+	LoginCheckedAt *string `json:"loginCheckedAt"`
+	// Live is the live room as the last check saw it.
+	Live BilibiliLiveStatus `json:"live"`
+}
+
+type BilibiliDynamicsStatus struct {
+	Posts         int     `json:"posts"`
+	LastAttemptAt *string `json:"lastAttemptAt"`
+	LastSuccessAt *string `json:"lastSuccessAt"`
+	LastError     *string `json:"lastError"`
+}
+
+type BilibiliLiveStatus struct {
+	RoomID     *string `json:"roomId"`
+	LiveStatus *int    `json:"liveStatus"`
+	Title      *string `json:"title"`
+	LiveTime   *string `json:"liveTime"`
+	CheckedAt  *string `json:"checkedAt"`
+	// LastLiveAt is the last check that saw the room live: the approximate
+	// end of the last broadcast once the room is off air.
+	LastLiveAt   *string `json:"lastLiveAt"`
+	BlockedUntil *string `json:"blockedUntil"`
+	LastError    *string `json:"lastError"`
 }
 
 func (s *Store) BilibiliStatus(ctx context.Context, account string) (BilibiliStatus, error) {
@@ -86,6 +151,27 @@ func (s *Store) BilibiliStatus(ctx context.Context, account string) (BilibiliSta
 	}
 	out.LastAttemptAt, out.LastSuccessAt = optional(formatInstant(state.LastAttemptAt)), optional(formatInstant(state.LastSuccessAt))
 	out.BlockedUntil, out.LastError = optional(formatInstant(state.BlockedUntil)), optional(state.LastError)
+	if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts WHERE source='bilibili'`).Scan(&out.Dynamics.Posts); err != nil {
+		return BilibiliStatus{}, ErrUnavailable
+	}
+	out.Dynamics.LastAttemptAt, out.Dynamics.LastSuccessAt = optional(formatInstant(state.Dynamics.LastAttemptAt)), optional(formatInstant(state.Dynamics.LastSuccessAt))
+	out.Dynamics.LastError = optional(state.Dynamics.LastError)
+	out.LoginCheckedAt = optional(formatInstant(state.Login.CheckedAt))
+	live, err := s.BilibiliLiveState(ctx, account)
+	if err != nil {
+		return BilibiliStatus{}, err
+	}
+	room := live.State.Room
+	out.Live = BilibiliLiveStatus{
+		RoomID: optional(room.RoomID), Title: optional(room.Title), LiveTime: optional(room.LiveTime),
+		CheckedAt: optional(formatInstant(live.State.CheckedAt)), LastLiveAt: optional(formatInstant(live.LastLiveAt)),
+		BlockedUntil: optional(formatInstant(live.State.BlockedUntil)),
+		LastError:    optional(live.State.LastError),
+	}
+	if room.RoomID != "" {
+		status := room.LiveStatus
+		out.Live.LiveStatus = &status
+	}
 	return out, nil
 }
 
@@ -131,28 +217,8 @@ func (s *Store) writeBilibili(ctx context.Context, account string, videos []bili
 			newest, newestAt = v.BVID, v.PublishedAt
 		}
 	}
-	// Operator reads run outside the workflow queue, so another read may have
-	// stored a captcha block since this one read the state.
-	var storedMeta string
-	if err = tx.QueryRowContext(ctx, `SELECT COALESCE(metadata_json,'{}') FROM sync_state WHERE source='bilibili' AND account_id=?`, account).Scan(&storedMeta); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return false, ErrSourceWrite
-	}
-	var stored bilibiliMetadata
-	_ = json.Unmarshal([]byte(storedMeta), &stored)
-	meta, _ := json.Marshal(mergeBilibiliMetadata(stored, bilibiliMetadata{
-		Session: state.Session, SessionAt: formatInstant(state.SessionAt), LastAttemptAt: formatInstant(state.LastAttemptAt),
-		LastPostsAt:  formatInstant(state.LastPostsAt),
-		BlockedUntil: formatInstant(state.BlockedUntil), Failures: state.Failures, LastError: state.LastError,
-	}, time.Now()))
-	// The cursor only names the newest upload seen; reads are not incremental.
-	_, err = tx.ExecContext(ctx, `INSERT INTO sync_state(source,account_id,cursor_id,cursor_time,last_success_at,metadata_json) VALUES('bilibili',?,NULLIF(?,''),NULLIF(?,''),NULLIF(?,''),?)
- ON CONFLICT(source,account_id) DO UPDATE SET
-  cursor_id=CASE WHEN julianday(excluded.cursor_time)>COALESCE(julianday(sync_state.cursor_time),0) THEN excluded.cursor_id ELSE sync_state.cursor_id END,
-  cursor_time=CASE WHEN julianday(excluded.cursor_time)>COALESCE(julianday(sync_state.cursor_time),0) THEN excluded.cursor_time ELSE sync_state.cursor_time END,
-  last_success_at=COALESCE(excluded.last_success_at,sync_state.last_success_at),metadata_json=excluded.metadata_json`,
-		account, newest, newestAt, formatInstant(state.LastSuccessAt), string(meta))
-	if err != nil {
-		return false, ErrSourceWrite
+	if err = writeBilibiliState(ctx, tx, account, state, newest, newestAt); err != nil {
+		return false, err
 	}
 	if changed {
 		if err = bumpRevision(ctx, tx, now); err != nil {
@@ -166,28 +232,43 @@ func (s *Store) writeBilibili(ctx context.Context, account string, videos []bili
 }
 
 // mergeBilibiliMetadata keeps a block that is still active and later than
-// the incoming one, with its failure bookkeeping: no request starts while a
-// block lasts, so such a block was stored by a concurrent read that this
-// write must not erase. The latest attempt is kept as well.
+// the incoming one, with its failure bookkeeping, unless the incoming read
+// started after that block was recorded and succeeded (an operator's forced
+// read): no request starts while a block lasts, so any other such block was
+// stored by a concurrent read that this write must not erase. The latest
+// attempt of each read is kept as well.
 func mergeBilibiliMetadata(stored, incoming bilibiliMetadata, now time.Time) bilibiliMetadata {
 	storedBlock := parseInstant(stored.BlockedUntil)
-	if storedBlock.After(now) && storedBlock.After(parseInstant(incoming.BlockedUntil)) {
+	lifted := !parseInstant(stored.BlockedAt).IsZero() && parseInstant(incoming.ClearedAt).After(parseInstant(stored.BlockedAt))
+	if storedBlock.After(now) && storedBlock.After(parseInstant(incoming.BlockedUntil)) && !lifted {
 		incoming.BlockedUntil, incoming.Failures, incoming.LastError = stored.BlockedUntil, stored.Failures, stored.LastError
+		incoming.BlockedAt = stored.BlockedAt
+	}
+	if parseInstant(stored.ClearedAt).After(parseInstant(incoming.ClearedAt)) {
+		incoming.ClearedAt = stored.ClearedAt
 	}
 	if parseInstant(stored.LastAttemptAt).After(parseInstant(incoming.LastAttemptAt)) {
 		incoming.LastAttemptAt = stored.LastAttemptAt
 	}
-	// The dynamics read keeps its own clock, so one write never moves the
-	// other's next due time backwards.
-	if parseInstant(stored.LastPostsAt).After(parseInstant(incoming.LastPostsAt)) {
-		incoming.LastPostsAt = stored.LastPostsAt
+	if parseInstant(stored.Dynamics.LastAttemptAt).After(parseInstant(incoming.Dynamics.LastAttemptAt)) {
+		incoming.Dynamics = stored.Dynamics
+	}
+	if parseInstant(stored.Login.CheckedAt).After(parseInstant(incoming.Login.CheckedAt)) {
+		incoming.Login = stored.Login
 	}
 	return incoming
 }
 
 // writeBilibiliVideos upserts uploads. A list read is a complete description
 // of an upload, so it replaces the stored platform fields and keeps the
-// replaced title and cover as history. Operator corrections survive.
+// replaced title and cover as history. Operator corrections survive. A
+// listing without a description (the official client's) keeps the stored
+// one, and a missing aid never replaces a known one. A partial upload (from
+// the dynamics or the official client's listing, which date an upload by
+// their own clocks) keeps a stored upload's publication time, so the
+// listings never move it back and forth. The list carries no live-replay
+// flag, so it writes the form only for a new row (upload, unsettled); a
+// stored form and who settled it (bilibili_forms.go) are kept.
 func writeBilibiliVideos(ctx context.Context, tx *sql.Tx, videos []bilisource.Video, now string) (bool, error) {
 	changed := false
 	for _, v := range videos {
@@ -205,9 +286,12 @@ func writeBilibiliVideos(ctx context.Context, tx *sql.Tx, videos []bilisource.Vi
 		}
 		raw, _ := json.Marshal(map[string]any{"aid": v.AID, "description": v.Description})
 		written, err := tx.ExecContext(ctx, `INSERT INTO videos(id,source,title,published_at,scheduled_at,url,thumbnail_url,kind,is_upcoming,live_checked_at,duration_seconds,raw_json) VALUES(?,'bilibili',?,?,NULL,?,?,?,0,?,?,?)
- ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=excluded.published_at,url=excluded.url,thumbnail_url=COALESCE(excluded.thumbnail_url,videos.thumbnail_url),kind=excluded.kind,live_checked_at=excluded.live_checked_at,duration_seconds=COALESCE(excluded.duration_seconds,videos.duration_seconds),raw_json=excluded.raw_json,refresh_requested_at=NULL
+ ON CONFLICT(id) DO UPDATE SET title=excluded.title,published_at=CASE WHEN ? AND videos.published_at IS NOT NULL THEN videos.published_at ELSE excluded.published_at END,url=excluded.url,thumbnail_url=COALESCE(excluded.thumbnail_url,videos.thumbnail_url),live_checked_at=excluded.live_checked_at,duration_seconds=COALESCE(excluded.duration_seconds,videos.duration_seconds),
+ raw_json=CASE WHEN NOT json_valid(videos.raw_json) THEN excluded.raw_json
+	ELSE json_set(CASE WHEN COALESCE(json_extract(excluded.raw_json,'$.description'),'')='' THEN videos.raw_json ELSE excluded.raw_json END,
+		'$.aid',CASE WHEN COALESCE(json_extract(excluded.raw_json,'$.aid'),0)=0 THEN json_extract(videos.raw_json,'$.aid') ELSE json_extract(excluded.raw_json,'$.aid') END) END,refresh_requested_at=NULL
  WHERE videos.source='bilibili'`,
-			v.BVID, v.Title, v.PublishedAt, v.URL, nullable(v.ThumbnailURL), v.Kind, now, duration, string(raw))
+			v.BVID, v.Title, v.PublishedAt, v.URL, nullable(v.ThumbnailURL), v.Kind, now, duration, string(raw), v.Partial)
 		if err != nil {
 			return false, ErrSourceWrite
 		}

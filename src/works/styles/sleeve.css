@@ -1,0 +1,213 @@
+.works-sleeve {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  isolation: isolate;
+}
+
+.works-cover {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 6px;
+  background:
+    linear-gradient(var(--sunken), var(--sunken)), hsl(var(--background));
+  box-shadow:
+    0 1px 2px rgb(20 20 19 / 0.08),
+    0 18px 36px -18px rgb(20 20 19 / 0.45);
+  transition: transform 500ms var(--works-ease);
+}
+
+.works-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.works-record {
+  position: absolute;
+  z-index: 0;
+  inset: 3%;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle,
+      transparent 0 31%,
+      rgb(255 255 255 / 0.06) 31.5% 32.2%,
+      transparent 32.8%
+    ),
+    repeating-radial-gradient(
+      circle,
+      var(--works-record) 0 1.4px,
+      var(--works-groove) 1.4px 2.6px
+    );
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.05),
+    0 14px 30px -14px rgb(0 0 0 / 0.6);
+  transition: transform 700ms var(--works-ease);
+}
+
+/* Light catching the grooves stays put while the record turns. */
+.works-record::after {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  content: "";
+  background: conic-gradient(
+    from 200deg,
+    transparent 0 6%,
+    rgb(255 255 255 / 0.12) 11%,
+    transparent 17% 56%,
+    rgb(255 255 255 / 0.08) 61%,
+    transparent 67%
+  );
+}
+
+.works-record-label {
+  position: absolute;
+  inset: 32%;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--works-clay);
+  box-shadow: 0 0 0 3px #0b0b0a;
+}
+
+.works-record-label img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.works-record-label::after {
+  position: absolute;
+  inset: 44%;
+  border-radius: 50%;
+  content: "";
+  background: hsl(var(--background));
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.35);
+}
+
+.works-record-label .works-missing {
+  display: none;
+}
+
+/* A real disc: its own photo, cut to the disc and turning as a whole. */
+.works-record.has-disc {
+  background: #d9d6cf;
+}
+
+.works-record.has-disc::after {
+  z-index: 1;
+}
+
+.works-record-disc {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.works-record-disc img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.works-record-disc .works-missing {
+  display: none;
+}
+
+/* The centre hole, punched through the photo. */
+.works-record-disc::after {
+  position: absolute;
+  z-index: 2;
+  inset: 46%;
+  border-radius: 50%;
+  background: hsl(var(--background));
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+  content: "";
+}
+
+/*
+ * A download's cover printed on a disc, since it has none: the clear hub
+ * around the hole, its stacking ring, and a thin rim at the edge.
+ */
+.works-record-disc.is-printed::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle closest-side,
+    transparent 0 7%,
+    rgb(232 236 240 / 0.82) 7.5% 15%,
+    rgb(255 255 255 / 0.95) 15.5% 16.5%,
+    rgb(214 220 226 / 0.7) 17% 25%,
+    rgb(120 126 132 / 0.35) 25.5% 26.5%,
+    transparent 27% 96.5%,
+    rgb(255 255 255 / 0.45) 97.5% 100%
+  );
+  content: "";
+}
+
+/* On the shelf the record rises out of the top of its sleeve. */
+.release-card button:hover .works-record,
+.release-card button:focus-visible .works-record {
+  transform: translateY(-22%);
+}
+
+.release-card button:hover .works-cover,
+.release-card button:focus-visible .works-cover {
+  transform: translateY(3px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .works-record-label,
+  .works-record-disc {
+    animation: works-spin 5s linear infinite;
+    animation-play-state: paused;
+  }
+
+  .release-card button:hover .works-record-label,
+  .release-card button:focus-visible .works-record-label,
+  .release-card button:hover .works-record-disc,
+  .release-card button:focus-visible .works-record-disc,
+  .works-trio-item:hover .works-record-label,
+  .works-trio-item:hover .works-record-disc {
+    animation-play-state: running;
+  }
+}
+
+/*
+ * A tap leaves :hover on the card it opened until the next tap elsewhere, so
+ * on a touch screen the record rises and turns only while the finger is down
+ * instead of standing over the year above after the sheet closes.
+ */
+@media (hover: none) {
+  .release-card button:hover:not(:active) .works-record,
+  .release-card button:hover:not(:active) .works-cover {
+    transform: none;
+  }
+
+  .release-card button:hover:not(:active) .works-record-label,
+  .release-card button:hover:not(:active) .works-record-disc {
+    animation-play-state: paused;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .works-record,
+  .works-cover {
+    transition-duration: 1ms;
+  }
+}
+
+@keyframes works-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}

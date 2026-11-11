@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react"
 
+import { pagePath } from "./page-path.ts"
+
+const PUBLIC_PATHS = new Set(["/", "/journey", "/works", "/lineblog", "/about"])
+
+/** Whether a pathname belongs to a public page that may show the notice. */
+export function isVisitorRegionPath(pathname: string) {
+  return PUBLIC_PATHS.has(pagePath(pathname))
+}
+
 /** The operator's mainland China site, as the public pages show it. */
 export interface MainlandSite {
   /** Whether the edge reported a mainland China visitor. */

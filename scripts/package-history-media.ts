@@ -3,11 +3,14 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { historyMedia } from "../src/history/media.ts"
+import { fixedMedia } from "../src/history/media.ts"
 
 export interface HistoryCatalogItem {
   id: string
+  /** The image's file name in the reference collection's manifest. */
   filename: string
+  /** Its name in data/journey/: 12 hex digits of its SHA-256 and its type. */
+  name: string
   sourceUrl: string
   mediaId: string
   sha256: string
@@ -21,7 +24,14 @@ interface ArchiveManifestRecord {
   file?: unknown
 }
 
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+// Matches the server's bound for packaged originals with smaller copies
+// (backend/internal/variants.MaxSource).
+const MAX_IMAGE_BYTES = 32 * 1024 * 1024
+
+const EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+}
 
 const projectRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -77,7 +87,7 @@ function sniffImageMimeType(body: Buffer) {
 // altered archive cannot partially replace a previously working collection.
 export async function prepareHistoryMedia(
   directory: string,
-  catalog: HistoryCatalogItem[] = historyMedia,
+  catalog: HistoryCatalogItem[] = fixedMedia,
 ) {
   const root = await fs.realpath(directory)
   const manifest = JSON.parse(
@@ -131,25 +141,50 @@ export async function prepareHistoryMedia(
     ) {
       throw new Error(`archive image identity mismatch: ${item.id}`)
     }
+    if (
+      item.name !==
+      `${item.sha256.slice(0, 12)}.${EXTENSIONS[item.mimeType] ?? ""}`
+    ) {
+      throw new Error(`packaged image name mismatch: ${item.id}`)
+    }
     prepared.push({ item, content })
   }
 
   return prepared
 }
 
+/** Whether target already holds content. */
+async function holds(target: string, content: Buffer) {
+  try {
+    const stat = await fs.stat(target)
+    return (
+      stat.isFile() &&
+      stat.size === content.length &&
+      sha256ForContent(await fs.readFile(target)) === sha256ForContent(content)
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Copies the catalog's images into data/journey/ under their hashed names.
+ * Each file is staged and renamed into place; files already there are kept,
+ * and nothing is removed.
+ */
 export async function packageHistoryMedia(
   directory: string,
-  destination = path.join(projectRoot, "public/assets/history"),
+  destination = path.join(projectRoot, "data/journey"),
   catalog?: HistoryCatalogItem[],
 ) {
   const prepared = await prepareHistoryMedia(directory, catalog)
-  for (const { item } of prepared) {
-    if (!/^[a-zA-Z0-9_-]+\.(png|jpg|jpeg|webp|gif)$/u.test(item.filename))
-      throw new Error(`unsafe packaged image filename: ${item.id}`)
-  }
   await fs.mkdir(destination, { recursive: true })
   for (const { item, content } of prepared) {
-    await fs.writeFile(path.join(destination, item.filename), content)
+    const target = path.join(destination, item.name)
+    if (await holds(target, content)) continue
+    const staged = `${target}.staged`
+    await fs.writeFile(staged, content)
+    await fs.rename(staged, target)
   }
   return {
     packaged: prepared.length,

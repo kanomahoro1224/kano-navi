@@ -34,6 +34,7 @@ import { ArchiveDialog } from "./components/archive-dialog"
 import { monthKeyOf } from "./components/month-picker"
 import { LinkDirectory } from "./components/link-directory"
 import { NowStage } from "./components/now-stage"
+import { SaleStrip } from "./components/sale-strip"
 import {
   type PostArchiveLayout,
   PostArchive,
@@ -97,6 +98,7 @@ function archiveCopy(
   view: ArchiveRequest,
   archive: ArchiveSnapshot<unknown> | null,
   accounts: string[],
+  bilibiliAccounts: string[],
   t: Translator,
 ) {
   const total = archive ? archive.total : null
@@ -112,6 +114,13 @@ function archiveCopy(
         <>
           <XLogo className="kicker-icon" aria-hidden="true" />{" "}
           {accounts.map((handle) => `@${handle}`).join(" · ")}
+          {bilibiliAccounts.length ? (
+            <>
+              {" · "}
+              <BilibiliLogo className="kicker-icon" aria-hidden="true" />{" "}
+              bilibili
+            </>
+          ) : null}
         </>
       ),
       title: t("feed.archiveTitle"),
@@ -137,7 +146,6 @@ export function DashboardApp() {
     dashboard,
     snapshotVersion,
     isLoading,
-    isRefreshing,
     error,
     reload,
     calendar,
@@ -403,14 +411,22 @@ export function DashboardApp() {
         <NowStage
           profile={profile}
           summary={summary}
+          projection={dashboard.projection}
+          liveNow={dashboard.liveNow}
           resources={dashboard.resources}
           counts={counts}
           postWindowDays={windowDays}
           videoWindowDays={VIDEO_WINDOW_DAYS}
           syncState={syncState}
           isLoading={isLoading}
-          isRefreshing={isRefreshing}
-          onRefresh={refresh}
+          locale={locale}
+          now={now}
+          t={t}
+        />
+
+        <SaleStrip
+          events={dashboard.events}
+          salesIds={dashboard.projection?.sales}
           locale={locale}
           now={now}
           t={t}
@@ -442,6 +458,7 @@ export function DashboardApp() {
           posts={dashboard.posts}
           latestPost={summary.latestPost}
           accounts={meta.xAccounts || []}
+          bilibiliAccounts={meta.bilibiliAccounts || []}
           avatarUrl={profile.avatarUrl}
           windowDays={windowDays}
           isLoading={isLoading}
@@ -455,6 +472,7 @@ export function DashboardApp() {
         <VideoShelf
           videos={dashboard.videos}
           featuredVideoId={featuredVideoId}
+          projection={dashboard.projection}
           focus={dashboard.focus}
           isLoading={isLoading}
           onOpenArchive={openVideoArchive}
@@ -487,6 +505,7 @@ export function DashboardApp() {
             archiveView,
             archive.archive,
             meta.xAccounts || [],
+            meta.bilibiliAccounts || [],
             t,
           )}
           monthStart={
@@ -538,6 +557,7 @@ export function DashboardApp() {
               <div className="archive-tools">
                 <PostArchiveFilter
                   accounts={meta.xAccounts || []}
+                  bilibiliAccounts={meta.bilibiliAccounts || []}
                   account={archiveView.account || null}
                   setAccount={setArchiveAccount}
                   counts={archive.archive?.accountCounts}

@@ -5,27 +5,27 @@ import { historyMove, inPlaceUrl, pagePath } from "../src/lib/page-path.ts"
 test("page paths drop trailing slashes", () => {
   assert.equal(pagePath("/"), "/")
   assert.equal(pagePath(""), "/")
-  assert.equal(pagePath("/history/"), "/history")
+  assert.equal(pagePath("/journey/"), "/journey")
   assert.equal(pagePath("/about//"), "/about")
 })
 
 test("the board's index.html is the board", () => {
   assert.equal(pagePath("/index.html"), "/")
   assert.equal(pagePath("/index.html/"), "/")
-  assert.equal(pagePath("/history/index.html"), "/history/index.html")
+  assert.equal(pagePath("/journey/index.html"), "/journey/index.html")
 })
 
-const pages = ["/", "/history", "/lineblog", "/about"]
+const pages = ["/", "/journey", "/lineblog", "/about"]
 const board = "https://kano.example.invalid/"
 
 test("links to public pages open in place", () => {
-  assert.equal(inPlaceUrl("/history", board, pages)?.pathname, "/history")
+  assert.equal(inPlaceUrl("/journey", board, pages)?.pathname, "/journey")
   assert.equal(inPlaceUrl("/about/", board, pages)?.pathname, "/about/")
   assert.equal(
-    inPlaceUrl("/", "https://kano.example.invalid/history", pages)?.pathname,
+    inPlaceUrl("/", "https://kano.example.invalid/journey", pages)?.pathname,
     "/",
   )
-  assert.equal(inPlaceUrl("/history#2020", board, pages)?.hash, "#2020")
+  assert.equal(inPlaceUrl("/journey#2020", board, pages)?.hash, "#2020")
   assert.equal(
     inPlaceUrl("/lineblog?article=1", board, pages)?.search,
     "?article=1",
@@ -42,17 +42,17 @@ test("other pages, origins and addresses load normally", () => {
   assert.equal(inPlaceUrl("/admin", board, pages), null)
   assert.equal(inPlaceUrl("/api/feed.xml", board, pages), null)
   assert.equal(
-    inPlaceUrl("https://other.example.invalid/history", board, pages),
+    inPlaceUrl("https://other.example.invalid/journey", board, pages),
     null,
   )
   assert.equal(inPlaceUrl("mailto:fan@example.com", board, pages), null)
-  assert.equal(inPlaceUrl("/history", "not a page address", pages), null)
+  assert.equal(inPlaceUrl("/journey", "not a page address", pages), null)
 })
 
 test("back and forward swap public pages in place", () => {
-  assert.equal(historyMove("/history", "/", pages), "show")
+  assert.equal(historyMove("/journey", "/", pages), "show")
   assert.equal(historyMove("/", "/about", pages), "show")
-  assert.equal(historyMove("/history", "/history", pages), "show")
+  assert.equal(historyMove("/journey", "/journey", pages), "show")
 })
 
 test("a fragment move within another page stays with that page", () => {
@@ -63,5 +63,5 @@ test("a fragment move within another page stays with that page", () => {
 test("moves to or from another page load that document", () => {
   assert.equal(historyMove("/admin", "/", pages), "load")
   assert.equal(historyMove("/", "/admin", pages), "load")
-  assert.equal(historyMove("/missing", "/history", pages), "load")
+  assert.equal(historyMove("/missing", "/journey", pages), "load")
 })

@@ -44,7 +44,7 @@ export async function verifySnapshot(
   await request("/media/not-an-id", 404)
 
   if (staticPages) {
-    for (const route of ["/", "/history", "/admin"]) {
+    for (const route of ["/", "/journey", "/admin"]) {
       const response = await request(route)
       assert.match(response.headers.get("content-type") ?? "", /text\/html/u)
       assert.match(await response.text(), /<div id="root"><\/div>/u)

@@ -1,3 +1,4 @@
+import { useState, type PointerEvent } from "react"
 import type { Translations, Translator, Video } from "@/types"
 
 import {
@@ -9,17 +10,29 @@ import { cn } from "@/lib/utils"
 import { cleanVideoTitle } from "../format"
 
 /**
+ * Whether a card's clamp cuts the wording: the wording clamps itself next to
+ * a translation switch, and its card title clamps it otherwise.
+ */
+function clamped(wording: HTMLElement) {
+  return [wording, wording.parentElement].some(
+    (box) => box !== null && box.scrollHeight > box.clientHeight + 1,
+  )
+}
+
+/**
  * A video or schedule title on a card (a ticket, a row): the reader's
  * translation, followed by the translation switch. The title is the
  * card's link (see `followCardLink`), because the switch cannot go inside
  * one; with `onOpen` instead of `href`, the title is the button that opens
  * the card's details. `title` is the source title as the card shows it;
- * `translations` are its video's or event's.
+ * `translations` and `sourceLanguage` are its video's or event's. While the
+ * card's clamp cuts the wording, hovering it shows the whole wording.
  */
 export function TranslatedTitle({
   className,
   title,
   translations,
+  sourceLanguage,
   href,
   onOpen,
   t,
@@ -27,18 +40,28 @@ export function TranslatedTitle({
   className: string
   title: string
   translations?: Translations | null
+  sourceLanguage?: string | null
   href?: string | null
   /** Opens the card's details; `href` wins when both are given. */
   onOpen?: () => void
   t: Translator
 }) {
-  const state = useTranslatedText(title, translations, null)
+  const state = useTranslatedText(title, translations, sourceLanguage)
   const text = state.shown ? cleanVideoTitle(state.text) : title
+  // Measured on hover, so a resize or a language switch never leaves a stale
+  // hint and an uncut title gets none.
+  const [hint, setHint] = useState<string>()
+  const hover = {
+    title: hint,
+    onPointerEnter: (event: PointerEvent<HTMLElement>) =>
+      setHint(clamped(event.currentTarget) ? text : undefined),
+  }
   const wording = href ? (
     <ExternalLink
       className="card-link translated-title-text"
       href={href}
       lang={state.lang}
+      {...hover}
     >
       {text}
     </ExternalLink>
@@ -49,11 +72,12 @@ export function TranslatedTitle({
       lang={state.lang}
       onClick={onOpen}
       aria-haspopup="dialog"
+      {...hover}
     >
       {text}
     </button>
   ) : (
-    <span className="translated-title-text" lang={state.lang}>
+    <span className="translated-title-text" lang={state.lang} {...hover}>
       {text}
     </span>
   )

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"regexp"
-	"strings"
 	"time"
 )
 
@@ -56,8 +55,18 @@ func validateCalendarRange(from, to string) error {
 }
 
 func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, pageSize int) (*CalendarPage, error) {
+	return s.GetCalendarPageAt(ctx, from, to, page, pageSize, time.Now())
+}
+
+// GetCalendarPageAt is the deterministic form used by HTTP handlers and
+// projection tests. The legacy GetCalendarPage wrapper keeps internal callers
+// that do not inject a clock source-compatible.
+func (s *Store) GetCalendarPageAt(ctx context.Context, from, to string, page, pageSize int, now time.Time) (*CalendarPage, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
+	}
+	if s.readDB != nil {
+		return s.publicReader().GetCalendarPage(ctx, from, to, page, pageSize)
 	}
 	if err := validateCalendarRange(from, to); err != nil {
 		return nil, err
@@ -73,7 +82,7 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	}
 
 	var total int64
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on BETWEEN ? AND ?`, from, to).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM events WHERE `+publicEventSQL+` AND `+eventDaySQL, from, to, from, to).Scan(&total); err != nil {
 		return nil, dbErr(err)
 	}
 	totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
@@ -87,14 +96,13 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT `+eventColumnsAs("o")+`
 		FROM events o
-		WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on BETWEEN ? AND ?
+		WHERE deleted_at IS NULL AND merged_into IS NULL AND `+eventShownSQL("o")+` AND `+eventDaySQL+`
 		ORDER BY COALESCE(julianday(starts_at), julianday(starts_on || 'T23:59:59.999+09:00')) ASC, id ASC
-		LIMIT ? OFFSET ?`, from, to, pageSize, offset)
+		LIMIT ? OFFSET ?`, from, to, from, to, pageSize, offset)
 	if err != nil {
 		return nil, dbErr(err)
 	}
 	defer rows.Close()
-	now := time.Now()
 	items := make([]DashboardEvent, 0, pageSize)
 	for rows.Next() {
 		event, scanErr := scanEvent(rows, now)
@@ -115,9 +123,17 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	if err := s.attachEventTranslations(ctx, items); err != nil {
 		return nil, err
 	}
+	for index := range items {
+		applyEventView(&items[index], now)
+	}
 
 	dayCounts := make(map[string]int64)
-	countRows, err := s.db.QueryContext(ctx, `SELECT starts_on, COUNT(*) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on BETWEEN ? AND ? GROUP BY starts_on`, from, to)
+	// A sale period counts on its opening date and, when it closes on a later
+	// date, on its close date too: the board shows it on both.
+	countRows, err := s.db.QueryContext(ctx, `SELECT day, COUNT(*) FROM (
+		SELECT starts_on AS day FROM events WHERE `+publicEventSQL+` AND starts_on BETWEEN ? AND ?
+		UNION ALL SELECT ends_on FROM events WHERE `+publicEventSQL+` AND event_type='sale' AND ends_on>starts_on AND ends_on BETWEEN ? AND ?
+	) GROUP BY day`, from, to, from, to)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -137,10 +153,12 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 	_ = countRows.Close()
 
 	var previous, next sql.NullString
-	if err := s.db.QueryRowContext(ctx, `SELECT MAX(starts_on) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on < ?`, from).Scan(&previous); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT MAX(day) FROM (SELECT starts_on AS day FROM events WHERE `+publicEventSQL+` AND starts_on < ?
+		UNION ALL SELECT ends_on FROM events WHERE `+publicEventSQL+` AND event_type='sale' AND ends_on < ?)`, from, from).Scan(&previous); err != nil {
 		return nil, dbErr(err)
 	}
-	if err := s.db.QueryRowContext(ctx, `SELECT MIN(starts_on) FROM events WHERE deleted_at IS NULL AND merged_into IS NULL AND starts_on > ?`, to).Scan(&next); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT MIN(day) FROM (SELECT starts_on AS day FROM events WHERE `+publicEventSQL+` AND starts_on > ?
+		UNION ALL SELECT ends_on FROM events WHERE `+publicEventSQL+` AND event_type='sale' AND ends_on > ?)`, to, to).Scan(&next); err != nil {
 		return nil, dbErr(err)
 	}
 
@@ -168,45 +186,23 @@ func (s *Store) GetCalendarPage(ctx context.Context, from, to string, page, page
 
 // attachLiveStatus gives each linked event the trusted broadcast state of its
 // video, the same state the board reads, so the schedule and the board agree
-// on what is on air.
+// on what is on air, then projects the events' platforms and links.
 func (s *Store) attachLiveStatus(ctx context.Context, events []DashboardEvent, now time.Time) error {
-	identities := []any{}
+	links := []string{}
 	for _, event := range events {
 		if event.URL != nil {
-			identities = append(identities, streamIdentity(*event.URL))
+			links = append(links, *event.URL)
 		}
 	}
-	if len(identities) == 0 {
-		return nil
-	}
-	probe, err := s.LiveProbeSettings(ctx)
+	live, err := s.videoLiveStatuses(ctx, links, now)
 	if err != nil {
 		return err
-	}
-	cutoff := now.Add(-probe.Freshness())
-	rows, err := s.db.QueryContext(ctx, `SELECT url,live_status,live_checked_at FROM videos WHERE live_status IS NOT NULL AND stream_identity(url) IN (?`+strings.Repeat(",?", len(identities)-1)+`)`, identities...)
-	if err != nil {
-		return dbErr(err)
-	}
-	defer rows.Close()
-	live := map[string]*string{}
-	for rows.Next() {
-		var url string
-		var status, checked sql.NullString
-		if err := rows.Scan(&url, &status, &checked); err != nil {
-			return dbErr(err)
-		}
-		if view := liveView(status, checked, cutoff); view != nil {
-			live[streamIdentity(url)] = view
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return dbErr(err)
 	}
 	for i := range events {
 		if events[i].URL != nil {
 			events[i].LiveStatus = live[streamIdentity(*events[i].URL)]
 		}
 	}
-	return nil
+	_, err = s.attachEventPlatforms(ctx, events, now)
+	return err
 }

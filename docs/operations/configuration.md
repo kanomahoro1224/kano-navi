@@ -2,38 +2,41 @@
 
 ## Environment Variables
 
-| Variable                        | Default                             | Purpose                                                           |
-| ------------------------------- | ----------------------------------- | ----------------------------------------------------------------- |
-| `APP_MODE`                      | `production`                        | Explicit `development` bypasses login; production requires it     |
-| `ADMIN_PASSWORD`                | Empty                               | Production startup requires at least 12 non-padding characters    |
-| `ADMIN_ORIGIN`                  | Empty                               | Optional explicit origin accepted for admin mutations             |
-| `PUBLIC_ORIGIN`                 | Empty                               | Optional public origin for absolute share-tag and feed links      |
-| `LLM_SECRETS_KEY`               | Empty                               | Required non-blank encryption master key at startup in every mode |
-| `PORT`                          | `7657`                              | Shared frontend/API port for development, preview, and production |
-| `KANO_API_PORT`                 | `7658`                              | Development only: loopback port of the backend behind Vite        |
-| `KANO_WATCH_POLLING`            | `0`                                 | Development only: `1` makes Vite poll a mounted checkout          |
-| `SCHEDULE_EXTRACTION_ENABLED`   | `1`                                 | Default for stage flags without a stored or environment value     |
-| `SCHEDULE_KEYWORD_ENABLED`      | `1`                                 | Enable keyword candidate selection                                |
-| `SCHEDULE_VISION_ENABLED`       | `1`                                 | Enable schedule-board LLM extraction                              |
-| `SCHEDULE_MESSAGE_ENABLED`      | `1`                                 | Enable single-message schedule detection                          |
-| `SCHEDULE_MESSAGE_ALL_POSTS`    | `0`                                 | Send every post through the message route, skipping the heuristic |
-| `SCHEDULE_KEYWORDS`             | `schedule,...`                      | Comma-separated schedule candidate keywords                       |
-| `WORKFLOW_SCHEDULER_ENABLED`    | `1`                                 | Start the source timers in the server process                     |
-| `MCP_ENABLED`                   | `1`                                 | Expose the stateless `/mcp` endpoint                              |
-| `MCP_CONTROL_TOKEN`             | Empty                               | Bearer token for MCP mutation tools                               |
-| `X_HANDLES`                     | `kano_2525,_Kanotic`                | Comma-separated public X account names                            |
-| `X_API_BEARER_TOKEN`            | Empty                               | Optional environment-only X API credential: fetches, chain method |
-| `YOUTUBE_API_KEY`               | Empty                               | Optional environment-only Data API key: YouTube sync and fetches  |
-| `YOUTUBE_CHANNEL_ID`            | Main channel                        | YouTube channel identifier                                        |
-| `YTDLP_BINARY`                  | `/app/yt-dlp` in production Compose | yt-dlp executable path; empty disables the method                 |
-| `BILIBILI_UID`                  | Kano's account                      | Bilibili account (numeric mid) whose uploads are read             |
-| `BILIBILI_MIN_INTERVAL_MINUTES` | `180`                               | Minimum minutes between Bilibili reads and timer runs (60–1440)   |
-| `BILIBILI_SESSDATA`             | Empty                               | Optional Bilibili login cookie; also what dynamics need           |
-| `SKIP_X`, `SKIP_YOUTUBE`        | `0`                                 | Set to `1` to skip that source's step and its timer               |
-| `SKIP_BILIBILI`                 | `0`                                 | Set to `1` to skip the Bilibili step, timer and console reads     |
-| `SKIP_MEDIA`, `SKIP_LLM`        | `0`                                 | Set a post-processing stage flag to `1` to skip it                |
-| `KANO_MEM_LIMIT`                | `1g` in production Compose          | Production Compose: the container's memory limit (`mem_limit`)    |
-| `GOMEMLIMIT`                    | `700MiB` in production Compose      | Go runtime soft memory limit, kept below the container's limit    |
+| Variable                                  | Default                             | Purpose                                                               |
+| ----------------------------------------- | ----------------------------------- | --------------------------------------------------------------------- |
+| `APP_MODE`                                | `production`                        | Explicit `development` bypasses login; production requires it         |
+| `ADMIN_PASSWORD`                          | Empty                               | Production startup requires at least 12 non-padding characters        |
+| `ADMIN_ORIGIN`                            | Empty                               | Optional explicit origin accepted for admin mutations                 |
+| `PUBLIC_ORIGIN`                           | Empty                               | Optional public origin for absolute share-tag and feed links          |
+| `LLM_SECRETS_KEY`                         | Empty                               | Required non-blank encryption master key at startup in every mode     |
+| `PORT`                                    | `7657`                              | Shared frontend/API port for development, preview, and production     |
+| `KANO_API_PORT`                           | `7658`                              | Development only: loopback port of the backend behind Vite            |
+| `KANO_WATCH_POLLING`                      | `0`                                 | Development only: `1` makes Vite poll a mounted checkout              |
+| `SCHEDULE_EXTRACTION_ENABLED`             | `1`                                 | Default for stage flags without a stored or environment value         |
+| `SCHEDULE_KEYWORD_ENABLED`                | `1`                                 | Enable keyword candidate selection                                    |
+| `SCHEDULE_VISION_ENABLED`                 | `1`                                 | Enable schedule-board LLM extraction                                  |
+| `SCHEDULE_MESSAGE_ENABLED`                | `1`                                 | Enable single-message schedule detection                              |
+| `SCHEDULE_MESSAGE_ALL_POSTS`              | `0`                                 | Send every post through the message route, skipping the heuristic     |
+| `SCHEDULE_KEYWORDS`                       | `schedule,...`                      | Comma-separated schedule candidate keywords                           |
+| `WORKFLOW_SCHEDULER_ENABLED`              | `1`                                 | Start the source timers in the server process                         |
+| `MCP_ENABLED`                             | `1`                                 | Expose the stateless `/mcp` endpoint                                  |
+| `MCP_CONTROL_TOKEN`                       | Empty                               | Bearer token for MCP mutation tools                                   |
+| `X_HANDLES`                               | `kano_2525,_Kanotic`                | Comma-separated public X account names                                |
+| `X_API_BEARER_TOKEN`                      | Empty                               | Optional environment-only X API credential: fetches, chain method     |
+| `YOUTUBE_API_KEY`                         | Empty                               | Optional environment-only Data API key: YouTube sync and fetches      |
+| `YOUTUBE_CHANNEL_ID`                      | Main channel                        | YouTube channel identifier                                            |
+| `YTDLP_BINARY`                            | `/app/yt-dlp` in production Compose | yt-dlp executable path; empty disables the method                     |
+| `BILIBILI_UID`                            | Kano's account                      | Bilibili account (numeric mid) whose uploads and dynamics are read    |
+| `BILIBILI_MIN_INTERVAL_MINUTES`           | `180`                               | Minimum minutes between Bilibili reads and timer runs (60–1440)       |
+| `BILIBILI_COOKIE`                         | Empty                               | Optional signed-in browser cookies; wins over `BILIBILI_SESSDATA`     |
+| `BILIBILI_SESSDATA`                       | Empty                               | Optional login cookie; a login is required for the dynamics           |
+| `BILIBILI_APP_KEY`, `BILIBILI_APP_SECRET` | Empty                               | Optional official-client key pair; lets the uploads' `app` method run |
+| `SKIP_X`, `SKIP_YOUTUBE`                  | `0`                                 | Set to `1` to skip that source's step and its timer                   |
+| `SKIP_BILIBILI`                           | `0`                                 | Set to `1` to skip both Bilibili steps, timers and console reads      |
+| `SKIP_SHOP`                               | `0`                                 | Set to `1` to skip the official shop's step, timer and fetch          |
+| `SKIP_MEDIA`, `SKIP_LLM`                  | `0`                                 | Set a post-processing stage flag to `1` to skip it                    |
+| `KANO_MEM_LIMIT`                          | `1g` in production Compose          | Production Compose: the container's memory limit (`mem_limit`)        |
+| `GOMEMLIMIT`                              | `700MiB` in production Compose      | Go runtime soft memory limit, kept below the container's limit        |
 
 Production Docker Compose limits the container to `KANO_MEM_LIMIT` and passes
 `GOMEMLIMIT` to the server. `GOMEMLIMIT` is the Go runtime's own setting,
@@ -74,18 +77,45 @@ Docker Compose also uses `KANO_IMAGE` (default
 `yexca/kano-navi:latest` from Docker Hub) for the published image and `KANO_PORT`
 (default `7657`) for the host port. The API also defaults to `7657` inside the container.
 
-`BILIBILI_SESSDATA` is the `SESSDATA` cookie of a browser signed in to
-Bilibili (developer tools → Application → Cookies → `.bilibili.com`). With
-it, the `bilibili` step and the console's reads are sent as that account,
-which Bilibili's captcha blocks far less often than anonymous reads. It is
-also required for the account's dynamics: Bilibili refuses an anonymous read
-of that list, so without the cookie the step stores uploads only and records
-`postsSkipped: "login"`. It is sent only to `api.bilibili.com`, never stored in SQLite, logged, or returned;
-the console shows only whether one is configured. Prefer a secondary account,
+`BILIBILI_COOKIE` is the `Cookie` request header of a browser signed in to
+Bilibili (developer tools → Network → any `api.bilibili.com` request →
+Request Headers → `cookie`). The server keeps `SESSDATA` and the known login
+cookies of that browser (`bili_jct`, `DedeUserID`, `DedeUserID__ckMd5`,
+`sid`, and the device cookies `buvid3`, `buvid4`, `b_nut`, `_uuid`,
+`buvid_fp`) whose values are well formed, and drops every other cookie. A
+signed-in request sends the browser's own device cookies in place of the
+anonymous identity, so the account and its device match as they do in the
+browser. `BILIBILI_SESSDATA` is the `SESSDATA` value alone (Application →
+Cookies → `.bilibili.com`); it is read only when `BILIBILI_COOKIE` carries no
+`SESSDATA`, and Bilibili accepts it beside an anonymous identity less
+readily. With either, the `bilibili` step and the console's reads are sent
+as that account, which Bilibili's captcha blocks far less often than
+anonymous reads, the upload read's `dynamics` method can run, and the
+`bilibili_dynamics` step reads the account's dynamics, which
+it skips without one
+([Bilibili dynamics](../architecture/sources.md#dynamics)). The
+login cookies are sent only to `api.bilibili.com`, never stored in SQLite,
+logged, or returned.
+
+`BILIBILI_APP_KEY` and `BILIBILI_APP_SECRET` are an official Bilibili
+client's app key pair (16 and 32 lowercase hex digits). With both set, the
+upload read's `app` method can run: that client's space listing on
+`app.bilibili.com`, signed with the pair, tried where the Bilibili timer's
+method chain places it (see [Bilibili](../architecture/sources.md#bilibili));
+a malformed or missing pair keeps the method from running. Requests signed with it read as the official
+client rather than as this service, which is the trade-off an operator
+accepts by setting it. Open-source Bilibili clients publish such pairs; the
+repository carries none. The pair is kept, sent and protected like the
+other source credentials: only in the environment and memory, never stored,
+logged, or returned.
+"Signed in" in the console means Bilibili accepted the cookie at the latest
+daily check (`nav` `isLogin`); before the first check it reads as not
+checked yet, and an expired cookie is no longer sent until a check accepts a
+renewed one. Prefer a secondary account,
 and replace the value when it expires or the account signs out.
 
 `.env.example` is the complete non-secret inventory. `ADMIN_PASSWORD` and
-`LLM_SECRETS_KEY`, `MCP_CONTROL_TOKEN`, `BILIBILI_SESSDATA`, and provider API keys are credentials;
+`LLM_SECRETS_KEY`, `MCP_CONTROL_TOKEN`, `BILIBILI_COOKIE`, `BILIBILI_SESSDATA`, `BILIBILI_APP_SECRET`, and provider API keys are credentials;
 never place real values in source code, SQLite plaintext, URLs, API responses,
 or logs. `OPENAI_API_KEY` is accepted only by the one-time
 `kano-go migrate-llm` command.
@@ -102,10 +132,10 @@ everything, MCP) keep that setting for X and read 50 YouTube uploads at most. Ea
 [method chain](../architecture/workflows.md#method-chains) decides whether
 its runs use `X_API_BEARER_TOKEN` and `YOUTUBE_API_KEY`: the X API only as a
 fallback behind its gate and daily cap, the YouTube Data API only while the
-chain enables it ([ADR-0004](../decisions/ADR-0004-method-fallback-chains.md)).
+chain enables it ([method chains](../architecture/workflows.md#method-chains)).
 Full syncs read through the default chains, which leave the X API off, and
 no timed read turns a credential into a date search
-([ADR-0002](../decisions/ADR-0002-count-based-source-sync.md)).
+([source schedules](../architecture/workflows.md#source-schedules)).
 
 The backend (`kano-go`) reads `.env` from its working directory; variables
 already present in the environment win. The database path is a command-line
@@ -130,25 +160,25 @@ and save it only in the ignored environment file or deployment secret store.
 
 The read limits of source steps, manual fetches and the translate step, and
 the attempts each model gets, are operator settings in `app_settings`, edited
-on `/admin` → Sources (the X and YouTube read limits) and `/admin` → LLM
+on `/admin` → Sources (the X and YouTube read limits) and `/admin` → Detection
 (model limits: the attempts and the translation limits). Each run reads the
 limits when it
 starts, so a saved value applies from the next run; the attempts per model
 are read for each post, image or translation a model is called for.
 
-| Setting                      | Default | Range      | Purpose                                                                     |
-| ---------------------------- | ------- | ---------- | --------------------------------------------------------------------------- |
-| X status requests per run    | `12`    | 0–50       | X detail requests shared by all accounts; manual X fetch page budget        |
-| X known posts refreshed      | `1`     | 0–5        | Stored X posts read again per run                                           |
-| X first-run age limit (days) | `7`     | 1–30       | Age limit while an X account has no cursor yet                              |
-| X full-sync post cap         | `50`    | 1–200      | Full-sync cap of unstored X statuses per account; pages of 20               |
-| YouTube video pages per run  | `12`    | 1–50       | Watch pages inspected per run for reservations and details                  |
-| Manual fetch pages           | `4`     | 1–20       | Pages of one manual fetch per X account or for the channel, within X budget |
-| Request timeout (ms)         | `7000`  | 1000–60000 | Per request of manual fetches and the X API method                          |
-| Request spacing (ms)         | `0`     | 0–10000    | Wait between the pages of a manual fetch                                    |
-| Translation items per run    | `20`    | 1–200      | Posts and titles the translate step sends to a model                        |
-| Translation lookback (days)  | `30`    | 1–3650     | Age of posts and videos the translate step covers unrequested               |
-| Attempts per model           | `3`     | 1–10       | Calls one model gets for an input before the next queued model takes over   |
+| Setting                      | Default | Range      | Purpose                                                                   |
+| ---------------------------- | ------- | ---------- | ------------------------------------------------------------------------- |
+| X status requests per run    | `12`    | 0–50       | X detail requests shared by all accounts; manual X fetch page budget      |
+| X known posts refreshed      | `1`     | 0–5        | Stored X posts read again per run                                         |
+| X first-run age limit (days) | `7`     | 1–30       | Age limit while an X account has no cursor yet                            |
+| X full-sync post cap         | `50`    | 1–200      | Full-sync cap of unstored X statuses per account; pages of 20             |
+| YouTube video pages per run  | `12`    | 1–50       | Watch pages inspected per run for reservations and details                |
+| Manual fetch pages           | `4`     | 1–20       | Pages of one fetch per X account, the channel or a Bilibili listing       |
+| Request timeout (ms)         | `7000`  | 1000–60000 | Per request of manual fetches and the X API method                        |
+| Request spacing (ms)         | `0`     | 0–10000    | Wait between X and YouTube fetch pages; Bilibili pages wait 15 s          |
+| Translation items per run    | `20`    | 1–200      | Posts and titles the translate step sends to a model                      |
+| Translation lookback (days)  | `30`    | 1–3650     | Age of posts and videos the translate step covers unrequested             |
+| Attempts per model           | `3`     | 1–10       | Calls one model gets for an input before the next queued model takes over |
 
 On startup, each setting without a stored value takes the integer value of
 its environment variable, if set: `X_MAX_STATUS_REQUESTS`, `X_REFRESH_KNOWN`,
@@ -161,6 +191,17 @@ an out-of-range value at the nearest bound; the others ignore it. A stored
 value is never replaced from the environment, so these variables have no
 effect once stored and need not be set.
 
+## Related X accounts
+
+Related X accounts are not environment variables: they live in the app
+setting `x_related_accounts` and are edited on `/admin` → Sources → X
+related, beside their timer. Each account is a handle that is not one of
+`X_HANDLES`, with keyword rules (`鹿乃`, `@kano_2525` and `#鹿乃まほろ` for a
+newly added account). Each run of the related-accounts timer reads them
+through the FxTwitter timeline only; see
+[Related accounts](../architecture/sources.md#related-accounts). The setting
+starts empty, and seeding leaves it as it is.
+
 ## Source timers
 
 `kano-go serve` starts the timer process unless
@@ -169,17 +210,19 @@ live-status probe. Manual runs from /admin, including each source's Run now,
 work either way. Page requests and admin reads never start a
 timer or a run. Each source's timer is an operator setting, not an
 environment variable: `/admin` → Sources turns it on or off and sets its
-interval and read mode, stored in the `source_schedules` table (X 30 minutes
-and YouTube 60 by default, 15 minutes through seven days; Bilibili 180 by
-default, never below `BILIBILI_MIN_INTERVAL_MINUTES`). `SKIP_X`,
-`SKIP_YOUTUBE` and `SKIP_BILIBILI` keep that source's timer from running.
-A source with no row yet gets a disabled one at process start, so an upgrade
-never leaves a source without a timer to turn on. The Bilibili chain reads
-uploads (`bilibili`) and dynamics (`bilibili-posts`) as separate steps on
-that one timer, so the timer has to be enabled for either to be fetched on
-a schedule.
+interval and read mode, stored in the `source_schedules` table (X 30
+minutes, its related accounts 180 and YouTube 60 by default, 15 minutes
+through seven days; the Bilibili
+uploads and dynamics timers 180 each by default, never below
+`BILIBILI_MIN_INTERVAL_MINUTES`). Both Bilibili timers reach the same
+address, so their requests add up: keep the dynamics timer no shorter than
+the uploads timer until the account has read without a captcha for a while.
+The [official shop](../architecture/sources.md#official-shop)'s timer is 360
+minutes by default and never below 180. `SKIP_X`, `SKIP_YOUTUBE`,
+`SKIP_BILIBILI` and `SKIP_SHOP` keep that source's timers from running
+(`SKIP_X` both X timers).
 Per-source timers are the only timed sync
-([ADR-0003](../decisions/ADR-0003-per-source-sync-schedules.md)). See
+([source schedules](../architecture/workflows.md#source-schedules)). See
 [Workflows](../architecture/workflows.md#source-schedules).
 
 The YouTube live-status probe is an operator setting, not an environment
@@ -192,8 +235,12 @@ interval paces streams on air and waiting rooms that stay closed past their
 start; around the start itself the probe checks every 3 minutes. With
 `YOUTUBE_API_KEY`, and unless the YouTube timer's method chain turns the Data
 API off, it asks the Data API first, one quota unit per run. It
-uses the same timer process, so `WORKFLOW_SCHEDULER_ENABLED=0` or
-`SKIP_YOUTUBE=1` stops it. See
+uses the same timer process, so `WORKFLOW_SCHEDULER_ENABLED=0` stops it and
+`SKIP_YOUTUBE=1` its YouTube part. `/admin` → Sources → Bilibili uploads →
+Bilibili live room turns the Bilibili live check on or off and sets its
+baseline interval (default 30 minutes, 10–360),
+stored as `bilibili_live_probe_enabled` and
+`bilibili_live_probe_interval_minutes`; `SKIP_BILIBILI=1` stops it. See
 [Workflows](../architecture/workflows.md#live-status-probe).
 
 How long finished runs stay in the run history is an operator setting as

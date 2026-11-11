@@ -2,6 +2,9 @@ package workflow
 
 import (
 	"context"
+	"errors"
+	"slices"
+	"strings"
 	"time"
 
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
@@ -37,7 +40,7 @@ func (x *XRecentExecutor) Execute(ctx context.Context, in StepInput) (AttemptRes
 	if len(opts.Handles) == 0 {
 		return AttemptResult{}, NewStepError("x_no_accounts", ErrValidation)
 	}
-	// The run reads through its frozen chain, or the default one (ADR-0004).
+	// The run reads through its frozen chain, or the default one.
 	chain := sqlite.DefaultSourceChain("x")
 	if in.Chain != nil {
 		chain = *in.Chain
@@ -211,6 +214,145 @@ func (x *XRecentExecutor) Execute(ctx context.Context, in StepInput) (AttemptRes
 		out["refreshed"] = refreshed
 	}
 	return AttemptResult{Status: status, Result: out}, nil
+}
+
+// ExecuteRelated is the x_related step: it reads every related account's
+// timeline (ReadRelated) with the bounds of RelatedOptions, or only the
+// account a manual fetch's window names. Without a related account it
+// succeeds as skipped without a request. An account whose read failed leaves
+// the run partial with its code in errors, as do the reads' notes; when every
+// account failed the step fails with x_related_failed. A manual fetch fails
+// once instead, with x_related_account_unknown when its account is no longer
+// related or with its account's failure code.
+func (x *XRecentExecutor) ExecuteRelated(ctx context.Context, in StepInput) (AttemptResult, error) {
+	if x == nil || x.Store == nil || x.Adapter == nil {
+		return AttemptResult{}, NewStepError("x_source_unavailable", ErrDependency)
+	}
+	only := ""
+	if in.Window != nil {
+		only = in.Window.Account
+	}
+	read, err := x.ReadRelated(ctx, x.RelatedOptions(in), only)
+	if err != nil {
+		return AttemptResult{}, err
+	}
+	// A manual fetch fails once with its code, as the other manual fetches
+	// do; it is not retried.
+	if only != "" && read.Accounts == 0 {
+		return failedResult("x_related_account_unknown"), nil
+	}
+	if only != "" && read.Failed == read.Accounts {
+		return failedResult(read.Errors[0]), nil
+	}
+	if read.Accounts == 0 {
+		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": "no_accounts"}}, nil
+	}
+	if read.Failed == read.Accounts {
+		return AttemptResult{}, NewStepError("x_related_failed", ErrDependency)
+	}
+	out := map[string]any{"source": sqlite.XRelatedStep, "accounts": read.Accounts, "listed": read.Listed, "promoted": read.Promoted, "demoted": read.Demoted}
+	if len(read.Errors) == 0 {
+		return AttemptResult{Status: "succeeded", Result: out}, nil
+	}
+	out["errors"] = read.Errors
+	return AttemptResult{Status: "partial", Result: out}, nil
+}
+
+// RelatedOptions are the read bounds of the related accounts' timelines: the
+// x_related schedule's incremental cap, else the X discovery limit, and the
+// run's lookback days, else the X first-run age.
+func (x *XRecentExecutor) RelatedOptions(in StepInput) xsource.Options {
+	var opts xsource.Options
+	if x != nil {
+		opts = x.Options
+	}
+	if len(opts.Handles) == 0 {
+		opts = xsource.OptionsFromEnv()
+	}
+	if in.LookbackDays > 0 {
+		opts.BootstrapDays = in.LookbackDays
+	}
+	if in.Sync.Mode == sqlite.SyncIncremental && in.Sync.Max > 0 {
+		opts.DiscoveryLimit = in.Sync.Max
+	}
+	return opts
+}
+
+// RelatedRead is what one read of the related accounts did: how many
+// accounts it read and how many of them failed, the statuses their
+// timelines listed, promoted and demoted, and the failure codes and notes
+// as "@<handle>: <code>".
+type RelatedRead struct {
+	Accounts, Failed          int
+	Listed, Promoted, Demoted int
+	Errors                    []string
+}
+
+// ReadRelated reads each related account's own timeline, or only the one
+// named by only, into the X status pool. It uses the FxTwitter timeline alone: no profile page, no
+// X API and no detail request, since a page carries each status and
+// relevance needs its text. Each account keeps its own x-related cursor,
+// known statuses and gaps, and records a failed read's code as its last
+// error; its reposts and statuses without content are left out.
+// Cancellation and store failures stop it.
+func (x *XRecentExecutor) ReadRelated(ctx context.Context, base xsource.Options, only string) (RelatedRead, error) {
+	read := RelatedRead{Errors: []string{}}
+	accounts, err := x.Store.XRelatedAccounts(ctx)
+	if err != nil {
+		return read, NewStepError("schema_failure", ErrSchema)
+	}
+	// A handle is in one role at a time: an own account is never read as a
+	// related one.
+	accounts = slices.DeleteFunc(accounts, func(account sqlite.XRelatedAccount) bool {
+		return (only != "" && !strings.EqualFold(account.Handle, only)) || slices.ContainsFunc(x.Options.Handles, func(own string) bool {
+			return strings.EqualFold(strings.TrimPrefix(own, "@"), account.Handle)
+		})
+	})
+	read.Accounts = len(accounts)
+	for _, account := range accounts {
+		if ctx.Err() != nil {
+			return read, NewStepError("cancelled", ErrCancelled)
+		}
+		state, stateErr := x.Store.XRelatedState(ctx, account.Handle)
+		if stateErr != nil {
+			return read, NewStepError("schema_failure", ErrSchema)
+		}
+		opts := base
+		opts.Chain = []string{xsource.DiscoveryTimeline}
+		opts.MaxDetailRequests, opts.RefreshKnown = 0, 0
+		opts.PendingIDs, opts.PendingRetries, opts.RefreshIDs = nil, nil, nil
+		opts.KnownIDs, opts.CursorID, opts.Gap, opts.GapCeilings = state.KnownIDs, state.CursorID, state.Gap, state.GapCeilings
+		opts.ScheduleKeywords, opts.APIGate, opts.APIBudget, opts.TimelineFailures = nil, 0, 0, 0
+		result, fetchErr := x.Adapter.FetchRecent(ctx, account.Handle, opts)
+		if fetchErr != nil {
+			if ctx.Err() != nil {
+				return read, NewStepError("cancelled", ErrCancelled)
+			}
+			result.Errors = append([]string{fetchErrorCode(fetchErr)}, result.Errors...)
+			read.Failed++
+			read.Errors = append(read.Errors, "@"+account.Handle+": "+fetchErrorCode(fetchErr))
+		}
+		written, writeErr := x.Store.WriteXRelated(ctx, account.Handle, result, fetchErr == nil)
+		if writeErr != nil {
+			return read, NewStepError("x_source_write_failed", ErrSchema)
+		}
+		read.Listed += written.Listed
+		read.Promoted += written.Promoted
+		read.Demoted += written.Demoted
+		for _, note := range result.Notes {
+			read.Errors = append(read.Errors, "@"+account.Handle+": "+note)
+		}
+	}
+	return read, nil
+}
+
+// fetchErrorCode is a source error's controlled code.
+func fetchErrorCode(err error) string {
+	var sourceErr *xsource.Error
+	if errors.As(err, &sourceErr) {
+		return string(sourceErr.Code)
+	}
+	return "x_error"
 }
 
 // recordChain keeps the X API state the chain reads: the posts API answers

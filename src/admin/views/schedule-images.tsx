@@ -47,7 +47,7 @@ export function needsReview(image: ScheduleImage) {
   )
 }
 
-function mediaLabel(image: ScheduleImage) {
+export function mediaLabel(image: ScheduleImage) {
   if (image.mediaStatus === "none")
     return image.periodBasis === "legacy" ? "noneLegacy" : "none"
   return ["pending", "failed"].includes(image.mediaStatus)
@@ -57,7 +57,7 @@ function mediaLabel(image: ScheduleImage) {
 
 /** The post that published an image: its time and wording, folded to a few
  * lines unless full. */
-function SourcePost({
+export function SourcePost({
   image,
   full = false,
 }: {
@@ -206,8 +206,8 @@ export function ConfidenceMeter({
 
 /** One schedule image as a decision card: the model's verdict, the covered
  * dates and the operator's label. The Review queue lists those that need a
- * decision; the Schedule page lists them all, and its calendar those of the
- * month. With navigate, a dated card opens its month in the calendar. */
+ * decision and the Schedule page's list all of them. With navigate, a dated
+ * card opens its week on the Schedule calendar. */
 export function ImageCard({
   image,
   onChanged,
@@ -318,6 +318,12 @@ export function ImageCard({
           ) : image.llmReason ? (
             <p className="adm-verdict-reason">{image.llmReason}</p>
           ) : null}
+          {image.llmText ? (
+            <div className="adm-verdict-text">
+              <strong>{t("admin.review.extractedText")}</strong>
+              <pre>{image.llmText}</pre>
+            </div>
+          ) : null}
           {image.manualReason ? (
             <p className="adm-quote is-manual">{image.manualReason}</p>
           ) : null}
@@ -384,11 +390,9 @@ export function ImageCard({
                 size="sm"
                 variant="ghost"
                 icon={CalendarDays}
-                onClick={() =>
-                  navigate("schedule", image.periodStart!.slice(0, 7))
-                }
+                onClick={() => navigate("schedule", image.periodStart!)}
               >
-                {t("admin.review.showInCalendar")}
+                {t("admin.review.showWeek")}
               </Button>
             ) : null}
             {image.manualStatus !== "unreviewed" ? (
@@ -418,13 +422,14 @@ export function ImageCard({
   )
 }
 
-type ImageFilter = "active" | "approved" | "review" | "rejected"
+type ImageFilter = "active" | "approved" | "undated" | "rejected"
 
 /** Active is every image an operator has not labelled Not a schedule;
- * those wait under Rejected, where the label can be cleared. */
+ * those wait under Rejected, where the label can be cleared. Undated are
+ * those without covered dates, which the calendar cannot show. */
 function matches(image: ScheduleImage, filter: ImageFilter) {
-  if (filter === "review") return needsReview(image)
   if (filter === "approved") return image.approved
+  if (filter === "undated") return !image.periodStart
   const rejected = image.manualStatus === "not_schedule"
   return filter === "rejected" ? rejected : !rejected
 }
@@ -432,8 +437,8 @@ function matches(image: ScheduleImage, filter: ImageFilter) {
 /**
  * The newest stored schedule images under the first of the filters, or
  * those whose period overlaps range; more than one filter shows them as
- * tabs. A card that leaves the filter after a decision leaves the list, and
- * the overview's review count reads again.
+ * tabs, Undated with its count. A card that leaves the filter after a
+ * decision leaves the list, and the overview's review count reads again.
  */
 export function ScheduleImageList({
   filters,
@@ -475,8 +480,9 @@ export function ScheduleImageList({
                 value,
                 label: t(`admin.review.filter.${value}`),
                 count:
-                  value === "review"
-                    ? items.filter((image) => matches(image, value)).length
+                  value === "undated"
+                    ? items.filter((image) => matches(image, value)).length ||
+                      undefined
                     : undefined,
               }))}
             />
@@ -505,34 +511,8 @@ export function ScheduleImageList({
           ))}
         </div>
       ) : (
-        <Empty
-          icon={CheckCircle2}
-          title={t(filter === "review" ? "admin.review.noImages" : empty)}
-        />
+        <Empty icon={CheckCircle2} title={t(empty)} />
       )}
     </>
-  )
-}
-
-/** The last day of the month that starts on day (YYYY-MM-01). */
-function monthEnd(day: string) {
-  const [year, month] = day.split("-").map(Number)
-  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10)
-}
-
-/** The schedule images whose period overlaps a calendar month, below its
- * grid; images labelled Not a schedule stay off. */
-export function MonthScheduleImages({ month }: { month: string }) {
-  const { t } = useAppSettings()
-  const range = useMemo(() => ({ from: month, to: monthEnd(month) }), [month])
-  return (
-    <section className="adm-month-images">
-      <h2>{t("admin.schedule.monthImages")}</h2>
-      <ScheduleImageList
-        filters={["active"]}
-        range={range}
-        empty="admin.schedule.monthImagesEmpty"
-      />
-    </section>
   )
 }

@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
 // Links are normalized with WHATWG URL semantics before they are hashed or
@@ -335,7 +337,11 @@ func normalizePublicURL(value, fallback string) string {
 	if !ok || !u.web() {
 		return fallback
 	}
-	return u.String()
+	normalized := u.String()
+	if urlguard.ContainsCredentials(normalized) {
+		return fallback
+	}
+	return normalized
 }
 
 func sha256Hex(value string) string {

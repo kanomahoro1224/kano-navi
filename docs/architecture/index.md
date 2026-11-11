@@ -17,7 +17,7 @@ external sources.
 | [Admin API](admin-api.md)             | The `/api/admin` contract used by the console                      |
 | [Frontend](frontend.md)               | Pages, request hooks, components, localization                     |
 | [Data model](data-model.md)           | Schema, seeds, event precedence, locks and tombstones              |
-| [Sources](sources.md)                 | X and YouTube adapters and schedule extraction                     |
+| [Sources](sources.md)                 | X, YouTube, Bilibili, shop, and schedule extraction                |
 | [Workflows](workflows.md)             | Step catalog, single-flight queue, timers, manual fetches          |
 | [Media cache](media-cache.md)         | Media identity, downloader, layout, HTTP contract                  |
 | [Outbound proxies](outbound-proxy.md) | Proxy queue, per-area routes, attempts and tests                   |
@@ -42,10 +42,9 @@ Browser
   -> React frontend (src/)
   -> Go HTTP API, MCP and static files (kano-go serve)
   -> SQLite snapshot (data/database/kano.sqlite) and cached media (data/)
-  <- workflow steps: X, YouTube, media downloads, LLM providers
+  <- workflow steps: X, YouTube, Bilibili, shop, media downloads, LLM providers
 ```
 
 ## Related Docs
 
-- [Architecture decisions](../decisions/index.md)
 - [Documentation index](../README.md)

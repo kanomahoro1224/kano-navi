@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { mainlandSite } from "../src/lib/visitor-region.ts"
+import { isVisitorRegionPath, mainlandSite } from "../src/lib/visitor-region.ts"
 
 const configured = {
   enabled: true,
@@ -31,4 +31,20 @@ test("a disabled or incomplete site is not offered", () => {
   assert.equal(mainlandSite({ ...configured, mirrorUrl: 42 }), null)
   assert.equal(mainlandSite(null), null)
   assert.equal(mainlandSite("enabled"), null)
+})
+
+test("the visitor notice covers every public page and trailing slash", () => {
+  for (const pathname of [
+    "/",
+    "/index.html",
+    "/journey",
+    "/journey/",
+    "/works",
+    "/works/",
+    "/lineblog/",
+    "/about/",
+  ]) {
+    assert.equal(isVisitorRegionPath(pathname), true, pathname)
+  }
+  assert.equal(isVisitorRegionPath("/admin"), false)
 })

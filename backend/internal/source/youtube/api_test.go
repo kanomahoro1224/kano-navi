@@ -110,6 +110,8 @@ func TestRecentPrefersTheDataAPIForListingAndDetails(t *testing.T) {
 					return response(200, apiItems(playlistItem("EEEEEEEEEEE", "2026-01-02T10:00:00Z"))), nil
 				case "UULF" + syntheticChannel[2:]:
 					return response(200, apiItems(playlistItem("OOOOOOOOOOO", "2026-01-02T05:00:00Z"))), nil
+				case "UUMO" + syntheticChannel[2:]:
+					return response(200, membersPage()), nil
 				case "UU" + syntheticChannel[2:]:
 				default:
 					t.Fatalf("playlist=%s", r.URL.Query().Get("playlistId"))
@@ -163,9 +165,9 @@ func TestRecentPrefersTheDataAPIForListingAndDetails(t *testing.T) {
 		FollowUpIDs: []string{"NNNNNNNNNNN"},
 	}
 	result, err := a.FetchRecent(context.Background(), state, 7)
-	// The uploads playlist, videos.list, and the live and long-form playlists
-	// for the queued ended broadcasts.
-	if err != nil || len(result.Errors) != 0 || result.Listing != ListingAPI || result.APIRequests != 4 || result.Discovered != 3 {
+	// The uploads playlist, videos.list, the live and long-form playlists for
+	// the queued ended broadcasts, and the members-only playlist.
+	if err != nil || len(result.Errors) != 0 || result.Listing != ListingAPI || result.APIRequests != 5 || result.Discovered != 3 {
 		t.Fatalf("result=%#v err=%v", result, err)
 	}
 	if strings.Join(apiIDs, ",") != "PPPPPPPPPPP,LLLLLLLLLLL,OOOOOOOOOOO,EEEEEEEEEEE,NNNNNNNNNNN" {

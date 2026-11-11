@@ -7,6 +7,7 @@ import {
   Images,
   Languages,
   RadioTower,
+  ShoppingBag,
   Sparkles,
   TriangleAlert,
   X,
@@ -44,8 +45,11 @@ type StepIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>
 
 export const stepIcons: Record<string, StepIcon> = {
   x: XIcon,
+  x_related: XIcon,
   youtube: YouTubeIcon,
   bilibili: BilibiliIcon,
+  bilibili_dynamics: BilibiliIcon,
+  shop: ShoppingBag,
   media: ImageDown,
   schedule: Sparkles,
   translate: Languages,
@@ -127,7 +131,7 @@ export function metricLabel(key: string, t: Translator) {
 }
 
 /** Steps a run may hold and still read as a fetch of its sources. */
-const fetchSteps = ["x", "youtube", "bilibili", "bilibili-posts", "media", "reconcile"]
+const fetchSteps = ["x", "youtube", "bilibili", "shop", "media", "reconcile"]
 
 /** The sources a run fetched through a named method. */
 function fetchedSources(run: Run) {
@@ -186,12 +190,15 @@ export function windowText(window: RunWindow, step: string, t: Translator) {
   if (window.method)
     parts.push(t(`admin.fetch.method.${step}.${window.method}`))
   parts.push(t(`admin.fetch.mode.${window.mode}`))
+  if (window.account) parts.push(`@${window.account}`)
   if (window.days)
     parts.push(t("admin.fetch.daysCount", { count: window.days }))
   if (window.max) parts.push(t("admin.fetch.maxCount", { count: window.max }))
   if (window.count) {
     const key =
-      step === "youtube" ? "admin.fetch.videosCount" : "admin.fetch.postsCount"
+      step === "youtube" || step === "bilibili"
+        ? "admin.fetch.videosCount"
+        : "admin.fetch.postsCount"
     parts.push(t(key, { count: window.count }))
   }
   if (window.startDate) parts.push(`${window.startDate} – ${window.endDate}`)
@@ -206,7 +213,7 @@ export function runTitle(run: Run, t: Translator) {
       ? t("admin.run.sourceTitle", { source })
       : t("admin.run.sourceRunNow", { source })
   }
-  // A stored run of a saved workflow (see ADR-0003).
+  // A stored run of a saved workflow.
   if (run.workflowId)
     return t("admin.run.retiredWorkflow", { id: run.workflowId })
   // A manual fetch names its method, and may go on to extract and translate;

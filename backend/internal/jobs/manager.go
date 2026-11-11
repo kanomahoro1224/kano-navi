@@ -16,7 +16,11 @@ import (
 // StepOrder is the catalog execution order: sources first, then the
 // post-processing that consumes what the sources stored, and finally the
 // duplicate-event reconciliation over everything written before it.
-var StepOrder = []string{"x", "youtube", "bilibili", "bilibili-posts", "media", "schedule", StepTranslate, "reconcile"}
+var StepOrder = []string{"x", sqlite.XRelatedStep, "youtube", "bilibili", sqlite.BilibiliDynamicsSource, sqlite.ShopSource, "media", "schedule", StepTranslate, "reconcile"}
+
+// fetchSources are the steps a manual fetch's window can select, each read
+// through the listing method its window names.
+var fetchSources = []string{history.SourceX, history.SourceXRelated, history.SourceYoutube, history.SourceBilibili, history.SourceBilibiliDynamics, history.SourceShop}
 
 // NormalizeSteps returns the known step IDs in catalog order.
 func NormalizeSteps(values []string) []string {
@@ -87,7 +91,7 @@ func (m *QueueManager) Start(ctx context.Context, kind, triggeredBy string, opti
 		}
 		for source, window := range options.FetchWindows {
 			normalized, windowErr := window.Normalize(source)
-			if windowErr != nil || (source != "x" && source != "youtube") {
+			if windowErr != nil || !slices.Contains(fetchSources, source) {
 				return StartResult{}, sqlite.ErrWorkflowValidation
 			}
 			definition.FetchWindows[source] = normalized
@@ -143,14 +147,16 @@ func (m *QueueManager) Start(ctx context.Context, kind, triggeredBy string, opti
 }
 
 // sourceSync freezes how each source step without a window reads: as given,
-// or else as its source schedule reads (ADR-0003). Full syncs, scans and
+// or else as its source schedule reads. Full syncs, scans and
 // the other kinds never get here and keep the environment's incremental
 // options.
 func (m *QueueManager) sourceSync(ctx context.Context, definition sqlite.WorkflowDefinition, given map[string]sqlite.SourceSync) (map[string]sqlite.SourceSync, error) {
 	var schedules map[string]sqlite.SourceSync
 	out := map[string]sqlite.SourceSync{}
 	for _, step := range definition.Steps {
-		if _, windowed := definition.FetchWindows[step]; windowed || !slices.Contains(sqlite.SyncSources, step) {
+		// A related account's fetch is its timer's read of one account, so it
+		// keeps the timer's bound.
+		if _, windowed := definition.FetchWindows[step]; (windowed && step != sqlite.XRelatedStep) || !slices.Contains(sqlite.SyncSources, step) {
 			continue
 		}
 		if setting, ok := given[step]; ok {
@@ -171,7 +177,7 @@ func (m *QueueManager) sourceSync(ctx context.Context, definition sqlite.Workflo
 }
 
 // sourceChain freezes the method chain each source step without a window
-// reads through, as its source schedule orders it (ADR-0004). A manual
+// reads through, as its source schedule orders it. A manual
 // fetch names its own method; full syncs, scans and the other kinds never
 // get here and read through the default chains.
 func (m *QueueManager) sourceChain(ctx context.Context, steps []string, windows map[string]history.Window) (map[string]sqlite.SourceChain, error) {
@@ -338,7 +344,7 @@ func toJob(run *sqlite.WorkflowRun, history *sqlite.JobRun) *Job {
 		job.SourceSchedule = &source
 	}
 	// A stored run of a saved workflow keeps its ID; the definition is not
-	// read (ADR-0003).
+	// read.
 	if !sqlite.IsAdhocWorkflow(run.WorkflowID) {
 		id := run.WorkflowID
 		job.WorkflowID = &id
@@ -366,11 +372,14 @@ func toJob(run *sqlite.WorkflowRun, history *sqlite.JobRun) *Job {
 	if job.Kind == KindWorkflow {
 		windows := map[string]any{}
 		for _, step := range job.Steps {
-			if step != "x" && step != "youtube" {
+			if !slices.Contains(fetchSources, step) {
 				continue
 			}
 			if window, selected := run.FetchWindows[step]; selected {
 				windows[step] = window
+			} else if step == sqlite.XRelatedStep {
+				// Only a related account's manual fetch names a window.
+				continue
 			} else if sync, ok := run.SourceSync[step]; ok {
 				windows[step] = sync
 			} else if days, ok := run.SourceLookbackDays[step]; ok {

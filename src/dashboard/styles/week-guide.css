@@ -1,0 +1,549 @@
+.guide-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.guide .inline-alert {
+  margin: 0 0 14px;
+}
+
+/* A week change keeps the last loaded week until the new one arrives. The
+   delay lets a quick read swap the days without dimming them first. */
+.guide-body {
+  transition: opacity 160ms ease;
+}
+
+.guide-body.is-stale {
+  opacity: 0.45;
+  transition-delay: 120ms;
+}
+
+.guide-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  list-style: none;
+}
+
+.guide-day {
+  display: flex;
+  min-width: 0;
+  min-height: 240px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 8px 12px;
+}
+
+.guide-day + .guide-day {
+  border-left: 1px solid var(--rule);
+}
+
+.guide-day.is-weekend {
+  background: color-mix(in oklab, hsl(var(--muted)) 35%, transparent);
+}
+
+.guide-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 -8px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.guide-day-name {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.guide-day-number {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.guide-day.is-weekend:last-child .guide-day-number {
+  color: var(--berry);
+}
+
+.guide-day.is-weekend:nth-child(6) .guide-day-number {
+  color: var(--sky);
+}
+
+.guide-day-today {
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--berry);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.guide-day.is-today .guide-day-head {
+  border-bottom-color: transparent;
+  background: var(--berry);
+}
+
+.guide-day.is-today .guide-day-head .guide-day-name,
+.guide-day.is-today .guide-day-head .guide-day-number {
+  color: #fff;
+}
+
+.guide-day.is-today {
+  background: var(--berry-wash);
+}
+
+.guide-day-events {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guide-day-none {
+  padding: 6px 4px;
+  color: color-mix(in oklab, var(--soft) 50%, transparent);
+}
+
+.guide-day-more {
+  color: var(--soft);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.guide-event {
+  display: grid;
+  gap: 4px;
+  padding: 8px 9px 9px;
+  border-left: 3px solid var(--tone);
+  border-radius: 4px var(--radius-sm) var(--radius-sm) 4px;
+  background: var(--tone-wash);
+  transition: transform 160ms ease;
+}
+
+.guide-event.link-card:hover {
+  transform: translateY(-1px);
+}
+
+.guide-event-time {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--tone);
+}
+
+.guide-event-time strong {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-event-time small {
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* The provenance icon keeps to the time row's end. */
+.guide-event-time .guide-provenance {
+  margin-left: auto;
+  align-self: center;
+}
+
+.guide-event-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* The title is the button that opens the entry's sheet. */
+.guide-event-title > .card-link {
+  display: -webkit-box;
+  overflow: hidden;
+  text-align: left;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* The month's day details show the whole title and detail. */
+.guide-event.is-full .guide-event-title,
+.guide-event.is-full .guide-event-title > .card-link {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.guide-event.is-full .guide-event-detail {
+  white-space: normal;
+}
+
+/* The entry picked in the month grid. */
+.guide-event.is-highlighted {
+  box-shadow: 0 0 0 2px var(--tone);
+}
+
+.guide-event-detail {
+  overflow: hidden;
+  color: var(--soft);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-event-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.guide-event-tags .tag {
+  padding: 0 6px;
+  background: var(--paper);
+  font-size: 10.5px;
+}
+
+.guide-event-tags .tag[class*="tone-"] {
+  background: var(--paper);
+}
+
+.guide-event-tags .tag svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* The arrow at the card's bottom corner follows the entry's link. */
+.guide-event-open {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--tone);
+  transition: background 160ms ease;
+}
+
+.guide-event-open:hover {
+  background: color-mix(in oklab, var(--tone) 18%, transparent);
+}
+
+.guide-event-open svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* The activity label takes the entry's tone, so it reads with its type. */
+.guide-event-tags .guide-event-kind {
+  gap: 3px;
+  color: var(--tone);
+}
+
+.guide-provenance {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--soft);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.guide-provenance svg {
+  width: 12px;
+  height: 12px;
+}
+
+.guide-provenance.is-manual {
+  color: var(--leaf);
+}
+
+.guide-event-note {
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.guide-event.is-done,
+.guide-event.is-pending,
+.guide-event.is-folded {
+  opacity: 0.66;
+}
+
+/* A past entry folds to its time row over two lines of title. */
+.guide-event.is-folded {
+  gap: 2px;
+  padding: 5px 8px 6px;
+}
+
+.guide-event.is-folded .guide-event-time strong {
+  font-size: 12px;
+}
+
+.guide-event.is-folded .guide-event-time > svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  align-self: center;
+}
+
+.guide-event.is-folded .guide-event-title,
+.guide-event.is-folded .guide-event-title > .card-link {
+  font-size: 12px;
+  -webkit-line-clamp: 2;
+}
+
+.guide-event.is-folded:hover {
+  opacity: 1;
+}
+
+.guide-event.is-cancelled {
+  --tone: var(--soft);
+  --tone-wash: var(--sunken);
+}
+
+.guide-event.is-cancelled .guide-event-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.guide-event.is-cancellation_review {
+  outline: 1px dashed color-mix(in oklab, var(--honey) 70%, transparent);
+  outline-offset: -1px;
+}
+
+.guide-event.is-live {
+  outline: 1.5px solid var(--berry);
+  outline-offset: -1.5px;
+}
+
+.guide-event.is-live .tag svg {
+  animation: onair-pulse 1.6s ease-in-out infinite;
+}
+
+.guide-event.is-cancellation_review .guide-event-note {
+  color: var(--honey);
+}
+
+.guide-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.guide-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin: 0;
+  color: var(--soft);
+  font-size: 12px;
+}
+
+/* The activity icons follow the provenance marks as their own group. */
+.guide-legend-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.guide-legend-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+}
+
+.guide-legend-tag svg {
+  width: 12px;
+  height: 12px;
+}
+
+.guide-image {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+}
+
+.guide-image-thumb {
+  width: 180px;
+  flex: 0 0 auto;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+}
+
+.guide-image-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms ease;
+}
+
+.guide-image-thumb:hover img {
+  transform: scale(1.04);
+}
+
+.guide-image-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.guide-image-copy p:not(.kicker) {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13px;
+}
+
+.guide-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+@media (max-width: 1040px) {
+  .guide-days {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-day {
+    display: grid;
+    min-height: 0;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: start;
+    gap: 6px 12px;
+    padding: 10px 12px;
+  }
+
+  .guide-day + .guide-day {
+    border-top: 1px solid var(--rule);
+    border-left: 0;
+  }
+
+  .guide-day-head {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    margin: 0;
+    padding: 6px 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+  }
+
+  .guide-day-number {
+    font-size: 24px;
+  }
+
+  /* A row of the list marks today the way the month grid does: its date in a
+     berry disc, with an accent rule instead of a filled header. */
+  .guide-day.is-today {
+    box-shadow: inset 3px 0 0 var(--berry);
+  }
+
+  .guide-day.is-today .guide-day-head {
+    background: none;
+  }
+
+  .guide-day.is-today .guide-day-head .guide-day-name {
+    color: var(--berry);
+  }
+
+  .guide-day.is-today .guide-day-head .guide-day-number {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--berry);
+    font-size: 20px;
+  }
+
+  .guide-day-today {
+    margin: 2px 0 0;
+    padding: 0;
+    background: none;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .guide-day-events,
+  .guide-day-more {
+    grid-column: 2;
+  }
+
+  .guide-day-none {
+    align-self: center;
+  }
+
+  .guide-day-events {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+
+  .guide-day-more {
+    grid-row: 2;
+  }
+}
+
+/* An empty day folds to one line; today keeps its full date. */
+@media (max-width: 1040px) {
+  .guide-day.is-empty:not(.is-today) {
+    padding-block: 2px;
+  }
+
+  .guide-day.is-empty:not(.is-today) .guide-day-head {
+    display: flex;
+    gap: 6px;
+    padding: 6px 0;
+  }
+
+  .guide-day.is-empty:not(.is-today) .guide-day-number {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .guide-day {
+    grid-template-columns: 48px minmax(0, 1fr);
+    padding: 10px;
+  }
+
+  .guide-day-events {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-image {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .guide-image-thumb {
+    width: 100%;
+  }
+}

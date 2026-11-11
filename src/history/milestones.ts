@@ -2,12 +2,15 @@
 //
 // Compiled from the maintainer's kano_official archive (PROFILE.md and
 // TIMELINE.md, reviewed 2026-10-04/05; first album and the cancelled 2022 CD
-// rechecked 2026-10-25). Dates keep their original precision:
+// rechecked 2026-10-25; "one" and the ルル MV rechecked 2026-11-06 against
+// the collection's discography and uploads). Dates keep their original precision:
 // release days are label release dates, stream days are the original stream
 // dates, and month/range entries are not narrowed to a guessed day. The array
 // entries are sorted chronologically without inventing missing dates.
 // `source` is the strongest public page for the
 // entry; it is null when the only evidence is a third-party stream archive.
+// `release` names the release on the Works page (src/works/personal.json)
+// whose covers the milestone shows; see src/history/media.ts.
 // Every external host here is listed in scripts/privacy-allowlist.json.
 
 export const branches = [
@@ -39,7 +42,7 @@ export const branches = [
     id: "sona",
     tone: "sky",
     since: "2026",
-    label: { "zh-CN": "ミリプロSONA", ja: "ミリプロSONA", en: "Milpro SONA" },
+    label: { "zh-CN": "ミリプロSONA", ja: "ミリプロSONA", en: "ミリプロSONA" },
   },
 ]
 
@@ -78,6 +81,7 @@ const originalMilestones = [
       ja: "Sevencolors より発売。「ハロ/ハワユ」など全 10 曲を収録。",
       en: "Released by Sevencolors with 10 tracks, including “ハロ/ハワユ”.",
     },
+    release: "2011-01-16-fa0309",
     source: "https://www.suruga-ya.jp/product/detail/186110819",
   },
   {
@@ -96,6 +100,7 @@ const originalMilestones = [
       ja: "TV アニメ『放課後のプレアデス』オープニングテーマ。",
       en: "Opening theme of the TV anime Houkago no Pleiades.",
     },
+    release: "2015-05-20-ad12ac",
     source:
       "https://whv-amusic.com/kano/sp/discography/single/index00030000.html",
   },
@@ -114,6 +119,7 @@ const originalMilestones = [
       ja: "赤いマフラーと本のジャケット。",
       en: "Cover art with the red scarf and a book.",
     },
+    release: "2015-11-18-f7fcf9",
     source: "https://kano-official.amebaownd.com/posts/3989240/",
   },
   {
@@ -131,6 +137,7 @@ const originalMilestones = [
       ja: "赤いマフラーに白い服、花束のジャケット。",
       en: "Red scarf, white top, and a bouquet on the cover.",
     },
+    release: "2016-05-11-20aeff",
     source: "https://kano-official.amebaownd.com/posts/3989227/",
   },
   {
@@ -148,6 +155,7 @@ const originalMilestones = [
       ja: "歌い手盤と通常盤で異なるジャケット。",
       en: "Artist and standard editions use different covers.",
     },
+    release: "2016-09-07-17d72f",
     source: "https://kano-official.amebaownd.com/posts/3989194/",
   },
   {
@@ -165,11 +173,12 @@ const originalMilestones = [
       ja: "初回限定盤のジャケットにこれまでの作品が並ぶ。",
       en: "The limited-edition cover lines up earlier releases.",
     },
+    release: "2017-12-20-60cfba",
     source: "https://kano-official.amebaownd.com/posts/3988816/",
   },
   {
     id: "one",
-    date: "2017-12",
+    date: "2017-12-29",
     dateNote: "C93",
     branch: "singer",
     kind: "release",
@@ -183,6 +192,7 @@ const originalMilestones = [
       ja: "C93 で頒布。小鹿の帽子とギターのジャケット。",
       en: "Released at C93, with a fawn hat and guitar on the cover.",
     },
+    release: "2017-12-29-7692c3",
     source: "https://booth.pm/ja/items/709759",
   },
   {
@@ -200,6 +210,7 @@ const originalMilestones = [
       ja: "一部ストアでこの日から配信、ほかは 6 月 6 日から。",
       en: "Some stores carried it from this day; others from June 6.",
     },
+    release: "2018-05-30-ad6dc1",
     source: "https://www.teichiku.co.jp/artist/kano/discography/D-C126.html",
   },
   {
@@ -217,6 +228,7 @@ const originalMilestones = [
       ja: "小鹿フードのデフォルメジャケット。",
       en: "A chibi cover in a fawn hood.",
     },
+    release: "2018-12-19-bfac1a",
     source: "https://www.imperialrecords.jp/artist/kano/",
   },
   {
@@ -252,6 +264,7 @@ const originalMilestones = [
       ja: "花寄の活動と並行して、歌手名義のリリースも続く。",
       en: "Releases under the singer name continue alongside Hanayori.",
     },
+    release: "2019-09-25-44f278",
     source: "https://www.teichiku.co.jp/artist/kano/discography/TECI-1655.html",
   },
   {
@@ -287,6 +300,7 @@ const originalMilestones = [
       ja: "通常盤と初回限定盤の 2 種類のジャケット。",
       en: "Standard and limited editions with two covers.",
     },
+    release: "2020-03-04-c686b1",
     source: "https://www.teichiku.co.jp/artist/kano/discography/TECI-1676.html",
   },
   {
@@ -305,6 +319,24 @@ const originalMilestones = [
       en: "A pale blue-and-white floral kimono with braids, revealed on stream.",
     },
     source: null,
+  },
+  {
+    id: "rebirth-vr-live",
+    date: "2020-03-29",
+    branch: "singer",
+    kind: "live",
+    title: {
+      "zh-CN": "VR 演唱会「ReBirth」",
+      ja: "VR ライブ「ReBirth」",
+      en: "VR concert “ReBirth”",
+    },
+    detail: {
+      "zh-CN":
+        "为专辑 yuanfen 举办，在 INSPIX LIVE、niconico 与 bilibili 同步直播；3 月 23 日先公开了部分彩排。",
+      ja: "アルバム「yuanfen」の VR ライブ。INSPIX LIVE・ニコニコ・bilibili で同時配信し、3 月 23 日には公開リハーサルも。",
+      en: "A VR concert for the album “yuanfen”, simulcast on INSPIX LIVE, niconico and bilibili after a public rehearsal on March 23.",
+    },
+    source: "https://kano-official.amebaownd.com/posts/7938521/",
   },
   {
     id: "hanayori-3d",
@@ -339,6 +371,7 @@ const originalMilestones = [
       ja: "CD 発売日。デジタル配信は 7 月から。",
       en: "CD release date; digital release began in July.",
     },
+    release: "2020-07-31-984b7a",
     source: "https://www.teichiku.co.jp/artist/kano/discography/TEI-144.html",
   },
   {
@@ -373,6 +406,7 @@ const originalMilestones = [
       ja: "歌手・鹿乃の 3D ステージ衣装のジャケット。",
       en: "The cover uses singer Kano’s 3D stage look.",
     },
+    release: "2021-01-27-d42113",
     source: "https://kano-official.amebaownd.com/posts/11804060/",
   },
   {
@@ -445,6 +479,7 @@ const originalMilestones = [
       ja: "TV アニメ『宇崎ちゃんは遊びたい！ω』OP 曲の MV。11 月 30 日発売予定だった鹿乃 / MKLNtic のスプリット EP は、両 CD 盤とも 11 月 7 日に発売中止を発表。",
       en: "MV for the opening theme of Uzaki-chan Wants to Hang Out! ω. Both CD editions of the Kano / MKLNtic split EP, planned for November 30, were cancelled in a November 7 announcement.",
     },
+    release: "2022-10-07-e77df8",
     source: "https://kano-official.amebaownd.com/posts/37992653/",
     links: [
       {
@@ -468,6 +503,7 @@ const originalMilestones = [
       ja: "ここから Sony Music で配信シングルが続く。",
       en: "The first of a run of digital singles via Sony Music.",
     },
+    release: "2024-04-20-e993c6",
     source: "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX04946B01A",
   },
   {
@@ -499,6 +535,7 @@ const originalMilestones = [
       en: "Digital single “メトメ”",
     },
     detail: null,
+    release: "2024-08-28-dc475d",
     source: "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05051B01A",
   },
   {
@@ -529,6 +566,7 @@ const originalMilestones = [
       en: "Digital single “愛と哀”",
     },
     detail: null,
+    release: "2024-10-23-46e237",
     source: "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05112B01A",
   },
   {
@@ -546,6 +584,7 @@ const originalMilestones = [
       ja: "ジャケットに歌手・鹿乃とまほろが並ぶ。",
       en: "The cover pairs singer Kano with Mahoro.",
     },
+    release: "2025-02-12-48c9ff",
     source: "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05173B01A",
   },
   {
@@ -559,6 +598,7 @@ const originalMilestones = [
       en: "Digital single “Hiraeth”",
     },
     detail: null,
+    release: "2025-07-02-90ad1e",
     source: "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05316B01A",
   },
   {
@@ -604,7 +644,7 @@ const originalMilestones = [
     title: {
       "zh-CN": "加入ミリプロSONA",
       ja: "ミリプロSONA に所属",
-      en: "Joins Milpro SONA",
+      en: "Joins ミリプロSONA",
     },
     detail: {
       "zh-CN": "Million Production 发布新闻稿，宣布加入新组别 SONA。",
@@ -634,7 +674,7 @@ const originalMilestones = [
   },
   {
     id: "ruru",
-    date: "2026-08-25",
+    date: "2026-08-13",
     branch: "singer",
     kind: "release",
     title: {
@@ -643,11 +683,18 @@ const originalMilestones = [
       en: "“ルル（タンフルタイム）” MV",
     },
     detail: {
-      "zh-CN": "以 feat. 鹿乃 名义担当公式歌曲，MV 公开。",
-      ja: "公式ソングを feat. 鹿乃 で担当し、MV を公開。",
-      en: "Official song featuring Kano; the MV went live.",
+      "zh-CN":
+        "手机游戏《フルーツ飴の達人》的官方歌曲，由鹿乃演唱。MV 发布在游戏角色频道，本人于 8 月 25 日在 X 上介绍。",
+      ja: "スマートフォンゲーム『フルーツ飴の達人』の公式ソングを鹿乃が歌唱。MV はゲームのキャラクターチャンネルで公開され、本人は 8 月 25 日に X で紹介。",
+      en: "Kano sings the official song of the mobile game Tanghulu Master. The MV went up on the game character’s channel; she introduced it on X on August 25.",
     },
-    source: "https://x.com/kano_2525/status/2092160057542582386",
+    source: "https://www.youtube.com/watch?v=KFwVvGiAx_c",
+    links: [
+      {
+        href: "https://x.com/kano_2525/status/2092160057542582386",
+        label: "history.sourceName.x",
+      },
+    ],
   },
 ]
 
@@ -705,7 +752,7 @@ const visualMilestones = [
   },
   {
     id: "hanayori-anniversary-goods",
-    date: "2020-08",
+    date: "2020-08-01",
     branch: "hanayori",
     kind: "goods",
     title: {
@@ -714,9 +761,9 @@ const visualMilestones = [
       en: "Anniversary swimsuit merchandise artwork",
     },
     detail: {
-      "zh-CN": "官方立牌中的夏日插画。商品页未标明精确上架日，仅保留月份。",
-      ja: "公式アクリルスタンドの夏のイラスト。販売開始日は不明のため月単位で記録。",
-      en: "Summer artwork from the official acrylic stand. The exact listing day is unknown, so only the month is recorded.",
+      "zh-CN": "官方亚克力立牌的两张夏日插画，日期为 BOOTH 商品页公开日。",
+      ja: "公式アクリルスタンドの夏のイラスト 2 点。日付は BOOTH の商品ページ公開日。",
+      en: "Two summer artworks from the official acrylic stand, dated to the day the BOOTH listing went up.",
     },
     source: "https://booth.pm/ja/items/2258381",
   },

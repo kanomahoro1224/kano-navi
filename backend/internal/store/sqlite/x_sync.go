@@ -48,6 +48,10 @@ func (s *Store) WriteXRecent(ctx context.Context, account string, result xsource
 			return ErrSourceWrite
 		}
 	}
+	repostsChanged, err := writeXReposts(ctx, tx, account, result.Reposts, now)
+	if err != nil {
+		return ErrSourceWrite
+	}
 	// A requested refresh is done once its detail request was made; the
 	// answer, if usable, was written above.
 	for _, id := range result.Refreshed {
@@ -69,7 +73,7 @@ func (s *Store) WriteXRecent(ctx context.Context, account string, result xsource
 			return ErrSourceWrite
 		}
 	}
-	if len(result.Posts) > 0 {
+	if len(result.Posts) > 0 || repostsChanged {
 		if err = bumpRevision(ctx, tx, now); err != nil {
 			return ErrSourceWrite
 		}
@@ -157,9 +161,18 @@ func writeXState(ctx context.Context, tx *sql.Tx, account string, result xsource
 	return err
 }
 
-// writeXPost stores one post with its media candidates. It reports false when
-// the ID already belongs to another account, whose row is left unchanged.
+// writeXPost stores one post with its media candidates and the status it
+// quotes, which goes to the pool (see writeQuotedStatus). It reports false
+// when the ID already belongs to another account, whose row is left
+// unchanged.
 func writeXPost(ctx context.Context, tx *sql.Tx, account string, p xsource.Post, now string) (bool, error) {
+	return writeXPostAs(ctx, tx, account, p, now, true)
+}
+
+// writeXPostAs is writeXPost for an own account's post (own) or a promoted
+// related status, whose quote is stored and linked the same way but is no
+// own account's quote, so it gives the quoted status no quoted reason.
+func writeXPostAs(ctx context.Context, tx *sql.Tx, account string, p xsource.Post, now string, own bool) (bool, error) {
 	raw, _ := json.Marshal(p.Raw)
 	media := ""
 	if len(p.MediaURLs) > 0 {
@@ -185,6 +198,11 @@ func writeXPost(ctx context.Context, tx *sql.Tx, account string, p xsource.Post,
 	if p.Quote != nil {
 		if err = writeQuoteMedia(ctx, tx, p.ID, p.Quote.MediaURLs, now); err != nil {
 			return false, err
+		}
+		if own {
+			if err = writeQuotedStatus(ctx, tx, p.Quote, p.PublishedAt, now); err != nil {
+				return false, err
+			}
 		}
 	}
 	return true, nil

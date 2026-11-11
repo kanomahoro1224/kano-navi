@@ -32,6 +32,10 @@ func TestYoutubeAPIFetchWritesDetailsThroughTheRecentUpsert(t *testing.T) {
 			body = `{"items":[` + playlistItem("SSSSSSSSSSS", "game night") + `,` + playlistItem("LLLLLLLLLLL", "locked stream") + `,` + playlistItem("OOOOOOOOOOO", "ordinary upload") + `]}`
 		case r.URL.Path == "/youtube/v3/playlistItems" && r.URL.Query().Get("playlistId") == "UULV"+channel[2:]:
 			body = `{"items":[` + playlistItem("SSSSSSSSSSS", "game night") + `,` + playlistItem("LLLLLLLLLLL", "locked stream") + `]}`
+		case r.URL.Path == "/youtube/v3/playlistItems" && r.URL.Query().Get("playlistId") == "UUMO"+channel[2:]:
+			body = `{"items":[` + playlistItem("LLLLLLLLLLL", "locked stream") + `]}`
+		case r.URL.Path == "/feeds/videos.xml" && r.URL.Query().Get("playlist_id") == "UUMO"+channel[2:]:
+			status = 404
 		case r.URL.Path == "/youtube/v3/playlistItems" && r.URL.Query().Get("playlistId") == "UULF"+channel[2:]:
 			body = `{"items":[` + playlistItem("OOOOOOOOOOO", "ordinary upload") + `]}`
 		case r.URL.Path == "/youtube/v3/videos" && failDetails:
@@ -59,8 +63,10 @@ func TestYoutubeAPIFetchWritesDetailsThroughTheRecentUpsert(t *testing.T) {
 	}
 	all := history.Window{Method: history.MethodAPI, Mode: history.ModeAll}
 	out, err := (&SourceSteps{History: source}).Execute(context.Background(), StepInput{StepID: "youtube", Window: &all})
-	// One listing page, one videos.list call and both format playlists.
-	if err != nil || out.Status != "succeeded" || out.Result["new"] != 3 || out.Result["inspected"] != 3 || out.Result["apiRequests"] != 4 || len(watched) != 0 {
+	// One listing page, one videos.list call, both format playlists and the
+	// members-only playlist, which marks the locked stream.
+	if err != nil || out.Status != "succeeded" || out.Result["new"] != 3 || out.Result["inspected"] != 3 || out.Result["apiRequests"] != 5 ||
+		out.Result["members"] != 1 || out.Result["membersFrom"] != "api" || len(watched) != 0 {
 		t.Fatalf("out=%+v err=%v watched=%v", out, err, watched)
 	}
 	query := func(statement string) string {
@@ -77,20 +83,22 @@ func TestYoutubeAPIFetchWritesDetailsThroughTheRecentUpsert(t *testing.T) {
 		`SELECT title||'/'||status FROM events WHERE id='youtube-LLLLLLLLLLL'`:                                                                          "operator title/scheduled",
 		`SELECT duration_seconds||'/'||COUNT(*) FROM videos WHERE id='OOOOOOOOOOO'`:                                                                     "180/1",
 		`SELECT COUNT(*) FROM events WHERE source_item_id='OOOOOOOOOOO'`:                                                                                "0",
+		`SELECT COALESCE(availability,'') FROM videos WHERE id='LLLLLLLLLLL'`:                                                                           "members",
 	} {
 		if got := query(statement); got != want {
 			t.Fatalf("%s = %q, want %q", statement, got, want)
 		}
 	}
 	// A failed details call keeps the listing and its checkpoint and leaves
-	// the step partial.
+	// the step partial; the members-only playlist then skips the Data API for
+	// its feed, which fails here too.
 	failDetails = true
 	refresh := history.Window{Method: history.MethodAPI, Mode: history.ModeAll, Refresh: true}
 	out, err = (&SourceSteps{History: source}).Execute(context.Background(), StepInput{StepID: "youtube", Window: &refresh})
 	if err != nil || out.Status != "partial" || out.Result["stored"] != 3 || out.Result["inspected"] != 0 || out.Result["reachedEnd"] != true {
 		t.Fatalf("failed details=%+v err=%v", out, err)
 	}
-	if errors := out.Result["errors"].([]string); strings.Join(errors, ",") != "youtube_api_forbidden" {
+	if errors := out.Result["errors"].([]string); len(errors) != 2 || errors[0] != "youtube_api_forbidden" || !strings.HasPrefix(errors[1], "youtube_feed_") || out.Result["membersFrom"] != "" {
 		t.Fatalf("errors=%v", errors)
 	}
 	if got := query(`SELECT COUNT(*) FROM sync_state WHERE source='youtube-window'`); got != "1" {

@@ -27,6 +27,9 @@ func uploadsClient(t *testing.T, requested *[]string) *Client {
 			if r.Header.Get("X-Goog-Api-Key") != syntheticKey || strings.Contains(r.URL.String(), syntheticKey) {
 				t.Fatalf("key not confined to the header: %s", r.URL)
 			}
+			if r.URL.Query().Get("playlistId") == "UUMO"+syntheticChannel[2:] {
+				return response(200, membersPage()), nil
+			}
 			page := r.URL.Query().Get("pageToken")
 			*requested = append(*requested, page)
 			return response(200, pages[page]), nil
@@ -81,8 +84,9 @@ func TestUploadsPlaylistPagesToAStoredVideoOrTheCount(t *testing.T) {
 			if strings.Join(requested, ",") != tc.pages || strings.Join(feedOnlyIDs(result), ",") != tc.adds || result.Discovered != tc.discovered {
 				t.Fatalf("pages=%q adds=%v discovered=%d", requested, feedOnlyIDs(result), result.Discovered)
 			}
-			// One unit per playlist page and one videos.list call.
-			if result.APIRequests != len(requested)+1 || result.NextCursor != "AAAAAAAAAAA" {
+			// One unit per uploads playlist page, one videos.list call and
+			// the members-only playlist page.
+			if result.APIRequests != len(requested)+2 || result.NextCursor != "AAAAAAAAAAA" {
 				t.Fatalf("api=%d cursor=%s", result.APIRequests, result.NextCursor)
 			}
 		})

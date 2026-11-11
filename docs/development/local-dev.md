@@ -53,6 +53,13 @@ same with the built frontend and also defaults to `7657`, as does production.
 Set `PORT` in the environment or `.env` to override the default. Development
 and preview use `strictPort` and fail if that port is occupied.
 
+Vite watches only the frontend sources. `data/`, `ref/`, `backend/`, `dist/`,
+`.claude/` (including agent worktrees) and `.codegraph/` are outside the
+watched tree: they hold tens of thousands of files, and crawling them at
+startup delays the first page render until the crawl ends. A new large local
+directory in the repository root belongs in the same `server.watch.ignored`
+list in `vite.config.ts`.
+
 `make dev-server` builds and starts only the backend on `KANO_API_PORT`, and
 `make dev-client` starts only Vite; use the pair to keep the two logs apart.
 Restart the backend after changing Go source. The backend reads `.env`,
@@ -72,9 +79,9 @@ The console opens on Overview. Sources holds each source's timer and its
 **Run now**; Runs picks any steps and runs them once. LLM providers are configured once (API host, format, and
 key), their model list is fetched from `<baseUrl>/models`, and each model is
 tagged (`text`/`image` drive routing; `reasoning`/`tools`/`embedding` are
-labels). The LLM page then orders provider + model targets in the extraction,
-schedule-image check and translation queues; extraction skips targets without
-the capability a post needs, and
+labels). The Detection page then orders provider + model targets in the text
+schedule extraction, image extraction and translation/light-task queues; each
+step skips targets without the capability it needs, and
 each target follows the fixed three-request failover policy. Content & media covers
 the Featured video and profile media. Provider URLs on this machine
 (`localhost` or loopback) are rejected, so a local mock provider must listen
@@ -128,7 +135,7 @@ make ci installs the lockfile first and then runs the full portable sequence.
 
 - data/ contains ignored runtime SQLite, source media, and selected profile media.
 - dist/, node_modules/, and local test artifacts stay out of Git.
-- public/assets/ contains fixed branding and reviewed history images.
+- public/assets/ contains fixed branding.
 - .env is ignored; .env.example is the complete non-secret runtime inventory.
 - When adding configuration, update .env.example and
   [Runtime configuration](../operations/configuration.md), plus the relevant

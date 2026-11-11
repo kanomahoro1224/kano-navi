@@ -15,12 +15,24 @@ var (
 	ErrReadOnly     = errors.New("admin_writes_disabled")
 	ErrEventExists  = errors.New("event already exists")
 	ErrEventInvalid = errors.New("invalid_input")
+	// ErrEventLiveRoomURL refuses a Bilibili live-room link as an entry's
+	// link unless the entry is on another platform (other).
+	ErrEventLiveRoomURL = errors.New("event_live_room_url")
 )
 
 // EventInput is one validated manual schedule entry. An empty string means
-// "no value" and is stored as NULL. Timestamps are ISO instants; StartsOn is
-// the Japan calendar date.
-type EventInput struct{ ID, Title, Detail, StartsOn, StartsAt, EndsAt, TimePrecision, Status, EventType, Tag, URL, CancellationStatus, CancellationReason string }
+// "no value" and is stored as NULL. Timestamps are ISO instants; StartsOn and
+// EndsOn are Japan calendar dates. EndsOn is the close date of a sale period
+// and is stored for a sale only.
+//
+// Platforms are the operator's announced platforms (see EventPlatforms);
+// PlatformsSet reports that the input names them, so an update without them
+// keeps the stored ones.
+type EventInput struct {
+	ID, Title, Detail, StartsOn, StartsAt, EndsAt, EndsOn, TimePrecision, Status, EventType, Tag, URL, CancellationStatus, CancellationReason string
+	Platforms                                                                                                                                 []string
+	PlatformsSet                                                                                                                              bool
+}
 
 func (i EventInput) validate(create bool) error {
 	if !adminDateRE.MatchString(i.StartsOn) {
@@ -35,13 +47,43 @@ func (i EventInput) validate(create bool) error {
 	if i.Tag != "" && i.Tag != TagAutomatic && !ValidEventTag(i.Tag) {
 		return ErrEventInvalid
 	}
-	if i.EndsAt != "" && i.StartsAt == "" {
+	if i.EndsOn != "" {
+		if _, err := time.Parse("2006-01-02", i.EndsOn); err != nil || !adminDateRE.MatchString(i.EndsOn) || i.EndsOn < i.StartsOn {
+			return ErrEventInvalid
+		}
+	}
+	// An end time needs a start time, except the deadline of a sale period
+	// whose opening is not known.
+	if i.EndsAt != "" && i.StartsAt == "" && i.EndsOn == "" {
 		return ErrEventInvalid
+	}
+	// A sale's close time always has its close date.
+	if i.EndsAt != "" && i.EventType == "sale" && i.EndsOn == "" {
+		return ErrEventInvalid
+	}
+	// A close time falls on its close date in Japan.
+	if i.EndsAt != "" && i.EndsOn != "" {
+		if end, err := time.Parse(time.RFC3339Nano, i.EndsAt); err != nil || dateInJapan(end) != i.EndsOn {
+			return ErrEventInvalid
+		}
 	}
 	if i.CancellationStatus == "manual_confirmed" && strings.TrimSpace(i.CancellationReason) == "" {
 		return ErrEventInvalid
 	}
+	if len(NormalizePlatforms(i.Platforms)) != len(i.Platforms) {
+		return ErrEventInvalid
+	}
+	if (create || i.PlatformsSet) && !i.linkAllowed(i.Platforms) {
+		return ErrEventLiveRoomURL
+	}
 	return nil
+}
+
+// linkAllowed reports whether the input's link may be stored with these
+// platforms: a live-room link is the same for every broadcast, never an
+// entry's link, unless it is someone else's room (other).
+func (i EventInput) linkAllowed(platforms []string) bool {
+	return !IsBilibiliRoomURL(i.URL) || hasPlatform(platforms, PlatformOther)
 }
 
 func (i EventInput) precision() string {
@@ -63,11 +105,26 @@ func (i EventInput) raw() string {
 		"cancellation_status": i.CancellationStatus, "cancellation_reason": nullIfEmpty(i.CancellationReason),
 		"event_type": i.EventType, "tag": nullIfEmpty(i.Tag), "url": nullIfEmpty(i.URL), "provenance": "manual", "manualLocked": true,
 	}
+	if i.EndsOn != "" {
+		value["ends_on"] = i.EndsOn
+	}
+	if i.PlatformsSet {
+		value["platforms"] = NormalizePlatforms(i.Platforms)
+	}
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		return "{}"
 	}
 	return string(encoded)
+}
+
+// saleEndsOn is the ends_on column a save writes: the close date for a sale,
+// nothing for every other type.
+func saleEndsOn(eventType, endsOn string) any {
+	if eventType != "sale" {
+		return nil
+	}
+	return nullIfEmpty(endsOn)
 }
 
 func nullIfEmpty(v string) any {
@@ -156,11 +213,13 @@ func (s *Store) CreateManualEvent(ctx context.Context, input EventInput) (AdminE
 		eventType = "event"
 	}
 	now, raw := ISOTime(time.Now()), input.raw()
-	if _, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,
- time_precision,status,event_type,tag,tag_source,url,is_upcoming,provenance,manual_locked,cancellation_status,created_at,updated_at,raw_json)
- VALUES(?,'manual',?,?,?,?,?,?,?,'Asia/Tokyo',?,?,?,?,?,?,0,'manual',1,'none',?,?,?)`,
-		id, id, id, strings.TrimSpace(input.Title), nullIfEmpty(input.Detail), input.StartsOn, nullIfEmpty(input.StartsAt), nullIfEmpty(input.EndsAt),
-		input.precision(), nullIfEmpty(input.Status), eventType, storedTag(input.Tag), manualTagSource(input.Tag), nullIfEmpty(input.URL), now, now, raw); err != nil {
+	platforms := NormalizePlatforms(input.Platforms)
+	if _, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,ends_on,timezone,
+ time_precision,status,event_type,tag,tag_source,url,is_upcoming,provenance,manual_locked,cancellation_status,created_at,updated_at,raw_json,platform,platforms,platforms_inferred)
+ VALUES(?,'manual',?,?,?,?,?,?,?,?,'Asia/Tokyo',?,?,?,?,?,?,0,'manual',1,'none',?,?,?,?,?,0)`,
+		id, id, id, strings.TrimSpace(input.Title), nullIfEmpty(input.Detail), input.StartsOn, nullIfEmpty(input.StartsAt), nullIfEmpty(input.EndsAt), saleEndsOn(eventType, input.EndsOn),
+		input.precision(), nullIfEmpty(input.Status), eventType, storedTag(input.Tag), manualTagSource(input.Tag), nullIfEmpty(input.URL), now, now, raw,
+		PrimaryPlatform(platforms), EncodePlatforms(platforms)); err != nil {
 		return AdminEvent{}, fmt.Errorf("%w: event", ErrUnavailable)
 	}
 	if err = upsertEventSource(ctx, tx, id, "manual", id, id, nullIfEmpty(input.URL), raw, now); err != nil {
@@ -200,16 +259,19 @@ func (s *Store) UpdateManualEvent(ctx context.Context, id string, input EventInp
 		return AdminEvent{}, err
 	}
 	var title, timezone, eventType, tag, tagSource, status sql.NullString
-	var source, reason, evidence, sourceItem, at sql.NullString
+	var source, reason, evidence, sourceItem, at, storedPlatform, storedList sql.NullString
 	var confidence sql.NullFloat64
 	err = tx.QueryRowContext(ctx, `SELECT title,timezone,event_type,tag,tag_source,cancellation_status,cancellation_source,cancellation_reason,
- cancellation_evidence,cancellation_source_item_id,cancellation_confidence,cancellation_at FROM events WHERE id=?`, id).
-		Scan(&title, &timezone, &eventType, &tag, &tagSource, &status, &source, &reason, &evidence, &sourceItem, &confidence, &at)
+ cancellation_evidence,cancellation_source_item_id,cancellation_confidence,cancellation_at,platform,platforms FROM events WHERE id=?`, id).
+		Scan(&title, &timezone, &eventType, &tag, &tagSource, &status, &source, &reason, &evidence, &sourceItem, &confidence, &at, &storedPlatform, &storedList)
 	if errors.Is(err, sql.ErrNoRows) {
 		return AdminEvent{}, sql.ErrNoRows
 	}
 	if err != nil {
 		return AdminEvent{}, fmt.Errorf("%w: event lookup", ErrUnavailable)
+	}
+	if !input.PlatformsSet && !input.linkAllowed(storedPlatforms(storedList, storedPlatform)) {
+		return AdminEvent{}, ErrEventLiveRoomURL
 	}
 	now, raw := ISOTime(time.Now()), input.raw()
 	cancellation := []any{"none", nil, nil, nil, nil, nil, nil}
@@ -250,12 +312,16 @@ func (s *Store) UpdateManualEvent(ctx context.Context, id string, input EventInp
 	case strings.TrimSpace(input.Tag) == tag.String:
 		newTagSource = nullIfEmpty(tagSource.String)
 	}
-	args := append([]any{newTitle, nullIfEmpty(input.Detail), input.StartsOn, nullIfEmpty(input.StartsAt), nullIfEmpty(input.EndsAt), zone,
+	args := append([]any{newTitle, nullIfEmpty(input.Detail), input.StartsOn, nullIfEmpty(input.StartsAt), nullIfEmpty(input.EndsAt), saleEndsOn(newType, input.EndsOn), zone,
 		input.precision(), nullIfEmpty(input.Status), newType, storedTag(input.Tag), newTagSource, automatic, nullIfEmpty(input.URL)}, cancellation...)
-	args = append(args, now, raw, id)
-	if _, err = tx.ExecContext(ctx, `UPDATE events SET title=?,detail=?,starts_on=?,starts_at=?,ends_at=?,timezone=?,time_precision=?,status=?,
+	// The operator's platforms are part of the manual lock; a save without
+	// them keeps the stored ones, now the operator's as well.
+	platforms := NormalizePlatforms(input.Platforms)
+	args = append(args, now, raw, input.PlatformsSet, PrimaryPlatform(platforms), input.PlatformsSet, EncodePlatforms(platforms), id)
+	if _, err = tx.ExecContext(ctx, `UPDATE events SET title=?,detail=?,starts_on=?,starts_at=?,ends_at=?,ends_on=?,timezone=?,time_precision=?,status=?,
  event_type=?,tag=?,tag_source=?,tag_attempted_at=CASE WHEN ? THEN NULL ELSE tag_attempted_at END,url=?,provenance='manual',cancellation_status=?,cancellation_source=?,cancellation_reason=?,cancellation_evidence=?,
  cancellation_source_item_id=?,cancellation_confidence=?,cancellation_at=?,manual_locked=1,deleted_at=NULL,updated_at=?,raw_json=?,
+ platform=CASE WHEN ? THEN ? ELSE platform END,platforms=CASE WHEN ? THEN ? ELSE platforms END,platforms_inferred=0,
  merged_into=CASE WHEN merge_source='rule' THEN NULL ELSE merged_into END,merge_reason=CASE WHEN merge_source='rule' THEN NULL ELSE merge_reason END,
  merged_at=CASE WHEN merge_source='rule' THEN NULL ELSE merged_at END,merge_source=CASE WHEN merge_source='rule' THEN NULL ELSE merge_source END WHERE id=?`, args...); err != nil {
 		return AdminEvent{}, fmt.Errorf("%w: event", ErrUnavailable)
@@ -310,10 +376,26 @@ func (s *Store) DeleteManualEvent(ctx context.Context, id string) (AdminEvent, e
 
 func (s *Store) event(ctx context.Context, id string) (AdminEvent, error) {
 	var e AdminEvent
-	var locked int
-	err := s.db.QueryRowContext(ctx, `SELECT id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,tag,tag_source,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_source_item_id,cancellation_confidence,cancellation_at,deleted_at,created_at,updated_at,merged_into,(SELECT t.title FROM events t WHERE t.id=events.merged_into),merge_source,merge_reason,merged_at FROM events WHERE id=?`, id).Scan(&e.ID, &e.Source, &e.SourceItemID, &e.SourceKey, &e.Title, &e.Detail, &e.StartsOn, &e.StartsAt, &e.EndsAt, &e.Timezone, &e.TimePrecision, &e.Status, &e.EventType, &e.Tag, &e.TagSource, &e.URL, &e.Provenance, &locked, &e.CancellationStatus, &e.CancellationSource, &e.CancellationReason, &e.CancellationEvidence, &e.CancellationSourceItemID, &e.CancellationConfidence, &e.CancellationAt, &e.DeletedAt, &e.CreatedAt, &e.UpdatedAt, &e.MergedInto, &e.MergedIntoTitle, &e.MergeSource, &e.MergeReason, &e.MergedAt)
+	var locked, hiddenByPosts, inferred int
+	var platform, platforms, review sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,ends_on,timezone,time_precision,status,event_type,tag,tag_source,url,provenance,manual_locked,cancellation_status,cancellation_source,cancellation_reason,cancellation_evidence,cancellation_source_item_id,cancellation_confidence,cancellation_at,deleted_at,created_at,updated_at,merged_into,(SELECT t.title FROM events t WHERE t.id=events.merged_into),merge_source,merge_reason,merged_at,`+eventHiddenByPostsSQL("events")+`,platform,platforms,platforms_inferred,confidence,`+EventAttentionSQL("events", "")+` FROM events WHERE id=?`, id).Scan(&e.ID, &e.Source, &e.SourceItemID, &e.SourceKey, &e.Title, &e.Detail, &e.StartsOn, &e.StartsAt, &e.EndsAt, &e.EndsOn, &e.Timezone, &e.TimePrecision, &e.Status, &e.EventType, &e.Tag, &e.TagSource, &e.URL, &e.Provenance, &locked, &e.CancellationStatus, &e.CancellationSource, &e.CancellationReason, &e.CancellationEvidence, &e.CancellationSourceItemID, &e.CancellationConfidence, &e.CancellationAt, &e.DeletedAt, &e.CreatedAt, &e.UpdatedAt, &e.MergedInto, &e.MergedIntoTitle, &e.MergeSource, &e.MergeReason, &e.MergedAt, &hiddenByPosts, &platform, &platforms, &inferred, &e.Confidence, &review)
 	e.ManualLocked = locked != 0
-	return e, err
+	e.HiddenByPosts = hiddenByPosts != 0
+	if err != nil {
+		return e, err
+	}
+	link := ""
+	if e.URL != nil {
+		link = *e.URL
+	}
+	e.Platforms, _ = readPlatforms(platforms, platform, link)
+	e.PlatformsInferred = inferred != 0
+	e.Review = eventReview(review.String, e)
+	items := []AdminEvent{e}
+	if attachErr := s.attachAdminPlatforms(ctx, items); attachErr != nil {
+		return e, fmt.Errorf("%w: event platforms", ErrUnavailable)
+	}
+	return items[0], nil
 }
 
 func (s *Store) GetAdminEvent(ctx context.Context, id string) (AdminEvent, error) {

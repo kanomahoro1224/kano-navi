@@ -1,0 +1,682 @@
+/* Queues: text extraction, image extraction and translation/light tasks side by side,
+   wrapping when a column would get too narrow for its model rows. */
+.adm-queues {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 20px;
+}
+
+.adm-queues > section {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.adm-queues h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.adm-queues h3 svg {
+  color: var(--adm-accent);
+}
+
+.adm-queues > section > .adm-muted {
+  font-size: 12px;
+}
+
+.adm-queue {
+  display: grid;
+  gap: 10px;
+}
+
+.adm-queue-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-queue-list li {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 4px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+  cursor: grab;
+  transition:
+    border-color 140ms ease,
+    opacity 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.adm-queue-list li.is-used {
+  border-color: color-mix(in oklab, var(--leaf) 40%, transparent);
+}
+
+.adm-queue-list li.has-issue {
+  border-color: color-mix(in oklab, var(--danger) 40%, transparent);
+}
+
+.adm-queue-list li.is-dragging {
+  opacity: 0.45;
+}
+
+.adm-queue-list li.is-over {
+  border-color: var(--adm-accent);
+  box-shadow: 0 0 0 3px var(--adm-accent-soft);
+}
+
+.adm-shell .adm-queue-grip {
+  color: var(--adm-muted);
+  opacity: 0.6;
+}
+
+.adm-queue-tags {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.adm-queue-tags .adm-badge {
+  min-height: 20px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.adm-queue-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.adm-route-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--adm-sunken);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.adm-route-model {
+  display: grid;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.adm-route-model strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.adm-route-model small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+/* The model picker: a search field over the enabled catalog. */
+.adm-picker {
+  position: relative;
+}
+
+.adm-picker-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 10px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.adm-picker-menu ul {
+  display: grid;
+  gap: 8px;
+  max-height: 300px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.adm-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.adm-picker-group .adm-provider-mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+}
+
+.adm-picker-group .adm-provider-mark img {
+  width: 13px;
+  height: 13px;
+}
+
+.adm-picker-menu li button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.adm-picker-menu li button:hover,
+.adm-picker-menu li button:focus-visible {
+  background: var(--adm-sunken);
+}
+
+.adm-picker-empty {
+  padding: 8px;
+  font-size: 13px;
+}
+
+/* Providers: the list beside the selected provider's detail. */
+.adm-providers {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.adm-provider-list {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-provider-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--adm-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.adm-provider-list button:hover {
+  background: var(--adm-sunken);
+}
+
+.adm-provider-list button.is-selected {
+  border-color: color-mix(in oklab, var(--adm-accent) 40%, transparent);
+  background: var(--adm-accent-soft);
+}
+
+.adm-provider-list button.is-disabled .adm-provider-list-name {
+  opacity: 0.6;
+}
+
+.adm-provider-list-name {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.adm-provider-list-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-provider-list-name small {
+  overflow: hidden;
+  color: var(--adm-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-provider-list .adm-dot {
+  background: var(--tone);
+}
+
+.adm-provider-mark {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  overflow: hidden;
+  border: 1px solid var(--adm-line);
+  border-radius: 10px;
+  background: #fff;
+  color: #3b2530;
+  font-weight: 800;
+}
+
+.adm-provider-mark img {
+  width: 22px;
+  height: 22px;
+}
+
+.adm-provider-detail {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+  padding-left: 20px;
+  border-left: 1px solid var(--adm-line);
+}
+
+.adm-provider-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.adm-provider-head > div:nth-child(2) {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.adm-provider-head h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.adm-provider-head small {
+  display: block;
+  overflow: hidden;
+  color: var(--adm-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-provider-checked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.adm-failure-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  list-style: none;
+}
+
+.adm-failure-list > li {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.adm-failure-list > li + li {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-failure-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.adm-failure-head time,
+.adm-failure-meta {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-failure-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  overflow-wrap: anywhere;
+}
+
+.adm-failure-meta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+}
+
+.adm-failure-meta svg {
+  width: 12px;
+  height: 12px;
+}
+
+.adm-provider-models,
+.adm-add-models {
+  display: grid;
+  gap: 10px;
+}
+
+.adm-add-models {
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.adm-section-header h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.adm-model-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  list-style: none;
+}
+
+.adm-model-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+}
+
+.adm-model-row + .adm-model-row {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-model-row.is-disabled .adm-model-name,
+.adm-model-row.is-disabled .adm-tag-toggles {
+  opacity: 0.5;
+}
+
+.adm-model-name {
+  display: grid;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.adm-model-name strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.adm-model-name small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-tag-toggles,
+.adm-model-queues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.adm-tag-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px dashed var(--adm-line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--adm-muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.adm-tag-toggle:hover:not(:disabled) {
+  color: var(--adm-text);
+}
+
+.adm-tag-toggle.is-on {
+  border: 1px solid var(--tone-line);
+  background: var(--tone-soft);
+  color: color-mix(in oklab, var(--tone) 85%, var(--adm-text));
+}
+
+.adm-shell .adm-tag-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+
+.adm-queue-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--adm-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--adm-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.adm-shell .adm-queue-pick svg {
+  width: 13px;
+  height: 13px;
+}
+
+.adm-queue-pick:hover:not(:disabled) {
+  color: var(--adm-text);
+}
+
+.adm-queue-pick:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.adm-queue-pick[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--adm-accent) 45%, transparent);
+  background: var(--adm-accent-soft);
+  color: color-mix(in oklab, var(--adm-accent) 85%, var(--adm-text));
+  font-weight: 650;
+}
+
+.adm-model-row .adm-row-actions {
+  align-items: center;
+  gap: 4px;
+}
+
+.adm-discovered {
+  display: grid;
+  gap: 8px;
+}
+
+.adm-discovered-list {
+  display: grid;
+  max-height: 300px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  list-style: none;
+}
+
+.adm-discovered-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.adm-discovered-list li:hover {
+  background: var(--adm-sunken);
+}
+
+.adm-discovered-list li.is-picked {
+  background: var(--adm-accent-soft);
+}
+
+.adm-discovered-list label {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.adm-discovered .adm-form-actions .adm-muted {
+  margin-right: auto;
+  font-size: 12px;
+}
+
+/* Provider dialog presets: a grid of tiles above the connection form. */
+.adm-preset-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.adm-preset {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.adm-preset:hover {
+  border-color: var(--adm-muted);
+}
+
+.adm-preset.is-active {
+  border-color: color-mix(in oklab, var(--adm-accent) 55%, transparent);
+  background: var(--adm-accent-soft);
+}
+
+.adm-preset-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.adm-preset-text strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.adm-preset-text small {
+  overflow: hidden;
+  color: var(--adm-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-shell .adm-preset-check {
+  color: var(--adm-accent);
+}
+
+.adm-disclosure {
+  display: grid;
+  gap: 12px;
+}
+
+.adm-disclosure summary {
+  color: var(--adm-muted);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.adm-disclosure[open] summary {
+  margin-bottom: 12px;
+}
+
+.adm-switch.is-compact {
+  gap: 0;
+}
+
+@media (max-width: 960px) {
+  .adm-providers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-provider-detail {
+    padding: 16px 0 0;
+    border-top: 1px solid var(--adm-line);
+    border-left: 0;
+  }
+
+  .adm-provider-list {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+  }
+
+  .adm-provider-list li {
+    flex: 0 0 auto;
+  }
+
+  .adm-provider-list button {
+    width: auto;
+    border-color: var(--adm-line);
+  }
+}

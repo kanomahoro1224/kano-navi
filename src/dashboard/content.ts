@@ -33,8 +33,3 @@ export const hashtags = [
     url: "https://x.com/hashtag/%E3%81%BE%E3%81%BB%E3%82%8D%E3%81%97%E3%81%8B%E6%8F%8F%E3%81%8B%E3%82%93",
   },
 ]
-
-export const archiveLinks = {
-  wikipedia: "https://ja.wikipedia.org/wiki/%E9%B9%BF%E4%B9%83",
-  mylist: "https://www.nicovideo.jp/user/15078610/mylist/16997570",
-}

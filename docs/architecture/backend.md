@@ -17,7 +17,7 @@ kano-go serve        Serve the whole site (API, console, workflows, MCP, fronten
 kano-go seed         Create the database if missing and add missing static records
 kano-go sync         Run one full synchronization and exit
 kano-go migrate-llm  Seal OPENAI_API_KEY as the key of the openai-default provider
-kano-go variants     Make the resized copies of the LINE BLOG and history images
+kano-go variants     Make the resized copies of the LINE BLOG, Works and Journey images
 kano-go healthcheck  Probe the local service and exit
 ```
 
@@ -26,8 +26,8 @@ the environment win. `-database` overrides `data/database/kano.sqlite`, and
 `serve` also accepts `-static` (default `dist`) and `-listen` (default `PORT`,
 `7657`). `seed -overwrite` restores the shipped profile, timeline and resource
 wording; it never touches source snapshots, events, media or providers.
-`migrate-llm -force` replaces an already stored key. `variants` takes `-data`,
-`-static` and `-out` instead of `-database`
+`migrate-llm -force` replaces an already stored key. `variants` takes `-data`
+and `-out` instead of `-database`
 ([Variants command](media-cache.md#variants-command)).
 
 From the repository root:
@@ -69,8 +69,8 @@ is occupied.
    indexes are added from the embedded schema, followed by the backfills
    (schedule periods, post account handles, focus video IDs, provider
    capabilities and retries, the route-target copy, default catalog models,
-   the merge of per-stage routes into the extraction queue, and the one-time
-   seed of the schedule-image check queue). An `events`
+   the merge of per-stage routes into the text schedule queue, and the one-time
+   seed of the image extraction queue). An `events`
    table without event sources is rebuilt in place: every row keeps its ID,
    gains its Japan calendar date and becomes its own source evidence, and
    events curated from X are locked. Nothing else is dropped or cleared. A
@@ -79,12 +79,18 @@ is occupied.
 5. The selected avatar and banner are reconciled with the files on disk
    (`active_sha256`, `active_mime_type`), bumping the dashboard revision only
    when something changed.
-6. Interrupted workflow runs are recovered, and a stored Bilibili interval
-   below `BILIBILI_MIN_INTERVAL_MINUTES` is raised to it. No timers are seeded;
-   [source schedules](workflows.md#source-schedules) hold them.
-7. The timer starts unless `WORKFLOW_SCHEDULER_ENABLED=0`. It submits due
+6. The standalone service enables SQLite WAL, keeps one writer connection for
+   operator and workflow mutations, and opens a four-connection read-only pool
+   for public projections. Read-only mode opens its own four-connection pool
+   without enabling WAL or creating sidecars.
+7. Interrupted workflow runs are recovered, a stored interval of either
+   Bilibili timer below `BILIBILI_MIN_INTERVAL_MINUTES` is raised to it (see
+   [Source schedules](workflows.md#the-workflows-table)), and the accounts
+   named in `X_HANDLES` are settled as own accounts only. No timers are
+   seeded; [source schedules](workflows.md#source-schedules) hold them.
+8. The timer starts unless `WORKFLOW_SCHEDULER_ENABLED=0`. It submits due
    source schedules, earliest first.
-8. The run history cleanup deletes finished runs past their
+9. The run history cleanup deletes finished runs past their
    [retention window](workflows.md#run-execution), then repeats daily.
 
 ## Package Ownership
@@ -117,8 +123,10 @@ before a module handler runs.
 Responses stay stable and sanitized: `raw_json`, stack traces, credentials and
 absolute local paths never reach the browser. Ready runtime media is served
 only through the opaque-ID `/media/:id` route; the recovered LINE BLOG files
-in `data/lineblog/` are served by archive name through `/media/lineblog/:name`
-(see [Media cache](media-cache.md#line-blog-archive-media)).
+in `data/lineblog/` and the discography covers in `data/works/` are served by
+archive name through `/media/lineblog/:name` and `/media/works/:name` (see
+[Media cache](media-cache.md#line-blog-archive-media) and
+[Discography covers](media-cache.md#discography-covers)).
 
 ## Authentication and Origin
 
@@ -205,16 +213,14 @@ send `Cache-Control: no-store, no-transform` so intermediaries also have an
 explicit transformation prohibition.
 
 Content-hashed JS/CSS in `dist/assets` listed in Vite's
-`dist/.vite/manifest.json` receive `public, max-age=31536000, immutable`. So
-does a fixed history file under `/assets/history/` (and its `w` copies) when
-the request's single `v` is the SHA-256 of the file's bytes, which the server
-checks ([Immutable Fixed Files](media-cache.md#immutable-fixed-files));
-without `v`, or
-with any other `v`, it revalidates. HTML (including SPA fallback routes),
+`dist/.vite/manifest.json` receive `public, max-age=31536000, immutable`. HTML (including SPA fallback routes),
 icons and other files receive `public, max-age=0, must-revalidate`. A path that is neither a
-build file nor one of the frontend's pages (`/`, `/history`, `/lineblog`,
-`/about`, `/admin`, with or without a trailing slash) still receives `index.html`, which
-shows the frontend's not-found view, but with status 404. `robots.txt` comes
+build file nor one of the frontend's pages (`/`, `/journey`, `/lineblog`,
+`/works`, `/about`, `/admin`, with or without a trailing slash) still receives `index.html`, which
+shows the frontend's not-found view, but with status 404. `/history`, the
+journey's earlier address, answers `301 Moved Permanently` to `/journey` with
+the same query (`movedPages` in `backend/internal/httpapi/static.go`); the
+browser keeps the fragment. `robots.txt` comes
 from `public/` and disallows `/admin`, `/api/` and `/mcp` but allows the two
 public feeds, `/api/calendar.ics` and `/api/feed.xml`, whose subscription
 fetchers (Google Calendar's among them) honour it. `/index.html` is the file
@@ -242,7 +248,7 @@ revision streams first, then waits for the remaining requests up to
 `index.html` carries static Open Graph and Twitter card tags (site name,
 description, the bundled banner) and `rel="alternate"` links to both feeds.
 Those tags describe the board. When the server serves `index.html` for
-`/history`, `/lineblog` or `/about`, it replaces the page's `<title>`, `description`,
+`/journey`, `/lineblog`, `/works` or `/about`, it replaces the page's `<title>`, `description`,
 `og:title`, `og:description` and `og:url` (and Twitter title and description
 tags, if present) with that page's English title, description and path; the
 route table `spaPages` in `backend/internal/httpapi/static.go` holds them

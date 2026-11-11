@@ -23,9 +23,16 @@ import (
 // an undone merge that keeps the upload separate. A YouTube video receives at
 // most one upload, whose title becomes the video's Bilibili platform
 // translation into Simplified Chinese.
+//
+// Two rules merge: a live replay (form stream) merges into the YouTube stream
+// archive linked to the schedule entry of the broadcast it replays
+// (rule:broadcast), and any other upload into the YouTube video of the same
+// song published within six hours with the same length
+// (rule:time_duration_title).
 const (
-	videoMergeReasonRule   = "rule:time_duration_title"
-	videoMergeReasonManual = "manual"
+	videoMergeReasonRule      = "rule:time_duration_title"
+	videoMergeReasonBroadcast = "rule:broadcast"
+	videoMergeReasonManual    = "manual"
 	// videoMergeReasonSeparate marks an upload an operator kept apart.
 	videoMergeReasonSeparate = "kept_separate"
 	videoMergeWindow         = 6 * time.Hour
@@ -55,11 +62,13 @@ type VideoMergeCounts struct {
 func (c VideoMergeCounts) Changed() bool { return c.Merged+c.Released > 0 }
 
 type mergeVideo struct {
-	id, source, title       string
-	mergedInto, mergeSource string
-	at                      time.Time
-	hasAt                   bool
-	duration                int64
+	id, source, title                    string
+	mergedInto, mergeSource, mergeReason string
+	// form is a Bilibili upload's settled form, "" while unsettled.
+	form     string
+	at       time.Time
+	hasAt    bool
+	duration int64
 }
 
 // ruleOwned uploads have no merge decision or one the reconciler made.
@@ -73,7 +82,8 @@ type videoQuerier interface {
 // effective title and publication anchor: a YouTube reservation's start, or
 // the publication time.
 func loadMergeVideos(ctx context.Context, q videoQuerier) (bilibili, youtube []mergeVideo, err error) {
-	rows, err := q.QueryContext(ctx, `SELECT id,source,COALESCE(manual_title,title),COALESCE(scheduled_at,published_at,''),COALESCE(duration_seconds,0),COALESCE(merged_into,''),COALESCE(merge_source,'')
+	rows, err := q.QueryContext(ctx, `SELECT id,source,COALESCE(manual_title,title),COALESCE(scheduled_at,published_at,''),COALESCE(duration_seconds,0),COALESCE(merged_into,''),COALESCE(merge_source,''),COALESCE(merge_reason,''),
+		CASE WHEN manual_kind IS NOT NULL THEN manual_kind WHEN kind_source IS NOT NULL THEN COALESCE(kind,'') ELSE '' END
 		FROM videos WHERE source IN ('youtube','bilibili') ORDER BY id`)
 	if err != nil {
 		return nil, nil, err
@@ -82,7 +92,7 @@ func loadMergeVideos(ctx context.Context, q videoQuerier) (bilibili, youtube []m
 	for rows.Next() {
 		var v mergeVideo
 		var at string
-		if err = rows.Scan(&v.id, &v.source, &v.title, &at, &v.duration, &v.mergedInto, &v.mergeSource); err != nil {
+		if err = rows.Scan(&v.id, &v.source, &v.title, &at, &v.duration, &v.mergedInto, &v.mergeSource, &v.mergeReason, &v.form); err != nil {
 			return nil, nil, err
 		}
 		v.at, v.hasAt = parseMergeInstant(at)
@@ -102,11 +112,17 @@ type videoMatch struct {
 	gap     time.Duration
 	title   bool
 	delta   int64
+	// broadcast marks the stream archive of the broadcast a replay replays.
+	broadcast bool
+	// late marks a video published more than six hours from the upload.
+	late bool
 }
 
 // complete matches satisfy every rule: published within six hours, lengths
 // within three seconds and overlapping song titles.
-func (m videoMatch) complete() bool { return m.title && m.delta >= 0 && m.delta <= videoMergeTolerance }
+func (m videoMatch) complete() bool {
+	return !m.late && m.title && m.delta >= 0 && m.delta <= videoMergeTolerance
+}
 
 // videoMatches lists the YouTube videos published within six hours of the
 // upload whose title or length matches it, complete matches first. Known
@@ -146,6 +162,32 @@ func videoMatches(b mergeVideo, youtube []mergeVideo) []videoMatch {
 	return out
 }
 
+// lateMatches lists the YouTube videos published more than six hours from
+// the upload with a matching song title and a known length within three
+// seconds of its own, the nearest first: a copy posted later, which the rule
+// never merges and the operator is asked about.
+func lateMatches(b mergeVideo, youtube []mergeVideo) []videoMatch {
+	out := []videoMatch{}
+	if !b.hasAt || b.duration <= 0 {
+		return out
+	}
+	for _, y := range youtube {
+		if !y.hasAt || y.duration <= 0 {
+			continue
+		}
+		gap := b.at.Sub(y.at).Abs()
+		delta := max(b.duration-y.duration, y.duration-b.duration)
+		if gap <= videoMergeWindow || delta > videoMergeTolerance || !videoTitlesMatch(b, y) {
+			continue
+		}
+		out = append(out, videoMatch{youtube: y, gap: gap, title: true, delta: delta, late: true})
+	}
+	slices.SortStableFunc(out, func(a, b videoMatch) int {
+		return cmp.Or(cmp.Compare(a.gap, b.gap), strings.Compare(a.youtube.id, b.youtube.id))
+	})
+	return out
+}
+
 // mergeTargets are the YouTube videos the rules may merge into: those without
 // an upload an operator, or another owner, merged into them.
 func mergeTargets(bilibili, youtube []mergeVideo) []mergeVideo {
@@ -158,16 +200,79 @@ func mergeTargets(bilibili, youtube []mergeVideo) []mergeVideo {
 	return slices.DeleteFunc(slices.Clone(youtube), func(y mergeVideo) bool { return taken[y.id] })
 }
 
+// broadcastTarget is the broadcast whose YouTube stream archive a live replay
+// merges into. The replayed broadcast is found first, whatever its platforms
+// (see replayBroadcast; at least half its length when the replay's length is
+// known); a live room's record is the schedule entry it overlaps. The replay
+// merges only when that broadcast's entry links a YouTube archive the rules
+// may merge into: a replay of a Bilibili-only broadcast stays on its own and
+// never reaches an earlier simulcast's archive. Only a replay whose form is
+// stream is considered.
+func broadcastTarget(b mergeVideo, open map[string]bool, broadcasts []bilibiliBroadcast) (bilibiliBroadcast, bool) {
+	if b.form != BilibiliFormStream || !b.hasAt {
+		return bilibiliBroadcast{}, false
+	}
+	cast, ok := replayBroadcast(b.at, broadcasts, func(cast bilibiliBroadcast) bool {
+		return b.duration <= 0 || replayLength(b.duration, cast)
+	})
+	if ok && cast.EventID == "" {
+		cast, ok = roomEntry(cast, broadcasts)
+	}
+	if !ok || cast.YouTubeID == "" || !open[cast.YouTubeID] {
+		return bilibiliBroadcast{}, false
+	}
+	return cast, true
+}
+
+// roomEntry is the schedule entry that a live room's broadcast record
+// overlaps, the latest start first: the same broadcast seen from the
+// schedule. An entry of unknown length overlaps when it starts within the
+// record.
+func roomEntry(room bilibiliBroadcast, broadcasts []bilibiliBroadcast) (bilibiliBroadcast, bool) {
+	var best bilibiliBroadcast
+	found := false
+	for _, b := range broadcasts {
+		if b.EventID == "" || !b.Start.Before(room.End) {
+			continue
+		}
+		if end := b.End; end.IsZero() && b.Start.Before(room.Start) || !end.IsZero() && !end.After(room.Start) {
+			continue
+		}
+		if !found || b.Start.After(best.Start) || b.Start.Equal(best.Start) && b.EventID < best.EventID {
+			best, found = b, true
+		}
+	}
+	return best, found
+}
+
+// videoPlan is the rule-owned merge plan: each upload's target and the rule
+// that chose it, and the uploads left to the operator.
+type videoPlan struct {
+	desired, reasons map[string]string
+	ambiguous        map[string]bool
+}
+
 // planVideoMerges computes the rule-owned target of every upload from the
-// rows alone, ignoring earlier rule decisions. An upload with several
-// complete matches, or whose only match another upload also claims, is left
+// rows alone, ignoring earlier rule decisions. A live replay of a broadcast
+// whose schedule entry links a YouTube stream archive claims that archive;
+// any other upload claims its only complete match. An upload with several
+// complete matches, or whose target another upload also claims, is left
 // unmerged and reported as ambiguous.
-func planVideoMerges(bilibili, youtube []mergeVideo) (map[string]string, map[string]bool) {
+func planVideoMerges(bilibili, youtube []mergeVideo, broadcasts []bilibiliBroadcast) videoPlan {
 	targets := mergeTargets(bilibili, youtube)
-	desired, ambiguous := map[string]string{}, map[string]bool{}
+	open := make(map[string]bool, len(targets))
+	for _, y := range targets {
+		open[y.id] = true
+	}
+	plan := videoPlan{desired: map[string]string{}, reasons: map[string]string{}, ambiguous: map[string]bool{}}
 	claims := map[string][]string{}
 	for _, b := range bilibili {
 		if !b.ruleOwned() {
+			continue
+		}
+		if cast, ok := broadcastTarget(b, open, broadcasts); ok {
+			claims[cast.YouTubeID] = append(claims[cast.YouTubeID], b.id)
+			plan.reasons[b.id] = videoMergeReasonBroadcast
 			continue
 		}
 		complete := []string{}
@@ -180,27 +285,30 @@ func planVideoMerges(bilibili, youtube []mergeVideo) (map[string]string, map[str
 		case 0:
 		case 1:
 			claims[complete[0]] = append(claims[complete[0]], b.id)
+			plan.reasons[b.id] = videoMergeReasonRule
 		default:
-			ambiguous[b.id] = true
+			plan.ambiguous[b.id] = true
 		}
 	}
 	for target, ids := range claims {
 		if len(ids) == 1 {
-			desired[ids[0]] = target
+			plan.desired[ids[0]] = target
 			continue
 		}
 		for _, id := range ids {
-			ambiguous[id] = true
+			plan.ambiguous[id] = true
+			delete(plan.reasons, id)
 		}
 	}
-	return desired, ambiguous
+	return plan
 }
 
-// ReconcileVideoMerges applies the merge rule to every Bilibili upload: it
-// merges into the only YouTube video published within six hours of it whose
-// length is within three seconds and whose song title overlaps its own.
-// Unknown lengths, as on videos read before lengths were stored, leave the
-// upload to the operator. Rule-owned decisions are recomputed from the
+// ReconcileVideoMerges applies the merge rules to every Bilibili upload: a
+// live replay merges into the YouTube stream archive of the broadcast it
+// replays, and any other upload into the only YouTube video published within
+// six hours of it whose length is within three seconds and whose song title
+// overlaps its own. Unknown lengths, as on videos read before lengths were
+// stored, leave a song upload to the operator. Rule-owned decisions are recomputed from the
 // current rows, so the step is idempotent and a merge whose basis
 // disappeared is released; operator decisions are never changed. Every
 // merge keeps its target's Bilibili translation current.
@@ -220,12 +328,17 @@ func (s *Store) ReconcileVideoMerges(ctx context.Context, now time.Time) (VideoM
 	if err != nil {
 		return VideoMergeCounts{}, ErrSourceWrite
 	}
+	broadcasts, err := loadBilibiliBroadcasts(ctx, tx)
+	if err != nil {
+		return VideoMergeCounts{}, ErrSourceWrite
+	}
 	byID := make(map[string]mergeVideo, len(youtube))
 	for _, y := range youtube {
 		byID[y.id] = y
 	}
-	desired, ambiguous := planVideoMerges(bilibili, youtube)
-	counts := VideoMergeCounts{Ambiguous: len(ambiguous)}
+	plan := planVideoMerges(bilibili, youtube, broadcasts)
+	desired := plan.desired
+	counts := VideoMergeCounts{Ambiguous: len(plan.ambiguous)}
 	stamp := workflowTime(now)
 	translated := false
 	final := make(map[string]string, len(bilibili))
@@ -240,6 +353,12 @@ func (s *Store) ReconcileVideoMerges(ctx context.Context, now time.Time) (VideoM
 		if target == current {
 			if current != "" {
 				counts.Kept++
+				// The same target may now come from the other rule.
+				if reason := plan.reasons[b.id]; reason != b.mergeReason {
+					if _, err = tx.ExecContext(ctx, `UPDATE videos SET merge_reason=? WHERE id=? AND merge_source=?`, reason, b.id, MergeSourceRule); err != nil {
+						return VideoMergeCounts{}, ErrSourceWrite
+					}
+				}
 			}
 			continue
 		}
@@ -255,7 +374,7 @@ func (s *Store) ReconcileVideoMerges(ctx context.Context, now time.Time) (VideoM
 			counts.Released++
 		} else {
 			_, err = tx.ExecContext(ctx, `UPDATE videos SET merged_into=?,merge_source=?,merge_reason=?,merged_at=? WHERE id=? AND (merge_source IS NULL OR merge_source=?)`,
-				target, MergeSourceRule, videoMergeReasonRule, stamp, b.id, MergeSourceRule)
+				target, MergeSourceRule, plan.reasons[b.id], stamp, b.id, MergeSourceRule)
 			counts.Merged++
 		}
 		if err != nil {
@@ -631,20 +750,25 @@ func (s *Store) KeepVideoSeparate(ctx context.Context, id string, now time.Time)
 }
 
 // videoMergeDecisions counts the unmerged uploads the rule leaves to the
-// operator: the ambiguous and unverified suggestions, without their cap.
+// operator: the ambiguous and unverified suggestions (a copy posted more
+// than six hours apart included), without their cap.
 func videoMergeDecisions(ctx context.Context, q videoQuerier) (int, error) {
 	bilibili, youtube, err := loadMergeVideos(ctx, q)
 	if err != nil {
 		return 0, err
 	}
-	desired, ambiguous := planVideoMerges(bilibili, youtube)
+	broadcasts, err := loadBilibiliBroadcasts(ctx, q)
+	if err != nil {
+		return 0, err
+	}
+	plan := planVideoMerges(bilibili, youtube, broadcasts)
 	targets := mergeTargets(bilibili, youtube)
 	count := 0
 	for _, b := range bilibili {
-		if b.mergedInto != "" || !b.ruleOwned() || desired[b.id] != "" {
+		if b.mergedInto != "" || !b.ruleOwned() || plan.desired[b.id] != "" {
 			continue
 		}
-		if ambiguous[b.id] || len(videoMatches(b, targets)) > 0 {
+		if plan.ambiguous[b.id] || len(videoMatches(b, targets)) > 0 || len(lateMatches(b, targets)) > 0 {
 			count++
 		}
 	}
@@ -658,18 +782,24 @@ type VideoMergeSuggestion struct {
 	// Status is rule (the next reconcile step merges it into the first
 	// candidate), ambiguous (several complete matches, or a match another
 	// upload claims too) or unverified (no complete match: a length is
-	// unknown or the titles differ). A single requested upload may also be
-	// merged, separate (an operator undid its merge or kept it apart) or none.
+	// unknown or the titles differ, or only a video published more than six
+	// hours apart matches its title and length). A single requested upload
+	// may also be merged, separate (an operator undid its merge or kept it
+	// apart) or none.
 	Status     string                `json:"status"`
 	Candidates []VideoMergeCandidate `json:"candidates"`
 }
 
 // VideoMergeCandidate is one YouTube video published within six hours of
-// the upload. DurationDelta is nil when a length is unknown.
+// the upload, the stream archive of the broadcast a live replay replays
+// (Broadcast), or, when neither exists, a video published further apart
+// whose song title and length match. DurationDelta is nil when a length is
+// unknown.
 type VideoMergeCandidate struct {
 	YouTube       AdminVideo `json:"youtube"`
 	Complete      bool       `json:"complete"`
 	TitleMatch    bool       `json:"titleMatch"`
+	Broadcast     bool       `json:"broadcast"`
 	DurationDelta *int64     `json:"durationDelta"`
 	GapMinutes    int        `json:"gapMinutes"`
 }
@@ -683,8 +813,17 @@ func (s *Store) VideoMergeSuggestions(ctx context.Context, only string) ([]Video
 	if err != nil {
 		return nil, dbErr(err)
 	}
-	desired, ambiguous := planVideoMerges(bilibili, youtube)
+	broadcasts, err := loadBilibiliBroadcasts(ctx, s.db)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	plan := planVideoMerges(bilibili, youtube, broadcasts)
+	desired, ambiguous := plan.desired, plan.ambiguous
 	targets := mergeTargets(bilibili, youtube)
+	byID := make(map[string]mergeVideo, len(youtube))
+	for _, y := range youtube {
+		byID[y.id] = y
+	}
 	slices.SortStableFunc(bilibili, func(a, b mergeVideo) int { return b.at.Compare(a.at) })
 	type pending struct {
 		id, status string
@@ -709,10 +848,21 @@ func (s *Store) VideoMergeSuggestions(ctx context.Context, only string) ([]Video
 		if p.status != "merged" {
 			p.matches = videoMatches(b, targets)
 		}
+		if p.status == "rule" && plan.reasons[b.id] == videoMergeReasonBroadcast {
+			// The replay's archive, whatever its title and length.
+			y := byID[desired[b.id]]
+			p.matches = []videoMatch{{youtube: y, gap: b.at.Sub(y.at).Abs(), delta: -1, broadcast: true}}
+			if b.duration > 0 && y.duration > 0 {
+				p.matches[0].delta = max(b.duration-y.duration, y.duration-b.duration)
+			}
+		}
 		switch p.status {
 		case "rule", "ambiguous":
-			p.matches = slices.DeleteFunc(p.matches, func(m videoMatch) bool { return !m.complete() })
+			p.matches = slices.DeleteFunc(p.matches, func(m videoMatch) bool { return !m.complete() && !m.broadcast })
 		case "none":
+			if len(p.matches) == 0 {
+				p.matches = lateMatches(b, targets)
+			}
 			if len(p.matches) > 0 {
 				p.status = "unverified"
 			}
@@ -741,7 +891,7 @@ func (s *Store) VideoMergeSuggestions(ctx context.Context, only string) ([]Video
 	for _, p := range list {
 		item := VideoMergeSuggestion{Bilibili: videos[p.id], Status: p.status, Candidates: []VideoMergeCandidate{}}
 		for _, m := range p.matches {
-			candidate := VideoMergeCandidate{YouTube: videos[m.youtube.id], Complete: m.complete(), TitleMatch: m.title, GapMinutes: int(m.gap.Round(time.Minute) / time.Minute)}
+			candidate := VideoMergeCandidate{YouTube: videos[m.youtube.id], Complete: m.complete() || m.broadcast, TitleMatch: m.title, Broadcast: m.broadcast, GapMinutes: int(m.gap.Round(time.Minute) / time.Minute)}
 			if m.delta >= 0 {
 				delta := m.delta
 				candidate.DurationDelta = &delta

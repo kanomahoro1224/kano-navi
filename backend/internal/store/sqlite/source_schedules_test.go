@@ -153,7 +153,7 @@ func TestPrepareSourceSchedulesLeavesRetiredWorkflowsAlone(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
 	// A timed row in the workflows table that reads sources. Nothing moves
-	// it into source_schedules (ADR-0003).
+	// it into source_schedules.
 	const row = `wf-frequent|Frequent|["x","youtube","media"]|1|20|2026-03-02T03:10:00.000Z`
 	if _, err := s.db.Exec(`INSERT INTO workflows(id,name,steps_json,source_sync_json,schedule_enabled,interval_minutes,next_run_at,created_at,updated_at) VALUES('wf-frequent','Frequent','["x","youtube","media"]','{"x":{"mode":"count","count":30}}',1,20,'2026-03-02T03:10:00.000Z','2026-03-01T00:00:00.000Z','2026-03-01T00:00:00.000Z')`); err != nil {
 		t.Fatal(err)
@@ -194,14 +194,14 @@ func TestPrepareSourceSchedulesKeepsAFreshInstallationDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	schedules, err := s.SourceSchedules(ctx, 180)
-	if err != nil || len(schedules) != 3 {
+	if err != nil || len(schedules) != 6 {
 		t.Fatalf("schedules=%+v %v", schedules, err)
 	}
 	for i, want := range []struct {
 		source   string
 		interval int
 		sync     bool
-	}{{"x", 30, true}, {"youtube", 60, true}, {"bilibili", 180, false}} {
+	}{{"x", 30, true}, {XRelatedStep, 180, true}, {"youtube", 60, true}, {"bilibili", 180, false}, {BilibiliDynamicsSource, 180, false}, {ShopSource, 360, false}} {
 		got := schedules[i]
 		if got.Source != want.source || got.Enabled || got.IntervalMinutes != want.interval || (got.Sync != nil) != want.sync || got.NextRunAt != nil || got.LastRun != nil {
 			t.Fatalf("default %s=%+v", want.source, got)
@@ -403,14 +403,106 @@ func TestStartingATimerNowMakesItDueInOrder(t *testing.T) {
 	}
 }
 
-// An installation upgraded from before Bilibili had a timer shows the source
-// in the console but has no row for the scheduler to read. Starting the
-// process must give every source a disabled timer, never start one by itself.
+// The dynamics and related-accounts timers are their own: a saved, enabled
+// Bilibili or X timer leaves them off until the operator turns them on, and
+// a later start only raises a saved dynamics interval to a raised floor.
+func TestPrepareSourceSchedulesLeavesTheNewTimersToTheOperator(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	for _, source := range []string{"bilibili", "x"} {
+		saved := scheduleOf(t, s, source, 180)
+		saved.Enabled = true
+		if _, err := s.SaveSourceSchedule(ctx, saved, 180, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for range 2 {
+		if err := s.PrepareSourceSchedules(ctx, 180, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, source := range []string{BilibiliDynamicsSource, XRelatedStep} {
+		// Startup seeds a disabled row. It stays off, with no next run, until
+		// the operator turns it on.
+		if got := scheduleOf(t, s, source, 180); got.Enabled || got.NextRunAt != nil || got.UpdatedAt == nil {
+			t.Fatalf("%s=%+v", source, got)
+		}
+	}
+	dynamics := scheduleOf(t, s, BilibiliDynamicsSource, 180)
+	dynamics.Enabled = true
+	if _, err := s.SaveSourceSchedule(ctx, dynamics, 180, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareSourceSchedules(ctx, 300, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := scheduleOf(t, s, BilibiliDynamicsSource, 300); !got.Enabled || got.IntervalMinutes != 300 {
+		t.Fatalf("after a raised floor=%+v", got)
+	}
+}
+
+func TestRelatedTimerReadsIncrementallyWithinTheSourceBounds(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	if low, high := SourceScheduleBounds(XRelatedStep, 300); low != SourceScheduleMinMinutes || high != SourceScheduleMaxMinutes {
+		t.Fatalf("bounds=%d-%d", low, high)
+	}
+	related := scheduleOf(t, s, XRelatedStep, 180)
+	for _, bad := range []SourceSchedule{
+		{Source: XRelatedStep, IntervalMinutes: 14, Sync: related.Sync, Chain: related.Chain},
+		{Source: XRelatedStep, IntervalMinutes: SourceScheduleMaxMinutes + 1, Sync: related.Sync, Chain: related.Chain},
+		{Source: XRelatedStep, IntervalMinutes: 180, Sync: &SourceSync{Mode: SyncCount, Count: 20}, Chain: related.Chain},
+		{Source: XRelatedStep, IntervalMinutes: 180, Chain: related.Chain},
+	} {
+		if _, err := s.SaveSourceSchedule(ctx, bad, 180, now); !errors.Is(err, ErrWorkflowValidation) {
+			t.Fatalf("%+v: err=%v", bad, err)
+		}
+	}
+	related.Enabled, related.IntervalMinutes, related.Sync = true, 15, &SourceSync{Mode: SyncIncremental, Max: 200}
+	saved, err := s.SaveSourceSchedule(ctx, related, 180, now)
+	if err != nil || saved.NextRunAt == nil || *saved.NextRunAt != "2026-03-02T03:15:00.000Z" || saved.Sync.Max != 200 {
+		t.Fatalf("saved=%+v err=%v", saved, err)
+	}
+	// A stored count setting, which only a hand edit could leave, reads as
+	// the incremental default.
+	if _, err := s.db.ExecContext(ctx, `UPDATE source_schedules SET sync_json='{"x_related":{"mode":"count","count":20}}' WHERE source=?`, XRelatedStep); err != nil {
+		t.Fatal(err)
+	}
+	if got := scheduleOf(t, s, XRelatedStep, 180); *got.Sync != (SourceSync{Mode: SyncIncremental, Max: DefaultSyncMax}) {
+		t.Fatalf("sync=%+v", *got.Sync)
+	}
+	sync, err := s.SourceScheduleSync(ctx)
+	if err != nil || sync[XRelatedStep] != (SourceSync{Mode: SyncIncremental, Max: DefaultSyncMax}) {
+		t.Fatalf("schedule sync=%v err=%v", sync, err)
+	}
+}
+
+func TestRelatedReadsAreTheRelatedTimersLastSuccess(t *testing.T) {
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	for _, row := range [][3]string{{XRelatedSource, "agency_synthetic", "2026-03-02T01:00:00.000Z"}, {XRelatedSource, "other_synthetic", "2026-03-02T02:00:00.000Z"}, {"x", "kano_2525", "2026-03-02T00:30:00.000Z"}} {
+		if _, err := s.db.ExecContext(ctx, `INSERT INTO sync_state(source,account_id,last_success_at,metadata_json) VALUES(?,?,?,'{}')`, row[0], row[1], row[2]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	last, err := s.SourceLastSuccess(ctx)
+	if err != nil || last[XRelatedStep] == nil || *last[XRelatedStep] != "2026-03-02T02:00:00.000Z" || last["x"] == nil || *last["x"] != "2026-03-02T00:30:00.000Z" {
+		t.Fatalf("last=%v err=%v", last, err)
+	}
+	if _, raw := last[XRelatedSource]; raw {
+		t.Fatalf("the sync_state source is not a timer: %v", last)
+	}
+}
+
+// An installation that saved only the sources an operator had touched has no
+// row for the others, and the scheduler reads rows. Starting the process
+// gives every source a disabled timer and leaves a saved timer as it was.
 func TestPrepareSourceSchedulesSeedsMissingSourceTimers(t *testing.T) {
 	s := openScheduleStore(t)
 	ctx := context.Background()
 	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
-	// Only the two sources an operator once touched have rows.
 	if _, err := s.db.Exec(`INSERT INTO source_schedules(source,enabled,interval_minutes,sync_json,chain_json,next_run_at,updated_at) VALUES('x',0,30,'{}','{}',NULL,'2026-03-01T00:00:00.000Z'),('youtube',1,15,'{}','{}','2026-03-02T03:05:00.000Z','2026-03-01T00:00:00.000Z')`); err != nil {
 		t.Fatal(err)
 	}
@@ -425,12 +517,17 @@ func TestPrepareSourceSchedulesSeedsMissingSourceTimers(t *testing.T) {
 	if enabled != 0 || interval != 240 || next != nil {
 		t.Fatalf("seeded bilibili enabled=%d interval=%d next=%v", enabled, interval, next)
 	}
+	if err := s.db.QueryRow(`SELECT enabled,interval_minutes,next_run_at FROM source_schedules WHERE source=?`, BilibiliDynamicsSource).Scan(&enabled, &interval, &next); err != nil {
+		t.Fatalf("dynamics timer missing: %v", err)
+	}
+	if enabled != 0 || interval != 240 || next != nil {
+		t.Fatalf("seeded dynamics enabled=%d interval=%d next=%v", enabled, interval, next)
+	}
 	var count int
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM source_schedules`).Scan(&count); err != nil || count != len(ScheduleSources) {
 		t.Fatalf("timers=%d err=%v", count, err)
 	}
-	// The operator's own timer is left exactly as it was.
-	if got := scheduleOf(t, s, "youtube", 240); !got.Enabled || got.IntervalMinutes != 15 {
+	if got := scheduleOf(t, s, "youtube", 240); !got.Enabled || got.IntervalMinutes != 15 || got.NextRunAt == nil || *got.NextRunAt != "2026-03-02T03:05:00.000Z" {
 		t.Fatalf("youtube=%+v", got)
 	}
 }

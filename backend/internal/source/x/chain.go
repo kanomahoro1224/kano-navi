@@ -23,8 +23,8 @@ const (
 	apiMaxPage = 100
 )
 
-// discover tries the chain's methods in order until one serves the account
-// (ADR-0004). A method falls through when its first page fails, when it lists
+// discover tries the chain's methods in order until one serves the account. A
+// method falls through when its first page fails, when it lists
 // none of the account's own statuses, or when the chain skips it (the API's
 // credential, gate or daily cap); a later page's failure keeps what was read.
 // An API read that finds nothing newer than the cursor serves. Every method
@@ -68,6 +68,7 @@ func (a *Adapter) discover(ctx context.Context, account string, opts Options, cu
 		}
 		result.Tried = append(result.Tried, Attempt{Method: method})
 		result.Discovery, result.Gap, result.Notes = method, found.gap, found.notes
+		result.Reposts = found.reposts
 		return found, nil
 	}
 	return discovery{}, last
@@ -151,6 +152,7 @@ func (a *Adapter) discoverAPI(ctx context.Context, account string, opts Options,
 			if err != nil {
 				return false, err
 			}
+			found.reposts = append(found.reposts, page.Reposts...)
 			for _, post := range page.Posts {
 				if seen[post.ID] {
 					continue

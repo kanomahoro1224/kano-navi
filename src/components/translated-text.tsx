@@ -1,8 +1,9 @@
-import { useState } from "react"
+import { useState, type ComponentType, type SVGProps } from "react"
 import { Languages } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import { cn } from "@/lib/utils"
+import { BilibiliLogo, YouTubeLogo } from "@/site/links"
 import type { Locale, Translation, Translations, Translator } from "@/types"
 
 /** The lang attribute of wording in a detected source language. */
@@ -13,17 +14,34 @@ const sourceLangs: Record<string, string> = {
   ko: "ko",
 }
 
-const platforms = new Set(["youtube", "bilibili"])
+/** The marks of the platforms whose translations readers see. */
+const platformLogos: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
+  youtube: YouTubeLogo,
+  bilibili: BilibiliLogo,
+}
+
+/** The platform of a platform translation the switch has a mark for. */
+function knownPlatform(translation: Translation) {
+  const platform = translation.platform || ""
+  return Object.hasOwn(platformLogos, platform) ? platform : null
+}
+
+/** Whether a detected source language (ja, ja-JP, ...) is Japanese. */
+function isJapanese(language: string | undefined | null) {
+  return (language || "").toLowerCase().split("-")[0] === "ja"
+}
 
 /**
  * The translation a reader of the content locale sees instead of the source
- * wording, or null: Japanese content and untranslated wording keep the source.
+ * wording, or null: untranslated wording keeps the source, and Japanese
+ * readers see a Japanese translation only of wording not written in Japanese.
  */
 export function pickTranslation(
   translations: Translations | undefined | null,
   locale: Locale,
+  sourceLanguage?: string | null,
 ): Translation | null {
-  if (locale === "ja") return null
+  if (locale === "ja" && isJapanese(sourceLanguage)) return null
   const translation = translations?.[locale]
   return translation?.text ? translation : null
 }
@@ -35,10 +53,21 @@ export function translationOriginLabel(
 ): string {
   if (translation.origin === "machine") return t("translation.machine")
   if (translation.origin === "manual") return t("translation.manual")
-  const platform = platforms.has(translation.platform || "")
-    ? translation.platform
-    : "other"
-  return t(`translation.platform.${platform}`)
+  return t(`translation.platform.${knownPlatform(translation) || "other"}`)
+}
+
+/**
+ * What follows the switch's translate icon: "AI" for a model's translation,
+ * the platform's mark for a platform's, and nothing for the editor's, which
+ * shows the translate icon alone.
+ */
+export function translationMarkKind(
+  translation: Translation,
+): "ai" | "youtube" | "bilibili" | "icon" {
+  if (translation.origin === "machine") return "ai"
+  if (translation.origin === "manual") return "icon"
+  const platform = knownPlatform(translation)
+  return platform === "youtube" || platform === "bilibili" ? platform : "icon"
 }
 
 export interface TranslatedTextState {
@@ -64,7 +93,7 @@ export function useTranslatedText(
 ): TranslatedTextState {
   const { contentLocale } = useAppSettings()
   const [showOriginal, setShowOriginal] = useState(false)
-  const available = pickTranslation(translations, contentLocale)
+  const available = pickTranslation(translations, contentLocale, sourceLanguage)
   const shown = available && !showOriginal ? available : null
   return {
     text: shown ? shown.text : original,
@@ -76,11 +105,12 @@ export function useTranslatedText(
 }
 
 /**
- * The switch after translated wording: a translate icon and "AI", lit while
- * the translation shows. Selecting it shows the source wording and turns it
- * off; selecting it again brings the translation back. Its tooltip and
- * accessible name spell out where the translation came from (AI, a platform
- * or the editor), and a title's tooltip previews the source wording.
+ * The switch after translated wording: a translate icon followed by its
+ * origin's mark (translationMarkKind), lit while the translation shows.
+ * Selecting it shows the source wording and turns it off; selecting it again
+ * brings the translation back. Its tooltip and accessible name spell out
+ * where the translation came from (AI, a platform or the editor), and a
+ * title's tooltip previews the source wording.
  */
 export function TranslationToggle({
   state,
@@ -97,6 +127,9 @@ export function TranslationToggle({
   const { available, shown } = state
   if (!available) return null
   const origin = translationOriginLabel(available, t)
+  const kind = translationMarkKind(available)
+  const PlatformLogo =
+    kind === "youtube" || kind === "bilibili" ? platformLogos[kind] : null
   const hint = [
     origin,
     available.origin === "machine" ? t("translation.machineHint") : null,
@@ -109,14 +142,20 @@ export function TranslationToggle({
   return (
     <button
       type="button"
-      className={cn("translation-mark", shown && "is-active", className)}
+      className={cn(
+        "translation-mark",
+        kind !== "ai" && "is-icon",
+        shown && "is-active",
+        className,
+      )}
       title={hint}
       aria-label={origin}
       aria-pressed={Boolean(shown)}
       onClick={state.toggle}
     >
       <Languages aria-hidden="true" />
-      {t("translation.machineShort")}
+      {kind === "ai" ? t("translation.machineShort") : null}
+      {PlatformLogo ? <PlatformLogo aria-hidden="true" /> : null}
     </button>
   )
 }

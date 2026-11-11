@@ -14,7 +14,7 @@ import (
 
 // xUsersURL is the root of the user lookup and the user posts timeline
 // (https://docs.x.com/x-api/users/get-posts), which the timed X chain's API
-// method reads (ADR-0004).
+// method reads.
 const xUsersURL = "https://api.x.com/2/users/"
 
 var xUserIDPattern = regexp.MustCompile(`^\d{1,19}$`)
@@ -60,7 +60,7 @@ func (x *XAPI) AccountPosts(ctx context.Context, query xsource.APIQuery) (xsourc
 	if err != nil {
 		return xsource.APIPage{Read: read}, xCode(&Error{Code: "source_api_invalid_records"})
 	}
-	return xsource.APIPage{Posts: posts, Next: next, Read: read}, nil
+	return xsource.APIPage{Posts: posts, Next: next, Read: read, Reposts: xsource.APIReposts(payload, query.Account)}, nil
 }
 
 // userID resolves an account's numeric ID through the user lookup, once.

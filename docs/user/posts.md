@@ -1,34 +1,32 @@
 # Posts
 
-**Recent Posts on X** shows the last three days of posts from both of Kano's
-accounts, and always at least the eight newest of each account, however old.
+**Recent Posts** shows the last three days of posts from both of Kano's X
+accounts and her bilibili dynamics (动态), and always at least the eight
+newest of each account, however old. A bilibili post carries the bilibili
+mark and opens on bilibili.
 Posts are laid out in whole rows; a long post shows its first lines and
 **Read more** opens it in full.
 
-- Filter by account to see one account at a time; each account fills the
-  wall with its own newest posts, even when the other one posted more
-  recently.
+- Filter by account to see one account at a time, bilibili included; each
+  account fills the wall with its own newest posts, even when another one
+  posted more recently.
 - Open images in a viewer and step through them.
-- See like, repost, and reply counts as they were last collected.
+- See like, repost, and reply counts of X posts as they were last collected.
 - A post that quotes another one shows the quoted post as a nested card that
-  links to it on X.
-- A post translated into your content language ends with the same **AI**
-  mark as video titles; select it to read the original post.
-- A quoted post from one of these accounts is translated too, with its own
-  **AI** mark at the end of the quoted card's top line.
-
-## Bilibili Dynamics
-
-When the server is configured with a Bilibili login cookie, the account's
-dynamics appear on the same wall as the X posts: its own posts and its
-forwards, with their text and pictures in the order Bilibili shows them. They
-keep their place in the newest-first order and in the per-account fill.
-
-A Bilibili post shows the uploader's display name without an **@**, because
-Bilibili addresses nobody by handle; select the arrow on the card to open the
-dynamic on `t.bilibili.com`. Uploads published as video dynamics are not
-repeated here: they are videos. Bilibili posts are not translated and carry
-no like or repost counts.
+  links to it on X. A bilibili post that forwards another one shows the
+  forwarded post the same way, with its author's name after the bilibili
+  mark, and links to it on bilibili; a forward with nothing of its own to
+  say shows just that card.
+- Some posts of the agency's account appear on the wall too, when they are
+  about Kano. They show the account's initial instead of Kano's portrait and
+  appear under All, not under Kano's account tabs. One that Kano quotes
+  shows only inside her post.
+- A post translated into your content language ends with the same
+  translation mark as video titles; select it to read the original post. Japanese
+  readers see Japanese posts as written and a Chinese bilibili post in its
+  Japanese translation.
+- A quoted or forwarded post is translated too, with its own mark at
+  the end of the card's top line.
 
 ## Past Posts
 

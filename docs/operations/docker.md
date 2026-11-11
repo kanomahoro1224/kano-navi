@@ -14,7 +14,7 @@ Compose pulls `yexca/kano-navi:latest` from Docker Hub on each startup. A deploy
 directory needs only `docker-compose.yml` and `.env`; the `./data` directory
 is created when needed and mounted at `/app/data`, preserving SQLite and media
 across container replacement. Run the same command to apply an image update.
-Set `KANO_IMAGE=yexca/kano-navi:0.6.1` in `.env` to pin the release,
+Set `KANO_IMAGE=yexca/kano-navi:0.7.1` in `.env` to pin the release,
 and use `KANO_PORT` to change the default host port of `7657`. The container
 listens on `7657`; the default public address is `http://localhost:7657`.
 To use the equivalent GHCR image, set
@@ -30,6 +30,8 @@ images are already bundled. The LINE BLOG archive's text is bundled too; its
 media live in `./data/lineblog/` or a read-only mount over it, taken from
 the recovery archive as described in
 [LINE BLOG archive maintenance](../development/lineblog-archive.md#deployments).
+The discography covers live the same way in `./data/works/`, packaged as
+described in [Works archive maintenance](../development/works-archive.md).
 Existing `./data` snapshots, archive media and provider configuration survive
 upgrades.
 
@@ -71,8 +73,8 @@ back to asking for the revision every 30 seconds and keep working.
 
 Deploy `dist/` together with its `.vite/manifest.json` and the `.br` and `.gz`
 siblings the build writes next to its text files: manifest-listed hashed
-JS/CSS and hash-addressed history images are immutable for one year, while
-HTML and other fixed assets revalidate. Copy siblings with or after their
+JS/CSS are immutable for one year, while HTML and other fixed assets
+revalidate. Copy siblings with or after their
 originals; a sibling older than its original is ignored.
 Keep earlier hashed files available during a rolling deployment when possible;
 an already open page can request its old lazy chunks. If a chunk is unavailable,
@@ -133,7 +135,7 @@ everything shares container port `7657`, published on loopback.
 Set `KANO_PORT` to change the host port. The repository is mounted for
 frontend hot reload; a Windows or macOS host sends no file events into the
 container, so the Compose file sets `KANO_WATCH_POLLING=1` and Vite polls the
-sources (not `data/`, `backend/`, `dist/`, `.claude/` or `.codegraph/`).
+sources it watches (see [Local development](../development/local-dev.md)).
 Anonymous volumes keep Linux dependencies and the Linux backend binary
 separate from any host `node_modules` and `backend/bin`. Rebuild after
 dependency changes; `--renew-anon-volumes` refreshes those volumes. Backend

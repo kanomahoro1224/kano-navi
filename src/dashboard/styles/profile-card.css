@@ -1,0 +1,427 @@
+/* Profile card */
+
+.profile-card {
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-banner {
+  position: relative;
+  height: 128px;
+  background: var(--gingham);
+}
+
+.profile-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 30%;
+}
+
+.profile-body {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 0 22px 18px;
+}
+
+.profile-avatar {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  margin-top: -42px;
+  margin-bottom: 4px;
+  border: 4px solid var(--paper);
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-name {
+  display: grid;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.profile-name span {
+  margin-top: 4px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.profile-catchphrase {
+  margin: 0;
+  color: var(--berry);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.profile-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* The counts on the left and the platforms on the right share one row. */
+.profile-meta {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+
+.profile-stats {
+  display: flex;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.profile-stats a {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--soft);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.profile-stats a svg {
+  width: 14px;
+  height: 14px;
+}
+
+.profile-stats a strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition: color 160ms ease;
+}
+
+.profile-stats a:hover,
+.profile-stats a:hover strong {
+  color: var(--berry);
+}
+
+/*
+ * One quiet row of platform icons. An out-of-date read turns its icon honey
+ * with a dot, and a platform never read fades; the times are tooltips.
+ */
+.profile-sources {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  color: var(--soft);
+}
+
+.profile-sources > div {
+  position: relative;
+  display: flex;
+}
+
+.profile-sources dt {
+  display: flex;
+}
+
+.profile-sources dt svg {
+  width: 14px;
+  height: 14px;
+}
+
+.profile-sources dd {
+  margin: 0;
+}
+
+.profile-sources > .is-waiting {
+  opacity: 0.4;
+}
+
+.profile-sources > .is-stale {
+  color: var(--honey);
+}
+
+.profile-sources > .is-stale::after {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--honey);
+  content: "";
+}
+
+@media (max-width: 980px) {
+  .stage {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-card {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .profile-banner {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .profile-body {
+    padding-top: 18px;
+  }
+
+  .profile-avatar {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .stage {
+    gap: 16px;
+    padding-top: 16px;
+  }
+
+  /*
+   * On phones the profile leads the stage as a compact identity row so the
+   * schedule comes up sooner: the banner is a short strip, and the avatar
+   * straddles its lower left edge, as on wider screens, beside the name;
+   * the catchphrase starts at the card's left edge below them, in line with
+   * the links, and the kicker is left out. The left keeps clear of the
+   * banner's centred art.
+   */
+  .profile-card {
+    grid-template-columns: 1fr;
+    order: -1;
+  }
+
+  .profile-banner {
+    height: 88px;
+    min-height: 0;
+  }
+
+  .profile-body {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 4px 12px;
+    padding: 8px 16px 14px;
+  }
+
+  .profile-body > * {
+    grid-column: 1 / -1;
+  }
+
+  /* Half of the avatar rises over the banner, past the body's top padding. */
+  .profile-body > .profile-avatar {
+    grid-row: 1;
+    grid-column: 1;
+    align-self: start;
+    width: 64px;
+    height: 64px;
+    margin: -40px 0 0;
+    border-width: 3px;
+  }
+
+  .profile-body > .kicker {
+    display: none;
+  }
+
+  .profile-body > .profile-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 8px;
+    grid-row: 1;
+    grid-column: 2;
+    font-size: 22px;
+  }
+
+  .profile-name span {
+    margin-top: 0;
+  }
+
+  .profile-body > .profile-catchphrase {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    font-size: 14px;
+  }
+
+  .profile-links {
+    margin-top: 8px;
+  }
+
+  .profile-meta {
+    margin-top: 6px;
+  }
+
+  /*
+   * Both X handles and the platform icons share one row; on the narrowest
+   * phones the handles shorten before the row wraps.
+   */
+  .profile-links {
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .profile-links .pill-button {
+    min-width: 0;
+    gap: 4px;
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  .profile-links .pill-button span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .profile-links .round-button {
+    flex: none;
+    width: 32px;
+    height: 32px;
+  }
+
+  .ticket-stub {
+    grid-template-columns: 1fr;
+    padding: 18px 18px 20px;
+  }
+
+  /*
+   * The countdown moves beside the time as one short line of small cells,
+   * and the open cue keeps only its arrow.
+   */
+  .ticket-stub > .ticket-countdown {
+    display: none;
+  }
+
+  .ticket-countdown.is-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ticket-countdown.is-inline .ticket-countdown-cells {
+    gap: 4px;
+  }
+
+  .ticket-countdown.is-inline .ticket-countdown-cell {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 3px;
+    padding: 4px 7px;
+  }
+
+  .ticket-countdown.is-inline .ticket-countdown-cell strong {
+    font-size: 16px;
+  }
+
+  .ticket-countdown.is-inline .ticket-countdown-cell small {
+    margin-top: 0;
+  }
+
+  .ticket-open-label {
+    display: none;
+  }
+
+  .ticket-date {
+    min-width: 54px;
+  }
+
+  .ticket-date strong {
+    font-size: 28px;
+  }
+
+  .ticket-open {
+    top: 16px;
+    right: 18px;
+  }
+
+  /* A typical title wraps to three lines at this width. */
+  .ticket-placeholder.is-title {
+    height: calc(clamp(20px, 2.2vw, 27px) * 3.75);
+  }
+
+  .ticket-side {
+    padding: 18px 14px;
+  }
+
+  .ticket.is-compact .ticket-date {
+    min-width: 56px;
+  }
+
+  .ticket.is-compact .ticket-date strong {
+    font-size: 38px;
+  }
+
+  /*
+   * The kicker and chips run across the top, so the title keeps the width
+   * beside the thumbnail.
+   */
+  .latest-card {
+    grid-template-columns: 120px minmax(0, 1fr);
+    grid-template-areas:
+      "head head"
+      "art title"
+      "art when"
+      "art links";
+    grid-template-rows: auto auto auto 1fr;
+    align-items: start;
+    gap: 4px 12px;
+    padding: 10px 12px 12px;
+  }
+
+  .latest-card-copy {
+    display: contents;
+  }
+
+  .latest-card-copy > .ticket-head {
+    grid-area: head;
+    gap: 6px 8px;
+    margin-bottom: 4px;
+  }
+
+  .latest-card-art {
+    grid-area: art;
+  }
+
+  .latest-card-title {
+    grid-area: title;
+  }
+
+  .latest-card-copy > small {
+    grid-area: when;
+  }
+
+  .latest-card-copy > .platform-links {
+    grid-area: links;
+  }
+
+  .latest-card-open {
+    display: none;
+  }
+
+  .latest-card-title {
+    font-size: 14.5px;
+  }
+}

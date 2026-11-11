@@ -1,0 +1,702 @@
+/* Phones: the filter starts the row and the archive icon ends it. */
+@media (max-width: 560px) {
+  .posts .section-title-actions,
+  .videos .section-title-actions {
+    flex-basis: 100%;
+  }
+
+  .posts .section-title-actions > .pill-button:last-child,
+  .videos .section-title-actions > .pill-button:last-child {
+    margin-left: auto;
+  }
+}
+
+/*
+ * Up to three columns read left to right; a row's notes share its height,
+ * and each note's images and counts sit at its foot, so rows line up.
+ */
+.post-wall {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, max(280px, calc((100% - 32px) / 3))), 1fr)
+  );
+  gap: 16px;
+}
+
+.post-note {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+
+.post-note-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.post-note-head img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* A related account's promoted post shows its initial, not Kano's portrait. */
+.post-note-initial {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: var(--sunken);
+  color: var(--soft);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.post-note-handle {
+  font-weight: 800;
+}
+
+.post-note-handle:hover {
+  color: var(--berry);
+}
+
+/* A Bilibili dynamic names its source with the platform mark. */
+.post-note-handle.is-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.post-note-handle.is-source svg {
+  width: 14px;
+  height: 14px;
+}
+
+.post-note-head time {
+  color: var(--soft);
+  font-size: 12px;
+}
+
+.post-note-open {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--soft);
+}
+
+.post-note-open:hover {
+  background: var(--sunken);
+  color: var(--berry);
+}
+
+.post-note-open svg {
+  width: 15px;
+  height: 15px;
+}
+
+.post-note-text {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* A board post shows six lines; Read more opens the rest in a dialog. */
+.post-note-text.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+}
+
+.post-note-expand {
+  align-self: flex-start;
+  margin: -6px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--berry);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.post-note-expand:hover {
+  text-decoration: underline;
+}
+
+.post-note-expand:focus-visible {
+  outline: 2px solid var(--berry);
+  outline-offset: 2px;
+}
+
+/*
+ * A post's switch follows its last word. While the board's clamp hides the
+ * end of a long post, that one keeps its place (so the clamp does not change)
+ * and the copy beside Read more is the one shown.
+ */
+.post-note-text .translation-mark {
+  margin: 0 0 0 6px;
+  vertical-align: 1px;
+}
+
+.post-note-text .translation-mark.is-clipped {
+  visibility: hidden;
+}
+
+.post-note-more {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 0;
+}
+
+.post-note-more .post-note-expand {
+  margin: 0;
+}
+
+.post-note-more .translation-mark {
+  margin: 0;
+}
+
+/* The lead card's heading carries the switch after its last word. */
+.translated-heading .translation-mark {
+  margin: 0 0 0 10px;
+  vertical-align: middle;
+}
+
+/* A spotlight ticket title is not clamped, so the switch follows its last word. */
+.ticket-title.translated-title {
+  display: block;
+}
+
+.ticket-title > .translated-title-text {
+  display: inline;
+}
+
+.ticket-title .translation-mark {
+  margin: 0 0 0 8px;
+  vertical-align: middle;
+}
+
+/* One 16:10 frame whatever the image count, so notes in a row match. */
+.post-note-media {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+  margin-top: auto;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-md);
+}
+
+.post-note-media > * {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: var(--sunken);
+}
+
+.post-note-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms ease;
+}
+
+.post-note-media button:hover img {
+  transform: scale(1.04);
+}
+
+.post-note-media.count-1 {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.post-note-media.count-2 {
+  grid-template-rows: 1fr;
+}
+
+.post-note-media.count-3 > :first-child {
+  grid-row: span 2;
+}
+
+.post-note-missing {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  color: var(--soft);
+  font-size: 11px;
+}
+
+.post-note-missing svg {
+  width: 18px;
+  height: 18px;
+}
+
+.post-engagement {
+  display: flex;
+  gap: 14px;
+  margin: auto 0 0;
+  color: var(--soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.post-engagement span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.post-note-media + .post-engagement {
+  margin-top: 0;
+}
+
+/*
+ * A quoted post nests in the note below its own wording and images: an
+ * indented, quieter card that follows the quoted post's link, with small
+ * thumbnails that open the image viewer.
+ */
+.post-quote {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  margin: auto 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--sunken);
+  transition: border-color 160ms ease;
+}
+
+.post-note-media + .post-quote,
+.post-quote + .post-engagement {
+  margin-top: 0;
+}
+
+.post-quote:hover {
+  border-color: color-mix(in oklab, var(--berry) 45%, transparent);
+}
+
+.post-quote-head {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 5px;
+  margin: 0;
+  color: var(--soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.post-quote-name {
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 800;
+  text-overflow: ellipsis;
+}
+
+.post-quote:hover .post-quote-name {
+  color: var(--berry);
+}
+
+/* A forwarded dynamic's author carries the bilibili mark, not a handle. */
+.post-quote-mark {
+  flex: none;
+  align-self: center;
+  width: 13px;
+  height: 13px;
+}
+
+/* On a narrow card the handle gives way before the display name. */
+.post-quote-handle {
+  min-width: 0;
+  flex-shrink: 100;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-quote-head time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The clamp may hide the quote's last word, so its switch ends the head. */
+.post-quote-head .translation-mark {
+  align-self: center;
+  margin: 0 0 0 auto;
+}
+
+.post-quote-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.post-quote-text.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.post-quote-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.post-quote-media button {
+  position: relative;
+  width: 64px;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+
+.post-quote-media button:focus-visible {
+  outline: 2px solid var(--berry);
+  outline-offset: 2px;
+}
+
+.post-quote-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.post-quote-more {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(20 12 18 / 0.55);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.post-quote.is-full .post-quote-text {
+  font-size: 14.5px;
+}
+
+.post-quote.is-full .post-quote-media button {
+  width: min(140px, calc(50% - 2px));
+}
+
+/* A quoted post that is gone or withheld keeps only its link. */
+.post-quote.is-unavailable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--soft);
+  font-size: 12.5px;
+}
+
+.post-quote.is-unavailable svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.post-quote.is-unavailable svg:last-child {
+  margin-left: auto;
+}
+
+.post-quote.is-unavailable:hover {
+  color: var(--berry);
+}
+
+.post-quote.is-unavailable:focus-visible {
+  outline: 2px solid var(--berry);
+  outline-offset: 2px;
+}
+
+.post-engagement svg {
+  width: 14px;
+  height: 14px;
+}
+
+/*
+ * The Past posts dialog shows full posts as a masonry wall that reads row by
+ * row (cells placed by PostMasonry; the gap matches MASONRY_GAP) or as a
+ * single column.
+ */
+.post-wall.is-masonry {
+  position: relative;
+  display: block;
+}
+
+.post-masonry-cell {
+  position: absolute;
+  left: calc(var(--masonry-column) * (100% + 16px) / var(--masonry-columns));
+  width: calc(
+    (100% - (var(--masonry-columns) - 1) * 16px) / var(--masonry-columns)
+  );
+}
+
+.post-wall.is-list {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 600px;
+  margin-inline: auto;
+}
+
+.post-wall.is-archive .post-note-media {
+  grid-template-rows: none;
+  aspect-ratio: auto;
+}
+
+.post-wall.is-archive .post-note-media > * {
+  aspect-ratio: 1;
+}
+
+.post-wall.is-archive .post-note-media.count-1 > * {
+  aspect-ratio: 16 / 10;
+}
+
+.post-wall.is-archive .post-note-media.count-3 > :first-child {
+  aspect-ratio: auto;
+}
+
+.segmented.is-icons button {
+  display: grid;
+  padding: 6px 10px;
+  place-items: center;
+}
+
+/* A platform mark in an account filter, such as bilibili's. */
+.segmented .account-mark {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
+.segmented.is-icons svg {
+  width: 16px;
+  height: 16px;
+}
+
+/*
+ * The account filter and the layout switch share one row; when it is
+ * cramped, the accounts scroll sideways without a visible scrollbar.
+ */
+.archive-tools {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.archive-tools > .segmented:not(.is-icons) {
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.archive-tools > .segmented:not(.is-icons)::-webkit-scrollbar {
+  display: none;
+}
+
+.archive-tools > .segmented button {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* The video categories carry the same icons as the cards' tag chips. */
+.archive-tools > .segmented:not(.is-icons) svg {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
+.archive-tools > .segmented.is-icons {
+  flex: none;
+}
+
+/*
+ * The head is as wide as the wall below it. Narrower than two masonry columns
+ * (MASONRY_MIN_WIDTH twice plus the gap), both layouts are one column, so the
+ * switch has nothing to choose.
+ */
+@container archive-head (width < 616px) {
+  .archive-tools > .segmented.is-icons {
+    display: none;
+  }
+}
+
+/* A long board post or a schedule entry opens whole in this sheet. */
+.sheet-dialog {
+  width: min(600px, calc(100vw - 24px));
+  max-width: none;
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+  overscroll-behavior: contain;
+}
+
+.sheet-dialog::backdrop {
+  background: rgb(20 12 18 / 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.post-note.is-full {
+  gap: 12px;
+  padding: 20px;
+}
+
+.post-note.is-full .post-note-text {
+  font-size: 15.5px;
+}
+
+.sheet-dialog-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+
+/* A schedule entry in full; its link waits at the end. */
+.entry-sheet {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px 20px;
+  border-left: 4px solid var(--tone);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+
+.sheet-dialog:has(.entry-sheet) {
+  width: min(480px, calc(100vw - 24px));
+}
+
+.entry-sheet.is-cancelled {
+  --tone: var(--soft);
+}
+
+.entry-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entry-sheet-head .kicker {
+  flex: 1;
+  min-width: 0;
+}
+
+.entry-sheet-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin: 0;
+  color: var(--tone);
+}
+
+.entry-sheet-when strong {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.entry-sheet-when small {
+  color: var(--soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.entry-sheet-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.entry-sheet.is-cancelled .entry-sheet-title .translated-title-text {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.entry-sheet-detail {
+  margin: 0;
+  color: var(--soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.entry-sheet .guide-event-tags .tag,
+.entry-sheet .guide-event-tags .tag[class*="tone-"] {
+  padding: 1px 8px;
+  background: var(--sunken);
+  font-size: 12px;
+}
+
+.entry-sheet .guide-provenance {
+  font-size: 12px;
+}
+
+.entry-sheet .guide-event-note {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.entry-sheet-open {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.post-empty {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.post-last {
+  display: grid;
+  gap: 8px;
+}

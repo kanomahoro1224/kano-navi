@@ -12,8 +12,8 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
-// Translator is the machine translation step. It translates X post text and
-// YouTube video titles into the target locales with the models of the
+// Translator is the machine translation step. It translates X post and
+// Bilibili dynamic text and YouTube video titles into the target locales with the models of the
 // separate translation queue, using the extractor's provider client and
 // failover policy. It never replaces a manual or platform translation: those
 // rank above machine rows when readers resolve them, and a locale they cover
@@ -44,10 +44,25 @@ var (
 	translationLinks    = regexp.MustCompile(`https?://\S+`)
 	translationHandles  = regexp.MustCompile(`[@#＃][\p{L}\p{N}_]+`)
 	translationKindText = map[string]string{
-		sqlite.TranslationOwnerPost:  "X post",
-		sqlite.TranslationOwnerVideo: "YouTube video title",
+		sqlite.TranslationOwnerPost:           "X post",
+		sqlite.TranslationOwnerVideo:          "YouTube video title",
+		sqlite.TranslationOwnerXStatus:        "X post",
+		sqlite.TranslationOwnerBilibiliStatus: "Bilibili dynamic",
 	}
 )
+
+// translationKind names what is translated for the model.
+func translationKind(item sqlite.TranslationCandidate) string {
+	if item.Source == "bilibili" {
+		switch item.OwnerType {
+		case sqlite.TranslationOwnerPost:
+			return "Bilibili dynamic"
+		case sqlite.TranslationOwnerVideo:
+			return "Bilibili video title"
+		}
+	}
+	return translationKindText[item.OwnerType]
+}
 
 // hasTranslatableText reports whether anything but links, tags, mentions,
 // emoji and punctuation remains.
@@ -69,6 +84,17 @@ func (t *Translator) Run(ctx context.Context) (Result, error) {
 	if t == nil || t.e == nil || t.e.db == nil {
 		return Result{Status: "failed", Counts: map[string]any{}}, ErrStore
 	}
+	// The form rules need no model, so they settle Bilibili uploads first,
+	// whether or not a translation queue is configured; an upload they make
+	// public is translated in the same run.
+	forms, formErr := t.e.store.SettleBilibiliForms(ctx, t.e.now())
+	if formErr != nil {
+		counts := map[string]any{}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return Result{Status: "failed", Counts: counts}, ctxErr
+		}
+		return Result{Status: "failed", Counts: counts}, ErrStore
+	}
 	counts, err := t.translatePending(ctx)
 	if counts == nil {
 		counts = map[string]any{}
@@ -81,8 +107,11 @@ func (t *Translator) Run(ctx context.Context) (Result, error) {
 	}
 	// The same queue labels the calendar entries whose title carries no other
 	// evidence, so a YouTube-only announcement still reaches readers with a
-	// kind, and then the videos no entry labels.
-	if tags, videoTags, tagErr := t.inferTags(ctx); tags != nil {
+	// kind, then asks the Bilibili uploads no rule settled for their form,
+	// and then labels the videos no entry labels.
+	bilibiliForms := map[string]any{"ruled": forms.Settled}
+	counts["bilibiliForms"] = bilibiliForms
+	if tags, videoTags, tagErr := t.inferTags(ctx, bilibiliForms); tags != nil {
 		counts["eventTags"] = tags
 		if videoTags != nil {
 			counts["videoTags"] = videoTags
@@ -156,7 +185,9 @@ type tagJob struct {
 // same per-run limit, so the video backlog drains over successive runs. A
 // title that fails counts as failed and the run moves on; only a store write
 // or cancellation stops it. videos is nil when the run never reached them.
-func (t *Translator) inferTags(ctx context.Context) (events, videos map[string]any, err error) {
+// The Bilibili uploads whose form no rule settled are asked for form and tag
+// together between the entries and the videos, and counted in forms.
+func (t *Translator) inferTags(ctx context.Context, forms map[string]any) (events, videos map[string]any, err error) {
 	e := t.e
 	events = map[string]any{"attempted": 0, "success": 0, "skipped": 0, "failed": 0}
 	providers, reason, err := e.routeProviders(ctx, routeTranslate, "text")
@@ -200,15 +231,41 @@ func (t *Translator) inferTags(ctx context.Context) (events, videos map[string]a
 	if limit -= len(entries); limit < 1 {
 		return events, videos, nil
 	}
+	pending, err := e.store.ListBilibiliFormCandidates(ctx, retryBefore, limit)
+	if err != nil {
+		return events, videos, err
+	}
+	for _, key := range []string{"attempted", "success", "uncertain", "skipped", "failed"} {
+		forms[key] = 0
+	}
+	for _, item := range pending {
+		if err = ctx.Err(); err != nil {
+			return events, videos, err
+		}
+		status, err := t.inferBilibiliForm(ctx, item, providers)
+		if err != nil {
+			return events, videos, err
+		}
+		if status != "skipped" {
+			forms["attempted"] = countOf(forms, "attempted") + 1
+		}
+		forms[status] = countOf(forms, status) + 1
+	}
+	if limit -= len(pending); limit < 1 {
+		return events, videos, nil
+	}
 	uploads, err := e.store.ListVideoTagCandidates(ctx, from, retryBefore, limit)
 	if err != nil {
 		return events, videos, err
 	}
 	jobs = make([]tagJob, 0, len(uploads))
 	for _, item := range uploads {
-		id := item.ID
+		id, platform := item.ID, "YouTube"
+		if item.Source == "bilibili" {
+			platform = "Bilibili"
+		}
 		jobs = append(jobs, tagJob{
-			title: item.Title, platform: "YouTube",
+			title: item.Title, platform: platform,
 			record: func(tag *string) error { _, err := e.store.RecordVideoTag(ctx, id, tag, e.now()); return err },
 			fail:   func() error { return e.store.RecordVideoTagFailure(ctx, id, e.now()) },
 		})
@@ -308,6 +365,94 @@ func (t *Translator) attemptEventTag(ctx context.Context, target provider, call 
 	return &text, nil
 }
 
+// inferBilibiliForm asks each configured target in turn for one Bilibili
+// upload's form and tag and returns success, uncertain, skipped or failed.
+// An answer settles the form or sends the upload to the Review queue; when
+// every target fails, the failure is counted and the third one sends it there.
+func (t *Translator) inferBilibiliForm(ctx context.Context, item sqlite.BilibiliFormCandidate, providers []provider) (string, error) {
+	e := t.e
+	// Over-long wording costs no call; the operator decides from the queue.
+	if utf8.RuneCountInString(item.Title) > maxTranslationInput {
+		_, err := e.store.RecordBilibiliForm(ctx, item.ID, sqlite.BilibiliFormUncertain, nil, e.now())
+		return "skipped", err
+	}
+	text := "Bilibili title: " + item.Title
+	if item.DurationSeconds > 0 {
+		text += "\nLength: " + strconv.FormatInt(item.DurationSeconds/60, 10) + " min " + strconv.FormatInt(item.DurationSeconds%60, 10) + " s"
+	}
+	if item.Description != "" {
+		text += "\nDescription start: " + item.Description
+	}
+	call := modelCall{
+		instructions: bilibiliFormInstructions,
+		name:         bilibiliFormToolName,
+		schema:       bilibiliFormSchema,
+		maxTokens:    1024,
+		text:         text,
+		includeText:  true,
+		jsonOutput:   true,
+	}
+	message := "provider request failed"
+	attempts := e.modelAttempts(ctx)
+	for _, target := range providers {
+		for attempt := 0; attempt < attempts; attempt++ {
+			form, tag, err := t.attemptBilibiliForm(ctx, target, call)
+			if err == nil {
+				if _, err = e.store.RecordBilibiliForm(ctx, item.ID, form, tag, e.now()); err != nil {
+					return "", err
+				}
+				if err = e.updateProviderStatus(ctx, target.id, "success", ""); err != nil {
+					return "", err
+				}
+				if form == sqlite.BilibiliFormUncertain {
+					return "uncertain", nil
+				}
+				return "success", nil
+			}
+			if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
+			message = storedMessage(err)
+			if attempt == attempts-1 || !transientModelFailure(message) {
+				break
+			}
+			if err = e.sleep(ctx, retryDelay(attempt)); err != nil {
+				return "", err
+			}
+		}
+		if err := e.updateProviderStatus(ctx, target.id, "failed", message); err != nil {
+			return "", err
+		}
+	}
+	return "failed", e.store.RecordBilibiliFormFailure(ctx, item.ID, e.now())
+}
+
+// attemptBilibiliForm makes one call and validates its form and tag. A form
+// outside the codes is a failed attempt; a tag outside them is no tag.
+func (t *Translator) attemptBilibiliForm(ctx context.Context, target provider, call modelCall) (string, *string, error) {
+	value, err := t.e.callModel(ctx, target, call)
+	if err != nil {
+		return "", nil, err
+	}
+	root, ok := value.(*object)
+	if !ok {
+		return "", nil, fail("bilibili form result was not an object")
+	}
+	formValue, _ := root.get("form")
+	form, _ := formValue.(string)
+	switch form {
+	case sqlite.BilibiliFormUpload, sqlite.BilibiliFormStream, sqlite.BilibiliFormUncertain:
+	default:
+		return "", nil, fail("bilibili form result had no valid form")
+	}
+	tagValue, _ := root.get("tag")
+	text, isString := tagValue.(string)
+	if !isString || !sqlite.ValidEventTag(text) {
+		return form, nil, nil
+	}
+	return form, &text, nil
+}
+
 // translate handles one candidate and returns success, skipped, failed or
 // dropped (the wording changed while the model was working).
 func (t *Translator) translate(ctx context.Context, item sqlite.TranslationCandidate, providers []provider, counts map[string]any) (string, error) {
@@ -327,7 +472,7 @@ func (t *Translator) translate(ctx context.Context, item sqlite.TranslationCandi
 		name:         translationToolName,
 		schema:       translationSchema,
 		maxTokens:    min(4000, max(1024, 400+3*utf8.RuneCountInString(item.Text))),
-		text:         "Kind: " + translationKindText[item.OwnerType] + "\n\n" + item.Text,
+		text:         "Kind: " + translationKind(item) + "\n\n" + item.Text,
 		includeText:  true,
 		jsonOutput:   true,
 	}
@@ -389,12 +534,12 @@ func retryTranslation(call *modelCall, message string, repaired *bool) (retry, w
 		}
 		call.maxTokens = min(4000, call.maxTokens*2)
 		return true, false
-	case "missing_translation_en", "missing_translation_zh_cn", "invalid_translation", "invalid_response", "no_structured_output":
+	case "missing_translation_en", "missing_translation_ja", "missing_translation_zh_cn", "invalid_translation", "invalid_response", "no_structured_output":
 		if *repaired {
 			return false, false
 		}
 		*repaired = true
-		call.instructions += "\n\nThe previous response failed validation (" + sqlite.TranslationErrorCode(message) + "). Return the complete JSON object matching the schema, with sourceLanguage, english and simplifiedChinese. For every target language different from sourceLanguage, provide a non-empty translation. If a song title or name needs to stay unchanged, copy it into the complete displayed text rather than returning an empty string. Do not omit fields or add commentary."
+		call.instructions += "\n\nThe previous response failed validation (" + sqlite.TranslationErrorCode(message) + "). Return the complete JSON object matching the schema, with sourceLanguage, english, japanese and simplifiedChinese. For every target language different from sourceLanguage, provide a non-empty translation. If a song title or name needs to stay unchanged, copy it into the complete displayed text rather than returning an empty string. Do not omit fields or add commentary."
 		return true, false
 	}
 	if transientModelFailure(message) {
@@ -461,10 +606,10 @@ func (t *Translator) attempt(ctx context.Context, item sqlite.TranslationCandida
 	return result, nil
 }
 
-var translationLocaleFields = map[string]string{"en": "english", "zh-CN": "simplifiedChinese"}
+var translationLocaleFields = map[string]string{"en": "english", "ja": "japanese", "zh-CN": "simplifiedChinese"}
 
 // translationLanguage is the source language that makes a locale unnecessary.
-var translationLanguage = map[string]string{"en": "en", "zh-CN": "zh"}
+var translationLanguage = map[string]string{"en": "en", "ja": "ja", "zh-CN": "zh"}
 
 // normalizeTranslation validates a model result: a known source language and
 // a bounded translation for every locale that differs from it.
@@ -496,4 +641,61 @@ func normalizeTranslation(value any, source string) (sqlite.MachineTranslation, 
 		result.Texts[locale] = text
 	}
 	return result, nil
+}
+
+// TranslationPreview is the candidate list a translate run started now
+// would work through, as the run reads it.
+type TranslationPreview struct {
+	GeneratedAt string `json:"generatedAt"`
+	// Disabled names why the run would translate nothing: no usable target
+	// on the translation queue.
+	Disabled bool   `json:"disabled"`
+	Reason   string `json:"reason,omitempty"`
+	// Limit is the model calls of one run; the run reads twice as many
+	// candidates because local skips use no call.
+	Limit        int                  `json:"limit"`
+	LookbackDays int                  `json:"lookbackDays"`
+	Candidates   []TranslationPending `json:"candidates"`
+}
+
+// TranslationPending is one owner whose current wording waits for a machine
+// translation.
+type TranslationPending struct {
+	OwnerType string `json:"ownerType"`
+	OwnerID   string `json:"ownerId"`
+	Source    string `json:"source"`
+	Requested bool   `json:"requested"`
+	Excerpt   string `json:"excerpt"`
+}
+
+// PreviewQueue lists the translate run's candidates in its order and with
+// its bounds. It writes nothing and calls no model.
+func (t *Translator) PreviewQueue(ctx context.Context) (TranslationPreview, error) {
+	e := t.e
+	if e == nil || e.db == nil {
+		return TranslationPreview{}, ErrStore
+	}
+	out := TranslationPreview{GeneratedAt: sqlite.ISOTime(e.now()), Candidates: []TranslationPending{}}
+	providers, reason, err := e.routeProviders(ctx, routeTranslate, "text")
+	if err != nil {
+		return out, ErrStore
+	}
+	out.Disabled, out.Reason = len(providers) == 0, reason
+	settings, err := e.store.SyncSettings(ctx)
+	if err != nil {
+		return out, ErrStore
+	}
+	out.Limit, out.LookbackDays = settings.TranslationScanLimit, settings.TranslationLookbackDays
+	since := e.now().Add(-time.Duration(out.LookbackDays) * 24 * time.Hour)
+	candidates, err := e.store.ListTranslationCandidates(ctx, since, out.Limit*2)
+	if err != nil {
+		return out, ErrStore
+	}
+	for _, item := range candidates {
+		out.Candidates = append(out.Candidates, TranslationPending{
+			OwnerType: item.OwnerType, OwnerID: item.OwnerID, Source: item.Source,
+			Requested: item.Requested, Excerpt: excerptOf(item.Text),
+		})
+	}
+	return out, nil
 }

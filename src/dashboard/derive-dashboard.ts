@@ -1,8 +1,9 @@
-import type { Dashboard, ScheduleEvent, Video } from "../types.ts"
+import type { Dashboard, LiveNow, ScheduleEvent, Video } from "../types.ts"
 import { streamIdentity } from "../lib/stream-identity.ts"
 import {
   confirmedLiveStatus,
   eventIsLive,
+  eventIsSale,
   eventIsUpcoming,
   eventStatus,
   LIVE_GRACE_MS,
@@ -48,6 +49,44 @@ export function leadingCandidate<T>(
   return lead ?? null
 }
 
+/**
+ * How early before an entry's start its broadcast may open, and how late
+ * after it the broadcast may start.
+ */
+export const LIVE_NOW_EARLY_MS = 2 * 3600 * 1000
+export const LIVE_NOW_LATE_MS = 3 * 3600 * 1000
+
+/**
+ * Whether an entry is the unannounced broadcast's own: a live stream or
+ * membership entry shown on that platform whose broadcast started from two
+ * hours before to three hours after the entry's start. Links never decide
+ * it, since an entry links to its source post.
+ */
+export function eventMatchesLiveNow(event: ScheduleEvent, liveNow: LiveNow) {
+  const platforms: string[] = event.platforms?.length
+    ? event.platforms
+    : [event.platform || ""]
+  if (!platforms.includes(liveNow.platform)) return false
+  if (!["stream", "member"].includes(event.eventType)) return false
+  if (confirmedLiveStatus(event) !== "live") return false
+  const start = Date.parse(event.startsAt || "")
+  const started = Date.parse(liveNow.startedAt)
+  return (
+    started >= start - LIVE_NOW_EARLY_MS && started <= start + LIVE_NOW_LATE_MS
+  )
+}
+
+/** The live-now item, unless an entry already shows that broadcast. */
+export function visibleLiveNow(
+  liveNow: LiveNow | null | undefined,
+  events: ScheduleEvent[],
+): LiveNow | null {
+  if (!liveNow?.url) return null
+  return events.some((event) => eventMatchesLiveNow(event, liveNow))
+    ? null
+    : liveNow
+}
+
 export function videoIsInFocus(video: Video, now: number) {
   if (video.isCancelled) return false
   const start = Date.parse(video.scheduledAt || "")
@@ -61,8 +100,12 @@ export function videoIsInFocus(video: Video, now: number) {
     : Boolean(video.isUpcoming)
 }
 
-/** Recompute time-dependent state from the local snapshot, without network work. */
+/** Apply the compatibility derivation for snapshots without a server projection. */
 export function deriveDashboardAt(snapshot: Dashboard, now: number): Dashboard {
+  // Current API snapshots carry the server-owned projection. The fallback
+  // below remains for cached snapshots and older API responses during the
+  // additive migration.
+  if (snapshot.projection?.version === 1) return snapshot
   const events = snapshot.events.map((event) => ({
     ...event,
     isUpcoming: eventIsUpcoming(event, now),
@@ -89,8 +132,13 @@ export function deriveDashboardAt(snapshot: Dashboard, now: number): Dashboard {
       !["cancelled", "cancellation_review"].includes(eventStatus(event, now)),
   )
   const upcomingEvents = eligible.filter((event) => event.isUpcoming)
+  // A sale period is never the next event: the stage shows activities, and
+  // an order window lasting weeks would hold it.
   const focusEvents = sortEvents(
-    eligible.filter((event) => event.isUpcoming || eventIsLive(event, now)),
+    eligible.filter(
+      (event) =>
+        !eventIsSale(event) && (event.isUpcoming || eventIsLive(event, now)),
+    ),
   )
   const focusVideos = videos
     .filter((video) => videoIsInFocus(video, now))
@@ -115,10 +163,15 @@ export function deriveDashboardAt(snapshot: Dashboard, now: number): Dashboard {
           scheduleSortTime(a.scheduledAt || a.publishedAt) ||
         a.id.localeCompare(b.id),
     )
+  const nextEvent = snapshot.summary.nextEvent
   return {
     ...snapshot,
     events,
     videos,
+    liveNow: visibleLiveNow(
+      snapshot.liveNow,
+      nextEvent ? [...events, nextEvent] : events,
+    ),
     summary: {
       ...snapshot.summary,
       nextEvent: leadingCandidate(

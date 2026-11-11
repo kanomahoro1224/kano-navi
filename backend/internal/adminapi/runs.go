@@ -20,8 +20,11 @@ import (
 // workflowSteps is the step catalog in execution order.
 var workflowSteps = []map[string]string{
 	{"id": "x", "group": "source"},
+	{"id": sqlite.XRelatedStep, "group": "source"},
 	{"id": "youtube", "group": "source"},
 	{"id": "bilibili", "group": "source"},
+	{"id": sqlite.BilibiliDynamicsSource, "group": "source"},
+	{"id": sqlite.ShopSource, "group": "source"},
 	{"id": "media", "group": "process"},
 	{"id": "schedule", "group": "process"},
 	{"id": "translate", "group": "process"},
@@ -118,8 +121,8 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 	case "fetch":
 		jobKind = jobs.KindWorkflow
 		var source, method string
-		if json.Unmarshal(body["source"], &source) != nil || (source != "x" && source != "youtube") {
-			httpx.WriteError(w, httpx.Invalid("source must be x or youtube"))
+		if json.Unmarshal(body["source"], &source) != nil || !slices.Contains(fetchSources, source) {
+			httpx.WriteError(w, httpx.Invalid("source must be x, x_related, youtube, bilibili, bilibili_dynamics or shop"))
 			return
 		}
 		_ = json.Unmarshal(body["method"], &method)
@@ -133,6 +136,10 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, httpx.Invalid("%s", parseErr.Error()))
 			return
 		}
+		if source == history.SourceShop && chosen.Translate {
+			httpx.WriteError(w, httpx.Invalid("translate is not supported for the shop"))
+			return
+		}
 		if described, _ := history.Lookup(source, method); chosen.Extract && !described.Extract {
 			httpx.WriteError(w, httpx.Invalid("extract is not supported for this method"))
 			return
@@ -143,7 +150,19 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, httpx.Invalid("%s", history.UnavailableMessage(source, method)))
 			return
 		}
+		if window.Account != "" {
+			account, accountErr := a.fetchAccount(r, source, window.Account)
+			if accountErr != nil {
+				httpx.WriteError(w, accountErr)
+				return
+			}
+			window.Account = account
+		}
 		options.Steps = []string{source, "media"}
+		if source == history.SourceShop {
+			// The shop's sale periods have no media.
+			options.Steps = []string{source}
+		}
 		if chosen.Extract {
 			options.Steps = append(options.Steps, "schedule")
 		}
@@ -158,6 +177,35 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeStart(w, result)
+}
+
+// fetchSources are the sources a manual fetch can name.
+var fetchSources = []string{history.SourceX, history.SourceXRelated, history.SourceYoutube, history.SourceBilibili, history.SourceBilibiliDynamics, history.SourceShop}
+
+// fetchAccount resolves a fetch's account to its configured spelling: one
+// of the own accounts (X_HANDLES) for an X fetch, or a related account for
+// an x_related fetch.
+func (a *api) fetchAccount(r *http.Request, source, account string) (string, error) {
+	known := a.XHandles
+	if source == history.SourceXRelated {
+		accounts, err := a.Store.XRelatedAccounts(r.Context())
+		if err != nil {
+			return "", err
+		}
+		known = make([]string, 0, len(accounts))
+		for _, related := range accounts {
+			known = append(known, related.Handle)
+		}
+	}
+	for _, handle := range known {
+		if strings.EqualFold(strings.TrimPrefix(handle, "@"), account) {
+			return strings.TrimPrefix(handle, "@"), nil
+		}
+	}
+	if source == history.SourceXRelated {
+		return "", httpx.Invalid("account must be one of the related accounts")
+	}
+	return "", httpx.Invalid("account must be one of the X accounts")
 }
 
 // fetchOptions are a manual fetch's options: run schedule extraction and
@@ -344,11 +392,17 @@ func (a *api) sources(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
 		return
 	}
+	shop, err := a.Store.ShopStatus(ctx)
+	if err != nil {
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+		return
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"schedules": schedules,
 		"x":         map[string]any{"skipped": a.skipped("x"), "methods": a.fetchMethods("x"), "accounts": accounts},
 		"youtube":   map[string]any{"skipped": a.skipped("youtube"), "methods": a.fetchMethods("youtube"), "oldest": oldest, "push": a.pushStatus(), "liveProbe": probe},
 		"bilibili":  bilibili,
+		"shop":      map[string]any{"skipped": a.skipped(sqlite.ShopSource), "methods": a.fetchMethods(history.SourceShop), "status": shop},
 	})
 }
 
@@ -393,6 +447,10 @@ func (a *api) liveProbeState(ctx context.Context) (map[string]any, error) {
 		available = a.LiveProbe()["available"] == true
 	}
 	available = available && !a.skipped("youtube")
+	bilibili, err := a.bilibiliLiveProbe(ctx, settings)
+	if err != nil {
+		return nil, err
+	}
 	var lastRunAt, nextRunAt any
 	if last != nil {
 		lastRunAt = sqlite.ISOTime(*last)
@@ -405,7 +463,7 @@ func (a *api) liveProbeState(ctx context.Context) (map[string]any, error) {
 		"minIntervalMinutes": sqlite.LiveProbeMinMinutes, "maxIntervalMinutes": sqlite.LiveProbeMaxMinutes,
 		"available": available, "lastRunAt": lastRunAt, "nextRunAt": nextRunAt,
 		"activeVideos": len(active), "maxVideos": ytsource.MaxLiveProbes,
-		"videos": videos, "stopped": stopped,
+		"videos": videos, "stopped": stopped, "bilibili": bilibili,
 	}, nil
 }
 
@@ -482,6 +540,18 @@ func (a *api) updateLiveProbe(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			settings.IntervalMinutes = minutes
+		case "bilibiliEnabled":
+			if json.Unmarshal(raw, &settings.BilibiliEnabled) != nil {
+				httpx.WriteError(w, httpx.Invalid("bilibiliEnabled must be a boolean"))
+				return
+			}
+		case "bilibiliIntervalMinutes":
+			minutes, rangeErr := integer(raw, "bilibiliIntervalMinutes", sqlite.BilibiliLiveMinMinutes, sqlite.BilibiliLiveMaxMinutes)
+			if rangeErr != nil {
+				httpx.WriteError(w, rangeErr)
+				return
+			}
+			settings.BilibiliIntervalMinutes = minutes
 		default:
 			httpx.WriteError(w, httpx.Invalid("%s is not a live probe field", key))
 			return
@@ -525,7 +595,7 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
 		return
 	}
-	// The timers are the source schedules (ADR-0003); those SKIP_* disables
+	// The timers are the source schedules; those SKIP_* disables
 	// never run here.
 	timers := map[string]any{"scheduled": 0, "nextRunAt": nil}
 	queue := []map[string]any{}
@@ -566,6 +636,14 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 	}
 	youtube := source("youtube")
 	youtube["push"] = map[string]any{"enabled": push["enabled"] == true, "verified": push["verified"] == true}
+	// The dynamics listing keeps its last success beside the upload read's,
+	// in the account's state.
+	dynamics := source(sqlite.BilibiliDynamicsSource)
+	if a.Bilibili != nil {
+		if status, statusErr := a.Store.BilibiliStatus(ctx, a.Bilibili.Options.Account); statusErr == nil {
+			dynamics["lastSuccessAt"] = status.Dynamics.LastSuccessAt
+		}
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"visitorRegionEnabled": visitorRegion.Enabled,
 		"visitorRegion":        visitorRegion,
@@ -575,14 +653,16 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		"timers":               timers,
 		"queue":                queue,
 		"backlog":              backlog,
-		"sources":              map[string]any{"x": source("x"), "youtube": youtube, "bilibili": source("bilibili")},
+		"sources":              map[string]any{"x": source("x"), sqlite.XRelatedStep: source(sqlite.XRelatedStep), "youtube": youtube, "bilibili": source("bilibili"), sqlite.BilibiliDynamicsSource: dynamics, sqlite.ShopSource: source(sqlite.ShopSource)},
 		"review": map[string]int{
 			"pendingImages":          counts.PendingImages,
 			"suspectedCancellations": counts.SuspectedCancellations,
+			"uncertainEvents":        counts.UncertainEvents,
 			"failedPosts":            counts.FailedPosts,
 			"failedExtractions":      counts.FailedExtractions,
 			"failedTranslations":     counts.FailedTranslations,
 			"videoMerges":            counts.VideoMerges,
+			"bilibiliForms":          counts.BilibiliForms,
 		},
 		"counts": map[string]int{
 			"upcomingEvents": counts.UpcomingEvents,

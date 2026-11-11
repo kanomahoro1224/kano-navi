@@ -63,8 +63,10 @@ type VideoTagCandidate struct{ ID, Source, Title string }
 // eventFrom, which the entry inference reads instead. An entry whose only
 // label is a form from a notice, or an operator's row that never had a label, leaves
 // the video to its own title, since the calendar reads on to a video's
-// content tag there. Bilibili uploads are never shown, so they are not asked
-// about. Videos never attempted
+// content tag there. A Bilibili upload is asked about once it is public:
+// unmerged with its form settled. An upload whose form is still unsettled is
+// asked for form and tag together instead (ListBilibiliFormCandidates), and
+// nobody is asked about one marked private or removed. Videos never attempted
 // come first, then the least recently attempted, each group newest first, so
 // recent uploads are tagged before the backlog and a title whose attempts
 // keep failing moves behind the others. A failed video waits until its last
@@ -77,7 +79,9 @@ func (s *Store) ListVideoTagCandidates(ctx context.Context, eventFrom string, re
 		limit = 1
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT v.id,v.source,COALESCE(v.manual_title,v.title) FROM videos v
-		WHERE `+publicVideoScope+` AND v.merged_into IS NULL AND v.manual_tag IS NULL AND v.tag IS NULL AND COALESCE(v.tag_source,'')=''
+		WHERE `+publicVideoScope+`
+			AND (v.source='youtube' OR COALESCE(v.manual_availability,v.availability,'') NOT IN('private','removed'))
+			AND v.merged_into IS NULL AND v.manual_tag IS NULL AND v.tag IS NULL AND COALESCE(v.tag_source,'')=''
 			AND (v.tag_attempted_at IS NULL OR julianday(v.tag_attempted_at)<=julianday(?))
 			AND NOT EXISTS (SELECT 1 FROM events e LEFT JOIN events t ON t.id=e.merged_into AND t.deleted_at IS NULL
 				WHERE e.deleted_at IS NULL AND `+videoEventMatch("v")+`

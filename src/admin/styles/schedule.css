@@ -1,0 +1,660 @@
+/* The view switch on the left; the list's dates or the calendar's month on
+   the right. */
+.adm-schedule-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.adm-schedule-dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.adm-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.adm-month-nav strong {
+  min-width: 132px;
+  font-size: 15px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A list's task tabs beside its search field. */
+.adm-list-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.adm-list-tools .adm-search {
+  flex: 1 1 240px;
+}
+
+/* The task tabs stay on one line and scroll on a phone. */
+.adm-list-tools .adm-segmented {
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.adm-list-tools .adm-segmented button {
+  flex: none;
+  padding-inline: 11px;
+}
+
+.adm-list-tools .adm-search input {
+  height: 36px;
+  border-radius: 999px;
+}
+
+/*
+ * The schedule calendar: a compact Monday-first month grid on the left with
+ * the selected week's schedule images under it, held in view, and that
+ * week's seven days on the right. Each grid row is a week that ends in its
+ * image mark (honey while an image waits for review); each day shows its
+ * entries as dots by review state, which the legend names. The selected
+ * week is tinted and the selected day filled. Under 1000px the parts stack.
+ */
+.adm-planner {
+  display: grid;
+  grid-template-columns: minmax(300px, 5fr) minmax(0, 7fr);
+  align-items: start;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.adm-planner-side {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.adm-planner-images {
+  display: grid;
+  gap: 14px;
+}
+
+.adm-planner-agenda {
+  container-type: inline-size;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.adm-planner-week {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.adm-planner-week strong {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-cal {
+  overflow: hidden;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+}
+
+.adm-cal-weekdays,
+.adm-cal-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) 26px;
+}
+
+.adm-cal-weekdays {
+  background: var(--adm-sunken);
+}
+
+.adm-cal-weekdays span {
+  padding: 6px 0;
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.adm-cal-row {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-cal-row.is-selected {
+  background: var(--adm-accent-soft);
+}
+
+.adm-cal-cell {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 2px;
+  border: 0;
+  background: none;
+  color: var(--adm-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.adm-cal-cell:hover {
+  background: color-mix(in oklab, hsl(var(--muted)) 45%, transparent);
+}
+
+.adm-cal-cell:focus-visible {
+  outline: none;
+  box-shadow: var(--adm-focus);
+}
+
+.adm-cal-date {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-cal-cell.is-outside .adm-cal-date {
+  color: var(--adm-muted);
+  font-weight: 500;
+}
+
+.adm-cal-cell.is-today .adm-cal-date {
+  color: var(--adm-accent);
+  box-shadow: inset 0 0 0 1.5px var(--adm-accent);
+}
+
+.adm-cal-cell.is-selected .adm-cal-date {
+  background: var(--adm-accent);
+  color: hsl(var(--background));
+  box-shadow: none;
+}
+
+.adm-cal-dots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 7px;
+}
+
+.adm-cal-dots small {
+  color: var(--adm-muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.adm-cal-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sky);
+}
+
+.adm-cal-dot.is-uncertain {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--lavender);
+}
+
+.adm-cal-dot.is-suspected {
+  background: var(--honey);
+}
+
+.adm-cal-dot.is-cancelled {
+  background: var(--danger);
+}
+
+.adm-cal-dot.is-hidden {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--adm-muted);
+}
+
+.adm-cal-week-mark-cell {
+  display: grid;
+  place-items: center;
+  color: var(--leaf);
+}
+
+.adm-cal-week-mark-cell.is-pending {
+  color: var(--honey);
+}
+
+.adm-shell .adm-cal-week-mark {
+  width: 14px;
+  height: 14px;
+}
+
+.adm-cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  color: var(--adm-muted);
+  font-size: 12px;
+  list-style: none;
+}
+
+.adm-cal-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-cal-legend .adm-cal-week-mark {
+  color: var(--leaf);
+}
+
+.adm-week-day {
+  scroll-margin-top: 16px;
+}
+
+.adm-week-day.is-selected .adm-day-head {
+  border-bottom-color: var(--adm-accent);
+}
+
+.adm-week-day.is-selected .adm-day-head h3 {
+  color: var(--adm-accent);
+}
+
+/* The week's images labelled Not a schedule, folded under its others. */
+.adm-planner-excluded > .adm-planner-images {
+  margin-top: 10px;
+}
+
+/* While only what needs a look shows: the next such week and the queue. */
+.adm-look-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+@media (max-width: 1000px) {
+  .adm-planner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-planner-side {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/*
+ * An entry's review in place, in the row: honey for a suspected
+ * cancellation and lavender for an uncertain addition, which the row's edge
+ * repeats. Merged duplicates follow as quiet lines with their undo.
+ */
+.adm-event-row.needs-review {
+  box-shadow: inset 3px 0 0 var(--review-tone);
+}
+
+:is(.adm-event-row, .adm-review-note).is-suspected {
+  --review-tone: var(--honey);
+}
+
+:is(.adm-event-row, .adm-review-note).is-uncertain {
+  --review-tone: var(--lavender);
+}
+
+.adm-review-note {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--adm-radius-sm);
+  background: color-mix(in oklab, var(--review-tone) 12%, transparent);
+  font-size: 13px;
+}
+
+.adm-review-note-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-shell .adm-review-note-head svg {
+  width: 15px;
+  height: 15px;
+  color: var(--review-tone);
+}
+
+.adm-review-note-head span {
+  color: var(--adm-muted);
+}
+
+.adm-review-note p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.adm-review-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.adm-merged-list {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  color: var(--adm-muted);
+  font-size: 12px;
+  list-style: none;
+}
+
+.adm-merged-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-shell .adm-merged-list li > svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+
+.adm-merged-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Entries grouped by Japan date: a day heading with its count and a quick
+ * add, then each entry's time, title and badges, and actions. The title
+ * opens the entry dialog. A narrow list moves the actions under the title.
+ */
+.adm-schedule-days {
+  container-type: inline-size;
+  display: grid;
+  gap: 18px;
+  margin-top: 16px;
+}
+
+/* The selected week's schedule image cards and the note when it has none. */
+.adm-week-noimage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px dashed var(--adm-line-strong);
+  border-radius: var(--adm-radius-sm);
+  color: var(--adm-muted);
+  font-size: 13px;
+}
+
+.adm-shell .adm-week-noimage svg {
+  width: 16px;
+  height: 16px;
+}
+
+.adm-week-image {
+  overflow: hidden;
+  border: 1px solid var(--adm-line);
+  border-left: 4px solid var(--tone, var(--adm-line-strong));
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+}
+
+.adm-week-image-media {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  background: var(--adm-sunken);
+  color: var(--adm-muted);
+}
+
+.adm-week-image-media img {
+  width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+}
+
+.adm-week-image-media span {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.adm-week-image-body {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.adm-week-image-period {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-shell .adm-week-image-period svg {
+  width: 14px;
+  height: 14px;
+  color: var(--adm-muted);
+}
+
+.adm-week-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm-week-image-actions .adm-spacer {
+  flex: 1;
+}
+
+/* An empty day keeps its heading and its new-entry button only. */
+.adm-week-day.is-empty .adm-day-head {
+  border-bottom-style: dashed;
+  color: var(--adm-muted);
+}
+
+.adm-day-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px 6px;
+  border-bottom: 1px solid var(--adm-line-strong);
+}
+
+.adm-day-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-day-head h3 em {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--adm-sunken);
+  color: var(--adm-muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.adm-day-head.is-today h3 em {
+  background: var(--adm-accent-soft);
+  color: var(--adm-accent);
+}
+
+.adm-day-head small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-day-head .adm-icon-button {
+  margin-left: auto;
+}
+
+.adm-event-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-event-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  grid-template-areas: "time main actions";
+  align-items: start;
+  gap: 16px;
+  padding: 10px 4px;
+}
+
+.adm-event-row + .adm-event-row {
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-event-row.is-deleted .adm-event-time,
+.adm-event-row.is-deleted .adm-event-main,
+.adm-event-row.is-merged .adm-event-time,
+.adm-event-row.is-merged .adm-event-main,
+.adm-event-row.is-hidden .adm-event-time,
+.adm-event-row.is-hidden .adm-event-main {
+  opacity: 0.6;
+}
+
+.adm-event-row.is-deleted .adm-event-title {
+  text-decoration: line-through;
+}
+
+.adm-event-time {
+  display: grid;
+  grid-area: time;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-event-time strong {
+  font-size: 15px;
+}
+
+.adm-event-time.is-all-day strong {
+  color: var(--adm-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.adm-event-time small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-event-main {
+  display: grid;
+  grid-area: main;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adm-event-title {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--adm-text);
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.adm-event-title:hover {
+  color: var(--adm-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.adm-event-title:focus-visible {
+  border-radius: 4px;
+  outline: none;
+  box-shadow: var(--adm-focus);
+}
+
+.adm-event-main .adm-chip-row {
+  min-width: 0;
+}
+
+.adm-event-main small {
+  color: var(--adm-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.adm-event-actions {
+  grid-area: actions;
+}
+
+.adm-event-actions > .adm-button {
+  margin-right: 4px;
+}
+
+/* A merge target title or a post's retry time can be long; it wraps instead
+   of widening the row or spilling into the next column. */
+.adm-badge.adm-merge-badge,
+.adm-badge.adm-retry-badge {
+  padding-block: 4px;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.adm-entry-updated {
+  font-size: 12px;
+}
+
+@container (max-width: 700px) {
+  .adm-event-row {
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-areas:
+      "time main"
+      ". actions";
+    gap: 8px 12px;
+  }
+
+  .adm-event-actions {
+    justify-content: flex-start;
+  }
+}

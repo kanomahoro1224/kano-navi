@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// X API chain state (ADR-0004) lives in sync_state under source x-api: one
+// X API chain state lives in sync_state under source x-api: one
 // row per account with its consecutive timeline failures, and the usage row
 // with the posts X API reads returned on the current Japan day.
 const (

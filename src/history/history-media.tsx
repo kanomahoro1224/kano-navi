@@ -4,10 +4,15 @@ import { ArrowUpRight, ImageOff, Images } from "lucide-react"
 
 import { mediaSrcSet } from "@/lib/media"
 import { ExternalLink } from "@/site/links"
-import { localized, sourceName } from "./media"
+import {
+  localized,
+  sourceName,
+  type FixedMediaItem,
+  type HistoryMediaItem,
+  type ReleaseCoverItem,
+} from "./media"
 
-export type HistoryMediaItem =
-  (typeof import("./media"))["historyMedia"][number]
+export type { HistoryMediaItem }
 
 /** How wide each history thumbnail shows (src/history/history.css). */
 export const HISTORY_IMAGE_SIZES = {
@@ -19,7 +24,8 @@ export const HISTORY_IMAGE_SIZES = {
 } as const
 
 /**
- * Local fixed image; a missing file shows an explicit unavailable state.
+ * A Journey image or a Works cover; a missing file shows an explicit
+ * unavailable state.
  * With sizes it offers the server's smaller copies; without, as in the
  * viewer, it loads the original.
  */
@@ -30,6 +36,7 @@ export function HistoryImage({
   eager = false,
   decorative = false,
   sizes,
+  focus,
 }: {
   item: HistoryMediaItem
   locale: Locale
@@ -37,6 +44,8 @@ export function HistoryImage({
   eager?: boolean
   decorative?: boolean
   sizes?: string
+  /** Where a cropping box anchors the image (CSS object-position). */
+  focus?: string
 }) {
   const [failed, setFailed] = useState(false)
   if (failed) {
@@ -61,6 +70,7 @@ export function HistoryImage({
       height={item.height}
       loading={eager ? "eager" : "lazy"}
       decoding="async"
+      style={focus ? { objectPosition: focus } : undefined}
       onError={() => setFailed(true)}
     />
   )
@@ -98,6 +108,7 @@ export function MilestoneMedia({
             t={t}
             decorative
             sizes={HISTORY_IMAGE_SIZES.milestone}
+            focus={item.origin === "fixed" ? item.focus : undefined}
           />
           {item.frameTime ? (
             <span className="frame-time">{item.frameTime}</span>
@@ -150,7 +161,13 @@ export function GalleryTile({
           <span>{item.date || t("history.dateUnknown")}</span>
         </span>
         <strong>{localized(item.title, locale)}</strong>
-        {item.credit ? <small>{item.credit}</small> : null}
+        {item.origin === "release" ? (
+          item.cover.caption ? (
+            <small lang="zh-CN">{item.cover.caption}</small>
+          ) : null
+        ) : item.credit ? (
+          <small>{item.credit}</small>
+        ) : null}
       </figcaption>
     </figure>
   )
@@ -163,6 +180,109 @@ export function ImageDetails({
   t,
 }: {
   item: HistoryMediaItem
+  locale: Locale
+  t: Translator
+}) {
+  return item.origin === "release" ? (
+    <ReleaseCoverDetails item={item} t={t} />
+  ) : (
+    <FixedImageDetails item={item} locale={locale} t={t} />
+  )
+}
+
+/**
+ * A release cover's panel, with the Works page's provenance: the file's page,
+ * whether it is the publisher's or a third party's, and who scanned or gave
+ * it.
+ */
+function ReleaseCoverDetails({
+  item,
+  t,
+}: {
+  item: ReleaseCoverItem
+  t: Translator
+}) {
+  const { cover } = item
+  const credit = cover.credit
+  const note = item.cancelled
+    ? "cancelledRelease"
+    : cover.thirdParty
+      ? "thirdPartyCover"
+      : "cover"
+  return (
+    <div className="image-details">
+      <p className="kicker">{t("history.mediaKind.cover")}</p>
+      <h2>{item.title.en}</h2>
+      {cover.caption ? <p lang="zh-CN">{cover.caption}</p> : null}
+      <dl>
+        <div>
+          <dt>{t("history.dateKind.release")}</dt>
+          <dd>{item.date}</dd>
+        </div>
+        <div>
+          <dt>{t("history.imageSize")}</dt>
+          <dd>
+            {cover.width} × {cover.height} ·{" "}
+            {cover.media.split(".").pop()?.toUpperCase()}
+          </dd>
+        </div>
+        <div>
+          <dt>{t("history.imageSource")}</dt>
+          <dd>
+            {t(
+              cover.thirdParty
+                ? "history.sourceKind.thirdPartyCover"
+                : "history.sourceKind.officialCover",
+            )}
+          </dd>
+        </div>
+        {credit ? (
+          <div>
+            <dt>{t("history.creator")}</dt>
+            <dd>
+              {credit.url && credit.name ? (
+                <ExternalLink className="text-link" href={credit.url}>
+                  {t(`history.coverCredit.${credit.role}`, {
+                    name: credit.name,
+                  })}
+                </ExternalLink>
+              ) : (
+                t(`history.coverCredit.${credit.role}`, {
+                  name: credit.name ?? "",
+                })
+              )}
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+      <p className="image-details-note">{t(`history.imageNote.${note}`)}</p>
+      <div className="image-details-links">
+        <a
+          className="pill-button"
+          href={`/works?release=${encodeURIComponent(item.releaseId)}`}
+        >
+          {t("history.openRelease")}
+        </a>
+        {cover.source ? (
+          <ExternalLink className="text-link" href={cover.source}>
+            {t("history.openSource")} · {sourceName(cover.source, t)}
+            <ArrowUpRight aria-hidden="true" />
+          </ExternalLink>
+        ) : cover.sourceLabel ? (
+          <span className="text-link">{cover.sourceLabel}</span>
+        ) : null}
+      </div>
+      <p className="image-details-rights">{t("history.imageRights")}</p>
+    </div>
+  )
+}
+
+function FixedImageDetails({
+  item,
+  locale,
+  t,
+}: {
+  item: FixedMediaItem
   locale: Locale
   t: Translator
 }) {
@@ -209,12 +329,14 @@ export function ImageDetails({
           {t("history.openSource")} · {sourceName(item.sourcePage, t)}
           <ArrowUpRight aria-hidden="true" />
         </ExternalLink>
-        <ExternalLink className="text-link" href={item.url}>
-          {t("history.cachedOriginal")}
-          <ArrowUpRight aria-hidden="true" />
-        </ExternalLink>
         <ExternalLink className="text-link" href={item.sourceUrl}>
-          {t(item.frameTime ? "history.originalStream" : "history.sourceImage")}
+          {t(
+            item.sourceKind === "streamArchive"
+              ? "history.originalStream"
+              : item.frameTime
+                ? "history.videoAtFrame"
+                : "history.sourceImage",
+          )}
           <ArrowUpRight aria-hidden="true" />
         </ExternalLink>
       </div>

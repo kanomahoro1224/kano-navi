@@ -61,6 +61,15 @@ type console struct {
 	cookie  string
 }
 
+func TestNewWithoutAuthReturnsUnavailable(t *testing.T) {
+	handler := New(Options{})
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/admin/overview", nil))
+	if recorder.Code != http.StatusServiceUnavailable || recorder.Body.String() != `{"error":"admin_unavailable"}` {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func newAuth(t *testing.T, mode, password string) *adminauth.Auth {
 	t.Helper()
 	cfg, err := adminauth.NewConfig(mode, password, "")
@@ -81,11 +90,11 @@ func newConsole(t *testing.T, mode, password string, steps *gatedSteps) *console
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { store.Close() })
-	steps.seen = make(chan string, 32)
+	steps.seen = make(chan string, 64)
 	executor := &workflow.Executor{
 		Store: store, Steps: steps,
-		SyntheticSteps:  map[string]bool{"x": false, "youtube": false, "bilibili": false, "bilibili-posts": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
-		TolerateFailure: map[string]bool{"x": true, "youtube": true, "bilibili": true, "bilibili-posts": true, "translate": true},
+		SyntheticSteps:  map[string]bool{"x": false, "x_related": false, "youtube": false, "bilibili": false, "bilibili_dynamics": false, "shop": false, "media": false, "schedule": false, "translate": false, "variants": false, "reconcile": false},
+		TolerateFailure: map[string]bool{"x": true, "x_related": true, "youtube": true, "bilibili": true, "bilibili_dynamics": true, "shop": true, "translate": true},
 	}
 	queue := &workflow.Queue{Store: store, Executor: executor}
 	t.Cleanup(queue.Close)
@@ -103,7 +112,7 @@ func newConsole(t *testing.T, mode, password string, steps *gatedSteps) *console
 		FetchMethods: func(source string) []history.MethodStatus {
 			out := []history.MethodStatus{}
 			for _, method := range history.Methods(source) {
-				out = append(out, history.MethodStatus{Method: method, Available: source == "youtube" || method.ID == history.MethodTimeline})
+				out = append(out, history.MethodStatus{Method: method, Available: source == "youtube" || source == history.SourceShop || source == history.SourceBilibili || method.ID == history.MethodTimeline})
 			}
 			return out
 		},
@@ -163,18 +172,19 @@ func (c *console) text(t *testing.T, statement string, args ...any) string {
 func (c *console) waitForRun(t *testing.T, id, status string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
+	var run map[string]any
 	for time.Now().Before(deadline) {
 		code, payload := c.call(t, "GET", "/api/admin/runs/"+id, "")
 		if code != 200 {
 			t.Fatalf("run read=%d %v", code, payload)
 		}
-		run := payload["run"].(map[string]any)
+		run = payload["run"].(map[string]any)
 		if run["status"] == status {
 			return run
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("run %s never reached %s", id, status)
+	t.Fatalf("run %s never reached %s: %v", id, status, run)
 	return nil
 }
 
@@ -232,13 +242,13 @@ func TestSessionGuardsEveryRoute(t *testing.T) {
 func TestOneOffStepRunsReplaceSavedWorkflows(t *testing.T) {
 	c := newConsole(t, "development", "", &gatedSteps{})
 	code, payload := c.call(t, "GET", "/api/admin/runs/steps", "")
-	if code != 200 || len(payload["steps"].([]any)) != 7 {
+	if code != 200 || len(payload["steps"].([]any)) != 10 {
 		t.Fatalf("catalog=%d %v", code, payload)
 	}
 	if skipped := payload["skippedSteps"].([]any); len(skipped) != 1 || skipped[0] != "media" {
 		t.Fatalf("skipped=%v", skipped)
 	}
-	// There are no saved workflows (ADR-0003): the workflow endpoints are
+	// There are no saved workflows: the workflow endpoints are
 	// unknown routes and a workflowId is refused.
 	for _, route := range [][2]string{{"GET", "/api/admin/workflows"}, {"POST", "/api/admin/workflows"}, {"PUT", "/api/admin/workflows/full-refresh"}, {"DELETE", "/api/admin/workflows/full-refresh"}} {
 		if code, payload := c.call(t, route[0], route[1], `{"name":"Flow","steps":["x"]}`); code != 404 || payload["error"] != "not_found" {
@@ -311,7 +321,7 @@ func TestRunsAreSingleFlightAndSurviveOneFailedSource(t *testing.T) {
 		`{"kind":"variants"}`:             "variants is not available",
 		`{"kind":"sync","source":"x"}`:    "source is not supported for sync",
 		`{"kind":"workflow"}`:             "steps must be an array of step ids",
-		`{"kind":"fetch","source":"rss"}`: "source must be x or youtube",
+		`{"kind":"fetch","source":"rss"}`: "source must be x, x_related, youtube, bilibili, bilibili_dynamics or shop",
 	} {
 		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
 			t.Fatalf("%s => %d %v", body, code, payload)
@@ -401,6 +411,13 @@ func TestSourceFetchMethods(t *testing.T) {
 	if _, legacy := x["windows"]; legacy {
 		t.Fatalf("x=%v", x)
 	}
+	shop := payload["shop"].(map[string]any)
+	if got := describe(shop); got != "catalog [all] 0 true <nil>" || shop["status"].(map[string]any)["sales"] != float64(0) {
+		t.Fatalf("shop=%v", shop)
+	}
+	if got := describe(payload["bilibili"].(map[string]any)); got != "space [count all] 200 true <nil>" {
+		t.Fatalf("bilibili methods=%s", got)
+	}
 	for body, message := range map[string]string{
 		`{"kind":"fetch","source":"x","window":{"mode":"count","count":5}}`:                                                           "method must be one of timeline, api",
 		`{"kind":"fetch","source":"x","method":"timeline"}`:                                                                           "fetch window is required",
@@ -415,6 +432,14 @@ func TestSourceFetchMethods(t *testing.T) {
 		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"all"},"options":{"translate":"yes"}}`:                     "options.translate must be true or false",
 		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"all"},"options":{"fallback":true}}`:                       "options.fallback is not supported",
 		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"all"},"options":[]}`:                                      "options must be an object",
+		`{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"count","count":5}}`:                                     "this fetch uses a retired selection; start a new fetch",
+		`{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"all"},"options":{"translate":true}}`:                    "translate is not supported for the shop",
+		`{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"all"},"options":{"extract":true}}`:                      "extract is not supported for this method",
+		`{"kind":"fetch","source":"bilibili","method":"api","window":{"mode":"all"}}`:                                                 "method must be one of space",
+		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"count","count":201}}`:                                 "count must be an integer from 1 to 200",
+		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"all"},"options":{"refresh":true}}`:                    "refresh is not supported for this method",
+		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"all"},"options":{"extract":true}}`:                    "extract is not supported for this method",
+		`{"kind":"fetch","source":"bilibili_dynamics","method":"space","window":{"mode":"all"},"options":{"extract":true}}`:           "BILIBILI_COOKIE or BILIBILI_SESSDATA is required for the space method",
 	} {
 		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
 			t.Fatalf("%s => %d %v", body, code, payload)
@@ -432,6 +457,24 @@ func TestSourceFetchMethods(t *testing.T) {
 	}
 	if fmt.Sprint(all["steps"]) != "[youtube media translate reconcile]" {
 		t.Fatalf("steps=%v", all["steps"])
+	}
+	// A Bilibili fetch reads its uploads, then their covers.
+	code, payload = c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"count","count":30},"options":{"translate":true}}`)
+	if code != 202 {
+		t.Fatalf("bilibili=%d %v", code, payload)
+	}
+	uploads := c.waitForRun(t, runID(t, payload), "completed")
+	if window := uploads["fetchWindows"].(map[string]any)["bilibili"].(map[string]any); window["method"] != "space" || window["mode"] != "count" || window["count"] != float64(30) || fmt.Sprint(uploads["steps"]) != "[bilibili media translate reconcile]" {
+		t.Fatalf("bilibili run=%v", uploads)
+	}
+	// The shop's read-all has no media to download.
+	code, payload = c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"shop","method":"catalog","window":{"mode":"all"}}`)
+	if code != 202 {
+		t.Fatalf("shop=%d %v", code, payload)
+	}
+	catalog := c.waitForRun(t, runID(t, payload), "completed")
+	if window := catalog["fetchWindows"].(map[string]any)["shop"].(map[string]any); window["method"] != "catalog" || window["mode"] != "all" || fmt.Sprint(catalog["steps"]) != "[shop reconcile]" {
+		t.Fatalf("shop run=%v", catalog)
 	}
 	code, payload = c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"count","count":20},"options":{"extract":true,"translate":false}}`)
 	if code != 202 {
@@ -456,14 +499,54 @@ func TestSourceFetchMethods(t *testing.T) {
 	}
 }
 
+func TestFetchesNameOneConfiguredAccount(t *testing.T) {
+	c := newConsole(t, "development", "", &gatedSteps{})
+	if code, payload := c.call(t, "PUT", "/api/admin/sources/x/related", `{"accounts":[{"handle":"agency_synthetic","keywords":["synthetic"]}]}`); code != 200 {
+		t.Fatalf("related=%d %v", code, payload)
+	}
+	for body, message := range map[string]string{
+		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"count","count":5,"account":"agency_synthetic"}}`:  "account must be one of the X accounts",
+		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"count","count":5,"account":"not a handle"}}`:      "account must be an X handle",
+		`{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"count","count":5,"account":7}}`:                   "account must be an X handle",
+		`{"kind":"fetch","source":"youtube","method":"rss","window":{"mode":"count","count":5,"account":"synthetic_one"}}`:    "account is not supported for this source",
+		`{"kind":"fetch","source":"x_related","method":"timeline","window":{"mode":"incremental"}}`:                           "account is required",
+		`{"kind":"fetch","source":"x_related","method":"timeline","window":{"mode":"all","account":"agency_synthetic"}}`:      "this fetch uses a retired selection; start a new fetch",
+		`{"kind":"fetch","source":"x_related","method":"timeline","window":{"mode":"incremental","account":"synthetic_one"}}`: "account must be one of the related accounts",
+		`{"kind":"fetch","source":"x_related","method":"api","window":{"mode":"incremental","account":"agency_synthetic"}}`:   "method must be one of timeline",
+	} {
+		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
+			t.Fatalf("%s => %d %v", body, code, payload)
+		}
+	}
+	// An X fetch of one own account freezes its configured spelling.
+	code, payload := c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"x","method":"timeline","window":{"mode":"count","count":5,"account":"@Synthetic_One"}}`)
+	if code != 202 {
+		t.Fatalf("x=%d %v", code, payload)
+	}
+	own := c.waitForRun(t, runID(t, payload), "completed")
+	if window := own["fetchWindows"].(map[string]any)["x"].(map[string]any); window["account"] != "synthetic_one" || window["count"] != float64(5) {
+		t.Fatalf("x window=%v", window)
+	}
+	// A related account's fetch is the x_related step for that account,
+	// then the options' steps.
+	code, payload = c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"x_related","method":"timeline","window":{"mode":"incremental","account":"Agency_Synthetic"},"options":{"extract":true,"translate":true}}`)
+	if code != 202 {
+		t.Fatalf("related fetch=%d %v", code, payload)
+	}
+	related := c.waitForRun(t, runID(t, payload), "completed")
+	if window := related["fetchWindows"].(map[string]any)["x_related"].(map[string]any); window["method"] != "timeline" || window["mode"] != "incremental" || window["account"] != "agency_synthetic" {
+		t.Fatalf("related window=%v", window)
+	}
+	if fmt.Sprint(related["steps"]) != "[x_related media schedule translate reconcile]" {
+		t.Fatalf("related steps=%v", related["steps"])
+	}
+}
+
 func TestFetchMethodsFailClosedWithoutHistoryWiring(t *testing.T) {
 	a := &api{}
-	for _, source := range []string{"x", "youtube"} {
+	for _, source := range []string{"x", "youtube", "bilibili", "bilibili_dynamics"} {
 		methods := a.fetchMethods(source)
-		want := 2
-		if source == "youtube" {
-			want = 3
-		}
+		want := map[string]int{"x": 2, "youtube": 3, "bilibili": 1, "bilibili_dynamics": 1}[source]
 		if len(methods) != want {
 			t.Fatalf("%s methods=%v", source, methods)
 		}
@@ -483,6 +566,9 @@ func TestOverviewCountsWhatNeedsReview(t *testing.T) {
 	}
 	if code, settings = c.call(t, "PUT", "/api/admin/settings/visitor-region", `{}`); code != 400 || settings["message"] != "enabled is required" {
 		t.Fatalf("visitor region missing=%d %v", code, settings)
+	}
+	if code, settings = c.call(t, "PUT", "/api/admin/settings/visitor-region", `{"enabled":true,"providerName":"Provider","providerUrl":"https://provider.example.test/?token=synthetic","mirrorUrl":"https://mirror.example.test"}`); code != 400 || settings["message"] == nil {
+		t.Fatalf("visitor region credential URL=%d %v", code, settings)
 	}
 	if code, settings = c.call(t, "PUT", "/api/admin/settings/visitor-region", `{"enabled":true,"providerName":"Provider","providerUrl":"https://provider.example.test","mirrorUrl":"https://mirror.example.test"}`); code != 200 || settings["enabled"] != true || settings["providerName"] != "Provider" {
 		t.Fatalf("visitor region enable=%d %v", code, settings)

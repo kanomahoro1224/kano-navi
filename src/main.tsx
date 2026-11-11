@@ -57,7 +57,7 @@ const routes: Record<string, () => Promise<ComponentType>> = {
     ])
     return withMessages(page.AdminApp, copy.adminMessages)
   },
-  "/history": async () => {
+  "/journey": async () => {
     const [page, copy] = await Promise.all([
       import("@/history/history-app"),
       import("@/history/history-i18n"),
@@ -71,10 +71,17 @@ const routes: Record<string, () => Promise<ComponentType>> = {
     ])
     return withMessages(page.LineblogApp, copy.lineblogMessages)
   },
+  "/works": async () => {
+    const [page, copy] = await Promise.all([
+      import("@/works/works-app"),
+      import("@/works/works-i18n"),
+    ])
+    return withMessages(page.WorksApp, copy.worksMessages)
+  },
 }
 
 /** Public pages open each other in place; /admin always loads on its own. */
-const publicPages = ["/", "/history", "/lineblog", "/about"]
+const publicPages = ["/", "/journey", "/works", "/lineblog", "/about"]
 
 const loadedPages = new Map<string, ComponentType>()
 const pendingPages = new Map<string, Promise<ComponentType>>()
@@ -96,6 +103,18 @@ function loadPage(path: string) {
     pendingPages.set(path, pending)
   }
   return pending
+}
+
+// The journey's earlier address shows it at its own. The server redirects
+// it (backend/internal/httpapi/static.go); a development server answers it
+// with the application instead.
+if (pagePath(window.location.pathname) === "/history") {
+  const { search, hash } = window.location
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `/journey${search}${hash}`,
+  )
 }
 
 // The first page's code starts loading with this module instead of after the

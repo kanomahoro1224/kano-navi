@@ -20,12 +20,16 @@ data/
     sha256/<first-two>/<content-sha256>.<extension>
   bilibili/
     sha256/<first-two>/<content-sha256>.<extension>
+  niconico/
+    sha256/<first-two>/<content-sha256>.<extension>
   avatar/
     avatar.<extension>
     banner.<extension>
     sha256/<first-two>/<content-sha256>.<extension>
   lineblog/
     <12-hex-name>.<jpg|png|mp4>
+  works/
+    <12-hex-name>.<jpg|png>
   cache/media/
     sha256/<first-two>/<content-sha256>.<extension>
   cache/variants/
@@ -38,18 +42,13 @@ The whole `data/` directory is ignored by Git. It is created on demand by the
 server or synchronization command. Each write goes to a randomly named
 temporary file in its target directory (`.download-*`, `.part-*`,
 `.variant-*` or `.hash-*`) that is atomically renamed into place. The tracked
-`public/assets/` directory is reserved for fixed fallback branding and the
-reviewed history collection.
+`public/assets/` directory is reserved for fixed fallback branding.
 
 Discovered X and YouTube profile candidates stay in their source namespaces;
 local uploads (`data/avatar/sha256/`) and the selected avatar and banner files
 remain runtime data in `data/avatar/`. A `cache_path` that starts with
 `sha256/` resolves under `data/cache/media/`; readers serve such rows, while
-the downloaders write only the source namespaces. The curated history
-collection ships as verified fixed files in `public/assets/history/`; it needs
-no runtime database rows. See
-[History archive maintenance](../development/history-archive.md) for packaging and
-provenance details.
+the downloaders write only the source namespaces.
 
 ## LINE BLOG Archive Media
 
@@ -60,14 +59,84 @@ have no database rows: the tracked `src/lineblog/media-catalog.json` lists
 them. `GET /media/lineblog/<name>` (and `HEAD`) opens the directory as a root
 and serves only a regular file directly inside it whose name is 12 lowercase
 hex digits and `.jpg`, `.png` or `.mp4`; the type comes from the extension.
-Responses carry `nosniff`, `default-src 'none'; sandbox`, an ETag of the name
-and size, byte ranges, conditional requests and the
+Responses carry `nosniff`, `default-src 'none'; sandbox`, an ETag of the name,
+size and modification time, byte ranges, conditional requests and the
 [media body time limits](#http-contract); images whose bytes match
 their name are immutable and everything else revalidates
 ([Immutable Fixed Files](#immutable-fixed-files)). Any
 other name, a directory, a symlink or a missing file answers `404`. The
 server never writes this directory. Its images have smaller copies (see
 [Resized Copies](#resized-copies)); videos ignore `w`.
+
+## Discography Covers
+
+`data/works/` holds the cover images of the discography page, written only by
+the maintainer's packaging command
+([Works archive maintenance](../development/works-archive.md)). They have no
+database rows: the tracked `src/works/media-catalog.json` lists them.
+`GET /media/works/<name>` (and `HEAD`) is served like
+[LINE BLOG archive media](#line-blog-archive-media), with the same headers,
+containment and `404` answers, except that a name ends in `.jpg` or `.png`
+only: every cover is an image named after its bytes' SHA-256, so it has
+smaller copies and is immutable once its bytes match its name. The server
+never writes this directory. The uploads' covers are not among them; they are
+[cached per instance](#works-upload-covers).
+
+## Journey Images
+
+`data/journey/` holds the Journey page's own images, written only by the
+maintainer's packaging command
+([History archive maintenance](../development/history-archive.md)). They have
+no database rows: the tracked `src/history/media-catalog.json` lists them.
+`GET /media/journey/<name>` (and `HEAD`) is served like
+[discography covers](#discography-covers): a name is 12 lowercase hex digits
+of the image's SHA-256 and `.jpg` or `.png`, every image has smaller copies,
+and it is immutable once its bytes match its name. The server never writes
+this directory.
+
+## Works Upload Covers
+
+The Works page's uploads take their covers from this cache, so a fresh
+deployment fills them itself. The server embeds the packaged upload list
+(`internal/works`, see
+[Upload covers](../development/works-archive.md#upload-covers)), and every
+media step, before its download, walks each upload's videos in cover order
+(`PlanWorkCovers` in `internal/store/sqlite/works_covers.go`):
+
+- a video whose stored row has a ready thumbnail, or whose works image is
+  ready, is the upload's cover;
+- a stored video whose own thumbnail is still pending or failing waits for
+  it, so the shared image is never fetched twice;
+- a YouTube video with neither gets its fixed thumbnail address,
+  `https://i.ytimg.com/vi/<id>/maxresdefault.jpg`, registered at once (it
+  steps down to `hqdefault` like any YouTube thumbnail);
+- a niconico or Bilibili video is looked up first: niconico's public
+  `getthumbinfo` answer names its thumbnail on `nicovideo.cdn.nimg.jp`
+  (the large `.L` size is asked for, stepping down to the plain one, which is
+  all older videos have), and Bilibili's view answer names its cover on
+  `*.hdslb.com` (see [Sources](sources.md#works-cover-lookups));
+- a video whose image is missing, at its source or as a ready row whose
+  cached file is gone, or whose lookup found it deleted, is passed over for
+  the upload's next video (the media row stays), and an upload with none left
+  shows a printed sleeve.
+
+A found image is an ordinary asset linked as `work-video /
+<platform>:<id> / thumbnail / 0` and downloaded by the same step under the
+platform's namespace; one URL is one asset, so a video synchronization
+stores later shares the file. Lookups are recorded in `work_cover_lookups`
+(see [Data model](data-model.md#sqlite-snapshot)): a deleted video is never asked
+again and a failed lookup waits from 30 minutes, doubling to a day. A works
+image that answers `media_missing` and no stored record links is not
+retried. Nothing here writes a `videos` row.
+
+The console's Site page shows how the covers stand without a request to a
+platform (`GET /api/admin/media/works-covers`, see
+[Admin API](admin-api.md#works-upload-covers)): the covered, due, waiting and
+uncovered uploads, and each upload without a cover with its videos' states,
+last error codes and retry times. Its **Fill missing covers** starts a
+one-step media run on the shared queue, so a deployment whose source timers
+are off fills its covers too; each run keeps the lookup bounds above, and
+running it again continues.
 
 ## Database Model
 
@@ -81,7 +150,7 @@ server never writes this directory. Its images have smaller copies (see
 - `source`, `source_url`: the platform adapter and original public URL;
 - `status`: `pending`, `ready`, `missing`, or `failed`;
 - `cache_path`: a path relative to the runtime `data/` directory, under `x/`,
-  `youtube/`, `bilibili/` or `avatar/`, or a `sha256/` path under
+  `youtube/`, `bilibili/`, `niconico/` or `avatar/`, or a `sha256/` path under
   `cache/media/`; never an absolute path or one with `..`;
 - `mime_type`, `extension`, `byte_size`, `sha256`, `width`, and `height`
   (read from the image header; `0×0` marks a header that could not be read,
@@ -94,9 +163,14 @@ server never writes this directory. Its images have smaller copies (see
 media table to every content table. Its owner tuple is `(owner_type, owner_id,
 role, position)`, for example `post / 209... / post-image / 0` or `video / abc /
 thumbnail / 0`. A post's own images use `post-image`; the images of a status
-it quotes use `quote-image` under the same post, so the board shows them in
-the quote card and extraction never reads them (see
-[Quoted posts](sources.md#quoted-posts)).
+it quotes, or of the dynamic a Bilibili forward forwards, use `quote-image`
+under the same post, so the board shows them in the quote card and
+extraction never reads them (see [Quoted posts](sources.md#quoted-posts) and
+[Forwards](sources.md#forwards)). A row of the X or Bilibili status pool has
+no media link: a related account's status registers its images as
+`post-image` links only when it is promoted into posts (see
+[Related accounts](sources.md#related-accounts)), so nothing is downloaded
+for statuses that stay in the pool.
 
 The `media_url`, `thumbnail_url`, and image URL columns of content tables are
 source-snapshot fields and are not treated as safe browser URLs by the
@@ -142,8 +216,9 @@ served as active same-origin content.
    A successful download or 304 revalidation clears the failure state.
 5. A YouTube thumbnail that answers 404 for `maxresdefault` or `sddefault`
    (including their `_live` forms) is requested at the next smaller size,
-   ending with `hqdefault.jpg`. The bytes are stored under the original URL, so
-   the asset identity and links do not change.
+   ending with `hqdefault.jpg`, and a niconico `.L` thumbnail that answers 404
+   is requested at its plain size. The bytes are stored under the original
+   URL, so the asset identity and links do not change.
 6. A ready YouTube thumbnail linked to an upcoming video, or to one that
    started or was published within the last 24 hours, is revalidated at most
    every 30 minutes with its stored `ETag` and `Last-Modified`. So is the
@@ -181,8 +256,9 @@ the queue, so a history window's images arrive over a few runs.
 
 `internal/mediadownload` accepts only HTTPS URLs on port 443 on X's
 `*.twimg.com` media CDN subdomains, YouTube's `*.ytimg.com` thumbnail CDN
-subdomains and Bilibili's `*.hdslb.com` cover CDN subdomains (`i0`, `i1`, `i2`
-and so on). The suffix check requires a real subdomain boundary, so
+subdomains, Bilibili's `*.hdslb.com` cover CDN subdomains (`i0`, `i1`, `i2`
+and so on) and niconico's one thumbnail host, `nicovideo.cdn.nimg.jp`. The
+suffix check requires a real subdomain boundary, so
 lookalike hosts and the bare parent domains are rejected, as are userinfo,
 fragments and query keys that look like credentials (`token`, `secret`,
 `auth`, `api_key` and the like). Redirects are followed by hand: at most three,
@@ -271,17 +347,18 @@ browser does not silently fall back to a CDN.
 
 A `w` query parameter asks for a smaller copy of an image:
 
-| Request                                         | Original                                                                  |
-| ----------------------------------------------- | ------------------------------------------------------------------------- |
-| `GET /media/<id>?v=<hash>&w=<width>`            | a ready asset                                                             |
-| `GET /media/lineblog/<name>?w=<width>`          | a `.jpg` or `.png` file in `data/lineblog/`                               |
-| `GET /assets/history/<file>?v=<hash>&w=<width>` | a `.jpg`, `.jpeg`, `.png` or `.webp` file of the built history collection |
+| Request                                | Original                                    |
+| -------------------------------------- | ------------------------------------------- |
+| `GET /media/<id>?v=<hash>&w=<width>`   | a ready asset                               |
+| `GET /media/lineblog/<name>?w=<width>` | a `.jpg` or `.png` file in `data/lineblog/` |
+| `GET /media/works/<name>?w=<width>`    | a `.jpg` or `.png` file in `data/works/`    |
+| `GET /media/journey/<name>?w=<width>`  | a `.jpg` or `.png` file in `data/journey/`  |
 
 `w` must be one of 320, 640, 960, 1280 or 1920; any other value, or a
-repeated `w`, answers 404. A LINE BLOG video ignores a valid `w`, and other
-static files ignore `w` entirely.
+repeated `w`, answers 404. A LINE BLOG video ignores a valid `w`, and static
+files ignore `w` entirely.
 
-All three share one cache keyed by the SHA-256 of the original's bytes, so an
+All of them share one cache keyed by the SHA-256 of the original's bytes, so an
 image found in several places is resized once. A copy is stored only when the
 bytes it was made from match the hash it is stored under.
 
@@ -292,7 +369,7 @@ kept for that width. Copies are made ahead of requests:
 - the [media step](#lifecycle) makes them for ready assets, newest first,
   within its [bounds](#step-bounds);
 - the [variants command](#variants-command) makes them for the LINE BLOG
-  archive and the history collection;
+  archive, the discography covers and the Journey images;
 - the [copies run](#copies-run), started from the console's Site page, makes
   them for every group within one step's budget.
 
@@ -301,7 +378,7 @@ All three use one core (`internal/variants`), described in
 
 ### File Hashes
 
-The archive and history files have no database rows, so the server finds
+The archive files have no database rows, so the server finds
 their copies by hashing them itself (contained in their directory like the
 original's own response). Cached media files are hashed the same way when
 they are checked against their rows. The file is streamed through the hash,
@@ -311,13 +388,13 @@ size and modification time: in memory, and as a one-line record in
 for its hash once, not on every request or restart. A file whose size or
 modification time differs from its record is hashed anew; one replaced with
 the same size and modification time keeps the remembered hash until its
-record is removed. An archive or history file larger than 10 MiB has no
-copies and is not hashed for one.
+record is removed. An archive file larger than 32 MiB has no copies and is
+not hashed for one.
 
 ### Making Copies
 
 Making an image's copies takes one of two source slots, kept from reading the
-original (at most 10 MiB) through checking its hash and decoding it once
+original (at most 32 MiB) through checking its hash and decoding it once
 (JPEG, PNG or WebP no larger than 40 megapixels, about 160 MB as RGBA). At most
 two originals and their decodes are therefore in memory at once in a process.
 A maker waiting for a slot holds no original, and concurrent makers of one
@@ -346,16 +423,17 @@ treated as missing and replaced on the next call.
 
 Copies are made per group of originals:
 
-| Group      | Originals                                                                                                 |
-| ---------- | --------------------------------------------------------------------------------------------------------- |
-| `lineblog` | `.jpg` and `.png` files with archive names directly in `<data>/lineblog/`                                 |
-| `history`  | `.jpg`, `.jpeg`, `.png` and `.webp` files directly in `<static>/assets/history/`                          |
-| `media`    | the current files of ready X, YouTube and Bilibili assets, newest fetch first; earlier versions have none |
+| Group      | Originals                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| `lineblog` | `.jpg` and `.png` files with archive names directly in `<data>/lineblog/`                                           |
+| `works`    | `.jpg` and `.png` files with archive names directly in `<data>/works/`                                              |
+| `journey`  | `.jpg` and `.png` files with archive names directly in `<data>/journey/`                                            |
+| `media`    | the current files of ready X, YouTube, Bilibili and niconico assets, newest fetch first; earlier versions have none |
 
 These are the files the server answers `w` for; symlinks, dotfiles and
-archive or history files over 10 MiB are skipped. A call makes one group's
+archive files over 32 MiB are skipped. A call makes one group's
 missing copies two images at a time. An image that is done is skipped without
-being read, and an archive or history file is streamed through its hash first
+being read, and an archive file is streamed through its hash first
 (remembered under the data directory, see [File Hashes](#file-hashes)), so a
 stopped call resumes where it left off. A call may be bounded by a number of
 originals to load and a time budget after which no image starts. Its result
@@ -379,25 +457,22 @@ stored as a copy or a keep marker (`ready`), those whose hash has not been
 read yet (`unhashed`, whose widths count as missing), and the copies, kept
 widths and missing widths of each width. It reads no original and hashes
 nothing: it checks each cached copy's image header and format end marker, then
-matches media by their rows' hashes and archive and history files by their
-remembered hashes. Its cost is one directory listing of the cache plus the
-bounded metadata reads for cached copies and one `stat` per archive or history
-file.
+matches media by their rows' hashes and archive files by their remembered
+hashes. Its cost is one directory listing of the cache plus the bounded
+metadata reads for cached copies and one `stat` per archive file.
 
 ### Variants Command
 
-`kano-go variants` (`npm run variants`) makes the `lineblog` and `history`
-groups' copies without bounds and prints each group's counts. It exits
-non-zero when it is interrupted; running it again resumes.
+`kano-go variants` (`npm run variants`) makes the `lineblog`, `works` and
+`journey` groups' copies without bounds and prints each group's counts. It
+exits non-zero when it is interrupted; running it again resumes.
 
-| Flag      | Default | Meaning                                                |
-| --------- | ------- | ------------------------------------------------------ |
-| `-data`   | `data`  | data directory holding `lineblog/` and the file hashes |
-| `-static` | `dist`  | built frontend holding `assets/history/`               |
-| `-out`    | `-data` | data directory whose `cache/variants/` is written      |
+| Flag    | Default | Meaning                                                                      |
+| ------- | ------- | ---------------------------------------------------------------------------- |
+| `-data` | `data`  | data directory holding `lineblog/`, `works/`, `journey/` and the file hashes |
+| `-out`  | `-data` | data directory whose `cache/variants/` is written                            |
 
-An empty or missing `-data` or `-static` directory gives its group no
-originals, so `-static=` makes the `lineblog` copies alone.
+An empty or missing directory gives its group no originals.
 
 With `-out` set, the copies can be made on a workstation and copied into the
 server's `data/cache/variants/`: their names depend only on the originals'
@@ -407,7 +482,7 @@ paths, and are not needed on the server, which hashes each file once itself.
 ### Copies Run
 
 The console's Site page shows the [status](#copy-groups) of the `lineblog`,
-`history` and `media` groups and starts a copies run
+`works`, `journey` and `media` groups and starts a copies run
 (`POST /api/admin/runs {"kind":"variants"}`, see
 [Admin API](admin-api.md#runs)). The run is one `variants` step on the shared
 single-flight queue. It makes the groups' missing copies in that order
@@ -415,11 +490,11 @@ within 5 minutes; a group reached after the budget counts its originals as
 `remaining` without loading any. The step's result is the summed call result
 of [Copy Groups](#copy-groups), and it is partial while originals remain or
 fail. Running it again continues, since done images are skipped. The step
-uses the service's data directory and built site, so only the API process
-offers it.
+uses the service's data directory, so only the API process offers it.
 
 The page reads the status when it opens and after each run, never on a
-timer. The service lists the cache once and answers that listing again until
+timer. Its panel and one meter per group render at once and fill in when the
+status arrives, so a slow listing never holds the page. The service lists the cache once and answers that listing again until
 another run finishes; copies change only through runs, so a newer listing
 could differ only after the variants command or files changed by hand, which
 the page's Check again (`refresh=1`) covers. One listing runs at a time.
@@ -427,14 +502,13 @@ the page's Check again (`refresh=1`) covers. One listing runs at a time.
 ### Responses
 
 The response is always an image: a copy, or the original whenever there is no
-copy (a process without the built site, such as the Vite development server's
-API, serves history files without copies). Copies and originals are streamed
+copy. Copies and originals are streamed
 from their files, never held in memory. A response carries `nosniff`,
 `default-src 'none'; sandbox`, and range and conditional handling. A copy's
 ETag is `<original-sha256>-<width>`, read from its name, so serving it hashes
 nothing; a copy is checked to be a regular file within 10 MiB whose first
 bytes match its extension. A `/media/<id>` copy is immutable when `v` is
-given; archive and history copies are cached like their originals
+given; archive copies are cached like their originals
 ([Immutable Fixed Files](#immutable-fixed-files)). Originals are never
 changed; the variant and file-hash directories are derived caches that may be
 deleted at any time and are rebuilt by the media step, the variants command
@@ -447,20 +521,20 @@ full-image viewers keep loading the original. Profile media and other bundled
 
 ## Immutable Fixed Files
 
-LINE BLOG archive images and the fixed history files are addressed by their
-bytes' SHA-256, so the server lets browsers keep them for a year without
-revalidating (`public, max-age=31536000, immutable`) once it has checked that
-the bytes match the address:
+LINE BLOG archive images, discography covers and Journey images are
+addressed by their bytes' SHA-256, so the server lets browsers keep them for a
+year without revalidating (`public, max-age=31536000, immutable`) once it has
+checked that the bytes match the address:
 
-| Request                                             | Immutable when                                                          |
-| --------------------------------------------------- | ----------------------------------------------------------------------- |
-| `GET /media/lineblog/<name>.(jpg\|png)[?w=<width>]` | the file's SHA-256 starts with the name's 12 hex digits                 |
-| `GET /assets/history/<file>?v=<hash>[&w=<width>]`   | there is exactly one `v`, 64 lowercase hex digits, equal to the SHA-256 |
+| Request                                             | Immutable when                                          |
+| --------------------------------------------------- | ------------------------------------------------------- |
+| `GET /media/lineblog/<name>.(jpg\|png)[?w=<width>]` | the file's SHA-256 starts with the name's 12 hex digits |
+| `GET /media/works/<name>.(jpg\|png)[?w=<width>]`    | the file's SHA-256 starts with the name's 12 hex digits |
+| `GET /media/journey/<name>.(jpg\|png)[?w=<width>]`  | the file's SHA-256 starts with the name's 12 hex digits |
 
 Everything else answers `public, max-age=0, must-revalidate`: LINE BLOG
-videos (named after their watch URL, not their bytes), an archive image whose
-bytes do not match its name, a history file without `v`, or with a repeated,
-malformed or different `v`. A copy (`w`) takes its original's verdict, since
+videos (named after their watch URL, not their bytes) and an archive image,
+cover or Journey image whose bytes do not match its name. A copy (`w`) takes its original's verdict, since
 the variant cache only stores a copy made from bytes with the hash it is
 filed under. The hash is the file's remembered one
 ([File Hashes](#file-hashes)); a file whose size or modification time

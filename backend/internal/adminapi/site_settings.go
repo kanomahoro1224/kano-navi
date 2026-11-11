@@ -12,6 +12,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/httpx"
 	"github.com/yexca/kano-navi/backend/internal/llmadmin"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
 const (
@@ -87,7 +88,7 @@ func validateVisitorRegionURL(key, raw string) (string, error) {
 		return "", nil
 	}
 	parsed, err := url.Parse(value)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" {
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" || urlguard.ContainsCredentials(value) {
 		return "", httpx.Invalid("%s must be an absolute HTTP(S) URL without credentials or a fragment", key)
 	}
 	return parsed.String(), nil

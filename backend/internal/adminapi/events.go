@@ -6,12 +6,14 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf16"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
 // --- lists ------------------------------------------------------------------
@@ -30,12 +32,27 @@ func (a *api) listEvents(w http.ResponseWriter, r *http.Request) {
 		From:           query(r, "from"),
 		To:             query(r, "to"),
 		Merge:          query(r, "merge"),
+		Today:          a.Now().In(japanZone).Format("2006-01-02"),
 	})
 	if err != nil {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, page)
+}
+
+// eventEvidence answers the posts an entry was read from and the same
+// accounts' posts around them, for an operator's judgement.
+func (a *api) eventEvidence(w http.ResponseWriter, r *http.Request) {
+	evidence, err := a.Store.AdminEventEvidence(r.Context(), r.PathValue("id"))
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		httpx.WriteCode(w, http.StatusNotFound, "event_not_found")
+	case err != nil:
+		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
+	default:
+		httpx.WriteJSON(w, http.StatusOK, evidence)
+	}
 }
 
 func (a *api) listPosts(w http.ResponseWriter, r *http.Request) {
@@ -146,6 +163,11 @@ func (a *api) confirmEvent(w http.ResponseWriter, r *http.Request) {
 	for key, value := range body {
 		merged[key] = value
 	}
+	// A stored live-room link reads as no link of a Bilibili entry, so a
+	// confirmation that names no link keeps it that way.
+	if _, named := body["url"]; !named && existing.URL != nil && sqlite.IsBilibiliRoomURL(*existing.URL) && !slices.Contains(existing.Platforms, sqlite.PlatformOther) {
+		merged["url"] = json.RawMessage("null")
+	}
 	input, err := eventInput(merged)
 	if err != nil {
 		httpx.WriteError(w, err)
@@ -215,6 +237,9 @@ func writeEventError(w http.ResponseWriter, err error) {
 		httpx.WriteError(w, httpx.Invalid("event already exists"))
 	case errors.Is(err, sqlite.ErrEventInvalid):
 		httpx.WriteError(w, httpx.Invalid("event is invalid"))
+	case errors.Is(err, sqlite.ErrEventLiveRoomURL):
+		httpx.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "event_live_room_url",
+			"message": "a Bilibili live-room link is not an entry's link; choose the bilibili platform instead, or other for someone else's room"})
 	default:
 		httpx.WriteError(w, err)
 	}
@@ -272,6 +297,9 @@ func eventURL(raw json.RawMessage) (string, error) {
 	if scheme != "http" && scheme != "https" {
 		return "", httpx.Invalid("url must use HTTP or HTTPS")
 	}
+	if urlguard.ContainsCredentials(value) {
+		return "", httpx.Invalid("url must not contain credentials")
+	}
 	parsed.Scheme = scheme
 	parsed.Host = strings.ToLower(parsed.Host)
 	if parsed.Path == "" {
@@ -309,17 +337,38 @@ func eventInput(body map[string]json.RawMessage) (sqlite.EventInput, error) {
 	if input.StartsAt != "" && startsAt.In(japanZone).Format("2006-01-02") != input.StartsOn {
 		return input, httpx.Invalid("startsAt must fall on startsOn in Asia/Tokyo")
 	}
+	if input.EventType, err = oneOf(textField(body["eventType"]), "event", "eventType", "event", "stream", "member", "release", "appearance", "sale"); err != nil {
+		return input, err
+	}
+	// Only a sale period has a close date. Its close time falls on that date,
+	// and a deadline whose opening is not known has no start time.
+	if input.EndsOn, err = eventText(body["endsOn"], "endsOn", false, 10); err != nil {
+		return input, err
+	}
+	if input.EndsOn != "" {
+		if input.EventType != "sale" {
+			return input, httpx.Invalid("endsOn is only for a sale")
+		}
+		if day, parseErr := time.Parse("2006-01-02", input.EndsOn); parseErr != nil || day.Format("2006-01-02") != input.EndsOn || input.EndsOn < input.StartsOn {
+			return input, httpx.Invalid("endsOn is invalid")
+		}
+	}
 	if input.EndsAt, endsAt, err = eventInstant(body["endsAt"], "endsAt"); err != nil {
 		return input, err
 	}
-	if input.EndsAt != "" && input.StartsAt == "" {
+	if input.EndsAt != "" && input.StartsAt == "" && input.EndsOn == "" {
 		return input, httpx.Invalid("endsAt requires startsAt")
+	}
+	// A sale's close time is read against its close date, so one without
+	// the other would read as open for as long as the time says.
+	if input.EndsAt != "" && input.EventType == "sale" && input.EndsOn == "" {
+		return input, httpx.Invalid("endsAt requires endsOn for a sale")
+	}
+	if input.EndsAt != "" && input.EndsOn != "" && endsAt.In(japanZone).Format("2006-01-02") != input.EndsOn {
+		return input, httpx.Invalid("endsAt must fall on endsOn in Asia/Tokyo")
 	}
 	if input.EndsAt != "" && endsAt.Before(startsAt) {
 		return input, httpx.Invalid("endsAt must not be earlier than startsAt")
-	}
-	if input.EventType, err = oneOf(textField(body["eventType"]), "event", "eventType", "event", "stream", "member", "release", "appearance"); err != nil {
-		return input, err
 	}
 	// An empty tag clears the label as the operator's decision, so no
 	// automatic layer fills it again by itself; "auto" hands it back to them.
@@ -355,5 +404,30 @@ func eventInput(body map[string]json.RawMessage) (sqlite.EventInput, error) {
 	if input.URL, err = eventURL(body["url"]); err != nil {
 		return input, err
 	}
+	if input.Platforms, input.PlatformsSet, err = eventPlatforms(body["platforms"]); err != nil {
+		return input, err
+	}
 	return input, nil
+}
+
+// eventPlatforms reads the announced platforms: absent keeps the stored
+// ones, null names none, and an array names each of youtube, bilibili and
+// other at most once.
+func eventPlatforms(raw json.RawMessage) ([]string, bool, error) {
+	if raw == nil {
+		return nil, false, nil
+	}
+	if jsonNull(raw) {
+		return []string{}, true, nil
+	}
+	var values []string
+	if json.Unmarshal(raw, &values) != nil {
+		return nil, false, httpx.Invalid("platforms must be an array")
+	}
+	for _, value := range values {
+		if len(sqlite.NormalizePlatforms([]string{value})) == 0 {
+			return nil, false, httpx.Invalid("platforms is invalid")
+		}
+	}
+	return sqlite.NormalizePlatforms(values), true, nil
 }

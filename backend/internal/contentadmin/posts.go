@@ -30,7 +30,7 @@ var errPostNotFound = errors.New("post not found")
 const maxBatchPosts = 200
 
 // queuePostReprocess marks one post queued for the next extraction run and
-// clears its failure backoff, or answers errPostNotFound.
+// clears its failure backoff and settled stamp, or answers errPostNotFound.
 func queuePostReprocess(ctx context.Context, tx *sql.Tx, postID string, route *string, now string) error {
 	var found int
 	if err := tx.QueryRowContext(ctx, `SELECT 1 FROM posts WHERE id = ?`, postID).Scan(&found); errors.Is(err, sql.ErrNoRows) {
@@ -47,16 +47,16 @@ func queuePostReprocess(ctx context.Context, tx *sql.Tx, postID string, route *s
 	     last_error=excluded.last_error,
 	     reprocess_requested=excluded.reprocess_requested,
 	     updated_at=excluded.updated_at,
-	     failure_count=0, failure_fingerprint=NULL, next_attempt_at=NULL`, postID, nullString(route), now)
+	     failure_count=0, failure_fingerprint=NULL, next_attempt_at=NULL, settled_stamp=NULL`, postID, nullString(route), now)
 	return err
 }
 
 // dismissFailedPost turns one failed extraction into `dismissed`, keeping its
-// failure keyed to the current input with no retry time. It reports whether
-// the post was failed.
+// failure keyed to the current input with no retry time and no settled
+// stamp. It reports whether the post was failed.
 func dismissFailedPost(ctx context.Context, tx *sql.Tx, postID, now string) (bool, error) {
 	result, err := tx.ExecContext(ctx, `UPDATE post_llm_states SET status='dismissed',
-	     reprocess_requested=0, failure_count=MAX(failure_count, 1), next_attempt_at=NULL, updated_at=?
+	     reprocess_requested=0, failure_count=MAX(failure_count, 1), next_attempt_at=NULL, settled_stamp=NULL, updated_at=?
 	   WHERE post_id=? AND status='failed'`, now, postID)
 	if err != nil {
 		return false, err

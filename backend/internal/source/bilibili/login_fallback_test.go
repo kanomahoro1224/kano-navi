@@ -1,0 +1,341 @@
+package bilibili
+
+import (
+	"context"
+	"crypto/md5"
+	"encoding/hex"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+)
+
+// videoFeed is a synthetic feed/space page with one upload of the account
+// and one of another account.
+const videoFeed = `{"code":0,"message":"0","data":{"has_more":false,"offset":"","items":[
+ {"id_str":"900000000000000301","type":"DYNAMIC_TYPE_AV","modules":{"module_author":{"mid":316381099,"pub_ts":1794000000},"module_dynamic":{"major":{"type":"MAJOR_TYPE_ARCHIVE","archive":{"bvid":"BV1SYNTHEABC","aid":"113000000000001","title":"翻唱《合成》","cover":"//i0.hdslb.com/bfs/archive/synthetic.jpg","desc":"synthetic description","duration_text":"03:06"}}}}},
+ {"id_str":"900000000000000302","type":"DYNAMIC_TYPE_AV","modules":{"module_author":{"mid":42,"pub_ts":1794000100},"module_dynamic":{"major":{"type":"MAJOR_TYPE_ARCHIVE","archive":{"bvid":"BV1SYNTHEABD","aid":"113000000000002","title":"other","cover":"//i0.hdslb.com/bfs/archive/other.jpg","duration_text":"01:00"}}}}}
+]}}`
+
+func TestLoginCookiesKeepOnlyKnownWellFormedValues(t *testing.T) {
+	login, cookies := ParseLoginCookies("SESSDATA=" + syntheticLogin + "; bili_jct=0123456789abcdef; DedeUserID=10000001; theme=dark; buvid3=bad value; sid=a\r\nX-Injected: 1")
+	if login != syntheticLogin || len(cookies) != 2 || cookies["bili_jct"] != "0123456789abcdef" || cookies["DedeUserID"] != "10000001" {
+		t.Fatalf("login=%q cookies=%v", login, cookies)
+	}
+	if login, cookies = ParseLoginCookies("bili_jct=0123456789abcdef"); login != "" || len(cookies) != 1 {
+		t.Fatalf("without SESSDATA login=%q cookies=%v", login, cookies)
+	}
+}
+
+func TestSignedInRequestsCarryTheBrowsersIdentity(t *testing.T) {
+	account := LoginCookies{"buvid3": "FFFFFFFF-0000-0000-0000-ACCOUNTDEVICEinfoc", "_uuid": "SYNTHETIC-UUID-infoc", "DedeUserID": "10000001", "bili_jct": "0123456789abcdef"}
+	s := Session{Buvid3: "0A1B2C3D-0A1B-0A1B-0A1B-0A1B2C3D4E5F12345infoc", Buvid4: "anonymous-buvid4==", Nut: 1767225600, Login: syntheticLogin, Account: &account}
+	signed := s.cookie(true, apiHost)
+	want := "buvid3=FFFFFFFF-0000-0000-0000-ACCOUNTDEVICEinfoc; buvid4=anonymous-buvid4==; b_nut=1767225600; _uuid=SYNTHETIC-UUID-infoc; DedeUserID=10000001; bili_jct=0123456789abcdef; SESSDATA=" + syntheticLogin
+	if signed != want {
+		t.Fatalf("signed cookie=%q", signed)
+	}
+	// Without the login, and on another host, only the anonymous identity.
+	for _, cookie := range []string{s.cookie(false, apiHost), s.cookie(true, wwwHost)} {
+		if cookie != "buvid3=0A1B2C3D-0A1B-0A1B-0A1B-0A1B2C3D4E5F12345infoc; buvid4=anonymous-buvid4==; b_nut=1767225600" {
+			t.Fatalf("anonymous cookie=%q", cookie)
+		}
+	}
+}
+
+func TestVideoDynamicsAreReadAsUploads(t *testing.T) {
+	page, err := ParseSpaceFeed(mustEnvelope(t, videoFeed), DefaultAccount)
+	if err != nil || len(page.Dynamics) != 0 || len(page.Uploads) != 1 {
+		t.Fatalf("page=%#v err=%v", page, err)
+	}
+	v := page.Uploads[0]
+	if v.BVID != "BV1SYNTHEABC" || v.AID != 113000000000001 || v.Title != "翻唱《合成》" || v.DurationSeconds != 186 || v.Kind != KindUpload ||
+		v.ThumbnailURL != "https://i0.hdslb.com/bfs/archive/synthetic.jpg" || v.Description != "synthetic description" ||
+		v.URL != "https://www.bilibili.com/video/BV1SYNTHEABC" || v.PublishedAt != time.Unix(1794000000, 0).UTC().Format(time.RFC3339) || !v.Partial {
+		t.Fatalf("upload=%#v", v)
+	}
+}
+
+func mustEnvelope(t *testing.T, body string) []byte {
+	t.Helper()
+	data, err := envelope([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+// syntheticAppKeys is a well-formed key pair that no client uses.
+var syntheticAppKeys = AppKeys{"0123456789abcdef", "fedcba9876543210fedcba9876543210"}
+
+// appListing is a synthetic page of the official client's space listing: an
+// upload, a non-upload card and an incomplete item.
+const appListing = `{"code":0,"message":"0","ttl":1,"data":{"count":3,"has_next":false,"item":[
+ {"goto":"av","param":"113000000000001","bvid":"BV1SYNTHEABC","title":"翻唱《合成》","cover":"http://i0.hdslb.com/bfs/archive/synthetic.jpg","duration":186,"ctime":1794000000},
+ {"goto":"article","param":"42","title":"not an upload","ctime":1794000000},
+ {"goto":"av","param":"113000000000003","bvid":"BV1SYNTHEABE","title":"","ctime":1794000000}
+]}}`
+
+func TestUploadListFallsBackToTheDynamicsThenTheAppListing(t *testing.T) {
+	now := time.Date(2026, 11, 9, 9, 0, 0, 0, time.UTC)
+	type call struct{ host, path, cookie, referer, query string }
+	var calls []call
+	status := map[string]int{"/x/series/recArchivesByKeywords": 412}
+	reply := map[string]string{"/x/frontend/finger/spi": session, ticketPath: ticket, "/x/web-interface/nav": navKeys,
+		"/x/polymer/web-dynamic/v1/feed/space": videoFeed, "/x/v2/space/archive/cursor": appListing}
+	adapter := func(login string, app AppKeys) *Adapter {
+		c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+			calls = append(calls, call{r.URL.Host, r.URL.Path, r.Header.Get("Cookie"), r.Header.Get("Referer"), r.URL.RawQuery})
+			if code := status[r.URL.Path]; code != 0 {
+				return response(code, "<!DOCTYPE html><title>412</title>"), nil
+			}
+			return response(200, reply[r.URL.Path]), nil
+		})})
+		a := NewAdapter(c, Options{Account: DefaultAccount, MinInterval: 3 * time.Hour, PageSize: 20, SESSDATA: login, Cookies: LoginCookies{"DedeUserID": "10000001", "bili_jct": "0123456789abcdef"}, App: app})
+		a.Now = func() time.Time { return now }
+		return a
+	}
+	paths := func() string {
+		out := []string{}
+		for _, c := range calls {
+			out = append(out, c.path)
+		}
+		return strings.Join(out, " ")
+	}
+
+	// Signed in: the list's captcha falls back to the dynamics listing.
+	result, err := adapter(syntheticLogin, syntheticAppKeys).FetchRecent(context.Background(), State{})
+	if err != nil || result.Fallback != "dynamics" || result.ListError != "bilibili_risk_control_http" || len(result.Videos) != 1 ||
+		result.Videos[0].BVID != "BV1SYNTHEABC" || result.Requested != 5 || !result.State.BlockedUntil.IsZero() || result.State.Failures != 0 ||
+		!result.State.LastSuccessAt.Equal(now) || !result.State.Dynamics.LastAttemptAt.IsZero() || len(result.FallbackErrors) != 0 {
+		t.Fatalf("dynamics fallback=%#v err=%v", result, err)
+	}
+	if paths() != "/x/frontend/finger/spi "+ticketPath+" /x/series/recArchivesByKeywords /x/web-interface/nav /x/polymer/web-dynamic/v1/feed/space" {
+		t.Fatalf("paths=%s", paths())
+	}
+	for _, c := range calls[2:] {
+		if !strings.Contains(c.cookie, "DedeUserID=10000001; bili_jct=0123456789abcdef; SESSDATA="+syntheticLogin) {
+			t.Fatalf("%s cookie=%q", c.path, c.cookie)
+		}
+	}
+
+	// Without a login or an app key pair there is no fallback.
+	calls = nil
+	bare, err := adapter("", AppKeys{}).FetchRecent(context.Background(), State{})
+	if ErrorCode(err) != "bilibili_risk_control_http" || bare.Fallback != "" || len(bare.FallbackErrors) != 0 || len(calls) != 3 || bare.State.Failures != 1 {
+		t.Fatalf("bare=%#v calls=%v err=%v", bare, calls, err)
+	}
+
+	// Without the login the app listing follows the list, unsigned in and
+	// without cookies or Referer, signed with the configured key pair. Its
+	// success is another service's: the list's captcha block stays.
+	calls = nil
+	anonymous, err := adapter("", syntheticAppKeys).FetchRecent(context.Background(), State{})
+	if err != nil || anonymous.Fallback != "app" || len(anonymous.Videos) != 1 || anonymous.Videos[0].DurationSeconds != 186 || anonymous.Videos[0].AID != 113000000000001 ||
+		anonymous.Videos[0].ThumbnailURL != "https://i0.hdslb.com/bfs/archive/synthetic.jpg" || anonymous.Requested != 4 || anonymous.State.Failures != 1 ||
+		!anonymous.State.BlockedUntil.Equal(now.Add(6*time.Hour)) || !anonymous.State.ClearedAt.IsZero() || !anonymous.State.LastSuccessAt.Equal(now) ||
+		anonymous.State.LastError != "bilibili_risk_control_http" {
+		t.Fatalf("app fallback=%#v err=%v", anonymous, err)
+	}
+	app := calls[len(calls)-1]
+	query, _ := url.ParseQuery(app.query)
+	if app.host != "app.bilibili.com" || app.path != "/x/v2/space/archive/cursor" || app.cookie != "" || app.referer != "" ||
+		query.Get("vmid") != DefaultAccount || query.Get("ps") != "20" || query.Get("order") != "pubdate" ||
+		query.Get("appkey") != syntheticAppKeys.Key || query.Get("ts") != strconv.FormatInt(now.Unix(), 10) {
+		t.Fatalf("app request=%#v", app)
+	}
+	unsigned := strings.TrimSuffix(app.query, "&sign="+query.Get("sign"))
+	if sum := md5.Sum([]byte(unsigned + syntheticAppKeys.Secret)); hex.EncodeToString(sum[:]) != query.Get("sign") {
+		t.Fatalf("sign=%s over %s", query.Get("sign"), unsigned)
+	}
+
+	// Every listing failing counts the block once and names each failure.
+	reply["/x/polymer/web-dynamic/v1/feed/space"] = `{"code":0,"data":{"v_voucher":"voucher_synthetic"}}`
+	status["/x/v2/space/archive/cursor"] = 412
+	calls = nil
+	all, err := adapter(syntheticLogin, syntheticAppKeys).FetchRecent(context.Background(), State{})
+	if ErrorCode(err) != "bilibili_risk_control_http" || all.State.Failures != 1 || !all.State.BlockedUntil.Equal(now.Add(6*time.Hour)) || all.State.WBI.valid() ||
+		strings.Join(all.FallbackErrors, ",") != "dynamics: bilibili_risk_control_voucher,app: bilibili_risk_control_http" || len(all.Videos) != 0 {
+		t.Fatalf("all=%#v err=%v", all, err)
+	}
+	// The signed-in read's app request carries neither the login nor the
+	// device identity.
+	if app := calls[len(calls)-1]; app.host != "app.bilibili.com" || app.cookie != "" || app.referer != "" {
+		t.Fatalf("signed-in app request=%#v", app)
+	}
+
+	// A list failing without a captcha leaves the backoff to the fallback's.
+	status["/x/series/recArchivesByKeywords"] = 503
+	other, err := adapter("", syntheticAppKeys).FetchRecent(context.Background(), State{})
+	if ErrorCode(err) != "bilibili_upstream_5xx" || other.State.Failures != 1 || strings.Join(other.FallbackErrors, ",") != "app: bilibili_risk_control_http" {
+		t.Fatalf("other=%#v err=%v", other, err)
+	}
+}
+
+// While the block lasts only the official client's listing is read, at the
+// list's interval; its success or failure leaves the block as it was.
+func TestTheBlockHoldsBackEveryListingButTheApps(t *testing.T) {
+	now := time.Date(2026, 11, 9, 9, 0, 0, 0, time.UTC)
+	var hosts []string
+	appStatus := 0
+	adapter := func(app AppKeys) *Adapter {
+		c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+			hosts = append(hosts, r.URL.Host+r.URL.Path)
+			if appStatus != 0 {
+				return response(appStatus, "<!DOCTYPE html><title>412</title>"), nil
+			}
+			return response(200, appListing), nil
+		})})
+		a := NewAdapter(c, Options{Account: DefaultAccount, MinInterval: 3 * time.Hour, PageSize: 20, SESSDATA: syntheticLogin, App: app})
+		a.Now = func() time.Time { return now }
+		return a
+	}
+	held := State{BlockedUntil: now.Add(5 * time.Hour), BlockedAt: now.Add(-time.Hour), Failures: 2, LastError: "bilibili_risk_control_http", LastAttemptAt: now.Add(-4 * time.Hour)}
+
+	if result, err := adapter(AppKeys{}).FetchRecent(context.Background(), held); err != nil || result.Skipped != "blocked" || len(hosts) != 0 {
+		t.Fatalf("without a key pair=%#v hosts=%v err=%v", result, hosts, err)
+	}
+	recent := held
+	recent.LastAttemptAt = now.Add(-time.Hour)
+	if result, err := adapter(syntheticAppKeys).FetchRecent(context.Background(), recent); err != nil || result.Skipped != "blocked" || len(hosts) != 0 {
+		t.Fatalf("within the interval=%#v hosts=%v err=%v", result, hosts, err)
+	}
+
+	result, err := adapter(syntheticAppKeys).FetchRecent(context.Background(), held)
+	if err != nil || result.Fallback != "app" || result.ListError != "bilibili_blocked" || len(result.Videos) != 1 || result.Requested != 1 ||
+		strings.Join(hosts, " ") != "app.bilibili.com/x/v2/space/archive/cursor" {
+		t.Fatalf("held=%#v hosts=%v err=%v", result, hosts, err)
+	}
+	if s := result.State; !s.BlockedUntil.Equal(held.BlockedUntil) || s.Failures != 2 || !s.BlockedAt.Equal(held.BlockedAt) || !s.ClearedAt.IsZero() ||
+		!s.LastSuccessAt.Equal(now) || !s.LastAttemptAt.Equal(now) || s.LastError != "bilibili_risk_control_http" {
+		t.Fatalf("held state=%#v", s)
+	}
+
+	hosts, appStatus = nil, 412
+	failed, err := adapter(syntheticAppKeys).FetchRecent(context.Background(), held)
+	if ErrorCode(err) != "bilibili_blocked" || strings.Join(failed.FallbackErrors, ",") != "app: bilibili_risk_control_http" || len(hosts) != 1 ||
+		!failed.State.BlockedUntil.Equal(held.BlockedUntil) || failed.State.Failures != 2 {
+		t.Fatalf("held failure=%#v hosts=%v err=%v", failed, hosts, err)
+	}
+}
+
+// A captcha on the device-identity request still lets the official client's
+// listing answer; the dynamics listing, which needs that identity, waits.
+func TestADeviceIdentityCaptchaFallsBackToTheAppListing(t *testing.T) {
+	now := time.Date(2026, 11, 9, 9, 0, 0, 0, time.UTC)
+	var paths []string
+	c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+		paths = append(paths, r.URL.Path)
+		if r.URL.Path == "/x/frontend/finger/spi" {
+			return response(412, "<!DOCTYPE html><title>412</title>"), nil
+		}
+		return response(200, appListing), nil
+	})})
+	a := NewAdapter(c, Options{Account: DefaultAccount, MinInterval: 3 * time.Hour, PageSize: 20, SESSDATA: syntheticLogin, App: syntheticAppKeys})
+	a.Now = func() time.Time { return now }
+	result, err := a.FetchRecent(context.Background(), State{})
+	if err != nil || result.Fallback != "app" || result.ListError != "bilibili_risk_control_http" || len(result.Videos) != 1 ||
+		strings.Join(paths, " ") != "/x/frontend/finger/spi /x/v2/space/archive/cursor" ||
+		result.State.Failures != 1 || !result.State.BlockedUntil.Equal(now.Add(6*time.Hour)) {
+		t.Fatalf("result=%#v paths=%v err=%v", result, paths, err)
+	}
+}
+
+func TestAppListingKeepsOnlyCompleteUploads(t *testing.T) {
+	videos, err := ParseAppUploads(mustEnvelope(t, appListing), DefaultAccount)
+	if err != nil || len(videos) != 1 || videos[0].BVID != "BV1SYNTHEABC" || videos[0].Description != "" || !videos[0].Partial ||
+		videos[0].PublishedAt != time.Unix(1794000000, 0).UTC().Format(time.RFC3339) {
+		t.Fatalf("videos=%#v err=%v", videos, err)
+	}
+	// A co-created upload may be another account's; the listing does not say.
+	for _, flag := range []string{"true", "1"} {
+		cooperation := `{"code":0,"data":{"item":[{"goto":"av","param":"113000000000004","bvid":"BV1SYNTHEABF","title":"synthetic collaboration","duration":186,"ctime":1794000000,"is_cooperation":` + flag + `}]}}`
+		if shared, err := ParseAppUploads(mustEnvelope(t, cooperation), DefaultAccount); err != nil || len(shared) != 0 {
+			t.Fatalf("is_cooperation %s: %#v err=%v", flag, shared, err)
+		}
+	}
+	if empty, err := ParseAppUploads(mustEnvelope(t, `{"code":0,"data":{"count":0,"has_next":false}}`), DefaultAccount); err != nil || len(empty) != 0 {
+		t.Fatalf("empty=%#v err=%v", empty, err)
+	}
+}
+
+func TestAppKeysComeOnlyFromAWellFormedPair(t *testing.T) {
+	t.Setenv("BILIBILI_APP_KEY", syntheticAppKeys.Key)
+	t.Setenv("BILIBILI_APP_SECRET", syntheticAppKeys.Secret)
+	if got := OptionsFromEnv().App; got != syntheticAppKeys {
+		t.Fatalf("app=%#v", got)
+	}
+	t.Setenv("BILIBILI_APP_SECRET", "not-hex")
+	if got := OptionsFromEnv().App; got.Valid() || got.Key != "" {
+		t.Fatalf("malformed app=%#v", got)
+	}
+	if _, err := NewClient(nil).AppUploads(context.Background(), DefaultAccount, 20, AppKeys{}, time.Now()); ErrorCode(err) != "bilibili_app_keys_missing" {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+// The timed chain orders the listings and leaves out the ones it disables;
+// a method without its credential is passed over without a request.
+func TestTheChainOrdersAndLimitsTheListings(t *testing.T) {
+	now := time.Date(2026, 11, 9, 9, 0, 0, 0, time.UTC)
+	var paths []string
+	listStatus := 0
+	reply := map[string]string{"/x/frontend/finger/spi": session, ticketPath: ticket, "/x/web-interface/nav": navKeys,
+		"/x/polymer/web-dynamic/v1/feed/space": videoFeed, "/x/v2/space/archive/cursor": appListing}
+	adapter := func(login string, app AppKeys) *Adapter {
+		c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+			paths = append(paths, r.URL.Path)
+			if r.URL.Path == "/x/series/recArchivesByKeywords" && listStatus != 0 {
+				return response(listStatus, "<!DOCTYPE html><title>412</title>"), nil
+			}
+			return response(200, reply[r.URL.Path]), nil
+		})})
+		a := NewAdapter(c, Options{Account: DefaultAccount, MinInterval: 3 * time.Hour, PageSize: 20, SESSDATA: login, App: app})
+		a.Now = func() time.Time { return now }
+		return a
+	}
+	read := func(a *Adapter, state State, methods ...string) (Result, error) {
+		paths = nil
+		return a.FetchRecentWith(context.Background(), state, methods)
+	}
+
+	// The official client's listing first answers without a web request, so
+	// it is no fallback.
+	result, err := read(adapter(syntheticLogin, syntheticAppKeys), State{}, MethodApp, MethodList)
+	if err != nil || result.Listing != MethodApp || result.Fallback != "" || result.ListError != "" || len(result.Videos) != 1 ||
+		strings.Join(paths, " ") != "/x/v2/space/archive/cursor" || !result.State.LastSuccessAt.Equal(now) {
+		t.Fatalf("app first=%#v paths=%v err=%v", result, paths, err)
+	}
+
+	// A chain of the list alone does not fall back.
+	listStatus = 412
+	result, err = read(adapter(syntheticLogin, syntheticAppKeys), State{}, MethodList)
+	if ErrorCode(err) != "bilibili_risk_control_http" || result.Fallback != "" || len(result.FallbackErrors) != 0 ||
+		strings.Join(paths, " ") != "/x/frontend/finger/spi "+ticketPath+" /x/series/recArchivesByKeywords" || result.State.Failures != 1 {
+		t.Fatalf("list alone=%#v paths=%v err=%v", result, paths, err)
+	}
+
+	// Without the login the dynamics listing is passed over.
+	result, err = read(adapter("", syntheticAppKeys), State{}, MethodDynamics, MethodApp)
+	if err != nil || result.Listing != MethodApp || result.Fallback != "" || strings.Join(paths, " ") != "/x/v2/space/archive/cursor" {
+		t.Fatalf("dynamics without login=%#v paths=%v err=%v", result, paths, err)
+	}
+
+	// A chain none of whose methods can run makes no request and starts no
+	// backoff.
+	result, err = read(adapter("", AppKeys{}), State{}, MethodDynamics, MethodApp)
+	if ErrorCode(err) != "bilibili_no_method" || len(paths) != 0 || result.State.LastError != "bilibili_no_method" ||
+		!result.State.BlockedUntil.IsZero() || !result.State.LastAttemptAt.Equal(now) {
+		t.Fatalf("no method=%#v paths=%v err=%v", result, paths, err)
+	}
+
+	// While the block lasts, a chain without the official client's listing
+	// waits even with a key pair configured.
+	held := State{BlockedUntil: now.Add(time.Hour), LastAttemptAt: now.Add(-4 * time.Hour)}
+	result, err = read(adapter(syntheticLogin, syntheticAppKeys), held, MethodList, MethodDynamics)
+	if err != nil || result.Skipped != "blocked" || len(paths) != 0 {
+		t.Fatalf("held without app=%#v paths=%v err=%v", result, paths, err)
+	}
+}

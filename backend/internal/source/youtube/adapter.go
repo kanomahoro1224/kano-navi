@@ -44,11 +44,73 @@ type Result struct {
 	// it has none now. Videos no call answered are absent.
 	Localized map[string]map[string]string
 	// Availability holds who can watch the videos whose watch page failed but
-	// told (FailedAvailability); the checked videos carry theirs.
+	// told (FailedAvailability), and members for the videos the members-only
+	// playlist names, stored or not; the checked videos carry theirs.
 	Availability map[string]string
+	// Members counts the videos the members-only playlist named this run,
+	// and MembersFrom names the read that answered ("api" or "rss"), "" when
+	// none did.
+	Members     int
+	MembersFrom string
 }
 
-// Upload listings, the YouTube chain's methods (ADR-0004), in the default
+// MembersRead is what one read of the channel's members-only playlist
+// found: the video IDs it names, the read that answered them ("api" or
+// "rss", "" when none did), its Data API calls and its failures' codes.
+type MembersRead struct {
+	IDs         []string
+	From        string
+	APIRequests int
+	Errors      []string
+}
+
+// MembersPlaylist reads the channel's members-only playlist: its newest page
+// (50 entries, one quota unit) through the Data API when useAPI is set and a
+// key is configured, else, or when that call fails, its public feed (newest
+// 15) unless skipFeed. Each failure is recorded by code; absence from the
+// list proves nothing.
+func (a *Adapter) MembersPlaylist(ctx context.Context, useAPI, skipFeed bool) MembersRead {
+	out := MembersRead{IDs: []string{}, Errors: []string{}}
+	if ctx.Err() != nil {
+		return out
+	}
+	var listed []Video
+	var err error
+	if useAPI && a.Options.APIKey != "" {
+		out.APIRequests++
+		var body []byte
+		if body, err = a.Client.MembersPlaylist(ctx, a.Options.APIKey, a.Options.ChannelID); err == nil {
+			listed, _, err = ParseUploadsPage(body)
+		}
+		if err == nil {
+			out.From = ListingAPI
+		} else if ctx.Err() == nil {
+			out.Errors = append(out.Errors, safeError(err))
+		}
+	}
+	if out.From == "" {
+		if ctx.Err() != nil || skipFeed {
+			return out
+		}
+		var body []byte
+		if body, err = a.Client.MembersFeed(ctx, a.Options.ChannelID); err == nil {
+			listed, err = ParseFeed(body)
+		}
+		if err != nil {
+			if ctx.Err() == nil {
+				out.Errors = append(out.Errors, safeError(err))
+			}
+			return out
+		}
+		out.From = ListingFeed
+	}
+	for _, v := range listed {
+		out.IDs = append(out.IDs, v.ID)
+	}
+	return out
+}
+
+// Upload listings, the YouTube chain's methods, in the default
 // order the recent step tries them.
 const (
 	ListingAPI        = "api"
@@ -315,6 +377,7 @@ func (a *Adapter) FetchUploads(ctx context.Context, state State, list List) (Res
 			result.Queue = withoutID(result.Queue, id)
 		}
 	}
+	a.playlistMembers(ctx, &result)
 	for _, id := range uniqueIDs(append(append(append(streamIDs, pageIDs...), feedIDs...), state.ActiveIDs...), 1000) {
 		if checked[id] {
 			result.CheckedIDs = append(result.CheckedIDs, id)
@@ -331,7 +394,7 @@ func (a *Adapter) FetchUploads(ctx context.Context, state State, list List) (Res
 }
 
 // listUploads tries the chain's listings in order until one names uploads
-// (ADR-0004): the Data API's uploads playlist when a key is set, the RSS
+// The Data API's uploads playlist when a key is set, the RSS
 // feed, then the uploads tab. A listing falls through when its first page
 // fails, when it names no upload, or, for the API, without a key; each
 // failure is recorded in the result. The uploads tab has no publication
@@ -663,6 +726,40 @@ func (a *Adapter) playlistShorts(ctx context.Context, result *Result, uploads []
 	for _, v := range shorts {
 		if known[v.ID] {
 			result.Shorts[v.ID] = true
+		}
+	}
+}
+
+// playlistMembers records members for every video the channel's members-only
+// playlist names, the one signal the Data API's answers lack; the writer
+// applies it to the stored ones. With a key it reads the playlist's newest
+// page (50 entries, one quota unit), unless an earlier Data API call this run
+// failed, since a refused key, quota or rate limit holds for it too. Without a
+// key, or when the API skips or fails, the playlist's public feed (15 entries)
+// stands in, unless the channel's feed already failed this run: both are the
+// same feed endpoint. The videos this run checked carry the verdict too, so their
+// entries take the members-only type at once. Absence from the list proves
+// nothing, so it never records another availability. Each failure is recorded
+// and costs only the verdicts.
+func (a *Adapter) playlistMembers(ctx context.Context, result *Result) {
+	if ctx.Err() != nil {
+		return
+	}
+	failed := func(prefix string) bool {
+		return slices.ContainsFunc(result.Errors, func(code string) bool { return strings.HasPrefix(code, prefix) })
+	}
+	read := a.MembersPlaylist(ctx, !failed("youtube_api_"), failed("youtube_feed_") || failed("youtube_invalid_feed"))
+	result.APIRequests += read.APIRequests
+	result.Errors = append(result.Errors, read.Errors...)
+	result.Members, result.MembersFrom = len(read.IDs), read.From
+	members := map[string]bool{}
+	for _, id := range read.IDs {
+		members[id] = true
+		result.Availability[id] = AvailabilityMembers
+	}
+	for i := range result.Videos {
+		if members[result.Videos[i].ID] {
+			result.Videos[i].Availability = AvailabilityMembers
 		}
 	}
 }

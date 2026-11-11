@@ -2,10 +2,12 @@
 
 ## Presentation: `src/`
 
-`src/main.tsx` routes between the public board, the static `/history`
-page in `src/history/`, the static `/lineblog` archive in `src/lineblog/`, the
-static `/about` page in `src/about/`, and `/admin`.
-Links between the four public pages open in place: the next page's code
+`src/main.tsx` routes between the public board, the static `/journey`
+page in `src/history/` (an address of `/history` is replaced with `/journey`
+before the first page loads), the static `/works` discography in `src/works/`, the
+static `/lineblog` archive in `src/lineblog/`, the static `/about` page in
+`src/about/`, and `/admin`.
+Links between the five public pages open in place: the next page's code
 loads while the current page stays on screen (hovering or focusing a link
 starts that load), then the pages cross-fade under a fixed header with the
 View Transition API. Back and forward restore each entry's scroll position,
@@ -16,8 +18,9 @@ with a target load normally; back and forward within `/admin` or another path
 stay with that page, which keeps the browser's own scroll restoration and
 handles its fragment moves (the console's views), and `index.html` applies the saved theme and
 language before the first paint so no load flashes the other theme. History copy and image metadata are
-static; verified fixed images ship in `public/assets/history/` and `dist/`.
-`scripts/package-history-media.ts` updates these files from a local reference
+static; the images are served from `data/journey/` (`/media/journey/<name>`),
+and release milestones show the `/works` covers of the release they name.
+`scripts/package-history-media.ts` packages the images from a local reference
 archive without network requests.
 See [History archive maintenance](../development/history-archive.md). The
 `/lineblog` article index and per-article files are static JSON written by
@@ -35,7 +38,23 @@ layout, switching on a media query; see
 [Smartphone Template](../development/lineblog-archive.md#smartphone-template). Its
 media load from `/media/lineblog/<name>`, including the header and profile
 art of the design of the newest article shown; see
-[LINE BLOG archive maintenance](../development/lineblog-archive.md). The four
+[LINE BLOG archive maintenance](../development/lineblog-archive.md). The
+`/works` tables are static JSON written by `scripts/package-works.ts`. The
+page keeps its section in the `?view=` query, replacing the current entry
+when a visitor switches sections, and `?release=<id>` opens that release's
+sheet once and is then dropped from the address; the personal works build with the page,
+and the participation and upload sections are their own chunks that load
+the first time they show, with a retry on failure. The side the trilogy
+scene shows is kept in `localStorage` (`kano-works-trilogy-side`). A release opens in a
+native modal sheet (`works-sheet.tsx`), and covers open in the shared image
+viewer above it. Covers load from `/media/works/<name>`; see
+[Works collection maintenance](../development/works-archive.md). The upload
+section reads [`/api/works/uploads`](public-api.md#works-uploads) once per
+page load (`use-works-uploads.ts`) for the uploads' covers, lengths,
+availability, and for the uploads after the collection
+date, which `recent-uploads.tsx` shows as a block above the toolbar; until
+it answers the art stays blank, and a failed read keeps the packaged list
+with printed sleeves and no newer block. The five
 public pages share `src/site/`: `site-shell.tsx` (header with page navigation and
 Japan clock, footer, skip link, section title, empty and loading states;
 narrow screens show the site name and fold the page links into a menu behind
@@ -43,9 +62,12 @@ the `kano-seal.tsx` deer seal; the footer is the fan-made and unaffiliated
 line, About and Back to top, with the page's disclaimer behind a switch),
 `media-dialog.tsx` (the native modal image viewer: its close button stays in
 the screen's top-right corner, and a click anywhere outside the image, its
-arrows and its details closes it; a set takes the viewer's full height and
-centres each image in it, so its arrows stay in place across image sizes,
-and shows the details panel for every image once any image has details; an
+arrows and its details closes it; a set without details takes the
+viewer's full height and centres each image in it, so its arrows stay in
+place across image sizes; a viewer with details keeps one size for every
+image, at most 820px tall, and shows the details panel for every image once
+any image has details, and with `scaleUp` (Works and Journey) a smaller
+image grows to fill the stage; an
 image's small-print note closes the panel, or the viewer when there is none;
 every control that opens it carries `media-opener`, which shows the zoom
 cursor), `links.tsx` (external
@@ -54,29 +76,22 @@ the dialog). A `pill-button is-collapsible` shows only its icon at 560px and
 below, so it keeps its label as `aria-label`. The board lives in
 `src/dashboard/`: `use-dashboard.ts` owns the snapshot request and the
 revision stream, `format.ts` owns Japan-time and event-status helpers, `content.ts` holds static public links, and
-`components/` renders the next-up stage and profile card, the week guide,
+`components/` renders the next-up stage and profile card, the on-sale strip
+(`sale-strip.tsx`: up to three IDs from `projection.sales`, rendered in API
+order; snapshots without that projection use `currentSales`), the week guide,
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
 schedule, posts or videos, and `sheet-dialog.tsx`, the smaller modal sheet
 that shows one long post or one schedule entry in full and can open above
-the month sheet. `video-groups.ts` sorts the shelf's videos from
-the local snapshot: the `stream` kind is a stream and every other
-[form](data-model.md#video-form-and-tags) a work, whatever the video's tag;
-a video's phase follows the
-stage's live rule (a fresh confirmed state first, then the stream's
-three-hour grace or an explicit end), so a reservation past its start is a
-started ticket rather than an archive and an operator-confirmed cancellation
-leaves the shelf once its start passes. A past video whose `isShort` is
-`true` is a Short before its kind is read, so a Short broadcast is neither
-an archive nor a work; `null` (unknown) is an ordinary upload. The
-lead is the featured video, or else the newest work tagged `song` or
-premiere, or else the newest work, so a Short leads only when featured; each video appears
-once. A video carries two chips. The form chip (`videoFormLabel`) names a
-Short, then a stream's waiting room, then the form (stream while it may be
-on air by the same rule as a live entry, then stream archive, premiere,
-video); a reported end that has passed makes it an archive even while a
-`live` result is still fresh, as `videoPhase` files it, and every caller
-passes the board's clock. The tag chip (`VideoTagChip` in
+the month sheet. `video-groups.ts` consumes the dashboard's
+`projection.shelf` and each video's `view`: the API supplies the lead, group,
+phase and stable order, while the browser applies the active filter and
+renders the cards. A snapshot without the projection uses the legacy local
+grouping until the next API response. A video carries two chips. The form
+chip (`videoFormLabel`) translates `view.formCode`, and `VideoTagChip`
+translates the stored tag with the context in `view.tagContext`; neither
+helper reconstructs the phase or form when the projection is present. The
+tag chip (`VideoTagChip` in
 `src/dashboard/components/event-tag.tsx`) adds the tag with the schedule's
 icon, in the schedule's words for a stream (gameplay, talk, singing) and as
 the work's content otherwise (gameplay, talk, music, where a note replaces
@@ -85,9 +100,18 @@ card, row, ticket and the lead, including stream archives that hide the
 form chip. The Next Up ticket names the video's tag, else the entry's
 activity label, before the form; a `member` entry adds the members-only chip
 (`MembersChip`) beside it unless the video's availability chip already
-shows `members`, `private` or `removed`. Schedule entries follow the same split:
-`eventKinds` marks a release or video entry as a work, and `eventTagKey`
-names a work's `song` label music, any other singing. The filter offers All plus Streams, Works and Shorts for each kind
+shows `members`, `private` or `removed`. Schedule entries consume the event
+`view`: `eventKinds`, `scheduleEntries` and `eventStatus` translate its type,
+activity, calendar entries and state. The sale period's opening and closing
+dates come from `view.calendarEntries`, and the status codes are
+`upcoming`, `open` and `done`. The canonical enum contract is in the [Public
+API](public-api.md#public-snapshot-contract): `event.view.state` has seven
+values (`upcoming`, `live`, `open`, `done`, `pending`, `cancelled`,
+`cancellation_review`), `video.view.phase` has five (`upcoming`, `live`,
+`started`, `past`, `cancelled`), and `formCode` has six non-null values
+(`short`, `upcoming`, `stream`, `archive`, `premiere`, `video`). A response
+without the view uses the stored fields as a compatibility fallback. The
+filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the
 centre of the 1280×720 cover (the vertical frame between YouTube's blurred
 pillarbox): one row of up to six in the All view, fewer as columns narrow and
@@ -101,22 +125,32 @@ two or more links, the shelf cards, rows, tickets and the stage's latest
 video show `PlatformLinks` in that order. Every video cover carries an
 `aria-hidden` `PlatformBadge` (`src/dashboard/components/platform-links.tsx`)
 of `videoPlatforms`: the links' platforms, led by the video's own platform
-when it is private or removed. Such a cover with no link left fades
-(`is-closed`). `VideoAvailabilityChip` marks `members` in the solid `--leaf`
-green, as do the schedule's `member` entries, and `private` and `removed`
+when it is private or removed. A `members` video, or a stage ticket's
+`member` entry, adds YouTube's members star (`YouTubeMembersMark`, in
+YouTube's members green as on the Works page) after the YouTube mark. Such a
+cover with no link left fades (`is-closed`). `VideoAvailabilityChip` marks
+`members` with the same star in the solid `--leaf` green, as `MembersChip`
+does for the schedule's `member` entries, and `private` and `removed`
 muted. Its styles are in
-`src/dashboard/board.css` on top of `src/site/site.css` and the shared tokens
+`src/dashboard/board.css`, which imports one file per area from
+`src/dashboard/styles/` in cascade order, on top of `src/site/site.css` and the shared tokens
 in `src/index.css`. The hidden `/admin` console
 lives in `src/admin/` and is organized around operator tasks: `index.tsx`
 registers the views (Overview, Review queue, Schedule, Posts, Videos, Profile
-images, Runs, Sources, Detection, LLM, Site) and renders the shell
-with hash routing (`#view/tab`; a `#content/<tab>` link opens the matching
-view and a `#models` link opens LLM); `use-admin-data.ts` owns every
+images, Runs, Queue, Sources, Detection, Site) and renders the shell
+with hash routing (`#view/tab`, where the tab is everything after the view
+and may hold several parts; a `#content/<tab>` link opens the matching
+view, and `#models` and `#llm/<provider>` links open Detection); `use-admin-data.ts` owns every
 [Admin API](admin-api.md) call, the session and the overview poll that tracks
 the active run while the console is visible; `api.ts` is the transport and error mapping; `types.ts` holds
 the wire shapes; `ui.tsx` the console primitives (buttons, panels, native
-modal dialog, toasts); `views/` one file per section; and `admin.css` styles
-them with `adm-` prefixed selectors. `src/components/ui/` contains
+modal dialog, toasts); `views/` one file per section, with
+`views/platform-tabs.tsx` the platform tab row that opens Posts, External
+posts and Videos: one icon tab per platform, styled like the Sources tabs,
+above a tab panel, the platform kept in the URL, and the arrow keys, Home and
+End moving between the tabs; and `admin.css` styles
+them with `adm-` prefixed selectors, importing one file per area from
+`styles/` in cascade order. `src/components/ui/` contains
 basic UI primitives, while the CSS files contain layout and design tokens. The
 presentation layer must not open SQLite or call X, YouTube, OpenAI,
 or a third-party proxy directly. The optional mainland China site comes from
@@ -173,88 +207,202 @@ event status codes and the generated YouTube details become labels through
 while other details and operator notes show as stored (see
 [Stored event text](data-model.md#stored-event-text)).
 
+A related account's promoted post (`post.promoted`) shows the account's
+initial on the sunken surface in place of Kano's portrait, beside its
+handle; it appears in the All tab and the archive, never under an own
+account's tab.
+
 A post that quotes another status (`post.quote`, see
 [Quoted posts](data-model.md#quoted-posts)) shows it nested in the post note,
 below the post's own wording and images and above the engagement counts: an
 indented card on the quieter sunken surface with "display name @handle ·
 time", the quoted wording clamped to four lines and up to three thumbnails
-("+N" counts the rest). The card follows the quoted post's x.com link from
-anywhere except its thumbnails, which open the image viewer with the quote's
-images. Read more also appears when the clamp hides quoted wording; the full
-post dialog and the archive show the whole quote with larger thumbnails. An
-unavailable quote shows a localized "Quoted post unavailable" placeholder
-linking to x.com. Quoted wording follows the content language like the
-post's own: a quote of a tracked account's post shows that post's
-translation with its own translation switch, and any other quote shows its
-wording as written.
+("+N" counts the rest). The card follows the quoted post's link (its x.com
+page, or for a Bilibili forward the forwarded dynamic's or upload's Bilibili
+page) from anywhere except its thumbnails, which open the image viewer with
+the quote's images. A forward's card names the forwarded dynamic's author by
+display name after the bilibili mark, never by `@` or mid. Read more also
+appears when the clamp hides quoted wording; the full post dialog and the
+archive show the whole quote with larger thumbnails. An unavailable quote
+shows a localized "Quoted post unavailable" placeholder linking to the
+quote's `url`. Quoted wording follows the content language like the
+post's own: the quote's `translations` (its stored post's for a self-quote,
+otherwise the quoted status's own) show with their own translation switch,
+and a quote without one shows its wording as written.
 A quote an operator hid is absent from the snapshot, so the board shows the
 post without it.
 
-The console's schedule (`src/admin/views/schedule.tsx`) has a list, a
-calendar and an images view. The browser remembers list or calendar in local
-storage; the images view has its own address (`#schedule/images`), which the
-Review queue links to. It lists the newest stored schedule images as the
-Review queue's decision cards (`schedule-images.tsx`) under Active,
-Approved, Needs review and Not a schedule tabs. Active leaves out images an
-operator labelled Not a schedule, so a rejected card leaves the list; the
-Not a schedule tab keeps them, where the label can be cleared. A card
-shows its source post's time and wording, folded to four lines. Correct
-dates opens a wide dialog with the image and the whole post above the form,
-side by side or stacked on a phone. A card's covered dates note when they come from the post's events, and a dated card
-offers Show in calendar, which opens `#schedule/YYYY-MM`: the calendar on
-that month. Below the month grid the calendar lists the schedule images
-whose period overlaps the month, as the same cards, leaving out those
-labelled Not a schedule. The list and the calendar share a search field and status tabs
-for the review tasks: All, Not confirmed, Suspected (cancellation) and
-Deleted. The list groups entries
-under one heading per Japan date, with the day's count and a button that
-opens a new entry on that date; Upcoming, Past and All dates tabs set the
-date range beside it. Each row (`schedule-parts.tsx`) shows the time in
-Japan (or All day), the title, which opens the entry dialog, and its badges;
-an unconfirmed entry has a labelled Confirm button before the icon actions.
-The calendar (`schedule-calendar.tsx`) shows a Monday-first month grid
-without merged duplicates. Each entry is a chip with its time and title,
-styled by review state as the legend below names; a chip opens the entry,
-and a day opens its rows below the grid with the same actions and its new
-entry button. On a narrow grid the chips become dots. The entry dialog is
-either timed or all day. A timed entry needs a start time; its length
-defaults to the [calendar feed's](public-api.md#public-feeds) length for the
-type without saving an end, so the board keeps treating a stream as
-open-ended, while presets and a custom end save `endsAt`. A preview line
-renders the entry as calendar subscribers will see it.
+A Bilibili dynamic (`source: "bilibili"`) shows the bilibili mark and name,
+linked to the account's space, instead of an `@handle`, and its open link
+goes to the opus page. It has no engagement counts. A forward shows the
+dynamic it forwards as its quote card, and an empty text (an emoji-only
+dynamic, or a forward without wording of its own) leaves only its images or
+its quote. The
+wall's top line adds bilibili while it holds a dynamic.
 
-The console's video list (`src/admin/views/videos.tsx`) puts the featured
-video above a list with a search field and task tabs: All, Upcoming,
-Bilibili, Missing translation and Queued (an open refresh or translation
-request); a `#videos/<tab>` link opens that tab. Uploads
-merged into another video appear on that video's row, so only the Bilibili
-tab lists them on their own. Each row shows the
+An entry follows its first platform link (`eventLink` in
+`src/dashboard/format.ts`), or its `url`, or, in a snapshot without
+`links`, a stream's `liveUrl ?? url`. `eventLinks` orders an entry's
+`links` as `videoLinks` orders a video's: a platform whose `liveStatus` is
+`live` first, marked live, then for zh-CN once the entry is done its
+bilibili link, else its own platform first; a platform without a link is
+left out. An entry shows them with `PlatformLinks` (`platform-links.tsx`,
+the live one marked) when it has more than one, or one beside an
+announcement of its own (`eventAnnouncement`: its `url` when no platform
+link is that page): on its stage ticket, on its week and calendar card,
+where the open arrow then opens the announcement, and in its sheet, where
+the open button does; the announcement is never labelled as a platform. A
+full stage ticket of an entry marks its `platforms` on the art with
+`PlatformBadge`. When the stage shows the reserved video of an entry, the
+ticket adds the entry's links on platforms the video has no copy on, such
+as the bilibili room of a simulcast, marks the video's own link live while
+the probe confirms it, and reads live, without a countdown, while any of
+its links is. `PlatformLinks` names a link on another platform by its
+host. The dashboard's `liveNow` becomes a live stage
+ticket, "Live now on bilibili", unless an entry shown on that platform, of
+type stream or member and confirmed `live`, starts at S with S−2h ≤
+`startedAt` ≤ S+3h, as the server matches broadcasts; the match never
+compares links. The
+post wall's account filter adds a bilibili button for each of
+`meta.bilibiliAccounts`, with the bilibili mark instead of the mid. A snapshot restored from the
+browser drops `liveNow` until the first fresh read.
+
+The console's schedule (`src/admin/views/schedule.tsx`) has a calendar and
+a list. It opens on the calendar unless the browser remembers the list in
+local storage. `#schedule/YYYY-MM-DD` opens the calendar on that day,
+`#schedule/look-YYYY-MM-DD` on that day with only what needs a look, and
+`#schedule/YYYY-MM` on the first of that month; `#schedule/images` opens
+the list on the schedule images.
+
+The calendar (`schedule-calendar.tsx`) works like a phone calendar around a
+selected day, today at first. A compact Monday-first month grid sits on the
+left, with previous, next and Today buttons above it: each day shows up to
+four dots coloured by its entries' states (on the board, uncertain
+addition, suspected cancellation, cancelled, hidden by its posts) as the
+legend names, and each week row ends in an image mark when a schedule image
+covers that week, honey while one waits for review. Choosing a day selects
+it and its week, which is tinted; a double click starts a new entry on that
+day. Paging months selects the first day, or today in the current month.
+Under the grid, held in view, sit the selected week's schedule images
+(`schedule-week-image.tsx`); those labelled Not a schedule fold away below
+them, where This is a schedule takes them back. Each shows its state,
+dates, source link and post, and offers Week earlier and Week later, which
+shift its dates by seven days as a manual correction and select that week;
+Fit to this week, when its dates are not exactly the week; and the label
+decisions. The right side lists the selected week's
+seven days, Monday to Sunday with their own previous and next buttons, each
+with its rows and new entry button, empty days included, the selected day
+marked. Merged duplicates sit under the entry they are merged into, each
+with its undo. All and Needs a look (with the month's count) filter the
+entries; while Needs a look is on, Next week to look at selects the next
+week holding something that needs a look, round to the earliest after the
+last, and Review queue (with the queue's count) returns to the queue. The
+calendar has no search of its own: searching opens the list on all dates
+with the matches. Under 1000px the grid, the images and the days stack.
+
+The server decides which entries need a look and reports it as each
+entry's `review` (see [Admin API](admin-api.md#events)): the model suspects
+its cancellation, or it is an uncertain addition. Its row's edge takes the
+colour, honey or lavender, and a note in the row names the reason; a
+suspected cancellation's note shows the model's evidence and confidence with
+Confirm cancelled (saving the evidence as the reason) and Not cancelled, and
+either note opens the entry's source posts below it. An uncertain addition
+is settled with the row's Confirm or delete.
+
+The list shows the entries or the schedule images. Its entries are grouped
+under one heading per Japan date, with the day's
+count and a button that opens a new entry on that date; Upcoming, Past and
+All dates tabs set the date range beside it, and the status tabs All, Not
+confirmed, Suspected (cancellation) and Deleted with a search field filter
+it. Each row (`schedule-parts.tsx`) shows the time in Japan (or All day), the
+title, which opens the entry dialog, its badges and its review note; an
+unconfirmed entry has a labelled Confirm button before the icon actions. An
+automatic entry whose every source post is hidden carries a Hidden by its
+posts badge and is dimmed, since the public pages leave it out.
+
+The list's schedule images are the newest stored ones as decision cards
+(`schedule-images.tsx`) under Active, Approved, Undated (with its count) and
+Not a schedule tabs. Active leaves out images an operator labelled Not a
+schedule, so a rejected card leaves the list; the Not a schedule tab keeps
+them, where the label can be cleared. Undated holds those without covered
+dates, which the calendar cannot show. A card shows its source post's time and wording, folded to four
+lines. Correct dates opens a wide dialog with the image and the whole post
+above the form, side by side or stacked on a phone. A card's covered dates
+note when they come from the post's events, and a dated card offers Show
+its week, which opens the calendar on the day its dates start.
+
+The entry dialog (`event-dialog.tsx`) is either timed or all day. A timed entry needs a start time. Its length
+starts at the type default, the [calendar feed's](public-api.md#public-feeds)
+length for the type, and saves that end as `endsAt` like the presets and a
+custom end. **No end time** saves none, so the board treats a stream as
+open-ended; a saved entry without an end opens on it, so an unrelated edit
+never adds one. A sale replaces the length with a close date and an optional
+close time (`endsOn` and `endsAt`).
+A preview line renders the entry as calendar subscribers will see it.
+An existing entry's dialog puts its evidence (`event-evidence.tsx`) beside
+the form, scrolling on its own and below the form on narrow screens: one
+timeline of the posts it was read from, labelled Source, Merged entry or
+Cancellation, between the same accounts' nearby posts, which are quieter
+and can be folded away; links of other evidence sit above it.
+
+The console's video list (`src/admin/views/videos.tsx`) has platform tabs
+(All, YouTube, Bilibili) above the featured video and a list with task tabs
+(All, Upcoming, Missing translation and Queued, an open refresh or
+translation request), which any platform narrows, and a search field.
+Both are in the URL, `#videos/<platform>/<task>`, and either part may be
+left out: `#videos/bilibili` opens the Bilibili uploads and `#videos/queued`
+the Queued tab on every platform. Uploads merged into another video appear
+on that video's row, so only the Bilibili tab lists them on their own. Each row shows the
 thumbnail, the title, which opens the correction dialog, the platform, time,
-kind, tag, length and format, its badges and merge line, the translation chips,
-and the feature, correct and open actions. The correction dialog
-(`video-editor.tsx`) opens with a preview of the board's row as the draft
-leaves it (the chosen thumbnail, title, source, kind, tag, format and the
-number of corrections) and the page-read facts. Below, the corrections
-(title, kind, tag, format, who can watch and thumbnail files) sit beside the platform's record (the merge
-section and what the platform replaced); one column on narrow screens. A
-corrected field is marked and offers a reset to the platform value beside its
-label. Refresh, cancel and save stay in the footer.
+kind (for a Bilibili upload with who settled it, or a honey badge while it
+is unsettled and not public), tag, length and format, its badges and merge
+line, the translation chips, and the feature (public videos only), correct
+and open actions. A merge badge opens the other side's correction dialog:
+the YouTube row's badge the upload, the upload's badge its YouTube video.
+The correction dialog
+(`video-editor.tsx`) carries no explanatory text. Its left column shows the
+board's row as the draft leaves it (the chosen thumbnail, title, source, kind,
+tag, format and the number of corrections) and when the page was last read,
+then below a hairline the corrections: title, kind, tag, format, who can
+watch, and the thumbnail files when any are stored, as fixed-size tiles with
+a check on the chosen one. Its right column is one soft panel as tall as the
+left, holding the platform's record: the merge section, its field and button
+on one row, and, below a hairline, what the platform replaced when it
+replaced anything, each entry a two-line title with its date. Narrow screens
+stack the panel below the corrections. A corrected control is tinted and
+offers an icon reset to the platform value beside its label. The footer holds
+the refresh as a quiet button, the platform link, cancel and save.
 
 The Review queue (`src/admin/views/review.tsx`) lists only what waits for a
-decision, in tabs for schedule images that need review, suspected
-cancellations, video merges and posts; a decision removes the item
-and the sidebar badge counts again. The images tab links to the Schedule
-page's images view. An image or a suspected cancellation is a decision
+decision, in tabs for the schedule, video merges and posts; a decision
+removes the item and the sidebar badge counts again. `#review/images` and
+`#review/cancellations` open the schedule tab. The schedule tab
+(`review-schedule.tsx`) reads the schedule work by week (see
+[Admin API](admin-api.md#schedule-images)) and shows one group per week,
+oldest first: its dates, marked when it is this week, its counts of images
+to review, suspected cancellations and uncertain additions, and Open in
+calendar, which opens `#schedule/look-<Monday>`. The uncertain additions
+follow as quiet lines with their reasons, to settle on the calendar beside
+the rest of the week; then the pending images' and suspected cancellations'
+decision cards. Weeks before last week fold under Earlier weeks, and
+undated images form their own group, whose cards set their dates. An image
+or a suspected cancellation is a decision
 card: its left edge takes the state colour (honey
 while it needs a decision, leaf once the image reaches the board, neutral
 when rejected), the image or the entry's date sits on the left, and the body
-shows the badges and source link, the model's verdict with a confidence bar
-and its reason or evidence, the facts, and a bottom bar with the note field
+shows the badges and source link, the model's verdict with a confidence bar,
+the extracted schedule text when present, and its reason or evidence, the facts,
+and a bottom bar with the note field
 and the decision buttons. A cancellation needs a reason before it can be
-confirmed. The video merges tab (`merge-parts.tsx`) lists each Bilibili
+confirmed, and its Source posts button opens the same evidence timeline in
+the card. The video merges tab (`merge-parts.tsx`) lists each Bilibili
 upload the merge rule merges at its next run or leaves to the operator,
 beside its candidates: Merge attaches it to one, and Keep separate keeps it
-apart so the rule never merges it. The posts tab has two labelled filters:
+apart so the rule never merges it; a live replay's candidate is marked as
+the archive of the same broadcast. The Bilibili form tab lists the uploads
+the model was unsure about or failed on, each with its cover, title, length,
+publication time and the broadcast the replay rule read, and Upload and Live
+replay buttons that set its form. The posts tab has two labelled filters:
 Step, Schedule extraction or Translation, each with the overview's failure
 count, and State within the step: Failed or Uncertain for extraction;
 translation has only failures and shows no State filter. A new step keeps
@@ -262,10 +410,17 @@ the state when the step has it and falls back to Failed otherwise; below
 560px each filter takes its own full-width line. Posts queued for a run wait
 on the run, not the operator, so the tab lists none of them: a note under
 the filters counts the step's queued posts from the overview's `backlog` and
-links to them in the post list. Each row names the step that failed
-(schedule extraction or translation) with its error. A failed extraction
-offers Dismiss beside the LLM action; a translation row offers Translate
-again, which queues a machine pass. The list pages 50 posts at a time.
+links to them in the post list. Each post is a card whose left edge takes
+its state's colour, danger for a failure and honey for an uncertain
+extraction: the account, time and post link above the wording, with up to
+three of its images beside it (below it under 640px) and its quote under
+it, then, past a hairline, a verdict line and the actions. The verdict
+names the state (Schedule extraction failed, Extraction uncertain or
+Translation failed) with its icon in the edge colour, the error, when the
+step last tried, the automatic retry or its stop, and a Queued mark while a
+run waits for the post. A failed extraction offers Dismiss beside Process
+again; a translation card offers Translate again, which queues a machine
+pass. The list pages 50 posts at a time.
 Each row has a selection box on its left edge, and shift-click selects the range from the last toggled row. A selection
 bar above the list, which sticks under the top bar, selects the whole page
 and applies the state's actions to every selected post in one request:
@@ -288,35 +443,75 @@ overview's `backlog`: each kind of operator request that has any (posts to
 extract again, X posts and videos to read again, posts and video titles to
 translate), with its count and the run that takes it. A row opens the post
 list or the video list on those requests; nothing shows while none waits.
+Beside Source timers, What runs next opens the Queue page.
+
+The Queue page (`src/admin/views/queue.tsx`) has one tab per step (`#queue/
+schedule`, `youtube`, `translate`, `x-refresh`), each read from its
+[queue preview](admin-api.md#queue-preview) when the tab opens, on Refresh
+and when a run finishes. Schedule extraction lists the posts one run
+processes in order, numbered, each with why (requested, new post, input
+changed, backoff over) or the skip that takes its place, its route and
+source, and Open post, which opens the post list searched for it; counts of
+the posts left for later runs, cache hits, posts in backoff with the next
+retry and stopped retries follow, and the candidate counts head the tab.
+YouTube details lists the detail queue in group order with each run's
+watch-page and Data API budget and notes that videos a run's listing turns
+up join it unlisted. Translation lists the step's candidates, marking those
+past the per-run calls that a run reaches only when earlier ones need no
+call. X refreshes lists refresh requests oldest first, each marked for the
+next run, a later run, or an account the X step does not read. A step turned
+off for the service or with nothing to work with says so above its list.
 
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
-tabs for X, YouTube and Bilibili, each with the platform's logo, a dot (or
+tabs for X, YouTube, Bilibili uploads, Bilibili dynamics and the official
+shop, each with the platform's logo (a shopping bag for the shop), a dot (or
 a lock) for whether its timer runs here and the state as its tooltip.
 The selected source opens with a summary: what it reads, its timer state,
 next run, last run and last successful read, the timer switch (which saves
 at once) and Run now. While the timer runs, Run now starts it as the
 overview queue's Start now does, and reads Run next while a run holds the
 queue; while it is off, Run now runs the source's steps once and waits for a
-free queue. A source that `SKIP_*` turns off is locked. Below the
-summary the main column holds the timed reads, one form with one Save and
+free queue. A source that `SKIP_*` turns off is locked. The Bilibili
+tabs' summaries add the login cookie's state and the shared captcha backoff
+as chips, with a note on setting `BILIBILI_COOKIE` or `BILIBILI_SESSDATA` while no cookie is
+configured or the configured one expired. Below the
+summary the main column holds the timed reads
+(`src/admin/views/source-timed.tsx`), one form with one Save and
 Discard: the interval and, for X and YouTube, the sync setting; and the
 [method chain](workflows.md#method-chains), with every method's switch and
 up/down moves, a method the process cannot run greyed with the variable it
-needs, and Bilibili's one fixed method read-only. Save sends only the
+needs, and the one fixed method of the related accounts, the Bilibili dynamics timer and the shop read-only. Save sends only the
 changed fields, and the timer switch keeps unsaved edits.
 
-Settings below the timed reads are folded: a header row with the title,
+Settings below the timed reads are folded (`src/admin/views/source-parts.tsx`
+holds the fold and the question-mark help): a header row with the title,
 its state and any quick switch opens onto the settings and figures, and
 each fold saves on its own. X adds its X API limits (gate and daily cap,
 with the API's place in the chain and today's usage in the header, and
 today's usage and each account's timeline failures shown as meters against
-them). YouTube adds its progressive confirmation, where push and the
+them). X related adds the related accounts panel
+(`src/admin/views/related-accounts.tsx`): each account's handle and keyword
+rules side by side (stacked on a phone), the rules entered as chips in the
+shared tag input, where Enter or a comma adds one, with its last read,
+stored and promoted counts and last error below, an Add account button that
+starts with the default rules, and one Save; a link opens External posts.
+The panel and the related manual fetch share the tab's one read of the
+accounts, made only while the tab is open. YouTube adds its progressive
+confirmation (`src/admin/views/source-live.tsx`, with the Bilibili live room
+fold), where push and the
 live-status probe are folds with their switch in the header (the probe's fold
 also lists its active videos, each with Stop checking, and its stopped
 videos, each with Check again), followed by
 the read-only
 [follow-up checks](sources.md#follow-up-checks-and-refresh-requests), and
-yt-dlp, with its status in the header. X and YouTube fold their timed-read
+yt-dlp, with its status in the header. Bilibili uploads adds the Bilibili
+live room fold, the live-status probe's Bilibili part: the room's state and
+the check's switch in the header, its interval, next check and the stream
+entries it follows, then the room's last check.
+The shop tab (`src/admin/views/shop-parts.tsx`) adds the shop read's state:
+its sale entries, last read and error, whether it runs here and the wait a
+429 answer set.
+X and YouTube fold their timed-read
 limits in the main column and the manual-fetch limits, which they share,
 under the manual fetch, one field per row with its label beside the input.
 Both limit folds edit the page's one read of the settings. Longer
@@ -324,17 +519,60 @@ explanations sit in a dialog behind a question mark beside a title or
 label: the chain, the X API limits, YouTube's per-run limit, its
 progressive confirmation and each of its steps, and yt-dlp.
 
-The manual fetch sits beside the main column: method, mode, count or
-dates, options, then the newest fetch's summary; Bilibili shows its account
-and single-video form there. On a narrower screen the side column follows
+The manual fetch (`src/admin/views/source-fetch.tsx`) sits beside the main
+column: method, for X every own
+account or one of them, mode, count or dates, options, then the newest
+fetch's summary. The method and mode pickers show only when there is more
+than one to pick, and only YouTube's methods and the date windows carry a
+hint. The X related tab's fetch picks one related account,
+shows its last read, and offers schedule extraction and translation; its
+summary counts the statuses listed, promoted and demoted. The Bilibili tabs'
+fetch form is disabled while the captcha backoff lasts, with its end. The
+shop's is one button that reads the whole catalog, disabled while a 429's
+wait lasts, then the newest read's listed products, dated products of Kano,
+sale periods and pages. Below the fetch, YouTube adds one video by ID or
+link and the Bilibili tabs one upload by BV ID or link or one dynamic by its
+link, each disabled while the source does not run here. On a narrower screen the side column follows
 the main one, and on a phone the tabs share the width and show only the
 source names, and a fold's header controls move under its title.
 
-The console's post list (`src/admin/views/posts.tsx`) is a feed of posts
+External posts (`src/admin/views/external-posts.tsx`, in the Data group
+after Posts) has a platform tab per status pool, X and Bilibili, with no
+All tab since the pools take different actions (`#external/bilibili`). The
+X tab lists the
+X status pool, without Kano's own accounts' statuses, in the post list's
+feed layout:
+author, name and Japan time; the wording with its image count, links to the
+own posts that quote it (opening Posts searched for the post), the accounts
+that reposted it, a link to a promoted status's post in Posts and a locked
+decision's reason; the translation summary of a status that has no post;
+badges for its state (On the board, Demoted, Stored only), a lock
+and its reasons; and icon actions to promote a related account's status,
+demote a promoted one, return a locked one to the keyword rules and open it
+on X. Promote and demote open a dialog that shows the wording and requires
+a reason. Filters cover the text or ID, the author (the related accounts),
+the reason and the state; a header link opens the related accounts on
+Sources.
+
+The Bilibili tab lists the Bilibili status pool, without forwards of
+Kano's own dynamics, in the same layout and read-only: the Bilibili mark
+with the author's name and mid, the Japan time, the wording with its image
+count and a "Forwarded in a post" link to each forward in Posts (marked when
+that forward is hidden, hides its quote or shows it unavailable), the
+translation editor, badges for whether a forward shows it (Public, Not
+public, Gone), Video for an upload and its reason, and a link to it on
+Bilibili. It has no promote or demote, since the forward's quote shows the
+dynamic. Filters cover the text or ID, the author's mid or name, and the
+kind.
+
+The console's post list (`src/admin/views/posts.tsx`) has platform tabs
+(All, X, Bilibili; `#posts/x`, `#posts/bilibili`) above a feed of posts
 separated by rules, one row of columns per post: the account over the Japan
 time, the wording (three lines) and its quote, the post's own cached images
 (up to three, "+N" counts the rest), the translation status, the extraction
-state with a Hidden badge for a post hidden from the public pages and a
+state with a Hidden badge for a post hidden from the public pages, a
+Promoted badge, which opens External posts, for a related account's
+promoted status, and a
 Schedule image badge for a post with a schedule image record, and the
 edit, "process again with the LLM" and open actions. The columns after the
 wording have fixed widths, so they line up from post to post. A text-only
@@ -344,8 +582,11 @@ state and actions on one line above the wording, images and translations,
 and under 560px the state gets a line of its own. A hidden post's wording is
 dimmed. Beside the account, extraction, translation and date filters,
 Queued for keeps the posts with an open operator request: any, Extract
-again, Read again from X or AI translation. A `#posts/queued-<kind>` link
-opens the list on one kind.
+again, Read again from X or AI translation. The account filter lists the X
+accounts and is absent on the Bilibili tab. A platform keeps the other
+filters and starts the list again at its first page. A
+`#posts/queued-<kind>` link opens the list on one kind, after the platform
+when there is one (`#posts/x/queued-refresh`).
 
 Edit opens the post in a dialog: the whole wording, every cached image, the
 translations, the quote, the schedule image form and a switch that hides the
@@ -353,7 +594,7 @@ post from the public pages or shows it again, with the LLM and open actions
 in its footer. An X post with images can be marked as a schedule image there:
 the image (a choice when the post has several), a required reason and an
 optional first and last day; a post with a record shows its badge and a link
-to the Schedule page's images view.
+to the Schedule list's images.
 
 The quote is a read-only card on the sunken surface under the wording, so
 its thumbnails never read as the post's own images. Its header holds the
@@ -368,16 +609,20 @@ edit dialog shows the quote's whole wording. Nothing edits the quote itself.
 Post text and video titles come with server-resolved `translations` (see
 [Translations](data-model.md#translations)). `src/components/translated-text.tsx`
 chooses what a reader sees from the content language, not the interface
-locale: English and Chinese content gets that locale's translation by default
-and Japanese content always gets the source. The header's language menu
+locale: each content language gets that locale's translation by default,
+except that Japanese content keeps wording detected as Japanese
+(`pickTranslation`). The header's language menu
 (`src/components/preference-controls.tsx`) sets both; the content language
 defaults to "Same as interface", and the operator console shows only the
 interface choice. The LINE BLOG paragraph translations and the schedule
 month grid follow the same content locale, while feed links, history copy
 and the bilibili-first rule follow the interface locale. Translated wording
-is followed by `TranslationToggle`, a translate icon and "AI" whatever the
-translation's origin, lit (`is-active`, `aria-pressed`) while the
-translation shows; selecting it shows the source and turns it off. Its
+is followed by `TranslationToggle`, a translate icon followed by the
+origin's mark (`translationMarkKind`): "AI" for a machine translation, the
+YouTube or bilibili logo for a platform translation, and nothing for a manual
+translation or another platform's (`is-icon`). It is lit (`is-active`,
+`aria-pressed`) while the translation shows; selecting it shows the source
+and turns it off. Its
 tooltip and accessible name spell out the origin (AI, platform or editor),
 and on a title the tooltip holds the source. A post's switch follows its
 last word; while the board's six-line clamp hides the end of the post, it
@@ -391,7 +636,8 @@ not links themselves: the title is the link (`.card-link`), and
 `followCardLink` in `src/site/links.tsx` opens it from anywhere else on the
 card. A week-guide entry's title is instead the button that opens the
 entry's sheet, which holds its link, and `followCardLink` presses it the
-same way. A clamped title clamps only its wording, so the switch stays visible.
+same way. A clamped title clamps only its wording, so the switch stays visible,
+and while the clamp cuts it, hovering the wording shows it whole as its tooltip.
 Month-grid chips are too small for a switch and show the reader's wording
 unmarked. An operator's
 Featured title from the focus record shows as written. The wording shown
@@ -399,8 +645,8 @@ carries its `lang` attribute. The console's
 completeness chips and translation editor are in
 `src/admin/views/translation-parts.tsx`, shared by posts and videos.
 
-Board images from the media cache, LINE BLOG archive images and the fixed
-history images load through `srcset`: `src/lib/media.ts` lists the server's
+Board images from the media cache, LINE BLOG archive images, Works covers
+and Journey images load through `srcset`: `src/lib/media.ts` lists the server's
 [resized copies](media-cache.md#resized-copies) below an image's known width,
 and each card or thumbnail passes a `sizes` hint for its layout. The
 full-image viewers, profile media and other bundled assets keep their single
@@ -425,11 +671,11 @@ consumption.
 
 Each successful snapshot is also kept in `localStorage`
 (`kano-dashboard-snapshot-v1`, with the time it was stored). The next visit
-renders a stored snapshot under a week old at once, through the same local
-time derivation, and reads the API as usual; the board reports a refresh
-rather than loading, and the first read replaces it or, on failure, leaves it
-shown with the error. The key's suffix changes when the snapshot's shape
-does. Without a usable stored snapshot the stage shows its placeholder, which
+renders a stored snapshot under a week old at once and reads the API as usual;
+the board reports a refresh rather than loading, and the first read replaces
+it or, on failure, leaves it shown with the error. Additive projection fields
+are filled with compatible defaults while a stored response does not contain
+them. Without a usable stored snapshot the stage shows its placeholder, which
 has a full ticket's shape (the 16:9 art band and a stub with a two-line
 title, three lines at 640px and below), so the usual ticket fills it in place.
 
@@ -451,58 +697,45 @@ stream and pauses its timer; becoming visible reopens the stream, whose first
 message is the current revision, and visibility/focus events coalesce into a
 prompt check while respecting failure backoff and a one-second minimum gap.
 Unmount closes the stream, aborts requests and removes deadlines, timers and
-wake listeners. The 30-second local time derivation below runs separately.
+wake listeners. The local clock updates freshness copy; snapshot revalidation
+keeps the time-dependent projection current without source synchronization.
 
 ## Time-dependent Snapshot State
 
-The overall state, shown by the header dot and the profile card, is the
-latest completed run in `meta.lastSync`: its outcome and its finish time (its
-start time when it has none). An API failure takes priority, then a run that
-is neither `success` nor `partial` (needs review); a `partial` run is partial
-and a run older than 24 hours is out of date. Below it, the profile card lists
-the last successful X, YouTube and bilibili reads from `meta.sourceFetchedAt`,
-each marked out of date after 24 hours; these source times do not change the
-overall state. The local clock updates both warnings without a request.
+The profile card ends with one row: the counts, each an icon and a number
+whose window label is its tooltip and screen-reader text, then one icon per
+source, X, YouTube, bilibili and the shop, whose tooltip and screen-reader text carry its last successful read
+from `meta.sourceFetchedAt`; a read older than 24 hours marks the icon out of
+date with a dot, and a source never read fades. The card has no reload: the
+board revalidates by itself, and the API failure alert carries the retry. The
+overall state, shown by the header dot with its wording left to screen
+readers and the dot's tooltip, is what a visitor can tell from the page: an
+API failure takes priority, then any out-of-date source; with no source read
+yet the board is waiting, and otherwise up to date. A run's outcome in
+`meta.lastSync` is operator diagnosis and does not change it; a source that
+keeps failing shows once its last read ages out. The local clock updates
+these warnings without a request.
 Missing timestamps, and ones more than five minutes ahead of the local clock
 (a visitor clock slightly behind the server still shows a fresh read), remain
 waiting. This is a display threshold, not a synchronization timer.
 
-The board rederives event/video availability, counts, and focus candidates from
-its local snapshot every 30 seconds and when the page regains visibility/focus,
-even when `dashboard_revision` is unchanged. Expired activities yield to later
-events; date-only entries use the current Asia/Tokyo date and never acquire a
-synthetic start time. A fresh probe-confirmed `liveStatus` decides first:
-`live` stays live until a known end, while `ended` and `upcoming` are never
-on air, and the On air badge and the schedule's On air status use the same
-rule, so the week guide never folds a stream as past while the stage shows
-it on air; a confirmed `upcoming` waiting room past its reserved time stays
-upcoming there. Without one, streams and
-memberships retain a three-hour live grace period, or their explicit end time; other activities, including YouTube
-premieres, count as live only before an explicit end. A started candidate
-without an explicit end or a confirmed live state is only presumed live: in `nextEvent`, `nextStream` and
-`pickSpotlight` it yields to a later timed candidate that has started or starts
-within 30 minutes, while a candidate with an explicit end keeps its place until
-that end. Events and videos for the same YouTube video, matched by the identity
-below, form one spotlight candidate. A video linked to an event inherits its explicit end time for
-both `nextStream` and `pickSpotlight`. YouTube watch, youtu.be, live, and shorts
-links match by the video identity parsed locally from their public URL, ignoring
-share/query parameters and supported YouTube subdomain differences. Other links
-retain exact URL matching; different videos and lookalike hosts do not match.
-`pickSpotlight` gives a candidate with artwork the full ticket and one without
-it the compact layout; `pickCompanion` then adds the latest video beneath a
-compact ticket unless it is the same link. Both read `summary.latestVideo`,
-which `deriveDashboardAt` recomputes as the newest non-upcoming video that is
-not a Short (`isShort === true`), unless it is the featured video
-(`featuredVideoIdOf`: `meta.featuredVideoId`, or the focus video of a
-snapshot without that field), and that is neither private nor removed
-(`videoIsGone`). An unknown format or availability stays eligible, and when every recent upload is a
-Short the stage shows no latest video. The play mark appears only on
-YouTube or Twitch links; X links read as an announcement.
-Matching needs no protected source item IDs or additional public API fields.
-At the end instant the video yields to later focus candidates. This derived video
-`endsAt` belongs to local snapshot state. Without an explicit end, a stream's
-three-hour grace ends exactly three hours after the start. Confirmed cancellation flags prevent local
-rederivation from restoring a cancelled reservation. Selected-media startup
+The API supplies event and video availability, counts, focus order, spotlight
+identity, sale IDs and shelf order in the dashboard projection. `view` fields
+travel with calendar and archive records so the same codes render in every
+reader. The minute revalidation obtains a fresh projection when time-dependent
+states can expire without a durable revision; a visibility or focus wake also
+uses the same request path. `deriveDashboardAt` returns a versioned projected
+snapshot as received. A response without the projection follows the compatible
+local derivation path, including the live grace, sale expansion, focus yield,
+latest-video eligibility and cancellation rules needed by that response.
+
+`pickSpotlight` joins the projected event and video IDs to the returned
+summary, translates the projected live and members-chip flags, and keeps the
+existing full or compact layout. `pickCompanion` follows the projected
+companion ID. URL identity matching remains a link presentation concern: it
+orders platform links and labels the destination without deciding focus or
+availability. The public API exposes only the stable IDs, codes and booleans;
+source item IDs and raw provider data remain on the server. Selected-media startup
 repairs follow the [durable revision contract](data-model.md#event-precedence),
 so the board's revision follow-up reloads a changed avatar URL without
 increasing full-snapshot request frequency. This requires no source
@@ -533,9 +766,11 @@ they never require a browser CDN request. The license ships in
 name, or stable ID to identify a mark; unknown custom providers retain their
 initial. Removing a preset does not delete saved providers.
 
-The LLM view shows the extraction, schedule-image check and translation queues
-side by side, then the recent failures, then the
-providers as a list beside the selected provider's detail. Recent failures
+The Detection view shows the detection mode and keywords, then the text
+schedule extraction, image extraction and translation/light-task queues side
+by side, then
+the providers as a list beside the selected provider's detail
+(`#detection/<provider>`), the model limits, and the recent failures. Recent failures
 lists each stored failure's stage, relative time (the Japan time on hover),
 message, model and a link to its post or video; it loads with the view and
 on its reload button. A queue change

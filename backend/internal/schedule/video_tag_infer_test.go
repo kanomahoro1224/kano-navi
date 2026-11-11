@@ -90,8 +90,8 @@ func TestVideoTagsLabelVideosTheScheduleCannot(t *testing.T) {
 
 // Entries spend the per-run limit first; a failed video title only stamps
 // its attempt, so it stays unjudged, is asked after the others and not
-// before its retry delay has passed. A
-// Bilibili upload is never shown, so it is never asked about.
+// before its retry delay has passed. A merged Bilibili upload is shown
+// through its video, so it is never asked about.
 func TestVideoTagsShareTheLimitAndFailuresStayUnjudged(t *testing.T) {
 	f, translator := newTranslatorFixture(t)
 	f.addProvider("main", protocolChat, "https://translate.example.test", "synthetic-model", `["text"]`)
@@ -101,6 +101,7 @@ func TestVideoTagsShareTheLimitAndFailuresStayUnjudged(t *testing.T) {
 	f.addVideo("BV1CCCCCCCCC", "bilibili", "video bilibili", "upload", "2020-03-03T00:00:00Z")
 	f.addVideo("failing", "youtube", "video failing", "upload", "2020-03-02T00:00:00Z")
 	f.addVideo("later", "youtube", "video later", "upload", "2020-03-01T00:00:00Z")
+	f.exec(`UPDATE videos SET merged_into='later' WHERE id='BV1CCCCCCCCC'`)
 	f.provider.respond = func(request recordedRequest) (int, string) {
 		if strings.Contains(request.body, "failing") {
 			return http.StatusBadRequest, `{}`

@@ -45,7 +45,7 @@ func olderSnapshot(t *testing.T) (string, string) {
 		`DROP INDEX videos_merged_into_idx`, `ALTER TABLE videos DROP COLUMN merged_into`, `ALTER TABLE videos DROP COLUMN merge_source`,
 		`ALTER TABLE videos DROP COLUMN merge_reason`, `ALTER TABLE videos DROP COLUMN merged_at`,
 		`ALTER TABLE videos DROP COLUMN is_short`, `ALTER TABLE videos DROP COLUMN manual_is_short`, `ALTER TABLE videos DROP COLUMN is_premiere`,
-		`ALTER TABLE videos DROP COLUMN manual_tag`, `ALTER TABLE videos DROP COLUMN tag`, `ALTER TABLE videos DROP COLUMN tag_source`, `ALTER TABLE videos DROP COLUMN tag_attempted_at`, `ALTER TABLE videos DROP COLUMN availability`, `ALTER TABLE videos DROP COLUMN manual_availability`,
+		`ALTER TABLE videos DROP COLUMN manual_tag`, `ALTER TABLE videos DROP COLUMN tag`, `ALTER TABLE videos DROP COLUMN tag_source`, `ALTER TABLE videos DROP COLUMN tag_attempted_at`, `ALTER TABLE videos DROP COLUMN availability`, `ALTER TABLE videos DROP COLUMN manual_availability`, `ALTER TABLE videos DROP COLUMN manual_work`,
 		// Title kinds move to the form and content layers: an operator's content
 		// kind becomes a manual tag, and a scheduled title kind was a premiere's.
 		`INSERT INTO videos(id,source,title,published_at,scheduled_at,url,kind,manual_kind) VALUES('KKKKKKKKKKK','youtube','game stream','2026-03-01T00:00:00.000Z','2026-03-01T09:00:00.000Z','https://www.youtube.com/watch?v=KKKKKKKKKKK','LIVE ARCHIVE','GAMEPLAY')`,
@@ -61,7 +61,7 @@ func olderSnapshot(t *testing.T) (string, string) {
 		`INSERT INTO assets(id,kind,url,week_start) VALUES('synthetic-board','schedule','https://media.example.test/board.png','2026-03-02')`,
 		`INSERT INTO posts(id,source,text,published_at,url) VALUES('synthetic-post','x','retained','2026-03-01T00:00:00.000Z','https://x.com/synthetic_handle/status/1')`,
 		`ALTER TABLE post_llm_states DROP COLUMN failure_count`, `ALTER TABLE post_llm_states DROP COLUMN failure_fingerprint`,
-		`ALTER TABLE post_llm_states DROP COLUMN next_attempt_at`,
+		`ALTER TABLE post_llm_states DROP COLUMN next_attempt_at`, `ALTER TABLE post_llm_states DROP COLUMN settled_stamp`,
 		`INSERT INTO post_llm_states(post_id,status,last_error,updated_at) VALUES('synthetic-post','failed','LLM request failed','2026-03-01T00:00:00.000Z')`,
 		`INSERT INTO llm_providers(id,name,base_url,model,vision_capable,max_retries,created_at,updated_at) VALUES('synthetic','Synthetic','https://provider.example.test/v1','synthetic-model',0,0,'2026-03-01T00:00:00.000Z','2026-03-01T00:00:00.000Z')`,
 		`INSERT INTO llm_route_providers(route,provider_id,priority,created_at,updated_at) VALUES('schedule_vision','synthetic',0,'2026-03-01T00:00:00.000Z','2026-03-01T00:00:00.000Z')`,
@@ -105,8 +105,11 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 		`SELECT COUNT(*) FROM pragma_table_info('media_assets') WHERE name IN('retry_attempts','next_retry_at')`:             "2",
 		`SELECT period_start||'/'||period_end||'/'||period_basis||'/'||asset_version FROM assets WHERE id='synthetic-board'`: "2026-03-02/2026-03-08/legacy/1",
 		`SELECT COUNT(*) FROM pragma_table_info('assets') WHERE name='manual_image_at'`:                                      "1",
-		`SELECT account_handle FROM posts WHERE id='synthetic-post'`:                                                         "synthetic_handle",
-		`SELECT text FROM posts WHERE id='synthetic-post'`:                                                                   "retained",
+		// An older snapshot gains the Works decision without one for any video.
+		`SELECT COUNT(*)||'/'||COUNT(manual_work) FROM videos WHERE id='BV1synthetic0'`: "1/0",
+		`SELECT COUNT(*) FROM pragma_table_info('videos') WHERE name='manual_work'`:     "1",
+		`SELECT account_handle FROM posts WHERE id='synthetic-post'`:                    "synthetic_handle",
+		`SELECT text FROM posts WHERE id='synthetic-post'`:                              "retained",
 		// An older failure starts without a backoff: the next scan retries it.
 		`SELECT status||'/'||failure_count||'/'||COALESCE(failure_fingerprint,next_attempt_at,'none') FROM post_llm_states WHERE post_id='synthetic-post'`: "failed/0/none",
 		`SELECT title||'/'||COALESCE(merged_into,merge_source,merge_reason,merged_at,'unmerged') FROM events WHERE id='synthetic-event'`:                   "retained/unmerged",
@@ -130,6 +133,10 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 		`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN('events_instant_idx','events_stream_identity_idx','posts_instant_idx','posts_url_published_at_idx','videos_instant_idx','videos_schedule_instant_idx','events_source_item_idx','schedule_asset_reviews_status_idx')`: "8",
 		`SELECT COUNT(*) FROM pragma_table_info('videos') WHERE name IN('live_status','live_checked_at')`:                                                                          "2",
 		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN('workflow_runs','workflow_run_steps','workflow_step_attempts','workflow_leases','workflow_migrations')`: "5",
+		// The forwarded-dynamic pool starts empty: no forward was stored before.
+		`SELECT COUNT(*)||'/'||(SELECT COUNT(*) FROM bilibili_statuses) FROM sqlite_master WHERE type='table' AND name='bilibili_statuses'`: "1/0",
+		// An older state has no settled stamp: the next scan judges the post.
+		`SELECT COALESCE(settled_stamp,'none') FROM post_llm_states WHERE post_id='synthetic-post'`: "none",
 	} {
 		if got := query(statement); got != want {
 			t.Fatalf("%s = %q, want %q", statement, got, want)
@@ -379,6 +386,77 @@ func TestStandaloneSeedsVerifyQueueOnce(t *testing.T) {
 	if got := queues(); got != "schedule:a-legacy:0,schedule:a-text:1,schedule:a-both:2,translate:a-text:0" {
 		t.Fatalf("second start reseeded: %q", got)
 	}
+}
+
+func TestStandaloneSeedsEmptyImageQueueAfterFirstSeed(t *testing.T) {
+	const stamp = "2026-03-01T00:00:00.000Z"
+	setup := func(t *testing.T, extra ...string) string {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "snapshot.sqlite")
+		s, err := OpenStandalone(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// An install that ran the first seed while image posts still used the
+		// schedule queue: its marker is set, the image marker is not, and the
+		// image queue is empty.
+		statements := append([]string{
+			`DELETE FROM app_settings WHERE key='llm_image_queue_seeded'`,
+			`INSERT INTO llm_providers(id,name,base_url,model,created_at,updated_at) VALUES('alpha','Alpha','https://alpha.example.test/v1','','` + stamp + `','` + stamp + `')`,
+			`INSERT INTO llm_models(provider_id,model_id,tags_json,enabled,origin,created_at,updated_at) VALUES
+				('alpha','a-text','["text"]',1,'manual','` + stamp + `','` + stamp + `'),
+				('alpha','a-both','["text","image"]',1,'manual','` + stamp + `','` + stamp + `')`,
+			`INSERT INTO llm_route_targets(route,provider_id,model_id,priority,created_at,updated_at) VALUES
+				('schedule','alpha','a-text',0,'` + stamp + `','` + stamp + `'),
+				('schedule','alpha','a-both',1,'` + stamp + `','` + stamp + `')`,
+		}, extra...)
+		for _, statement := range statements {
+			if _, err = s.db.Exec(statement); err != nil {
+				t.Fatalf("%s: %v", statement, err)
+			}
+		}
+		s.Close()
+		return p
+	}
+	queues := func(t *testing.T, p string) string {
+		t.Helper()
+		s, err := OpenStandalone(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.Close()
+		var got sql.NullString
+		if err = s.db.QueryRow(`SELECT group_concat(route||':'||model_id||':'||priority,',') FROM
+			(SELECT * FROM llm_route_targets ORDER BY route,priority)`).Scan(&got); err != nil {
+			t.Fatal(err)
+		}
+		return got.String
+	}
+	t.Run("empty image queue", func(t *testing.T) {
+		p := setup(t)
+		want := "schedule:a-text:0,schedule:a-both:1,verify:a-both:0"
+		if got := queues(t, p); got != want {
+			t.Fatalf("queues = %q, want %q", got, want)
+		}
+		db, err := sql.Open("sqlite", p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = db.Exec(`DELETE FROM llm_route_targets WHERE route='verify'`); err != nil {
+			t.Fatal(err)
+		}
+		db.Close()
+		if got := queues(t, p); got != "schedule:a-text:0,schedule:a-both:1" {
+			t.Fatalf("second start reseeded: %q", got)
+		}
+	})
+	t.Run("configured image queue", func(t *testing.T) {
+		p := setup(t, `INSERT INTO llm_route_targets(route,provider_id,model_id,priority,created_at,updated_at) VALUES('verify','alpha','a-text',0,'`+stamp+`','`+stamp+`')`)
+		want := "schedule:a-text:0,schedule:a-both:1,verify:a-text:0"
+		if got := queues(t, p); got != want {
+			t.Fatalf("queues = %q, want %q", got, want)
+		}
+	})
 }
 
 func TestStandaloneRefusesUnrecognizedSchemaUnchanged(t *testing.T) {

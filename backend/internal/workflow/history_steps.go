@@ -3,11 +3,14 @@ package workflow
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
+	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
+	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -25,6 +28,9 @@ type HistorySource struct {
 	ChannelID          string
 	// RequestLimit is the X page budget of one step, shared by all accounts.
 	RequestLimit int
+	// Bilibili is the adapter the Bilibili fetches read through; the source
+	// steps run them, so it only reports whether they can run.
+	Bilibili *bilisource.Adapter
 }
 
 // MethodAvailable reports whether a source's method can run now: the API
@@ -34,7 +40,10 @@ func (h *HistorySource) MethodAvailable(source, method string) bool {
 		return false
 	}
 	switch {
-	case source == history.SourceX && method == history.MethodTimeline:
+	case source == history.SourceX && method == history.MethodTimeline,
+		// The x_related step reads through the X adapter that serves the
+		// timeline here.
+		source == history.SourceXRelated && method == history.MethodTimeline:
 		return h.Fetcher.Timeline != nil
 	case source == history.SourceX && method == history.MethodAPI:
 		return strings.TrimSpace(h.XToken) != ""
@@ -51,6 +60,14 @@ func (h *HistorySource) MethodAvailable(source, method string) bool {
 			return checker.YTDLPAvailable()
 		}
 		return true
+	case source == history.SourceShop && method == history.MethodCatalog:
+		// The shop step reads the catalog itself, with the shop client.
+		return true
+	case source == history.SourceBilibili && method == history.MethodSpace:
+		return h.Bilibili != nil
+	case source == history.SourceBilibiliDynamics && method == history.MethodSpace:
+		// The dynamics listing answers only a login cookie.
+		return h.Bilibili != nil && h.Bilibili.Options.SignedIn()
 	}
 	return false
 }
@@ -111,9 +128,10 @@ func counts(result history.Result) map[string]any {
 	}
 }
 
-// FetchX fetches every configured account through the window's method. One
-// account's failure keeps the others; the rotation spreads a short request
-// budget across runs.
+// FetchX fetches every configured account, or the one the window names,
+// through the window's method. One account's failure keeps the others; the
+// rotation spreads a short request budget across runs, and a one-account
+// fetch takes the whole budget and leaves the rotation as it is.
 func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (AttemptResult, error) {
 	window, message := h.selection(history.SourceX, window)
 	if message != "" {
@@ -126,21 +144,12 @@ func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (Atte
 	if len(h.Handles) == 0 {
 		return AttemptResult{}, NewStepError("x_no_accounts", ErrValidation)
 	}
-	rotationID := "window-" + window.Mode
-	rotation, err := h.Store.SyncState(ctx, "x-budget", rotationID)
+	ordered, err := h.fetchOrder(ctx, window)
 	if err != nil {
-		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+		return AttemptResult{}, err
 	}
-	next := 0
-	last, _ := rotation.Metadata["lastAccount"].(string)
-	for i, handle := range h.Handles {
-		if handle == last {
-			next = (i + 1) % len(h.Handles)
-		}
-	}
-	ordered := append(append([]string{}, h.Handles[next:]...), h.Handles[:next]...)
-	if h.Store.WriteSyncMetadata(ctx, "x-budget", rotationID, map[string]any{"lastAccount": ordered[0]}) != nil {
-		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	if len(ordered) == 0 {
+		return failedResult("x_account_unknown"), nil
 	}
 	remaining := h.RequestLimit
 	if remaining < 1 {
@@ -182,7 +191,7 @@ func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (Atte
 		total.Requested += result.Requested
 		remaining -= result.Requested
 		// A manual fetch ignores the timed chain's gate and cap, but the posts
-		// it reads count toward the day's X API usage (ADR-0004).
+		// it reads count toward the day's X API usage.
 		total.PostsRead += result.PostsRead
 		if h.Store.AddXAPIUsage(ctx, sqlite.JapanDay(time.Now()), result.PostsRead) != nil {
 			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
@@ -228,6 +237,37 @@ func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (Atte
 	return AttemptResult{Status: stepStatus(messages), Result: out}, nil
 }
 
+// fetchOrder is the accounts an X fetch reads, in order: the one the window
+// names, none when it is not configured, or every account starting after the
+// one the previous fetch of this mode started with.
+func (h *HistorySource) fetchOrder(ctx context.Context, window history.Window) ([]string, error) {
+	if window.Account != "" {
+		for _, handle := range h.Handles {
+			if strings.EqualFold(handle, window.Account) {
+				return []string{handle}, nil
+			}
+		}
+		return nil, nil
+	}
+	rotationID := "window-" + window.Mode
+	rotation, err := h.Store.SyncState(ctx, "x-budget", rotationID)
+	if err != nil {
+		return nil, NewStepError("schema_failure", ErrSchema)
+	}
+	next := 0
+	last, _ := rotation.Metadata["lastAccount"].(string)
+	for i, handle := range h.Handles {
+		if handle == last {
+			next = (i + 1) % len(h.Handles)
+		}
+	}
+	ordered := append(append([]string{}, h.Handles[next:]...), h.Handles[:next]...)
+	if h.Store.WriteSyncMetadata(ctx, "x-budget", rotationID, map[string]any{"lastAccount": ordered[0]}) != nil {
+		return nil, NewStepError("schema_failure", ErrSchema)
+	}
+	return ordered, nil
+}
+
 // FetchYoutube fetches the configured channel through the window's method.
 func (h *HistorySource) FetchYoutube(ctx context.Context, window history.Window) (AttemptResult, error) {
 	window, message := h.selection(history.SourceYoutube, window)
@@ -242,10 +282,33 @@ func (h *HistorySource) FetchYoutube(ctx context.Context, window history.Window)
 		return failedResult(historyMessage(err)), nil
 	}
 	out := counts(result)
-	out["items"], out["errors"] = result.Items, tallyCodes(result.Errors)
-	// The API method spends quota on its listing and its detail checks.
+	errs := result.Errors
+	// The fetch also reads the members-only playlist, as a recent run does:
+	// through the Data API with the API method unless a Data API call of the
+	// fetch failed, else its public feed.
+	if members, ok := h.Fetcher.Uploads.(membersReader); ok {
+		apiFailed := slices.ContainsFunc(result.Errors, func(code string) bool { return strings.HasPrefix(code, "youtube_api_") })
+		read := members.MembersPlaylist(ctx, window.Method == history.MethodAPI && !apiFailed, false)
+		if ctx.Err() != nil {
+			return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
+		}
+		result.APIRequests += read.APIRequests
+		errs = append(errs, read.Errors...)
+		if _, err = h.Store.WriteYoutubeMembers(ctx, read.IDs); err != nil {
+			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+		}
+		out["members"], out["membersFrom"] = len(read.IDs), read.From
+	}
+	out["items"], out["errors"] = result.Items, tallyCodes(errs)
+	// The API method spends quota on its listing, its detail checks and the
+	// members-only playlist.
 	if window.Method == history.MethodAPI {
 		out["apiRequests"], out["inspected"] = result.APIRequests, result.Inspected
 	}
-	return AttemptResult{Status: stepStatus(result.Errors), Result: out}, nil
+	return AttemptResult{Status: stepStatus(errs), Result: out}, nil
+}
+
+// membersReader is the YouTube adapter's members-only playlist read.
+type membersReader interface {
+	MembersPlaylist(ctx context.Context, useAPI, skipFeed bool) ytsource.MembersRead
 }

@@ -32,7 +32,11 @@ func detailClient(t *testing.T, videos func(call int, ids []string) *http.Respon
 		}
 		switch r.URL.Path {
 		case "/youtube/v3/playlistItems":
-			// The per-format playlists name only the listed upload too.
+			// The per-format playlists name only the listed upload too; the
+			// members-only playlist names an unrelated video.
+			if r.URL.Query().Get("playlistId") == "UUMO"+syntheticChannel[2:] {
+				return response(200, membersPage()), nil
+			}
 			return response(200, apiItems(playlistItem("LLLLLLLLLLL", "2026-01-02T00:00:00Z"))), nil
 		case "/youtube/v3/videos":
 			ids := strings.Split(r.URL.Query().Get("id"), ",")
@@ -94,8 +98,9 @@ func TestRecentAsksTheDataAPIAboutTheWholeQueueInBatches(t *testing.T) {
 			t.Fatalf("call %d=%v", i, calls[i])
 		}
 	}
-	// The uploads playlist page and the three videos.list calls.
-	if result.APIRequests != 4 || result.Requested != 0 || result.Inspected != 120 || len(result.Queue) != 0 {
+	// The uploads and members-only playlist pages and the three videos.list
+	// calls.
+	if result.APIRequests != 5 || result.Requested != 0 || result.Inspected != 120 || len(result.Queue) != 0 {
 		t.Fatalf("apiRequests=%d requested=%d inspected=%d queue=%d", result.APIRequests, result.Requested, result.Inspected, len(result.Queue))
 	}
 	if _, ok := result.Localized["LLLLLLLLLLL"]; !ok {
@@ -117,7 +122,7 @@ func TestRecentDataAPICallsAreCappedAndTheRestUseTheWatchBudget(t *testing.T) {
 	if len(calls) != MaxAPIDetailCalls || !slices.Equal(calls[MaxAPIDetailCalls-1], queue[200:250]) {
 		t.Fatalf("calls=%d last=%v", len(calls), calls[len(calls)-1])
 	}
-	if !slices.Equal(watched, queue[250:253]) || result.Inspected != 253 || result.APIRequests != 1+MaxAPIDetailCalls {
+	if !slices.Equal(watched, queue[250:253]) || result.Inspected != 253 || result.APIRequests != 2+MaxAPIDetailCalls {
 		t.Fatalf("watched=%v inspected=%d apiRequests=%d", watched, result.Inspected, result.APIRequests)
 	}
 	// The IDs no check reached keep their place ahead of nothing checked.

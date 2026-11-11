@@ -53,9 +53,10 @@ func TestStaticSiteServesBuildWithFallbackAndContainment(t *testing.T) {
 		"/":                            {page, "text/html; charset=utf-8", revalidate, "synthetic"},
 		"/index.html":                  {page, "text/html; charset=utf-8", revalidate, "synthetic"},
 		"/admin":                       {page, "text/html; charset=utf-8", revalidate, "synthetic"},
-		"/history/":                    {page, "text/html; charset=utf-8", revalidate, "<title>Journey · "},
+		"/journey/":                    {page, "text/html; charset=utf-8", revalidate, "<title>Journey · "},
 		"/about//":                     {page, "text/html; charset=utf-8", revalidate, "<title>About · "},
 		"/lineblog":                    {page, "text/html; charset=utf-8", revalidate, "<title>LINE BLOG archive · "},
+		"/works/":                      {page, "text/html; charset=utf-8", revalidate, "<title>Works · "},
 		"/robots.txt":                  {page, "text/plain; charset=utf-8", revalidate, "Disallow: /admin"},
 		"/assets/index-AbCd1234.js":    {page, "text/javascript; charset=utf-8", immutable, "console.log(1)"},
 		"/assets/unlisted-AbCd1234.js": {page, "text/javascript; charset=utf-8", revalidate, "console.log(2)"},
@@ -63,7 +64,8 @@ func TestStaticSiteServesBuildWithFallbackAndContainment(t *testing.T) {
 		// Paths outside the frontend's pages still load the application, which
 		// shows its not-found view, but answer 404.
 		"/lineblog/archives/1":  {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
-		"/history/2024":         {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
+		"/journey/2024":         {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
+		"/works/1":              {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
 		"/admin/runs":           {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
 		"/About":                {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
 		"/.vite/manifest.json":  {missing, "text/html; charset=utf-8", revalidate, "synthetic"},
@@ -87,6 +89,16 @@ func TestStaticSiteServesBuildWithFallbackAndContainment(t *testing.T) {
 	}
 	if w := get("HEAD", "/"); w.Code != 200 || w.Body.Len() != 0 {
 		t.Fatalf("head=%d %d", w.Code, w.Body.Len())
+	}
+	// The journey's earlier address moves to its own, keeping the query.
+	for path, want := range map[string]string{
+		"/history":              "/journey",
+		"/history/":             "/journey",
+		"/history?view=gallery": "/journey?view=gallery",
+	} {
+		if w := get("GET", path); w.Code != http.StatusMovedPermanently || w.Header().Get("Location") != want {
+			t.Fatalf("%s => %d %q", path, w.Code, w.Header().Get("Location"))
+		}
 	}
 }
 
@@ -163,10 +175,10 @@ func TestStaticSiteGivesPagesTheirOwnShareTags(t *testing.T) {
 		origin, path string
 		want         []string
 	}{
-		{"", "/history", []string{
+		{"", "/journey", []string{
 			"<title>Journey · What’s Kano Up To?</title>",
 			`property="og:title" content="Journey · What’s Kano Up To?"`,
-			`property="og:url" content="/history"`,
+			`property="og:url" content="/journey"`,
 			`content="Kano&#39;s public milestones`,
 			`property="og:image" content="/assets/kano-banner.jpg"`,
 		}},
@@ -175,6 +187,12 @@ func TestStaticSiteGivesPagesTheirOwnShareTags(t *testing.T) {
 			`property="og:url" content="https://kano.example.invalid/about"`,
 			`content="Project overview, AI development credits`,
 			`property="og:image" content="https://kano.example.invalid/assets/kano-banner.jpg"`,
+		}},
+		{"https://kano.example.invalid", "/works", []string{
+			"<title>Works · What’s Kano Up To?</title>",
+			`property="og:title" content="Works · What’s Kano Up To?"`,
+			`property="og:url" content="https://kano.example.invalid/works"`,
+			`content="Kano&#39;s discography: her own releases`,
 		}},
 	} {
 		w := get(NewStaticSite(root, tc.origin), tc.path)
@@ -189,7 +207,7 @@ func TestStaticSiteGivesPagesTheirOwnShareTags(t *testing.T) {
 		}
 	}
 	// The board and missing pages keep index.html's own tags.
-	for path, status := range map[string]int{"/": 200, "/admin": 200, "/history/2024": 404} {
+	for path, status := range map[string]int{"/": 200, "/admin": 200, "/journey/2024": 404} {
 		if w := get(NewStaticSite(root, ""), path); w.Code != status || w.Body.String() != page {
 			t.Fatalf("%s => %d %s", path, w.Code, w.Body.String())
 		}

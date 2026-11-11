@@ -24,11 +24,13 @@ import type {
   AdminVideo,
   AdminVideosPage,
   DiscoveredModel,
+  EventEvidence,
   EventInput,
   Extraction,
   FetchMethodId,
   FetchOptions,
   FetchSelection,
+  FetchSource,
   LlmCatalog,
   LlmFailure,
   Model,
@@ -44,9 +46,12 @@ import type {
   ProxySettings,
   ProxyTestResult,
   QueueRoute,
+  RefreshQueue,
   RouteTarget,
   Run,
+  ScheduleAttention,
   ScheduleImage,
+  ScheduleQueue,
   ScheduleSource,
   Session,
   SourceChainUpdate,
@@ -56,14 +61,25 @@ import type {
   StepCatalog,
   TranslationLocale,
   TranslationOwner,
+  TranslationQueue,
   TranslationRequestResult,
   TranslationSummary,
   AdminTranslation,
   VariantStatus,
   VisitorRegionSettings,
+  AdminBilibiliStatus,
+  AdminXStatus,
+  YoutubeQueue,
+  XRelatedAccount,
+  XRelatedAccounts,
+  XStatusDecision,
   VideoCorrection,
   VideoHistory,
   VideoMergeSuggestion,
+  BilibiliFormReview,
+  WorksCoverStatus,
+  WorksMergeConflict,
+  WorksRecentReport,
   SyncSettingField,
   SyncSettings,
   YTDLPStatus,
@@ -102,9 +118,17 @@ export type StartRun =
   /** A manual fetch through one method; it never falls back to another. */
   | {
       kind: "fetch"
-      source: "x" | "youtube"
+      source: FetchSource | "shop"
       method: FetchMethodId
       window: FetchSelection
+      options?: FetchOptions
+    }
+  /** One related X account's timeline, read as its timer reads it. */
+  | {
+      kind: "fetch"
+      source: "x_related"
+      method: "timeline"
+      window: { mode: "incremental"; account: string }
       options?: FetchOptions
     }
 
@@ -142,6 +166,7 @@ function createClient(run: Runner, slow: Runner) {
     visitorRegion: () => get<VisitorRegionSettings>("/settings/visitor-region"),
     variantStatus: (refresh = false) =>
       get<VariantStatus>(`/media/variants${refresh ? "?refresh=1" : ""}`),
+    worksCovers: () => get<WorksCoverStatus>("/media/works-covers"),
     updateVisitorRegion: (settings: VisitorRegionSettings) =>
       send<VisitorRegionSettings>("PUT", "/settings/visitor-region", settings),
     runs: (page: number) =>
@@ -153,6 +178,13 @@ function createClient(run: Runner, slow: Runner) {
     retryRun: (id: string) =>
       send<{ run: Run }>("POST", `/runs/${enc(id)}/retry`),
     stepCatalog: () => get<StepCatalog>("/runs/steps"),
+    /** What each step would work through if a run started now. */
+    scheduleQueue: () =>
+      get<{ queue: ScheduleQueue; skipped: boolean }>("/queue/schedule"),
+    youtubeQueue: () => get<{ queue: YoutubeQueue }>("/queue/youtube"),
+    translationQueue: () =>
+      get<{ queue: TranslationQueue; skipped: boolean }>("/queue/translate"),
+    refreshQueue: () => get<{ queue: RefreshQueue }>("/queue/x-refresh"),
     runRetention: () => get<RunRetention>("/runs/retention"),
     updateRunRetention: (body: {
       succeededDays?: number
@@ -168,11 +200,32 @@ function createClient(run: Runner, slow: Runner) {
     ) => send<SourceSchedule>("PUT", `/sources/${enc(source)}/schedule`, body),
     runSource: (source: ScheduleSource) =>
       send<{ run: Run }>("POST", `/sources/${enc(source)}/run`),
+    /** The related X accounts, their keyword rules and their last reads. */
+    relatedAccounts: () => get<XRelatedAccounts>("/sources/x/related"),
+    updateRelatedAccounts: (accounts: XRelatedAccount[]) =>
+      send<XRelatedAccounts>("PUT", "/sources/x/related", { accounts }),
+    /** The X status pool behind External posts. */
+    xStatuses: (filters: Record<string, any>) =>
+      get<Page<AdminXStatus>>(`/x-statuses${query(filters)}`),
+    /** The Bilibili status pool: the dynamics own posts forward. */
+    bilibiliStatuses: (filters: Record<string, any>) =>
+      get<Page<AdminBilibiliStatus>>(`/bilibili-statuses${query(filters)}`),
+    /** A promote or demote lock with its reason, or back to the rules. */
+    decideXStatus: (id: string, decision: XStatusDecision, reason = "") =>
+      send<{ status: AdminXStatus }>("PUT", `/x-statuses/${enc(id)}/decision`, {
+        decision,
+        reason,
+      }),
     startSourceSchedule: (source: ScheduleSource) =>
       send<SourceSchedule>("POST", `/sources/${enc(source)}/schedule/start`),
     updatePush: (body: { enabled?: boolean; callbackUrl?: string | null }) =>
       send<Sources["youtube"]["push"]>("PUT", "/sources/youtube/push", body),
-    updateLiveProbe: (body: { enabled?: boolean; intervalMinutes?: number }) =>
+    updateLiveProbe: (body: {
+      enabled?: boolean
+      intervalMinutes?: number
+      bilibiliEnabled?: boolean
+      bilibiliIntervalMinutes?: number
+    }) =>
       send<Sources["youtube"]["liveProbe"]>(
         "PUT",
         "/sources/youtube/live-probe",
@@ -206,6 +259,8 @@ function createClient(run: Runner, slow: Runner) {
 
     events: (filters: Record<string, any>) =>
       get<Page<AdminEvent>>(`/events${query(filters)}`),
+    eventEvidence: (id: string) =>
+      get<EventEvidence>(`/events/${enc(id)}/evidence`),
     createEvent: (body: EventInput) =>
       send<{ event: AdminEvent }>("POST", "/events", body),
     updateEvent: (id: string, body: EventInput) =>
@@ -226,6 +281,8 @@ function createClient(run: Runner, slow: Runner) {
       get<{ items: ScheduleImage[] }>(
         `/schedule-images${query({ limit: 100, ...range })}`,
       ),
+    /** What needs a look on the schedule, grouped by week. */
+    scheduleAttention: () => get<ScheduleAttention>("/schedule-attention"),
     reviewImage: (id: string, status: string, reason: string) =>
       send<{ image: ScheduleImage }>(
         "POST",
@@ -294,7 +351,7 @@ function createClient(run: Runner, slow: Runner) {
     /** Queue machine passes for owners, or for everything missing one. */
     requestTranslations: (
       body:
-        | { missing: true; ownerType?: TranslationOwner }
+        | { missing: true; ownerType?: TranslationOwner; source?: string }
         | { ownerType: TranslationOwner; ids: string[] },
     ) => send<TranslationRequestResult>("POST", "/translations/request", body),
     videos: (filters: Record<string, any>) =>
@@ -307,20 +364,43 @@ function createClient(run: Runner, slow: Runner) {
       get<VideoHistory>(`/videos/${enc(id)}/history`),
     correctVideo: (id: string, correction: VideoCorrection) =>
       send<{ video: AdminVideo }>("PUT", `/videos/${enc(id)}`, correction),
-    refreshVideo: (id: string) =>
+    /**
+     * `force` sends a Bilibili upload's read once past the captcha backoff,
+     * after the server offered it (`bilibili_blocked` with `force`).
+     */
+    refreshVideo: (id: string, force = false) =>
       send<{ video: AdminVideo; started: boolean; run: Run | null }>(
         "POST",
         `/videos/${enc(id)}/refresh`,
-        {},
+        force ? { force: true } : {},
       ),
-    addBilibiliVideo: (input: string) =>
+    addBilibiliVideo: (input: string, force = false) =>
       send<{ video: AdminVideo; started: boolean; run: Run | null }>(
         "POST",
         "/videos/bilibili",
+        force ? { input, force: true } : { input },
+      ),
+    /** `input` is a YouTube video ID or link of the configured channel. */
+    addYoutubeVideo: (input: string) =>
+      send<{ video: AdminVideo; started: boolean; run: Run | null }>(
+        "POST",
+        "/videos/youtube",
         { input },
+      ),
+    /** `input` is a bilibili.com/opus or t.bilibili.com dynamic link. */
+    addBilibiliPost: (input: string, force = false) =>
+      send<{ post: AdminPost; started: boolean; run: Run | null }>(
+        "POST",
+        "/posts/bilibili",
+        force ? { input, force: true } : { input },
       ),
     /** Uploads the merge rule would attach, or leaves to the operator. */
     videoMerges: () => get<{ items: VideoMergeSuggestion[] }>("/videos/merges"),
+    /** Bilibili uploads waiting for the operator's form decision. */
+    videoForms: () => get<{ items: BilibiliFormReview[] }>("/videos/forms"),
+    worksConflicts: () =>
+      get<{ items: WorksMergeConflict[] }>("/videos/works-conflicts"),
+    worksRecent: () => get<WorksRecentReport>("/videos/works-recent"),
     /** One upload's merge state and candidates, whatever its state. */
     uploadMerges: (id: string) =>
       get<{ items: VideoMergeSuggestion[] }>(`/videos/${enc(id)}/merges`),

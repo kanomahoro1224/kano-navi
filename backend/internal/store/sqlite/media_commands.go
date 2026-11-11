@@ -54,11 +54,13 @@ func (s *Store) PendingMedia(ctx context.Context, limit int) ([]PendingMedia, er
 				(SELECT julianday(p.published_at) FROM posts p WHERE ml.owner_type='asset' AND ml.owner_id GLOB 'schedule-x-*' AND p.id=substr(ml.owner_id,12))
 			)) FROM media_links ml WHERE ml.media_id=a.id
 		) AS owner_instant
-		FROM media_assets a WHERE a.source IN('x','youtube','bilibili') AND length(a.id)=64 AND a.id NOT GLOB '*[^a-f0-9]*' AND (
+		FROM media_assets a WHERE a.source IN('x','youtube','bilibili','niconico') AND length(a.id)=64 AND a.id NOT GLOB '*[^a-f0-9]*' AND (
 			a.status='pending'
 			OR (a.status IN('failed','missing','ready') AND a.last_error IN('media_timeout','media_unavailable','media_http_error','media_body_unavailable','media_rate_limited','media_missing')
 				AND CASE WHEN a.next_retry_at IS NOT NULL THEN julianday(a.next_retry_at)<=julianday(?)
-					ELSE COALESCE(julianday(a.last_checked_at),julianday(a.created_at),0)<=julianday(CASE WHEN a.last_error IN('media_missing','media_http_error') THEN ? ELSE ? END) END)
+					ELSE COALESCE(julianday(a.last_checked_at),julianday(a.created_at),0)<=julianday(CASE WHEN a.last_error IN('media_missing','media_http_error') THEN ? ELSE ? END) END
+				AND NOT (a.status='missing' AND EXISTS (SELECT 1 FROM media_links ml WHERE ml.media_id=a.id AND ml.owner_type='work-video')
+					AND NOT EXISTS (SELECT 1 FROM media_links ml WHERE ml.media_id=a.id AND ml.owner_type<>'work-video')))
 			OR (a.status='ready' AND a.last_error IS NULL AND a.source='youtube' AND julianday(COALESCE(a.last_checked_at,a.fetched_at,a.created_at))<=julianday(?)
 				AND EXISTS (SELECT 1 FROM media_links ml JOIN videos v ON v.id=ml.owner_id WHERE ml.media_id=a.id AND ml.owner_type='video' AND ml.role='thumbnail'
 					AND (v.is_upcoming=1 OR julianday(COALESCE(v.scheduled_at,v.published_at))>=julianday(?))))
@@ -93,7 +95,7 @@ func (s *Store) RemainingMedia(ctx context.Context) (int, error) {
 		return 0, ErrSourceWrite
 	}
 	var count int
-	if s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM media_assets a WHERE a.source IN('x','youtube','bilibili') AND length(a.id)=64 AND a.id NOT GLOB '*[^a-f0-9]*' AND a.status='pending' AND a.last_checked_at IS NULL`).Scan(&count) != nil {
+	if s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM media_assets a WHERE a.source IN('x','youtube','bilibili','niconico') AND length(a.id)=64 AND a.id NOT GLOB '*[^a-f0-9]*' AND a.status='pending' AND a.last_checked_at IS NULL`).Scan(&count) != nil {
 		return 0, ErrSourceWrite
 	}
 	return count, nil
@@ -102,7 +104,7 @@ func (s *Store) RemainingMedia(ctx context.Context) (int, error) {
 // Successful writes publish an immutable content-addressed file and metadata
 // under the same source lease. Failures retain a previously ready snapshot.
 func (s *Store) SaveMediaDownload(ctx context.Context, asset PendingMedia, content []byte, mime, etag, lastModified, status, code string) error {
-	if s == nil || !s.workflowWritable || !safeHash(asset.ID) || (asset.Source != "x" && asset.Source != "youtube" && asset.Source != "bilibili") {
+	if s == nil || !s.workflowWritable || !safeHash(asset.ID) || !cachedMediaSource(asset.Source) {
 		return ErrSourceWrite
 	}
 	if status != "ready" && status != "failed" && status != "missing" {

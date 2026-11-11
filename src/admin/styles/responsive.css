@@ -1,0 +1,202 @@
+/* Below this the manual fetch follows the settings. */
+@media (max-width: 1280px) {
+  .adm-sources-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .adm-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .adm-sidebar {
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    height: auto;
+    padding: 10px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--adm-line);
+    overflow: visible;
+  }
+
+  .adm-brand {
+    flex: none;
+    padding: 0;
+  }
+
+  .adm-brand small,
+  .adm-sidebar-foot,
+  .adm-nav-group p {
+    display: none;
+  }
+
+  /* The nav strip scrolls inside its own box; its padding keeps focus
+   * rings clear of the scroll clip. */
+  .adm-nav {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 2px;
+    min-width: 0;
+    margin: -3px;
+    padding: 3px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  .adm-nav-group {
+    display: flex;
+  }
+
+  .adm-nav-item {
+    white-space: nowrap;
+  }
+
+  .adm-nav-item.is-active::before {
+    display: none;
+  }
+
+  .adm-topbar {
+    padding: 10px 16px;
+  }
+
+  .adm-crumb {
+    display: none;
+  }
+
+  .adm-topbar-tools {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .adm-main {
+    padding: 20px 16px 56px;
+  }
+
+  .adm-grid.is-two,
+  .adm-form-row,
+  .adm-form-row.is-three,
+  .adm-step-picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adm-page-header h1 {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .adm-panel {
+    padding: 16px;
+  }
+
+  .adm-run-line {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 6px 12px;
+  }
+
+  .adm-run-line .adm-steps {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+
+  .adm-run-detail {
+    padding: 4px 10px 14px;
+  }
+
+  .adm-step-row-head {
+    grid-template-columns: auto minmax(0, 1fr) auto 16px;
+    gap: 4px 10px;
+  }
+
+  .adm-step-row-summary {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+
+  .adm-step-details {
+    padding: 2px 12px 12px;
+  }
+
+  .adm-retention-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .adm-featured {
+    grid-template-columns: 112px minmax(0, 1fr);
+  }
+
+  .adm-featured > .adm-actions {
+    grid-column: 1 / -1;
+  }
+
+  .adm-facts.is-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adm-inline-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .adm-filters .adm-search {
+    flex-basis: 100%;
+  }
+
+  /* On a phone the source summary's numbers take two columns. */
+  .adm-source-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
+  .adm-source-stats > div:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .adm-timed-actions {
+    margin: 0 -16px -16px;
+    padding: 12px 16px;
+  }
+
+  .adm-panel.adm-fold > .adm-fold-head {
+    padding: 14px 16px;
+  }
+
+  .adm-panel.adm-fold > .adm-fold-body {
+    padding: 16px;
+  }
+
+  /* On a phone the source tabs share the width. */
+  .adm-source-tabs button {
+    flex: 1 1 0;
+    justify-content: center;
+    min-height: 52px;
+    padding: 6px 8px;
+  }
+
+  .adm-queue-list li {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+  }
+
+  .adm-queue-list li > .adm-provider-mark {
+    display: none;
+  }
+
+  .adm-page-actions {
+    width: 100%;
+  }
+
+  .adm-page-actions .adm-button {
+    flex: 1;
+  }
+}

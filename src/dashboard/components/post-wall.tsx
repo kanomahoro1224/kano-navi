@@ -27,7 +27,7 @@ import {
   useTranslatedText,
 } from "@/components/translated-text"
 import { EmptyNote, Placeholder, SectionTitle } from "@/site/site-shell"
-import { ExternalLink, XLogo, followCardLink } from "@/site/links"
+import { BilibiliLogo, ExternalLink, XLogo, followCardLink } from "@/site/links"
 import { mediaSrcSet } from "@/lib/media"
 import {
   formatCompact,
@@ -66,6 +66,41 @@ export function postMedia(post: Post): MediaItem[] {
     : []
 }
 
+/**
+ * Whether a post is a Bilibili dynamic: it names its source instead of a
+ * handle and has no engagement counts. A forward quotes the dynamic it
+ * forwards.
+ */
+export function isBilibiliPost(post: Pick<Post, "source">) {
+  return post.source === "bilibili"
+}
+
+/** One account the post filters offer: an X handle or a Bilibili mid. */
+interface PostAccount {
+  handle: string
+  bilibili: boolean
+}
+
+/** The accounts in filter order: the X handles, then the Bilibili mids. */
+function postAccounts(xAccounts: string[], bilibiliAccounts: string[]) {
+  return [
+    ...xAccounts.map((handle) => ({ handle, bilibili: false })),
+    ...bilibiliAccounts.map((handle) => ({ handle, bilibili: true })),
+  ]
+}
+
+/** A filter's name: the @handle, or the bilibili mark for a Bilibili mid. */
+function PostAccountLabel({ account }: { account: PostAccount }) {
+  return account.bilibili ? (
+    <>
+      <BilibiliLogo className="account-mark" aria-hidden="true" />
+      bilibili
+    </>
+  ) : (
+    <>@{account.handle}</>
+  )
+}
+
 function Engagement({
   post,
   locale,
@@ -99,12 +134,15 @@ const QUOTE_THUMBS = 3
 
 /**
  * The status a post quotes, nested in the note: author, time, wording and
- * small thumbnails. The card follows the quoted post's x.com link, while its
- * thumbnails and translation switch keep their own actions. A quote of a
- * tracked account's post shows that post's translation.
+ * small thumbnails. The card follows the quoted post's link (its x.com page,
+ * or the forwarded dynamic's Bilibili page), while its thumbnails and
+ * translation switch keep their own actions. A quote of a tracked account's
+ * post shows that post's translation. A forwarded dynamic's author shows by
+ * name beside the bilibili mark, never by mid.
  */
 function QuoteCard({
   quote,
+  bilibili,
   wording,
   absoluteTime,
   clamp,
@@ -115,6 +153,8 @@ function QuoteCard({
   onOpenMedia,
 }: {
   quote: PostQuote
+  /** The quote of a Bilibili forward. */
+  bilibili: boolean
   /** The note keeps the quote's switch, shared by the board and the dialog. */
   wording: TranslatedTextState
   absoluteTime: boolean
@@ -138,22 +178,31 @@ function QuoteCard({
   const media = quote.media.filter((item) => item.url)
   const shown = clamp ? media.slice(0, QUOTE_THUMBS) : media
   const hidden = media.length - shown.length
-  const name =
-    quote.authorName || (quote.authorHandle ? `@${quote.authorHandle}` : "X")
+  const name = bilibili
+    ? quote.authorName || "bilibili"
+    : quote.authorName || (quote.authorHandle ? `@${quote.authorHandle}` : "X")
   return (
     <div
       className={`post-quote link-card${clamp ? "" : " is-full"}`}
       onClick={followCardLink}
     >
       <p className="post-quote-head">
+        {bilibili ? (
+          <BilibiliLogo className="post-quote-mark" aria-hidden="true" />
+        ) : null}
         <ExternalLink
           className="card-link post-quote-name"
           href={quote.url}
-          aria-label={t("feed.openQuote", { name })}
+          aria-label={t(
+            bilibili ? "feed.openQuoteBilibili" : "feed.openQuote",
+            {
+              name,
+            },
+          )}
         >
           {name}
         </ExternalLink>
-        {quote.authorName && quote.authorHandle ? (
+        {!bilibili && quote.authorName && quote.authorHandle ? (
           <span className="post-quote-handle">@{quote.authorHandle}</span>
         ) : null}
         {quote.publishedAt ? (
@@ -233,6 +282,7 @@ function PostNote({
 }) {
   const media = postMedia(post)
   const ready = media.filter((item) => item.url)
+  const bilibili = isBilibiliPost(post)
   const wording = useTranslatedText(
     post.text,
     post.translations,
@@ -271,6 +321,7 @@ function PostNote({
     post.quote ? (
       <QuoteCard
         quote={post.quote}
+        bilibili={bilibili}
         wording={quoteWording}
         absoluteTime={absoluteTime}
         clamp={clamp && !full}
@@ -282,15 +333,31 @@ function PostNote({
       />
     ) : null
 
+  const originalLabel = t(
+    bilibili ? "feed.originalPostBilibili" : "feed.originalPost",
+  )
+  const engagement = bilibili ? null : (
+    <Engagement post={post} locale={locale} t={t} />
+  )
   const head = (close?: ReactNode) => (
     <header className="post-note-head">
-      <img src={avatarUrl || undefined} alt="" />
-      {post.source === "bilibili" ? (
-        // A Bilibili account is a display name, not a handle: it has no
-        // profile page to open and no @ to carry.
-        <span className="post-note-handle">
-          {post.accountHandle || "Bilibili"}
+      {post.promoted ? (
+        // Another account's post shown for Kano: its initial, never her
+        // portrait.
+        <span className="post-note-initial" aria-hidden="true">
+          {(post.accountHandle || "X").replace(/^@/u, "").charAt(0)}
         </span>
+      ) : (
+        <img src={avatarUrl || undefined} alt="" />
+      )}
+      {bilibili ? (
+        <ExternalLink
+          className="post-note-handle is-source"
+          href={post.accountUrl || post.url}
+        >
+          <BilibiliLogo aria-hidden="true" />
+          bilibili
+        </ExternalLink>
       ) : post.accountHandle ? (
         <ExternalLink
           className="post-note-handle"
@@ -312,8 +379,8 @@ function PostNote({
       <ExternalLink
         className="post-note-open"
         href={post.url}
-        aria-label={t("feed.originalPost")}
-        title={t("feed.originalPost")}
+        aria-label={originalLabel}
+        title={originalLabel}
       >
         <ArrowUpRight aria-hidden="true" />
       </ExternalLink>
@@ -354,18 +421,20 @@ function PostNote({
   return (
     <article className="post-note">
       {head()}
-      <p
-        ref={textRef}
-        className={`post-note-text${clamp ? " is-clamped" : ""}`}
-        lang={wording.lang}
-      >
-        {wording.text}
-        <TranslationToggle
-          state={wording}
-          t={t}
-          className={clamp && textClipped ? "is-clipped" : undefined}
-        />
-      </p>
+      {wording.text ? (
+        <p
+          ref={textRef}
+          className={`post-note-text${clamp ? " is-clamped" : ""}`}
+          lang={wording.lang}
+        >
+          {wording.text}
+          <TranslationToggle
+            state={wording}
+            t={t}
+            className={clamp && textClipped ? "is-clipped" : undefined}
+          />
+        </p>
+      ) : null}
       {clamp && overflows ? (
         <div className="post-note-more">
           <button
@@ -381,7 +450,7 @@ function PostNote({
       ) : null}
       {mediaGrid}
       {quote(false)}
-      <Engagement post={post} locale={locale} t={t} />
+      {engagement}
       {reading ? (
         <SheetDialog
           label={t("feed.fullPost")}
@@ -399,13 +468,15 @@ function PostNote({
                 <X aria-hidden="true" />
               </button>,
             )}
-            <p className="post-note-text" lang={wording.lang}>
-              {wording.text}
-              <TranslationToggle state={wording} t={t} />
-            </p>
+            {wording.text ? (
+              <p className="post-note-text" lang={wording.lang}>
+                {wording.text}
+                <TranslationToggle state={wording} t={t} />
+              </p>
+            ) : null}
             {mediaGrid}
             {quote(true)}
-            <Engagement post={post} locale={locale} t={t} />
+            {engagement}
           </article>
         </SheetDialog>
       ) : null}
@@ -417,6 +488,7 @@ export function PostWall({
   posts,
   latestPost,
   accounts,
+  bilibiliAccounts = [],
   avatarUrl,
   windowDays,
   isLoading,
@@ -429,6 +501,8 @@ export function PostWall({
   posts: Post[]
   latestPost: Post | null
   accounts: string[]
+  /** The mids of stored Bilibili posts, filtered as one more account. */
+  bilibiliAccounts?: string[]
   avatarUrl: string | null
   windowDays: number
   isLoading: boolean
@@ -475,6 +549,10 @@ export function PostWall({
     return () => observer.disconnect()
   }, [wall])
   const shown = visible.slice(0, postWallCount(visible.length, columns))
+  const filters = postAccounts(accounts, bilibiliAccounts)
+  const hasBilibili =
+    bilibiliAccounts.length > 0 ||
+    [...posts, latestPost].some((post) => post && isBilibiliPost(post))
 
   return (
     <section className="section posts" id="feed" aria-labelledby="posts-title">
@@ -484,11 +562,18 @@ export function PostWall({
           <>
             <XLogo className="kicker-icon" aria-hidden="true" />{" "}
             {accounts.map((handle) => `@${handle}`).join(" · ")}
+            {hasBilibili ? (
+              <>
+                {" · "}
+                <BilibiliLogo className="kicker-icon" aria-hidden="true" />{" "}
+                bilibili
+              </>
+            ) : null}
           </>
         }
         title={t("feed.title")}
       >
-        {accounts.length > 1 ? (
+        {filters.length > 1 ? (
           <div className="segmented" role="group" aria-label={t("feed.filter")}>
             <button
               type="button"
@@ -498,15 +583,15 @@ export function PostWall({
               {t("common.all")}
               <small>{posts.length}</small>
             </button>
-            {accounts.map((handle) => (
+            {filters.map((item) => (
               <button
                 type="button"
-                key={handle}
-                aria-pressed={account === handle}
-                onClick={() => setAccount(handle)}
+                key={item.handle}
+                aria-pressed={account === item.handle}
+                onClick={() => setAccount(item.handle)}
               >
-                @{handle}
-                <small>{countFor(handle)}</small>
+                <PostAccountLabel account={item} />
+                <small>{countFor(item.handle)}</small>
               </button>
             ))}
           </div>
@@ -562,25 +647,31 @@ export function PostWall({
   )
 }
 
-/** The post archive's account filter, counting the month's posts per account. */
+/**
+ * The post archive's account filter, counting the month's posts per account
+ * (keyed by lowercase handle or mid).
+ */
 export function PostArchiveFilter({
   accounts,
+  bilibiliAccounts = [],
   account,
   setAccount,
   counts,
   t,
 }: {
   accounts: string[]
+  bilibiliAccounts?: string[]
   account: string | null
   setAccount: (account: string | null) => void
   counts: Record<string, number> | undefined
   t: Translator
 }) {
-  if (accounts.length < 2) return null
+  const filters = postAccounts(accounts, bilibiliAccounts)
+  if (filters.length < 2) return null
   const countFor = (handle: string) =>
     counts ? (counts[handle.toLowerCase()] ?? 0) : null
   const all = counts
-    ? accounts.reduce((sum, handle) => sum + (countFor(handle) || 0), 0)
+    ? filters.reduce((sum, item) => sum + (countFor(item.handle) || 0), 0)
     : null
   return (
     <div className="segmented" role="group" aria-label={t("feed.filter")}>
@@ -592,15 +683,15 @@ export function PostArchiveFilter({
         {t("common.all")}
         {all != null ? <small>{all}</small> : null}
       </button>
-      {accounts.map((handle) => (
+      {filters.map((item) => (
         <button
           type="button"
-          key={handle}
-          aria-pressed={account?.toLowerCase() === handle.toLowerCase()}
-          onClick={() => setAccount(handle)}
+          key={item.handle}
+          aria-pressed={account?.toLowerCase() === item.handle.toLowerCase()}
+          onClick={() => setAccount(item.handle)}
         >
-          @{handle}
-          {counts ? <small>{countFor(handle)}</small> : null}
+          <PostAccountLabel account={item} />
+          {counts ? <small>{countFor(item.handle)}</small> : null}
         </button>
       ))}
     </div>

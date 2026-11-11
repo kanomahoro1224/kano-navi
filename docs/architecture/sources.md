@@ -1388,6 +1388,15 @@ deadline as both dates and no start time. The close is stored as the
 other type, and a shipping or delivery date is not an entry. A sale's
 `endTime` without `endDate` closes it on the Japan date that time falls on.
 
+Both paths select only posts published (`posts.published_at`) within the
+extraction lookback before the scan starts: 30 days by default, `0` for no
+limit (see [sync settings](../operations/configuration.md#sync-settings)).
+Posts outside it are not read, so a change of their input, a pending retry,
+a new extractor version or a backfilled or imported history sends none of
+them to a model. An operator's reprocess request bypasses the lookback,
+whatever the post's age, as forced translation requests bypass the
+translation lookback.
+
 Neither path, nor an operator's reprocess request, selects a post with
 `posts.hidden_at` set; a request for a hidden post waits until the post is
 shown again, and showing it makes it a candidate again. The events such a
@@ -1428,8 +1437,9 @@ processes. A cache hit whose post state already records that result writes
 nothing.
 
 A settled post is a cache hit decided without loading it. Each detection
-stage reads every shown post with its input stamp for that stage, computed
-in SQLite from everything the extraction identity and the image check read
+stage reads every shown post within the lookback with its input stamp for
+that stage, computed in SQLite from everything the extraction identity and
+the image check read
 (see [Post LLM states](data-model.md#post-llm-states)). A post whose state
 records a cache hit on that stage's route for exactly that stamp, with no
 reprocess request, error or failure backoff, keeps its place among the
@@ -1441,7 +1451,7 @@ order, the limit and the outcome of every other post are those of judging it.
 The step result records the candidate phase as `candidateMs`
 (listing requests and candidates, with their stamps, and ordering them),
 `postsRead` (rows the detection stages read, each stage reading every shown
-X and Bilibili post) and `candidatePosts` (the posts queued), then `judged`
+X and Bilibili post within the lookback) and `candidatePosts` (the posts queued), then `judged`
 (posts the scan loaded and judged), `settled` (settled posts it counted as
 cache hits without loading them) and `judgeMs` (time spent loading and
 judging, without model calls or writes). `cached` counts both kinds of cache

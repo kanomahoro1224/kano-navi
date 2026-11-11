@@ -62,12 +62,18 @@ failure is not tolerated, so the steps after it do not run.
 The options add steps or change what is written:
 
 - `extract` (X, related-account and Bilibili dynamics methods) appends the `schedule` step. Schedule extraction picks
-  its candidates among all stored X posts by its keyword and message rules,
-  unattempted posts first (see
+  its candidates among the stored posts within the extraction lookback by
+  its keyword and message rules, unattempted posts first (see
   [Schedule extraction](sources.md#schedule-extraction-pipeline)), so fetched
   posts that match join that queue whichever run extracts them: this run with
   `extract`, otherwise the X chain's next `schedule` step. Posts the rules do
-  not select are not extracted either way.
+  not select, and fetched posts published before the lookback, are not
+  extracted either way; the lookback is the same for every scan, so a
+  backfill cannot hand the appended step more history than its per-run limit
+  would ever finish. A `range` with `extract` that ends before the lookback
+  is refused. Older posts are extracted by a reprocess request from the
+  Posts page, which bypasses the lookback, or after raising the lookback in
+  the [sync settings](../operations/configuration.md#sync-settings).
 - `translate` appends the `translate` step.
 - `refresh` (YouTube methods) rewrites the videos the listing names that are
   already stored: their title (keeping a revision), publication time and URL.

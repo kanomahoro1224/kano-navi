@@ -73,3 +73,34 @@ func TestSaveSyncSettingsChecksEveryBound(t *testing.T) {
 		t.Fatalf("scan limit=%d", got.TranslationScanLimit)
 	}
 }
+
+// The extraction lookback is 30 days by default; 0 is a stored value (no
+// limit) rather than an out-of-range one, and it has no environment variable.
+func TestExtractionLookbackAcceptsZeroAsNoLimit(t *testing.T) {
+	s, path := openSyncSettingsStore(t)
+	ctx := context.Background()
+	if got := DefaultSyncSettings().ExtractionLookbackDays; got != 30 {
+		t.Fatalf("default=%d", got)
+	}
+	settings := DefaultSyncSettings()
+	for _, invalid := range []int{-1, 3651} {
+		settings.ExtractionLookbackDays = invalid
+		if err := s.SaveSyncSettings(ctx, settings); !errors.Is(err, ErrWorkflowValidation) {
+			t.Fatalf("%d: err=%v", invalid, err)
+		}
+	}
+	settings.ExtractionLookbackDays = 0
+	if err := s.SaveSyncSettings(ctx, settings); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.SyncSettings(ctx); got.ExtractionLookbackDays != 0 {
+		t.Fatalf("stored=%d", got.ExtractionLookbackDays)
+	}
+	testutil.Exec(t, path, `UPDATE app_settings SET value='-5' WHERE key='sync_extraction_lookback_days'`)
+	if got, _ := s.SyncSettings(ctx); got.ExtractionLookbackDays != 30 {
+		t.Fatalf("an out-of-range stored value read as %d", got.ExtractionLookbackDays)
+	}
+	if err := settings.Set(map[string]int{"extractionLookbackDays": 7}); err != nil || settings.ExtractionLookbackDays != 7 {
+		t.Fatalf("set=%d err=%v", settings.ExtractionLookbackDays, err)
+	}
+}

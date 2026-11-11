@@ -21,14 +21,15 @@ func queueConsole(t *testing.T, previews bool) *console {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { store.Close() })
+	now := func() time.Time { return time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC) }
 	options := Options{
 		Store:    store,
 		Auth:     newAuth(t, "development", ""),
 		XHandles: []string{"synthetic_one"},
-		Now:      func() time.Time { return time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC) },
+		Now:      now,
 	}
 	if previews {
-		extractor := schedule.New(store, schedule.Options{SecretsKey: "synthetic-secrets-key", Getenv: func(string) string { return "" }})
+		extractor := schedule.New(store, schedule.Options{SecretsKey: "synthetic-secrets-key", Getenv: func(string) string { return "" }, Now: now})
 		translator := schedule.NewTranslator(store, schedule.Options{SecretsKey: "synthetic-secrets-key", Getenv: func(string) string { return "" }})
 		options.Queues = QueuePreviews{Schedule: extractor.PreviewQueue, Translation: translator.PreviewQueue}
 		options.Youtube = ytsource.NewAdapter(nil, ytsource.Options{ChannelID: "UCsynthetic"})
@@ -66,7 +67,7 @@ func TestScheduleQueuePreviewWritesNothing(t *testing.T) {
 	if entry["postId"] != "p1" || entry["outcome"] != "skip" || entry["reason"] != "no_route_target" || entry["route"] != "message" || entry["source"] != "x" {
 		t.Fatalf("entry = %v", entry)
 	}
-	if queue["limit"] != float64(20) || queue["candidates"] != float64(1) {
+	if queue["limit"] != float64(20) || queue["lookbackDays"] != float64(30) || queue["candidates"] != float64(1) {
 		t.Fatalf("queue = %v", queue)
 	}
 	if got := c.text(t, `SELECT COUNT(*) FROM post_llm_states`); got != "0" {

@@ -324,7 +324,10 @@ func TestProviderFailureKeepsEventsAndRecordsFailure(t *testing.T) {
 // gets for one post.
 func TestModelAttemptsFollowTheSetting(t *testing.T) {
 	f := messageFixture(t)
-	settings := sqlite.DefaultSyncSettings()
+	settings, err := f.store.SyncSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
 	settings.LLMModelAttempts = 5
 	if err := f.store.SaveSyncSettings(context.Background(), settings); err != nil {
 		t.Fatal(err)

@@ -406,7 +406,8 @@ export interface YTDLPStatus {
   version?: string
 }
 
-/** The read bounds of source steps, manual fetches and translation. */
+/** The read bounds of source steps, manual fetches, extraction and
+ * translation. */
 export type SyncSettingField =
   | "xBootstrapDays"
   | "xDiscoveryLimit"
@@ -416,6 +417,7 @@ export type SyncSettingField =
   | "fetchMaxPages"
   | "fetchTimeoutMs"
   | "fetchRequestDelayMs"
+  | "extractionLookbackDays"
   | "translationScanLimit"
   | "translationLookbackDays"
   | "llmModelAttempts"
@@ -1295,6 +1297,8 @@ export interface ScheduleQueue {
   messageEnabled: boolean
   allPosts: boolean
   limit: number
+  /** Extraction lookback of unrequested candidates; 0 sets no limit. */
+  lookbackDays: number
   postsRead: number
   candidates: number
   requested: number

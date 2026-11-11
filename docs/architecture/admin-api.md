@@ -218,9 +218,10 @@ startDate, endDate}` or `{mode: "before", days}` (1–365), as the method's
   `translate` the `translate` step, and `refresh` (YouTube methods)
   rewrites stored videos the listing names again; each is a boolean and
   defaults to false. An unknown method, a mode or count the method does not
-  serve, an option it does not take, or a method that cannot run now (its
-  credential is missing) answers `400 invalid_input`; the fetch never falls
-  back to another method.
+  serve, an option it does not take, `extract` on a `range` that ends before
+  the extraction lookback, or a method that cannot run now (its credential
+  is missing) answers `400 invalid_input`; the fetch never falls back to
+  another method.
 
 A busy queue answers `409` with the active run. There are no saved workflows
 ([source schedules](../architecture/workflows.md#source-schedules)): a
@@ -273,9 +274,10 @@ It reads the post LLM states, post images, their media assets and the stored
 extractions once and judges every candidate from them; the run reads them
 per post, since it writes between posts. Its size
 does not grow with the number of posts: `{generatedAt, disabled,
-boardEnabled, messageEnabled, allPosts, limit, postsRead, candidates,
-requested, candidateMs, elapsedMs, run, later, cached, backoff,
-retryStopped}`. `run` lists, in order, the at most `limit` posts that take a
+boardEnabled, messageEnabled, allPosts, limit, lookbackDays, postsRead,
+candidates, requested, candidateMs, elapsedMs, run, later, cached, backoff,
+retryStopped}`, `lookbackDays` being the extraction lookback the candidates
+were selected with (0 for no limit). `run` lists, in order, the at most `limit` posts that take a
 place in a run started now, each `{postId, source, route, outcome, reason,
 inputMode?, publishedAt?, lastAttemptAt?, url?, excerpt}`: `outcome` is
 `call` with `reason` `requested`, `new` (never attempted), `changed`
@@ -469,7 +471,8 @@ YouTube video ID or another body.
 `settings` maps each field (`xMaxStatusRequests`, `xRefreshKnown`,
 `xBootstrapDays`, `xDiscoveryLimit`, `youtubeMaxDetailRequests`,
 `fetchMaxPages`, `fetchTimeoutMs`, `fetchRequestDelayMs`,
-`translationScanLimit`, `translationLookbackDays`, `llmModelAttempts`) to its
+`extractionLookbackDays`, `translationScanLimit`, `translationLookbackDays`,
+`llmModelAttempts`) to its
 integer value, and
 `fields` lists `{field, default, min, max}` for each. `PUT` keeps omitted
 fields and answers `400 invalid_input` for an unknown field or a value that is

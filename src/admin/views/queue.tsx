@@ -168,6 +168,10 @@ function ScheduleTab({ navigate }: { navigate: ViewProps["navigate"] }) {
             t("admin.queuePreview.schedule.stages"),
             stages.length ? stages.join(" · ") : t("admin.metric.no"),
           ],
+          [
+            t("admin.queuePreview.schedule.lookback"),
+            queue.lookbackDays || t("admin.queuePreview.schedule.noLimit"),
+          ],
           [t("admin.queuePreview.schedule.candidates"), queue.candidates],
           [t("admin.queuePreview.schedule.requested"), queue.requested],
           [t("admin.queuePreview.schedule.postsRead"), queue.postsRead],

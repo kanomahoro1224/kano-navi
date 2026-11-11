@@ -44,6 +44,7 @@ export const syncSettingGroups = {
       id: "llm",
       fields: [
         "llmModelAttempts",
+        "extractionLookbackDays",
         "translationScanLimit",
         "translationLookbackDays",
       ],

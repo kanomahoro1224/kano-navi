@@ -220,6 +220,8 @@ export const adminMessages = {
     "admin.queuePreview.schedule.disabled":
       "Both detection stages are off and nothing is requested, so a run extracts nothing.",
     "admin.queuePreview.schedule.stages": "Detection stages",
+    "admin.queuePreview.schedule.lookback": "Lookback days",
+    "admin.queuePreview.schedule.noLimit": "No limit",
     "admin.queuePreview.schedule.candidates": "Candidates",
     "admin.queuePreview.schedule.requested": "Requested",
     "admin.queuePreview.schedule.postsRead": "Posts read",
@@ -1193,6 +1195,10 @@ export const adminMessages = {
     "admin.syncSettings.field.fetchRequestDelayMs": "Request spacing (ms)",
     "admin.syncSettings.hint.fetchRequestDelayMs":
       "Wait between the pages of a manual fetch.",
+    "admin.syncSettings.field.extractionLookbackDays":
+      "Extraction lookback (days)",
+    "admin.syncSettings.hint.extractionLookbackDays":
+      "Age of posts extracted without a request; 0 sets no limit.",
     "admin.syncSettings.field.translationScanLimit": "Translations per run",
     "admin.syncSettings.hint.translationScanLimit":
       "Posts and titles the translate step sends to a model.",

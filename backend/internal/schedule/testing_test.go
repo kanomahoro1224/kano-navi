@@ -99,6 +99,9 @@ func newFixture(t *testing.T) *fixture {
 	// The disposable snapshot needs no durability; this keeps the many small
 	// commits of a scan fast on every platform.
 	f.exec(`PRAGMA synchronous = OFF`)
+	// The synthetic posts carry fixed dates, so the extraction lookback is
+	// off unless a test sets it (see lookback_test.go).
+	f.exec(`INSERT INTO app_settings (key, value, updated_at) VALUES ('sync_extraction_lookback_days', '0', ?)`, testTimestamp)
 	f.provider.respond = func(recordedRequest) (int, string) { return http.StatusInternalServerError, `{}` }
 	f.run = New(store, Options{
 		SecretsKey: testKey,

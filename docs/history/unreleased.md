@@ -1,8 +1,24 @@
 # Unreleased
 
+> [!IMPORTANT]
+> Automatic schedule extraction selects only posts published within the
+> extraction lookback, a new setting under `/admin` → Detection that is
+> 30 days on upgrade and on a fresh install. Older posts are no longer sent
+> to a model without a reprocess request: a changed input, a pending retry
+> or a new extractor version leaves them as they are, and imported or
+> backfilled history is not extracted. To keep extracting posts of any age
+> automatically, set the lookback to `0`.
+
 <details>
 <summary><strong>Upgrade notes</strong></summary>
 
+- `GET` and `PUT /api/admin/sync-settings` add `extractionLookbackDays`
+  (0–3650, default 30, `0` for no limit), stored in `app_settings` as
+  `sync_extraction_lookback_days`. It has no environment variable.
+- `GET /api/admin/queue/schedule` adds `lookbackDays`; `postsRead` and
+  `candidates` count only posts within the lookback.
+- A manual fetch with `extract` on a `range` that ends before the extraction
+  lookback answers `400 invalid_input`.
 - Public dashboard, post archive and MCP posts add `rich`, and their quotes
   `quote.rich`, for a Bilibili dynamic with stickers: `{text}` and
   `{emoji, url}` segments whose `url` is a local `/media/` address or
@@ -55,5 +71,19 @@
 - Bilibili listings without rich-text nodes give a dynamic its plain,
   HTML-unescaped text, and an older album without a major type keeps its
   pictures under `draw` or `opus`.
+- Schedule extraction selects unrequested posts published within the
+  extraction lookback only, so importing or backfilling years of posts no
+  longer queues each of them for a model call or fills the calendar with
+  past events. A reprocess request from the Posts page still extracts a post
+  of any age, and a manual fetch with Extract refuses a date range that ends
+  before the lookback.
+
+</details>
+
+<details>
+<summary><strong>Operator console</strong></summary>
+
+- Detection's model limits add Extraction lookback (days), and the schedule
+  queue preview shows the lookback it selected its candidates with.
 
 </details>

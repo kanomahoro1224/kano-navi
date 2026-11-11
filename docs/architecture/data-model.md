@@ -464,6 +464,32 @@ of a dynamic whose ID the listing did not give has a `null` `id` and the
 forward's own opus page as `url`. The console's post list keeps a post's own
 images apart from its quote.
 
+## Bilibili Stickers
+
+A Bilibili dynamic's stickers (custom emoji) stay out of `posts.text`,
+`quote_json.text` and the pool's `text`, so they never change a translation
+hash or extraction input. `raw_json.nodes` keeps every rich-text node in
+order, an emoji node with its caption as `text` and its picture as
+`emoji.url`; a forward's `raw_json.orig` keeps the forwarded dynamic's
+`title` and `nodes` the same way. The pictures are `media_links` of the post
+with the role `post-emoji`, or `quote-emoji` for the forwarded dynamic's,
+one link per distinct picture (see [Bilibili dynamics](sources.md#dynamics)).
+
+For a Bilibili post whose `raw_json` holds an emoji node, the public
+dashboard, the post archive and MCP add `rich` to the post, and to its
+available quote: the original wording as ordered segments, `{text}` or
+`{emoji, url}`, where `emoji` is the caption and `url` the local
+`/media/<id>?v=<sha256>` address of the ready cached picture, or `null`
+while it is not ready. The read places each sticker by matching the nodes'
+text in order against the stored text, each node where the last one ended
+(past a title on its own line, allowing only the whitespace the trimming
+removed), so the `text` segments joined are exactly the post's `text` and no
+wording is skipped; a node not found there (cut off by the length bound)
+leaves out the stickers after it. An opus page's paragraphs are joined by a
+line break, which `raw_json.nodes` keeps as a text node of its own, so a
+sticker that opens a paragraph stays on that paragraph's line. A post
+without stickers has no `rich`.
+
 Every available X quote is also a row of the X status pool `x_statuses` (see
 [Quoted posts](sources.md#quoted-posts)), which also holds every status of a
 [related account](sources.md#related-accounts): `id`, `author_handle`,

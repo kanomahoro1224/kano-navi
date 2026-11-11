@@ -4,6 +4,7 @@ import type {
   MediaItem,
   Post,
   PostQuote,
+  RichSegment,
   Translator,
 } from "@/types"
 import type { CSSProperties, ReactElement, ReactNode, RefObject } from "react"
@@ -64,6 +65,45 @@ export function postMedia(post: Post): MediaItem[] {
         },
       ]
     : []
+}
+
+/**
+ * The wording shown: a translation as text, or the original with its
+ * stickers inline at text height, each a cached local picture named by its
+ * caption, or the caption itself until the picture is cached.
+ */
+export function PostWording({
+  wording,
+  rich,
+}: {
+  wording: TranslatedTextState
+  rich?: RichSegment[] | null
+}) {
+  if (wording.shown || !rich?.length) return <>{wording.text}</>
+  return (
+    <>
+      {rich.map((segment, index) => {
+        if ("text" in segment) return segment.text
+        return segment.url?.startsWith("/media/") ? (
+          <img
+            key={index}
+            className="post-sticker"
+            src={segment.url}
+            alt={segment.emoji}
+            title={segment.emoji}
+            loading="lazy"
+          />
+        ) : (
+          segment.emoji
+        )
+      })}
+    </>
+  )
+}
+
+/** Whether there is wording to show: text, or stickers in the original. */
+function hasWording(wording: TranslatedTextState, rich?: RichSegment[] | null) {
+  return Boolean(wording.text) || (!wording.shown && Boolean(rich?.length))
 }
 
 /**
@@ -220,13 +260,13 @@ function QuoteCard({
         ) : null}
         <TranslationToggle state={wording} t={t} />
       </p>
-      {quote.text ? (
+      {quote.text || hasWording(wording, quote.rich) ? (
         <p
           ref={textRef}
           className={`post-quote-text${clamp ? " is-clamped" : ""}`}
           lang={wording.lang}
         >
-          {wording.text}
+          <PostWording wording={wording} rich={quote.rich} />
         </p>
       ) : null}
       {shown.length ? (
@@ -421,13 +461,13 @@ function PostNote({
   return (
     <article className="post-note">
       {head()}
-      {wording.text ? (
+      {hasWording(wording, post.rich) ? (
         <p
           ref={textRef}
           className={`post-note-text${clamp ? " is-clamped" : ""}`}
           lang={wording.lang}
         >
-          {wording.text}
+          <PostWording wording={wording} rich={post.rich} />
           <TranslationToggle
             state={wording}
             t={t}
@@ -468,9 +508,9 @@ function PostNote({
                 <X aria-hidden="true" />
               </button>,
             )}
-            {wording.text ? (
+            {hasWording(wording, post.rich) ? (
               <p className="post-note-text" lang={wording.lang}>
-                {wording.text}
+                <PostWording wording={wording} rich={post.rich} />
                 <TranslationToggle state={wording} t={t} />
               </p>
             ) : null}

@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"regexp"
 	"time"
+
+	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 )
 
 type postRow struct {
@@ -18,11 +20,29 @@ type postRow struct {
 	quoteJSON sql.NullString
 	// promoted marks a related account's status promoted into posts.
 	promoted bool
+	// stickerRaw is the raw_json of a Bilibili dynamic that has emoji
+	// nodes, the source of its sticker segments; NULL for any other post.
+	stickerRaw sql.NullString
 }
 
 // postColumns are a public post read's columns of the unaliased posts table,
-// in postRow's scan order.
-const postColumns = `id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END,promoted_at IS NOT NULL`
+// in postRow's scan order (see scanPostRow).
+const postColumns = `id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END,promoted_at IS NOT NULL,
+ CASE WHEN source='bilibili' AND instr(raw_json,'` + bilisource.EmojiNode + `')>0 THEN raw_json END`
+
+// scanPostRow reads one row of postColumns.
+func scanPostRow(row scanner) (postRow, error) {
+	var r postRow
+	var account, label, mu, ma sql.NullString
+	if err := row.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted, &r.stickerRaw); err != nil {
+		return r, err
+	}
+	r.accountHandle, r.hasAccount = account.String, account.Valid
+	r.label, r.hasLabel = label.String, label.Valid
+	r.mediaURL, r.hasMediaURL = mu.String, mu.Valid
+	r.mediaAlt, r.hasMediaAlt = ma.String, ma.Valid
+	return r, nil
+}
 
 // wallPostSQL holds for a post of the unaliased posts table that the post
 // wall and the archive list: not hidden, and not a promoted post that a shown
@@ -53,15 +73,10 @@ func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error)
 	defer rows.Close()
 	out := make([]postRow, 0, 100)
 	for rows.Next() {
-		var r postRow
-		var account, label, mu, ma sql.NullString
-		if err := rows.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted); err != nil {
+		r, err := scanPostRow(rows)
+		if err != nil {
 			return nil, dbErr(err)
 		}
-		r.accountHandle, r.hasAccount = account.String, account.Valid
-		r.label, r.hasLabel = label.String, label.Valid
-		r.mediaURL, r.hasMediaURL = mu.String, mu.Valid
-		r.mediaAlt, r.hasMediaAlt = ma.String, ma.Valid
 		out = append(out, r)
 	}
 	if err := rows.Err(); err != nil {
@@ -71,20 +86,14 @@ func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error)
 }
 
 func (s *Store) queryLatestPost(ctx context.Context) (*postRow, error) {
-	var r postRow
-	var account, label, mu, ma sql.NullString
 	// The latest post is an own account's: a promoted post never takes it.
-	err := s.db.QueryRowContext(ctx, `SELECT `+postColumns+` FROM posts WHERE hidden_at IS NULL AND promoted_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`).Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted)
+	r, err := scanPostRow(s.db.QueryRowContext(ctx, `SELECT `+postColumns+` FROM posts WHERE hidden_at IS NULL AND promoted_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, dbErr(err)
 	}
-	r.accountHandle, r.hasAccount = account.String, account.Valid
-	r.label, r.hasLabel = label.String, label.Valid
-	r.mediaURL, r.hasMediaURL = mu.String, mu.Valid
-	r.mediaAlt, r.hasMediaAlt = ma.String, ma.Valid
 	return &r, nil
 }
 
@@ -155,6 +164,11 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 	}
 	if p.Quote, err = s.mapQuote(ctx, r.source, r.id, r.quoteJSON); err != nil {
 		return p, err
+	}
+	if r.source == "bilibili" && r.stickerRaw.Valid {
+		if err = s.mapStickers(ctx, &p, r.stickerRaw.String); err != nil {
+			return p, err
+		}
 	}
 	return p, nil
 }

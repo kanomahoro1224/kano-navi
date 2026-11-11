@@ -169,16 +169,11 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 	}
 	postRows := make([]postRow, 0, pageSize)
 	for rows.Next() {
-		var r postRow
-		var handle, label, mu, ma sql.NullString
-		if err := rows.Scan(&r.id, &r.source, &handle, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted); err != nil {
+		r, err := scanPostRow(rows)
+		if err != nil {
 			_ = rows.Close()
 			return nil, dbErr(err)
 		}
-		r.accountHandle, r.hasAccount = handle.String, handle.Valid
-		r.label, r.hasLabel = label.String, label.Valid
-		r.mediaURL, r.hasMediaURL = mu.String, mu.Valid
-		r.mediaAlt, r.hasMediaAlt = ma.String, ma.Valid
 		postRows = append(postRows, r)
 	}
 	if err := rows.Err(); err != nil {

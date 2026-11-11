@@ -1032,18 +1032,36 @@ store even while the list meets the captcha. The upload read's newest
 cursor stays its own. The stored text joins the nodes' text (words, topics, mentions,
 links) and leaves out emoji nodes (`RICH_TEXT_NODE_TYPE_EMOJI`); an opus
 title leads it, and a picture post's `desc` nodes give it beside its
-pictures. The nodes, emoji included, stay in `raw_json`. An
+pictures. A dynamic without rich-text nodes, as older listings give one,
+takes its plain text field instead (the opus summary's, else `desc.text`),
+HTML-unescaped; it names no sticker pictures, so any caption in it stays as
+written. An older album without a major type lists its pictures under `draw`
+or `opus`, and both are read. The nodes, emoji included, stay in `raw_json`. An
 emoji-only dynamic therefore has empty text and is translated as `none`
 without a model call. Up to nine pictures are kept as the post's images.
+
+An emoji node is a sticker (custom emoji): its text is the caption, such as
+`[笑]`, and its picture is one of the node's `webp_url`, `gif_url` or
+`icon_url`, preferred in that order and kept only as an HTTPS address on
+`*.hdslb.com`. `raw_json` keeps the node with its caption and that picture
+as `emoji.url`. The distinct pictures of a dynamic, at most 32, are
+`post-emoji` links of its post, so they are [cached](media-cache.md) like
+its images; they are never images of the post, schedule candidates or
+extraction input, and the text, its translations and extraction never
+include a caption. The board places each sticker into the stored text by
+its node's order (see
+[Bilibili stickers](data-model.md#bilibili-stickers)).
 
 Dynamics are `posts` rows with `source = 'bilibili'`, the ID
 `bilibili-<id_str>` (dynamic and X status IDs are both numbers of about 19
 digits and share `posts.id`), `account_handle` the mid, `url`
 `https://www.bilibili.com/opus/<id_str>` and `published_at` the publication
 time in UTC. They have no engagement counts; a forward has a quote. A read
-replaces a dynamic's text, time, pictures and quote, keeps an operator's
-hide, and advances the dashboard revision only when the text, time, link,
-pictures, quote, quoted pictures or hide changed. Its pictures are
+replaces a dynamic's text, time, pictures, stickers and quote, keeps an
+operator's hide, and advances the dashboard revision only when the text,
+time, link, pictures, quote, quoted pictures, either set of stickers, the
+nodes that place the stickers of a dynamic that has any, or hide changed.
+Its pictures are
 `post-image` links, so they feed
 [schedule extraction](#schedule-extraction-pipeline) once cached; a
 schedule board on a Bilibili picture is not registered as a
@@ -1068,8 +1086,9 @@ A forward is the account's own post that quotes the dynamic it forwards, the
 way an X post [quotes a status](#quoted-posts): it has its own dynamic ID,
 publication time and wording, and the listing carries the forwarded
 dynamic in full in its `orig` object, so a forward needs no request of its
-own. Its text is its `desc` nodes without emoji, and it has no pictures of
-its own. The listing keeps every forward of the account. The store leaves
+own. Its text is its `desc` nodes without emoji (or its plain `desc.text`
+when it has no nodes), its stickers are its own `post-emoji` links, and it
+has no pictures of its own. The listing keeps every forward of the account. The store leaves
 out a new forward that has no wording of its own and an unavailable quote,
 which would be an empty card; a stored forward whose dynamic becomes
 unavailable is rewritten with the unavailable quote, loses its
@@ -1093,8 +1112,10 @@ sanitized projection an X quote has, stored in `posts.quote_json`:
   the video title as text and its cover as the one image.
 
 Its pictures (HTTPS on `*.hdslb.com`, at most nine) are `quote-image` links
-of the forward and never schedule candidates; `quote_json` holds no image
-address. A deleted dynamic (`DYNAMIC_TYPE_NONE`, `MAJOR_TYPE_NONE`), a
+of the forward and its stickers `quote-emoji` links, neither ever a schedule
+candidate; `quote_json` holds no image address. The forward's
+`raw_json.orig` keeps the available dynamic's title and nodes beside its
+type and ID, the source of its stickers. A deleted dynamic (`DYNAMIC_TYPE_NONE`, `MAJOR_TYPE_NONE`), a
 missing `orig`, a dynamic of any other kind (a live room, a collection,
 goods, a vote, an article in its old form), a supporters-only dynamic or one
 with neither wording nor pictures is unavailable, with only its ID and its opus page as URL (an

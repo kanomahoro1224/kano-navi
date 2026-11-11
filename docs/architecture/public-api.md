@@ -95,7 +95,11 @@ text may be empty when the dynamic held only emoji. A forward's `quote` is
 the dynamic it forwards (see [Quoted posts](data-model.md#quoted-posts)),
 with that dynamic's post ID as `id` (`null` when the listing did not name
 it), the author's mid as `authorHandle`, and its Bilibili page as `url`; a
-forward's own text may be empty.
+forward's own text may be empty. A dynamic with stickers adds `rich`, and an
+available quote with stickers `quote.rich`: the original wording as
+`{text}` and `{emoji, url}` segments whose `text` joined is `text`, where
+`url` is a local `/media/` address or `null` and never a remote one (see
+[Bilibili stickers](data-model.md#bilibili-stickers)).
 
 Every public event reports its `platform` (`youtube`, `bilibili`, `other`,
 `unknown`, or null for an entry stored before platforms were recorded) and

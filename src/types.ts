@@ -52,9 +52,19 @@ export type TranslationLocale = "en" | "ja" | "zh-CN"
 export type Translations = Partial<Record<TranslationLocale, Translation>>
 
 /**
+ * One piece of a Bilibili dynamic's original wording: text, or a sticker by
+ * its caption with the local address of its cached picture (null until the
+ * picture is cached, when the caption shows instead). The text pieces joined
+ * are the wording's `text`.
+ */
+export type RichSegment =
+  { text: string } | { emoji: string; url: string | null }
+
+/**
  * An X post, or a Bilibili dynamic (`source` "bilibili"): its handle is the
  * account's numeric mid, it has no engagement counts or quote, and its text
- * may be empty.
+ * may be empty. A dynamic with stickers also has `rich`, its original
+ * wording with them.
  */
 export interface Post {
   id: string
@@ -78,6 +88,8 @@ export interface Post {
   quote?: PostQuote | null
   /** A related account's status promoted onto the board, not Kano's own. */
   promoted?: boolean
+  /** The original wording with its stickers, when it has any. */
+  rich?: RichSegment[]
 }
 
 /**
@@ -99,6 +111,8 @@ export interface PostQuote {
   media: MediaItem[]
   translations?: Translations
   sourceLanguage?: string | null
+  /** The forwarded dynamic's original wording with its stickers. */
+  rich?: RichSegment[]
 }
 
 export type SaleMark = "opens" | "closes"

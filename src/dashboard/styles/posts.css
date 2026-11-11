@@ -360,6 +360,16 @@
   white-space: pre-wrap;
 }
 
+/* A sticker sits in the wording at the height of its text. */
+.post-sticker {
+  display: inline-block;
+  width: auto;
+  height: 1.4em;
+  margin: 0 1px;
+  vertical-align: text-bottom;
+  object-fit: contain;
+}
+
 .post-quote-text.is-clamped {
   display: -webkit-box;
   overflow: hidden;

@@ -238,10 +238,15 @@ post without it.
 A Bilibili dynamic (`source: "bilibili"`) shows the bilibili mark and name,
 linked to the account's space, instead of an `@handle`, and its open link
 goes to the opus page. It has no engagement counts. A forward shows the
-dynamic it forwards as its quote card, and an empty text (an emoji-only
-dynamic, or a forward without wording of its own) leaves only its images or
-its quote. The
-wall's top line adds bilibili while it holds a dynamic.
+dynamic it forwards as its quote card, and an empty text (a forward without
+wording of its own, or an emoji-only dynamic without stickers) leaves only
+its images or its quote. The
+wall's top line adds bilibili while it holds a dynamic. While a dynamic or
+its quote shows its original wording, `PostWording` renders its `rich`
+segments when it has them: each sticker with a local `/media/` address is an
+inline picture at text height whose `alt` and `title` are its caption, and
+any other sticker is its caption as text. A translation shows as text,
+without stickers. The board matches no captions and loads no other address.
 
 An entry follows its first platform link (`eventLink` in
 `src/dashboard/format.ts`), or its `url`, or, in a snapshot without

@@ -21,6 +21,16 @@ import (
 // bilibiliPostLabel is the label every dynamic gets, as an X post does.
 const bilibiliPostLabel = "DAILY / 近况"
 
+// rolePostEmoji links a dynamic's sticker pictures to its post, one link per
+// distinct picture, and roleQuoteEmoji those of the dynamic a forward
+// forwards to the forwarding post. Neither is an image of the post: the board
+// shows them inside the original wording (see stickerSegments), and
+// extraction never reads them.
+const (
+	rolePostEmoji  = "post-emoji"
+	roleQuoteEmoji = "quote-emoji"
+)
+
 // WriteBilibiliDynamics stores what one listing read returned together with
 // the account state, in one transaction: the dynamics as posts and the video
 // dynamics as uploads, written as the upload list writes them (the upload
@@ -77,16 +87,22 @@ func (s *Store) writeBilibiliPosts(ctx context.Context, account string, dynamics
 }
 
 // bilibiliPostState is what the board shows of a dynamic: its fields, its
-// images in order, its quote and the quote's images.
+// images in order, its quote, the quote's images, both sets of stickers and,
+// for a dynamic with stickers, the nodes they are placed by (its own and its
+// quote's), so a sticker that moves within unchanged text counts too.
 const bilibiliPostState = `SELECT p.text||char(31)||p.published_at||char(31)||p.url||char(31)||COALESCE(p.media_url,'')||char(31)||COALESCE(p.hidden_at,'')||char(31)||
+ CASE WHEN json_valid(p.raw_json) AND instr(p.raw_json,'` + bilisource.EmojiNode + `')>0 THEN COALESCE(json_extract(p.raw_json,'$.nodes'),'')||char(30)||COALESCE(json_extract(p.raw_json,'$.orig.nodes'),'') ELSE '' END||char(31)||
  COALESCE((SELECT group_concat(ma.source_url,char(30)) FROM (SELECT media_id FROM media_links WHERE owner_type='post' AND owner_id=p.id AND role='post-image' ORDER BY position) ml JOIN media_assets ma ON ma.id=ml.media_id),'')||char(31)||
  COALESCE(p.quote_json,'')||char(31)||
- COALESCE((SELECT group_concat(ma.source_url,char(30)) FROM (SELECT media_id FROM media_links WHERE owner_type='post' AND owner_id=p.id AND role='quote-image' ORDER BY position) ml JOIN media_assets ma ON ma.id=ml.media_id),'')
+ COALESCE((SELECT group_concat(ma.source_url,char(30)) FROM (SELECT media_id FROM media_links WHERE owner_type='post' AND owner_id=p.id AND role='quote-image' ORDER BY position) ml JOIN media_assets ma ON ma.id=ml.media_id),'')||char(31)||
+ COALESCE((SELECT group_concat(ma.source_url,char(30)) FROM (SELECT media_id FROM media_links WHERE owner_type='post' AND owner_id=p.id AND role='post-emoji' ORDER BY position) ml JOIN media_assets ma ON ma.id=ml.media_id),'')||char(31)||
+ COALESCE((SELECT group_concat(ma.source_url,char(30)) FROM (SELECT media_id FROM media_links WHERE owner_type='post' AND owner_id=p.id AND role='quote-emoji' ORDER BY position) ml JOIN media_assets ma ON ma.id=ml.media_id),'')
  FROM posts p WHERE p.id=?`
 
-// writeBilibiliPost upserts one dynamic, its image links and, for a forward,
-// its quote: the projection in quote_json, the forwarded dynamic's pictures
-// as quote-image links and its pool row (see writeBilibiliStatus). A row of
+// writeBilibiliPost upserts one dynamic, its image and sticker links and,
+// for a forward, its quote: the projection in quote_json, the forwarded
+// dynamic's pictures as quote-image links, its stickers as quote-emoji links
+// and its pool row (see writeBilibiliStatus). A row of
 // another source with the same ID is left alone, and so is a stored forward
 // when an operator's single read returns the dynamic without its quote,
 // because only the listing gives a forward its quote. A new forward without
@@ -123,7 +139,7 @@ func writeBilibiliPost(ctx context.Context, tx *sql.Tx, account string, d biliso
 	} else if count != 1 {
 		return false, nil
 	}
-	if _, err = tx.ExecContext(ctx, `DELETE FROM media_links WHERE owner_type='post' AND owner_id=? AND role IN ('post-image',?)`, id, roleQuoteImage); err != nil {
+	if _, err = tx.ExecContext(ctx, `DELETE FROM media_links WHERE owner_type='post' AND owner_id=? AND role IN ('post-image',?,?,?)`, id, roleQuoteImage, rolePostEmoji, roleQuoteEmoji); err != nil {
 		return false, err
 	}
 	for i, u := range d.Images {
@@ -131,16 +147,15 @@ func writeBilibiliPost(ctx context.Context, tx *sql.Tx, account string, d biliso
 			return false, err
 		}
 	}
+	if err = linkBilibiliMedia(ctx, tx, id, rolePostEmoji, d.Stickers, now); err != nil {
+		return false, err
+	}
 	if d.Quote != nil {
-		position := 0
-		for _, u := range d.Quote.MediaURLs {
-			if _, _, e := mediaIdentity(u); e != nil {
-				continue
-			}
-			if err = replaceMediaLink(ctx, tx, "bilibili", u, "post", id, roleQuoteImage, position, now); err != nil {
-				return false, err
-			}
-			position++
+		if err = linkBilibiliMedia(ctx, tx, id, roleQuoteImage, d.Quote.MediaURLs, now); err != nil {
+			return false, err
+		}
+		if err = linkBilibiliMedia(ctx, tx, id, roleQuoteEmoji, d.Quote.Stickers, now); err != nil {
+			return false, err
 		}
 		if err = writeBilibiliStatus(ctx, tx, d.Quote, d.PublishedAt, now); err != nil {
 			return false, err
@@ -151,6 +166,23 @@ func writeBilibiliPost(ctx context.Context, tx *sql.Tx, account string, d biliso
 		return false, err
 	}
 	return after != before, nil
+}
+
+// linkBilibiliMedia links pictures to a post under role in order, skipping
+// any that is not a media URL. A picture is one asset whichever posts and
+// roles link it.
+func linkBilibiliMedia(ctx context.Context, tx *sql.Tx, postID, role string, urls []string, now string) error {
+	position := 0
+	for _, u := range urls {
+		if _, _, err := mediaIdentity(u); err != nil {
+			continue
+		}
+		if err := replaceMediaLink(ctx, tx, "bilibili", u, "post", postID, role, position, now); err != nil {
+			return err
+		}
+		position++
+	}
+	return nil
 }
 
 // bilibiliQuoteJSON is a forward's stored quote projection, NULL for any

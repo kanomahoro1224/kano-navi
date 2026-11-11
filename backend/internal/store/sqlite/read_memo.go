@@ -127,8 +127,8 @@ func scanMediaAsset(row scanner) (mediaAsset, error) {
 	return a, nil
 }
 
-// prefetchPostMedia loads the image and quote-image links of many posts in
-// batched queries. queryPostMedia then answers them from the memo.
+// prefetchPostMedia loads the image, quote-image and sticker links of many
+// posts in batched queries. queryPostMedia then answers them from the memo.
 func (s *Store) prefetchPostMedia(ctx context.Context, ids ...string) error {
 	memo := readMemoFrom(ctx)
 	if memo == nil {
@@ -143,12 +143,12 @@ func (s *Store) prefetchPostMedia(ctx context.Context, ids ...string) error {
 	}
 	for start := 0; start < len(wanted); start += memoChunk {
 		chunk := wanted[start:min(len(wanted), start+memoChunk)]
-		args := make([]any, 0, len(chunk)+1)
-		args = append(args, roleQuoteImage)
+		args := make([]any, 0, len(chunk)+3)
+		args = append(args, roleQuoteImage, rolePostEmoji, roleQuoteEmoji)
 		for _, id := range chunk {
 			args = append(args, id)
 		}
-		rows, err := s.db.QueryContext(ctx, `SELECT ml.owner_id,ml.role,`+postMediaColumns+` FROM media_links ml LEFT JOIN media_assets ma ON ma.id=ml.media_id WHERE ml.owner_type='post' AND ml.role IN ('post-image',?) AND ml.owner_id IN (`+placeholders(len(chunk))+`) ORDER BY ml.owner_id,ml.role,ml.position ASC`, args...)
+		rows, err := s.db.QueryContext(ctx, `SELECT ml.owner_id,ml.role,`+postMediaColumns+` FROM media_links ml LEFT JOIN media_assets ma ON ma.id=ml.media_id WHERE ml.owner_type='post' AND ml.role IN ('post-image',?,?,?) AND ml.owner_id IN (`+placeholders(len(chunk))+`) ORDER BY ml.owner_id,ml.role,ml.position ASC`, args...)
 		if err != nil {
 			return dbErr(err)
 		}

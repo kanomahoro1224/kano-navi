@@ -74,6 +74,9 @@ type Post struct {
 	Translations TranslationSet
 	// Quote is the status the post quotes, nil when it quotes none.
 	Quote *PostQuote
+	// Rich is the original wording with its stickers, only for a Bilibili
+	// dynamic that has any (see placeStickers).
+	Rich []RichSegment
 }
 
 // PostQuote is the stored projection of a quoted status. Media lists only
@@ -90,6 +93,9 @@ type PostQuote struct {
 	// Translations are the stored post's of the same status ID, so a quote
 	// of a tracked account's post carries that post's translations.
 	Translations TranslationSet `json:"-"`
+	// Rich is the forwarded dynamic's wording with its stickers, as a
+	// post's Rich.
+	Rich []RichSegment `json:"-"`
 }
 
 type PostMedia struct {

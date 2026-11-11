@@ -1,6 +1,27 @@
 # Unreleased
 
 <details>
+<summary><strong>Upgrade notes</strong></summary>
+
+- Public dashboard, post archive and MCP posts add `rich`, and their quotes
+  `quote.rich`, for a Bilibili dynamic with stickers: `{text}` and
+  `{emoji, url}` segments whose `url` is a local `/media/` address or
+  `null`.
+- Bilibili sticker pictures are cached as `post-emoji` and `quote-emoji`
+  media links. A stored dynamic gains its stickers on its next listing read,
+  which advances the dashboard revision once; stickers change no stored
+  text, so they cause no new translation or extraction.
+- Dynamics stored from Bilibili listings without rich-text nodes may take
+  new wording on their next read: plain text is HTML-unescaped, an album
+  without a major type takes its opus summary (and its pictures) instead of
+  `desc.text`, and a forward of a forwarded dynamic that has plain text only
+  quotes it as available and adds it to the Bilibili status pool. Such
+  dynamics, and those pooled dynamics, are translated and extracted once
+  more.
+
+</details>
+
+<details>
 <summary><strong>Public pages</strong></summary>
 
 - In Safari on iPhone, picking a day with four or more entries in the month
@@ -18,5 +39,17 @@
   in the interface language; names of works, people, stores, editions and
   bonus items stay as the releases write them. Journey cover captions follow
   the same rule.
+- Stickers in a bilibili post show as small pictures in its original
+  wording, or as their names until the picture is cached; translations
+  leave them out.
+
+</details>
+
+<details>
+<summary><strong>Synchronization and extraction</strong></summary>
+
+- Bilibili listings without rich-text nodes give a dynamic its plain,
+  HTML-unescaped text, and an older album without a major type keeps its
+  pictures under `draw` or `opus`.
 
 </details>

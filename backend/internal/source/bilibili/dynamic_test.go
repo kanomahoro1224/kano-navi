@@ -38,7 +38,7 @@ func TestSpaceFeedKeepsOwnPostsAndDropsEmoji(t *testing.T) {
 		t.Fatalf("word=%#v", word)
 	}
 	// The emoji stays in the raw nodes.
-	if nodes, _ := word.Raw["nodes"].([]richNode); len(nodes) != 4 || nodes[1].Type != emojiNode {
+	if nodes, _ := word.Raw["nodes"].([]richNode); len(nodes) != 4 || nodes[1].Type != EmojiNode {
 		t.Fatalf("raw=%#v", word.Raw)
 	}
 	// An emoji-only dynamic has no text; pictures off the CDN are dropped.
@@ -317,5 +317,61 @@ func TestLiveChecksUseTheLiveHostWithoutCookiesAndBackOff(t *testing.T) {
 	seen = nil
 	if _, requested, _ = a.CheckLive(context.Background(), failedState); requested || seen != nil {
 		t.Fatal("requested during the live block")
+	}
+}
+
+// Older listings publish wording as a plain, HTML-escaped text field and an
+// album's pictures under draw or opus without a major type.
+func TestSpaceFeedReadsOlderPlainTextAlbums(t *testing.T) {
+	const page = `{"items":[
+ {"id_str":"1100000000000000001","type":"DYNAMIC_TYPE_DRAW","modules":{
+   "module_author":{"pub_ts":1767258000,"name":"synthetic","mid":316381099},
+   "module_dynamic":{"desc":{"text":"今天的直播 &amp; 歌单"},"major":{"opus":{
+     "title":null,"summary":{"text":"今週のスケジュールです"},
+     "pics":[{"url":"http://i0.hdslb.com/bfs/new_dyn/synthetic-one.jpg"},{"url":"https://i1.hdslb.com/bfs/new_dyn/synthetic-two.jpg"}]}}}}},
+ {"id_str":"1100000000000000002","type":"DYNAMIC_TYPE_AV","modules":{
+   "module_author":{"pub_ts":1767258000,"name":"synthetic","mid":316381099},
+   "module_dynamic":{"major":{"archive":{"bvid":"BV1AAAAAAAAA","title":"翻唱"}}}}},
+ {"id_str":"1100000000000000003","type":"DYNAMIC_TYPE_FORWARD","modules":{
+   "module_author":{"pub_ts":1767258000,"name":"synthetic","mid":316381099},
+   "module_dynamic":{"desc":{"text":"转 发 &amp; 提醒"}}},
+  "orig":{"id_str":"1100000000000000009","type":"DYNAMIC_TYPE_DRAW","modules":{
+   "module_author":{"pub_ts":1767171600,"name":"别的 UP","mid":42},
+   "module_dynamic":{"desc":{"text":"原动态正文 &lt;3"},"major":{"draw":{"items":[{"src":"https://i2.hdslb.com/bfs/album/synthetic-orig.jpg"}]}}}}}},
+ {"id_str":"1100000000000000004","type":"DYNAMIC_TYPE_WORD","modules":{
+   "module_author":{"pub_ts":1767258000,"name":"别的 UP","mid":42},
+   "module_dynamic":{"desc":{"text":"别人的动态"}}}},
+ {"id_str":"1100000000000000001","type":"DYNAMIC_TYPE_WORD","modules":{
+   "module_author":{"pub_ts":1767258000,"name":"synthetic","mid":316381099},
+   "module_dynamic":{"desc":{"text":"重复"}}}},
+ {"id_str":"1100000000000000005","type":"DYNAMIC_TYPE_WORD","modules":{
+   "module_author":{"pub_ts":1767258000,"name":"synthetic","mid":316381099},
+   "module_dynamic":{"desc":{"text":null}}}}
+],"offset":"1100000000000000005","has_more":true}`
+	got, err := ParseSpaceFeed([]byte(page), DefaultAccount)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Dynamics) != 3 || len(got.Uploads) != 0 {
+		t.Fatalf("dynamics=%d uploads=%d", len(got.Dynamics), len(got.Uploads))
+	}
+	post := got.Dynamics[0]
+	if post.PostID() != "bilibili-1100000000000000001" || post.Text != "今週のスケジュールです" || post.Quote != nil {
+		t.Fatalf("post=%#v", post)
+	}
+	if len(post.Images) != 2 || post.Images[0] != "https://i0.hdslb.com/bfs/new_dyn/synthetic-one.jpg" || post.Images[1] != "https://i1.hdslb.com/bfs/new_dyn/synthetic-two.jpg" {
+		t.Fatalf("images=%#v", post.Images)
+	}
+	forward := got.Dynamics[1]
+	if forward.PostID() != "bilibili-1100000000000000003" || forward.Text != "转 发 & 提醒" || len(forward.Images) != 0 || forward.Quote == nil {
+		t.Fatalf("forward=%#v", forward)
+	}
+	quote := forward.Quote
+	if quote.Unavailable || quote.ID != "bilibili-1100000000000000009" || quote.Text != "原动态正文 <3" || quote.AuthorHandle != "42" || quote.AuthorName != "别的 UP" ||
+		len(quote.MediaURLs) != 1 || quote.MediaURLs[0] != "https://i2.hdslb.com/bfs/album/synthetic-orig.jpg" {
+		t.Fatalf("quote=%#v", quote)
+	}
+	if got.Dynamics[2].PostID() != "bilibili-1100000000000000005" || got.Dynamics[2].Text != "" {
+		t.Fatalf("empty=%#v", got.Dynamics[2])
 	}
 }

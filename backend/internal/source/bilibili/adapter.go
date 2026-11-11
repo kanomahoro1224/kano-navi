@@ -357,8 +357,8 @@ func (a *Adapter) FetchVideo(ctx context.Context, state State, bvid string, forc
 // only with a login cookie Bilibili accepts: Bilibili answers the anonymous
 // listing only with fingerprint parameters, so none is attempted. The login
 // is verified through nav isLogin at most once a day, and an expired cookie
-// holds the listing back until the next check. It makes at most one listing
-// request, plus the device identity, the ticket and nav when they are due.
+// holds the listing back until the next check. It reads the first page of
+// each reached method, plus the device identity, the ticket and nav when due.
 func (a *Adapter) FetchDynamics(ctx context.Context, state State) (DynamicsResult, error) {
 	return a.FetchDynamicsWith(ctx, state, DefaultDynamicsMethods)
 }
@@ -389,24 +389,30 @@ func (a *Adapter) FetchDynamicsWith(ctx context.Context, state State, methods []
 	}
 	result.State.Dynamics.LastAttemptAt = now
 	session, err := a.session(ctx, &result.State, &result.Requested, now)
-	needWBI := slices.Contains(methods, MethodDynamics)
-	if err == nil && (loginDue || needWBI && !result.State.WBI.fresh(now)) {
+	checkLogin := func() error {
 		// The check sends the cookie even when the last one found it
 		// expired, so a renewed cookie is noticed.
 		result.Requested++
 		check := session
 		a.Options.signIn(&check)
-		var keys WBIKeys
-		var signedIn bool
-		if keys, signedIn, err = a.Client.NavKeys(ctx, check, now); err == nil {
-			result.State.WBI = keys
-			result.State.Login = LoginState{CheckedAt: now, SignedIn: signedIn}
-			if !signedIn {
-				result.State.Dynamics.LastError = "bilibili_login_expired"
-				result.Skipped = "login_expired"
-				return result, nil
-			}
-			a.Options.signIn(&session)
+		keys, signedIn, err := a.Client.NavKeys(ctx, check, now)
+		if err != nil {
+			return err
+		}
+		result.State.WBI = keys
+		result.State.Login = LoginState{CheckedAt: now, SignedIn: signedIn}
+		if !signedIn {
+			return &Error{"bilibili_login_expired"}
+		}
+		a.Options.signIn(&session)
+		return nil
+	}
+	if err == nil && loginDue {
+		err = checkLogin()
+		if err != nil && ErrorCode(err) == "bilibili_login_expired" {
+			result.State.Dynamics.LastError = "bilibili_login_expired"
+			result.Skipped = "login_expired"
+			return result, nil
 		}
 	}
 	if err != nil {
@@ -419,14 +425,23 @@ func (a *Adapter) FetchDynamicsWith(ctx context.Context, state State, methods []
 			return result, ctx.Err()
 		}
 		var page SpacePage
-		result.Requested++
 		switch method {
 		case MethodDesktop:
+			result.Requested++
 			page, err = a.Client.DesktopSpaceDynamics(ctx, a.Options.Account, "", session)
 		case MethodDynamics:
-			page, err = a.Client.SpaceDynamics(ctx, a.Options.Account, session, result.State.WBI, now)
+			// Desktop needs only the accepted login. Refresh WBI only
+			// when its listing is reached, never as a prerequisite of
+			// another method in the chain.
+			err = nil
+			if !result.State.WBI.fresh(now) {
+				err = checkLogin()
+			}
+			if err == nil {
+				result.Requested++
+				page, err = a.Client.SpaceDynamics(ctx, a.Options.Account, session, result.State.WBI, now)
+			}
 		default:
-			result.Requested--
 			continue
 		}
 		if err == nil {

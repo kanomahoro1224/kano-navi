@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,79 @@ const (
 	stickerCry   = "https://i0.hdslb.com/bfs/emote/synthetic-cry.png"
 	stickerLike  = "https://i0.hdslb.com/bfs/emote/synthetic-like.png"
 )
+
+func TestEmojiOnlyForwardsSurviveTheSnapshot(t *testing.T) {
+	for _, tc := range []struct {
+		name, ownCaption, quoteCaption, icon string
+		keep                                 bool
+	}{
+		{name: "quote sticker", quoteCaption: "[smile]", icon: stickerLaugh, keep: true},
+		{name: "quote caption without picture", quoteCaption: "[smile]", keep: true},
+		{name: "own sticker with unavailable quote", ownCaption: "[smile]", icon: stickerLaugh, keep: true},
+		{name: "own caption with unavailable quote", ownCaption: "[smile]", keep: true},
+		{name: "empty forward with unavailable quote"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := biliStore(t)
+			ctx := context.Background()
+			body := fmt.Sprintf(`{"items":[{"id_str":"900000000000000700","type":"DYNAMIC_TYPE_FORWARD","modules":{
+			 "module_author":{"mid":316381099,"pub_ts":1794024288},"module_dynamic":{"desc":{"rich_text_nodes":[
+			 {"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":%q,"emoji":{"icon_url":%q}}]}}},
+			 "orig":{"id_str":"900000000000000701","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":42,"pub_ts":1794000000},
+			 "module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":%q,"emoji":{"icon_url":%q}}]}}}}}]}`,
+				tc.ownCaption, tc.icon, tc.quoteCaption, tc.icon)
+			page, err := bilisource.ParseSpaceFeed([]byte(body), biliAccount)
+			if err != nil || len(page.Dynamics) != 1 {
+				t.Fatalf("page=%#v err=%v", page, err)
+			}
+			result := bilisource.DynamicsResult{Dynamics: page.Dynamics, State: biliState()}
+			changed, err := s.WriteBilibiliDynamics(ctx, biliAccount, result)
+			if err != nil || changed != tc.keep {
+				t.Fatalf("changed=%v err=%v", changed, err)
+			}
+			post, exists := dashboardQuotes(t, s)["bilibili-900000000000000700"]
+			if exists != tc.keep {
+				t.Fatalf("post stored=%v want=%v", exists, tc.keep)
+			}
+			if !tc.keep {
+				return
+			}
+			if post.Text != "" || post.Quote == nil || post.Quote.Unavailable != (tc.quoteCaption == "") {
+				t.Fatalf("post=%#v", post)
+			}
+			if tc.ownCaption != "" && richString(post.Rich) != "<[smile]>" || tc.quoteCaption != "" && richString(post.Quote.Rich) != "<[smile]>" {
+				t.Fatalf("own rich=%q quote rich=%q", richString(post.Rich), richString(post.Quote.Rich))
+			}
+			if tc.quoteCaption != "" {
+				var text string
+				if err := s.DB().QueryRow(`SELECT text FROM bilibili_statuses WHERE id='bilibili-900000000000000701'`).Scan(&text); err != nil || text != "" {
+					t.Fatalf("quoted status text=%q err=%v", text, err)
+				}
+			}
+			if changed, err = s.WriteBilibiliDynamics(ctx, biliAccount, result); err != nil || changed {
+				t.Fatalf("repeat changed=%v err=%v", changed, err)
+			}
+			if tc.icon != "" {
+				role, rich := rolePostEmoji, post.Rich
+				if tc.quoteCaption != "" {
+					role, rich = roleQuoteEmoji, post.Quote.Rich
+				}
+				if got := linkedMedia(t, s.DB(), post.ID, role); got != tc.icon || len(rich) != 1 || rich[0].URL != nil {
+					t.Fatalf("linked=%q rich=%#v", got, rich)
+				}
+				id := readySticker(t, s, tc.icon)
+				post = dashboardQuotes(t, s)[post.ID]
+				rich = post.Rich
+				if tc.quoteCaption != "" {
+					rich = post.Quote.Rich
+				}
+				if len(rich) != 1 || rich[0].URL == nil || !strings.HasPrefix(*rich[0].URL, "/media/"+id+"?v=") {
+					t.Fatalf("cached rich=%#v", rich)
+				}
+			}
+		})
+	}
+}
 
 // stickerListing is a synthetic listing page: a word dynamic using [笑]
 // twice and [哭] once, another using [笑], and a forward with its own [笑]

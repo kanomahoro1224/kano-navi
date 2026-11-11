@@ -390,7 +390,8 @@ next when the first page fails, when the answer lists none of the account's
 or channel's own records, or when a method is skipped. Bilibili dynamics
 stops on login and risk-control failures, including 429, without making a
 fallback request, and the shop stops on a 429, a timeout or an unreachable
-host and makes at most two listing requests a run. A later page that fails keeps the earlier pages and leaves
+host and follows the [shop request budget](sources.md#official-shop).
+A later page that fails keeps the earlier pages and leaves
 the run partial without falling back.
 
 | Source              | Methods, in default order                                                                                              | Default                                |

@@ -113,7 +113,8 @@ Signature: sig1=:<base64>:
 `"@authority";req` is the authority of the request the directory answers.
 Verifiers fetch the directory from the `Signature-Agent` origin, and a
 reverse proxy may rewrite `Host` on the way in, so the signed value is the
-signing origin's host rather than the incoming `Host` header. The response
+signing origin's authority in lower case, with its port omitted when it is
+the HTTPS default (`443`), rather than the incoming `Host` header. The response
 is cacheable for five minutes, well inside the signature's hour, and is not
 compressed. While signing is not active the route answers
 `404 {error: "not_found"}`; other methods answer 405.

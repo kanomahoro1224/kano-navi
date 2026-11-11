@@ -1014,8 +1014,9 @@ backoff and device identity, so a block either one meets holds both back. The
 dynamics source runs on its own clock at least
 `BILIBILI_MIN_INTERVAL_MINUTES` apart. One timed read requests the first page
 only, plus the device identity and ticket when due; `nav` runs for the daily
-login check or when the WBI keys are stale. Manual fetches use their explicit
-WBI `space` method and follow each offset to older pages.
+login check, or when the WBI method is reached with stale keys. A desktop
+success needs no WBI refresh. Manual fetches use their explicit WBI `space`
+method and follow each offset to older pages.
 
 A listing keeps the account's own `DYNAMIC_TYPE_WORD` and `DYNAMIC_TYPE_DRAW`
 items (the opus and picture cards), `DYNAMIC_TYPE_ARTICLE` items only in
@@ -1088,9 +1089,10 @@ publication time and wording, and the listing carries the forwarded
 dynamic in full in its `orig` object, so a forward needs no request of its
 own. Its text is its `desc` nodes without emoji (or its plain `desc.text`
 when it has no nodes), its stickers are its own `post-emoji` links, and it
-has no pictures of its own. The listing keeps every forward of the account. The store leaves
-out a new forward that has no wording of its own and an unavailable quote,
-which would be an empty card; a stored forward whose dynamic becomes
+has no pictures of its own. The listing keeps every forward of the account.
+The store leaves out a new forward only when its quote is unavailable and
+its own wording has neither text nor sticker captions, which would be an
+empty card; a stored forward whose dynamic becomes
 unavailable is rewritten with the unavailable quote, loses its
 `quote-image` links and advances the dashboard revision, with or without
 wording of its own.
@@ -1118,8 +1120,9 @@ candidate; `quote_json` holds no image address. The forward's
 type and ID, the source of its stickers. A deleted dynamic (`DYNAMIC_TYPE_NONE`, `MAJOR_TYPE_NONE`), a
 missing `orig`, a dynamic of any other kind (a live room, a collection,
 goods, a vote, an article in its old form), a supporters-only dynamic or one
-with neither wording nor pictures is unavailable, with only its ID and its opus page as URL (an
-upload too); when even its ID is unknown, `id` is empty and `url` is the
+with neither wording (including sticker captions) nor pictures is unavailable,
+with only its ID and its opus page as URL (an upload too); when even its ID
+is unknown, `id` is empty and `url` is the
 forward's own opus page. An `orig` of an unexpected shape is unavailable
 as well, keeping its ID when `id_str` still reads, and never fails the page.
 An unavailable quote leaves the dynamic's pool row as it was.
@@ -1246,9 +1249,10 @@ never moves on to the feed. A timeout (`shop_timeout`) or an unreachable host
 (`shop_unavailable`) ends it too. A failure of the method alone
 (`shop_http_<status>`, `shop_redirect_rejected`, `shop_response_oversized`,
 `shop_invalid_json`, `shop_invalid_atom`) lets the next enabled method try,
-three seconds later, but a run makes at most two listing requests; with the
-collection list that is at most three requests. A run whose enabled methods
-can make no request fails with `shop_no_method` and makes none.
+three seconds later, but a run makes at most three listing requests, enough
+to reach Atom after both JSON methods fail; with the collection list that
+is at most four requests. A run whose enabled methods can make no request
+fails with `shop_no_method` and makes none.
 
 A 429's `Retry-After` (seconds or a date; a minute when missing, at most a
 day) is stored for the source, not the method, and no read, timed or manual,

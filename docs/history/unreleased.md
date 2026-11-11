@@ -93,6 +93,9 @@
 - Stickers in a bilibili post show as small pictures in its original
   wording, or as their names until the picture is cached; translations
   leave them out.
+- Bilibili forwards keep a quoted dynamic containing only stickers, and
+  keep their own sticker-only wording when the quoted dynamic is unavailable,
+  including when no sticker picture is cached.
 - The Works page's feedback link opens a correction form that asks for the
   work, what is wrong and a source.
 - In a Works release's Where to listen, the name of an extra item such as
@@ -106,6 +109,9 @@
 - Bilibili listings without rich-text nodes give a dynamic its plain,
   HTML-unescaped text, and an older album without a major type keeps its
   pictures under `draw` or `opus`.
+- The Bilibili desktop feed can succeed with stale WBI keys without
+  requesting `nav` for an unused fallback. The daily login check remains
+  required; WBI refresh runs when its listing method is reached.
 - Schedule extraction selects unrequested posts published within the
   extraction lookback only, so importing or backfilling years of posts no
   longer queues each of them for a model call or fills the calendar with
@@ -129,7 +135,9 @@
 - The official shop read can identify itself with a Web Bot Auth signature,
   which the storefront rate-limits less than anonymous automated reads, and
   can fall back to the catalog's Atom feed. A 429 still ends the read at
-  once, and a read makes at most three requests.
+  once. A timed read makes at most three listing requests and one collection
+  request, so the default chain reaches Atom after both JSON methods fail
+  even with a signing key.
 
 </details>
 
@@ -146,6 +154,9 @@
 <details>
 <summary><strong>Runtime and development</strong></summary>
 
+- Web Bot Auth directory signatures normalize the signing origin's
+  authority, omitting an explicit HTTPS port `443` while preserving other
+  ports and IPv6 brackets.
 - The backend and the release image build with Go 1.26.11, which fixes a
   `net/http` request body limit race (GO-2026-6859) that could crash the
   server.

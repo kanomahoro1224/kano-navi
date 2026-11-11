@@ -273,6 +273,78 @@ func TestDynamicsFallsBackToWBIAfterANonRiskDesktopFailure(t *testing.T) {
 	}
 }
 
+func TestDynamicsRefreshWBIOnlyWhenItsMethodIsReached(t *testing.T) {
+	const desktop = "/x/polymer/web-dynamic/desktop/v1/feed/space"
+	const wbi = "/x/polymer/web-dynamic/v1/feed/space"
+	const nav = "/x/web-interface/nav"
+	now := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name, desktopBody, navBody, paths, listing, code, skipped string
+		methods                                                   []string
+		loginDue                                                  bool
+		navStatus                                                 int
+	}{
+		{name: "healthy desktop needs no WBI", desktopBody: spaceFeed, navStatus: 503, paths: desktop, listing: MethodDesktop},
+		{name: "refresh after desktop fails", desktopBody: `{"code":0,"data":{}}`, navStatus: 200, navBody: navKeys,
+			paths: desktop + " " + nav + " " + wbi, listing: MethodDynamics},
+		{name: "operator orders WBI first", methods: []string{MethodDynamics, MethodDesktop}, navStatus: 200, navBody: navKeys,
+			paths: nav + " " + wbi, listing: MethodDynamics},
+		{name: "daily login check still required", desktopBody: spaceFeed, loginDue: true, navStatus: 200, navBody: navKeys,
+			paths: nav + " " + desktop, listing: MethodDesktop},
+		{name: "failed daily check stops listing", loginDue: true, navStatus: 503, paths: nav, code: "bilibili_upstream_5xx"},
+		{name: "expired daily login stops listing", loginDue: true, navStatus: 200, navBody: strings.Replace(navKeys, `"isLogin":true`, `"isLogin":false`, 1),
+			paths: nav, skipped: "login_expired"},
+		{name: "risk control stops before WBI refresh", desktopBody: `{"code":-352}`, paths: desktop, code: "bilibili_risk_control_352"},
+		{name: "expired fallback login stops listing", desktopBody: `{"code":0,"data":{}}`, navStatus: 200,
+			navBody: strings.Replace(navKeys, `"isLogin":true`, `"isLogin":false`, 1), paths: desktop + " " + nav, code: "bilibili_login_expired"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var paths []string
+			c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+				paths = append(paths, r.URL.Path)
+				if !strings.Contains(r.Header.Get("Cookie"), "SESSDATA=") {
+					t.Fatal("request lost its login cookie")
+				}
+				switch r.URL.Path {
+				case desktop:
+					return response(200, tc.desktopBody), nil
+				case nav:
+					return response(tc.navStatus, tc.navBody), nil
+				case wbi:
+					if r.URL.Query().Get("w_rid") == "" {
+						t.Fatal("WBI listing was not signed")
+					}
+					return response(200, spaceFeed), nil
+				default:
+					t.Fatalf("unexpected request: %s", r.URL.Path)
+					return nil, nil
+				}
+			})})
+			a := NewAdapter(c, Options{Account: DefaultAccount, SESSDATA: "synthetic0login%2C1767225600%2Cabcde%2A11"})
+			a.Now = func() time.Time { return now }
+			state := State{Session: Session{Buvid3: strings.Repeat("a", 20) + "infoc", Buvid4: "synthetic-device4",
+				Ticket: "synthetic.synthetic.synthetic", TicketAt: now.Unix(), TicketTTL: 3 * 24 * 60 * 60},
+				SessionAt: now, Login: LoginState{CheckedAt: now.Add(-time.Hour), SignedIn: true}}
+			if tc.loginDue {
+				state.Login.CheckedAt = now.Add(-25 * time.Hour)
+			}
+			got, err := a.FetchDynamicsWith(context.Background(), state, tc.methods)
+			if (err != nil && ErrorCode(err) != tc.code) || (err == nil && tc.code != "") || got.Skipped != tc.skipped || got.Listing != tc.listing || strings.Join(paths, " ") != tc.paths || got.Requested != len(paths) {
+				t.Fatalf("result=%#v paths=%v err=%v", got, paths, err)
+			}
+			if tc.listing != "" && len(got.Dynamics) != 3 {
+				t.Fatalf("listing lost its posts: %#v", got)
+			}
+			if tc.listing == MethodDesktop && !tc.loginDue && (got.State.WBI.valid() || got.State.Login != state.Login) {
+				t.Fatal("desktop changed unused WBI or login state")
+			}
+			if IsRiskControl(tc.code) && !got.State.BlockedUntil.After(now) {
+				t.Fatal("risk control did not start the shared backoff")
+			}
+		})
+	}
+}
+
 func TestOperatorDynamicReadsTheOpusPageWithoutTheLogin(t *testing.T) {
 	now := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
 	var page *http.Request

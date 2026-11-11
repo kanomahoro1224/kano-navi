@@ -17,9 +17,10 @@ Posts are laid out in whole rows; a long post shows its first lines and
   forwarded post the same way, with its author's name after the bilibili
   mark, and links to it on bilibili; a forward with nothing of its own to
   say shows just that card.
-- Stickers in a bilibili post show as small pictures in its original
-  wording, or as their names in brackets until the board has the picture.
-  Translations leave them out.
+- Stickers in bilibili posts and forwarded posts show as small pictures in
+  the original wording, or as their names in brackets until the board has
+  the picture.
+  A post containing only stickers stays visible. Translations leave them out.
 - Some posts of the agency's account appear on the wall too, when they are
   about Kano. They show the account's initial instead of Kano's portrait and
   appear under All, not under Kano's account tabs. One that Kano quotes

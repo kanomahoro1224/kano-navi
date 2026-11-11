@@ -209,6 +209,32 @@ func TestDirectoryIsSignedAndHoldsThePublicKeyOnly(t *testing.T) {
 	}
 }
 
+func TestDirectoryAuthorityNormalizesTheSigningOrigin(t *testing.T) {
+	for _, tc := range []struct{ origin, authority string }{
+		{"https://Board.Example.Test:443", "board.example.test"},
+		{"https://Board.Example.Test:8443", "board.example.test:8443"},
+		{"https://[::1]:443", "[::1]"},
+		{"https://[::1]:8443", "[::1]:8443"},
+	} {
+		t.Run(tc.origin, func(t *testing.T) {
+			signer, err := NewSigner(testSigner(t).Key(), tc.origin)
+			if err != nil {
+				t.Fatal(err)
+			}
+			holder := NewHolder()
+			holder.Set(signer, nil)
+			recorder := httptest.NewRecorder()
+			// A reverse proxy's internal Host must not enter the signature.
+			holder.ServeDirectory(recorder, httptest.NewRequest(http.MethodGet, "http://proxy.example.test"+DirectoryPath, nil))
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("status=%d", recorder.Code)
+			}
+			public, _ := base64.RawURLEncoding.DecodeString(rfc8037X)
+			verify(t, recorder.Header(), map[string]string{`"@authority";req`: tc.authority}, public)
+		})
+	}
+}
+
 // After a rotation the directory lists the retired key until its grace
 // passes and signs once with every key it lists; requests sign with the
 // current key alone.

@@ -161,7 +161,7 @@ func NewSigner(key *Key, origin string) (*Signer, error) {
 		return nil, ErrInvalidAgent
 	}
 	parsed, _ := url.Parse(normalized)
-	return &Signer{key: key, agent: normalized, authority: parsed.Host}, nil
+	return &Signer{key: key, agent: normalized, authority: Authority(parsed)}, nil
 }
 
 // Source gives the signer a request uses, or nil when none is configured.

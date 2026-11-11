@@ -117,12 +117,16 @@ func writeBilibiliPost(ctx context.Context, tx *sql.Tx, account string, d biliso
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return false, err
 	}
+	raw, _ := json.Marshal(d.Raw)
 	// A new forward with no wording of its own whose dynamic is gone would
 	// be an empty card; a stored one is rewritten to show the dynamic gone.
+	// Sticker captions are wording too, even without a cached picture.
 	if errors.Is(err, sql.ErrNoRows) && d.Quote != nil && d.Quote.Unavailable && d.Text == "" {
-		return false, nil
+		var own stickerSource
+		if json.Unmarshal(raw, &own) != nil || !hasSticker(own.Nodes) {
+			return false, nil
+		}
 	}
-	raw, _ := json.Marshal(d.Raw)
 	media := ""
 	if len(d.Images) > 0 {
 		media = d.Images[0]

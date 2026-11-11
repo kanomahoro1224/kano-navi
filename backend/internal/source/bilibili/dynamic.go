@@ -190,6 +190,17 @@ func stickers(nodes []richNode) []string {
 	return out
 }
 
+// hasStickerCaption counts visible wording even when no safe picture is
+// available. Emoji captions stay out of the stored plain text.
+func hasStickerCaption(nodes []richNode) bool {
+	for _, n := range nodes {
+		if n.Type == EmojiNode && n.Text != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // joinNodes keeps every node's text except emoji.
 func joinNodes(nodes []richNode) string {
 	var b strings.Builder
@@ -478,7 +489,7 @@ func (it *spaceItem) quote(selfURL string) *Quote {
 		return q
 	}
 	media := images(pics)
-	if text == "" && len(media) == 0 {
+	if text == "" && len(media) == 0 && !hasStickerCaption(nodes) {
 		return q
 	}
 	name := []rune(strings.TrimSpace(html.UnescapeString(it.Modules.Author.Name)))

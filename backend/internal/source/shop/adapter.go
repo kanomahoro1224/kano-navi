@@ -51,10 +51,10 @@ const (
 // DefaultMethods is the chain before the operator orders one.
 var DefaultMethods = []string{MethodSigned, MethodArrivals, MethodAtom}
 
-// MaxListingRequests bounds the listing requests of one timed read: the
-// first method that can request and, after a failure of that method alone,
-// one more. With the collection list a read makes at most three requests.
-const MaxListingRequests = 2
+// MaxListingRequests lets each of the three chain methods request once
+// after failures of the methods alone. With the collection list a timed
+// read makes at most four requests.
+const MaxListingRequests = 3
 
 // Skip reasons of a read that made no request.
 const SkippedRateLimited = "rate_limited"

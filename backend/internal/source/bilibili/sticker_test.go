@@ -7,6 +7,54 @@ import (
 	"testing"
 )
 
+func TestEmojiOnlyQuotesKeepVisibleCaptions(t *testing.T) {
+	for _, tc := range []struct {
+		name, kind, caption, icon, restriction string
+		unavailable                            bool
+	}{
+		{name: "word with picture", kind: "DYNAMIC_TYPE_WORD", caption: "[smile]", icon: "https://i0.hdslb.com/bfs/emote/synthetic.png"},
+		{name: "caption without picture", kind: "DYNAMIC_TYPE_WORD", caption: "[smile]"},
+		{name: "unsafe picture keeps caption", kind: "DYNAMIC_TYPE_WORD", caption: "[smile]", icon: "https://images.invalid/sticker.png"},
+		{name: "forward wording", kind: ForwardType, caption: "[smile]"},
+		{name: "empty emoji is unavailable", kind: "DYNAMIC_TYPE_WORD", unavailable: true},
+		{name: "hidden quote", kind: "DYNAMIC_TYPE_WORD", caption: "[smile]", restriction: `"visible":false,`, unavailable: true},
+		{name: "supporters only", kind: "DYNAMIC_TYPE_WORD", caption: "[smile]", restriction: `"basic":{"is_only_fans":true},`, unavailable: true},
+		{name: "deleted quote", kind: "DYNAMIC_TYPE_NONE", caption: "[smile]", unavailable: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := fmt.Sprintf(`{"items":[{"id_str":"900000000000000700","type":"DYNAMIC_TYPE_FORWARD","modules":{
+			 "module_author":{"mid":316381099,"pub_ts":1794024288},"module_dynamic":{"desc":{"text":"forward"}}},
+			 "orig":{"id_str":"900000000000000701","type":%q,%s"modules":{"module_author":{"mid":42,"pub_ts":1794000000},
+			 "module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":%q,"emoji":{"icon_url":%q}}]}}}}}]}`,
+				tc.kind, tc.restriction, tc.caption, tc.icon)
+			got, err := ParseSpaceFeed([]byte(body), DefaultAccount)
+			if err != nil || len(got.Dynamics) != 1 {
+				t.Fatalf("page=%#v err=%v", got, err)
+			}
+			q := got.Dynamics[0].Quote
+			if q == nil || q.Unavailable != tc.unavailable || q.Text != "" {
+				t.Fatalf("quote=%#v", q)
+			}
+			if tc.unavailable {
+				if len(q.Nodes) != 0 || len(q.Stickers) != 0 {
+					t.Fatalf("unavailable quote retained content: %#v", q)
+				}
+				return
+			}
+			if len(q.Nodes) != 1 || q.Nodes[0].Text != tc.caption || q.AuthorHandle != "42" || q.PublishedAt == "" {
+				t.Fatalf("quote lost visible wording: %#v", q)
+			}
+			wantStickers := 0
+			if tc.name == "word with picture" {
+				wantStickers = 1
+			}
+			if len(q.Stickers) != wantStickers {
+				t.Fatalf("stickers=%v", q.Stickers)
+			}
+		})
+	}
+}
+
 // A sticker keeps its caption and picture in the raw nodes, never in the
 // text, and its picture is listed once however often the dynamic uses it.
 func TestStickersStayOutOfTheTextAndKeepTheirPictures(t *testing.T) {

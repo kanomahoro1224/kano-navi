@@ -219,7 +219,7 @@ func TestChainEndsAtA429OrAHostFailure(t *testing.T) {
 	}
 }
 
-// A failure of the method alone lets the next one try, within two listing
+// A failure of the method alone lets the next one try, within three listing
 // requests and the collection list.
 func TestChainFallsBackWithinTheBudget(t *testing.T) {
 	adapter, seen := chainShop(t, map[string]int{arrivalsPath: 403}, testSigner(t))
@@ -231,11 +231,26 @@ func TestChainFallsBackWithinTheBudget(t *testing.T) {
 	if fmt.Sprint(*seen) != fmt.Sprint([]seenRequest{{arrivalsPath, true}, {atomPath, true}, {"/collections.json", true}}) {
 		t.Fatalf("seen=%v", *seen)
 	}
-	// Two failed listings end the read before a third method.
+	// Both JSON methods may fail while the Atom feed still serves. The
+	// default chain reaches it with a key, and signs its collection request.
 	adapter, seen = chainShop(t, map[string]int{arrivalsPath: 503}, testSigner(t))
 	result, err = adapter.Read(context.Background(), State{}, nil, false, nil)
-	if ErrorCode(err) != "shop_http_503" || result.Requested != MaxListingRequests || len(*seen) != MaxListingRequests ||
-		fmt.Sprint(result.Tried) != "[signed: shop_http_503 new_arrivals: shop_http_503]" || result.Listing != "" {
+	if err != nil || result.Listing != MethodAtom || !result.Signed || !result.Fallback || result.Requested != 4 || len(result.Sales) != 1 ||
+		fmt.Sprint(result.Tried) != "[signed: shop_http_503 new_arrivals: shop_http_503 atom]" || fmt.Sprint(result.Errors) != "[shop_http_503 shop_http_503]" {
+		t.Fatalf("result=%+v err=%v seen=%v", result, err, *seen)
+	}
+	if fmt.Sprint(*seen) != fmt.Sprint([]seenRequest{{arrivalsPath, true}, {arrivalsPath, false}, {atomPath, true}, {"/collections.json", true}}) {
+		t.Fatalf("seen=%v", *seen)
+	}
+	// A failed chain makes no collection request and retains the last
+	// successful read's bookkeeping. Even repeated methods cannot exceed
+	// the listing budget.
+	adapter, seen = chainShop(t, map[string]int{arrivalsPath: 503, atomPath: 404}, testSigner(t))
+	lastSuccess := adapter.now().Add(-time.Hour)
+	result, err = adapter.Read(context.Background(), State{LastSuccessAt: lastSuccess}, nil, false, append(DefaultMethods, MethodAtom))
+	if ErrorCode(err) != "shop_http_404" || result.Requested != 3 || len(*seen) != 3 || result.Sales != nil ||
+		!result.State.LastSuccessAt.Equal(lastSuccess) || result.State.LastError != "shop_http_404" ||
+		fmt.Sprint(result.Tried) != "[signed: shop_http_503 new_arrivals: shop_http_503 atom: shop_http_404]" || result.Listing != "" {
 		t.Fatalf("result=%+v err=%v seen=%v", result, err, *seen)
 	}
 	// The skipped signed read costs no request, so without a key both

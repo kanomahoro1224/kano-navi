@@ -129,9 +129,15 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
         source: "bilibili",
         accountHandle: "100000001",
         accountUrl: "https://space.bilibili.example.invalid/100000001",
-        text: "合成动态",
+        text: "合成动态[鹿乃_飞了]",
         url: "https://www.bilibili.example.invalid/opus/1000000000000000001",
         media: [],
+        emoji: [
+          {
+            text: "[鹿乃_飞了]",
+            icon: "https://i0.hdslb.com/bfs/emote/flying.webp",
+          },
+        ],
         quote: forwarded,
       },
       {
@@ -268,6 +274,17 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
         "https://www.bilibili.example.invalid/opus/1000000000000000003",
       ])
       assert.match(dynamic.textContent || "", /合成动态/u)
+      const sticker = dynamic.querySelector("img.post-emoji")
+      assert.equal(
+        sticker?.getAttribute("src"),
+        "https://i0.hdslb.com/bfs/emote/flying.webp",
+      )
+      assert.equal(sticker?.getAttribute("referrerpolicy"), "no-referrer")
+      assert.equal(sticker?.getAttribute("alt"), "[鹿乃_飞了]")
+      assert.doesNotMatch(
+        dynamic.querySelector(".post-note-text")?.textContent || "",
+        /鹿乃_飞了/u,
+      )
       // The forwarded dynamic shows by its author's name and the bilibili
       // mark, links to its page and has the translation switch.
       const card = dynamic.querySelector(".post-quote")!

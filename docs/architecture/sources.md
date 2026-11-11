@@ -1026,15 +1026,17 @@ post either: the read stores it as the upload it publishes (BV ID, title,
 cover, description, length from `duration_text`, published at the dynamic's
 time), written as the upload list writes one, so a new upload reaches the
 store even while the list meets the captcha. The upload read's newest
-cursor stays its own. The stored text joins the nodes' text (words, topics, mentions,
-links) and leaves out emoji nodes (`RICH_TEXT_NODE_TYPE_EMOJI`); an opus
-title leads it, and a picture post's `desc` nodes give it beside its
-pictures. When a card has no rich-text nodes, the plain `text` field is
-used instead, HTML-unescaped, with an opus summary's text ahead of `desc`.
-An album whose `major` names no type still contributes its opus pictures
-or `draw` items. The nodes, emoji included, stay in `raw_json`. An
-emoji-only dynamic therefore has empty text and is translated as `none`
-without a model call. Up to nine pictures are kept as the post's images.
+cursor stays its own. The stored text joins every node's text (words, topics, mentions,
+links and sticker captions); an opus title leads it, and a picture post's
+`desc` nodes give it beside its pictures. A sticker node
+(`RICH_TEXT_NODE_TYPE_EMOJI`) keeps its caption in that text and records
+the picture on `raw_json.emoji`, preferring `webp_url`, then `gif_url`,
+then `icon_url`, and only an `https` image on `*.hdslb.com`. The board
+paints that picture over the caption. When a card has no rich-text nodes,
+the plain `text` field is used instead, HTML-unescaped, with an opus
+summary's text ahead of `desc`. An album whose `major` names no type still
+contributes its opus pictures or `draw` items. The nodes, emoji included,
+stay in `raw_json`. Up to nine pictures are kept as the post's images.
 
 Dynamics are `posts` rows with `source = 'bilibili'`, the ID
 `bilibili-<id_str>` (dynamic and X status IDs are both numbers of about 19
@@ -1068,8 +1070,9 @@ A forward is the account's own post that quotes the dynamic it forwards, the
 way an X post [quotes a status](#quoted-posts): it has its own dynamic ID,
 publication time and wording, and the listing carries the forwarded
 dynamic in full in its `orig` object, so a forward needs no request of its
-own. Its text is its `desc` nodes without emoji, or the plain `desc` text
-when there are no nodes, and it has no pictures of its own. The listing
+own. Its text is its `desc` nodes, sticker captions included, or the plain
+`desc` text when there are no nodes, and it has no pictures of its own.
+The listing
 keeps every forward of the account. The store leaves
 out a new forward that has no wording of its own and an unavailable quote,
 which would be an empty card; a stored forward whose dynamic becomes
@@ -1086,8 +1089,9 @@ sanitized projection an X quote has, stored in `posts.quote_json`:
 - `authorHandle` is the author's mid and `authorName` the display name,
   HTML-unescaped, trimmed and at most 50 characters;
 - `text` is built like a listed dynamic's (opus title and summary, or `desc`
-  nodes, emoji left out, or the plain text field when there are no nodes); a
-  forwarded forward shows its own wording only and is not followed further;
+  nodes, sticker captions included, or the plain text field when there are
+  no nodes); a forwarded forward shows its own wording only and is not
+  followed further;
 - `publishedAt` is its publication time in UTC, and `url` its
   `https://www.bilibili.com/opus/<id>` page, or for a forwarded upload
   (`DYNAMIC_TYPE_AV`) the `https://www.bilibili.com/video/<BV ID>` page, with

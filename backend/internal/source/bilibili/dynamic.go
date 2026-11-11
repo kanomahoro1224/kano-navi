@@ -18,8 +18,8 @@ type Dynamic struct {
 	IDStr string
 	// OwnerMid is the author's account.
 	OwnerMid int64
-	// Text joins the word, topic, mention and link nodes; emoji nodes are
-	// left out, so an emoji-only dynamic has no text.
+	// Text joins the word, topic, mention, link and sticker nodes. A sticker
+	// keeps its caption here; Emojis, stored in Raw, are the pictures.
 	Text string
 	// PublishedAt is the publication time, RFC 3339 in UTC.
 	PublishedAt string
@@ -109,6 +109,34 @@ var keptCommentTypes = map[int]bool{11: true, 12: true, 17: true}
 
 const emojiNode = "RICH_TEXT_NODE_TYPE_EMOJI"
 
+// DynamicEmoji is one custom sticker a dynamic's text carries. Text is the
+// caption the wording keeps ("[name]"); Icon is the picture the board paints
+// over it, an animated copy when Bilibili published one.
+type DynamicEmoji struct {
+	Text string `json:"text"`
+	Icon string `json:"icon"`
+}
+
+// sticker is the picture side of one custom sticker. The png is a still
+// frame; the webp and the gif move.
+type sticker struct {
+	Text    string `json:"text"`
+	IconURL string `json:"icon_url"`
+	GifURL  string `json:"gif_url"`
+	WebpURL string `json:"webp_url"`
+}
+
+// picture picks the copy to show: webp, then gif, then the still icon.
+// A still frame of a moving sticker reads as a broken picture.
+func (s sticker) picture() string {
+	for _, raw := range []string{s.WebpURL, s.GifURL, s.IconURL} {
+		if picture := thumbnail(raw); picture != "" {
+			return picture
+		}
+	}
+	return ""
+}
+
 // maxDynamicText bounds the stored text of one dynamic, in runes.
 const maxDynamicText = 5000
 
@@ -116,16 +144,27 @@ const maxDynamicText = 5000
 const maxDynamicImages = 9
 
 type richNode struct {
-	Type    string `json:"type"`
-	Text    string `json:"text"`
-	OrigTxt string `json:"orig_text"`
+	Type    string   `json:"type"`
+	Text    string   `json:"text"`
+	OrigTxt string   `json:"orig_text"`
+	Emoji   *sticker `json:"emoji,omitempty"`
 }
 
-// joinNodes keeps every node's text except emoji.
+// joinNodes keeps every node's text. A sticker contributes its caption, which
+// is what Bilibili's own page writes and what the board replaces with the
+// picture.
 func joinNodes(nodes []richNode) string {
 	var b strings.Builder
 	for _, n := range nodes {
 		if n.Type == emojiNode {
+			text := n.Text
+			if n.Emoji != nil && n.Emoji.Text != "" {
+				text = n.Emoji.Text
+			}
+			if text == "" {
+				text = n.OrigTxt
+			}
+			b.WriteString(text)
 			continue
 		}
 		b.WriteString(n.Text)
@@ -133,9 +172,39 @@ func joinNodes(nodes []richNode) string {
 	return b.String()
 }
 
-// wording is a dynamic's text. Rich-text nodes win and leave emoji out.
-// A listing that has no nodes publishes a plain text field, sometimes
-// HTML-escaped.
+// stickersOf collects the stickers whose pictures the board can show.
+func stickersOf(nodes []richNode) []DynamicEmoji {
+	var out []DynamicEmoji
+	for _, n := range nodes {
+		if n.Type != emojiNode || n.Emoji == nil {
+			continue
+		}
+		text := n.Emoji.Text
+		if text == "" {
+			text = n.Text
+		}
+		if text == "" {
+			text = n.OrigTxt
+		}
+		if picture := n.Emoji.picture(); picture != "" && text != "" {
+			out = append(out, DynamicEmoji{Text: text, Icon: picture})
+		}
+	}
+	return out
+}
+
+// withStickers records those pictures on a dynamic's raw payload. The public
+// read exposes only this list, never the rest of the payload.
+func withStickers(raw map[string]any, nodes []richNode) map[string]any {
+	if emojis := stickersOf(nodes); len(emojis) > 0 {
+		raw["emoji"] = emojis
+	}
+	return raw
+}
+
+// wording is a dynamic's text. Rich-text nodes win, sticker captions
+// included. A listing that has no nodes publishes a plain text field,
+// sometimes HTML-escaped.
 func wording(nodes []richNode, plain string) string {
 	if len(nodes) > 0 {
 		return joinNodes(nodes)
@@ -286,11 +355,11 @@ func (it spaceItem) dynamic(owner int64) (Dynamic, bool) {
 		if forwarded != nil && len(forwarded.Type) <= 64 {
 			orig["type"] = forwarded.Type
 		}
-		d.Raw = map[string]any{"type": it.Type, "nodes": nodes, "orig": orig}
+		d.Raw = withStickers(map[string]any{"type": it.Type, "nodes": nodes, "orig": orig}, nodes)
 		return d, true
 	}
 	text, nodes, title, pics := it.content()
-	raw := map[string]any{"type": it.Type, "nodes": nodes}
+	raw := withStickers(map[string]any{"type": it.Type, "nodes": nodes}, nodes)
 	if title != "" {
 		raw["title"] = title
 	}
@@ -508,8 +577,9 @@ type opusDetail struct {
 							Words string `json:"words"`
 						} `json:"word"`
 						Rich *struct {
-							Type string `json:"type"`
-							Text string `json:"text"`
+							Type  string   `json:"type"`
+							Text  string   `json:"text"`
+							Emoji *sticker `json:"emoji"`
 						} `json:"rich"`
 					} `json:"nodes"`
 				} `json:"text"`
@@ -560,10 +630,9 @@ func (d opusDetail) dynamic(id string) (Dynamic, error) {
 						b.WriteString(n.Word.Words)
 						nodes = append(nodes, richNode{Type: "RICH_TEXT_NODE_TYPE_TEXT", Text: n.Word.Words})
 					case n.Rich != nil:
-						nodes = append(nodes, richNode{Type: n.Rich.Type, Text: n.Rich.Text})
-						if n.Rich.Type != emojiNode {
-							b.WriteString(n.Rich.Text)
-						}
+						node := richNode{Type: n.Rich.Type, Text: n.Rich.Text, Emoji: n.Rich.Emoji}
+						nodes = append(nodes, node)
+						b.WriteString(joinNodes([]richNode{node}))
 					}
 				}
 				paragraphs = append(paragraphs, strings.TrimRight(b.String(), "\n"))
@@ -577,7 +646,7 @@ func (d opusDetail) dynamic(id string) (Dynamic, error) {
 	if title != "" {
 		text = title + "\n" + text
 	}
-	raw := map[string]any{"type": "opus", "nodes": nodes}
+	raw := withStickers(map[string]any{"type": "opus", "nodes": nodes}, nodes)
 	if title != "" {
 		raw["title"] = title
 	}

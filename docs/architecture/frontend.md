@@ -235,10 +235,11 @@ post without it.
 A Bilibili dynamic (`source: "bilibili"`) shows the bilibili mark and name,
 linked to the account's space, instead of an `@handle`, and its open link
 goes to the opus page. It has no engagement counts. A forward shows the
-dynamic it forwards as its quote card, and an empty text (an emoji-only
-dynamic, or a forward without wording of its own) leaves only its images or
-its quote. The
-wall's top line adds bilibili while it holds a dynamic.
+dynamic it forwards as its quote card. A dynamic with no wording of its
+own leaves only its images or its quote. A sticker caption in the text is
+shown as the sticker image, requested with `no-referrer` so Bilibili's image
+CDN does not answer 403. The wall's top line adds bilibili while it holds a
+dynamic.
 
 An entry follows its first platform link (`eventLink` in
 `src/dashboard/format.ts`), or its `url`, or, in a snapshot without

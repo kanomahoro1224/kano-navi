@@ -67,6 +67,8 @@ export interface Post {
   media: MediaItem[]
   mediaUrl: string | null
   mediaStatus: string
+  /** Stickers painted over captions the text still contains. */
+  emoji?: PostEmoji[]
   likes?: number
   reposts?: number
   replies?: number
@@ -78,6 +80,15 @@ export interface Post {
   quote?: PostQuote | null
   /** A related account's status promoted onto the board, not Kano's own. */
   promoted?: boolean
+}
+
+/**
+ * One custom sticker a post's wording carries. `text` is the caption the
+ * source keeps in the text ("[name]"), `icon` the image shown in its place.
+ */
+export interface PostEmoji {
+  text: string
+  icon: string
 }
 
 /**

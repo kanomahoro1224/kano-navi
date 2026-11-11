@@ -171,7 +171,7 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 	for rows.Next() {
 		var r postRow
 		var handle, label, mu, ma sql.NullString
-		if err := rows.Scan(&r.id, &r.source, &handle, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted); err != nil {
+		if err := rows.Scan(&r.id, &r.source, &handle, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted, &r.rawJSON); err != nil {
 			_ = rows.Close()
 			return nil, dbErr(err)
 		}

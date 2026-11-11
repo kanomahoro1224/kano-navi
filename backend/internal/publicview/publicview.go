@@ -206,7 +206,21 @@ func PublicEventLinks(links []sqlite.EventLink) []any {
 	return out
 }
 func publicPost(p sqlite.Post) map[string]any {
-	return map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "promoted": p.Promoted}
+	out := map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "promoted": p.Promoted}
+	if len(p.Emojis) > 0 {
+		out["emoji"] = publicEmojis(p.Emojis)
+	}
+	return out
+}
+
+// publicEmojis is the stickers a post's text uses: the caption the wording
+// keeps and the icon the board paints over it.
+func publicEmojis(items []sqlite.PostEmoji) []any {
+	emojis := make([]any, 0, len(items))
+	for _, e := range items {
+		emojis = append(emojis, map[string]any{"text": e.Caption, "icon": e.Icon})
+	}
+	return emojis
 }
 
 func publicMedia(items []sqlite.PostMedia) []any {

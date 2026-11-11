@@ -33,16 +33,17 @@ func TestSpaceFeedKeepsOwnPostsAndDropsEmoji(t *testing.T) {
 		t.Fatalf("page=%#v err=%v", page, err)
 	}
 	word, draw, opus := page.Dynamics[0], page.Dynamics[1], page.Dynamics[2]
-	if word.PostID() != "bilibili-900000000000000010" || word.Text != "今天20点开始播杂谈 #话题#@someone" ||
+	if word.PostID() != "bilibili-900000000000000010" || word.Text != "今天20点开始播杂谈 [synthetic_emoji]#话题#@someone" ||
 		word.PublishedAt != "2026-11-07T04:04:48Z" || word.URL() != "https://www.bilibili.com/opus/900000000000000010" || len(word.Images) != 0 {
 		t.Fatalf("word=%#v", word)
 	}
-	// The emoji stays in the raw nodes.
-	if nodes, _ := word.Raw["nodes"].([]richNode); len(nodes) != 4 || nodes[1].Type != emojiNode {
+	// The emoji stays in the raw nodes. This fixture has no picture, so the
+	// sticker list stays empty and the caption remains in the text.
+	if nodes, _ := word.Raw["nodes"].([]richNode); len(nodes) != 4 || nodes[1].Type != emojiNode || word.Raw["emoji"] != nil {
 		t.Fatalf("raw=%#v", word.Raw)
 	}
-	// An emoji-only dynamic has no text; pictures off the CDN are dropped.
-	if draw.Text != "" || len(draw.Images) != 1 || draw.Images[0] != "https://i0.hdslb.com/bfs/new_dyn/synthetic-a.jpg" {
+	// An emoji-only dynamic keeps the caption; pictures off the CDN are dropped.
+	if draw.Text != "[only_emoji]" || len(draw.Images) != 1 || draw.Images[0] != "https://i0.hdslb.com/bfs/new_dyn/synthetic-a.jpg" {
 		t.Fatalf("draw=%#v", draw)
 	}
 	if opus.Text != "图文网页链接" || len(opus.Images) != 1 || opus.Images[0] != "https://i1.hdslb.com/bfs/new_dyn/synthetic-c.png" || opus.Raw["tag"] != "置顶" {
@@ -108,7 +109,7 @@ const opusPage = `<!DOCTYPE html><html><head><script>window.__INITIAL_STATE__={"
 
 func TestOpusPageReadsTheServerState(t *testing.T) {
 	d, err := ParseOpusPage([]byte(opusPage), "900000000000000010")
-	if err != nil || d.OwnerMid != 316381099 || d.Text != "大家好！今天北京时间17点上传。\n#话题#" || d.PublishedAt != "2026-11-07T04:04:48Z" ||
+	if err != nil || d.OwnerMid != 316381099 || d.Text != "大家好！今天北京时间17点上传。\n[synthetic_emoji]\n#话题#" || d.PublishedAt != "2026-11-07T04:04:48Z" ||
 		len(d.Images) != 1 || d.Images[0] != "https://i0.hdslb.com/bfs/new_dyn/synthetic-d.jpg" {
 		t.Fatalf("dynamic=%#v err=%v", d, err)
 	}
@@ -319,5 +320,30 @@ func TestSpaceFeedReadsOlderPlainTextAlbums(t *testing.T) {
 	}
 	if got.Dynamics[2].IDStr != "1100000000000000005" || got.Dynamics[2].Text != "" {
 		t.Fatalf("empty=%#v", got.Dynamics[2])
+	}
+}
+
+// A sticker keeps its caption in the text and its moving picture in raw_json,
+// preferring webp, then gif, then the still icon. Anything off Bilibili's
+// image CDN is dropped.
+func TestSpaceFeedKeepsStickerPictures(t *testing.T) {
+	const page = `{"items":[{"id_str":"900000000000000030","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":316381099,"pub_ts":1794024288},"module_dynamic":{"desc":{"rich_text_nodes":[
+	 {"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"看这个"},
+	 {"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[鹿乃_飞了]","emoji":{"text":"[鹿乃_飞了]","icon_url":"http://i0.hdslb.com/bfs/emote/flying.png","gif_url":"http://i0.hdslb.com/bfs/emote/flying.gif","webp_url":"http://i0.hdslb.com/bfs/emote/flying.webp"}},
+	 {"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[still]","emoji":{"text":"[still]","icon_url":"https://i0.hdslb.com/bfs/emote/still.png"}},
+	 {"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[gone]","emoji":{"text":"[gone]","icon_url":"https://images.invalid/gone.png"}}
+	]}}}}]}`
+	got, err := ParseSpaceFeed([]byte(page), DefaultAccount)
+	if err != nil || len(got.Dynamics) != 1 {
+		t.Fatalf("page=%#v err=%v", got, err)
+	}
+	d := got.Dynamics[0]
+	if d.Text != "看这个[鹿乃_飞了][still][gone]" {
+		t.Fatalf("text=%q", d.Text)
+	}
+	emojis, _ := d.Raw["emoji"].([]DynamicEmoji)
+	if len(emojis) != 2 || emojis[0].Text != "[鹿乃_飞了]" || emojis[0].Icon != "https://i0.hdslb.com/bfs/emote/flying.webp" ||
+		emojis[1].Text != "[still]" || emojis[1].Icon != "https://i0.hdslb.com/bfs/emote/still.png" {
+		t.Fatalf("emoji=%#v", d.Raw["emoji"])
 	}
 }

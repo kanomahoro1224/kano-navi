@@ -11,6 +11,8 @@ Posts are laid out in whole rows; a long post shows its first lines and
   account fills the wall with its own newest posts, even when another one
   posted more recently.
 - Open images in a viewer and step through them.
+- A Bilibili sticker in a dynamic appears as its picture where its caption
+  sits.
 - See like, repost, and reply counts of X posts as they were last collected.
 - A post that quotes another one shows the quoted post as a nested card that
   links to it on X. A bilibili post that forwards another one shows the

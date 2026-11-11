@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -18,11 +19,14 @@ type postRow struct {
 	quoteJSON sql.NullString
 	// promoted marks a related account's status promoted into posts.
 	promoted bool
+	// rawJSON stays off the public post. Stickers are the only part that
+	// leaves it.
+	rawJSON string
 }
 
 // postColumns are a public post read's columns of the unaliased posts table,
 // in postRow's scan order.
-const postColumns = `id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END,promoted_at IS NOT NULL`
+const postColumns = `id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END,promoted_at IS NOT NULL,COALESCE(raw_json,'')`
 
 // wallPostSQL holds for a post of the unaliased posts table that the post
 // wall and the archive list: not hidden, and not a promoted post that a shown
@@ -55,7 +59,7 @@ func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error)
 	for rows.Next() {
 		var r postRow
 		var account, label, mu, ma sql.NullString
-		if err := rows.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted); err != nil {
+		if err := rows.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted, &r.rawJSON); err != nil {
 			return nil, dbErr(err)
 		}
 		r.accountHandle, r.hasAccount = account.String, account.Valid
@@ -74,7 +78,7 @@ func (s *Store) queryLatestPost(ctx context.Context) (*postRow, error) {
 	var r postRow
 	var account, label, mu, ma sql.NullString
 	// The latest post is an own account's: a promoted post never takes it.
-	err := s.db.QueryRowContext(ctx, `SELECT `+postColumns+` FROM posts WHERE hidden_at IS NULL AND promoted_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`).Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted)
+	err := s.db.QueryRowContext(ctx, `SELECT `+postColumns+` FROM posts WHERE hidden_at IS NULL AND promoted_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`).Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted, &r.rawJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -156,7 +160,60 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 	if p.Quote, err = s.mapQuote(ctx, r.source, r.id, r.quoteJSON); err != nil {
 		return p, err
 	}
+	p.Emojis = storedEmojis(r.rawJSON)
 	return p, nil
+}
+
+// PostEmoji is one custom sticker a post's text carries. Caption is the
+// replacement text the source keeps in the wording ("[name]"); Icon is the
+// image the board paints over it.
+type PostEmoji struct {
+	Caption string
+	Icon    string
+}
+
+// validEmojiIcon keeps only a Bilibili image-CDN URL: a public page must not
+// fetch an image from a host the board does not control.
+func validEmojiIcon(raw string) string {
+	raw = strings.TrimSpace(raw)
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.User != nil {
+		return ""
+	}
+	if !strings.HasSuffix(strings.ToLower(u.Hostname()), ".hdslb.com") {
+		return ""
+	}
+	return raw
+}
+
+// storedEmojis reads the stickers a post's raw_json carries. The column is
+// operator-only, so this is the single place the icons leave it, and only
+// icon and caption pass: nothing else of the source payload is exposed.
+func storedEmojis(raw string) []PostEmoji {
+	if raw == "" {
+		return nil
+	}
+	var stored struct {
+		Emoji []struct {
+			Text string `json:"text"`
+			Icon string `json:"icon"`
+		} `json:"emoji"`
+	}
+	if json.Unmarshal([]byte(raw), &stored) != nil {
+		return nil
+	}
+	out := make([]PostEmoji, 0, len(stored.Emoji))
+	for _, e := range stored.Emoji {
+		icon := validEmojiIcon(e.Icon)
+		if icon == "" || strings.TrimSpace(e.Text) == "" {
+			continue
+		}
+		out = append(out, PostEmoji{Caption: strings.TrimSpace(e.Text), Icon: icon})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 var (

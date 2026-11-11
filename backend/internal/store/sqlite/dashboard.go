@@ -49,21 +49,24 @@ type Profile struct {
 }
 
 type Post struct {
-	ID             string
-	Source         string
-	AccountHandle  *string
-	Type           string
-	Label          *string
-	Text           string
-	PublishedAt    string
-	URL            string
-	Likes          int64
-	Reposts        int64
-	Replies        int64
-	MediaURL       *string
-	MediaAlt       *string
-	AccountURL     *string
-	Media          []PostMedia
+	ID            string
+	Source        string
+	AccountHandle *string
+	Type          string
+	Label         *string
+	Text          string
+	PublishedAt   string
+	URL           string
+	Likes         int64
+	Reposts       int64
+	Replies       int64
+	MediaURL      *string
+	MediaAlt      *string
+	AccountURL    *string
+	Media         []PostMedia
+	// Emojis are the stickers the text uses, in order. A Bilibili dynamic
+	// keeps their caption in the text, so the board paints the icon there.
+	Emojis         []PostEmoji
 	MediaID        *string
 	MediaStatus    string
 	MediaSourceURL *string

@@ -91,7 +91,9 @@ lead. `nextTransitionAt` is null when no scheduled transition is known.
 A post's `source` is `x` or `bilibili`. A Bilibili dynamic has the ID
 `bilibili-<dynamic ID>`, its opus page as `url`, the account's mid as
 `accountHandle` and its space as `accountUrl` and zero engagement counts; its
-text may be empty when the dynamic held only emoji. A forward's `quote` is
+text may be empty when the dynamic has no wording of its own. `emoji`, when
+present, lists the stickers that wording uses (`text` the caption, `icon`
+the `https` `*.hdslb.com` picture). A forward's `quote` is
 the dynamic it forwards (see [Quoted posts](data-model.md#quoted-posts)),
 with that dynamic's post ID as `id` (`null` when the listing did not name
 it), the author's mid as `authorHandle`, and its Bilibili page as `url`; a

@@ -3,6 +3,7 @@ import type {
   Locale,
   MediaItem,
   Post,
+  PostEmoji,
   PostQuote,
   Translator,
 } from "@/types"
@@ -50,6 +51,80 @@ import { SheetDialog } from "./sheet-dialog"
 // wall; a lone image can take the whole card.
 const POST_MEDIA_SIZES =
   "(max-width: 640px) 100vw, (max-width: 1200px) 34vw, 420px"
+
+/** escapeRegExp makes a sticker caption safe to put in a pattern. */
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+/**
+ * splitEmojis cuts a post's wording where its stickers sit, so the icon takes
+ * the caption's place. A translation may drop the caption; the stickers then
+ * follow the wording rather than vanish.
+ */
+function splitEmojis(
+  text: string,
+  emojis: PostEmoji[] | undefined,
+): (string | PostEmoji)[] | null {
+  const stickers = (emojis ?? []).filter((emoji) => emoji.text && emoji.icon)
+  if (!stickers.length) return null
+  const byCaption = new Map(stickers.map((emoji) => [emoji.text, emoji]))
+  const pattern = new RegExp(
+    `(${stickers.map((emoji) => escapeRegExp(emoji.text)).join("|")})`,
+    "g",
+  )
+  const parts: (string | PostEmoji)[] = []
+  let placed = false
+  for (const part of text.split(pattern)) {
+    const sticker = byCaption.get(part)
+    if (sticker) {
+      placed = true
+      parts.push(sticker)
+    } else if (part) {
+      parts.push(part)
+    }
+  }
+  if (!placed) parts.push(...stickers)
+  return parts
+}
+
+/**
+ * PostWording is a post's wording with its stickers painted in place: Bilibili
+ * keeps a sticker's caption in the text, and the board shows the picture.
+ */
+function PostWording({
+  text,
+  emojis,
+}: {
+  text: string
+  emojis: PostEmoji[] | undefined
+}) {
+  const parts = useMemo(() => splitEmojis(text, emojis), [text, emojis])
+  if (!parts) return <>{text}</>
+  return (
+    <>
+      {parts.map((part, index) =>
+        typeof part === "string" ? (
+          part
+        ) : (
+          <img
+            key={`emoji-${index}-${part.text}`}
+            className="post-emoji"
+            src={part.icon}
+            alt={part.text}
+            title={part.text}
+            loading="lazy"
+            decoding="async"
+            // Bilibili's image CDN answers 403 to a hotlink that carries any
+            // other site's Referer, which leaves the caption showing instead
+            // of the sticker.
+            referrerPolicy="no-referrer"
+          />
+        ),
+      )}
+    </>
+  )
+}
 
 /** Ready local media can open in the viewer; anything else stays labelled. */
 export function postMedia(post: Post): MediaItem[] {
@@ -427,7 +502,7 @@ function PostNote({
           className={`post-note-text${clamp ? " is-clamped" : ""}`}
           lang={wording.lang}
         >
-          {wording.text}
+          <PostWording text={wording.text} emojis={post.emoji} />
           <TranslationToggle
             state={wording}
             t={t}
@@ -470,7 +545,7 @@ function PostNote({
             )}
             {wording.text ? (
               <p className="post-note-text" lang={wording.lang}>
-                {wording.text}
+                <PostWording text={wording.text} emojis={post.emoji} />
                 <TranslationToggle state={wording} t={t} />
               </p>
             ) : null}

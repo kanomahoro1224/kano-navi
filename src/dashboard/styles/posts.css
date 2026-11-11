@@ -126,6 +126,16 @@
   -webkit-line-clamp: 6;
 }
 
+/* A Bilibili sticker sits on the text baseline where its caption was. */
+.post-emoji {
+  display: inline-block;
+  width: auto;
+  height: 1.45em;
+  margin: 0 1px;
+  vertical-align: -0.35em;
+  border-radius: 3px;
+}
+
 .post-note-expand {
   align-self: flex-start;
   margin: -6px 0 0;

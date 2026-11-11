@@ -225,8 +225,28 @@ function EntryTags({
 }
 
 /**
+ * The arrow that follows an entry's link, or its announcement when the
+ * entry has platform links, at the end of the card's or sheet's last row.
+ */
+function OpenArrow({ facts, t }: { facts: EntryFacts; t: Translator }) {
+  const href = facts.links.length ? facts.announcement : facts.link
+  if (!href) return null
+  return (
+    <ExternalLink
+      className="guide-event-open"
+      href={href}
+      aria-label={t("schedule.openLink")}
+      title={t("schedule.openLink")}
+    >
+      <ArrowUpRight aria-hidden="true" />
+    </ExternalLink>
+  )
+}
+
+/**
  * One entry in full: its whole title, Japan time (and the visitor's when
- * they are elsewhere), labels, provenance in words, and its link.
+ * they are elsewhere), labels, provenance in words, and the arrow to its
+ * link in its bottom corner.
  */
 function EntrySheet({
   event,
@@ -288,24 +308,19 @@ function EntrySheet({
         ) : null}
         <EntryTags facts={facts} t={t}>
           <Provenance manual={facts.manual} labelled t={t} />
+          {facts.links.length ? null : <OpenArrow facts={facts} t={t} />}
         </EntryTags>
         {facts.note ? <p className="guide-event-note">{facts.note}</p> : null}
         {facts.links.length ? (
-          <PlatformLinks
-            links={facts.links}
-            title={cleanVideoTitle(event.title)}
-            variant="pill"
-            t={t}
-          />
-        ) : null}
-        {(facts.links.length ? facts.announcement : facts.link) ? (
-          <ExternalLink
-            className="pill-button entry-sheet-open"
-            href={(facts.links.length ? facts.announcement : facts.link)!}
-          >
-            {t("schedule.openLink")}
-            <ArrowUpRight aria-hidden="true" />
-          </ExternalLink>
+          <div className="entry-sheet-links">
+            <PlatformLinks
+              links={facts.links}
+              title={cleanVideoTitle(event.title)}
+              variant="pill"
+              t={t}
+            />
+            <OpenArrow facts={facts} t={t} />
+          </div>
         ) : null}
       </article>
     </SheetDialog>
@@ -425,16 +440,7 @@ function GuideEvent({
                   t={t}
                 />
               ) : null}
-              {(facts.links.length ? facts.announcement : facts.link) ? (
-                <ExternalLink
-                  className="guide-event-open"
-                  href={(facts.links.length ? facts.announcement : facts.link)!}
-                  aria-label={t("schedule.openLink")}
-                  title={t("schedule.openLink")}
-                >
-                  <ArrowUpRight aria-hidden="true" />
-                </ExternalLink>
-              ) : null}
+              <OpenArrow facts={facts} t={t} />
             </EntryTags>
             {facts.note ? (
               <span className="guide-event-note">{facts.note}</span>

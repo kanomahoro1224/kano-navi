@@ -18,5 +18,8 @@
 - After a jump to an earlier month in Past videos, Show newer videos loads
   the next newer videos above the list, keeping what you were looking at in
   place, instead of returning to the newest.
+- A schedule entry's details open its link from the arrow in the bottom
+  corner, as the entry's card does, instead of an Open link button on a row
+  of its own.
 
 </details>

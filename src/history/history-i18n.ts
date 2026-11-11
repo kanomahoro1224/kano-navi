@@ -1,5 +1,8 @@
+import { worksPhraseMessages } from "@/works/works-phrases"
+
 export const historyMessages = {
   "zh-CN": {
+    ...worksPhraseMessages["zh-CN"],
     "history.allIdentities": "全部身份",
     "history.branchCount": "{count} 个节点",
     "history.yearEmpty": "{years} 没有收录节点",
@@ -88,6 +91,7 @@ export const historyMessages = {
       "主办方于 2024-08-09 发布演出视觉；演出日期为 2024-09-14。",
   },
   ja: {
+    ...worksPhraseMessages.ja,
     "history.allIdentities": "すべての名義",
     "history.branchCount": "{count} 件",
     "history.yearEmpty": "{years} の出来事は収録していません",
@@ -179,6 +183,7 @@ export const historyMessages = {
       "主催者がビジュアルを公開したのは 2024-08-09。公演日は 2024-09-14 です。",
   },
   en: {
+    ...worksPhraseMessages.en,
     "history.allIdentities": "Every identity",
     "history.branchCount": ({ count }: { count: any }) =>
       `${count} ${count === 1 ? "milestone" : "milestones"}`,

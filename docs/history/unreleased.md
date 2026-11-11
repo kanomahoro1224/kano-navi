@@ -13,5 +13,10 @@
   ticket with artwork it stacks under the profile card, and under a compact
   date ticket it runs as a row. When more sales are current than it shows, an
   All button opens every one in a sheet.
+- Works image captions, edition names, formats, packaging, bonuses, store
+  bonuses, disc names, credits and track notes show their descriptive words
+  in the interface language; names of works, people, stores, editions and
+  bonus items stay as the releases write them. Journey cover captions follow
+  the same rule.
 
 </details>

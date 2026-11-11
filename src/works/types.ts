@@ -1,10 +1,28 @@
+import type { WorksPhraseCode } from "./works-phrases.ts"
+
 /*
  * The /works page data, written by scripts/package-works.ts from the
- * maintainer's kano_official reference collection. Titles, credits, edition
- * names, bonuses and image captions keep the collection's wording, in Japanese
- * or Simplified Chinese; the collection's own checking notes are not
- * published. Interface labels come from codes.
+ * maintainer's kano_official reference collection. Titles and names keep the
+ * collection's wording; descriptive fields are WorksText, whose generic words
+ * are phrase codes the page translates. The collection's own checking notes
+ * are not published. Interface labels come from codes.
  */
+
+/**
+ * A generic word of the collection's wording as a code. value is the name the
+ * phrase wraps and count its number, such as the store and the size of a set.
+ */
+export type WorksPhrase = {
+  phrase: WorksPhraseCode
+  value?: string
+  count?: number
+}
+
+/**
+ * Descriptive collection wording: names as the collection writes them
+ * between phrase codes, or plain text when it holds no generic word.
+ */
+export type WorksText = string | (string | WorksPhrase)[]
 
 /** A cover image in data/works/, named by its bytes' SHA-256. */
 export type WorksCover = {
@@ -12,8 +30,8 @@ export type WorksCover = {
   media: string
   width: number
   height: number
-  /** What the image shows, in the collection's Simplified Chinese. */
-  caption?: string
+  /** What the image shows. */
+  caption?: WorksText
   /** The page the file was taken from, when recorded and public. */
   source?: string
   /** The site the file was taken from, when recorded without a page. */
@@ -43,12 +61,12 @@ export type WorksImage = Pick<WorksCover, "media" | "width" | "height">
 export type WorksTrack = {
   disc: number
   /** The disc's name, such as "DVD" or "Side-A", when the collection gives one. */
-  discLabel?: string
+  discLabel?: WorksText
   no: number
   title: string
-  credit: string
+  credit: WorksText
   /** A tie-in or version note, such as the anime a song opens. */
-  note: string
+  note: WorksText
   /** Where the same recording was posted, when it was. */
   listen?: UploadVideos
 }
@@ -84,7 +102,7 @@ export type StoreLink = {
  * main one.
  */
 export type StoreGroup = {
-  item: string
+  item: WorksText
   links: StoreLink[]
 }
 
@@ -93,27 +111,27 @@ export type PersonalFormat = "album" | "single" | "ep" | "doujin"
 
 /** A bonus one or more stores gave with a purchase. */
 export type StoreBonus = {
-  store: string
-  item: string
+  store: WorksText
+  item: WorksText
   images: WorksCover[]
 }
 
 /** One version of a release on sale, such as a limited or standard edition. */
 export type PersonalEdition = {
-  name: string
+  name: WorksText
   /** Japan date when this edition came out after the release date. */
   date: string | null
   /** Announced and then withdrawn before sale. */
   cancelled: boolean
-  catalog: string
+  catalog: WorksText
   jan: string
-  price: string
+  price: WorksText
   /** The physical or digital format, such as "CD+DVD". */
-  format: string
-  packaging: string
+  format: WorksText
+  packaging: WorksText
   covers: WorksCover[]
   /** What comes in the package beyond the discs. */
-  bonuses: string[]
+  bonuses: WorksText[]
   bonusImages: WorksCover[]
   /** Store bonuses given with this edition. */
   storeBonuses: StoreBonus[]
@@ -146,9 +164,9 @@ export type PersonalRelease = {
   cancelled: boolean
   /** The unit's name for a unit work. */
   unit: string | null
-  label: string
+  label: WorksText
   /** The release's catalog numbers; each edition carries its own. */
-  catalog: string
+  catalog: WorksText
   covers: WorksCover[]
   /** A photo or scan of the disc itself, when the collection has one. */
   disc: WorksCover | null
@@ -179,7 +197,11 @@ export type ParticipationForm =
 export type KanoCredit =
   "lyrics" | "composition" | "arrangement" | "animation" | "other"
 
-export type ParticipationTrack = Omit<WorksTrack, "note"> & {
+export type ParticipationTrack = Omit<
+  WorksTrack,
+  "note" | "credit" | "discLabel"
+> & {
+  credit: string
   /** Kano sang, wrote or otherwise took part in this track. */
   kano: boolean
   kanoCredits: KanoCredit[]

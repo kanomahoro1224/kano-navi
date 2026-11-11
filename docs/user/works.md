@@ -103,9 +103,11 @@ wait for that update.
 ## Dates and Sources
 
 Dates are the Japan date of first release or upload; an edition that came
-out later shows its own date. Edition names, bonuses and image captions keep
-the wording of the collection they come from, in Japanese or Chinese. Covers and works
-belong to their rights holders.
+out later shows its own date. Names of works, people, stores, editions and
+bonus items appear as the releases write them, mostly in Japanese; the words
+around them, such as what an image shows, formats, packaging, credits and
+track notes, follow the interface language. Covers and works belong to their
+rights holders.
 
 ## Related Docs
 

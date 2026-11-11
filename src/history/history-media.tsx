@@ -4,6 +4,7 @@ import { ArrowUpRight, ImageOff, Images } from "lucide-react"
 
 import { mediaSrcSet } from "@/lib/media"
 import { ExternalLink } from "@/site/links"
+import { worksText } from "@/works/works-text"
 import {
   localized,
   sourceName,
@@ -163,7 +164,7 @@ export function GalleryTile({
         <strong>{localized(item.title, locale)}</strong>
         {item.origin === "release" ? (
           item.cover.caption ? (
-            <small lang="zh-CN">{item.cover.caption}</small>
+            <small>{worksText(item.cover.caption, t)}</small>
           ) : null
         ) : item.credit ? (
           <small>{item.credit}</small>
@@ -213,7 +214,7 @@ function ReleaseCoverDetails({
     <div className="image-details">
       <p className="kicker">{t("history.mediaKind.cover")}</p>
       <h2>{item.title.en}</h2>
-      {cover.caption ? <p lang="zh-CN">{cover.caption}</p> : null}
+      {cover.caption ? <p>{worksText(cover.caption, t)}</p> : null}
       <dl>
         <div>
           <dt>{t("history.dateKind.release")}</dt>

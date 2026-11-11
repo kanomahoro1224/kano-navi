@@ -28,7 +28,14 @@ import {
   uploadVideoRefs,
   worksVideoIndex,
 } from "../scripts/package-works.ts"
+import {
+  isChineseWording,
+  releaseText,
+  trackText,
+} from "../scripts/works-phrases.ts"
 import { mediaSrcSet } from "../src/lib/media.ts"
+import { worksPhraseMessages } from "../src/works/works-phrases.ts"
+import { worksText } from "../src/works/works-text.ts"
 import {
   byDate,
   discsOf,
@@ -438,7 +445,7 @@ test("personal kinds, prices and edition tracklists", () => {
 
   assert.equal(publicPrice("2,000 日元"), "¥2,000")
   assert.equal(publicPrice("15 元"), "CN¥15")
-  assert.equal(publicPrice("¥1,500+税"), "¥1,500+税")
+  assert.deepEqual(publicPrice("¥1,500+税"), ["¥1,500", { phrase: "plusTax" }])
 
   const track = (disc: number, no: number, title: string) => ({
     disc,
@@ -483,6 +490,145 @@ test("shown fields drop the collection's checking asides", () => {
     publicTrackNote("TVアニメ「Example」OP"),
     "TVアニメ「Example」OP",
   )
+  // Where a photo was bought or which page held it is the source's to say.
+  assert.equal(
+    publicText("特典 CD 盘面（Example on Mercari Shops）"),
+    "特典 CD 盘面",
+  )
+  assert.equal(publicText("限定盘外装（唱片公司页图片）"), "限定盘外装")
+})
+
+test("collection wording keeps names and turns generic words into phrases", () => {
+  // Edition names take their Japanese spelling; the words around them are
+  // phrases, and a quoted title is kept as written.
+  assert.deepEqual(releaseText("歌手盘封面"), [
+    "アーティスト盤",
+    { phrase: "cover" },
+  ])
+  assert.deepEqual(releaseText("绘本付生产限定盘展开图（绘本「例えば」）"), [
+    "絵本付生産限定盤",
+    { phrase: "spread" },
+    "（",
+    { phrase: "pictureBook" },
+    "「例えば」）",
+  ])
+  assert.deepEqual(releaseText("缶バッジ（ver. A & B，随机 2 种之一）"), [
+    "缶バッジ（ver. A & B、",
+    { phrase: "oneOfRandom", count: 2 },
+    "）",
+  ])
+  assert.deepEqual(releaseText("ポスター（与 Example「Song」同时购买）"), [
+    "ポスター（",
+    { phrase: "boughtWith", value: "Example「Song」" },
+    "）",
+  ])
+  assert.equal(
+    releaseText("「Example」アニメ絵柄ジャケット"),
+    "「Example」アニメ絵柄ジャケット",
+  )
+  // A Chinese platform's name is a name.
+  assert.deepEqual(releaseText("QQ音乐 数字专辑"), [
+    "QQ音乐 ",
+    { phrase: "digitalAlbum" },
+  ])
+  // Chinese wording without a phrase stops packaging; a name may be Chinese.
+  assert.throws(() => releaseText("限定盘说明"), /without a phrase/u)
+  assert.equal(releaseText("示例音乐", { check: false }), "示例音乐")
+  assert.equal(releaseText("「给你的信」"), "「给你的信」")
+
+  assert.deepEqual(trackText("Exampleが後にセルフカバー"), [
+    { phrase: "laterSelfCover", value: "Example" },
+  ])
+  assert.deepEqual(trackText("作詞・作曲:Example / 編曲:Other"), [
+    { phrase: "lyricsMusic" },
+    ":Example / ",
+    { phrase: "arrangement" },
+    ":Other",
+  ])
+  assert.deepEqual(trackText("「Example」2020年3月度ED"), [
+    "「Example」",
+    { phrase: "monthOf", value: "2020", count: 3 },
+    "ED",
+  ])
+  assert.throws(() => trackText("鹿乃说明"), /without a phrase/u)
+  assert.deepEqual(trackText("作曲:周杰伦", { check: false }), [
+    { phrase: "music" },
+    ":周杰伦",
+  ])
+})
+
+test("collection wording reads in each locale", () => {
+  const translator =
+    (locale: keyof typeof worksPhraseMessages) =>
+    (key: string, values: Record<string, string | number> = {}) => {
+      const messages: Record<string, string> = worksPhraseMessages[locale]
+      return (messages[key] ?? key).replace(/\{(\w+)\}/gu, (_, name) =>
+        String(values[name] ?? ""),
+      )
+    }
+  const en = translator("en")
+  const ja = translator("ja")
+  const zh = translator("zh-CN")
+  const caption = releaseText("初回限定盘店铺特典 缶バッジ 2 个组")
+  assert.equal(
+    worksText(caption, en),
+    "初回限定盤 store bonus 缶バッジ set of 2",
+  )
+  assert.equal(worksText(caption, ja), "初回限定盤店舗特典 缶バッジ 2 個セット")
+  assert.equal(worksText(caption, zh), "初回限定盤店铺特典 缶バッジ 2 个一组")
+  // English capitalizes a leading phrase, never a name, and reads Japanese
+  // punctuation in ASCII.
+  assert.equal(worksText(releaseText("配信封面"), en), "Digital cover")
+  assert.equal(
+    worksText(releaseText("example CD（1. Intro，绘本朗读）"), en),
+    "example CD (1. Intro, picture book reading)",
+  )
+  assert.equal(
+    worksText(trackText("作詞・作曲・編曲:40mP"), en),
+    "Lyrics, music & arrangement: 40mP",
+  )
+  assert.equal(worksText(releaseText("¥1,500+税"), en), "¥1,500 + tax")
+  assert.equal(worksText("缶バッジ", en), "缶バッジ")
+  assert.equal(worksText(undefined, en), "")
+})
+
+test("published works wording has no untranslated Chinese", async () => {
+  const releases = JSON.parse(
+    await fs.readFile(
+      new URL("../src/works/personal.json", import.meta.url),
+      "utf8",
+    ),
+  ) as PersonalRelease[]
+  // Labels and credits are names, which may be Chinese.
+  const checked = new Set([
+    "caption",
+    "name",
+    "format",
+    "packaging",
+    "bonuses",
+    "store",
+    "item",
+    "price",
+    "catalog",
+    "discLabel",
+    "note",
+  ])
+  const found: string[] = []
+  const visit = (value: unknown, key = "") => {
+    if (typeof value === "string") {
+      const text = value.replace(/「[^」]*」|『[^』]*』|《[^》]*》/gu, "")
+      if (
+        checked.has(key) &&
+        isChineseWording(text.replace(/QQ音乐|酷狗音乐|酷我音乐/gu, ""))
+      )
+        found.push(value)
+    } else if (Array.isArray(value)) value.forEach((item) => visit(item, key))
+    else if (value && typeof value === "object")
+      for (const [name, item] of Object.entries(value))
+        visit(item, "phrase" in value ? key : name)
+  }
+  visit(releases)
+  assert.deepEqual(found, [])
 })
 
 test("works packaging writes the tables and covers named by their bytes", async (t) => {
@@ -512,7 +658,8 @@ test("works packaging writes the tables and covers named by their bytes", async 
     media: mediaName(PNG),
     width: 1,
     height: 1,
-    caption: "初回限定盘封面",
+    // The edition's name in its Japanese spelling, the generic word a phrase.
+    caption: ["初回限定盤", { phrase: "cover" }],
     source: "https://example.com/shop/item/1",
     thirdParty: true,
   }
@@ -522,8 +669,8 @@ test("works packaging writes the tables and covers named by their bytes", async 
       disc: 1,
       no: 1,
       title: "First",
-      credit: "作詞:鹿乃",
-      note: "TVアニメ「Example」OP",
+      credit: [{ phrase: "lyrics" }, ":鹿乃"],
+      note: [{ phrase: "tvAnime" }, "「Example」OP"],
     },
   ]
   assert.deepEqual(personal[0], {
@@ -553,7 +700,7 @@ test("works packaging writes the tables and covers named by their bytes", async 
         format: "CD+DVD",
         packaging: "デジパック仕様",
         covers: [cover],
-        bonuses: ["封入特典：ステッカー"],
+        bonuses: [[{ phrase: "packedBonus" }, "：ステッカー"]],
         bonusImages: [],
         storeBonuses: [
           { store: "Example Shop", item: "缶バッジ", images: [cover] },
@@ -593,7 +740,13 @@ test("works packaging writes the tables and covers named by their bytes", async 
         printedDisc: true,
       },
     ],
-    storeBonuses: [{ store: "全国対象店", item: "B2 ポスター", images: [] }],
+    storeBonuses: [
+      {
+        store: [{ phrase: "participatingStoresNationwide" }],
+        item: "B2 ポスター",
+        images: [],
+      },
+    ],
     stores: [],
   })
   assert.equal(personal[1].unit, "Example Unit")
@@ -973,7 +1126,7 @@ test("store listings group by item and fold high-resolution stores", () => {
         ],
       },
       {
-        item: "TVsize",
+        item: [{ phrase: "tvSize" }],
         links: [
           {
             platform: "spotify",
@@ -1033,7 +1186,7 @@ test("an edition lists its own store items and the release's", async (t) => {
     release.editions.map((edition) =>
       edition.stores.map((group) => [group.item, group.links[0].platform]),
     ),
-    [[["TVsize", "spotify"]], []],
+    [[[[{ phrase: "tvSize" }], "spotify"]], []],
   )
   // Two unnamed items would show side by side under one edition.
   await fs.writeFile(storesFile, table(""))

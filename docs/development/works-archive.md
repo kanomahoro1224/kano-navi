@@ -56,12 +56,13 @@ packaged, and how an instance gets its covers.
   list with stored videos (see [Upload Covers](#upload-covers)).
 - `src/works/media-catalog.json` lists each cover and bonus image with its
   MIME type, size, SHA-256, width and height.
-- `src/works/types.ts` holds the shapes. Titles, credits, edition names,
-  bonuses and packaging keep the collection's wording, in Japanese or
-  Simplified Chinese; image captions are the collection's Simplified Chinese
-  and the page marks them as such. Prices keep their wording, with yen and
-  yuan amounts written with their signs. The interface translates only the
-  codes.
+- `src/works/types.ts` holds the shapes. Titles and other names keep the
+  collection's wording. Descriptive fields (image captions, edition names,
+  formats, packaging, bonuses, store bonuses, store items, disc names,
+  labels, catalog numbers, prices, track credits and notes) are `WorksText`:
+  names as written between phrase codes for the generic words around them
+  (see [Wording](#wording)). Prices write yen and yuan amounts with their
+  signs. The interface translates only the codes.
 
 Covers and bonus images are named by the first 12 hex
 digits of the SHA-256 of their bytes plus `.jpg` or `.png`. The files (about 200 MiB) are ignored runtime data in
@@ -231,12 +232,40 @@ upload notes and no participation track notes. The one fact it takes from an
 edition note is a later edition date written as `YYYY-MM-DD 发售` alone. In the fields it does publish, packaging
 removes the parentheticals that say where a fact was checked or where a
 cover file came from (a database or shop name, "NAS" for the maintainer's
-own discs, a file's size, how two official pages disagree), and drops a
+own discs, a file's size, the label's page or a marketplace shop for an
+image, how two official pages disagree), and drops a
 personal track note that only records an open question and a package line
 that only says there is no bonus. A catalog number or event the collection
 marks as doubtful is left blank, and an event keeps only its name. Packaging stops
 when checking wording remains in a published field. Share links that carry a
-sharer's token (Taobao `m.tb.cn`) are dropped from records.
+sharer's token (Taobao `m.tb.cn`) are dropped from records. A participation
+catalog number drops an aside in Chinese and keeps one on its format, such
+as `（CD-R）`.
+
+## Wording
+
+The collection writes its records in Japanese with Simplified Chinese notes.
+Packaging keeps every name as the collection writes it: people, quoted
+titles, stores, platforms, labels, official edition names such as
+`初回限定盤`, and bonus items such as `缶バッジ`. It turns the generic words
+around them into phrase codes from `scripts/works-phrases.ts`: what an image
+shows (`cover`, `disc`), bonus and store wording, formats and digital
+editions, packaging, credit roles (`lyrics`, `music`) and track notes
+(`coverSong`, `tvAnime`). A phrase may wrap a name or a number, such as
+`boughtWith` and `setOf`. `src/works/works-phrases.ts` holds each code's
+English, Japanese and Chinese wording, which the Works and Journey pages
+share. Edition names the collection spells in Chinese, such as `初回限定盘`
+and `歌手盘`, take their Japanese spelling (`初回限定盤`, `アーティスト盤`).
+
+The page shows the phrases in the interface language and the names as
+written. English puts a space between a phrase and the names beside it,
+capitalizes a leading phrase but never a name, and reads Japanese brackets,
+colons and list marks in their ASCII forms; Japanese and Chinese keep the
+collection's spacing.
+
+Chinese wording left outside a phrase or a quoted title stops packaging, so
+a new note needs a phrase before it is published. Labels and credits are
+names, which may be Chinese, and are not checked.
 
 ## Packaging
 
@@ -259,7 +288,8 @@ the optional `discography_discs.csv`, the optional
 `参与专辑/participation_tracks.csv` and `投稿作品/works.csv`. It reads the
 whole selection before writing anything: every table must have its columns,
 every date must be a Japan date, every category, kind, role, form, credit
-and upload kind must map to a code, every edition, track and bonus row must
+and upload kind must map to a code, descriptive wording must hold no Chinese
+outside its phrases (see [Wording](#wording)), every edition, track and bonus row must
 name a listed release and edition, every store listing must have a known
 platform and a canonical address, every video ID must have its platform's
 shape, and every image must be listed in the manifest and be a JPEG or PNG

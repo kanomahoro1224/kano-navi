@@ -6,6 +6,7 @@ import { mediaSrcSet } from "@/lib/media"
 import { ExternalLink } from "@/site/links"
 import { coverUrl } from "./content"
 import type { WorksCover, WorksCredit } from "./types"
+import { worksText } from "./works-text"
 
 /** How wide each cover shows (src/works/styles/). */
 export const WORKS_COVER_SIZES = {
@@ -194,7 +195,7 @@ export function CoverDetails({
     <div className="works-cover-details">
       <p className="kicker">{t("works.cover")}</p>
       <h2>{title}</h2>
-      {cover.caption ? <p lang="zh-CN">{cover.caption}</p> : null}
+      {cover.caption ? <p>{worksText(cover.caption, t)}</p> : null}
       {cover.credit ? (
         <p className="works-cover-origin">
           <CreditLine credit={cover.credit} t={t} />

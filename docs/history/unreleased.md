@@ -142,3 +142,12 @@
   age and directory, the signing origin, and Generate, Rotate and Remove.
 
 </details>
+
+<details>
+<summary><strong>Runtime and development</strong></summary>
+
+- The backend and the release image build with Go 1.26.11, which fixes a
+  `net/http` request body limit race (GO-2026-6859) that could crash the
+  server.
+
+</details>

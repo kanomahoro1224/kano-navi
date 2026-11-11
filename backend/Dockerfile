@@ -1,5 +1,5 @@
 # The build stage runs on the build machine and cross-compiles for the target.
-FROM --platform=$BUILDPLATFORM golang:1.26.10-bookworm AS build
+FROM --platform=$BUILDPLATFORM golang:1.26.11-bookworm AS build
 ARG TARGETARCH
 
 WORKDIR /src

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Go 1.26.10 or newer (the version in `backend/go.mod`, matching CI and Docker)
+- Go 1.26.11 or newer (the version in `backend/go.mod`, matching CI and Docker)
 - Node.js 24.22.1 or newer in the 24 LTS line (`.nvmrc` pins the version CI
   and Docker use). `make node-check` compares the running Node with the
   `package.json` engines floor, and `make install` and the `ci-fast`,

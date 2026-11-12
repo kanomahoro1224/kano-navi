@@ -73,15 +73,23 @@ every control that opens it carries `media-opener`, which shows the zoom
 cursor), `links.tsx` (external
 links and platform marks), and `site.css` (shell, controls, tone classes and
 the dialog). A `pill-button is-collapsible` shows only its icon at 560px and
-below, so it keeps its label as `aria-label`. The board lives in
+below, so it keeps its label as `aria-label`. There the post wall's and the
+video shelf's filters share one row with that icon, and a filter too long for
+the row scrolls sideways without a visible scrollbar. The board lives in
 `src/dashboard/`: `use-dashboard.ts` owns the snapshot request and the
 revision stream, `format.ts` owns Japan-time and event-status helpers, `content.ts` holds static public links, and
-`components/` renders the next-up stage and profile card, the on-sale strip
-(`sale-strip.tsx`: up to three IDs from `projection.sales`, rendered in API
-order; snapshots without that projection use `currentSales`), the week guide,
+`components/` renders the next-up stage and profile card, the on-sale list
+(`sale-strip.tsx`: the IDs from `projection.sales`, rendered in API order;
+snapshots without that projection use `currentSales`; the stage passes its
+placement, `side` under the profile card beside a full ticket or `main` under
+a compact one, which sets how many show in place, and the rest open in a
+`sheet-dialog.tsx` sheet), the week guide,
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
-schedule, posts or videos, and `sheet-dialog.tsx`, the smaller modal sheet
+schedule, posts or videos (at 640px and below its head is the month row beside
+the close button, then any filter: the kicker and title stay only for
+assistive technology, the month's count is hidden and the month label takes
+the short month name), and `sheet-dialog.tsx`, the smaller modal sheet
 that shows one long post or one schedule entry in full and can open above
 the month sheet. `video-groups.ts` consumes the dashboard's
 `projection.shelf` and each video's `view`: the API supplies the lead, group,
@@ -96,8 +104,10 @@ tag chip (`VideoTagChip` in
 icon, in the schedule's words for a stream (gameplay, talk, singing) and as
 the work's content otherwise (gameplay, talk, music, where a note replaces
 the singing microphone, as on the archive's Songs button); it appears on every
-card, row, ticket and the lead, including stream archives that hide the
-form chip. The Next Up ticket names the video's tag, else the entry's
+card, row, ticket and the lead. The shelf's group or filter names a past
+video's form, so its grid cards and earlier-work rows show no form chip, and
+the lead shows one only for a featured stream archive or Short; reservation
+tickets and the video dialog's cards keep it. The Next Up ticket names the video's tag, else the entry's
 activity label, before the form; a `member` entry adds the members-only chip
 (`MembersChip`) beside it unless the video's availability chip already
 shows `members`, `private` or `removed`. Schedule entries consume the event
@@ -235,10 +245,15 @@ post without it.
 A Bilibili dynamic (`source: "bilibili"`) shows the bilibili mark and name,
 linked to the account's space, instead of an `@handle`, and its open link
 goes to the opus page. It has no engagement counts. A forward shows the
-dynamic it forwards as its quote card, and an empty text (an emoji-only
-dynamic, or a forward without wording of its own) leaves only its images or
-its quote. The
-wall's top line adds bilibili while it holds a dynamic.
+dynamic it forwards as its quote card, and an empty text (a forward without
+wording of its own, or an emoji-only dynamic without stickers) leaves only
+its images or its quote. The
+wall's top line adds bilibili while it holds a dynamic. While a dynamic or
+its quote shows its original wording, `PostWording` renders its `rich`
+segments when it has them: each sticker with a local `/media/` address is an
+inline picture at text height whose `alt` and `title` are its caption, and
+any other sticker is its caption as text. A translation shows as text,
+without stickers. The board matches no captions and loads no other address.
 
 An entry follows its first platform link (`eventLink` in
 `src/dashboard/format.ts`), or its `url`, or, in a snapshot without
@@ -480,7 +495,9 @@ summary the main column holds the timed reads
 Discard: the interval and, for X and YouTube, the sync setting; and the
 [method chain](workflows.md#method-chains), with every method's switch and
 up/down moves, a method the process cannot run greyed with the variable it
-needs, and the one fixed method of the related accounts, the Bilibili dynamics timer and the shop read-only. Save sends only the
+needs; the related-accounts method is read-only, while the Bilibili
+dynamics timer exposes its desktop and WBI methods and the shop its signed,
+unsigned and Atom reads for ordering and toggling. Save sends only the
 changed fields, and the timer switch keeps unsaved edits.
 
 Settings below the timed reads are folded (`src/admin/views/source-parts.tsx`
@@ -910,8 +927,9 @@ Page Up and Page Down change the year, and Escape or a press outside closes the
 grid before the dialog. A failed index read keeps a known index, and without
 one every month up to the latest is offered.
 A click anywhere in a month-grid day picks it, listing its entries beside the
-grid (below it on phones) until the hide button clears the selection and the
-grid takes the full width. A grid entry is a button: it picks its day, marks
+grid (below it on phones). The current month opens on today; in another month
+the side panel asks for a day, and on phones nothing shows below the grid until
+one is picked. A grid entry is a button: it picks its day, marks
 the entry in that list and scrolls it into view, again on every pick, and the
 list's entries open the details sheet. Only the day heading of the list is a
 live region, so an opened sheet is not announced as an update. The panel can

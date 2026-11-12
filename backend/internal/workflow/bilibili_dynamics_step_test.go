@@ -36,6 +36,8 @@ func biliResponder(t *testing.T, paths *[]string, live string) func(*http.Reques
 		case "/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket":
 			// A ticket issued now, so later runs reuse it.
 			body = strings.Replace(syntheticTicket, "1767225600", strconv.FormatInt(time.Now().Unix(), 10), 1)
+		case "/x/polymer/web-dynamic/desktop/v1/feed/space":
+			body = syntheticFeed
 		case "/x/polymer/web-dynamic/v1/feed/space":
 			body = syntheticFeed
 		case "/room/v1/Room/get_status_info_by_uids":
@@ -83,7 +85,7 @@ func TestBilibiliDynamicsStepReadsOnlyWithALoginOnItsOwnClock(t *testing.T) {
 	adapter.Now = func() time.Time { return clock }
 	paths = nil
 	signedIn := run(sqlite.BilibiliDynamicsSource)
-	if signedIn.Status != "succeeded" || signedIn.Result["posts"] != 1 || signedIn.Result["changed"] != true || strings.Join(paths, ",") != "api.bilibili.com/x/web-interface/nav,api.bilibili.com/x/polymer/web-dynamic/v1/feed/space" {
+	if signedIn.Status != "succeeded" || signedIn.Result["posts"] != 1 || signedIn.Result["changed"] != true || signedIn.Result["listing"] != bilisource.MethodDesktop || strings.Join(paths, ",") != "api.bilibili.com/x/web-interface/nav,api.bilibili.com/x/polymer/web-dynamic/desktop/v1/feed/space" {
 		t.Fatalf("signed in=%#v paths=%v", signedIn, paths)
 	}
 	page, err := s.ListAdminPosts(context.Background(), sqlite.AdminPostFilter{Page: 1, PageSize: 10, Source: "bilibili"})
@@ -96,6 +98,14 @@ func TestBilibiliDynamicsStepReadsOnlyWithALoginOnItsOwnClock(t *testing.T) {
 	if again := run(sqlite.BilibiliDynamicsSource); again.Result["reason"] != "interval" || len(paths) != 0 {
 		t.Fatalf("again=%#v paths=%v", again, paths)
 	}
+	clock = clock.Add(4 * time.Hour)
+	paths = nil
+	chain := sqlite.SourceChain{Methods: []sqlite.ChainMethod{{ID: bilisource.MethodDynamics, Enabled: true}, {ID: bilisource.MethodDesktop, Enabled: false}}}
+	configured, err := steps.Execute(context.Background(), StepInput{StepID: sqlite.BilibiliDynamicsSource, WorkflowID: sqlite.AdhocSyncWorkflow, Chain: &chain})
+	if err != nil || configured.Status != "succeeded" || configured.Result["listing"] != bilisource.MethodDynamics || strings.Join(paths, ",") != "api.bilibili.com/x/polymer/web-dynamic/v1/feed/space" {
+		t.Fatalf("configured=%#v paths=%v err=%v", configured, paths, err)
+	}
+	paths = nil
 	if uploads = run("bilibili"); uploads.Status != "succeeded" || strings.Join(paths, ",") != "api.bilibili.com/x/series/recArchivesByKeywords" {
 		t.Fatalf("uploads due=%#v paths=%v", uploads, paths)
 	}

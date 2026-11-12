@@ -102,6 +102,11 @@ export function formatMonth(date: Date, locale: string) {
   return formatter(locale, { year: "numeric", month: "long" }).format(date)
 }
 
+/** A month with its year, short where the locale has a short name: "Jan 2026". */
+export function formatShortMonth(date: Date, locale: string) {
+  return formatter(locale, { year: "numeric", month: "short" }).format(date)
+}
+
 /** A month's short name alone: "Jan", "1月". */
 export function formatMonthName(date: Date, locale: string) {
   return formatter(locale, { month: "short" }).format(date)
@@ -516,7 +521,11 @@ export const SALE_LOOKAHEAD_MS = 7 * 86_400_000
  * cancelled ones and those under cancellation review stay out, open ones
  * come first by their close, then the others by their opening.
  */
-export function currentSales(events: ScheduleEvent[], now: number, limit = 3) {
+export function currentSales(
+  events: ScheduleEvent[],
+  now: number,
+  limit = Infinity,
+) {
   const listed = events.filter((event) => {
     if (!eventIsSale(event)) return false
     const status = eventStatus(event, now)

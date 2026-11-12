@@ -13,10 +13,6 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  PanelBottomClose,
-  PanelBottomOpen,
-  PanelRightClose,
-  PanelRightOpen,
   Radio,
   Sparkles,
   X,
@@ -317,6 +313,41 @@ function EntrySheet({
 }
 
 /**
+ * Scrolls `element` into view the way `block: "nearest"` does, moving only
+ * its nearest scrolling ancestor. Safari's own scrollIntoView also scrolls
+ * the overflow-hidden ancestors around a dialog body when the element is
+ * taller than the body, pushing the dialog's header off screen.
+ */
+function revealNearest(element: HTMLElement) {
+  const view = element.ownerDocument.defaultView
+  let scroller = element.parentElement
+  while (view && scroller && scroller !== element.ownerDocument.body) {
+    const { overflowY } = view.getComputedStyle(scroller)
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      scroller.scrollHeight > scroller.clientHeight
+    )
+      break
+    scroller = scroller.parentElement
+  }
+  if (!view || !scroller || scroller === element.ownerDocument.body) {
+    element.scrollIntoView?.({ block: "nearest", behavior: "smooth" })
+    return
+  }
+  const rect = element.getBoundingClientRect()
+  const top = scroller.getBoundingClientRect().top + scroller.clientTop
+  const bottom = top + scroller.clientHeight
+  const above = rect.top < top
+  const below = rect.bottom > bottom
+  if (above === below) return
+  // An edge outside the view lines up with its side, unless the element is
+  // taller than the view, when its start does.
+  const taller = rect.height > scroller.clientHeight
+  const delta = above !== taller ? rect.top - top : rect.bottom - bottom
+  scroller.scrollBy?.({ top: delta, behavior: "smooth" })
+}
+
+/**
  * An entry's card. The card opens the entry's sheet; the arrow in its
  * bottom corner follows the entry's link directly.
  * The month's day details show it `full`, with the whole title, and mark
@@ -346,11 +377,7 @@ function GuideEvent({
   const itemRef = useRef<HTMLLIElement>(null)
   const highlighted = pickTurn > 0
   useEffect(() => {
-    if (pickTurn > 0)
-      itemRef.current?.scrollIntoView?.({
-        block: "nearest",
-        behavior: "smooth",
-      })
+    if (pickTurn > 0 && itemRef.current) revealNearest(itemRef.current)
   }, [pickTurn])
   const facts = entryFacts(event, now, locale, t)
 
@@ -695,48 +722,12 @@ function ScheduleLegend({ t }: { t: Translator }) {
 }
 
 /**
- * The month row's switch for the day details. Its icon points where they
- * sit: beside the grid on wide screens, below it on narrow ones.
- */
-export function ScheduleDayToggle({
-  open,
-  disabled,
-  onToggle,
-  t,
-}: {
-  open: boolean
-  disabled: boolean
-  onToggle: () => void
-  t: Translator
-}) {
-  const label = t(open ? "schedule.hideDay" : "schedule.showDay")
-  const [Wide, Narrow] = open
-    ? [PanelRightClose, PanelBottomClose]
-    : [PanelRightOpen, PanelBottomOpen]
-  return (
-    <button
-      type="button"
-      className="round-button month-detail-toggle"
-      disabled={disabled}
-      onClick={onToggle}
-      aria-label={label}
-      title={label}
-    >
-      <Wide className="month-detail-wide" aria-hidden="true" />
-      <Narrow className="month-detail-narrow" aria-hidden="true" />
-    </button>
-  )
-}
-
-/**
  * The month dialog's body: the month grid and, beside it on wide screens
- * (below it on narrow ones), the selected day's full entries while the day
- * details are shown. Remount it per month so the selection starts over.
+ * (below it on narrow ones), the selected day's full entries. Remount it per
+ * month so the selection starts over.
  */
 export function ScheduleMonth({
   monthStart,
-  showDetails,
-  onShowDetails,
   archive,
   isLoading,
   error,
@@ -749,8 +740,6 @@ export function ScheduleMonth({
   t,
 }: {
   monthStart: Date
-  showDetails: boolean
-  onShowDetails: (show: boolean) => void
   archive: ArchiveSnapshot<ScheduleEvent> | null
   isLoading: boolean
   error: Error | null
@@ -791,16 +780,12 @@ export function ScheduleMonth({
     setPicked((last) =>
       eventId ? { id: eventId, turn: (last?.turn ?? 0) + 1 } : null,
     )
-    onShowDetails(true)
     // On narrow screens the details sit below the grid; a picked entry
     // scrolls itself into view.
     if (eventId) return
-    window.requestAnimationFrame?.(() =>
-      detailRef.current?.scrollIntoView?.({
-        block: "nearest",
-        behavior: "smooth",
-      }),
-    )
+    window.requestAnimationFrame?.(() => {
+      if (detailRef.current) revealNearest(detailRef.current)
+    })
   }
 
   return (
@@ -818,24 +803,24 @@ export function ScheduleMonth({
         t={t}
       />
       {archive ? (
-        <div className={`month-layout${showDetails ? "" : " is-collapsed"}`}>
+        <div className="month-layout">
           <MonthGrid
             monthStart={monthStart}
             byDay={byDay}
             dayCounts={dayCounts}
             todayKey={todayKey}
-            selectedKey={showDetails ? selectedKey : null}
+            selectedKey={selectedKey}
             onPickDay={pickDay}
             locale={locale}
             now={now}
             t={t}
           />
-          {showDetails && !selected ? (
-            <div className="month-detail" aria-live="polite">
+          {!selected ? (
+            <div className="month-detail is-unpicked" aria-live="polite">
               <p className="month-detail-empty">{t("schedule.pickDay")}</p>
             </div>
           ) : null}
-          {showDetails && selected ? (
+          {selected ? (
             <div className="month-detail" ref={detailRef}>
               {/* Only the day and its count are announced, never an entry
                   sheet opened inside the list. */}

@@ -8,7 +8,9 @@ open the album. Like a record, the scene has two sides: side A keeps album
 order, and side B leads with _two_. The small record at the top right of the scene flips
 it, and the page remembers the side on that device. A note there says the sections do not strictly
 follow who holds each work's rights and that, with this many works, some
-details may be wrong, and welcomes corrections and feedback on GitHub.
+details may be wrong, and welcomes corrections and feedback on GitHub; its
+link opens a correction form that asks for the work, what is wrong and a
+source.
 Under it, the page names the date its releases and uploads cover; later
 works are added when the collection is next updated.
 **Official discography**, beside the years at the top, opens the official
@@ -103,9 +105,11 @@ wait for that update.
 ## Dates and Sources
 
 Dates are the Japan date of first release or upload; an edition that came
-out later shows its own date. Edition names, bonuses and image captions keep
-the wording of the collection they come from, in Japanese or Chinese. Covers and works
-belong to their rights holders.
+out later shows its own date. Names of works, people, stores, editions and
+bonus items appear as the releases write them, mostly in Japanese; the words
+around them, such as what an image shows, formats, packaging, credits and
+track notes, follow the interface language. Covers and works belong to their
+rights holders.
 
 ## Related Docs
 

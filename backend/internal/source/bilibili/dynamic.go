@@ -6,6 +6,7 @@ import (
 	"html"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -18,17 +19,23 @@ type Dynamic struct {
 	IDStr string
 	// OwnerMid is the author's account.
 	OwnerMid int64
-	// Text joins the word, topic, mention, link and sticker nodes. A sticker
-	// keeps its caption here; Emojis, stored in Raw, are the pictures.
+	// Text joins the word, topic, mention and link nodes; emoji nodes are
+	// left out, so an emoji-only dynamic has no text. A dynamic without
+	// rich-text nodes has its plain, HTML-unescaped text field instead.
 	Text string
 	// PublishedAt is the publication time, RFC 3339 in UTC.
 	PublishedAt string
 	// Images are the dynamic's own pictures on Bilibili's image CDN, HTTPS.
 	// A forward has none of its own.
 	Images []string
+	// Stickers are the distinct pictures of its emoji nodes in order, on
+	// Bilibili's image CDN, HTTPS (at most maxDynamicStickers).
+	Stickers []string
 	// Quote is the dynamic a forward forwards, nil for any other dynamic.
 	Quote *Quote
-	// Raw keeps the type and the source nodes, emoji included.
+	// Raw keeps the type and the source nodes, emoji nodes included with
+	// their caption and picture. A forward's orig keeps the forwarded
+	// dynamic's type and ID and, when it is available, its title and nodes.
 	Raw map[string]any
 }
 
@@ -42,16 +49,20 @@ type Dynamic struct {
 // upload) is Unavailable with only its ID and URL; when even its ID is
 // unknown, ID is empty and URL is the forward's own opus page. MediaURLs are
 // its pictures, which the store links as quote-image media and never as
-// schedule candidates.
+// schedule candidates. Stickers are its emoji pictures (quote-emoji links),
+// and Title and Nodes the source of its Text.
 type Quote struct {
-	ID           string   `json:"id"`
-	AuthorHandle string   `json:"authorHandle,omitempty"`
-	AuthorName   string   `json:"authorName,omitempty"`
-	Text         string   `json:"text,omitempty"`
-	PublishedAt  string   `json:"publishedAt,omitempty"`
-	URL          string   `json:"url"`
-	Unavailable  bool     `json:"unavailable,omitempty"`
-	MediaURLs    []string `json:"-"`
+	ID           string     `json:"id"`
+	AuthorHandle string     `json:"authorHandle,omitempty"`
+	AuthorName   string     `json:"authorName,omitempty"`
+	Text         string     `json:"text,omitempty"`
+	PublishedAt  string     `json:"publishedAt,omitempty"`
+	URL          string     `json:"url"`
+	Unavailable  bool       `json:"unavailable,omitempty"`
+	MediaURLs    []string   `json:"-"`
+	Stickers     []string   `json:"-"`
+	Title        string     `json:"-"`
+	Nodes        []richNode `json:"-"`
 }
 
 // PostPrefix keeps dynamic IDs apart from X status IDs in posts.id: both are
@@ -107,35 +118,8 @@ const maxAuthorName = 50
 // or another kind is not a post.
 var keptCommentTypes = map[int]bool{11: true, 12: true, 17: true}
 
-const emojiNode = "RICH_TEXT_NODE_TYPE_EMOJI"
-
-// DynamicEmoji is one custom sticker a dynamic's text carries. Text is the
-// caption the wording keeps ("[name]"); Icon is the picture the board paints
-// over it, an animated copy when Bilibili published one.
-type DynamicEmoji struct {
-	Text string `json:"text"`
-	Icon string `json:"icon"`
-}
-
-// sticker is the picture side of one custom sticker. The png is a still
-// frame; the webp and the gif move.
-type sticker struct {
-	Text    string `json:"text"`
-	IconURL string `json:"icon_url"`
-	GifURL  string `json:"gif_url"`
-	WebpURL string `json:"webp_url"`
-}
-
-// picture picks the copy to show: webp, then gif, then the still icon.
-// A still frame of a moving sticker reads as a broken picture.
-func (s sticker) picture() string {
-	for _, raw := range []string{s.WebpURL, s.GifURL, s.IconURL} {
-		if picture := thumbnail(raw); picture != "" {
-			return picture
-		}
-	}
-	return ""
-}
+// EmojiNode is the rich-text node type of a sticker (custom emoji).
+const EmojiNode = "RICH_TEXT_NODE_TYPE_EMOJI"
 
 // maxDynamicText bounds the stored text of one dynamic, in runes.
 const maxDynamicText = 5000
@@ -143,28 +127,85 @@ const maxDynamicText = 5000
 // maxDynamicImages bounds the pictures kept from one dynamic.
 const maxDynamicImages = 9
 
+// maxDynamicStickers bounds the distinct sticker pictures kept from one
+// dynamic, and from the dynamic a forward forwards.
+const maxDynamicStickers = 32
+
+// richNode is one rich-text node as raw_json keeps it. An emoji node's text
+// is its caption, such as [笑], and Emoji its picture.
 type richNode struct {
-	Type    string   `json:"type"`
-	Text    string   `json:"text"`
-	OrigTxt string   `json:"orig_text"`
-	Emoji   *sticker `json:"emoji,omitempty"`
+	Type    string      `json:"type"`
+	Text    string      `json:"text"`
+	OrigTxt string      `json:"orig_text"`
+	Emoji   *stickerPic `json:"emoji,omitempty"`
 }
 
-// joinNodes keeps every node's text. A sticker contributes its caption, which
-// is what Bilibili's own page writes and what the board replaces with the
-// picture.
+// stickerPic is an emoji node's picture: the source's webp, gif or png
+// address, in that order of preference, kept only on Bilibili's image CDN
+// and upgraded to HTTPS. raw_json stores the chosen one as url.
+type stickerPic struct {
+	URL string `json:"url"`
+}
+
+func (p *stickerPic) UnmarshalJSON(b []byte) error {
+	var v struct {
+		WebpURL string `json:"webp_url"`
+		GifURL  string `json:"gif_url"`
+		IconURL string `json:"icon_url"`
+		URL     string `json:"url"`
+	}
+	*p = stickerPic{}
+	if json.Unmarshal(b, &v) != nil {
+		return nil
+	}
+	for _, raw := range []string{v.WebpURL, v.GifURL, v.IconURL, v.URL} {
+		if u := thumbnail(raw); u != "" {
+			p.URL = u
+			return nil
+		}
+	}
+	return nil
+}
+
+// stickerNodes keeps a picture only on an emoji node that has one.
+func stickerNodes(nodes []richNode) []richNode {
+	for i := range nodes {
+		if nodes[i].Type != EmojiNode || nodes[i].Emoji != nil && nodes[i].Emoji.URL == "" {
+			nodes[i].Emoji = nil
+		}
+	}
+	return nodes
+}
+
+// stickers lists the distinct pictures of the emoji nodes in order.
+func stickers(nodes []richNode) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, n := range nodes {
+		if n.Type == EmojiNode && n.Emoji != nil && !seen[n.Emoji.URL] && len(out) < maxDynamicStickers {
+			seen[n.Emoji.URL] = true
+			out = append(out, n.Emoji.URL)
+		}
+	}
+	return out
+}
+
+// hasStickerCaption counts visible wording even when no safe picture is
+// available. Emoji captions stay out of the stored plain text.
+func hasStickerCaption(nodes []richNode) bool {
+	for _, n := range nodes {
+		if n.Type == EmojiNode && n.Text != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// joinNodes keeps every node's text except emoji.
 func joinNodes(nodes []richNode) string {
 	var b strings.Builder
 	for _, n := range nodes {
-		if n.Type == emojiNode {
-			text := n.Text
-			if n.Emoji != nil && n.Emoji.Text != "" {
-				text = n.Emoji.Text
-			}
-			if text == "" {
-				text = n.OrigTxt
-			}
-			b.WriteString(text)
+		if n.Type == EmojiNode {
 			continue
 		}
 		b.WriteString(n.Text)
@@ -172,39 +213,10 @@ func joinNodes(nodes []richNode) string {
 	return b.String()
 }
 
-// stickersOf collects the stickers whose pictures the board can show.
-func stickersOf(nodes []richNode) []DynamicEmoji {
-	var out []DynamicEmoji
-	for _, n := range nodes {
-		if n.Type != emojiNode || n.Emoji == nil {
-			continue
-		}
-		text := n.Emoji.Text
-		if text == "" {
-			text = n.Text
-		}
-		if text == "" {
-			text = n.OrigTxt
-		}
-		if picture := n.Emoji.picture(); picture != "" && text != "" {
-			out = append(out, DynamicEmoji{Text: text, Icon: picture})
-		}
-	}
-	return out
-}
-
-// withStickers records those pictures on a dynamic's raw payload. The public
-// read exposes only this list, never the rest of the payload.
-func withStickers(raw map[string]any, nodes []richNode) map[string]any {
-	if emojis := stickersOf(nodes); len(emojis) > 0 {
-		raw["emoji"] = emojis
-	}
-	return raw
-}
-
-// wording is a dynamic's text. Rich-text nodes win, sticker captions
-// included. A listing that has no nodes publishes a plain text field,
-// sometimes HTML-escaped.
+// wording is a dynamic's text. Rich-text nodes win and leave emoji out. A
+// listing that has no nodes publishes a plain text field, sometimes
+// HTML-escaped. It names no sticker pictures, so its captions stay as
+// written.
 func wording(nodes []richNode, plain string) string {
 	if len(nodes) > 0 {
 		return joinNodes(nodes)
@@ -342,11 +354,11 @@ func (it spaceItem) dynamic(owner int64) (Dynamic, bool) {
 		plain := ""
 		if m.Desc != nil {
 			if m.Desc.Nodes != nil {
-				nodes = m.Desc.Nodes
+				nodes = stickerNodes(m.Desc.Nodes)
 			}
 			plain = m.Desc.Text
 		}
-		d := Dynamic{IDStr: it.IDStr, OwnerMid: owner, Text: boundText(wording(nodes, plain)), PublishedAt: published, Images: []string{}}
+		d := Dynamic{IDStr: it.IDStr, OwnerMid: owner, Text: boundText(wording(nodes, plain)), PublishedAt: published, Images: []string{}, Stickers: stickers(nodes)}
 		// A forward without wording of its own whose dynamic is gone is still
 		// kept: the store rewrites a stored one and leaves out a new one.
 		forwarded := it.original()
@@ -355,25 +367,34 @@ func (it spaceItem) dynamic(owner int64) (Dynamic, bool) {
 		if forwarded != nil && len(forwarded.Type) <= 64 {
 			orig["type"] = forwarded.Type
 		}
-		d.Raw = withStickers(map[string]any{"type": it.Type, "nodes": nodes, "orig": orig}, nodes)
+		if !d.Quote.Unavailable {
+			orig["nodes"] = d.Quote.Nodes
+			if d.Quote.Title != "" {
+				orig["title"] = d.Quote.Title
+			}
+		}
+		d.Raw = map[string]any{"type": it.Type, "nodes": nodes, "orig": orig}
 		return d, true
 	}
 	text, nodes, title, pics := it.content()
-	raw := withStickers(map[string]any{"type": it.Type, "nodes": nodes}, nodes)
+	raw := map[string]any{"type": it.Type, "nodes": nodes}
 	if title != "" {
 		raw["title"] = title
 	}
 	if it.Modules.Tag != nil && it.Modules.Tag.Text != "" {
 		raw["tag"] = it.Modules.Tag.Text
 	}
-	return Dynamic{IDStr: it.IDStr, OwnerMid: owner, Text: text, PublishedAt: published, Images: images(pics), Raw: raw}, true
+	return Dynamic{IDStr: it.IDStr, OwnerMid: owner, Text: text, PublishedAt: published, Images: images(pics), Stickers: stickers(nodes), Raw: raw}, true
 }
 
 // content is a text, picture or opus dynamic's bounded wording (an opus
 // title on its first line), its rich-text nodes, its title and its pictures.
+// An older listing names an album's pictures under draw or opus without a
+// major type, and may give its wording as plain text only.
 func (it spaceItem) content() (string, []richNode, string, []string) {
 	m := it.Modules.Dynamic
 	var nodes []richNode
+	plainText := ""
 	title := ""
 	pics := []string{}
 	if m.Major != nil {
@@ -383,6 +404,7 @@ func (it spaceItem) content() (string, []richNode, string, []string) {
 				title = strings.TrimSpace(o.Title)
 				if o.Summary != nil {
 					nodes = o.Summary.Nodes
+					plainText = o.Summary.Text
 				}
 				for _, p := range o.Pics {
 					pics = append(pics, p.URL)
@@ -401,6 +423,7 @@ func (it spaceItem) content() (string, []richNode, string, []string) {
 				title = strings.TrimSpace(o.Title)
 				if o.Summary != nil {
 					nodes = o.Summary.Nodes
+					plainText = o.Summary.Text
 				}
 				for _, p := range o.Pics {
 					pics = append(pics, p.URL)
@@ -416,17 +439,16 @@ func (it spaceItem) content() (string, []richNode, string, []string) {
 			// Another card (a vote, a reservation or goods) leaves the text.
 		}
 	}
-	plain := ""
-	if m.Major != nil && m.Major.Opus != nil && m.Major.Opus.Summary != nil {
-		plain = m.Major.Opus.Summary.Text
+	if m.Desc != nil {
+		if nodes == nil {
+			nodes = m.Desc.Nodes
+		}
+		if strings.TrimSpace(plainText) == "" {
+			plainText = m.Desc.Text
+		}
 	}
-	if strings.TrimSpace(plain) == "" && m.Desc != nil {
-		plain = m.Desc.Text
-	}
-	if nodes == nil && m.Desc != nil {
-		nodes = m.Desc.Nodes
-	}
-	text := wording(nodes, plain)
+	nodes = stickerNodes(nodes)
+	text := wording(nodes, plainText)
 	if title != "" {
 		text = title + "\n" + text
 	}
@@ -451,13 +473,15 @@ func (it *spaceItem) quote(selfURL string) *Quote {
 	if it.Modules.Author.Mid <= 0 || it.Modules.Author.PubTS <= 0 || it.Visible != nil && !*it.Visible || it.Basic.IsOnlyFans || major == "MAJOR_TYPE_NONE" {
 		return q
 	}
-	text, pics, link := "", []string{}, q.URL
+	text, title, pics, link := "", "", []string{}, q.URL
+	var nodes []richNode
 	switch {
 	case it.Type == "DYNAMIC_TYPE_WORD" || it.Type == "DYNAMIC_TYPE_DRAW" || it.Type == "DYNAMIC_TYPE_ARTICLE" && major == "MAJOR_TYPE_OPUS":
-		text, _, _, pics = it.content()
+		text, nodes, title, pics = it.content()
 	case it.Type == ForwardType:
 		if m.Desc != nil {
-			text = boundText(wording(m.Desc.Nodes, m.Desc.Text))
+			nodes = stickerNodes(m.Desc.Nodes)
+			text = boundText(wording(nodes, m.Desc.Text))
 		}
 	case it.Type == "DYNAMIC_TYPE_AV" && major == "MAJOR_TYPE_ARCHIVE" && m.Major.Archive != nil && bvidPattern.MatchString(m.Major.Archive.BVID):
 		a := m.Major.Archive
@@ -467,7 +491,7 @@ func (it *spaceItem) quote(selfURL string) *Quote {
 		return q
 	}
 	media := images(pics)
-	if text == "" && len(media) == 0 {
+	if text == "" && len(media) == 0 && !hasStickerCaption(nodes) {
 		return q
 	}
 	name := []rune(strings.TrimSpace(html.UnescapeString(it.Modules.Author.Name)))
@@ -480,6 +504,10 @@ func (it *spaceItem) quote(selfURL string) *Quote {
 	q.AuthorHandle = strconv.FormatInt(int64(it.Modules.Author.Mid), 10)
 	q.AuthorName = strings.TrimSpace(string(name))
 	q.Text, q.MediaURLs = text, media
+	if nodes == nil {
+		nodes = []richNode{}
+	}
+	q.Title, q.Nodes, q.Stickers = title, nodes, stickers(nodes)
 	q.PublishedAt = time.Unix(int64(it.Modules.Author.PubTS), 0).UTC().Format(time.RFC3339)
 	return q
 }
@@ -549,6 +577,31 @@ func ParseSpaceFeed(data json.RawMessage, account string) (SpacePage, error) {
 	return out, nil
 }
 
+// ParseDesktopSpaceFeed reads the desktop listing shape and orders its posts
+// by descending dynamic ID, which matches publication order for this feed.
+func ParseDesktopSpaceFeed(data json.RawMessage, account string) (SpacePage, error) {
+	page, err := ParseSpaceFeed(data, account)
+	if err != nil {
+		return SpacePage{}, err
+	}
+	var listing struct {
+		Items []spaceItem `json:"items"`
+	}
+	if json.Unmarshal(data, &listing) != nil {
+		return SpacePage{}, &Error{"bilibili_invalid_response"}
+	}
+	for _, item := range listing.Items {
+		if keptDynamicTypes[item.Type] && (!dynamicIDPattern.MatchString(item.IDStr) || item.Modules.Author.Mid <= 0 || item.Modules.Author.PubTS <= 0) {
+			return SpacePage{}, &Error{"bilibili_invalid_response"}
+		}
+	}
+	sort.SliceStable(page.Dynamics, func(i, j int) bool {
+		a, b := page.Dynamics[i].IDStr, page.Dynamics[j].IDStr
+		return len(a) > len(b) || len(a) == len(b) && a > b
+	})
+	return page, nil
+}
+
 // opusDetail is the item of the opus page's server state and of the
 // opus/detail API: a module list rather than the listing's module object.
 type opusDetail struct {
@@ -577,9 +630,9 @@ type opusDetail struct {
 							Words string `json:"words"`
 						} `json:"word"`
 						Rich *struct {
-							Type  string   `json:"type"`
-							Text  string   `json:"text"`
-							Emoji *sticker `json:"emoji"`
+							Type  string      `json:"type"`
+							Text  string      `json:"text"`
+							Emoji *stickerPic `json:"emoji"`
 						} `json:"rich"`
 					} `json:"nodes"`
 				} `json:"text"`
@@ -623,6 +676,12 @@ func (d opusDetail) dynamic(id string) (Dynamic, error) {
 				if p.Text == nil {
 					continue
 				}
+				// The paragraphs are joined by a line break; raw_json keeps
+				// it as a node of its own, so a sticker that opens a
+				// paragraph is placed after it.
+				if len(paragraphs) > 0 {
+					nodes = append(nodes, richNode{Type: "RICH_TEXT_NODE_TYPE_TEXT", Text: "\n"})
+				}
 				var b strings.Builder
 				for _, n := range p.Text.Nodes {
 					switch {
@@ -630,9 +689,10 @@ func (d opusDetail) dynamic(id string) (Dynamic, error) {
 						b.WriteString(n.Word.Words)
 						nodes = append(nodes, richNode{Type: "RICH_TEXT_NODE_TYPE_TEXT", Text: n.Word.Words})
 					case n.Rich != nil:
-						node := richNode{Type: n.Rich.Type, Text: n.Rich.Text, Emoji: n.Rich.Emoji}
-						nodes = append(nodes, node)
-						b.WriteString(joinNodes([]richNode{node}))
+						nodes = append(nodes, richNode{Type: n.Rich.Type, Text: n.Rich.Text, Emoji: n.Rich.Emoji})
+						if n.Rich.Type != EmojiNode {
+							b.WriteString(n.Rich.Text)
+						}
 					}
 				}
 				paragraphs = append(paragraphs, strings.TrimRight(b.String(), "\n"))
@@ -646,14 +706,15 @@ func (d opusDetail) dynamic(id string) (Dynamic, error) {
 	if title != "" {
 		text = title + "\n" + text
 	}
-	raw := withStickers(map[string]any{"type": "opus", "nodes": nodes}, nodes)
+	nodes = stickerNodes(nodes)
+	raw := map[string]any{"type": "opus", "nodes": nodes}
 	if title != "" {
 		raw["title"] = title
 	}
 	return Dynamic{
 		IDStr: id, OwnerMid: owner, Text: boundText(text),
 		PublishedAt: time.Unix(published, 0).UTC().Format(time.RFC3339),
-		Images:      images(pics), Raw: raw,
+		Images:      images(pics), Stickers: stickers(nodes), Raw: raw,
 	}, nil
 }
 

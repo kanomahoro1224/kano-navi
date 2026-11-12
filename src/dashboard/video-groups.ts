@@ -222,7 +222,9 @@ export function groupVideos(
     const watchable = split.works.filter((video) => !videoIsGone(video))
     lead =
       projected ||
-      watchable.find((video) => isLeadWork(video) || videoTag(video) === null) ||
+      watchable.find(
+        (video) => isLeadWork(video) || videoTag(video) === null,
+      ) ||
       watchable[0] ||
       null
     if (lead) split.works.splice(split.works.indexOf(lead), 1)

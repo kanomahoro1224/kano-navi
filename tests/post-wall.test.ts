@@ -129,15 +129,9 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
         source: "bilibili",
         accountHandle: "100000001",
         accountUrl: "https://space.bilibili.example.invalid/100000001",
-        text: "合成动态[鹿乃_飞了]",
+        text: "合成动态",
         url: "https://www.bilibili.example.invalid/opus/1000000000000000001",
         media: [],
-        emoji: [
-          {
-            text: "[鹿乃_飞了]",
-            icon: "https://i0.hdslb.com/bfs/emote/flying.webp",
-          },
-        ],
         quote: forwarded,
       },
       {
@@ -274,17 +268,6 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
         "https://www.bilibili.example.invalid/opus/1000000000000000003",
       ])
       assert.match(dynamic.textContent || "", /合成动态/u)
-      const sticker = dynamic.querySelector("img.post-emoji")
-      assert.equal(
-        sticker?.getAttribute("src"),
-        "https://i0.hdslb.com/bfs/emote/flying.webp",
-      )
-      assert.equal(sticker?.getAttribute("referrerpolicy"), "no-referrer")
-      assert.equal(sticker?.getAttribute("alt"), "[鹿乃_飞了]")
-      assert.doesNotMatch(
-        dynamic.querySelector(".post-note-text")?.textContent || "",
-        /鹿乃_飞了/u,
-      )
       // The forwarded dynamic shows by its author's name and the bilibili
       // mark, links to its page and has the translation switch.
       const card = dynamic.querySelector(".post-quote")!
@@ -351,6 +334,155 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
         root!.container.querySelectorAll("article.post-note").length,
         4,
       )
+    } finally {
+      await act(async () => root?.unmount())
+      globals.IS_REACT_ACT_ENVIRONMENT = previous.act
+      globals.ResizeObserver = previous.ResizeObserver
+      globals.getComputedStyle = previous.getComputedStyle
+    }
+  })
+})
+
+test("a dynamic's stickers show in its original wording, never in a translation", async () => {
+  await withVite(async (load) => {
+    const [
+      { PostWall },
+      { AppSettingsProvider, PageMessagesProvider, useAppSettings },
+    ] = await Promise.all([
+      load("/src/dashboard/components/post-wall.tsx"),
+      load("/src/app-settings.tsx"),
+    ])
+    const local = "/media/synthetic-laugh?v=synthetic"
+    const base = {
+      source: "bilibili",
+      accountHandle: "100000001",
+      accountUrl: "https://space.bilibili.example.invalid/100000001",
+      publishedAt: "2026-10-08T12:00:00+09:00",
+      mediaUrl: null,
+      mediaStatus: "none",
+      media: [],
+      quote: null,
+    }
+    const posts = [
+      {
+        ...base,
+        id: "bilibili-1000000000000000011",
+        url: "https://www.bilibili.example.invalid/opus/1000000000000000011",
+        text: "早安",
+        translations: {
+          en: { text: "Good morning", origin: "machine" },
+        },
+        sourceLanguage: "zh",
+        // A picture not cached yet shows its caption; an address that is
+        // not a local one is never loaded.
+        rich: [
+          { text: "早" },
+          { emoji: "[笑]", url: local },
+          { text: "安" },
+          { emoji: "[哭]", url: null },
+          { emoji: "[外]", url: "https://i0.hdslb.example.invalid/x.png" },
+        ],
+        quote: {
+          id: "bilibili-1000000000000000013",
+          authorHandle: "42",
+          authorName: "Synthetic Agency",
+          text: "明天",
+          publishedAt: "2026-10-07T12:00:00+09:00",
+          url: "https://www.bilibili.example.invalid/opus/1000000000000000013",
+          unavailable: false,
+          media: [],
+          translations: {},
+          sourceLanguage: "zh",
+          rich: [{ text: "明天" }, { emoji: "[赞]", url: local }],
+        },
+      },
+      {
+        // Stickers alone: no text and nothing to translate.
+        ...base,
+        id: "bilibili-1000000000000000012",
+        url: "https://www.bilibili.example.invalid/opus/1000000000000000012",
+        text: "",
+        translations: {},
+        sourceLanguage: null,
+        rich: [{ emoji: "[笑]", url: local }],
+      },
+    ]
+    function Harness() {
+      const { locale, t } = useAppSettings()
+      return createElement(PostWall, {
+        posts,
+        latestPost: posts[0],
+        accounts: [],
+        bilibiliAccounts: ["100000001"],
+        avatarUrl: null,
+        windowDays: 14,
+        isLoading: false,
+        locale,
+        now: Date.parse("2026-10-08T21:00:00+09:00"),
+        t,
+        onOpenMedia: () => {},
+        onOpenArchive: () => {},
+      })
+    }
+    const globals = globalThis as any
+    const previous = {
+      act: globals.IS_REACT_ACT_ENVIRONMENT,
+      ResizeObserver: globals.ResizeObserver,
+      getComputedStyle: globals.getComputedStyle,
+    }
+    globals.IS_REACT_ACT_ENVIRONMENT = true
+    globals.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    }
+    globals.getComputedStyle = (element: Element) =>
+      browser.getComputedStyle(element as any)
+    let root: Rendered | undefined
+    try {
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: dashboardMessages },
+              createElement(Harness),
+            ),
+          ),
+        )
+      })
+      const [dynamic, stickersOnly] = [
+        ...root!.container.querySelectorAll("article.post-note"),
+      ]
+      const text = dynamic.querySelector(".post-note-text")!
+      // An English reader sees the translation, without stickers.
+      assert.match(text.textContent || "", /Good morning/u)
+      assert.equal(text.querySelector("img"), null)
+      await click(text.querySelector(".translation-mark")!)
+      const stickers = [...text.querySelectorAll("img.post-sticker")]
+      assert.deepEqual(
+        stickers.map((img) => [
+          img.getAttribute("src"),
+          img.getAttribute("alt"),
+        ]),
+        [[local, "[笑]"]],
+      )
+      assert.equal(stickers[0].getAttribute("title"), "[笑]")
+      assert.match(text.textContent || "", /^早安\[哭\]\[外\]/u)
+      // The forwarded dynamic shows its sticker the same way.
+      const quoted = dynamic.querySelector(".post-quote-text img.post-sticker")
+      assert.equal(quoted?.getAttribute("src"), local)
+      assert.equal(quoted?.getAttribute("alt"), "[赞]")
+      // A dynamic of stickers alone shows them rather than an empty card.
+      assert.equal(
+        stickersOnly
+          .querySelector(".post-note-text img.post-sticker")
+          ?.getAttribute("alt"),
+        "[笑]",
+      )
+      for (const img of root!.container.querySelectorAll("img"))
+        assert.doesNotMatch(img.getAttribute("src") || "", /^https?:/u)
     } finally {
       await act(async () => root?.unmount())
       globals.IS_REACT_ACT_ENVIRONMENT = previous.act

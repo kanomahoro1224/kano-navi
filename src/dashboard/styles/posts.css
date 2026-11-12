@@ -1,12 +1,38 @@
-/* Phones: the filter starts the row and the archive icon ends it. */
+/*
+ * Phones: the filter starts the row and the archive icon ends it. A filter
+ * too long for the row scrolls sideways without a visible scrollbar.
+ */
 @media (max-width: 560px) {
   .posts .section-title-actions,
   .videos .section-title-actions {
+    min-width: 0;
     flex-basis: 100%;
+    flex-wrap: nowrap;
+  }
+
+  .posts .section-title-actions > .segmented,
+  .videos .section-title-actions > .segmented {
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .posts .section-title-actions > .segmented::-webkit-scrollbar,
+  .videos .section-title-actions > .segmented::-webkit-scrollbar {
+    display: none;
+  }
+
+  .posts .section-title-actions > .segmented button,
+  .videos .section-title-actions > .segmented button {
+    flex: none;
+    white-space: nowrap;
   }
 
   .posts .section-title-actions > .pill-button:last-child,
   .videos .section-title-actions > .pill-button:last-child {
+    flex: none;
     margin-left: auto;
   }
 }
@@ -124,16 +150,6 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 6;
-}
-
-/* A Bilibili sticker sits on the text baseline where its caption was. */
-.post-emoji {
-  display: inline-block;
-  width: auto;
-  height: 1.45em;
-  margin: 0 1px;
-  vertical-align: -0.35em;
-  border-radius: 3px;
 }
 
 .post-note-expand {
@@ -368,6 +384,16 @@
   line-height: 1.6;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+/* A sticker sits in the wording at the height of its text. */
+.post-sticker {
+  display: inline-block;
+  width: auto;
+  height: 1.4em;
+  margin: 0 1px;
+  vertical-align: text-bottom;
+  object-fit: contain;
 }
 
 .post-quote-text.is-clamped {

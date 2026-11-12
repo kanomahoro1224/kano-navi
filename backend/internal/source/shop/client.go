@@ -1,11 +1,12 @@
 // Package shop reads the sale periods of the official shop, a Shopify
-// storefront, from its public product JSON.
+// storefront, from its public product JSON and its catalog's Atom feed.
 //
-// The client requests three fixed paths on one host and nothing else: the
+// The client requests four fixed paths on one host and nothing else: the
 // newest products of the new-arrivals collection, the whole catalog a page at
-// a time, and the collection list. No URL comes from data. Every request
-// names the project honestly as kano-navi-go/shop; the shop rate-limits
-// clients that pose as a browser.
+// a time, the catalog's Atom feed, and the collection list. No URL comes from
+// data. Every request names the project honestly as kano-navi-go/shop; the
+// shop rate-limits clients that pose as a browser. With a Web Bot Auth key a
+// request may also be signed (internal/webbotauth).
 package shop
 
 import (
@@ -18,6 +19,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/sourcecapture"
+	"github.com/yexca/kano-navi/backend/internal/webbotauth"
 )
 
 // Host is the shop's storefront, the only host the client requests.
@@ -60,6 +64,10 @@ type Error struct {
 
 func (e *Error) Error() string { return e.Code }
 
+// ErrNoSigningKey is the signed method's outcome without a Web Bot Auth key;
+// it makes no request.
+const ErrNoSigningKey = "shop_no_signing_key"
+
 // ErrorCode is the controlled code of a client or adapter error.
 func ErrorCode(err error) string {
 	var e *Error
@@ -73,7 +81,23 @@ type Client struct {
 	http *http.Client
 	// now reads the clock for an HTTP-date Retry-After.
 	now func() time.Time
+	// Signer gives the signer of the requests a read asks to sign, read
+	// afresh for every request so a key the operator changes applies at
+	// once; nil, or no current signer, leaves every request unsigned and the
+	// signed method unavailable.
+	Signer webbotauth.Source
 }
+
+// signer is the signer in use, or nil.
+func (c *Client) signer() *webbotauth.Signer {
+	if c.Signer == nil {
+		return nil
+	}
+	return c.Signer.Current()
+}
+
+// Signs reports whether a Web Bot Auth key is in use.
+func (c *Client) Signs() bool { return c.signer() != nil }
 
 // NewClient wraps an HTTP client (for its transport) with the request
 // timeout and redirect rejection.
@@ -83,14 +107,16 @@ func NewClient(client *http.Client) *Client {
 	}
 	copy := *client
 	copy.Timeout = RequestTimeout
+	copy.Transport = sourcecapture.NewTransport("shop", copy.Transport)
 	copy.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &Client{http: &copy, now: time.Now}
 }
 
-// NewArrivals lists the newest products, newest first.
-func (c *Client) NewArrivals(ctx context.Context, limit int) ([]Product, error) {
+// NewArrivals lists the newest products, newest first, signed when sign is
+// set.
+func (c *Client) NewArrivals(ctx context.Context, limit int, sign bool) ([]Product, error) {
 	limit = min(max(limit, 1), CatalogPageSize)
-	body, err := c.get(ctx, "/collections/new-arrivals/products.json", url.Values{"limit": {strconv.Itoa(limit)}})
+	body, err := c.get(ctx, "/collections/new-arrivals/products.json", url.Values{"limit": {strconv.Itoa(limit)}}, "application/json", sign)
 	if err != nil {
 		return nil, err
 	}
@@ -99,11 +125,11 @@ func (c *Client) NewArrivals(ctx context.Context, limit int) ([]Product, error) 
 
 // CatalogPage lists one page of the whole catalog, from 1, with the number
 // of products the page lists before unusable ones are left out.
-func (c *Client) CatalogPage(ctx context.Context, page int) ([]Product, int, error) {
+func (c *Client) CatalogPage(ctx context.Context, page int, sign bool) ([]Product, int, error) {
 	if page < 1 || page > MaxCatalogPages {
 		return nil, 0, &Error{Code: "shop_invalid_request"}
 	}
-	body, err := c.get(ctx, "/products.json", url.Values{"limit": {strconv.Itoa(CatalogPageSize)}, "page": {strconv.Itoa(page)}})
+	body, err := c.get(ctx, "/products.json", url.Values{"limit": {strconv.Itoa(CatalogPageSize)}, "page": {strconv.Itoa(page)}}, "application/json", sign)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -111,23 +137,41 @@ func (c *Client) CatalogPage(ctx context.Context, page int) ([]Product, int, err
 }
 
 // Collections lists the shop's collections.
-func (c *Client) Collections(ctx context.Context) ([]Collection, error) {
-	body, err := c.get(ctx, "/collections.json", url.Values{"limit": {strconv.Itoa(collectionsLimit)}})
+func (c *Client) Collections(ctx context.Context, sign bool) ([]Collection, error) {
+	body, err := c.get(ctx, "/collections.json", url.Values{"limit": {strconv.Itoa(collectionsLimit)}}, "application/json", sign)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCollections(body)
 }
 
-// get requests one fixed path on Host and returns the bounded body.
-func (c *Client) get(ctx context.Context, path string, query url.Values) ([]byte, error) {
+// Atom lists the newest AtomLimit products of the whole catalog from its
+// Atom feed.
+func (c *Client) Atom(ctx context.Context, sign bool) ([]Product, error) {
+	body, err := c.get(ctx, "/collections/all.atom", nil, "application/atom+xml", sign)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAtom(body)
+}
+
+// get requests one fixed path on Host and returns the bounded body. A
+// signed request without a key fails before any request.
+func (c *Client) get(ctx context.Context, path string, query url.Values, accept string, sign bool) ([]byte, error) {
+	signer := c.signer()
+	if sign && signer == nil {
+		return nil, &Error{Code: ErrNoSigningKey}
+	}
 	u := url.URL{Scheme: "https", Host: Host, Path: path, RawQuery: query.Encode()}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, &Error{Code: "shop_invalid_request"}
 	}
 	req.Header.Set("User-Agent", UserAgent)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", accept)
+	if sign && signer.SignRequest(req) != nil {
+		return nil, &Error{Code: "shop_signing_failed"}
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, c.transportError(ctx, err)

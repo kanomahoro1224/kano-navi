@@ -1,6 +1,7 @@
 package publicview
 
 import (
+	"strings"
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
@@ -207,11 +208,11 @@ func PublicEventLinks(links []sqlite.EventLink) []any {
 }
 func publicPost(p sqlite.Post) map[string]any {
 	out := map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "promoted": p.Promoted}
-	if len(p.Emojis) > 0 {
-		out["emoji"] = publicEmojis(p.Emojis)
-	}
 	if p.Repost != nil {
 		out["repost"] = publicRepost(p.Repost)
+	}
+	if rich := publicRich(p.Rich); rich != nil {
+		out["rich"] = rich
 	}
 	return out
 }
@@ -226,14 +227,27 @@ func publicRepost(r *sqlite.PostRepost) any {
 	return map[string]any{"id": r.ID, "authorHandle": text(r.AuthorHandle), "authorName": text(r.AuthorName), "authorAvatar": text(r.AuthorAvatar), "publishedAt": text(r.PublishedAt), "url": r.URL}
 }
 
-// publicEmojis is the stickers a post's text uses: the caption the wording
-// keeps and the icon the board paints over it.
-func publicEmojis(items []sqlite.PostEmoji) []any {
-	emojis := make([]any, 0, len(items))
-	for _, e := range items {
-		emojis = append(emojis, map[string]any{"text": e.Caption, "icon": e.Icon})
+// publicRich is the original wording of a Bilibili dynamic with stickers:
+// {text} segments and {emoji, url} stickers, whose url is the local /media
+// address of a ready cached picture or null. It is nil, and the key left
+// out, for wording without stickers. No other address is ever given.
+func publicRich(segments []sqlite.RichSegment) []any {
+	if len(segments) == 0 {
+		return nil
 	}
-	return emojis
+	out := make([]any, 0, len(segments))
+	for _, s := range segments {
+		if s.Emoji == "" {
+			out = append(out, map[string]any{"text": s.Text})
+			continue
+		}
+		var url any
+		if s.URL != nil && strings.HasPrefix(*s.URL, "/media/") {
+			url = *s.URL
+		}
+		out = append(out, map[string]any{"emoji": s.Emoji, "url": url})
+	}
+	return out
 }
 
 func publicMedia(items []sqlite.PostMedia) []any {
@@ -258,7 +272,11 @@ func publicQuote(q *sqlite.PostQuote) any {
 		}
 		return s
 	}
-	return map[string]any{"id": text(q.ID), "authorHandle": text(q.AuthorHandle), "authorName": text(q.AuthorName), "text": text(q.Text), "publishedAt": text(q.PublishedAt), "url": q.URL, "unavailable": q.Unavailable, "media": publicMedia(q.Media), "translations": publicTranslations(q.Translations), "sourceLanguage": value(q.Translations.SourceLanguage)}
+	out := map[string]any{"id": text(q.ID), "authorHandle": text(q.AuthorHandle), "authorName": text(q.AuthorName), "text": text(q.Text), "publishedAt": text(q.PublishedAt), "url": q.URL, "unavailable": q.Unavailable, "media": publicMedia(q.Media), "translations": publicTranslations(q.Translations), "sourceLanguage": value(q.Translations.SourceLanguage)}
+	if rich := publicRich(q.Rich); rich != nil {
+		out["rich"] = rich
+	}
+	return out
 }
 func publicVideo(v sqlite.Video) map[string]any {
 	return map[string]any{"id": v.ID, "source": v.Source, "title": v.Title, "publishedAt": value(v.PublishedAt), "scheduledAt": value(v.ScheduledAt), "url": v.URL, "thumbnailUrl": value(v.ThumbnailURL), "kind": value(v.Kind), "isUpcoming": v.IsUpcoming, "endsAt": value(v.EndsAt), "thumbnailId": value(v.ThumbnailID), "thumbnailStatus": v.ThumbnailStatus, "thumbnailSourceUrl": value(v.ThumbnailSourceURL), "isCancelled": v.IsCancelled, "liveStatus": value(v.LiveStatus), "durationSeconds": valueInt(v.DurationSeconds), "isShort": valueBool(v.IsShort), "tag": value(v.Tag), "availability": value(v.Availability), "view": publicVideoView(v.View), "translations": publicTranslations(v.Translations), "sourceLanguage": value(v.Translations.SourceLanguage), "alternates": publicAlternates(v.Alternates)}

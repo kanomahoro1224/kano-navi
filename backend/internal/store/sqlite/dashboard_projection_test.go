@@ -53,3 +53,38 @@ func TestDashboardProjectionCarriesSharedEventAndVideoSemantics(t *testing.T) {
 		t.Fatalf("spotlight=%+v", dashboard.Projection.Spotlight)
 	}
 }
+
+// The projection lists every sale the dashboard carries, so the board can
+// open the ones beyond its row.
+func TestDashboardProjectionListsEverySale(t *testing.T) {
+	now := time.Date(2026, 11, 2, 4, 0, 0, 0, time.UTC)
+	sale := func(id, opens, closes string) DashboardEvent {
+		return DashboardEvent{
+			ID: id, Source: "shop", Title: id, StartsOn: opens,
+			StartsAt: strPtr(opens + "T03:00:00Z"), EndsOn: strPtr(closes),
+			EndsAt: strPtr(closes + "T14:59:00Z"), TimePrecision: "exact",
+			EventType: strPtr("sale"), CancellationStatus: "none",
+		}
+	}
+	dashboard := &Dashboard{Events: []DashboardEvent{
+		sale("e", "2026-11-05", "2026-11-30"),
+		sale("a", "2026-10-20", "2026-11-04"),
+		sale("d", "2026-10-25", "2026-11-20"),
+		sale("b", "2026-10-28", "2026-11-08"),
+		sale("c", "2026-11-01", "2026-11-12"),
+		sale("later", "2026-11-20", "2026-12-20"),
+	}}
+
+	applyDashboardProjection(dashboard, now)
+
+	want := []string{"a", "b", "c", "d", "e"}
+	got := dashboard.Projection.Sales
+	if len(got) != len(want) {
+		t.Fatalf("sales=%v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("sales=%v", got)
+		}
+	}
+}

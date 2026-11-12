@@ -274,10 +274,6 @@
   gap: 20px;
 }
 
-.month-layout.is-collapsed {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .month-detail {
   position: sticky;
   top: 0;
@@ -328,16 +324,6 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* The month row's day-details switch keeps to the row's end. */
-.month-detail-toggle {
-  margin-left: auto;
-}
-
-/* Its icon points where the details sit: beside or below the grid. */
-.month-detail-narrow {
-  display: none;
-}
-
 /*
  * Wide screens: the month fills the dialog, its weeks sharing the height
  * and the day details scrolling beside it.
@@ -383,12 +369,9 @@
     position: static;
   }
 
-  .month-detail-wide {
+  /* Below the grid, the details wait for a picked day. */
+  .month-detail.is-unpicked {
     display: none;
-  }
-
-  .month-detail-narrow {
-    display: block;
   }
 }
 

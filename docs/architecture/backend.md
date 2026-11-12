@@ -16,19 +16,29 @@ routes are in the [Admin API](admin-api.md).
 kano-go serve        Serve the whole site (API, console, workflows, MCP, frontend)
 kano-go seed         Create the database if missing and add missing static records
 kano-go sync         Run one full synchronization and exit
+kano-go responses    List capture metadata or export a captured source response
 kano-go migrate-llm  Seal OPENAI_API_KEY as the key of the openai-default provider
 kano-go variants     Make the resized copies of the LINE BLOG, Works and Journey images
+kano-go web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY override line and its keyid
 kano-go healthcheck  Probe the local service and exit
 ```
 
-Every command but `variants` reads `.env` from the working directory; variables already in
-the environment win. `-database` overrides `data/database/kano.sqlite`, and
+`serve`, `seed`, `sync` and `migrate-llm` read `.env` from the working
+directory; variables already in the environment win. `responses` opens the
+database read-only and does not read `.env`; its `-database` flag overrides
+`data/database/kano.sqlite`. The other database commands also accept
+`-database`, and
 `serve` also accepts `-static` (default `dist`) and `-listen` (default `PORT`,
 `7657`). `seed -overwrite` restores the shipped profile, timeline and resource
 wording; it never touches source snapshots, events, media or providers.
 `migrate-llm -force` replaces an already stored key. `variants` takes `-data`
 and `-out` instead of `-database`
 ([Variants command](media-cache.md#variants-command)).
+`responses list` accepts `-source` and `-limit`; `responses export` writes a
+verified response body to standard output and accepts `-database` before the
+capture ID.
+`web-bot-auth-key` takes no flags and stores nothing
+([Web Bot Auth](web-bot-auth.md#key)).
 
 From the repository root:
 
@@ -60,7 +70,11 @@ is occupied.
 ## Startup Order
 
 1. `ADMIN_PASSWORD` (production default, at least 12 non-padding characters)
-   and a non-blank `LLM_SECRETS_KEY` are validated before SQLite is opened.
+   and a non-blank `LLM_SECRETS_KEY` are validated before SQLite is opened,
+   as is an optional `WEB_BOT_AUTH_KEY` override
+   ([Web Bot Auth](web-bot-auth.md#key)). The stored Web Bot Auth key is
+   loaded once the database is open; an unreadable key or a missing
+   origin leaves signing off rather than failing the start.
 2. A missing database is created from the embedded schema
    (`internal/store/sqlite/bootstrap.sql`) and public static seeds. Source
    snapshots, Featured data and providers start empty.
@@ -107,6 +121,7 @@ is occupied.
 | Profile media, schedule images, post reprocess | `internal/contentadmin`                                         |
 | Schedule extraction step                       | `internal/schedule`                                             |
 | Outbound proxy queue and routes                | `internal/outboundproxy`                                        |
+| Web Bot Auth key, signing and key directory    | `internal/webbotauth`, `internal/webbotauth/keyadmin`           |
 | `/mcp`                                         | `internal/mcpapi`                                               |
 | Huawei and browser notifications, ingest       | `internal/push`, `internal/ingest`                              |
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
@@ -115,8 +130,8 @@ is occupied.
 listener; `internal/httpapi` builds the handler around an injected store.
 `internal/adminapi` owns the single `/api/admin` route table described in the
 [Admin API](admin-api.md). Feature packages (`internal/llmadmin`,
-`internal/contentadmin`, `internal/outboundproxy` and the YouTube `websub`
-package) implement
+`internal/contentadmin`, `internal/outboundproxy`, `internal/webbotauth/keyadmin`
+and the YouTube `websub` package) implement
 `httpx.AdminModule` by returning their routes; the router authenticates the
 session, applies the origin guard and refuses writes to a read-only database
 before a module handler runs.

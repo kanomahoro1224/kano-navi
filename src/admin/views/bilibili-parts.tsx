@@ -554,9 +554,7 @@ function BilibiliLogin() {
             <Badge icon={KeyRound}>{t("admin.bilibili.anonymous")}</Badge>
           )}
         </div>
-        <p className="adm-note">
-          {note ?? t("admin.biliLogin.hint")}
-        </p>
+        <p className="adm-note">{note ?? t("admin.biliLogin.hint")}</p>
         <Button
           icon={QrCode}
           variant="primary"

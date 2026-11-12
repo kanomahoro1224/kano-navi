@@ -32,7 +32,7 @@ type scanQueue struct {
 	queue     []candidate
 	requested int
 	// postsRead counts the rows the detection stages scanned, each stage
-	// reading every shown X and Bilibili post.
+	// reading every shown X and Bilibili post within the lookback.
 	postsRead int
 	elapsed   time.Duration
 	// states is every post_llm_states row as the queue was built, keyed by
@@ -41,9 +41,9 @@ type scanQueue struct {
 }
 
 // buildQueue selects and orders a scan's candidates: operator reprocess
-// requests (at most scanLimit, shown posts only) first, then the keyword
-// candidates never attempted first, then the least recently attempted,
-// newer posts first among equals.
+// requests (at most scanLimit, shown posts only, whatever their age) first,
+// then the keyword candidates within the extraction lookback, never attempted
+// first, then the least recently attempted, newer posts first among equals.
 func (e *Extractor) buildQueue(ctx context.Context) (scanQueue, error) {
 	config, err := e.loadConfig(ctx)
 	if err != nil {
@@ -71,11 +71,7 @@ func (e *Extractor) buildQueue(ctx context.Context) (scanQueue, error) {
 		if !stage.enabled {
 			continue
 		}
-		since := ""
-		if config.maxAgeDays > 0 {
-			since = sqlite.ISOTime(e.now().AddDate(0, 0, -config.maxAgeDays))
-		}
-		posts, read, err := e.listCandidatePosts(ctx, config.keywords, stage.detectionType, config.messageAllPosts, since)
+		posts, read, err := e.listCandidatePosts(ctx, config.keywords, stage.detectionType, config.messageAllPosts, config.since)
 		scan.postsRead += read
 		if err != nil {
 			return scanQueue{}, err
@@ -518,6 +514,9 @@ type QueuePreview struct {
 	AllPosts       bool `json:"allPosts"`
 	// Limit is how many posts one run processes.
 	Limit int `json:"limit"`
+	// LookbackDays is the extraction lookback the candidates were selected
+	// with; 0 sets no limit.
+	LookbackDays int `json:"lookbackDays"`
 	// PostsRead, Candidates and CandidateMs are the run's candidate phase
 	// counts; ElapsedMs is the whole preview.
 	PostsRead   int   `json:"postsRead"`
@@ -601,7 +600,7 @@ func (e *Extractor) PreviewQueue(ctx context.Context) (QueuePreview, error) {
 	out := QueuePreview{
 		GeneratedAt: sqlite.ISOTime(now), Disabled: scan.disabled,
 		BoardEnabled: scan.boardEnabled, MessageEnabled: scan.config.messageEnabled,
-		AllPosts: scan.config.messageAllPosts, Limit: scanLimit,
+		AllPosts: scan.config.messageAllPosts, Limit: scanLimit, LookbackDays: scan.config.lookbackDays,
 		PostsRead: scan.postsRead, Candidates: len(scan.queue), Requested: scan.requested,
 		CandidateMs: scan.elapsed.Milliseconds(), Run: []QueueEntry{},
 	}

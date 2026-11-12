@@ -28,8 +28,10 @@ import type {
   StoreBonus,
   StoreGroup,
   WorksCover,
+  WorksText,
   WorksTrack,
 } from "./types"
+import { worksText } from "./works-text"
 import { FilterButtons, OrderToggle, type Order } from "./works-controls"
 import {
   CreditLine,
@@ -270,7 +272,7 @@ function Tracklist({
   return (
     <div className="works-tracklist">
       {discs.map(({ disc, tracks: discTracks }) => {
-        const label = discTracks[0]?.discLabel
+        const label = worksText(discTracks[0]?.discLabel, t)
         const photo = photos.findIndex((item) => item.disc === disc)
         const heading = [
           discs.length > 1 ? t("works.disc", { disc }) : "",
@@ -303,22 +305,24 @@ function Tracklist({
               </div>
             ) : null}
             <ol>
-              {discTracks.map((track) => (
-                <li key={`${disc}-${track.no}`}>
-                  <span className="works-track-no">
-                    {String(track.no).padStart(2, "0")}
-                  </span>
-                  <span className="works-track-copy">
-                    <strong>{track.title}</strong>
-                    {track.credit || track.note ? (
-                      <small>
-                        {[track.credit, track.note].filter(Boolean).join(" · ")}
-                      </small>
-                    ) : null}
-                  </span>
-                  <ListenLinks track={track} t={t} />
-                </li>
-              ))}
+              {discTracks.map((track) => {
+                const about = [
+                  worksText(track.credit, t),
+                  worksText(track.note, t),
+                ].filter(Boolean)
+                return (
+                  <li key={`${disc}-${track.no}`}>
+                    <span className="works-track-no">
+                      {String(track.no).padStart(2, "0")}
+                    </span>
+                    <span className="works-track-copy">
+                      <strong>{track.title}</strong>
+                      {about.length ? <small>{about.join(" · ")}</small> : null}
+                    </span>
+                    <ListenLinks track={track} t={t} />
+                  </li>
+                )
+              })}
             </ol>
           </div>
         )
@@ -342,26 +346,29 @@ function ImageStrip({
   if (!images.length) return null
   return (
     <ul className="works-thumbs">
-      {images.map((image, index) => (
-        <li key={image.media}>
-          <button
-            type="button"
-            className="media-opener"
-            onClick={() => onOpenCovers(images, index, title)}
-            aria-label={t("works.openImage", {
-              title: image.caption || title,
-            })}
-            title={image.caption}
-          >
-            <WorksCoverImage
-              cover={image}
-              alt=""
-              t={t}
-              sizes={WORKS_COVER_SIZES.edition}
-            />
-          </button>
-        </li>
-      ))}
+      {images.map((image, index) => {
+        const caption = worksText(image.caption, t)
+        return (
+          <li key={image.media}>
+            <button
+              type="button"
+              className="media-opener"
+              onClick={() => onOpenCovers(images, index, title)}
+              aria-label={t("works.openImage", {
+                title: caption || title,
+              })}
+              title={caption || undefined}
+            >
+              <WorksCoverImage
+                cover={image}
+                alt=""
+                t={t}
+                sizes={WORKS_COVER_SIZES.edition}
+              />
+            </button>
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -388,60 +395,63 @@ function StoreLinks({
 }) {
   return (
     <>
-      {groups.map((group) => (
-        <div key={group.item} className="works-stores">
-          {group.item ? (
-            <p className="works-bonus-scope">{group.item}</p>
-          ) : null}
-          <ul>
-            {group.links.map((link) => {
-              const platform = t(`works.store.${link.platform}`)
-              return (
-                <li key={link.platform}>
-                  <ExternalLink
-                    className={`works-chip works-store is-${link.platform}`}
-                    href={link.url}
-                    aria-label={t(
-                      link.platform === "smart_link"
-                        ? "works.openAllStores"
-                        : link.platform === "label_page"
-                          ? "works.openLabelPage"
-                          : "works.openStore",
-                      {
-                        platform,
-                        title: group.item ? `${title} ${group.item}` : title,
-                      },
-                    )}
-                  >
-                    {platform}
-                    {link.hiRes ? <small>Hi-Res</small> : null}
-                    <ArrowUpRight aria-hidden="true" />
-                  </ExternalLink>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      ))}
+      {groups.map((group, index) => {
+        const item = worksText(group.item, t)
+        return (
+          <div key={index} className="works-stores">
+            {item ? <p className="works-bonus-scope">{item}</p> : null}
+            <ul>
+              {group.links.map((link) => {
+                const platform = t(`works.store.${link.platform}`)
+                return (
+                  <li key={link.platform}>
+                    <ExternalLink
+                      className={`works-chip works-store is-${link.platform}`}
+                      href={link.url}
+                      aria-label={t(
+                        link.platform === "smart_link"
+                          ? "works.openAllStores"
+                          : link.platform === "label_page"
+                            ? "works.openLabelPage"
+                            : "works.openStore",
+                        {
+                          platform,
+                          title: item ? `${title} ${item}` : title,
+                        },
+                      )}
+                    >
+                      {platform}
+                      {link.hiRes ? <small>Hi-Res</small> : null}
+                      <ArrowUpRight aria-hidden="true" />
+                    </ExternalLink>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )
+      })}
     </>
   )
 }
 
-function BonusList({ items }: { items: StoreBonus[] }) {
+function BonusList({ items, t }: { items: StoreBonus[]; t: Translator }) {
   return (
     <ul className="works-bonuses">
       {items.map((bonus, index) => (
         <li key={index}>
-          <span className="works-bonus-store">{bonus.store}</span>
-          <span>{bonus.item}</span>
+          <span className="works-bonus-store">{worksText(bonus.store, t)}</span>
+          <span>{worksText(bonus.item, t)}</span>
         </li>
       ))}
     </ul>
   )
 }
 
-function Facts({ facts, t }: { facts: [string, string][]; t: Translator }) {
-  const shown = facts.filter(([, value]) => value)
+function Facts({ facts, t }: { facts: [string, WorksText][]; t: Translator }) {
+  const shown = facts
+    .map(([key, value]) => [key, worksText(value, t)])
+    .filter(([, value]) => value)
   if (!shown.length) return null
   return (
     <dl className="works-facts">
@@ -495,7 +505,10 @@ function DiscPicker({
       aria-label={t("works.discPicker")}
     >
       {photos.map(({ disc, image }) => {
-        const label = tracks.find((track) => track.disc === disc)?.discLabel
+        const label = worksText(
+          tracks.find((track) => track.disc === disc)?.discLabel,
+          t,
+        )
         const name = [t("works.disc", { disc }), label]
           .filter(Boolean)
           .join(" · ")
@@ -541,14 +554,14 @@ function EditionPicker({
       {editions.map((edition, index) => {
         const cover = edition.covers[0] ?? null
         const detail = [
-          edition.format,
+          worksText(edition.format, t),
           edition.cancelled ? t("works.cancelled") : "",
         ]
           .filter(Boolean)
           .join(" · ")
         return (
           <button
-            key={edition.name}
+            key={index}
             type="button"
             aria-pressed={index === value}
             onClick={() => onChange(index)}
@@ -566,7 +579,9 @@ function EditionPicker({
               )}
             </span>
             <span className="works-edition-text">
-              <span className="works-edition-name">{edition.name}</span>
+              <span className="works-edition-name">
+                {worksText(edition.name, t)}
+              </span>
               {detail ? <small>{detail}</small> : null}
             </span>
           </button>
@@ -601,7 +616,8 @@ export function ReleaseSheet({
   const edition = release.editions[editionIndex] ?? null
   const covers = edition?.covers.length ? edition.covers : release.covers
   const cover = covers[shown] ?? null
-  const caption = cover?.caption ?? ""
+  const caption = worksText(cover?.caption, t)
+  const editionName = worksText(edition?.name, t)
   const tracks = edition ? edition.tracks : release.tracks
   const discPhotos = edition ? edition.discs : release.discs
   // The record in the header is the chosen edition's first disc, drawn when
@@ -706,7 +722,7 @@ export function ReleaseSheet({
                         number: index + 1,
                         count: covers.length,
                       })}
-                      title={item.caption}
+                      title={worksText(item.caption, t) || undefined}
                       onClick={() => setShown(index)}
                     >
                       <WorksCoverImage
@@ -730,7 +746,7 @@ export function ReleaseSheet({
               </ArtSlot>
               {caption || cover?.thirdParty || cover?.credit ? (
                 <p key={cover?.media} className="release-sheet-caption">
-                  {caption ? <span lang="zh-CN">{caption}</span> : null}
+                  {caption ? <span>{caption}</span> : null}
                   {cover?.credit ? (
                     <small>
                       <CreditLine credit={cover.credit} t={t} />
@@ -753,7 +769,9 @@ export function ReleaseSheet({
               {release.unit ? (
                 <p className="release-sheet-unit">{release.unit}</p>
               ) : null}
-              <p className="release-head-label">{release.label}</p>
+              <p className="release-head-label">
+                {worksText(release.label, t)}
+              </p>
               <p className="release-head-figures">
                 <span>
                   <strong>{tracks.length}</strong>
@@ -789,7 +807,7 @@ export function ReleaseSheet({
             <p className="works-field-label">
               {t("works.tracklist")}
               {edition && release.editions.length > 1 ? (
-                <small>{edition.name}</small>
+                <small>{editionName}</small>
               ) : null}
             </p>
             <Tracklist
@@ -805,7 +823,7 @@ export function ReleaseSheet({
             {edition ? (
               <section className="release-edition">
                 <h3 className="release-edition-name">
-                  {edition.name}
+                  {editionName}
                   {edition.cancelled ? (
                     <span className="tag is-accent">
                       {t("works.cancelled")}
@@ -831,8 +849,8 @@ export function ReleaseSheet({
                     <p className="works-field-label">{t("works.inPackage")}</p>
                     {edition.bonuses.length ? (
                       <ul className="works-package">
-                        {edition.bonuses.map((item) => (
-                          <li key={item}>{item}</li>
+                        {edition.bonuses.map((item, index) => (
+                          <li key={index}>{worksText(item, t)}</li>
                         ))}
                       </ul>
                     ) : null}
@@ -871,7 +889,7 @@ export function ReleaseSheet({
               <section className="release-bonuses">
                 <p className="works-field-label">{t("works.storeBonuses")}</p>
                 {storeBonuses.length ? (
-                  <BonusList items={storeBonuses} />
+                  <BonusList items={storeBonuses} t={t} />
                 ) : null}
                 {release.storeBonuses.length ? (
                   <>
@@ -880,7 +898,7 @@ export function ReleaseSheet({
                         {t("works.anyEdition")}
                       </p>
                     ) : null}
-                    <BonusList items={release.storeBonuses} />
+                    <BonusList items={release.storeBonuses} t={t} />
                   </>
                 ) : null}
                 <ImageStrip

@@ -179,7 +179,7 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 		if in.Window != nil {
 			return s.bilibiliFetch(ctx, history.SourceBilibiliDynamics, *in.Window)
 		}
-		return s.bilibiliDynamics(ctx)
+		return s.bilibiliDynamics(ctx, in)
 	case sqlite.ShopSource:
 		if s.Shop == nil {
 			break
@@ -476,13 +476,17 @@ func (s *SourceSteps) bilibiliRecent(ctx context.Context, in StepInput) (Attempt
 // shares with the upload read: a captcha either read meets holds both back.
 // Without a cookie, or while its last check found it expired, the step is
 // skipped without a listing request. A failure is recorded, not retried.
-func (s *SourceSteps) bilibiliDynamics(ctx context.Context) (AttemptResult, error) {
+func (s *SourceSteps) bilibiliDynamics(ctx context.Context, in StepInput) (AttemptResult, error) {
 	account := s.Bilibili.Options.Account
 	state, err := s.Store.BilibiliState(ctx, account)
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
-	dynamics, fetchErr := s.Bilibili.FetchDynamics(ctx, state)
+	chain := sqlite.DefaultSourceChain(sqlite.BilibiliDynamicsSource)
+	if in.Chain != nil {
+		chain = *in.Chain
+	}
+	dynamics, fetchErr := s.Bilibili.FetchDynamicsWith(ctx, state, chain.Enabled())
 	if ctx.Err() != nil {
 		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
 	}
@@ -495,21 +499,37 @@ func (s *SourceSteps) bilibiliDynamics(ctx context.Context) (AttemptResult, erro
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
 	counts := map[string]any{"count": len(dynamics.Dynamics), "posts": len(dynamics.Dynamics), "videos": len(dynamics.Uploads), "requested": dynamics.Requested, "changed": changed}
+	if dynamics.Listing != "" {
+		counts["listing"] = dynamics.Listing
+	}
+	if dynamics.Fallback != "" {
+		counts["fallback"] = dynamics.Fallback
+	}
+	if len(dynamics.Errors) > 0 {
+		counts["errors"] = dynamics.Errors
+	}
 	if dynamics.Skipped != "" {
 		// The login check found the cookie expired.
 		counts["skipped"], counts["reason"] = true, dynamics.Skipped
 	}
 	if fetchErr != nil {
-		counts["errors"] = []string{bilisource.ErrorCode(fetchErr)}
+		if len(dynamics.Errors) == 0 {
+			counts["errors"] = []string{bilisource.ErrorCode(fetchErr)}
+		}
 		return AttemptResult{Status: "failed", Result: counts}, nil
+	}
+	if dynamics.Fallback != "" {
+		return AttemptResult{Status: "partial", Result: counts}, nil
 	}
 	return AttemptResult{Status: "succeeded", Result: counts}, nil
 }
 
-// shopSales reads the shop's sale periods: the newest products on a timed
-// read, the whole catalog for the operator's read-all fetch. During a 429's
-// Retry-After it is skipped without a request. A failure is recorded, not
-// retried in the run, and changes no entry.
+// shopSales reads the shop's sale periods: the newest products through the
+// run's chain (the default chain for a full sync) on a timed read, the whole
+// catalog for the operator's read-all fetch. During a 429's Retry-After it is
+// skipped without a request. A failure is recorded, not retried after the
+// run, and changes no entry; a later method that served makes the run
+// partial.
 func (s *SourceSteps) shopSales(ctx context.Context, in StepInput) (AttemptResult, error) {
 	state, err := s.Store.ShopState(ctx)
 	if err != nil {
@@ -521,7 +541,11 @@ func (s *SourceSteps) shopSales(ctx context.Context, in StepInput) (AttemptResul
 	}
 	// The shop's only window is the whole catalog (history.MethodCatalog).
 	all := in.Window != nil
-	result, fetchErr := s.Shop.Read(ctx, state, stored, all)
+	chain := sqlite.DefaultSourceChain(sqlite.ShopSource)
+	if in.Chain != nil {
+		chain = *in.Chain
+	}
+	result, fetchErr := s.Shop.Read(ctx, state, stored, all, chain.Enabled())
 	if ctx.Err() != nil {
 		return AttemptResult{}, NewStepError("cancelled", ErrCancelled)
 	}
@@ -534,16 +558,27 @@ func (s *SourceSteps) shopSales(ctx context.Context, in StepInput) (AttemptResul
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
 	counts := map[string]any{"count": len(result.Sales), "sales": len(result.Sales), "listed": result.Listed, "candidates": result.Candidates,
-		"requested": result.Requested, "collections": result.Collections, "changed": changed}
+		"requested": result.Requested, "collections": result.Collections, "changed": changed, "signed": result.Signed}
 	if len(result.Outcomes) > 0 {
 		counts["outcomes"] = result.Outcomes
 	}
 	if all {
 		counts["pages"], counts["reachedEnd"] = result.Pages, result.ReachedEnd
+	} else {
+		counts["listing"], counts["tried"] = result.Listing, result.Tried
+	}
+	if len(result.Errors) > 0 {
+		counts["errors"] = result.Errors
 	}
 	if fetchErr != nil {
-		counts["errors"] = []string{shopsource.ErrorCode(fetchErr)}
+		if len(result.Errors) == 0 {
+			counts["errors"] = []string{shopsource.ErrorCode(fetchErr)}
+		}
 		return AttemptResult{Status: "failed", Result: counts}, nil
+	}
+	if result.Fallback {
+		counts["fallback"] = result.Listing
+		return AttemptResult{Status: "partial", Result: counts}, nil
 	}
 	return AttemptResult{Status: "succeeded", Result: counts}, nil
 }

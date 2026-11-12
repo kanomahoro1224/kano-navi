@@ -22,9 +22,11 @@ import type {
   WorksCover,
   WorksCredit,
   WorksMedia,
+  WorksText,
   WorksTrack,
   WorksVideoRef,
 } from "../src/works/types.ts"
+import { isChineseWording, releaseText, trackText } from "./works-phrases.ts"
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024
 const MAX_CSV_BYTES = 2 * 1024 * 1024
@@ -124,7 +126,7 @@ const checkingWords =
  * Asides on where a cover file came from, which the source link shows, or on
  * how two official pages disagree.
  */
-const fileAsides = /销售页|像素|商品图|实物照片|官网/u
+const fileAsides = /销售页|像素|商品图|实物照片|官网|唱片公司页|Mercari Shops/u
 
 const parenthetical = /\s*(?:（[^（）]*）|\([^()]*\))/gu
 
@@ -328,11 +330,11 @@ function trackOf(row: Row): WorksTrack {
   const discLabel = publicText(row.disc_label ?? "")
   return {
     disc: Number(row.disc) || 1,
-    ...(discLabel ? { discLabel } : {}),
+    ...(discLabel ? { discLabel: releaseText(discLabel) } : {}),
     no: Number(row.no) || 0,
     title: row.track,
-    credit: publicText(row.credit),
-    note: publicTrackNote(row.note),
+    credit: trackText(publicText(row.credit), { check: false }),
+    note: trackText(publicTrackNote(row.note)),
   }
 }
 
@@ -347,10 +349,20 @@ export function editionTracks(shared: WorksTrack[], own: WorksTrack[]) {
 
 const cancelledMark = /（发售中止）$/u
 
+/** The caption the collection gives a photo of a disc: 盘面. */
+function isDiscCaption(caption: WorksText | undefined) {
+  return (
+    Array.isArray(caption) &&
+    caption.length === 1 &&
+    typeof caption[0] !== "string" &&
+    caption[0].phrase === "disc"
+  )
+}
+
 /** "2,000 日元" and "15 元" in the yen and yuan signs; others as written. */
-export function publicPrice(price: string) {
+export function publicPrice(price: string): WorksText {
   const amount = /^([\d,]+)\s*(日元|元)$/u.exec(price)
-  if (!amount) return publicText(price)
+  if (!amount) return releaseText(publicText(price))
   return amount[2] === "日元" ? `¥${amount[1]}` : `CN¥${amount[1]}`
 }
 
@@ -363,11 +375,12 @@ function editionDate(notes: string) {
 /** The edition formats of a download or stream. */
 const digitalFormat = /^(?:配信|数字专辑)$/u
 
-function isDigital(row: Row, editions: PersonalEdition[]) {
+/** Whether a release is a download, from its row and its editions' formats. */
+function isDigital(row: Row, formats: string[]) {
   return (
     /配信|数字|デジタル/u.test(row.kind_note) ||
     row.catalog.includes("digital") ||
-    editions.some((edition) => digitalFormat.test(edition.format))
+    formats.some((format) => digitalFormat.test(format))
   )
 }
 
@@ -383,7 +396,7 @@ export function printedDiscOf(row: Row, editions: PersonalEdition[]) {
   if (asked) return true
   return editions.length
     ? editions.every((edition) => edition.printedDisc)
-    : isDigital(row, editions)
+    : isDigital(row, [])
 }
 
 const releaseKey = (date: string, title: string) => `${date}\n${title}`
@@ -525,7 +538,7 @@ export function storeGroups(rows: Row[]): StoreGroup[] {
   return [...groups.entries()]
     .sort(([a], [b]) => Number(Boolean(a)) - Number(Boolean(b)))
     .map(([item, links]) => ({
-      item,
+      item: releaseText(item),
       links: [...links.values()].sort(
         (a, b) =>
           storeOrder.indexOf(a.platform) - storeOrder.indexOf(b.platform),
@@ -630,8 +643,10 @@ async function personalWorks(root: string, images: Images) {
     const discMedia = new Set<string>()
 
     const editions: PersonalEdition[] = []
+    const formats: string[] = []
     for (const edition of editionRows.filter(ofRelease)) {
       editionNames.add(edition.edition)
+      formats.push(edition.format)
       const appliesTo = (bonus: Row) =>
         split(bonus.applies_to, /、/u).includes(edition.edition)
       const ownTracks = tracks
@@ -664,18 +679,20 @@ async function personalWorks(root: string, images: Images) {
           `${row.title} ${edition.edition} needs a name for one of its store items`,
         )
       editions.push({
-        name: publicText(edition.edition.replace(cancelledMark, "")),
+        name: releaseText(
+          publicText(edition.edition.replace(cancelledMark, "")),
+        ),
         date: editionDate(edition.notes),
         cancelled: cancelledMark.test(edition.edition),
-        catalog: certainText(edition.catalog),
+        catalog: releaseText(certainText(edition.catalog)),
         jan: edition.jan,
         price: publicPrice(edition.price),
-        format: publicText(edition.format),
-        packaging: publicText(edition.packaging),
+        format: releaseText(publicText(edition.format)),
+        packaging: releaseText(publicText(edition.packaging)),
         covers: await images.list(edition.cover_files),
         bonuses: split(edition.bonus, /；/u)
           .filter((item) => !/^无/u.test(item))
-          .map(publicText),
+          .map((item) => releaseText(publicText(item))),
         bonusImages: await images.list(edition.bonus_images),
         storeBonuses: await storeBonuses(bonuses.filter(appliesTo), images),
         stores,
@@ -713,7 +730,7 @@ async function personalWorks(root: string, images: Images) {
         (item) => item.disc === 1,
       )?.image ??
       [...listed, ...editions.flatMap((edition) => edition.covers)].find(
-        (image) => image.caption === "盘面",
+        (image) => isDiscCaption(image.caption),
       ) ??
       null
     releases.push({
@@ -721,12 +738,13 @@ async function personalWorks(root: string, images: Images) {
       date,
       title: row.title,
       format: personalFormat(row.kind),
-      digital: isDigital(row, editions),
+      digital: isDigital(row, formats),
       cancelled:
         editions.length > 0 && editions.every((edition) => edition.cancelled),
       unit: row.category === "组合作品" ? row.group || null : null,
-      label: publicText(row.label),
-      catalog: certainText(row.catalog),
+      // A label is a name, which may be Chinese.
+      label: releaseText(publicText(row.label), { check: false }),
+      catalog: releaseText(certainText(row.catalog)),
       covers,
       disc,
       printedDisc: printedDiscOf(row, editions),
@@ -748,8 +766,8 @@ async function storeBonuses(rows: Row[], images: Images) {
   const items: StoreBonus[] = []
   for (const row of rows)
     items.push({
-      store: publicText(row.store),
-      item: publicText(row.item),
+      store: releaseText(publicText(row.store)),
+      item: releaseText(publicText(row.item)),
       images: await images.list(row.image_files),
     })
   return items
@@ -784,8 +802,11 @@ function collectionImages(
         const credit = creditOf(record)
         shown.push({
           ...cover,
-          caption: publicText(
-            record.title_zh.split("：").slice(1).join("：") || record.title_zh,
+          caption: releaseText(
+            publicText(
+              record.title_zh.split("：").slice(1).join("：") ||
+                record.title_zh,
+            ),
           ),
           ...(credit ? { credit } : publicSource(record.source_page)),
           thirdParty: record.evidence_class.includes("third_party"),
@@ -930,7 +951,10 @@ async function participationWorks(
       unit: row.member_of || null,
       label: publicText(row.label),
       event: certainText(row.event).replace(parenthetical, ""),
-      catalog: certainText(row.catalog),
+      // A catalog keeps its asides on format, not the collection's notes.
+      catalog: certainText(row.catalog).replace(parenthetical, (part) =>
+        isChineseWording(part) ? "" : part,
+      ),
       source: publicUrl(row.source_url),
       cover,
       tracks: trackRows

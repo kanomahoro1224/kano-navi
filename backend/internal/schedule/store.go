@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -53,12 +54,12 @@ type scheduleConfig struct {
 	// messageAllPosts sends every X post with text or images through the
 	// message route instead of only the posts the local heuristic selects.
 	messageAllPosts bool
-	// maxAgeDays keeps posts older than this many days out of the scan. An
-	// imported archive is history, not a schedule announcement, so it must not
-	// spend provider calls; zero scans every stored post.
-	maxAgeDays    int
-	keywords      []string
-	providerOrder []string
+	keywords        []string
+	providerOrder   []string
+	// lookbackDays is the extraction lookback: unrequested posts published
+	// before since are not candidates. 0 sets no limit and leaves since zero.
+	lookbackDays int
+	since        time.Time
 }
 
 func settingBoolean(value string, fallback bool) bool {
@@ -191,12 +192,15 @@ func (e *Extractor) loadConfig(ctx context.Context) (scheduleConfig, error) {
 	config.messageAllPosts = settingBoolean(allPosts, false)
 	// Old posts are history. Extracting them costs provider calls and yields no
 	// usable schedule, so the scan is bounded by age unless an operator asks
-	// for a specific post to be reprocessed.
-	maxAge, err := setting("schedule_extract_max_age_days", "SCHEDULE_EXTRACT_MAX_AGE_DAYS", "0")
+	// for a specific post to be reprocessed. schedule_extract_max_age_days
+	// (SCHEDULE_EXTRACT_MAX_AGE_DAYS) is this fork's earlier key for the
+	// extraction lookback; it still applies while the lookback setting is
+	// unstored or zero, so an upgraded database keeps its window.
+	legacyAge, err := setting("schedule_extract_max_age_days", "SCHEDULE_EXTRACT_MAX_AGE_DAYS", "0")
 	if err != nil {
 		return config, err
 	}
-	config.maxAgeDays = settingCount(maxAge, 0)
+	legacyLookbackDays := settingCount(legacyAge, 0)
 	stored, ok, err := appSetting(ctx, e.db, "schedule_keywords")
 	if err != nil {
 		return config, err
@@ -208,6 +212,23 @@ func (e *Extractor) loadConfig(ctx context.Context) (scheduleConfig, error) {
 		config.keywords = boundedKeywords(parseListText(stored))
 	} else {
 		config.keywords = boundedKeywords(parseListValues(defaultScheduleKeywords))
+	}
+	settings, err := e.store.SyncSettings(ctx)
+	if err != nil {
+		return config, err
+	}
+	config.lookbackDays = settings.ExtractionLookbackDays
+	if legacyLookbackDays > 0 {
+		_, lookbackStored, err := appSetting(ctx, e.db, "sync_extraction_lookback_days")
+		if err != nil {
+			return config, err
+		}
+		if !lookbackStored || config.lookbackDays == 0 {
+			config.lookbackDays = legacyLookbackDays
+		}
+	}
+	if config.lookbackDays > 0 {
+		config.since = e.now().Add(-time.Duration(config.lookbackDays) * 24 * time.Hour)
 	}
 	config.providerOrder, err = queueProviders(ctx, e.db)
 	return config, err
@@ -461,17 +482,21 @@ func isLikelyScheduleBoardText(value string) bool {
 }
 
 // listCandidatePosts selects the posts a detector stage scans. With allPosts,
-// the message stage takes every post that has text or images. A hidden post
-// is never a candidate. read counts the rows the stage scanned. Each post
+// the message stage takes every post that has text or images. A hidden post,
+// or one published before since (the extraction lookback, unless zero), is
+// never a candidate. read counts the rows the stage scanned. Each post
 // carries its input stamp for the stage and whether it is settled: its
 // state is the one a cache hit of a success or uncertain result on this
 // stage's route writes, recorded for exactly this stamp, with no request
-// and no failure. Posts older than maxAgeDays stay out, so an imported
-// archive cannot spend provider calls; zero scans every stored post.
-func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, detectionType string, allPosts bool, since string) (out []post, read int, err error) {
+// and no failure.
+func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, detectionType string, allPosts bool, since time.Time) (out []post, read int, err error) {
 	lowered := []string{}
 	for _, keyword := range boundedKeywords(parseListValues(keywords)) {
 		lowered = append(lowered, jsToLower(keyword))
+	}
+	cutoff := ""
+	if !since.IsZero() {
+		cutoff = since.UTC().Format(time.RFC3339Nano)
 	}
 	rows, err := e.db.QueryContext(ctx, `SELECT p.source, p.id, p.type, p.label, p.text, p.published_at, p.url, p.media_url, p.raw_json,
 		CASE WHEN p.quote_hidden_at IS NULL THEN p.quote_json END,
@@ -480,8 +505,9 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 			AND s.failure_count = 0 AND s.failure_fingerprint IS NULL AND s.next_attempt_at IS NULL,
 		s.settled_stamp
 		FROM posts p LEFT JOIN post_llm_states s ON s.post_id = p.id
-		WHERE p.source IN ('x','bilibili') AND p.hidden_at IS NULL AND (? = '' OR p.published_at >= ?)
-		ORDER BY p.published_at DESC`, detectionType, extractorVersion, routeForDetectionType(detectionType), since, since)
+		WHERE p.source IN ('x','bilibili') AND p.hidden_at IS NULL
+			AND (? = '' OR julianday(p.published_at) >= julianday(?))
+		ORDER BY p.published_at DESC`, detectionType, extractorVersion, routeForDetectionType(detectionType), cutoff, cutoff)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -548,8 +574,9 @@ func arrayProperty(root *object, key string) ([]any, bool) {
 	return list, isArray
 }
 
-// listRequestedPosts lists operator reprocess requests. A request for a hidden
-// post waits until the post is shown again.
+// listRequestedPosts lists operator reprocess requests, whatever their age:
+// the extraction lookback bounds only unrequested posts. A request for a
+// hidden post waits until the post is shown again.
 func (e *Extractor) listRequestedPosts(ctx context.Context, limit int) ([]post, error) {
 	rows, err := e.db.QueryContext(ctx, `SELECT p.source, p.id, p.text, p.published_at, p.url, p.media_url,
 		p.raw_json, s.route, CASE WHEN p.quote_hidden_at IS NULL THEN p.quote_json END

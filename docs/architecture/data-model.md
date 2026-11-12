@@ -79,13 +79,26 @@ downloader boundary.
 run queue with `CREATE TABLE IF NOT EXISTS` and adds missing columns, then
 checks that every table has the columns its recorded version requires:
 
-| Table                    | Purpose                                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `workflow_migrations`    | Applied workflow schema versions (current: 3); a newer recorded version fails the open                 |
-| `workflow_runs`          | One row per run: `workflow_id`, status, trigger/execution source, idempotency key, times, cancellation |
-| `workflow_run_steps`     | Ordered steps of a run: status, error code, retryability, `capability` and `adapter_capability`        |
-| `workflow_step_attempts` | Every attempt of a step, kept across retries                                                           |
-| `workflow_leases`        | The single `global` lease (owner, expiry, generation) that fences source and media writes              |
+| Table                      | Purpose                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `workflow_migrations`      | Applied workflow schema versions (current: 3); a newer recorded version fails the open                 |
+| `workflow_runs`            | One row per run: `workflow_id`, status, trigger/execution source, idempotency key, times, cancellation |
+| `workflow_run_steps`       | Ordered steps of a run: status, error code, retryability, `capability` and `adapter_capability`        |
+| `workflow_step_attempts`   | Every attempt of a step, kept across retries                                                           |
+| `source_response_captures` | Bounded, compressed source HTTP response bodies and request/run metadata                               |
+| `workflow_leases`          | The single `global` lease (owner, expiry, generation) that fences source and media writes              |
+
+`source_response_captures` records the textual response body presented to a
+source parser, after HTTP content decoding and before parsing. It stores a
+gzip-compressed body, its SHA-256, status, content type, normalized endpoint,
+and the workflow run, step and attempt when available. Request query strings
+and headers are not stored. A capture has no cascading run foreign key, so
+removing workflow history does not remove its response. Successful HTTP
+statuses are kept 30 days, error statuses 90 days, and the oldest captures are
+removed when compressed bodies exceed 512 MiB. Bodies are limited to 4 MiB;
+truncated captures are marked and their hash covers only the stored prefix.
+The local `kano-go responses` command lists capture metadata and exports a
+verified body; the HTTP API does not return capture bodies.
 
 A run freezes how its source steps read: `source_sync_json` holds the
 per-source sync ([source schedules](../architecture/workflows.md#source-schedules);
@@ -453,6 +466,32 @@ page. An unavailable quote has only `id` and `url`; an unavailable forward
 of a dynamic whose ID the listing did not give has a `null` `id` and the
 forward's own opus page as `url`. The console's post list keeps a post's own
 images apart from its quote.
+
+## Bilibili Stickers
+
+A Bilibili dynamic's stickers (custom emoji) stay out of `posts.text`,
+`quote_json.text` and the pool's `text`, so they never change a translation
+hash or extraction input. `raw_json.nodes` keeps every rich-text node in
+order, an emoji node with its caption as `text` and its picture as
+`emoji.url`; a forward's `raw_json.orig` keeps the forwarded dynamic's
+`title` and `nodes` the same way. The pictures are `media_links` of the post
+with the role `post-emoji`, or `quote-emoji` for the forwarded dynamic's,
+one link per distinct picture (see [Bilibili dynamics](sources.md#dynamics)).
+
+For a Bilibili post whose `raw_json` holds an emoji node, the public
+dashboard, the post archive and MCP add `rich` to the post, and to its
+available quote: the original wording as ordered segments, `{text}` or
+`{emoji, url}`, where `emoji` is the caption and `url` the local
+`/media/<id>?v=<sha256>` address of the ready cached picture, or `null`
+while it is not ready. The read places each sticker by matching the nodes'
+text in order against the stored text, each node where the last one ended
+(past a title on its own line, allowing only the whitespace the trimming
+removed), so the `text` segments joined are exactly the post's `text` and no
+wording is skipped; a node not found there (cut off by the length bound)
+leaves out the stickers after it. An opus page's paragraphs are joined by a
+line break, which `raw_json.nodes` keeps as a text node of its own, so a
+sticker that opens a paragraph stays on that paragraph's line. A post
+without stickers has no `rich`.
 
 Every available X quote is also a row of the X status pool `x_statuses` (see
 [Quoted posts](sources.md#quoted-posts)), which also holds every status of a

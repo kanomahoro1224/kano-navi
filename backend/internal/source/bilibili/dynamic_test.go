@@ -33,21 +33,48 @@ func TestSpaceFeedKeepsOwnPostsAndDropsEmoji(t *testing.T) {
 		t.Fatalf("page=%#v err=%v", page, err)
 	}
 	word, draw, opus := page.Dynamics[0], page.Dynamics[1], page.Dynamics[2]
-	if word.PostID() != "bilibili-900000000000000010" || word.Text != "今天20点开始播杂谈 [synthetic_emoji]#话题#@someone" ||
+	if word.PostID() != "bilibili-900000000000000010" || word.Text != "今天20点开始播杂谈 #话题#@someone" ||
 		word.PublishedAt != "2026-11-07T04:04:48Z" || word.URL() != "https://www.bilibili.com/opus/900000000000000010" || len(word.Images) != 0 {
 		t.Fatalf("word=%#v", word)
 	}
-	// The emoji stays in the raw nodes. This fixture has no picture, so the
-	// sticker list stays empty and the caption remains in the text.
-	if nodes, _ := word.Raw["nodes"].([]richNode); len(nodes) != 4 || nodes[1].Type != emojiNode || word.Raw["emoji"] != nil {
+	// The emoji stays in the raw nodes.
+	if nodes, _ := word.Raw["nodes"].([]richNode); len(nodes) != 4 || nodes[1].Type != EmojiNode {
 		t.Fatalf("raw=%#v", word.Raw)
 	}
-	// An emoji-only dynamic keeps the caption; pictures off the CDN are dropped.
-	if draw.Text != "[only_emoji]" || len(draw.Images) != 1 || draw.Images[0] != "https://i0.hdslb.com/bfs/new_dyn/synthetic-a.jpg" {
+	// An emoji-only dynamic has no text; pictures off the CDN are dropped.
+	if draw.Text != "" || len(draw.Images) != 1 || draw.Images[0] != "https://i0.hdslb.com/bfs/new_dyn/synthetic-a.jpg" {
 		t.Fatalf("draw=%#v", draw)
 	}
 	if opus.Text != "图文网页链接" || len(opus.Images) != 1 || opus.Images[0] != "https://i1.hdslb.com/bfs/new_dyn/synthetic-c.png" || opus.Raw["tag"] != "置顶" {
 		t.Fatalf("opus=%#v", opus)
+	}
+}
+
+func TestDesktopSpaceFeedSortsDynamicsByDescendingID(t *testing.T) {
+	const feed = `{"code":0,"data":{"has_more":false,"items":[
+ {"id_str":"900000000000000008","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":316381099,"pub_ts":1794010000},"module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"older"}]}}}},
+ {"id_str":"10000000000000000000","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":316381099,"pub_ts":1794020000},"module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"newest"}]}}}},
+ {"id_str":"900000000000000009","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":316381099,"pub_ts":1794015000},"module_dynamic":{"desc":{"rich_text_nodes":[{"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"middle"}]}}}}
+]}}`
+	data, err := envelope([]byte(feed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := ParseDesktopSpaceFeed(data, DefaultAccount)
+	if err != nil || len(page.Dynamics) != 3 || page.Dynamics[0].Text != "newest" || page.Dynamics[0].OwnerMid != 316381099 || page.Dynamics[0].PublishedAt != "2026-11-07T02:53:20Z" || page.Dynamics[1].Text != "middle" || page.Dynamics[2].Text != "older" {
+		t.Fatalf("page=%#v err=%v", page, err)
+	}
+}
+
+func TestDesktopSpaceFeedUsesPlainDescriptionTextAndRejectsIncompleteMetadata(t *testing.T) {
+	const feed = `{"has_more":false,"items":[{"id_str":"900000000000000008","type":"DYNAMIC_TYPE_WORD","modules":{"module_dynamic":{"desc":{"text":"plain text"}}}}]}`
+	if _, err := ParseDesktopSpaceFeed([]byte(feed), DefaultAccount); ErrorCode(err) != "bilibili_invalid_response" {
+		t.Fatalf("incomplete metadata err=%v", err)
+	}
+	const complete = `{"has_more":false,"items":[{"id_str":"900000000000000008","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":"316381099","pub_ts":"1794020000"},"module_dynamic":{"desc":{"text":"plain text"}}}}]}`
+	page, err := ParseDesktopSpaceFeed([]byte(complete), DefaultAccount)
+	if err != nil || len(page.Dynamics) != 1 || page.Dynamics[0].OwnerMid != 316381099 || page.Dynamics[0].Text != "plain text" || page.Dynamics[0].PublishedAt != "2026-11-07T02:53:20Z" {
+		t.Fatalf("page=%#v err=%v", page, err)
 	}
 }
 
@@ -109,7 +136,7 @@ const opusPage = `<!DOCTYPE html><html><head><script>window.__INITIAL_STATE__={"
 
 func TestOpusPageReadsTheServerState(t *testing.T) {
 	d, err := ParseOpusPage([]byte(opusPage), "900000000000000010")
-	if err != nil || d.OwnerMid != 316381099 || d.Text != "大家好！今天北京时间17点上传。\n[synthetic_emoji]\n#话题#" || d.PublishedAt != "2026-11-07T04:04:48Z" ||
+	if err != nil || d.OwnerMid != 316381099 || d.Text != "大家好！今天北京时间17点上传。\n#话题#" || d.PublishedAt != "2026-11-07T04:04:48Z" ||
 		len(d.Images) != 1 || d.Images[0] != "https://i0.hdslb.com/bfs/new_dyn/synthetic-d.jpg" {
 		t.Fatalf("dynamic=%#v err=%v", d, err)
 	}
@@ -172,7 +199,7 @@ func TestDynamicsNeedALoginAndShareTheBackoff(t *testing.T) {
 	login := "synthetic0login%2C1767225600%2Cabcde%2A11"
 	type call struct{ host, path, cookie, query string }
 	calls := []call{}
-	reply := map[string]string{"/x/frontend/finger/spi": session, ticketPath: ticket, "/x/web-interface/nav": navKeys, "/x/polymer/web-dynamic/v1/feed/space": spaceFeed}
+	reply := map[string]string{"/x/frontend/finger/spi": session, ticketPath: ticket, "/x/web-interface/nav": navKeys, "/x/polymer/web-dynamic/desktop/v1/feed/space": spaceFeed, "/x/polymer/web-dynamic/v1/feed/space": spaceFeed}
 	adapter := func(sessdata string) *Adapter {
 		c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
 			calls = append(calls, call{r.URL.Host, r.URL.Path, r.Header.Get("Cookie"), r.URL.RawQuery})
@@ -188,12 +215,12 @@ func TestDynamicsNeedALoginAndShareTheBackoff(t *testing.T) {
 	}
 	result, err := adapter(login).FetchDynamics(context.Background(), State{})
 	// The device identity, the ticket, the daily login check and the listing.
-	if err != nil || len(result.Dynamics) != 3 || result.Requested != 4 || !result.State.WBI.valid() || !result.State.Dynamics.LastSuccessAt.Equal(now) ||
+	if err != nil || len(result.Dynamics) != 3 || result.Requested != 4 || result.Listing != MethodDesktop || !result.State.WBI.valid() || !result.State.Dynamics.LastSuccessAt.Equal(now) ||
 		!result.State.Login.SignedIn || !result.State.Login.CheckedAt.Equal(now) {
 		t.Fatalf("signed in=%#v err=%v", result, err)
 	}
 	listing := calls[3]
-	if listing.host != "api.bilibili.com" || !strings.Contains(listing.cookie, "SESSDATA="+login) || !strings.Contains(listing.query, "host_mid=316381099") || !strings.Contains(listing.query, "&w_rid=") {
+	if listing.host != "api.bilibili.com" || listing.path != "/x/polymer/web-dynamic/desktop/v1/feed/space" || !strings.Contains(listing.cookie, "SESSDATA="+login) || !strings.Contains(listing.query, "host_mid=316381099") || !strings.Contains(listing.query, "features=itemOpusStyle") || !strings.Contains(listing.query, "timezone_offset=-480") || strings.Contains(listing.query, "w_rid=") {
 		t.Fatalf("listing=%#v", listing)
 	}
 	// Within the interval, and while the shared block lasts, no request.
@@ -208,15 +235,113 @@ func TestDynamicsNeedALoginAndShareTheBackoff(t *testing.T) {
 	}
 	// An expired login is a controlled code; a captcha starts the shared block.
 	state.BlockedUntil = time.Time{}
-	reply["/x/polymer/web-dynamic/v1/feed/space"] = `{"code":-101,"message":"账号未登录"}`
+	reply["/x/polymer/web-dynamic/desktop/v1/feed/space"] = `{"code":-101,"message":"账号未登录"}`
 	expired, err := adapter(login).FetchDynamics(context.Background(), state)
 	if ErrorCode(err) != "bilibili_login_expired" || expired.State.Dynamics.LastError != "bilibili_login_expired" || !expired.State.BlockedUntil.IsZero() || expired.Requested != 1 {
 		t.Fatalf("expired=%#v err=%v", expired, err)
 	}
-	reply["/x/polymer/web-dynamic/v1/feed/space"] = `{"code":0,"data":{"v_voucher":"voucher_synthetic"}}`
+	calls = nil
+	reply["/x/polymer/web-dynamic/desktop/v1/feed/space"] = `{"code":0,"data":{"v_voucher":"voucher_synthetic"}}`
 	captcha, err := adapter(login).FetchDynamics(context.Background(), state)
-	if ErrorCode(err) != "bilibili_risk_control_voucher" || !captcha.State.BlockedUntil.Equal(now.Add(6*time.Hour)) || captcha.State.Failures != 1 || captcha.State.WBI.valid() {
+	listingCalls := 0
+	for _, call := range calls {
+		if strings.Contains(call.path, "feed/space") {
+			listingCalls++
+		}
+	}
+	if ErrorCode(err) != "bilibili_risk_control_voucher" || !captcha.State.BlockedUntil.Equal(now.Add(6*time.Hour)) || captcha.State.Failures != 1 || captcha.State.WBI.valid() || listingCalls != 1 {
 		t.Fatalf("captcha=%#v err=%v", captcha, err)
+	}
+}
+
+func TestDynamicsFallsBackToWBIAfterANonRiskDesktopFailure(t *testing.T) {
+	now := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
+	login := "synthetic0login%2C1767225600%2Cabcde%2A11"
+	reply := map[string]string{"/x/frontend/finger/spi": session, ticketPath: ticket, "/x/web-interface/nav": navKeys,
+		"/x/polymer/web-dynamic/desktop/v1/feed/space": `{"code":0,"data":{}}`, "/x/polymer/web-dynamic/v1/feed/space": spaceFeed}
+	var paths []string
+	c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+		paths = append(paths, r.URL.Path)
+		return response(200, reply[r.URL.Path]), nil
+	})})
+	a := NewAdapter(c, Options{Account: DefaultAccount, MinInterval: 3 * time.Hour, SESSDATA: login})
+	a.Now = func() time.Time { return now }
+	result, err := a.FetchDynamics(context.Background(), State{})
+	if err != nil || result.Listing != MethodDynamics || result.Fallback != MethodDynamics || len(result.Errors) != 1 || result.Requested != 5 ||
+		paths[len(paths)-2] != "/x/polymer/web-dynamic/desktop/v1/feed/space" || paths[len(paths)-1] != "/x/polymer/web-dynamic/v1/feed/space" {
+		t.Fatalf("result=%#v paths=%v err=%v", result, paths, err)
+	}
+}
+
+func TestDynamicsRefreshWBIOnlyWhenItsMethodIsReached(t *testing.T) {
+	const desktop = "/x/polymer/web-dynamic/desktop/v1/feed/space"
+	const wbi = "/x/polymer/web-dynamic/v1/feed/space"
+	const nav = "/x/web-interface/nav"
+	now := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name, desktopBody, navBody, paths, listing, code, skipped string
+		methods                                                   []string
+		loginDue                                                  bool
+		navStatus                                                 int
+	}{
+		{name: "healthy desktop needs no WBI", desktopBody: spaceFeed, navStatus: 503, paths: desktop, listing: MethodDesktop},
+		{name: "refresh after desktop fails", desktopBody: `{"code":0,"data":{}}`, navStatus: 200, navBody: navKeys,
+			paths: desktop + " " + nav + " " + wbi, listing: MethodDynamics},
+		{name: "operator orders WBI first", methods: []string{MethodDynamics, MethodDesktop}, navStatus: 200, navBody: navKeys,
+			paths: nav + " " + wbi, listing: MethodDynamics},
+		{name: "daily login check still required", desktopBody: spaceFeed, loginDue: true, navStatus: 200, navBody: navKeys,
+			paths: nav + " " + desktop, listing: MethodDesktop},
+		{name: "failed daily check stops listing", loginDue: true, navStatus: 503, paths: nav, code: "bilibili_upstream_5xx"},
+		{name: "expired daily login stops listing", loginDue: true, navStatus: 200, navBody: strings.Replace(navKeys, `"isLogin":true`, `"isLogin":false`, 1),
+			paths: nav, skipped: "login_expired"},
+		{name: "risk control stops before WBI refresh", desktopBody: `{"code":-352}`, paths: desktop, code: "bilibili_risk_control_352"},
+		{name: "expired fallback login stops listing", desktopBody: `{"code":0,"data":{}}`, navStatus: 200,
+			navBody: strings.Replace(navKeys, `"isLogin":true`, `"isLogin":false`, 1), paths: desktop + " " + nav, code: "bilibili_login_expired"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var paths []string
+			c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+				paths = append(paths, r.URL.Path)
+				if !strings.Contains(r.Header.Get("Cookie"), "SESSDATA=") {
+					t.Fatal("request lost its login cookie")
+				}
+				switch r.URL.Path {
+				case desktop:
+					return response(200, tc.desktopBody), nil
+				case nav:
+					return response(tc.navStatus, tc.navBody), nil
+				case wbi:
+					if r.URL.Query().Get("w_rid") == "" {
+						t.Fatal("WBI listing was not signed")
+					}
+					return response(200, spaceFeed), nil
+				default:
+					t.Fatalf("unexpected request: %s", r.URL.Path)
+					return nil, nil
+				}
+			})})
+			a := NewAdapter(c, Options{Account: DefaultAccount, SESSDATA: "synthetic0login%2C1767225600%2Cabcde%2A11"})
+			a.Now = func() time.Time { return now }
+			state := State{Session: Session{Buvid3: strings.Repeat("a", 20) + "infoc", Buvid4: "synthetic-device4",
+				Ticket: "synthetic.synthetic.synthetic", TicketAt: now.Unix(), TicketTTL: 3 * 24 * 60 * 60},
+				SessionAt: now, Login: LoginState{CheckedAt: now.Add(-time.Hour), SignedIn: true}}
+			if tc.loginDue {
+				state.Login.CheckedAt = now.Add(-25 * time.Hour)
+			}
+			got, err := a.FetchDynamicsWith(context.Background(), state, tc.methods)
+			if (err != nil && ErrorCode(err) != tc.code) || (err == nil && tc.code != "") || got.Skipped != tc.skipped || got.Listing != tc.listing || strings.Join(paths, " ") != tc.paths || got.Requested != len(paths) {
+				t.Fatalf("result=%#v paths=%v err=%v", got, paths, err)
+			}
+			if tc.listing != "" && len(got.Dynamics) != 3 {
+				t.Fatalf("listing lost its posts: %#v", got)
+			}
+			if tc.listing == MethodDesktop && !tc.loginDue && (got.State.WBI.valid() || got.State.Login != state.Login) {
+				t.Fatal("desktop changed unused WBI or login state")
+			}
+			if IsRiskControl(tc.code) && !got.State.BlockedUntil.After(now) {
+				t.Fatal("risk control did not start the shared backoff")
+			}
+		})
 	}
 }
 
@@ -272,30 +397,30 @@ func TestLiveChecksUseTheLiveHostWithoutCookiesAndBackOff(t *testing.T) {
 func TestSpaceFeedReadsOlderPlainTextAlbums(t *testing.T) {
 	const page = `{"items":[
  {"id_str":"1100000000000000001","type":"DYNAMIC_TYPE_DRAW","modules":{
-   "module_author":{"pub_ts":1767258000,"name":"鹿乃","mid":316381099},
+   "module_author":{"pub_ts":1767258000,"name":"synthetic","mid":316381099},
    "module_dynamic":{"desc":{"text":"今天的直播 &amp; 歌单"},"major":{"opus":{
      "title":null,"summary":{"text":"今週のスケジュールです"},
-     "pics":[{"url":"http://i0.hdslb.com/bfs/new_dyn/one.jpg"},{"url":"https://i1.hdslb.com/bfs/new_dyn/two.jpg"}]}}}}},
+     "pics":[{"url":"http://i0.hdslb.com/bfs/new_dyn/synthetic-one.jpg"},{"url":"https://i1.hdslb.com/bfs/new_dyn/synthetic-two.jpg"}]}}}}},
  {"id_str":"1100000000000000002","type":"DYNAMIC_TYPE_AV","modules":{
-   "module_author":{"pub_ts":1767258000,"name":"鹿乃","mid":316381099},
+   "module_author":{"pub_ts":1767258000,"name":"synthetic","mid":316381099},
    "module_dynamic":{"major":{"archive":{"bvid":"BV1AAAAAAAAA","title":"翻唱"}}}}},
  {"id_str":"1100000000000000003","type":"DYNAMIC_TYPE_FORWARD","modules":{
-   "module_author":{"pub_ts":1767258000,"name":"鹿乃","mid":316381099},
+   "module_author":{"pub_ts":1767258000,"name":"synthetic","mid":316381099},
    "module_dynamic":{"desc":{"text":"转 发 &amp; 提醒"}}},
   "orig":{"id_str":"1100000000000000009","type":"DYNAMIC_TYPE_DRAW","modules":{
    "module_author":{"pub_ts":1767171600,"name":"别的 UP","mid":42},
-   "module_dynamic":{"desc":{"text":"原动态正文"},"major":{"draw":{"items":[{"src":"https://i2.hdslb.com/bfs/album/orig.jpg"}]}}}}}},
+   "module_dynamic":{"desc":{"text":"原动态正文 &lt;3"},"major":{"draw":{"items":[{"src":"https://i2.hdslb.com/bfs/album/synthetic-orig.jpg"}]}}}}}},
  {"id_str":"1100000000000000004","type":"DYNAMIC_TYPE_WORD","modules":{
    "module_author":{"pub_ts":1767258000,"name":"别的 UP","mid":42},
    "module_dynamic":{"desc":{"text":"别人的动态"}}}},
  {"id_str":"1100000000000000001","type":"DYNAMIC_TYPE_WORD","modules":{
-   "module_author":{"pub_ts":1767258000,"name":"鹿乃","mid":316381099},
+   "module_author":{"pub_ts":1767258000,"name":"synthetic","mid":316381099},
    "module_dynamic":{"desc":{"text":"重复"}}}},
  {"id_str":"1100000000000000005","type":"DYNAMIC_TYPE_WORD","modules":{
-   "module_author":{"pub_ts":1767258000,"name":"鹿乃","mid":316381099},
+   "module_author":{"pub_ts":1767258000,"name":"synthetic","mid":316381099},
    "module_dynamic":{"desc":{"text":null}}}}
 ],"offset":"1100000000000000005","has_more":true}`
-	got, err := ParseSpaceFeed([]byte(page), "316381099")
+	got, err := ParseSpaceFeed([]byte(page), DefaultAccount)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,47 +428,22 @@ func TestSpaceFeedReadsOlderPlainTextAlbums(t *testing.T) {
 		t.Fatalf("dynamics=%d uploads=%d", len(got.Dynamics), len(got.Uploads))
 	}
 	post := got.Dynamics[0]
-	if post.IDStr != "1100000000000000001" || post.PostID() != "bilibili-1100000000000000001" || post.Text != "今週のスケジュールです" || post.Quote != nil {
+	if post.PostID() != "bilibili-1100000000000000001" || post.Text != "今週のスケジュールです" || post.Quote != nil {
 		t.Fatalf("post=%#v", post)
 	}
-	if len(post.Images) != 2 || post.Images[0] != "https://i0.hdslb.com/bfs/new_dyn/one.jpg" || post.Images[1] != "https://i1.hdslb.com/bfs/new_dyn/two.jpg" {
+	if len(post.Images) != 2 || post.Images[0] != "https://i0.hdslb.com/bfs/new_dyn/synthetic-one.jpg" || post.Images[1] != "https://i1.hdslb.com/bfs/new_dyn/synthetic-two.jpg" {
 		t.Fatalf("images=%#v", post.Images)
 	}
 	forward := got.Dynamics[1]
-	if forward.IDStr != "1100000000000000003" || forward.Text != "转 发 & 提醒" || forward.Quote == nil {
+	if forward.PostID() != "bilibili-1100000000000000003" || forward.Text != "转 发 & 提醒" || len(forward.Images) != 0 || forward.Quote == nil {
 		t.Fatalf("forward=%#v", forward)
 	}
 	quote := forward.Quote
-	if quote.Unavailable || quote.ID != "bilibili-1100000000000000009" || quote.Text != "原动态正文" || quote.AuthorHandle != "42" || quote.AuthorName != "别的 UP" ||
-		len(quote.MediaURLs) != 1 || quote.MediaURLs[0] != "https://i2.hdslb.com/bfs/album/orig.jpg" {
+	if quote.Unavailable || quote.ID != "bilibili-1100000000000000009" || quote.Text != "原动态正文 <3" || quote.AuthorHandle != "42" || quote.AuthorName != "别的 UP" ||
+		len(quote.MediaURLs) != 1 || quote.MediaURLs[0] != "https://i2.hdslb.com/bfs/album/synthetic-orig.jpg" {
 		t.Fatalf("quote=%#v", quote)
 	}
-	if got.Dynamics[2].IDStr != "1100000000000000005" || got.Dynamics[2].Text != "" {
+	if got.Dynamics[2].PostID() != "bilibili-1100000000000000005" || got.Dynamics[2].Text != "" {
 		t.Fatalf("empty=%#v", got.Dynamics[2])
-	}
-}
-
-// A sticker keeps its caption in the text and its moving picture in raw_json,
-// preferring webp, then gif, then the still icon. Anything off Bilibili's
-// image CDN is dropped.
-func TestSpaceFeedKeepsStickerPictures(t *testing.T) {
-	const page = `{"items":[{"id_str":"900000000000000030","type":"DYNAMIC_TYPE_WORD","modules":{"module_author":{"mid":316381099,"pub_ts":1794024288},"module_dynamic":{"desc":{"rich_text_nodes":[
-	 {"type":"RICH_TEXT_NODE_TYPE_TEXT","text":"看这个"},
-	 {"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[鹿乃_飞了]","emoji":{"text":"[鹿乃_飞了]","icon_url":"http://i0.hdslb.com/bfs/emote/flying.png","gif_url":"http://i0.hdslb.com/bfs/emote/flying.gif","webp_url":"http://i0.hdslb.com/bfs/emote/flying.webp"}},
-	 {"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[still]","emoji":{"text":"[still]","icon_url":"https://i0.hdslb.com/bfs/emote/still.png"}},
-	 {"type":"RICH_TEXT_NODE_TYPE_EMOJI","text":"[gone]","emoji":{"text":"[gone]","icon_url":"https://images.invalid/gone.png"}}
-	]}}}}]}`
-	got, err := ParseSpaceFeed([]byte(page), DefaultAccount)
-	if err != nil || len(got.Dynamics) != 1 {
-		t.Fatalf("page=%#v err=%v", got, err)
-	}
-	d := got.Dynamics[0]
-	if d.Text != "看这个[鹿乃_飞了][still][gone]" {
-		t.Fatalf("text=%q", d.Text)
-	}
-	emojis, _ := d.Raw["emoji"].([]DynamicEmoji)
-	if len(emojis) != 2 || emojis[0].Text != "[鹿乃_飞了]" || emojis[0].Icon != "https://i0.hdslb.com/bfs/emote/flying.webp" ||
-		emojis[1].Text != "[still]" || emojis[1].Icon != "https://i0.hdslb.com/bfs/emote/still.png" {
-		t.Fatalf("emoji=%#v", d.Raw["emoji"])
 	}
 }

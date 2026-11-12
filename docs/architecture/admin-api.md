@@ -218,9 +218,10 @@ startDate, endDate}` or `{mode: "before", days}` (1–365), as the method's
   `translate` the `translate` step, and `refresh` (YouTube methods)
   rewrites stored videos the listing names again; each is a boolean and
   defaults to false. An unknown method, a mode or count the method does not
-  serve, an option it does not take, or a method that cannot run now (its
-  credential is missing) answers `400 invalid_input`; the fetch never falls
-  back to another method.
+  serve, an option it does not take, `extract` on a `range` that ends before
+  the extraction lookback, or a method that cannot run now (its credential
+  is missing) answers `400 invalid_input`; the fetch never falls back to
+  another method.
 
 A busy queue answers `409` with the active run. There are no saved workflows
 ([source schedules](../architecture/workflows.md#source-schedules)): a
@@ -273,9 +274,10 @@ It reads the post LLM states, post images, their media assets and the stored
 extractions once and judges every candidate from them; the run reads them
 per post, since it writes between posts. Its size
 does not grow with the number of posts: `{generatedAt, disabled,
-boardEnabled, messageEnabled, allPosts, limit, postsRead, candidates,
-requested, candidateMs, elapsedMs, run, later, cached, backoff,
-retryStopped}`. `run` lists, in order, the at most `limit` posts that take a
+boardEnabled, messageEnabled, allPosts, limit, lookbackDays, postsRead,
+candidates, requested, candidateMs, elapsedMs, run, later, cached, backoff,
+retryStopped}`, `lookbackDays` being the extraction lookback the candidates
+were selected with (0 for no limit). `run` lists, in order, the at most `limit` posts that take a
 place in a run started now, each `{postId, source, route, outcome, reason,
 inputMode?, publishedAt?, lastAttemptAt?, url?, excerpt}`: `outcome` is
 `call` with `reason` `requested`, `new` (never attempted), `changed`
@@ -331,6 +333,10 @@ account's refreshes leave passing to the next account.
 | `GET /sources/youtube/push`                   |                                                                                    | push status                    |
 | `PUT /sources/youtube/push`                   | `{enabled, callbackUrl}`                                                           | push status                    |
 | `POST /sources/youtube/push/rotate-secret`    |                                                                                    | push status                    |
+| `GET /sources/shop/web-bot-auth`              |                                                                                    | key status (below)             |
+| `PUT /sources/shop/web-bot-auth`              | `{origin}`                                                                         | key status                     |
+| `POST /sources/shop/web-bot-auth/key`         |                                                                                    | key status                     |
+| `DELETE /sources/shop/web-bot-auth/key`       |                                                                                    | key status                     |
 | `GET /sources/youtube/live-probe`             |                                                                                    | live probe status              |
 | `PUT /sources/youtube/live-probe`             | `{enabled, intervalMinutes, bilibiliEnabled, bilibiliIntervalMinutes}`, any subset | live probe status              |
 | `PUT /sources/youtube/live-probe/videos/{id}` | `{stopped}`                                                                        | live probe status              |
@@ -349,12 +355,45 @@ account's refreshes leave passing to the next account.
   "bilibili": {"available", "skipped", "methods": [FetchMethod], "oldest", "account", "videos", "signedIn", "login", "loginCheckedAt", "minIntervalMinutes", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError",
                "dynamics": {"posts", "methods": [FetchMethod], "oldest", "lastAttemptAt", "lastSuccessAt", "lastError", "skipped"},
                "live": {"roomId", "liveStatus", "title", "liveTime", "checkedAt", "lastLiveAt", "blockedUntil", "lastError"}},
-  "shop": {"skipped", "methods": [FetchMethod], "status": {"sales", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError"}}
+  "shop": {"skipped", "methods": [FetchMethod], "status": {"sales", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError"},
+           "webBotAuth": WebBotAuthStatus}
 }
 ```
 
 `shop.status` counts the shop's visible sale entries and reports its read
 bookkeeping: `blockedUntil` is when a 429 answer's `Retry-After` passes.
+
+### Web Bot Auth key
+
+`WebBotAuthStatus`, from `GET /sources/shop/web-bot-auth` and in
+`shop.webBotAuth`, describes the [Web Bot Auth](web-bot-auth.md) key that
+signs the shop's requests:
+
+```json
+{"state", "source", "keyId", "createdAt", "origin", "originSetting", "publicOrigin",
+ "directoryUrl", "previous": {"keyId", "until"} | null, "environmentManaged"}
+```
+
+`state` is `active`, `no_key`, `no_origin` or `key_unreadable` (see
+[Signing state](web-bot-auth.md#signing-state)); `source` is `stored`,
+`environment` or null without a key. `keyId` is the key's JWK thumbprint and
+`createdAt` when the console made it (null for an environment key).
+`origin` is the origin requests name as their agent, `originSetting` the
+operator's and `publicOrigin` the normalized `PUBLIC_ORIGIN`;
+`directoryUrl` is the key directory's address while signing is active.
+`previous` is the key a rotation replaced while the directory still lists
+it. No answer carries a private key or its sealed form.
+
+`PUT` takes `{origin}`: a bare `https` origin (scheme and host, with an
+optional port and trailing slash), or `""` or null to clear it so
+`PUBLIC_ORIGIN` applies; anything else, or another field, is
+`400 invalid_input`. `POST …/key` generates a key, or rotates: the new key
+signs at once and the replaced one stays listed for 24 hours. `DELETE …/key`
+removes the key and any replaced one. Both answer
+`409 environment_managed` while `WEB_BOT_AUTH_KEY` is set, and
+`503 secrets_key_unavailable` when the key cannot be sealed. Every write
+answers the new status, applies without a restart, and answers
+`503 read_only` on a read-only snapshot.
 
 The related accounts answer is `{accounts, defaultKeywords, status}`:
 `accounts` lists `{handle, keywords}` (see
@@ -390,11 +429,13 @@ disables the source. `sync` is `{mode: "incremental", max}` (default, `max` 50) 
 requires}` in the order reads try them. `available` is false while the
 method's credential is missing, and `requires` names its variables
 (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY`,
-`BILIBILI_COOKIE or BILIBILI_SESSDATA`, or
-`BILIBILI_APP_KEY and BILIBILI_APP_SECRET`) for methods that need one. `fixed`
-is true for the related-accounts, Bilibili dynamics and shop timers, whose one
-method (`timeline` for the related accounts, `dynamics` for the dynamics
-listing, `new_arrivals` for the shop) cannot change. The X chain adds
+`BILIBILI_COOKIE or BILIBILI_SESSDATA`,
+`BILIBILI_APP_KEY and BILIBILI_APP_SECRET`, or `a Web Bot Auth key` for the
+shop's `signed`, available while the [key](#web-bot-auth-key) is active)
+for methods that need one. `fixed` is true for the
+related-accounts timer, whose one method, `timeline`, cannot change. The shop
+chain orders `signed`, `new_arrivals` and `atom`. The Bilibili dynamics chain orders `desktop` and `dynamics`
+(the WBI listing); both require the configured login. The X chain adds
 `apiGate`, `apiDailyCap`, `apiUsage` (`{day, posts}`, the posts X API
 answers returned on the current Japan day) and `timelineFailures`, each
 account's current streak (see
@@ -413,8 +454,8 @@ only. It answers `404 not_found` for another source and `400 invalid_input`
 for other fields, an interval outside the bounds, an invalid `sync`, a
 `count` sync for `x_related` or a `sync` for either Bilibili timer or the
 shop, and for a chain with an unknown or repeated method, a missing method,
-no enabled method, a gate or cap out of range or for YouTube, or any chain
-for the related-accounts, either Bilibili or the shop timer. A method may be enabled while its
+no enabled method, a gate or cap out of range or for a source other than X,
+or any chain for the related-accounts timer. A method may be enabled while its
 credential is missing; reads skip it until it is set. Enabling a
 schedule or changing its interval plans the next run one interval later,
 with the timer's [random offset](workflows.md#source-schedules); a sync
@@ -468,7 +509,8 @@ YouTube video ID or another body.
 `settings` maps each field (`xMaxStatusRequests`, `xRefreshKnown`,
 `xBootstrapDays`, `xDiscoveryLimit`, `youtubeMaxDetailRequests`,
 `fetchMaxPages`, `fetchTimeoutMs`, `fetchRequestDelayMs`,
-`translationScanLimit`, `translationLookbackDays`, `llmModelAttempts`) to its
+`extractionLookbackDays`, `translationScanLimit`, `translationLookbackDays`,
+`llmModelAttempts`) to its
 integer value, and
 `fields` lists `{field, default, min, max}` for each. `PUT` keeps omitted
 fields and answers `400 invalid_input` for an unknown field or a value that is

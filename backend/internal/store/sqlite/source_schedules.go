@@ -22,7 +22,8 @@ type SourceSchedule struct {
 	// Bilibili and the shop have none.
 	Sync *SourceSync `json:"sync"`
 	// Chain is the fallback over listing methods that X, YouTube and
-	// Bilibili upload reads try; every other timer's is its one fixed method.
+	// Bilibili reads try; the related-account and shop timers have one fixed
+	// method.
 	Chain     SourceChain        `json:"chain"`
 	NextRunAt *string            `json:"nextRunAt"`
 	UpdatedAt *string            `json:"updatedAt"`

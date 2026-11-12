@@ -1,3 +1,5 @@
+import { worksPhraseMessages } from "./works-phrases.ts"
+
 const plural =
   (one: string, many: string) =>
   ({ count }: { count: any }) =>
@@ -5,6 +7,7 @@ const plural =
 
 export const worksMessages = {
   "zh-CN": {
+    ...worksPhraseMessages["zh-CN"],
     "works.featured": "原声翻唱三部曲",
     "works.trilogySide": "{side} 面",
     "works.trilogyFlip": "翻到 {side} 面：{order}",
@@ -169,6 +172,7 @@ export const worksMessages = {
     "works.uploadsOffline": "暂时无法读取本站的视频封面。",
   },
   ja: {
+    ...worksPhraseMessages.ja,
     "works.featured": "アコースティックカバー三部作",
     "works.trilogySide": "{side}面",
     "works.trilogyFlip": "{side}面に裏返す：{order}",
@@ -334,6 +338,7 @@ export const worksMessages = {
       "このサイトの動画サムネイルを読み込めませんでした。",
   },
   en: {
+    ...worksPhraseMessages.en,
     "works.featured": "Acoustic cover trilogy",
     "works.trilogySide": "Side {side}",
     "works.trilogyFlip": "Flip to side {side}: {order}",

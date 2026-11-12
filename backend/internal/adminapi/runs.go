@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
 	"github.com/yexca/kano-navi/backend/internal/jobs"
@@ -144,6 +145,12 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, httpx.Invalid("extract is not supported for this method"))
 			return
 		}
+		if chosen.Extract {
+			if lookbackErr := a.extractReachesLookback(r.Context(), window); lookbackErr != nil {
+				httpx.WriteError(w, lookbackErr)
+				return
+			}
+		}
 		// The fetch runs only the method it names, so a method that cannot
 		// run now is refused rather than replaced.
 		if !a.methodAvailable(source, method) {
@@ -177,6 +184,28 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeStart(w, result)
+}
+
+// extractReachesLookback refuses extract on a date range that ends before
+// the extraction lookback: the appended schedule step selects unrequested
+// posts within the lookback only, so it would extract none of the range.
+func (a *api) extractReachesLookback(ctx context.Context, window history.Window) error {
+	if window.Mode != history.ModeRange {
+		return nil
+	}
+	settings, err := a.Store.SyncSettings(ctx)
+	if err != nil {
+		return err
+	}
+	days := settings.ExtractionLookbackDays
+	end, err := time.ParseInLocation("2006-01-02", window.EndDate, japanZone)
+	if days == 0 || err != nil {
+		return nil
+	}
+	if end.AddDate(0, 0, 1).After(a.Now().Add(-time.Duration(days) * 24 * time.Hour)) {
+		return nil
+	}
+	return httpx.Invalid("extract needs a date range within the extraction lookback (%d days)", days)
 }
 
 // fetchSources are the sources a manual fetch can name.
@@ -402,7 +431,7 @@ func (a *api) sources(w http.ResponseWriter, r *http.Request) {
 		"x":         map[string]any{"skipped": a.skipped("x"), "methods": a.fetchMethods("x"), "accounts": accounts},
 		"youtube":   map[string]any{"skipped": a.skipped("youtube"), "methods": a.fetchMethods("youtube"), "oldest": oldest, "push": a.pushStatus(), "liveProbe": probe},
 		"bilibili":  bilibili,
-		"shop":      map[string]any{"skipped": a.skipped(sqlite.ShopSource), "methods": a.fetchMethods(history.SourceShop), "status": shop},
+		"shop":      map[string]any{"skipped": a.skipped(sqlite.ShopSource), "methods": a.fetchMethods(history.SourceShop), "status": shop, "webBotAuth": a.webBotAuthStatus()},
 	})
 }
 
@@ -562,6 +591,14 @@ func (a *api) updateLiveProbe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.liveProbe(w, r)
+}
+
+// webBotAuthStatus is the shop's signing key state.
+func (a *api) webBotAuthStatus() map[string]any {
+	if a.ShopWebBotAuth == nil {
+		return map[string]any{"state": "no_key"}
+	}
+	return a.ShopWebBotAuth()
 }
 
 func (a *api) pushStatus() map[string]any {

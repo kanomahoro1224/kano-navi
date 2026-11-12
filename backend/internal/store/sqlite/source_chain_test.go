@@ -24,6 +24,9 @@ func TestSourceChainsDefaultToTheFormerOrderAndRoundTrip(t *testing.T) {
 	if got := scheduleOf(t, s, "bilibili", 180).Chain.Enabled(); len(got) != 3 || got[0] != "list" || got[1] != "dynamics" || got[2] != "app" {
 		t.Fatalf("bilibili chain=%v", got)
 	}
+	if got := scheduleOf(t, s, BilibiliDynamicsSource, 180).Chain.Enabled(); len(got) != 2 || got[0] != "desktop" || got[1] != "dynamics" {
+		t.Fatalf("bilibili dynamics chain=%v", got)
+	}
 	x.Chain = SourceChain{Methods: []ChainMethod{{"api", true}, {"timeline", true}, {"profile", false}}, APIGate: 0, APIDailyCap: 40}
 	if _, err := s.SaveSourceSchedule(ctx, x, 180, now); err != nil {
 		t.Fatal(err)
@@ -155,5 +158,52 @@ func TestBilibiliUploadChainRoundTripsAndReadsTheOldShapeAsTheDefault(t *testing
 	bilibili.Chain = SourceChain{Methods: []ChainMethod{{"list", true}, {"dynamics", true}, {"app", true}}, APIGate: 3}
 	if _, err := s.SaveSourceSchedule(ctx, bilibili, 180, now); !errors.Is(err, ErrWorkflowValidation) {
 		t.Fatalf("gate on bilibili err=%v", err)
+	}
+}
+
+func TestBilibiliDynamicsChainUpgradesTheFormerFixedMethod(t *testing.T) {
+	got := readSourceChain(BilibiliDynamicsSource, `{"methods":[{"id":"dynamics","enabled":true}]}`).Enabled()
+	if len(got) != 2 || got[0] != "desktop" || got[1] != "dynamics" {
+		t.Fatalf("upgraded chain=%v", got)
+	}
+}
+
+// The shop chain is ordered like the others. The fixed unsigned read it had
+// gains the signed read before it and the Atom read after it; an ordered
+// chain keeps its order.
+func TestShopChainUpgradesTheFixedReadAndRoundTrips(t *testing.T) {
+	if got := DefaultSourceChain(ShopSource).Enabled(); len(got) != 3 || got[0] != "signed" || got[1] != "new_arrivals" || got[2] != "atom" {
+		t.Fatalf("default=%v", got)
+	}
+	if got := readSourceChain(ShopSource, `{"methods":[{"id":"new_arrivals","enabled":true}]}`).Enabled(); len(got) != 3 || got[0] != "signed" || got[1] != "new_arrivals" || got[2] != "atom" {
+		t.Fatalf("upgraded=%v", got)
+	}
+	if got := readSourceChain(ShopSource, `{}`).Enabled(); len(got) != 3 || got[0] != "signed" {
+		t.Fatalf("empty=%v", got)
+	}
+	kept := upgradeSourceChain(ShopSource, SourceChain{Methods: []ChainMethod{{"atom", true}, {"new_arrivals", false}, {"signed", true}}})
+	if len(kept.Methods) != 3 || kept.Methods[0].ID != "atom" || kept.Methods[1].Enabled || kept.Methods[2].ID != "signed" {
+		t.Fatalf("kept=%+v", kept)
+	}
+	s := openScheduleStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 3, 2, 3, 0, 0, 0, time.UTC)
+	shop := scheduleOf(t, s, ShopSource, 360)
+	shop.Chain = SourceChain{Methods: []ChainMethod{{"atom", true}, {"signed", false}, {"new_arrivals", true}}}
+	if _, err := s.SaveSourceSchedule(ctx, shop, 360, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := scheduleOf(t, s, ShopSource, 360).Chain.Enabled(); len(got) != 2 || got[0] != "atom" || got[1] != "new_arrivals" {
+		t.Fatalf("saved=%v", got)
+	}
+	for name, chain := range map[string]SourceChain{
+		"missing":      {Methods: []ChainMethod{{"signed", true}, {"atom", true}}},
+		"all disabled": {Methods: []ChainMethod{{"signed", false}, {"new_arrivals", false}, {"atom", false}}},
+		"gate":         {Methods: []ChainMethod{{"signed", true}, {"new_arrivals", true}, {"atom", true}}, APIGate: 1},
+	} {
+		shop.Chain = chain
+		if _, err := s.SaveSourceSchedule(ctx, shop, 360, now); !errors.Is(err, ErrWorkflowValidation) {
+			t.Errorf("%s: err=%v", name, err)
+		}
 	}
 }

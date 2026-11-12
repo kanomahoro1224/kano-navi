@@ -29,6 +29,9 @@ type SyncSettings struct {
 	// fetches and the X chain's API method.
 	FetchTimeoutMS      int `json:"fetchTimeoutMs"`
 	FetchRequestDelayMS int `json:"fetchRequestDelayMs"`
+	// ExtractionLookbackDays is the age, by publication, of the posts schedule
+	// extraction selects without an operator request; 0 sets no limit.
+	ExtractionLookbackDays int `json:"extractionLookbackDays"`
 	// TranslationScanLimit and TranslationLookbackDays bound the translate
 	// step.
 	TranslationScanLimit    int `json:"translationScanLimit"`
@@ -64,6 +67,7 @@ var SyncSettingSpecs = []SyncSettingSpec{
 	{Field: "fetchMaxPages", key: "sync_fetch_max_pages", env: "SOURCE_HISTORY_MAX_PAGES", Default: 4, Min: 1, Max: 20, clamp: true, value: func(s *SyncSettings) *int { return &s.FetchMaxPages }},
 	{Field: "fetchTimeoutMs", key: "sync_fetch_timeout_ms", env: "SYNC_TIMEOUT_MS", Default: 7000, Min: 1000, Max: 60000, clamp: true, value: func(s *SyncSettings) *int { return &s.FetchTimeoutMS }},
 	{Field: "fetchRequestDelayMs", key: "sync_fetch_request_delay_ms", env: "SYNC_REQUEST_DELAY_MS", Default: 0, Min: 0, Max: 10000, clamp: true, value: func(s *SyncSettings) *int { return &s.FetchRequestDelayMS }},
+	{Field: "extractionLookbackDays", key: "sync_extraction_lookback_days", Default: 30, Min: 0, Max: 3650, value: func(s *SyncSettings) *int { return &s.ExtractionLookbackDays }},
 	{Field: "translationScanLimit", key: "sync_translation_scan_limit", env: "TRANSLATION_SCAN_LIMIT", Default: 20, Min: 1, Max: 200, clamp: true, value: func(s *SyncSettings) *int { return &s.TranslationScanLimit }},
 	{Field: "translationLookbackDays", key: "sync_translation_lookback_days", env: "TRANSLATION_LOOKBACK_DAYS", Default: 30, Min: 1, Max: 3650, clamp: true, value: func(s *SyncSettings) *int { return &s.TranslationLookbackDays }},
 	{Field: "llmModelAttempts", key: "sync_llm_model_attempts", Default: 3, Min: 1, Max: 10, value: func(s *SyncSettings) *int { return &s.LLMModelAttempts }},

@@ -11,6 +11,11 @@
   new client joins an existing area or adds one; proxy passwords are sealed
   with `LLM_SECRETS_KEY` and transport errors from a proxied attempt carry a
   fixed message.
+- A client that identifies itself signs with the
+  [Web Bot Auth](../architecture/web-bot-auth.md) key through
+  `internal/webbotauth`, reading the current signer for each request after
+  its proxy transport is chosen. The private key exists sealed in SQLite and
+  in process memory only; never return, log or store it in plaintext.
 - Never embed usernames, passwords, tokens, or cookies in a URL. Do not write credentials from a response into `raw_json`, logs, or the UI.
 - Register a new source host and its purpose in `scripts/privacy-allowlist.json` first. The allowlist is a reviewable source record, not a comment-based way to bypass secret detection.
 - An inbound push endpoint (the YouTube WebSub callback is the only one) must
@@ -23,6 +28,12 @@
   passwords and provider secrets. Request bodies are bounded before parsing;
   invalid JSON and oversized bodies return 400/413 with a controlled error
   code.
+- Source workflow runs retain bounded textual response bodies in the local
+  SQLite snapshot for diagnosis. Captures omit request headers and query
+  strings, are limited to 4 MiB each and 512 MiB total, and expire after 30
+  days for successful responses or 90 days for errors. The local read-only
+  `kano-go responses` command is the only body access path; treat database
+  backups and exported captures as source data and keep them access-controlled.
 
 The model boundary is opt-in. Matching public schedule-post text and ready
 cached post images are sent only to the ordered, administrator-configured

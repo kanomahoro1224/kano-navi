@@ -67,6 +67,10 @@ type Options struct {
 	// because that process owns the Bilibili client and its cookie jar. Empty
 	// leaves the login panel reporting the feature as unavailable.
 	BiliAuthURL string
+	// ShopWebBotAuth reports the Web Bot Auth key's state
+	// (internal/webbotauth/keyadmin); the shop's signed method runs while it
+	// is "active". Nil reports no key.
+	ShopWebBotAuth func() map[string]any
 	// YoutubeYTDLP is the optional local yt-dlp runner used by the YouTube
 	// source and its operator update route.
 	YoutubeYTDLP *ytsource.YTDLP

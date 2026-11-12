@@ -44,10 +44,10 @@ The dashboard also carries a locale-neutral `projection` for shared board
 decisions. `projection.version` identifies the contract (`1` is the current
 version), `nextTransitionAt` is the next parseable ISO instant that can change
 a time-dependent decision, `focus.eventIds` and `focus.videoIds` are the
-ordered event and video candidates, and `sales` is the ordered list of sale
-event IDs shown in the sale strip. `spotlight` identifies the next or latest
-ticket, its live state, the members chip decision, and an optional companion
-video. `shelf` contains the lead ID, whether it is Featured, and the ordered
+ordered event and video candidates, and `sales` is the ordered list of every
+sale event ID the board's on-sale list shows, in place or in its sheet.
+`spotlight` identifies the next or latest ticket, its live state, the members
+chip decision, and an optional companion video. `shelf` contains the lead ID, whether it is Featured, and the ordered
 reservation, work, archive and Short IDs. The browser uses these IDs to join
 the returned records; it does not infer their order from localized text.
 
@@ -95,7 +95,11 @@ text may be empty when the dynamic held only emoji. A forward's `quote` is
 the dynamic it forwards (see [Quoted posts](data-model.md#quoted-posts)),
 with that dynamic's post ID as `id` (`null` when the listing did not name
 it), the author's mid as `authorHandle`, and its Bilibili page as `url`; a
-forward's own text may be empty.
+forward's own text may be empty. A dynamic with stickers adds `rich`, and an
+available quote with stickers `quote.rich`: the original wording as
+`{text}` and `{emoji, url}` segments whose `text` joined is `text`, where
+`url` is a local `/media/` address or `null` and never a remote one (see
+[Bilibili stickers](data-model.md#bilibili-stickers)).
 
 Every public event reports its `platform` (`youtube`, `bilibili`, `other`,
 `unknown`, or null for an entry stored before platforms were recorded) and
@@ -486,10 +490,22 @@ mismatched request before reading it as data. Accepted batches queue the
 post-processing chain the sync steps use, and a catch-up ticker re-submits it
 when the single-flight queue was busy.
 
+## Web Bot Auth Key Directory
+
+`GET /.well-known/http-message-signatures-directory` (and `HEAD`) serves the
+public key that signs the shop source's outbound requests, as
+`application/http-message-signatures-directory+json`: a JWKS with one Ed25519
+key (`kty`, `crv`, `x`) and never a private member. The response carries its
+own `Signature-Input` and `Signature` over `("@authority";req)`, tagged
+`http-message-signatures-directory`. It answers `404 {error: "not_found"}`
+while Web Bot Auth signing is not active and 405 to other methods. See
+[Web Bot Auth](web-bot-auth.md#key-directory).
+
 ## Related Docs
 
 - [Backend](backend.md)
 - [Admin API](admin-api.md)
 - [Data model](data-model.md)
+- [Web Bot Auth](web-bot-auth.md)
 - [Media cache](media-cache.md)
 - [Deployment security](../operations/security.md)

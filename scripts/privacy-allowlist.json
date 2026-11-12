@@ -175,7 +175,7 @@
     },
     {
       "host": "milpr.com",
-      "reason": "Public agency talent page, official shop, and news reference links; the server reads the shop's public product JSON (shop.milpr.com) for sale periods."
+      "reason": "Public agency talent page, official shop, and news reference links; the server reads the shop's public product JSON and catalog Atom feed (shop.milpr.com) for sale periods, signed with Web Bot Auth when a key is configured."
     },
     {
       "host": "amebaownd.com",
@@ -304,6 +304,10 @@
     {
       "host": "4.bp.blogspot.com",
       "reason": "Original image-file URL preserved for the third-party first-album cover; the browser displays the packaged local file."
+    },
+    {
+      "host": "jadedpixel.com",
+      "reason": "Shopify's XML namespace identifier for its product elements in the official shop's Atom feed, which the shop source parses; it names the format and is never fetched."
     },
     {
       "host": "www.w3.org",

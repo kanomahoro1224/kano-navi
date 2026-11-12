@@ -46,6 +46,18 @@ next compatible provider is used.
 X synchronization reads both handles in `X_HANDLES` and keeps a separate cursor
 for each account.
 
+Source HTTP responses are captured during workflow runs and stored compressed
+in the SQLite snapshot. Text responses are retained after HTTP content
+decoding, before source parsing; each stored body is capped at 4 MiB, and the
+compressed capture store is capped at 512 MiB. Successful responses expire
+after 30 days and errors after 90 days. List recent metadata with
+`kano-go responses list` (`-source` filters by source); export one verified
+response body with `kano-go responses export <id>`. Export writes only the body
+to standard output so it can be redirected to a local file or piped into an
+analysis tool. The command opens the database read-only, and capture bodies
+are never returned by the HTTP API. Keep database backups and exports
+access-controlled.
+
 ## Backup and Recovery
 
 Stop the server and any CLI synchronization before copying the complete data/

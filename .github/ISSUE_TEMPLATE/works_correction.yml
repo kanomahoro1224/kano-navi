@@ -1,0 +1,74 @@
+name: Works correction
+description: Report wrong or missing information on the Works page.
+title: "[Works]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Report one work per issue. English, Japanese and Chinese are all welcome.
+        Leave out your own contact details and anything private about other people.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for the same correction.
+          required: true
+  - type: dropdown
+    id: section
+    attributes:
+      label: Section
+      options:
+        - Own releases
+        - Featured on
+        - Uploads
+    validations:
+      required: true
+  - type: input
+    id: work
+    attributes:
+      label: Work
+      description: The title and date as the page shows them.
+      placeholder: "Title, YYYY-MM-DD"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong
+      multiple: true
+      options:
+        - Date
+        - Title
+        - Tracklist
+        - Credits
+        - Edition, format or bonus
+        - Cover or image
+        - Store or video link
+        - Missing work
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: shown
+    attributes:
+      label: What the page shows
+      description: Leave empty for a missing work.
+  - type: textarea
+    id: correct
+    attributes:
+      label: What it should be
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: An official page, store listing, database entry or video that shows the correct information.
+      placeholder: "https://"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes

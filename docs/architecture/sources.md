@@ -886,8 +886,8 @@ signed-in request sends `SESSDATA` with the browser's `bili_jct`,
 `DedeUserID`, `DedeUserID__ckMd5` and `sid`, and the browser's device
 cookies (`buvid3`, `buvid4`, `b_nut`, `_uuid`, `buvid_fp`) in place of the
 anonymous identity where the login carries them, so the account and its
-device match. Signed-in reads meet the captcha far less often, and the
-dynamics listing needs one. The login is verified at most once
+device match. Signed-in reads meet the captcha far less often, and both
+dynamics methods require the login. The login is verified at most once
 a day through `nav`'s `isLogin`, when the listing runs; while the latest check
 found it expired, no request sends it and the listing waits for the next
 check (`{ skipped: true, reason: "login_expired" }` on the
@@ -989,30 +989,34 @@ translation in the same transaction.
 
 #### Bilibili login boundary
 
-The dynamics listing requires a signed-in cookie because anonymous requests depend on browser fingerprint parameters and encounter captcha responses. The server therefore skips the listing without a login and keeps the cookie in memory for the Bilibili API only. An operator can still add one dynamic through its public opus page, which does not require the listing credential.
+The dynamics methods require a signed-in cookie because anonymous requests depend on browser fingerprint parameters and encounter captcha responses. The server therefore skips the methods without a login and keeps the cookie in memory for the Bilibili API only. An operator can still add one dynamic through its public opus page, which does not require the listing credential.
 
 #### Dynamics
 
-The dynamics listing,
-`/x/polymer/web-dynamic/v1/feed/space?host_mid=<mid>`, answers reliably only
-to a signed-in caller, so it runs only with a login (`BILIBILI_COOKIE` or
-`BILIBILI_SESSDATA`,
-[Bilibili dynamics](../architecture/sources.md#dynamics)).
-Without the cookie the `bilibili_dynamics` step records `{ skipped: true,
-reason: "login_required" }` and makes no anonymous attempt. The listing is signed
-with Bilibili's WBI scheme (`wts` and `w_rid` from the rotating keys that
-the ticket or `/x/web-interface/nav` names); the keys are cached for 12
-hours and dropped after a `v_voucher` or `-352` answer, which may mean they
-rotated. A signed-out `nav` answer, or `-101` from the listing, is
-`bilibili_login_expired`. The listing shares the upload read's captcha
-backoff and device identity, so a block either one met holds both back, and
-runs on its own clock at least `BILIBILI_MIN_INTERVAL_MINUTES` apart. The
-single-flight queue never runs the two steps at once, so their writes of the
-shared state never race. One timed read requests the first page only: the
-listing itself, plus `nav` for the daily login check or stale keys, and the
-device identity and ticket when they are due. An operator's
-[manual fetch](workflows.md#bilibili-methods) follows the offset each page
-answers to older pages.
+The scheduled `bilibili_dynamics` source requires a signed-in caller
+(`BILIBILI_COOKIE` or `BILIBILI_SESSDATA`). Without the cookie it records
+`{ skipped: true, reason: "login_required" }` and makes no anonymous attempt.
+Its configurable [method chain](workflows.md#method-chains) tries the desktop
+feed, `/x/polymer/web-dynamic/desktop/v1/feed/space?host_mid=<mid>`, before
+the WBI listing, `/x/polymer/web-dynamic/v1/feed/space?host_mid=<mid>`.
+The desktop method does not use WBI signing; the `dynamics` method signs with
+Bilibili's WBI scheme (`wts` and `w_rid` from the rotating keys that the ticket
+or `/x/web-interface/nav` names). WBI keys are cached for 12 hours and dropped
+after a `v_voucher` or `-352` answer, which may mean they rotated.
+
+The desktop feed's dynamic IDs sort numerically descending, matching
+publication order. Ordinary endpoint failures can use the next enabled method.
+Login and risk-control failures, including 429, stop the chain and start or
+preserve the shared captcha backoff; no fallback request is made while blocked.
+A signed-out `nav` answer, or `-101` from either listing, is
+`bilibili_login_expired`. Both methods share the upload read's captcha
+backoff and device identity, so a block either one meets holds both back. The
+dynamics source runs on its own clock at least
+`BILIBILI_MIN_INTERVAL_MINUTES` apart. One timed read requests the first page
+only, plus the device identity and ticket when due; `nav` runs for the daily
+login check, or when the WBI method is reached with stale keys. A desktop
+success needs no WBI refresh. Manual fetches use their explicit WBI `space`
+method and follow each offset to older pages.
 
 A listing keeps the account's own `DYNAMIC_TYPE_WORD` and `DYNAMIC_TYPE_DRAW`
 items (the opus and picture cards), `DYNAMIC_TYPE_ARTICLE` items only in
@@ -1029,18 +1033,36 @@ store even while the list meets the captcha. The upload read's newest
 cursor stays its own. The stored text joins the nodes' text (words, topics, mentions,
 links) and leaves out emoji nodes (`RICH_TEXT_NODE_TYPE_EMOJI`); an opus
 title leads it, and a picture post's `desc` nodes give it beside its
-pictures. The nodes, emoji included, stay in `raw_json`. An
+pictures. A dynamic without rich-text nodes, as older listings give one,
+takes its plain text field instead (the opus summary's, else `desc.text`),
+HTML-unescaped; it names no sticker pictures, so any caption in it stays as
+written. An older album without a major type lists its pictures under `draw`
+or `opus`, and both are read. The nodes, emoji included, stay in `raw_json`. An
 emoji-only dynamic therefore has empty text and is translated as `none`
 without a model call. Up to nine pictures are kept as the post's images.
+
+An emoji node is a sticker (custom emoji): its text is the caption, such as
+`[笑]`, and its picture is one of the node's `webp_url`, `gif_url` or
+`icon_url`, preferred in that order and kept only as an HTTPS address on
+`*.hdslb.com`. `raw_json` keeps the node with its caption and that picture
+as `emoji.url`. The distinct pictures of a dynamic, at most 32, are
+`post-emoji` links of its post, so they are [cached](media-cache.md) like
+its images; they are never images of the post, schedule candidates or
+extraction input, and the text, its translations and extraction never
+include a caption. The board places each sticker into the stored text by
+its node's order (see
+[Bilibili stickers](data-model.md#bilibili-stickers)).
 
 Dynamics are `posts` rows with `source = 'bilibili'`, the ID
 `bilibili-<id_str>` (dynamic and X status IDs are both numbers of about 19
 digits and share `posts.id`), `account_handle` the mid, `url`
 `https://www.bilibili.com/opus/<id_str>` and `published_at` the publication
 time in UTC. They have no engagement counts; a forward has a quote. A read
-replaces a dynamic's text, time, pictures and quote, keeps an operator's
-hide, and advances the dashboard revision only when the text, time, link,
-pictures, quote, quoted pictures or hide changed. Its pictures are
+replaces a dynamic's text, time, pictures, stickers and quote, keeps an
+operator's hide, and advances the dashboard revision only when the text,
+time, link, pictures, quote, quoted pictures, either set of stickers, the
+nodes that place the stickers of a dynamic that has any, or hide changed.
+Its pictures are
 `post-image` links, so they feed
 [schedule extraction](#schedule-extraction-pipeline) once cached; a
 schedule board on a Bilibili picture is not registered as a
@@ -1065,10 +1087,12 @@ A forward is the account's own post that quotes the dynamic it forwards, the
 way an X post [quotes a status](#quoted-posts): it has its own dynamic ID,
 publication time and wording, and the listing carries the forwarded
 dynamic in full in its `orig` object, so a forward needs no request of its
-own. Its text is its `desc` nodes without emoji, and it has no pictures of
-its own. The listing keeps every forward of the account. The store leaves
-out a new forward that has no wording of its own and an unavailable quote,
-which would be an empty card; a stored forward whose dynamic becomes
+own. Its text is its `desc` nodes without emoji (or its plain `desc.text`
+when it has no nodes), its stickers are its own `post-emoji` links, and it
+has no pictures of its own. The listing keeps every forward of the account.
+The store leaves out a new forward only when its quote is unavailable and
+its own wording has neither text nor sticker captions, which would be an
+empty card; a stored forward whose dynamic becomes
 unavailable is rewritten with the unavailable quote, loses its
 `quote-image` links and advances the dashboard revision, with or without
 wording of its own.
@@ -1090,12 +1114,15 @@ sanitized projection an X quote has, stored in `posts.quote_json`:
   the video title as text and its cover as the one image.
 
 Its pictures (HTTPS on `*.hdslb.com`, at most nine) are `quote-image` links
-of the forward and never schedule candidates; `quote_json` holds no image
-address. A deleted dynamic (`DYNAMIC_TYPE_NONE`, `MAJOR_TYPE_NONE`), a
+of the forward and its stickers `quote-emoji` links, neither ever a schedule
+candidate; `quote_json` holds no image address. The forward's
+`raw_json.orig` keeps the available dynamic's title and nodes beside its
+type and ID, the source of its stickers. A deleted dynamic (`DYNAMIC_TYPE_NONE`, `MAJOR_TYPE_NONE`), a
 missing `orig`, a dynamic of any other kind (a live room, a collection,
 goods, a vote, an article in its old form), a supporters-only dynamic or one
-with neither wording nor pictures is unavailable, with only its ID and its opus page as URL (an
-upload too); when even its ID is unknown, `id` is empty and `url` is the
+with neither wording (including sticker captions) nor pictures is unavailable,
+with only its ID and its opus page as URL (an upload too); when even its ID
+is unknown, `id` is empty and `url` is the
 forward's own opus page. An `orig` of an unexpected shape is unavailable
 as well, keeping its ID when `id_str` still reads, and never fails the page.
 An unavailable quote leaves the dynamic's pool row as it was.
@@ -1170,15 +1197,17 @@ and errors stay in the console.
 The `shop` step reads the sale periods of goods Kano takes part in from the
 official shop, `https://shop.milpr.com`, a Shopify storefront, so a sale
 reaches the board even when no post announces it. It needs no model: the
-storefront's public product JSON states everything a period needs. The step
-has its own [timer](workflows.md#source-schedules) and runs only in
-server-side workflows; page loads never read the shop.
+storefront's public product JSON and catalog feed state everything a period
+needs. The step has its own [timer](workflows.md#source-schedules) and runs
+only in server-side workflows; page loads never read the shop.
 
-`backend/internal/source/shop` builds three fixed URLs on that one host and
+`backend/internal/source/shop` builds four fixed URLs on that one host and
 nothing else; no address comes from data:
 
 - `/collections/new-arrivals/products.json?limit=50`, the newest 50
-  products, read by every timed run, Run now and full sync;
+  products, read by the `signed` and `new_arrivals` methods;
+- `/collections/all.atom`, the catalog's Atom feed, read by the `atom`
+  method: the newest 25 products, with no further pages;
 - `/products.json?limit=250&page=<n>`, the whole catalog, read only by the
   operator's [read-all fetch](workflows.md#manual-fetches-and-historical-backfill):
   at most six pages, three seconds apart, until a page lists fewer than 250
@@ -1189,13 +1218,61 @@ nothing else; no address comes from data:
 
 Every request names the client honestly as `kano-navi-go/shop`. The shop
 answers clients that pose as a browser with `429 local_rate_limited`, so the
-client never sends a browser's user agent. A 429 ends the run without a
-retry: its `Retry-After` (seconds or a date; a minute when missing, at most
-a day) is stored, and no read, timed or manual, requests the shop before it
-passes (`{ skipped: true, reason: "rate_limited" }`). The other failures are
-`shop_timeout`, `shop_unavailable`, `shop_redirect_rejected`,
-`shop_response_oversized`, `shop_http_<status>` and `shop_invalid_json`. Any
-failed request fails the read: it records its code and changes no entry.
+client never sends a browser's user agent. With an active
+[Web Bot Auth](web-bot-auth.md) key, the client also identifies itself with a
+signature: Shopify limits unsigned automated traffic most strictly and gives
+signed requests a higher limit, and the shop asks server-to-server clients to
+sign. A request is signed after the `shop` [proxy area](outbound-proxy.md)'s
+transport is chosen.
+
+Timed runs, Run now and full syncs list the newest products through the
+shop's [method chain](workflows.md#method-chains), in the operator's order:
+
+| Method         | Request                                   | Signed            |
+| -------------- | ----------------------------------------- | ----------------- |
+| `signed`       | the newest 50 of the new-arrivals listing | always            |
+| `new_arrivals` | the newest 50 of the new-arrivals listing | never             |
+| `atom`         | the catalog's Atom feed, newest 25        | when a key is set |
+
+Without a key, `signed` is passed over without a request
+(`signed: shop_no_signing_key` in `tried`). Signing is a method of its own
+for the JSON listing so an operator can keep an unsigned read beside it,
+while the feed, which has no unsigned twin in the chain, is signed whenever
+a key exists. The collection list follows the listing that served: signed
+after `signed`, or after `atom` with a key, unsigned after `new_arrivals`.
+The read-all fetch signs every catalog page when a key is set.
+
+The chain stays polite to an address the shop may already be holding back.
+A 429 is the shop's verdict on the whole address, so it ends the run without
+another method: a signed 429 is never retried unsigned, and an unsigned one
+never moves on to the feed. A timeout (`shop_timeout`) or an unreachable host
+(`shop_unavailable`) ends it too. A failure of the method alone
+(`shop_http_<status>`, `shop_redirect_rejected`, `shop_response_oversized`,
+`shop_invalid_json`, `shop_invalid_atom`) lets the next enabled method try,
+three seconds later, but a run makes at most three listing requests, enough
+to reach Atom after both JSON methods fail; with the collection list that
+is at most four requests. A run whose enabled methods can make no request
+fails with `shop_no_method` and makes none.
+
+A 429's `Retry-After` (seconds or a date; a minute when missing, at most a
+day) is stored for the source, not the method, and no read, timed or manual,
+signed or not, requests the shop before it passes
+(`{ skipped: true, reason: "rate_limited" }`). A read whose listing or
+collection list fails records the last code and changes no entry. The step
+result names the method that served in `listing`, each method reached in
+`tried` (`<method>` for the one that served, `<method>: <code>` for the
+others), the failed requests' codes in `errors`, and whether the listing was
+`signed`; a later method that served makes the run `partial`, with
+`fallback` naming it.
+
+The Atom feed is read with `encoding/xml`: an entry's ID
+`https://shop.milpr.com/products/<numeric id>` gives the product ID, its
+alternate link `https://shop.milpr.com/products/<handle>` the handle, and its
+`title`, `published` and Shopify `s:tag` elements the rest. The HTML of its
+`summary` is the description the period is read from, as `body_html` is for
+the JSON. An entry whose ID or link names another host, or that lacks a
+title or publication time, is left out. The feed states no stock, and its
+prices, in the summary and the variant elements, are never decoded or kept.
 
 A product counts only when it carries the tag `鹿乃まほろ`, a constant of the
 code, since the board is Kano's, and when its description states a dated
@@ -1211,7 +1288,8 @@ with no close), a product without a period and a period with impossible
 dates are skipped and counted by reason (`open_ended`, `no_period`,
 `invalid_period`, `untagged`). Stock (`variants[].available`) is not the
 period: a sold-out product still has its sale. Prices, stock and images are
-never decoded.
+never decoded. Products from either listing reach the same grouping and
+writing below.
 
 The products of one period form one group, with one entry, not one entry
 per product. The shop writes some titles with decomposed kana (`ホ` followed
@@ -1303,7 +1381,7 @@ Every source client requests fixed destinations with a 10-second timeout
 that stays active through body consumption, rejects redirects, and records
 only controlled error codes. The Bilibili client builds its URLs itself on
 its three fixed hosts and checks the mid and the dynamic ID before a
-request; the shop client builds its three fixed paths on `shop.milpr.com`
+request; the shop client builds its four fixed paths on `shop.milpr.com`
 (see [Official shop](#official-shop)). Response bodies are limited to 4 MiB
 for X, YouTube and the shop and 2 MiB for Bilibili; a timed-out or oversized stream is cancelled
 and releases its reader so the single-flight queue can run a subsequent job.
@@ -1364,6 +1442,15 @@ deadline as both dates and no start time. The close is stored as the
 other type, and a shipping or delivery date is not an entry. A sale's
 `endTime` without `endDate` closes it on the Japan date that time falls on.
 
+Both paths select only posts published (`posts.published_at`) within the
+extraction lookback before the scan starts: 30 days by default, `0` for no
+limit (see [sync settings](../operations/configuration.md#sync-settings)).
+Posts outside it are not read, so a change of their input, a pending retry,
+a new extractor version or a backfilled or imported history sends none of
+them to a model. An operator's reprocess request bypasses the lookback,
+whatever the post's age, as forced translation requests bypass the
+translation lookback.
+
 Neither path, nor an operator's reprocess request, selects a post with
 `posts.hidden_at` set; a request for a hidden post waits until the post is
 shown again, and showing it makes it a candidate again. The events such a
@@ -1404,8 +1491,9 @@ processes. A cache hit whose post state already records that result writes
 nothing.
 
 A settled post is a cache hit decided without loading it. Each detection
-stage reads every shown post with its input stamp for that stage, computed
-in SQLite from everything the extraction identity and the image check read
+stage reads every shown post within the lookback with its input stamp for
+that stage, computed in SQLite from everything the extraction identity and
+the image check read
 (see [Post LLM states](data-model.md#post-llm-states)). A post whose state
 records a cache hit on that stage's route for exactly that stamp, with no
 reprocess request, error or failure backoff, keeps its place among the
@@ -1417,7 +1505,7 @@ order, the limit and the outcome of every other post are those of judging it.
 The step result records the candidate phase as `candidateMs`
 (listing requests and candidates, with their stamps, and ordering them),
 `postsRead` (rows the detection stages read, each stage reading every shown
-X and Bilibili post) and `candidatePosts` (the posts queued), then `judged`
+X and Bilibili post within the lookback) and `candidatePosts` (the posts queued), then `judged`
 (posts the scan loaded and judged), `settled` (settled posts it counted as
 cache hits without loading them) and `judgeMs` (time spent loading and
 judging, without model calls or writes). `cached` counts both kinds of cache

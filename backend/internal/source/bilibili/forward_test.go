@@ -55,11 +55,11 @@ func TestForwardsQuoteTheForwardedDynamicFromTheListing(t *testing.T) {
 
 	opus := byID["900000000000000110"]
 	q := opus.Quote
-	if opus.Text != "看这个[synthetic_emoji]" || opus.PublishedAt != "2026-11-07T05:40:00Z" || opus.URL() != "https://www.bilibili.com/opus/900000000000000110" {
+	if opus.Text != "看这个" || opus.PublishedAt != "2026-11-07T05:40:00Z" || opus.URL() != "https://www.bilibili.com/opus/900000000000000110" {
 		t.Fatalf("forward=%#v", opus)
 	}
 	if q.ID != "bilibili-900000000000000210" || q.URL != "https://www.bilibili.com/opus/900000000000000210" || q.AuthorHandle != "42" ||
-		q.AuthorName != "Synthetic & Agency" || q.Text != "活动公告\n明天20点直播[e]" || q.PublishedAt != "2026-11-07T02:53:20Z" || q.Unavailable {
+		q.AuthorName != "Synthetic & Agency" || q.Text != "活动公告\n明天20点直播" || q.PublishedAt != "2026-11-07T02:53:20Z" || q.Unavailable {
 		t.Fatalf("quote=%#v", q)
 	}
 	// Only CDN pictures, at most nine, and never in the projection.
@@ -167,7 +167,7 @@ func TestDrawDynamicsKeepTheirWordingAndPictures(t *testing.T) {
 		t.Fatalf("page=%#v err=%v", page, err)
 	}
 	d := page.Dynamics[0]
-	if d.Text != "今晚的照片[e]#话题#" || len(d.Images) != 2 || d.Images[1] != "https://i0.hdslb.com/bfs/new_dyn/synthetic-f.jpg" || d.Quote != nil {
+	if d.Text != "今晚的照片#话题#" || len(d.Images) != 2 || d.Images[1] != "https://i0.hdslb.com/bfs/new_dyn/synthetic-f.jpg" || d.Quote != nil {
 		t.Fatalf("draw=%#v", d)
 	}
 }

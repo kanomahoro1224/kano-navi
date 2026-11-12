@@ -3,8 +3,8 @@ import type {
   Locale,
   MediaItem,
   Post,
-  PostEmoji,
   PostQuote,
+  RichSegment,
   Translator,
 } from "@/types"
 import type { CSSProperties, ReactElement, ReactNode, RefObject } from "react"
@@ -52,80 +52,6 @@ import { SheetDialog } from "./sheet-dialog"
 const POST_MEDIA_SIZES =
   "(max-width: 640px) 100vw, (max-width: 1200px) 34vw, 420px"
 
-/** escapeRegExp makes a sticker caption safe to put in a pattern. */
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
-
-/**
- * splitEmojis cuts a post's wording where its stickers sit, so the icon takes
- * the caption's place. A translation may drop the caption; the stickers then
- * follow the wording rather than vanish.
- */
-function splitEmojis(
-  text: string,
-  emojis: PostEmoji[] | undefined,
-): (string | PostEmoji)[] | null {
-  const stickers = (emojis ?? []).filter((emoji) => emoji.text && emoji.icon)
-  if (!stickers.length) return null
-  const byCaption = new Map(stickers.map((emoji) => [emoji.text, emoji]))
-  const pattern = new RegExp(
-    `(${stickers.map((emoji) => escapeRegExp(emoji.text)).join("|")})`,
-    "g",
-  )
-  const parts: (string | PostEmoji)[] = []
-  let placed = false
-  for (const part of text.split(pattern)) {
-    const sticker = byCaption.get(part)
-    if (sticker) {
-      placed = true
-      parts.push(sticker)
-    } else if (part) {
-      parts.push(part)
-    }
-  }
-  if (!placed) parts.push(...stickers)
-  return parts
-}
-
-/**
- * PostWording is a post's wording with its stickers painted in place: Bilibili
- * keeps a sticker's caption in the text, and the board shows the picture.
- */
-function PostWording({
-  text,
-  emojis,
-}: {
-  text: string
-  emojis: PostEmoji[] | undefined
-}) {
-  const parts = useMemo(() => splitEmojis(text, emojis), [text, emojis])
-  if (!parts) return <>{text}</>
-  return (
-    <>
-      {parts.map((part, index) =>
-        typeof part === "string" ? (
-          part
-        ) : (
-          <img
-            key={`emoji-${index}-${part.text}`}
-            className="post-emoji"
-            src={part.icon}
-            alt={part.text}
-            title={part.text}
-            loading="lazy"
-            decoding="async"
-            // Bilibili's image CDN answers 403 to a hotlink that carries any
-            // other site's Referer, which leaves the caption showing instead
-            // of the sticker.
-            referrerPolicy="no-referrer"
-          />
-        ),
-      )}
-    </>
-  )
-}
-
 /** Ready local media can open in the viewer; anything else stays labelled. */
 export function postMedia(post: Post): MediaItem[] {
   if (Array.isArray(post.media) && post.media.length) return post.media
@@ -139,6 +65,45 @@ export function postMedia(post: Post): MediaItem[] {
         },
       ]
     : []
+}
+
+/**
+ * The wording shown: a translation as text, or the original with its
+ * stickers inline at text height, each a cached local picture named by its
+ * caption, or the caption itself until the picture is cached.
+ */
+export function PostWording({
+  wording,
+  rich,
+}: {
+  wording: TranslatedTextState
+  rich?: RichSegment[] | null
+}) {
+  if (wording.shown || !rich?.length) return <>{wording.text}</>
+  return (
+    <>
+      {rich.map((segment, index) => {
+        if ("text" in segment) return segment.text
+        return segment.url?.startsWith("/media/") ? (
+          <img
+            key={index}
+            className="post-sticker"
+            src={segment.url}
+            alt={segment.emoji}
+            title={segment.emoji}
+            loading="lazy"
+          />
+        ) : (
+          segment.emoji
+        )
+      })}
+    </>
+  )
+}
+
+/** Whether there is wording to show: text, or stickers in the original. */
+function hasWording(wording: TranslatedTextState, rich?: RichSegment[] | null) {
+  return Boolean(wording.text) || (!wording.shown && Boolean(rich?.length))
 }
 
 /**
@@ -295,13 +260,13 @@ function QuoteCard({
         ) : null}
         <TranslationToggle state={wording} t={t} />
       </p>
-      {quote.text ? (
+      {quote.text || hasWording(wording, quote.rich) ? (
         <p
           ref={textRef}
           className={`post-quote-text${clamp ? " is-clamped" : ""}`}
           lang={wording.lang}
         >
-          {wording.text}
+          <PostWording wording={wording} rich={quote.rich} />
         </p>
       ) : null}
       {shown.length ? (
@@ -496,13 +461,13 @@ function PostNote({
   return (
     <article className="post-note">
       {head()}
-      {wording.text ? (
+      {hasWording(wording, post.rich) ? (
         <p
           ref={textRef}
           className={`post-note-text${clamp ? " is-clamped" : ""}`}
           lang={wording.lang}
         >
-          <PostWording text={wording.text} emojis={post.emoji} />
+          <PostWording wording={wording} rich={post.rich} />
           <TranslationToggle
             state={wording}
             t={t}
@@ -543,9 +508,9 @@ function PostNote({
                 <X aria-hidden="true" />
               </button>,
             )}
-            {wording.text ? (
+            {hasWording(wording, post.rich) ? (
               <p className="post-note-text" lang={wording.lang}>
-                <PostWording text={wording.text} emojis={post.emoji} />
+                <PostWording wording={wording} rich={post.rich} />
                 <TranslationToggle state={wording} t={t} />
               </p>
             ) : null}

@@ -801,9 +801,6 @@ func projectionSales(events []DashboardEvent, now time.Time) []string {
 	for _, event := range listed {
 		ids = append(ids, event.ID)
 	}
-	if len(ids) > 3 {
-		ids = ids[:3]
-	}
 	return ids
 }
 

@@ -82,6 +82,22 @@ operator actions, and share the bounded single-flight synchronization queue.
   `dashboard_request_reload` reads the existing SQLite snapshot; only the
   server-side synchronization job performs external source requests.
 
+## Web Bot Auth Key
+
+The Web Bot Auth key identifies the shop source's requests as this site's.
+It is an identity key this server generates, not a credential a source
+issued: the operator makes it in `/admin`, and its private seed is sealed
+with `LLM_SECRETS_KEY` in `app_settings`, like the YouTube push signing
+secret. The seed is never returned by the admin API, which reports its
+keyid and state, and never logged or written to `raw_json`; the public
+directory at `/.well-known/http-message-signatures-directory` holds public
+keys only. The optional `WEB_BOT_AUTH_KEY` override stays in the
+environment and process memory. Anyone holding the seed can sign as this
+site, so rotate the key in `/admin` (or replace the override) when it may
+have leaked; the replaced public key stays listed for 24 hours, and
+removing the key withdraws it at once. See
+[Web Bot Auth](../architecture/web-bot-auth.md).
+
 ## LLM Secrets and Dependencies
 
 LLM_SECRETS_KEY stays in the environment; provider keys are encrypted before

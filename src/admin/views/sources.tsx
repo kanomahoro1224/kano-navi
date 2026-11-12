@@ -43,7 +43,7 @@ import {
   BilibiliSource,
 } from "@/admin/views/bilibili-parts"
 import { stepIcons } from "@/admin/views/run-parts"
-import { ShopStatusPanel } from "@/admin/views/shop-parts"
+import { ShopStatusPanel, WebBotAuthPanel } from "@/admin/views/shop-parts"
 import { SyncSettingsForm } from "@/admin/views/sync-settings"
 import { cn } from "@/lib/utils"
 import { Fold } from "@/admin/views/source-parts"
@@ -573,6 +573,19 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                   ) : null}
                   {selected === "shop" ? (
                     <ShopStatusPanel shop={data.shop} />
+                  ) : null}
+                  {selected === "shop" ? (
+                    <WebBotAuthPanel
+                      status={data.shop.webBotAuth}
+                      onChange={(webBotAuth) => {
+                        sources.setData({
+                          ...data,
+                          shop: { ...data.shop, webBotAuth },
+                        })
+                        // The chain's signed method follows the key.
+                        void sources.reload()
+                      }}
+                    />
                   ) : null}
                   {selected === "bilibili" &&
                   data.youtube.liveProbe.bilibili ? (

@@ -263,10 +263,12 @@ function LeadCard({
           <span className="tag tone-berry">
             {isFeatured ? t("videos.featured") : t("videos.latestWork")}
           </span>
-          {phase === "past" ? (
-            <FormChip video={video} now={now} t={t} />
-          ) : (
+          {/* A past work's form is its shelf's; a featured stream or Short
+              keeps it. */}
+          {phase !== "past" ? (
             <PhaseTag phase={phase} video={video} now={now} t={t} />
+          ) : videoMatchesFilter(video, "works") ? null : (
+            <FormChip video={video} now={now} t={t} />
           )}
           <VideoTagChip video={video} t={t} />
           <VideoAvailabilityChip video={video} t={t} />
@@ -368,16 +370,17 @@ function VideoTicket({
   )
 }
 
-/** A grid card: large artwork, a two-line title, the date and platforms. */
+/**
+ * A grid card: large artwork, a two-line title, the date and platforms. Its
+ * shelf names its form, so the card carries no form chip.
+ */
 function VideoCard({
   video,
-  showKind,
   locale,
   now,
   t,
 }: {
   video: Video
-  showKind: boolean
   locale: Locale
   now: number
   t: Translator
@@ -405,7 +408,6 @@ function VideoCard({
       </div>
       <p className="video-meta">
         <JapanDate video={video} locale={locale} t={t} />
-        {showKind ? <FormChip video={video} now={now} t={t} /> : null}
         <VideoTagChip video={video} t={t} />
         <VideoAvailabilityChip video={video} t={t} />
         <LengthNote video={video} t={t} />
@@ -445,7 +447,7 @@ function VideoWhen({
   )
 }
 
-/** A thumbnail row, for earlier works beside the lead and the archive dialog. */
+/** A thumbnail row, for earlier works beside the lead. */
 function VideoRow({
   video,
   absoluteTime = false,
@@ -483,9 +485,7 @@ function VideoRow({
           <span className="video-meta">
             {phase === "upcoming" ? (
               <span className="tag tone-berry">{t("videos.reserved")}</span>
-            ) : (
-              <FormChip video={video} now={now} t={t} />
-            )}
+            ) : null}
             <VideoTagChip video={video} t={t} />
             <VideoAvailabilityChip video={video} t={t} />
             <VideoWhen
@@ -542,14 +542,12 @@ function TicketList({
 
 function VideoGrid({
   videos,
-  showKind,
   variant,
   locale,
   now,
   t,
 }: {
   videos: Video[]
-  showKind: boolean
   /**
    * Shorts get 9:16 cards; a Shorts row keeps to one line of them. A preview
    * is the All view's sample of a kind, which phones cut to two rows.
@@ -568,7 +566,6 @@ function VideoGrid({
         <VideoCard
           key={video.id}
           video={video}
-          showKind={showKind}
           locale={locale}
           now={now}
           t={t}
@@ -701,7 +698,6 @@ export function VideoShelf({
             <Subhead>{t("videos.archives")}</Subhead>
             <VideoGrid
               videos={archives}
-              showKind={false}
               variant="preview"
               locale={locale}
               now={now}
@@ -714,7 +710,6 @@ export function VideoShelf({
             <Subhead>{t("videos.shorts")}</Subhead>
             <VideoGrid
               videos={shorts}
-              showKind={false}
               variant="shorts-row"
               locale={locale}
               now={now}
@@ -771,7 +766,6 @@ export function VideoShelf({
               <Subhead count={items.length}>{view.title}</Subhead>
               <VideoGrid
                 videos={items.slice(0, FILTERED_ITEMS)}
-                showKind={active === "works"}
                 variant={active === "shorts" ? "shorts" : undefined}
                 locale={locale}
                 now={now}

@@ -445,6 +445,18 @@ func TestSourceFetchMethods(t *testing.T) {
 			t.Fatalf("%s => %d %v", body, code, payload)
 		}
 	}
+	// Now is 2026-03-02T03:00Z: the 30-day extraction lookback starts at
+	// 2026-01-31T03:00Z, inside the Japan day 2026-01-31, so extract is
+	// refused only on a range that ends before that day.
+	for end, message := range map[string]string{
+		"2026-01-30": "extract needs a date range within the extraction lookback (30 days)",
+		"2026-01-31": "X_API_BEARER_TOKEN is required for the api method",
+	} {
+		body := `{"kind":"fetch","source":"x","method":"api","window":{"mode":"range","startDate":"2026-01-01","endDate":"` + end + `"},"options":{"extract":true}}`
+		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
+			t.Fatalf("%s => %d %v", body, code, payload)
+		}
+	}
 	// The selection is frozen on the run with its method, and the options
 	// add their steps.
 	code, payload = c.call(t, "POST", "/api/admin/runs", `{"kind":"fetch","source":"youtube","method":"api","window":{"mode":"all","count":9},"options":{"refresh":true,"translate":true}}`)

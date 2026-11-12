@@ -421,6 +421,12 @@
   font-size: 12.5px;
 }
 
+/* An item's name sits above its chips in the group's own flow. */
+.works-stores {
+  display: grid;
+  gap: 8px;
+}
+
 .works-stores ul {
   display: flex;
   flex-wrap: wrap;
@@ -432,6 +438,10 @@
 
 .works-stores + .works-stores {
   margin-top: 4px;
+}
+
+.works-stores > .works-bonus-scope {
+  margin: 0;
 }
 
 .works-store {

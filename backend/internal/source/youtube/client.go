@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/sourcecapture"
 )
 
 const MaxResponseBytes = 4 * 1024 * 1024
@@ -37,6 +39,7 @@ func NewClient(client *http.Client) *Client {
 	}
 	copy := *client
 	copy.Timeout = 10 * time.Second
+	copy.Transport = sourcecapture.NewTransport("youtube", copy.Transport)
 	copy.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &Client{http: &copy, FeedRetryDelays: DefaultFeedRetryDelays}
 }

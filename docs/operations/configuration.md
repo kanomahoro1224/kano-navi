@@ -45,8 +45,9 @@
 | `WEB_PUSH_TTL_SECONDS`                    | `86400`                             | How long a push service keeps an undelivered message                  |
 | `WEB_PUSH_ENDPOINT_HOSTS`                 | Built-in allowlist                  | Comma-separated push-service hosts accepted at registration           |
 | `BAMBINO_INGEST_SECRET`                   | Empty                               | HMAC secret for `/internal/ingest/bambino`; empty leaves it absent    |
-| `BAMBINO_INGEST_TOLERANCE_SECONDS`        | `300`                                | Accepted clock skew of an ingest timestamp, in seconds                |
-| `BAMBINO_INGEST_CATCHUP_SECONDS`          | `180`                                | Ticker that re-submits post-processing a busy queue dropped           |
+| `BAMBINO_INGEST_TOLERANCE_SECONDS`        | `300`                               | Accepted clock skew of an ingest timestamp, in seconds                |
+| `BAMBINO_INGEST_CATCHUP_SECONDS`          | `180`                               | Ticker that re-submits post-processing a busy queue dropped           |
+| `WEB_BOT_AUTH_KEY`                        | Empty                               | Optional override of the console's Web Bot Auth signing key           |
 | `SKIP_X`, `SKIP_YOUTUBE`                  | `0`                                 | Set to `1` to skip that source's step and its timer                   |
 | `SKIP_BILIBILI`                           | `0`                                 | Set to `1` to skip both Bilibili steps, timers and console reads      |
 | `SKIP_SHOP`                               | `0`                                 | Set to `1` to skip the official shop's step, timer and fetch          |
@@ -79,8 +80,40 @@ lowercased; a path, query, credentials, or a host that is not a DNS name or
 IP address with an optional port fail startup). It only completes the link-preview tags of
 `index.html` (see [Share tags](../architecture/backend.md#share-tags)) and the
 Atom feed's site and self links (see
-[Public feeds](../architecture/public-api.md#public-feeds)); it grants no access
-and is not an admin origin.
+[Public feeds](../architecture/public-api.md#public-feeds)), and, when it is
+`https` and no signing origin is set, names the Web Bot Auth signing agent
+(see [Web Bot Auth](#web-bot-auth)); it grants no access and is not an admin
+origin.
+
+### Web Bot Auth
+
+The [official shop](../architecture/sources.md#official-shop)'s requests
+carry a [Web Bot Auth](../architecture/web-bot-auth.md) signature once the
+operator generates a key in `/admin` → Sources → Official shop → Web Bot
+Auth; no environment variable is needed. The key is sealed with
+`LLM_SECRETS_KEY` in SQLite, so a backup of the data directory keeps it and
+a changed `LLM_SECRETS_KEY` makes it unreadable until a new one is
+generated. Signing also needs an `https` origin that reaches this site, where
+verifiers fetch `/.well-known/http-message-signatures-directory`: the
+panel's signing origin, or `PUBLIC_ORIGIN` when it is `https` and no signing
+origin is set. Generating, rotating, removing and the origin apply without a
+restart; a rotation keeps the replaced public key in the directory for 24
+hours.
+
+`WEB_BOT_AUTH_KEY` overrides the console's key for a deployment that
+manages it outside SQLite: a 32-byte Ed25519 seed in base64url. While it is
+set the panel shows the key as environment-managed and cannot generate,
+rotate or remove one. A malformed value stops `kano-go serve` and
+`kano-go sync` before SQLite opens. Make a value with:
+
+```bash
+kano-go web-bot-auth-key
+```
+
+It prints the `WEB_BOT_AUTH_KEY=` line and, as a comment, the key's keyid
+(its RFC 7638 JWK thumbprint). A changed value takes effect after a restart,
+and the directory then lists only the new public key. The value is a
+credential like the others below.
 
 `YTDLP_BINARY` enables the optional YouTube yt-dlp method. The production
 Compose deployment points it at the bundled `/app/yt-dlp`; other deployments
@@ -131,7 +164,7 @@ renewed one. Prefer a secondary account,
 and replace the value when it expires or the account signs out.
 
 `.env.example` is the complete non-secret inventory. `ADMIN_PASSWORD` and
-`LLM_SECRETS_KEY`, `MCP_CONTROL_TOKEN`, `BILIBILI_COOKIE`, `BILIBILI_SESSDATA`, `BILIBILI_APP_SECRET`, and provider API keys are credentials;
+`LLM_SECRETS_KEY`, `MCP_CONTROL_TOKEN`, `BILIBILI_COOKIE`, `BILIBILI_SESSDATA`, `BILIBILI_APP_SECRET`, `WEB_BOT_AUTH_KEY`, and provider API keys are credentials;
 never place real values in source code, SQLite plaintext, URLs, API responses,
 or logs. `OPENAI_API_KEY` is accepted only by the one-time
 `kano-go migrate-llm` command.
@@ -177,7 +210,8 @@ and save it only in the ignored environment file or deployment secret store.
 The read limits of source steps, manual fetches and the translate step, and
 the attempts each model gets, are operator settings in `app_settings`, edited
 on `/admin` → Sources (the X and YouTube read limits) and `/admin` → Detection
-(model limits: the attempts and the translation limits). Each run reads the
+(model limits: the attempts, the extraction lookback and the translation
+limits). Each run reads the
 limits when it
 starts, so a saved value applies from the next run; the attempts per model
 are read for each post, image or translation a model is called for.
@@ -192,6 +226,7 @@ are read for each post, image or translation a model is called for.
 | Manual fetch pages           | `4`     | 1–20       | Pages of one fetch per X account, the channel or a Bilibili listing       |
 | Request timeout (ms)         | `7000`  | 1000–60000 | Per request of manual fetches and the X API method                        |
 | Request spacing (ms)         | `0`     | 0–10000    | Wait between X and YouTube fetch pages; Bilibili pages wait 15 s          |
+| Extraction lookback (days)   | `30`    | 0–3650     | Age of posts schedule extraction selects unrequested; `0` sets no limit   |
 | Translation items per run    | `20`    | 1–200      | Posts and titles the translate step sends to a model                      |
 | Translation lookback (days)  | `30`    | 1–3650     | Age of posts and videos the translate step covers unrequested             |
 | Attempts per model           | `3`     | 1–10       | Calls one model gets for an input before the next queued model takes over |
@@ -201,7 +236,7 @@ its environment variable, if set: `X_MAX_STATUS_REQUESTS`, `X_REFRESH_KNOWN`,
 `X_BOOTSTRAP_DAYS`, `X_DISCOVERY_LIMIT`, `YOUTUBE_MAX_DETAIL_REQUESTS`,
 `SOURCE_HISTORY_MAX_PAGES`, `SYNC_TIMEOUT_MS`, `SYNC_REQUEST_DELAY_MS`,
 `TRANSLATION_SCAN_LIMIT` and `TRANSLATION_LOOKBACK_DAYS`, in table order;
-the attempts per model have no variable.
+the extraction lookback and the attempts per model have no variable.
 Manual fetch pages, the timeout, the spacing and the translation limits take
 an out-of-range value at the nearest bound; the others ignore it. A stored
 value is never replaced from the environment, so these variables have no

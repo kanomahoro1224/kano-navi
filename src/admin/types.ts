@@ -406,7 +406,8 @@ export interface YTDLPStatus {
   version?: string
 }
 
-/** The read bounds of source steps, manual fetches and translation. */
+/** The read bounds of source steps, manual fetches, extraction and
+ * translation. */
 export type SyncSettingField =
   | "xBootstrapDays"
   | "xDiscoveryLimit"
@@ -416,6 +417,7 @@ export type SyncSettingField =
   | "fetchMaxPages"
   | "fetchTimeoutMs"
   | "fetchRequestDelayMs"
+  | "extractionLookbackDays"
   | "translationScanLimit"
   | "translationLookbackDays"
   | "llmModelAttempts"
@@ -445,8 +447,8 @@ export interface ChainMethod {
 /** The ordered fallback over listing methods that timed reads try. */
 export interface SourceChain {
   methods: ChainMethod[]
-  /** The one method of the related X accounts, Bilibili or the shop cannot
-   * be reordered. */
+  /** The one method of the related X accounts or the shop cannot be
+   * reordered. */
   fixed: boolean
   /** X only: timeline failures before the API runs, and its daily cap. */
   apiGate?: number
@@ -523,7 +525,29 @@ export interface Sources {
     /** The read-all fetch. */
     methods: FetchMethod[]
     status: ShopStatus
+    webBotAuth: WebBotAuthStatus
   }
+}
+
+export type WebBotAuthState =
+  "active" | "no_key" | "no_origin" | "key_unreadable"
+
+/** The Web Bot Auth key that signs the shop's requests. Never carries the
+ * private key. */
+export interface WebBotAuthStatus {
+  state: WebBotAuthState
+  source: "environment" | "stored" | null
+  keyId: string | null
+  createdAt: string | null
+  /** The origin requests name as their agent: the operator's, otherwise an
+   * https PUBLIC_ORIGIN. */
+  origin: string | null
+  originSetting: string | null
+  publicOrigin: string | null
+  directoryUrl: string | null
+  /** A key a rotation replaced, still listed in the directory. */
+  previous: { keyId: string; until: string } | null
+  environmentManaged: boolean
 }
 
 /** The official shop's reads and the sale entries they keep. */
@@ -1368,6 +1392,8 @@ export interface ScheduleQueue {
   messageEnabled: boolean
   allPosts: boolean
   limit: number
+  /** Extraction lookback of unrequested candidates; 0 sets no limit. */
+  lookbackDays: number
   postsRead: number
   candidates: number
   requested: number

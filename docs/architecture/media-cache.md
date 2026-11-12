@@ -166,7 +166,13 @@ thumbnail / 0`. A post's own images use `post-image`; the images of a status
 it quotes, or of the dynamic a Bilibili forward forwards, use `quote-image`
 under the same post, so the board shows them in the quote card and
 extraction never reads them (see [Quoted posts](sources.md#quoted-posts) and
-[Forwards](sources.md#forwards)). A row of the X or Bilibili status pool has
+[Forwards](sources.md#forwards)). A Bilibili dynamic's stickers use
+`post-emoji`, and those of the dynamic a forward forwards `quote-emoji`,
+under the same post: one link per distinct picture, at most 32 each, and one
+asset per picture however many posts use it. They are downloaded like any
+asset, shown only inside the post's original wording (see
+[Bilibili stickers](data-model.md#bilibili-stickers)) and never schedule
+candidates. A row of the X or Bilibili status pool has
 no media link: a related account's status registers its images as
 `post-image` links only when it is promoted into posts (see
 [Related accounts](sources.md#related-accounts)), so nothing is downloaded

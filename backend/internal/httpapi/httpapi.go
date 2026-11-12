@@ -16,6 +16,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/push"
 	"github.com/yexca/kano-navi/backend/internal/source/youtube/websub"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/webbotauth"
 )
 
 type Handler struct {
@@ -40,6 +41,9 @@ type Handler struct {
 	// publicOrigin is the normalized PUBLIC_ORIGIN or empty; the Atom feed
 	// uses it for absolute links.
 	publicOrigin string
+	// webBotAuth serves the Web Bot Auth key directory; nil, or a holder
+	// without a signer, answers it 404.
+	webBotAuth *webbotauth.Holder
 	// streams pushes revision changes to /api/dashboard/events.
 	streams *revisionHub
 }
@@ -65,6 +69,9 @@ type Standalone struct {
 	WebPush *push.WebSender
 	// PublicOrigin is the normalized PUBLIC_ORIGIN, or empty.
 	PublicOrigin string
+	// WebBotAuth holds the Web Bot Auth signer whose key directory the
+	// site serves; nil serves none.
+	WebBotAuth *webbotauth.Holder
 }
 
 // NewStandaloneHandler serves the whole product from this process.
@@ -84,6 +91,7 @@ func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Sta
 		webPush:       options.WebPush,
 		webPushLimits: newWebPushLimiter(),
 		publicOrigin:  options.PublicOrigin,
+		webBotAuth:    options.WebBotAuth,
 		streams:       newRevisionHub(store.GetDashboardRevision),
 	}
 }
@@ -194,6 +202,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.calendarFeed(w, r)
 	case "/api/feed.xml":
 		h.atomFeed(w, r)
+	case webbotauth.DirectoryPath:
+		// The key directory a site fetches from the Signature-Agent origin
+		// to verify the shop source's signed requests.
+		if !h.webBotAuth.Serves() && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"}, "")
+			return
+		}
+		h.webBotAuth.ServeDirectory(w, r)
 	case "/api/posts":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {

@@ -33,9 +33,11 @@ Commands:
   serve        Serve the public API, operator console, workflows, MCP and built frontend
   seed         Create the database if missing and add missing static records (-overwrite restores them)
   sync         Run one full synchronization and exit
+  responses    List or export captured source responses
   migrate-llm  Store OPENAI_API_KEY as the encrypted key of the openai-default provider (-force replaces)
   variants     Make the smaller copies of the LINE BLOG, Works and Journey images (-data, -out)
   webpush-key  Print a fresh VAPID key pair for WEB_PUSH_VAPID_*
+  web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY line and its keyid
   healthcheck  Probe the local service and exit
 
 Common flags: -database <path>  -static <directory>  -listen <address>`
@@ -54,10 +56,14 @@ func main() {
 		args = append([]string{"-healthcheck"}, args...)
 	case "seed", "sync", "migrate-llm":
 		os.Exit(runCommand(command, args))
+	case "responses":
+		os.Exit(runResponses(args))
 	case "variants":
 		os.Exit(runVariants(args))
 	case "webpush-key":
 		os.Exit(runWebPushKey())
+	case "web-bot-auth-key":
+		os.Exit(runWebBotAuthKey(args, os.Stdout))
 	case "help":
 		fmt.Println(usage)
 		return

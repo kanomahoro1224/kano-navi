@@ -66,9 +66,6 @@ type Post struct {
 	MediaAlt      *string
 	AccountURL    *string
 	Media         []PostMedia
-	// Emojis are the stickers the text uses, in order. A Bilibili dynamic
-	// keeps their caption in the text, so the board paints the icon there.
-	Emojis []PostEmoji
 	// Repost is the original status of a repost, nil for every other kind.
 	Repost         *PostRepost
 	MediaID        *string
@@ -81,6 +78,9 @@ type Post struct {
 	Translations TranslationSet
 	// Quote is the status the post quotes, nil when it quotes none.
 	Quote *PostQuote
+	// Rich is the original wording with its stickers, only for a Bilibili
+	// dynamic that has any (see placeStickers).
+	Rich []RichSegment
 }
 
 // PostRepost is the stored projection of a reposted status: the account the
@@ -119,6 +119,9 @@ type PostQuote struct {
 	// Translations are the stored post's of the same status ID, so a quote
 	// of a tracked account's post carries that post's translations.
 	Translations TranslationSet `json:"-"`
+	// Rich is the forwarded dynamic's wording with its stickers, as a
+	// post's Rich.
+	Rich []RichSegment `json:"-"`
 }
 
 type PostMedia struct {

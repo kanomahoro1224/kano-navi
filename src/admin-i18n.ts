@@ -220,6 +220,8 @@ export const adminMessages = {
     "admin.queuePreview.schedule.disabled":
       "Both detection stages are off and nothing is requested, so a run extracts nothing.",
     "admin.queuePreview.schedule.stages": "Detection stages",
+    "admin.queuePreview.schedule.lookback": "Lookback days",
+    "admin.queuePreview.schedule.noLimit": "No limit",
     "admin.queuePreview.schedule.candidates": "Candidates",
     "admin.queuePreview.schedule.requested": "Requested",
     "admin.queuePreview.schedule.postsRead": "Posts read",
@@ -1101,7 +1103,7 @@ export const adminMessages = {
     "admin.sources.bilibili_dynamics.hint":
       "The account's dynamics, read with BILIBILI_COOKIE or BILIBILI_SESSDATA at most once per BILIBILI_MIN_INTERVAL_MINUTES. They share the uploads' captcha backoff: a block met by either read holds both.",
     "admin.sources.shop.hint":
-      "The official shop's newest 50 products. Products tagged 鹿乃まほろ with a dated order or sale period become On sale entries, one per collection and period.",
+      "The official shop's newest products. Products tagged 鹿乃まほろ with a dated order or sale period become On sale entries, one per collection and period.",
     "admin.timer.on": "Every {interval}",
     "admin.timer.enable": "Run on a timer",
     "admin.timer.enableHint":
@@ -1131,8 +1133,6 @@ export const adminMessages = {
     "admin.chain.title": "Method chain",
     "admin.chain.description":
       "Timed reads, Run now, pushes and step runs try the enabled methods from the top and fall to the next when the first page fails, lists none of the account's own records, or hits quota or rate limits. Manual fetches pick their own method.",
-    "admin.chain.fixed.shop":
-      "The shop reads its newest products through one fixed method.",
     "admin.chain.up": "Move {method} up",
     "admin.chain.down": "Move {method} down",
     "admin.chain.needs": "Needs {variable}",
@@ -1147,8 +1147,11 @@ export const adminMessages = {
     "admin.chain.method.bilibili.list": "Upload list",
     "admin.chain.method.bilibili.dynamics": "Signed-in dynamics listing",
     "admin.chain.method.bilibili.app": "Official client listing",
+    "admin.chain.method.bilibili_dynamics.desktop": "Desktop dynamics feed",
     "admin.chain.method.bilibili_dynamics.dynamics": "Dynamics listing",
-    "admin.chain.method.shop.new_arrivals": "Newest 50 products",
+    "admin.chain.method.shop.signed": "Newest 50 products, signed",
+    "admin.chain.method.shop.new_arrivals": "Newest 50 products, unsigned",
+    "admin.chain.method.shop.atom": "Catalog Atom feed (newest 25)",
     "admin.chain.youtubeAPIOff":
       "With the Data API off, YouTube makes no Data API call at all: listing, details, the live-status probe and Shorts verdicts use public pages.",
     "admin.chain.apiGate": "Timeline failures before the X API",
@@ -1206,6 +1209,10 @@ export const adminMessages = {
     "admin.syncSettings.field.fetchRequestDelayMs": "Request spacing (ms)",
     "admin.syncSettings.hint.fetchRequestDelayMs":
       "Wait between the pages of a manual fetch.",
+    "admin.syncSettings.field.extractionLookbackDays":
+      "Extraction lookback (days)",
+    "admin.syncSettings.hint.extractionLookbackDays":
+      "Age of posts extracted without a request; 0 sets no limit.",
     "admin.syncSettings.field.translationScanLimit": "Translations per run",
     "admin.syncSettings.hint.translationScanLimit":
       "Posts and titles the translate step sends to a model.",
@@ -1716,11 +1723,35 @@ export const adminMessages = {
     "admin.code.shop_invalid_json":
       "The shop answered with something other than its product JSON.",
     "admin.code.shop_invalid_request": "The shop request could not be built.",
+    "admin.code.shop_invalid_atom":
+      "The shop answered with something other than its Atom feed.",
+    "admin.code.shop_no_signing_key":
+      "No WEB_BOT_AUTH_KEY is configured, so the signed read made no request.",
+    "admin.code.shop_signing_failed": "The shop request could not be signed.",
+    "admin.code.shop_no_method": "No enabled shop method could make a request.",
     "admin.shop.title": "Shop reads",
     "admin.shop.sales": "Sale entries",
     "admin.shop.lastAttempt": "Last read",
     "admin.shop.lastError": "Last error",
     "admin.shop.blockedUntil": "Waiting until {time}",
+    "admin.wba.title": "Web Bot Auth",
+    "admin.wba.state.active": "Signing",
+    "admin.wba.state.no_key": "No key",
+    "admin.wba.state.no_origin": "No https origin",
+    "admin.wba.state.key_unreadable": "Key unreadable",
+    "admin.wba.environment": "Environment",
+    "admin.wba.keyId": "Key ID",
+    "admin.wba.created": "Created",
+    "admin.wba.directory": "Directory",
+    "admin.wba.previous": "Previous key",
+    "admin.wba.previousUntil": "{keyId} until {time}",
+    "admin.wba.origin": "Signing origin",
+    "admin.wba.generate": "Generate key",
+    "admin.wba.rotate": "Rotate key",
+    "admin.wba.remove": "Remove key",
+    "admin.notice.wbaSaved": "Signing origin saved",
+    "admin.notice.wbaGenerated": "Web Bot Auth key generated",
+    "admin.notice.wbaRemoved": "Web Bot Auth key removed",
     "admin.shop.readAll": "Read the whole catalog",
     "admin.shop.readAllHint":
       "Reads every product page, at most six, three seconds apart, for sale periods the newest-50 window never listed. It waits out a 429 like the timer.",
@@ -2639,7 +2670,9 @@ export const adminMessages = {
     "admin.sources.bilibili.hint":
       "账号的公开投稿，每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次。直播间按自己的间隔检查。",
     "admin.sources.bilibili_dynamics.hint":
-      "账号的动态，使用 BILIBILI_COOKIE 或 BILIBILI_SESSDATA 读取，每 BILIBILI_MIN_INTERVAL_MINUTES 最多一次。它与投稿共用验证码退避：任一读取被拦截，两者都会暂停。",
+      "账号的动态，使用 BILIBILI_COOKIE 或 BILIBILI_SESSDATA 读取，默认先用桌面端列表。每 BILIBILI_MIN_INTERVAL_MINUTES 最多读取一次；遇到验证码或限流时立即停止备用请求。",
+    "admin.chain.method.bilibili_dynamics.desktop": "桌面端动态列表",
+    "admin.chain.method.bilibili_dynamics.dynamics": "WBI 动态列表",
     "admin.sources.shop.hint":
       "官方商店最新的 50 件商品。带有「鹿乃まほろ」标签并写明受注或发售期间的商品，会按系列和期间成为「发售中」条目。",
     "admin.timer.on": "每 {interval}",
@@ -3572,10 +3605,8 @@ export const adminMessages = {
     "admin.bilibili.interval": "列表读取",
     "admin.bilibili.title": "Bilibili",
     "admin.bilibili.videos": "已保存的投稿",
-    "admin.chain.fixed.shop": "商店用一种固定方式读取最新商品。",
     "admin.chain.method.bilibili.app": "官方客户端列表",
     "admin.chain.method.bilibili.dynamics": "登录后的动态列表",
-    "admin.chain.method.bilibili_dynamics.dynamics": "动态列表",
     "admin.chain.method.shop.new_arrivals": "最新 50 件商品",
     "admin.chain.method.x_related.timeline": "FxTwitter 时间线",
     "admin.code.bilibili_login_required":
@@ -3868,6 +3899,36 @@ export const adminMessages = {
     "admin.videos.thumbnail.hint":
       "固定某个文件后，投稿者更换缩略图，看板上仍保留这一张。",
     "admin.videos.view.queued": "已排队",
+    "admin.queuePreview.schedule.lookback": "回看天数",
+    "admin.queuePreview.schedule.noLimit": "不限",
+    "admin.chain.method.shop.signed": "最新 50 件商品（签名）",
+    "admin.chain.method.shop.atom": "商品目录 Atom 订阅（最新 25 件）",
+    "admin.syncSettings.field.extractionLookbackDays": "日程抽取回看（天）",
+    "admin.syncSettings.hint.extractionLookbackDays":
+      "未经请求时抽取的帖子最大发布天数；0 表示不限。",
+    "admin.code.shop_invalid_atom": "商店返回的不是 Atom 订阅。",
+    "admin.code.shop_no_signing_key":
+      "未配置 WEB_BOT_AUTH_KEY，签名读取未发出请求。",
+    "admin.code.shop_signing_failed": "无法为商店请求签名。",
+    "admin.code.shop_no_method": "没有可用的已启用商店读取方式。",
+    "admin.wba.title": "Web Bot Auth",
+    "admin.wba.state.active": "签名中",
+    "admin.wba.state.no_key": "无密钥",
+    "admin.wba.state.no_origin": "无 https 来源",
+    "admin.wba.state.key_unreadable": "密钥无法读取",
+    "admin.wba.environment": "环境变量",
+    "admin.wba.keyId": "密钥 ID",
+    "admin.wba.created": "创建时间",
+    "admin.wba.directory": "密钥目录",
+    "admin.wba.previous": "上一把密钥",
+    "admin.wba.previousUntil": "{keyId}，有效至 {time}",
+    "admin.wba.origin": "签名来源",
+    "admin.wba.generate": "生成密钥",
+    "admin.wba.rotate": "轮换密钥",
+    "admin.wba.remove": "移除密钥",
+    "admin.notice.wbaSaved": "签名来源已保存",
+    "admin.notice.wbaGenerated": "Web Bot Auth 密钥已生成",
+    "admin.notice.wbaRemoved": "Web Bot Auth 密钥已移除",
   },
   ja: {
     "admin.meta.title": "管理コンソール / 鹿乃ちゃん何してるか",
@@ -5333,7 +5394,6 @@ export const adminMessages = {
     "admin.bilibili.loginExpiredHint":
       "ログイン Cookie の期限が切れました。サーバー環境に新しい BILIBILI_COOKIE または BILIBILI_SESSDATA を設定してください。毎日のログイン確認で確かめます。",
     "admin.bilibili.loginUnchecked": "ログインは未確認",
-    "admin.chain.fixed.shop": "ショップは固定の 1 方式で最新商品を読みます。",
     "admin.chain.method.bilibili.app": "公式クライアントの一覧",
     "admin.chain.method.bilibili.dynamics": "ログイン状態の動態一覧",
     "admin.chain.method.bilibili_dynamics.dynamics": "動態一覧",
@@ -5801,5 +5861,39 @@ export const adminMessages = {
     "admin.videos.work.include": "載せる",
     "admin.youtube.add": "動画を追加",
     "admin.youtube.addField": "動画 ID またはリンク",
+    "admin.queuePreview.schedule.lookback": "遡る日数",
+    "admin.queuePreview.schedule.noLimit": "制限なし",
+    "admin.chain.method.bilibili_dynamics.desktop": "デスクトップ版動態一覧",
+    "admin.chain.method.shop.signed": "最新 50 件の商品（署名付き）",
+    "admin.chain.method.shop.atom": "カタログ Atom フィード（最新 25 件）",
+    "admin.syncSettings.field.extractionLookbackDays": "予定抽出の遡り日数",
+    "admin.syncSettings.hint.extractionLookbackDays":
+      "依頼なしで抽出する投稿の公開からの日数。0 で制限なし。",
+    "admin.code.shop_invalid_atom":
+      "ショップが Atom フィード以外を返しました。",
+    "admin.code.shop_no_signing_key":
+      "WEB_BOT_AUTH_KEY が未設定のため、署名付きの読み込みはリクエストしませんでした。",
+    "admin.code.shop_signing_failed":
+      "ショップへのリクエストに署名できませんでした。",
+    "admin.code.shop_no_method":
+      "リクエストできる有効なショップ方式がありません。",
+    "admin.wba.title": "Web Bot Auth",
+    "admin.wba.state.active": "署名中",
+    "admin.wba.state.no_key": "鍵なし",
+    "admin.wba.state.no_origin": "https のオリジンなし",
+    "admin.wba.state.key_unreadable": "鍵を読めません",
+    "admin.wba.environment": "環境変数",
+    "admin.wba.keyId": "鍵 ID",
+    "admin.wba.created": "作成日時",
+    "admin.wba.directory": "鍵ディレクトリ",
+    "admin.wba.previous": "以前の鍵",
+    "admin.wba.previousUntil": "{keyId}（{time} まで）",
+    "admin.wba.origin": "署名オリジン",
+    "admin.wba.generate": "鍵を生成",
+    "admin.wba.rotate": "鍵を更新",
+    "admin.wba.remove": "鍵を削除",
+    "admin.notice.wbaSaved": "署名オリジンを保存しました",
+    "admin.notice.wbaGenerated": "Web Bot Auth の鍵を生成しました",
+    "admin.notice.wbaRemoved": "Web Bot Auth の鍵を削除しました",
   },
 }

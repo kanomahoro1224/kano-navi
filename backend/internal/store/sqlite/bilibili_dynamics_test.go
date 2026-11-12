@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -347,44 +346,5 @@ func TestPartialUploadsKeepTheStoredTimeAidAndForm(t *testing.T) {
 	var published string
 	if err := s.DB().QueryRow(`SELECT published_at FROM videos WHERE id='BV1SYNTHEABD'`).Scan(&published); err != nil || published != "2026-11-07T04:00:07Z" {
 		t.Fatalf("new partial published=%q err=%v", published, err)
-	}
-}
-
-// Stickers reach the board as caption and icon only. The rest of raw_json,
-// and any picture that is not an https image on Bilibili's CDN, stay out.
-func TestBilibiliStickersReachTheBoardWithoutTheRawPayload(t *testing.T) {
-	s := biliStore(t)
-	ctx := context.Background()
-	now := time.Now().UTC()
-	d := biliDynamic("看这个[鹿乃_飞了]")
-	d.PublishedAt = now.Format(time.RFC3339)
-	d.Raw = map[string]any{
-		"type":   "DYNAMIC_TYPE_WORD",
-		"secret": "must-not-leak",
-		"emoji": []bilisource.DynamicEmoji{
-			{Text: "[鹿乃_飞了]", Icon: "https://i0.hdslb.com/bfs/emote/flying.webp"},
-			{Text: "[off]", Icon: "https://images.invalid/off.png"},
-			{Text: "[plain]", Icon: "http://i0.hdslb.com/bfs/emote/plain.png"},
-		},
-	}
-	if _, err := s.WriteBilibiliDynamics(ctx, biliAccount, bilisource.DynamicsResult{Dynamics: []bilisource.Dynamic{d}}); err != nil {
-		t.Fatal(err)
-	}
-	board, err := s.GetDashboard(ctx, 7, now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var post *Post
-	for i := range board.Posts {
-		if board.Posts[i].ID == "bilibili-900000000000000010" {
-			post = &board.Posts[i]
-		}
-	}
-	if post == nil || len(post.Emojis) != 1 || post.Emojis[0].Caption != "[鹿乃_飞了]" || post.Emojis[0].Icon != "https://i0.hdslb.com/bfs/emote/flying.webp" {
-		t.Fatalf("post=%#v", post)
-	}
-	var raw string
-	if err = s.DB().QueryRow(`SELECT raw_json FROM posts WHERE id='bilibili-900000000000000010'`).Scan(&raw); err != nil || !strings.Contains(raw, "must-not-leak") {
-		t.Fatalf("raw=%s err=%v", raw, err)
 	}
 }

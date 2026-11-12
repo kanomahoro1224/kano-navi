@@ -36,6 +36,8 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/source/youtube/websub"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/variants"
+	"github.com/yexca/kano-navi/backend/internal/webbotauth"
+	"github.com/yexca/kano-navi/backend/internal/webbotauth/keyadmin"
 	"github.com/yexca/kano-navi/backend/internal/workflow"
 	"github.com/yexca/kano-navi/backend/internal/works"
 )
@@ -78,6 +80,10 @@ func runStandalone(cfg config.Config) int {
 	if secretsKey == "" {
 		return fail("LLM_SECRETS_KEY is not configured; refusing to start", 2)
 	}
+	envKey, err := webbotauth.KeyFromEnv(os.Getenv)
+	if err != nil {
+		return fail(err.Error(), 2)
+	}
 	store, err := sqlite.OpenStandalone(cfg.DatabasePath)
 	if err != nil {
 		return fail("database unavailable", 1)
@@ -94,7 +100,14 @@ func runStandalone(cfg config.Config) int {
 		return fail("detection settings unavailable", 1)
 	}
 
-	run := newPipeline(store, secretsKey)
+	// The Web Bot Auth key is managed in /admin unless WEB_BOT_AUTH_KEY
+	// overrides it; the shop client and the key directory read the holder.
+	signing := webbotauth.NewHolder()
+	keyAdmin := keyadmin.New(store, signing, secretsKey, envKey, cfg.PublicOrigin)
+	if err = keyAdmin.Load(context.Background()); err != nil {
+		return fail("Web Bot Auth settings unavailable", 1)
+	}
+	run := newPipeline(store, secretsKey, signing)
 	// The variants step and the Site page's copies status read the archives
 	// under the data directory.
 	run.steps.Variants = &variants.Roots{Data: store.DataRoot()}
@@ -249,7 +262,7 @@ func runStandalone(cfg config.Config) int {
 			Store:     store,
 			Auth:      auth,
 			Runs:      manager,
-			Modules:   append(modules, pushAdmin),
+			Modules:   append(modules, pushAdmin, keyAdmin),
 			Scheduler: scheduler.Status,
 			// A timer the operator starts is submitted at once when the
 			// queue is free.
@@ -268,10 +281,11 @@ func runStandalone(cfg config.Config) int {
 			// The collector holds the Bilibili client, so the console's scan
 			// login goes through its loopback listener. No URL leaves the
 			// panel reporting the feature as off.
-			BiliAuthURL: strings.TrimSpace(os.Getenv("BILI_AUTH_URL")),
-			Works:       run.steps.Works,
-			Queues:      run.queues,
-			Youtube:     run.steps.Youtube,
+			BiliAuthURL:    strings.TrimSpace(os.Getenv("BILI_AUTH_URL")),
+			Works:          run.steps.Works,
+			Queues:         run.queues,
+			Youtube:        run.steps.Youtube,
+			ShopWebBotAuth: keyAdmin.Status,
 		}),
 		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin),
 		MCP:          standaloneMCP(store, manager),
@@ -280,6 +294,7 @@ func runStandalone(cfg config.Config) int {
 		PushReceipt:  pushReceipt,
 		WebPush:      webPush,
 		PublicOrigin: cfg.PublicOrigin,
+		WebBotAuth:   signing,
 	})
 	server := httpapi.NewServer(httpapi.RequestLog(httpapi.Compress(handler), os.Stdout), cfg)
 	// Revision streams stay open until the client leaves; end them when
@@ -362,7 +377,7 @@ type pipeline struct {
 // newPipeline wires the source, media and schedule steps. key is the
 // LLM_SECRETS_KEY that unseals provider credentials for schedule extraction.
 // Source API credentials are read from the environment and stay in memory.
-func newPipeline(store *sqlite.Store, key string) pipeline {
+func newPipeline(store *sqlite.Store, key string, signer webbotauth.Source) pipeline {
 	skip := map[string]bool{}
 	skipped := []string{}
 	for _, step := range jobs.StepOrder {
@@ -402,7 +417,7 @@ func newPipeline(store *sqlite.Store, key string) pipeline {
 		X:         &workflow.XRecentExecutor{Store: store, Adapter: xAdapter, Options: xOptions},
 		Youtube:   youtubeAdapter,
 		Bilibili:  bilisource.NewAdapter(bilisource.NewClient(proxies.Client(outboundproxy.AreaBilibili)), bilisource.OptionsFromEnv()),
-		Shop:      shopsource.NewAdapter(shopsource.NewClient(proxies.Client(outboundproxy.AreaShop))),
+		Shop:      shopsource.NewAdapter(shopClient(proxies, signer)),
 		Media:     mediadownload.NewClient(proxies.Client(outboundproxy.AreaMedia)),
 		Niconico:  niconico.NewClient(proxies.Client(outboundproxy.AreaMedia)),
 		Works:     &worksIndex,
@@ -493,4 +508,12 @@ func standaloneMCP(store *sqlite.Store, manager jobs.Manager) http.Handler {
 		ControlToken: os.Getenv("MCP_CONTROL_TOKEN"),
 		Jobs:         manager,
 	})
+}
+
+// shopClient reads the shop through its outbound proxy area and signs the
+// requests a read asks to sign with the current Web Bot Auth key.
+func shopClient(proxies *outboundproxy.Pool, signer webbotauth.Source) *shopsource.Client {
+	client := shopsource.NewClient(proxies.Client(outboundproxy.AreaShop))
+	client.Signer = signer
+	return client
 }

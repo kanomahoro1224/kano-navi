@@ -62,12 +62,18 @@ failure is not tolerated, so the steps after it do not run.
 The options add steps or change what is written:
 
 - `extract` (X, related-account and Bilibili dynamics methods) appends the `schedule` step. Schedule extraction picks
-  its candidates among all stored X posts by its keyword and message rules,
-  unattempted posts first (see
+  its candidates among the stored posts within the extraction lookback by
+  its keyword and message rules, unattempted posts first (see
   [Schedule extraction](sources.md#schedule-extraction-pipeline)), so fetched
   posts that match join that queue whichever run extracts them: this run with
   `extract`, otherwise the X chain's next `schedule` step. Posts the rules do
-  not select are not extracted either way.
+  not select, and fetched posts published before the lookback, are not
+  extracted either way; the lookback is the same for every scan, so a
+  backfill cannot hand the appended step more history than its per-run limit
+  would ever finish. A `range` with `extract` that ends before the lookback
+  is refused. Older posts are extracted by a reprocess request from the
+  Posts page, which bypasses the lookback, or after raising the lookback in
+  the [sync settings](../operations/configuration.md#sync-settings).
 - `translate` appends the `translate` step.
 - `refresh` (YouTube methods) rewrites the videos the listing names that are
   already stored: their title (keeping a revision), publication time and URL.
@@ -287,7 +293,7 @@ checkpoint.
 
 Each source has its own cadence because X, YouTube, Bilibili, related X accounts, and the shop have different freshness, quota, and access constraints. The single-flight queue remains shared so source writes are serialized and one process owns the timers. A schedule's incremental cap limits newly discovered records, while count mode intentionally re-reads a bounded newest window; timeline gaps preserve continuity when a capped or interrupted read cannot reach its cursor.
 
-Listing method chains are configurable for X, YouTube and the Bilibili upload read because a public fallback can keep a source readable during an upstream outage, while credentials and quota remain optional. The chain only covers listing methods. Detail and helper requests keep their own bounded behavior so a failed later page does not discard records already read.
+Listing method chains are configurable for X, YouTube, both Bilibili timers and the shop. The Bilibili dynamics chain uses the desktop feed before its WBI fallback; risk-control and login failures stop that chain immediately. The chain only covers listing methods. Detail and helper requests keep their own bounded behavior so a failed later page does not discard records already read.
 
 ### Source schedules
 
@@ -376,34 +382,43 @@ accounts and 50 uploads for YouTube.
 
 #### Method chains
 
-Each X, YouTube and Bilibili upload schedule also orders its listing methods into a fallback
+Each X, YouTube, Bilibili and shop source schedule orders its listing methods into a fallback
 chain ([method chains](../architecture/workflows.md#method-chains)), stored
 in `source_schedules.chain_json` and edited in the timed reads of the
 Sources page. A read tries the enabled methods from the top and falls to the
 next when the first page fails, when the answer lists none of the account's
-or channel's own records, when the chain skips the method, or on quota and
-rate limits. A later page that fails keeps the earlier pages and leaves the
-run partial without falling back.
+or channel's own records, or when a method is skipped. Bilibili dynamics
+stops on login and risk-control failures, including 429, without making a
+fallback request, and the shop stops on a 429, a timeout or an unreachable
+host and follows the [shop request budget](sources.md#official-shop).
+A later page that fails keeps the earlier pages and leaves
+the run partial without falling back.
 
-| Source      | Methods, in default order                                                                                         | Default                                |
-| ----------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `x`         | `timeline` (FxTwitter timeline), `profile` (logged-out `x.com/<handle>`, IDs only), `api` (X API)                 | `api` off                              |
-| `youtube`   | `api` (Data API uploads playlist), `rss` (public feed), `ytdlp` (metadata), `videos_page` (uploads tab, IDs only) | api, rss and videos_page on; ytdlp off |
-| `x_related` | `timeline` (FxTwitter timeline)                                                                                   | fixed                                  |
-| `bilibili`  | `list` (the upload list), `dynamics` (signed-in dynamics listing), `app` (official client's listing)              | all on                                 |
+| Source              | Methods, in default order                                                                                              | Default                                |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `x`                 | `timeline` (FxTwitter timeline), `profile` (logged-out `x.com/<handle>`, IDs only), `api` (X API)                      | `api` off                              |
+| `youtube`           | `api` (Data API uploads playlist), `rss` (public feed), `ytdlp` (metadata), `videos_page` (uploads tab, IDs only)      | api, rss and videos_page on; ytdlp off |
+| `x_related`         | `timeline` (FxTwitter timeline)                                                                                        | fixed                                  |
+| `bilibili`          | `list` (the upload list), `dynamics` (signed-in dynamics listing), `app` (official client's listing)                   | all on                                 |
+| `bilibili_dynamics` | `desktop` (signed-in desktop feed), `dynamics` (signed-in WBI listing)                                                 | both on; desktop first                 |
+| `shop`              | `signed` (newest 50, Web Bot Auth signed), `new_arrivals` (newest 50, unsigned), `atom` (catalog Atom feed, newest 25) | all on; signed first                   |
 
 The default keeps the existing order and leaves yt-dlp off until it is
 configured, so the default chain applies when no stored chain is available. A method whose
 credential the process lacks is skipped with `x_api_unavailable` or
 `youtube_api_key_missing`; a Bilibili method without its login or key pair
-is passed over without a request. The chain covers listing methods only: detail
+is passed over without a request, and so is the shop's `signed` without
+an active Web Bot Auth key (`shop_no_signing_key`). Risk-control and login failures on the
+Bilibili dynamics chain stop it before a fallback request. The chain covers listing methods only: detail
 requests (vxtwitter, watch pages) and fixed helper reads (the streams page,
 and the feed read for Shorts verdicts while the Data API lists) stay outside
-it. [X](sources.md#x), [YouTube](sources.md#youtube) and
-[Bilibili](sources.md#bilibili) describe the methods,
+it. [X](sources.md#x), [YouTube](sources.md#youtube),
+[Bilibili](sources.md#bilibili) and the [official shop](sources.md#official-shop) describe the methods,
 and [X API in the chain](sources.md#x-api-in-the-chain) its gate and daily
 cap. An X `count` sync setting reads the timeline's count window whatever
-the chain says.
+the chain says. Manual Bilibili dynamics fetches use their explicit `space`
+method; this chain controls scheduled dynamics reads and runs of that
+source.
 
 Each run freezes its chain in `workflow_runs.source_chain_json`, so a retry
 or recovery reads the same way: timer runs, Run now, YouTube pushes, one-off
@@ -704,6 +719,10 @@ successful `sync_runs` row (the board's freshness reads it), whatever their
 age. A deleted run can no longer be retried. The pass is local database
 work, not a run: it does not use the queue, and
 `WORKFLOW_SCHEDULER_ENABLED=0` does not stop it.
+
+The same daily maintenance pass prunes the source response archive on its own
+30-day success and 90-day HTTP-error windows and enforces its 512 MiB compressed
+body limit. Capture retention does not depend on workflow-run retention.
 
 Schedule-step outcomes combine post extraction and image verification. An
 image-only failure cannot be reported as success: a scan with failures and no

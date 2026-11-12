@@ -382,3 +382,29 @@ func TestServeHTTPRejectsBadSignatureBeforeStorage(t *testing.T) {
 		t.Fatalf("status = %d", recorder.Code)
 	}
 }
+
+// A live end hands its length to the push update, which turns it into the
+// notification body; a negative length from the collector reads as unknown.
+func TestPushUpdatesCarryTheStreamDuration(t *testing.T) {
+	ended := eventRequest{
+		ID: "EEEEEEEEEEE", Platform: "YouTube", Kind: "Live_End", Title: "【歌枠】夜の歌",
+		URL: "https://www.youtube.com/watch?v=EEEEEEEEEEE", Author: authorRequest{Handle: "kano", DisplayName: "鹿乃"},
+		DurationSeconds: 2*3600 + 5*60 + 8,
+	}
+	unknown := ended
+	unknown.ID, unknown.DurationSeconds = "FFFFFFFFFFF", -30
+	post := baseEvent()
+	updates := pushUpdates([]eventRequest{ended, unknown, post})
+	if len(updates) != 3 {
+		t.Fatalf("updates = %+v", updates)
+	}
+	if u := updates[0]; u.Kind != "live_end" || u.Platform != "youtube" || u.Author != "鹿乃" || u.DurationSeconds != 7508 || u.Title != ended.Title {
+		t.Fatalf("live end = %+v", u)
+	}
+	if updates[1].DurationSeconds != 0 {
+		t.Fatalf("negative duration = %d", updates[1].DurationSeconds)
+	}
+	if u := updates[2]; u.Kind != "post" || u.DurationSeconds != 0 || u.Text != post.Text {
+		t.Fatalf("post = %+v", u)
+	}
+}

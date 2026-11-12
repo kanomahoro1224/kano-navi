@@ -46,6 +46,9 @@ type Update struct {
 	// Bodies holds translated bodies by locale, filled only for a deferred
 	// post whose translation arrived after the Japanese notification.
 	Bodies map[string]string
+	// DurationSeconds is a finished stream's length; a live_end shows it as
+	// the body. Zero while unknown.
+	DurationSeconds int
 }
 
 // Category reports which switch governs this update.
@@ -307,10 +310,10 @@ func (d *Dispatcher) deliver(ctx context.Context, devices []sqlite.PushDevice, u
 			switch {
 			case sendErr != nil:
 				failures = append(failures, sendErr.Error())
-				log.Printf("kano-go: push kit failed kind=%s category=%s locale=%s targets=%d title=%q err=%v", update.Kind, category, locale, len(tokens), title, sendErr)
+				log.Printf("kano-go: push kit failed kind=%s category=%s locale=%s targets=%d title=%q body=%q err=%v", update.Kind, category, locale, len(tokens), title, detailText, sendErr)
 			default:
 				sent++
-				log.Printf("kano-go: push kit sent kind=%s category=%s locale=%s targets=%d stale=%d title=%q", update.Kind, category, locale, len(tokens), len(rejected), title)
+				log.Printf("kano-go: push kit sent kind=%s category=%s locale=%s targets=%d stale=%d title=%q body=%q", update.Kind, category, locale, len(tokens), len(rejected), title, detailText)
 			}
 		}
 		if len(subs) > 0 {
@@ -392,16 +395,16 @@ func (d *Dispatcher) deliverWeb(ctx context.Context, subs []sqlite.WebPushSubscr
 				switch {
 				case errors.Is(sendErr, ErrWebPushGone):
 					stale = append(stale, sub.Endpoint)
-					log.Printf("kano-go: web push gone kind=%s category=%s locale=%s host=%s", update.Kind, category, locale, endpointHost(sub.Endpoint))
+					log.Printf("kano-go: web push gone kind=%s category=%s locale=%s host=%s title=%q body=%q", update.Kind, category, locale, endpointHost(sub.Endpoint), payload.Title, payload.Body)
 				case sendErr != nil:
 					_ = d.store.RecordWebPushFailure(ctx, sub.Endpoint, maxWebPushFailures)
 					if firstErr == nil {
 						firstErr = sendErr
 					}
-					log.Printf("kano-go: web push failed kind=%s category=%s locale=%s host=%s err=%v", update.Kind, category, locale, endpointHost(sub.Endpoint), sendErr)
+					log.Printf("kano-go: web push failed kind=%s category=%s locale=%s host=%s title=%q body=%q err=%v", update.Kind, category, locale, endpointHost(sub.Endpoint), payload.Title, payload.Body, sendErr)
 				default:
 					_ = d.store.ClearWebPushFailures(ctx, sub.Endpoint)
-					log.Printf("kano-go: web push sent kind=%s category=%s locale=%s host=%s", update.Kind, category, locale, endpointHost(sub.Endpoint))
+					log.Printf("kano-go: web push sent kind=%s category=%s locale=%s host=%s title=%q body=%q", update.Kind, category, locale, endpointHost(sub.Endpoint), payload.Title, payload.Body)
 				}
 			}(sub)
 		}
@@ -418,6 +421,10 @@ func (d *Dispatcher) deliverWeb(ctx context.Context, subs []sqlite.WebPushSubscr
 // Chinese body the machine step produces; a missing or failed translation
 // falls back to the post's own wording.
 func translatedBody(update Update, locale string) string {
+	// A finished stream's body is its length, never a translation.
+	if update.Kind == "live_end" {
+		return liveEndDetail(update, locale)
+	}
 	// The wordings use zh for Simplified and zh-Hant for Traditional; the
 	// machine step stores one Chinese body under zh-CN.
 	target := locale
@@ -427,7 +434,7 @@ func translatedBody(update Update, locale string) string {
 	if text := strings.TrimSpace(update.Bodies[target]); text != "" {
 		return oneLine(text, 120)
 	}
-	if detailText := detail(update); detailText != "" {
+	if detailText := detail(update, locale); detailText != "" {
 		return detailText
 	}
 	return fallbackDetail(update.Kind, locale)
@@ -534,7 +541,7 @@ func testWording(locale string) (string, string) {
 // where, without the user having to open the App first.
 func wording(update Update, locale string) (string, string) {
 	line := title(update, locale)
-	detailText := detail(update)
+	detailText := detail(update, locale)
 	if detailText == "" {
 		// Push Kit refuses a notification without a body (80100003), so an
 		// update that carries no title and no text still says what happened.
@@ -746,12 +753,46 @@ func headlineEn(kind string) string {
 	}
 }
 
-// detail is the second line: the video or stream title, else the post body.
-func detail(update Update) string {
+// detail is the second line: a finished stream's length, else the video or
+// stream title, else the post body. Empty leaves the caller's fallback.
+func detail(update Update, locale string) string {
+	if update.Kind == "live_end" {
+		return durationText(update.DurationSeconds, locale)
+	}
 	if title := strings.TrimSpace(update.Title); title != "" {
 		return oneLine(title, 120)
 	}
 	return oneLine(update.Text, 120)
+}
+
+// liveEndDetail is a finished stream's body: its length, or the fallback
+// while the length is unknown.
+func liveEndDetail(update Update, locale string) string {
+	if text := durationText(update.DurationSeconds, locale); text != "" {
+		return text
+	}
+	return fallbackDetail(update.Kind, locale)
+}
+
+// durationText spells a stream's length in the reader's language with hours,
+// minutes and seconds all present: hours unpadded, minutes and seconds two
+// digits ("直播总时长：2小时05分钟08秒"). A length of zero or less is unknown and
+// gives no text.
+func durationText(seconds int, locale string) string {
+	if seconds <= 0 {
+		return ""
+	}
+	h, m, sec := seconds/3600, seconds%3600/60, seconds%60
+	switch locale {
+	case "ja":
+		return fmt.Sprintf("配信時間：%d時間%02d分%02d秒", h, m, sec)
+	case "en":
+		return fmt.Sprintf("Total stream time: %dh %02dm %02ds", h, m, sec)
+	case "zh-Hant":
+		return fmt.Sprintf("直播總時長：%d小時%02d分鐘%02d秒", h, m, sec)
+	default:
+		return fmt.Sprintf("直播总时长：%d小时%02d分钟%02d秒", h, m, sec)
+	}
 }
 
 // oneLine flattens whitespace so a multi-line body cannot stretch the shade

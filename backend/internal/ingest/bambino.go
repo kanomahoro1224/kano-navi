@@ -156,6 +156,21 @@ func (m *Module) notify(events []eventRequest) {
 	if m.notifier == nil || len(events) == 0 {
 		return
 	}
+	updates := pushUpdates(events)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		// Japanese readers see the original wording at once; every other
+		// language waits for the translate step to settle the post.
+		if err := m.notifier.DispatchPosts(ctx, updates); err != nil {
+			log.Printf("kano-go: push dispatch failed: %v", err)
+		}
+	}()
+}
+
+// pushUpdates turns accepted events into the dispatcher's updates. A live
+// end carries the stream's length, which becomes its notification body.
+func pushUpdates(events []eventRequest) []push.Update {
 	updates := make([]push.Update, 0, len(events))
 	for _, event := range events {
 		author := strings.TrimSpace(event.Author.DisplayName)
@@ -173,24 +188,17 @@ func (m *Module) notify(events []eventRequest) {
 			}
 		}
 		updates = append(updates, push.Update{
-			ID:       strings.TrimSpace(event.ID),
-			Platform: strings.ToLower(strings.TrimSpace(event.Platform)),
-			Kind:     kind,
-			Author:   author,
-			Title:    event.Title,
-			Text:     text,
-			URL:      url,
+			ID:              strings.TrimSpace(event.ID),
+			Platform:        strings.ToLower(strings.TrimSpace(event.Platform)),
+			Kind:            kind,
+			Author:          author,
+			Title:           event.Title,
+			Text:            text,
+			URL:             url,
+			DurationSeconds: max(0, event.DurationSeconds),
 		})
 	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		// Japanese readers see the original wording at once; every other
-		// language waits for the translate step to settle the post.
-		if err := m.notifier.DispatchPosts(ctx, updates); err != nil {
-			log.Printf("kano-go: push dispatch failed: %v", err)
-		}
-	}()
+	return updates
 }
 
 // flushPending releases the posts whose translation settled since the last

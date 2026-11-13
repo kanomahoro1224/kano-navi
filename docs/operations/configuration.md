@@ -283,6 +283,31 @@ route answering `404` instead of trusting an unauthenticated write.
 `BAMBINO_INGEST_CATCHUP_SECONDS` re-submits the post-processing chain when the
 single-flight queue was busy at ingest; `0` stops that ticker.
 
+## Client releases
+
+`GET /api/app/release` answers an installed client's version check with the
+newest build per platform. A platform is described entirely by environment
+variables, so publishing a build changes configuration instead of a link baked
+into an app that is already out: installed clients keep asking the same
+endpoint and receive whatever download URL is current.
+
+- `APP_ANDROID_VERSION_CODE` (default `1`) — the APK's `versionCode`. It must
+  increase with every published build; a client compares it against its own, so
+  a stale value here is why a release reaches nobody.
+- `APP_ANDROID_VERSION_NAME` (default `0.1.0`) — display text only.
+- `APP_ANDROID_MIN_SUPPORTED_CODE` (default `1`) — the oldest build a client
+  should still accept. The app uses it to make its prompt more urgent; nothing
+  blocks an older installation.
+- `APP_ANDROID_DOWNLOAD_URL` (default the distribution page) — what the client
+  opens. Moving the file to another host is a change here, not a new app build.
+- `APP_ANDROID_NOTES` (default empty) — the changelog the client shows.
+- `APP_ANDROID_PUBLISHED_AT` (default empty) — free-form release date.
+
+The HarmonyOS client reads the same six names behind the `APP_HARMONY_` prefix.
+A platform with no variables at all is left out of the response, and a client
+that receives no entry for itself keeps running silently. See
+[App release](../architecture/public-api.md#app-release-apiapprelease).
+
 ## Related X accounts
 
 Related X accounts are not environment variables: they live in the app

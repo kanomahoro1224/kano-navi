@@ -447,6 +447,26 @@ accepts signed Atom notifications, which only wake a queued YouTube sync. See
 [Sources](sources.md#websub-push) for the settings, verification, signature,
 debounce and queue rules.
 
+## App Release: `/api/app/release`
+
+`GET /api/app/release` answers an installed client's version check and is
+`no-store`: a cached answer would keep clients on an old build after a release.
+Without `platform` it reports every configured platform as
+`{"<platform>": {versionCode, versionName, minSupportedCode, downloadUrl, notes,
+publishedAt}}`; `platform=android` reports that entry alone, and an unknown
+platform answers `404 unknown_platform`. Any other method answers `405` with
+`Allow: GET`.
+
+`versionCode` is the integer a client compares against its own installation,
+never the display name. `downloadUrl` is the only place a client learns where to
+fetch a build, so a distribution link never has to be compiled into an app that
+is already installed. `notes` is the changelog the client shows, and
+`minSupportedCode` marks a required release without giving the client a way to
+block startup. A platform with no configured release is absent from the
+response, and a client that receives no entry for itself keeps running
+silently. See [Configuration](../operations/configuration.md#client-releases)
+for the variables that publish a build.
+
 ## Push Device Registration: `/api/push/device`
 
 `POST /api/push/device` upserts one HarmonyOS device for Huawei Push Kit

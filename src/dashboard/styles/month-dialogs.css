@@ -94,7 +94,7 @@
   }
 }
 
-@container archive-dialog (width >= 1140px) {
+@container archive-dialog (width >= 1160px) {
   .archive-dialog-head {
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
@@ -104,6 +104,29 @@
   .archive-dialog-head > .archive-dialog-bar {
     grid-row: 1;
     grid-column: 2;
+  }
+}
+
+/*
+ * The dialog's width alone decides the rows, never the month's name or its
+ * counts, so the header keeps its height as the month changes. A wide dialog
+ * keeps the month controls and the toolbar on one row, where a cramped filter
+ * scrolls sideways; a narrow one gives the toolbar a row of its own.
+ */
+@container archive-dialog (width >= 900px) {
+  .archive-dialog-bar {
+    flex-wrap: nowrap;
+  }
+
+  .archive-month {
+    flex: none;
+    flex-wrap: nowrap;
+  }
+}
+
+@container archive-dialog (width < 900px) {
+  .archive-tools {
+    flex: 1 1 100%;
   }
 }
 
@@ -510,9 +533,5 @@
 
   .archive-month-short {
     display: inline;
-  }
-
-  .archive-tools {
-    flex: 1 1 100%;
   }
 }

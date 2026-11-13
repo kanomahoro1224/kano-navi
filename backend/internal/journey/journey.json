@@ -1,0 +1,3869 @@
+{
+  "updatedAt": "2026-11-07",
+  "branches": [
+    {
+      "id": "singer",
+      "tone": "honey",
+      "since": "2010",
+      "label": { "ja": "歌手・鹿乃", "zh-CN": "歌手鹿乃", "en": "Singer Kano" },
+      "portrait": {
+        "origin": "fixed",
+        "id": "03_2021_official_keyvisual",
+        "url": "/media/journey/a55984e0670c.jpg",
+        "width": 800,
+        "height": 1756,
+        "mimeType": "image/jpeg",
+        "branches": ["singer"],
+        "category": "artwork",
+        "title": {
+          "ja": "歌手・鹿乃 · 2021 公式ビジュアル",
+          "zh-CN": "歌手鹿乃：2021 官网立绘",
+          "en": "Singer Kano · 2021 key visual"
+        },
+        "date": "2021-05-28",
+        "dateKind": "publication",
+        "sourceKind": "artist",
+        "note": "artwork",
+        "focus": "50% 0%",
+        "credit": null,
+        "creator": null,
+        "frameTime": null,
+        "sourcePage": "https://kano-official-cn.amebaownd.com/posts/17957621/",
+        "sourceUrl": "https://cdn.amebaowndme.com/madrid-prd/madrid-web/images/sites/896872/54cdc18db90e45c34edb5c1b56e4f398_f3425e3e8269f5cef60e5e485c85c2d8.jpg",
+        "originalStream": null,
+        "releaseId": null,
+        "cancelled": null,
+        "cover": null
+      }
+    },
+    {
+      "id": "hanayori",
+      "tone": "leaf",
+      "since": "2019",
+      "label": {
+        "ja": "花寄女子寮",
+        "zh-CN": "花寄女子寮",
+        "en": "Hanayori Joshiryo"
+      },
+      "portrait": {
+        "origin": "fixed",
+        "id": "01_2019_artist_intro",
+        "url": "/media/journey/0e9bdeaa3bf3.jpg",
+        "width": 870,
+        "height": 1200,
+        "mimeType": "image/jpeg",
+        "branches": ["hanayori"],
+        "category": "artwork",
+        "title": {
+          "ja": "花寄女子寮 · へちまの紹介イラスト",
+          "zh-CN": "花寄女子寮：画师发布的鹿乃介绍图",
+          "en": "Hanayori · character designer introduction"
+        },
+        "date": "2019-08-01",
+        "dateKind": "post",
+        "sourceKind": "creator",
+        "note": "artwork",
+        "focus": null,
+        "credit": null,
+        "creator": null,
+        "frameTime": null,
+        "sourcePage": "https://x.com/hechima10040/status/1156860302106869760",
+        "sourceUrl": "https://pbs.twimg.com/media/EA3-TmEU0AAoiHV.jpg",
+        "originalStream": null,
+        "releaseId": null,
+        "cancelled": null,
+        "cover": null
+      }
+    },
+    {
+      "id": "mahoro",
+      "tone": "berry",
+      "since": "2021",
+      "label": {
+        "ja": "鹿乃まほろ",
+        "zh-CN": "鹿乃まほろ",
+        "en": "Kano Mahoro"
+      },
+      "portrait": {
+        "origin": "fixed",
+        "id": "03_mahoro_2021_model_sheet",
+        "url": "/media/journey/068f948e7cbb.jpg",
+        "width": 720,
+        "height": 720,
+        "mimeType": "image/jpeg",
+        "branches": ["mahoro"],
+        "category": "model",
+        "title": {
+          "ja": "まほろ · 2021 キャラクター紹介",
+          "zh-CN": "旧まほろ：2021 角色介绍图",
+          "en": "Mahoro · 2021 character introduction"
+        },
+        "date": "2021-05-30",
+        "dateKind": "post",
+        "sourceKind": "artist",
+        "note": "mahoroDebut",
+        "focus": null,
+        "credit": null,
+        "creator": null,
+        "frameTime": null,
+        "sourcePage": "https://x.com/kanomahoro/status/1398833051098968065",
+        "sourceUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1398832671149617154/pu/img/rIX_-F8SFZCT0Hwj?format=jpg&name=orig",
+        "originalStream": null,
+        "releaseId": null,
+        "cancelled": null,
+        "cover": null
+      }
+    },
+    {
+      "id": "mklntic",
+      "tone": "lavender",
+      "since": "2022",
+      "label": { "ja": "MKLNtic", "zh-CN": "MKLNtic", "en": "MKLNtic" },
+      "portrait": {
+        "origin": "fixed",
+        "id": "01_mahoro_2022_mklntic_outfit",
+        "url": "/media/journey/d837425257dc.png",
+        "width": 419,
+        "height": 546,
+        "mimeType": "image/png",
+        "branches": ["mklntic"],
+        "category": "goods",
+        "title": {
+          "ja": "MKLNtic · 鹿乃のユニット衣装",
+          "zh-CN": "MKLNtic：鹿乃音乐组合衣装",
+          "en": "MKLNtic · Kano’s unit outfit"
+        },
+        "date": "2022-08-12",
+        "dateKind": "outfit",
+        "sourceKind": "shop",
+        "note": "outfitMerch",
+        "focus": null,
+        "credit": null,
+        "creator": null,
+        "frameTime": null,
+        "sourcePage": "https://booth.pm/ja/items/4079674",
+        "sourceUrl": "https://booth.pximg.net/1c78b1ee-9ce3-4335-a9b2-79709bffa20c/i/4079674/abd06dd3-f888-4515-996e-ba1ae6de820c.png",
+        "originalStream": null,
+        "releaseId": null,
+        "cancelled": null,
+        "cover": null
+      }
+    },
+    {
+      "id": "sona",
+      "tone": "sky",
+      "since": "2026",
+      "label": {
+        "ja": "ミリプロSONA",
+        "zh-CN": "ミリプロSONA",
+        "en": "ミリプロSONA"
+      },
+      "portrait": {
+        "origin": "fixed",
+        "id": "12_sona_2026_official_fullbody",
+        "url": "/media/journey/0fcdcc7ef04b.png",
+        "width": 3772,
+        "height": 5333,
+        "mimeType": "image/png",
+        "branches": ["sona"],
+        "category": "artwork",
+        "title": {
+          "ja": "SONA · 公式全身ビジュアル",
+          "zh-CN": "SONA 官网主视觉全身插画（雨傘ゆん）",
+          "en": "SONA · official full-body visual"
+        },
+        "date": "2026-09-30",
+        "dateKind": "capture",
+        "sourceKind": "agency",
+        "note": "siteCapture",
+        "focus": null,
+        "credit": null,
+        "creator": "雨傘ゆん（本人 2026-08-17 原帖署名）",
+        "frameTime": null,
+        "sourcePage": "https://milpr.com/talents/kano-mahoro",
+        "sourceUrl": "https://storage.googleapis.com/studio-design-asset-files/projects/6kq9B6lgap/s-3772x5333_v-frms_webp_004ff11f-b834-43e8-8f3b-312619739047.png",
+        "originalStream": null,
+        "releaseId": null,
+        "cancelled": null,
+        "cover": null
+      }
+    }
+  ],
+  "milestones": [
+    {
+      "id": "first-covers",
+      "date": "2010",
+      "datePrecision": "year",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "start",
+      "highlight": true,
+      "title": {
+        "ja": "歌ってみた投稿をスタート",
+        "zh-CN": "开始投稿翻唱",
+        "en": "First cover uploads"
+      },
+      "detail": {
+        "ja": "動画サイトへの歌ってみた投稿から活動が始まる。",
+        "zh-CN": "在视频平台投稿翻唱，以歌い手身份起步。",
+        "en": "Began posting song covers to video sites as an utaite."
+      },
+      "sourceUrl": "https://www.teichiku.co.jp/artist/kano/profile/",
+      "links": [],
+      "releaseId": null,
+      "media": []
+    },
+    {
+      "id": "bambino",
+      "date": "2011-01-16",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": true,
+      "title": {
+        "ja": "初のソロアルバム「ばんび～の」",
+        "zh-CN": "首张个人专辑《ばんび～の》",
+        "en": "First solo album “ばんび～の”"
+      },
+      "detail": {
+        "ja": "Sevencolors より発売。「ハロ/ハワユ」など全 10 曲を収録。",
+        "zh-CN": "由 Sevencolors 发行，收录《ハロ/ハワユ》等 10 首歌曲。",
+        "en": "Released by Sevencolors with 10 tracks, including “ハロ/ハワユ”."
+      },
+      "sourceUrl": "https://www.suruga-ya.jp/product/detail/186110819",
+      "links": [],
+      "releaseId": "2011-01-16-fa0309",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2011-01-16-fa0309/60fe4a1adf86.jpg",
+          "url": "/media/works/60fe4a1adf86.jpg",
+          "width": 600,
+          "height": 600,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "ばんび～の",
+            "zh-CN": "ばんび～の",
+            "en": "ばんび～の"
+          },
+          "date": "2011-01-16",
+          "dateKind": "release",
+          "sourceKind": "thirdPartyCover",
+          "note": "thirdPartyCover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://utaitelist.blogspot.com/2016/05/kano-bambino-full-album.html",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2011-01-16-fa0309",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/60fe4a1adf86.jpg",
+            "width": 600,
+            "height": 600,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "アルバムジャケット",
+              "zh-CN": "专辑封面",
+              "en": "Album cover"
+            },
+            "sourceUrl": "https://utaitelist.blogspot.com/2016/05/kano-bambino-full-album.html",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "stella-rium",
+      "date": "2015-05-20",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "debut",
+      "highlight": true,
+      "title": {
+        "ja": "「Stella-rium」でメジャーデビュー",
+        "zh-CN": "以《Stella-rium》主流出道",
+        "en": "Major debut with “Stella-rium”"
+      },
+      "detail": {
+        "ja": "TV アニメ『放課後のプレアデス』オープニングテーマ。",
+        "zh-CN": "TV 动画《放課後のプレアデス》片头曲。",
+        "en": "Opening theme of the TV anime Houkago no Pleiades."
+      },
+      "sourceUrl": "https://whv-amusic.com/kano/sp/discography/single/index00030000.html",
+      "links": [],
+      "releaseId": "2015-05-20-ad12ac",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2015-05-20-ad12ac/85ff0f489a4f.jpg",
+          "url": "/media/works/85ff0f489a4f.jpg",
+          "width": 800,
+          "height": 793,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "Stella-rium",
+            "zh-CN": "Stella-rium",
+            "en": "Stella-rium"
+          },
+          "date": "2015-05-20",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://whv-amusic.com/kano/discography/single/index00030000.html",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2015-05-20-ad12ac",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/85ff0f489a4f.jpg",
+            "width": 800,
+            "height": 793,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "初回限定盤ジャケット",
+              "zh-CN": "初回限定盤封面",
+              "en": "初回限定盤 cover"
+            },
+            "sourceUrl": "https://whv-amusic.com/kano/discography/single/index00030000.html",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2015-05-20-ad12ac/d3b6a13c270d.jpg",
+          "url": "/media/works/d3b6a13c270d.jpg",
+          "width": 800,
+          "height": 800,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "Stella-rium",
+            "zh-CN": "Stella-rium",
+            "en": "Stella-rium"
+          },
+          "date": "2015-05-20",
+          "dateKind": "release",
+          "sourceKind": "thirdPartyCover",
+          "note": "thirdPartyCover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://www.hmv.co.jp/artist_%E9%B9%BF%E4%B9%83_000000000603729/item_Stella-rium-%E3%80%90%E9%80%9A%E5%B8%B8%E7%9B%A4%E3%80%91-TV%E3%82%A2%E3%83%8B%E3%83%A1%E3%80%8C%E6%94%BE%E8%AA%B2%E5%BE%8C%E3%81%AE%E3%83%97%E3%83%AC%E3%82%A2%E3%83%87%E3%82%B9%E3%80%8D%E3%82%AA%E3%83%BC%E3%83%97%E3%83%8B%E3%83%B3%E3%82%B0%E3%83%86%E3%83%BC%E3%83%9E_6290372",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2015-05-20-ad12ac",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/d3b6a13c270d.jpg",
+            "width": 800,
+            "height": 800,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "シングルジャケット（通常盤）",
+              "zh-CN": "单曲封面（通常盤）",
+              "en": "Single cover (通常盤)"
+            },
+            "sourceUrl": "https://www.hmv.co.jp/artist_%E9%B9%BF%E4%B9%83_000000000603729/item_Stella-rium-%E3%80%90%E9%80%9A%E5%B8%B8%E7%9B%A4%E3%80%91-TV%E3%82%A2%E3%83%8B%E3%83%A1%E3%80%8C%E6%94%BE%E8%AA%B2%E5%BE%8C%E3%81%AE%E3%83%97%E3%83%AC%E3%82%A2%E3%83%87%E3%82%B9%E3%80%8D%E3%82%AA%E3%83%BC%E3%83%97%E3%83%8B%E3%83%B3%E3%82%B0%E3%83%86%E3%83%BC%E3%83%9E_6290372",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "dear-brave",
+      "date": "2015-11-18",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "シングル「ディアブレイブ」",
+        "zh-CN": "单曲《ディアブレイブ》",
+        "en": "Single “ディアブレイブ”"
+      },
+      "detail": {
+        "ja": "赤いマフラーと本のジャケット。",
+        "zh-CN": "红围巾与书本的封面插画。",
+        "en": "Cover art with the red scarf and a book."
+      },
+      "sourceUrl": "https://kano-official.amebaownd.com/posts/3989240/",
+      "links": [],
+      "releaseId": "2015-11-18-f7fcf9",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2015-11-18-f7fcf9/ad5407e23abc.jpg",
+          "url": "/media/works/ad5407e23abc.jpg",
+          "width": 1500,
+          "height": 1488,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "ディアブレイブ",
+            "zh-CN": "ディアブレイブ",
+            "en": "ディアブレイブ"
+          },
+          "date": "2015-11-18",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/3989240/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2015-11-18-f7fcf9",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/ad5407e23abc.jpg",
+            "width": 1500,
+            "height": 1488,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "アーティスト盤ジャケット",
+              "zh-CN": "アーティスト盤封面",
+              "en": "アーティスト盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/3989240/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2015-11-18-f7fcf9/a0a4d8d71b43.jpg",
+          "url": "/media/works/a0a4d8d71b43.jpg",
+          "width": 1500,
+          "height": 1488,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "ディアブレイブ",
+            "zh-CN": "ディアブレイブ",
+            "en": "ディアブレイブ"
+          },
+          "date": "2015-11-18",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/3989240/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2015-11-18-f7fcf9",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/a0a4d8d71b43.jpg",
+            "width": 1500,
+            "height": 1488,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "アニメ盤ジャケット（ヘヴィーオブジェクト）",
+              "zh-CN": "アニメ盤封面（ヘヴィーオブジェクト）",
+              "en": "アニメ盤 cover (ヘヴィーオブジェクト)"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/3989240/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "nowhere",
+      "date": "2016-05-11",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "アルバム「nowhere」",
+        "zh-CN": "专辑《nowhere》",
+        "en": "Album “nowhere”"
+      },
+      "detail": {
+        "ja": "赤いマフラーに白い服、花束のジャケット。",
+        "zh-CN": "红围巾、白上衣与花束的封面。",
+        "en": "Red scarf, white top, and a bouquet on the cover."
+      },
+      "sourceUrl": "https://kano-official.amebaownd.com/posts/3989227/",
+      "links": [],
+      "releaseId": "2016-05-11-20aeff",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2016-05-11-20aeff/44bd2e9a1927.jpg",
+          "url": "/media/works/44bd2e9a1927.jpg",
+          "width": 1141,
+          "height": 1500,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "nowhere", "zh-CN": "nowhere", "en": "nowhere" },
+          "date": "2016-05-11",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/3989227",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2016-05-11-20aeff",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/44bd2e9a1927.jpg",
+            "width": 1141,
+            "height": 1500,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "絵本付生産限定盤ジャケット",
+              "zh-CN": "絵本付生産限定盤封面",
+              "en": "絵本付生産限定盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/3989227",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2016-05-11-20aeff/d5bc10b12e79.jpg",
+          "url": "/media/works/d5bc10b12e79.jpg",
+          "width": 1422,
+          "height": 1410,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "nowhere", "zh-CN": "nowhere", "en": "nowhere" },
+          "date": "2016-05-11",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/3989227/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2016-05-11-20aeff",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/d5bc10b12e79.jpg",
+            "width": 1422,
+            "height": 1410,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "通常盤ジャケット",
+              "zh-CN": "通常盤封面",
+              "en": "通常盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/3989227/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "nameless",
+      "date": "2016-09-07",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "「nameless」リリース",
+        "zh-CN": "《nameless》发行",
+        "en": "“nameless” release"
+      },
+      "detail": {
+        "ja": "歌い手盤と通常盤で異なるジャケット。",
+        "zh-CN": "歌手盘与通常盘使用不同构图。",
+        "en": "Artist and standard editions use different covers."
+      },
+      "sourceUrl": "https://kano-official.amebaownd.com/posts/3989194/",
+      "links": [],
+      "releaseId": "2016-09-07-17d72f",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2016-09-07-17d72f/4f3f492ca9bc.jpg",
+          "url": "/media/works/4f3f492ca9bc.jpg",
+          "width": 1660,
+          "height": 1654,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "nameless", "zh-CN": "nameless", "en": "nameless" },
+          "date": "2016-09-07",
+          "dateKind": "release",
+          "sourceKind": "thirdPartyCover",
+          "note": "thirdPartyCover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/3989194/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2016-09-07-17d72f",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/4f3f492ca9bc.jpg",
+            "width": 1660,
+            "height": 1654,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "アーティスト盤ジャケット",
+              "zh-CN": "アーティスト盤封面",
+              "en": "アーティスト盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/3989194/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": true
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2016-09-07-17d72f/81ae8717ff0c.jpg",
+          "url": "/media/works/81ae8717ff0c.jpg",
+          "width": 1422,
+          "height": 1410,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "nameless", "zh-CN": "nameless", "en": "nameless" },
+          "date": "2016-09-07",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/3989194/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2016-09-07-17d72f",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/81ae8717ff0c.jpg",
+            "width": 1422,
+            "height": 1410,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "アニメ盤ジャケット",
+              "zh-CN": "アニメ盤封面",
+              "en": "アニメ盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/3989194/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2016-09-07-17d72f/fec2a239e953.jpg",
+          "url": "/media/works/fec2a239e953.jpg",
+          "width": 1500,
+          "height": 1495,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "nameless", "zh-CN": "nameless", "en": "nameless" },
+          "date": "2016-09-07",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/3989194/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2016-09-07-17d72f",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/fec2a239e953.jpg",
+            "width": 1500,
+            "height": 1495,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "通常盤ジャケット",
+              "zh-CN": "通常盤封面",
+              "en": "通常盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/3989194/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "alstroemeria",
+      "date": "2017-12-20",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "「アルストロメリア」リリース",
+        "zh-CN": "《アルストロメリア》发行",
+        "en": "“アルストロメリア” release"
+      },
+      "detail": {
+        "ja": "初回限定盤のジャケットにこれまでの作品が並ぶ。",
+        "zh-CN": "初回限定盘封面陈列了以往的唱片。",
+        "en": "The limited-edition cover lines up earlier releases."
+      },
+      "sourceUrl": "https://kano-official.amebaownd.com/posts/3988816/",
+      "links": [],
+      "releaseId": "2017-12-20-60cfba",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2017-12-20-60cfba/a34fb35700ce.jpg",
+          "url": "/media/works/a34fb35700ce.jpg",
+          "width": 1500,
+          "height": 1488,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "アルストロメリア",
+            "zh-CN": "アルストロメリア",
+            "en": "アルストロメリア"
+          },
+          "date": "2017-12-20",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/3988816/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2017-12-20-60cfba",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/a34fb35700ce.jpg",
+            "width": 1500,
+            "height": 1488,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "初回限定盤ジャケット",
+              "zh-CN": "初回限定盤封面",
+              "en": "初回限定盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/3988816/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2017-12-20-60cfba/e831782f5c0e.jpg",
+          "url": "/media/works/e831782f5c0e.jpg",
+          "width": 3000,
+          "height": 3000,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "アルストロメリア",
+            "zh-CN": "アルストロメリア",
+            "en": "アルストロメリア"
+          },
+          "date": "2017-12-20",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://whv-amusic.com/kano/discography/album/index00090000.html",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2017-12-20-60cfba",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/e831782f5c0e.jpg",
+            "width": 3000,
+            "height": 3000,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "通常盤ジャケット",
+              "zh-CN": "通常盤封面",
+              "en": "通常盤 cover"
+            },
+            "sourceUrl": "https://whv-amusic.com/kano/discography/album/index00090000.html",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "one",
+      "date": "2017-12-29",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": "C93",
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "同人アルバム「one」",
+        "zh-CN": "同人专辑《one》",
+        "en": "Doujin album “one”"
+      },
+      "detail": {
+        "ja": "C93 で頒布。小鹿の帽子とギターのジャケット。",
+        "zh-CN": "C93 发布，封面是小鹿帽与吉他。",
+        "en": "Released at C93, with a fawn hat and guitar on the cover."
+      },
+      "sourceUrl": "https://booth.pm/ja/items/709759",
+      "links": [],
+      "releaseId": "2017-12-29-7692c3",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2017-12-29-7692c3/809b9ef56a3b.jpg",
+          "url": "/media/works/809b9ef56a3b.jpg",
+          "width": 1695,
+          "height": 1736,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "one", "zh-CN": "one", "en": "one" },
+          "date": "2017-12-29",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://booth.pm/ja/items/709759",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2017-12-29-7692c3",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/809b9ef56a3b.jpg",
+            "width": 1695,
+            "height": 1736,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "アルバムジャケット",
+              "zh-CN": "专辑封面",
+              "en": "Album cover"
+            },
+            "sourceUrl": "https://booth.pm/ja/items/709759",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "haru-ni-ochite",
+      "date": "2018-05-30",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "シングル「春に落ちて」",
+        "zh-CN": "单曲《春に落ちて》",
+        "en": "Single “春に落ちて”"
+      },
+      "detail": {
+        "ja": "一部ストアでこの日から配信、ほかは 6 月 6 日から。",
+        "zh-CN": "部分平台于此日开始配信，其他平台为 6 月 6 日。",
+        "en": "Some stores carried it from this day; others from June 6."
+      },
+      "sourceUrl": "https://www.teichiku.co.jp/artist/kano/discography/D-C126.html",
+      "links": [],
+      "releaseId": "2018-05-30-ad6dc1",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2018-05-30-ad6dc1/b7e0dd72f067.jpg",
+          "url": "/media/works/b7e0dd72f067.jpg",
+          "width": 1400,
+          "height": 1400,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "春に落ちて",
+            "zh-CN": "春に落ちて",
+            "en": "春に落ちて"
+          },
+          "date": "2018-05-30",
+          "dateKind": "release",
+          "sourceKind": "thirdPartyCover",
+          "note": "thirdPartyCover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://www.imperialrecords.jp/artist/kano/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2018-05-30-ad6dc1",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/b7e0dd72f067.jpg",
+            "width": 1400,
+            "height": 1400,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "シングルジャケット",
+              "zh-CN": "单曲封面",
+              "en": "Single cover"
+            },
+            "sourceUrl": "https://www.imperialrecords.jp/artist/kano/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "rye",
+      "date": "2018-12-19",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "アルバム「rye」",
+        "zh-CN": "专辑《rye》",
+        "en": "Album “rye”"
+      },
+      "detail": {
+        "ja": "小鹿フードのデフォルメジャケット。",
+        "zh-CN": "穿小鹿兜帽的 Q 版封面。",
+        "en": "A chibi cover in a fawn hood."
+      },
+      "sourceUrl": "https://www.imperialrecords.jp/artist/kano/",
+      "links": [],
+      "releaseId": "2018-12-19-bfac1a",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2018-12-19-bfac1a/b0fbfb1174ed.jpg",
+          "url": "/media/works/b0fbfb1174ed.jpg",
+          "width": 1654,
+          "height": 1654,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "rye", "zh-CN": "rye", "en": "rye" },
+          "date": "2018-12-19",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/5283777/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2018-12-19-bfac1a",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/b0fbfb1174ed.jpg",
+            "width": 1654,
+            "height": 1654,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "初回限定盤ジャケット",
+              "zh-CN": "初回限定盤封面",
+              "en": "初回限定盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/5283777/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2018-12-19-bfac1a/207ccb6ff942.jpg",
+          "url": "/media/works/207ccb6ff942.jpg",
+          "width": 1654,
+          "height": 1654,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "rye", "zh-CN": "rye", "en": "rye" },
+          "date": "2018-12-19",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/5283777/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2018-12-19-bfac1a",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/207ccb6ff942.jpg",
+            "width": 1654,
+            "height": 1654,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "通常盤ジャケット",
+              "zh-CN": "通常盤封面",
+              "en": "通常盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/5283777/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2018-12-19-bfac1a/c1f8973fb701.jpg",
+          "url": "/media/works/c1f8973fb701.jpg",
+          "width": 800,
+          "height": 711,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "rye", "zh-CN": "rye", "en": "rye" },
+          "date": "2018-12-19",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://www.imperialrecords.jp/artist/kano/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2018-12-19-bfac1a",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/c1f8973fb701.jpg",
+            "width": 800,
+            "height": 711,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "アニメイト / とらのあな限定盤外装",
+              "zh-CN": "アニメイト / とらのあな限定盤外装",
+              "en": "アニメイト / とらのあな限定盤 outer packaging"
+            },
+            "sourceUrl": "https://www.imperialrecords.jp/artist/kano/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "hanayori-debut",
+      "date": "2019-08-01",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "hanayori",
+      "kind": "character",
+      "highlight": true,
+      "title": {
+        "ja": "花寄女子寮の鹿乃が登場",
+        "zh-CN": "花寄女子寮的鹿乃登场",
+        "en": "Kano joins Hanayori Joshiryo"
+      },
+      "detail": {
+        "ja": "自己紹介ソングを公開。淡いピンクの髪と赤い制服。初配信は 8 月 3 日。",
+        "zh-CN": "公开自我介绍歌：浅粉短发与红色制服。初次直播为 8 月 3 日。",
+        "en": "A self-introduction song reveals the pink-haired, red-uniform design. First stream on August 3."
+      },
+      "sourceUrl": "https://www.bilibili.com/video/BV1Gt411F7LW/",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "01_2019_artist_intro",
+          "url": "/media/journey/0e9bdeaa3bf3.jpg",
+          "width": 870,
+          "height": 1200,
+          "mimeType": "image/jpeg",
+          "branches": ["hanayori"],
+          "category": "artwork",
+          "title": {
+            "ja": "花寄女子寮 · へちまの紹介イラスト",
+            "zh-CN": "花寄女子寮：画师发布的鹿乃介绍图",
+            "en": "Hanayori · character designer introduction"
+          },
+          "date": "2019-08-01",
+          "dateKind": "post",
+          "sourceKind": "creator",
+          "note": "artwork",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://x.com/hechima10040/status/1156860302106869760",
+          "sourceUrl": "https://pbs.twimg.com/media/EA3-TmEU0AAoiHV.jpg",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "02_2019_self_intro",
+          "url": "/media/journey/47deedeb5abc.png",
+          "width": 992,
+          "height": 621,
+          "mimeType": "image/png",
+          "branches": ["hanayori"],
+          "category": "artwork",
+          "title": {
+            "ja": "花寄女子寮 · 自己紹介ソング",
+            "zh-CN": "花寄女子寮：本人自我介绍视频封面",
+            "en": "Hanayori · self-introduction song"
+          },
+          "date": "2019-08-01",
+          "dateKind": "publication",
+          "sourceKind": "video",
+          "note": "artwork",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://www.bilibili.com/video/BV1Gt411F7LW/",
+          "sourceUrl": "https://i2.hdslb.com/bfs/archive/1bc000c57145c24f0fab87a219317a8ef5cc8bbc.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "itsuka-no-yakusoku",
+      "date": "2019-09-25",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "「いつかの約束を君に」リリース",
+        "zh-CN": "《いつかの約束を君に》发行",
+        "en": "“いつかの約束を君に” release"
+      },
+      "detail": {
+        "ja": "花寄の活動と並行して、歌手名義のリリースも続く。",
+        "zh-CN": "花寄活动开始后，歌手名义的发行仍在继续。",
+        "en": "Releases under the singer name continue alongside Hanayori."
+      },
+      "sourceUrl": "https://www.teichiku.co.jp/artist/kano/discography/TECI-1655.html",
+      "links": [],
+      "releaseId": "2019-09-25-44f278",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2019-09-25-44f278/595410eca64d.jpg",
+          "url": "/media/works/595410eca64d.jpg",
+          "width": 3000,
+          "height": 3000,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "いつかの約束を君に",
+            "zh-CN": "いつかの約束を君に",
+            "en": "いつかの約束を君に"
+          },
+          "date": "2019-09-25",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/7043276/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2019-09-25-44f278",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/595410eca64d.jpg",
+            "width": 3000,
+            "height": 3000,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "アルバムジャケット",
+              "zh-CN": "专辑封面",
+              "en": "Album cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/7043276/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "hanayori-hated-by-life",
+      "date": "2019-11-05",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "hanayori",
+      "kind": "artwork",
+      "highlight": false,
+      "title": {
+        "ja": "「命に嫌われている」のイラスト",
+        "zh-CN": "《命に嫌われている》翻唱插画",
+        "en": "Artwork for “命に嫌われている”"
+      },
+      "detail": {
+        "ja": "カグラナナが担当イラストを公開。花寄のピンク髪と赤い制服の姿。",
+        "zh-CN": "カグラナナ发布委托翻唱插画，保留粉发红制服的花寄形象。",
+        "en": "Kagura Nana published commissioned cover artwork featuring the pink-haired Hanayori design."
+      },
+      "sourceUrl": "https://x.com/nana_kaguraaa/status/1191706487489355776",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "11_2019_hated_by_life_art",
+          "url": "/media/journey/f639634a5282.jpg",
+          "width": 2048,
+          "height": 1274,
+          "mimeType": "image/jpeg",
+          "branches": ["hanayori"],
+          "category": "artwork",
+          "title": {
+            "ja": "命に嫌われている · カグラナナのイラスト",
+            "zh-CN": "命に嫌われている：カグラナナ翻唱插画",
+            "en": "命に嫌われている · Kagura Nana artwork"
+          },
+          "date": "2019-11-05",
+          "dateKind": "post",
+          "sourceKind": "creator",
+          "note": "artwork",
+          "focus": null,
+          "credit": null,
+          "creator": "ななかぐら / カグラナナ",
+          "frameTime": null,
+          "sourcePage": "https://x.com/nana_kaguraaa/status/1191706487489355776",
+          "sourceUrl": "https://pbs.twimg.com/media/EInKuegUcAEkHsQ?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "hanayori-birthday",
+      "date": "2019-12-24",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "hanayori",
+      "kind": "outfit",
+      "highlight": false,
+      "title": {
+        "ja": "誕生日配信の編み込みヘア",
+        "zh-CN": "生日配信：侧编发造型",
+        "en": "Braided hairstyle on the birthday stream"
+      },
+      "detail": {
+        "ja": "いつもの制服に編み込み。画像は元配信の 01:05:00 のフレーム。",
+        "zh-CN": "原制服搭配侧编发；配图为原直播 01:05:00 截帧。",
+        "en": "The familiar uniform with a side braid; the archived frame comes from 01:05:00."
+      },
+      "sourceUrl": null,
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "03_2019_birthday_hairstyle",
+          "url": "/media/journey/303ee9e11ecd.jpg",
+          "width": 1920,
+          "height": 1080,
+          "mimeType": "image/jpeg",
+          "branches": ["hanayori"],
+          "category": "frame",
+          "title": {
+            "ja": "花寄女子寮 · 誕生日の髪型",
+            "zh-CN": "花寄女子寮：生日发型公开截帧",
+            "en": "Hanayori · birthday hairstyle"
+          },
+          "date": "2019-12-24",
+          "dateKind": "stream",
+          "sourceKind": "streamArchive",
+          "note": "frame",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": "01:05:00",
+          "sourcePage": "https://archive.ragtag.moe/watch?v=-oSQPYwV5Xc",
+          "sourceUrl": "https://www.youtube.com/watch?v=-oSQPYwV5Xc&t=3900",
+          "originalStream": "https://www.youtube.com/watch?v=-oSQPYwV5Xc&t=3900",
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "bambi-live2d",
+      "date": "2020-02-07",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "outfit",
+      "highlight": false,
+      "title": {
+        "ja": "歌手・鹿乃の Live2D",
+        "zh-CN": "歌手鹿乃的 Live2D 形象",
+        "en": "Singer Kano in Live2D"
+      },
+      "detail": {
+        "ja": "茶髪のショートに鹿の角と赤いマフラー。制作者がこの日に担当を公表。モデルはそれ以前の配信で登場済み。",
+        "zh-CN": "棕色短发、鹿角与红围巾。制作者当日发布署名，模型此前已在直播中亮相。",
+        "en": "Short brown hair, antlers, and the red scarf. The rigger credited it this day; it had already appeared on stream."
+      },
+      "sourceUrl": "https://x.com/fumi_411/status/1225746814768254978",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "07_2020_bambi_live2d_model",
+          "url": "/media/journey/cb55a7c23e0a.jpg",
+          "width": 858,
+          "height": 720,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "model",
+          "title": {
+            "ja": "歌手・鹿乃 · 2020 Live2D",
+            "zh-CN": "歌手鹿乃：2020 Live2D 模型展示图",
+            "en": "Singer Kano · 2020 Live2D demonstration"
+          },
+          "date": "2020-02-07",
+          "dateKind": "post",
+          "sourceKind": "creator",
+          "note": "modelAnnouncement",
+          "focus": null,
+          "credit": null,
+          "creator": "水玉子（绘图） / fumi（Live2D）",
+          "frameTime": null,
+          "sourcePage": "https://x.com/fumi_411/status/1225746814768254978",
+          "sourceUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1225746791045324800/pu/img/u2xcZMiXEuVsctnp.jpg?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "hanayori-hitorigoto",
+      "date": "2020-02-14",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "hanayori",
+      "kind": "artwork",
+      "highlight": false,
+      "title": {
+        "ja": "「ヒトリゴト」のデュエットイラスト",
+        "zh-CN": "《ヒトリゴト》双人翻唱插画",
+        "en": "Duet artwork for “ヒトリゴト”"
+      },
+      "detail": {
+        "ja": "鹿乃とカグラナナの 2 人。日付は画師の公開投稿による。",
+        "zh-CN": "鹿乃与カグラナナ同框；日期为画师原帖公开日。",
+        "en": "Kano and Kagura Nana together; dated to the illustrator’s original post."
+      },
+      "sourceUrl": "https://x.com/nana_kaguraaa/status/1228216027109969922",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "12_2020_hitorigoto_duet_art",
+          "url": "/media/journey/c0a98917d4c8.jpg",
+          "width": 1920,
+          "height": 1080,
+          "mimeType": "image/jpeg",
+          "branches": ["hanayori"],
+          "category": "artwork",
+          "title": {
+            "ja": "ヒトリゴト · 鹿乃とカグラナナ",
+            "zh-CN": "ヒトリゴト：鹿乃与カグラナナ双人翻唱图",
+            "en": "ヒトリゴト · Kano and Kagura Nana"
+          },
+          "date": "2020-02-14",
+          "dateKind": "post",
+          "sourceKind": "creator",
+          "note": "artwork",
+          "focus": null,
+          "credit": null,
+          "creator": "ななかぐら / カグラナナ",
+          "frameTime": null,
+          "sourcePage": "https://x.com/nana_kaguraaa/status/1228216027109969922",
+          "sourceUrl": "https://pbs.twimg.com/media/EQt_9nxVUAUBN7q?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "yuanfen",
+      "date": "2020-03-04",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "「yuanfen」リリース",
+        "zh-CN": "《yuanfen》发行",
+        "en": "“yuanfen” release"
+      },
+      "detail": {
+        "ja": "通常盤と初回限定盤の 2 種類のジャケット。",
+        "zh-CN": "通常盘与初回限定盘两种封面。",
+        "en": "Standard and limited editions with two covers."
+      },
+      "sourceUrl": "https://www.teichiku.co.jp/artist/kano/discography/TECI-1676.html",
+      "links": [],
+      "releaseId": "2020-03-04-c686b1",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2020-03-04-c686b1/381e9fb490ab.jpg",
+          "url": "/media/works/381e9fb490ab.jpg",
+          "width": 1654,
+          "height": 1654,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "yuanfen", "zh-CN": "yuanfen", "en": "yuanfen" },
+          "date": "2020-03-04",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/7596341/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2020-03-04-c686b1",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/381e9fb490ab.jpg",
+            "width": 1654,
+            "height": 1654,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "初回限定盤ジャケット",
+              "zh-CN": "初回限定盤封面",
+              "en": "初回限定盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/7596341/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2020-03-04-c686b1/36e5fa477eb1.jpg",
+          "url": "/media/works/36e5fa477eb1.jpg",
+          "width": 1654,
+          "height": 1654,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "yuanfen", "zh-CN": "yuanfen", "en": "yuanfen" },
+          "date": "2020-03-04",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/7596341/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2020-03-04-c686b1",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/36e5fa477eb1.jpg",
+            "width": 1654,
+            "height": 1654,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "通常盤ジャケット",
+              "zh-CN": "通常盤封面",
+              "en": "通常盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/7596341/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2020-03-04-c686b1/6d4fe919bc3d.jpg",
+          "url": "/media/works/6d4fe919bc3d.jpg",
+          "width": 1500,
+          "height": 1500,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "yuanfen", "zh-CN": "yuanfen", "en": "yuanfen" },
+          "date": "2020-03-04",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://teichiku-shop.com/products/detail/TES0000HGT",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2020-03-04-c686b1",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/6d4fe919bc3d.jpg",
+            "width": 1500,
+            "height": 1500,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "等身大パッケージ",
+              "zh-CN": "等身大パッケージ",
+              "en": "等身大パッケージ"
+            },
+            "sourceUrl": "https://teichiku-shop.com/products/detail/TES0000HGT",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2020-03-04-c686b1/1151e9aaa467.jpg",
+          "url": "/media/works/1151e9aaa467.jpg",
+          "width": 4032,
+          "height": 3024,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "yuanfen", "zh-CN": "yuanfen", "en": "yuanfen" },
+          "date": "2020-03-04",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/7596341/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2020-03-04-c686b1",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/1151e9aaa467.jpg",
+            "width": 4032,
+            "height": 3024,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "等身大パッケージ",
+              "zh-CN": "等身大パッケージ",
+              "en": "等身大パッケージ"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/7596341/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "hanayori-kimono",
+      "date": "2020-03-21",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "hanayori",
+      "kind": "outfit",
+      "highlight": false,
+      "title": {
+        "ja": "花寄の新衣装：和装",
+        "zh-CN": "花寄新衣装：和服",
+        "en": "Hanayori outfit: kimono"
+      },
+      "detail": {
+        "ja": "淡い青と白の花柄の着物と編み込み。配信でお披露目。",
+        "zh-CN": "浅蓝白花纹和服与编发，在配信中公开。",
+        "en": "A pale blue-and-white floral kimono with braids, revealed on stream."
+      },
+      "sourceUrl": null,
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "04_2020_kimono_outfit",
+          "url": "/media/journey/915b7068cbb1.jpg",
+          "width": 1920,
+          "height": 1080,
+          "mimeType": "image/jpeg",
+          "branches": ["hanayori"],
+          "category": "frame",
+          "title": {
+            "ja": "花寄女子寮 · 和装お披露目",
+            "zh-CN": "花寄女子寮：和装公开截帧",
+            "en": "Hanayori · kimono reveal"
+          },
+          "date": "2020-03-21",
+          "dateKind": "stream",
+          "sourceKind": "streamArchive",
+          "note": "frame",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": "01:10:00",
+          "sourcePage": "https://archive.ragtag.moe/watch?v=cvycDTGnXWg",
+          "sourceUrl": "https://www.youtube.com/watch?v=cvycDTGnXWg&t=4200",
+          "originalStream": "https://www.youtube.com/watch?v=cvycDTGnXWg&t=4200",
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "rebirth-vr-live",
+      "date": "2020-03-29",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "live",
+      "highlight": false,
+      "title": {
+        "ja": "VR ライブ「ReBirth」",
+        "zh-CN": "VR 演唱会「ReBirth」",
+        "en": "VR concert “ReBirth”"
+      },
+      "detail": {
+        "ja": "アルバム「yuanfen」の VR ライブ。INSPIX LIVE・ニコニコ・bilibili で同時配信し、3 月 23 日には公開リハーサルも。",
+        "zh-CN": "为专辑 yuanfen 举办，在 INSPIX LIVE、niconico 与 bilibili 同步直播；3 月 23 日先公开了部分彩排。",
+        "en": "A VR concert for the album “yuanfen”, simulcast on INSPIX LIVE, niconico and bilibili after a public rehearsal on March 23."
+      },
+      "sourceUrl": "https://kano-official.amebaownd.com/posts/7938521/",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "02_rebirth_rehearsal",
+          "url": "/media/journey/6580c0e0192c.jpg",
+          "width": 1280,
+          "height": 721,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "artwork",
+          "title": {
+            "ja": "ReBirth · リハーサル写真",
+            "zh-CN": "ReBirth：官方演出彩排图",
+            "en": "ReBirth · rehearsal photo"
+          },
+          "date": "2020-03-19",
+          "dateKind": "post",
+          "sourceKind": "artist",
+          "note": "artwork",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/7938521/",
+          "sourceUrl": "https://cdn.amebaowndme.com/madrid-prd/madrid-web/images/sites/461000/60fc9e3286bf23c49370774e74d61527_b87125f662e0a3500d4c4d7ef982bec0.jpg",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "hanayori-anniversary-goods",
+      "date": "2020-08-01",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "hanayori",
+      "kind": "goods",
+      "highlight": false,
+      "title": {
+        "ja": "1 周年の水着グッズイラスト",
+        "zh-CN": "一周年泳装周边插画",
+        "en": "Anniversary swimsuit merchandise artwork"
+      },
+      "detail": {
+        "ja": "公式アクリルスタンドの夏のイラスト 2 点。日付は BOOTH の商品ページ公開日。",
+        "zh-CN": "官方亚克力立牌的两张夏日插画，日期为 BOOTH 商品页公开日。",
+        "en": "Two summer artworks from the official acrylic stand, dated to the day the BOOTH listing went up."
+      },
+      "sourceUrl": "https://booth.pm/ja/items/2258381",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "05_2020_swimsuit_concept",
+          "url": "/media/journey/92e19728f5f5.png",
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/png",
+          "branches": ["hanayori"],
+          "category": "goods",
+          "title": {
+            "ja": "花寄女子寮 · 周年の水着グッズ",
+            "zh-CN": "花寄女子寮：周年泳装周边插画",
+            "en": "Hanayori · anniversary swimsuit art"
+          },
+          "date": "2020-08-01",
+          "dateKind": "publication",
+          "sourceKind": "shop",
+          "note": null,
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://booth.pm/ja/items/2258381",
+          "sourceUrl": "https://booth.pximg.net/ee3a73f7-3cfe-415c-9aa6-6b9abb410d05/i/2258381/a9259b44-adcd-4ec6-bdac-fee6e91af9c0.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "13_2020_swimsuit_umbrella",
+          "url": "/media/journey/37b01b26559f.png",
+          "width": 1024,
+          "height": 1024,
+          "mimeType": "image/png",
+          "branches": ["hanayori"],
+          "category": "goods",
+          "title": {
+            "ja": "花寄女子寮 · 周年の日傘グッズ",
+            "zh-CN": "花寄女子寮：周年阳伞夏装周边插画",
+            "en": "Hanayori · anniversary parasol art"
+          },
+          "date": "2020-08-01",
+          "dateKind": "publication",
+          "sourceKind": "shop",
+          "note": null,
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://booth.pm/ja/items/2258381",
+          "sourceUrl": "https://booth.pximg.net/ee3a73f7-3cfe-415c-9aa6-6b9abb410d05/i/2258381/54db81c0-3193-4758-9f8d-0e9569117b4b.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "hanayori-3d",
+      "date": "2020-08-07",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "hanayori",
+      "kind": "model3d",
+      "highlight": true,
+      "title": {
+        "ja": "1 周年と 3D お披露目",
+        "zh-CN": "一周年与 3D 公开",
+        "en": "First anniversary and 3D debut"
+      },
+      "detail": {
+        "ja": "花寄 1 周年配信で、ピンク髪と赤い制服の 3D モデルを公開。",
+        "zh-CN": "花寄一周年配信中公开粉发红制服的 3D 模型。",
+        "en": "The anniversary stream unveiled a 3D model in the red uniform."
+      },
+      "sourceUrl": null,
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "06_2020_3d_portrait",
+          "url": "/media/journey/8645752d3221.jpg",
+          "width": 1280,
+          "height": 720,
+          "mimeType": "image/jpeg",
+          "branches": ["hanayori"],
+          "category": "frame",
+          "title": {
+            "ja": "花寄女子寮 · 3D お披露目の近景",
+            "zh-CN": "花寄女子寮：3D 初公开近景截帧",
+            "en": "Hanayori · 3D debut portrait"
+          },
+          "date": "2020-08-07",
+          "dateKind": "stream",
+          "sourceKind": "streamArchive",
+          "note": "frame",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": "00:15:00",
+          "sourcePage": "https://archive.ragtag.moe/watch?v=EFnkyA_taPA",
+          "sourceUrl": "https://www.youtube.com/watch?v=EFnkyA_taPA&t=900",
+          "originalStream": "https://www.youtube.com/watch?v=EFnkyA_taPA&t=900",
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "07_2020_3d_fullbody",
+          "url": "/media/journey/7bd1c05386ec.jpg",
+          "width": 1280,
+          "height": 720,
+          "mimeType": "image/jpeg",
+          "branches": ["hanayori"],
+          "category": "frame",
+          "title": {
+            "ja": "花寄女子寮 · 3D お披露目の全身",
+            "zh-CN": "花寄女子寮：3D 初公开全身截帧",
+            "en": "Hanayori · 3D debut full-body frame"
+          },
+          "date": "2020-08-07",
+          "dateKind": "stream",
+          "sourceKind": "streamArchive",
+          "note": "frame",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": "00:30:00",
+          "sourcePage": "https://archive.ragtag.moe/watch?v=EFnkyA_taPA",
+          "sourceUrl": "https://www.youtube.com/watch?v=EFnkyA_taPA&t=1800",
+          "originalStream": "https://www.youtube.com/watch?v=EFnkyA_taPA&t=1800",
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "negotiation",
+      "date": "2020-09-02",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "「なだめスかし Negotiation」CD",
+        "zh-CN": "《なだめスかし Negotiation》CD",
+        "en": "“なだめスかし Negotiation” CD"
+      },
+      "detail": {
+        "ja": "CD 発売日。デジタル配信は 7 月から。",
+        "zh-CN": "此为 CD 发售日；数字配信始于 7 月。",
+        "en": "CD release date; digital release began in July."
+      },
+      "sourceUrl": "https://www.teichiku.co.jp/artist/kano/discography/TEI-144.html",
+      "links": [],
+      "releaseId": "2020-07-31-984b7a",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2020-07-31-984b7a/b024d7f94834.jpg",
+          "url": "/media/works/b024d7f94834.jpg",
+          "width": 3000,
+          "height": 3000,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "なだめスかし Negotiation",
+            "zh-CN": "なだめスかし Negotiation",
+            "en": "なだめスかし Negotiation"
+          },
+          "date": "2020-07-31",
+          "dateKind": "release",
+          "sourceKind": "thirdPartyCover",
+          "note": "thirdPartyCover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/9160369/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2020-07-31-984b7a",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/b024d7f94834.jpg",
+            "width": 3000,
+            "height": 3000,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "初回限定盤ジャケット",
+              "zh-CN": "初回限定盤封面",
+              "en": "初回限定盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/9160369/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": true
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2020-07-31-984b7a/b923896e38e2.jpg",
+          "url": "/media/works/b923896e38e2.jpg",
+          "width": 2000,
+          "height": 2000,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "なだめスかし Negotiation",
+            "zh-CN": "なだめスかし Negotiation",
+            "en": "なだめスかし Negotiation"
+          },
+          "date": "2020-07-31",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/9160369/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2020-07-31-984b7a",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/b923896e38e2.jpg",
+            "width": 2000,
+            "height": 2000,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "通常盤ジャケット",
+              "zh-CN": "通常盤封面",
+              "en": "通常盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/9160369/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2020-07-31-984b7a/cf8fb942a75f.jpg",
+          "url": "/media/works/cf8fb942a75f.jpg",
+          "width": 3000,
+          "height": 3000,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "なだめスかし Negotiation",
+            "zh-CN": "なだめスかし Negotiation",
+            "en": "なだめスかし Negotiation"
+          },
+          "date": "2020-07-31",
+          "dateKind": "release",
+          "sourceKind": "thirdPartyCover",
+          "note": "thirdPartyCover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://music.apple.com/jp/album/1525483010",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2020-07-31-984b7a",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/cf8fb942a75f.jpg",
+            "width": 3000,
+            "height": 3000,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "TV サイズ 先行配信ジャケット（鹿乃と宇崎ちゃん）",
+              "zh-CN": "TV 版 先行配信封面（鹿乃と宇崎ちゃん）",
+              "en": "TV-size early digital release cover (鹿乃と宇崎ちゃん)"
+            },
+            "sourceUrl": "https://music.apple.com/jp/album/1525483010",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "kilig",
+      "date": "2020-12-18",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "outfit",
+      "highlight": false,
+      "title": {
+        "ja": "KILIG の新衣装",
+        "zh-CN": "KILIG 新衣装",
+        "en": "KILIG outfit"
+      },
+      "detail": {
+        "ja": "青紫のスカートに白いトップス、金の星飾り。公式サイトでグッズも公開。",
+        "zh-CN": "蓝紫短裙、白上衣与金色星饰，官网同时公开周边。",
+        "en": "Blue-violet skirt, white top, and gold stars, shown with official goods."
+      },
+      "sourceUrl": "https://kano-official.amebaownd.com/posts/12174130/",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "06_2020_kilig_new_costume_goods",
+          "url": "/media/journey/e9508e71f9f8.jpg",
+          "width": 2480,
+          "height": 1753,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "goods",
+          "title": {
+            "ja": "KILIG · 新衣装とグッズ",
+            "zh-CN": "KILIG：新衣装与周边",
+            "en": "KILIG · outfit and merchandise"
+          },
+          "date": "2020-12-18",
+          "dateKind": "publication",
+          "sourceKind": "artist",
+          "note": null,
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/12174130/",
+          "sourceUrl": "https://cdn.amebaowndme.com/madrid-prd/madrid-web/images/sites/461000/a9eebd501d931edf456186e380ace06b_f6b33f3f47c828e99c03cddcda91d4b1.jpg",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "kilig-goods",
+      "date": "2020-12-26",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "goods",
+      "highlight": false,
+      "title": {
+        "ja": "KILIG：フィギュアサンプルと SD ばんび",
+        "zh-CN": "KILIG：手办样品与 SD ばんび",
+        "en": "KILIG: figure preview and SD Bambi"
+      },
+      "detail": {
+        "ja": "公式サイトで彩色フィギュアサンプルと stickits 図案を公開。写真とイラストを区別して収録。",
+        "zh-CN": "官网公开彩色手办样品及 stickits 联动图案，保留商品照片与插画的区别。",
+        "en": "The official site shared a painted figure preview and stickits artwork, recorded separately as product photography and illustration."
+      },
+      "sourceUrl": "https://kano-official.amebaownd.com/posts/12437391/",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "08_2020_scale_figure_preview",
+          "url": "/media/journey/efb0f7437c4a.jpg",
+          "width": 600,
+          "height": 600,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "goods",
+          "title": {
+            "ja": "歌手・鹿乃 · フィギュア彩色サンプル",
+            "zh-CN": "歌手鹿乃：比例手办彩色样品图",
+            "en": "Singer Kano · painted figure preview"
+          },
+          "date": "2020-12-26",
+          "dateKind": "publication",
+          "sourceKind": "artist",
+          "note": null,
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/12437391/",
+          "sourceUrl": "https://cdn.amebaowndme.com/madrid-prd/madrid-web/images/sites/461000/c46d0c1ba04833511cb71b4ef1f3b44a_9895e252d2c37699cf3804d8012cd53e.jpg",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "09_2020_kilig_sd_bambi_stickits",
+          "url": "/media/journey/67f229b2e6c6.png",
+          "width": 500,
+          "height": 500,
+          "mimeType": "image/png",
+          "branches": ["singer"],
+          "category": "goods",
+          "title": {
+            "ja": "KILIG · SD ばんび stickits サンプル",
+            "zh-CN": "KILIG：SD ばんび stickits 图案示意图",
+            "en": "KILIG · SD Bambi stickits sample"
+          },
+          "date": "2020-12-26",
+          "dateKind": "publication",
+          "sourceKind": "artist",
+          "note": null,
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/12433892/",
+          "sourceUrl": "https://cdn.amebaowndme.com/madrid-prd/madrid-web/images/sites/461000/d5f7ee1f8c4d753a9f78a3edec5ef6f7_8dbb0e51399c104a88af6808ff554f48.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "compass-song",
+      "date": "2021-01-27",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "シングル「コンパスソング」",
+        "zh-CN": "单曲《コンパスソング》",
+        "en": "Single “コンパスソング”"
+      },
+      "detail": {
+        "ja": "歌手・鹿乃の 3D ステージ衣装のジャケット。",
+        "zh-CN": "封面使用歌手鹿乃的 3D 舞台形象。",
+        "en": "The cover uses singer Kano’s 3D stage look."
+      },
+      "sourceUrl": "https://kano-official.amebaownd.com/posts/11804060/",
+      "links": [],
+      "releaseId": "2021-01-27-d42113",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2021-01-27-d42113/bf2fddb529a8.jpg",
+          "url": "/media/works/bf2fddb529a8.jpg",
+          "width": 3000,
+          "height": 3000,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "コンパスソング",
+            "zh-CN": "コンパスソング",
+            "en": "コンパスソング"
+          },
+          "date": "2021-01-27",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/11804060/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2021-01-27-d42113",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/bf2fddb529a8.jpg",
+            "width": 3000,
+            "height": 3000,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "初回限定盤ジャケット",
+              "zh-CN": "初回限定盤封面",
+              "en": "初回限定盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/11804060/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2021-01-27-d42113/709763405df5.jpg",
+          "url": "/media/works/709763405df5.jpg",
+          "width": 3000,
+          "height": 3000,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "コンパスソング",
+            "zh-CN": "コンパスソング",
+            "en": "コンパスソング"
+          },
+          "date": "2021-01-27",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/13692876/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2021-01-27-d42113",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/709763405df5.jpg",
+            "width": 3000,
+            "height": 3000,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "通常盤ジャケット",
+              "zh-CN": "通常盤封面",
+              "en": "通常盤 cover"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/13692876/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "singer-keyvisual",
+      "date": "2021-05-28",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "artwork",
+      "highlight": false,
+      "title": {
+        "ja": "歌手・鹿乃の新しい立ち絵",
+        "zh-CN": "歌手鹿乃的新宣传立绘",
+        "en": "New promotional illustration for singer Kano"
+      },
+      "detail": {
+        "ja": "へちまによる星をあしらった青紫の舞台服。衣装は以前の KILIG グッズにも登場。",
+        "zh-CN": "へちま绘制蓝紫星光舞台服全身图；衣装此前已见于 KILIG 周边。",
+        "en": "Hechima’s full-body illustration in the starry blue-violet stage outfit, already seen in KILIG merchandise."
+      },
+      "sourceUrl": "https://kano-official-cn.amebaownd.com/posts/17957621/",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "03_2021_official_keyvisual",
+          "url": "/media/journey/a55984e0670c.jpg",
+          "width": 800,
+          "height": 1756,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "artwork",
+          "title": {
+            "ja": "歌手・鹿乃 · 2021 公式ビジュアル",
+            "zh-CN": "歌手鹿乃：2021 官网立绘",
+            "en": "Singer Kano · 2021 key visual"
+          },
+          "date": "2021-05-28",
+          "dateKind": "publication",
+          "sourceKind": "artist",
+          "note": "artwork",
+          "focus": "50% 0%",
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official-cn.amebaownd.com/posts/17957621/",
+          "sourceUrl": "https://cdn.amebaowndme.com/madrid-prd/madrid-web/images/sites/896872/54cdc18db90e45c34edb5c1b56e4f398_f3425e3e8269f5cef60e5e485c85c2d8.jpg",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "mahoro-debut",
+      "date": "2021-05-29",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "mahoro",
+      "kind": "stream",
+      "highlight": true,
+      "title": {
+        "ja": "鹿乃まほろ 初配信",
+        "zh-CN": "鹿乃まほろ 首次配信",
+        "en": "Kano Mahoro’s first stream"
+      },
+      "detail": {
+        "ja": "ピンクのツインテールと大きな黒いリボンの新しい姿で活動開始。",
+        "zh-CN": "粉色双马尾、黑色大蝴蝶结的新角色形象开始活动。",
+        "en": "A new look with pink twin tails and a big black bow."
+      },
+      "sourceUrl": "https://x.com/kanomahoro/status/1398833051098968065",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "03_mahoro_2021_model_sheet",
+          "url": "/media/journey/068f948e7cbb.jpg",
+          "width": 720,
+          "height": 720,
+          "mimeType": "image/jpeg",
+          "branches": ["mahoro"],
+          "category": "model",
+          "title": {
+            "ja": "まほろ · 2021 キャラクター紹介",
+            "zh-CN": "旧まほろ：2021 角色介绍图",
+            "en": "Mahoro · 2021 character introduction"
+          },
+          "date": "2021-05-30",
+          "dateKind": "post",
+          "sourceKind": "artist",
+          "note": "mahoroDebut",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://x.com/kanomahoro/status/1398833051098968065",
+          "sourceUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1398832671149617154/pu/img/rIX_-F8SFZCT0Hwj?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "mahoro-yukata",
+      "date": "2021-06-03",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "mahoro",
+      "kind": "artwork",
+      "highlight": false,
+      "title": {
+        "ja": "まほろの水色の浴衣イラスト",
+        "zh-CN": "まほろ的浅蓝浴衣插画",
+        "en": "Mahoro in a pale-blue yukata"
+      },
+      "detail": {
+        "ja": "本人が公開した和装イラスト。対応するモデルの初公開日は未確認。",
+        "zh-CN": "本人发布的和装绘图；现有证据未确定对应模型的首次公开日。",
+        "en": "Artwork posted by the artist; the first reveal of a corresponding model remains unverified."
+      },
+      "sourceUrl": "https://x.com/kanomahoro/status/1400311205160394752",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "04_mahoro_2021_yukata_art",
+          "url": "/media/journey/0f7fd45c80e0.jpg",
+          "width": 1200,
+          "height": 675,
+          "mimeType": "image/jpeg",
+          "branches": ["mahoro"],
+          "category": "artwork",
+          "title": {
+            "ja": "まほろ · 水色の浴衣イラスト",
+            "zh-CN": "旧まほろ：浅蓝浴衣插画",
+            "en": "Mahoro · pale-blue yukata artwork"
+          },
+          "date": "2021-06-03",
+          "dateKind": "post",
+          "sourceKind": "artist",
+          "note": "artwork",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://x.com/kanomahoro/status/1400311205160394752",
+          "sourceUrl": "https://pbs.twimg.com/media/E27nMiCVEAUSnxk.jpg",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "mahoro-kimono-recap",
+      "date": "2021-06-11",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "mahoro",
+      "kind": "artwork",
+      "highlight": false,
+      "title": {
+        "ja": "和装配信の振り返り画像",
+        "zh-CN": "和装配信回顾图",
+        "en": "A look back at the kimono stream"
+      },
+      "detail": {
+        "ja": "配信のお礼投稿に添えられた画像。日付は振り返り投稿のもの。",
+        "zh-CN": "本人在配信感谢帖中附上此图。记录的是回顾帖日期。",
+        "en": "An image attached to the artist’s thank-you post; the date belongs to that recap post."
+      },
+      "sourceUrl": "https://x.com/_Kanotic/status/1403257630844280834",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "08_mahoro_2021_kimono_stream_post",
+          "url": "/media/journey/569faf2c177b.jpg",
+          "width": 1920,
+          "height": 1080,
+          "mimeType": "image/jpeg",
+          "branches": ["mahoro"],
+          "category": "artwork",
+          "title": {
+            "ja": "まほろ · 和装配信の振り返り",
+            "zh-CN": "旧まほろ：双马尾和装直播回顾图",
+            "en": "Mahoro · kimono stream recap"
+          },
+          "date": "2021-06-11",
+          "dateKind": "post",
+          "sourceKind": "artist",
+          "note": "recap",
+          "focus": null,
+          "credit": null,
+          "creator": "鹿乃tic 🍓🦌",
+          "frameTime": null,
+          "sourcePage": "https://x.com/_Kanotic/status/1403257630844280834",
+          "sourceUrl": "https://pbs.twimg.com/media/E3ldahfVgAU7aHF?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "mahoro-keyvisual",
+      "date": "2022-07-17",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "mahoro",
+      "kind": "artwork",
+      "highlight": false,
+      "title": {
+        "ja": "まほろの 2022 キービジュアル",
+        "zh-CN": "まほろ的 2022 主视觉",
+        "en": "Mahoro’s 2022 key visual"
+      },
+      "detail": {
+        "ja": "本人が背景付きの画像を公開。へちまは 7 月 19 日に白背景版を投稿。",
+        "zh-CN": "本人公开彩色背景版本，へちま于 7 月 19 日另发白背景版本。",
+        "en": "The artist shared a version with a colored background; Hechima posted the white-background version on July 19."
+      },
+      "sourceUrl": "https://x.com/kanomahoro/status/1548646948521267201",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "05_mahoro_2022_keyvisual",
+          "url": "/media/journey/76afce302dd3.jpg",
+          "width": 1460,
+          "height": 2048,
+          "mimeType": "image/jpeg",
+          "branches": ["mahoro"],
+          "category": "artwork",
+          "title": {
+            "ja": "まほろ · 2022 キービジュアル",
+            "zh-CN": "旧まほろ：2022 本人版主视觉",
+            "en": "Mahoro · 2022 key visual"
+          },
+          "date": "2022-07-17",
+          "dateKind": "post",
+          "sourceKind": "artist",
+          "note": "artwork",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://x.com/kanomahoro/status/1548646948521267201",
+          "sourceUrl": "https://pbs.twimg.com/media/FX3mMDsaUAAvugN?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "09_mahoro_2022_creator_keyvisual",
+          "url": "/media/journey/505561179b7f.jpg",
+          "width": 2894,
+          "height": 4093,
+          "mimeType": "image/jpeg",
+          "branches": ["mahoro"],
+          "category": "artwork",
+          "title": {
+            "ja": "まほろ · へちまの 2022 キービジュアル",
+            "zh-CN": "旧まほろ：へちま发布的 2022 主视觉原图",
+            "en": "Mahoro · Hechima’s 2022 key visual"
+          },
+          "date": "2022-07-19",
+          "dateKind": "post",
+          "sourceKind": "creator",
+          "note": "artwork",
+          "focus": null,
+          "credit": null,
+          "creator": "へちま",
+          "frameTime": null,
+          "sourcePage": "https://x.com/hechima10040/status/1549339129032613889",
+          "sourceUrl": "https://pbs.twimg.com/media/FYBbtpAaUAAKnEW?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "mklntic",
+      "date": "2022-08-12",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "mklntic",
+      "kind": "group",
+      "highlight": true,
+      "title": {
+        "ja": "MKLNtic 初配信",
+        "zh-CN": "MKLNtic 组合首播",
+        "en": "MKLNtic’s first stream"
+      },
+      "detail": {
+        "ja": "ろんと音楽ユニットを結成。8 月 10 日に初の歌ってみた、この日にユニット衣装と初配信。",
+        "zh-CN": "与ろん组成音乐组合。8 月 10 日发布首个翻唱，此日公开组合衣装并首播。",
+        "en": "A music unit with Ron. Their first cover came out August 10; the unit outfit and first stream followed this day."
+      },
+      "sourceUrl": "https://booth.pm/ja/items/4079674",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "01_mahoro_2022_mklntic_outfit",
+          "url": "/media/journey/d837425257dc.png",
+          "width": 419,
+          "height": 546,
+          "mimeType": "image/png",
+          "branches": ["mklntic"],
+          "category": "goods",
+          "title": {
+            "ja": "MKLNtic · 鹿乃のユニット衣装",
+            "zh-CN": "MKLNtic：鹿乃音乐组合衣装",
+            "en": "MKLNtic · Kano’s unit outfit"
+          },
+          "date": "2022-08-12",
+          "dateKind": "outfit",
+          "sourceKind": "shop",
+          "note": "outfitMerch",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://booth.pm/ja/items/4079674",
+          "sourceUrl": "https://booth.pximg.net/1c78b1ee-9ce3-4335-a9b2-79709bffa20c/i/4079674/abd06dd3-f888-4515-996e-ba1ae6de820c.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "ichigo-ichie",
+      "date": "2022-10-07",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "「いちごいちえ Celebration」MV 公開",
+        "zh-CN": "《いちごいちえ Celebration》MV 公开",
+        "en": "“いちごいちえ Celebration” MV"
+      },
+      "detail": {
+        "ja": "TV アニメ『宇崎ちゃんは遊びたい！ω』OP 曲の MV。11 月 30 日発売予定だった鹿乃 / MKLNtic のスプリット EP は、両 CD 盤とも 11 月 7 日に発売中止を発表。",
+        "zh-CN": "动画《宇崎ちゃんは遊びたい！ω》片头曲 MV。原定 11 月 30 日发行的鹿乃 / MKLNtic split EP 两版 CD，后于 11 月 7 日公告中止发售。",
+        "en": "MV for the opening theme of Uzaki-chan Wants to Hang Out! ω. Both CD editions of the Kano / MKLNtic split EP, planned for November 30, were cancelled in a November 7 announcement."
+      },
+      "sourceUrl": "https://kano-official.amebaownd.com/posts/37992653/",
+      "links": [
+        {
+          "url": "https://kano-official.amebaownd.com/posts/38571457/",
+          "label": "cancelledRelease"
+        }
+      ],
+      "releaseId": "2022-10-07-e77df8",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2022-10-07-e77df8/fb15007d4468.jpg",
+          "url": "/media/works/fb15007d4468.jpg",
+          "width": 3000,
+          "height": 3000,
+          "mimeType": "image/jpeg",
+          "branches": ["singer", "mklntic"],
+          "category": "cover",
+          "title": {
+            "ja": "いちごいちえ Celebration",
+            "zh-CN": "いちごいちえ Celebration",
+            "en": "いちごいちえ Celebration"
+          },
+          "date": "2022-10-07",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cancelledRelease",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/37975702/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2022-10-07-e77df8",
+          "cancelled": true,
+          "cover": {
+            "url": "/media/works/fb15007d4468.jpg",
+            "width": 3000,
+            "height": 3000,
+            "mimeType": "image/jpeg",
+            "caption": { "ja": "鹿乃盤", "zh-CN": "鹿乃盤", "en": "鹿乃盤" },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/37975702/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        },
+        {
+          "origin": "release",
+          "id": "2022-10-07-e77df8/3000f06ef830.jpg",
+          "url": "/media/works/3000f06ef830.jpg",
+          "width": 3000,
+          "height": 3000,
+          "mimeType": "image/jpeg",
+          "branches": ["singer", "mklntic"],
+          "category": "cover",
+          "title": {
+            "ja": "いちごいちえ Celebration",
+            "zh-CN": "いちごいちえ Celebration",
+            "en": "いちごいちえ Celebration"
+          },
+          "date": "2022-10-07",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cancelledRelease",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://kano-official.amebaownd.com/posts/37975702/",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2022-10-07-e77df8",
+          "cancelled": true,
+          "cover": {
+            "url": "/media/works/3000f06ef830.jpg",
+            "width": 3000,
+            "height": 3000,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "MKLNtic 盤",
+              "zh-CN": "MKLNtic 盤",
+              "en": "MKLNtic 盤"
+            },
+            "sourceUrl": "https://kano-official.amebaownd.com/posts/37975702/",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "mklntic-guitar",
+      "date": "2022-11-20",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "mklntic",
+      "kind": "outfit",
+      "highlight": false,
+      "title": {
+        "ja": "ギター演奏 Live2D",
+        "zh-CN": "吉他演奏 Live2D",
+        "en": "Guitar-playing Live2D"
+      },
+      "detail": {
+        "ja": "赤いエレキギターを抱えた演奏用モデル。",
+        "zh-CN": "抱着红色电吉他的演奏用模型。",
+        "en": "A performance model holding a red electric guitar."
+      },
+      "sourceUrl": "https://x.com/_Kanotic/status/1594214353750093824",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "02_2022_guitar_performance_model",
+          "url": "/media/journey/403908bdbaca.jpg",
+          "width": 1080,
+          "height": 1920,
+          "mimeType": "image/jpeg",
+          "branches": ["mklntic"],
+          "category": "model",
+          "title": {
+            "ja": "MKLNtic · ギター演奏モデル",
+            "zh-CN": "MKLNtic 鹿乃：吉他演奏模型展示图",
+            "en": "MKLNtic · guitar performance model"
+          },
+          "date": "2022-11-20",
+          "dateKind": "post",
+          "sourceKind": "artist",
+          "note": "modelAnnouncement",
+          "focus": null,
+          "credit": null,
+          "creator": "GOROKU / カモ川（制作署名）",
+          "frameTime": null,
+          "sourcePage": "https://x.com/_Kanotic/status/1594214353750093824",
+          "sourceUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1594210273166266369/pu/img/H6PydH4qr8Jdrv5u.jpg?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "stereophonic",
+      "date": "2024-04-20",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "配信シングル「ステレオフォニック」",
+        "zh-CN": "数字单曲《ステレオフォニック》",
+        "en": "Digital single “ステレオフォニック”"
+      },
+      "detail": {
+        "ja": "ここから Sony Music で配信シングルが続く。",
+        "zh-CN": "此后由 Sony Music 陆续配信新单曲。",
+        "en": "The first of a run of digital singles via Sony Music."
+      },
+      "sourceUrl": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX04946B01A",
+      "links": [],
+      "releaseId": "2024-04-20-e993c6",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2024-04-20-e993c6/ce36c6b715e7.jpg",
+          "url": "/media/works/ce36c6b715e7.jpg",
+          "width": 600,
+          "height": 600,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": {
+            "ja": "ステレオフォニック",
+            "zh-CN": "ステレオフォニック",
+            "en": "ステレオフォニック"
+          },
+          "date": "2024-04-20",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX04946B01A",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2024-04-20-e993c6",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/ce36c6b715e7.jpg",
+            "width": 600,
+            "height": 600,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "配信ジャケット",
+              "zh-CN": "数字版封面",
+              "en": "Digital cover"
+            },
+            "sourceUrl": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX04946B01A",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "bambino-promo",
+      "date": "2024-04-20",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "artwork",
+      "highlight": false,
+      "title": {
+        "ja": "Bambino 2024 の告知ビジュアル",
+        "zh-CN": "Bambino 2024 演出宣传",
+        "en": "Bambino 2024 promotional visual"
+      },
+      "detail": {
+        "ja": "本人の告知投稿に登場した茶髪の歌手ビジュアル。日付は投稿日のもの。",
+        "zh-CN": "本人原帖中的棕发歌手形象；日期为宣传帖日期。",
+        "en": "The brown-haired singer design in the artist’s promotional post, dated to the post itself."
+      },
+      "sourceUrl": "https://x.com/kano_2525/status/1781563117530673572",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "04_bambino_2024_live",
+          "url": "/media/journey/858fee8aa3c2.jpg",
+          "width": 1200,
+          "height": 675,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "artwork",
+          "title": {
+            "ja": "Bambino 2024 · 告知ビジュアル",
+            "zh-CN": "Bambino 2024：本人发布的演出宣传",
+            "en": "Bambino 2024 · promotional visual"
+          },
+          "date": "2024-04-20",
+          "dateKind": "post",
+          "sourceKind": "artist",
+          "note": "artwork",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://x.com/kano_2525/status/1781563117530673572",
+          "sourceUrl": "https://pbs.twimg.com/media/GLlfq7paEAA_tQ2.jpg",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "jr-nakano",
+      "date": "2024-06-25",
+      "datePrecision": "day",
+      "dateEnd": "2024-09-30",
+      "dateNote": null,
+      "branch": "mklntic",
+      "kind": "collab",
+      "highlight": false,
+      "title": {
+        "ja": "MKLNtic × JR 中野駅",
+        "zh-CN": "MKLNtic × JR 中野站",
+        "en": "MKLNtic × JR Nakano Station"
+      },
+      "detail": {
+        "ja": "駅コラボ展示に 2 人のデフォルメイラストが登場。",
+        "zh-CN": "车站合作展示，两人的 Q 版插画登场。",
+        "en": "A station collaboration featuring chibi art of the duo."
+      },
+      "sourceUrl": "https://x.com/suguharu_86/status/1815620128014541202",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "03_2024_jr_nakano_1",
+          "url": "/media/journey/b1fc2496ff97.jpg",
+          "width": 2508,
+          "height": 3541,
+          "mimeType": "image/jpeg",
+          "branches": ["mklntic"],
+          "category": "artwork",
+          "title": {
+            "ja": "MKLNtic × JR 中野駅 · イラスト 1",
+            "zh-CN": "MKLNtic × JR 中野站：合作插画 1",
+            "en": "MKLNtic × JR Nakano · artwork 1"
+          },
+          "date": "2024-07-23",
+          "dateKind": "post",
+          "sourceKind": "creator",
+          "note": "station",
+          "focus": null,
+          "credit": null,
+          "creator": "星乃すぐはる",
+          "frameTime": null,
+          "sourcePage": "https://x.com/suguharu_86/status/1815620128014541202",
+          "sourceUrl": "https://pbs.twimg.com/media/GTJcJVvaEAAUztj?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "04_2024_jr_nakano_2",
+          "url": "/media/journey/7883ecaded99.jpg",
+          "width": 2508,
+          "height": 3541,
+          "mimeType": "image/jpeg",
+          "branches": ["mklntic"],
+          "category": "artwork",
+          "title": {
+            "ja": "MKLNtic × JR 中野駅 · イラスト 2",
+            "zh-CN": "MKLNtic × JR 中野站：合作插画 2",
+            "en": "MKLNtic × JR Nakano · artwork 2"
+          },
+          "date": "2024-07-23",
+          "dateKind": "post",
+          "sourceKind": "creator",
+          "note": "station",
+          "focus": null,
+          "credit": null,
+          "creator": "星乃すぐはる",
+          "frameTime": null,
+          "sourcePage": "https://x.com/suguharu_86/status/1815620128014541202",
+          "sourceUrl": "https://pbs.twimg.com/media/GTJcKSybcAAPenw?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "metome",
+      "date": "2024-08-28",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "配信シングル「メトメ」",
+        "zh-CN": "数字单曲《メトメ》",
+        "en": "Digital single “メトメ”"
+      },
+      "detail": null,
+      "sourceUrl": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05051B01A",
+      "links": [],
+      "releaseId": "2024-08-28-dc475d",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2024-08-28-dc475d/1462764966a4.jpg",
+          "url": "/media/works/1462764966a4.jpg",
+          "width": 600,
+          "height": 600,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "メトメ", "zh-CN": "メトメ", "en": "メトメ" },
+          "date": "2024-08-28",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05051B01A",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2024-08-28-dc475d",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/1462764966a4.jpg",
+            "width": 600,
+            "height": 600,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "配信ジャケット",
+              "zh-CN": "数字版封面",
+              "en": "Digital cover"
+            },
+            "sourceUrl": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05051B01A",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "xr-concert",
+      "date": "2024-09-14",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "live",
+      "highlight": false,
+      "title": {
+        "ja": "XR ライブ「虹色ラプソディ 星空ノクターン」",
+        "zh-CN": "XR 演出《虹色ラプソディ 星空ノクターン》",
+        "en": "XR concert “虹色ラプソディ 星空ノクターン”"
+      },
+      "detail": {
+        "ja": "歌手・鹿乃と MKLNtic がそろって出演。主催発表は 8 月 9 日。",
+        "zh-CN": "歌手鹿乃与 MKLNtic 均出演；主办方 8 月 9 日公布。",
+        "en": "Both singer Kano and MKLNtic performed; announced August 9."
+      },
+      "sourceUrl": "https://prtimes.jp/main/html/rd/p/000000089.000034713.html",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "08_2024_xr_concert_keyvisual",
+          "url": "/media/journey/e10a4ab69f86.jpg",
+          "width": 1920,
+          "height": 1080,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "artwork",
+          "title": {
+            "ja": "虹色ラプソディ 星空ノクターン · キービジュアル",
+            "zh-CN": "虹色ラプソディ 星空ノクターン：演出主视觉",
+            "en": "XR concert · key visual"
+          },
+          "date": "2024-08-09",
+          "dateKind": "announcement",
+          "sourceKind": "organizer",
+          "note": "xr",
+          "focus": null,
+          "credit": null,
+          "creator": "ちょこ庵",
+          "frameTime": null,
+          "sourcePage": "https://prtimes.jp/main/html/rd/p/000000089.000034713.html",
+          "sourceUrl": "https://prcdn.freetls.fastly.net/release_image/34713/89/34713-89-446f0ebc6a3e238bbac2682dd7f1341f-1920x1080.jpg",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "09_2024_xr_concert_merch_art",
+          "url": "/media/journey/b0262ba98eb6.png",
+          "width": 3900,
+          "height": 2275,
+          "mimeType": "image/png",
+          "branches": ["singer"],
+          "category": "goods",
+          "title": {
+            "ja": "虹色ラプソディ 星空ノクターン · グッズイラスト",
+            "zh-CN": "虹色ラプソディ 星空ノクターン：周边集合图",
+            "en": "XR concert · merchandise art"
+          },
+          "date": "2024-08-09",
+          "dateKind": "announcement",
+          "sourceKind": "organizer",
+          "note": "xr",
+          "focus": null,
+          "credit": null,
+          "creator": "ちょこ庵",
+          "frameTime": null,
+          "sourcePage": "https://prtimes.jp/main/html/rd/p/000000089.000034713.html",
+          "sourceUrl": "https://prcdn.freetls.fastly.net/release_image/34713/89/34713-89-86f3ba1c180832d9fdb61c012aadff11-3900x2275.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "10_2024_xr_singer_keyvisual",
+          "url": "/media/journey/ac0f1d310df3.png",
+          "width": 588,
+          "height": 813,
+          "mimeType": "image/png",
+          "branches": ["singer"],
+          "category": "artwork",
+          "title": {
+            "ja": "2024 XR · 歌手・鹿乃の立ち絵",
+            "zh-CN": "2024 XR 演出：歌手鹿乃单人立绘",
+            "en": "2024 XR · singer Kano illustration"
+          },
+          "date": "2024-08-09",
+          "dateKind": "announcement",
+          "sourceKind": "organizer",
+          "note": "xr",
+          "focus": null,
+          "credit": null,
+          "creator": "ちょこ庵",
+          "frameTime": null,
+          "sourcePage": "https://prtimes.jp/main/html/rd/p/000000089.000034713.html",
+          "sourceUrl": "https://prcdn.freetls.fastly.net/release_image/34713/89/34713-89-79ab3c107d266d75e3c4633ff0997ea2-588x813.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "05_2024_xr_mklntic_duo",
+          "url": "/media/journey/ff0388471892.png",
+          "width": 1182,
+          "height": 1634,
+          "mimeType": "image/png",
+          "branches": ["mklntic"],
+          "category": "artwork",
+          "title": {
+            "ja": "2024 XR · MKLNtic の 2 人",
+            "zh-CN": "2024 XR 演出：MKLNtic 双人立绘",
+            "en": "2024 XR · MKLNtic duo"
+          },
+          "date": "2024-08-09",
+          "dateKind": "announcement",
+          "sourceKind": "organizer",
+          "note": "xr",
+          "focus": null,
+          "credit": null,
+          "creator": "ちょこ庵",
+          "frameTime": null,
+          "sourcePage": "https://prtimes.jp/main/html/rd/p/000000089.000034713.html",
+          "sourceUrl": "https://prcdn.freetls.fastly.net/release_image/34713/89/34713-89-3f3a4573c6ebe4c48a85331a921a508e-1182x1634.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "ai-to-ai",
+      "date": "2024-10-23",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "配信シングル「愛と哀」",
+        "zh-CN": "数字单曲《愛と哀》",
+        "en": "Digital single “愛と哀”"
+      },
+      "detail": null,
+      "sourceUrl": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05112B01A",
+      "links": [],
+      "releaseId": "2024-10-23-46e237",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2024-10-23-46e237/abac288be76c.jpg",
+          "url": "/media/works/abac288be76c.jpg",
+          "width": 600,
+          "height": 600,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "愛と哀", "zh-CN": "愛と哀", "en": "愛と哀" },
+          "date": "2024-10-23",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05112B01A",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2024-10-23-46e237",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/abac288be76c.jpg",
+            "width": 600,
+            "height": 600,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "配信ジャケット",
+              "zh-CN": "数字版封面",
+              "en": "Digital cover"
+            },
+            "sourceUrl": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05112B01A",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "doppel",
+      "date": "2025-02-12",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "配信シングル「ドッペル原画と複製ゲンガー」",
+        "zh-CN": "数字单曲《ドッペル原画と複製ゲンガー》",
+        "en": "Digital single “ドッペル原画と複製ゲンガー”"
+      },
+      "detail": {
+        "ja": "ジャケットに歌手・鹿乃とまほろが並ぶ。",
+        "zh-CN": "封面中歌手鹿乃与まほろ同框。",
+        "en": "The cover pairs singer Kano with Mahoro."
+      },
+      "sourceUrl": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05173B01A",
+      "links": [],
+      "releaseId": "2025-02-12-48c9ff",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2025-02-12-48c9ff/eb4421124764.jpg",
+          "url": "/media/works/eb4421124764.jpg",
+          "width": 600,
+          "height": 600,
+          "mimeType": "image/jpeg",
+          "branches": ["singer", "mahoro"],
+          "category": "cover",
+          "title": {
+            "ja": "ドッペル原画と複製ゲンガー",
+            "zh-CN": "ドッペル原画と複製ゲンガー",
+            "en": "ドッペル原画と複製ゲンガー"
+          },
+          "date": "2025-02-12",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05173B01A",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2025-02-12-48c9ff",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/eb4421124764.jpg",
+            "width": 600,
+            "height": 600,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "配信ジャケット",
+              "zh-CN": "数字版封面",
+              "en": "Digital cover"
+            },
+            "sourceUrl": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05173B01A",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "hiraeth",
+      "date": "2025-07-02",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "配信シングル「Hiraeth」",
+        "zh-CN": "数字单曲《Hiraeth》",
+        "en": "Digital single “Hiraeth”"
+      },
+      "detail": null,
+      "sourceUrl": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05316B01A",
+      "links": [],
+      "releaseId": "2025-07-02-90ad1e",
+      "media": [
+        {
+          "origin": "release",
+          "id": "2025-07-02-90ad1e/8e34805dda52.jpg",
+          "url": "/media/works/8e34805dda52.jpg",
+          "width": 600,
+          "height": 600,
+          "mimeType": "image/jpeg",
+          "branches": ["singer"],
+          "category": "cover",
+          "title": { "ja": "Hiraeth", "zh-CN": "Hiraeth", "en": "Hiraeth" },
+          "date": "2025-07-02",
+          "dateKind": "release",
+          "sourceKind": "officialCover",
+          "note": "cover",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05316B01A",
+          "sourceUrl": null,
+          "originalStream": null,
+          "releaseId": "2025-07-02-90ad1e",
+          "cancelled": false,
+          "cover": {
+            "url": "/media/works/8e34805dda52.jpg",
+            "width": 600,
+            "height": 600,
+            "mimeType": "image/jpeg",
+            "caption": {
+              "ja": "配信ジャケット",
+              "zh-CN": "数字版封面",
+              "en": "Digital cover"
+            },
+            "sourceUrl": "https://www.sonymusic.co.jp/artist/Kano/discography/SRXX05316B01A",
+            "sourceLabel": null,
+            "credit": null,
+            "thirdParty": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "mahoro-2025-outfit",
+      "date": "2025-11-24",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "mahoro",
+      "kind": "outfit",
+      "highlight": false,
+      "title": {
+        "ja": "まほろ 新衣装",
+        "zh-CN": "まほろ 新衣装",
+        "en": "New Mahoro outfit"
+      },
+      "detail": {
+        "ja": "白いベレー帽、ピンクのカーディガン、緑のチェックスカート。配信でお披露目。",
+        "zh-CN": "白色贝雷帽、粉色开衫与绿色格纹裙，在配信中公开。",
+        "en": "White beret, pink cardigan, and a green plaid skirt, revealed on stream."
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=NQgv7lhRe64",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "06_mahoro_2025_new_outfit_promo",
+          "url": "/media/journey/dd0a263509a2.png",
+          "width": 1500,
+          "height": 1500,
+          "mimeType": "image/png",
+          "branches": ["mahoro"],
+          "category": "goods",
+          "title": {
+            "ja": "まほろ · 2025 新衣装記念グッズ",
+            "zh-CN": "旧まほろ：2025 新衣装周边宣传",
+            "en": "Mahoro · 2025 outfit merchandise"
+          },
+          "date": "2025-11-24",
+          "dateKind": "outfit",
+          "sourceKind": "shop",
+          "note": "outfitMerch",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://booth.pm/ja/items/7508716",
+          "sourceUrl": "https://booth.pximg.net/e1b057bc-da9a-453d-8357-ce8c4089f934/i/7508716/3f01af4b-9491-4c25-a14d-7125283b5cd2.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "07_mahoro_2025_new_outfit_art",
+          "url": "/media/journey/9d6429724d8a.png",
+          "width": 3125,
+          "height": 3125,
+          "mimeType": "image/png",
+          "branches": ["mahoro"],
+          "category": "goods",
+          "title": {
+            "ja": "まほろ · 2025 新衣装イラスト",
+            "zh-CN": "旧まほろ：2025 新衣装场景插画",
+            "en": "Mahoro · 2025 outfit scene artwork"
+          },
+          "date": "2025-11-24",
+          "dateKind": "outfit",
+          "sourceKind": "shop",
+          "note": "outfitMerch",
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://booth.pm/ja/items/7508716",
+          "sourceUrl": "https://booth.pximg.net/e1b057bc-da9a-453d-8357-ce8c4089f934/i/7508716/e3e4dd1d-b5d8-4ad3-b5fb-2168546310e4.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "ruru",
+      "date": "2026-08-13",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "singer",
+      "kind": "release",
+      "highlight": false,
+      "title": {
+        "ja": "「ルル（タンフルタイム）」MV",
+        "zh-CN": "《ルル（タンフルタイム）》MV",
+        "en": "“ルル（タンフルタイム）” MV"
+      },
+      "detail": {
+        "ja": "スマートフォンゲーム『フルーツ飴の達人』の公式ソングを鹿乃が歌唱。MV はゲームのキャラクターチャンネルで公開され、本人は 8 月 25 日に X で紹介。",
+        "zh-CN": "手机游戏《フルーツ飴の達人》的官方歌曲，由鹿乃演唱。MV 发布在游戏角色频道，本人于 8 月 25 日在 X 上介绍。",
+        "en": "Kano sings the official song of the mobile game Tanghulu Master. The MV went up on the game character’s channel; she introduced it on X on August 25."
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=KFwVvGiAx_c",
+      "links": [
+        {
+          "url": "https://x.com/kano_2525/status/2092160057542582386",
+          "label": "x"
+        }
+      ],
+      "releaseId": null,
+      "media": []
+    },
+    {
+      "id": "sona-teaser",
+      "date": "2026-08-16",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "sona",
+      "kind": "character",
+      "highlight": false,
+      "title": {
+        "ja": "新ビジュアルのティザー",
+        "zh-CN": "新形象预告",
+        "en": "New look teased"
+      },
+      "detail": {
+        "ja": "茶髪のショートに鹿の角とたれ耳、白と青の帽子といちごのモチーフ。",
+        "zh-CN": "棕色短发、鹿角与垂耳，白蓝帽子与草莓元素。",
+        "en": "Short brown hair, antlers, floppy ears, a white-and-blue hat, and strawberries."
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=Q-KAvQqUD7I",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "19_sona_2026_teaser_pv_frame",
+          "url": "/media/journey/722980c6a2d2.jpg",
+          "width": 1920,
+          "height": 1080,
+          "mimeType": "image/jpeg",
+          "branches": ["sona"],
+          "category": "frame",
+          "title": {
+            "ja": "SONA · 加入ティザー PV",
+            "zh-CN": "SONA：本人加入预告 PV 截帧",
+            "en": "SONA · debut teaser video frame"
+          },
+          "date": "2026-08-16",
+          "dateKind": "publication",
+          "sourceKind": "video",
+          "note": null,
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": "00:00:38",
+          "sourcePage": "https://www.youtube.com/watch?v=Q-KAvQqUD7I",
+          "sourceUrl": "https://www.youtube.com/watch?v=Q-KAvQqUD7I&t=38",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "sona-join",
+      "date": "2026-08-17",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "sona",
+      "kind": "agency",
+      "highlight": true,
+      "title": {
+        "ja": "ミリプロSONA に所属",
+        "zh-CN": "加入ミリプロSONA",
+        "en": "Joins ミリプロSONA"
+      },
+      "detail": {
+        "ja": "Million Production がプレスリリースで新グループ SONA への所属を発表。",
+        "zh-CN": "Million Production 发布新闻稿，宣布加入新组别 SONA。",
+        "en": "Million Production announced Kano Mahoro as a member of its new group, SONA."
+      },
+      "sourceUrl": "https://prtimes.jp/main/html/rd/p/000000011.000152339.html",
+      "links": [],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "09_sona_member_announcement_2026",
+          "url": "/media/journey/da6d1402e5f1.png",
+          "width": 2240,
+          "height": 1260,
+          "mimeType": "image/png",
+          "branches": ["sona"],
+          "category": "artwork",
+          "title": {
+            "ja": "SONA · メンバー発表",
+            "zh-CN": "SONA：事务所成员公告",
+            "en": "SONA · member announcement"
+          },
+          "date": "2026-08-17",
+          "dateKind": "announcement",
+          "sourceKind": "agency",
+          "note": "artwork",
+          "focus": null,
+          "credit": "© 2024 Million Production Inc.",
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://prtimes.jp/main/html/rd/p/000000011.000152339.html",
+          "sourceUrl": "https://prcdn.freetls.fastly.net/release_image/152339/11/152339-11-cdf644545fac15541762db7b80e2941b-3840x2160.png?auto=webp&fit=bounds&format=jpeg&height=1260&width=2400",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "10_sona_2026_debut_promo",
+          "url": "/media/journey/8944e118e0dc.jpg",
+          "width": 3840,
+          "height": 2160,
+          "mimeType": "image/jpeg",
+          "branches": ["sona"],
+          "category": "artwork",
+          "title": {
+            "ja": "SONA · 初配信告知",
+            "zh-CN": "SONA：加入后初配信海报",
+            "en": "SONA · debut stream poster"
+          },
+          "date": "2026-08-17",
+          "dateKind": "announcement",
+          "sourceKind": "agency",
+          "note": "artwork",
+          "focus": null,
+          "credit": "© 2024 Million Production Inc.",
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://prtimes.jp/main/html/rd/p/000000011.000152339.html",
+          "sourceUrl": "https://prcdn.freetls.fastly.net/release_image/152339/11/152339-11-9bb026e4031a8ade290b316fca91b628-3840x2160.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "14_sona_2026_profile_card",
+          "url": "/media/journey/92cd84ee82dd.jpg",
+          "width": 1536,
+          "height": 2048,
+          "mimeType": "image/jpeg",
+          "branches": ["sona"],
+          "category": "artwork",
+          "title": {
+            "ja": "SONA · プロフィールカード",
+            "zh-CN": "SONA 新设计：本人发布的角色资料卡",
+            "en": "SONA · profile card"
+          },
+          "date": "2026-08-17",
+          "dateKind": "post",
+          "sourceKind": "artist",
+          "note": "artwork",
+          "focus": null,
+          "credit": null,
+          "creator": "雨傘ゆん（主视觉）；僵尸パア（资料卡设计）",
+          "frameTime": null,
+          "sourcePage": "https://x.com/kano_2525/status/2089310178256818335",
+          "sourceUrl": "https://pbs.twimg.com/media/HP64iIgboAAn4_L?format=jpg&name=orig",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    },
+    {
+      "id": "sona-debut",
+      "date": "2026-08-22",
+      "datePrecision": "day",
+      "dateEnd": null,
+      "dateNote": null,
+      "branch": "sona",
+      "kind": "stream",
+      "highlight": true,
+      "title": {
+        "ja": "新しい姿で初配信",
+        "zh-CN": "以新身份初配信",
+        "en": "First stream in the new look"
+      },
+      "detail": {
+        "ja": "茶髪に鹿の角、白と青のセーラー風衣装に赤いリボン。「みんなの毎日を、まほろばに。」",
+        "zh-CN": "棕发鹿角、白蓝水手风裙装与红色蝴蝶结。「みんなの毎日を、まほろばに。」",
+        "en": "Brown hair and antlers in a white-and-blue sailor-style dress. “みんなの毎日を、まほろばに。”"
+      },
+      "sourceUrl": "https://www.youtube.com/watch?v=YzfwW0zTSpE",
+      "links": [
+        { "url": "https://milpr.com/talents/kano-mahoro", "label": "agency" }
+      ],
+      "releaseId": null,
+      "media": [
+        {
+          "origin": "fixed",
+          "id": "11_sona_joining_merch_2026",
+          "url": "/media/journey/27838579019c.png",
+          "width": 3000,
+          "height": 3000,
+          "mimeType": "image/png",
+          "branches": ["sona"],
+          "category": "goods",
+          "title": {
+            "ja": "SONA · 加入記念グッズ",
+            "zh-CN": "SONA：加入纪念周边",
+            "en": "SONA · joining merchandise"
+          },
+          "date": "2026-08-22",
+          "dateKind": "publication",
+          "sourceKind": "shop",
+          "note": null,
+          "focus": null,
+          "credit": null,
+          "creator": null,
+          "frameTime": null,
+          "sourcePage": "https://shop.milpr.com/products/mahoro_join_full",
+          "sourceUrl": "https://cdn.shopify.com/s/files/1/0741/9215/9010/files/309e51fdc0d9afb1b98a02d994406f88_5f5215d1-db83-4a84-9ba0-2edb0ee82fa0.png?v=1787320856",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        },
+        {
+          "origin": "fixed",
+          "id": "12_sona_2026_official_fullbody",
+          "url": "/media/journey/0fcdcc7ef04b.png",
+          "width": 3772,
+          "height": 5333,
+          "mimeType": "image/png",
+          "branches": ["sona"],
+          "category": "artwork",
+          "title": {
+            "ja": "SONA · 公式全身ビジュアル",
+            "zh-CN": "SONA 官网主视觉全身插画（雨傘ゆん）",
+            "en": "SONA · official full-body visual"
+          },
+          "date": "2026-09-30",
+          "dateKind": "capture",
+          "sourceKind": "agency",
+          "note": "siteCapture",
+          "focus": null,
+          "credit": null,
+          "creator": "雨傘ゆん（本人 2026-08-17 原帖署名）",
+          "frameTime": null,
+          "sourcePage": "https://milpr.com/talents/kano-mahoro",
+          "sourceUrl": "https://storage.googleapis.com/studio-design-asset-files/projects/6kq9B6lgap/s-3772x5333_v-frms_webp_004ff11f-b834-43e8-8f3b-312619739047.png",
+          "originalStream": null,
+          "releaseId": null,
+          "cancelled": null,
+          "cover": null
+        }
+      ]
+    }
+  ],
+  "galleryOnly": [
+    {
+      "origin": "fixed",
+      "id": "11_2026_pixio_ambassador_fullbody",
+      "url": "/media/journey/da239db84c5c.png",
+      "width": 1814,
+      "height": 3455,
+      "mimeType": "image/png",
+      "branches": ["singer"],
+      "category": "artwork",
+      "title": {
+        "ja": "Pixio 公式アンバサダー · 鹿乃の立ち絵",
+        "zh-CN": "Pixio 官方大使：歌手鹿乃全身立绘",
+        "en": "Pixio ambassador · full-body illustration"
+      },
+      "date": "2026-02-26",
+      "dateKind": "publication",
+      "sourceKind": "brand",
+      "note": "artwork",
+      "focus": null,
+      "credit": null,
+      "creator": null,
+      "frameTime": null,
+      "sourcePage": "https://pixiogaming.jp/blogs/news/ambassador02",
+      "sourceUrl": "https://cdn.shopify.com/s/files/1/0535/0873/5151/files/kano_tachie.png",
+      "originalStream": null,
+      "releaseId": null,
+      "cancelled": null,
+      "cover": null
+    }
+  ]
+}

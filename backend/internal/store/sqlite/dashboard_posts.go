@@ -18,7 +18,7 @@ type postRow struct {
 	hasAccount, hasLabel, hasMediaURL, hasMediaAlt                                    bool
 	// quoteJSON is NULL in public reads when an operator hid the quote.
 	quoteJSON sql.NullString
-	// promoted marks a related account's status promoted into posts.
+	// promoted marks a pooled status promoted into posts.
 	promoted bool
 	// stickerRaw is the raw_json of a Bilibili dynamic that has emoji
 	// nodes, the source of its sticker segments; NULL for any other post.
@@ -123,7 +123,14 @@ func (s *Store) queryRecentVideoCount(ctx context.Context, now time.Time) (int64
 }
 
 func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
-	p := Post{ID: r.id, Source: r.source, Type: r.typ, Text: r.text, PublishedAt: r.publishedAt, URL: r.url, Likes: r.likes, Reposts: r.reposts, Replies: r.replies, Promoted: r.promoted}
+	p := Post{ID: r.id, Source: r.source, Type: r.typ, Text: r.text, PublishedAt: r.publishedAt, URL: r.url, Likes: r.likes, Reposts: r.reposts, Replies: r.replies, Promoted: r.promoted, RepostedBy: []string{}}
+	if r.promoted && r.source == "x" {
+		reposters, err := s.queryRepostedBy(ctx, r.id)
+		if err != nil {
+			return p, err
+		}
+		p.RepostedBy = reposters
+	}
 	if r.hasAccount {
 		p.AccountHandle = strPtr(r.accountHandle)
 	} else if h := xHandleFromURL(r.url); h != "" {
@@ -154,7 +161,7 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 	p.MediaID, p.MediaStatus, p.MediaSourceURL = ref.ID, ref.Status, ref.SourceURL
 	if p.MediaURL != nil {
 		p.MediaURL = ref.PublicURL
-		p.Media = []PostMedia{{ID: ref.ID, URL: ref.PublicURL, Status: ref.Status, SourceURL: ref.SourceURL, Alt: p.MediaAlt, Position: 0, Width: ref.Width, Height: ref.Height}}
+		p.Media = []PostMedia{{ID: ref.ID, URL: ref.PublicURL, Status: ref.Status, SourceURL: ref.SourceURL, Alt: p.MediaAlt, Position: 0, Width: ref.Width, Height: ref.Height, Kind: mediaKindPhoto}}
 	}
 	links, err := s.queryPostMedia(ctx, r.id, "post-image")
 	if err != nil {
@@ -210,6 +217,28 @@ func (s *Store) mapRepost(ctx context.Context, postID string, stored sql.NullStr
 		}
 	}
 	return &r, nil
+}
+
+// queryRepostedBy lists the own accounts that reposted a promoted post, first
+// sighting first. x_reposts keeps the account in lower case; each takes the
+// spelling of its own stored posts when it has any.
+func (s *Store) queryRepostedBy(ctx context.Context, id string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT COALESCE((SELECT o.account_handle FROM posts o
+			WHERE o.source='x' AND o.promoted_at IS NULL AND lower(o.account_handle)=r.account_handle LIMIT 1), r.account_handle)
+		FROM x_reposts r WHERE r.status_id=? ORDER BY julianday(r.first_seen_at), r.account_handle`, id)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var account string
+		if err = rows.Scan(&account); err != nil {
+			return nil, dbErr(err)
+		}
+		out = append(out, account)
+	}
+	return out, dbErr(rows.Err())
 }
 
 var (
@@ -293,7 +322,7 @@ func (s *Store) mapQuote(ctx context.Context, source, postID string, stored sql.
 
 // postMediaColumns are scanPostMedia's columns of a media link joined with
 // its asset.
-const postMediaColumns = `ml.media_id,ml.position,ml.alt,ma.source_url,ma.cache_path,ma.mime_type,ma.byte_size,ma.sha256,NULLIF(ma.width,0),NULLIF(ma.height,0),ma.status`
+const postMediaColumns = `ml.media_id,ml.position,ml.alt,ma.source_url,ma.cache_path,ma.mime_type,ma.byte_size,ma.sha256,NULLIF(ma.width,0),NULLIF(ma.height,0),ma.status,COALESCE(ml.kind,'photo')`
 
 func (s *Store) queryPostMedia(ctx context.Context, id, role string) ([]PostMedia, error) {
 	if memo := readMemoFrom(ctx); memo != nil && memo.postsLoaded[id] {
@@ -325,7 +354,8 @@ func (s *Store) scanPostMedia(ctx context.Context, row scanner, lead ...any) (Po
 	var alt, src, cp, mime, sha sql.NullString
 	var bs, w, h sql.NullInt64
 	var status sql.NullString
-	if err := row.Scan(append(lead, &mid, &pos, &alt, &src, &cp, &mime, &bs, &sha, &w, &h, &status)...); err != nil {
+	var kind string
+	if err := row.Scan(append(lead, &mid, &pos, &alt, &src, &cp, &mime, &bs, &sha, &w, &h, &status, &kind)...); err != nil {
 		return PostMedia{}, false, dbErr(err)
 	}
 	if !src.Valid || !status.Valid {
@@ -358,5 +388,5 @@ func (s *Store) scanPostMedia(ctx context.Context, row scanner, lead ...any) (Po
 	if alt.Valid {
 		ap = &alt.String
 	}
-	return PostMedia{ID: ref.ID, URL: ref.PublicURL, Status: ref.Status, SourceURL: ref.SourceURL, Alt: ap, Position: pos, Width: ref.Width, Height: ref.Height}, true, nil
+	return PostMedia{ID: ref.ID, URL: ref.PublicURL, Status: ref.Status, SourceURL: ref.SourceURL, Alt: ap, Position: pos, Width: ref.Width, Height: ref.Height, Kind: kind}, true, nil
 }

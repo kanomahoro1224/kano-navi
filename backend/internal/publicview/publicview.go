@@ -1,6 +1,7 @@
 package publicview
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -207,7 +208,7 @@ func PublicEventLinks(links []sqlite.EventLink) []any {
 	return out
 }
 func publicPost(p sqlite.Post) map[string]any {
-	out := map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "promoted": p.Promoted}
+	out := map[string]any{"id": p.ID, "source": p.Source, "accountHandle": value(p.AccountHandle), "type": p.Type, "label": value(p.Label), "text": p.Text, "publishedAt": p.PublishedAt, "url": p.URL, "likes": p.Likes, "reposts": p.Reposts, "replies": p.Replies, "mediaUrl": value(p.MediaURL), "mediaAlt": value(p.MediaAlt), "accountUrl": value(p.AccountURL), "media": publicMedia(p.Media), "mediaId": value(p.MediaID), "mediaStatus": p.MediaStatus, "mediaSourceUrl": value(p.MediaSourceURL), "translations": publicTranslations(p.Translations), "sourceLanguage": value(p.Translations.SourceLanguage), "quote": publicQuote(p.Quote), "promoted": p.Promoted, "repostedBy": publicRepostedBy(p.RepostedBy)}
 	if p.Repost != nil {
 		out["repost"] = publicRepost(p.Repost)
 	}
@@ -226,6 +227,21 @@ func publicRepost(r *sqlite.PostRepost) any {
 	}
 	return map[string]any{"id": r.ID, "authorHandle": text(r.AuthorHandle), "authorName": text(r.AuthorName), "authorAvatar": text(r.AuthorAvatar), "publishedAt": text(r.PublishedAt), "url": r.URL}
 }
+
+// publicRepostedBy lists the own X accounts, without "@", that reposted a
+// promoted post, first sighting first: never null, empty for every other
+// post. Only X handles leave.
+func publicRepostedBy(accounts []string) []string {
+	out := make([]string, 0, len(accounts))
+	for _, account := range accounts {
+		if xHandle.MatchString(account) {
+			out = append(out, account)
+		}
+	}
+	return out
+}
+
+var xHandle = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
 
 // publicRich is the original wording of a Bilibili dynamic with stickers:
 // {text} segments and {emoji, url} stickers, whose url is the local /media
@@ -250,10 +266,16 @@ func publicRich(segments []sqlite.RichSegment) []any {
 	return out
 }
 
+// publicMedia lists a post's or quote's images. kind is what the image
+// shows: photo, or the thumbnail of a video or gif on the source.
 func publicMedia(items []sqlite.PostMedia) []any {
 	media := make([]any, 0, len(items))
 	for _, m := range items {
-		media = append(media, map[string]any{"id": value(m.ID), "url": value(m.URL), "status": m.Status, "sourceUrl": value(m.SourceURL), "alt": value(m.Alt), "position": m.Position, "width": valueInt(m.Width), "height": valueInt(m.Height)})
+		kind := m.Kind
+		if kind != "video" && kind != "gif" {
+			kind = "photo"
+		}
+		media = append(media, map[string]any{"id": value(m.ID), "url": value(m.URL), "status": m.Status, "sourceUrl": value(m.SourceURL), "alt": value(m.Alt), "position": m.Position, "width": valueInt(m.Width), "height": valueInt(m.Height), "kind": kind})
 	}
 	return media
 }

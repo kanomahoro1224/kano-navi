@@ -18,10 +18,17 @@ profile, summary, posts, events, videos, focus, timeline, resources, schedule
 assets, media status, and metadata. Posts are the newest 100 published within
 the window plus, however old, the eight newest of each own account; MCP
 `dashboard_read` and `posts_list` read the same list. A post with
-`promoted: true` is a related account's status promoted onto the board (see
-[Related accounts](sources.md#related-accounts)): it is never `latestPost`
-or one of an account's eight, and the list and the post archive leave it out
-while a shown own post shows it as a shown quote. `counts.posts` counts
+`promoted: true` is another account's status promoted onto the board, a
+related account's or a reposted one (see
+[Related accounts](sources.md#related-accounts) and
+[Reposts](sources.md#reposts)): it is never `latestPost`
+or one of an account's eight. It appears in the list and in the post archive
+like any other post, except while a listed own post quotes it with its quote
+shown: the quote card already shows it, and it returns once that post or its
+quote is hidden. Its `accountHandle` is its
+author. `repostedBy` lists, as handles without `@` and first sighting first,
+the own accounts that reposted a promoted post; it is `[]` for every other
+post. `counts.posts` counts
 the window only. `counts.videos` counts public videos whose publication time is
 within the most recent seven days; it is independent of the bounded homepage
 video list. Public videos, on the board, the archive, the single-video read,
@@ -40,53 +47,11 @@ unless the operator featured that Short, and that is neither private nor
 removed; a video of unknown format or unknown availability stays
 eligible. Metadata includes configured X accounts and the Featured video ID.
 
-The dashboard also carries a locale-neutral `projection` for shared board
-decisions. `projection.version` identifies the contract (`1` is the current
-version), `nextTransitionAt` is the next parseable ISO instant that can change
-a time-dependent decision, `focus.eventIds` and `focus.videoIds` are the
-ordered event and video candidates, and `sales` is the ordered list of every
-sale event ID the board's on-sale list shows, in place or in its sheet.
-`spotlight` identifies the next or latest ticket, its live state, the members
-chip decision, and an optional companion video. `shelf` contains the lead ID, whether it is Featured, and the ordered
-reservation, work, archive and Short IDs. The browser uses these IDs to join
-the returned records; it does not infer their order from localized text.
-
-Each event has a `view` with the canonical `state`, `typeCode`,
-`activityCode`, `activityContext`, `isWork`, and sale-expanded
-`calendarEntries`. `state` has exactly seven values: `upcoming` means the
-entry has not started, `live` means a linked broadcast is on air, `open` means
-a sale period is open, `done` means a non-pending entry or sale has ended,
-`pending` means the time or status still needs confirmation, `cancelled` means
-the entry is cancelled, and `cancellation_review` means cancellation evidence
-is awaiting confirmation. `typeCode` is one of `stream`, `member`, `event`,
-`release`, `video` or `sale`, or null when the stored type is outside the
-public set. `activityCode` is one of `live`, `game`, `talk`, `song` or `video`,
-or null. `activityContext` is `stream` or `work` when an activity code is
-present, otherwise the empty string. `isWork` is true only for `release` and
-`video` types. `calendarEntries` keeps the stored `timePrecision` code
-(`exact`, `approximate` or `unknown`); `saleMark` is null for ordinary events,
-`opens` for a sale opening and `closes` for a sale closing. A sale deadline
-has only its closing entry.
-
-Each video has a `view` with its `phase`, `formCode`, `shelfGroup`,
-`latestEligible`, `focusEligible`, and `tagContext`. `phase` is one of
-`upcoming`, `live`, `started`, `past` or `cancelled`. `formCode` is one of
-`short`, `upcoming`, `stream`, `archive`, `premiere` or `video`, or null when
-no public form applies. `shelfGroup` is one of `reservation`, `work`,
-`archive` or `short`, or the empty string for a video omitted from the shelf.
-`tagContext` is `stream` or `work`; the two eligibility fields are booleans.
-These values are codes and booleans, never localized copy. Calendar, archive
-and MCP `schedule_list` reads carry the same event and video `view` objects.
-Clients keep an additive fallback for responses without `projection` or
-`view` so a retained snapshot remains readable while a deployment serves
-mixed versions.
-
-The remaining projection fields use these fixed values. `spotlight.mode` is
-`next` when a current or upcoming candidate exists and `latest` when the
-latest eligible video is the fallback; `spotlight` is null when neither
-exists. `shelf.leadId` is null when there is no work lead, and
-`leadIsFeatured` distinguishes the operator featured video from the derived
-lead. `nextTransitionAt` is null when no scheduled transition is known.
+A post's `media` and its quote's `media` list images as `{id, url, status,
+sourceUrl, alt, position, width, height, kind}`. `kind` is `photo`, `video`
+or `gif`: a video's or GIF's entry is its thumbnail, and the board links it
+to the post or the quoted status on X. Every image that is not an X video or
+GIF, a Bilibili one included, is a `photo`.
 
 A post's `source` is `x` or `bilibili`. A Bilibili dynamic has the ID
 `bilibili-<dynamic ID>`, its opus page as `url`, the account's mid as
@@ -161,7 +126,9 @@ changes. Timestamps are parseable ISO 8601 strings; display and date-window
 boundaries use Asia/Tokyo.
 
 `/api/dashboard`, `/api/calendar`, `/api/posts`, `/api/posts/months`,
-`/api/videos`, `/api/videos/months` and `/api/works/uploads` send
+`/api/videos`, `/api/videos/months`, `/api/works/uploads` and the
+[collection reads](#journey-and-works-collections) and the
+[LINE BLOG archive](#line-blog-archive) reads send
 `Cache-Control: no-cache` and a weak ETag, a SHA-256 prefix of the
 uncompressed JSON body. The dashboard's tag leaves out `meta.generatedAt`,
 which changes on every read; the other time-derived fields, such as
@@ -171,6 +138,100 @@ the tag changes with them as well as with stored data. A matching
 keeps its stored copy, including that copy's `generatedAt`. Because the tag is
 weak it validates the gzip and identity encodings alike.
 `/api/dashboard/revision` is `no-store`.
+
+### Board Projection
+
+The dashboard carries a locale-neutral `projection` for shared board
+decisions. Its values are codes, booleans and record IDs, never localized
+copy. Every ID names a record in the same response; the browser joins the
+returned records by these IDs and does not infer their order from localized
+text.
+
+| Projection field   | Value                                                                                        |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| `version`          | Contract version; `1` is the current one                                                     |
+| `nextTransitionAt` | Next ISO instant that can change a time-dependent decision, or `null` when none is known     |
+| `focus.eventIds`   | Ordered event candidates of the focus                                                        |
+| `focus.videoIds`   | Ordered video candidates of the focus                                                        |
+| `sales`            | Ordered IDs of every sale event the board's on-sale list shows, in place or in its sheet     |
+| `spotlight`        | The [spotlight](#spotlight), or `null` when there is neither a next entry nor a latest video |
+| `shelf`            | The [video shelf](#video-shelf)                                                              |
+
+#### Spotlight
+
+The spotlight is the stage's one ticket: the next or current entry, or the
+latest video when nothing is next.
+
+| Spotlight field    | Value                                                                                                                                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`             | `next` for a current or upcoming entry; `latest` when the latest video is the fallback                                                                                                              |
+| `eventId`          | The shown event, `summary.nextEvent`, or `null`                                                                                                                                                     |
+| `videoId`          | The shown video: `summary.nextStream` in `next` mode, `summary.latestVideo` in `latest` mode, or `null`                                                                                             |
+| `liveNow`          | `true` when the shown entry is the dashboard's `liveNow` broadcast, which has neither an event nor a video                                                                                          |
+| `isLive`           | `true` when the shown entry is confirmed on air or its start time has passed                                                                                                                        |
+| `membersChip`      | `true` when the shown event is a `member` entry paired with its video, the video is not members-only, private or removed, and a `game`, `talk` or `song` label takes the type's place on the ticket |
+| `companionVideoId` | `summary.latestVideo`, shown beside the ticket when the shown entry has no video thumbnail and is not that video; otherwise `null`                                                                  |
+
+`liveNow` says which entry is shown; `isLive` says whether it is on air, for
+an event or a video as well. An event and a video are both set when the next
+event and the next stream share a stream link. In `latest` mode only
+`videoId` is set, and the booleans are `false`.
+
+#### Video Shelf
+
+The shelf lists IDs from the returned `videos`. The lead is in none of the
+four lists.
+
+| Shelf field      | Value                                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `leadId`         | The Featured video; otherwise the newest work that is a premiere or a song, then the newest work, neither private nor removed; `null` when there is none |
+| `leadIsFeatured` | `true` when `leadId` is the operator's Featured video                                                                                                    |
+| `reservations`   | Videos that are not past, and cancelled ones whose start is still ahead, earliest first                                                                  |
+| `works`          | Past uploads and premieres that are not Shorts, newest first                                                                                             |
+| `archives`       | Past streams that are not Shorts, newest first                                                                                                           |
+| `shorts`         | Past Shorts, newest first                                                                                                                                |
+
+### Event and Video Views
+
+Every event and video carries a `view` of codes and booleans, never
+localized copy. Calendar, archive and MCP `schedule_list` reads carry the
+same event and video `view` objects as the dashboard. Clients keep an
+additive fallback for responses without `projection` or `view` so a retained
+snapshot remains readable while a deployment serves mixed versions.
+
+| Event view field  | Value                                                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| `state`           | One of the seven states below                                                                             |
+| `typeCode`        | `stream`, `member`, `event`, `release`, `video` or `sale`, or `null` when the stored type is outside them |
+| `activityCode`    | `live`, `game`, `talk`, `song` or `video`, or `null`                                                      |
+| `activityContext` | `stream` or `work` when `activityCode` is set, otherwise the empty string                                 |
+| `isWork`          | `true` only for the `release` and `video` types                                                           |
+| `calendarEntries` | The entry's calendar occurrences, sale-expanded                                                           |
+
+`state` is `upcoming` when the entry has not started, `live` when a linked
+broadcast is on air, `open` when a sale period is open, `done` when a
+non-pending entry or sale has ended, `pending` when the time or status still
+needs confirmation, `cancelled` when the entry is cancelled, and
+`cancellation_review` when cancellation evidence is awaiting confirmation.
+
+An ordinary event has one calendar entry. A sale period has its opening and
+its closing entry; a sale deadline has only its closing entry.
+
+| Calendar entry field | Value                                                                |
+| -------------------- | -------------------------------------------------------------------- |
+| `saleMark`           | `null` for an ordinary event; `opens` or `closes` for a sale's end   |
+| `startsOn`           | Japan date (`YYYY-MM-DD`) the occurrence is shown on                 |
+| `startsAt`           | ISO instant of the occurrence, or `null` when only the date is known |
+| `timePrecision`      | The stored `exact`, `approximate` or `unknown`                       |
+
+| Video view field | Value                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| `phase`          | `upcoming`, `live` (confirmed on air), `started` (start passed, not confirmed live), `past` or `cancelled` |
+| `formCode`       | `short`, `upcoming`, `stream`, `archive`, `premiere` or `video`, or `null` when no public form applies     |
+| `shelfGroup`     | `reservation`, `work`, `archive` or `short`, or the empty string for a video omitted from the shelf        |
+| `latestEligible` | Whether the video may be the stage's `latestVideo` fallback                                                |
+| `focusEligible`  | Whether the video may be a focus candidate                                                                 |
+| `tagContext`     | `stream` or `work`: whether a content tag is worded for a stream or a work                                 |
 
 ## Revision Stream
 
@@ -309,17 +370,191 @@ per category, plus the `revision`. Hidden posts and records without a
 parseable time are not counted. They take no parameters, revalidate through
 their ETags and negotiate gzip like the archive pages.
 
+## Journey and Works Collections
+
+`GET /api/journey`, `GET /api/works` and `GET /api/works/upload-list` serve
+the data of the Journey and Works pages, so a client other than the web page
+can draw them. Their bodies ship with the build: the export scripts
+(`npm run journey:export`, `npm run works:export`) write them from the
+pages' tracked data with the pages' own modules into
+`backend/internal/journey/` and `backend/internal/works/`, which embed them,
+and the frontend tests fail when a committed body differs from the data
+([Journey](../development/history-archive.md#content-and-provenance),
+[Works](../development/works-archive.md#content-and-media)). They read no
+snapshot rows, so they carry no `revision` and their ETags change only with
+a build that changes the data. Each answers `GET` alone (405 with
+`Allow: GET` otherwise), revalidates through its
+[ETag](#public-snapshot-contract) and negotiates gzip; a deeper path, such
+as `/api/journey/<id>`, is 404 `api_not_found`.
+
+The bodies are locale-neutral. A localized text is `{ja, zh-CN, en}`, with
+`null` for a language the data lacks; the server never picks a language.
+Kinds, roles, formats and labels are codes the client words itself, and so is
+the fixed wording around them (section titles, rights notices). Images are
+same-host relative URLs (`/media/journey/<name>`, `/media/works/<name>`)
+served under the [media HTTP contract](media-cache.md#http-contract);
+third-party addresses appear only as provenance links, never as files a
+client must load. `updatedAt` is a Japan date (`YYYY-MM-DD`).
+
+### Journey
+
+`GET /api/journey` returns `updatedAt`, the later of the newest check date of
+the Journey images and the Works collection's date, `branches`, `milestones`
+in page order (by stored date, oldest first) and `galleryOnly`, the images
+that belong to no milestone and appear only in the gallery.
+
+| Branch field | Value                                                                |
+| ------------ | -------------------------------------------------------------------- |
+| `id`         | Identity code, such as `singer` or `mahoro`                          |
+| `tone`       | Colour code of the identity, such as `honey`                         |
+| `since`      | Year the identity starts                                             |
+| `label`      | Localized name                                                       |
+| `portrait`   | The identity's portrait as a [media item](#journey-media), or `null` |
+
+| Milestone field | Value                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `id`            | Stable milestone code                                                                              |
+| `date`          | As stored: `YYYY`, `YYYY-MM` or `YYYY-MM-DD`; never narrowed to a guessed day                      |
+| `datePrecision` | `year`, `month` or `day`, the part of `date` that is known                                         |
+| `dateEnd`       | Last day (`YYYY-MM-DD`) of a period, or `null`                                                     |
+| `dateNote`      | A name written after the date, such as the event `C93`, or `null`                                  |
+| `branch`        | Branch `id`                                                                                        |
+| `kind`          | Code, such as `release`, `debut`, `stream` or `artwork`                                            |
+| `highlight`     | Whether the timeline emphasizes it as a key milestone                                              |
+| `title`         | Localized text                                                                                     |
+| `detail`        | Localized text, or `null`                                                                          |
+| `sourceUrl`     | The strongest public page for the entry, or `null` when the only evidence is a third-party archive |
+| `links`         | Further pages as `{url, label}`; `label` is a code (`agency`, `x`, `cancelledRelease`)             |
+| `releaseId`     | ID of the Works release whose covers it shows, or `null`                                           |
+| `media`         | Its [media items](#journey-media), catalogued images first, then the release's covers              |
+
+#### Journey Media
+
+A media item is one image of the timeline or gallery. `origin` is `fixed` for
+an image of the Journey catalog and `release` for a cover of the milestone's
+Works release, so a client draws the Journey without `/api/works`. Every
+item has every field below; a field that does not apply to its origin is
+`null`.
+
+| Field                         | Value                                                                                                                                               |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `origin`                      | `fixed` or `release`                                                                                                                                |
+| `id`                          | Stable image code; a release cover's is `<releaseId>/<name>`                                                                                        |
+| `url`                         | `/media/journey/<name>` or `/media/works/<name>`                                                                                                    |
+| `width`, `height`, `mimeType` | Size in pixels and `image/jpeg` or `image/png`                                                                                                      |
+| `branches`                    | The branch `id`s whose gallery lists it; a release cover adds the identities the release also belongs to                                            |
+| `category`                    | `artwork`, `goods`, `frame`, `model` or, for a release, `cover`                                                                                     |
+| `title`                       | Localized text; a release cover's is the release title in every language                                                                            |
+| `date`                        | Japan date the image is dated by, or `null` when unknown                                                                                            |
+| `dateKind`                    | What that date is: `post`, `announcement`, `publication`, `stream`, `outfit`, `capture` or `release`                                                |
+| `sourceKind`                  | Who published the file: `artist`, `organizer`, `creator`, `video`, `streamArchive`, `shop`, `brand`, `agency`, `officialCover` or `thirdPartyCover` |
+| `note`                        | Code of the provenance note the page shows, or `null`                                                                                               |
+| `focus`                       | CSS `object-position` that anchors a cropped thumbnail, or `null`                                                                                   |
+| `credit`                      | Credit line the publisher requests, shown as written, or `null`                                                                                     |
+| `creator`                     | Who made the picture, as written, or `null`                                                                                                         |
+| `frameTime`                   | `HH:MM:SS` of a video frame, or `null`                                                                                                              |
+| `sourcePage`                  | The page the image comes from (a release cover's file page), or `null`                                                                              |
+| `sourceUrl`                   | Original third-party file address (provenance only), or `null`                                                                                      |
+| `originalStream`              | Original stream address at the frame of a third-party archive frame, or `null`                                                                      |
+| `releaseId`                   | The Works release of a cover                                                                                                                        |
+| `cancelled`                   | Whether every edition of that release was withdrawn                                                                                                 |
+| `cover`                       | The cover as a [Works image](#works-images), with its caption, credit and third-party mark                                                          |
+
+### Works
+
+`GET /api/works` returns `updatedAt`, the Japan date the collection was
+checked through, `summary` (`personal`, `participation` and `uploads` counts
+and `firstYear` and `lastYear`), `personal` and `participation`, oldest
+first as the collection lists them. Titles and names keep the collection's
+wording. The collection's phrase-coded wording (see
+[Wording](../development/works-archive.md#wording)) is rendered into
+localized text with the page's own phrases, so a client needs no phrase
+dictionary; such a field is `null` when the collection gives no text.
+
+| Personal release field | Value                                                                                                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`, `date`, `title`  | Release ID (Japan date and a title hash), first Japan release date, title as written                                                                                                     |
+| `format`               | `album`, `single`, `ep` or `doujin`                                                                                                                                                      |
+| `digital`, `cancelled` | Released for download or streaming; every edition withdrawn                                                                                                                              |
+| `unit`                 | Unit name of a unit work, or `null`                                                                                                                                                      |
+| `label`, `catalog`     | Localized text                                                                                                                                                                           |
+| `covers`               | [Works images](#works-images)                                                                                                                                                            |
+| `disc`                 | Photo of the disc for the shelf, or `null`                                                                                                                                               |
+| `printedDisc`          | The record shows the cover printed on a disc instead of a drawn one                                                                                                                      |
+| `cutout`               | Figure cut out of the cover on a transparent ground, or `null`                                                                                                                           |
+| `tracks`               | The [tracks](#works-tracks) every edition shares                                                                                                                                         |
+| `discs`                | Photos of the shared discs as `{disc, image}`                                                                                                                                            |
+| `editions`             | Editions on sale; empty for a release sold in one plain version                                                                                                                          |
+| `storeBonuses`         | Bonuses for any edition as `{store, item, images}`; `store` and `item` are localized text                                                                                                |
+| `stores`               | Streaming and download listings for any edition as `{item, links}`; `item` is localized text or `null` for the main item, and each link is `{platform, url, hiRes}` with a platform code |
+
+An edition has `name`, `catalog`, `price`, `format` and `packaging` as
+localized text, `date` (its own Japan date when it came out after the
+release, or `null`), `cancelled`, `jan` (a string, empty when unknown),
+`covers`, `bonuses` (localized texts), `bonusImages`, `storeBonuses`,
+`stores`, its full `tracks`, `discs` and `printedDisc`, shaped as on the
+release.
+
+#### Works Tracks
+
+A personal track has `disc`, `discLabel` (localized text or `null`), `no`,
+`title`, `credit` and `note` (localized text or `null`) and `listen`, the
+uploads of the same recording, or `null`. `listen` keeps platform video IDs
+in the shape of the [upload list](#works-upload-list): `niconico` and
+`bilibili` (an ID or `null`), `youtube` and `youtubeMembers` (lists of IDs).
+
+A participation work has `id`, `date`, `title`, `roles` (codes `vocal`,
+`lyrics`, `composition`, `voice`, `guest`), `forms` (codes such as `digital`,
+`bonus`, `drama`, `cdr`, `boxSet`, `notForSale`, `promo`), `unit` (the unit
+name, or `null`), `label`, `event` and `catalog` as written (empty when
+unknown), `sourceUrl` (the page
+the record follows), `cover` (a Works image or `null`) and `tracks`, each
+`{disc, no, title, credit, kano, kanoCredits}`: `credit` is the database's
+artist line as written, `kano` whether Kano took part in the track, and
+`kanoCredits` her further credit codes (`lyrics`, `composition`,
+`arrangement`, `animation`, `other`).
+
+#### Works Images
+
+Every cover, disc photo, bonus image and cutout is `{url, width, height,
+mimeType, caption, sourceUrl, sourceLabel, credit, thirdParty}`: `url` is
+`/media/works/<name>`, `caption` localized text or `null`, `sourceUrl` the
+page the file was taken from or `null`, `sourceLabel` the site named instead
+of a page or `null`, `credit` `{role, name, url}` (role `scan`, `photo` or
+`fan`; `name` and `url` may be `null`) or `null` for a file from a person's
+own copy, and `thirdParty` whether the file is a store's, database's or
+collector's copy of the release's artwork rather than the publisher's file
+(`null` for a cutout).
+
+### Works Upload List
+
+`GET /api/works/upload-list` returns `updatedAt` and `uploads`, the
+collection's uploads oldest first, each `{id, date, song, originalArtist,
+kind, with, niconico, youtube, youtubeMembers, bilibili, bilibiliTitle,
+albums, tracks}`. `kind` is `cover`, `original`, `mv`, `project`,
+`compilation`, `game` or `composition`. Videos are platform IDs, never URLs:
+`niconico` and `bilibili` are an ID or `null`, `youtube` and
+`youtubeMembers` lists of IDs. `originalArtist`, `with` and `bilibiliTitle`
+are free text, empty when there is none; `albums` (the albums that include
+the recording) and `tracks` (a compilation's songs) are lists of free-text
+names as the collection writes them, not release IDs. The list never joins
+stored data; [`/api/works/uploads`](#works-uploads) adds each upload's cover
+and stored videos by the same upload ID.
+
 ## Works Uploads
 
 `GET /api/works/uploads` joins the Works page's packaged upload list
 ([Upload covers](../development/works-archive.md#upload-covers)) with stored
 data by video ID, on each read and without writing. It returns `updatedAt`,
 the list's date, `revision`, and `uploads`, keyed by upload ID, for each
-upload with a ready cover or a stored video: `cover` (`{url, width, height}`,
-a local `/media/<id>?v=<sha256>` URL with smaller copies, or `null`) and
+upload with a ready cover or a stored video: `cover` (`{url, width, height}`:
+a local `/media/<id>?v=<sha256>` URL with smaller copies and the size, with
+`width` and `height` `null` while unknown; or `null` without a cover) and
 `videos`, the stored YouTube and Bilibili videos of the upload in list order
 as `{source, id, title, url, publishedAt, scheduledAt, durationSeconds,
-availability, translations, sourceLanguage}`. Uploads with neither are left
+availability, translations, sourceLanguage}`, where `publishedAt`,
+`scheduledAt`, `durationSeconds` and `availability` are `null` while
+unknown. Uploads with neither are left
 out. A stored video's title is its shown one (an operator's correction
 first); raw JSON and thumbnails' source URLs never appear.
 
@@ -339,6 +574,81 @@ albums are inferred, and the
 operator's decision itself, availability and counters stay out. Other videos
 outside the list never appear. The read revalidates through its
 [ETag](#public-snapshot-contract) and never fetches platforms.
+
+## LINE BLOG Archive
+
+`GET /api/lineblog`, `GET /api/lineblog/posts/{id}` and
+`GET /api/lineblog/posts/{id}/comments` serve the
+[LINE BLOG archive](../development/lineblog-archive.md) page's articles and
+comments to other clients. The server embeds them from the tracked page data
+([Public API Export](../development/lineblog-archive.md#public-api-export)),
+so they change only with a release, never read SQLite, and carry no
+`revision`. Each body carries `updatedAt`, the Japan date of the newest
+archived article or comment. Text is locale-neutral: a localized value is
+`{"ja", "zh-CN", "en"}` with `null` for a language the archive lacks, and no
+read picks a language from the request. Fixed wording, such as the rights
+notice and labels, stays in each client. Media are same-host
+`/media/lineblog/<name>` URLs; third-party addresses appear only as
+provenance links that the page opens on request, never as something a client
+must load.
+
+The reads take only `GET` (other methods answer 405 with `Allow: GET`),
+revalidate through their [ETag](#public-snapshot-contract) and negotiate
+gzip. `{id}` is an article number; an unknown or malformed one answers 404
+`not_found`, and any other path below `/api/lineblog/` (an empty, further or
+trailing segment) answers 404 `api_not_found`.
+
+A **media object** is `{url, width, height, mimeType}`: `url` is the
+`/media/lineblog/<name>` address, `width` and `height` the displayed size of
+an image (`null` for a video), and `mimeType` `image/jpeg`, `image/png` or
+`video/mp4`. A missing file answers 404 on its route; clients show an
+unavailable state with the provenance link.
+
+`GET /api/lineblog` lists the archive:
+
+| Field             | Value                                                                                                                                                                                                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `updatedAt`       | `YYYY-MM-DD`                                                                                                                                                                                                                                                     |
+| `originalBlogUrl` | The blog's original address, as provenance                                                                                                                                                                                                                       |
+| `posts`           | Every article, newest first: `id`, `published` (ISO instant), `title` (localized), `thumbnail` (a media object of its first archived picture or video cover, always an image with its size, or `null`) and `commentCount` (its archived comments, 0 without any) |
+| `months`          | Each Japan month (`YYYY-MM`) with articles, newest first, with its `total`                                                                                                                                                                                       |
+
+`GET /api/lineblog/posts/{id}` returns one article with its neighbours in
+the page's pager order:
+
+| Field        | Value                                                                                                                                                                 |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `updatedAt`  | `YYYY-MM-DD`                                                                                                                                                          |
+| `post`       | `id`, `published`, `title` (localized), `url` (the original address), `archiveUrl` (the Wayback Machine capture it was recovered from) and `blocks`, in reading order |
+| `previousId` | The next older article (the page's 前の記事), or `null` for the oldest                                                                                                |
+| `nextId`     | The next newer article (the page's 次の記事), or `null` for the newest                                                                                                |
+
+Each block has a `type`:
+
+| `type`      | Fields                                                                                                                                                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `paragraph` | `content` (inlines) and `translations`: `{"zh-CN", "en"}`, each a list of translation paragraphs (each a list of inlines) shown after the paragraph, or `null`. Both are machine translations of the Japanese. A paragraph of only non-pictograph pictures is a row of figures |
+| `quote`     | `content` (inlines)                                                                                                                                                                                                                                                            |
+| `rule`      | none                                                                                                                                                                                                                                                                           |
+| `video`     | `video` (media object)                                                                                                                                                                                                                                                         |
+| `youtube`   | `videoId`, `watchUrl`, `video` (the downloaded copy, a media object or `null`), `cover` (media object or `null`), `coverSourceUrl` and `archiveUrl` (provenance or `null`)                                                                                                     |
+| `card`      | A link card: `title`, `url`, `articleId`, `archiveUrl` and `description` (or `null`), and `image` (an image inline or `null`)                                                                                                                                                  |
+
+Inlines also have a `type`:
+
+| `type`  | Fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `text`  | `text`; line breaks are `\n`                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `link`  | `href`, `content` (inlines) and `articleId`, the archived article the link opens, or `null`                                                                                                                                                                                                                                                                                                                                                                                          |
+| `image` | `image` (media object, or `null` for a picture the archive never captured), `alt` (readable alternative text or `null`), `emoji` (a pictograph drawn at text size, not opened in a viewer), `href` (the link the picture opened, or `null`), `sourceUrl` (where the archived bytes came from, or `null`), `remoteUrl` (the original address of a picture never captured, or `null`) and `recovery` (`stand-in` or `tweet` for a picture added after the recovery archive, or `null`) |
+
+`GET /api/lineblog/posts/{id}/comments` returns `updatedAt` and the
+article's archived `comments`, newest first, in Japanese as archived (`[]`
+for an article without any): `number` (deleted comments leave gaps),
+`author` (the display name), `posted` (ISO instant, to the minute in Japan
+time), `body` (plain text with `\n` line breaks) and `rating`
+(`{icon: "star" | "face", value: 1–5}` or `null`). Commenters' links are
+never kept.
 
 ## Public Feeds
 

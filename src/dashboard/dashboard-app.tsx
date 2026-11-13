@@ -1,5 +1,6 @@
 import type {
   ArchiveSnapshot,
+  MediaItem,
   Post,
   ScheduleAsset,
   ScheduleEvent,
@@ -25,6 +26,7 @@ import {
 } from "./format"
 import {
   type ArchiveRequest,
+  timelineStartPage,
   useArchive,
   useArchiveMonths,
   useDashboard,
@@ -40,6 +42,7 @@ import {
   PostArchive,
   PostArchiveFilter,
   PostArchiveLayoutToggle,
+  PostMediaView,
   PostWall,
 } from "./components/post-wall"
 import {
@@ -54,6 +57,9 @@ import "./board.css"
 interface ViewerImage {
   url: string
   alt?: string
+  /** A post's video or GIF still, and the page it plays on. */
+  kind?: MediaItem["kind"]
+  href?: string
 }
 
 /** Images offered to the viewer; entries whose media is not cached are skipped. */
@@ -89,7 +95,11 @@ function latestArchiveMonth(months: { month: string }[] | null) {
   return indexed && indexed > thisMonth ? indexed : thisMonth
 }
 
-/** Heading copy of each archive dialog, with the month's or timeline's total. */
+/**
+ * Heading copy of each archive dialog. The post and video kickers name the
+ * platforms only, since the filter names each account. The total shows only
+ * where no filter does: a filter's pressed button already counts it.
+ */
 function archiveCopy(
   view: ArchiveRequest,
   archive: ArchiveSnapshot<unknown> | null,
@@ -108,8 +118,7 @@ function archiveCopy(
     return {
       kicker: (
         <>
-          <XLogo className="kicker-icon" aria-hidden="true" />{" "}
-          {accounts.map((handle) => `@${handle}`).join(" · ")}
+          <XLogo className="kicker-icon" aria-hidden="true" /> X
           {bilibiliAccounts.length ? (
             <>
               {" · "}
@@ -120,7 +129,10 @@ function archiveCopy(
         </>
       ),
       title: t("feed.archiveTitle"),
-      summary: total == null ? null : t("feed.monthCount", { count: total }),
+      summary:
+        total == null || accounts.length + bilibiliAccounts.length > 1
+          ? null
+          : t("feed.monthCount", { count: total }),
     }
   return {
     kicker: (
@@ -131,7 +143,7 @@ function archiveCopy(
       </>
     ),
     title: t("videos.archiveTitle"),
-    summary: total == null ? null : t("videos.monthCount", { count: total }),
+    summary: null,
   }
 }
 
@@ -183,6 +195,17 @@ export function DashboardApp() {
       ]),
     )
   }, [archiveMonths, indexFilter])
+  // The shown post month's counts per account from the index, known before
+  // the month's posts arrive, so the account filter keeps its numbers.
+  const postMonthKey =
+    archiveView?.kind === "posts" ? monthKeyOf(archiveView.monthStart) : null
+  const postAccountCounts = useMemo(() => {
+    if (indexKind !== "posts" || !archiveMonths || !postMonthKey)
+      return undefined
+    return (
+      archiveMonths.find(({ month }) => month === postMonthKey)?.counts ?? {}
+    )
+  }, [indexKind, archiveMonths, postMonthKey])
   // Every video's category over the whole index, so the filter keeps its
   // totals wherever the timeline starts.
   const videoCategoryCounts = useMemo(() => {
@@ -209,6 +232,13 @@ export function DashboardApp() {
   )
   const timelineAnchor =
     archiveView?.kind === "videos" ? archiveView.anchor || null : null
+  // Whether the loaded videos reach the newest one: a timeline from a chosen
+  // month does once its newer pages are loaded, or when it starts on page 1.
+  const timelineStartsAtNewest =
+    !timelineAnchor ||
+    (archiveView?.kind === "videos" && archiveView.startPage
+      ? (videoArchive?.firstPage ?? archiveView.startPage) === 1
+      : false)
   const timelineShown =
     timelineMonth ||
     loadedVideoMonths[0] ||
@@ -296,29 +326,45 @@ export function DashboardApp() {
       anchor: null,
     })
   }, [])
-  // A loaded month scrolls into view; any other restarts the timeline there.
+  const jumpTimeline = useCallback(
+    (month: string) =>
+      setTimelineJump((current) => ({
+        month,
+        nonce: (current?.nonce || 0) + 1,
+      })),
+    [],
+  )
+  // A loaded month scrolls into view. Any other restarts the timeline at the
+  // page holding it, found from the month index, and scrolls to it once read.
+  const videoMonths = indexKind === "videos" ? archiveMonths : null
   const chooseTimelineMonth = useCallback(
     (month: Date) => {
       const key = monthKeyOf(month)
       if (loadedVideoMonths.includes(key)) {
-        setTimelineJump((current) => ({
-          month: key,
-          nonce: (current?.nonce || 0) + 1,
-        }))
+        jumpTimeline(key)
         return
       }
       setTimelineMonth(null)
       setArchiveView((current) =>
-        current ? { ...current, anchor: monthStartOf(month) } : null,
+        current
+          ? {
+              ...current,
+              anchor: monthStartOf(month),
+              startPage: videoMonths
+                ? timelineStartPage(videoMonths, key, current.category)
+                : undefined,
+            }
+          : null,
       )
+      jumpTimeline(key)
     },
-    [loadedVideoMonths],
+    [loadedVideoMonths, videoMonths, jumpTimeline],
   )
   const showLatestVideos = useCallback(() => {
-    if (timelineAnchor) {
+    if (!timelineStartsAtNewest) {
       setTimelineMonth(null)
       setArchiveView((current) =>
-        current ? { ...current, anchor: null } : null,
+        current ? { ...current, anchor: null, startPage: undefined } : null,
       )
     } else if (loadedVideoMonths[0]) {
       const month = loadedVideoMonths[0]
@@ -327,7 +373,7 @@ export function DashboardApp() {
         nonce: (current?.nonce || 0) + 1,
       }))
     }
-  }, [timelineAnchor, loadedVideoMonths])
+  }, [timelineStartsAtNewest, loadedVideoMonths])
   const closeArchive = useCallback(() => setArchiveView(null), [])
   const setArchiveMonth = useCallback(
     (monthStart: Date) =>
@@ -341,10 +387,32 @@ export function DashboardApp() {
       setArchiveView((current) => (current ? { ...current, account } : null)),
     [],
   )
-  const setArchiveCategory = useCallback((category: VideoCategory | null) => {
-    setTimelineMonth(null)
-    setArchiveView((current) => (current ? { ...current, category } : null))
-  }, [])
+  // A timeline from a chosen month keeps that month, at its page among the
+  // category's videos.
+  const setArchiveCategory = useCallback(
+    (category: VideoCategory | null) => {
+      setTimelineMonth(null)
+      const anchor = archiveView?.kind === "videos" ? archiveView.anchor : null
+      setArchiveView((current) =>
+        current
+          ? {
+              ...current,
+              category,
+              startPage:
+                current.anchor && videoMonths
+                  ? timelineStartPage(
+                      videoMonths,
+                      monthKeyOf(current.anchor),
+                      category,
+                    )
+                  : undefined,
+            }
+          : null,
+      )
+      if (anchor) jumpTimeline(monthKeyOf(anchor))
+    },
+    [archiveView, videoMonths, jumpTimeline],
+  )
   const openWeek = useCallback(
     (day: Date) => {
       setWeekStart(startOfWeek(day))
@@ -526,7 +594,8 @@ export function DashboardApp() {
           }
           picker={
             archiveView.kind === "schedule"
-              ? undefined
+              ? // The schedule has no month index: every month is offered.
+                { counts: null }
               : {
                   counts: archiveMonthCounts,
                   countLabel: (count) =>
@@ -543,7 +612,7 @@ export function DashboardApp() {
               ? {
                   onLatest: showLatestVideos,
                   atLatest:
-                    !timelineAnchor &&
+                    timelineStartsAtNewest &&
                     (!timelineMonth || timelineMonth === loadedVideoMonths[0]),
                   resetKey: `${timelineAnchor ? monthKeyOf(timelineAnchor) : "latest"}:${archiveView.category || ""}`,
                 }
@@ -557,7 +626,7 @@ export function DashboardApp() {
                   bilibiliAccounts={meta.bilibiliAccounts || []}
                   account={archiveView.account || null}
                   setAccount={setArchiveAccount}
-                  counts={archive.archive?.accountCounts}
+                  counts={postAccountCounts ?? archive.archive?.accountCounts}
                   t={t}
                 />
                 <PostArchiveLayoutToggle
@@ -619,7 +688,11 @@ export function DashboardApp() {
               monthCounts={archiveMonthCounts}
               jump={timelineJump}
               onVisibleMonth={setTimelineMonth}
-              onNewer={showLatestVideos}
+              onNewer={
+                (videoArchive?.firstPage ?? 1) > 1
+                  ? archive.loadNewer
+                  : showLatestVideos
+              }
               locale={locale}
               now={now}
               t={t}
@@ -633,7 +706,7 @@ export function DashboardApp() {
         label={t("feed.openMedia")}
         onClose={closeViewer}
         onStep={stepViewer}
-        renderImage={(item) => <img src={item.url} alt={item.alt || ""} />}
+        renderImage={(item) => <PostMediaView item={item} t={t} />}
       />
     </div>
   )

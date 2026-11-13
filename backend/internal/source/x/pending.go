@@ -31,6 +31,10 @@ const (
 	// DroppedForeign follows the first detail answer that the status is
 	// another account's, such as one the profile page quoted.
 	DroppedForeign = "x_status_foreign"
+	// DroppedRepost follows the first detail answer that the status is the
+	// account's own repost of another status: it is recorded as a repost
+	// and never becomes a post.
+	DroppedRepost = "x_status_repost"
 )
 
 // pendingBackoff is the wait after the first, second and third consecutive

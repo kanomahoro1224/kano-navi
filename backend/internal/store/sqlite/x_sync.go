@@ -33,6 +33,13 @@ func (s *Store) WriteXRecent(ctx context.Context, account string, result xsource
 	// it.
 	kept := map[string]bool{}
 	for _, p := range result.Posts {
+		// A known repost's own status ID is never a post again.
+		if repost, lookupErr := isRepostID(ctx, tx, p.ID); lookupErr != nil {
+			return ErrSourceWrite
+		} else if repost {
+			kept[p.ID] = true
+			continue
+		}
 		if result.FromListing[p.ID] {
 			var exists int
 			lookupErr := tx.QueryRowContext(ctx, `SELECT 1 FROM posts WHERE id=?`, p.ID).Scan(&exists)
@@ -164,7 +171,8 @@ func writeXState(ctx context.Context, tx *sql.Tx, account string, result xsource
 // writeXPost stores one post with its media candidates and the status it
 // quotes, which goes to the pool (see writeQuotedStatus). It reports false
 // when the ID already belongs to another account, whose row is left
-// unchanged.
+// unchanged, or is an own account's repost (x_reposts.retweet_id), which is
+// never stored.
 func writeXPost(ctx context.Context, tx *sql.Tx, account string, p xsource.Post, now string) (bool, error) {
 	return writeXPostAs(ctx, tx, account, p, now, true)
 }
@@ -173,6 +181,9 @@ func writeXPost(ctx context.Context, tx *sql.Tx, account string, p xsource.Post,
 // related status, whose quote is stored and linked the same way but is no
 // own account's quote, so it gives the quoted status no quoted reason.
 func writeXPostAs(ctx context.Context, tx *sql.Tx, account string, p xsource.Post, now string, own bool) (bool, error) {
+	if repost, err := isRepostID(ctx, tx, p.ID); err != nil || repost {
+		return false, err
+	}
 	raw, _ := json.Marshal(p.Raw)
 	media := ""
 	if len(p.MediaURLs) > 0 {
@@ -191,12 +202,12 @@ func writeXPostAs(ctx context.Context, tx *sql.Tx, account string, p xsource.Pos
 		return false, err
 	}
 	for i, u := range p.MediaURLs {
-		if err = writeMediaCandidate(ctx, tx, p.ID, u, account, i, now); err != nil {
+		if err = writeMediaCandidate(ctx, tx, p.ID, u, kindAt(p.MediaKinds, i), i, now); err != nil {
 			return false, err
 		}
 	}
 	if p.Quote != nil {
-		if err = writeQuoteMedia(ctx, tx, p.ID, p.Quote.MediaURLs, now); err != nil {
+		if err = writeQuoteMedia(ctx, tx, p.ID, p.Quote.MediaURLs, p.Quote.MediaKinds, now); err != nil {
 			return false, err
 		}
 		if own {
@@ -231,13 +242,13 @@ func quoteJSON(q *xsource.Quote) any {
 // writeQuoteMedia registers a quoted status's images as pending candidates.
 // A quoted image the cache cannot identify is left out rather than failing
 // the post.
-func writeQuoteMedia(ctx context.Context, tx *sql.Tx, postID string, urls []string, now string) error {
+func writeQuoteMedia(ctx context.Context, tx *sql.Tx, postID string, urls, kinds []string, now string) error {
 	position := 0
-	for _, u := range urls {
+	for i, u := range urls {
 		if _, _, err := mediaIdentity(u); err != nil {
 			continue
 		}
-		if err := replaceMediaLink(ctx, tx, "x", u, "post", postID, roleQuoteImage, position, now); err != nil {
+		if err := replaceMediaLinkKind(ctx, tx, "x", u, "post", postID, roleQuoteImage, position, kindAt(kinds, i), now); err != nil {
 			return err
 		}
 		position++
@@ -262,8 +273,33 @@ func resetScheduleImageReview(ctx context.Context, tx *sql.Tx, id, now string) e
 	_, err := tx.ExecContext(ctx, `UPDATE assets SET manual_period_start=NULL,manual_period_end=NULL,manual_period_reason=NULL WHERE id=?`, id)
 	return err
 }
-func writeMediaCandidate(ctx context.Context, tx *sql.Tx, postID, url, account string, pos int, now string) error {
-	return replaceMediaLink(ctx, tx, "x", url, "post", postID, "post-image", pos, now)
+func writeMediaCandidate(ctx context.Context, tx *sql.Tx, postID, url, kind string, pos int, now string) error {
+	return replaceMediaLinkKind(ctx, tx, "x", url, "post", postID, "post-image", pos, kind, now)
+}
+
+// Media link kinds of an X image (media_links.kind): a photo, or the
+// thumbnail of a video or GIF. NULL reads as a photo.
+const (
+	mediaKindPhoto = "photo"
+	mediaKindVideo = "video"
+	mediaKindGIF   = "gif"
+)
+
+// mediaLinkKind is a stored kind, or "" for an unknown one.
+func mediaLinkKind(kind string) string {
+	switch kind {
+	case mediaKindPhoto, mediaKindVideo, mediaKindGIF:
+		return kind
+	}
+	return ""
+}
+
+// kindAt is the kind of the i-th image, or "" when the list has none.
+func kindAt(kinds []string, i int) string {
+	if i < len(kinds) {
+		return kinds[i]
+	}
+	return ""
 }
 func writeScheduleCandidate(ctx context.Context, tx *sql.Tx, c xsource.ScheduleCandidate, now string) error {
 	id := scheduleAssetID(c.PostID)

@@ -161,7 +161,10 @@ function XStatusItem({
     setBusy(false)
     if (result) onDone()
   }
-  const promotable = status.related && status.state !== "promoted"
+  // A related account's status, or any status an own account reposted.
+  const promotable =
+    (status.related || status.reasons.includes("reposted")) &&
+    (status.state === "stored" || status.state === "demoted")
   const demotable = status.state === "promoted"
   return (
     <li

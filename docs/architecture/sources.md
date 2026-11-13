@@ -90,6 +90,16 @@ post that still names its file takes the thumbnail on its next refresh. A
 quoted status is read into the same
 [quote projection](#quoted-posts) on both paths.
 
+Every path also records what each image shows, a photo or the thumbnail of a
+video or GIF: the detail answer's `media_extended[].type` (`image`, `video`,
+`gif`), the timeline's `media` types (`photo`, `video`, `gif`) and the X
+API's media `type` (`photo`, `video`, `animated_gif`), for the post's own
+images and a quoted status's alike. The X API mapping and a pooled status
+keep the kinds beside their images as `raw_json.mediaKinds`; an image no
+source types is a photo. The kind is stored on the image's media link (see
+[Media cache](media-cache.md#database-model)); a video or GIF file itself is
+never requested.
+
 The operator's timeline fetches read the same timeline differently (see
 [Manual fetches](workflows.md#manual-fetches-and-historical-backfill)): they
 read the same pages of 20 and store each own status from the page itself.
@@ -127,7 +137,9 @@ failures). A 404 or 410 answer counts as gone, and the second consecutive
 gone answer drops the ID with `x_status_gone`. An answer that the status is
 another account's (an ID an older profile fallback queued from a quote, say)
 is no failure: it drops the ID at once with `x_status_foreign`, without an
-error, retry state or partial run, though it still counts as requested. Any
+error, retry state or partial run, though it still counts as requested. An
+answer that the status is the account's own repost of another status (see
+[Reposts](#reposts)) drops the ID the same way with `x_status_repost`. Any
 other failure (timeout, 429, 5xx, invalid JSON or response) waits 1 hour after the
 first consecutive failure, 6 hours after the second and 24 hours after the
 third, as the extraction failure backoff does, and the fourth drops the ID
@@ -194,12 +206,15 @@ Every pooled status stores the reasons that apply to it:
 | Reason     | When                                                                    | Effect              |
 | ---------- | ----------------------------------------------------------------------- | ------------------- |
 | `keyword`  | a related account's status whose text contains one of its keyword rules | promoted            |
-| `manual`   | an operator promoted a related account's status                         | promoted            |
+| `manual`   | an operator promoted a related account's status or a reposted status    | promoted            |
 | `quoted`   | an own account quoted it, whatever its author                           | translated, no card |
-| `reposted` | an own account reposted it, and its author is a related account         | translated, no card |
+| `reposted` | an own account reposted it, whatever its author                         | see below, no card  |
 | `none`     | none of the above                                                       | stored only         |
 
-Keyword rules match anywhere in the text, ignoring letter case. Reasons are
+A reposted status of a related account is translated; any other author's is
+stored untranslated until an operator promotes it (see [Reposts](#reposts)).
+Keyword rules apply to related accounts' statuses alone and match anywhere
+in the text, ignoring letter case. Reasons are
 evaluated when a related timeline lists a status, when an own account
 reposts it, when an operator decides on it, and for every pooled status when
 the related accounts or their rules are saved.
@@ -218,8 +233,11 @@ stays. Showing a promoted post in Posts records a manual promote, and hiding
 it withdraws that promote. An operator's promote or demote (`manual_decision`, with its reason
 and time) is a durable lock that the rules never override; a manual promote
 shows a hidden promoted post, and returning a status to the rules lets them
-decide again. Only a related account's status can be promoted by hand, and a
-pooled status that is an own post is never promoted or demoted.
+decide again. A related account's status and any reposted status can be
+promoted by hand. Returned to the rules, a status they do not promote (any
+but a related account's status that matches its keywords) stays unpromoted,
+or hidden when it was promoted. A pooled status that is an own post is never
+promoted or demoted.
 
 #### X API in the chain
 
@@ -1816,23 +1834,49 @@ extraction skips it (see
 
 Timeline pages list an own account's repost under the original status's ID,
 time and author, with `reposted_by` naming the account; X API answers list
-it as a post that references the status as `retweeted`. Neither is ever a
-post or a cursor, pending or gap entry. Recent synchronization and manual
-fetches record each one in `x_reposts`: the reposted status ID, the
-reposting account and, when known, the status's author, with the time it
-was first seen, which a later listing keeps. The board shows no reposts. The
-timed X API method asks for the account's posts without retweets, so it
-records none.
+it as a post of its own ID that references the status as `retweeted`. A
+vxtwitter detail answer for a repost's own ID names the reposting account as
+its author, words itself `RT @author: …` and carries the reposted status
+under `retweet`. None of them is ever a post or a cursor, pending or gap
+entry: a detail answer with `retweet` drops a pending ID with
+`x_status_repost` and finishes a refresh. Recent synchronization, detail
+requests and manual fetches record each repost in `x_reposts`: the reposted
+status ID, the reposting account and, when known, the status's author and
+the repost's own ID, with the time it was first seen, which a later listing
+keeps. The board shows a reposted status only once an operator promotes it
+(below). The timed X API method asks for the
+account's posts without retweets, so it records none.
 
-A reposted status of a [related account](#related-accounts) also enters the
-pool with `reposted_at`, from the repost item when the account's own
-timeline has not stored it yet, and its reasons are evaluated again: it is
-translated for the `reposted` reason and promoted only by a keyword or by
-hand. A repost of any other author records the link alone.
+A stored own post under a repost's own ID (an archive import can write one)
+is removed with everything keyed to it, and the events it alone supported
+are retired, in the same transaction (see
+[Reposts stored as posts](data-model.md#reposts-stored-as-posts)). No later
+write stores a post under that ID.
+
+Every reposted status the listing or answer carries enters the pool with
+`reposted_at`, whatever its author, and its reasons are evaluated again; a
+repost item without the status only marks a pooled row reposted. A
+[related account](#related-accounts)'s status, unless its own timeline
+stored it first, is translated for the `reposted` reason and promoted by a
+keyword or by hand; another author's is stored untranslated and promoted
+only by hand. The console's External posts list both under `reposted` with
+the reposting accounts.
+
+The wall is Kano's own words and a repost is someone else's, so no rule puts
+a repost on the board; an operator picks the few worth showing, such as a
+collaborator's song release, through the
+[related-account promotion](#related-accounts) and its lock. A promoted
+repost is its author's post like any promoted post: it shows their handle,
+name, wording and images, appears only on the combined wall and in the
+archive, and is translated, extracted and cached as a post. The public post
+names the own accounts that reposted it, from `x_reposts` and first
+sighting first, as `repostedBy` (see
+[Public snapshot contract](public-api.md#public-snapshot-contract)).
 
 #### Refresh from the Source
 
-An operator's refresh (`POST /api/admin/posts/{id}/refresh`) only stores
+An operator's refresh of an own X post (`POST /api/admin/posts/{id}/refresh`,
+or `POST /api/admin/posts/refresh` for up to 200 posts at once) only stores
 `posts.refresh_requested_at` and removes the status's pending failure
 backoff. The next X recent synchronization reads up to 20 such posts per
 account, oldest request first, and puts them ahead of the queue. Under a
@@ -1844,7 +1888,8 @@ a detail request even when a timeline page lists the status (which would
 otherwise store it from the page and leave the stored post unchanged) and
 even while a failure backoff holds it. A usable answer rewrites the post,
 its quote and its `quote-image` links like any detail answer; the hide
-decision stays. The request is cleared once its detail request was made,
+decision stays. An answer that the status is the account's repost removes
+the post and records the repost instead (see [Reposts](#reposts)). The request is cleared once its detail request was made,
 whatever it answered; a failed request is then pending like any other. A
 refresh shares the X status-request budget, so with a budget of 0 it
 waits. The step result counts made refreshes as `refreshed`, only when
@@ -1933,8 +1978,8 @@ check failed, and in a forced pass.
 
 The `translate` step machine-translates X post and Bilibili dynamic text,
 the titles of the unmerged videos public readers list (YouTube videos and
-Bilibili uploads whose form is settled), the X statuses own posts quote or
-repost and the
+Bilibili uploads whose form is settled), the X statuses own posts quote, the
+related accounts' statuses own accounts repost and the
 dynamics own forwards forward into
 English, Japanese and Simplified Chinese, each
 locale only when it is not the detected source language (see
@@ -1951,8 +1996,8 @@ next configured target, in queue order.
 Without a usable target the step records `disabled` with the reason and
 keeps operator requests.
 
-Candidates are posts, YouTube videos, pooled quoted or reposted X
-statuses that are not stored posts (`owner_type` `x_status`, see
+Candidates are posts, YouTube videos, pooled quoted X statuses and reposted
+statuses of related accounts that are not stored posts (`owner_type` `x_status`, see
 [Quoted posts](#quoted-posts)) and pooled forwarded dynamics that are not
 stored posts (`owner_type` `bilibili_status`, see [Forwards](#forwards))
 whose current wording lacks a usable translation of a needed locale:
@@ -1961,7 +2006,8 @@ their age), then posts and videos, then pooled X statuses, then pooled
 dynamics; within each, never-attempted wording, then the least recently
 attempted, newest first. Unrequested candidates are limited to the
 translation lookback (30 days by default), by publication, for a pooled
-status by when an own post last quoted it, and for a pooled dynamic by when
+status by when an own post last quoted it or an own account first reposted
+it, and for a pooled dynamic by when
 an own forward last forwarded it, and at most the translation items per run
 (20 by default) are sent per run, pooled statuses included (see
 [sync settings](../operations/configuration.md#sync-settings)). A locale already covered

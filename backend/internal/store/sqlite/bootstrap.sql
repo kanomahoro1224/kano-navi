@@ -178,7 +178,8 @@ CREATE TABLE media_links (
     position INTEGER NOT NULL DEFAULT 0,
     alt TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    kind TEXT
   );
 
 CREATE TABLE media_versions (
@@ -509,6 +510,7 @@ CREATE TABLE x_reposts (
     account_handle TEXT NOT NULL,
     author_handle TEXT,
     first_seen_at TEXT NOT NULL,
+    retweet_id TEXT,
     PRIMARY KEY (status_id, account_handle)
   );
 
@@ -607,5 +609,7 @@ CREATE INDEX videos_instant_idx ON videos (julianday(COALESCE(scheduled_at, publ
 CREATE INDEX videos_merged_into_idx ON videos (merged_into) WHERE merged_into IS NOT NULL;
 
 CREATE INDEX videos_schedule_instant_idx ON videos (julianday(scheduled_at), id);
+
+CREATE INDEX x_reposts_retweet_idx ON x_reposts (retweet_id) WHERE retweet_id IS NOT NULL;
 
 CREATE INDEX x_statuses_author_idx ON x_statuses (lower(author_handle), length(id), id);

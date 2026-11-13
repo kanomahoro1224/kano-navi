@@ -561,9 +561,11 @@ const (
 
 // SetXStatusDecision records an operator's promote or demote as a durable
 // lock with its reason, or with "automatic" removes the lock so the rules
-// decide again. A promote needs a related account's status and shows a
-// promoted post hidden before; a demote hides the promoted post. The status's
-// own post is never touched.
+// decide again. A promote needs a related account's status or one an own
+// account reposted, and shows a promoted post hidden before; a demote hides
+// the promoted post. The status's own post is never touched. Returned to the
+// rules, a status they do not promote (any but a related account's matching
+// status) stays unpromoted, or hidden when it was promoted.
 func (s *Store) SetXStatusDecision(ctx context.Context, id, decision, reason string) (AdminXStatus, error) {
 	if !s.Writable() {
 		return AdminXStatus{}, ErrReadOnly
@@ -585,9 +587,9 @@ func (s *Store) SetXStatusDecision(ctx context.Context, id, decision, reason str
 	}
 	defer tx.Rollback()
 	var author, previous string
-	var stored, promoted, hidden bool
-	err = tx.QueryRowContext(ctx, `SELECT s.author_handle,COALESCE(s.manual_decision,''),p.id IS NOT NULL,p.promoted_at IS NOT NULL,p.hidden_at IS NOT NULL
-		FROM x_statuses s LEFT JOIN posts p ON p.id=s.id WHERE s.id=?`, id).Scan(&author, &previous, &stored, &promoted, &hidden)
+	var stored, promoted, hidden, reposted bool
+	err = tx.QueryRowContext(ctx, `SELECT s.author_handle,COALESCE(s.manual_decision,''),p.id IS NOT NULL,p.promoted_at IS NOT NULL,p.hidden_at IS NOT NULL,s.reposted_at IS NOT NULL
+		FROM x_statuses s LEFT JOIN posts p ON p.id=s.id WHERE s.id=?`, id).Scan(&author, &previous, &stored, &promoted, &hidden, &reposted)
 	if errors.Is(err, sql.ErrNoRows) {
 		return AdminXStatus{}, ErrXStatusNotFound
 	}
@@ -601,8 +603,8 @@ func (s *Store) SetXStatusDecision(ctx context.Context, id, decision, reason str
 	if err != nil {
 		return AdminXStatus{}, dbErr(err)
 	}
-	if _, related := relatedKeywords(accounts)[strings.ToLower(author)]; decision == xDecisionPromote && !related {
-		return AdminXStatus{}, fmt.Errorf("%w: only a related account's status can be promoted", ErrXRelatedInvalid)
+	if _, related := relatedKeywords(accounts)[strings.ToLower(author)]; decision == xDecisionPromote && !related && !reposted {
+		return AdminXStatus{}, fmt.Errorf("%w: only a related account's or a reposted status can be promoted", ErrXRelatedInvalid)
 	}
 	now := ISOTime(time.Now())
 	changed := false
@@ -827,8 +829,8 @@ func (s *Store) ListAdminXStatuses(ctx context.Context, f AdminXStatusFilter) (A
 }
 
 // xStatusLinks fills, for a page of pooled statuses, the own posts that quote
-// each (newest first, at most five) and the own accounts that reposted it.
-// One scan of the posts' quotes serves the whole page.
+// each (newest first, at most five) and the own accounts that reposted it,
+// first sighting first. One scan of the posts' quotes serves the whole page.
 func (s *Store) xStatusLinks(ctx context.Context, items []AdminXStatus) error {
 	if len(items) == 0 {
 		return nil
@@ -862,7 +864,7 @@ func (s *Store) xStatusLinks(ctx context.Context, items []AdminXStatus) error {
 		return dbErr(err)
 	}
 	rows, err = s.db.QueryContext(ctx, `SELECT status_id, account_handle FROM x_reposts
-		WHERE status_id IN (`+placeholders(len(ids))+`) ORDER BY status_id, account_handle`, idArgs(ids)...)
+		WHERE status_id IN (`+placeholders(len(ids))+`) ORDER BY status_id, julianday(first_seen_at), account_handle`, idArgs(ids)...)
 	if err != nil {
 		return dbErr(err)
 	}

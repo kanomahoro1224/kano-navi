@@ -217,10 +217,12 @@ event status codes and the generated YouTube details become labels through
 while other details and operator notes show as stored (see
 [Stored event text](data-model.md#stored-event-text)).
 
-A related account's promoted post (`post.promoted`) shows the account's
-initial on the sunken surface in place of Kano's portrait, beside its
-handle; it appears in the All tab and the archive, never under an own
-account's tab.
+A promoted post (`post.promoted`), a related account's or a reposted one,
+shows its author's initial on the sunken surface in place of Kano's
+portrait, beside its handle; it appears in the All tab and the archive,
+never under an own account's tab, even an account that reposted it. A post
+with `repostedBy` opens with a muted repost mark, "Reposted by @account",
+naming those accounts as one locale list (`Intl.ListFormat`).
 
 A post that quotes another status (`post.quote`, see
 [Quoted posts](data-model.md#quoted-posts)) shows it nested in the post note,
@@ -439,8 +441,9 @@ pass. The list pages 50 posts at a time.
 Each row has a selection box on its left edge, and shift-click selects the range from the last toggled row. A selection
 bar above the list, which sticks under the top bar, selects the whole page
 and applies the state's actions to every selected post in one request:
-Dismiss and Process again for failed extractions, Process again for
-uncertain posts, Translate again for failed translations. A new filter or
+Dismiss, Process again and Refresh from source for failed extractions,
+Process again and Refresh from source for uncertain posts, Translate again
+for failed translations; a refresh skips posts that are not own X posts. A new filter or
 page clears the selection.
 
 Console dates are `YYYY-MM-DD` and times `YYYY-MM-DD HH:mm`, in Japan time
@@ -564,8 +567,8 @@ own posts that quote it (opening Posts searched for the post), the accounts
 that reposted it, a link to a promoted status's post in Posts and a locked
 decision's reason; the translation summary of a status that has no post;
 badges for its state (On the board, Demoted, Stored only), a lock
-and its reasons; and icon actions to promote a related account's status,
-demote a promoted one, return a locked one to the keyword rules and open it
+and its reasons; and icon actions to promote a related account's status or
+a reposted one, demote a promoted one, return a locked one to the keyword rules and open it
 on X. Promote and demote open a dialog that shows the wording and requires
 a reason. Filters cover the text or ID, the author (the related accounts),
 the reason and the state; a header link opens the related accounts on
@@ -589,15 +592,21 @@ time, the wording (three lines) and its quote, the post's own cached images
 (up to three, "+N" counts the rest), the translation status, the extraction
 state with a Hidden badge for a post hidden from the public pages, a
 Promoted badge, which opens External posts, for a related account's
-promoted status, and a
+promoted status, a Refresh queued badge with the request's time, and a
 Schedule image badge for a post with a schedule image record, and the
-edit, "process again with the LLM" and open actions. The columns after the
+edit, "process again with the LLM", refresh from the source (an own X post
+only, disabled while one is queued) and open actions. The columns after the
 wording have fixed widths, so they line up from post to post. A text-only
 post shows no image cell; a post whose images are not cached yet shows one
 placeholder with the reason. A feed under 1000px puts the account, time,
 state and actions on one line above the wording, images and translations,
 and under 560px the state gets a line of its own. A hidden post's wording is
-dimmed. Beside the account, extraction, translation and date filters,
+dimmed. An own X post has a selection box before its account; shift-click
+selects the range from the last toggled post. A selection bar above the
+feed, which sticks under the top bar, selects every own X post on the page
+and queues a refresh from the source for the selected posts in one request;
+a new filter, platform or page clears the selection. Beside the account,
+extraction, translation and date filters,
 Queued for keeps the posts with an open operator request: any, Extract
 again, Read again from X or AI translation. The account filter lists the X
 accounts and is absent on the Bilibili tab. A platform keeps the other
@@ -607,18 +616,17 @@ when there is one (`#posts/x/queued-refresh`).
 
 Edit opens the post in a dialog: the whole wording, every cached image, the
 translations, the quote, the schedule image form and a switch that hides the
-post from the public pages or shows it again, with the LLM and open actions
-in its footer. An X post with images can be marked as a schedule image there:
+post from the public pages or shows it again, with the LLM, refresh and open
+actions in its footer. An X post with images can be marked as a schedule image there:
 the image (a choice when the post has several), a required reason and an
 optional first and last day; a post with a record shows its badge and a link
 to the Schedule list's images.
 
 The quote is a read-only card on the sunken surface under the wording, so
 its thumbnails never read as the post's own images. Its header holds the
-author, handle and time, badges for a quote hidden from the board and a
-queued refresh, and icon actions that hide the quote from the board or show
-it again, queue a refresh from the source (disabled while one is queued) and
-open the quoted post. Below come the wording, folded to three lines with a
+author, handle and time, a badge for a quote hidden from the board, and icon
+actions that hide the quote from the board or show it again and open the
+quoted post. Below come the wording, folded to three lines with a
 "Show full quote" toggle that appears only when the clamp cuts it, the ready
 quote thumbnails that open the image viewer, or the unavailable state. The
 edit dialog shows the quote's whole wording. Nothing edits the quote itself.
@@ -899,8 +907,9 @@ The archive dialogs read through `useArchive` in `use-dashboard.ts`, only
 while one is open: the schedule reads the Monday-first weeks covering the month
 from `/api/calendar`, past posts read the month's own days from
 [`/api/posts`](public-api.md#bounded-public-archives), and past videos read
-the [video timeline](public-api.md#bounded-public-archives) from `/api/videos`,
-from the newest video or from the last day of a chosen start month. They
+the [video timeline](public-api.md#bounded-public-archives) from `/api/videos`
+in pages of 30, from the newest video or from the page holding a chosen
+month. They
 follow the same rules as the calendar: pages of one revision are appended, a
 later page from another revision rereads the loaded pages atomically (up to
 three attempts under the 12-second deadline), and a board revision change
@@ -925,11 +934,19 @@ filter. Months without posts and months
 after the latest are marked `aria-disabled`; arrow keys move between months,
 Page Up and Page Down change the year, and Escape or a press outside closes the
 grid before the dialog. A failed index read keeps a known index, and without
-one every month up to the latest is offered.
+one every month up to the latest is offered. The schedule's month label opens
+the same grid without an index: every month is offered and the year stepper
+is unbounded.
+Until a month's first page arrives, the schedule dialog shows the month grid
+with its dates and a shimmering bar in each day, and the post archive shows
+skeleton cards in the chosen layout, so a month change keeps the body in
+place. The post account filter takes its counts from the month index when it
+has one, so they stay while the month loads.
 A click anywhere in a month-grid day picks it, listing its entries beside the
 grid (below it on phones). The current month opens on today; in another month
-the side panel asks for a day, and on phones nothing shows below the grid until
-one is picked. A grid entry is a button: it picks its day, marks
+the side panel asks for a day, and on phones the day list waits below the
+grid until one is picked. An empty month's note and a failed read sit in the
+side panel (below the grid on phones), never above the grid. A grid entry is a button: it picks its day, marks
 the entry in that list and scrolls it into view, again on every pick, and the
 list's entries open the details sheet. Only the day heading of the list is a
 live region, so an opened sheet is not announced as an update. The panel can
@@ -958,9 +975,22 @@ change of the scrolled-to month renders no card again. In the
 dialog's timeline mode (`ArchiveDialog`'s `timeline`), the month label follows
 the scroll (the last month whose header has reached the top of the body) and
 is not a live region, and the month arrows give way to a Latest button. A
-month chosen in the jump grid scrolls into view when it is loaded; otherwise
-the timeline restarts from that month, offering a button for the newer videos,
-and Latest returns to the newest. The
+month chosen in the jump grid scrolls into view when it is loaded. Otherwise
+the timeline restarts at the page of the whole newest-first timeline that
+holds the month's newest video (`timelineStartPage`: the month index's videos
+of the later months, in the chosen category, over the page size), reads the
+following page with it so the month can reach the top, and scrolls to the
+month once it is read. Its first loaded page is the snapshot's `firstPage`;
+while that is after page 1, a button above the list reads the page before it
+and puts its videos above, and the video that was first keeps its place on
+screen. A refresh rereads the whole loaded run, from `firstPage` on. While
+the months around a jump or the newly read videos render at their real height
+in place of the `content-visibility` estimate, a `ResizeObserver` keeps the
+target in place for up to a second, letting go as soon as the reader scrolls.
+Without a month index the timeline reads from the chosen month's last day
+(`until`), and the button above returns to the newest. Latest scrolls to the
+top once the loaded run reaches the newest video, and otherwise restarts the
+timeline from it. The
 category buttons (`VideoArchiveFilter`) carry the tag icons, pass the API's
 `category` filter, show the index's per-category totals over every month
 (`categoryCounts` of the loaded timeline while the index is unknown), and keep

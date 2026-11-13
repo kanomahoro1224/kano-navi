@@ -53,7 +53,8 @@ entry with an activity label starts with its icon, and hovering it names the
 activity. On wide screens the grid fills the window, and a day with one or
 two entries wraps their titles onto more lines, more again in a tall window.
 Move
-between months, click or tap a day to list its entries beside the grid (below
+between months, or select the month name to jump to any month of any year;
+the grid keeps its place while a month loads. Click or tap a day to list its entries beside the grid (below
 it on phones) with their whole titles, and show that date's week on the
 board. On wide screens clicking an entry in the grid lists its day and marks
 that entry; on phones a tap shows the day's entries. An entry in the list

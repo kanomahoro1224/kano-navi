@@ -3,6 +3,7 @@ package contentadmin
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,8 +71,46 @@ func TestPostRefreshRequestQueuesWorkOnly(t *testing.T) {
 	if object(t, f.request(http.MethodPost, "/posts/"+quotingID+"/refresh", "", nil).json["state"])["refreshRequestedAt"] != "2026-10-13T01:02:03.000Z" {
 		t.Fatal("a repeated refresh moved the request")
 	}
-	f.request(http.MethodPost, "/posts/manual-1/refresh", "", nil).expectInvalid(t, "only stored X posts can be refreshed from the source")
+	f.request(http.MethodPost, "/posts/manual-1/refresh", "", nil).expectInvalid(t, "only own X posts can be refreshed from the source")
 	f.request(http.MethodPost, "/posts/unknown/refresh", "", nil).expect(t, http.StatusNotFound, "post_not_found")
+	if len(f.network.visited) != 0 {
+		t.Fatalf("a refresh request reached the network: %v", f.network.visited)
+	}
+}
+
+// A bulk refresh queues every listed own X post in one batch and clears
+// each one's pending backoff; unknown IDs, other sources and promoted
+// statuses are skipped without failing it.
+func TestBulkPostRefresh(t *testing.T) {
+	f := newFixture(t, true)
+	const own, queuedBefore, promoted = "1900000000000000110", "1900000000000000111", "1900000000000000112"
+	f.exec(`INSERT INTO posts(id,source,account_handle,text,published_at,url,refresh_requested_at,promoted_at) VALUES
+		(?,'x','synthetic','own','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/1',NULL,NULL),
+		(?,'x','synthetic','queued','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/2','2026-10-12T00:00:00.000Z',NULL),
+		(?,'x','agency_synthetic','promoted','2026-10-01T00:00:00.000Z','https://x.com/agency_synthetic/status/3',NULL,'2026-10-02T00:00:00.000Z'),
+		('bilibili-1','bilibili','synthetic','dynamic','2026-10-01T00:00:00.000Z','https://t.bilibili.com/1',NULL,NULL)`, own, queuedBefore, promoted)
+	f.exec(`INSERT INTO sync_state(source,account_id,metadata_json) VALUES('x','synthetic',?)`,
+		`{"pendingStatusIds":["`+own+`"],"pendingRetries":{"`+own+`":{"failures":2,"retryAt":"2026-10-20T00:00:00Z"}}}`)
+	f.module.now = func() time.Time { return time.Date(2026, 10, 13, 1, 2, 3, 0, time.UTC) }
+
+	queued := f.post("/posts/refresh", map[string]any{"ids": []string{own, own, queuedBefore, promoted, "bilibili-1", "unknown"}})
+	queued.expect(t, http.StatusOK, "")
+	if queued.json["queued"] != float64(2) {
+		t.Fatalf("unexpected queued count: %s", queued.raw)
+	}
+	// A queued request keeps its place; the rest are left as they were.
+	if got := f.text(`SELECT group_concat(id||':'||COALESCE(refresh_requested_at,'-'), ',') FROM (SELECT * FROM posts ORDER BY id)`); got != own+":2026-10-13T01:02:03.000Z,"+queuedBefore+":2026-10-12T00:00:00.000Z,"+promoted+":-,bilibili-1:-" {
+		t.Fatalf("refresh requests: %s", got)
+	}
+	if got := f.text(`SELECT metadata_json FROM sync_state`); got != `{"pendingStatusIds":["`+own+`"],"pendingRetries":{}}` {
+		t.Fatalf("metadata = %s", got)
+	}
+	f.request(http.MethodPost, "/posts/"+promoted+"/refresh", "", nil).expectInvalid(t, "only own X posts can be refreshed from the source")
+
+	tooMany := strings.Split(strings.TrimSuffix(strings.Repeat("p,", 201), ","), ",")
+	for _, body := range []map[string]any{{}, {"ids": []string{}}, {"ids": own}, {"ids": []string{""}}, {"ids": tooMany}, {"ids": []string{own}, "all": true}} {
+		f.post("/posts/refresh", body).expect(t, http.StatusBadRequest, "invalid_input")
+	}
 	if len(f.network.visited) != 0 {
 		t.Fatalf("a refresh request reached the network: %v", f.network.visited)
 	}

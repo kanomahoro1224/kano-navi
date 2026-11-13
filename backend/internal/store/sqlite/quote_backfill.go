@@ -95,7 +95,7 @@ func backfillQuotes(ctx context.Context, tx *sql.Tx) error {
 		if _, err = tx.ExecContext(ctx, `DELETE FROM media_links WHERE owner_type='post' AND owner_id=? AND role=?`, r.id, roleQuoteImage); err != nil {
 			return fail()
 		}
-		if err = writeQuoteMedia(ctx, tx, r.id, quote.MediaURLs, now); err != nil {
+		if err = writeQuoteMedia(ctx, tx, r.id, quote.MediaURLs, quote.MediaKinds, now); err != nil {
 			return fail()
 		}
 		if _, err = tx.ExecContext(ctx, `UPDATE posts SET quote_json=? WHERE id=?`, quoteJSON(quote), r.id); err != nil {
@@ -136,6 +136,64 @@ func dropQuotedScheduleCandidate(ctx context.Context, tx *sql.Tx, postID string,
 	} {
 		if _, err = tx.ExecContext(ctx, statement, id); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// backfillMediaKinds runs once, when startup adds media_links.kind: it marks
+// the post-image and quote-image links of every X post whose stored raw_json
+// types an image as a video or GIF (vxtwitter's media_extended, FxTwitter's
+// media or a stored mediaKinds list), with no request. Every other link
+// keeps NULL, which reads as a photo.
+func backfillMediaKinds(ctx context.Context, tx *sql.Tx) error {
+	rows, err := tx.QueryContext(ctx, `SELECT id,raw_json FROM posts WHERE source='x' AND json_valid(raw_json)
+		AND (raw_json LIKE '%video%' OR raw_json LIKE '%gif%')`)
+	if err != nil {
+		return err
+	}
+	type stored struct{ id, raw string }
+	found := []stored{}
+	for rows.Next() {
+		var r stored
+		if err = rows.Scan(&r.id, &r.raw); err != nil {
+			rows.Close()
+			return err
+		}
+		found = append(found, r)
+	}
+	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+		return err
+	}
+	mark := func(postID, role, url, kind string) error {
+		if kind != mediaKindVideo && kind != mediaKindGIF {
+			return nil
+		}
+		_, normalized, identityErr := mediaIdentity(url)
+		if identityErr != nil {
+			return nil
+		}
+		_, err := tx.ExecContext(ctx, `UPDATE media_links SET kind=? WHERE owner_type='post' AND owner_id=? AND role=?
+			AND media_id IN (SELECT id FROM media_assets WHERE source_url=?)`, kind, postID, role, normalized)
+		return err
+	}
+	for _, r := range found {
+		var payload map[string]any
+		if json.Unmarshal([]byte(r.raw), &payload) != nil {
+			continue
+		}
+		urls, kinds := xsource.OwnMedia(payload)
+		for i, u := range urls {
+			if err = mark(r.id, "post-image", u, kinds[i]); err != nil {
+				return err
+			}
+		}
+		if quote := xsource.QuoteOf(payload); quote != nil {
+			for i, u := range quote.MediaURLs {
+				if err = mark(r.id, roleQuoteImage, u, kindAt(quote.MediaKinds, i)); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

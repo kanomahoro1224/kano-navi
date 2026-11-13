@@ -33,6 +33,10 @@ export const scriptJobs: Record<string, Job[]> = {
   "check-sensitive.ts": ["frontend"],
   "check-sensitive.test.ts": ["frontend"],
   "ci-plan.test.ts": ["frontend"],
+  // The API exports, which their drift tests regenerate.
+  "export-journey-api.ts": ["frontend"],
+  "export-works-api.ts": ["frontend"],
+  "export-lineblog.ts": ["frontend"],
   "go-check.mjs": ["go"],
   "go-docker-smoke.mjs": ["go"],
   "go-test-shard.mjs": ["backend"],

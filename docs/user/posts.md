@@ -10,7 +10,9 @@ Posts are laid out in whole rows; a long post shows its first lines and
 - Filter by account to see one account at a time, bilibili included; each
   account fills the wall with its own newest posts, even when another one
   posted more recently.
-- Open images in a viewer and step through them.
+- Open images in a viewer and step through them. A video or GIF shows its
+  still with a play mark or a GIF tag; it opens the post on X, where it
+  plays.
 - See like, repost, and reply counts of X posts as they were last collected.
 - A post that quotes another one shows the quoted post as a nested card that
   links to it on X. A bilibili post that forwards another one shows the
@@ -25,6 +27,10 @@ Posts are laid out in whole rows; a long post shows its first lines and
   about Kano. They show the account's initial instead of Kano's portrait and
   appear under All, not under Kano's account tabs. One that Kano quotes
   shows only inside her post.
+- A few posts that Kano reposted appear on the wall too, such as a
+  collaborator's song release. Each shows its own author and is marked
+  **Reposted by** with the account of Kano's that reposted it. Like the
+  agency's posts, they appear under All only.
 - A post translated into your content language ends with the same
   translation mark as video titles; select it to read the original post. Japanese
   readers see Japanese posts as written and a Chinese bilibili post in its

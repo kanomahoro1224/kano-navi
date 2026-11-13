@@ -1336,6 +1336,8 @@ export const adminMessages = {
     "admin.notice.postShown": "Post shown on the public pages again",
     "admin.notice.quoteShown": "Quote shown on the public board again",
     "admin.notice.refreshQueued": "Queued for the next X sync",
+    "admin.notice.refreshesQueued": ({ count }: { count: number }) =>
+      `${plural(count, "post", "posts")} queued for the next X sync`,
     "admin.notice.videoSaved": "Video corrections saved",
     "admin.notice.worksDecisionSaved": "Works decision saved",
     "admin.notice.videoRefresh":
@@ -2789,6 +2791,8 @@ export const adminMessages = {
     "admin.notice.postShown": "这条贴文已重新在公开页面显示",
     "admin.notice.quoteShown": "已恢复在公开看板显示引用",
     "admin.notice.refreshQueued": "已排入下次 X 同步",
+    "admin.notice.refreshesQueued": ({ count }: { count: number }) =>
+      `${count} 条贴文已排入下次 X 同步`,
     "admin.notice.videoSaved": "已保存视频修正",
     "admin.notice.worksDecisionSaved": "已保存作品页决定",
     "admin.notice.videoRefresh":
@@ -4849,6 +4853,8 @@ export const adminMessages = {
     "admin.notice.postShown": "ポストを公開ページに再表示しました",
     "admin.notice.quoteShown": "引用を公開ボードに再表示しました",
     "admin.notice.refreshQueued": "次の X 同期に追加しました",
+    "admin.notice.refreshesQueued": ({ count }: { count: number }) =>
+      `${count} 件のポストを次の X 同期に追加しました`,
     "admin.notice.videoSaved": "動画の編集を保存しました",
     "admin.notice.videoRefresh":
       "更新を依頼しました。次の YouTube ステップでこの動画を最初に読みます",

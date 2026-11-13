@@ -22,7 +22,7 @@ test("month archives page by revision, follow the board and cancel on close", as
     resolve: { alias: { "@": path.resolve("src") } },
   })
   try {
-    const { useArchive } = await vite.ssrLoadModule(
+    const { useArchive, timelineStartPage } = await vite.ssrLoadModule(
       "/src/dashboard/use-dashboard.ts",
     )
     await vite.close()
@@ -126,7 +126,7 @@ test("month archives page by revision, follow the board and cancel on close", as
             await act(async () => void fixture.current().reload())
             await fixture.respond(2, page(1, null))
             assert.deepEqual(states(), ["live", "upcoming"])
-            assert.match(fixture.requests[3].url, /[?&]page=2$/)
+            assert.match(fixture.requests[3].url, /[?&]page=2(&|$)/)
             await fixture.respond(3, page(2, null))
             assert.deepEqual(states(), [null, null])
             assert.equal(fixture.current().archive.page, 2)
@@ -304,7 +304,10 @@ test("month archives page by revision, follow the board and cancel on close", as
         const fixture = await setup(context, { request: latest, revision: 1 })
         try {
           // The timeline reads every month from the newest video.
-          assert.equal(fixture.requests[0].url, "/api/videos?page=1")
+          assert.equal(
+            fixture.requests[0].url,
+            "/api/videos?page=1&pageSize=30",
+          )
           // Its month is only what scrolled into view: no new read.
           await fixture.rerender({
             request: { ...latest, monthStart: new Date(2026, 8, 1) },
@@ -321,7 +324,7 @@ test("month archives page by revision, follow the board and cancel on close", as
           assert.equal(fixture.requests[0].signal.aborted, true)
           assert.equal(
             fixture.requests[1].url,
-            "/api/videos?page=1&until=2026-09-30&category=game",
+            "/api/videos?page=1&pageSize=30&until=2026-09-30&category=game",
           )
           await fixture.respond(0, fixture.page(1, 1, ["late"]))
           assert.equal(fixture.current().archive, null)
@@ -334,6 +337,83 @@ test("month archives page by revision, follow the board and cancel on close", as
         } finally {
           await fixture.unmount()
         }
+      },
+    )
+
+    await t.test(
+      "a timeline from a chosen month starts at its page and loads newer pages above",
+      async (context) => {
+        const request = {
+          kind: "videos",
+          monthStart: october,
+          anchor: new Date(2026, 8, 1),
+          startPage: 3,
+        }
+        const fixture = await setup(context, { request, revision: 1 })
+        const first = () => fixture.current().archive.firstPage
+        try {
+          // The page holding the month, without an end date.
+          assert.equal(
+            fixture.requests[0].url,
+            "/api/videos?page=3&pageSize=30",
+          )
+          // It reads the page after it too, so the month can reach the top.
+          await fixture.respond(0, fixture.page(3, 1, ["c"], true))
+          assert.match(fixture.requests[1].url, /[?&]page=4&/)
+          await fixture.respond(1, fixture.page(4, 1, ["d"]))
+          assert.equal(fixture.ids(), "c,d")
+          assert.equal(first(), 3)
+          await act(async () => void fixture.current().loadNewer())
+          assert.match(fixture.requests[2].url, /[?&]page=2&/)
+          await fixture.respond(2, fixture.page(2, 1, ["b"], true))
+          assert.equal(fixture.ids(), "b,c,d")
+          assert.equal(first(), 2)
+          assert.equal(fixture.current().archive.page, 4)
+          // A new revision rereads the whole loaded run, from its first page.
+          await fixture.rerender({ request, revision: 2 })
+          assert.match(fixture.requests[3].url, /[?&]page=2&/)
+          await fixture.respond(3, fixture.page(2, 2, ["b2"], true))
+          await fixture.respond(4, fixture.page(3, 2, ["c2"], true))
+          await fixture.respond(5, fixture.page(4, 2, ["d2"]))
+          assert.equal(fixture.ids(), "b2,c2,d2")
+          assert.equal(first(), 2)
+          // A newer page from another revision rereads instead of joining.
+          await act(async () => void fixture.current().loadNewer())
+          await fixture.respond(6, fixture.page(1, 3, ["a3"], true))
+          assert.match(fixture.requests[7].url, /[?&]page=2&/)
+          await fixture.respond(7, fixture.page(2, 3, ["b3"], true))
+          await fixture.respond(8, fixture.page(3, 3, ["c3"], true))
+          await fixture.respond(9, fixture.page(4, 3, ["d3"]))
+          assert.equal(fixture.ids(), "b3,c3,d3")
+          await act(async () => void fixture.current().loadNewer())
+          await fixture.respond(10, fixture.page(1, 3, ["a3"], true))
+          assert.equal(fixture.ids(), "a3,b3,c3,d3")
+          assert.equal(first(), 1)
+          // Nothing is newer than page one.
+          await act(async () => void fixture.current().loadNewer())
+          assert.equal(fixture.requests.length, 11)
+        } finally {
+          await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
+      "a month's timeline page counts every video of the later months",
+      () => {
+        const months = [
+          { month: "2026-09", total: 10, counts: { game: 4 } },
+          { month: "2026-10", total: 40, counts: { game: 30, talk: 10 } },
+          { month: "2026-11", total: 5, counts: { game: 2, song: 3 } },
+        ]
+        assert.equal(timelineStartPage(months, "2026-11", null), 1)
+        assert.equal(timelineStartPage(months, "2026-10", null), 1)
+        // 45 newer videos: the month starts on the second page of thirty.
+        assert.equal(timelineStartPage(months, "2026-09", null), 2)
+        assert.equal(timelineStartPage(months, "2026-09", "game"), 2)
+        assert.equal(timelineStartPage(months, "2026-09", "talk"), 1)
+        // A month without videos starts where the next older one would.
+        assert.equal(timelineStartPage(months, "2026-08", null), 2)
       },
     )
   } finally {

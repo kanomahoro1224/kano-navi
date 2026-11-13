@@ -52,7 +52,8 @@ and Simplified Chinese, in light and dark themes, on phones and desktops.
     <td width="50%" valign="top">
       <h3>💬 Recent Posts</h3>
       Recent posts from both X accounts and bilibili, with images, translated
-      quoted posts, the agency's posts about Kano, an account filter, and a
+      quoted posts, the agency's posts about Kano, picked reposts, an account
+      filter, and a
       month-by-month archive.
     </td>
     <td width="50%" valign="top">

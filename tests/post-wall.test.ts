@@ -491,3 +491,302 @@ test("a dynamic's stickers show in its original wording, never in a translation"
     }
   })
 })
+
+test("a post's video and GIF stills carry their mark and open the post on X", async () => {
+  await withVite(async (load) => {
+    const [
+      { PostWall, PostMediaView },
+      { AppSettingsProvider, PageMessagesProvider, useAppSettings },
+    ] = await Promise.all([
+      load("/src/dashboard/components/post-wall.tsx"),
+      load("/src/app-settings.tsx"),
+    ])
+    const item = (name: string, kind: string) => ({
+      id: `x-${name}`,
+      url: `/media/x-${name}?v=synthetic`,
+      status: "ready",
+      sourceUrl: null,
+      kind,
+    })
+    const post = {
+      id: "1900000000000000900",
+      source: "x",
+      accountHandle: "example",
+      url: "https://x.example.invalid/example/status/1900000000000000900",
+      text: "clip",
+      publishedAt: "2026-10-08T12:00:00+09:00",
+      mediaUrl: null,
+      mediaStatus: "ready",
+      media: [
+        item("still", "photo"),
+        item("clip", "video"),
+        item("loop", "gif"),
+      ],
+      translations: {},
+      sourceLanguage: "ja",
+      quote: {
+        id: "1900000000000000901",
+        authorHandle: "other",
+        authorName: "Other",
+        text: "quoted",
+        publishedAt: "2026-10-07T12:00:00+09:00",
+        url: "https://x.example.invalid/other/status/1900000000000000901",
+        unavailable: false,
+        media: [item("quoted", "video")],
+        translations: {},
+        sourceLanguage: "ja",
+      },
+    }
+    const opened: { items: any[]; index: number }[] = []
+    function Harness() {
+      const { locale, t } = useAppSettings()
+      return createElement(
+        "div",
+        null,
+        createElement(PostWall, {
+          posts: [post],
+          latestPost: post,
+          accounts: ["example"],
+          bilibiliAccounts: [],
+          avatarUrl: null,
+          windowDays: 14,
+          isLoading: false,
+          locale,
+          now: Date.parse("2026-10-08T21:00:00+09:00"),
+          t,
+          onOpenMedia: (items: any[], index: number) =>
+            opened.push({ items, index }),
+          onOpenArchive: () => {},
+        }),
+        createElement(
+          "div",
+          { className: "viewer" },
+          createElement(PostMediaView, {
+            item: { ...item("clip", "video"), href: post.url },
+            t,
+          }),
+          createElement(PostMediaView, { item: item("still", "photo"), t }),
+        ),
+      )
+    }
+    const globals = globalThis as any
+    const previous = {
+      act: globals.IS_REACT_ACT_ENVIRONMENT,
+      ResizeObserver: globals.ResizeObserver,
+      getComputedStyle: globals.getComputedStyle,
+    }
+    globals.IS_REACT_ACT_ENVIRONMENT = true
+    globals.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    }
+    globals.getComputedStyle = (element: Element) =>
+      browser.getComputedStyle(element as any)
+    let root: Rendered | undefined
+    try {
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: dashboardMessages },
+              createElement(Harness),
+            ),
+          ),
+        )
+      })
+      const note = root!.container.querySelector("article.post-note")!
+      const grid = [...note.querySelector(".post-note-media")!.children]
+      // The photo opens the viewer; the video and the GIF link to the post.
+      assert.deepEqual(
+        grid.map((element) => [
+          element.tagName,
+          element.getAttribute("href"),
+          element.getAttribute("target"),
+          element.getAttribute("aria-label"),
+          element.querySelector(".media-kind-mark")?.className ?? null,
+        ]),
+        [
+          ["BUTTON", null, null, "Open image 1", null],
+          [
+            "A",
+            post.url,
+            "_blank",
+            "Play video on X 2",
+            "media-kind-mark is-video",
+          ],
+          [
+            "A",
+            post.url,
+            "_blank",
+            "Play GIF on X 3",
+            "media-kind-mark is-gif",
+          ],
+        ],
+      )
+      assert.equal(
+        grid[2].querySelector(".media-kind-mark")!.textContent,
+        "GIF",
+      )
+      await click(grid[0])
+      // The viewer's set keeps every still, each video linked to its post.
+      assert.deepEqual(
+        opened.at(-1)!.items.map((entry) => [entry.kind, entry.href ?? null]),
+        [
+          ["photo", null],
+          ["video", post.url],
+          ["gif", post.url],
+        ],
+      )
+      assert.equal(opened.at(-1)!.index, 0)
+      // A quoted video plays from the quote's page.
+      const quoted = note.querySelector(".post-quote-media a")!
+      assert.equal(quoted.getAttribute("href"), post.quote.url)
+      assert.equal(quoted.getAttribute("aria-label"), "Play video on X 1")
+      assert.ok(quoted.querySelector(".media-kind-mark.is-video"))
+      // In the viewer, a video's still links to its post; a photo stays an
+      // image.
+      const viewer = root!.container.querySelector(".viewer")!
+      const play = viewer.querySelector("a.media-dialog-play")!
+      assert.equal(play.getAttribute("href"), post.url)
+      assert.equal(play.getAttribute("aria-label"), "Play video on X")
+      assert.equal(viewer.querySelectorAll("a").length, 1)
+      assert.equal(viewer.querySelectorAll("img").length, 2)
+      // Every board locale names both actions.
+      for (const locale of ["en", "ja", "zh-CN"] as const)
+        for (const key of ["feed.playVideo", "feed.playGif"] as const)
+          assert.ok(dashboardMessages[locale][key], `${locale} ${key}`)
+    } finally {
+      if (root) await act(async () => root!.unmount())
+      globals.IS_REACT_ACT_ENVIRONMENT = previous.act
+      globals.ResizeObserver = previous.ResizeObserver
+      globals.getComputedStyle = previous.getComputedStyle
+    }
+  })
+})
+
+test("a promoted repost names the own accounts that reposted it", async () => {
+  await withVite(async (load) => {
+    const [
+      { PostWall, repostingAccounts },
+      { AppSettingsProvider, PageMessagesProvider, useAppSettings },
+    ] = await Promise.all([
+      load("/src/dashboard/components/post-wall.tsx"),
+      load("/src/app-settings.tsx"),
+    ])
+    const base = {
+      source: "x",
+      mediaUrl: null,
+      mediaStatus: "none",
+      media: [],
+      translations: {},
+      sourceLanguage: "en",
+      quote: null,
+    }
+    const reposted = {
+      ...base,
+      id: "1900000000000000950",
+      accountHandle: "composer_example",
+      accountUrl: "https://x.example.invalid/composer_example",
+      url: "https://x.example.invalid/composer_example/status/1900000000000000950",
+      text: "Synthetic song release",
+      publishedAt: "2026-10-08T12:00:00+09:00",
+      promoted: true,
+      repostedBy: ["_SyntheticB", "kano_example"],
+    }
+    const own = {
+      ...base,
+      id: "1900000000000000951",
+      accountHandle: "kano_example",
+      accountUrl: "https://x.example.invalid/kano_example",
+      url: "https://x.example.invalid/kano_example/status/1900000000000000951",
+      text: "Synthetic own post",
+      publishedAt: "2026-10-08T11:00:00+09:00",
+      promoted: false,
+      repostedBy: [],
+    }
+    function Harness() {
+      const { locale, t } = useAppSettings()
+      return createElement(PostWall, {
+        posts: [reposted, own],
+        latestPost: own,
+        accounts: ["kano_example", "_SyntheticB"],
+        bilibiliAccounts: [],
+        avatarUrl: null,
+        windowDays: 3,
+        isLoading: false,
+        locale,
+        now: Date.parse("2026-10-08T21:00:00+09:00"),
+        t,
+        onOpenMedia: () => {},
+        onOpenArchive: () => {},
+      })
+    }
+    const globals = globalThis as any
+    const previous = {
+      act: globals.IS_REACT_ACT_ENVIRONMENT,
+      ResizeObserver: globals.ResizeObserver,
+      getComputedStyle: globals.getComputedStyle,
+    }
+    globals.IS_REACT_ACT_ENVIRONMENT = true
+    globals.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    }
+    globals.getComputedStyle = (element: Element) =>
+      browser.getComputedStyle(element as any)
+    let root: Rendered | undefined
+    try {
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: dashboardMessages },
+              createElement(Harness),
+            ),
+          ),
+        )
+      })
+      const notes = [...root!.container.querySelectorAll("article.post-note")]
+      const marks = notes.map(
+        (note) =>
+          note.querySelector(".post-note-reposted")?.textContent ?? null,
+      )
+      // The repost shows its author and names both reposting accounts in
+      // their order; an own post carries no mark.
+      assert.deepEqual(marks, [
+        "Reposted by @_SyntheticB and @kano_example",
+        null,
+      ])
+      assert.equal(
+        notes[0].querySelector(".post-note-handle")!.textContent,
+        "@composer_example",
+      )
+    } finally {
+      if (root) await act(async () => root!.unmount())
+      globals.IS_REACT_ACT_ENVIRONMENT = previous.act
+      globals.ResizeObserver = previous.ResizeObserver
+      globals.getComputedStyle = previous.getComputedStyle
+    }
+    // Every board locale names the accounts in its own list form.
+    for (const locale of ["en", "ja", "zh-CN"] as const)
+      assert.match(
+        dashboardMessages[locale]["feed.repostedBy"],
+        /\{accounts\}/u,
+      )
+    assert.equal(repostingAccounts(["kano_example"], "ja"), "@kano_example")
+    for (const locale of ["ja", "zh-CN"] as const)
+      assert.equal(
+        repostingAccounts(["_SyntheticB", "kano_example"], locale),
+        new Intl.ListFormat(locale, { type: "conjunction" }).format([
+          "@_SyntheticB",
+          "@kano_example",
+        ]),
+      )
+  })
+})

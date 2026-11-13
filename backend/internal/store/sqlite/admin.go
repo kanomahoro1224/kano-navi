@@ -50,7 +50,8 @@ type AdminPost struct {
 	RefreshRequestedAt *string     `json:"refreshRequestedAt"`
 	// HiddenAt is when an operator hid the whole post from the public pages.
 	HiddenAt *string `json:"hiddenAt"`
-	// PromotedAt is when a related account's status was promoted into posts;
+	// PromotedAt is when a pooled status (a related account's or a reposted
+	// one) was promoted into posts;
 	// nil for an own post. Such a post is managed in External posts.
 	PromotedAt *string `json:"promotedAt"`
 	// ScheduleImage is the post's schedule image record, nil when it has none.

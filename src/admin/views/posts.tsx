@@ -20,7 +20,6 @@ import {
   Images,
   PencilLine,
   Quote,
-  RefreshCw,
   Search,
 } from "lucide-react"
 
@@ -47,7 +46,15 @@ import {
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { PlatformTabs, useScopedPage } from "@/admin/views/platform-tabs"
-import { PostAccount, PostActions, PostStatus } from "@/admin/views/review"
+import {
+  PostAccount,
+  PostActions,
+  PostSelectionBar,
+  PostStatus,
+  RefreshQueued,
+  refreshable,
+  type BulkAction,
+} from "@/admin/views/review"
 import {
   TranslationBacklog,
   TranslationCell,
@@ -209,11 +216,10 @@ export function PostImages({
 /**
  * The status a post quotes, read-only and apart from the post's own images,
  * drawn as an embedded card: the author and time with the quote's actions
- * (hide from the public pages or show again, queue a refresh from the source
- * for the next X synchronization, open it), then its wording and its cached
- * thumbnails. Wording past three lines folds behind a toggle; `full` shows it
- * all. A Bilibili forward shows the dynamic it forwards, its author by name
- * or mid; refreshes are X's only.
+ * (hide from the public pages or show again, open it), then its wording and
+ * its cached thumbnails. Wording past three lines folds behind a toggle;
+ * `full` shows it all. A Bilibili forward shows the dynamic it forwards, its
+ * author by name or mid.
  */
 export function PostQuote({
   post,
@@ -226,7 +232,7 @@ export function PostQuote({
 }) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
-  const [busy, setBusy] = useState<"" | "visibility" | "refresh">("")
+  const [busy, setBusy] = useState(false)
   const [viewing, setViewing] = useState<number | null>(null)
   const [expanded, setExpanded] = useState(full)
   const [clamped, setClamped] = useState(false)
@@ -243,22 +249,20 @@ export function PostQuote({
     observer.observe(element)
     return () => observer.disconnect()
   }, [expanded, quote?.text])
-  const queued = post.refreshRequestedAt
   const bilibili = post.source === "bilibili"
-  if ((post.source !== "x" && !bilibili) || (!quote && !queued)) return null
+  if ((post.source !== "x" && !bilibili) || !quote) return null
   const hidden = Boolean(post.quoteHiddenAt)
-  const images = (quote?.media || []).filter((image) => localUrl(image.url))
-  const run = async (
-    kind: "visibility" | "refresh",
-    call: () => Promise<unknown>,
-    notice: string,
-  ) => {
-    setBusy(kind)
-    const result = await act(call, notice)
-    setBusy("")
+  const images = (quote.media || []).filter((image) => localUrl(image.url))
+  const toggle = async () => {
+    setBusy(true)
+    const result = await act(
+      () => api.setQuoteHidden(post.id, !hidden),
+      hidden ? "admin.notice.quoteShown" : "admin.notice.quoteHidden",
+    )
+    setBusy(false)
     if (result) onDone()
   }
-  const available = quote && !quote.unavailable
+  const available = !quote.unavailable
   return (
     <section
       className={`adm-post-quote${hidden ? " is-hidden" : ""}`}
@@ -295,64 +299,32 @@ export function PostQuote({
             {t("admin.posts.quote.hidden")}
           </Badge>
         ) : null}
-        {queued ? (
-          <Badge tone="running" icon={RefreshCw}>
-            {t("admin.posts.refreshQueued", { time: japanStamp(queued) })}
-          </Badge>
-        ) : null}
         <span className="adm-post-quote-actions">
-          {quote ? (
-            <IconButton
-              icon={hidden ? Eye : EyeOff}
-              label={t(
-                hidden ? "admin.posts.quote.show" : "admin.posts.quote.hide",
-              )}
-              busy={busy === "visibility"}
-              onClick={() =>
-                run(
-                  "visibility",
-                  () => api.setQuoteHidden(post.id, !hidden),
-                  hidden
-                    ? "admin.notice.quoteShown"
-                    : "admin.notice.quoteHidden",
-                )
-              }
-            />
-          ) : null}
-          {post.source === "x" ? (
-            <IconButton
-              icon={RefreshCw}
-              label={t("admin.posts.refresh")}
-              busy={busy === "refresh"}
-              disabled={Boolean(queued)}
-              onClick={() =>
-                run(
-                  "refresh",
-                  () => api.refreshPost(post.id),
-                  "admin.notice.refreshQueued",
-                )
-              }
-            />
-          ) : null}
-          {quote ? (
-            <a
-              className="adm-icon-button"
-              href={quote.url}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={t("admin.posts.quote.open")}
-              title={t("admin.posts.quote.open")}
-            >
-              <ExternalLink aria-hidden />
-            </a>
-          ) : null}
+          <IconButton
+            icon={hidden ? Eye : EyeOff}
+            label={t(
+              hidden ? "admin.posts.quote.show" : "admin.posts.quote.hide",
+            )}
+            busy={busy}
+            onClick={() => void toggle()}
+          />
+          <a
+            className="adm-icon-button"
+            href={quote.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={t("admin.posts.quote.open")}
+            title={t("admin.posts.quote.open")}
+          >
+            <ExternalLink aria-hidden />
+          </a>
         </span>
       </header>
-      {quote?.unavailable ? (
+      {quote.unavailable ? (
         <p className="adm-post-quote-missing">
           {t("admin.posts.quote.unavailable")}
         </p>
-      ) : quote?.text ? (
+      ) : quote.text ? (
         <>
           <p
             ref={textRef}
@@ -612,6 +584,7 @@ function PostEditor({
     >
       <div className="adm-chip-row">
         <PostStatus post={post} />
+        <RefreshQueued post={post} />
       </div>
       <p className="adm-post-editor-text">{post.text}</p>
       <PostImages post={post} limit={post.media.length} />
@@ -644,25 +617,51 @@ function PostEditor({
 /**
  * One post in the feed, one row of columns: who and when, the wording and
  * quote, the post's own images, its translations, its extraction state and
- * its actions. A narrower feed stacks them (see the stylesheet).
+ * its actions. A narrower feed stacks them (see the stylesheet). A post the
+ * list's bulk action applies to has a selection box before its account.
  */
 function PostItem({
   post,
   onDone,
   navigate,
+  selected,
+  onSelect,
 }: {
   post: AdminPost
   onDone: () => void
   navigate: ViewProps["navigate"]
+  selected?: boolean
+  /** Toggle the selection; `range` extends it from the last toggled post. */
+  onSelect?: (range: boolean) => void
 }) {
   const { t } = useAppSettings()
   const [editing, setEditing] = useState(false)
+  const account = (
+    <strong>
+      <PostAccount post={post} />
+    </strong>
+  )
   return (
-    <li className={`adm-post${post.hiddenAt ? " is-hidden" : ""}`}>
+    <li
+      className={`adm-post${post.hiddenAt ? " is-hidden" : ""}${selected ? " is-selected" : ""}`}
+    >
       <span className="adm-post-origin">
-        <strong>
-          <PostAccount post={post} />
-        </strong>
+        {onSelect ? (
+          <label className="adm-post-select">
+            <input
+              type="checkbox"
+              checked={Boolean(selected)}
+              readOnly
+              aria-label={t("admin.review.selectPost", {
+                time: japanStamp(post.publishedAt),
+              })}
+              onClick={(event) => onSelect(event.shiftKey)}
+            />
+            {account}
+          </label>
+        ) : (
+          account
+        )}
         <time dateTime={post.publishedAt}>{japanStamp(post.publishedAt)}</time>
       </span>
       <div className="adm-post-body">
@@ -696,6 +695,7 @@ function PostItem({
           </button>
         ) : null}
         <PostStatus post={post} />
+        <RefreshQueued post={post} />
         <ScheduleImageBadge post={post} />
       </span>
       <span className="adm-post-controls">
@@ -777,12 +777,16 @@ function PostList({
   navigate: ViewProps["navigate"]
 }) {
   const { t } = useAppSettings()
-  const { api } = useAdmin()
+  const { api, act, notify } = useAdmin()
   const [filters, setFilters] = useState({
     ...blankFilters,
     queued,
     search: find,
   })
+  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set())
+  const [busy, setBusy] = useState<BulkAction | "">("")
+  // The last toggled post, where a shift-click range starts.
+  const anchor = useRef<string | null>(null)
   const [search, setSearch] = useState(find)
   const [page, setPage] = useScopedPage(platform)
   // Bilibili has one account, so its tab has no account filter.
@@ -801,6 +805,54 @@ function PostList({
   const update = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch }))
     setPage(1)
+  }
+  // Own X posts can be refreshed from the source together. A new filter or
+  // page starts with nothing selected; a reload keeps only the selected
+  // posts that are still listed.
+  const selectable = (posts.data?.items ?? []).filter(refreshable)
+  useEffect(() => {
+    setSelection(new Set())
+    anchor.current = null
+  }, [filters, platform, page])
+  useEffect(() => {
+    setSelection((current) => {
+      const listed = new Set(
+        posts.data?.items.filter(refreshable).map((post) => post.id),
+      )
+      const kept = [...current].filter((id) => listed.has(id))
+      return kept.length === current.size ? current : new Set(kept)
+    })
+  }, [posts.data])
+  const toggle = (id: string, range: boolean) => {
+    const ids = selectable.map((post) => post.id)
+    const on = !selection.has(id)
+    const from = range && anchor.current ? ids.indexOf(anchor.current) : -1
+    const to = ids.indexOf(id)
+    const span =
+      from < 0 ? [id] : ids.slice(Math.min(from, to), Math.max(from, to) + 1)
+    setSelection((current) => {
+      const next = new Set(current)
+      for (const each of span) {
+        if (on) next.add(each)
+        else next.delete(each)
+      }
+      return next
+    })
+    anchor.current = id
+  }
+  const refreshSelected = async () => {
+    const ids = selectable
+      .filter((post) => selection.has(post.id))
+      .map((post) => post.id)
+    if (!ids.length) return
+    setBusy("refresh")
+    const count = await act(async () => (await api.refreshPosts(ids)).queued)
+    setBusy("")
+    if (count === undefined) return
+    notify("admin.notice.refreshesQueued", { count })
+    setSelection(new Set())
+    anchor.current = null
+    await posts.reload()
   }
   const active = (
     Object.keys(blankFilters) as (keyof typeof blankFilters)[]
@@ -905,6 +957,24 @@ function PostList({
         <Loading />
       ) : posts.data.items.length ? (
         <>
+          {selectable.length ? (
+            <PostSelectionBar
+              actions={["refresh"]}
+              selected={selection.size}
+              pageCount={selectable.length}
+              busy={busy}
+              onSelectPage={(all) =>
+                setSelection(
+                  all ? new Set(selectable.map((post) => post.id)) : new Set(),
+                )
+              }
+              onClear={() => {
+                setSelection(new Set())
+                anchor.current = null
+              }}
+              onAction={() => void refreshSelected()}
+            />
+          ) : null}
           <ul className="adm-post-feed" aria-label={t("admin.posts.title")}>
             {posts.data.items.map((post) => (
               <PostItem
@@ -912,6 +982,12 @@ function PostList({
                 post={post}
                 onDone={() => void posts.reload()}
                 navigate={navigate}
+                selected={selection.has(post.id)}
+                onSelect={
+                  refreshable(post)
+                    ? (range) => toggle(post.id, range)
+                    : undefined
+                }
               />
             ))}
           </ul>

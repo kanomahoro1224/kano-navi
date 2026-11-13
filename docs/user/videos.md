@@ -57,7 +57,9 @@ with its title, Japan date and time, and kind. Each month has a header with
 its number of videos that stays at the top while you scroll through it, and
 older videos load as you reach the end. The month name above the list follows
 the scroll; click it to jump to any month that has videos, and use Latest to
-return to the newest. Buttons above the list, with the same icons, narrow it
+return to the newest. After a jump, **Show newer videos** above the list
+loads the videos just newer than those shown, above them, without moving
+what you are looking at. Buttons above the list, with the same icons, narrow it
 to games, talk, songs or everything else, each with its count across all
 months. A video counts as a game, talk
 or song when the maintainer tagged it so, otherwise when its schedule entry

@@ -23,6 +23,9 @@ func TestRequestLogOnlyRecordsAllowedFields(t *testing.T) {
 		{"GET", "/media/lineblog/0123456789ab.jpg?w=320", "/media/lineblog/:name", 404},
 		{"GET", "/media/works/0123456789ab.jpg?w=320", "/media/works/:name", 404},
 		{"POST", "/api/works/uploads", "/api/works/uploads", 405},
+		{"POST", "/api/works", "/api/works", 405},
+		{"POST", "/api/works/upload-list", "/api/works/upload-list", 405},
+		{"POST", "/api/journey", "/api/journey", 405},
 		{"GET", "/api/dashboard/revision", "/api/dashboard/revision", 503},
 	} {
 		if tc.status == 503 {

@@ -54,6 +54,13 @@ packaged, and how an instance gets its covers.
   members-only YouTube video) in cover order: YouTube, YouTube
   members-only, niconico, then bilibili. The server embeds it to join the
   list with stored videos (see [Upload Covers](#upload-covers)).
+- `backend/internal/works/catalog.json` and `upload-list.json` are the
+  bodies of `GET /api/works` and `GET /api/works/upload-list`
+  ([Public API](../architecture/public-api.md#journey-and-works-collections)).
+  `npm run works:export` writes them from the tables above with the page's
+  own modules, rendering the phrase-coded wording in every language, and the
+  server embeds them; `tests/works-api.test.ts` fails when they differ from
+  the tables.
 - `src/works/media-catalog.json` lists each cover and bonus image with its
   MIME type, size, SHA-256, width and height.
 - `src/works/types.ts` holds the shapes. Titles and other names keep the
@@ -301,6 +308,9 @@ packaging. Covers already in `data/works/` whose size and hash match are
 left alone. Packaging also writes `backend/internal/works/videos.json`; a run
 with another content directory must name its own index file. Packaging performs no network requests and does not change the
 collection.
+
+After packaging, run `npm run works:export` and `npm run journey:export`,
+which rewrite the API bodies of both pages from the new tables.
 
 The [Journey](history-archive.md) page names releases by their `id` and
 shows their covers, so `tests/history-media.test.ts` fails when packaging

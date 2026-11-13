@@ -31,6 +31,13 @@ how its provenance is recorded, and how the images are packaged.
 - `data/journey/` holds the packaged original image files. It is ignored
   runtime data, like `data/works/`, and holds no release covers.
 - `src/history/history-i18n.ts` supplies image and provenance translations.
+- `backend/internal/journey/journey.json` is the body of `GET /api/journey`
+  ([Public API](../architecture/public-api.md#journey)): the branches,
+  milestones and images above with the release covers resolved, in every
+  language. `npm run journey:export` writes it from these modules, and
+  `tests/journey-api.test.ts` fails when it differs from them, so run the
+  export with every change to the milestones, the catalog or a named
+  release's covers.
 
 Release dates, Japan-time post dates, stream dates, depicted outfit reveals,
 and acquisition dates are distinct. Unknown dates remain unknown. Mahoro's

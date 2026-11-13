@@ -172,7 +172,8 @@ changes. Timestamps are parseable ISO 8601 strings; display and date-window
 boundaries use Asia/Tokyo.
 
 `/api/dashboard`, `/api/calendar`, `/api/posts`, `/api/posts/months`,
-`/api/videos`, `/api/videos/months` and `/api/works/uploads` send
+`/api/videos`, `/api/videos/months`, `/api/works/uploads` and the
+[collection reads](#journey-and-works-collections) send
 `Cache-Control: no-cache` and a weak ETag, a SHA-256 prefix of the
 uncompressed JSON body. The dashboard's tag leaves out `meta.generatedAt`,
 which changes on every read; the other time-derived fields, such as
@@ -319,6 +320,176 @@ its `total` and its `accountCounts` per lowercase handle or `categoryCounts`
 per category, plus the `revision`. Hidden posts and records without a
 parseable time are not counted. They take no parameters, revalidate through
 their ETags and negotiate gzip like the archive pages.
+
+## Journey and Works Collections
+
+`GET /api/journey`, `GET /api/works` and `GET /api/works/upload-list` serve
+the data of the Journey and Works pages, so a client other than the web page
+can draw them. Their bodies ship with the build: the export scripts
+(`npm run journey:export`, `npm run works:export`) write them from the
+pages' tracked data with the pages' own modules into
+`backend/internal/journey/` and `backend/internal/works/`, which embed them,
+and the frontend tests fail when a committed body differs from the data
+([Journey](../development/history-archive.md#content-and-provenance),
+[Works](../development/works-archive.md#content-and-media)). They read no
+snapshot rows, so they carry no `revision` and their ETags change only with
+a build that changes the data. Each answers `GET` alone (405 with
+`Allow: GET` otherwise), revalidates through its
+[ETag](#public-snapshot-contract) and negotiates gzip; a deeper path, such
+as `/api/journey/<id>`, is 404 `api_not_found`.
+
+The bodies are locale-neutral. A localized text is `{ja, zh-CN, en}`, with
+`null` for a language the data lacks; the server never picks a language.
+Kinds, roles, formats and labels are codes the client words itself, and so is
+the fixed wording around them (section titles, rights notices). Images are
+same-host relative URLs (`/media/journey/<name>`, `/media/works/<name>`)
+served under the [media HTTP contract](media-cache.md#http-contract);
+third-party addresses appear only as provenance links, never as files a
+client must load. `updatedAt` is a Japan date (`YYYY-MM-DD`).
+
+### Journey
+
+`GET /api/journey` returns `updatedAt`, the later of the newest check date of
+the Journey images and the Works collection's date, `branches`, `milestones`
+in page order (by stored date, oldest first) and `galleryOnly`, the images
+that belong to no milestone and appear only in the gallery.
+
+| Branch field | Value                                                     |
+| ------------ | --------------------------------------------------------- |
+| `id`         | Identity code, such as `singer` or `mahoro`               |
+| `tone`       | Colour code of the identity, such as `honey`              |
+| `since`      | Year the identity starts                                  |
+| `label`      | Localized name                                            |
+| `portrait`   | The identity's portrait as a [media item](#journey-media) |
+
+| Milestone field | Value                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `id`            | Stable milestone code                                                                              |
+| `date`          | As stored: `YYYY`, `YYYY-MM` or `YYYY-MM-DD`; never narrowed to a guessed day                      |
+| `datePrecision` | `year`, `month` or `day`, the part of `date` that is known                                         |
+| `dateEnd`       | Last day (`YYYY-MM-DD`) of a period, or `null`                                                     |
+| `dateNote`      | A name written after the date, such as the event `C93`, or `null`                                  |
+| `branch`        | Branch `id`                                                                                        |
+| `kind`          | Code, such as `release`, `debut`, `stream` or `artwork`                                            |
+| `highlight`     | Whether the timeline emphasizes it as a key milestone                                              |
+| `title`         | Localized text                                                                                     |
+| `detail`        | Localized text, or `null`                                                                          |
+| `sourceUrl`     | The strongest public page for the entry, or `null` when the only evidence is a third-party archive |
+| `links`         | Further pages as `{url, label}`; `label` is a code (`agency`, `x`, `cancelledRelease`)             |
+| `releaseId`     | ID of the Works release whose covers it shows, or `null`                                           |
+| `media`         | Its [media items](#journey-media), catalogued images first, then the release's covers              |
+
+#### Journey Media
+
+A media item is one image of the timeline or gallery. `origin` is `fixed` for
+an image of the Journey catalog and `release` for a cover of the milestone's
+Works release, so a client draws the Journey without `/api/works`. Every
+item has every field below; a field that does not apply to its origin is
+`null`.
+
+| Field                         | Value                                                                                                                                               |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `origin`                      | `fixed` or `release`                                                                                                                                |
+| `id`                          | Stable image code; a release cover's is `<releaseId>/<name>`                                                                                        |
+| `url`                         | `/media/journey/<name>` or `/media/works/<name>`                                                                                                    |
+| `width`, `height`, `mimeType` | Size in pixels and `image/jpeg` or `image/png`                                                                                                      |
+| `branches`                    | The branch `id`s whose gallery lists it; a release cover adds the identities the release also belongs to                                            |
+| `category`                    | `artwork`, `goods`, `frame`, `model` or, for a release, `cover`                                                                                     |
+| `title`                       | Localized text; a release cover's is the release title in every language                                                                            |
+| `date`                        | Japan date the image is dated by, or `null` when unknown                                                                                            |
+| `dateKind`                    | What that date is: `post`, `announcement`, `publication`, `stream`, `outfit`, `capture` or `release`                                                |
+| `sourceKind`                  | Who published the file: `artist`, `organizer`, `creator`, `video`, `streamArchive`, `shop`, `brand`, `agency`, `officialCover` or `thirdPartyCover` |
+| `note`                        | Code of the provenance note the page shows, or `null`                                                                                               |
+| `focus`                       | CSS `object-position` that anchors a cropped thumbnail, or `null`                                                                                   |
+| `credit`                      | Credit line the publisher requests, shown as written, or `null`                                                                                     |
+| `creator`                     | Who made the picture, as written, or `null`                                                                                                         |
+| `frameTime`                   | `HH:MM:SS` of a video frame, or `null`                                                                                                              |
+| `sourcePage`                  | The page the image comes from (a release cover's file page), or `null`                                                                              |
+| `sourceUrl`                   | Original third-party file address (provenance only), or `null`                                                                                      |
+| `originalStream`              | Original stream address at the frame of a third-party archive frame, or `null`                                                                      |
+| `releaseId`                   | The Works release of a cover                                                                                                                        |
+| `cancelled`                   | Whether every edition of that release was withdrawn                                                                                                 |
+| `cover`                       | The cover as a [Works image](#works-images), with its caption, credit and third-party mark                                                          |
+
+### Works
+
+`GET /api/works` returns `updatedAt`, the Japan date the collection was
+checked through, `summary` (`personal`, `participation` and `uploads` counts
+and `firstYear` and `lastYear`), `personal` and `participation`, oldest
+first as the collection lists them. Titles and names keep the collection's
+wording. The collection's phrase-coded wording (see
+[Wording](../development/works-archive.md#wording)) is rendered into
+localized text with the page's own phrases, so a client needs no phrase
+dictionary; such a field is `null` when the collection gives no text.
+
+| Personal release field | Value                                                                                                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`, `date`, `title`  | Release ID (Japan date and a title hash), first Japan release date, title as written                                                                                                     |
+| `format`               | `album`, `single`, `ep` or `doujin`                                                                                                                                                      |
+| `digital`, `cancelled` | Released for download or streaming; every edition withdrawn                                                                                                                              |
+| `unit`                 | Unit name of a unit work, or `null`                                                                                                                                                      |
+| `label`, `catalog`     | Localized text                                                                                                                                                                           |
+| `covers`               | [Works images](#works-images)                                                                                                                                                            |
+| `disc`                 | Photo of the disc for the shelf, or `null`                                                                                                                                               |
+| `printedDisc`          | The record shows the cover printed on a disc instead of a drawn one                                                                                                                      |
+| `cutout`               | Figure cut out of the cover on a transparent ground, or `null`                                                                                                                           |
+| `tracks`               | The [tracks](#works-tracks) every edition shares                                                                                                                                         |
+| `discs`                | Photos of the shared discs as `{disc, image}`                                                                                                                                            |
+| `editions`             | Editions on sale; empty for a release sold in one plain version                                                                                                                          |
+| `storeBonuses`         | Bonuses for any edition as `{store, item, images}`; `store` and `item` are localized text                                                                                                |
+| `stores`               | Streaming and download listings for any edition as `{item, links}`; `item` is localized text or `null` for the main item, and each link is `{platform, url, hiRes}` with a platform code |
+
+An edition has `name`, `catalog`, `price`, `format` and `packaging` as
+localized text, `date` (its own Japan date when it came out after the
+release, or `null`), `cancelled`, `jan` (a string, empty when unknown),
+`covers`, `bonuses` (localized texts), `bonusImages`, `storeBonuses`,
+`stores`, its full `tracks`, `discs` and `printedDisc`, shaped as on the
+release.
+
+#### Works Tracks
+
+A personal track has `disc`, `discLabel` (localized text or `null`), `no`,
+`title`, `credit` and `note` (localized text or `null`) and `listen`, the
+uploads of the same recording, or `null`. `listen` keeps platform video IDs
+in the shape of the [upload list](#works-upload-list): `niconico` and
+`bilibili` (an ID or `null`), `youtube` and `youtubeMembers` (lists of IDs).
+
+A participation work has `id`, `date`, `title`, `roles` (codes `vocal`,
+`lyrics`, `composition`, `voice`, `guest`), `forms` (codes such as `digital`,
+`bonus`, `drama`, `cdr`, `boxSet`, `notForSale`, `promo`), `unit`, `label`,
+`event` and `catalog` as written (empty when unknown), `sourceUrl` (the page
+the record follows), `cover` (a Works image or `null`) and `tracks`, each
+`{disc, no, title, credit, kano, kanoCredits}`: `credit` is the database's
+artist line as written, `kano` whether Kano took part in the track, and
+`kanoCredits` her further credit codes (`lyrics`, `composition`,
+`arrangement`, `animation`, `other`).
+
+#### Works Images
+
+Every cover, disc photo, bonus image and cutout is `{url, width, height,
+mimeType, caption, sourceUrl, sourceLabel, credit, thirdParty}`: `url` is
+`/media/works/<name>`, `caption` localized text or `null`, `sourceUrl` the
+page the file was taken from or `null`, `sourceLabel` the site named instead
+of a page or `null`, `credit` `{role, name, url}` (role `scan`, `photo` or
+`fan`; `name` and `url` may be `null`) or `null` for a file from a person's
+own copy, and `thirdParty` whether the file is a store's, database's or
+collector's copy of the release's artwork rather than the publisher's file
+(`null` for a cutout).
+
+### Works Upload List
+
+`GET /api/works/upload-list` returns `updatedAt` and `uploads`, the
+collection's uploads oldest first, each `{id, date, song, originalArtist,
+kind, with, niconico, youtube, youtubeMembers, bilibili, bilibiliTitle,
+albums, tracks}`. `kind` is `cover`, `original`, `mv`, `project`,
+`compilation`, `game` or `composition`. Videos are platform IDs, never URLs:
+`niconico` and `bilibili` are an ID or `null`, `youtube` and
+`youtubeMembers` lists of IDs. `originalArtist`, `with` and `bilibiliTitle`
+are free text, empty when there is none; `albums` (the albums that include
+the recording) and `tracks` (a compilation's songs) are lists of free-text
+names as the collection writes them, not release IDs. The list never joins
+stored data; [`/api/works/uploads`](#works-uploads) adds each upload's cover
+and stored videos by the same upload ID.
 
 ## Works Uploads
 

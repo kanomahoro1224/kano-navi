@@ -41,6 +41,10 @@
 - Startup adds `media_links.kind` and, once, marks the video and GIF links of
   stored X posts whose `raw_json` types their images, without a request.
   Other links read as photos until their post is refreshed.
+- Public API adds `GET /api/journey`, `GET /api/works` and
+  `GET /api/works/upload-list`: the Journey and Works pages' data with every
+  language and same-host image URLs, from the build and without a revision.
+  `GET /api/works/uploads` is unchanged.
 
 </details>
 

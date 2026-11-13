@@ -159,7 +159,10 @@ the history catalog, the shipped image bytes and packaging validation.
 tracked article and media catalogs and the page's query views.
 `tests/works.test.ts` packages a synthetic works collection and checks its
 tables, code mappings, wording rules, cover validation and the page's sort,
-search and link helpers. No timing thresholds enter CI.
+search and link helpers. `tests/journey-api.test.ts` and
+`tests/works-api.test.ts` rebuild the Journey and Works API bodies from the
+tracked page data and fail when the committed backend copies differ.
+No timing thresholds enter CI.
 
 To review the real hooks and responsive UI against a backend, start an
 isolated instance: run `kano-go serve` from a temporary directory with

@@ -200,6 +200,27 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.worksUploads(w, r)
+	case "/api/works":
+		w.Header().Set("Vary", "Accept-Encoding")
+		if r.Method != http.MethodGet {
+			writeMethodNotAllowed(w, http.MethodGet)
+			return
+		}
+		worksCollection.serve(w, r)
+	case "/api/works/upload-list":
+		w.Header().Set("Vary", "Accept-Encoding")
+		if r.Method != http.MethodGet {
+			writeMethodNotAllowed(w, http.MethodGet)
+			return
+		}
+		worksUploadListCollection.serve(w, r)
+	case "/api/journey":
+		w.Header().Set("Vary", "Accept-Encoding")
+		if r.Method != http.MethodGet {
+			writeMethodNotAllowed(w, http.MethodGet)
+			return
+		}
+		journeyCollection.serve(w, r)
 	default:
 		switch {
 		case strings.HasPrefix(r.URL.Path, "/media/lineblog/"):
@@ -434,9 +455,20 @@ func writeRevalidatedJSON(w http.ResponseWriter, r *http.Request, value any, val
 			validator = body
 		}
 	}
+	writePreparedJSON(w, r, body, revalidatedETag(validator))
+}
+
+// revalidatedETag is the weak validator of a public read's validator JSON.
+func revalidatedETag(validator []byte) string {
 	sum := sha256.Sum256(validator)
+	return `W/"` + hex.EncodeToString(sum[:16]) + `"`
+}
+
+// writePreparedJSON answers a public read whose JSON body and ETag are
+// already made: no-cache, and a 304 when the client holds the ETag.
+func writePreparedJSON(w http.ResponseWriter, r *http.Request, body []byte, etag string) {
 	w.Header().Set("Cache-Control", "no-cache")
-	if notModified(w, r, `W/"`+hex.EncodeToString(sum[:16])+`"`) {
+	if notModified(w, r, etag) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

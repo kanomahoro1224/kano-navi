@@ -113,6 +113,7 @@ is occupied.
 | ---------------------------------------------- | --------------------------------------------------------------- |
 | Entry point and commands                       | `cmd/kano-go`                                                   |
 | Public reads, feeds, media, health             | `internal/httpapi`, `internal/feeds`, `internal/publicview`     |
+| Packaged Journey and Works page data           | `internal/journey`, `internal/works`                            |
 | Session, login, origin guard                   | `internal/adminauth`                                            |
 | Admin route table, overview, events, lists     | `internal/adminapi` + `internal/store/sqlite`                   |
 | Runs, source schedules, source fetch           | `internal/adminapi`, `internal/jobs`, `internal/workflow`       |

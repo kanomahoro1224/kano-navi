@@ -20,6 +20,8 @@ var compressedPublicReads = map[string]string{
 	"/api/posts": "application/json", "/api/posts/months": "application/json",
 	"/api/videos": "application/json", "/api/videos/months": "application/json",
 	"/api/calendar.ics": "text/calendar", "/api/feed.xml": "application/atom+xml",
+	"/api/journey": "application/json", "/api/works": "application/json",
+	"/api/works/upload-list": "application/json",
 }
 
 var gzipWriters = sync.Pool{New: func() any {

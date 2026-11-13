@@ -269,10 +269,7 @@ func (t *Translator) inferTags(ctx context.Context, forms map[string]any) (event
 	}
 	jobs = make([]tagJob, 0, len(uploads))
 	for _, item := range uploads {
-		id, platform := item.ID, "YouTube"
-		if item.Source == "bilibili" {
-			platform = "Bilibili"
-		}
+		id, platform := item.ID, videoPlatform(item.Source)
 		jobs = append(jobs, tagJob{
 			title: item.Title, platform: platform,
 			record: func(tag *string) error { _, err := e.store.RecordVideoTag(ctx, id, tag, e.now()); return err },

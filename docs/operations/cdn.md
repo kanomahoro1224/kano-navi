@@ -81,8 +81,8 @@ own) also avoids sending the site's cookies to the CDN.
 ## Recommended Setup
 
 1. Create a pull-zone/CDN hostname, for example `cdn.example.invalid`, with the
-   site origin (`https://xiaolubao.com`, port 443) as its origin, and
-   `Host: xiaolubao.com` as the origin host if the provider asks (the Go
+   site origin (`https://kano.example.invalid`, port 443) as its origin, and
+   `Host: kano.example.invalid` as the origin host if the provider asks (the Go
    service does not check the Host header for public reads).
 2. Add a cache rule for `/assets/*` and `/media/*` that respects the origin's
    `Cache-Control` (or sets a one-year edge TTL for `/assets/` and passes

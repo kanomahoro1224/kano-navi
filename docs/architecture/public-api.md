@@ -616,12 +616,12 @@ unavailable state with the provenance link.
 `GET /api/lineblog/posts/{id}` returns one article with its neighbours in
 the page's pager order:
 
-| Field        | Value                                                                                                                                                                 |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `updatedAt`  | `YYYY-MM-DD`                                                                                                                                                          |
-| `post`       | `id`, `published`, `title` (localized), `url` (the original address), `archiveUrl` (the Wayback Machine capture it was recovered from) and `blocks`, in reading order |
-| `previousId` | The next older article (the page's 前の記事), or `null` for the oldest                                                                                                |
-| `nextId`     | The next newer article (the page's 次の記事), or `null` for the newest                                                                                                |
+| Field        | Value                                                                                                                                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `updatedAt`  | `YYYY-MM-DD`                                                                                                                                                                                                                 |
+| `post`       | `id`, `published`, `title` (localized), `url` (the original address), `archiveUrl` (the Wayback Machine capture it was recovered from), `commentCount` (its archived comments, 0 without any) and `blocks`, in reading order |
+| `previousId` | The next older article (the page's 前の記事), or `null` for the oldest                                                                                                                                                       |
+| `nextId`     | The next newer article (the page's 次の記事), or `null` for the newest                                                                                                                                                       |
 
 Each block has a `type`:
 

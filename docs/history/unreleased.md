@@ -47,7 +47,8 @@
   `GET /api/works/uploads` is unchanged.
 - Public API adds the LINE BLOG archive reads `GET /api/lineblog`,
   `GET /api/lineblog/posts/{id}` and `GET /api/lineblog/posts/{id}/comments`:
-  the article list and months, one article with its blocks and neighbours,
+  the article list and months, one article with its blocks, comment count
+  and neighbours,
   and its archived comments, locale-neutral and with same-host media, served
   from data embedded in the release.
 

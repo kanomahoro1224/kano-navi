@@ -70,7 +70,9 @@ func (b Base) Value(value any) any {
 // Page rewrites index.html's root-relative references to the build's fixed
 // files to the base, and adds the meta tag the frontend reads for the media
 // addresses it builds itself (src/lib/cdn.ts). Only those attributes change:
-// the page's own wording and inline script stay as they are.
+// the page's own wording and inline script stay as they are. The web app
+// manifest stays at this origin: browsers resolve its start_url and scope
+// against the manifest's own address and ignore them on another origin.
 func (b Base) Page(page []byte) []byte {
 	if b == "" {
 		return page
@@ -79,7 +81,6 @@ func (b Base) Page(page []byte) []byte {
 	for _, attribute := range []string{"src", "href", "content"} {
 		page = bytes.ReplaceAll(page, []byte(attribute+`="/assets/`), []byte(attribute+`="`+base+`/assets/`))
 	}
-	page = bytes.ReplaceAll(page, []byte(`href="/manifest.webmanifest"`), []byte(`href="`+base+`/manifest.webmanifest"`))
 	meta := []byte(`<meta name="kano-cdn-base" content="` + html.EscapeString(base) + `">`)
 	head := bytes.Index(page, []byte("</head>"))
 	if head < 0 {

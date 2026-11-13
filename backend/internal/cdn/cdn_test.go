@@ -85,7 +85,7 @@ func TestPage(t *testing.T) {
 	got := string(base.Page(page))
 	for _, want := range []string{
 		`content="https://cdn.example.invalid/kano/assets/kano-banner.jpg"`,
-		`href="https://cdn.example.invalid/kano/manifest.webmanifest"`,
+		`href="/manifest.webmanifest"`,
 		`href="https://cdn.example.invalid/kano/assets/icons/favicon-32.png"`,
 		`src="https://cdn.example.invalid/kano/assets/index-AbCd1234.js"`,
 		`<meta name="kano-cdn-base" content="https://cdn.example.invalid/kano"></head>`,
@@ -94,7 +94,7 @@ func TestPage(t *testing.T) {
 			t.Fatalf("page lacks %q: %s", want, got)
 		}
 	}
-	if strings.Contains(got, `="/assets/`) || strings.Contains(got, `"/manifest.webmanifest"`) {
+	if strings.Contains(got, `="/assets/`) {
 		t.Fatalf("page still names fixed files at the origin: %s", got)
 	}
 	// A build made with the CDN base already addresses its own files there,

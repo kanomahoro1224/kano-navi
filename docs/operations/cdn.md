@@ -12,8 +12,9 @@ The frontend build reads `CDN_PUBLIC_BASE` and writes its content-hashed
 JavaScript, CSS, fonts and bundled images to that base (`base` in
 `vite.config.ts`). The Go service reads the same variable at startup and:
 
-- rewrites the remaining root-relative references in `index.html` (icons, the
-  manifest, the share-tag banner) and adds
+- rewrites the remaining root-relative references in `index.html` (icons and
+  the share-tag banner; the web app manifest stays at the origin so its
+  `start_url` and `scope` keep matching the site) and adds
   `<meta name="kano-cdn-base">` for the media paths the frontend builds from its
   packaged catalogs;
 - returns every public media address — dashboard posts and schedule images,

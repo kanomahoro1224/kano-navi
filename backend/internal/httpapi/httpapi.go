@@ -46,9 +46,6 @@ type Handler struct {
 	webBotAuth *webbotauth.Holder
 	// streams pushes revision changes to /api/dashboard/events.
 	streams *revisionHub
-	// releases answers /api/app/release: the newest build per client
-	// platform, so an installed app can tell whether it is current.
-	releases AppReleases
 }
 
 // Standalone carries everything the single-process owner serves beyond the
@@ -75,18 +72,12 @@ type Standalone struct {
 	// WebBotAuth holds the Web Bot Auth signer whose key directory the
 	// site serves; nil serves none.
 	WebBotAuth *webbotauth.Holder
-	// Releases answers client version checks; nil serves the defaults.
-	Releases AppReleases
 }
 
 // NewStandaloneHandler serves the whole product from this process.
 func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Standalone) *Handler {
 	if now == nil {
 		now = time.Now
-	}
-	releases := options.Releases
-	if len(releases) == 0 {
-		releases = DefaultAppReleases()
 	}
 	return &Handler{
 		store:         store,
@@ -102,7 +93,6 @@ func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Sta
 		publicOrigin:  options.PublicOrigin,
 		webBotAuth:    options.WebBotAuth,
 		streams:       newRevisionHub(store.GetDashboardRevision),
-		releases:      releases,
 	}
 }
 
@@ -121,7 +111,7 @@ func NewHandlerWithAdmin(store *sqlite.Store, now func() time.Time, admin http.H
 	if now == nil {
 		now = time.Now
 	}
-	return &Handler{store: store, now: now, admin: admin, streams: newRevisionHub(store.GetDashboardRevision), releases: DefaultAppReleases()}
+	return &Handler{store: store, now: now, admin: admin, streams: newRevisionHub(store.GetDashboardRevision)}
 }
 
 func NewServer(handler http.Handler, cfg config.Config) *http.Server {
@@ -175,12 +165,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.health(w, r)
-	case "/api/app/release":
-		if r.Method != http.MethodGet {
-			writeMethodNotAllowed(w, http.MethodGet)
-			return
-		}
-		h.appRelease(w, r)
 	case "/api/visitor-region":
 		if r.Method != http.MethodGet {
 			writeMethodNotAllowed(w, http.MethodGet)

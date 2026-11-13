@@ -295,9 +295,6 @@ func runStandalone(cfg config.Config) int {
 		WebPush:      webPush,
 		PublicOrigin: cfg.PublicOrigin,
 		WebBotAuth:   signing,
-		// The published client builds live in configuration; the download
-		// URL is served to clients so an install never hardcodes a target.
-		Releases: httpapi.AppReleasesFromEnv(os.Getenv),
 	})
 	server := httpapi.NewServer(httpapi.RequestLog(httpapi.Compress(handler), os.Stdout), cfg)
 	// Revision streams stay open until the client leaves; end them when

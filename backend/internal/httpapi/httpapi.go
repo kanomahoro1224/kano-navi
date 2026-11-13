@@ -221,8 +221,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		journeyCollection.serve(w, r)
+	case "/api/lineblog":
+		w.Header().Set("Vary", "Accept-Encoding")
+		if r.Method != http.MethodGet {
+			writeMethodNotAllowed(w, http.MethodGet)
+			return
+		}
+		h.lineblogIndex(w, r)
 	default:
 		switch {
+		case strings.HasPrefix(r.URL.Path, lineblogPostsPrefix):
+			h.lineblogPost(w, r)
 		case strings.HasPrefix(r.URL.Path, "/media/lineblog/"):
 			if r.Method != http.MethodGet && r.Method != http.MethodHead {
 				writeMethodNotAllowed(w, "GET, HEAD")

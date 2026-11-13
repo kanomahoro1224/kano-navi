@@ -45,6 +45,11 @@
   `GET /api/works/upload-list`: the Journey and Works pages' data with every
   language and same-host image URLs, from the build and without a revision.
   `GET /api/works/uploads` is unchanged.
+- Public API adds the LINE BLOG archive reads `GET /api/lineblog`,
+  `GET /api/lineblog/posts/{id}` and `GET /api/lineblog/posts/{id}/comments`:
+  the article list and months, one article with its blocks and neighbours,
+  and its archived comments, locale-neutral and with same-host media, served
+  from data embedded in the release.
 
 </details>
 
@@ -101,5 +106,14 @@
 - Each X image records whether it is a photo or a video's or GIF's
   thumbnail, from the detail answer, the timeline and the X API alike. Video
   and GIF files are never downloaded.
+
+</details>
+
+<details>
+<summary><strong>Runtime and development</strong></summary>
+
+- `npm run lineblog:export` writes the server's copy of the LINE BLOG
+  archive from the tracked page data, and the frontend tests fail when the
+  committed copy differs.
 
 </details>

@@ -125,6 +125,7 @@ is occupied.
 | Web Bot Auth key, signing and key directory    | `internal/webbotauth`, `internal/webbotauth/keyadmin`           |
 | `/mcp`                                         | `internal/mcpapi`                                               |
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
+| LINE BLOG archive for the public reads         | `internal/lineblog`                                             |
 
 `cmd/kano-go` validates credentials, opens the runtime database and starts the
 listener; `internal/httpapi` builds the handler around an injected store.

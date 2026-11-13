@@ -26,6 +26,10 @@ func TestRequestLogOnlyRecordsAllowedFields(t *testing.T) {
 		{"POST", "/api/works", "/api/works", 405},
 		{"POST", "/api/works/upload-list", "/api/works/upload-list", 405},
 		{"POST", "/api/journey", "/api/journey", 405},
+		{"POST", "/api/lineblog", "/api/lineblog", 405},
+		{"GET", "/api/lineblog/posts/0", "/api/lineblog/posts/:id", 404},
+		{"GET", "/api/lineblog/posts/0/comments", "/api/lineblog/posts/:id/comments", 404},
+		{"GET", "/api/lineblog/posts/0/private", "unmatched", 404},
 		{"GET", "/api/dashboard/revision", "/api/dashboard/revision", 503},
 	} {
 		if tc.status == 503 {

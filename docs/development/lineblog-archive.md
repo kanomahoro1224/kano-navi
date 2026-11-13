@@ -47,6 +47,11 @@ gets its media.
   ISO instant, the text with `\n` line breaks, and the old comment form's
   star or face rating when it had one. Articles without archived comments
   have no file. See [Comments](#comments).
+- `backend/internal/lineblog/archive.json` is the server's copy of the
+  articles and comments in the shape of the
+  [public LINE BLOG reads](../architecture/public-api.md#line-blog-archive),
+  which the server embeds. It is exported from the files above
+  ([Public API Export](#public-api-export)).
 - `src/lineblog/content.ts` derives the page views (pages of three articles,
   months in Japan time, single articles) from the index, and the media URLs.
   `src/lineblog/post-files.ts` loads article files on demand, and a single
@@ -143,8 +148,29 @@ parts. Packaging:
    the media catalog.
 
 Packaging performs no network requests and does not change the recovery
-archive. It leaves `src/lineblog/comments/` alone. Review the written files
+archive. It leaves `src/lineblog/comments/` and the server's copy alone; run
+the [export](#public-api-export) afterwards. Review the written files
 and the page together when updating them.
+
+### Public API Export
+
+After any change to the article files, index, comments files or media
+catalog, rewrite the server's copy:
+
+```bash
+npm run lineblog:export
+```
+
+`scripts/export-lineblog.ts` reads only the tracked files under
+`src/lineblog/` and derives what the page derives (months, article
+neighbours, readable alternative text, pictographs, links between articles)
+through the page's own modules, so the API and the page agree. It renames
+`p` blocks to `paragraph` and `hr` to `rule`, turns media names into media
+objects from the catalog, and sets `updatedAt` to the Japan date of the
+newest article or comment. A media name missing from the catalog, an
+unknown block or inline type, or an article file outside the index stops the
+run. `tests/lineblog-api.test.ts` regenerates the copy in memory and fails
+when the committed file differs.
 
 ### Copies Archive
 
@@ -199,7 +225,8 @@ The script:
 3. Keeps, for each article, the capture listing the most comments. A request
    for one capture can return a later one, so file names do not decide.
 4. Writes a file for each article of `post-index.json` that has comments and
-   removes the files of articles that have none.
+   removes the files of articles that have none. Run the
+   [export](#public-api-export) afterwards.
 
 The script performs no network requests. Review the comments of changed
 articles on the page before keeping the files.
@@ -393,8 +420,10 @@ extracts comments from synthetic article pages (both name forms, ratings,
 dropped links, the capture with the most comments), and checks the tracked
 index, article files, comments files and media catalog against each other,
 including every design's art, and the smartphone list's opening words;
-`internal/httpapi/lineblog_test.go` covers the media
-route. Browser verification covers the article list, months, single
+`tests/lineblog-api.test.ts` checks the server's copy against the tracked
+files, and `internal/httpapi/lineblog_test.go` and
+`internal/httpapi/lineblog_api_test.go` cover the media route and the
+public reads. Browser verification covers the article list, months, single
 articles with the 前の記事/次の記事 pager and their comments, back and forward (including after a reload),
 the image viewer, video
 playback, the menu bar's and each article's translation switch in Chinese and English, the design picker and each design's header and profile,

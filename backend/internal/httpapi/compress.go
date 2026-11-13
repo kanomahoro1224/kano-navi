@@ -22,6 +22,8 @@ var compressedPublicReads = map[string]string{
 	"/api/calendar.ics": "text/calendar", "/api/feed.xml": "application/atom+xml",
 	"/api/journey": "application/json", "/api/works": "application/json",
 	"/api/works/upload-list": "application/json",
+	// The LINE BLOG article and comments reads (lineblogRoute) compress too.
+	"/api/lineblog": "application/json",
 }
 
 var gzipWriters = sync.Pool{New: func() any {
@@ -112,6 +114,9 @@ func (c *compressWriter) shouldCompress(status int) bool {
 	contentType = strings.ToLower(strings.TrimSpace(contentType))
 	if want, ok := compressedPublicReads[c.path]; ok {
 		return contentType == want
+	}
+	if _, _, ok := lineblogRoute(c.path); ok {
+		return contentType == "application/json"
 	}
 	for _, prefix := range []string{"/api", "/media", "/mcp"} {
 		if c.path == prefix || strings.HasPrefix(c.path, prefix+"/") {

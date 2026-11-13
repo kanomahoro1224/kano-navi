@@ -22,8 +22,10 @@ the window plus, however old, the eight newest of each own account; MCP
 related account's or a reposted one (see
 [Related accounts](sources.md#related-accounts) and
 [Reposts](sources.md#reposts)): it is never `latestPost`
-or one of an account's eight, and the list and the post archive leave it out
-while a shown own post shows it as a shown quote. Its `accountHandle` is its
+or one of an account's eight. It appears in the list and in the post archive
+like any other post, except while a listed own post quotes it with its quote
+shown: the quote card already shows it, and it returns once that post or its
+quote is hidden. Its `accountHandle` is its
 author. `repostedBy` lists, as handles without `@` and first sighting first,
 the own accounts that reposted a promoted post; it is `[]` for every other
 post. `counts.posts` counts
@@ -45,59 +47,11 @@ unless the operator featured that Short, and that is neither private nor
 removed; a video of unknown format or unknown availability stays
 eligible. Metadata includes configured X accounts and the Featured video ID.
 
-The dashboard also carries a locale-neutral `projection` for shared board
-decisions. `projection.version` identifies the contract (`1` is the current
-version), `nextTransitionAt` is the next parseable ISO instant that can change
-a time-dependent decision, `focus.eventIds` and `focus.videoIds` are the
-ordered event and video candidates, and `sales` is the ordered list of every
-sale event ID the board's on-sale list shows, in place or in its sheet.
-`spotlight` identifies the next or latest ticket, its live state, the members
-chip decision, and an optional companion video. `shelf` contains the lead ID, whether it is Featured, and the ordered
-reservation, work, archive and Short IDs. The browser uses these IDs to join
-the returned records; it does not infer their order from localized text.
-
 A post's `media` and its quote's `media` list images as `{id, url, status,
 sourceUrl, alt, position, width, height, kind}`. `kind` is `photo`, `video`
 or `gif`: a video's or GIF's entry is its thumbnail, and the board links it
 to the post or the quoted status on X. Every image that is not an X video or
 GIF, a Bilibili one included, is a `photo`.
-
-Each event has a `view` with the canonical `state`, `typeCode`,
-`activityCode`, `activityContext`, `isWork`, and sale-expanded
-`calendarEntries`. `state` has exactly seven values: `upcoming` means the
-entry has not started, `live` means a linked broadcast is on air, `open` means
-a sale period is open, `done` means a non-pending entry or sale has ended,
-`pending` means the time or status still needs confirmation, `cancelled` means
-the entry is cancelled, and `cancellation_review` means cancellation evidence
-is awaiting confirmation. `typeCode` is one of `stream`, `member`, `event`,
-`release`, `video` or `sale`, or null when the stored type is outside the
-public set. `activityCode` is one of `live`, `game`, `talk`, `song` or `video`,
-or null. `activityContext` is `stream` or `work` when an activity code is
-present, otherwise the empty string. `isWork` is true only for `release` and
-`video` types. `calendarEntries` keeps the stored `timePrecision` code
-(`exact`, `approximate` or `unknown`); `saleMark` is null for ordinary events,
-`opens` for a sale opening and `closes` for a sale closing. A sale deadline
-has only its closing entry.
-
-Each video has a `view` with its `phase`, `formCode`, `shelfGroup`,
-`latestEligible`, `focusEligible`, and `tagContext`. `phase` is one of
-`upcoming`, `live`, `started`, `past` or `cancelled`. `formCode` is one of
-`short`, `upcoming`, `stream`, `archive`, `premiere` or `video`, or null when
-no public form applies. `shelfGroup` is one of `reservation`, `work`,
-`archive` or `short`, or the empty string for a video omitted from the shelf.
-`tagContext` is `stream` or `work`; the two eligibility fields are booleans.
-These values are codes and booleans, never localized copy. Calendar, archive
-and MCP `schedule_list` reads carry the same event and video `view` objects.
-Clients keep an additive fallback for responses without `projection` or
-`view` so a retained snapshot remains readable while a deployment serves
-mixed versions.
-
-The remaining projection fields use these fixed values. `spotlight.mode` is
-`next` when a current or upcoming candidate exists and `latest` when the
-latest eligible video is the fallback; `spotlight` is null when neither
-exists. `shelf.leadId` is null when there is no work lead, and
-`leadIsFeatured` distinguishes the operator featured video from the derived
-lead. `nextTransitionAt` is null when no scheduled transition is known.
 
 A post's `source` is `x` or `bilibili`. A Bilibili dynamic has the ID
 `bilibili-<dynamic ID>`, its opus page as `url`, the account's mid as
@@ -184,6 +138,100 @@ the tag changes with them as well as with stored data. A matching
 keeps its stored copy, including that copy's `generatedAt`. Because the tag is
 weak it validates the gzip and identity encodings alike.
 `/api/dashboard/revision` is `no-store`.
+
+### Board Projection
+
+The dashboard carries a locale-neutral `projection` for shared board
+decisions. Its values are codes, booleans and record IDs, never localized
+copy. Every ID names a record in the same response; the browser joins the
+returned records by these IDs and does not infer their order from localized
+text.
+
+| Projection field   | Value                                                                                        |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| `version`          | Contract version; `1` is the current one                                                     |
+| `nextTransitionAt` | Next ISO instant that can change a time-dependent decision, or `null` when none is known     |
+| `focus.eventIds`   | Ordered event candidates of the focus                                                        |
+| `focus.videoIds`   | Ordered video candidates of the focus                                                        |
+| `sales`            | Ordered IDs of every sale event the board's on-sale list shows, in place or in its sheet     |
+| `spotlight`        | The [spotlight](#spotlight), or `null` when there is neither a next entry nor a latest video |
+| `shelf`            | The [video shelf](#video-shelf)                                                              |
+
+#### Spotlight
+
+The spotlight is the stage's one ticket: the next or current entry, or the
+latest video when nothing is next.
+
+| Spotlight field    | Value                                                                                                                                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`             | `next` for a current or upcoming entry; `latest` when the latest video is the fallback                                                                                                              |
+| `eventId`          | The shown event, `summary.nextEvent`, or `null`                                                                                                                                                     |
+| `videoId`          | The shown video: `summary.nextStream` in `next` mode, `summary.latestVideo` in `latest` mode, or `null`                                                                                             |
+| `liveNow`          | `true` when the shown entry is the dashboard's `liveNow` broadcast, which has neither an event nor a video                                                                                          |
+| `isLive`           | `true` when the shown entry is confirmed on air or its start time has passed                                                                                                                        |
+| `membersChip`      | `true` when the shown event is a `member` entry paired with its video, the video is not members-only, private or removed, and a `game`, `talk` or `song` label takes the type's place on the ticket |
+| `companionVideoId` | `summary.latestVideo`, shown beside the ticket when the shown entry has no video thumbnail and is not that video; otherwise `null`                                                                  |
+
+`liveNow` says which entry is shown; `isLive` says whether it is on air, for
+an event or a video as well. An event and a video are both set when the next
+event and the next stream share a stream link. In `latest` mode only
+`videoId` is set, and the booleans are `false`.
+
+#### Video Shelf
+
+The shelf lists IDs from the returned `videos`. The lead is in none of the
+four lists.
+
+| Shelf field      | Value                                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `leadId`         | The Featured video; otherwise the newest work that is a premiere or a song, then the newest work, neither private nor removed; `null` when there is none |
+| `leadIsFeatured` | `true` when `leadId` is the operator's Featured video                                                                                                    |
+| `reservations`   | Videos that are not past, and cancelled ones whose start is still ahead, earliest first                                                                  |
+| `works`          | Past uploads and premieres that are not Shorts, newest first                                                                                             |
+| `archives`       | Past streams that are not Shorts, newest first                                                                                                           |
+| `shorts`         | Past Shorts, newest first                                                                                                                                |
+
+### Event and Video Views
+
+Every event and video carries a `view` of codes and booleans, never
+localized copy. Calendar, archive and MCP `schedule_list` reads carry the
+same event and video `view` objects as the dashboard. Clients keep an
+additive fallback for responses without `projection` or `view` so a retained
+snapshot remains readable while a deployment serves mixed versions.
+
+| Event view field  | Value                                                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| `state`           | One of the seven states below                                                                             |
+| `typeCode`        | `stream`, `member`, `event`, `release`, `video` or `sale`, or `null` when the stored type is outside them |
+| `activityCode`    | `live`, `game`, `talk`, `song` or `video`, or `null`                                                      |
+| `activityContext` | `stream` or `work` when `activityCode` is set, otherwise the empty string                                 |
+| `isWork`          | `true` only for the `release` and `video` types                                                           |
+| `calendarEntries` | The entry's calendar occurrences, sale-expanded                                                           |
+
+`state` is `upcoming` when the entry has not started, `live` when a linked
+broadcast is on air, `open` when a sale period is open, `done` when a
+non-pending entry or sale has ended, `pending` when the time or status still
+needs confirmation, `cancelled` when the entry is cancelled, and
+`cancellation_review` when cancellation evidence is awaiting confirmation.
+
+An ordinary event has one calendar entry. A sale period has its opening and
+its closing entry; a sale deadline has only its closing entry.
+
+| Calendar entry field | Value                                                                |
+| -------------------- | -------------------------------------------------------------------- |
+| `saleMark`           | `null` for an ordinary event; `opens` or `closes` for a sale's end   |
+| `startsOn`           | Japan date (`YYYY-MM-DD`) the occurrence is shown on                 |
+| `startsAt`           | ISO instant of the occurrence, or `null` when only the date is known |
+| `timePrecision`      | The stored `exact`, `approximate` or `unknown`                       |
+
+| Video view field | Value                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| `phase`          | `upcoming`, `live` (confirmed on air), `started` (start passed, not confirmed live), `past` or `cancelled` |
+| `formCode`       | `short`, `upcoming`, `stream`, `archive`, `premiere` or `video`, or `null` when no public form applies     |
+| `shelfGroup`     | `reservation`, `work`, `archive` or `short`, or the empty string for a video omitted from the shelf        |
+| `latestEligible` | Whether the video may be the stage's `latestVideo` fallback                                                |
+| `focusEligible`  | Whether the video may be a focus candidate                                                                 |
+| `tagContext`     | `stream` or `work`: whether a content tag is worded for a stream or a work                                 |
 
 ## Revision Stream
 

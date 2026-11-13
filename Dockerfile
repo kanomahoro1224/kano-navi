@@ -13,7 +13,11 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
 COPY . .
-RUN npx vite build
+# Optional: the public CDN base the build addresses its assets at. The runtime
+# reads the same variable for the media addresses it hands out; pass both
+# stages the same value (docs/operations/cdn.md).
+ARG CDN_PUBLIC_BASE=
+RUN CDN_PUBLIC_BASE="$CDN_PUBLIC_BASE" npx vite build
 
 FROM --platform=$BUILDPLATFORM golang:1.26.11-bookworm AS backend
 ARG TARGETARCH

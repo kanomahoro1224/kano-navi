@@ -4,6 +4,7 @@ import { ArrowUp, ArrowUpRight, Check, ChevronDown } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import { PreferenceControls } from "@/components/preference-controls"
+import { cdnUrl } from "@/lib/cdn"
 import { useMainlandSite } from "@/lib/visitor-region"
 import {
   DropdownMenu,
@@ -25,7 +26,7 @@ const pages: { id: PublicPage; href: string; labelKey: string }[] = [
   { id: "about", href: "/about", labelKey: "about.label" },
 ]
 
-const DEFAULT_AVATAR = "/assets/kano-avatar.jpg"
+const DEFAULT_AVATAR = cdnUrl("/assets/kano-avatar.jpg")
 
 function japanClock(now: number) {
   return new Intl.DateTimeFormat("en", {

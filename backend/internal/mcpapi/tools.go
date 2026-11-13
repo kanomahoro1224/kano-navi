@@ -426,6 +426,10 @@ func (h *handler) publicDashboard(ctx context.Context, days int) (map[string]any
 			summary["nextEvent"] = nil
 		}
 	}
+	// The public tools name the same addresses the HTTP reads do.
+	if rewritten, ok := h.cdnBase.Value(projection).(map[string]any); ok {
+		projection = rewritten
+	}
 	return projection, dashboard, nil
 }
 

@@ -243,7 +243,11 @@ from `public/` and disallows `/admin`, `/api/` and `/mcp` but allows the two
 public feeds, `/api/calendar.ics` and `/api/feed.xml`, whose subscription
 fetchers (Google Calendar's among them) honour it. `/index.html` is the file
 itself, which the frontend shows as the board. A missing/invalid manifest
-falls back to revalidation. Dynamic media retains its independent version/hash
+falls back to revalidation. When `CDN_PUBLIC_BASE` is set, the service answers
+the same headers and paths for a CDN to pull; the variable changes the
+addresses `index.html` carries and the media routes the public reads name, not
+this origin's own serving (see [CDN](../operations/cdn.md)). Dynamic media
+retains its independent version/hash
 validation and caching. The server keeps no dashboard response cache, because
 the projection compares event and video times with the exact clock; the
 dashboard, calendar and archive reads are revalidated by the browser through
@@ -275,7 +279,14 @@ file's own tags. Link previews need absolute URLs, which a static file cannot
 know, so the server then rewrites the page's root-relative `content="/..."`
 values to the optional `PUBLIC_ORIGIN` (HTML-escaped, although configuration
 already accepts only a DNS name or IP address as its host). Without it the
-tags stay relative. Nothing else in the build is rewritten.
+tags stay relative.
+
+When `CDN_PUBLIC_BASE` is set, `index.html` first has its `src`, `href` and
+`content` references to `/assets/` and its manifest link rewritten to that
+base, so the CDN rewrite claims the banner before `PUBLIC_ORIGIN` makes the
+remaining share tags absolute, and carries
+`<meta name="kano-cdn-base">` for the media addresses the frontend builds
+itself. Nothing else in the build is rewritten.
 
 ## Related Docs
 

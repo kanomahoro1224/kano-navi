@@ -1,3 +1,4 @@
+import { cdnUrl } from "../lib/cdn.ts"
 import index from "./post-index.json" with { type: "json" }
 import { inlineImages, isEmojiMedia } from "./post-media.ts"
 import type {
@@ -30,9 +31,9 @@ export function addPostFile(file: LineblogPostFile) {
 export const PAGE_SIZE = 3
 export const ORIGINAL_BLOG = "https://lineblog.me/kano/"
 
-/** Recovered media stay in the server's data directory. */
+/** Recovered media stay in the server's data directory, or the CDN in front of it. */
 export function mediaUrl(name: string) {
-  return `/media/lineblog/${name}`
+  return cdnUrl(`/media/lineblog/${name}`)
 }
 
 /** Pictographs the blog drew inline with the text, among loaded media. */

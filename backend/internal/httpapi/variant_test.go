@@ -159,7 +159,7 @@ func TestStaticFilesIgnoreWidths(t *testing.T) {
 		}
 	}
 	makeCopies(t, store, original)
-	handler := NewStandaloneHandler(store, nil, Standalone{Static: NewStaticSite(root, "")})
+	handler := NewStandaloneHandler(store, nil, Standalone{Static: NewStaticSite(root, "", "")})
 	// Bundled files have no copies: a w request gets the original, which
 	// revalidates.
 	recorder := request(t, handler, http.MethodGet, "/assets/kano-banner.jpg?w=640")

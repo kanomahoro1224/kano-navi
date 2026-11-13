@@ -348,7 +348,10 @@ Dashboard media fields include the safe `...Url` (a
 `/media/<id>?v=<content-sha256>` route or a tracked `/assets/...` fallback), the
 `...Status`, the opaque ID, and the public source URL for traceability. The
 version parameter changes whenever bytes change, so versioned responses can be
-cached as immutable even though the source identity is stable. A bare media ID
+cached as immutable even though the source identity is stable. With
+`CDN_PUBLIC_BASE` set, the routes the public reads return carry that base in
+front of them; the origin keeps serving the same paths for the CDN to pull
+(see [CDN](../operations/cdn.md)). A bare media ID
 is revalidated, and an unready remote URL is represented by `null`, so the
 browser does not silently fall back to a CDN.
 

@@ -57,7 +57,7 @@ func TestStaticSiteServesPrecompressedSiblings(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The listener's on-the-fly gzip wraps the site, as in production.
-	site := Compress(NewStaticSite(root, ""))
+	site := Compress(NewStaticSite(root, "", ""))
 	get := func(method, path string, headers ...string) *httptest.ResponseRecorder {
 		t.Helper()
 		request := httptest.NewRequest(method, path, nil)
@@ -137,7 +137,7 @@ func TestStaticSiteServesPrecompressedSiblings(t *testing.T) {
 			t.Fatalf("%s => %v %q", path, recorder.Header(), recorder.Body)
 		}
 	}
-	origin := Compress(NewStaticSite(root, "https://kano.example.invalid"))
+	origin := Compress(NewStaticSite(root, "https://kano.example.invalid", ""))
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.Header.Set("Accept-Encoding", "br")

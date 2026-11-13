@@ -601,8 +601,8 @@ trailing segment) answers 404 `api_not_found`.
 A **media object** is `{url, width, height, mimeType}`: `url` is the
 `/media/lineblog/<name>` address, `width` and `height` the displayed size of
 an image (`null` for a video), and `mimeType` `image/jpeg`, `image/png` or
-`video/mp4`. A missing file answers 404 on its route; clients show an
-unavailable state with the provenance link.
+`video/mp4` (always H.264 with AAC audio). A missing file answers 404 on its
+route; clients show an unavailable state with the provenance link.
 
 `GET /api/lineblog` lists the archive:
 

@@ -47,6 +47,20 @@ export default defineConfig(({ command, mode }) => {
     plugins: [
       react(),
       tailwindcss(),
+      // The web app manifest stays at this origin even with a CDN base:
+      // browsers resolve its start_url and scope against the manifest's own
+      // address and ignore them when that is another origin.
+      {
+        name: "kano-manifest-origin",
+        enforce: "post",
+        transformIndexHtml: (html) =>
+          cdnBase
+            ? html.replaceAll(
+                `href="${base}manifest.webmanifest"`,
+                'href="/manifest.webmanifest"',
+              )
+            : html,
+      },
       // The modules src/main.tsx imports for the board.
       pagePreload({
         "/": [

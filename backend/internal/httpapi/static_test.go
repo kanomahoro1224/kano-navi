@@ -236,7 +236,7 @@ func TestStaticSitePutsFixedFilesOnTheCDN(t *testing.T) {
 		`<meta name="kano-cdn-base" content="https://cdn.example.invalid/kano">`,
 		`content="https://cdn.example.invalid/kano/assets/kano-banner.jpg"`,
 		`content="https://kano.example.invalid/"`,
-		`href="https://cdn.example.invalid/kano/manifest.webmanifest"`,
+		`href="/manifest.webmanifest"`,
 		`href="https://cdn.example.invalid/kano/assets/icons/favicon-32.png"`,
 		`src="https://cdn.example.invalid/kano/assets/index-AbCd1234.js"`,
 		`href="/about"`,

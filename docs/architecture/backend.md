@@ -281,8 +281,8 @@ already accepts only a DNS name or IP address as its host). Without it the
 tags stay relative.
 
 When `CDN_PUBLIC_BASE` is set, `index.html` first has its `src`, `href` and
-`content` references to `/assets/` and its manifest link rewritten to that
-base, so the CDN rewrite claims the banner before `PUBLIC_ORIGIN` makes the
+`content` references to `/assets/` rewritten to that base (the web app
+manifest link stays at the origin, where its `start_url` and `scope` apply), so the CDN rewrite claims the banner before `PUBLIC_ORIGIN` makes the
 remaining share tags absolute, and carries
 `<meta name="kano-cdn-base">` for the media addresses the frontend builds
 itself. Nothing else in the build is rewritten.

@@ -670,6 +670,12 @@ carries its `lang` attribute. The console's
 completeness chips and translation editor are in
 `src/admin/views/translation-parts.tsx`, shared by posts and videos.
 
+Media paths the page builds from its packaged catalogs (Journey images, LINE
+BLOG media, Works covers) and the bundled fallback branding pass through
+`src/lib/cdn.ts`, which prefixes the base the server writes into
+`index.html` (`CDN_PUBLIC_BASE`); without it the paths stay root-relative.
+Addresses the API returns already carry that base.
+
 Board images from the media cache, LINE BLOG archive images, Works covers
 and Journey images load through `srcset`: `src/lib/media.ts` lists the server's
 [resized copies](media-cache.md#resized-copies) below an image's known width,

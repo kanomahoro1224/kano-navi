@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/yexca/kano-navi/backend/internal/cdn"
 )
 
 // maxIndexBytes bounds the index.html read for share-tag rewriting.
@@ -102,6 +104,10 @@ type staticSite struct {
 	// publicOrigin, when set, makes index.html's root-relative share-tag
 	// URLs (content="/...") absolute, as link previews require.
 	publicOrigin string
+	// cdnBase, when set, publishes the build's fixed files and the media the
+	// API names from a CDN; index.html then carries that base for the
+	// frontend's own media paths.
+	cdnBase cdn.Base
 }
 
 // precompressedCodings are the build's precompressed siblings of its text
@@ -131,8 +137,8 @@ func precompressedSibling(relative string) bool {
 
 // NewStaticSite returns nil when the directory has no index.html, so an API-only
 // process answers unknown paths with its JSON 404 instead. publicOrigin is a
-// normalized origin or empty.
-func NewStaticSite(directory, publicOrigin string) http.Handler {
+// normalized origin or empty; cdnBase is a normalized CDN base or empty.
+func NewStaticSite(directory, publicOrigin, cdnBase string) http.Handler {
 	root, err := filepath.Abs(strings.TrimSpace(directory))
 	if err != nil || strings.TrimSpace(directory) == "" {
 		return nil
@@ -140,7 +146,7 @@ func NewStaticSite(directory, publicOrigin string) http.Handler {
 	if info, err := os.Stat(filepath.Join(root, "index.html")); err != nil || !info.Mode().IsRegular() {
 		return nil
 	}
-	site := &staticSite{root: root, buildFiles: map[string]bool{}, publicOrigin: publicOrigin}
+	site := &staticSite{root: root, buildFiles: map[string]bool{}, publicOrigin: publicOrigin, cdnBase: cdn.Base(cdnBase)}
 	if raw, err := os.ReadFile(filepath.Join(root, ".vite", "manifest.json")); err == nil {
 		var manifest map[string]struct {
 			File string   `json:"file"`
@@ -279,7 +285,7 @@ func (s *staticSite) serve(w http.ResponseWriter, r *http.Request, name, relativ
 		w.Header().Set("Content-Type", contentType)
 	}
 	tags := spaPages[route]
-	if relative == "index.html" && (s.publicOrigin != "" || status != http.StatusOK || tags != nil) {
+	if relative == "index.html" && (s.publicOrigin != "" || s.cdnBase != "" || status != http.StatusOK || tags != nil) {
 		page, err := io.ReadAll(io.LimitReader(file, maxIndexBytes+1))
 		if err != nil || len(page) > maxIndexBytes {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "api_not_found"}, "")
@@ -288,6 +294,9 @@ func (s *staticSite) serve(w http.ResponseWriter, r *http.Request, name, relativ
 		if tags != nil {
 			page = tags.apply(page, route)
 		}
+		// The CDN rewrite comes first: it claims the asset URLs, and the
+		// public origin then only makes the remaining share-tag paths absolute.
+		page = s.cdnBase.Page(page)
 		if s.publicOrigin != "" {
 			// Configuration validates the origin; escaping keeps the
 			// attribute intact whatever a caller passes.

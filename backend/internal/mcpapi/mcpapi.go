@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/cdn"
 	"github.com/yexca/kano-navi/backend/internal/jobs"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -53,6 +54,9 @@ type Options struct {
 	Jobs jobs.Manager
 	// Now is the clock used for health and dashboard windows.
 	Now func() time.Time
+	// CDNBase is the normalized CDN_PUBLIC_BASE, or empty to keep the media
+	// addresses of the projections on this origin.
+	CDNBase string
 }
 
 type handler struct {
@@ -61,6 +65,7 @@ type handler struct {
 	controlToken string
 	jobs         jobs.Manager
 	now          func() time.Time
+	cdnBase      cdn.Base
 }
 
 // New returns the handler for "/mcp" and "/mcp/". It also accepts "/" and ""
@@ -76,6 +81,7 @@ func New(store *sqlite.Store, opts Options) http.Handler {
 		controlToken: opts.ControlToken,
 		jobs:         opts.Jobs,
 		now:          now,
+		cdnBase:      cdn.Base(opts.CDNBase),
 	}
 }
 

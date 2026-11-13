@@ -118,5 +118,8 @@
 - Profile images load when the data directory is reached through a symbolic
   link, as macOS reaches its temporary directories; a symbolic link in place
   of the avatar directory is still refused.
+- `CDN_PUBLIC_BASE` optionally serves the build's assets and cached media
+  from a CDN. It is empty by default, changes no stored data, and must be
+  passed to the frontend build as well; see [CDN](../operations/cdn.md).
 
 </details>

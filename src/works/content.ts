@@ -1,3 +1,4 @@
+import { cdnUrl } from "../lib/cdn.ts"
 import type { Locale } from "../types.ts"
 import personal from "./personal.json" with { type: "json" }
 import summary from "./summary.json" with { type: "json" }
@@ -17,9 +18,9 @@ export const worksSummary = summary
 export const OFFICIAL_DISCOGRAPHY =
   "https://kano-official.amebaownd.com/posts/categories/1163113"
 
-/** Covers stay in the server's data directory. */
+/** Covers stay in the server's data directory, or the CDN in front of it. */
 export function mediaUrl(name: string) {
-  return `/media/works/${name}`
+  return cdnUrl(`/media/works/${name}`)
 }
 
 export function coverUrl(cover: WorksCover) {

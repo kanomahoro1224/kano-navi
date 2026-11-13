@@ -45,6 +45,11 @@ type Config struct {
 	// PublicOrigin is the site's public origin from PUBLIC_ORIGIN. It only
 	// makes the share tags in index.html absolute; empty leaves them relative.
 	PublicOrigin string
+	// CDNPublicBase is the public base of an optional CDN from
+	// CDN_PUBLIC_BASE. The build's assets and the cached media the pages and
+	// API name are then served from it; empty serves everything from this
+	// origin.
+	CDNPublicBase string
 	// HealthCheck probes a running standalone process and exits; the production
 	// image uses this command for its container health check.
 	HealthCheck bool
@@ -129,6 +134,11 @@ func Parse(args []string) (Config, error) {
 		return Config{}, err
 	}
 	c.PublicOrigin = origin
+	cdnBase, err := CDNBase(os.Getenv("CDN_PUBLIC_BASE"))
+	if err != nil {
+		return Config{}, err
+	}
+	c.CDNPublicBase = cdnBase
 	if err := c.Validate(); err != nil {
 		return Config{}, err
 	}
@@ -150,22 +160,87 @@ func PublicOrigin(raw string) (string, error) {
 		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" || strings.HasSuffix(parsed.Host, ":") {
 		return "", invalid
 	}
+	host, ok := authority(parsed)
+	if !ok {
+		return "", invalid
+	}
+	return parsed.Scheme + "://" + host, nil
+}
+
+// authority normalizes an URL's host and optional port to the form a page or
+// feed prints: a lowercase DNS name or IP address, an IPv6 address in brackets,
+// and an explicit port only when it is one. A host that cannot be one of those
+// (markup, an empty label, a zero-padded port) is invalid.
+func authority(parsed *url.URL) (string, bool) {
 	host := strings.ToLower(parsed.Hostname())
 	if ip := net.ParseIP(host); ip != nil {
 		if strings.Contains(host, ":") {
 			host = "[" + host + "]"
 		}
 	} else if !dnsName(host) {
-		return "", invalid
+		return "", false
 	}
 	if port := parsed.Port(); port != "" {
 		number, err := strconv.Atoi(port)
 		if err != nil || number < 1 || number > 65535 || strconv.Itoa(number) != port {
-			return "", invalid
+			return "", false
 		}
 		host += ":" + port
 	}
-	return parsed.Scheme + "://" + host, nil
+	return host, true
+}
+
+// CDNBase normalizes CDN_PUBLIC_BASE, the public base of an optional CDN that
+// serves this site's build assets and cached media. It is an http or https
+// base URL whose path is an optional prefix of slash-separated segments, such
+// as https://cdn.example.invalid or https://cdn.example.invalid/site; empty
+// serves everything from this origin. Anything else fails startup, so the
+// value can never carry markup into the pages and JSON that print it.
+func CDNBase(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	invalid := errors.New("CDN_PUBLIC_BASE must be an http or https base URL")
+	parsed, err := url.Parse(raw)
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil || parsed.Opaque != "" ||
+		parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" || strings.HasSuffix(parsed.Host, ":") {
+		return "", invalid
+	}
+	path, ok := basePath(parsed)
+	if !ok {
+		return "", invalid
+	}
+	host, ok := authority(parsed)
+	if !ok {
+		return "", invalid
+	}
+	return parsed.Scheme + "://" + host + path, nil
+}
+
+// basePath normalizes a base URL's optional path prefix: slash-separated
+// segments of letters, digits and . _ ~ - without empty, dot or parent
+// segments, and without a trailing slash. An empty path stays empty.
+func basePath(parsed *url.URL) (string, bool) {
+	if parsed.RawPath != "" || !strings.HasPrefix(parsed.Path, "/") && parsed.Path != "" {
+		return "", false
+	}
+	path := strings.TrimSuffix(parsed.Path, "/")
+	if path == "" {
+		return "", true
+	}
+	for _, segment := range strings.Split(strings.TrimPrefix(path, "/"), "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return "", false
+		}
+		for _, character := range segment {
+			if !(character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' ||
+				character >= '0' && character <= '9' || character == '.' || character == '_' || character == '~' || character == '-') {
+				return "", false
+			}
+		}
+	}
+	return path, true
 }
 
 // dnsName reports whether host is a hostname of letters, digits and inner

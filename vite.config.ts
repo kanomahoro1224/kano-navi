@@ -5,8 +5,17 @@ import tailwindcss from "@tailwindcss/vite"
 import { precompress } from "./scripts/vite-precompress.ts"
 import { pagePreload } from "./scripts/vite-page-preload.ts"
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const environment = loadEnv(mode, process.cwd(), "")
+  // Optional CDN: the build addresses its own assets at CDN_PUBLIC_BASE
+  // (backend/internal/cdn rewrites the rest of index.html). A development
+  // server always serves "/", since the same variable may name the deployed
+  // site's CDN.
+  const cdnBase =
+    command === "build"
+      ? (environment.CDN_PUBLIC_BASE || "").trim().replace(/\/+$/, "")
+      : ""
+  const base = cdnBase ? `${cdnBase}/` : "/"
   const port = Number(environment.PORT || 7657)
   // The Go backend owns /api, /media and /mcp. Vite only serves the frontend
   // and forwards those paths with the browser's Host, so the admin origin
@@ -33,6 +42,7 @@ export default defineConfig(({ mode }) => {
       ? { usePolling: true, interval: 500, binaryInterval: 1000, ignored }
       : { ignored }
   return {
+    base,
     build: { manifest: true },
     plugins: [
       react(),

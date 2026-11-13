@@ -1,3 +1,4 @@
+import { cdnUrl } from "../lib/cdn.ts"
 import type { Translator } from "../types.ts"
 import { mediaUrl, personalReleases } from "../works/content.ts"
 import type { WorksCover } from "../works/types.ts"
@@ -12,7 +13,7 @@ import { milestones } from "./milestones.ts"
 export const fixedMedia = catalog.map((item) => ({
   ...item,
   origin: "fixed" as const,
-  url: `/media/journey/${item.name}`,
+  url: cdnUrl(`/media/journey/${item.name}`),
 }))
 
 export type FixedMediaItem = (typeof fixedMedia)[number]

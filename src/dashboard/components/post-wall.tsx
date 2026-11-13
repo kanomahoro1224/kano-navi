@@ -30,7 +30,7 @@ import {
 } from "@/components/translated-text"
 import { EmptyNote, Placeholder, SectionTitle } from "@/site/site-shell"
 import { BilibiliLogo, ExternalLink, XLogo, followCardLink } from "@/site/links"
-import { mediaSrcSet } from "@/lib/media"
+import { isMediaUrl, mediaSrcSet } from "@/lib/media"
 import {
   formatCompact,
   formatJapanDay,
@@ -143,7 +143,7 @@ export function PostWording({
     <>
       {rich.map((segment, index) => {
         if ("text" in segment) return segment.text
-        return segment.url?.startsWith("/media/") ? (
+        return segment.url && isMediaUrl(segment.url) ? (
           <img
             key={index}
             className="post-sticker"

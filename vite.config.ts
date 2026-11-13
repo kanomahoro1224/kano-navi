@@ -50,6 +50,30 @@ export default defineConfig(({ command, mode }) => {
       // The web app manifest stays at this origin even with a CDN base:
       // browsers resolve its start_url and scope against the manifest's own
       // address and ignore them when that is another origin.
+      // Vite moves root-relative url() references to public files in CSS
+      // (such as the LINE BLOG icons) to the base. With a CDN base, fail the
+      // build if one were left at "/", where a prefixed base would miss it.
+      {
+        name: "kano-cdn-css-urls",
+        apply: "build",
+        generateBundle(_options, bundle) {
+          if (!cdnBase) return
+          for (const file of Object.values(bundle)) {
+            if (file.type !== "asset" || !file.fileName.endsWith(".css"))
+              continue
+            const source =
+              typeof file.source === "string"
+                ? file.source
+                : new TextDecoder().decode(file.source)
+            const left = source.match(/url\(\s*["']?\/(?!\/)[^)]*\)/)
+            if (left) {
+              this.error(
+                `${file.fileName} still names ${left[0]} at the origin root while CDN_PUBLIC_BASE is set`,
+              )
+            }
+          }
+        },
+      },
       {
         name: "kano-manifest-origin",
         enforce: "post",

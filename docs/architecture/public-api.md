@@ -403,13 +403,13 @@ the Journey images and the Works collection's date, `branches`, `milestones`
 in page order (by stored date, oldest first) and `galleryOnly`, the images
 that belong to no milestone and appear only in the gallery.
 
-| Branch field | Value                                                     |
-| ------------ | --------------------------------------------------------- |
-| `id`         | Identity code, such as `singer` or `mahoro`               |
-| `tone`       | Colour code of the identity, such as `honey`              |
-| `since`      | Year the identity starts                                  |
-| `label`      | Localized name                                            |
-| `portrait`   | The identity's portrait as a [media item](#journey-media) |
+| Branch field | Value                                                                |
+| ------------ | -------------------------------------------------------------------- |
+| `id`         | Identity code, such as `singer` or `mahoro`                          |
+| `tone`       | Colour code of the identity, such as `honey`                         |
+| `since`      | Year the identity starts                                             |
+| `label`      | Localized name                                                       |
+| `portrait`   | The identity's portrait as a [media item](#journey-media), or `null` |
 
 | Milestone field | Value                                                                                              |
 | --------------- | -------------------------------------------------------------------------------------------------- |
@@ -505,8 +505,9 @@ in the shape of the [upload list](#works-upload-list): `niconico` and
 
 A participation work has `id`, `date`, `title`, `roles` (codes `vocal`,
 `lyrics`, `composition`, `voice`, `guest`), `forms` (codes such as `digital`,
-`bonus`, `drama`, `cdr`, `boxSet`, `notForSale`, `promo`), `unit`, `label`,
-`event` and `catalog` as written (empty when unknown), `sourceUrl` (the page
+`bonus`, `drama`, `cdr`, `boxSet`, `notForSale`, `promo`), `unit` (the unit
+name, or `null`), `label`, `event` and `catalog` as written (empty when
+unknown), `sourceUrl` (the page
 the record follows), `cover` (a Works image or `null`) and `tracks`, each
 `{disc, no, title, credit, kano, kanoCredits}`: `credit` is the database's
 artist line as written, `kano` whether Kano took part in the track, and
@@ -546,11 +547,14 @@ and stored videos by the same upload ID.
 ([Upload covers](../development/works-archive.md#upload-covers)) with stored
 data by video ID, on each read and without writing. It returns `updatedAt`,
 the list's date, `revision`, and `uploads`, keyed by upload ID, for each
-upload with a ready cover or a stored video: `cover` (`{url, width, height}`,
-a local `/media/<id>?v=<sha256>` URL with smaller copies, or `null`) and
+upload with a ready cover or a stored video: `cover` (`{url, width, height}`:
+a local `/media/<id>?v=<sha256>` URL with smaller copies and the size, with
+`width` and `height` `null` while unknown; or `null` without a cover) and
 `videos`, the stored YouTube and Bilibili videos of the upload in list order
 as `{source, id, title, url, publishedAt, scheduledAt, durationSeconds,
-availability, translations, sourceLanguage}`. Uploads with neither are left
+availability, translations, sourceLanguage}`, where `publishedAt`,
+`scheduledAt`, `durationSeconds` and `availability` are `null` while
+unknown. Uploads with neither are left
 out. A stored video's title is its shown one (an operator's correction
 first); raw JSON and thumbnails' source URLs never appear.
 
@@ -602,12 +606,12 @@ unavailable state with the provenance link.
 
 `GET /api/lineblog` lists the archive:
 
-| Field             | Value                                                                                                                                                                                                                             |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `updatedAt`       | `YYYY-MM-DD`                                                                                                                                                                                                                      |
-| `originalBlogUrl` | The blog's original address, as provenance                                                                                                                                                                                        |
-| `posts`           | Every article, newest first: `id`, `published` (ISO instant), `title` (localized), `thumbnail` (a media object of its first archived picture or video cover, or `null`) and `commentCount` (its archived comments, 0 without any) |
-| `months`          | Each Japan month (`YYYY-MM`) with articles, newest first, with its `total`                                                                                                                                                        |
+| Field             | Value                                                                                                                                                                                                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `updatedAt`       | `YYYY-MM-DD`                                                                                                                                                                                                                                                     |
+| `originalBlogUrl` | The blog's original address, as provenance                                                                                                                                                                                                                       |
+| `posts`           | Every article, newest first: `id`, `published` (ISO instant), `title` (localized), `thumbnail` (a media object of its first archived picture or video cover, always an image with its size, or `null`) and `commentCount` (its archived comments, 0 without any) |
+| `months`          | Each Japan month (`YYYY-MM`) with articles, newest first, with its `total`                                                                                                                                                                                       |
 
 `GET /api/lineblog/posts/{id}` returns one article with its neighbours in
 the page's pager order:

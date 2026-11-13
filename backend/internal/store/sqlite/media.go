@@ -330,11 +330,16 @@ func (s *Store) resolveProfileMediaPath(relative string) (string, error) {
 	if !pathInside(candidate, root) {
 		return "", ErrMediaNotFound
 	}
+	// The selected-media namespace itself must be a real directory. A
+	// symlinked avatar root would make an otherwise contained path escape
+	// the configured runtime namespace. The data root is compared resolved,
+	// since its own path may pass through a symlink (macOS /var, for one).
+	resolvedData, err := filepath.EvalSymlinks(s.dataRoot)
+	if err != nil {
+		return "", ErrMediaNotFound
+	}
 	resolvedRoot, err := filepath.EvalSymlinks(root)
-	if err != nil || resolvedRoot != filepath.Clean(root) {
-		// The selected-media namespace itself must be a real directory. A
-		// symlinked avatar root would make an otherwise contained path escape
-		// the configured runtime namespace.
+	if err != nil || resolvedRoot != filepath.Join(resolvedData, "avatar") {
 		return "", ErrMediaNotFound
 	}
 	return containedRegularPath(candidate, root)

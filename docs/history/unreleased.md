@@ -115,5 +115,8 @@
 - `npm run lineblog:export` writes the server's copy of the LINE BLOG
   archive from the tracked page data, and the frontend tests fail when the
   committed copy differs.
+- Profile images load when the data directory is reached through a symbolic
+  link, as macOS reaches its temporary directories; a symbolic link in place
+  of the avatar directory is still refused.
 
 </details>

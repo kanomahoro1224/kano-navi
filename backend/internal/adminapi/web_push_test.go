@@ -37,7 +37,7 @@ func TestWebPushPanelReportsBrowsersAndTestsThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	subscription := sqlite.WebPushSubscription{
-		Endpoint: "https://push.example/subscription/one",
+		Endpoint: "https://push.test/subscription/one",
 		P256DH:   base64.RawURLEncoding.EncodeToString(browserKey.PublicKey().Bytes()),
 		Auth:     base64.RawURLEncoding.EncodeToString(auth),
 		Locale:   "ja", Enabled: true,
@@ -54,7 +54,7 @@ func TestWebPushPanelReportsBrowsersAndTestsThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	sender, err := pushkit.NewWebSender(pushkit.WebOptions{
-		PublicKey: public, PrivateKey: private, Hosts: []string{"push.example"},
+		PublicKey: public, PrivateKey: private, Hosts: []string{"push.test"},
 		HTTPClient: &http.Client{Transport: pushRoundTrip(func(request *http.Request) (*http.Response, error) {
 			sent++
 			urgency = request.Header.Get("Urgency")

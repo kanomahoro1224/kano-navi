@@ -96,7 +96,7 @@ func TestAssertionIsVerifiablePS256(t *testing.T) {
 	if err = json.Unmarshal(claims, &payload); err != nil {
 		t.Fatalf("claims json: %v", err)
 	}
-	if payload["iss"] != account.SubAccount || payload["aud"] != DefaultTokenURI {
+	if payload["iss"] != account.SubAccount || payload["aud"] != DefaultAudienceURI {
 		t.Fatalf("payload = %v", payload)
 	}
 	if payload["exp"].(float64)-payload["iat"].(float64) != 3600 {

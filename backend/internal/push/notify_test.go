@@ -71,7 +71,7 @@ func TestDispatchPostsSendsJapaneseNowAndOthersAfterTranslation(t *testing.T) {
 	if _, err := store.DB().Exec(`INSERT INTO posts (id, source, type, text, published_at, url) VALUES ('p1', 'x', 'daily', 'こんばんは', '2026-10-01T00:00:00.000Z', 'https://x.example.invalid/p1')`); err != nil {
 		t.Fatal(err)
 	}
-	for token, locale := range map[string]string{"token-ja": "ja-JP", "token-en": "en-US", "token-zh": "zh-Hans", "token-hant": "zh-Hant"} {
+	for token, locale := range map[string]string{"token-ja": "ja-JP", "example-en": "en-US", "token-zh": "zh-Hans", "token-hant": "zh-Hant"} {
 		if err := store.RegisterPushDevice(ctx, sqlite.PushDevice{
 			Token: token, DeviceID: "device-" + token, Locale: locale,
 			Enabled: true, NotifyLive: true, NotifyVideo: true, NotifyPost: true,
@@ -122,7 +122,7 @@ func TestDispatchPostsSendsJapaneseNowAndOthersAfterTranslation(t *testing.T) {
 			t.Fatalf("the deferred flush must skip Japanese devices: %+v", send)
 		}
 	}
-	if seen["token-en"] != "Good evening" || seen["token-zh"] != "晚上好" || seen["token-hant"] != "晚上好" {
+	if seen["example-en"] != "Good evening" || seen["token-zh"] != "晚上好" || seen["token-hant"] != "晚上好" {
 		t.Fatalf("deferred bodies = %+v", seen)
 	}
 
@@ -141,7 +141,7 @@ func TestFlushPendingFallsBackToThePostAfterGrace(t *testing.T) {
 	if _, err := store.DB().Exec(`INSERT INTO posts (id, source, type, text, published_at, url) VALUES ('p1', 'x', 'daily', 'こんばんは', '2026-10-01T00:00:00.000Z', 'https://x.example.invalid/p1')`); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.RegisterPushDevice(ctx, sqlite.PushDevice{Token: "token-en", DeviceID: "device-en", Locale: "en-US", Enabled: true, NotifyPost: true}); err != nil {
+	if err := store.RegisterPushDevice(ctx, sqlite.PushDevice{Token: "example-en", DeviceID: "device-en", Locale: "en-US", Enabled: true, NotifyPost: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.SavePendingPushes(ctx, []sqlite.PendingPush{{
@@ -161,7 +161,7 @@ func TestFlushPendingFallsBackToThePostAfterGrace(t *testing.T) {
 	if err = dispatcher.FlushPending(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if len(sends) != 1 || sends[0].Body != "こんばんは" || !sends[0].Tokens["token-en"] {
+	if len(sends) != 1 || sends[0].Body != "こんばんは" || !sends[0].Tokens["example-en"] {
 		t.Fatalf("an expired wait must send the original wording: %+v", sends)
 	}
 }

@@ -596,6 +596,30 @@
     {
       "host": "ubgoe.com",
       "reason": "Publisher, circle or event page recorded as the source of a /works record (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "push-api.cloud.huawei.com",
+      "reason": "Huawei Push Kit v3 endpoint root the optional Huawei client posts to; the project id sits in the path and credentials travel in headers."
+    },
+    {
+      "host": "oauth-login.cloud.huawei.com",
+      "reason": "Huawei OAuth endpoint the optional Huawei client uses to mint its JWT assertion; the request body carries the account, not the URL."
+    },
+    {
+      "host": "fcm.googleapis.com",
+      "reason": "Google FCM web push endpoint a browser hands to the server, which posts only to the stored subscription."
+    },
+    {
+      "host": "push.services.mozilla.com",
+      "reason": "Mozilla autopush web push domain: covers updates.push.services.mozilla.com handed over by browsers; the bare host appears only as a rejected case in tests."
+    },
+    {
+      "host": "push.apple.com",
+      "reason": "Apple web push domain: covers web.push.apple.com handed over by Safari."
+    },
+    {
+      "host": "notify.windows.com",
+      "reason": "Windows Notification Service domain: covers wns2-*.notify.windows.com handed over by Edge."
     }
   ]
 }

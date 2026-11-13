@@ -28,8 +28,8 @@ func testWebPushHandler(t *testing.T) (*Handler, *sqlite.Store) {
 		t.Fatal(err)
 	}
 	sender, err := pushkit.NewWebSender(pushkit.WebOptions{
-		PublicKey: public, PrivateKey: private, Hosts: []string{"push.example"},
-		Origin: "https://kano.example",
+		PublicKey: public, PrivateKey: private, Hosts: []string{"push.test"},
+		Origin: "https://kano.test",
 	})
 	if err != nil || sender == nil {
 		t.Fatalf("sender = %v (%v)", sender, err)
@@ -79,7 +79,7 @@ func TestWebPushKeyDisabled(t *testing.T) {
 		t.Fatalf("status=%d headers=%v body=%s", response.Code, response.Header(), response.Body)
 	}
 	if response := webPushCall(t, handler, http.MethodPost, "/api/push/web/subscribe",
-		subscribeBody(t, "https://push.example/one", "")); response.Code != http.StatusServiceUnavailable {
+		subscribeBody(t, "https://push.test/one", "")); response.Code != http.StatusServiceUnavailable {
 		t.Fatalf("subscribe status=%d", response.Code)
 	}
 }
@@ -92,7 +92,7 @@ func TestWebPushSubscribeAndUnsubscribe(t *testing.T) {
 	if key.Code != http.StatusOK || !strings.Contains(key.Body.String(), `"enabled":true`) {
 		t.Fatalf("key status=%d body=%s", key.Code, key.Body)
 	}
-	endpoint := "https://push.example/subscription/one"
+	endpoint := "https://push.test/subscription/one"
 	body := subscribeBody(t, endpoint, `,"video":false`)
 	if response := webPushCall(t, handler, http.MethodPost, "/api/push/web/subscribe", body); response.Code != http.StatusNoContent {
 		t.Fatalf("subscribe status=%d body=%s", response.Code, response.Body)
@@ -140,11 +140,11 @@ func TestWebPushSubscribeAndUnsubscribe(t *testing.T) {
 func TestWebPushRejectsUnsafeRegistrations(t *testing.T) {
 	handler, _ := testWebPushHandler(t)
 	for _, body := range []string{
-		subscribeBody(t, "http://push.example/one", ""),
-		subscribeBody(t, "https://evil.example/one", ""),
-		`{"endpoint":"https://push.example/one","keys":{"p256dh":"short","auth":"short"}}`,
+		subscribeBody(t, "http://push.test/one", ""),
+		subscribeBody(t, "https://evil.test/one", ""),
+		`{"endpoint":"https://push.test/one","keys":{"p256dh":"short","auth":"short"}}`,
 		`not json`,
-		`{"endpoint":"https://push.example/one","keys":{}}`,
+		`{"endpoint":"https://push.test/one","keys":{}}`,
 	} {
 		if response := webPushCall(t, handler, http.MethodPost, "/api/push/web/subscribe", body); response.Code != http.StatusBadRequest {
 			t.Fatalf("body=%s status=%d", body, response.Code)
@@ -159,7 +159,7 @@ func TestWebPushRejectsUnsafeRegistrations(t *testing.T) {
 // a refusal to 429.
 func TestWebPushRegistrationIsRateLimited(t *testing.T) {
 	handler, _ := testWebPushHandler(t)
-	body := subscribeBody(t, "https://push.example/one", "")
+	body := subscribeBody(t, "https://push.test/one", "")
 	status := http.StatusNoContent
 	for i := 0; i < webPushRateLimit && status == http.StatusNoContent; i++ {
 		status = webPushCall(t, handler, http.MethodPost, "/api/push/web/subscribe", body).Code

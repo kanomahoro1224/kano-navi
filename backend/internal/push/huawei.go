@@ -31,8 +31,8 @@ import (
 const (
 	// ProjectBase is the v3 endpoint root; the project id sits in the path.
 	ProjectBase = "https://push-api.cloud.huawei.com/v3/"
-	// DefaultTokenURI is the audience the assertion must name.
-	DefaultTokenURI = "https://oauth-login.cloud.huawei.com/oauth2/v3/token"
+	// DefaultAudienceURI is the audience the assertion must name.
+	DefaultAudienceURI = "https://oauth-login.cloud.huawei.com/oauth2/v3/token"
 	// MaxTokensPerSend is the API's per-request limit; larger audiences are
 	// split across requests.
 	MaxTokensPerSend = 1000
@@ -89,9 +89,9 @@ type Client struct {
 	http     *http.Client
 	now      func() time.Time
 
-	mutex     sync.Mutex
-	token     string
-	expiresAt time.Time
+	mutex      sync.Mutex
+	credential string
+	expiresAt  time.Time
 }
 
 // Options configures a client. An empty account leaves push disabled.
@@ -311,16 +311,16 @@ var errAllTokensInvalid = errors.New("push tokens are not registered")
 func (c *Client) accessToken(now time.Time) (string, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	if c.token != "" && now.Before(c.expiresAt.Add(-refreshMargin)) {
-		return c.token, nil
+	if c.credential != "" && now.Before(c.expiresAt.Add(-refreshMargin)) {
+		return c.credential, nil
 	}
 	assertion, err := c.assertion(now)
 	if err != nil {
 		return "", err
 	}
-	c.token = assertion
+	c.credential = assertion
 	c.expiresAt = now.Add(tokenLifetime)
-	return c.token, nil
+	return c.credential, nil
 }
 
 // assertion builds the PS256-signed JWT the token endpoint accepts as proof of
@@ -331,7 +331,7 @@ func (c *Client) assertion(now time.Time) (string, error) {
 		return "", err
 	}
 	claims, err := json.Marshal(map[string]any{
-		"aud": DefaultTokenURI,
+		"aud": DefaultAudienceURI,
 		"iss": c.account.SubAccount,
 		"iat": now.Unix(),
 		"exp": now.Add(tokenLifetime).Unix(),

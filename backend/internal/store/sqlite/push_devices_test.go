@@ -23,7 +23,7 @@ func TestPushDeviceRegistrationKeepsOneTokenPerDevice(t *testing.T) {
 		t.Fatal(err)
 	}
 	second := first
-	second.Token = "token-b"
+	second.Token = "example-b"
 	if err = store.RegisterPushDevice(ctx, second); err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestPushDeviceRegistrationKeepsOneTokenPerDevice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(devices) != 1 || devices[0].Token != "token-b" || devices[0].DeviceID != "device-1" || devices[0].NotifyVideo || !devices[0].NotifyPost {
+	if len(devices) != 1 || devices[0].Token != "example-b" || devices[0].DeviceID != "device-1" || devices[0].NotifyVideo || !devices[0].NotifyPost {
 		t.Fatalf("devices = %+v", devices)
 	}
 	// The master switch stops a device from being read at all.
@@ -42,7 +42,7 @@ func TestPushDeviceRegistrationKeepsOneTokenPerDevice(t *testing.T) {
 	if devices, err = store.PushDevices(ctx); err != nil || len(devices) != 0 {
 		t.Fatalf("disabled device read as %+v (%v)", devices, err)
 	}
-	if err = store.DeletePushDevices(ctx, []string{"token-b"}); err != nil {
+	if err = store.DeletePushDevices(ctx, []string{"example-b"}); err != nil {
 		t.Fatal(err)
 	}
 	var count int

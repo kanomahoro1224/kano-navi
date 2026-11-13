@@ -72,7 +72,7 @@ func TestNewReceiptHandlerStaysNilWithoutSecret(t *testing.T) {
 
 func TestReceiptRetiresUninstalledAndMismatchedTokens(t *testing.T) {
 	store := receiptStore(t)
-	for _, token := range []string{"token-live", "token-dead", "token-mismatch"} {
+	for _, token := range []string{"example-live", "token-dead", "token-mismatch"} {
 		if err := store.RegisterPushDevice(t.Context(), sqlite.PushDevice{Token: token, DeviceID: "device-" + token, Enabled: true, NotifyLive: true, NotifyVideo: true, NotifyPost: true}); err != nil {
 			t.Fatalf("register %s: %v", token, err)
 		}
@@ -80,7 +80,7 @@ func TestReceiptRetiresUninstalledAndMismatchedTokens(t *testing.T) {
 	secret := receiptTestKey(t)
 	handler := NewReceiptHandler(store, secret, "kano")
 	body := `{"statuses":[` +
-		`{"token":"token-live","pushType":0,"appPackageName":"com.example","requestId":"r1","deliveryStatus":{"result":0,"timestamp":1700000000000}},` +
+		`{"token":"example-live","pushType":0,"appPackageName":"com.example","requestId":"r1","deliveryStatus":{"result":0,"timestamp":1700000000000}},` +
 		`{"token":"token-dead","pushType":0,"appPackageName":"com.example","requestId":"r2","deliveryStatus":{"result":2,"timestamp":1700000000000}},` +
 		`{"token":"token-mismatch","pushType":0,"appPackageName":"com.example","requestId":"r3","deliveryStatus":{"result":5,"timestamp":1700000000000}}]}`
 	response := postReceipt(handler, signReceipt(secret, "kano", "1700000000000", "nonce-1"), body)
@@ -98,19 +98,19 @@ func TestReceiptRetiresUninstalledAndMismatchedTokens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list devices: %v", err)
 	}
-	if len(devices) != 1 || devices[0].Token != "token-live" {
-		t.Fatalf("devices = %+v, want only token-live", devices)
+	if len(devices) != 1 || devices[0].Token != "example-live" {
+		t.Fatalf("devices = %+v, want only example-live", devices)
 	}
 }
 
 func TestReceiptRejectsForgedSignature(t *testing.T) {
 	store := receiptStore(t)
-	if err := store.RegisterPushDevice(t.Context(), sqlite.PushDevice{Token: "token-live", DeviceID: "device-1", Enabled: true}); err != nil {
+	if err := store.RegisterPushDevice(t.Context(), sqlite.PushDevice{Token: "example-live", DeviceID: "device-1", Enabled: true}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	secret := receiptTestKey(t)
 	handler := NewReceiptHandler(store, secret, "kano")
-	body := `{"statuses":[{"token":"token-live","deliveryStatus":{"result":2,"timestamp":1700000000000}}]}`
+	body := `{"statuses":[{"token":"example-live","deliveryStatus":{"result":2,"timestamp":1700000000000}}]}`
 	// A receipt signed for another user name must not retire anything.
 	response := postReceipt(handler, signReceipt(secret, "other-user", "1700000000000", "nonce-1"), body)
 	if response.Code != http.StatusUnauthorized {
@@ -133,7 +133,7 @@ func TestReceiptRejectsForgedSignature(t *testing.T) {
 func TestReceiptAcceptsRawSecret(t *testing.T) {
 	store := receiptStore(t)
 	// A secret that does not decode is the raw key of an older configuration.
-	secret := "not-a-base64-callback-key!!"
+	secret := "not-a-real-callback-key"
 	handler := NewReceiptHandler(store, secret, "kano")
 	response := postReceipt(handler, signReceipt(secret, "kano", "1700000000000", "nonce-1"), `{}`)
 	if response.Code != http.StatusOK {

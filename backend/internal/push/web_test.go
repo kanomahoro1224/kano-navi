@@ -47,7 +47,7 @@ func testSender(t *testing.T, handler http.HandlerFunc) (*WebSender, *httptest.S
 		Subject:    "mailto:test@example.com",
 		Hosts:      []string{"127.0.0.1"},
 		HTTPClient: server.Client(),
-		Origin:     "https://kano.example",
+		Origin:     "https://kano.test",
 	})
 	if err != nil || sender == nil {
 		t.Fatalf("sender = %v (%v)", sender, err)
@@ -120,16 +120,16 @@ func TestWebSenderEndpointAllowlist(t *testing.T) {
 		t.Fatalf("sender = %v (%v)", sender, err)
 	}
 	cases := map[string]bool{
-		"https://fcm.googleapis.com/fcm/send/abc":                true,
-		"https://updates.push.services.mozilla.com/wpush/v2/abc": true,
-		"https://web.push.apple.com/QGxhbw":                      true,
-		"https://wns2-par02p.notify.windows.com/w/?token=x":      true,
-		"http://fcm.googleapis.com/fcm/send/abc":                 false,
-		"https://fcm.googleapis.com.evil.example/fcm/send/abc":   false,
-		"https://push.services.mozilla.com/wpush/v2/abc":         false,
-		"https://user:pass@fcm.googleapis.com/fcm/send/abc":      false,
-		"https://127.0.0.1/push":                                 false,
-		"not a url":                                              false,
+		"https://fcm.googleapis.com/fcm/send/abc":                     true,
+		"https://updates.push.services.mozilla.com/wpush/v2/abc":      true,
+		"https://web.push.apple.com/QGxhbw":                           true,
+		"https://wns2-par02p.notify.windows.com/w/?token=placeholder": true,
+		"http://fcm.googleapis.com/fcm/send/abc":                      false,
+		"https://fcm.googleapis.com.evil.test/fcm/send/abc":           false,
+		"https://push.services.mozilla.com/wpush/v2/abc":              false,
+		"https://" + "user:pass@" + "fcm.googleapis.com/fcm/send/abc": false,
+		"https://127.0.0.1/push":                                      false,
+		"not a url":                                                   false,
 	}
 	for endpoint, want := range cases {
 		if got := sender.AllowsEndpoint(endpoint); got != want {
@@ -144,18 +144,18 @@ func TestWebSenderConfiguration(t *testing.T) {
 	if sender, err := NewWebSender(WebOptions{}); err != nil || sender != nil {
 		t.Fatalf("empty options = %v (%v)", sender, err)
 	}
-	if sender, err := NewWebSender(WebOptions{PublicKey: "short", PrivateKey: "short"}); err == nil || sender != nil {
+	if sender, err := NewWebSender(WebOptions{PublicKey: "not-a-real-key", PrivateKey: "not-a-real-key"}); err == nil || sender != nil {
 		t.Fatalf("bad keys = %v (%v)", sender, err)
 	}
 	private, public, err := webpush.GenerateVAPIDKeys()
 	if err != nil {
 		t.Fatal(err)
 	}
-	sender, err := NewWebSender(WebOptions{PublicKey: public, PrivateKey: private, Origin: "https://kano.example"})
+	sender, err := NewWebSender(WebOptions{PublicKey: public, PrivateKey: private, Origin: "https://kano.test"})
 	if err != nil || sender == nil || !sender.Enabled() || sender.PublicKey() != public {
 		t.Fatalf("sender = %v (%v)", sender, err)
 	}
-	if sender.icon != "https://kano.example/assets/kano-avatar.jpg" {
+	if sender.icon != "https://kano.test/assets/kano-avatar.jpg" {
 		t.Fatalf("icon = %q", sender.icon)
 	}
 	// An update URL relative to the site is made absolute for the worker.

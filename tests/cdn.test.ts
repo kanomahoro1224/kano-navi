@@ -156,3 +156,11 @@ test("inline preload data cannot close its script", () => {
     base: "https://cdn.example.invalid/</script><!--",
   })
 })
+
+test("a stand-in document without queries advertises no base", (t) => {
+  const page = globalThis.document
+  t.after(() => Object.assign(globalThis, { document: page }))
+  Object.assign(globalThis, { document: new EventTarget() })
+  assert.equal(cdnBase(), "")
+  assert.equal(fallbackProfile.avatarUrl, "/assets/kano-avatar.jpg")
+})

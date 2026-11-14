@@ -6,7 +6,13 @@
  * from its packaged catalogs.
  */
 export function cdnBase(): string {
-  if (typeof document === "undefined") return ""
+  // Outside a page (Node scripts, tests with a stand-in document) there is
+  // no advertised base.
+  if (
+    typeof document === "undefined" ||
+    typeof document.querySelector !== "function"
+  )
+    return ""
   const content =
     document
       .querySelector('meta[name="kano-cdn-base"]')

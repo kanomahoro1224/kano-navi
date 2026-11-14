@@ -40,7 +40,7 @@ function blockImages(block: ApiBlock): ApiImage[] {
 
 test("the server's LINE BLOG archive matches the tracked page data", async () => {
   assert.equal(
-    await fs.readFile(lineblogExportFile, "utf8"),
+    (await fs.readFile(lineblogExportFile, "utf8")).replace(/\r\n/gu, "\n"),
     serializeLineblogExport(exported),
     "backend/internal/lineblog/archive.json is out of date; run npm run lineblog:export",
   )

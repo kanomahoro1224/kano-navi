@@ -19,7 +19,9 @@
 - `POST /posts/{id}/refresh` answers `400 invalid_input` for a promoted
   related-account status, which the own accounts' synchronization never
   reads.
-- Startup adds `x_reposts.retweet_id` and its index, and marks every pooled
+- Startup adds `x_reposts.retweet_id` and its index, retains every distinct
+  repost's own ID in `x_repost_ids`, backfills that table from existing
+  repost links, and marks every pooled
   X status an `x_reposts` row names as reposted (`reposted_at` from the
   earliest sighting), without a request.
 - A pending X status whose detail answer is the account's repost leaves the
@@ -106,11 +108,14 @@
 <details>
 <summary><strong>Synchronization and extraction</strong></summary>
 
-- A vxtwitter detail answer that carries `retweet` is recorded as the
+- A vxtwitter detail answer that carries `retweet` and explicitly matches
+  the requested outer status ID is recorded as the
   account's repost of the original status and never stored as a post, on
   the pending queue, known-post refreshes and operator refreshes alike.
 - X API answers record each repost's own status ID, so a stored post under
-  it is removed in the same way.
+  it is removed in the same way. Repeated reposts of one original retain
+  every own ID, including when one API page carries several, so later
+  synchronization and imports cannot restore them as posts.
 - Each X image records whether it is a photo or a video's or GIF's
   thumbnail, from the detail answer, the timeline and the X API alike. Video
   and GIF files are never downloaded.
@@ -122,7 +127,10 @@
 
 - `npm run lineblog:export` writes the server's copy of the LINE BLOG
   archive from the tracked page data, and the frontend tests fail when the
-  committed copy differs.
+  committed copy differs, allowing Git checkout line endings.
+- HTML revalidates with an ETag over its rendered content, including page
+  tags and runtime CDN/public-origin configuration. A build timestamp alone
+  cannot produce a 304 that keeps an earlier configuration's addresses.
 - LINE BLOG packaging refuses a video that is not H.264 with AAC audio.
 - Profile images load when the data directory is reached through a symbolic
   link, as macOS reaches its temporary directories; a symbolic link in place

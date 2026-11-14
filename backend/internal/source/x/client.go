@@ -478,6 +478,12 @@ func (a *Adapter) FetchRecent(ctx context.Context, account string, opts Options)
 			fail(id, string(ErrInvalidJSON), &Error{Code: ErrInvalidJSON}, false)
 			continue
 		}
+		// Repost evidence can delete a stored post. Require the answer's
+		// explicit identity, never the requested ID as a normalization fallback.
+		if len(object(payload["retweet"])) > 0 && firstString(payload, "tweetID", "tweetId", "id") != id {
+			fail(id, string(ErrInvalidResponse), &Error{Code: ErrInvalidResponse}, false)
+			continue
+		}
 		// The account's repost has a status ID of its own, but it is never
 		// a post: it is recorded as a repost and leaves the queue at once,
 		// without a failure.

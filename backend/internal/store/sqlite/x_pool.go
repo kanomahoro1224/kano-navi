@@ -75,7 +75,9 @@ func writeQuotedStatus(ctx context.Context, tx *sql.Tx, q *xsource.Quote, quoted
 // author's is stored until an operator promotes it. A post stored under the
 // repost's own status ID (from an import, say) is removed with everything
 // keyed to it (see removeRepostPost). The board shows a reposted status only
-// once it is promoted. It reports whether a post changed.
+// once it is promoted. Every distinct own ID stays in x_repost_ids, even
+// when the account reposts the same original again. It reports whether a
+// post changed.
 func writeXReposts(ctx context.Context, tx *sql.Tx, account string, reposts []xsource.Repost, now string) (bool, error) {
 	if len(reposts) == 0 {
 		return false, nil
@@ -101,6 +103,10 @@ func writeXReposts(ctx context.Context, tx *sql.Tx, account string, reposts []xs
 			return false, err
 		}
 		if retweet != "" {
+			if _, err = tx.ExecContext(ctx, `INSERT INTO x_repost_ids(retweet_id,status_id,account_handle,first_seen_at) VALUES(?,?,?,?)
+				ON CONFLICT(retweet_id) DO NOTHING`, retweet, r.ID, strings.ToLower(account), now); err != nil {
+				return false, err
+			}
 			removed, removeErr := removeRepostPost(ctx, tx, retweet, account, now)
 			if removeErr != nil {
 				return false, removeErr
@@ -127,7 +133,18 @@ func writeXReposts(ctx context.Context, tx *sql.Tx, account string, reposts []xs
 // isRepostID reports whether id is an own account's repost status ID that a
 // detail answer named, which is never stored as a post.
 func isRepostID(ctx context.Context, tx *sql.Tx, id string) (bool, error) {
-	return rowExists(ctx, tx, `SELECT 1 FROM x_reposts WHERE retweet_id=?`, id)
+	return rowExists(ctx, tx, `SELECT 1 FROM x_repost_ids WHERE retweet_id=?`, id)
+}
+
+// backfillRepostIDs preserves the IDs older snapshots keep on repost links.
+// Repeated reposts keep every distinct ID in x_repost_ids; x_reposts retains
+// its first ID for compatibility. Startup is additive and idempotent.
+func backfillRepostIDs(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, `INSERT INTO x_repost_ids(retweet_id,status_id,account_handle,first_seen_at)
+		SELECT retweet_id,status_id,account_handle,first_seen_at FROM x_reposts
+		WHERE retweet_id IS NOT NULL AND retweet_id<>'' AND retweet_id<>status_id
+		ON CONFLICT(retweet_id) DO NOTHING`)
+	return err
 }
 
 // removeRepostPost removes the account's stored post id, which a detail

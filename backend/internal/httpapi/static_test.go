@@ -7,7 +7,61 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestStaticHTMLRevalidatesRenderedContent(t *testing.T) {
+	root := t.TempDir()
+	page := `<!doctype html><head><title>board</title><meta property="og:url" content="/" /></head><img src="/assets/kano-avatar.jpg">`
+	name := filepath.Join(root, "index.html")
+	if err := os.WriteFile(name, []byte(page), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	built := time.Unix(1_700_000_000, 0)
+	if err := os.Chtimes(name, built, built); err != nil {
+		t.Fatal(err)
+	}
+	get := func(origin, cdn, route, method, tag string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(method, route, nil)
+		// Include a timestamp from a deployment that used file modification
+		// times; it must not hide changes in runtime configuration or tags.
+		req.Header.Set("If-Modified-Since", built.UTC().Format(http.TimeFormat))
+		if tag != "" {
+			req.Header.Set("If-None-Match", tag)
+		}
+		w := httptest.NewRecorder()
+		Compress(NewStaticSite(root, origin, cdn)).ServeHTTP(w, req)
+		return w
+	}
+	configs := []struct{ origin, cdn, route string }{
+		{"", "", "/"},
+		{"", "https://cdn.example.invalid/one", "/"},
+		{"", "https://cdn.example.invalid/two", "/"},
+		{"https://site.example.invalid", "", "/"},
+		{"", "", "/journey"},
+	}
+	for _, from := range configs {
+		first := get(from.origin, from.cdn, from.route, http.MethodGet, "")
+		if first.Code != http.StatusOK || first.Header().Get("ETag") == "" || first.Header().Get("Last-Modified") != "" {
+			t.Fatalf("HTML needs a content validator: config=%+v status=%d headers=%v", from, first.Code, first.Header())
+		}
+		for _, to := range configs {
+			got := get(to.origin, to.cdn, to.route, http.MethodGet, first.Header().Get("ETag"))
+			want := http.StatusOK
+			if from == to {
+				want = http.StatusNotModified
+			}
+			if got.Code != want || (want == http.StatusNotModified && got.Body.Len() != 0) || (want == http.StatusOK && got.Body.String() == first.Body.String()) {
+				t.Fatalf("from=%+v to=%+v => status=%d want=%d body=%q", from, to, got.Code, want, got.Body)
+			}
+		}
+		head := get(from.origin, from.cdn, from.route, http.MethodHead, "")
+		if head.Code != http.StatusOK || head.Body.Len() != 0 || head.Header().Get("ETag") != first.Header().Get("ETag") {
+			t.Fatalf("HEAD config=%+v status=%d headers=%v", from, head.Code, head.Header())
+		}
+	}
+}
 
 func TestStaticSiteServesBuildWithFallbackAndContainment(t *testing.T) {
 	root := t.TempDir()

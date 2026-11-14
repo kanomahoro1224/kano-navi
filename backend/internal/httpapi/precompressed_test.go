@@ -107,6 +107,23 @@ func TestStaticSiteServesPrecompressedSiblings(t *testing.T) {
 	if fresh.Code != http.StatusNotModified || fresh.Body.Len() != 0 || fresh.Header().Get("Content-Encoding") != "" {
 		t.Fatalf("conditional=%d headers=%v", fresh.Code, fresh.Header())
 	}
+	// HTML validates its rendered content across encodings without using the
+	// build timestamp. A matching weak ETag still permits a bodyless 304.
+	pageHead := get(http.MethodHead, "/", "Accept-Encoding", "br")
+	pageTag := pageHead.Header().Get("ETag")
+	if pageHead.Code != http.StatusOK || pageTag == "" || pageHead.Header().Get("Last-Modified") != "" || pageHead.Body.Len() != 0 || pageHead.Header().Get("Content-Length") != strconv.Itoa(len(files["index.html.br"])) {
+		t.Fatalf("HTML HEAD=%d headers=%v", pageHead.Code, pageHead.Header())
+	}
+	for _, accept := range []string{"", "br", "gzip"} {
+		conditional := get(http.MethodGet, "/", "Accept-Encoding", accept, "If-None-Match", pageTag)
+		if conditional.Code != http.StatusNotModified || conditional.Body.Len() != 0 || conditional.Header().Get("Content-Encoding") != "" {
+			t.Fatalf("HTML conditional %q=%d headers=%v", accept, conditional.Code, conditional.Header())
+		}
+	}
+	pageRange := get(http.MethodGet, "/", "Accept-Encoding", "br", "Range", "bytes=0-8")
+	if pageRange.Code != http.StatusPartialContent || pageRange.Body.String() != string(files["index.html.br"][:9]) {
+		t.Fatalf("HTML range=%d body=%q", pageRange.Code, pageRange.Body)
+	}
 	partial := get(http.MethodGet, "/assets/index-AbCd1234.js", "Accept-Encoding", "br", "Range", "bytes=0-8")
 	if partial.Code != http.StatusPartialContent || partial.Header().Get("Content-Encoding") != "br" || partial.Body.String() != string(br[:9]) {
 		t.Fatalf("range=%d headers=%v body=%q", partial.Code, partial.Header(), partial.Body)

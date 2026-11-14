@@ -13,11 +13,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/cdn"
 )
 
-// maxIndexBytes bounds the index.html read for share-tag rewriting.
+// maxIndexBytes bounds the index.html read for rendering and validation.
 const maxIndexBytes = 1 << 20
 
 // pageTags are a page's own link-preview wording in the English base locale,
@@ -285,7 +286,10 @@ func (s *staticSite) serve(w http.ResponseWriter, r *http.Request, name, relativ
 		w.Header().Set("Content-Type", contentType)
 	}
 	tags := spaPages[route]
-	if relative == "index.html" && (s.publicOrigin != "" || s.cdnBase != "" || status != http.StatusOK || tags != nil) {
+	var content io.ReadSeeker = file
+	modified := info.ModTime()
+	rewritten := s.publicOrigin != "" || s.cdnBase != "" || tags != nil
+	if relative == "index.html" {
 		page, err := io.ReadAll(io.LimitReader(file, maxIndexBytes+1))
 		if err != nil || len(page) > maxIndexBytes {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "api_not_found"}, "")
@@ -311,19 +315,25 @@ func (s *staticSite) serve(w http.ResponseWriter, r *http.Request, name, relativ
 			}
 			return
 		}
-		http.ServeContent(w, r, filepath.Base(name), info.ModTime(), bytes.NewReader(page))
-		return
+		// File times cannot validate runtime CDN/origin settings or route
+		// tags. Use the rendered bytes, including when rewriting is disabled,
+		// so a switch back to origin URLs also invalidates a cached page.
+		w.Header().Set("ETag", revalidatedETag(page))
+		modified = time.Time{}
+		content = bytes.NewReader(page)
 	}
-	if sibling, length, coding := s.precompressed(r, relative, info); sibling != nil {
-		defer sibling.Close()
-		w.Header().Set("Content-Encoding", coding)
-		// The original's modification time keeps Last-Modified, and so the
-		// conditional requests, the same for every encoding; ranges address
-		// the encoded bytes.
-		http.ServeContent(lengthWriter{ResponseWriter: w, length: length}, r, filepath.Base(name), info.ModTime(), sibling)
-		return
+	if relative != "index.html" || !rewritten {
+		if sibling, length, coding := s.precompressed(r, relative, info); sibling != nil {
+			defer sibling.Close()
+			w.Header().Set("Content-Encoding", coding)
+			// HTML shares its weak content validator across encodings; other
+			// files keep the original's modification time. Ranges address
+			// the encoded bytes.
+			http.ServeContent(lengthWriter{ResponseWriter: w, length: length}, r, filepath.Base(name), modified, sibling)
+			return
+		}
 	}
-	http.ServeContent(w, r, filepath.Base(name), info.ModTime(), file)
+	http.ServeContent(w, r, filepath.Base(name), modified, content)
 }
 
 // lengthWriter declares a precompressed sibling's length on a full response,

@@ -1830,14 +1830,19 @@ time and author, with `reposted_by` naming the account; X API answers list
 it as a post of its own ID that references the status as `retweeted`. A
 vxtwitter detail answer for a repost's own ID names the reposting account as
 its author, words itself `RT @author: …` and carries the reposted status
-under `retweet`. None of them is ever a post or a cursor, pending or gap
-entry: a detail answer with `retweet` drops a pending ID with
+under `retweet`. Before using that evidence, the detail answer must explicitly
+name the requested outer status ID (`tweetID`, `tweetId` or `id`); a missing
+or different ID fails with `x_invalid_response` and keeps the stored post.
+None of them is ever a post or a cursor, pending or gap
+entry: a verified detail answer with `retweet` drops a pending ID with
 `x_status_repost` and finishes a refresh. Recent synchronization, detail
 requests and manual fetches record each repost in `x_reposts`: the reposted
 status ID, the reposting account and, when known, the status's author and
-the repost's own ID, with the time it was first seen, which a later listing
-keeps. The board shows a reposted status only once an operator promotes it
-(below). The timed X API method asks for the
+the repost's first known own ID, with the time it was first seen, which a
+later listing keeps. Every distinct own ID is retained separately as the
+[data model](data-model.md#reposts-stored-as-posts) describes, including
+multiple reposts of one original in an X API page. The board shows a reposted
+status only once an operator promotes it (below). The timed X API method asks for the
 account's posts without retweets, so it records none.
 
 A stored own post under a repost's own ID (an archive import can write one)

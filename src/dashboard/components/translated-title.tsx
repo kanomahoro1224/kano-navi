@@ -11,10 +11,12 @@ import { cleanVideoTitle } from "../format"
 
 /**
  * Whether a card's clamp cuts the wording: the wording clamps itself next to
- * a translation switch, and its card title clamps it otherwise.
+ * a translation switch, and its card title clamps it otherwise. A title
+ * button's wording clamps inside it, because WebKit never clamps a button.
  */
 function clamped(wording: HTMLElement) {
-  return [wording, wording.parentElement].some(
+  const inner = wording.tagName === "BUTTON" ? wording.firstElementChild : null
+  return [inner, wording, wording.parentElement].some(
     (box) => box !== null && box.scrollHeight > box.clientHeight + 1,
   )
 }
@@ -68,13 +70,14 @@ export function TranslatedTitle({
   ) : onOpen ? (
     <button
       type="button"
-      className="card-link translated-title-text"
-      lang={state.lang}
+      className="card-link"
       onClick={onOpen}
       aria-haspopup="dialog"
       {...hover}
     >
-      {text}
+      <span className="translated-title-text" lang={state.lang}>
+        {text}
+      </span>
     </button>
   ) : (
     <span className="translated-title-text" lang={state.lang} {...hover}>

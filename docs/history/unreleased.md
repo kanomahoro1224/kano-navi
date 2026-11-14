@@ -84,6 +84,9 @@
   opens the post on X instead of the viewer.
 - Every video in the LINE BLOG archive plays in Safari and on iPhone, not
   only those YouTube had kept as H.264.
+- In Safari and on iPhone, the weekly schedule folds past entries to two
+  lines of title and cuts other entries' titles at three lines, as in other
+  browsers, instead of showing every title whole.
 - A reposted post the operator picks shows on the wall and in Past posts as
   its author's post, marked Reposted by and the account of Kano's that
   reposted it, under All only.

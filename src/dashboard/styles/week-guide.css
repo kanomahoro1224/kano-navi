@@ -172,18 +172,26 @@
   -webkit-line-clamp: 3;
 }
 
-/* The title is the button that opens the entry's sheet. */
+/*
+ * The title is the button that opens the entry's sheet. WebKit never clamps
+ * a button, so the wording inside it clamps.
+ */
 .guide-event-title > .card-link {
+  display: block;
+  min-width: 0;
+  text-align: left;
+}
+
+.guide-event-title > .card-link > .translated-title-text {
   display: -webkit-box;
   overflow: hidden;
-  text-align: left;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
 
 /* The month's day details show the whole title and detail. */
 .guide-event.is-full .guide-event-title,
-.guide-event.is-full .guide-event-title > .card-link {
+.guide-event.is-full .card-link > .translated-title-text {
   display: block;
   -webkit-line-clamp: unset;
 }
@@ -302,7 +310,7 @@
 }
 
 .guide-event.is-folded .guide-event-title,
-.guide-event.is-folded .guide-event-title > .card-link {
+.guide-event.is-folded .card-link > .translated-title-text {
   font-size: 12px;
   -webkit-line-clamp: 2;
 }

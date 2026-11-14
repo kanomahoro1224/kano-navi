@@ -112,33 +112,74 @@ func (s *Store) adjacentDates(ctx context.Context, table, instant, filter string
 	return before, after, nil
 }
 
+// timelineEnd turns a timeline's inclusive Japan date until into the UTC
+// instant that ends it, or "" for an open end when until is empty.
+func timelineEnd(until string) (string, error) {
+	if until == "" {
+		return "", nil
+	}
+	if !validCalendarDate(until) {
+		return "", ErrInvalidCalendarRange
+	}
+	day, _ := time.ParseInLocation("2006-01-02", until, time.FixedZone("JST", 9*60*60))
+	return day.AddDate(0, 0, 1).UTC().Format(time.RFC3339), nil
+}
+
 // GetPostArchive reads stored posts published in a Japan-date range, newest
 // first, optionally for one account.
 func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, page, pageSize int) (*ArchivePage[Post], error) {
-	if s == nil || s.db == nil {
-		return nil, ErrUnavailable
-	}
-	if s.readDB != nil {
+	if s != nil && s.readDB != nil {
 		return s.publicReader().GetPostArchive(ctx, from, to, account, page, pageSize)
 	}
-	ctx = withReadMemo(ctx)
 	start, end, err := archiveBounds(from, to)
 	if err != nil {
 		return nil, err
 	}
+	return s.postArchive(ctx, start, end, account, page, pageSize)
+}
+
+// GetPostTimeline reads stored posts published on or before an inclusive
+// Japan date, or every dated post when until is empty, newest first,
+// optionally for one account. Its pages continue through every month, so a
+// client can scroll back without a date range.
+func (s *Store) GetPostTimeline(ctx context.Context, until, account string, page, pageSize int) (*ArchivePage[Post], error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetPostTimeline(ctx, until, account, page, pageSize)
+	}
+	end, err := timelineEnd(until)
+	if err != nil {
+		return nil, err
+	}
+	return s.postArchive(ctx, "", end, account, page, pageSize)
+}
+
+// postArchive reads one page of shown posts in the UTC instants [start, end);
+// an empty bound leaves that side open.
+func (s *Store) postArchive(ctx context.Context, start, end, account string, page, pageSize int) (*ArchivePage[Post], error) {
+	if s == nil || s.db == nil {
+		return nil, ErrUnavailable
+	}
+	ctx = withReadMemo(ctx)
 	if account != "" && !accountPattern.MatchString(account) {
 		return nil, ErrInvalidAccount
 	}
 	const instant = `julianday(published_at)`
-	inRange := ` WHERE ` + wallPostSQL + ` AND ` + instant + ` >= julianday(?) AND ` + instant + ` < julianday(?)`
+	conditions, bounds := []string{wallPostSQL, instant + ` IS NOT NULL`}, []any{}
+	if start != "" {
+		conditions, bounds = append(conditions, instant+` >= julianday(?)`), append(bounds, start)
+	}
+	if end != "" {
+		conditions, bounds = append(conditions, instant+` < julianday(?)`), append(bounds, end)
+	}
+	inRange := ` WHERE ` + strings.Join(conditions, " AND ")
 	filter, filterArgs := "", []any{}
 	if account != "" {
 		filter, filterArgs = ` AND lower(account_handle)=lower(?)`, []any{account}
 	}
-	args := append([]any{start, end}, filterArgs...)
+	args := append(append([]any{}, bounds...), filterArgs...)
 
 	counts := map[string]int64{}
-	countRows, err := s.db.QueryContext(ctx, `SELECT lower(COALESCE(account_handle,'')), COUNT(*) FROM posts`+inRange+` GROUP BY 1`, start, end)
+	countRows, err := s.db.QueryContext(ctx, `SELECT lower(COALESCE(account_handle,'')), COUNT(*) FROM posts`+inRange+` GROUP BY 1`, bounds...)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -202,6 +243,7 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 		return nil, err
 	}
 
+	// An open bound has no neighbor: julianday('') is NULL and matches nothing.
 	previous, next, err := s.adjacentDates(ctx, "posts", instant, " AND "+wallPostSQL+filter, filterArgs, start, end)
 	if err != nil {
 		return nil, err
@@ -319,13 +361,9 @@ func (s *Store) GetVideoTimeline(ctx context.Context, until, category string, pa
 	if s != nil && s.readDB != nil {
 		return s.publicReader().GetVideoTimeline(ctx, until, category, page, pageSize, now)
 	}
-	end := ""
-	if until != "" {
-		if !validCalendarDate(until) {
-			return nil, ErrInvalidCalendarRange
-		}
-		day, _ := time.ParseInLocation("2006-01-02", until, time.FixedZone("JST", 9*60*60))
-		end = day.AddDate(0, 0, 1).UTC().Format(time.RFC3339)
+	end, err := timelineEnd(until)
+	if err != nil {
+		return nil, err
 	}
 	return s.videoArchive(ctx, "", end, category, page, pageSize, now)
 }

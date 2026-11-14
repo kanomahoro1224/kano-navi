@@ -1,6 +1,6 @@
 import { cdnUrl } from "../lib/cdn.ts"
 import type { Translator } from "../types.ts"
-import { mediaUrl, personalReleases } from "../works/content.ts"
+import { mediaPath, mediaUrl, personalReleases } from "../works/content.ts"
 import type { WorksCover } from "../works/types.ts"
 import catalog from "./media-catalog.json" with { type: "json" }
 import { milestones } from "./milestones.ts"
@@ -10,10 +10,15 @@ import { milestones } from "./milestones.ts"
 // release's covers from the Works page (data/works/, see
 // docs/development/works-archive.md) instead of copies of their own. Visits
 // stay local.
+// `path` is the root-relative route the packaged API exports; `url` resolves
+// it on read, through the CDN the page advertises, if any.
 export const fixedMedia = catalog.map((item) => ({
   ...item,
   origin: "fixed" as const,
-  url: cdnUrl(`/media/journey/${item.name}`),
+  path: `/media/journey/${item.name}`,
+  get url(): string {
+    return cdnUrl(this.path)
+  },
 }))
 
 export type FixedMediaItem = (typeof fixedMedia)[number]
@@ -34,7 +39,10 @@ export type ReleaseCoverItem = {
   /** Every edition was withdrawn before sale. */
   cancelled: boolean
   cover: WorksCover
-  url: string
+  /** The cover's root-relative route, as the packaged API names it. */
+  path: string
+  /** The cover's address on read, on the advertised CDN base if any. */
+  readonly url: string
   width: number
   height: number
   frameTime: null
@@ -70,7 +78,10 @@ export const releaseCovers: ReleaseCoverItem[] = milestones.flatMap(
       dateKind: "release" as const,
       cancelled: release.cancelled,
       cover,
-      url: mediaUrl(cover.media),
+      path: mediaPath(cover.media),
+      get url(): string {
+        return mediaUrl(cover.media)
+      },
       width: cover.width,
       height: cover.height,
       frameTime: null,

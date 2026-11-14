@@ -18,9 +18,14 @@ export const worksSummary = summary
 export const OFFICIAL_DISCOGRAPHY =
   "https://kano-official.amebaownd.com/posts/categories/1163113"
 
-/** Covers stay in the server's data directory, or the CDN in front of it. */
+/** A cover's root-relative route in the server's data directory. */
+export function mediaPath(name: string) {
+  return `/media/works/${name}`
+}
+
+/** A cover's address: the route, or the CDN in front of it. */
 export function mediaUrl(name: string) {
-  return cdnUrl(`/media/works/${name}`)
+  return cdnUrl(mediaPath(name))
 }
 
 export function coverUrl(cover: WorksCover) {

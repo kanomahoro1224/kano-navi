@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { precompress } from "./scripts/vite-precompress.ts"
 import { pagePreload } from "./scripts/vite-page-preload.ts"
+import { normalizeCdnBase } from "./scripts/cdn-base.ts"
 
 export default defineConfig(({ command, mode }) => {
   const environment = loadEnv(mode, process.cwd(), "")
@@ -11,9 +12,12 @@ export default defineConfig(({ command, mode }) => {
   // (backend/internal/cdn rewrites the rest of index.html). A development
   // server always serves "/", since the same variable may name the deployed
   // site's CDN.
+  // The value is validated and normalized like the server's (lowercase host,
+  // no trailing slash), so the bundle and the API name the same base, and a
+  // bad value fails the build.
   const cdnBase =
     command === "build"
-      ? (environment.CDN_PUBLIC_BASE || "").trim().replace(/\/+$/, "")
+      ? normalizeCdnBase(environment.CDN_PUBLIC_BASE || "")
       : ""
   const base = cdnBase ? `${cdnBase}/` : "/"
   const port = Number(environment.PORT || 7657)
@@ -56,6 +60,9 @@ export default defineConfig(({ command, mode }) => {
       {
         name: "kano-cdn-css-urls",
         apply: "build",
+        // After vite:css-post, which emits the CSS in its own generateBundle
+        // when cssCodeSplit is off.
+        enforce: "post",
         generateBundle(_options, bundle) {
           if (!cdnBase) return
           for (const file of Object.values(bundle)) {

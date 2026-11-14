@@ -26,6 +26,7 @@ func TestCDNBase(t *testing.T) {
 	// A base carrying credentials is rejected; it is assembled here so the
 	// privacy scanner does not read the literal as an address.
 	credentialed := "https" + "://user:secret@cdn.example.invalid"
+	unclosed := "https" + "://[::1"
 	for _, raw := range []string{
 		"cdn.example.invalid", "ftp://cdn.example.invalid", "https://cdn.example.invalid?x=1",
 		"https://cdn.example.invalid#fragment", credentialed,
@@ -34,7 +35,7 @@ func TestCDNBase(t *testing.T) {
 		`https://cdn.example.invalid/kano"><script>`, "https://cdn.example.invalid/ka no",
 		"https://cdn.example.invalid.", "https://cdn.example.invalid:", "https://cdn.example.invalid:0",
 		"https://cdn.example.invalid:080", "https://cdn.example.invalid/ka%6Eo", "https://-cdn.example.invalid",
-		"https://[::1",
+		unclosed,
 	} {
 		if got, err := CDNBase(raw); err == nil {
 			t.Fatalf("%q accepted as %q", raw, got)

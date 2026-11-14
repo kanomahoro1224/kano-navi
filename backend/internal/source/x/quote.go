@@ -14,15 +14,16 @@ import (
 // kinds in MediaKinds, which the
 // store links as quote-image media and never as schedule candidates.
 type Quote struct {
-	ID           string   `json:"id"`
-	AuthorHandle string   `json:"authorHandle,omitempty"`
-	AuthorName   string   `json:"authorName,omitempty"`
-	Text         string   `json:"text,omitempty"`
-	PublishedAt  string   `json:"publishedAt,omitempty"`
-	URL          string   `json:"url"`
-	Unavailable  bool     `json:"unavailable,omitempty"`
-	MediaURLs    []string `json:"-"`
-	MediaKinds   []string `json:"-"`
+	ID              string   `json:"id"`
+	AuthorHandle    string   `json:"authorHandle,omitempty"`
+	AuthorName      string   `json:"authorName,omitempty"`
+	Text            string   `json:"text,omitempty"`
+	PublishedAt     string   `json:"publishedAt,omitempty"`
+	URL             string   `json:"url"`
+	Unavailable     bool     `json:"unavailable,omitempty"`
+	MediaURLs       []string `json:"-"`
+	MediaKinds      []string `json:"-"`
+	AuthorAvatarURL string   `json:"-"`
 }
 
 const (
@@ -86,6 +87,7 @@ func quoteFrom(m map[string]any) *Quote {
 		name = stringValue(m["user_name"])
 	}
 	q.AuthorHandle, q.AuthorName, q.Text = handle, clip(strings.TrimSpace(name), maxQuoteName), clip(text, maxQuoteText)
+	q.AuthorAvatarURL = extractAuthorAvatarURL(author, m)
 	q.PublishedAt = parseDate(first(m, "date_epoch", "dateEpoch", "created_timestamp", "date", "created_at"))
 	q.MediaURLs = media[:min(len(media), maxQuoteMedia)]
 	q.MediaKinds = itemKinds(items)[:len(q.MediaURLs)]

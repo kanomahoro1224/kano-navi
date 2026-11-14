@@ -23,41 +23,43 @@ The [workflow tables](#workflow-tables) are then created or verified in their
 own transaction, and the selected profile media is reconciled with its files
 (see [Event Precedence](#event-precedence)). The tables are:
 
-| Table                    | Purpose                                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `profiles`               | Name, bio, avatar, banner, and official entry points                                                   |
-| `profile_media`          | Avatar and banner candidates, their downloads, and the operator's selected file                        |
-| `posts`                  | X posts and Bilibili dynamics, account, publication time, engagement counts, media, and the quote      |
-| `events`                 | Unified schedules, platform, provenance, confidence, manual locks, tombstones, and duplicate merges    |
-| `event_sources`          | Source post/reservation identities attached to each event                                              |
-| `videos`                 | YouTube videos and streams, Bilibili uploads and their merges, corrections, and refresh requests       |
-| `video_revisions`        | Titles and thumbnails a platform replaced, one row per change                                          |
-| `focus`                  | The page's latest focus item and stable YouTube video ID                                               |
-| `timeline`               | Person and activity timeline                                                                           |
-| `resources`              | X, YouTube, Wikipedia, and other resource links                                                        |
-| `assets`                 | Schedule images and their sources                                                                      |
-| `media_assets`           | Remote media identities, cache metadata, and fetch status                                              |
-| `media_links`            | Links from cached media to posts, videos, profiles, focus items and Works upload videos                |
-| `media_versions`         | Earlier cached files of an asset whose bytes a revalidation replaced                                   |
-| `sync_runs`              | Status, counts, error summaries, trigger, and asynchronous job identity                                |
-| `sync_state`             | Durable per-account X, YouTube, Bilibili and shop cursors, read bookkeeping and X API chain state      |
-| `app_settings`           | Model, extractor, X-account, Featured, YouTube push and proxy settings (secrets sealed)                |
-| `schedule_extractions`   | Versioned LLM inputs, outcomes, and structured result metadata                                         |
-| `post_llm_states`        | Per-post LLM status, last attempt, error, reprocess queue state, failure backoff, settled input stamp  |
-| `schedule_asset_reviews` | Per-schedule-image LLM verdict, skip reason (`no_image` for a URL-less row), and optional manual label |
-| `llm_providers`          | OpenAI-compatible or Anthropic endpoints, Text/Image capabilities, health, and encrypted keys          |
-| `llm_models`             | Per-provider model catalog with tags (`text`/`image` routing; `reasoning`/`tools`/`embedding` labels)  |
-| `llm_route_targets`      | The ordered provider + model failover queues: `schedule`, `verify` and `translate`                     |
-| `llm_route_providers`    | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
-| `source_schedules`       | Each source's timer, sync setting and method chain                                                     |
-| `workflows`              | Saved workflow definitions: kept in the schema, created empty, never read or written                   |
-| `work_cover_lookups`     | Each niconico or Bilibili cover lookup of a Works upload video: outcome, image URL and retry time      |
-| `translations`           | Manual, platform, and machine translations of posts, videos and pooled statuses per target locale      |
-| `translation_states`     | Per-owner machine translation state: source hash and language, last attempt, operator request          |
-| `x_statuses`             | The X status pool: related accounts' statuses and statuses own posts quote or repost; never public     |
-| `x_reposts`              | The own X accounts' reposts: reposted status, account, author, first sighting and first known own ID   |
-| `x_repost_ids`           | Every known own status ID of a repost, with its original status, account and first sighting            |
-| `bilibili_statuses`      | The Bilibili status pool: dynamics own forwards forward; never public                                  |
+| Table                       | Purpose                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `profiles`                  | Name, bio, avatar, banner, and official entry points                                                   |
+| `profile_media`             | Avatar and banner candidates, their downloads, and the operator's selected file                        |
+| `account_avatars`           | Per-account active avatar state and display mode (`auto`, `manual`, `hidden`)                          |
+| `account_avatar_candidates` | Cached and uploaded avatar history per tracked X account                                               |
+| `posts`                     | X posts and Bilibili dynamics, account, publication time, engagement counts, media, and the quote      |
+| `events`                    | Unified schedules, platform, provenance, confidence, manual locks, tombstones, and duplicate merges    |
+| `event_sources`             | Source post/reservation identities attached to each event                                              |
+| `videos`                    | YouTube videos and streams, Bilibili uploads and their merges, corrections, and refresh requests       |
+| `video_revisions`           | Titles and thumbnails a platform replaced, one row per change                                          |
+| `focus`                     | The page's latest focus item and stable YouTube video ID                                               |
+| `timeline`                  | Person and activity timeline                                                                           |
+| `resources`                 | X, YouTube, Wikipedia, and other resource links                                                        |
+| `assets`                    | Schedule images and their sources                                                                      |
+| `media_assets`              | Remote media identities, cache metadata, and fetch status                                              |
+| `media_links`               | Links from cached media to posts, videos, profiles, focus items and Works upload videos                |
+| `media_versions`            | Earlier cached files of an asset whose bytes a revalidation replaced                                   |
+| `sync_runs`                 | Status, counts, error summaries, trigger, and asynchronous job identity                                |
+| `sync_state`                | Durable per-account X, YouTube, Bilibili and shop cursors, read bookkeeping and X API chain state      |
+| `app_settings`              | Model, extractor, X-account, Featured, YouTube push and proxy settings (secrets sealed)                |
+| `schedule_extractions`      | Versioned LLM inputs, outcomes, and structured result metadata                                         |
+| `post_llm_states`           | Per-post LLM status, last attempt, error, reprocess queue state, failure backoff, settled input stamp  |
+| `schedule_asset_reviews`    | Per-schedule-image LLM verdict, skip reason (`no_image` for a URL-less row), and optional manual label |
+| `llm_providers`             | OpenAI-compatible or Anthropic endpoints, Text/Image capabilities, health, and encrypted keys          |
+| `llm_models`                | Per-provider model catalog with tags (`text`/`image` routing; `reasoning`/`tools`/`embedding` labels)  |
+| `llm_route_targets`         | The ordered provider + model failover queues: `schedule`, `verify` and `translate`                     |
+| `llm_route_providers`       | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
+| `source_schedules`          | Each source's timer, sync setting and method chain                                                     |
+| `workflows`                 | Saved workflow definitions: kept in the schema, created empty, never read or written                   |
+| `work_cover_lookups`        | Each niconico or Bilibili cover lookup of a Works upload video: outcome, image URL and retry time      |
+| `translations`              | Manual, platform, and machine translations of posts, videos and pooled statuses per target locale      |
+| `translation_states`        | Per-owner machine translation state: source hash and language, last attempt, operator request          |
+| `x_statuses`                | The X status pool: related accounts' statuses and statuses own posts quote or repost; never public     |
+| `x_reposts`                 | The own X accounts' reposts: reposted status, account, author, first sighting and first known own ID   |
+| `x_repost_ids`              | Every known own status ID of a repost, with its original status, account and first sighting            |
+| `bilibili_statuses`         | The Bilibili status pool: dynamics own forwards forward; never public                                  |
 
 The API maps snake_case columns to camelCase and removes `raw_json`. The
 frontend must not depend on database fields that are not declared in the API
@@ -405,6 +407,16 @@ once in the same transaction as all selected metadata updates. An unchanged
 startup does not increment it. Open boards therefore follow the revision and
 reload the repaired public profile snapshot, including its versioned avatar
 URL.
+
+`account_avatars` stores one state row per `(source, account_key)` (lowercase
+X handle without `@`), with `mode` (`auto`, `manual`, or `hidden`),
+`active_candidate_id`, and `updated_at`. `account_avatar_candidates` stores
+candidate history (`sync`, `discover`, `url`, or `upload`) linked to either
+`media_assets` for remote X downloads or a local file path under `data/avatar/`
+for manual uploads. Downloading a pending candidate in `media_assets` updates
+the matching `account_avatar_candidates` row and increments `dashboard_revision`;
+in `auto` mode the active candidate switches to the latest downloaded image,
+whereas `manual` preserves the operator's selection.
 Schedule image reviews add `llm_input_fingerprint` for input cache validation
 (see [Schedule images](sources.md#schedule-images)); a review without
 one is rechecked when next scanned. Automatic

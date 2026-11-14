@@ -108,6 +108,21 @@ func (h *Handler) profileMedia(w http.ResponseWriter, r *http.Request, slot stri
 	serveMediaStream(w, r, file, version != "")
 }
 
+func (h *Handler) accountAvatarMedia(w http.ResponseWriter, r *http.Request, id string) {
+	version, present, valid := requestedVersion(r)
+	if present && !valid {
+		h.writeMediaError(w, sqlite.ErrMediaVersionNotFound, false, r.Method == http.MethodHead)
+		return
+	}
+	file, err := h.store.OpenAccountAvatarMedia(r.Context(), id, version)
+	if err != nil {
+		h.writeMediaError(w, err, false, r.Method == http.MethodHead)
+		return
+	}
+	defer file.File.Close()
+	serveMediaStream(w, r, file, version != "")
+}
+
 func requestedVersion(r *http.Request) (string, bool, bool) {
 	values, present := r.URL.Query()["v"]
 	if !present {

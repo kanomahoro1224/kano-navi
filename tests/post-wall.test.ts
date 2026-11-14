@@ -790,3 +790,121 @@ test("a promoted repost names the own accounts that reposted it", async () => {
       )
   })
 })
+
+test("PostWall resolves per-account, hidden, promoted, and fallback avatars", async () => {
+  await withVite(async (load) => {
+    const [
+      { PostWall },
+      { AppSettingsProvider, PageMessagesProvider, useAppSettings },
+    ] = await Promise.all([
+      load("/src/dashboard/components/post-wall.tsx"),
+      load("/src/app-settings.tsx"),
+    ])
+    const makePost = (
+      id: string,
+      accountHandle: string,
+      promoted: boolean,
+      publishedAt: string,
+    ) => ({
+      id,
+      source: "x",
+      accountHandle,
+      accountUrl: `https://x.example.invalid/${accountHandle}`,
+      url: `https://x.example.invalid/${accountHandle}/status/${id}`,
+      text: `post ${id}`,
+      publishedAt,
+      mediaUrl: null,
+      mediaStatus: "ready",
+      media: [],
+      translations: {},
+      sourceLanguage: "ja",
+      promoted,
+    })
+    const posts = [
+      makePost("1", "kano_example", false, "2026-10-08T12:00:00+09:00"),
+      makePost("2", "_SyntheticB", false, "2026-10-08T11:00:00+09:00"),
+      makePost("3", "_FallbackOwn", false, "2026-10-08T10:00:00+09:00"),
+      makePost("4", "_HiddenOwn", false, "2026-10-08T09:00:00+09:00"),
+      makePost("5", "RelatedCached", true, "2026-10-08T08:00:00+09:00"),
+      makePost("6", "UnsetRelated", true, "2026-10-08T07:00:00+09:00"),
+    ]
+    const accountAvatars = {
+      "x:kano_example": "/media/account-avatar/aaa?v=1",
+      "x:_syntheticb": "/media/account-avatar/bbb?v=2",
+      "x:_hiddenown": null,
+      "x:relatedcached": "/media/account-avatar/ccc?v=3",
+    }
+    function Harness() {
+      const { locale, t } = useAppSettings()
+      return createElement(PostWall, {
+        posts,
+        latestPost: posts[0],
+        accounts: ["kano_example", "_SyntheticB", "_FallbackOwn", "_HiddenOwn"],
+        bilibiliAccounts: [],
+        avatarUrl: "/media/profile/site?v=0",
+        accountAvatars,
+        windowDays: 14,
+        isLoading: false,
+        locale,
+        now: Date.parse("2026-10-08T21:00:00+09:00"),
+        t,
+        onOpenMedia: () => {},
+        onOpenArchive: () => {},
+      })
+    }
+    const globals = globalThis as any
+    const previous = {
+      act: globals.IS_REACT_ACT_ENVIRONMENT,
+      ResizeObserver: globals.ResizeObserver,
+      getComputedStyle: globals.getComputedStyle,
+    }
+    globals.IS_REACT_ACT_ENVIRONMENT = true
+    globals.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    }
+    globals.getComputedStyle = (element: Element) =>
+      browser.getComputedStyle(element as any)
+    let root: Rendered | undefined
+    try {
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: dashboardMessages },
+              createElement(Harness),
+            ),
+          ),
+        )
+      })
+      const heads = [
+        ...root!.container.querySelectorAll(
+          "article.post-note .post-note-head",
+        ),
+      ].map((head) => {
+        const img = head.querySelector("img")
+        const initial = head.querySelector(".post-note-initial")
+        return {
+          src: img ? img.getAttribute("src") : null,
+          initial: initial ? initial.textContent : null,
+        }
+      })
+      assert.deepEqual(heads, [
+        { src: "/media/account-avatar/aaa?v=1", initial: null },
+        { src: "/media/account-avatar/bbb?v=2", initial: null },
+        { src: "/media/profile/site?v=0", initial: null },
+        { src: null, initial: "_" },
+        { src: "/media/account-avatar/ccc?v=3", initial: null },
+        { src: null, initial: "U" },
+      ])
+    } finally {
+      if (root) await act(async () => root!.unmount())
+      globals.IS_REACT_ACT_ENVIRONMENT = previous.act
+      globals.ResizeObserver = previous.ResizeObserver
+      globals.getComputedStyle = previous.getComputedStyle
+    }
+  })
+})

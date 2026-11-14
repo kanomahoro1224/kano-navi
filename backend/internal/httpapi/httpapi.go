@@ -273,6 +273,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			h.profileMedia(w, r, strings.TrimPrefix(r.URL.Path, "/media/profile/"))
+		case strings.HasPrefix(r.URL.Path, "/media/account-avatar/"):
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				writeMethodNotAllowed(w, "GET, HEAD")
+				return
+			}
+			h.accountAvatarMedia(w, r, strings.TrimPrefix(r.URL.Path, "/media/account-avatar/"))
 		case strings.HasPrefix(r.URL.Path, "/media/"):
 			if r.Method != http.MethodGet && r.Method != http.MethodHead {
 				writeMethodNotAllowed(w, "GET, HEAD")

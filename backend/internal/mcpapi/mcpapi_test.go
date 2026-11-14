@@ -441,7 +441,7 @@ func TestDashboardReadIsAPublicProjection(t *testing.T) {
 	response := post(t, handler, toolCall("dashboard_read", nil))
 	dashboard := toolValue(t, response)
 
-	want := []string{"assets", "events", "focus", "liveNow", "meta", "posts", "profile", "profileMedia", "projection", "resources", "scheduleImages", "summary", "timeline", "videos"}
+	want := []string{"accountAvatars", "assets", "events", "focus", "liveNow", "meta", "posts", "profile", "profileMedia", "projection", "resources", "scheduleImages", "summary", "timeline", "videos"}
 	if got := keys(dashboard); !reflect.DeepEqual(got, want) {
 		t.Fatalf("dashboard keys = %v", got)
 	}

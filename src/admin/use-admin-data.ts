@@ -19,6 +19,9 @@ import {
   type RequestOptions,
 } from "@/admin/api"
 import type {
+  AccountAvatarMode,
+  AccountAvatarMutation,
+  AccountAvatarsState,
   AdminEvent,
   AdminPost,
   AdminVideo,
@@ -430,25 +433,116 @@ function createClient(run: Runner, slow: Runner) {
       send<{ video: AdminVideo }>("POST", `/videos/${enc(id)}/separate`, {}),
 
     profileMedia: () => get<ProfileMediaState>("/profile-media"),
-    addProfileMedia: (source: string, sourceUrl: string) =>
-      send<ProfileMediaState>("POST", "/profile-media", { source, sourceUrl }),
+    addProfileMedia: (source: string, sourceUrl: string, slot?: ProfileSlot) =>
+      send<ProfileMediaState>(
+        "POST",
+        "/profile-media",
+        slot ? { source, sourceUrl, slot } : { source, sourceUrl },
+      ),
     /** Without a slot, discovery reads both the avatar and the banner. */
-    discoverProfileMedia: (source: string) =>
+    discoverProfileMedia: (
+      source: string,
+      slot?: ProfileSlot,
+      handle?: string,
+    ) =>
       sendSlow<ProfileMediaState & { candidates: ProfileMedia[] }>(
         "POST",
         "/profile-media/discover",
-        { source },
+        {
+          source,
+          ...(slot ? { slot } : {}),
+          ...(handle ? { handle } : {}),
+        },
       ),
-    uploadProfileMedia: (file: Blob) =>
-      sendSlow<ProfileMediaState>("POST", "/profile-media/upload", file),
+    uploadProfileMedia: (file: Blob, slot?: ProfileSlot) =>
+      sendSlow<ProfileMediaState>(
+        "POST",
+        slot
+          ? `/profile-media/upload?slot=${enc(slot)}`
+          : "/profile-media/upload",
+        file,
+      ),
     downloadProfileMedia: (id: string) =>
       sendSlow<ProfileMediaState>("POST", `/profile-media/${enc(id)}/download`),
     selectProfileMedia: (id: string, slot: ProfileSlot) =>
       send<ProfileMediaState>("POST", `/profile-media/${enc(id)}/select`, {
         slot,
       }),
+    clearProfileMedia: (slot: ProfileSlot) =>
+      send<ProfileMediaState>("POST", "/profile-media/clear", { slot }),
     deleteProfileMedia: (id: string) =>
       send<ProfileMediaState>("DELETE", `/profile-media/${enc(id)}`),
+
+    accountAvatars: () => get<AccountAvatarsState>("/account-avatars"),
+    discoverAccountAvatar: (source: string, handle: string) =>
+      sendSlow<AccountAvatarMutation>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/discover`,
+      ),
+    addAccountAvatarUrl: (
+      source: string,
+      handle: string,
+      sourceUrl: string,
+      activate = true,
+    ) =>
+      sendSlow<AccountAvatarMutation>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/url`,
+        { sourceUrl, activate },
+      ),
+    uploadAccountAvatar: (source: string, handle: string, file: Blob) =>
+      sendSlow<AccountAvatarMutation>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/upload`,
+        file,
+      ),
+    setAccountAvatarMode: (
+      source: string,
+      handle: string,
+      mode: AccountAvatarMode,
+    ) =>
+      send<AccountAvatarMutation>(
+        "PUT",
+        `/account-avatars/${enc(source)}/${enc(handle)}/mode`,
+        { mode },
+      ),
+    selectAccountAvatarCandidate: (
+      source: string,
+      handle: string,
+      id: string,
+    ) =>
+      send<AccountAvatarMutation>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/candidates/${enc(id)}/select`,
+      ),
+    downloadAccountAvatarCandidate: (
+      source: string,
+      handle: string,
+      id: string,
+    ) =>
+      sendSlow<AccountAvatarMutation>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/candidates/${enc(id)}/download`,
+      ),
+    deleteAccountAvatarCandidate: (
+      source: string,
+      handle: string,
+      id: string,
+    ) =>
+      send<AccountAvatarMutation>(
+        "DELETE",
+        `/account-avatars/${enc(source)}/${enc(handle)}/candidates/${enc(id)}`,
+      ),
+    applyAccountAvatarToProfile: (
+      source: string,
+      handle: string,
+      candidateId?: string,
+    ) =>
+      send<AccountAvatarMutation & { profile: ProfileMediaState }>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/apply-profile`,
+        candidateId ? { candidateId } : {},
+      ),
 
     extraction: () => get<Extraction>("/extraction"),
     updateExtraction: (body: Partial<Extraction>) =>

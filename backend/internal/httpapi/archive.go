@@ -60,6 +60,7 @@ func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 	}
 	payload := h.public(archivePayload(page, publicview.PublicPost))
 	payload["accountCounts"] = page.AccountCounts
+	payload["accountAvatars"] = h.public(publicview.PublicAccountAvatars(page.AccountAvatars))
 	writeRevalidatedJSON(w, r, payload, nil)
 }
 

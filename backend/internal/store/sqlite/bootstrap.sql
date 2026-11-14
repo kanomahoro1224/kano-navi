@@ -258,6 +258,38 @@ CREATE TABLE profile_media (
     raw_json TEXT
   );
 
+CREATE TABLE account_avatars (
+    source TEXT NOT NULL,
+    account_key TEXT NOT NULL,
+    account_handle TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'auto',
+    active_candidate_id TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (source, account_key),
+    CHECK (mode IN ('auto', 'manual', 'hidden'))
+  );
+
+CREATE TABLE account_avatar_candidates (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    account_key TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    source_url TEXT,
+    media_id TEXT,
+    cache_path TEXT,
+    mime_type TEXT,
+    byte_size INTEGER,
+    sha256 TEXT,
+    width INTEGER,
+    height INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending',
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    CHECK (origin IN ('sync', 'discover', 'url', 'upload')),
+    CHECK (status IN ('pending', 'ready', 'failed'))
+  );
+
 CREATE TABLE profiles (
     id TEXT PRIMARY KEY,
     display_name TEXT NOT NULL,
@@ -571,3 +603,9 @@ CREATE INDEX videos_schedule_instant_idx ON videos (julianday(scheduled_at), id)
 CREATE INDEX x_reposts_retweet_idx ON x_reposts (retweet_id) WHERE retweet_id IS NOT NULL;
 
 CREATE INDEX x_statuses_author_idx ON x_statuses (lower(author_handle), length(id), id);
+
+CREATE INDEX account_avatar_candidates_account_idx ON account_avatar_candidates (source, account_key, updated_at DESC);
+
+CREATE UNIQUE INDEX account_avatar_candidates_source_url_idx ON account_avatar_candidates (source, account_key, source_url) WHERE source_url IS NOT NULL;
+
+CREATE INDEX account_avatar_candidates_media_idx ON account_avatar_candidates (media_id) WHERE media_id IS NOT NULL;

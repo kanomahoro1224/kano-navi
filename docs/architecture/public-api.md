@@ -268,9 +268,13 @@ the stream needs are with the deployment guide.
 
 Media responses follow the [media HTTP contract](media-cache.md#http-contract).
 Selected profile media uses `/media/profile/avatar` and
-`/media/profile/banner`, the LINE BLOG archive's files use
+`/media/profile/banner`, cached per-account X avatars use
+[`/media/account-avatar/{id}`](media-cache.md#account-avatars), the LINE BLOG archive's files use
 [`/media/lineblog/<name>`](media-cache.md#line-blog-archive-media), and the
 discography covers use [`/media/works/<name>`](media-cache.md#discography-covers).
+`/api/dashboard` and `/api/posts` also include `accountAvatars`, mapping
+`<source>:<account_key>` to its versioned `/media/account-avatar/...` path or
+`null` when hidden; accounts with no cached avatar are omitted.
 With `CDN_PUBLIC_BASE` set, the reads name these routes on the CDN, which pulls
 them from the same paths here.
 

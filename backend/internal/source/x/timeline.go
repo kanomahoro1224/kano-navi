@@ -29,6 +29,7 @@ type TimelineStatus struct {
 type TimelineStatuses struct {
 	Statuses []TimelineStatus
 	Reposts  []Repost
+	Avatars  map[string]string
 	Next     string
 }
 
@@ -63,26 +64,41 @@ func parseTimelineStatuses(body []byte, account string) (TimelineStatuses, error
 	if (payload.Code != 0 && payload.Code != 200) || payload.Results == nil {
 		return TimelineStatuses{}, &Error{Code: ErrInvalidResponse, Err: errors.New("timeline without results")}
 	}
-	page := TimelineStatuses{Statuses: []TimelineStatus{}, Reposts: []Repost{}, Next: payload.Cursor.Bottom}
+	page := TimelineStatuses{Statuses: []TimelineStatus{}, Reposts: []Repost{}, Avatars: map[string]string{}, Next: payload.Cursor.Bottom}
 	for _, status := range payload.Results {
 		id := stringValue(status["id"])
 		author := object(status["author"])
+		authorAvatar := extractAuthorAvatarURL(author, status)
+		recordDiscoveredAvatar(page.Avatars, stringValue(author["screen_name"]), authorAvatar)
+		quotedObj := object(status["quote"])
+		quotedAuthor := object(quotedObj["author"])
+		quoteAvatar := extractAuthorAvatarURL(quotedAuthor, quotedObj)
 		if !statusIDPattern.MatchString(id) || !strings.EqualFold(stringValue(author["screen_name"]), account) {
 			if len(author) > 0 {
 				status["author"] = map[string]any{"screen_name": author["screen_name"], "name": author["name"]}
 			}
 			if repost, ok := timelineRepost(status, account); ok {
+				if repost.Status != nil && repost.Status.AuthorAvatarURL == "" {
+					repost.Status.AuthorAvatarURL = authorAvatar
+				}
 				page.Reposts = append(page.Reposts, repost)
 			}
 			continue
 		}
 		// Every status repeats the whole author profile; the post keeps its name.
 		status["author"] = map[string]any{"screen_name": author["screen_name"], "name": author["name"]}
-		if quoted := object(object(status["quote"])["author"]); len(quoted) > 0 {
-			object(status["quote"])["author"] = map[string]any{"screen_name": quoted["screen_name"], "name": quoted["name"]}
+		if len(quotedAuthor) > 0 {
+			quotedObj["author"] = map[string]any{"screen_name": quotedAuthor["screen_name"], "name": quotedAuthor["name"]}
 		}
 		entry := TimelineStatus{ID: id}
 		if post := Normalize(status, id, account); post != nil && post.ID == id {
+			post.AuthorAvatarURL = authorAvatar
+			if post.Quote != nil {
+				if post.Quote.AuthorAvatarURL == "" {
+					post.Quote.AuthorAvatarURL = quoteAvatar
+				}
+				recordDiscoveredAvatar(page.Avatars, post.Quote.AuthorHandle, post.Quote.AuthorAvatarURL)
+			}
 			// Like the detail answer, raw_json declares the post's own images
 			// for schedule extraction; a quoted status's are never among them.
 			own := []any{}
@@ -153,6 +169,7 @@ type discovery struct {
 	ids     []string
 	posts   map[string]*Post
 	reposts []Repost
+	avatars map[string]string
 	gap     *Gap
 	notes   []string
 }
@@ -174,7 +191,7 @@ type timelinePage struct {
 func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Options, cutoff time.Time) (discovery, error) {
 	pages := (opts.DiscoveryLimit + TimelinePageSize - 1) / TimelinePageSize
 	pages = min(max(pages, 1), maxTimelinePages)
-	found := discovery{ids: []string{}, posts: map[string]*Post{}, gap: opts.Gap}
+	found := discovery{ids: []string{}, posts: map[string]*Post{}, avatars: map[string]string{}, gap: opts.Gap}
 	seen := map[string]bool{}
 	taken := 0
 	full := func() bool { return opts.DiscoveryLimit > 0 && taken >= opts.DiscoveryLimit }
@@ -221,6 +238,9 @@ func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Opt
 			}
 		}
 		found.reposts = append(found.reposts, statuses.Reposts...)
+		for handle, avatar := range statuses.Avatars {
+			recordDiscoveredAvatar(found.avatars, handle, avatar)
+		}
 		return page, nil
 	}
 	all := func(string) bool { return true }

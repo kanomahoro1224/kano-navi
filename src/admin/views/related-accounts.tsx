@@ -102,14 +102,24 @@ export function RelatedAccountsPanel({
       icon={UsersRound}
       title={t("admin.related.title")}
       actions={
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={Newspaper}
-          onClick={() => navigate("external")}
-        >
-          {t("admin.related.openExternal")}
-        </Button>
+        <>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={UsersRound}
+            onClick={() => navigate("avatars")}
+          >
+            {t("admin.related.openAvatars")}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={Newspaper}
+            onClick={() => navigate("external")}
+          >
+            {t("admin.related.openExternal")}
+          </Button>
+        </>
       }
     >
       <form className="adm-form" onSubmit={submit}>

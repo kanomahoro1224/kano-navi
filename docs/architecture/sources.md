@@ -199,7 +199,10 @@ with `x_related_failed`. An operator's
 related account runs the same read for that account alone and fails once
 with its code. The own accounts' read and the related accounts'
 read never decide each other's outcome, and quotes and reposts of the own
-accounts write the pool in the `x` step whether or not `x_related` runs.
+accounts write the pool in the `x` step whether or not `x_related` runs. Both
+reads extract normalized `author.avatar_url` values (`_400x400`) into
+`account_avatars` and queue new URLs into `media_assets` without delaying post
+ingestion.
 
 Every pooled status stores the reasons that apply to it:
 

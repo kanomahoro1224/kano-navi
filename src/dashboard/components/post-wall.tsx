@@ -388,9 +388,33 @@ export function repostingAccounts(accounts: string[], locale: Locale) {
   return new Intl.ListFormat(locale, { type: "conjunction" }).format(handles)
 }
 
+function resolvePostAvatar(
+  post: Post,
+  accountAvatars: Record<string, string | null> | undefined,
+  fallbackAvatarUrl: string | null,
+): { url: string | null; showInitial: boolean } {
+  const handle = String(post.accountHandle || "")
+    .trim()
+    .replace(/^@/u, "")
+    .toLowerCase()
+  const key = handle ? `${post.source}:${handle}` : ""
+  if (
+    key &&
+    accountAvatars &&
+    Object.prototype.hasOwnProperty.call(accountAvatars, key)
+  ) {
+    const entry = accountAvatars[key]
+    if (entry) return { url: entry, showInitial: false }
+    return { url: null, showInitial: true }
+  }
+  if (post.promoted) return { url: null, showInitial: true }
+  return { url: fallbackAvatarUrl, showInitial: false }
+}
+
 function PostNote({
   post,
   avatarUrl,
+  accountAvatars,
   absoluteTime = false,
   clamp = true,
   locale,
@@ -400,6 +424,7 @@ function PostNote({
 }: {
   post: Post
   avatarUrl: string | null
+  accountAvatars?: Record<string, string | null>
   /** Archives show the Japan date and time ("10.24 21:00"), not "3 days ago". */
   absoluteTime?: boolean
   /** The board shows six lines and opens long posts in a dialog. */
@@ -476,16 +501,15 @@ function PostNote({
       })}
     </p>
   ) : null
+  const resolvedAvatar = resolvePostAvatar(post, accountAvatars, avatarUrl)
   const head = (close?: ReactNode) => (
     <header className="post-note-head">
-      {post.promoted ? (
-        // Another account's post shown for Kano: its initial, never her
-        // portrait.
+      {resolvedAvatar.showInitial ? (
         <span className="post-note-initial" aria-hidden="true">
           {(post.accountHandle || "X").replace(/^@/u, "").charAt(0)}
         </span>
       ) : (
-        <img src={avatarUrl || undefined} alt="" />
+        <img src={resolvedAvatar.url || undefined} alt="" />
       )}
       {bilibili ? (
         <ExternalLink
@@ -648,6 +672,7 @@ export function PostWall({
   accounts,
   bilibiliAccounts = [],
   avatarUrl,
+  accountAvatars,
   windowDays,
   isLoading,
   locale,
@@ -662,6 +687,7 @@ export function PostWall({
   /** The mids of stored Bilibili posts, filtered as one more account. */
   bilibiliAccounts?: string[]
   avatarUrl: string | null
+  accountAvatars?: Record<string, string | null>
   windowDays: number
   isLoading: boolean
   locale: Locale
@@ -776,6 +802,7 @@ export function PostWall({
               key={post.id}
               post={post}
               avatarUrl={avatarUrl}
+              accountAvatars={accountAvatars}
               locale={locale}
               now={now}
               t={t}
@@ -792,6 +819,7 @@ export function PostWall({
               <PostNote
                 post={latestPost}
                 avatarUrl={avatarUrl}
+                accountAvatars={accountAvatars}
                 locale={locale}
                 now={now}
                 t={t}
@@ -1018,6 +1046,7 @@ export function PostArchive({
   onLoadMore,
   onJump,
   avatarUrl,
+  accountAvatars,
   locale,
   now,
   t,
@@ -1031,6 +1060,7 @@ export function PostArchive({
   onLoadMore: () => unknown
   onJump: (month: Date) => void
   avatarUrl: string | null
+  accountAvatars?: Record<string, string | null>
   locale: Locale
   now: number
   t: Translator
@@ -1041,6 +1071,7 @@ export function PostArchive({
       key={post.id}
       post={post}
       avatarUrl={avatarUrl}
+      accountAvatars={accountAvatars}
       absoluteTime
       clamp={false}
       locale={locale}

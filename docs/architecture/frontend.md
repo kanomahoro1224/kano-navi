@@ -222,12 +222,16 @@ event status codes and the generated YouTube details become labels through
 while other details and operator notes show as stored (see
 [Stored event text](data-model.md#stored-event-text)).
 
-A promoted post (`post.promoted`), a related account's or a reposted one,
-shows its author's initial on the sunken surface in place of Kano's
-portrait, beside its handle; it appears in the All tab and the archive,
-never under an own account's tab, even an account that reposted it. A post
-with `repostedBy` opens with a muted repost mark, "Reposted by @account",
-naming those accounts as one locale list (`Intl.ListFormat`).
+A post card resolves its account avatar from `dashboard.accountAvatars` (and the
+archive response's `accountAvatars`) keyed by `<source>:<lowercase_handle>`. A
+cached non-hidden account avatar renders that account's image; an explicit
+`null` entry (hidden mode) renders the handle initial badge. When no entry is
+present, an own post falls back to `profile.avatarUrl` while a promoted post
+(`post.promoted`), a related account's or a reposted one, shows its author's
+initial on the sunken surface beside its handle. A promoted post appears in the
+All tab and the archive, never under an own account's tab, even an account that
+reposted it. A post with `repostedBy` opens with a muted repost mark,
+"Reposted by @account", naming those accounts as one locale list (`Intl.ListFormat`).
 
 A post that quotes another status (`post.quote`, see
 [Quoted posts](data-model.md#quoted-posts)) shows it nested in the post note,
@@ -636,6 +640,19 @@ quoted post. Below come the wording, folded to three lines with a
 "Show full quote" toggle that appears only when the clamp cuts it, the ready
 quote thumbnails that open the image viewer, or the unavailable state. The
 edit dialog shows the quote's whole wording. Nothing edits the quote itself.
+
+The Data group also includes `Account avatars`
+(`src/admin/views/account-avatars.tsx`) and `Profile images`
+(`src/admin/views/profile.tsx`). `Account avatars` lists tracked own and
+related X accounts with role filters, `auto` / `manual` / `hidden` mode
+switches, manual latest-avatar checks, image URL or file uploads, candidate
+history controls (`Use & lock`, retry download, delete), and an action to copy
+an own account's ready avatar into the global site avatar slot. `Profile images`
+verifies and previews the global site avatar and banner, groups candidates into
+own X account avatars (with latest-avatar check and apply-to-site action),
+YouTube & custom avatars (with YouTube discovery and URL/file upload), and
+banners (with X account or YouTube discovery and URL/file upload), and links
+to `Account avatars`.
 
 Post text and video titles come with server-resolved `translations` (see
 [Translations](data-model.md#translations)). `src/components/translated-text.tsx`

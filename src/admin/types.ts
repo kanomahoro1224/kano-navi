@@ -1195,10 +1195,13 @@ export interface ProfileMedia {
   /** The slot the candidate is active for, or the one that found it. */
   slot: ProfileSlot
   source: "x" | "youtube" | "upload"
+  sourceRef?: string | null
   sourceUrl: string | null
   downloadStatus: string | null
   status: string
   isActive: boolean
+  activeSha256?: string | null
+  sha256?: string | null
   width: number | null
   height: number | null
   byteSize: number | null
@@ -1210,6 +1213,48 @@ export interface ProfileMedia {
 export interface ProfileMediaState {
   items: ProfileMedia[]
   active: { avatar: ProfileMedia | null; banner: ProfileMedia | null }
+}
+
+export type AccountAvatarMode = "auto" | "manual" | "hidden"
+export type AccountAvatarRole = "own" | "related" | "other"
+export type AccountAvatarOrigin = "sync" | "discover" | "url" | "upload"
+
+export interface AccountAvatarCandidate {
+  id: string
+  origin: AccountAvatarOrigin
+  sourceUrl: string | null
+  status: "pending" | "ready" | "failed"
+  isActive: boolean
+  mimeType: string | null
+  byteSize: number | null
+  sha256?: string | null
+  width: number | null
+  height: number | null
+  lastError: string | null
+  previewUrl: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AccountAvatarItem {
+  source: "x"
+  accountKey: string
+  accountHandle: string
+  role: AccountAvatarRole
+  keywords: string[]
+  mode: AccountAvatarMode
+  activeCandidateId: string | null
+  publicUrl: string | null
+  updatedAt: string | null
+  candidates: AccountAvatarCandidate[]
+}
+
+export interface AccountAvatarsState {
+  items: AccountAvatarItem[]
+}
+
+export interface AccountAvatarMutation extends AccountAvatarsState {
+  item: AccountAvatarItem
 }
 
 export interface Extraction {

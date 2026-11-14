@@ -25,6 +25,7 @@ import {
   ScanText,
   ShieldCheck,
   UserRound,
+  UsersRound,
   Workflow,
 } from "lucide-react"
 
@@ -34,6 +35,7 @@ import { errorMessage, renderMessage, type Message } from "@/admin/api"
 import type { Overview } from "@/admin/types"
 import { Badge, Button, Spinner, Toasts } from "@/admin/ui"
 import { AdminContext, useAdminData } from "@/admin/use-admin-data"
+import { AccountAvatarsView } from "@/admin/views/account-avatars"
 import { DetectionView } from "@/admin/views/detection"
 import { ExternalPostsView } from "@/admin/views/external-posts"
 import { OverviewView } from "@/admin/views/overview"
@@ -99,6 +101,12 @@ const views: ViewEntry[] = [
     component: ExternalPostsView,
   },
   { id: "videos", group: "data", icon: Clapperboard, component: VideosView },
+  {
+    id: "avatars",
+    group: "data",
+    icon: UsersRound,
+    component: AccountAvatarsView,
+  },
   { id: "profile", group: "data", icon: UserRound, component: ProfileView },
   { id: "runs", group: "system", icon: Workflow, component: RunsView },
   { id: "queue", group: "system", icon: ListOrdered, component: QueueView },

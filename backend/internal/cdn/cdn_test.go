@@ -16,6 +16,7 @@ func TestMediaURL(t *testing.T) {
 		{"https://cdn.example.invalid", media, "https://cdn.example.invalid" + media},
 		{"https://cdn.example.invalid/kano", "/media/" + assetID + "?v=" + assetID + "&w=640", "https://cdn.example.invalid/kano/media/" + assetID + "?v=" + assetID + "&w=640"},
 		{"https://cdn.example.invalid", "/media/profile/avatar?v=" + assetID, "https://cdn.example.invalid/media/profile/avatar?v=" + assetID},
+		{"https://cdn.example.invalid", "/media/account-avatar/" + assetID + "?v=" + assetID, "https://cdn.example.invalid/media/account-avatar/" + assetID + "?v=" + assetID},
 		{"https://cdn.example.invalid", "/media/lineblog/0123456789ab.jpg?w=320", "https://cdn.example.invalid/media/lineblog/0123456789ab.jpg?w=320"},
 		// The dashboard's default avatar and banner are fixed public images.
 		{"https://cdn.example.invalid/kano", "/assets/kano-avatar.jpg", "https://cdn.example.invalid/kano/assets/kano-avatar.jpg"},
@@ -40,6 +41,7 @@ func TestMediaURL(t *testing.T) {
 		"/assets/kano banner.jpg",
 		"see /assets/kano-banner.jpg",
 		"/media/hello",
+		"/media/account-avatar/hello",
 		"/media/" + strings.ToUpper(assetID),
 		"/media/journey/0123456789ab.gif",
 		"/media/" + assetID + "?v=short",

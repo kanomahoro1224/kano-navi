@@ -52,7 +52,8 @@ type ArchivePage[T any] struct {
 	Next     *string
 	// AccountCounts counts the range's posts per lowercase handle, ignoring
 	// the account filter, so the filter can show every account's total.
-	AccountCounts map[string]int64
+	AccountCounts  map[string]int64
+	AccountAvatars map[string]*string
 	// CategoryCounts counts the range's videos per category the same way.
 	CategoryCounts map[string]int64
 }
@@ -209,9 +210,13 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 	if err != nil {
 		return nil, err
 	}
+	accountAvatars, err := s.AccountAvatars(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return &ArchivePage[Post]{
 		Items: items, Page: page, PageSize: pageSize, Total: total, TotalPages: totalPages,
-		HasNext: page < totalPages, Revision: revision, Previous: previous, Next: next, AccountCounts: counts,
+		HasNext: page < totalPages, Revision: revision, Previous: previous, Next: next, AccountCounts: counts, AccountAvatars: accountAvatars,
 	}, nil
 }
 

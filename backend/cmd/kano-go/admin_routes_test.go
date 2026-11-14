@@ -30,7 +30,7 @@ func TestEveryModuleRouteRequiresASession(t *testing.T) {
 		t.Fatal(err)
 	}
 	const key = "synthetic-secrets-key-0123456789"
-	modules := standaloneModules(store, "production", key, outboundproxy.NewPool(store.DB(), key))
+	modules := standaloneModules(store, "production", key, outboundproxy.NewPool(store.DB(), key), []string{"kano_example"})
 	modules = append(modules, websub.NewAdmin(store, websub.New("UCAAAAAAAAAAAAAAAAAAAAAA", http.DefaultClient, nil), key, true))
 	handler := adminapi.New(adminapi.Options{Store: store, Auth: auth, Modules: modules})
 

@@ -364,16 +364,22 @@ func (s *Store) WriteXRelated(ctx context.Context, account string, result xsourc
 		ids = append(ids, p.ID)
 		out.Listed++
 	}
+	avatarBumped, avatarErr := recordResultAccountAvatarsTx(ctx, tx, account, result, now)
+	if avatarErr != nil {
+		return out, ErrSourceWrite
+	}
+	reconciledAny := false
 	if len(ids) > 0 {
 		changes, reconcileErr := reconcileXStatusChanges(ctx, tx, accounts, ids, now)
 		if reconcileErr != nil {
 			return out, ErrSourceWrite
 		}
 		out.Promoted, out.Demoted = changes.promoted, changes.demoted
-		if changes.any() {
-			if err = bumpRevision(ctx, tx, now); err != nil {
-				return out, ErrSourceWrite
-			}
+		reconciledAny = changes.any()
+	}
+	if reconciledAny || avatarBumped {
+		if err = bumpRevision(ctx, tx, now); err != nil {
+			return out, ErrSourceWrite
 		}
 	}
 	if err = writeXRelatedState(ctx, tx, account, result, success, now); err != nil {

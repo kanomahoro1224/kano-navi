@@ -320,6 +320,19 @@ leaving other snapshots and configuration intact. HTTP uses the same bounded
 reader, checks its hash/MIME against active metadata, and sends those exact bytes;
 an unexpected file replacement returns 404 until reconciled or selected again.
 
+reads and writes stay bounded under the same path, MIME, magic-byte, and
+redirect limits as [Selected Profile Media](#selected-profile-media).
+
+## Account Avatars
+
+Per-account X avatar downloads queue into `media_assets` with `source = 'x'`
+and no `media_links` rows, so the `media` sync step fetches remote `pbs.twimg.com`
+images under `data/x/sha256/`. Manual uploads store content-addressed images
+under `data/avatar/sha256/`. `GET /media/account-avatar/{id}?v={sha256}` (and
+`HEAD`) serves a ready candidate by validated 64-hex candidate ID and matching
+SHA-256 hash using the same root-contained streaming checks and immutable cache
+headers as `/media/{id}`.
+
 ## HTTP Contract
 
 The server exposes `GET /media/<id>` for ready assets only. The ID must match

@@ -686,3 +686,164 @@ test("the overview queue lists timers in order, starts one now or next and links
     await vite.close()
   }
 })
+
+test("profile view distinguishes distinct uploaded account avatars by content hash", async () => {
+  const vite = await createServer({
+    configFile: false,
+    envDir: false,
+    server: { middlewareMode: true, watch: null, ws: false },
+    optimizeDeps: { noDiscovery: true, include: [] },
+    resolve: { alias: { "@": path.resolve("src") } },
+  })
+  const installed = installBrowser("#profile")
+  const activeAvatar = {
+    id: "pm-upload-a",
+    slot: "avatar",
+    source: "upload",
+    sourceRef: "account-avatar:kano_2525",
+    sourceUrl: null,
+    downloadStatus: "done",
+    status: "ready",
+    isActive: true,
+    activeSha256:
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    width: 128,
+    height: 128,
+    byteSize: 512,
+    lastError: null,
+    previewUrl: "/api/admin/profile-media/pm-upload-a/preview",
+    updatedAt: "2026-10-01T00:00:00Z",
+  }
+  let currentCandidateSha =
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  const buildAccount = () => ({
+    source: "x",
+    accountKey: "kano_2525",
+    accountHandle: "kano_2525",
+    role: "own",
+    keywords: [],
+    mode: "manual",
+    activeCandidateId:
+      currentCandidateSha === activeAvatar.activeSha256 ? "cand-a" : "cand-b",
+    publicUrl: "/media/account-avatar/cand?v=" + currentCandidateSha,
+    updatedAt: "2026-10-01T00:00:00Z",
+    candidates: [
+      {
+        id:
+          currentCandidateSha === activeAvatar.activeSha256
+            ? "cand-a"
+            : "cand-b",
+        origin: "upload",
+        sourceUrl: null,
+        status: "ready",
+        isActive: true,
+        mimeType: "image/png",
+        byteSize: 512,
+        sha256: currentCandidateSha,
+        width: 128,
+        height: 128,
+        lastError: null,
+        previewUrl: "/api/admin/account-avatars/x/kano_2525/candidates/preview",
+        createdAt: "2026-10-01T00:00:00Z",
+        updatedAt: "2026-10-01T00:00:00Z",
+      },
+    ],
+  })
+  globalThis.fetch = async (input) => {
+    const reqPath = String(input).replace(/^\/api\/admin/, "")
+    const payload =
+      reqPath === "/session"
+        ? {
+            authenticated: true,
+            mode: "development",
+            requiresPassword: false,
+            requiresCode: false,
+          }
+        : reqPath === "/overview"
+          ? overview
+          : reqPath === "/profile-media"
+            ? {
+                items: [activeAvatar],
+                active: { avatar: activeAvatar, banner: null },
+              }
+            : reqPath === "/account-avatars"
+              ? { items: [buildAccount()] }
+              : {}
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })
+  }
+  let root: Rendered | undefined
+  try {
+    const [
+      { AdminApp },
+      { isOwnAccountActiveSiteAvatar },
+      { AppSettingsProvider, PageMessagesProvider },
+      copy,
+    ] = await Promise.all([
+      vite.ssrLoadModule("/src/admin/index.tsx"),
+      vite.ssrLoadModule("/src/admin/views/profile.tsx"),
+      vite.ssrLoadModule("/src/app-settings.tsx"),
+      vite.ssrLoadModule("/src/admin-i18n.ts"),
+    ])
+
+    const mountProfile = async () => {
+      await act(async () => root?.unmount())
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: copy.adminMessages },
+              createElement(AdminApp),
+            ),
+          ),
+        )
+        await new Promise((resolve) => setImmediate(resolve))
+      })
+      const card = root!.container.querySelector(".adm-candidate.is-row")
+      assert.ok(card, "expected own account card to render")
+      const applyBtn = card.querySelector(
+        ".adm-candidate-actions button",
+      ) as HTMLButtonElement | null
+      assert.ok(applyBtn, "expected apply button in card actions")
+      return { card, applyBtn }
+    }
+
+    // Uploaded A matches active site avatar A.
+    let state = await mountProfile()
+    assert.ok(state.card.classList.contains("is-active"))
+    assert.equal(state.applyBtn?.disabled, true)
+    assert.equal(
+      isOwnAccountActiveSiteAvatar(
+        buildAccount(),
+        buildAccount().candidates[0],
+        activeAvatar,
+      ),
+      true,
+    )
+
+    // Switch account active upload to distinct upload B (still sourceUrl: null) -> must NOT match A!
+    currentCandidateSha =
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    state = await mountProfile()
+    assert.equal(state.card.classList.contains("is-active"), false)
+    assert.equal(state.applyBtn?.disabled, false)
+    assert.equal(
+      isOwnAccountActiveSiteAvatar(
+        buildAccount(),
+        buildAccount().candidates[0],
+        activeAvatar,
+      ),
+      false,
+    )
+  } finally {
+    await act(async () => root?.unmount())
+    restoreBrowser(installed.previous)
+    await vite.close()
+  }
+})

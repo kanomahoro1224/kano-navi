@@ -75,12 +75,16 @@ func (s *Store) WriteXRecent(ctx context.Context, account string, result xsource
 		}
 	}
 	// A refresh-only run leaves the incremental state as it is.
+	avatarBumped, avatarErr := recordResultAccountAvatarsTx(ctx, tx, account, result, now)
+	if avatarErr != nil {
+		return ErrSourceWrite
+	}
 	if !result.RefreshOnly {
 		if err = writeXState(ctx, tx, account, result, success, now); err != nil {
 			return ErrSourceWrite
 		}
 	}
-	if len(result.Posts) > 0 || repostsChanged {
+	if len(result.Posts) > 0 || repostsChanged || avatarBumped {
 		if err = bumpRevision(ctx, tx, now); err != nil {
 			return ErrSourceWrite
 		}

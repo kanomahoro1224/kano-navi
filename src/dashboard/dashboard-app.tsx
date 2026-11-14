@@ -530,6 +530,7 @@ export function DashboardApp() {
           accounts={meta.xAccounts || []}
           bilibiliAccounts={meta.bilibiliAccounts || []}
           avatarUrl={profile.avatarUrl}
+          accountAvatars={dashboard.accountAvatars}
           windowDays={windowDays}
           isLoading={isLoading}
           locale={locale}
@@ -682,6 +683,10 @@ export function DashboardApp() {
               onLoadMore={archive.loadMore}
               onJump={setArchiveMonth}
               avatarUrl={profile.avatarUrl}
+              accountAvatars={
+                (archive.archive as ArchiveSnapshot<Post> | null)
+                  ?.accountAvatars ?? dashboard.accountAvatars
+              }
               locale={locale}
               now={now}
               t={t}

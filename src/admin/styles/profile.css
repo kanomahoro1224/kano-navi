@@ -357,3 +357,198 @@
     width: min(100%, 340px);
   }
 }
+
+/* Account avatars management */
+.adm-avatar-account {
+  container-type: inline-size;
+}
+
+.adm-avatar-account-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+
+.adm-avatar-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.adm-avatar-thumb {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  border: 1px solid var(--adm-line);
+  border-radius: 999px;
+  background: var(--adm-sunken);
+  color: var(--adm-muted);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.adm-avatar-thumb.is-hidden {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.adm-avatar-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.adm-avatar-identity-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adm-avatar-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.adm-avatar-title-row strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.adm-avatar-subline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.adm-avatar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.adm-avatar-history {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-profile-sections {
+  container-type: inline-size;
+  display: grid;
+  gap: 22px;
+}
+
+.adm-profile-section {
+  display: grid;
+  gap: 12px;
+}
+
+.adm-profile-section + .adm-profile-section {
+  padding-top: 20px;
+  border-top: 1px solid var(--adm-line);
+}
+
+.adm-profile-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+}
+
+.adm-profile-section-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.adm-profile-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.adm-profile-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.adm-candidate-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+}
+
+.adm-candidate.is-row {
+  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+}
+
+.adm-candidate.is-row .adm-candidate-preview {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: stretch;
+  aspect-ratio: auto;
+  min-height: 120px;
+  height: 100%;
+  border-right: 1px solid var(--adm-line);
+  border-bottom: 0;
+}
+
+.adm-candidate.is-row .adm-candidate-body {
+  grid-column: 2;
+  align-content: start;
+  gap: 4px;
+  padding: 10px 12px 6px;
+}
+
+.adm-candidate-actions {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 12px 10px;
+}
+
+.adm-candidate-actions > button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+@container (max-width: 640px) {
+  .adm-avatar-controls {
+    width: 100%;
+  }
+
+  .adm-profile-section-actions {
+    width: 100%;
+  }
+
+  .adm-candidate.is-row {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+}

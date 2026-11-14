@@ -4,6 +4,14 @@ Public reads, feeds, media and MCP read a prepared SQLite snapshot. None of
 them fetches X, YouTube or a model provider. The service that hosts them is
 described in [Backend](backend.md).
 
+Media addresses below are written as this site's root-relative routes
+(`/media/...`, and the dashboard's `/assets/...` fallback images). With
+[`CDN_PUBLIC_BASE`](../operations/cdn.md) set, every public HTTP read and MCP
+tool returns those same routes with the CDN base in front instead, such as
+`https://cdn.example.invalid/media/<id>?v=<sha256>`; nothing else in a body
+changes, and its ETag is computed over the body as sent. Without it they stay
+root-relative.
+
 ## Public Snapshot Contract
 
 `GET /api/health` returns service status, the current ISO timestamp, and a
@@ -63,7 +71,8 @@ it), the author's mid as `authorHandle`, and its Bilibili page as `url`; a
 forward's own text may be empty. A dynamic with stickers adds `rich`, and an
 available quote with stickers `quote.rich`: the original wording as
 `{text}` and `{emoji, url}` segments whose `text` joined is `text`, where
-`url` is a local `/media/` address or `null` and never a remote one (see
+`url` is a `/media/` address of this site (on `CDN_PUBLIC_BASE` when set) or
+`null` and never a third-party one (see
 [Bilibili stickers](data-model.md#bilibili-stickers)).
 
 Every public event reports its `platform` (`youtube`, `bilibili`, `other`,
@@ -262,6 +271,8 @@ Selected profile media uses `/media/profile/avatar` and
 `/media/profile/banner`, the LINE BLOG archive's files use
 [`/media/lineblog/<name>`](media-cache.md#line-blog-archive-media), and the
 discography covers use [`/media/works/<name>`](media-cache.md#discography-covers).
+With `CDN_PUBLIC_BASE` set, the reads name these routes on the CDN, which pulls
+them from the same paths here.
 
 ## Bounded Public Calendar
 
@@ -391,8 +402,9 @@ The bodies are locale-neutral. A localized text is `{ja, zh-CN, en}`, with
 `null` for a language the data lacks; the server never picks a language.
 Kinds, roles, formats and labels are codes the client words itself, and so is
 the fixed wording around them (section titles, rights notices). Images are
-same-host relative URLs (`/media/journey/<name>`, `/media/works/<name>`)
-served under the [media HTTP contract](media-cache.md#http-contract);
+same-host relative URLs (`/media/journey/<name>`, `/media/works/<name>`), or
+those routes on `CDN_PUBLIC_BASE` when it is set, served under the
+[media HTTP contract](media-cache.md#http-contract);
 third-party addresses appear only as provenance links, never as files a
 client must load. `updatedAt` is a Japan date (`YYYY-MM-DD`).
 
@@ -548,7 +560,8 @@ and stored videos by the same upload ID.
 data by video ID, on each read and without writing. It returns `updatedAt`,
 the list's date, `revision`, and `uploads`, keyed by upload ID, for each
 upload with a ready cover or a stored video: `cover` (`{url, width, height}`:
-a local `/media/<id>?v=<sha256>` URL with smaller copies and the size, with
+a `/media/<id>?v=<sha256>` URL of this site (on `CDN_PUBLIC_BASE` when set)
+with smaller copies and the size, with
 `width` and `height` `null` while unknown; or `null` without a cover) and
 `videos`, the stored YouTube and Bilibili videos of the upload in list order
 as `{source, id, title, url, publishedAt, scheduledAt, durationSeconds,
@@ -588,7 +601,8 @@ archived article or comment. Text is locale-neutral: a localized value is
 `{"ja", "zh-CN", "en"}` with `null` for a language the archive lacks, and no
 read picks a language from the request. Fixed wording, such as the rights
 notice and labels, stays in each client. Media are same-host
-`/media/lineblog/<name>` URLs; third-party addresses appear only as
+`/media/lineblog/<name>` URLs (on `CDN_PUBLIC_BASE` when it is set);
+third-party addresses appear only as
 provenance links that the page opens on request, never as something a client
 must load.
 
@@ -601,8 +615,8 @@ trailing segment) answers 404 `api_not_found`.
 A **media object** is `{url, width, height, mimeType}`: `url` is the
 `/media/lineblog/<name>` address, `width` and `height` the displayed size of
 an image (`null` for a video), and `mimeType` `image/jpeg`, `image/png` or
-`video/mp4`. A missing file answers 404 on its route; clients show an
-unavailable state with the provenance link.
+`video/mp4` (always H.264 with AAC audio). A missing file answers 404 on its
+route; clients show an unavailable state with the provenance link.
 
 `GET /api/lineblog` lists the archive:
 
@@ -616,12 +630,12 @@ unavailable state with the provenance link.
 `GET /api/lineblog/posts/{id}` returns one article with its neighbours in
 the page's pager order:
 
-| Field        | Value                                                                                                                                                                 |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `updatedAt`  | `YYYY-MM-DD`                                                                                                                                                          |
-| `post`       | `id`, `published`, `title` (localized), `url` (the original address), `archiveUrl` (the Wayback Machine capture it was recovered from) and `blocks`, in reading order |
-| `previousId` | The next older article (the page's 前の記事), or `null` for the oldest                                                                                                |
-| `nextId`     | The next newer article (the page's 次の記事), or `null` for the newest                                                                                                |
+| Field        | Value                                                                                                                                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `updatedAt`  | `YYYY-MM-DD`                                                                                                                                                                                                                 |
+| `post`       | `id`, `published`, `title` (localized), `url` (the original address), `archiveUrl` (the Wayback Machine capture it was recovered from), `commentCount` (its archived comments, 0 without any) and `blocks`, in reading order |
+| `previousId` | The next older article (the page's 前の記事), or `null` for the oldest                                                                                                                                                       |
+| `nextId`     | The next newer article (the page's 次の記事), or `null` for the newest                                                                                                                                                       |
 
 Each block has a `type`:
 

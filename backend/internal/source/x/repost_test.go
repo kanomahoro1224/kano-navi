@@ -140,3 +140,50 @@ func TestDetailRepostIsRecordedNotStored(t *testing.T) {
 		t.Fatalf("refresh=%+v err=%v", got, err)
 	}
 }
+
+func TestDetailRepostRequiresTheRequestedIdentity(t *testing.T) {
+	const requested, other, original = "1900000000000000901", "1900000000000000902", "1900000000000000903"
+	for _, key := range []string{"tweetID", "tweetId", "id"} {
+		for _, returned := range []string{requested, other, ""} {
+			t.Run(key+"/"+returned, func(t *testing.T) {
+				var payload map[string]any
+				if err := json.Unmarshal([]byte(retweetAnswer(requested, "kano", original, "someone")), &payload); err != nil {
+					t.Fatal(err)
+				}
+				delete(payload, "tweetID")
+				if returned != "" {
+					payload[key] = returned
+				}
+				body, err := json.Marshal(payload)
+				if err != nil {
+					t.Fatal(err)
+				}
+				client := NewClient(&http.Client{Transport: fakeRoundTripper(func(r *http.Request) (*http.Response, error) {
+					return response(200, string(body)), nil
+				})})
+				opts := Options{RefreshOnly: true, RefreshIDs: []string{requested}, MaxDetailRequests: 1}
+				got, err := NewAdapter(client, opts).FetchRecent(context.Background(), "kano", opts)
+				if returned == requested {
+					if err != nil || len(got.Reposts) != 1 || got.Reposts[0].RetweetID != requested {
+						t.Fatalf("matching repost: %+v err=%v", got, err)
+					}
+					return
+				}
+				if err == nil || safeCode(err) != string(ErrInvalidResponse) || len(got.Reposts) != 0 || len(got.Dropped) != 0 || len(got.Posts) != 0 {
+					t.Fatalf("unverified identity must not write or remove a post: %+v err=%v", got, err)
+				}
+			})
+		}
+	}
+}
+
+func TestAPIRepostsKeepEveryRetweetIdentity(t *testing.T) {
+	const original, first, second = "1900000000000000900", "1900000000000000901", "1900000000000000902"
+	entry := func(id string) any {
+		return map[string]any{"id": id, "referenced_tweets": []any{map[string]any{"type": "retweeted", "id": original}}}
+	}
+	got := APIReposts(map[string]any{"data": []any{entry(first), entry(second), entry(first)}}, "kano")
+	if len(got) != 2 || got[0].RetweetID != first || got[1].RetweetID != second || got[0].ID != original || got[1].ID != original {
+		t.Fatalf("distinct retweets of one original: %+v", got)
+	}
+}

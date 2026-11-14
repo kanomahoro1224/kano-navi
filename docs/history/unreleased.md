@@ -56,7 +56,9 @@ webpush-key`), and the bell stays hidden while they are empty. It adds
 - `POST /posts/{id}/refresh` answers `400 invalid_input` for a promoted
   related-account status, which the own accounts' synchronization never
   reads.
-- Startup adds `x_reposts.retweet_id` and its index, and marks every pooled
+- Startup adds `x_reposts.retweet_id` and its index, retains every distinct
+  repost's own ID in `x_repost_ids`, backfills that table from existing
+  repost links, and marks every pooled
   X status an `x_reposts` row names as reposted (`reposted_at` from the
   earliest sighting), without a request.
 - A pending X status whose detail answer is the account's repost leaves the
@@ -84,9 +86,15 @@ webpush-key`), and the bell stays hidden while they are empty. It adds
   `GET /api/works/uploads` is unchanged.
 - Public API adds the LINE BLOG archive reads `GET /api/lineblog`,
   `GET /api/lineblog/posts/{id}` and `GET /api/lineblog/posts/{id}/comments`:
-  the article list and months, one article with its blocks and neighbours,
+  the article list and months, one article with its blocks, comment count
+  and neighbours,
   and its archived comments, locale-neutral and with same-host media, served
   from data embedded in the release.
+- Every LINE BLOG archive video is H.264 with AAC audio: thirteen VP9 and
+  AV1 copies are re-encoded under their names, so the media catalog's sizes
+  and hashes change. Update `data/lineblog/` from the recovery archive (pull
+  it, or copy its `media/` again) before deploying; it no longer splits any
+  video.
 
 </details>
 
@@ -166,6 +174,11 @@ webpush-key`), and the bell stays hidden while they are empty. It adds
 - A post's or quoted post's video or GIF shows its still with a play mark or
   a GIF tag, on the board, in the post archive and in the image viewer, and
   opens the post on X instead of the viewer.
+- Every video in the LINE BLOG archive plays in Safari and on iPhone, not
+  only those YouTube had kept as H.264.
+- In Safari and on iPhone, the weekly schedule folds past entries to two
+  lines of title and cuts other entries' titles at three lines, as in other
+  browsers, instead of showing every title whole.
 - A reposted post the operator picks shows on the wall and in Past posts as
   its author's post, marked Reposted by and the account of Kano's that
   reposted it, under All only.
@@ -282,11 +295,14 @@ webpush-key`), and the bell stays hidden while they are empty. It adds
   from a notice and operator entries without a label, newest first, within
   the same per-run limit (`videoTags` in the run result). The title prompt now counts covers, originals and music videos
   as `song`.
-- A vxtwitter detail answer that carries `retweet` is recorded as the
+- A vxtwitter detail answer that carries `retweet` and explicitly matches
+  the requested outer status ID is recorded as the
   account's repost of the original status and never stored as a post, on
   the pending queue, known-post refreshes and operator refreshes alike.
 - X API answers record each repost's own status ID, so a stored post under
-  it is removed in the same way.
+  it is removed in the same way. Repeated reposts of one original retain
+  every own ID, including when one API page carries several, so later
+  synchronization and imports cannot restore them as posts.
 - Each X image records whether it is a photo or a video's or GIF's
   thumbnail, from the detail answer, the timeline and the X API alike. Video
   and GIF files are never downloaded.
@@ -298,9 +314,16 @@ webpush-key`), and the bell stays hidden while they are empty. It adds
 
 - `npm run lineblog:export` writes the server's copy of the LINE BLOG
   archive from the tracked page data, and the frontend tests fail when the
-  committed copy differs.
+  committed copy differs, allowing Git checkout line endings.
+- HTML revalidates with an ETag over its rendered content, including page
+  tags and runtime CDN/public-origin configuration. A build timestamp alone
+  cannot produce a 304 that keeps an earlier configuration's addresses.
+- LINE BLOG packaging refuses a video that is not H.264 with AAC audio.
 - Profile images load when the data directory is reached through a symbolic
   link, as macOS reaches its temporary directories; a symbolic link in place
   of the avatar directory is still refused.
+- `CDN_PUBLIC_BASE` optionally serves the build's assets and cached media
+  from a CDN. It is empty by default, changes no stored data, and must be
+  passed to the frontend build as well; see [CDN](../operations/cdn.md).
 
 </details>

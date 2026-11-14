@@ -505,6 +505,13 @@ CREATE TABLE workflows (
     updated_at TEXT NOT NULL
   );
 
+CREATE TABLE x_repost_ids (
+    retweet_id TEXT PRIMARY KEY,
+    status_id TEXT NOT NULL,
+    account_handle TEXT NOT NULL,
+    first_seen_at TEXT NOT NULL
+  );
+
 CREATE TABLE x_reposts (
     status_id TEXT NOT NULL,
     account_handle TEXT NOT NULL,

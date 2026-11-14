@@ -213,13 +213,13 @@ settings next to every HTML, JavaScript, CSS, JSON and SVG file in `dist/`
 (`scripts/vite-precompress.ts`). The static site sends the first sibling the
 request's `Accept-Encoding` admits, `br` before `gzip`, with
 `Content-Encoding`, `Vary: Accept-Encoding`, the original's `Content-Type`
-and `Cache-Control`, and the sibling's length. Last-Modified stays the
-original's, so conditional requests answer alike for every encoding; HEAD
-and 304 carry no body, and a range request on an encoded response addresses
+and `Cache-Control`, and the sibling's length. Files other than `index.html`
+keep the original's Last-Modified. HEAD and 304 carry no body, and a range
+request on an encoded response addresses
 the sibling's bytes. A sibling older than its original is stale and ignored.
-`index.html` responses that carry rewritten share tags (a page's own tags,
-the public origin, or a 404) never use the stored sibling and fall back to
-on-the-fly gzip like any text without a sibling. Siblings have no URL of
+`index.html` responses that carry rewritten content (a page's own tags,
+the public origin, a CDN base, or a 404) never use the stored sibling and
+fall back to on-the-fly gzip like any text without a sibling. Siblings have no URL of
 their own: a request for `….br` or `….gz` of such a file is a missing page.
 
 Admin/authentication responses, MCP (including streams and reflected protocol
@@ -235,7 +235,12 @@ Content-hashed JS/CSS in `dist/assets` listed in Vite's
 icons and other files receive `public, max-age=0, must-revalidate`. A path that is neither a
 build file nor one of the frontend's pages (`/`, `/journey`, `/lineblog`,
 `/works`, `/about`, `/admin`, with or without a trailing slash) still receives `index.html`, which
-shows the frontend's not-found view, but with status 404. `/history`, the
+shows the frontend's not-found view, but with status 404. Successful
+`index.html` responses, including SPA routes, use a weak ETag over the final
+rendered HTML across encodings and omit Last-Modified. Conditional requests
+therefore validate the page's tags and runtime CDN/public-origin configuration
+as well as its build content, including when those settings are empty. A
+timestamp alone receives the full response. `/history`, the
 journey's earlier address, answers `301 Moved Permanently` to `/journey` with
 the same query (`movedPages` in `backend/internal/httpapi/static.go`); the
 browser keeps the fragment. `robots.txt` comes
@@ -243,7 +248,11 @@ from `public/` and disallows `/admin`, `/api/` and `/mcp` but allows the two
 public feeds, `/api/calendar.ics` and `/api/feed.xml`, whose subscription
 fetchers (Google Calendar's among them) honour it. `/index.html` is the file
 itself, which the frontend shows as the board. A missing/invalid manifest
-falls back to revalidation. Dynamic media retains its independent version/hash
+falls back to revalidation. When `CDN_PUBLIC_BASE` is set, the service answers
+the same headers and paths for a CDN to pull; the variable changes the
+addresses `index.html` carries and the media routes the public reads name, not
+this origin's own serving (see [CDN](../operations/cdn.md)). Dynamic media
+retains its independent version/hash
 validation and caching. The server keeps no dashboard response cache, because
 the projection compares event and video times with the exact clock; the
 dashboard, calendar and archive reads are revalidated by the browser through
@@ -275,7 +284,14 @@ file's own tags. Link previews need absolute URLs, which a static file cannot
 know, so the server then rewrites the page's root-relative `content="/..."`
 values to the optional `PUBLIC_ORIGIN` (HTML-escaped, although configuration
 already accepts only a DNS name or IP address as its host). Without it the
-tags stay relative. Nothing else in the build is rewritten.
+tags stay relative.
+
+When `CDN_PUBLIC_BASE` is set, `index.html` first has its `src`, `href` and
+`content` references to `/assets/` rewritten to that base (the web app
+manifest link stays at the origin, where its `start_url` and `scope` apply), so the CDN rewrite claims the banner before `PUBLIC_ORIGIN` makes the
+remaining share tags absolute, and carries
+`<meta name="kano-cdn-base">` for the media addresses the frontend builds
+itself. Nothing else in the build is rewritten.
 
 ## Related Docs
 

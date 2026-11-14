@@ -58,7 +58,8 @@ own transaction, and the selected profile media is reconciled with its files
 | `translations`           | Manual, platform, and machine translations of posts, videos and pooled statuses per target locale      |
 | `translation_states`     | Per-owner machine translation state: source hash and language, last attempt, operator request          |
 | `x_statuses`             | The X status pool: related accounts' statuses and statuses own posts quote or repost; never public     |
-| `x_reposts`              | The own X accounts' reposts: reposted status, account, author, first sighting and the repost's own ID  |
+| `x_reposts`              | The own X accounts' reposts: reposted status, account, author, first sighting and first known own ID   |
+| `x_repost_ids`           | Every known own status ID of a repost, with its original status, account and first sighting            |
 | `bilibili_statuses`      | The Bilibili status pool: dynamics own forwards forward; never public                                  |
 
 The API maps snake_case columns to camelCase and removes `raw_json`. The
@@ -538,11 +539,14 @@ display rule computed at read time; it sets nothing, and the post returns
 when the quoting post or its quote is hidden. `x_reposts` holds one row per reposted
 status and own account (`status_id`, `account_handle` in lower case,
 `author_handle` or `NULL`, `first_seen_at`, and `retweet_id`, the repost's
-own status ID once a detail answer or an X API answer named it, else
+first known own status ID once a detail answer or an X API answer named it, else
 `NULL`); see [Reposts](sources.md#reposts). Public post reads list a
 promoted post's rows as its `repostedBy`, each account in the spelling of
-its stored own posts. No post is ever stored under a
-`retweet_id` (see [Reposts stored as posts](#reposts-stored-as-posts)).
+its stored own posts. `x_repost_ids` holds every distinct repost's own
+`retweet_id` as its primary key, with `status_id`, `account_handle` and
+`first_seen_at`. Reposting the same original again adds its new ID while
+keeping every earlier ID. No post is ever stored under one of these IDs
+(see [Reposts stored as posts](#reposts-stored-as-posts)).
 
 `posts.quote_hidden_at` records an operator's decision to keep a post's
 quote off the public pages: the dashboard, the post archive and MCP then
@@ -560,8 +564,9 @@ detail request (see
 [Refresh from the source](sources.md#refresh-from-the-source)). All three are
 additive columns, `NULL` by default.
 
-Startup creates both tables in existing snapshots and adds
-`x_reposts.retweet_id` empty. On every start it adds
+Startup creates these tables in existing snapshots and adds
+`x_reposts.retweet_id` empty. It copies every known `x_reposts.retweet_id`
+into `x_repost_ids` without replacing existing identities. On every start it adds
 to the pool the quote of every stored X post whose available quote the pool
 does not hold as quoted by that post yet, mapped from the post's `raw_json`
 like a source write, without a request, and marks every pooled status that
@@ -935,7 +940,7 @@ an automatic, unlocked event left without active evidence is retired, which
 releases the rule merges into it, while an event with other active evidence
 stays and a manual or locked event keeps its row and decisions (see
 [Event precedence](#event-precedence)). A promoted post or another account's
-post is never removed this way. The ID stays in `x_reposts.retweet_id`, so
+post is never removed this way. The ID stays in `x_repost_ids`, so
 no synchronization, fetch or promotion writes a post under it again; a write
 that names it skips it, with its schedule candidate.
 

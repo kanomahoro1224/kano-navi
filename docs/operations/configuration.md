@@ -10,6 +10,7 @@
 | `ADMIN_PASSWORD`                          | Empty                               | Production startup requires at least 12 non-padding characters        |
 | `ADMIN_ORIGIN`                            | Empty                               | Optional explicit origin accepted for admin mutations                 |
 | `PUBLIC_ORIGIN`                           | Empty                               | Optional public origin for absolute share-tag and feed links          |
+| `CDN_PUBLIC_BASE`                         | Empty                               | Optional CDN base for the build's assets and cached media             |
 | `LLM_SECRETS_KEY`                         | Empty                               | Required non-blank encryption master key at startup in every mode     |
 | `PORT`                                    | `7657`                              | Shared frontend/API port for development, preview, and production     |
 | `KANO_API_PORT`                           | `7658`                              | Development only: loopback port of the backend behind Vite            |
@@ -73,6 +74,16 @@ the soft limit.
 `SKIP_LLM=1` skips both model steps, `schedule` and `translate`. The
 translate step reads only the translation queue set in `/admin` → Models, so
 it does nothing until that queue holds a text model.
+
+`CDN_PUBLIC_BASE` is the public base of an optional CDN, such as
+`https://cdn.example.invalid` or `https://cdn.example.invalid/site` (an http
+or https URL whose path is an optional prefix; a query, credentials, escaped
+segments, empty or `.`/`..` segments fail startup, and fail `vite build` the
+same way; the host is lowercased). The frontend build also
+reads it, so pass it to `npm run build` or `docker build`; the service then
+writes the build's fixed files, the share-tag banner and every public media
+address to that base, and empty keeps them on this origin. See
+[CDN](cdn.md).
 
 `PUBLIC_ORIGIN` is a bare `http` or `https` origin such as
 `https://kano.example.invalid` (a trailing `/` is accepted and the host is

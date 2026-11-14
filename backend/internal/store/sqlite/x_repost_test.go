@@ -2,11 +2,100 @@ package sqlite
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
+
+func TestEveryRetweetIDStaysBlockedAcrossRestartAndImports(t *testing.T) {
+	ctx := context.Background()
+	filename := filepath.Join(t.TempDir(), "database", "kano.sqlite")
+	s, err := OpenStandalone(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Close() })
+	for _, id := range []string{storedRetweet, retweetSibling, storedRetweet} {
+		if err = s.WriteXRecent(ctx, "kano_2525", xsource.Result{Reposts: []xsource.Repost{{ID: retweetedID, Author: "someone", RetweetID: id}}}, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = OpenStandalone(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{storedRetweet, retweetSibling} {
+		post := xsource.Post{ID: id, AccountHandle: "kano_2525", Type: "daily", Text: "RT @someone: notice", PublishedAt: "2026-10-10T00:00:00Z",
+			URL: "https://x.com/kano_2525/status/" + id, Raw: map[string]any{}}
+		if err = s.WriteXRecent(ctx, "kano_2525", xsource.Result{Posts: []xsource.Post{post}}, true); err != nil {
+			t.Fatal(err)
+		}
+		written, writeErr := s.WriteHistoryPage(ctx, history.Page{Source: "x", Account: "kano_2525", Window: history.Window{Mode: "count", Count: 20}, Posts: []xsource.Post{post}})
+		if writeErr != nil || written.New != 0 {
+			t.Fatalf("history resurrected %s: %+v err=%v", id, written, writeErr)
+		}
+	}
+	var count int
+	if err = s.DB().QueryRow(`SELECT COUNT(*) FROM posts`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("reposts resurrected: count=%d err=%v", count, err)
+	}
+	if err = s.DB().QueryRow(`SELECT COUNT(*) FROM x_repost_ids`).Scan(&count); err != nil || count != 2 {
+		t.Fatalf("durable identities: count=%d err=%v", count, err)
+	}
+}
+
+func TestStartupBackfillsLegacyRetweetIdentity(t *testing.T) {
+	ctx := context.Background()
+	filename := filepath.Join(t.TempDir(), "database", "kano.sqlite")
+	s, err := OpenStandalone(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Close() })
+	const stamp = "2026-10-10T00:00:00Z"
+	for _, statement := range []string{
+		`INSERT INTO x_reposts(status_id,account_handle,retweet_id,first_seen_at) VALUES('` + retweetedID + `','kano_2525','` + storedRetweet + `','` + stamp + `')`,
+		`INSERT INTO posts(id,source,text,published_at,url,account_handle) VALUES('` + retweetSibling + `','x','kept','` + stamp + `','https://x.com/kano_2525/status/` + retweetSibling + `','kano_2525')`,
+		`DROP TABLE x_repost_ids`,
+	} {
+		if _, err = s.DB().Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if old, openErr := OpenInitialized(filename, true, true); openErr == nil {
+		old.Close()
+		t.Fatal("the schema verifier accepted a missing repost identity table")
+	}
+	for range 2 {
+		s, err = OpenStandalone(filename)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got string
+		if err = s.DB().QueryRow(`SELECT retweet_id||'|'||status_id||'|'||account_handle||'|'||first_seen_at FROM x_repost_ids`).Scan(&got); err != nil || got != storedRetweet+"|"+retweetedID+"|kano_2525|"+stamp {
+			t.Fatalf("backfilled identity=%q err=%v", got, err)
+		}
+		post := xsource.Post{ID: storedRetweet, AccountHandle: "kano_2525", Type: "daily", Text: "RT @someone: notice", PublishedAt: stamp,
+			URL: "https://x.com/kano_2525/status/" + storedRetweet, Raw: map[string]any{}}
+		if err = s.WriteXRecent(ctx, "kano_2525", xsource.Result{Posts: []xsource.Post{post}}, true); err != nil {
+			t.Fatal(err)
+		}
+		if err = s.DB().QueryRow(`SELECT id||'|'||text FROM posts`).Scan(&got); err != nil || got != retweetSibling+"|kept" {
+			t.Fatalf("snapshot after upgrade/import=%q err=%v", got, err)
+		}
+		if err = s.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
 const (
 	storedRetweet  = "1900000000000000701"

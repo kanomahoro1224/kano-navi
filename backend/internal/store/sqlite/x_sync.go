@@ -171,7 +171,7 @@ func writeXState(ctx context.Context, tx *sql.Tx, account string, result xsource
 // writeXPost stores one post with its media candidates and the status it
 // quotes, which goes to the pool (see writeQuotedStatus). It reports false
 // when the ID already belongs to another account, whose row is left
-// unchanged, or is an own account's repost (x_reposts.retweet_id), which is
+// unchanged, or is an own account's repost (x_repost_ids), which is
 // never stored.
 func writeXPost(ctx context.Context, tx *sql.Tx, account string, p xsource.Post, now string) (bool, error) {
 	return writeXPostAs(ctx, tx, account, p, now, true)

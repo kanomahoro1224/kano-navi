@@ -87,6 +87,11 @@ docker build -t kano-navi:local .
 KANO_IMAGE=kano-navi:local docker compose up -d --pull never
 ```
 
+To serve the frontend's assets from a CDN, build with
+`--build-arg CDN_PUBLIC_BASE=https://cdn.example.invalid` and keep the same
+value in the runtime environment, so the API returns its media addresses
+there too; see [CDN](cdn.md).
+
 The runtime image contains the static Go binary, the built frontend, the
 bundled assets, Node.js and the checksum-verified yt-dlp `2026.10.26`
 executable. The

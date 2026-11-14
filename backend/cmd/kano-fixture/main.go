@@ -96,6 +96,7 @@ func createFixture(databasePath string) (fixtureInfo, error) {
 }
 
 const schema = `
+CREATE TABLE x_repost_ids (retweet_id TEXT PRIMARY KEY, status_id TEXT NOT NULL, account_handle TEXT NOT NULL, first_seen_at TEXT NOT NULL);
 CREATE TABLE profiles (id TEXT PRIMARY KEY, display_name TEXT NOT NULL, romanized_name TEXT, bio TEXT, avatar_url TEXT, banner_url TEXT, x_url TEXT, youtube_url TEXT, updated_at TEXT, raw_json TEXT);
 CREATE TABLE posts (id TEXT PRIMARY KEY, source TEXT NOT NULL, account_handle TEXT, type TEXT NOT NULL DEFAULT 'daily', label TEXT, text TEXT NOT NULL, published_at TEXT NOT NULL, url TEXT NOT NULL, likes INTEGER DEFAULT 0, reposts INTEGER DEFAULT 0, replies INTEGER DEFAULT 0, media_url TEXT, media_alt TEXT, raw_json TEXT, quote_json TEXT, repost_json TEXT, quote_hidden_at TEXT, refresh_requested_at TEXT, hidden_at TEXT, promoted_at TEXT);
 CREATE TABLE post_llm_states (post_id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'never', route TEXT, last_attempt_at TEXT, last_processed_at TEXT, last_error TEXT, last_extraction_id INTEGER, reprocess_requested INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT '', failure_count INTEGER NOT NULL DEFAULT 0, failure_fingerprint TEXT, next_attempt_at TEXT, settled_stamp TEXT);

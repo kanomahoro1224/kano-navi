@@ -83,7 +83,7 @@ function fixedMediaOf(item: FixedMediaItem) {
   return {
     origin: item.origin,
     id: item.id,
-    url: item.url,
+    url: item.path,
     width: item.width,
     height: item.height,
     mimeType: item.mimeType,
@@ -114,7 +114,7 @@ function mediaOf(item: HistoryMediaItem) {
   return {
     origin: item.origin,
     id: item.id,
-    url: item.url,
+    url: item.path,
     width: item.width,
     height: item.height,
     mimeType: worksMimeType(cover.media),

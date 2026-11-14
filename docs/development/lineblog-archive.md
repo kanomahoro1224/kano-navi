@@ -26,8 +26,8 @@ gets its media.
   MIME type, size, SHA-256 and, for images, the displayed width and height.
   It is the complete catalog, including the design art; the page itself
   reads the entries carried by each article's file.
-- The media files themselves (about 1.02 GiB: 305 images and 25 videos, two
-  of them over 100 MiB) are ignored runtime data in `data/lineblog/`. They are
+- The media files themselves (about 1.08 GiB: 305 images and 25 videos, each
+  under 100 MiB) are ignored runtime data in `data/lineblog/`. They are
   too large for the repository and the image. The server reads them through
   `GET /media/lineblog/<name>`, which serves only a regular file directly
   inside that directory whose name is 12 lowercase hex digits plus `.jpg`,
@@ -92,6 +92,18 @@ its bytes, a downloaded YouTube video by its watch address
 only as remote addresses stay as those addresses and show as not archived; the
 page never loads them. Embedded tweets keep only their text and links.
 
+Every video is H.264 with AAC audio, the one pairing every browser and the
+iOS player decode, and packaging refuses any other codec. A YouTube download
+in another codec (VP9 or AV1) is transcoded in the recovery archive's
+`media/` under the same name, which comes from its watch address, before
+packaging; the original download moves to the archive's `media-original/`,
+which packaging never reads. The rate cap keeps a copy near YouTube's own H.264 rates: 3 Mbit/s
+for 1080p, as below, and `-maxrate 2M -bufsize 4M` below 1080p.
+
+```bash
+ffmpeg -i in.mp4 -map 0:v:0 -map 0:a:0 -c:v libx264 -preset slow -crf 22 -maxrate 3M -bufsize 6M -profile:v high -pix_fmt yuv420p -c:a copy -map_metadata 0 -movflags +faststart out.mp4
+```
+
 `src/lineblog/recovered.ts` lists the pictures recovered after the archive was
 made, each with the address its bytes came from. Their files sit in the
 recovery archive's `media/`, and packaging stores them as archive media with
@@ -124,9 +136,9 @@ npm run lineblog:package -- --from /path/to/Kano_LINE_Blog_Recovery
 The archive holds `BLOG/` (Japanese originals), `BLOG_zh-cn/` and `BLOG_en/`
 (the same articles with Simplified Chinese or English translation lines
 inserted; both are machine translations of the Japanese),
-`media/`, and `media-parts/`,
-where each video over 100 MiB is a gzip-compressed tar split into numbered
-parts. Packaging:
+and `media/`. A video over 100 MiB would sit in `media-parts/` as a
+gzip-compressed tar split into numbered parts, which packaging restores.
+Packaging:
 
 1. Parses every article and keeps the highest retained version of each one.
 2. Matches each translation file's lines against the Japanese ones; inserted
@@ -138,8 +150,8 @@ parts. Packaging:
    file paths, and reduces Amazon links to their product path, dropping
    affiliate and API query parts.
 4. Validates every referenced media file before writing anything: name
-   format, size limit (15 MiB per image, 256 MiB per video), magic bytes and
-   name identity. The design art in `src/lineblog/designs.ts` and the
+   format, size limit (15 MiB per image, 256 MiB per video), magic bytes,
+   name identity and, for a video, H.264 and AAC tracks. The design art in `src/lineblog/designs.ts` and the
    recovered pictures in `src/lineblog/recovered.ts` go through the same
    checks. A video missing from `media/` is restored from its parts.
 5. Writes the media into `data/lineblog/` through staged renames, skipping
@@ -310,19 +322,7 @@ directory that holds `docker-compose.yml`, clone the archive (about 1 GiB):
 git clone --depth 1 https://github.com/yexca/Kano_LINE_Blog_Recovery.git
 ```
 
-The two videos over 100 MiB are stored as split archives in `media-parts/`;
-restore them into `media/`, where the archive's `.gitignore` keeps them out
-of its own status:
-
-```bash
-cat Kano_LINE_Blog_Recovery/media-parts/5deac0f60979.mp4.tar.gz.part-* | tar -xzf - -C Kano_LINE_Blog_Recovery/media
-```
-
-```bash
-cat Kano_LINE_Blog_Recovery/media-parts/ecc3e9bbd6b0.mp4.tar.gz.part-* | tar -xzf - -C Kano_LINE_Blog_Recovery/media
-```
-
-`media/` then holds every file of the media catalog, plus a few archive
+`media/` holds every file of the media catalog, plus a few archive
 files that no article references and the page never links. Put it in place
 in one of two ways:
 

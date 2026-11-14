@@ -1,6 +1,8 @@
 // Static, public-facing content that does not come from synchronization.
 // Every external host here is listed in scripts/privacy-allowlist.json.
 
+import { cdnUrl } from "../lib/cdn.ts"
+
 export const POST_WINDOW_DAYS = 3
 export const VIDEO_WINDOW_DAYS = 7
 
@@ -8,8 +10,14 @@ export const fallbackProfile = {
   displayName: "鹿乃まほろ",
   romanizedName: "Kano Mahoro",
   bio: "歌手 / Virtual Artist / みんなの毎日を、まほろばに。",
-  avatarUrl: "/assets/kano-avatar.jpg",
-  bannerUrl: "/assets/kano-banner.jpg",
+  // Read on use, so the page's advertised CDN base applies whenever this
+  // module was first imported.
+  get avatarUrl() {
+    return cdnUrl("/assets/kano-avatar.jpg")
+  },
+  get bannerUrl() {
+    return cdnUrl("/assets/kano-banner.jpg")
+  },
   xUrl: "https://x.com/kano_2525",
   youtubeUrl: "https://www.youtube.com/channel/UCShXNLMXCfstmWKH_q86B8w",
 }

@@ -99,7 +99,7 @@ func APIReposts(payload map[string]any, account string) []Repost {
 		}
 	}
 	out := []Repost{}
-	seen := map[string]bool{}
+	seen := map[[2]string]bool{}
 	for _, item := range list(payload["data"]) {
 		entry := object(item)
 		handle := stringValue(users[stringValue(entry["author_id"])]["username"])
@@ -107,14 +107,20 @@ func APIReposts(payload map[string]any, account string) []Repost {
 			continue
 		}
 		id := referenceOf(entry, "retweeted")
-		if id == "" || seen[id] {
+		if id == "" {
 			continue
 		}
-		seen[id] = true
 		repost := Repost{ID: id}
 		if own := stringValue(entry["id"]); statusIDPattern.MatchString(own) && own != id {
 			repost.RetweetID = own
 		}
+		// One original can be reposted repeatedly with different own IDs.
+		// Each ID must reach the store's durable exclusion set.
+		key := [2]string{id, repost.RetweetID}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
 		if status, found := referenced[id]; found {
 			if author := stringValue(users[stringValue(status["author_id"])]["username"]); handlePattern.MatchString(author) {
 				repost.Author = author

@@ -69,6 +69,42 @@ const PNG = Buffer.from(
   "base64",
 )
 
+/** An MP4 box: its size, its type and its content. */
+function box(type: string, ...content: Buffer[]) {
+  const body = Buffer.concat(content)
+  const header = Buffer.alloc(8)
+  header.writeUInt32BE(body.length + 8, 0)
+  header.write(type, 4, "latin1")
+  return Buffer.concat([header, body])
+}
+
+/** A synthetic MP4 whose tracks use the given sample entries, moov last. */
+function mp4(...entries: string[]) {
+  const track = (entry: string) =>
+    box(
+      "trak",
+      box(
+        "mdia",
+        box(
+          "minf",
+          box(
+            "stbl",
+            box(
+              "stsd",
+              Buffer.from([0, 0, 0, 0, 0, 0, 0, 1]),
+              box(entry, Buffer.alloc(8)),
+            ),
+          ),
+        ),
+      ),
+    )
+  return Buffer.concat([
+    box("ftyp", Buffer.from("mp42\0\0\0\0mp42isom", "latin1")),
+    box("mdat", Buffer.from("synthetic video ".repeat(64))),
+    box("moov", box("mvhd", Buffer.alloc(100)), ...entries.map(track)),
+  ])
+}
+
 /** A one-member ustar archive, the format of the archive's split videos. */
 function tarball(name: string, content: Buffer) {
   const header = Buffer.alloc(512)
@@ -120,10 +156,7 @@ async function fixture(t: TestContext) {
 
   const watch = "https://www.youtube.com/watch?v=AAAAAAAAAAA"
   const videoName = `${sha256ForContent(Buffer.from(watch)).slice(0, 12)}.mp4`
-  const video = Buffer.concat([
-    Buffer.from("\0\0\0\x18ftypmp42"),
-    Buffer.from("synthetic video ".repeat(64)),
-  ])
+  const video = mp4("avc1", "mp4a")
   const packed = tarball(videoName, video)
   const half = Math.floor(packed.length / 2)
   await fs.writeFile(
@@ -349,6 +382,22 @@ test("LINE BLOG packaging writes nothing when media do not match their names", a
   await assert.rejects(
     packageLineblog(archive, { contentDir, mediaDir, designArt: [] }),
     /identity mismatch/u,
+  )
+  assert.deepEqual(await fs.readdir(mediaDir), [])
+  await assert.rejects(fs.stat(contentDir))
+})
+
+test("LINE BLOG packaging refuses a video that is not H.264 with AAC", async (t) => {
+  const { root, archive, videoName } = await fixture(t)
+  await fs.writeFile(
+    path.join(archive, "media", videoName),
+    mp4("vp09", "mp4a"),
+  )
+  const contentDir = path.join(root, "content")
+  const mediaDir = path.join(root, "data", "lineblog")
+  await assert.rejects(
+    packageLineblog(archive, { contentDir, mediaDir, designArt: [] }),
+    /not H\.264 with AAC: [0-9a-f]{12}\.mp4 \(vp09, mp4a\)/u,
   )
   assert.deepEqual(await fs.readdir(mediaDir), [])
   await assert.rejects(fs.stat(contentDir))

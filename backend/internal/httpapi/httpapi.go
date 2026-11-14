@@ -99,6 +99,15 @@ func NewHandlerWithAdmin(store *sqlite.Store, now func() time.Time, admin http.H
 	return &Handler{store: store, now: now, admin: admin, streams: newRevisionHub(store.GetDashboardRevision)}
 }
 
+// WithCDNBase returns the handler with its public reads naming cached media and
+// fixed public images on the normalized CDN_PUBLIC_BASE; empty keeps them at
+// this origin. Read-only mode uses it, as the standalone handler takes the
+// base in its options.
+func (h *Handler) WithCDNBase(base string) *Handler {
+	h.cdnBase = cdn.Base(base)
+	return h
+}
+
 func NewServer(handler http.Handler, cfg config.Config) *http.Server {
 	return &http.Server{
 		Addr:              cfg.ListenAddress,
@@ -214,21 +223,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeMethodNotAllowed(w, http.MethodGet)
 			return
 		}
-		worksCollection.serve(w, r)
+		worksCollection.serve(w, r, h.cdnBase)
 	case "/api/works/upload-list":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {
 			writeMethodNotAllowed(w, http.MethodGet)
 			return
 		}
-		worksUploadListCollection.serve(w, r)
+		worksUploadListCollection.serve(w, r, h.cdnBase)
 	case "/api/journey":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {
 			writeMethodNotAllowed(w, http.MethodGet)
 			return
 		}
-		journeyCollection.serve(w, r)
+		journeyCollection.serve(w, r, h.cdnBase)
 	case "/api/lineblog":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {
@@ -432,6 +441,12 @@ func numericPrefix(raw string) bool {
 		raw = raw[1:]
 	}
 	return raw != "" && raw[0] >= '0' && raw[0] <= '9'
+}
+
+// publicJSON returns a packaged public read's JSON body with its cached media
+// addresses on the configured CDN, if any.
+func (h *Handler) publicJSON(body []byte) ([]byte, error) {
+	return h.cdnBase.JSON(body)
 }
 
 // public returns a public read's object with its cached media addresses on the

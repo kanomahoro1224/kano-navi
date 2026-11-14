@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/yexca/kano-navi/backend/internal/cdn"
 )
 
 func TestPreparedJSONServesCompactBodyWithStableValidator(t *testing.T) {
@@ -14,7 +16,7 @@ func TestPreparedJSONServesCompactBodyWithStableValidator(t *testing.T) {
 		return []byte("{\n  \"updatedAt\": \"2026-01-02\",\n  \"items\": [\n    \"synthetic\"\n  ]\n}\n")
 	}}
 	first := httptest.NewRecorder()
-	body.serve(first, httptest.NewRequest(http.MethodGet, "/api/synthetic", nil))
+	body.serve(first, httptest.NewRequest(http.MethodGet, "/api/synthetic", nil), "")
 	etag := first.Header().Get("ETag")
 	if first.Code != http.StatusOK || first.Body.String() != `{"updatedAt":"2026-01-02","items":["synthetic"]}` ||
 		first.Header().Get("Cache-Control") != "no-cache" || !strings.HasPrefix(etag, `W/"`) ||
@@ -28,7 +30,7 @@ func TestPreparedJSONServesCompactBodyWithStableValidator(t *testing.T) {
 	again := httptest.NewRequest(http.MethodGet, "/api/synthetic", nil)
 	again.Header.Set("If-None-Match", `"other", `+strings.TrimPrefix(etag, "W/"))
 	unchanged := httptest.NewRecorder()
-	body.serve(unchanged, again)
+	body.serve(unchanged, again, "")
 	if unchanged.Code != http.StatusNotModified || unchanged.Body.Len() != 0 || unchanged.Header().Get("ETag") != etag {
 		t.Fatalf("revalidation status=%d headers=%v", unchanged.Code, unchanged.Header())
 	}
@@ -38,7 +40,7 @@ func TestPreparedJSONServesCompactBodyWithStableValidator(t *testing.T) {
 
 	broken := &preparedJSON{source: func() []byte { return []byte("{not json") }}
 	failed := httptest.NewRecorder()
-	broken.serve(failed, httptest.NewRequest(http.MethodGet, "/api/synthetic", nil))
+	broken.serve(failed, httptest.NewRequest(http.MethodGet, "/api/synthetic", nil), "")
 	if failed.Code != http.StatusInternalServerError || failed.Header().Get("ETag") != "" || !strings.Contains(failed.Body.String(), "internal_error") {
 		t.Fatalf("broken body status=%d headers=%v body=%s", failed.Code, failed.Header(), failed.Body)
 	}
@@ -77,5 +79,36 @@ func TestCollectionRoutesServeTheShippedBodies(t *testing.T) {
 		if missing.Code != http.StatusNotFound || !strings.Contains(missing.Body.String(), "api_not_found") {
 			t.Fatalf("%s status=%d body=%s", path, missing.Code, missing.Body)
 		}
+	}
+}
+
+// A CDN base prepares its own copy of the body, with the media routes on the
+// CDN and a validator over that copy; the origin copy stays as it was.
+func TestPreparedJSONPreparesOneBodyPerCDNBase(t *testing.T) {
+	calls := 0
+	body := &preparedJSON{source: func() []byte {
+		calls++
+		return []byte(`{"cover": "/media/works/0123456789ab.jpg", "title": "/media/works/0123456789ab.jpg?"}`)
+	}}
+	read := func(base cdn.Base) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		body.serve(recorder, httptest.NewRequest(http.MethodGet, "/api/synthetic", nil), base)
+		return recorder
+	}
+	origin := read("")
+	cdns := read("https://cdn.example.invalid")
+	if origin.Body.String() != `{"cover":"/media/works/0123456789ab.jpg","title":"/media/works/0123456789ab.jpg?"}` {
+		t.Fatalf("origin body=%s", origin.Body)
+	}
+	if cdns.Body.String() != `{"cover":"https://cdn.example.invalid/media/works/0123456789ab.jpg","title":"/media/works/0123456789ab.jpg?"}` {
+		t.Fatalf("cdn body=%s", cdns.Body)
+	}
+	if cdns.Header().Get("ETag") != revalidatedETag(cdns.Body.Bytes()) || cdns.Header().Get("ETag") == origin.Header().Get("ETag") {
+		t.Fatalf("etags origin=%s cdn=%s", origin.Header().Get("ETag"), cdns.Header().Get("ETag"))
+	}
+	read("")
+	read("https://cdn.example.invalid")
+	if calls != 2 {
+		t.Fatalf("the body was prepared %d times for two bases", calls)
 	}
 }

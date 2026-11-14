@@ -5,8 +5,11 @@ package cdn
 
 import (
 	"bytes"
+	"encoding/json"
 	"html"
+	"io"
 	"regexp"
+	"strings"
 )
 
 // Base is the normalized public base of a CDN, such as
@@ -21,13 +24,23 @@ type Base string
 // wording never changes even when it reads like a path.
 var mediaPath = regexp.MustCompile(`^/media/(?:[a-f0-9]{64}|profile/(?:avatar|banner)|(?:lineblog|works|journey)/[a-f0-9]{12}\.(?:jpg|png|mp4))(?:[?&]v=[a-f0-9]{64})?(?:[?&]w=(?:320|640|960|1280|1920))?$`)
 
-// MediaURL returns a public media route at the base; any other value, including
-// an already absolute one, is returned unchanged.
+// assetPath is the shape of a fixed public image of the build that a public
+// read may name, such as the default avatar and banner (/assets/kano-avatar.jpg)
+// the dashboard falls back to: a whole root-relative /assets/ path of plain
+// segments ending in an image extension.
+var assetPath = regexp.MustCompile(`^/assets/(?:[A-Za-z0-9_~-][A-Za-z0-9._~-]*/)*[A-Za-z0-9_~-][A-Za-z0-9._~-]*\.(?:jpg|jpeg|png|webp|gif|avif|svg)$`)
+
+// MediaURL returns a public media route, or a fixed public image of the build,
+// at the base; any other value, including an already absolute one, is returned
+// unchanged.
 func (b Base) MediaURL(url string) string {
-	if b == "" || !mediaPath.MatchString(url) {
+	if b == "" {
 		return url
 	}
-	return string(b) + url
+	if mediaPath.MatchString(url) || assetPath.MatchString(url) && !strings.Contains(url, "..") {
+		return string(b) + url
+	}
+	return url
 }
 
 // Value rewrites the media routes in a public read's decoded JSON value: the
@@ -65,6 +78,85 @@ func (b Base) Value(value any) any {
 		return out
 	}
 	return value
+}
+
+// JSON rewrites the media routes in a public read's JSON body, such as the
+// packaged Journey, Works and LINE BLOG archives. An empty base returns the
+// body unchanged. Otherwise the result is the compact body with only its
+// matching string values moved to the base: object keys keep their order,
+// numbers their spelling and strings their characters, so a client sees the
+// same document.
+func (b Base) JSON(body []byte) ([]byte, error) {
+	if b == "" {
+		return body, nil
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	type frame struct {
+		object bool
+		count  int
+	}
+	var out bytes.Buffer
+	out.Grow(len(body))
+	var stack []frame
+	var scalar bytes.Buffer
+	encoder := json.NewEncoder(&scalar)
+	encoder.SetEscapeHTML(false)
+	// separate writes the comma or colon before the next token in the
+	// current container and reports whether that token is an object key.
+	separate := func() bool {
+		if len(stack) == 0 {
+			return false
+		}
+		top := &stack[len(stack)-1]
+		key := top.object && top.count%2 == 0
+		switch {
+		case top.count == 0:
+		case top.object && !key:
+			out.WriteByte(':')
+		default:
+			out.WriteByte(',')
+		}
+		top.count++
+		return key
+	}
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF && len(stack) == 0 && out.Len() > 0 {
+			break
+		}
+		if err == io.EOF {
+			return nil, io.ErrUnexpectedEOF
+		}
+		if err != nil {
+			return nil, err
+		}
+		if delim, ok := token.(json.Delim); ok && (delim == '}' || delim == ']') {
+			stack = stack[:len(stack)-1]
+			out.WriteByte(byte(delim))
+			continue
+		}
+		key := separate()
+		switch typed := token.(type) {
+		case json.Delim:
+			out.WriteByte(byte(typed))
+			stack = append(stack, frame{object: typed == '{'})
+			continue
+		case string:
+			if !key {
+				typed = b.MediaURL(typed)
+			}
+			token = typed
+		}
+		// Strings keep <, > and & as written, as json.Compact does for the
+		// origin's copy, so the two copies differ only in their media routes.
+		scalar.Reset()
+		if err := encoder.Encode(token); err != nil {
+			return nil, err
+		}
+		out.Write(bytes.TrimSuffix(scalar.Bytes(), []byte("\n")))
+	}
+	return out.Bytes(), nil
 }
 
 // Page rewrites index.html's root-relative references to the build's fixed

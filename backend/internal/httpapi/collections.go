@@ -6,33 +6,51 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/yexca/kano-navi/backend/internal/cdn"
 	"github.com/yexca/kano-navi/backend/internal/journey"
 	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
-// preparedJSON is a fixed public body that ships with the build: compacted
-// and given its validator once, then served unchanged on every read.
+// preparedJSON is a fixed public body that ships with the build: compacted,
+// moved onto the CDN base when one is set, and given its validator once per
+// base, then served unchanged on every read.
 type preparedJSON struct {
 	source func() []byte
-	once   sync.Once
-	body   []byte
-	etag   string
+	mu     sync.Mutex
+	bodies map[cdn.Base]preparedBody
 }
 
-func (p *preparedJSON) load() ([]byte, string) {
-	p.once.Do(func() {
-		var compact bytes.Buffer
-		if json.Compact(&compact, p.source()) != nil {
-			return
+// preparedBody is a prepared JSON body and its ETag; a nil body means the
+// source did not parse.
+type preparedBody struct {
+	body []byte
+	etag string
+}
+
+func (p *preparedJSON) load(base cdn.Base) ([]byte, string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if prepared, ok := p.bodies[base]; ok {
+		return prepared.body, prepared.etag
+	}
+	var prepared preparedBody
+	var compact bytes.Buffer
+	if json.Compact(&compact, p.source()) == nil {
+		// The ETag covers the rewritten body, so a CDN deployment and an
+		// origin deployment never validate each other's copies.
+		if body, err := base.JSON(compact.Bytes()); err == nil {
+			prepared = preparedBody{body: body, etag: revalidatedETag(body)}
 		}
-		p.body = compact.Bytes()
-		p.etag = revalidatedETag(p.body)
-	})
-	return p.body, p.etag
+	}
+	if p.bodies == nil {
+		p.bodies = map[cdn.Base]preparedBody{}
+	}
+	p.bodies[base] = prepared
+	return prepared.body, prepared.etag
 }
 
-func (p *preparedJSON) serve(w http.ResponseWriter, r *http.Request) {
-	body, etag := p.load()
+func (p *preparedJSON) serve(w http.ResponseWriter, r *http.Request, base cdn.Base) {
+	body, etag := p.load(base)
 	if body == nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"}, "")
 		return

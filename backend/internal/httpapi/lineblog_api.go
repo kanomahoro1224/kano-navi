@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -34,7 +35,18 @@ func lineblogRoute(path string) (id string, comments bool, ok bool) {
 
 // lineblogIndex serves the archive's article list and months.
 func (h *Handler) lineblogIndex(w http.ResponseWriter, r *http.Request) {
-	writeRevalidatedJSON(w, r, lineblogArchiveData().Index, nil)
+	h.writeArchiveJSON(w, r, lineblogArchiveData().Index)
+}
+
+// writeArchiveJSON answers a packaged LINE BLOG read with its media on the
+// configured CDN, if any; the ETag is computed over the body as sent.
+func (h *Handler) writeArchiveJSON(w http.ResponseWriter, r *http.Request, body json.RawMessage) {
+	rewritten, err := h.publicJSON(body)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"}, "")
+		return
+	}
+	writeRevalidatedJSON(w, r, json.RawMessage(rewritten), nil)
 }
 
 // lineblogPost serves one archived article or its comments.
@@ -58,8 +70,8 @@ func (h *Handler) lineblogPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if comments {
-		writeRevalidatedJSON(w, r, article.Comments, nil)
+		h.writeArchiveJSON(w, r, article.Comments)
 		return
 	}
-	writeRevalidatedJSON(w, r, article.Post, nil)
+	h.writeArchiveJSON(w, r, article.Post)
 }

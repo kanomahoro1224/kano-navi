@@ -2,13 +2,17 @@ package mcpapi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -1326,5 +1330,84 @@ func TestScheduleListReadsALiveRoomLinkAsTheBilibiliPlatform(t *testing.T) {
 	event := items[0].(map[string]any)
 	if event["url"] != nil || !reflect.DeepEqual(event["platforms"], []any{"bilibili"}) {
 		t.Fatalf("event = %v", event)
+	}
+}
+
+// TestPublicToolsNameMediaOnTheCDN seeds a post with a ready cached picture
+// and a profile on the build's default images, then reads dashboard_read and
+// posts_list with and without a CDN base: the tools name the same addresses
+// the HTTP reads do.
+func TestPublicToolsNameMediaOnTheCDN(t *testing.T) {
+	root := t.TempDir()
+	store, err := sqlite.OpenInitialized(filepath.Join(root, "site", "database", "kano.sqlite"), true, true)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	seed(t, store)
+	// The cache lives under the data root (site/), the build's public
+	// images in the public/ directory beside it.
+	picture := []byte("synthetic-image-bytes")
+	sum := sha256.Sum256(picture)
+	hash := hex.EncodeToString(sum[:])
+	id := strings.Repeat("d", 64)
+	relative := "x/sha256/" + hash[:2] + "/" + hash + ".jpg"
+	files := map[string][]byte{
+		filepath.Join(root, "site", filepath.FromSlash(relative)):  picture,
+		filepath.Join(root, "public", "assets", "kano-avatar.jpg"): []byte("synthetic"),
+	}
+	for file, content := range files {
+		if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, content, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, statement := range []string{
+		`INSERT INTO media_assets (id,source,source_url,cache_path,mime_type,byte_size,sha256,status,fetched_at,created_at,updated_at)
+		 VALUES ('` + id + `','x','https://source.example.invalid/picture.jpg','` + relative + `','image/jpeg',` + strconv.Itoa(len(picture)) + `,'` + hash + `','ready','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z')`,
+		`INSERT INTO media_links (media_id,owner_type,owner_id,role,position,alt,created_at,updated_at,kind)
+		 VALUES ('` + id + `','post','post-2','post-image',0,'alt','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z','photo')`,
+		`INSERT INTO profiles (id,display_name,avatar_url,updated_at) VALUES ('p','Synthetic','/assets/kano-avatar.jpg','2026-09-01T00:00:00.000Z')`,
+	} {
+		if _, err := store.DB().Exec(statement); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+	route := "/media/" + id + "?v=" + hash
+	const base = "https://cdn.example.invalid/kano"
+
+	plain := New(store, options("", nil))
+	cdns := func() http.Handler {
+		configured := options("", nil)
+		configured.CDNBase = base
+		return New(store, configured)
+	}()
+	for _, name := range []string{"dashboard_read", "posts_list"} {
+		origin := post(t, plain, toolCall(name, nil)).body
+		if !strings.Contains(origin, `\"`+route+`\"`) && !strings.Contains(origin, `"`+route+`"`) {
+			t.Fatalf("%s without a CDN lacks %s: %s", name, route, origin)
+		}
+		if strings.Contains(origin, "cdn.example.invalid") {
+			t.Fatalf("%s named a CDN without one: %s", name, origin)
+		}
+		rewritten := post(t, cdns, toolCall(name, nil)).body
+		if !strings.Contains(rewritten, base+route) {
+			t.Fatalf("%s with a CDN lacks %s: %s", name, base+route, rewritten)
+		}
+		if strings.Contains(rewritten, `"`+route) || strings.Contains(rewritten, `\"`+route) {
+			t.Fatalf("%s kept a media route at the origin: %s", name, rewritten)
+		}
+	}
+	// dashboard_read also moves the default avatar, as /api/dashboard does.
+	dashboard := toolValue(t, post(t, cdns, toolCall("dashboard_read", nil)))
+	encoded, _ := json.Marshal(dashboard)
+	if !strings.Contains(string(encoded), `"`+base+`/assets/kano-avatar.jpg"`) || strings.Contains(string(encoded), `"/assets/kano-avatar.jpg"`) {
+		t.Fatalf("dashboard_read avatar: %s", encoded)
+	}
+	origin, _ := json.Marshal(toolValue(t, post(t, plain, toolCall("dashboard_read", nil))))
+	if !strings.Contains(string(origin), `"/assets/kano-avatar.jpg"`) {
+		t.Fatalf("dashboard_read origin avatar: %s", origin)
 	}
 }

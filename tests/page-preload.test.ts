@@ -91,6 +91,25 @@ test("index.html asks for the board's files only on the board", () => {
     assert.deepEqual(preloadsAt(html, path), [], path)
 })
 
+test("the preload script escapes its base", () => {
+  const plugin = pagePreload({ "/": board })
+  const base = "https://cdn.example.invalid/</script><!--/"
+  ;(plugin.configResolved as (config: { base: string }) => void)({ base })
+  const { handler } = plugin.transformIndexHtml as {
+    handler: (html: string, context: object) => string
+  }
+  const html = handler(
+    '<head><script type="module" src="/assets/index.js"></script></head>',
+    { bundle, chunk: { fileName: "assets/index.js" } },
+  )
+  const script = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1] ?? ""
+  assert.ok(!script.includes("<"), script)
+  assert.deepEqual(
+    preloadsAt(html, "/")[0],
+    `modulepreload ${base}assets/board.js`,
+  )
+})
+
 test("the board's copy lives with the board, with English for every key", () => {
   const base = createTranslator("en")
   const page = createTranslator("en", dashboardMessages)

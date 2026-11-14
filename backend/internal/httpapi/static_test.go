@@ -30,11 +30,11 @@ func TestStaticSiteServesBuildWithFallbackAndContainment(t *testing.T) {
 	if err := os.WriteFile(outside, []byte("outside"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	site := NewStaticSite(root, "")
+	site := NewStaticSite(root, "", "")
 	if site == nil {
 		t.Fatal("static site unavailable")
 	}
-	if NewStaticSite(t.TempDir(), "") != nil || NewStaticSite("", "") != nil {
+	if NewStaticSite(t.TempDir(), "", "") != nil || NewStaticSite("", "", "") != nil {
 		t.Fatal("a directory without index.html must not become a site")
 	}
 	get := func(method, path string) *httptest.ResponseRecorder {
@@ -111,7 +111,7 @@ func TestStaticSiteMakesShareTagsAbsoluteWithPublicOrigin(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "other.html"), []byte(page), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	site := NewStaticSite(root, "https://kano.example.invalid")
+	site := NewStaticSite(root, "https://kano.example.invalid", "")
 	for _, path := range []string{"/", "/admin"} {
 		w := httptest.NewRecorder()
 		site.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
@@ -134,13 +134,13 @@ func TestStaticSiteMakesShareTagsAbsoluteWithPublicOrigin(t *testing.T) {
 		t.Fatalf("other file rewritten: %s", w.Body.String())
 	}
 	plain := httptest.NewRecorder()
-	NewStaticSite(root, "").ServeHTTP(plain, httptest.NewRequest("GET", "/", nil))
+	NewStaticSite(root, "", "").ServeHTTP(plain, httptest.NewRequest("GET", "/", nil))
 	if plain.Body.String() != page {
 		t.Fatalf("rewritten without an origin: %s", plain.Body.String())
 	}
 	// An origin that bypassed configuration still cannot leave the attribute.
 	escaped := httptest.NewRecorder()
-	NewStaticSite(root, `https://kano.example.invalid"><script>`).ServeHTTP(escaped, httptest.NewRequest("GET", "/", nil))
+	NewStaticSite(root, `https://kano.example.invalid"><script>`, "").ServeHTTP(escaped, httptest.NewRequest("GET", "/", nil))
 	if body := escaped.Body.String(); strings.Contains(body, "<script>") || !strings.Contains(body, `.invalid&#34;&gt;&lt;script&gt;/assets/`) {
 		t.Fatalf("origin not escaped: %s", body)
 	}
@@ -195,7 +195,7 @@ func TestStaticSiteGivesPagesTheirOwnShareTags(t *testing.T) {
 			`content="Kano&#39;s discography: her own releases`,
 		}},
 	} {
-		w := get(NewStaticSite(root, tc.origin), tc.path)
+		w := get(NewStaticSite(root, tc.origin, ""), tc.path)
 		body := w.Body.String()
 		if w.Code != 200 || strings.Contains(body, "Board") {
 			t.Fatalf("%s => %d %s", tc.path, w.Code, body)
@@ -208,8 +208,47 @@ func TestStaticSiteGivesPagesTheirOwnShareTags(t *testing.T) {
 	}
 	// The board and missing pages keep index.html's own tags.
 	for path, status := range map[string]int{"/": 200, "/admin": 200, "/journey/2024": 404} {
-		if w := get(NewStaticSite(root, ""), path); w.Code != status || w.Body.String() != page {
+		if w := get(NewStaticSite(root, "", ""), path); w.Code != status || w.Body.String() != page {
 			t.Fatalf("%s => %d %s", path, w.Code, w.Body.String())
 		}
+	}
+}
+
+func TestStaticSitePutsFixedFilesOnTheCDN(t *testing.T) {
+	root := t.TempDir()
+	page := `<head>` +
+		`<meta property="og:image" content="/assets/kano-banner.jpg">` +
+		`<meta property="og:url" content="/">` +
+		`<link rel="manifest" href="/manifest.webmanifest">` +
+		`<link rel="icon" href="/assets/icons/favicon-32.png">` +
+		`</head><body><script type="module" src="/assets/index-AbCd1234.js"></script><a href="/about">about</a></body>`
+	if err := os.WriteFile(filepath.Join(root, "index.html"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	site := NewStaticSite(root, "https://kano.example.invalid", "https://cdn.example.invalid/kano")
+	w := httptest.NewRecorder()
+	site.ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
+	body := w.Body.String()
+	if w.Code != 200 || w.Header().Get("Cache-Control") != "public, max-age=0, must-revalidate" {
+		t.Fatalf("status=%d headers=%v", w.Code, w.Header())
+	}
+	for _, want := range []string{
+		`<meta name="kano-cdn-base" content="https://cdn.example.invalid/kano">`,
+		`content="https://cdn.example.invalid/kano/assets/kano-banner.jpg"`,
+		`content="https://kano.example.invalid/"`,
+		`href="/manifest.webmanifest"`,
+		`href="https://cdn.example.invalid/kano/assets/icons/favicon-32.png"`,
+		`src="https://cdn.example.invalid/kano/assets/index-AbCd1234.js"`,
+		`href="/about"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("page lacks %q:\n%s", want, body)
+		}
+	}
+	// Without a CDN base the page carries no base and keeps the origin paths.
+	plain := httptest.NewRecorder()
+	NewStaticSite(root, "", "").ServeHTTP(plain, httptest.NewRequest("GET", "/", nil))
+	if plain.Body.String() != page {
+		t.Fatalf("page rewritten without a CDN:\n%s", plain.Body.String())
 	}
 }

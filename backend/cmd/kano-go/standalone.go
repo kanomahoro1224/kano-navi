@@ -287,13 +287,14 @@ func runStandalone(cfg config.Config) int {
 			Youtube:        run.steps.Youtube,
 			ShopWebBotAuth: keyAdmin.Status,
 		}),
-		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin),
-		MCP:          standaloneMCP(store, manager),
+		Static:       httpapi.NewStaticSite(cfg.StaticDirectory, cfg.PublicOrigin, cfg.CDNPublicBase),
+		MCP:          standaloneMCP(store, manager, cfg.CDNPublicBase),
 		WebSub:       push,
 		Ingest:       ingestModule,
 		PushReceipt:  pushReceipt,
 		WebPush:      webPush,
 		PublicOrigin: cfg.PublicOrigin,
+		CDNBase:      cfg.CDNPublicBase,
 		WebBotAuth:   signing,
 	})
 	server := httpapi.NewServer(httpapi.RequestLog(httpapi.Compress(handler), os.Stdout), cfg)
@@ -502,11 +503,12 @@ func liveProbeTrigger(manager *jobs.QueueManager) func(context.Context) (bool, e
 
 // standaloneMCP mounts the public MCP reads; control tools additionally need
 // the separate MCP_CONTROL_TOKEN.
-func standaloneMCP(store *sqlite.Store, manager jobs.Manager) http.Handler {
+func standaloneMCP(store *sqlite.Store, manager jobs.Manager, cdnBase string) http.Handler {
 	return mcpapi.New(store, mcpapi.Options{
 		Enabled:      os.Getenv("MCP_ENABLED") != "0",
 		ControlToken: os.Getenv("MCP_CONTROL_TOKEN"),
 		Jobs:         manager,
+		CDNBase:      cdnBase,
 	})
 }
 

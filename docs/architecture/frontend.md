@@ -670,6 +670,18 @@ carries its `lang` attribute. The console's
 completeness chips and translation editor are in
 `src/admin/views/translation-parts.tsx`, shared by posts and videos.
 
+Media paths the page builds from its packaged catalogs (Journey images, LINE
+BLOG media, Works covers) and the bundled fallback branding pass through
+`src/lib/cdn.ts`, which prefixes the base the server writes into
+`index.html` (`CDN_PUBLIC_BASE`); without it the paths stay root-relative.
+They resolve when read (`mediaUrl`, the `url` getters of the Journey items and
+the fallback profile), not when a module loads, so import order does not
+matter; the export scripts take the root-relative `mediaPath`/`path` instead,
+and the packaged API stays root-relative for the server to rewrite.
+Addresses the API returns already carry that base. `vite build` validates and
+normalizes the variable with `scripts/cdn-base.ts`, which follows the server's
+rules, so the bundle names the same base as the page and the API.
+
 Board images from the media cache, LINE BLOG archive images, Works covers
 and Journey images load through `srcset`: `src/lib/media.ts` lists the server's
 [resized copies](media-cache.md#resized-copies) below an image's known width,

@@ -58,7 +58,7 @@ func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 		writeArchiveError(w, err)
 		return
 	}
-	payload := archivePayload(page, publicview.PublicPost)
+	payload := h.public(archivePayload(page, publicview.PublicPost))
 	payload["accountCounts"] = page.AccountCounts
 	writeRevalidatedJSON(w, r, payload, nil)
 }
@@ -111,7 +111,7 @@ func (h *Handler) videos(w http.ResponseWriter, r *http.Request) {
 		writeArchiveError(w, err)
 		return
 	}
-	payload := archivePayload(page, publicview.PublicVideo)
+	payload := h.public(archivePayload(page, publicview.PublicVideo))
 	payload["categoryCounts"] = page.CategoryCounts
 	// The body includes the time-derived fields (isUpcoming, liveStatus), so
 	// its ETag changes when they expire as well as with stored data.
@@ -127,5 +127,5 @@ func (h *Handler) worksUploads(w http.ResponseWriter, r *http.Request) {
 		writeArchiveError(w, err)
 		return
 	}
-	writeRevalidatedJSON(w, r, publicview.WorksUploads(index, overlay), nil)
+	writeRevalidatedJSON(w, r, h.public(publicview.WorksUploads(index, overlay)), nil)
 }

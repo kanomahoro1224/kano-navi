@@ -12,7 +12,7 @@ import {
   archiveMonths,
   articleHref,
   meaningfulAlt,
-  mediaUrl,
+  mediaPath,
   neighbours,
   postDate,
   posts,
@@ -196,7 +196,7 @@ export function lineblogExport(sources: LineblogSources): LineblogExport {
     const item = catalog.get(name)
     if (!item) throw new Error(`Media ${name} is not in the catalog`)
     return {
-      url: mediaUrl(name),
+      url: mediaPath(name),
       width: item.width ?? null,
       height: item.height ?? null,
       mimeType: item.mimeType,

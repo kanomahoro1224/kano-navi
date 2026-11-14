@@ -185,7 +185,7 @@ func main() {
 		}
 		adminHandler = adminapi.New(options)
 	}
-	handler := httpapi.NewHandlerWithAdmin(store, nil, adminHandler)
+	handler := httpapi.NewHandlerWithAdmin(store, nil, adminHandler).WithCDNBase(cfg.CDNPublicBase)
 	server := httpapi.NewServer(httpapi.RequestLog(handler, os.Stdout), cfg)
 	server.RegisterOnShutdown(handler.CloseStreams)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

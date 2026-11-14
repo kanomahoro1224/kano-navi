@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/cdn"
 	"github.com/yexca/kano-navi/backend/internal/config"
 	"github.com/yexca/kano-navi/backend/internal/publicview"
 	"github.com/yexca/kano-navi/backend/internal/source/youtube/websub"
@@ -31,6 +32,9 @@ type Handler struct {
 	// publicOrigin is the normalized PUBLIC_ORIGIN or empty; the Atom feed
 	// uses it for absolute links.
 	publicOrigin string
+	// cdnBase publishes the build's assets and cached media from an optional
+	// CDN; empty serves every address from this origin.
+	cdnBase cdn.Base
 	// webBotAuth serves the Web Bot Auth key directory; nil, or a holder
 	// without a signer, answers it 404.
 	webBotAuth *webbotauth.Holder
@@ -50,6 +54,9 @@ type Standalone struct {
 	WebSub http.Handler
 	// PublicOrigin is the normalized PUBLIC_ORIGIN, or empty.
 	PublicOrigin string
+	// CDNBase is the normalized CDN_PUBLIC_BASE, or empty to serve the build's
+	// assets and cached media from this process.
+	CDNBase string
 	// WebBotAuth holds the Web Bot Auth signer whose key directory the
 	// site serves; nil serves none.
 	WebBotAuth *webbotauth.Holder
@@ -68,6 +75,7 @@ func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Sta
 		mcp:          options.MCP,
 		websub:       options.WebSub,
 		publicOrigin: options.PublicOrigin,
+		cdnBase:      cdn.Base(options.CDNBase),
 		webBotAuth:   options.WebBotAuth,
 		streams:      newRevisionHub(store.GetDashboardRevision),
 	}
@@ -89,6 +97,15 @@ func NewHandlerWithAdmin(store *sqlite.Store, now func() time.Time, admin http.H
 		now = time.Now
 	}
 	return &Handler{store: store, now: now, admin: admin, streams: newRevisionHub(store.GetDashboardRevision)}
+}
+
+// WithCDNBase returns the handler with its public reads naming cached media and
+// fixed public images on the normalized CDN_PUBLIC_BASE; empty keeps them at
+// this origin. Read-only mode uses it, as the standalone handler takes the
+// base in its options.
+func (h *Handler) WithCDNBase(base string) *Handler {
+	h.cdnBase = cdn.Base(base)
+	return h
 }
 
 func NewServer(handler http.Handler, cfg config.Config) *http.Server {
@@ -206,21 +223,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeMethodNotAllowed(w, http.MethodGet)
 			return
 		}
-		worksCollection.serve(w, r)
+		worksCollection.serve(w, r, h.cdnBase)
 	case "/api/works/upload-list":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {
 			writeMethodNotAllowed(w, http.MethodGet)
 			return
 		}
-		worksUploadListCollection.serve(w, r)
+		worksUploadListCollection.serve(w, r, h.cdnBase)
 	case "/api/journey":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {
 			writeMethodNotAllowed(w, http.MethodGet)
 			return
 		}
-		journeyCollection.serve(w, r)
+		journeyCollection.serve(w, r, h.cdnBase)
 	case "/api/lineblog":
 		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method != http.MethodGet {
@@ -328,7 +345,7 @@ func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "database_unavailable"}, "")
 		return
 	}
-	payload := publicview.Dashboard(dashboard)
+	payload := h.public(publicview.Dashboard(dashboard))
 	// meta.generatedAt changes on every read; leaving it out of the validator
 	// lets an otherwise unchanged snapshot revalidate.
 	validated := make(map[string]any, len(payload))
@@ -410,12 +427,12 @@ func (h *Handler) calendar(w http.ResponseWriter, r *http.Request) {
 	for _, asset := range calendar.ScheduleImages {
 		images = append(images, publicview.PublicAsset(asset))
 	}
-	writeRevalidatedJSON(w, r, map[string]any{
+	writeRevalidatedJSON(w, r, h.public(map[string]any{
 		"items": items, "events": items, "page": calendar.Page, "pageSize": calendar.PageSize,
 		"total": calendar.Total, "totalPages": calendar.TotalPages, "hasPrevious": calendar.HasPrevious,
 		"hasNext": calendar.HasNext, "dayCounts": calendar.DayCounts, "revision": calendar.Revision,
 		"scheduleImages": images, "adjacent": map[string]any{"previous": calendar.Previous, "next": calendar.Next},
-	}, nil)
+	}), nil)
 }
 
 func numericPrefix(raw string) bool {
@@ -424,6 +441,21 @@ func numericPrefix(raw string) bool {
 		raw = raw[1:]
 	}
 	return raw != "" && raw[0] >= '0' && raw[0] <= '9'
+}
+
+// publicJSON returns a packaged public read's JSON body with its cached media
+// addresses on the configured CDN, if any.
+func (h *Handler) publicJSON(body []byte) ([]byte, error) {
+	return h.cdnBase.JSON(body)
+}
+
+// public returns a public read's object with its cached media addresses on the
+// configured CDN, if any. Responses that name no media pass through unchanged.
+func (h *Handler) public(value map[string]any) map[string]any {
+	if rewritten, ok := h.cdnBase.Value(value).(map[string]any); ok {
+		return rewritten
+	}
+	return value
 }
 
 func writeMethodNotAllowed(w http.ResponseWriter, allow string) {

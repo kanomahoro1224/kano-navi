@@ -27,6 +27,12 @@ import type {
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024
 const MAX_VIDEO_BYTES = 256 * 1024 * 1024
+const MAX_MOOV_BYTES = 16 * 1024 * 1024
+/**
+ * The sample entries a video may use: H.264 video and AAC audio, which every
+ * browser and the iOS player decode.
+ */
+const playableSampleEntries = new Set(["avc1", "avc3", "mp4a"])
 const MAX_POST_BYTES = 512 * 1024
 
 const projectRoot = path.resolve(
@@ -658,6 +664,78 @@ function sniffMediaType(head: Buffer) {
   return null
 }
 
+/** The boxes directly inside buffer[start, end): type and content range. */
+function* childBoxes(buffer: Buffer, start = 0, end = buffer.length) {
+  let offset = start
+  while (offset + 8 <= end) {
+    let length = buffer.readUInt32BE(offset)
+    let header = 8
+    if (length === 1) {
+      if (offset + 16 > end) return
+      length = Number(buffer.readBigUInt64BE(offset + 8))
+      header = 16
+    } else if (length === 0) length = end - offset
+    if (length < header || offset + length > end) return
+    yield {
+      type: buffer.toString("latin1", offset + 4, offset + 8),
+      start: offset + header,
+      end: offset + length,
+    }
+    offset += length
+  }
+}
+
+/** The sample entry type of every track's sample description in a moov box. */
+function sampleEntries(moov: Buffer) {
+  const types: string[] = []
+  const route = ["trak", "mdia", "minf", "stbl", "stsd"]
+  const walk = (start: number, end: number, depth: number) => {
+    for (const box of childBoxes(moov, start, end)) {
+      if (box.type !== route[depth]) continue
+      // stsd starts with its version, flags and entry count.
+      if (depth === route.length - 1)
+        for (const entry of childBoxes(moov, box.start + 8, box.end))
+          types.push(entry.type)
+      else walk(box.start, box.end, depth + 1)
+    }
+  }
+  walk(0, moov.length, 0)
+  return types
+}
+
+/**
+ * The sample entry types (codecs) of an MP4's tracks, such as avc1, vp09,
+ * av01 or mp4a, read from its moov box wherever it sits in the file.
+ */
+export async function mp4SampleEntries(file: string) {
+  const handle = await fs.open(file)
+  try {
+    const { size } = await handle.stat()
+    let offset = 0
+    while (offset + 8 <= size) {
+      const header = Buffer.alloc(16)
+      await handle.read(header, 0, 16, offset)
+      let length = header.readUInt32BE(0)
+      let start = offset + 8
+      if (length === 1) {
+        length = Number(header.readBigUInt64BE(8))
+        start = offset + 16
+      } else if (length === 0) length = size - offset
+      if (length < start - offset || offset + length > size) break
+      if (header.toString("latin1", 4, 8) === "moov") {
+        if (length > MAX_MOOV_BYTES) break
+        const moov = Buffer.alloc(offset + length - start)
+        await handle.read(moov, 0, moov.length, start)
+        return sampleEntries(moov)
+      }
+      offset += length
+    }
+    return []
+  } finally {
+    await handle.close()
+  }
+}
+
 const mimeByExtension: Record<string, string> = {
   jpg: "image/jpeg",
   png: "image/png",
@@ -915,7 +993,16 @@ async function prepareMedia(
       byteSize: stat.size,
       sha256,
     }
-    if (mimeType !== "video/mp4") {
+    if (mimeType === "video/mp4") {
+      const entries = await mp4SampleEntries(located.file)
+      if (
+        !entries.some((entry) => entry.startsWith("avc")) ||
+        entries.some((entry) => !playableSampleEntries.has(entry))
+      )
+        throw new Error(
+          `archive video is not H.264 with AAC: ${name} (${entries.join(", ") || "no tracks"})`,
+        )
+    } else {
       const size = imageSize(await fs.readFile(located.file))
       if (!size) throw new Error(`unreadable image size: ${name}`)
       item.width = size.width

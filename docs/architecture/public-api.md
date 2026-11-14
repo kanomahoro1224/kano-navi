@@ -615,8 +615,8 @@ trailing segment) answers 404 `api_not_found`.
 A **media object** is `{url, width, height, mimeType}`: `url` is the
 `/media/lineblog/<name>` address, `width` and `height` the displayed size of
 an image (`null` for a video), and `mimeType` `image/jpeg`, `image/png` or
-`video/mp4`. A missing file answers 404 on its route; clients show an
-unavailable state with the provenance link.
+`video/mp4` (always H.264 with AAC audio). A missing file answers 404 on its
+route; clients show an unavailable state with the provenance link.
 
 `GET /api/lineblog` lists the archive:
 
@@ -630,12 +630,12 @@ unavailable state with the provenance link.
 `GET /api/lineblog/posts/{id}` returns one article with its neighbours in
 the page's pager order:
 
-| Field        | Value                                                                                                                                                                 |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `updatedAt`  | `YYYY-MM-DD`                                                                                                                                                          |
-| `post`       | `id`, `published`, `title` (localized), `url` (the original address), `archiveUrl` (the Wayback Machine capture it was recovered from) and `blocks`, in reading order |
-| `previousId` | The next older article (the page's 前の記事), or `null` for the oldest                                                                                                |
-| `nextId`     | The next newer article (the page's 次の記事), or `null` for the newest                                                                                                |
+| Field        | Value                                                                                                                                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `updatedAt`  | `YYYY-MM-DD`                                                                                                                                                                                                                 |
+| `post`       | `id`, `published`, `title` (localized), `url` (the original address), `archiveUrl` (the Wayback Machine capture it was recovered from), `commentCount` (its archived comments, 0 without any) and `blocks`, in reading order |
+| `previousId` | The next older article (the page's 前の記事), or `null` for the oldest                                                                                                                                                       |
+| `nextId`     | The next newer article (the page's 次の記事), or `null` for the newest                                                                                                                                                       |
 
 Each block has a `type`:
 

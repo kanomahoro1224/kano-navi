@@ -47,9 +47,15 @@
   `GET /api/works/uploads` is unchanged.
 - Public API adds the LINE BLOG archive reads `GET /api/lineblog`,
   `GET /api/lineblog/posts/{id}` and `GET /api/lineblog/posts/{id}/comments`:
-  the article list and months, one article with its blocks and neighbours,
+  the article list and months, one article with its blocks, comment count
+  and neighbours,
   and its archived comments, locale-neutral and with same-host media, served
   from data embedded in the release.
+- Every LINE BLOG archive video is H.264 with AAC audio: thirteen VP9 and
+  AV1 copies are re-encoded under their names, so the media catalog's sizes
+  and hashes change. Update `data/lineblog/` from the recovery archive (pull
+  it, or copy its `media/` again) before deploying; it no longer splits any
+  video.
 
 </details>
 
@@ -74,6 +80,8 @@
 - A post's or quoted post's video or GIF shows its still with a play mark or
   a GIF tag, on the board, in the post archive and in the image viewer, and
   opens the post on X instead of the viewer.
+- Every video in the LINE BLOG archive plays in Safari and on iPhone, not
+  only those YouTube had kept as H.264.
 - A reposted post the operator picks shows on the wall and in Past posts as
   its author's post, marked Reposted by and the account of Kano's that
   reposted it, under All only.
@@ -115,6 +123,7 @@
 - `npm run lineblog:export` writes the server's copy of the LINE BLOG
   archive from the tracked page data, and the frontend tests fail when the
   committed copy differs.
+- LINE BLOG packaging refuses a video that is not H.264 with AAC audio.
 - Profile images load when the data directory is reached through a symbolic
   link, as macOS reaches its temporary directories; a symbolic link in place
   of the avatar directory is still refused.

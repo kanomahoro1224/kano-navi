@@ -123,6 +123,7 @@ export interface LineblogExport {
       title: Localized
       url: string
       archiveUrl: string
+      commentCount: number
       blocks: ApiBlock[]
     }
     previousId: string | null
@@ -305,6 +306,7 @@ export function lineblogExport(sources: LineblogSources): LineblogExport {
       throw new Error(`Article ${summary.id} has no article file`)
     const { post } = file
     const { newer, older } = neighbours(post.id)
+    const archived = comments(post.id)
     return {
       id: post.id,
       post: {
@@ -313,11 +315,12 @@ export function lineblogExport(sources: LineblogSources): LineblogExport {
         title: localized(post),
         url: post.url,
         archiveUrl: post.archive,
+        commentCount: archived.length,
         blocks: post.blocks.map(block),
       },
       previousId: older?.id ?? null,
       nextId: newer?.id ?? null,
-      comments: comments(post.id),
+      comments: archived,
     }
   })
 
@@ -338,7 +341,7 @@ export function lineblogExport(sources: LineblogSources): LineblogExport {
       published: summary.published,
       title: localized(summary),
       thumbnail: media(summary.thumbnail),
-      commentCount: articles[index].comments.length,
+      commentCount: articles[index].post.commentCount,
     })),
     months: archiveMonths.flatMap((year) =>
       year.months.map((month) => ({ month: month.month, total: month.count })),

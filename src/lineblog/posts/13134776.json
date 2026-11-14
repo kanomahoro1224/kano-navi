@@ -678,8 +678,8 @@
     {
       "name": "1c89458f6db3.mp4",
       "mimeType": "video/mp4",
-      "byteSize": 8832320,
-      "sha256": "b2bd1dd41ea10bab4f8ffefb7fb69af37618a2e41a2534a8bc77a3827e44dad0"
+      "byteSize": 28999290,
+      "sha256": "ec5f576b80d69e764a37b19b91a73d9bbd781840b9f4cad2e22b02d1bc911831"
     },
     {
       "name": "28d89876f134.jpg",
@@ -692,8 +692,8 @@
     {
       "name": "5deac0f60979.mp4",
       "mimeType": "video/mp4",
-      "byteSize": 116712482,
-      "sha256": "ce9413b298d4a0c8cc576c2e2faedd2e68a157f4162909480b6dbc6ab7bf4152"
+      "byteSize": 89824479,
+      "sha256": "f98ab6855018522403e024891ae0b44ecb37525bfd9a82d7c42cddeef2bc6a07"
     },
     {
       "name": "66285b579f4f.jpg",
@@ -714,8 +714,8 @@
     {
       "name": "7c59423a7e33.mp4",
       "mimeType": "video/mp4",
-      "byteSize": 9429745,
-      "sha256": "f347fe5e1bbc9d2db6afbf9a0c6ad8f0323a384a2b0c306ae6ff0875812a859b"
+      "byteSize": 19592514,
+      "sha256": "794516e78e35793e3d7f6c2dab8a5f1062964fdeff6321f098aaa2a90df1f163"
     }
   ]
 }

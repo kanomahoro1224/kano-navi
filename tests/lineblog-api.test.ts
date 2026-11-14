@@ -73,6 +73,10 @@ test("the API lists the page's articles, months and neighbours", () => {
   assert.equal(exported.articles[0].nextId, null)
   exported.posts.forEach((post, index) => {
     assert.equal(post.commentCount, exported.articles[index].comments.length)
+    assert.equal(
+      exported.articles[index].post.commentCount,
+      exported.articles[index].comments.length,
+    )
     assert.deepEqual(post.title, exported.articles[index].post.title)
   })
   assert.match(exported.updatedAt, /^\d{4}-\d{2}-\d{2}$/u)

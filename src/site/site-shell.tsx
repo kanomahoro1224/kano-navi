@@ -26,7 +26,10 @@ const pages: { id: PublicPage; href: string; labelKey: string }[] = [
   { id: "about", href: "/about", labelKey: "about.label" },
 ]
 
-const DEFAULT_AVATAR = cdnUrl("/assets/kano-avatar.jpg")
+/** The build's avatar, on the advertised CDN base when there is one. */
+function defaultAvatar() {
+  return cdnUrl("/assets/kano-avatar.jpg")
+}
 
 function japanClock(now: number) {
   return new Intl.DateTimeFormat("en", {
@@ -124,7 +127,7 @@ export function SiteHeader({
           href="/"
           aria-label={t(page === "board" ? "header.backToTop" : "history.back")}
         >
-          <img src={avatarUrl || DEFAULT_AVATAR} alt="" />
+          <img src={avatarUrl || defaultAvatar()} alt="" />
           <span className="site-brand-copy">
             <strong>{t("site.name")}</strong>
             <small>{t("header.unofficial")}</small>

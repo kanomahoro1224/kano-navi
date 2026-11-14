@@ -31,9 +31,14 @@ export function addPostFile(file: LineblogPostFile) {
 export const PAGE_SIZE = 3
 export const ORIGINAL_BLOG = "https://lineblog.me/kano/"
 
-/** Recovered media stay in the server's data directory, or the CDN in front of it. */
+/** A recovered file's root-relative route in the server's data directory. */
+export function mediaPath(name: string) {
+  return `/media/lineblog/${name}`
+}
+
+/** A recovered file's address: the route, or the CDN in front of it. */
 export function mediaUrl(name: string) {
-  return cdnUrl(`/media/lineblog/${name}`)
+  return cdnUrl(mediaPath(name))
 }
 
 /** Pictographs the blog drew inline with the text, among loaded media. */

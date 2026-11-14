@@ -59,6 +59,14 @@ export function pageFiles(
 }
 
 /**
+ * JSON for an inline classic script: "<" is written as its escape, so no
+ * value (such as a CDN base) can close the script or open a comment.
+ */
+export function inlineJSON(value: unknown): string {
+  return JSON.stringify(value).replaceAll("<", "\\u003c")
+}
+
+/**
  * The server answers every page with the same index.html, so a page's code
  * cannot be listed there for all visitors. Instead a small script at the top
  * of index.html asks for the page's chunks before the entry runs, but only
@@ -92,7 +100,7 @@ export function pagePreload(pages: Record<string, readonly string[]>): Plugin {
         const script = `<script>
       (function () {
         var page = location.pathname.replace(/\\/+$/, "") || "/"
-        var files = ${JSON.stringify(files)}[page === "/index.html" ? "/" : page]
+        var files = ${inlineJSON(files)}[page === "/index.html" ? "/" : page]
         function add(rel, href, as) {
           var link = document.createElement("link")
           link.rel = rel

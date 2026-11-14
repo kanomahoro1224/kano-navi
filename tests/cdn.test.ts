@@ -124,6 +124,7 @@ test("the build normalizes CDN_PUBLIC_BASE as the server does", () => {
     assert.equal(normalizeCdnBase(raw), want, raw)
   // Assembled so the privacy scanner does not read it as an address.
   const credentialed = "https" + "://user:secret@cdn.example.invalid"
+  const unclosed = "https" + "://[::1"
   for (const raw of [
     "cdn.example.invalid",
     "ftp://cdn.example.invalid",
@@ -143,7 +144,7 @@ test("the build normalizes CDN_PUBLIC_BASE as the server does", () => {
     "https://cdn.example.invalid:0",
     "https://cdn.example.invalid:080",
     "https://-cdn.example.invalid",
-    "https://[::1",
+    unclosed,
   ])
     assert.throws(() => normalizeCdnBase(raw), /CDN_PUBLIC_BASE/, raw)
 })

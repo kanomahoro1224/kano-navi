@@ -18,8 +18,19 @@ JavaScript, CSS, fonts and bundled images to that base (`base` in
   `<meta name="kano-cdn-base">` for the media paths the frontend builds from its
   packaged catalogs;
 - returns every public media address — dashboard posts and schedule images,
-  the post and video archives, the calendar, the works uploads — as
-  `CDN_PUBLIC_BASE/media/...` instead of `/media/...`.
+  the post and video archives, the calendar, the works uploads, the packaged
+  Journey, Works and LINE BLOG archives (`/api/journey`, `/api/works`,
+  `/api/lineblog`, `/api/lineblog/posts/{id}`), and the MCP dashboard and
+  posts tools — as `CDN_PUBLIC_BASE/media/...` instead of `/media/...`, and
+  the dashboard's default `/assets/kano-avatar.jpg` and `/assets/kano-banner.jpg`
+  as `CDN_PUBLIC_BASE/assets/...`. Each read's ETag covers the body as sent.
+  The read-only server (`kano-go serve` without the standalone workers) applies
+  the same base.
+
+The build and the server accept the same values and normalize them the same
+way (`http`/`https`, no credentials, query or fragment, a path prefix of plain
+segments, a lowercase host), so an invalid value fails `vite build` as well as
+startup.
 
 Both parts are needed for full offload. A build without the variable still
 serves its entry chunk and CSS from the origin, and lazy chunks always follow
@@ -34,17 +45,27 @@ Atom feed's self link keep pointing at the site, not at the CDN.
 ## Origin Contract
 
 The CDN pulls from the site's public origin, so the paths it caches are the
-ones the service already serves. Cache these:
+ones the service already serves. With a path prefix in the base (for example
+`https://cdn.example.invalid/site`), browsers request `/site/assets/...` and
+`/site/media/...` from the CDN, while the origin serves `/assets/...` and
+`/media/...`: the CDN's origin pull must strip the prefix before forwarding,
+or every pulled file answers 404 (see step 2 of the
+[recommended setup](#recommended-setup)). Cache these:
 
 | Path                                           | Origin `Cache-Control`                  | Notes                                                        |
 | ---------------------------------------------- | --------------------------------------- | ------------------------------------------------------------ |
 | `/assets/<hash>.js`                            | `public, max-age=31536000, immutable`   | Manifest-listed build files; the hash changes with the bytes |
 | `/assets/<hash>.css`                           | `public, max-age=31536000, immutable`   | Same                                                         |
-| `/assets/*` (other)                            | `public, max-age=0, must-revalidate`    | Icons and the bundled banner; small and long-lived           |
+| `/assets/*` (other)                            | `public, max-age=0, must-revalidate`    | Icons, the default avatar and banner; small and long-lived   |
 | `/media/<id>?v=<hash>`                         | `public, max-age=31536000, immutable`   | Cached source media; `v` is the content hash                 |
 | `/media/<id>`                                  | `public, max-age=0, must-revalidate`    | Without a version; ETag revalidation                         |
+| `/media/profile/{avatar,banner}?v=<hash>`      | `public, max-age=31536000, immutable`   | The selected profile image; `v` is its content hash          |
+| `/media/profile/{avatar,banner}`               | `public, max-age=0, must-revalidate`    | Without a version; ETag revalidation                         |
 | `/media/{lineblog,works,journey}/<hash>.<ext>` | immutable once the bytes match the name | Archive images and videos                                    |
-| `/manifest.webmanifest`, `/robots.txt`         | `public, max-age=0, must-revalidate`    | Small fixed files                                            |
+
+`/manifest.webmanifest`, `/robots.txt`, `/sw.js` (where present) and the HTML
+stay on the site origin: the page never names them on the CDN, so the CDN
+does not need them.
 
 Keep the query string in the cache key: `?v=` selects a kept earlier version
 and `?w=` selects a resized copy (320, 640, 960, 1280 or 1920). Do **not**
@@ -84,15 +105,30 @@ own) also avoids sending the site's cookies to the CDN.
    site origin (`https://kano.example.invalid`, port 443) as its origin, and
    `Host: kano.example.invalid` as the origin host if the provider asks (the Go
    service does not check the Host header for public reads).
-2. Add a cache rule for `/assets/*` and `/media/*` that respects the origin's
-   `Cache-Control` (or sets a one-year edge TTL for `/assets/` and passes
-   `/media/` through). Cloudflare's default file-extension cache would not
+2. If the base has a path prefix (`https://cdn.example.invalid/site`), rewrite
+   the origin-pull path to drop it: `/site/assets/x.js` must reach the origin
+   as `/assets/x.js`, keeping the query string. Providers call this an origin
+   URL rewrite (Cloudflare Transform Rules, Alibaba Cloud and Tencent Cloud
+   origin-pull URL rewriting). With a self-hosted nginx cache in front, the
+   trailing slash of `proxy_pass` does it:
+
+   ```nginx
+   location /site/ {
+       proxy_pass https://kano.example.invalid/;
+   }
+   ```
+
+   A base without a path needs no rewrite.
+
+3. Add a cache rule for `/assets/*` and `/media/*` (under the prefix, if any)
+   that respects the origin's `Cache-Control` (or sets a one-year edge TTL for
+   `/assets/` and passes `/media/` through). Cloudflare's default file-extension cache would not
    cache extension-less `/media/<hash>` paths, so a path-based rule is needed
    there.
-3. Bypass the cache for `/api/*`, `/admin*`, `/mcp*` and `/internal/*`.
-4. Issue an HTTPS certificate for the CDN hostname and enable HTTP/2 or
+4. Bypass the cache for `/api/*`, `/admin*`, `/mcp*` and `/internal/*`.
+5. Issue an HTTPS certificate for the CDN hostname and enable HTTP/2 or
    HTTP/3.
-5. Set the variable where both stages see it:
+6. Set the variable where both stages see it:
 
    ```bash
    # Build the frontend with the CDN base.
@@ -111,7 +147,7 @@ own) also avoids sending the site's cookies to the CDN.
    a deployment that wants its own CDN rebuilds the image, or accepts that
    lazy chunks stay on the origin while the runtime switch still moves media.
 
-6. If the origin firewall restricts access, allow the provider's origin addresses
+7. If the origin firewall restricts access, allow the provider's origin addresses
    (Cloudflare publishes its ranges; Alibaba Cloud and Tencent Cloud list
    theirs in their consoles).
 

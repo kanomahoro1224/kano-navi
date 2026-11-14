@@ -62,7 +62,8 @@ it does nothing until that queue holds a text model.
 `CDN_PUBLIC_BASE` is the public base of an optional CDN, such as
 `https://cdn.example.invalid` or `https://cdn.example.invalid/site` (an http
 or https URL whose path is an optional prefix; a query, credentials, escaped
-segments, empty or `.`/`..` segments fail startup). The frontend build also
+segments, empty or `.`/`..` segments fail startup, and fail `vite build` the
+same way; the host is lowercased). The frontend build also
 reads it, so pass it to `npm run build` or `docker build`; the service then
 writes the build's fixed files, the share-tag banner and every public media
 address to that base, and empty keeps them on this origin. See

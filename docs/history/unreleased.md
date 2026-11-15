@@ -23,3 +23,19 @@
 - A post whose portrait fails to load shows its account's initial.
 
 </details>
+
+<details>
+<summary><strong>About</strong></summary>
+
+- The apps sit side by side under the title: Kano Navi for Apple (iOS,
+  iPadOS and macOS, linked to its repository) and Kano Fans’ Treasure
+  (Android, HarmonyOS, Windows and iOS). Unsigned platforms are marked. The
+  mainland China server site is no longer listed as an app; its credit stays.
+- The apps, credits, technologies and notice each sit under a small label
+  instead of a numbered chapter.
+- Credits, technologies and the notice are cards. The credits' wording
+  links the people and the LINE BLOG recovery project. Contributors show their GitHub name with their
+  login.
+- The AI models show three and open the rest from "+3".
+
+</details>

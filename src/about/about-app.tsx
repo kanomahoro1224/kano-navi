@@ -18,7 +18,6 @@ import { SiteFooter, SiteHeader, SkipLink } from "@/site/site-shell"
 import "./about.css"
 
 const AUTHOR = "yexca"
-const CONTRIBUTORS_URL = `${REPOSITORY_URL}/graphs/contributors`
 /**
  * GitHub accounts, named as on GitHub. Avatars load from GitHub's avatar
  * CDN, which answers anonymous cross-site image requests;
@@ -354,10 +353,6 @@ export function AboutApp() {
                   </li>
                 ))}
               </ul>
-              <ExternalLink className="text-link" href={CONTRIBUTORS_URL}>
-                {t("about.contributorsAll")}
-                <ArrowUpRight aria-hidden="true" />
-              </ExternalLink>
             </Card>
             <Card label="LINE BLOG">
               <CreditText

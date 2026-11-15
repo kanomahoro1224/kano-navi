@@ -84,12 +84,6 @@
   line-height: 1.85;
 }
 
-.about-section .text-link {
-  display: inline-flex;
-  justify-self: start;
-  font-size: 13.5px;
-}
-
 .about-inline-link {
   color: var(--berry);
   font-weight: 700;
@@ -230,10 +224,6 @@
 .about-section .about-card p {
   font-size: 14.5px;
   line-height: 1.8;
-}
-
-.about-card .text-link {
-  margin-top: auto;
 }
 
 .about-contributors {

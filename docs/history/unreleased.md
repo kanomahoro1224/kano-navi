@@ -48,7 +48,8 @@
   instead of a numbered chapter.
 - Credits, technologies and the notice are cards. The credits' wording
   links the people and the LINE BLOG recovery project. Contributors show their GitHub name with their
-  login.
+  login. The contributor card has no link to the full
+  contributor list.
 - The AI models show three and open the rest from "+3".
 
 </details>

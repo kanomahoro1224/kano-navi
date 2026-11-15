@@ -48,11 +48,13 @@ code license. The About page shows the same notice.
   site is deployed independently by its provider.
 
 The About page introduces the project and its author. Under the title, two
-apps show the board side by side: Kano Navi for Apple, for iOS, iPadOS and
-macOS, by the board's author (with a link to its repository), and Kano Fans’
-Treasure (小鹿包们的宝物), for Android, HarmonyOS, Windows and iOS, by the
-provider of the mainland China server site (with a link to its download
-page). Each marks the platforms whose builds are unsigned. Cards then credit
+apps show the board side by side: Kano Fans’ Treasure (小鹿包们的宝物), for
+Android, HarmonyOS 5 or later, Windows and iOS 13 or later, by the provider
+of the mainland China server site (with a link to its download page), and
+Kano Navi for Apple, for iOS, iPadOS and macOS 26 or later, by the board's
+author (with a link to its repository). Each platform shows the lowest
+system version it needs where known, and each app marks the platforms whose
+builds are unsigned. Cards then credit
 the developers who have contributed code (with a link to the full
 contributor list), the sources of the LINE BLOG archive, the help behind the
 Works page, and the provider of the mainland China server site. The page

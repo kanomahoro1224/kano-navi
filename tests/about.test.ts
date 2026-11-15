@@ -41,8 +41,9 @@ test("About lists the apps with their unsigned platforms and opens the other mod
     })
     const page = root!.container
 
-    // The apps follow the title, the fans' app first, each with its maker, platforms and link;
-    // the unsigned platforms share one frame that names them unsigned.
+    // The apps follow the title, the fans' app first, each with its maker,
+    // platforms (with their lowest system version where known) and link; the
+    // unsigned platforms share one frame that names them unsigned.
     const apps = [
       ...page.querySelectorAll(".about-section-apps .about-app"),
     ].map((app) => ({
@@ -61,8 +62,8 @@ test("About lists the apps with their unsigned platforms and opens the other mod
       {
         name: "Kano Fans’ Treasure (小鹿包们的宝物)",
         maker: "By Lu KeKe (鹿可可)",
-        signed: ["Android", "HarmonyOS", "Windows"],
-        unsigned: ["iOS"],
+        signed: ["Android", "HarmonyOS 5+", "Windows"],
+        unsigned: ["iOS 13+"],
         mark: "Unsigned",
         link: "https://dl.xiaolubao.com",
       },
@@ -70,7 +71,7 @@ test("About lists the apps with their unsigned platforms and opens the other mod
         name: "Kano Navi for Apple",
         maker: "By yexca",
         signed: [],
-        unsigned: ["iOS", "iPadOS", "macOS"],
+        unsigned: ["iOS 26+", "iPadOS 26+", "macOS 26+"],
         mark: "Unsigned",
         link: "https://github.com/yexca/kano-navi-apple",
       },

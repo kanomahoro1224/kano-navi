@@ -40,6 +40,8 @@ type App = {
   platforms: string[]
   /** The platforms whose builds are unsigned. */
   unsigned: string[]
+  /** The lowest system version each platform's build runs on, where known. */
+  minimum?: Record<string, string>
   link: { href: string; label: "download" | "repository" }
 }
 
@@ -51,6 +53,7 @@ const apps: App[] = [
     maker: { key: "lukeke" },
     platforms: ["android", "harmonyos", "windows", "ios"],
     unsigned: ["ios"],
+    minimum: { harmonyos: "5", ios: "13" },
     link: { href: "https://dl.xiaolubao.com", label: "download" },
   },
   {
@@ -59,6 +62,7 @@ const apps: App[] = [
     maker: { name: AUTHOR },
     platforms: ["ios", "ipados", "macos"],
     unsigned: ["ios", "ipados", "macos"],
+    minimum: { ios: "26", ipados: "26", macos: "26" },
     link: {
       href: "https://github.com/yexca/kano-navi-apple",
       label: "repository",
@@ -147,6 +151,20 @@ function CreditText({
   )
 }
 
+/** A platform chip, with the lowest system version after the name. */
+function PlatformTag({ app, platform }: { app: App; platform: string }) {
+  const { t } = useAppSettings()
+  const minimum = app.minimum?.[platform]
+  return (
+    <li className="tag">
+      {t(`about.platform.${platform}`)}
+      {minimum ? (
+        <span className="about-app-minimum">{` ${minimum}+`}</span>
+      ) : null}
+    </li>
+  )
+}
+
 function AppCard({ app }: { app: App }) {
   const { t } = useAppSettings()
   const { icon: Icon, link } = app
@@ -170,17 +188,13 @@ function AppCard({ app }: { app: App }) {
       </ExternalLink>
       <ul className="about-app-platforms" aria-label={t("about.platforms")}>
         {signed.map((key) => (
-          <li key={key} className="tag">
-            {t(`about.platform.${key}`)}
-          </li>
+          <PlatformTag key={key} app={app} platform={key} />
         ))}
         {unsigned.length ? (
           <li className="about-app-unsigned">
             <ul>
               {unsigned.map((key) => (
-                <li key={key} className="tag">
-                  {t(`about.platform.${key}`)}
-                </li>
+                <PlatformTag key={key} app={app} platform={key} />
               ))}
             </ul>
             <span>{t("about.unsigned")}</span>

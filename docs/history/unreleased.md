@@ -40,9 +40,9 @@
 <details>
 <summary><strong>About</strong></summary>
 
-- The apps sit side by side under the title: Kano Navi for Apple (iOS,
-  iPadOS and macOS, linked to its repository) and Kano Fans’ Treasure
-  (Android, HarmonyOS, Windows and iOS). Unsigned platforms are marked. The
+- The apps sit side by side under the title: Kano Fans’ Treasure (Android,
+  HarmonyOS 5+, Windows and iOS 13+) and Kano Navi for Apple (iOS, iPadOS
+  and macOS 26+, linked to its repository). Unsigned platforms are marked. The
   mainland China server site is no longer listed as an app; its credit stays.
 - The apps, credits, technologies and notice each sit under a small label
   instead of a numbered chapter.

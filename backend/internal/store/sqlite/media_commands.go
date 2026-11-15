@@ -203,7 +203,7 @@ func (s *Store) SaveMediaDownload(ctx context.Context, asset PendingMedia, conte
 		_, err = tx.ExecContext(ctx, `UPDATE media_assets SET status='ready',cache_path=?,mime_type=?,byte_size=?,sha256=?,width=?,height=?,etag=?,last_modified=?,last_error=NULL,retry_attempts=0,next_retry_at=NULL,fetched_at=?,last_checked_at=?,updated_at=? WHERE id=? AND source_url=?`, relative, mime, len(content), hash, width, height, nullable(etag), nullable(lastModified), now, now, now, asset.ID, asset.SourceURL)
 		var promoted bool
 		if err == nil {
-			promoted, err = syncAccountAvatarFromMediaAssetTx(ctx, tx, asset.ID, relative, mime, int64(len(content)), hash, width, height, now)
+			promoted, err = syncAccountAvatarFromMediaAssetTx(ctx, tx, asset.ID, relative, mime, int64(len(content)), hash, width, height, now, "")
 		}
 		if err == nil && (previous != hash || promoted) {
 			err = bumpRevision(ctx, tx, now)

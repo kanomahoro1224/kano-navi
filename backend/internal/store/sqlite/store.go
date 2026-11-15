@@ -167,7 +167,7 @@ func verifySchema(ctx context.Context, db schemaQuerier) error {
 		"schedule_asset_reviews":    {"asset_id", "llm_status", "manual_status", "updated_at"},
 		"profile_media":             {"id", "slot", "source", "source_url", "active_cache_path", "active_sha256", "active_mime_type", "status", "is_active"},
 		"account_avatars":           {"source", "account_key", "account_handle", "mode", "active_candidate_id", "updated_at"},
-		"account_avatar_candidates": {"id", "source", "account_key", "origin", "source_url", "media_id", "cache_path", "mime_type", "sha256", "status", "updated_at"},
+		"account_avatar_candidates": {"id", "source", "account_key", "origin", "source_url", "media_id", "cache_path", "mime_type", "sha256", "status", "observation_order", "updated_at"},
 		"media_assets":              {"id", "source", "source_url", "cache_path", "mime_type", "byte_size", "sha256", "width", "height", "status", "fetched_at", "retry_attempts", "next_retry_at"},
 		"media_links":               {"media_id", "owner_type", "owner_id", "role", "position", "alt", "kind"},
 		"sync_runs":                 {"id", "source", "started_at", "finished_at", "status"},

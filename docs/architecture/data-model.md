@@ -413,10 +413,14 @@ X handle without `@`), with `mode` (`auto`, `manual`, or `hidden`),
 `active_candidate_id`, and `updated_at`. `account_avatar_candidates` stores
 candidate history (`sync`, `discover`, `url`, or `upload`) linked to either
 `media_assets` for remote X downloads or a local file path under `data/avatar/`
-for manual uploads. Downloading a pending candidate in `media_assets` updates
-the matching `account_avatar_candidates` row and increments `dashboard_revision`;
-in `auto` mode the active candidate switches to the latest downloaded image,
-whereas `manual` preserves the operator's selection.
+for manual uploads. Each reported URL or upload advances its candidate's
+per-account `observation_order`; download completion and failure do not change
+that order. `auto` selects the most recently observed ready candidate, including
+a previously cached URL that the source reports again. `manual` preserves the
+operator's selection, and `hidden` suppresses public portraits. Startup adds a
+missing `observation_order` column and initializes it from the stored update and
+creation order without changing account selections. Download synchronization and
+public revision rules are in [Account avatars](media-cache.md#account-avatars).
 Schedule image reviews add `llm_input_fingerprint` for input cache validation
 (see [Schedule images](sources.md#schedule-images)); a review without
 one is rechecked when next scanned. Automatic

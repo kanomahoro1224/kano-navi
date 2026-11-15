@@ -7,6 +7,20 @@
   pages through every shown post, up to an optional `until` date and
   optionally for one `account`, instead of answering `400 invalid_range`.
   Range reads are unchanged.
+- Startup adds and initializes per-account avatar observation order without
+  clearing candidate history or changing manual and hidden selections.
+
+</details>
+
+<details>
+<summary><strong>Synchronization and extraction</strong></summary>
+
+- Automatic account avatars follow source observation order, so a delayed
+  download cannot replace a newer ready avatar. A source returning to an earlier
+  cached URL still selects that image.
+- An operator's account-avatar download updates every candidate sharing its
+  media resource, including pending candidates and refreshed cached images.
+  Manual selections and hidden accounts keep their modes.
 
 </details>
 

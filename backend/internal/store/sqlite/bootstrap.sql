@@ -284,6 +284,7 @@ CREATE TABLE account_avatar_candidates (
     height INTEGER,
     status TEXT NOT NULL DEFAULT 'pending',
     last_error TEXT,
+    observation_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     CHECK (origin IN ('sync', 'discover', 'url', 'upload')),

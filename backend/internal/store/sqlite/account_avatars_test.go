@@ -1,9 +1,13 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,8 +17,13 @@ import (
 )
 
 func testPNGBytes(marker byte) ([]byte, string) {
-	// Valid 8-byte PNG header + minimal payload so sniffImageMIME & sha256 work.
-	content := append([]byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}, marker, 'k', 'a', 'n', 'o')
+	picture := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	picture.SetNRGBA(0, 0, color.NRGBA{R: marker, A: 255})
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, picture); err != nil {
+		panic(err)
+	}
+	content := encoded.Bytes()
 	sum := sha256.Sum256(content)
 	return content, hex.EncodeToString(sum[:])
 }

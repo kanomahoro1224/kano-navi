@@ -368,6 +368,9 @@ func (s *Store) SaveUploadedAccountAvatar(ctx context.Context, source, handle, c
 	`, candID, src, key, cachePath, cleanMime, byteSize, hash, nullableInt(width), nullableInt(height), now, now); err != nil {
 		return AccountAvatar{}, AccountAvatarCandidate{}, dbErr(err)
 	}
+	if err = observeAccountAvatarCandidateTx(ctx, tx, src, key, candID); err != nil {
+		return AccountAvatar{}, AccountAvatarCandidate{}, dbErr(err)
+	}
 
 	bumped := false
 	if activate {
@@ -377,7 +380,7 @@ func (s *Store) SaveUploadedAccountAvatar(ctx context.Context, source, handle, c
 		}
 		bumped = changed
 	} else {
-		changed, autoErr := promoteLatestReadyAutoTx(ctx, tx, src, key, candID, now)
+		changed, autoErr := promoteLatestReadyAutoTx(ctx, tx, src, key, now)
 		if autoErr != nil {
 			return AccountAvatar{}, AccountAvatarCandidate{}, dbErr(autoErr)
 		}
@@ -422,22 +425,25 @@ func (s *Store) SaveDownloadedAccountAvatarCandidate(ctx context.Context, candid
 	}
 	defer tx.Rollback()
 
-	var src, key, mediaID, prevHash string
-	err = tx.QueryRowContext(ctx, `SELECT source, account_key, COALESCE(media_id,''), COALESCE(sha256,'') FROM account_avatar_candidates WHERE id=?`, candidateID).Scan(&src, &key, &mediaID, &prevHash)
+	var src, key, mediaID string
+	err = tx.QueryRowContext(ctx, `SELECT source, account_key, COALESCE(media_id,'') FROM account_avatar_candidates WHERE id=?`, candidateID).Scan(&src, &key, &mediaID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return AccountAvatar{}, ErrAccountAvatarNotFound
 	}
 	if err != nil {
 		return AccountAvatar{}, dbErr(err)
 	}
-	if _, err = tx.ExecContext(ctx, `
-		UPDATE account_avatar_candidates
-		SET cache_path=?, mime_type=?, byte_size=?, sha256=?, width=?, height=?, status='ready', last_error=NULL, updated_at=?
-		WHERE id=?
-	`, cachePath, cleanMime, byteSize, hash, nullableInt(width), nullableInt(height), now, candidateID); err != nil {
-		return AccountAvatar{}, dbErr(err)
-	}
+	bumped := false
 	if mediaID != "" {
+		var previous string
+		if err = tx.QueryRowContext(ctx, `SELECT CASE WHEN status='ready' THEN COALESCE(sha256,'') ELSE '' END FROM media_assets WHERE id=?`, mediaID).Scan(&previous); err != nil {
+			return AccountAvatar{}, dbErr(err)
+		}
+		if previous != "" && previous != hash {
+			if err = recordMediaVersion(ctx, tx, mediaID, now); err != nil {
+				return AccountAvatar{}, dbErr(err)
+			}
+		}
 		if _, err = tx.ExecContext(ctx, `
 			UPDATE media_assets
 			SET status='ready', cache_path=?, mime_type=?, byte_size=?, sha256=?, width=?, height=?,
@@ -447,22 +453,17 @@ func (s *Store) SaveDownloadedAccountAvatarCandidate(ctx context.Context, candid
 		`, cachePath, cleanMime, byteSize, hash, nullableInt(width), nullableInt(height), nullable(etag), nullable(lastModified), now, now, now, mediaID); err != nil {
 			return AccountAvatar{}, dbErr(err)
 		}
-	}
-	bumped := false
-	if promoteIfAuto {
-		changed, autoErr := promoteLatestReadyAutoTx(ctx, tx, src, key, candidateID, now)
-		if autoErr != nil {
-			return AccountAvatar{}, dbErr(autoErr)
+		excludePromotion := ""
+		if !promoteIfAuto {
+			excludePromotion = candidateID
 		}
-		bumped = changed
+		bumped, err = syncAccountAvatarFromMediaAssetTx(ctx, tx, mediaID, cachePath, cleanMime, byteSize, hash, width, height, now, excludePromotion)
+		bumped = bumped || previous != hash
+	} else {
+		bumped, err = updateReadyAccountAvatarCandidateTx(ctx, tx, src, key, candidateID, cachePath, cleanMime, byteSize, hash, width, height, now, promoteIfAuto)
 	}
-	if !bumped && prevHash != hash {
-		var mode, activeID string
-		if scanErr := tx.QueryRowContext(ctx, `SELECT mode, COALESCE(active_candidate_id,'') FROM account_avatars WHERE source=? AND account_key=?`, src, key).Scan(&mode, &activeID); scanErr == nil {
-			if mode != AccountAvatarModeHidden && activeID == candidateID {
-				bumped = true
-			}
-		}
+	if err != nil {
+		return AccountAvatar{}, dbErr(err)
 	}
 	if bumped {
 		if err = bumpRevision(ctx, tx, now); err != nil {
@@ -545,7 +546,7 @@ func (s *Store) SetAccountAvatarMode(ctx context.Context, source, handle, mode s
 		err = tx.QueryRowContext(ctx, `
 			SELECT id FROM account_avatar_candidates
 			WHERE source=? AND account_key=? AND status='ready'
-			ORDER BY updated_at DESC, created_at DESC, id ASC LIMIT 1
+			ORDER BY observation_order DESC, updated_at DESC, created_at DESC, id ASC LIMIT 1
 		`, src, key).Scan(&latestReady)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return AccountAvatar{}, dbErr(err)
@@ -664,7 +665,7 @@ func (s *Store) DeleteAccountAvatarCandidate(ctx context.Context, source, handle
 			_ = tx.QueryRowContext(ctx, `
 				SELECT id FROM account_avatar_candidates
 				WHERE source=? AND account_key=? AND status='ready'
-				ORDER BY updated_at DESC, created_at DESC, id ASC LIMIT 1
+				ORDER BY observation_order DESC, updated_at DESC, created_at DESC, id ASC LIMIT 1
 			`, src, key).Scan(&nextID)
 		}
 		if _, err = tx.ExecContext(ctx, `UPDATE account_avatars SET active_candidate_id=?, updated_at=? WHERE source=? AND account_key=?`, nullable(nextID), now, src, key); err != nil {
@@ -728,28 +729,15 @@ func recordAccountAvatarCandidateTx(ctx context.Context, tx *sql.Tx, source, han
 
 	// Preserve existing candidate ID when the exact source URL already exists under
 	// this account so re-syncs stay idempotent across sync vs discover origins.
-	var existingID, existingStatus string
-	err := tx.QueryRowContext(ctx, `SELECT id, status FROM account_avatar_candidates WHERE source=? AND account_key=? AND source_url=?`, src, key, url).Scan(&existingID, &existingStatus)
+	var existingID string
+	err := tx.QueryRowContext(ctx, `SELECT id FROM account_avatar_candidates WHERE source=? AND account_key=? AND source_url=?`, src, key, url).Scan(&existingID)
 	if err == nil && existingID != "" {
 		candID = existingID
-		if candStatus == "ready" && existingStatus != "ready" {
-			if _, err = tx.ExecContext(ctx, `
-				UPDATE account_avatar_candidates
-				SET media_id=?, cache_path=?, mime_type=?, byte_size=?, sha256=?, width=?, height=?, status='ready', last_error=NULL, updated_at=?
-				WHERE id=?
-			`, mediaID, nullable(cachePath.String), nullable(mimeType.String), nullInt64(byteSize), nullable(hash.String), nullInt64(width), nullInt64(height), now, candID); err != nil {
-				return "", false, dbErr(err)
-			}
-			bumped, promoErr := promoteLatestReadyAutoTx(ctx, tx, src, key, candID, now)
-			return candID, bumped, promoErr
+		if err = observeAccountAvatarCandidateTx(ctx, tx, src, key, candID); err != nil {
+			return "", false, dbErr(err)
 		}
 		if candStatus == "ready" {
-			bumped, promoErr := promoteLatestReadyAutoTx(ctx, tx, src, key, candID, now)
-			if promoErr == nil && bumped {
-				if _, err = tx.ExecContext(ctx, `UPDATE account_avatar_candidates SET updated_at=? WHERE id=?`, now, candID); err != nil {
-					return "", false, dbErr(err)
-				}
-			}
+			bumped, promoErr := updateReadyAccountAvatarCandidateTx(ctx, tx, src, key, candID, cachePath.String, mimeType.String, byteSize.Int64, hash.String, int(width.Int64), int(height.Int64), now, true)
 			return candID, bumped, promoErr
 		}
 		return candID, false, nil
@@ -767,15 +755,18 @@ func recordAccountAvatarCandidateTx(ctx context.Context, tx *sql.Tx, source, han
 		nullInt64(byteSize), nullable(hash.String), nullInt64(width), nullInt64(height), candStatus, nullable(lastError.String), now, now); err != nil {
 		return "", false, dbErr(err)
 	}
+	if err = observeAccountAvatarCandidateTx(ctx, tx, src, key, candID); err != nil {
+		return "", false, dbErr(err)
+	}
 
 	if candStatus == "ready" {
-		bumped, promoErr := promoteLatestReadyAutoTx(ctx, tx, src, key, candID, now)
+		bumped, promoErr := promoteLatestReadyAutoTx(ctx, tx, src, key, now)
 		return candID, bumped, promoErr
 	}
 	return candID, false, nil
 }
 
-func syncAccountAvatarFromMediaAssetTx(ctx context.Context, tx *sql.Tx, mediaID, cachePath, mime string, byteSize int64, hash string, width, height int, now string) (bool, error) {
+func syncAccountAvatarFromMediaAssetTx(ctx context.Context, tx *sql.Tx, mediaID, cachePath, mime string, byteSize int64, hash string, width, height int, now, excludePromotion string) (bool, error) {
 	if !safeHash(mediaID) || cachePath == "" || !safeHash(hash) {
 		return false, nil
 	}
@@ -801,20 +792,44 @@ func syncAccountAvatarFromMediaAssetTx(ctx context.Context, tx *sql.Tx, mediaID,
 
 	bumped := false
 	for _, t := range targets {
-		if _, err = tx.ExecContext(ctx, `
-			UPDATE account_avatar_candidates
-			SET cache_path=?, mime_type=?, byte_size=?, sha256=?, width=?, height=?, status='ready', last_error=NULL, updated_at=?
-			WHERE id=?
-		`, cachePath, mime, byteSize, hash, nullableInt(width), nullableInt(height), now, t.id); err != nil {
-			return false, dbErr(err)
-		}
-		changed, promoErr := promoteLatestReadyAutoTx(ctx, tx, t.src, t.key, t.id, now)
+		changed, promoErr := updateReadyAccountAvatarCandidateTx(ctx, tx, t.src, t.key, t.id, cachePath, mime, byteSize, hash, width, height, now, t.id != excludePromotion)
 		if promoErr != nil {
 			return false, dbErr(promoErr)
 		}
 		bumped = bumped || changed
 	}
 	return bumped, nil
+}
+
+func updateReadyAccountAvatarCandidateTx(ctx context.Context, tx *sql.Tx, src, key, candidateID, cachePath, mime string, byteSize int64, hash string, width, height int, now string, promote bool) (bool, error) {
+	var visibleChange bool
+	if err := tx.QueryRowContext(ctx, `
+		SELECT EXISTS(SELECT 1 FROM account_avatars a JOIN account_avatar_candidates c ON c.id=a.active_candidate_id
+			WHERE c.id=? AND a.mode<>'hidden' AND (c.status<>'ready' OR COALESCE(c.sha256,'')<>?))
+	`, candidateID, hash).Scan(&visibleChange); err != nil {
+		return false, err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE account_avatar_candidates
+		SET cache_path=?, mime_type=?, byte_size=?, sha256=?, width=?, height=?, status='ready', last_error=NULL, updated_at=?
+		WHERE id=?
+	`, cachePath, mime, byteSize, hash, nullableInt(width), nullableInt(height), now, candidateID); err != nil {
+		return false, err
+	}
+	if !promote {
+		return visibleChange, nil
+	}
+	changed, err := promoteLatestReadyAutoTx(ctx, tx, src, key, now)
+	return visibleChange || changed, err
+}
+
+// Observation order changes only when a URL is reported or an image is uploaded,
+// never when a download or retry finishes. A per-account counter avoids clock ties.
+func observeAccountAvatarCandidateTx(ctx context.Context, tx *sql.Tx, src, key, candidateID string) error {
+	_, err := tx.ExecContext(ctx, `UPDATE account_avatar_candidates
+		SET observation_order=(SELECT COALESCE(MAX(observation_order),0)+1 FROM account_avatar_candidates WHERE source=? AND account_key=?)
+		WHERE id=?`, src, key, candidateID)
+	return err
 }
 
 func failAccountAvatarFromMediaAssetTx(ctx context.Context, tx *sql.Tx, mediaID, lastError, now string) error {
@@ -842,14 +857,24 @@ func ensureAccountAvatarRowTx(ctx context.Context, tx *sql.Tx, src, key, display
 	return nil
 }
 
-func promoteLatestReadyAutoTx(ctx context.Context, tx *sql.Tx, src, key, candID, now string) (bool, error) {
+func promoteLatestReadyAutoTx(ctx context.Context, tx *sql.Tx, src, key, now string) (bool, error) {
 	var mode, activeID string
 	err := tx.QueryRowContext(ctx, `SELECT mode, COALESCE(active_candidate_id,'') FROM account_avatars WHERE source=? AND account_key=?`, src, key).Scan(&mode, &activeID)
 	if errors.Is(err, sql.ErrNoRows) || err != nil {
 		return false, err
 	}
-	if mode != AccountAvatarModeAuto || activeID == candID {
+	if mode != AccountAvatarModeAuto {
 		return false, nil
+	}
+	var candID string
+	err = tx.QueryRowContext(ctx, `SELECT id FROM account_avatar_candidates
+		WHERE source=? AND account_key=? AND status='ready'
+		ORDER BY observation_order DESC, updated_at DESC, created_at DESC, id ASC LIMIT 1`, src, key).Scan(&candID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil || activeID == candID {
+		return false, err
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE account_avatars SET active_candidate_id=?, updated_at=? WHERE source=? AND account_key=?`, candID, now, src, key); err != nil {
 		return false, err

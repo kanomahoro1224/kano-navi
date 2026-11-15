@@ -333,6 +333,14 @@ under `data/avatar/sha256/`. `GET /media/account-avatar/{id}?v={sha256}` (and
 SHA-256 hash using the same root-contained streaming checks and immutable cache
 headers as `/media/{id}`.
 
+Workflow and operator downloads synchronize every candidate linked to the same
+`media_id` in one transaction, including ready candidates whose bytes change.
+An unchanged manual or hidden selection stays selected or hidden. Automatic
+selection follows the [candidate observation order](data-model.md)
+rather than download completion. A changed media version or visible avatar
+advances `dashboard_revision`; replaced shared media files retain their version
+metadata. Reporting a cached URL reconciles its candidate with the stored asset.
+
 ## HTTP Contract
 
 The server exposes `GET /media/<id>` for ready assets only. The ID must match

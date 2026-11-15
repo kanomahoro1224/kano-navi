@@ -187,7 +187,7 @@ SQLite `mode=ro` on `:7658` and serves the public reads without migrations,
 seeds or writes. It refuses a snapshot that lacks a column the public reads
 need, so a snapshot from an earlier release is first upgraded by a writable
 start. `backend/Dockerfile` packages this mode, and
-`scripts/go-docker-smoke.mjs` (part of `make go-check`) mounts a synthetic
+`scripts/go-docker-smoke.mjs` (`make go-container-check`) mounts a synthetic
 `data/` tree read-only and verifies that no database sidecar, WAL, journal or
 directory is created. Its `-enable-*` and `-initialize` flags are
 development test switches: they require `APP_MODE=development` and a

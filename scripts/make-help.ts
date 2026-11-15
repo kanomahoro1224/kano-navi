@@ -34,8 +34,11 @@ const groups = {
     "go-test-shard-test": "Test the Go race-suite sharding logic",
     actionlint: "Check GitHub Actions workflows",
     "go-check":
-      "Check Go formatting, contracts, cross-builds, and disposable containers",
+      "Check Go formatting, CGO-free contracts, cross-builds, and containers",
     "go-format-check": "Check Go formatting without Docker",
+    "go-build-check": "Run CGO-free Go contracts and Linux/Windows builds",
+    "go-container-check":
+      "Build the Go service image and smoke its read-only container",
     smoke: "Check a seeded temporary SQLite snapshot through the Go backend",
     "ci-fast":
       "Run fast local format, documentation, and source privacy checks",
@@ -58,7 +61,7 @@ const groups = {
     "docker-build": "Build the Go image DOCKER_IMAGE (default kano-navi:ci)",
     "production-smoke": "Check the built image in a disposable container",
     "ci-local":
-      "Run checks and the Go gate, build the image, and check production runtime",
+      "Run checks and go-check, build the image, and check production runtime",
     ci: "Install and verify dependencies, then run ci-local (requires Docker)",
   },
 }

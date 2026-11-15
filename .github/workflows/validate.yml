@@ -25,7 +25,8 @@ jobs:
     outputs:
       plan: ${{ steps.plan.outputs.plan }}
       backend: ${{ steps.plan.outputs.backend }}
-      go: ${{ steps.plan.outputs.go }}
+      go-builds: ${{ steps.plan.outputs.go-builds }}
+      go-container: ${{ steps.plan.outputs.go-container }}
       frontend: ${{ steps.plan.outputs.frontend }}
       smoke: ${{ steps.plan.outputs.smoke }}
       docker: ${{ steps.plan.outputs.docker }}
@@ -164,24 +165,72 @@ jobs:
           path: ${{ runner.temp }}/race-events.json
           retention-days: 30
 
-  go:
-    name: Go gate
+  # The two halves of make go-check that Style and Backend do not cover. Each
+  # keeps its own compilation cache keyed by the Go sources, as Backend does.
+  go-builds:
+    name: Go builds
     needs: plan
-    if: needs.plan.outputs.go == 'true'
+    if: needs.plan.outputs.go-builds == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - name: Set up Go
+        id: go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
-      - name: Check formatting, cross-builds and the read-only container
-        run: make go-check
+          cache: false
+      - name: Restore Go modules
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/pkg/mod
+          key: go-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('backend/go.mod', 'backend/go.sum', 'Makefile') }}
+          restore-keys: go-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
+      - name: Cache Go compilation results
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-builds-${{ hashFiles('backend/**/*.go', 'backend/**/*.sql', 'backend/go.mod', 'backend/go.sum', 'Makefile') }}
+          restore-keys: go-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-builds-
+      - name: Run CGO-free contracts and Linux/Windows builds
+        run: make go-build-check
+
+  go-container:
+    name: Go container
+    needs: plan
+    if: needs.plan.outputs.go-container == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # The smoke builds its synthetic snapshot with the host toolchain.
+      - name: Set up Go
+        id: go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache: false
+      - name: Restore Go modules
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/pkg/mod
+          key: go-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('backend/go.mod', 'backend/go.sum', 'Makefile') }}
+          restore-keys: go-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
+      - name: Cache Go compilation results
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/go-build
+          key: go-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-container-${{ hashFiles('backend/**/*.go', 'backend/**/*.sql', 'backend/go.mod', 'backend/go.sum', 'Makefile') }}
+          restore-keys: go-build-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-container-
+      - name: Build the service image and smoke its read-only container
+        run: make go-container-check
 
   frontend:
     name: Frontend
@@ -266,7 +315,8 @@ jobs:
   gate:
     name: Gate
     if: always()
-    needs: [plan, style, backend, go, frontend, smoke, docker]
+    needs:
+      [plan, style, backend, go-builds, go-container, frontend, smoke, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

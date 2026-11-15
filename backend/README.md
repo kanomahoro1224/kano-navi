@@ -38,7 +38,7 @@ From the repository root:
 
 ```text
 make go-test    go test and go vet
-make go-check   formatting, tests, vet, CGO-free and Linux/Windows builds,
+make go-check   formatting, CGO-free tests, Linux/Windows builds,
                 and the read-only container smoke
 make smoke      seed twice and read a fresh snapshot through kano-go serve
 ```

@@ -18,7 +18,7 @@ RACE_RUN ?=
 APP_VERSION = $(shell $(NODE) -p "require('./package.json').version")
 GO_LDFLAGS = -X github.com/yexca/kano-navi/backend/internal/buildinfo.Version=$(APP_VERSION)
 
-.PHONY: help node-check install dev dev-client dev-server build preview start seed sync go-check go-format-check go-test
+.PHONY: help node-check install dev dev-client dev-server build preview start seed sync go-check go-format-check go-build-check go-container-check go-test
 .PHONY: go-build go-start go-docker-build go-lint go-vet go-race actionlint
 .PHONY: backend-race-shard backend-race-durations go-test-shard-test
 .PHONY: format format-check typecheck docs-check check-docs sensitive-check check-sensitive privacy-check test-sensitive test-frontend
@@ -63,12 +63,20 @@ seed: go-build
 sync: go-build
 	$(GO_BINARY) sync
 
+# Formatting, the CGO-free contracts and platform builds, then the service
+# container; GitHub Actions runs the last two as separate jobs.
 go-check:
 	$(NODE) scripts/go-check.mjs
 
 # gofmt over LF copies, so a CRLF checkout reports only real differences.
 go-format-check:
-	$(NODE) scripts/go-check.mjs --format-only
+	$(NODE) scripts/go-check.mjs format
+
+go-build-check:
+	$(NODE) scripts/go-check.mjs builds
+
+go-container-check:
+	$(NODE) scripts/go-check.mjs container
 
 go-test:
 	$(GO) -C backend test ./...

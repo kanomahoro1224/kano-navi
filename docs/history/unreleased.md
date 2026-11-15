@@ -69,3 +69,16 @@
 - The AI models show three and open the rest from "+3".
 
 </details>
+
+<details>
+<summary><strong>Runtime and development</strong></summary>
+
+- GitHub Actions splits the Go gate into Go builds (CGO-free contracts and
+  Linux/Windows builds) and Go container (service image and read-only smoke),
+  running beside Backend. They leave the cgo contracts and vet to Backend and
+  keep compilation caches keyed by the Go sources.
+- `make go-check` runs formatting, the CGO-free contracts, the platform builds
+  and the container smoke; `make go-build-check` and
+  `make go-container-check` run its two CI halves.
+
+</details>

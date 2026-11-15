@@ -216,7 +216,8 @@ only by `make dev`/`make preview` and Vite; production serves everything on
 `PORT`.
 
 Run with flags only and no command, the binary serves public reads from an
-existing snapshot without writing it; only `make go-check` uses this mode. See
+existing snapshot without writing it; only the container smoke
+(`make go-container-check`, part of `make go-check`) uses this mode. See
 [Read-only mode](../architecture/backend.md#read-only-mode).
 
 Set `LLM_SECRETS_KEY` before starting development, preview, or production, even

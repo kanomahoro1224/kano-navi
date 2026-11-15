@@ -277,7 +277,8 @@ test("a schedule entry opens its sheet, and a month entry marks it in its day", 
         5,
       )
 
-      // A card opens its sheet, which holds the whole title and the link.
+      // A card opens its sheet, which holds the whole title and, like the
+      // card, the arrow to the link in its corner.
       await click(cards[0])
       const sheet = container.querySelector("dialog.sheet-dialog")
       assert.ok(sheet)
@@ -287,6 +288,12 @@ test("a schedule entry opens its sheet, and a month entry marks it in its day", 
           link.getAttribute("href"),
         ),
         ["https://video.example.test/watch/first"],
+      )
+      assert.equal(
+        sheet
+          .querySelector(".guide-event-tags a.guide-event-open")
+          ?.getAttribute("href"),
+        "https://video.example.test/watch/first",
       )
 
       // Escape closes the sheet alone, not the month dialog beneath it.

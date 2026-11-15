@@ -756,7 +756,7 @@
   height: 32px;
 }
 
-/* A schedule entry in full; its link waits at the end. */
+/* A schedule entry in full; its link waits in the bottom corner. */
 .entry-sheet {
   display: grid;
   gap: 10px;
@@ -843,9 +843,22 @@
   font-size: 12.5px;
 }
 
-.entry-sheet-open {
-  justify-self: start;
+/* The platform links share the last row with the arrow at its end. */
+.entry-sheet-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 4px;
+}
+
+.entry-sheet .guide-event-open {
+  width: 30px;
+  height: 30px;
+}
+
+.entry-sheet .guide-event-open svg {
+  width: 16px;
+  height: 16px;
 }
 
 .post-empty {

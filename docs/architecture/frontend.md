@@ -291,8 +291,8 @@ left out. An entry shows them with `PlatformLinks` (`platform-links.tsx`,
 the live one marked) when it has more than one, or one beside an
 announcement of its own (`eventAnnouncement`: its `url` when no platform
 link is that page): on its stage ticket, on its week and calendar card,
-where the open arrow then opens the announcement, and in its sheet, where
-the open button does; the announcement is never labelled as a platform. A
+and in its sheet, where the open arrow in the corner then opens the
+announcement; the announcement is never labelled as a platform. A
 full stage ticket of an entry marks its `platforms` on the art with
 `PlatformBadge`. When the stage shows the reserved video of an entry, the
 ticket adds the entry's links on platforms the video has no copy on, such

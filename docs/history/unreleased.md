@@ -29,6 +29,11 @@
 - The footer drops its About link and shows Notes and Back to top as icons.
 - On a wide screen the common tags sit under the links, beside the journey
   card.
+- A schedule entry's details open its link from the arrow in the bottom
+  corner, as the entry's card does, instead of an Open link button on a row
+  of its own.
+- A release's details on Works keep their width as you switch editions: a
+  pane whose contents start or stop scrolling keeps its width.
 
 </details>
 

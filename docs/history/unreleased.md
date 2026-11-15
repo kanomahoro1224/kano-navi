@@ -26,6 +26,9 @@
   label above them; the weekly schedule shows the week's dates beside its
   title. The board's post and video
   filters show no counts. The public API still returns the counts.
+- The footer drops its About link and shows Notes and Back to top as icons.
+- On a wide screen the common tags sit under the links, beside the journey
+  card.
 
 </details>
 

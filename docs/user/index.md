@@ -25,8 +25,9 @@ These pages describe what you can see and do on the site.
 Every page shares one header with the site name (with an "Unofficial" mark on
 wide screens), the page links (Now, Journey, Works, LINE BLOG, About), a live
 Japan-time clock, and language and theme controls. The footer says the site
-is fan-made and unaffiliated and links to About and Back to top. **Notes**
-opens the site's notice in a window, the same on every page: the site is
+is fan-made and unaffiliated, with two icons beside it: **Notes** and
+**Back to top**. Notes opens the site's notice in a window, the same on
+every page: the site is
 unofficial and unaffiliated, the board is not a live feed and the original
 pages are authoritative, the archives are curated by hand, some translations
 are AI-generated, third-party content belongs to its rights holders, and the

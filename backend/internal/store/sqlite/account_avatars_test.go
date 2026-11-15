@@ -93,7 +93,11 @@ func TestAccountAvatarsLifecycleAndMediaDownload(t *testing.T) {
 	if string(gotBytes) != string(pngA) {
 		t.Fatalf("stream bytes mismatch")
 	}
-	if _, err = store.OpenAccountAvatarMedia(ctx, candA.ID, hashA[:63]+"0"); err != ErrMediaVersionNotFound {
+	wrongHash := hashA[:63] + "0"
+	if hashA[63] == '0' {
+		wrongHash = hashA[:63] + "1"
+	}
+	if _, err = store.OpenAccountAvatarMedia(ctx, candA.ID, wrongHash); err != ErrMediaVersionNotFound {
 		t.Fatalf("expected ErrMediaVersionNotFound on wrong hash, got %v", err)
 	}
 

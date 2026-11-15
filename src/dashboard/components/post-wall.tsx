@@ -29,7 +29,7 @@ import {
   useTranslatedText,
 } from "@/components/translated-text"
 import { EmptyNote, Placeholder, SectionTitle } from "@/site/site-shell"
-import { BilibiliLogo, ExternalLink, XLogo, followCardLink } from "@/site/links"
+import { BilibiliLogo, ExternalLink, followCardLink } from "@/site/links"
 import { isMediaUrl, mediaSrcSet } from "@/lib/media"
 import {
   formatCompact,
@@ -228,20 +228,213 @@ function Engagement({
   )
 }
 
-// A board quote shows three thumbnails; "+N" counts the rest.
-const QUOTE_THUMBS = 3
+/** An account's avatar keyed by "<source>:<lowercase handle>". */
+type AccountAvatars = Record<string, string | null>
+
+/**
+ * The account's entry in the avatar map: its cached image, null when the
+ * operator hid it, or undefined when there is none.
+ */
+function accountAvatar(
+  source: string,
+  handle: string | null | undefined,
+  accountAvatars: AccountAvatars | undefined,
+): string | null | undefined {
+  const key = String(handle || "")
+    .trim()
+    .replace(/^@/u, "")
+    .toLowerCase()
+  if (!key || !accountAvatars) return undefined
+  return Object.prototype.hasOwnProperty.call(
+    accountAvatars,
+    `${source}:${key}`,
+  )
+    ? accountAvatars[`${source}:${key}`]
+    : undefined
+}
+
+/** A handle's first letter or digit, past "@" and leading underscores. */
+export function handleInitial(handle: string | null | undefined) {
+  const bare = String(handle || "").replace(/^@/u, "")
+  return bare.match(/[\p{L}\p{N}]/u)?.[0] || bare.charAt(0) || "X"
+}
+
+/**
+ * An account's portrait, or its initial on the sunken surface when there is
+ * no image or the image fails to load. Keyed by its URL at the call site, so
+ * a new image gets another try.
+ */
+function AccountAvatar({
+  url,
+  handle,
+  className,
+  initial = true,
+}: {
+  url: string | null
+  handle: string | null | undefined
+  className?: string
+  /** Whether a missing image leaves the initial or nothing at all. */
+  initial?: boolean
+}) {
+  const [failed, setFailed] = useState(false)
+  if (url && !failed)
+    return (
+      <img
+        className={className}
+        src={url}
+        alt=""
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    )
+  return initial ? (
+    <span className="post-note-initial" aria-hidden="true">
+      {handleInitial(handle)}
+    </span>
+  ) : null
+}
+
+// A post shows four images; the last tile counts the rest ("+N").
+const MEDIA_TILES = 4
+// A lone image keeps its own shape between these bounds; past them it sits
+// whole on a blurred copy of itself.
+const LONE_WIDEST = 2
+const LONE_TALLEST_BOARD = 1
+const LONE_TALLEST_FULL = 3 / 4
+
+/** A lone image's frame, or null when its size is unknown. */
+export function loneImageFrame(
+  item: Pick<MediaItem, "width" | "height">,
+  tallest: number,
+): { ratio: number; letterboxed: boolean } | null {
+  if (!item.width || !item.height || item.width <= 0 || item.height <= 0)
+    return null
+  const natural = item.width / item.height
+  const ratio = Math.min(LONE_WIDEST, Math.max(tallest, natural))
+  return { ratio, letterboxed: Math.abs(ratio - natural) / natural > 0.02 }
+}
+
+/**
+ * A post's or a full quote's images: a lone image in its own shape, two to
+ * four in one frame, and "+N" on the fourth for the rest. A photo opens the
+ * viewer, which reaches every image; a video's or GIF's still plays on X.
+ */
+function MediaGrid({
+  media,
+  href,
+  full,
+  sizes,
+  openLabel,
+  onOpenMedia,
+  t,
+}: {
+  /** The set with its videos linked (see linkedMedia). */
+  media: MediaItem[]
+  /** The page a video or GIF plays on. */
+  href: string
+  /** The archive and the full post allow a taller lone image. */
+  full: boolean
+  sizes: string
+  /** The opener's accessible name before its number ("Open image 2"). */
+  openLabel: string
+  onOpenMedia: (media: MediaItem[], index: number) => void
+  t: Translator
+}) {
+  if (!media.length) return null
+  const ready = media.filter((item) => item.url)
+  const shown = media.slice(0, MEDIA_TILES)
+  const hidden = media.length - shown.length
+  const lone =
+    shown.length === 1 && shown[0].url
+      ? loneImageFrame(shown[0], full ? LONE_TALLEST_FULL : LONE_TALLEST_BOARD)
+      : null
+  return (
+    <div
+      className={`post-note-media count-${shown.length}${lone ? " is-fitted" : ""}${lone?.letterboxed ? " is-letterboxed" : ""}`}
+      style={
+        lone ? ({ "--media-ratio": lone.ratio } as CSSProperties) : undefined
+      }
+    >
+      {shown.map((item, index) => {
+        if (!item.url)
+          return (
+            <span key={item.id || index} className="post-note-missing">
+              <ImageOff aria-hidden="true" />
+              <span>{t("media.unavailable")}</span>
+            </span>
+          )
+        const more = hidden > 0 && index === shown.length - 1
+        const content = (
+          <>
+            {lone?.letterboxed ? (
+              <img
+                className="post-media-backdrop"
+                src={item.url}
+                srcSet={mediaSrcSet(item.url, item.width)}
+                sizes={sizes}
+                alt=""
+                aria-hidden="true"
+                loading="lazy"
+              />
+            ) : null}
+            <img
+              src={item.url}
+              srcSet={mediaSrcSet(item.url, item.width)}
+              sizes={sizes}
+              width={item.width ?? undefined}
+              height={item.height ?? undefined}
+              alt={item.alt || ""}
+              loading="lazy"
+            />
+            <MediaKindMark kind={item.kind} />
+            {more ? (
+              <span className="post-media-more" aria-hidden="true">
+                +{hidden}
+              </span>
+            ) : null}
+          </>
+        )
+        // The tile that counts the hidden images opens the viewer, which
+        // reaches them, whatever it shows.
+        return isPlayable(item) && !more ? (
+          <ExternalLink
+            className="media-opener is-playable"
+            key={item.id || item.url}
+            href={href}
+            aria-label={`${playLabel(item, t)} ${index + 1}`}
+          >
+            {content}
+          </ExternalLink>
+        ) : (
+          <button
+            className="media-opener"
+            type="button"
+            key={item.id || item.url}
+            onClick={() => onOpenMedia(ready, ready.indexOf(item))}
+            aria-label={`${openLabel} ${index + 1}`}
+          >
+            {content}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 /**
  * The status a post quotes, nested in the note: author, time, wording and
- * small thumbnails. The card follows the quoted post's link (its x.com page,
- * or the forwarded dynamic's Bilibili page), while its thumbnails and
- * translation switch keep their own actions. A quote of a tracked account's
- * post shows that post's translation. A forwarded dynamic's author shows by
- * name beside the bilibili mark, never by mid.
+ * images. On the board a quote with wording shows one thumbnail beside it,
+ * counting the rest; the full post shows them as a post's images. The card
+ * follows the quoted post's link (its x.com page, or the forwarded dynamic's
+ * Bilibili page), while its images and translation switch keep their own
+ * actions. A quote of a tracked account's post shows that post's
+ * translation. An X author shows a cached avatar beside the name; a forwarded
+ * dynamic's author shows by name beside the bilibili mark, never by mid.
  */
 function QuoteCard({
   quote,
   bilibili,
+  avatarUrl,
   wording,
   absoluteTime,
   clamp,
@@ -254,6 +447,8 @@ function QuoteCard({
   quote: PostQuote
   /** The quote of a Bilibili forward. */
   bilibili: boolean
+  /** The quoted author's cached avatar, if any. */
+  avatarUrl: string | null
   /** The note keeps the quote's switch, shared by the board and the dialog. */
   wording: TranslatedTextState
   absoluteTime: boolean
@@ -278,19 +473,27 @@ function QuoteCard({
     quote.media.filter((item) => item.url),
     quote.url,
   )
-  const shown = clamp ? media.slice(0, QUOTE_THUMBS) : media
-  const hidden = media.length - shown.length
+  const hasText = Boolean(quote.text) || hasWording(wording, quote.rich)
+  const thumb = clamp && hasText && media.length > 0
   const name = bilibili
     ? quote.authorName || "bilibili"
     : quote.authorName || (quote.authorHandle ? `@${quote.authorHandle}` : "X")
   return (
     <div
-      className={`post-quote link-card${clamp ? "" : " is-full"}`}
+      className={`post-quote link-card${clamp ? "" : " is-full"}${thumb ? " has-thumb" : ""}`}
       onClick={followCardLink}
     >
       <p className="post-quote-head">
         {bilibili ? (
           <BilibiliLogo className="post-quote-mark" aria-hidden="true" />
+        ) : avatarUrl ? (
+          <AccountAvatar
+            key={avatarUrl}
+            url={avatarUrl}
+            handle={quote.authorHandle}
+            className="post-quote-avatar"
+            initial={false}
+          />
         ) : null}
         <ExternalLink
           className="card-link post-quote-name"
@@ -322,7 +525,7 @@ function QuoteCard({
         ) : null}
         <TranslationToggle state={wording} t={t} />
       </p>
-      {quote.text || hasWording(wording, quote.rich) ? (
+      {hasText ? (
         <p
           ref={textRef}
           className={`post-quote-text${clamp ? " is-clamped" : ""}`}
@@ -331,53 +534,75 @@ function QuoteCard({
           <PostWording wording={wording} rich={quote.rich} />
         </p>
       ) : null}
-      {shown.length ? (
-        <div className="post-quote-media">
-          {shown.map((item, index) => {
-            // A quoted video or GIF plays on X, from the quote's page. The
-            // tile that counts the hidden images opens the viewer, which
-            // reaches them, whatever it shows.
-            const more = hidden > 0 && index === shown.length - 1
-            const content = (
-              <>
-                <img
-                  src={item.url || undefined}
-                  srcSet={mediaSrcSet(item.url, item.width)}
-                  sizes={clamp ? "72px" : "(max-width: 640px) 30vw, 160px"}
-                  alt={item.alt || ""}
-                  loading="lazy"
-                />
-                <MediaKindMark kind={item.kind} />
-                {more ? (
-                  <span className="post-quote-more" aria-hidden="true">
-                    +{hidden}
-                  </span>
-                ) : null}
-              </>
-            )
-            return isPlayable(item) && !more ? (
-              <ExternalLink
-                className="media-opener is-playable"
-                key={item.id || item.url}
-                href={quote.url}
-                aria-label={`${playLabel(item, t)} ${index + 1}`}
-              >
-                {content}
-              </ExternalLink>
-            ) : (
-              <button
-                className="media-opener"
-                type="button"
-                key={item.id || item.url}
-                onClick={() => onOpenMedia(media, index)}
-                aria-label={`${t("feed.openQuoteMedia")} ${index + 1}`}
-              >
-                {content}
-              </button>
-            )
-          })}
-        </div>
+      {thumb ? (
+        <QuoteThumb media={media} t={t} onOpenMedia={onOpenMedia} />
+      ) : (
+        <MediaGrid
+          media={media}
+          href={quote.url}
+          full={false}
+          sizes={POST_MEDIA_SIZES}
+          openLabel={t("feed.openQuoteMedia")}
+          onOpenMedia={onOpenMedia}
+          t={t}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * A board quote's first image beside its wording; "+N" counts the rest,
+ * which the viewer reaches. A lone video or GIF plays on X.
+ */
+function QuoteThumb({
+  media,
+  t,
+  onOpenMedia,
+}: {
+  media: MediaItem[]
+  t: Translator
+  onOpenMedia: (media: MediaItem[], index: number) => void
+}) {
+  const [item] = media
+  const rest = media.length - 1
+  const content = (
+    <>
+      <img
+        src={item.url || undefined}
+        srcSet={mediaSrcSet(item.url, item.width)}
+        sizes="96px"
+        alt={item.alt || ""}
+        loading="lazy"
+      />
+      <MediaKindMark kind={item.kind} />
+      {rest > 0 ? (
+        <span className="post-quote-count" aria-hidden="true">
+          +{rest}
+        </span>
       ) : null}
+    </>
+  )
+  return (
+    <div className="post-quote-media is-thumb">
+      {isPlayable(item) && !rest ? (
+        <ExternalLink
+          className="media-opener is-playable"
+          href={item.href || ""}
+          aria-label={`${playLabel(item, t)} 1`}
+        >
+          {content}
+        </ExternalLink>
+      ) : (
+        <button
+          className="media-opener"
+          type="button"
+          onClick={() => onOpenMedia(media, 0)}
+          aria-label={`${t("feed.openQuoteMedia")} 1`}
+        >
+          {content}
+        </button>
+      )}
     </div>
   )
 }
@@ -388,27 +613,18 @@ export function repostingAccounts(accounts: string[], locale: Locale) {
   return new Intl.ListFormat(locale, { type: "conjunction" }).format(handles)
 }
 
-function resolvePostAvatar(
+/**
+ * A post's avatar: the account's cached image, none when the operator hid it,
+ * or else the site portrait for an own post and none for a promoted one.
+ */
+function postAvatar(
   post: Post,
-  accountAvatars: Record<string, string | null> | undefined,
+  accountAvatars: AccountAvatars | undefined,
   fallbackAvatarUrl: string | null,
-): { url: string | null; showInitial: boolean } {
-  const handle = String(post.accountHandle || "")
-    .trim()
-    .replace(/^@/u, "")
-    .toLowerCase()
-  const key = handle ? `${post.source}:${handle}` : ""
-  if (
-    key &&
-    accountAvatars &&
-    Object.prototype.hasOwnProperty.call(accountAvatars, key)
-  ) {
-    const entry = accountAvatars[key]
-    if (entry) return { url: entry, showInitial: false }
-    return { url: null, showInitial: true }
-  }
-  if (post.promoted) return { url: null, showInitial: true }
-  return { url: fallbackAvatarUrl, showInitial: false }
+): string | null {
+  const entry = accountAvatar(post.source, post.accountHandle, accountAvatars)
+  if (entry !== undefined) return entry
+  return post.promoted ? null : fallbackAvatarUrl
 }
 
 function PostNote({
@@ -435,7 +651,6 @@ function PostNote({
   onOpenMedia: (media: MediaItem[], index: number) => void
 }) {
   const media = linkedMedia(postMedia(post), post.url)
-  const ready = media.filter((item) => item.url)
   const bilibili = isBilibiliPost(post)
   const wording = useTranslatedText(
     post.text,
@@ -471,11 +686,15 @@ function PostNote({
     for (const element of elements) observer.observe(element)
     return () => observer.disconnect()
   }, [clamp, wording.text, quoteWording.text])
+  const quoteAvatar = bilibili
+    ? null
+    : accountAvatar("x", post.quote?.authorHandle, accountAvatars) || null
   const quote = (full: boolean) =>
     post.quote ? (
       <QuoteCard
         quote={post.quote}
         bilibili={bilibili}
+        avatarUrl={quoteAvatar}
         wording={quoteWording}
         absoluteTime={absoluteTime}
         clamp={clamp && !full}
@@ -501,16 +720,14 @@ function PostNote({
       })}
     </p>
   ) : null
-  const resolvedAvatar = resolvePostAvatar(post, accountAvatars, avatarUrl)
+  const portrait = postAvatar(post, accountAvatars, avatarUrl)
   const head = (close?: ReactNode) => (
     <header className="post-note-head">
-      {resolvedAvatar.showInitial ? (
-        <span className="post-note-initial" aria-hidden="true">
-          {(post.accountHandle || "X").replace(/^@/u, "").charAt(0)}
-        </span>
-      ) : (
-        <img src={resolvedAvatar.url || undefined} alt="" />
-      )}
+      <AccountAvatar
+        key={portrait || ""}
+        url={portrait}
+        handle={bilibili ? "bilibili" : post.accountHandle}
+      />
       {bilibili ? (
         <ExternalLink
           className="post-note-handle is-source"
@@ -548,55 +765,17 @@ function PostNote({
       {close}
     </header>
   )
-  const mediaGrid = media.length ? (
-    <div className={`post-note-media count-${Math.min(4, media.length)}`}>
-      {media.slice(0, 4).map((item, index) =>
-        item.url && isPlayable(item) ? (
-          // A video or GIF plays on X; its still never opens the viewer.
-          <ExternalLink
-            className="media-opener is-playable"
-            key={item.id || item.url}
-            href={post.url}
-            aria-label={`${playLabel(item, t)} ${index + 1}`}
-          >
-            <img
-              src={item.url}
-              srcSet={mediaSrcSet(item.url, item.width)}
-              sizes={POST_MEDIA_SIZES}
-              width={item.width ?? undefined}
-              height={item.height ?? undefined}
-              alt={item.alt || ""}
-              loading="lazy"
-            />
-            <MediaKindMark kind={item.kind} />
-          </ExternalLink>
-        ) : item.url ? (
-          <button
-            className="media-opener"
-            type="button"
-            key={item.id || item.url}
-            onClick={() => onOpenMedia(ready, ready.indexOf(item))}
-            aria-label={`${t("feed.openMedia")} ${index + 1}`}
-          >
-            <img
-              src={item.url}
-              srcSet={mediaSrcSet(item.url, item.width)}
-              sizes={POST_MEDIA_SIZES}
-              width={item.width ?? undefined}
-              height={item.height ?? undefined}
-              alt={item.alt || ""}
-              loading="lazy"
-            />
-          </button>
-        ) : (
-          <span key={item.id || index} className="post-note-missing">
-            <ImageOff aria-hidden="true" />
-            <span>{t("media.unavailable")}</span>
-          </span>
-        ),
-      )}
-    </div>
-  ) : null
+  const mediaGrid = (full: boolean) => (
+    <MediaGrid
+      media={media}
+      href={post.url}
+      full={full}
+      sizes={POST_MEDIA_SIZES}
+      openLabel={t("feed.openMedia")}
+      onOpenMedia={onOpenMedia}
+      t={t}
+    />
+  )
 
   return (
     <article className="post-note">
@@ -629,7 +808,7 @@ function PostNote({
           {textClipped ? <TranslationToggle state={wording} t={t} /> : null}
         </div>
       ) : null}
-      {mediaGrid}
+      {mediaGrid(!clamp)}
       {quote(false)}
       {engagement}
       {reading ? (
@@ -656,7 +835,7 @@ function PostNote({
                 <TranslationToggle state={wording} t={t} />
               </p>
             ) : null}
-            {mediaGrid}
+            {mediaGrid(true)}
             {quote(true)}
             {engagement}
           </article>
@@ -708,11 +887,6 @@ export function PostWall({
         : posts,
     [account, posts],
   )
-  const countFor = (handle: string) =>
-    posts.filter(
-      (post) =>
-        String(post.accountHandle || "").toLowerCase() === handle.toLowerCase(),
-    ).length
   // The board shows whole rows of the wall's current column count (see
   // postWallCount); older posts stay in the Past posts dialog.
   const [wall, setWall] = useState<HTMLDivElement | null>(null)
@@ -734,29 +908,10 @@ export function PostWall({
   }, [wall])
   const shown = visible.slice(0, postWallCount(visible.length, columns))
   const filters = postAccounts(accounts, bilibiliAccounts)
-  const hasBilibili =
-    bilibiliAccounts.length > 0 ||
-    [...posts, latestPost].some((post) => post && isBilibiliPost(post))
 
   return (
     <section className="section posts" id="feed" aria-labelledby="posts-title">
-      <SectionTitle
-        id="posts-title"
-        kicker={
-          <>
-            <XLogo className="kicker-icon" aria-hidden="true" />{" "}
-            {accounts.map((handle) => `@${handle}`).join(" · ")}
-            {hasBilibili ? (
-              <>
-                {" · "}
-                <BilibiliLogo className="kicker-icon" aria-hidden="true" />{" "}
-                bilibili
-              </>
-            ) : null}
-          </>
-        }
-        title={t("feed.title")}
-      >
+      <SectionTitle id="posts-title" title={t("feed.title")}>
         {filters.length > 1 ? (
           <div className="segmented" role="group" aria-label={t("feed.filter")}>
             <button
@@ -765,7 +920,6 @@ export function PostWall({
               onClick={() => setAccount(null)}
             >
               {t("common.all")}
-              <small>{posts.length}</small>
             </button>
             {filters.map((item) => (
               <button
@@ -775,7 +929,6 @@ export function PostWall({
                 onClick={() => setAccount(item.handle)}
               >
                 <PostAccountLabel account={item} />
-                <small>{countFor(item.handle)}</small>
               </button>
             ))}
           </div>

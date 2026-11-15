@@ -199,7 +199,6 @@ test("a schedule entry opens its sheet, and a month entry marks it in its day", 
           ArchiveDialog,
           {
             open: true,
-            kicker: "",
             title: "Month",
             monthStart,
             onMonthChange: () => {},

@@ -33,7 +33,8 @@ test("the footer's Notes opens the site's notice in a dialog, and it links About
     assert.match(footer.textContent || "", /Not affiliated/)
     assert.equal(page.querySelector("dialog.site-notice-dialog"), null)
     const notes = footer.querySelector("button.site-footer-notes")!
-    assert.equal(notes.textContent, "Notes")
+    assert.equal(notes.getAttribute("aria-label"), "Notes")
+    assert.ok(notes.querySelector("svg"))
     assert.equal(notes.getAttribute("aria-haspopup"), "dialog")
 
     await click(notes)
@@ -51,12 +52,14 @@ test("the footer's Notes opens the site's notice in a dialog, and it links About
     await click(dialog.querySelector("button.site-notice-close"))
     assert.equal(page.querySelector("dialog.site-notice-dialog"), null)
 
-    // The header holds the pages; the footer links only About and the top.
+    // The header holds the pages; the footer links only the top, by its icon.
     assert.deepEqual(
-      [...footer.querySelectorAll(".site-footer-links a")].map((link) =>
+      [...footer.querySelectorAll("a")].map((link) => [
         link.getAttribute("href"),
-      ),
-      ["/about", "#top"],
+        link.getAttribute("aria-label"),
+        link.textContent,
+      ]),
+      [["#top", "Back to top", ""]],
     )
   } finally {
     await act(async () => root?.unmount())

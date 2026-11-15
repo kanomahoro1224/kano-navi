@@ -370,32 +370,14 @@
   height: 13px;
 }
 
+/* Notes and Back to top, as two icons at the line's end. */
 .site-footer-links {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px 14px;
-  font-size: 13px;
-  font-weight: 700;
+  gap: 8px;
 }
 
-.site-footer-links a,
-.site-footer-notes {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.site-footer-links .round-button {
   color: var(--soft);
-}
-
-.site-footer-links a:hover,
-.site-footer-notes:hover {
-  color: var(--berry);
-}
-
-.site-footer-links svg {
-  width: 14px;
-  height: 14px;
 }
 
 @media (max-width: 680px) {
@@ -404,8 +386,8 @@
   }
 
   .site-footer-inner {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
+    align-items: start;
+    gap: 10px 16px;
   }
 
   .site-footer-lead strong {
@@ -414,14 +396,6 @@
 
   .site-footer-sep {
     display: none;
-  }
-
-  .site-footer-links {
-    justify-content: flex-start;
-  }
-
-  .site-footer-notes {
-    margin-right: auto;
   }
 }
 

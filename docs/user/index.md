@@ -25,8 +25,9 @@ These pages describe what you can see and do on the site.
 Every page shares one header with the site name (with an "Unofficial" mark on
 wide screens), the page links (Now, Journey, Works, LINE BLOG, About), a live
 Japan-time clock, and language and theme controls. The footer says the site
-is fan-made and unaffiliated and links to About and Back to top. **Notes**
-opens the site's notice in a window, the same on every page: the site is
+is fan-made and unaffiliated, with two icons beside it: **Notes** and
+**Back to top**. Notes opens the site's notice in a window, the same on
+every page: the site is
 unofficial and unaffiliated, the board is not a live feed and the original
 pages are authoritative, the archives are curated by hand, some translations
 are AI-generated, third-party content belongs to its rights holders, and the
@@ -46,16 +47,17 @@ code license. The About page shows the same notice.
   footer keeps a link to it while the interface is in Simplified Chinese. The
   site is deployed independently by its provider.
 
-The About page introduces the project and its author, then lists the apps
-and sites that show the board: 小鹿包们的宝物, a mobile app for Android, iOS
-and HarmonyOS by the provider of the mainland China server site (with a link
-to its download page); Kano Navi for iOS, an iPhone app for iOS 26 and later
-that is still in development; and the mainland China server site (with a link
-to it). It credits the developers who have contributed code (with a link to
-the full contributor list), the sources of the LINE BLOG archive, the help
-behind the Works page, and the provider of the mainland China server site,
-lists the AI models and technologies that built the site, and states the
-license.
+The About page introduces the project and its author. Under the title, two
+apps show the board side by side: Kano Navi for Apple, for iOS, iPadOS and
+macOS, by the board's author (with a link to its repository), and Kano Fans’
+Treasure (小鹿包们的宝物), for Android, HarmonyOS, Windows and iOS, by the
+provider of the mainland China server site (with a link to its download
+page). Each marks the platforms whose builds are unsigned. Cards then credit
+the developers who have contributed code (with a link to the full
+contributor list), the sources of the LINE BLOG archive, the help behind the
+Works page, and the provider of the mainland China server site. The page
+lists the AI models and technologies that built the site, with the less
+used models behind a "+3" button, and states the license.
 
 ## Freshness and Sources
 

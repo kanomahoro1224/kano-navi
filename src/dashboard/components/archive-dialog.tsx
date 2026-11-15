@@ -49,7 +49,6 @@ function dateFromKey(key: string) {
  */
 export function ArchiveDialog({
   open,
-  kicker,
   title,
   summary,
   monthStart,
@@ -64,7 +63,6 @@ export function ArchiveDialog({
   t,
 }: {
   open: boolean
-  kicker: ReactNode
   title: string
   summary?: ReactNode
   monthStart: Date
@@ -158,7 +156,6 @@ export function ArchiveDialog({
       <div className="archive-dialog-frame">
         <header className="archive-dialog-head">
           <div className="archive-dialog-heading">
-            <p className="kicker">{kicker}</p>
             <h2 id="archive-dialog-title" className="archive-dialog-title">
               {title}
             </h2>

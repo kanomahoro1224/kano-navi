@@ -314,18 +314,20 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
       assert.ok(xPost.querySelector(".post-quote"))
       assert.ok(xPost.querySelector(".post-engagement"))
 
-      // The section names both sources while the wall holds a dynamic.
-      const kicker = root!.container.querySelector("#feed .kicker")
-      assert.match(kicker?.textContent || "", /@synthetic_account · +bilibili/u)
+      // The heading is the title alone, without a source label.
+      assert.equal(
+        root!.container.querySelector("#feed .section-title .kicker"),
+        null,
+      )
 
       // The account filter offers the Bilibili account by its mark, not its
-      // mid, and shows only its posts.
+      // mid, without counts, and shows only its posts.
       const filters = [
         ...root!.container.querySelectorAll("#feed .segmented button"),
       ]
       assert.deepEqual(
         filters.map((button) => button.textContent),
-        ["All5", "@synthetic_account1", "bilibili4"],
+        ["All", "@synthetic_account", "bilibili"],
       )
       assert.ok(filters[2].querySelector("svg.account-mark"))
       await click(filters[2])
@@ -896,10 +898,213 @@ test("PostWall resolves per-account, hidden, promoted, and fallback avatars", as
         { src: "/media/account-avatar/aaa?v=1", initial: null },
         { src: "/media/account-avatar/bbb?v=2", initial: null },
         { src: "/media/profile/site?v=0", initial: null },
-        { src: null, initial: "_" },
+        { src: null, initial: "H" },
         { src: "/media/account-avatar/ccc?v=3", initial: null },
         { src: null, initial: "U" },
       ])
+      // A portrait that fails to load gives way to the handle's initial.
+      const broken = root!.container.querySelector(
+        "article.post-note .post-note-head img",
+      )!
+      await act(async () => {
+        broken.dispatchEvent(
+          new (browser.Event as unknown as typeof Event)("error"),
+        )
+      })
+      const first = root!.container.querySelector(
+        "article.post-note .post-note-head",
+      )!
+      assert.equal(first.querySelector("img"), null)
+      assert.equal(first.querySelector(".post-note-initial")!.textContent, "k")
+    } finally {
+      if (root) await act(async () => root!.unmount())
+      globals.IS_REACT_ACT_ENVIRONMENT = previous.act
+      globals.ResizeObserver = previous.ResizeObserver
+      globals.getComputedStyle = previous.getComputedStyle
+    }
+  })
+})
+
+test("a lone image keeps its shape within the board's bounds", async () => {
+  await withVite(async (load) => {
+    const { loneImageFrame, handleInitial } = await load(
+      "/src/dashboard/components/post-wall.tsx",
+    )
+    // Within the bounds the frame is the image's own shape, uncropped.
+    assert.deepEqual(loneImageFrame({ width: 1600, height: 900 }, 1), {
+      ratio: 1600 / 900,
+      letterboxed: false,
+    })
+    // A tall image stops at a square on the board and at 3:4 in full; a
+    // very wide one at 2:1. Past the bounds it sits whole on its own blur.
+    assert.deepEqual(loneImageFrame({ width: 900, height: 1600 }, 1), {
+      ratio: 1,
+      letterboxed: true,
+    })
+    assert.deepEqual(loneImageFrame({ width: 900, height: 1600 }, 3 / 4), {
+      ratio: 3 / 4,
+      letterboxed: true,
+    })
+    assert.deepEqual(loneImageFrame({ width: 3000, height: 1000 }, 1), {
+      ratio: 2,
+      letterboxed: true,
+    })
+    // An image of unknown size keeps the shared 16:10 frame.
+    assert.equal(loneImageFrame({ width: null, height: null }, 1), null)
+    assert.equal(handleInitial("@_SyntheticB"), "S")
+    assert.equal(handleInitial("__"), "_")
+    assert.equal(handleInitial(""), "X")
+  })
+})
+
+test("a post counts its images past four and a board quote shows one thumbnail", async () => {
+  await withVite(async (load) => {
+    const [
+      { PostWall, PostArchive },
+      { AppSettingsProvider, PageMessagesProvider, useAppSettings },
+    ] = await Promise.all([
+      load("/src/dashboard/components/post-wall.tsx"),
+      load("/src/app-settings.tsx"),
+    ])
+    const item = (name: string, width = 1200, height = 1200) => ({
+      id: `x-${name}`,
+      url: `/media/x-${name}?v=synthetic`,
+      status: "ready",
+      sourceUrl: null,
+      kind: "photo",
+      width,
+      height,
+    })
+    const post = {
+      id: "1900000000000000980",
+      source: "x",
+      accountHandle: "kano_example",
+      url: "https://x.example.invalid/kano_example/status/1900000000000000980",
+      text: "five images",
+      publishedAt: "2026-10-08T12:00:00+09:00",
+      mediaUrl: null,
+      mediaStatus: "ready",
+      media: ["a", "b", "c", "d", "e"].map((name) => item(name)),
+      translations: {},
+      sourceLanguage: "ja",
+      quote: {
+        id: "1900000000000000981",
+        authorHandle: "Related_Example",
+        authorName: "Related",
+        text: "quoted with images",
+        publishedAt: "2026-10-07T12:00:00+09:00",
+        url: "https://x.example.invalid/Related_Example/status/1900000000000000981",
+        unavailable: false,
+        media: [item("q1", 900, 1600), item("q2"), item("q3")],
+        translations: {},
+        sourceLanguage: "ja",
+      },
+    }
+    const accountAvatars = {
+      "x:related_example": "/media/account-avatar/ddd?v=4",
+    }
+    const opened: { items: any[]; index: number }[] = []
+    function Harness() {
+      const { locale, t } = useAppSettings()
+      const common = {
+        accountAvatars,
+        avatarUrl: null,
+        locale,
+        now: Date.parse("2026-10-08T21:00:00+09:00"),
+        t,
+        onOpenMedia: (items: any[], index: number) =>
+          opened.push({ items, index }),
+      }
+      return createElement(
+        "div",
+        null,
+        createElement(PostWall, {
+          ...common,
+          posts: [post],
+          latestPost: post,
+          accounts: ["kano_example"],
+          bilibiliAccounts: [],
+          windowDays: 14,
+          isLoading: false,
+          onOpenArchive: () => {},
+        }),
+        createElement(
+          "div",
+          { className: "archive" },
+          createElement(PostArchive, {
+            ...common,
+            archive: { items: [post], hasNext: false, adjacent: null },
+            layout: "list",
+            isLoading: false,
+            error: null,
+            onRetry: () => {},
+            onLoadMore: () => {},
+            onJump: () => {},
+          }),
+        ),
+      )
+    }
+    const globals = globalThis as any
+    const previous = {
+      act: globals.IS_REACT_ACT_ENVIRONMENT,
+      ResizeObserver: globals.ResizeObserver,
+      getComputedStyle: globals.getComputedStyle,
+    }
+    globals.IS_REACT_ACT_ENVIRONMENT = true
+    globals.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    }
+    globals.getComputedStyle = (element: Element) =>
+      browser.getComputedStyle(element as any)
+    let root: Rendered | undefined
+    try {
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: dashboardMessages },
+              createElement(Harness),
+            ),
+          ),
+        )
+      })
+      const note = root!.container.querySelector("#feed article.post-note")!
+      const grid = note.querySelector(":scope > .post-note-media")!
+      // Four tiles; the fourth counts the fifth and opens the viewer there.
+      assert.equal(grid.className, "post-note-media count-4")
+      assert.equal(grid.children.length, 4)
+      assert.equal(grid.querySelector(".post-media-more")!.textContent, "+1")
+      await click(grid.children[3])
+      assert.equal(opened.at(-1)!.items.length, 5)
+      assert.equal(opened.at(-1)!.index, 3)
+      // The board quote shows its author's avatar and one thumbnail
+      // counting the other two, which opens the viewer at the first.
+      const quote = note.querySelector(".post-quote")!
+      assert.ok(quote.classList.contains("has-thumb"))
+      assert.equal(
+        quote.querySelector(".post-quote-avatar")!.getAttribute("src"),
+        "/media/account-avatar/ddd?v=4",
+      )
+      const thumb = quote.querySelectorAll(".post-quote-media.is-thumb button")
+      assert.equal(thumb.length, 1)
+      assert.equal(
+        thumb[0].querySelector(".post-quote-count")!.textContent,
+        "+2",
+      )
+      await click(thumb[0])
+      assert.equal(opened.at(-1)!.items.length, 3)
+      assert.equal(opened.at(-1)!.index, 0)
+      // In the archive the quote shows its images as a post's.
+      const archived = root!.container.querySelector(".archive .post-quote")!
+      assert.ok(!archived.classList.contains("has-thumb"))
+      assert.equal(
+        archived.querySelector(".post-note-media")!.className,
+        "post-note-media count-3",
+      )
     } finally {
       if (root) await act(async () => root!.unmount())
       globals.IS_REACT_ACT_ENVIRONMENT = previous.act

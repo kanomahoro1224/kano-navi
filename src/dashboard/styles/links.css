@@ -1,11 +1,18 @@
+/* The tags sit under the links, beside the journey card on a wide page and
+   after it on a narrow one. */
 .links-layout {
   display: grid;
+  grid-template-areas:
+    "list journey"
+    "tags journey";
   grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  grid-template-rows: auto 1fr;
   align-items: start;
   gap: 24px;
 }
 
 .link-list {
+  grid-area: list;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 20px;
@@ -79,6 +86,7 @@
 }
 
 .journey-card {
+  grid-area: journey;
   position: relative;
   display: grid;
   gap: 12px;
@@ -165,11 +173,11 @@
 }
 
 .hashtags {
+  grid-area: tags;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-top: 24px;
 }
 
 .hashtags-label {
@@ -205,7 +213,12 @@
 
 @media (max-width: 900px) {
   .links-layout {
+    grid-template-areas:
+      "list"
+      "journey"
+      "tags";
     grid-template-columns: 1fr;
+    grid-template-rows: none;
   }
 }
 

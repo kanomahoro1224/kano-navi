@@ -10,12 +10,16 @@ Posts are laid out in whole rows; a long post shows its first lines and
 - Filter by account to see one account at a time, bilibili included; each
   account fills the wall with its own newest posts, even when another one
   posted more recently.
-- Open images in a viewer and step through them. A video or GIF shows its
-  still with a play mark or a GIF tag; it opens the post on X, where it
-  plays.
+- Open images in a viewer and step through them. A single image shows
+  whole, in its own shape; a very tall or very wide one sits on a blurred
+  copy of itself. Up to four images share one frame, and the fourth counts
+  any more. A video or GIF shows its still with a play mark or a GIF tag; it
+  opens the post on X, where it plays.
 - See like, repost, and reply counts of X posts as they were last collected.
 - A post that quotes another one shows the quoted post as a nested card that
-  links to it on X. A bilibili post that forwards another one shows the
+  links to it on X, with its author's portrait when the board has one. On
+  the board the quoted post's first image sits beside its words and counts
+  the others; the full post and Past posts show them all. A bilibili post that forwards another one shows the
   forwarded post the same way, with its author's name after the bilibili
   mark, and links to it on bilibili; a forward with nothing of its own to
   say shows just that card.

@@ -59,7 +59,7 @@ public pages share `src/site/`: `site-shell.tsx` (header with page navigation an
 Japan clock, footer, skip link, section title, empty and loading states;
 narrow screens show the site name and fold the page links into a menu behind
 the `kano-seal.tsx` deer seal; the footer is the fan-made and unaffiliated
-line, Notes, About and Back to top),
+line with Notes and Back to top as icons),
 `site-notice.tsx` (the site's one notice, the same on every page, which
 Notes opens in a native modal dialog and About shows in place),
 `media-dialog.tsx` (the native modal image viewer: its close button stays in
@@ -89,7 +89,7 @@ a compact one, which sets how many show in place, and the rest open in a
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
 schedule, posts or videos (at 640px and below its head is the month row beside
-the close button, then any filter: the kicker and title stay only for
+the close button, then any filter: the title stays only for
 assistive technology, the month's count is hidden and the month label takes
 the short month name), and `sheet-dialog.tsx`, the smaller modal sheet
 that shows one long post or one schedule entry in full and can open above
@@ -228,24 +228,38 @@ cached non-hidden account avatar renders that account's image; an explicit
 `null` entry (hidden mode) renders the handle initial badge. When no entry is
 present, an own post falls back to `profile.avatarUrl` while a promoted post
 (`post.promoted`), a related account's or a reposted one, shows its author's
-initial on the sunken surface beside its handle. A promoted post appears in the
+initial on the sunken surface beside its handle. The initial is the handle's
+first letter or digit, and an image that fails to load gives way to it. A
+promoted post appears in the
 All tab and the archive, never under an own account's tab, even an account that
 reposted it. A post with `repostedBy` opens with a muted repost mark,
 "Reposted by @account", naming those accounts as one locale list (`Intl.ListFormat`).
 
+A post card's wording, images and quote run from its top; only the engagement
+counts sit at its foot. Two to four images share one 16:10 frame (one tall
+image beside two for three), and a fifth or later is counted as "+N" on the
+fourth tile, which opens the image viewer. A lone image with a known size
+keeps its own shape between 2:1 and a square on the board (3:4 in the archive
+and the full post dialog); one past those bounds sits whole on a blurred copy
+of itself instead of being cropped, and one of unknown size takes the 16:10
+frame.
+
 A post that quotes another status (`post.quote`, see
 [Quoted posts](data-model.md#quoted-posts)) shows it nested in the post note,
-below the post's own wording and images and above the engagement counts: an
-indented card on the quieter sunken surface with "display name @handle ·
-time", the quoted wording clamped to four lines and up to three thumbnails
-("+N" counts the rest, on a tile that opens the image viewer even when it
-shows a video's still). The card follows the quoted post's link (its x.com
-page, or for a Bilibili forward the forwarded dynamic's or upload's Bilibili
-page) from anywhere except its thumbnails, which open the image viewer with
-the quote's images. A forward's card names the forwarded dynamic's author by
-display name after the bilibili mark, never by `@` or mid. Read more also
-appears when the clamp hides quoted wording; the full post dialog and the
-archive show the whole quote with larger thumbnails. An unavailable quote
+below the post's own wording and images and above the engagement counts: a
+card on the quieter sunken surface with "display name @handle · time" (an X
+author's cached avatar first, from `accountAvatars`; no initial when there is
+none) and the quoted wording clamped to four lines. On the board a quote with
+wording shows its first image as a square thumbnail beside the wording, with
+"+N" in its corner for the rest; a quote without wording, the full post
+dialog and the archive show the quote's images like a post's, bounded like
+the board's. The card follows the quoted post's link (its x.com page, or for
+a Bilibili forward the forwarded dynamic's or upload's Bilibili page) from
+anywhere except its images, which open the image viewer with the quote's
+images (a lone video's or GIF's still plays on X). A forward's card names the
+forwarded dynamic's author by display name after the bilibili mark, never by
+`@` or mid. Read more also appears when the clamp hides quoted wording; the
+full post dialog and the archive show the whole quote. An unavailable quote
 shows a localized "Quoted post unavailable" placeholder linking to the
 quote's `url`. Quoted wording follows the content language like the
 post's own: the quote's `translations` (its stored post's for a self-quote,

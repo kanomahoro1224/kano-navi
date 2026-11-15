@@ -1,10 +1,9 @@
 import type { ReactNode } from "react"
-import { useEffect } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import {
-  ArrowRight,
+  AppWindow,
   ArrowUpRight,
   CodeXml,
-  Globe,
   Scale,
   Smartphone,
 } from "lucide-react"
@@ -21,54 +20,49 @@ import "./about.css"
 const AUTHOR = "yexca"
 const CONTRIBUTORS_URL = `${REPOSITORY_URL}/graphs/contributors`
 /**
- * GitHub logins. Avatars load from GitHub's avatar CDN, which answers
- * anonymous cross-site image requests; github.com/<login>.png may not.
+ * GitHub accounts, named as on GitHub. Avatars load from GitHub's avatar
+ * CDN, which answers anonymous cross-site image requests;
+ * github.com/<login>.png may not.
  */
-const contributors = ["kanomahoro1224"]
+const contributors = [{ login: "kanomahoro1224", name: "Lu Ke" }]
 const LINEBLOG_RECOVERY_URL =
   "https://github.com/ZhFuwe/Kano_LINE_Blog_Recovery"
 const ZHFUWE = "ZhFuwe"
 const ZHFUWE_URL = "https://github.com/ZhFuwe"
-const MAINLAND_PROVIDER = "鹿可可"
-const MAINLAND_PROVIDER_URL = "https://space.bilibili.com/426276698"
+const LUKEKE_URL = "https://space.bilibili.com/426276698"
 
-type Place = {
+type App = {
   key: string
-  /** A proper name shown as written; otherwise `about.place.<key>`. */
-  name?: string
-  /** The language of `name`, so the browser picks matching glyphs. */
-  nameLang?: string
   icon: LucideIcon
-  maker: string
-  /** Message keys of the platform labels. */
+  /** A proper name, or `about.name.<key>` when it reads differently by language. */
+  maker: { name: string } | { key: string }
+  /** Message keys of the platforms. */
   platforms: string[]
-  /** Omitted while the place is still in development. */
-  link?: { href: string; label: "download" | "visit" }
+  /** The platforms whose builds are unsigned. */
+  unsigned: string[]
+  link: { href: string; label: "download" | "repository" }
 }
 
-/** Other apps and sites that show the board, by Kano Navi or by others. */
-const places: Place[] = [
+/** The apps that show the board, by Kano Navi or by others. */
+const apps: App[] = [
   {
-    key: "xiaolubao",
-    name: "小鹿包们的宝物",
-    nameLang: "zh-CN",
+    key: "treasure",
     icon: Smartphone,
-    maker: MAINLAND_PROVIDER,
-    platforms: ["android", "ios", "harmonyos"],
+    maker: { key: "lukeke" },
+    platforms: ["android", "harmonyos", "windows", "ios"],
+    unsigned: ["ios"],
     link: { href: "https://dl.xiaolubao.com", label: "download" },
   },
   {
-    key: "ios",
-    icon: Smartphone,
-    maker: AUTHOR,
-    platforms: ["iphone", "ios26"],
-  },
-  {
-    key: "mainland",
-    icon: Globe,
-    maker: MAINLAND_PROVIDER,
-    platforms: ["web"],
-    link: { href: "https://xiaolubao.com", label: "visit" },
+    key: "apple",
+    icon: AppWindow,
+    maker: { name: AUTHOR },
+    platforms: ["ios", "ipados", "macos"],
+    unsigned: ["ios", "ipados", "macos"],
+    link: {
+      href: "https://github.com/yexca/kano-navi-apple",
+      label: "repository",
+    },
   },
 ]
 
@@ -76,7 +70,8 @@ const technologyGroups = [
   {
     key: "ai",
     mono: true,
-    items: ["Claude Opus 5.5", "GPT-6-Astra", "GPT-6.1-Sol", "GPT-5.6-Sol"],
+    items: ["Claude Opus 5.5", "Gemini 4 Hydrogen", "GPT-6.1-Sol"],
+    more: ["Gemini 4 Carbon", "GPT-6-Astra", "GPT-5.6-Sol"],
   },
   {
     key: "frontend",
@@ -96,106 +91,168 @@ const technologyGroups = [
   { key: "delivery", items: ["Docker", "Docker Compose", "GitHub Actions"] },
 ]
 
-function Chapter({
-  number,
+/** One part of the page under a small label, as wide as the page. */
+function Section({
+  id,
   title,
-  wide = false,
   children,
 }: {
-  number: number
+  id: string
   title: ReactNode
-  wide?: boolean
   children?: ReactNode
 }) {
-  const id = `about-chapter-${number}`
   return (
-    <section className="chapter" aria-labelledby={id}>
-      <h2 id={id}>
-        <span className="chapter-number" aria-hidden="true">
-          {String(number).padStart(2, "0")}
-        </span>
+    <section
+      className={`about-section about-section-${id}`}
+      aria-labelledby={`about-${id}-title`}
+    >
+      <h2 className="kicker" id={`about-${id}-title`}>
         {title}
       </h2>
-      <div className={wide ? "chapter-body is-wide" : "chapter-body"}>
-        {children}
-      </div>
+      {children}
     </section>
   )
 }
 
-/** A message with one of its values as a link to that person's page. */
+/** A message whose values are links, each to its person's or project's page. */
 function CreditText({
   message,
-  param,
-  name,
-  href,
+  links,
 }: {
   message: string
-  param: string
-  name: string
-  href: string
+  links: Record<string, { text: string; href: string }>
 }) {
   const { t } = useAppSettings()
-  const marker = "__CREDIT_NAME__"
-  const [before, after = ""] = t(message, { [param]: marker }).split(marker)
+  const markers = Object.fromEntries(
+    Object.keys(links).map((param) => [param, `__LINK_${param}__`]),
+  )
+  // Splitting on a captured marker leaves each link's name at an odd index.
+  const parts = t(message, markers).split(/__LINK_(\w+)__/u)
   return (
     <p>
-      {before}
-      <ExternalLink className="about-inline-link" href={href}>
-        {name}
-      </ExternalLink>
-      {after}
+      {parts.map((part, index) =>
+        index % 2 && links[part] ? (
+          <ExternalLink
+            key={index}
+            className="about-inline-link"
+            href={links[part].href}
+          >
+            {links[part].text}
+          </ExternalLink>
+        ) : (
+          part
+        ),
+      )}
     </p>
   )
 }
 
-function PlaceRow({ place }: { place: Place }) {
+function AppCard({ app }: { app: App }) {
   const { t } = useAppSettings()
-  const { icon: Icon, link } = place
+  const { icon: Icon, link } = app
+  const maker =
+    "name" in app.maker ? app.maker.name : t(`about.name.${app.maker.key}`)
+  const signed = app.platforms.filter((key) => !app.unsigned.includes(key))
+  const unsigned = app.platforms.filter((key) => app.unsigned.includes(key))
   return (
-    <li className="about-place">
-      <span className="about-place-icon" aria-hidden="true">
+    <li className="about-app">
+      <span className="about-app-icon" aria-hidden="true">
         <Icon />
       </span>
-      <div className="about-place-name">
-        <h3 lang={place.nameLang}>
-          {place.name ?? t(`about.place.${place.key}`)}
-        </h3>
-        <p>{t("about.by", { author: place.maker })}</p>
+      <div className="about-app-name">
+        <h3>{t(`about.app.${app.key}`)}</h3>
+        <p>{t("about.by", { author: maker })}</p>
       </div>
-      <ul className="about-place-platforms" aria-label={t("about.platforms")}>
-        {place.platforms.map((platform) => (
-          <li key={platform} className="tag">
-            {t(`about.platform.${platform}`)}
+      <ExternalLink className="pill-button about-app-action" href={link.href}>
+        {link.label === "repository" ? <CodeXml aria-hidden="true" /> : null}
+        {t(`about.${link.label}`)}
+        <ArrowUpRight aria-hidden="true" />
+      </ExternalLink>
+      <ul className="about-app-platforms" aria-label={t("about.platforms")}>
+        {signed.map((key) => (
+          <li key={key} className="tag">
+            {t(`about.platform.${key}`)}
           </li>
         ))}
+        {unsigned.length ? (
+          <li className="about-app-unsigned">
+            <ul>
+              {unsigned.map((key) => (
+                <li key={key} className="tag">
+                  {t(`about.platform.${key}`)}
+                </li>
+              ))}
+            </ul>
+            <span>{t("about.unsigned")}</span>
+          </li>
+        ) : null}
       </ul>
-      <div className="about-place-action">
-        {link ? (
-          <ExternalLink className="pill-button" href={link.href}>
-            {t(`about.${link.label}`)}
-            <ArrowUpRight aria-hidden="true" />
-          </ExternalLink>
-        ) : (
-          <span className="about-place-status">{t("about.inDevelopment")}</span>
-        )}
-      </div>
     </li>
   )
 }
 
-function CreditItem({
-  label,
-  children,
-}: {
-  label: ReactNode
-  children: ReactNode
-}) {
+function Card({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
-    <li className="about-credit">
+    <li className="about-card">
       <h3>{label}</h3>
-      <div>{children}</div>
+      {children}
     </li>
+  )
+}
+
+/**
+ * The rest of a list behind "+N": a button that opens them in a small
+ * panel, which Escape, a click elsewhere or leaving it with the keyboard
+ * closes.
+ */
+function MoreItems({ items, label }: { items: string[]; label: string }) {
+  const [open, setOpen] = useState(false)
+  const root = useRef<HTMLSpanElement>(null)
+  const button = useRef<HTMLButtonElement>(null)
+  const id = useId()
+  useEffect(() => {
+    if (!open) return
+    const outside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      setOpen(false)
+      button.current?.focus()
+    }
+    document.addEventListener("pointerdown", outside)
+    document.addEventListener("keydown", escape)
+    return () => {
+      document.removeEventListener("pointerdown", outside)
+      document.removeEventListener("keydown", escape)
+    }
+  }, [open])
+  return (
+    <span
+      className="about-more"
+      ref={root}
+      onBlur={(event) => {
+        if (!root.current?.contains(event.relatedTarget as Node | null))
+          setOpen(false)
+      }}
+    >
+      <button
+        ref={button}
+        type="button"
+        className="about-more-button"
+        aria-expanded={open}
+        aria-controls={id}
+        aria-label={label}
+        onClick={() => setOpen((value) => !value)}
+      >
+        +{items.length}
+      </button>
+      <ul id={id} className="about-more-panel" hidden={!open}>
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </span>
   )
 }
 
@@ -216,7 +273,6 @@ export function AboutApp() {
 
       <main className="site-main" id="about-content">
         <section className="about-hero" aria-labelledby="about-title">
-          <p className="kicker">{t("about.kicker")}</p>
           <h1 id="about-title">
             {t("site.name")}
             <span aria-hidden="true">🍓🦌</span>
@@ -249,105 +305,103 @@ export function AboutApp() {
           </div>
         </section>
 
-        <div className="chapters">
-          <Chapter number={1} title={t("about.places")} wide>
-            <ul className="about-places">
-              {places.map((place) => (
-                <PlaceRow key={place.key} place={place} />
-              ))}
-            </ul>
-          </Chapter>
+        <Section id="apps" title={t("about.apps")}>
+          <ul className="about-app-list">
+            {apps.map((app) => (
+              <AppCard key={app.key} app={app} />
+            ))}
+          </ul>
+        </Section>
 
-          <Chapter number={2} title={t("about.credits")} wide>
-            <ul className="about-credits">
-              <CreditItem label={t("about.contributors")}>
-                <p>{t("about.contributorsText")}</p>
-                <ul
-                  className="about-contributors"
-                  aria-label={t("about.contributorList")}
-                >
-                  {contributors.map((login) => (
-                    <li key={login}>
-                      <ExternalLink href={`https://github.com/${login}`}>
-                        <img
-                          src={`https://avatars.githubusercontent.com/${login}?size=128`}
-                          alt=""
-                          referrerPolicy="no-referrer"
-                          width={48}
-                          height={48}
-                          loading="lazy"
-                          decoding="async"
-                        />
-                        <span>{login}</span>
-                      </ExternalLink>
-                    </li>
+        <Section id="credits" title={t("about.credits")}>
+          <ul className="about-cards">
+            <Card label={t("about.contributors")}>
+              <p>{t("about.contributorsText")}</p>
+              <ul
+                className="about-contributors"
+                aria-label={t("about.contributorList")}
+              >
+                {contributors.map(({ login, name }) => (
+                  <li key={login}>
+                    <ExternalLink href={`https://github.com/${login}`}>
+                      <img
+                        src={`https://avatars.githubusercontent.com/${login}?size=128`}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        width={48}
+                        height={48}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <span>
+                        {name} <small>({login})</small>
+                      </span>
+                    </ExternalLink>
+                  </li>
+                ))}
+              </ul>
+              <ExternalLink className="text-link" href={CONTRIBUTORS_URL}>
+                {t("about.contributorsAll")}
+                <ArrowUpRight aria-hidden="true" />
+              </ExternalLink>
+            </Card>
+            <Card label="LINE BLOG">
+              <CreditText
+                message="about.creditsLineblog"
+                links={{
+                  name: { text: ZHFUWE, href: ZHFUWE_URL },
+                  project: {
+                    text: "Kano_LINE_Blog_Recovery",
+                    href: LINEBLOG_RECOVERY_URL,
+                  },
+                }}
+              />
+            </Card>
+            <Card label={t("works.label")}>
+              <CreditText
+                message="about.creditsWorks"
+                links={{ name: { text: ZHFUWE, href: ZHFUWE_URL } }}
+              />
+            </Card>
+            <Card label={t("about.mainland")}>
+              <CreditText
+                message="about.creditsMainland"
+                links={{
+                  provider: { text: t("about.name.lukeke"), href: LUKEKE_URL },
+                }}
+              />
+            </Card>
+          </ul>
+        </Section>
+
+        <Section id="stack" title={t("about.builtWith")}>
+          <p>{t("about.aiCredit", { author: AUTHOR })}</p>
+          <ul className="about-cards">
+            {technologyGroups.map(({ key, items, mono, more }) => (
+              <Card key={key} label={t(`about.group.${key}`)}>
+                <ul className={mono ? "about-chips is-mono" : "about-chips"}>
+                  {items.map((item) => (
+                    <li key={item}>{item}</li>
                   ))}
+                  {more?.length ? (
+                    <li className="is-more">
+                      <MoreItems
+                        items={more}
+                        label={t("about.moreModels", {
+                          count: more.length,
+                        })}
+                      />
+                    </li>
+                  ) : null}
                 </ul>
-                <ExternalLink className="text-link" href={CONTRIBUTORS_URL}>
-                  {t("about.contributorsAll")}
-                  <ArrowUpRight aria-hidden="true" />
-                </ExternalLink>
-              </CreditItem>
-              <CreditItem label="LINE BLOG">
-                <CreditText
-                  message="about.creditsLineblog"
-                  param="name"
-                  name={ZHFUWE}
-                  href={ZHFUWE_URL}
-                />
-                <ExternalLink
-                  className="text-link"
-                  href={LINEBLOG_RECOVERY_URL}
-                >
-                  {t("about.creditsRecovery")}
-                  <ArrowUpRight aria-hidden="true" />
-                </ExternalLink>
-              </CreditItem>
-              <CreditItem label={t("works.label")}>
-                <CreditText
-                  message="about.creditsWorks"
-                  param="name"
-                  name={ZHFUWE}
-                  href={ZHFUWE_URL}
-                />
-                <a className="text-link" href="/works">
-                  {t("about.creditsWorksPage")}
-                  <ArrowRight aria-hidden="true" />
-                </a>
-              </CreditItem>
-              <CreditItem label={t("about.place.mainland")}>
-                <CreditText
-                  message="about.creditsMainland"
-                  param="provider"
-                  name={MAINLAND_PROVIDER}
-                  href={MAINLAND_PROVIDER_URL}
-                />
-              </CreditItem>
-            </ul>
-          </Chapter>
+              </Card>
+            ))}
+          </ul>
+        </Section>
 
-          <Chapter number={3} title={t("about.builtWith")} wide>
-            <p>{t("about.aiCredit", { author: AUTHOR })}</p>
-            <dl className="about-stack">
-              {technologyGroups.map(({ key, items, mono }) => (
-                <div key={key}>
-                  <dt>{t(`about.group.${key}`)}</dt>
-                  <dd>
-                    <ul className={mono ? "is-mono" : undefined}>
-                      {items.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </Chapter>
-
-          <Chapter number={4} title={t("about.notice")}>
-            <SiteNotice />
-          </Chapter>
-        </div>
+        <Section id="notice" title={t("about.notice")}>
+          <SiteNotice />
+        </Section>
       </main>
 
       <SiteFooter />

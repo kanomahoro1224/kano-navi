@@ -89,7 +89,7 @@ a compact one, which sets how many show in place, and the rest open in a
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
 schedule, posts or videos (at 640px and below its head is the month row beside
-the close button, then any filter: the kicker and title stay only for
+the close button, then any filter: the title stays only for
 assistive technology, the month's count is hidden and the month label takes
 the short month name), and `sheet-dialog.tsx`, the smaller modal sheet
 that shows one long post or one schedule entry in full and can open above

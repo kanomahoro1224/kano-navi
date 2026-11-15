@@ -29,7 +29,7 @@ import {
   useTranslatedText,
 } from "@/components/translated-text"
 import { EmptyNote, Placeholder, SectionTitle } from "@/site/site-shell"
-import { BilibiliLogo, ExternalLink, XLogo, followCardLink } from "@/site/links"
+import { BilibiliLogo, ExternalLink, followCardLink } from "@/site/links"
 import { isMediaUrl, mediaSrcSet } from "@/lib/media"
 import {
   formatCompact,
@@ -887,11 +887,6 @@ export function PostWall({
         : posts,
     [account, posts],
   )
-  const countFor = (handle: string) =>
-    posts.filter(
-      (post) =>
-        String(post.accountHandle || "").toLowerCase() === handle.toLowerCase(),
-    ).length
   // The board shows whole rows of the wall's current column count (see
   // postWallCount); older posts stay in the Past posts dialog.
   const [wall, setWall] = useState<HTMLDivElement | null>(null)
@@ -913,29 +908,10 @@ export function PostWall({
   }, [wall])
   const shown = visible.slice(0, postWallCount(visible.length, columns))
   const filters = postAccounts(accounts, bilibiliAccounts)
-  const hasBilibili =
-    bilibiliAccounts.length > 0 ||
-    [...posts, latestPost].some((post) => post && isBilibiliPost(post))
 
   return (
     <section className="section posts" id="feed" aria-labelledby="posts-title">
-      <SectionTitle
-        id="posts-title"
-        kicker={
-          <>
-            <XLogo className="kicker-icon" aria-hidden="true" />{" "}
-            {accounts.map((handle) => `@${handle}`).join(" · ")}
-            {hasBilibili ? (
-              <>
-                {" · "}
-                <BilibiliLogo className="kicker-icon" aria-hidden="true" />{" "}
-                bilibili
-              </>
-            ) : null}
-          </>
-        }
-        title={t("feed.title")}
-      >
+      <SectionTitle id="posts-title" title={t("feed.title")}>
         {filters.length > 1 ? (
           <div className="segmented" role="group" aria-label={t("feed.filter")}>
             <button
@@ -944,7 +920,6 @@ export function PostWall({
               onClick={() => setAccount(null)}
             >
               {t("common.all")}
-              <small>{posts.length}</small>
             </button>
             {filters.map((item) => (
               <button
@@ -954,7 +929,6 @@ export function PostWall({
                 onClick={() => setAccount(item.handle)}
               >
                 <PostAccountLabel account={item} />
-                <small>{countFor(item.handle)}</small>
               </button>
             ))}
           </div>

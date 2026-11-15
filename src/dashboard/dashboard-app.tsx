@@ -13,7 +13,6 @@ import { WifiOff } from "lucide-react"
 import { useAppSettings } from "@/app-settings"
 import { MediaDialog, stepIndex } from "@/site/media-dialog"
 import { SiteFooter, SiteHeader, SkipLink } from "@/site/site-shell"
-import { BilibiliLogo, XLogo, YouTubeLogo } from "@/site/links"
 import { POST_WINDOW_DAYS, VIDEO_WINDOW_DAYS } from "./content"
 import { featuredVideoIdOf } from "./derive-dashboard"
 import { syncStateFor } from "./freshness"
@@ -96,9 +95,8 @@ function latestArchiveMonth(months: { month: string }[] | null) {
 }
 
 /**
- * Heading copy of each archive dialog. The post and video kickers name the
- * platforms only, since the filter names each account. The total shows only
- * where no filter does: a filter's pressed button already counts it.
+ * Heading copy of each archive dialog. The total shows only where no filter
+ * does: a filter's pressed button already counts it.
  */
 function archiveCopy(
   view: ArchiveRequest,
@@ -110,24 +108,11 @@ function archiveCopy(
   const total = archive ? archive.total : null
   if (view.kind === "schedule")
     return {
-      kicker: t("nav.schedule"),
       title: t("schedule.monthTitle"),
       summary: total == null ? null : t("schedule.weekCount", { count: total }),
     }
   if (view.kind === "posts")
     return {
-      kicker: (
-        <>
-          <XLogo className="kicker-icon" aria-hidden="true" /> X
-          {bilibiliAccounts.length ? (
-            <>
-              {" · "}
-              <BilibiliLogo className="kicker-icon" aria-hidden="true" />{" "}
-              bilibili
-            </>
-          ) : null}
-        </>
-      ),
       title: t("feed.archiveTitle"),
       summary:
         total == null || accounts.length + bilibiliAccounts.length > 1
@@ -135,13 +120,6 @@ function archiveCopy(
           : t("feed.monthCount", { count: total }),
     }
   return {
-    kicker: (
-      <>
-        <YouTubeLogo className="kicker-icon" aria-hidden="true" /> YouTube
-        {" · "}
-        <BilibiliLogo className="kicker-icon" aria-hidden="true" /> bilibili
-      </>
-    ),
     title: t("videos.archiveTitle"),
     summary: null,
   }

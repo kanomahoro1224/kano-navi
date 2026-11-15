@@ -314,18 +314,20 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
       assert.ok(xPost.querySelector(".post-quote"))
       assert.ok(xPost.querySelector(".post-engagement"))
 
-      // The section names both sources while the wall holds a dynamic.
-      const kicker = root!.container.querySelector("#feed .kicker")
-      assert.match(kicker?.textContent || "", /@synthetic_account · +bilibili/u)
+      // The heading is the title alone, without a source label.
+      assert.equal(
+        root!.container.querySelector("#feed .section-title .kicker"),
+        null,
+      )
 
       // The account filter offers the Bilibili account by its mark, not its
-      // mid, and shows only its posts.
+      // mid, without counts, and shows only its posts.
       const filters = [
         ...root!.container.querySelectorAll("#feed .segmented button"),
       ]
       assert.deepEqual(
         filters.map((button) => button.textContent),
-        ["All5", "@synthetic_account1", "bilibili4"],
+        ["All", "@synthetic_account", "bilibili"],
       )
       assert.ok(filters[2].querySelector("svg.account-mark"))
       await click(filters[2])

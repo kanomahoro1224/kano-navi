@@ -66,7 +66,6 @@ async function mountDialog(
       ArchiveDialog,
       {
         open: true,
-        kicker: "",
         title: "Posts",
         monthStart: new Date(2026, 9, 1),
         latestMonth: new Date(2026, 10, 1),

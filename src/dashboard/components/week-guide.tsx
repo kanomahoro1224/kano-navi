@@ -988,7 +988,14 @@ export function WeekGuide({
       id="schedule"
       aria-labelledby="guide-title"
     >
-      <SectionTitle id="guide-title" kicker={label} title={t("schedule.title")}>
+      <SectionTitle
+        id="guide-title"
+        title={
+          <>
+            {t("schedule.title")} <span className="guide-range">{label}</span>
+          </>
+        }
+      >
         <CalendarSubscribe t={t} />
         <button
           type="button"

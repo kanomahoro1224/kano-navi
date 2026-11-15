@@ -49,11 +49,7 @@ export function LinkDirectory({
 }) {
   return (
     <section className="section links" id="links" aria-labelledby="links-title">
-      <SectionTitle
-        id="links-title"
-        kicker={t("directory.kicker")}
-        title={t("directory.title")}
-      />
+      <SectionTitle id="links-title" title={t("directory.title")} />
       <div className="links-layout">
         <ul className="link-list">
           {resources.map((resource) => {

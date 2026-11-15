@@ -21,6 +21,11 @@
   the board its first image beside its wording with a count of the rest.
   Past posts and the full post show a quote's images like a post's.
 - A post whose portrait fails to load shows its account's initial.
+- Weekly schedule, Recent Posts, Recent streams and works, Links, and the
+  month, Past posts and Past videos sheets show their titles without a small
+  label above them; the weekly schedule shows the week's dates beside its
+  title. The board's post and video
+  filters show no counts. The public API still returns the counts.
 
 </details>
 

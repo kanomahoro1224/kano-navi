@@ -95,7 +95,7 @@ func Dashboard(d *sqlite.Dashboard) map[string]any {
 	if d.Summary.NextStream != nil {
 		nextStream = publicVideo(*d.Summary.NextStream)
 	}
-	return map[string]any{"profile": profile, "summary": map[string]any{"nextEvent": nextEvent, "nextStream": nextStream, "latestVideo": latestVideo, "latestPost": latestPost, "counts": map[string]any{"posts": d.Summary.Counts.Posts, "events": d.Summary.Counts.Events, "upcomingEvents": d.Summary.Counts.UpcomingEvents, "videos": d.Summary.Counts.Videos, "resources": d.Summary.Counts.Resources}}, "projection": publicDashboardProjection(d.Projection), "posts": posts, "events": events, "videos": videos, "focus": focus, "timeline": timeline, "resources": resources, "assets": assets, "scheduleImages": schedule, "profileMedia": map[string]any{"avatar": publicProfileMedia(d.ProfileMedia.Avatar), "banner": publicProfileMedia(d.ProfileMedia.Banner)}, "liveNow": publicLiveNow(d.LiveNow), "meta": map[string]any{"fetchedAt": value(d.Meta.FetchedAt), "sourceFetchedAt": d.Meta.SourceFetchedAt, "lastSync": PublicSyncRun(d.Meta.LastSync), "postWindowDays": d.Meta.PostWindowDays, "eventWindow": map[string]any{"from": d.Meta.EventWindow.From, "to": d.Meta.EventWindow.To, "paginated": d.Meta.EventWindow.Paginated}, "generatedAt": d.Meta.GeneratedAt, "mediaCache": d.Meta.MediaCache, "revision": d.Meta.Revision, "featuredVideoId": value(d.Meta.FeaturedVideoID), "xAccounts": d.Meta.XAccounts, "bilibiliAccounts": d.Meta.BilibiliAccounts}}
+	return map[string]any{"profile": profile, "summary": map[string]any{"nextEvent": nextEvent, "nextStream": nextStream, "latestVideo": latestVideo, "latestPost": latestPost, "counts": map[string]any{"posts": d.Summary.Counts.Posts, "events": d.Summary.Counts.Events, "upcomingEvents": d.Summary.Counts.UpcomingEvents, "videos": d.Summary.Counts.Videos, "resources": d.Summary.Counts.Resources}}, "projection": publicDashboardProjection(d.Projection), "posts": posts, "events": events, "videos": videos, "focus": focus, "timeline": timeline, "resources": resources, "assets": assets, "scheduleImages": schedule, "profileMedia": map[string]any{"avatar": publicProfileMedia(d.ProfileMedia.Avatar), "banner": publicProfileMedia(d.ProfileMedia.Banner)}, "accountAvatars": PublicAccountAvatars(d.AccountAvatars), "liveNow": publicLiveNow(d.LiveNow), "meta": map[string]any{"fetchedAt": value(d.Meta.FetchedAt), "sourceFetchedAt": d.Meta.SourceFetchedAt, "lastSync": PublicSyncRun(d.Meta.LastSync), "postWindowDays": d.Meta.PostWindowDays, "eventWindow": map[string]any{"from": d.Meta.EventWindow.From, "to": d.Meta.EventWindow.To, "paginated": d.Meta.EventWindow.Paginated}, "generatedAt": d.Meta.GeneratedAt, "mediaCache": d.Meta.MediaCache, "revision": d.Meta.Revision, "featuredVideoId": value(d.Meta.FeaturedVideoID), "xAccounts": d.Meta.XAccounts, "bilibiliAccounts": d.Meta.BilibiliAccounts}}
 }
 
 func valueInt(v *int64) any {
@@ -330,6 +330,22 @@ func publicProfileMedia(m *sqlite.ProfileMedia) any {
 		return nil
 	}
 	return map[string]any{"id": m.ID, "slot": m.Slot, "source": m.Source, "sourceUrl": value(m.SourceURL), "status": m.Status, "isActive": m.IsActive, "publicUrl": value(m.PublicURL)}
+}
+
+// PublicAccountAvatars exposes only ready opaque media routes (or explicit nil
+// for hidden accounts) keyed by "source:account_key".
+func PublicAccountAvatars(items map[string]*string) map[string]any {
+	out := map[string]any{}
+	for key, val := range items {
+		if val == nil {
+			out[key] = nil
+			continue
+		}
+		if strings.HasPrefix(*val, "/media/account-avatar/") {
+			out[key] = *val
+		}
+	}
+	return out
 }
 
 type PublicSyncRunResponse struct {

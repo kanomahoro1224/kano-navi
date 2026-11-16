@@ -357,6 +357,7 @@ export interface ArchiveSnapshot<T> {
   dayCounts?: Record<string, number>
   accountCounts?: Record<string, number>
   categoryCounts?: Record<string, number>
+  accountAvatars?: Record<string, string | null>
 }
 
 /**
@@ -372,6 +373,7 @@ export interface LiveNow {
 
 export interface Dashboard {
   profile: Profile
+  accountAvatars?: Record<string, string | null>
   /** An unannounced broadcast on air now; absent in older snapshots. */
   liveNow?: LiveNow | null
   projection?: DashboardProjection

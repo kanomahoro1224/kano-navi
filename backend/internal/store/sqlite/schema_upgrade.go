@@ -273,6 +273,14 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 		}
 		return nil
 	}
+	if added["account_avatar_candidates.observation_order"] {
+		if err := exec(`WITH ranked AS (
+			SELECT id, ROW_NUMBER() OVER (PARTITION BY source, account_key ORDER BY updated_at, created_at, id DESC) AS position
+			FROM account_avatar_candidates
+		) UPDATE account_avatar_candidates SET observation_order=(SELECT position FROM ranked WHERE ranked.id=account_avatar_candidates.id)`); err != nil {
+			return err
+		}
+	}
 	// Superseded seed wording. Only rows that still carry the exact seeded
 	// values change, so operator edits are preserved.
 	for _, statement := range []string{

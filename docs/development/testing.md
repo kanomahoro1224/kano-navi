@@ -3,9 +3,10 @@
 The backend is Go. `make go-test` runs its contracts and vet without Docker.
 `make ci-backend` runs golangci-lint with `scripts/golangci-lint.yml`, vet,
 and the contracts again under the race detector (`make go-race`, which needs
-cgo and a C compiler). `make go-check` also validates formatting, CGO-free
-operation, Linux/Windows builds and disposable read-only/development
-containers. Source tests, including the historical-window API adapter, use
+cgo and a C compiler). `make go-check` validates what those leave out:
+formatting (`make go-format-check`), the contracts without cgo and the
+Linux/Windows builds (`make go-build-check`), and disposable
+read-only/development containers (`make go-container-check`). Source tests, including the historical-window API adapter, use
 fake transports and synthetic credentials; no check synchronizes live
 sources. See [Backend](../architecture/backend.md).
 
@@ -57,7 +58,8 @@ when the affected code needs that check.
 
 make ci-style runs make go-format-check, the gofmt step of make go-check on LF
 copies of the Go sources, so make check catches Go formatting without Docker.
-ci-local runs make go-check after make check, matching the hosted Go gate.
+ci-local runs make go-check after make check, matching the hosted Go builds
+and Go container jobs.
 make install uses npm ci. Narrow targets and ci-local do not reinstall.
 make ci installs first, verifies the registry signatures of the fresh
 installation with make npm-audit-signatures, then runs ci-local. Both full targets enforce image
@@ -198,7 +200,7 @@ tagged commit; it does not call `validate.yml` again.
 
 ```text
 Style
-Plan -> Backend, Go gate, Frontend, API smoke, Docker image
+Plan -> Backend, Go builds, Go container, Frontend, API smoke, Docker image
 Plan, Style, and all planned jobs -> Gate
 ```
 
@@ -207,10 +209,12 @@ Style runs beside them and always runs make ci-style, which also checks the
 workflow files and their shell snippets with actionlint (shellcheck is
 preinstalled on the runner) and tests the CI selection and gate policy with
 make test-ci-plan. Backend runs a static matrix entry for golangci-lint and vet,
-plus four race matrix entries that cover the Go contract tests. Go gate runs
-make go-check:
-formatting, CGO-free and cross-platform builds and the read-only container
-smoke. Frontend runs make npm-audit-signatures on its fresh installation, then
+plus four race matrix entries that cover the Go contract tests. Go builds runs
+make go-build-check, the contracts without cgo and the Linux/Windows builds,
+and Go container runs make go-container-check, the service image and its
+read-only container smoke; Style already checks Go formatting. Backend, Go
+builds and Go container each restore a Go compilation cache keyed by the Go
+sources and save a new one when the sources change. Frontend runs make npm-audit-signatures on its fresh installation, then
 make ci-frontend: the type check, the build and the frontend tests. API smoke
 runs make smoke against the Go backend. Docker image runs make docker-build,
 which compiles the Go backend and the frontend into the release image, with
@@ -221,17 +225,17 @@ ci-results); its tests guard against accidental validation skips. In the `pr`
 tier it compares the PR base with the checked-out merge result, including both
 sides of renames and deleted paths:
 
-| PR changes                                                                     | Planned jobs beside Plan, Style, and the Gate              |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Only documentation, issue forms, `.env.example`, Compose or formatter settings | None                                                       |
-| Go backend source, tests, SQL or module files                                  | Backend, Go gate, API smoke, Docker image                  |
-| The static seed                                                                | Backend, Go gate, Frontend, API smoke, Docker image        |
-| `backend/Dockerfile`                                                           | Go gate                                                    |
-| Frontend source, `public/`, frontend configuration, npm manifest or lockfile   | Frontend, Docker image                                     |
-| Frontend tests                                                                 | Frontend                                                   |
-| Root `Dockerfile`, `.dockerignore`, or `LICENSE`                               | Docker image                                               |
-| A validation script                                                            | The jobs that run or type-check it, listed in `scriptJobs` |
-| Makefile, `.nvmrc`, workflows, composite actions, the planner, or other paths  | All jobs                                                   |
+| PR changes                                                                     | Planned jobs beside Plan, Style, and the Gate                       |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Only documentation, issue forms, `.env.example`, Compose or formatter settings | None                                                                |
+| Go backend source, tests, SQL or module files                                  | Backend, Go builds, Go container, API smoke, Docker image           |
+| The static seed                                                                | Backend, Go builds, Go container, Frontend, API smoke, Docker image |
+| `backend/Dockerfile`                                                           | Go container                                                        |
+| Frontend source, `public/`, frontend configuration, npm manifest or lockfile   | Frontend, Docker image                                              |
+| Frontend tests                                                                 | Frontend                                                            |
+| Root `Dockerfile`, `.dockerignore`, or `LICENSE`                               | Docker image                                                        |
+| A validation script                                                            | The jobs that run or type-check it, listed in `scriptJobs`          |
+| Makefile, `.nvmrc`, workflows, composite actions, the planner, or other paths  | All jobs                                                            |
 
 Mixed changes use the union of planned jobs, and a missing or empty PR diff
 selects all jobs. The frontend build type-checks every TypeScript script, so

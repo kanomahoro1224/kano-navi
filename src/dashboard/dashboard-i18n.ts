@@ -13,7 +13,6 @@ export const dashboardMessages = {
     "schedule.imageView": "查看周程图",
     "schedule.imageNote": "本周程图来自 X 的公告，可能早于或晚于上方列表更新。",
     "media.unavailable": "图片暂不可用",
-    "directory.kicker": "链接与档案",
     "nav.schedule": "日程",
     "hero.kicker": "Virtual Artist · ミリプロ SONA",
     "hero.catchphrase": "みんなの毎日を、まほろばに。",
@@ -224,7 +223,6 @@ export const dashboardMessages = {
     "schedule.imageNote":
       "X で告知された週間スケジュール画像です。上の一覧と更新のタイミングが異なる場合があります。",
     "media.unavailable": "画像は準備中です",
-    "directory.kicker": "リンクとアーカイブ",
     "nav.schedule": "予定",
     "hero.kicker": "Virtual Artist · ミリプロ SONA",
     "hero.catchphrase": "みんなの毎日を、まほろばに。",
@@ -441,7 +439,6 @@ export const dashboardMessages = {
     "schedule.imageNote":
       "The weekly schedule image as announced on X. It may update before or after the list above.",
     "media.unavailable": "Image not available yet",
-    "directory.kicker": "Links & archive",
     "nav.schedule": "Schedule",
     "hero.kicker": "Virtual Artist · ミリプロSONA",
     "hero.catchphrase": "みんなの毎日を、まほろばに。",

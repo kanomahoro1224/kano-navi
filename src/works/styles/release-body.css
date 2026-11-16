@@ -556,6 +556,7 @@
   .works-sheet {
     height: min(860px, calc(100dvh - 48px));
     overflow: hidden;
+    scrollbar-gutter: auto;
   }
 
   .works-sheet-close {
@@ -583,6 +584,7 @@
     align-items: start;
     gap: 26px;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     padding: 52px 32px 32px;
     overscroll-behavior: contain;
   }
@@ -600,6 +602,7 @@
     align-content: start;
     grid-template-columns: minmax(0, 1fr);
     overflow-y: auto;
+    scrollbar-gutter: stable;
     padding: 60px 40px 48px;
     overscroll-behavior: contain;
   }
@@ -626,6 +629,7 @@
     grid-template-rows: minmax(0, 1fr);
     gap: 0;
     overflow: hidden;
+    scrollbar-gutter: auto;
     padding: 0;
   }
 
@@ -633,6 +637,7 @@
   .release-aside {
     min-height: 0;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     overscroll-behavior: contain;
   }
 

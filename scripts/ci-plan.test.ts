@@ -60,15 +60,20 @@ test("application paths select the jobs that consume them", () => {
     "backend/go.sum",
     "backend/internal/store/sqlite/bootstrap.sql",
   ])
-    assert.deepEqual(selected(path), ["backend", "go", "smoke", "docker"], path)
+    assert.deepEqual(
+      selected(path),
+      ["backend", "go-builds", "go-container", "smoke", "docker"],
+      path,
+    )
   assert.deepEqual(selected("backend/internal/store/sqlite/static-seed.json"), [
     "backend",
-    "go",
+    "go-builds",
+    "go-container",
     "frontend",
     "smoke",
     "docker",
   ])
-  assert.deepEqual(selected("backend/Dockerfile"), ["go"])
+  assert.deepEqual(selected("backend/Dockerfile"), ["go-container"])
   for (const path of [
     "src/main.tsx",
     "public/robots.txt",
@@ -88,7 +93,11 @@ test("application paths select the jobs that consume them", () => {
 
 test("a validation script selects the jobs that run it, and every script has a decision", () => {
   assert.deepEqual(selected("scripts/golangci-lint.yml"), ["backend"])
-  assert.deepEqual(selected("scripts/go-check.mjs"), ["go"])
+  assert.deepEqual(selected("scripts/go-check.mjs"), [
+    "go-builds",
+    "go-container",
+  ])
+  assert.deepEqual(selected("scripts/go-docker-smoke.mjs"), ["go-container"])
   assert.deepEqual(selected("scripts/go-test-shard.mjs"), ["backend"])
   assert.deepEqual(selected("scripts/go-test-durations.json"), ["backend"])
   assert.deepEqual(selected("scripts/go-test-shard.test.mjs"), [])
@@ -127,12 +136,13 @@ test("a validation script selects the jobs that run it, and every script has a d
 test("mixed and renamed paths plan the union of their jobs", () => {
   assert.deepEqual(selected("backend/internal/old.go", "docs/retired.md"), [
     "backend",
-    "go",
+    "go-builds",
+    "go-container",
     "smoke",
     "docker",
   ])
   assert.deepEqual(selected("tests/polling.test.ts", "backend/Dockerfile"), [
-    "go",
+    "go-container",
     "frontend",
   ])
 })

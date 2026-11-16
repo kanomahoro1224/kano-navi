@@ -57,7 +57,8 @@ func Normalize(payload map[string]any, fallbackID, account string) *Post {
 		u = fallbackPostURL(account, id)
 	}
 	u = normalizePostURL(u, account, id)
-	p := &Post{ID: id, AccountHandle: account, Type: "daily", Label: "DAILY / 近况", Text: text, PublishedAt: published, URL: u, Likes: number(first(payload, "likes", "likeCount")), Reposts: number(first(payload, "retweets", "reposts", "retweetCount")), Replies: number(first(payload, "replies", "replyCount")), MediaURLs: media, MediaKinds: itemKinds(items), AuthorScreenName: screen, Quote: quote, Raw: payload}
+	avatarURL := extractAuthorAvatarURL(author, payload)
+	p := &Post{ID: id, AccountHandle: account, Type: "daily", Label: "DAILY / 近况", Text: text, PublishedAt: published, URL: u, Likes: number(first(payload, "likes", "likeCount")), Reposts: number(first(payload, "retweets", "reposts", "retweetCount")), Replies: number(first(payload, "replies", "replyCount")), MediaURLs: media, MediaKinds: itemKinds(items), AuthorScreenName: screen, AuthorAvatarURL: avatarURL, Quote: quote, Raw: payload}
 	if strings.Contains(strings.ToLower(text), "schedule") || strings.Contains(text, "スケジュール") || strings.Contains(text, "配信予定") || strings.Contains(text, "週間予定") || strings.Contains(text, "今週の予定") {
 		p.Type = "notice"
 		p.Label = "SCHEDULE / 日程"
@@ -66,6 +67,56 @@ func Normalize(payload map[string]any, fallbackID, account string) *Post {
 		p.Label = "ANNOUNCEMENT"
 	}
 	return p
+}
+
+// NormalizeAvatarURL normalizes an X profile avatar URL to HTTPS without
+// fragments and upgrades Twitter's default "_normal" thumbnail suffix to
+// "_400x400" when present.
+func NormalizeAvatarURL(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || urlguard.ContainsCredentials(trimmed) {
+		return ""
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		return ""
+	}
+	parsed.Fragment = ""
+	if ext := path.Ext(parsed.Path); ext != "" {
+		stem := strings.TrimSuffix(parsed.Path, ext)
+		if strings.HasSuffix(stem, "_normal") {
+			parsed.Path = strings.TrimSuffix(stem, "_normal") + "_400x400" + ext
+		}
+	}
+	return parsed.String()
+}
+
+func extractAuthorAvatarURL(author, payload map[string]any) string {
+	if raw := firstString(author, "avatar_url", "avatarUrl", "profile_image_url_https", "profile_image_url"); raw != "" {
+		return NormalizeAvatarURL(raw)
+	}
+	if payload != nil {
+		if raw := firstString(payload, "user_profile_image_url", "user_profile_image_url_https", "avatar_url"); raw != "" {
+			return NormalizeAvatarURL(raw)
+		}
+	}
+	return ""
+}
+
+func recordDiscoveredAvatar(avatars map[string]string, handle, rawURL string) {
+	if avatars == nil {
+		return
+	}
+	key := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(handle), "@"))
+	if key == "" {
+		return
+	}
+	if _, exists := avatars[key]; exists {
+		return
+	}
+	if normalized := NormalizeAvatarURL(rawURL); normalized != "" {
+		avatars[key] = normalized
+	}
 }
 
 func fallbackPostURL(account, id string) string {

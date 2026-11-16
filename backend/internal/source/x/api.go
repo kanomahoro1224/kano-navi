@@ -126,6 +126,12 @@ func APIPosts(payload map[string]any, account string) ([]Post, int, string, erro
 		if post == nil || post.ID != id {
 			return nil, read, "", &Error{Code: ErrInvalidResponse}
 		}
+		post.AuthorAvatarURL = extractAuthorAvatarURL(author, nil)
+		if qID := referenceOf(entry, "quoted"); qID != "" && post.Quote != nil {
+			if qStatus := referenced[qID]; qStatus != nil {
+				post.Quote.AuthorAvatarURL = extractAuthorAvatarURL(users[stringValue(qStatus["author_id"])], nil)
+			}
+		}
 		posts = append(posts, *post)
 	}
 	return posts, read, stringValue(meta["next_token"]), nil

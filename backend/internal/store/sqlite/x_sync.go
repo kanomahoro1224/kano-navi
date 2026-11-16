@@ -75,12 +75,16 @@ func (s *Store) WriteXRecent(ctx context.Context, account string, result xsource
 		}
 	}
 	// A refresh-only run leaves the incremental state as it is.
+	avatarBumped, avatarErr := recordResultAccountAvatarsTx(ctx, tx, account, result, now)
+	if avatarErr != nil {
+		return ErrSourceWrite
+	}
 	if !result.RefreshOnly {
 		if err = writeXState(ctx, tx, account, result, success, now); err != nil {
 			return ErrSourceWrite
 		}
 	}
-	if len(result.Posts) > 0 || repostsChanged {
+	if len(result.Posts) > 0 || repostsChanged || avatarBumped {
 		if err = bumpRevision(ctx, tx, now); err != nil {
 			return ErrSourceWrite
 		}
@@ -413,7 +417,7 @@ func (s *Store) XRecentState(ctx context.Context, account string) (XRecentState,
 	if len(out.PendingIDs) > 1000 {
 		out.PendingIDs = out.PendingIDs[:1000]
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT id FROM posts WHERE source='x' AND lower(account_handle)=lower(?) ORDER BY julianday(published_at) DESC,id LIMIT 200`, account)
+	rows, err := s.db.QueryContext(ctx, `SELECT id FROM posts WHERE source='x' AND deleted_at IS NULL AND lower(account_handle)=lower(?) ORDER BY julianday(published_at) DESC,id LIMIT 200`, account)
 	if err != nil {
 		return out, ErrSourceWrite
 	}
@@ -429,7 +433,7 @@ func (s *Store) XRecentState(ctx context.Context, account string) (XRecentState,
 		return out, ErrSourceWrite
 	}
 	rows.Close()
-	refresh, err := s.db.QueryContext(ctx, `SELECT id FROM posts WHERE source='x' AND lower(account_handle)=lower(?) AND refresh_requested_at IS NOT NULL ORDER BY refresh_requested_at,id LIMIT ?`, account, maxRefreshIDs)
+	refresh, err := s.db.QueryContext(ctx, `SELECT id FROM posts WHERE source='x' AND deleted_at IS NULL AND lower(account_handle)=lower(?) AND refresh_requested_at IS NOT NULL ORDER BY refresh_requested_at,id LIMIT ?`, account, maxRefreshIDs)
 	if err != nil {
 		return out, ErrSourceWrite
 	}

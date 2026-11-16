@@ -586,6 +586,34 @@ func TestSelectForAnotherSlotAndDelete(t *testing.T) {
 	f.request(http.MethodDelete, "/profile-media/"+secondID, "", nil).expect(t, http.StatusNotFound, "profile_media_not_found")
 }
 
+func TestClearProfileMediaSlot(t *testing.T) {
+	f := newFixture(t, true)
+	uploaded := f.request(http.MethodPost, "/profile-media/upload?slot=avatar", "image/png", syntheticPNG(42))
+	uploaded.expect(t, http.StatusCreated, "")
+	id := object(t, uploaded.json["item"])["id"].(string)
+	f.post("/profile-media/"+id+"/select", map[string]any{"slot": "avatar"}).expect(t, http.StatusOK, "")
+
+	before := f.revision()
+	f.post("/profile-media/clear", map[string]any{}).expectInvalid(t, "slot is required")
+	f.post("/profile-media/clear", map[string]any{"slot": "cover"}).expectInvalid(t, "slot is invalid")
+
+	cleared := f.post("/profile-media/clear", map[string]any{"slot": "avatar"})
+	cleared.expect(t, http.StatusOK, "")
+	if object(t, cleared.json["active"])["avatar"] != nil {
+		t.Fatalf("avatar must clear back to built-in: %s", cleared.raw)
+	}
+	if len(list(t, cleared.json["items"])) != 1 {
+		t.Fatalf("clearing active avatar must keep candidate: %s", cleared.raw)
+	}
+	if f.revision() == before {
+		t.Fatal("clearing active slot must bump dashboard revision")
+	}
+
+	// Idempotent when already built-in.
+	again := f.post("/profile-media/clear", map[string]any{"slot": "avatar"})
+	again.expect(t, http.StatusOK, "")
+}
+
 func TestUploadValidation(t *testing.T) {
 	f := newFixture(t, true)
 	image := syntheticPNG(20)
@@ -801,6 +829,32 @@ func TestDiscoverRejectsUnlistedPagesAndRedirects(t *testing.T) {
 	if f.text(`SELECT CAST(COUNT(*) AS TEXT) FROM profile_media`) != "0" {
 		t.Fatal("failed discovery must not register candidates")
 	}
+}
+
+func TestDiscoverProfileMediaFallsBackToFxTwitterWithHandle(t *testing.T) {
+	f := newFixture(t, true)
+	f.network.routes["https://x.com/_Kanotic"] = func(*http.Request) *http.Response {
+		return reply(http.StatusOK, map[string]string{"Content-Type": "text/html"}, []byte("<html><body>shell only</body></html>"))
+	}
+	f.network.routes["https://api.fxtwitter.com/_Kanotic"] = func(*http.Request) *http.Response {
+		return reply(http.StatusOK, map[string]string{"Content-Type": "application/json"}, []byte(`{"user":{"avatar_url":"https://pbs.twimg.com/profile_images/2/face_normal.jpg","banner_url":"https://pbs.twimg.com/profile_banners/2/cover"}}`))
+	}
+
+	out := f.post("/profile-media/discover", map[string]any{"slot": "banner", "source": "x", "handle": "_Kanotic"})
+	out.expect(t, http.StatusOK, "")
+	if len(list(t, out.json["candidates"])) != 1 {
+		t.Fatalf("expected 1 discovered banner candidate, got %s", out.raw)
+	}
+	candidate := object(t, list(t, out.json["candidates"])[0])
+	if candidate["slot"] != "banner" || candidate["sourceUrl"] != "https://pbs.twimg.com/profile_banners/2/cover" {
+		t.Fatalf("unexpected banner candidate: %v", candidate)
+	}
+	if !f.network.reached("https://api.fxtwitter.com/_Kanotic") {
+		t.Fatalf("expected FxTwitter fallback call, visited %v", f.network.visited)
+	}
+
+	f.post("/profile-media/discover", map[string]any{"slot": "banner", "source": "youtube", "handle": "kano_2525"}).expectInvalid(t, "handle is only supported for x")
+	f.post("/profile-media/discover", map[string]any{"slot": "banner", "source": "x", "handle": "bad/handle"}).expectInvalid(t, "handle is invalid")
 }
 
 func seedScheduleAssets(f *fixture) (boardURL, thumbURL, thumbHash string) {

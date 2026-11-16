@@ -7,7 +7,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
@@ -179,12 +181,30 @@ func (m *Module) discoverProfileMediaRoute(w http.ResponseWriter, r *http.Reques
 		httpx.WriteError(w, err)
 		return
 	}
+	handleText, err := textField(body, "handle", false, 32)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
 	slot, source, err := discoverySlotAndSource(slotText, sourceText)
 	if err != nil {
 		httpx.WriteError(w, err)
 		return
 	}
-	result, err := m.discoverProfileMedia(r.Context(), slot, source)
+	handle := ""
+	if handleText != nil && strings.TrimSpace(*handleText) != "" {
+		if source != "x" {
+			httpx.WriteError(w, httpx.Invalid("handle is only supported for x"))
+			return
+		}
+		_, _, display, ok := sqlite.NormalizeAccountAvatarKey("x", *handleText)
+		if !ok {
+			httpx.WriteError(w, httpx.Invalid("handle is invalid"))
+			return
+		}
+		handle = display
+	}
+	result, err := m.discoverProfileMedia(r.Context(), slot, source, handle)
 	if err != nil {
 		writeFailure(w, err)
 		return
@@ -203,15 +223,19 @@ func (m *Module) discoverProfileMediaRoute(w http.ResponseWriter, r *http.Reques
 // banner keys, and each URL keeps the first slot that found it. It runs only
 // for an explicit operator action and holds no transaction while the page is
 // fetched.
-func (m *Module) discoverProfileMedia(ctx context.Context, slot, source string) (*profileDiscoverResponse, error) {
+func (m *Module) discoverProfileMedia(ctx context.Context, slot, source, handle string) (*profileDiscoverResponse, error) {
 	var xURL, youtubeURL, avatarURL, bannerURL sql.NullString
 	err := m.db.QueryRowContext(ctx, `SELECT x_url, youtube_url, avatar_url, banner_url FROM profiles ORDER BY id LIMIT 1`).Scan(&xURL, &youtubeURL, &avatarURL, &bannerURL)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	pageURL := defaultXProfilePage
-	if source == "x" && xURL.String != "" {
-		pageURL = xURL.String
+	if source == "x" {
+		if handle != "" {
+			pageURL = "https://x.com/" + url.PathEscape(handle)
+		} else if xURL.String != "" {
+			pageURL = xURL.String
+		}
 	}
 	if source == "youtube" {
 		pageURL = defaultYouTubePage
@@ -219,33 +243,75 @@ func (m *Module) discoverProfileMedia(ctx context.Context, slot, source string) 
 			pageURL = youtubeURL.String
 		}
 	}
-	page, err := m.fetchAllowed(ctx, pageURL, pageFetch)
-	if err != nil {
-		return nil, err
-	}
-	if !page.ok() {
-		return nil, httpStatusFailure(pageFetch, page.status)
-	}
 	slots := []string{slot}
 	if slot == "" {
 		slots = []string{"avatar", "banner"}
 	}
 	existing := map[string]string{"avatar": avatarURL.String, "banner": bannerURL.String}
+	page, err := m.fetchAllowed(ctx, pageURL, pageFetch)
+	if err != nil || !page.ok() {
+		// Try FxTwitter JSON for allowed X profile URLs when x.com is unavailable or blocked.
+		if source == "x" {
+			if _, allowed := profilePageURL(pageURL); allowed {
+				if targetHandle := firstNonEmpty(handle, xHandleFromURL(pageURL)); targetHandle != "" {
+					fxAvatars, fxBanners, _, fxErr := m.discoverFxTwitterMedia(ctx, targetHandle)
+					if fxErr == nil && (len(fxAvatars) > 0 || len(fxBanners) > 0) {
+						return m.saveDiscoveredCandidates(ctx, slot, source, pageURL, slots, map[string][]string{
+							"avatar": fxAvatars,
+							"banner": fxBanners,
+						}, existing)
+					}
+				}
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+		return nil, httpStatusFailure(pageFetch, page.status)
+	}
+	discoveredBySlot := map[string][]string{}
+	foundFromPage := 0
+	for _, found := range slots {
+		urls := discoveredImageURLs(string(page.body), found)
+		discoveredBySlot[found] = urls
+		foundFromPage += len(urls)
+	}
+	if source == "x" && foundFromPage == 0 {
+		if targetHandle := firstNonEmpty(handle, xHandleFromURL(page.url)); targetHandle != "" {
+			if fxAvatars, fxBanners, _, fxErr := m.discoverFxTwitterMedia(ctx, targetHandle); fxErr == nil {
+				discoveredBySlot["avatar"] = fxAvatars
+				discoveredBySlot["banner"] = fxBanners
+			}
+		}
+	}
+	return m.saveDiscoveredCandidates(ctx, slot, source, page.url, slots, discoveredBySlot, existing)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func (m *Module) saveDiscoveredCandidates(ctx context.Context, slot, source, refURL string, slots []string, discoveredBySlot map[string][]string, existing map[string]string) (*profileDiscoverResponse, error) {
 	seen := map[string]bool{}
 	candidates := []profileCandidate{}
 	// A page can contain unrelated social images; those are skipped safely.
 	for _, found := range slots {
-		for _, value := range append(discoveredImageURLs(string(page.body), found), existing[found]) {
+		for _, value := range append(discoveredBySlot[found], existing[found]) {
 			imageURL, ok := profileImageURL(value)
 			if !ok || seen[imageURL] {
 				continue
 			}
 			seen[imageURL] = true
-			candidates = append(candidates, profileCandidate{Slot: found, Source: source, SourceRef: &page.url, SourceURL: &imageURL})
+			candidates = append(candidates, profileCandidate{Slot: found, Source: source, SourceRef: &refURL, SourceURL: &imageURL})
 		}
 	}
 	now := m.timestamp()
-	err = m.inTx(ctx, func(tx *sql.Tx) error {
+	err := m.inTx(ctx, func(tx *sql.Tx) error {
 		for _, candidate := range candidates {
 			if _, upsertErr := upsertProfileCandidate(ctx, tx, candidate, now); upsertErr != nil {
 				return upsertErr
@@ -260,30 +326,45 @@ func (m *Module) discoverProfileMedia(ctx context.Context, slot, source string) 
 	if err != nil {
 		return nil, err
 	}
-	return &profileDiscoverResponse{Slot: slot, Source: source, SourceURL: page.url, Candidates: listed}, nil
+	return &profileDiscoverResponse{Slot: slot, Source: source, SourceURL: refURL, Candidates: listed}, nil
 }
 
-func (m *Module) uploadProfileMedia(w http.ResponseWriter, r *http.Request, slotParam string) {
+func (m *Module) readUploadedImage(w http.ResponseWriter, r *http.Request) (*storedImage, bool) {
 	contentType := r.Header.Get("Content-Type")
 	var content []byte
 	// Only image and octet-stream bodies are read, bounded like express.raw.
 	if uploadContentTypePattern.MatchString(contentType) && r.Body != nil {
 		if r.ContentLength > maxProfileImageBytes {
 			httpx.WriteCode(w, http.StatusRequestEntityTooLarge, "request_too_large")
-			return
+			return nil, false
 		}
 		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxProfileImageBytes))
 		if err != nil {
 			var large *http.MaxBytesError
 			if errors.As(err, &large) {
 				httpx.WriteCode(w, http.StatusRequestEntityTooLarge, "request_too_large")
-				return
+				return nil, false
 			}
 			httpx.WriteCode(w, http.StatusBadRequest, "invalid_request")
-			return
+			return nil, false
 		}
 		content = body
 	}
+	if len(content) == 0 {
+		httpx.WriteError(w, httpx.Invalid("image body is required"))
+		return nil, false
+	}
+	// The original bytes are verified and stored before any row exists, so a
+	// rejected upload leaves no candidate behind.
+	image, err := m.storeProfileImage("upload", content, normalizeMediaMIME(contentType), "uploaded file is not a supported image")
+	if err != nil {
+		writeFailure(w, err)
+		return nil, false
+	}
+	return image, true
+}
+
+func (m *Module) uploadProfileMedia(w http.ResponseWriter, r *http.Request, slotParam string) {
 	slot, err := optionalSlot(slotParam)
 	if err != nil {
 		httpx.WriteError(w, err)
@@ -292,15 +373,8 @@ func (m *Module) uploadProfileMedia(w http.ResponseWriter, r *http.Request, slot
 	if slot == "" {
 		slot = "avatar"
 	}
-	if len(content) == 0 {
-		httpx.WriteError(w, httpx.Invalid("image body is required"))
-		return
-	}
-	// The original bytes are verified and stored before any row exists, so a
-	// rejected upload leaves no candidate behind.
-	image, err := m.storeProfileImage("upload", content, normalizeMediaMIME(contentType), "uploaded file is not a supported image")
-	if err != nil {
-		writeFailure(w, err)
+	image, ok := m.readUploadedImage(w, r)
+	if !ok {
 		return
 	}
 	now, id, sourceRef := m.timestamp(), "", "admin-upload"
@@ -478,6 +552,49 @@ func (m *Module) deleteProfileMediaRoute(w http.ResponseWriter, r *http.Request,
 	httpx.WriteJSON(w, http.StatusOK, payload)
 }
 
+// clearProfileMediaRoute clears the active candidate for a slot so the public
+// board falls back to its built-in image without deleting any candidates.
+func (m *Module) clearProfileMediaRoute(w http.ResponseWriter, r *http.Request) {
+	body, err := httpx.Body(w, r)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	slot, err := optionalSlot(jsString(body["slot"]))
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	if slot == "" {
+		httpx.WriteError(w, httpx.Invalid("slot is required"))
+		return
+	}
+	m.selectMu.Lock()
+	defer m.selectMu.Unlock()
+	now := m.timestamp()
+	err = m.inTx(r.Context(), func(tx *sql.Tx) error {
+		res, execErr := tx.ExecContext(r.Context(), `UPDATE profile_media SET is_active=0, updated_at=? WHERE slot=? AND is_active=1`, now, slot)
+		if execErr != nil {
+			return execErr
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			return nil
+		}
+		return sqlite.BumpRevisionTx(r.Context(), tx, now)
+	})
+	if err != nil {
+		writeFailure(w, err)
+		return
+	}
+	payload, err := m.profilePayload(r.Context())
+	if err != nil {
+		writeFailure(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, payload)
+}
+
 func (m *Module) previewProfileMedia(w http.ResponseWriter, r *http.Request, id string) {
 	item, err := getProfileMedia(r.Context(), m.db, id)
 	if err != nil {
@@ -509,6 +626,10 @@ func (m *Module) previewProfileMedia(w http.ResponseWriter, r *http.Request, id 
 		notFound()
 		return
 	}
+	writeImagePreview(w, r, mimeType, content)
+}
+
+func writeImagePreview(w http.ResponseWriter, r *http.Request, mimeType string, content []byte) {
 	header := w.Header()
 	header.Set("Content-Type", mimeType)
 	header.Set("Content-Security-Policy", "default-src 'none'; sandbox")

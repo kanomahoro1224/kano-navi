@@ -48,18 +48,31 @@ func archivePayload[T any](page *sqlite.ArchivePage[T], project func(T) map[stri
 	}
 }
 
-// posts serves the post archive: stored posts of an inclusive Japan-date
-// range, newest first, optionally for one account.
+// posts serves the post archive, newest first, optionally for one account:
+// with from and to, the stored posts of that inclusive Japan-date range;
+// without them, the timeline of every dated post, or of those on or before
+// the inclusive Japan date until.
 func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	page, err := h.store.GetPostArchive(r.Context(), query.Get("from"), query.Get("to"), query.Get("account"),
-		archiveNumber(r, "page", 1), archiveNumber(r, "pageSize", archivePageSize))
+	pageNumber, pageSize := archiveNumber(r, "page", 1), archiveNumber(r, "pageSize", archivePageSize)
+	var page *sqlite.ArchivePage[sqlite.Post]
+	var err error
+	if query.Has("from") || query.Has("to") {
+		if query.Has("until") {
+			err = sqlite.ErrInvalidCalendarRange
+		} else {
+			page, err = h.store.GetPostArchive(r.Context(), query.Get("from"), query.Get("to"), query.Get("account"), pageNumber, pageSize)
+		}
+	} else {
+		page, err = h.store.GetPostTimeline(r.Context(), query.Get("until"), query.Get("account"), pageNumber, pageSize)
+	}
 	if err != nil {
 		writeArchiveError(w, err)
 		return
 	}
 	payload := h.public(archivePayload(page, publicview.PublicPost))
 	payload["accountCounts"] = page.AccountCounts
+	payload["accountAvatars"] = h.public(publicview.PublicAccountAvatars(page.AccountAvatars))
 	writeRevalidatedJSON(w, r, payload, nil)
 }
 

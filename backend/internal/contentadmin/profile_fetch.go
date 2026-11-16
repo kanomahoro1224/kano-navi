@@ -2,6 +2,7 @@ package contentadmin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
 
 const (
@@ -26,7 +29,8 @@ const (
 var (
 	profilePageHosts = map[string]bool{
 		"x.com": true, "www.x.com": true, "twitter.com": true, "www.twitter.com": true,
-		"youtube.com": true, "www.youtube.com": true,
+		"api.fxtwitter.com": true,
+		"youtube.com":       true, "www.youtube.com": true,
 	}
 	profileImageHosts = map[string]bool{
 		"pbs.twimg.com": true, "abs.twimg.com": true,
@@ -227,4 +231,70 @@ func discoveredImageURLs(html, slot string) []string {
 		}
 	}
 	return urls
+}
+
+func xHandleFromURL(raw string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return ""
+	}
+	part := strings.Trim(strings.Split(strings.Trim(parsed.Path, "/"), "/")[0], " ")
+	part = strings.TrimPrefix(part, "@")
+	return part
+}
+
+func (m *Module) discoverFxTwitterMedia(ctx context.Context, handle string) (avatars []string, banners []string, fxURL string, err error) {
+	handle = strings.TrimPrefix(strings.TrimSpace(handle), "@")
+	if handle == "" {
+		return nil, nil, "", failure("profile page host is not allowed")
+	}
+	jsonFetch := fetchKind{label: "profile page", accept: "application/json", maxBytes: maxProfilePageBytes, validate: profilePageURL}
+	fxURL = "https://api.fxtwitter.com/" + url.PathEscape(handle)
+	res, fetchErr := m.fetchAllowed(ctx, fxURL, jsonFetch)
+	if fetchErr != nil {
+		return nil, nil, fxURL, fetchErr
+	}
+	if !res.ok() {
+		return nil, nil, fxURL, httpStatusFailure(jsonFetch, res.status)
+	}
+	var payload struct {
+		User *struct {
+			AvatarURL string `json:"avatar_url"`
+			BannerURL string `json:"banner_url"`
+			Banner    string `json:"banner"`
+		} `json:"user"`
+		Tweet *struct {
+			Author *struct {
+				AvatarURL string `json:"avatar_url"`
+			} `json:"author"`
+		} `json:"tweet"`
+	}
+	if unmarshalErr := json.Unmarshal(res.body, &payload); unmarshalErr != nil {
+		return nil, nil, fxURL, failure("profile page returned unreadable data")
+	}
+	seen := map[string]bool{}
+	add := func(list *[]string, raw string, normalizeAvatar bool) {
+		val := strings.TrimSpace(raw)
+		if val == "" {
+			return
+		}
+		if normalizeAvatar {
+			if norm := xsource.NormalizeAvatarURL(val); norm != "" {
+				val = norm
+			}
+		}
+		if clean, ok := profileImageURL(val); ok && !seen[clean] {
+			seen[clean] = true
+			*list = append(*list, clean)
+		}
+	}
+	if payload.User != nil {
+		add(&avatars, payload.User.AvatarURL, true)
+		add(&banners, payload.User.BannerURL, false)
+		add(&banners, payload.User.Banner, false)
+	}
+	if payload.Tweet != nil && payload.Tweet.Author != nil {
+		add(&avatars, payload.Tweet.Author.AvatarURL, true)
+	}
+	return avatars, banners, fxURL, nil
 }

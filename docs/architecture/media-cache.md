@@ -320,6 +320,27 @@ leaving other snapshots and configuration intact. HTTP uses the same bounded
 reader, checks its hash/MIME against active metadata, and sends those exact bytes;
 an unexpected file replacement returns 404 until reconciled or selected again.
 
+reads and writes stay bounded under the same path, MIME, magic-byte, and
+redirect limits as [Selected Profile Media](#selected-profile-media).
+
+## Account Avatars
+
+Per-account X avatar downloads queue into `media_assets` with `source = 'x'`
+and no `media_links` rows, so the `media` sync step fetches remote `pbs.twimg.com`
+images under `data/x/sha256/`. Manual uploads store content-addressed images
+under `data/avatar/sha256/`. `GET /media/account-avatar/{id}?v={sha256}` (and
+`HEAD`) serves a ready candidate by validated 64-hex candidate ID and matching
+SHA-256 hash using the same root-contained streaming checks and immutable cache
+headers as `/media/{id}`.
+
+Workflow and operator downloads synchronize every candidate linked to the same
+`media_id` in one transaction, including ready candidates whose bytes change.
+An unchanged manual or hidden selection stays selected or hidden. Automatic
+selection follows the [candidate observation order](data-model.md)
+rather than download completion. A changed media version or visible avatar
+advances `dashboard_revision`; replaced shared media files retain their version
+metadata. Reporting a cached URL reconciles its candidate with the stored asset.
+
 ## HTTP Contract
 
 The server exposes `GET /media/<id>` for ready assets only. The ID must match

@@ -59,7 +59,7 @@
 }
 
 .archive-dialog-title {
-  margin: 4px 0 0;
+  margin: 0;
   font-family: var(--font-display);
   font-size: clamp(20px, 2.2vw, 26px);
   font-weight: 800;
@@ -130,12 +130,15 @@
   }
 }
 
+/* The month row and its picker hold only controls and labels, so quick
+   repeated clicks on their arrows never select the text beside them. */
 .archive-month {
   position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  user-select: none;
 }
 
 .archive-month-label {

@@ -13,7 +13,6 @@ import { WifiOff } from "lucide-react"
 import { useAppSettings } from "@/app-settings"
 import { MediaDialog, stepIndex } from "@/site/media-dialog"
 import { SiteFooter, SiteHeader, SkipLink } from "@/site/site-shell"
-import { BilibiliLogo, XLogo, YouTubeLogo } from "@/site/links"
 import { POST_WINDOW_DAYS, VIDEO_WINDOW_DAYS } from "./content"
 import { featuredVideoIdOf } from "./derive-dashboard"
 import { syncStateFor } from "./freshness"
@@ -96,9 +95,8 @@ function latestArchiveMonth(months: { month: string }[] | null) {
 }
 
 /**
- * Heading copy of each archive dialog. The post and video kickers name the
- * platforms only, since the filter names each account. The total shows only
- * where no filter does: a filter's pressed button already counts it.
+ * Heading copy of each archive dialog. The total shows only where no filter
+ * does: a filter's pressed button already counts it.
  */
 function archiveCopy(
   view: ArchiveRequest,
@@ -110,24 +108,11 @@ function archiveCopy(
   const total = archive ? archive.total : null
   if (view.kind === "schedule")
     return {
-      kicker: t("nav.schedule"),
       title: t("schedule.monthTitle"),
       summary: total == null ? null : t("schedule.weekCount", { count: total }),
     }
   if (view.kind === "posts")
     return {
-      kicker: (
-        <>
-          <XLogo className="kicker-icon" aria-hidden="true" /> X
-          {bilibiliAccounts.length ? (
-            <>
-              {" · "}
-              <BilibiliLogo className="kicker-icon" aria-hidden="true" />{" "}
-              bilibili
-            </>
-          ) : null}
-        </>
-      ),
       title: t("feed.archiveTitle"),
       summary:
         total == null || accounts.length + bilibiliAccounts.length > 1
@@ -135,13 +120,6 @@ function archiveCopy(
           : t("feed.monthCount", { count: total }),
     }
   return {
-    kicker: (
-      <>
-        <YouTubeLogo className="kicker-icon" aria-hidden="true" /> YouTube
-        {" · "}
-        <BilibiliLogo className="kicker-icon" aria-hidden="true" /> bilibili
-      </>
-    ),
     title: t("videos.archiveTitle"),
     summary: null,
   }
@@ -199,13 +177,18 @@ export function DashboardApp() {
   // the month's posts arrive, so the account filter keeps its numbers.
   const postMonthKey =
     archiveView?.kind === "posts" ? monthKeyOf(archiveView.monthStart) : null
-  const postAccountCounts = useMemo(() => {
+  const postMonthIndex = useMemo(() => {
     if (indexKind !== "posts" || !archiveMonths || !postMonthKey)
       return undefined
     return (
-      archiveMonths.find(({ month }) => month === postMonthKey)?.counts ?? {}
+      archiveMonths.find(({ month }) => month === postMonthKey) ?? {
+        month: postMonthKey,
+        total: 0,
+        counts: {},
+      }
     )
   }, [indexKind, archiveMonths, postMonthKey])
+  const postAccountCounts = postMonthIndex?.counts
   // Every video's category over the whole index, so the filter keeps its
   // totals wherever the timeline starts.
   const videoCategoryCounts = useMemo(() => {
@@ -525,6 +508,7 @@ export function DashboardApp() {
           accounts={meta.xAccounts || []}
           bilibiliAccounts={meta.bilibiliAccounts || []}
           avatarUrl={profile.avatarUrl}
+          accountAvatars={dashboard.accountAvatars}
           windowDays={windowDays}
           isLoading={isLoading}
           locale={locale}
@@ -554,7 +538,7 @@ export function DashboardApp() {
         />
       </main>
 
-      <SiteFooter disclaimer={t("footer.disclaimer")} />
+      <SiteFooter />
 
       <div
         className={`toast${toast ? " is-visible" : ""}`}
@@ -627,6 +611,10 @@ export function DashboardApp() {
                   account={archiveView.account || null}
                   setAccount={setArchiveAccount}
                   counts={postAccountCounts ?? archive.archive?.accountCounts}
+                  total={
+                    postMonthIndex?.total ??
+                    (archiveView.account ? null : archive.archive?.total)
+                  }
                   t={t}
                 />
                 <PostArchiveLayoutToggle
@@ -673,6 +661,10 @@ export function DashboardApp() {
               onLoadMore={archive.loadMore}
               onJump={setArchiveMonth}
               avatarUrl={profile.avatarUrl}
+              accountAvatars={
+                (archive.archive as ArchiveSnapshot<Post> | null)
+                  ?.accountAvatars ?? dashboard.accountAvatars
+              }
               locale={locale}
               now={now}
               t={t}

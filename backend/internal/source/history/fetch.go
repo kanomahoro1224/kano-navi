@@ -542,7 +542,7 @@ func setPostFields(query url.Values) {
 	query.Set("tweet.fields", "created_at,public_metrics,attachments,author_id,entities,note_tweet,referenced_tweets")
 	query.Set("expansions", "attachments.media_keys,author_id,referenced_tweets.id,referenced_tweets.id.author_id,referenced_tweets.id.attachments.media_keys")
 	query.Set("media.fields", "type,url,preview_image_url")
-	query.Set("user.fields", "username,name")
+	query.Set("user.fields", "username,name,profile_image_url")
 }
 
 func matchesKeyword(value string, keywords []string) bool {

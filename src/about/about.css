@@ -4,7 +4,7 @@
   display: grid;
   justify-items: start;
   gap: 14px;
-  padding: 56px 0 40px;
+  padding: 48px 0 36px;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -12,81 +12,76 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 16px;
+  gap: 4px 14px;
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(44px, 8vw, 88px);
+  font-size: clamp(36px, 6vw, 64px);
   font-weight: 800;
   letter-spacing: -0.01em;
-  line-height: 1;
+  line-height: 1.05;
 }
 
 .about-hero h1 span {
-  font-size: 0.42em;
+  font-size: 0.45em;
 }
 
-.about-edition {
+.about-lead {
+  max-width: 68ch;
+  margin: 2px 0 0;
+  color: color-mix(in oklab, var(--ink) 82%, var(--soft));
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+/* The project links and the edition share one row; the edition reads as a
+   quiet colophon after the actions and wraps under them on narrow screens. */
+.about-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
+  align-items: center;
+  gap: 10px 18px;
+  margin-top: 6px;
 }
 
 .about-links {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 6px;
 }
 
-.chapters {
-  display: grid;
+.about-edition {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
-.chapter {
+.about-edition span + span::before {
+  margin-inline: 8px;
+  content: "·";
+}
+
+/* Each part of the page sits under a small label, as wide as the page. */
+.about-section {
   display: grid;
-  grid-template-columns: minmax(200px, 1fr) minmax(0, 2.2fr);
-  gap: 12px 40px;
-  padding: 36px 0;
+  gap: 16px;
+  padding: 32px 0 40px;
   border-bottom: 1px solid var(--rule);
 }
 
-.chapter h2 {
-  display: grid;
-  align-self: start;
-  gap: 6px;
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 1.25;
+.about-section:last-child {
+  border-bottom: 0;
 }
 
-.chapter-number {
-  color: var(--berry);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-}
-
-.chapter-body {
-  display: grid;
-  justify-items: start;
-  gap: 14px;
-  max-width: 68ch;
-}
-
-.chapter-body p {
+.about-section p {
   margin: 0;
   color: color-mix(in oklab, var(--ink) 82%, var(--soft));
   font-size: 15px;
   line-height: 1.85;
-}
-
-.chapter-body .text-link {
-  display: inline-flex;
-  font-size: 13.5px;
 }
 
 .about-inline-link {
@@ -95,103 +90,193 @@
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+  white-space: nowrap;
 }
 
-.about-models {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+/* ----------------------------------------------------------------- apps */
+
+/* The apps and the other cards sit two to a row; one on a narrow screen. */
+.about-app-list,
+.about-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.about-models li {
-  padding: 8px 14px;
+.about-app {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
   border: 1px solid var(--rule);
-  border-radius: 999px;
+  border-radius: var(--radius-lg);
   background: var(--paper);
-  font-family: var(--font-mono);
+}
+
+.about-app-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--berry-wash);
+  color: var(--berry);
+}
+
+.about-app-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.about-app-name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.about-app-name h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.about-app-name p {
+  margin: 0;
+  color: var(--soft);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.about-app-action {
+  align-self: start;
+}
+
+.about-app-platforms {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A platform's lowest system version, quieter than its name. */
+.about-app-minimum {
+  color: var(--soft);
+  font-weight: 600;
+}
+
+/* Unsigned platforms share a dashed frame that ends with the word. */
+.about-app-unsigned {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 2px;
+  border: 1px dashed color-mix(in oklab, var(--berry) 45%, transparent);
+  border-radius: 999px;
+}
+
+.about-app-unsigned ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.about-app-unsigned > span {
+  color: var(--berry);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- cards */
+
+/* Credits, technologies and the notice share one card. */
+.about-card {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+
+.about-card h3 {
+  margin: 0;
+  color: var(--soft);
   font-size: 13px;
   font-weight: 700;
+}
+
+.about-section .about-card p {
+  font-size: 14.5px;
+  line-height: 1.8;
 }
 
 .about-contributors {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 20px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .about-contributors a {
-  display: grid;
-  justify-items: center;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-  max-width: 112px;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
+  padding: 4px 14px 4px 4px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 13px;
   font-weight: 700;
-  transition: color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .about-contributors img {
-  width: 64px;
-  height: 64px;
-  border: 1px solid var(--rule);
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   background: var(--sunken);
   object-fit: cover;
-  transition: border-color 0.15s;
 }
 
 .about-contributors span {
-  max-width: 100%;
   overflow-wrap: anywhere;
-  text-align: center;
+}
+
+.about-contributors small {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
 .about-contributors a:hover,
 .about-contributors a:focus-visible {
+  border-color: color-mix(in oklab, var(--berry) 50%, transparent);
   color: var(--berry);
 }
 
-.about-contributors a:hover img,
-.about-contributors a:focus-visible img {
-  border-color: var(--berry);
-}
+/* ----------------------------------------------------------- built with */
 
-.about-stack {
-  display: grid;
-  width: 100%;
-  margin: 0;
-}
-
-.about-stack div {
-  display: grid;
-  grid-template-columns: 140px minmax(0, 1fr);
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--rule);
-}
-
-.about-stack div:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.about-stack dt {
-  color: var(--soft);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.about-stack dd {
-  margin: 0;
-}
-
-.about-stack ul {
+.about-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -200,7 +285,7 @@
   list-style: none;
 }
 
-.about-stack li {
+.about-chips > li {
   padding: 2px 10px;
   border-radius: 999px;
   background: var(--sunken);
@@ -208,18 +293,114 @@
   font-weight: 600;
 }
 
+.about-chips.is-mono > li {
+  border: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- notice */
+
+/* On About the notice is a card per item, three to a row on a wide page. */
+.about-section-notice .site-notice {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+
+.about-section-notice .site-notice li,
+.about-section-notice .site-notice li:first-child,
+.about-section-notice .site-notice li:last-child {
+  padding: 16px 20px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+
+/* "+N" opens the rest of a list in a small panel under it. */
+.about-chips.is-mono > li.is-more {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.about-more {
+  position: relative;
+  display: inline-flex;
+}
+
+.about-more-button {
+  padding: 1px 10px;
+  border: 1px dashed color-mix(in oklab, var(--soft) 55%, transparent);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.about-more-button:hover,
+.about-more-button[aria-expanded="true"] {
+  border-color: color-mix(in oklab, var(--berry) 50%, transparent);
+  color: var(--berry);
+}
+
+.about-more-button:focus-visible {
+  outline: 2px solid var(--berry);
+  outline-offset: 2px;
+}
+
+.about-more-panel {
+  position: absolute;
+  margin: 0;
+  list-style: none;
+  z-index: 5;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  gap: 6px;
+  min-width: max-content;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  box-shadow: var(--shadow-lg);
+}
+
+.about-more-panel[hidden] {
+  display: none;
+}
+
+.about-more-panel li {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
 @media (max-width: 760px) {
   .about-hero {
-    padding-top: 36px;
+    padding-top: 32px;
   }
 
-  .chapter {
-    grid-template-columns: 1fr;
-    padding: 28px 0;
+  .about-section {
+    padding: 28px 0 32px;
+  }
+}
+
+/* On a phone the action moves under the name. */
+@media (max-width: 420px) {
+  .about-app {
+    grid-template-columns: 44px minmax(0, 1fr);
   }
 
-  .about-stack div {
-    grid-template-columns: 1fr;
-    gap: 6px;
+  .about-app-action {
+    grid-column: 2;
+    justify-self: start;
   }
 }

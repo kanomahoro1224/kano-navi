@@ -22,7 +22,7 @@ type Base string
 // profile slot, or an archive file, each with at most its version and width
 // parameters. Only a whole value of this shape is rewritten, so a post's own
 // wording never changes even when it reads like a path.
-var mediaPath = regexp.MustCompile(`^/media/(?:[a-f0-9]{64}|profile/(?:avatar|banner)|(?:lineblog|works|journey)/[a-f0-9]{12}\.(?:jpg|png|mp4))(?:[?&]v=[a-f0-9]{64})?(?:[?&]w=(?:320|640|960|1280|1920))?$`)
+var mediaPath = regexp.MustCompile(`^/media/(?:[a-f0-9]{64}|profile/(?:avatar|banner)|account-avatar/[a-f0-9]{64}|(?:lineblog|works|journey)/[a-f0-9]{12}\.(?:jpg|png|mp4))(?:[?&]v=[a-f0-9]{64})?(?:[?&]w=(?:320|640|960|1280|1920))?$`)
 
 // assetPath is the shape of a fixed public image of the build that a public
 // read may name, such as the default avatar and banner (/assets/kano-avatar.jpg)

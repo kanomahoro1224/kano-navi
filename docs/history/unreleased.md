@@ -312,6 +312,9 @@ webpush-key`), and the bell stays hidden while they are empty. It adds
 <details>
 <summary><strong>Runtime and development</strong></summary>
 
+- The Release workflow builds the published image without a GitHub Actions
+  layer cache, which restored no layer between releases and took about half
+  of the image job exporting.
 - `npm run lineblog:export` writes the server's copy of the LINE BLOG
   archive from the tracked page data, and the frontend tests fail when the
   committed copy differs, allowing Git checkout line endings.

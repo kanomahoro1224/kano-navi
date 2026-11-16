@@ -23,11 +23,12 @@ func TestAccountPostsReadsTheUserTimelineWithItsBounds(t *testing.T) {
 		case "/2/users/42/tweets":
 			query := r.URL.Query()
 			if query.Get("since_id") != "1900000000000000001" || query.Get("until_id") != "1900000000000000009" || query.Get("max_results") != "5" ||
-				query.Get("exclude") != "retweets,replies" || query.Get("pagination_token") != "" || !strings.Contains(query.Get("tweet.fields"), "note_tweet") {
+				query.Get("exclude") != "retweets,replies" || query.Get("pagination_token") != "" || !strings.Contains(query.Get("tweet.fields"), "note_tweet") ||
+				!strings.Contains(query.Get("user.fields"), "profile_image_url") {
 				t.Errorf("unexpected query %v", query)
 			}
 			return response(200, `{"data":[{"id":"1900000000000000005","text":"hello","created_at":"2026-03-05T03:00:00.000Z","author_id":"42"}],
-				"includes":{"users":[{"id":"42","username":"Synthetic_Handle","name":"Synthetic"}]},"meta":{"result_count":1,"next_token":"n2"}}`), nil
+				"includes":{"users":[{"id":"42","username":"Synthetic_Handle","name":"Synthetic","profile_image_url":"https://pbs.twimg.com/profile_images/42/avatar_normal.jpg"}]},"meta":{"result_count":1,"next_token":"n2"}}`), nil
 		}
 		return response(404, ""), nil
 	})
@@ -37,6 +38,10 @@ func TestAccountPostsReadsTheUserTimelineWithItsBounds(t *testing.T) {
 		page, err := reader.AccountPosts(context.Background(), query)
 		if err != nil || len(page.Posts) != 1 || page.Posts[0].Text != "hello" || page.Next != "n2" || page.Read != 1 {
 			t.Fatalf("page=%+v err=%v", page, err)
+		}
+		wantAvatar := "https://pbs.twimg.com/profile_images/42/avatar_400x400.jpg"
+		if page.Posts[0].AuthorAvatarURL != wantAvatar {
+			t.Fatalf("expected mapped profile avatar %q, post=%q", wantAvatar, page.Posts[0].AuthorAvatarURL)
 		}
 	}
 	// The user ID is looked up once per process.

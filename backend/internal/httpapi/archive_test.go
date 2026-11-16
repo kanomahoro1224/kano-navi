@@ -103,6 +103,87 @@ func TestPostArchiveReadsAJapanMonthNewestFirst(t *testing.T) {
 	}
 }
 
+func TestPostTimelinePagesThroughEveryMonth(t *testing.T) {
+	handler := archiveHandler(t, `
+		INSERT INTO posts (id,source,account_handle,type,text,published_at,url,raw_json,hidden_at,deleted_at) VALUES
+		 ('post-2024','x','kano_2525','daily','Old','2024-03-02T12:00:00Z','https://x.com/kano_2525/status/1','{"private":"synthetic"}',NULL,NULL),
+		 ('post-sep','x','_Kanotic','daily','September','2026-09-30T14:59:00Z','https://x.com/_Kanotic/status/2',NULL,NULL,NULL),
+		 ('post-edge','x','Kano_2525','daily','Edge','2026-09-30T15:00:00Z','https://x.com/kano_2525/status/3',NULL,NULL,NULL),
+		 ('post-oct','x','kano_2525','daily','October','2026-10-05T12:00:00Z','https://x.com/kano_2525/status/4',NULL,NULL,NULL),
+		 ('post-hidden','x','kano_2525','daily','Hidden','2026-10-06T12:00:00Z','https://x.com/kano_2525/status/5',NULL,'2026-10-07T00:00:00Z',NULL),
+		 ('post-deleted','x','kano_2525','daily','Deleted','2026-10-07T12:00:00Z','https://x.com/kano_2525/status/6',NULL,NULL,'2026-10-08T00:00:00Z'),
+		 ('post-undated','x','kano_2525','daily','Undated','unknown','https://x.com/kano_2525/status/7',NULL,NULL,NULL);
+		INSERT INTO app_settings (key,value,updated_at) VALUES ('dashboard_revision','6','');`)
+
+	// Without a range the pages run newest first through every month; hidden,
+	// deleted and undated posts are not listed.
+	first := request(t, handler, http.MethodGet, "/api/posts?pageSize=2")
+	if first.Code != http.StatusOK || first.Header().Get("Cache-Control") != "no-cache" || !strings.HasPrefix(first.Header().Get("ETag"), `W/"`) {
+		t.Fatalf("status=%d headers=%v body=%s", first.Code, first.Header(), first.Body)
+	}
+	if strings.Contains(first.Body.String(), "private") {
+		t.Fatalf("timeline leaked raw post fields: %s", first.Body)
+	}
+	payload := decodeObject(t, first)
+	if got := strings.Join(archiveIDs(t, payload), ","); got != "post-oct,post-edge" {
+		t.Fatalf("first page=%s", got)
+	}
+	if payload["total"] != float64(4) || payload["totalPages"] != float64(2) || payload["hasNext"] != true || payload["revision"] != float64(6) {
+		t.Fatalf("paging=%#v", payload)
+	}
+	if adjacent := payload["adjacent"].(map[string]any); adjacent["previous"] != nil || adjacent["next"] != nil {
+		t.Fatalf("open adjacent=%#v", adjacent)
+	}
+	counts := payload["accountCounts"].(map[string]any)
+	if len(counts) != 2 || counts["kano_2525"] != float64(3) || counts["_kanotic"] != float64(1) {
+		t.Fatalf("counts=%#v", counts)
+	}
+	second := decodeObject(t, request(t, handler, http.MethodGet, "/api/posts?pageSize=2&page=2"))
+	if got := strings.Join(archiveIDs(t, second), ","); got != "post-sep,post-2024" || second["hasNext"] != false {
+		t.Fatalf("second page=%s %#v", got, second)
+	}
+
+	// until ends the timeline on an inclusive Japan date, and the nearest
+	// later post tells the client that newer months exist.
+	september := decodeObject(t, request(t, handler, http.MethodGet, "/api/posts?until=2026-09-30"))
+	if got := strings.Join(archiveIDs(t, september), ","); got != "post-sep,post-2024" {
+		t.Fatalf("until=%s", got)
+	}
+	if adjacent := september["adjacent"].(map[string]any); adjacent["previous"] != nil || adjacent["next"] != "2026-10-01" {
+		t.Fatalf("until adjacent=%#v", adjacent)
+	}
+
+	// The account filter ignores case and narrows the total and adjacent
+	// dates; the counts still cover every account.
+	kano := decodeObject(t, request(t, handler, http.MethodGet, "/api/posts?until=2026-09-30&account=KANO_2525"))
+	if got := strings.Join(archiveIDs(t, kano), ","); got != "post-2024" || kano["total"] != float64(1) {
+		t.Fatalf("filtered=%s %#v", got, kano)
+	}
+	if adjacent := kano["adjacent"].(map[string]any); adjacent["next"] != "2026-10-01" {
+		t.Fatalf("filtered adjacent=%#v", adjacent)
+	}
+	if kano["accountCounts"].(map[string]any)["_kanotic"] != float64(1) {
+		t.Fatalf("filtered counts=%#v", kano["accountCounts"])
+	}
+	kanotic := decodeObject(t, request(t, handler, http.MethodGet, "/api/posts?until=2026-09-30&account=_kanotic"))
+	if adjacent := kanotic["adjacent"].(map[string]any); adjacent["next"] != nil {
+		t.Fatalf("no later post adjacent=%#v", adjacent)
+	}
+
+	for path, code := range map[string]string{
+		"/api/posts?until=2026-02-30":                               "invalid_range",
+		"/api/posts?until=yesterday":                                "invalid_range",
+		"/api/posts?from=2026-10-01&to=2026-10-31&until=2026-10-31": "invalid_range",
+		"/api/posts?to=2026-10-31":                                  "invalid_range",
+		"/api/posts?until=2026-10-31&account=kano%25":               "invalid_account",
+	} {
+		bad := request(t, handler, http.MethodGet, path)
+		if bad.Code != http.StatusBadRequest || bad.Body.String() != `{"error":"`+code+`"}` {
+			t.Fatalf("%s: status=%d body=%s", path, bad.Code, bad.Body)
+		}
+	}
+}
+
 func TestPostMonthsCountJapanMonthsPerAccount(t *testing.T) {
 	handler := archiveHandler(t, `
 		INSERT INTO posts (id,source,account_handle,type,text,published_at,url,raw_json,hidden_at) VALUES

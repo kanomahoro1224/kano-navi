@@ -59,7 +59,9 @@ public pages share `src/site/`: `site-shell.tsx` (header with page navigation an
 Japan clock, footer, skip link, section title, empty and loading states;
 narrow screens show the site name and fold the page links into a menu behind
 the `kano-seal.tsx` deer seal; the footer is the fan-made and unaffiliated
-line, About and Back to top, with the page's disclaimer behind a switch),
+line with Notes and Back to top as icons),
+`site-notice.tsx` (the site's one notice, the same on every page, which
+Notes opens in a native modal dialog and About shows in place),
 `media-dialog.tsx` (the native modal image viewer: its close button stays in
 the screen's top-right corner, and a click anywhere outside the image, its
 arrows and its details closes it; a set without details takes the
@@ -87,7 +89,7 @@ a compact one, which sets how many show in place, and the rest open in a
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
 schedule, posts or videos (at 640px and below its head is the month row beside
-the close button, then any filter: the kicker and title stay only for
+the close button, then any filter: the title stays only for
 assistive technology, the month's count is hidden and the month label takes
 the short month name), and `sheet-dialog.tsx`, the smaller modal sheet
 that shows one long post or one schedule entry in full and can open above
@@ -152,7 +154,10 @@ with hash routing (`#view/tab`, where the tab is everything after the view
 and may hold several parts; a `#content/<tab>` link opens the matching
 view, and `#models` and `#llm/<provider>` links open Detection); `use-admin-data.ts` owns every
 [Admin API](admin-api.md) call, the session and the overview poll that tracks
-the active run while the console is visible; `api.ts` is the transport and error mapping; `types.ts` holds
+the active run while the console is visible. Until a session read succeeds
+the login requirements are unknown, so a failed read shows its reason and a
+retry rather than a password-only form, and a refused login reads the
+session again in case the one-time code was turned on or off; `api.ts` is the transport and error mapping; `types.ts` holds
 the wire shapes; `ui.tsx` the console primitives (buttons, panels, native
 modal dialog, toasts); `views/` one file per section, with
 `views/platform-tabs.tsx` the platform tab row that opens Posts, External
@@ -217,25 +222,44 @@ event status codes and the generated YouTube details become labels through
 while other details and operator notes show as stored (see
 [Stored event text](data-model.md#stored-event-text)).
 
-A promoted post (`post.promoted`), a related account's or a reposted one,
-shows its author's initial on the sunken surface in place of Kano's
-portrait, beside its handle; it appears in the All tab and the archive,
-never under an own account's tab, even an account that reposted it. A post
-with `repostedBy` opens with a muted repost mark, "Reposted by @account",
-naming those accounts as one locale list (`Intl.ListFormat`).
+A post card resolves its account avatar from `dashboard.accountAvatars` (and the
+archive response's `accountAvatars`) keyed by `<source>:<lowercase_handle>`. A
+cached non-hidden account avatar renders that account's image; an explicit
+`null` entry (hidden mode) renders the handle initial badge. When no entry is
+present, an own post falls back to `profile.avatarUrl` while a promoted post
+(`post.promoted`), a related account's or a reposted one, shows its author's
+initial on the sunken surface beside its handle. The initial is the handle's
+first letter or digit, and an image that fails to load gives way to it. A
+promoted post appears in the
+All tab and the archive, never under an own account's tab, even an account that
+reposted it. A post with `repostedBy` opens with a muted repost mark,
+"Reposted by @account", naming those accounts as one locale list (`Intl.ListFormat`).
+
+A post card's wording, images and quote run from its top; only the engagement
+counts sit at its foot. Two to four images share one 16:10 frame (one tall
+image beside two for three), and a fifth or later is counted as "+N" on the
+fourth tile, which opens the image viewer. A lone image with a known size
+keeps its own shape between 2:1 and a square on the board (3:4 in the archive
+and the full post dialog); one past those bounds sits whole on a blurred copy
+of itself instead of being cropped, and one of unknown size takes the 16:10
+frame.
 
 A post that quotes another status (`post.quote`, see
 [Quoted posts](data-model.md#quoted-posts)) shows it nested in the post note,
-below the post's own wording and images and above the engagement counts: an
-indented card on the quieter sunken surface with "display name @handle ·
-time", the quoted wording clamped to four lines and up to three thumbnails
-("+N" counts the rest). The card follows the quoted post's link (its x.com
-page, or for a Bilibili forward the forwarded dynamic's or upload's Bilibili
-page) from anywhere except its thumbnails, which open the image viewer with
-the quote's images. A forward's card names the forwarded dynamic's author by
-display name after the bilibili mark, never by `@` or mid. Read more also
-appears when the clamp hides quoted wording; the full post dialog and the
-archive show the whole quote with larger thumbnails. An unavailable quote
+below the post's own wording and images and above the engagement counts: a
+card on the quieter sunken surface with "display name @handle · time" (an X
+author's cached avatar first, from `accountAvatars`; no initial when there is
+none) and the quoted wording clamped to four lines. On the board a quote with
+wording shows its first image as a square thumbnail beside the wording, with
+"+N" in its corner for the rest; a quote without wording, the full post
+dialog and the archive show the quote's images like a post's, bounded like
+the board's. The card follows the quoted post's link (its x.com page, or for
+a Bilibili forward the forwarded dynamic's or upload's Bilibili page) from
+anywhere except its images, which open the image viewer with the quote's
+images (a lone video's or GIF's still plays on X). A forward's card names the
+forwarded dynamic's author by display name after the bilibili mark, never by
+`@` or mid. Read more also appears when the clamp hides quoted wording; the
+full post dialog and the archive show the whole quote. An unavailable quote
 shows a localized "Quoted post unavailable" placeholder linking to the
 quote's `url`. Quoted wording follows the content language like the
 post's own: the quote's `translations` (its stored post's for a self-quote,
@@ -267,8 +291,8 @@ left out. An entry shows them with `PlatformLinks` (`platform-links.tsx`,
 the live one marked) when it has more than one, or one beside an
 announcement of its own (`eventAnnouncement`: its `url` when no platform
 link is that page): on its stage ticket, on its week and calendar card,
-where the open arrow then opens the announcement, and in its sheet, where
-the open button does; the announcement is never labelled as a platform. A
+and in its sheet, where the open arrow in the corner then opens the
+announcement; the announcement is never labelled as a platform. A
 full stage ticket of an entry marks its `platforms` on the art with
 `PlatformBadge`. When the stage shows the reserved video of an entry, the
 ticket adds the entry's links on platforms the video has no copy on, such
@@ -631,6 +655,19 @@ quoted post. Below come the wording, folded to three lines with a
 quote thumbnails that open the image viewer, or the unavailable state. The
 edit dialog shows the quote's whole wording. Nothing edits the quote itself.
 
+The Data group also includes `Account avatars`
+(`src/admin/views/account-avatars.tsx`) and `Profile images`
+(`src/admin/views/profile.tsx`). `Account avatars` lists tracked own and
+related X accounts with role filters, `auto` / `manual` / `hidden` mode
+switches, manual latest-avatar checks, image URL or file uploads, candidate
+history controls (`Use & lock`, retry download, delete), and an action to copy
+an own account's ready avatar into the global site avatar slot. `Profile images`
+verifies and previews the global site avatar and banner, groups candidates into
+own X account avatars (with latest-avatar check and apply-to-site action),
+YouTube & custom avatars (with YouTube discovery and URL/file upload), and
+banners (with X account or YouTube discovery and URL/file upload), and links
+to `Account avatars`.
+
 Post text and video titles come with server-resolved `translations` (see
 [Translations](data-model.md#translations)). `src/components/translated-text.tsx`
 chooses what a reader sees from the content language, not the interface
@@ -952,8 +989,10 @@ is unbounded.
 Until a month's first page arrives, the schedule dialog shows the month grid
 with its dates and a shimmering bar in each day, and the post archive shows
 skeleton cards in the chosen layout, so a month change keeps the body in
-place. The post account filter takes its counts from the month index when it
-has one, so they stay while the month loads.
+place; after a failed first read the day panel shows no outlines until a
+retry starts. The post account filter takes its counts from the month index
+when it has one, so they stay while the month loads; its All button counts
+the month's total, which includes promoted posts filed under their authors.
 A click anywhere in a month-grid day picks it, listing its entries beside the
 grid (below it on phones). The current month opens on today; in another month
 the side panel asks for a day, and on phones the day list waits below the
@@ -995,7 +1034,10 @@ following page with it so the month can reach the top, and scrolls to the
 month once it is read. Its first loaded page is the snapshot's `firstPage`;
 while that is after page 1, a button above the list reads the page before it
 and puts its videos above, and the video that was first keeps its place on
-screen. A refresh rereads the whole loaded run, from `firstPage` on. While
+screen; when the snapshot changed in between, it rereads the whole run from
+that newer page instead. The button stays focusable during background
+rereads and ignores presses while a read runs. A refresh rereads the whole
+loaded run, from `firstPage` on. While
 the months around a jump or the newly read videos render at their real height
 in place of the `content-visibility` estimate, a `ResizeObserver` keeps the
 target in place for up to a second, letting go as soon as the reader scrolls.

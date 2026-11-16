@@ -52,7 +52,9 @@ introduce a separate token system for a single page.
   columns of their own; a wide screen puts the details below the tracklist
   in one right pane, and narrower screens stack everything in one scrolling
   column. The panes'
-  scrollbars are thin and show while the pointer is over them. The section tabs carry their counts and
+  scrollbars are thin and show while the pointer is over them, and each
+  scrolling pane reserves its gutter, so switching editions never shifts its
+  content sideways. The section tabs carry their counts and
   no separate figures or notes; a tab chosen by pointer keeps no focus
   outline, while keyboard focus draws one the tab bar leaves room for. A
   closed sheet returns focus only to the control that opened it, and the

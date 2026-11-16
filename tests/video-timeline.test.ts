@@ -106,7 +106,6 @@ async function mountTimeline(
       ArchiveDialog,
       {
         open: true,
-        kicker: "",
         title: "Videos",
         monthStart: props.monthStart || new Date(2026, 9, 1),
         onMonthChange: () => {},

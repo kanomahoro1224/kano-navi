@@ -19,6 +19,9 @@ import {
   type RequestOptions,
 } from "@/admin/api"
 import type {
+  AccountAvatarMode,
+  AccountAvatarMutation,
+  AccountAvatarsState,
   AdminBiliLoginPoll,
   AdminBiliLoginQR,
   AdminBiliLoginStatus,
@@ -164,8 +167,12 @@ function createClient(run: Runner, slow: Runner) {
     slow<T>(`slow:${++writes}`, path, { method, body })
   return {
     session: () => get<Session>("/session"),
-    login: (password: string) =>
-      send<Session>("POST", "/session", { password }),
+    login: (password: string, code?: string) =>
+      send<Session>(
+        "POST",
+        "/session",
+        code === undefined ? { password } : { password, code },
+      ),
     logout: () => send<null>("DELETE", "/session"),
 
     overview: () => get<Overview>("/overview"),
@@ -438,25 +445,116 @@ function createClient(run: Runner, slow: Runner) {
       send<{ video: AdminVideo }>("POST", `/videos/${enc(id)}/separate`, {}),
 
     profileMedia: () => get<ProfileMediaState>("/profile-media"),
-    addProfileMedia: (source: string, sourceUrl: string) =>
-      send<ProfileMediaState>("POST", "/profile-media", { source, sourceUrl }),
+    addProfileMedia: (source: string, sourceUrl: string, slot?: ProfileSlot) =>
+      send<ProfileMediaState>(
+        "POST",
+        "/profile-media",
+        slot ? { source, sourceUrl, slot } : { source, sourceUrl },
+      ),
     /** Without a slot, discovery reads both the avatar and the banner. */
-    discoverProfileMedia: (source: string) =>
+    discoverProfileMedia: (
+      source: string,
+      slot?: ProfileSlot,
+      handle?: string,
+    ) =>
       sendSlow<ProfileMediaState & { candidates: ProfileMedia[] }>(
         "POST",
         "/profile-media/discover",
-        { source },
+        {
+          source,
+          ...(slot ? { slot } : {}),
+          ...(handle ? { handle } : {}),
+        },
       ),
-    uploadProfileMedia: (file: Blob) =>
-      sendSlow<ProfileMediaState>("POST", "/profile-media/upload", file),
+    uploadProfileMedia: (file: Blob, slot?: ProfileSlot) =>
+      sendSlow<ProfileMediaState>(
+        "POST",
+        slot
+          ? `/profile-media/upload?slot=${enc(slot)}`
+          : "/profile-media/upload",
+        file,
+      ),
     downloadProfileMedia: (id: string) =>
       sendSlow<ProfileMediaState>("POST", `/profile-media/${enc(id)}/download`),
     selectProfileMedia: (id: string, slot: ProfileSlot) =>
       send<ProfileMediaState>("POST", `/profile-media/${enc(id)}/select`, {
         slot,
       }),
+    clearProfileMedia: (slot: ProfileSlot) =>
+      send<ProfileMediaState>("POST", "/profile-media/clear", { slot }),
     deleteProfileMedia: (id: string) =>
       send<ProfileMediaState>("DELETE", `/profile-media/${enc(id)}`),
+
+    accountAvatars: () => get<AccountAvatarsState>("/account-avatars"),
+    discoverAccountAvatar: (source: string, handle: string) =>
+      sendSlow<AccountAvatarMutation>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/discover`,
+      ),
+    addAccountAvatarUrl: (
+      source: string,
+      handle: string,
+      sourceUrl: string,
+      activate = true,
+    ) =>
+      sendSlow<AccountAvatarMutation>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/url`,
+        { sourceUrl, activate },
+      ),
+    uploadAccountAvatar: (source: string, handle: string, file: Blob) =>
+      sendSlow<AccountAvatarMutation>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/upload`,
+        file,
+      ),
+    setAccountAvatarMode: (
+      source: string,
+      handle: string,
+      mode: AccountAvatarMode,
+    ) =>
+      send<AccountAvatarMutation>(
+        "PUT",
+        `/account-avatars/${enc(source)}/${enc(handle)}/mode`,
+        { mode },
+      ),
+    selectAccountAvatarCandidate: (
+      source: string,
+      handle: string,
+      id: string,
+    ) =>
+      send<AccountAvatarMutation>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/candidates/${enc(id)}/select`,
+      ),
+    downloadAccountAvatarCandidate: (
+      source: string,
+      handle: string,
+      id: string,
+    ) =>
+      sendSlow<AccountAvatarMutation>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/candidates/${enc(id)}/download`,
+      ),
+    deleteAccountAvatarCandidate: (
+      source: string,
+      handle: string,
+      id: string,
+    ) =>
+      send<AccountAvatarMutation>(
+        "DELETE",
+        `/account-avatars/${enc(source)}/${enc(handle)}/candidates/${enc(id)}`,
+      ),
+    applyAccountAvatarToProfile: (
+      source: string,
+      handle: string,
+      candidateId?: string,
+    ) =>
+      send<AccountAvatarMutation & { profile: ProfileMediaState }>(
+        "POST",
+        `/account-avatars/${enc(source)}/${enc(handle)}/apply-profile`,
+        candidateId ? { candidateId } : {},
+      ),
 
     extraction: () => get<Extraction>("/extraction"),
     updateExtraction: (body: Partial<Extraction>) =>
@@ -551,6 +649,10 @@ export interface Toast {
  */
 export function useAdminData() {
   const [session, setSession] = useState<Session | null>(null)
+  // Why the session could not be read. The login requirements are unknown
+  // until a read succeeds, so the console offers a retry instead of guessing.
+  const [sessionError, setSessionError] = useState<Message | null>(null)
+  const [discovery, setDiscovery] = useState(0)
   const [overview, setOverview] = useState<Overview | null>(null)
   const [revision, setRevision] = useState(0)
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -638,25 +740,30 @@ export function useAdminData() {
     return next
   }, [api])
 
-  // Session first; the overview poll starts once authenticated.
+  // Session first; the overview poll starts once authenticated. A failed
+  // read leaves the session unknown, never password-only, until a retry.
   useEffect(() => {
     let cancelled = false
     api
       .session()
-      .then((next) => !cancelled && setSession(next))
+      .then((next) => {
+        if (cancelled) return
+        setSessionError(null)
+        setSession(next)
+      })
       .catch((error) => {
         if (cancelled || error?.name === "AbortError") return
-        fail(error)
-        setSession({
-          authenticated: false,
-          mode: "production",
-          requiresPassword: true,
-        })
+        setSessionError(errorMessage(error))
       })
     return () => {
       cancelled = true
     }
-  }, [api, fail])
+  }, [api, discovery])
+
+  const retrySession = useCallback(() => {
+    setSessionError(null)
+    setDiscovery((count) => count + 1)
+  }, [])
 
   const authenticated = Boolean(session?.authenticated)
   // The overview poll runs while the console is visible; a hidden page stops
@@ -685,8 +792,20 @@ export function useAdminData() {
   }, [authenticated, refreshOverview, fail])
 
   const login = useCallback(
-    async (password: string) => {
-      setSession(await api.login(password))
+    async (password: string, code?: string) => {
+      try {
+        setSession(await api.login(password, code))
+      } catch (error) {
+        // A refused login reads the requirements again, so a deployment that
+        // turned the one-time code on or off since the page loaded shows the
+        // right form for the next attempt.
+        if (error instanceof ApiError && error.status === 401)
+          await api
+            .session()
+            .then(setSession)
+            .catch(() => {})
+        throw error
+      }
     },
     [api],
   )
@@ -748,6 +867,8 @@ export function useAdminData() {
 
   return {
     session,
+    sessionError,
+    retrySession,
     overview,
     revision,
     toasts,

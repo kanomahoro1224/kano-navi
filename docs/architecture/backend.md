@@ -20,6 +20,7 @@ kano-go responses    List capture metadata or export a captured source response
 kano-go migrate-llm  Seal OPENAI_API_KEY as the key of the openai-default provider
 kano-go variants     Make the resized copies of the LINE BLOG, Works and Journey images
 kano-go web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY override line and its keyid
+kano-go totp-secret  Print a new ADMIN_TOTP_SECRET line and its otpauth:// address
 kano-go healthcheck  Probe the local service and exit
 ```
 
@@ -38,7 +39,8 @@ and `-out` instead of `-database`
 verified response body to standard output and accepts `-database` before the
 capture ID.
 `web-bot-auth-key` takes no flags and stores nothing
-([Web Bot Auth](web-bot-auth.md#key)).
+([Web Bot Auth](web-bot-auth.md#key)); neither does `totp-secret`
+([Admin one-time code](../operations/configuration.md#admin-one-time-code)).
 
 From the repository root:
 
@@ -183,8 +185,10 @@ row. The step catalog, queue, timers and manual fetches are described in
 
 Run with flags only and no command, the binary opens an existing snapshot in
 SQLite `mode=ro` on `:7658` and serves the public reads without migrations,
-seeds or writes. `backend/Dockerfile` packages this mode, and
-`scripts/go-docker-smoke.mjs` (part of `make go-check`) mounts a synthetic
+seeds or writes. It refuses a snapshot that lacks a column the public reads
+need, so a snapshot from an earlier release is first upgraded by a writable
+start. `backend/Dockerfile` packages this mode, and
+`scripts/go-docker-smoke.mjs` (`make go-container-check`) mounts a synthetic
 `data/` tree read-only and verifies that no database sidecar, WAL, journal or
 directory is created. Its `-enable-*` and `-initialize` flags are
 development test switches: they require `APP_MODE=development` and a

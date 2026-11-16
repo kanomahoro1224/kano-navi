@@ -25,12 +25,7 @@ import {
 } from "react"
 
 import { EmptyNote, Placeholder, SectionTitle } from "@/site/site-shell"
-import {
-  BilibiliLogo,
-  ExternalLink,
-  followCardLink,
-  YouTubeLogo,
-} from "@/site/links"
+import { ExternalLink, followCardLink } from "@/site/links"
 import {
   cleanVideoTitle,
   formatDuration,
@@ -207,13 +202,8 @@ function FormChip({
   return label ? <span className="tag">{label}</span> : null
 }
 
-function Subhead({ children, count }: { children: ReactNode; count?: number }) {
-  return (
-    <h3 className="videos-subhead">
-      {children}
-      {count ? <small>{count}</small> : null}
-    </h3>
-  )
+function Subhead({ children }: { children: ReactNode }) {
+  return <h3 className="videos-subhead">{children}</h3>
 }
 
 /**
@@ -626,8 +616,8 @@ export function VideoShelf({
   const hasFilter = kinds.length > 1
   const active: VideoFilter =
     hasFilter && kinds.some((item) => item.value === filter) ? filter : "all"
-  const filters: { value: VideoFilter; label: string; count: number }[] = [
-    { value: "all", label: t("common.all"), count: videos.length },
+  const filters: { value: VideoFilter; label: string }[] = [
+    { value: "all", label: t("common.all") },
     ...kinds,
   ]
   let body: ReactNode
@@ -749,9 +739,7 @@ export function VideoShelf({
         <>
           {split.reservations.length ? (
             <div className="videos-block">
-              <Subhead count={split.reservations.length}>
-                {t("videos.comingUp")}
-              </Subhead>
+              <Subhead>{t("videos.comingUp")}</Subhead>
               <div className="videos-tickets-wide">
                 <TicketList
                   videos={split.reservations}
@@ -764,7 +752,7 @@ export function VideoShelf({
           ) : null}
           {items.length ? (
             <div className="videos-block">
-              <Subhead count={items.length}>{view.title}</Subhead>
+              <Subhead>{view.title}</Subhead>
               <VideoGrid
                 videos={items.slice(0, FILTERED_ITEMS)}
                 variant={active === "shorts" ? "shorts" : undefined}
@@ -786,17 +774,7 @@ export function VideoShelf({
       id="videos"
       aria-labelledby="videos-title"
     >
-      <SectionTitle
-        id="videos-title"
-        kicker={
-          <>
-            <YouTubeLogo className="kicker-icon" aria-hidden="true" /> YouTube
-            {" · "}
-            <BilibiliLogo className="kicker-icon" aria-hidden="true" /> bilibili
-          </>
-        }
-        title={t("videos.subtitle")}
-      >
+      <SectionTitle id="videos-title" title={t("videos.subtitle")}>
         {hasFilter && !isLoading ? (
           <div
             className="segmented"
@@ -811,7 +789,6 @@ export function VideoShelf({
                 onClick={() => setFilter(item.value)}
               >
                 {item.label}
-                <small>{item.count}</small>
               </button>
             ))}
           </div>
@@ -1109,13 +1086,25 @@ export function VideoTimeline({
     if (!list || !body) return
     return holdInView(body, list, () => videoCard(body, keep.id), keep.top)
   }, [firstId])
+  // Whether the reader asked for newer videos and they are still loading; a
+  // background reread neither relabels nor disables the button, so it keeps
+  // keyboard focus.
+  const [newerPending, setNewerPending] = useState(false)
+  useEffect(() => {
+    if (isLoading) return
+    // A read that settled without newer videos leaves nothing to hold.
+    keepRef.current = null
+    setNewerPending(false)
+  }, [isLoading, newerPending])
   const showNewer = () => {
+    if (isLoading) return
     const card =
       firstId && listRef.current ? videoCard(listRef.current, firstId) : null
     keepRef.current =
       card && firstPage > 1
         ? { id: firstId!, top: card.getBoundingClientRect().top }
         : null
+    setNewerPending(true)
     onNewer()
   }
 
@@ -1137,11 +1126,12 @@ export function VideoTimeline({
           <button
             type="button"
             className="pill-button"
-            disabled={isLoading}
+            aria-disabled={isLoading || undefined}
+            aria-busy={newerPending || undefined}
             onClick={showNewer}
           >
             <ChevronUp aria-hidden="true" />
-            {isLoading ? t("common.refreshing") : t("videos.newer")}
+            {newerPending ? t("common.refreshing") : t("videos.newer")}
           </button>
         </div>
       ) : null}

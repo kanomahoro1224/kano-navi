@@ -41,7 +41,12 @@ body.has-works-sheet {
 }
 
 /* The sheet's scrolling panes keep a thin scrollbar that shows while the
-   pointer is over the pane. */
+   pointer is over the pane. Each pane reserves its gutter while it scrolls,
+   so switching editions never changes its width. */
+.works-sheet {
+  scrollbar-gutter: stable;
+}
+
 .works-sheet,
 .release-head-inner,
 .release-body,

@@ -203,6 +203,32 @@ func (s *Store) OpenProfileMedia(ctx context.Context, slot, version string) (*Me
 	if err != nil {
 		return nil, ErrMediaNotFound
 	}
+	return s.openCheckedImageStream(ctx, path, record.mime, record.hash)
+}
+
+// OpenAccountAvatarMedia opens a ready account avatar candidate file after
+// checking containment, image signature, and stored hash.
+func (s *Store) OpenAccountAvatarMedia(ctx context.Context, candidateID, version string) (*MediaStream, error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().OpenAccountAvatarMedia(ctx, candidateID, version)
+	}
+	record, err := s.lookupAccountAvatarMedia(ctx, candidateID, version)
+	if err != nil {
+		return nil, err
+	}
+	var path string
+	if strings.HasPrefix(strings.ReplaceAll(record.cachePath, `\`, "/"), "avatar/") {
+		path, err = s.resolveProfileMediaPath(record.cachePath)
+	} else {
+		path, err = s.resolveMediaPath(record.cachePath)
+	}
+	if err != nil {
+		return nil, ErrMediaNotFound
+	}
+	return s.openCheckedImageStream(ctx, path, record.mime, record.hash)
+}
+
+func (s *Store) openCheckedImageStream(ctx context.Context, path, expectedMIME, expectedHash string) (*MediaStream, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, ErrMediaNotFound
@@ -220,20 +246,69 @@ func (s *Store) OpenProfileMedia(ctx context.Context, slot, version string) (*Me
 	if readErr != nil && readErr != io.EOF && readErr != io.ErrUnexpectedEOF {
 		return closeOnError()
 	}
-	if mime := sniffImageMIME(header[:n]); mime == "" || mime != record.mime {
+	if mime := sniffImageMIME(header[:n]); mime == "" || mime != expectedMIME {
 		return closeOnError()
 	}
 	if _, err = file.Seek(0, io.SeekStart); err != nil {
 		return closeOnError()
 	}
 	hash, err := s.FileHash(ctx, path, info, file)
-	if err != nil || hash != record.hash {
+	if err != nil || hash != expectedHash {
 		return closeOnError()
 	}
 	if _, err = file.Seek(0, io.SeekStart); err != nil {
 		return closeOnError()
 	}
-	return &MediaStream{File: file, MIMEType: record.mime, ETag: record.hash, Size: info.Size(), LastModified: info.ModTime()}, nil
+	return &MediaStream{File: file, MIMEType: expectedMIME, ETag: expectedHash, Size: info.Size(), LastModified: info.ModTime()}, nil
+}
+
+// ReadAccountAvatarCandidate reads one checked account avatar image into memory
+// for operator previews or copying into the global profile media slot.
+func (s *Store) ReadAccountAvatarCandidate(ctx context.Context, candidateID string) (*ProfileMediaFile, error) {
+	stream, err := s.OpenAccountAvatarMedia(ctx, candidateID, "")
+	if err != nil {
+		return nil, err
+	}
+	defer stream.File.Close()
+	content, err := io.ReadAll(io.LimitReader(stream.File, stream.Size+1))
+	if err != nil || int64(len(content)) != stream.Size {
+		return nil, ErrMediaNotFound
+	}
+	return &ProfileMediaFile{Content: content, MIMEType: stream.MIMEType, SHA256: stream.ETag, Size: stream.Size}, nil
+}
+
+func (s *Store) lookupAccountAvatarMedia(ctx context.Context, candidateID, version string) (*mediaRecord, error) {
+	if s == nil || s.db == nil {
+		return nil, ErrUnavailable
+	}
+	if !safeHash(candidateID) {
+		return nil, ErrMediaNotFound
+	}
+	var cachePath, mimeType, sha, status sql.NullString
+	err := s.db.QueryRowContext(ctx, `
+		SELECT cache_path, mime_type, sha256, status
+		FROM account_avatar_candidates
+		WHERE id = ?
+	`, candidateID).Scan(&cachePath, &mimeType, &sha, &status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrMediaNotFound
+	}
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	if status.String != "ready" || !cachePath.Valid || !sha.Valid || !safeHash(sha.String) {
+		return nil, ErrMediaNotReady
+	}
+	if version != "" {
+		if !safeHash(version) || version != sha.String {
+			return nil, ErrMediaVersionNotFound
+		}
+	}
+	mime, ok := allowedMediaMIME(mimeType.String)
+	if !ok || !mimeType.Valid {
+		return nil, ErrMediaNotFound
+	}
+	return &mediaRecord{cachePath: cachePath.String, mime: mime, hash: sha.String}, nil
 }
 
 // ReadProfileMedia retains the checked whole-file API used by operator-side

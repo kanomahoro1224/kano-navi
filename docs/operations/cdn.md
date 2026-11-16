@@ -61,6 +61,8 @@ or every pulled file answers 404 (see step 2 of the
 | `/media/<id>`                                  | `public, max-age=0, must-revalidate`    | Without a version; ETag revalidation                         |
 | `/media/profile/{avatar,banner}?v=<hash>`      | `public, max-age=31536000, immutable`   | The selected profile image; `v` is its content hash          |
 | `/media/profile/{avatar,banner}`               | `public, max-age=0, must-revalidate`    | Without a version; ETag revalidation                         |
+| `/media/account-avatar/<id>?v=<hash>`          | `public, max-age=31536000, immutable`   | Cached per-account avatar; `v` is its content hash           |
+| `/media/account-avatar/<id>`                   | `public, max-age=0, must-revalidate`    | Without a version; ETag revalidation                         |
 | `/media/{lineblog,works,journey}/<hash>.<ext>` | immutable once the bytes match the name | Archive images and videos                                    |
 
 `/manifest.webmanifest`, `/robots.txt`, `/sw.js` (where present) and the HTML

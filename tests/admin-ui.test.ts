@@ -185,6 +185,7 @@ test("the real admin Site route saves visitor-region settings, makes image copie
               authenticated: true,
               mode: "development",
               requiresPassword: false,
+              requiresCode: false,
             }
           : path === "/overview"
             ? overview
@@ -289,6 +290,123 @@ test("the real admin Site route saves visitor-region settings, makes image copie
       (request) => request.method === "POST" && request.path === "/runs",
     )
     assert.deepEqual(runs.at(-1)?.body, { kind: "workflow", steps: ["media"] })
+  } finally {
+    await act(async () => root?.unmount())
+    restoreBrowser(installed.previous)
+    await vite.close()
+  }
+})
+
+test("the admin login asks for the one-time code only when it is configured, after a failed session read too", async () => {
+  const vite = await createServer({
+    configFile: false,
+    envDir: false,
+    server: { middlewareMode: true, watch: null, ws: false },
+    optimizeDeps: { noDiscovery: true, include: [] },
+    resolve: { alias: { "@": path.resolve("src") } },
+  })
+  const installed = installBrowser("")
+  const logins: unknown[] = []
+  let requiresCode = true
+  let sessionFailures = 1
+  globalThis.fetch = async (input, options: RequestInit = {}) => {
+    const route = String(input).replace(/^\/api\/admin/, "")
+    if (
+      route === "/session" &&
+      options.method !== "POST" &&
+      sessionFailures > 0
+    ) {
+      sessionFailures--
+      return new Response(
+        JSON.stringify({ error: "unavailable", message: "unavailable" }),
+        { status: 503, headers: { "content-type": "application/json" } },
+      )
+    }
+    const session = {
+      authenticated: false,
+      mode: "production",
+      requiresPassword: true,
+      requiresCode,
+    }
+    if (route === "/session" && options.method === "POST") {
+      logins.push(JSON.parse(String(options.body)))
+      return new Response(
+        JSON.stringify({
+          error: "invalid_credentials",
+          message: "invalid_credentials",
+        }),
+        { status: 401, headers: { "content-type": "application/json" } },
+      )
+    }
+    return new Response(JSON.stringify(route === "/session" ? session : {}), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })
+  }
+  let root: Rendered | undefined
+  try {
+    const [{ AdminApp }, { AppSettingsProvider, PageMessagesProvider }, copy] =
+      await Promise.all([
+        vite.ssrLoadModule("/src/admin/index.tsx"),
+        vite.ssrLoadModule("/src/app-settings.tsx"),
+        vite.ssrLoadModule("/src/admin-i18n.ts"),
+      ])
+    const mount = async () => {
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: copy.adminMessages },
+              createElement(AdminApp),
+            ),
+          ),
+        )
+        await new Promise((resolve) => setImmediate(resolve))
+      })
+    }
+    await mount()
+    // The first read failed, so the requirements are unknown: no password
+    // form, a reason and a retry, which finds the code required.
+    assert.equal(root!.container.querySelector('input[type="password"]'), null)
+    assert.match(
+      root!.container.textContent,
+      /unavailable on this server\.Retry$/,
+    )
+    await act(async () => {
+      await submit(root!.container.querySelector("form"))
+      await new Promise((resolve) => setImmediate(resolve))
+    })
+    const code = root!.container.querySelector<HTMLInputElement>(
+      'input[autocomplete="one-time-code"]',
+    )
+    assert.ok(code)
+    assert.equal(code.inputMode, "numeric")
+    await enter(
+      root!.container.querySelector('input[type="password"]')!,
+      "synthetic-password",
+    )
+    await enter(code, "123456")
+    await act(async () => {
+      await submit(root!.container.querySelector("form"))
+      await new Promise((resolve) => setImmediate(resolve))
+    })
+    assert.deepEqual(logins, [
+      { password: "synthetic-password", code: "123456" },
+    ])
+    // A refused login names both factors and clears the spent code.
+    assert.match(root!.container.textContent, /Wrong password or code\./)
+    assert.equal(code.value, "")
+    await act(async () => root?.unmount())
+
+    requiresCode = false
+    await mount()
+    assert.equal(
+      root!.container.querySelector('input[autocomplete="one-time-code"]'),
+      null,
+    )
   } finally {
     await act(async () => root?.unmount())
     restoreBrowser(installed.previous)
@@ -562,6 +680,167 @@ test("the overview queue lists timers in order, starts one now or next and links
     await click(backlog[0])
     await click(backlog[1])
     assert.deepEqual(visits, ["posts/queued-extraction", "videos/queued"])
+  } finally {
+    await act(async () => root?.unmount())
+    restoreBrowser(installed.previous)
+    await vite.close()
+  }
+})
+
+test("profile view distinguishes distinct uploaded account avatars by content hash", async () => {
+  const vite = await createServer({
+    configFile: false,
+    envDir: false,
+    server: { middlewareMode: true, watch: null, ws: false },
+    optimizeDeps: { noDiscovery: true, include: [] },
+    resolve: { alias: { "@": path.resolve("src") } },
+  })
+  const installed = installBrowser("#profile")
+  const activeAvatar = {
+    id: "pm-upload-a",
+    slot: "avatar",
+    source: "upload",
+    sourceRef: "account-avatar:kano_2525",
+    sourceUrl: null,
+    downloadStatus: "done",
+    status: "ready",
+    isActive: true,
+    activeSha256:
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    width: 128,
+    height: 128,
+    byteSize: 512,
+    lastError: null,
+    previewUrl: "/api/admin/profile-media/pm-upload-a/preview",
+    updatedAt: "2026-10-01T00:00:00Z",
+  }
+  let currentCandidateSha =
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  const buildAccount = () => ({
+    source: "x",
+    accountKey: "kano_2525",
+    accountHandle: "kano_2525",
+    role: "own",
+    keywords: [],
+    mode: "manual",
+    activeCandidateId:
+      currentCandidateSha === activeAvatar.activeSha256 ? "cand-a" : "cand-b",
+    publicUrl: "/media/account-avatar/cand?v=" + currentCandidateSha,
+    updatedAt: "2026-10-01T00:00:00Z",
+    candidates: [
+      {
+        id:
+          currentCandidateSha === activeAvatar.activeSha256
+            ? "cand-a"
+            : "cand-b",
+        origin: "upload",
+        sourceUrl: null,
+        status: "ready",
+        isActive: true,
+        mimeType: "image/png",
+        byteSize: 512,
+        sha256: currentCandidateSha,
+        width: 128,
+        height: 128,
+        lastError: null,
+        previewUrl: "/api/admin/account-avatars/x/kano_2525/candidates/preview",
+        createdAt: "2026-10-01T00:00:00Z",
+        updatedAt: "2026-10-01T00:00:00Z",
+      },
+    ],
+  })
+  globalThis.fetch = async (input) => {
+    const reqPath = String(input).replace(/^\/api\/admin/, "")
+    const payload =
+      reqPath === "/session"
+        ? {
+            authenticated: true,
+            mode: "development",
+            requiresPassword: false,
+            requiresCode: false,
+          }
+        : reqPath === "/overview"
+          ? overview
+          : reqPath === "/profile-media"
+            ? {
+                items: [activeAvatar],
+                active: { avatar: activeAvatar, banner: null },
+              }
+            : reqPath === "/account-avatars"
+              ? { items: [buildAccount()] }
+              : {}
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })
+  }
+  let root: Rendered | undefined
+  try {
+    const [
+      { AdminApp },
+      { isOwnAccountActiveSiteAvatar },
+      { AppSettingsProvider, PageMessagesProvider },
+      copy,
+    ] = await Promise.all([
+      vite.ssrLoadModule("/src/admin/index.tsx"),
+      vite.ssrLoadModule("/src/admin/views/profile.tsx"),
+      vite.ssrLoadModule("/src/app-settings.tsx"),
+      vite.ssrLoadModule("/src/admin-i18n.ts"),
+    ])
+
+    const mountProfile = async () => {
+      await act(async () => root?.unmount())
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: copy.adminMessages },
+              createElement(AdminApp),
+            ),
+          ),
+        )
+        await new Promise((resolve) => setImmediate(resolve))
+      })
+      const card = root!.container.querySelector(".adm-candidate.is-row")
+      assert.ok(card, "expected own account card to render")
+      const applyBtn = card.querySelector(
+        ".adm-candidate-actions button",
+      ) as HTMLButtonElement | null
+      assert.ok(applyBtn, "expected apply button in card actions")
+      return { card, applyBtn }
+    }
+
+    // Uploaded A matches active site avatar A.
+    let state = await mountProfile()
+    assert.ok(state.card.classList.contains("is-active"))
+    assert.equal(state.applyBtn?.disabled, true)
+    assert.equal(
+      isOwnAccountActiveSiteAvatar(
+        buildAccount(),
+        buildAccount().candidates[0],
+        activeAvatar,
+      ),
+      true,
+    )
+
+    // Switch account active upload to distinct upload B (still sourceUrl: null) -> must NOT match A!
+    currentCandidateSha =
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    state = await mountProfile()
+    assert.equal(state.card.classList.contains("is-active"), false)
+    assert.equal(state.applyBtn?.disabled, false)
+    assert.equal(
+      isOwnAccountActiveSiteAvatar(
+        buildAccount(),
+        buildAccount().candidates[0],
+        activeAvatar,
+      ),
+      false,
+    )
   } finally {
     await act(async () => root?.unmount())
     restoreBrowser(installed.previous)

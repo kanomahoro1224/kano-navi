@@ -111,7 +111,7 @@ func runStandalone(cfg config.Config) int {
 	// The variants step and the Site page's copies status read the archives
 	// under the data directory.
 	run.steps.Variants = &variants.Roots{Data: store.DataRoot()}
-	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies)
+	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies, run.xOptions.Handles)
 	queue := &workflow.Queue{Store: store, Executor: run.executor}
 	defer queue.Close()
 	if err = queue.Recover(context.Background()); err != nil {
@@ -353,10 +353,10 @@ func runHealthCheck(cfg config.Config) int {
 // standaloneModules attaches the operator feature modules. key is the
 // LLM_SECRETS_KEY that seals provider and proxy credentials; proxies carries
 // the modules' outbound requests.
-func standaloneModules(store *sqlite.Store, mode, key string, proxies *outboundproxy.Pool) []httpx.AdminModule {
+func standaloneModules(store *sqlite.Store, mode, key string, proxies *outboundproxy.Pool, xHandles []string) []httpx.AdminModule {
 	return []httpx.AdminModule{
 		llmadmin.New(store, llmadmin.Options{Mode: mode, SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)}),
-		contentadmin.New(store, contentadmin.Options{HTTPClient: proxies.Client(outboundproxy.AreaMedia)}),
+		contentadmin.New(store, contentadmin.Options{HTTPClient: proxies.Client(outboundproxy.AreaMedia), XHandles: xHandles}),
 		outboundproxy.NewAdmin(store, proxies),
 	}
 }

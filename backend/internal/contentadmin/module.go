@@ -27,6 +27,8 @@ type Options struct {
 	// PublicAssetsDir is the tracked /assets directory used to resolve fixed
 	// schedule images. It defaults to ../public/assets next to the data root.
 	PublicAssetsDir string
+	// XHandles names Kano's own X accounts surfaced in Account Avatars.
+	XHandles []string
 }
 
 // Module implements httpx.AdminModule.
@@ -37,6 +39,7 @@ type Module struct {
 	assetsDir string
 	client    *http.Client
 	now       func() time.Time
+	xHandles  []string
 	// selectMu serializes selected-file replacement with its metadata update.
 	selectMu sync.Mutex
 }
@@ -45,7 +48,7 @@ var _ httpx.AdminModule = (*Module)(nil)
 
 // New builds the content admin module over an opened store.
 func New(store *sqlite.Store, opts Options) *Module {
-	m := &Module{store: store, db: store.DB(), dataRoot: store.DataRoot(), now: opts.Now, assetsDir: opts.PublicAssetsDir}
+	m := &Module{store: store, db: store.DB(), dataRoot: store.DataRoot(), now: opts.Now, assetsDir: opts.PublicAssetsDir, xHandles: append([]string{}, opts.XHandles...)}
 	if m.now == nil {
 		m.now = time.Now
 	}
@@ -79,10 +82,21 @@ func (m *Module) AdminRoutes() []httpx.Route {
 	id := func(next func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) { next(w, r, r.PathValue("id")) }
 	}
+	account := func(next func(http.ResponseWriter, *http.Request, string, string)) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			next(w, r, r.PathValue("source"), r.PathValue("handle"))
+		}
+	}
+	candidate := func(next func(http.ResponseWriter, *http.Request, string, string, string)) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			next(w, r, r.PathValue("source"), r.PathValue("handle"), r.PathValue("id"))
+		}
+	}
 	return []httpx.Route{
 		{Method: http.MethodGet, Path: "/profile-media", Handler: m.guard(m.listProfileMediaRoute)},
 		{Method: http.MethodPost, Path: "/profile-media", Handler: m.guard(m.addProfileMedia)},
 		{Method: http.MethodPost, Path: "/profile-media/discover", Handler: m.guard(m.discoverProfileMediaRoute)},
+		{Method: http.MethodPost, Path: "/profile-media/clear", Handler: m.guard(m.clearProfileMediaRoute)},
 		{Method: http.MethodPost, Path: "/profile-media/upload", Handler: m.guard(func(w http.ResponseWriter, r *http.Request) {
 			m.uploadProfileMedia(w, r, r.URL.Query().Get("slot"))
 		})},
@@ -90,6 +104,16 @@ func (m *Module) AdminRoutes() []httpx.Route {
 		{Method: http.MethodPost, Path: "/profile-media/{id}/download", Handler: m.guard(id(m.downloadProfileMediaRoute))},
 		{Method: http.MethodPost, Path: "/profile-media/{id}/select", Handler: m.guard(id(m.selectProfileMediaRoute))},
 		{Method: http.MethodDelete, Path: "/profile-media/{id}", Handler: m.guard(id(m.deleteProfileMediaRoute))},
+		{Method: http.MethodGet, Path: "/account-avatars", Handler: m.guard(m.listAccountAvatarsRoute)},
+		{Method: http.MethodPost, Path: "/account-avatars/{source}/{handle}/discover", Handler: m.guard(account(m.discoverAccountAvatarRoute))},
+		{Method: http.MethodPost, Path: "/account-avatars/{source}/{handle}/url", Handler: m.guard(account(m.addAccountAvatarURLRoute))},
+		{Method: http.MethodPost, Path: "/account-avatars/{source}/{handle}/upload", Handler: m.guard(account(m.uploadAccountAvatarRoute))},
+		{Method: http.MethodPut, Path: "/account-avatars/{source}/{handle}/mode", Handler: m.guard(account(m.setAccountAvatarModeRoute))},
+		{Method: http.MethodPost, Path: "/account-avatars/{source}/{handle}/apply-profile", Handler: m.guard(account(m.applyAccountAvatarToProfileRoute))},
+		{Method: http.MethodGet, Path: "/account-avatars/{source}/{handle}/candidates/{id}/preview", Handler: m.guard(candidate(m.previewAccountAvatarCandidateRoute))},
+		{Method: http.MethodPost, Path: "/account-avatars/{source}/{handle}/candidates/{id}/download", Handler: m.guard(candidate(m.downloadAccountAvatarCandidateRoute))},
+		{Method: http.MethodPost, Path: "/account-avatars/{source}/{handle}/candidates/{id}/select", Handler: m.guard(candidate(m.selectAccountAvatarCandidateRoute))},
+		{Method: http.MethodDelete, Path: "/account-avatars/{source}/{handle}/candidates/{id}", Handler: m.guard(candidate(m.deleteAccountAvatarCandidateRoute))},
 		{Method: http.MethodGet, Path: "/schedule-images", Handler: m.guard(m.listScheduleAssetsRoute)},
 		{Method: http.MethodGet, Path: "/schedule-attention", Handler: m.guard(m.scheduleAttentionRoute)},
 		{Method: http.MethodPost, Path: "/schedule-images/{id}/review", Handler: m.guard(id(m.manualReviewRoute))},

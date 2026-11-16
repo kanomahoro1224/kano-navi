@@ -10,7 +10,14 @@ export type Tier = (typeof tiers)[number]
 
 // Every planned validation job; each job ID is also its plan key. The Gate
 // evaluates all of them in both tiers.
-export const jobs = ["backend", "go", "frontend", "smoke", "docker"] as const
+export const jobs = [
+  "backend",
+  "go-builds",
+  "go-container",
+  "frontend",
+  "smoke",
+  "docker",
+] as const
 export type Job = (typeof jobs)[number]
 export type Plan = Record<Job, boolean>
 
@@ -18,7 +25,13 @@ export type Plan = Record<Job, boolean>
 export const alwaysRun = ["plan", "style"] as const
 
 // The application parts and the jobs that consume them.
-const backendJobs: Job[] = ["backend", "go", "smoke", "docker"]
+const backendJobs: Job[] = [
+  "backend",
+  "go-builds",
+  "go-container",
+  "smoke",
+  "docker",
+]
 const frontendJobs: Job[] = ["frontend", "docker"]
 
 // The files under scripts/ and the planned jobs that run them. Style always
@@ -37,8 +50,8 @@ export const scriptJobs: Record<string, Job[]> = {
   "export-journey-api.ts": ["frontend"],
   "export-works-api.ts": ["frontend"],
   "export-lineblog.ts": ["frontend"],
-  "go-check.mjs": ["go"],
-  "go-docker-smoke.mjs": ["go"],
+  "go-check.mjs": ["go-builds", "go-container"],
+  "go-docker-smoke.mjs": ["go-container"],
   "go-test-shard.mjs": ["backend"],
   "go-test-shard.test.mjs": [],
   "go-test-durations.json": ["backend"],
@@ -80,8 +93,8 @@ function jobsFor(path: string): Job[] | null {
   // The frontend tests read the static seed to keep its copy in step.
   if (path === "backend/internal/store/sqlite/static-seed.json")
     return [...backendJobs, "frontend"]
-  // The Go gate builds this image; the release image has its own Dockerfile.
-  if (path === "backend/Dockerfile") return ["go"]
+  // Go container builds this image; the release image has its own Dockerfile.
+  if (path === "backend/Dockerfile") return ["go-container"]
   if (path.startsWith("backend/")) return backendJobs
   if (path.startsWith("src/") || path.startsWith("public/")) return frontendJobs
   if (frontendConfig.test(path)) return frontendJobs

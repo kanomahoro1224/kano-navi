@@ -229,7 +229,8 @@ CREATE TABLE posts (
     quote_hidden_at TEXT,
     refresh_requested_at TEXT,
     hidden_at TEXT,
-    promoted_at TEXT
+    promoted_at TEXT,
+    deleted_at TEXT
   );
 
 CREATE TABLE profile_media (
@@ -256,6 +257,39 @@ CREATE TABLE profile_media (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     raw_json TEXT
+  );
+
+CREATE TABLE account_avatars (
+    source TEXT NOT NULL,
+    account_key TEXT NOT NULL,
+    account_handle TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'auto',
+    active_candidate_id TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (source, account_key),
+    CHECK (mode IN ('auto', 'manual', 'hidden'))
+  );
+
+CREATE TABLE account_avatar_candidates (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    account_key TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    source_url TEXT,
+    media_id TEXT,
+    cache_path TEXT,
+    mime_type TEXT,
+    byte_size INTEGER,
+    sha256 TEXT,
+    width INTEGER,
+    height INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending',
+    last_error TEXT,
+    observation_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    CHECK (origin IN ('sync', 'discover', 'url', 'upload')),
+    CHECK (status IN ('pending', 'ready', 'failed'))
   );
 
 CREATE TABLE profiles (
@@ -579,6 +613,8 @@ CREATE INDEX post_llm_states_status_idx
 
 CREATE INDEX posts_account_handle_idx ON posts (account_handle, published_at DESC);
 
+CREATE INDEX posts_deleted_idx ON posts (id) WHERE deleted_at IS NOT NULL;
+
 CREATE INDEX posts_instant_idx ON posts (julianday(published_at) DESC, id);
 
 CREATE INDEX posts_published_at_idx ON posts (published_at DESC);
@@ -620,3 +656,9 @@ CREATE INDEX videos_schedule_instant_idx ON videos (julianday(scheduled_at), id)
 CREATE INDEX x_reposts_retweet_idx ON x_reposts (retweet_id) WHERE retweet_id IS NOT NULL;
 
 CREATE INDEX x_statuses_author_idx ON x_statuses (lower(author_handle), length(id), id);
+
+CREATE INDEX account_avatar_candidates_account_idx ON account_avatar_candidates (source, account_key, updated_at DESC);
+
+CREATE UNIQUE INDEX account_avatar_candidates_source_url_idx ON account_avatar_candidates (source, account_key, source_url) WHERE source_url IS NOT NULL;
+
+CREATE INDEX account_avatar_candidates_media_idx ON account_avatar_candidates (media_id) WHERE media_id IS NOT NULL;

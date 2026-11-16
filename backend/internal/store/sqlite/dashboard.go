@@ -24,6 +24,7 @@ type Dashboard struct {
 	Assets         []Asset
 	ScheduleImages []Asset
 	ProfileMedia   ProfileMediaSlots
+	AccountAvatars map[string]*string
 	// LiveNow is the account's Bilibili broadcast that no entry matched, or
 	// nil.
 	LiveNow *LiveNow
@@ -730,10 +731,14 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 	if latest == nil && len(posts) > 0 {
 		latest = &posts[0]
 	}
+	accountAvatars, err := s.AccountAvatars(ctx)
+	if err != nil {
+		return nil, err
+	}
 	dashboard := &Dashboard{
 		Profile: profile,
 		Summary: DashboardSummary{NextEvent: nextEvent, NextStream: nextStream, LatestVideo: latestVideo, LatestPost: latest, Counts: DashboardCounts{Posts: postCount, Events: totalEvents, UpcomingEvents: upcomingEvents, Videos: videoCount, Resources: int64(len(resources))}},
-		Posts:   posts, Events: events, Videos: videos, Focus: focus, Timeline: timeline, Resources: resources, Assets: assets, ScheduleImages: filterReadyAssets(calendarAssets), ProfileMedia: profileMedia, LiveNow: liveNow,
+		Posts:   posts, Events: events, Videos: videos, Focus: focus, Timeline: timeline, Resources: resources, Assets: assets, ScheduleImages: filterReadyAssets(calendarAssets), ProfileMedia: profileMedia, AccountAvatars: accountAvatars, LiveNow: liveNow,
 		Meta: DashboardMeta{FetchedAt: fetchedAt, SourceFetchedAt: sourceFetchedAt, LastSync: lastSync, PostWindowDays: days, EventWindow: EventWindow{From: from, To: to, Paginated: true}, GeneratedAt: now.UTC().Format("2006-01-02T15:04:05.000Z"), MediaCache: mediaCache, Revision: revision, FeaturedVideoID: featuredID, XAccounts: xAccounts, BilibiliAccounts: bilibiliAccounts},
 	}
 	applyDashboardProjection(dashboard, now)

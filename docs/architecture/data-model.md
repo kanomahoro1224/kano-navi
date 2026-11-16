@@ -23,44 +23,46 @@ The [workflow tables](#workflow-tables) are then created or verified in their
 own transaction, and the selected profile media is reconciled with its files
 (see [Event Precedence](#event-precedence)). The tables are:
 
-| Table                    | Purpose                                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `profiles`               | Name, bio, avatar, banner, and official entry points                                                   |
-| `profile_media`          | Avatar and banner candidates, their downloads, and the operator's selected file                        |
-| `push_devices`           | HarmonyOS push tokens, device identity, locale, and the per-category notification switches             |
-| `push_pending`           | X posts whose non-Japanese notifications wait for the translation step                                 |
-| `web_push_subscriptions` | Browsers subscribed to Web Push: endpoint, keys, locale, switches, and failure count                   |
-| `posts`                  | X posts and Bilibili dynamics, account, publication time, engagement counts, media, and the quote      |
-| `events`                 | Unified schedules, platform, provenance, confidence, manual locks, tombstones, and duplicate merges    |
-| `event_sources`          | Source post/reservation identities attached to each event                                              |
-| `videos`                 | YouTube videos and streams, Bilibili uploads and their merges, corrections, and refresh requests       |
-| `video_revisions`        | Titles and thumbnails a platform replaced, one row per change                                          |
-| `focus`                  | The page's latest focus item and stable YouTube video ID                                               |
-| `timeline`               | Person and activity timeline                                                                           |
-| `resources`              | X, YouTube, Wikipedia, and other resource links                                                        |
-| `assets`                 | Schedule images and their sources                                                                      |
-| `media_assets`           | Remote media identities, cache metadata, and fetch status                                              |
-| `media_links`            | Links from cached media to posts, videos, profiles, focus items and Works upload videos                |
-| `media_versions`         | Earlier cached files of an asset whose bytes a revalidation replaced                                   |
-| `sync_runs`              | Status, counts, error summaries, trigger, and asynchronous job identity                                |
-| `sync_state`             | Durable per-account X, YouTube, Bilibili and shop cursors, read bookkeeping and X API chain state      |
-| `app_settings`           | Model, extractor, X-account, Featured, YouTube push and proxy settings (secrets sealed)                |
-| `schedule_extractions`   | Versioned LLM inputs, outcomes, and structured result metadata                                         |
-| `post_llm_states`        | Per-post LLM status, last attempt, error, reprocess queue state, failure backoff, settled input stamp  |
-| `schedule_asset_reviews` | Per-schedule-image LLM verdict, skip reason (`no_image` for a URL-less row), and optional manual label |
-| `llm_providers`          | OpenAI-compatible or Anthropic endpoints, Text/Image capabilities, health, and encrypted keys          |
-| `llm_models`             | Per-provider model catalog with tags (`text`/`image` routing; `reasoning`/`tools`/`embedding` labels)  |
-| `llm_route_targets`      | The ordered provider + model failover queues: `schedule`, `verify` and `translate`                     |
-| `llm_route_providers`    | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
-| `source_schedules`       | Each source's timer, sync setting and method chain                                                     |
-| `workflows`              | Saved workflow definitions: kept in the schema, created empty, never read or written                   |
-| `work_cover_lookups`     | Each niconico or Bilibili cover lookup of a Works upload video: outcome, image URL and retry time      |
-| `translations`           | Manual, platform, and machine translations of posts, videos and pooled statuses per target locale      |
-| `translation_states`     | Per-owner machine translation state: source hash and language, last attempt, operator request          |
-| `x_statuses`             | The X status pool: related accounts' statuses and statuses own posts quote or repost; never public     |
-| `x_reposts`              | The own X accounts' reposts: reposted status, account, author, first sighting and first known own ID   |
-| `x_repost_ids`           | Every known own status ID of a repost, with its original status, account and first sighting            |
-| `bilibili_statuses`      | The Bilibili status pool: dynamics own forwards forward; never public                                  |
+| Table                       | Purpose                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `profiles`                  | Name, bio, avatar, banner, and official entry points                                                   |
+| `profile_media`             | Avatar and banner candidates, their downloads, and the operator's selected file                        |
+| `push_devices`              | HarmonyOS push tokens, device identity, locale, and the per-category notification switches             |
+| `push_pending`              | X posts whose non-Japanese notifications wait for the translation step                                 |
+| `web_push_subscriptions`    | Browsers subscribed to Web Push: endpoint, keys, locale, switches, and failure count                   |
+| `posts`                     | X posts and Bilibili dynamics, account, publication time, engagement counts, media, and the quote      |
+| `events`                    | Unified schedules, platform, provenance, confidence, manual locks, tombstones, and duplicate merges    |
+| `event_sources`             | Source post/reservation identities attached to each event                                              |
+| `videos`                    | YouTube videos and streams, Bilibili uploads and their merges, corrections, and refresh requests       |
+| `video_revisions`           | Titles and thumbnails a platform replaced, one row per change                                          |
+| `focus`                     | The page's latest focus item and stable YouTube video ID                                               |
+| `timeline`                  | Person and activity timeline                                                                           |
+| `resources`                 | X, YouTube, Wikipedia, and other resource links                                                        |
+| `assets`                    | Schedule images and their sources                                                                      |
+| `media_assets`              | Remote media identities, cache metadata, and fetch status                                              |
+| `media_links`               | Links from cached media to posts, videos, profiles, focus items and Works upload videos                |
+| `media_versions`            | Earlier cached files of an asset whose bytes a revalidation replaced                                   |
+| `sync_runs`                 | Status, counts, error summaries, trigger, and asynchronous job identity                                |
+| `sync_state`                | Durable per-account X, YouTube, Bilibili and shop cursors, read bookkeeping and X API chain state      |
+| `app_settings`              | Model, extractor, X-account, Featured, YouTube push and proxy settings (secrets sealed)                |
+| `schedule_extractions`      | Versioned LLM inputs, outcomes, and structured result metadata                                         |
+| `post_llm_states`           | Per-post LLM status, last attempt, error, reprocess queue state, failure backoff, settled input stamp  |
+| `schedule_asset_reviews`    | Per-schedule-image LLM verdict, skip reason (`no_image` for a URL-less row), and optional manual label |
+| `llm_providers`             | OpenAI-compatible or Anthropic endpoints, Text/Image capabilities, health, and encrypted keys          |
+| `llm_models`                | Per-provider model catalog with tags (`text`/`image` routing; `reasoning`/`tools`/`embedding` labels)  |
+| `llm_route_targets`         | The ordered provider + model failover queues: `schedule`, `verify` and `translate`                     |
+| `llm_route_providers`       | Provider-only routes that startup copies once into `llm_route_targets`; nothing else writes them       |
+| `source_schedules`          | Each source's timer, sync setting and method chain                                                     |
+| `workflows`                 | Saved workflow definitions: kept in the schema, created empty, never read or written                   |
+| `work_cover_lookups`        | Each niconico or Bilibili cover lookup of a Works upload video: outcome, image URL and retry time      |
+| `translations`              | Manual, platform, and machine translations of posts, videos and pooled statuses per target locale      |
+| `translation_states`        | Per-owner machine translation state: source hash and language, last attempt, operator request          |
+| `x_statuses`                | The X status pool: related accounts' statuses and statuses own posts quote or repost; never public     |
+| `x_reposts`                 | The own X accounts' reposts: reposted status, account, author, first sighting and first known own ID   |
+| `x_repost_ids`              | Every known own status ID of a repost, with its original status, account and first sighting            |
+| `bilibili_statuses`         | The Bilibili status pool: dynamics own forwards forward; never public                                  |
+| `account_avatars`           | Per-account active avatar state and display mode (`auto`, `manual`, `hidden`)                          |
+| `account_avatar_candidates` | Cached and uploaded avatar history per tracked X account                                               |
 
 The API maps snake_case columns to camelCase and removes `raw_json`. The
 frontend must not depend on database fields that are not declared in the API
@@ -408,6 +410,20 @@ once in the same transaction as all selected metadata updates. An unchanged
 startup does not increment it. Open boards therefore follow the revision and
 reload the repaired public profile snapshot, including its versioned avatar
 URL.
+
+`account_avatars` stores one state row per `(source, account_key)` (lowercase
+X handle without `@`), with `mode` (`auto`, `manual`, or `hidden`),
+`active_candidate_id`, and `updated_at`. `account_avatar_candidates` stores
+candidate history (`sync`, `discover`, `url`, or `upload`) linked to either
+`media_assets` for remote X downloads or a local file path under `data/avatar/`
+for manual uploads. Each reported URL or upload advances its candidate's
+per-account `observation_order`; download completion and failure do not change
+that order. `auto` selects the most recently observed ready candidate, including
+a previously cached URL that the source reports again. `manual` preserves the
+operator's selection, and `hidden` suppresses public portraits. Startup adds a
+missing `observation_order` column and initializes it from the stored update and
+creation order without changing account selections. Download synchronization and
+public revision rules are in [Account avatars](media-cache.md#account-avatars).
 Schedule image reviews add `llm_input_fingerprint` for input cache validation
 (see [Schedule images](sources.md#schedule-images)); a review without
 one is rechecked when next scanned. Automatic
@@ -558,7 +574,9 @@ rewrite of `quote_json` and the `quote-image` links, like a manual lock.
 the post out, extraction never selects it, and the automatic events it alone
 supports leave the public pages (see
 [Events of hidden posts](#events-of-hidden-posts)). The console still lists
-the post, and no synchronization path writes the column. `posts.refresh_requested_at` is a
+the post, and no synchronization path writes the column. `posts.deleted_at`
+marks a soft-deleted post, which no reader shows, the console included (see
+[Reposts stored as posts](#reposts-stored-as-posts)). `posts.refresh_requested_at` is a
 queued refresh from the source, cleared once the X synchronization made its
 detail request (see
 [Refresh from the source](sources.md#refresh-from-the-source)). All three are
@@ -930,19 +948,26 @@ video's linked event. The console lists it with `hiddenByPosts`.
 
 An own account's repost has a status ID of its own, which a detail answer
 or an X API answer names (see [Reposts](sources.md#reposts)). An own X
-post stored under that ID, such as one an archive import wrote, is removed
-in the transaction that records the repost: the `posts` row with its
+post stored under that ID, such as one an archive import wrote, is
+soft-deleted in the transaction that records the repost: `posts.deleted_at`
+is stamped and its refresh request cleared. Nothing is removed: the row, its
 `media_links`, its `schedule-x-<id>` asset with that asset's links and
-review, `post_llm_states`, `schedule_extractions`, its `post` translations
-and translation state, and its refresh request. Its active `event_sources`
-rows are retired as an extraction that no longer names them retires them:
-an automatic, unlocked event left without active evidence is retired, which
-releases the rule merges into it, while an event with other active evidence
-stays and a manual or locked event keeps its row and decisions (see
-[Event precedence](#event-precedence)). A promoted post or another account's
-post is never removed this way. The ID stays in `x_repost_ids`, so
-no synchronization, fetch or promotion writes a post under it again; a write
-that names it skips it, with its schedule candidate.
+review, `post_llm_states`, `schedule_extractions`, and its `post`
+translations and translation state stay as they were. Every reader skips a
+deleted post and its schedule-image candidate: the dashboard, the post
+archive and its month index, MCP, the console's lists, counts and failures,
+extraction, translation, refresh and the schedule-image check. Its active
+`event_sources` rows are retired as an extraction that no longer names them
+retires them: an automatic, unlocked event left without active evidence is
+retired, which releases the rule merges into it, while an event with other
+active evidence stays and a manual or locked event keeps its row and
+decisions (see [Event precedence](#event-precedence)). A model's suspected
+cancellation that the post raised is withdrawn; an operator's confirmed
+cancellation stays. A promoted post, another account's post or a post
+already deleted is never touched this way. The ID stays in `x_repost_ids`,
+so no synchronization, fetch or promotion writes a post under it again; a
+write that names it skips it, with its schedule candidate, and the deleted
+row keeps its stored content.
 
 ## Event Platforms
 

@@ -268,9 +268,13 @@ the stream needs are with the deployment guide.
 
 Media responses follow the [media HTTP contract](media-cache.md#http-contract).
 Selected profile media uses `/media/profile/avatar` and
-`/media/profile/banner`, the LINE BLOG archive's files use
+`/media/profile/banner`, cached per-account X avatars use
+[`/media/account-avatar/{id}`](media-cache.md#account-avatars), the LINE BLOG archive's files use
 [`/media/lineblog/<name>`](media-cache.md#line-blog-archive-media), and the
 discography covers use [`/media/works/<name>`](media-cache.md#discography-covers).
+`/api/dashboard` and `/api/posts` also include `accountAvatars`, mapping
+`<source>:<account_key>` to its versioned `/media/account-avatar/...` path or
+`null` when hidden; accounts with no cached avatar are omitted.
 With `CDN_PUBLIC_BASE` set, the reads name these routes on the CDN, which pulls
 them from the same paths here.
 
@@ -364,14 +368,17 @@ reads and never fetch platforms. The board's schedule and post month dialogs
 use the ranges with the calendar; its video dialog uses the timeline.
 
 Without `from` and `to`,
-`GET /api/videos?until=2026-09-30&page=1&pageSize=30&category=game` is the
-video timeline: the stored videos dated on or before the inclusive Japan date
-`until`, or every dated video without it, newest first, paged, projected and
-filtered like a range. Its `categoryCounts` count every video it pages
-through, `adjacent.previous` is always `null`, and `adjacent.next` is the
-nearest later Japan date holding a video, so a timeline that starts at an
-earlier month knows that newer videos exist. An invalid `until`, a lone `from`
-or `to`, or `until` together with a range returns 400 `invalid_range`.
+`GET /api/posts?until=2026-09-30&page=1&pageSize=30&account=kano_2525` and
+`GET /api/videos?until=2026-09-30&page=1&pageSize=30&category=game` are the
+post and video timelines: the stored posts or videos dated on or before the
+inclusive Japan date `until`, or every dated one without it, newest first,
+paged, projected and filtered like a range. Their `accountCounts` or
+`categoryCounts` count every post or video they page through,
+`adjacent.previous` is always `null`, and `adjacent.next` is the nearest later
+Japan date holding a post or video of the filter, so a timeline that starts at
+an earlier month knows that newer records exist. An invalid `until`, a lone
+`from` or `to`, or `until` together with a range returns 400
+`invalid_range`.
 
 `GET /api/posts/months` and `GET /api/videos/months` are the month indexes of
 the post archive and the video timeline: `months` lists every Japan month

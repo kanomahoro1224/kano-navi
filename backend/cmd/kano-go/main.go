@@ -38,6 +38,7 @@ Commands:
   variants     Make the smaller copies of the LINE BLOG, Works and Journey images (-data, -out)
   webpush-key  Print a fresh VAPID key pair for WEB_PUSH_VAPID_*
   web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY line and its keyid
+  totp-secret  Print a new ADMIN_TOTP_SECRET line and its otpauth:// address
   healthcheck  Probe the local service and exit
 
 Common flags: -database <path>  -static <directory>  -listen <address>`
@@ -64,6 +65,8 @@ func main() {
 		os.Exit(runWebPushKey())
 	case "web-bot-auth-key":
 		os.Exit(runWebBotAuthKey(args, os.Stdout))
+	case "totp-secret":
+		os.Exit(runTOTPSecret(args, os.Stdout))
 	case "help":
 		fmt.Println(usage)
 		return
@@ -111,7 +114,7 @@ func main() {
 	// Without any admin environment, read-only mode serves public reads only.
 	// Supplying any admin setting opts into the production default and
 	// validates it before the admin router is attached.
-	if os.Getenv("APP_MODE") != "" || os.Getenv("ADMIN_PASSWORD") != "" || os.Getenv("ADMIN_ORIGIN") != "" {
+	if os.Getenv("APP_MODE") != "" || os.Getenv("ADMIN_PASSWORD") != "" || os.Getenv("ADMIN_ORIGIN") != "" || os.Getenv("ADMIN_TOTP_SECRET") != "" {
 		adminConfig, configErr := adminauth.ResolveEnv()
 		if configErr != nil {
 			fmt.Fprintln(os.Stderr, "kano-go: invalid admin configuration")

@@ -113,6 +113,8 @@ reads belong to server-side workflows and their helpers.
 
 - Follow `docs/development/design.md` for UI work. Check affected UI in a
   browser at desktop and mobile widths.
+- Avoid redundant helper labels and explanatory captions in the frontend; let
+  the layout, grouping, and visual hierarchy explain themselves.
 - Tests protect concrete behaviors and contracts. Choose the lowest sufficient
   layer and use synthetic records, reserved domains and synthetic URLs.
 

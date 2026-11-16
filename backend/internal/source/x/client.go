@@ -243,6 +243,7 @@ type Post struct {
 	MediaKinds       []string
 	MediaAlt         string
 	AuthorScreenName string
+	AuthorAvatarURL  string
 	// Quote is the status the post quotes, nil when it quotes none. Its
 	// images are never the post's own MediaURLs.
 	Quote *Quote
@@ -288,6 +289,9 @@ type Result struct {
 	RefreshOnly bool
 	// Reposts are the account's reposts the listing pages carried.
 	Reposts []Repost
+	// AccountAvatars maps lowercase handle (own, reposted, or quoted) to its
+	// normalized avatar URL discovered during the run.
+	AccountAvatars map[string]string
 }
 
 type Adapter struct {
@@ -407,10 +411,18 @@ func (a *Adapter) FetchRecent(ctx context.Context, account string, opts Options)
 	}
 	result.FromListing = map[string]bool{}
 	result.PendingRetries = map[string]PendingRetry{}
+	result.AccountAvatars = map[string]string{}
+	for handle, avatar := range found.avatars {
+		recordDiscoveredAvatar(result.AccountAvatars, handle, avatar)
+	}
 	successful := map[string]bool{}
 	accept := func(post *Post) bool {
 		if post.AuthorScreenName != "" && !strings.EqualFold(strings.TrimPrefix(post.AuthorScreenName, "@"), account) {
 			return false
+		}
+		recordDiscoveredAvatar(result.AccountAvatars, account, post.AuthorAvatarURL)
+		if post.Quote != nil {
+			recordDiscoveredAvatar(result.AccountAvatars, post.Quote.AuthorHandle, post.Quote.AuthorAvatarURL)
 		}
 		result.Posts = append(result.Posts, *post)
 		successful[post.ID] = true
@@ -488,9 +500,18 @@ func (a *Adapter) FetchRecent(ctx context.Context, account string, opts Options)
 		// a post: it is recorded as a repost and leaves the queue at once,
 		// without a failure.
 		if repost, ok := detailRepost(payload, id, account); ok {
+			if repost.Status != nil {
+				recordDiscoveredAvatar(result.AccountAvatars, repost.Status.AuthorHandle, repost.Status.AuthorAvatarURL)
+			}
 			result.Reposts = append(result.Reposts, repost)
 			result.Dropped = append(result.Dropped, DroppedStatus{ID: id, Code: DroppedRepost})
 			settled++
+			continue
+		}
+		// The account's repost is never a post, even when its reposted
+		// status cannot be read.
+		if accountRetweet(payload, account) {
+			fail(id, string(ErrInvalidResponse), &Error{Code: ErrInvalidResponse}, false)
 			continue
 		}
 		post := Normalize(payload, id, account)

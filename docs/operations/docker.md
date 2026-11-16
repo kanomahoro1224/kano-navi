@@ -4,7 +4,10 @@ The root `docker-compose.yml` deploys the published production image. Copy
 `.env.example` to `.env`, keep `APP_MODE=production`, and configure
 `ADMIN_PASSWORD` with at least 12 characters after trimming surrounding
 whitespace, plus a non-blank `LLM_SECRETS_KEY`. Both Compose configurations
-require the master key; development bypasses login only. Then run:
+require the master key; development bypasses login only. For a console
+reachable from the internet, also set the optional
+[admin one-time code](configuration.md#admin-one-time-code)
+(`docker compose run --rm kano totp-secret` prints a value). Then run:
 
 ```bash
 docker compose up -d
@@ -14,7 +17,7 @@ Compose pulls `yexca/kano-navi:latest` from Docker Hub on each startup. A deploy
 directory needs only `docker-compose.yml` and `.env`; the `./data` directory
 is created when needed and mounted at `/app/data`, preserving SQLite and media
 across container replacement. Run the same command to apply an image update.
-Set `KANO_IMAGE=yexca/kano-navi:0.7.2` in `.env` to pin the release,
+Set `KANO_IMAGE=yexca/kano-navi:0.8.1` in `.env` to pin the release,
 and use `KANO_PORT` to change the default host port of `7657`. The container
 listens on `7657`; the default public address is `http://localhost:7657`.
 To use the equivalent GHCR image, set
@@ -121,6 +124,9 @@ same image to Docker Hub and GHCR with version, major/minor, and `latest` tags.
 Each tag is a multi-platform image for `linux/amd64` and `linux/arm64`, so
 Docker pulls the variant of the host. The frontend and Go stages run on the
 build machine and Go cross-compiles each platform; no emulation is involved.
+The release build keeps no layer cache: every release changes the version
+files, and the base images move between releases, so a cache would restore
+no layer and its export would cost more time than the build.
 Configure the repository secret `DOCKERHUB_TOKEN` with push access. The Docker
 Hub username defaults to the GitHub repository owner; set the optional
 repository variable `DOCKERHUB_USERNAME` when those accounts differ. GHCR

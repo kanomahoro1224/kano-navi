@@ -781,14 +781,11 @@ whose window label is its tooltip and screen-reader text, then one icon per
 source, X, YouTube, bilibili and the shop, whose tooltip and screen-reader text carry its last successful read
 from `meta.sourceFetchedAt`; a read older than 24 hours marks the icon out of
 date with a dot, and a source never read fades. The card has no reload: the
-board revalidates by itself, and the API failure alert carries the retry. The
-overall state, shown by the header dot with its wording left to screen
-readers and the dot's tooltip, is what a visitor can tell from the page: an
-API failure takes priority, then any out-of-date source; with no source read
-yet the board is waiting, and otherwise up to date. A run's outcome in
-`meta.lastSync` is operator diagnosis and does not change it; a source that
-keeps failing shows once its last read ages out. The local clock updates
-these warnings without a request.
+board revalidates by itself, and the API failure alert carries the retry.
+The header holds no snapshot state, so it keeps the same width on every
+page. A run's outcome in `meta.lastSync` is operator diagnosis and does not
+change a source's freshness; a source that keeps failing shows once its last
+read ages out. The local clock updates these warnings without a request.
 Missing timestamps, and ones more than five minutes ahead of the local clock
 (a visitor clock slightly behind the server still shows a fresh read), remain
 waiting. This is a display threshold, not a synchronization timer.

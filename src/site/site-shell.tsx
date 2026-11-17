@@ -111,12 +111,9 @@ function PageMenu({ page }: { page: PublicPage }) {
 export function SiteHeader({
   page,
   avatarUrl,
-  status,
 }: {
   page: PublicPage
   avatarUrl?: string | null
-  /** Page-specific status (the board's snapshot state). */
-  status?: ReactNode
 }) {
   const { t } = useAppSettings()
   const scrolled = useScrolled()
@@ -146,7 +143,6 @@ export function SiteHeader({
           ))}
         </nav>
         <div className="site-header-end">
-          {status}
           <JapanClock />
           <PreferenceControls />
           <PageMenu page={page} />

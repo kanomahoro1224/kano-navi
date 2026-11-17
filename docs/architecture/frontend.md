@@ -97,7 +97,17 @@ the month sheet. `video-groups.ts` consumes the dashboard's
 `projection.shelf` and each video's `view`: the API supplies the lead, group,
 phase and stable order, while the browser applies the active filter and
 renders the cards. A snapshot without the projection uses the legacy local
-grouping until the next API response. A video carries two chips. The form
+grouping until the next API response. In the All view, `sideSlots` in
+`video-groups.ts` cuts the side group beside the lead (or the full-width
+ticket row without one) at every width: up to four earlier works when there
+are no reservations; otherwise up to four tickets and earlier works up to
+five items in all, so at least one earlier work stays beside them. Tickets
+past the fourth fold behind a `+N` toggle at the trailing edge of the Coming
+up subhead row: a sibling `button` of the `h3` with `aria-expanded`,
+`aria-controls` on the ticket list and a translated name, which expands the
+list in place to every reservation without changing the earlier works. Its
+state is local and starts collapsed; the Streams and Works views list every
+matching reservation. A video carries two chips. The form
 chip (`videoFormLabel`) translates `view.formCode`, and `VideoTagChip`
 translates the stored tag with the context in `view.tagContext`; neither
 helper reconstructs the phase or form when the projection is present. The

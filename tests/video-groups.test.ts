@@ -3,6 +3,7 @@ import test from "node:test"
 import type { Video } from "../src/types.ts"
 import {
   groupVideos,
+  sideSlots,
   splitVideos,
   videoIsShort,
   videoIsStream,
@@ -208,6 +209,29 @@ test("the newest song or premiere leads and every video is listed once", () => {
     splitVideos([cover, clip], now).works.map((item) => item.id),
     ["clip", "cover"],
   )
+})
+
+test("the side group shows four works alone or five items beside reservations", () => {
+  for (const [reservations, works, expected] of [
+    [0, 10, [0, 4, 0]],
+    [0, 2, [0, 2, 0]],
+    [1, 10, [1, 4, 0]],
+    [3, 10, [3, 2, 0]],
+    [4, 10, [4, 1, 0]],
+    // Tickets stop at four, so an earlier work keeps its slot.
+    [5, 10, [4, 1, 1]],
+    [8, 10, [4, 1, 4]],
+    [2, 1, [2, 1, 0]],
+    // Without a work to show, the ticket cap and the overflow stay the same.
+    [6, 0, [4, 0, 2]],
+  ] as const) {
+    const [tickets, shown, hidden] = expected
+    assert.deepEqual(
+      sideSlots(reservations, works),
+      { tickets, works: shown, hidden },
+      `${reservations}/${works}`,
+    )
+  }
 })
 
 test("lengths read like the platforms show them", () => {

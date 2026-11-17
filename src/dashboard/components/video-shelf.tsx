@@ -17,6 +17,7 @@ import {
 import {
   memo,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -40,6 +41,7 @@ import {
 } from "../format"
 import {
   groupVideos,
+  sideSlots,
   splitVideos,
   videoIsGone,
   videoIsStream,
@@ -204,6 +206,44 @@ function FormChip({
 
 function Subhead({ children }: { children: ReactNode }) {
   return <h3 className="videos-subhead">{children}</h3>
+}
+
+/**
+ * The side group's overflow control beside the Coming up subhead: the count
+ * of cut reservations, or a chevron that folds the list back.
+ */
+function TicketToggle({
+  open,
+  hidden,
+  total,
+  controls,
+  onToggle,
+  t,
+}: {
+  open: boolean
+  hidden: number
+  total: number
+  /** The ticket list's id. */
+  controls: string
+  onToggle: () => void
+  t: Translator
+}) {
+  const label = open
+    ? t("videos.fewerReservations")
+    : t("videos.allReservations", { count: total })
+  return (
+    <button
+      type="button"
+      className="pill-button videos-subhead-toggle"
+      aria-expanded={open}
+      aria-controls={controls}
+      aria-label={label}
+      title={label}
+      onClick={onToggle}
+    >
+      {open ? <ChevronUp aria-hidden="true" /> : `+${hidden}`}
+    </button>
+  )
 }
 
 /**
@@ -506,18 +546,20 @@ function VideoRow({
 }
 
 function TicketList({
+  id,
   videos,
   locale,
   now,
   t,
 }: {
+  id?: string
   videos: Video[]
   locale: Locale
   now: number
   t: Translator
 }) {
   return (
-    <ol className="video-tickets">
+    <ol className="video-tickets" id={id}>
       {videos.map((video) => (
         <VideoTicket
           key={video.id}
@@ -570,10 +612,6 @@ function VideoGrid({
 const ALL_ARCHIVES = 8
 /** Shorts the All view shows: one row of six; narrower rows show fewer. */
 const ALL_SHORTS = 6
-/** Reservations beside the lead; the Streams view lists every one. */
-const SIDE_RESERVATIONS = 4
-/** Earlier works stay visible beside reservations instead of being crowded out. */
-const SIDE_WORKS = 3
 /** What a filtered view shows: three rows of four, or two rows of Shorts. */
 const FILTERED_ITEMS = 12
 
@@ -599,6 +637,9 @@ export function VideoShelf({
   t: Translator
 }) {
   const [filter, setFilter] = useState<VideoFilter>("all")
+  // The side group's cut reservations, shown in place until collapsed again.
+  const [ticketsOpen, setTicketsOpen] = useState(false)
+  const ticketsId = useId()
   // A kind gets a tab only when present; the filter only helps with two.
   const kinds = (
     [
@@ -625,8 +666,12 @@ export function VideoShelf({
   else if (!videos.length) body = <EmptyNote title={t("videos.empty")} />
   else if (active === "all") {
     const groups = groupVideos(videos, featuredVideoId, now, projection)
-    const reservations = groups.reservations.slice(0, SIDE_RESERVATIONS)
-    const sideWorks = groups.works.slice(0, SIDE_WORKS)
+    const slots = sideSlots(groups.reservations.length, groups.works.length)
+    const reservations =
+      ticketsOpen && slots.hidden
+        ? groups.reservations
+        : groups.reservations.slice(0, slots.tickets)
+    const sideWorks = groups.works.slice(0, slots.works)
     const archives = groups.archives.slice(0, ALL_ARCHIVES)
     const shorts = groups.shorts.slice(0, ALL_SHORTS)
     const hasSide = Boolean(reservations.length || sideWorks.length)
@@ -650,8 +695,21 @@ export function VideoShelf({
               <div className="videos-side">
                 {reservations.length ? (
                   <div>
-                    <Subhead>{t("videos.comingUp")}</Subhead>
+                    <div className="videos-subhead-row">
+                      <Subhead>{t("videos.comingUp")}</Subhead>
+                      {slots.hidden ? (
+                        <TicketToggle
+                          open={ticketsOpen}
+                          hidden={slots.hidden}
+                          total={groups.reservations.length}
+                          controls={ticketsId}
+                          onToggle={() => setTicketsOpen((open) => !open)}
+                          t={t}
+                        />
+                      ) : null}
+                    </div>
                     <TicketList
+                      id={ticketsId}
                       videos={reservations}
                       locale={locale}
                       now={now}

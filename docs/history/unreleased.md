@@ -7,6 +7,10 @@
   layout when moving between pages. The profile card's platform icons still
   mark an out-of-date source, and an unreachable API still shows its alert
   with a retry.
+- The All view of **Streams and works** fills the column beside the lead with
+  four earlier works when nothing is coming up, and five items in all beside
+  reservations, keeping at least one earlier work. Beyond four reservations,
+  a count beside **Coming up** shows the rest in place.
 
 </details>
 

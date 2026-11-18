@@ -11,6 +11,9 @@
   four earlier works when nothing is coming up, and five items in all beside
   reservations, keeping at least one earlier work. Beyond four reservations,
   a count beside **Coming up** shows the rest in place.
+- An open board reads its snapshot again one second after the next time it
+  names, such as a stream's start, so **Next up** turns to **On air** within
+  about a second instead of within the minute.
 
 </details>
 

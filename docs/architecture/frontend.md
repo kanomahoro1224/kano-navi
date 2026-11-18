@@ -769,8 +769,12 @@ differs from the snapshot's reads the snapshot after a random delay of up to
 three seconds, so the boards that hear one change do not all read at once; an
 unchanged one refreshes a stale calendar. A change pushed while a snapshot
 read is in flight is compared once that read ends. Between changes a
-completion-scheduled timer only revalidates the snapshot once a minute, since
-time-derived fields such as `liveStatus` expire without a revision change.
+completion-scheduled timer only revalidates the snapshot, since time-derived
+fields such as `liveStatus` expire without a revision change: one second
+after the projection's `nextTransitionAt` when that comes within the minute,
+and otherwise a minute after the last read. A transition the browser's clock
+had already passed when the snapshot arrived waits for the minute, so a
+browser clock ahead of the server's cannot repeat the read.
 EventSource reconnects by itself after a drop, and the reconnected stream
 resends the current revision. A refused stream, or three errors without a
 message between them, hands over to revision polling every 30 seconds; the

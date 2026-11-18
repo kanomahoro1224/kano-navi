@@ -62,9 +62,10 @@ flowchart LR
 4. Each completed workflow or operator change advances a small revision
    number. The server watches it and pushes each change to open pages over a
    stream, and a page then reloads the snapshot; when the stream is
-   unavailable, pages ask for the revision every 30 seconds instead. A page
-   also revalidates its snapshot once a minute, because times such as a
-   stream's start pass without a stored change.
+   unavailable, pages ask for the revision every 30 seconds instead. Times
+   such as a stream's start pass without a stored change, so a page also
+   reads its snapshot again just after the next such time the snapshot
+   names, and at least once a minute.
 
 The profile, milestones, resource links, the Journey images, the works
 tables, and the LINE BLOG archive's articles and archived comments ship with

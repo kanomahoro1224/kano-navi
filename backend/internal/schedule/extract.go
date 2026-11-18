@@ -299,13 +299,15 @@ func (r postResult) takesSlot() bool {
 	return r.status != "cached" && !r.heldBack()
 }
 
-func (e *Extractor) skipPost(ctx context.Context, postID, route, reason string, force bool) (postResult, error) {
+// skipPost records a skip. It keeps the stored request flag: a request stays
+// for the scan that finds the post's input ready, and one an operator made
+// after the post was read is not lost.
+func (e *Extractor) skipPost(ctx context.Context, postID, route, reason string) (postResult, error) {
 	err := e.markPost(ctx, postID, stateUpdate{
 		status:        "skipped",
 		route:         route,
 		lastAttemptAt: e.nowISO(),
 		lastError:     reason,
-		reprocess:     &force,
 	})
 	return postResult{status: "skipped", reason: reason}, err
 }
@@ -366,7 +368,7 @@ func (e *Extractor) execute(ctx context.Context, input candidateInput, decided d
 	route := routeForDetectionType(detectionType)
 	switch decided.disposition {
 	case dispositionSkip:
-		return e.skipPost(ctx, item.id, route, decided.reason, decided.force)
+		return e.skipPost(ctx, item.id, route, decided.reason)
 	case dispositionCached:
 		if decided.settled {
 			return postResult{status: "cached"}, nil

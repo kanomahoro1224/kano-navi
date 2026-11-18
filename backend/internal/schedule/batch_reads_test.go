@@ -3,6 +3,7 @@ package schedule
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -103,5 +104,38 @@ func TestCacheHitKeepsALaterRequest(t *testing.T) {
 	f.scan()
 	if f.provider.count() != before+1 {
 		t.Fatalf("requested post made %d calls", f.provider.count()-before)
+	}
+}
+
+// A skip keeps a request flag stored after its post was read: a request an
+// operator makes for a later post of the batch while the run skips an earlier
+// one stays for the next scan.
+func TestSkipKeepsALaterRequest(t *testing.T) {
+	f := newFixture(t)
+	f.addProvider("p-vision", protocolChat, "https://provider.example.test/v1", "model-v", `["text","image"]`)
+	f.queue("p-vision")
+	for i, id := range []string{"post-a", "post-b"} {
+		imageURL := "https://pbs.twimg.com/media/synthetic-" + id + ".png"
+		f.addPost(id, "", "今週の配信予定です", "2026-04-28T0"+strconv.Itoa(3+i)+":00:00.000Z", stringify(obj("media_urls", []any{imageURL})))
+		f.exec(`INSERT INTO media_assets (id, source, source_url, status, created_at, updated_at) VALUES (?, 'x', ?, 'pending', ?, ?)`,
+			mediaIDForSourceURL(imageURL), imageURL, testTimestamp, testTimestamp)
+		f.exec(`INSERT INTO media_links (media_id, owner_type, owner_id, role, position, created_at, updated_at) VALUES (?, 'post', ?, 'post-image', 0, ?, ?)`,
+			mediaIDForSourceURL(imageURL), id, testTimestamp, testTimestamp)
+	}
+	// The first skip the run writes requests the post it has not reached.
+	f.exec(`CREATE TRIGGER request_later_post AFTER INSERT ON post_llm_states
+		WHEN NEW.status = 'skipped' BEGIN
+			INSERT INTO post_llm_states (post_id, status, reprocess_requested, updated_at)
+			SELECT id, 'queued', 1, '` + testTimestamp + `' FROM posts
+			WHERE id IN ('post-a', 'post-b') AND id NOT IN (SELECT post_id FROM post_llm_states);
+		END`)
+	result := f.scan()
+	if countOf(result.Counts, "skipped") != 2 || f.provider.count() != 0 {
+		t.Fatalf("counts %v, %d calls", result.Counts, f.provider.count())
+	}
+	got := f.text(`SELECT group_concat(status || '|' || reprocess_requested, ',') FROM (
+		SELECT status, reprocess_requested FROM post_llm_states ORDER BY reprocess_requested)`)
+	if got != "skipped|0,skipped|1" {
+		t.Fatalf("states %q, want the later request kept", got)
 	}
 }

@@ -29,7 +29,8 @@
   of the image job exporting.
 - A schedule extraction run reads the inputs of its unsettled posts in
   batches of 200 instead of one row at a time, and reads only the image lists
-  of each post's source record. A cache hit keeps a reprocess request an
-  operator makes while the run is going, which the next run carries out.
+  of each post's source record. A skip or a cache hit keeps a reprocess
+  request an operator makes while the run is going, which the next run
+  carries out.
 
 </details>

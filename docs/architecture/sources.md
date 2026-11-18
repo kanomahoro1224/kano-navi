@@ -1510,8 +1510,9 @@ other post gets a model call. The scan and the console's
 [queue preview](admin-api.md#queue-preview) share that judgement and the
 order above, so the preview lists what a run started at that moment
 processes. A cache hit whose post state already records that result writes
-nothing, and one that writes keeps the stored reprocess request flag, so a
-request an operator makes after the post was read runs on the next scan.
+nothing. A skip, and a cache hit that writes, keep the stored reprocess
+request flag, so a request an operator makes after the post was read runs on
+the next scan.
 
 The run reads what judging needs (post states, post images, their media
 assets and the stored extractions) for the next 200 unsettled posts of its

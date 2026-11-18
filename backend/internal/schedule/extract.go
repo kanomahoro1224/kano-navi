@@ -49,9 +49,11 @@ type Extractor struct {
 	lookupEnv  func(string) (string, bool)
 	now        func() time.Time
 	sleep      func(context.Context, time.Duration) error
-	// ignoreSettled judges settled posts like any other; tests compare the
-	// two paths with it.
+	// ignoreSettled judges settled posts like any other, and perPostReads
+	// reads each judged post's input one row at a time instead of in
+	// batches; tests compare the paths with them.
 	ignoreSettled bool
+	perPostReads  bool
 }
 
 func New(store *sqlite.Store, opts Options) *Extractor {
@@ -172,8 +174,11 @@ func (e *Extractor) extractPending(ctx context.Context) (map[string]any, error) 
 		"settled":        0,
 	}
 	var judging time.Duration
+	reads := e.batchReads(scan.queue)
+	position := 0
 	_, err = walkQueue(ctx, scan.queue, func(item candidate) (postResult, error) {
-		result, err := e.extractPost(ctx, item, &judging)
+		result, err := e.extractPost(ctx, reads, position, &judging)
+		position++
 		if item.post.settled {
 			counts["settled"] = countOf(counts, "settled") + 1
 		} else {
@@ -267,7 +272,7 @@ func (e *Extractor) postImageState(ctx context.Context, reads candidateReads, it
 		if asset == nil || asset.status != "ready" || asset.sha256 == "" || !supportedImageTypes[asset.mimeType] {
 			continue
 		}
-		path, ok := e.cachedFile(asset.cachePath)
+		path, ok := reads.mediaFile(asset.cachePath)
 		if !ok {
 			continue
 		}
@@ -306,11 +311,13 @@ func (e *Extractor) skipPost(ctx context.Context, postID, route, reason string, 
 }
 
 // useCachedExtraction records a stored result as the post's state without a
-// provider call, with the post's input stamp as its settled stamp. A post
-// whose state already records exactly this is left unwritten, its
-// updated_at included. Only this write records a stamp: the state it leaves
-// is the one every later cache hit of the input would write again, so a
-// later scan may count the post as a cache hit without judging it.
+// provider call, with the post's input stamp as its settled stamp. It keeps
+// the stored request flag: judging found none, and one an operator made since
+// waits for the next scan. A post whose state already records exactly this is
+// left unwritten, its updated_at included. Only this write records a stamp:
+// the state it leaves is the one every later cache hit of the input would
+// write again, so a later scan may count the post as a cache hit without
+// judging it.
 func (e *Extractor) useCachedExtraction(ctx context.Context, item post, route string, previous *postState, cached *extractionRow) (postResult, error) {
 	processedAt := cached.updatedAt
 	stamp := item.stamp
@@ -318,13 +325,11 @@ func (e *Extractor) useCachedExtraction(ctx context.Context, item post, route st
 		// Every later cache hit would write a new time.
 		processedAt, stamp = e.nowISO(), ""
 	}
-	cleared := false
 	update := stateUpdate{
 		status:           cached.status,
 		route:            route,
 		lastProcessedAt:  processedAt,
 		lastExtractionID: cached.id,
-		reprocess:        &cleared,
 		stamp:            stamp,
 	}
 	if previous.holds(update) {
@@ -333,14 +338,22 @@ func (e *Extractor) useCachedExtraction(ctx context.Context, item post, route st
 	return postResult{status: "cached"}, e.markPost(ctx, item.id, update)
 }
 
-// extractPost judges one candidate and carries the decision out, adding the
-// time loading and judging took to judging.
-func (e *Extractor) extractPost(ctx context.Context, item candidate, judging *time.Duration) (postResult, error) {
+// extractPost judges the candidate at position in the queue and carries the
+// decision out, adding the time loading and judging took to judging. A
+// model call drops the batch of loaded inputs.
+func (e *Extractor) extractPost(ctx context.Context, reads runReads, position int, judging *time.Duration) (postResult, error) {
 	started := time.Now()
-	input, decided, err := e.judgeCandidate(ctx, liveReads{e.db}, item, e.liveTargets(ctx), e.now())
+	item := reads.candidate(position)
+	if err := reads.prepare(ctx, position); err != nil {
+		return postResult{}, err
+	}
+	input, decided, err := e.judgeCandidate(ctx, reads, item, e.liveTargets(ctx), e.now())
 	*judging += time.Since(started)
 	if err != nil {
 		return postResult{}, err
+	}
+	if decided.disposition == dispositionCall {
+		reads.drop()
 	}
 	return e.execute(ctx, input, decided, item.detectionType)
 }

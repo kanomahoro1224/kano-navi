@@ -334,8 +334,10 @@ type post struct {
 	url         string
 	mediaURL    string
 	mediaURLs   []any
-	raw         *object
-	llmRoute    string
+	// raw holds the image lists the stored source record declares
+	// (sqlite schedule_media_json), the only part of it the extractor reads.
+	raw      *object
+	llmRoute string
 	// stamp is the post's input stamp for the detection stage that listed
 	// it (sqlite.ScheduleInputStampSQL), empty for a requested post.
 	// settled: the post's state records a success or uncertain result for
@@ -382,7 +384,7 @@ func (p post) matchText() string {
 	return p.text + "\n" + p.quote.text
 }
 
-// rawObjectOf returns the stored source record when it is a JSON object.
+// rawObjectOf returns a stored JSON object, or nil for anything else.
 func rawObjectOf(rawJSON sql.NullString) *object {
 	if !rawJSON.Valid || rawJSON.String == "" {
 		return nil
@@ -466,7 +468,8 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 	if !since.IsZero() {
 		cutoff = since.UTC().Format(time.RFC3339Nano)
 	}
-	rows, err := e.db.QueryContext(ctx, `SELECT p.source, p.id, p.type, p.label, p.text, p.published_at, p.url, p.media_url, p.raw_json,
+	rows, err := e.db.QueryContext(ctx, `SELECT p.source, p.id, p.type, p.label, p.text, p.published_at, p.url, p.media_url,
+		schedule_media_json(p.raw_json),
 		CASE WHEN p.quote_hidden_at IS NULL THEN p.quote_json END,
 		`+sqlite.ScheduleInputStampSQL("p")+`,
 		s.status IN ('success', 'uncertain') AND s.reprocess_requested = 0 AND s.route = ? AND s.last_error IS NULL
@@ -547,7 +550,7 @@ func arrayProperty(root *object, key string) ([]any, bool) {
 // hidden post waits until the post is shown again.
 func (e *Extractor) listRequestedPosts(ctx context.Context, limit int) ([]post, error) {
 	rows, err := e.db.QueryContext(ctx, `SELECT p.source, p.id, p.text, p.published_at, p.url, p.media_url,
-		p.raw_json, s.route, CASE WHEN p.quote_hidden_at IS NULL THEN p.quote_json END
+		schedule_media_json(p.raw_json), s.route, CASE WHEN p.quote_hidden_at IS NULL THEN p.quote_json END
 		FROM posts p LEFT JOIN post_llm_states s ON s.post_id = p.id
 		WHERE s.reprocess_requested = 1 AND p.hidden_at IS NULL AND p.deleted_at IS NULL
 		ORDER BY p.published_at DESC LIMIT ?`, limit)
@@ -646,9 +649,9 @@ func listPostStates(ctx context.Context, q queryer) (map[string]*postState, erro
 
 // holds reports whether markPost(update) would store exactly this row again
 // apart from updated_at, so the write can be left out. It mirrors markPost's
-// statement for an update that names its request flag.
+// statement.
 func (s *postState) holds(update stateUpdate) bool {
-	if s == nil || update.reprocess == nil {
+	if s == nil {
 		return false
 	}
 	row := s.stored
@@ -661,15 +664,20 @@ func (s *postState) holds(update stateUpdate) bool {
 		return value == "" || same(stored, value)
 	}
 	status := normalizedPostStatus(update.status)
-	flag := int64(0)
-	if *update.reprocess {
-		flag = 1
+	// An update without a request flag keeps the stored one.
+	flagKept := row.reprocess.Valid
+	if update.reprocess != nil {
+		flag := int64(0)
+		if *update.reprocess {
+			flag = 1
+		}
+		flagKept = flagKept && row.reprocess.Int64 == flag
 	}
 	if !same(row.status, status) || !kept(row.route, update.route) ||
 		!kept(row.lastAttemptAt, update.lastAttemptAt) || !kept(row.lastProcessedAt, update.lastProcessedAt) ||
 		row.lastError.Valid != (update.lastError != "") || (update.lastError != "" && row.lastError.String != update.lastError) ||
 		(update.lastExtractionID > 0 && (!row.lastExtractionID.Valid || row.lastExtractionID.Int64 != update.lastExtractionID)) ||
-		!row.reprocess.Valid || row.reprocess.Int64 != flag {
+		!flagKept {
 		return false
 	}
 	stamp := update.settledStampFor(status)
@@ -731,7 +739,8 @@ func (u stateUpdate) settledStampFor(status string) string {
 }
 
 // markPost mirrors markPostLlm + upsertPostLlmState. Empty strings are stored
-// as NULL, and NULL keeps the previous route, timestamps and extraction ID.
+// as NULL, and NULL keeps the previous route, timestamps and extraction ID;
+// an update without a request flag keeps the stored one.
 // A success or uncertain outcome, cached or not, clears the failure backoff;
 // every other status keeps it. The settled stamp is the update's for a
 // success or uncertain outcome and NULL for every other.
@@ -739,15 +748,14 @@ func (e *Extractor) markPost(ctx context.Context, postID string, update stateUpd
 	if postID == "" {
 		return nil
 	}
-	reprocess := false
+	// A nil request flag keeps the stored one, read and written in the same
+	// statement, so a request an operator makes meanwhile is not lost.
+	var flag any
 	if update.reprocess != nil {
-		reprocess = *update.reprocess
-	} else {
-		previous, err := getPostState(ctx, e.db, postID)
-		if err != nil {
-			return err
+		flag = 0
+		if *update.reprocess {
+			flag = 1
 		}
-		reprocess = previous != nil && previous.reprocessRequested
 	}
 	status := jsToLower(jsTrim(update.status))
 	if !postStatuses[status] {
@@ -757,21 +765,17 @@ func (e *Extractor) markPost(ctx context.Context, postID string, update stateUpd
 	if update.lastExtractionID > 0 {
 		extractionID = update.lastExtractionID
 	}
-	flag := 0
-	if reprocess {
-		flag = 1
-	}
 	_, err := e.db.ExecContext(ctx, `INSERT INTO post_llm_states (
 			post_id, status, route, last_attempt_at, last_processed_at,
 			last_error, last_extraction_id, reprocess_requested, updated_at, settled_stamp
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, 0), ?, ?)
 		ON CONFLICT(post_id) DO UPDATE SET
 			status=excluded.status, route=COALESCE(excluded.route, post_llm_states.route),
 			last_attempt_at=COALESCE(excluded.last_attempt_at, post_llm_states.last_attempt_at),
 			last_processed_at=COALESCE(excluded.last_processed_at, post_llm_states.last_processed_at),
 			last_error=excluded.last_error,
 			last_extraction_id=COALESCE(excluded.last_extraction_id, post_llm_states.last_extraction_id),
-			reprocess_requested=excluded.reprocess_requested,
+			reprocess_requested=COALESCE(?, post_llm_states.reprocess_requested),
 			updated_at=excluded.updated_at,
 			failure_count=CASE WHEN excluded.status IN ('success', 'uncertain') THEN 0 ELSE post_llm_states.failure_count END,
 			failure_fingerprint=CASE WHEN excluded.status IN ('success', 'uncertain') THEN NULL ELSE post_llm_states.failure_fingerprint END,
@@ -779,7 +783,7 @@ func (e *Extractor) markPost(ctx context.Context, postID string, update stateUpd
 			settled_stamp=excluded.settled_stamp`,
 		postID, status, nullable(update.route), nullable(update.lastAttemptAt),
 		nullable(update.lastProcessedAt), nullable(update.lastError), extractionID, flag, e.nowISO(),
-		nullable(update.settledStampFor(status)))
+		nullable(update.settledStampFor(status)), flag)
 	return err
 }
 
@@ -908,12 +912,69 @@ func insideDirectory(candidate, root string) bool {
 	return strings.HasPrefix(candidate, root+string(filepath.Separator))
 }
 
+// mediaRoot is the runtime data directory cache files resolve under, with
+// its symlinks resolved; ok is false without a usable one. dirs keeps each
+// cache directory's resolved path, so a scan resolves a directory its files
+// share once.
+type mediaRoot struct {
+	root, resolved string
+	ok             bool
+	dirs           map[string]string
+}
+
+// mediaRoot resolves the data directory once, for a scan that checks many
+// cache files.
+func (e *Extractor) mediaRoot() mediaRoot {
+	root := e.store.DataRoot()
+	if root == "" {
+		return mediaRoot{}
+	}
+	root = filepath.Clean(root)
+	resolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return mediaRoot{}
+	}
+	return mediaRoot{root: root, resolved: resolved, ok: true, dirs: map[string]string{}}
+}
+
+// resolve is filepath.EvalSymlinks of a cache file with its directory
+// resolved once: a file that is not itself a symlink resolves inside its
+// directory's resolved path, and a symlink is resolved whole. It returns
+// the file's information as os.Stat reports it.
+func (m mediaRoot) resolve(candidate string) (string, os.FileInfo, error) {
+	dir, name := filepath.Split(candidate)
+	resolvedDir, known := m.dirs[dir]
+	if !known {
+		var err error
+		if resolvedDir, err = filepath.EvalSymlinks(dir); err != nil {
+			return "", nil, err
+		}
+		m.dirs[dir] = resolvedDir
+	}
+	path := filepath.Join(resolvedDir, name)
+	info, err := os.Lstat(path)
+	if err != nil {
+		return "", nil, err
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return path, info, nil
+	}
+	if path, err = filepath.EvalSymlinks(candidate); err != nil {
+		return "", nil, err
+	}
+	info, err = os.Stat(path)
+	return path, info, err
+}
+
 // cachedFile resolves a database cache path to a regular file inside the
 // runtime data directory, following the namespace rules of
 // resolveMediaCachePath and rejecting symlinks that leave the data root.
 func (e *Extractor) cachedFile(relative string) (string, bool) {
-	root := e.store.DataRoot()
-	if root == "" || strings.TrimSpace(relative) == "" {
+	return e.mediaRoot().file(relative)
+}
+
+func (m mediaRoot) file(relative string) (string, bool) {
+	if !m.ok || strings.TrimSpace(relative) == "" {
 		return "", false
 	}
 	normalized := strings.ReplaceAll(relative, `\`, "/")
@@ -926,10 +987,9 @@ func (e *Extractor) cachedFile(relative string) (string, bool) {
 			return "", false
 		}
 	}
-	root = filepath.Clean(root)
-	base := root
+	base := m.root
 	if strings.HasPrefix(normalized, "sha256/") {
-		base = filepath.Join(root, "cache", "media")
+		base = filepath.Join(m.root, "cache", "media")
 	} else {
 		switch strings.ToLower(jsTrim(parts[0])) {
 		case "x", "youtube", "bilibili", "avatar":
@@ -941,16 +1001,8 @@ func (e *Extractor) cachedFile(relative string) (string, bool) {
 	if !insideDirectory(candidate, base) {
 		return "", false
 	}
-	resolvedRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return "", false
-	}
-	resolved, err := filepath.EvalSymlinks(candidate)
-	if err != nil || !insideDirectory(resolved, resolvedRoot) {
-		return "", false
-	}
-	info, err := os.Stat(resolved)
-	if err != nil || !info.Mode().IsRegular() {
+	resolved, info, err := m.resolve(candidate)
+	if err != nil || !insideDirectory(resolved, m.resolved) || !info.Mode().IsRegular() {
 		return "", false
 	}
 	return resolved, true

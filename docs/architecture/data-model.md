@@ -1315,7 +1315,11 @@ extractor decodes them, and every `post-image` link in `position, id` order
 with its media ID and the asset's `status`, `sha256`, `mime_type` and
 `cache_path`. It covers every input of the extraction identity and the image
 check, so a change to any of them changes the stamp; a stamp that changes
-when the identity does not only has the post judged once more.
+when the identity does not only has the post judged once more. The extractor
+reads the same image lists through `schedule_media_json`, an object of the
+record's `mediaUrls`, `media_urls` and `mediaURLs` members as stored (NULL
+when the record is not a JSON object), so the stamp and the extractor parse
+the record alike.
 
 Only a cache hit writes the stamp, in the same statement as the state that
 hit records. Every other state the extractor writes, including a fresh

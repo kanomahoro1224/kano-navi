@@ -617,6 +617,29 @@ test("dashboard hook recovers, coordinates requests and releases its resources",
     )
 
     await t.test(
+      "a transition passed while the snapshot was in transit is read again at once",
+      async (context) => {
+        const fixture = await setup(context, false, true)
+        try {
+          await fixture.tick(3000)
+          await fixture.respond(0, {
+            ...snapshot(1),
+            projection: {
+              version: 1,
+              nextTransitionAt: "2025-01-01T00:00:02.000Z",
+            },
+          })
+          await fixture.streams[0].emit(1)
+          await fixture.tick(0)
+          assert.equal(fixture.requests[1].url, "/api/dashboard?days=3")
+          await fixture.respond(1, snapshot(1))
+        } finally {
+          await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
       "a change pushed during a snapshot read is read once that read ends",
       async (context) => {
         const fixture = await setup(context, false, true)

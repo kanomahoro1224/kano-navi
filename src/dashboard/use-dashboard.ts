@@ -443,6 +443,8 @@ export function useDashboard(now = Date.now()) {
     scope.activate()
     let active = true
     let loadedAt = 0
+    // When the loaded snapshot's read started, in this browser's clock.
+    let snapshotStartedAt = 0
     // The loaded projection's next time-based change in this browser's clock,
     // or 0 without one.
     let transitionAt = 0
@@ -481,11 +483,12 @@ export function useDashboard(now = Date.now()) {
           : REVISION_POLL_MS
     // The loaded snapshot is due again after a minute, or just after its next
     // transition when that comes first. A transition this browser's clock had
-    // already passed at the read is left to the minute, so a clock ahead of
-    // the server's cannot repeat the read.
+    // already passed when the read started is left to the minute, so a clock
+    // ahead of the server's cannot repeat the read; one passed while the
+    // snapshot was in transit is read again at once.
     const snapshotDueAt = () => {
       const due = loadedAt + SNAPSHOT_MS
-      if (transitionAt <= loadedAt) return due
+      if (transitionAt <= snapshotStartedAt) return due
       return Math.min(
         due,
         Math.max(
@@ -613,6 +616,7 @@ export function useDashboard(now = Date.now()) {
       const currentGeneration = ++generation
       const controller = new AbortController()
       lastStartedAt = Date.now()
+      const startedAt = lastStartedAt
       if (kind === "snapshot")
         setStatus((current) => ({
           ...current,
@@ -641,6 +645,7 @@ export function useDashboard(now = Date.now()) {
             calendarRefreshRef.current ||= hasLoaded
             hasLoaded = true
             loadedAt = Date.now()
+            snapshotStartedAt = startedAt
             const transition = Date.parse(
               payload.projection?.nextTransitionAt ?? "",
             )

@@ -274,6 +274,51 @@
   height: 14px;
 }
 
+/* The On air chip ends in the marks of its live platforms, each a link. */
+.guide-event-tags .live-links {
+  gap: 3px;
+  padding-right: 2px;
+}
+
+.live-links .platform-live {
+  animation: onair-pulse 1.6s ease-in-out infinite;
+}
+
+.live-links-marks {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+  padding-left: 2px;
+  border-left: 1px solid color-mix(in oklab, var(--tone) 35%, transparent);
+}
+
+.live-links-marks a {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--tone);
+  transition: background 160ms ease;
+}
+
+.guide-event-tags .live-links-marks svg {
+  width: 12px;
+  height: 12px;
+}
+
+.live-links-marks a:hover {
+  background: color-mix(in oklab, var(--tone) 18%, transparent);
+}
+
+/* Fingers get a mark as tall as a platform chip. */
+@media (max-width: 720px), (pointer: coarse) {
+  .live-links-marks a {
+    width: 30px;
+    height: 30px;
+  }
+}
+
 /* The activity label takes the entry's tone, so it reads with its type. */
 .guide-event-tags .guide-event-kind {
   gap: 3px;

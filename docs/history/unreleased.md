@@ -14,6 +14,10 @@
 - An open board reads its snapshot again one second after the next time it
   names, such as a stream's start, so **Next up** turns to **On air** within
   about a second instead of within the minute.
+- A schedule card on air shows one **On air** label ending in the logos of
+  the platforms it is live on, each opening that stream, instead of a
+  separate label and a named, marked link per platform, so a stream on
+  YouTube and bilibili at once keeps its labels on one line.
 
 </details>
 

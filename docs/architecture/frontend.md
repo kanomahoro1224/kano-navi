@@ -302,7 +302,11 @@ the live one marked) when it has more than one, or one beside an
 announcement of its own (`eventAnnouncement`: its `url` when no platform
 link is that page): on its stage ticket, on its week and calendar card,
 and in its sheet, where the open arrow in the corner then opens the
-announcement; the announcement is never labelled as a platform. A
+announcement; the announcement is never labelled as a platform. While an
+entry is on air, its week and calendar card's On air chip (`LiveLinks`)
+ends in the marks of its live platforms, each a link named for screen
+readers and the tooltip, in place of the status chip and those platforms'
+links; the sheet keeps the named links. A
 full stage ticket of an entry marks its `platforms` on the art with
 `PlatformBadge`. When the stage shows the reserved video of an entry, the
 ticket adds the entry's links on platforms the video has no copy on, such

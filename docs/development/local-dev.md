@@ -24,7 +24,7 @@ extensions and type-only imports use `import type`. Avoid enums, parameter
 properties, and other syntax requiring runtime transformation.
 
 `tsconfig.json` checks the browser with bundler module resolution;
-`tsconfig.node.json` checks the scripts and tests with NodeNext.
+`scripts/tsconfig.json` checks the scripts and tests with NodeNext.
 Both use `noEmit`, `verbatimModuleSyntax`, and `erasableSyntaxOnly`.
 Run `make typecheck` for a standalone check. The shared
 public snapshot and UI primitive props have explicit types; some dynamic JSON
@@ -102,8 +102,8 @@ timer's method chain fall back to the X API, which stays off until it is
 enabled on the Sources page.
 See [Manual fetches](../architecture/workflows.md#manual-fetches-and-historical-backfill).
 
-Tailwind CSS 4 runs through `@tailwindcss/vite`; `src/index.css` loads the
-existing `tailwind.config.ts` with `@config`. The CSS runtime requires Safari
+Tailwind CSS 4 runs through `@tailwindcss/vite`; `src/index.css` declares the
+utility theme with `@theme`. The CSS runtime requires Safari
 16.4+, Chromium 111+, or Firefox 128+. `tailwind-merge` uses its Tailwind 4
 compatible major version.
 

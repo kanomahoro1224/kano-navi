@@ -17,7 +17,7 @@ test(".nvmrc, the engines floor and the Docker images name one version", () => {
   const range = JSON.parse(readFileSync("package.json", "utf8")).engines.node
   assert.equal(range, `>=${nvmrc}`)
   const images = [
-    ...readFileSync("Dockerfile", "utf8").matchAll(/FROM node:(\S+?)-/g),
+    ...readFileSync("docker/Dockerfile", "utf8").matchAll(/FROM node:(\S+?)-/g),
   ].map((match) => match[1])
   assert.ok(images.length > 0)
   for (const image of images) assert.equal(image, nvmrc)

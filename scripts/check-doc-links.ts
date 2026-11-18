@@ -46,7 +46,7 @@ export function checkMarkdownLinks() {
     "README.md",
     "backend/README.md",
     ...markdownFiles(path.join(repositoryRoot, "docs"), "docs"),
-    "SECURITY.md",
+    ".github/SECURITY.md",
     "AGENTS.md",
   ]
     .filter((file, index, all) => all.indexOf(file) === index)

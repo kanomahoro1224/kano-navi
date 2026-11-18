@@ -140,7 +140,7 @@ issues can follow the repository's normal workflow.
 
 ## Related Docs
 
-- [Security policy](../../SECURITY.md)
+- [Security policy](../../.github/SECURITY.md)
 - [Security map](../security/index.md)
 - [Configuration](configuration.md)
 - [Database backup](database.md)

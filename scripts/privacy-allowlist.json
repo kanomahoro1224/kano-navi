@@ -46,10 +46,6 @@
       "reason": "Docker Hub registry used by production Compose deployments and release-image publishing; never fetched by the browser or synchronization."
     },
     {
-      "host": "ui.shadcn.com",
-      "reason": "Public shadcn/ui schema referenced by components.json."
-    },
-    {
       "host": "json-schema.org",
       "reason": "JSON Schema dialect identifier declared by every MCP tool input schema; an identifier only, never fetched by the server or a browser."
     },

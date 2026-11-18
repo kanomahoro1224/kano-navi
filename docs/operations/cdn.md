@@ -142,7 +142,7 @@ own) also avoids sending the site's cookies to the CDN.
    With Docker, pass it as a build argument and as a runtime variable:
 
    ```bash
-   docker build --build-arg CDN_PUBLIC_BASE=https://cdn.example.invalid -t kano-navi:local .
+   docker build -f docker/Dockerfile --build-arg CDN_PUBLIC_BASE=https://cdn.example.invalid -t kano-navi:local .
    ```
 
    For the published image, the build argument is fixed at image build time;

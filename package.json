@@ -11,7 +11,7 @@
     "dev:client": "vite",
     "dev:server": "node scripts/run-app.mjs server",
     "build": "npm run typecheck && vite build",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
     "preview": "node scripts/run-app.mjs preview",
     "start": "node scripts/run-app.mjs start",
     "seed": "node scripts/run-app.mjs seed",
@@ -33,6 +33,10 @@
     "test": "npm run test:frontend",
     "docs:check-links": "node scripts/check-doc-links.ts",
     "check": "npm run format:check && npm run test:sensitive && npm run test:frontend && npm run check-sensitive && npm run docs:check-links && npm run build"
+  },
+  "prettier": {
+    "semi": false,
+    "endOfLine": "auto"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.2.1",

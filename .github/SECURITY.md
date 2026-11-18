@@ -3,7 +3,7 @@
 This is an unofficial public status board. Do not store account credentials,
 cookies, private keys, personal paths, or private data in the repository. The
 security boundaries, sensitive-information scanner, and external-request rules
-are documented in [security documentation](docs/security/index.md).
+are documented in [security documentation](../docs/security/index.md).
 
 ## Reporting a Vulnerability
 

@@ -86,7 +86,7 @@ the page's reload action obtains the latest revalidated HTML.
 To build the production image from the local checkout:
 
 ```bash
-docker build -t kano-navi:local .
+docker build -f docker/Dockerfile -t kano-navi:local .
 KANO_IMAGE=kano-navi:local docker compose up -d --pull never
 ```
 

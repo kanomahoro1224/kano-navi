@@ -38,5 +38,10 @@
   of each post's source record. A skip or a cache hit keeps a reprocess
   request an operator makes while the run is going, which the next run
   carries out.
+- The repository root keeps fewer files: the release image builds from
+  `docker/Dockerfile` (pass `-f docker/Dockerfile` to `docker build`), the
+  security policy lives in `.github/`, the Tailwind theme lives in
+  `src/index.css`, the Prettier settings live in `package.json`, and the
+  scripts and tests type-check through `scripts/tsconfig.json`.
 
 </details>

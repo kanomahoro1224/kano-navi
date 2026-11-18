@@ -130,7 +130,7 @@ with [Local development](docs/development/local-dev.md) and the
   data flow and system boundaries.
 - [Operations](docs/operations/index.md): running an instance.
 - [Development](docs/development/index.md): local setup, testing, and releases.
-- [Security](SECURITY.md), including how to report a vulnerability.
+- [Security](.github/SECURITY.md), including how to report a vulnerability.
 - [Documentation index](docs/README.md): every public document.
 
 ## Disclaimer

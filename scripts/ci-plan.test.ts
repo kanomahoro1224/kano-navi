@@ -28,6 +28,7 @@ test("documentation-only PRs skip planned jobs while unknown paths require full 
       "docs/development/testing.md",
       "README.md",
       "AGENTS.md",
+      ".github/SECURITY.md",
       "backend/README.md",
       ".github/ISSUE_TEMPLATE/bug_report.yml",
       ".env.example",
@@ -86,8 +87,12 @@ test("application paths select the jobs that consume them", () => {
   ])
     assert.deepEqual(selected(path), ["frontend", "docker"], path)
   assert.deepEqual(selected("tests/polling.test.ts"), ["frontend"])
-  assert.deepEqual(selected("tsconfig.node.json"), ["frontend", "docker"])
-  for (const path of ["Dockerfile", ".dockerignore", "LICENSE"])
+  assert.deepEqual(selected("scripts/tsconfig.json"), ["frontend", "docker"])
+  for (const path of [
+    "docker/Dockerfile",
+    "docker/Dockerfile.dockerignore",
+    "LICENSE",
+  ])
     assert.deepEqual(selected(path), ["docker"], path)
 })
 

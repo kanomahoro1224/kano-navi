@@ -3,6 +3,7 @@
 .claude
 node_modules
 data
+ref
 dist
 coverage
 .vite

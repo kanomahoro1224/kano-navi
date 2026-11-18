@@ -27,8 +27,8 @@ export const aboutMessages = {
     "about.moreModels": "另外 {count} 个模型",
     "about.credits": "致谢",
     "about.contributors": "贡献者",
-    "about.contributorsText": "感谢以下开发者为项目贡献代码。",
-    "about.contributorList": "代码贡献者",
+    "about.contributorsText": "感谢以下各位对本项目做出的贡献。",
+    "about.contributorList": "贡献者",
     "about.creditsLineblog":
       "LINE BLOG 页面的文章、图片、视频和中文翻译主要来自 {name} 整理的 {project} 项目。",
     "about.creditsWorks":
@@ -73,8 +73,8 @@ export const aboutMessages = {
     "about.credits": "謝辞",
     "about.contributors": "コントリビューター",
     "about.contributorsText":
-      "コードを寄せてくださった以下の開発者の皆さんに感謝します。",
-    "about.contributorList": "コードのコントリビューター",
+      "本プロジェクトに貢献してくださった以下の皆さんに感謝します。",
+    "about.contributorList": "コントリビューター",
     "about.creditsLineblog":
       "LINE BLOG ページの記事、画像、動画、簡体字中国語訳は、主に {name} さんによる {project} プロジェクトに基づいています。",
     "about.creditsWorks":
@@ -119,8 +119,8 @@ export const aboutMessages = {
     "about.credits": "Credits",
     "about.contributors": "Contributors",
     "about.contributorsText":
-      "Thanks to these developers for contributing code.",
-    "about.contributorList": "Code contributors",
+      "Thanks to everyone below for contributing to this project.",
+    "about.contributorList": "Contributors",
     "about.creditsLineblog":
       "The LINE BLOG page's posts, images, videos, and Simplified Chinese translations come mainly from the {project} project by {name}.",
     "about.creditsWorks":

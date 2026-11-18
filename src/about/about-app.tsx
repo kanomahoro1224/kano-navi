@@ -23,10 +23,13 @@ const AUTHOR = "yexca"
  * CDN, which answers anonymous cross-site image requests;
  * github.com/<login>.png may not.
  */
-const contributors = [{ login: "kanomahoro1224", name: "Lu Ke" }]
+const ZHFUWE = "ZhFuwe"
+const contributors: { login: string; name?: string }[] = [
+  { login: "kanomahoro1224", name: "Lu Ke" },
+  { login: ZHFUWE },
+]
 const LINEBLOG_RECOVERY_URL =
   "https://github.com/ZhFuwe/Kano_LINE_Blog_Recovery"
-const ZHFUWE = "ZhFuwe"
 const ZHFUWE_URL = "https://github.com/ZhFuwe"
 const LUKEKE_URL = "https://space.bilibili.com/426276698"
 
@@ -73,8 +76,8 @@ const technologyGroups = [
   {
     key: "ai",
     mono: true,
-    items: ["Claude Opus 5.5", "Gemini 4 Hydrogen", "GPT-6.1-Sol"],
-    more: ["Gemini 4 Carbon", "GPT-6-Astra", "GPT-5.6-Sol"],
+    items: ["Claude Opus 5.5", "Gemini 4 Hydrogen", "GPT-6.2-Sol"],
+    more: ["GPT-6.1-Sol", "Gemini 4 Carbon", "GPT-6-Astra", "GPT-5.6-Sol"],
   },
   {
     key: "frontend",
@@ -347,7 +350,13 @@ export function AboutApp() {
                         decoding="async"
                       />
                       <span>
-                        {name} <small>({login})</small>
+                        {name ? (
+                          <>
+                            {name} <small>({login})</small>
+                          </>
+                        ) : (
+                          login
+                        )}
                       </span>
                     </ExternalLink>
                   </li>

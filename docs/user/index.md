@@ -55,10 +55,10 @@ Kano Navi for Apple, for iOS, iPadOS and macOS 26 or later, by the board's
 author (with a link to its repository). Each platform shows the lowest
 system version it needs where known, and each app marks the platforms whose
 builds are unsigned. Cards then credit
-the developers who have contributed code, the sources of the LINE BLOG archive, the help behind the
+the people who have contributed to the project, the sources of the LINE BLOG archive, the help behind the
 Works page, and the provider of the mainland China server site. The page
 lists the AI models and technologies that built the site, with the less
-used models behind a "+3" button, and states the license.
+used models behind a "+4" button, and states the license.
 
 ## Freshness and Sources
 

@@ -76,9 +76,16 @@ test("About lists the apps with their unsigned platforms and opens the other mod
         link: "https://github.com/yexca/kano-navi-apple",
       },
     ])
-    assert.match(
-      page.querySelector(".about-contributors a")!.textContent || "",
-      /^Lu Ke \(kanomahoro1224\)$/u,
+    // A contributor with a separate name shows the login after it.
+    assert.deepEqual(
+      [...page.querySelectorAll(".about-contributors a")].map((link) => [
+        link.textContent,
+        link.getAttribute("href"),
+      ]),
+      [
+        ["Lu Ke (kanomahoro1224)", "https://github.com/kanomahoro1224"],
+        ["ZhFuwe", "https://github.com/ZhFuwe"],
+      ],
     )
 
     // The LINE BLOG credit links its curator and the project in its wording.
@@ -103,25 +110,25 @@ test("About lists the apps with their unsigned platforms and opens the other mod
       /from the Kano_LINE_Blog_Recovery project by ZhFuwe\./u,
     )
 
-    // Three models show; "+3" opens the rest and Escape closes them.
+    // Three models show; "+4" opens the rest and Escape closes them.
     const models = page.querySelector(".about-chips.is-mono")!
     assert.deepEqual(
       [...models.querySelectorAll(":scope > li:not(.is-more)")].map(
         (item) => item.textContent,
       ),
-      ["Claude Opus 5.5", "Gemini 4 Hydrogen", "GPT-6.1-Sol"],
+      ["Claude Opus 5.5", "Gemini 4 Hydrogen", "GPT-6.2-Sol"],
     )
     const more = models.querySelector("button.about-more-button")!
     const panel = models.querySelector(".about-more-panel")!
-    assert.equal(more.textContent, "+3")
-    assert.equal(more.getAttribute("aria-label"), "3 more models")
+    assert.equal(more.textContent, "+4")
+    assert.equal(more.getAttribute("aria-label"), "4 more models")
     assert.equal(panel.hasAttribute("hidden"), true)
     await click(more)
     assert.equal(more.getAttribute("aria-expanded"), "true")
     assert.equal(panel.hasAttribute("hidden"), false)
     assert.deepEqual(
       [...panel.querySelectorAll("li")].map((item) => item.textContent),
-      ["Gemini 4 Carbon", "GPT-6-Astra", "GPT-5.6-Sol"],
+      ["GPT-6.1-Sol", "Gemini 4 Carbon", "GPT-6-Astra", "GPT-5.6-Sol"],
     )
     await act(async () => {
       ;(browser.document as unknown as Document).dispatchEvent(

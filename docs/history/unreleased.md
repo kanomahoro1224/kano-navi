@@ -18,6 +18,12 @@
   the platforms it is live on, each opening that stream, instead of a
   separate label and a named, marked link per platform, so a stream on
   YouTube and bilibili at once keeps its labels on one line.
+- The About page thanks its contributors for contributing to the project
+  and lists ZhFuwe among them. GPT-6.2-Sol joins the shown development
+  models, and GPT-6.1-Sol moves behind the "+4" button.
+- On a phone, an About app card lists its platforms under the name and
+  ends with a full-width Download or GitHub button, and a name with a
+  Chinese title in parentheses wraps before the parentheses.
 
 </details>
 

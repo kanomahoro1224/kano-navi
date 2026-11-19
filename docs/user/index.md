@@ -4,7 +4,7 @@ What’s Kano Up To? (Kano Navi) is an unofficial fan board for Kano Mahoro
 (鹿乃まほろ). It gathers her public updates in one place: what airs next, the
 week's schedule, recent posts and videos, her discography, and her journey
 since 2010. Visit
-it at [kano.yexca.net](https://kano.yexca.net/).
+it at [kano.fans](https://kano.fans/).
 
 These pages describe what you can see and do on the site.
 

@@ -34,12 +34,16 @@
       "reason": "Public GitHub avatar CDN; the visitor's browser loads each code contributor's avatar on the About page. The server never fetches it."
     },
     {
-      "host": "kano.yexca.net",
-      "reason": "Maintainer-hosted public Kano Navi instance linked from the README; never used as a synchronization source."
+      "host": "kano.fans",
+      "reason": "Maintainer-hosted public Kano Navi instance (Japan server) linked from the README and the user guide; never used as a synchronization source."
     },
     {
       "host": "img.shields.io",
       "reason": "Static license badge displayed in the README only; never fetched by the application or synchronization."
+    },
+    {
+      "host": "hub.docker.com",
+      "reason": "Docker Hub page of the published release image, linked from the README badge; never fetched by the application or synchronization."
     },
     {
       "host": "docker.io",

@@ -10,20 +10,24 @@ import {
   ArchiveState,
 } from "@/dashboard/components/archive-dialog"
 import { monthKeyOf } from "@/dashboard/components/month-picker"
+import { PostMediaView } from "@/dashboard/components/post-wall"
 import {
-  type PostArchiveLayout,
-  PostArchive,
-  PostArchiveFilter,
-  PostArchiveLayoutToggle,
-  PostMediaView,
-} from "@/dashboard/components/post-wall"
-import { japanToday, monthStartOf } from "@/dashboard/format"
+  dateKey,
+  formatDayWeekday,
+  japanToday,
+  monthStartOf,
+} from "@/dashboard/format"
 import {
+  timelineStartPage,
   useArchive,
   useNow,
   usePostArchiveIndex,
 } from "@/dashboard/use-dashboard"
-import { usePostsLocation } from "./navigation"
+import { AccountBand } from "./account-band"
+import { ActivityMap } from "./activity-map"
+import { postsHref, usePostsLocation } from "./navigation"
+import { PostTimeline } from "./post-timeline"
+import { monthCount, nearestMonth } from "./timeline"
 import "@/dashboard/board.css"
 import "./posts.css"
 
@@ -36,23 +40,16 @@ interface ViewerImage {
 
 type ViewerCandidate = Omit<ViewerImage, "url"> & { url: string | null }
 
-/** This device remembers the archive's layout, as the board's dialog did. */
-const POST_LAYOUT_KEY = "kano-post-archive-layout"
-
-function readPostLayout(): PostArchiveLayout {
-  try {
-    return window.localStorage.getItem(POST_LAYOUT_KEY) === "list"
-      ? "list"
-      : "masonry"
-  } catch {
-    return "masonry"
-  }
-}
-
 /** The first day of a `YYYY-MM` month, as a local Date. */
 function monthFromKey(key: string) {
   const [year, month] = key.split("-").map(Number)
   return new Date(year, month - 1, 1)
+}
+
+/** A `YYYY-MM-DD` day, as a local Date. */
+function dayFromKey(key: string) {
+  const [year, month, day] = key.split("-").map(Number)
+  return new Date(year, month - 1, day)
 }
 
 export function PostsApp() {
@@ -68,85 +65,151 @@ export function PostsApp() {
       ?.setAttribute("content", t("posts.metaDescription"))
   }, [t])
 
-  const thisMonth = monthStartOf(japanToday())
   const account = view.account
   const filter = account?.toLowerCase() || null
+
+  // The month the timeline starts from: the one the address named when the
+  // page opened or a month was chosen that is not loaded; null starts from
+  // the newest post.
+  const [anchor, setAnchor] = useState<string | null>(view.month)
+  const [jump, setJump] = useState<{ month: string; nonce: number } | null>(
+    view.month ? { month: view.month, nonce: 1 } : null,
+  )
+  const jumpTo = useCallback(
+    (month: string) =>
+      setJump((current) => ({ month, nonce: (current?.nonce || 0) + 1 })),
+    [],
+  )
+
+  // The timeline waits for the month index, which places a chosen month on
+  // its page; without the index it starts from the month itself.
+  const request = useMemo(() => {
+    if (!index && !indexError) return null
+    return {
+      kind: "posts" as const,
+      monthStart: monthStartOf(japanToday()),
+      account,
+      anchor: anchor ? monthFromKey(anchor) : null,
+      startPage:
+        anchor && index
+          ? timelineStartPage(index.months, anchor, filter)
+          : undefined,
+    }
+  }, [index, indexError, account, anchor, filter])
+  const archive = useArchive<Post>(request, index?.revision)
+  const posts = archive.archive as ArchiveSnapshot<Post> | null
+  const firstPage = posts?.firstPage ?? 1
+
+  const loadedMonths = useMemo(
+    () => [
+      ...new Set(
+        (posts?.items || []).map((post) =>
+          dateKey(post.publishedAt).slice(0, 7),
+        ),
+      ),
+    ],
+    [posts],
+  )
+  const loadedRef = useRef(loadedMonths)
+  loadedRef.current = loadedMonths
+
+  const monthCounts = useMemo(
+    () =>
+      index
+        ? new Map(
+            index.months.map((month) => [
+              month.month,
+              monthCount(month, filter),
+            ]),
+          )
+        : null,
+    [index, filter],
+  )
+
+  // The month in view follows the scroll, and the address follows it without
+  // a new history entry; the newest month leaves the address bare.
+  const [visible, setVisible] = useState<string | null>(null)
+  // The day in view, which the narrow screens' month bar names.
+  const [visibleDay, setVisibleDay] = useState<string | null>(null)
+  const atNewest = firstPage === 1 && (!visible || visible === loadedMonths[0])
+  useEffect(() => {
+    if (!visible) return
+    const href = postsHref({
+      month:
+        firstPage === 1 && visible === loadedRef.current[0] ? null : visible,
+      account,
+    })
+    if (`${window.location.pathname}${window.location.search}` !== href)
+      window.history.replaceState(window.history.state, "", href)
+  }, [visible, firstPage, account])
+
+  // The timeline's top, to return to when it restarts from the newest post.
+  const timelineRef = useRef<HTMLDivElement>(null)
+  const toTimelineTop = useCallback(() => {
+    const top = timelineRef.current?.getBoundingClientRect().top
+    if (top != null && top < 0)
+      window.scrollBy({ top: top - 16, behavior: "instant" })
+  }, [])
+
+  // A view from the address (a choice, or back and forward) scrolls to its
+  // month when it is loaded and otherwise restarts the timeline there.
+  const shownView = useRef(view)
+  useEffect(() => {
+    const previous = shownView.current
+    if (previous === view) return
+    shownView.current = view
+    const sameAccount = previous.account === view.account
+    if (!view.month) {
+      setAnchor(null)
+      setJump(null)
+      setVisible(null)
+      setVisibleDay(null)
+      toTimelineTop()
+      return
+    }
+    if (!sameAccount || !loadedRef.current.includes(view.month))
+      setAnchor(view.month)
+    jumpTo(view.month)
+  }, [view, jumpTo, toTimelineTop])
+
+  const chooseMonth = useCallback(
+    (month: string) => {
+      const target =
+        (index ? nearestMonth(index.months, month, filter) : month) ?? month
+      show({ month: target, account })
+    },
+    [index, filter, account, show],
+  )
+  const setAccount = useCallback(
+    (next: string | null) => {
+      const nextFilter = next?.toLowerCase() || null
+      const target =
+        index && visible && !atNewest
+          ? nearestMonth(index.months, visible, nextFilter)
+          : null
+      const newest = index ? nearestMonth(index.months, null, nextFilter) : null
+      show({ month: target === newest ? null : target, account: next })
+    },
+    [index, visible, atNewest, show],
+  )
+  const showNewest = useCallback(
+    () => show({ month: null, account }),
+    [show, account],
+  )
+
+  const pickerButtonRef = useRef<HTMLButtonElement>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const shownMonth = visible ?? loadedMonths[0] ?? anchor
+  const shownDay =
+    visibleDay && shownMonth && visibleDay.startsWith(shownMonth)
+      ? formatDayWeekday(dayFromKey(visibleDay), locale)
+      : null
+  const thisMonth = monthStartOf(japanToday())
   const newestKey = index?.months.at(-1)?.month ?? null
-  // Without a month in the address, the newest month holding the chosen
-  // account's posts.
-  const shownNewest =
-    (filter
-      ? index?.months.findLast(({ counts }) => (counts[filter] || 0) > 0)?.month
-      : null) ?? newestKey
-  const monthKey = view.month ?? shownNewest
-  const monthStart = monthKey ? monthFromKey(monthKey) : thisMonth
   const latestMonth =
     newestKey && monthFromKey(newestKey) > thisMonth
       ? monthFromKey(newestKey)
       : thisMonth
-
-  // The month is known once the index names the newest one.
-  const request =
-    index || indexError || view.month
-      ? { kind: "posts" as const, monthStart, account }
-      : null
-  const archive = useArchive<Post>(request, index?.revision)
-  const posts = archive.archive as ArchiveSnapshot<Post> | null
-
-  const monthCounts = useMemo(() => {
-    if (!index) return null
-    return new Map(
-      index.months.map(({ month, total, counts }) => [
-        month,
-        filter ? counts[filter] || 0 : total,
-      ]),
-    )
-  }, [index, filter])
-  const monthIndex = index
-    ? (index.months.find(({ month }) => month === monthKeyOf(monthStart)) ?? {
-        month: monthKeyOf(monthStart),
-        total: 0,
-        counts: {},
-      })
-    : undefined
-  const years = index?.months.length
-    ? `${index.months[0].month.slice(0, 4)}–${index.months.at(-1)!.month.slice(0, 4)}`
-    : null
-  const total = index?.months.reduce((sum, month) => sum + month.total, 0)
-
-  const setMonth = useCallback(
-    (month: Date) => show({ month: monthKeyOf(month), account }),
-    [show, account],
-  )
-  const setAccount = useCallback(
-    (next: string | null) => show({ month: monthKey, account: next }),
-    [show, monthKey],
-  )
-
-  const [layout, setLayoutState] = useState<PostArchiveLayout>(readPostLayout)
-  const setLayout = useCallback((next: PostArchiveLayout) => {
-    setLayoutState(next)
-    try {
-      window.localStorage.setItem(POST_LAYOUT_KEY, next)
-    } catch {
-      // The choice still applies until the page closes.
-    }
-  }, [])
-
-  const pickerButtonRef = useRef<HTMLButtonElement>(null)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  useEffect(() => setPickerOpen(false), [monthKey])
-  // A new month or account starts at the top of the wall.
-  const wallRef = useRef<HTMLDivElement>(null)
-  const shownKey = useRef(`${monthKey}:${account}`)
-  useEffect(() => {
-    const key = `${monthKey}:${account}`
-    if (shownKey.current === key) return
-    shownKey.current = key
-    const top = wallRef.current?.getBoundingClientRect().top
-    if (top != null && top < 0)
-      window.scrollBy({ top: top - 16, behavior: "instant" })
-  }, [monthKey, account])
 
   const [viewer, setViewer] = useState<{
     items: ViewerImage[]
@@ -170,6 +233,7 @@ export function PostsApp() {
     [],
   )
 
+  const kanoAvatar = cdnUrl("/assets/kano-avatar.jpg")
   return (
     <div className="site posts" id="top">
       <SkipLink href="#posts-content">{t("posts.skip")}</SkipLink>
@@ -177,23 +241,38 @@ export function PostsApp() {
 
       <main className="site-main" id="posts-content">
         <section className="posts-page" aria-labelledby="posts-title">
-          <header className="posts-head">
-            <p className="kicker posts-eyebrow">
-              <span>{t("posts.label")}</span>
-              {years ? <span>{years}</span> : null}
-              {total ? <span>{t("posts.total", { count: total })}</span> : null}
-            </p>
-            <h1 id="posts-title">{t("posts.title")}</h1>
-          </header>
+          <h1 id="posts-title" className="sr-only">
+            {t("posts.title")}
+          </h1>
+
+          {index ? (
+            <AccountBand
+              accounts={index.accounts}
+              bilibiliAccounts={index.bilibiliAccounts}
+              months={index.months}
+              avatars={posts?.accountAvatars ?? index.accountAvatars}
+              kanoAvatar={kanoAvatar}
+              account={account}
+              setAccount={setAccount}
+              locale={locale}
+              t={t}
+            />
+          ) : null}
 
           <div className="posts-bar">
             <ArchiveMonthBar
-              monthStart={monthStart}
-              onMonthChange={setMonth}
+              monthStart={shownMonth ? monthFromKey(shownMonth) : thisMonth}
+              onMonthChange={(month) => chooseMonth(monthKeyOf(month))}
               latestMonth={latestMonth}
+              detail={shownDay}
               picker={{
                 counts: monthCounts,
                 countLabel: (count) => t("feed.monthCount", { count }),
+              }}
+              timeline={{
+                onLatest: showNewest,
+                atLatest: atNewest,
+                resetKey: `${anchor || "newest"}:${account || ""}`,
               }}
               pickerOpen={pickerOpen}
               setPickerOpen={setPickerOpen}
@@ -201,53 +280,56 @@ export function PostsApp() {
               locale={locale}
               t={t}
             />
-            <div className="archive-tools">
-              <PostArchiveFilter
-                accounts={index?.accounts ?? []}
-                bilibiliAccounts={index?.bilibiliAccounts ?? []}
-                account={account}
-                setAccount={setAccount}
-                counts={monthIndex?.counts ?? posts?.accountCounts}
-                total={monthIndex?.total ?? (account ? null : posts?.total)}
-                t={t}
-              />
-              <PostArchiveLayoutToggle
-                layout={layout}
-                setLayout={setLayout}
-                t={t}
-              />
-            </div>
           </div>
 
-          <div className="posts-wall" ref={wallRef}>
-            {indexError && !index && !posts ? (
-              <ArchiveState
-                error={indexError}
-                onRetry={retryIndex}
-                loading={false}
-                empty={false}
-                emptyTitle={t("feed.archiveEmpty")}
-                onJump={setMonth}
-                locale={locale}
-                t={t}
-              />
-            ) : (
-              <PostArchive
-                archive={posts}
-                layout={layout}
-                isLoading={archive.isLoading || (!index && !indexError)}
-                error={archive.error}
-                onRetry={archive.reload}
-                onLoadMore={archive.loadMore}
-                onJump={setMonth}
-                avatarUrl={cdnUrl("/assets/kano-avatar.jpg")}
-                accountAvatars={posts?.accountAvatars ?? index?.accountAvatars}
-                locale={locale}
-                now={now}
-                t={t}
-                onOpenMedia={openImages}
-              />
-            )}
+          <div className="posts-layout">
+            {index?.months.length ? (
+              <aside className="posts-rail">
+                <ActivityMap
+                  months={index.months}
+                  filter={filter}
+                  shown={shownMonth}
+                  onChoose={chooseMonth}
+                  locale={locale}
+                  t={t}
+                />
+              </aside>
+            ) : null}
+            <div className="posts-column" ref={timelineRef}>
+              {indexError && !index && !posts ? (
+                <ArchiveState
+                  error={indexError}
+                  onRetry={retryIndex}
+                  loading={false}
+                  empty={false}
+                  emptyTitle=""
+                  onJump={() => {}}
+                  locale={locale}
+                  t={t}
+                />
+              ) : (
+                <PostTimeline
+                  archive={posts}
+                  isLoading={archive.isLoading || (!index && !indexError)}
+                  error={archive.error}
+                  onRetry={archive.reload}
+                  onLoadMore={archive.loadMore}
+                  onNewer={firstPage > 1 ? archive.loadNewer : showNewest}
+                  monthCounts={monthCounts}
+                  jump={jump}
+                  onVisibleMonth={setVisible}
+                  onVisibleDay={setVisibleDay}
+                  avatarUrl={kanoAvatar}
+                  accountAvatars={
+                    posts?.accountAvatars ?? index?.accountAvatars
+                  }
+                  locale={locale}
+                  now={now}
+                  t={t}
+                  onOpenMedia={openImages}
+                />
+              )}
+            </div>
           </div>
         </section>
       </main>

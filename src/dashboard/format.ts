@@ -112,6 +112,16 @@ export function formatMonthName(date: Date, locale: string) {
   return formatter(locale, { month: "short" }).format(date)
 }
 
+/** A weekday's short name: "Fri", "金", "周五". */
+export function formatWeekday(date: Date, locale: string) {
+  return formatter(locale, { weekday: "short" }).format(date)
+}
+
+/** A calendar date's day of the month with its short weekday. */
+export function formatDayWeekday(date: Date, locale: string) {
+  return formatter(locale, { day: "numeric", weekday: "short" }).format(date)
+}
+
 /** The first day of a calendar date's month, as a local Date. */
 export function monthStartOf(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1)

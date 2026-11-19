@@ -67,13 +67,9 @@ export const dashboardMessages = {
     "feed.openQuoteMedia": "查看引用动态的图片",
     "schedule.title": "周日程",
     "feed.archive": "历史动态",
-    "feed.archiveTitle": "动态存档",
-    "feed.archiveEmpty": "这个月没有已保存的动态",
+
     "feed.monthCount": ({ count }: { count: any }) => `共 ${count} 条`,
-    "feed.moreInMonth": "加载更多动态",
-    "feed.layout": "排列方式",
-    "feed.layoutMasonry": "瀑布流",
-    "feed.layoutList": "单列",
+
     "common.previousMonth": "上个月",
     "common.nextMonth": "下个月",
     "common.thisMonth": "本月",
@@ -262,13 +258,9 @@ export const dashboardMessages = {
     "feed.openQuoteMedia": "引用元の画像を開く",
     "schedule.title": "週間予定",
     "feed.archive": "過去のポスト",
-    "feed.archiveTitle": "ポストのアーカイブ",
-    "feed.archiveEmpty": "この月に保存されたポストはありません",
+
     "feed.monthCount": ({ count }: { count: any }) => `${count} 件`,
-    "feed.moreInMonth": "さらにポストを読み込む",
-    "feed.layout": "表示方法",
-    "feed.layoutMasonry": "タイル表示",
-    "feed.layoutList": "1 列表示",
+
     "common.previousMonth": "前の月",
     "common.nextMonth": "次の月",
     "common.thisMonth": "今月",
@@ -458,14 +450,10 @@ export const dashboardMessages = {
     "feed.openQuoteMedia": "Open quoted image",
     "schedule.title": "Weekly schedule",
     "feed.archive": "Past posts",
-    "feed.archiveTitle": "Post archive",
-    "feed.archiveEmpty": "No stored posts in this month",
+
     "feed.monthCount": ({ count }: { count: any }) =>
       `${count} ${count === 1 ? "post" : "posts"}`,
-    "feed.moreInMonth": "Load more posts",
-    "feed.layout": "Layout",
-    "feed.layoutMasonry": "Masonry",
-    "feed.layoutList": "Single column",
+
     "common.previousMonth": "Previous month",
     "common.nextMonth": "Next month",
     "common.thisMonth": "This month",

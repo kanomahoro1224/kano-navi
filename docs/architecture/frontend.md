@@ -191,36 +191,53 @@ not read this response.
 
 ## Post Archive Page
 
-`/posts` (`src/posts/posts-app.tsx`) browses every stored post one Japan month
-at a time. The board's Past posts link opens it with the wall's chosen
-account. The address holds the view, `?month=YYYY-MM&account=<handle or
-mid>` (`src/posts/navigation.ts`); a malformed value falls back to the
-default, and without a month the page shows the newest month holding the
-chosen account's posts. Choosing a month or an account pushes a history entry,
-so back and forward step through the browsed months.
+`/posts` (`src/posts/posts-app.tsx`) is one newest-first timeline of every
+stored post, with an activity map beside it to move through the years. The
+board's Past posts link opens it with the wall's chosen account. The address
+names the view, `?month=YYYY-MM&account=<handle or mid>`
+(`src/posts/navigation.ts`); a malformed value falls back to the default, and
+without a month the timeline starts from the newest post. Choosing a month or
+an account pushes a history entry, so back and forward return to it; the
+month in view replaces the address's month as the page scrolls, without an
+entry, and the newest month leaves the address without one.
 
 `usePostArchiveIndex` in `use-dashboard.ts` reads
 [`/api/posts/months`](public-api.md#bounded-public-archives) once: the month
-index, the accounts the filter offers (the board's X accounts, then the
+index, the accounts the page offers (the board's X accounts, then the
 archive-only ones, then Bilibili mids) and their avatars. A failed read offers
-a retry. The month's posts read through `useArchive` from
-[`/api/posts`](public-api.md#bounded-public-archives), page by page as the
-reader scrolls, following the index's revision. The page reuses the board's
-post cards, account filter (`PostArchiveFilter`, counting from the month index
-so the numbers stay while a month loads; All counts the month's total, which
-includes promoted posts filed under their authors) and the archive dialog's
-month controls (`ArchiveMonthBar`, with the jump grid), which stick under the
-site header while a long month scrolls. Until a month's first page arrives,
-skeleton cards hold the wall's place in the chosen layout.
+a retry. The posts read through `useArchive` from the post timeline of
+[`/api/posts`](public-api.md#bounded-public-archives), following the index's
+revision, as the video dialog reads its own: a chosen month starts the
+timeline at the page holding the month's newest post (`timelineStartPage`,
+from the index's counts for the chosen account), the next page loads as the
+end scrolls near, and **Newer posts** above the first month reads the page
+before it while the first post keeps its place on screen. A chosen month that
+is already loaded scrolls into view instead. A month without the account's
+posts opens the nearest earlier month that has some (`nearestMonth` in
+`src/posts/timeline.ts`), and changing the account keeps the month in view
+that way unless the timeline is at its newest posts.
 
-Posts lay out either as a masonry wall or as a single column, a choice kept
-in `localStorage` (`kano-post-archive-layout`). The masonry measures each post
-and places it, in order, under the column that ends highest
-(`masonryLayout` in `src/dashboard/post-rows.ts`), so it reads row by row
-while the cells stay in post order for keyboard and screen readers; it
-re-measures when the wall or a post resizes. A container query hides the
-layout switch while the page is narrower than two masonry columns, where both
-layouts are one column. Images open in the site's media viewer.
+The account cards (`account-band.tsx`) show each account's portrait, the
+years its posts span and their total from the month index; All counts every
+post, including promoted posts filed under their authors. The activity map
+(`activity-map.tsx`) has a row per year, newest first, from the archive's
+first year to the newest month's, and a cell per month shaded by the quartile
+of the chosen account's monthly counts it falls in; a month with posts
+is a button that opens the timeline there, and the month in view is
+outlined. The map sticks beside the timeline; in windows narrower than 960px
+it gives way to the archive dialog's month controls (`ArchiveMonthBar` in its
+timeline form, with the jump grid and **Latest**). They stick under the site
+header as one band with it, carrying its scrolled stripe, and the month
+button also names the day in view, which the timeline reports as the page
+scrolls.
+
+`post-timeline.tsx` groups the loaded posts by Japan month and day
+(`groupPostsByDay`): a heading per month with its count from the index, and
+per day a date that sticks beside its posts; on phones the date heads its
+posts and scrolls with them, since the month controls name the day. The cards
+are the board's post cards in full, with the time alone, while a quoted post
+keeps its date. Until the first page arrives, skeleton cards hold the
+column's place. Images open in the site's media viewer.
 
 ## Request and UI Ownership
 

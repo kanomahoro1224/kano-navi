@@ -45,22 +45,24 @@ Posts are laid out in whole rows; a long post shows its first lines and
 ## Posts Page
 
 **Past posts** (a clock icon on phones) opens the **Posts** page, also in the
-site's menu, which browses every post the board has stored, month by month,
-starting from the account chosen on the wall. Its address names the month and
-the account, so a month can be shared or bookmarked, and back and forward step
-through the months browsed.
+site's menu: every post the board has stored, newest first, in one column
+that keeps going into earlier months as you scroll, starting from the account
+chosen on the wall. Its address names the month you are reading and the
+account, so a month can be shared or bookmarked, and back and forward return
+to the months and accounts you chose.
 
-- Filter by account with per-account counts for the month. Besides Kano's two
-  accounts and bilibili, the filter offers MKLNtic, the unit account she
+- Each account has a card with its portrait, the years its posts span and
+  how many there are; choose one to read only its posts. Besides Kano's two
+  accounts and bilibili, the page offers MKLNtic, the unit account she
   shares.
-- Select the month name to jump straight to another month: a year stepper
-  over twelve months shows how many posts each month holds for the chosen
-  account, and months without posts are dimmed. The month controls stay in
-  reach while a long month scrolls.
-- Posts appear newest first in a masonry wall that reads row by row, left to
-  right, or in a single column; on wider screens the layout switch beside the
-  filter picks one, and this device remembers the choice. Phones always show
-  one column.
+- Beside the posts, a map shows every year as a row of twelve months, darker
+  where the chosen account posted more; select a month to jump there. The
+  month you are reading is outlined. On narrower screens the bar under the
+  site header names the month and day you are reading; select it for a year
+  stepper over twelve months, and **Latest** returns to the newest posts.
+- Posts are grouped by month and by day, with the day's date beside them
+  (above them on phones) and each post's time. When the page starts from an
+  earlier month, **Newer posts** above it brings in the posts after it.
 - The archive holds Kano's own posts and her threads; replies to other
   people and other people's posts are left out.
 

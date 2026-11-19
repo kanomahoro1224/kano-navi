@@ -580,31 +580,7 @@
   height: 14px;
 }
 
-/*
- * The Past posts dialog shows full posts as a masonry wall that reads row by
- * row (cells placed by PostMasonry; the gap matches MASONRY_GAP) or as a
- * single column.
- */
-.post-wall.is-masonry {
-  position: relative;
-  display: block;
-}
-
-.post-masonry-cell {
-  position: absolute;
-  left: calc(var(--masonry-column) * (100% + 16px) / var(--masonry-columns));
-  width: calc(
-    (100% - (var(--masonry-columns) - 1) * 16px) / var(--masonry-columns)
-  );
-}
-
-.post-wall.is-list {
-  grid-template-columns: minmax(0, 1fr);
-  max-width: 600px;
-  margin-inline: auto;
-}
-
-/* A stand-in card while a month of posts loads. */
+/* A stand-in card while the posts page loads. */
 .post-note.is-skeleton .placeholder {
   padding: 0;
 }
@@ -623,37 +599,6 @@
   animation: placeholder-shine 1.4s ease-in-out infinite;
 }
 
-.post-wall.is-archive .post-note-media {
-  grid-template-rows: none;
-  aspect-ratio: auto;
-}
-
-.post-wall.is-archive .post-note-media > * {
-  aspect-ratio: 1;
-}
-
-.post-wall.is-archive .post-note-media.count-1 > * {
-  aspect-ratio: 16 / 10;
-}
-
-.post-wall.is-archive .post-note-media.is-fitted {
-  aspect-ratio: var(--media-ratio);
-}
-
-.post-wall.is-archive .post-note-media.is-fitted > * {
-  aspect-ratio: auto;
-}
-
-.post-wall.is-archive .post-note-media.count-3 > :first-child {
-  aspect-ratio: auto;
-}
-
-.segmented.is-icons button {
-  display: grid;
-  padding: 6px 10px;
-  place-items: center;
-}
-
 /* A platform mark in an account filter, such as bilibili's. */
 .segmented .account-mark {
   display: inline-block;
@@ -663,14 +608,9 @@
   vertical-align: -2px;
 }
 
-.segmented.is-icons svg {
-  width: 16px;
-  height: 16px;
-}
-
 /*
- * The account filter and the layout switch share one row; when it is
- * cramped, the accounts scroll sideways without a visible scrollbar.
+ * A dialog's filter row; when it is cramped, the choices scroll sideways
+ * without a visible scrollbar.
  */
 .archive-tools {
   display: flex;
@@ -679,7 +619,7 @@
   gap: 8px;
 }
 
-.archive-tools > .segmented:not(.is-icons) {
+.archive-tools > .segmented {
   min-width: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
@@ -687,7 +627,7 @@
   scrollbar-width: none;
 }
 
-.archive-tools > .segmented:not(.is-icons)::-webkit-scrollbar {
+.archive-tools > .segmented::-webkit-scrollbar {
   display: none;
 }
 
@@ -697,27 +637,12 @@
 }
 
 /* The video categories carry the same icons as the cards' tag chips. */
-.archive-tools > .segmented:not(.is-icons) svg {
+.archive-tools > .segmented svg {
   display: inline-block;
   width: 13px;
   height: 13px;
   margin-right: 4px;
   vertical-align: -2px;
-}
-
-.archive-tools > .segmented.is-icons {
-  flex: none;
-}
-
-/*
- * The head is as wide as the wall below it. Narrower than two masonry columns
- * (MASONRY_MIN_WIDTH twice plus the gap), both layouts are one column, so the
- * switch has nothing to choose.
- */
-@container archive-head (width < 616px) {
-  .archive-tools > .segmented.is-icons {
-    display: none;
-  }
 }
 
 /* A long board post or a schedule entry opens whole in this sheet. */

@@ -960,7 +960,7 @@ test("a lone image keeps its shape within the board's bounds", async () => {
 test("a post counts its images past four and a board quote shows one thumbnail", async () => {
   await withVite(async (load) => {
     const [
-      { PostWall, PostArchive },
+      { PostWall, PostNote },
       { AppSettingsProvider, PageMessagesProvider, useAppSettings },
     ] = await Promise.all([
       load("/src/dashboard/components/post-wall.tsx"),
@@ -1031,15 +1031,11 @@ test("a post counts its images past four and a board quote shows one thumbnail",
         createElement(
           "div",
           { className: "archive" },
-          createElement(PostArchive, {
+          createElement(PostNote, {
             ...common,
-            archive: { items: [post], hasNext: false, adjacent: null },
-            layout: "list",
-            isLoading: false,
-            error: null,
-            onRetry: () => {},
-            onLoadMore: () => {},
-            onJump: () => {},
+            post,
+            absoluteTime: "clock",
+            clamp: false,
           }),
         ),
       )
@@ -1098,7 +1094,13 @@ test("a post counts its images past four and a board quote shows one thumbnail",
       await click(thumb[0])
       assert.equal(opened.at(-1)!.items.length, 3)
       assert.equal(opened.at(-1)!.index, 0)
-      // In the archive the quote shows its images as a post's.
+      // On the posts page the post shows only its time under the day's date,
+      // and the quote keeps its date and shows its images as a post's.
+      assert.equal(
+        root!.container.querySelector(".archive .post-note-head time")!
+          .textContent,
+        "12:00",
+      )
       const archived = root!.container.querySelector(".archive .post-quote")!
       assert.ok(!archived.classList.contains("has-thumb"))
       assert.equal(

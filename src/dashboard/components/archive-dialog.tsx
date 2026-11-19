@@ -183,6 +183,7 @@ export function ArchiveMonthBar({
   picker,
   timeline,
   summary,
+  detail,
   pickerOpen,
   setPickerOpen,
   pickerButtonRef,
@@ -195,6 +196,8 @@ export function ArchiveMonthBar({
   picker?: ArchivePicker
   timeline?: ArchiveTimeline
   summary?: ReactNode
+  /** Shown after the month in the jump grid's button, such as the day in view. */
+  detail?: ReactNode
   pickerOpen: boolean
   setPickerOpen: (open: boolean) => void
   pickerButtonRef: RefObject<HTMLButtonElement | null>
@@ -262,6 +265,9 @@ export function ArchiveMonthBar({
         >
           {/* A scrolled month changes too often to announce. */}
           <span aria-live={timeline ? undefined : "polite"}>{monthText}</span>
+          {detail ? (
+            <span className="archive-month-detail">{detail}</span>
+          ) : null}
           <ChevronDown aria-hidden="true" />
         </button>
       ) : (

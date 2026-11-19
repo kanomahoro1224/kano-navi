@@ -1,5 +1,4 @@
 import type {
-  ArchiveSnapshot,
   Locale,
   MediaItem,
   Post,
@@ -7,19 +6,17 @@ import type {
   RichSegment,
   Translator,
 } from "@/types"
-import type { CSSProperties, ReactElement, ReactNode, RefObject } from "react"
+import type { CSSProperties, ReactNode, RefObject } from "react"
 import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowUpRight,
   Heart,
   History,
   ImageOff,
-  LayoutDashboard,
   MessageCircle,
   MessageSquareOff,
   Play,
   Repeat2,
-  Rows3,
   X,
 } from "lucide-react"
 
@@ -38,18 +35,11 @@ import {
   formatRelative,
   formatStamp,
 } from "../format"
-import type { MasonryLayout } from "../post-rows"
-import {
-  MASONRY_MAX_COLUMNS,
-  masonryColumns,
-  masonryLayout,
-  postWallCount,
-} from "../post-rows"
-import { ArchiveMore, ArchiveState } from "./archive-dialog"
+import { postWallCount } from "../post-rows"
 import { SheetDialog } from "./sheet-dialog"
 
-// A post's images fill a card of the post grid or the archive's masonry
-// wall; a lone image can take the whole card.
+// A post's images fill a card of the post grid or the posts page's column;
+// a lone image can take the whole card.
 const POST_MEDIA_SIZES =
   "(max-width: 640px) 100vw, (max-width: 1200px) 34vw, 420px"
 
@@ -175,13 +165,13 @@ export function isBilibiliPost(post: Pick<Post, "source">) {
 }
 
 /** One account the post filters offer: an X handle or a Bilibili mid. */
-interface PostAccount {
+export interface PostAccount {
   handle: string
   bilibili: boolean
 }
 
 /** The accounts in filter order: the X handles, then the Bilibili mids. */
-function postAccounts(xAccounts: string[], bilibiliAccounts: string[]) {
+export function postAccounts(xAccounts: string[], bilibiliAccounts: string[]) {
   return [
     ...xAccounts.map((handle) => ({ handle, bilibili: false })),
     ...bilibiliAccounts.map((handle) => ({ handle, bilibili: true })),
@@ -189,7 +179,7 @@ function postAccounts(xAccounts: string[], bilibiliAccounts: string[]) {
 }
 
 /** A filter's name: the @handle, or the bilibili mark for a Bilibili mid. */
-function PostAccountLabel({ account }: { account: PostAccount }) {
+export function PostAccountLabel({ account }: { account: PostAccount }) {
   return account.bilibili ? (
     <>
       <BilibiliLogo className="account-mark" aria-hidden="true" />
@@ -235,7 +225,7 @@ type AccountAvatars = Record<string, string | null>
  * The account's entry in the avatar map: its cached image, null when the
  * operator hid it, or undefined when there is none.
  */
-function accountAvatar(
+export function accountAvatar(
   source: string,
   handle: string | null | undefined,
   accountAvatars: AccountAvatars | undefined,
@@ -264,7 +254,7 @@ export function handleInitial(handle: string | null | undefined) {
  * no image or the image fails to load. Keyed by its URL at the call site, so
  * a new image gets another try.
  */
-function AccountAvatar({
+export function AccountAvatar({
   url,
   handle,
   className,
@@ -627,7 +617,7 @@ function postAvatar(
   return post.promoted ? null : fallbackAvatarUrl
 }
 
-function PostNote({
+export function PostNote({
   post,
   avatarUrl,
   accountAvatars,
@@ -641,8 +631,12 @@ function PostNote({
   post: Post
   avatarUrl: string | null
   accountAvatars?: Record<string, string | null>
-  /** Archives show the Japan date and time ("10.24 21:00"), not "3 days ago". */
-  absoluteTime?: boolean
+  /**
+   * Archives show the Japan date and time ("10.24 21:00") rather than "3 days
+   * ago"; "clock" shows only the time, under a day heading, while a quoted
+   * post keeps its date.
+   */
+  absoluteTime?: boolean | "clock"
   /** The board shows six lines and opens long posts in a dialog. */
   clamp?: boolean
   locale: Locale
@@ -696,7 +690,7 @@ function PostNote({
         bilibili={bilibili}
         avatarUrl={quoteAvatar}
         wording={quoteWording}
-        absoluteTime={absoluteTime}
+        absoluteTime={Boolean(absoluteTime)}
         clamp={clamp && !full}
         textRef={full ? undefined : quoteRef}
         locale={locale}
@@ -750,9 +744,11 @@ function PostNote({
         dateTime={post.publishedAt}
         title={`${formatJapanDay(post.publishedAt, locale)} ${formatJapanTime(post.publishedAt)} ${t("common.timezoneShort")}`}
       >
-        {absoluteTime
-          ? formatStamp(post.publishedAt)
-          : formatRelative(post.publishedAt, locale, now)}
+        {absoluteTime === "clock"
+          ? formatJapanTime(post.publishedAt)
+          : absoluteTime
+            ? formatStamp(post.publishedAt)
+            : formatRelative(post.publishedAt, locale, now)}
       </time>
       <ExternalLink
         className="post-note-open"
@@ -986,175 +982,11 @@ export function PostWall({
 }
 
 /**
- * The post archive's account filter, counting the month's posts per account
- * (keyed by lowercase handle or mid). All counts the month's total, which
- * includes promoted posts filed under their authors' handles.
+ * The cards the post timeline shows while its posts load: their text lines
+ * and whether a picture follows, varied so they read as posts of different
+ * lengths.
  */
-export function PostArchiveFilter({
-  accounts,
-  bilibiliAccounts = [],
-  account,
-  setAccount,
-  counts,
-  total,
-  t,
-}: {
-  accounts: string[]
-  bilibiliAccounts?: string[]
-  account: string | null
-  setAccount: (account: string | null) => void
-  counts: Record<string, number> | undefined
-  total?: number | null
-  t: Translator
-}) {
-  const filters = postAccounts(accounts, bilibiliAccounts)
-  if (filters.length < 2) return null
-  const countFor = (handle: string) =>
-    counts ? (counts[handle.toLowerCase()] ?? 0) : null
-  const all =
-    total ??
-    (counts
-      ? filters.reduce((sum, item) => sum + (countFor(item.handle) || 0), 0)
-      : null)
-  return (
-    <div className="segmented" role="group" aria-label={t("feed.filter")}>
-      <button
-        type="button"
-        aria-pressed={!account}
-        onClick={() => setAccount(null)}
-      >
-        {t("common.all")}
-        {all != null ? <small>{all}</small> : null}
-      </button>
-      {filters.map((item) => (
-        <button
-          type="button"
-          key={item.handle}
-          aria-pressed={account?.toLowerCase() === item.handle.toLowerCase()}
-          onClick={() => setAccount(item.handle)}
-        >
-          <PostAccountLabel account={item} />
-          {counts ? <small>{countFor(item.handle)}</small> : null}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-export type PostArchiveLayout = "masonry" | "list"
-
-/** The post archive's choice between the masonry wall and a single column. */
-export function PostArchiveLayoutToggle({
-  layout,
-  setLayout,
-  t,
-}: {
-  layout: PostArchiveLayout
-  setLayout: (layout: PostArchiveLayout) => void
-  t: Translator
-}) {
-  const options = [
-    { id: "masonry", icon: LayoutDashboard, label: t("feed.layoutMasonry") },
-    { id: "list", icon: Rows3, label: t("feed.layoutList") },
-  ] as const
-  return (
-    <div
-      className="segmented is-icons"
-      role="group"
-      aria-label={t("feed.layout")}
-    >
-      {options.map(({ id, icon: Icon, label }) => (
-        <button
-          type="button"
-          key={id}
-          aria-pressed={layout === id}
-          aria-label={label}
-          title={label}
-          onClick={() => setLayout(id)}
-        >
-          <Icon aria-hidden="true" />
-        </button>
-      ))}
-    </div>
-  )
-}
-
-/**
- * Full posts in up to three columns. Each post goes under the column that
- * ends highest, so the wall reads row by row; the cells stay in post order
- * for keyboard and screen readers, and the layout follows their measured
- * heights as the wall resizes or a post's wording changes.
- */
-function PostMasonry({ children }: { children: ReactElement[] }) {
-  const [wall, setWall] = useState<HTMLDivElement | null>(null)
-  const [layout, setLayout] = useState<
-    (MasonryLayout & { count: number }) | null
-  >(null)
-  const keys = children.map((child) => child.key).join()
-  useLayoutEffect(() => {
-    if (!wall) return
-    const measure = () => {
-      const count = masonryColumns(wall.clientWidth)
-      // Cell widths follow the column count, so set it before measuring.
-      wall.style.setProperty("--masonry-columns", String(count))
-      const cells = Array.from(wall.children) as HTMLElement[]
-      const next = {
-        count,
-        ...masonryLayout(
-          cells.map((cell) => cell.offsetHeight),
-          count,
-        ),
-      }
-      setLayout((current) =>
-        current &&
-        current.count === next.count &&
-        current.height === next.height &&
-        current.tops.join() === next.tops.join() &&
-        current.columns.join() === next.columns.join()
-          ? current
-          : next,
-      )
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(wall)
-    for (const cell of Array.from(wall.children)) observer.observe(cell)
-    return () => observer.disconnect()
-  }, [wall, keys])
-  return (
-    <div
-      className="post-wall is-archive is-masonry"
-      ref={setWall}
-      style={
-        {
-          "--masonry-columns": layout?.count ?? MASONRY_MAX_COLUMNS,
-          height: layout?.height,
-        } as CSSProperties
-      }
-    >
-      {children.map((child, index) => (
-        <div
-          className="post-masonry-cell"
-          key={child.key ?? index}
-          style={
-            {
-              "--masonry-column": layout?.columns[index] ?? 0,
-              top: layout?.tops[index] ?? 0,
-            } as CSSProperties
-          }
-        >
-          {child}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/**
- * The cards a month shows while its posts load: their text lines and whether
- * a picture follows, varied so the wall reads as posts of different lengths.
- */
-const ARCHIVE_SKELETON = [
+export const ARCHIVE_SKELETON = [
   { lines: 3, media: true },
   { lines: 2, media: false },
   { lines: 4, media: false },
@@ -1167,7 +999,13 @@ const ARCHIVE_SKELETON = [
 ]
 
 /** One stand-in card: a name line, text lines and maybe a picture. */
-function PostSkeleton({ lines, media }: { lines: number; media: boolean }) {
+export function PostSkeleton({
+  lines,
+  media,
+}: {
+  lines: number
+  media: boolean
+}) {
   return (
     <div className="post-note is-skeleton" aria-hidden="true">
       <div className="placeholder">
@@ -1181,90 +1019,5 @@ function PostSkeleton({ lines, media }: { lines: number; media: boolean }) {
       </div>
       {media ? <span className="post-skeleton-media" /> : null}
     </div>
-  )
-}
-
-/**
- * The post archive dialog's body: one month of stored posts, newest first.
- * Until a month's first page arrives, skeleton cards hold the wall's place
- * in the chosen layout.
- */
-export function PostArchive({
-  archive,
-  layout,
-  isLoading,
-  error,
-  onRetry,
-  onLoadMore,
-  onJump,
-  avatarUrl,
-  accountAvatars,
-  locale,
-  now,
-  t,
-  onOpenMedia,
-}: {
-  archive: ArchiveSnapshot<Post> | null
-  layout: PostArchiveLayout
-  isLoading: boolean
-  error: Error | null
-  onRetry: () => unknown
-  onLoadMore: () => unknown
-  onJump: (month: Date) => void
-  avatarUrl: string | null
-  accountAvatars?: Record<string, string | null>
-  locale: Locale
-  now: number
-  t: Translator
-  onOpenMedia: (media: MediaItem[], index: number) => void
-}) {
-  const notes = (archive?.items || []).map((post) => (
-    <PostNote
-      key={post.id}
-      post={post}
-      avatarUrl={avatarUrl}
-      accountAvatars={accountAvatars}
-      absoluteTime
-      clamp={false}
-      locale={locale}
-      now={now}
-      t={t}
-      onOpenMedia={onOpenMedia}
-    />
-  ))
-  const cells =
-    !archive && isLoading
-      ? ARCHIVE_SKELETON.map((card, index) => (
-          <PostSkeleton key={`skeleton-${index}`} {...card} />
-        ))
-      : notes
-  return (
-    <>
-      <ArchiveState
-        error={error}
-        onRetry={onRetry}
-        loading={false}
-        empty={Boolean(archive && !archive.items.length)}
-        emptyTitle={t("feed.archiveEmpty")}
-        adjacent={archive?.adjacent}
-        onJump={onJump}
-        locale={locale}
-        t={t}
-      />
-      {!cells.length ? null : layout === "list" ? (
-        <div className="post-wall is-archive is-list">{cells}</div>
-      ) : (
-        <PostMasonry>{cells}</PostMasonry>
-      )}
-      {archive ? (
-        <ArchiveMore
-          hasNext={archive.hasNext}
-          isLoading={isLoading}
-          label={t("feed.moreInMonth")}
-          onLoadMore={onLoadMore}
-          t={t}
-        />
-      ) : null}
-    </>
   )
 }

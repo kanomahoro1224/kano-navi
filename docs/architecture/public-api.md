@@ -364,8 +364,8 @@ watch it as `availability` (`public`, `unlisted`, `members`, `private`,
 `invalid_range`, an invalid handle 400 `invalid_account` and an unknown
 category 400 `invalid_category`. Reads revalidate through their
 [ETags](#public-snapshot-contract), negotiate gzip like the other public JSON
-reads and never fetch platforms. The board's schedule and post month dialogs
-use the ranges with the calendar; its video dialog uses the timeline.
+reads and never fetch platforms. The posts page and the board's video dialog
+read the timelines below.
 
 Without `from` and `to`,
 `GET /api/posts?until=2026-09-30&page=1&pageSize=30&account=kano_2525` and

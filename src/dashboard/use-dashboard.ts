@@ -67,41 +67,43 @@ export type ArchiveKind = "schedule" | "posts" | "videos"
 
 export interface ArchiveRequest {
   kind: ArchiveKind
-  /** The schedule or post month shown; the video timeline ignores it. */
+  /** The schedule month shown; the post and video timelines ignore it. */
   monthStart: Date
-  /** Post archives only: an X handle or Bilibili mid, or null for all. */
+  /** Post timelines only: an X handle or Bilibili mid, or null for all. */
   account?: string | null
-  /** Video archives only: one category, or null for every video. */
+  /** Video timelines only: one category, or null for every video. */
   category?: VideoCategory | null
   /**
-   * Video archives only: the month the timeline starts from; null starts from
-   * the newest video. With `startPage`, the timeline reads the newest-first
-   * pages from the one holding that month, so the newer pages before it can
-   * load later; without it, from that month's last day, as nothing newer.
+   * Post and video timelines: the month the timeline starts from; null starts
+   * from the newest record. With `startPage`, the timeline reads the
+   * newest-first pages from the one holding that month, so the newer pages
+   * before it can load later; without it, from that month's last day, as
+   * nothing newer.
    */
   anchor?: Date | null
-  /** Video archives only: the page of the whole timeline holding `anchor`. */
+  /** Post and video timelines: the page of the whole timeline holding `anchor`. */
   startPage?: number
 }
 
-/** Videos per timeline page; the board's page numbers count in these. */
-export const VIDEO_TIMELINE_PAGE_SIZE = 30
+/** Records per timeline page; the page numbers count in these. */
+export const TIMELINE_PAGE_SIZE = 30
 
 /**
- * The page of the newest-first video timeline that holds a month's newest
- * video: every video of the later months comes before it. The month index
- * counts per category, so a chosen category counts its own videos alone.
+ * The page of a newest-first post or video timeline that holds a month's
+ * newest record: every record of the later months comes before it. The month
+ * index counts per filter key (a video category, or a post account's lowercase
+ * handle), so a chosen filter counts its own records alone.
  */
 export function timelineStartPage(
   months: readonly ArchiveMonth[],
   month: string,
-  category: string | null | undefined,
+  filter: string | null | undefined,
 ) {
   let newer = 0
   for (const entry of months)
     if (entry.month > month)
-      newer += category ? entry.counts[category] || 0 : entry.total
-  return Math.floor(newer / VIDEO_TIMELINE_PAGE_SIZE) + 1
+      newer += filter ? entry.counts[filter] || 0 : entry.total
+  return Math.floor(newer / TIMELINE_PAGE_SIZE) + 1
 }
 
 /**
@@ -128,18 +130,20 @@ function timelineUntil(anchor: Date | null | undefined) {
 }
 
 function archiveUrl(request: ArchiveRequest, page: number) {
-  if (request.kind === "videos") {
-    const until = request.startPage ? "" : timelineUntil(request.anchor)
-    const category = request.category ? `&category=${request.category}` : ""
-    return `/api/videos?page=${page}&pageSize=${VIDEO_TIMELINE_PAGE_SIZE}${until ? `&until=${until}` : ""}${category}`
+  if (request.kind === "schedule") {
+    const { from, to } = archiveRange(request.kind, request.monthStart)
+    return `/api/calendar?from=${from}&to=${to}&page=${page}`
   }
-  const { from, to } = archiveRange(request.kind, request.monthStart)
-  const path = request.kind === "schedule" ? "calendar" : "posts"
-  const account =
-    request.kind === "posts" && request.account
-      ? `&account=${encodeURIComponent(request.account)}`
-      : ""
-  return `/api/${path}?from=${from}&to=${to}&page=${page}${account}`
+  const until = request.startPage ? "" : timelineUntil(request.anchor)
+  const filter =
+    request.kind === "videos"
+      ? request.category
+        ? `&category=${request.category}`
+        : ""
+      : request.account
+        ? `&account=${encodeURIComponent(request.account)}`
+        : ""
+  return `/api/${request.kind}?page=${page}&pageSize=${TIMELINE_PAGE_SIZE}${until ? `&until=${until}` : ""}${filter}`
 }
 
 const rangeKey = ({ from, to }: { from: string; to: string }) => `${from}/${to}`
@@ -147,7 +151,7 @@ const rangeKey = ({ from, to }: { from: string; to: string }) => `${from}/${to}`
 /** What identifies one archive read: its month or timeline start and filter. */
 function archiveKey(request: ArchiveRequest) {
   const span =
-    request.kind === "videos"
+    request.kind !== "schedule"
       ? request.startPage
         ? `from-page:${request.startPage}`
         : `until:${timelineUntil(request.anchor)}`
@@ -941,10 +945,10 @@ export function usePostArchiveIndex() {
 }
 
 /**
- * Reads one schedule or post month, or the video timeline, for a dialog, page
- * by page. Like the calendar it follows the board's revision: a change rereads
- * the loaded pages atomically, and a later page from another revision restarts
- * the read instead of being appended. Schedule and video archives also follow
+ * Reads one schedule month, or the post or video timeline, page by page. Like
+ * the calendar it follows the board's revision: a change rereads the loaded
+ * pages atomically, and a later page from another revision restarts the read
+ * instead of being appended. Schedule and video archives also follow
  * successful board snapshots, whose minute/manual refresh expires time-based
  * projections without a revision change. A null request cancels the read.
  */

@@ -1,115 +1,469 @@
 /*
  * /posts: the post archive on the public shell (src/site/site.css). Post
- * cards, the account filter and the month controls are the board's
- * (src/dashboard/board.css); this file lays them out as a page.
+ * cards and the month controls are the board's (src/dashboard/board.css);
+ * this file lays out the account cards, the activity map beside the
+ * timeline, and the timeline's months and days.
  */
 
 .posts-page {
   container: posts-page / inline-size;
+  max-width: 1040px;
+  margin-inline: auto;
   padding-top: 32px;
 }
 
-.posts-head {
-  display: grid;
-  gap: 8px;
-}
-
-.posts-eyebrow {
+/* The accounts: one card each, the chosen one in berry. */
+.posts-accounts {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 14px;
+  gap: 8px;
+  margin: 0 0 28px;
 }
 
-.posts-eyebrow > span + span::before {
-  margin-right: 14px;
-  content: "·";
-  color: hsl(var(--muted-foreground));
+.posts-account {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px 7px 7px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
-.posts-head h1 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(28px, 3.6vw, 42px);
-  font-weight: 800;
-  line-height: 1.1;
+.posts-account:hover {
+  border-color: color-mix(in oklab, var(--berry) 45%, var(--rule));
 }
 
-/* The month controls stay in reach under the site header while a long
-   month scrolls. */
+.posts-account[aria-pressed="true"] {
+  border-color: var(--berry);
+  background: var(--berry-wash);
+}
+
+.posts-account:focus-visible {
+  outline: 2px solid var(--berry);
+  outline-offset: 2px;
+}
+
+.posts-account .is-avatar,
+.posts-account .post-note-initial,
+.posts-account-mark {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.posts-account .is-avatar {
+  object-fit: cover;
+}
+
+.posts-account-mark {
+  display: grid;
+  place-items: center;
+  background: var(--sunken);
+  color: #00a1d6;
+}
+
+.posts-account-mark svg {
+  width: 20px;
+  height: 20px;
+}
+
+.posts-account-text {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.posts-account-name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.posts-account-name .account-mark {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
+.posts-account-meta {
+  display: flex;
+  gap: 8px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+/*
+ * Narrow screens: the month bar takes the map's place, stuck to the site
+ * header as one band that carries the header's scrolled stripe.
+ */
 .posts-bar {
   position: sticky;
   z-index: 30;
   top: 60px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: none;
+  margin: 0 calc(var(--gutter) * -1) 8px;
+  padding: 4px var(--gutter);
+  background: color-mix(in oklab, hsl(var(--background)) 84%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+}
+
+.posts-bar::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  content: "";
+  background: var(--gingham);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.site:has(.site-header.is-scrolled) .posts-bar::after {
+  opacity: 0.55;
+}
+
+.posts-bar .archive-month {
+  flex-wrap: nowrap;
   justify-content: space-between;
-  gap: 10px 16px;
-  margin: 20px 0 24px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--rule);
-  background: hsl(var(--background));
 }
 
 .posts-bar .archive-month-label.is-picker {
-  font-size: 17px;
+  min-width: 0;
+  flex: 0 1 auto;
+  justify-content: flex-start;
+  margin-left: -10px;
+  white-space: nowrap;
 }
 
-@container posts-page (width >= 900px) {
+.posts-bar .archive-month-detail {
+  margin-left: 4px;
+  color: var(--soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.posts-bar .archive-month > .pill-button {
+  flex: none;
+  min-height: 30px;
+  padding: 4px 12px;
+}
+
+.posts-layout {
+  /* Where the map and the day dates stick below the site header. */
+  --posts-top: 76px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.posts-rail {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .posts-layout {
+    grid-template-columns: 216px minmax(0, 1fr);
+    gap: 48px;
+  }
+
+  .posts-rail {
+    display: block;
+  }
+}
+
+@media (max-width: 959.98px) {
   .posts-bar {
-    flex-wrap: nowrap;
+    display: block;
   }
 
-  .posts-bar .archive-month {
-    flex: none;
-    flex-wrap: nowrap;
+  .site.posts .site-header::after {
+    display: none;
   }
-}
 
-@container posts-page (width < 900px) {
-  .posts-bar .archive-tools {
-    flex: 1 1 100%;
+  .posts-layout {
+    --posts-top: 120px;
   }
 }
 
-.posts-wall {
-  scroll-margin-top: 160px;
+.posts-rail {
+  position: sticky;
+  top: var(--posts-top);
+  align-self: start;
 }
 
-/* Phones: the month row keeps one line with the short month name. */
+/* The activity map: a year per row, a month per cell. */
+.posts-map {
+  --cell: 12px;
+  display: grid;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.posts-map-names,
+.posts-map-year {
+  display: grid;
+  grid-template-columns: 40px repeat(12, var(--cell));
+  align-items: center;
+  gap: 3px;
+}
+
+.posts-map-names {
+  color: var(--soft);
+}
+
+.posts-map-names > span {
+  white-space: nowrap;
+}
+
+.posts-map-years {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.posts-map-label {
+  color: var(--soft);
+}
+
+.posts-map-year.is-shown .posts-map-label {
+  color: var(--berry);
+  font-weight: 700;
+}
+
+.posts-map-year.is-empty .posts-map-label {
+  opacity: 0.5;
+}
+
+.posts-map-cell {
+  display: block;
+  width: var(--cell);
+  height: 15px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--sunken);
+}
+
+button.posts-map-cell {
+  cursor: pointer;
+}
+
+.posts-map-cell.level-1 {
+  background: color-mix(in oklab, var(--berry) 28%, var(--sunken));
+}
+
+.posts-map-cell.level-2 {
+  background: color-mix(in oklab, var(--berry) 50%, var(--sunken));
+}
+
+.posts-map-cell.level-3 {
+  background: color-mix(in oklab, var(--berry) 74%, var(--sunken));
+}
+
+.posts-map-cell.level-4 {
+  background: var(--berry);
+}
+
+.posts-map-cell.is-future {
+  background: transparent;
+}
+
+button.posts-map-cell:hover,
+.posts-map-cell[aria-current],
+.posts-map-cell.is-current {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+button.posts-map-cell:focus-visible {
+  outline: 2px solid var(--berry);
+  outline-offset: 2px;
+}
+
+/* The timeline: a heading per month and a date beside each day's posts. */
+.posts-column {
+  max-width: 680px;
+  scroll-margin-top: var(--posts-top);
+}
+
+.posts-month + .posts-month {
+  margin-top: 44px;
+}
+
+.posts-month-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+  scroll-margin-top: var(--posts-top);
+}
+
+.posts-month {
+  scroll-margin-top: var(--posts-top);
+}
+
+.posts-month-head small {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.posts-day {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.posts-day + .posts-day {
+  margin-top: 24px;
+}
+
+.posts-day-date {
+  position: sticky;
+  top: var(--posts-top);
+  display: grid;
+  align-self: start;
+  justify-items: center;
+  padding-top: 6px;
+  line-height: 1;
+}
+
+.posts-day-number {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.posts-day-weekday {
+  margin-top: 4px;
+  color: var(--soft);
+  font-size: 12px;
+}
+
+.posts-day-list {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.posts-day.is-skeleton .posts-day-date {
+  width: 32px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--sunken);
+}
+
+/* A post's pictures show whole in the column rather than cropped to a frame. */
+.posts-day-list .post-note-media {
+  grid-template-rows: none;
+  aspect-ratio: auto;
+}
+
+.posts-day-list .post-note-media > * {
+  aspect-ratio: 1;
+}
+
+.posts-day-list .post-note-media.count-1 > * {
+  aspect-ratio: 16 / 10;
+}
+
+.posts-day-list .post-note-media.is-fitted {
+  aspect-ratio: var(--media-ratio);
+}
+
+.posts-day-list .post-note-media.is-fitted > * {
+  aspect-ratio: auto;
+}
+
+.posts-day-list .post-note-media.count-3 > :first-child {
+  aspect-ratio: auto;
+}
+
+.posts-timeline > .archive-more {
+  padding-top: 28px;
+}
+
+.posts-timeline > .archive-more.is-newer {
+  padding: 0 0 20px;
+}
+
+/* Phones: the accounts scroll sideways and a day's date heads its posts. */
 @media (max-width: 640px) {
   .posts-page {
     padding-top: 20px;
   }
 
-  .posts-bar .archive-month {
+  .posts-accounts {
     flex-wrap: nowrap;
+    margin: 16px calc(var(--gutter) * -1) 16px;
+    padding-inline: var(--gutter);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
   }
 
-  .posts-bar .archive-month-label {
-    min-width: 0;
-    flex: 1 1 auto;
-    white-space: nowrap;
+  .posts-accounts::-webkit-scrollbar {
+    display: none;
   }
 
-  .posts-bar .archive-month > .round-button,
-  .posts-bar .archive-month > .pill-button {
+  .posts-account {
     flex: none;
   }
 
-  .posts-bar .archive-month-long {
-    display: none;
+  .posts-day {
+    display: block;
   }
 
-  .posts-bar .archive-month-short {
-    display: inline;
+  .posts-day-date {
+    position: static;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding-top: 0;
   }
-}
 
-/* Narrower than two masonry columns both layouts are one column, so the
-   switch has nothing to choose. */
-@container posts-page (width < 616px) {
-  .posts-bar .archive-tools > .segmented.is-icons {
-    display: none;
+  .posts-day-number {
+    font-size: 20px;
+  }
+
+  .posts-day-weekday {
+    margin-top: 0;
+  }
+
+  .posts-day.is-skeleton .posts-day-date {
+    width: 64px;
+    height: 28px;
   }
 }

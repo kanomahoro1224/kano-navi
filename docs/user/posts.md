@@ -19,7 +19,7 @@ Posts are laid out in whole rows; a long post shows its first lines and
 - A post that quotes another one shows the quoted post as a nested card that
   links to it on X, with its author's portrait when the board has one. On
   the board the quoted post's first image sits beside its words and counts
-  the others; the full post and Past posts show them all. A bilibili post that forwards another one shows the
+  the others; the full post and the Posts page show them all. A bilibili post that forwards another one shows the
   forwarded post the same way, with its author's name after the bilibili
   mark, and links to it on bilibili; a forward with nothing of its own to
   say shows just that card.
@@ -42,16 +42,27 @@ Posts are laid out in whole rows; a long post shows its first lines and
 - A quoted or forwarded post is translated too, with its own mark at
   the end of the card's top line.
 
-## Past Posts
+## Posts Page
 
-**Past posts** (a clock icon on phones) browses every post the board has
-stored, month by month, with the same account filter and per-account counts.
-Select the month name to jump straight to another month: a year stepper over
-twelve months shows how many posts each month holds for the chosen account,
-and months without posts are dimmed. Posts appear newest first in a masonry wall that reads row by row, left to
-right, or in a single column; on wider screens the layout switch beside the
-filter picks one, and this device remembers the choice. Phones always show
-one column.
+**Past posts** (a clock icon on phones) opens the **Posts** page, also in the
+site's menu, which browses every post the board has stored, month by month,
+starting from the account chosen on the wall. Its address names the month and
+the account, so a month can be shared or bookmarked, and back and forward step
+through the months browsed.
+
+- Filter by account with per-account counts for the month. Besides Kano's two
+  accounts and bilibili, the filter offers MKLNtic, the unit account she
+  shares.
+- Select the month name to jump straight to another month: a year stepper
+  over twelve months shows how many posts each month holds for the chosen
+  account, and months without posts are dimmed. The month controls stay in
+  reach while a long month scrolls.
+- Posts appear newest first in a masonry wall that reads row by row, left to
+  right, or in a single column; on wider screens the layout switch beside the
+  filter picks one, and this device remembers the choice. Phones always show
+  one column.
+- The archive holds Kano's own posts and her threads; replies to other
+  people and other people's posts are left out.
 
 ## Related Docs
 

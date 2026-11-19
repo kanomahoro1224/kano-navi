@@ -17,10 +17,12 @@ import { ExternalLink } from "./links"
 import { NoticeDialog } from "./site-notice"
 import "./site.css"
 
-export type PublicPage = "board" | "history" | "works" | "lineblog" | "about"
+export type PublicPage =
+  "board" | "posts" | "history" | "works" | "lineblog" | "about"
 
 const pages: { id: PublicPage; href: string; labelKey: string }[] = [
   { id: "board", href: "/", labelKey: "nav.now" },
+  { id: "posts", href: "/posts", labelKey: "posts.label" },
   { id: "history", href: "/journey", labelKey: "history.eyebrow" },
   { id: "works", href: "/works", labelKey: "works.label" },
   { id: "lineblog", href: "/lineblog", labelKey: "lineblog.label" },

@@ -1,0 +1,115 @@
+/*
+ * /posts: the post archive on the public shell (src/site/site.css). Post
+ * cards, the account filter and the month controls are the board's
+ * (src/dashboard/board.css); this file lays them out as a page.
+ */
+
+.posts-page {
+  container: posts-page / inline-size;
+  padding-top: 32px;
+}
+
+.posts-head {
+  display: grid;
+  gap: 8px;
+}
+
+.posts-eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.posts-eyebrow > span + span::before {
+  margin-right: 14px;
+  content: "·";
+  color: hsl(var(--muted-foreground));
+}
+
+.posts-head h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3.6vw, 42px);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+/* The month controls stay in reach under the site header while a long
+   month scrolls. */
+.posts-bar {
+  position: sticky;
+  z-index: 30;
+  top: 60px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 20px 0 24px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+  background: hsl(var(--background));
+}
+
+.posts-bar .archive-month-label.is-picker {
+  font-size: 17px;
+}
+
+@container posts-page (width >= 900px) {
+  .posts-bar {
+    flex-wrap: nowrap;
+  }
+
+  .posts-bar .archive-month {
+    flex: none;
+    flex-wrap: nowrap;
+  }
+}
+
+@container posts-page (width < 900px) {
+  .posts-bar .archive-tools {
+    flex: 1 1 100%;
+  }
+}
+
+.posts-wall {
+  scroll-margin-top: 160px;
+}
+
+/* Phones: the month row keeps one line with the short month name. */
+@media (max-width: 640px) {
+  .posts-page {
+    padding-top: 20px;
+  }
+
+  .posts-bar .archive-month {
+    flex-wrap: nowrap;
+  }
+
+  .posts-bar .archive-month-label {
+    min-width: 0;
+    flex: 1 1 auto;
+    white-space: nowrap;
+  }
+
+  .posts-bar .archive-month > .round-button,
+  .posts-bar .archive-month > .pill-button {
+    flex: none;
+  }
+
+  .posts-bar .archive-month-long {
+    display: none;
+  }
+
+  .posts-bar .archive-month-short {
+    display: inline;
+  }
+}
+
+/* Narrower than two masonry columns both layouts are one column, so the
+   switch has nothing to choose. */
+@container posts-page (width < 616px) {
+  .posts-bar .archive-tools > .segmented.is-icons {
+    display: none;
+  }
+}

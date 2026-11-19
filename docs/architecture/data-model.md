@@ -920,6 +920,30 @@ so no synchronization, fetch or promotion writes a post under it again; a
 write that names it skips it, with its schedule candidate, and the deleted
 row keeps its stored content.
 
+## Posts from Account Exports
+
+A post written from an [account export](sources.md#account-exports) carries
+`raw_json.archive = {origin: "x-export", capturedAt}` beside the detail-shaped
+fields Normalize reads (`tweetID`, `text`, `date_epoch`, `mediaURLs`,
+`mediaKinds`, `qrt`), and is otherwise an own X post: synchronization
+rewrites it like any stored post. A post an earlier third-party import wrote
+carries `raw_json.import` instead. When an export does not list such a post,
+the export import hides it (`hidden_at`) and records why in
+`raw_json.import.reconcile`: `{decision: "hidden", reason, at}`, where
+`reason` is `at_reply` for wording that opens with another account's handle
+and `unlisted` otherwise, and `at` equals the `hidden_at` it set. A review adds
+`outcome` (`top_level`, `self_reply`, `reply`, `foreign`, `repost` or
+`gone`) and `checkedAt`; an own top-level post or thread reply whose
+`hidden_at` still equals `at` is shown again with `decision: "shown"`. A hide
+whose time differs from `at` is an operator's, which no import or review
+changes.
+
+The app setting `x_archive_accounts` (a JSON array, absent until an export of
+such an account is imported) lists the X accounts whose posts come only from
+an export: the post archive's account filter offers them after `x_accounts`,
+and the console's account avatars list them as own accounts. They are not
+`X_HANDLES`, so no synchronization reads them.
+
 ## Event Platforms
 
 An entry happens on one or more platforms. `events.platforms` is the JSON

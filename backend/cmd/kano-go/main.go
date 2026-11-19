@@ -36,6 +36,7 @@ Commands:
   responses    List or export captured source responses
   migrate-llm  Store OPENAI_API_KEY as the encrypted key of the openai-default provider (-force replaces)
   variants     Make the smaller copies of the LINE BLOG, Works and Journey images (-data, -out)
+  x-archive    Import X account exports and review the posts an earlier import added (import, check, apply)
   web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY line and its keyid
   totp-secret  Print a new ADMIN_TOTP_SECRET line and its otpauth:// address
   healthcheck  Probe the local service and exit
@@ -60,6 +61,8 @@ func main() {
 		os.Exit(runResponses(args))
 	case "variants":
 		os.Exit(runVariants(args))
+	case "x-archive":
+		os.Exit(runXArchive(args))
 	case "web-bot-auth-key":
 		os.Exit(runWebBotAuthKey(args, os.Stdout))
 	case "totp-secret":

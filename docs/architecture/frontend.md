@@ -2,12 +2,13 @@
 
 ## Presentation: `src/`
 
-`src/main.tsx` routes between the public board, the static `/journey`
+`src/main.tsx` routes between the public board, the `/posts` archive in
+`src/posts/`, the static `/journey`
 page in `src/history/` (an address of `/history` is replaced with `/journey`
 before the first page loads), the static `/works` discography in `src/works/`, the
 static `/lineblog` archive in `src/lineblog/`, the static `/about` page in
 `src/about/`, and `/admin`.
-Links between the five public pages open in place: the next page's code
+Links between the six public pages open in place: the next page's code
 loads while the current page stays on screen (hovering or focusing a link
 starts that load), then the pages cross-fade under a fixed header with the
 View Transition API. Back and forward restore each entry's scroll position,
@@ -88,7 +89,8 @@ a compact one, which sets how many show in place, and the rest open in a
 `sheet-dialog.tsx` sheet), the week guide,
 the post wall, the video shelf, and the link directory, plus
 `archive-dialog.tsx`, the native modal sheet that browses one month of the
-schedule, posts or videos (at 640px and below its head is the month row beside
+schedule or the video timeline, with `ArchiveMonthBar`, the month controls the
+`/posts` page shares (at 640px and below its head is the month row beside
 the close button, then any filter: the title stays only for
 assistive technology, the month's count is hidden and the month label takes
 the short month name), and `sheet-dialog.tsx`, the smaller modal sheet
@@ -186,6 +188,39 @@ when the response also reports mainland China, the root app shows a
 dismissible Toast offering the site, once per browser session. About's credit
 for the mainland China server site is static copy in `src/about/` and does
 not read this response.
+
+## Post Archive Page
+
+`/posts` (`src/posts/posts-app.tsx`) browses every stored post one Japan month
+at a time. The board's Past posts link opens it with the wall's chosen
+account. The address holds the view, `?month=YYYY-MM&account=<handle or
+mid>` (`src/posts/navigation.ts`); a malformed value falls back to the
+default, and without a month the page shows the newest month holding the
+chosen account's posts. Choosing a month or an account pushes a history entry,
+so back and forward step through the browsed months.
+
+`usePostArchiveIndex` in `use-dashboard.ts` reads
+[`/api/posts/months`](public-api.md#bounded-public-archives) once: the month
+index, the accounts the filter offers (the board's X accounts, then the
+archive-only ones, then Bilibili mids) and their avatars. A failed read offers
+a retry. The month's posts read through `useArchive` from
+[`/api/posts`](public-api.md#bounded-public-archives), page by page as the
+reader scrolls, following the index's revision. The page reuses the board's
+post cards, account filter (`PostArchiveFilter`, counting from the month index
+so the numbers stay while a month loads; All counts the month's total, which
+includes promoted posts filed under their authors) and the archive dialog's
+month controls (`ArchiveMonthBar`, with the jump grid), which stick under the
+site header while a long month scrolls. Until a month's first page arrives,
+skeleton cards hold the wall's place in the chosen layout.
+
+Posts lay out either as a masonry wall or as a single column, a choice kept
+in `localStorage` (`kano-post-archive-layout`). The masonry measures each post
+and places it, in order, under the column that ends highest
+(`masonryLayout` in `src/dashboard/post-rows.ts`), so it reads row by row
+while the cells stay in post order for keyboard and screen readers; it
+re-measures when the wall or a post resizes. A container query hides the
+layout switch while the page is narrower than two masonry columns, where both
+layouts are one column. Images open in the site's media viewer.
 
 ## Request and UI Ownership
 
@@ -953,8 +988,7 @@ cost little when the board is quiet.
 
 The archive dialogs read through `useArchive` in `use-dashboard.ts`, only
 while one is open: the schedule reads the Monday-first weeks covering the month
-from `/api/calendar`, past posts read the month's own days from
-[`/api/posts`](public-api.md#bounded-public-archives), and past videos read
+from `/api/calendar`, and past videos read
 the [video timeline](public-api.md#bounded-public-archives) from `/api/videos`
 in pages of 30, from the newest video or from the page holding a chosen
 month. They
@@ -966,19 +1000,19 @@ their loaded pages after each successful full board snapshot, even at the same
 revision, so expired live states disappear there too. A snapshot arriving during
 an archive read or pagination waits for that work to settle before refreshing;
 a failed refresh keeps the complete known prefix and retries on the next board
-snapshot. Post archives follow stored revisions. These refreshes
+snapshot. These refreshes
 share the board's visibility pause and snapshot backoff rather than starting a
-separate archive timer. Changing the month, the post account, the video
+separate archive timer. Changing the month, the video
 category or the timeline's start month, or closing the dialog, cancels the
 read and discards late pages.
-While the post archive or the video timeline is open, `useArchiveMonths` reads
+While the video timeline is open, `useArchiveMonths` reads
 its month index from
-[`/api/posts/months` or `/api/videos/months`](public-api.md#bounded-public-archives)
+[`/api/videos/months`](public-api.md#bounded-public-archives)
 and rereads it on each board revision. The month label opens a jump grid
 (`MonthPicker`): a year stepper bounded by the oldest indexed month and the
 latest month (this Japan month, or a later month holding a video
 reservation), over twelve months whose counts follow the account or category
-filter. Months without posts and months
+filter. Months without records and months
 after the latest are marked `aria-disabled`; arrow keys move between months,
 Page Up and Page Down change the year, and Escape or a press outside closes the
 grid before the dialog. A failed index read keeps a known index, and without
@@ -986,12 +1020,9 @@ one every month up to the latest is offered. The schedule's month label opens
 the same grid without an index: every month is offered and the year stepper
 is unbounded.
 Until a month's first page arrives, the schedule dialog shows the month grid
-with its dates and a shimmering bar in each day, and the post archive shows
-skeleton cards in the chosen layout, so a month change keeps the body in
-place; after a failed first read the day panel shows no outlines until a
-retry starts. The post account filter takes its counts from the month index
-when it has one, so they stay while the month loads; its All button counts
-the month's total, which includes promoted posts filed under their authors.
+with its dates and a shimmering bar in each day, so a month change keeps the
+body in place; after a failed first read the day panel shows no outlines until a
+retry starts.
 A click anywhere in a month-grid day picks it, listing its entries beside the
 grid (below it on phones). The current month opens on today; in another month
 the side panel asks for a day, and on phones the day list waits below the
@@ -1001,15 +1032,7 @@ the entry in that list and scrolls it into view, again on every pick, and the
 list's entries open the details sheet. Only the day heading of the list is a
 live region, so an opened sheet is not announced as an update. The panel can
 show that week on the board. On phones entries are dots that ignore taps, so a tap always
-picks the day. The post archive lays out full
-posts either as a masonry wall or as a single column, a choice kept in
-`localStorage` (`kano-post-archive-layout`). The masonry measures each post
-and places it, in order, under the column that ends highest
-(`masonryLayout` in `src/dashboard/post-rows.ts`), so it reads row by row
-while the cells stay in post order for keyboard and screen readers; it
-re-measures when the wall or a post resizes. A container query on the dialog
-head hides the layout switch while the wall is narrower than two masonry
-columns, where both layouts are one column. The video dialog is a timeline
+picks the day. The video dialog is a timeline
 (`VideoTimeline`): one section per Japan month of the loaded videos, in the
 API's newest-first order, under a header that sticks to the top of the dialog
 body and names the month with its indexed count. Each month is a grid of
@@ -1047,9 +1070,7 @@ timeline from it. The
 category buttons (`VideoArchiveFilter`) carry the tag icons, pass the API's
 `category` filter, show the index's per-category totals over every month
 (`categoryCounts` of the loaded timeline while the index is unknown), and keep
-the choice until the dialog closes. An image viewer opened from the
-post archive stacks above it; Escape closes the topmost dialog and focus
-returns to its opener.
+the choice until the dialog closes.
 Images match their applicable inclusive period, without an updated-at fallback.
 The bounded focus snapshot refreshes at least once per minute while visible to
 advance its shortlist as time passes, even when the durable revision is unchanged.

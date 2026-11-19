@@ -211,7 +211,7 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
         now: Date.parse("2026-10-08T21:00:00+09:00"),
         t,
         onOpenMedia: () => {},
-        onOpenArchive: () => {},
+        archiveHref: () => "/posts",
       })
     }
     // The wall measures its columns and clamps; happy-dom lays nothing out,
@@ -423,7 +423,7 @@ test("a dynamic's stickers show in its original wording, never in a translation"
         now: Date.parse("2026-10-08T21:00:00+09:00"),
         t,
         onOpenMedia: () => {},
-        onOpenArchive: () => {},
+        archiveHref: () => "/posts",
       })
     }
     const globals = globalThis as any
@@ -558,7 +558,7 @@ test("a post's video and GIF stills carry their mark and open the post on X", as
           t,
           onOpenMedia: (items: any[], index: number) =>
             opened.push({ items, index }),
-          onOpenArchive: () => {},
+          archiveHref: () => "/posts",
         }),
         createElement(
           "div",
@@ -723,7 +723,7 @@ test("a promoted repost names the own accounts that reposted it", async () => {
         now: Date.parse("2026-10-08T21:00:00+09:00"),
         t,
         onOpenMedia: () => {},
-        onOpenArchive: () => {},
+        archiveHref: () => "/posts",
       })
     }
     const globals = globalThis as any
@@ -851,7 +851,7 @@ test("PostWall resolves per-account, hidden, promoted, and fallback avatars", as
         now: Date.parse("2026-10-08T21:00:00+09:00"),
         t,
         onOpenMedia: () => {},
-        onOpenArchive: () => {},
+        archiveHref: () => "/posts",
       })
     }
     const globals = globalThis as any
@@ -1026,7 +1026,7 @@ test("a post counts its images past four and a board quote shows one thumbnail",
           bilibiliAccounts: [],
           windowDays: 14,
           isLoading: false,
-          onOpenArchive: () => {},
+          archiveHref: () => "/posts",
         }),
         createElement(
           "div",

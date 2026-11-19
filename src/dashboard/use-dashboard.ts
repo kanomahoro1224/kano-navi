@@ -866,6 +866,80 @@ export function useArchiveMonths(
   return state?.kind === kind ? state.months : null
 }
 
+/** The post archive page's index: its months and the accounts it filters. */
+export interface PostArchiveIndex {
+  months: ArchiveMonth[]
+  /** X handles: the board's accounts, then the archive-only ones. */
+  accounts: string[]
+  bilibiliAccounts: string[]
+  accountAvatars: Record<string, string | null>
+  revision: number
+}
+
+function stringList(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : []
+}
+
+/**
+ * Reads the post month index once for the archive page, with the accounts
+ * the page filters by. `retry` reads it again after a failure.
+ */
+export function usePostArchiveIndex() {
+  const scope = useMemo(() => createRequestScope(), [])
+  const [attempt, setAttempt] = useState(0)
+  const [state, setState] = useState<{
+    index: PostArchiveIndex | null
+    error: Error | null
+  }>({ index: null, error: null })
+
+  useEffect(() => {
+    scope.activate()
+    return () => scope.dispose()
+  }, [scope])
+
+  useEffect(() => {
+    const index = monthIndexes.posts
+    scope
+      .run("index", async (signal) => {
+        const result = await readScopedJson(index.url, signal)
+        if (
+          !Array.isArray(result?.months) ||
+          !Number.isInteger(result.revision)
+        )
+          throw new Error("Invalid month index")
+        const accounts = result.accounts ?? {}
+        return {
+          months: (result.months as unknown[])
+            .map((month) => readArchiveMonth(month, index.counts))
+            .filter((month): month is ArchiveMonth => month !== null),
+          accounts: stringList(accounts.x),
+          bilibiliAccounts: stringList(accounts.bilibili),
+          accountAvatars:
+            result.accountAvatars && typeof result.accountAvatars === "object"
+              ? result.accountAvatars
+              : {},
+          revision: result.revision,
+        } satisfies PostArchiveIndex
+      })
+      .then(
+        (index) => setState({ index, error: null }),
+        (caught: unknown) => {
+          if (caught instanceof Error && caught.name === "AbortError") return
+          setState((value) => ({
+            ...value,
+            error: caught instanceof Error ? caught : new Error(String(caught)),
+          }))
+        },
+      )
+    return () => scope.cancelKey("index")
+  }, [attempt, scope])
+
+  const retry = useCallback(() => setAttempt((value) => value + 1), [])
+  return { ...state, retry }
+}
+
 /**
  * Reads one schedule or post month, or the video timeline, for a dialog, page
  * by page. Like the calendar it follows the board's revision: a change rereads

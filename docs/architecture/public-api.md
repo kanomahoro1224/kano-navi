@@ -386,7 +386,13 @@ the post archive and the video timeline: `months` lists every Japan month
 its `total` and its `accountCounts` per lowercase handle or `categoryCounts`
 per category, plus the `revision`. Hidden posts and records without a
 parseable time are not counted. They take no parameters, revalidate through
-their ETags and negotiate gzip like the archive pages.
+their ETags and negotiate gzip like the archive pages. The post index also
+names the accounts the archive filters by, `accounts: {x, bilibili}`: the
+board's X accounts (`meta.xAccounts`) followed by the archive-only accounts
+(`x_archive_accounts`, see
+[Account exports](sources.md#account-exports)), and the mids of
+`meta.bilibiliAccounts`; and their `accountAvatars`, as the dashboard
+gives them.
 
 ## Journey and Works Collections
 

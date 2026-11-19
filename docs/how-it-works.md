@@ -39,7 +39,7 @@ flowchart LR
   W -- "schedule extraction" --> LLM["Configured LLM providers"]
   W --> DB[("SQLite snapshot<br/>and media cache")]
   DB --> API["Go API, feeds and MCP"]
-  API --> B["Board, Journey, Works, Blog and About"]
+  API --> B["Board, Posts, Journey, Works, Blog and About"]
   OP["Operator console"] --> API
 ```
 
@@ -50,7 +50,9 @@ flowchart LR
    shop's public product list, for the sale periods of goods she takes part
    in),
    download their images into the media cache, and write a SQLite snapshot.
-   A failed source keeps the previous snapshot and records its outcome.
+   A failed source keeps the previous snapshot and records its outcome. An
+   operator can also import an X account's export, which adds its earlier
+   posts without any request.
 2. Schedule extraction reads candidate posts, the wording they quote, and
    schedule images, skips hidden posts, and asks the
    configured LLM providers for structured events. Uncertain results create no

@@ -858,7 +858,7 @@ export function PostWall({
   now,
   t,
   onOpenMedia,
-  onOpenArchive,
+  archiveHref,
 }: {
   posts: Post[]
   latestPost: Post | null
@@ -873,7 +873,8 @@ export function PostWall({
   now: number
   t: Translator
   onOpenMedia: (media: MediaItem[], index: number) => void
-  onOpenArchive: (account: string | null) => void
+  /** The post archive page's address for the wall's chosen account. */
+  archiveHref: (account: string | null) => string
 }) {
   const [account, setAccount] = useState<string | null>(null)
   const visible = useMemo(
@@ -933,17 +934,15 @@ export function PostWall({
             ))}
           </div>
         ) : null}
-        <button
-          type="button"
+        <a
           className="pill-button is-collapsible"
-          onClick={() => onOpenArchive(account)}
-          aria-haspopup="dialog"
+          href={archiveHref(account)}
           aria-label={t("feed.archive")}
           title={t("feed.archive")}
         >
           <History aria-hidden="true" />
           <span className="pill-label">{t("feed.archive")}</span>
-        </button>
+        </a>
       </SectionTitle>
 
       {isLoading ? (

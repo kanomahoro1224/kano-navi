@@ -39,6 +39,7 @@ test("the visitor notice covers every public page and trailing slash", () => {
     "/index.html",
     "/journey",
     "/journey/",
+    "/posts",
     "/works",
     "/works/",
     "/lineblog/",

@@ -229,6 +229,32 @@ func TestPostMonthsCountJapanMonthsPerAccount(t *testing.T) {
 	}
 }
 
+func TestPostMonthsNameTheBoardAndArchiveOnlyAccounts(t *testing.T) {
+	handler := archiveHandler(t, `
+		INSERT INTO posts (id,source,account_handle,type,text,published_at,url) VALUES
+		 ('unit-post','x','UnitAccount','daily','Unit','2024-01-10T03:00:00Z','https://x.com/UnitAccount/status/1'),
+		 ('bili-post','bilibili','10001','daily','Dynamic','2024-01-11T03:00:00Z','https://t.bilibili.com/1');
+		INSERT INTO app_settings (key,value,updated_at) VALUES
+		 ('x_accounts','["kano_2525","_Kanotic"]',''),
+		 ('x_archive_accounts','["UnitAccount","kano_2525"]','')
+		ON CONFLICT(key) DO UPDATE SET value=excluded.value;`)
+
+	payload := decodeObject(t, request(t, handler, http.MethodGet, "/api/posts/months"))
+	accounts := payload["accounts"].(map[string]any)
+	x, bilibili := accounts["x"].([]any), accounts["bilibili"].([]any)
+	// The board's accounts come first; an archive account already on the board
+	// is not repeated.
+	if len(x) != 3 || x[0] != "kano_2525" || x[1] != "_Kanotic" || x[2] != "UnitAccount" {
+		t.Fatalf("x accounts=%#v", x)
+	}
+	if len(bilibili) != 1 || bilibili[0] != "10001" {
+		t.Fatalf("bilibili accounts=%#v", bilibili)
+	}
+	if _, ok := payload["accountAvatars"].(map[string]any); !ok {
+		t.Fatalf("accountAvatars=%#v", payload["accountAvatars"])
+	}
+}
+
 func TestVideoArchiveUsesTheScheduledOrPublishedTime(t *testing.T) {
 	handler := archiveHandler(t, `
 		INSERT INTO videos (id,source,title,published_at,scheduled_at,url,kind,is_upcoming,raw_json,duration_seconds,is_short) VALUES

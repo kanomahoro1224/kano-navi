@@ -278,7 +278,7 @@ revision streams first, then waits for the remaining requests up to
 `index.html` carries static Open Graph and Twitter card tags (site name,
 description, the bundled banner) and `rel="alternate"` links to both feeds.
 Those tags describe the board. When the server serves `index.html` for
-`/journey`, `/lineblog`, `/works` or `/about`, it replaces the page's `<title>`, `description`,
+`/posts`, `/journey`, `/lineblog`, `/works` or `/about`, it replaces the page's `<title>`, `description`,
 `og:title`, `og:description` and `og:url` (and Twitter title and description
 tags, if present) with that page's English title, description and path; the
 route table `spaPages` in `backend/internal/httpapi/static.go` holds them

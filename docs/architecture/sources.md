@@ -302,6 +302,70 @@ page shows today's usage beside the cap and each account's streak, and the
 step result adds `apiPosts` and `apiRead`, the posts the answers returned,
 when the API was used.
 
+#### Account exports
+
+An account export is the JSON array a browser exporter writes for an X
+profile's posts (`<handle>.json`), with its photos in `<handle>-media.zip`
+(`<handle>_<status>_photo_<n>_<date>.<ext>`). It lists the account's current
+top-level posts only: no replies, thread replies, reposts or deleted posts.
+`kano-go x-archive import` reads it locally and makes no request
+(`ParseArchive` in `backend/internal/source/x/archive.go`): of each own
+record whose `in_reply_to` and `retweeted_status` are empty, it builds a
+detail-shaped payload from X's status record in `metadata` (the wording with
+t.co links expanded and media links and the quoted status's link removed, a
+note post's full wording, the photos and video or GIF thumbnails with their
+kinds, the counts, and the quoted status from `quoted_status_result`) and
+normalizes it like a detail answer. All exports of a run are written in one
+transaction (`ImportXArchives`):
+
+- A post synchronization stored keeps its record. A post an earlier
+  third-party import or an earlier export import wrote takes the export's
+  record, and moves to the export's account when the earlier import filed it
+  under another one (a repost written as the reposter's post). Missing posts
+  are added. Writes go through the own-post path, so a known repost ID is
+  never stored and hide decisions stay.
+- After every account's posts, the earlier third-party import's posts of each
+  account that its export does not list are hidden with their reason (see
+  [Posts from account exports](data-model.md#posts-from-account-exports)),
+  unless an operator already hid them; `-keep-unlisted` leaves them shown. A
+  later export that lists a post an earlier run hid shows it again.
+- An account that is not in `X_HANDLES` joins `x_archive_accounts`: its posts
+  appear in the post archive under its own filter, and nothing synchronizes
+  it.
+- After the commit, the media archive's photos of the written posts are
+  stored as their pending assets (`SaveXArchiveImage`, with the media step's
+  type and size checks); video and GIF thumbnails, and photos the archive
+  lacks, wait for the [media step](media-cache.md).
+
+`-dry-run` counts the same work in a transaction that is rolled back and
+stores no photo.
+
+The hidden unlisted posts mix replies, thread replies, other authors'
+statuses and deleted posts. `kano-go x-archive check`, run against a copy of
+the database, requests each `unlisted` post that no review has settled from
+the vxtwitter detail host with the X client's bounds, and appends one JSON
+line per post to a decisions file (`ClassifyDetail`): another author is
+`foreign`, the account's retweet `repost`, a `replyingTo` of the account
+`self_reply`, of anyone else `reply`, none `top_level`, and a 404, 410 or
+vxtwitter's "Failed to scan your link" page `gone`. With `-capture`, the
+third-party import's own capture (`responses/posts/**/*.json`) decides
+without a request every post it marks with a `repost` object: those are
+other authors' statuses, `foreign`. That page also stands in
+for vxtwitter's own failures, so `gone` lines wait for the next readable
+answer; after 30 in a row the run reads the newest shown post an export
+listed, keeps them and goes on when that post reads, and otherwise stops
+without them. Requests are paced
+around an interval (6 seconds by default, spread 70-130%) that shortens by a
+tenth after 25 answers in a row, never below its floor (4 seconds), and
+doubles after a failure up to its ceiling (10 minutes), waiting at least a
+minute after a rate limit. A post that fails three times is left for the next
+run; eight failures in a row stop it. A rerun skips the posts the file
+already decides. `kano-go x-archive apply` records each line's outcome on its
+post (`ApplyXReconcile`) and shows again an own top-level post or thread
+reply that only the import hid; every other outcome stays hidden for an
+operator to judge. [Database operations](../operations/database.md#x-account-exports)
+gives the steps.
+
 ### YouTube
 
 The `youtube` step lists the uploads of `YOUTUBE_CHANNEL_ID` (the current

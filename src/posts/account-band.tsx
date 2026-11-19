@@ -16,11 +16,12 @@ function spanText(first: string | null, last: string | null) {
 }
 
 /**
- * The archive's accounts as a row of cards, All first: each with its
- * portrait, the years its posts span and how many there are. Choosing one
- * filters the timeline.
+ * The archive's accounts as cards, All first: each with its portrait, the
+ * years its posts span and how many there are. Choosing one filters the
+ * timeline. The page places them above the timeline or in its rail.
  */
 export function AccountBand({
+  placement,
   accounts,
   bilibiliAccounts,
   months,
@@ -31,6 +32,7 @@ export function AccountBand({
   locale,
   t,
 }: {
+  placement: "top" | "rail"
   accounts: string[]
   bilibiliAccounts: string[]
   months: readonly ArchiveMonth[]
@@ -82,7 +84,11 @@ export function AccountBand({
     }),
   ]
   return (
-    <div className="posts-accounts" role="group" aria-label={t("feed.filter")}>
+    <div
+      className={`posts-accounts is-${placement}`}
+      role="group"
+      aria-label={t("feed.filter")}
+    >
       {cards.map((card) => {
         const years = spanText(card.span.first, card.span.last)
         return (

@@ -177,21 +177,30 @@ export function PostTimeline({
   useEffect(() => {
     if (!jump || jumpedRef.current === jump.nonce) return
     const list = listRef.current
-    const section = list?.querySelector<HTMLElement>(
-      `[data-month="${jump.month}"]`,
-    )
-    if (!list || !section) return
+    if (!list) return
+    // Where the month bar names the month, a jump lands on the month's first
+    // day and leaves its heading under the bar, as scrolling there would.
+    const byDay =
+      getComputedStyle(list).getPropertyValue("--posts-jump").trim() === "day"
+    const month = jump.month
+    const find = () => {
+      const section = list.querySelector<HTMLElement>(`[data-month="${month}"]`)
+      return (
+        (byDay && section?.querySelector<HTMLElement>("[data-day]")) || section
+      )
+    }
+    const target = find()
+    if (!target) return
     jumpedRef.current = jump.nonce
     shownRef.current = jump.month
     reportRef.current(jump.month)
-    section.scrollIntoView?.({ block: "start", behavior: "instant" })
+    target.scrollIntoView?.({ block: "start", behavior: "instant" })
     // A month near the end of the loaded posts cannot reach the top until the
     // next page loads, so the hold aims at where the month belongs.
-    const month = jump.month
     return holdInView(
       list,
-      () => list.querySelector<HTMLElement>(`[data-month="${month}"]`),
-      parseFloat(getComputedStyle(section).scrollMarginTop) || 0,
+      find,
+      parseFloat(getComputedStyle(target).scrollMarginTop) || 0,
     )
   }, [jump, monthList])
 
@@ -229,7 +238,10 @@ export function PostTimeline({
   }
 
   return (
-    <div className="posts-timeline" ref={listRef}>
+    <div
+      className={`posts-timeline${firstPage === 1 ? " is-newest" : ""}`}
+      ref={listRef}
+    >
       <ArchiveState
         error={error}
         onRetry={onRetry}
@@ -241,12 +253,18 @@ export function PostTimeline({
         t={t}
       />
       {!archive && isLoading ? (
-        <div className="posts-day is-skeleton" aria-hidden="true">
-          <span className="posts-day-date" />
-          <div className="posts-day-list">
-            {ARCHIVE_SKELETON.slice(0, 4).map((card, index) => (
-              <PostSkeleton key={index} {...card} />
-            ))}
+        <div className="posts-month is-skeleton" aria-hidden="true">
+          <div className="posts-month-head">
+            <span className="posts-skeleton-bar is-month" />
+            <span className="posts-skeleton-bar is-count" />
+          </div>
+          <div className="posts-day">
+            <span className="posts-day-date" />
+            <div className="posts-day-list">
+              {ARCHIVE_SKELETON.slice(0, 4).map((card, index) => (
+                <PostSkeleton key={index} {...card} />
+              ))}
+            </div>
           </div>
         </div>
       ) : null}

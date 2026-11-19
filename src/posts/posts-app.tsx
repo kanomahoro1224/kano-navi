@@ -234,6 +234,21 @@ export function PostsApp() {
   )
 
   const kanoAvatar = cdnUrl("/assets/kano-avatar.jpg")
+  // Wide windows show the account cards in the rail, narrower ones above
+  // the timeline; CSS shows one of the two.
+  const accountProps = index
+    ? {
+        accounts: index.accounts,
+        bilibiliAccounts: index.bilibiliAccounts,
+        months: index.months,
+        avatars: posts?.accountAvatars ?? index.accountAvatars,
+        kanoAvatar,
+        account,
+        setAccount,
+        locale,
+        t,
+      }
+    : null
   return (
     <div className="site posts" id="top">
       <SkipLink href="#posts-content">{t("posts.skip")}</SkipLink>
@@ -245,18 +260,8 @@ export function PostsApp() {
             {t("posts.title")}
           </h1>
 
-          {index ? (
-            <AccountBand
-              accounts={index.accounts}
-              bilibiliAccounts={index.bilibiliAccounts}
-              months={index.months}
-              avatars={posts?.accountAvatars ?? index.accountAvatars}
-              kanoAvatar={kanoAvatar}
-              account={account}
-              setAccount={setAccount}
-              locale={locale}
-              t={t}
-            />
+          {accountProps ? (
+            <AccountBand placement="top" {...accountProps} />
           ) : null}
 
           <div className="posts-bar">
@@ -285,6 +290,9 @@ export function PostsApp() {
           <div className="posts-layout">
             {index?.months.length ? (
               <aside className="posts-rail">
+                {accountProps ? (
+                  <AccountBand placement="rail" {...accountProps} />
+                ) : null}
                 <ActivityMap
                   months={index.months}
                   filter={filter}

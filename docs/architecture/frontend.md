@@ -219,7 +219,11 @@ that way unless the timeline is at its newest posts.
 
 The account cards (`account-band.tsx`) show each account's portrait, the
 years its posts span and their total from the month index; All counts every
-post, including promoted posts filed under their authors. The activity map
+post, including promoted posts filed under their authors. In windows 960px
+and wider they sit in the rail above the activity map, one or two a row as
+the rail's width allows; the rail takes the width the 680px column leaves and
+scrolls on its own when it is taller than the window. Narrower windows show
+them above the timeline. The activity map
 (`activity-map.tsx`) has a row per year, newest first, from the archive's
 first year to the newest month's, and a cell per month shaded by the quartile
 of the chosen account's monthly counts it falls in; a month with posts
@@ -229,7 +233,9 @@ it gives way to the archive dialog's month controls (`ArchiveMonthBar` in its
 timeline form, with the jump grid and **Latest**). They stick under the site
 header as one band with it, carrying its scrolled stripe, and the month
 button also names the day in view, which the timeline reports as the page
-scrolls.
+scrolls. Since the bar names the month, a timeline that starts from the
+newest posts keeps its first month's heading for screen readers only, and a
+jump lands on the month's first day with the heading under the bar.
 
 `post-timeline.tsx` groups the loaded posts by Japan month and day
 (`groupPostsByDay`): a heading per month with its count from the index, and

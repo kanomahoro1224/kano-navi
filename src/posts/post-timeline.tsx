@@ -285,8 +285,11 @@ export function PostTimeline({
           </button>
         </div>
       ) : null}
-      {months.map(({ month, days }) => {
+      {months.map(({ month, days }, index) => {
         const [year, monthNumber] = month.split("-").map(Number)
+        // The first month of a year after a later one opens its chapter.
+        const opensYear =
+          index > 0 && !months[index - 1].month.startsWith(`${year}-`)
         const count =
           monthCounts?.get(month) ??
           days.reduce((sum, day) => sum + day.posts.length, 0)
@@ -297,6 +300,11 @@ export function PostTimeline({
             data-month={month}
             aria-labelledby={`posts-month-${month}`}
           >
+            {opensYear ? (
+              <p className="posts-year" aria-hidden="true">
+                {year}
+              </p>
+            ) : null}
             <h2 className="posts-month-head" id={`posts-month-${month}`}>
               <span>
                 {formatMonth(new Date(year, monthNumber - 1, 1), locale)}

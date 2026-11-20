@@ -218,7 +218,8 @@ posts opens the nearest earlier month that has some (`nearestMonth` in
 that way unless the timeline is at its newest posts.
 
 The account cards (`account-band.tsx`) show each account's portrait, the
-years its posts span and their total from the month index; All counts every
+years its posts span and their total from the month index (in the rail they
+have no outline, and the chosen one is washed in berry); All counts every
 post, including promoted posts filed under their authors. In windows 960px
 and wider they sit in the rail above the activity map, one or two a row as
 the rail's width allows; the rail takes the width the 680px column leaves and
@@ -240,10 +241,16 @@ jump lands on the month's first day with the heading under the bar.
 `post-timeline.tsx` groups the loaded posts by Japan month and day
 (`groupPostsByDay`): a heading per month with its count from the index, and
 per day a date that sticks beside its posts; on phones the date heads its
-posts and scrolls with them, since the month controls name the day. The cards
+posts and scrolls with them, since the month controls name the day. The posts
 are the board's post cards in full, with the time alone, while a quoted post
-keeps its date. Until the first page arrives, skeleton cards hold the
-column's place. Images open in the site's media viewer.
+keeps its date; the page takes away their boxes, so they lie between rules
+(one across each day, a fainter one between a day's posts) and a quote hangs
+from a rule at its left. A month that starts a year below a later one opens
+with that year in large figures under a gingham strip (decorative, since the
+month heading names the year). A lone image stands at most 440px tall, narrowing to keep
+its frame's shape, and three or four images share a 3:2 frame. Until the
+first page arrives, skeleton posts hold the column's place. Images open in
+the site's media viewer.
 
 ## Request and UI Ownership
 

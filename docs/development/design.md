@@ -16,8 +16,10 @@ introduce a separate token system for a single page.
   state when a request fails.
 - /posts is the post archive on the public shell: one newest-first column
   grouped by month and day, the day's date in the display face beside its
-  posts. On wide screens a sticky rail beside it holds the account cards
-  (portrait, years and total; the chosen one in berry), one or two a row, over
+  posts, which lie on the paper between hairlines rather than in cards; a
+  year opens with its number large under a gingham strip. On wide screens a
+  sticky rail beside it holds the account cards (portrait, years and total;
+  the chosen one in berry), one or two a row, over
   a map of every year's months shaded in berry; narrower screens put the cards
   above the column and get one slim band of month controls joined to the
   header instead of the map, naming the month and day in view. The cards

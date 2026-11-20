@@ -49,6 +49,28 @@
   font-size: 11px;
 }
 
+/* The rail's cards lie on the page; only the chosen one is washed in berry. */
+.posts-accounts.is-rail .posts-account {
+  border-color: transparent;
+  background: none;
+}
+
+.posts-accounts.is-rail .posts-account:hover {
+  border-color: transparent;
+  background: var(--sunken);
+}
+
+.posts-accounts.is-rail .posts-account[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--berry-wash);
+}
+
+.posts-accounts.is-rail
+  .posts-account[aria-pressed="true"]
+  .posts-account-name {
+  color: var(--berry);
+}
+
 /* Two cards a row leave room for the years and the count on lines apart. */
 @container posts-rail (width >= 296px) {
   .posts-accounts.is-rail .posts-account-meta {
@@ -350,7 +372,7 @@
   padding: 0;
   border: 0;
   border-radius: 3px;
-  background: var(--sunken);
+  background: color-mix(in oklab, var(--sunken) 60%, transparent);
 }
 
 button.posts-map-cell {
@@ -358,15 +380,15 @@ button.posts-map-cell {
 }
 
 .posts-map-cell.level-1 {
-  background: color-mix(in oklab, var(--berry) 28%, var(--sunken));
+  background: color-mix(in oklab, var(--berry) 18%, var(--sunken));
 }
 
 .posts-map-cell.level-2 {
-  background: color-mix(in oklab, var(--berry) 50%, var(--sunken));
+  background: color-mix(in oklab, var(--berry) 38%, var(--sunken));
 }
 
 .posts-map-cell.level-3 {
-  background: color-mix(in oklab, var(--berry) 74%, var(--sunken));
+  background: color-mix(in oklab, var(--berry) 64%, var(--sunken));
 }
 
 .posts-map-cell.level-4 {
@@ -418,6 +440,26 @@ button.posts-map-cell:focus-visible {
   scroll-margin-top: var(--posts-top);
 }
 
+/* A new year opens a chapter: its number, large, under a gingham strip. */
+.posts-year {
+  display: grid;
+  gap: 16px;
+  margin: 8px 0 26px;
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.posts-year::before {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--gingham);
+  content: "";
+}
+
 .posts-month-head small {
   color: var(--soft);
   font-family: var(--font-mono);
@@ -432,8 +474,11 @@ button.posts-map-cell:focus-visible {
   gap: 16px;
 }
 
+/* Days are ruled across the page, date and all. */
 .posts-day + .posts-day {
-  margin-top: 24px;
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
 }
 
 .posts-day-date {
@@ -442,7 +487,7 @@ button.posts-map-cell:focus-visible {
   display: grid;
   align-self: start;
   justify-items: center;
-  padding-top: 6px;
+  padding-top: 2px;
   line-height: 1;
 }
 
@@ -462,7 +507,35 @@ button.posts-map-cell:focus-visible {
 .posts-day-list {
   display: grid;
   min-width: 0;
-  gap: 12px;
+}
+
+/*
+ * Posts lie on the page rather than in cards: a fainter rule parts a day's
+ * posts, and a quote hangs from a rule at its left.
+ */
+.posts-day-list > * + * {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in oklab, var(--rule) 55%, transparent);
+}
+
+.posts-day-list .post-note {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.posts-day-list .post-quote {
+  padding: 2px 0 2px 14px;
+  border: 0;
+  border-left: 2px solid var(--rule);
+  border-radius: 0;
+  background: none;
+}
+
+.posts-day-list .post-quote:hover {
+  border-left-color: color-mix(in oklab, var(--berry) 45%, transparent);
 }
 
 /* The first load holds a month's place: its heading, then a day of cards. */
@@ -495,30 +568,21 @@ button.posts-map-cell:focus-visible {
   background: var(--sunken);
 }
 
-/* A post's pictures show whole in the column rather than cropped to a frame. */
-.posts-day-list .post-note-media {
-  grid-template-rows: none;
-  aspect-ratio: auto;
-}
-
-.posts-day-list .post-note-media > * {
-  aspect-ratio: 1;
-}
-
-.posts-day-list .post-note-media.count-1 > * {
-  aspect-ratio: 16 / 10;
+/*
+ * Pictures keep the column's pace: a lone one stands no taller than
+ * --posts-media-tallest, narrowing to keep its shape, and three or four
+ * share one 3:2 frame (two, the board's 16:10).
+ */
+.posts-day-list {
+  --posts-media-tallest: 440px;
 }
 
 .posts-day-list .post-note-media.is-fitted {
-  aspect-ratio: var(--media-ratio);
+  max-width: calc(var(--posts-media-tallest) * var(--media-ratio));
 }
 
-.posts-day-list .post-note-media.is-fitted > * {
-  aspect-ratio: auto;
-}
-
-.posts-day-list .post-note-media.count-3 > :first-child {
-  aspect-ratio: auto;
+.posts-day-list .post-note-media:is(.count-3, .count-4) {
+  aspect-ratio: 3 / 2;
 }
 
 .posts-timeline > .archive-more {
@@ -554,6 +618,12 @@ button.posts-map-cell:focus-visible {
 
   .posts-day {
     display: block;
+  }
+
+  .posts-year {
+    gap: 12px;
+    margin-bottom: 20px;
+    font-size: 44px;
   }
 
   .posts-day-date {

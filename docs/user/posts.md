@@ -61,7 +61,8 @@ to the months and accounts you chose.
   site header names the month and day you are reading; select it for a year
   stepper over twelve months, and **Latest** returns to the newest posts.
 - Posts are grouped by month and by day, with the day's date beside them
-  (above them on phones) and each post's time. When the page starts from an
+  (above them on phones) and each post's time. Each new year starts with
+  its number in large figures. When the page starts from an
   earlier month, **Newer posts** above it brings in the posts after it.
 - The archive holds Kano's own posts and her threads; replies to other
   people and other people's posts are left out.

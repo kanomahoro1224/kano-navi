@@ -30,8 +30,8 @@
 - The post archive offers MKLNtic, the unit account Kano shares, as an
   account of its own.
 - A post deleted on X leaves the wall, Past posts, the API and MCP, and its
-  schedule image leaves the board and the calendar. It returns when X lists
-  it again.
+  schedule image leaves the board and the calendar, as do the automatic
+  events it is the only source of. They return when X lists it again.
 - A video confirmed on air is the board's next stream and stage ticket even
   when a waiting room without a start time was published earlier; such a
   waiting room comes after every scheduled video.
@@ -113,6 +113,19 @@
 - A corrupt file at a media content address is replaced by the verified
   download, and a file the media step cannot write records a retryable
   failure instead of stopping the step.
+- An X timeline gap keeps the ceiling its opening read reached, so a post
+  pinned or fetched inside the gap no longer lets an X API read close it
+  before the posts between them are read.
+- Schedule images that share one image are checked through a post that
+  passes the board-notice gate, so a sibling whose post fails it no longer
+  keeps the image from ever being checked.
+- A YouTube thumbnail whose revalidation was rejected once (an invalid image,
+  an oversized body) is checked again after its video's next watch-page read,
+  such as a refresh request, instead of never.
+- A post whose input returns to one read before applies that stored result
+  to its events again, so its events follow its current input.
+- Entries of one post that name the same activity on different platforms
+  are one event carrying every platform, not only the last line's.
 
 </details>
 

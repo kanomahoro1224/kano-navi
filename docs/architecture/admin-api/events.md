@@ -86,7 +86,7 @@ them and `merge=visible` excludes them, as every public reader does. Each
 event carries `mergedInto`, `mergedIntoTitle`, `mergeSource` (`rule` or
 `manual`), `mergeReason` and `mergedAt`. `hiddenByPosts` is true for an
 automatic event that every public reader leaves out because each of its
-source posts is hidden (see
+source posts is hidden or deleted on X (see
 [Events of hidden posts](../data-model/posts.md#events-of-hidden-posts)); the console
 list keeps it under every filter.
 

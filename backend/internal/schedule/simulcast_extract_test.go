@@ -1,6 +1,7 @@
 package schedule
 
 import (
+	"context"
 	"encoding/json"
 	"slices"
 	"strings"
@@ -132,5 +133,46 @@ func TestXEntriesNameASimulcastFromTheWording(t *testing.T) {
 	got, err = xProfile.normalizeResult(platformsResult(linked, modelled), "1", xPost, "", published, published)
 	if err != nil || !slices.Equal(got.events[0].platforms, []string{"youtube"}) || !slices.Equal(got.events[1].platforms, []string{"youtube"}) {
 		t.Fatalf("youtube=%v / %v err=%v", got.events[0].platforms, got.events[1].platforms, err)
+	}
+}
+
+// A simulcast the model lists once per platform is one activity: one event
+// carries every stated platform in listed order, whichever line came last.
+func TestIdenticalEntriesOfAPostShareOneEventWithEveryPlatform(t *testing.T) {
+	f := newFixture(t)
+	published, _ := time.Parse(time.RFC3339, "2026-11-07T04:04:48Z")
+	entry := func(platforms ...any) *object {
+		e := bilibiliEntry("杂谈", "2026-11-07", "20:00", "stream", nil, nil)
+		e.set("platforms", platforms)
+		return e
+	}
+	got, err := bilibiliProfile.normalizeResult(platformsResult(entry("bilibili"), entry("youtube"), entry("bilibili")),
+		"bilibili-1", "https://www.bilibili.com/opus/1", "今晚8点直播", published, published)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.run.applyExtraction(context.Background(), "bilibili", "bilibili-1", 1, got); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.number(`SELECT COUNT(*) FROM events WHERE deleted_at IS NULL`); n != 1 {
+		t.Fatalf("events = %d", n)
+	}
+	if platforms := f.text(`SELECT platforms || '|' || platform || '|' || platforms_inferred FROM events`); platforms != `["bilibili","youtube"]|bilibili|0` {
+		t.Fatalf("platforms = %s", platforms)
+	}
+}
+
+func TestMergeIdenticalEntriesJoinsTheirPlatforms(t *testing.T) {
+	base := normalizedEvent{id: "e", sourceKey: "k", title: "first"}
+	inferred, stated, other := base, base, base
+	inferred.platforms, inferred.platformsInferred = []string{"bilibili"}, true
+	stated.platforms, stated.title = []string{"youtube"}, "second"
+	other.sourceKey = "other"
+	got := mergeIdenticalEntries([]normalizedEvent{inferred, stated, other})
+	if len(got) != 2 || got[0].title != "first" || !slices.Equal(got[0].platforms, []string{"bilibili", "youtube"}) || got[0].platformsInferred || got[0].platform != "bilibili" {
+		t.Fatalf("got=%+v", got)
+	}
+	if !slices.Equal(inferred.platforms, []string{"bilibili"}) {
+		t.Fatalf("the input entry changed: %v", inferred.platforms)
 	}
 }

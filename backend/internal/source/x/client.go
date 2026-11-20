@@ -172,7 +172,7 @@ type Options struct {
 	// one minimal page the chain skips the API.
 	APIBudget int
 	// GapCeilings holds the oldest stored status above each gap floor, which
-	// bounds the API read that closes the gap.
+	// bounds the API read that closes a gap stored without its own Ceiling.
 	GapCeilings map[string]string
 }
 

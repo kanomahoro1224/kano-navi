@@ -49,7 +49,10 @@ How media downloads run and how profile media and avatars are selected.
    every 30 minutes with its stored `ETag` and `Last-Modified`. So is the
    thumbnail of any video whose watch page was read after the file was last
    checked (a [follow-up check or refresh request](../sources/youtube-videos.md#follow-up-checks-and-refresh-requests)),
-   whatever its age. A 304 only records the check; new bytes become the next
+   whatever its age. A revalidation that fails with a code that is not
+   retried (an invalid image, an oversized body, a rejected redirect) keeps
+   the file; the 30-minute timer then leaves it, and the next watch-page read
+   of its video checks it again. A 304 only records the check; new bytes become the next
    content-addressed version, and only a changed hash advances the dashboard
    revision.
 7. The file a revalidation replaces stays in the cache. `media_versions`

@@ -51,7 +51,10 @@ A schedule image (`assets.kind = schedule`) is public only after two gates:
    and retried. On an image that already has a verdict, a skipped, running
    or failed check is recorded as the image's last check and the verdict, with
    the image's public visibility, stands; a skipped or failed check puts the
-   image in the Review queue until a check settles it. An asset without an image URL, such as a `weekly-schedule`
+   image in the Review queue until a check settles it. Assets that share one
+   image URL are checked once and the verdict is copied to the others; the
+   one sent is the most recently checked asset whose post passes gate 1, so
+   a sibling whose post fails it never stands in for the image. An asset without an image URL, such as a `weekly-schedule`
    alias row, has nothing to download: it is recorded once as `skipped` /
    `no_image` and left out of later scans, forced ones included, until a
    writer gives it a URL. It is never public and never counts as needing

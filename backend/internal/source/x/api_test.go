@@ -366,3 +366,78 @@ func TestAPICapOpensAGapThatLaterReadsCloseExactly(t *testing.T) {
 		t.Fatalf("capped=%+v err=%v", got, err)
 	}
 }
+
+// TestAPIGapKeepsTheCeilingItsReadReached stores a status inside an open gap
+// between runs, as a post pinned during the burst or one fetched by hand
+// would be. The oldest stored status above the floor is then that one, but
+// the API read of the gap still starts below the ceiling the opening read
+// reached, so the statuses between them are read before the gap closes.
+func TestAPIGapKeepsTheCeilingItsReadReached(t *testing.T) {
+	statuses := apiStatuses(7)
+	floor := statusAt(timelineNow.Add(-50 * time.Hour))
+	api := &fakeAPI{t: t, statuses: statuses}
+	a := (&timelineServer{}).adapter(Options{BootstrapDays: 7, DiscoveryLimit: 3})
+	a.API = api
+	opts := a.Options
+	opts.Chain = []string{DiscoveryAPI}
+	opts.CursorID, opts.KnownIDs, opts.APIBudget = floor, map[string]bool{floor: true}, 100
+	read := map[string]bool{}
+	for run := 0; run < 4; run++ {
+		got, err := a.FetchRecent(context.Background(), "kano", opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range got.Posts {
+			read[p.ID] = true
+			opts.KnownIDs[p.ID] = true
+		}
+		if run == 0 {
+			if got.Gap == nil || got.Gap.Ceiling != statuses[2].id {
+				t.Fatalf("opened gap=%+v", got.Gap)
+			}
+			// A status inside the gap is stored by another path.
+			opts.KnownIDs[statuses[5].id], read[statuses[5].id] = true, true
+		}
+		opts.Gap, opts.GapCeilings = got.Gap, map[string]string{}
+		for gap := got.Gap; gap != nil; gap = gap.Older {
+			ceiling := ""
+			for id := range opts.KnownIDs {
+				if idAfter(id, gap.Floor) && (ceiling == "" || idAfter(ceiling, id)) {
+					ceiling = id
+				}
+			}
+			opts.GapCeilings[gap.Floor] = ceiling
+		}
+		if got.NextCursor != "" {
+			opts.CursorID = got.NextCursor
+		}
+		if opts.Gap == nil {
+			break
+		}
+	}
+	for _, s := range statuses {
+		if !read[s.id] {
+			t.Fatalf("status %s was never read; queries=%+v", s.id, api.queries)
+		}
+	}
+	if opts.Gap != nil {
+		t.Fatalf("gap=%+v", opts.Gap)
+	}
+}
+
+func TestGapCeilingSkipsALeadingPinnedStatus(t *testing.T) {
+	floor := "1900000000000000010"
+	for name, tc := range map[string]struct {
+		ids  []string
+		want string
+	}{
+		"in order":          {[]string{"1900000000000000040", "1900000000000000030", "1900000000000000020"}, "1900000000000000020"},
+		"pinned in the gap": {[]string{"1900000000000000015", "1900000000000000040", "1900000000000000030"}, "1900000000000000030"},
+		"pinned below":      {[]string{"1900000000000000005", "1900000000000000040"}, "1900000000000000040"},
+		"none above":        {[]string{"1900000000000000005"}, ""},
+	} {
+		if got := gapCeiling(tc.ids, floor); got != tc.want {
+			t.Errorf("%s: got %q want %q", name, got, tc.want)
+		}
+	}
+}

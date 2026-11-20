@@ -54,8 +54,8 @@ confirmed, Suspected (cancellation) and Deleted with a search field filter
 it. Each row (`schedule-parts.tsx`) shows the time in Japan (or All day), the
 title, which opens the entry dialog, its badges and its review note; an
 unconfirmed entry has a labelled Confirm button before the icon actions. An
-automatic entry whose every source post is hidden carries a Hidden by its
-posts badge and is dimmed, since the public pages leave it out.
+automatic entry whose every source post is hidden or deleted on X carries a
+Hidden by its posts badge and is dimmed, since the public pages leave it out.
 
 The list's schedule images are the newest stored ones as decision cards
 (`schedule-images.tsx`) under Active, Approved, Undated (with its count) and

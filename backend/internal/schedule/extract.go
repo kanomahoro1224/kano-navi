@@ -337,7 +337,40 @@ func (e *Extractor) useCachedExtraction(ctx context.Context, item post, route st
 	if previous.holds(update) {
 		return postResult{status: "cached"}, nil
 	}
+	// The post's events follow the extraction it last applied. An input that
+	// returns to one read before (a quote hidden, then shown again) applies
+	// that stored result again, so the events match the current input. A
+	// state that names no extraction predates the record and is left alone.
+	if cached.status == "success" && previous != nil && previous.stored.lastExtractionID.Valid && previous.stored.lastExtractionID.Int64 != cached.id {
+		if err := e.reapplyExtraction(ctx, item, cached.id); err != nil {
+			return postResult{}, err
+		}
+	}
 	return postResult{status: "cached"}, e.markPost(ctx, item.id, update)
+}
+
+// reapplyExtraction applies a stored successful result to the post's events
+// as a model answer would, without a provider call.
+func (e *Extractor) reapplyExtraction(ctx context.Context, item post, extractionID int64) error {
+	var stored sql.NullString
+	err := e.db.QueryRowContext(ctx, `SELECT result_json FROM schedule_extractions WHERE id=? AND status='success'`, extractionID).Scan(&stored)
+	if errors.Is(err, sql.ErrNoRows) || err == nil && !stored.Valid {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	result, err := parseJSON([]byte(stored.String))
+	if err != nil {
+		return nil
+	}
+	profile := profileFor(item.source)
+	published, _ := parseInstant(item.publishedAt)
+	normalized, err := profile.normalizeResult(result, item.id, item.url, item.matchText(), published, e.now())
+	if err != nil || normalized.classification == "uncertain" {
+		return nil
+	}
+	return e.applyExtraction(ctx, profile.source, item.id, extractionID, normalized)
 }
 
 // extractPost judges the candidate at position in the queue and carries the

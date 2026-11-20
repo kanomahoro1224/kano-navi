@@ -864,3 +864,41 @@ func TestQuotedWordingIsMarkedContext(t *testing.T) {
 		t.Fatalf("an unavailable quote changed the input: %d requests", f.provider.count())
 	}
 }
+
+// An input that returns to one read before applies that stored result again:
+// the events follow the post's current input, not the last model call.
+func TestCachedExtractionOfAnEarlierInputRestoresItsEvents(t *testing.T) {
+	f := messageFixture(t)
+	f.exec(`UPDATE posts SET quote_json=? WHERE id='post-1'`,
+		`{"id":"1900000000000000001","authorHandle":"agency_synthetic","text":"金曜 20時からコラボ","url":"https://x.com/agency_synthetic/status/1900000000000000001"}`)
+	f.provider.respond = func(r recordedRequest) (int, string) {
+		if strings.Contains(r.body, "Quoted post") {
+			return http.StatusOK, chatReply(scheduleReply("Collab stream", songDate, "20:00", "scheduled"))
+		}
+		return http.StatusOK, chatReply(scheduleReply(songTitle, songDate, songClock, "scheduled"))
+	}
+	active := `SELECT COALESCE(group_concat(title, ','), '') FROM (SELECT title FROM events WHERE source_item_id='post-1' AND deleted_at IS NULL ORDER BY title)`
+	f.scan()
+	if got := f.text(active); got != "Collab stream" {
+		t.Fatalf("with the quote: %q", got)
+	}
+	f.exec(`UPDATE posts SET quote_hidden_at=? WHERE id='post-1'`, testTimestamp)
+	f.scan()
+	if got := f.text(active); got != songTitle {
+		t.Fatalf("with the quote hidden: %q", got)
+	}
+	f.exec(`UPDATE posts SET quote_hidden_at=NULL WHERE id='post-1'`)
+	f.scan()
+	if f.provider.count() != 2 {
+		t.Fatalf("the earlier input was sent again: %d requests", f.provider.count())
+	}
+	if got := f.text(active); got != "Collab stream" {
+		t.Fatalf("with the quote shown again: %q", got)
+	}
+	// A further cache hit of the same input writes nothing more.
+	revision := f.text(`SELECT value FROM app_settings WHERE key='dashboard_revision'`)
+	f.scan()
+	if got := f.text(`SELECT value FROM app_settings WHERE key='dashboard_revision'`); got != revision {
+		t.Fatalf("a repeated cache hit advanced the revision %s -> %s", revision, got)
+	}
+}

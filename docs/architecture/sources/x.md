@@ -187,9 +187,15 @@ rejected redirects and `source_api_*` codes.
 A read that stops short of the end (its cap, the daily cap, the page bound
 or a failed later page) opens a [timeline gap](<>) at the cursor. Once the
 newest posts are read, each gap is read between its floor (`since_id`) and
-the oldest stored status above it (`until_id`), so it closes exactly and
-needs no continuation; a read cut short resumes below the oldest status it
-stored.
+its ceiling (`until_id`), so it closes exactly and needs no continuation; a
+read cut short resumes below the oldest status it stored. A gap records as
+its ceiling the oldest status above the floor that the read which opened it
+reached (on a timeline page, not counting a pinned post listed out of
+order), and keeps it while the timeline reads on. A status stored inside the
+gap later, such as a post pinned during the burst or one fetched by hand,
+therefore never lowers the bound and leaves the statuses between them
+unread. A gap stored before it carried a ceiling uses the oldest stored
+status above its floor.
 
 The answer carries what the timeline and detail paths store, and each post
 is stored exactly as they store it, so a later timeline read or detail

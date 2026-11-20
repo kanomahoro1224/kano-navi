@@ -158,7 +158,11 @@ otherwise.
 Extraction writes the announced platforms with the other fields of an
 automatic entry, under the same manual locks and tombstones (see
 [Source time zones](../sources/time-zones.md#source-time-zones)); the YouTube writers
-write `["youtube"]` and the shop step `["other"]`, both stated. An operator's entry carries the operator's platforms,
+write `["youtube"]` and the shop step `["other"]`, both stated. Entries of
+one post that name the same activity (the same date, time and title, as a
+simulcast listed once per platform) are one event: it keeps the first
+entry's fields and every entry's platforms in listed order, inferred only
+when all of them were. An operator's entry carries the operator's platforms,
 which are part of its manual lock.
 
 `events.url` is the announcement's link (a post, an operator's link, a

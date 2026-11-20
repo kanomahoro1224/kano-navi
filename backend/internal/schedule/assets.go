@@ -225,7 +225,11 @@ func (e *Extractor) verifyPendingAssets(ctx context.Context, limit int, force bo
 		}
 	}
 	sort.SliceStable(candidates, func(i, j int) bool { return checkedAt(candidates[i]) < checkedAt(candidates[j]) })
-	// A Map keeps the first position of a key but its last value.
+	// Assets that share an image are verified once, at the position of the
+	// least recently checked one. The one verified is the most recently
+	// checked whose post passes the source-text gate: one that fails it is
+	// only skipped, so letting it stand for the image would starve a sibling
+	// whose post does pass.
 	unique := []*assetReview{}
 	position := map[string]int{}
 	for _, review := range candidates {
@@ -234,7 +238,9 @@ func (e *Extractor) verifyPendingAssets(ctx context.Context, limit int, force bo
 			key = review.id
 		}
 		if index, known := position[key]; known {
-			unique[index] = review
+			if review.sourceMatchesBoard || !unique[index].sourceMatchesBoard {
+				unique[index] = review
+			}
 			continue
 		}
 		position[key] = len(unique)

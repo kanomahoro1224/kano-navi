@@ -92,7 +92,11 @@ other post gets a model call. The scan and the console's
 [queue preview](../admin-api/runs.md#queue-preview) share that judgement and the
 order above, so the preview lists what a run started at that moment
 processes. A cache hit whose post state already records that result writes
-nothing. A skip, and a cache hit that writes, keep the stored reprocess
+nothing. A cache hit of a successful result the post did not apply last,
+as when an input returns to one read before (a quote hidden, then shown
+again), applies that stored result to the post's events again, exactly as
+a model answer would; a post state that names no extraction is left as it
+is. A skip, and a cache hit that writes, keep the stored reprocess
 request flag, so a request an operator makes after the post was read runs on
 the next scan. An accepted model result replaces the post's automatic events
 and applies its cancellation overlay in one transaction that also advances

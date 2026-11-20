@@ -17,7 +17,8 @@ Posts are laid out in whole rows; a long post shows its first lines and
   opens the post on X, where it plays.
 - See like, repost, and reply counts of X posts as they were last collected.
 - A post deleted on X leaves the wall, Past posts and the week's schedule
-  image; it returns if it turns out to be on X after all.
+  image, and so do the schedule entries only that post announced; they
+  return if it turns out to be on X after all.
 - A post that quotes another one shows the quoted post as a nested card that
   links to it on X, with its author's portrait when the board has one. On
   the board the quoted post's first image sits beside its words and counts

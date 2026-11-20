@@ -37,9 +37,11 @@ images apart from its quote.
 An automatic, unlocked event whose every active source is a hidden post is
 hidden by its posts: the active `event_sources` rows of the event and of the
 events merged into it all name a stored X or Bilibili post with
-`posts.hidden_at` set, and there is at least one. It is a visibility rule
-computed at read time, not a deletion or tombstone: the row, its evidence and
-its merges stay, and showing a source post shows the event again. An event
+`posts.hidden_at` or `posts.upstream_deleted_at` set (an operator hid it, or
+[X no longer has it](#posts-deleted-upstream)), and there is at least one. It
+is a visibility rule computed at read time, not a deletion or tombstone: the
+row, its evidence and its merges stay, and showing a source post, or X
+listing it again, shows the event again. An event
 with `manual_locked = 1` or `provenance = manual` is never hidden this way,
 since the operator's decision outranks hiding; confirming an event keeps it
 shown while its post stays hidden. An event with any other active source,
@@ -155,7 +157,9 @@ account's run drops a stored post's ID with `x_status_gone` (see the
 `posts.upstream_deleted_at`. Nothing is removed or rewritten: the row, its
 `raw_json`, its media links and files, its schedule-image candidate and
 review, its LLM states, extractions and translations, and its events and
-their evidence stay as they are. Public reads leave the post out: the board's
+their evidence stay as they are. Public reads leave the post out, and with
+it each automatic, unlocked event it is the only source of (see
+[Events of hidden posts](#events-of-hidden-posts)): the board's
 wall and latest post, the post archive and its month index, and with them the
 public API and MCP; the board's and the calendar's schedule images leave out
 its schedule-image candidate. The console lists the post with

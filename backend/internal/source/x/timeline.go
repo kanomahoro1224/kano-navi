@@ -121,12 +121,33 @@ func parseTimelineStatuses(body []byte, account string) (TimelineStatuses, error
 // read within its cap: statuses newer than Floor that older pages still hold.
 // Cursor is the FxTwitter continuation where reading resumes; empty restarts
 // at the newest page. Older is an earlier gap below Floor, read from its own
-// continuation once this one is. See
-// See the source schedule read contract in the architecture documentation.
+// continuation once this one is. Ceiling is the oldest status above the gap
+// that the read which opened it reached, which bounds an API read of the gap;
+// a status stored inside the gap later, such as a post pinned during a burst
+// or one fetched by hand, must not lower that bound. A gap stored without one
+// falls back to the oldest stored status above Floor. See the source schedule
+// read contract in the architecture documentation.
 type Gap struct {
-	Cursor string `json:"cursor,omitempty"`
-	Floor  string `json:"floor"`
-	Older  *Gap   `json:"older,omitempty"`
+	Cursor  string `json:"cursor,omitempty"`
+	Floor   string `json:"floor"`
+	Ceiling string `json:"ceiling,omitempty"`
+	Older   *Gap   `json:"older,omitempty"`
+}
+
+// gapCeiling is the oldest status of ids, listed newest first, that lies
+// above floor, skipping a leading status listed out of order (a pinned post),
+// or "" when none does.
+func gapCeiling(ids []string, floor string) string {
+	ceiling := ""
+	for i, id := range ids {
+		if i == 0 && len(ids) > 1 && idAfter(ids[1], id) {
+			continue
+		}
+		if idAfter(id, floor) {
+			ceiling = id
+		}
+	}
+	return ceiling
 }
 
 // ErrTimelineGap reports a gap the timeline ended before closing, which only
@@ -279,7 +300,7 @@ func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Opt
 	// Without a cursor the bootstrap is bounded on purpose and opens no gap.
 	if short {
 		if opts.CursorID != "" {
-			found.gap = withGap(found.gap, Gap{Cursor: resume, Floor: opts.CursorID})
+			found.gap = withGap(found.gap, Gap{Cursor: resume, Floor: opts.CursorID, Ceiling: gapCeiling(found.ids, opts.CursorID)})
 		}
 		return found, nil
 	}
@@ -299,7 +320,7 @@ func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Opt
 			// the newest page, now or in the next run.
 			if cursor != "" && !restarted {
 				restarted, cursor = true, ""
-				gap = &Gap{Floor: gap.Floor, Older: gap.Older}
+				gap = &Gap{Floor: gap.Floor, Ceiling: gap.Ceiling, Older: gap.Older}
 				found.gap = gap
 				continue
 			}
@@ -320,7 +341,7 @@ func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Opt
 		switch {
 		case len(rest) > 0:
 			// The cap ends the run inside this page, so the next one reads it again.
-			found.gap = &Gap{Cursor: cursor, Floor: gap.Floor, Older: gap.Older}
+			found.gap = &Gap{Cursor: cursor, Floor: gap.Floor, Ceiling: gap.Ceiling, Older: gap.Older}
 			return found, nil
 		case last < len(page.IDs)-1:
 			// The floor is reached: the gap is read, and an older one goes on
@@ -338,7 +359,7 @@ func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Opt
 			return found, nil
 		}
 		cursor = page.Next
-		gap = &Gap{Cursor: cursor, Floor: gap.Floor, Older: gap.Older}
+		gap = &Gap{Cursor: cursor, Floor: gap.Floor, Ceiling: gap.Ceiling, Older: gap.Older}
 		found.gap = gap
 	}
 	return found, nil

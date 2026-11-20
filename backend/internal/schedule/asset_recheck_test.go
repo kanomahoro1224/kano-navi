@@ -82,3 +82,20 @@ func TestScheduleImageRecheckKeepsTheVerdict(t *testing.T) {
 		t.Fatalf("the same image did not settle from its verdict: %s after %d requests", f.text(check, asset), f.provider.count()-requests)
 	}
 }
+
+// Two assets share one image. The one checked last comes from a post that
+// fails the source-text gate, so it is only ever skipped; the image is still
+// verified through the sibling whose post reads as a board notice.
+func TestSharedScheduleImageIsVerifiedThroughAPostThatPassesTheGate(t *testing.T) {
+	f, imageURL := boardFixture(t)
+	streamPost := f.addPost("stream-post", "", "今日は22時から配信します", "2026-04-27T03:00:00.000Z", "")
+	f.exec(`INSERT INTO assets (id, kind, url, source_url, week_start) VALUES ('schedule-2026-04-20', 'schedule', ?, ?, '2026-04-20')`, imageURL, streamPost)
+	f.exec(`INSERT INTO schedule_asset_reviews (asset_id, llm_status, llm_reason, manual_status, llm_checked_at, updated_at) VALUES ('schedule-2026-04-20', 'skipped', 'source_not_board', 'unreviewed', ?, ?)`, testTimestamp, testTimestamp)
+	f.scan()
+	if f.provider.count() != 1 {
+		t.Fatalf("provider requests = %d, want 1", f.provider.count())
+	}
+	if got := f.text(`SELECT llm_status FROM schedule_asset_reviews WHERE asset_id='schedule-2026-04-27'`); got != "schedule" {
+		t.Fatalf("board asset = %q", got)
+	}
+}

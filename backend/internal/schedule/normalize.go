@@ -606,6 +606,35 @@ func (p sourceProfile) normalizeEvents(items []any, postID, postURL, text string
 	return out, nil
 }
 
+// mergeIdenticalEntries folds the entries of one post that name the same
+// activity (the same event and source key, as a simulcast listed once per
+// platform is) into the first of them, which keeps its fields; one row is
+// written for them. Their platforms join in listed order, so no line's
+// platform is lost, and they count as inferred only when every line's were.
+func mergeIdenticalEntries(entries []normalizedEvent) []normalizedEvent {
+	out := make([]normalizedEvent, 0, len(entries))
+	index := map[string]int{}
+	for _, entry := range entries {
+		key := entry.id + "|" + entry.sourceKey
+		at, seen := index[key]
+		if !seen {
+			index[key] = len(out)
+			out = append(out, entry)
+			continue
+		}
+		kept := &out[at]
+		kept.platforms = slices.Clone(kept.platforms)
+		for _, platform := range entry.platforms {
+			if !slices.Contains(kept.platforms, platform) {
+				kept.platforms = append(kept.platforms, platform)
+			}
+		}
+		kept.platformsInferred = kept.platformsInferred && entry.platformsInferred
+		kept.platform = sqlite.PrimaryPlatform(kept.platforms)
+	}
+	return out
+}
+
 // inferredClassification accepts results without the classification field
 // when they carry an events list: those are schedules exactly when the list
 // has entries. A result that is not an object, or names neither, is invalid.

@@ -25,6 +25,7 @@ func (e *Extractor) applyExtraction(ctx context.Context, source, postID string, 
 			cancellations = append(cancellations, event)
 		}
 	}
+	scheduled = mergeIdenticalEntries(scheduled)
 	tx, err := e.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

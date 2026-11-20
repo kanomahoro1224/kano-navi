@@ -11,7 +11,8 @@ ref/
 .npmrc
 coverage/
 .vite/
-.claude/
+.claude/*
+!.claude/skills/
 .codegraph/
 codegraph/
 .DS_Store

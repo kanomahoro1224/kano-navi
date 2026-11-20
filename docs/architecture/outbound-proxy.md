@@ -3,7 +3,7 @@
 The operator can send the server's own outbound requests through forward
 proxies. Proxies never carry visitor traffic; page loads still read only the
 local API. `backend/internal/outboundproxy` owns the configuration, its
-storage, the per-area transport and the [admin routes](admin-api.md#outbound-proxies).
+storage, the per-area transport and the [admin routes](admin-api/sources.md#outbound-proxies).
 
 ## Areas
 
@@ -128,6 +128,6 @@ health.
 
 ## Related Docs
 
-- [Admin API](admin-api.md#outbound-proxies)
+- [Admin API](admin-api/sources.md#outbound-proxies)
 - [Sources](sources.md)
 - [Secure development](../development/security.md#external-request-rules)

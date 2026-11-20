@@ -43,7 +43,7 @@ stage change), and `Preview` the queue preview judging every post.
   videos) while its post and event counts report the full totals and its video
   count reports the public videos published in the seven-day video window.
   Full calendar, post and video history is available through bounded pages; see
-  [Bounded public archives](../architecture/public-api.md#bounded-public-archives).
+  [Bounded public archives](../architecture/public-api/calendar-and-archives.md#bounded-public-archives).
 - The latest source wording of a schedule image is read through the
   `posts_url_published_at_idx` index on `posts(url, published_at DESC)`,
   without a temporary sort. Startup adds the index to older snapshots, and
@@ -71,7 +71,7 @@ the entry, the shared chunks and each lazy page; the build manifest
 (`dist/.vite/manifest.json`) lists which chunks a page imports. For request
 behavior, serve the
 production build against a disposable development backend (see
-[Testing](testing.md#test-scope)) and review all seven pages at desktop and
+[Testing](testing/test-scope.md)) and review all seven pages at desktop and
 mobile widths, including direct visits, refresh, a failed snapshot read with
 automatic recovery and a failed lazy chunk with retry. Visiting `/posts`,
 `/journey`, `/lineblog`, `/works` or `/about` must not issue dashboard reads.

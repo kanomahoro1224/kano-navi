@@ -34,13 +34,13 @@ database read-only and does not read `.env`; its `-database` flag overrides
 wording; it never touches source snapshots, events, media or providers.
 `migrate-llm -force` replaces an already stored key. `variants` takes `-data`
 and `-out` instead of `-database`
-([Variants command](media-cache.md#variants-command)).
+([Variants command](media-cache/resized-copies.md#variants-command)).
 `responses list` accepts `-source` and `-limit`; `responses export` writes a
 verified response body to standard output and accepts `-database` before the
 capture ID.
 `web-bot-auth-key` takes no flags and stores nothing
 ([Web Bot Auth](web-bot-auth.md#key)); neither does `totp-secret`
-([Admin one-time code](../operations/configuration.md#admin-one-time-code)).
+([Admin one-time code](../operations/configuration/environment.md#admin-one-time-code)).
 
 From the repository root:
 
@@ -101,13 +101,13 @@ is occupied.
    without enabling WAL or creating sidecars.
 7. Interrupted workflow runs are recovered, a stored interval of either
    Bilibili timer below `BILIBILI_MIN_INTERVAL_MINUTES` is raised to it (see
-   [Source schedules](workflows.md#the-workflows-table)), and the accounts
+   [Source schedules](workflows/source-schedules.md#the-workflows-table)), and the accounts
    named in `X_HANDLES` are settled as own accounts only. No timers are
-   seeded; [source schedules](workflows.md#source-schedules) hold them.
+   seeded; [source schedules](workflows/source-schedules.md#source-schedules) hold them.
 8. The timer starts unless `WORKFLOW_SCHEDULER_ENABLED=0`. It submits due
    source schedules, earliest first.
 9. The run history cleanup deletes finished runs past their
-   [retention window](workflows.md#run-execution), then repeats daily.
+   [retention window](workflows/run-execution.md), then repeats daily.
 
 ## Package Ownership
 
@@ -144,8 +144,8 @@ absolute local paths never reach the browser. Ready runtime media is served
 only through the opaque-ID `/media/:id` route; the recovered LINE BLOG files
 in `data/lineblog/` and the discography covers in `data/works/` are served by
 archive name through `/media/lineblog/:name` and `/media/works/:name` (see
-[Media cache](media-cache.md#line-blog-archive-media) and
-[Discography covers](media-cache.md#discography-covers)).
+[Media cache](media-cache/packaged-media.md#line-blog-archive-media) and
+[Discography covers](media-cache/packaged-media.md#discography-covers)).
 
 ## Authentication and Origin
 
@@ -166,7 +166,7 @@ the observed local origin.
 The console's job list is a projection of durable workflow runs. Every run is
 ad hoc and names its kind of work with a reserved ID: `@sync`, `@scan`,
 `@fetch` (manual fetches and one-off step runs), `@translate`, `@variants`
-(the [copies run](media-cache.md#copies-run)), `@live` and
+(the [copies run](media-cache/resized-copies.md#copies-run)), `@live` and
 `@source-<source>` (a source's chain, from its timer or Run now). All of them
 share the SQLite single-flight reservation, so a second start answers `409`
 with `busy` and the active run.
@@ -197,9 +197,9 @@ disposable database.
 
 Compression precedes the response handlers. Successful GET/HEAD public
 dashboard, revision, health, calendar, post archive and video archive JSON,
-the [calendar and Atom feeds](public-api.md#public-feeds), plus build
+the [calendar and Atom feeds](public-api/feeds-and-endpoints.md#public-feeds), plus build
 HTML/JavaScript/CSS, negotiate gzip through `Accept-Encoding`. The
-[revision stream](public-api.md#revision-stream) is never compressed, since
+[revision stream](public-api/snapshot.md#revision-stream) is never compressed, since
 gzip would hold its events back. Bodies below 1 KiB remain uncompressed. The
 listener compresses on the fly with gzip only; clients that advertise only
 Brotli or deflate receive the identity representation of those responses.
@@ -259,7 +259,7 @@ retains its independent version/hash
 validation and caching. The server keeps no dashboard response cache, because
 the projection compares event and video times with the exact clock; the
 dashboard, calendar and archive reads are revalidated by the browser through
-their [ETags](public-api.md#public-snapshot-contract), and the revision read
+their [ETags](public-api/snapshot.md), and the revision read
 and the revision stream are `no-store`.
 
 ## Listener Timeouts
@@ -268,8 +268,8 @@ The listener's read and write timeouts (`-read-timeout` and `-write-timeout`)
 are 15 seconds each in the [read-only mode](#read-only-mode). `kano-go serve` raises them to 60
 and 150 seconds unless the flags are given, because operator requests may
 wait on a provider test, a profile download or a 15 MiB upload. They bound
-every response except the [revision stream](public-api.md#revision-stream)
-and [media bodies](media-cache.md#http-contract). Shutdown ends the open
+every response except the [revision stream](public-api/snapshot.md#revision-stream)
+and [media bodies](media-cache/layout-and-model.md#http-contract). Shutdown ends the open
 revision streams first, then waits for the remaining requests up to
 `-shutdown-timeout` (10 seconds).
 

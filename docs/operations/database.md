@@ -41,7 +41,7 @@ encrypted before they reach SQLite; they are never returned by the API. Once
 configured, keys are read only by the server-side synchronization process.
 Provider eligibility is based on the original post modality: Text, Image, or
 both for mixed input. A failed provider gets up to the
-[attempts per model](configuration.md#sync-settings) in total calls before the
+[attempts per model](configuration/sync.md#sync-settings) in total calls before the
 next compatible provider is used.
 X synchronization reads both handles in `X_HANDLES` and keeps a separate cursor
 for each account.
@@ -94,7 +94,7 @@ an external fetch.
 
 ## X Account Exports
 
-[Account exports](../architecture/sources.md#account-exports) add an X
+[Account exports](../architecture/sources/x-accounts.md#account-exports) add an X
 account's posts from a browser exporter's files, `<handle>.json` and
 `<handle>-media.zip`, and hide the posts an earlier third-party import filed
 under the account that the export does not list. Back up data/ first, then:

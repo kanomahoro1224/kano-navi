@@ -13,7 +13,7 @@ import (
 // The Data API is optional. With a key, the recent step lists the uploads
 // playlist and reads its detail candidates and newest uploads in one
 // videos.list call before it requests any watch page; that call also returns
-// the titles the creator localized. See docs/architecture/sources.md.
+// the titles the creator localized. See docs/architecture/sources/youtube.md.
 
 type apiThumbnails map[string]struct {
 	URL string `json:"url"`

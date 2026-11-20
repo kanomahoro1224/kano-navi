@@ -77,7 +77,7 @@ export const scriptJobs: Record<string, Job[]> = {
 }
 
 const documentation =
-  /^(docs\/|[^/]+\.md$|backend\/README\.md$|\.github\/SECURITY\.md$|\.github\/ISSUE_TEMPLATE\/)/
+  /^(docs\/|[^/]+\.md$|backend\/README\.md$|(backend|src|scripts)\/AGENTS\.md$|\.claude\/skills\/|\.github\/SECURITY\.md$|\.github\/ISSUE_TEMPLATE\/)/
 // Read by Style alone: formatting, the scanner and the deployment examples
 // that no validation job starts.
 const styleOnly = /^(\.env\.example|\.gitignore|docker-compose(\.dev)?\.yml)$/

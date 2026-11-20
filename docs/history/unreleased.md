@@ -34,3 +34,16 @@
   and shows her own thread replies again.
 
 </details>
+
+<details>
+<summary><strong>Runtime and development</strong></summary>
+
+- The agent guide is a short root `AGENTS.md` with area guides for
+  `backend/`, `src/`, `scripts/` and `docs/`, plus `merge-to-main` and
+  `release` skills in `.claude/skills/`.
+- The large documents (sources, data model, admin API, frontend, public
+  API, workflows, media cache, testing, configuration and LINE BLOG archive
+  maintenance) are short indexes of topic pages, and `make docs-check` also
+  validates heading anchors.
+
+</details>

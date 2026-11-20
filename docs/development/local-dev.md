@@ -86,7 +86,7 @@ each target follows the fixed three-request failover policy. Content & media cov
 the Featured video and profile media. Provider URLs on this machine
 (`localhost` or loopback) are rejected, so a local mock provider must listen
 on a local-network address instead, such as the machine's LAN address
-([provider address rules](../architecture/admin-api.md#extraction-and-models)).
+([provider address rules](../architecture/admin-api/models.md#extraction-and-models)).
 Set `WORKFLOW_SCHEDULER_ENABLED=0` to keep the source timers from firing
 while developing.
 
@@ -100,7 +100,7 @@ environment-only `X_API_BEARER_TOKEN` with full-archive access and/or
 `YOUTUBE_API_KEY`, then restart the server. The X token also lets the X
 timer's method chain fall back to the X API, which stays off until it is
 enabled on the Sources page.
-See [Manual fetches](../architecture/workflows.md#manual-fetches-and-historical-backfill).
+See [Manual fetches](../architecture/workflows/manual-fetches.md).
 
 Tailwind CSS 4 runs through `@tailwindcss/vite`; `src/index.css` declares the
 utility theme with `@theme`. The CSS runtime requires Safari
@@ -143,7 +143,8 @@ make ci installs the lockfile first and then runs the full portable sequence.
 
 ## Change Workflow
 
-1. Read AGENTS.md and the relevant topic, then inspect git status --short.
+1. Read the area guide that AGENTS.md names and the doc page it points to,
+   then inspect git status --short.
 2. Preserve existing user changes and follow the existing module boundaries.
 3. Run the smallest applicable Make target from [Testing](testing.md).
 4. Run make sensitive-check and review findings before handoff or a commit.

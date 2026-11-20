@@ -24,7 +24,7 @@ how its provenance is recorded, and how the images are packaged.
 - `src/history/media.ts` groups images by milestone. Each image's URL is
   `/media/journey/<name>`, which the server caches as immutable while the
   file's bytes match its name
-  ([Journey images](../architecture/media-cache.md#journey-images)).
+  ([Journey images](../architecture/media-cache/packaged-media.md#journey-images)).
   A release milestone shows every cover its release lists in
   `src/works/personal.json`, in that order, from `/media/works/<name>`, with
   the Works page's caption, source page, third-party mark and credit.
@@ -32,7 +32,7 @@ how its provenance is recorded, and how the images are packaged.
   runtime data, like `data/works/`, and holds no release covers.
 - `src/history/history-i18n.ts` supplies image and provenance translations.
 - `backend/internal/journey/journey.json` is the body of `GET /api/journey`
-  ([Public API](../architecture/public-api.md#journey)): the branches,
+  ([Public API](../architecture/public-api/journey.md#journey)): the branches,
   milestones and images above with the release covers resolved, in every
   language. `npm run journey:export` writes it from these modules, and
   `tests/journey-api.test.ts` fails when it differs from them, so run the
@@ -79,7 +79,7 @@ npm run history:package -- --from /path/to/kano_official
 ```
 
 Then make their smaller copies with `npm run variants` or a copies run from
-the console ([Resized copies](../architecture/media-cache.md#resized-copies)).
+the console ([Resized copies](../architecture/media-cache/resized-copies.md)).
 
 Packaging validates the entire selection before writing: manifest entries,
 contained real paths, the 32 MiB size limit, SHA-256 identities, packaged
@@ -106,7 +106,7 @@ introductory portrait is loaded eagerly. A release cover's details
 link to its release on the Works page (`/works?release=<id>`). Thumbnails, the portrait and the identity
 pictures offer the server's smaller copies through `srcset`, made ahead from
 the packaged files by the variants command or a copies run and kept in the
-runtime variant cache ([Resized copies](../architecture/media-cache.md#resized-copies)); the image
+runtime variant cache ([Resized copies](../architecture/media-cache/resized-copies.md)); the image
 dialog loads the original. Original websites open only when visitors follow
 a link. Provenance hosts are documented in the privacy allowlist without
 expanding the remote downloader's destination policy.

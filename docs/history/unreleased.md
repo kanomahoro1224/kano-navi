@@ -9,6 +9,13 @@
   account exports and reviews the posts an earlier import added; see
   Database operations, X Account Exports. A first import of an account
   outside `X_HANDLES` adds the app setting `x_archive_accounts`.
+- Startup adds the empty column `posts.upstream_deleted_at`; no existing post
+  is marked.
+- The admin API's posts report `upstreamDeletedAt`.
+- Startup adds `event_sources.unlisted_at` and the `schedule_asset_reviews`
+  columns `previous_manual_status`, `previous_manual_reason`,
+  `previous_manual_checked_at`, `check_status`, `check_reason` and
+  `check_at`, all empty, to existing snapshots.
 
 </details>
 
@@ -22,6 +29,31 @@
   month dialog.
 - The post archive offers MKLNtic, the unit account Kano shares, as an
   account of its own.
+- A post deleted on X leaves the wall, Past posts, the API and MCP, and its
+  schedule image leaves the board and the calendar. It returns when X lists
+  it again.
+- A video confirmed on air is the board's next stream and stage ticket even
+  when a waiting room without a start time was published earlier; such a
+  waiting room comes after every scheduled video.
+- A Featured Short reports that it may be the stage's latest video in its
+  view, as the stage already treats it.
+- MCP `schedule_list` reports the same event state as the board: an ended
+  stream is not live in the grace after its start, a waiting room the
+  probe saw stays upcoming, and a YouTube premiere on air is live.
+
+</details>
+
+<details>
+<summary><strong>Operator console</strong></summary>
+
+- Posts marks a post deleted on X with a **Deleted on X** badge.
+- The Review queue lists entries their posts no longer list, with Keep entry
+  and Delete entry, and the overview counts them.
+- A schedule image card shows its last check and, after an image change, the
+  label on the previous image.
+- Admin API: events carry review kind `unlisted`; the overview's review
+  counts add `unlistedEvents`; schedule images add `needsReview`,
+  `previousDecision` and `lastCheck`.
 
 </details>
 
@@ -32,6 +64,55 @@
   quotes and photos, and hide the replies and other people's posts an
   earlier import filed as hers; a slow local check sorts the hidden posts
   and shows her own thread replies again.
+- A run whose lease expired after a source failure it tolerated resumes with
+  its remaining steps and finishes partial instead of failing.
+- An X `count` sync setting and a timeline `count` fetch read the newest posts
+  from the head every run instead of continuing from older pages; an `all`
+  fetch still continues from its checkpoint.
+- An X `count` sync read that no account answers fails with the retryable
+  `x_source_failed`, so it is tried again and can be retried like an
+  incremental read.
+- Retrying a run whose source step failed also re-runs the completed media,
+  schedule, translation and reconcile steps after it, since the retried read
+  can store new posts with media.
+- Finishing or cancelling a run no longer advances the dashboard revision; the
+  writes that change public data advance it, including schedule extraction
+  and approved schedule images, so open boards reload only for a change.
+- An X account whose listing served records its last success even when it
+  found nothing new, so a quiet timeline or X API read keeps the source
+  fresh.
+- A failed refresh of a stored X post no longer fails a quiet run: it is a
+  note that leaves the run partial, and the post is not queued.
+- An X status stored under another account's handle no longer fails the
+  account's run. The post keeps its stored row and is skipped with
+  `x_post_owner_conflict`; the rest of the run is written.
+- A stored X post whose status answers 404 or 410 twice is marked deleted
+  on X instead of staying public; its data, media and events are kept, and
+  a later answer that carries it clears the mark.
+- An event whose post's evidence moves to another event, such as an entry
+  that gains or drops a YouTube link, is retired when it has no other source
+  instead of staying on the board without one. Evidence attached to an
+  operator's edited or deleted entry stays with it, so a deleted activity no
+  longer returns as the video's event.
+- A post's entry that links a YouTube video only attaches to the event the
+  YouTube sync wrote for that video, adding its stated platforms and label;
+  the video's title, times and type stay YouTube's.
+- A post read again as no schedule keeps its events and sends them to the
+  Review queue instead of leaving them unnoticed.
+- A schedule image check that is skipped (an image still caching, an empty
+  image queue), running or failed keeps the image's verdict and its place on
+  the board, and records the check apart.
+- A schedule image that changes under an operator's label keeps that label
+  as the previous decision and waits for the operator; a `schedule` label no
+  longer approves the new image, a `not_schedule` one keeps hiding it, and
+  the period correction stays.
+- An ended YouTube broadcast stays ended when a later check reports it
+  upcoming or names no state.
+- An upcoming yt-dlp entry that names only its release date becomes a
+  date-only reservation instead of starting at its publication time.
+- A corrupt file at a media content address is replaced by the verified
+  download, and a file the media step cannot write records a retryable
+  failure instead of stopping the step.
 
 </details>
 

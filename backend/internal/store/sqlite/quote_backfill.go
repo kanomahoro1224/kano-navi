@@ -114,12 +114,12 @@ func backfillQuotes(ctx context.Context, tx *sql.Tx) error {
 // dropQuotedScheduleCandidate removes a post's schedule candidate whose image
 // is one of its quote's: a post without images of its own took the quote's
 // first image as its candidate. A candidate an operator labelled or gave a
-// period keeps that decision.
+// period, or whose earlier label waits for the operator, keeps that decision.
 func dropQuotedScheduleCandidate(ctx context.Context, tx *sql.Tx, postID string, quoted map[string]bool) error {
 	id := "schedule-x-" + postID
 	var url string
 	err := tx.QueryRowContext(ctx, `SELECT a.url FROM assets a LEFT JOIN schedule_asset_reviews r ON r.asset_id=a.id
-	 WHERE a.id=? AND a.kind='schedule' AND COALESCE(r.manual_status,'unreviewed')='unreviewed' AND a.manual_period_start IS NULL`, id).Scan(&url)
+	 WHERE a.id=? AND a.kind='schedule' AND COALESCE(r.manual_status,'unreviewed')='unreviewed' AND r.previous_manual_status IS NULL AND a.manual_period_start IS NULL`, id).Scan(&url)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}

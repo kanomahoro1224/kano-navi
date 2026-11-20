@@ -12,6 +12,7 @@ import {
   Check,
   CheckCircle2,
   ExternalLink,
+  History,
   ImageOff,
   RotateCcw,
   Sparkles,
@@ -22,7 +23,7 @@ import {
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import { formatDay, japanStamp } from "@/admin/format"
-import type { ScheduleImage } from "@/admin/types"
+import type { ScheduleDecision, ScheduleImage } from "@/admin/types"
 import {
   Badge,
   Button,
@@ -37,14 +38,25 @@ import {
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 
-/** A record without an image URL (mediaStatus "none") has nothing to check,
- * so it never waits for review; the operator can still label it. */
+/** Whether the image waits in the Review queue, as the server decides. A
+ * record without an image URL (mediaStatus "none") never does; the operator
+ * can still label it. */
 export function needsReview(image: ScheduleImage) {
-  return (
-    image.manualStatus === "unreviewed" &&
-    image.mediaStatus !== "none" &&
-    ["pending", "uncertain", "failed"].includes(image.llmStatus)
-  )
+  return image.needsReview
+}
+
+/** A label or check as status, reason and time on one line. */
+function decisionText(
+  decision: ScheduleDecision,
+  t: ReturnType<typeof useAppSettings>["t"],
+) {
+  return [
+    t(`admin.status.${decision.status}`),
+    decision.reason,
+    japanStamp(decision.at),
+  ]
+    .filter(Boolean)
+    .join(" · ")
 }
 
 export function mediaLabel(image: ScheduleImage) {
@@ -271,6 +283,11 @@ export function ImageCard({
             {image.manualStatus !== "unreviewed" ? (
               <Badge tone="sky">{t("admin.review.manualLabel")}</Badge>
             ) : null}
+            {image.previousDecision ? (
+              <Badge tone="honey" icon={History}>
+                {t("admin.review.imageChanged")}
+              </Badge>
+            ) : null}
             {!image.sourceMatchesBoard ? (
               <Badge tone="honey" icon={TriangleAlert}>
                 {t("admin.review.textMismatch")}
@@ -346,6 +363,22 @@ export function ImageCard({
               ) : null,
             ],
             [t("admin.review.checked"), japanStamp(image.llmCheckedAt) || null],
+            ...(image.lastCheck
+              ? [
+                  [
+                    t("admin.review.lastCheck"),
+                    decisionText(image.lastCheck, t),
+                  ] as [string, string],
+                ]
+              : []),
+            ...(image.previousDecision
+              ? [
+                  [
+                    t("admin.review.previousDecision"),
+                    decisionText(image.previousDecision, t),
+                  ] as [string, string],
+                ]
+              : []),
           ]}
         />
         <footer className="adm-decision-bar">

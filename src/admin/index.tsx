@@ -82,6 +82,7 @@ const views: ViewEntry[] = [
     badge: ({ review }) =>
       review.pendingImages +
       review.suspectedCancellations +
+      review.unlistedEvents +
       review.uncertainEvents +
       review.videoMerges +
       review.bilibiliForms +

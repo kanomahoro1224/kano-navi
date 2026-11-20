@@ -65,14 +65,6 @@ func applyEventView(event *DashboardEvent, now time.Time) {
 	}
 }
 
-// ProjectEventView applies the public event rules to a standalone event read.
-// It lets bounded readers that use a different query path share the dashboard
-// contract without exposing the internal projection helpers.
-func ProjectEventView(event DashboardEvent, now time.Time) EventView {
-	applyEventView(&event, now)
-	return event.View
-}
-
 func applyVideoView(video *Video, now time.Time) {
 	if video == nil {
 		return
@@ -393,12 +385,24 @@ func projectionEventSort(events []DashboardEvent) {
 	})
 }
 
-func projectionVideoSort(videos []Video, newest bool) {
+func projectionNewestSort(videos []Video) {
 	sort.SliceStable(videos, func(i, j int) bool {
 		a, b := videoSortTime(videos[i]), videoSortTime(videos[j])
-		if newest {
-			return b.Before(a) || b.Equal(a) && videos[i].ID < videos[j].ID
+		return b.Before(a) || b.Equal(a) && videos[i].ID < videos[j].ID
+	})
+}
+
+// projectionFocusSort orders focus videos by start, earliest first. A
+// waiting room without a start follows every scheduled video: its
+// publication time says nothing about when it goes on air.
+func projectionFocusSort(videos []Video) {
+	sort.SliceStable(videos, func(i, j int) bool {
+		_, scheduledI := videoStart(videos[i])
+		_, scheduledJ := videoStart(videos[j])
+		if scheduledI != scheduledJ {
+			return scheduledI
 		}
+		a, b := videoSortTime(videos[i]), videoSortTime(videos[j])
 		return a.Before(b) || a.Equal(b) && videos[i].ID < videos[j].ID
 	})
 }
@@ -431,13 +435,23 @@ func projectionLeadingEvent(events []DashboardEvent, now time.Time) *DashboardEv
 	return nil
 }
 
+// projectionLeadingVideo picks the next stream from the ordered focus
+// videos: a video confirmed on air first, then the scheduled videos with
+// the live yield, and a waiting room without a start only when no scheduled
+// video leads.
 func projectionLeadingVideo(videos []Video, now time.Time) *Video {
+	for index := range videos {
+		if projectionConfirmed(videos[index].LiveStatus) == "live" {
+			copy := videos[index]
+			return &copy
+		}
+	}
+	var unscheduled *Video
 	for index := range videos {
 		start, ok := videoStart(videos[index])
 		if !ok {
-			if videos[index].IsUpcoming {
-				copy := videos[index]
-				return &copy
+			if videos[index].IsUpcoming && unscheduled == nil {
+				unscheduled = &videos[index]
 			}
 			continue
 		}
@@ -459,6 +473,10 @@ func projectionLeadingVideo(videos []Video, now time.Time) *Video {
 			copy := videos[index]
 			return &copy
 		}
+	}
+	if unscheduled != nil {
+		copy := *unscheduled
+		return &copy
 	}
 	return nil
 }
@@ -568,7 +586,12 @@ func applyDashboardProjection(dashboard *Dashboard, now time.Time) {
 		applyEventView(&dashboard.Events[index], now)
 	}
 	for index := range dashboard.Videos {
-		applyVideoView(&dashboard.Videos[index], now)
+		video := &dashboard.Videos[index]
+		applyVideoView(video, now)
+		// The Featured video may be the latest video even as a Short.
+		if dashboard.Meta.FeaturedVideoID != nil && video.ID == *dashboard.Meta.FeaturedVideoID && videoShort(*video) {
+			video.View.LatestEligible = video.View.Phase != "upcoming" && video.View.Phase != "cancelled" && !gone(video.Availability)
+		}
 	}
 
 	focusEvents := make([]DashboardEvent, 0, len(dashboard.Events))
@@ -584,7 +607,7 @@ func applyDashboardProjection(dashboard *Dashboard, now time.Time) {
 			focusVideos = append(focusVideos, video)
 		}
 	}
-	projectionVideoSort(focusVideos, false)
+	projectionFocusSort(focusVideos)
 
 	nextEvent := projectionLeadingEvent(focusEvents, now)
 	nextVideo := projectionLeadingVideo(focusVideos, now)
@@ -593,34 +616,16 @@ func applyDashboardProjection(dashboard *Dashboard, now time.Time) {
 
 	latest := make([]Video, 0, len(dashboard.Videos))
 	for _, video := range dashboard.Videos {
-		video.View.LatestEligible = video.View.Phase != "upcoming" && video.View.Phase != "cancelled" && (!videoShort(video) || dashboard.Meta.FeaturedVideoID != nil && video.ID == *dashboard.Meta.FeaturedVideoID) && !gone(video.Availability)
 		if video.View.LatestEligible {
 			latest = append(latest, video)
 		}
 	}
-	projectionVideoSort(latest, true)
+	projectionNewestSort(latest)
 	if len(latest) > 0 {
 		copy := latest[0]
 		dashboard.Summary.LatestVideo = &copy
 	} else {
 		dashboard.Summary.LatestVideo = nil
-	}
-
-	for index := range dashboard.Events {
-		for _, candidate := range focusEvents {
-			if candidate.ID == dashboard.Events[index].ID {
-				dashboard.Events[index].View = candidate.View
-				break
-			}
-		}
-	}
-	for index := range dashboard.Videos {
-		for _, candidate := range focusVideos {
-			if candidate.ID == dashboard.Videos[index].ID {
-				dashboard.Videos[index].View = candidate.View
-				break
-			}
-		}
 	}
 
 	shelf := DashboardShelf{Reservations: []string{}, Works: []string{}, Archives: []string{}, Shorts: []string{}}

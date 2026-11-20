@@ -63,8 +63,9 @@ external work:
     "shop": {"skipped", "lastSuccessAt", "lastStep"}
   },
   "review": {
-    "pendingImages",          // unlabelled images with a URL the model has not settled (pending, uncertain, failed)
+    "pendingImages",          // images with a URL that wait for a decision (see Schedule images)
     "suspectedCancellations", // live events whose review is `suspected`
+    "unlistedEvents",         // live events whose review is `unlisted`
     "uncertainEvents",        // live events whose review is `uncertain`
     "failedPosts",            // posts with a failed extraction or translation
     "failedExtractions",      // posts whose last extraction failed

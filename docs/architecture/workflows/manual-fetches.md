@@ -93,7 +93,8 @@ listing, split into `new`, `stored` (already stored, refreshed or not) and
 `failed` (listed without usable content); `pages`, the requests it made;
 `reachedEnd`, false when the page budget or a failed later page stopped it
 before the end of what it asked for, in which case repeating the fetch
-continues it; and `items`, the first 20 new records as `{id, title, account}`
+continues it (an X timeline `count` fetch instead reads the newest pages
+again); and `items`, the first 20 new records as `{id, title, account}`
 (an X post's first line of text, cut to 80 characters, or a video's title).
 An X result also lists the same counts per account under `accounts`, with
 `scheduleAssets` and `discovery` (`timeline` or `api`); an `api` result adds
@@ -140,7 +141,8 @@ Each successful page and its continuation checkpoint commit in one
 transaction with the page's posts or videos and schedule candidates. The
 checkpoint is a `sync_state` row keyed by account and a hash of the selection
 (mode with its count or dates), under the method's own source:
-`x-timeline-window` for timeline cursors, `x-window` for X API next tokens,
+`x-timeline-window` for timeline cursors (an `all` fetch's; a `count` fetch
+keeps its read time there without a cursor), `x-window` for X API next tokens,
 `youtube-window` for playlist page tokens, `bilibili-window` for upload page
 numbers and `bilibili_dynamics-window` for dynamics offsets, each Bilibili
 page in one transaction with the account state as well. The RSS method reads

@@ -79,8 +79,10 @@ A busy queue answers `409` with the active run. There are no saved workflows
 `translate`, `reconcile` are `process`), and `skippedSteps` lists the
 steps disabled through `SKIP_*`.
 
-A failed run with a retryable failed step can be retried. The run keeps its
-steps, sync settings and windows, so no saved definition is needed. A manual
+A failed run with a retryable failed step can be retried;
+[Run execution](../workflows/run-execution.md) names the steps that run again.
+The run keeps its steps, sync settings and windows, so no saved definition is
+needed. A manual
 fetch's `fetchWindows` entry is its frozen selection with its `method`; a
 stored run frozen without a method still reads as stored, and running it
 again fails its fetch step.

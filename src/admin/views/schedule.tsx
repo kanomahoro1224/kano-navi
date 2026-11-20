@@ -136,6 +136,7 @@ export function ScheduleView({ tab, navigate }: ViewProps) {
   const queued = overview
     ? overview.review.pendingImages +
       overview.review.suspectedCancellations +
+      overview.review.unlistedEvents +
       overview.review.uncertainEvents
     : 0
   const showImages = mode === "list" && records === "images"

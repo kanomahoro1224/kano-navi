@@ -30,6 +30,7 @@ const post: AdminPost = {
   refreshRequestedAt: null,
   hiddenAt: null,
   promotedAt: null,
+  upstreamDeletedAt: null,
   scheduleImage: null,
 }
 

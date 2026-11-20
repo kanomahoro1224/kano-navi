@@ -88,3 +88,82 @@ func TestDashboardProjectionListsEverySale(t *testing.T) {
 		}
 	}
 }
+
+// A video confirmed on air is the next stream and the stage's live ticket,
+// even when a waiting room without a start was published earlier.
+func TestDashboardProjectionPrefersALiveVideoOverAnUnscheduledWaitingRoom(t *testing.T) {
+	now := time.Date(2026, 11, 2, 4, 0, 0, 0, time.UTC)
+	waiting := Video{
+		ID: "waiting", Source: "youtube", Title: "Waiting room", URL: "https://www.youtube.com/watch?v=waiting",
+		PublishedAt: strPtr("2026-10-01T00:00:00Z"), Kind: strPtr("stream"), IsUpcoming: true,
+	}
+	live := Video{
+		ID: "live", Source: "youtube", Title: "On air", URL: "https://www.youtube.com/watch?v=live",
+		PublishedAt: strPtr("2026-11-01T00:00:00Z"), ScheduledAt: strPtr("2026-11-02T03:30:00Z"),
+		Kind: strPtr("stream"), LiveStatus: strPtr("live"),
+	}
+	dashboard := &Dashboard{Videos: []Video{waiting, live}}
+
+	applyDashboardProjection(dashboard, now)
+
+	if next := dashboard.Summary.NextStream; next == nil || next.ID != "live" {
+		t.Fatalf("next stream = %+v, want live", next)
+	}
+	if got := dashboard.Projection.Focus.VideoIDs; len(got) != 2 || got[0] != "live" || got[1] != "waiting" {
+		t.Fatalf("focus videos = %v, want the waiting room last", got)
+	}
+	spotlight := dashboard.Projection.Spotlight
+	if spotlight == nil || spotlight.Mode != "next" || spotlight.VideoID == nil || *spotlight.VideoID != "live" || !spotlight.IsLive {
+		t.Fatalf("spotlight = %+v", spotlight)
+	}
+}
+
+// A scheduled reservation leads an unscheduled waiting room; the waiting
+// room is the next stream only when nothing scheduled is ahead.
+func TestDashboardProjectionPutsAnUnscheduledWaitingRoomLast(t *testing.T) {
+	now := time.Date(2026, 11, 2, 4, 0, 0, 0, time.UTC)
+	waiting := Video{
+		ID: "waiting", Source: "youtube", Title: "Waiting room", URL: "https://www.youtube.com/watch?v=waiting",
+		PublishedAt: strPtr("2026-10-01T00:00:00Z"), Kind: strPtr("stream"), IsUpcoming: true,
+	}
+	reserved := Video{
+		ID: "reserved", Source: "youtube", Title: "Tomorrow", URL: "https://www.youtube.com/watch?v=reserved",
+		ScheduledAt: strPtr("2026-11-03T11:00:00Z"), Kind: strPtr("stream"), IsUpcoming: true,
+	}
+	dashboard := &Dashboard{Videos: []Video{waiting, reserved}}
+	applyDashboardProjection(dashboard, now)
+	if next := dashboard.Summary.NextStream; next == nil || next.ID != "reserved" {
+		t.Fatalf("next stream = %+v, want reserved", next)
+	}
+
+	alone := &Dashboard{Videos: []Video{waiting}}
+	applyDashboardProjection(alone, now)
+	if next := alone.Summary.NextStream; next == nil || next.ID != "waiting" {
+		t.Fatalf("next stream = %+v, want waiting", next)
+	}
+}
+
+// The Featured video may be the latest video as a Short, and its view says
+// so; other Shorts may not.
+func TestDashboardProjectionMarksTheFeaturedShortLatestEligible(t *testing.T) {
+	short := true
+	now := time.Date(2026, 11, 2, 4, 0, 0, 0, time.UTC)
+	featured := Video{
+		ID: "featured-short", Source: "youtube", Title: "Featured", URL: "https://www.youtube.com/shorts/featured",
+		PublishedAt: strPtr("2026-11-01T00:00:00Z"), Kind: strPtr("video"), IsShort: &short,
+	}
+	other := Video{
+		ID: "other-short", Source: "youtube", Title: "Other", URL: "https://www.youtube.com/shorts/other",
+		PublishedAt: strPtr("2026-11-01T06:00:00Z"), Kind: strPtr("video"), IsShort: &short,
+	}
+	dashboard := &Dashboard{Videos: []Video{featured, other}, Meta: DashboardMeta{FeaturedVideoID: strPtr("featured-short")}}
+
+	applyDashboardProjection(dashboard, now)
+
+	if !dashboard.Videos[0].View.LatestEligible || dashboard.Videos[1].View.LatestEligible {
+		t.Fatalf("latestEligible = %v, %v", dashboard.Videos[0].View.LatestEligible, dashboard.Videos[1].View.LatestEligible)
+	}
+	if latest := dashboard.Summary.LatestVideo; latest == nil || latest.ID != "featured-short" || !latest.View.LatestEligible {
+		t.Fatalf("latest video = %+v", latest)
+	}
+}

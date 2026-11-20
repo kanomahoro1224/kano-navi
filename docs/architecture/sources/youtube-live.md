@@ -65,7 +65,8 @@ watch pages only.
 
 The store writes `videos.live_status` and `live_checked_at`, the actual start,
 `is_upcoming`, `ends_at` once reported and the status text through the same
-upsert as the regular step. It never adds a video, never moves the feed cursor
+upsert as the regular step, which keeps an ended broadcast
+[ended](../data-model/event-precedence.md). It never adds a video, never moves the feed cursor
 or detail queue, keeps manual locks and tombstones, and increments
 `dashboard_revision` only when a public video or event field changed. A Data
 API answer goes through the same upsert. In the same transaction it records

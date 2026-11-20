@@ -37,7 +37,9 @@ A Bilibili upload is never upcoming or live; its `kind` is `upload` or
 `stream` (a live replay, shown as a stream archive).
 The summary contains `nextEvent`, `nextStream`, `latestVideo`, `latestPost`,
 and counts; `latestPost` survives an empty requested window. `nextEvent` is
-never a sale period. `latestVideo` is
+never a sale period. `nextStream` is a video confirmed on air when there is
+one, otherwise the first focus video by start; a waiting room without a
+start is `nextStream` only when no scheduled video leads. `latestVideo` is
 the stage's fallback: the newest non-upcoming video that is not a Short,
 unless the operator featured that Short, and that is neither private nor
 removed; a video of unknown format or unknown availability stays

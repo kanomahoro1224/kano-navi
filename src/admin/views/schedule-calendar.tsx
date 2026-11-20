@@ -70,6 +70,7 @@ function Legend() {
           ["is-shown", "admin.schedule.legend.shown"],
           ["is-uncertain", "admin.schedule.review.uncertain"],
           ["is-suspected", "admin.schedule.review.suspected"],
+          ["is-unlisted", "admin.schedule.review.unlisted"],
           ["is-cancelled", "admin.event.cancelled"],
           ["is-hidden", "admin.event.hiddenByPosts"],
         ] as const

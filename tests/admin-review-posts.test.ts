@@ -41,6 +41,7 @@ function post(id: string, patch: Partial<AdminPost>): AdminPost {
     refreshRequestedAt: null,
     hiddenAt: null,
     promotedAt: null,
+    upstreamDeletedAt: null,
     scheduleImage: null,
     ...patch,
   }

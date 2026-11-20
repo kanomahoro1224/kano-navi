@@ -1411,3 +1411,34 @@ func TestPublicToolsNameMediaOnTheCDN(t *testing.T) {
 		t.Fatalf("dashboard_read origin avatar: %s", origin)
 	}
 }
+
+// schedule_list carries the board's view: an ended stream is not live in the
+// grace after its start, a waiting room the probe saw is upcoming after it,
+// and a YouTube premiere on air is live.
+func TestScheduleListViewsUseTheBoardsBroadcastState(t *testing.T) {
+	handler, store := newHandler(t, nil)
+	for _, row := range []struct{ id, eventType, startsAt, video, status string }{
+		{"ended-stream", "stream", "2026-09-01T23:00:00.000Z", "aaaaaaaaaa1", "ended"},
+		{"waiting-room", "stream", "2026-09-01T18:00:00.000Z", "aaaaaaaaaa2", "upcoming"},
+		{"premiere-on-air", "release", "2026-09-01T23:30:00.000Z", "aaaaaaaaaa3", "live"},
+	} {
+		link := "https://www.youtube.com/watch?v=" + row.video
+		if _, err := store.DB().Exec(`INSERT INTO events (id,source,title,starts_on,starts_at,timezone,time_precision,event_type,url,provenance,manual_locked,cancellation_status,created_at,updated_at)
+			VALUES (?,'youtube',?,'2026-09-02',?,'Asia/Tokyo','exact',?,?,'automatic',0,'none','2026-09-01T00:00:00.000Z','2026-09-01T00:00:00.000Z')`, row.id, row.id, row.startsAt, row.eventType, link); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.DB().Exec(`INSERT INTO videos (id,source,title,scheduled_at,url,kind,live_status,live_checked_at) VALUES (?,'youtube',?,?,?,'stream',?,'2026-09-01T23:59:00.000Z')`, row.video, row.id, row.startsAt, link, row.status); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page := toolValue(t, post(t, handler, toolCall("schedule_list", map[string]any{"pageSize": 100, "source": "youtube"})))
+	states := map[string]any{}
+	for _, entry := range page["items"].([]any) {
+		event := entry.(map[string]any)
+		states[event["id"].(string)] = event["view"].(map[string]any)["state"]
+	}
+	want := map[string]any{"ended-stream": "done", "waiting-room": "upcoming", "premiere-on-air": "live"}
+	if !reflect.DeepEqual(states, want) {
+		t.Fatalf("states = %v, want %v", states, want)
+	}
+}

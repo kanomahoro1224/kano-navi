@@ -8,8 +8,12 @@ Timeline fetches page the public FxTwitter timeline
 (`api.fxtwitter.com/2/profile/<handle>/statuses`) newest first. FxTwitter
 lists 20 statuses a page whatever `count` a request names, so a `count` of
 200 takes ten pages, more than the default
-[page budget](manual-fetches.md#budgets-and-checkpoints); such a fetch stops with
-`history_page_budget_reached` and continues when repeated. Each status is stored from the timeline page itself, without
+[page budget](manual-fetches.md#budgets-and-checkpoints). A `count` fetch always begins at the
+newest page and keeps no cursor, so it reads the newest posts every time; one
+its budget stops short of its count reports
+`history_page_budget_reached; raise the fetch pages to read the whole count`.
+An `all` fetch the budget stops reports `history_page_budget_reached` and
+continues when repeated. Each status is stored from the timeline page itself, without
 vxtwitter detail requests or the incremental pending queue. A `count` fetch
 stops after the account's newest `count` own statuses, and an `all` fetch at
 the end of the timeline. Reposts are skipped and replies are not listed. A

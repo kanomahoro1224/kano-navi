@@ -102,10 +102,12 @@ func timeVideoEvents(ctx context.Context, tx *sql.Tx, start, end, now string) (i
 }
 
 // restorableEventSQL holds for an unlocked event that automatic
-// re-extraction retired: its source evidence was retired before it. Manual
-// deletions are locked and never match.
+// re-extraction retired: its source evidence was retired before it, or moved
+// to another event and left it none. Manual deletions are locked and never
+// match.
 func restorableEventSQL(table string) string {
-	return table + `.manual_locked=0 AND ` + table + `.deleted_at IS NOT NULL AND EXISTS(SELECT 1 FROM event_sources retired WHERE retired.event_id=` + table + `.id AND retired.deleted_at IS NOT NULL)`
+	return table + `.manual_locked=0 AND ` + table + `.deleted_at IS NOT NULL AND (EXISTS(SELECT 1 FROM event_sources retired WHERE retired.event_id=` + table + `.id AND retired.deleted_at IS NOT NULL)
+	 OR NOT EXISTS(SELECT 1 FROM event_sources moved WHERE moved.event_id=` + table + `.id))`
 }
 
 func createBroadcastEvents(ctx context.Context, tx *sql.Tx, start, end, now string) (int, error) {

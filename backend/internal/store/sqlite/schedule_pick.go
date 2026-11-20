@@ -176,7 +176,7 @@ func (s *Store) PickPostScheduleImage(ctx context.Context, pick SchedulePick, no
 		return "", dbErr(err)
 	}
 	if oldURL != "" && oldURL != mediaURL {
-		if _, err = tx.ExecContext(ctx, `UPDATE schedule_asset_reviews SET llm_status='pending',updated_at=? WHERE asset_id=?`, now, id); err != nil {
+		if _, err = tx.ExecContext(ctx, `UPDATE schedule_asset_reviews SET llm_status='pending',check_status=NULL,check_reason=NULL,check_at=NULL,updated_at=? WHERE asset_id=?`, now, id); err != nil {
 			return "", dbErr(err)
 		}
 	}
@@ -201,7 +201,8 @@ func (s *Store) PickPostScheduleImage(ctx context.Context, pick SchedulePick, no
 	if _, err = tx.ExecContext(ctx, `INSERT INTO schedule_asset_reviews(asset_id,llm_status,manual_status,manual_reason,manual_checked_at,updated_at)
 	 VALUES(?, 'pending', 'schedule', ?, ?, ?)
 	 ON CONFLICT(asset_id) DO UPDATE SET manual_status=excluded.manual_status, manual_reason=excluded.manual_reason,
-	   manual_checked_at=excluded.manual_checked_at, updated_at=excluded.updated_at`, id, pick.Reason, now, now); err != nil {
+	   manual_checked_at=excluded.manual_checked_at, previous_manual_status=NULL, previous_manual_reason=NULL,
+	   previous_manual_checked_at=NULL, updated_at=excluded.updated_at`, id, pick.Reason, now, now); err != nil {
 		return "", dbErr(err)
 	}
 	if err = bumpRevision(ctx, tx, now); err != nil {

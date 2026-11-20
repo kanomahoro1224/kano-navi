@@ -51,7 +51,8 @@ The profile card ends with one row: the counts, each an icon and a number
 whose window label is its tooltip and screen-reader text, then one icon per
 source, X, YouTube, bilibili and the shop, whose tooltip and screen-reader text carry its last successful read
 from `meta.sourceFetchedAt`; a read older than 24 hours marks the icon out of
-date with a dot, and a source never read fades. The card has no reload: the
+date with a dot, and a source never read fades. A read that stores nothing
+moves that time without a revision, so the minute revalidation brings it. The card has no reload: the
 board revalidates by itself, and the API failure alert carries the retry.
 The header holds no snapshot state, so it keeps the same width on every
 page. A run's outcome in `meta.lastSync` is operator diagnosis and does not

@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   CalendarClock,
+  CalendarMinus,
   CalendarSearch,
   CheckCircle2,
   CircleSlash,
@@ -257,6 +258,13 @@ export function OverviewView({ navigate }: ViewProps) {
       tab: "schedule",
       count: review.suspectedCancellations,
       icon: CalendarClock,
+      tone: "berry",
+    },
+    {
+      key: "unlisted",
+      tab: "schedule",
+      count: review.unlistedEvents,
+      icon: CalendarMinus,
       tone: "berry",
     },
     {

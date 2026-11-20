@@ -13,6 +13,10 @@ import (
 
 type Video struct {
 	ID, Title, PublishedAt, ScheduledAt, URL, ThumbnailURL, Kind string
+	// ScheduledOn is a start known only to the day (YYYY-MM-DD), as yt-dlp's
+	// release_date names it, while ScheduledAt is empty. It carries no time:
+	// the store writes it as a date-only entry.
+	ScheduledOn string
 	// EndedAt is the broadcast end a watch page reports once a stream or
 	// premiere finishes; it stays empty while unknown.
 	EndedAt    string

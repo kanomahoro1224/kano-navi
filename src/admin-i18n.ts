@@ -140,6 +140,10 @@ export const adminMessages = {
       count === 1 ? "schedule image to review" : "schedule images to review",
     "admin.overview.attention.cancellations": ({ count }: { count: number }) =>
       count === 1 ? "suspected cancellation" : "suspected cancellations",
+    "admin.overview.attention.unlisted": ({ count }: { count: number }) =>
+      count === 1
+        ? "entry its post no longer lists"
+        : "entries their posts no longer list",
     "admin.overview.attention.uncertain": ({ count }: { count: number }) =>
       count === 1 ? "uncertain addition" : "uncertain additions",
     "admin.overview.attention.merges": ({ count }: { count: number }) =>
@@ -374,6 +378,9 @@ export const adminMessages = {
     "admin.review.schedule.earlier": "Earlier weeks ({count})",
     "admin.review.approved": "Reaches the board",
     "admin.review.manualLabel": "Manual label",
+    "admin.review.imageChanged": "Image changed",
+    "admin.review.previousDecision": "Label on the previous image",
+    "admin.review.lastCheck": "Last check",
     "admin.review.textMismatch": "Post text does not read as a board",
     "admin.review.period": "Covers",
     "admin.review.periodManual": "corrected",
@@ -418,6 +425,7 @@ export const adminMessages = {
     "admin.review.cancelSuspected": "Model suspects a cancellation",
     "admin.review.confirmCancelled": "Confirm cancelled",
     "admin.review.notCancelled": "Not cancelled",
+    "admin.review.keepEntry": "Keep entry",
     "admin.review.eventLink": "Open link",
     "admin.evidence.title": "Source posts",
     "admin.evidence.show": "Source posts",
@@ -476,6 +484,7 @@ export const adminMessages = {
     "admin.posts.edit": "Edit post",
     "admin.posts.hide": "Hide from the public pages",
     "admin.posts.hidden": "Hidden",
+    "admin.posts.deletedUpstream": "Deleted on X",
     "admin.posts.promoted": "Promoted",
     "admin.posts.promotedHint":
       "A related account's status on the board. Promote or demote it in External posts.",
@@ -649,6 +658,7 @@ export const adminMessages = {
     "admin.schedule.review.filter": "Needs a look",
     "admin.schedule.review.suspected": "Suspected cancellation",
     "admin.schedule.review.uncertain": "Uncertain addition",
+    "admin.schedule.review.unlisted": "No longer listed by its post",
     "admin.schedule.review.cancelReason": "Confirmed on the schedule",
     "admin.schedule.review.mergedHere": "Merged here: {title}",
     "admin.schedule.review.reason.lowConfidence": ({
@@ -2037,6 +2047,7 @@ export const adminMessages = {
     "admin.overview.attention": "需要处理",
     "admin.overview.attention.images": "张日程图待审核",
     "admin.overview.attention.cancellations": "条疑似取消",
+    "admin.overview.attention.unlisted": "条帖子不再列出的条目",
     "admin.overview.attention.uncertain": "条不确定的新增",
     "admin.overview.attention.posts": "条贴文提取失败",
     "admin.overview.allClear": "全部处理完毕",
@@ -2103,6 +2114,9 @@ export const adminMessages = {
     "admin.review.filter.approved": "已通过",
     "admin.review.approved": "会显示在页面上",
     "admin.review.manualLabel": "人工标记",
+    "admin.review.imageChanged": "图片已更换",
+    "admin.review.previousDecision": "旧图片的标记",
+    "admin.review.lastCheck": "上次检查",
     "admin.review.textMismatch": "贴文文字不像日程表",
     "admin.review.period": "覆盖日期",
     "admin.review.periodManual": "已修正",
@@ -2134,6 +2148,7 @@ export const adminMessages = {
     "admin.review.cancelReason": "取消理由",
     "admin.review.confirmCancelled": "确认已取消",
     "admin.review.notCancelled": "没有取消",
+    "admin.review.keepEntry": "保留条目",
     "admin.review.eventLink": "打开链接",
     "admin.schedule.legend.shown": "在看板上",
     "admin.schedule.legend.image": "有日程图的周",
@@ -2142,6 +2157,7 @@ export const adminMessages = {
     "admin.schedule.review.filter": "需要查看",
     "admin.schedule.review.suspected": "疑似取消",
     "admin.schedule.review.uncertain": "不确定的新增",
+    "admin.schedule.review.unlisted": "帖子不再列出",
     "admin.schedule.review.cancelReason": "在日程中确认",
     "admin.schedule.review.mergedHere": "已合并到此：{title}",
     "admin.schedule.review.reason.lowConfidence": ({

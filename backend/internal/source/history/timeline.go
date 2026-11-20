@@ -30,8 +30,9 @@ func timelineCode(err error) string {
 // within the page budget: the account's newest Count statuses, or every page
 // to the end of the timeline. It never reads or moves the incremental cursor,
 // and posts already stored keep what the detail path wrote, so a fetch only
-// fills gaps. Each page commits with its timeline cursor under
-// TimelineCheckpoint, so repeating the fetch continues it.
+// fills gaps. Each page commits under TimelineCheckpoint. An all fetch keeps
+// its timeline cursor there, so repeating it continues it; a count fetch
+// always begins at the newest page and keeps no cursor.
 func (f *Fetcher) FetchTimeline(ctx context.Context, request Request) (Result, error) {
 	if request.Source != SourceX || f.Timeline == nil {
 		return Result{}, invalid("unsupported source")
@@ -48,19 +49,27 @@ func (f *Fetcher) FetchTimeline(ctx context.Context, request Request) (Result, e
 	if err != nil {
 		return Result{}, err
 	}
+	counted := window.Mode == ModeCount
 	cursor, previous := checkpoint.CursorID, 0
 	headFetchedAt, _ := checkpoint.Metadata["headFetchedAt"].(string)
+	if counted {
+		// The newest Count statuses change with every post, so a count fetch
+		// reads them from the head each time instead of an older page.
+		cursor = ""
+	}
 	if cursor != "" {
 		if count, ok := checkpoint.Metadata["discovered"].(float64); ok && count > 0 {
 			previous = int(count)
 		}
 	}
-	counted := window.Mode == ModeCount
 	maxPages := f.pageLimit(request)
 	commit := func(page Page) (Written, error) {
 		page.Source, page.Account, page.CheckpointKey = SourceX, request.Account, key
 		page.Checkpoint, page.Window, page.KeepStored = TimelineCheckpoint, window, true
 		page.HeadFetchedAt = headFetchedAt
+		if counted {
+			page.Next = ""
+		}
 		return f.Store.WriteHistoryPage(ctx, page)
 	}
 	result := Result{Window: window, Errors: []string{}, Items: []Item{}}
@@ -131,6 +140,12 @@ func (f *Fetcher) FetchTimeline(ctx context.Context, request Request) (Result, e
 		case following == cursor:
 			result.Errors = append(result.Errors, "x_timeline_repeated_page")
 			following = ""
+		case counted && result.Requested >= maxPages:
+			// The budget ends a count fetch short of its count; the next one
+			// begins at the newest page again.
+			result.Errors = append(result.Errors, countBudgetMessage)
+			result.HasMore = true
+			following = ""
 		}
 		written, writeErr := commit(Page{Next: following, Discovered: previous + result.Listed, Posts: posts, ScheduleCandidates: candidates, Reposts: page.Reposts})
 		if writeErr != nil {
@@ -149,6 +164,6 @@ func (f *Fetcher) FetchTimeline(ctx context.Context, request Request) (Result, e
 	if cursor != "" && !failed {
 		result.Errors = append(result.Errors, budgetMessage)
 	}
-	result.HasMore = cursor != ""
+	result.HasMore = result.HasMore || cursor != ""
 	return result, nil
 }

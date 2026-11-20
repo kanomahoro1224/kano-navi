@@ -19,6 +19,8 @@ Reading and editing posts and external posts.
 
 Each post reports `promotedAt`, when a related account's status was promoted
 into posts, or null for an own post; External posts holds its decisions.
+`upstreamDeletedAt` is when synchronization found the X status
+[deleted on X](../data-model/posts.md#posts-deleted-upstream), or null.
 `account` is an X handle, matched without case or a leading `@`; `llm` is `never`, `pending`, `processed`, `failed`,
 `dismissed`, `skipped` or `uncertain`; `queued` keeps the posts with an open
 operator request: `extraction` (queued for re-extraction), `refresh` (a

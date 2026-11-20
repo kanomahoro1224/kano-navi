@@ -147,7 +147,7 @@ func TestTimelineFreshnessKeepsOriginalHeadAcrossResumeAndFailedCursorReset(t *t
 		"older": timelinePage("stale", timelineStatus("1900000000000000002", "2026-03-08T03:00:00Z", "older")),
 	}, fail: map[string]error{"stale": &xsource.Error{Code: xsource.ErrHTTP, Status: 400}}}
 	fetcher := timelineFetcher(store, timeline, 1)
-	request := Request{Source: SourceX, Account: testAccount, Window: timelineCount(3)}
+	request := Request{Source: SourceX, Account: testAccount, Window: timelineAll()}
 	if result, err := fetcher.FetchTimeline(context.Background(), request); err != nil || !result.HasMore {
 		t.Fatalf("head: %+v %v", result, err)
 	}
@@ -155,7 +155,7 @@ func TestTimelineFreshnessKeepsOriginalHeadAcrossResumeAndFailedCursorReset(t *t
 	if store.pages[0].HeadFetchedAt != want || store.pages[0].CheckpointOnly {
 		t.Fatalf("head freshness=%+v", store.pages[0])
 	}
-	// A count fetch has no expiry. Reading its older continuation days later
+	// An all fetch has no expiry. Reading its older continuation days later
 	// must not claim the newest source content was read again.
 	fetcher.Now = func() time.Time { return fixedNow().Add(72 * time.Hour) }
 	if result, err := fetcher.FetchTimeline(context.Background(), request); err != nil || !result.HasMore {
@@ -245,39 +245,68 @@ func fixedPage(next string, from int) xsource.TimelineStatuses {
 	return timelinePage(next, statuses...)
 }
 
-func TestTimelineCountSpansFixedPagesAcrossThePageBudget(t *testing.T) {
+func TestTimelineCountSpansFixedPagesAndReadsTheHeadEveryTime(t *testing.T) {
 	// FxTwitter lists its fixed page whatever count asks for, so a count of
-	// 50 takes three pages; a budget of two ends the first fetch early.
+	// 50 takes three pages; a budget of two ends the fetch early.
 	store := &memoryStore{}
 	timeline := &fakeTimeline{pages: map[string]xsource.TimelineStatuses{
 		"":   fixedPage("c2", 100),
 		"c2": fixedPage("c3", 80),
 		"c3": fixedPage("c4", 60),
 	}}
-	fetcher := timelineFetcher(store, timeline, 2)
 	request := Request{Source: SourceX, Account: testAccount, Window: timelineCount(50)}
-	result, err := fetcher.FetchTimeline(context.Background(), request)
+	result, err := timelineFetcher(store, timeline, 2).FetchTimeline(context.Background(), request)
 	if err != nil || result.Requested != 2 || result.Listed != 40 || result.New != 40 || !result.HasMore {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
-	// Short pages are no end of the timeline: only the budget stops it.
-	if len(result.Errors) != 1 || result.Errors[0] != budgetMessage {
+	// Short pages are no end of the timeline: only the budget stops it, and a
+	// count fetch keeps no cursor to continue from.
+	if len(result.Errors) != 1 || result.Errors[0] != countBudgetMessage {
 		t.Fatalf("errors=%v", result.Errors)
 	}
-	if last := store.pages[len(store.pages)-1]; last.Next != "c3" || last.Discovered != 40 {
-		t.Fatalf("checkpoint page=%+v", last)
+	for _, page := range store.pages {
+		if page.Next != "" || page.Checkpoint != TimelineCheckpoint {
+			t.Fatalf("count page kept a cursor: %+v", page)
+		}
 	}
-	// Repeating the fetch takes the rest of the count from the next page and
-	// leaves the statuses beyond it.
-	result, err = fetcher.FetchTimeline(context.Background(), request)
-	if err != nil || result.Requested != 1 || result.Listed != 10 || result.New != 10 || result.HasMore || len(result.Errors) != 0 {
-		t.Fatalf("resume=%+v err=%v", result, err)
+	// Repeating the fetch reads the newest pages again rather than older ones,
+	// and a larger budget reads the whole count from the head.
+	result, err = timelineFetcher(store, timeline, 3).FetchTimeline(context.Background(), request)
+	if err != nil || result.Requested != 3 || result.Listed != 50 || result.New != 10 || result.Stored != 40 || result.HasMore || len(result.Errors) != 0 {
+		t.Fatalf("repeat=%+v err=%v", result, err)
 	}
 	last := store.pages[len(store.pages)-1]
 	if last.Next != "" || last.Discovered != 50 || len(last.Posts) != 10 || last.Posts[9].ID != fmt.Sprintf("19000000000%08d", 51) {
 		t.Fatalf("last page=%+v", last)
 	}
-	if strings.Join(timeline.cursors, ",") != ",c2,c3" || fmt.Sprint(timeline.counts) != "[20 20 10]" {
+	if strings.Join(timeline.cursors, ",") != ",c2,,c2,c3" || fmt.Sprint(timeline.counts) != "[20 20 20 20 10]" {
 		t.Fatalf("cursors=%v counts=%v", timeline.cursors, timeline.counts)
+	}
+}
+
+func TestTimelineCountIgnoresAStoredCursorButAllResumesIt(t *testing.T) {
+	// A cursor left under a count selection, such as one an older fetch
+	// stored, never moves a count fetch off the newest page.
+	countKey := timelineCount(20).checkpointKey(testAccount)
+	allKey := timelineAll().checkpointKey(testAccount)
+	store := &memoryStore{states: map[string]State{
+		TimelineCheckpoint + "/" + countKey: {Found: true, CursorID: "c2", Metadata: map[string]any{"discovered": float64(20)}},
+		TimelineCheckpoint + "/" + allKey:   {Found: true, CursorID: "c2", Metadata: map[string]any{"discovered": float64(20)}},
+	}}
+	timeline := &fakeTimeline{pages: map[string]xsource.TimelineStatuses{
+		"":   fixedPage("c2", 100),
+		"c2": fixedPage("", 80),
+	}}
+	fetcher := timelineFetcher(store, timeline, 4)
+	result, err := fetcher.FetchTimeline(context.Background(), Request{Source: SourceX, Account: testAccount, Window: timelineCount(20)})
+	if err != nil || result.Requested != 1 || result.Listed != 20 || result.Items[0].ID != fmt.Sprintf("19000000000%08d", 100) {
+		t.Fatalf("count=%+v err=%v", result, err)
+	}
+	result, err = fetcher.FetchTimeline(context.Background(), Request{Source: SourceX, Account: testAccount, Window: timelineAll()})
+	if err != nil || result.Requested != 1 || result.HasMore || result.Items[0].ID != fmt.Sprintf("19000000000%08d", 80) {
+		t.Fatalf("all=%+v err=%v", result, err)
+	}
+	if strings.Join(timeline.cursors, ",") != ",c2" {
+		t.Fatalf("cursors=%v", timeline.cursors)
 	}
 }

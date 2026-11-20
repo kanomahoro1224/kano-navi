@@ -2,6 +2,7 @@ package x
 
 import (
 	"context"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -47,5 +48,35 @@ func TestRefreshForcesOneDetailRequest(t *testing.T) {
 	got, err = s.adapter(opts).FetchRecent(context.Background(), "kano", opts)
 	if err != nil || len(s.details) != 0 || len(got.Refreshed) != 0 {
 		t.Fatalf("details=%v refreshed=%v err=%v", s.details, got.Refreshed, err)
+	}
+}
+
+// The refresh of a stored status that a quiet run's listing names is
+// optional: when its detail request fails and nothing is new, the account
+// still succeeds, the failure is a note, and the status is not queued. A new
+// status that fails beside it still fails the account.
+func TestFailedKnownRefreshDoesNotFailAQuietRun(t *testing.T) {
+	at := func(h int) time.Time { return timelineNow.Add(-time.Duration(h) * time.Hour).Truncate(time.Second) }
+	known := statusFixture{id: statusAt(at(3)), text: "stored", at: at(3)}
+	s := &timelineServer{bodies: map[string]string{"": fxPage(t, "", known.timeline())}}
+	s.detail = func(string) *http.Response { return response(503, "down") }
+	opts := Options{BootstrapDays: 7, DiscoveryLimit: 50, MaxDetailRequests: 5, RefreshKnown: 1, CursorID: known.id, KnownIDs: map[string]bool{known.id: true}}
+	got, err := s.adapter(opts).FetchRecent(context.Background(), "kano", opts)
+	if err != nil {
+		t.Fatalf("quiet run failed: %v", err)
+	}
+	if strings.Join(s.details, ",") != known.id || got.RequestedCount != 1 || len(got.Posts) != 0 || len(got.Errors) != 0 {
+		t.Fatalf("details=%v result=%+v", s.details, got)
+	}
+	if strings.Join(got.Notes, ",") != known.id+": "+string(ErrServer) || len(got.PendingIDs) != 0 || len(got.PendingRetries) != 0 || len(got.Dropped) != 0 {
+		t.Fatalf("notes=%v pending=%v retries=%v dropped=%v", got.Notes, got.PendingIDs, got.PendingRetries, got.Dropped)
+	}
+
+	pending := statusAt(at(1))
+	s.details = nil
+	opts.PendingIDs = []string{pending}
+	got, err = s.adapter(opts).FetchRecent(context.Background(), "kano", opts)
+	if err == nil || strings.Join(got.Errors, ",") != pending+": "+string(ErrServer) || strings.Join(got.PendingIDs, ",") != pending {
+		t.Fatalf("err=%v errors=%v pending=%v", err, got.Errors, got.PendingIDs)
 	}
 }

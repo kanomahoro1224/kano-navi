@@ -128,3 +128,20 @@ func TestProxyVariablesAreRecognizedInAnyCase(t *testing.T) {
 		}
 	}
 }
+
+// An upcoming entry that names only its release day gets that day without a
+// time, never its publication time as its start.
+func TestYTDLPReleaseDateIsADateOnlyStart(t *testing.T) {
+	video, ok := videoFromYTDLP(map[string]any{"id": "DDDDDDDDDDD", "title": "waiting room", "timestamp": float64(1793350800), "release_date": "20261105", "live_status": "is_upcoming"})
+	if !ok || !video.IsUpcoming || video.ScheduledAt != "" || video.ScheduledOn != "2026-11-05" {
+		t.Fatalf("video=%+v", video)
+	}
+	timed, _ := videoFromYTDLP(map[string]any{"id": "EEEEEEEEEEE", "title": "reservation", "release_timestamp": float64(1793350800), "release_date": "20261105", "live_status": "is_upcoming"})
+	if timed.ScheduledAt == "" || timed.ScheduledOn != "" {
+		t.Fatalf("timed=%+v", timed)
+	}
+	unknown, _ := videoFromYTDLP(map[string]any{"id": "FFFFFFFFFFF", "title": "waiting room", "timestamp": float64(1793350800), "release_date": "2026-11-05", "live_status": "is_upcoming"})
+	if unknown.ScheduledAt != "" || unknown.ScheduledOn != "" {
+		t.Fatalf("unknown=%+v", unknown)
+	}
+}

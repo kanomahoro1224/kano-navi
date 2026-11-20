@@ -61,8 +61,9 @@ flowchart LR
 3. Page loads, retries, and revision checks only read the stored
    snapshot through the local API. They never contact X, YouTube, or a model
    provider.
-4. Each completed workflow or operator change advances a small revision
-   number. The server watches it and pushes each change to open pages over a
+4. Each stored change that pages show, whether a workflow or an operator
+   wrote it, advances a small revision number; a workflow that changed
+   nothing leaves it. The server watches it and pushes each change to open pages over a
    stream, and a page then reloads the snapshot; when the stream is
    unavailable, pages ask for the revision every 30 seconds instead. Times
    such as a stream's start pass without a stored change, so a page also

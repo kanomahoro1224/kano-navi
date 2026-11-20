@@ -53,7 +53,8 @@ successful snapshot while a source is unavailable.
 4. A maintainer or an authorized MCP client starts an asynchronous job. The
    single-flight job manager writes a `sync_runs` row with `job_id` and
    `triggered_by`; a failed source retains the previous snapshot.
-5. Completion increments `dashboard_revision`. The server pushes the new
+5. Each write that changes public data increments `dashboard_revision` in its
+   own transaction; a job that changed nothing leaves it. The server pushes the new
    revision to open public pages over its revision stream (or a page polls the
    small revision endpoint when the stream is unavailable), and the page
    reloads its stored snapshot; page refresh never starts an external fetch.

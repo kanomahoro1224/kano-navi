@@ -694,6 +694,7 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		"review": map[string]int{
 			"pendingImages":          counts.PendingImages,
 			"suspectedCancellations": counts.SuspectedCancellations,
+			"unlistedEvents":         counts.UnlistedEvents,
 			"uncertainEvents":        counts.UncertainEvents,
 			"failedPosts":            counts.FailedPosts,
 			"failedExtractions":      counts.FailedExtractions,

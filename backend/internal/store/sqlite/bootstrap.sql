@@ -40,7 +40,7 @@ CREATE TABLE event_sources (
     deleted_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-  );
+  , unlisted_at TEXT);
 
 CREATE TABLE events (
     id TEXT PRIMARY KEY,
@@ -229,7 +229,8 @@ CREATE TABLE posts (
     refresh_requested_at TEXT,
     hidden_at TEXT,
     promoted_at TEXT,
-    deleted_at TEXT
+    deleted_at TEXT,
+    upstream_deleted_at TEXT
   );
 
 CREATE TABLE profile_media (
@@ -329,7 +330,7 @@ CREATE TABLE schedule_asset_reviews (
     manual_reason TEXT,
     manual_checked_at TEXT,
     updated_at TEXT NOT NULL
-  );
+  , previous_manual_status TEXT, previous_manual_reason TEXT, previous_manual_checked_at TEXT, check_status TEXT, check_reason TEXT, check_at TEXT);
 
 CREATE TABLE schedule_extractions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

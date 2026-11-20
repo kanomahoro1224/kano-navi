@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -205,4 +206,31 @@ func (s *Store) attachLiveStatus(ctx context.Context, events []DashboardEvent, n
 	}
 	_, err = s.attachEventPlatforms(ctx, events, now)
 	return err
+}
+
+// PublicEventViews reads the shared view of the named events with the inputs
+// the board and the calendar give it: the event's source and the trusted
+// broadcast state of its linked video or room. An ID without a stored event
+// is absent from the result.
+func (s *Store) PublicEventViews(ctx context.Context, ids []string, now time.Time) (map[string]EventView, error) {
+	out := make(map[string]EventView, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	args := make([]any, len(ids))
+	for index, id := range ids {
+		args[index] = id
+	}
+	events, err := s.scanEvents(ctx, `SELECT `+eventColumnsAs("o")+` FROM events o WHERE id IN (?`+strings.Repeat(",?", len(ids)-1)+`)`, args, now)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.attachLiveStatus(ctx, events, now); err != nil {
+		return nil, err
+	}
+	for index := range events {
+		applyEventView(&events[index], now)
+		out[events[index].ID] = events[index].View
+	}
+	return out, nil
 }

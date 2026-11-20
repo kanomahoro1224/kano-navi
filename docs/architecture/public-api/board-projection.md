@@ -15,7 +15,7 @@ text.
 | `version`          | Contract version; `1` is the current one                                                     |
 | `nextTransitionAt` | Next ISO instant that can change a time-dependent decision, or `null` when none is known     |
 | `focus.eventIds`   | Ordered event candidates of the focus                                                        |
-| `focus.videoIds`   | Ordered video candidates of the focus                                                        |
+| `focus.videoIds`   | Ordered video candidates of the focus, waiting rooms without a start last                    |
 | `sales`            | Ordered IDs of every sale event the board's on-sale list shows, in place or in its sheet     |
 | `spotlight`        | The [spotlight](#spotlight), or `null` when there is neither a next entry nor a latest video |
 | `shelf`            | The [video shelf](#video-shelf)                                                              |
@@ -58,7 +58,9 @@ four lists.
 
 Every event and video carries a `view` of codes and booleans, never
 localized copy. Calendar, archive and MCP `schedule_list` reads carry the
-same event and video `view` objects as the dashboard. Clients keep an
+same event and video `view` objects as the dashboard, computed from the same
+inputs: an event's source and the broadcast state of its linked video or
+room. Clients keep an
 additive fallback for responses without `projection` or `view` so a retained
 snapshot remains readable while a deployment serves mixed versions.
 

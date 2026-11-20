@@ -286,6 +286,16 @@ func (e *Executor) ExecuteRun(ctx context.Context, run *Run) (*Run, error) {
 		// fails the run instead of letting the later steps go on without it.
 		_, fetched := run.FetchWindows[step.StepID]
 		tolerate := e.TolerateFailure[step.StepID] && !fetched
+		// A run resumed after an expired lease keeps the failures it already
+		// tolerated: the step stays failed and the run goes on to the next one.
+		if step.Status == "failed" && tolerate {
+			tolerated++
+			toleratedCode = "permanent"
+			if step.ErrorCode != nil && *step.ErrorCode != "" {
+				toleratedCode = *step.ErrorCode
+			}
+			continue
+		}
 		success := false
 		for attempt := 1; attempt <= e.MaxAttempts; attempt++ {
 			if ctx.Err() != nil {

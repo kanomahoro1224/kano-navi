@@ -295,6 +295,8 @@ export interface Overview {
   review: {
     pendingImages: number
     suspectedCancellations: number
+    /** Entries whose posts, read again, list no schedule. */
+    unlistedEvents: number
     uncertainEvents: number
     /** Posts with a failed extraction or translation. */
     failedPosts: number
@@ -651,12 +653,13 @@ export interface AdminEvent {
 }
 
 /**
- * Why an entry needs a look: the model suspects its cancellation, or it is an
- * uncertain addition (an unconfirmed automatic entry from today on with low
- * model confidence or a tentative status), with the reasons.
+ * Why an entry needs a look: the model suspects its cancellation, the posts
+ * it was read from no longer list it (unlisted), or it is an uncertain
+ * addition (an unconfirmed automatic entry from today on with low model
+ * confidence or a tentative status), with the reasons.
  */
 export interface EventReview {
-  kind: "suspected" | "uncertain"
+  kind: "suspected" | "unlisted" | "uncertain"
   reasons: ("lowConfidence" | "tentative")[]
 }
 
@@ -739,10 +742,24 @@ export interface ScheduleImage {
   effectiveStatus: string
   sourceMatchesBoard: boolean
   approved: boolean
+  /** Whether the image waits in the Review queue (the server's rule). */
+  needsReview: boolean
+  /** The operator's label on the image the asset showed before its URL
+   * changed, until the operator labels it again. */
+  previousDecision: ScheduleDecision | null
+  /** The latest check that left the model verdict in place. */
+  lastCheck: ScheduleDecision | null
   previewUrl: string | null
   mediaStatus: string
   /** The stored post that published the image; null when it is not stored. */
   sourcePost: { text: string; publishedAt: string } | null
+}
+
+/** A label or check of a schedule image: its status, reason and time. */
+export interface ScheduleDecision {
+  status: string
+  reason: string | null
+  at: string | null
 }
 
 export interface AdminPostImage {
@@ -787,6 +804,9 @@ export interface AdminPost {
   /** When a related account's status was promoted onto the board; null for
    * an own post. External posts holds its promote and demote decisions. */
   promotedAt: string | null
+  /** When synchronization found the X status deleted on X; the public pages
+   * leave the post out while it is set. */
+  upstreamDeletedAt: string | null
   /** The post's schedule image record; null when it has none. */
   scheduleImage: AdminPostSchedule | null
 }

@@ -336,7 +336,16 @@ func (c *Client) downloadAsset(ctx context.Context, store *sqlite.Store, asset s
 		}
 	}
 	if err = store.SaveMediaDownload(ctx, asset, d.Content, d.MIME, d.ETag, d.LastModified, status, code); err != nil {
-		return "", err
+		if status != "ready" {
+			return "", err
+		}
+		// The downloaded bytes could not be published. The asset records a
+		// retryable failure and the step goes on with the rest; a store that
+		// cannot record even that, such as a lost lease, ends the step.
+		status, code = "failed", "media_write_failed"
+		if err = store.SaveMediaDownload(ctx, asset, nil, "", "", "", status, code); err != nil {
+			return "", err
+		}
 	}
 	out.Attempted++
 	switch status {

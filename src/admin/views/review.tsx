@@ -800,6 +800,7 @@ export function ReviewView({ tab, navigate }: ViewProps) {
     schedule: review
       ? review.pendingImages +
         review.suspectedCancellations +
+        review.unlistedEvents +
         review.uncertainEvents
       : undefined,
     merges: review?.videoMerges,

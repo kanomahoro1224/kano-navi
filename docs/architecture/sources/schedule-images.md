@@ -48,7 +48,10 @@ A schedule image (`assets.kind = schedule`) is public only after two gates:
    `schedule_asset_reviews`. A candidate whose source post does not pass
    gate 1 is recorded as `skipped` / `source_not_board` without a model
    call. A pending cache, or no queued, keyed Image model, is also `skipped`
-   and retried. An asset without an image URL, such as a `weekly-schedule`
+   and retried. On an image that already has a verdict, a skipped, running
+   or failed check is recorded as the image's last check and the verdict, with
+   the image's public visibility, stands; a skipped or failed check puts the
+   image in the Review queue until a check settles it. An asset without an image URL, such as a `weekly-schedule`
    alias row, has nothing to download: it is recorded once as `skipped` /
    `no_image` and left out of later scans, forced ones included, until a
    writer gives it a URL. It is never public and never counts as needing
@@ -57,12 +60,17 @@ A schedule image (`assets.kind = schedule`) is public only after two gates:
 
 `/api/dashboard` returns a schedule asset only when an operator labelled it
 `schedule`, or when it has no manual label, still passes gate 1, and the model
-returned `schedule`. A manual `not_schedule` always hides it. Labels require a
+returned `schedule`. A manual `not_schedule` always hides it. A model verdict
+that becomes or stops being `schedule` advances the dashboard revision with
+the review. Labels require a
 reason and are set on the `/admin` schedule calendar, in its list of
-images or in the Review queue. A model verdict
-belongs to the image URL it judged: when a post's asset receives a different
-URL, its `asset_version` increases and its model verdict returns to
-`pending`, while a manual label stays.
+images or in the Review queue. A verdict belongs to the image URL it judged:
+when a post's asset receives a different URL, its `asset_version` increases,
+its model verdict returns to `pending`, and an operator's label on the old
+image becomes the previous decision, shown beside the new image in the Review
+queue until the operator labels it. A `schedule` label is cleared, so it never
+approves the new image (the model's verdict on the new image may); a
+`not_schedule` label keeps hiding it. The period correction stays.
 
 Image review budgets apply after cache checks and manual-label filtering across
 all stored candidates, rather than only the newest page. Retry order follows

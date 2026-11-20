@@ -2,18 +2,20 @@ import { useId, useState } from "react"
 import {
   CalendarCheck,
   CalendarDays,
+  CalendarMinus,
   CalendarX,
   CheckCircle2,
   ExternalLink,
   FileSearch,
   Sparkles,
+  Trash2,
 } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import { formatDay } from "@/admin/format"
 import type { AdminEvent, AttentionWeek, ScheduleImage } from "@/admin/types"
-import { Badge, Button, Empty, Loading } from "@/admin/ui"
+import { Badge, Button, ConfirmButton, Empty, Loading } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { EventEvidencePanel } from "@/admin/views/event-evidence"
 import { eventToInput, EventWhen, shiftDay } from "@/admin/views/event-parts"
@@ -148,6 +150,107 @@ function CancellationCard({
   )
 }
 
+/** An entry whose posts, read again, list no schedule as a decision card:
+ * keeping it confirms it, deleting it leaves a tombstone, and its source
+ * posts open on request. */
+function UnlistedCard({
+  event,
+  onDone,
+}: {
+  event: AdminEvent
+  onDone: () => void
+}) {
+  const { t } = useAppSettings()
+  const { api, act } = useAdmin()
+  const [busy, setBusy] = useState("")
+  const [showEvidence, setShowEvidence] = useState(false)
+  const keep = async () => {
+    setBusy("keep")
+    const result = await act(
+      () => api.confirmEvent(event.id),
+      "admin.notice.eventConfirmed",
+    )
+    setBusy("")
+    if (result) onDone()
+  }
+  const remove = async () => {
+    setBusy("delete")
+    // A delete answers null; a failure is undefined.
+    const result = await act(
+      () => api.deleteEvent(event.id),
+      "admin.notice.eventDeleted",
+    )
+    setBusy("")
+    if (result !== undefined) onDone()
+  }
+  return (
+    <article className="adm-decision is-event adm-tone-berry">
+      <div className="adm-decision-when">
+        <EventWhen event={event} />
+      </div>
+      <div className="adm-decision-body">
+        <header className="adm-decision-head">
+          <div className="adm-decision-title">
+            <h3>{event.title}</h3>
+            {event.detail ? (
+              <p className="adm-muted">{eventDetailText(event.detail, t)}</p>
+            ) : null}
+          </div>
+          {event.url ? (
+            <a
+              className="adm-link"
+              href={event.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("admin.review.eventLink")}
+              <ExternalLink aria-hidden />
+            </a>
+          ) : null}
+        </header>
+        <section className="adm-verdict">
+          <div className="adm-verdict-head">
+            <span className="adm-verdict-label">
+              <CalendarMinus aria-hidden />
+              {t("admin.schedule.review.unlisted")}
+            </span>
+          </div>
+        </section>
+        {showEvidence ? <EventEvidencePanel eventId={event.id} /> : null}
+        <footer className="adm-decision-bar">
+          <div className="adm-actions">
+            <Button
+              size="sm"
+              icon={CalendarCheck}
+              busy={busy === "keep"}
+              onClick={keep}
+            >
+              {t("admin.review.keepEntry")}
+            </Button>
+            <ConfirmButton
+              size="sm"
+              icon={Trash2}
+              busy={busy === "delete"}
+              onConfirm={remove}
+            >
+              {t("admin.schedule.delete")}
+            </ConfirmButton>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={FileSearch}
+              aria-expanded={showEvidence}
+              onClick={() => setShowEvidence((shown) => !shown)}
+            >
+              {t(showEvidence ? "admin.evidence.hide" : "admin.evidence.show")}
+            </Button>
+          </div>
+        </footer>
+      </div>
+    </article>
+  )
+}
+
 /** The week's uncertain additions, settled on the calendar beside the rest
  * of the week. */
 function UncertainList({ events }: { events: AdminEvent[] }) {
@@ -189,8 +292,8 @@ function ImageCards({
 /**
  * One week's schedule work: what it holds as counts, the button that opens
  * it on the calendar with only what needs a look, the uncertain additions to
- * settle there, and the image and cancellation decisions that need no more
- * than their card.
+ * settle there, and the image, cancellation and unlisted-entry decisions
+ * that need no more than their card.
  */
 function WeekGroup({
   week,
@@ -207,12 +310,16 @@ function WeekGroup({
   const suspected = week.events.filter(
     (event) => event.review?.kind === "suspected",
   )
+  const unlisted = week.events.filter(
+    (event) => event.review?.kind === "unlisted",
+  )
   const uncertain = week.events.filter(
     (event) => event.review?.kind === "uncertain",
   )
   const counts = [
     ["images", week.images.length],
     ["cancellations", suspected.length],
+    ["unlisted", unlisted.length],
     ["uncertain", uncertain.length],
   ] as const
   return (
@@ -248,13 +355,16 @@ function WeekGroup({
       {suspected.map((event) => (
         <CancellationCard key={event.id} event={event} onDone={onChanged} />
       ))}
+      {unlisted.map((event) => (
+        <UnlistedCard key={event.id} event={event} onDone={onChanged} />
+      ))}
     </section>
   )
 }
 
 /**
  * The Review queue's schedule work, grouped by week, oldest first: pending
- * images, suspected cancellations and uncertain additions. Weeks from last
+ * images, suspected cancellations, unlisted entries and uncertain additions. Weeks from last
  * week on are open; earlier ones fold away, and undated images form their
  * own group, whose cards set their dates. Every decision reads the queue
  * and the overview counts again.

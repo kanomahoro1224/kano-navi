@@ -79,8 +79,10 @@ freezes it in `workflow_runs.source_sync_json`:
   leaves new uploads above its cursor keeps the cursor, and later runs take
   them ([YouTube](../sources/youtube.md)).
 - `{ "mode": "count", "count": N }`: read the newest `N` (1–200) every run,
-  stored or not. X reads them as a `count` window from the timeline, which
-  leaves the incremental cursor and pending queue alone. YouTube reads the
+  stored or not. X reads them as a `count` window from the timeline's newest
+  page, which leaves the incremental cursor and pending queue alone; when no
+  account answers, the step fails with `x_source_failed`, retryable like an
+  incremental read. YouTube reads the
   uploads listing. The related accounts read incrementally only, so their
   schedule refuses a `count` setting.
 

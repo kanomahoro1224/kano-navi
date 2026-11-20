@@ -1,6 +1,6 @@
 # Posts
 
-How quoted posts, reposts, hidden posts, imported posts and post LLM states are stored.
+How quoted posts, reposts, hidden posts, posts deleted upstream, imported posts and post LLM states are stored.
 
 ## Quoted Posts
 
@@ -146,3 +146,21 @@ A settled post's images are not read, so a cached file deleted from disk
 after the post settled goes unnoticed: the post keeps its stored result
 instead of waiting as `media_pending`, until its input changes or an
 operator requests a reprocess.
+
+## Posts Deleted Upstream
+
+An own X post whose status X no longer has is soft-deleted upstream: when an
+account's run drops a stored post's ID with `x_status_gone` (see the
+[pending retries](../sources/x.md)), the write stamps
+`posts.upstream_deleted_at`. Nothing is removed or rewritten: the row, its
+`raw_json`, its media links and files, its schedule-image candidate and
+review, its LLM states, extractions and translations, and its events and
+their evidence stay as they are. Public reads leave the post out: the board's
+wall and latest post, the post archive and its month index, and with them the
+public API and MCP; the board's and the calendar's schedule images leave out
+its schedule-image candidate. The console lists the post with
+`upstreamDeletedAt`. The mark is a state of the source, not an operator
+decision: any later answer that carries the status clears it, whether a
+detail answer, a timeline or X API page listing the stored post, or a manual
+fetch. Another account's run, a promoted post and a post already deleted
+(`deleted_at`) are never marked.

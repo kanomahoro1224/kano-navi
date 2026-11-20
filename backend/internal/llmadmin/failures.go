@@ -34,7 +34,8 @@ type Failure struct {
 // RecentFailures lists the newest failed schedule extractions, schedule-image
 // checks and machine translations, newest first. A translation counts only
 // while its last attempt failed; extraction and image rows keep the outcome of
-// their own input and target until that pair runs again.
+// their own input and target until that pair runs again. A failed check that
+// left an image's verdict in place counts until a check settles the image.
 func RecentFailures(ctx context.Context, db Querier) ([]Failure, error) {
 	return collect(ctx, db, scanFailure, `SELECT route, subject, subject_id, url, version, model, message, at FROM (
 		SELECT 'schedule' AS route, 'post' AS subject, e.source_item_id AS subject_id,
@@ -50,6 +51,11 @@ func RecentFailures(ctx context.Context, db Querier) ([]Failure, error) {
 		WHERE r.llm_status = 'failed' AND COALESCE(r.llm_reason, '') NOT IN ('', ?)
 			AND r.asset_id NOT IN (SELECT 'schedule-x-'||id FROM posts WHERE deleted_at IS NOT NULL)
 		UNION ALL
+		SELECT 'verify', 'image', r.asset_id, a.source_url, NULL, NULL, r.check_reason, r.check_at
+		FROM schedule_asset_reviews r LEFT JOIN assets a ON a.id = r.asset_id
+		WHERE r.check_status = 'failed' AND COALESCE(r.check_reason, '') NOT IN ('', ?)
+			AND r.asset_id NOT IN (SELECT 'schedule-x-'||id FROM posts WHERE deleted_at IS NOT NULL)
+		UNION ALL
 		SELECT 'translate', ts.owner_type, ts.owner_id,
 			CASE ts.owner_type
 				WHEN 'post' THEN (SELECT p.url FROM posts p WHERE p.id = ts.owner_id)
@@ -60,7 +66,7 @@ func RecentFailures(ctx context.Context, db Querier) ([]Failure, error) {
 		WHERE ts.status = 'failed' AND COALESCE(ts.last_error, '') NOT IN ('', ?)
 			AND NOT (ts.owner_type = 'post' AND ts.owner_id IN (SELECT id FROM posts WHERE deleted_at IS NOT NULL))
 	) ORDER BY julianday(at) DESC, route ASC, subject_id ASC LIMIT ?`,
-		cancelledMessage, cancelledMessage, cancelledMessage, recentFailureLimit)
+		cancelledMessage, cancelledMessage, cancelledMessage, cancelledMessage, recentFailureLimit)
 }
 
 func scanFailure(scan scanner) (Failure, error) {

@@ -19,6 +19,7 @@ func TestMediaRetryDelayIsBoundedAndRejectsPermanentFailures(t *testing.T) {
 		{"media_rate_limited", 3, 2 * time.Hour},
 		{"media_unavailable", 12, 24 * time.Hour},
 		{"media_body_unavailable", 100, 24 * time.Hour},
+		{"media_write_failed", 1, 30 * time.Minute},
 		{"media_missing", 1, 24 * time.Hour},
 		{"media_http_error", 1, 24 * time.Hour},
 		{"media_invalid_image", 1, 0},

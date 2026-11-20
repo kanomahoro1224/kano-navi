@@ -17,7 +17,9 @@ How media downloads run and how profile media and avatars are selected.
    [download bounds](#download-boundary), writes the bytes through a root
    confined to `data/` into
    `<source>/sha256/<first-two>/<content-sha256>.<extension>`, reuses an
-   existing file there only when its hash agrees, and records the row as
+   existing file there only when its hash agrees and otherwise atomically
+   replaces it with the verified bytes, since the content address is
+   authoritative, and records the row as
    `ready` with the width and height its header declares
    (`SaveMediaDownload` in `internal/store/sqlite/media_commands.go`). The same
    step measures up to 50 ready files cached before dimensions were probed,
@@ -27,8 +29,11 @@ How media downloads run and how profile media and avatars are selected.
    that have none yet, newest first, and reports them as `resized`.
 4. A failed or unavailable request updates the row to `failed` or `missing`.
    Existing ready files are retained; a failed synchronization never clears a
-   known snapshot. Transient failures (`media_timeout`, `media_unavailable`,
-   `media_body_unavailable` and `media_rate_limited`) back off from 30 minutes,
+   known snapshot. Downloaded bytes that cannot be published, such as a
+   content address the step cannot write, record `media_write_failed`.
+   Transient failures (`media_timeout`, `media_unavailable`,
+   `media_body_unavailable`, `media_rate_limited` and `media_write_failed`)
+   back off from 30 minutes,
    doubling to a maximum of 24 hours. Missing files and other HTTP errors are
    retried after 24 hours. Rejected destinations, invalid images and oversized
    bodies are not retried automatically. Rediscovering the same URL preserves
@@ -61,7 +66,9 @@ two more minutes, which leaves the rest of the run's 20 minutes to the
 steps after it. Images the bound leaves are made by the next step.
 Each asset is attempted at most once per step, so an asset that stays due
 after its check cannot repeat; a batch that holds no asset new to the step
-ends it. A `media_rate_limited` answer ends the step at once. The bounds are
+ends it. A file that fails, including one whose bytes cannot be published,
+does not end the step; a store that cannot record the failure, such as after
+a lost lease, does. A `media_rate_limited` answer ends the step at once. The bounds are
 constants (`StepBounds` in `internal/mediadownload`).
 
 The step result records `attempted`, `ready`, `unchanged`, `failed`,

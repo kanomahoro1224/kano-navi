@@ -325,9 +325,11 @@ func videoFromYTDLP(raw map[string]any) (Video, bool) {
 	if published == "" {
 		published = ytdlpDate(raw["upload_date"])
 	}
-	scheduled := ytdlpTime(raw["release_timestamp"])
+	// release_date names only the day: it fills ScheduledOn, never an
+	// instant.
+	scheduled, scheduledOn := ytdlpTime(raw["release_timestamp"]), ""
 	if scheduled == "" {
-		scheduled = ytdlpTime(raw["release_date"])
+		scheduledOn = ytdlpDay(raw["release_date"])
 	}
 	thumbnail, _ := raw["thumbnail"].(string)
 	if thumbnail == "" {
@@ -345,7 +347,7 @@ func videoFromYTDLP(raw map[string]any) (Video, bool) {
 		url = "https://www.youtube.com/watch?v=" + id
 	}
 	liveStatus, _ := raw["live_status"].(string)
-	video := Video{ID: id, Title: title, PublishedAt: published, ScheduledAt: scheduled, URL: url, ThumbnailURL: thumbnail, Kind: KindUnknown, DurationSeconds: intValue(raw["duration"])}
+	video := Video{ID: id, Title: title, PublishedAt: published, ScheduledAt: scheduled, ScheduledOn: scheduledOn, URL: url, ThumbnailURL: thumbnail, Kind: KindUnknown, DurationSeconds: intValue(raw["duration"])}
 	switch liveStatus {
 	case "is_upcoming", "upcoming":
 		video.IsUpcoming, video.LiveStatus = true, LiveStatusUpcoming
@@ -353,9 +355,6 @@ func videoFromYTDLP(raw map[string]any) (Video, bool) {
 		video.LiveNow, video.LiveStatus = true, LiveStatusLive
 	case "post_live", "was_live", "ended":
 		video.LiveStatus = LiveStatusEnded
-	}
-	if video.IsUpcoming && video.ScheduledAt == "" {
-		video.ScheduledAt = video.PublishedAt
 	}
 	if short, ok := raw["categories"].([]any); ok {
 		_ = short
@@ -389,6 +388,19 @@ func ytdlpDate(value any) string {
 		return ""
 	}
 	return parsed.Format(time.RFC3339Nano)
+}
+
+// ytdlpDay reads a YYYYMMDD date as YYYY-MM-DD, or "" for anything else.
+func ytdlpDay(value any) string {
+	date, _ := value.(string)
+	if len(date) != 8 {
+		return ""
+	}
+	parsed, err := time.Parse("20060102", date)
+	if err != nil {
+		return ""
+	}
+	return parsed.Format("2006-01-02")
 }
 
 func intValue(value any) int {

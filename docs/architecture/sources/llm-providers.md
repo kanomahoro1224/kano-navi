@@ -59,7 +59,8 @@ Cancellation-only entries without an unambiguous existing target remain in
 extraction metadata. The overlay applies to manually locked events too, so a manually entered event can
 remain visible with the model's cancellation evidence. `not_schedule` and
 `uncertain` results only record the extraction outcome and leave existing events
-untouched. Input fingerprints (including text, publication time, URL, and cached image
+in place; a `not_schedule` result sends the post's events to the Review queue
+(see [Event precedence](../data-model/event-precedence.md)). Input fingerprints (including text, publication time, URL, and cached image
 hashes), the detection path, input mode and the extractor version make these
 outcomes idempotent. Each stored extraction also names the queue target that
 produced it, but the cache ignores that part: when the newest attempt of the

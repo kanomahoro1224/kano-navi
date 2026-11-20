@@ -299,8 +299,15 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 		// A check that cannot tell a premiere from a stream keeps the stored
 		// verdict, which a later check that can tell replaces.
 		var storedPremiere sql.NullBool
-		if err = tx.QueryRowContext(ctx, `SELECT is_premiere FROM videos WHERE id=?`, v.ID).Scan(&storedPremiere); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		var storedLive sql.NullString
+		if err = tx.QueryRowContext(ctx, `SELECT is_premiere,live_status FROM videos WHERE id=?`, v.ID).Scan(&storedPremiere, &storedLive); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return false, ErrSourceWrite
+		}
+		// An ended broadcast stays ended: a later answer that calls it
+		// upcoming, live or nothing moves neither the video nor its event
+		// back.
+		if storedLive.String == ytsource.LiveStatusEnded {
+			v.LiveStatus, v.IsUpcoming, v.LiveNow = ytsource.LiveStatusEnded, false, false
 		}
 		var premiere any
 		if v.PremiereKnown {
@@ -345,11 +352,20 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 				return false, ErrSourceWrite
 			}
 		}
+		// A reservation known only to the day (yt-dlp's release_date) is a
+		// date-only entry, as an X post without a time is: no start instant
+		// and unknown time precision, until a check reports its start.
+		startsOn, startsAt, precision := v.ScheduledOn, any(nil), "unknown"
 		if v.ScheduledAt != "" {
 			start, e := time.Parse(time.RFC3339Nano, v.ScheduledAt)
 			if e != nil {
 				return false, ErrSourceWrite
 			}
+			startsOn, startsAt, precision = start.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02"), v.ScheduledAt, "exact"
+		} else if !v.IsUpcoming {
+			startsOn = ""
+		}
+		if startsOn != "" {
 			typeName, detail, status := youtubeEventFields(v)
 			eventID := "youtube-" + v.ID
 			// Reuse stored evidence identities, including locked rows and deleted
@@ -376,9 +392,9 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 			// Manual locks and deletion tombstones survive every source refresh.
 			// A reservation restores only an unlocked event that automatic
 			// re-extraction retired (its source evidence was retired), as new X
-			// evidence would.
+			// evidence would. A date-only answer never replaces a known start.
 			var event sql.Result
-			event, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,created_at,updated_at,raw_json,platform,platforms,platforms_inferred) VALUES(?,'youtube',?,'reservation',?,?,?,?,?,'Asia/Tokyo','exact',?,?,?,?,'automatic',0,?,?,'{}','youtube','["youtube"]',0) ON CONFLICT(id) DO UPDATE SET title=excluded.title,detail=excluded.detail,starts_on=excluded.starts_on,starts_at=excluded.starts_at,ends_at=COALESCE(excluded.ends_at,events.ends_at),time_precision=excluded.time_precision,status=excluded.status,event_type=excluded.event_type,url=excluded.url,is_upcoming=excluded.is_upcoming,deleted_at=NULL,`+retitledJudgementSQL("events", retitledEventJudgement)+`,updated_at=excluded.updated_at WHERE events.manual_locked=0 AND (events.deleted_at IS NULL OR `+restorableEventSQL("events")+`) AND (events.deleted_at IS NOT NULL OR events.title IS NOT excluded.title OR events.detail IS NOT excluded.detail OR events.starts_on IS NOT excluded.starts_on OR events.starts_at IS NOT excluded.starts_at OR events.ends_at IS NOT COALESCE(excluded.ends_at,events.ends_at) OR events.time_precision IS NOT excluded.time_precision OR events.status IS NOT excluded.status OR events.event_type IS NOT excluded.event_type OR events.url IS NOT excluded.url OR events.is_upcoming IS NOT excluded.is_upcoming)`, eventID, v.ID, v.Title, detail, start.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02"), v.ScheduledAt, nullable(v.EndedAt), status, typeName, v.URL, v.IsUpcoming, now, now)
+			event, err = tx.ExecContext(ctx, `INSERT INTO events(id,source,source_item_id,source_key,title,detail,starts_on,starts_at,ends_at,timezone,time_precision,status,event_type,url,is_upcoming,provenance,manual_locked,created_at,updated_at,raw_json,platform,platforms,platforms_inferred) VALUES(?,'youtube',?,'reservation',?,?,?,?,?,'Asia/Tokyo',?,?,?,?,?,'automatic',0,?,?,'{}','youtube','["youtube"]',0) ON CONFLICT(id) DO UPDATE SET title=excluded.title,detail=excluded.detail,starts_on=excluded.starts_on,starts_at=excluded.starts_at,ends_at=COALESCE(excluded.ends_at,events.ends_at),time_precision=excluded.time_precision,status=excluded.status,event_type=excluded.event_type,url=excluded.url,is_upcoming=excluded.is_upcoming,deleted_at=NULL,`+retitledJudgementSQL("events", retitledEventJudgement)+`,updated_at=excluded.updated_at WHERE events.manual_locked=0 AND (excluded.starts_at IS NOT NULL OR events.starts_at IS NULL) AND (events.deleted_at IS NULL OR `+restorableEventSQL("events")+`) AND (events.deleted_at IS NOT NULL OR events.title IS NOT excluded.title OR events.detail IS NOT excluded.detail OR events.starts_on IS NOT excluded.starts_on OR events.starts_at IS NOT excluded.starts_at OR events.ends_at IS NOT COALESCE(excluded.ends_at,events.ends_at) OR events.time_precision IS NOT excluded.time_precision OR events.status IS NOT excluded.status OR events.event_type IS NOT excluded.event_type OR events.url IS NOT excluded.url OR events.is_upcoming IS NOT excluded.is_upcoming)`, eventID, v.ID, v.Title, detail, startsOn, startsAt, nullable(v.EndedAt), precision, status, typeName, v.URL, v.IsUpcoming, now, now)
 			if err != nil {
 				return false, ErrSourceWrite
 			}

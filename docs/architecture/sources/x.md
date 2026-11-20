@@ -56,7 +56,11 @@ the timeline later reads it again from the newest page.
 Before an account has a cursor, the Snowflake timestamps of discovered IDs are
 decoded and IDs older than the first-run age limit are skipped. Each account has
 its own cursor in `sync_state`. Later runs prioritize unknown IDs and may
-refresh only a small budget of known posts.
+refresh only a small budget of known posts: stored statuses the listing names,
+read through a detail request. Such a refresh is optional. When it fails, the
+run notes `<id>: <code>` and leaves it out of the pending queue, and the
+failure never fails the account, so a quiet run whose refresh times out still
+succeeds.
 
 The timeline pages a run reads already carry each status, so a new or pending
 status that a page lists with usable content is stored from the page, through
@@ -72,7 +76,12 @@ result counts them as `timelinePosts`. A stored post that a page lists again
 keeps the text, media and schedule candidate it has, as in a manual fetch.
 Successful posts are stored with `account_handle` and returned as one
 time-ordered feed. Image-only posts are retained as candidates as long as they
-have a publication time and a media URL.
+have a publication time and a media URL. A status whose ID is stored as
+another account's post (one stored before a handle rename, or an imported
+one) keeps that row, its media and its schedule-image candidate as they are:
+the write skips it with the note `<id>: x_post_owner_conflict`, removes it
+from the pending queue like a stored post, and writes the rest of the
+account's run.
 
 Both paths store the same values for one status, so a post first stored from
 the timeline and refreshed through a detail request later keeps its
@@ -125,14 +134,22 @@ a timeline page lists with content is stored from the page whatever its
 failures. Successful posts, pending-work removal, the failure counts and the
 latest successful cursor commit atomically. Budget exhaustion retains
 unfinished IDs; an all-failed run does not record a successful cursor or
-timestamp. Manual fetches neither consume this queue nor update normal
+timestamp. An account whose listing served records `last_success_at` even
+when it found nothing new, whether the timeline or the X API served it; the
+account fails only when its listing failed or every status it requested
+failed. Any failed account still fails the step with `x_source_failed`
+when the run stored no post. The step's notes (gap codes, failed optional
+refreshes and owner conflicts, as `<account>: <note>` in `errors`) leave
+the step `partial` without failing it. Manual fetches neither consume this queue nor update normal
 incremental state.
 
 Failed detail requests are counted per ID in
 `sync_state.metadata_json.pendingRetries` (`{failures, gone, retryAt}` by
 ID, kept beside the `pendingStatusIds` array; rows without it start with no
 failures). A 404 or 410 answer counts as gone, and the second consecutive
-gone answer drops the ID with `x_status_gone`. An answer that the status is
+gone answer drops the ID with `x_status_gone`. When the account has the ID
+stored as its post (such as one an operator's refresh queued), the post is
+marked [deleted upstream](../data-model/posts.md#posts-deleted-upstream). An answer that the status is
 another account's (an ID an older profile fallback queued from a quote, say)
 is no failure: it drops the ID at once with `x_status_foreign`, without an
 error, retry state or partial run, though it still counts as requested. An

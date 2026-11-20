@@ -21,6 +21,7 @@ import {
   PencilLine,
   Quote,
   Search,
+  Trash2,
 } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
@@ -643,7 +644,7 @@ function PostItem({
   )
   return (
     <li
-      className={`adm-post${post.hiddenAt ? " is-hidden" : ""}${selected ? " is-selected" : ""}`}
+      className={`adm-post${post.hiddenAt || post.upstreamDeletedAt ? " is-hidden" : ""}${selected ? " is-selected" : ""}`}
     >
       <span className="adm-post-origin">
         {onSelect ? (
@@ -682,6 +683,11 @@ function PostItem({
         {post.hiddenAt ? (
           <Badge tone="warning" icon={EyeOff}>
             {t("admin.posts.hidden")}
+          </Badge>
+        ) : null}
+        {post.upstreamDeletedAt ? (
+          <Badge tone="danger" icon={Trash2}>
+            {t("admin.posts.deletedUpstream")}
           </Badge>
         ) : null}
         {post.promotedAt ? (

@@ -1026,6 +1026,10 @@ type assetReview struct {
 	manualStatus        string
 	reviewUpdatedAt     string
 	sourceMatchesBoard  bool
+	// checkStatus and checkAt are the latest check that left the stored
+	// verdict in place (running, failed or skipped), or "".
+	checkStatus string
+	checkAt     string
 }
 
 // The source post text is read from raw_json so a quoted post counts the same
@@ -1037,7 +1041,7 @@ const assetReviewColumns = `a.id, a.url, a.source_url, a.asset_version,
 		ORDER BY p.published_at DESC LIMIT 1),
 	r.llm_status, r.llm_confidence, r.llm_text, r.llm_reason, r.llm_evidence, r.llm_model,
 	r.llm_checked_at, r.llm_input_fingerprint,
-	COALESCE(r.manual_status, 'unreviewed'), r.updated_at`
+	COALESCE(r.manual_status, 'unreviewed'), r.updated_at, r.check_status, r.check_at`
 
 var (
 	assetLLMStatuses = map[string]bool{
@@ -1062,10 +1066,10 @@ type rowScanner interface{ Scan(dest ...any) error }
 
 func scanAssetReview(row rowScanner) (*assetReview, error) {
 	var review assetReview
-	var sourceText, llmStatus, llmText, reason, evidence, model, checkedAt, fingerprint, manual, updatedAt sql.NullString
+	var sourceText, llmStatus, llmText, reason, evidence, model, checkedAt, fingerprint, manual, updatedAt, checkStatus, checkAt sql.NullString
 	err := row.Scan(&review.id, &review.url, &review.sourceURL, &review.assetVersion, &sourceText,
 		&llmStatus, &review.llmConfidence, &llmText, &reason, &evidence, &model, &checkedAt, &fingerprint,
-		&manual, &updatedAt)
+		&manual, &updatedAt, &checkStatus, &checkAt)
 	if err != nil {
 		return nil, err
 	}
@@ -1077,6 +1081,7 @@ func scanAssetReview(row rowScanner) (*assetReview, error) {
 	review.llmText, review.llmReason, review.llmEvidence, review.llmModel = llmText.String, reason.String, evidence.String, model.String
 	review.llmCheckedAt, review.llmInputFingerprint = checkedAt.String, fingerprint.String
 	review.reviewUpdatedAt = updatedAt.String
+	review.checkStatus, review.checkAt = checkStatus.String, checkAt.String
 	review.sourceMatchesBoard = !sourceText.Valid || isLikelyScheduleBoardText(sourceText.String)
 	return &review, nil
 }
@@ -1127,9 +1132,32 @@ type reviewUpdate struct {
 	llmInputFingerprint string
 }
 
+// keepsVerdict reports whether a write leaves the stored model verdict in
+// place: a check that is running, failed or skipped (save for an asset
+// without an image) on an asset whose image already has a verdict records
+// only the check (check_*), so the verdict and the image's public visibility
+// stand until a check returns a new one.
+func keepsVerdict(current *assetReview, update reviewUpdate) bool {
+	return !classifications[update.llmStatus] && classifications[current.llmStatus] &&
+		!(update.llmStatus == "skipped" && update.llmReason == "no_image")
+}
+
+// clearCheck forgets a check that left the verdict in place once a check
+// of the same image finds the verdict current again.
+func (e *Extractor) clearCheck(ctx context.Context, review *assetReview) error {
+	if review.checkStatus == "" {
+		return nil
+	}
+	_, err := e.db.ExecContext(ctx, `UPDATE schedule_asset_reviews SET check_status=NULL, check_reason=NULL, check_at=NULL
+		WHERE asset_id=? AND llm_input_fingerprint=? AND check_status IS NOT NULL`, review.id, review.llmInputFingerprint)
+	return err
+}
+
 // upsertAssetReview writes a model verdict only while the asset still shows
 // the image that was sent. It never touches the manual review columns of an
-// existing row, and reports applied=false for a replaced or removed asset.
+// existing row, and reports applied=false for a replaced or removed asset. A
+// verdict clears the recorded check; see keepsVerdict for a check that
+// leaves the verdict in place.
 func (e *Extractor) upsertAssetReview(ctx context.Context, update reviewUpdate) (bool, error) {
 	tx, err := e.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -1156,6 +1184,17 @@ func (e *Extractor) upsertAssetReview(ctx context.Context, update reviewUpdate) 
 			return false, nil
 		}
 	}
+	if keepsVerdict(current, update) {
+		checkAt := update.llmCheckedAt
+		if checkAt == "" {
+			checkAt = e.nowISO()
+		}
+		if _, err = tx.ExecContext(ctx, `UPDATE schedule_asset_reviews SET check_status=?, check_reason=?, check_at=?, updated_at=?
+			WHERE asset_id=?`, update.llmStatus, nullable(update.llmReason), checkAt, e.nowISO(), assetID); err != nil {
+			return false, err
+		}
+		return true, tx.Commit()
+	}
 	var confidence any
 	if update.llmConfidence != nil && finite(*update.llmConfidence) {
 		confidence = min(1, max(0, *update.llmConfidence))
@@ -1174,12 +1213,19 @@ func (e *Extractor) upsertAssetReview(ctx context.Context, update reviewUpdate) 
 			llm_model=excluded.llm_model,
 			llm_checked_at=excluded.llm_checked_at,
 			llm_input_fingerprint=excluded.llm_input_fingerprint,
+			check_status=NULL, check_reason=NULL, check_at=NULL,
 			updated_at=excluded.updated_at`,
 		assetID, normalizedAssetLLMStatus(update.llmStatus), confidence, nullable(update.llmText), nullable(update.llmReason),
 		nullable(update.llmEvidence), nullable(update.llmModel), nullable(update.llmCheckedAt),
 		nullable(update.llmInputFingerprint), e.nowISO())
 	if err != nil {
 		return false, err
+	}
+	// The board shows a schedule image the model approved.
+	if (current.llmStatus == "schedule") != (normalizedAssetLLMStatus(update.llmStatus) == "schedule") {
+		if err = sqlite.BumpRevisionTx(ctx, tx, e.nowISO()); err != nil {
+			return false, err
+		}
 	}
 	return true, tx.Commit()
 }

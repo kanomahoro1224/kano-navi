@@ -21,7 +21,12 @@ playlist page, keeps the cursor, so later runs take the rest while the
 listing still reaches it; without a cursor the first run is bounded on
 purpose. It separately inspects the streams page and keeps rechecking active or
 recent reservations for `scheduledStartTime`, writing them to both `videos` and
-`events`. When no schedule time is available, the step does not invent one. RSS insertion
+`events`. When no schedule time is available, the step does not invent one:
+an upcoming yt-dlp entry that names its `release_date` but no
+`release_timestamp` is a date-only reservation, with that date as the
+event's `starts_on`, no `starts_at` and `time_precision` `unknown`, and no
+`scheduled_at` on the video, until a check reports its start; a date-only
+answer never replaces a known start. RSS insertion
 does not count as a reservation detail check, but RSS lists waiting rooms and
 premieres like ordinary uploads, so the uploads a run takes are detail
 candidates as well, after stream-page discoveries. A watch

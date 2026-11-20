@@ -3,6 +3,7 @@ import {
   CalendarCheck,
   CalendarPlus,
   CalendarX,
+  CalendarMinus,
   CheckCheck,
   CircleHelp,
   Combine,
@@ -49,8 +50,8 @@ export function groupByDay(events: AdminEvent[]) {
 /** Below this model confidence an automatic entry is an uncertain addition. */
 /**
  * What an entry asks of the operator, as the server's review rule decides:
- * a suspected cancellation to decide, or an uncertain addition to confirm or
- * delete, with the reasons; null when it asks nothing.
+ * a suspected cancellation to decide, or an unlisted entry or uncertain
+ * addition to confirm or delete, with the reasons; null when it asks nothing.
  */
 export function reviewOf(event: AdminEvent) {
   return event.review ?? null
@@ -58,9 +59,10 @@ export function reviewOf(event: AdminEvent) {
 
 /**
  * The entry's review in place: the model's suspicion and its evidence with
- * the cancellation decision, or why an addition is uncertain; either opens
- * the source posts below. Confirming or deleting an uncertain addition uses
- * the row's own actions.
+ * the cancellation decision, that its posts no longer list it, or why an
+ * addition is uncertain; each opens the source posts below. Confirming or
+ * deleting an unlisted entry or an uncertain addition uses the row's own
+ * actions.
  */
 function ReviewNote({
   event,
@@ -99,7 +101,11 @@ function ReviewNote({
     }
   }
   const suspected = review.kind === "suspected"
-  const Icon = suspected ? TriangleAlert : CircleHelp
+  const Icon = suspected
+    ? TriangleAlert
+    : review.kind === "unlisted"
+      ? CalendarMinus
+      : CircleHelp
   const detail = suspected
     ? event.cancellationConfidence != null
       ? `${Math.round(event.cancellationConfidence * 100)}%`

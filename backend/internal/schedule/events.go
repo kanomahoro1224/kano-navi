@@ -3,6 +3,7 @@ package schedule
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -33,6 +34,13 @@ func (e *Extractor) applyExtraction(ctx context.Context, source, postID string, 
 	if err != nil {
 		return err
 	}
+	// A post read again as no schedule keeps its events for an operator's
+	// decision.
+	if result.classification == "not_schedule" {
+		if err = e.markUnlisted(ctx, tx, source, postID); err != nil {
+			return err
+		}
+	}
 	// Cancellation evidence must not retire a source's existing schedules.
 	if result.classification == "schedule" && result.action != "cancel" && (len(scheduled) > 0 || len(cancellations) == 0) {
 		if err = e.replaceAutomaticEvents(ctx, tx, source, postID, extractionID, scheduled, targets); err != nil {
@@ -55,6 +63,10 @@ func (e *Extractor) applyExtraction(ctx context.Context, source, postID string, 
 		if err = e.applyCancellations(ctx, tx, postID, reason, evidence, result.confidence, targets); err != nil {
 			return err
 		}
+	}
+	// The post's events are public, so open boards follow the change.
+	if err = sqlite.BumpRevisionTx(ctx, tx, e.nowISO()); err != nil {
+		return err
 	}
 	return tx.Commit()
 }
@@ -202,13 +214,117 @@ func llmTagSource(tag *string) any {
 	return sqlite.TagSourceLLM
 }
 
+// lendYoutubeEventSQL is what an entry lends the event of a YouTube video
+// that the YouTube writer wrote: its stated label, under the label rules of
+// upsertEventSQL, and the announced platforms. Every other field is the
+// YouTube writer's.
+const lendYoutubeEventSQL = `UPDATE events SET
+		tag=CASE WHEN ? IS NULL OR tag_source='manual' OR ? IN ('live','video') AND tag IN ('game','talk','song')
+			THEN tag ELSE ? END,
+		tag_source=CASE WHEN ? IS NULL OR tag_source='manual' OR ? IN ('live','video') AND tag IN ('game','talk','song')
+			THEN tag_source ELSE ? END,
+		platforms=?, platform=?, updated_at=?
+	WHERE id=? AND manual_locked=0`
+
+// youtubeWritten reports whether the YouTube writer vouches for the event:
+// it holds that video's active reservation evidence.
+func youtubeWritten(ctx context.Context, tx *sql.Tx, eventID string) (bool, error) {
+	var found int
+	err := tx.QueryRowContext(ctx, `SELECT 1 FROM event_sources WHERE event_id=? AND source='youtube'
+		AND source_key='reservation' AND deleted_at IS NULL LIMIT 1`, eventID).Scan(&found)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// lendToYoutubeEvent attaches an entry to a YouTube-written event: the stored
+// platforms keep their order and gain the ones the entry states.
+func lendToYoutubeEvent(ctx context.Context, tx *sql.Tx, eventID string, event normalizedEvent, now string) error {
+	var stored sql.NullString
+	if err := tx.QueryRowContext(ctx, `SELECT platforms FROM events WHERE id=?`, eventID).Scan(&stored); err != nil {
+		return err
+	}
+	platforms := []string{}
+	if stored.Valid {
+		_ = json.Unmarshal([]byte(stored.String), &platforms)
+	}
+	if len(platforms) == 0 {
+		platforms = []string{sqlite.PlatformYouTube}
+	}
+	if !event.platformsInferred {
+		platforms = append(platforms, event.platforms...)
+	}
+	platforms = sqlite.NormalizePlatforms(platforms)
+	tag, tagSource := nullableText(event.tag), llmTagSource(event.tag)
+	_, err := tx.ExecContext(ctx, lendYoutubeEventSQL, tag, tag, tag, tag, tag, tagSource,
+		sqlite.EncodePlatforms(platforms), sqlite.PrimaryPlatform(platforms), now, eventID)
+	return err
+}
+
+// postEvidenceEvents are the events the post's active evidence supports.
+func postEvidenceEvents(ctx context.Context, tx *sql.Tx, source, postID string) ([]string, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT event_id FROM event_sources
+		WHERE source=? AND source_item_id=? AND deleted_at IS NULL ORDER BY event_id`, source, postID)
+	if err != nil {
+		return nil, err
+	}
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, errors.Join(rows.Err(), rows.Close())
+}
+
+// retireUnsupported retires an automatic, unlocked event that has no active
+// announcing evidence left, and releases the rule merges into it.
+func retireUnsupported(ctx context.Context, tx *sql.Tx, eventID, timestamp string) error {
+	var remaining int
+	// An upload the release was paired with is not an announcement: it
+	// keeps no retired entry alive.
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM event_sources WHERE event_id=? AND deleted_at IS NULL AND source<>'bilibili-video'`, eventID).Scan(&remaining); err != nil {
+		return err
+	}
+	if remaining > 0 {
+		return nil
+	}
+	retired, err := tx.ExecContext(ctx, `UPDATE events SET deleted_at=?, updated_at=?
+		WHERE id=? AND deleted_at IS NULL AND provenance='automatic' AND manual_locked=0`, timestamp, timestamp, eventID)
+	if err != nil {
+		return err
+	}
+	// As with a manual delete, the rule merges into a retired event are
+	// released, so a duplicate outside the reconciler's window is not left
+	// hidden behind it.
+	if count, _ := retired.RowsAffected(); count > 0 {
+		if _, err = tx.ExecContext(ctx, `UPDATE events SET merged_into=NULL, merge_source=NULL, merge_reason=NULL, merged_at=NULL
+			WHERE merged_into=? AND merge_source='rule'`, eventID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // replaceAutomaticEvents mirrors replaceAutomaticEventsForSource for the
 // post's source scope (x or bilibili). The upsert is guarded by manual_locked = 0, so an operator's
 // edit or tombstone keeps its fields while the source evidence row is still
-// attached to it; events the post no longer lists are retired only when they
-// are automatic, unlocked and have no other live source.
+// attached to it, and evidence the post attached to such an event stays
+// there whatever identity the entry takes now. An entry that names a YouTube
+// video only attaches its evidence to an event the YouTube writer wrote. An
+// event that loses its last live source in this write, because the post no
+// longer lists it or its evidence moved to another identity, is retired when
+// it is automatic and unlocked.
 func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, source, postID string, extractionID int64, events []normalizedEvent, preserve []string) error {
 	timestamp := e.nowISO()
+	supported, err := postEvidenceEvents(ctx, tx, source, postID)
+	if err != nil {
+		return err
+	}
 	activeKeys := map[string]bool{}
 	for _, event := range events {
 		activeKeys[event.sourceKey] = true
@@ -248,21 +364,49 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, sour
 		} else if !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
+		// Evidence the post attached to an operator's edit or tombstone stays
+		// with it, so a link the entry gains or drops neither shows a deleted
+		// activity again under another identity nor duplicates an edited one.
+		var held string
+		err = tx.QueryRowContext(ctx, `SELECT s.event_id FROM event_sources s JOIN events e ON e.id=s.event_id
+			WHERE s.source=? AND s.source_item_id=? AND s.source_key=? AND e.manual_locked=1`,
+			source, postID, event.sourceKey).Scan(&held)
+		if err == nil {
+			eventID = held
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		lends := false
+		if held == "" && event.canonicalSource == "youtube" {
+			if lends, err = youtubeWritten(ctx, tx, eventID); err != nil {
+				return err
+			}
+		}
 		upcoming := 0
 		if event.isUpcoming {
 			upcoming = 1
 		}
 		now := e.nowISO()
-		if _, err = tx.ExecContext(ctx, upsertEventSQL,
-			eventID, event.canonicalSource, event.canonicalSourceItemID, event.canonicalSourceKey,
-			event.title, nullableText(event.detail), event.startsOn, nullableText(event.startsAt),
-			nullableText(event.endsAt), nullableText(event.endsOn), event.timePrecision, nullable(event.status), event.eventType,
-			nullableText(event.tag), llmTagSource(event.tag), nullable(event.url), upcoming, event.confidence, extractionID, now, now, stringify(raw), event.platform, sqlite.EncodePlatforms(event.platforms), event.platformsInferred); err != nil {
-			return err
+		switch {
+		case held != "":
+			// The operator's row keeps every field; only the evidence is written.
+		case lends:
+			if err = lendToYoutubeEvent(ctx, tx, eventID, event, now); err != nil {
+				return err
+			}
+		default:
+			if _, err = tx.ExecContext(ctx, upsertEventSQL,
+				eventID, event.canonicalSource, event.canonicalSourceItemID, event.canonicalSourceKey,
+				event.title, nullableText(event.detail), event.startsOn, nullableText(event.startsAt),
+				nullableText(event.endsAt), nullableText(event.endsOn), event.timePrecision, nullable(event.status), event.eventType,
+				nullableText(event.tag), llmTagSource(event.tag), nullable(event.url), upcoming, event.confidence, extractionID, now, now, stringify(raw), event.platform, sqlite.EncodePlatforms(event.platforms), event.platformsInferred); err != nil {
+				return err
+			}
 		}
 		evidence := event.rawObject()
 		evidence.set("source", source)
 		evidence.set("source_item_id", postID)
+		// Listing the entry again settles a not_schedule reading of the post.
 		if _, err = tx.ExecContext(ctx, `INSERT INTO event_sources (
 				event_id, source, source_item_id, source_key, url, raw_json, deleted_at,
 				created_at, updated_at
@@ -271,7 +415,7 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, sour
 				event_id=excluded.event_id,
 				url=COALESCE(excluded.url, event_sources.url),
 				raw_json=COALESCE(excluded.raw_json, event_sources.raw_json),
-				deleted_at=NULL,
+				deleted_at=NULL, unlisted_at=NULL,
 				updated_at=excluded.updated_at`,
 			eventID, source, postID, event.sourceKey, nullable(event.evidenceURL), stringify(evidence), timestamp, timestamp); err != nil {
 			return err
@@ -311,30 +455,29 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, sour
 		if _, err = tx.ExecContext(ctx, `UPDATE event_sources SET deleted_at=?, updated_at=? WHERE id=?`, timestamp, timestamp, row.id); err != nil {
 			return err
 		}
-		var remaining int
-		// An upload the release was paired with is not an announcement: it
-		// keeps no retired entry alive.
-		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM event_sources WHERE event_id=? AND deleted_at IS NULL AND source<>'bilibili-video'`, row.eventID).Scan(&remaining); err != nil {
-			return err
+		supported = append(supported, row.eventID)
+	}
+	seen := map[string]bool{}
+	for _, eventID := range supported {
+		if seen[eventID] {
+			continue
 		}
-		if remaining == 0 {
-			retired, err := tx.ExecContext(ctx, `UPDATE events SET deleted_at=?, updated_at=?
-				WHERE id=? AND provenance='automatic' AND manual_locked=0`, timestamp, timestamp, row.eventID)
-			if err != nil {
-				return err
-			}
-			// As with a manual delete, the rule merges into a retired event are
-			// released, so a duplicate outside the reconciler's window is not
-			// left hidden behind it.
-			if count, _ := retired.RowsAffected(); count > 0 {
-				if _, err = tx.ExecContext(ctx, `UPDATE events SET merged_into=NULL, merge_source=NULL, merge_reason=NULL, merged_at=NULL
-					WHERE merged_into=? AND merge_source='rule'`, row.eventID); err != nil {
-					return err
-				}
-			}
+		seen[eventID] = true
+		if err = retireUnsupported(ctx, tx, eventID, timestamp); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// markUnlisted records that the post, read again, lists no schedule: its
+// live evidence stays, so its events stay, and they wait in the Review queue
+// for an operator to keep or delete them (see sqlite.EventAttentionSQL).
+func (e *Extractor) markUnlisted(ctx context.Context, tx *sql.Tx, source, postID string) error {
+	timestamp := e.nowISO()
+	_, err := tx.ExecContext(ctx, `UPDATE event_sources SET unlisted_at=?, updated_at=?
+		WHERE source=? AND source_item_id=? AND deleted_at IS NULL AND unlisted_at IS NULL`, timestamp, timestamp, source, postID)
+	return err
 }
 
 // applyCancellations records the model's cancellation judgement as an

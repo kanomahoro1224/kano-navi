@@ -46,25 +46,35 @@ cancellation or a shutdown finishes it `cancelled`.
 **Retry.** A step error carries a category. `timeout`, `rate_limited` and
 `dependency_unavailable` are retryable and get one more attempt in the same
 run, five seconds later; `permanent`, `schema_failure`, `validation_failure`, `cancelled` and
-`blocked` are not. The final failure of `x`, `youtube`, `bilibili` or
-`translate` is recorded with its code and the run continues, finishing
-`partial`, or `failed` when no step completed; a source step that carries a
+`blocked` are not. The final failure of `x`, `x_related`, `youtube`,
+`bilibili`, `bilibili_dynamics`, `shop` or `translate` is recorded with its
+code and the run continues, finishing `partial`, or `failed` when no step
+completed; a source step that carries a
 [manual fetch](manual-fetches.md) is the exception. Any
 other final failure ends the run and marks its pending steps `blocked`.
 `POST /api/admin/runs/{id}/retry` requeues a `failed`, `partial` or
 `blocked` run while no other run is active, when it has a retryable failed
 step and no permanent failure: retryable failed and blocked steps return to
-`pending`, and completed steps and earlier attempts stay.
+`pending`. A retried source step (`x`, `x_related`, `youtube`, `bilibili`,
+`bilibili_dynamics`, `shop` or `live`) can store new posts and videos, so the
+completed steps after the first of them that are not sources, such as
+`media`, `schedule`, `translate` and `reconcile`, return to `pending` as well.
+Other completed steps and earlier attempts stay.
 
 **Recovery.** At startup and every 30 seconds the server recovers `running`
 runs whose lease is missing or expired: their running attempts become
 `failed` with `lease_expired` (retryable), their running steps return to
 `pending`, and the run returns to `queued` with `execution_source =
-recovery` and `recovery_count` incremented. A queued run is then dispatched.
+recovery` and `recovery_count` incremented. A queued run is then dispatched;
+its completed steps and the failures it already tolerated stay as they are,
+and it continues with the next pending step.
 `POST /api/admin/runs/{id}/cancel` records the request; a queued run is
 cancelled at once, and a running one stops its network requests and finishes
 `cancelled` with its pending steps. Finishing a run updates its `sync_runs`
-row and the dashboard revision and releases the lease.
+row and releases the lease. It leaves the dashboard revision alone: each write
+that changes what public readers see advances the revision in its own
+transaction, so a run that changed nothing, such as a live probe that found
+no change, never makes open boards reload.
 
 **Retention.** The server process deletes finished runs past their
 retention window when it starts and then once a day. Succeeded and

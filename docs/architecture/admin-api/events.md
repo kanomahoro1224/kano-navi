@@ -16,7 +16,11 @@ Curating events and deciding schedule images.
 | `DELETE /events/{id}`       |                                                                                                                         | `204` (tombstone) |
 
 Each event carries `review`, why it needs an operator's look, or `null`:
-`{kind: "suspected", reasons: []}` for a live suspected cancellation, or
+`{kind: "suspected", reasons: []}` for a live suspected cancellation,
+`{kind: "unlisted", reasons: []}` for an unconfirmed automatic entry whose
+posts were all read again as no schedule (see
+[Event precedence](../data-model/event-precedence.md)), which the operator keeps
+with `confirm` or removes with `DELETE`, or
 `{kind: "uncertain", reasons}` for an uncertain addition, an unconfirmed
 automatic entry starting on or after today in Japan whose model confidence
 is below 0.7 (`lowConfidence`) or whose status is `tentative`
@@ -135,11 +139,19 @@ or `null` when the image model has not returned one.
 `GET /schedule-attention` is the Review queue's schedule work:
 `{today, weeks: [{weekStart, images, events}], undated, truncated}`.
 `weeks`, oldest first, hold from Monday `weekStart` the images that wait for
-a decision (unlabelled, with a URL, and not settled by the model) whose
-period starts in the week, and the events whose `review` is set that start
-in it, as `GET /events` reports them; `undated` holds the waiting images
-without a period. Each kind reads at most 100 items; `truncated` says one
-had more.
+a decision (`needsReview`) whose period starts in the week, and the events
+whose `review` is set that start in it, as `GET /events` reports them;
+`undated` holds the waiting images without a period. Each kind reads at most
+100 items; `truncated` says one had more.
+
+An image waits for a decision when it has a URL and either has a
+`previousDecision`, or has no label and a model verdict that is `pending`,
+`uncertain` or `failed` or a `lastCheck` that `failed` or was `skipped`.
+`previousDecision` is `{status, reason, at}` of the operator's label on the
+image the asset showed before its URL changed, or `null`; any label, a
+cleared one included, answers it. `lastCheck` is `{status, reason, at}` of
+the latest check that left the model verdict in place (`running`, `failed`
+or `skipped`), or `null`.
 
 `status` is `schedule`, `not_schedule` or `unreviewed` (which clears the
 label; the others require `reason`). A `schedule` label is the manual gate

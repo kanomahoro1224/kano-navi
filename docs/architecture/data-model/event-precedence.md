@@ -36,9 +36,31 @@ title, independently of the number of events in a result. Matching evidence in
 date IDs, manual locks, and tombstones. Identical activities across X posts share
 an event; evidence attached by an old date-ID collision is reused only when it
 matches the surviving row's source key, so re-extraction can separate those
-activities. YouTube URLs use the video reservation identity. Replacing a source's
-events and retiring its missing evidence happen in one transaction. An automatic
-event retires only when no active source evidence remains.
+activities. Replacing a source's events and retiring its missing evidence
+happen in one transaction. An automatic, unlocked event retires when that
+transaction leaves it no active source evidence, whether the post no longer
+lists it or its evidence moved to another identity, such as an entry that gains
+or drops a YouTube link; a paired Bilibili upload keeps no entry alive. An event
+without any evidence row left is restorable like one whose evidence was retired.
+Evidence a post attached to a locked event (an operator's edit or tombstone)
+stays there whatever identity the entry takes later, so a deleted activity does
+not return as the video's event and an edited one is not duplicated.
+
+An entry whose link names a YouTube video takes the video's reservation
+identity. YouTube data is authoritative for that event: when the YouTube writer
+wrote it (the event holds the video's active `youtube` / `reservation`
+evidence), the entry only attaches its evidence, adds the platforms it states
+after the stored ones and lends its stated label under the
+[label rules](events.md#event-labels); title, detail, times, precision, status, type,
+link and confidence stay the YouTube writer's. Without such an event the entry
+writes it, and the YouTube writer replaces its fields when it reads the video.
+
+A post read again as `not_schedule` keeps its events: its active evidence rows
+get `event_sources.unlisted_at`. An automatic, unlocked event whose active
+announcing evidence is all unlisted is an unlisted entry in the Review queue
+(see [Admin API](../admin-api/events.md)) until the operator keeps it, which
+confirms and locks it, or deletes it, or until an extraction lists it again,
+which clears the mark. Startup adds the column empty to existing snapshots.
 
 Event and video ordering compares actual ISO instants rather than timestamp
 strings. Date-only events follow timed events on the same Japan date without
@@ -50,8 +72,10 @@ and does not definitively cancel its video.
 
 Videos have additive `live_status` (`upcoming`, `live`, `ended` or null) and
 `live_checked_at` columns, written by every successful watch-page check,
-including the [live-status probe](../sources/youtube-live.md#live-status-probe). The
-dashboard projects only a sanitized `liveStatus`: `ended` always, `live` and
+including the [live-status probe](../sources/youtube-live.md#live-status-probe). `ended` is
+final: a later check that reports the broadcast upcoming or live, or names no
+state, leaves `live_status` `ended`, `is_upcoming` 0 and the reservation
+event's status `ended`. The dashboard projects only a sanitized `liveStatus`: `ended` always, `live` and
 `upcoming` while younger than two probe intervals. Startup adds the columns
 empty to existing snapshots.
 
@@ -85,7 +109,13 @@ public revision rules are in [Account avatars](../media-cache/lifecycle.md#accou
 Schedule image reviews add `llm_input_fingerprint` for input cache validation
 (see [Schedule images](../sources/schedule-images.md)); a review without
 one is rechecked when next scanned. Automatic
-review writes update LLM columns only. Image responses compare the captured
+review writes update LLM columns only. A check that is running, failed or
+skipped on an image that already has a verdict writes `check_status`,
+`check_reason` and `check_at` instead, and the next verdict or a cache hit on
+the same input clears them. `previous_manual_status`, `previous_manual_reason`
+and `previous_manual_checked_at` hold an operator's label on the image an asset
+showed before its URL changed, until the operator labels the asset again.
+Startup adds these columns empty to existing snapshots. Image responses compare the captured
 `assets.asset_version`, URL and media hash inside a transaction; replacement,
 including replacing and restoring the same URL, invalidates a waiting response.
 Manual verdicts, reasons and decision timestamps survive concurrent model work.
@@ -98,8 +128,10 @@ each schedule asset's `week_start` into a seven-day `legacy` period, which does
 not assert that those dates were verified.
 Manual correction stores separate `manual_period_start`, `manual_period_end`,
 and `manual_period_reason`; it preserves the inferred values, source and review.
-Registration of the same image retains that correction. A different image URL
-resets its review and correction. `manual_image_at` records when an operator
+Registration of the same image retains that correction, and so does a
+different image URL, which returns the model verdict to `pending` and asks the
+operator again about a label on the old image (see
+[Schedule images](../sources/schedule-images.md)). `manual_image_at` records when an operator
 picked one of the post's images as the schedule image; synchronization then
 leaves the asset's image, review and correction alone. Readers derive the
 period of an asset with no stored or corrected one from its source post's

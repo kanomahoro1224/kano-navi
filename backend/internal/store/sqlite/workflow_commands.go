@@ -335,9 +335,9 @@ func (s *Store) FinishWorkflowRun(ctx context.Context, l WorkflowLease, status, 
 	if _, e = tx.ExecContext(ctx, `UPDATE sync_runs SET status=?,finished_at=?,message=? WHERE job_id=? AND status='running'`, syncStatus, workflowTime(now), ec, l.RunID); e != nil {
 		return ErrWorkflowStorage
 	}
-	if e = bumpRevision(ctx, tx, workflowTime(now)); e != nil {
-		return ErrWorkflowStorage
-	}
+	// The run's outcome is operator diagnosis. Each write that changes what
+	// the board shows advances the dashboard revision in its own transaction,
+	// so a run that changed nothing leaves open boards alone.
 	if _, e = tx.ExecContext(ctx, `DELETE FROM workflow_leases WHERE run_id=? AND owner_id=? AND generation=?`, l.RunID, l.OwnerID, l.Generation); e != nil {
 		return ErrWorkflowStorage
 	}
@@ -366,14 +366,8 @@ func (s *Store) RequestWorkflowCancellation(ctx context.Context, id string, now 
 	if _, e = tx.ExecContext(ctx, `UPDATE workflow_runs SET status='cancelled',error_code='cancelled',finished_at=? WHERE id=? AND status='queued'`, workflowTime(now), id); e != nil {
 		return ErrWorkflowStorage
 	}
-	cancelledRun, e := tx.ExecContext(ctx, `UPDATE sync_runs SET status='failed',message='cancelled',finished_at=? WHERE job_id=? AND EXISTS(SELECT 1 FROM workflow_runs WHERE id=? AND status='cancelled')`, workflowTime(now), id, id)
-	if e != nil {
+	if _, e = tx.ExecContext(ctx, `UPDATE sync_runs SET status='failed',message='cancelled',finished_at=? WHERE job_id=? AND EXISTS(SELECT 1 FROM workflow_runs WHERE id=? AND status='cancelled')`, workflowTime(now), id, id); e != nil {
 		return ErrWorkflowStorage
-	}
-	if n, _ := cancelledRun.RowsAffected(); n > 0 {
-		if e = bumpRevision(ctx, tx, workflowTime(now)); e != nil {
-			return ErrWorkflowStorage
-		}
 	}
 	if e = tx.Commit(); e != nil {
 		return ErrWorkflowStorage
@@ -390,6 +384,11 @@ func (s *Store) WorkflowCancellationRequested(ctx context.Context, id string) (b
 	}
 	return v.Valid, nil
 }
+
+// retrySourceSteps are the steps that read a source and can store new posts
+// or videos for the steps after them.
+const retrySourceSteps = `'x','` + XRelatedStep + `','youtube','bilibili','` + BilibiliDynamicsSource + `','` + ShopSource + `','live'`
+
 func (s *Store) RetryWorkflowRun(ctx context.Context, id string, now time.Time) error {
 	tx, e := s.workflowTx(ctx)
 	if e != nil {
@@ -412,7 +411,12 @@ func (s *Store) RetryWorkflowRun(ctx context.Context, id string, now time.Time) 
 	if nretry == 0 || npermanent > 0 {
 		return ErrWorkflowValidation
 	}
-	if _, e = tx.ExecContext(ctx, `UPDATE workflow_run_steps SET status='pending',finished_at=NULL WHERE run_id=? AND (status='failed' AND retryable=1 OR status='blocked')`, id); e != nil {
+	// A retried source step can store new posts and videos, so the steps
+	// after the first of them that process stored records (media, schedule,
+	// translate, reconcile and the like) run again as well; a later source
+	// that already read keeps its result.
+	if _, e = tx.ExecContext(ctx, `UPDATE workflow_run_steps SET status='pending',finished_at=NULL WHERE run_id=? AND (status='failed' AND retryable=1 OR status='blocked'
+ OR status IN('succeeded','partial') AND step_id NOT IN(`+retrySourceSteps+`) AND step_order>(SELECT MIN(step_order) FROM workflow_run_steps WHERE run_id=? AND status='failed' AND retryable=1 AND step_id IN(`+retrySourceSteps+`)))`, id, id); e != nil {
 		return ErrWorkflowStorage
 	}
 	if _, e = tx.ExecContext(ctx, `UPDATE sync_runs SET status='running',message='',finished_at=NULL WHERE job_id=?`, id); e != nil {

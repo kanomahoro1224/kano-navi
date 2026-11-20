@@ -162,6 +162,81 @@ test("the week folds past entries and names no ended status", async () => {
   })
 })
 
+test("a card's On air chip carries the platforms live now", async () => {
+  await withSchedule(async ({ WeekGuide, useAppSettings, mount }) => {
+    const youtube = "https://video.example.test/watch/simulcast"
+    const room = "https://live.example.test/room/1"
+    const elsewhere = "https://stream.example.test/simulcast"
+    const events = [
+      event("simulcast", {
+        startsOn: "2026-10-08",
+        startsAt: "2026-10-08T20:00:00+09:00",
+        timePrecision: "minute",
+        tag: "game",
+        platforms: ["youtube", "bilibili", "other"],
+        links: [
+          { platform: "youtube", url: youtube, liveStatus: "live" },
+          { platform: "bilibili", url: room, liveStatus: "live" },
+          { platform: "other", url: elsewhere },
+        ],
+      }),
+    ]
+    const range = { from: "2026-10-05", to: "2026-10-11" }
+    function Harness() {
+      const { locale, t } = useAppSettings()
+      return createElement(WeekGuide, {
+        events,
+        scheduleImages: [],
+        weekStart: new Date(2026, 9, 5),
+        setWeekStart: () => {},
+        range,
+        shownRange: range,
+        adjacent: { previous: null, next: null },
+        error: null,
+        onRetry: () => {},
+        total: events.length,
+        hasNext: false,
+        onLoadMore: () => {},
+        dayCounts: {},
+        isLoading: false,
+        onOpenImage: () => {},
+        onOpenMonth: () => {},
+        locale,
+        now: Date.parse("2026-10-08T21:00:00+09:00"),
+        t,
+      })
+    }
+    const { container } = await mount(createElement(Harness))
+
+    const card = container.querySelector(".guide-days .guide-event")!
+    const chips = card.querySelectorAll(".live-links")
+    assert.equal(chips.length, 1)
+    assert.match(chips[0].textContent || "", /^On air$/)
+    // Each live platform is a named link in the chip; only the platform that
+    // is not live stays a chip of its own.
+    const marks = [...chips[0].querySelectorAll("a")]
+    assert.deepEqual(
+      marks.map((mark) => [mark.getAttribute("href"), mark.title]),
+      [
+        [youtube, "YouTube"],
+        [room, "bilibili"],
+      ],
+    )
+    assert.ok(
+      marks.every((mark) =>
+        /On air/.test(mark.getAttribute("aria-label") || ""),
+      ),
+    )
+    assert.deepEqual(
+      [...card.querySelectorAll(".platform-chip")].map((chip) =>
+        chip.getAttribute("href"),
+      ),
+      [elsewhere],
+    )
+    assert.equal(card.querySelectorAll(".tag.tone-berry").length, 1)
+  })
+})
+
 test("a schedule entry opens its sheet, and a month entry marks it in its day", async () => {
   await withSchedule(
     async ({ ScheduleMonth, ArchiveDialog, useAppSettings, mount }) => {

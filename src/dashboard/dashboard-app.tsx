@@ -418,7 +418,7 @@ export function DashboardApp() {
 
   const { profile, summary, meta } = dashboard
   const windowDays = meta.postWindowDays || POST_WINDOW_DAYS
-  const syncState = syncStateFor(meta, error, now, t)
+  const syncState = syncStateFor(meta, now)
   const counts = summary.counts || {
     posts: dashboard.posts.length,
     upcomingEvents: 0,
@@ -429,19 +429,7 @@ export function DashboardApp() {
   return (
     <div className="site board" id="top">
       <SkipLink href="#schedule">{t("nav.schedule")}</SkipLink>
-      <SiteHeader
-        page="board"
-        avatarUrl={profile.avatarUrl}
-        status={
-          <span
-            className={`header-sync tone-${syncState.tone}`}
-            title={syncState.label}
-          >
-            <span className="sync-dot" aria-hidden="true" />
-            <span className="sr-only">{syncState.label}</span>
-          </span>
-        }
-      />
+      <SiteHeader page="board" avatarUrl={profile.avatarUrl} />
 
       <main className="site-main">
         {error ? (

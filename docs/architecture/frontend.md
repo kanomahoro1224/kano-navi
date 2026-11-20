@@ -97,7 +97,17 @@ the month sheet. `video-groups.ts` consumes the dashboard's
 `projection.shelf` and each video's `view`: the API supplies the lead, group,
 phase and stable order, while the browser applies the active filter and
 renders the cards. A snapshot without the projection uses the legacy local
-grouping until the next API response. A video carries two chips. The form
+grouping until the next API response. In the All view, `sideSlots` in
+`video-groups.ts` cuts the side group beside the lead (or the full-width
+ticket row without one) at every width: up to four earlier works when there
+are no reservations; otherwise up to four tickets and earlier works up to
+five items in all, so at least one earlier work stays beside them. Tickets
+past the fourth fold behind a `+N` toggle at the trailing edge of the Coming
+up subhead row: a sibling `button` of the `h3` with `aria-expanded`,
+`aria-controls` on the ticket list and a translated name, which expands the
+list in place to every reservation without changing the earlier works. Its
+state is local and starts collapsed; the Streams and Works views list every
+matching reservation. A video carries two chips. The form
 chip (`videoFormLabel`) translates `view.formCode`, and `VideoTagChip`
 translates the stored tag with the context in `view.tagContext`; neither
 helper reconstructs the phase or form when the projection is present. The
@@ -292,7 +302,11 @@ the live one marked) when it has more than one, or one beside an
 announcement of its own (`eventAnnouncement`: its `url` when no platform
 link is that page): on its stage ticket, on its week and calendar card,
 and in its sheet, where the open arrow in the corner then opens the
-announcement; the announcement is never labelled as a platform. A
+announcement; the announcement is never labelled as a platform. While an
+entry is on air, its week and calendar card's On air chip (`LiveLinks`)
+ends in the marks of its live platforms, each a link named for screen
+readers and the tooltip, in place of the status chip and those platforms'
+links; the sheet keeps the named links. A
 full stage ticket of an entry marks its `platforms` on the art with
 `PlatformBadge`. When the stage shows the reserved video of an entry, the
 ticket adds the entry's links on platforms the video has no copy on, such
@@ -759,8 +773,13 @@ differs from the snapshot's reads the snapshot after a random delay of up to
 three seconds, so the boards that hear one change do not all read at once; an
 unchanged one refreshes a stale calendar. A change pushed while a snapshot
 read is in flight is compared once that read ends. Between changes a
-completion-scheduled timer only revalidates the snapshot once a minute, since
-time-derived fields such as `liveStatus` expire without a revision change.
+completion-scheduled timer only revalidates the snapshot, since time-derived
+fields such as `liveStatus` expire without a revision change: one second
+after the projection's `nextTransitionAt` when that comes within the minute,
+and otherwise a minute after the last read. A transition the browser's clock
+had already passed when the snapshot read started waits for the minute, so a
+browser clock ahead of the server's cannot repeat the read; one that passes
+while the snapshot is in transit is read again at once.
 EventSource reconnects by itself after a drop, and the reconnected stream
 resends the current revision. A refused stream, or three errors without a
 message between them, hands over to revision polling every 30 seconds; the
@@ -781,14 +800,11 @@ whose window label is its tooltip and screen-reader text, then one icon per
 source, X, YouTube, bilibili and the shop, whose tooltip and screen-reader text carry its last successful read
 from `meta.sourceFetchedAt`; a read older than 24 hours marks the icon out of
 date with a dot, and a source never read fades. The card has no reload: the
-board revalidates by itself, and the API failure alert carries the retry. The
-overall state, shown by the header dot with its wording left to screen
-readers and the dot's tooltip, is what a visitor can tell from the page: an
-API failure takes priority, then any out-of-date source; with no source read
-yet the board is waiting, and otherwise up to date. A run's outcome in
-`meta.lastSync` is operator diagnosis and does not change it; a source that
-keeps failing shows once its last read ages out. The local clock updates
-these warnings without a request.
+board revalidates by itself, and the API failure alert carries the retry.
+The header holds no snapshot state, so it keeps the same width on every
+page. A run's outcome in `meta.lastSync` is operator diagnosis and does not
+change a source's freshness; a source that keeps failing shows once its last
+read ages out. The local clock updates these warnings without a request.
 Missing timestamps, and ones more than five minutes ahead of the local clock
 (a visitor clock slightly behind the server still shows a fresh read), remain
 waiting. This is a display threshold, not a synchronization timer.

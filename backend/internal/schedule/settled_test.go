@@ -15,8 +15,9 @@ import (
 )
 
 // A twin runs one scenario on two snapshots: fast counts settled posts as
-// cache hits without loading them, as every run does; full judges every
-// candidate. Each scan compares what the two would do and what they wrote.
+// cache hits without loading them and reads the others' inputs in batches,
+// as every run does; full judges every candidate, reading its input one row
+// at a time. Each scan compares what the two would do and what they wrote.
 type twin struct {
 	t          *testing.T
 	fast, full *fixture
@@ -39,6 +40,7 @@ func newTwin(t *testing.T) *twin {
 	tw := &twin{t: t, clock: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC), failing: map[string]bool{}}
 	tw.fast, tw.full = newFixture(t), newFixture(t)
 	tw.full.run.ignoreSettled = true
+	tw.full.run.perPostReads = true
 	tw.do(func(f *fixture) {
 		f.addProvider("p-main", protocolChat, "https://provider.example.test/v1", "model-a", `["text","image"]`)
 		f.addProvider("p-alt", protocolChat, "https://alternate.example.test/v1", "model-b", `["text","image"]`)

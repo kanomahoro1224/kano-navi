@@ -4,7 +4,7 @@ What’s Kano Up To? (Kano Navi) is an unofficial fan board for Kano Mahoro
 (鹿乃まほろ). It gathers her public updates in one place: what airs next, the
 week's schedule, recent posts and videos, her discography, and her journey
 since 2010. Visit
-it at [kano.yexca.net](https://kano.yexca.net/).
+it at [kano.fans](https://kano.fans/).
 
 These pages describe what you can see and do on the site.
 
@@ -55,10 +55,10 @@ Kano Navi for Apple, for iOS, iPadOS and macOS 26 or later, by the board's
 author (with a link to its repository). Each platform shows the lowest
 system version it needs where known, and each app marks the platforms whose
 builds are unsigned. Cards then credit
-the developers who have contributed code, the sources of the LINE BLOG archive, the help behind the
+the people who have contributed to the project, the sources of the LINE BLOG archive, the help behind the
 Works page, and the provider of the mainland China server site. The page
 lists the AI models and technologies that built the site, with the less
-used models behind a "+3" button, and states the license.
+used models behind a "+4" button, and states the license.
 
 ## Freshness and Sources
 
@@ -66,8 +66,8 @@ The board shows what it last collected from X, YouTube and bilibili; it is not
 a live feed. The profile card's platform icons show, on hover, when each of
 X, YouTube, bilibili and the official shop was last read successfully. A
 platform not read successfully for a day is marked out of date: its icon
-turns amber, and the small dot in the header turns from green to amber; the
-dot turns red when the board cannot reach the site. An open board picks up a
+turns amber. When the board cannot reach the site, a notice with a retry
+button appears above the profile card. An open board picks up a
 newly stored snapshot by itself within a few seconds, without a reload.
 When a platform is unavailable, the board keeps showing what it already
 knows. Returning to the board shows what this device last saw at once, then

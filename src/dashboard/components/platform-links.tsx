@@ -75,6 +75,44 @@ export function PlatformLinks({
 }
 
 /**
+ * A card's On air chip carrying the platforms live now, each mark a link
+ * named for screen readers and the tooltip. It stands for the status chip
+ * and those platforms' links, so a simulcast says it is live once.
+ */
+export function LiveLinks({
+  links,
+  title,
+  t,
+}: {
+  links: VideoLink[]
+  title: string
+  t: Translator
+}) {
+  const live = t("schedule.status.live")
+  return (
+    <span className="tag tone-berry live-links">
+      <Radio className="platform-live" aria-hidden="true" />
+      {live}
+      <span className="live-links-marks">
+        {links.map((link) => {
+          const name = linkName(link)
+          return (
+            <ExternalLink
+              key={link.url}
+              href={link.url}
+              aria-label={`${t("videos.watchOn", { platform: name })}: ${title} (${live})`}
+              title={name}
+            >
+              <PlatformMark source={link.source} />
+            </ExternalLink>
+          )
+        })}
+      </span>
+    </span>
+  )
+}
+
+/**
  * A cover's mark for the platforms a work is on (`videoPlatforms`), with
  * YouTube's members-only star beside the YouTube mark of a members-only
  * video or entry. It only signals; the links follow the title, so a tap on

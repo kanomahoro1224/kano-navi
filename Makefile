@@ -171,7 +171,7 @@ go-audit:
 	$(GO) -C backend run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
 docker-build:
-	$(DOCKER_BUILD) $(DOCKER_BUILD_ARGS) -t $(DOCKER_IMAGE) .
+	$(DOCKER_BUILD) $(DOCKER_BUILD_ARGS) -f docker/Dockerfile -t $(DOCKER_IMAGE) .
 
 production-smoke:
 	$(NODE) scripts/production-smoke.ts $(DOCKER_IMAGE)

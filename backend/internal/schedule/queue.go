@@ -152,18 +152,22 @@ type candidateInput struct {
 }
 
 // candidateReads is where judging reads a post's stored input: its
-// post_llm_states row, its linked post images, their media assets and the
-// latest extraction of an input. The run reads the snapshot one query at a
-// time (liveReads), since it writes between posts; the preview, which writes
-// nothing, reads each table once (previewReads).
+// post_llm_states row, its linked post images, their media assets, the
+// latest extraction of an input and the cache files. The preview reads each
+// table once (tableReads); the run reads the tables for a batch of queued
+// posts at a time (batchReads); liveReads reads one row at a time.
 type candidateReads interface {
 	postState(ctx context.Context, postID string) (*postState, error)
 	imageLinks(ctx context.Context, postID string) ([]string, error)
 	mediaAsset(ctx context.Context, id string) (*mediaAsset, error)
 	latestExtraction(ctx context.Context, source, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error)
+	mediaFile(relative string) (string, bool)
 }
 
-type liveReads struct{ q queryer }
+type liveReads struct {
+	q     queryer
+	files mediaRoot
+}
 
 func (r liveReads) postState(ctx context.Context, postID string) (*postState, error) {
 	return getPostState(ctx, r.q, postID)
@@ -181,14 +185,18 @@ func (r liveReads) latestExtraction(ctx context.Context, source, sourceItemID, f
 	return latestExtraction(ctx, r.q, source, sourceItemID, fingerprint, versionPrefix)
 }
 
-// previewReads answers the same reads from tables read once, in the order
-// and with the matching rules of the live queries. Its extraction rows carry
-// no result_json: judging reads only their status.
-type previewReads struct {
+func (r liveReads) mediaFile(relative string) (string, bool) { return r.files.file(relative) }
+
+// tableReads answers the same reads from tables read once, in the order and
+// with the matching rules of the live queries. Its extraction rows carry no
+// result_json: judging reads only their status, and a cache hit only their
+// ID and time.
+type tableReads struct {
 	states      map[string]*postState
 	links       map[string][]string
 	assets      map[string]*mediaAsset
 	extractions map[extractionKey][]versionedExtraction
+	files       mediaRoot
 }
 
 type extractionKey struct{ source, sourceItemID, fingerprint string }
@@ -200,50 +208,80 @@ type versionedExtraction struct {
 	row     extractionRow
 }
 
-// loadPreviewReads reads the post images, their assets and the stored
-// extractions once; states are the ones the queue was built with.
-func loadPreviewReads(ctx context.Context, q queryer, states map[string]*postState) (previewReads, error) {
-	reads := previewReads{states: states, links: map[string][]string{},
-		assets: map[string]*mediaAsset{}, extractions: map[extractionKey][]versionedExtraction{}}
+// postScope limits table reads to some posts: their IDs and the extraction
+// sources they record, each a JSON array for json_each.
+type postScope struct{ ids, sources string }
+
+// loadTableReads reads the post images, their assets and the stored
+// extractions: of every post without a scope, with the states given, and of
+// the scope's posts with one, with their states.
+func loadTableReads(ctx context.Context, q queryer, files mediaRoot, states map[string]*postState, scope *postScope) (tableReads, error) {
+	reads := tableReads{states: states, links: map[string][]string{},
+		assets: map[string]*mediaAsset{}, extractions: map[extractionKey][]versionedExtraction{}, files: files}
+	owners, ownerArgs := "", []any{}
+	extractionFilter, extractionArgs := "", []any{}
+	if scope != nil {
+		owners, ownerArgs = ` AND owner_id IN (SELECT value FROM json_each(?))`, []any{scope.ids}
+		extractionFilter = ` WHERE source IN (SELECT value FROM json_each(?)) AND source_item_id IN (SELECT value FROM json_each(?))`
+		extractionArgs = []any{scope.sources, scope.ids}
+		reads.states = map[string]*postState{}
+		rows, err := q.QueryContext(ctx, `SELECT post_id, `+postStateColumns+` FROM post_llm_states
+			WHERE post_id IN (SELECT value FROM json_each(?))`, scope.ids)
+		if err != nil {
+			return tableReads{}, err
+		}
+		for rows.Next() {
+			var postID string
+			state, err := scanPostState(rows, &postID)
+			if err != nil {
+				rows.Close()
+				return tableReads{}, err
+			}
+			reads.states[postID] = state
+		}
+		if err = errors.Join(rows.Err(), rows.Close()); err != nil {
+			return tableReads{}, err
+		}
+	}
 	rows, err := q.QueryContext(ctx, `SELECT owner_id, media_id FROM media_links
-		WHERE owner_type = 'post' AND role = 'post-image'
-		ORDER BY owner_id, position, id`)
+		WHERE owner_type = 'post' AND role = 'post-image'`+owners+`
+		ORDER BY owner_id, position, id`, ownerArgs...)
 	if err != nil {
-		return previewReads{}, err
+		return tableReads{}, err
 	}
 	for rows.Next() {
 		var owner, media string
 		if err = rows.Scan(&owner, &media); err != nil {
 			rows.Close()
-			return previewReads{}, err
+			return tableReads{}, err
 		}
 		reads.links[owner] = append(reads.links[owner], media)
 	}
 	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
-		return previewReads{}, err
+		return tableReads{}, err
 	}
 	rows, err = q.QueryContext(ctx, `SELECT id, cache_path, mime_type, sha256, status FROM media_assets
-		WHERE id IN (SELECT media_id FROM media_links WHERE owner_type = 'post' AND role = 'post-image')`)
+		WHERE id IN (SELECT media_id FROM media_links WHERE owner_type = 'post' AND role = 'post-image'`+owners+`)`, ownerArgs...)
 	if err != nil {
-		return previewReads{}, err
+		return tableReads{}, err
 	}
 	for rows.Next() {
 		var id string
 		var cachePath, mimeType, hash, status sql.NullString
 		if err = rows.Scan(&id, &cachePath, &mimeType, &hash, &status); err != nil {
 			rows.Close()
-			return previewReads{}, err
+			return tableReads{}, err
 		}
 		reads.assets[id] = &mediaAsset{id, cachePath.String, mimeType.String, hash.String, status.String}
 	}
 	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
-		return previewReads{}, err
+		return tableReads{}, err
 	}
 	rows, err = q.QueryContext(ctx, `SELECT source, source_item_id, content_fingerprint, extractor_version,
 		id, model, status, updated_at
-		FROM schedule_extractions ORDER BY updated_at DESC, id DESC`)
+		FROM schedule_extractions`+extractionFilter+` ORDER BY updated_at DESC, id DESC`, extractionArgs...)
 	if err != nil {
-		return previewReads{}, err
+		return tableReads{}, err
 	}
 	for rows.Next() {
 		var key extractionKey
@@ -252,33 +290,33 @@ func loadPreviewReads(ctx context.Context, q queryer, states map[string]*postSta
 		if err = rows.Scan(&key.source, &key.sourceItemID, &key.fingerprint, &stored.version,
 			&stored.row.id, &model, &status, &updatedAt); err != nil {
 			rows.Close()
-			return previewReads{}, err
+			return tableReads{}, err
 		}
 		stored.row.model, stored.row.status, stored.row.updatedAt = model.String, status.String, updatedAt.String
 		reads.extractions[key] = append(reads.extractions[key], stored)
 	}
 	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
-		return previewReads{}, err
+		return tableReads{}, err
 	}
 	return reads, nil
 }
 
-func (r previewReads) postState(_ context.Context, postID string) (*postState, error) {
+func (r tableReads) postState(_ context.Context, postID string) (*postState, error) {
 	return r.states[postID], nil
 }
 
-func (r previewReads) imageLinks(_ context.Context, postID string) ([]string, error) {
+func (r tableReads) imageLinks(_ context.Context, postID string) ([]string, error) {
 	return append([]string{}, r.links[postID]...), nil
 }
 
-func (r previewReads) mediaAsset(_ context.Context, id string) (*mediaAsset, error) {
+func (r tableReads) mediaAsset(_ context.Context, id string) (*mediaAsset, error) {
 	if !mediaIDPattern.MatchString(id) {
 		return nil, nil
 	}
 	return r.assets[id], nil
 }
 
-func (r previewReads) latestExtraction(_ context.Context, source, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error) {
+func (r tableReads) latestExtraction(_ context.Context, source, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error) {
 	for _, stored := range r.extractions[extractionKey{source, sourceItemID, fingerprint}] {
 		if strings.HasPrefix(stored.version, versionPrefix) {
 			row := stored.row
@@ -287,6 +325,118 @@ func (r previewReads) latestExtraction(_ context.Context, source, sourceItemID, 
 	}
 	return nil, nil
 }
+
+func (r tableReads) mediaFile(relative string) (string, bool) { return r.files.file(relative) }
+
+// runReads are the candidateReads of a run over its queue: prepare readies
+// the stored input of the candidate at a position before it is judged, and
+// drop forgets the inputs read ahead.
+type runReads interface {
+	candidateReads
+	candidate(position int) candidate
+	prepare(ctx context.Context, position int) error
+	drop()
+}
+
+// runBatch is how many unsettled queued posts a run reads together; tests
+// use smaller batches.
+var runBatch = 200
+
+// batchReads serves a run's judging from the tables of the next runBatch
+// unsettled queued posts, read together. Judging and carrying out a post
+// write only that post's state and extractions, after its judging, so a
+// batch stays current while the run walks it. A model call drops the batch,
+// since an operator may change a later post while the call waits.
+type batchReads struct {
+	q     queryer
+	queue []candidate
+	// loaded holds the posts of the current batch.
+	loaded map[string]bool
+	tableReads
+}
+
+// batchReads reads a run's queue in batches; with perPostReads, one row at
+// a time.
+func (e *Extractor) batchReads(queue []candidate) runReads {
+	files := e.mediaRoot()
+	if e.perPostReads {
+		return &queuedLiveReads{liveReads{e.db, files}, queue}
+	}
+	return &batchReads{q: e.db, queue: queue, tableReads: tableReads{files: files}}
+}
+
+func (r *batchReads) candidate(position int) candidate { return r.queue[position] }
+
+func (r *batchReads) prepare(ctx context.Context, position int) error {
+	item := r.queue[position]
+	if item.post.settled || r.loaded[item.post.id] {
+		return nil
+	}
+	ids, sources := []any{}, []any{}
+	loaded, sourceSeen := map[string]bool{}, map[string]bool{}
+	for _, next := range r.queue[position:] {
+		if len(ids) == runBatch {
+			break
+		}
+		if next.post.settled || loaded[next.post.id] {
+			continue
+		}
+		loaded[next.post.id] = true
+		ids = append(ids, next.post.id)
+		if source := next.post.extractionSource(); !sourceSeen[source] {
+			sourceSeen[source] = true
+			sources = append(sources, source)
+		}
+	}
+	tables, err := loadTableReads(ctx, r.q, r.files, nil, &postScope{ids: stringify(ids), sources: stringify(sources)})
+	if err != nil {
+		return err
+	}
+	r.tableReads, r.loaded = tables, loaded
+	return nil
+}
+
+func (r *batchReads) drop() { r.loaded = nil }
+
+// A post outside the batch is read live.
+
+func (r *batchReads) postState(ctx context.Context, postID string) (*postState, error) {
+	if !r.loaded[postID] {
+		return getPostState(ctx, r.q, postID)
+	}
+	return r.tableReads.postState(ctx, postID)
+}
+
+func (r *batchReads) imageLinks(ctx context.Context, postID string) ([]string, error) {
+	if !r.loaded[postID] {
+		return postImageLinks(ctx, r.q, postID)
+	}
+	return r.tableReads.imageLinks(ctx, postID)
+}
+
+func (r *batchReads) mediaAsset(ctx context.Context, id string) (*mediaAsset, error) {
+	if asset, ok := r.assets[id]; ok {
+		return asset, nil
+	}
+	return getMediaAsset(ctx, r.q, id)
+}
+
+func (r *batchReads) latestExtraction(ctx context.Context, source, sourceItemID, fingerprint, versionPrefix string) (*extractionRow, error) {
+	if !r.loaded[sourceItemID] {
+		return latestExtraction(ctx, r.q, source, sourceItemID, fingerprint, versionPrefix)
+	}
+	return r.tableReads.latestExtraction(ctx, source, sourceItemID, fingerprint, versionPrefix)
+}
+
+// queuedLiveReads reads a run's queue one row at a time.
+type queuedLiveReads struct {
+	liveReads
+	queue []candidate
+}
+
+func (r *queuedLiveReads) candidate(position int) candidate   { return r.queue[position] }
+func (r *queuedLiveReads) prepare(context.Context, int) error { return nil }
+func (r *queuedLiveReads) drop()                              {}
 
 // loadCandidate reads one post's candidate input.
 func (e *Extractor) loadCandidate(ctx context.Context, reads candidateReads, item post, detectionType string, force bool) (candidateInput, error) {
@@ -605,7 +755,7 @@ func (e *Extractor) PreviewQueue(ctx context.Context) (QueuePreview, error) {
 		CandidateMs: scan.elapsed.Milliseconds(), Run: []QueueEntry{},
 	}
 	targets := e.memoTargets(ctx)
-	reads, err := loadPreviewReads(ctx, e.db, scan.states)
+	reads, err := loadTableReads(ctx, e.db, e.mediaRoot(), scan.states, nil)
 	if err != nil {
 		return QueuePreview{}, previewError(ctx)
 	}

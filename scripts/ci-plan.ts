@@ -72,16 +72,16 @@ export const scriptJobs: Record<string, Job[]> = {
   "cdn-base.ts": frontendJobs,
   "vite-page-preload.ts": frontendJobs,
   "vite-precompress.ts": frontendJobs,
+  // Type-checks the scripts and the frontend tests.
+  "tsconfig.json": frontendJobs,
 }
 
 const documentation =
-  /^(docs\/|[^/]+\.md$|backend\/README\.md$|\.github\/ISSUE_TEMPLATE\/)/
+  /^(docs\/|[^/]+\.md$|backend\/README\.md$|\.github\/SECURITY\.md$|\.github\/ISSUE_TEMPLATE\/)/
 // Read by Style alone: formatting, the scanner and the deployment examples
 // that no validation job starts.
-const styleOnly =
-  /^(\.env\.example|\.gitignore|\.prettierignore|\.prettierrc\.json|docker-compose(\.dev)?\.yml)$/
-const frontendConfig =
-  /^(index\.html|components\.json|tailwind\.config\.ts|tsconfig(\.node)?\.json|vite\.config\.ts)$/
+const styleOnly = /^(\.env\.example|\.gitignore|docker-compose(\.dev)?\.yml)$/
+const frontendConfig = /^(index\.html|tsconfig\.json|vite\.config\.ts)$/
 
 // The jobs a changed path selects, or null when it selects every job.
 function jobsFor(path: string): Job[] | null {
@@ -101,7 +101,7 @@ function jobsFor(path: string): Job[] | null {
   if (path.startsWith("tests/")) return ["frontend"]
   // The release image installs from the manifest and reads its version.
   if (/^package(-lock)?\.json$/.test(path)) return frontendJobs
-  if (/^(Dockerfile|\.dockerignore|LICENSE)$/.test(path)) return ["docker"]
+  if (path.startsWith("docker/") || path === "LICENSE") return ["docker"]
   // Makefile, .nvmrc, workflows, composite actions, Dependabot and anything
   // unclassified.
   return null

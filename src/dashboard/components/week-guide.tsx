@@ -53,7 +53,7 @@ import { archiveRange } from "../use-dashboard"
 import { ArchiveMore, ArchiveState } from "./archive-dialog"
 import { CalendarSubscribe } from "./calendar-subscribe"
 import { EventTagIcon } from "./event-tag"
-import { PlatformLinks } from "./platform-links"
+import { LiveLinks, PlatformLinks } from "./platform-links"
 import { SheetDialog } from "./sheet-dialog"
 import { TranslatedTitle } from "./translated-title"
 
@@ -188,19 +188,24 @@ function Provenance({
  */
 const quietStatuses = ["upcoming", "done"]
 
-/** The entry's type, activity, and any status worth a chip. */
+/**
+ * The entry's type, activity, and any status worth a chip. `status` takes the
+ * status chip's place, as a card's On air chip carrying its live platforms.
+ */
 function EntryTags({
   facts,
   t,
+  status: statusChip,
   children,
 }: {
   facts: EntryFacts
   t: Translator
+  status?: ReactNode
   children?: ReactNode
 }) {
   const { typeKey, tag, work, status, saleMark } = facts
-  const showStatus = !quietStatuses.includes(status)
-  if (!typeKey && !tag && !showStatus && !children) return null
+  const showStatus = !statusChip && !quietStatuses.includes(status)
+  if (!typeKey && !tag && !showStatus && !statusChip && !children) return null
   return (
     <span className="guide-event-tags">
       {typeKey ? <span className="tag">{t(typeKey)}</span> : null}
@@ -219,6 +224,7 @@ function EntryTags({
           {t(`schedule.status.${status}`)}
         </span>
       ) : null}
+      {statusChip}
       {children}
     </span>
   )
@@ -395,6 +401,11 @@ function GuideEvent({
     if (pickTurn > 0 && itemRef.current) revealNearest(itemRef.current)
   }, [pickTurn])
   const facts = entryFacts(event, now, locale, t)
+  const title = cleanVideoTitle(event.title)
+  // While the entry is on air, its live platforms ride in the On air chip.
+  const liveLinks =
+    facts.status === "live" ? facts.links.filter((link) => link.live) : []
+  const otherLinks = facts.links.filter((link) => !liveLinks.includes(link))
 
   return (
     <li ref={itemRef}>
@@ -431,11 +442,19 @@ function GuideEvent({
                 {eventDetailText(event.detail, t)}
               </span>
             ) : null}
-            <EntryTags facts={facts} t={t}>
-              {facts.links.length ? (
+            <EntryTags
+              facts={facts}
+              t={t}
+              status={
+                liveLinks.length ? (
+                  <LiveLinks links={liveLinks} title={title} t={t} />
+                ) : null
+              }
+            >
+              {otherLinks.length ? (
                 <PlatformLinks
-                  links={facts.links}
-                  title={cleanVideoTitle(event.title)}
+                  links={otherLinks}
+                  title={title}
                   variant="chip"
                   t={t}
                 />

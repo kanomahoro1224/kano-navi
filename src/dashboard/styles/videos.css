@@ -367,6 +367,37 @@
   gap: 24px;
 }
 
+/* A side subhead with its control at the trailing edge, like a section title. */
+.videos-subhead-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.videos-subhead-row > .videos-subhead {
+  margin: 0;
+}
+
+/* A compact pill that sits in the subhead's line instead of growing it. */
+.pill-button.videos-subhead-toggle {
+  min-height: 0;
+  min-width: 36px;
+  justify-content: center;
+  margin-block: -6px;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+}
+
+.pill-button.videos-subhead-toggle svg {
+  width: 14px;
+  height: 16px;
+}
+
 /* Reservation tickets */
 
 .video-tickets {

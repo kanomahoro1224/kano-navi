@@ -393,14 +393,28 @@
   }
 }
 
-/* On a phone the action moves under the name. */
+/*
+ * On a phone the platforms follow the name and the action spans the card's
+ * foot; a name in parentheses keeps to one line.
+ */
 @media (max-width: 420px) {
   .about-app {
     grid-template-columns: 44px minmax(0, 1fr);
   }
 
+  .about-app-name h3 {
+    font-size: 17px;
+    word-break: keep-all;
+  }
+
+  .about-app-platforms {
+    grid-row: 2;
+  }
+
   .about-app-action {
-    grid-column: 2;
-    justify-self: start;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: stretch;
+    justify-content: center;
   }
 }

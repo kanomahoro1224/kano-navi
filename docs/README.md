@@ -38,7 +38,7 @@ Where each topic belongs:
 - Runtime setup and recovery belong in [Operations](operations/index.md).
 - Local workflow, checks, content maintenance and contribution rules belong in
   [Development](development/index.md).
-- Security reporting belongs in [SECURITY.md](../SECURITY.md); technical
+- Security reporting belongs in [SECURITY.md](../.github/SECURITY.md); technical
   boundaries belong in [Deployment security](operations/security.md) and
   [Secure development](development/security.md).
 - Design reasons and current rules belong in the relevant architecture, operations,

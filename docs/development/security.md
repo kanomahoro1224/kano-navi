@@ -125,4 +125,4 @@ Makefile are upgraded by hand in one change.
 
 - [Deployment security](../operations/security.md)
 - [Media downloader boundary](../architecture/media-cache.md)
-- [Security policy](../../SECURITY.md)
+- [Security policy](../../.github/SECURITY.md)

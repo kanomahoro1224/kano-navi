@@ -38,7 +38,8 @@ Auto-detected or Confirmed, and any cancellation note. The arrow in the
 bottom corner of an entry and of its details opens the stream, video, or post
 it comes from. An entry on more than one platform, such as a stream on
 YouTube and bilibili at once, shows one link per platform, with the live one
-marked; so does an entry on one platform whose announcement is a post, and
+marked; while it is on air, its **On air** label carries the logos of the
+platforms it is live on, each opening that stream. So does an entry on one platform whose announcement is a post, and
 the arrow then opens that post.
 
 Use the arrows to move between weeks, **Today** to return to the current

@@ -7,7 +7,7 @@ and `healthcheck` are its maintenance commands.
 
 From the repository root, `make build && make start` runs it against `data/`,
 `dist/` and `.env`; `make dev` runs it behind Vite; `make docker-build` builds
-the release image from the root `Dockerfile`. See
+the release image from `docker/Dockerfile`. See
 [Backend](../docs/architecture/backend.md) for commands, startup order and
 package ownership.
 

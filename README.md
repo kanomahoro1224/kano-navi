@@ -5,149 +5,92 @@
 <h1 align="center">Kano Navi</h1>
 
 <p align="center">
-  <b>Kano Mahoro's next stream, schedule, posts, and journey, in one place.</b><br>
-  An unofficial fan board, published as What’s Kano Up To?
+  <b>What’s Kano Up To?</b> An unofficial fan board for Kano Mahoro (鹿乃まほろ).
 </p>
 
 <p align="center">
-  <a href="https://kano.yexca.net/"><img alt="Live site" src="https://img.shields.io/badge/live-kano.yexca.net-d94a5a"></a>
+  <a href="https://kano.fans/"><b>kano.fans</b></a> (Japan Server) ·
+  <a href="https://xiaolubao.com/"><b>xiaolubao.com</b></a> (Mainland China Server provided by <a href="https://github.com/kanomahoro1224">Lu Ke</a>)
+</p>
+
+<p align="center">
   <a href="https://github.com/yexca/kano-navi/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/yexca/kano-navi"></a>
-  <a href="https://github.com/yexca/kano-navi/actions/workflows/full.yml"><img alt="CI" src="https://github.com/yexca/kano-navi/actions/workflows/full.yml/badge.svg"></a>
+  <a href="https://hub.docker.com/r/yexca/kano-navi"><img alt="Docker Hub: yexca/kano-navi" src="https://img.shields.io/badge/docker-yexca%2Fkano--navi-2496ed?logo=docker&logoColor=white"></a>
   <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/github/license/yexca/kano-navi"></a>
 </p>
 
-Kano Navi gathers the public activity of **Kano Mahoro (鹿乃まほろ)** into one
-page: what airs next, the week's schedule, recent posts on X and bilibili,
-streams and works on YouTube, her journey since 2010, her discography, and
-an archive of her 2015–2019 LINE BLOG. It reads in English, Japanese,
-and Simplified Chinese, in light and dark themes, on phones and desktops.
-
-**[Visit kano.yexca.net](https://kano.yexca.net/)**
-
-![The Kano Navi board in the light theme](docs/assets/readme/dashboard.jpg)
+<p align="center">
+  <a href="https://kano.fans/"><img src="docs/assets/readme/board.jpg" alt="The board on a desktop and a phone"></a><br>
+  <sub>Screenshots of the Japan Server in the light theme, captured on November 19, 2026 (JST).</sub>
+</p>
 
 > [!NOTE]
-> Kano Navi is an independent fan project with no official affiliation or
-> endorsement. Original announcements always take precedence; see the
-> [Disclaimer](#disclaimer).
+> Kano Navi is an independent fan project, not affiliated with or endorsed by
+> Kano Mahoro, her agency, X, YouTube, bilibili, or LINE. Original
+> announcements always take precedence.
 
-## Features
+## On the Site
+
+| Page          | What it shows                                                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Now**       | The next stream with a countdown in Japan and local time, the weekly schedule and month view, recent posts from X and bilibili, and the latest videos. |
+| **Journey**   | Her milestones since the first covers in 2010, by identity, and a visual archive with sources and credits.                                             |
+| **Works**     | Her albums, singles, and doujin works with their editions, the works she is featured on, and every song she uploaded.                                  |
+| **LINE BLOG** | Her 2015–2019 blog, restored with its photos and videos, in the blog's own layout and with Chinese and English translations.                           |
+
+Every page reads in English, Japanese, and Simplified Chinese, in light and
+dark themes, on phones and desktops. Schedule entries are marked
+**Auto-detected** or **Confirmed**, and the schedule and new videos can be
+followed from a calendar app or a feed reader. The
+[User guide](docs/user/index.md) describes each page in detail.
 
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <h3>⏰ What's next</h3>
-      A ticket for the next stream or event with its Japan time, your local
-      time, and a countdown, switching to <b>On air</b> while a stream is
-      live.
-    </td>
-    <td width="50%" valign="top">
-      <h3>📅 Weekly schedule</h3>
-      A Monday-first program guide and a month view, with each entry marked
-      <b>Auto-detected</b> or <b>Confirmed</b>. <b>Subscribe</b> adds it to
-      your calendar app.
-    </td>
+    <td width="33%"><a href="docs/assets/readme/journey.jpg"><img src="docs/assets/readme/journey.jpg" alt="The Journey page"></a></td>
+    <td width="33%"><a href="docs/assets/readme/works.jpg"><img src="docs/assets/readme/works.jpg" alt="The Works page"></a></td>
+    <td width="33%"><a href="docs/assets/readme/lineblog.jpg"><img src="docs/assets/readme/lineblog.jpg" alt="The LINE BLOG archive"></a></td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <h3>💬 Recent Posts</h3>
-      Recent posts from both X accounts and bilibili, with images, translated
-      quoted posts, the agency's posts about Kano, picked reposts, an account
-      filter, and a
-      month-by-month archive.
-    </td>
-    <td width="50%" valign="top">
-      <h3>🎬 Streams and works</h3>
-      The featured or newest work, upcoming reservations, stream archives, and
-      Shorts, with bilibili uploads and links for works on both platforms.
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>🌱 Journey</h3>
-      Milestones from her first covers in 2010 to today, filtered by
-      identity, plus a visual archive with sources and credits.
-    </td>
-    <td width="50%" valign="top">
-      <h3>📔 LINE BLOG archive</h3>
-      Her 2015–2019 LINE BLOG, restored from web archives with its photos and
-      videos, in the blog's own layout and with Chinese and English translations.
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>💿 Works</h3>
-      Her albums, singles and doujin works with each edition
-      and its bonuses, the works she is featured on, and every song she uploaded.
-    </td>
-    <td width="50%" valign="top">
-      <h3>🌏 Your language</h3>
-      English, Japanese, and Simplified Chinese, with video titles and posts
-      in your language when a translation exists. Content can follow the
-      interface or use a language of its own.
-    </td>
+    <td align="center"><sub>Journey</sub></td>
+    <td align="center"><sub>Works</sub></td>
+    <td align="center"><sub>LINE BLOG</sub></td>
   </tr>
 </table>
 
-<details>
-<summary>Journey page preview</summary>
+## Apps
 
-![The Kano Navi Journey page in the light theme](docs/assets/readme/history.jpg)
+- [Kano Navi for Apple](https://github.com/yexca/kano-navi-apple): the board
+  as a native app for iOS, iPadOS, and macOS, by the board's author.
+- [Kano Fans’ Treasure (小鹿包们的宝物)](https://dl.xiaolubao.com/): an app for
+  Android, HarmonyOS, Windows, and iOS, by
+  [Lu Ke](https://github.com/kanomahoro1224).
 
-</details>
-
-The [User guide](docs/user/index.md) describes every section of the site.
-
-## How It Works
+## Build and Run
 
 The server collects public posts and videos on a schedule, reads schedule
 entries from posts and schedule images, and keeps the result as a local
-snapshot. Visitors always read that snapshot, so the board stays fast and keeps
-the last known state when a platform is unavailable. See
-[How it works](docs/how-it-works.md).
+snapshot. Visitors only ever read that snapshot, so the board stays fast and
+keeps the last known state when a platform is unavailable. The same snapshot
+is open to other tools through a public read API and MCP.
 
-```mermaid
-flowchart LR
-  X["X and bilibili posts"] --> S[("Board snapshot")]
-  YT["YouTube and bilibili"] --> S
-  S --> B["Board · Journey · About"]
-  S --> C["Calendar and video feeds"]
-```
+| To                      | Start with                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Understand the system   | [How it works](docs/how-it-works.md) and [Architecture](docs/architecture/index.md)                                            |
+| Read the data           | [Public API](docs/architecture/public-api.md)                                                                                  |
+| Run an instance         | [Docker deployment](docs/operations/docker.md) and [Configuration](docs/operations/configuration.md)                           |
+| Change the code         | [Local development](docs/development/local-dev.md), [Development](docs/development/index.md), and the [agent guide](AGENTS.md) |
+| Report a vulnerability  | [Security](.github/SECURITY.md)                                                                                                |
+| Find any other document | [Documentation index](docs/README.md)                                                                                          |
 
-## Run Your Own
+## Notice and License
 
-Most fans only need the [live site](https://kano.yexca.net/). To run an
-instance yourself, see [Docker deployment](docs/operations/docker.md) and
-[Configuration](docs/operations/configuration.md). To work on the code, start
-with [Local development](docs/development/local-dev.md) and the
-[agent guide](AGENTS.md).
-
-## Documentation
-
-- [User guide](docs/user/index.md): the board, schedule, posts, videos,
-  Journey, Works, and the LINE BLOG archive.
-- [How it works](docs/how-it-works.md) and [Architecture](docs/architecture/index.md):
-  data flow and system boundaries.
-- [Operations](docs/operations/index.md): running an instance.
-- [Development](docs/development/index.md): local setup, testing, and releases.
-- [Security](SECURITY.md), including how to report a vulnerability.
-- [Documentation index](docs/README.md): every public document.
-
-## Disclaimer
-
-- Kano Navi is an independent fan project. It is not affiliated with or
-  endorsed by Kano Mahoro, her agency, X, YouTube, bilibili, or LINE.
-- Every post, video, and event links to its original public page, which is
-  always authoritative.
-- Artwork, artist names, and other third-party content keep their original
-  rights; the code license does not grant rights to them. Image sources and
-  credits are recorded in the
-  [history archive](docs/development/history-archive.md), the
-  [works collection](docs/development/works-archive.md) and the
-  [LINE BLOG archive](docs/development/lineblog-archive.md).
-
-## License
+Every post, video, and event links to its original public page, which is
+always authoritative. Artwork, artist names, and other third-party content
+keep their original rights, and the code license grants no rights to them;
+image sources and credits are recorded with the
+[history archive](docs/development/history-archive.md), the
+[works collection](docs/development/works-archive.md), and the
+[LINE BLOG archive](docs/development/lineblog-archive.md).
 
 Created by [yexca](https://github.com/yexca). Kano Navi is free software
-licensed under the [GNU Affero General Public License v3.0](LICENSE). The
-About page lists the contributors, development credits and technology stack.
+licensed under the [GNU Affero General Public License v3.0](LICENSE).

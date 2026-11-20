@@ -141,11 +141,52 @@ func scheduleInputStamp(args []driver.Value) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
+// scheduleMediaJSON is the part of a stored source record the schedule
+// extractor reads: an object of the record's ScheduleMediaKeys members,
+// each member's JSON as stored, the last spelling of a repeated property
+// winning. A record that is not a JSON object gives NULL, as the extractor
+// reads no images from it.
+func scheduleMediaJSON(arg driver.Value) driver.Value {
+	var stored []byte
+	switch typed := arg.(type) {
+	case string:
+		stored = []byte(typed)
+	case []byte:
+		stored = typed
+	default:
+		return nil
+	}
+	var members map[string]json.RawMessage
+	if len(stored) == 0 || json.Unmarshal(stored, &members) != nil || members == nil {
+		return nil
+	}
+	out := []byte{'{'}
+	for _, key := range ScheduleMediaKeys {
+		member, ok := members[key]
+		if !ok {
+			continue
+		}
+		if len(out) > 1 {
+			out = append(out, ',')
+		}
+		name, _ := json.Marshal(key)
+		out = append(append(append(out, name...), ':'), member...)
+	}
+	return string(append(out, '}'))
+}
+
 // schedule_input_stamp lets the candidate query compare a post's stored
-// settled stamp with its current input without reading the post into Go.
+// settled stamp with its current input without reading the post into Go,
+// and schedule_media_json gives the extractor a post's declared images
+// without its whole source record.
 func init() {
 	if err := moderncsqlite.RegisterDeterministicScalarFunction("schedule_input_stamp", scheduleStampArgs, func(_ *moderncsqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
 		return scheduleInputStamp(args)
+	}); err != nil {
+		panic(err)
+	}
+	if err := moderncsqlite.RegisterDeterministicScalarFunction("schedule_media_json", 1, func(_ *moderncsqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+		return scheduleMediaJSON(args[0]), nil
 	}); err != nil {
 		panic(err)
 	}

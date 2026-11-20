@@ -225,17 +225,17 @@ ci-results); its tests guard against accidental validation skips. In the `pr`
 tier it compares the PR base with the checked-out merge result, including both
 sides of renames and deleted paths:
 
-| PR changes                                                                     | Planned jobs beside Plan, Style, and the Gate                       |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| Only documentation, issue forms, `.env.example`, Compose or formatter settings | None                                                                |
-| Go backend source, tests, SQL or module files                                  | Backend, Go builds, Go container, API smoke, Docker image           |
-| The static seed                                                                | Backend, Go builds, Go container, Frontend, API smoke, Docker image |
-| `backend/Dockerfile`                                                           | Go container                                                        |
-| Frontend source, `public/`, frontend configuration, npm manifest or lockfile   | Frontend, Docker image                                              |
-| Frontend tests                                                                 | Frontend                                                            |
-| Root `Dockerfile`, `.dockerignore`, or `LICENSE`                               | Docker image                                                        |
-| A validation script                                                            | The jobs that run or type-check it, listed in `scriptJobs`          |
-| Makefile, `.nvmrc`, workflows, composite actions, the planner, or other paths  | All jobs                                                            |
+| PR changes                                                                    | Planned jobs beside Plan, Style, and the Gate                       |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Only documentation, issue forms, `.env.example` or Compose files              | None                                                                |
+| Go backend source, tests, SQL or module files                                 | Backend, Go builds, Go container, API smoke, Docker image           |
+| The static seed                                                               | Backend, Go builds, Go container, Frontend, API smoke, Docker image |
+| `backend/Dockerfile`                                                          | Go container                                                        |
+| Frontend source, `public/`, frontend configuration, npm manifest or lockfile  | Frontend, Docker image                                              |
+| Frontend tests                                                                | Frontend                                                            |
+| `docker/` or `LICENSE`                                                        | Docker image                                                        |
+| A validation script                                                           | The jobs that run or type-check it, listed in `scriptJobs`          |
+| Makefile, `.nvmrc`, workflows, composite actions, the planner, or other paths | All jobs                                                            |
 
 Mixed changes use the union of planned jobs, and a missing or empty PR diff
 selects all jobs. The frontend build type-checks every TypeScript script, so
@@ -290,7 +290,7 @@ Node and Go toolchains and the Docker base images are upgraded by hand; see
 
 Issue forms in `.github/ISSUE_TEMPLATE/` collect bug reports and feature
 requests with synthetic data, and route suspected vulnerabilities to private
-security reporting as the [security policy](../../SECURITY.md) describes.
+security reporting as the [security policy](../../.github/SECURITY.md) describes.
 The Works correction form, which the Works page's feedback link opens,
 collects one work's wrong or missing information with a source; a
 correction lands in the reference collection and reaches the page with the

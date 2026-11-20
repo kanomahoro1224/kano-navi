@@ -152,3 +152,28 @@ func TestScheduleInputStampKeepsArgumentsApart(t *testing.T) {
 		t.Error("a short argument list was accepted")
 	}
 }
+
+func TestScheduleMediaJSONKeepsOnlyTheDeclaredImages(t *testing.T) {
+	for name, tc := range map[string]struct {
+		arg  driver.Value
+		want driver.Value
+	}{
+		"image lists": {`{"id":"1","text":"long","media_urls":["https://media.example.test/a.png"],"mediaUrls":[],"metrics":{"likes":1}}`,
+			`{"mediaUrls":[],"media_urls":["https://media.example.test/a.png"]}`},
+		"bytes":         {[]byte(`{"mediaURLs": [ "x" ] }`), `{"mediaURLs":[ "x" ]}`},
+		"repeated":      {`{"media_urls":["a"],"media_urls":["b"]}`, `{"media_urls":["b"]}`},
+		"single value":  {`{"mediaUrls":"x","media_urls":null}`, `{"mediaUrls":"x","media_urls":null}`},
+		"no image list": {`{"id":"1"}`, `{}`},
+		"empty object":  {`{}`, `{}`},
+		"array":         {`["mediaUrls"]`, nil},
+		"json null":     {`null`, nil},
+		"invalid":       {`{"mediaUrls":`, nil},
+		"empty":         {``, nil},
+		"sql null":      {nil, nil},
+		"number":        {int64(1), nil},
+	} {
+		if got := scheduleMediaJSON(tc.arg); got != tc.want {
+			t.Errorf("%s: %#v, want %#v", name, got, tc.want)
+		}
+	}
+}

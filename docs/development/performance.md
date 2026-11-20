@@ -22,6 +22,20 @@ window. It uses no seed, provider or workflow
 configuration, no source or model calls and no operator data, and writes
 nothing into the repository.
 
+The schedule extraction scan has synthetic benchmarks of its candidate
+phase. Run them from `backend/`:
+
+```bash
+go test ./internal/schedule -run '^$' -bench BenchmarkScheduleScanSynthetic10k -benchtime 3x -benchmem
+```
+
+The fixture in `backend/internal/schedule/scan_benchmark_test.go` writes
+10,000 synthetic candidate posts, one in four with a ready cached image, and
+a stored success for each, so every post is a cache hit and no model is
+called. `Settled` times a run whose posts are all settled, `Judged` a run
+that loads and judges every post (as after an extractor version, keyword or
+stage change), and `Preview` the queue preview judging every post.
+
 ## Contracts the Measurements Check
 
 - `TestDashboardSynthetic10kCollectionsStayBounded`, on the same fixture,

@@ -9,8 +9,12 @@ bilibili. A work on both platforms is one video with a link for each.
 A large lead card shows the maintainer's featured video, or else the newest
 cover, original song, or premiere, with its date, length, and a link for each
 platform. Beside it, upcoming reservations appear as date tickets, soonest
-first; a reservation that has started reads as on air. Up to three earlier
-works remain beside those reservations.
+first; a reservation that has started reads as on air. Earlier works fill the
+rest of the column: four when nothing is coming up, and five items in all
+beside reservations, with at least one earlier work kept whenever there is
+one. When more than four reservations are waiting, the furthest ones fold
+behind a count beside **Coming up**; pressing it shows every reservation in
+place, and pressing it again folds them back.
 
 ## Archives and Shorts
 

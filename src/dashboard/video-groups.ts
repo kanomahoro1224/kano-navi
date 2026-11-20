@@ -232,6 +232,44 @@ export function groupVideos(
   return { ...split, lead, leadIsFeatured: Boolean(featured) }
 }
 
+/** Earlier works beside the lead when no reservation is shown. */
+export const SIDE_WORK_SLOTS = 4
+/** Items beside the lead when reservations are shown, tickets and works. */
+export const SIDE_MIXED_SLOTS = 5
+/** Tickets beside the lead, so an earlier work always keeps a slot. */
+export const SIDE_TICKET_SLOTS = 4
+
+export interface SideSlots {
+  /** Reservation tickets shown, soonest first. */
+  tickets: number
+  /** Earlier works shown, newest first. */
+  works: number
+  /** Reservations cut from the end of the ticket list. */
+  hidden: number
+}
+
+/**
+ * How many reservations and earlier works the All view's side group shows:
+ * four works alone, five items in all beside reservations, and at most four
+ * tickets with the rest behind the overflow control.
+ */
+export function sideSlots(reservations: number, works: number): SideSlots {
+  const total = Math.max(0, reservations)
+  const available = Math.max(0, works)
+  if (!total)
+    return {
+      tickets: 0,
+      works: Math.min(available, SIDE_WORK_SLOTS),
+      hidden: 0,
+    }
+  const tickets = Math.min(total, SIDE_TICKET_SLOTS)
+  return {
+    tickets,
+    works: Math.min(available, SIDE_MIXED_SLOTS - tickets),
+    hidden: total - tickets,
+  }
+}
+
 /** One platform's page for a video. */
 export interface VideoLink {
   source: string

@@ -1510,7 +1510,22 @@ other post gets a model call. The scan and the console's
 [queue preview](admin-api.md#queue-preview) share that judgement and the
 order above, so the preview lists what a run started at that moment
 processes. A cache hit whose post state already records that result writes
-nothing.
+nothing. A skip, and a cache hit that writes, keep the stored reprocess
+request flag, so a request an operator makes after the post was read runs on
+the next scan.
+
+The run reads what judging needs (post states, post images, their media
+assets and the stored extractions) for the next 200 unsettled posts of its
+queue at once, and judges and carries them out in order. Carrying out a post
+writes only that post's state and extractions, so the batch stays current
+while the run walks it. A model call drops the batch, because an operator may
+change a later post while the call waits, and the next post reads a new one.
+A scan resolves each media cache directory's symlinks once and checks only
+the file itself after that, resolving a file that is itself a symlink whole,
+under the same containment rules.
+The candidate query reads only the image lists of a post's stored source
+record, which SQLite extracts with `schedule_media_json`, not the whole
+record.
 
 A settled post is a cache hit decided without loading it. Each detection
 stage reads every shown post within the lookback with its input stamp for

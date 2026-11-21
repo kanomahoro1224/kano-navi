@@ -13,7 +13,6 @@ import { useAppSettings } from "@/app-settings"
 import { MediaDialog, stepIndex } from "@/site/media-dialog"
 import { SiteFooter, SiteHeader, SkipLink } from "@/site/site-shell"
 import { POST_WINDOW_DAYS, VIDEO_WINDOW_DAYS } from "./content"
-import { featuredVideoIdOf } from "./derive-dashboard"
 import { syncStateFor } from "./freshness"
 import {
   addDays,
@@ -113,7 +112,7 @@ export function DashboardApp() {
     weekStart,
     setWeekStart,
     calendarRange,
-  } = useDashboard(now)
+  } = useDashboard()
   // One month dialog at a time: the schedule grid or past videos.
   const [archiveView, setArchiveView] = useState<ArchiveRequest | null>(null)
   const archive = useArchive(
@@ -349,7 +348,6 @@ export function DashboardApp() {
     upcomingEvents: 0,
     videos: dashboard.videos.length,
   }
-  const featuredVideoId = featuredVideoIdOf(dashboard)
 
   return (
     <div className="site board" id="top">
@@ -384,10 +382,9 @@ export function DashboardApp() {
           sales={(placement) => (
             <SaleStrip
               events={dashboard.events}
-              salesIds={dashboard.projection?.sales}
+              salesIds={dashboard.projection.sales}
               placement={placement}
               locale={locale}
-              now={now}
               t={t}
             />
           )}
@@ -433,7 +430,6 @@ export function DashboardApp() {
 
         <VideoShelf
           videos={dashboard.videos}
-          featuredVideoId={featuredVideoId}
           projection={dashboard.projection}
           focus={dashboard.focus}
           isLoading={isLoading}
@@ -548,7 +544,6 @@ export function DashboardApp() {
                   : showLatestVideos
               }
               locale={locale}
-              now={now}
               t={t}
             />
           )}

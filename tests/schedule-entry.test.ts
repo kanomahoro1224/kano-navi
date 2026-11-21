@@ -5,26 +5,53 @@ import { act, createElement, useState } from "react"
 import { createServer } from "vite"
 import { browser, click, render, type Rendered } from "./dom.ts"
 
-const event = (id: string, overrides: Record<string, unknown>) => ({
-  id,
-  source: "x",
-  title: `Synthetic entry ${id}`,
-  detail: null,
-  startsOn: "2026-10-09",
-  startsAt: null,
-  endsAt: null,
-  timezone: "Asia/Tokyo",
-  timePrecision: "date",
-  status: null,
-  eventType: "stream",
-  tag: null,
-  url: null,
-  provenance: "automatic",
-  manualLocked: false,
-  isUpcoming: false,
-  cancellationStatus: "none",
-  ...overrides,
-})
+/**
+ * A stream entry with the server's view: `state` is its projected state, and
+ * an activity label takes the plain stream chip's place.
+ */
+const event = (
+  id: string,
+  { state = "done", ...overrides }: Record<string, unknown>,
+) => {
+  const entry = {
+    id,
+    source: "x",
+    title: `Synthetic entry ${id}`,
+    detail: null,
+    startsOn: "2026-10-09",
+    startsAt: null as string | null,
+    endsAt: null,
+    timezone: "Asia/Tokyo",
+    timePrecision: "unknown",
+    status: null,
+    eventType: "stream",
+    tag: null as string | null,
+    url: null,
+    provenance: "automatic",
+    manualLocked: false,
+    isUpcoming: false,
+    cancellationStatus: "none",
+    ...overrides,
+  }
+  return {
+    ...entry,
+    view: {
+      state,
+      typeCode: entry.tag ? null : "stream",
+      activityCode: entry.tag,
+      activityContext: entry.tag ? "stream" : "",
+      isWork: false,
+      calendarEntries: [
+        {
+          saleMark: null,
+          startsOn: entry.startsOn,
+          startsAt: entry.startsAt,
+          timePrecision: entry.startsAt ? "exact" : "unknown",
+        },
+      ],
+    },
+  }
+}
 
 /**
  * Loads the schedule's modules through Vite and hands them to `run`, which
@@ -97,7 +124,7 @@ test("the week folds past entries and names no ended status", async () => {
       event(id, {
         startsOn: startsAt.slice(0, 10),
         startsAt,
-        timePrecision: "minute",
+        timePrecision: "exact",
         tag: "game",
         url: `https://video.example.test/watch/${id}`,
         ...more,
@@ -109,8 +136,8 @@ test("the week folds past entries and names no ended status", async () => {
       timed("earlier", "2026-10-08T10:00:00+09:00", {
         endsAt: "2026-10-08T12:00:00+09:00",
       }),
-      timed("onAir", "2026-10-08T20:00:00+09:00"),
-      timed("tomorrow", "2026-10-09T20:00:00+09:00"),
+      timed("onAir", "2026-10-08T20:00:00+09:00", { state: "live" }),
+      timed("tomorrow", "2026-10-09T20:00:00+09:00", { state: "upcoming" }),
     ]
     const range = { from: "2026-10-05", to: "2026-10-11" }
     function Harness() {
@@ -171,8 +198,9 @@ test("a card's On air chip carries the platforms live now", async () => {
       event("simulcast", {
         startsOn: "2026-10-08",
         startsAt: "2026-10-08T20:00:00+09:00",
-        timePrecision: "minute",
+        timePrecision: "exact",
         tag: "game",
+        state: "live",
         platforms: ["youtube", "bilibili", "other"],
         links: [
           { platform: "youtube", url: youtube, liveStatus: "live" },
@@ -246,12 +274,12 @@ test("a schedule entry opens its sheet, and a month entry marks it in its day", 
         event("first", {
           title: longTitle,
           startsAt: "2026-10-09T10:00:00Z",
-          timePrecision: "minute",
+          timePrecision: "exact",
           url: "https://video.example.test/watch/first",
         }),
         event("second", {
           startsAt: "2026-10-09T12:00:00Z",
-          timePrecision: "minute",
+          timePrecision: "exact",
           provenance: "manual",
           url: "https://video.example.test/watch/second",
         }),

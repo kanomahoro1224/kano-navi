@@ -9,13 +9,18 @@ import type {
 } from "@/types"
 import { createRequestScope, startPolling } from "../lib/polling"
 import { startOfWeek, japanToday, localDateKey, addDays } from "./format"
-import { deriveDashboardAt } from "./derive-dashboard"
 import type { VideoCategory } from "./video-groups"
+
+/**
+ * The projection version this board renders. A snapshot with any other
+ * version, or none, is never shown: the board reads a fresh one instead.
+ */
+const PROJECTION_VERSION = 1
 
 const emptyDashboard: Dashboard = {
   profile: fallbackProfile,
   projection: {
-    version: 0,
+    version: PROJECTION_VERSION,
     nextTransitionAt: null,
     focus: { eventIds: [], videoIds: [] },
     spotlight: null,
@@ -229,33 +234,28 @@ type LoadResult = { ok: true } | { ok: false; error: Error }
 
 /**
  * The last snapshot this browser read, shown on the next visit until the
- * first read replaces it. Additive fields are merged with safe defaults.
+ * first read replaces it, when it carries the supported projection.
  */
 const SNAPSHOT_CACHE_KEY = "kano-dashboard-snapshot-v1"
 /** An older stored snapshot is dropped instead of shown. */
 const SNAPSHOT_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
+/** Whether a snapshot payload carries the projection this board renders. */
+function hasSupportedProjection(
+  payload: Partial<Dashboard> | null | undefined,
+): payload is Partial<Dashboard> & Pick<Dashboard, "projection"> {
+  return payload?.projection?.version === PROJECTION_VERSION
+}
+
 /** A snapshot payload over the defaults, as the board renders it. */
-function mergeSnapshot(payload: Partial<Dashboard>): Dashboard {
+function mergeSnapshot(
+  payload: Partial<Dashboard> & Pick<Dashboard, "projection">,
+): Dashboard {
   return {
     ...emptyDashboard,
     ...payload,
     profile: { ...fallbackProfile, ...(payload.profile || {}) },
     summary: { ...emptyDashboard.summary, ...(payload.summary || {}) },
-    projection: payload.projection
-      ? {
-          ...emptyDashboard.projection,
-          ...payload.projection,
-          focus: {
-            ...emptyDashboard.projection!.focus,
-            ...(payload.projection.focus || {}),
-          },
-          shelf: {
-            ...emptyDashboard.projection!.shelf,
-            ...(payload.projection.shelf || {}),
-          },
-        }
-      : emptyDashboard.projection,
     meta: { ...emptyDashboard.meta, ...(payload.meta || {}) },
   }
 }
@@ -271,6 +271,7 @@ function readCachedSnapshot(): Dashboard | null {
       !(age >= 0 && age <= SNAPSHOT_CACHE_MAX_AGE_MS) ||
       !snapshot ||
       typeof snapshot !== "object" ||
+      !hasSupportedProjection(snapshot) ||
       (["posts", "events", "videos", "timeline", "resources"] as const).some(
         (key) => key in snapshot && !Array.isArray(snapshot[key]),
       )
@@ -303,7 +304,7 @@ function writeCachedSnapshot(snapshot: unknown) {
  * the last snapshot this browser stored, refreshing it, rather than from the
  * loading placeholder.
  */
-export function useDashboard(now = Date.now()) {
+export function useDashboard() {
   const [cached] = useState(readCachedSnapshot)
   const shownCacheRef = useRef(cached != null)
   const [dashboard, setDashboard] = useState(cached || emptyDashboard)
@@ -640,6 +641,10 @@ export function useDashboard(now = Date.now()) {
           if (!isCurrent())
             return { ok: false, error: new Error("Request superseded") }
           if (kind === "snapshot") {
+            // An unsupported projection fails like any read: the known
+            // snapshot stays and a fresh one is read after the backoff.
+            if (!hasSupportedProjection(payload))
+              throw new Error("Unsupported snapshot projection")
             setDashboard(mergeSnapshot(payload))
             writeCachedSnapshot(payload)
             setSnapshotVersion((version) => version + 1)
@@ -768,12 +773,8 @@ export function useDashboard(now = Date.now()) {
       scope.cancelKey("calendar")
     }
   }, [visibleKey, loadCalendar, scope])
-  const currentDashboard = useMemo(
-    () => deriveDashboardAt(dashboard, now),
-    [dashboard, now],
-  )
   return {
-    dashboard: currentDashboard,
+    dashboard,
     snapshotVersion,
     ...status,
     reload: load,

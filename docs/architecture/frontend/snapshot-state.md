@@ -13,9 +13,8 @@ Each successful snapshot is also kept in `localStorage`
 (`kano-dashboard-snapshot-v1`, with the time it was stored). The next visit
 renders a stored snapshot under a week old at once and reads the API as usual;
 the board reports a refresh rather than loading, and the first read replaces
-it or, on failure, leaves it shown with the error. Additive projection fields
-are filled with compatible defaults while a stored response does not contain
-them. Without a usable stored snapshot the stage shows its placeholder, which
+it or, on failure, leaves it shown with the error. A stored snapshot without
+the supported projection version is not used. Without a usable stored snapshot the stage shows its placeholder, which
 has a full ticket's shape (the 16:9 art band and a stub with a two-line
 title, three lines at 640px and below), so the usual ticket fills it in place.
 
@@ -67,10 +66,11 @@ identity, sale IDs and shelf order in the dashboard projection. `view` fields
 travel with calendar and archive records so the same codes render in every
 reader. The minute revalidation obtains a fresh projection when time-dependent
 states can expire without a durable revision; a visibility or focus wake also
-uses the same request path. `deriveDashboardAt` returns a versioned projected
-snapshot as received. A response without the projection follows the compatible
-local derivation path, including the live grace, sale expansion, focus yield,
-latest-video eligibility and cancellation rules needed by that response.
+uses the same request path. The board renders only projection version `1`:
+a snapshot read with another version, or without one, fails like any other
+read, so a known snapshot stays on screen with the error and the next read
+follows the failure backoff. The browser never derives focus, spotlight,
+shelf, sales, event state, video phase or form from stored fields.
 
 `pickSpotlight` joins the projected event and video IDs to the returned
 summary, translates the projected live and members-chip flags, and keeps the

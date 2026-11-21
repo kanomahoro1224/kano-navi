@@ -5,12 +5,11 @@ import { useState, useSyncExternalStore } from "react"
 import { followCardLink } from "@/site/links"
 import {
   cleanVideoTitle,
-  currentSales,
+  eventStatus,
   formatJapanDay,
   formatJapanTime,
   saleClosesAt,
   saleOpensAt,
-  saleStatus,
   saleWindow,
 } from "../format"
 import { SheetDialog } from "./sheet-dialog"
@@ -51,15 +50,13 @@ function when(instant: number, timed: boolean, locale: Locale, t: Translator) {
 function SaleCard({
   event,
   locale,
-  now,
   t,
 }: {
   event: ScheduleEvent
   locale: Locale
-  now: number
   t: Translator
 }) {
-  const open = saleStatus(event, now) === "open"
+  const open = eventStatus(event) === "open"
   const window = saleWindow(event)
   const line = open
     ? t("sales.closes", {
@@ -95,35 +92,31 @@ function SaleCard({
 }
 
 /**
- * The sales on sale now or opening within a week: what can be bought and
- * until when. The stage keeps to activities, so this is where a period
- * lasting weeks stays visible. On wide screens it fills the shorter stage
- * column; narrower, it follows the stage. A few show in place and every one
- * opens in a sheet. It renders nothing when no sale qualifies.
+ * The sales the projection lists, on sale now or opening within a week: what
+ * can be bought and until when. The stage keeps to activities, so this is
+ * where a period lasting weeks stays visible. On wide screens it fills the
+ * shorter stage column; narrower, it follows the stage. A few show in place
+ * and every one opens in a sheet. It renders nothing when no sale qualifies.
  */
 export function SaleStrip({
   events,
   salesIds,
   placement,
   locale,
-  now,
   t,
 }: {
   events: ScheduleEvent[]
-  salesIds?: string[]
+  salesIds: string[]
   placement: SalePlacement
   locale: Locale
-  now: number
   t: Translator
 }) {
   const [sheetOpen, setSheetOpen] = useState(false)
   const columns = useStageColumns()
   const limit = SALE_LIMIT[columns ? placement : "main"]
   const sales = salesIds
-    ? salesIds
-        .map((id) => events.find((event) => event.id === id) || null)
-        .filter((event): event is ScheduleEvent => event !== null)
-    : currentSales(events, now)
+    .map((id) => events.find((event) => event.id === id) || null)
+    .filter((event): event is ScheduleEvent => event !== null)
   if (!sales.length) return null
   const closeSheet = () => setSheetOpen(false)
   return (
@@ -148,7 +141,7 @@ export function SaleStrip({
       <ol className="sale-strip-list">
         {sales.slice(0, limit).map((event) => (
           <li key={event.id}>
-            <SaleCard event={event} locale={locale} now={now} t={t} />
+            <SaleCard event={event} locale={locale} t={t} />
           </li>
         ))}
       </ol>
@@ -170,7 +163,7 @@ export function SaleStrip({
             <ol className="sale-sheet-list">
               {sales.map((event) => (
                 <li key={event.id}>
-                  <SaleCard event={event} locale={locale} now={now} t={t} />
+                  <SaleCard event={event} locale={locale} t={t} />
                 </li>
               ))}
             </ol>

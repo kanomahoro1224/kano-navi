@@ -63,6 +63,14 @@ function video(id: string, publishedAt: string): Video {
     thumbnailStatus: "missing",
     kind: "upload",
     isUpcoming: false,
+    view: {
+      phase: "past",
+      formCode: "video",
+      shelfGroup: "",
+      latestEligible: true,
+      focusEligible: false,
+      tagContext: "work",
+    },
   }
 }
 

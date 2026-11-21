@@ -53,6 +53,44 @@ function video(id: string, fields: Partial<Video>): Video {
     kind: "upload",
     isUpcoming: false,
     ...fields,
+    view: fields.isUpcoming
+      ? {
+          phase: "upcoming",
+          formCode: "upcoming",
+          shelfGroup: "reservation",
+          latestEligible: false,
+          focusEligible: true,
+          tagContext: "stream",
+        }
+      : {
+          phase: "past",
+          formCode: "video",
+          shelfGroup: "work",
+          latestEligible: true,
+          focusEligible: false,
+          tagContext: "work",
+        },
+  }
+}
+
+/** The server's shelf for these videos: the first work leads. */
+function shelfOf(videos: Video[]) {
+  const reservations = videos.filter((item) => item.isUpcoming)
+  const [lead, ...works] = videos.filter((item) => !item.isUpcoming)
+  return {
+    version: 1,
+    nextTransitionAt: null,
+    focus: { eventIds: [], videoIds: [] },
+    spotlight: null,
+    sales: [],
+    shelf: {
+      leadId: lead?.id ?? null,
+      leadIsFeatured: false,
+      reservations: reservations.map((item) => item.id),
+      works: works.map((item) => item.id),
+      archives: [],
+      shorts: [],
+    },
   }
 }
 
@@ -79,7 +117,7 @@ async function mountShelf(videos: Video[]) {
     const { locale, t } = modules.useAppSettings()
     return createElement(VideoShelf, {
       videos,
-      featuredVideoId: null,
+      projection: shelfOf(videos),
       focus: null,
       isLoading: false,
       onOpenArchive: () => {},

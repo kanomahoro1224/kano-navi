@@ -105,13 +105,8 @@ const statusTones: Record<string, string> = {
 }
 
 /** What an entry's card and its sheet both show. */
-function entryFacts(
-  event: ScheduleEvent,
-  now: number,
-  locale: Locale,
-  t: Translator,
-) {
-  const status = eventStatus(event, now)
+function entryFacts(event: ScheduleEvent, locale: Locale, t: Translator) {
+  const status = eventStatus(event)
   const { typeKey, tag, work } = eventKinds(event)
   const cancellationNote =
     event.cancellationStatus === "llm_suspected"
@@ -137,7 +132,7 @@ function entryFacts(
     note: cancellationNote?.filter(Boolean).join(" · ") || null,
     saleMark: event.saleMark || null,
     link: eventLink(event),
-    ...entryLinks(event, locale, now),
+    ...entryLinks(event, locale),
   }
 }
 
@@ -145,8 +140,8 @@ function entryFacts(
  * An entry's platform links and, when they show, its own announcement link
  * beside them.
  */
-function entryLinks(event: ScheduleEvent, locale: Locale, now: number) {
-  const links = eventLinks(event, locale, now)
+function entryLinks(event: ScheduleEvent, locale: Locale) {
+  const links = eventLinks(event, locale)
   const shown = eventShowsPlatformLinks(event, links)
   return {
     links: shown ? links : [],
@@ -382,7 +377,6 @@ function GuideEvent({
   folded = false,
   pickTurn = 0,
   locale,
-  now,
   t,
 }: {
   event: ScheduleEvent
@@ -391,7 +385,6 @@ function GuideEvent({
   /** The grid pick that marked this entry, 0 when none; each pick scrolls. */
   pickTurn?: number
   locale: Locale
-  now: number
   t: Translator
 }) {
   const [open, setOpen] = useState(false)
@@ -400,7 +393,7 @@ function GuideEvent({
   useEffect(() => {
     if (pickTurn > 0 && itemRef.current) revealNearest(itemRef.current)
   }, [pickTurn])
-  const facts = entryFacts(event, now, locale, t)
+  const facts = entryFacts(event, locale, t)
   const title = cleanVideoTitle(event.title)
   // While the entry is on air, its live platforms ride in the On air chip.
   const liveLinks =
@@ -484,8 +477,8 @@ function GuideEvent({
  * Whether the week folds an entry: everything on a day before today, and
  * today's entries once they end, except one still on air.
  */
-function entryIsPast(event: ScheduleEvent, dayIsPast: boolean, now: number) {
-  const status = eventStatus(event, now)
+function entryIsPast(event: ScheduleEvent, dayIsPast: boolean) {
+  const status = eventStatus(event)
   return status !== "live" && (dayIsPast || status === "done")
 }
 
@@ -495,7 +488,6 @@ function WeekDays({
   dayCounts,
   todayKey,
   locale,
-  now,
   t,
 }: {
   weekStart: Date
@@ -503,7 +495,6 @@ function WeekDays({
   dayCounts: Record<string, number>
   todayKey: string
   locale: Locale
-  now: number
   t: Translator
 }) {
   const days = Array.from({ length: 7 }, (_, index) =>
@@ -546,9 +537,8 @@ function WeekDays({
                   <GuideEvent
                     key={event.id}
                     event={event}
-                    folded={entryIsPast(event, isPast, now)}
+                    folded={entryIsPast(event, isPast)}
                     locale={locale}
-                    now={now}
                     t={t}
                   />
                 ))}
@@ -587,7 +577,6 @@ function MonthGrid({
   loading,
   onPickDay,
   locale,
-  now,
   t,
 }: {
   monthStart: Date
@@ -599,7 +588,6 @@ function MonthGrid({
   loading: boolean
   onPickDay: (day: Date, eventId?: string) => void
   locale: Locale
-  now: number
   t: Translator
 }) {
   const { contentLocale } = useAppSettings()
@@ -663,7 +651,7 @@ function MonthGrid({
                   data-count={Math.min(items.length, MONTH_CHIPS)}
                 >
                   {items.slice(0, MONTH_CHIPS).map((event) => {
-                    const status = eventStatus(event, now)
+                    const status = eventStatus(event)
                     const { tag, work } = eventKinds(event)
                     const tone =
                       typeTones[String(event.eventType || "").toLowerCase()] ||
@@ -838,7 +826,6 @@ export function ScheduleMonth({
           loading={loading && isLoading}
           onPickDay={pickDay}
           locale={locale}
-          now={now}
           t={t}
         />
         <div className="month-side">
@@ -886,7 +873,6 @@ export function ScheduleMonth({
                       full
                       pickTurn={event.id === picked?.id ? picked.turn : 0}
                       locale={locale}
-                      now={now}
                       t={t}
                     />
                   ))}
@@ -1105,7 +1091,6 @@ export function WeekGuide({
               dayCounts={dayCounts}
               todayKey={todayKey}
               locale={locale}
-              now={now}
               t={t}
             />
           )}

@@ -60,9 +60,9 @@ Every event and video carries a `view` of codes and booleans, never
 localized copy. Calendar, archive and MCP `schedule_list` reads carry the
 same event and video `view` objects as the dashboard, computed from the same
 inputs: an event's source and the broadcast state of its linked video or
-room. Clients keep an
-additive fallback for responses without `projection` or `view` so a retained
-snapshot remains readable while a deployment serves mixed versions.
+room. The board renders only projection version `1`, and every event and
+video it shows carries its `view`; it never reconstructs one from stored
+fields.
 
 | Event view field  | Value                                                                                                     |
 | ----------------- | --------------------------------------------------------------------------------------------------------- |

@@ -25,7 +25,6 @@ import {
   countdownParts,
   eventIsManual,
   eventKinds,
-  membersChipBeside,
   eventTagKey,
   formatJapanDay,
   formatJapanTime,
@@ -79,20 +78,16 @@ const SOURCES: Record<
  * A ticket's platform links: a video's, with the other platforms of an
  * entry of the same broadcast, or an entry's. A live platform leads.
  */
-function ticketLinks(
-  item: SpotlightItem,
-  locale: Locale,
-  now: number,
-): VideoLink[] {
+function ticketLinks(item: SpotlightItem, locale: Locale): VideoLink[] {
   if (!item.video) {
     if (!item.event) return []
-    const links = eventLinks(item.event, locale, now)
+    const links = eventLinks(item.event, locale)
     return eventShowsPlatformLinks(item.event, links) ? links : []
   }
   // The video's own link is marked while the probe confirms it live.
   const live = confirmedLiveStatus(item.video) === "live"
   const links: VideoLink[] = [
-    ...videoLinks(item.video, locale, now).map((link) =>
+    ...videoLinks(item.video, locale).map((link) =>
       live && link.url === item.video?.url ? { ...link, live } : link,
     ),
     ...(item.extraLinks || []),
@@ -157,12 +152,10 @@ type Companion = NonNullable<ReturnType<typeof pickCompanion>>
 function TicketHead({
   item,
   isLive,
-  now,
   t,
 }: {
   item: SpotlightItem
   isLive: boolean
-  now: number
   t: Translator
 }) {
   const eventView = item.event ? eventKinds(item.event) : null
@@ -176,10 +169,7 @@ function TicketHead({
   const activity: VideoTag | null =
     videoActivity ??
     (label === "game" || label === "talk" || label === "song" ? label : null)
-  const reservationOnAir =
-    isLive &&
-    (item.video?.view?.phase === "upcoming" ||
-      (!item.video?.view && item.video?.isUpcoming === true))
+  const reservationOnAir = isLive && item.video?.view.phase === "upcoming"
   const tag = item.liveNow
     ? t("spotlight.liveNow", { platform: platformNames[item.liveNow.platform] })
     : item.video && videoActivity
@@ -190,15 +180,13 @@ function TicketHead({
           (item.video &&
             (reservationOnAir
               ? t("event.type.stream")
-              : videoFormLabel(item.video, t, now))) ||
+              : videoFormLabel(item.video, t))) ||
           (typeKey
             ? t(typeKey)
             : eventDetailText(item.detail, t) || t("schedule.publicEvent"))
-  // A members-only entry keeps saying so beside its activity or video form,
-  // as the schedule does.
-  const membersChip =
-    item.membersChip ??
-    membersChipBeside(item.event, item.video, Boolean(activity || item.video))
+  // The projection says when a members-only entry keeps its members chip
+  // beside its activity or video form, as the schedule does.
+  const { membersChip } = item
   const manual = item.event ? eventIsManual(item.event) : false
   return (
     <span className="ticket-head">
@@ -219,8 +207,7 @@ function TicketHead({
             tag={activity}
             work={
               videoActivity && item.video
-                ? item.video.view?.tagContext === "work" ||
-                  (!item.video.view && item.video.kind !== "stream")
+                ? item.video.view.tagContext === "work"
                 : entryWork
             }
           />
@@ -317,7 +304,7 @@ function FullTicket({
   now: number
   t: Translator
 }) {
-  const links = ticketLinks(item, locale, now)
+  const links = ticketLinks(item, locale)
   // A private or removed video has no page of its own left to open.
   const url =
     links[0]?.url || (item.video && videoIsGone(item.video) ? null : item.url)
@@ -360,7 +347,7 @@ function FullTicket({
         ) : null}
       </span>
       <span className="ticket-stub">
-        <TicketHead item={item} isLive={isLive} now={now} t={t} />
+        <TicketHead item={item} isLive={isLive} t={t} />
         <span className="ticket-body">
           {item.mode === "next" ? (
             <DateBlock item={item} locale={locale} />
@@ -423,7 +410,7 @@ function CompactTicket({
   now: number
   t: Translator
 }) {
-  const links = ticketLinks(item, locale, now)
+  const links = ticketLinks(item, locale)
   // A video's ticket follows the platform that is live, as its links lead.
   const url = (item.video && links[0]?.url) || item.url
   return (
@@ -435,7 +422,7 @@ function CompactTicket({
         <DateBlock item={item} locale={locale} />
       </span>
       <span className="ticket-stub">
-        <TicketHead item={item} isLive={isLive} now={now} t={t} />
+        <TicketHead item={item} isLive={isLive} t={t} />
         <span className="ticket-copy">
           <TranslatedTitle
             className="ticket-title"
@@ -502,8 +489,8 @@ function LatestCard({
   now: number
   t: Translator
 }) {
-  const links = videoLinks(companion.video, locale, now)
-  const companionForm = videoFormLabel(companion.video, t, now)
+  const links = videoLinks(companion.video, locale)
+  const companionForm = videoFormLabel(companion.video, t)
   return (
     <div className="latest-card link-card" onClick={followCardLink}>
       <span className="latest-card-art" aria-hidden="true">
@@ -569,7 +556,7 @@ function NextTicket({
   t,
 }: {
   summary: Dashboard["summary"]
-  projection?: Dashboard["projection"]
+  projection: Dashboard["projection"]
   liveNow: Dashboard["liveNow"]
   isLoading: boolean
   locale: Locale
@@ -591,7 +578,7 @@ function NextTicket({
       </div>
     )
   }
-  const item = pickSpotlight(summary, now, liveNow, projection)
+  const item = pickSpotlight(summary, liveNow, projection)
   if (!item) {
     return (
       <div className="ticket is-empty">
@@ -604,7 +591,7 @@ function NextTicket({
     )
   }
 
-  const isLive = spotlightIsLive(item, now)
+  const isLive = spotlightIsLive(item)
   if (item.layout === "full") {
     return (
       <FullTicket item={item} isLive={isLive} locale={locale} now={now} t={t} />
@@ -773,7 +760,7 @@ function ProfileCard({
 export function NowStage(props: {
   profile: Profile
   summary: Dashboard["summary"]
-  projection?: Dashboard["projection"]
+  projection: Dashboard["projection"]
   /** An unannounced live broadcast no schedule entry shows. */
   liveNow?: Dashboard["liveNow"]
   resources: Dashboard["resources"]
@@ -796,8 +783,7 @@ export function NowStage(props: {
     props
   // The loading placeholder has a full ticket's shape.
   const full =
-    isLoading ||
-    pickSpotlight(summary, now, liveNow ?? null, projection)?.layout === "full"
+    isLoading || pickSpotlight(summary, liveNow, projection)?.layout === "full"
   return (
     <section
       className={`stage ${full ? "is-full" : "is-compact"}`}

@@ -40,6 +40,11 @@
 - MCP `schedule_list` reports the same event state as the board: an ended
   stream is not live in the grace after its start, a waiting room the
   probe saw stays upcoming, and a YouTube premiere on air is live.
+- The board shows only snapshots with projection version 1 and takes the
+  stage, the on-sale list, the video shelf and every event and video state
+  from it, without a local fallback. A snapshot stored by a board from
+  before v0.7.0, or one served with another projection version, is not
+  shown; the board reads a fresh one.
 
 </details>
 

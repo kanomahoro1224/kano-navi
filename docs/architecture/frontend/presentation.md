@@ -84,8 +84,8 @@ the row scrolls sideways without a visible scrollbar. The board lives in
 `src/dashboard/`: `use-dashboard.ts` owns the snapshot request and the
 revision stream, `format.ts` owns Japan-time and event-status helpers, `content.ts` holds static public links, and
 `components/` renders the next-up stage and profile card, the on-sale list
-(`sale-strip.tsx`: the IDs from `projection.sales`, rendered in API order;
-snapshots without that projection use `currentSales`; the stage passes its
+(`sale-strip.tsx`: the IDs from `projection.sales`, rendered in API order,
+open or soon by each event's `view.state`; the stage passes its
 placement, `side` under the profile card beside a full ticket or `main` under
 a compact one, which sets how many show in place, and the rest open in a
 `sheet-dialog.tsx` sheet), the week guide,
@@ -100,8 +100,9 @@ that shows one long post or one schedule entry in full and can open above
 the month sheet. `video-groups.ts` consumes the dashboard's
 `projection.shelf` and each video's `view`: the API supplies the lead, group,
 phase and stable order, while the browser applies the active filter and
-renders the cards. A snapshot without the projection uses the legacy local
-grouping until the next API response. In the All view, `sideSlots` in
+renders the cards. A video the shelf lists leave out, such as the lead in a
+filtered view, joins its `view.shelfGroup`, and one without a group stays off
+the shelf. In the All view, `sideSlots` in
 `video-groups.ts` cuts the side group beside the lead (or the full-width
 ticket row without one) at every width: up to four earlier works when there
 are no reservations; otherwise up to four tickets and earlier works up to
@@ -114,7 +115,7 @@ state is local and starts collapsed; the Streams and Works views list every
 matching reservation. A video carries two chips. The form
 chip (`videoFormLabel`) translates `view.formCode`, and `VideoTagChip`
 translates the stored tag with the context in `view.tagContext`; neither
-helper reconstructs the phase or form when the projection is present. The
+helper reconstructs the phase or form. The
 tag chip (`VideoTagChip` in
 `src/dashboard/components/event-tag.tsx`) adds the tag with the schedule's
 icon, in the schedule's words for a stream (gameplay, talk, singing) and as
@@ -124,9 +125,9 @@ card, row, ticket and the lead. The shelf's group or filter names a past
 video's form, so its grid cards and earlier-work rows show no form chip, and
 the lead shows one only for a featured stream archive or Short; reservation
 tickets and the video dialog's cards keep it. The Next Up ticket names the video's tag, else the entry's
-activity label, before the form; a `member` entry adds the members-only chip
-(`MembersChip`) beside it unless the video's availability chip already
-shows `members`, `private` or `removed`. Schedule entries consume the event
+activity label, before the form; `spotlight.membersChip` adds the
+members-only chip (`MembersChip`) beside it, and `spotlight.isLive` marks the
+ticket On air. Schedule entries consume the event
 `view`: `eventKinds`, `scheduleEntries` and `eventStatus` translate its type,
 activity, calendar entries and state. The sale period's opening and closing
 dates come from `view.calendarEntries`, and the status codes are
@@ -135,8 +136,7 @@ API](../public-api/snapshot.md): `event.view.state` has seven
 values (`upcoming`, `live`, `open`, `done`, `pending`, `cancelled`,
 `cancellation_review`), `video.view.phase` has five (`upcoming`, `live`,
 `started`, `past`, `cancelled`), and `formCode` has six non-null values
-(`short`, `upcoming`, `stream`, `archive`, `premiere`, `video`). A response
-without the view uses the stored fields as a compatibility fallback. The
+(`short`, `upcoming`, `stream`, `archive`, `premiere`, `video`). The
 filter offers All plus Streams, Works and Shorts for each kind
 present, and only when two are. Shorts render as 9:16 cards cropped from the
 centre of the 1280×720 cover (the vertical frame between YouTube's blurred

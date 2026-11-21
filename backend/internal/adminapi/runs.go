@@ -681,7 +681,10 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 			dynamics["lastSuccessAt"] = status.Dynamics.LastSuccessAt
 		}
 	}
+	// Open operator alerts badge the Alerts page.
+	openAlerts, _ := a.Store.OpenAlertIncidents(ctx)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"alerts":               map[string]int{"open": openAlerts},
 		"visitorRegionEnabled": visitorRegion.Enabled,
 		"visitorRegion":        visitorRegion,
 		"activeRun":            active,

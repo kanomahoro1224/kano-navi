@@ -287,6 +287,24 @@ function isDocumentationIPv4(value: string): boolean {
   )
 }
 
+// IANA special-purpose IPv4 blocks that never name an internet host. Only
+// the block itself in CIDR notation is accepted (such as a range table that
+// keeps destinations off private networks); an address inside one, like a
+// private server's, is still a finding.
+const specialPurposeBlocks = new Set([
+  "0.0.0.0/8",
+  "10.0.0.0/8",
+  "100.64.0.0/10",
+  "127.0.0.0/8",
+  "169.254.0.0/16",
+  "172.16.0.0/12",
+  "192.0.0.0/24",
+  "192.168.0.0/16",
+  "198.18.0.0/15",
+  "224.0.0.0/4",
+  "240.0.0.0/4",
+])
+
 function isAllowedIPv4(value: string): boolean {
   return (
     value === "0.0.0.0" ||
@@ -395,6 +413,10 @@ export function scanLine(
 
   ipv4Pattern.lastIndex = 0
   for (const match of text.matchAll(ipv4Pattern)) {
+    const prefix = /^\/\d{1,2}(?!\d)/u.exec(
+      text.slice((match.index ?? 0) + match[0].length),
+    )
+    if (prefix && specialPurposeBlocks.has(match[0] + prefix[0])) continue
     if (isIPv4(match[0]) && !isAllowedIPv4(match[0])) {
       findings.push({ ...entry, kind: "non-documentation IPv4 address" })
       break

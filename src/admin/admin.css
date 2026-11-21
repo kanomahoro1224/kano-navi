@@ -26,5 +26,6 @@
 @import "./styles/translation-editor.css";
 @import "./styles/source-chain.css";
 @import "./styles/proxy.css";
+@import "./styles/alerts.css";
 @import "./styles/queue-preview.css";
 @import "./styles/schedule-review.css";

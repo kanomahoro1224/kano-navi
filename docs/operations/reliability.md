@@ -47,3 +47,4 @@ persist independently of normal incremental cursors.
 - [Workflow scheduling](../architecture/workflows.md)
 - [Database backup](database.md)
 - [Troubleshooting](troubleshooting.md)
+- [Alerts](alerts.md)

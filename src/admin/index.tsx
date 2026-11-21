@@ -7,6 +7,7 @@ import {
   type SubmitEvent,
 } from "react"
 import {
+  BellRing,
   CalendarDays,
   Clapperboard,
   ExternalLink,
@@ -36,6 +37,7 @@ import type { Overview } from "@/admin/types"
 import { Badge, Button, Spinner, Toasts } from "@/admin/ui"
 import { AdminContext, useAdminData } from "@/admin/use-admin-data"
 import { AccountAvatarsView } from "@/admin/views/account-avatars"
+import { AlertsView } from "@/admin/views/alerts"
 import { DetectionView } from "@/admin/views/detection"
 import { ExternalPostsView } from "@/admin/views/external-posts"
 import { OverviewView } from "@/admin/views/overview"
@@ -119,6 +121,13 @@ const views: ViewEntry[] = [
     component: DetectionView,
   },
   { id: "proxy", group: "system", icon: Network, component: ProxyView },
+  {
+    id: "alerts",
+    group: "system",
+    icon: BellRing,
+    component: AlertsView,
+    badge: ({ alerts }) => alerts?.open ?? 0,
+  },
   { id: "site", group: "system", icon: Globe, component: SiteView },
 ]
 const groups = ["today", "data", "system"] as const

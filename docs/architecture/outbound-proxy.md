@@ -18,6 +18,7 @@ pool for one area:
 | `shop`     | The official shop's product and collection JSON and catalog Atom feed                |
 | `media`    | Post, video and profile media downloads, profile page reads, niconico cover lookups  |
 | `llm`      | Model provider requests: extraction, translation, provider tests, model discovery    |
+| `notify`   | [Operator alert](alerts.md) deliveries (ntfy, Telegram, webhooks) and the heartbeat  |
 
 The health check and the read-only flag mode make no source requests and are
 not routed.

@@ -1,3 +1,28 @@
+CREATE TABLE alert_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_id INTEGER REFERENCES alert_incidents(id),
+    channel_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('opened','resolved','test')),
+    status TEXT NOT NULL CHECK(status IN ('pending','sent','failed','dropped')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TEXT NOT NULL,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    finished_at TEXT
+  );
+
+CREATE TABLE alert_incidents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    severity TEXT NOT NULL CHECK(severity IN ('info','warning','critical')),
+    status TEXT NOT NULL CHECK(status IN ('open','resolved')),
+    detail_json TEXT NOT NULL DEFAULT '{}',
+    opened_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    resolved_at TEXT
+  );
+
 CREATE TABLE app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -611,3 +636,9 @@ CREATE INDEX account_avatar_candidates_account_idx ON account_avatar_candidates 
 CREATE UNIQUE INDEX account_avatar_candidates_source_url_idx ON account_avatar_candidates (source, account_key, source_url) WHERE source_url IS NOT NULL;
 
 CREATE INDEX account_avatar_candidates_media_idx ON account_avatar_candidates (media_id) WHERE media_id IS NOT NULL;
+
+CREATE INDEX alert_deliveries_due_idx ON alert_deliveries (next_attempt_at, id) WHERE status = 'pending';
+
+CREATE INDEX alert_deliveries_created_idx ON alert_deliveries (created_at DESC, id DESC);
+
+CREATE UNIQUE INDEX alert_incidents_open_idx ON alert_incidents (rule, subject) WHERE status = 'open';

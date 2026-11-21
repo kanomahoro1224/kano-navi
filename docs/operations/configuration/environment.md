@@ -21,6 +21,7 @@ Each environment variable and the admin one-time code.
 | `SCHEDULE_MESSAGE_ALL_POSTS`              | `0`                                 | Send every post through the message route, skipping the heuristic     |
 | `SCHEDULE_KEYWORDS`                       | `schedule,...`                      | Comma-separated schedule candidate keywords                           |
 | `WORKFLOW_SCHEDULER_ENABLED`              | `1`                                 | Start the source timers in the server process                         |
+| `ALERTS_ENABLED`                          | `1`                                 | Evaluate [operator alerts](../alerts.md); `0` turns them off          |
 | `MCP_ENABLED`                             | `1`                                 | Expose the stateless `/mcp` endpoint                                  |
 | `MCP_CONTROL_TOKEN`                       | Empty                               | Bearer token for MCP mutation tools                                   |
 | `X_HANDLES`                               | `kano_2525,_Kanotic`                | Comma-separated public X account names                                |

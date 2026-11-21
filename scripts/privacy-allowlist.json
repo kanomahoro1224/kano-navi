@@ -596,6 +596,14 @@
     {
       "host": "ubgoe.com",
       "reason": "Publisher, circle or event page recorded as the source of a /works record (src/works/*.json); the page links to it and never loads it."
+    },
+    {
+      "host": "api.telegram.org",
+      "reason": "Optional server-side operator alerts: the Telegram Bot API sendMessage call for a channel the operator configures; the bot token is sealed at rest and never logged."
+    },
+    {
+      "host": "ntfy.sh",
+      "reason": "Optional server-side operator alerts: the default public ntfy server for an ntfy channel the operator configures; access tokens are sent only in headers."
     }
   ]
 }

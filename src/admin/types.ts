@@ -143,7 +143,8 @@ export interface VisitorRegionSettings {
 }
 
 /** A part of the server's outbound requests with its own proxy route. */
-export type ProxyArea = "x" | "youtube" | "bilibili" | "shop" | "media" | "llm"
+export type ProxyArea =
+  "x" | "youtube" | "bilibili" | "shop" | "media" | "llm" | "notify"
 
 export type ProxyScheme = "http" | "https" | "socks5" | "socks5h"
 
@@ -196,6 +197,112 @@ export interface ProxyInput {
   username: string
   password?: string
   enabled: boolean
+}
+
+export type AlertChannelType = "ntfy" | "telegram" | "webhook"
+export type AlertSeverity = "info" | "warning" | "critical"
+export type AlertState = "on" | "development" | "off"
+
+export interface AlertChannel {
+  id: string
+  name: string
+  type: AlertChannelType
+  enabled: boolean
+  server: string
+  topic: string
+  chatId: string
+  /** The webhook address is write-only; only its host is returned. */
+  urlHost: string
+  link: boolean
+  /** The secret is write-only; these say whether one is stored. */
+  hasSecret: boolean
+  secretUnreadable: boolean
+}
+
+/** One channel in a save. Omitting secret keeps the stored one; "" clears
+ * it. A webhook omits url to keep its stored address. */
+export interface AlertChannelInput {
+  id?: string
+  name: string
+  type: AlertChannelType
+  enabled: boolean
+  server: string
+  topic: string
+  chatId: string
+  url?: string
+  link: boolean
+  secret?: string
+}
+
+export interface AlertRuleSetting {
+  enabled: boolean
+  severity: AlertSeverity
+  threshold: number
+  notifyResolved: boolean
+}
+
+export interface AlertRule {
+  code: string
+  param?: "runs" | "hours"
+  default?: number
+  min?: number
+  max?: number
+  setting: AlertRuleSetting
+}
+
+export interface AlertHeartbeat {
+  enabled: boolean
+  intervalMinutes: number
+  hasUrl: boolean
+  urlUnreadable: boolean
+  lastOkAt: string | null
+  lastFailureAt: string | null
+  lastError: string | null
+}
+
+export interface AlertIncident {
+  id: number
+  rule: string
+  subject: string
+  severity: AlertSeverity
+  status: "open" | "resolved"
+  detail: Record<string, string | number>
+  openedAt: string
+  lastSeenAt: string
+  resolvedAt: string | null
+}
+
+export interface AlertSettings {
+  state: AlertState
+  evaluatedAt: string | null
+  evaluationFailed: boolean
+  hasOrigin: boolean
+  channelTypes: AlertChannelType[]
+  channels: AlertChannel[]
+  rules: AlertRule[]
+  heartbeat: AlertHeartbeat
+  /** Open incidents, newest first. */
+  incidents: AlertIncident[]
+}
+
+export interface AlertDelivery {
+  id: number
+  channelId: string
+  kind: "opened" | "resolved" | "test"
+  status: "pending" | "sent" | "failed" | "dropped"
+  attempts: number
+  lastError: string | null
+  createdAt: string
+  finishedAt: string | null
+  rule: string | null
+  subject: string | null
+  severity: AlertSeverity | null
+}
+
+export interface AlertTestResult {
+  ok: boolean
+  error?: string
+  latencyMs: number
 }
 
 export interface ProxyTestResult {
@@ -280,6 +387,8 @@ export interface Backlog {
 }
 
 export interface Overview {
+  /** Open operator alerts; absent on older sidecars. */
+  alerts?: { open: number }
   /** Public mainland-China site suggestion; absent on older sidecars. */
   visitorRegionEnabled?: boolean
   visitorRegion?: VisitorRegionSettings

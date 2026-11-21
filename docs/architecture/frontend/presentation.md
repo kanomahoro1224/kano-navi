@@ -165,7 +165,7 @@ muted. Its styles are in
 in `src/index.css`. The hidden `/admin` console
 lives in `src/admin/` and is organized around operator tasks: `index.tsx`
 registers the views (Overview, Review queue, Schedule, Posts, Videos, Profile
-images, Runs, Queue, Sources, Detection, Site) and renders the shell
+images, Runs, Queue, Sources, Detection, Proxies, Alerts, Site) and renders the shell
 with hash routing (`#view/tab`, where the tab is everything after the view
 and may hold several parts; a `#content/<tab>` link opens the matching
 view, and `#models` and `#llm/<provider>` links open Detection); `use-admin-data.ts` owns every

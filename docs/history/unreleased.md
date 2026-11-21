@@ -14,6 +14,12 @@
 - The admin API's posts report `upstreamDeletedAt`.
 - An event `view.state` may be `ongoing`, in the dashboard, calendar, MCP
   and every other read that carries the view.
+- Startup adds the empty tables `alert_incidents` and `alert_deliveries`.
+  Operator alerts are on by default and send nothing until a channel is
+  added in `/admin` → Alerts; `ALERTS_ENABLED=0` turns them off. The
+  outbound proxy pool gains the `notify` area, off until routed.
+- The admin overview reports `alerts.open`; new routes under
+  `/api/admin/alerts`.
 - Startup adds `event_sources.unlisted_at` and the `schedule_asset_reviews`
   columns `previous_manual_status`, `previous_manual_reason`,
   `previous_manual_checked_at`, `check_status`, `check_reason` and
@@ -67,6 +73,12 @@
 <details>
 <summary><strong>Operator console</strong></summary>
 
+- A new **Alerts** page sends the operator a message through ntfy,
+  Telegram or a signed webhook when runs keep failing, a source goes
+  unread, the Bilibili login expires or stored secrets cannot be decrypted,
+  and another when it recovers. A heartbeat pings an external monitor such
+  as Uptime Kuma, so a stopped server is noticed too. Destinations must be
+  public addresses, and development mode never sends.
 - Posts marks a post deleted on X with a **Deleted on X** badge.
 - The Review queue lists entries their posts no longer list, with Keep entry
   and Delete entry, and the overview counts them.

@@ -108,6 +108,9 @@ is occupied.
    source schedules, earliest first.
 9. The run history cleanup deletes finished runs past their
    [retention window](workflows/run-execution.md), then repeats daily.
+10. [Operator alerts](alerts.md) evaluate their rules unless
+    `ALERTS_ENABLED=0`, then once a minute; they send only in production
+    mode.
 
 ## Package Ownership
 
@@ -124,6 +127,7 @@ is occupied.
 | Profile media, schedule images, post reprocess | `internal/contentadmin`                                         |
 | Schedule extraction step                       | `internal/schedule`                                             |
 | Outbound proxy queue and routes                | `internal/outboundproxy`                                        |
+| Operator alerts, channels and heartbeat        | `internal/alerts`                                               |
 | Web Bot Auth key, signing and key directory    | `internal/webbotauth`, `internal/webbotauth/keyadmin`           |
 | `/mcp`                                         | `internal/mcpapi`                                               |
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
@@ -133,8 +137,8 @@ is occupied.
 listener; `internal/httpapi` builds the handler around an injected store.
 `internal/adminapi` owns the single `/api/admin` route table described in the
 [Admin API](admin-api.md). Feature packages (`internal/llmadmin`,
-`internal/contentadmin`, `internal/outboundproxy`, `internal/webbotauth/keyadmin`
-and the YouTube `websub` package) implement
+`internal/contentadmin`, `internal/outboundproxy`, `internal/alerts`,
+`internal/webbotauth/keyadmin` and the YouTube `websub` package) implement
 `httpx.AdminModule` by returning their routes; the router authenticates the
 session, applies the origin guard and refuses writes to a read-only database
 before a module handler runs.

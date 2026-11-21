@@ -1,0 +1,119 @@
+/* Alerts: channels, rules, the heartbeat, open incidents and deliveries. */
+.adm-alerts-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.adm-alerts-column {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.adm-alert-list,
+.adm-alert-rules {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-alert-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius-sm);
+  background: var(--adm-surface);
+}
+
+.adm-alert-list.is-compact .adm-alert-row {
+  padding: 8px 10px;
+}
+
+.adm-alert-row.has-issue {
+  border-color: color-mix(in oklab, var(--danger) 40%, transparent);
+}
+
+.adm-alert-row.is-off .adm-alert-main > strong,
+.adm-alert-row.is-off .adm-alert-mono {
+  opacity: 0.6;
+}
+
+.adm-alert-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adm-alert-main > strong,
+.adm-alert-main > small {
+  overflow-wrap: anywhere;
+}
+
+.adm-alert-mono {
+  font-family: var(--font-mono);
+}
+
+.adm-alert-row .adm-row-actions {
+  flex-wrap: nowrap;
+}
+
+.adm-alert-rule {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-alert-rule:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.adm-alert-rule.is-off {
+  padding-bottom: 12px;
+}
+
+.adm-alert-rule-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-left: 46px;
+}
+
+.adm-alert-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adm-alert-inline input[type="number"] {
+  width: 5.5rem;
+}
+
+.adm-alert-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+@media (max-width: 1100px) {
+  .adm-alerts-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .adm-alert-rule-fields {
+    margin-left: 0;
+  }
+}

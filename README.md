@@ -20,6 +20,10 @@
 </p>
 
 <p align="center">
+  English · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a>
+</p>
+
+<p align="center">
   <a href="https://kano.fans/"><img src="docs/assets/readme/board.jpg" alt="The board on a desktop and a phone"></a><br>
   <sub>Screenshots of the Japan Server in the light theme, captured on November 19, 2026 (JST).</sub>
 </p>

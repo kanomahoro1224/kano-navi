@@ -45,7 +45,8 @@ there.
   story.
 - Reference docs contain no TODOs, plans, roadmaps or dated measurement logs.
 - State each rule or fact in one place and link to it instead of restating it.
-- Documentation, including `README.md`, is English only. Use
+- Documentation is English only, except the translated root READMEs
+  (`README.zh-CN.md` and `README.ja.md`), which mirror `README.md`. Use
   repository-relative paths, synthetic examples and empty credential fields.
 
 ## Topic Pages

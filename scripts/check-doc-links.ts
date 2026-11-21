@@ -79,6 +79,8 @@ function headingAnchors(file: string): Set<string> {
 export function checkMarkdownLinks() {
   const files = [
     "README.md",
+    "README.zh-CN.md",
+    "README.ja.md",
     "backend/README.md",
     ...markdownFiles(path.join(repositoryRoot, "docs"), "docs"),
     ".github/SECURITY.md",

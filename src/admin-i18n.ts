@@ -18,7 +18,8 @@ export const adminMessages = {
 
     "admin.nav.label": "Console sections",
     "admin.nav.group.today": "Today",
-    "admin.nav.group.data": "Data",
+    "admin.nav.group.content": "Content",
+    "admin.nav.group.pipeline": "Pipeline",
     "admin.nav.group.system": "System",
     "admin.nav.overview": "Overview",
     "admin.nav.review": "Review queue",
@@ -29,7 +30,7 @@ export const adminMessages = {
     "admin.nav.avatars": "Account avatars",
     "admin.nav.profile": "Profile images",
     "admin.nav.runs": "Runs",
-    "admin.nav.queue": "Queue",
+    "admin.nav.works": "Works",
     "admin.nav.sources": "Sources",
     "admin.sidebar.schedulerOn": "Timer on · {count} scheduled",
     "admin.sidebar.schedulerOff": "Timer off",
@@ -1004,6 +1005,9 @@ export const adminMessages = {
     "admin.avatars.origin.upload": "Upload",
 
     "admin.runs.title": "Runs",
+    "admin.runs.section": "Runs section",
+    "admin.runs.section.history": "History",
+    "admin.runs.section.next": "Up next",
     "admin.runs.stepRun": "Run steps once",
     "admin.runs.stepRunHint":
       "Pick any steps and run them once; nothing is saved. Sources also run on their own timers on the Sources page.",
@@ -1964,6 +1968,7 @@ export const adminMessages = {
     "admin.notice.alertHeartbeatSent": "Heartbeat answered",
     "admin.nav.site": "Site",
     "admin.site.title": "Site",
+    "admin.works.title": "Works",
     "admin.action.discard": "Discard",
     "admin.detection.title": "Detection",
     "admin.detection.mode": "Posts sent to the model",
@@ -2039,7 +2044,8 @@ export const adminMessages = {
 
     "admin.nav.label": "后台分区",
     "admin.nav.group.today": "今日",
-    "admin.nav.group.data": "数据",
+    "admin.nav.group.content": "内容",
+    "admin.nav.group.pipeline": "采集",
     "admin.nav.group.system": "系统",
     "admin.nav.overview": "概览",
     "admin.nav.review": "待审核",
@@ -2049,7 +2055,7 @@ export const adminMessages = {
     "admin.nav.avatars": "账户头像",
     "admin.nav.profile": "头像与横幅",
     "admin.nav.runs": "运行",
-    "admin.nav.queue": "队列",
+    "admin.nav.works": "作品",
     "admin.nav.sources": "来源",
     "admin.sidebar.schedulerOn": "定时器运行中 · {count} 个定时",
     "admin.sidebar.schedulerOff": "定时器已关闭",
@@ -2635,6 +2641,9 @@ export const adminMessages = {
     "admin.avatars.origin.upload": "上传",
 
     "admin.runs.title": "运行",
+    "admin.runs.section": "运行分区",
+    "admin.runs.section.history": "历史",
+    "admin.runs.section.next": "接下来",
     "admin.runs.stepRun": "单次运行步骤",
     "admin.runs.stepRunHint":
       "任选步骤运行一次，不会保存。来源也会在“来源”页按各自的定时器运行。",
@@ -3117,6 +3126,7 @@ export const adminMessages = {
     "admin.nav.detection": "日程识别",
     "admin.nav.site": "站点",
     "admin.site.title": "站点",
+    "admin.works.title": "作品",
     "admin.action.discard": "放弃更改",
     "admin.detection.title": "日程识别",
     "admin.detection.mode": "交给模型的贴文",

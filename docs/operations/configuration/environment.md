@@ -58,7 +58,7 @@ under the soft limit. On a larger host raise both values together, keeping
 the soft limit.
 
 `SKIP_LLM=1` skips both model steps, `schedule` and `translate`. The
-translate step reads only the translation queue set in `/admin` → Models, so
+translate step reads only the translation queue set in `/admin` → Detection, so
 it does nothing until that queue holds a text model.
 
 `CDN_PUBLIC_BASE` is the public base of an optional CDN, such as

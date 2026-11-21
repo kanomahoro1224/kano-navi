@@ -10,13 +10,13 @@ import {
   BellRing,
   CalendarDays,
   Clapperboard,
+  Disc3,
   ExternalLink,
   FileText,
   Globe,
   KeyRound,
   LayoutDashboard,
   ListChecks,
-  ListOrdered,
   LockKeyhole,
   LogOut,
   Network,
@@ -44,7 +44,6 @@ import { OverviewView } from "@/admin/views/overview"
 import { PostsView } from "@/admin/views/posts"
 import { ProfileView } from "@/admin/views/profile"
 import { ProxyView } from "@/admin/views/proxy"
-import { QueueView } from "@/admin/views/queue"
 import { ReviewView } from "@/admin/views/review"
 import { RunsView } from "@/admin/views/runs"
 import { ScheduleView } from "@/admin/views/schedule"
@@ -52,6 +51,7 @@ import { SiteView } from "@/admin/views/site"
 import { SourcesView } from "@/admin/views/sources"
 import { runTitle } from "@/admin/views/run-parts"
 import { VideosView } from "@/admin/views/videos"
+import { WorksView } from "@/admin/views/works"
 import { cn } from "@/lib/utils"
 import "./admin.css"
 
@@ -62,11 +62,18 @@ export interface ViewProps {
 
 interface ViewEntry {
   id: string
-  group: "today" | "data" | "system"
+  group: (typeof groups)[number]
   icon: ComponentType<{ "aria-hidden"?: boolean }>
   component: ComponentType<ViewProps>
   badge?: (overview: Overview) => number
 }
+
+/**
+ * The nav groups by what the operator is doing: what needs attention today,
+ * what the public pages show, how data comes in, and the rarely used
+ * settings and maintenance.
+ */
+const groups = ["today", "content", "pipeline", "system"] as const
 
 // Views are registered here; adding a section means one entry and one file.
 const views: ViewEntry[] = [
@@ -92,45 +99,49 @@ const views: ViewEntry[] = [
   },
   {
     id: "schedule",
-    group: "data",
+    group: "content",
     icon: CalendarDays,
     component: ScheduleView,
   },
-  { id: "posts", group: "data", icon: FileText, component: PostsView },
+  { id: "posts", group: "content", icon: FileText, component: PostsView },
   {
     id: "external",
-    group: "data",
+    group: "content",
     icon: Newspaper,
     component: ExternalPostsView,
   },
-  { id: "videos", group: "data", icon: Clapperboard, component: VideosView },
+  {
+    id: "videos",
+    group: "content",
+    icon: Clapperboard,
+    component: VideosView,
+  },
   {
     id: "avatars",
-    group: "data",
+    group: "content",
     icon: UsersRound,
     component: AccountAvatarsView,
   },
-  { id: "profile", group: "data", icon: UserRound, component: ProfileView },
-  { id: "runs", group: "system", icon: Workflow, component: RunsView },
-  { id: "queue", group: "system", icon: ListOrdered, component: QueueView },
-  { id: "sources", group: "system", icon: Radio, component: SourcesView },
+  { id: "profile", group: "content", icon: UserRound, component: ProfileView },
+  { id: "sources", group: "pipeline", icon: Radio, component: SourcesView },
   {
     id: "detection",
-    group: "system",
+    group: "pipeline",
     icon: ScanText,
     component: DetectionView,
   },
-  { id: "proxy", group: "system", icon: Network, component: ProxyView },
+  { id: "runs", group: "pipeline", icon: Workflow, component: RunsView },
   {
     id: "alerts",
-    group: "system",
+    group: "pipeline",
     icon: BellRing,
     component: AlertsView,
     badge: ({ alerts }) => alerts?.open ?? 0,
   },
+  { id: "proxy", group: "system", icon: Network, component: ProxyView },
   { id: "site", group: "system", icon: Globe, component: SiteView },
+  { id: "works", group: "system", icon: Disc3, component: WorksView },
 ]
-const groups = ["today", "data", "system"] as const
 
 /** The public header's default portrait. */
 const BRAND_AVATAR = "/assets/kano-avatar.jpg"
@@ -142,21 +153,25 @@ const legacyContent: Record<string, string> = {
   profile: "profile",
 }
 
-function readHash() {
+/** The view and tab an address hash opens, older addresses included. */
+export function resolveHash(hash: string) {
   // The tab is everything after the view, so it may hold several parts.
-  const [view = "", ...parts] = window.location.hash
-    .replace(/^#/u, "")
-    .split("/")
+  const [view = "", ...parts] = hash.replace(/^#/u, "").split("/")
   const tab = parts.join("/")
   if (view === "content")
     return { view: legacyContent[tab] || "posts", tab: "" }
   // Model links open the Detection page, which holds the model setup.
   if (view === "models") return { view: "detection", tab: "" }
   if (view === "llm") return { view: "detection", tab }
+  // The queue preview is the Runs page's Next tab.
+  if (view === "queue")
+    return { view: "runs", tab: tab ? `next/${tab}` : "next" }
   return views.some((entry) => entry.id === view)
     ? { view, tab }
     : { view: "overview", tab: "" }
 }
+
+const readHash = () => resolveHash(window.location.hash)
 
 function Login({
   requiresCode,

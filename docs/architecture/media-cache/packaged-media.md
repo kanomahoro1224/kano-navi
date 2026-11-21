@@ -81,7 +81,7 @@ again and a failed lookup waits from 30 minutes, doubling to a day. A works
 image that answers `media_missing` and no stored record links is not
 retried. Nothing here writes a `videos` row.
 
-The console's Site page shows how the covers stand without a request to a
+The console's Works page shows how the covers stand without a request to a
 platform (`GET /api/admin/media/works-covers`, see
 [Admin API](../admin-api/overview.md#works-upload-covers)): the covered, due, waiting and
 uncovered uploads, and each upload without a cover with its videos' states,

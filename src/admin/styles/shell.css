@@ -270,6 +270,11 @@
   gap: 20px;
 }
 
+/* A section switch under the page header keeps its own width. */
+.adm-view > .adm-segmented {
+  justify-self: start;
+}
+
 /* The page under a platform tab row keeps the view's spacing. */
 .adm-platform-panel {
   display: grid;

@@ -158,7 +158,7 @@ so a Bilibili-only song upload can be listed without the operator.
 The decision is the operator's override of rule 5. Include lists a song the
 tag missed; exclude takes off a video tagged `song` that is not a work, such
 as an album trailer or a crossfade. Neither overrides rules 1 to 4: a
-decision on an earlier video stays stored and has no effect. The Site page
+decision on an earlier video stays stored and has no effect. The Works page
 of the console lists the listed and excluded videos with their origin, and
 the video editor sets the decision on any video
 ([Admin API](../architecture/admin-api/videos.md)); a change advances the

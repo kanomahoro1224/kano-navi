@@ -16,7 +16,7 @@ model call it settles [Bilibili forms](../data-model/video-form.md#bilibili-form
 whether or not a queue is configured, and the same queue then asks the
 unsettled uploads for form and tag. Its models come only from the separate
 translation queue (`llm_route_targets.route = 'translate'`), configured in
-`/admin` → Models; it never falls back to the schedule extraction queue. Targets need
+`/admin` → Detection; it never falls back to the schedule extraction queue. Targets need
 the `text` tag. Each target gets at most three calls before moving to the
 next configured target, in queue order.
 Without a usable target the step records `disabled` with the reason and

@@ -15,10 +15,11 @@ overview's `backlog`: each kind of operator request that has any (posts to
 extract again, X posts and videos to read again, posts and video titles to
 translate), with its count and the run that takes it. A row opens the post
 list or the video list on those requests; nothing shows while none waits.
-Beside Source timers, What runs next opens the Queue page.
+Beside Source timers, What runs next opens the Runs page's Up next tab.
 
-The Queue page (`src/admin/views/queue.tsx`) has one tab per step (`#queue/
-schedule`, `youtube`, `translate`, `x-refresh`), each read from its
+The Runs page switches between History and Up next (`#runs/next`). Up next
+(`src/admin/views/queue.tsx`) has one tab per step (`#runs/next/schedule`,
+`youtube`, `translate`, `x-refresh`), each read from its
 [queue preview](../admin-api/runs.md#queue-preview) when the tab opens, on Refresh
 and when a run finishes. Schedule extraction lists the posts one run
 processes in order, numbered, each with why (requested, new post, input
@@ -112,7 +113,7 @@ source names, and a fold's header controls move under its title.
 
 ## Console Posts and Data
 
-External posts (`src/admin/views/external-posts.tsx`, in the Data group
+External posts (`src/admin/views/external-posts.tsx`, in the Content group
 after Posts) has a platform tab per status pool, X and Bilibili, with no
 All tab since the pools take different actions (`#external/bilibili`). The
 X tab lists the
@@ -187,7 +188,7 @@ quoted post. Below come the wording, folded to three lines with a
 quote thumbnails that open the image viewer, or the unavailable state. The
 edit dialog shows the quote's whole wording. Nothing edits the quote itself.
 
-The Data group also includes `Account avatars`
+The Content group also includes `Account avatars`
 (`src/admin/views/account-avatars.tsx`) and `Profile images`
 (`src/admin/views/profile.tsx`). `Account avatars` lists tracked own and
 related X accounts with role filters, `auto` / `manual` / `hidden` mode

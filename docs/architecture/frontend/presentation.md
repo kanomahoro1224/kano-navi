@@ -164,11 +164,16 @@ muted. Its styles are in
 `src/dashboard/styles/` in cascade order, on top of `src/site/site.css` and the shared tokens
 in `src/index.css`. The hidden `/admin` console
 lives in `src/admin/` and is organized around operator tasks: `index.tsx`
-registers the views (Overview, Review queue, Schedule, Posts, Videos, Profile
-images, Runs, Queue, Sources, Detection, Proxies, Alerts, Site) and renders the shell
-with hash routing (`#view/tab`, where the tab is everything after the view
-and may hold several parts; a `#content/<tab>` link opens the matching
-view, and `#models` and `#llm/<provider>` links open Detection); `use-admin-data.ts` owns every
+registers the views in four nav groups by what the operator is doing — Today
+(Overview, Review queue), Content, what the public pages show (Schedule,
+Posts, External posts, Videos, Account avatars, Profile images), Pipeline,
+how data comes in (Sources, Detection, Runs, Alerts), and System, the rarely
+used settings and maintenance (Proxies, Site, Works) — and renders the shell with hash routing
+(`#view/tab`, where the tab is everything after the view and may hold
+several parts; `resolveHash` maps older addresses: `#content/<tab>` opens
+the matching view, `#models` and `#llm/<provider>` open Detection, which
+holds the model setup beside the detection mode, and `#queue/<step>` opens
+the Runs page's Up next tab); `use-admin-data.ts` owns every
 [Admin API](../admin-api.md) call, the session and the overview poll that tracks
 the active run while the console is visible. Until a session read succeeds
 the login requirements are unknown, so a failed read shows its reason and a

@@ -25,11 +25,13 @@ import {
   PageHeader,
   Pager,
   Panel,
+  Segmented,
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 import { RunLine, runTitle } from "@/admin/views/run-parts"
 import { cn } from "@/lib/utils"
 import { RunDetail, StepRunDialog } from "@/admin/views/run-detail"
+import { QueuePanel } from "@/admin/views/queue"
 
 // Wide enough for the history list and the open run side by side.
 const splitQuery = "(min-width: 1200px)"
@@ -282,11 +284,17 @@ function RetentionPanel() {
   )
 }
 
+/**
+ * The Runs page: the run history (`#runs`, `#runs/<id>` for an open run) and
+ * what the next run works through (`#runs/next/<step>`).
+ */
 export function RunsView({ tab, navigate }: ViewProps) {
   const { t } = useAppSettings()
   const { start, overview } = useAdmin()
   const [picking, setPicking] = useState(false)
   const busy = Boolean(overview?.activeRun)
+  const [head, ...rest] = tab.split("/")
+  const section = head === "next" ? "next" : "history"
   return (
     <div className="adm-view">
       <PageHeader
@@ -314,8 +322,23 @@ export function RunsView({ tab, navigate }: ViewProps) {
           </>
         }
       />
-      <HistoryPanel open={tab} onOpen={(id) => navigate("runs", id)} />
-      <RetentionPanel />
+      <Segmented
+        label={t("admin.runs.section")}
+        value={section}
+        options={[
+          { value: "history", label: t("admin.runs.section.history") },
+          { value: "next", label: t("admin.runs.section.next") },
+        ]}
+        onChange={(next) => navigate("runs", next === "next" ? "next" : "")}
+      />
+      {section === "next" ? (
+        <QueuePanel step={rest.join("/")} navigate={navigate} />
+      ) : (
+        <>
+          <HistoryPanel open={tab} onOpen={(id) => navigate("runs", id)} />
+          <RetentionPanel />
+        </>
+      )}
       {picking ? <StepRunDialog onClose={() => setPicking(false)} /> : null}
     </div>
   )

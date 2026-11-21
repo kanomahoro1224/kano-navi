@@ -24,7 +24,6 @@ import {
   Empty,
   Facts,
   Loading,
-  PageHeader,
   Panel,
   type Tone,
 } from "@/admin/ui"
@@ -531,43 +530,48 @@ function RefreshTab({ navigate }: { navigate: ViewProps["navigate"] }) {
 }
 
 /**
- * What each step would work through, in order, if a run started now. Every
- * tab is computed when it opens or is refreshed.
+ * What each step would work through, in order, if a run started now: the
+ * Next tab of the Runs page, with the step in the address
+ * (`#runs/next/<step>`). Every tab is computed when it opens or is
+ * refreshed.
  */
-export function QueueView({ tab, navigate }: ViewProps) {
+export function QueuePanel({
+  step,
+  navigate,
+}: {
+  step: string
+  navigate: ViewProps["navigate"]
+}) {
   const { t } = useAppSettings()
-  const active: Tab = (tabs as readonly string[]).includes(tab)
-    ? (tab as Tab)
+  const active: Tab = (tabs as readonly string[]).includes(step)
+    ? (step as Tab)
     : "schedule"
   return (
-    <div className="adm-view">
-      <PageHeader title={t("admin.queuePreview.title")} />
-      <Panel>
-        <div
-          className="adm-tabs"
-          role="tablist"
-          aria-label={t("admin.queuePreview.title")}
-        >
-          {tabs.map((id) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={active === id}
-              className={active === id ? "is-active" : undefined}
-              onClick={() => navigate("queue", id)}
-            >
-              {t(`admin.queuePreview.tab.${id}`)}
-            </button>
-          ))}
-        </div>
-        <div role="tabpanel" className="adm-tab-panel">
-          {active === "schedule" ? <ScheduleTab navigate={navigate} /> : null}
-          {active === "youtube" ? <YoutubeTab /> : null}
-          {active === "translate" ? <TranslateTab navigate={navigate} /> : null}
-          {active === "x-refresh" ? <RefreshTab navigate={navigate} /> : null}
-        </div>
-      </Panel>
-    </div>
+    <Panel>
+      <div
+        className="adm-tabs"
+        role="tablist"
+        aria-label={t("admin.queuePreview.title")}
+      >
+        {tabs.map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={active === id}
+            className={active === id ? "is-active" : undefined}
+            onClick={() => navigate("runs", `next/${id}`)}
+          >
+            {t(`admin.queuePreview.tab.${id}`)}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" className="adm-tab-panel">
+        {active === "schedule" ? <ScheduleTab navigate={navigate} /> : null}
+        {active === "youtube" ? <YoutubeTab /> : null}
+        {active === "translate" ? <TranslateTab navigate={navigate} /> : null}
+        {active === "x-refresh" ? <RefreshTab navigate={navigate} /> : null}
+      </div>
+    </Panel>
   )
 }

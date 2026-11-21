@@ -426,7 +426,7 @@ export function OverviewView({ navigate }: ViewProps) {
                 size="sm"
                 variant="ghost"
                 icon={ListOrdered}
-                onClick={() => navigate("queue")}
+                onClick={() => navigate("runs", "next")}
               >
                 {t("admin.overview.openQueue")}
               </Button>

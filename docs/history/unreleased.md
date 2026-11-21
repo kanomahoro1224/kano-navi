@@ -79,6 +79,10 @@
   and another when it recovers. A heartbeat pings an external monitor such
   as Uptime Kuma, so a stopped server is noticed too. Destinations must be
   public addresses, and development mode never sends.
+- The nav groups pages by task: Today, Content, Pipeline and System.
+  Queue becomes the Runs page's **Up next** tab, and the Works covers and
+  recent uploads move from Site to a **Works** page in System. Older
+  `#queue` links open Up next.
 - Posts marks a post deleted on X with a **Deleted on X** badge.
 - The Review queue lists entries their posts no longer list, with Keep entry
   and Delete entry, and the overview counts them.

@@ -275,8 +275,8 @@ export function confirmedLiveStatus(
 }
 
 /**
- * The server's state of an entry: upcoming, live, open, done, pending,
- * cancelled or cancellation_review.
+ * The server's state of an entry: upcoming, live, ongoing, open, done,
+ * pending, cancelled or cancellation_review.
  */
 export function eventStatus(event: ScheduleEvent) {
   return event.view.state

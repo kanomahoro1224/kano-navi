@@ -127,14 +127,16 @@ the lead shows one only for a featured stream archive or Short; reservation
 tickets and the video dialog's cards keep it. The Next Up ticket names the video's tag, else the entry's
 activity label, before the form; `spotlight.membersChip` adds the
 members-only chip (`MembersChip`) beside it, and `spotlight.isLive` marks the
-ticket On air. Schedule entries consume the event
+ticket On air; an `ongoing` event's ticket names it under way, without a
+countdown. Schedule entries consume the event
 `view`: `eventKinds`, `scheduleEntries` and `eventStatus` translate its type,
 activity, calendar entries and state. The sale period's opening and closing
 dates come from `view.calendarEntries`, and the status codes are
 `upcoming`, `open` and `done`. The canonical enum contract is in the [Public
-API](../public-api/snapshot.md): `event.view.state` has seven
-values (`upcoming`, `live`, `open`, `done`, `pending`, `cancelled`,
-`cancellation_review`), `video.view.phase` has five (`upcoming`, `live`,
+API](../public-api/snapshot.md): `event.view.state` has eight
+values (`upcoming`, `live`, `ongoing`, `open`, `done`, `pending`,
+`cancelled`, `cancellation_review`); the week folds neither a `live` nor an
+`ongoing` entry. `video.view.phase` has five (`upcoming`, `live`,
 `started`, `past`, `cancelled`), and `formCode` has six non-null values
 (`short`, `upcoming`, `stream`, `archive`, `premiere`, `video`). The
 filter offers All plus Streams, Works and Shorts for each kind

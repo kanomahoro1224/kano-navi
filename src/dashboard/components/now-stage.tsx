@@ -41,7 +41,12 @@ import {
   eventShowsPlatformLinks,
   type VideoTag,
 } from "../format"
-import { pickCompanion, pickSpotlight, spotlightIsLive } from "../spotlight"
+import {
+  pickCompanion,
+  pickSpotlight,
+  spotlightIsLive,
+  spotlightIsOngoing,
+} from "../spotlight"
 import type { SyncSource, SyncState } from "../freshness"
 import {
   videoIsGone,
@@ -197,7 +202,13 @@ function TicketHead({
         </span>
       ) : (
         <span className="kicker">
-          {t(item.mode === "next" ? "spotlight.next" : "spotlight.latest")}
+          {t(
+            spotlightIsOngoing(item)
+              ? "spotlight.ongoing"
+              : item.mode === "next"
+                ? "spotlight.next"
+                : "spotlight.latest",
+          )}
         </span>
       )}
       <span className="tag tone-berry">
@@ -308,6 +319,8 @@ function FullTicket({
   // A private or removed video has no page of its own left to open.
   const url =
     links[0]?.url || (item.video && videoIsGone(item.video) ? null : item.url)
+  // An entry already under way has nothing left to count down to.
+  const counting = item.mode === "next" && !isLive && !spotlightIsOngoing(item)
   return (
     <div
       className={`ticket is-${isLive ? "live" : item.mode}${item.thumbnailUrl ? " has-art" : ""}${url ? " link-card" : ""}`}
@@ -363,7 +376,7 @@ function FullTicket({
             />
             <span className="ticket-when-row">
               <TicketWhen item={item} locale={locale} now={now} t={t} />
-              {item.mode === "next" && item.time && !isLive ? (
+              {counting && item.time ? (
                 <Countdown time={item.time} now={now} t={t} inline />
               ) : null}
             </span>
@@ -377,7 +390,7 @@ function FullTicket({
             ) : null}
           </span>
         </span>
-        {item.mode === "next" && item.time && !isLive ? (
+        {counting && item.time ? (
           <Countdown time={item.time} now={now} t={t} />
         ) : null}
         {isLive &&
@@ -413,6 +426,7 @@ function CompactTicket({
   const links = ticketLinks(item, locale)
   // A video's ticket follows the platform that is live, as its links lead.
   const url = (item.video && links[0]?.url) || item.url
+  const counting = !isLive && !spotlightIsOngoing(item)
   return (
     <div
       className={`ticket is-compact is-${isLive ? "live" : item.mode}${url ? " link-card" : ""}`}
@@ -434,7 +448,7 @@ function CompactTicket({
           />
           <span className="ticket-when-row">
             <TicketWhen item={item} locale={locale} now={now} t={t} />
-            {item.time && !isLive ? (
+            {counting && item.time ? (
               <Countdown time={item.time} now={now} t={t} inline />
             ) : null}
           </span>
@@ -447,7 +461,7 @@ function CompactTicket({
             />
           ) : null}
         </span>
-        {item.time && !isLive ? (
+        {counting && item.time ? (
           <Countdown time={item.time} now={now} t={t} />
         ) : null}
         {isLive &&

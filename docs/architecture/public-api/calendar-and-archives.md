@@ -44,7 +44,7 @@ do not consume the shortlist. Eligible live events use ascending start instants
 and stable ID ties, matching the frontend focus ordering, including streams
 spanning earlier weeks. Known end times remove finished streams before limiting
 focus candidates and retain streams with explicit longer durations; an absent
-end gives streams and memberships the strictly less-than-three-hour grace
+end gives timed streams and memberships the strictly less-than-three-hour grace
 period, while other YouTube activities such as premieres need an explicit
 future end. Video/event association uses indexed primary, source-evidence and
 normalized URL identities, in one query for all returned videos rather than

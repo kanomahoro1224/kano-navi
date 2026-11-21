@@ -99,6 +99,7 @@ const typeTones: Record<string, string> = {
 
 const statusTones: Record<string, string> = {
   live: "berry",
+  ongoing: "berry",
   open: "leaf",
   cancelled: "danger",
   cancellation_review: "honey",
@@ -475,11 +476,15 @@ function GuideEvent({
 
 /**
  * Whether the week folds an entry: everything on a day before today, and
- * today's entries once they end, except one still on air.
+ * today's entries once they end, except one still on air or under way.
  */
 function entryIsPast(event: ScheduleEvent, dayIsPast: boolean) {
   const status = eventStatus(event)
-  return status !== "live" && (dayIsPast || status === "done")
+  return (
+    status !== "live" &&
+    status !== "ongoing" &&
+    (dayIsPast || status === "done")
+  )
 }
 
 function WeekDays({

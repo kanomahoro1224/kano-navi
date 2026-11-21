@@ -173,6 +173,17 @@ export function spotlightIsLive(item: SpotlightCandidate | null | undefined) {
   return item?.mode === "next" && Boolean(item.time) && item.isLive
 }
 
+/** Whether the ticket is an entry under way without a broadcast on air. */
+export function spotlightIsOngoing(
+  item: SpotlightCandidate | null | undefined,
+) {
+  return (
+    item?.mode === "next" &&
+    !item.isLive &&
+    item.event?.view.state === "ongoing"
+  )
+}
+
 /**
  * The latest video the projection shows under a compact ticket, so the stage
  * keeps a picture.

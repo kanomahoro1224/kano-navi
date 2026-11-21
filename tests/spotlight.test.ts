@@ -10,6 +10,7 @@ import {
   pickCompanion,
   pickSpotlight,
   spotlightIsLive,
+  spotlightIsOngoing,
   spotlightLink,
 } from "../src/dashboard/spotlight.ts"
 import { eventLink } from "../src/dashboard/format.ts"
@@ -193,6 +194,35 @@ test("On air and the members chip are the projection's", () => {
     staged({ eventId: dateOnlyEvent.id, isLive: true }),
   )
   assert.equal(spotlightIsLive(dateOnly), false)
+})
+
+test("an entry under way is neither on air nor counting down", () => {
+  const fair: ScheduleEvent = {
+    ...dateOnlyEvent,
+    id: "fair",
+    eventType: "event",
+    startsAt: "2026-10-24T03:00:00Z",
+    endsAt: "2026-10-24T09:00:00Z",
+    timePrecision: "exact",
+    view: { ...dateOnlyEvent.view, state: "ongoing", typeCode: "event" },
+  }
+  const summary = { nextEvent: fair, nextStream: null, latestVideo: null }
+  const item = pickSpotlight(summary, null, staged({ eventId: fair.id }))
+  assert.equal(spotlightIsLive(item), false)
+  assert.equal(spotlightIsOngoing(item), true)
+  // An upcoming entry, or one the projection reads on air, is not.
+  const next = pickSpotlight(
+    { ...summary, nextEvent: dateOnlyEvent },
+    null,
+    staged({ eventId: dateOnlyEvent.id }),
+  )
+  assert.equal(spotlightIsOngoing(next), false)
+  const onAir = pickSpotlight(
+    summary,
+    null,
+    staged({ eventId: fair.id, isLive: true }),
+  )
+  assert.equal(spotlightIsOngoing(onAir), false)
 })
 
 test("links name what they open", () => {

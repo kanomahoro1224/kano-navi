@@ -140,6 +140,13 @@ func TestEventViewStates(t *testing.T) {
 		{"date-only entry today", projEventSpec{eventType: "event"}, projNow, "upcoming"},
 		{"waiting room past its start", projEventSpec{eventType: "stream", start: projAt(-time.Hour), liveStatus: "upcoming"}, projNow, "upcoming"},
 		{"stream confirmed on air", projEventSpec{eventType: "stream", start: projAt(-time.Hour), liveStatus: "live"}, projNow, "live"},
+		{"stream confirmed on air before its start", projEventSpec{eventType: "stream", start: projAt(time.Hour), liveStatus: "live"}, projNow, "live"},
+		{"date-only membership confirmed on air", projEventSpec{eventType: "member", precision: "unknown", liveStatus: "live"}, projNow, "live"},
+		{"date-only stream on its day", projEventSpec{eventType: "stream", precision: "unknown"}, projTime("2026-11-02T14:59:00Z"), "upcoming"},
+		// A date-only entry has no time to go on air at, so the live grace
+		// never carries it into the next day.
+		{"date-only stream after its day", projEventSpec{eventType: "stream", startsOn: "2026-11-01", precision: "unknown"}, projTime("2026-11-01T16:00:00Z"), "pending"},
+		{"date-only membership after its day", projEventSpec{eventType: "member", startsOn: "2026-11-01", precision: "exact"}, projTime("2026-11-01T17:00:00Z"), "done"},
 		{"confirmed on air past its end", projEventSpec{eventType: "stream", start: projAt(-2 * time.Hour), end: projAt(-time.Hour), liveStatus: "live"}, projNow, "done"},
 		{"stream presumed live inside the grace", projEventSpec{eventType: "stream", start: projAt(-2 * time.Hour)}, projNow, "live"},
 		{"membership presumed live inside the grace", projEventSpec{eventType: "member", start: projAt(-2 * time.Hour)}, projNow, "live"},
@@ -149,12 +156,20 @@ func TestEventViewStates(t *testing.T) {
 		{"premiere aired", projEventSpec{eventType: "release", source: "youtube", start: projAt(-2 * time.Hour), end: projAt(-time.Hour)}, projNow, "done"},
 		{"premiere without an end gets no grace", projEventSpec{eventType: "release", source: "youtube", start: projAt(-time.Hour)}, projNow, "done"},
 		{"past entry", projEventSpec{eventType: "event", start: projAt(-time.Hour)}, projNow, "done"},
+		{"offline event between its start and end", projEventSpec{eventType: "event", start: projAt(-time.Hour), end: projAt(time.Hour)}, projNow, "ongoing"},
+		{"offline event at its end", projEventSpec{eventType: "event", start: projAt(-time.Hour), end: projAt(0)}, projNow, "done"},
+		{"tentative event between its start and end", projEventSpec{eventType: "event", start: projAt(-time.Hour), end: projAt(time.Hour), status: "tentative"}, projNow, "pending"},
+		{"stream ended before its stored end", projEventSpec{eventType: "stream", start: projAt(-time.Hour), end: projAt(time.Hour), liveStatus: "ended"}, projNow, "done"},
+		{"stream between its start and end", projEventSpec{eventType: "stream", start: projAt(-time.Hour), end: projAt(time.Hour)}, projNow, "live"},
 		{"past date-only entry of unknown time", projEventSpec{eventType: "event", startsOn: "2026-11-01", precision: "unknown"}, projNow, "pending"},
 		{"past tentative entry", projEventSpec{eventType: "event", start: projAt(-time.Hour), status: "tentative"}, projNow, "pending"},
 		{"past entry awaiting confirmation", projEventSpec{eventType: "event", start: projAt(-time.Hour), status: "未定"}, projNow, "pending"},
 		{"operator-confirmed cancellation", projEventSpec{eventType: "stream", start: projAt(time.Hour), cancellation: "manual_confirmed"}, projNow, "cancelled"},
 		{"cancelled status", projEventSpec{eventType: "stream", start: projAt(time.Hour), status: "Canceled"}, projNow, "cancelled"},
 		{"suspected cancellation", projEventSpec{eventType: "stream", start: projAt(time.Hour), cancellation: "llm_suspected"}, projNow, "cancellation_review"},
+		// A cancelled status is definitive whatever the model suspects.
+		{"cancelled status under a suspicion", projEventSpec{eventType: "stream", start: projAt(time.Hour), status: "cancelled", cancellation: "llm_suspected"}, projNow, "cancelled"},
+		{"sale with only an opening date", sale(nil, "2026-11-04", "", nil), projNow, "upcoming"},
 		{"sale before its opening time", sale(projAt(time.Hour), "", "2026-11-10", nil), projNow, "upcoming"},
 		{"sale before its opening date", sale(nil, "2026-11-03", "2026-11-10", nil), projNow, "upcoming"},
 		{"sale opening at Japan midnight", sale(nil, "2026-11-03", "2026-11-10", nil), projTime("2026-11-02T15:00:00Z"), "open"},
@@ -274,6 +289,12 @@ func TestEventViewCalendarEntries(t *testing.T) {
 			projEventSpec{eventType: "sale", start: strPtr("2026-11-06T03:00:00Z")},
 			[]CalendarEntry{{SaleMark: opens, StartsOn: "2026-11-06", StartsAt: strPtr("2026-11-06T03:00:00Z"), TimePrecision: "exact"}},
 		},
+		{
+			// Without a close date the date is the opening, not a deadline.
+			"opening date without a known close",
+			projEventSpec{eventType: "sale", startsOn: "2026-11-06", precision: "unknown"},
+			[]CalendarEntry{{SaleMark: opens, StartsOn: "2026-11-06", TimePrecision: "unknown"}},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			event := tc.spec.event("entry")
@@ -316,6 +337,9 @@ func TestVideoViewPhaseAndForm(t *testing.T) {
 		{"premiere showing", projVideoSpec{kind: "premiere", start: projAt(-30 * time.Minute), end: projAt(30 * time.Minute)}, "started", "premiere", true, true},
 		{"premiere confirmed on air", projVideoSpec{kind: "premiere", start: projAt(-30 * time.Minute), liveStatus: "live"}, "live", "premiere", true, true},
 		{"premiere aired", projVideoSpec{kind: "premiere", start: projAt(-2 * time.Hour), end: projAt(-time.Hour)}, "past", "", true, false},
+		// Without an end or a confirmed broadcast a premiere has aired at its
+		// start, and no longer competes for the stage.
+		{"premiere past its start without an end", projVideoSpec{kind: "premiere", start: projAt(-time.Hour)}, "past", "", true, false},
 		{"upload", projVideoSpec{kind: "video", published: projAt(-24 * time.Hour)}, "past", "video", true, false},
 		{"upload of unknown kind", projVideoSpec{published: projAt(-24 * time.Hour)}, "past", "video", true, false},
 		{"private upload", projVideoSpec{kind: "video", published: projAt(-24 * time.Hour), availability: "private"}, "past", "video", false, false},
@@ -624,6 +648,87 @@ func TestSpotlightLiveYield(t *testing.T) {
 	}
 }
 
+func TestSpotlightCurrentEntries(t *testing.T) {
+	fair := projEventSpec{eventType: "event", start: projAt(-time.Hour), end: projAt(3 * time.Hour)}
+	premiere := projVideoSpec{kind: "premiere", start: projAt(-time.Hour), thumbnail: "https://example.com/image/premiere.jpg"}
+	for _, tc := range []struct {
+		name         string
+		at           time.Time
+		events       []DashboardEvent
+		videos       []Video
+		mode         string
+		event, video string
+		isLive       bool
+	}{
+		{
+			"stream confirmed on air before its start",
+			projNow,
+			[]DashboardEvent{projEventSpec{eventType: "stream", start: projAt(time.Hour), liveStatus: "live"}.event("early")},
+			nil, "next", "early", "", true,
+		},
+		{
+			"date-only stream on its day",
+			projTime("2026-11-02T14:00:00Z"),
+			[]DashboardEvent{projEventSpec{eventType: "stream", precision: "unknown"}.event("today")},
+			nil, "next", "today", "", false,
+		},
+		{
+			"date-only stream after its day",
+			projTime("2026-11-02T16:00:00Z"),
+			[]DashboardEvent{projEventSpec{eventType: "stream", precision: "unknown"}.event("today")},
+			nil, "", "", "", false,
+		},
+		{
+			"ongoing offline event, not on air",
+			projNow,
+			[]DashboardEvent{fair.event("fair")},
+			nil, "next", "fair", "", false,
+		},
+		{
+			"ongoing offline event before a later stream",
+			projNow,
+			[]DashboardEvent{fair.event("fair"), projEventSpec{eventType: "stream", start: projAt(time.Hour)}.event("later")},
+			nil, "next", "fair", "", false,
+		},
+		{
+			"ongoing offline event yields to a stream within 30 minutes",
+			projNow,
+			[]DashboardEvent{fair.event("fair"), projEventSpec{eventType: "stream", start: projAt(20 * time.Minute)}.event("soon")},
+			nil, "next", "soon", "", false,
+		},
+		{
+			"ongoing offline event yields to a reserved video",
+			projNow,
+			[]DashboardEvent{fair.event("fair")},
+			[]Video{projVideoSpec{kind: "stream", start: projAt(20 * time.Minute), thumbnail: "https://example.com/image/soon.jpg"}.video("soon")},
+			"next", "", "soon", false,
+		},
+		{
+			"premiere past its start without an end",
+			projNow,
+			nil,
+			[]Video{premiere.video("premiere")},
+			"latest", "", "premiere", false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dashboard := &Dashboard{Events: tc.events, Videos: tc.videos}
+			applyDashboardProjection(dashboard, tc.at)
+			got := dashboard.Projection.Spotlight
+			if tc.mode == "" {
+				if got != nil {
+					t.Fatalf("spotlight = %+v, want none", got)
+				}
+				return
+			}
+			if got == nil || got.Mode != tc.mode || projString(got.EventID) != projString(projOptional(tc.event)) ||
+				projString(got.VideoID) != projString(projOptional(tc.video)) || got.IsLive != tc.isLive || got.LiveNow {
+				t.Fatalf("spotlight = %+v (event %s, video %s)", got, projString(got.EventID), projString(got.VideoID))
+			}
+		})
+	}
+}
+
 func TestSpotlightPairsAndMembersChip(t *testing.T) {
 	pairedURL := "https://example.com/video/paired"
 	for _, tc := range []struct {
@@ -749,6 +854,8 @@ func TestNextTransitionAt(t *testing.T) {
 		{"nothing ahead", []DashboardEvent{projEventSpec{eventType: "event", start: projAt(-24 * time.Hour)}.event("past")}, []Video{projVideoSpec{kind: "video", published: projAt(-time.Hour)}.video("upload")}, ""},
 		{"event start", []DashboardEvent{projEventSpec{eventType: "event", start: projAt(2 * time.Hour)}.event("event")}, nil, "2026-11-02T06:00:00Z"},
 		{"date-only event at its Japan day", []DashboardEvent{projEventSpec{eventType: "event", startsOn: "2026-11-03"}.event("event")}, nil, "2026-11-02T15:00:00Z"},
+		{"date-only event at the end of its Japan day", []DashboardEvent{projEventSpec{eventType: "event", startsOn: "2026-11-02"}.event("event")}, nil, "2026-11-02T15:00:00Z"},
+		{"date-only stream gets no grace", []DashboardEvent{projEventSpec{eventType: "stream", startsOn: "2026-11-02", precision: "unknown"}.event("stream")}, nil, "2026-11-02T15:00:00Z"},
 		{"stream grace", []DashboardEvent{projEventSpec{eventType: "stream", start: projAt(-2 * time.Hour)}.event("stream")}, nil, "2026-11-02T05:00:00Z"},
 		{"membership grace", []DashboardEvent{projEventSpec{eventType: "member", start: projAt(-150 * time.Minute)}.event("member")}, nil, "2026-11-02T04:30:00Z"},
 		{"event end", []DashboardEvent{projEventSpec{eventType: "event", start: projAt(-time.Hour), end: projAt(30 * time.Minute)}.event("event")}, nil, "2026-11-02T04:30:00Z"},

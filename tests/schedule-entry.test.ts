@@ -136,6 +136,13 @@ test("the week folds past entries and names no ended status", async () => {
       timed("earlier", "2026-10-08T10:00:00+09:00", {
         endsAt: "2026-10-08T12:00:00+09:00",
       }),
+      // An offline event under way stays whole until its end.
+      timed("fair", "2026-10-08T18:00:00+09:00", {
+        endsAt: "2026-10-08T22:00:00+09:00",
+        eventType: "event",
+        tag: null,
+        state: "ongoing",
+      }),
       timed("onAir", "2026-10-08T20:00:00+09:00", { state: "live" }),
       timed("tomorrow", "2026-10-09T20:00:00+09:00", { state: "upcoming" }),
     ]
@@ -168,16 +175,19 @@ test("the week folds past entries and names no ended status", async () => {
 
     const cards = [...container.querySelectorAll(".guide-days .guide-event")]
     // An entry of an earlier day, and today's once it ends, fold to their
-    // time and title; the one on air and the coming one stay whole.
+    // time and title; the one under way, the one on air and the coming one
+    // stay whole.
     assert.deepEqual(
       cards.map((card) => card.classList.contains("is-folded")),
-      [true, true, false, false],
+      [true, true, false, false, false],
     )
+    assert.match(cards[2].textContent || "", /In progress/)
+    assert.doesNotMatch(cards[2].textContent || "", /On air/)
     for (const card of cards.slice(0, 2)) {
       assert.equal(card.querySelector(".guide-event-tags"), null)
       assert.ok(card.querySelector(".guide-event-time svg"))
     }
-    assert.match(cards[2].textContent || "", /On air/)
+    assert.match(cards[3].textContent || "", /On air/)
     assert.doesNotMatch(container.textContent || "", /Ended/)
 
     // A folded entry still opens its sheet, which has no ended status.

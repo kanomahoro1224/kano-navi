@@ -12,6 +12,8 @@
 - Startup adds the empty column `posts.upstream_deleted_at`; no existing post
   is marked.
 - The admin API's posts report `upstreamDeletedAt`.
+- An event `view.state` may be `ongoing`, in the dashboard, calendar, MCP
+  and every other read that carries the view.
 - Startup adds `event_sources.unlisted_at` and the `schedule_asset_reviews`
   columns `previous_manual_status`, `previous_manual_reason`,
   `previous_manual_checked_at`, `check_status`, `check_reason` and
@@ -45,6 +47,20 @@
   from it, without a local fallback. A snapshot stored by a board from
   before v0.7.0, or one served with another projection version, is not
   shown; the board reads a fresh one.
+- An offline event between its start and end is in progress: the week
+  keeps its card whole with an **In progress** chip, and the stage shows it
+  as happening now, without a countdown or On air, until its end or a
+  stream about to start.
+- A stream confirmed on air before its scheduled start is live on the board
+  and the stage.
+- A date-only stream or membership is no longer shown live from midnight to
+  3:00 the next day, and the board refreshes when that day ends.
+- A premiere past its start with neither an end nor a confirmed broadcast
+  leaves the stage as an aired video.
+- An event with a cancelled status stays cancelled when a model also
+  suspects its cancellation.
+- A sale with only an opening date shows its opening on that date rather
+  than a closing.
 
 </details>
 

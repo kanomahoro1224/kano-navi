@@ -150,6 +150,7 @@ export interface EventLink {
 export type EventViewState =
   | "upcoming"
   | "live"
+  | "ongoing"
   | "open"
   | "done"
   | "pending"

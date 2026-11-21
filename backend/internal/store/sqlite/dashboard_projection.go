@@ -121,13 +121,20 @@ func eventProjectionLive(event DashboardEvent, now time.Time) bool {
 	if !isStream && event.Source != "youtube" {
 		return false
 	}
-	start, ok := projectionEventStart(event)
-	if !ok || start.After(now) {
+	end, hasEnd := projectionEventEnd(event)
+	confirmed := projectionConfirmed(event.LiveStatus)
+	// A linked broadcast confirmed on air is live, even before the entry's
+	// scheduled start or on a date-only entry.
+	if confirmed == "live" {
+		return !hasEnd || end.After(now)
+	}
+	// A date-only entry has no time to have gone on air at.
+	if event.StartsAt == nil {
 		return false
 	}
-	end, hasEnd := projectionEventEnd(event)
-	if confirmed := projectionConfirmed(event.LiveStatus); confirmed != "" {
-		return confirmed == "live" && (!hasEnd || end.After(now))
+	start, ok := projectionEventStart(event)
+	if !ok || start.After(now) || confirmed != "" {
+		return false
 	}
 	if hasEnd {
 		return end.After(now)
@@ -136,14 +143,13 @@ func eventProjectionLive(event DashboardEvent, now time.Time) bool {
 }
 
 func eventProjectionState(event DashboardEvent, now time.Time) string {
-	if event.CancellationStatus == "manual_confirmed" {
+	// A cancelled status or an operator's confirmation is definitive; a
+	// model's suspicion only asks for review.
+	if event.Cancelled() {
 		return "cancelled"
 	}
 	if event.CancellationStatus == "llm_suspected" {
 		return "cancellation_review"
-	}
-	if cancelledStatus(event.Status) {
-		return "cancelled"
 	}
 	if SaleEvent(event.EventType) {
 		return saleProjectionState(event, now)
@@ -159,7 +165,21 @@ func eventProjectionState(event DashboardEvent, now time.Time) string {
 		status == "待确认" || status == "待补充" || status == "確認待ち" || status == "未定" {
 		return "pending"
 	}
+	if eventProjectionOngoing(event, now) {
+		return "ongoing"
+	}
 	return "done"
+}
+
+// eventProjectionOngoing reports an entry without a broadcast on air that is
+// between its start time and its end, such as an offline event.
+func eventProjectionOngoing(event DashboardEvent, now time.Time) bool {
+	if event.StartsAt == nil || SaleEvent(event.EventType) || projectionConfirmed(event.LiveStatus) == "ended" {
+		return false
+	}
+	start, ok := projectionEventStart(event)
+	end, hasEnd := projectionEventEnd(event)
+	return ok && hasEnd && !start.After(now) && end.After(now)
 }
 
 func projectionEventStart(event DashboardEvent) (time.Time, bool) {
@@ -201,7 +221,10 @@ func eventCalendarEntries(event DashboardEvent) []CalendarEntry {
 	}
 	closingMark := "closes"
 	closing := CalendarEntry{SaleMark: &closingMark, StartsOn: closeDay, StartsAt: event.EndsAt, TimePrecision: closePrecision}
-	deadline := closeDay == event.StartsOn && event.StartsAt == nil
+	// A deadline has a close date and no known opening: the close date is
+	// the start date and there is no start time. A sale whose close is not
+	// known shows its opening alone.
+	deadline := event.EndsOn != nil && closeDay == event.StartsOn && event.StartsAt == nil
 	if deadline {
 		return []CalendarEntry{closing}
 	}
@@ -291,7 +314,12 @@ func videoProjectionFocus(video Video, now time.Time) bool {
 		return end.After(now) && hasStart
 	}
 	if hasStart {
-		return start.After(now.Add(-projectionLiveGrace))
+		// Only a stream keeps the live grace after its start, as its phase
+		// does; a premiere without an end or a confirmed broadcast has aired.
+		if videoKind(video) == "stream" {
+			return start.After(now.Add(-projectionLiveGrace))
+		}
+		return start.After(now)
 	}
 	return video.IsUpcoming
 }
@@ -414,7 +442,9 @@ func projectionLeadingEvent(events []DashboardEvent, now time.Time) *DashboardEv
 			continue
 		}
 		end, hasEnd := projectionEventEnd(events[index])
-		if !start.After(now) && !hasEnd && projectionConfirmed(events[index].LiveStatus) != "live" {
+		// A started entry without an end, or an ongoing one, yields to a
+		// later entry about to start.
+		if !start.After(now) && (!hasEnd || events[index].View.State == "ongoing") && projectionConfirmed(events[index].LiveStatus) != "live" {
 			yields := false
 			for _, later := range events[index+1:] {
 				next, valid := projectionEventStart(later)
@@ -500,6 +530,8 @@ type projectionCandidate struct {
 	start  time.Time
 	end    time.Time
 	hasEnd bool
+	// ongoing is an event without a broadcast between its start and its end.
+	ongoing bool
 }
 
 func projectionLeadingCandidate(candidates []projectionCandidate, now time.Time) *projectionCandidate {
@@ -508,7 +540,7 @@ func projectionLeadingCandidate(candidates []projectionCandidate, now time.Time)
 	})
 	for index := range candidates {
 		candidate := candidates[index]
-		if !candidate.start.After(now) && !candidate.hasEnd && !candidate.live {
+		if !candidate.start.After(now) && (!candidate.hasEnd || candidate.ongoing) && !candidate.live {
 			yields := false
 			for _, later := range candidates[index+1:] {
 				if later.start.After(candidate.start) && later.start.Sub(now) <= projectionLiveYield {
@@ -551,8 +583,10 @@ func projectionFutureTransition(events []DashboardEvent, videos []Video, now tim
 		} else {
 			start, ok := projectionEventStart(event)
 			if event.StartsAt == nil {
+				// A date-only entry changes when its day begins and ends.
 				parsed, err := time.ParseInLocation("2006-01-02", event.StartsOn, time.FixedZone("JST", 9*60*60))
 				start, ok = parsed, err == nil
+				consider(start.AddDate(0, 0, 1), ok)
 			}
 			consider(start, ok)
 			if ok && event.StartsAt != nil && (strings.EqualFold(valueOrEmpty(event.EventType), "stream") || strings.EqualFold(valueOrEmpty(event.EventType), "member")) && event.EndsAt == nil {
@@ -596,7 +630,7 @@ func applyDashboardProjection(dashboard *Dashboard, now time.Time) {
 
 	focusEvents := make([]DashboardEvent, 0, len(dashboard.Events))
 	for _, event := range dashboard.Events {
-		if event.View.State != "cancelled" && event.View.State != "cancellation_review" && !SaleEvent(event.EventType) && (eventProjectionUpcoming(event, now) || eventProjectionLive(event, now)) {
+		if event.View.State != "cancelled" && event.View.State != "cancellation_review" && !SaleEvent(event.EventType) && (eventProjectionUpcoming(event, now) || eventProjectionLive(event, now) || event.View.State == "ongoing") {
 			focusEvents = append(focusEvents, event)
 		}
 	}
@@ -833,7 +867,7 @@ func projectionSpotlight(dashboard *Dashboard, now time.Time) *DashboardSpotligh
 			start, ok := projectionEventStart(*event)
 			if ok {
 				end, hasEnd := projectionEventEnd(*event)
-				candidates = append(candidates, projectionCandidate{event: event, start: start, end: end, hasEnd: hasEnd, live: projectionLiveLink(*event)})
+				candidates = append(candidates, projectionCandidate{event: event, start: start, end: end, hasEnd: hasEnd, live: projectionLiveLink(*event), ongoing: event.View.State == "ongoing"})
 			}
 		} else if len(candidates) > 0 {
 			for index := range candidates {
@@ -851,7 +885,10 @@ func projectionSpotlight(dashboard *Dashboard, now time.Time) *DashboardSpotligh
 		}
 		return &DashboardSpotlight{Mode: "latest", VideoID: strPtr(dashboard.Summary.LatestVideo.ID)}
 	}
-	spotlight := &DashboardSpotlight{Mode: "next", LiveNow: lead.live && lead.event == nil && lead.video == nil, IsLive: lead.live || !lead.start.After(now)}
+	// A started entry is on air unless it is an ongoing event without a
+	// broadcast; a date-only entry starts only at the end of its day.
+	isLive := lead.live || !lead.start.After(now) && !lead.ongoing
+	spotlight := &DashboardSpotlight{Mode: "next", LiveNow: lead.live && lead.event == nil && lead.video == nil, IsLive: isLive}
 	if lead.event != nil {
 		spotlight.EventID = strPtr(lead.event.ID)
 	}

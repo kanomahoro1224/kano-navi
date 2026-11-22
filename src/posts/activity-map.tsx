@@ -6,8 +6,8 @@ import { activityLevel, activityScale, activityYears } from "./timeline"
 
 /**
  * Every year of the archive as a row of twelve months, shaded by how many
- * posts the chosen account made in each. A month holding posts opens the
- * timeline there; the month in view is outlined.
+ * posts the chosen account made in each, and the year's total. A month
+ * holding posts opens the timeline there; the month in view is outlined.
  */
 export function ActivityMap({
   months,
@@ -31,16 +31,22 @@ export function ActivityMap({
     () => activityScale(years.flatMap((row) => row.months.map((n) => n || 0))),
     [years],
   )
+  const number = useMemo(() => new Intl.NumberFormat(locale), [locale])
   const shownYear = shown ? Number(shown.slice(0, 4)) : null
   return (
     <nav className="posts-map" aria-label={t("posts.months")}>
       <div className="posts-map-names" aria-hidden="true">
         <span />
         {[0, 5, 11].map((index) => (
-          <span key={index} style={{ gridColumn: index + 2 }}>
+          <span
+            key={index}
+            className={index === 11 ? "is-last" : undefined}
+            style={{ gridColumn: index + 2 }}
+          >
             {formatMonthName(new Date(2000, index, 1), locale)}
           </span>
         ))}
+        <span className="posts-map-total">Σ</span>
       </div>
       <ol className="posts-map-years">
         {years.map(({ year, months: counts, total }) => (
@@ -74,6 +80,7 @@ export function ActivityMap({
                 />
               )
             })}
+            <span className="posts-map-total">{number.format(total)}</span>
           </li>
         ))}
       </ol>

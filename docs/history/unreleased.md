@@ -32,8 +32,8 @@
 
 - Posts get a page of their own, `/posts`, in the site menu: every stored
   post in one timeline by month and day, with a card per account and a map
-  of every year's months to jump through, in an address that names the
-  month and account. The board's **Past posts** opens it in place of the
+  of every year's months and totals to jump through, in an address that
+  names the month and account. The board's **Past posts** opens it in place of the
   month dialog.
 - The post archive offers MKLNtic, the unit account Kano shares, as an
   account of its own.

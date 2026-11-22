@@ -72,7 +72,7 @@
 }
 
 /* Two cards a row leave room for the years and the count on lines apart. */
-@container posts-rail (width >= 296px) {
+@container posts-rail (width >= 288px) {
   .posts-accounts.is-rail .posts-account-meta {
     display: grid;
     gap: 0;
@@ -312,11 +312,16 @@
   scrollbar-width: thin;
 }
 
-/* The activity map: a year per row, a month per cell. */
+/*
+ * The activity map: a year per row, a month per cell, the year's total last.
+ * It keeps the rail cards' inset, so the years sit under their portraits,
+ * the first month under their names and the totals at their right edge.
+ */
 .posts-map {
-  --cell: 12px;
   display: grid;
   gap: 6px;
+  /* The cards' 8px padding inside their 1px border. */
+  padding-inline: 9px;
   font-family: var(--font-mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -325,10 +330,29 @@
 .posts-map-names,
 .posts-map-year {
   display: grid;
-  /* Cells keep their width and give up a pixel where the rail is tightest. */
-  grid-template-columns: 40px repeat(12, minmax(11px, var(--cell)));
+  /* Square cells give up a few pixels where the rail is tightest. */
+  grid-template-columns: 35px repeat(12, minmax(11px, 15px));
   align-items: center;
   gap: 3px;
+}
+
+/* The totals take the room left beside the cells, once there is enough. */
+.posts-map-total {
+  display: none;
+  color: var(--soft);
+  text-align: right;
+  white-space: nowrap;
+}
+
+@container posts-rail (width >= 260px) {
+  .posts-map-names,
+  .posts-map-year {
+    grid-template-columns: 35px repeat(12, minmax(11px, 15px)) minmax(36px, 1fr);
+  }
+
+  .posts-map-total {
+    display: block;
+  }
 }
 
 .posts-map-names {
@@ -339,8 +363,8 @@
   white-space: nowrap;
 }
 
-/* December's name ends at its column rather than past the map's edge. */
-.posts-map-names > span:last-child {
+/* December's name ends at its column rather than past the cells. */
+.posts-map-names > .is-last {
   justify-self: end;
 }
 
@@ -356,19 +380,21 @@
   color: var(--soft);
 }
 
-.posts-map-year.is-shown .posts-map-label {
+.posts-map-year.is-shown .posts-map-label,
+.posts-map-year.is-shown .posts-map-total {
   color: var(--berry);
   font-weight: 700;
 }
 
-.posts-map-year.is-empty .posts-map-label {
+.posts-map-year.is-empty .posts-map-label,
+.posts-map-year.is-empty .posts-map-total {
   opacity: 0.5;
 }
 
 .posts-map-cell {
   display: block;
   width: 100%;
-  height: 15px;
+  aspect-ratio: 1;
   padding: 0;
   border: 0;
   border-radius: 3px;

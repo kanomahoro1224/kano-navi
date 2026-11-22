@@ -59,8 +59,8 @@ to the months and accounts you chose.
   accounts and bilibili, the page offers MKLNtic, the unit account she
   shares.
 - Beside the posts, a map shows every year as a row of twelve months, darker
-  where the chosen account posted more; select a month to jump there. The
-  month you are reading is outlined. On narrower screens the bar under the
+  where the chosen account posted more, with the year's total at the end;
+  select a month to jump there. The month you are reading is outlined. On narrower screens the bar under the
   site header names the month and day you are reading; select it for a year
   stepper over twelve months, and **Latest** returns to the newest posts.
 - Posts are grouped by month and by day, with the day's date beside them

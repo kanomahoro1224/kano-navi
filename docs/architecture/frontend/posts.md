@@ -39,12 +39,15 @@ the rail's width allows; the rail takes the width the 680px column leaves and
 scrolls on its own when it is taller than the window. Narrower windows show
 them above the timeline. The activity map
 (`activity-map.tsx`) has a row per year, newest first, from the archive's
-first year to the newest month's, and a cell per month shaded by the quartile
-of the chosen account's monthly counts it falls in; a month with posts
+first year to the newest month's, a square cell per month shaded by the
+quartile of the chosen account's monthly counts it falls in, and the year's
+total at the end of the row once the rail is 260px wide; a month with posts
 is a button that opens the timeline there, and the month in view is
-outlined. The map sticks beside the timeline; in windows narrower than 960px
-it gives way to the archive dialog's month controls (`ArchiveMonthBar` in its
-timeline form, with the jump grid and **Latest**). They stick under the site
+outlined. The map keeps the rail cards' inset, so its years line up under
+the portraits, its first month under the account names and its totals with
+the cards' right edge. The map sticks beside the timeline; in windows
+narrower than 960px it gives way to the archive dialog's month controls
+(`ArchiveMonthBar` in its timeline form, with the jump grid and **Latest**). They stick under the site
 header as one band with it, carrying its scrolled stripe, and the month
 button also names the day in view, which the timeline reports as the page
 scrolls. Since the bar names the month, a timeline that starts from the

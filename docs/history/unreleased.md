@@ -178,5 +178,8 @@
   API, workflows, media cache, testing, configuration and LINE BLOG archive
   maintenance) are short indexes of topic pages, and `make docs-check` also
   validates heading anchors.
+- A pull request that changes `backend/go.mod`, `backend/go.sum`,
+  `package.json` or `package-lock.json` also runs the matching Go or npm
+  advisory audit, and `PR / Gate` requires it to pass.
 
 </details>

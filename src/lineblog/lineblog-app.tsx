@@ -1,8 +1,9 @@
 import type { CSSProperties } from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { ArrowUp } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
+import { usePageMeta } from "@/site/page-meta"
 import {
   Placeholder,
   SiteFooter,
@@ -78,15 +79,12 @@ export function LineblogApp() {
   const [designChoice, setDesignChoice] = useState(readDesign)
   const offered = contentLocale === "ja" ? null : TRANSLATIONS[contentLocale]
 
-  useEffect(() => {
-    const title = view.article
+  usePageMeta(
+    view.article
       ? `${view.article.title} · ${t("lineblog.metaTitle")}`
-      : t("lineblog.metaTitle")
-    document.title = title
-    document
-      .querySelector('meta[name="description"]')
-      ?.setAttribute("content", t("lineblog.metaDescription"))
-  }, [t, view.article])
+      : t("lineblog.metaTitle"),
+    t("lineblog.metaDescription"),
+  )
 
   const toggleTranslation = () => {
     const next = !translationOn

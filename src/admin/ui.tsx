@@ -787,28 +787,6 @@ export function FilterSelect({
   )
 }
 
-/** A checkbox drawn as a pill. */
-export function FilterToggle({
-  checked,
-  onChange,
-  children,
-}: {
-  checked: boolean
-  onChange: (checked: boolean) => void
-  children: ReactNode
-}) {
-  return (
-    <label className={cn("adm-filter-pill is-toggle", checked && "is-active")}>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      {children}
-    </label>
-  )
-}
-
 /** Inclusive from and to dates in one pill; either end may stay open. */
 export function DateRange({
   from,

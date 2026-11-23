@@ -18,7 +18,6 @@ interface ProviderDraft {
   apiKey: string
   clearKey: boolean
   timeoutSeconds: number
-  maxRetries: number
   enabled: boolean
 }
 
@@ -52,7 +51,6 @@ export function ProviderDialog({
     apiKey: "",
     clearKey: false,
     timeoutSeconds: Math.round((provider?.timeoutMs || 30000) / 1000),
-    maxRetries: provider?.maxRetries ?? 2,
     enabled: provider?.enabled ?? true,
   }))
   const [busy, setBusy] = useState(false)
@@ -75,7 +73,6 @@ export function ProviderDialog({
       baseUrl: draft.baseUrl,
       protocol: draft.protocol,
       timeoutMs: draft.timeoutSeconds * 1000,
-      maxRetries: draft.maxRetries,
       enabled: draft.enabled,
     }
     // A key is sent only when typed or explicitly cleared; it is never read back.
@@ -229,15 +226,6 @@ export function ProviderDialog({
                 onChange={(e) =>
                   set({ timeoutSeconds: Number(e.target.value) })
                 }
-              />
-            </Field>
-            <Field label={t("admin.provider.retries")}>
-              <input
-                type="number"
-                min={0}
-                max={2}
-                value={draft.maxRetries}
-                onChange={(e) => set({ maxRetries: Number(e.target.value) })}
               />
             </Field>
           </div>

@@ -142,7 +142,9 @@ Bilibili. It has no promote or demote, since the forward's quote shows the
 dynamic. Filters cover the text or ID, the author's mid or name, and the
 kind.
 
-The console's post list (`src/admin/views/posts.tsx`) has platform tabs
+The console's post list (`src/admin/views/posts.tsx`, its rows and editor in
+`post-item.tsx`, and the images, quote, status and actions it shares with
+the Review queue in `post-parts.tsx`) has platform tabs
 (All, X, Bilibili; `#posts/x`, `#posts/bilibili`) above a feed of posts
 separated by rules, one row of columns per post: the account over the Japan
 time, the wording (three lines) and its quote, the post's own cached images
@@ -190,7 +192,9 @@ edit dialog shows the quote's whole wording. Nothing edits the quote itself.
 
 The Content group also includes `Account avatars`
 (`src/admin/views/account-avatars.tsx`) and `Profile images`
-(`src/admin/views/profile.tsx`). `Account avatars` lists tracked own and
+(`src/admin/views/profile.tsx`, with its previews in `profile-parts.tsx`, the
+own-account cards in `profile-own-accounts.tsx` and the upload and fetch
+dialogs in `profile-dialogs.tsx`). `Account avatars` lists tracked own and
 related X accounts with role filters, `auto` / `manual` / `hidden` mode
 switches, manual latest-avatar checks, image URL or file uploads, candidate
 history controls (`Use & lock`, retry download, delete), and an action to copy

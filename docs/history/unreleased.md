@@ -86,6 +86,8 @@
   recent uploads move from Site to a **Works** page in System. Older
   `#queue` links open Up next.
 - Posts marks a post deleted on X with a **Deleted on X** badge.
+- The model provider dialog drops its retries field, which never took
+  effect; calls follow the attempts per model sync setting.
 - The Review queue lists entries their posts no longer list, with Keep entry
   and Delete entry, and the overview counts them.
 - A schedule image card shows its last check and, after an image change, the
@@ -172,6 +174,8 @@
 <details>
 <summary><strong>Runtime and development</strong></summary>
 
+- `/posts` loads only the board's post wording and its post and month
+  stylesheets instead of the whole board copy and `board.css`.
 - The agent guide is a short root `AGENTS.md` with area guides for
   `backend/`, `src/`, `scripts/` and `docs/`, plus `merge-to-main` and
   `release` skills in `.claude/skills/`.

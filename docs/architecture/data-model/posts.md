@@ -97,7 +97,10 @@ The app setting `x_archive_accounts` (a JSON array, absent until an export of
 such an account is imported) lists the X accounts whose posts come only from
 an export: the post archive's account filter offers them after `x_accounts`,
 and the console's account avatars list them as own accounts. They are not
-`X_HANDLES`, so no synchronization reads them.
+`X_HANDLES`, so no synchronization reads them. Their own posts stay off the
+board (its wall, window count and latest post, and MCP `dashboard_read` and
+`posts_list`) unless the account is also in `x_accounts`; a status promoted
+onto the board stays there.
 
 ### Post LLM states
 

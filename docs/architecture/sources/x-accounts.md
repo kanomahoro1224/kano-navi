@@ -119,8 +119,8 @@ transaction (`ImportXArchives`):
   unless an operator already hid them; `-keep-unlisted` leaves them shown. A
   later export that lists a post an earlier run hid shows it again.
 - An account that is not in `X_HANDLES` joins `x_archive_accounts`: its posts
-  appear in the post archive under its own filter, and nothing synchronizes
-  it.
+  appear in the post archive under its own filter, never on the board, and
+  nothing synchronizes it.
 - After the commit, the media archive's photos of the written posts are
   stored as their pending assets (`SaveXArchiveImage`, with the media step's
   type and size checks); video and GIF thumbnails, and photos the archive

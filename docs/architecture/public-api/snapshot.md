@@ -12,7 +12,8 @@ and `running` statuses. It is `null` for any other status. `GET /api/dashboard?d
 clamps days to 1 through 30 and returns
 profile, summary, posts, events, videos, focus, timeline, resources, schedule
 assets, media status, and metadata. Posts are the newest 100 published within
-the window plus, however old, the eight newest of each own account; MCP
+the window plus, however old, the eight newest of each own account, without
+the posts of archive-only accounts (`x_archive_accounts`); MCP
 `dashboard_read` and `posts_list` read the same list. A post with
 `promoted: true` is another account's status promoted onto the board, a
 related account's or a reposted one (see

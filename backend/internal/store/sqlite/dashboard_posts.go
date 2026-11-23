@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
@@ -71,13 +72,18 @@ const dashboardAccountPosts = 8
 // queryPosts lists the newest 100 posts published since the window start
 // and, for every account, the newest dashboardAccountPosts of its posts.
 func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error) {
+	scope, scopeArgs, err := s.boardPostScope(ctx)
+	if err != nil {
+		return nil, err
+	}
 	instant := "julianday(published_at)"
+	args := append(append(append([]any{}, scopeArgs...), since), scopeArgs...)
 	// The per-account newest posts are the own accounts' only: a promoted
 	// post appears in the combined wall, never as an account of its own.
 	rows, err := s.db.QueryContext(ctx, `SELECT `+postColumns+` FROM posts WHERE id IN (
-		SELECT id FROM (SELECT id FROM posts WHERE `+wallPostSQL+` AND `+instant+` >= julianday(?) ORDER BY `+instant+` DESC, id ASC LIMIT 100)
-		UNION SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY lower(COALESCE(account_handle, '')) ORDER BY `+instant+` DESC, id ASC) AS n FROM posts WHERE `+publicPostSQL+` AND promoted_at IS NULL) WHERE n <= ?
-	) ORDER BY `+instant+` DESC, id ASC`, since, dashboardAccountPosts)
+		SELECT id FROM (SELECT id FROM posts WHERE `+wallPostSQL+scope+` AND `+instant+` >= julianday(?) ORDER BY `+instant+` DESC, id ASC LIMIT 100)
+		UNION SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY lower(COALESCE(account_handle, '')) ORDER BY `+instant+` DESC, id ASC) AS n FROM posts WHERE `+publicPostSQL+scope+` AND promoted_at IS NULL) WHERE n <= ?
+	) ORDER BY `+instant+` DESC, id ASC`, append(args, dashboardAccountPosts)...)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -97,8 +103,12 @@ func (s *Store) queryPosts(ctx context.Context, since string) ([]postRow, error)
 }
 
 func (s *Store) queryLatestPost(ctx context.Context) (*postRow, error) {
+	scope, scopeArgs, err := s.boardPostScope(ctx)
+	if err != nil {
+		return nil, err
+	}
 	// The latest post is an own account's: a promoted post never takes it.
-	r, err := scanPostRow(s.db.QueryRowContext(ctx, `SELECT `+postColumns+` FROM posts WHERE `+publicPostSQL+` AND promoted_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`))
+	r, err := scanPostRow(s.db.QueryRowContext(ctx, `SELECT `+postColumns+` FROM posts WHERE `+publicPostSQL+scope+` AND promoted_at IS NULL ORDER BY julianday(published_at) DESC,id ASC LIMIT 1`, scopeArgs...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -109,11 +119,49 @@ func (s *Store) queryLatestPost(ctx context.Context) (*postRow, error) {
 }
 
 func (s *Store) queryPostCount(ctx context.Context, since string) (int64, error) {
+	scope, scopeArgs, err := s.boardPostScope(ctx)
+	if err != nil {
+		return 0, err
+	}
 	var count int64
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts WHERE `+wallPostSQL+` AND julianday(published_at) >= julianday(?)`, since).Scan(&count); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts WHERE `+wallPostSQL+scope+` AND julianday(published_at) >= julianday(?)`, append(scopeArgs, since)...).Scan(&count); err != nil {
 		return 0, dbErr(err)
 	}
 	return count, nil
+}
+
+// boardPostScope is an " AND ..." condition, with its arguments, that keeps
+// the own posts of archive-only X accounts (XArchiveAccountsSetting) off the
+// board: they belong to the post archive alone. An account that is also one
+// of the board's X accounts stays, and so does a status promoted onto the
+// board. It is "" when there is no archive-only account.
+func (s *Store) boardPostScope(ctx context.Context) (string, []any, error) {
+	archived, err := s.XArchiveAccounts(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	if len(archived) == 0 {
+		return "", nil, nil
+	}
+	board, err := s.getXAccounts(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	shown := map[string]bool{}
+	for _, account := range board {
+		shown[strings.ToLower(account)] = true
+	}
+	args := []any{}
+	for _, account := range archived {
+		if handle := strings.ToLower(account); !shown[handle] {
+			shown[handle] = true
+			args = append(args, handle)
+		}
+	}
+	if len(args) == 0 {
+		return "", nil, nil
+	}
+	return ` AND NOT (source='x' AND promoted_at IS NULL AND lower(COALESCE(account_handle,'')) IN (?` + strings.Repeat(",?", len(args)-1) + `))`, args, nil
 }
 
 const dashboardVideoCountWindowDays = 7

@@ -36,7 +36,7 @@
   names the month and account. The board's **Past posts** opens it in place of the
   month dialog.
 - The post archive offers MKLNtic, the unit account Kano shares, as an
-  account of its own.
+  account of its own; its posts stay off the board's wall and latest post.
 - A post deleted on X leaves the wall, Past posts, the API and MCP, and its
   schedule image leaves the board and the calendar, as do the automatic
   events it is the only source of. They return when X lists it again.

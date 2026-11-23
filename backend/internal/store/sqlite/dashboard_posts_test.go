@@ -87,3 +87,54 @@ func TestDashboardPostsListEachAccountsNewestEight(t *testing.T) {
 		t.Fatalf("count=%d, want the window's 120", dashboard.Summary.Counts.Posts)
 	}
 }
+
+func TestDashboardPostsLeaveOutArchiveOnlyAccounts(t *testing.T) {
+	now := time.Date(2026, 10, 28, 0, 0, 0, 0, time.UTC)
+	path := testutil.NewSnapshot(t)
+	testutil.Exec(t, path, `INSERT INTO app_settings(key,value,updated_at) VALUES
+		('x_accounts','["board"]',''),
+		('x_archive_accounts','["Archived","board"]','')`)
+	insert := func(id, account string, at time.Time, promoted bool) {
+		var promotedAt any
+		if promoted {
+			promotedAt = at.Format(time.RFC3339Nano)
+		}
+		testutil.Exec(t, path, `INSERT INTO posts (id,source,account_handle,text,published_at,url,promoted_at) VALUES (?,'x',?,?,?,?,?)`,
+			id, account, id, at.Format(time.RFC3339Nano), "https://example.invalid/"+id, promotedAt)
+	}
+	// The archive-only account posted last, inside the window; the board's
+	// account posted long ago.
+	insert("board-old", "board", now.AddDate(0, 0, -20), false)
+	insert("archived-new", "archived", now.Add(-time.Hour), false)
+	insert("archived-promoted", "Archived", now.Add(-2*time.Hour), true)
+	store, err := OpenReadOnly(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	dashboard, err := store.GetDashboard(context.Background(), 3, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []string{}
+	for _, post := range dashboard.Posts {
+		ids = append(ids, post.ID)
+	}
+	if fmt.Sprint(ids) != "[archived-promoted board-old]" {
+		t.Fatalf("board posts=%v", ids)
+	}
+	if dashboard.Summary.LatestPost == nil || dashboard.Summary.LatestPost.ID != "board-old" {
+		t.Fatalf("latest post=%+v", dashboard.Summary.LatestPost)
+	}
+	if dashboard.Summary.Counts.Posts != 1 {
+		t.Fatalf("window count=%d, want the promoted post alone", dashboard.Summary.Counts.Posts)
+	}
+	// The post archive still lists the account's posts.
+	page, err := store.GetPostTimeline(context.Background(), "", "archived", 1, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 2 {
+		t.Fatalf("archive items=%d, want 2", len(page.Items))
+	}
+}

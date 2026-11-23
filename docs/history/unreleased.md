@@ -10,7 +10,8 @@
   Database operations, X Account Exports. A first import of an account
   outside `X_HANDLES` adds the app setting `x_archive_accounts`.
 - Startup adds the empty column `posts.upstream_deleted_at`; no existing post
-  is marked.
+  is marked. A read-only instance refuses a snapshot without it, so start the
+  writable service on the snapshot once to upgrade it.
 - The admin API's posts report `upstreamDeletedAt`.
 - An event `view.state` may be `ongoing`, in the dashboard, calendar, MCP
   and every other read that carries the view.

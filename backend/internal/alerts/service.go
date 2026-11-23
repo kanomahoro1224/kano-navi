@@ -103,7 +103,7 @@ func New(options Options) *Service {
 }
 
 func newService(options Options, g guard) *Service {
-	var next http.RoundTripper = g.direct()
+	next := g.direct()
 	if options.Pool != nil {
 		next = options.Pool.TransportWithDirect(outboundproxy.AreaNotify, g.direct())
 	}

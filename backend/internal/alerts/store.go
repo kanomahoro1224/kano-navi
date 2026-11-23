@@ -312,7 +312,9 @@ func prune(ctx context.Context, db *sql.DB, retention sqlite.RunRetention, now t
 		if _, err = tx.ExecContext(ctx, `DELETE FROM alert_deliveries WHERE status IN ('failed','dropped') AND julianday(COALESCE(finished_at,created_at)) < julianday(?)`, before); err != nil {
 			return err
 		}
-		if _, err = tx.ExecContext(ctx, `DELETE FROM alert_deliveries WHERE status<>'pending' AND incident_id IN (SELECT id FROM alert_incidents WHERE status='resolved' AND julianday(resolved_at) < julianday(?))`, before); err != nil {
+		// A sent delivery follows the succeeded window alone, so it keeps
+		// its incident until that window prunes it.
+		if _, err = tx.ExecContext(ctx, `DELETE FROM alert_deliveries WHERE status IN ('failed','dropped') AND incident_id IN (SELECT id FROM alert_incidents WHERE status='resolved' AND julianday(resolved_at) < julianday(?))`, before); err != nil {
 			return err
 		}
 		if _, err = tx.ExecContext(ctx, `DELETE FROM alert_incidents WHERE status='resolved' AND julianday(resolved_at) < julianday(?)

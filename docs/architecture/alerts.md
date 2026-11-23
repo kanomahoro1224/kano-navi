@@ -86,7 +86,8 @@ heartbeat, for at most 45 seconds:
 Once a day the pass prunes on the
 [run retention windows](workflows/run-execution.md): sent rows follow the
 succeeded window; failed and dropped rows and resolved incidents follow the
-failed window; `0` keeps them.
+failed window, and an incident stays while a kept delivery names it; `0`
+keeps them.
 
 ## Messages
 

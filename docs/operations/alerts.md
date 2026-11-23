@@ -15,7 +15,9 @@ recovery. **Send test** sends a test message through one channel.
 
 - **ntfy**: a topic on `https://ntfy.sh` or on a public self-hosted server.
   Topics on ntfy.sh are readable by anyone who knows the name, so choose an
-  unguessable topic or protect it with an access token.
+  unguessable topic or protect it with an access token. A channel's console
+  link puts the site's `/admin` address in every message; turn it off for a
+  topic others can read.
 - **Telegram**: create a bot with BotFather, start a chat with it (or add it
   to a group or channel), and enter the bot token and the chat id, or an
   `@channel` name for a public channel.

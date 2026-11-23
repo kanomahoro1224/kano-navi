@@ -26,7 +26,8 @@ an upcoming yt-dlp entry that names its `release_date` but no
 `release_timestamp` is a date-only reservation, with that date as the
 event's `starts_on`, no `starts_at` and `time_precision` `unknown`, and no
 `scheduled_at` on the video, until a check reports its start; a date-only
-answer never replaces a known start. RSS insertion
+answer never replaces a known start, which keeps its day, time and precision
+while the event takes the answer's title, status and other fields. RSS insertion
 does not count as a reservation detail check, but RSS lists waiting rooms and
 premieres like ordinary uploads, so the uploads a run takes are detail
 candidates as well, after stream-page discoveries. A watch

@@ -553,4 +553,15 @@ func TestYoutubeDateOnlyReservationKeepsNoTime(t *testing.T) {
 		}
 		read(step.label, step.startsOn, step.startsAt, step.precision)
 	}
+	// The date-only answer still carries everything else it reports.
+	renamed := dateOnly
+	renamed.Title = "renamed waiting room"
+	if err := s.WriteYoutubeRecent(ctx, "UCAAAAAAAAAAAAAAAAAAAAAA", ytsource.Result{Videos: []ytsource.Video{renamed}, NextCursor: renamed.ID, NextCursorTime: renamed.PublishedAt}); err != nil {
+		t.Fatal(err)
+	}
+	read("date only renamed", "2026-11-05", "2026-11-05T12:00:00Z", "exact")
+	var title string
+	if err := s.DB().QueryRow(`SELECT title FROM events WHERE id='youtube-GGGGGGGGGGG'`).Scan(&title); err != nil || title != renamed.Title {
+		t.Fatalf("title=%q err=%v, want the date-only answer's title", title, err)
+	}
 }

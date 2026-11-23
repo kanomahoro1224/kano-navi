@@ -114,7 +114,8 @@
   can store new posts with media.
 - Finishing or cancelling a run no longer advances the dashboard revision; the
   writes that change public data advance it, including schedule extraction
-  and approved schedule images, so open boards reload only for a change.
+  that changes a post's events and approved schedule images, so open boards
+  reload only for a change.
 - An X account whose listing served records its last success even when it
   found nothing new, so a quiet timeline or X API read keeps the source
   fresh.

@@ -35,3 +35,24 @@ func TestApprovedScheduleImageAdvancesTheRevision(t *testing.T) {
 		t.Fatalf("cached check moved the revision %d -> %d", approved, got)
 	}
 }
+
+// A write that changes no value of the post's events or evidence leaves the
+// revision: a post that is no schedule, or the same result applied again.
+func TestAppliedResultAdvancesTheRevisionOnlyWhenItChangesTheEvents(t *testing.T) {
+	f := newFixture(t)
+	f.addPost("p1", "", "synthetic post", "2026-04-01T00:00:00.000Z", "")
+	step := func(label, classification string, wantChange bool, entries ...any) {
+		t.Helper()
+		before := f.number(revisionQuery)
+		f.applyEntries("p1", classification, entries...)
+		if changed := f.number(revisionQuery) != before; changed != wantChange {
+			t.Fatalf("%s: revision changed=%v, want %v", label, changed, wantChange)
+		}
+	}
+	step("no schedule, no events", "not_schedule", false)
+	step("new event", "schedule", true, listedStream("Synthetic stream", "20:00", nil, nil))
+	step("same result again", "schedule", false, listedStream("Synthetic stream", "20:00", nil, nil))
+	step("changed time", "schedule", true, listedStream("Synthetic stream", "21:00", nil, nil))
+	step("read again as no schedule", "not_schedule", true)
+	step("no schedule again", "not_schedule", false)
+}

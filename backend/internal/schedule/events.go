@@ -2,9 +2,11 @@ package schedule
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -32,6 +34,10 @@ func (e *Extractor) applyExtraction(ctx context.Context, source, postID string, 
 	}
 	defer tx.Rollback()
 	targets, err := findCancellationTargets(ctx, tx, cancellations)
+	if err != nil {
+		return err
+	}
+	before, err := postEventsDigest(ctx, tx, source, postID, targets)
 	if err != nil {
 		return err
 	}
@@ -65,11 +71,73 @@ func (e *Extractor) applyExtraction(ctx context.Context, source, postID string, 
 			return err
 		}
 	}
-	// The post's events are public, so open boards follow the change.
-	if err = sqlite.BumpRevisionTx(ctx, tx, e.nowISO()); err != nil {
+	// The post's events are public, so open boards follow a change to them;
+	// a result that leaves them as they were (a post that is no schedule, a
+	// stored result applied again) leaves open boards alone.
+	after, err := postEventsDigest(ctx, tx, source, postID, targets)
+	if err != nil {
 		return err
 	}
+	if after != before {
+		if err = sqlite.BumpRevisionTx(ctx, tx, e.nowISO()); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
+}
+
+// postEventsDigest fingerprints the rows an extraction of the post can
+// change: every event its evidence names, live or retired, the cancellation
+// targets, the events merged into them, and the post's evidence rows. The
+// created_at and updated_at bookkeeping columns are left out, so a write that
+// changes no value leaves the digest as it was.
+func postEventsDigest(ctx context.Context, tx *sql.Tx, source, postID string, targets []string) (string, error) {
+	encodedTargets, err := json.Marshal(targets)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.New()
+	write := func(query string, args ...any) error {
+		rows, err := tx.QueryContext(ctx, query, args...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		columns, err := rows.Columns()
+		if err != nil {
+			return err
+		}
+		values := make([]any, len(columns))
+		pointers := make([]any, len(columns))
+		for i := range values {
+			pointers[i] = &values[i]
+		}
+		for rows.Next() {
+			if err = rows.Scan(pointers...); err != nil {
+				return err
+			}
+			for i, column := range columns {
+				if column == "created_at" || column == "updated_at" {
+					continue
+				}
+				fmt.Fprintf(hash, "%s=%T:%v\x1f", column, values[i], values[i])
+			}
+			hash.Write([]byte("\n"))
+		}
+		return rows.Err()
+	}
+	if err = write(`WITH ids(id) AS (
+			SELECT event_id FROM event_sources WHERE source=? AND source_item_id=?
+			UNION SELECT value FROM json_each(?))
+		SELECT * FROM events WHERE id IN (SELECT id FROM ids) OR merged_into IN (SELECT id FROM ids) ORDER BY id`,
+		source, postID, string(encodedTargets)); err != nil {
+		return "", err
+	}
+	hash.Write([]byte("--\n"))
+	if err = write(`SELECT * FROM event_sources WHERE source=? AND source_item_id=? ORDER BY id`, source, postID); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 var cancellationTitleNoise = regexp.MustCompile(jsSpaceClass + `|[「」『』【】()（）［］\[\]・:：,.，。!?！？]`)

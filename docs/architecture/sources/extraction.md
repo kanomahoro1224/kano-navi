@@ -100,7 +100,9 @@ is. A skip, and a cache hit that writes, keep the stored reprocess
 request flag, so a request an operator makes after the post was read runs on
 the next scan. An accepted model result replaces the post's automatic events
 and applies its cancellation overlay in one transaction that also advances
-the dashboard revision.
+the dashboard revision when it changed a value of the post's events, the
+events merged into them or its evidence; a post that is no schedule, or a
+stored result applied again, leaves the revision as it is.
 
 The run reads what judging needs (post states, post images, their media
 assets and the stored extractions) for the next 200 unsettled posts of its

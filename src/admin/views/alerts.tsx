@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import {
   Activity,
   BellRing,
+  Check,
   HeartPulse,
   History,
   KeyRound,
@@ -12,6 +13,7 @@ import {
   Send,
   Siren,
   TriangleAlert,
+  Undo2,
   X,
 } from "lucide-react"
 
@@ -763,13 +765,31 @@ function subjectLabel(
   return label === key ? subject : label
 }
 
-function IncidentsPanel({ incidents }: { incidents: AlertIncident[] }) {
+function IncidentsPanel({
+  incidents,
+  acknowledge,
+}: {
+  incidents: AlertIncident[]
+  acknowledge: (incident: AlertIncident, on: boolean) => Promise<void>
+}) {
   const { t, locale } = useAppSettings()
+  const [busy, setBusy] = useState<number | null>(null)
+  const toggle = async (incident: AlertIncident) => {
+    setBusy(incident.id)
+    try {
+      await acknowledge(incident, !incident.acknowledgedAt)
+    } finally {
+      setBusy(null)
+    }
+  }
   return (
     <Panel icon={Siren} title={t("admin.alerts.open")}>
       <ul className="adm-alert-list">
         {incidents.map((incident) => (
-          <li key={incident.id} className="adm-alert-row">
+          <li
+            key={incident.id}
+            className={cn("adm-alert-row", incident.acknowledgedAt && "is-off")}
+          >
             <span className="adm-alert-main">
               <strong>
                 {t(`admin.alerts.rule.${incident.rule}`)} ·{" "}
@@ -779,11 +799,29 @@ function IncidentsPanel({ incidents }: { incidents: AlertIncident[] }) {
                 {t("admin.alerts.openedAt", {
                   time: formatRelative(incident.openedAt, locale),
                 })}
+                {incident.acknowledgedAt
+                  ? ` · ${t("admin.alerts.acknowledgedAt", {
+                      time: formatRelative(incident.acknowledgedAt, locale),
+                    })}`
+                  : null}
               </small>
             </span>
-            <Badge tone={severityTone[incident.severity]}>
-              {t(`admin.alerts.severity.${incident.severity}`)}
-            </Badge>
+            <span className="adm-row-actions">
+              <Badge tone={severityTone[incident.severity]}>
+                {t(`admin.alerts.severity.${incident.severity}`)}
+              </Badge>
+              <IconButton
+                icon={incident.acknowledgedAt ? Undo2 : Check}
+                label={t(
+                  incident.acknowledgedAt
+                    ? "admin.alerts.unacknowledge"
+                    : "admin.alerts.acknowledge",
+                )}
+                busy={busy === incident.id}
+                disabled={busy !== null}
+                onClick={() => void toggle(incident)}
+              />
+            </span>
           </li>
         ))}
       </ul>
@@ -881,7 +919,15 @@ export function AlertsView() {
         <div className="adm-alerts-grid">
           <div className="adm-alerts-column">
             {settings.incidents.length ? (
-              <IncidentsPanel incidents={settings.incidents} />
+              <IncidentsPanel
+                incidents={settings.incidents}
+                acknowledge={async (incident, on) => {
+                  const next = await act(() =>
+                    api.acknowledgeAlertIncident(incident.id, on),
+                  )
+                  if (next) resource.setData(next)
+                }}
+              />
             ) : null}
             <ChannelsPanel
               settings={settings}

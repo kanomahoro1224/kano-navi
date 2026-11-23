@@ -20,7 +20,8 @@ CREATE TABLE alert_incidents (
     detail_json TEXT NOT NULL DEFAULT '{}',
     opened_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
-    resolved_at TEXT
+    resolved_at TEXT,
+    acknowledged_at TEXT
   );
 
 CREATE TABLE app_settings (

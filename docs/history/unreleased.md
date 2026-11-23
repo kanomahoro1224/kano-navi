@@ -79,7 +79,8 @@
   unread, the Bilibili login expires or stored secrets cannot be decrypted,
   and another when it recovers. A heartbeat pings an external monitor such
   as Uptime Kuma, so a stopped server is noticed too. Destinations must be
-  public addresses, and development mode never sends.
+  public addresses, and development mode never sends. Acknowledging an
+  open alert takes it off the nav badge until the problem returns.
 - The nav groups pages by task: Today, Content, Pipeline and System.
   Queue becomes the Runs page's **Up next** tab, and the Works covers and
   recent uploads move from Site to a **Works** page in System. Older

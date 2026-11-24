@@ -617,7 +617,7 @@
   height: 22px;
   border-radius: 999px;
   background: var(--adm-accent);
-  color: #fff;
+  color: var(--on-tone);
   box-shadow: var(--shadow-sm);
 }
 

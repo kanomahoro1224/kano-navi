@@ -142,7 +142,7 @@
 
 .month-day.is-today .month-day-number {
   background: var(--berry);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .month-day.is-selected {

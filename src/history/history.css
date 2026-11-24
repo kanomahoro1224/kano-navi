@@ -449,7 +449,7 @@
 
 .milestone.is-highlight .milestone-marker {
   background: var(--tone);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .milestone-marker svg {

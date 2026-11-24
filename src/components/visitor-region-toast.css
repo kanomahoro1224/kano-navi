@@ -62,7 +62,7 @@
 
 .visitor-region-toast-actions a {
   background: var(--berry);
-  color: white;
+  color: var(--on-tone);
 }
 
 .visitor-region-toast-actions a:hover {

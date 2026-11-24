@@ -58,7 +58,9 @@
 
 - Every page and the operator console sit on warm ivory paper, or warm
   charcoal in the dark theme, with near-neutral ink and a softer strawberry
-  accent; the status colours share one lightness and strength.
+  accent; the status colours share one lightness and strength. Text on a
+  coloured fill stays readable in the dark theme, and a system setting for
+  more contrast darkens secondary text and rules.
 - Posts get a page of their own, `/posts`, in the site menu: every stored
   post in one timeline by month and day, with a card per account and a map
   of every year's months and totals to jump through, in an address that

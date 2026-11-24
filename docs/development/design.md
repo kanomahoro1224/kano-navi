@@ -12,8 +12,11 @@ such as `.round-button` and `.pill-button`; the console reuses the
 `src/admin/ui.tsx` components (buttons, badges, panels, fields, switches,
 filters, pager, modal, toasts). Menus, tabs and tooltips use the Radix
 wrappers in `src/components/ui/`, restyled with an area class.
-`src/components/ui/button.tsx` serves only the header's preference controls:
-its colours are the fixed `ink` and `coral`, which have no dark-mode values.
+`src/components/ui/button.tsx` serves only the header's preference controls.
+Every colour comes from a token with a value for each theme: solid fills take
+`--primary`, and text on a hue fill takes `--on-tone`, never a fixed white,
+because the dark theme's hues are light. A system request for more contrast
+darkens secondary text, rules and field borders in both themes.
 Public pages use warm ivory paper (warm charcoal in the dark theme) with
 near-neutral ink and hairline rules rather than boxing everything, strawberry
 as the one accent, status hues of equal OKLCH lightness and chroma, a

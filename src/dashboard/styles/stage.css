@@ -105,7 +105,7 @@
   place-items: center;
   border-radius: 50%;
   background: var(--berry);
-  color: #fff;
+  color: var(--on-tone);
   box-shadow: 0 10px 24px -8px color-mix(in oklab, var(--berry) 80%, black);
 }
 
@@ -177,7 +177,7 @@
   padding: 4px 10px;
   border-radius: 999px;
   background: var(--danger);
-  color: #fff;
+  color: var(--on-tone);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
@@ -482,7 +482,7 @@
   place-items: center;
   border-radius: 50%;
   background: var(--berry);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .latest-card-play svg {

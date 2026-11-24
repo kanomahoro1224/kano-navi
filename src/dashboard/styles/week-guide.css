@@ -103,7 +103,7 @@
   margin-left: auto;
   padding: 2px 7px;
   border-radius: 999px;
-  background: #fff;
+  background: var(--on-tone);
   color: var(--berry);
   font-size: 10.5px;
   font-weight: 800;
@@ -116,7 +116,7 @@
 
 .guide-day.is-today .guide-day-head .guide-day-name,
 .guide-day.is-today .guide-day-head .guide-day-number {
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .guide-day.is-today {

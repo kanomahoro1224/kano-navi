@@ -27,18 +27,10 @@
   --color-popover-foreground: hsl(var(--popover-foreground));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
-  --color-coral: #f26468;
-  --color-butter: #f3d77b;
-  --color-lagoon: #b8e5d4;
-  --color-periwinkle: #8c9ce8;
-  --color-ink: #20242b;
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
-
-  --shadow-card: 4px 4px 0 #20242b;
-  --shadow-card-sm: 3px 3px 0 #20242b;
 
   --font-sans:
     "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui,
@@ -52,7 +44,9 @@
  * neutrals carry almost no hue, so the strawberry is the one accent; the
  * status hues share one OKLCH lightness and chroma per theme (about 0.55 /
  * 0.12 light, 0.75 / 0.11 dark) so none shouts over the others. Solid
- * fills take --primary, a step softer than the text ink. Dashboard-only styling lives in
+ * fills take --primary, a step softer than the text ink, and text on a hue
+ * fill takes --on-tone: white on the light theme's deep hues, the page's
+ * charcoal on the dark theme's light ones. Dashboard-only styling lives in
  * src/dashboard/styles/ (imported by src/dashboard/board.css); admin-only
  * styling lives in src/admin/styles/ (imported by src/admin/admin.css).
  */
@@ -85,6 +79,7 @@
     --honey: #a76e12;
     --lavender: #7860b5;
     --danger: #bf3c2d;
+    --on-tone: #fff;
 
     --shadow-sm: 0 1px 2px rgb(40 30 24 / 0.05), 0 2px 8px rgb(40 30 24 / 0.04);
     --shadow-md:
@@ -130,12 +125,31 @@
     --honey: #e5b568;
     --lavender: #b09de9;
     --danger: #ef7f72;
+    --on-tone: #171614;
 
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
     --shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 36px -18px rgb(0 0 0 / 0.6);
     --shadow-lg: 0 2px 6px rgb(0 0 0 / 0.3), 0 30px 60px -28px rgb(0 0 0 / 0.7);
 
     color-scheme: dark;
+  }
+
+  /*
+   * A visitor who asks the system for more contrast gets darker secondary
+   * text and rules that read as lines rather than tints.
+   */
+  @media (prefers-contrast: more) {
+    :root {
+      --muted-foreground: 21 7% 30.2%;
+      --border: 29 8% 74%;
+      --input: 29 6% 59.3%;
+    }
+
+    .dark {
+      --muted-foreground: 31 9% 76.4%;
+      --border: 26 3% 33.3%;
+      --input: 26 3% 44.4%;
+    }
   }
 
   *,

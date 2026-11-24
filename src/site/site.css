@@ -600,7 +600,7 @@
 
 .pill-button.is-solid:hover {
   background: var(--berry);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 /* Phones fold a collapsible pill to its icon, the size of a round button. */

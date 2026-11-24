@@ -71,7 +71,7 @@
 
 .tag.video-availability.is-members {
   background: var(--leaf);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .dark .tag.video-availability.is-members {
@@ -464,7 +464,7 @@
 
 .video-ticket.is-live .video-ticket-date {
   background: var(--berry);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .video-ticket.is-started .video-ticket-date {

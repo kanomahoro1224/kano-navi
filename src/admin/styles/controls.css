@@ -105,7 +105,7 @@
 .adm-button.is-primary:hover:not(:disabled) {
   border-color: var(--adm-accent);
   background: var(--adm-accent);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .adm-button.is-ghost {
@@ -121,7 +121,7 @@
 .adm-button.is-danger {
   border-color: var(--danger);
   background: var(--danger);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .adm-button.is-danger:hover:not(:disabled) {
@@ -169,7 +169,7 @@
 .adm-icon-button.is-danger.is-armed:hover:not(:disabled) {
   border-color: var(--danger);
   background: var(--danger);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .adm-link {

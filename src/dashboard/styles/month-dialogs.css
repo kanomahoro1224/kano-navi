@@ -17,7 +17,7 @@
 }
 
 .archive-dialog::backdrop {
-  background: rgb(20 12 18 / 0.6);
+  background: rgb(20 18 16 / 0.6);
   backdrop-filter: blur(4px);
 }
 

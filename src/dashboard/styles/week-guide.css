@@ -120,7 +120,7 @@
 }
 
 .guide-day.is-today {
-  background: var(--berry-wash);
+  background: color-mix(in oklab, var(--berry) 5%, transparent);
 }
 
 .guide-day-events {

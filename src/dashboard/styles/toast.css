@@ -5,8 +5,8 @@
   left: 50%;
   padding: 10px 16px;
   border-radius: 999px;
-  background: var(--ink);
-  color: hsl(var(--background));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
   font-size: 13px;
   font-weight: 700;
   opacity: 0;

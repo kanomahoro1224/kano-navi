@@ -56,6 +56,9 @@
 <details>
 <summary><strong>Public pages</strong></summary>
 
+- Every page and the operator console sit on warm ivory paper, or warm
+  charcoal in the dark theme, with near-neutral ink and a softer strawberry
+  accent; the status colours share one lightness and strength.
 - Posts get a page of their own, `/posts`, in the site menu: every stored
   post in one timeline by month and day, with a card per account and a map
   of every year's months and totals to jump through, in an address that

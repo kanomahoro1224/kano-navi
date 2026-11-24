@@ -281,8 +281,8 @@
   justify-items: center;
   padding: 6px 8px 5px;
   border-radius: var(--radius-sm);
-  background: var(--ink);
-  color: hsl(var(--background));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
   line-height: 1;
 }
 

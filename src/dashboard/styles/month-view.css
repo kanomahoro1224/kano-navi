@@ -150,8 +150,8 @@
 }
 
 .month-day.is-selected .month-day-number {
-  background: var(--ink);
-  color: hsl(var(--background));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
 }
 
 /*

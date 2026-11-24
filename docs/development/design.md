@@ -14,9 +14,11 @@ filters, pager, modal, toasts). Menus, tabs and tooltips use the Radix
 wrappers in `src/components/ui/`, restyled with an area class.
 `src/components/ui/button.tsx` serves only the header's preference controls:
 its colours are the fixed `ink` and `coral`, which have no dark-mode values.
-Public pages use cream paper with hairline rules rather
-than boxing everything, a rounded display face for names and titles, tabular
-numerals for times, and strawberry gingham as the signature edge. Admin keeps
+Public pages use warm ivory paper (warm charcoal in the dark theme) with
+near-neutral ink and hairline rules rather than boxing everything, strawberry
+as the one accent, status hues of equal OKLCH lightness and chroma, a
+rounded display face for names and titles, tabular numerals for times, and
+strawberry gingham as the signature edge. Admin keeps
 its own adm- styles on the same tokens. Preserve light/dark themes and the
 English (base), Japanese, and Simplified Chinese interface copy. Do not
 introduce a separate token system for a single page.

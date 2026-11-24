@@ -17,7 +17,7 @@
 }
 
 .adm-modal::backdrop {
-  background: rgb(30 14 22 / 0.45);
+  background: rgb(24 20 18 / 0.45);
   backdrop-filter: blur(2px);
 }
 

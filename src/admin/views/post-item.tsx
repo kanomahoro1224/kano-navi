@@ -179,7 +179,6 @@ function PostScheduleImage({
           />
         </Field>
       </div>
-      <p className="adm-muted">{t("admin.posts.schedule.periodHint")}</p>
       <Button type="submit" size="sm" icon={CalendarCheck} busy={busy}>
         {t("admin.posts.schedule.pick")}
       </Button>

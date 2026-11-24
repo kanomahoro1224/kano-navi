@@ -112,7 +112,10 @@ introduce a separate token system for a single page.
   tokens, so both themes apply.
 - /about is a static project, attribution, and code-license page.
 - /admin is the hidden operator console. Its styles use adm- prefixed selectors.
-  Do not add it to public navigation. Lazy page loads show a localized status
+  Do not add it to public navigation. Its copy is labels, states, counts and
+  short hints for a format or an otherwise hidden action; how a feature works
+  belongs in the docs, so panels, page headers and switches take no
+  description. Lazy page loads show a localized status
   and offer a full reload on failure, using the shared theme tokens.
 
 Keep loading, empty, stale, error, and unavailable-media states explicit. Never

@@ -275,11 +275,9 @@ export function BilibiliLoginNote({
   const key =
     login === "expired"
       ? "admin.bilibili.loginExpiredHint"
-      : login !== "not_configured"
-        ? null
-        : dynamics
-          ? "admin.bilibili.dynamics.loginHint"
-          : "admin.bilibili.signInHint"
+      : login === "not_configured" && dynamics
+        ? "admin.bilibili.dynamics.loginHint"
+        : null
   return key ? (
     <p className="adm-source-note">
       <KeyRound aria-hidden />

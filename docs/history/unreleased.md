@@ -93,6 +93,8 @@
   Queue becomes the Runs page's **Up next** tab, and the Works covers and
   recent uploads move from Site to a **Works** page in System. Older
   `#queue` links open Up next.
+- Panels, fields and switches drop their explanatory text and question-mark
+  help; the docs describe how each feature works.
 - Posts marks a post deleted on X with a **Deleted on X** badge.
 - The model provider dialog drops its retries field, which never took
   effect; calls follow the attempts per model sync setting.

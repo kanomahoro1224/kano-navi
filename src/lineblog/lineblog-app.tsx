@@ -10,14 +10,7 @@ import {
   SiteHeader,
   SkipLink,
 } from "@/site/site-shell"
-import {
-  lineblogView,
-  media,
-  mediaUrl,
-  postDate,
-  postMonth,
-  posts,
-} from "./content"
+import { lineblogView, mediaUrl, postDate, postMonth } from "./content"
 import { chosenDesign, designFor, homeIcon } from "./designs"
 import { loadedComments, loadView } from "./post-files"
 import { TRANSLATIONS, TranslationMark } from "./translation"

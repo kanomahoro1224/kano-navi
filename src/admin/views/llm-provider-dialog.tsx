@@ -189,7 +189,7 @@ export function ProviderDialog({
           hint={
             provider?.apiKeyConfigured
               ? t("admin.provider.apiKeyKeep")
-              : t("admin.provider.apiKeyHint")
+              : undefined
           }
         >
           <span className="adm-input-icon">
@@ -235,9 +235,6 @@ export function ProviderDialog({
           onChange={(enabled) => set({ enabled })}
           label={t("admin.provider.enabled")}
         />
-        {!provider ? (
-          <p className="adm-field-hint">{t("admin.provider.createNext")}</p>
-        ) : null}
         <div className="adm-form-actions">
           <Button onClick={onClose}>{t("admin.action.cancel")}</Button>
           <Button type="submit" variant="primary" icon={Save} busy={busy}>

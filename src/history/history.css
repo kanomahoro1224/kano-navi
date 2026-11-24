@@ -694,6 +694,80 @@
   }
 }
 
+/*
+ * Phones: a smaller portrait, the identities two to a row, and a
+ * milestone's images as one row of small thumbnails, so the
+ * timeline starts sooner and reads as a list. A thumbnail still opens the
+ * full image.
+ */
+@media (max-width: 560px) {
+  .history-portrait {
+    max-width: 240px;
+  }
+
+  .history-portrait img {
+    max-height: 260px;
+  }
+
+  .identities {
+    padding-top: 32px;
+  }
+
+  .identity-picker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .identity-option {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .identity-portrait,
+  .identity-swatch {
+    width: 36px;
+    height: 36px;
+  }
+
+  .identity-swatch {
+    grid-template-columns: repeat(3, 6px);
+    gap: 2px;
+  }
+
+  .identity-swatch i {
+    width: 6px;
+    height: 6px;
+  }
+
+  .milestone-media,
+  .milestone-media.count-1 {
+    display: flex;
+    width: auto;
+    gap: 6px;
+    overflow: visible;
+    border-radius: 0;
+  }
+
+  /* Four still fit beside the marker on the narrowest phones. */
+  .milestone-media button,
+  .milestone-media.count-3 button:first-child {
+    min-width: 0;
+    flex: 0 1 76px;
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+  }
+
+  .milestone-media.count-1 button {
+    flex-basis: 101px;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--radius-sm);
+  }
+
+  .milestone-media-more {
+    font-size: 13px;
+  }
+}
+
 /* ----------------------------------------------------------------- gallery */
 
 .gallery-view {

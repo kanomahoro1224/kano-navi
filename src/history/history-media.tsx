@@ -17,9 +17,9 @@ export type { HistoryMediaItem }
 
 /** How wide each history thumbnail shows (src/history/history.css). */
 export const HISTORY_IMAGE_SIZES = {
-  portrait: "(max-width: 820px) 360px, 460px",
-  identity: "48px",
-  milestone: "(max-width: 760px) 320px, 240px",
+  portrait: "(max-width: 560px) 240px, (max-width: 820px) 360px, 460px",
+  identity: "(max-width: 560px) 36px, 48px",
+  milestone: "(max-width: 560px) 101px, (max-width: 760px) 320px, 240px",
   gallery:
     "(max-width: 480px) 100vw, (max-width: 720px) 50vw, (max-width: 960px) 34vw, 300px",
 } as const

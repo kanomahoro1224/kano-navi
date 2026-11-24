@@ -102,6 +102,9 @@
   shows as next up, and the stream archives preview is one row.
 - The week's day list folds two or more empty days in a row into one line
   naming the first and last of them.
+- On phones the Journey page shows a smaller portrait, sets the identities
+  two to a row, and shows a milestone's images as a row of small
+  thumbnails.
 
 </details>
 

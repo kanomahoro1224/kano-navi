@@ -25,6 +25,9 @@
   columns `previous_manual_status`, `previous_manual_reason`,
   `previous_manual_checked_at`, `check_status`, `check_reason` and
   `check_at`, all empty, to existing snapshots.
+- Startup adds the post indexes `posts_account_instant_idx` and
+  `posts_bilibili_account_idx` to existing snapshots. A read-only instance
+  serves an older snapshot without them, only more slowly.
 
 </details>
 
@@ -176,6 +179,16 @@
 
 - `/posts` loads only the board's post wording and its post and month
   stylesheets instead of the whole board copy and `board.css`.
+- The board snapshot reads each account's newest posts, the Bilibili
+  accounts and the schedule images of posts deleted on X through indexes
+  instead of walking every stored post on each read, and looks up the events
+  of its active and cancelled videos by identity instead of walking the
+  events for every video.
+- `/api/dashboard` answers a request at an unchanged revision, a 304
+  included, from a prepared response that lasts until the next projection
+  transition, a trusted broadcast state going stale or the next minute;
+  requests that miss together compute it once. `meta.generatedAt` is the
+  time that response was computed.
 - The agent guide is a short root `AGENTS.md` with area guides for
   `backend/`, `src/`, `scripts/` and `docs/`, plus `merge-to-main` and
   `release` skills in `.claude/skills/`.

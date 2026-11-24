@@ -33,7 +33,7 @@ func olderSnapshot(t *testing.T) (string, string) {
 	for _, statement := range []string{
 		`ALTER TABLE media_assets DROP COLUMN retry_attempts`, `ALTER TABLE media_assets DROP COLUMN next_retry_at`,
 		`DROP INDEX events_instant_idx`, `DROP INDEX events_source_item_idx`, `DROP INDEX events_stream_identity_idx`,
-		`DROP INDEX posts_instant_idx`, `DROP INDEX posts_url_published_at_idx`, `DROP INDEX videos_instant_idx`, `DROP INDEX videos_schedule_instant_idx`,
+		`DROP INDEX posts_instant_idx`, `DROP INDEX posts_url_published_at_idx`, `DROP INDEX posts_account_instant_idx`, `DROP INDEX posts_bilibili_account_idx`, `DROP INDEX videos_instant_idx`, `DROP INDEX videos_schedule_instant_idx`,
 		`ALTER TABLE assets DROP COLUMN asset_version`, `ALTER TABLE assets DROP COLUMN period_start`, `ALTER TABLE assets DROP COLUMN period_end`,
 		`ALTER TABLE assets DROP COLUMN period_basis`, `ALTER TABLE assets DROP COLUMN manual_period_start`, `ALTER TABLE assets DROP COLUMN manual_period_end`,
 		`ALTER TABLE assets DROP COLUMN manual_period_reason`, `ALTER TABLE assets DROP COLUMN manual_image_at`, `ALTER TABLE videos DROP COLUMN live_status`, `ALTER TABLE videos DROP COLUMN live_checked_at`,
@@ -130,7 +130,7 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 		`SELECT title FROM resources WHERE id=9`:                                                     "official site",
 		`SELECT active_sha256||'/'||active_mime_type FROM profile_media WHERE id='synthetic-avatar'`: hex.EncodeToString(sum[:]) + "/image/png",
 
-		`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN('events_instant_idx','events_stream_identity_idx','posts_instant_idx','posts_url_published_at_idx','videos_instant_idx','videos_schedule_instant_idx','events_source_item_idx','schedule_asset_reviews_status_idx')`: "8",
+		`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN('events_instant_idx','events_stream_identity_idx','posts_instant_idx','posts_url_published_at_idx','videos_instant_idx','videos_schedule_instant_idx','events_source_item_idx','schedule_asset_reviews_status_idx','posts_account_instant_idx','posts_bilibili_account_idx')`: "10",
 		`SELECT COUNT(*) FROM pragma_table_info('videos') WHERE name IN('live_status','live_checked_at')`:                                                                          "2",
 		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN('workflow_runs','workflow_run_steps','workflow_step_attempts','workflow_leases','workflow_migrations')`: "5",
 		// The forwarded-dynamic pool starts empty: no forward was stored before.

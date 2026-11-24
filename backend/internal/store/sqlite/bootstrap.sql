@@ -597,6 +597,12 @@ CREATE INDEX post_llm_states_status_idx
 
 CREATE INDEX posts_account_handle_idx ON posts (account_handle, published_at DESC);
 
+CREATE INDEX posts_account_instant_idx
+    ON posts (lower(COALESCE(account_handle, '')), julianday(published_at) DESC, id)
+    WHERE deleted_at IS NULL AND hidden_at IS NULL AND upstream_deleted_at IS NULL AND promoted_at IS NULL;
+
+CREATE INDEX posts_bilibili_account_idx ON posts (account_handle) WHERE source = 'bilibili';
+
 CREATE INDEX posts_deleted_idx ON posts (id) WHERE deleted_at IS NOT NULL;
 
 CREATE INDEX posts_instant_idx ON posts (julianday(published_at) DESC, id);

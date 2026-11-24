@@ -131,7 +131,9 @@ boundaries use Asia/Tokyo.
 [LINE BLOG archive](lineblog.md) reads send
 `Cache-Control: no-cache` and a weak ETag, a SHA-256 prefix of the
 uncompressed JSON body. The dashboard's tag leaves out `meta.generatedAt`,
-which changes on every read; the other time-derived fields, such as
+the time the response was computed, which a
+[prepared response](../backend.md#text-transfer-and-static-caching) keeps
+until it expires; the other time-derived fields, such as
 `isUpcoming` and `liveStatus` in every one of these reads, are included, so
 the tag changes with them as well as with stored data. A matching
 `If-None-Match`, weak or strong, answers 304 without a body, and the client

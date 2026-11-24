@@ -54,6 +54,14 @@ wording (including `raw_json.search_text`) and applies the existing text/image
 and manual-review gates. The index is non-unique because multiple stored records
 can share a source URL.
 
+Startup also additively creates two partial post indexes for the board
+snapshot: `posts_account_instant_idx` on
+`posts(lower(COALESCE(account_handle, '')), julianday(published_at) DESC, id)`
+over the public posts that are not promoted, which lists the accounts and each
+account's newest posts, and `posts_bilibili_account_idx` on
+`posts(account_handle)` over the Bilibili posts, which lists the Bilibili
+accounts. Neither changes a stored row.
+
 backend/internal/store/sqlite owns the schema (`bootstrap.sql`), the
 additive upgrade behavior (`schema_upgrade.go`) and the workflow tables
 (`workflow_migrations.go`). Update this

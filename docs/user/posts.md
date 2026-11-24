@@ -4,8 +4,8 @@
 accounts and her bilibili dynamics (动态), and always at least the eight
 newest of each account, however old. A bilibili post carries the bilibili
 mark and opens on bilibili.
-Posts are laid out in whole rows; a long post shows its first lines and
-**Read more** opens it in full.
+Posts are laid out in whole rows, and phones list the newest three; a long
+post shows its first lines and **Read more** opens it in full.
 
 - Filter by account to see one account at a time, bilibili included; each
   account fills the wall with its own newest posts, even when another one

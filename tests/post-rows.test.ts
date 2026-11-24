@@ -2,10 +2,11 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import { postWallCount } from "../src/dashboard/post-rows.ts"
 
-test("the post wall shows whole rows up to six posts or two rows", () => {
+test("the post wall shows three posts in one column, else whole rows up to six or two rows", () => {
   const cases: [columns: number, available: number, shown: number][] = [
-    [1, 9, 6],
-    [1, 4, 4],
+    [1, 9, 3],
+    [1, 3, 3],
+    [1, 2, 2],
     [1, 0, 0],
     [2, 9, 6],
     [2, 6, 6],

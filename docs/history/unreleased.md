@@ -93,6 +93,15 @@
   suspects its cancellation.
 - A sale with only an opening date shows its opening on that date rather
   than a closing.
+- The board's Links section is one row of the resources the profile card
+  does not already link, each naming what it is on hover, then the common
+  hashtags; the milestone card leaves the board for the Journey page in the
+  site menu.
+- Phones list the newest three posts on the board; Past posts has the rest.
+- The video shelf's Coming up leaves out the reservation the stage already
+  shows as next up, and the stream archives preview is one row.
+- The week's day list folds two or more empty days in a row into one line
+  naming the first and last of them.
 
 </details>
 

@@ -3,7 +3,8 @@
 ## Weekly Guide
 
 The weekly schedule is a Monday-first program guide: seven day columns on
-wide screens and a day list on phones. Each entry shows its Japan time (or
+wide screens and a day list on narrower ones, where two or more empty days in
+a row (today aside) share one line naming the first and last of them. Each entry shows its Japan time (or
 "time TBA" when only the date is known), its type, a status when it is on
 air, TBA, or cancelled, and an icon for whether it is Auto-detected
 (sparkles) or Confirmed (check badge). Entries of earlier days, and today's

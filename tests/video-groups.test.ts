@@ -3,6 +3,7 @@ import test from "node:test"
 import type { DashboardProjection, Video, VideoView } from "../src/types.ts"
 import {
   groupVideos,
+  sideReservations,
   sideSlots,
   splitVideos,
   videoIsShort,
@@ -335,4 +336,33 @@ test("a cover marks every platform a work is on, a gone one included", () => {
     url: "https://www.bilibili.com/video/BV1synthetic4",
   })
   assert.deepEqual(marks(upload), ["bilibili"])
+})
+
+test("the side group leaves out the reservation the stage already shows", () => {
+  const staged = video("staged", { isUpcoming: true }, { phase: "upcoming" })
+  const later = video("later", { isUpcoming: true }, { phase: "upcoming" })
+  const projection = (mode: "next" | "latest") => ({
+    ...shelf({ reservations: ["staged", "later"] }),
+    spotlight: {
+      mode,
+      eventId: null,
+      videoId: "staged",
+      liveNow: false,
+      isLive: false,
+      membersChip: false,
+      companionVideoId: null,
+    },
+  })
+  assert.deepEqual(ids(sideReservations([staged, later], projection("next"))), [
+    "later",
+  ])
+  // A latest-video stage names no reservation, so every one stays.
+  assert.deepEqual(
+    ids(sideReservations([staged, later], projection("latest"))),
+    ["staged", "later"],
+  )
+  assert.deepEqual(ids(sideReservations([staged, later], shelf({}))), [
+    "staged",
+    "later",
+  ])
 })

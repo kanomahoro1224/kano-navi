@@ -50,6 +50,7 @@ import {
   visitorIsInJapan,
 } from "../format"
 import { archiveRange } from "../use-dashboard"
+import { emptyRuns } from "../week-days"
 import { ArchiveMore, ArchiveState } from "./archive-dialog"
 import { CalendarSubscribe } from "./calendar-subscribe"
 import { EventTagIcon } from "./event-tag"
@@ -502,21 +503,26 @@ function WeekDays({
   locale: Locale
   t: Translator
 }) {
-  const days = Array.from({ length: 7 }, (_, index) =>
-    addDays(weekStart, index),
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const day = addDays(weekStart, index)
+    const key = localDateKey(day)
+    const items = byDay.get(key) || []
+    return { day, key, items, count: dayCounts[key] ?? items.length }
+  })
+  const runs = emptyRuns(
+    days.map(({ key, count }) => !count && key !== todayKey),
   )
   return (
     <ol className="guide-days">
-      {days.map((day, index) => {
-        const key = localDateKey(day)
-        const items = byDay.get(key) || []
-        const count = dayCounts[key] ?? items.length
+      {days.map(({ day, key, items, count }, index) => {
         const isToday = key === todayKey
         const isPast = key < todayKey
+        const run = runs[index]
+        const last = run > 1 ? days[index + run - 1].day : null
         return (
           <li
             key={key}
-            className={`guide-day${isToday ? " is-today" : ""}${isPast ? " is-past" : ""}${count ? "" : " is-empty"}${index >= 5 ? " is-weekend" : ""}`}
+            className={`guide-day${isToday ? " is-today" : ""}${isPast ? " is-past" : ""}${count ? "" : " is-empty"}${run === 0 ? " is-folded" : ""}${index >= 5 ? " is-weekend" : ""}`}
             aria-current={isToday ? "date" : undefined}
           >
             <div className="guide-day-head">
@@ -532,6 +538,20 @@ function WeekDays({
               <span className="guide-day-number" aria-hidden="true">
                 {day.getDate()}
               </span>
+              {last ? (
+                <span className="guide-day-through">
+                  <span className="sr-only">
+                    {t("schedule.dayEvents", {
+                      date: formatLongDate(last, locale),
+                      count: 0,
+                    })}
+                  </span>
+                  <span aria-hidden="true">
+                    – {t("schedule.weekdays")[index + run - 1]}{" "}
+                    <span className="guide-day-number">{last.getDate()}</span>
+                  </span>
+                </span>
+              ) : null}
               {isToday ? (
                 <span className="guide-day-today">{t("schedule.today")}</span>
               ) : null}

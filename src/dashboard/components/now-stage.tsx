@@ -60,6 +60,7 @@ import {
   VideoAvailabilityChip,
   VideoTagChip,
 } from "./event-tag"
+import { profileLinks } from "../profile-links"
 import { PlatformBadge, PlatformLinks } from "./platform-links"
 import type { SalePlacement } from "./sale-strip"
 import { TranslatedTitle } from "./translated-title"
@@ -645,15 +646,7 @@ function ProfileCard({
   syncState: SyncState
   t: Translator
 }) {
-  // Every X account in the link directory, main first; the profile's own
-  // account stands in when the directory has none.
-  const xUrls = resources
-    .map((resource) => resource.url || "")
-    .filter((url) => /^https:\/\/(?:www\.)?(?:x|twitter)\.com\/\w+$/u.test(url))
-  if (!xUrls.length) xUrls.push(profile.xUrl)
-  const bilibili = resources.find((resource) =>
-    /bilibili\.com/u.test(resource.url || ""),
-  )
+  const { xUrls, youtube, bilibili } = profileLinks(profile, resources)
   return (
     <aside className="profile-card" aria-labelledby="profile-name">
       <div className="profile-banner">
@@ -682,7 +675,7 @@ function ProfileCard({
           ))}
           <ExternalLink
             className="round-button"
-            href={profile.youtubeUrl}
+            href={youtube}
             aria-label="YouTube"
             title="YouTube"
           >
@@ -691,7 +684,7 @@ function ProfileCard({
           {bilibili ? (
             <ExternalLink
               className="round-button"
-              href={bilibili.url}
+              href={bilibili}
               aria-label="bilibili"
               title="bilibili"
             >

@@ -41,6 +41,7 @@ import {
 } from "../format"
 import {
   groupVideos,
+  sideReservations,
   sideSlots,
   splitVideos,
   videoIsGone,
@@ -574,8 +575,9 @@ function VideoGrid({
   )
 }
 
-/** Archives the All view shows: two rows of four on wide screens, two on phones. */
-const ALL_ARCHIVES = 8
+/** Archives the All view shows: one row, four on wide screens and fewer as
+ * the grid narrows; the Streams view and Past videos list the rest. */
+const ALL_ARCHIVES = 4
 /** Shorts the All view shows: one row of six; narrower rows show fewer. */
 const ALL_SHORTS = 6
 /** What a filtered view shows: three rows of four, or two rows of Shorts. */
@@ -630,11 +632,10 @@ export function VideoShelf({
   else if (!videos.length) body = <EmptyNote title={t("videos.empty")} />
   else if (active === "all") {
     const groups = groupVideos(videos, projection)
-    const slots = sideSlots(groups.reservations.length, groups.works.length)
+    const upcoming = sideReservations(groups.reservations, projection)
+    const slots = sideSlots(upcoming.length, groups.works.length)
     const reservations =
-      ticketsOpen && slots.hidden
-        ? groups.reservations
-        : groups.reservations.slice(0, slots.tickets)
+      ticketsOpen && slots.hidden ? upcoming : upcoming.slice(0, slots.tickets)
     const sideWorks = groups.works.slice(0, slots.works)
     const archives = groups.archives.slice(0, ALL_ARCHIVES)
     const shorts = groups.shorts.slice(0, ALL_SHORTS)
@@ -664,7 +665,7 @@ export function VideoShelf({
                         <TicketToggle
                           open={ticketsOpen}
                           hidden={slots.hidden}
-                          total={groups.reservations.length}
+                          total={upcoming.length}
                           controls={ticketsId}
                           onToggle={() => setTicketsOpen((open) => !open)}
                           t={t}

@@ -102,7 +102,8 @@ the month sheet. `video-groups.ts` consumes the dashboard's
 phase and stable order, while the browser applies the active filter and
 renders the cards. A video the shelf lists leave out, such as the lead in a
 filtered view, joins its `view.shelfGroup`, and one without a group stays off
-the shelf. In the All view, `sideSlots` in
+the shelf. In the All view, `sideReservations` leaves out the reservation
+the stage's `next` spotlight names, and `sideSlots` in
 `video-groups.ts` cuts the side group beside the lead (or the full-width
 ticket row without one) at every width: up to four earlier works when there
 are no reservations; otherwise up to four tickets and earlier works up to

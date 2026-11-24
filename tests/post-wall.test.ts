@@ -215,7 +215,7 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
       })
     }
     // The wall measures its columns and clamps; happy-dom lays nothing out,
-    // so the wall keeps one column and every post's wording unclamped.
+    // so every post's wording stays unclamped.
     const globals = globalThis as any
     const previous = {
       act: globals.IS_REACT_ACT_ENVIRONMENT,
@@ -227,8 +227,12 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
       observe() {}
       disconnect() {}
     }
+    // The wall reads only its column count, five here so all five
+    // synthetic posts show in one row.
     globals.getComputedStyle = (element: Element) =>
-      browser.getComputedStyle(element as any)
+      element.classList.contains("post-wall")
+        ? { gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr" }
+        : browser.getComputedStyle(element as any)
     let root: Rendered | undefined
     try {
       await act(async () => {

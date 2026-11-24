@@ -436,7 +436,7 @@ export function DashboardApp() {
         />
 
         <LinkDirectory
-          timeline={dashboard.timeline}
+          profile={profile}
           resources={dashboard.resources}
           locale={locale}
           t={t}

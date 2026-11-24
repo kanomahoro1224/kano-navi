@@ -122,6 +122,21 @@ export function groupVideos(
   return { ...split, lead, leadIsFeatured: Boolean(lead && leadIsFeatured) }
 }
 
+/**
+ * The reservations the All view's side group lists: the stage's next video
+ * already has its ticket at the top of the board, so it is left out here.
+ */
+export function sideReservations(
+  reservations: Video[],
+  projection: DashboardProjection,
+): Video[] {
+  const { spotlight } = projection
+  const staged = spotlight?.mode === "next" ? spotlight.videoId : null
+  return staged
+    ? reservations.filter((video) => video.id !== staged)
+    : reservations
+}
+
 /** Earlier works beside the lead when no reservation is shown. */
 export const SIDE_WORK_SLOTS = 4
 /** Items beside the lead when reservations are shown, tickets and works. */

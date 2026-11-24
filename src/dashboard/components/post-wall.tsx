@@ -890,14 +890,14 @@ export function PostWall({
   const [columns, setColumns] = useState(3)
   useLayoutEffect(() => {
     if (!wall) return
-    const measure = () =>
-      setColumns(
-        Math.max(
-          1,
-          getComputedStyle(wall).gridTemplateColumns.split(" ").filter(Boolean)
-            .length,
-        ),
-      )
+    // A wall without its grid yet (no stylesheet) keeps the last count, so
+    // it is not taken for a phone's single column.
+    const measure = () => {
+      const tracks = getComputedStyle(wall)
+        .gridTemplateColumns.split(" ")
+        .filter((track) => track && track !== "none").length
+      if (tracks) setColumns(tracks)
+    }
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(wall)

@@ -75,7 +75,6 @@ const messages = {
     "notice.fullLicense": "查看完整许可证",
     "footer.backToTop": "回到顶部",
     "footer.mainlandSite": "中国大陆服务器站点",
-    "archive.fullHistory": "完整足迹",
     "history.metaTitle": "足迹 · 鹿乃在做什么",
     "history.metaDescription":
       "鹿乃从 2010 年翻唱投稿到 2026 年加入ミリプロSONA 的公开足迹，附官方来源。",
@@ -170,7 +169,6 @@ const messages = {
     "notice.fullLicense": "ライセンス全文を読む",
     "footer.backToTop": "ページ上部へ",
     "footer.mainlandSite": "中国大陸向けサーバーのサイト",
-    "archive.fullHistory": "あゆみを全部見る",
     "history.metaTitle": "あゆみ · 鹿乃ちゃん何してるか",
     "history.metaDescription":
       "2010 年の歌ってみた投稿から 2026 年のミリプロSONA 所属まで、鹿乃の公開されたあゆみを出典つきで。",
@@ -265,7 +263,6 @@ const messages = {
     "notice.fullLicense": "Read the full license",
     "footer.backToTop": "Back to top",
     "footer.mainlandSite": "Mainland China server site",
-    "archive.fullHistory": "Full journey",
     "history.metaTitle": "Journey · What’s Kano Up To?",
     "history.metaDescription":
       "Kano's public milestones from the first 2010 covers to joining ミリプロSONA in 2026, with sources.",

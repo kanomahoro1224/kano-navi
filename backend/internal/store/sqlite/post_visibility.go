@@ -30,12 +30,6 @@ import (
 // shape unknown until an answer tells it.
 const XKindUnlisted = "unlisted"
 
-// upstreamKinds are the values posts.upstream_kind takes.
-var upstreamKinds = map[string]bool{
-	xsource.StatusTopLevel: true, xsource.StatusSelfReply: true, xsource.StatusReply: true,
-	xsource.StatusForeign: true, xsource.StatusRepost: true, XKindUnlisted: true,
-}
-
 // hiddenKindsSQL lists the upstream kinds that keep an own post off the
 // public pages, in the order posts_account_instant_idx names them.
 var hiddenKindsSQL = "'" + strings.Join([]string{xsource.StatusReply, xsource.StatusForeign, xsource.StatusRepost, XKindUnlisted}, "','") + "'"

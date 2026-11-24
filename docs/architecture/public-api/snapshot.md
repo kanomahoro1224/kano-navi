@@ -52,6 +52,11 @@ or `gif`: a video's or GIF's entry is its thumbnail, and the board links it
 to the post or the quoted status on X. Every image that is not an X video or
 GIF, a Bilibili one included, is a `photo`.
 
+A post's `type` is `daily` or `notice`, and its `label` is English base text,
+not localized copy: `SCHEDULE` or `ANNOUNCEMENT` for an X notice by its
+wording, `DAILY` for any other X post and every Bilibili dynamic, or `null`
+for a post stored without one.
+
 A post's `source` is `x` or `bilibili`. A Bilibili dynamic has the ID
 `bilibili-<dynamic ID>`, its opus page as `url`, the account's mid as
 `accountHandle` and its space as `accountUrl` and zero engagement counts; its

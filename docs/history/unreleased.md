@@ -28,6 +28,11 @@
 - Startup adds the post indexes `posts_account_instant_idx` and
   `posts_bilibili_account_idx` to existing snapshots. A read-only instance
   serves an older snapshot without them, only more slowly.
+- A post's public `label` (dashboard, post archive, MCP) is English text:
+  `DAILY`, `SCHEDULE` or `ANNOUNCEMENT`. Startup rewrites the stored
+  `DAILY / 近况` and `SCHEDULE / 日程` labels once. A configured extraction
+  keyword that matched a post only through `近况` or `日程` in its old label
+  no longer matches it.
 
 </details>
 
@@ -98,6 +103,9 @@
 - Admin API: events carry review kind `unlisted`; the overview's review
   counts add `unlistedEvents`; schedule images add `needsReview`,
   `previousDecision` and `lastCheck`.
+- Admin API: the event an edit, confirmation, merge, unmerge or creation
+  returns, and the evidence read's event, carry their `extractionId` as the
+  events list does instead of `null`.
 
 </details>
 

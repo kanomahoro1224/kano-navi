@@ -41,8 +41,10 @@ each row receives it from the YouTube identity of its URL; a post without `accou
 receives the handle in its URL. Automatic, unlocked YouTube events with a
 start time and `unknown` precision become `exact`. A video whose `kind` or
 `manual_kind` is not one of the [video forms](video-form.md#video-form-and-tags) is
-rewritten once, as that section describes. None of these steps clears a
-snapshot.
+rewritten once, as that section describes. A post label stored in two
+languages (`DAILY / 近况`, `SCHEDULE / 日程`) becomes its English text
+(`DAILY`, `SCHEDULE`), and the dashboard revision advances. None of these
+steps clears a snapshot.
 
 ## Schema Changes
 

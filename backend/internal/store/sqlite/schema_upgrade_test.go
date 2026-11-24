@@ -218,6 +218,60 @@ func TestStandaloneReplacesGeneratedEventText(t *testing.T) {
 	}
 }
 
+// Post labels synchronization stored in two languages become English base
+// text once; other labels and posts without one stay as they are.
+func TestStandaloneReplacesBilingualPostLabels(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "snapshot.sqlite")
+	s, err := OpenStandalone(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	insert := `INSERT INTO posts(id,source,type,label,text,published_at,url) VALUES(?,?,?,?,'synthetic','2026-03-01T00:00:00.000Z','https://example.test/post')`
+	for _, row := range [][]any{
+		{"1", "x", "daily", "DAILY / 近况"},
+		{"2", "x", "notice", "SCHEDULE / 日程"},
+		{"3", "x", "notice", "ANNOUNCEMENT"},
+		{"4", "x", "daily", nil},
+		{"bilibili-5", "bilibili", "daily", "DAILY / 近况"},
+	} {
+		if _, err = s.db.Exec(insert, row...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before, err := s.GetDashboardRevision(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	open := func() (string, int64) {
+		t.Helper()
+		s, err := OpenStandalone(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.Close()
+		var labels string
+		if err = s.db.QueryRow(`SELECT group_concat(id||':'||COALESCE(label,'-'),',') FROM (SELECT * FROM posts ORDER BY id)`).Scan(&labels); err != nil {
+			t.Fatal(err)
+		}
+		revision, err := s.GetDashboardRevision(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return labels, revision
+	}
+	labels, revision := open()
+	if want := "1:DAILY,2:SCHEDULE,3:ANNOUNCEMENT,4:-,bilibili-5:DAILY"; labels != want {
+		t.Fatalf("labels = %q, want %q", labels, want)
+	}
+	if revision <= before {
+		t.Fatalf("the replaced labels must tell browsers to reload: %d -> %d", before, revision)
+	}
+	if again, quiet := open(); again != labels || quiet != revision {
+		t.Fatalf("a second start changed labels or the revision: %d -> %d", revision, quiet)
+	}
+}
+
 func TestStandaloneBackfillsYoutubeEventTimePrecision(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "snapshot.sqlite")
 	s, err := OpenStandalone(p)

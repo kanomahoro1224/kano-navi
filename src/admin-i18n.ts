@@ -458,8 +458,7 @@ export const adminMessages = {
     "admin.posts.hidden": "Hidden",
     "admin.posts.deletedUpstream": "Deleted on X",
     "admin.posts.promoted": "Promoted",
-    "admin.posts.promotedHint":
-      "A related account's status on the board. Promote or demote it in External posts.",
+    "admin.posts.promotedHint": "Change it in External posts.",
     "admin.posts.translations": "Translations",
 
     "admin.external.title": "External posts",
@@ -509,9 +508,9 @@ export const adminMessages = {
     "admin.external.promote.title": "Promote this status",
     "admin.external.demote.title": "Demote this status",
     "admin.external.promote.hint":
-      "It becomes a post on the board, with its images, and stays there whatever the keyword rules say.",
+      "Stays on the board regardless of the keyword rules.",
     "admin.external.demote.hint":
-      "Its post is hidden from the board, and stays hidden whatever the keyword rules say. Its row, images and events are kept.",
+      "Hidden from the board regardless of the keyword rules; its images and events are kept.",
     "admin.external.reason": "Reason",
     "admin.external.notice.promote": "Status promoted",
     "admin.external.notice.demote": "Status demoted",
@@ -576,7 +575,7 @@ export const adminMessages = {
     "admin.event.keptSeparate": "Kept separate",
     "admin.event.hiddenByPosts": "Hidden by its posts",
     "admin.event.hiddenByPostsHint":
-      "Every source post is hidden, so the public pages leave this entry out. Show a post or confirm the entry to show it.",
+      "Show a post or confirm the entry to list it.",
     "admin.event.type.event": "Event",
     "admin.event.type.stream": "Stream",
     "admin.event.type.member": "Members",
@@ -720,7 +719,7 @@ export const adminMessages = {
     "admin.schedule.field.platformsHint":
       "Where the entry happens; choose YouTube and bilibili for a simulcast, none when not known",
     "admin.schedule.roomLinkHint":
-      "A bilibili live-room link is the same for every broadcast, so it is not the entry's link: bilibili is chosen instead and the board links the room. Choose Other to keep it for someone else's room.",
+      "A live-room link sets the bilibili platform. Choose Other for someone else's room.",
     "admin.event.platform.youtube": "YouTube",
     "admin.event.platform.bilibili": "bilibili",
     "admin.event.platform.other": "Other",
@@ -851,7 +850,7 @@ export const adminMessages = {
       "The login cookie expired. Set a fresh BILIBILI_COOKIE or BILIBILI_SESSDATA in the server environment.",
     "admin.bilibili.force": "Try once anyway",
     "admin.bilibili.forceHint":
-      "Reads wait for the captcha backoff until {time}. This sends this one read now, which may extend the backoff.",
+      "Sends one read now; it may extend the backoff.",
     "admin.bilibili.blocked": "Captcha backoff",
     "admin.bilibili.account": "Account",
     "admin.bilibili.blockedUntil": "Waiting until {time}",
@@ -1120,8 +1119,6 @@ export const adminMessages = {
     "admin.chain.method.shop.signed": "Newest 50 products, signed",
     "admin.chain.method.shop.new_arrivals": "Newest 50 products, unsigned",
     "admin.chain.method.shop.atom": "Catalog Atom feed (newest 25)",
-    "admin.chain.youtubeAPIOff":
-      "With the Data API off, YouTube makes no Data API call at all: listing, details, the live-status probe and Shorts verdicts use public pages.",
     "admin.chain.apiGate": "Timeline failures before the X API",
     "admin.chain.apiDailyCap": "X API posts per Japan day",
     "admin.chain.usage": "X API today",
@@ -2182,8 +2179,7 @@ export const adminMessages = {
     "admin.event.mergedInto": "已合并到 {title}",
     "admin.event.keptSeparate": "保持独立",
     "admin.event.hiddenByPosts": "因来源帖子隐藏",
-    "admin.event.hiddenByPostsHint":
-      "所有来源帖子都已隐藏，公开页面不显示此条目。显示任一帖子或确认此条目即可重新显示。",
+    "admin.event.hiddenByPostsHint": "显示任一帖子或确认此条目即可重新显示。",
     "admin.event.type.event": "活动",
     "admin.event.type.stream": "直播",
     "admin.event.type.member": "会员",
@@ -2357,8 +2353,7 @@ export const adminMessages = {
     "admin.bilibili.loginExpiredHint":
       "登录 Cookie 已过期。请在服务器环境中设置新的 BILIBILI_COOKIE 或 BILIBILI_SESSDATA。",
     "admin.bilibili.force": "仍然尝试一次",
-    "admin.bilibili.forceHint":
-      "验证码退避持续到 {time}。这会立即发送这一次读取，可能延长退避。",
+    "admin.bilibili.forceHint": "立即发送一次读取，可能延长退避。",
     "admin.bilibili.blocked": "验证码退避中",
     "admin.bilibili.account": "账号",
     "admin.bilibili.blockedUntil": "等待至 {time}",

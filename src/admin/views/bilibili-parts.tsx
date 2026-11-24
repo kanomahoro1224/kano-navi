@@ -84,9 +84,7 @@ export function useForcedRead() {
       icon={ShieldAlert}
       busy={busy}
       onClick={force}
-      title={t("admin.bilibili.forceHint", {
-        time: pending.until ? japanStamp(pending.until) : "—",
-      })}
+      title={t("admin.bilibili.forceHint")}
     >
       {t("admin.bilibili.force")}
     </Button>

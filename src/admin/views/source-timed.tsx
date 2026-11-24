@@ -303,10 +303,6 @@ export function TimedReadsPanel({
               </li>
             ))}
           </ol>
-          {source === "youtube" &&
-          !methods.some((method) => method.id === "api" && method.enabled) ? (
-            <p className="adm-field-hint">{t("admin.chain.youtubeAPIOff")}</p>
-          ) : null}
         </fieldset>
         <div
           className={cn(

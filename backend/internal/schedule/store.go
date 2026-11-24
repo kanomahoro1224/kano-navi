@@ -1023,9 +1023,12 @@ type assetReview struct {
 	llmModel            string
 	llmCheckedAt        string
 	llmInputFingerprint string
-	manualStatus        string
-	reviewUpdatedAt     string
-	sourceMatchesBoard  bool
+	// llmImageSHA is the hash of the image the verdict judged, "" when
+	// unknown (a verdict stored before it was recorded).
+	llmImageSHA        string
+	manualStatus       string
+	reviewUpdatedAt    string
+	sourceMatchesBoard bool
 	// checkStatus and checkAt are the latest check that left the stored
 	// verdict in place (running, failed or skipped), or "".
 	checkStatus string
@@ -1040,7 +1043,7 @@ const assetReviewColumns = `a.id, a.url, a.source_url, a.asset_version,
 		FROM posts p WHERE p.url = a.source_url
 		ORDER BY p.published_at DESC LIMIT 1),
 	r.llm_status, r.llm_confidence, r.llm_text, r.llm_reason, r.llm_evidence, r.llm_model,
-	r.llm_checked_at, r.llm_input_fingerprint,
+	r.llm_checked_at, r.llm_input_fingerprint, r.llm_image_sha256,
 	COALESCE(r.manual_status, 'unreviewed'), r.updated_at, r.check_status, r.check_at`
 
 var (
@@ -1066,9 +1069,9 @@ type rowScanner interface{ Scan(dest ...any) error }
 
 func scanAssetReview(row rowScanner) (*assetReview, error) {
 	var review assetReview
-	var sourceText, llmStatus, llmText, reason, evidence, model, checkedAt, fingerprint, manual, updatedAt, checkStatus, checkAt sql.NullString
+	var sourceText, llmStatus, llmText, reason, evidence, model, checkedAt, fingerprint, imageSHA, manual, updatedAt, checkStatus, checkAt sql.NullString
 	err := row.Scan(&review.id, &review.url, &review.sourceURL, &review.assetVersion, &sourceText,
-		&llmStatus, &review.llmConfidence, &llmText, &reason, &evidence, &model, &checkedAt, &fingerprint,
+		&llmStatus, &review.llmConfidence, &llmText, &reason, &evidence, &model, &checkedAt, &fingerprint, &imageSHA,
 		&manual, &updatedAt, &checkStatus, &checkAt)
 	if err != nil {
 		return nil, err
@@ -1079,7 +1082,7 @@ func scanAssetReview(row rowScanner) (*assetReview, error) {
 		review.manualStatus = "unreviewed"
 	}
 	review.llmText, review.llmReason, review.llmEvidence, review.llmModel = llmText.String, reason.String, evidence.String, model.String
-	review.llmCheckedAt, review.llmInputFingerprint = checkedAt.String, fingerprint.String
+	review.llmCheckedAt, review.llmInputFingerprint, review.llmImageSHA = checkedAt.String, fingerprint.String, imageSHA.String
 	review.reviewUpdatedAt = updatedAt.String
 	review.checkStatus, review.checkAt = checkStatus.String, checkAt.String
 	review.sourceMatchesBoard = !sourceText.Valid || isLikelyScheduleBoardText(sourceText.String)
@@ -1130,26 +1133,32 @@ type reviewUpdate struct {
 	llmModel            string
 	llmCheckedAt        string
 	llmInputFingerprint string
+	// llmImageSHA is the hash of the image a verdict judged.
+	llmImageSHA string
 }
 
 // keepsVerdict reports whether a write leaves the stored model verdict in
 // place: a check that is running, failed or skipped (save for an asset
-// without an image) on an asset whose image already has a verdict records
-// only the check (check_*), so the verdict and the image's public visibility
-// stand until a check returns a new one.
-func keepsVerdict(current *assetReview, update reviewUpdate) bool {
+// without an image) of the very image the verdict judged (shownSHA is the
+// image the asset shows now) records only the check (check_*), so the
+// verdict and the image's public visibility stand until a check returns a
+// new one. A verdict on another image, or one that did not record its
+// image, never stands for the image shown now: the write replaces it.
+func keepsVerdict(current *assetReview, update reviewUpdate, shownSHA string) bool {
 	return !classifications[update.llmStatus] && classifications[current.llmStatus] &&
-		!(update.llmStatus == "skipped" && update.llmReason == "no_image")
+		!(update.llmStatus == "skipped" && update.llmReason == "no_image") &&
+		current.llmImageSHA != "" && current.llmImageSHA == shownSHA
 }
 
-// clearCheck forgets a check that left the verdict in place once a check
-// of the same image finds the verdict current again.
-func (e *Extractor) clearCheck(ctx context.Context, review *assetReview) error {
-	if review.checkStatus == "" {
+// settleCachedVerdict records, on a cache hit, that the stored verdict
+// judged the image shown now (sha), and forgets a check that left the
+// verdict in place.
+func (e *Extractor) settleCachedVerdict(ctx context.Context, review *assetReview, sha string) error {
+	if review.checkStatus == "" && review.llmImageSHA == sha {
 		return nil
 	}
-	_, err := e.db.ExecContext(ctx, `UPDATE schedule_asset_reviews SET check_status=NULL, check_reason=NULL, check_at=NULL
-		WHERE asset_id=? AND llm_input_fingerprint=? AND check_status IS NOT NULL`, review.id, review.llmInputFingerprint)
+	_, err := e.db.ExecContext(ctx, `UPDATE schedule_asset_reviews SET check_status=NULL, check_reason=NULL, check_at=NULL, llm_image_sha256=?
+		WHERE asset_id=? AND llm_input_fingerprint=?`, sha, review.id, review.llmInputFingerprint)
 	return err
 }
 
@@ -1175,16 +1184,23 @@ func (e *Extractor) upsertAssetReview(ctx context.Context, update reviewUpdate) 
 	if current.url != update.expectURL || current.assetVersion != update.expectVersion {
 		return false, nil
 	}
-	if update.expectSHA != "" {
+	// shownSHA is the image the asset shows now: the one the caller resolved,
+	// or else the cache's current hash, which a download in progress keeps
+	// until it replaces the file.
+	shownSHA := update.expectSHA
+	if update.expectSHA != "" || classifications[current.llmStatus] {
 		media, err := getMediaAsset(ctx, tx, mediaIDForSourceURL(current.url))
 		if err != nil {
 			return false, err
 		}
-		if media == nil || media.sha256 != update.expectSHA {
+		if update.expectSHA != "" && (media == nil || media.sha256 != update.expectSHA) {
 			return false, nil
 		}
+		if shownSHA == "" && media != nil {
+			shownSHA = media.sha256
+		}
 	}
-	if keepsVerdict(current, update) {
+	if keepsVerdict(current, update, shownSHA) {
 		checkAt := update.llmCheckedAt
 		if checkAt == "" {
 			checkAt = e.nowISO()
@@ -1201,9 +1217,9 @@ func (e *Extractor) upsertAssetReview(ctx context.Context, update reviewUpdate) 
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO schedule_asset_reviews (
 			asset_id, llm_status, llm_confidence, llm_text, llm_reason, llm_evidence,
-			llm_model, llm_checked_at, llm_input_fingerprint, manual_status, manual_reason,
+			llm_model, llm_checked_at, llm_input_fingerprint, llm_image_sha256, manual_status, manual_reason,
 			manual_checked_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'unreviewed', NULL, NULL, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unreviewed', NULL, NULL, ?)
 		ON CONFLICT(asset_id) DO UPDATE SET
 			llm_status=excluded.llm_status,
 			llm_confidence=excluded.llm_confidence,
@@ -1213,11 +1229,12 @@ func (e *Extractor) upsertAssetReview(ctx context.Context, update reviewUpdate) 
 			llm_model=excluded.llm_model,
 			llm_checked_at=excluded.llm_checked_at,
 			llm_input_fingerprint=excluded.llm_input_fingerprint,
+			llm_image_sha256=excluded.llm_image_sha256,
 			check_status=NULL, check_reason=NULL, check_at=NULL,
 			updated_at=excluded.updated_at`,
 		assetID, normalizedAssetLLMStatus(update.llmStatus), confidence, nullable(update.llmText), nullable(update.llmReason),
 		nullable(update.llmEvidence), nullable(update.llmModel), nullable(update.llmCheckedAt),
-		nullable(update.llmInputFingerprint), e.nowISO())
+		nullable(update.llmInputFingerprint), nullable(update.llmImageSHA), e.nowISO())
 	if err != nil {
 		return false, err
 	}

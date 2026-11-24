@@ -86,7 +86,7 @@ func (e *Extractor) verifyAsset(ctx context.Context, assetID string, force bool)
 	// it, so a queue change, or an empty queue, sends no image again.
 	fingerprint := assetFingerprint(image.sha256, sourceURL)
 	if !force && review.llmInputFingerprint == fingerprint && classifications[review.llmStatus] {
-		if err = e.clearCheck(ctx, review); err != nil {
+		if err = e.settleCachedVerdict(ctx, review, image.sha256); err != nil {
 			return assetResult{}, err
 		}
 		result := assetResult{status: "cached", classification: review.llmStatus}
@@ -184,6 +184,7 @@ func (e *Extractor) attemptVerification(ctx context.Context, target provider, ca
 	update.llmModel = target.model
 	update.llmCheckedAt = e.nowISO()
 	update.llmInputFingerprint = fingerprint
+	update.llmImageSHA = update.expectSHA
 	applied, err := e.upsertAssetReview(ctx, update)
 	if err != nil || !applied {
 		return result, false, err
@@ -297,6 +298,7 @@ func (e *Extractor) verifyPendingAssets(ctx context.Context, limit int, force bo
 				copied.llmEvidence = verified.llmEvidence
 				copied.llmModel = verified.llmModel
 				copied.llmInputFingerprint = verified.llmInputFingerprint
+				copied.llmImageSHA = verified.llmImageSHA
 				copied.llmCheckedAt = verified.llmCheckedAt
 			}
 			if copied.llmCheckedAt == "" {

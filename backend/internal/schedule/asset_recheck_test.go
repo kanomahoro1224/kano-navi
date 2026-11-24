@@ -99,3 +99,62 @@ func TestSharedScheduleImageIsVerifiedThroughAPostThatPassesTheGate(t *testing.T
 		t.Fatalf("board asset = %q", got)
 	}
 }
+
+// A verdict belongs to the image it judged. When the cache under the same URL
+// holds a different image, a check of it that fails or cannot run never
+// lets the old approval publish the new image.
+func TestScheduleImageVerdictDoesNotStandForAReplacedImage(t *testing.T) {
+	f, imageURL := boardFixture(t)
+	f.scan()
+	const asset = "schedule-2026-04-27"
+	status := `SELECT llm_status || '|' || COALESCE(check_status, '-') FROM schedule_asset_reviews WHERE asset_id=?`
+	if got := f.text(status, asset); got != "schedule|-" {
+		t.Fatalf("setup = %s", got)
+	}
+	// The same URL now serves other bytes.
+	mediaID := mediaIDForSourceURL(imageURL)
+	f.exec(`DELETE FROM media_assets WHERE id=?`, mediaID)
+	f.addCachedImage(imageURL, []byte(pngHeader+"replaced"))
+
+	f.provider.respond = func(recordedRequest) (int, string) { return http.StatusTooManyRequests, `{}` }
+	f.scan()
+	if got := f.text(status, asset); got != "failed|-" {
+		t.Fatalf("a failed check of the replaced image = %s, want failed|-", got)
+	}
+
+	// Approved again, then the replacement is still downloading: the cache
+	// already names the next image, so the approval does not stand for it.
+	f.provider.respond = func(recordedRequest) (int, string) {
+		return http.StatusOK, stringify(obj("output_text", `{"classification":"schedule","text":"火曜 21:00 配信","confidence":0.8,"evidence":"grid","reason":"table"}`))
+	}
+	f.scan()
+	if got := f.text(status, asset); got != "schedule|-" {
+		t.Fatalf("re-approval = %s", got)
+	}
+	f.exec(`UPDATE media_assets SET status='pending', sha256=? WHERE id=?`, sha256Hex(pngHeader+"next"), mediaID)
+	f.scan()
+	if got := f.text(status, asset); got != "skipped|-" {
+		t.Fatalf("a pending download of another image = %s, want skipped|-", got)
+	}
+}
+
+// A verdict stored before the image hash was recorded learns it from a cache
+// hit on its own input, so a later failed check of that image keeps it.
+func TestScheduleImageCacheHitRecordsTheJudgedImage(t *testing.T) {
+	f, imageURL := boardFixture(t)
+	f.scan()
+	const asset = "schedule-2026-04-27"
+	f.exec(`UPDATE schedule_asset_reviews SET llm_image_sha256=NULL WHERE asset_id=?`, asset)
+	requests := f.provider.count()
+	f.scan()
+	hash := f.text(`SELECT sha256 FROM media_assets WHERE id=?`, mediaIDForSourceURL(imageURL))
+	if f.provider.count() != requests || f.text(`SELECT COALESCE(llm_image_sha256, '-') FROM schedule_asset_reviews WHERE asset_id=?`, asset) != hash {
+		t.Fatalf("the cache hit did not record the judged image")
+	}
+	f.exec(`UPDATE schedule_asset_reviews SET llm_input_fingerprint='older-input' WHERE asset_id=?`, asset)
+	f.provider.respond = func(recordedRequest) (int, string) { return http.StatusTooManyRequests, `{}` }
+	f.scan()
+	if got := f.text(`SELECT llm_status || '|' || COALESCE(check_status, '-') FROM schedule_asset_reviews WHERE asset_id=?`, asset); got != "schedule|failed" {
+		t.Fatalf("a failed check of the judged image = %s, want schedule|failed", got)
+	}
+}

@@ -358,7 +358,7 @@ CREATE TABLE schedule_asset_reviews (
     manual_reason TEXT,
     manual_checked_at TEXT,
     updated_at TEXT NOT NULL
-  , previous_manual_status TEXT, previous_manual_reason TEXT, previous_manual_checked_at TEXT, check_status TEXT, check_reason TEXT, check_at TEXT);
+  , previous_manual_status TEXT, previous_manual_reason TEXT, previous_manual_checked_at TEXT, check_status TEXT, check_reason TEXT, check_at TEXT, llm_image_sha256 TEXT);
 
 CREATE TABLE schedule_extractions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -40,8 +40,8 @@
   `/api/admin/alerts`.
 - Startup adds `event_sources.unlisted_at` and the `schedule_asset_reviews`
   columns `previous_manual_status`, `previous_manual_reason`,
-  `previous_manual_checked_at`, `check_status`, `check_reason` and
-  `check_at`, all empty, to existing snapshots.
+  `previous_manual_checked_at`, `check_status`, `check_reason`, `check_at`
+  and `llm_image_sha256`, all empty, to existing snapshots.
 - Startup adds the post indexes `posts_account_instant_idx` and
   `posts_bilibili_account_idx` to existing snapshots. A read-only instance
   serves an older snapshot without them, only more slowly.
@@ -183,7 +183,9 @@
   Review queue instead of leaving them unnoticed.
 - A schedule image check that is skipped (an image still caching, an empty
   image queue), running or failed keeps the image's verdict and its place on
-  the board, and records the check apart.
+  the board, and records the check apart, when it checks the image the
+  verdict judged; a different image under the same URL never shows on an
+  earlier approval.
 - A schedule image that changes under an operator's label keeps that label
   as the previous decision and waits for the operator; a `schedule` label no
   longer approves the new image, a `not_schedule` one keeps hiding it, and

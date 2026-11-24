@@ -109,10 +109,11 @@ public revision rules are in [Account avatars](../media-cache/lifecycle.md#accou
 Schedule image reviews add `llm_input_fingerprint` for input cache validation
 (see [Schedule images](../sources/schedule-images.md)); a review without
 one is rechecked when next scanned. Automatic
-review writes update LLM columns only. A check that is running, failed or
-skipped on an image that already has a verdict writes `check_status`,
-`check_reason` and `check_at` instead, and the next verdict or a cache hit on
-the same input clears them. `previous_manual_status`, `previous_manual_reason`
+review writes update LLM columns only. `llm_image_sha256` is the hash of the
+image the verdict judged; a cache hit on the verdict's input fills it when it
+is empty. A check that is running, failed or skipped on the image a verdict
+judged writes `check_status`, `check_reason` and `check_at` instead, and the
+next verdict or a cache hit on the same input clears them. `previous_manual_status`, `previous_manual_reason`
 and `previous_manual_checked_at` hold an operator's label on the image an asset
 showed before its URL changed, until the operator labels the asset again.
 Startup adds these columns empty to existing snapshots. Image responses compare the captured

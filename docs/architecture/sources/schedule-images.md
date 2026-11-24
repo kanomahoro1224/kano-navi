@@ -48,10 +48,14 @@ A schedule image (`assets.kind = schedule`) is public only after two gates:
    `schedule_asset_reviews`. A candidate whose source post does not pass
    gate 1 is recorded as `skipped` / `source_not_board` without a model
    call. A pending cache, or no queued, keyed Image model, is also `skipped`
-   and retried. On an image that already has a verdict, a skipped, running
-   or failed check is recorded as the image's last check and the verdict, with
-   the image's public visibility, stands; a skipped or failed check puts the
-   image in the Review queue until a check settles it. Assets that share one
+   and retried. A verdict records the hash of the image it judged. When a
+   skipped, running or failed check is of that same image (the cache still
+   holds it, or a download in progress has not replaced it), the check is
+   recorded as the image's last check and the verdict, with the image's
+   public visibility, stands; a skipped or failed check puts the image in the
+   Review queue until a check settles it. A check of any other image, or of
+   one whose verdict recorded no hash, replaces the verdict, so an approval
+   never publishes an image it did not judge. Assets that share one
    image URL are checked once and the verdict is copied to the others; the
    one sent is the most recently checked asset whose post passes gate 1, so
    a sibling whose post fails it never stands in for the image. An asset without an image URL, such as a `weekly-schedule`

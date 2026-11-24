@@ -1,12 +1,16 @@
 import { useState } from "react"
-import { ExternalLink, EyeOff, FileSearch } from "lucide-react"
+import { ExternalLink, FileSearch } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import { japanStamp } from "@/admin/format"
 import type { AdminPost, EventEvidence, EvidenceRole } from "@/admin/types"
 import { Badge, Empty, Loading } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
-import { PostImages, PostQuote } from "@/admin/views/post-parts"
+import {
+  PostImages,
+  PostQuote,
+  PostVisibilityBadges,
+} from "@/admin/views/post-parts"
 
 type EvidencePost = AdminPost & { roles: EvidenceRole[] }
 
@@ -38,7 +42,7 @@ function EvidenceItem({
   const evidence = post.roles.length > 0
   return (
     <li
-      className={`adm-evidence-post${evidence ? " is-evidence" : ""}${post.hiddenAt ? " is-hidden" : ""}`}
+      className={`adm-evidence-post${evidence ? " is-evidence" : ""}${post.visible ? "" : " is-hidden"}`}
     >
       <header>
         <strong>
@@ -53,11 +57,7 @@ function EvidenceItem({
               {t(`admin.evidence.role.${role}`)}
             </Badge>
           ))}
-          {post.hiddenAt ? (
-            <Badge tone="warning" icon={EyeOff}>
-              {t("admin.posts.hidden")}
-            </Badge>
-          ) : null}
+          <PostVisibilityBadges post={post} />
         </span>
         <a
           className="adm-icon-button"

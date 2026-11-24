@@ -14,12 +14,14 @@ import (
 )
 
 // An account export holds the account's current top-level posts. Importing
-// it writes them as the account's own posts and, with HideUnlisted, hides
-// the posts an earlier third-party import (raw_json.import) filed under the
-// account that the export does not list: replies, other authors' statuses
-// written as the account's own, and deleted posts. Each such hide records
-// why in raw_json.import.reconcile, so a later review can show again what
-// the import alone hid.
+// it writes them as the account's own top-level posts (upstream_kind
+// top_level) and, with HideUnlisted, marks the posts an earlier third-party
+// import (raw_json.import) filed under the account that the export does not
+// list: replies, other authors' statuses written as the account's own, and
+// deleted posts. Such a post's upstream_kind becomes unlisted, which keeps it
+// off the public pages until an answer tells what it is, and
+// raw_json.import.reconcile records why, so a review can settle it. The
+// import never writes the operator's hidden_at or shown_at.
 
 // XArchiveImport is one account's export.
 type XArchiveImport struct {
@@ -41,9 +43,10 @@ type XArchiveImportResult struct {
 	// KeptSynchronized posts were stored by synchronization and stay as they
 	// are; Skipped ones belong to another account or are known reposts.
 	KeptSynchronized, Skipped int
-	// HiddenReply and HiddenUnlisted count the earlier import's unlisted
-	// posts hidden as replies (a leading mention of another account) or for
-	// review; AlreadyHidden ones an operator had hidden.
+	// HiddenReply and HiddenUnlisted count the earlier import's posts marked
+	// unlisted, by reason: a reply (a leading mention of another account) or
+	// any other; AlreadyHidden counts, apart from them, those an operator
+	// hides anyway.
 	HiddenReply, HiddenUnlisted, AlreadyHidden int
 	// ArchiveAccountAdded is true when the account joined x_archive_accounts.
 	ArchiveAccountAdded bool
@@ -54,6 +57,7 @@ const (
 	XReconcileReasonReply    = "at_reply"
 	XReconcileReasonUnlisted = "unlisted"
 	XReconcileHidden         = "hidden"
+	XReconcileShown          = "shown"
 )
 
 // XReconcile is an earlier import's post the export does not list, and the
@@ -130,23 +134,27 @@ func (s *Store) ImportXArchives(ctx context.Context, imports []XArchiveImport, d
 
 func importArchivePost(ctx context.Context, tx *sql.Tx, account string, post xsource.Post, now string, out *XArchiveImportResult) error {
 	var owner sql.NullString
-	var imported, reconcileHid bool
+	var imported bool
 	// An earlier import's post, or one an earlier run of this import wrote,
 	// takes the export's record; a synchronized post keeps its own.
 	err := tx.QueryRowContext(ctx, `SELECT account_handle,
-		COALESCE(json_valid(raw_json) AND (json_extract(raw_json,'$.import') IS NOT NULL OR json_extract(raw_json,'$.archive.origin')=?), 0),
-		COALESCE(json_valid(raw_json) AND hidden_at=json_extract(raw_json,'$.import.reconcile.at'), 0)
-		FROM posts WHERE id=? AND source='x'`, xsource.ArchiveOrigin, post.ID).Scan(&owner, &imported, &reconcileHid)
+		COALESCE(json_valid(raw_json) AND (json_extract(raw_json,'$.import') IS NOT NULL OR json_extract(raw_json,'$.archive.origin')=?), 0)
+		FROM posts WHERE id=? AND source='x'`, xsource.ArchiveOrigin, post.ID).Scan(&owner, &imported)
 	exists := err == nil
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return ErrSourceWrite
 	}
 	if exists && !imported {
-		if strings.EqualFold(owner.String, account) {
-			out.KeptSynchronized++
-		} else {
+		if !strings.EqualFold(owner.String, account) {
 			out.Skipped++
+			return nil
 		}
+		// The export lists it, so it is a top-level post; a kind an answer
+		// told stays.
+		if _, err = tx.ExecContext(ctx, `UPDATE posts SET upstream_kind=? WHERE id=? AND promoted_at IS NULL AND (upstream_kind IS NULL OR upstream_kind=?)`, xsource.StatusTopLevel, post.ID, XKindUnlisted); err != nil {
+			return ErrSourceWrite
+		}
+		out.KeptSynchronized++
 		return nil
 	}
 	if exists && !strings.EqualFold(owner.String, account) {
@@ -157,12 +165,7 @@ func importArchivePost(ctx context.Context, tx *sql.Tx, account string, post xso
 		}
 		out.Reassigned++
 	}
-	// A post an earlier run hid as unlisted is listed by this export.
-	if reconcileHid {
-		if _, err = tx.ExecContext(ctx, `UPDATE posts SET hidden_at=NULL WHERE id=?`, post.ID); err != nil {
-			return ErrSourceWrite
-		}
-	}
+	// The post's Kind (top_level) replaces an earlier run's unlisted mark.
 	stored, err := writeXPostAs(ctx, tx, account, post, now, true)
 	if err != nil {
 		return ErrSourceWrite
@@ -187,6 +190,7 @@ func hideUnlistedImports(ctx context.Context, tx *sql.Tx, account string, listed
 	}
 	type unlisted struct {
 		id, reason string
+		hidden     bool
 	}
 	found := []unlisted{}
 	for rows.Next() {
@@ -199,23 +203,23 @@ func hideUnlistedImports(ctx context.Context, tx *sql.Tx, account string, listed
 		if listed[id] {
 			continue
 		}
-		if hidden {
-			out.AlreadyHidden++
-			continue
-		}
-		found = append(found, unlisted{id, unlistedReason(account, text)})
+		found = append(found, unlisted{id, unlistedReason(account, text), hidden})
 	}
 	if err = errors.Join(rows.Err(), rows.Close()); err != nil {
 		return ErrSourceWrite
 	}
 	for _, post := range found {
 		record, _ := json.Marshal(XReconcile{Decision: XReconcileHidden, Reason: post.reason, At: now})
-		if _, err = tx.ExecContext(ctx, `UPDATE posts SET hidden_at=?, raw_json=json_set(raw_json,'$.import.reconcile',json(?)) WHERE id=?`, now, string(record), post.id); err != nil {
+		// A kind an answer told outranks the export's silence and stays.
+		if _, err = tx.ExecContext(ctx, `UPDATE posts SET upstream_kind=COALESCE(upstream_kind,?), raw_json=json_set(raw_json,'$.import.reconcile',json(?)) WHERE id=?`, XKindUnlisted, string(record), post.id); err != nil {
 			return ErrSourceWrite
 		}
-		if post.reason == XReconcileReasonReply {
+		switch {
+		case post.hidden:
+			out.AlreadyHidden++
+		case post.reason == XReconcileReasonReply:
 			out.HiddenReply++
-		} else {
+		default:
 			out.HiddenUnlisted++
 		}
 	}
@@ -282,19 +286,20 @@ func (s *Store) SaveXArchiveImage(ctx context.Context, rawURL string, content []
 	return true, nil
 }
 
-// XReconcileCandidate is a hidden unlisted post waiting for its review.
+// XReconcileCandidate is an unlisted post waiting for its review.
 type XReconcileCandidate struct{ ID, Account string }
 
-// XReconcileCandidates lists the posts an import hid as unlisted that no
-// review has settled, newest first.
+// XReconcileCandidates lists the own posts whose upstream kind is still
+// unlisted, whatever the import's reason, newest first. A post X no longer
+// has (upstream_deleted_at) needs no review.
 func (s *Store) XReconcileCandidates(ctx context.Context) ([]XReconcileCandidate, error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT id, account_handle FROM posts
-		WHERE source='x' AND deleted_at IS NULL AND account_handle IS NOT NULL AND json_valid(raw_json)
-		AND json_extract(raw_json,'$.import.reconcile.reason')=? AND json_extract(raw_json,'$.import.reconcile.outcome') IS NULL
-		ORDER BY julianday(published_at) DESC, id`, XReconcileReasonUnlisted)
+		WHERE source='x' AND upstream_kind=? AND upstream_deleted_at IS NULL AND deleted_at IS NULL AND promoted_at IS NULL
+		AND account_handle IS NOT NULL
+		ORDER BY julianday(published_at) DESC, id`, XKindUnlisted)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -321,13 +326,14 @@ type XReconcileOutcome struct {
 
 // XReconcileApplied counts what applying reviews did, or would do.
 type XReconcileApplied struct {
-	// Shown posts are the account's own top-level posts or thread replies
-	// that only the import had hidden; Kept ones stay hidden; Unknown ones
-	// carry no import hide to settle.
+	// Shown posts are the account's own top-level posts or thread replies,
+	// which the rules show; Kept ones are replies, other authors' statuses,
+	// reposts and gone statuses, which they keep off the public pages;
+	// Unknown ones carry no unlisted mark or import record to settle.
 	Shown, Kept, Unknown int
 }
 
-// reviewShows are the outcomes that make an unlisted post shown again.
+// reviewShows are the outcomes the rules show.
 var reviewShows = map[string]bool{xsource.StatusTopLevel: true, xsource.StatusSelfReply: true}
 
 var reviewOutcomes = map[string]bool{
@@ -335,10 +341,14 @@ var reviewOutcomes = map[string]bool{
 	xsource.StatusForeign: true, xsource.StatusRepost: true, xsource.StatusGone: true,
 }
 
-// ApplyXReconcile records each review's outcome on its post. An own
-// top-level post or thread reply is shown again when the import's hide is
-// still its only one; every other outcome keeps the post hidden, and an
-// operator's later hide or show is left alone.
+// ApplyXReconcile records each review's outcome on an own post that is
+// unlisted or carries the import's record: the outcome becomes the post's
+// upstream_kind, except that gone sets upstream_deleted_at (at the review's
+// checkedAt) and keeps the kind; any other outcome carried the status, so it
+// clears an upstream_deleted_at set before the review read the post (a mark
+// set after it is newer than the review and stays). The import's record in
+// raw_json.import.reconcile takes the outcome. It never writes the
+// operator's hidden_at or shown_at.
 func (s *Store) ApplyXReconcile(ctx context.Context, outcomes []XReconcileOutcome, dryRun bool) (XReconcileApplied, error) {
 	var out XReconcileApplied
 	if s == nil || s.db == nil || !s.workflowWritable {
@@ -355,10 +365,12 @@ func (s *Store) ApplyXReconcile(ctx context.Context, outcomes []XReconcileOutcom
 			out.Unknown++
 			continue
 		}
-		var hiddenAt, account sql.NullString
+		var account sql.NullString
 		var reconcile string
-		err = tx.QueryRowContext(ctx, `SELECT hidden_at, account_handle, COALESCE(json_extract(raw_json,'$.import.reconcile'),'')
-			FROM posts WHERE id=? AND source='x' AND deleted_at IS NULL AND json_valid(raw_json)`, review.ID).Scan(&hiddenAt, &account, &reconcile)
+		var unlisted bool
+		err = tx.QueryRowContext(ctx, `SELECT account_handle, upstream_kind IS ?,
+			CASE WHEN json_valid(raw_json) THEN COALESCE(json_extract(raw_json,'$.import.reconcile'),'') ELSE '' END
+			FROM posts WHERE id=? AND source='x' AND deleted_at IS NULL AND promoted_at IS NULL`, XKindUnlisted, review.ID).Scan(&account, &unlisted, &reconcile)
 		if errors.Is(err, sql.ErrNoRows) {
 			out.Unknown++
 			continue
@@ -367,25 +379,39 @@ func (s *Store) ApplyXReconcile(ctx context.Context, outcomes []XReconcileOutcom
 			return XReconcileApplied{}, ErrSourceWrite
 		}
 		var record XReconcile
-		if reconcile == "" || json.Unmarshal([]byte(reconcile), &record) != nil || record.Decision != XReconcileHidden ||
-			(review.Account != "" && !strings.EqualFold(review.Account, account.String)) {
+		recorded := reconcile != "" && json.Unmarshal([]byte(reconcile), &record) == nil && record.Decision == XReconcileHidden
+		if (!recorded && !unlisted) || (review.Account != "" && !strings.EqualFold(review.Account, account.String)) {
 			out.Unknown++
 			continue
 		}
-		record.Outcome, record.CheckedAt = review.Outcome, review.CheckedAt
-		show := reviewShows[review.Outcome] && hiddenAt.Valid && hiddenAt.String == record.At
-		if show {
-			record.Decision = "shown"
+		checkedAt := review.CheckedAt
+		if _, parseErr := time.Parse(time.RFC3339Nano, checkedAt); parseErr != nil {
+			checkedAt = now
+		}
+		gone := review.Outcome == xsource.StatusGone
+		kind := any(review.Outcome)
+		if gone {
+			kind = nil
+		}
+		if reviewShows[review.Outcome] {
 			out.Shown++
 		} else {
 			out.Kept++
 		}
-		encoded, _ := json.Marshal(record)
-		hidden := any(hiddenAt)
-		if show {
-			hidden = nil
+		if _, err = tx.ExecContext(ctx, `UPDATE posts SET upstream_kind=COALESCE(?,upstream_kind),
+			upstream_deleted_at=CASE WHEN ? THEN COALESCE(upstream_deleted_at,?)
+				WHEN julianday(upstream_deleted_at) > julianday(?) THEN upstream_deleted_at END WHERE id=?`, kind, gone, checkedAt, checkedAt, review.ID); err != nil {
+			return XReconcileApplied{}, ErrSourceWrite
 		}
-		if _, err = tx.ExecContext(ctx, `UPDATE posts SET hidden_at=?, raw_json=json_set(raw_json,'$.import.reconcile',json(?)) WHERE id=?`, hidden, string(encoded), review.ID); err != nil {
+		if !recorded {
+			continue
+		}
+		record.Outcome, record.CheckedAt = review.Outcome, review.CheckedAt
+		if reviewShows[review.Outcome] {
+			record.Decision = XReconcileShown
+		}
+		encoded, _ := json.Marshal(record)
+		if _, err = tx.ExecContext(ctx, `UPDATE posts SET raw_json=json_set(raw_json,'$.import.reconcile',json(?)) WHERE id=?`, string(encoded), review.ID); err != nil {
 			return XReconcileApplied{}, ErrSourceWrite
 		}
 	}
@@ -410,7 +436,7 @@ func (s *Store) XArchiveControl(ctx context.Context) (XReconcileCandidate, error
 		return c, ErrUnavailable
 	}
 	err := s.db.QueryRowContext(ctx, `SELECT id, account_handle FROM posts
-		WHERE source='x' AND hidden_at IS NULL AND deleted_at IS NULL AND account_handle IS NOT NULL
+		WHERE source='x' AND `+publicPostSQL+` AND account_handle IS NOT NULL
 		AND json_valid(raw_json) AND json_extract(raw_json,'$.archive.origin')=?
 		ORDER BY julianday(published_at) DESC, id LIMIT 1`, xsource.ArchiveOrigin).Scan(&c.ID, &c.Account)
 	if errors.Is(err, sql.ErrNoRows) {

@@ -45,15 +45,16 @@ func scanPostRow(row scanner) (postRow, error) {
 }
 
 // publicPostSQL holds for a post of the unaliased posts table that a public
-// read may show: not deleted, not hidden and not deleted upstream.
-const publicPostSQL = `deleted_at IS NULL AND hidden_at IS NULL AND upstream_deleted_at IS NULL`
+// read may show (see PostVisibleSQL).
+var publicPostSQL = PostVisibleSQL("")
 
 // publicScheduleAssetSQL is the condition that the assets row aliased a is
-// not the schedule-image candidate of a post deleted upstream, which public
-// reads leave out with its post. The post is looked up by the ID that follows
-// the candidate's "schedule-x-" prefix, so the check never walks the posts.
+// not the schedule-image candidate of a post X no longer has, which public
+// reads leave out with its post unless the operator shows the post. The post
+// is looked up by the ID that follows the candidate's "schedule-x-" prefix,
+// so the check never walks the posts.
 func publicScheduleAssetSQL(a string) string {
-	return `NOT (substr(` + a + `.id,1,11)='schedule-x-' AND EXISTS (SELECT 1 FROM posts up WHERE up.id=substr(` + a + `.id,12) AND up.upstream_deleted_at IS NOT NULL))`
+	return `NOT (substr(` + a + `.id,1,11)='schedule-x-' AND EXISTS (SELECT 1 FROM posts up WHERE up.id=substr(` + a + `.id,12) AND ` + postUpstreamGoneSQL("up") + `))`
 }
 
 // wallPostSQL holds for a post of the unaliased posts table that the post
@@ -61,7 +62,7 @@ func publicScheduleAssetSQL(a string) string {
 // own post's shown quote already carries. The second is a display
 // rule computed at read time; the quote card returns the post to the wall
 // when the quoting post or its quote is hidden.
-const wallPostSQL = publicPostSQL + ` AND NOT (promoted_at IS NOT NULL AND EXISTS (SELECT 1 FROM posts wq WHERE wq.source='x' AND wq.promoted_at IS NULL AND wq.deleted_at IS NULL AND wq.hidden_at IS NULL AND wq.upstream_deleted_at IS NULL AND wq.quote_hidden_at IS NULL AND json_valid(wq.quote_json) AND json_extract(wq.quote_json,'$.id')=posts.id))`
+var wallPostSQL = publicPostSQL + ` AND NOT (promoted_at IS NOT NULL AND EXISTS (SELECT 1 FROM posts wq WHERE wq.source='x' AND wq.promoted_at IS NULL AND wq.deleted_at IS NULL AND ` + ownPostShownSQL("wq") + ` AND wq.quote_hidden_at IS NULL AND json_valid(wq.quote_json) AND json_extract(wq.quote_json,'$.id')=posts.id))`
 
 // dashboardAccountPosts is how many of each account's newest posts the board
 // always lists, however old, so every account's filter fills the wall's whole
@@ -81,10 +82,10 @@ const dashboardAccountPosts = 8
 func dashboardPostsSQL(scope string) string {
 	instant := "julianday(published_at)"
 	account := "lower(COALESCE(account_handle,''))"
-	return `WITH accounts(k) AS (SELECT DISTINCT ` + account + ` FROM posts WHERE ` + publicPostSQL + ` AND promoted_at IS NULL)
+	return `WITH accounts(k) AS (SELECT DISTINCT ` + account + ` FROM posts WHERE ` + ownPublicPostSQL + `)
 	SELECT ` + postColumns + ` FROM posts WHERE id IN (
 		SELECT id FROM (SELECT id FROM posts WHERE ` + wallPostSQL + scope + ` AND ` + instant + ` >= julianday(?) ORDER BY ` + instant + ` DESC, id ASC LIMIT 100)
-		UNION SELECT p.id FROM accounts JOIN posts p ON p.id IN (SELECT id FROM posts WHERE ` + publicPostSQL + scope + ` AND promoted_at IS NULL AND ` + account + `=accounts.k ORDER BY ` + instant + ` DESC, id ASC LIMIT ?)
+		UNION SELECT p.id FROM accounts JOIN posts p ON p.id IN (SELECT id FROM posts WHERE ` + ownPublicPostSQL + scope + ` AND ` + account + `=accounts.k ORDER BY ` + instant + ` DESC, id ASC LIMIT ?)
 	) ORDER BY ` + instant + ` DESC, id ASC`
 }
 

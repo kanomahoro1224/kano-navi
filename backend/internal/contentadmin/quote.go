@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
@@ -13,14 +14,24 @@ import (
 )
 
 // postQuoteState is the operator's standing decisions for one post: when the
-// post or its quote was hidden from the public pages, and a refresh from the
-// source that waits for the next X synchronization.
+// post was hidden from or shown on the public pages, when its quote was
+// hidden, and a refresh from the source that waits for the next X
+// synchronization.
 type postQuoteState struct {
 	PostID             string  `json:"postId"`
 	HiddenAt           *string `json:"hiddenAt"`
+	ShownAt            *string `json:"shownAt"`
 	QuoteHiddenAt      *string `json:"quoteHiddenAt"`
 	RefreshRequestedAt *string `json:"refreshRequestedAt"`
 }
+
+// Post visibility decisions: the rules decide (auto), or the operator shows
+// or hides the post whatever they say.
+const (
+	visibilityAuto   = "auto"
+	visibilityShown  = "shown"
+	visibilityHidden = "hidden"
+)
 
 var (
 	errQuoteNotFound   = errors.New("quote not found")
@@ -31,11 +42,12 @@ var (
 
 func readQuoteState(ctx context.Context, q queryer, postID string) (*postQuoteState, error) {
 	state := postQuoteState{PostID: postID}
-	var postHidden, hidden, refresh sql.NullString
-	if err := q.QueryRowContext(ctx, `SELECT hidden_at, quote_hidden_at, refresh_requested_at FROM posts WHERE id = ? AND deleted_at IS NULL`, postID).Scan(&postHidden, &hidden, &refresh); err != nil {
+	var postHidden, postShown, hidden, refresh sql.NullString
+	if err := q.QueryRowContext(ctx, `SELECT hidden_at, shown_at, quote_hidden_at, refresh_requested_at FROM posts WHERE id = ? AND deleted_at IS NULL`, postID).Scan(&postHidden, &postShown, &hidden, &refresh); err != nil {
 		return nil, err
 	}
-	state.HiddenAt, state.QuoteHiddenAt, state.RefreshRequestedAt = textPointer(postHidden), textPointer(hidden), textPointer(refresh)
+	state.HiddenAt, state.ShownAt = textPointer(postHidden), textPointer(postShown)
+	state.QuoteHiddenAt, state.RefreshRequestedAt = textPointer(hidden), textPointer(refresh)
 	return &state, nil
 }
 
@@ -76,46 +88,38 @@ func (m *Module) setQuoteHidden(ctx context.Context, postID string, hidden bool)
 	return state, err
 }
 
-// setPostHidden records or withdraws the operator's decision to keep a whole
-// post off the public pages. Synchronization never writes this column, so a
-// later read of the same post does not show it again.
-func (m *Module) setPostHidden(ctx context.Context, postID string, hidden bool) (*postQuoteState, error) {
+// setPostVisibility records the operator's decision on a whole post: shown
+// (shown_at) or hidden (hidden_at) on the public pages whatever the rules
+// say, or auto, which withdraws both so the rules decide again. At most one
+// of the two columns is set, and deciding the same again keeps the first
+// decision's time. No synchronization, import or review writes either
+// column, so the decision outlives every later read of the post. It never
+// changes the X status pool's decisions on a promoted post.
+func (m *Module) setPostVisibility(ctx context.Context, postID, visibility string) (*postQuoteState, error) {
 	var state *postQuoteState
 	now := m.timestamp()
 	err := m.inTx(ctx, func(tx *sql.Tx) error {
-		var was sql.NullString
-		if err := tx.QueryRowContext(ctx, `SELECT hidden_at FROM posts WHERE id = ? AND deleted_at IS NULL`, postID).Scan(&was); errors.Is(err, sql.ErrNoRows) {
+		var hidden, shown sql.NullString
+		if err := tx.QueryRowContext(ctx, `SELECT hidden_at, shown_at FROM posts WHERE id = ? AND deleted_at IS NULL`, postID).Scan(&hidden, &shown); errors.Is(err, sql.ErrNoRows) {
 			return errPostNotFound
 		} else if err != nil {
 			return err
 		}
-		// Hiding again keeps the first decision's time.
-		if hidden != was.Valid {
-			value := any(nil)
-			if hidden {
-				value = now
+		nextHidden, nextShown := sql.NullString{}, sql.NullString{}
+		switch visibility {
+		case visibilityHidden:
+			nextHidden = sql.NullString{String: now, Valid: true}
+			if hidden.Valid {
+				nextHidden = hidden
 			}
-			if _, err := tx.ExecContext(ctx, `UPDATE posts SET hidden_at = ? WHERE id = ?`, value, postID); err != nil {
-				return err
+		case visibilityShown:
+			nextShown = sql.NullString{String: now, Valid: true}
+			if shown.Valid {
+				nextShown = shown
 			}
-			// The hide is the operator's now: an automatic promotion of
-			// the pool shows again only a post the pool hid itself.
-			if _, err := tx.ExecContext(ctx, `UPDATE x_statuses SET demoted_at = NULL, updated_at = ? WHERE id = ? AND demoted_at IS NOT NULL`, now, postID); err != nil {
-				return err
-			}
-			// Showing a promoted post is the operator's promotion, so the
-			// keyword rules never hide it again; hiding it withdraws that
-			// promotion and leaves the hide.
-			promote := `UPDATE x_statuses SET manual_decision = 'promote', manual_reason = NULL, manual_at = ?, updated_at = ?
-				WHERE id = ? AND COALESCE(manual_decision, '') <> 'promote'
-				AND EXISTS (SELECT 1 FROM posts p WHERE p.id = x_statuses.id AND p.promoted_at IS NOT NULL)`
-			args := []any{now, now, postID}
-			if hidden {
-				promote = `UPDATE x_statuses SET manual_decision = NULL, manual_reason = NULL, manual_at = NULL, updated_at = ?
-					WHERE id = ? AND manual_decision = 'promote'`
-				args = []any{now, postID}
-			}
-			if _, err := tx.ExecContext(ctx, promote, args...); err != nil {
+		}
+		if nextHidden != hidden || nextShown != shown {
+			if _, err := tx.ExecContext(ctx, `UPDATE posts SET hidden_at = ?, shown_at = ? WHERE id = ?`, nextHidden, nextShown, postID); err != nil {
 				return err
 			}
 			if err := sqlite.BumpRevisionTx(ctx, tx, now); err != nil {
@@ -211,12 +215,32 @@ func (m *Module) quoteHiddenRoute(w http.ResponseWriter, r *http.Request, postID
 	m.writeQuoteState(w, state, err)
 }
 
-func (m *Module) postHiddenRoute(w http.ResponseWriter, r *http.Request, postID string) {
-	hidden, ok := hiddenField(w, r)
+// visibilityField reads the required `visibility` of a post visibility
+// request: auto, shown or hidden.
+func visibilityField(w http.ResponseWriter, r *http.Request) (string, bool) {
+	body, err := httpx.Body(w, r)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return "", false
+	}
+	var visibility string
+	if json.Unmarshal(body["visibility"], &visibility) != nil {
+		visibility = ""
+	}
+	switch visibility {
+	case visibilityAuto, visibilityShown, visibilityHidden:
+		return visibility, true
+	}
+	httpx.WriteError(w, httpx.Invalid("visibility must be auto, shown or hidden"))
+	return "", false
+}
+
+func (m *Module) postVisibilityRoute(w http.ResponseWriter, r *http.Request, postID string) {
+	visibility, ok := visibilityField(w, r)
 	if !ok {
 		return
 	}
-	state, err := m.setPostHidden(r.Context(), postID, hidden)
+	state, err := m.setPostVisibility(r.Context(), postID, visibility)
 	m.writeQuoteState(w, state, err)
 }
 

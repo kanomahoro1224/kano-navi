@@ -50,7 +50,7 @@ stage change), and `Preview` the queue preview judging every post.
   the schema upgrade tests check that it exists.
 - The board snapshot's post reads never walk the posts table:
   `TestDashboardPostReadsUseIndexes` checks that each account's newest posts
-  are read through `posts_account_instant_idx`, the Bilibili accounts through
+  are read through `posts_account_instant_idx` (over the shown own posts), the Bilibili accounts through
   `posts_bilibili_account_idx` and a schedule candidate's upstream-deleted
   post by its ID. The latest post is the newest own post of that read, not a
   query of its own. Startup adds both indexes to older snapshots, and the

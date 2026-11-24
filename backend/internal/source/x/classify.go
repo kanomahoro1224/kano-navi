@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-// Status outcomes: what a detail answer says a stored status is, for an
-// account whose earlier import may have filed replies and other authors'
-// statuses as its own posts.
+// Status outcomes: what an answer says a stored status is for the account it
+// is stored under. posts.upstream_kind records them (StatusGone aside), and
+// a review of an earlier import's posts reports them.
 const (
 	// StatusTopLevel is the account's own post that replies to nobody.
 	StatusTopLevel = "top_level"
@@ -32,7 +32,8 @@ var ErrStatusUnclassified = errors.New("x_status_unclassified")
 // ClassifyDetail reads the answer of Client.Detail for the account's status
 // id. A request error is returned as it is, except that a gone status is an
 // outcome; an answer that names no status, or another one, is
-// ErrStatusUnclassified.
+// ErrStatusUnclassified. It reads the answer as StatusKind does, and an
+// answer of the account without reply fields replies to nobody.
 func ClassifyDetail(body []byte, requestErr error, account, id string) (string, error) {
 	if requestErr != nil {
 		if isGone(requestErr) {
@@ -49,9 +50,47 @@ func ClassifyDetail(body []byte, requestErr error, account, id string) (string, 
 		}
 		return "", ErrStatusUnclassified
 	}
-	if firstString(payload, "tweetID", "tweetId", "id") != id {
+	if firstString(payload, "tweetID", "tweetId", "id") != id || payloadAuthor(payload) == "" {
 		return "", ErrStatusUnclassified
 	}
+	if kind := StatusKind(payload, account); kind != "" {
+		return kind, nil
+	}
+	return StatusTopLevel, nil
+}
+
+// StatusKind reads what a status answer (a detail answer, a timeline entry,
+// or an X API post as APIPosts maps it) says the status is for the account
+// it is stored under: StatusForeign for another author's status,
+// StatusRepost for the account's repost, and otherwise StatusTopLevel,
+// StatusSelfReply or StatusReply by the account its reply fields name. It is
+// "" when the answer cannot tell: it names no author, or carries none of the
+// reply fields (vxtwitter's replyingTo and replyingToID, FxTwitter's
+// replying_to and replying_to_status), not even as null.
+func StatusKind(payload map[string]any, account string) string {
+	author := payloadAuthor(payload)
+	switch {
+	case author == "":
+		return ""
+	case !strings.EqualFold(author, strings.TrimPrefix(account, "@")):
+		return StatusForeign
+	case len(object(payload["retweet"])) > 0:
+		return StatusRepost
+	case !hasReplyFields(payload):
+		return ""
+	}
+	to := replyingTo(payload)
+	switch {
+	case to == "":
+		return StatusTopLevel
+	case strings.EqualFold(to, strings.TrimPrefix(account, "@")):
+		return StatusSelfReply
+	}
+	return StatusReply
+}
+
+// payloadAuthor is the handle an answer names as the status's author.
+func payloadAuthor(payload map[string]any) string {
 	author := firstString(object(payload["user"]), "screen_name", "screenName")
 	if author == "" {
 		author = firstString(object(payload["author"]), "screen_name", "screenName")
@@ -59,23 +98,20 @@ func ClassifyDetail(body []byte, requestErr error, account, id string) (string, 
 	if author == "" {
 		author = stringValue(payload["user_screen_name"])
 	}
-	author = strings.TrimPrefix(author, "@")
-	switch {
-	case author == "":
-		return "", ErrStatusUnclassified
-	case !strings.EqualFold(author, account):
-		return StatusForeign, nil
-	case len(object(payload["retweet"])) > 0:
-		return StatusRepost, nil
+	return strings.TrimPrefix(author, "@")
+}
+
+var replyFields = []string{"replyingTo", "replying_to", "replyingToID", "replying_to_status"}
+
+// hasReplyFields reports whether an answer carries any reply field, null
+// included: a null field says the status replies to nobody.
+func hasReplyFields(payload map[string]any) bool {
+	for _, key := range replyFields {
+		if _, ok := payload[key]; ok {
+			return true
+		}
 	}
-	to := replyingTo(payload)
-	switch {
-	case to == "":
-		return StatusTopLevel, nil
-	case strings.EqualFold(to, account):
-		return StatusSelfReply, nil
-	}
-	return StatusReply, nil
+	return false
 }
 
 // replyingTo is the handle a status answers: vxtwitter's replyingTo, or
@@ -91,6 +127,9 @@ func replyingTo(payload map[string]any) string {
 		case map[string]any:
 			if handle := firstString(value, "screen_name", "screenName", "handle"); handle != "" {
 				return strings.TrimPrefix(handle, "@")
+			}
+			if len(value) > 0 {
+				return "?"
 			}
 		}
 	}

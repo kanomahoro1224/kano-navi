@@ -452,9 +452,9 @@ func isLikelyScheduleBoardText(value string) bool {
 }
 
 // listCandidatePosts selects the posts a detector stage scans. With allPosts,
-// the message stage takes every post that has text or images. A hidden post,
-// or one published before since (the extraction lookback, unless zero), is
-// never a candidate. read counts the rows the stage scanned. Each post
+// the message stage takes every post that has text or images. A post the
+// public pages leave out (sqlite.PostVisibleSQL), or one published before
+// since (the extraction lookback, unless zero), is never a candidate. read counts the rows the stage scanned. Each post
 // carries its input stamp for the stage and whether it is settled: its
 // state is the one a cache hit of a success or uncertain result on this
 // stage's route writes, recorded for exactly this stamp, with no request
@@ -476,7 +476,7 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 			AND s.failure_count = 0 AND s.failure_fingerprint IS NULL AND s.next_attempt_at IS NULL,
 		s.settled_stamp
 		FROM posts p LEFT JOIN post_llm_states s ON s.post_id = p.id
-		WHERE p.source IN ('x','bilibili') AND p.hidden_at IS NULL AND p.deleted_at IS NULL
+		WHERE p.source IN ('x','bilibili') AND `+sqlite.PostVisibleSQL("p")+`
 			AND (? = '' OR julianday(p.published_at) >= julianday(?))
 		ORDER BY p.published_at DESC`, detectionType, extractorVersion, routeForDetectionType(detectionType), cutoff, cutoff)
 	if err != nil {
@@ -547,12 +547,12 @@ func arrayProperty(root *object, key string) ([]any, bool) {
 
 // listRequestedPosts lists operator reprocess requests, whatever their age:
 // the extraction lookback bounds only unrequested posts. A request for a
-// hidden post waits until the post is shown again.
+// post the public pages leave out waits until the post is shown again.
 func (e *Extractor) listRequestedPosts(ctx context.Context, limit int) ([]post, error) {
 	rows, err := e.db.QueryContext(ctx, `SELECT p.source, p.id, p.text, p.published_at, p.url, p.media_url,
 		schedule_media_json(p.raw_json), s.route, CASE WHEN p.quote_hidden_at IS NULL THEN p.quote_json END
 		FROM posts p LEFT JOIN post_llm_states s ON s.post_id = p.id
-		WHERE s.reprocess_requested = 1 AND p.hidden_at IS NULL AND p.deleted_at IS NULL
+		WHERE s.reprocess_requested = 1 AND `+sqlite.PostVisibleSQL("p")+`
 		ORDER BY p.published_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err

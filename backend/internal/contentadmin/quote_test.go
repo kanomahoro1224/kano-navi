@@ -116,15 +116,15 @@ func TestBulkPostRefresh(t *testing.T) {
 	}
 }
 
-func TestPostHiddenDecision(t *testing.T) {
+func TestPostVisibilityDecision(t *testing.T) {
 	f := newFixture(t, true)
 	f.exec(`INSERT INTO posts(id,source,account_handle,text,published_at,url) VALUES('1900000000000000101','x','synthetic','plain','2026-10-01T00:00:00.000Z','https://x.com/synthetic/status/1900000000000000101')`)
 	f.module.now = func() time.Time { return time.Date(2026, 10, 13, 1, 2, 3, 0, time.UTC) }
 	before := f.revision()
 
-	hidden := f.put("/posts/1900000000000000101/hidden", map[string]any{"hidden": true})
+	hidden := f.put("/posts/1900000000000000101/visibility", map[string]any{"visibility": "hidden"})
 	hidden.expect(t, http.StatusOK, "")
-	if state := object(t, hidden.json["state"]); state["hiddenAt"] != "2026-10-13T01:02:03.000Z" || state["quoteHiddenAt"] != nil {
+	if state := object(t, hidden.json["state"]); state["hiddenAt"] != "2026-10-13T01:02:03.000Z" || state["shownAt"] != nil || state["quoteHiddenAt"] != nil {
 		t.Fatalf("hidden state: %#v", state)
 	}
 	if f.revision() == before {
@@ -132,57 +132,62 @@ func TestPostHiddenDecision(t *testing.T) {
 	}
 	f.module.now = func() time.Time { return time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC) }
 	again := f.revision()
-	if object(t, f.put("/posts/1900000000000000101/hidden", map[string]any{"hidden": true}).json["state"])["hiddenAt"] != "2026-10-13T01:02:03.000Z" || f.revision() != again {
+	if object(t, f.put("/posts/1900000000000000101/visibility", map[string]any{"visibility": "hidden"}).json["state"])["hiddenAt"] != "2026-10-13T01:02:03.000Z" || f.revision() != again {
 		t.Fatal("a repeated hide replaced the decision")
 	}
-	if object(t, f.put("/posts/1900000000000000101/hidden", map[string]any{"hidden": false}).json["state"])["hiddenAt"] != nil || f.revision() == again {
-		t.Fatal("restore failed")
+	// Showing replaces the hide; the two decisions never stand together.
+	shown := object(t, f.put("/posts/1900000000000000101/visibility", map[string]any{"visibility": "shown"}).json["state"])
+	if shown["shownAt"] != "2026-10-14T00:00:00.000Z" || shown["hiddenAt"] != nil || f.revision() == again {
+		t.Fatalf("shown state: %#v", shown)
 	}
-	f.put("/posts/1900000000000000101/hidden", map[string]any{"hidden": 1}).expectInvalid(t, "hidden must be true or false")
-	f.put("/posts/unknown/hidden", map[string]any{"hidden": true}).expect(t, http.StatusNotFound, "post_not_found")
+	auto := object(t, f.put("/posts/1900000000000000101/visibility", map[string]any{"visibility": "auto"}).json["state"])
+	if auto["shownAt"] != nil || auto["hiddenAt"] != nil {
+		t.Fatalf("auto state: %#v", auto)
+	}
+	for _, body := range []map[string]any{{"visibility": "visible"}, {"visibility": true}, {"hidden": true}} {
+		f.put("/posts/1900000000000000101/visibility", body).expectInvalid(t, "visibility must be auto, shown or hidden")
+	}
+	f.put("/posts/unknown/visibility", map[string]any{"visibility": "hidden"}).expect(t, http.StatusNotFound, "post_not_found")
 }
 
-// Showing a promoted post the rules demoted is the operator's promotion: a
-// later reconcile under rules that no longer match keeps it shown, and hiding
-// it again withdraws that promotion.
-func TestPostShownKeepsItsPromotion(t *testing.T) {
+// The operator's show or hide of a promoted post lies above the X status
+// pool's rules and decisions and changes none of them: a post the rules
+// demote stays shown, a hidden one stays hidden when the rules promote it,
+// and auto returns it to them.
+func TestPostVisibilityOutranksThePool(t *testing.T) {
 	f := newFixture(t, true)
 	const id = "1900000000000000301"
-	f.exec(`INSERT INTO posts(id,source,account_handle,text,published_at,url,hidden_at,promoted_at) VALUES(?,'x','agency_synthetic','notice','2026-10-01T00:00:00.000Z','https://x.com/agency_synthetic/status/1900000000000000301','2026-10-02T00:00:00.000Z','2026-10-01T00:00:00.000Z')`, id)
+	visible := func() string {
+		return f.text(`SELECT CASE WHEN `+sqlite.PostVisibleSQL("p")+` THEN 'shown' ELSE 'hidden' END FROM posts p WHERE id=?`, id)
+	}
+	f.exec(`INSERT INTO posts(id,source,account_handle,text,published_at,url,promoted_at) VALUES(?,'x','agency_synthetic','notice','2026-10-01T00:00:00.000Z','https://x.com/agency_synthetic/status/1900000000000000301','2026-10-01T00:00:00.000Z')`, id)
 	f.exec(`INSERT INTO x_statuses(id,author_handle,text,url,demoted_at,first_seen_at,updated_at) VALUES(?,'agency_synthetic','notice','https://x.com/agency_synthetic/status/1900000000000000301','2026-10-02T00:00:00.000Z','2026-10-01T00:00:00.000Z','2026-10-02T00:00:00.000Z')`, id)
-	f.put("/posts/"+id+"/hidden", map[string]any{"hidden": false}).expect(t, http.StatusOK, "")
-	if got := f.text(`SELECT COALESCE(manual_decision,'')||'|'||COALESCE(demoted_at,'') FROM x_statuses WHERE id=?`, id); got != "promote|" {
-		t.Fatalf("decision after show = %s", got)
+	if got := visible(); got != "hidden" {
+		t.Fatalf("a demoted post is %s", got)
+	}
+	f.put("/posts/"+id+"/visibility", map[string]any{"visibility": "shown"}).expect(t, http.StatusOK, "")
+	pool := `SELECT COALESCE(manual_decision,'')||'|'||COALESCE(demoted_at,'') FROM x_statuses WHERE id=?`
+	if got := f.text(pool, id); got != "|2026-10-02T00:00:00.000Z" {
+		t.Fatalf("the show changed the pool: %s", got)
 	}
 	if _, err := f.store.SetXRelatedAccounts(context.Background(), []sqlite.XRelatedAccount{{Handle: "agency_synthetic", Keywords: []string{"unrelated"}}}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.text(`SELECT CASE WHEN hidden_at IS NULL THEN 'shown' ELSE 'hidden' END FROM posts WHERE id=?`, id); got != "shown" {
+	if got := visible(); got != "shown" {
 		t.Fatalf("the rules hid a post the operator showed: %s", got)
 	}
-	f.put("/posts/"+id+"/hidden", map[string]any{"hidden": true}).expect(t, http.StatusOK, "")
-	if got := f.text(`SELECT COALESCE(manual_decision,'none') FROM x_statuses WHERE id=?`, id); got != "none" {
-		t.Fatalf("decision after hide = %s", got)
-	}
-}
-
-// A promoted post the pool hid becomes the operator's to hide once they show
-// or hide it in Posts: the pool's mark goes, so a later automatic promotion
-// never undoes the operator's hide.
-func TestPostHiddenDecisionTakesThePoolsHide(t *testing.T) {
-	f := newFixture(t, true)
-	const id = "1900000000000000201"
-	f.exec(`INSERT INTO posts(id,source,account_handle,text,published_at,url,hidden_at,promoted_at) VALUES(?,'x','agency_synthetic','notice','2026-10-01T00:00:00.000Z','https://x.com/agency_synthetic/status/1900000000000000201','2026-10-02T00:00:00.000Z','2026-10-01T00:00:00.000Z')`, id)
-	f.exec(`INSERT INTO x_statuses(id,author_handle,text,url,demoted_at,first_seen_at,updated_at) VALUES(?,'agency_synthetic','notice','https://x.com/agency_synthetic/status/1900000000000000201','2026-10-02T00:00:00.000Z','2026-10-01T00:00:00.000Z','2026-10-02T00:00:00.000Z')`, id)
-	f.put("/posts/"+id+"/hidden", map[string]any{"hidden": false}).expect(t, http.StatusOK, "")
-	f.put("/posts/"+id+"/hidden", map[string]any{"hidden": true}).expect(t, http.StatusOK, "")
-	if got := f.text(`SELECT demoted_at FROM x_statuses WHERE id=?`, id); got != "<null>" {
-		t.Fatalf("demoted_at=%s", got)
-	}
+	f.put("/posts/"+id+"/visibility", map[string]any{"visibility": "hidden"}).expect(t, http.StatusOK, "")
 	if _, err := f.store.SetXRelatedAccounts(context.Background(), []sqlite.XRelatedAccount{{Handle: "agency_synthetic", Keywords: []string{"notice"}}}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.text(`SELECT CASE WHEN hidden_at IS NULL THEN 'shown' ELSE 'hidden' END FROM posts WHERE id=?`, id); got != "hidden" {
+	if got := f.text(pool, id); got != "|" {
+		t.Fatalf("the rules did not promote the status again: %s", got)
+	}
+	if got := visible(); got != "hidden" {
 		t.Fatalf("an automatic promotion undid the operator's hide: %s", got)
+	}
+	f.put("/posts/"+id+"/visibility", map[string]any{"visibility": "auto"}).expect(t, http.StatusOK, "")
+	if got := visible(); got != "shown" {
+		t.Fatalf("returned to the rules, the promoted post is %s", got)
 	}
 }

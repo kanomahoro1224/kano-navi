@@ -13,6 +13,7 @@ import {
   Languages,
   RefreshCw,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react"
 
@@ -355,6 +356,46 @@ export function PostAccount({ post }: { post: AdminPost }) {
   return post.source === "x" && post.accountHandle
     ? `@${post.accountHandle.replace(/^@/, "")}`
     : t(`admin.step.${post.source}`)
+}
+
+/**
+ * What decides whether the public pages show a post: the operator's hide or
+ * show, a status X no longer has, what X says an own post is, and a
+ * promoted post's demotion.
+ */
+export function PostVisibilityBadges({ post }: { post: AdminPost }) {
+  const { t } = useAppSettings()
+  const kind =
+    !post.promotedAt && post.upstreamKind && post.upstreamKind !== "top_level"
+      ? post.upstreamKind
+      : null
+  return (
+    <>
+      {post.hiddenAt ? (
+        <Badge tone="warning" icon={EyeOff}>
+          {t("admin.posts.hidden")}
+        </Badge>
+      ) : null}
+      {post.shownAt ? (
+        <Badge tone="leaf" icon={Eye}>
+          {t("admin.posts.shown")}
+        </Badge>
+      ) : null}
+      {post.upstreamDeletedAt ? (
+        <Badge tone="danger" icon={Trash2}>
+          {t("admin.posts.deletedUpstream")}
+        </Badge>
+      ) : null}
+      {kind ? (
+        <Badge tone={kind === "self_reply" ? "neutral" : "honey"}>
+          {t(`admin.posts.kind.${kind}`)}
+        </Badge>
+      ) : null}
+      {post.demoted ? (
+        <Badge tone="honey">{t("admin.posts.demoted")}</Badge>
+      ) : null}
+    </>
+  )
 }
 
 /**

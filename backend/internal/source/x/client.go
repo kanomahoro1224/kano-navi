@@ -247,7 +247,10 @@ type Post struct {
 	// Quote is the status the post quotes, nil when it quotes none. Its
 	// images are never the post's own MediaURLs.
 	Quote *Quote
-	Raw   map[string]any
+	// Kind is what the answer says the status is for the account it is
+	// stored under (StatusKind), "" when the answer cannot tell.
+	Kind string
+	Raw  map[string]any
 }
 type ScheduleCandidate struct{ PostID, SourceURL, MediaURL, AccountHandle string }
 type Result struct {

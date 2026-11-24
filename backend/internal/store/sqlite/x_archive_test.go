@@ -60,22 +60,36 @@ func archivePost(id, account, text string, media ...string) xsource.Post {
 	}
 	return xsource.Post{ID: id, AccountHandle: account, Type: "daily", Label: xsource.LabelDaily, Text: text,
 		PublishedAt: "2020-01-02T00:00:00Z", URL: "https://x.com/" + account + "/status/" + id, Likes: 3,
-		MediaURLs: media, MediaKinds: kinds, Raw: map[string]any{"archive": map[string]any{"origin": xsource.ArchiveOrigin}}}
+		MediaURLs: media, MediaKinds: kinds, Kind: xsource.StatusTopLevel, Raw: map[string]any{"archive": map[string]any{"origin": xsource.ArchiveOrigin}}}
 }
 
+// postState reads a post's account, wording, whether the public pages leave
+// it out, and its import record.
 func postState(t *testing.T, db *sql.DB, id string) (account, text string, hidden bool, reconcile string) {
 	t.Helper()
-	if err := db.QueryRow(`SELECT account_handle, text, hidden_at IS NOT NULL, COALESCE(json_extract(raw_json,'$.import.reconcile'),'') FROM posts WHERE id=?`, id).
+	if err := db.QueryRow(`SELECT account_handle, text, NOT (`+PostVisibleSQL("p")+`), COALESCE(json_extract(raw_json,'$.import.reconcile'),'') FROM posts p WHERE id=?`, id).
 		Scan(&account, &text, &hidden, &reconcile); err != nil {
 		t.Fatalf("%s: %v", id, err)
 	}
 	return
 }
 
-// An export rewrites the earlier import's posts it lists, adds the missing
-// ones and moves a status filed under the wrong account to its owner, while
-// a synchronized post keeps its record. The earlier import's unlisted posts
-// are hidden with their reason, except one an operator already hid.
+// upstreamState reads a post's operator hide, upstream kind and
+// deleted-upstream time, each "" when empty.
+func upstreamState(t *testing.T, db *sql.DB, id string) (hiddenAt, kind, deletedAt string) {
+	t.Helper()
+	if err := db.QueryRow(`SELECT COALESCE(hidden_at,''), COALESCE(upstream_kind,''), COALESCE(upstream_deleted_at,'') FROM posts WHERE id=?`, id).
+		Scan(&hiddenAt, &kind, &deletedAt); err != nil {
+		t.Fatalf("%s: %v", id, err)
+	}
+	return
+}
+
+// An export rewrites the earlier import's posts it lists as top-level posts,
+// adds the missing ones and moves a status filed under the wrong account to
+// its owner, while a synchronized post keeps its record and learns its kind.
+// The earlier import's unlisted posts are marked unlisted with their reason,
+// which keeps them off the public pages without writing the operator's hide.
 func TestImportXArchivesRewritesListedAndHidesUnlistedImports(t *testing.T) {
 	s := archiveStore(t)
 	db := s.DB()
@@ -132,6 +146,11 @@ func TestImportXArchivesRewritesListedAndHidesUnlistedImports(t *testing.T) {
 	if _, text, _, _ := postState(t, db, archiveSynced); text != "synchronized wording" {
 		t.Fatalf("synchronized post rewritten: %q", text)
 	}
+	for _, id := range []string{archiveListed, archiveSynced, archiveNew} {
+		if _, kind, _ := upstreamState(t, db, id); kind != xsource.StatusTopLevel {
+			t.Fatalf("%s: kind %q", id, kind)
+		}
+	}
 	if account, text, hidden, _ := postState(t, db, archiveMisfiled); account != archiveUnitAcct || text != "the unit's own wording" || hidden {
 		t.Fatalf("misfiled post: %s %q hidden=%v", account, text, hidden)
 	}
@@ -141,9 +160,16 @@ func TestImportXArchivesRewritesListedAndHidesUnlistedImports(t *testing.T) {
 		if !hidden || json.Unmarshal([]byte(raw), &record) != nil || record.Reason != reason || record.Decision != XReconcileHidden || record.At == "" {
 			t.Fatalf("%s: hidden=%v reconcile=%s", id, hidden, raw)
 		}
+		if hiddenAt, kind, _ := upstreamState(t, db, id); hiddenAt != "" || kind != XKindUnlisted {
+			t.Fatalf("%s: hidden_at=%q kind=%q", id, hiddenAt, kind)
+		}
 	}
-	if _, _, hidden, raw := postState(t, db, archiveOperator); !hidden || raw != "" {
+	// The operator's hide stays theirs; the post is marked all the same.
+	if _, _, hidden, raw := postState(t, db, archiveOperator); !hidden || raw == "" {
 		t.Fatalf("operator's hide: hidden=%v reconcile=%s", hidden, raw)
+	}
+	if hiddenAt, kind, _ := upstreamState(t, db, archiveOperator); hiddenAt != "2026-01-01T00:00:00.000Z" || kind != XKindUnlisted {
+		t.Fatalf("operator's hide: hidden_at=%q kind=%q", hiddenAt, kind)
 	}
 
 	accounts, err := s.GetPostArchiveAccounts(ctx)
@@ -159,11 +185,11 @@ func TestImportXArchivesRewritesListedAndHidesUnlistedImports(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if again[0].Rewritten != 2 || again[0].Added != 0 || again[0].HiddenReply+again[0].HiddenUnlisted != 0 || again[1].ArchiveAccountAdded {
+	if again[0].Rewritten != 2 || again[0].Added != 0 || again[0].HiddenReply+again[0].HiddenUnlisted+again[0].AlreadyHidden != 0 || again[1].ArchiveAccountAdded {
 		t.Fatalf("second run: %+v", again)
 	}
 
-	// An export that lists a post an earlier run hid shows it again.
+	// An export that lists a post an earlier run marked shows it again.
 	imports[0].Posts = append(imports[0].Posts, archivePost(archiveThread, archiveOwnAcct, "continued"))
 	if _, err = s.ImportXArchives(ctx, imports, false); err != nil {
 		t.Fatal(err)
@@ -173,14 +199,16 @@ func TestImportXArchivesRewritesListedAndHidesUnlistedImports(t *testing.T) {
 	}
 }
 
-// A review shows again only the own posts and thread replies that the
-// import alone hid; replies, other authors' statuses and gone ones stay
-// hidden, and an operator's later decision is left alone.
-func TestApplyXReconcileShowsOnlyWhatTheImportAloneHid(t *testing.T) {
+// A review records what each unlisted post is: own posts and thread replies
+// show again, replies and other authors' statuses stay off as their kind,
+// a gone status is deleted upstream at the review's time, an answer clears
+// only a deleted-upstream mark older than itself, and the operator's hides
+// are left alone, one at the import record's own time included.
+func TestApplyXReconcileRecordsWhatEachUnlistedPostIs(t *testing.T) {
 	s := archiveStore(t)
 	db := s.DB()
 	ctx := context.Background()
-	ids := []string{archiveListed, archiveThread, archiveReply, archiveForeign, archiveOperator}
+	ids := []string{archiveListed, archiveThread, archiveReply, archiveForeign, archiveOperator, archiveMisfiled}
 	for _, id := range ids {
 		seedImported(t, db, id, archiveOwnAcct, "wording")
 	}
@@ -191,8 +219,17 @@ func TestApplyXReconcileShowsOnlyWhatTheImportAloneHid(t *testing.T) {
 	if err != nil || len(candidates) != len(ids) {
 		t.Fatalf("candidates=%v err=%v", candidates, err)
 	}
-	// The operator hid this one again after the import, at another time.
+	// The operator hid two after the import, one at the record's own time.
 	archiveExec(t, db, `UPDATE posts SET hidden_at='2026-12-01T00:00:00.000Z' WHERE id=?`, archiveOperator)
+	archiveExec(t, db, `UPDATE posts SET hidden_at=json_extract(raw_json,'$.import.reconcile.at') WHERE id=?`, archiveReply)
+	var recordAt string
+	if err = db.QueryRow(`SELECT hidden_at FROM posts WHERE id=?`, archiveReply).Scan(&recordAt); err != nil || recordAt == "" {
+		t.Fatalf("record at=%q err=%v", recordAt, err)
+	}
+	// Synchronization found one gone before the review read it, and another
+	// after.
+	archiveExec(t, db, `UPDATE posts SET upstream_deleted_at='2026-11-17T00:00:00.000Z' WHERE id=?`, archiveThread)
+	archiveExec(t, db, `UPDATE posts SET upstream_deleted_at='2026-11-19T00:00:00.000Z' WHERE id=?`, archiveForeign)
 
 	review := func(id, outcome string) XReconcileOutcome {
 		return XReconcileOutcome{ID: id, Account: archiveOwnAcct, Outcome: outcome, CheckedAt: archiveCaptureAt}
@@ -203,6 +240,7 @@ func TestApplyXReconcileShowsOnlyWhatTheImportAloneHid(t *testing.T) {
 		review(archiveReply, xsource.StatusReply),
 		review(archiveForeign, xsource.StatusForeign),
 		review(archiveOperator, xsource.StatusTopLevel),
+		review(archiveMisfiled, xsource.StatusGone),
 		review(archiveNew, xsource.StatusTopLevel),
 		{ID: archiveReply, Account: "someone_synthetic", Outcome: xsource.StatusTopLevel},
 		review(archiveReply, "unexpected"),
@@ -210,12 +248,24 @@ func TestApplyXReconcileShowsOnlyWhatTheImportAloneHid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if applied.Shown != 2 || applied.Kept != 3 || applied.Unknown != 3 {
+	if applied.Shown != 3 || applied.Kept != 3 || applied.Unknown != 3 {
 		t.Fatalf("applied %+v", applied)
 	}
-	for id, shown := range map[string]bool{archiveListed: true, archiveThread: true, archiveReply: false, archiveForeign: false, archiveOperator: false} {
+	for id, shown := range map[string]bool{archiveListed: true, archiveThread: true, archiveReply: false, archiveForeign: false, archiveOperator: false, archiveMisfiled: false} {
 		if _, _, hidden, raw := postState(t, db, id); hidden == shown || !json.Valid([]byte(raw)) {
 			t.Fatalf("%s: hidden=%v reconcile=%s", id, hidden, raw)
+		}
+	}
+	for id, want := range map[string][3]string{
+		archiveListed:   {"", xsource.StatusTopLevel, ""},
+		archiveThread:   {"", xsource.StatusSelfReply, ""},
+		archiveReply:    {recordAt, xsource.StatusReply, ""},
+		archiveForeign:  {"", xsource.StatusForeign, "2026-11-19T00:00:00.000Z"},
+		archiveOperator: {"2026-12-01T00:00:00.000Z", xsource.StatusTopLevel, ""},
+		archiveMisfiled: {"", XKindUnlisted, archiveCaptureAt},
+	} {
+		if hiddenAt, kind, deletedAt := upstreamState(t, db, id); [3]string{hiddenAt, kind, deletedAt} != want {
+			t.Fatalf("%s: hidden_at=%q kind=%q deleted=%q", id, hiddenAt, kind, deletedAt)
 		}
 	}
 	if left, _ := s.XReconcileCandidates(ctx); len(left) != 0 {

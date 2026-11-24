@@ -67,7 +67,7 @@ func Normalize(payload map[string]any, fallbackID, account string) *Post {
 	}
 	u = normalizePostURL(u, account, id)
 	avatarURL := extractAuthorAvatarURL(author, payload)
-	p := &Post{ID: id, AccountHandle: account, Type: "daily", Label: LabelDaily, Text: text, PublishedAt: published, URL: u, Likes: number(first(payload, "likes", "likeCount")), Reposts: number(first(payload, "retweets", "reposts", "retweetCount")), Replies: number(first(payload, "replies", "replyCount")), MediaURLs: media, MediaKinds: itemKinds(items), AuthorScreenName: screen, AuthorAvatarURL: avatarURL, Quote: quote, Raw: payload}
+	p := &Post{ID: id, AccountHandle: account, Type: "daily", Label: LabelDaily, Text: text, PublishedAt: published, URL: u, Likes: number(first(payload, "likes", "likeCount")), Reposts: number(first(payload, "retweets", "reposts", "retweetCount")), Replies: number(first(payload, "replies", "replyCount")), MediaURLs: media, MediaKinds: itemKinds(items), AuthorScreenName: screen, AuthorAvatarURL: avatarURL, Quote: quote, Kind: StatusKind(payload, account), Raw: payload}
 	if strings.Contains(strings.ToLower(text), "schedule") || strings.Contains(text, "スケジュール") || strings.Contains(text, "配信予定") || strings.Contains(text, "週間予定") || strings.Contains(text, "今週の予定") {
 		p.Type = "notice"
 		p.Label = LabelSchedule

@@ -1,6 +1,6 @@
 # Posts
 
-How quoted posts, reposts, hidden posts, posts deleted upstream, imported posts and post LLM states are stored.
+How quoted posts, post visibility, reposts, posts deleted upstream, imported posts and post LLM states are stored.
 
 ## Quoted Posts
 
@@ -32,16 +32,77 @@ of a dynamic whose ID the listing did not give has a `null` `id` and the
 forward's own opus page as `url`. The console's post list keeps a post's own
 images apart from its quote.
 
+## Post Visibility
+
+Whether the public pages show a stored post is computed at read time from
+what X says about it and what the operator decided; nothing stores the
+result. Synchronization, account-export imports and their reviews write only
+the platform columns, and only the operator writes theirs:
+
+- `posts.upstream_kind` is what X says an X post is for the account it is
+  stored under: `top_level`, `self_reply` (a reply in the account's own
+  thread), `reply` (an answer to another account), `foreign` (another
+  author's status), `repost` (the account's repost under its own ID) or
+  `unlisted` (an earlier import's post an account export left out, see
+  [Posts from account exports](#posts-from-account-exports)). `NULL` is
+  unknown, which Bilibili posts keep. Every answer that can tell writes it
+  (see [Post kinds](../sources/x.md#post-kinds)); one that cannot keeps the
+  stored value, and nothing writes `NULL` back.
+- `posts.upstream_deleted_at` is when X was found no longer to have the
+  status (see [Posts deleted upstream](#posts-deleted-upstream)).
+- `posts.hidden_at` and `posts.shown_at` are the operator's hide and show
+  of the whole post (see [Posts](../admin-api/posts.md)). At most one is set;
+  neither leaves the post to the rules.
+
+A post that is not soft-deleted (`deleted_at`, which nothing overrides; see
+[Reposts stored as posts](#reposts-stored-as-posts)) is shown when the
+operator shows it, whatever the rest says. Otherwise it is shown when the
+operator does not hide it, X still has it, and:
+
+- an own post's kind is not `reply`, `foreign`, `repost` or `unlisted`; an
+  unknown kind shows;
+- a promoted post is not demoted by the X status pool: an operator's demote,
+  or without an operator's decision the rules' `x_statuses.demoted_at` (see
+  [Related accounts](../sources/x-accounts.md#related-accounts)). Its kind,
+  read for its own author, does not hide it.
+
+The board (its wall, window count and latest post), the post archive and its
+month index, the public API and MCP apply the rule, and so do the events a
+post alone supports (see [Events of hidden posts](#events-of-hidden-posts)),
+schedule extraction (see [Schedule extraction pipeline](../sources/extraction.md)),
+machine translation and the console's request counts: a post the public pages
+leave out is not extracted, and not translated unless a post quotes it, since
+the quote card shares its translations (see
+[Translation](../sources/translation.md)); other requests for it wait until it
+is shown. Public reads look up a promoted post's demotion in `x_statuses`
+and read no pooled status otherwise. The console lists every post with its
+state (see [Posts](../admin-api/posts.md)). `posts_account_instant_idx` holds
+the shown own posts by account and instant, so the board reads each
+account's newest posts from it.
+
+Startup adds `upstream_kind` and `shown_at` to a snapshot without them and,
+in the same transaction, moves the automatic hides its `hidden_at` holds into
+the platform columns without changing what any post shows: an import record's
+reviewed outcome becomes the kind, and `gone` sets `upstream_deleted_at` to
+the record's `checkedAt`; a record without a kind outcome makes the post
+`unlisted`; a record that still says `hidden` on a post without `hidden_at`
+was shown by the operator, which `shown_at` records; and `hidden_at` is
+cleared where it is the import's own hide (it equals the record's `at`) or
+the pool's (a promoted post the pool demotes). An account export's post is
+`top_level`, and any other X post takes the kind its stored `raw_json`
+tells. Startup rebuilds `posts_account_instant_idx` whenever its stored
+definition differs from the schema's.
+
 ## Events of Hidden Posts
 
 An automatic, unlocked event whose every active source is a hidden post is
 hidden by its posts: the active `event_sources` rows of the event and of the
-events merged into it all name a stored X or Bilibili post with
-`posts.hidden_at` or `posts.upstream_deleted_at` set (an operator hid it, or
-[X no longer has it](#posts-deleted-upstream)), and there is at least one. It
-is a visibility rule computed at read time, not a deletion or tombstone: the
-row, its evidence and its merges stay, and showing a source post, or X
-listing it again, shows the event again. An event
+events merged into it all name a stored X or Bilibili post the public pages
+do not show (see [Post visibility](#post-visibility)), and there is at least
+one. It is a visibility rule computed at read time, not a deletion or
+tombstone: the row, its evidence and its merges stay, and showing a source
+post, or X telling that it exists or is an own post, shows the event again.
+An event
 with `manual_locked = 1` or `provenance = manual` is never hidden this way,
 since the operator's decision outranks hiding; confirming an event keeps it
 shown while its post stays hidden. An event with any other active source,
@@ -82,16 +143,18 @@ A post written from an [account export](../sources/x-accounts.md#account-exports
 fields Normalize reads (`tweetID`, `text`, `date_epoch`, `mediaURLs`,
 `mediaKinds`, `qrt`), and is otherwise an own X post: synchronization
 rewrites it like any stored post. A post an earlier third-party import wrote
-carries `raw_json.import` instead. When an export does not list such a post,
-the export import hides it (`hidden_at`) and records why in
-`raw_json.import.reconcile`: `{decision: "hidden", reason, at}`, where
-`reason` is `at_reply` for wording that opens with another account's handle
-and `unlisted` otherwise, and `at` equals the `hidden_at` it set. A review adds
-`outcome` (`top_level`, `self_reply`, `reply`, `foreign`, `repost` or
-`gone`) and `checkedAt`; an own top-level post or thread reply whose
-`hidden_at` still equals `at` is shown again with `decision: "shown"`. A hide
-whose time differs from `at` is an operator's, which no import or review
-changes.
+carries `raw_json.import` instead. The export lists only the account's
+top-level posts, so its posts are `top_level`. When an export does not list
+an earlier import's post, the export import marks it `unlisted`
+(`upstream_kind`, unless an answer already told its kind), which keeps it off
+the public pages, and records why in `raw_json.import.reconcile`:
+`{decision: "hidden", reason, at}`, where `reason` is `at_reply` for wording
+that opens with another account's handle and `unlisted` otherwise. A review
+adds `outcome` (`top_level`, `self_reply`, `reply`, `foreign`, `repost` or
+`gone`) and `checkedAt`, and `decision: "shown"` for an own top-level post or
+thread reply. The outcome becomes the post's kind, except that `gone` sets
+`upstream_deleted_at` at `checkedAt` and keeps `unlisted`. Neither the import
+nor a review writes the operator's `hidden_at` or `shown_at`.
 
 The app setting `x_archive_accounts` (a JSON array, absent until an export of
 such an account is imported) lists the X accounts whose posts come only from
@@ -157,7 +220,8 @@ operator requests a reprocess.
 An own X post whose status X no longer has is soft-deleted upstream: when an
 account's run drops a stored post's ID with `x_status_gone` (see the
 [pending retries](../sources/x.md)), the write stamps
-`posts.upstream_deleted_at`. Nothing is removed or rewritten: the row, its
+`posts.upstream_deleted_at`, and an account-export review's `gone` outcome
+stamps it at the review's `checkedAt`. Nothing is removed or rewritten: the row, its
 `raw_json`, its media links and files, its schedule-image candidate and
 review, its LLM states, extractions and translations, and its events and
 their evidence stay as they are. Public reads leave the post out, and with
@@ -165,9 +229,11 @@ it each automatic, unlocked event it is the only source of (see
 [Events of hidden posts](#events-of-hidden-posts)): the board's
 wall and latest post, the post archive and its month index, and with them the
 public API and MCP; the board's and the calendar's schedule images leave out
-its schedule-image candidate. The console lists the post with
+its schedule-image candidate. The operator's show (`shown_at`) brings back the
+post and its schedule image. The console lists the post with
 `upstreamDeletedAt`. The mark is a state of the source, not an operator
 decision: any later answer that carries the status clears it, whether a
-detail answer, a timeline or X API page listing the stored post, or a manual
-fetch. Another account's run, a promoted post and a post already deleted
-(`deleted_at`) are never marked.
+detail answer, a timeline or X API page listing the stored post, a manual
+fetch, or a review that read the status after the mark was set. Another
+account's run, a promoted post and a post already deleted (`deleted_at`) are
+never marked.

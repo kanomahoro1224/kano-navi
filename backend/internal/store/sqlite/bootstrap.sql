@@ -256,7 +256,9 @@ CREATE TABLE posts (
     hidden_at TEXT,
     promoted_at TEXT,
     deleted_at TEXT,
-    upstream_deleted_at TEXT
+    upstream_deleted_at TEXT,
+    upstream_kind TEXT,
+    shown_at TEXT
   );
 
 CREATE TABLE profile_media (
@@ -599,7 +601,9 @@ CREATE INDEX posts_account_handle_idx ON posts (account_handle, published_at DES
 
 CREATE INDEX posts_account_instant_idx
     ON posts (lower(COALESCE(account_handle, '')), julianday(published_at) DESC, id)
-    WHERE deleted_at IS NULL AND hidden_at IS NULL AND upstream_deleted_at IS NULL AND promoted_at IS NULL;
+    WHERE deleted_at IS NULL AND promoted_at IS NULL
+      AND (shown_at IS NOT NULL OR (hidden_at IS NULL AND upstream_deleted_at IS NULL
+        AND COALESCE(upstream_kind, '') NOT IN ('reply', 'foreign', 'repost', 'unlisted')));
 
 CREATE INDEX posts_bilibili_account_idx ON posts (account_handle) WHERE source = 'bilibili';
 

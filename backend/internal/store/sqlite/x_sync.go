@@ -37,7 +37,10 @@ func (s *Store) WriteXRecent(ctx context.Context, account string, result xsource
 // leaves the queue like a stored one; it never fails the account. A pending
 // status dropped as gone (x_status_gone) that is stored as the account's
 // post is marked deleted upstream (posts.upstream_deleted_at); any later
-// answer that carries the status clears the mark.
+// answer that carries the status clears the mark. Every answer that tells
+// what a stored post is records it in posts.upstream_kind: a written post's
+// Kind, a listed stored post's Kind, and foreign for a pending status a
+// detail answer names as another author's (x_status_foreign).
 func (s *Store) WriteXRecentReport(ctx context.Context, account string, result xsource.Result, success bool) (XRecentWrite, error) {
 	out := XRecentWrite{}
 	if s == nil || s.db == nil || !s.workflowWritable {
@@ -70,7 +73,7 @@ func (s *Store) WriteXRecentReport(ctx context.Context, account string, result x
 			lookupErr := tx.QueryRowContext(ctx, `SELECT 1 FROM posts WHERE id=?`, p.ID).Scan(&exists)
 			if lookupErr == nil {
 				kept[p.ID] = true
-				listed, clearErr := clearXUpstreamDeleted(ctx, tx, account, p.ID)
+				listed, clearErr := recordXUpstreamState(ctx, tx, account, p.ID, p.Kind)
 				if clearErr != nil {
 					return out, ErrSourceWrite
 				}
@@ -93,18 +96,20 @@ func (s *Store) WriteXRecentReport(ctx context.Context, account string, result x
 		changed = true
 	}
 	for _, dropped := range result.Dropped {
-		if dropped.Code != xsource.DroppedGone {
-			continue
+		var marked bool
+		var markErr error
+		switch dropped.Code {
+		case xsource.DroppedGone:
+			marked, markErr = execChanged(ctx, tx, `UPDATE posts SET upstream_deleted_at=? WHERE id=? AND source='x' AND lower(account_handle)=lower(?) AND upstream_deleted_at IS NULL AND deleted_at IS NULL`, now, dropped.ID, account)
+		case xsource.DroppedForeign:
+			// The answer carries the status, so it exists; another author
+			// wrote it.
+			marked, markErr = recordXUpstreamState(ctx, tx, account, dropped.ID, xsource.StatusForeign)
 		}
-		marked, markErr := tx.ExecContext(ctx, `UPDATE posts SET upstream_deleted_at=? WHERE id=? AND source='x' AND lower(account_handle)=lower(?) AND upstream_deleted_at IS NULL AND deleted_at IS NULL`, now, dropped.ID, account)
 		if markErr != nil {
 			return out, ErrSourceWrite
 		}
-		if count, countErr := marked.RowsAffected(); countErr != nil {
-			return out, ErrSourceWrite
-		} else if count > 0 {
-			changed = true
-		}
+		changed = changed || marked
 	}
 	repostsChanged, err := writeXReposts(ctx, tx, account, result.Reposts, now)
 	if err != nil {
@@ -146,14 +151,24 @@ func (s *Store) WriteXRecentReport(ctx context.Context, account string, result x
 	return out, nil
 }
 
-// clearXUpstreamDeleted clears the deleted-upstream mark of a stored post
-// that a listing carried again, reporting whether it had one.
-func clearXUpstreamDeleted(ctx context.Context, tx *sql.Tx, account, id string) (bool, error) {
-	cleared, err := tx.ExecContext(ctx, `UPDATE posts SET upstream_deleted_at=NULL WHERE id=? AND source='x' AND lower(account_handle)=lower(?) AND upstream_deleted_at IS NOT NULL`, id, account)
+// recordXUpstreamState records what an answer that carried an own stored
+// post's status says: the status exists, so its deleted-upstream mark is
+// cleared, and its kind, when the answer tells one, replaces the stored
+// one. It reports whether either changed. A promoted or soft-deleted post
+// is left alone.
+func recordXUpstreamState(ctx context.Context, tx *sql.Tx, account, id, kind string) (bool, error) {
+	return execChanged(ctx, tx, `UPDATE posts SET upstream_deleted_at=NULL,upstream_kind=COALESCE(?,upstream_kind)
+		WHERE id=? AND source='x' AND lower(account_handle)=lower(?) AND promoted_at IS NULL AND deleted_at IS NULL
+		AND (upstream_deleted_at IS NOT NULL OR upstream_kind IS NOT COALESCE(?,upstream_kind))`, nullable(kind), id, account, nullable(kind))
+}
+
+// execChanged runs an update and reports whether it changed a row.
+func execChanged(ctx context.Context, tx *sql.Tx, query string, args ...any) (bool, error) {
+	result, err := tx.ExecContext(ctx, query, args...)
 	if err != nil {
 		return false, err
 	}
-	count, err := cleared.RowsAffected()
+	count, err := result.RowsAffected()
 	return count > 0, err
 }
 
@@ -239,7 +254,8 @@ func writeXState(ctx context.Context, tx *sql.Tx, account string, result xsource
 // when the ID already belongs to another account, whose row is left
 // unchanged, or is an own account's repost (x_repost_ids), which is
 // never stored. A stored post it rewrites loses its deleted-upstream mark:
-// the answer shows the status exists.
+// the answer shows the status exists. The post's Kind replaces the stored
+// upstream_kind when the answer tells one and leaves it otherwise.
 func writeXPost(ctx context.Context, tx *sql.Tx, account string, p xsource.Post, now string) (bool, error) {
 	return writeXPostAs(ctx, tx, account, p, now, true)
 }
@@ -256,7 +272,7 @@ func writeXPostAs(ctx context.Context, tx *sql.Tx, account string, p xsource.Pos
 	if len(p.MediaURLs) > 0 {
 		media = p.MediaURLs[0]
 	}
-	written, err := tx.ExecContext(ctx, `INSERT INTO posts(id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,raw_json,quote_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET account_handle=excluded.account_handle,type=excluded.type,label=excluded.label,text=excluded.text,published_at=excluded.published_at,url=excluded.url,likes=excluded.likes,reposts=excluded.reposts,replies=excluded.replies,media_url=excluded.media_url,media_alt=excluded.media_alt,raw_json=excluded.raw_json,quote_json=excluded.quote_json,upstream_deleted_at=NULL WHERE lower(posts.account_handle)=lower(excluded.account_handle) OR posts.account_handle IS NULL`, p.ID, "x", account, p.Type, p.Label, p.Text, p.PublishedAt, p.URL, p.Likes, p.Reposts, p.Replies, nullable(media), nullable(p.MediaAlt), string(raw), quoteJSON(p.Quote))
+	written, err := tx.ExecContext(ctx, `INSERT INTO posts(id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,raw_json,quote_json,upstream_kind) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET account_handle=excluded.account_handle,type=excluded.type,label=excluded.label,text=excluded.text,published_at=excluded.published_at,url=excluded.url,likes=excluded.likes,reposts=excluded.reposts,replies=excluded.replies,media_url=excluded.media_url,media_alt=excluded.media_alt,raw_json=excluded.raw_json,quote_json=excluded.quote_json,upstream_deleted_at=NULL,upstream_kind=COALESCE(excluded.upstream_kind,posts.upstream_kind) WHERE lower(posts.account_handle)=lower(excluded.account_handle) OR posts.account_handle IS NULL`, p.ID, "x", account, p.Type, p.Label, p.Text, p.PublishedAt, p.URL, p.Likes, p.Reposts, p.Replies, nullable(media), nullable(p.MediaAlt), string(raw), quoteJSON(p.Quote), nullable(p.Kind))
 	if err != nil {
 		return false, err
 	}

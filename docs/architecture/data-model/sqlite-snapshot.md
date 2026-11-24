@@ -29,7 +29,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `profile_media`             | Avatar and banner candidates, their downloads, and the operator's selected file                        |
 | `account_avatars`           | Per-account active avatar state and display mode (`auto`, `manual`, `hidden`)                          |
 | `account_avatar_candidates` | Cached and uploaded avatar history per tracked X account                                               |
-| `posts`                     | X posts and Bilibili dynamics, account, publication time, engagement counts, media, and the quote      |
+| `posts`                     | X posts and Bilibili dynamics: account, time, counts, media, quote, upstream state and visibility      |
 | `events`                    | Unified schedules, platform, provenance, confidence, manual locks, tombstones, and duplicate merges    |
 | `event_sources`             | Source post/reservation identities attached to each event                                              |
 | `videos`                    | YouTube videos and streams, Bilibili uploads and their merges, corrections, and refresh requests       |

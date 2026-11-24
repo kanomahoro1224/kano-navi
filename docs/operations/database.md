@@ -96,8 +96,9 @@ an external fetch.
 
 [Account exports](../architecture/sources/x-accounts.md#account-exports) add an X
 account's posts from a browser exporter's files, `<handle>.json` and
-`<handle>-media.zip`, and hide the posts an earlier third-party import filed
-under the account that the export does not list. Back up data/ first, then:
+`<handle>-media.zip`, and mark as unlisted, off the public pages, the posts
+an earlier third-party import filed under the account that the export does
+not list. Back up data/ first, then:
 
 1. Copy the exports into an ignored directory of the deployment, such as
    `data/imports/x/`.
@@ -108,7 +109,7 @@ under the account that the export does not list. Back up data/ first, then:
 3. Run it again without `-dry-run`. It may run while the service runs; the
    board shows the change at its next revision. An account outside
    `X_HANDLES` becomes an archive-only account.
-4. Copy the database to a workstation and read the hidden posts there:
+4. Copy the database to a workstation and read the unlisted posts there:
    `kano-go x-archive check -database <copy> -out decisions.jsonl`, with
    `-capture <directory>` naming the earlier import's capture when it is at
    hand, so its marked reposts need no request. The run is
@@ -116,9 +117,11 @@ under the account that the export does not list. Back up data/ first, then:
    rerun appends to the same file. `-limit` reads only that many posts, and
    `-interval`, `-min-interval` and `-max-interval` change the pace.
 5. Copy `decisions.jsonl` to the deployment and apply it with
-   `x-archive apply -in <file>`, first with `-dry-run`. Own posts and thread
-   replies that only the import hid are shown again; the rest stay hidden,
-   and the console's post list shows them for an operator's decision.
+   `x-archive apply -in <file>`, first with `-dry-run`. Each post records
+   what X said it is: own posts and thread replies are shown again, gone
+   posts are marked deleted on X, and the rest stay off the public pages; the
+   console's post list shows each with its state for an operator's
+   decision.
 
 The exports and the decisions file stay out of Git like the rest of data/.
 

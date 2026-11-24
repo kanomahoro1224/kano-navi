@@ -31,6 +31,7 @@ const blankFilters = {
   llm: "",
   translation: "",
   queued: "",
+  visibility: "",
   from: "",
   to: "",
 }
@@ -68,6 +69,7 @@ const llmStatuses = [
   "skipped",
 ]
 const translationStatuses = ["incomplete", "complete", "requested", "failed"]
+const visibilities = ["shown", "hidden"]
 
 function PostList({
   platform,
@@ -232,6 +234,18 @@ function PostList({
             ...queuedKinds.map((kind) => ({
               value: kind,
               label: t(`admin.posts.queue.${kind}`),
+            })),
+          ]}
+        />
+        <FilterSelect
+          label={t("admin.posts.visibility")}
+          value={filters.visibility}
+          onChange={(visibility) => update({ visibility })}
+          options={[
+            any,
+            ...visibilities.map((visibility) => ({
+              value: visibility,
+              label: t(`admin.posts.visibility.${visibility}`),
             })),
           ]}
         />

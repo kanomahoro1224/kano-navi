@@ -4,23 +4,28 @@ Reading and editing posts and external posts.
 
 ## Posts
 
-| Method and path                  | Body / query                                                                                            | Result                           |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `GET /posts`                     | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `queued`, `translation` | list of posts                    |
-| `PUT /posts/{id}/hidden`         | `{hidden}`                                                                                              | `{state}`                        |
-| `POST /posts/{id}/reprocess`     | `{route?}`                                                                                              | `{state}`                        |
-| `POST /posts/{id}/dismiss`       | none                                                                                                    | `{state}`; `409 post_not_failed` |
-| `POST /posts/reprocess`          | `{ids}`                                                                                                 | `{queued}`                       |
-| `POST /posts/dismiss`            | `{ids}`                                                                                                 | `{dismissed}`                    |
-| `POST /posts/refresh`            | `{ids}`                                                                                                 | `{queued}`                       |
-| `PUT /posts/{id}/schedule-image` | `{index, reason, start?, end?}`                                                                         | `{image}`                        |
-| `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                              | `{state}`                        |
-| `POST /posts/{id}/refresh`       | none                                                                                                    | `{state}`                        |
+| Method and path                  | Body / query                                                                                                          | Result                           |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `GET /posts`                     | `page`, `pageSize` (≤ 200), `source`, `account`, `from`, `to`, `search`, `llm`, `queued`, `translation`, `visibility` | list of posts                    |
+| `PUT /posts/{id}/visibility`     | `{visibility}`                                                                                                        | `{state}`                        |
+| `POST /posts/{id}/reprocess`     | `{route?}`                                                                                                            | `{state}`                        |
+| `POST /posts/{id}/dismiss`       | none                                                                                                                  | `{state}`; `409 post_not_failed` |
+| `POST /posts/reprocess`          | `{ids}`                                                                                                               | `{queued}`                       |
+| `POST /posts/dismiss`            | `{ids}`                                                                                                               | `{dismissed}`                    |
+| `POST /posts/refresh`            | `{ids}`                                                                                                               | `{queued}`                       |
+| `PUT /posts/{id}/schedule-image` | `{index, reason, start?, end?}`                                                                                       | `{image}`                        |
+| `PUT /posts/{id}/quote/hidden`   | `{hidden}`                                                                                                            | `{state}`                        |
+| `POST /posts/{id}/refresh`       | none                                                                                                                  | `{state}`                        |
 
 Each post reports `promotedAt`, when a related account's status was promoted
-into posts, or null for an own post; External posts holds its decisions.
-`upstreamDeletedAt` is when synchronization found the X status
-[deleted on X](../data-model/posts.md#posts-deleted-upstream), or null.
+into posts, or null for an own post; External posts holds its decisions, and
+`demoted` is true while they demote it. `upstreamDeletedAt` is when X was
+found no longer to have the status
+([deleted on X](../data-model/posts.md#posts-deleted-upstream)), or null;
+`upstreamKind` is what X says it is (`top_level`, `self_reply`, `reply`,
+`foreign`, `repost` or `unlisted`), or null while no answer has told; and
+`visible` is whether the public pages show it (see
+[Post visibility](../data-model/posts.md#post-visibility)).
 `account` is an X handle, matched without case or a leading `@`; `llm` is `never`, `pending`, `processed`, `failed`,
 `dismissed`, `skipped` or `uncertain`; `queued` keeps the posts with an open
 operator request: `extraction` (queued for re-extraction), `refresh` (a
@@ -28,7 +33,9 @@ refresh from the source), `translation` (a machine translation) or `any` of
 them;
 `translation` is `incomplete`, `complete`, `requested` or `failed` (the
 machine pass of the current wording failed and a locale still lacks a usable
-translation).
+translation) over the posts machine translation covers (see
+[Translation](../sources/translation.md)); `visibility` keeps the
+posts the public pages show (`shown`) or leave out (`hidden`).
 
 `from` and `to` are inclusive Asia/Tokyo publication dates. Search matches
 text, URL, image alt text and the stored post ID before pagination, so older
@@ -81,18 +88,25 @@ A Bilibili forward's quote is the dynamic it forwards, with its author's mid
 as `authorHandle` and an empty `id` when the listing did not name it.
 Its `media` has the `{url, status, alt}` shape but lists only ready cached
 quote images, never the post's own. `quoteHiddenAt` is when an operator hid
-the quote from the public pages, `hiddenAt` when an operator hid the whole
-post, and `refreshRequestedAt` is a queued refresh from the source; each is
-`null` otherwise. The console never edits
+the quote from the public pages, `hiddenAt` and `shownAt` when an operator hid
+or showed the whole post, and `refreshRequestedAt` is a queued refresh from
+the source; each is `null` otherwise. The console never edits
 the quoted wording, author or images.
 
-`PUT /posts/{id}/hidden` with `{"hidden": true}` hides the whole post from the
-dashboard, the post archive and MCP; `false` shows it again. A hidden post is
-never selected for extraction, and an operator's reprocess request for it
-waits until it is shown again (the extraction backlog does not count it). The
-automatic events it alone supports leave the public pages while it is hidden
-(see [Events of hidden posts](../data-model/posts.md#events-of-hidden-posts)). It
-follows the quote rules below, except that any stored post can be hidden.
+`PUT /posts/{id}/visibility` records the operator's decision on the whole
+post: `{"visibility": "hidden"}` hides it from the dashboard, the post archive
+and MCP (`hiddenAt`), `"shown"` shows it there whatever X says about it or the
+External posts rules decide (`shownAt`), and `"auto"` withdraws both, so
+[Post visibility](../data-model/posts.md#post-visibility) decides again.
+`visibility` must be one of the three strings. The decision never changes an
+External posts decision. A post the public pages leave out is never selected
+for extraction, nor for translation unless a post quotes it (see
+[Post visibility](../data-model/posts.md#post-visibility)); an operator's
+request it does not take waits until the post is shown (the backlog does not
+count it). The automatic events it alone
+supports leave the public pages while it is hidden (see
+[Events of hidden posts](../data-model/posts.md#events-of-hidden-posts)). It
+follows the quote rules below, except that any stored post can be decided on.
 
 `PUT /posts/{id}/quote/hidden` with `{"hidden": true}` hides the post's
 quote from the dashboard, the post archive and MCP; `false` shows it again.
@@ -107,7 +121,7 @@ contacts no source itself. A repeated request keeps the first request's
 place. Posts that are not own X statuses with a known account, promoted
 statuses included, answer `400 invalid_input`. See
 [Refresh from the source](../sources/quoted-posts.md#refresh-from-the-source). The three
-routes answer `{state: {postId, hiddenAt, quoteHiddenAt, refreshRequestedAt}}`;
+routes answer `{state: {postId, hiddenAt, shownAt, quoteHiddenAt, refreshRequestedAt}}`;
 MCP control has none of them.
 
 ## External posts
@@ -123,8 +137,9 @@ The list pages the X status pool, newest status first (see
 the own accounts (`X_HANDLES`) or any own post the pool holds as a quote;
 those belong to Posts. `author` is a handle,
 matched without case or a leading `@`; `reason` is `keyword`, `manual`,
-`quoted`, `reposted` or `none`; `state` is `promoted` (a shown promoted
-post), `demoted` (a hidden one) or `stored` (pool only); `search` matches
+`quoted`, `reposted` or `none`; `state` is `promoted` (a promoted post the
+public pages show), `demoted` (one they leave out, whether the pool demotes it
+or the operator hid it in Posts) or `stored` (pool only); `search` matches
 the text or the status ID. Each
 status is `{id, authorHandle, authorName, text, publishedAt, url, images,
 reasons, state, related, decision, decisionReason, decidedAt, quotedAt,
@@ -138,8 +153,10 @@ null for a status whose post owns the translations.
 `decision` is `promote` or `demote`, which need a `reason` of at most 500
 characters and become a durable lock, or `automatic`, which removes the lock
 so the keyword rules decide again. A promote needs a related account's
-status or a reposted one (otherwise `400 invalid_input`), writes or shows
-its post and answers the status; a demote hides the promoted post. An own post, or a promote of an own account's status, answers `400 invalid_input`, a missing status
+status or a reposted one (otherwise `400 invalid_input`), writes its post
+and answers the status; a demote leaves the promoted post off the public
+pages. Either withdraws an operator's hide or show of the promoted post in
+Posts, so the decision takes effect. An own post, or a promote of an own account's status, answers `400 invalid_input`, a missing status
 `404 not_found`. A change moves the dashboard revision. Translations of a
 pooled status use the [translation routes](models.md#translations) with owner
 `x_status`.

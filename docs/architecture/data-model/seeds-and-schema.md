@@ -59,10 +59,14 @@ can share a source URL.
 Startup also additively creates two partial post indexes for the board
 snapshot: `posts_account_instant_idx` on
 `posts(lower(COALESCE(account_handle, '')), julianday(published_at) DESC, id)`
-over the public posts that are not promoted, which lists the accounts and each
-account's newest posts, and `posts_bilibili_account_idx` on
+over the own posts the public pages show (see
+[Post visibility](posts.md#post-visibility)), which lists the accounts and
+each account's newest posts, and `posts_bilibili_account_idx` on
 `posts(account_handle)` over the Bilibili posts, which lists the Bilibili
-accounts. Neither changes a stored row.
+accounts. Neither changes a stored row. A stored index whose definition
+differs from the schema's (`redefinedIndexes` in
+`backend/internal/store/sqlite/post_visibility_upgrade.go`) is dropped and
+created again.
 
 backend/internal/store/sqlite owns the schema (`bootstrap.sql`), the
 additive upgrade behavior (`schema_upgrade.go`) and the workflow tables

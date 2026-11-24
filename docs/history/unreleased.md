@@ -9,10 +9,27 @@
   account exports and reviews the posts an earlier import added; see
   Database operations, X Account Exports. A first import of an account
   outside `X_HANDLES` adds the app setting `x_archive_accounts`.
-- Startup adds the empty column `posts.upstream_deleted_at`; no existing post
-  is marked. A read-only instance refuses a snapshot without it, so start the
-  writable service on the snapshot once to upgrade it.
-- The admin API's posts report `upstreamDeletedAt`.
+- Startup adds the columns `posts.upstream_deleted_at`, `posts.upstream_kind`
+  and `posts.shown_at` and moves the automatic hides `posts.hidden_at` held
+  (an account-export import and its review, related-account demotion) into
+  them once: a reviewed post takes its outcome as its kind and a `gone` one
+  its deleted-on-X time, an unreviewed post becomes `unlisted`, each stored
+  X answer gives its post's kind, and `hidden_at` keeps only operator hides.
+  Every post keeps its visibility, except that a post whose stored X answer
+  says it is a reply to another account, another author's status or a repost
+  leaves the public pages, and a post a review found gone takes its schedule
+  image with it. It rebuilds `posts_account_instant_idx`. A read-only
+  instance refuses a snapshot without the columns, so start the writable
+  service on the snapshot once to upgrade it. An earlier release reading the
+  upgraded snapshot would show the posts an import or a review kept off the
+  public pages, so roll back only by restoring the backup taken before the
+  upgrade.
+- The admin API's posts report `upstreamDeletedAt`, `upstreamKind`,
+  `shownAt`, `demoted` and `visible` and take a `visibility` filter;
+  `PUT /api/admin/posts/{id}/visibility` (`auto`, `shown` or `hidden`)
+  replaces `PUT /api/admin/posts/{id}/hidden`.
+- `kano-go x-archive check` reads every post still `unlisted`, those whose
+  wording opens with another account's handle included.
 - An event `view.state` may be `ongoing`, in the dashboard, calendar, MCP
   and every other read that carries the view.
 - Startup adds the empty tables `alert_incidents` and `alert_deliveries`.
@@ -95,7 +112,11 @@
   `#queue` links open Up next.
 - Panels, fields and switches drop their explanatory text and question-mark
   help; the docs describe how each feature works.
-- Posts marks a post deleted on X with a **Deleted on X** badge.
+- Posts shows what X says about each post (**Deleted on X**, **Thread**,
+  **Reply**, **Other author**, **Repost**, **Unlisted**) and a promoted
+  post's **Demoted**, filters by whether the public pages show a post, and
+  replaces the hide switch with **Public pages**: Auto, Show or Hide. Show
+  keeps a post on the public pages whatever X or External posts say.
 - The model provider dialog drops its retries field, which never took
   effect; calls follow the attempts per model sync setting.
 - The Review queue lists entries their posts no longer list, with Keep entry
@@ -115,9 +136,15 @@
 <summary><strong>Synchronization and extraction</strong></summary>
 
 - X account exports fill in Kano's own posts with their wording, links,
-  quotes and photos, and hide the replies and other people's posts an
-  earlier import filed as hers; a slow local check sorts the hidden posts
-  and shows her own thread replies again.
+  quotes and photos, and keep the replies and other people's posts an
+  earlier import filed as hers off the public pages; a slow local check
+  tells what each is and shows her own posts and thread replies again.
+- Every X answer that can tell records what a post is (her own post, a
+  thread reply, a reply to someone else, another author's post or a
+  repost), and the public pages follow it: a reply to someone else, another
+  author's post or a repost stays off the wall, Past posts, the API and MCP
+  with the entries only it announced. A post the public pages leave out is
+  not extracted, and translated only when a post quotes it.
 - A run whose lease expired after a source failure it tolerated resumes with
   its remaining steps and finishes partial instead of failing.
 - An X `count` sync setting and a timeline `count` fetch read the newest posts

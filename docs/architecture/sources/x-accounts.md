@@ -75,21 +75,25 @@ its author's handle, with `posts.promoted_at` set. It registers the status's
 own images and quoted images as any post does, but never a schedule-image
 candidate, and gives the status it quotes no `quoted` reason. From then on
 the post takes the paths every post takes: the wall, the archive,
-translation, extraction and media. **Demotion** sets `posts.hidden_at` and
-keeps the row, its media and its events, whose automatic ones then leave the
-public pages (see [Events of hidden posts](../data-model/posts.md#events-of-hidden-posts)).
-An automatic demotion records `x_statuses.demoted_at`, so an automatic
-promotion shows again only a post the rules hid; an operator's hide in Posts
-stays. Showing a promoted post in Posts records a manual promote, and hiding
-it withdraws that promote. An operator's promote or demote (`manual_decision`, with its reason
-and time) is a durable lock that the rules never override; a manual promote
-shows a hidden promoted post, and returning a status to the rules lets them
-decide again. A related account's status and any reposted status can be
-promoted by hand. Returned to the rules, a status they do not promote (any
-but a related account's status that matches its keywords) stays unpromoted,
-or hidden when it was promoted. A pooled status that is an own post, or
-whose author is an own account (a configured handle, or one with own posts
-or reposts stored), is never promoted.
+translation, extraction and media. **Demotion** keeps the row, its media
+and its events and writes nothing on the post: public reads leave a demoted
+post out, and with it the automatic events it alone supports (see
+[Post visibility](../data-model/posts.md#post-visibility)). Without an
+operator's decision the rules record their demotion in
+`x_statuses.demoted_at`, which a later match clears. An operator's promote
+or demote (`manual_decision`, with its reason and time) is a durable lock
+that the rules never override; returning a status to the rules lets them
+decide again. The operator's show or hide of the post in Posts lies above
+both and changes neither, and a promote or demote withdraws an operator's
+hide or show of the promoted post, so the decision takes effect. A related
+account's status and any reposted status can be promoted by hand. Returned
+to the rules, a status they do not promote (any but a related account's
+status that matches its keywords) stays unpromoted, or demoted when it was
+promoted. A pooled status that is an own post, or whose author is an own
+account (a configured handle, or one with own posts or reposts stored), is
+never promoted. When an account becomes an own account, its promoted posts
+become own posts, and an operator's demote of one becomes their hide of the
+post.
 
 ## Account exports
 
@@ -112,12 +116,16 @@ transaction (`ImportXArchives`):
   record, and moves to the export's account when the earlier import filed it
   under another one (a repost written as the reposter's post). Missing posts
   are added. Writes go through the own-post path, so a known repost ID is
-  never stored and hide decisions stay.
+  never stored and the operator's decisions stay. Every post the export
+  lists is `top_level`, a synchronized one included unless an answer told
+  its kind.
 - After every account's posts, the earlier third-party import's posts of each
-  account that its export does not list are hidden with their reason (see
+  account that its export does not list are marked `unlisted` with their
+  reason (see
   [Posts from account exports](../data-model/posts.md#posts-from-account-exports)),
-  unless an operator already hid them; `-keep-unlisted` leaves them shown. A
-  later export that lists a post an earlier run hid shows it again.
+  which keeps them off the public pages; `-keep-unlisted` leaves them
+  unmarked. A later export that lists a post an earlier run marked shows it
+  again.
 - An account that is not in `X_HANDLES` joins `x_archive_accounts`: its posts
   appear in the post archive under its own filter, never on the board, and
   nothing synchronizes it.
@@ -129,14 +137,16 @@ transaction (`ImportXArchives`):
 `-dry-run` counts the same work in a transaction that is rolled back and
 stores no photo.
 
-The hidden unlisted posts mix replies, thread replies, other authors'
-statuses and deleted posts. `kano-go x-archive check`, run against a copy of
-the database, requests each `unlisted` post that no review has settled from
-the vxtwitter detail host with the X client's bounds, and appends one JSON
-line per post to a decisions file (`ClassifyDetail`): another author is
-`foreign`, the account's retweet `repost`, a `replyingTo` of the account
-`self_reply`, of anyone else `reply`, none `top_level`, and a 404, 410 or
-vxtwitter's "Failed to scan your link" page `gone`. With `-capture`, the
+The unlisted posts mix replies, thread replies, other authors' statuses and
+deleted posts. `kano-go x-archive check`, run against a copy of the database,
+requests each own post whose kind is still `unlisted` and that X has not been
+found to have lost, whatever the import's reason, from the vxtwitter detail
+host with the X client's bounds, and appends one JSON line per post to a
+decisions file (`ClassifyDetail`, which reads the answer as
+[Post kinds](x.md#post-kinds) does): another author is `foreign`, the
+account's retweet `repost`, a `replyingTo` of the account `self_reply`, of
+anyone else `reply`, none `top_level`, and a 404, 410 or vxtwitter's "Failed
+to scan your link" page `gone`. With `-capture`, the
 third-party import's own capture (`responses/posts/**/*.json`) decides
 without a request every post it marks with a `repost` object: those are
 other authors' statuses, `foreign`. That page also stands in
@@ -149,8 +159,10 @@ tenth after 25 answers in a row, never below its floor (4 seconds), and
 doubles after a failure up to its ceiling (10 minutes), waiting at least a
 minute after a rate limit. A post that fails three times is left for the next
 run; eight failures in a row stop it. A rerun skips the posts the file
-already decides. `kano-go x-archive apply` records each line's outcome on its
-post (`ApplyXReconcile`) and shows again an own top-level post or thread
-reply that only the import hid; every other outcome stays hidden for an
-operator to judge. [Database operations](../../operations/database.md#x-account-exports)
+already decides. `kano-go x-archive apply` records each line's outcome on an
+own post that is `unlisted` or carries the import's record
+(`ApplyXReconcile`): the outcome becomes its kind, so an own top-level post or
+thread reply shows again and every other outcome stays off the public pages
+for an operator to judge, and `gone` marks the post deleted upstream at the
+line's `checkedAt`. The operator's own hide or show stays. [Database operations](../../operations/database.md#x-account-exports)
 gives the steps.

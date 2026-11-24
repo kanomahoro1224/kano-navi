@@ -22,10 +22,11 @@ type AdminBacklog struct {
 // joined with post_llm_states s: "extraction", "refresh", "translation" or
 // "any" of them. Anything else adds no condition.
 func postQueuedSQL(queue string) string {
-	// A hidden post is not extracted, so its request waits until it is shown.
-	extraction := "(COALESCE(s.reprocess_requested, 0) = 1 AND p.hidden_at IS NULL AND p.deleted_at IS NULL)"
+	// A post the public pages leave out is not extracted, and translated only
+	// when a post quotes it, so other requests wait until it is shown.
+	extraction := "(COALESCE(s.reprocess_requested, 0) = 1 AND " + PostVisibleSQL("p") + ")"
 	refresh := "(p.refresh_requested_at IS NOT NULL AND p.deleted_at IS NULL)"
-	translation := "(" + TranslationRequestedSQL(TranslationOwnerPost, "p") + " AND p.deleted_at IS NULL)"
+	translation := "(" + TranslationRequestedSQL(TranslationOwnerPost, "p") + " AND " + TranslatedPostSQL("p") + ")"
 	switch queue {
 	case "extraction":
 		return extraction

@@ -177,6 +177,18 @@ func upgradeSchema(ctx context.Context, tx *sql.Tx) error {
 			return fmt.Errorf("%w: index %s could not be created", ErrSchema, index)
 		}
 	}
+	for _, index := range redefinedIndexes {
+		have, exists := haveIndexes[index]
+		if !exists || sameIndexDefinition(have, wantIndexes[index]) {
+			continue
+		}
+		if _, err = tx.ExecContext(ctx, `DROP INDEX "`+index+`"`); err != nil {
+			return fmt.Errorf("%w: index %s could not be rebuilt", ErrSchema, index)
+		}
+		if _, err = tx.ExecContext(ctx, wantIndexes[index]); err != nil {
+			return fmt.Errorf("%w: index %s could not be rebuilt", ErrSchema, index)
+		}
+	}
 	return nil
 }
 
@@ -307,6 +319,11 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 	}
 	if err := backfillVideoForms(ctx, tx); err != nil {
 		return err
+	}
+	if added["posts.upstream_kind"] {
+		if err := backfillPostUpstreamState(ctx, tx, workflowTime(time.Now())); err != nil {
+			return err
+		}
 	}
 	// The platform of the YouTube writers' events is known; every other
 	// stored event keeps an unknown platform.

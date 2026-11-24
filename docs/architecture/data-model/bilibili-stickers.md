@@ -36,11 +36,14 @@ newest own post that quotes it, `reposted_at`, when an own account's repost
 of it was first seen, `listed_at`, when its related
 author's timeline first listed it, `keyword` (1 while a keyword rule
 matches), the operator's `manual_decision` (`promote` or `demote`) with
-`manual_reason` and `manual_at`, `demoted_at`, set while an automatic
-demotion hides its post, `first_seen_at` and `updated_at`. A quote's `text`
-equals the `text` of the `quote_json` written with it, since both come from
-one projection; a status its related author's timeline listed keeps that
-listing's wording and payload. No public reader reads or joins the table.
+`manual_reason` and `manual_at`, `demoted_at`, set while the rules demote
+its promoted post without an operator's decision, `first_seen_at` and
+`updated_at`. A quote's `text` equals the `text` of the `quote_json` written
+with it, since both come from one projection; a status its related author's
+timeline listed keeps that listing's wording and payload. No public reader
+reads a pooled status: public reads only look up a promoted post's
+`manual_decision` and `demoted_at` by its ID (see
+[Post visibility](posts.md#post-visibility)).
 
 Every available forwarded dynamic is likewise a row of the Bilibili status
 pool `bilibili_statuses` (see [Forwards](../sources/bilibili-dynamics.md#forwards)): `id` (the
@@ -76,17 +79,15 @@ quote off the public pages: the dashboard, the post archive and MCP then
 omit `quote` entirely, while the console still shows it. No synchronization
 path, refresh or backfill writes this column, so the decision survives every
 rewrite of `quote_json` and the `quote-image` links, like a manual lock.
-`posts.hidden_at` is the same decision for the whole post: the dashboard
-(its post wall, latest post and post count), the post archive and MCP leave
-the post out, extraction never selects it, and the automatic events it alone
-supports leave the public pages (see
-[Events of hidden posts](posts.md#events-of-hidden-posts)). The console still lists
-the post, and no synchronization path writes the column. `posts.deleted_at`
+`posts.hidden_at` is the same decision for the whole post, and
+`posts.shown_at` its opposite, which shows the post whatever X says about it
+(see [Post visibility](posts.md#post-visibility)). The console still lists a
+hidden post, and no synchronization, import or review writes either column. `posts.deleted_at`
 marks a soft-deleted post, which no reader shows, the console included (see
 [Reposts stored as posts](posts.md#reposts-stored-as-posts)). `posts.refresh_requested_at` is a
 queued refresh from the source, cleared once the X synchronization made its
 detail request (see
-[Refresh from the source](../sources/quoted-posts.md#refresh-from-the-source)). All three are
+[Refresh from the source](../sources/quoted-posts.md#refresh-from-the-source)). All of them are
 additive columns, `NULL` by default.
 
 Startup creates these tables in existing snapshots and adds

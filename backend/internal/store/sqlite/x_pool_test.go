@@ -215,8 +215,9 @@ func TestQuoteCardsResolvePooledTranslationsWithoutThePool(t *testing.T) {
 		testutil.Exec(t, path, `INSERT INTO translations (owner_type,owner_id,field,locale,origin,text,source_hash,created_at,updated_at) VALUES ('x_status',?,'text',?,?,?,?,'','')`, agencyID, row.locale, row.origin, row.text, row.hash)
 	}
 	testutil.Exec(t, path, `INSERT INTO translation_states (owner_type,owner_id,field,source_hash,source_language,status,updated_at) VALUES ('x_status',?,'text',?,'zh','success','')`, agencyID, current)
-	// Public reads never touch the pool.
-	testutil.Exec(t, path, `DROP TABLE x_statuses`)
+	// Public reads never read a pooled status; they look up only a promoted
+	// post's demotion.
+	testutil.Exec(t, path, `DELETE FROM x_statuses`)
 	store, err := OpenReadOnly(path)
 	if err != nil {
 		t.Fatal(err)

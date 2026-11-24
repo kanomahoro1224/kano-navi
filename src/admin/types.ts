@@ -909,17 +909,33 @@ export interface AdminPost {
   quoteHiddenAt: string | null
   /** A refresh from the source waiting for the next X synchronization. */
   refreshRequestedAt: string | null
-  /** When an operator hid the whole post from the public pages. */
+  /** When an operator hid the whole post from the public pages, or showed
+   * it on them whatever the rules say; at most one is set, and neither
+   * leaves the post to the rules. */
   hiddenAt: string | null
+  shownAt: string | null
   /** When a related account's status was promoted onto the board; null for
    * an own post. External posts holds its promote and demote decisions. */
   promotedAt: string | null
-  /** When synchronization found the X status deleted on X; the public pages
-   * leave the post out while it is set. */
+  /** A promoted post the External posts rules or decisions demote. */
+  demoted: boolean
+  /** When X was found no longer to have the status. */
   upstreamDeletedAt: string | null
+  /** What X says the status is; null while no answer has told. */
+  upstreamKind: PostUpstreamKind | null
+  /** Whether the public pages show the post. */
+  visible: boolean
   /** The post's schedule image record; null when it has none. */
   scheduleImage: AdminPostSchedule | null
 }
+
+/** What X says a stored post is; `unlisted` is an earlier import's post an
+ * account export left out, until a check tells what it is. */
+export type PostUpstreamKind =
+  "top_level" | "self_reply" | "reply" | "foreign" | "repost" | "unlisted"
+
+/** The operator's decision on a post's public visibility. */
+export type PostVisibility = "auto" | "shown" | "hidden"
 
 /**
  * Which of a post's own images its schedule image shows (null for none of

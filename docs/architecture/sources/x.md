@@ -152,7 +152,8 @@ stored as its post (such as one an operator's refresh queued), the post is
 marked [deleted upstream](../data-model/posts.md#posts-deleted-upstream). An answer that the status is
 another account's (an ID an older profile fallback queued from a quote, say)
 is no failure: it drops the ID at once with `x_status_foreign`, without an
-error, retry state or partial run, though it still counts as requested. An
+error, retry state or partial run, though it still counts as requested, and
+marks a stored post of the account `foreign` (see [Post kinds](#post-kinds)). An
 answer that the status is the account's own repost of another status (see
 [Reposts](quoted-posts.md#reposts)) drops the ID the same way with `x_status_repost`. Any
 other failure (timeout, 429, 5xx, invalid JSON or response) waits 1 hour after the
@@ -168,6 +169,24 @@ appear only when used.
 Each discovered image URL is registered and linked to its post. A bounded media
 stage later in the same command downloads pending image files from X's
 `*.twimg.com` media CDN subdomains.
+
+## Post kinds
+
+Every answer that can tell records what a stored post is in
+`posts.upstream_kind` (see [Post visibility](../data-model/posts.md#post-visibility)),
+through one mapping (`StatusKind` in `backend/internal/source/x/classify.go`)
+that the account-export review shares: another author's status is `foreign`,
+the account's repost `repost`, and otherwise the reply fields give
+`top_level`, `self_reply` (a reply to the account itself) or `reply`. A
+timeline page tells it by `replying_to`, a detail answer by `replyingTo`,
+`retweet` and its author, and an X API answer by its `replied_to` reference,
+which the post's `raw_json` keeps in FxTwitter's `replying_to` shape; a parent
+X does not return counts as a reply. Writing a post records its kind, as does
+a listing of a post already stored, and a pending stored post's
+`x_status_foreign` answer records `foreign`; each such answer also clears the
+post's deleted-upstream mark. An answer without an author or without any
+reply field, even a null one, cannot tell and keeps the stored kind; nothing
+writes `NULL` back. A promoted post's kind is read for its own author.
 
 ## X API in the chain
 

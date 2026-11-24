@@ -24,7 +24,11 @@ in queue order.
 Without a usable target the step records `disabled` with the reason and
 keeps operator requests.
 
-Candidates are posts, YouTube videos, pooled quoted X statuses and reposted
+Candidates are posts that the public pages show (see
+[Post visibility](../data-model/posts.md#post-visibility)) or that a post
+quotes, whose quote card shares their translations (the X status pool holds
+them as quoted, the Bilibili status pool as forwarded; any other hidden post's
+request waits until it is shown), YouTube videos, pooled quoted X statuses and reposted
 statuses of related accounts that are not stored posts (`owner_type` `x_status`, see
 [Quoted posts](quoted-posts.md)) and pooled forwarded dynamics that are not
 stored posts (`owner_type` `bilibili_status`, see [Forwards](bilibili-dynamics.md#forwards))

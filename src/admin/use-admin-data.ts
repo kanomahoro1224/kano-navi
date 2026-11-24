@@ -29,6 +29,7 @@ import type {
   AccountAvatarsState,
   AdminEvent,
   AdminPost,
+  PostVisibility,
   AdminVideo,
   AdminVideosPage,
   DiscoveredModel,
@@ -357,8 +358,10 @@ function createClient(run: Runner, slow: Runner) {
         `/posts/${enc(id)}/schedule-image`,
         body,
       ),
-    setPostHidden: (id: string, hidden: boolean) =>
-      send<{ state: unknown }>("PUT", `/posts/${enc(id)}/hidden`, { hidden }),
+    setPostVisibility: (id: string, visibility: PostVisibility) =>
+      send<{ state: unknown }>("PUT", `/posts/${enc(id)}/visibility`, {
+        visibility,
+      }),
     setQuoteHidden: (id: string, hidden: boolean) =>
       send<{ state: unknown }>("PUT", `/posts/${enc(id)}/quote/hidden`, {
         hidden,

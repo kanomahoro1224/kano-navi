@@ -30,7 +30,9 @@ wording, publication time, x.com URL and a sanitized `raw_json` with the
 quoted images' addresses, and `quoted_at`, the publication time of the
 newest own post that quotes it. A quote of a stored post (a self-quote)
 enters the pool too, but its translations stay the stored post's. No public
-reader reads or joins the pool, and nothing of a pooled status gets a card,
+reader reads a pooled status (public reads look up only a promoted post's
+demotion, see [Post visibility](../data-model/posts.md#post-visibility)), and
+nothing of a pooled status gets a card,
 a media link or a schedule candidate of its own. Startup fills the pool from
 the quotes stored posts' `raw_json` already hold, with no request.
 
@@ -45,10 +47,10 @@ An operator can hide a post's quote from the public pages
 (`posts.quote_hidden_at`); synchronization, the X API fetch method and the
 startup quote backfill (which fills a missing `quote_json` from the post's
 stored `raw_json`) keep updating the stored quote underneath and never write
-that decision. Hiding the whole post (`posts.hidden_at`) works the same way:
-synchronization keeps rewriting the stored post and never clears it, while
-extraction skips it (see
-[Schedule extraction pipeline](extraction.md)).
+that decision. Hiding or showing the whole post (`posts.hidden_at`,
+`posts.shown_at`) works the same way: synchronization keeps rewriting the
+stored post and never writes either (see
+[Post visibility](../data-model/posts.md#post-visibility)).
 
 ## Reposts
 

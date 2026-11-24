@@ -70,6 +70,11 @@ func TestParseArchiveReadsOwnTopLevelPosts(t *testing.T) {
 	if stats != (ArchiveStats{Records: 6, Posts: 2, Replies: 1, Reposts: 1, OtherAccount: 1, Invalid: 1}) {
 		t.Fatalf("stats=%+v", stats)
 	}
+	for _, post := range posts {
+		if post.Kind != StatusTopLevel {
+			t.Fatalf("%s: kind %q", post.ID, post.Kind)
+		}
+	}
 	post := posts[0]
 	if post.ID != "1900000000000000901" || post.Text != "Tonight & tomorrow\nhttps://example.com/watch" {
 		t.Fatalf("post=%q %q", post.ID, post.Text)

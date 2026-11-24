@@ -48,15 +48,25 @@ type AdminPost struct {
 	Quote              *AdminQuote `json:"quote"`
 	QuoteHiddenAt      *string     `json:"quoteHiddenAt"`
 	RefreshRequestedAt *string     `json:"refreshRequestedAt"`
-	// HiddenAt is when an operator hid the whole post from the public pages.
+	// HiddenAt and ShownAt are when an operator hid the whole post from the
+	// public pages or showed it on them whatever the rules say; at most one
+	// is set, and neither means the rules decide.
 	HiddenAt *string `json:"hiddenAt"`
+	ShownAt  *string `json:"shownAt"`
 	// PromotedAt is when a pooled status (a related account's or a reposted
 	// one) was promoted into posts;
 	// nil for an own post. Such a post is managed in External posts.
 	PromotedAt *string `json:"promotedAt"`
-	// UpstreamDeletedAt is when synchronization found the X status deleted
-	// on X; the public pages leave the post out while it is set.
+	// Demoted is true for a promoted post the X status pool demotes.
+	Demoted bool `json:"demoted"`
+	// UpstreamDeletedAt is when X was found no longer to have the status.
 	UpstreamDeletedAt *string `json:"upstreamDeletedAt"`
+	// UpstreamKind is what X says the status is: top_level, self_reply,
+	// reply, foreign, repost, or unlisted (an account export left it out);
+	// nil while no answer has told.
+	UpstreamKind *string `json:"upstreamKind"`
+	// Visible is whether the public pages show the post (PostVisibleSQL).
+	Visible bool `json:"visible"`
 	// ScheduleImage is the post's schedule image record, nil when it has none.
 	ScheduleImage *AdminPostSchedule `json:"scheduleImage"`
 }
@@ -359,6 +369,9 @@ type AdminPostFilter struct {
 	Queued string
 	// Translation is "incomplete", "complete", "requested" or "failed".
 	Translation string
+	// Visibility is "shown" or "hidden": whether the public pages show the
+	// post (PostVisibleSQL).
+	Visibility string
 }
 
 // AdminVideoFilter narrows the video list. Status is "published",
@@ -544,6 +557,12 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	if queued := postQueuedSQL(f.Queued); queued != "" {
 		clauses = append(clauses, queued)
 	}
+	switch f.Visibility {
+	case "shown":
+		clauses = append(clauses, postShownSQL("p"))
+	case "hidden":
+		clauses = append(clauses, "NOT "+postShownSQL("p"))
+	}
 	switch f.Translation {
 	case "incomplete":
 		clauses = append(clauses, TranslatedPostSQL("p")+" AND "+TranslationIncompleteSQL(TranslationOwnerPost, "p"))
@@ -562,7 +581,7 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	totalPages := pageCount(total, pageSize)
 	page = safePage(page, totalPages)
 	offset := (page - 1) * pageSize
-	query := `SELECT p.id,p.source,p.account_handle,p.text,p.published_at,p.url,p.media_url,p.media_alt,COALESCE(s.status,'never'),s.route,s.last_attempt_at,s.last_processed_at,s.last_error,s.last_extraction_id,COALESCE(s.reprocess_requested,0),COALESCE(s.failure_count,0),s.next_attempt_at,p.quote_json,p.quote_hidden_at,p.refresh_requested_at,p.hidden_at,p.promoted_at,p.upstream_deleted_at FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE ` + where + ` ORDER BY julianday(p.published_at) DESC,p.id ASC LIMIT ? OFFSET ?`
+	query := `SELECT p.id,p.source,p.account_handle,p.text,p.published_at,p.url,p.media_url,p.media_alt,COALESCE(s.status,'never'),s.route,s.last_attempt_at,s.last_processed_at,s.last_error,s.last_extraction_id,COALESCE(s.reprocess_requested,0),COALESCE(s.failure_count,0),s.next_attempt_at,p.quote_json,p.quote_hidden_at,p.refresh_requested_at,p.hidden_at,p.shown_at,p.promoted_at,p.promoted_at IS NOT NULL AND ` + postDemotedSQL("p") + `,p.upstream_deleted_at,p.upstream_kind,` + postShownSQL("p") + ` FROM posts p LEFT JOIN post_llm_states s ON s.post_id=p.id WHERE ` + where + ` ORDER BY julianday(p.published_at) DESC,p.id ASC LIMIT ? OFFSET ?`
 	rows, err := s.db.QueryContext(ctx, query, append(args, pageSize, offset)...)
 	if err != nil {
 		return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
@@ -572,11 +591,11 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 	quotes := map[string]sql.NullString{}
 	for rows.Next() {
 		var p AdminPost
-		var quote, quoteHidden, refreshRequested, hidden, promoted, upstreamDeleted sql.NullString
+		var quote, quoteHidden, refreshRequested, hidden, shown, promoted, upstreamDeleted, upstreamKind sql.NullString
 		var account, mediaURL, mediaAlt, route, lastAttempt, lastProcessed, lastError, retryAt sql.NullString
 		var extraction sql.NullInt64
 		var requested, failures int
-		if err := rows.Scan(&p.ID, &p.Source, &account, &p.Text, &p.PublishedAt, &p.URL, &mediaURL, &mediaAlt, &p.LLMStatus, &route, &lastAttempt, &lastProcessed, &lastError, &extraction, &requested, &failures, &retryAt, &quote, &quoteHidden, &refreshRequested, &hidden, &promoted, &upstreamDeleted); err != nil {
+		if err := rows.Scan(&p.ID, &p.Source, &account, &p.Text, &p.PublishedAt, &p.URL, &mediaURL, &mediaAlt, &p.LLMStatus, &route, &lastAttempt, &lastProcessed, &lastError, &extraction, &requested, &failures, &retryAt, &quote, &quoteHidden, &refreshRequested, &hidden, &shown, &promoted, &p.Demoted, &upstreamDeleted, &upstreamKind, &p.Visible); err != nil {
 			return AdminPage[AdminPost]{}, fmt.Errorf("%w: admin posts unavailable", ErrUnavailable)
 		}
 		p.AccountHandle = nullString(account)
@@ -590,9 +609,9 @@ func (s *Store) ListAdminPosts(ctx context.Context, f AdminPostFilter) (AdminPag
 		p.LLMReprocessRequested = requested != 0
 		p.QuoteHiddenAt = nullString(quoteHidden)
 		p.RefreshRequestedAt = nullString(refreshRequested)
-		p.HiddenAt = nullString(hidden)
+		p.HiddenAt, p.ShownAt = nullString(hidden), nullString(shown)
 		p.PromotedAt = nullString(promoted)
-		p.UpstreamDeletedAt = nullString(upstreamDeleted)
+		p.UpstreamDeletedAt, p.UpstreamKind = nullString(upstreamDeleted), nullString(upstreamKind)
 		quotes[p.ID] = quote
 		// A queued request runs regardless of the backoff; a dismissed
 		// failure is not waiting for a retry.

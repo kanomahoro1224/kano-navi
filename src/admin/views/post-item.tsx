@@ -1,17 +1,10 @@
 import { useEffect, useState, type SubmitEvent } from "react"
-import {
-  CalendarCheck,
-  EyeOff,
-  ImageOff,
-  Images,
-  PencilLine,
-  Trash2,
-} from "lucide-react"
+import { CalendarCheck, ImageOff, Images, PencilLine } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import type { ViewProps } from "@/admin"
 import { japanStamp, statusTone } from "@/admin/format"
-import type { AdminPost } from "@/admin/types"
+import type { AdminPost, PostVisibility } from "@/admin/types"
 import {
   Badge,
   Button,
@@ -19,7 +12,7 @@ import {
   FieldGroup,
   IconButton,
   Modal,
-  Switch,
+  Segmented,
 } from "@/admin/ui"
 import { useAdmin } from "@/admin/use-admin-data"
 import {
@@ -28,6 +21,7 @@ import {
   PostQuote,
   PostAccount,
   PostStatus,
+  PostVisibilityBadges,
   RefreshQueued,
   PostActions,
 } from "@/admin/views/post-parts"
@@ -186,10 +180,27 @@ function PostScheduleImage({
   )
 }
 
+/** The operator's decision on a post, or auto when the rules decide. */
+function postVisibility(
+  shownAt: string | null,
+  hiddenAt: string | null,
+): PostVisibility {
+  return shownAt ? "shown" : hiddenAt ? "hidden" : "auto"
+}
+
+const visibilityChoices: PostVisibility[] = ["auto", "shown", "hidden"]
+
+const visibilityNotices = {
+  auto: "admin.notice.postAuto",
+  shown: "admin.notice.postShown",
+  hidden: "admin.notice.postHidden",
+} as const
+
 /**
  * The post in full: its wording, images, translations and quote, its
- * extraction state, its schedule image and the operator's decisions. Hiding
- * the post keeps it stored and processed but leaves it off the public pages.
+ * extraction state, its schedule image and the operator's decisions. The
+ * public pages follow what X says about the post unless the operator shows
+ * or hides it.
  */
 function PostEditor({
   post,
@@ -204,18 +215,26 @@ function PostEditor({
 }) {
   const { t } = useAppSettings()
   const { api, act } = useAdmin()
-  const [hidden, setHidden] = useState(Boolean(post.hiddenAt))
+  const [visibility, setVisibility] = useState(
+    postVisibility(post.shownAt, post.hiddenAt),
+  )
   const [busy, setBusy] = useState(false)
-  useEffect(() => setHidden(Boolean(post.hiddenAt)), [post.hiddenAt])
-  const toggle = async (next: boolean) => {
+  // A refetch may bring a decision made elsewhere, such as External posts
+  // withdrawing the operator's hide or show.
+  useEffect(
+    () => setVisibility(postVisibility(post.shownAt, post.hiddenAt)),
+    [post.shownAt, post.hiddenAt],
+  )
+  const choose = async (next: PostVisibility) => {
+    if (busy || next === visibility) return
     setBusy(true)
     const result = await act(
-      () => api.setPostHidden(post.id, next),
-      next ? "admin.notice.postHidden" : "admin.notice.postShown",
+      () => api.setPostVisibility(post.id, next),
+      visibilityNotices[next],
     )
     setBusy(false)
     if (!result) return
-    setHidden(next)
+    setVisibility(next)
     onDone()
   }
   return (
@@ -232,6 +251,7 @@ function PostEditor({
       footer={<PostActions post={post} onDone={onDone} />}
     >
       <div className="adm-chip-row">
+        <PostVisibilityBadges post={post} />
         <PostStatus post={post} />
         <RefreshQueued post={post} />
       </div>
@@ -251,14 +271,18 @@ function PostEditor({
       ) : null}
       <PostQuote post={post} onDone={onDone} full />
       <PostScheduleImage post={post} onDone={onDone} navigate={navigate} />
-      <div className="adm-post-editor-section">
-        <Switch
-          checked={hidden}
-          disabled={busy}
-          onChange={(next) => void toggle(next)}
-          label={t("admin.posts.hide")}
+      <section className="adm-post-editor-section">
+        <h3>{t("admin.posts.visibility")}</h3>
+        <Segmented
+          label={t("admin.posts.visibility")}
+          value={visibility}
+          onChange={(next) => void choose(next)}
+          options={visibilityChoices.map((choice) => ({
+            value: choice,
+            label: t(`admin.posts.visibility.set.${choice}`),
+          }))}
         />
-      </div>
+      </section>
     </Modal>
   )
 }
@@ -292,7 +316,7 @@ export function PostItem({
   )
   return (
     <li
-      className={`adm-post${post.hiddenAt || post.upstreamDeletedAt ? " is-hidden" : ""}${selected ? " is-selected" : ""}`}
+      className={`adm-post${post.visible ? "" : " is-hidden"}${selected ? " is-selected" : ""}`}
     >
       <span className="adm-post-origin">
         {onSelect ? (
@@ -328,16 +352,7 @@ export function PostItem({
         />
       </div>
       <span className="adm-chip-row adm-post-state">
-        {post.hiddenAt ? (
-          <Badge tone="warning" icon={EyeOff}>
-            {t("admin.posts.hidden")}
-          </Badge>
-        ) : null}
-        {post.upstreamDeletedAt ? (
-          <Badge tone="danger" icon={Trash2}>
-            {t("admin.posts.deletedUpstream")}
-          </Badge>
-        ) : null}
+        <PostVisibilityBadges post={post} />
         {post.promotedAt ? (
           <button
             type="button"

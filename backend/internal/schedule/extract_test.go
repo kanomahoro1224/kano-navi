@@ -829,6 +829,31 @@ func TestHiddenPostsAreNeverExtracted(t *testing.T) {
 	}
 }
 
+// A post the public pages leave out for what X says about it (a reply,
+// another author's status, a repost, an unlisted post, a status X no longer
+// has) is not extracted either, until the operator shows it.
+func TestPostsOffThePublicPagesAreNeverExtracted(t *testing.T) {
+	for name, state := range map[string]string{
+		"reply":    `upstream_kind='reply'`,
+		"foreign":  `upstream_kind='foreign'`,
+		"repost":   `upstream_kind='repost'`,
+		"unlisted": `upstream_kind='unlisted'`,
+		"gone":     `upstream_deleted_at='` + testTimestamp + `'`,
+	} {
+		f := messageFixture(t)
+		f.exec(`UPDATE posts SET ` + state + ` WHERE id='post-1'`)
+		f.scan()
+		if f.provider.count() != 0 || f.number(`SELECT COUNT(*) FROM post_llm_states`) != 0 {
+			t.Fatalf("%s: extracted with %d requests", name, f.provider.count())
+		}
+		f.exec(`UPDATE posts SET shown_at=? WHERE id='post-1'`, testTimestamp)
+		f.scan()
+		if f.provider.count() != 1 {
+			t.Fatalf("%s: the operator's show was not extracted: %d requests", name, f.provider.count())
+		}
+	}
+}
+
 func TestQuotedWordingIsMarkedContext(t *testing.T) {
 	f := messageFixture(t)
 	// The post only points at the quote; the schedule is in the quoted wording.

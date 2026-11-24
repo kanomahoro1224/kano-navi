@@ -30,15 +30,15 @@ const xArchiveUsage = `Usage: kano-go x-archive <import|check|apply> [flags]
 
   import  -dir <export directory> [-account <handle>] [-keep-unlisted] [-dry-run]
           Writes each <handle>.json export as the account's own posts, stores the
-          photos of <handle>-media.zip, and hides an earlier import's posts the
-          export does not list.
+          photos of <handle>-media.zip, and marks an earlier import's posts the
+          export does not list as unlisted, which keeps them off the public pages.
   check   -out <decisions.jsonl> [-capture <directory>] [-limit <n>] [-interval <d>] [-min-interval <d>] [-max-interval <d>]
-          Reads each hidden unlisted post once from the X detail source and
-          appends what it is; run it against a copy of the database. The
-          earlier import's capture decides its marked reposts without a request.
+          Reads each unlisted post once from the X detail source and appends
+          what it is; run it against a copy of the database. The earlier
+          import's capture decides its marked reposts without a request.
   apply   -in <decisions.jsonl> [-dry-run]
-          Records the decisions and shows again the own posts and thread
-          replies that only the import hid.
+          Records each decision as the post's upstream kind, or as deleted
+          upstream for a gone status, so own posts and thread replies show again.
 
 Common flag: -database <path>`
 
@@ -80,7 +80,7 @@ func runXArchiveImport(ctx context.Context, args []string) int {
 	flags.SetOutput(io.Discard)
 	database := flags.String("database", config.DefaultDatabasePath, "path to the SQLite snapshot")
 	dir := flags.String("dir", "", "directory holding <handle>.json and <handle>-media.zip")
-	keep := flags.Bool("keep-unlisted", false, "leave an earlier import's unlisted posts shown")
+	keep := flags.Bool("keep-unlisted", false, "leave an earlier import's unlisted posts unmarked")
 	dryRun := flags.Bool("dry-run", false, "count what the import would do and write nothing")
 	var only accountList
 	flags.Var(&only, "account", "import only this account (repeatable)")
@@ -124,7 +124,7 @@ func runXArchiveImport(ctx context.Context, args []string) int {
 		return fail("export could not be imported", 1)
 	}
 	for i, r := range results {
-		fmt.Printf("%s: %d added, %d rewritten (%d moved from another account), %d kept as synchronized, %d skipped; hidden %d replies and %d unlisted for review, %d already hidden",
+		fmt.Printf("%s: %d added, %d rewritten (%d moved from another account), %d kept as synchronized, %d skipped; marked %d replies and %d others unlisted for review, %d more an operator hides",
 			imports[i].Account, r.Added, r.Rewritten, r.Reassigned, r.KeptSynchronized, r.Skipped, r.HiddenReply, r.HiddenUnlisted, r.AlreadyHidden)
 		if r.ArchiveAccountAdded {
 			fmt.Print("; added as an archive-only account")
@@ -275,7 +275,7 @@ func runXArchiveCheck(ctx context.Context, args []string) int {
 	control, controlErr := store.XArchiveControl(ctx)
 	store.Close()
 	if err != nil || controlErr != nil {
-		return fail("hidden posts could not be listed", 1)
+		return fail("unlisted posts could not be listed", 1)
 	}
 	out, err := os.OpenFile(*outPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -306,13 +306,13 @@ func runXArchiveCheck(ctx context.Context, args []string) int {
 		return fail("decisions file could not be written", 1)
 	}
 	if len(settled) > 0 {
-		fmt.Printf("%d hidden posts are reposts in the capture\n", len(settled))
+		fmt.Printf("%d unlisted posts are reposts in the capture\n", len(settled))
 	}
 	waiting := len(queue)
 	if *limit > 0 && len(queue) > *limit {
 		queue = queue[:*limit]
 	}
-	fmt.Printf("%d hidden posts to read of %d undecided, %d already decided\n", len(queue), waiting, len(candidates)-waiting-len(settled))
+	fmt.Printf("%d unlisted posts to read of %d undecided, %d already decided\n", len(queue), waiting, len(candidates)-waiting-len(settled))
 	client := xsource.NewClient(nil)
 	p := &pace{interval: *interval, min: *minInterval, max: *maxInterval}
 	counts := map[string]int{}
@@ -536,7 +536,7 @@ func runXArchiveApply(ctx context.Context, args []string) int {
 		return fail("decisions could not be applied", 1)
 	}
 	fmt.Printf("decisions %v\n", counts)
-	fmt.Printf("%d shown again, %d kept hidden, %d without an import hide to settle\n", applied.Shown, applied.Kept, applied.Unknown)
+	fmt.Printf("%d shown again, %d kept off the public pages, %d without an unlisted mark to settle\n", applied.Shown, applied.Kept, applied.Unknown)
 	if *dryRun {
 		fmt.Println("Dry run: nothing was written.")
 	}

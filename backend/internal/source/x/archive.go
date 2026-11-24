@@ -168,7 +168,12 @@ func archivePost(record archiveRecord, account, capturedAt string) *Post {
 	if !statusIDPattern.MatchString(record.ID) {
 		return nil
 	}
-	return Normalize(payload, record.ID, account)
+	post := Normalize(payload, record.ID, account)
+	if post != nil {
+		// ParseArchive keeps only the account's own top-level posts.
+		post.Kind = StatusTopLevel
+	}
+	return post
 }
 
 // status unwraps a status record shown with visibility results.

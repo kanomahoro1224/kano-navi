@@ -55,9 +55,21 @@ var translationLanguages = map[string]string{"en": "en", "ja": "ja", "zh-CN": "z
 var TranslationPostSources = []string{"x", "bilibili"}
 
 // TranslatedPostSQL is a condition on the posts row aliased alias: its source
-// is one the machine step translates.
+// is one the machine step translates, it is not soft-deleted, and the public
+// pages show it (see PostVisibleSQL) or a post quotes it (quotedPostSQL),
+// whose quote card shares its translations. Any other post the public pages
+// leave out is not translated until it is shown.
 func TranslatedPostSQL(alias string) string {
-	return alias + ".source IN ('" + strings.Join(TranslationPostSources, "','") + "') AND " + livePostSQL(alias)
+	return alias + ".source IN ('" + strings.Join(TranslationPostSources, "','") + "') AND " + alias + ".deleted_at IS NULL AND (" + postShownSQL(alias) + " OR " + quotedPostSQL(alias) + ")"
+}
+
+// quotedPostSQL holds for the posts row aliased alias when a post quotes it:
+// the X status pool holds it as quoted (x_statuses.quoted_at) or the Bilibili
+// status pool as forwarded (bilibili_statuses.forwarded_at). Each lookup is
+// by primary key.
+func quotedPostSQL(alias string) string {
+	return `(EXISTS (SELECT 1 FROM x_statuses ` + alias + `xq WHERE ` + alias + `xq.id=` + alias + `.id AND ` + alias + `xq.quoted_at IS NOT NULL)` +
+		` OR EXISTS (SELECT 1 FROM bilibili_statuses ` + alias + `bq WHERE ` + alias + `bq.id=` + alias + `.id AND ` + alias + `bq.forwarded_at IS NOT NULL))`
 }
 
 // SourceLanguages are the codes the machine step records: none means there is
@@ -119,7 +131,7 @@ type translationOwner struct {
 
 // An origin without a column ignores the alias through %.0[1]s.
 var translationOwners = map[string]translationOwner{
-	TranslationOwnerPost:           {table: "posts", field: "text", source: "%[1]s.text", instant: "%[1]s.published_at", scope: "%[1]s.source IN ('x','bilibili') AND %[1]s.deleted_at IS NULL", origin: "%[1]s.source"},
+	TranslationOwnerPost:           {table: "posts", field: "text", source: "%[1]s.text", instant: "%[1]s.published_at", scope: TranslatedPostSQL("%[1]s"), origin: "%[1]s.source"},
 	TranslationOwnerVideo:          {table: "videos", field: "title", source: videoTitleSource, instant: "COALESCE(%[1]s.scheduled_at, %[1]s.published_at)", scope: videoTranslationScope, origin: "%[1]s.source"},
 	TranslationOwnerXStatus:        {table: "x_statuses", field: "text", source: "%[1]s.text", instant: xStatusInstant, scope: xStatusTranslationScope, origin: "%.0[1]s'x'"},
 	TranslationOwnerBilibiliStatus: {table: "bilibili_statuses", field: "text", source: "%[1]s.text", instant: "%[1]s.forwarded_at", scope: bilibiliStatusTranslationScope, origin: "%.0[1]s'bilibili'"},

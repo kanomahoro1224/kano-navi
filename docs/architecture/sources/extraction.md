@@ -56,10 +56,13 @@ them to a model. An operator's reprocess request bypasses the lookback,
 whatever the post's age, as forced translation requests bypass the
 translation lookback.
 
-Neither path, nor an operator's reprocess request, selects a post with
-`posts.hidden_at` set; a request for a hidden post waits until the post is
-shown again, and showing it makes it a candidate again. The events such a
-post alone supports leave the public pages while it is hidden (see
+Neither path, nor an operator's reprocess request, selects a post the public
+pages do not show (see [Post visibility](../data-model/posts.md#post-visibility)):
+one an operator hid, X no longer has, X says is a reply, another author's
+status, a repost or an unlisted post, or the X status pool demotes. A request
+for such a post waits until the post is shown, and showing it makes it a
+candidate again. The events such a post alone supports leave the public pages
+while it is hidden (see
 [Events of hidden posts](../data-model/posts.md#events-of-hidden-posts)).
 
 A post that quotes another status gives the model the quoted wording after

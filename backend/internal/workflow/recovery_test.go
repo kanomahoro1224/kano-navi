@@ -122,3 +122,49 @@ func TestRestartRecoversExpiredRunWithOriginalAttempts(t *testing.T) {
 		t.Fatalf("recovery=%#v", done)
 	}
 }
+
+// A run whose lease expired after a tolerated source failure resumes with the
+// steps after it and finishes partial instead of failing on the settled step.
+func TestRecoveryKeepsToleratedFailureAndRunsLaterSteps(t *testing.T) {
+	p := testutil.NewSnapshot(t)
+	s, err := sqlite.OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	def := sqlite.WorkflowDefinition{ID: sqlite.AdhocFetchWorkflow, Steps: []string{"x", "media"}}
+	run, err := s.CreateWorkflowRun(ctx, def, "scheduler", "", map[string]bool{"x": true, "media": true}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	lease, err := s.ClaimWorkflowRun(ctx, run.ID, "old-worker", time.Now(), time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempt, err := s.StartWorkflowStep(ctx, lease, run.Steps[0].ID, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.FinishWorkflowStep(ctx, lease, run.Steps[0].ID, attempt, sqlite.WorkflowOutcome{Status: "failed", Code: "x_source_failed", Retryable: true}, false, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.StartWorkflowStep(ctx, lease, run.Steps[1].ID, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	testutil.Exec(t, p, `UPDATE workflow_leases SET expires_at='2026-01-01T00:00:00Z'`)
+	s, err = sqlite.OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	q := &Queue{Store: s, Executor: &Executor{Store: s, TolerateFailure: map[string]bool{"x": true}}}
+	defer q.Close()
+	if err = q.Recover(ctx); err != nil {
+		t.Fatal(err)
+	}
+	done := waitRun(t, s, run.ID, "partial", "failed")
+	if done.Status != "partial" || done.Steps[0].Status != "failed" || len(done.Steps[0].Attempts) != 1 || done.Steps[1].Status != "succeeded" || len(done.Steps[1].Attempts) != 2 {
+		t.Fatalf("recovered run=%#v", done)
+	}
+}

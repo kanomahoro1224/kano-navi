@@ -78,9 +78,27 @@ func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 
 // postMonths serves the post archive's month index: every Japan month that
 // holds a shown post, oldest first, with its per-account counts.
+// It also names the accounts the archive filters by, with their avatars.
 func (h *Handler) postMonths(w http.ResponseWriter, r *http.Request) {
 	months, revision, err := h.store.GetPostMonths(r.Context())
-	writeArchiveMonths(w, r, months, revision, err, "accountCounts")
+	if err != nil {
+		writeArchiveError(w, err)
+		return
+	}
+	accounts, err := h.store.GetPostArchiveAccounts(r.Context())
+	if err != nil {
+		writeArchiveError(w, err)
+		return
+	}
+	avatars, err := h.store.AccountAvatars(r.Context())
+	if err != nil {
+		writeArchiveError(w, err)
+		return
+	}
+	payload := archiveMonthsPayload(months, revision, "accountCounts")
+	payload["accounts"] = map[string]any{"x": accounts.X, "bilibili": accounts.Bilibili}
+	payload["accountAvatars"] = h.public(publicview.PublicAccountAvatars(avatars))
+	writeRevalidatedJSON(w, r, payload, nil)
 }
 
 // videoMonths serves the video timeline's month index: every Japan month that
@@ -95,11 +113,15 @@ func writeArchiveMonths(w http.ResponseWriter, r *http.Request, months []sqlite.
 		writeArchiveError(w, err)
 		return
 	}
+	writeRevalidatedJSON(w, r, archiveMonthsPayload(months, revision, countsKey), nil)
+}
+
+func archiveMonthsPayload(months []sqlite.ArchiveMonth, revision int64, countsKey string) map[string]any {
 	items := make([]any, 0, len(months))
 	for _, month := range months {
 		items = append(items, map[string]any{"month": month.Month, "total": month.Total, countsKey: month.Counts})
 	}
-	writeRevalidatedJSON(w, r, map[string]any{"months": items, "revision": revision}, nil)
+	return map[string]any{"months": items, "revision": revision}
 }
 
 // videos serves the video archive, newest first, optionally of one category:

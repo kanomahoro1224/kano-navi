@@ -157,7 +157,7 @@ func (s *Store) bilibiliStatusForwards(ctx context.Context, items []AdminBilibil
 				MAX(available AND NOT hidden AND NOT quote_hidden) OVER w AS public, MAX(available) OVER w AS shown
 			FROM (
 				SELECT json_extract(quote_json,'$.id') AS quoted, id,
-					hidden_at IS NOT NULL AS hidden, quote_hidden_at IS NOT NULL AS quote_hidden,
+					NOT `+ownPostShownSQL("")+` AS hidden, quote_hidden_at IS NOT NULL AS quote_hidden,
 					COALESCE(json_extract(quote_json,'$.unavailable'),0)=0 AS available,
 					ROW_NUMBER() OVER (PARTITION BY json_extract(quote_json,'$.id') ORDER BY julianday(published_at) DESC,length(id) DESC,id DESC) AS n
 				FROM posts WHERE source='bilibili' AND json_valid(quote_json)

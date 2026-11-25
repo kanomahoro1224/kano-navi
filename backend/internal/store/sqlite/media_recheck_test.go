@@ -25,9 +25,13 @@ func TestPendingMediaRetriesTransientFailuresAndRechecksLiveThumbnails(t *testin
 		{"soon", workflowTime(now.Add(24 * time.Hour)), 1},
 		{"recent", ago(2 * time.Hour), 0},
 		{"old", ago(72 * time.Hour), 0},
+		{"rejected", workflowTime(now.Add(48 * time.Hour)), 1},
+		{"rejected-read", workflowTime(now.Add(24 * time.Hour)), 1},
 	} {
 		testutil.Exec(t, p, `INSERT INTO videos (id,source,title,published_at,url,is_upcoming) VALUES (?,'youtube',?,?,?,?)`, v.id, v.id, v.start, "https://www.youtube.com/watch?v="+v.id, v.upcoming)
 	}
+	// This video's watch page was read after its thumbnail's rejected check.
+	testutil.Exec(t, p, `UPDATE videos SET live_checked_at=? WHERE id='rejected-read'`, ago(time.Minute))
 	cases := []struct {
 		name, source, status, lastError, checked, owner string
 		want                                            bool
@@ -45,6 +49,10 @@ func TestPendingMediaRetriesTransientFailuresAndRechecksLiveThumbnails(t *testin
 		{"recently checked", "youtube", "ready", "", ago(time.Minute), "soon", false},
 		{"old video", "youtube", "ready", "", ago(time.Hour), "old", false},
 		{"unlinked ready", "youtube", "ready", "", ago(time.Hour), "", false},
+		// A revalidation rejected with a code that is not retried keeps the
+		// file; the timer leaves it, and a later watch-page read checks it.
+		{"rejected revalidation", "youtube", "ready", "media_invalid_image", ago(time.Hour), "rejected", false},
+		{"rejected then read", "youtube", "ready", "media_response_oversized", ago(time.Hour), "rejected-read", true},
 	}
 	for _, c := range cases {
 		u := "https://i.ytimg.com/vi/" + c.name + "/hqdefault.jpg"

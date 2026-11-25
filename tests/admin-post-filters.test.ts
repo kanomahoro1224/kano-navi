@@ -49,7 +49,12 @@ test("post date and queue filters reach server queries, survive pagination and c
       quoteHiddenAt: null,
       refreshRequestedAt: null,
       hiddenAt: null,
+      shownAt: null,
       promotedAt: null,
+      demoted: false,
+      upstreamDeletedAt: null,
+      upstreamKind: null,
+      visible: true,
       scheduleImage: null,
     }
     const queries: Record<string, string | number>[] = []

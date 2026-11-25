@@ -51,7 +51,7 @@ operator actions, and share the bounded single-flight synchronization queue.
   whitespace; missing, whitespace-only, and shorter passwords refuse startup.
   The configured password itself is preserved for login comparison.
 - An optional one-time code
-  ([`ADMIN_TOTP_SECRET`](configuration.md#admin-one-time-code)) joins the
+  ([`ADMIN_TOTP_SECRET`](configuration/environment.md#admin-one-time-code)) joins the
   password at production login. It is off by default; setting it is
   recommended whenever `/admin` is reachable from the internet, so a leaked
   password alone does not open the console. Login sends both in one request

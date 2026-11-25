@@ -171,15 +171,24 @@ func (x *XRecentExecutor) Execute(ctx context.Context, in StepInput) (AttemptRes
 		if err != nil {
 			partial = true
 			if result.DiscoveredCount > 0 || result.RequestedCount > 0 {
-				if writeErr := x.Store.WriteXRecent(ctx, account, result, false); writeErr != nil {
+				written, writeErr := x.Store.WriteXRecentReport(ctx, account, result, false)
+				if writeErr != nil {
 					return AttemptResult{}, NewStepError("x_source_write_failed", ErrSchema)
+				}
+				for _, note := range written.Notes {
+					notes = append(notes, account+": "+note)
 				}
 			}
 			errorsOut = append(errorsOut, account+": "+err.Error())
 			continue
 		}
-		if writeErr := x.Store.WriteXRecent(ctx, account, result, len(result.Posts) > 0); writeErr != nil {
+		// A listing that served is a success even when it found nothing new.
+		written, writeErr := x.Store.WriteXRecentReport(ctx, account, result, true)
+		if writeErr != nil {
 			return AttemptResult{}, NewStepError("x_source_write_failed", ErrSchema)
+		}
+		for _, note := range written.Notes {
+			notes = append(notes, account+": "+note)
 		}
 		if len(result.Errors) > 0 {
 			partial = true

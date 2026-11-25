@@ -243,16 +243,16 @@ test("month archives page by revision, follow the board and cancel on close", as
         try {
           assert.equal(
             fixture.requests[0].url,
-            "/api/posts?from=2026-10-01&to=2026-10-31&page=1&account=kano_2525",
+            "/api/posts?page=1&pageSize=30&account=kano_2525",
           )
           assert.equal(fixture.current().isLoading, true)
           await fixture.respond(0, fixture.page(1, 1, ["a"], true))
           assert.equal(fixture.ids(), "a")
           await act(async () => void fixture.current().loadMore())
-          assert.match(fixture.requests[1].url, /&page=2&/)
+          assert.match(fixture.requests[1].url, /[?&]page=2&/)
           await fixture.respond(1, fixture.page(2, 2, ["b"]))
           // Page two moved under a write: reread page one of revision 2.
-          assert.match(fixture.requests[2].url, /&page=1&/)
+          assert.match(fixture.requests[2].url, /[?&]page=1&/)
           await fixture.respond(2, fixture.page(1, 2, ["x"], true))
           assert.equal(fixture.ids(), "x")
           await act(async () => void fixture.current().loadMore())

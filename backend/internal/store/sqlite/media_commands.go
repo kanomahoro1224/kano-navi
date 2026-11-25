@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -27,6 +26,9 @@ const (
 	mediaLiveWindow = 24 * time.Hour
 )
 
+// retryableMediaErrors are the download failures retried with backoff.
+const retryableMediaErrors = `('media_timeout','media_unavailable','media_http_error','media_body_unavailable','media_rate_limited','media_write_failed','media_missing')`
+
 func (s *Store) PendingMedia(ctx context.Context, limit int) ([]PendingMedia, error) {
 	if s == nil || !s.workflowWritable {
 		return nil, ErrSourceWrite
@@ -43,7 +45,10 @@ func (s *Store) PendingMedia(ctx context.Context, limit int) ([]PendingMedia, er
 	// an upcoming or recent video is revalidated because its URL stays the same
 	// when the creator replaces the image. So is the thumbnail of any video
 	// whose watch page was read after the file was last checked: a follow-up
-	// check or an operator's refresh request.
+	// check or an operator's refresh request. A ready thumbnail whose last
+	// revalidation failed with a code that is not retried waits for such a
+	// watch-page read, never for the timer, so one bad answer cannot stop its
+	// checks for good.
 	rows, err := s.db.QueryContext(ctx, `SELECT id,source,source_url,etag,last_modified FROM (
 		SELECT a.id,a.source,a.source_url,a.last_checked_at,a.created_at,
 		CASE WHEN a.status='ready' THEN COALESCE(a.etag,'') ELSE '' END AS etag,
@@ -56,7 +61,7 @@ func (s *Store) PendingMedia(ctx context.Context, limit int) ([]PendingMedia, er
 		) AS owner_instant
 		FROM media_assets a WHERE a.source IN('x','youtube','bilibili','niconico') AND length(a.id)=64 AND a.id NOT GLOB '*[^a-f0-9]*' AND (
 			a.status='pending'
-			OR (a.status IN('failed','missing','ready') AND a.last_error IN('media_timeout','media_unavailable','media_http_error','media_body_unavailable','media_rate_limited','media_missing')
+			OR (a.status IN('failed','missing','ready') AND a.last_error IN`+retryableMediaErrors+`
 				AND CASE WHEN a.next_retry_at IS NOT NULL THEN julianday(a.next_retry_at)<=julianday(?)
 					ELSE COALESCE(julianday(a.last_checked_at),julianday(a.created_at),0)<=julianday(CASE WHEN a.last_error IN('media_missing','media_http_error') THEN ? ELSE ? END) END
 				AND NOT (a.status='missing' AND EXISTS (SELECT 1 FROM media_links ml WHERE ml.media_id=a.id AND ml.owner_type='work-video')
@@ -64,7 +69,7 @@ func (s *Store) PendingMedia(ctx context.Context, limit int) ([]PendingMedia, er
 			OR (a.status='ready' AND a.last_error IS NULL AND a.source='youtube' AND julianday(COALESCE(a.last_checked_at,a.fetched_at,a.created_at))<=julianday(?)
 				AND EXISTS (SELECT 1 FROM media_links ml JOIN videos v ON v.id=ml.owner_id WHERE ml.media_id=a.id AND ml.owner_type='video' AND ml.role='thumbnail'
 					AND (v.is_upcoming=1 OR julianday(COALESCE(v.scheduled_at,v.published_at))>=julianday(?))))
-			OR (a.status='ready' AND a.last_error IS NULL AND a.source='youtube'
+			OR (a.status='ready' AND (a.last_error IS NULL OR a.last_error NOT IN`+retryableMediaErrors+`) AND a.source='youtube'
 				AND EXISTS (SELECT 1 FROM media_links ml JOIN videos v ON v.id=ml.owner_id WHERE ml.media_id=a.id AND ml.owner_type='video' AND ml.role='thumbnail'
 					AND julianday(v.live_checked_at)>julianday(COALESCE(a.last_checked_at,a.fetched_at,a.created_at))))
 		)
@@ -166,22 +171,19 @@ func (s *Store) SaveMediaDownload(ctx context.Context, asset PendingMedia, conte
 			return ErrSourceWrite
 		}
 		// An existing immutable file is reusable only after its hash agrees.
-		existing, e := root.Open(filepath.FromSlash(relative))
-		if e == nil {
+		// The content address is authoritative: any other file there, such as
+		// a truncated or corrupt one, is replaced by the verified bytes.
+		reusable := false
+		if existing, e := root.Open(filepath.FromSlash(relative)); e == nil {
 			info, statErr := existing.Stat()
 			var actual []byte
 			if statErr == nil && info.Mode().IsRegular() && info.Size() == int64(len(content)) {
 				actual, _ = io.ReadAll(io.LimitReader(existing, maxCachedMediaBytes+1))
 			}
 			existing.Close()
-			if sha256.Sum256(actual) != h {
-				return ErrSourceWrite
-			}
-		} else if errors.Is(e, os.ErrNotExist) {
-			if root.Rename(temp, filepath.FromSlash(relative)) != nil {
-				return ErrSourceWrite
-			}
-		} else {
+			reusable = sha256.Sum256(actual) == h
+		}
+		if !reusable && root.Rename(temp, filepath.FromSlash(relative)) != nil {
 			return ErrSourceWrite
 		}
 		// The file now holds hash, so serving it needs no second read.
@@ -320,7 +322,7 @@ func mediaRetryDelay(code string, attempts int) time.Duration {
 	switch code {
 	case "media_missing", "media_http_error":
 		return 24 * time.Hour
-	case "media_timeout", "media_unavailable", "media_body_unavailable", "media_rate_limited":
+	case "media_timeout", "media_unavailable", "media_body_unavailable", "media_rate_limited", "media_write_failed":
 		return min(mediaRecheckAfter*time.Duration(1<<min(max(attempts-1, 0), 6)), 24*time.Hour)
 	}
 	return 0

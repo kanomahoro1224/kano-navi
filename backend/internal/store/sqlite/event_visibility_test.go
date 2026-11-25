@@ -127,3 +127,30 @@ func TestEventsOfHiddenPostsLeavePublicReads(t *testing.T) {
 		t.Fatalf("shown post kept its events hidden: %v", shown)
 	}
 }
+
+// A post X no longer has hides its events as an operator's hiding does: an
+// automatic entry with no other source leaves the public reads, a locked one
+// and one with another source stay, and X listing the post again shows it.
+func TestEventsOfPostsDeletedOnXLeavePublicReads(t *testing.T) {
+	f := visibilityFixture(t)
+	f.exec(`INSERT INTO posts (id,source,account_handle,type,text,published_at,url,upstream_deleted_at)
+		VALUES ('p-gone','x','example','post','synthetic post','2026-10-20T00:00:00.000Z','https://x.com/example/status/p-gone','2026-10-21T00:00:00.000Z')`)
+	f.add("gone", "x", "雑談", "2026-10-25", "20:00", "stream")
+	f.evidence("gone", "x", "p-gone")
+	f.add("locked", "x", "歌枠", "2026-10-25", "21:00", "stream", "manual_locked=1")
+	f.evidence("locked", "x", "p-gone")
+	f.add("reserved", "youtube", "朝活", "2026-10-26", "08:00", "stream")
+	f.evidence("reserved", "x", "p-gone")
+	f.evidence("reserved", "youtube", "synthetic-video")
+	shown := f.publicIDs()
+	if shown["gone"] || !shown["locked"] || !shown["reserved"] {
+		t.Fatalf("public = %v", shown)
+	}
+	if one, err := f.s.GetAdminEvent(context.Background(), "gone"); err != nil || !one.HiddenByPosts {
+		t.Fatalf("console = %+v %v", one, err)
+	}
+	f.exec(`UPDATE posts SET upstream_deleted_at=NULL WHERE id='p-gone'`)
+	if shown = f.publicIDs(); !shown["gone"] {
+		t.Fatalf("a post listed again kept its event hidden: %v", shown)
+	}
+}

@@ -71,7 +71,7 @@
 
 .tag.video-availability.is-members {
   background: var(--leaf);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .dark .tag.video-availability.is-members {
@@ -464,7 +464,7 @@
 
 .video-ticket.is-live .video-ticket-date {
   background: var(--berry);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .video-ticket.is-started .video-ticket-date {
@@ -655,6 +655,11 @@
   .video-grid.is-row > :nth-child(n + 6) {
     display: none;
   }
+
+  /* The All view's archive preview stays one row. */
+  .video-grid.is-preview > :nth-child(n + 4) {
+    display: none;
+  }
 }
 
 @media (max-width: 900px) {
@@ -684,19 +689,19 @@
   .video-grid.is-row > :nth-child(n + 4) {
     display: none;
   }
+
+  .video-grid.is-preview > :nth-child(n + 3) {
+    display: none;
+  }
 }
 
 /*
- * Phones: two columns, with the All view's preview cut to two rows. Shorts
+ * Phones: two columns, with the All view's preview one row of them. Shorts
  * become a rail that scrolls inside the section.
  */
 @media (max-width: 560px) {
   .video-grid {
     gap: 18px 12px;
-  }
-
-  .video-grid.is-preview > :nth-child(n + 5) {
-    display: none;
   }
 
   .video-grid.is-shorts {

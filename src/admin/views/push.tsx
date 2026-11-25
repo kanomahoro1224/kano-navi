@@ -128,7 +128,6 @@ export function PushView(_: ViewProps) {
     <div className="adm-view">
       <PageHeader
         title={t("admin.pushKit.title")}
-        description={t("admin.pushKit.description")}
         actions={
           <Button
             icon={Send}
@@ -145,11 +144,7 @@ export function PushView(_: ViewProps) {
         <Loading />
       ) : (
         <>
-          <Panel
-            icon={BellRing}
-            title={t("admin.pushKit.service")}
-            description={t("admin.pushKit.serviceHint")}
-          >
+          <Panel icon={BellRing} title={t("admin.pushKit.service")}>
             <Facts
               items={[
                 [
@@ -180,7 +175,6 @@ export function PushView(_: ViewProps) {
           <Panel
             icon={BellRing}
             title={t("admin.pushKit.devices", { count: state.devices.length })}
-            description={t("admin.pushKit.devicesHint")}
           >
             {outcome ? (
               <Callout

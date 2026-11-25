@@ -172,7 +172,7 @@ type Options struct {
 	// one minimal page the chain skips the API.
 	APIBudget int
 	// GapCeilings holds the oldest stored status above each gap floor, which
-	// bounds the API read that closes the gap.
+	// bounds the API read that closes a gap stored without its own Ceiling.
 	GapCeilings map[string]string
 }
 
@@ -247,7 +247,10 @@ type Post struct {
 	// Quote is the status the post quotes, nil when it quotes none. Its
 	// images are never the post's own MediaURLs.
 	Quote *Quote
-	Raw   map[string]any
+	// Kind is what the answer says the status is for the account it is
+	// stored under (StatusKind), "" when the answer cannot tell.
+	Kind string
+	Raw  map[string]any
 }
 type ScheduleCandidate struct{ PostID, SourceURL, MediaURL, AccountHandle string }
 type Result struct {
@@ -278,7 +281,9 @@ type Result struct {
 	// APIRead counts the posts API answers returned.
 	APIRead int
 	// Gap is the account's unread timeline stretch after the run, nil when
-	// there is none; Notes are controlled codes about it.
+	// there is none. Notes are controlled codes that leave the run partial
+	// without failing the account: gap codes, and "<id>: <code>" for a failed
+	// optional refresh of a stored status.
 	Gap   *Gap
 	Notes []string
 	// Refreshed lists the requested refreshes whose detail request was
@@ -397,9 +402,15 @@ func (a *Adapter) FetchRecent(ctx context.Context, account string, opts Options)
 	for id := range forced {
 		refreshing[id] = true
 	}
+	// optional marks stored statuses queued only for the known-post refresh.
+	// Their failure is a note: it neither fails the account nor queues them.
+	optional := map[string]bool{}
 	refresh := opts.RefreshKnown
 	for _, id := range ids {
 		if opts.KnownIDs[id] && refresh > 0 {
+			if !seen[id] {
+				optional[id] = true
+			}
 			add(id)
 			refreshing[id] = true
 			refresh--
@@ -451,8 +462,15 @@ func (a *Adapter) FetchRecent(ctx context.Context, account string, opts Options)
 	// settled counts answers that were no failure and no post: another
 	// account's status or the account's repost.
 	settled := 0
+	// skipped counts failed optional refreshes of stored statuses.
+	skipped := 0
 	var firstDetailErr error
 	fail := func(id, code string, err error, gone bool) {
+		if optional[id] {
+			result.Notes = append(result.Notes, id+": "+code)
+			skipped++
+			return
+		}
 		if firstDetailErr == nil && err != nil {
 			firstDetailErr = err
 		}
@@ -554,9 +572,10 @@ func (a *Adapter) FetchRecent(ctx context.Context, account string, opts Options)
 		result.NextCursor = result.NewestID(newest)
 		result.NextCursorTime = newest.PublishedAt
 	}
-	// Requests answered only with other accounts' statuses or reposts fail
-	// nothing.
-	if result.RequestedCount > settled && len(result.Posts) == 0 {
+	// Requests answered only with other accounts' statuses or reposts, or
+	// failed optional refreshes of stored statuses, fail nothing: the listing
+	// served.
+	if result.RequestedCount > settled+skipped && len(result.Posts) == 0 {
 		if firstDetailErr != nil {
 			return result, firstDetailErr
 		}

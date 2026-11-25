@@ -111,6 +111,7 @@ func TestStaticSiteServesBuildWithFallbackAndContainment(t *testing.T) {
 		"/about//":                     {page, "text/html; charset=utf-8", revalidate, "<title>About · "},
 		"/lineblog":                    {page, "text/html; charset=utf-8", revalidate, "<title>LINE BLOG archive · "},
 		"/works/":                      {page, "text/html; charset=utf-8", revalidate, "<title>Works · "},
+		"/posts":                       {page, "text/html; charset=utf-8", revalidate, "<title>Posts · "},
 		"/robots.txt":                  {page, "text/plain; charset=utf-8", revalidate, "Disallow: /admin"},
 		"/assets/index-AbCd1234.js":    {page, "text/javascript; charset=utf-8", immutable, "console.log(1)"},
 		"/assets/unlisted-AbCd1234.js": {page, "text/javascript; charset=utf-8", revalidate, "console.log(2)"},

@@ -67,6 +67,7 @@ func (a *api) listPosts(w http.ResponseWriter, r *http.Request) {
 		LLM:         query(r, "llm"),
 		Queued:      query(r, "queued"),
 		Translation: query(r, "translation"),
+		Visibility:  query(r, "visibility"),
 	})
 	if err != nil {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")

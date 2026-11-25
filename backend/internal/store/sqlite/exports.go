@@ -61,3 +61,12 @@ func (s *Store) BumpDashboardRevision(ctx context.Context) error {
 	}
 	return nil
 }
+
+// SourceFetchedAt is meta.sourceFetchedAt: each source's latest successful
+// recent read (x, youtube, bilibili, shop), nil when it has none.
+func (s *Store) SourceFetchedAt(ctx context.Context) (map[string]*string, error) {
+	if s == nil || s.db == nil {
+		return nil, ErrUnavailable
+	}
+	return s.sourceFetchedAt(ctx)
+}

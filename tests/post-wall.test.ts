@@ -211,11 +211,11 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
         now: Date.parse("2026-10-08T21:00:00+09:00"),
         t,
         onOpenMedia: () => {},
-        onOpenArchive: () => {},
+        archiveHref: () => "/posts",
       })
     }
     // The wall measures its columns and clamps; happy-dom lays nothing out,
-    // so the wall keeps one column and every post's wording unclamped.
+    // so every post's wording stays unclamped.
     const globals = globalThis as any
     const previous = {
       act: globals.IS_REACT_ACT_ENVIRONMENT,
@@ -227,8 +227,12 @@ test("a Bilibili post names its source, shows its forward and no X-only parts", 
       observe() {}
       disconnect() {}
     }
+    // The wall reads only its column count, five here so all five
+    // synthetic posts show in one row.
     globals.getComputedStyle = (element: Element) =>
-      browser.getComputedStyle(element as any)
+      element.classList.contains("post-wall")
+        ? { gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr" }
+        : browser.getComputedStyle(element as any)
     let root: Rendered | undefined
     try {
       await act(async () => {
@@ -423,7 +427,7 @@ test("a dynamic's stickers show in its original wording, never in a translation"
         now: Date.parse("2026-10-08T21:00:00+09:00"),
         t,
         onOpenMedia: () => {},
-        onOpenArchive: () => {},
+        archiveHref: () => "/posts",
       })
     }
     const globals = globalThis as any
@@ -558,7 +562,7 @@ test("a post's video and GIF stills carry their mark and open the post on X", as
           t,
           onOpenMedia: (items: any[], index: number) =>
             opened.push({ items, index }),
-          onOpenArchive: () => {},
+          archiveHref: () => "/posts",
         }),
         createElement(
           "div",
@@ -723,7 +727,7 @@ test("a promoted repost names the own accounts that reposted it", async () => {
         now: Date.parse("2026-10-08T21:00:00+09:00"),
         t,
         onOpenMedia: () => {},
-        onOpenArchive: () => {},
+        archiveHref: () => "/posts",
       })
     }
     const globals = globalThis as any
@@ -851,7 +855,7 @@ test("PostWall resolves per-account, hidden, promoted, and fallback avatars", as
         now: Date.parse("2026-10-08T21:00:00+09:00"),
         t,
         onOpenMedia: () => {},
-        onOpenArchive: () => {},
+        archiveHref: () => "/posts",
       })
     }
     const globals = globalThis as any
@@ -960,7 +964,7 @@ test("a lone image keeps its shape within the board's bounds", async () => {
 test("a post counts its images past four and a board quote shows one thumbnail", async () => {
   await withVite(async (load) => {
     const [
-      { PostWall, PostArchive },
+      { PostWall, PostNote },
       { AppSettingsProvider, PageMessagesProvider, useAppSettings },
     ] = await Promise.all([
       load("/src/dashboard/components/post-wall.tsx"),
@@ -1026,20 +1030,16 @@ test("a post counts its images past four and a board quote shows one thumbnail",
           bilibiliAccounts: [],
           windowDays: 14,
           isLoading: false,
-          onOpenArchive: () => {},
+          archiveHref: () => "/posts",
         }),
         createElement(
           "div",
           { className: "archive" },
-          createElement(PostArchive, {
+          createElement(PostNote, {
             ...common,
-            archive: { items: [post], hasNext: false, adjacent: null },
-            layout: "list",
-            isLoading: false,
-            error: null,
-            onRetry: () => {},
-            onLoadMore: () => {},
-            onJump: () => {},
+            post,
+            absoluteTime: "clock",
+            clamp: false,
           }),
         ),
       )
@@ -1098,7 +1098,13 @@ test("a post counts its images past four and a board quote shows one thumbnail",
       await click(thumb[0])
       assert.equal(opened.at(-1)!.items.length, 3)
       assert.equal(opened.at(-1)!.index, 0)
-      // In the archive the quote shows its images as a post's.
+      // On the posts page the post shows only its time under the day's date,
+      // and the quote keeps its date and shows its images as a post's.
+      assert.equal(
+        root!.container.querySelector(".archive .post-note-head time")!
+          .textContent,
+        "12:00",
+      )
       const archived = root!.container.querySelector(".archive .post-quote")!
       assert.ok(!archived.classList.contains("has-thumb"))
       assert.equal(

@@ -15,6 +15,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/adminapi"
 	"github.com/yexca/kano-navi/backend/internal/adminauth"
+	"github.com/yexca/kano-navi/backend/internal/alerts"
 	"github.com/yexca/kano-navi/backend/internal/config"
 	"github.com/yexca/kano-navi/backend/internal/contentadmin"
 	"github.com/yexca/kano-navi/backend/internal/httpapi"
@@ -257,12 +258,22 @@ func runStandalone(cfg config.Config) int {
 	if err = pushAdmin.Load(context.Background()); err != nil {
 		return fail("YouTube push settings unavailable", 1)
 	}
+	// Alerts read local state once a minute and deliver through the notify
+	// proxy area; development mode records incidents without sending.
+	alertService := alerts.New(alerts.Options{
+		Store: store, Key: secretsKey, Pool: run.proxies,
+		Enabled: os.Getenv("ALERTS_ENABLED") != "0", Production: adminConfig.Mode == "production",
+		Origin:  firstNonEmpty(adminConfig.AllowedOrigin, cfg.PublicOrigin),
+		Signals: alertSignals(store, run, secretsKey, keyAdmin, probe.Enabled),
+	})
+	alertService.Start()
+	defer alertService.Stop()
 	handler := httpapi.NewStandaloneHandler(store, nil, httpapi.Standalone{
 		Admin: adminapi.New(adminapi.Options{
 			Store:     store,
 			Auth:      auth,
 			Runs:      manager,
-			Modules:   append(modules, pushAdmin, keyAdmin),
+			Modules:   append(modules, pushAdmin, keyAdmin, alerts.NewAdmin(alertService)),
 			Scheduler: scheduler.Status,
 			// A timer the operator starts is submitted at once when the
 			// queue is free.
@@ -316,6 +327,7 @@ func runStandalone(cfg config.Config) int {
 	defer push.Stop()
 	select {
 	case <-ctx.Done():
+		alertService.Stop()
 		push.Stop()
 		probe.Stop()
 		pruner.Stop()
@@ -348,6 +360,54 @@ func runHealthCheck(cfg config.Config) int {
 		return 1
 	}
 	return 0
+}
+
+// alertSignals wires the alert rules to the state other packages own. Each
+// check reads local state only.
+func alertSignals(store *sqlite.Store, run pipeline, key string, keys *keyadmin.Admin, liveProbe bool) alerts.Signals {
+	signals := alerts.Signals{
+		SkipSources: run.steps.Skip,
+		LiveProbe:   liveProbe,
+		Secrets: map[string]func(context.Context) (bool, error){
+			"llm": func(ctx context.Context) (bool, error) {
+				return llmadmin.UnreadableProviderKeys(ctx, store.DB(), key)
+			},
+			"proxy": func(ctx context.Context) (bool, error) {
+				config, err := run.proxies.Config(ctx)
+				if err != nil {
+					return false, err
+				}
+				for _, proxy := range config.Proxies {
+					if proxy.Unreadable {
+						return true, nil
+					}
+				}
+				return false, nil
+			},
+			"web_bot_auth": func(context.Context) (bool, error) {
+				return keys.Status()["state"] == keyadmin.StateKeyUnreadable, nil
+			},
+		},
+	}
+	if adapter := run.steps.Bilibili; adapter != nil {
+		signals.BilibiliLogin = func(ctx context.Context) (string, error) {
+			state, err := store.BilibiliState(ctx, adapter.Options.Account)
+			if err != nil {
+				return "", err
+			}
+			return adapter.LoginStatus(state), nil
+		}
+	}
+	return signals
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // standaloneModules attaches the operator feature modules. key is the

@@ -522,6 +522,16 @@ func (h *handler) scheduleList(ctx context.Context, arguments map[string]any) (a
 	if err != nil {
 		return nil, failureSnapshot
 	}
+	// The views come from the board's own inputs: the event's source and the
+	// trusted broadcast state of its linked video or room.
+	ids := make([]string, 0, len(page.Items))
+	for _, event := range page.Items {
+		ids = append(ids, event.ID)
+	}
+	views, err := h.store.PublicEventViews(ctx, ids, h.now())
+	if err != nil {
+		return nil, failureSnapshot
+	}
 	items := make([]publicEvent, 0, len(page.Items))
 	for _, event := range page.Items {
 		// A live-room link is the same for every broadcast and reads as no
@@ -534,11 +544,7 @@ func (h *handler) scheduleList(ctx context.Context, arguments map[string]any) (a
 		if platforms == nil {
 			platforms = []string{}
 		}
-		view := sqlite.ProjectEventView(sqlite.DashboardEvent{
-			StartsOn: event.StartsOn, StartsAt: event.StartsAt, EndsAt: event.EndsAt, EndsOn: event.EndsOn,
-			TimePrecision: event.TimePrecision, Status: event.Status, EventType: event.EventType,
-			Tag: event.Tag, CancellationStatus: event.CancellationStatus,
-		}, h.now())
+		view := views[event.ID]
 		items = append(items, publicEvent{
 			ID: event.ID, Source: event.Source, Title: event.Title, Detail: event.Detail,
 			StartsOn: event.StartsOn, StartsAt: event.StartsAt, EndsAt: event.EndsAt, EndsOn: event.EndsOn,

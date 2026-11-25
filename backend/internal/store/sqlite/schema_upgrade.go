@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
 
 // OpenStandalone opens the runtime database for the process that owns the
@@ -175,6 +177,18 @@ func upgradeSchema(ctx context.Context, tx *sql.Tx) error {
 			return fmt.Errorf("%w: index %s could not be created", ErrSchema, index)
 		}
 	}
+	for _, index := range redefinedIndexes {
+		have, exists := haveIndexes[index]
+		if !exists || sameIndexDefinition(have, wantIndexes[index]) {
+			continue
+		}
+		if _, err = tx.ExecContext(ctx, `DROP INDEX "`+index+`"`); err != nil {
+			return fmt.Errorf("%w: index %s could not be rebuilt", ErrSchema, index)
+		}
+		if _, err = tx.ExecContext(ctx, wantIndexes[index]); err != nil {
+			return fmt.Errorf("%w: index %s could not be rebuilt", ErrSchema, index)
+		}
+	}
 	return nil
 }
 
@@ -297,6 +311,9 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 	if err := backfillEventCodes(ctx, tx); err != nil {
 		return err
 	}
+	if err := backfillPostLabels(ctx, tx); err != nil {
+		return err
+	}
 	if err := backfillYoutubeEventTimePrecision(ctx, tx); err != nil {
 		return err
 	}
@@ -305,6 +322,11 @@ func backfillUpgrade(ctx context.Context, tx *sql.Tx, added map[string]bool) err
 	}
 	if err := backfillExistingBilibiliWorks(ctx, tx); err != nil {
 		return err
+	}
+	if added["posts.upstream_kind"] {
+		if err := backfillPostUpstreamState(ctx, tx, workflowTime(time.Now())); err != nil {
+			return err
+		}
 	}
 	// The platform of the YouTube writers' events is known; every other
 	// stored event keeps an unknown platform.
@@ -433,6 +455,26 @@ func backfillEventCodes(ctx context.Context, tx *sql.Tx) error {
 		if err := bumpRevision(ctx, tx, workflowTime(time.Now())); err != nil {
 			return fmt.Errorf("%w: upgrade backfill failed", ErrSchema)
 		}
+	}
+	return nil
+}
+
+// backfillPostLabels replaces the bilingual post labels synchronization used
+// to store with their English base text (see xsource.LabelDaily). No operator
+// edits a post label, and the label is not part of the extraction input
+// stamp, so the rewrite never sends a post to a model again.
+func backfillPostLabels(ctx context.Context, tx *sql.Tx) error {
+	result, err := tx.ExecContext(ctx, `UPDATE posts SET label=CASE label WHEN 'DAILY / 近况' THEN ? ELSE ? END
+WHERE label IN ('DAILY / 近况','SCHEDULE / 日程')`, xsource.LabelDaily, xsource.LabelSchedule)
+	if err != nil {
+		return fmt.Errorf("%w: upgrade backfill failed", ErrSchema)
+	}
+	changed, _ := result.RowsAffected()
+	if changed == 0 {
+		return nil
+	}
+	if err = bumpRevision(ctx, tx, workflowTime(time.Now())); err != nil {
+		return fmt.Errorf("%w: upgrade backfill failed", ErrSchema)
 	}
 	return nil
 }

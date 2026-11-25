@@ -127,6 +127,14 @@ func (p *Pool) Transport(area Area) http.RoundTripper {
 	return &areaTransport{pool: p, area: area}
 }
 
+// TransportWithDirect is Transport with direct replacing the pool's Direct
+// transport for this area's unrouted requests, bypassed local destinations
+// and the direct fallback. Operator alerts use it to check every address
+// they connect to.
+func (p *Pool) TransportWithDirect(area Area, direct http.RoundTripper) http.RoundTripper {
+	return &areaTransport{pool: p, area: area, direct: direct}
+}
+
 // Client returns a client for area. Callers replace its timeout and redirect
 // policy with their own fixed bounds.
 func (p *Pool) Client(area Area) *http.Client {
@@ -259,6 +267,15 @@ func optionalTime(value time.Time) *time.Time {
 type areaTransport struct {
 	pool *Pool
 	area Area
+	// direct replaces pool.Direct when set.
+	direct http.RoundTripper
+}
+
+func (t *areaTransport) directTransport() http.RoundTripper {
+	if t.direct != nil {
+		return t.direct
+	}
+	return t.pool.Direct
 }
 
 // RoundTrip sends the request through the first proxy of the area's queue
@@ -271,7 +288,7 @@ type areaTransport struct {
 // fallback, a direct attempt follows the last proxy.
 func (t *areaTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	if bypass(request.URL.Hostname()) {
-		return t.pool.Direct.RoundTrip(request)
+		return t.directTransport().RoundTrip(request)
 	}
 	routed, attempts, fallback, err := t.pool.plan(request.Context(), t.area)
 	if err != nil {
@@ -279,7 +296,7 @@ func (t *areaTransport) RoundTrip(request *http.Request) (*http.Response, error)
 		return nil, err
 	}
 	if !routed {
-		return t.pool.Direct.RoundTrip(request)
+		return t.directTransport().RoundTrip(request)
 	}
 	idempotent := isIdempotent(request)
 	var lastErr error
@@ -314,10 +331,10 @@ func (t *areaTransport) RoundTrip(request *http.Request) (*http.Response, error)
 	}
 	if fallback {
 		if len(attempts) == 0 {
-			return t.pool.Direct.RoundTrip(request)
+			return t.directTransport().RoundTrip(request)
 		}
 		if replay, ok := replayRequest(request); ok {
-			return t.pool.Direct.RoundTrip(replay)
+			return t.directTransport().RoundTrip(replay)
 		}
 	}
 	if lastErr == nil {

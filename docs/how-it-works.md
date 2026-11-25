@@ -39,7 +39,7 @@ flowchart LR
   W -- "schedule extraction" --> LLM["Configured LLM providers"]
   W --> DB[("SQLite snapshot<br/>and media cache")]
   DB --> API["Go API, feeds and MCP"]
-  API --> B["Board, Journey, Works, Blog and About"]
+  API --> B["Board, Posts, Journey, Works, Blog and About"]
   OP["Operator console"] --> API
 ```
 
@@ -50,7 +50,9 @@ flowchart LR
    shop's public product list, for the sale periods of goods she takes part
    in),
    download their images into the media cache, and write a SQLite snapshot.
-   A failed source keeps the previous snapshot and records its outcome.
+   A failed source keeps the previous snapshot and records its outcome. An
+   operator can also import an X account's export, which adds its earlier
+   posts without any request.
 2. Schedule extraction reads candidate posts, the wording they quote, and
    schedule images, skips hidden posts, and asks the
    configured LLM providers for structured events. Uncertain results create no
@@ -59,8 +61,9 @@ flowchart LR
 3. Page loads, retries, and revision checks only read the stored
    snapshot through the local API. They never contact X, YouTube, or a model
    provider.
-4. Each completed workflow or operator change advances a small revision
-   number. The server watches it and pushes each change to open pages over a
+4. Each stored change that pages show, whether a workflow or an operator
+   wrote it, advances a small revision number; a workflow that changed
+   nothing leaves it. The server watches it and pushes each change to open pages over a
    stream, and a page then reloads the snapshot; when the stream is
    unavailable, pages ask for the revision every 30 seconds instead. Times
    such as a stream's start pass without a stored change, so a page also

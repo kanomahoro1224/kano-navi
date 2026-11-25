@@ -11,7 +11,7 @@ import (
 	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
-// Works upload covers (see docs/architecture/media-cache.md#works-upload-covers).
+// Works upload covers (see docs/architecture/media-cache/packaged-media.md#works-upload-covers).
 // An upload's cover is the first of its videos, in index order, with a ready
 // image: the stored video's thumbnail, else the image the media step
 // downloaded for the works list (media_links owner_type work-video). A video

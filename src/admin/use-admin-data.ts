@@ -19,6 +19,11 @@ import {
   type RequestOptions,
 } from "@/admin/api"
 import type {
+  AlertChannelInput,
+  AlertDelivery,
+  AlertRuleSetting,
+  AlertSettings,
+  AlertTestResult,
   AccountAvatarMode,
   AccountAvatarMutation,
   AccountAvatarsState,
@@ -28,6 +33,7 @@ import type {
   AdminEvent,
   AdminPost,
   AdminPushState,
+  PostVisibility,
   AdminVideo,
   AdminVideosPage,
   AdminWebPushState,
@@ -272,6 +278,23 @@ function createClient(run: Runner, slow: Runner) {
     }) => send<ProxySettings>("PUT", "/proxy", body),
     testProxy: (id: string, area: ProxyArea) =>
       send<ProxyTestResult>("POST", `/proxy/${enc(id)}/test`, { area }),
+    alertSettings: () => get<AlertSettings>("/alerts"),
+    updateAlertSettings: (body: {
+      channels?: AlertChannelInput[]
+      rules?: Record<string, AlertRuleSetting>
+      heartbeat?: { enabled: boolean; intervalMinutes: number; url?: string }
+    }) => send<AlertSettings>("PUT", "/alerts", body),
+    alertDeliveries: () =>
+      get<{ deliveries: AlertDelivery[] }>("/alerts/deliveries"),
+    testAlertChannel: (id: string) =>
+      send<AlertTestResult>("POST", `/alerts/channels/${enc(id)}/test`),
+    testAlertHeartbeat: () =>
+      send<AlertTestResult>("POST", "/alerts/heartbeat/test"),
+    acknowledgeAlertIncident: (id: number, on: boolean) =>
+      send<AlertSettings>(
+        on ? "POST" : "DELETE",
+        `/alerts/incidents/${id}/acknowledge`,
+      ),
     syncSettings: () => get<SyncSettings>("/sync-settings"),
     updateSyncSettings: (body: Partial<Record<SyncSettingField, number>>) =>
       send<SyncSettings>("PUT", "/sync-settings", body),
@@ -340,8 +363,10 @@ function createClient(run: Runner, slow: Runner) {
         `/posts/${enc(id)}/schedule-image`,
         body,
       ),
-    setPostHidden: (id: string, hidden: boolean) =>
-      send<{ state: unknown }>("PUT", `/posts/${enc(id)}/hidden`, { hidden }),
+    setPostVisibility: (id: string, visibility: PostVisibility) =>
+      send<{ state: unknown }>("PUT", `/posts/${enc(id)}/visibility`, {
+        visibility,
+      }),
     setQuoteHidden: (id: string, hidden: boolean) =>
       send<{ state: unknown }>("PUT", `/posts/${enc(id)}/quote/hidden`, {
         hidden,

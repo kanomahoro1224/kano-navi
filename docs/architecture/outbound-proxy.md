@@ -3,7 +3,7 @@
 The operator can send the server's own outbound requests through forward
 proxies. Proxies never carry visitor traffic; page loads still read only the
 local API. `backend/internal/outboundproxy` owns the configuration, its
-storage, the per-area transport and the [admin routes](admin-api.md#outbound-proxies).
+storage, the per-area transport and the [admin routes](admin-api/sources.md#outbound-proxies).
 
 ## Areas
 
@@ -18,6 +18,7 @@ pool for one area:
 | `shop`     | The official shop's product and collection JSON and catalog Atom feed                |
 | `media`    | Post, video and profile media downloads, profile page reads, niconico cover lookups  |
 | `llm`      | Model provider requests: extraction, translation, provider tests, model discovery    |
+| `notify`   | [Operator alert](alerts.md) deliveries (ntfy, Telegram, webhooks) and the heartbeat  |
 
 The health check and the read-only flag mode make no source requests and are
 not routed.
@@ -27,9 +28,9 @@ not routed.
 The configuration is one ordered proxy queue, one route per area and a
 direct-fallback switch:
 
-- A proxy has a protocol (`http`, `https`, `socks5` or `socks5h`), a hostname
-  or IP address, a port, an optional username and password, and an in-use
-  switch. The queue holds at most 16 proxies.
+- A proxy has an optional name, which labels it in the console's queue, a
+  protocol (`http`, `https`, `socks5` or `socks5h`), a hostname or IP
+  address, a port, an optional username and password, and an in-use switch. The queue holds at most 16 proxies.
 - A route is off (the area connects directly) or on with a proxy selection.
   An empty selection means every proxy; either way proxies are tried in
   queue order. A selection keeps the ids it names when a proxy is removed, so
@@ -128,6 +129,6 @@ health.
 
 ## Related Docs
 
-- [Admin API](admin-api.md#outbound-proxies)
+- [Admin API](admin-api/sources.md#outbound-proxies)
 - [Sources](sources.md)
 - [Secure development](../development/security.md#external-request-rules)

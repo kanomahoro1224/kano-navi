@@ -10,18 +10,21 @@ func eventEvidenceSQL(table, es string) string {
 }
 
 // hiddenPostEvidenceSQL holds for the evidence row es when it is a stored X
-// or Bilibili post that an operator hid. The unary plus keeps the source test
-// off the identity index, so the planner finds the event's rows through
-// event_sources_event_idx instead of walking every X and Bilibili row for
-// each event.
+// or Bilibili post that the public pages do not show (see postShownSQL):
+// an operator hid it, X no longer has it, X says it is a reply, another
+// author's status or a repost, or the pool demotes it. The unary plus keeps
+// the source test off the identity index, so the planner finds the event's
+// rows through event_sources_event_idx instead of walking every X and
+// Bilibili row for each event.
 func hiddenPostEvidenceSQL(es string) string {
-	return fmt.Sprintf(`+%[1]s.source IN ('x','bilibili') AND EXISTS (SELECT 1 FROM posts %[1]sp WHERE %[1]sp.id=%[1]s.source_item_id AND %[1]sp.source=%[1]s.source AND %[1]sp.hidden_at IS NOT NULL)`, es)
+	return fmt.Sprintf(`+%[1]s.source IN ('x','bilibili') AND EXISTS (SELECT 1 FROM posts %[1]sp WHERE %[1]sp.id=%[1]s.source_item_id AND %[1]sp.source=%[1]s.source AND NOT %[2]s)`, es, postShownSQL(es+"p"))
 }
 
 // eventHiddenByPostsSQL holds for an automatic, unlocked event whose every
-// active source, its own and those of the events merged into it, is a hidden
-// post. It is a visibility rule only: the row, its evidence and its merges
-// stay, and showing a source post shows the event again. An event an
+// active source, its own and those of the events merged into it, is a post
+// the public pages do not show. It is a visibility rule only: the row, its
+// evidence and its merges stay, and showing a source post, or X listing it
+// again, shows the event again. An event an
 // operator edited, confirmed or added is never hidden this way, and neither
 // is an event with any other source, such as a YouTube reservation.
 // table is the events table reference of the enclosing query.

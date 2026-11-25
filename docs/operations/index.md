@@ -7,6 +7,7 @@ Runtime state belongs to the ignored data directory. Protect backups and environ
 - [Docker deployment](docker.md)
 - [Database and maintenance](database.md)
 - [Reliability and freshness](reliability.md)
+- [Alerts](alerts.md)
 - [Deployment security](security.md)
 - [Troubleshooting](troubleshooting.md)
 

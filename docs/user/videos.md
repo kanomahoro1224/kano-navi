@@ -9,7 +9,8 @@ bilibili. A work on both platforms is one video with a link for each.
 A large lead card shows the maintainer's featured video, or else the newest
 cover, original song, or premiere, with its date, length, and a link for each
 platform. Beside it, upcoming reservations appear as date tickets, soonest
-first; a reservation that has started reads as on air. Earlier works fill the
+first, except the one the top of the board already shows as next up; a
+reservation that has started reads as on air. Earlier works fill the
 rest of the column: four when nothing is coming up, and five items in all
 beside reservations, with at least one earlier work kept whenever there is
 one. When more than four reservations are waiting, the furthest ones fold
@@ -18,8 +19,9 @@ place, and pressing it again folds them back.
 
 ## Archives and Shorts
 
-Below the lead, stream archives appear as a grid of large thumbnails (two rows
-of two on phones), followed by a row of Shorts.
+Below the lead, the newest stream archives appear as one row of large
+thumbnails (four on wide screens, two on phones), followed by a row of
+Shorts; the Streams filter and Past videos list the rest.
 
 On the board, the section a video sits in names how it was published, so
 only a featured stream archive or Short in the lead and an upcoming premiere

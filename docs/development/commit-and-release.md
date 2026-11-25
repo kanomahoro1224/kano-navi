@@ -60,7 +60,7 @@ package.json version and point to a commit on `main`.
 The Release workflow first verifies its source: the tag matches package.json,
 `docs/history/<tag>.md` exists, and the tagged commit is on `main`. It then
 requires a successful `Full` workflow for that exact commit, as described in
-[GitHub Actions](testing.md#github-actions). The Full run's read-only
+[GitHub Actions](testing/github-actions.md). The Full run's read-only
 validation jobs, including the production image and runtime smoke, feed its
 Gate, which must pass before publishing. The release workflow does not run a
 second validation tier for the tag.

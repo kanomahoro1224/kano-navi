@@ -147,7 +147,6 @@ export function WebPushView(_: ViewProps) {
     <div className="adm-view">
       <PageHeader
         title={t("admin.webPushKit.title")}
-        description={t("admin.webPushKit.description")}
         actions={
           <>
             <Button
@@ -174,11 +173,7 @@ export function WebPushView(_: ViewProps) {
         <Loading />
       ) : (
         <>
-          <Panel
-            icon={Globe}
-            title={t("admin.webPushKit.service")}
-            description={t("admin.webPushKit.serviceHint")}
-          >
+          <Panel icon={Globe} title={t("admin.webPushKit.service")}>
             <Facts
               items={[
                 [
@@ -211,13 +206,11 @@ export function WebPushView(_: ViewProps) {
               disabled={!state.configured || busy === "testMode"}
               onChange={(value) => void toggleTestMode(value)}
               label={t("admin.webPushKit.testMode")}
-              description={t("admin.webPushKit.testModeHint")}
             />
           </Panel>
           <Panel
             icon={Globe}
             title={t("admin.webPushKit.browsers", { count: state.total })}
-            description={t("admin.webPushKit.browsersHint")}
           >
             {outcome ? (
               <Callout

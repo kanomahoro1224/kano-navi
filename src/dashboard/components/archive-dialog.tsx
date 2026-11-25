@@ -1,5 +1,5 @@
 import type { Locale, Translator } from "@/types"
-import type { ReactNode } from "react"
+import type { ReactNode, RefObject } from "react"
 import { useEffect, useRef, useState } from "react"
 import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react"
 
@@ -82,24 +82,12 @@ export function ArchiveDialog({
   const dialogRef = useRef<HTMLDialogElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
-  const pickerRef = useRef<HTMLDivElement>(null)
   const pickerButtonRef = useRef<HTMLButtonElement>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const closePicker = (refocus: boolean) => {
     setPickerOpen(false)
     if (refocus) pickerButtonRef.current?.focus()
   }
-
-  // A press outside the month controls closes the jump grid.
-  useEffect(() => {
-    if (!pickerOpen) return undefined
-    const onPointerDown = (event: PointerEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node))
-        setPickerOpen(false)
-    }
-    document.addEventListener("pointerdown", onPointerDown)
-    return () => document.removeEventListener("pointerdown", onPointerDown)
-  }, [pickerOpen])
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -124,19 +112,6 @@ export function ArchiveDialog({
   }, [resetKey])
 
   if (!open) return null
-  const thisMonth = monthStartOf(japanToday())
-  const isCurrent = monthStart.getTime() === thisMonth.getTime()
-  const atLatest = latestMonth ? monthStart >= latestMonth : false
-  const label = formatMonth(monthStart, locale)
-  // Phones show the short name; the one not shown is hidden from everyone.
-  const monthText = (
-    <>
-      <span className="archive-month-long">{label}</span>
-      <span className="archive-month-short">
-        {formatShortMonth(monthStart, locale)}
-      </span>
-    </>
-  )
 
   return (
     <dialog
@@ -171,98 +146,19 @@ export function ArchiveDialog({
             <X aria-hidden="true" />
           </button>
           <div className="archive-dialog-bar">
-            <div
-              className="archive-month"
-              role="group"
-              aria-label={label}
-              ref={pickerRef}
-            >
-              {timeline ? null : (
-                <button
-                  type="button"
-                  className="round-button"
-                  onClick={() => onMonthChange(shiftMonth(monthStart, -1))}
-                  aria-label={t("common.previousMonth")}
-                  title={t("common.previousMonth")}
-                >
-                  <ChevronLeft aria-hidden="true" />
-                </button>
-              )}
-              {picker ? (
-                <button
-                  ref={pickerButtonRef}
-                  type="button"
-                  className="archive-month-label is-picker"
-                  aria-haspopup="dialog"
-                  aria-expanded={pickerOpen}
-                  aria-controls={
-                    pickerOpen ? "archive-month-picker" : undefined
-                  }
-                  title={t("common.chooseMonth")}
-                  onClick={() => setPickerOpen((open) => !open)}
-                >
-                  {/* A scrolled month changes too often to announce. */}
-                  <span aria-live={timeline ? undefined : "polite"}>
-                    {monthText}
-                  </span>
-                  <ChevronDown aria-hidden="true" />
-                </button>
-              ) : (
-                <strong className="archive-month-label" aria-live="polite">
-                  {monthText}
-                </strong>
-              )}
-              {timeline ? (
-                <button
-                  type="button"
-                  className="pill-button"
-                  disabled={timeline.atLatest}
-                  onClick={timeline.onLatest}
-                >
-                  {t("common.latest")}
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className="round-button"
-                    disabled={atLatest}
-                    onClick={() => onMonthChange(shiftMonth(monthStart, 1))}
-                    aria-label={t("common.nextMonth")}
-                    title={t("common.nextMonth")}
-                  >
-                    <ChevronRight aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className="pill-button"
-                    disabled={isCurrent}
-                    onClick={() => onMonthChange(thisMonth)}
-                  >
-                    {t("common.thisMonth")}
-                  </button>
-                </>
-              )}
-              {summary ? (
-                <span className="archive-summary">{summary}</span>
-              ) : null}
-              {picker && pickerOpen ? (
-                <MonthPicker
-                  id="archive-month-picker"
-                  shown={monthStart}
-                  latestMonth={latestMonth}
-                  counts={picker.counts}
-                  countLabel={picker.countLabel}
-                  onChoose={(month) => {
-                    closePicker(true)
-                    onMonthChange(month)
-                  }}
-                  onClose={() => closePicker(true)}
-                  locale={locale}
-                  t={t}
-                />
-              ) : null}
-            </div>
+            <ArchiveMonthBar
+              monthStart={monthStart}
+              onMonthChange={onMonthChange}
+              latestMonth={latestMonth}
+              picker={picker}
+              timeline={timeline}
+              summary={summary}
+              pickerOpen={pickerOpen}
+              setPickerOpen={setPickerOpen}
+              pickerButtonRef={pickerButtonRef}
+              locale={locale}
+              t={t}
+            />
             {toolbar}
           </div>
         </header>
@@ -271,6 +167,163 @@ export function ArchiveDialog({
         </div>
       </div>
     </dialog>
+  )
+}
+
+/**
+ * A month archive's month controls: previous and next month, this month, and
+ * with `picker` a jump grid; with `timeline` a Latest button instead of the
+ * arrows. The caller owns whether the grid is open, so a dialog can close it
+ * before closing itself; a press outside the controls closes it.
+ */
+export function ArchiveMonthBar({
+  monthStart,
+  onMonthChange,
+  latestMonth,
+  picker,
+  timeline,
+  summary,
+  detail,
+  pickerOpen,
+  setPickerOpen,
+  pickerButtonRef,
+  locale,
+  t,
+}: {
+  monthStart: Date
+  onMonthChange: (month: Date) => void
+  latestMonth?: Date
+  picker?: ArchivePicker
+  timeline?: ArchiveTimeline
+  summary?: ReactNode
+  /** Shown after the month in the jump grid's button, such as the day in view. */
+  detail?: ReactNode
+  pickerOpen: boolean
+  setPickerOpen: (open: boolean) => void
+  pickerButtonRef: RefObject<HTMLButtonElement | null>
+  locale: Locale
+  t: Translator
+}) {
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const closePicker = () => {
+    setPickerOpen(false)
+    pickerButtonRef.current?.focus()
+  }
+
+  useEffect(() => {
+    if (!pickerOpen) return undefined
+    const onPointerDown = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node))
+        setPickerOpen(false)
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    return () => document.removeEventListener("pointerdown", onPointerDown)
+  }, [pickerOpen, setPickerOpen])
+
+  const thisMonth = monthStartOf(japanToday())
+  const isCurrent = monthStart.getTime() === thisMonth.getTime()
+  const atLatest = latestMonth ? monthStart >= latestMonth : false
+  const label = formatMonth(monthStart, locale)
+  // Phones show the short name; the one not shown is hidden from everyone.
+  const monthText = (
+    <>
+      <span className="archive-month-long">{label}</span>
+      <span className="archive-month-short">
+        {formatShortMonth(monthStart, locale)}
+      </span>
+    </>
+  )
+
+  return (
+    <div
+      className="archive-month"
+      role="group"
+      aria-label={label}
+      ref={pickerRef}
+    >
+      {timeline ? null : (
+        <button
+          type="button"
+          className="round-button"
+          onClick={() => onMonthChange(shiftMonth(monthStart, -1))}
+          aria-label={t("common.previousMonth")}
+          title={t("common.previousMonth")}
+        >
+          <ChevronLeft aria-hidden="true" />
+        </button>
+      )}
+      {picker ? (
+        <button
+          ref={pickerButtonRef}
+          type="button"
+          className="archive-month-label is-picker"
+          aria-haspopup="dialog"
+          aria-expanded={pickerOpen}
+          aria-controls={pickerOpen ? "archive-month-picker" : undefined}
+          title={t("common.chooseMonth")}
+          onClick={() => setPickerOpen(!pickerOpen)}
+        >
+          {/* A scrolled month changes too often to announce. */}
+          <span aria-live={timeline ? undefined : "polite"}>{monthText}</span>
+          {detail ? (
+            <span className="archive-month-detail">{detail}</span>
+          ) : null}
+          <ChevronDown aria-hidden="true" />
+        </button>
+      ) : (
+        <strong className="archive-month-label" aria-live="polite">
+          {monthText}
+        </strong>
+      )}
+      {timeline ? (
+        <button
+          type="button"
+          className="pill-button"
+          disabled={timeline.atLatest}
+          onClick={timeline.onLatest}
+        >
+          {t("common.latest")}
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="round-button"
+            disabled={atLatest}
+            onClick={() => onMonthChange(shiftMonth(monthStart, 1))}
+            aria-label={t("common.nextMonth")}
+            title={t("common.nextMonth")}
+          >
+            <ChevronRight aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="pill-button"
+            disabled={isCurrent}
+            onClick={() => onMonthChange(thisMonth)}
+          >
+            {t("common.thisMonth")}
+          </button>
+        </>
+      )}
+      {summary ? <span className="archive-summary">{summary}</span> : null}
+      {picker && pickerOpen ? (
+        <MonthPicker
+          id="archive-month-picker"
+          shown={monthStart}
+          latestMonth={latestMonth}
+          counts={picker.counts}
+          countLabel={picker.countLabel}
+          onChoose={(month) => {
+            closePicker()
+            onMonthChange(month)
+          }}
+          onClose={() => closePicker()}
+          locale={locale}
+          t={t}
+        />
+      ) : null}
+    </div>
   )
 }
 

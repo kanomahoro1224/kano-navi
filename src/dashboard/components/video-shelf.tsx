@@ -41,6 +41,7 @@ import {
 } from "../format"
 import {
   groupVideos,
+  sideReservations,
   sideSlots,
   splitVideos,
   videoIsGone,
@@ -165,12 +166,10 @@ function JapanDate({
 function PhaseTag({
   phase,
   video,
-  now,
   t,
 }: {
   phase: VideoPhase
   video: Video
-  now: number
   t: Translator
 }) {
   // The week guide's tones: live is berry, cancelled danger, unsure honey.
@@ -187,20 +186,12 @@ function PhaseTag({
     return <span className="tag tone-danger">{t("videos.cancelled")}</span>
   if (phase === "upcoming")
     return <span className="tag tone-sky">{t("videos.reserved")}</span>
-  return <FormChip video={video} now={now} t={t} />
+  return <FormChip video={video} t={t} />
 }
 
 /** A video's form chip, or nothing for a form without one (a premiere). */
-function FormChip({
-  video,
-  now,
-  t,
-}: {
-  video: Video
-  now: number
-  t: Translator
-}) {
-  const label = videoFormLabel(video, t, now)
+function FormChip({ video, t }: { video: Video; t: Translator }) {
+  const label = videoFormLabel(video, t)
   return label ? <span className="tag">{label}</span> : null
 }
 
@@ -255,22 +246,20 @@ function LeadCard({
   isFeatured,
   focus,
   locale,
-  now,
   t,
 }: {
   video: Video
   isFeatured: boolean
   focus: Dashboard["focus"]
   locale: Locale
-  now: number
   t: Translator
 }) {
   const usesFocus = isFeatured && focus?.videoId === video.id
   const title = cleanVideoTitle((usesFocus && focus.title) || video.title)
   const thumbnail = (usesFocus && focus.imageUrl) || video.thumbnailUrl
-  const phase = videoPhase(video, now)
+  const phase = videoPhase(video)
   const length = formatDuration(video.durationSeconds)
-  const links = videoLinks(video, locale, now)
+  const links = videoLinks(video, locale)
   return (
     <article className="video-lead">
       <ExternalLink
@@ -297,9 +286,9 @@ function LeadCard({
           {/* A past work's form is its shelf's; a featured stream or Short
               keeps it. */}
           {phase !== "past" ? (
-            <PhaseTag phase={phase} video={video} now={now} t={t} />
+            <PhaseTag phase={phase} video={video} t={t} />
           ) : videoMatchesFilter(video, "works") ? null : (
-            <FormChip video={video} now={now} t={t} />
+            <FormChip video={video} t={t} />
           )}
           <VideoTagChip video={video} t={t} />
           <VideoAvailabilityChip video={video} t={t} />
@@ -339,19 +328,17 @@ function LeadCard({
 function VideoTicket({
   video,
   locale,
-  now,
   t,
 }: {
   video: Video
   locale: Locale
-  now: number
   t: Translator
 }) {
-  const phase = videoPhase(video, now)
+  const phase = videoPhase(video)
   const time = videoTime(video)
   const parts = japanDateParts(time, locale)
   const title = cleanVideoTitle(video.title)
-  const links = videoLinks(video, locale, now)
+  const links = videoLinks(video, locale)
   return (
     <li>
       <div
@@ -371,10 +358,8 @@ function VideoTicket({
         </span>
         <span className="video-ticket-copy">
           <span className="video-meta">
-            <PhaseTag phase={phase} video={video} now={now} t={t} />
-            {videoIsStream(video) ? null : (
-              <FormChip video={video} now={now} t={t} />
-            )}
+            <PhaseTag phase={phase} video={video} t={t} />
+            {videoIsStream(video) ? null : <FormChip video={video} t={t} />}
             <VideoTagChip video={video} t={t} />
             <VideoAvailabilityChip video={video} t={t} />
             {time ? (
@@ -408,16 +393,14 @@ function VideoTicket({
 function VideoCard({
   video,
   locale,
-  now,
   t,
 }: {
   video: Video
   locale: Locale
-  now: number
   t: Translator
 }) {
   const title = cleanVideoTitle(video.title)
-  const links = videoLinks(video, locale, now)
+  const links = videoLinks(video, locale)
   return (
     <li className="video-card">
       <div className="video-card-link link-card" onClick={followCardLink}>
@@ -465,7 +448,7 @@ function VideoWhen({
 }) {
   const time = videoTime(video)
   if (!time) return null
-  const phase = videoPhase(video, now)
+  const phase = videoPhase(video)
   return (
     <time
       dateTime={time}
@@ -494,8 +477,8 @@ function VideoRow({
   t: Translator
 }) {
   const title = cleanVideoTitle(video.title)
-  const phase = videoPhase(video, now)
-  const links = videoLinks(video, locale, now)
+  const phase = videoPhase(video)
+  const links = videoLinks(video, locale)
   return (
     <li>
       <div
@@ -549,25 +532,17 @@ function TicketList({
   id,
   videos,
   locale,
-  now,
   t,
 }: {
   id?: string
   videos: Video[]
   locale: Locale
-  now: number
   t: Translator
 }) {
   return (
     <ol className="video-tickets" id={id}>
       {videos.map((video) => (
-        <VideoTicket
-          key={video.id}
-          video={video}
-          locale={locale}
-          now={now}
-          t={t}
-        />
+        <VideoTicket key={video.id} video={video} locale={locale} t={t} />
       ))}
     </ol>
   )
@@ -577,7 +552,6 @@ function VideoGrid({
   videos,
   variant,
   locale,
-  now,
   t,
 }: {
   videos: Video[]
@@ -587,7 +561,6 @@ function VideoGrid({
    */
   variant?: "shorts" | "shorts-row" | "preview"
   locale: Locale
-  now: number
   t: Translator
 }) {
   const isShorts = variant === "shorts" || variant === "shorts-row"
@@ -596,20 +569,15 @@ function VideoGrid({
       className={`video-grid${isShorts ? " is-shorts" : ""}${variant === "shorts-row" ? " is-row" : ""}${variant === "preview" ? " is-preview" : ""}`}
     >
       {videos.map((video) => (
-        <VideoCard
-          key={video.id}
-          video={video}
-          locale={locale}
-          now={now}
-          t={t}
-        />
+        <VideoCard key={video.id} video={video} locale={locale} t={t} />
       ))}
     </ol>
   )
 }
 
-/** Archives the All view shows: two rows of four on wide screens, two on phones. */
-const ALL_ARCHIVES = 8
+/** Archives the All view shows: one row, four on wide screens and fewer as
+ * the grid narrows; the Streams view and Past videos list the rest. */
+const ALL_ARCHIVES = 4
 /** Shorts the All view shows: one row of six; narrower rows show fewer. */
 const ALL_SHORTS = 6
 /** What a filtered view shows: three rows of four, or two rows of Shorts. */
@@ -617,7 +585,6 @@ const FILTERED_ITEMS = 12
 
 export function VideoShelf({
   videos,
-  featuredVideoId,
   projection,
   focus,
   isLoading,
@@ -627,8 +594,7 @@ export function VideoShelf({
   t,
 }: {
   videos: Video[]
-  featuredVideoId: string | null
-  projection?: Dashboard["projection"]
+  projection: Dashboard["projection"]
   focus: Dashboard["focus"]
   isLoading: boolean
   onOpenArchive: () => void
@@ -665,12 +631,11 @@ export function VideoShelf({
   if (isLoading) body = <Placeholder lines={4} />
   else if (!videos.length) body = <EmptyNote title={t("videos.empty")} />
   else if (active === "all") {
-    const groups = groupVideos(videos, featuredVideoId, now, projection)
-    const slots = sideSlots(groups.reservations.length, groups.works.length)
+    const groups = groupVideos(videos, projection)
+    const upcoming = sideReservations(groups.reservations, projection)
+    const slots = sideSlots(upcoming.length, groups.works.length)
     const reservations =
-      ticketsOpen && slots.hidden
-        ? groups.reservations
-        : groups.reservations.slice(0, slots.tickets)
+      ticketsOpen && slots.hidden ? upcoming : upcoming.slice(0, slots.tickets)
     const sideWorks = groups.works.slice(0, slots.works)
     const archives = groups.archives.slice(0, ALL_ARCHIVES)
     const shorts = groups.shorts.slice(0, ALL_SHORTS)
@@ -687,7 +652,6 @@ export function VideoShelf({
                 isFeatured={groups.leadIsFeatured}
                 focus={focus}
                 locale={locale}
-                now={now}
                 t={t}
               />
             ) : null}
@@ -701,7 +665,7 @@ export function VideoShelf({
                         <TicketToggle
                           open={ticketsOpen}
                           hidden={slots.hidden}
-                          total={groups.reservations.length}
+                          total={upcoming.length}
                           controls={ticketsId}
                           onToggle={() => setTicketsOpen((open) => !open)}
                           t={t}
@@ -712,7 +676,6 @@ export function VideoShelf({
                       id={ticketsId}
                       videos={reservations}
                       locale={locale}
-                      now={now}
                       t={t}
                     />
                   </div>
@@ -749,7 +712,6 @@ export function VideoShelf({
               videos={archives}
               variant="preview"
               locale={locale}
-              now={now}
               t={t}
             />
           </div>
@@ -761,7 +723,6 @@ export function VideoShelf({
               videos={shorts}
               variant="shorts-row"
               locale={locale}
-              now={now}
               t={t}
             />
           </div>
@@ -771,7 +732,6 @@ export function VideoShelf({
   } else {
     const split = splitVideos(
       videos.filter((video) => videoMatchesFilter(video, active)),
-      now,
       projection,
     )
     const view = {
@@ -799,12 +759,7 @@ export function VideoShelf({
             <div className="videos-block">
               <Subhead>{t("videos.comingUp")}</Subhead>
               <div className="videos-tickets-wide">
-                <TicketList
-                  videos={split.reservations}
-                  locale={locale}
-                  now={now}
-                  t={t}
-                />
+                <TicketList videos={split.reservations} locale={locale} t={t} />
               </div>
             </div>
           ) : null}
@@ -815,7 +770,6 @@ export function VideoShelf({
                 videos={items.slice(0, FILTERED_ITEMS)}
                 variant={active === "shorts" ? "shorts" : undefined}
                 locale={locale}
-                now={now}
                 t={t}
               />
             </div>
@@ -876,18 +830,16 @@ export function VideoShelf({
 const ArchiveCard = memo(function ArchiveCard({
   video,
   locale,
-  now,
   t,
 }: {
   video: Video
   locale: Locale
-  now: number
   t: Translator
 }) {
-  const phase = videoPhase(video, now)
+  const phase = videoPhase(video)
   const time = videoTime(video)
   const title = cleanVideoTitle(video.title)
-  const links = videoLinks(video, locale, now)
+  const links = videoLinks(video, locale)
   return (
     <li className={`archive-card is-${phase}`} data-video-id={video.id}>
       <div className="archive-card-link link-card" onClick={followCardLink}>
@@ -918,7 +870,7 @@ const ArchiveCard = memo(function ArchiveCard({
             {t("common.timezoneShort")}
           </time>
         ) : null}
-        <PhaseTag phase={phase} video={video} now={now} t={t} />
+        <PhaseTag phase={phase} video={video} t={t} />
         <VideoTagChip video={video} t={t} />
         <VideoAvailabilityChip video={video} t={t} />
         <LengthNote video={video} t={t} />
@@ -1040,7 +992,6 @@ export function VideoTimeline({
   onVisibleMonth,
   onNewer,
   locale,
-  now,
   t,
 }: {
   archive: ArchiveSnapshot<Video> | null
@@ -1055,7 +1006,6 @@ export function VideoTimeline({
   onVisibleMonth: (month: string) => void
   onNewer: () => void
   locale: Locale
-  now: number
   t: Translator
 }) {
   const listRef = useRef<HTMLDivElement>(null)
@@ -1217,7 +1167,6 @@ export function VideoTimeline({
                   key={video.id}
                   video={video}
                   locale={locale}
-                  now={now}
                   t={t}
                 />
               ))}

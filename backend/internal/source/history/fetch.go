@@ -284,6 +284,10 @@ const budgetMessage = "history_page_budget_reached; repeat this fetch to continu
 // of its selection; repeating the fetch continues it.
 const BudgetMessage = budgetMessage
 
+// countBudgetMessage reports a count fetch that its page budget stopped short
+// of its count; a count fetch never continues, so only more pages read more.
+const countBudgetMessage = "history_page_budget_reached; raise the fetch pages to read the whole count"
+
 func (f *Fetcher) apiJSON(ctx context.Context, endpoint string, query url.Values, header, credential string) (map[string]any, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"?"+query.Encode(), nil)
 	if err != nil {

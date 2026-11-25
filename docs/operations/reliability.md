@@ -32,7 +32,7 @@
   completion-based polling backs off to at most 60 seconds during an outage.
   Hidden pages pause polling and check promptly on return without bypassing
   outage backoff. Refresh and revision checks only read local SQLite.
-  See [Frontend request ownership](../architecture/frontend.md#request-and-ui-ownership).
+  See [Frontend request ownership](../architecture/frontend/request-ownership.md).
 
 ## Process Lifetime
 
@@ -47,3 +47,4 @@ persist independently of normal incremental cursors.
 - [Workflow scheduling](../architecture/workflows.md)
 - [Database backup](database.md)
 - [Troubleshooting](troubleshooting.md)
+- [Alerts](alerts.md)

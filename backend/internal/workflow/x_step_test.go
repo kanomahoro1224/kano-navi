@@ -242,3 +242,99 @@ func TestXRecentPagesTimelineBackToStoredCursor(t *testing.T) {
 		t.Fatalf("state=%#v err=%v", state, err)
 	}
 }
+
+// A quiet run whose listing served is a success: the failed optional refresh
+// of a stored post is a note that leaves the step partial, and the account's
+// last success moves.
+func TestXRecentQuietRunWithAFailedRefreshSucceeds(t *testing.T) {
+	p := testutil.NewSnapshot(t)
+	s, err := sqlite.OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	now := time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC)
+	stored := "200000000000"
+	testutil.Exec(t, p, `INSERT INTO posts(id,source,account_handle,text,published_at,url) VALUES(?,'x','fixture','stored',?,?)`, stored, now.Add(-time.Hour).Format(time.RFC3339Nano), "https://x.com/fixture/status/"+stored)
+	testutil.Exec(t, p, `INSERT INTO sync_state(source,account_id,cursor_id,cursor_time,metadata_json) VALUES('x','fixture',?,?,'{}')`, stored, now.Add(-time.Hour).Format(time.RFC3339Nano))
+	details := []string{}
+	rt := xTestRT(func(r *http.Request) (*http.Response, error) {
+		status, body := 200, ""
+		switch r.URL.Host {
+		case "api.fxtwitter.com":
+			body = `{"code":200,"results":[{"id":"` + stored + `","text":"stored","created_timestamp":` + strconv.FormatInt(now.Add(-time.Hour).Unix(), 10) + `,"author":{"screen_name":"fixture"}}],"cursor":{"bottom":""}}`
+		case "api.vxtwitter.com":
+			details = append(details, r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:])
+			status, body = 503, "down"
+		default:
+			t.Fatalf("unexpected destination %s", r.URL.Host)
+		}
+		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil
+	})
+	opts := xsource.Options{Handles: []string{"fixture"}, DiscoveryLimit: 50, MaxDetailRequests: 5, RefreshKnown: 1, BootstrapDays: 7}
+	a := xsource.NewAdapter(xsource.NewClient(&http.Client{Transport: rt}), opts)
+	a.Now = func() time.Time { return now }
+	got, err := (&XRecentExecutor{Store: s, Adapter: a, Options: opts}).Execute(context.Background(), StepInput{StepID: "x"})
+	if err != nil {
+		t.Fatalf("quiet run failed: %v", err)
+	}
+	errs, _ := got.Result["errors"].([]string)
+	if got.Status != "partial" || got.Result["posts"] != 0 || strings.Join(details, ",") != stored || strings.Join(errs, ",") != "fixture: "+stored+": "+string(xsource.ErrServer) {
+		t.Fatalf("status=%s result=%#v details=%v", got.Status, got.Result, details)
+	}
+	var success string
+	if err = s.DB().QueryRow(`SELECT COALESCE(last_success_at,'') FROM sync_state WHERE source='x' AND account_id='fixture'`).Scan(&success); err != nil || success == "" {
+		t.Fatalf("last_success_at=%q err=%v", success, err)
+	}
+	state, err := s.XRecentState(context.Background(), "fixture")
+	if err != nil || len(state.PendingIDs) != 0 || state.CursorID != stored {
+		t.Fatalf("state=%#v err=%v", state, err)
+	}
+}
+
+// A status stored under another account's handle never fails the account
+// that reads it: the post is skipped with a note, the rest of the run is
+// written and the ID leaves the queue.
+func TestXRecentSkipsAStatusAnotherAccountOwns(t *testing.T) {
+	p := testutil.NewSnapshot(t)
+	s, err := sqlite.OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	now := time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC)
+	owned := "1900000000000000003"
+	testutil.Exec(t, p, `INSERT INTO posts(id,source,account_handle,text,published_at,url) VALUES(?,'x','old_fixture','stored wording','2026-01-02T00:00:00Z',?)`, owned, "https://x.com/old_fixture/status/"+owned)
+	testutil.Exec(t, p, `INSERT INTO sync_state(source,account_id,metadata_json) VALUES('x','fixture',?)`, `{"pendingStatusIds":["`+owned+`"]}`)
+	rt := xTestRT(func(r *http.Request) (*http.Response, error) {
+		var body string
+		switch r.URL.Host {
+		case "api.fxtwitter.com":
+			body = `{"code":200,"results":[{"id":"200000000000","text":"fresh","created_timestamp":` + strconv.FormatInt(now.Add(-time.Hour).Unix(), 10) + `,"author":{"screen_name":"fixture"}}],"cursor":{"bottom":""}}`
+		case "api.vxtwitter.com":
+			body = `{"tweetID":"` + owned + `","text":"renamed wording","date":"2026-01-02T00:00:00Z","author":{"screenName":"fixture"}}`
+		default:
+			t.Fatalf("unexpected destination %s", r.URL.Host)
+		}
+		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}, nil
+	})
+	opts := xsource.Options{Handles: []string{"fixture"}, DiscoveryLimit: 50, MaxDetailRequests: 5, BootstrapDays: 7}
+	a := xsource.NewAdapter(xsource.NewClient(&http.Client{Transport: rt}), opts)
+	a.Now = func() time.Time { return now }
+	got, err := (&XRecentExecutor{Store: s, Adapter: a, Options: opts}).Execute(context.Background(), StepInput{StepID: "x"})
+	if err != nil {
+		t.Fatalf("the conflict failed the step: %v", err)
+	}
+	errs, _ := got.Result["errors"].([]string)
+	if got.Status != "partial" || strings.Join(errs, ",") != "fixture: "+owned+": "+sqlite.XPostOwnerConflict {
+		t.Fatalf("status=%s result=%#v", got.Status, got.Result)
+	}
+	var account, text string
+	if err = s.DB().QueryRow(`SELECT account_handle,text FROM posts WHERE id=?`, owned).Scan(&account, &text); err != nil || account != "old_fixture" || text != "stored wording" {
+		t.Fatalf("owned row=%s %q err=%v", account, text, err)
+	}
+	state, err := s.XRecentState(context.Background(), "fixture")
+	if err != nil || len(state.PendingIDs) != 0 || !state.KnownIDs["200000000000"] {
+		t.Fatalf("state=%#v err=%v", state, err)
+	}
+}

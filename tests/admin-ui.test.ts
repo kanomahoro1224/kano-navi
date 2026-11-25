@@ -155,7 +155,7 @@ function restoreBrowser(
   ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previous.act
 }
 
-test("the real admin Site route saves visitor-region settings, makes image copies and fills Works covers", async () => {
+test("the real admin Site route saves visitor-region settings and makes image copies, and the Works route fills covers", async () => {
   const vite = await createServer({
     configFile: false,
     envDir: false,
@@ -278,13 +278,33 @@ test("the real admin Site route saves visitor-region settings, makes image copie
       (request) => request.method === "POST" && request.path === "/runs",
     )
     assert.deepEqual(run?.body, { kind: "variants" })
-    // The covers card counts the uploads, lists those without a cover with
-    // their videos' states, and Fill missing covers queues a media step.
-    assert.match(text, /Covered1\/ 3 uploads/)
-    assert.match(text, /Every video gone1\/ 3 uploads/)
-    assert.match(text, /Uploads without a cover \(2\)/)
-    assert.match(text, /2026-01-022026-01-02-abcdefDue/)
-    assert.match(text, /niconicosm2Goneniconico_not_found/)
+    assert.doesNotMatch(text, /Uploads without a cover/)
+    // The Works page, opened from the nav's System group, holds the covers
+    // card: it counts the uploads, lists those without a cover with their
+    // videos' states, and Fill missing covers queues a media step.
+    const system = [...root!.container.querySelectorAll(".adm-nav-group")].find(
+      (group) => group.querySelector("p")?.textContent === "System",
+    )
+    assert.deepEqual(
+      [...system!.querySelectorAll(".adm-nav-item")].map(
+        (item) => item.textContent,
+      ),
+      ["Proxies", "Site", "Works", "Push", "Browser push"],
+    )
+    await click(
+      [...root!.container.querySelectorAll(".adm-nav-item")].find(
+        (item) => item.textContent === "Works",
+      ),
+    )
+    await act(async () => {
+      await new Promise((resolve) => setImmediate(resolve))
+    })
+    const works = root!.container.textContent
+    assert.match(works, /Covered1\/ 3 uploads/)
+    assert.match(works, /Every video gone1\/ 3 uploads/)
+    assert.match(works, /Uploads without a cover \(2\)/)
+    assert.match(works, /2026-01-022026-01-02-abcdefDue/)
+    assert.match(works, /niconicosm2Goneniconico_not_found/)
     await click(button("Fill missing covers"))
     const runs = requests.filter(
       (request) => request.method === "POST" && request.path === "/runs",
@@ -293,6 +313,35 @@ test("the real admin Site route saves visitor-region settings, makes image copie
   } finally {
     await act(async () => root?.unmount())
     restoreBrowser(installed.previous)
+    await vite.close()
+  }
+})
+
+test("older console addresses open the view that now holds their section", async () => {
+  const vite = await createServer({
+    configFile: false,
+    envDir: false,
+    server: { middlewareMode: true, watch: null, ws: false },
+    optimizeDeps: { noDiscovery: true, include: [] },
+    resolve: { alias: { "@": path.resolve("src") } },
+  })
+  try {
+    const { resolveHash } = await vite.ssrLoadModule("/src/admin/index.tsx")
+    const cases: [string, { view: string; tab: string }][] = [
+      ["#queue", { view: "runs", tab: "next" }],
+      ["#queue/translate", { view: "runs", tab: "next/translate" }],
+      ["#runs/next/youtube", { view: "runs", tab: "next/youtube" }],
+      ["#runs/42", { view: "runs", tab: "42" }],
+      ["#models", { view: "detection", tab: "" }],
+      ["#llm/provider-a", { view: "detection", tab: "provider-a" }],
+      ["#detection/provider-a", { view: "detection", tab: "provider-a" }],
+      ["#works", { view: "works", tab: "" }],
+      ["#content/videos", { view: "videos", tab: "" }],
+      ["#missing", { view: "overview", tab: "" }],
+    ]
+    for (const [hash, expected] of cases)
+      assert.deepEqual(resolveHash(hash), expected, hash)
+  } finally {
     await vite.close()
   }
 })
@@ -784,7 +833,7 @@ test("profile view distinguishes distinct uploaded account avatars by content ha
       copy,
     ] = await Promise.all([
       vite.ssrLoadModule("/src/admin/index.tsx"),
-      vite.ssrLoadModule("/src/admin/views/profile.tsx"),
+      vite.ssrLoadModule("/src/admin/views/profile-own-accounts.tsx"),
       vite.ssrLoadModule("/src/app-settings.tsx"),
       vite.ssrLoadModule("/src/admin-i18n.ts"),
     ])

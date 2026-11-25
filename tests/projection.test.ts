@@ -11,7 +11,6 @@ import {
 import { pickSpotlight, spotlightIsLive } from "../src/dashboard/spotlight.ts"
 import { groupVideos, videoPhase } from "../src/dashboard/video-groups.ts"
 
-const now = Date.parse("2026-11-02T04:00:00Z")
 const translate = (key: string) => key
 
 function event(fields: Partial<ScheduleEvent> = {}): ScheduleEvent {
@@ -32,6 +31,14 @@ function event(fields: Partial<ScheduleEvent> = {}): ScheduleEvent {
     manualLocked: false,
     isUpcoming: true,
     cancellationStatus: "none",
+    view: {
+      state: "upcoming",
+      typeCode: "stream",
+      activityCode: null,
+      activityContext: "",
+      isWork: false,
+      calendarEntries: [],
+    },
     ...fields,
   }
 }
@@ -48,6 +55,14 @@ function video(id: string, fields: Partial<Video> = {}): Video {
     thumbnailStatus: "ready",
     kind: "upload",
     isUpcoming: false,
+    view: {
+      phase: "past",
+      formCode: "video",
+      shelfGroup: "work",
+      latestEligible: true,
+      focusEligible: false,
+      tagContext: "work",
+    },
     ...fields,
   }
 }
@@ -95,7 +110,7 @@ test("event and video presentation rules use the server projection", () => {
       ],
     },
   })
-  assert.equal(eventStatus(projectedEvent, now), "live")
+  assert.equal(eventStatus(projectedEvent), "live")
   assert.deepEqual(
     scheduleEntries(projectedEvent).map((item) => item.startsOn),
     ["2026-11-03"],
@@ -151,11 +166,8 @@ test("event and video presentation rules use the server projection", () => {
       tagContext: "stream",
     },
   })
-  assert.equal(videoPhase(projectedVideo, now), "live")
-  assert.equal(
-    videoFormLabel(projectedVideo, translate, now),
-    "event.type.stream",
-  )
+  assert.equal(videoPhase(projectedVideo), "live")
+  assert.equal(videoFormLabel(projectedVideo, translate), "event.type.stream")
   assert.equal(
     videoTagLabel({ ...projectedVideo, tag: "song" }, translate),
     "event.tag.song",
@@ -211,12 +223,7 @@ test("shelf and spotlight consume projected ordering and identity", () => {
       tagContext: "stream",
     },
   })
-  const groups = groupVideos(
-    [work, archive, reserved, lead],
-    null,
-    now,
-    projection,
-  )
+  const groups = groupVideos([work, archive, reserved, lead], projection)
   assert.equal(groups.lead?.id, "lead")
   assert.deepEqual(
     groups.works.map((item) => item.id),
@@ -233,12 +240,11 @@ test("shelf and spotlight consume projected ordering and identity", () => {
 
   const item = pickSpotlight(
     { nextEvent: event(), nextStream: null, latestVideo: null },
-    now,
     null,
     projection,
   )
   assert.equal(item?.event?.id, "event")
-  assert.equal(spotlightIsLive(item, now), true)
+  assert.equal(spotlightIsLive(item), true)
 })
 
 test("the shelf leads with the projected lead over an older cover", () => {
@@ -268,7 +274,7 @@ test("the shelf leads with the projected lead over an older cover", () => {
     publishedAt: "2026-10-01T00:00:00Z",
     view: past,
   })
-  const groups = groupVideos([cover, lead, older], null, now, {
+  const groups = groupVideos([cover, lead, older], {
     ...projection,
     shelf: {
       leadId: lead.id,

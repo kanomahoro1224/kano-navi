@@ -1,7 +1,6 @@
 import type {
   ArchiveSnapshot,
   MediaItem,
-  Post,
   ScheduleAsset,
   ScheduleEvent,
   Translator,
@@ -12,9 +11,9 @@ import { WifiOff } from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import { MediaDialog, stepIndex } from "@/site/media-dialog"
+import { usePageMeta } from "@/site/page-meta"
 import { SiteFooter, SiteHeader, SkipLink } from "@/site/site-shell"
 import { POST_WINDOW_DAYS, VIDEO_WINDOW_DAYS } from "./content"
-import { featuredVideoIdOf } from "./derive-dashboard"
 import { syncStateFor } from "./freshness"
 import {
   addDays,
@@ -36,14 +35,8 @@ import { monthKeyOf } from "./components/month-picker"
 import { LinkDirectory } from "./components/link-directory"
 import { NowStage } from "./components/now-stage"
 import { SaleStrip } from "./components/sale-strip"
-import {
-  type PostArchiveLayout,
-  PostArchive,
-  PostArchiveFilter,
-  PostArchiveLayoutToggle,
-  PostMediaView,
-  PostWall,
-} from "./components/post-wall"
+import { PostMediaView, PostWall } from "./components/post-wall"
+import { postsHref } from "@/posts/navigation"
 import {
   VideoArchiveFilter,
   VideoShelf,
@@ -63,19 +56,6 @@ interface ViewerImage {
 
 /** Images offered to the viewer; entries whose media is not cached are skipped. */
 type ViewerCandidate = Omit<ViewerImage, "url"> & { url: string | null }
-
-/** This device remembers the post archive's layout. */
-const POST_LAYOUT_KEY = "kano-post-archive-layout"
-
-function readPostLayout(): PostArchiveLayout {
-  try {
-    return window.localStorage.getItem(POST_LAYOUT_KEY) === "list"
-      ? "list"
-      : "masonry"
-  } catch {
-    return "masonry"
-  }
-}
 
 /** The first day of a `YYYY-MM` month, as a local Date. */
 function monthFromKey(key: string) {
@@ -101,8 +81,6 @@ function latestArchiveMonth(months: { month: string }[] | null) {
 function archiveCopy(
   view: ArchiveRequest,
   archive: ArchiveSnapshot<unknown> | null,
-  accounts: string[],
-  bilibiliAccounts: string[],
   t: Translator,
 ) {
   const total = archive ? archive.total : null
@@ -110,14 +88,6 @@ function archiveCopy(
     return {
       title: t("schedule.monthTitle"),
       summary: total == null ? null : t("schedule.weekCount", { count: total }),
-    }
-  if (view.kind === "posts")
-    return {
-      title: t("feed.archiveTitle"),
-      summary:
-        total == null || accounts.length + bilibiliAccounts.length > 1
-          ? null
-          : t("feed.monthCount", { count: total }),
     }
   return {
     title: t("videos.archiveTitle"),
@@ -143,27 +113,22 @@ export function DashboardApp() {
     weekStart,
     setWeekStart,
     calendarRange,
-  } = useDashboard(now)
-  // One month dialog at a time: the schedule grid, past posts or past videos.
+  } = useDashboard()
+  // One month dialog at a time: the schedule grid or past videos.
   const [archiveView, setArchiveView] = useState<ArchiveRequest | null>(null)
   const archive = useArchive(
     archiveView,
     dashboard.meta.revision,
     snapshotVersion,
   )
-  const indexKind = archiveView?.kind === "videos" ? "videos" : "posts"
   const archiveMonths = useArchiveMonths(
-    indexKind,
-    archiveView?.kind === "posts" || archiveView?.kind === "videos",
+    "videos",
+    archiveView?.kind === "videos",
     dashboard.meta.revision,
   )
   const indexFilter =
-    archiveView?.kind === "posts"
-      ? archiveView.account?.toLowerCase() || null
-      : archiveView?.kind === "videos"
-        ? archiveView.category || null
-        : null
-  // The month index narrowed to the chosen account or category.
+    archiveView?.kind === "videos" ? archiveView.category || null : null
+  // The month index narrowed to the chosen category.
   const archiveMonthCounts = useMemo(() => {
     if (!archiveMonths) return null
     return new Map(
@@ -173,32 +138,16 @@ export function DashboardApp() {
       ]),
     )
   }, [archiveMonths, indexFilter])
-  // The shown post month's counts per account from the index, known before
-  // the month's posts arrive, so the account filter keeps its numbers.
-  const postMonthKey =
-    archiveView?.kind === "posts" ? monthKeyOf(archiveView.monthStart) : null
-  const postMonthIndex = useMemo(() => {
-    if (indexKind !== "posts" || !archiveMonths || !postMonthKey)
-      return undefined
-    return (
-      archiveMonths.find(({ month }) => month === postMonthKey) ?? {
-        month: postMonthKey,
-        total: 0,
-        counts: {},
-      }
-    )
-  }, [indexKind, archiveMonths, postMonthKey])
-  const postAccountCounts = postMonthIndex?.counts
   // Every video's category over the whole index, so the filter keeps its
   // totals wherever the timeline starts.
   const videoCategoryCounts = useMemo(() => {
-    if (indexKind !== "videos" || !archiveMonths) return undefined
+    if (!archiveMonths) return undefined
     const totals: Record<string, number> = {}
     for (const { counts } of archiveMonths)
       for (const [key, count] of Object.entries(counts))
         totals[key] = (totals[key] || 0) + count
     return totals
-  }, [indexKind, archiveMonths])
+  }, [archiveMonths])
   // The video timeline's month in view, and a loaded month to scroll to.
   const [timelineMonth, setTimelineMonth] = useState<string | null>(null)
   const [timelineJump, setTimelineJump] = useState<{
@@ -226,16 +175,6 @@ export function DashboardApp() {
     timelineMonth ||
     loadedVideoMonths[0] ||
     (timelineAnchor ? monthKeyOf(timelineAnchor) : null)
-  const [postLayout, setPostLayoutState] =
-    useState<PostArchiveLayout>(readPostLayout)
-  const setPostLayout = useCallback((layout: PostArchiveLayout) => {
-    setPostLayoutState(layout)
-    try {
-      window.localStorage.setItem(POST_LAYOUT_KEY, layout)
-    } catch {
-      // The choice still applies until the page closes.
-    }
-  }, [])
   const [toast, setToast] = useState<{
     key: string
     values?: Record<string, string>
@@ -245,12 +184,7 @@ export function DashboardApp() {
     index: number
   } | null>(null)
 
-  useEffect(() => {
-    document.title = t("meta.title")
-    document
-      .querySelector('meta[name="description"]')
-      ?.setAttribute("content", t("meta.description"))
-  }, [t])
+  usePageMeta(t("meta.title"), t("meta.description"))
 
   useEffect(() => {
     if (!toast) return undefined
@@ -291,15 +225,6 @@ export function DashboardApp() {
       monthStart: monthStartOf(inWeek ? japanToday() : addDays(weekStart, 3)),
     })
   }, [weekStart])
-  const openPostArchive = useCallback(
-    (account: string | null) =>
-      setArchiveView({
-        kind: "posts",
-        monthStart: monthStartOf(japanToday()),
-        account,
-      }),
-    [],
-  )
   const openVideoArchive = useCallback(() => {
     setTimelineMonth(null)
     setTimelineJump(null)
@@ -319,7 +244,7 @@ export function DashboardApp() {
   )
   // A loaded month scrolls into view. Any other restarts the timeline at the
   // page holding it, found from the month index, and scrolls to it once read.
-  const videoMonths = indexKind === "videos" ? archiveMonths : null
+  const videoMonths = archiveMonths
   const chooseTimelineMonth = useCallback(
     (month: Date) => {
       const key = monthKeyOf(month)
@@ -363,11 +288,6 @@ export function DashboardApp() {
       setArchiveView((current) =>
         current ? { ...current, monthStart } : null,
       ),
-    [],
-  )
-  const setArchiveAccount = useCallback(
-    (account: string | null) =>
-      setArchiveView((current) => (current ? { ...current, account } : null)),
     [],
   )
   // A timeline from a chosen month keeps that month, at its page among the
@@ -424,7 +344,6 @@ export function DashboardApp() {
     upcomingEvents: 0,
     videos: dashboard.videos.length,
   }
-  const featuredVideoId = featuredVideoIdOf(dashboard)
 
   return (
     <div className="site board" id="top">
@@ -459,10 +378,9 @@ export function DashboardApp() {
           sales={(placement) => (
             <SaleStrip
               events={dashboard.events}
-              salesIds={dashboard.projection?.sales}
+              salesIds={dashboard.projection.sales}
               placement={placement}
               locale={locale}
-              now={now}
               t={t}
             />
           )}
@@ -503,12 +421,11 @@ export function DashboardApp() {
           now={now}
           t={t}
           onOpenMedia={openImages}
-          onOpenArchive={openPostArchive}
+          archiveHref={(account) => postsHref({ account })}
         />
 
         <VideoShelf
           videos={dashboard.videos}
-          featuredVideoId={featuredVideoId}
           projection={dashboard.projection}
           focus={dashboard.focus}
           isLoading={isLoading}
@@ -519,7 +436,7 @@ export function DashboardApp() {
         />
 
         <LinkDirectory
-          timeline={dashboard.timeline}
+          profile={profile}
           resources={dashboard.resources}
           locale={locale}
           t={t}
@@ -538,13 +455,7 @@ export function DashboardApp() {
       {archiveView ? (
         <ArchiveDialog
           open
-          {...archiveCopy(
-            archiveView,
-            archive.archive,
-            meta.xAccounts || [],
-            meta.bilibiliAccounts || [],
-            t,
-          )}
+          {...archiveCopy(archiveView, archive.archive, t)}
           monthStart={
             archiveView.kind === "videos"
               ? timelineShown
@@ -570,13 +481,7 @@ export function DashboardApp() {
                 { counts: null }
               : {
                   counts: archiveMonthCounts,
-                  countLabel: (count) =>
-                    t(
-                      archiveView.kind === "posts"
-                        ? "feed.monthCount"
-                        : "videos.monthCount",
-                      { count },
-                    ),
+                  countLabel: (count) => t("videos.monthCount", { count }),
                 }
           }
           timeline={
@@ -591,27 +496,7 @@ export function DashboardApp() {
               : undefined
           }
           toolbar={
-            archiveView.kind === "posts" ? (
-              <div className="archive-tools">
-                <PostArchiveFilter
-                  accounts={meta.xAccounts || []}
-                  bilibiliAccounts={meta.bilibiliAccounts || []}
-                  account={archiveView.account || null}
-                  setAccount={setArchiveAccount}
-                  counts={postAccountCounts ?? archive.archive?.accountCounts}
-                  total={
-                    postMonthIndex?.total ??
-                    (archiveView.account ? null : archive.archive?.total)
-                  }
-                  t={t}
-                />
-                <PostArchiveLayoutToggle
-                  layout={postLayout}
-                  setLayout={setPostLayout}
-                  t={t}
-                />
-              </div>
-            ) : archiveView.kind === "schedule" ? null : (
+            archiveView.kind === "schedule" ? null : (
               <VideoArchiveFilter
                 category={archiveView.category || null}
                 setCategory={setArchiveCategory}
@@ -639,25 +524,6 @@ export function DashboardApp() {
               now={now}
               t={t}
             />
-          ) : archiveView.kind === "posts" ? (
-            <PostArchive
-              archive={archive.archive as ArchiveSnapshot<Post> | null}
-              layout={postLayout}
-              isLoading={archive.isLoading}
-              error={archive.error}
-              onRetry={archive.reload}
-              onLoadMore={archive.loadMore}
-              onJump={setArchiveMonth}
-              avatarUrl={profile.avatarUrl}
-              accountAvatars={
-                (archive.archive as ArchiveSnapshot<Post> | null)
-                  ?.accountAvatars ?? dashboard.accountAvatars
-              }
-              locale={locale}
-              now={now}
-              t={t}
-              onOpenMedia={openImages}
-            />
           ) : (
             <VideoTimeline
               archive={videoArchive}
@@ -674,7 +540,6 @@ export function DashboardApp() {
                   : showLatestVideos
               }
               locale={locale}
-              now={now}
               t={t}
             />
           )}

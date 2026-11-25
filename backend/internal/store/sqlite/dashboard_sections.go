@@ -223,9 +223,14 @@ func (s *Store) getMediaCache(ctx context.Context) (map[string]int64, error) {
 	return out, rows.Err()
 }
 
+// bilibiliAccountsSQL walks posts_bilibili_account_idx, which holds the
+// Bilibili posts alone, so the X posts are never read. A Bilibili post is
+// never promoted, so the own posts' rule says whether it is shown.
+var bilibiliAccountsSQL = `SELECT DISTINCT account_handle FROM posts WHERE source='bilibili' AND ` + ownPostShownSQL("") + ` AND account_handle IS NOT NULL ORDER BY account_handle LIMIT 5`
+
 // getBilibiliAccounts lists the accounts of the stored, shown Bilibili posts.
 func (s *Store) getBilibiliAccounts(ctx context.Context) ([]string, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT account_handle FROM posts WHERE source='bilibili' AND hidden_at IS NULL AND account_handle IS NOT NULL ORDER BY account_handle LIMIT 5`)
+	rows, err := s.db.QueryContext(ctx, bilibiliAccountsSQL)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -242,19 +247,84 @@ func (s *Store) getBilibiliAccounts(ctx context.Context) ([]string, error) {
 }
 
 func (s *Store) getXAccounts(ctx context.Context) ([]string, error) {
-	var v string
-	err := s.db.QueryRowContext(ctx, `SELECT value FROM app_settings WHERE key='x_accounts'`).Scan(&v)
-	if errors.Is(err, sql.ErrNoRows) {
+	accounts, err := s.accountListSetting(ctx, "x_accounts")
+	if err != nil {
+		return nil, err
+	}
+	if len(accounts) == 0 {
 		return []string{"kano_2525", "_Kanotic"}, nil
+	}
+	return accounts, nil
+}
+
+// XArchiveAccountsSetting names the X accounts whose posts come only from an
+// imported account export: they appear in the post archive's account filter
+// but are never synchronized and get no place on the board's wall filter.
+const XArchiveAccountsSetting = "x_archive_accounts"
+
+// XArchiveAccounts lists the archive-only X accounts, in stored order.
+func (s *Store) XArchiveAccounts(ctx context.Context) ([]string, error) {
+	return s.accountListSetting(ctx, XArchiveAccountsSetting)
+}
+
+// PostArchiveAccounts are the accounts the post archive filters by: the
+// board's X accounts followed by the archive-only ones, and the Bilibili
+// accounts of shown posts.
+type PostArchiveAccounts struct {
+	X        []string
+	Bilibili []string
+}
+
+// GetPostArchiveAccounts lists the post archive's filter accounts.
+func (s *Store) GetPostArchiveAccounts(ctx context.Context) (PostArchiveAccounts, error) {
+	if s != nil && s.readDB != nil {
+		return s.publicReader().GetPostArchiveAccounts(ctx)
+	}
+	if s == nil || s.db == nil {
+		return PostArchiveAccounts{}, ErrUnavailable
+	}
+	x, err := s.getXAccounts(ctx)
+	if err != nil {
+		return PostArchiveAccounts{}, err
+	}
+	archived, err := s.XArchiveAccounts(ctx)
+	if err != nil {
+		return PostArchiveAccounts{}, err
+	}
+	seen := map[string]bool{}
+	for _, account := range x {
+		seen[strings.ToLower(account)] = true
+	}
+	for _, account := range archived {
+		if !seen[strings.ToLower(account)] {
+			seen[strings.ToLower(account)] = true
+			x = append(x, account)
+		}
+	}
+	bilibili, err := s.getBilibiliAccounts(ctx)
+	if err != nil {
+		return PostArchiveAccounts{}, err
+	}
+	return PostArchiveAccounts{X: x, Bilibili: bilibili}, nil
+}
+
+// accountListSetting reads an app setting holding a JSON array (or a comma or
+// line separated list) of handles, without "@", duplicates or blanks. A
+// missing setting is an empty list.
+func (s *Store) accountListSetting(ctx context.Context, key string) ([]string, error) {
+	var v string
+	err := s.db.QueryRowContext(ctx, `SELECT value FROM app_settings WHERE key=?`, key).Scan(&v)
+	if errors.Is(err, sql.ErrNoRows) {
+		return []string{}, nil
 	}
 	if err != nil {
 		return nil, dbErr(err)
 	}
-	v = strings.TrimSpace(v)
-	if v == "" {
-		return []string{"kano_2525", "_Kanotic"}, nil
-	}
-	v = strings.Trim(v, "[]\"")
+	return parseAccountList(v), nil
+}
+
+func parseAccountList(v string) []string {
+	v = strings.Trim(strings.TrimSpace(v), "[]\"")
 	parts := strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == '\n' || r == '\r' || r == ' ' || r == '"' })
 	out := []string{}
 	seen := map[string]bool{}
@@ -265,8 +335,5 @@ func (s *Store) getXAccounts(ctx context.Context) ([]string, error) {
 			out = append(out, p)
 		}
 	}
-	if len(out) == 0 {
-		return []string{"kano_2525", "_Kanotic"}, nil
-	}
-	return out, nil
+	return out
 }

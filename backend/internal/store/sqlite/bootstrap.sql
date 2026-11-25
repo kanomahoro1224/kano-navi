@@ -1,3 +1,29 @@
+CREATE TABLE alert_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_id INTEGER REFERENCES alert_incidents(id),
+    channel_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('opened','resolved','test')),
+    status TEXT NOT NULL CHECK(status IN ('pending','sent','failed','dropped')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TEXT NOT NULL,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    finished_at TEXT
+  );
+
+CREATE TABLE alert_incidents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    severity TEXT NOT NULL CHECK(severity IN ('info','warning','critical')),
+    status TEXT NOT NULL CHECK(status IN ('open','resolved')),
+    detail_json TEXT NOT NULL DEFAULT '{}',
+    opened_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    resolved_at TEXT,
+    acknowledged_at TEXT
+  );
+
 CREATE TABLE app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -40,7 +66,7 @@ CREATE TABLE event_sources (
     deleted_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-  );
+  , unlisted_at TEXT);
 
 CREATE TABLE events (
     id TEXT PRIMARY KEY,
@@ -230,7 +256,10 @@ CREATE TABLE posts (
     refresh_requested_at TEXT,
     hidden_at TEXT,
     promoted_at TEXT,
-    deleted_at TEXT
+    deleted_at TEXT,
+    upstream_deleted_at TEXT,
+    upstream_kind TEXT,
+    shown_at TEXT
   );
 
 CREATE TABLE profile_media (
@@ -372,7 +401,7 @@ CREATE TABLE schedule_asset_reviews (
     manual_reason TEXT,
     manual_checked_at TEXT,
     updated_at TEXT NOT NULL
-  );
+  , previous_manual_status TEXT, previous_manual_reason TEXT, previous_manual_checked_at TEXT, check_status TEXT, check_reason TEXT, check_at TEXT, llm_image_sha256 TEXT);
 
 CREATE TABLE schedule_extractions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -613,6 +642,14 @@ CREATE INDEX post_llm_states_status_idx
 
 CREATE INDEX posts_account_handle_idx ON posts (account_handle, published_at DESC);
 
+CREATE INDEX posts_account_instant_idx
+    ON posts (lower(COALESCE(account_handle, '')), julianday(published_at) DESC, id)
+    WHERE deleted_at IS NULL AND promoted_at IS NULL
+      AND (shown_at IS NOT NULL OR (hidden_at IS NULL AND upstream_deleted_at IS NULL
+        AND COALESCE(upstream_kind, '') NOT IN ('reply', 'foreign', 'repost', 'unlisted')));
+
+CREATE INDEX posts_bilibili_account_idx ON posts (account_handle) WHERE source = 'bilibili';
+
 CREATE INDEX posts_deleted_idx ON posts (id) WHERE deleted_at IS NOT NULL;
 
 CREATE INDEX posts_instant_idx ON posts (julianday(published_at) DESC, id);
@@ -662,3 +699,9 @@ CREATE INDEX account_avatar_candidates_account_idx ON account_avatar_candidates 
 CREATE UNIQUE INDEX account_avatar_candidates_source_url_idx ON account_avatar_candidates (source, account_key, source_url) WHERE source_url IS NOT NULL;
 
 CREATE INDEX account_avatar_candidates_media_idx ON account_avatar_candidates (media_id) WHERE media_id IS NOT NULL;
+
+CREATE INDEX alert_deliveries_due_idx ON alert_deliveries (next_attempt_at, id) WHERE status = 'pending';
+
+CREATE INDEX alert_deliveries_created_idx ON alert_deliveries (created_at DESC, id DESC);
+
+CREATE UNIQUE INDEX alert_incidents_open_idx ON alert_incidents (rule, subject) WHERE status = 'open';

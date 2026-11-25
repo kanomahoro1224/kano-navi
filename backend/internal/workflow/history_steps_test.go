@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -203,7 +204,7 @@ func (s *stubTimeline) TimelineStatuses(_ context.Context, account, cursor strin
 	s.accounts = append(s.accounts, account)
 	s.mu.Unlock()
 	id := map[string]string{"synthetic_one": "1900000000000000001", "synthetic_two": "1900000000000000002"}[account]
-	post := &xsource.Post{ID: id, AccountHandle: account, Type: "daily", Label: "DAILY / 近况", Text: "from the timeline", PublishedAt: "2026-03-05T03:00:00Z", URL: "https://x.com/" + account + "/status/" + id, Raw: map[string]any{"id": id}}
+	post := &xsource.Post{ID: id, AccountHandle: account, Type: "daily", Label: xsource.LabelDaily, Text: "from the timeline", PublishedAt: "2026-03-05T03:00:00Z", URL: "https://x.com/" + account + "/status/" + id, Raw: map[string]any{"id": id}}
 	return xsource.TimelineStatuses{Statuses: []xsource.TimelineStatus{
 		{ID: id, PublishedAt: post.PublishedAt, Post: post},
 		{ID: "1800000000000000001", PublishedAt: "2026-02-01T00:00:00Z"},
@@ -432,5 +433,25 @@ func TestHistoryXNamedAccountTakesTheBudgetAndLeavesTheRotation(t *testing.T) {
 	window.Account = "someone_else"
 	if out, err = source.FetchX(ctx, window); err != nil || out.Status != "failed" || out.Result["error"] != "x_account_unknown" {
 		t.Fatalf("unknown=%+v err=%v", out, err)
+	}
+}
+
+type downTimeline struct{}
+
+func (downTimeline) TimelineStatuses(context.Context, string, string, int) (xsource.TimelineStatuses, error) {
+	return xsource.TimelineStatuses{}, &xsource.Error{Code: xsource.ErrHTTP, Status: 503}
+}
+
+// A count setting whose timeline read fails for every account is the source
+// being unavailable, retryable like an incremental read's x_source_failed.
+func TestCountSettingFailureOfEveryAccountIsRetryable(t *testing.T) {
+	transport := &historyTransport{respond: func(*http.Request) (int, string) { return 500, "" }}
+	source, _ := newHistorySource(t, transport)
+	source.Fetcher.Timeline = downTimeline{}
+	steps := &SourceSteps{History: source}
+	_, err := steps.Execute(context.Background(), StepInput{StepID: "x", WorkflowID: "full-refresh", Sync: sqlite.SourceSync{Mode: sqlite.SyncCount, Count: 20}})
+	var stepErr *StepError
+	if !errors.As(err, &stepErr) || stepErr.Code != "x_source_failed" || stepErr.Category != ErrDependency || !stepErr.Retryable {
+		t.Fatalf("err=%#v", err)
 	}
 }

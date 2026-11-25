@@ -184,8 +184,24 @@ test("dashboard hook recovers, coordinates requests and releases its resources",
         current: () => value,
       }
     }
+    const projection = (nextTransitionAt: string | null = null) => ({
+      version: 1,
+      nextTransitionAt,
+      focus: { eventIds: [], videoIds: [] },
+      spotlight: null,
+      sales: [],
+      shelf: {
+        leadId: null,
+        leadIsFeatured: false,
+        reservations: [],
+        works: [],
+        archives: [],
+        shorts: [],
+      },
+    })
     const snapshot = (revision: number) => ({
       profile: { displayName: `Snapshot ${revision}` },
+      projection: projection(),
       meta: { revision },
     })
     const calendarPage = (
@@ -593,7 +609,7 @@ test("dashboard hook recovers, coordinates requests and releases its resources",
         const transitionAt = "2025-01-01T00:00:10.000Z"
         const withTransition = (revision: number) => ({
           ...snapshot(revision),
-          projection: { version: 1, nextTransitionAt: transitionAt },
+          projection: projection(transitionAt),
         })
         try {
           await fixture.respond(0, withTransition(1))
@@ -624,10 +640,7 @@ test("dashboard hook recovers, coordinates requests and releases its resources",
           await fixture.tick(3000)
           await fixture.respond(0, {
             ...snapshot(1),
-            projection: {
-              version: 1,
-              nextTransitionAt: "2025-01-01T00:00:02.000Z",
-            },
+            projection: projection("2025-01-01T00:00:02.000Z"),
           })
           await fixture.streams[0].emit(1)
           await fixture.tick(0)
@@ -755,6 +768,43 @@ test("dashboard hook recovers, coordinates requests and releases its resources",
       ])
 
     await t.test(
+      "a snapshot without the supported projection is never shown and is read again",
+      async (context) => {
+        const fixture = await setup(context)
+        const unsupported = (revision: number) => ({
+          ...snapshot(revision),
+          projection: { ...projection(), version: 2 },
+        })
+        const { projection: _, ...missing } = snapshot(2)
+        try {
+          await fixture.respond(0, unsupported(1))
+          assert.ok(fixture.current().error)
+          assert.notEqual(
+            fixture.current().dashboard.profile.displayName,
+            "Snapshot 1",
+          )
+          await fixture.tick(8000)
+          await fixture.respond(1, snapshot(1))
+          assert.equal(fixture.current().error, null)
+          assert.equal(
+            fixture.current().dashboard.profile.displayName,
+            "Snapshot 1",
+          )
+          // A known snapshot stays on screen while the read fails.
+          await act(async () => void fixture.current().reload())
+          await fixture.respond(2, missing)
+          assert.ok(fixture.current().error)
+          assert.equal(
+            fixture.current().dashboard.profile.displayName,
+            "Snapshot 1",
+          )
+        } finally {
+          await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
       "a stored snapshot shows at once and the first read replaces and stores it",
       async (context) => {
         const storage = stored("2024-12-31T00:00:00Z", snapshot(1))
@@ -807,11 +857,16 @@ test("dashboard hook recovers, coordinates requests and releases its resources",
     )
 
     await t.test(
-      "an old or malformed stored snapshot leaves the placeholder",
+      "an old, malformed or unsupported stored snapshot leaves the placeholder",
       async (context) => {
         for (const storage of [
           stored("2024-12-24T23:59:59Z", snapshot(1)),
           stored("2024-12-31T00:00:00Z", { ...snapshot(1), posts: {} }),
+          stored("2024-12-31T00:00:00Z", { ...snapshot(1), projection: null }),
+          stored("2024-12-31T00:00:00Z", {
+            ...snapshot(1),
+            projection: { ...projection(), version: 2 },
+          }),
           new Map([[CACHE_KEY, "{"]]),
         ]) {
           const fixture = await setup(context, false, false, storage)

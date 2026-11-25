@@ -114,6 +114,18 @@ test("detects public IPv4 addresses but not other dotted numbers", () => {
   assert.equal(isIPv4Finding("c.267-.249.573-.373.92.373.347 0"), false)
 })
 
+test("accepts special-purpose IPv4 blocks only in CIDR notation", () => {
+  const isIPv4Finding = (text: string) =>
+    findingsFor(text).some(
+      (finding) => finding.kind === "non-documentation IPv4 address",
+    )
+  const shared = ["100", "64", "0", "0"].join(".")
+  assert.equal(isIPv4Finding(`Prefix("${shared}/10")`), false)
+  assert.equal(isIPv4Finding(`${shared}/10 and ${shared}/16`), true)
+  assert.equal(isIPv4Finding(["100", "100", "100", "100"].join(".")), true)
+  assert.equal(isIPv4Finding(["10", "1", "0", "0/16"].join(".")), true)
+})
+
 test("rejects malformed allowlist documents", () => {
   assert.throws(
     () =>

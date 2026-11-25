@@ -30,7 +30,7 @@ import type {
 
 /*
  * Writes the bodies of GET /api/works and GET /api/works/upload-list from the
- * tracked Works data (docs/architecture/public-api.md#works-collection). It
+ * tracked Works data (docs/architecture/public-api/works.md). It
  * reads only src/ and renders every phrase-coded text with the page's own
  * worksText and translators, so the board and the API share one derivation.
  * tests/works-api.test.ts fails when the committed files differ.

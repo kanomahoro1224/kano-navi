@@ -129,6 +129,11 @@ func (s *SourceSteps) Execute(ctx context.Context, in StepInput) (AttemptResult,
 			if err != nil {
 				return out, err
 			}
+			// No account answered: like an incremental read, the source is
+			// unavailable, so the step is tried again and an operator may retry.
+			if out.Status == "failed" {
+				return AttemptResult{}, NewStepError("x_source_failed", ErrDependency)
+			}
 			refreshed, refreshErr := s.X.Refresh(ctx)
 			if ctx.Err() != nil {
 				return AttemptResult{}, NewStepError("cancelled", ErrCancelled)

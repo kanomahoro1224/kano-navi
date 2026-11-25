@@ -22,6 +22,7 @@ external sources.
 | [Media cache](media-cache.md)         | Media identity, downloader, layout, HTTP contract                  |
 | [Outbound proxies](outbound-proxy.md) | Proxy queue, per-area routes, attempts and tests                   |
 | [Web Bot Auth](web-bot-auth.md)       | Signing key, request signatures, the key directory                 |
+| [Operator alerts](alerts.md)          | Alert rules, incidents, delivery outbox, channels, heartbeat       |
 
 ## When To Read What
 

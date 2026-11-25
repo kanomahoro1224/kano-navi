@@ -9,7 +9,9 @@ Every milestone keeps the precision of its source (a year, a month, a day, or
 a range), names the identity she was active under (singer, Hanayori Joshiryo,
 Kano Mahoro, MKLNtic, ミリプロSONA), and links its strongest public source.
 Filter by identity, or jump to a year from the year rail: a side rail on wide
-screens and a strip on phones.
+screens and a strip on phones. On phones the identities sit two to a row
+and a milestone's images are a row of small thumbnails; each opens the
+image in full.
 
 ## Visual Archive
 

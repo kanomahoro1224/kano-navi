@@ -21,6 +21,15 @@ type scheduleSourcePost struct {
 	PublishedAt string `json:"publishedAt"`
 }
 
+// scheduleDecision is an operator's label on an image the asset no longer
+// shows, or a check that left the model verdict in place: its status, reason
+// and time.
+type scheduleDecision struct {
+	Status string  `json:"status"`
+	Reason *string `json:"reason"`
+	At     *string `json:"at"`
+}
+
 // scheduleAsset is one schedule image with its review state, its source
 // post and the browser safe media reference. The board gate's input (a
 // stored raw_json search text) never leaves the server.
@@ -55,10 +64,19 @@ type scheduleAsset struct {
 	EffectiveStatus     string   `json:"effectiveStatus"`
 	SourceMatchesBoard  bool     `json:"sourceMatchesBoard"`
 	Approved            bool     `json:"approved"`
-	PreviewURL          *string  `json:"previewUrl"`
-	MediaID             *string  `json:"mediaId"`
-	MediaStatus         string   `json:"mediaStatus"`
-	MediaSourceURL      *string  `json:"mediaSourceUrl"`
+	// NeedsReview follows sqlite.ScheduleImagePendingSQL, the Review queue's
+	// rule.
+	NeedsReview bool `json:"needsReview"`
+	// PreviousDecision is the operator's label on the image the asset showed
+	// before its URL changed, until the operator labels the asset again.
+	PreviousDecision *scheduleDecision `json:"previousDecision"`
+	// LastCheck is the latest image check that left the verdict in place
+	// (running, failed or skipped), or nil.
+	LastCheck      *scheduleDecision `json:"lastCheck"`
+	PreviewURL     *string           `json:"previewUrl"`
+	MediaID        *string           `json:"mediaId"`
+	MediaStatus    string            `json:"mediaStatus"`
+	MediaSourceURL *string           `json:"mediaSourceUrl"`
 	// SourcePost is nil when the source post is not stored.
 	SourcePost *scheduleSourcePost `json:"sourcePost"`
 }
@@ -91,7 +109,10 @@ var scheduleAssetColumns = `
   r.llm_input_fingerprint,
   COALESCE(r.manual_status, 'unreviewed'),
   r.manual_reason, r.manual_checked_at,
-  r.updated_at`
+  r.updated_at,
+  r.previous_manual_status, r.previous_manual_reason, r.previous_manual_checked_at,
+  r.check_status, r.check_reason, r.check_at,
+  CASE WHEN ` + sqlite.ScheduleImagePendingSQL("a", "r") + ` THEN 1 ELSE 0 END`
 
 const scheduleAssetFrom = ` FROM assets a LEFT JOIN schedule_asset_reviews r ON r.asset_id = a.id `
 
@@ -118,14 +139,22 @@ func scanScheduleAsset(row rowScanner) (*scheduleAsset, error) {
 	var postText, postPublishedAt sql.NullString
 	var sourceAccount, assetUpdatedAt, sourceText, llmStatus, llmText, llmReason, llmEvidence, llmModel, llmCheckedAt, fingerprint sql.NullString
 	var manualStatus, manualReason, manualCheckedAt, reviewUpdatedAt sql.NullString
+	var previousStatus, previousReason, previousAt, checkStatus, checkReason, checkAt sql.NullString
 	var confidence sql.NullFloat64
 	var version sql.NullInt64
 	err := row.Scan(&asset.ID, &asset.Kind, &asset.URL, &sourceURL, &alt, &weekStart, &periodStart, &periodEnd, &periodBasis,
 		&inferredStart, &inferredEnd, &periodReason, &sourceAccount, &assetUpdatedAt, &version, &sourceText,
 		&postText, &postPublishedAt, &llmStatus, &confidence, &llmText, &llmReason, &llmEvidence, &llmModel, &llmCheckedAt, &fingerprint,
-		&manualStatus, &manualReason, &manualCheckedAt, &reviewUpdatedAt)
+		&manualStatus, &manualReason, &manualCheckedAt, &reviewUpdatedAt,
+		&previousStatus, &previousReason, &previousAt, &checkStatus, &checkReason, &checkAt, &asset.NeedsReview)
 	if err != nil {
 		return nil, err
+	}
+	if previous := oneOf(previousStatus.String, "", "schedule", "not_schedule"); previous != "" {
+		asset.PreviousDecision = &scheduleDecision{Status: previous, Reason: textPointer(previousReason), At: textPointer(previousAt)}
+	}
+	if check := oneOf(checkStatus.String, "", "running", "failed", "skipped"); check != "" {
+		asset.LastCheck = &scheduleDecision{Status: check, Reason: textPointer(checkReason), At: textPointer(checkAt)}
 	}
 	asset.SourceURL, asset.Alt, asset.WeekStart = textPointer(sourceURL), textPointer(alt), textPointer(weekStart)
 	if postText.Valid {
@@ -338,7 +367,8 @@ func (m *Module) manualReviewRoute(w http.ResponseWriter, r *http.Request, id st
 		checkedAt = now
 	}
 	// The manual label survives later image checks: the model writer only
-	// updates the llm_* columns of an existing review.
+	// updates the llm_* columns of an existing review. Any label, a cleared
+	// one included, answers a previous decision that waits for the operator.
 	err = m.inTx(ctx, func(tx *sql.Tx) error {
 		if existsErr := scheduleAssetExists(ctx, tx, id); existsErr != nil {
 			return existsErr
@@ -352,6 +382,7 @@ func (m *Module) manualReviewRoute(w http.ResponseWriter, r *http.Request, id st
 		     manual_status=excluded.manual_status,
 		     manual_reason=excluded.manual_reason,
 		     manual_checked_at=excluded.manual_checked_at,
+		     previous_manual_status=NULL, previous_manual_reason=NULL, previous_manual_checked_at=NULL,
 		     updated_at=excluded.updated_at`, id, status, nullString(reason), checkedAt, now); execErr != nil {
 			return execErr
 		}

@@ -43,11 +43,31 @@ stage change), and `Preview` the queue preview judging every post.
   videos) while its post and event counts report the full totals and its video
   count reports the public videos published in the seven-day video window.
   Full calendar, post and video history is available through bounded pages; see
-  [Bounded public archives](../architecture/public-api.md#bounded-public-archives).
+  [Bounded public archives](../architecture/public-api/calendar-and-archives.md#bounded-public-archives).
 - The latest source wording of a schedule image is read through the
   `posts_url_published_at_idx` index on `posts(url, published_at DESC)`,
   without a temporary sort. Startup adds the index to older snapshots, and
   the schema upgrade tests check that it exists.
+- The board snapshot's post reads never walk the posts table:
+  `TestDashboardPostReadsUseIndexes` checks that each account's newest posts
+  are read through `posts_account_instant_idx` (over the shown own posts), the Bilibili accounts through
+  `posts_bilibili_account_idx` and a schedule candidate's upstream-deleted
+  post by its ID. The latest post is the newest own post of that read, not a
+  query of its own. Startup adds both indexes to older snapshots, and the
+  schema upgrade tests check that they exist.
+- The board snapshot's video reads look each video's events up by identity:
+  `TestDashboardVideoReadsLookEventsUpByIdentity` checks that the active
+  videos and the confirmed cancellations match an event by its entry ID,
+  source item, event sources or stream URL through their indexes, each as a
+  lookup of its own, and never walk the events for every video.
+- A dashboard read at an unchanged revision is answered from the
+  [prepared response](../architecture/backend.md#text-transfer-and-static-caching):
+  `TestDashboardCacheFollowsTheRevision` checks that hits keep the body and
+  ETag and that a new revision computes again,
+  `TestDashboardCacheExpires` the expiry at the next transition and at the
+  next minute, `TestDashboardCacheSharesOneComputation` that concurrent misses
+  compute once, and `TestDashboardValidUntilEndsWithATrustedLiveState` the
+  expiry of a trusted broadcast state.
 - Public dashboard, revision and health JSON, the calendar and Atom feeds
   are gzip-compressed on the fly, and the build's text files are sent from
   Brotli or gzip siblings written at build time; admin, authentication,
@@ -71,10 +91,10 @@ the entry, the shared chunks and each lazy page; the build manifest
 (`dist/.vite/manifest.json`) lists which chunks a page imports. For request
 behavior, serve the
 production build against a disposable development backend (see
-[Testing](testing.md#test-scope)) and review all six pages at desktop and
+[Testing](testing/test-scope.md)) and review all seven pages at desktop and
 mobile widths, including direct visits, refresh, a failed snapshot read with
-automatic recovery and a failed lazy chunk with retry. Visiting `/journey`,
-`/lineblog`, `/works` or `/about` must not issue dashboard reads.
+automatic recovery and a failed lazy chunk with retry. Visiting `/posts`,
+`/journey`, `/lineblog`, `/works` or `/about` must not issue dashboard reads.
 
 Report results as local synthetic measurements, not production latency,
 capacity or SLA figures, and do not record them in this document.

@@ -20,6 +20,10 @@
 </p>
 
 <p align="center">
+  English · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a>
+</p>
+
+<p align="center">
   <a href="https://kano.fans/"><img src="docs/assets/readme/board.jpg" alt="The board on a desktop and a phone"></a><br>
   <sub>Screenshots of the Japan Server in the light theme, captured on November 19, 2026 (JST).</sub>
 </p>
@@ -34,6 +38,7 @@
 | Page          | What it shows                                                                                                                                          |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Now**       | The next stream with a countdown in Japan and local time, the weekly schedule and month view, recent posts from X and bilibili, and the latest videos. |
+| **Posts**     | Every post from her X accounts, the unit account she shares, and bilibili since 2010, month by month and by account.                                   |
 | **Journey**   | Her milestones since the first covers in 2010, by identity, and a visual archive with sources and credits.                                             |
 | **Works**     | Her albums, singles, and doujin works with their editions, the works she is featured on, and every song she uploaded.                                  |
 | **LINE BLOG** | Her 2015–2019 blog, restored with its photos and videos, in the blog's own layout and with Chinese and English translations.                           |

@@ -177,7 +177,8 @@ func (s *Store) SetXRelatedAccounts(ctx context.Context, accounts []XRelatedAcco
 
 // SettleXRelatedRoles keeps a handle in one role when X_HANDLES changes: at
 // every start, an own account leaves the related list, and the posts the pool
-// promoted for it become own posts, shown again when only the pool hid them.
+// promoted for it become own posts, which the pool no longer demotes. An
+// operator's demote of one becomes the operator's hide of the post.
 func (s *Store) SettleXRelatedRoles(ctx context.Context, own []string) error {
 	if !s.Writable() || len(own) == 0 {
 		return nil
@@ -215,17 +216,16 @@ func (s *Store) SettleXRelatedRoles(ctx context.Context, own []string) error {
 		}
 	}
 	in := `lower(account_handle) IN (` + placeholders(len(args)) + `) AND promoted_at IS NOT NULL`
-	shown, err := tx.ExecContext(ctx, `UPDATE posts SET hidden_at=NULL WHERE `+in+`
-		AND hidden_at IS NOT NULL AND id IN (SELECT id FROM x_statuses WHERE demoted_at IS NOT NULL AND manual_decision IS NULL)`, args...)
-	if err != nil {
+	// An operator's demote of a status that becomes an own post stays the
+	// operator's decision: it becomes their hide of the post.
+	if _, err = tx.ExecContext(ctx, `UPDATE posts SET hidden_at=(SELECT manual_at FROM x_statuses WHERE id=posts.id)
+		WHERE `+in+` AND hidden_at IS NULL AND shown_at IS NULL
+		AND EXISTS (SELECT 1 FROM x_statuses WHERE id=posts.id AND manual_decision='demote' AND manual_at IS NOT NULL)`, args...); err != nil {
 		return dbErr(err)
 	}
 	adopted, err := tx.ExecContext(ctx, `UPDATE posts SET promoted_at=NULL WHERE `+in, args...)
 	if err != nil {
 		return dbErr(err)
-	}
-	if n, _ := shown.RowsAffected(); n > 0 {
-		changed = true
 	}
 	if n, _ := adopted.RowsAffected(); n > 0 {
 		changed = true
@@ -431,6 +431,9 @@ func writeXRelatedState(ctx context.Context, tx *sql.Tx, account string, result 
 	return err
 }
 
+// xStatusChanges counts what a reconcile changed: statuses promoted into
+// posts, promoted posts the rules demoted, and demoted ones they promote
+// again.
 type xStatusChanges struct{ promoted, demoted, shown int }
 
 func (c xStatusChanges) any() bool { return c.promoted+c.demoted+c.shown > 0 }
@@ -450,16 +453,17 @@ func reconcileXStatuses(ctx context.Context, tx *sql.Tx, accounts []XRelatedAcco
 //     lock that outranks it;
 //   - promotion writes the status to posts from its stored raw_json with
 //     promoted_at, registering its images but no schedule candidate;
-//   - demotion sets posts.hidden_at and keeps the row, its media and events.
-//     An automatic demotion records demoted_at, so only a hide the pool made
-//     is undone by a later automatic promotion; an operator's hide in Posts
-//     stays. Showing a promoted post in Posts records a manual promote.
+//   - demotion keeps the row, its media and events; the post is hidden at
+//     read time (see postDemotedSQL). Without an operator's decision the
+//     rules record theirs in demoted_at, which a later match clears.
 //
-// A pooled status that is an own post is never touched.
+// The operator's show or hide of the post in Posts (shown_at, hidden_at)
+// lies above both, and no reconcile writes it. A pooled status that is an
+// own post is never touched.
 func reconcileXStatusChanges(ctx context.Context, tx *sql.Tx, accounts []XRelatedAccount, ids []string, now string) (xStatusChanges, error) {
 	changes := xStatusChanges{}
 	query := `SELECT s.id,s.author_handle,s.text,s.keyword,COALESCE(s.manual_decision,''),s.demoted_at IS NOT NULL,COALESCE(s.raw_json,''),
-		p.id IS NOT NULL,p.promoted_at IS NOT NULL,p.hidden_at IS NOT NULL
+		p.id IS NOT NULL,p.promoted_at IS NOT NULL
 		FROM x_statuses s LEFT JOIN posts p ON p.id=s.id`
 	args := []any{}
 	if ids != nil {
@@ -470,9 +474,9 @@ func reconcileXStatusChanges(ctx context.Context, tx *sql.Tx, accounts []XRelate
 		args = idArgs(ids)
 	}
 	type status struct {
-		id, author, text, decision, raw    string
-		keyword, autoDemoted               bool
-		stored, promoted, hidden, matching bool
+		id, author, text, decision, raw string
+		keyword, autoDemoted            bool
+		stored, promoted, matching      bool
 	}
 	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -482,7 +486,7 @@ func reconcileXStatusChanges(ctx context.Context, tx *sql.Tx, accounts []XRelate
 	rules := relatedKeywords(accounts)
 	for rows.Next() {
 		var st status
-		if err = rows.Scan(&st.id, &st.author, &st.text, &st.keyword, &st.decision, &st.autoDemoted, &st.raw, &st.stored, &st.promoted, &st.hidden); err != nil {
+		if err = rows.Scan(&st.id, &st.author, &st.text, &st.keyword, &st.decision, &st.autoDemoted, &st.raw, &st.stored, &st.promoted); err != nil {
 			rows.Close()
 			return changes, err
 		}
@@ -513,22 +517,17 @@ func reconcileXStatusChanges(ctx context.Context, tx *sql.Tx, accounts []XRelate
 			if promoted {
 				changes.promoted++
 			}
-		case wanted && st.hidden && st.autoDemoted:
-			if _, err = tx.ExecContext(ctx, `UPDATE posts SET hidden_at=NULL WHERE id=?`, st.id); err != nil {
-				return changes, err
-			}
+		case st.decision != "" || !st.stored:
+			// An operator's decision outranks the rules, and a status
+			// that stays in the pool has no post to demote.
+		case wanted && st.autoDemoted:
 			if _, err = tx.ExecContext(ctx, `UPDATE x_statuses SET demoted_at=NULL,updated_at=? WHERE id=?`, now, st.id); err != nil {
 				return changes, err
 			}
 			changes.shown++
-		case !wanted && st.stored && !st.hidden:
-			if _, err = tx.ExecContext(ctx, `UPDATE posts SET hidden_at=? WHERE id=?`, now, st.id); err != nil {
+		case !wanted && !st.autoDemoted:
+			if _, err = tx.ExecContext(ctx, `UPDATE x_statuses SET demoted_at=?,updated_at=? WHERE id=?`, now, now, st.id); err != nil {
 				return changes, err
-			}
-			if st.decision == "" {
-				if _, err = tx.ExecContext(ctx, `UPDATE x_statuses SET demoted_at=?,updated_at=? WHERE id=?`, now, now, st.id); err != nil {
-					return changes, err
-				}
 			}
 			changes.demoted++
 		}
@@ -585,12 +584,13 @@ func isOwnXAccount(ctx context.Context, tx *sql.Tx, handle string, own []string)
 // SetXStatusDecision records an operator's promote or demote as a durable
 // lock with its reason, or with "automatic" removes the lock so the rules
 // decide again. A promote needs a related account's status or one an own
-// account reposted, and shows a promoted post hidden before; a demote hides
-// the promoted post. A status by an own account (one of own, or a handle
-// with own posts or reposts stored) is never promoted, so the status's own
-// post is never touched. Returned to the rules, a status they do not promote
-// (any but a related account's matching status) stays unpromoted, or hidden
-// when it was promoted.
+// account reposted, and withdraws an operator's hide of the promoted post in
+// Posts; a demote withdraws an operator's show, so the decision takes
+// effect. A status by an own account (one of own, or a handle with own posts
+// or reposts stored) is never promoted, so the status's own post is never
+// touched. Returned to the rules, a status they do not promote (any but a
+// related account's matching status) stays unpromoted, or demoted when it
+// was promoted.
 func (s *Store) SetXStatusDecision(ctx context.Context, id, decision, reason string, own ...string) (AdminXStatus, error) {
 	if !s.Writable() {
 		return AdminXStatus{}, ErrReadOnly
@@ -612,9 +612,9 @@ func (s *Store) SetXStatusDecision(ctx context.Context, id, decision, reason str
 	}
 	defer tx.Rollback()
 	var author, previous string
-	var stored, promoted, hidden, reposted bool
-	err = tx.QueryRowContext(ctx, `SELECT s.author_handle,COALESCE(s.manual_decision,''),p.id IS NOT NULL,p.promoted_at IS NOT NULL,p.hidden_at IS NOT NULL,s.reposted_at IS NOT NULL
-		FROM x_statuses s LEFT JOIN posts p ON p.id=s.id WHERE s.id=?`, id).Scan(&author, &previous, &stored, &promoted, &hidden, &reposted)
+	var stored, promoted, reposted bool
+	err = tx.QueryRowContext(ctx, `SELECT s.author_handle,COALESCE(s.manual_decision,''),p.id IS NOT NULL,p.promoted_at IS NOT NULL,s.reposted_at IS NOT NULL
+		FROM x_statuses s LEFT JOIN posts p ON p.id=s.id WHERE s.id=?`, id).Scan(&author, &previous, &stored, &promoted, &reposted)
 	if errors.Is(err, sql.ErrNoRows) {
 		return AdminXStatus{}, ErrXStatusNotFound
 	}
@@ -641,32 +641,33 @@ func (s *Store) SetXStatusDecision(ctx context.Context, id, decision, reason str
 		}
 	}
 	now := ISOTime(time.Now())
-	changed := false
 	switch decision {
 	case xDecisionAutomatic:
-		// A demote lock lifted leaves its hide to the rules.
-		demoted := any(nil)
-		if previous == xDecisionDemote && hidden {
-			demoted = now
-		}
-		_, err = tx.ExecContext(ctx, `UPDATE x_statuses SET manual_decision=NULL,manual_reason=NULL,manual_at=NULL,demoted_at=COALESCE(?,demoted_at),updated_at=? WHERE id=?`, demoted, now, id)
+		// The rules decide again; reconcile below records their demotion.
+		_, err = tx.ExecContext(ctx, `UPDATE x_statuses SET manual_decision=NULL,manual_reason=NULL,manual_at=NULL,updated_at=? WHERE id=?`, now, id)
 	default:
 		_, err = tx.ExecContext(ctx, `UPDATE x_statuses SET manual_decision=?,manual_reason=?,manual_at=?,demoted_at=NULL,updated_at=? WHERE id=?`, decision, reason, now, now, id)
 	}
 	if err != nil {
 		return AdminXStatus{}, dbErr(err)
 	}
-	switch {
-	case decision == xDecisionPromote && stored && hidden:
-		if _, err = tx.ExecContext(ctx, `UPDATE posts SET hidden_at=NULL WHERE id=?`, id); err != nil {
-			return AdminXStatus{}, dbErr(err)
+	// A promoted post's visibility follows the decision, so a changed
+	// decision moves the board.
+	next := decision
+	if decision == xDecisionAutomatic {
+		next = ""
+	}
+	changed := stored && promoted && previous != next
+	if stored && promoted && decision != xDecisionAutomatic {
+		override := `hidden_at`
+		if decision == xDecisionDemote {
+			override = `shown_at`
 		}
-		changed = true
-	case decision == xDecisionDemote && stored && !hidden:
-		if _, err = tx.ExecContext(ctx, `UPDATE posts SET hidden_at=? WHERE id=?`, now, id); err != nil {
-			return AdminXStatus{}, dbErr(err)
+		cleared, clearErr := execChanged(ctx, tx, `UPDATE posts SET `+override+`=NULL WHERE id=? AND `+override+` IS NOT NULL`, id)
+		if clearErr != nil {
+			return AdminXStatus{}, dbErr(clearErr)
 		}
-		changed = true
+		changed = changed || cleared
 	}
 	more, err := reconcileXStatuses(ctx, tx, accounts, []string{id}, now)
 	if err != nil {
@@ -691,8 +692,9 @@ func (s *Store) SetXStatusDecision(ctx context.Context, id, decision, reason str
 }
 
 // AdminXStatus is a pooled status as the console's External posts view lists
-// it. State is promoted (a shown promoted post), demoted (a hidden one),
-// stored (pool only) or post (an own post the pool keeps for translation).
+// it. State is promoted (a promoted post the public pages show), demoted (one
+// they leave out, see postShownSQL), stored (pool only) or post (an own post
+// the pool keeps for translation).
 // Reasons lists keyword, manual, quoted and reposted, or none.
 type AdminXStatus struct {
 	ID             string   `json:"id"`
@@ -736,7 +738,7 @@ type AdminXStatusFilter struct {
 
 // xStatusStateSQL is a pooled status's state over x_statuses s joined with
 // posts p.
-const xStatusStateSQL = `CASE WHEN p.id IS NULL THEN 'stored' WHEN p.promoted_at IS NULL THEN 'post' WHEN p.hidden_at IS NULL THEN 'promoted' ELSE 'demoted' END`
+var xStatusStateSQL = `CASE WHEN p.id IS NULL THEN 'stored' WHEN p.promoted_at IS NULL THEN 'post' WHEN ` + postShownSQL("p") + ` THEN 'promoted' ELSE 'demoted' END`
 
 // ListAdminXStatuses pages the pool, newest status first.
 func (s *Store) ListAdminXStatuses(ctx context.Context, f AdminXStatusFilter) (AdminPage[AdminXStatus], error) {
@@ -941,7 +943,7 @@ func (s *Store) XRelatedStatuses(ctx context.Context, accounts []XRelatedAccount
 		if json.Unmarshal([]byte(meta.String), &data) == nil && data.LastError != "" {
 			status.LastError = &data.LastError
 		}
-		if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*),COALESCE(SUM(CASE WHEN p.promoted_at IS NOT NULL AND p.hidden_at IS NULL THEN 1 ELSE 0 END),0)
+		if err = s.db.QueryRowContext(ctx, `SELECT COUNT(*),COALESCE(SUM(CASE WHEN p.promoted_at IS NOT NULL AND `+postShownSQL("p")+` THEN 1 ELSE 0 END),0)
 			FROM x_statuses s LEFT JOIN posts p ON p.id=s.id WHERE lower(s.author_handle)=lower(?)`, account.Handle).Scan(&status.Statuses, &status.Promoted); err != nil {
 			return nil, dbErr(err)
 		}

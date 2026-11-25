@@ -28,7 +28,7 @@ const (
 	DefaultXAPIGate = 3
 	MaxXAPIGate     = 100
 	// DefaultXAPIDailyCap bounds the posts timed X API reads return a Japan
-	// day; see docs/architecture/sources.md#x-api-in-the-chain.
+	// day; see docs/architecture/sources/x.md#x-api-in-the-chain.
 	DefaultXAPIDailyCap = 100
 	MaxXAPIDailyCap     = 10000
 )

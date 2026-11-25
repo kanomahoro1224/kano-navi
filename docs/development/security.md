@@ -3,9 +3,9 @@
 ## External Request Rules
 
 - Keep all external requests in the reviewed server-side packages under
-  `backend/internal/` (`source/`, `mediadownload/`, and the provider
-  clients of `schedule/` and `llmadmin/`), with fixed HTTP(S) destinations,
-  timeouts, limits, and failure handling.
+  `backend/internal/` (`source/`, `mediadownload/`, the provider
+  clients of `schedule/` and `llmadmin/`, and `alerts/`), with fixed HTTP(S)
+  destinations, timeouts, limits, and failure handling.
 - Outbound clients take their transport from the operator's
   [outbound proxy](../architecture/outbound-proxy.md) pool for their area. A
   new client joins an existing area or adds one; proxy passwords are sealed
@@ -17,6 +17,15 @@
   its proxy transport is chosen. The private key exists sealed in SQLite and
   in process memory only; never return, log or store it in plaintext.
 - Never embed usernames, passwords, tokens, or cookies in a URL. Do not write credentials from a response into `raw_json`, logs, or the UI.
+  The one exception is the Telegram Bot API, which takes the bot token in
+  its path: the [alert](../architecture/alerts.md#channels) client builds
+  that URL only for the request, from a token sealed at rest, and records
+  only a fixed error code, never the URL or the transport error that
+  carries it.
+- Operator-entered destinations (alert channels and the heartbeat) go only
+  to public `https` addresses: their names are resolved and every address
+  checked before sending, and direct connections check the dialled address
+  (see [Destinations](../architecture/alerts.md#destinations)).
 - Register a new source host and its purpose in `scripts/privacy-allowlist.json` first. The allowlist is a reviewable source record, not a comment-based way to bypass secret detection.
 - An inbound push endpoint (the YouTube WebSub callback is the only one) must
   verify a shared-secret signature in constant time, bound its body, coalesce
@@ -105,7 +114,9 @@ signatures and provenance attestations of the installed packages, and make
 go-audit runs govulncheck against the backend and its Go toolchain; make audit
 runs all four. The Dependency audit workflow runs them daily. The advisory
 checks are separate from source privacy and deterministic CI; CI and make ci
-verify the signatures of every fresh installation. Review the lockfile and
+verify the signatures of every fresh installation, and a pull request that
+changes `backend/go.mod`, `backend/go.sum`, `package.json` or
+`package-lock.json` must also pass the matching advisory audit. Review the lockfile and
 outbound boundaries on upgrades. No npm dependency needs an install script: the
 image build installs with `--ignore-scripts`, and SQLite is the pure-Go
 `modernc.org/sqlite` driver pinned in `backend/go.mod`. Review `go.sum`

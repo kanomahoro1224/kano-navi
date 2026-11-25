@@ -4,8 +4,8 @@
 accounts and her bilibili dynamics (动态), and always at least the eight
 newest of each account, however old. A bilibili post carries the bilibili
 mark and opens on bilibili.
-Posts are laid out in whole rows; a long post shows its first lines and
-**Read more** opens it in full.
+Posts are laid out in whole rows, and phones list the newest three; a long
+post shows its first lines and **Read more** opens it in full.
 
 - Filter by account to see one account at a time, bilibili included; each
   account fills the wall with its own newest posts, even when another one
@@ -16,10 +16,13 @@ Posts are laid out in whole rows; a long post shows its first lines and
   any more. A video or GIF shows its still with a play mark or a GIF tag; it
   opens the post on X, where it plays.
 - See like, repost, and reply counts of X posts as they were last collected.
+- A post deleted on X leaves the wall, Past posts and the week's schedule
+  image, and so do the schedule entries only that post announced; they
+  return if it turns out to be on X after all.
 - A post that quotes another one shows the quoted post as a nested card that
   links to it on X, with its author's portrait when the board has one. On
   the board the quoted post's first image sits beside its words and counts
-  the others; the full post and Past posts show them all. A bilibili post that forwards another one shows the
+  the others; the full post and the Posts page show them all. A bilibili post that forwards another one shows the
   forwarded post the same way, with its author's name after the bilibili
   mark, and links to it on bilibili; a forward with nothing of its own to
   say shows just that card.
@@ -42,21 +45,30 @@ Posts are laid out in whole rows; a long post shows its first lines and
 - A quoted or forwarded post is translated too, with its own mark at
   the end of the card's top line.
 
-Bilibili dynamics join the same wall, newest first. They carry the author's
-display name instead of an `@handle`, and opening one goes to
-`t.bilibili.com`. They are not translated, and they never become schedule
-sources: only X posts are read for schedules.
+## Posts Page
 
-## Past Posts
+**Past posts** (a clock icon on phones) opens the **Posts** page, also in the
+site's menu: every post the board has stored, newest first, in one column
+that keeps going into earlier months as you scroll, starting from the account
+chosen on the wall. Its address names the month you are reading and the
+account, so a month can be shared or bookmarked, and back and forward return
+to the months and accounts you chose.
 
-**Past posts** (a clock icon on phones) browses every post the board has
-stored, month by month, with the same account filter and per-account counts.
-Select the month name to jump straight to another month: a year stepper over
-twelve months shows how many posts each month holds for the chosen account,
-and months without posts are dimmed. Posts appear newest first in a masonry wall that reads row by row, left to
-right, or in a single column; on wider screens the layout switch beside the
-filter picks one, and this device remembers the choice. Phones always show
-one column.
+- Each account has a card with its portrait, the years its posts span and
+  how many there are; choose one to read only its posts. Besides Kano's two
+  accounts and bilibili, the page offers MKLNtic, the unit account she
+  shares.
+- Beside the posts, a map shows every year as a row of twelve months, darker
+  where the chosen account posted more, with the year's total at the end;
+  select a month to jump there. The month you are reading is outlined. On narrower screens the bar under the
+  site header names the month and day you are reading; select it for a year
+  stepper over twelve months, and **Latest** returns to the newest posts.
+- Posts are grouped by month and by day, with the day's date beside them
+  (above them on phones) and each post's time. Each new year starts with
+  its number in large figures. When the page starts from an
+  earlier month, **Newer posts** above it brings in the posts after it.
+- The archive holds Kano's own posts and her threads; replies to other
+  people and other people's posts are left out.
 
 ## Related Docs
 

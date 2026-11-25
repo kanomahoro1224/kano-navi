@@ -41,7 +41,7 @@ encrypted before they reach SQLite; they are never returned by the API. Once
 configured, keys are read only by the server-side synchronization process.
 Provider eligibility is based on the original post modality: Text, Image, or
 both for mixed input. A failed provider gets up to the
-[attempts per model](configuration.md#sync-settings) in total calls before the
+[attempts per model](configuration/sync.md#sync-settings) in total calls before the
 next compatible provider is used.
 X synchronization reads both handles in `X_HANDLES` and keeps a separate cursor
 for each account.
@@ -91,6 +91,39 @@ synchronization and scans return asynchronous job results. MCP has no
 manual confirmation, edit, delete, profile-media selection/upload, SQL, file, or
 arbitrary URL-proxy operation. A page refresh or revision request never performs
 an external fetch.
+
+## X Account Exports
+
+[Account exports](../architecture/sources/x-accounts.md#account-exports) add an X
+account's posts from a browser exporter's files, `<handle>.json` and
+`<handle>-media.zip`, and mark as unlisted, off the public pages, the posts
+an earlier third-party import filed under the account that the export does
+not list. Back up data/ first, then:
+
+1. Copy the exports into an ignored directory of the deployment, such as
+   `data/imports/x/`.
+2. Count the work without writing:
+   `docker compose run --rm kano x-archive import -dir /app/data/imports/x -dry-run`
+   (locally `kano-go x-archive import -dir data/imports/x -dry-run`).
+   `-account <handle>` limits the run to named exports.
+3. Run it again without `-dry-run`. It may run while the service runs; the
+   board shows the change at its next revision. An account outside
+   `X_HANDLES` becomes an archive-only account.
+4. Copy the database to a workstation and read the unlisted posts there:
+   `kano-go x-archive check -database <copy> -out decisions.jsonl`, with
+   `-capture <directory>` naming the earlier import's capture when it is at
+   hand, so its marked reposts need no request. The run is
+   long (6 seconds or more per post) and can stop and resume at any time; a
+   rerun appends to the same file. `-limit` reads only that many posts, and
+   `-interval`, `-min-interval` and `-max-interval` change the pace.
+5. Copy `decisions.jsonl` to the deployment and apply it with
+   `x-archive apply -in <file>`, first with `-dry-run`. Each post records
+   what X said it is: own posts and thread replies are shown again, gone
+   posts are marked deleted on X, and the rest stay off the public pages; the
+   console's post list shows each with its state for an operator's
+   decision.
+
+The exports and the decisions file stay out of Git like the rest of data/.
 
 ## Related Docs
 

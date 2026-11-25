@@ -16,7 +16,7 @@ func TestWriteXRecentAtomicSnapshotAndCursor(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	r := xsource.Result{Account: "kano", Posts: []xsource.Post{{ID: "1", AccountHandle: "kano", Type: "notice", Label: "SCHEDULE / 日程", Text: "schedule", PublishedAt: "2026-10-11T00:00:00Z", URL: "https://x.com/kano/status/1", MediaURLs: []string{"https://pbs.twimg.com/a.jpg"}, Raw: map[string]any{"x": 1}}}, DiscoveredCount: 1, RequestedCount: 1, NextCursor: "1", NextCursorTime: "2026-10-11T00:00:00Z", ScheduleCandidates: []xsource.ScheduleCandidate{{PostID: "1", SourceURL: "https://x.com/kano/status/1", MediaURL: "https://pbs.twimg.com/a.jpg", AccountHandle: "kano"}}, Discovery: xsource.DiscoveryTimeline}
+	r := xsource.Result{Account: "kano", Posts: []xsource.Post{{ID: "1", AccountHandle: "kano", Type: "notice", Label: xsource.LabelSchedule, Text: "schedule", PublishedAt: "2026-10-11T00:00:00Z", URL: "https://x.com/kano/status/1", MediaURLs: []string{"https://pbs.twimg.com/a.jpg"}, Raw: map[string]any{"x": 1}}}, DiscoveredCount: 1, RequestedCount: 1, NextCursor: "1", NextCursorTime: "2026-10-11T00:00:00Z", ScheduleCandidates: []xsource.ScheduleCandidate{{PostID: "1", SourceURL: "https://x.com/kano/status/1", MediaURL: "https://pbs.twimg.com/a.jpg", AccountHandle: "kano"}}, Discovery: xsource.DiscoveryTimeline}
 	if err = s.WriteXRecent(context.Background(), "kano", r, true); err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestWriteXRecentKeepsStoredTimelinePostsAndPendingRetries(t *testing.T) {
 	defer s.Close()
 	ctx := context.Background()
 	post := func(id, text string) xsource.Post {
-		return xsource.Post{ID: id, AccountHandle: "kano", Type: "notice", Label: "SCHEDULE / 日程", Text: text, PublishedAt: "2026-10-1" + id + "T00:00:00Z", URL: "https://x.com/kano/status/" + id, MediaURLs: []string{"https://pbs.twimg.com/media/" + id + ".jpg"}, Raw: map[string]any{}}
+		return xsource.Post{ID: id, AccountHandle: "kano", Type: "notice", Label: xsource.LabelSchedule, Text: text, PublishedAt: "2026-10-1" + id + "T00:00:00Z", URL: "https://x.com/kano/status/" + id, MediaURLs: []string{"https://pbs.twimg.com/media/" + id + ".jpg"}, Raw: map[string]any{}}
 	}
 	candidate := func(id, media string) xsource.ScheduleCandidate {
 		return xsource.ScheduleCandidate{PostID: id, SourceURL: "https://x.com/kano/status/" + id, MediaURL: media, AccountHandle: "kano"}
@@ -134,7 +134,7 @@ func TestWriteXRecentKeepsAPickedScheduleImage(t *testing.T) {
 	}
 	defer s.Close()
 	post := func(media string) xsource.Result {
-		return xsource.Result{Account: "kano", Posts: []xsource.Post{{ID: "1", AccountHandle: "kano", Type: "notice", Label: "SCHEDULE / 日程", Text: "schedule", PublishedAt: "2026-10-11T00:00:00Z", URL: "https://x.com/kano/status/1", MediaURLs: []string{media}, Raw: map[string]any{"x": 1}}},
+		return xsource.Result{Account: "kano", Posts: []xsource.Post{{ID: "1", AccountHandle: "kano", Type: "notice", Label: xsource.LabelSchedule, Text: "schedule", PublishedAt: "2026-10-11T00:00:00Z", URL: "https://x.com/kano/status/1", MediaURLs: []string{media}, Raw: map[string]any{"x": 1}}},
 			DiscoveredCount: 1, RequestedCount: 1, NextCursor: "1", NextCursorTime: "2026-10-11T00:00:00Z", Discovery: xsource.DiscoveryTimeline,
 			ScheduleCandidates: []xsource.ScheduleCandidate{{PostID: "1", SourceURL: "https://x.com/kano/status/1", MediaURL: media, AccountHandle: "kano"}}}
 	}
@@ -161,11 +161,16 @@ func TestWriteXRecentKeepsAPickedScheduleImage(t *testing.T) {
 	}
 }
 
-func TestWriteXRecentResetsTheVerdictOfAReplacedScheduleImage(t *testing.T) {
+// A replaced image takes no verdict of the old one: the model's returns to
+// pending and an operator's schedule label stops approving it, but the label
+// stays visible as the previous decision and the asset waits in the Review
+// queue; a not_schedule label keeps hiding the new image until the operator
+// answers, and the period correction stays.
+func TestWriteXRecentAsksAgainForAReplacedScheduleImage(t *testing.T) {
 	s, _ := openHistoryStore(t)
 	var err error
 	post := func(media string) xsource.Result {
-		return xsource.Result{Account: "kano", Posts: []xsource.Post{{ID: "1", AccountHandle: "kano", Type: "notice", Label: "SCHEDULE / 日程", Text: "schedule", PublishedAt: "2026-10-11T00:00:00Z", URL: "https://x.com/kano/status/1", MediaURLs: []string{media}, Raw: map[string]any{"x": 1}}},
+		return xsource.Result{Account: "kano", Posts: []xsource.Post{{ID: "1", AccountHandle: "kano", Type: "notice", Label: xsource.LabelSchedule, Text: "schedule", PublishedAt: "2026-10-11T00:00:00Z", URL: "https://x.com/kano/status/1", MediaURLs: []string{media}, Raw: map[string]any{"x": 1}}},
 			DiscoveredCount: 1, RequestedCount: 1, NextCursor: "1", NextCursorTime: "2026-10-11T00:00:00Z", Discovery: xsource.DiscoveryTimeline,
 			ScheduleCandidates: []xsource.ScheduleCandidate{{PostID: "1", SourceURL: "https://x.com/kano/status/1", MediaURL: media, AccountHandle: "kano"}}}
 	}
@@ -196,7 +201,55 @@ func TestWriteXRecentResetsTheVerdictOfAReplacedScheduleImage(t *testing.T) {
 	if err = s.WriteXRecent(context.Background(), "kano", post("https://pbs.twimg.com/b.jpg"), true); err != nil {
 		t.Fatal(err)
 	}
-	if got := read(); got != "pending/unreviewed/-/-" {
+	if got := read(); got != "pending/unreviewed/-/2026-10-12" {
 		t.Fatalf("a replaced image kept the old verdict: %s", got)
+	}
+	previous := func() string {
+		t.Helper()
+		var row string
+		if err := s.DB().QueryRow(`SELECT COALESCE(previous_manual_status,'-')||'/'||COALESCE(previous_manual_reason,'-')||'/'||COALESCE(previous_manual_checked_at,'-')
+		 FROM schedule_asset_reviews WHERE asset_id='schedule-x-1'`).Scan(&row); err != nil {
+			t.Fatal(err)
+		}
+		return row
+	}
+	if got := previous(); got != "schedule/approved/2026-10-12T00:00:00.000Z" {
+		t.Fatalf("the label on the old image is not kept as the previous decision: %s", got)
+	}
+	pending := func() int {
+		t.Helper()
+		var count int
+		if err := s.DB().QueryRow(`SELECT COUNT(*) FROM assets a LEFT JOIN schedule_asset_reviews r ON r.asset_id=a.id WHERE a.id='schedule-x-1' AND ` + ScheduleImagePendingSQL("a", "r")).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		return count
+	}
+	// The model approving the new image does not answer the operator's
+	// question, and a second replacement keeps the first previous decision.
+	if _, err = s.DB().Exec(`UPDATE schedule_asset_reviews SET llm_status='schedule' WHERE asset_id='schedule-x-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if pending() != 1 {
+		t.Fatal("a replaced image under an operator's label left the Review queue before the operator answered")
+	}
+	if err = s.WriteXRecent(context.Background(), "kano", post("https://pbs.twimg.com/c.jpg"), true); err != nil {
+		t.Fatal(err)
+	}
+	if got := previous(); got != "schedule/approved/2026-10-12T00:00:00.000Z" {
+		t.Fatalf("a second replacement lost the previous decision: %s", got)
+	}
+
+	if _, err = s.DB().Exec(`UPDATE schedule_asset_reviews SET llm_status='schedule', manual_status='not_schedule', manual_reason='not a board', manual_checked_at='2026-10-13T00:00:00.000Z',
+	   previous_manual_status=NULL, previous_manual_reason=NULL, previous_manual_checked_at=NULL WHERE asset_id='schedule-x-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.WriteXRecent(context.Background(), "kano", post("https://pbs.twimg.com/d.jpg"), true); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); got != "pending/not_schedule/not a board/2026-10-12" {
+		t.Fatalf("a not_schedule label stopped hiding a replaced image: %s", got)
+	}
+	if got := previous(); got != "not_schedule/not a board/2026-10-13T00:00:00.000Z" || pending() != 1 {
+		t.Fatalf("a replaced image under a not_schedule label does not wait for the operator: %s", got)
 	}
 }

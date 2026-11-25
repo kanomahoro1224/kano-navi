@@ -18,7 +18,7 @@ import (
 type Base string
 
 // mediaPath is the shape of the media routes the public API hands out (see
-// docs/architecture/media-cache.md): a cached asset with its version, a
+// docs/architecture/media-cache/layout-and-model.md): a cached asset with its version, a
 // profile slot, or an archive file, each with at most its version and width
 // parameters. Only a whole value of this shape is rewritten, so a post's own
 // wording never changes even when it reads like a path.

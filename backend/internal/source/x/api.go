@@ -56,10 +56,10 @@ var mediaLinkPattern = regexp.MustCompile(`^https?://(?:www\.)?(?:x|twitter)\.co
 // keeps its extraction fingerprint when a detail request refreshes it later:
 // the full text of a long post with its links expanded and its own media
 // links removed, the post's own images (a photo, or a video's or GIF's
-// thumbnail) in post order, the quoted status's projection, the counters and
-// raw_json.mediaURLs. Reposts are left out, and another author's status
-// fails the answer. It returns the posts, newest first, how many posts the answer returned, and
-// the continuation.
+// thumbnail) in post order, the quoted status's projection, the counters,
+// raw_json.mediaURLs and the reply fields StatusKind reads. Reposts are left
+// out, and another author's status fails the answer. It returns the posts,
+// newest first, how many posts the answer returned, and the continuation.
 func APIPosts(payload map[string]any, account string) ([]Post, int, string, error) {
 	data, isList := payload["data"].([]any)
 	meta := object(payload["meta"])
@@ -113,6 +113,18 @@ func APIPosts(payload map[string]any, account string) ([]Post, int, string, erro
 			"author":    map[string]any{"screen_name": handle, "name": author["name"]},
 			"mediaURLs": own, "mediaKinds": kinds,
 			"likes": metrics["like_count"], "retweets": first(metrics, "retweet_count", "repost_count"), "replies": metrics["reply_count"],
+		}
+		// The reply fields as FxTwitter names them, so StatusKind reads the
+		// post's shape; null when the post answers no status.
+		raw["replying_to"] = nil
+		if replied := referenceOf(entry, "replied_to"); replied != "" {
+			to := map[string]any{"post": replied}
+			if parent, found := referenced[replied]; found {
+				if handle := stringValue(users[stringValue(parent["author_id"])]["username"]); handle != "" {
+					to["screen_name"] = handle
+				}
+			}
+			raw["replying_to"] = to
 		}
 		if quoted := referenceOf(entry, "quoted"); quoted != "" {
 			if status, found := referenced[quoted]; found {

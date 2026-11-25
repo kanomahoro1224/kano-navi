@@ -143,7 +143,8 @@ export interface VisitorRegionSettings {
 }
 
 /** A part of the server's outbound requests with its own proxy route. */
-export type ProxyArea = "x" | "youtube" | "bilibili" | "shop" | "media" | "llm"
+export type ProxyArea =
+  "x" | "youtube" | "bilibili" | "shop" | "media" | "llm" | "notify"
 
 export type ProxyScheme = "http" | "https" | "socks5" | "socks5h"
 
@@ -196,6 +197,113 @@ export interface ProxyInput {
   username: string
   password?: string
   enabled: boolean
+}
+
+export type AlertChannelType = "ntfy" | "telegram" | "webhook"
+export type AlertSeverity = "info" | "warning" | "critical"
+export type AlertState = "on" | "development" | "off"
+
+export interface AlertChannel {
+  id: string
+  name: string
+  type: AlertChannelType
+  enabled: boolean
+  server: string
+  topic: string
+  chatId: string
+  /** The webhook address is write-only; only its host is returned. */
+  urlHost: string
+  link: boolean
+  /** The secret is write-only; these say whether one is stored. */
+  hasSecret: boolean
+  secretUnreadable: boolean
+}
+
+/** One channel in a save. Omitting secret keeps the stored one; "" clears
+ * it. A webhook omits url to keep its stored address. */
+export interface AlertChannelInput {
+  id?: string
+  name: string
+  type: AlertChannelType
+  enabled: boolean
+  server: string
+  topic: string
+  chatId: string
+  url?: string
+  link: boolean
+  secret?: string
+}
+
+export interface AlertRuleSetting {
+  enabled: boolean
+  severity: AlertSeverity
+  threshold: number
+  notifyResolved: boolean
+}
+
+export interface AlertRule {
+  code: string
+  param?: "runs" | "hours"
+  default?: number
+  min?: number
+  max?: number
+  setting: AlertRuleSetting
+}
+
+export interface AlertHeartbeat {
+  enabled: boolean
+  intervalMinutes: number
+  hasUrl: boolean
+  urlUnreadable: boolean
+  lastOkAt: string | null
+  lastFailureAt: string | null
+  lastError: string | null
+}
+
+export interface AlertIncident {
+  id: number
+  rule: string
+  subject: string
+  severity: AlertSeverity
+  status: "open" | "resolved"
+  detail: Record<string, string | number>
+  openedAt: string
+  lastSeenAt: string
+  resolvedAt: string | null
+  acknowledgedAt: string | null
+}
+
+export interface AlertSettings {
+  state: AlertState
+  evaluatedAt: string | null
+  evaluationFailed: boolean
+  hasOrigin: boolean
+  channelTypes: AlertChannelType[]
+  channels: AlertChannel[]
+  rules: AlertRule[]
+  heartbeat: AlertHeartbeat
+  /** Open incidents, newest first. */
+  incidents: AlertIncident[]
+}
+
+export interface AlertDelivery {
+  id: number
+  channelId: string
+  kind: "opened" | "resolved" | "test"
+  status: "pending" | "sent" | "failed" | "dropped"
+  attempts: number
+  lastError: string | null
+  createdAt: string
+  finishedAt: string | null
+  rule: string | null
+  subject: string | null
+  severity: AlertSeverity | null
+}
+
+export interface AlertTestResult {
+  ok: boolean
+  error?: string
+  latencyMs: number
 }
 
 export interface ProxyTestResult {
@@ -280,6 +388,8 @@ export interface Backlog {
 }
 
 export interface Overview {
+  /** Open operator alerts; absent on older sidecars. */
+  alerts?: { open: number }
   /** Public mainland-China site suggestion; absent on older sidecars. */
   visitorRegionEnabled?: boolean
   visitorRegion?: VisitorRegionSettings
@@ -295,6 +405,8 @@ export interface Overview {
   review: {
     pendingImages: number
     suspectedCancellations: number
+    /** Entries whose posts, read again, list no schedule. */
+    unlistedEvents: number
     uncertainEvents: number
     /** Posts with a failed extraction or translation. */
     failedPosts: number
@@ -651,12 +763,13 @@ export interface AdminEvent {
 }
 
 /**
- * Why an entry needs a look: the model suspects its cancellation, or it is an
- * uncertain addition (an unconfirmed automatic entry from today on with low
- * model confidence or a tentative status), with the reasons.
+ * Why an entry needs a look: the model suspects its cancellation, the posts
+ * it was read from no longer list it (unlisted), or it is an uncertain
+ * addition (an unconfirmed automatic entry from today on with low model
+ * confidence or a tentative status), with the reasons.
  */
 export interface EventReview {
-  kind: "suspected" | "uncertain"
+  kind: "suspected" | "unlisted" | "uncertain"
   reasons: ("lowConfidence" | "tentative")[]
 }
 
@@ -739,10 +852,24 @@ export interface ScheduleImage {
   effectiveStatus: string
   sourceMatchesBoard: boolean
   approved: boolean
+  /** Whether the image waits in the Review queue (the server's rule). */
+  needsReview: boolean
+  /** The operator's label on the image the asset showed before its URL
+   * changed, until the operator labels it again. */
+  previousDecision: ScheduleDecision | null
+  /** The latest check that left the model verdict in place. */
+  lastCheck: ScheduleDecision | null
   previewUrl: string | null
   mediaStatus: string
   /** The stored post that published the image; null when it is not stored. */
   sourcePost: { text: string; publishedAt: string } | null
+}
+
+/** A label or check of a schedule image: its status, reason and time. */
+export interface ScheduleDecision {
+  status: string
+  reason: string | null
+  at: string | null
 }
 
 export interface AdminPostImage {
@@ -782,14 +909,33 @@ export interface AdminPost {
   quoteHiddenAt: string | null
   /** A refresh from the source waiting for the next X synchronization. */
   refreshRequestedAt: string | null
-  /** When an operator hid the whole post from the public pages. */
+  /** When an operator hid the whole post from the public pages, or showed
+   * it on them whatever the rules say; at most one is set, and neither
+   * leaves the post to the rules. */
   hiddenAt: string | null
+  shownAt: string | null
   /** When a related account's status was promoted onto the board; null for
    * an own post. External posts holds its promote and demote decisions. */
   promotedAt: string | null
+  /** A promoted post the External posts rules or decisions demote. */
+  demoted: boolean
+  /** When X was found no longer to have the status. */
+  upstreamDeletedAt: string | null
+  /** What X says the status is; null while no answer has told. */
+  upstreamKind: PostUpstreamKind | null
+  /** Whether the public pages show the post. */
+  visible: boolean
   /** The post's schedule image record; null when it has none. */
   scheduleImage: AdminPostSchedule | null
 }
+
+/** What X says a stored post is; `unlisted` is an earlier import's post an
+ * account export left out, until a check tells what it is. */
+export type PostUpstreamKind =
+  "top_level" | "self_reply" | "reply" | "foreign" | "repost" | "unlisted"
+
+/** The operator's decision on a post's public visibility. */
+export type PostVisibility = "auto" | "shown" | "hidden"
 
 /**
  * Which of a post's own images its schedule image shows (null for none of

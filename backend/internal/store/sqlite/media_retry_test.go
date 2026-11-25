@@ -19,6 +19,7 @@ func TestMediaRetryDelayIsBoundedAndRejectsPermanentFailures(t *testing.T) {
 		{"media_rate_limited", 3, 2 * time.Hour},
 		{"media_unavailable", 12, 24 * time.Hour},
 		{"media_body_unavailable", 100, 24 * time.Hour},
+		{"media_write_failed", 1, 30 * time.Minute},
 		{"media_missing", 1, 24 * time.Hour},
 		{"media_http_error", 1, 24 * time.Hour},
 		{"media_invalid_image", 1, 0},
@@ -156,10 +157,21 @@ func TestReadyMediaRetryRetainsBytesAndCannotBypassBackoff(t *testing.T) {
 	if err = s.db.QueryRow(`SELECT retry_attempts,next_retry_at,last_error FROM media_assets WHERE id=?`, id).Scan(&attempts, &retry, &failure); err != nil || attempts != 0 || retry.Valid || failure.Valid {
 		t.Fatalf("304 retained failure state: %d %v %v %v", attempts, retry, failure, err)
 	}
+	// A rejected revalidation is not retried on a timer; only a watch-page
+	// read after it checks the file again.
+	if _, err = s.db.Exec(`UPDATE videos SET live_checked_at=? WHERE id='AAAAAAAAAAA'`, ISOTime(time.Now().Add(-time.Hour))); err != nil {
+		t.Fatal(err)
+	}
 	if err = s.SaveMediaDownload(ctx, asset, nil, "", "", "", "failed", "media_invalid_image"); err != nil {
 		t.Fatal(err)
 	}
 	if pending, err := s.PendingMedia(ctx, 10); err != nil || len(pending) != 0 {
 		t.Fatalf("permanent failure was retried: %#v %v", pending, err)
+	}
+	if _, err = s.db.Exec(`UPDATE videos SET live_checked_at=? WHERE id='AAAAAAAAAAA'`, ISOTime(time.Now().Add(time.Hour))); err != nil {
+		t.Fatal(err)
+	}
+	if pending, err := s.PendingMedia(ctx, 10); err != nil || len(pending) != 1 || pending[0].ETag != `"synthetic"` {
+		t.Fatalf("a watch read after a rejected revalidation was not checked: %#v %v", pending, err)
 	}
 }

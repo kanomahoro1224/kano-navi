@@ -21,7 +21,7 @@ import {
 
 /*
  * Writes the body of GET /api/journey from the tracked Journey data
- * (docs/architecture/public-api.md#journey). It imports the page's own
+ * (docs/architecture/public-api/journey.md#journey). It imports the page's own
  * modules, so branches, milestone order, the release covers a milestone
  * shows and their provenance come from one derivation.
  * tests/journey-api.test.ts fails when the committed file differs.

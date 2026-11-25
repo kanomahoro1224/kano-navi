@@ -224,6 +224,11 @@
   background: var(--honey);
 }
 
+.adm-cal-dot.is-unlisted {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--berry);
+}
+
 .adm-cal-dot.is-cancelled {
   background: var(--danger);
 }
@@ -320,6 +325,10 @@
 
 :is(.adm-event-row, .adm-review-note).is-uncertain {
   --review-tone: var(--lavender);
+}
+
+:is(.adm-event-row, .adm-review-note).is-unlisted {
+  --review-tone: var(--berry);
 }
 
 .adm-review-note {

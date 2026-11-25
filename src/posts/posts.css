@@ -1,0 +1,677 @@
+/*
+ * /posts: the post archive on the public shell (src/site/site.css). Post
+ * cards and the month controls are the board's, from the base, posts and
+ * month-dialogs files in src/dashboard/styles/ (not the whole board.css);
+ * this file lays out the account cards and the activity map in the rail
+ * beside the timeline (the cards above it in narrower windows), and the
+ * timeline's months and days.
+ */
+
+.posts-page {
+  container: posts-page / inline-size;
+  max-width: 1040px;
+  margin-inline: auto;
+  padding-top: 32px;
+}
+
+/* The accounts: one card each, the chosen one in berry. */
+.posts-accounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 28px;
+}
+
+/* In the rail, one or two cards a row as its width allows. */
+.posts-accounts.is-rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  margin: 0;
+}
+
+.posts-accounts.is-rail .posts-account {
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.posts-accounts.is-rail .posts-account .is-avatar,
+.posts-accounts.is-rail .posts-account .post-note-initial,
+.posts-accounts.is-rail .posts-account-mark {
+  width: 30px;
+  height: 30px;
+}
+
+.posts-accounts.is-rail .posts-account-name {
+  font-size: 13px;
+}
+
+.posts-accounts.is-rail .posts-account-meta {
+  font-size: 11px;
+}
+
+/* The rail's cards lie on the page; only the chosen one is washed in berry. */
+.posts-accounts.is-rail .posts-account {
+  border-color: transparent;
+  background: none;
+}
+
+.posts-accounts.is-rail .posts-account:hover {
+  border-color: transparent;
+  background: var(--sunken);
+}
+
+.posts-accounts.is-rail .posts-account[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--berry-wash);
+}
+
+.posts-accounts.is-rail
+  .posts-account[aria-pressed="true"]
+  .posts-account-name {
+  color: var(--berry);
+}
+
+/* Two cards a row leave room for the years and the count on lines apart. */
+@container posts-rail (width >= 288px) {
+  .posts-accounts.is-rail .posts-account-meta {
+    display: grid;
+    gap: 0;
+  }
+}
+
+.posts-account {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px 7px 7px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.posts-account:hover {
+  border-color: color-mix(in oklab, var(--berry) 45%, var(--rule));
+}
+
+.posts-account[aria-pressed="true"] {
+  border-color: var(--berry);
+  background: var(--berry-wash);
+}
+
+.posts-account:focus-visible {
+  outline: 2px solid var(--berry);
+  outline-offset: 2px;
+}
+
+.posts-account .is-avatar,
+.posts-account .post-note-initial,
+.posts-account-mark {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.posts-account .is-avatar {
+  object-fit: cover;
+}
+
+.posts-account-mark {
+  display: grid;
+  place-items: center;
+  background: var(--sunken);
+  color: #00a1d6;
+}
+
+.posts-account-mark svg {
+  width: 20px;
+  height: 20px;
+}
+
+.posts-account-text {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.posts-account-name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.posts-account-name .account-mark {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
+.posts-account-meta {
+  display: flex;
+  gap: 8px;
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+/*
+ * Narrow screens: the month bar takes the map's place, stuck to the site
+ * header as one band that carries the header's scrolled stripe.
+ */
+.posts-bar {
+  position: sticky;
+  z-index: 30;
+  top: 60px;
+  display: none;
+  margin: 0 calc(var(--gutter) * -1) 8px;
+  padding: 4px var(--gutter);
+  background: color-mix(in oklab, hsl(var(--background)) 84%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+}
+
+.posts-bar::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  content: "";
+  background: var(--gingham);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.site:has(.site-header.is-scrolled) .posts-bar::after {
+  opacity: 0.55;
+}
+
+.posts-bar .archive-month {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
+.posts-bar .archive-month-label.is-picker {
+  min-width: 0;
+  flex: 0 1 auto;
+  justify-content: flex-start;
+  margin-left: -10px;
+  white-space: nowrap;
+}
+
+.posts-bar .archive-month-detail {
+  margin-left: 4px;
+  color: var(--soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.posts-bar .archive-month > .pill-button {
+  flex: none;
+  min-height: 30px;
+  padding: 4px 12px;
+}
+
+.posts-layout {
+  /* Where the map and the day dates stick below the site header. */
+  --posts-top: 76px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.posts-rail {
+  display: none;
+}
+
+/*
+ * Wide windows: the column keeps its reading width and the rail takes the
+ * rest, at least the map's width.
+ */
+@media (min-width: 960px) {
+  .posts-layout {
+    grid-template-columns: minmax(216px, 1fr) minmax(0, 680px);
+    gap: 48px;
+  }
+
+  .posts-rail {
+    display: grid;
+  }
+
+  .posts-accounts.is-top {
+    display: none;
+  }
+}
+
+@media (max-width: 959.98px) {
+  .posts-bar {
+    display: block;
+  }
+
+  .site.posts .site-header::after {
+    display: none;
+  }
+
+  /* A jump lands on the month's first day, its heading under the bar. */
+  .posts-timeline {
+    --posts-jump: day;
+  }
+
+  .posts-day {
+    scroll-margin-top: var(--posts-top);
+  }
+
+  /*
+   * The bar names the newest month at the top of the page, so its heading
+   * stays for screen readers only; later months keep theirs.
+   */
+  .posts-timeline.is-newest
+    > section.posts-month:first-of-type
+    > .posts-month-head,
+  .posts-month.is-skeleton > .posts-month-head {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .posts-layout {
+    --posts-top: 120px;
+  }
+}
+
+.posts-rail {
+  position: sticky;
+  top: var(--posts-top);
+  max-height: calc(100dvh - var(--posts-top) - 16px);
+  align-content: start;
+  align-self: start;
+  gap: 28px;
+  /* Room for the focus and current-month outlines inside the scroll box. */
+  margin: -4px;
+  padding: 4px;
+  container: posts-rail / inline-size;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+/*
+ * The activity map: a year per row, a month per cell, the year's total last.
+ * It keeps the rail cards' inset, so the years sit under their portraits,
+ * the first month under their names and the totals at their right edge.
+ */
+.posts-map {
+  display: grid;
+  gap: 6px;
+  /* The cards' 8px padding inside their 1px border. */
+  padding-inline: 9px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.posts-map-names,
+.posts-map-year {
+  display: grid;
+  /* Square cells give up a few pixels where the rail is tightest. */
+  grid-template-columns: 35px repeat(12, minmax(11px, 15px));
+  align-items: center;
+  gap: 3px;
+}
+
+/* The totals take the room left beside the cells, once there is enough. */
+.posts-map-total {
+  display: none;
+  color: var(--soft);
+  text-align: right;
+  white-space: nowrap;
+}
+
+@container posts-rail (width >= 260px) {
+  .posts-map-names,
+  .posts-map-year {
+    grid-template-columns: 35px repeat(12, minmax(11px, 15px)) minmax(36px, 1fr);
+  }
+
+  .posts-map-total {
+    display: block;
+  }
+}
+
+.posts-map-names {
+  color: var(--soft);
+}
+
+.posts-map-names > span {
+  white-space: nowrap;
+}
+
+/* December's name ends at its column rather than past the cells. */
+.posts-map-names > .is-last {
+  justify-self: end;
+}
+
+.posts-map-years {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.posts-map-label {
+  color: var(--soft);
+}
+
+.posts-map-year.is-shown .posts-map-label,
+.posts-map-year.is-shown .posts-map-total {
+  color: var(--berry);
+  font-weight: 700;
+}
+
+.posts-map-year.is-empty .posts-map-label,
+.posts-map-year.is-empty .posts-map-total {
+  opacity: 0.5;
+}
+
+.posts-map-cell {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--sunken) 60%, transparent);
+}
+
+button.posts-map-cell {
+  cursor: pointer;
+}
+
+.posts-map-cell.level-1 {
+  background: color-mix(in oklab, var(--berry) 18%, var(--sunken));
+}
+
+.posts-map-cell.level-2 {
+  background: color-mix(in oklab, var(--berry) 38%, var(--sunken));
+}
+
+.posts-map-cell.level-3 {
+  background: color-mix(in oklab, var(--berry) 64%, var(--sunken));
+}
+
+.posts-map-cell.level-4 {
+  background: var(--berry);
+}
+
+.posts-map-cell.is-future {
+  background: transparent;
+}
+
+button.posts-map-cell:hover,
+.posts-map-cell[aria-current],
+.posts-map-cell.is-current {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+button.posts-map-cell:focus-visible {
+  outline: 2px solid var(--berry);
+  outline-offset: 2px;
+}
+
+/* The timeline: a heading per month and a date beside each day's posts. */
+.posts-column {
+  max-width: 680px;
+  scroll-margin-top: var(--posts-top);
+}
+
+.posts-month + .posts-month {
+  margin-top: 44px;
+}
+
+.posts-month-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+  scroll-margin-top: var(--posts-top);
+}
+
+.posts-month {
+  scroll-margin-top: var(--posts-top);
+}
+
+/* A new year opens a chapter: its number, large, under a gingham strip. */
+.posts-year {
+  display: grid;
+  gap: 16px;
+  margin: 8px 0 26px;
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.posts-year::before {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--gingham);
+  content: "";
+}
+
+.posts-month-head small {
+  color: var(--soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.posts-day {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 16px;
+}
+
+/* Days are ruled across the page, date and all. */
+.posts-day + .posts-day {
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
+}
+
+.posts-day-date {
+  position: sticky;
+  top: var(--posts-top);
+  display: grid;
+  align-self: start;
+  justify-items: center;
+  padding-top: 2px;
+  line-height: 1;
+}
+
+.posts-day-number {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.posts-day-weekday {
+  margin-top: 4px;
+  color: var(--soft);
+  font-size: 12px;
+}
+
+.posts-day-list {
+  display: grid;
+  min-width: 0;
+}
+
+/*
+ * Posts lie on the page rather than in cards: a fainter rule parts a day's
+ * posts, and a quote hangs from a rule at its left.
+ */
+.posts-day-list > * + * {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in oklab, var(--rule) 55%, transparent);
+}
+
+.posts-day-list .post-note {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.posts-day-list .post-quote {
+  padding: 2px 0 2px 14px;
+  border: 0;
+  border-left: 2px solid var(--rule);
+  border-radius: 0;
+  background: none;
+}
+
+.posts-day-list .post-quote:hover {
+  border-left-color: color-mix(in oklab, var(--berry) 45%, transparent);
+}
+
+/* The first load holds a month's place: its heading, then a day of cards. */
+.posts-month.is-skeleton .posts-month-head {
+  /* A heading line of text, as the bars alone hold no line's height. */
+  min-height: calc(1.2em + 11px);
+  align-items: center;
+}
+
+.posts-skeleton-bar {
+  display: inline-block;
+  height: 0.8em;
+  border-radius: 6px;
+  background: var(--sunken);
+}
+
+.posts-skeleton-bar.is-month {
+  width: 7.5em;
+}
+
+.posts-skeleton-bar.is-count {
+  width: 3.5em;
+  font-size: 12px;
+}
+
+.posts-month.is-skeleton .posts-day-date {
+  width: 32px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--sunken);
+}
+
+/*
+ * Pictures keep the column's pace: a lone one stands no taller than
+ * --posts-media-tallest, narrowing to keep its shape, and three or four
+ * share one 3:2 frame (two, the board's 16:10).
+ */
+.posts-day-list {
+  --posts-media-tallest: 440px;
+}
+
+.posts-day-list .post-note-media.is-fitted {
+  max-width: calc(var(--posts-media-tallest) * var(--media-ratio));
+}
+
+.posts-day-list .post-note-media:is(.count-3, .count-4) {
+  aspect-ratio: 3 / 2;
+}
+
+.posts-timeline > .archive-more {
+  padding-top: 28px;
+}
+
+.posts-timeline > .archive-more.is-newer {
+  padding: 0 0 20px;
+}
+
+/* Phones: the accounts scroll sideways and a day's date heads its posts. */
+@media (max-width: 640px) {
+  .posts-page {
+    padding-top: 20px;
+  }
+
+  .posts-accounts {
+    flex-wrap: nowrap;
+    margin: 16px calc(var(--gutter) * -1) 16px;
+    padding-inline: var(--gutter);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .posts-accounts::-webkit-scrollbar {
+    display: none;
+  }
+
+  .posts-account {
+    flex: none;
+  }
+
+  .posts-day {
+    display: block;
+  }
+
+  .posts-year {
+    gap: 12px;
+    margin-bottom: 20px;
+    font-size: 44px;
+  }
+
+  .posts-day-date {
+    position: static;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding-top: 0;
+  }
+
+  .posts-day-number {
+    font-size: 20px;
+  }
+
+  .posts-day-weekday {
+    margin-top: 0;
+  }
+
+  .posts-month.is-skeleton .posts-day-date {
+    width: 64px;
+    height: 28px;
+  }
+}

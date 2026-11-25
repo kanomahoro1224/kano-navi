@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import type { Video } from "../src/types.ts"
+import type { DashboardProjection, Video, VideoView } from "../src/types.ts"
 import {
   groupVideos,
+  sideReservations,
   sideSlots,
   splitVideos,
   videoIsShort,
@@ -19,10 +20,20 @@ import {
   videoTagLabel,
 } from "../src/dashboard/format.ts"
 
-const now = Date.parse("2026-10-25T12:00:00Z")
-const hour = 3600 * 1000
+const past: VideoView = {
+  phase: "past",
+  formCode: "video",
+  shelfGroup: "work",
+  latestEligible: true,
+  focusEligible: false,
+  tagContext: "work",
+}
 
-function video(id: string, fields: Partial<Video> = {}): Video {
+function video(
+  id: string,
+  fields: Partial<Video> = {},
+  view: Partial<VideoView> = {},
+): Video {
   return {
     id,
     source: "youtube",
@@ -35,10 +46,32 @@ function video(id: string, fields: Partial<Video> = {}): Video {
     kind: "stream",
     isUpcoming: false,
     ...fields,
+    view: { ...past, ...view },
   }
 }
 
-const at = (offset: number) => new Date(now + offset).toISOString()
+function shelf(
+  lists: Partial<DashboardProjection["shelf"]>,
+): DashboardProjection {
+  return {
+    version: 1,
+    nextTransitionAt: null,
+    focus: { eventIds: [], videoIds: [] },
+    spotlight: null,
+    sales: [],
+    shelf: {
+      leadId: null,
+      leadIsFeatured: false,
+      reservations: [],
+      works: [],
+      archives: [],
+      shorts: [],
+      ...lists,
+    },
+  }
+}
+
+const ids = (videos: Video[]) => videos.map((item) => item.id)
 
 test("broadcasts are streams and other forms are works", () => {
   assert.equal(videoIsStream(video("s", { kind: "stream" })), true)
@@ -54,197 +87,83 @@ test("broadcasts are streams and other forms are works", () => {
   assert.equal(videoMatchesFilter(video("w", { kind: "upload" }), "all"), true)
 })
 
-test("a reservation past its start is not an archive until it is over", () => {
-  const reserved = { kind: "stream", isUpcoming: true }
-  assert.equal(
-    videoPhase(video("a", { ...reserved, scheduledAt: at(hour) }), now),
+test("a video's phase is the server's", () => {
+  for (const phase of [
     "upcoming",
-  )
-  // Started without a confirmed state: presumed on air for the grace.
-  assert.equal(
-    videoPhase(video("b", { ...reserved, scheduledAt: at(-hour) }), now),
-    "started",
-  )
-  assert.equal(
-    videoPhase(video("c", { ...reserved, scheduledAt: at(-4 * hour) }), now),
-    "past",
-  )
-  // A confirmed state decides before the start time.
-  assert.equal(
-    videoPhase(
-      video("d", { scheduledAt: at(-4 * hour), liveStatus: "live" }),
-      now,
-    ),
     "live",
-  )
-  assert.equal(
-    videoPhase(
-      video("e", {
-        scheduledAt: at(-hour),
-        endsAt: at(-1000),
-        liveStatus: "live",
-      }),
-      now,
-    ),
+    "started",
     "past",
-  )
-  assert.equal(
-    videoPhase(
-      video("f", { scheduledAt: at(-hour), liveStatus: "upcoming" }),
-      now,
-    ),
-    "upcoming",
-  )
-  assert.equal(
-    videoPhase(
-      video("g", { scheduledAt: at(-hour), liveStatus: "ended" }),
-      now,
-    ),
-    "past",
-  )
-  // A premiere without an end is over once it starts.
-  assert.equal(
-    videoPhase(video("h", { kind: "premiere", scheduledAt: at(-hour) }), now),
-    "past",
-  )
-  assert.equal(
-    videoPhase(
-      video("i", { ...reserved, scheduledAt: at(hour), isCancelled: true }),
-      now,
-    ),
     "cancelled",
-  )
+  ] as const)
+    // The stored fields say otherwise; the view alone decides.
+    assert.equal(
+      videoPhase(video("v", { isUpcoming: phase !== "upcoming" }, { phase })),
+      phase,
+    )
 })
 
-test("the newest song or premiere leads and every video is listed once", () => {
-  const cover = video("cover", {
-    kind: "premiere",
-    tag: "song",
-    scheduledAt: at(-30 * hour),
-    durationSeconds: 289,
+test("the shelf follows the projection's lead and order, listing every video once", () => {
+  const cover = video("cover", { kind: "premiere", tag: "song" })
+  const clip = video("clip", { kind: "upload" })
+  const older = video("older", { kind: "upload", tag: "song" })
+  const archive = video("archive", {}, { shelfGroup: "archive" })
+  const short = video("short", { isShort: true }, { shelfGroup: "short" })
+  const sooner = video(
+    "sooner",
+    { isUpcoming: true },
+    { phase: "upcoming", shelfGroup: "reservation" },
+  )
+  const later = video(
+    "later",
+    { isUpcoming: true },
+    { phase: "upcoming", shelfGroup: "reservation" },
+  )
+  // A video the projection leaves off the shelf, such as a started
+  // cancellation, has no group.
+  const dropped = video("dropped", {}, { phase: "cancelled", shelfGroup: "" })
+  const videos = [older, later, archive, clip, dropped, short, cover, sooner]
+  const projection = shelf({
+    leadId: "cover",
+    reservations: ["sooner", "later"],
+    works: ["clip", "older"],
+    archives: ["archive"],
+    shorts: ["short"],
   })
-  const clip = video("clip", {
-    kind: "upload",
-    tag: "talk",
-    publishedAt: at(-10 * hour),
-  })
-  const older = video("older", {
-    kind: "upload",
-    tag: "song",
-    publishedAt: at(-90 * hour),
-  })
-  const archiveNew = video("archive-new", { scheduledAt: at(-20 * hour) })
-  const archiveOld = video("archive-old", { scheduledAt: at(-60 * hour) })
-  const later = video("later", {
-    kind: "stream",
-    isUpcoming: true,
-    scheduledAt: at(48 * hour),
-  })
-  const sooner = video("sooner", {
-    kind: "stream",
-    isUpcoming: true,
-    scheduledAt: at(2 * hour),
-  })
-  const onAir = video("on-air", {
-    scheduledAt: at(-hour),
-    liveStatus: "live",
-  })
-  const cancelledPast = video("cancelled-past", {
-    scheduledAt: at(-2 * hour),
-    isCancelled: true,
-  })
-  const cancelledNext = video("cancelled-next", {
-    kind: "stream",
-    isUpcoming: true,
-    scheduledAt: at(5 * hour),
-    isCancelled: true,
-  })
-  const videos = [
-    archiveOld,
-    clip,
-    later,
-    cover,
-    cancelledPast,
-    older,
-    onAir,
-    archiveNew,
-    sooner,
-    cancelledNext,
-  ]
 
-  const groups = groupVideos(videos, null, now)
+  const groups = groupVideos(videos, projection)
   assert.equal(groups.lead?.id, "cover")
   assert.equal(groups.leadIsFeatured, false)
-  assert.deepEqual(
-    groups.reservations.map((item) => item.id),
-    ["on-air", "sooner", "cancelled-next", "later"],
-  )
-  assert.deepEqual(
-    groups.works.map((item) => item.id),
-    ["clip", "older"],
-  )
-  // A cancelled reservation stays listed until its start, then drops out.
-  assert.deepEqual(
-    groups.archives.map((item) => item.id),
-    ["archive-new", "archive-old"],
-  )
+  assert.deepEqual(ids(groups.reservations), ["sooner", "later"])
+  assert.deepEqual(ids(groups.works), ["clip", "older"])
+  assert.deepEqual(ids(groups.archives), ["archive"])
+  assert.deepEqual(ids(groups.shorts), ["short"])
 
-  // The operator's featured video leads instead and the cover stays a work.
-  const featured = groupVideos(videos, "archive-old", now)
-  assert.equal(featured.lead?.id, "archive-old")
+  // The operator's featured video leads, marked as featured.
+  const featured = groupVideos(
+    videos,
+    shelf({ ...projection.shelf, leadId: "archive", leadIsFeatured: true }),
+  )
+  assert.equal(featured.lead?.id, "archive")
   assert.equal(featured.leadIsFeatured, true)
-  assert.deepEqual(
-    featured.works.map((item) => item.id),
-    ["clip", "cover", "older"],
-  )
-  assert.deepEqual(
-    featured.archives.map((item) => item.id),
-    ["archive-new"],
-  )
 
-  // Without a cover or premiere the newest upload leads; without works none.
-  assert.equal(groupVideos([clip, archiveNew], null, now).lead?.id, "clip")
-  assert.equal(groupVideos([archiveNew, sooner], null, now).lead, null)
-  assert.deepEqual(
-    splitVideos([cover, clip], now).works.map((item) => item.id),
-    ["clip", "cover"],
-  )
+  // Without a projected lead there is none.
+  assert.equal(groupVideos(videos, shelf({})).lead, null)
 })
 
-test("an unlabelled upload leads rather than an older cover", () => {
-  // A work nobody labelled yet is still the one just published, so it leads
-  // instead of a cover from weeks before.
-  const fresh = video("fresh", {
-    kind: "upload",
-    publishedAt: at(-2 * hour),
-  })
-  const olderCover = video("older-cover", {
-    kind: "premiere",
-    tag: "song",
-    scheduledAt: at(-30 * hour),
-  })
-  const groups = groupVideos([olderCover, fresh], null, now)
-  assert.equal(groups.lead?.id, "fresh")
-  assert.deepEqual(
-    groups.works.map((item) => item.id),
-    ["older-cover"],
-  )
-  // A labelled talk does not take the lead from an older cover either.
-  assert.equal(
-    groupVideos(
-      [
-        video("talk", {
-          kind: "upload",
-          tag: "talk",
-          publishedAt: at(-2 * hour),
-        }),
-        olderCover,
-      ],
-      null,
-      now,
-    ).lead?.id,
-    "older-cover",
-  )
+test("a filtered view places the lead in its server-assigned group", () => {
+  const cover = video("cover", { kind: "premiere", tag: "song" })
+  const clip = video("clip", { kind: "upload" })
+  const projection = shelf({ leadId: "cover", works: ["clip"] })
+  // The lead is not in the shelf lists, so it joins the end of its group.
+  assert.deepEqual(ids(splitVideos([cover, clip], projection).works), [
+    "clip",
+    "cover",
+  ])
+  // A video the projection does not know and that has no group stays out.
+  const unknown = video("unknown", {}, { shelfGroup: "" })
+  assert.deepEqual(ids(splitVideos([unknown, clip], projection).works), [
+    "clip",
+  ])
 })
 
 test("the side group shows four works alone or five items beside reservations", () => {
@@ -281,140 +200,52 @@ test("lengths read like the platforms show them", () => {
   assert.equal(durationAttribute(33), "PT33S")
 })
 
-test("the form chip names the waiting room or the form, never the tag", () => {
+test("the form chip names the server's form code, never the tag", () => {
   const t = (key: string) => key
-  const form = (fields: Partial<Video>) => videoFormLabel(video("v", fields), t)
-  assert.equal(form({ isUpcoming: true, tag: "game" }), "media.kind.upcoming")
-  assert.equal(form({ tag: "game" }), "media.kind.liveArchive")
-})
-
-test("a premiere is named only until it has aired", () => {
-  const t = (key: string) => key
-  const form = (fields: Partial<Video>) =>
-    videoFormLabel(
-      video("v", { kind: "premiere", tag: "song", ...fields }),
-      t,
-      now,
+  for (const [formCode, key] of [
+    ["short", "media.kind.short"],
+    ["upcoming", "media.kind.upcoming"],
+    ["stream", "event.type.stream"],
+    ["archive", "media.kind.liveArchive"],
+    ["premiere", "media.kind.premiere"],
+    ["video", "media.kind.video"],
+    // An aired premiere is an ordinary video without a form chip.
+    [null, null],
+  ] as const)
+    assert.equal(
+      videoFormLabel(video("v", { tag: "game" }, { formCode }), t),
+      key,
+      String(formCode),
     )
-  assert.equal(
-    form({ scheduledAt: at(hour), isUpcoming: true }),
-    "media.kind.premiere",
-  )
-  assert.equal(
-    form({ scheduledAt: at(-hour), endsAt: at(hour) }),
-    "media.kind.premiere",
-  )
-  assert.equal(form({ liveStatus: "live" }), "media.kind.premiere")
-  // Once aired it is an ordinary video: no form chip at all.
-  assert.equal(form({ scheduledAt: at(-hour), endsAt: at(-1) }), null)
-  assert.equal(form({ scheduledAt: at(-hour) }), null)
-  assert.equal(form({ publishedAt: at(-24 * hour) }), null)
-})
-
-test("a stream that may be on air reads as a stream, not its archive", () => {
-  const t = (key: string) => key
-  const form = (fields: Partial<Video>) =>
-    videoFormLabel(video("v", fields), t, now)
-  assert.equal(form({ liveStatus: "live" }), "event.type.stream")
-  assert.equal(form({ scheduledAt: at(-hour) }), "event.type.stream")
-  assert.equal(
-    form({ scheduledAt: at(-hour), endsAt: at(-1) }),
-    "media.kind.liveArchive",
-  )
-  assert.equal(form({ scheduledAt: at(-4 * hour) }), "media.kind.liveArchive")
-  // A reported end closes a stream whose live result has not aged out yet,
-  // as it files the video under past broadcasts.
-  assert.equal(
-    form({ scheduledAt: at(-hour), endsAt: at(-1), liveStatus: "live" }),
-    "media.kind.liveArchive",
-  )
-  assert.equal(
-    form({ scheduledAt: at(-hour), liveStatus: "ended" }),
-    "media.kind.liveArchive",
-  )
-  for (const kind of ["upload", "unknown"])
-    assert.equal(form({ kind, tag: "talk" }), "media.kind.video", kind)
 })
 
 test("the tag chip reads a stream as its activity and a work as what it is", () => {
   const t = (key: string) => key
-  const tag = (fields: Partial<Video>) => videoTagLabel(video("v", fields), t)
-  assert.equal(tag({ tag: "song" }), "event.tag.song")
-  assert.equal(tag({ isUpcoming: true, tag: "game" }), "event.tag.game")
-  assert.equal(tag({ kind: "premiere", tag: "song" }), "media.kind.music")
-  assert.equal(tag({ kind: "upload", tag: "talk" }), "media.kind.talk")
+  const tag = (fields: Partial<Video>, tagContext: VideoView["tagContext"]) =>
+    videoTagLabel(video("v", fields, { tagContext }), t)
+  assert.equal(tag({ tag: "song" }, "stream"), "event.tag.song")
+  assert.equal(tag({ tag: "game" }, "stream"), "event.tag.game")
+  assert.equal(tag({ tag: "song" }, "work"), "media.kind.music")
+  assert.equal(tag({ tag: "talk" }, "work"), "media.kind.talk")
   // A schedule label that names a form is not a tag.
   for (const label of ["live", "video", null])
-    assert.equal(tag({ tag: label }), null, String(label))
+    assert.equal(tag({ tag: label }, "stream"), null, String(label))
 })
 
-test("Shorts are their own group, never a work, an archive or the lead", () => {
-  // A Short broadcast is still a Short; its format decides.
-  const streamShort = video("short-stream", {
-    kind: "stream",
-    isShort: true,
-    publishedAt: at(-2 * hour),
-  })
+test("a Short belongs to the Shorts filter alone", () => {
+  const streamShort = video("short-stream", { kind: "stream", isShort: true })
   const songShort = video("short-song", {
     kind: "upload",
     tag: "song",
     isShort: true,
-    publishedAt: at(-hour),
   })
   // An unknown format is an ordinary upload, however brief.
   const brief = video("brief", {
     kind: "upload",
     isShort: null,
-    publishedAt: at(-3 * hour),
     durationSeconds: 30,
   })
-  const regular = video("regular", {
-    kind: "upload",
-    isShort: false,
-    publishedAt: at(-5 * hour),
-  })
-  const archive = video("archive", {
-    isShort: false,
-    scheduledAt: at(-20 * hour),
-  })
-  // A Short that is still coming up stays with the reservations.
-  const reserved = video("short-reserved", {
-    kind: "stream",
-    isShort: true,
-    isUpcoming: true,
-    scheduledAt: at(hour),
-  })
-  const videos = [streamShort, regular, songShort, archive, brief, reserved]
-
-  const groups = groupVideos(videos, null, now)
-  // The newest cover is a Short, so the newest ordinary upload leads.
-  assert.equal(groups.lead?.id, "brief")
-  assert.deepEqual(
-    groups.shorts.map((item) => item.id),
-    ["short-song", "short-stream"],
-  )
-  assert.deepEqual(
-    groups.works.map((item) => item.id),
-    ["regular"],
-  )
-  assert.deepEqual(
-    groups.archives.map((item) => item.id),
-    ["archive"],
-  )
-  assert.deepEqual(
-    groups.reservations.map((item) => item.id),
-    ["short-reserved"],
-  )
-  assert.equal(groupVideos([songShort, streamShort], null, now).lead, null)
-
-  // The operator's featured Short still leads.
-  const featured = groupVideos(videos, "short-song", now)
-  assert.equal(featured.lead?.id, "short-song")
-  assert.deepEqual(
-    featured.shorts.map((item) => item.id),
-    ["short-stream"],
-  )
-
+  const archive = video("archive", { isShort: false })
   assert.equal(videoIsShort(streamShort), true)
   assert.equal(videoIsShort(brief), false)
   assert.equal(videoIsShort(video("unset")), false)
@@ -433,10 +264,6 @@ test("Shorts are their own group, never a work, an archive or the lead", () => {
       expected,
       `${item.id}/${filter}`,
     )
-
-  const t = (key: string) => key
-  assert.equal(videoFormLabel(streamShort, t), "media.kind.short")
-  assert.equal(videoFormLabel(brief, t), "media.kind.video")
 })
 
 test("Chinese readers open a past video's bilibili copy first", () => {
@@ -444,68 +271,46 @@ test("Chinese readers open a past video's bilibili copy first", () => {
     source: "bilibili",
     url: "https://www.bilibili.com/video/BV1synthetic1",
   }
-  const merged = video("m", {
-    kind: "upload",
-    publishedAt: at(-hour),
-    alternates: [bilibili],
-  })
+  const merged = video("m", { kind: "upload", alternates: [bilibili] })
   const youtube = { source: "youtube", url: merged.url }
 
-  assert.deepEqual(videoLinks(merged, "zh-CN", now), [bilibili, youtube])
+  assert.deepEqual(videoLinks(merged, "zh-CN"), [bilibili, youtube])
   for (const locale of ["en", "ja"] as const)
-    assert.deepEqual(videoLinks(merged, locale, now), [youtube, bilibili])
+    assert.deepEqual(videoLinks(merged, locale), [youtube, bilibili])
 
   // Without a bilibili copy every reader gets the video's own link.
-  assert.deepEqual(videoLinks(video("y"), "zh-CN", now), [
+  assert.deepEqual(videoLinks(video("y"), "zh-CN"), [
     { source: "youtube", url: "https://www.youtube.com/watch?v=y" },
   ])
 
   // A reservation or a broadcast on air stays on its own platform.
-  const reserved = video("r", {
-    kind: "stream",
-    isUpcoming: true,
-    scheduledAt: at(hour),
-    alternates: [bilibili],
-  })
-  const onAir = video("l", {
-    scheduledAt: at(-hour),
-    liveStatus: "live",
-    alternates: [bilibili],
-  })
-  for (const item of [reserved, onAir])
-    assert.equal(videoLinks(item, "zh-CN", now)[0].source, "youtube", item.id)
+  for (const phase of ["upcoming", "live", "started"] as const) {
+    const item = video("r", { alternates: [bilibili] }, { phase })
+    assert.equal(videoLinks(item, "zh-CN")[0].source, "youtube", phase)
+  }
 })
 
-test("a private or removed video keeps only its other platforms and never leads", () => {
+test("a private or removed video keeps only its other platforms", () => {
   const bilibili = {
     source: "bilibili",
     url: "https://www.bilibili.com/video/BV1synthetic2",
   }
   const gone = video("g", {
     kind: "upload",
-    publishedAt: at(-hour),
     availability: "private",
     alternates: [bilibili],
   })
-  assert.deepEqual(videoLinks(gone, "en", now), [bilibili])
+  assert.deepEqual(videoLinks(gone, "en"), [bilibili])
   assert.deepEqual(
-    videoLinks(video("x", { availability: "removed" }), "en", now),
+    videoLinks(video("x", { availability: "removed" }), "en"),
     [],
   )
   // Members-only and unchecked videos keep their own link.
   for (const availability of ["members", null] as const)
     assert.equal(
-      videoLinks(video("k", { availability }), "en", now)[0]?.source,
+      videoLinks(video("k", { availability }), "en")[0]?.source,
       "youtube",
     )
-
-  const watchable = video("w", { kind: "upload", publishedAt: at(-2 * hour) })
-  const groups = groupVideos([gone, watchable], null, now)
-  assert.equal(groups.lead?.id, "w")
-  assert.deepEqual(
-    groups.works.map((item) => item.id),
-    ["g"],
-  )
 })
 
 test("a cover marks every platform a work is on, a gone one included", () => {
@@ -514,14 +319,10 @@ test("a cover marks every platform a work is on, a gone one included", () => {
     url: "https://www.bilibili.com/video/BV1synthetic3",
   }
   const marks = (item: Video, locale: "en" | "zh-CN" = "en") =>
-    videoPlatforms(item, videoLinks(item, locale, now))
+    videoPlatforms(item, videoLinks(item, locale))
   assert.deepEqual(marks(video("y")), ["youtube"])
   assert.deepEqual(marks(video("m", { availability: "members" })), ["youtube"])
-  const merged = video("b", {
-    kind: "upload",
-    publishedAt: at(-hour),
-    alternates: [bilibili],
-  })
+  const merged = video("b", { kind: "upload", alternates: [bilibili] })
   assert.deepEqual(marks(merged), ["youtube", "bilibili"])
   assert.deepEqual(marks(merged, "zh-CN"), ["bilibili", "youtube"])
   // A private or removed video still names its own platform, link or not.
@@ -535,4 +336,33 @@ test("a cover marks every platform a work is on, a gone one included", () => {
     url: "https://www.bilibili.com/video/BV1synthetic4",
   })
   assert.deepEqual(marks(upload), ["bilibili"])
+})
+
+test("the side group leaves out the reservation the stage already shows", () => {
+  const staged = video("staged", { isUpcoming: true }, { phase: "upcoming" })
+  const later = video("later", { isUpcoming: true }, { phase: "upcoming" })
+  const projection = (mode: "next" | "latest") => ({
+    ...shelf({ reservations: ["staged", "later"] }),
+    spotlight: {
+      mode,
+      eventId: null,
+      videoId: "staged",
+      liveNow: false,
+      isLive: false,
+      membersChip: false,
+      companionVideoId: null,
+    },
+  })
+  assert.deepEqual(ids(sideReservations([staged, later], projection("next"))), [
+    "later",
+  ])
+  // A latest-video stage names no reservation, so every one stays.
+  assert.deepEqual(
+    ids(sideReservations([staged, later], projection("latest"))),
+    ["staged", "later"],
+  )
+  assert.deepEqual(ids(sideReservations([staged, later], shelf({}))), [
+    "staged",
+    "later",
+  ])
 })

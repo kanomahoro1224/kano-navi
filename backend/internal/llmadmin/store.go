@@ -198,6 +198,30 @@ func ProviderAPIKey(ctx context.Context, db Querier, id, secretsKey string) (str
 	return plaintext, nil
 }
 
+// UnreadableProviderKeys reports whether an enabled provider's stored key no
+// longer decrypts, such as after LLM_SECRETS_KEY changed. Operator alerts
+// read it; the keys themselves are discarded.
+func UnreadableProviderKeys(ctx context.Context, db Querier, secretsKey string) (bool, error) {
+	rows, err := db.QueryContext(ctx, `SELECT api_key_ciphertext FROM llm_providers WHERE enabled = 1 AND api_key_ciphertext IS NOT NULL AND api_key_ciphertext <> ''`)
+	if err != nil {
+		return false, errors.New("llm provider credential lookup failed")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var ciphertext string
+		if err = rows.Scan(&ciphertext); err != nil {
+			return false, errors.New("llm provider credential lookup failed")
+		}
+		if _, decryptErr := secretstore.Decrypt(ciphertext, secretsKey); decryptErr != nil {
+			return true, nil
+		}
+	}
+	if rows.Err() != nil {
+		return false, errors.New("llm provider credential lookup failed")
+	}
+	return false, nil
+}
+
 const modelColumns = `provider_id, model_id, name, tags_json, enabled, origin, owned_by, created_at, updated_at`
 
 func scanModel(scan scanner) (Model, error) {

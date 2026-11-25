@@ -6,7 +6,7 @@ The root `docker-compose.yml` deploys the published production image. Copy
 whitespace, plus a non-blank `LLM_SECRETS_KEY`. Both Compose configurations
 require the master key; development bypasses login only. For a console
 reachable from the internet, also set the optional
-[admin one-time code](configuration.md#admin-one-time-code)
+[admin one-time code](configuration/environment.md#admin-one-time-code)
 (`docker compose run --rm kano totp-secret` prints a value). Then run:
 
 ```bash
@@ -24,7 +24,7 @@ To use the equivalent GHCR image, set
 `KANO_IMAGE=ghcr.io/yexca/kano-navi:latest`.
 The service is limited to 1 GiB of memory with a Go soft limit of 700 MiB;
 change both with `KANO_MEM_LIMIT` and `GOMEMLIMIT` as described in
-[Configuration](configuration.md#environment-variables).
+[Configuration](configuration/environment.md).
 
 Fresh deployments start with empty X/YouTube snapshots and no LLM providers.
 Add providers and the model queues in `/admin`, then use a source's Run now or
@@ -32,7 +32,7 @@ enable its timer on the Sources page to populate source data. Fixed history
 images are already bundled. The LINE BLOG archive's text is bundled too; its
 media live in `./data/lineblog/` or a read-only mount over it, taken from
 the recovery archive as described in
-[LINE BLOG archive maintenance](../development/lineblog-archive.md#deployments).
+[LINE BLOG archive maintenance](../development/lineblog-archive/deployments.md).
 The discography covers live the same way in `./data/works/`, packaged as
 described in [Works archive maintenance](../development/works-archive.md).
 Existing `./data` snapshots, archive media and provider configuration survive
@@ -62,7 +62,7 @@ authentication, MCP and runtime media from any additional proxy compression.
 Preserve the admin/MCP `no-transform` directive.
 
 Open boards follow changes over the
-[revision stream](../architecture/public-api.md#revision-stream)
+[revision stream](../architecture/public-api/snapshot.md#revision-stream)
 `/api/dashboard/events`, a long-lived `text/event-stream` response. Pass it
 through unbuffered and uncompressed: nginx honours the stream's
 `X-Accel-Buffering: no`, and other proxies need response buffering turned off

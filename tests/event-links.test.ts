@@ -1,6 +1,12 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import type { Dashboard, ScheduleEvent, Video } from "../src/types.ts"
+import type {
+  Dashboard,
+  DashboardProjection,
+  ScheduleEvent,
+  Video,
+  VideoView,
+} from "../src/types.ts"
 import {
   eventAnnouncement,
   eventLink,
@@ -8,9 +14,7 @@ import {
   eventShowsPlatformLinks,
 } from "../src/dashboard/format.ts"
 import { pickSpotlight, spotlightIsLive } from "../src/dashboard/spotlight.ts"
-import { visibleLiveNow } from "../src/dashboard/derive-dashboard.ts"
 
-const now = Date.parse("2026-10-21T12:00:00Z")
 const watch = "https://www.youtube.com/watch?v=synthetic01"
 const room = "https://live.example.invalid/100000001"
 
@@ -38,6 +42,50 @@ const simulcast: ScheduleEvent = {
   manualLocked: false,
   isUpcoming: false,
   cancellationStatus: "none",
+  view: {
+    state: "live",
+    typeCode: "stream",
+    activityCode: null,
+    activityContext: "",
+    isWork: false,
+    calendarEntries: [],
+  },
+}
+
+const streamView: VideoView = {
+  phase: "live",
+  formCode: "stream",
+  shelfGroup: "reservation",
+  latestEligible: false,
+  focusEligible: true,
+  tagContext: "stream",
+}
+
+/** A projection whose stage names the simulcast's video and entry. */
+function spotlightOn(videoId: string, isLive: boolean): DashboardProjection {
+  return {
+    version: 1,
+    nextTransitionAt: null,
+    focus: { eventIds: [simulcast.id], videoIds: [videoId] },
+    spotlight: {
+      mode: "next",
+      eventId: simulcast.id,
+      videoId,
+      liveNow: false,
+      isLive,
+      membersChip: false,
+      companionVideoId: null,
+    },
+    sales: [],
+    shelf: {
+      leadId: null,
+      leadIsFeatured: false,
+      reservations: [videoId],
+      works: [],
+      archives: [],
+      shorts: [],
+    },
+  }
 }
 
 test("an entry links every platform, its own first", () => {
@@ -65,13 +113,13 @@ test("a live platform leads and is the main link", () => {
 })
 
 test("zh-CN readers get Bilibili first once the entry is over", () => {
-  const past = {
+  const past: ScheduleEvent = {
     ...simulcast,
-    status: "ended",
-    startsAt: "2026-10-20T11:00:00Z",
+    view: { ...simulcast.view, state: "done" },
   }
-  assert.equal(eventLinks(past, "zh-CN", now)[0].source, "bilibili")
-  assert.equal(eventLinks(past, "ja", now)[0].source, "youtube")
+  assert.equal(eventLinks(past, "zh-CN")[0].source, "bilibili")
+  assert.equal(eventLinks(past, "ja")[0].source, "youtube")
+  assert.equal(eventLinks(simulcast, "zh-CN")[0].source, "youtube")
 })
 
 test("a platform without a link is left out, and a snapshot without links keeps the old link", () => {
@@ -106,30 +154,16 @@ test("the video ticket of a simulcast keeps the entry's other platform", () => {
     kind: "stream",
     isUpcoming: false,
     liveStatus: "live",
+    view: streamView,
   }
   const summary = {
     nextEvent: simulcast,
     nextStream: video,
     latestVideo: null,
   } as unknown as Dashboard["summary"]
-  const item = pickSpotlight(summary, now, null)
+  const item = pickSpotlight(summary, null, spotlightOn(video.id, true))
   assert.equal(item?.video?.id, "synthetic01")
   assert.deepEqual(item?.extraLinks, [{ source: "bilibili", url: room }])
-})
-
-test("an entry shown on Bilibili hides a live-now ticket of its broadcast", () => {
-  const live: ScheduleEvent = { ...simulcast, liveStatus: "live" }
-  const liveNow = {
-    platform: "bilibili" as const,
-    url: room,
-    title: "Synthetic",
-    startedAt: "2026-10-21T11:05:00Z",
-  }
-  assert.equal(visibleLiveNow(liveNow, [live]), null)
-  assert.deepEqual(
-    visibleLiveNow(liveNow, [{ ...live, platforms: ["youtube"] }]),
-    liveNow,
-  )
 })
 
 test("an announcement stays the entry's own link, never a platform's", () => {
@@ -161,7 +195,7 @@ test("an announcement stays the entry's own link, never a platform's", () => {
   assert.equal(eventShowsPlatformLinks(single, eventLinks(single)), false)
 })
 
-test("a reserved video reads live while its simulcast is live on bilibili", () => {
+test("a reserved video reads live when the projection says its simulcast is", () => {
   const video: Video = {
     id: "synthetic02",
     source: "youtube",
@@ -174,6 +208,7 @@ test("a reserved video reads live while its simulcast is live on bilibili", () =
     kind: "stream",
     isUpcoming: true,
     liveStatus: "upcoming",
+    view: { ...streamView, phase: "upcoming", formCode: "upcoming" },
   }
   const event: ScheduleEvent = {
     ...simulcast,
@@ -188,7 +223,12 @@ test("a reserved video reads live while its simulcast is live on bilibili", () =
     nextStream: video,
     latestVideo: null,
   } as unknown as Dashboard["summary"]
-  const item = pickSpotlight(summary, now, null)
+  const item = pickSpotlight(summary, null, spotlightOn(video.id, true))
   assert.equal(item?.video?.id, "synthetic02")
-  assert.equal(spotlightIsLive(item, now), true)
+  assert.equal(spotlightIsLive(item), true)
+  assert.deepEqual(item?.extraLinks, [
+    { source: "bilibili", url: room, live: true },
+  ])
+  const waiting = pickSpotlight(summary, null, spotlightOn(video.id, false))
+  assert.equal(spotlightIsLive(waiting), false)
 })

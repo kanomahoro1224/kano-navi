@@ -13,29 +13,57 @@ import (
 
 var ErrSourceWrite = errors.New("source write unavailable")
 
+// XPostOwnerConflict is the note of a post that a run read for one account
+// while its ID is stored under another account's handle: the write skips it
+// and the stored row stays as it is.
+const XPostOwnerConflict = "x_post_owner_conflict"
+
+// XRecentWrite is what a write of one account's run did beyond storing it:
+// the posts it skipped because another account owns their ID, as
+// "<id>: x_post_owner_conflict" notes.
+type XRecentWrite struct {
+	Notes []string
+}
+
 // WriteXRecent commits posts, pending media candidates, schedule candidates and
 // incremental state atomically. It never touches historical/window cursors.
 func (s *Store) WriteXRecent(ctx context.Context, account string, result xsource.Result, success bool) error {
+	_, err := s.WriteXRecentReport(ctx, account, result, success)
+	return err
+}
+
+// WriteXRecentReport is WriteXRecent reporting the notes of the write. A post
+// whose ID another account owns is skipped with its schedule candidate and
+// leaves the queue like a stored one; it never fails the account. A pending
+// status dropped as gone (x_status_gone) that is stored as the account's
+// post is marked deleted upstream (posts.upstream_deleted_at); any later
+// answer that carries the status clears the mark. Every answer that tells
+// what a stored post is records it in posts.upstream_kind: a written post's
+// Kind, a listed stored post's Kind, and foreign for a pending status a
+// detail answer names as another author's (x_status_foreign).
+func (s *Store) WriteXRecentReport(ctx context.Context, account string, result xsource.Result, success bool) (XRecentWrite, error) {
+	out := XRecentWrite{}
 	if s == nil || s.db == nil || !s.workflowWritable {
-		return ErrSourceWrite
+		return out, ErrSourceWrite
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return ErrSourceWrite
+		return out, ErrSourceWrite
 	}
 	defer tx.Rollback()
 	if err = fenceSourceWrite(ctx, tx); err != nil {
-		return err
+		return out, err
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	// A post read from a timeline or API page that is already stored keeps
 	// the text, media and schedule candidate it has, as a fetch window leaves
 	// it.
 	kept := map[string]bool{}
+	changed := false
 	for _, p := range result.Posts {
 		// A known repost's own status ID is never a post again.
 		if repost, lookupErr := isRepostID(ctx, tx, p.ID); lookupErr != nil {
-			return ErrSourceWrite
+			return out, ErrSourceWrite
 		} else if repost {
 			kept[p.ID] = true
 			continue
@@ -45,25 +73,53 @@ func (s *Store) WriteXRecent(ctx context.Context, account string, result xsource
 			lookupErr := tx.QueryRowContext(ctx, `SELECT 1 FROM posts WHERE id=?`, p.ID).Scan(&exists)
 			if lookupErr == nil {
 				kept[p.ID] = true
+				listed, clearErr := recordXUpstreamState(ctx, tx, account, p.ID, p.Kind)
+				if clearErr != nil {
+					return out, ErrSourceWrite
+				}
+				changed = changed || listed
 				continue
 			}
 			if !errors.Is(lookupErr, sql.ErrNoRows) {
-				return ErrSourceWrite
+				return out, ErrSourceWrite
 			}
 		}
-		if stored, writeErr := writeXPost(ctx, tx, account, p, now); writeErr != nil || !stored {
-			return ErrSourceWrite
+		stored, writeErr := writeXPost(ctx, tx, account, p, now)
+		if writeErr != nil {
+			return out, ErrSourceWrite
 		}
+		if !stored {
+			kept[p.ID] = true
+			out.Notes = append(out.Notes, p.ID+": "+XPostOwnerConflict)
+			continue
+		}
+		changed = true
+	}
+	for _, dropped := range result.Dropped {
+		var marked bool
+		var markErr error
+		switch dropped.Code {
+		case xsource.DroppedGone:
+			marked, markErr = execChanged(ctx, tx, `UPDATE posts SET upstream_deleted_at=? WHERE id=? AND source='x' AND lower(account_handle)=lower(?) AND upstream_deleted_at IS NULL AND deleted_at IS NULL`, now, dropped.ID, account)
+		case xsource.DroppedForeign:
+			// The answer carries the status, so it exists; another author
+			// wrote it.
+			marked, markErr = recordXUpstreamState(ctx, tx, account, dropped.ID, xsource.StatusForeign)
+		}
+		if markErr != nil {
+			return out, ErrSourceWrite
+		}
+		changed = changed || marked
 	}
 	repostsChanged, err := writeXReposts(ctx, tx, account, result.Reposts, now)
 	if err != nil {
-		return ErrSourceWrite
+		return out, ErrSourceWrite
 	}
 	// A requested refresh is done once its detail request was made; the
 	// answer, if usable, was written above.
 	for _, id := range result.Refreshed {
 		if _, err = tx.ExecContext(ctx, `UPDATE posts SET refresh_requested_at=NULL WHERE id=? AND lower(account_handle)=lower(?)`, id, account); err != nil {
-			return ErrSourceWrite
+			return out, ErrSourceWrite
 		}
 	}
 	for _, c := range result.ScheduleCandidates {
@@ -71,28 +127,49 @@ func (s *Store) WriteXRecent(ctx context.Context, account string, result xsource
 			continue
 		}
 		if err = writeScheduleCandidate(ctx, tx, c, now); err != nil {
-			return ErrSourceWrite
+			return out, ErrSourceWrite
 		}
 	}
 	// A refresh-only run leaves the incremental state as it is.
 	avatarBumped, avatarErr := recordResultAccountAvatarsTx(ctx, tx, account, result, now)
 	if avatarErr != nil {
-		return ErrSourceWrite
+		return out, ErrSourceWrite
 	}
 	if !result.RefreshOnly {
 		if err = writeXState(ctx, tx, account, result, success, now); err != nil {
-			return ErrSourceWrite
+			return out, ErrSourceWrite
 		}
 	}
-	if len(result.Posts) > 0 || repostsChanged || avatarBumped {
+	if len(result.Posts) > 0 || changed || repostsChanged || avatarBumped {
 		if err = bumpRevision(ctx, tx, now); err != nil {
-			return ErrSourceWrite
+			return out, ErrSourceWrite
 		}
 	}
 	if err = tx.Commit(); err != nil {
-		return ErrSourceWrite
+		return out, ErrSourceWrite
 	}
-	return nil
+	return out, nil
+}
+
+// recordXUpstreamState records what an answer that carried an own stored
+// post's status says: the status exists, so its deleted-upstream mark is
+// cleared, and its kind, when the answer tells one, replaces the stored
+// one. It reports whether either changed. A promoted or soft-deleted post
+// is left alone.
+func recordXUpstreamState(ctx context.Context, tx *sql.Tx, account, id, kind string) (bool, error) {
+	return execChanged(ctx, tx, `UPDATE posts SET upstream_deleted_at=NULL,upstream_kind=COALESCE(?,upstream_kind)
+		WHERE id=? AND source='x' AND lower(account_handle)=lower(?) AND promoted_at IS NULL AND deleted_at IS NULL
+		AND (upstream_deleted_at IS NOT NULL OR upstream_kind IS NOT COALESCE(?,upstream_kind))`, nullable(kind), id, account, nullable(kind))
+}
+
+// execChanged runs an update and reports whether it changed a row.
+func execChanged(ctx context.Context, tx *sql.Tx, query string, args ...any) (bool, error) {
+	result, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return false, err
+	}
+	count, err := result.RowsAffected()
+	return count > 0, err
 }
 
 // writeXState replaces the account's incremental sync state: the pending
@@ -176,7 +253,9 @@ func writeXState(ctx context.Context, tx *sql.Tx, account string, result xsource
 // quotes, which goes to the pool (see writeQuotedStatus). It reports false
 // when the ID already belongs to another account, whose row is left
 // unchanged, or is an own account's repost (x_repost_ids), which is
-// never stored.
+// never stored. A stored post it rewrites loses its deleted-upstream mark:
+// the answer shows the status exists. The post's Kind replaces the stored
+// upstream_kind when the answer tells one and leaves it otherwise.
 func writeXPost(ctx context.Context, tx *sql.Tx, account string, p xsource.Post, now string) (bool, error) {
 	return writeXPostAs(ctx, tx, account, p, now, true)
 }
@@ -193,7 +272,7 @@ func writeXPostAs(ctx context.Context, tx *sql.Tx, account string, p xsource.Pos
 	if len(p.MediaURLs) > 0 {
 		media = p.MediaURLs[0]
 	}
-	written, err := tx.ExecContext(ctx, `INSERT INTO posts(id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,raw_json,quote_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET account_handle=excluded.account_handle,type=excluded.type,label=excluded.label,text=excluded.text,published_at=excluded.published_at,url=excluded.url,likes=excluded.likes,reposts=excluded.reposts,replies=excluded.replies,media_url=excluded.media_url,media_alt=excluded.media_alt,raw_json=excluded.raw_json,quote_json=excluded.quote_json WHERE lower(posts.account_handle)=lower(excluded.account_handle) OR posts.account_handle IS NULL`, p.ID, "x", account, p.Type, p.Label, p.Text, p.PublishedAt, p.URL, p.Likes, p.Reposts, p.Replies, nullable(media), nullable(p.MediaAlt), string(raw), quoteJSON(p.Quote))
+	written, err := tx.ExecContext(ctx, `INSERT INTO posts(id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,raw_json,quote_json,upstream_kind) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET account_handle=excluded.account_handle,type=excluded.type,label=excluded.label,text=excluded.text,published_at=excluded.published_at,url=excluded.url,likes=excluded.likes,reposts=excluded.reposts,replies=excluded.replies,media_url=excluded.media_url,media_alt=excluded.media_alt,raw_json=excluded.raw_json,quote_json=excluded.quote_json,upstream_deleted_at=NULL,upstream_kind=COALESCE(excluded.upstream_kind,posts.upstream_kind) WHERE lower(posts.account_handle)=lower(excluded.account_handle) OR posts.account_handle IS NULL`, p.ID, "x", account, p.Type, p.Label, p.Text, p.PublishedAt, p.URL, p.Likes, p.Reposts, p.Replies, nullable(media), nullable(p.MediaAlt), string(raw), quoteJSON(p.Quote), nullable(p.Kind))
 	if err != nil {
 		return false, err
 	}
@@ -266,15 +345,23 @@ func nullable(v string) any {
 	return v
 }
 
-// resetScheduleImageReview clears the model and operator verdicts and the
-// period correction of a schedule asset whose image URL changes: a verdict on
-// one image never approves a different one.
+// resetScheduleImageReview returns the model verdict of a schedule asset
+// whose image URL changes to pending, and puts an operator's label on the old
+// image in front of the operator again: it becomes the previous decision
+// (previous_manual_*), kept until the operator labels the asset, while the
+// asset waits in the Review queue. A schedule label never approves the new
+// image, so it is cleared; a not_schedule label keeps hiding it. A second
+// change before the operator's answer keeps the first previous decision. The
+// period correction stays.
 func resetScheduleImageReview(ctx context.Context, tx *sql.Tx, id, now string) error {
-	if _, err := tx.ExecContext(ctx, `UPDATE schedule_asset_reviews SET llm_status='pending',
-	   manual_status='unreviewed',manual_reason=NULL,manual_checked_at=NULL,updated_at=? WHERE asset_id=?`, now, id); err != nil {
-		return err
-	}
-	_, err := tx.ExecContext(ctx, `UPDATE assets SET manual_period_start=NULL,manual_period_end=NULL,manual_period_reason=NULL WHERE id=?`, id)
+	_, err := tx.ExecContext(ctx, `UPDATE schedule_asset_reviews SET llm_status='pending',
+	   previous_manual_checked_at=CASE WHEN previous_manual_status IS NULL AND manual_status<>'unreviewed' THEN manual_checked_at ELSE previous_manual_checked_at END,
+	   previous_manual_reason=CASE WHEN previous_manual_status IS NULL AND manual_status<>'unreviewed' THEN manual_reason ELSE previous_manual_reason END,
+	   previous_manual_status=CASE WHEN previous_manual_status IS NULL AND manual_status<>'unreviewed' THEN manual_status ELSE previous_manual_status END,
+	   manual_reason=CASE WHEN manual_status='schedule' THEN NULL ELSE manual_reason END,
+	   manual_checked_at=CASE WHEN manual_status='schedule' THEN NULL ELSE manual_checked_at END,
+	   manual_status=CASE WHEN manual_status='schedule' THEN 'unreviewed' ELSE manual_status END,
+	   check_status=NULL,check_reason=NULL,check_at=NULL,updated_at=? WHERE asset_id=?`, now, id)
 	return err
 }
 func writeMediaCandidate(ctx context.Context, tx *sql.Tx, postID, url, kind string, pos int, now string) error {

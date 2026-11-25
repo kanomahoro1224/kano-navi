@@ -17,7 +17,7 @@
 }
 
 .archive-dialog::backdrop {
-  background: rgb(20 12 18 / 0.6);
+  background: rgb(20 18 16 / 0.6);
   backdrop-filter: blur(4px);
 }
 
@@ -283,7 +283,7 @@
 .month-picker-month[aria-current="date"] {
   border-color: transparent;
   background: var(--berry);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .month-picker-month[aria-current="date"] .month-picker-count {

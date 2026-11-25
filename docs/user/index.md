@@ -12,7 +12,8 @@ These pages describe what you can see and do on the site.
 - [Schedule](schedule.md): the weekly guide, the month view, and calendar
   subscriptions.
 - [Posts](posts.md): recent posts from both X accounts, the agency's posts
-  about Kano, reposts picked for the wall, and the post archive.
+  about Kano, reposts picked for the wall, and the Posts page with every
+  stored post.
 - [Videos](videos.md): streams, works, Shorts, and the video archive.
 - [Journey](journey.md): milestones since 2010 and the visual archive.
 - [Works](works.md): her own releases, the works she is featured on, and her
@@ -23,7 +24,7 @@ These pages describe what you can see and do on the site.
 ## Pages and Settings
 
 Every page shares one header with the site name (with an "Unofficial" mark on
-wide screens), the page links (Now, Journey, Works, LINE BLOG, About), a live
+wide screens), the page links (Now, Posts, Journey, Works, LINE BLOG, About), a live
 Japan-time clock, and language and theme controls. The footer says the site
 is fan-made and unaffiliated, with two icons beside it: **Notes** and
 **Back to top**. Notes opens the site's notice in a window, the same on

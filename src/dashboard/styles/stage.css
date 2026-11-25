@@ -8,23 +8,6 @@
   scroll-margin-top: 72px;
 }
 
-/*
- * A card whose title is its link: followCardLink opens it from anywhere on
- * the card, and the card shows the title link's keyboard focus.
- */
-.link-card {
-  cursor: pointer;
-}
-
-.link-card:has(.card-link:focus-visible) {
-  outline: 2px solid var(--berry);
-  outline-offset: 2px;
-}
-
-.card-link:focus-visible {
-  outline: none;
-}
-
 .ticket {
   display: grid;
   overflow: hidden;
@@ -122,7 +105,7 @@
   place-items: center;
   border-radius: 50%;
   background: var(--berry);
-  color: #fff;
+  color: var(--on-tone);
   box-shadow: 0 10px 24px -8px color-mix(in oklab, var(--berry) 80%, black);
 }
 
@@ -194,7 +177,7 @@
   padding: 4px 10px;
   border-radius: 999px;
   background: var(--danger);
-  color: #fff;
+  color: var(--on-tone);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
@@ -298,8 +281,8 @@
   justify-items: center;
   padding: 6px 8px 5px;
   border-radius: var(--radius-sm);
-  background: var(--ink);
-  color: hsl(var(--background));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
   line-height: 1;
 }
 
@@ -499,7 +482,7 @@
   place-items: center;
   border-radius: 50%;
   background: var(--berry);
-  color: #fff;
+  color: var(--on-tone);
 }
 
 .latest-card-play svg {

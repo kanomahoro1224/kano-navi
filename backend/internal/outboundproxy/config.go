@@ -1,6 +1,6 @@
 // Package outboundproxy holds the operator's forward proxies for outbound
 // requests: one ordered proxy queue, the areas (X, YouTube, Bilibili, the
-// shop, media and model providers) that route through it, and the transport that tries
+// shop, media, model providers and operator alerts) that route through it, and the transport that tries
 // an area's proxies one at a time. Settings live in app_settings; proxy
 // passwords are sealed with LLM_SECRETS_KEY and never leave the process.
 package outboundproxy
@@ -39,10 +39,13 @@ const (
 	// AreaLLM covers model provider requests: extraction, translation, tests
 	// and model discovery.
 	AreaLLM Area = "llm"
+	// AreaNotify covers operator alert deliveries and the heartbeat: ntfy,
+	// Telegram and webhook requests.
+	AreaNotify Area = "notify"
 )
 
 // Areas lists every area in display order.
-var Areas = []Area{AreaX, AreaYoutube, AreaBilibili, AreaShop, AreaMedia, AreaLLM}
+var Areas = []Area{AreaX, AreaYoutube, AreaBilibili, AreaShop, AreaMedia, AreaLLM, AreaNotify}
 
 const (
 	// MaxProxies bounds the queue and therefore the attempts per request.

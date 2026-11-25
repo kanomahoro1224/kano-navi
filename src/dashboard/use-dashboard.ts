@@ -9,13 +9,18 @@ import type {
 } from "@/types"
 import { createRequestScope, startPolling } from "../lib/polling"
 import { startOfWeek, japanToday, localDateKey, addDays } from "./format"
-import { deriveDashboardAt } from "./derive-dashboard"
 import type { VideoCategory } from "./video-groups"
+
+/**
+ * The projection version this board renders. A snapshot with any other
+ * version, or none, is never shown: the board reads a fresh one instead.
+ */
+const PROJECTION_VERSION = 1
 
 const emptyDashboard: Dashboard = {
   profile: fallbackProfile,
   projection: {
-    version: 0,
+    version: PROJECTION_VERSION,
     nextTransitionAt: null,
     focus: { eventIds: [], videoIds: [] },
     spotlight: null,
@@ -67,41 +72,43 @@ export type ArchiveKind = "schedule" | "posts" | "videos"
 
 export interface ArchiveRequest {
   kind: ArchiveKind
-  /** The schedule or post month shown; the video timeline ignores it. */
+  /** The schedule month shown; the post and video timelines ignore it. */
   monthStart: Date
-  /** Post archives only: an X handle or Bilibili mid, or null for all. */
+  /** Post timelines only: an X handle or Bilibili mid, or null for all. */
   account?: string | null
-  /** Video archives only: one category, or null for every video. */
+  /** Video timelines only: one category, or null for every video. */
   category?: VideoCategory | null
   /**
-   * Video archives only: the month the timeline starts from; null starts from
-   * the newest video. With `startPage`, the timeline reads the newest-first
-   * pages from the one holding that month, so the newer pages before it can
-   * load later; without it, from that month's last day, as nothing newer.
+   * Post and video timelines: the month the timeline starts from; null starts
+   * from the newest record. With `startPage`, the timeline reads the
+   * newest-first pages from the one holding that month, so the newer pages
+   * before it can load later; without it, from that month's last day, as
+   * nothing newer.
    */
   anchor?: Date | null
-  /** Video archives only: the page of the whole timeline holding `anchor`. */
+  /** Post and video timelines: the page of the whole timeline holding `anchor`. */
   startPage?: number
 }
 
-/** Videos per timeline page; the board's page numbers count in these. */
-export const VIDEO_TIMELINE_PAGE_SIZE = 30
+/** Records per timeline page; the page numbers count in these. */
+export const TIMELINE_PAGE_SIZE = 30
 
 /**
- * The page of the newest-first video timeline that holds a month's newest
- * video: every video of the later months comes before it. The month index
- * counts per category, so a chosen category counts its own videos alone.
+ * The page of a newest-first post or video timeline that holds a month's
+ * newest record: every record of the later months comes before it. The month
+ * index counts per filter key (a video category, or a post account's lowercase
+ * handle), so a chosen filter counts its own records alone.
  */
 export function timelineStartPage(
   months: readonly ArchiveMonth[],
   month: string,
-  category: string | null | undefined,
+  filter: string | null | undefined,
 ) {
   let newer = 0
   for (const entry of months)
     if (entry.month > month)
-      newer += category ? entry.counts[category] || 0 : entry.total
-  return Math.floor(newer / VIDEO_TIMELINE_PAGE_SIZE) + 1
+      newer += filter ? entry.counts[filter] || 0 : entry.total
+  return Math.floor(newer / TIMELINE_PAGE_SIZE) + 1
 }
 
 /**
@@ -128,18 +135,20 @@ function timelineUntil(anchor: Date | null | undefined) {
 }
 
 function archiveUrl(request: ArchiveRequest, page: number) {
-  if (request.kind === "videos") {
-    const until = request.startPage ? "" : timelineUntil(request.anchor)
-    const category = request.category ? `&category=${request.category}` : ""
-    return `/api/videos?page=${page}&pageSize=${VIDEO_TIMELINE_PAGE_SIZE}${until ? `&until=${until}` : ""}${category}`
+  if (request.kind === "schedule") {
+    const { from, to } = archiveRange(request.kind, request.monthStart)
+    return `/api/calendar?from=${from}&to=${to}&page=${page}`
   }
-  const { from, to } = archiveRange(request.kind, request.monthStart)
-  const path = request.kind === "schedule" ? "calendar" : "posts"
-  const account =
-    request.kind === "posts" && request.account
-      ? `&account=${encodeURIComponent(request.account)}`
-      : ""
-  return `/api/${path}?from=${from}&to=${to}&page=${page}${account}`
+  const until = request.startPage ? "" : timelineUntil(request.anchor)
+  const filter =
+    request.kind === "videos"
+      ? request.category
+        ? `&category=${request.category}`
+        : ""
+      : request.account
+        ? `&account=${encodeURIComponent(request.account)}`
+        : ""
+  return `/api/${request.kind}?page=${page}&pageSize=${TIMELINE_PAGE_SIZE}${until ? `&until=${until}` : ""}${filter}`
 }
 
 const rangeKey = ({ from, to }: { from: string; to: string }) => `${from}/${to}`
@@ -147,7 +156,7 @@ const rangeKey = ({ from, to }: { from: string; to: string }) => `${from}/${to}`
 /** What identifies one archive read: its month or timeline start and filter. */
 function archiveKey(request: ArchiveRequest) {
   const span =
-    request.kind === "videos"
+    request.kind !== "schedule"
       ? request.startPage
         ? `from-page:${request.startPage}`
         : `until:${timelineUntil(request.anchor)}`
@@ -225,33 +234,28 @@ type LoadResult = { ok: true } | { ok: false; error: Error }
 
 /**
  * The last snapshot this browser read, shown on the next visit until the
- * first read replaces it. Additive fields are merged with safe defaults.
+ * first read replaces it, when it carries the supported projection.
  */
 const SNAPSHOT_CACHE_KEY = "kano-dashboard-snapshot-v1"
 /** An older stored snapshot is dropped instead of shown. */
 const SNAPSHOT_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
+/** Whether a snapshot payload carries the projection this board renders. */
+function hasSupportedProjection(
+  payload: Partial<Dashboard> | null | undefined,
+): payload is Partial<Dashboard> & Pick<Dashboard, "projection"> {
+  return payload?.projection?.version === PROJECTION_VERSION
+}
+
 /** A snapshot payload over the defaults, as the board renders it. */
-function mergeSnapshot(payload: Partial<Dashboard>): Dashboard {
+function mergeSnapshot(
+  payload: Partial<Dashboard> & Pick<Dashboard, "projection">,
+): Dashboard {
   return {
     ...emptyDashboard,
     ...payload,
     profile: { ...fallbackProfile, ...(payload.profile || {}) },
     summary: { ...emptyDashboard.summary, ...(payload.summary || {}) },
-    projection: payload.projection
-      ? {
-          ...emptyDashboard.projection,
-          ...payload.projection,
-          focus: {
-            ...emptyDashboard.projection!.focus,
-            ...(payload.projection.focus || {}),
-          },
-          shelf: {
-            ...emptyDashboard.projection!.shelf,
-            ...(payload.projection.shelf || {}),
-          },
-        }
-      : emptyDashboard.projection,
     meta: { ...emptyDashboard.meta, ...(payload.meta || {}) },
   }
 }
@@ -267,6 +271,7 @@ function readCachedSnapshot(): Dashboard | null {
       !(age >= 0 && age <= SNAPSHOT_CACHE_MAX_AGE_MS) ||
       !snapshot ||
       typeof snapshot !== "object" ||
+      !hasSupportedProjection(snapshot) ||
       (["posts", "events", "videos", "timeline", "resources"] as const).some(
         (key) => key in snapshot && !Array.isArray(snapshot[key]),
       )
@@ -299,7 +304,7 @@ function writeCachedSnapshot(snapshot: unknown) {
  * the last snapshot this browser stored, refreshing it, rather than from the
  * loading placeholder.
  */
-export function useDashboard(now = Date.now()) {
+export function useDashboard() {
   const [cached] = useState(readCachedSnapshot)
   const shownCacheRef = useRef(cached != null)
   const [dashboard, setDashboard] = useState(cached || emptyDashboard)
@@ -636,6 +641,10 @@ export function useDashboard(now = Date.now()) {
           if (!isCurrent())
             return { ok: false, error: new Error("Request superseded") }
           if (kind === "snapshot") {
+            // An unsupported projection fails like any read: the known
+            // snapshot stays and a fresh one is read after the backoff.
+            if (!hasSupportedProjection(payload))
+              throw new Error("Unsupported snapshot projection")
             setDashboard(mergeSnapshot(payload))
             writeCachedSnapshot(payload)
             setSnapshotVersion((version) => version + 1)
@@ -764,12 +773,8 @@ export function useDashboard(now = Date.now()) {
       scope.cancelKey("calendar")
     }
   }, [visibleKey, loadCalendar, scope])
-  const currentDashboard = useMemo(
-    () => deriveDashboardAt(dashboard, now),
-    [dashboard, now],
-  )
   return {
-    dashboard: currentDashboard,
+    dashboard,
     snapshotVersion,
     ...status,
     reload: load,
@@ -866,11 +871,85 @@ export function useArchiveMonths(
   return state?.kind === kind ? state.months : null
 }
 
+/** The post archive page's index: its months and the accounts it filters. */
+export interface PostArchiveIndex {
+  months: ArchiveMonth[]
+  /** X handles: the board's accounts, then the archive-only ones. */
+  accounts: string[]
+  bilibiliAccounts: string[]
+  accountAvatars: Record<string, string | null>
+  revision: number
+}
+
+function stringList(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : []
+}
+
 /**
- * Reads one schedule or post month, or the video timeline, for a dialog, page
- * by page. Like the calendar it follows the board's revision: a change rereads
- * the loaded pages atomically, and a later page from another revision restarts
- * the read instead of being appended. Schedule and video archives also follow
+ * Reads the post month index once for the archive page, with the accounts
+ * the page filters by. `retry` reads it again after a failure.
+ */
+export function usePostArchiveIndex() {
+  const scope = useMemo(() => createRequestScope(), [])
+  const [attempt, setAttempt] = useState(0)
+  const [state, setState] = useState<{
+    index: PostArchiveIndex | null
+    error: Error | null
+  }>({ index: null, error: null })
+
+  useEffect(() => {
+    scope.activate()
+    return () => scope.dispose()
+  }, [scope])
+
+  useEffect(() => {
+    const index = monthIndexes.posts
+    scope
+      .run("index", async (signal) => {
+        const result = await readScopedJson(index.url, signal)
+        if (
+          !Array.isArray(result?.months) ||
+          !Number.isInteger(result.revision)
+        )
+          throw new Error("Invalid month index")
+        const accounts = result.accounts ?? {}
+        return {
+          months: (result.months as unknown[])
+            .map((month) => readArchiveMonth(month, index.counts))
+            .filter((month): month is ArchiveMonth => month !== null),
+          accounts: stringList(accounts.x),
+          bilibiliAccounts: stringList(accounts.bilibili),
+          accountAvatars:
+            result.accountAvatars && typeof result.accountAvatars === "object"
+              ? result.accountAvatars
+              : {},
+          revision: result.revision,
+        } satisfies PostArchiveIndex
+      })
+      .then(
+        (index) => setState({ index, error: null }),
+        (caught: unknown) => {
+          if (caught instanceof Error && caught.name === "AbortError") return
+          setState((value) => ({
+            ...value,
+            error: caught instanceof Error ? caught : new Error(String(caught)),
+          }))
+        },
+      )
+    return () => scope.cancelKey("index")
+  }, [attempt, scope])
+
+  const retry = useCallback(() => setAttempt((value) => value + 1), [])
+  return { ...state, retry }
+}
+
+/**
+ * Reads one schedule month, or the post or video timeline, page by page. Like
+ * the calendar it follows the board's revision: a change rereads the loaded
+ * pages atomically, and a later page from another revision restarts the read
+ * instead of being appended. Schedule and video archives also follow
  * successful board snapshots, whose minute/manual refresh expires time-based
  * projections without a revision change. A null request cancels the read.
  */

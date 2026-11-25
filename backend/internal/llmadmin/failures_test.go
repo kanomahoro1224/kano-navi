@@ -22,6 +22,10 @@ func TestRecentFailuresListsStoredModelFailuresNewestFirst(t *testing.T) {
 	h.exec(`INSERT INTO assets (id, kind, url, source_url) VALUES ('asset-1', 'schedule', '/media/asset-1', ?)`, postURL)
 	h.exec(`INSERT INTO schedule_asset_reviews (asset_id, llm_status, llm_reason, llm_model, llm_checked_at, updated_at)
 		VALUES ('asset-1', 'failed', 'all configured LLM providers failed', 'model-b', '2026-01-02T04:00:00Z', '2026-01-02T04:00:00Z')`)
+	// A failed re-check that kept the image's verdict.
+	h.exec(`INSERT INTO assets (id, kind, url, source_url) VALUES ('asset-2', 'schedule', '/media/asset-2', ?)`, postURL)
+	h.exec(`INSERT INTO schedule_asset_reviews (asset_id, llm_status, llm_model, check_status, check_reason, check_at, updated_at)
+		VALUES ('asset-2', 'schedule', 'model-b', 'failed', 'LLM request failed (HTTP 429)', '2026-01-02T03:00:00Z', '2026-01-02T03:00:00Z')`)
 
 	translation := `INSERT INTO translation_states (owner_type, owner_id, field, status, last_attempt_at, last_error, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -29,13 +33,15 @@ func TestRecentFailuresListsStoredModelFailuresNewestFirst(t *testing.T) {
 	h.exec(translation, "video", "video-1", "title", "success", "2026-01-02T09:00:00Z", nil, "2026-01-02T09:00:00Z")
 
 	items := h.ok(http.MethodGet, "/llm/failures", nil, http.StatusOK).JSON["items"].([]any)
-	equal(t, "count", len(items), 3)
+	equal(t, "count", len(items), 4)
 	// The translation's +09:00 attempt is 21:00 UTC the day before.
 	want := []map[string]any{
 		{"route": "schedule", "subject": "post", "subjectId": "1001", "url": postURL, "providerId": "provider-a", "model": "model-a",
 			"message": "schedule extraction contained an invalid event", "at": "2026-01-02T05:00:00Z"},
 		{"route": "verify", "subject": "image", "subjectId": "asset-1", "url": postURL, "providerId": nil, "model": "model-b",
 			"message": "all configured LLM providers failed", "at": "2026-01-02T04:00:00Z"},
+		{"route": "verify", "subject": "image", "subjectId": "asset-2", "url": postURL, "providerId": nil, "model": nil,
+			"message": "LLM request failed (HTTP 429)", "at": "2026-01-02T03:00:00Z"},
 		{"route": "translate", "subject": "post", "subjectId": "1001", "url": postURL, "providerId": nil, "model": nil,
 			"message": "LLM output was truncated", "at": "2026-01-02T06:00:00+09:00"},
 	}

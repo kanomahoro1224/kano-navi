@@ -1,19 +1,19 @@
-import type { Dashboard, Locale, Translator } from "@/types"
+import type { Dashboard, Locale, Profile, Translator } from "@/types"
 import {
-  ArrowRight,
-  ArrowUpRight,
   BookOpen,
   Globe,
   Hash,
   House,
   ListMusic,
   Radio,
+  ShoppingBag,
   Sparkles,
 } from "lucide-react"
 
 import { SectionTitle } from "@/site/site-shell"
 import { BilibiliLogo, ExternalLink, XLogo, YouTubeLogo } from "@/site/links"
 import { hashtags } from "../content"
+import { profileLinkUrls } from "../profile-links"
 import { localizeSeedText } from "../seed-copy"
 
 function resourceIcon(url = "") {
@@ -22,6 +22,7 @@ function resourceIcon(url = "") {
   if (/bilibili\.com/u.test(url)) return BilibiliLogo
   if (/twitcasting\.tv/u.test(url)) return Radio
   if (/nicovideo\.jp/u.test(url)) return ListMusic
+  if (/\/\/shop\./u.test(url)) return ShoppingBag
   if (/milpr\.com/u.test(url)) return Sparkles
   if (/amebaownd\.com/u.test(url)) return House
   if (/wikipedia\.org/u.test(url)) return BookOpen
@@ -36,71 +37,47 @@ function hostOf(url: string) {
   }
 }
 
+/**
+ * The board's closing row: the resources the profile card does not already
+ * link, each a chip whose tooltip is its detail, then the common hashtags.
+ */
 export function LinkDirectory({
-  timeline,
+  profile,
   resources,
   locale,
   t,
 }: {
-  timeline: Dashboard["timeline"]
+  profile: Pick<Profile, "xUrl" | "youtubeUrl">
   resources: Dashboard["resources"]
   locale: Locale
   t: Translator
 }) {
+  const onCard = profileLinkUrls(profile, resources)
+  const links = resources.filter((resource) => !onCard.has(resource.url))
   return (
     <section className="section links" id="links" aria-labelledby="links-title">
       <SectionTitle id="links-title" title={t("directory.title")} />
       <div className="links-layout">
-        <ul className="link-list">
-          {resources.map((resource) => {
+        <ul className="link-chips">
+          {links.map((resource) => {
             const Icon = resourceIcon(resource.url)
             return (
               <li key={resource.id}>
-                <ExternalLink className="link-row" href={resource.url}>
-                  <span className="link-row-icon" aria-hidden="true">
-                    <Icon />
-                  </span>
-                  <span className="link-row-copy">
-                    <strong>{localizeSeedText(resource.title, locale)}</strong>
-                    <small>
-                      {localizeSeedText(resource.detail, locale) ||
-                        hostOf(resource.url)}
-                    </small>
-                  </span>
-                  <ArrowUpRight className="link-row-arrow" aria-hidden="true" />
+                <ExternalLink
+                  className="pill-button"
+                  href={resource.url}
+                  title={
+                    localizeSeedText(resource.detail, locale) ||
+                    hostOf(resource.url)
+                  }
+                >
+                  <Icon aria-hidden="true" />
+                  {localizeSeedText(resource.title, locale)}
                 </ExternalLink>
               </li>
             )
           })}
         </ul>
-
-        <aside className="journey-card" aria-labelledby="journey-title">
-          <p className="kicker">{t("archive.timeline")}</p>
-          <h3 id="journey-title">{t("archive.subtitle")}</h3>
-          <ol className="journey-mini">
-            {timeline.map((item) => (
-              <li key={item.id}>
-                <span className="journey-mini-year">{item.year}</span>
-                <span className="journey-mini-copy">
-                  <strong>{localizeSeedText(item.title, locale)}</strong>
-                  {item.detail ? (
-                    <small>{localizeSeedText(item.detail, locale)}</small>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ol>
-          <div className="journey-card-actions">
-            <a className="pill-button is-solid" href="/journey">
-              {t("archive.fullHistory")}
-              <ArrowRight aria-hidden="true" />
-            </a>
-            <a className="pill-button" href="/works">
-              {t("archive.works")}
-              <ArrowRight aria-hidden="true" />
-            </a>
-          </div>
-        </aside>
 
         <div className="hashtags">
           <span className="hashtags-label">

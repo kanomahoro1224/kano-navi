@@ -86,6 +86,9 @@ func (e *Extractor) verifyAsset(ctx context.Context, assetID string, force bool)
 	// it, so a queue change, or an empty queue, sends no image again.
 	fingerprint := assetFingerprint(image.sha256, sourceURL)
 	if !force && review.llmInputFingerprint == fingerprint && classifications[review.llmStatus] {
+		if err = e.settleCachedVerdict(ctx, review, image.sha256); err != nil {
+			return assetResult{}, err
+		}
 		result := assetResult{status: "cached", classification: review.llmStatus}
 		if review.llmConfidence.Valid {
 			result.confidence = &review.llmConfidence.Float64
@@ -181,6 +184,7 @@ func (e *Extractor) attemptVerification(ctx context.Context, target provider, ca
 	update.llmModel = target.model
 	update.llmCheckedAt = e.nowISO()
 	update.llmInputFingerprint = fingerprint
+	update.llmImageSHA = update.expectSHA
 	applied, err := e.upsertAssetReview(ctx, update)
 	if err != nil || !applied {
 		return result, false, err
@@ -205,10 +209,15 @@ func (e *Extractor) verifyPendingAssets(ctx context.Context, limit int, force bo
 		if value == "" {
 			value = review.reviewUpdatedAt
 		}
+		at := never
 		if parsed, ok := parseInstant(value); ok {
-			return parsed.UnixMilli()
+			at = parsed.UnixMilli()
 		}
-		return never
+		// A check that kept the verdict is an attempt as well.
+		if parsed, ok := parseInstant(review.checkAt); ok && parsed.UnixMilli() > at {
+			at = parsed.UnixMilli()
+		}
+		return at
 	}
 	candidates := []*assetReview{}
 	for _, review := range all {
@@ -217,7 +226,11 @@ func (e *Extractor) verifyPendingAssets(ctx context.Context, limit int, force bo
 		}
 	}
 	sort.SliceStable(candidates, func(i, j int) bool { return checkedAt(candidates[i]) < checkedAt(candidates[j]) })
-	// A Map keeps the first position of a key but its last value.
+	// Assets that share an image are verified once, at the position of the
+	// least recently checked one. The one verified is the most recently
+	// checked whose post passes the source-text gate: one that fails it is
+	// only skipped, so letting it stand for the image would starve a sibling
+	// whose post does pass.
 	unique := []*assetReview{}
 	position := map[string]int{}
 	for _, review := range candidates {
@@ -226,7 +239,9 @@ func (e *Extractor) verifyPendingAssets(ctx context.Context, limit int, force bo
 			key = review.id
 		}
 		if index, known := position[key]; known {
-			unique[index] = review
+			if review.sourceMatchesBoard || !unique[index].sourceMatchesBoard {
+				unique[index] = review
+			}
 			continue
 		}
 		position[key] = len(unique)
@@ -283,6 +298,7 @@ func (e *Extractor) verifyPendingAssets(ctx context.Context, limit int, force bo
 				copied.llmEvidence = verified.llmEvidence
 				copied.llmModel = verified.llmModel
 				copied.llmInputFingerprint = verified.llmInputFingerprint
+				copied.llmImageSHA = verified.llmImageSHA
 				copied.llmCheckedAt = verified.llmCheckedAt
 			}
 			if copied.llmCheckedAt == "" {

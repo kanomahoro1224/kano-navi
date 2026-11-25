@@ -2,7 +2,14 @@ import { useEffect, useState } from "react"
 
 import { pagePath } from "./page-path.ts"
 
-const PUBLIC_PATHS = new Set(["/", "/journey", "/works", "/lineblog", "/about"])
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/posts",
+  "/journey",
+  "/works",
+  "/lineblog",
+  "/about",
+])
 
 /** Whether a pathname belongs to a public page that may show the notice. */
 export function isVisitorRegionPath(pathname: string) {

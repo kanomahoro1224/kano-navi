@@ -3086,8 +3086,22 @@
           "thirdParty": true
         }
       ],
-      "disc": null,
-      "printedDisc": true,
+      "disc": {
+        "url": "/media/works/a85a8a24036d.jpg",
+        "width": 2900,
+        "height": 2900,
+        "mimeType": "image/jpeg",
+        "caption": { "ja": "CD 盤面", "zh-CN": "CD 盘面", "en": "CD disc" },
+        "sourceUrl": null,
+        "sourceLabel": null,
+        "credit": {
+          "role": "scan",
+          "name": "ZhFuwe",
+          "url": "https://github.com/ZhFuwe"
+        },
+        "thirdParty": true
+      },
+      "printedDisc": false,
       "cutout": null,
       "tracks": [
         {
@@ -3192,7 +3206,26 @@
           }
         }
       ],
-      "discs": [],
+      "discs": [
+        {
+          "disc": 1,
+          "image": {
+            "url": "/media/works/a85a8a24036d.jpg",
+            "width": 2900,
+            "height": 2900,
+            "mimeType": "image/jpeg",
+            "caption": { "ja": "CD 盤面", "zh-CN": "CD 盘面", "en": "CD disc" },
+            "sourceUrl": null,
+            "sourceLabel": null,
+            "credit": {
+              "role": "scan",
+              "name": "ZhFuwe",
+              "url": "https://github.com/ZhFuwe"
+            },
+            "thirdParty": true
+          }
+        }
+      ],
       "editions": [],
       "storeBonuses": [],
       "stores": []

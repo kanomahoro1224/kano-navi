@@ -165,6 +165,7 @@ export interface EventLink {
 export type EventViewState =
   | "upcoming"
   | "live"
+  | "ongoing"
   | "open"
   | "done"
   | "pending"
@@ -239,7 +240,7 @@ export interface ScheduleEvent {
   /** The linked video's title translations while the event shows its title. */
   translations?: Translations
   sourceLanguage?: string | null
-  view?: EventView
+  view: EventView
 }
 
 export type VideoAvailability =
@@ -280,7 +281,7 @@ export interface Video {
   sourceLanguage?: string | null
   /** The same work on other platforms, such as a merged Bilibili upload. */
   alternates?: VideoAlternate[]
-  view?: VideoView
+  view: VideoView
 }
 
 export interface VideoView {
@@ -376,7 +377,7 @@ export interface Dashboard {
   accountAvatars?: Record<string, string | null>
   /** An unannounced broadcast on air now; absent in older snapshots. */
   liveNow?: LiveNow | null
-  projection?: DashboardProjection
+  projection: DashboardProjection
   summary: {
     nextEvent: ScheduleEvent | null
     nextStream: Video | null

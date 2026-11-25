@@ -66,9 +66,10 @@ the thumbnail and title.
 
 ## Links
 
-The last section of the board collects official and community resources
-(Wikipedia among them), a short milestone summary that opens the full
-[Journey](journey.md) or the [Works](works.md) page, and common hashtags.
+The last section of the board is a row of the official and community
+resources the profile card does not already link (Wikipedia among them),
+each naming what it is on hover, followed by common hashtags. Kano's history
+lives on the [Journey](journey.md) page.
 
 ## Related Docs
 

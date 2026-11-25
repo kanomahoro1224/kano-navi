@@ -1,11 +1,27 @@
 # Design and Interaction
 
 The public board should be easy to scan and keep source provenance visible.
-Use the shared semantic tokens in src/index.css, the public shell and controls
-in src/site/, and the existing shadcn/ui-style primitives in
-src/components/ui/. Public pages use cream paper with hairline rules rather
-than boxing everything, a rounded display face for names and titles, tabular
-numerals for times, and strawberry gingham as the signature edge. Admin keeps
+Each area styles its own markup in its own stylesheet (`src/site/site.css`
+for the public shell, `src/dashboard/board.css`, `src/admin/admin.css`, and
+one per page or shared component), with class names scoped to the area or
+component, over the CSS variables in `src/index.css`. New markup takes such
+classes rather than Tailwind utilities; the utility theme in `src/index.css`
+serves the `src/components/ui/` wrappers and the error pages in
+`src/main.tsx`. Public pages reuse the shell's controls in `src/site/site.css`,
+such as `.round-button` and `.pill-button`; the console reuses the
+`src/admin/ui.tsx` components (buttons, badges, panels, fields, switches,
+filters, pager, modal, toasts). Menus, tabs and tooltips use the Radix
+wrappers in `src/components/ui/`, restyled with an area class.
+`src/components/ui/button.tsx` serves only the header's preference controls.
+Every colour comes from a token with a value for each theme: solid fills take
+`--primary`, and text on a hue fill takes `--on-tone`, never a fixed white,
+because the dark theme's hues are light. A system request for more contrast
+darkens secondary text, rules and field borders in both themes.
+Public pages use warm ivory paper (warm charcoal in the dark theme) with
+near-neutral ink and hairline rules rather than boxing everything, strawberry
+as the one accent, status hues of equal OKLCH lightness and chroma, a
+rounded display face for names and titles, tabular numerals for times, and
+strawberry gingham as the signature edge. Admin keeps
 its own adm- styles on the same tokens. Preserve light/dark themes and the
 English (base), Japanese, and Simplified Chinese interface copy. Do not
 introduce a separate token system for a single page.
@@ -14,6 +30,17 @@ introduce a separate token system for a single page.
 
 - / is the public snapshot board. Refresh reads the local API and preserves known
   state when a request fails.
+- /posts is the post archive on the public shell: one newest-first column
+  grouped by month and day, the day's date in the display face beside its
+  posts, which lie on the paper between hairlines rather than in cards; a
+  year opens with its number large under a gingham strip. On wide screens a
+  sticky rail beside it holds the account cards (portrait, years and total;
+  the chosen one in berry), one or two a row, over
+  a map of every year's months shaded in berry; narrower screens put the cards
+  above the column and get one slim band of month controls joined to the
+  header instead of the map, naming the month and day in view. The cards
+  scroll sideways in one row on phones, and the date heads each day there
+  without sticking.
 - /journey is static, sourced content with local fixed images and original links.
 - /works is the static discography in an editorial treatment: on top of the
   shared shell it gives the shared tokens a warm ivory and clay reading in
@@ -90,7 +117,10 @@ introduce a separate token system for a single page.
   tokens, so both themes apply.
 - /about is a static project, attribution, and code-license page.
 - /admin is the hidden operator console. Its styles use adm- prefixed selectors.
-  Do not add it to public navigation. Lazy page loads show a localized status
+  Do not add it to public navigation. Its copy is labels, states, counts and
+  short hints for a format or an otherwise hidden action; how a feature works
+  belongs in the docs, so panels, page headers and switches take no
+  description. Lazy page loads show a localized status
   and offer a full reload on failure, using the shared theme tokens.
 
 Keep loading, empty, stale, error, and unavailable-media states explicit. Never

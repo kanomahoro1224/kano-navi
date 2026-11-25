@@ -47,7 +47,7 @@ const (
 // AppKeys is an official Bilibili client's app key pair, from
 // BILIBILI_APP_KEY and BILIBILI_APP_SECRET. A request signed with it reads as
 // that client, which is the operator's deliberate trade-off for the uploads'
-// last fallback (see docs/architecture/sources.md); without a pair the
+// last fallback (see docs/architecture/sources/bilibili.md); without a pair the
 // fallback is off. It stays in memory and is never stored, logged or
 // returned.
 type AppKeys struct{ Key, Secret string }

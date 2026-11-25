@@ -6,10 +6,10 @@ HTTP Message Signature (RFC 9421) in the profile of the IETF draft
 signature can tell this service's automated requests from anonymous
 traffic and give them a higher limit. The official shop's Shopify storefront
 limits unsigned automated traffic most strictly and accepts signed requests
-without any enrollment, so the [shop source](sources.md#official-shop) is
+without any enrollment, so the [shop source](sources/shop.md#official-shop) is
 the one client that signs. `backend/internal/webbotauth` owns the key,
 request signing and the key directory; `internal/webbotauth/keyadmin` owns
-the stored key and its [admin routes](admin-api.md#web-bot-auth-key).
+the stored key and its [admin routes](admin-api/web-bot-auth-key.md).
 
 ## Key
 
@@ -121,8 +121,8 @@ compressed. While signing is not active the route answers
 
 ## Related Docs
 
-- [Sources: official shop](sources.md#official-shop)
-- [Admin API](admin-api.md#web-bot-auth-key)
-- [Public API](public-api.md#web-bot-auth-key-directory)
-- [Configuration](../operations/configuration.md#web-bot-auth)
+- [Sources: official shop](sources/shop.md#official-shop)
+- [Admin API](admin-api/web-bot-auth-key.md)
+- [Public API](public-api/feeds-and-endpoints.md#web-bot-auth-key-directory)
+- [Configuration](../operations/configuration/web-bot-auth.md)
 - [Deployment security](../operations/security.md#web-bot-auth-key)

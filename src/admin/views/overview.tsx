@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   CalendarClock,
+  CalendarMinus,
   CalendarSearch,
   CheckCircle2,
   CircleSlash,
@@ -143,9 +144,6 @@ function QueueRow({ entry, busy }: { entry: QueueEntry; busy: boolean }) {
             busy={pending}
             disabled={pending}
             onClick={() => startNow(entry.source)}
-            title={t(
-              busy ? "admin.queue.runNextHint" : "admin.queue.startHint",
-            )}
           >
             {t(busy ? "admin.queue.runNext" : "admin.queue.startNow")}
           </Button>
@@ -257,6 +255,13 @@ export function OverviewView({ navigate }: ViewProps) {
       tab: "schedule",
       count: review.suspectedCancellations,
       icon: CalendarClock,
+      tone: "berry",
+    },
+    {
+      key: "unlisted",
+      tab: "schedule",
+      count: review.unlistedEvents,
+      icon: CalendarMinus,
       tone: "berry",
     },
     {
@@ -418,7 +423,7 @@ export function OverviewView({ navigate }: ViewProps) {
                 size="sm"
                 variant="ghost"
                 icon={ListOrdered}
-                onClick={() => navigate("queue")}
+                onClick={() => navigate("runs", "next")}
               >
                 {t("admin.overview.openQueue")}
               </Button>

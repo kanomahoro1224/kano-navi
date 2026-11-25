@@ -477,3 +477,91 @@ func TestReservationRestoresAnAutomaticallyRetiredEvent(t *testing.T) {
 		t.Fatalf("the reservation did not restore the retired event: %s deleted=%v", title, deleted)
 	}
 }
+
+// An ended broadcast stays ended: later checks that call it upcoming or name
+// no state move neither the video nor its event back.
+func TestYoutubeEndedBroadcastStaysEnded(t *testing.T) {
+	p := testutil.NewSnapshot(t)
+	s, err := OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+	ended := ytsource.Video{ID: "FFFFFFFFFFF", Title: "stream", PublishedAt: "2026-01-02T03:00:00Z", ScheduledAt: "2026-01-02T12:00:00Z", EndedAt: "2026-01-02T14:00:00Z", URL: "https://www.youtube.com/watch?v=FFFFFFFFFFF", Kind: "stream", LiveStatus: ytsource.LiveStatusEnded}
+	write := func(v ytsource.Video) {
+		t.Helper()
+		if err := s.WriteYoutubeRecent(ctx, "UCAAAAAAAAAAAAAAAAAAAAAA", ytsource.Result{Videos: []ytsource.Video{v}, NextCursor: "FFFFFFFFFFF", NextCursorTime: "2026-01-02T03:00:00Z"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(ended)
+	upcoming := ended
+	upcoming.EndedAt, upcoming.LiveStatus, upcoming.IsUpcoming = "", ytsource.LiveStatusUpcoming, true
+	unnamed := ended
+	unnamed.EndedAt, unnamed.LiveStatus = "", ""
+	db, _ := sql.Open("sqlite", p)
+	defer db.Close()
+	for _, later := range []ytsource.Video{upcoming, unnamed} {
+		write(later)
+		var liveStatus, eventStatus sql.NullString
+		var videoUpcoming, eventUpcoming int
+		if err = db.QueryRow(`SELECT v.live_status,v.is_upcoming,e.status,e.is_upcoming FROM videos v JOIN events e ON e.id='youtube-'||v.id WHERE v.id=?`, ended.ID).Scan(&liveStatus, &videoUpcoming, &eventStatus, &eventUpcoming); err != nil {
+			t.Fatal(err)
+		}
+		if liveStatus.String != "ended" || videoUpcoming != 0 || eventStatus.String != "ended" || eventUpcoming != 0 {
+			t.Fatalf("after %q: live=%v upcoming=%d event=%v upcoming=%d", later.LiveStatus, liveStatus, videoUpcoming, eventStatus, eventUpcoming)
+		}
+	}
+}
+
+// A reservation known only to its day is a date-only entry; the start a later
+// check reports replaces it, and a later date-only answer leaves that start.
+func TestYoutubeDateOnlyReservationKeepsNoTime(t *testing.T) {
+	p := testutil.NewSnapshot(t)
+	s, err := OpenWorkflowCore(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+	dateOnly := ytsource.Video{ID: "GGGGGGGGGGG", Title: "waiting room", PublishedAt: "2026-11-01T03:00:00Z", ScheduledOn: "2026-11-05", URL: "https://www.youtube.com/watch?v=GGGGGGGGGGG", Kind: "unknown", IsUpcoming: true, LiveStatus: ytsource.LiveStatusUpcoming}
+	timed := dateOnly
+	timed.ScheduledOn, timed.ScheduledAt = "", "2026-11-05T12:00:00Z"
+	read := func(label string, startsOn, startsAt, precision string) {
+		t.Helper()
+		var on, precisionGot string
+		var at, scheduled sql.NullString
+		if err := s.DB().QueryRow(`SELECT e.starts_on,e.starts_at,e.time_precision,v.scheduled_at FROM events e JOIN videos v ON v.id=e.source_item_id WHERE e.id='youtube-GGGGGGGGGGG'`).Scan(&on, &at, &precisionGot, &scheduled); err != nil {
+			t.Fatalf("%s: %v", label, err)
+		}
+		if on != startsOn || at.String != startsAt || precisionGot != precision || scheduled.String != startsAt {
+			t.Fatalf("%s: starts_on=%s starts_at=%v precision=%s scheduled_at=%v", label, on, at, precisionGot, scheduled)
+		}
+	}
+	for _, step := range []struct {
+		label                         string
+		video                         ytsource.Video
+		startsOn, startsAt, precision string
+	}{
+		{"date only", dateOnly, "2026-11-05", "", "unknown"},
+		{"timed", timed, "2026-11-05", "2026-11-05T12:00:00Z", "exact"},
+		{"date only again", dateOnly, "2026-11-05", "2026-11-05T12:00:00Z", "exact"},
+	} {
+		if err := s.WriteYoutubeRecent(ctx, "UCAAAAAAAAAAAAAAAAAAAAAA", ytsource.Result{Videos: []ytsource.Video{step.video}, NextCursor: step.video.ID, NextCursorTime: step.video.PublishedAt}); err != nil {
+			t.Fatal(err)
+		}
+		read(step.label, step.startsOn, step.startsAt, step.precision)
+	}
+	// The date-only answer still carries everything else it reports.
+	renamed := dateOnly
+	renamed.Title = "renamed waiting room"
+	if err := s.WriteYoutubeRecent(ctx, "UCAAAAAAAAAAAAAAAAAAAAAA", ytsource.Result{Videos: []ytsource.Video{renamed}, NextCursor: renamed.ID, NextCursorTime: renamed.PublishedAt}); err != nil {
+		t.Fatal(err)
+	}
+	read("date only renamed", "2026-11-05", "2026-11-05T12:00:00Z", "exact")
+	var title string
+	if err := s.DB().QueryRow(`SELECT title FROM events WHERE id='youtube-GGGGGGGGGGG'`).Scan(&title); err != nil || title != renamed.Title {
+		t.Fatalf("title=%q err=%v, want the date-only answer's title", title, err)
+	}
+}

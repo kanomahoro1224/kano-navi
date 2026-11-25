@@ -1,12 +1,5 @@
-import type { Dashboard, Locale, Video } from "../types.ts"
-import {
-  confirmedLiveStatus,
-  dateKey,
-  LIVE_GRACE_MS,
-  scheduleSortTime,
-  videoTag,
-  videoTime,
-} from "./format.ts"
+import type { DashboardProjection, Locale, Video } from "../types.ts"
+import { dateKey, videoTime } from "./format.ts"
 
 /** The board's video filter. */
 export type VideoFilter = "all" | "streams" | "works" | "shorts"
@@ -53,32 +46,9 @@ export function videoIsGone(video: Video) {
   return video.availability === "private" || video.availability === "removed"
 }
 
-/**
- * The stage's rule for one video: a fresh confirmed state decides first;
- * without one a stream keeps the three-hour grace after its start and any
- * other video stays current only until an explicit end.
- */
-export function videoPhase(video: Video, now: number): VideoPhase {
-  if (video.view?.phase) return video.view.phase
-  // An operator-confirmed cancellation is neither upcoming, live nor archived.
-  if (video.isCancelled) return "cancelled"
-  const start = Date.parse(video.scheduledAt || "")
-  const end = Date.parse(video.endsAt || "")
-  const confirmed = confirmedLiveStatus(video)
-  if (confirmed === "live") return end <= now ? "past" : "live"
-  if (confirmed === "upcoming") return "upcoming"
-  if (confirmed === "ended") return "past"
-  if (!Number.isFinite(start)) return video.isUpcoming ? "upcoming" : "past"
-  if (start > now) return "upcoming"
-  if (Number.isFinite(end)) return end > now ? "started" : "past"
-  return videoIsStream(video) && start > now - LIVE_GRACE_MS
-    ? "started"
-    : "past"
-}
-
-/** Whether a work leads the shelf: a song (a cover or original) or a premiere. */
-function isLeadWork(video: Video) {
-  return videoTag(video) === "song" || video.kind === "premiere"
+/** Where a video stands, as the server's projection judged it. */
+export function videoPhase(video: Video): VideoPhase {
+  return video.view.phase
 }
 
 export interface VideoSplit {
@@ -93,143 +63,78 @@ export interface VideoSplit {
 }
 
 export interface VideoShelfGroups extends VideoSplit {
-  /** The operator's featured video, else the newest cover or premiere. */
+  /** The server's lead: the operator's featured video, else its chosen work. */
   lead: Video | null
   leadIsFeatured: boolean
 }
 
-type ProjectedShelf = NonNullable<Dashboard["projection"]>["shelf"]
+const shelfLists = {
+  reservation: "reservations",
+  work: "works",
+  archive: "archives",
+  short: "shorts",
+} as const
 
-/** Reads the server's shelf order while keeping old snapshots usable. */
-function splitProjectedVideos(
+/**
+ * Sorts videos into what is coming, what was uploaded and what aired, in the
+ * projection's shelf order. A video the shelf lists leave out, such as the
+ * lead in a filtered view, joins the end of its server-assigned group; one
+ * without a group stays off the shelf.
+ */
+export function splitVideos(
   videos: Video[],
-  projection: Dashboard["projection"] | undefined,
-): VideoSplit | null {
-  if (projection?.version !== 1) return null
-  const shelf: ProjectedShelf = projection.shelf
+  projection: DashboardProjection,
+): VideoSplit {
   const byId = new Map(videos.map((video) => [video.id, video]))
   const take = (ids: string[]) =>
     ids.flatMap((id) => {
       const video = byId.get(id)
       return video ? [video] : []
     })
-  return {
+  const { shelf } = projection
+  const split: VideoSplit = {
     reservations: take(shelf.reservations),
     works: take(shelf.works),
     archives: take(shelf.archives),
     shorts: take(shelf.shorts),
   }
-}
-
-const newestFirst = (a: Video, b: Video) =>
-  scheduleSortTime(videoTime(b)) - scheduleSortTime(videoTime(a)) ||
-  a.id.localeCompare(b.id)
-
-/** Sorts videos into what is coming, what was uploaded and what aired. */
-export function splitVideos(
-  videos: Video[],
-  now: number,
-  projection?: Dashboard["projection"],
-): VideoSplit {
-  return splitVideosWithProjection(videos, now, projection)
-}
-
-function splitVideosWithProjection(
-  videos: Video[],
-  now: number,
-  projection?: Dashboard["projection"],
-): VideoSplit {
-  let projected = splitProjectedVideos(videos, projection)
-  if (projected) {
-    // A lead is omitted from the all-view shelf. Filtered views still include
-    // it, so place that one video using its server-assigned group.
-    const listed = new Set([
-      ...projected.reservations,
-      ...projected.works,
-      ...projected.archives,
-      ...projected.shorts,
-    ])
-    const missing = videos.filter((video) => !listed.has(video))
-    for (const video of missing) {
-      const group = video.view?.shelfGroup
-      if (
-        video.view?.phase === "cancelled" &&
-        Date.parse(video.scheduledAt || "") <= now
-      )
-        continue
-      if (group === "reservation") projected.reservations.push(video)
-      else if (group === "archive") projected.archives.push(video)
-      else if (group === "short") projected.shorts.push(video)
-      else if (group === "work") projected.works.push(video)
-      else {
-        projected = null
-        break
-      }
-    }
-    if (projected) return projected
-  }
-  const reservations: Video[] = []
-  const works: Video[] = []
-  const archives: Video[] = []
-  const shorts: Video[] = []
+  const listed = new Set(Object.values(split).flat())
   for (const video of videos) {
-    const phase = videoPhase(video, now)
-    // A cancelled reservation stays listed until its start, then drops out.
-    if (phase === "cancelled") {
-      if (Date.parse(video.scheduledAt || "") > now) reservations.push(video)
-    } else if (phase !== "past") reservations.push(video)
-    // A Short's title can read like a stream's, so its format decides first.
-    else if (videoIsShort(video)) shorts.push(video)
-    else (videoIsStream(video) ? archives : works).push(video)
+    const group = video.view.shelfGroup
+    if (group && !listed.has(video)) split[shelfLists[group]].push(video)
   }
-  reservations.sort(
-    (a, b) =>
-      scheduleSortTime(a.scheduledAt) - scheduleSortTime(b.scheduledAt) ||
-      a.id.localeCompare(b.id),
-  )
-  works.sort(newestFirst)
-  archives.sort(newestFirst)
-  shorts.sort(newestFirst)
-  return { reservations, works, archives, shorts }
+  return split
 }
 
 /** The shelf's lead and the rest, each video listed once. */
 export function groupVideos(
   videos: Video[],
-  featuredVideoId: string | null,
-  now: number,
-  projection?: Dashboard["projection"],
+  projection: DashboardProjection,
 ): VideoShelfGroups {
-  const featured = featuredVideoId
-    ? videos.find((video) => video.id === featuredVideoId) || null
+  const { leadId, leadIsFeatured } = projection.shelf
+  const lead = leadId
+    ? videos.find((video) => video.id === leadId) || null
     : null
   const split = splitVideos(
-    videos.filter((video) => video !== featured),
-    now,
+    videos.filter((video) => video !== lead),
     projection,
   )
-  let lead = featured
-  if (!lead) {
-    // The server's lead wins, so a newer cover never loses to an older one
-    // still in the projected works; the local rule reads a snapshot without
-    // a projected lead. An unlabelled work leads too: a missing label is no
-    // reason to pass over the work that was just published.
-    const projectedId =
-      projection?.version === 1 ? projection.shelf.leadId : undefined
-    const projected = projectedId
-      ? split.works.find((video) => video.id === projectedId)
-      : undefined
-    const watchable = split.works.filter((video) => !videoIsGone(video))
-    lead =
-      projected ||
-      watchable.find(
-        (video) => isLeadWork(video) || videoTag(video) === null,
-      ) ||
-      watchable[0] ||
-      null
-    if (lead) split.works.splice(split.works.indexOf(lead), 1)
-  }
-  return { ...split, lead, leadIsFeatured: Boolean(featured) }
+  return { ...split, lead, leadIsFeatured: Boolean(lead && leadIsFeatured) }
+}
+
+/**
+ * The reservations the All view's side group lists: the stage's next video
+ * already has its ticket at the top of the board, so it is left out here.
+ */
+export function sideReservations(
+  reservations: Video[],
+  projection: DashboardProjection,
+): Video[] {
+  const { spotlight } = projection
+  const staged = spotlight?.mode === "next" ? spotlight.videoId : null
+  return staged
+    ? reservations.filter((video) => video.id !== staged)
+    : reservations
 }
 
 /** Earlier works beside the lead when no reservation is shown. */
@@ -284,17 +189,13 @@ export interface VideoLink {
  * video on bilibili when a copy is merged; a reservation or broadcast keeps
  * its own platform, the only one that carries it.
  */
-export function videoLinks(
-  video: Video,
-  locale: Locale,
-  now: number,
-): VideoLink[] {
+export function videoLinks(video: Video, locale: Locale): VideoLink[] {
   // A private or removed video keeps only its other platforms' copies.
   const links = [
     ...(videoIsGone(video) ? [] : [{ source: video.source, url: video.url }]),
     ...(video.alternates || []),
   ]
-  if (locale !== "zh-CN" || videoPhase(video, now) !== "past") return links
+  if (locale !== "zh-CN" || videoPhase(video) !== "past") return links
   const index = links.findIndex((link) => link.source === "bilibili")
   if (index <= 0) return links
   return [links[index], ...links.slice(0, index), ...links.slice(index + 1)]

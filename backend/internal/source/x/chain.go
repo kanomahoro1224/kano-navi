@@ -98,7 +98,7 @@ func withoutContinuations(gap *Gap) *Gap {
 	if gap == nil {
 		return nil
 	}
-	return &Gap{Floor: gap.Floor, Older: withoutContinuations(gap.Older)}
+	return &Gap{Floor: gap.Floor, Ceiling: gap.Ceiling, Older: withoutContinuations(gap.Older)}
 }
 
 // discoverProfile lists the IDs on the logged-out profile page, which shows
@@ -111,7 +111,7 @@ func (a *Adapter) discoverProfile(ctx context.Context, account string, opts Opti
 	}
 	found := discovery{ids: DiscoverIDs(profile, account, opts.DiscoveryLimit), gap: withoutContinuations(opts.Gap)}
 	if opts.CursorID != "" && len(found.ids) > 0 && !slices.ContainsFunc(found.ids, func(id string) bool { return reachesStored(id, opts, cutoff) }) {
-		found.gap = withGap(found.gap, Gap{Floor: opts.CursorID})
+		found.gap = withGap(found.gap, Gap{Floor: opts.CursorID, Ceiling: gapCeiling(found.ids, opts.CursorID)})
 	}
 	return found, nil
 }
@@ -190,16 +190,29 @@ func (a *Adapter) discoverAPI(ctx context.Context, account string, opts Options,
 	if !done {
 		// Without a cursor the bootstrap is bounded on purpose and opens no gap.
 		if opts.CursorID != "" {
-			found.gap = withGap(found.gap, Gap{Floor: opts.CursorID})
+			found.gap = withGap(found.gap, Gap{Floor: opts.CursorID, Ceiling: gapCeiling(found.ids, opts.CursorID)})
 		}
 		return found, nil
 	}
 	for gap := found.gap; gap != nil; {
-		done, err = span(gap.Floor, opts.GapCeilings[gap.Floor], "")
+		// The ceiling the opening read recorded wins over the oldest stored
+		// status above the floor, which a pinned or hand-fetched post inside
+		// the gap would lower.
+		ceiling := gap.Ceiling
+		if ceiling == "" {
+			ceiling = opts.GapCeilings[gap.Floor]
+		}
+		before := len(found.ids)
+		done, err = span(gap.Floor, ceiling, "")
+		// What this read took is stored, so the gap's ceiling moves down to it.
+		if reached := gapCeiling(found.ids[before:], gap.Floor); reached != "" {
+			gap = &Gap{Floor: gap.Floor, Ceiling: reached, Older: gap.Older}
+		}
 		if err != nil {
 			if ctx.Err() == nil {
 				found.notes = append(found.notes, "x api gap: "+safeCode(err))
 			}
+			found.gap = gap
 			return found, nil
 		}
 		if !done {

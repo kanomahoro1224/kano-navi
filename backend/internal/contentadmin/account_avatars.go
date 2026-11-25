@@ -433,8 +433,14 @@ func (m *Module) buildAccountAvatarsPayload(ctx context.Context) (*accountAvatar
 	if err != nil {
 		return nil, err
 	}
+	// Archive-only accounts are Kano's own too, though never synchronized.
+	archived, err := m.store.XArchiveAccounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	own := append(append([]string{}, m.xHandles...), archived...)
 
-	items := make([]accountAvatarAdminItem, 0, len(m.xHandles)+len(related)+len(stored))
+	items := make([]accountAvatarAdminItem, 0, len(own)+len(related)+len(stored))
 	seen := map[string]bool{}
 
 	appendItem := func(src, key, display, role string, keywords []string) {
@@ -537,7 +543,7 @@ func (m *Module) buildAccountAvatarsPayload(ctx context.Context) (*accountAvatar
 		})
 	}
 
-	for _, rawHandle := range m.xHandles {
+	for _, rawHandle := range own {
 		src, key, display, ok := sqlite.NormalizeAccountAvatarKey("x", rawHandle)
 		if ok {
 			appendItem(src, key, display, "own", nil)

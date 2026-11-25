@@ -56,7 +56,7 @@ packaged, and how an instance gets its covers.
   list with stored videos (see [Upload Covers](#upload-covers)).
 - `backend/internal/works/catalog.json` and `upload-list.json` are the
   bodies of `GET /api/works` and `GET /api/works/upload-list`
-  ([Public API](../architecture/public-api.md#journey-and-works-collections)).
+  ([Public API](../architecture/public-api/journey.md)).
   `npm run works:export` writes them from the tables above with the page's
   own modules, rendering the phrase-coded wording in every language, and the
   server embeds them; `tests/works-api.test.ts` fails when they differ from
@@ -76,8 +76,8 @@ digits of the SHA-256 of their bytes plus `.jpg` or `.png`. The files (about 200
 `data/works/`, too large for the repository and the image. The server reads
 them through `GET /media/works/<name>`, which serves them like the LINE BLOG
 archive media
-([Immutable fixed files](../architecture/media-cache.md#immutable-fixed-files),
-[Resized copies](../architecture/media-cache.md#resized-copies)): the grids,
+([Immutable fixed files](../architecture/media-cache/layout-and-model.md#immutable-fixed-files),
+[Resized copies](../architecture/media-cache/resized-copies.md)): the grids,
 rows and the release sheet request smaller copies through `srcset`, and the
 image viewer loads the original. A cover that is not on the server shows an
 unavailable state; the page never loads it from the address it came from.
@@ -117,29 +117,29 @@ Packaging publishes no video thumbnails; each instance caches them. The
 upload list is the packaged one whatever an instance stored, and the server
 joins it with its own data by video ID on every read
 (`GET /api/works/uploads`, see
-[Public API](../architecture/public-api.md#works-uploads)). An upload's cover
+[Public API](../architecture/public-api/works.md#works-uploads)). An upload's cover
 is the first of its videos, in cover order, with a ready image: the stored
 video's own thumbnail, else the image the media step downloaded for the list
-([Works upload covers](../architecture/media-cache.md#works-upload-covers)).
+([Works upload covers](../architecture/media-cache/packaged-media.md#works-upload-covers)).
 Until one is ready, and for an upload whose every video is gone, the page
 prints a sleeve with its title. A stored YouTube or bilibili video also adds
 its current title, length and who can watch it. The join never writes a video row or
 a merge; a stored bilibili upload whose merge disagrees with the list's
 pairing is listed for the operator
-([Admin API](../architecture/admin-api.md#videos)).
+([Admin API](../architecture/admin-api/videos.md)).
 
 ## Uploads After the Collection Date
 
 The packaged list stops at `updatedAt`. The server lists the uploads posted
 after it on each read of `GET /api/works/uploads` (as `recent`, see
-[Public API](../architecture/public-api.md#works-uploads)) and stores no
+[Public API](../architecture/public-api/works.md#works-uploads)) and stores no
 list of its own. A stored video is listed when all of these hold:
 
 1. its Japan date, `COALESCE(scheduled_at, published_at)` in Asia/Tokyo, is
    after `updatedAt`;
 2. public readers list it (a YouTube video, or an unmerged Bilibili upload
    whose form is settled, see
-   [Video merging](../architecture/data-model.md#video-merging)), its shown
+   [Video merging](../architecture/data-model/videos.md#video-merging)), its shown
    availability is not `private` or `removed`, and it is no longer upcoming
    (a waiting premiere appears once it has aired);
 3. it is not merged into another video (a merged Bilibili upload is its
@@ -152,16 +152,16 @@ list of its own. A stored video is listed when all of these hold:
 
 The title inference asks about public Bilibili uploads as about YouTube
 videos (see
-[Video form and tags](../architecture/data-model.md#video-form-and-tags)),
+[Video form and tags](../architecture/data-model/video-form.md#video-form-and-tags)),
 so a Bilibili-only song upload can be listed without the operator.
 
 The decision is the operator's override of rule 5. Include lists a song the
 tag missed; exclude takes off a video tagged `song` that is not a work, such
 as an album trailer or a crossfade. Neither overrides rules 1 to 4: a
-decision on an earlier video stays stored and has no effect. The Site page
+decision on an earlier video stays stored and has no effect. The Works page
 of the console lists the listed and excluded videos with their origin, and
 the video editor sets the decision on any video
-([Admin API](../architecture/admin-api.md#videos)); a change advances the
+([Admin API](../architecture/admin-api/videos.md)); a change advances the
 dashboard revision.
 
 A release that moves `updatedAt` drops the earlier videos by rule 1, and

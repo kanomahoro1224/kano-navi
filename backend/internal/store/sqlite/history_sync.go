@@ -125,6 +125,13 @@ func (s *Store) WriteHistoryPage(ctx context.Context, page history.Page) (histor
 			if existed && page.KeepStored {
 				kept[post.ID] = true
 				out.Stored++
+				// A listed status exists: it is no longer deleted upstream,
+				// and the listing may tell what it is.
+				listed, clearErr := recordXUpstreamState(ctx, tx, page.Account, post.ID, post.Kind)
+				if clearErr != nil {
+					return history.Written{}, ErrSourceWrite
+				}
+				changed = changed || listed
 				continue
 			}
 			// A post already owned by another account keeps its owner.

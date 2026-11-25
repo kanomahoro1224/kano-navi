@@ -63,9 +63,9 @@ func (f *relatedFixture) text(q string, args ...any) string {
 	return out
 }
 
-// state is the post's visibility: missing, shown or hidden.
+// state is the post's public visibility: missing, shown or hidden.
 func (f *relatedFixture) state(id string) string {
-	return f.text(`SELECT COALESCE((SELECT CASE WHEN hidden_at IS NULL THEN 'shown' ELSE 'hidden' END FROM posts WHERE id=?),'missing')`, id)
+	return f.text(`SELECT COALESCE((SELECT CASE WHEN `+PostVisibleSQL("p")+` THEN 'shown' ELSE 'hidden' END FROM posts p WHERE id=?),'missing')`, id)
 }
 
 func (f *relatedFixture) wall() map[string]bool {
@@ -194,9 +194,10 @@ func TestRuleChangesAndOperatorDecisionsPromoteAndDemote(t *testing.T) {
 	}}, true); err != nil {
 		t.Fatal(err)
 	}
-	// Rules that no longer match demote by hiding; matching again shows it.
+	// Rules that no longer match demote, which hides the post without
+	// writing the operator's hide; matching again shows it.
 	f.rules("存在しない語")
-	if f.state(relatedMatch) != "hidden" {
+	if f.state(relatedMatch) != "hidden" || f.text(`SELECT COALESCE(hidden_at,'')||COALESCE(shown_at,'') FROM posts WHERE id=?`, relatedMatch) != "" {
 		t.Fatalf("not demoted: %s", f.state(relatedMatch))
 	}
 	f.rules(DefaultXRelatedKeywords...)

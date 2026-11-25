@@ -620,6 +620,14 @@
     {
       "host": "notify.windows.com",
       "reason": "Windows Notification Service domain: covers wns2-*.notify.windows.com handed over by Edge."
+    },
+    {
+      "host": "api.telegram.org",
+      "reason": "Optional server-side operator alerts: the Telegram Bot API sendMessage call for a channel the operator configures; the bot token is sealed at rest and never logged."
+    },
+    {
+      "host": "ntfy.sh",
+      "reason": "Optional server-side operator alerts: the default public ntfy server for an ntfy channel the operator configures; access tokens are sent only in headers."
     }
   ]
 }

@@ -3,10 +3,12 @@ package mediadownload
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -135,5 +137,58 @@ func TestDownloadPendingMakesCopiesWithinItsBounds(t *testing.T) {
 	summary, err = pngClient(&requests, never).DownloadPending(context.Background(), store, Bounds{Batch: 3, Files: 100, Budget: time.Minute, Variants: 2, VariantBudget: time.Minute})
 	if err != nil || summary.Resized != 1 {
 		t.Fatalf("backfill summary=%#v err=%v", summary, err)
+	}
+}
+
+// contentPath is where the step stores bytes under data/.
+func contentPath(snapshot string, content []byte) string {
+	h := sha256.Sum256(content)
+	hash := hex.EncodeToString(h[:])
+	return filepath.Join(filepath.Dir(filepath.Dir(snapshot)), "x", "sha256", hash[:2], hash+".png")
+}
+
+// A corrupt file at an asset's content address is replaced by the verified
+// download instead of blocking the asset.
+func TestDownloadPendingReplacesACorruptFileAtTheContentAddress(t *testing.T) {
+	store, p := queueStore(t, 1)
+	content := []byte("\x89PNG\r\n\x1a\n/media/drain-0.png")
+	target := contentPath(p, content)
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("\x89PNG\r\n\x1a\n/media/drain-X.png"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	requests := 0
+	summary, err := pngClient(&requests, never).DownloadPending(context.Background(), store, Bounds{Batch: 3, Files: 100, Budget: time.Minute})
+	if err != nil || summary != (Summary{Attempted: 1, Ready: 1}) {
+		t.Fatalf("summary=%#v err=%v", summary, err)
+	}
+	if stored, err := os.ReadFile(target); err != nil || string(stored) != string(content) {
+		t.Fatalf("stored=%q err=%v", stored, err)
+	}
+}
+
+// An asset whose bytes cannot be published records a retryable failure, and
+// the step goes on with the rest of the queue.
+func TestDownloadPendingContinuesPastAFileItCannotPublish(t *testing.T) {
+	store, p := queueStore(t, 3)
+	// A directory at the first asset's content address blocks the rename.
+	blocked := contentPath(p, []byte("\x89PNG\r\n\x1a\n/media/drain-0.png"))
+	if err := os.MkdirAll(filepath.Join(blocked, "occupied"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	requests := 0
+	summary, err := pngClient(&requests, never).DownloadPending(context.Background(), store, Bounds{Batch: 3, Files: 100, Budget: time.Minute})
+	if err != nil || summary != (Summary{Attempted: 3, Ready: 2, Failed: 1}) {
+		t.Fatalf("summary=%#v err=%v", summary, err)
+	}
+	var status, code string
+	var retryAt sql.NullString
+	if err = store.DB().QueryRow(`SELECT status,last_error,next_retry_at FROM media_assets WHERE source_url='https://pbs.twimg.com/media/drain-0.png'`).Scan(&status, &code, &retryAt); err != nil {
+		t.Fatal(err)
+	}
+	if status != "failed" || code != "media_write_failed" || !retryAt.Valid {
+		t.Fatalf("status=%s code=%s retry=%v", status, code, retryAt)
 	}
 }

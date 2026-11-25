@@ -3,7 +3,8 @@
 ## Weekly Guide
 
 The weekly schedule is a Monday-first program guide: seven day columns on
-wide screens and a day list on phones. Each entry shows its Japan time (or
+wide screens and a day list on narrower ones, where two or more empty days in
+a row (today aside) share one line naming the first and last of them. Each entry shows its Japan time (or
 "time TBA" when only the date is known), its type, a status when it is on
 air, TBA, or cancelled, and an icon for whether it is Auto-detected
 (sparkles) or Confirmed (check badge). Entries of earlier days, and today's
@@ -36,7 +37,8 @@ Click or tap an entry to open its details: the whole title, its Japan time
 (and your own time when you are outside Japan), its labels, whether it is
 Auto-detected or Confirmed, and any cancellation note. The arrow in the
 bottom corner of an entry and of its details opens the stream, video, or post
-it comes from. An entry on more than one platform, such as a stream on
+it comes from. A stream or premiere with a YouTube reservation shows the
+reservation's title and time, whichever post announced it. An entry on more than one platform, such as a stream on
 YouTube and bilibili at once, shows one link per platform, with the live one
 marked; while it is on air, its **On air** label carries the logos of the
 platforms it is live on, each opening that stream. So does an entry on one platform whose announcement is a post, and

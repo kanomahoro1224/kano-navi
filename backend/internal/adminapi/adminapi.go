@@ -1,6 +1,6 @@
 // Package adminapi serves the operator API under /api/admin. It owns the one
 // route table, the session and origin guards and the shared response
-// conventions described in docs/architecture/admin-api.md. Feature packages
+// conventions described in docs/architecture/admin-api/overview.md. Feature packages
 // contribute routes through httpx.AdminModule.
 package adminapi
 

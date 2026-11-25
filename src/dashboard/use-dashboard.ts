@@ -6,6 +6,7 @@ import type {
   ArchiveSnapshot,
   Dashboard,
   CalendarSnapshot,
+  Post,
 } from "@/types"
 import { createRequestScope, startPolling } from "../lib/polling"
 import { startOfWeek, japanToday, localDateKey, addDays } from "./format"
@@ -887,9 +888,175 @@ function stringList(value: unknown) {
     : []
 }
 
+/** A post month index answer as the page uses it, or an error. */
+function readPostArchiveIndex(result: any): PostArchiveIndex {
+  if (!Array.isArray(result?.months) || !Number.isInteger(result.revision))
+    throw new Error("Invalid month index")
+  const accounts = result.accounts ?? {}
+  return {
+    months: (result.months as unknown[])
+      .map((month) => readArchiveMonth(month, monthIndexes.posts.counts))
+      .filter((month): month is ArchiveMonth => month !== null),
+    accounts: stringList(accounts.x),
+    bilibiliAccounts: stringList(accounts.bilibili),
+    accountAvatars:
+      result.accountAvatars && typeof result.accountAvatars === "object"
+        ? result.accountAvatars
+        : {},
+    revision: result.revision,
+  }
+}
+
+/** One archive page answer, or an error when it is not one. */
+function readArchivePage<T>(result: any): ArchiveSnapshot<T> {
+  if (
+    !Array.isArray(result?.items) ||
+    !result.adjacent ||
+    !Number.isInteger(result.total) ||
+    !Number.isInteger(result.revision) ||
+    !Number.isInteger(result.page)
+  )
+    throw new Error("Invalid archive page")
+  return result
+}
+
+/**
+ * The post archive page's last reads, so a return to the page shows them at
+ * once and reads them again only when the month index names another
+ * revision. This document keeps the index and the last timeline as loaded;
+ * localStorage keeps the index and the newest page of the last few accounts'
+ * timelines from their newest post, for a week. A change to the shape of
+ * either answer takes a new key.
+ */
+const POST_ARCHIVE_CACHE_KEY = "kano-post-archive-v1"
+const POST_ARCHIVE_STORED_TIMELINES = 3
+
+/** Where a post timeline starts, as the archive page asked for it. */
+export interface PostTimelineStart {
+  account: string | null
+  /** A `YYYY-MM` month, or null for the newest post. */
+  anchor: string | null
+  startPage?: number
+}
+
+const postArchiveMemory: {
+  index: PostArchiveIndex | null
+  timeline: {
+    key: string
+    start: PostTimelineStart
+    snapshot: ArchiveSnapshot<unknown>
+  } | null
+} = { index: null, timeline: null }
+
+type StoredEntry = { savedAt: number; value: unknown }
+type StoredPostArchive = {
+  index?: StoredEntry
+  timelines: (StoredEntry & { key: string })[]
+}
+
+function readStoredPostArchive(): StoredPostArchive {
+  try {
+    const stored = JSON.parse(
+      window.localStorage.getItem(POST_ARCHIVE_CACHE_KEY) || "null",
+    )
+    return {
+      index: stored?.index,
+      timelines: Array.isArray(stored?.timelines) ? stored.timelines : [],
+    }
+  } catch {
+    return { timelines: [] }
+  }
+}
+
+function writeStoredPostArchive(
+  change: (stored: StoredPostArchive) => StoredPostArchive,
+) {
+  try {
+    window.localStorage.setItem(
+      POST_ARCHIVE_CACHE_KEY,
+      JSON.stringify(change(readStoredPostArchive())),
+    )
+  } catch {
+    // Without storage the next visit reads the page as it opens.
+  }
+}
+
+/** A stored value under a week old that `read` accepts, or null. */
+function storedValue<T>(
+  entry: StoredEntry | undefined,
+  read: (value: unknown) => T,
+) {
+  const age = Date.now() - (entry?.savedAt ?? Number.NaN)
+  if (!(age >= 0 && age <= SNAPSHOT_CACHE_MAX_AGE_MS)) return null
+  try {
+    return read(entry!.value)
+  } catch {
+    return null
+  }
+}
+
+function restoredPostIndex() {
+  return (
+    postArchiveMemory.index ??
+    storedValue(readStoredPostArchive().index, readPostArchiveIndex)
+  )
+}
+
+function restoredPostTimeline(key: string): ArchiveSnapshot<unknown> | null {
+  if (postArchiveMemory.timeline?.key === key)
+    return postArchiveMemory.timeline.snapshot
+  const stored = readStoredPostArchive().timelines.find(
+    (entry) => entry.key === key,
+  )
+  const page = storedValue(stored, readArchivePage)
+  return page && { ...page, firstPage: 1 }
+}
+
+/**
+ * Keeps a post timeline's run, and in localStorage its first page as read
+ * when the timeline starts from the newest post.
+ */
+function rememberPostTimeline(
+  key: string,
+  request: ArchiveRequest,
+  snapshot: ArchiveSnapshot<unknown>,
+  firstPage: ArchiveSnapshot<unknown> | null,
+) {
+  const start = {
+    account: request.account ?? null,
+    anchor: request.anchor ? localDateKey(request.anchor).slice(0, 7) : null,
+    startPage: request.startPage,
+  }
+  postArchiveMemory.timeline = { key, start, snapshot }
+  if (!firstPage || start.anchor) return
+  writeStoredPostArchive((stored) => ({
+    ...stored,
+    timelines: [
+      { key, savedAt: Date.now(), value: firstPage },
+      ...stored.timelines.filter((entry) => entry.key !== key),
+    ].slice(0, POST_ARCHIVE_STORED_TIMELINES),
+  }))
+}
+
+/**
+ * The post timeline this document read last, where it started and what it
+ * loaded, so a return to the archive page can resume it.
+ */
+export function rememberedPostTimeline() {
+  const timeline = postArchiveMemory.timeline
+  return (
+    timeline && {
+      start: timeline.start,
+      snapshot: timeline.snapshot as ArchiveSnapshot<Post>,
+    }
+  )
+}
+
 /**
  * Reads the post month index once for the archive page, with the accounts
- * the page filters by. `retry` reads it again after a failure.
+ * the page filters by, showing the last known index until it arrives.
+ * `revision` is the read's revision once it arrives, null after a failed
+ * read and undefined before. `retry` reads it again after a failure.
  */
 export function usePostArchiveIndex() {
   const scope = useMemo(() => createRequestScope(), [])
@@ -897,7 +1064,8 @@ export function usePostArchiveIndex() {
   const [state, setState] = useState<{
     index: PostArchiveIndex | null
     error: Error | null
-  }>({ index: null, error: null })
+    read: boolean
+  }>(() => ({ index: restoredPostIndex(), error: null, read: false }))
 
   useEffect(() => {
     scope.activate()
@@ -905,31 +1073,20 @@ export function usePostArchiveIndex() {
   }, [scope])
 
   useEffect(() => {
-    const index = monthIndexes.posts
     scope
       .run("index", async (signal) => {
-        const result = await readScopedJson(index.url, signal)
-        if (
-          !Array.isArray(result?.months) ||
-          !Number.isInteger(result.revision)
-        )
-          throw new Error("Invalid month index")
-        const accounts = result.accounts ?? {}
-        return {
-          months: (result.months as unknown[])
-            .map((month) => readArchiveMonth(month, index.counts))
-            .filter((month): month is ArchiveMonth => month !== null),
-          accounts: stringList(accounts.x),
-          bilibiliAccounts: stringList(accounts.bilibili),
-          accountAvatars:
-            result.accountAvatars && typeof result.accountAvatars === "object"
-              ? result.accountAvatars
-              : {},
-          revision: result.revision,
-        } satisfies PostArchiveIndex
+        const result = await readScopedJson(monthIndexes.posts.url, signal)
+        return { result, index: readPostArchiveIndex(result) }
       })
       .then(
-        (index) => setState({ index, error: null }),
+        ({ result, index }) => {
+          postArchiveMemory.index = index
+          writeStoredPostArchive((stored) => ({
+            ...stored,
+            index: { savedAt: Date.now(), value: result },
+          }))
+          setState({ index, error: null, read: true })
+        },
         (caught: unknown) => {
           if (caught instanceof Error && caught.name === "AbortError") return
           setState((value) => ({
@@ -942,7 +1099,13 @@ export function usePostArchiveIndex() {
   }, [attempt, scope])
 
   const retry = useCallback(() => setAttempt((value) => value + 1), [])
-  return { ...state, retry }
+  const revision =
+    state.read && state.index
+      ? state.index.revision
+      : state.error
+        ? null
+        : undefined
+  return { index: state.index, error: state.error, revision, retry }
 }
 
 /**
@@ -952,6 +1115,10 @@ export function usePostArchiveIndex() {
  * instead of being appended. Schedule and video archives also follow
  * successful board snapshots, whose minute/manual refresh expires time-based
  * projections without a revision change. A null request cancels the read.
+ *
+ * A post timeline opens on the run this document or browser last loaded for
+ * the same start, without a read; it is read again when `revision`, the
+ * month index's, differs from it, or is null because the index read failed.
  */
 export function useArchive<T>(
   request: ArchiveRequest | null,
@@ -965,14 +1132,33 @@ export function useArchive<T>(
     snapshot: ArchiveSnapshot<T> | null
     isLoading: boolean
     error: Error | null
-  }>({ key: null, snapshot: null, isLoading: false, error: null })
+    /** The snapshot is a remembered one this hook has not read yet. */
+    restored: boolean
+  }>(() => {
+    const restored =
+      request?.kind === "posts" && key
+        ? (restoredPostTimeline(key) as ArchiveSnapshot<T> | null)
+        : null
+    return {
+      key: restored ? key : null,
+      snapshot: restored,
+      isLoading: false,
+      error: null,
+      restored: Boolean(restored),
+    }
+  })
   const keyRef = useRef(key)
   keyRef.current = key
   const requestRef = useRef(request)
   requestRef.current = request
   const stateRef = useRef(state)
   stateRef.current = state
-  const refreshTarget = `${revision ?? ""}/${request?.kind === "posts" ? "" : (snapshotVersion ?? "")}`
+  // Post pages carry no time-derived fields, so they follow the revision
+  // alone; undefined (not known yet) and null (unknown) are targets apart.
+  const refreshTarget =
+    request?.kind === "posts"
+      ? `posts:${revision}`
+      : `${revision ?? ""}/${snapshotVersion ?? ""}`
   const refreshTargetRef = useRef(refreshTarget)
   refreshTargetRef.current = refreshTarget
   // Consume a target when its read starts. A newer target waits for active
@@ -987,15 +1173,26 @@ export function useArchive<T>(
     signal.throwIfAborted()
     const result = await readScopedJson(archiveUrl(current, page), signal)
     signal.throwIfAborted()
-    if (
-      !Array.isArray(result.items) ||
-      !result.adjacent ||
-      !Number.isInteger(result.total) ||
-      !Number.isInteger(result.revision) ||
-      !Number.isInteger(result.page)
-    )
-      throw new Error("Invalid archive page")
-    return result
+    return readArchivePage<T>(result)
+  }
+
+  // Installs a read run; a post timeline is remembered for the next visit,
+  // with the first page when this read began there.
+  const settle = (
+    currentKey: string | null,
+    current: ArchiveRequest,
+    snapshot: ArchiveSnapshot<T>,
+    firstPage: ArchiveSnapshot<T> | null = null,
+  ) => {
+    if (current.kind === "posts" && currentKey)
+      rememberPostTimeline(currentKey, current, snapshot, firstPage)
+    setState({
+      key: currentKey,
+      snapshot,
+      isLoading: false,
+      error: null,
+      restored: false,
+    })
   }
 
   const load = useCallback(async () => {
@@ -1008,17 +1205,28 @@ export function useArchive<T>(
     setState((value) =>
       value.key === currentKey
         ? { ...value, isLoading: true }
-        : { key: currentKey, snapshot: null, isLoading: true, error: null },
+        : {
+            key: currentKey,
+            snapshot: null,
+            isLoading: true,
+            error: null,
+            restored: false,
+          },
     )
     // A refresh rereads the run it has loaded, from its first page. A timeline
     // from a chosen month first reads the page after the month's too, so the
     // month always has enough below it to scroll to the top.
     const first = loaded?.firstPage ?? current.startPage ?? 1
     const through = loaded ? loaded.page : current.startPage ? first + 1 : 1
+    let firstPage = null as ArchiveSnapshot<T> | null
     try {
       const read = await scope.run("archive", (signal) =>
         readLoadedPages(
-          (page) => readPage(current, page, signal),
+          async (page) => {
+            const answer = await readPage(current, page, signal)
+            if (page === 1) firstPage = answer
+            return answer
+          },
           loaded,
           (before, page) => ({
             ...page,
@@ -1031,8 +1239,12 @@ export function useArchive<T>(
       )
       if (keyRef.current !== currentKey) return
       // The first read names its page: a shorter timeline clamps it.
-      const snapshot = { ...read, firstPage: read.firstPage ?? read.page }
-      setState({ key: currentKey, snapshot, isLoading: false, error: null })
+      settle(
+        currentKey,
+        current,
+        { ...read, firstPage: read.firstPage ?? read.page },
+        firstPage,
+      )
     } catch (caught) {
       const error = caught instanceof Error ? caught : new Error(String(caught))
       if (
@@ -1068,15 +1280,10 @@ export function useArchive<T>(
         await load()
         return
       }
-      setState({
-        key: currentKey,
-        snapshot: {
-          ...next,
-          firstPage: snapshot.firstPage,
-          items: [...snapshot.items, ...next.items],
-        },
-        isLoading: false,
-        error: null,
+      settle(currentKey, current, {
+        ...next,
+        firstPage: snapshot.firstPage,
+        items: [...snapshot.items, ...next.items],
       })
     } catch (caught) {
       const error = caught instanceof Error ? caught : new Error(String(caught))
@@ -1128,23 +1335,16 @@ export function useArchive<T>(
           ),
         )
         if (keyRef.current !== currentKey) return
-        setState({
-          key: currentKey,
-          snapshot: { ...read, firstPage: read.firstPage ?? read.page },
-          isLoading: false,
-          error: null,
+        settle(currentKey, current, {
+          ...read,
+          firstPage: read.firstPage ?? read.page,
         })
         return
       }
-      setState({
-        key: currentKey,
-        snapshot: {
-          ...snapshot,
-          firstPage: newer.page,
-          items: [...newer.items, ...snapshot.items],
-        },
-        isLoading: false,
-        error: null,
+      settle(currentKey, current, {
+        ...snapshot,
+        firstPage: newer.page,
+        items: [...newer.items, ...snapshot.items],
       })
     } catch (caught) {
       const error = caught instanceof Error ? caught : new Error(String(caught))
@@ -1163,20 +1363,33 @@ export function useArchive<T>(
   }, [scope])
 
   useEffect(() => {
-    if (key) void load()
+    // A remembered post timeline waits for the revision instead of a read.
+    const { key: shownKey, restored } = stateRef.current
+    if (key && !(restored && shownKey === key)) void load()
     return () => scope.cancelKey("archive")
   }, [key, load, scope])
 
   useEffect(() => {
-    const { key: currentKey, snapshot } = stateRef.current
+    const { key: currentKey, snapshot, restored } = stateRef.current
     if (
-      currentKey === keyRef.current &&
-      snapshot &&
-      requestedTargetRef.current !== refreshTarget &&
-      !stateRef.current.isLoading &&
-      !scope.busy("archive")
+      currentKey !== keyRef.current ||
+      !snapshot ||
+      requestedTargetRef.current === refreshTarget ||
+      stateRef.current.isLoading ||
+      scope.busy("archive")
     )
-      void load()
+      return
+    // A post run already at the index's revision is current. Without the
+    // revision, only a remembered run is read again.
+    if (
+      requestRef.current?.kind === "posts" &&
+      (revision === undefined ||
+        (revision === null ? !restored : snapshot.revision === revision))
+    ) {
+      requestedTargetRef.current = refreshTarget
+      return
+    }
+    void load()
   }, [refreshTarget, state.isLoading, load, scope])
 
   const current = state.key === key ? state : null

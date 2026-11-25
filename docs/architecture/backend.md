@@ -271,8 +271,13 @@ state two probe intervals after its check, the Bilibili room's two check
 intervals after its check), or at the next whole minute, whichever comes
 first; the minute bounds the sliding post, week and video-count windows and
 the source freshness times, which move without a revision. Requests that miss
-together share one computation. The calendar and archive reads are computed
-on every request. All of them are revalidated by the browser through their
+together share one computation. The post archive's reads, `/api/posts` and
+`/api/posts/months`, are kept the same way, keyed by the revision and the
+normalized request (an account matches without case), but without expiry,
+since posts carry no time-derived fields: the newest revision's 64 most
+recently stored reads stay, and a newer revision drops the rest. The
+calendar and video archive reads are computed on every request. All of them
+are revalidated by the browser through their
 [ETags](public-api/snapshot.md), and the revision read and the revision
 stream are `no-store`.
 

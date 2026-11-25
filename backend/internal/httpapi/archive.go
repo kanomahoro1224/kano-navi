@@ -1,8 +1,11 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/yexca/kano-navi/backend/internal/publicview"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
@@ -51,54 +54,60 @@ func archivePayload[T any](page *sqlite.ArchivePage[T], project func(T) map[stri
 // posts serves the post archive, newest first, optionally for one account:
 // with from and to, the stored posts of that inclusive Japan-date range;
 // without them, the timeline of every dated post, or of those on or before
-// the inclusive Japan date until.
+// the inclusive Japan date until. Its pages are kept per revision.
 func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	pageNumber, pageSize := archiveNumber(r, "page", 1), archiveNumber(r, "pageSize", archivePageSize)
-	var page *sqlite.ArchivePage[sqlite.Post]
-	var err error
-	if query.Has("from") || query.Has("to") {
-		if query.Has("until") {
+	ranged := query.Has("from") || query.Has("to")
+	// The store matches the account without case, so its spelling names no
+	// other read.
+	request := fmt.Sprintf("posts range=%t from=%q to=%q until=%t:%q account=%q page=%d size=%d",
+		ranged, query.Get("from"), query.Get("to"), query.Has("until"), query.Get("until"),
+		strings.ToLower(query.Get("account")), pageNumber, pageSize)
+	h.servePostRead(w, r, request, func(ctx context.Context) (map[string]any, error) {
+		var page *sqlite.ArchivePage[sqlite.Post]
+		var err error
+		switch {
+		case ranged && query.Has("until"):
 			err = sqlite.ErrInvalidCalendarRange
-		} else {
-			page, err = h.store.GetPostArchive(r.Context(), query.Get("from"), query.Get("to"), query.Get("account"), pageNumber, pageSize)
+		case ranged:
+			page, err = h.store.GetPostArchive(ctx, query.Get("from"), query.Get("to"), query.Get("account"), pageNumber, pageSize)
+		default:
+			page, err = h.store.GetPostTimeline(ctx, query.Get("until"), query.Get("account"), pageNumber, pageSize)
 		}
-	} else {
-		page, err = h.store.GetPostTimeline(r.Context(), query.Get("until"), query.Get("account"), pageNumber, pageSize)
-	}
-	if err != nil {
-		writeArchiveError(w, err)
-		return
-	}
-	payload := h.public(archivePayload(page, publicview.PublicPost))
-	payload["accountCounts"] = page.AccountCounts
-	payload["accountAvatars"] = h.public(publicview.PublicAccountAvatars(page.AccountAvatars))
-	writeRevalidatedJSON(w, r, payload, nil)
+		if err != nil {
+			return nil, err
+		}
+		payload := h.public(archivePayload(page, publicview.PublicPost))
+		payload["accountCounts"] = page.AccountCounts
+		payload["accountAvatars"] = h.public(publicview.PublicAccountAvatars(page.AccountAvatars))
+		return payload, nil
+	})
 }
 
 // postMonths serves the post archive's month index: every Japan month that
 // holds a shown post, oldest first, with its per-account counts.
-// It also names the accounts the archive filters by, with their avatars.
+// It also names the accounts the archive filters by, with their avatars, and
+// is kept per revision.
 func (h *Handler) postMonths(w http.ResponseWriter, r *http.Request) {
-	months, revision, err := h.store.GetPostMonths(r.Context())
-	if err != nil {
-		writeArchiveError(w, err)
-		return
-	}
-	accounts, err := h.store.GetPostArchiveAccounts(r.Context())
-	if err != nil {
-		writeArchiveError(w, err)
-		return
-	}
-	avatars, err := h.store.AccountAvatars(r.Context())
-	if err != nil {
-		writeArchiveError(w, err)
-		return
-	}
-	payload := archiveMonthsPayload(months, revision, "accountCounts")
-	payload["accounts"] = map[string]any{"x": accounts.X, "bilibili": accounts.Bilibili}
-	payload["accountAvatars"] = h.public(publicview.PublicAccountAvatars(avatars))
-	writeRevalidatedJSON(w, r, payload, nil)
+	h.servePostRead(w, r, "post months", func(ctx context.Context) (map[string]any, error) {
+		months, revision, err := h.store.GetPostMonths(ctx)
+		if err != nil {
+			return nil, err
+		}
+		accounts, err := h.store.GetPostArchiveAccounts(ctx)
+		if err != nil {
+			return nil, err
+		}
+		avatars, err := h.store.AccountAvatars(ctx)
+		if err != nil {
+			return nil, err
+		}
+		payload := archiveMonthsPayload(months, revision, "accountCounts")
+		payload["accounts"] = map[string]any{"x": accounts.X, "bilibili": accounts.Bilibili}
+		payload["accountAvatars"] = h.public(publicview.PublicAccountAvatars(avatars))
+		return payload, nil
+	})
 }
 
 // videoMonths serves the video timeline's month index: every Japan month that

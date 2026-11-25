@@ -42,6 +42,8 @@ type Handler struct {
 	streams *revisionHub
 	// dashboards holds the prepared /api/dashboard responses.
 	dashboards *dashboardCache
+	// postReads holds the prepared /api/posts and /api/posts/months reads.
+	postReads *postReadCache
 }
 
 // Standalone carries everything the single-process owner serves beyond the
@@ -81,6 +83,7 @@ func NewStandaloneHandler(store *sqlite.Store, now func() time.Time, options Sta
 		webBotAuth:   options.WebBotAuth,
 		streams:      newRevisionHub(store.GetDashboardRevision),
 		dashboards:   newDashboardCache(),
+		postReads:    newPostReadCache(),
 	}
 }
 
@@ -99,7 +102,7 @@ func NewHandlerWithAdmin(store *sqlite.Store, now func() time.Time, admin http.H
 	if now == nil {
 		now = time.Now
 	}
-	return &Handler{store: store, now: now, admin: admin, streams: newRevisionHub(store.GetDashboardRevision), dashboards: newDashboardCache()}
+	return &Handler{store: store, now: now, admin: admin, streams: newRevisionHub(store.GetDashboardRevision), dashboards: newDashboardCache(), postReads: newPostReadCache()}
 }
 
 // WithCDNBase returns the handler with its public reads naming cached media and

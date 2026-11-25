@@ -52,7 +52,9 @@ site's menu: every post the board has stored, newest first, in one column
 that keeps going into earlier months as you scroll, starting from the account
 chosen on the wall. Its address names the month you are reading and the
 account, so a month can be shared or bookmarked, and back and forward return
-to the months and accounts you chose.
+to the months and accounts you chose. The page opens on the posts your
+browser showed last while it checks for newer ones, and going back to it
+from another page of the site returns to where you were reading.
 
 - Each account has a card with its portrait, the years its posts span and
   how many there are; choose one to read only its posts. Besides Kano's two

@@ -95,6 +95,8 @@ const errorKeys: Record<string, string> = {
   proxy_test_timeout: "admin.error.proxyTestTimeout",
   proxy_test_failed: "admin.error.proxyTestFailed",
   bilibili_login_expired: "admin.error.bilibiliLoginExpired",
+  bilibili_login_changed: "admin.error.bilibiliLoginChanged",
+  bilibili_login_unreadable: "admin.error.bilibiliLoginUnreadable",
   post_not_found: "admin.error.postNotFound",
 }
 
@@ -112,7 +114,9 @@ export function errorMessage(error: any): Message {
   // Each captcha answer names how Bilibili asked; see admin.code.*.
   if (
     error.code.startsWith("bilibili_risk_control") ||
-    error.code === "bilibili_unsupported_dynamic"
+    error.code === "bilibili_unsupported_dynamic" ||
+    error.code === "bilibili_sign_out_failed" ||
+    error.code === "bilibili_qr_failed"
   )
     return message(`admin.code.${error.code}`)
   if (error.code.startsWith("bilibili_"))

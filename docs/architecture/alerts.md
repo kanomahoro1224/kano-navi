@@ -28,12 +28,13 @@ The rules are fixed in code. The operator sets each rule's switch, its
 parameter within bounds, its severity (`info`, `warning` or `critical`) and
 whether its recovery is delivered.
 
-| Rule                 | Subject                                  | Holds while                                                                                                      | Parameter         | Default      |
-| -------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------- | ------------ |
-| `run_failed_streak`  | source, or `live`                        | the latest N finished runs of an enabled source schedule, or of the live-status probe, are `failed` or `blocked` | runs, 1–20 (3)    | on, warning  |
-| `source_stale`       | `x`, `youtube`, `bilibili`, `shop`       | an enabled schedule's source has had no successful read for N hours                                              | hours, 1–168 (24) | on, warning  |
-| `login_expired`      | `bilibili`                               | the Bilibili login cookie is checked and expired                                                                 |                   | on, critical |
-| `secrets_unreadable` | `llm`, `proxy`, `web_bot_auth`, `alerts` | a stored secret of that area no longer decrypts                                                                  |                   | on, critical |
+| Rule                   | Subject                                              | Holds while                                                                                                      | Parameter         | Default      |
+| ---------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------- | ------------ |
+| `run_failed_streak`    | source, or `live`                                    | the latest N finished runs of an enabled source schedule, or of the live-status probe, are `failed` or `blocked` | runs, 1–20 (3)    | on, warning  |
+| `source_stale`         | `x`, `youtube`, `bilibili`, `shop`                   | an enabled schedule's source has had no successful read for N hours                                              | hours, 1–168 (24) | on, warning  |
+| `login_expired`        | `bilibili`                                           | the Bilibili login is checked and expired                                                                        |                   | on, critical |
+| `login_refresh_failed` | `bilibili`                                           | the stored Bilibili login's latest refresh check failed, other than as expired                                   |                   | on, warning  |
+| `secrets_unreadable`   | `llm`, `proxy`, `web_bot_auth`, `alerts`, `bilibili` | a stored secret of that area no longer decrypts                                                                  |                   | on, critical |
 
 - A streak counts runs finished in the last seven days, newest first, and
   stops at the first `succeeded` or `partial` run; `cancelled` runs do not
@@ -44,7 +45,11 @@ whether its recovery is delivered.
   A source never read counts from its schedule's last change. A source
   disabled by `SKIP_*` is left out.
 - `secrets_unreadable` checks enabled model providers, outbound proxies, the
-  stored Web Bot Auth key, and the alert channels and heartbeat themselves.
+  stored Web Bot Auth key, the stored Bilibili login, and the alert channels
+  and heartbeat themselves.
+- `login_refresh_failed` carries the check's code (see
+  [Refresh](sources/bilibili-login.md#refresh)) and resolves at the next
+  check that succeeds.
 
 ## Incidents
 

@@ -42,6 +42,16 @@ type requestCapture struct {
 
 type contextKey struct{}
 
+// skipKey marks a request whose answer is never recorded.
+type skipKey struct{}
+
+// WithoutCapture marks the requests made with ctx as never recorded: an
+// answer that carries a credential (a login's refresh token or the cookies it
+// sets) must not reach the captures.
+func WithoutCapture(ctx context.Context) context.Context {
+	return context.WithValue(ctx, skipKey{}, true)
+}
+
 func WithExecution(ctx context.Context, recorder Recorder, execution Execution) context.Context {
 	if recorder == nil {
 		return ctx
@@ -74,6 +84,9 @@ func (t *Transport) RoundTrip(request *http.Request) (*http.Response, error) {
 	}
 	capture, ok := request.Context().Value(contextKey{}).(requestCapture)
 	if !ok || capture.recorder == nil || t.Source == "" {
+		return response, nil
+	}
+	if skip, _ := request.Context().Value(skipKey{}).(bool); skip {
 		return response, nil
 	}
 

@@ -28,14 +28,25 @@ type bilibiliMetadata struct {
 	// cached signature keys (see bilibili_dynamics.go).
 	Dynamics bilibiliDynamicsMetadata `json:"dynamics"`
 	WBI      bilisource.WBIKeys       `json:"wbi"`
-	// Login is the latest login check of the configured cookie (never the
-	// cookie itself).
-	Login bilibiliLoginMetadata `json:"login"`
+	// Login is the latest login check (never the cookie itself), and
+	// Refresh the stored login's latest refresh check (never the login).
+	Login   bilibiliLoginMetadata   `json:"login"`
+	Refresh bilibiliRefreshMetadata `json:"refresh"`
 }
 
 type bilibiliLoginMetadata struct {
 	CheckedAt string `json:"checkedAt,omitempty"`
 	SignedIn  bool   `json:"signedIn,omitempty"`
+	// Of names the login checked: "environment" (also when empty) or a
+	// stored login's "stored:<time>"; Name is its nickname.
+	Of   string `json:"of,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+type bilibiliRefreshMetadata struct {
+	Of        string `json:"of,omitempty"`
+	CheckedAt string `json:"checkedAt,omitempty"`
+	LastError string `json:"lastError,omitempty"`
 }
 
 type bilibiliDynamicsMetadata struct {
@@ -53,8 +64,9 @@ func bilibiliMetadataOf(state bilisource.State) bilibiliMetadata {
 			LastAttemptAt: formatInstant(state.Dynamics.LastAttemptAt), LastSuccessAt: formatInstant(state.Dynamics.LastSuccessAt),
 			LastError: state.Dynamics.LastError,
 		},
-		WBI:   state.WBI,
-		Login: bilibiliLoginMetadata{CheckedAt: formatInstant(state.Login.CheckedAt), SignedIn: state.Login.SignedIn},
+		WBI:     state.WBI,
+		Login:   bilibiliLoginMetadata{CheckedAt: formatInstant(state.Login.CheckedAt), SignedIn: state.Login.SignedIn, Of: state.Login.Of, Name: state.Login.Name},
+		Refresh: bilibiliRefreshMetadata{Of: state.Refresh.Of, CheckedAt: formatInstant(state.Refresh.CheckedAt), LastError: state.Refresh.LastError},
 	}
 }
 
@@ -92,8 +104,9 @@ func (s *Store) BilibiliState(ctx context.Context, account string) (bilisource.S
 			LastAttemptAt: parseInstant(data.Dynamics.LastAttemptAt), LastSuccessAt: parseInstant(data.Dynamics.LastSuccessAt),
 			LastError: data.Dynamics.LastError,
 		},
-		WBI:   data.WBI,
-		Login: bilisource.LoginState{CheckedAt: parseInstant(data.Login.CheckedAt), SignedIn: data.Login.SignedIn},
+		WBI:     data.WBI,
+		Login:   bilisource.LoginState{CheckedAt: parseInstant(data.Login.CheckedAt), SignedIn: data.Login.SignedIn, Of: data.Login.Of, Name: data.Login.Name},
+		Refresh: bilisource.RefreshState{Of: data.Refresh.Of, CheckedAt: parseInstant(data.Refresh.CheckedAt), LastError: data.Refresh.LastError},
 	}, nil
 }
 
@@ -255,6 +268,9 @@ func mergeBilibiliMetadata(stored, incoming bilibiliMetadata, now time.Time) bil
 	}
 	if parseInstant(stored.Login.CheckedAt).After(parseInstant(incoming.Login.CheckedAt)) {
 		incoming.Login = stored.Login
+	}
+	if parseInstant(stored.Refresh.CheckedAt).After(parseInstant(incoming.Refresh.CheckedAt)) {
+		incoming.Refresh = stored.Refresh
 	}
 	return incoming
 }

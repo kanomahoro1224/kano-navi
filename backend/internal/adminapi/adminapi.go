@@ -71,7 +71,7 @@ type Options struct {
 	// FetchMethods describes a source's manual fetch methods and which of
 	// them can run now. Without it no method can run, which keeps a read-only
 	// sidecar from accepting work its queue cannot run.
-	FetchMethods func(source string) []history.MethodStatus
+	FetchMethods func(ctx context.Context, source string) []history.MethodStatus
 	// Variants locates the originals whose smaller copies the Site page
 	// reports; nil answers that route with 503 unavailable.
 	Variants *variants.Roots
@@ -93,6 +93,8 @@ type api struct {
 	// its memo.
 	variantsMu  sync.Mutex
 	variantMemo variantMemo
+	// qr is the Bilibili QR sign-in this process runs.
+	qr bilibiliQR
 }
 
 var japanZone = time.FixedZone("JST", 9*3600)
@@ -173,6 +175,11 @@ func (a *api) routes() []httpx.Route {
 		{Method: http.MethodGet, Path: "/x-statuses", Handler: a.listXStatuses},
 		{Method: http.MethodPut, Path: "/x-statuses/{id}/decision", Handler: a.decideXStatus},
 		{Method: http.MethodGet, Path: "/bilibili-statuses", Handler: a.listBilibiliStatuses},
+		{Method: http.MethodPut, Path: "/sources/bilibili/login", Handler: a.importBilibiliLogin},
+		{Method: http.MethodDelete, Path: "/sources/bilibili/login", Handler: a.forgetBilibiliLogin},
+		{Method: http.MethodGet, Path: "/sources/bilibili/login/qr", Handler: a.bilibiliQRStatus},
+		{Method: http.MethodPost, Path: "/sources/bilibili/login/qr", Handler: a.startBilibiliQR},
+		{Method: http.MethodDelete, Path: "/sources/bilibili/login/qr", Handler: a.cancelBilibiliQR},
 
 		{Method: http.MethodGet, Path: "/events", Handler: a.listEvents},
 		{Method: http.MethodGet, Path: "/events/{id}/evidence", Handler: a.eventEvidence},
@@ -232,9 +239,9 @@ func (a *api) needRuns(next http.HandlerFunc) http.HandlerFunc {
 func (a *api) skipped(step string) bool { return slices.Contains(a.SkippedSteps, step) }
 
 // fetchMethods lists a source's manual fetch methods with their availability.
-func (a *api) fetchMethods(source string) []history.MethodStatus {
+func (a *api) fetchMethods(ctx context.Context, source string) []history.MethodStatus {
 	if a.FetchMethods != nil {
-		return a.FetchMethods(source)
+		return a.FetchMethods(ctx, source)
 	}
 	out := []history.MethodStatus{}
 	for _, method := range history.Methods(source) {
@@ -243,8 +250,8 @@ func (a *api) fetchMethods(source string) []history.MethodStatus {
 	return out
 }
 
-func (a *api) methodAvailable(source, id string) bool {
-	for _, method := range a.fetchMethods(source) {
+func (a *api) methodAvailable(ctx context.Context, source, id string) bool {
+	for _, method := range a.fetchMethods(ctx, source) {
 		if method.ID == id {
 			return method.Available
 		}

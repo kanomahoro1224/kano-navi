@@ -164,9 +164,9 @@ func TestWBISignatureFollowsTheDocumentedExample(t *testing.T) {
 
 func TestNavKeysReadSignedOutAnswers(t *testing.T) {
 	now := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
-	keys, signedIn, err := parseNavKeys([]byte(`{"code":-101,"data":{"isLogin":false,"wbi_img":{"img_url":"https://i0.hdslb.com/bfs/wbi/0123456789abcdef0123456789abcdef.png","sub_url":"https://i0.hdslb.com/bfs/wbi/fedcba9876543210fedcba9876543210.png"}}}`), now)
-	if err != nil || signedIn || keys.Img != "0123456789abcdef0123456789abcdef" || keys.Sub != "fedcba9876543210fedcba9876543210" || !keys.fresh(now) || keys.fresh(now.Add(13*time.Hour)) {
-		t.Fatalf("keys=%#v signedIn=%v err=%v", keys, signedIn, err)
+	keys, nav, err := parseNavKeys([]byte(`{"code":-101,"data":{"isLogin":false,"wbi_img":{"img_url":"https://i0.hdslb.com/bfs/wbi/0123456789abcdef0123456789abcdef.png","sub_url":"https://i0.hdslb.com/bfs/wbi/fedcba9876543210fedcba9876543210.png"}}}`), now)
+	if err != nil || nav.SignedIn || keys.Img != "0123456789abcdef0123456789abcdef" || keys.Sub != "fedcba9876543210fedcba9876543210" || !keys.fresh(now) || keys.fresh(now.Add(13*time.Hour)) {
+		t.Fatalf("keys=%#v nav=%v err=%v", keys, nav, err)
 	}
 	if _, _, err = parseNavKeys([]byte(`{"code":-352}`), now); ErrorCode(err) != "bilibili_risk_control_352" {
 		t.Fatalf("captcha err=%v", err)

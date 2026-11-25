@@ -277,7 +277,7 @@ func TestMethodAvailabilityFollowsCredentialsAndAdapters(t *testing.T) {
 	source.Fetcher.Timeline = &stubTimeline{}
 	available := func(name string) string {
 		out := []string{}
-		for _, method := range source.Methods(name) {
+		for _, method := range source.Methods(t.Context(), name) {
 			if method.Available {
 				out = append(out, method.ID)
 			}
@@ -295,7 +295,7 @@ func TestMethodAvailabilityFollowsCredentialsAndAdapters(t *testing.T) {
 	if x, youtube := available("x"), available("youtube"); x != "" || youtube != "" {
 		t.Fatalf("without adapters x=%s youtube=%s", x, youtube)
 	}
-	if (*HistorySource)(nil).MethodAvailable("x", history.MethodTimeline) || len(source.Methods("rss")) != 0 {
+	if (*HistorySource)(nil).MethodAvailable(t.Context(), "x", history.MethodTimeline) || len(source.Methods(t.Context(), "rss")) != 0 {
 		t.Fatal("a missing source or fetcher offers methods")
 	}
 	// The Bilibili fetches need the adapter, and the dynamics its login.

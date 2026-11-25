@@ -27,10 +27,14 @@
 
 Optional source API credentials (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`,
 `BILIBILI_COOKIE`, `BILIBILI_SESSDATA`) exist only in the environment. The
-Bilibili login cookies go only to `api.bilibili.com`, never to its ticket
-endpoint; the opus page on
-`www.bilibili.com`, the live host `api.live.bilibili.com` and the official
-client's listing on `app.bilibili.com` are read without it. That listing is
+one exception is the [Bilibili login](../architecture/sources/bilibili-login.md)
+the server owns, which it must rewrite at each refresh: it is sealed with
+`LLM_SECRETS_KEY` in SQLite, so database backups hold it sealed, as they
+hold provider keys and proxy passwords. Either Bilibili login goes only to
+`api.bilibili.com`, `passport.bilibili.com` and the correspond page on
+`www.bilibili.com`, never to the ticket endpoint; the opus page, the live
+host `api.live.bilibili.com` and the official client's listing on
+`app.bilibili.com` are read without it. That listing is
 signed with the app key pair the operator configures (`BILIBILI_APP_KEY`,
 `BILIBILI_APP_SECRET`), which stays in the environment like the other source
 credentials; without it the listing is never requested. The `bili_ticket` request goes to the same fixed `api.bilibili.com` host

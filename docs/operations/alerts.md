@@ -34,8 +34,9 @@ refused. When the server cannot reach a service directly, route the
 
 Each rule has a switch, its runs or hours, a severity and whether recovery is
 sent. The defaults alert after three failed runs in a row, after a source
-has gone 24 hours without a successful read, when the Bilibili login cookie
-expires, and when stored secrets cannot be decrypted (for example after
+has gone 24 hours without a successful read, when the Bilibili login
+expires, as a warning when the stored Bilibili login cannot be refreshed,
+and when stored secrets cannot be decrypted (for example after
 `LLM_SECRETS_KEY` changed).
 
 ## Open Alerts

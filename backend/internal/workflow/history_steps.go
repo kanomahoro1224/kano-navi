@@ -35,7 +35,7 @@ type HistorySource struct {
 
 // MethodAvailable reports whether a source's method can run now: the API
 // methods need their credential, and every method its adapter.
-func (h *HistorySource) MethodAvailable(source, method string) bool {
+func (h *HistorySource) MethodAvailable(ctx context.Context, source, method string) bool {
 	if h == nil || h.Fetcher == nil || h.Store == nil {
 		return false
 	}
@@ -67,16 +67,16 @@ func (h *HistorySource) MethodAvailable(source, method string) bool {
 		return h.Bilibili != nil
 	case source == history.SourceBilibiliDynamics && method == history.MethodSpace:
 		// The dynamics listing answers only a login cookie.
-		return h.Bilibili != nil && h.Bilibili.Options.SignedIn()
+		return h.Bilibili != nil && h.Bilibili.SignedIn(ctx)
 	}
 	return false
 }
 
 // Methods describes a source's listing methods and which can run now.
-func (h *HistorySource) Methods(source string) []history.MethodStatus {
+func (h *HistorySource) Methods(ctx context.Context, source string) []history.MethodStatus {
 	out := []history.MethodStatus{}
 	for _, method := range history.Methods(source) {
-		out = append(out, history.MethodStatus{Method: method, Available: h.MethodAvailable(source, method.ID)})
+		out = append(out, history.MethodStatus{Method: method, Available: h.MethodAvailable(ctx, source, method.ID)})
 	}
 	return out
 }
@@ -107,12 +107,12 @@ func stepStatus(messages []string) string {
 
 // selection validates a window frozen on a run. A selection no method serves,
 // such as one frozen before fetches named their method, fails cleanly.
-func (h *HistorySource) selection(source string, window history.Window) (history.Window, string) {
+func (h *HistorySource) selection(ctx context.Context, source string, window history.Window) (history.Window, string) {
 	normalized, err := window.Normalize(source)
 	if err != nil {
 		return history.Window{}, historyMessage(err)
 	}
-	if !h.MethodAvailable(source, normalized.Method) {
+	if !h.MethodAvailable(ctx, source, normalized.Method) {
 		return history.Window{}, history.UnavailableMessage(source, normalized.Method)
 	}
 	return normalized, ""
@@ -133,7 +133,7 @@ func counts(result history.Result) map[string]any {
 // rotation spreads a short request budget across runs, and a one-account
 // fetch takes the whole budget and leaves the rotation as it is.
 func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (AttemptResult, error) {
-	window, message := h.selection(history.SourceX, window)
+	window, message := h.selection(ctx, history.SourceX, window)
 	if message != "" {
 		return failedResult(message), nil
 	}
@@ -270,7 +270,7 @@ func (h *HistorySource) fetchOrder(ctx context.Context, window history.Window) (
 
 // FetchYoutube fetches the configured channel through the window's method.
 func (h *HistorySource) FetchYoutube(ctx context.Context, window history.Window) (AttemptResult, error) {
-	window, message := h.selection(history.SourceYoutube, window)
+	window, message := h.selection(ctx, history.SourceYoutube, window)
 	if message != "" {
 		return failedResult(message), nil
 	}

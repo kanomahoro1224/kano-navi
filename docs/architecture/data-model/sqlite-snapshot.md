@@ -43,7 +43,7 @@ own transaction, and the selected profile media is reconciled with its files
 | `media_versions`            | Earlier cached files of an asset whose bytes a revalidation replaced                                   |
 | `sync_runs`                 | Status, counts, error summaries, trigger, and asynchronous job identity                                |
 | `sync_state`                | Durable per-account X, YouTube, Bilibili and shop cursors, read bookkeeping and X API chain state      |
-| `app_settings`              | Model, extractor, X-account, Featured, YouTube push and proxy settings (secrets sealed)                |
+| `app_settings`              | Model, extractor, X-account, Featured, YouTube push, proxy, Bilibili login settings (secrets sealed)   |
 | `schedule_extractions`      | Versioned LLM inputs, outcomes, and structured result metadata                                         |
 | `post_llm_states`           | Per-post LLM status, last attempt, error, reprocess queue state, failure backoff, settled input stamp  |
 | `schedule_asset_reviews`    | Per-schedule-image LLM verdict, skip reason (`no_image` for a URL-less row), and optional manual label |
@@ -168,7 +168,10 @@ liveTime, checkedAt, lastAttemptAt, blockedUntil, failures, lastError,
 lastBroadcast, lastLiveAt, endedAt}`; the room ID is learned from the checks.
 The `bilibili` row's metadata also keeps the device's `bNut` and
 `bili_ticket` (with when it was issued and its lifetime) inside `session`,
-`login` `{checkedAt, signedIn}` from the latest login check, and
+`login` `{checkedAt, signedIn, of, name}` from the latest login check (`of`
+names the login checked and `name` is its nickname), `refresh`
+`{of, checkedAt, lastError}` from the stored
+[login](../sources/bilibili-login.md#refresh)'s latest refresh check, and
 `blockedAt`/`clearedAt`, when the current block was recorded and when the
 latest successful read started, so a forced read's success lifts a block
 while a block a concurrent read stored is kept. Neither is returned by a public read.

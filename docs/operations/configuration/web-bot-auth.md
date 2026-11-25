@@ -41,25 +41,39 @@ Docker Compose also uses `KANO_IMAGE` (default
 `yexca/kano-navi:latest` from Docker Hub) for the published image and `KANO_PORT`
 (default `7657`) for the host port. The API also defaults to `7657` inside the container.
 
-`BILIBILI_COOKIE` is the `Cookie` request header of a browser signed in to
-Bilibili (developer tools → Network → any `api.bilibili.com` request →
-Request Headers → `cookie`). The server keeps `SESSDATA` and the known login
-cookies of that browser (`bili_jct`, `DedeUserID`, `DedeUserID__ckMd5`,
-`sid`, and the device cookies `buvid3`, `buvid4`, `b_nut`, `_uuid`,
-`buvid_fp`) whose values are well formed, and drops every other cookie. A
-signed-in request sends the browser's own device cookies in place of the
-anonymous identity, so the account and its device match as they do in the
-browser. `BILIBILI_SESSDATA` is the `SESSDATA` value alone (Application →
-Cookies → `.bilibili.com`); it is read only when `BILIBILI_COOKIE` carries no
-`SESSDATA`, and Bilibili accepts it beside an anonymous identity less
-readily. With either, the `bilibili` step and the console's reads are sent
-as that account, which Bilibili's captcha blocks far less often than
-anonymous reads, the upload read's `dynamics` method can run, and the
-`bilibili_dynamics` step reads the account's dynamics, which
-it skips without one
-([Bilibili dynamics](../../architecture/sources/bilibili-dynamics.md#dynamics)). The
-login cookies are sent only to `api.bilibili.com`, never stored in SQLite,
-logged, or returned.
+A Bilibili login sends the `bilibili` step and the console's reads as that
+account, which Bilibili's captcha blocks far less often than anonymous
+reads; with it the upload read's `dynamics` method can run, and the
+`bilibili_dynamics` step reads the account's dynamics, which it skips
+without one
+([Bilibili dynamics](../../architecture/sources/bilibili-dynamics.md#dynamics)).
+Use a secondary account. The login the server stores wins over the
+environment's and is refreshed by the server
+([Bilibili login](../../architecture/sources/bilibili-login.md)); the console's
+Bilibili login panel gives it one of two ways:
+
+- **Sign in with QR**: scan the code with the Bilibili app and confirm.
+- **Import**: sign in to the account in a private browser window, copy the
+  `Cookie` request header (developer tools → Network → any
+  `api.bilibili.com` request → Request Headers → `cookie`) and the
+  localStorage value `ac_time_value` (Application → Local Storage →
+  `https://www.bilibili.com`), then close the window without signing out.
+
+Never use an imported login in a browser again: a browser's refresh
+invalidates the server's copy, whose next refresh then fails as
+`bilibili_login_refresh_rejected` until the login expires. Forget asks
+whether to sign the session out at Bilibili as well.
+
+`BILIBILI_COOKIE` is a signed-in browser's `Cookie` header, copied the same
+way. The server keeps `SESSDATA` and the known login cookies of that browser
+(`bili_jct`, `DedeUserID`, `DedeUserID__ckMd5`, `sid`, and the device cookies
+`buvid3`, `buvid4`, `b_nut`, `_uuid`, `buvid_fp`) whose values are well
+formed, and drops every other cookie. `BILIBILI_SESSDATA` is the `SESSDATA`
+value alone (Application → Cookies → `.bilibili.com`); it is read only when
+`BILIBILI_COOKIE` carries no `SESSDATA`, and Bilibili accepts it beside an
+anonymous identity less readily. The environment's login stays in memory and
+is never refreshed, so a copy of a browser that is still in use expires
+whenever that browser refreshes it.
 
 `BILIBILI_APP_KEY` and `BILIBILI_APP_SECRET` are an official Bilibili
 client's app key pair (16 and 32 lowercase hex digits). With both set, the

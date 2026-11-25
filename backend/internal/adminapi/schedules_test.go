@@ -235,7 +235,7 @@ func TestSourceScheduleChainAPI(t *testing.T) {
 		t.Fatalf("x chain=%s", chain)
 	}
 	// The upload read's fallbacks name the credentials this process lacks.
-	if bilibili, _ := json.Marshal(scheduleBySource(t, payload, "bilibili")["chain"]); string(bilibili) != `{"fixed":false,"methods":[{"available":true,"enabled":true,"id":"list"},{"available":false,"enabled":true,"id":"dynamics","requires":"BILIBILI_COOKIE or BILIBILI_SESSDATA"},{"available":false,"enabled":true,"id":"app","requires":"BILIBILI_APP_KEY and BILIBILI_APP_SECRET"}]}` {
+	if bilibili, _ := json.Marshal(scheduleBySource(t, payload, "bilibili")["chain"]); string(bilibili) != `{"fixed":false,"methods":[{"available":true,"enabled":true,"id":"list"},{"available":false,"enabled":true,"id":"dynamics","requires":"a Bilibili login"},{"available":false,"enabled":true,"id":"app","requires":"BILIBILI_APP_KEY and BILIBILI_APP_SECRET"}]}` {
 		t.Fatalf("bilibili chain=%s", bilibili)
 	}
 	if related, _ := json.Marshal(scheduleBySource(t, payload, sqlite.XRelatedStep)["chain"]); string(related) != `{"fixed":true,"methods":[{"available":true,"enabled":true,"id":"timeline"}]}` {
@@ -246,7 +246,7 @@ func TestSourceScheduleChainAPI(t *testing.T) {
 		t.Fatalf("shop chain=%s", shop)
 	}
 	dynamicChain, _ := json.Marshal(scheduleBySource(t, payload, sqlite.BilibiliDynamicsSource)["chain"])
-	if string(dynamicChain) != `{"fixed":false,"methods":[{"available":false,"enabled":true,"id":"desktop","requires":"BILIBILI_COOKIE or BILIBILI_SESSDATA"},{"available":false,"enabled":true,"id":"dynamics","requires":"BILIBILI_COOKIE or BILIBILI_SESSDATA"}]}` {
+	if string(dynamicChain) != `{"fixed":false,"methods":[{"available":false,"enabled":true,"id":"desktop","requires":"a Bilibili login"},{"available":false,"enabled":true,"id":"dynamics","requires":"a Bilibili login"}]}` {
 		t.Fatalf("bilibili dynamics chain=%s", dynamicChain)
 	}
 	for path, cases := range map[string]map[string]string{
@@ -285,11 +285,11 @@ func TestSourceScheduleChainAPI(t *testing.T) {
 	}
 	// The Bilibili upload read's chain is ordered and switched like the others.
 	code, payload = c.call(t, "PUT", "/api/admin/sources/bilibili/schedule", `{"chain":{"methods":[{"id":"app","enabled":true},{"id":"list","enabled":true},{"id":"dynamics","enabled":false}]}}`)
-	if chain, _ = json.Marshal(payload["chain"]); code != 200 || !strings.Contains(string(chain), `"methods":[{"available":false,"enabled":true,"id":"app","requires":"BILIBILI_APP_KEY and BILIBILI_APP_SECRET"},{"available":true,"enabled":true,"id":"list"},{"available":false,"enabled":false,"id":"dynamics","requires":"BILIBILI_COOKIE or BILIBILI_SESSDATA"}]`) {
+	if chain, _ = json.Marshal(payload["chain"]); code != 200 || !strings.Contains(string(chain), `"methods":[{"available":false,"enabled":true,"id":"app","requires":"BILIBILI_APP_KEY and BILIBILI_APP_SECRET"},{"available":true,"enabled":true,"id":"list"},{"available":false,"enabled":false,"id":"dynamics","requires":"a Bilibili login"}]`) {
 		t.Fatalf("bilibili saved=%d %s", code, chain)
 	}
 	code, payload = c.call(t, "PUT", "/api/admin/sources/bilibili_dynamics/schedule", `{"chain":{"methods":[{"id":"dynamics","enabled":true},{"id":"desktop","enabled":true}]}}`)
-	if chain, _ = json.Marshal(payload["chain"]); code != 200 || string(chain) != `{"fixed":false,"methods":[{"available":false,"enabled":true,"id":"dynamics","requires":"BILIBILI_COOKIE or BILIBILI_SESSDATA"},{"available":false,"enabled":true,"id":"desktop","requires":"BILIBILI_COOKIE or BILIBILI_SESSDATA"}]}` {
+	if chain, _ = json.Marshal(payload["chain"]); code != 200 || string(chain) != `{"fixed":false,"methods":[{"available":false,"enabled":true,"id":"dynamics","requires":"a Bilibili login"},{"available":false,"enabled":true,"id":"desktop","requires":"a Bilibili login"}]}` {
 		t.Fatalf("bilibili dynamics saved=%d %s", code, chain)
 	}
 	// Omitted fields keep their value, the chain included.

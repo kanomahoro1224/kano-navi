@@ -31,8 +31,8 @@ Each environment variable and the admin one-time code.
 | `YTDLP_BINARY`                            | `/app/yt-dlp` in production Compose | yt-dlp executable path; empty disables the method                     |
 | `BILIBILI_UID`                            | Kano's account                      | Bilibili account (numeric mid) whose uploads and dynamics are read    |
 | `BILIBILI_MIN_INTERVAL_MINUTES`           | `180`                               | Minimum minutes between Bilibili reads and timer runs (60–1440)       |
-| `BILIBILI_COOKIE`                         | Empty                               | Optional signed-in browser cookies; wins over `BILIBILI_SESSDATA`     |
-| `BILIBILI_SESSDATA`                       | Empty                               | Optional login cookie; a login is required for the dynamics           |
+| `BILIBILI_COOKIE`                         | Empty                               | Optional signed-in browser cookies; a stored login wins over them     |
+| `BILIBILI_SESSDATA`                       | Empty                               | Optional login cookie, read without `BILIBILI_COOKIE`                 |
 | `BILIBILI_APP_KEY`, `BILIBILI_APP_SECRET` | Empty                               | Optional official-client key pair; lets the uploads' `app` method run |
 | `WEB_BOT_AUTH_KEY`                        | Empty                               | Optional override of the console's Web Bot Auth signing key           |
 | `SKIP_X`, `SKIP_YOUTUBE`                  | `0`                                 | Set to `1` to skip that source's step and its timer                   |

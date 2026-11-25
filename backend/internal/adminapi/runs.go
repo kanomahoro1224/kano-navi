@@ -153,7 +153,7 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 		}
 		// The fetch runs only the method it names, so a method that cannot
 		// run now is refused rather than replaced.
-		if !a.methodAvailable(source, method) {
+		if !a.methodAvailable(r.Context(), source, method) {
 			httpx.WriteError(w, httpx.Invalid("%s", history.UnavailableMessage(source, method)))
 			return
 		}
@@ -428,10 +428,10 @@ func (a *api) sources(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"schedules": schedules,
-		"x":         map[string]any{"skipped": a.skipped("x"), "methods": a.fetchMethods("x"), "accounts": accounts},
-		"youtube":   map[string]any{"skipped": a.skipped("youtube"), "methods": a.fetchMethods("youtube"), "oldest": oldest, "push": a.pushStatus(), "liveProbe": probe},
+		"x":         map[string]any{"skipped": a.skipped("x"), "methods": a.fetchMethods(ctx, "x"), "accounts": accounts},
+		"youtube":   map[string]any{"skipped": a.skipped("youtube"), "methods": a.fetchMethods(ctx, "youtube"), "oldest": oldest, "push": a.pushStatus(), "liveProbe": probe},
 		"bilibili":  bilibili,
-		"shop":      map[string]any{"skipped": a.skipped(sqlite.ShopSource), "methods": a.fetchMethods(history.SourceShop), "status": shop, "webBotAuth": a.webBotAuthStatus()},
+		"shop":      map[string]any{"skipped": a.skipped(sqlite.ShopSource), "methods": a.fetchMethods(ctx, history.SourceShop), "status": shop, "webBotAuth": a.webBotAuthStatus()},
 	})
 }
 

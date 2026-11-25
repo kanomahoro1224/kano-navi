@@ -32,13 +32,13 @@ func TestLoginCookiesKeepOnlyKnownWellFormedValues(t *testing.T) {
 func TestSignedInRequestsCarryTheBrowsersIdentity(t *testing.T) {
 	account := LoginCookies{"buvid3": "FFFFFFFF-0000-0000-0000-ACCOUNTDEVICEinfoc", "_uuid": "SYNTHETIC-UUID-infoc", "DedeUserID": "10000001", "bili_jct": "0123456789abcdef"}
 	s := Session{Buvid3: "0A1B2C3D-0A1B-0A1B-0A1B-0A1B2C3D4E5F12345infoc", Buvid4: "anonymous-buvid4==", Nut: 1767225600, Login: syntheticLogin, Account: &account}
-	signed := s.cookie(true, apiHost)
+	signed := s.cookie(true, apiHost, "/x/web-interface/nav")
 	want := "buvid3=FFFFFFFF-0000-0000-0000-ACCOUNTDEVICEinfoc; buvid4=anonymous-buvid4==; b_nut=1767225600; _uuid=SYNTHETIC-UUID-infoc; DedeUserID=10000001; bili_jct=0123456789abcdef; SESSDATA=" + syntheticLogin
 	if signed != want {
 		t.Fatalf("signed cookie=%q", signed)
 	}
 	// Without the login, and on another host, only the anonymous identity.
-	for _, cookie := range []string{s.cookie(false, apiHost), s.cookie(true, wwwHost)} {
+	for _, cookie := range []string{s.cookie(false, apiHost, "/x/web-interface/nav"), s.cookie(true, wwwHost, "/opus/1")} {
 		if cookie != "buvid3=0A1B2C3D-0A1B-0A1B-0A1B-0A1B2C3D4E5F12345infoc; buvid4=anonymous-buvid4==; b_nut=1767225600" {
 			t.Fatalf("anonymous cookie=%q", cookie)
 		}

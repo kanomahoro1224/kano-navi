@@ -34,7 +34,7 @@ other reading. The related accounts' chain carries `media`, `schedule` and
 
 Bilibili has two timers because its two reads serve different purposes:
 the uploads are an archive, like YouTube's, while the dynamics announce
-schedules, like X posts, and need the login cookie. Each timer has its own
+schedules, like X posts, and need a login. Each timer has its own
 interval, runs and Run now; both share the client, device identity and
 captcha backoff, so a captcha met by either read holds both, and their
 requests to the same address add up. The

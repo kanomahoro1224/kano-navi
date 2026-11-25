@@ -109,7 +109,7 @@ func newConsole(t *testing.T, mode, password string, steps *gatedSteps) *console
 		XHandles:     []string{"synthetic_one"},
 		// As in production with YOUTUBE_API_KEY and without
 		// X_API_BEARER_TOKEN.
-		FetchMethods: func(source string) []history.MethodStatus {
+		FetchMethods: func(_ context.Context, source string) []history.MethodStatus {
 			out := []history.MethodStatus{}
 			for _, method := range history.Methods(source) {
 				out = append(out, history.MethodStatus{Method: method, Available: source == "youtube" || source == history.SourceShop || source == history.SourceBilibili || method.ID == history.MethodTimeline})
@@ -439,7 +439,7 @@ func TestSourceFetchMethods(t *testing.T) {
 		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"count","count":201}}`:                                 "count must be an integer from 1 to 200",
 		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"all"},"options":{"refresh":true}}`:                    "refresh is not supported for this method",
 		`{"kind":"fetch","source":"bilibili","method":"space","window":{"mode":"all"},"options":{"extract":true}}`:                    "extract is not supported for this method",
-		`{"kind":"fetch","source":"bilibili_dynamics","method":"space","window":{"mode":"all"},"options":{"extract":true}}`:           "BILIBILI_COOKIE or BILIBILI_SESSDATA is required for the space method",
+		`{"kind":"fetch","source":"bilibili_dynamics","method":"space","window":{"mode":"all"},"options":{"extract":true}}`:           "a Bilibili login is required for the space method",
 	} {
 		if code, payload := c.call(t, "POST", "/api/admin/runs", body); code != 400 || payload["message"] != message {
 			t.Fatalf("%s => %d %v", body, code, payload)
@@ -557,13 +557,13 @@ func TestFetchesNameOneConfiguredAccount(t *testing.T) {
 func TestFetchMethodsFailClosedWithoutHistoryWiring(t *testing.T) {
 	a := &api{}
 	for _, source := range []string{"x", "youtube", "bilibili", "bilibili_dynamics"} {
-		methods := a.fetchMethods(source)
+		methods := a.fetchMethods(t.Context(), source)
 		want := map[string]int{"x": 2, "youtube": 3, "bilibili": 1, "bilibili_dynamics": 1}[source]
 		if len(methods) != want {
 			t.Fatalf("%s methods=%v", source, methods)
 		}
 		for _, method := range methods {
-			if method.Available || a.methodAvailable(source, method.ID) {
+			if method.Available || a.methodAvailable(t.Context(), source, method.ID) {
 				t.Fatalf("%s/%s unexpectedly available without history wiring", source, method.ID)
 			}
 		}

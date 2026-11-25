@@ -44,10 +44,9 @@ at once) and Run now. While the timer runs, Run now starts it as the
 overview queue's Start now does, and reads Run next while a run holds the
 queue; while it is off, Run now runs the source's steps once and waits for a
 free queue. A source that `SKIP_*` turns off is locked. The Bilibili
-tabs' summaries add the login cookie's state and the shared captcha backoff
-as chips, with a note on setting `BILIBILI_COOKIE` or `BILIBILI_SESSDATA` when the
-configured cookie expired or, for dynamics, none is configured. Below the
-summary the main column holds the timed reads
+tabs' summaries add the login's state and the shared captcha backoff as
+chips, with a note when the login expired or, for dynamics, none is
+configured. Below the summary the main column holds the timed reads
 (`src/admin/views/source-timed.tsx`), one form with one Save and
 Discard: the interval and, for X and YouTube, the sync setting; and the
 [method chain](../workflows/source-schedules.md#method-chains), with every method's switch and
@@ -56,6 +55,19 @@ needs; the related-accounts method is read-only, while the Bilibili
 dynamics timer exposes its desktop and WBI methods and the shop its signed,
 unsigned and Atom reads for ordering and toggling. Save sends only the
 changed fields, and the timer switch keeps unsaved edits.
+
+Both Bilibili tabs follow the timed reads with the Login panel
+(`BilibiliLoginPanel` in `src/admin/views/bilibili-parts.tsx`): the
+login's state as a chip, its source, nickname and check times and, for a
+[stored login](../sources/bilibili-login.md), its refresh times and error.
+A process that stores a login adds Sign in with QR, a dialog that shows the
+server's code and its state while it waits and offers a new code once it
+expired or failed; Import, a dialog with the Cookie header and refresh token
+(masked); and, for a stored login, Forget, a dialog whose two buttons forget
+it here only or sign it out and forget it. A stored login that no longer
+decrypts shows as Stored login · Unreadable, and its Forget dialog offers
+only forgetting it here. Closing the QR dialog while the
+code waits cancels the sign-in.
 
 Settings below the timed reads are folded (`src/admin/views/source-parts.tsx`
 holds the fold): a header row with the title,

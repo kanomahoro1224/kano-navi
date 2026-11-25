@@ -14,6 +14,7 @@ these routes. See [Public API](public-api/feeds-and-endpoints.md#mcp-boundary-mc
 - [Runs and Queue Preview](admin-api/runs.md): open when you change runs or the queue preview.
 - [Sources and Outbound Proxies](admin-api/sources.md): open when you change source or proxy endpoints.
 - [Web Bot Auth key](admin-api/web-bot-auth-key.md): open when you change the Web Bot Auth key endpoints.
+- [Bilibili Login Endpoints](admin-api/bilibili-login.md): open when you change the Bilibili login import, QR sign-in or forget endpoints.
 - [Alerts](admin-api/alerts.md): open when you change the alert endpoints.
 - [Events and Schedule Images](admin-api/events.md): open when you change event or schedule-image endpoints.
 - [Posts and External Posts](admin-api/posts.md): open when you change post or external-post endpoints.

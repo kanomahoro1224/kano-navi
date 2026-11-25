@@ -135,7 +135,11 @@
     },
     {
       "host": "www.bilibili.com",
-      "reason": "Bilibili source: one dynamic's server-rendered opus page (/opus/<id> only), read server-side for an operator, and the public opus link of a stored dynamic."
+      "reason": "Bilibili source: one dynamic's server-rendered opus page (/opus/<id> only), read server-side for an operator; the stored login's refresh page (/correspond/1/<path> only), which renders the refresh's CSRF token; and the public opus link of a stored dynamic."
+    },
+    {
+      "host": "passport.bilibili.com",
+      "reason": "Bilibili login the server owns: the daily refresh check, refresh and confirm of the stored login, and the QR sign-in and sign-out an operator starts, read server-side with fixed paths, timeout, size limit, rejected redirects and the shared captcha backoff; answers are never captured."
     },
     {
       "host": "api.live.bilibili.com",

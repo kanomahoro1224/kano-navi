@@ -21,7 +21,14 @@
   its path: the [alert](../architecture/alerts.md#channels) client builds
   that URL only for the request, from a token sealed at rest, and records
   only a fixed error code, never the URL or the transport error that
-  carries it.
+  carries it. The Bilibili QR sign-in's poll likewise takes its one-time key
+  in the query, as Bilibili accepts it nowhere else: the key lives for the
+  180 seconds of the sign-in in process memory, and its requests are never
+  logged or captured.
+- A request an explicit operator action starts reaches only the action's
+  fixed destination: a proxy test, a model discovery, and the Bilibili QR
+  sign-in, whose poll the server runs for at most 180 seconds and whose
+  address and key stay in memory.
 - Operator-entered destinations (alert channels and the heartbeat) go only
   to public `https` addresses: their names are resolved and every address
   checked before sending, and direct connections check the dialled address
@@ -40,7 +47,10 @@
 - Source workflow runs retain bounded textual response bodies in the local
   SQLite snapshot for diagnosis. Captures omit request headers and query
   strings, are limited to 4 MiB each and 512 MiB total, and expire after 30
-  days for successful responses or 90 days for errors. The local read-only
+  days for successful responses or 90 days for errors. A request whose
+  answer carries a credential is marked with `sourcecapture.WithoutCapture`
+  and never captured: the Bilibili login's `passport.bilibili.com` requests
+  and correspond page. The local read-only
   `kano-go responses` command is the only body access path; treat database
   backups and exported captures as source data and keep them access-controlled.
 

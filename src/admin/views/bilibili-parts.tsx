@@ -1,11 +1,41 @@
-import { useState, type ReactNode, type SubmitEvent } from "react"
-import { KeyRound, Plus, RadioTower, ShieldAlert } from "lucide-react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type SubmitEvent,
+} from "react"
+import {
+  ClipboardPaste,
+  KeyRound,
+  LogOut,
+  Plus,
+  QrCode,
+  RadioTower,
+  RotateCw,
+  ShieldAlert,
+  Trash2,
+} from "lucide-react"
 
 import { useAppSettings } from "@/app-settings"
 import { ApiError } from "@/admin/api"
 import { formatRelative, japanStamp } from "@/admin/format"
-import type { BilibiliLiveRoom, BilibiliLogin, Sources } from "@/admin/types"
-import { Badge, Button, Facts, Field, Panel, type Tone } from "@/admin/ui"
+import type {
+  BilibiliLiveRoom,
+  BilibiliLogin,
+  BilibiliQR,
+  BilibiliQRState,
+  Sources,
+} from "@/admin/types"
+import {
+  Badge,
+  Button,
+  Facts,
+  Field,
+  Modal,
+  Panel,
+  type Tone,
+} from "@/admin/ui"
 import { useAdmin } from "@/admin/use-admin-data"
 import { explainCode } from "@/admin/views/run-parts"
 
@@ -359,5 +389,338 @@ export function BilibiliAddDynamic({
       send={(input, force) => api.addBilibiliPost(input, force)}
       onAdded={onAdded}
     />
+  )
+}
+
+const qrTones: Record<BilibiliQRState, Tone> = {
+  waiting: "neutral",
+  scanned: "honey",
+  signed_in: "leaf",
+  expired: "neutral",
+  failed: "danger",
+}
+
+/**
+ * The login both Bilibili reads send: where it comes from and its checks,
+ * and for the login the server keeps, its import, QR sign-in and forget.
+ */
+export function BilibiliLoginPanel({
+  status,
+  onChange,
+}: {
+  status: Sources["bilibili"]
+  onChange: (status: Sources["bilibili"]) => void
+}) {
+  const { t } = useAppSettings()
+  const stamp = useStamp()
+  const [dialog, setDialog] = useState<"" | "import" | "qr" | "forget">("")
+  if (!status.available) return null
+  const stored = status.loginSource === "stored"
+  const unreadable = status.loginUnreadable === true
+  const source = status.loginSource
+    ? [
+        t(`admin.bilibili.login.source.${status.loginSource}`),
+        status.loginVia ? t(`admin.bilibili.login.via.${status.loginVia}`) : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : null
+  const items: [ReactNode, ReactNode][] = [
+    [t("admin.bilibili.login.source"), source],
+    [t("admin.bilibili.login.name"), status.loginName ?? null],
+    [t("admin.bilibili.login.checked"), stamp(status.loginCheckedAt)],
+  ]
+  if (stored)
+    items.push(
+      [t("admin.bilibili.login.refreshed"), stamp(status.loginRefreshedAt)],
+      [
+        t("admin.bilibili.login.refreshChecked"),
+        stamp(status.loginRefreshCheckedAt),
+      ],
+    )
+  if (unreadable)
+    items.push([
+      t("admin.bilibili.login.stored"),
+      <Badge tone="danger">{t("admin.bilibili.login.unreadable")}</Badge>,
+    ])
+  if (stored && status.loginRefreshError)
+    items.push([
+      t("admin.bilibili.login.refreshError"),
+      <ErrorText code={status.loginRefreshError} />,
+    ])
+  const close = () => setDialog("")
+  const changed = (next: Sources["bilibili"]) => {
+    setDialog("")
+    onChange(next)
+  }
+  return (
+    <Panel
+      level={3}
+      icon={KeyRound}
+      title={t("admin.bilibili.login.title")}
+      actions={<LoginBadge login={loginOf(status)} />}
+    >
+      <div className="adm-form">
+        <Facts items={items} />
+        {status.loginStorable ? (
+          <div className="adm-form-actions">
+            {stored || unreadable ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={Trash2}
+                onClick={() => setDialog("forget")}
+              >
+                {t("admin.bilibili.login.forget")}
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={ClipboardPaste}
+              onClick={() => setDialog("import")}
+            >
+              {t("admin.bilibili.login.import")}
+            </Button>
+            <Button size="sm" icon={QrCode} onClick={() => setDialog("qr")}>
+              {t("admin.bilibili.login.qr")}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      {dialog === "import" ? (
+        <ImportLoginDialog onClose={close} onSaved={changed} />
+      ) : null}
+      {dialog === "forget" ? (
+        <ForgetLoginDialog
+          signOut={!unreadable}
+          onClose={close}
+          onForgotten={changed}
+        />
+      ) : null}
+      {dialog === "qr" ? (
+        <QRSignInDialog onClose={close} onSignedIn={changed} />
+      ) : null}
+    </Panel>
+  )
+}
+
+/** Stores a private window's Cookie header and its ac_time_value. */
+function ImportLoginDialog({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void
+  onSaved: (status: Sources["bilibili"]) => void
+}) {
+  const { t } = useAppSettings()
+  const { api, act } = useAdmin()
+  const [cookie, setCookie] = useState("")
+  const [refreshToken, setRefreshToken] = useState("")
+  const [busy, setBusy] = useState(false)
+  const save = async (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setBusy(true)
+    const next = await act(
+      () =>
+        api.importBilibiliLogin({
+          cookie: cookie.trim(),
+          refreshToken: refreshToken.trim(),
+        }),
+      "admin.notice.bilibiliLoginImported",
+    )
+    setBusy(false)
+    if (next) onSaved(next)
+  }
+  return (
+    <Modal open title={t("admin.bilibili.login.importTitle")} onClose={onClose}>
+      <form className="adm-form" onSubmit={save}>
+        <Field label={t("admin.bilibili.login.cookie")}>
+          <textarea
+            className="adm-login-secret"
+            rows={4}
+            value={cookie}
+            onChange={(event) => setCookie(event.target.value)}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoComplete="off"
+            required
+          />
+        </Field>
+        <Field label={t("admin.bilibili.login.refreshToken")}>
+          <input
+            className="adm-login-secret"
+            type="password"
+            value={refreshToken}
+            onChange={(event) => setRefreshToken(event.target.value)}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoComplete="off"
+            required
+          />
+        </Field>
+        <div className="adm-form-actions">
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            icon={ClipboardPaste}
+            busy={busy}
+            disabled={!cookie.trim() || !refreshToken.trim()}
+          >
+            {t("admin.bilibili.login.save")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/**
+ * Drops the stored login, or signs it out at Bilibili first; a login that
+ * no longer decrypts can only be dropped.
+ */
+function ForgetLoginDialog({
+  signOut: canSignOut,
+  onClose,
+  onForgotten,
+}: {
+  signOut: boolean
+  onClose: () => void
+  onForgotten: (status: Sources["bilibili"]) => void
+}) {
+  const { t } = useAppSettings()
+  const { api, act } = useAdmin()
+  const [busy, setBusy] = useState<"" | "forget" | "signOut">("")
+  const forget = async (signOut: boolean) => {
+    setBusy(signOut ? "signOut" : "forget")
+    const next = await act(
+      () => api.forgetBilibiliLogin(signOut),
+      "admin.notice.bilibiliLoginForgotten",
+    )
+    setBusy("")
+    if (next) onForgotten(next)
+  }
+  return (
+    <Modal open title={t("admin.bilibili.login.forgetTitle")} onClose={onClose}>
+      <div className="adm-form-actions adm-login-choice">
+        <Button
+          size="sm"
+          variant="outline"
+          icon={Trash2}
+          busy={busy === "forget"}
+          disabled={busy !== ""}
+          onClick={() => void forget(false)}
+        >
+          {t("admin.bilibili.login.forgetOnly")}
+        </Button>
+        {canSignOut ? (
+          <Button
+            size="sm"
+            variant="danger"
+            icon={LogOut}
+            busy={busy === "signOut"}
+            disabled={busy !== ""}
+            onClick={() => void forget(true)}
+          >
+            {t("admin.bilibili.login.signOut")}
+          </Button>
+        ) : null}
+      </div>
+    </Modal>
+  )
+}
+
+/** How often the console reads the server's QR sign-in. */
+const qrReadInterval = 2000
+
+/**
+ * The server's QR sign-in: the dialog starts one, reads its local state
+ * until it ends, and cancels it when closed while it waits.
+ */
+function QRSignInDialog({
+  onClose,
+  onSignedIn,
+}: {
+  onClose: () => void
+  onSignedIn: (status: Sources["bilibili"]) => void
+}) {
+  const { t } = useAppSettings()
+  const { api, act } = useAdmin()
+  const [qr, setQR] = useState<BilibiliQR | null>(null)
+  const [round, setRound] = useState(0)
+  // Each round starts one sign-in, and its success is handed on once.
+  const started = useRef(-1)
+  const finished = useRef(false)
+  const open = qr?.state === "waiting" || qr?.state === "scanned"
+  const apply = (next: BilibiliQR | undefined) => {
+    if (!next) return
+    setQR(next)
+    if (next.state !== "signed_in" || finished.current) return
+    finished.current = true
+    void act(() => api.sources(), "admin.notice.bilibiliSignedIn").then(
+      (sources) => {
+        if (sources) onSignedIn(sources.bilibili)
+      },
+    )
+  }
+  useEffect(() => {
+    if (started.current === round) return
+    started.current = round
+    void act(() => api.startBilibiliQR()).then(apply)
+  })
+  useEffect(() => {
+    if (!open) return
+    const timer = window.setInterval(() => {
+      void api
+        .bilibiliQR()
+        .then(apply)
+        .catch(() => {})
+    }, qrReadInterval)
+    return () => window.clearInterval(timer)
+  })
+  const close = () => {
+    if (open) void api.cancelBilibiliQR().catch(() => {})
+    onClose()
+  }
+  const state = qr?.state ?? null
+  return (
+    <Modal open title={t("admin.bilibili.login.qrTitle")} onClose={close}>
+      <div className="adm-login-qr">
+        {qr?.qr ? (
+          <svg
+            className="adm-qr"
+            viewBox={`0 0 ${qr.qr.size} ${qr.qr.size}`}
+            role="img"
+            aria-label={t("admin.bilibili.login.qrCode")}
+            shapeRendering="crispEdges"
+          >
+            <path d={qr.qr.path} />
+          </svg>
+        ) : (
+          <div className="adm-qr is-empty" aria-hidden>
+            <QrCode />
+          </div>
+        )}
+        {state ? (
+          <Badge tone={qrTones[state]}>
+            {t(`admin.bilibili.login.qrState.${state}`)}
+          </Badge>
+        ) : null}
+        {qr?.error ? <ErrorText code={qr.error} /> : null}
+        {state === "expired" || state === "failed" ? (
+          <Button
+            size="sm"
+            icon={RotateCw}
+            onClick={() => {
+              setQR(null)
+              setRound((value) => value + 1)
+            }}
+          >
+            {t("admin.bilibili.login.qrAgain")}
+          </Button>
+        ) : null}
+      </div>
+    </Modal>
   )
 }

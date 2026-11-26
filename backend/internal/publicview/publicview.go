@@ -212,10 +212,26 @@ func publicPost(p sqlite.Post) map[string]any {
 	if p.Repost != nil {
 		out["repost"] = publicRepost(p.Repost)
 	}
+	if p.UpstreamKind != nil {
+		out["upstreamKind"] = *p.UpstreamKind
+	}
+	if p.ReplyTo != nil {
+		out["replyTo"] = publicReplyTo(p.ReplyTo)
+	}
 	if rich := publicRich(p.Rich); rich != nil {
 		out["rich"] = rich
 	}
 	return out
+}
+
+func publicReplyTo(r *sqlite.PostReplyTo) any {
+	text := func(s string) any {
+		if s == "" {
+			return nil
+		}
+		return s
+	}
+	return map[string]any{"handle": text(r.Handle), "statusId": text(r.StatusID), "url": text(r.URL)}
 }
 
 func publicRepost(r *sqlite.PostRepost) any {

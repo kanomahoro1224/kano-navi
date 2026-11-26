@@ -7,10 +7,31 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 )
 
 // ErrInvalidAccount rejects a post archive filter that is not an X handle.
 var ErrInvalidAccount = errors.New("invalid account")
+
+// ErrInvalidPostKind rejects a post archive category filter outside the
+// supported values (empty, all, post, reply, repost).
+var ErrInvalidPostKind = errors.New("invalid post kind")
+
+const (
+	PostKindAll    = "all"
+	PostKindPost   = "post"
+	PostKindReply  = "reply"
+	PostKindRepost = "repost"
+)
+
+func validPostKind(value string) bool {
+	switch value {
+	case "", PostKindAll, PostKindPost, PostKindReply, PostKindRepost:
+		return true
+	}
+	return false
+}
 
 var accountPattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
 
@@ -93,14 +114,22 @@ func archivePaging(total int64, page, pageSize int) (int, int, int) {
 // adjacentDates returns the Japan dates of the nearest items before start and
 // at or after end. instant is the SQL expression of an item's time.
 func (s *Store) adjacentDates(ctx context.Context, table, instant, filter string, args []any, start, end string) (*string, *string, error) {
+	return s.adjacentDatesWithPrefix(ctx, "", table, instant, filter, args, start, end)
+}
+
+func (s *Store) adjacentDatesWithPrefix(ctx context.Context, prefix, table, instant, filter string, args []any, start, end string) (*string, *string, error) {
 	var previous, next sql.NullString
-	query := `SELECT date(MAX(` + instant + `) + 0.375) FROM ` + table + ` WHERE ` + instant + ` < julianday(?)` + filter
-	if err := s.db.QueryRowContext(ctx, query, append([]any{start}, args...)...).Scan(&previous); err != nil {
-		return nil, nil, dbErr(err)
+	if start != "" {
+		query := prefix + `SELECT date(MAX(` + instant + `) + 0.375) FROM ` + table + ` WHERE ` + instant + ` < julianday(?)` + filter
+		if err := s.db.QueryRowContext(ctx, query, append([]any{start}, args...)...).Scan(&previous); err != nil {
+			return nil, nil, dbErr(err)
+		}
 	}
-	query = `SELECT date(MIN(` + instant + `) + 0.375) FROM ` + table + ` WHERE ` + instant + ` >= julianday(?)` + filter
-	if err := s.db.QueryRowContext(ctx, query, append([]any{end}, args...)...).Scan(&next); err != nil {
-		return nil, nil, dbErr(err)
+	if end != "" {
+		query := prefix + `SELECT date(MIN(` + instant + `) + 0.375) FROM ` + table + ` WHERE ` + instant + ` >= julianday(?)` + filter
+		if err := s.db.QueryRowContext(ctx, query, append([]any{end}, args...)...).Scan(&next); err != nil {
+			return nil, nil, dbErr(err)
+		}
 	}
 	var before, after *string
 	if previous.Valid {
@@ -128,14 +157,20 @@ func timelineEnd(until string) (string, error) {
 // GetPostArchive reads stored posts published in a Japan-date range, newest
 // first, optionally for one account.
 func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, page, pageSize int) (*ArchivePage[Post], error) {
+	return s.GetPostArchiveWithKind(ctx, from, to, account, "", page, pageSize)
+}
+
+// GetPostArchiveWithKind reads stored posts (and pooled reposts when kind is
+// "all" or "repost") published in a Japan-date range, newest first.
+func (s *Store) GetPostArchiveWithKind(ctx context.Context, from, to, account, kind string, page, pageSize int) (*ArchivePage[Post], error) {
 	if s != nil && s.readDB != nil {
-		return s.publicReader().GetPostArchive(ctx, from, to, account, page, pageSize)
+		return s.publicReader().GetPostArchiveWithKind(ctx, from, to, account, kind, page, pageSize)
 	}
 	start, end, err := archiveBounds(from, to)
 	if err != nil {
 		return nil, err
 	}
-	return s.postArchive(ctx, start, end, account, page, pageSize)
+	return s.postArchive(ctx, start, end, account, kind, page, pageSize)
 }
 
 // GetPostTimeline reads stored posts published on or before an inclusive
@@ -143,19 +178,115 @@ func (s *Store) GetPostArchive(ctx context.Context, from, to, account string, pa
 // optionally for one account. Its pages continue through every month, so a
 // client can scroll back without a date range.
 func (s *Store) GetPostTimeline(ctx context.Context, until, account string, page, pageSize int) (*ArchivePage[Post], error) {
+	return s.GetPostTimelineWithKind(ctx, until, account, "", page, pageSize)
+}
+
+// GetPostTimelineWithKind reads stored posts (and pooled reposts when kind is
+// "all" or "repost") published on or before an inclusive Japan date, newest
+// first, optionally narrowed by account and category kind.
+func (s *Store) GetPostTimelineWithKind(ctx context.Context, until, account, kind string, page, pageSize int) (*ArchivePage[Post], error) {
 	if s != nil && s.readDB != nil {
-		return s.publicReader().GetPostTimeline(ctx, until, account, page, pageSize)
+		return s.publicReader().GetPostTimelineWithKind(ctx, until, account, kind, page, pageSize)
 	}
 	end, err := timelineEnd(until)
 	if err != nil {
 		return nil, err
 	}
-	return s.postArchive(ctx, "", end, account, page, pageSize)
+	return s.postArchive(ctx, "", end, account, kind, page, pageSize)
+}
+
+const (
+	postShownBaseSQL = `p.deleted_at IS NULL AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL))`
+	ownRepostSQL     = `(COALESCE(p.repost_json,'')<>'' OR COALESCE(p.upstream_kind,'')='repost')`
+	xRepostPublished = `COALESCE(
+		CASE WHEN length(COALESCE(r.retweet_id,'')) BETWEEN 15 AND 22 AND r.retweet_id GLOB '[0-9]*'
+			THEN strftime('%Y-%m-%dT%H:%M:%SZ', ((CAST(r.retweet_id AS INTEGER) >> 22) + 1288834974657) / 1000.0)
+		END,
+		NULLIF(s.published_at,''),
+		NULLIF(orig.published_at,''),
+		r.first_seen_at
+	)`
+	xRepostOrigURL = `COALESCE(NULLIF(s.url,''), orig.url, 'https://x.com/' || COALESCE(NULLIF(COALESCE(s.author_handle, r.author_handle, orig.account_handle),''), 'i') || '/status/' || r.status_id)`
+)
+
+// postArchivePostsScope returns the WHERE predicate (on aliased posts p)
+// matching the posts-table slice of kind.
+func postArchivePostsScope(kind string) string {
+	switch kind {
+	case PostKindPost:
+		return `p.deleted_at IS NULL AND ((p.promoted_at IS NOT NULL AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL AND NOT ` + postDemotedSQL("p") + `))) OR (p.promoted_at IS NULL AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL AND NOT ` + ownRepostSQL + ` AND COALESCE(p.upstream_kind,'') NOT IN ('reply','foreign','repost','unlisted')))))`
+	case PostKindReply:
+		return `p.deleted_at IS NULL AND p.promoted_at IS NULL AND COALESCE(p.upstream_kind,'')='reply' AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL))`
+	case PostKindRepost:
+		return postShownBaseSQL + ` AND ` + ownRepostSQL
+	case PostKindAll:
+		return `p.deleted_at IS NULL AND ((p.promoted_at IS NOT NULL AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL AND NOT ` + postDemotedSQL("p") + `))) OR (p.promoted_at IS NULL AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL AND COALESCE(p.upstream_kind,'') NOT IN ('foreign','unlisted')))))`
+	default:
+		return ``
+	}
+}
+
+func postArchiveCTEPrefix(kind string) string {
+	if kind == PostKindAll || kind == PostKindRepost {
+		return `WITH existing_repost(h, sid) AS MATERIALIZED (
+ SELECT lower(COALESCE(account_handle,'')), json_extract(repost_json,'$.id')
+ FROM posts
+ WHERE deleted_at IS NULL AND source='x' AND repost_json IS NOT NULL AND repost_json<>''
+) `
+	}
+	return ``
+}
+
+func postArchiveUnionSelect(kind string) string {
+	postsWhere := postArchivePostsScope(kind)
+	postsSelect := `SELECT p.id,p.source,p.account_handle,p.type,p.label,p.text,p.published_at,p.url,p.likes,p.reposts,p.replies,p.media_url,p.media_alt,CASE WHEN p.quote_hidden_at IS NULL THEN p.quote_json END AS quote_json,p.promoted_at IS NOT NULL AS promoted,
+ CASE WHEN p.source='bilibili' AND instr(p.raw_json,'` + bilisource.EmojiNode + `')>0 THEN p.raw_json END AS sticker_raw,p.repost_json,p.upstream_kind,
+ CASE WHEN p.source='x' AND COALESCE(p.upstream_kind,'') IN ('reply','self_reply') AND json_valid(p.raw_json) THEN json_object('handle',COALESCE(json_extract(p.raw_json,'$.replying_to.screen_name'),json_extract(p.raw_json,'$.replyingTo'),json_extract(p.raw_json,'$.in_reply_to_screen_name')),'statusId',COALESCE(json_extract(p.raw_json,'$.replying_to.post'),json_extract(p.raw_json,'$.replying_to.status'),json_extract(p.raw_json,'$.replyingToID'),json_extract(p.raw_json,'$.replying_to_status')),'url',json_extract(p.raw_json,'$.replying_to.url')) END AS reply_to_json,
+ p.id AS media_owner_id,NULL AS pool_raw_json
+ FROM posts p WHERE ` + postsWhere
+
+	if kind == PostKindPost || kind == PostKindReply {
+		return `(` + postsSelect + `)`
+	}
+	repostSelect := `SELECT
+ 'repost-' || r.account_handle || '-' || r.status_id AS id,
+ 'x' AS source,
+ r.account_handle AS account_handle,
+ 'daily' AS type,
+ NULL AS label,
+ COALESCE(NULLIF(s.text,''), orig.text, '') AS text,
+ ` + xRepostPublished + ` AS published_at,
+ CASE WHEN COALESCE(r.retweet_id,'')<>'' THEN 'https://x.com/' || r.account_handle || '/status/' || r.retweet_id ELSE ` + xRepostOrigURL + ` END AS url,
+ COALESCE(orig.likes, 0) AS likes,
+ COALESCE(orig.reposts, 0) AS reposts,
+ COALESCE(orig.replies, 0) AS replies,
+ COALESCE(orig.media_url, CASE WHEN json_valid(s.raw_json) THEN json_extract(s.raw_json, '$.mediaURLs[0]') END) AS media_url,
+ orig.media_alt AS media_alt,
+ CASE WHEN orig.quote_hidden_at IS NULL THEN orig.quote_json END AS quote_json,
+ 0 AS promoted,
+ NULL AS sticker_raw,
+ json_object(
+   'id', r.status_id,
+   'authorHandle', COALESCE(NULLIF(s.author_handle,''), NULLIF(r.author_handle,''), NULLIF(orig.account_handle,''), ''),
+   'authorName', COALESCE(s.author_name, ''),
+   'authorAvatar', COALESCE(json_extract(s.raw_json, '$.author.avatar_url'), ''),
+   'publishedAt', COALESCE(NULLIF(s.published_at,''), NULLIF(orig.published_at,''), ''),
+   'url', ` + xRepostOrigURL + `
+ ) AS repost_json,
+ 'repost' AS upstream_kind,
+ NULL AS reply_to_json,
+ CASE WHEN orig.id IS NOT NULL THEN orig.id ELSE '' END AS media_owner_id,
+ s.raw_json AS pool_raw_json
+ FROM x_reposts r
+ LEFT JOIN x_statuses s ON s.id = r.status_id
+ LEFT JOIN posts orig ON orig.id = r.status_id AND orig.deleted_at IS NULL
+ WHERE NOT EXISTS (SELECT 1 FROM existing_repost e WHERE e.h=r.account_handle AND e.sid=r.status_id)`
+	return `(` + postsSelect + ` UNION ALL ` + repostSelect + `)`
 }
 
 // postArchive reads one page of shown posts in the UTC instants [start, end);
 // an empty bound leaves that side open.
-func (s *Store) postArchive(ctx context.Context, start, end, account string, page, pageSize int) (*ArchivePage[Post], error) {
+func (s *Store) postArchive(ctx context.Context, start, end, account, kind string, page, pageSize int) (*ArchivePage[Post], error) {
 	if s == nil || s.db == nil {
 		return nil, ErrUnavailable
 	}
@@ -163,8 +294,23 @@ func (s *Store) postArchive(ctx context.Context, start, end, account string, pag
 	if account != "" && !accountPattern.MatchString(account) {
 		return nil, ErrInvalidAccount
 	}
+	if !validPostKind(kind) {
+		return nil, ErrInvalidPostKind
+	}
 	const instant = `julianday(published_at)`
-	conditions, bounds := []string{wallPostSQL, instant + ` IS NOT NULL`}, []any{}
+	useUnion := kind != ""
+	ctePrefix := postArchiveCTEPrefix(kind)
+	var fromTable, baseCondition, selectCols string
+	if !useUnion {
+		fromTable = `posts`
+		baseCondition = wallPostSQL
+		selectCols = postColumns
+	} else {
+		fromTable = postArchiveUnionSelect(kind) + ` AS pa`
+		baseCondition = `1=1`
+		selectCols = `id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,quote_json,promoted,sticker_raw,repost_json,upstream_kind,reply_to_json,media_owner_id,pool_raw_json`
+	}
+	conditions, bounds := []string{baseCondition, instant + ` IS NOT NULL`}, []any{}
 	if start != "" {
 		conditions, bounds = append(conditions, instant+` >= julianday(?)`), append(bounds, start)
 	}
@@ -179,7 +325,7 @@ func (s *Store) postArchive(ctx context.Context, start, end, account string, pag
 	args := append(append([]any{}, bounds...), filterArgs...)
 
 	counts := map[string]int64{}
-	countRows, err := s.db.QueryContext(ctx, `SELECT lower(COALESCE(account_handle,'')), COUNT(*) FROM posts`+inRange+` GROUP BY 1`, bounds...)
+	countRows, err := s.db.QueryContext(ctx, ctePrefix+`SELECT lower(COALESCE(account_handle,'')), COUNT(*) FROM `+fromTable+inRange+` GROUP BY 1`, bounds...)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -201,17 +347,28 @@ func (s *Store) postArchive(ctx context.Context, start, end, account string, pag
 	_ = countRows.Close()
 
 	var total int64
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM posts`+inRange+filter, args...).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(ctx, ctePrefix+`SELECT COUNT(*) FROM `+fromTable+inRange+filter, args...).Scan(&total); err != nil {
 		return nil, dbErr(err)
 	}
 	page, pageSize, totalPages := archivePaging(total, page, pageSize)
-	rows, err := s.db.QueryContext(ctx, `SELECT `+postColumns+` FROM posts`+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
+	rows, err := s.db.QueryContext(ctx, ctePrefix+`SELECT `+selectCols+` FROM `+fromTable+inRange+filter+` ORDER BY `+instant+` DESC,id ASC LIMIT ? OFFSET ?`, append(args, pageSize, (page-1)*pageSize)...)
 	if err != nil {
 		return nil, dbErr(err)
 	}
 	postRows := make([]postRow, 0, pageSize)
 	for rows.Next() {
-		r, err := scanPostRow(rows)
+		var r postRow
+		if !useUnion {
+			r, err = scanPostRow(rows)
+		} else {
+			var accountH, label, mu, ma, mediaOwner sql.NullString
+			err = rows.Scan(&r.id, &r.source, &accountH, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted, &r.stickerRaw, &r.repostJSON, &r.upstreamKind, &r.replyToJSON, &mediaOwner, &r.poolRawJSON)
+			r.accountHandle, r.hasAccount = accountH.String, accountH.Valid
+			r.label, r.hasLabel = label.String, label.Valid
+			r.mediaURL, r.hasMediaURL = mu.String, mu.Valid
+			r.mediaAlt, r.hasMediaAlt = ma.String, ma.Valid
+			r.mediaOwnerID = mediaOwner.String
+		}
 		if err != nil {
 			_ = rows.Close()
 			return nil, dbErr(err)
@@ -227,8 +384,14 @@ func (s *Store) postArchive(ctx context.Context, start, end, account string, pag
 	if err = s.prefetchPostRows(ctx, postRows); err != nil {
 		return nil, err
 	}
+	accountCasing := s.archiveAccountCasing(ctx)
 	items := make([]Post, 0, len(postRows))
 	for _, row := range postRows {
+		if row.hasAccount && strings.HasPrefix(row.id, "repost-") {
+			if proper, ok := accountCasing[strings.ToLower(row.accountHandle)]; ok {
+				row.accountHandle = proper
+			}
+		}
 		post, mapErr := s.mapPost(ctx, row)
 		if mapErr != nil {
 			return nil, mapErr
@@ -244,9 +407,16 @@ func (s *Store) postArchive(ctx context.Context, start, end, account string, pag
 	}
 
 	// An open bound has no neighbor: julianday('') is NULL and matches nothing.
-	previous, next, err := s.adjacentDates(ctx, "posts", instant, " AND "+wallPostSQL+filter, filterArgs, start, end)
-	if err != nil {
-		return nil, err
+	var previous, next *string
+	if start != "" || end != "" {
+		adjFilter := filter
+		if !useUnion {
+			adjFilter = " AND " + wallPostSQL + filter
+		}
+		previous, next, err = s.adjacentDatesWithPrefix(ctx, ctePrefix, fromTable, instant, adjFilter, filterArgs, start, end)
+		if err != nil {
+			return nil, err
+		}
 	}
 	revision, err := s.GetDashboardRevision(ctx)
 	if err != nil {
@@ -262,6 +432,18 @@ func (s *Store) postArchive(ctx context.Context, start, end, account string, pag
 	}, nil
 }
 
+func (s *Store) archiveAccountCasing(ctx context.Context) map[string]string {
+	out := map[string]string{}
+	accounts, err := s.GetPostArchiveAccounts(ctx)
+	if err != nil {
+		return out
+	}
+	for _, h := range accounts.X {
+		out[strings.ToLower(h)] = h
+	}
+	return out
+}
+
 // ArchiveMonth is one Japan month that holds stored posts or videos: its
 // total and its records per key, a lowercase handle for posts and a category
 // for videos.
@@ -275,12 +457,28 @@ type ArchiveMonth struct {
 // so the archive can offer a jump to any of them. Accounts are not filtered:
 // the counts let the board narrow each month to the chosen account.
 func (s *Store) GetPostMonths(ctx context.Context) ([]ArchiveMonth, int64, error) {
+	return s.GetPostMonthsWithKind(ctx, "")
+}
+
+// GetPostMonthsWithKind lists every Japan month holding a shown post (or
+// repost) matching kind, oldest first.
+func (s *Store) GetPostMonthsWithKind(ctx context.Context, kind string) ([]ArchiveMonth, int64, error) {
 	if s != nil && s.readDB != nil {
-		return s.publicReader().GetPostMonths(ctx)
+		return s.publicReader().GetPostMonthsWithKind(ctx, kind)
 	}
-	return s.archiveMonths(ctx, `SELECT strftime('%Y-%m', julianday(published_at) + 0.375) AS month,
+	if !validPostKind(kind) {
+		return nil, 0, ErrInvalidPostKind
+	}
+	if kind == "" {
+		return s.archiveMonths(ctx, `SELECT strftime('%Y-%m', julianday(published_at) + 0.375) AS month,
 	     lower(COALESCE(account_handle,'')), COUNT(*)
 	   FROM posts WHERE `+wallPostSQL+` AND julianday(published_at) IS NOT NULL
+	   GROUP BY 1, 2 ORDER BY 1, 2`)
+	}
+	source := postArchiveUnionSelect(kind) + ` AS pa`
+	return s.archiveMonths(ctx, postArchiveCTEPrefix(kind)+`SELECT strftime('%Y-%m', julianday(published_at) + 0.375) AS month,
+	     lower(COALESCE(account_handle,'')), COUNT(*)
+	   FROM `+source+` WHERE julianday(published_at) IS NOT NULL
 	   GROUP BY 1, 2 ORDER BY 1, 2`)
 }
 

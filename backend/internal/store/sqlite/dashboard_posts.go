@@ -25,18 +25,28 @@ type postRow struct {
 	stickerRaw sql.NullString
 	// repostJSON is the original status of a repost, when the post has one.
 	repostJSON sql.NullString
+	// upstreamKind is the X classification (top_level, self_reply, reply, repost).
+	upstreamKind sql.NullString
+	// replyToJSON is the extracted {handle,statusId,url} of a reply target.
+	replyToJSON sql.NullString
+	// mediaOwnerID overrides id when a synthesized repost reuses the stored
+	// original post's media_links; poolRawJSON carries x_statuses.raw_json
+	// when no original posts row exists.
+	mediaOwnerID string
+	poolRawJSON  sql.NullString
 }
 
 // postColumns are a public post read's columns of the unaliased posts table,
 // in postRow's scan order (see scanPostRow).
 const postColumns = `id,source,account_handle,type,label,text,published_at,url,likes,reposts,replies,media_url,media_alt,CASE WHEN quote_hidden_at IS NULL THEN quote_json END,promoted_at IS NOT NULL,
- CASE WHEN source='bilibili' AND instr(raw_json,'` + bilisource.EmojiNode + `')>0 THEN raw_json END,repost_json`
+ CASE WHEN source='bilibili' AND instr(raw_json,'` + bilisource.EmojiNode + `')>0 THEN raw_json END,repost_json,upstream_kind,
+ CASE WHEN source='x' AND COALESCE(upstream_kind,'') IN ('reply','self_reply') AND json_valid(raw_json) THEN json_object('handle',COALESCE(json_extract(raw_json,'$.replying_to.screen_name'),json_extract(raw_json,'$.replyingTo'),json_extract(raw_json,'$.in_reply_to_screen_name')),'statusId',COALESCE(json_extract(raw_json,'$.replying_to.post'),json_extract(raw_json,'$.replying_to.status'),json_extract(raw_json,'$.replyingToID'),json_extract(raw_json,'$.replying_to_status')),'url',json_extract(raw_json,'$.replying_to.url')) END`
 
 // scanPostRow reads one row of postColumns.
 func scanPostRow(row scanner) (postRow, error) {
 	var r postRow
 	var account, label, mu, ma sql.NullString
-	if err := row.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted, &r.stickerRaw, &r.repostJSON); err != nil {
+	if err := row.Scan(&r.id, &r.source, &account, &r.typ, &label, &r.text, &r.publishedAt, &r.url, &r.likes, &r.reposts, &r.replies, &mu, &ma, &r.quoteJSON, &r.promoted, &r.stickerRaw, &r.repostJSON, &r.upstreamKind, &r.replyToJSON); err != nil {
 		return r, err
 	}
 	r.accountHandle, r.hasAccount = account.String, account.Valid
@@ -181,6 +191,16 @@ func (s *Store) queryRecentVideoCount(ctx context.Context, now time.Time) (int64
 
 func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 	p := Post{ID: r.id, Source: r.source, Type: r.typ, Text: r.text, PublishedAt: r.publishedAt, URL: r.url, Likes: r.likes, Reposts: r.reposts, Replies: r.replies, Promoted: r.promoted, RepostedBy: []string{}}
+	if r.upstreamKind.Valid && r.upstreamKind.String != "" {
+		k := r.upstreamKind.String
+		p.UpstreamKind = &k
+	}
+	if r.replyToJSON.Valid && r.replyToJSON.String != "" {
+		var rt PostReplyTo
+		if json.Unmarshal([]byte(r.replyToJSON.String), &rt) == nil && (rt.Handle != "" || rt.StatusID != "") {
+			p.ReplyTo = &rt
+		}
+	}
 	if r.promoted && r.source == "x" {
 		reposters, err := s.queryRepostedBy(ctx, r.id)
 		if err != nil {
@@ -220,15 +240,25 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 		p.MediaURL = ref.PublicURL
 		p.Media = []PostMedia{{ID: ref.ID, URL: ref.PublicURL, Status: ref.Status, SourceURL: ref.SourceURL, Alt: p.MediaAlt, Position: 0, Width: ref.Width, Height: ref.Height, Kind: mediaKindPhoto}}
 	}
-	links, err := s.queryPostMedia(ctx, r.id, "post-image")
+	mediaOwner := r.id
+	if r.mediaOwnerID != "" {
+		mediaOwner = r.mediaOwnerID
+	}
+	links, err := s.queryPostMedia(ctx, mediaOwner, "post-image")
 	if err != nil {
 		return p, err
+	}
+	if len(links) == 0 && r.poolRawJSON.Valid && r.poolRawJSON.String != "" {
+		links, err = s.resolvePoolMedia(ctx, r.poolRawJSON.String)
+		if err != nil {
+			return p, err
+		}
 	}
 	if len(links) > 0 {
 		p.Media = links
 		p.MediaID, p.MediaURL, p.MediaStatus, p.MediaSourceURL = links[0].ID, links[0].URL, links[0].Status, links[0].SourceURL
 	}
-	if p.Quote, err = s.mapQuote(ctx, r.source, r.id, r.quoteJSON); err != nil {
+	if p.Quote, err = s.mapQuote(ctx, r.source, mediaOwner, r.quoteJSON); err != nil {
 		return p, err
 	}
 	if p.Repost, err = s.mapRepost(ctx, r.id, r.repostJSON); err != nil {
@@ -240,6 +270,38 @@ func (s *Store) mapPost(ctx context.Context, r postRow) (Post, error) {
 		}
 	}
 	return p, nil
+}
+
+// resolvePoolMedia resolves mediaURLs/mediaKinds stored in x_statuses.raw_json
+// against media_assets without exposing uncached external URLs.
+func (s *Store) resolvePoolMedia(ctx context.Context, rawJSON string) ([]PostMedia, error) {
+	var parsed struct {
+		MediaURLs  []string `json:"mediaURLs"`
+		MediaKinds []string `json:"mediaKinds"`
+	}
+	if json.Unmarshal([]byte(rawJSON), &parsed) != nil || len(parsed.MediaURLs) == 0 {
+		return nil, nil
+	}
+	out := make([]PostMedia, 0, len(parsed.MediaURLs))
+	for i, src := range parsed.MediaURLs {
+		if strings.TrimSpace(src) == "" {
+			continue
+		}
+		u := src
+		ref, err := s.resolveMedia(ctx, &u)
+		if err != nil {
+			return nil, err
+		}
+		if ref.Status != "ready" || ref.PublicURL == nil {
+			continue
+		}
+		kind := kindAt(parsed.MediaKinds, i)
+		if kind == "" {
+			kind = mediaKindPhoto
+		}
+		out = append(out, PostMedia{ID: ref.ID, URL: ref.PublicURL, Status: ref.Status, SourceURL: ref.SourceURL, Position: int64(len(out)), Width: ref.Width, Height: ref.Height, Kind: kind})
+	}
+	return out, nil
 }
 
 // mapRepost reads a post's stored repost projection. A projection that is not
@@ -270,6 +332,15 @@ func (s *Store) mapRepost(ctx context.Context, postID string, stored sql.NullStr
 			if link.Status == "ready" && link.ID != nil && link.URL != nil && link.SourceURL != nil && *link.SourceURL == avatarSource {
 				r.AuthorAvatar = *link.URL
 				break
+			}
+		}
+		if r.AuthorAvatar == "" {
+			ref, refErr := s.resolveMedia(ctx, &avatarSource)
+			if refErr != nil {
+				return nil, refErr
+			}
+			if ref.Status == "ready" && ref.PublicURL != nil {
+				r.AuthorAvatar = *ref.PublicURL
 			}
 		}
 	}

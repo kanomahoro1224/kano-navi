@@ -407,17 +407,27 @@ func (s *Store) attachPostTranslations(ctx context.Context, posts ...*Post) erro
 		}
 	}
 	quoted := []string{}
+	repostStatuses := []string{}
 	for _, post := range posts {
 		if post == nil {
 			continue
 		}
-		add(post.ID)
+		if post.Repost != nil && strings.HasPrefix(post.ID, "repost-") {
+			add(post.Repost.ID)
+			repostStatuses = append(repostStatuses, post.Repost.ID)
+		} else {
+			add(post.ID)
+		}
 		if post.Quote != nil && !post.Quote.Unavailable {
 			add(post.Quote.ID)
 			quoted = append(quoted, post.Quote.ID)
 		}
 	}
 	sets, err := s.resolveTranslations(ctx, TranslationOwnerPost, ids)
+	if err != nil {
+		return err
+	}
+	repostSets, err := s.resolveTranslations(ctx, TranslationOwnerXStatus, repostStatuses)
 	if err != nil {
 		return err
 	}
@@ -445,7 +455,15 @@ func (s *Store) attachPostTranslations(ctx context.Context, posts ...*Post) erro
 		if post == nil {
 			continue
 		}
-		post.Translations = sets[post.ID]
+		if post.Repost != nil && strings.HasPrefix(post.ID, "repost-") {
+			if len(sets[post.Repost.ID].Locales) > 0 || sets[post.Repost.ID].SourceLanguage != nil {
+				post.Translations = sets[post.Repost.ID]
+			} else {
+				post.Translations = repostSets[post.Repost.ID]
+			}
+		} else {
+			post.Translations = sets[post.ID]
+		}
 		if post.Quote != nil && !post.Quote.Unavailable {
 			if stored[post.Quote.ID] {
 				post.Quote.Translations = sets[post.Quote.ID]

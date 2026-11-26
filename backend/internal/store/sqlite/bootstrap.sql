@@ -658,6 +658,10 @@ CREATE INDEX posts_published_at_idx ON posts (published_at DESC);
 
 CREATE INDEX posts_url_published_at_idx ON posts (url, published_at DESC);
 
+CREATE INDEX posts_x_repost_ref_idx
+    ON posts (lower(COALESCE(account_handle, '')), json_extract(repost_json, '$.id'))
+    WHERE deleted_at IS NULL AND source = 'x' AND repost_json IS NOT NULL AND repost_json <> '';
+
 CREATE INDEX profile_media_slot_idx
     ON profile_media (slot, is_active, updated_at DESC);
 

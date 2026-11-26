@@ -126,7 +126,16 @@ func (c *Client) Profile(ctx context.Context, account string) ([]byte, error) {
 // count of them up to TimelinePageSize; FxTwitter answers with its fixed page
 // either way. An empty cursor requests the first page.
 func (c *Client) Timeline(ctx context.Context, account, cursor string, count int) ([]byte, error) {
+	return c.TimelineWithReplies(ctx, account, cursor, count, false)
+}
+
+// TimelineWithReplies is Timeline, optionally including the account's replies
+// (with_replies=true) when withReplies is set.
+func (c *Client) TimelineWithReplies(ctx context.Context, account, cursor string, count int, withReplies bool) ([]byte, error) {
 	query := url.Values{"count": {strconv.Itoa(min(max(count, 1), TimelinePageSize))}}
+	if withReplies {
+		query.Set("with_replies", "true")
+	}
 	if cursor != "" {
 		query.Set("cursor", cursor)
 	}
@@ -174,10 +183,13 @@ type Options struct {
 	// GapCeilings holds the oldest stored status above each gap floor, which
 	// bounds the API read that closes a gap stored without its own Ceiling.
 	GapCeilings map[string]string
+	// WithReplies asks FxTwitter timeline reads to include the account's
+	// replies alongside its posts and reposts.
+	WithReplies bool
 }
 
 func DefaultOptions() Options {
-	return Options{BootstrapDays: 7, DiscoveryLimit: 50, MaxDetailRequests: 12, RefreshKnown: 1, ScheduleKeywords: []string{"schedule", "スケジュール", "配信予定", "週間予定", "今週の予定"}}
+	return Options{BootstrapDays: 7, DiscoveryLimit: 50, MaxDetailRequests: 12, RefreshKnown: 1, WithReplies: true, ScheduleKeywords: []string{"schedule", "スケジュール", "配信予定", "週間予定", "今週の予定"}}
 }
 
 // OptionsFromEnv reads the accounts from X_HANDLES. The read bounds are the

@@ -357,6 +357,9 @@ func (s *Store) prefetchPostRows(ctx context.Context, rows []postRow) error {
 	sources := make([]*string, 0, len(rows))
 	for i := range rows {
 		ids = append(ids, rows[i].id)
+		if rows[i].mediaOwnerID != "" && rows[i].mediaOwnerID != rows[i].id {
+			ids = append(ids, rows[i].mediaOwnerID)
+		}
 		if rows[i].hasMediaURL {
 			sources = append(sources, &rows[i].mediaURL)
 		}

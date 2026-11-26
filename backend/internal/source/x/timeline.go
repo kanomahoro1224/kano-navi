@@ -241,7 +241,7 @@ func (a *Adapter) discoverTimeline(ctx context.Context, account string, opts Opt
 	read := 0
 	timeline := func(cursor string) (timelinePage, error) {
 		read++
-		body, err := a.Client.Timeline(ctx, account, cursor, TimelinePageSize)
+		body, err := a.Client.TimelineWithReplies(ctx, account, cursor, TimelinePageSize, opts.WithReplies)
 		if err != nil {
 			return timelinePage{}, err
 		}

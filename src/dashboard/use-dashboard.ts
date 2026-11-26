@@ -77,6 +77,8 @@ export interface ArchiveRequest {
   monthStart: Date
   /** Post timelines only: an X handle or Bilibili mid, or null for all. */
   account?: string | null
+  /** Post timelines only: category ("all" | "post" | "reply" | "repost"). */
+  postKind?: string | null
   /** Video timelines only: one category, or null for every video. */
   category?: VideoCategory | null
   /**
@@ -146,9 +148,11 @@ function archiveUrl(request: ArchiveRequest, page: number) {
       ? request.category
         ? `&category=${request.category}`
         : ""
-      : request.account
-        ? `&account=${encodeURIComponent(request.account)}`
-        : ""
+      : `${request.account ? `&account=${encodeURIComponent(request.account)}` : ""}${
+          request.postKind
+            ? `&kind=${encodeURIComponent(request.postKind)}`
+            : ""
+        }`
   return `/api/${request.kind}?page=${page}&pageSize=${TIMELINE_PAGE_SIZE}${until ? `&until=${until}` : ""}${filter}`
 }
 
@@ -162,7 +166,8 @@ function archiveKey(request: ArchiveRequest) {
         ? `from-page:${request.startPage}`
         : `until:${timelineUntil(request.anchor)}`
       : rangeKey(archiveRange(request.kind, request.monthStart))
-  return `${request.kind}:${span}:${request.account || ""}:${request.category || ""}`
+  const kindPart = request.postKind ? `:${request.postKind}` : ""
+  return `${request.kind}:${span}:${request.account || ""}:${request.category || ""}${kindPart}`
 }
 
 async function readScopedJson(url: string, signal: AbortSignal) {
@@ -934,6 +939,7 @@ const POST_ARCHIVE_STORED_TIMELINES = 3
 /** Where a post timeline starts, as the archive page asked for it. */
 export interface PostTimelineStart {
   account: string | null
+  postKind?: string | null
   /** A `YYYY-MM` month, or null for the newest post. */
   anchor: string | null
   startPage?: number
@@ -941,16 +947,18 @@ export interface PostTimelineStart {
 
 const postArchiveMemory: {
   index: PostArchiveIndex | null
+  indices: Record<string, PostArchiveIndex>
   timeline: {
     key: string
     start: PostTimelineStart
     snapshot: ArchiveSnapshot<unknown>
   } | null
-} = { index: null, timeline: null }
+} = { index: null, indices: {}, timeline: null }
 
 type StoredEntry = { savedAt: number; value: unknown }
 type StoredPostArchive = {
   index?: StoredEntry
+  indices?: Record<string, StoredEntry>
   timelines: (StoredEntry & { key: string })[]
 }
 
@@ -961,6 +969,10 @@ function readStoredPostArchive(): StoredPostArchive {
     )
     return {
       index: stored?.index,
+      indices:
+        stored?.indices && typeof stored.indices === "object"
+          ? stored.indices
+          : undefined,
       timelines: Array.isArray(stored?.timelines) ? stored.timelines : [],
     }
   } catch {
@@ -995,10 +1007,19 @@ function storedValue<T>(
   }
 }
 
-function restoredPostIndex() {
+function restoredPostIndex(postKind?: string | null) {
+  if (!postKind) {
+    return (
+      postArchiveMemory.index ??
+      storedValue(readStoredPostArchive().index, readPostArchiveIndex)
+    )
+  }
   return (
-    postArchiveMemory.index ??
-    storedValue(readStoredPostArchive().index, readPostArchiveIndex)
+    postArchiveMemory.indices[postKind] ??
+    storedValue(
+      readStoredPostArchive().indices?.[postKind],
+      readPostArchiveIndex,
+    )
   )
 }
 
@@ -1024,6 +1045,7 @@ function rememberPostTimeline(
 ) {
   const start = {
     account: request.account ?? null,
+    postKind: request.postKind ?? null,
     anchor: request.anchor ? localDateKey(request.anchor).slice(0, 7) : null,
     startPage: request.startPage,
   }
@@ -1058,14 +1080,20 @@ export function rememberedPostTimeline() {
  * `revision` is the read's revision once it arrives, null after a failed
  * read and undefined before. `retry` reads it again after a failure.
  */
-export function usePostArchiveIndex() {
+export function usePostArchiveIndex(postKind?: string | null) {
   const scope = useMemo(() => createRequestScope(), [])
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<{
+    kind: string | null
     index: PostArchiveIndex | null
     error: Error | null
     read: boolean
-  }>(() => ({ index: restoredPostIndex(), error: null, read: false }))
+  }>(() => ({
+    kind: postKind ?? null,
+    index: restoredPostIndex(postKind),
+    error: null,
+    read: false,
+  }))
 
   useEffect(() => {
     scope.activate()
@@ -1073,19 +1101,40 @@ export function usePostArchiveIndex() {
   }, [scope])
 
   useEffect(() => {
+    const kindKey = postKind ?? null
+    setState({
+      kind: kindKey,
+      index: restoredPostIndex(kindKey),
+      error: null,
+      read: false,
+    })
+    const url = kindKey
+      ? `${monthIndexes.posts.url}?kind=${encodeURIComponent(kindKey)}`
+      : monthIndexes.posts.url
     scope
       .run("index", async (signal) => {
-        const result = await readScopedJson(monthIndexes.posts.url, signal)
+        const result = await readScopedJson(url, signal)
         return { result, index: readPostArchiveIndex(result) }
       })
       .then(
         ({ result, index }) => {
-          postArchiveMemory.index = index
-          writeStoredPostArchive((stored) => ({
-            ...stored,
-            index: { savedAt: Date.now(), value: result },
-          }))
-          setState({ index, error: null, read: true })
+          if (!kindKey) {
+            postArchiveMemory.index = index
+            writeStoredPostArchive((stored) => ({
+              ...stored,
+              index: { savedAt: Date.now(), value: result },
+            }))
+          } else {
+            postArchiveMemory.indices[kindKey] = index
+            writeStoredPostArchive((stored) => ({
+              ...stored,
+              indices: {
+                ...stored.indices,
+                [kindKey]: { savedAt: Date.now(), value: result },
+              },
+            }))
+          }
+          setState({ kind: kindKey, index, error: null, read: true })
         },
         (caught: unknown) => {
           if (caught instanceof Error && caught.name === "AbortError") return
@@ -1096,7 +1145,7 @@ export function usePostArchiveIndex() {
         },
       )
     return () => scope.cancelKey("index")
-  }, [attempt, scope])
+  }, [attempt, postKind, scope])
 
   const retry = useCallback(() => setAttempt((value) => value + 1), [])
   const revision =

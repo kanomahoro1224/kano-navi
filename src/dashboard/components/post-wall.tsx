@@ -10,6 +10,7 @@ import type { CSSProperties, ReactNode, RefObject } from "react"
 import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowUpRight,
+  CornerDownRight,
   Heart,
   History,
   ImageOff,
@@ -644,7 +645,9 @@ export function PostNote({
   t: Translator
   onOpenMedia: (media: MediaItem[], index: number) => void
 }) {
-  const media = linkedMedia(postMedia(post), post.url)
+  const repost = post.repost ?? null
+  const originalHref = repost?.url || post.url
+  const media = linkedMedia(postMedia(post), originalHref)
   const bilibili = isBilibiliPost(post)
   const wording = useTranslatedText(
     post.text,
@@ -713,16 +716,62 @@ export function PostNote({
         accounts: repostingAccounts(post.repostedBy, locale),
       })}
     </p>
+  ) : repost ? (
+    <p className="post-note-reposted">
+      <Repeat2 aria-hidden="true" />
+      {post.accountHandle
+        ? t("feed.repostedBy", {
+            accounts: repostingAccounts([post.accountHandle], locale),
+          })
+        : t("feed.reposts")}
+    </p>
   ) : null
-  const portrait = postAvatar(post, accountAvatars, avatarUrl)
+  const replyBanner =
+    !repost && post.upstreamKind === "reply" ? (
+      <p className="post-note-reply">
+        <CornerDownRight aria-hidden="true" />
+        {post.replyTo?.handle ? (
+          <ExternalLink
+            href={
+              post.replyTo.url ||
+              `https://x.com/${post.replyTo.handle}${post.replyTo.statusId ? `/status/${post.replyTo.statusId}` : ""}`
+            }
+          >
+            {t("feed.replyingTo", { handle: post.replyTo.handle })}
+          </ExternalLink>
+        ) : (
+          t("feed.replyingToPost")
+        )}
+      </p>
+    ) : null
+  const portrait = repost
+    ? repost.authorAvatar ||
+      (repost.authorHandle
+        ? (accountAvatar("x", repost.authorHandle, accountAvatars) ?? null)
+        : null)
+    : postAvatar(post, accountAvatars, avatarUrl)
+  const headHandle = repost
+    ? repost.authorHandle || repost.authorName || "X"
+    : bilibili
+      ? "bilibili"
+      : post.accountHandle
+  const headTime = repost?.publishedAt || post.publishedAt
   const head = (close?: ReactNode) => (
     <header className="post-note-head">
-      <AccountAvatar
-        key={portrait || ""}
-        url={portrait}
-        handle={bilibili ? "bilibili" : post.accountHandle}
-      />
-      {bilibili ? (
+      <AccountAvatar key={portrait || ""} url={portrait} handle={headHandle} />
+      {repost ? (
+        repost.authorHandle ? (
+          <ExternalLink className="post-note-handle" href={repost.url}>
+            @{repost.authorHandle}
+          </ExternalLink>
+        ) : repost.authorName ? (
+          <ExternalLink className="post-note-handle" href={repost.url}>
+            {repost.authorName}
+          </ExternalLink>
+        ) : (
+          <span className="post-note-handle">X</span>
+        )
+      ) : bilibili ? (
         <ExternalLink
           className="post-note-handle is-source"
           href={post.accountUrl || post.url}
@@ -741,18 +790,18 @@ export function PostNote({
         <span className="post-note-handle">X</span>
       )}
       <time
-        dateTime={post.publishedAt}
-        title={`${formatJapanDay(post.publishedAt, locale)} ${formatJapanTime(post.publishedAt)} ${t("common.timezoneShort")}`}
+        dateTime={headTime}
+        title={`${formatJapanDay(headTime, locale)} ${formatJapanTime(headTime)} ${t("common.timezoneShort")}`}
       >
         {absoluteTime === "clock"
-          ? formatJapanTime(post.publishedAt)
+          ? formatJapanTime(headTime)
           : absoluteTime
-            ? formatStamp(post.publishedAt)
-            : formatRelative(post.publishedAt, locale, now)}
+            ? formatStamp(headTime)
+            : formatRelative(headTime, locale, now)}
       </time>
       <ExternalLink
         className="post-note-open"
-        href={post.url}
+        href={originalHref}
         aria-label={originalLabel}
         title={originalLabel}
       >
@@ -764,7 +813,7 @@ export function PostNote({
   const mediaGrid = (full: boolean) => (
     <MediaGrid
       media={media}
-      href={post.url}
+      href={originalHref}
       full={full}
       sizes={POST_MEDIA_SIZES}
       openLabel={t("feed.openMedia")}
@@ -777,6 +826,7 @@ export function PostNote({
     <article className="post-note">
       {reposted}
       {head()}
+      {replyBanner}
       {hasWording(wording, post.rich) ? (
         <p
           ref={textRef}
@@ -825,6 +875,7 @@ export function PostNote({
                 <X aria-hidden="true" />
               </button>,
             )}
+            {replyBanner}
             {hasWording(wording, post.rich) ? (
               <p className="post-note-text" lang={wording.lang}>
                 <PostWording wording={wording} rich={post.rich} />

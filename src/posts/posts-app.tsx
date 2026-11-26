@@ -1,4 +1,4 @@
-import type { ArchiveSnapshot, MediaItem, Post } from "@/types"
+import type { ArchiveSnapshot, MediaItem, Post, PostKind } from "@/types"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { useAppSettings } from "@/app-settings"
@@ -63,7 +63,13 @@ function dayFromKey(key: string) {
  */
 function resumedStart(view: PostsView) {
   const remembered = rememberedPostTimeline()
-  if (!view.month || remembered?.start.account !== view.account) return null
+  const viewKind = view.kind ?? "all"
+  if (
+    !view.month ||
+    remembered?.start.account !== view.account ||
+    (remembered?.start.postKind ?? "all") !== viewKind
+  )
+    return null
   const month = view.month
   return remembered.snapshot.items.some((post) =>
     dateKey(post.publishedAt).startsWith(month),
@@ -76,12 +82,13 @@ export function PostsApp() {
   const { locale, t } = useAppSettings()
   const now = useNow()
   const [view, show] = usePostsLocation()
+  const kind: PostKind = view.kind ?? "all"
   const {
     index,
     error: indexError,
     revision: indexRevision,
     retry: retryIndex,
-  } = usePostArchiveIndex()
+  } = usePostArchiveIndex(kind)
 
   usePageMeta(t("posts.metaTitle"), t("posts.metaDescription"))
 
@@ -109,7 +116,12 @@ export function PostsApp() {
   // posts read alongside the index, and a resumed timeline keeps its place.
   const request = useMemo(() => {
     let startPage: number | undefined
-    if (anchor && resumed?.anchor === anchor && resumed.account === account)
+    if (
+      anchor &&
+      resumed?.anchor === anchor &&
+      resumed.account === account &&
+      (resumed.postKind ?? "all") === kind
+    )
       startPage = resumed.startPage
     else if (anchor && index && indexRevision != null)
       startPage = timelineStartPage(index.months, anchor, filter)
@@ -118,10 +130,11 @@ export function PostsApp() {
       kind: "posts" as const,
       monthStart: monthStartOf(japanToday()),
       account,
+      postKind: kind,
       anchor: anchor ? monthFromKey(anchor) : null,
       startPage,
     }
-  }, [index, indexRevision, resumed, account, anchor, filter])
+  }, [index, indexRevision, resumed, account, kind, anchor, filter])
   const archive = useArchive<Post>(request, indexRevision)
   const posts = archive.archive as ArchiveSnapshot<Post> | null
   const firstPage = posts?.firstPage ?? 1
@@ -164,10 +177,11 @@ export function PostsApp() {
       month:
         firstPage === 1 && visible === loadedRef.current[0] ? null : visible,
       account,
+      kind,
     })
     if (`${window.location.pathname}${window.location.search}` !== href)
       window.history.replaceState(window.history.state, "", href)
-  }, [visible, firstPage, account])
+  }, [visible, firstPage, account, kind])
 
   // The timeline's top, to return to when it restarts from the newest post.
   const timelineRef = useRef<HTMLDivElement>(null)
@@ -184,7 +198,9 @@ export function PostsApp() {
     const previous = shownView.current
     if (previous === view) return
     shownView.current = view
-    const sameAccount = previous.account === view.account
+    const sameScope =
+      previous.account === view.account &&
+      (previous.kind ?? "all") === (view.kind ?? "all")
     if (!view.month) {
       setAnchor(null)
       setJump(null)
@@ -193,7 +209,7 @@ export function PostsApp() {
       toTimelineTop()
       return
     }
-    if (!sameAccount || !loadedRef.current.includes(view.month))
+    if (!sameScope || !loadedRef.current.includes(view.month))
       setAnchor(view.month)
     jumpTo(view.month)
   }, [view, jumpTo, toTimelineTop])
@@ -202,9 +218,9 @@ export function PostsApp() {
     (month: string) => {
       const target =
         (index ? nearestMonth(index.months, month, filter) : month) ?? month
-      show({ month: target, account })
+      show({ month: target, account, kind })
     },
-    [index, filter, account, show],
+    [index, filter, account, kind, show],
   )
   const setAccount = useCallback(
     (next: string | null) => {
@@ -214,13 +230,23 @@ export function PostsApp() {
           ? nearestMonth(index.months, visible, nextFilter)
           : null
       const newest = index ? nearestMonth(index.months, null, nextFilter) : null
-      show({ month: target === newest ? null : target, account: next })
+      show({ month: target === newest ? null : target, account: next, kind })
     },
-    [index, visible, atNewest, show],
+    [index, visible, atNewest, kind, show],
+  )
+  const setKind = useCallback(
+    (nextKind: PostKind) => {
+      show({
+        month: null,
+        account,
+        kind: nextKind === "all" ? null : nextKind,
+      })
+    },
+    [account, show],
   )
   const showNewest = useCallback(
-    () => show({ month: null, account }),
-    [show, account],
+    () => show({ month: null, account, kind }),
+    [show, account, kind],
   )
 
   const pickerButtonRef = useRef<HTMLButtonElement>(null)
@@ -286,6 +312,25 @@ export function PostsApp() {
             {t("posts.title")}
           </h1>
 
+          <div className="posts-toolbar">
+            <div
+              className="segmented"
+              role="group"
+              aria-label={t("posts.kindFilter")}
+            >
+              {(["all", "post", "reply", "repost"] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  aria-pressed={kind === item}
+                  onClick={() => setKind(item)}
+                >
+                  {t(`posts.kind.${item}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {accountProps ? (
             <AccountBand placement="top" {...accountProps} />
           ) : null}
@@ -303,7 +348,7 @@ export function PostsApp() {
               timeline={{
                 onLatest: showNewest,
                 atLatest: atNewest,
-                resetKey: `${anchor || "newest"}:${account || ""}`,
+                resetKey: `${anchor || "newest"}:${account || ""}:${kind}`,
               }}
               pickerOpen={pickerOpen}
               setPickerOpen={setPickerOpen}

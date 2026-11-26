@@ -32,6 +32,8 @@ func writeArchiveError(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_range"}, "")
 	case errors.Is(err, sqlite.ErrInvalidAccount):
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_account"}, "")
+	case errors.Is(err, sqlite.ErrInvalidPostKind):
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_kind"}, "")
 	case errors.Is(err, sqlite.ErrInvalidVideoCategory):
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_category"}, "")
 	default:
@@ -59,11 +61,12 @@ func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	pageNumber, pageSize := archiveNumber(r, "page", 1), archiveNumber(r, "pageSize", archivePageSize)
 	ranged := query.Has("from") || query.Has("to")
+	kind := query.Get("kind")
 	// The store matches the account without case, so its spelling names no
 	// other read.
-	request := fmt.Sprintf("posts range=%t from=%q to=%q until=%t:%q account=%q page=%d size=%d",
+	request := fmt.Sprintf("posts range=%t from=%q to=%q until=%t:%q account=%q kind=%q page=%d size=%d",
 		ranged, query.Get("from"), query.Get("to"), query.Has("until"), query.Get("until"),
-		strings.ToLower(query.Get("account")), pageNumber, pageSize)
+		strings.ToLower(query.Get("account")), kind, pageNumber, pageSize)
 	h.servePostRead(w, r, request, func(ctx context.Context) (map[string]any, error) {
 		var page *sqlite.ArchivePage[sqlite.Post]
 		var err error
@@ -71,9 +74,9 @@ func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 		case ranged && query.Has("until"):
 			err = sqlite.ErrInvalidCalendarRange
 		case ranged:
-			page, err = h.store.GetPostArchive(ctx, query.Get("from"), query.Get("to"), query.Get("account"), pageNumber, pageSize)
+			page, err = h.store.GetPostArchiveWithKind(ctx, query.Get("from"), query.Get("to"), query.Get("account"), kind, pageNumber, pageSize)
 		default:
-			page, err = h.store.GetPostTimeline(ctx, query.Get("until"), query.Get("account"), pageNumber, pageSize)
+			page, err = h.store.GetPostTimelineWithKind(ctx, query.Get("until"), query.Get("account"), kind, pageNumber, pageSize)
 		}
 		if err != nil {
 			return nil, err
@@ -90,8 +93,13 @@ func (h *Handler) posts(w http.ResponseWriter, r *http.Request) {
 // It also names the accounts the archive filters by, with their avatars, and
 // is kept per revision.
 func (h *Handler) postMonths(w http.ResponseWriter, r *http.Request) {
-	h.servePostRead(w, r, "post months", func(ctx context.Context) (map[string]any, error) {
-		months, revision, err := h.store.GetPostMonths(ctx)
+	kind := r.URL.Query().Get("kind")
+	cacheKey := "post months"
+	if kind != "" {
+		cacheKey = "post months:" + kind
+	}
+	h.servePostRead(w, r, cacheKey, func(ctx context.Context) (map[string]any, error) {
+		months, revision, err := h.store.GetPostMonthsWithKind(ctx, kind)
 		if err != nil {
 			return nil, err
 		}

@@ -14,6 +14,8 @@ export const postMessages = {
     "feed.originalPost": "在 X 打开原帖",
     "feed.originalPostBilibili": "在 bilibili 打开原动态",
     "feed.repostedBy": "{accounts} 转发了",
+    "feed.replyingTo": ({ handle }: { handle: any }) => `回复 @${handle}`,
+    "feed.replyingToPost": "回复",
     "feed.empty": ({ days }: { days: any }) => `最近 ${days} 天没有新的动态。`,
     "feed.lastSeen": "最近的一条",
     "feed.filter": "按账号筛选",
@@ -74,6 +76,8 @@ export const postMessages = {
     "feed.originalPost": "X で元のポストを開く",
     "feed.originalPostBilibili": "bilibili で元の投稿を開く",
     "feed.repostedBy": "{accounts} がリポスト",
+    "feed.replyingTo": ({ handle }: { handle: any }) => `@${handle} への返信`,
+    "feed.replyingToPost": "返信",
     "feed.empty": ({ days }: { days: any }) =>
       `直近 ${days} 日間の新しいポストはありません。`,
     "feed.lastSeen": "最後のポスト",
@@ -135,6 +139,9 @@ export const postMessages = {
     "feed.originalPost": "Open the original post on X",
     "feed.originalPostBilibili": "Open the original post on bilibili",
     "feed.repostedBy": "Reposted by {accounts}",
+    "feed.replyingTo": ({ handle }: { handle: any }) =>
+      `Replying to @${handle}`,
+    "feed.replyingToPost": "Reply",
     "feed.empty": ({ days }: { days: any }) =>
       `No new posts in the last ${days} days.`,
     "feed.lastSeen": "Most recent post",

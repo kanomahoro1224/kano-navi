@@ -95,8 +95,9 @@
   text-transform: uppercase;
 }
 
-/* A promoted repost names the own accounts that reposted it. */
-.post-note-reposted {
+/* A promoted or own repost names the accounts that reposted it. */
+.post-note-reposted,
+.post-note-reply {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -107,7 +108,17 @@
   overflow-wrap: anywhere;
 }
 
-.post-note-reposted svg {
+.post-note-reply {
+  margin: -2px 0 -4px;
+  font-weight: 600;
+}
+
+.post-note-reply a:hover {
+  color: var(--berry);
+}
+
+.post-note-reposted svg,
+.post-note-reply svg {
   flex: none;
   width: 14px;
   height: 14px;

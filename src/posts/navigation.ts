@@ -1,25 +1,33 @@
 import { useCallback, useEffect, useState } from "react"
 
-/** What the post archive shows: a `YYYY-MM` month and an account, or none. */
+import type { PostKind } from "../types.ts"
+
+/** What the post archive shows: a `YYYY-MM` month, account, and optional kind. */
 export interface PostsView {
   /** Null shows the newest month holding posts. */
   month: string | null
   /** An X handle or Bilibili mid; null shows every account. */
   account: string | null
+  /** Optional category filter ("all" | "post" | "reply" | "repost"). */
+  kind?: PostKind | null
 }
 
 const monthPattern = /^\d{4}-(0[1-9]|1[0-2])$/u
 const accountPattern = /^[A-Za-z0-9_]{1,30}$/u
+const kindValues = new Set<PostKind>(["all", "post", "reply", "repost"])
 
 /** The view a query names; anything malformed falls back to its default. */
 export function postsView(search: string): PostsView {
   const query = new URLSearchParams(search)
   const month = query.get("month")
   const account = query.get("account")
-  return {
+  const kind = query.get("kind") as PostKind | null
+  const view: PostsView = {
     month: month && monthPattern.test(month) ? month : null,
     account: account && accountPattern.test(account) ? account : null,
   }
+  if (kind && kindValues.has(kind)) view.kind = kind
+  return view
 }
 
 /** The address of a view of the post archive. */
@@ -27,6 +35,8 @@ export function postsHref(view: Partial<PostsView> = {}) {
   const query = new URLSearchParams()
   if (view.month) query.set("month", view.month)
   if (view.account) query.set("account", view.account)
+  if (view.kind && view.kind !== "all" && kindValues.has(view.kind))
+    query.set("kind", view.kind)
   const search = query.toString()
   return search ? `/posts?${search}` : "/posts"
 }

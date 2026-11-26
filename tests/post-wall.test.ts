@@ -1119,3 +1119,122 @@ test("a post counts its images past four and a board quote shows one thumbnail",
     }
   })
 })
+
+test("a repost shows its own original author and a reply names who it answered", async () => {
+  await withVite(async (load) => {
+    const [
+      { PostWall },
+      { AppSettingsProvider, PageMessagesProvider, useAppSettings },
+    ] = await Promise.all([
+      load("/src/dashboard/components/post-wall.tsx"),
+      load("/src/app-settings.tsx"),
+    ])
+    const base = {
+      source: "x",
+      mediaUrl: null,
+      mediaStatus: "none",
+      media: [],
+      translations: {},
+      sourceLanguage: "ja",
+    }
+    const posts = [
+      {
+        ...base,
+        id: "repost-mklntic-1",
+        accountHandle: "MKLNtic",
+        accountUrl: "https://x.com/MKLNtic",
+        publishedAt: "2026-10-09T12:00:00Z",
+        text: "Original wording",
+        url: "https://x.com/external/status/1",
+        upstreamKind: "repost",
+        repost: {
+          id: "1",
+          authorHandle: "external",
+          authorName: "Ext",
+          authorAvatar: null,
+          publishedAt: "2026-10-08T12:00:00Z",
+          url: "https://x.com/external/status/1",
+        },
+      },
+      {
+        ...base,
+        id: "2",
+        accountHandle: "_Kanotic",
+        accountUrl: "https://x.com/_Kanotic",
+        publishedAt: "2026-10-10T12:00:00Z",
+        text: "@fan thanks",
+        url: "https://x.com/_Kanotic/status/2",
+        upstreamKind: "reply",
+        replyTo: {
+          handle: "fan",
+          statusId: "99",
+          url: "https://x.com/fan/status/99",
+        },
+      },
+    ]
+    const globals = globalThis as Record<string, unknown>
+    const previous = {
+      act: globals.IS_REACT_ACT_ENVIRONMENT,
+      ResizeObserver: globals.ResizeObserver,
+      getComputedStyle: globals.getComputedStyle,
+    }
+    globals.IS_REACT_ACT_ENVIRONMENT = true
+    globals.ResizeObserver = class {
+      observe() {}
+      disconnect() {}
+    }
+    globals.getComputedStyle = () => ({ gridTemplateColumns: "1fr 1fr" })
+    function Harness() {
+      const { locale, t } = useAppSettings()
+      return createElement(PostWall, {
+        posts,
+        latestPost: null,
+        accounts: ["MKLNtic", "_Kanotic"],
+        avatarUrl: "/assets/kano.jpg",
+        windowDays: 30,
+        isLoading: false,
+        locale,
+        now: Date.parse("2026-10-11T00:00:00Z"),
+        t,
+        onOpenMedia: () => {},
+        archiveHref: () => "/posts",
+      })
+    }
+    let root: Rendered | undefined
+    try {
+      await act(async () => {
+        root = render(
+          createElement(
+            AppSettingsProvider,
+            null,
+            createElement(
+              PageMessagesProvider,
+              { messages: dashboardMessages },
+              createElement(Harness),
+            ),
+          ),
+        )
+      })
+      const cards = root!.container.querySelectorAll("article.post-note")
+      assert.equal(cards.length, 2)
+      assert.match(
+        cards[0].querySelector(".post-note-reposted")!.textContent!,
+        /@MKLNtic/,
+      )
+      assert.equal(
+        cards[0].querySelector(".post-note-head .post-note-handle")!
+          .textContent,
+        "@external",
+      )
+      assert.match(
+        cards[1].querySelector(".post-note-reply")!.textContent!,
+        /@fan/,
+      )
+    } finally {
+      if (root) await act(async () => root!.unmount())
+      globals.IS_REACT_ACT_ENVIRONMENT = previous.act
+      globals.ResizeObserver = previous.ResizeObserver
+      globals.getComputedStyle = previous.getComputedStyle
+    }
+  })
+})

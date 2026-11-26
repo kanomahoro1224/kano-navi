@@ -101,6 +101,20 @@ export interface Post {
   rich?: RichSegment[]
   /** The original status of a repost; the post carries its wording and media. */
   repost?: PostRepost | null
+  /** X upstream classification (top_level, self_reply, reply, repost). */
+  upstreamKind?: string | null
+  /** Target author/status when the post is a reply on X. */
+  replyTo?: PostReplyTo | null
+}
+
+/** Category filter values for the post archive. */
+export type PostKind = "all" | "post" | "reply" | "repost"
+
+/** Target of an X reply, when known from stored raw JSON. */
+export interface PostReplyTo {
+  handle: string | null
+  statusId: string | null
+  url: string | null
 }
 
 /**

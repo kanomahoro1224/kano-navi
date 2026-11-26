@@ -79,6 +79,11 @@ type Post struct {
 	Media         []PostMedia
 	// Repost is the original status of a repost, nil for every other kind.
 	Repost         *PostRepost
+	// UpstreamKind is what X says the status is (top_level, self_reply, reply,
+	// repost), or nil when unknown or not from X.
+	UpstreamKind   *string
+	// ReplyTo names the target of an X reply, when raw_json carried it.
+	ReplyTo        *PostReplyTo
 	MediaID        *string
 	MediaStatus    string
 	MediaSourceURL *string
@@ -107,6 +112,13 @@ type PostRepost struct {
 	AuthorAvatar string `json:"authorAvatar"`
 	PublishedAt  string `json:"publishedAt"`
 	URL          string `json:"url"`
+}
+
+// PostReplyTo identifies the status or account an X reply responds to.
+type PostReplyTo struct {
+	Handle   string `json:"handle,omitempty"`
+	StatusID string `json:"statusId,omitempty"`
+	URL      string `json:"url,omitempty"`
 }
 
 // validRepostAvatar keeps only an X profile-image URL: a public page must not

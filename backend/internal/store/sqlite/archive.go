@@ -197,7 +197,7 @@ func (s *Store) GetPostTimelineWithKind(ctx context.Context, until, account, kin
 
 const (
 	postShownBaseSQL = `p.deleted_at IS NULL AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL))`
-	ownRepostSQL     = `(COALESCE(p.repost_json,'')<>'' OR COALESCE(p.upstream_kind,'')='repost')`
+	ownRepostSQL     = `(p.source='x' AND (COALESCE(p.repost_json,'')<>'' OR COALESCE(p.upstream_kind,'')='repost'))`
 	xRepostPublished = `COALESCE(
 		CASE WHEN length(COALESCE(r.retweet_id,'')) BETWEEN 15 AND 22 AND r.retweet_id GLOB '[0-9]*'
 			THEN strftime('%Y-%m-%dT%H:%M:%SZ', ((CAST(r.retweet_id AS INTEGER) >> 22) + 1288834974657) / 1000.0)
@@ -216,7 +216,7 @@ func postArchivePostsScope(kind string) string {
 	case PostKindPost:
 		return `p.deleted_at IS NULL AND ((p.promoted_at IS NOT NULL AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL AND NOT ` + postDemotedSQL("p") + `))) OR (p.promoted_at IS NULL AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL AND NOT ` + ownRepostSQL + ` AND COALESCE(p.upstream_kind,'') NOT IN ('reply','foreign','repost','unlisted')))))`
 	case PostKindReply:
-		return `p.deleted_at IS NULL AND p.promoted_at IS NULL AND COALESCE(p.upstream_kind,'')='reply' AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL))`
+		return `p.source='x' AND p.deleted_at IS NULL AND p.promoted_at IS NULL AND COALESCE(p.upstream_kind,'')='reply' AND (p.shown_at IS NOT NULL OR (p.hidden_at IS NULL AND p.upstream_deleted_at IS NULL))`
 	case PostKindRepost:
 		return postShownBaseSQL + ` AND ` + ownRepostSQL
 	case PostKindAll:

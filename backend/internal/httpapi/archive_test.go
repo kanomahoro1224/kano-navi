@@ -525,7 +525,8 @@ func TestPostArchiveKindFiltersPostsRepliesAndReposts(t *testing.T) {
 		 ('1900000000000000010','x','kano_2525','daily','Top post','2026-10-10T10:00:00Z','https://x.com/kano_2525/status/1900000000000000010','top_level',NULL,NULL),
 		 ('1900000000000000011','x','kano_2525','daily','Thread reply','2026-10-10T11:00:00Z','https://x.com/kano_2525/status/1900000000000000011','self_reply',NULL,NULL),
 		 ('1900000000000000012','x','_Kanotic','daily','@fan hello','2026-10-11T10:00:00Z','https://x.com/_Kanotic/status/1900000000000000012','reply','{"replying_to":{"screen_name":"fan","post":"100","url":"https://x.com/fan/status/100"}}',NULL),
-		 ('1900000000000000013','x','kano_2525','daily','Legacy repost body','2026-10-09T10:00:00Z','https://x.com/kano_2525/status/1900000000000000013',NULL,NULL,'{"id":"1900000000000000099","authorHandle":"friend","authorName":"Friend","publishedAt":"2026-10-09T09:00:00Z","url":"https://x.com/friend/status/1900000000000000099"}');
+		 ('1900000000000000013','x','kano_2525','daily','Legacy repost body','2026-10-09T10:00:00Z','https://x.com/kano_2525/status/1900000000000000013',NULL,NULL,'{"id":"1900000000000000099","authorHandle":"friend","authorName":"Friend","publishedAt":"2026-10-09T09:00:00Z","url":"https://x.com/friend/status/1900000000000000099"}'),
+		 ('bilibili-900000000000000010','bilibili','316381099','daily','Bilibili forward','2026-10-10T12:00:00Z','https://www.bilibili.com/opus/900000000000000010',NULL,NULL,'{"id":"999","authorHandle":"other","url":"https://t.bilibili.com/999"}');
 		INSERT INTO x_statuses (id,author_handle,author_name,text,published_at,url,raw_json,reposted_at,first_seen_at,updated_at) VALUES
 		 ('1900000000000000098','external','Ext','Pooled repost wording','2026-10-12T10:00:00Z','https://x.com/external/status/1900000000000000098','{"mediaURLs":[]}','2026-10-12T11:00:00Z','2026-10-12T11:00:00Z','2026-10-12T11:00:00Z');
 		INSERT INTO x_reposts (status_id,account_handle,author_handle,first_seen_at,retweet_id) VALUES
@@ -534,9 +535,9 @@ func TestPostArchiveKindFiltersPostsRepliesAndReposts(t *testing.T) {
 		INSERT INTO translations (owner_type,owner_id,field,locale,text,origin,source_hash,created_at,updated_at) VALUES
 		 ('x_status','1900000000000000098','text','zh-CN','池中转发译文','machine','`+sqlite.TranslationHash("Pooled repost wording")+`','2026-10-12T11:00:00Z','2026-10-12T11:00:00Z');`)
 
-	// kind=post hides replies and legacy reposts while keeping top_level and self_reply.
+	// kind=post keeps Bilibili forwards and X top_level/self_reply while hiding X replies and X reposts.
 	postOnly := decodeObject(t, request(t, handler, http.MethodGet, "/api/posts?kind=post"))
-	if got := strings.Join(archiveIDs(t, postOnly), ","); got != "1900000000000000011,1900000000000000010" {
+	if got := strings.Join(archiveIDs(t, postOnly), ","); got != "bilibili-900000000000000010,1900000000000000011,1900000000000000010" {
 		t.Fatalf("kind=post ids=%s", got)
 	}
 
@@ -564,9 +565,9 @@ func TestPostArchiveKindFiltersPostsRepliesAndReposts(t *testing.T) {
 		t.Fatalf("repost translation=%#v", firstRepost["translations"])
 	}
 
-	// kind=all returns all 5 (deduplicating kano_2525's 099 repost once) and /api/posts/months?kind=... stays consistent.
+	// kind=all returns all 6 (deduplicating kano_2525's 099 repost once) and /api/posts/months?kind=... stays consistent.
 	all := decodeObject(t, request(t, handler, http.MethodGet, "/api/posts?kind=all"))
-	if all["total"] != float64(5) {
+	if all["total"] != float64(6) {
 		t.Fatalf("kind=all total=%v items=%v", all["total"], archiveIDs(t, all))
 	}
 	monthsReply := decodeObject(t, request(t, handler, http.MethodGet, "/api/posts/months?kind=reply"))

@@ -236,13 +236,19 @@ export function PostsApp() {
   )
   const setKind = useCallback(
     (nextKind: PostKind) => {
+      const xOnly = nextKind === "reply" || nextKind === "repost"
+      const isBilibili =
+        account &&
+        index?.bilibiliAccounts.some(
+          (mid) => mid.toLowerCase() === account.toLowerCase(),
+        )
       show({
         month: null,
-        account,
+        account: xOnly && isBilibili ? null : account,
         kind: nextKind === "all" ? null : nextKind,
       })
     },
-    [account, show],
+    [account, index, show],
   )
   const showNewest = useCallback(
     () => show({ month: null, account, kind }),
@@ -291,7 +297,8 @@ export function PostsApp() {
   const accountProps = index
     ? {
         accounts: index.accounts,
-        bilibiliAccounts: index.bilibiliAccounts,
+        bilibiliAccounts:
+          kind === "reply" || kind === "repost" ? [] : index.bilibiliAccounts,
         months: index.months,
         avatars: posts?.accountAvatars ?? index.accountAvatars,
         kanoAvatar,

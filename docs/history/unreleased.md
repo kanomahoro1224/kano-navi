@@ -33,6 +33,8 @@
 - The Posts page opens on the posts the browser showed last while it checks
   the archive for changes, reads the newest posts alongside its month index,
   and going back to it from another page returns to where you were reading.
+- The Posts page's All card is one line without a portrait; in wide windows
+  it spans the side rail, with the accounts two a row below it.
 
 </details>
 

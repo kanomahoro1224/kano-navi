@@ -47,10 +47,13 @@ that way unless the timeline is at its newest posts.
 The account cards (`account-band.tsx`) show each account's portrait, the
 years its posts span and their total from the month index (in the rail they
 have no outline, and the chosen one is washed in berry); All counts every
-post, including promoted posts filed under their authors. In windows 960px
-and wider they sit in the rail above the activity map, one or two a row as
-the rail's width allows; the rail takes the width the 680px column leaves and
-scrolls on its own when it is taller than the window. Narrower windows show
+post, including promoted posts filed under their authors, and has no
+portrait, its name, years and total on one line. In windows 960px and wider
+they sit in the rail above the activity map, All across the rail with its
+total at the right edge over the map's totals and the accounts one or two a
+row as its width allows; the rail takes the width the 680px column leaves
+and scrolls on its own when it is taller than the window. Narrower windows
+show
 them above the timeline. The activity map
 (`activity-map.tsx`) has a row per year, newest first, from the archive's
 first year to the newest month's, a square cell per month shaded by the

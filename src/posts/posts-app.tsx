@@ -268,7 +268,6 @@ export function PostsApp() {
         bilibiliAccounts: index.bilibiliAccounts,
         months: index.months,
         avatars: posts?.accountAvatars ?? index.accountAvatars,
-        kanoAvatar,
         account,
         setAccount,
         locale,

@@ -33,6 +33,8 @@ func mediaNamespaceForSource(source string) string {
 	switch {
 	case strings.Contains(normalized, "youtube"):
 		return "youtube"
+	case normalized == "bilibili":
+		return "bilibili"
 	case normalized == "avatar", normalized == "banner", normalized == "upload", strings.Contains(normalized, "profile"):
 		return "avatar"
 	}
@@ -65,7 +67,7 @@ func (m *Module) namespaceRoot(namespace string) string {
 }
 
 func (m *Module) allMediaRoots() []string {
-	return []string{m.namespaceRoot("avatar"), m.namespaceRoot("x"), m.namespaceRoot("youtube"), m.namespaceRoot("legacy")}
+	return []string{m.namespaceRoot("avatar"), m.namespaceRoot("x"), m.namespaceRoot("youtube"), m.namespaceRoot("bilibili"), m.namespaceRoot("legacy")}
 }
 
 // lexicalMediaPath maps a relative cache path into the runtime tree. Legacy

@@ -14,6 +14,8 @@
   adds the `bilibili` area.
 - The server requests `passport.bilibili.com` once a day while a login is
   stored, and for an operator's QR sign-in or sign-out.
+- `POST /api/admin/profile-media/discover` accepts `source` `bilibili` (avatar
+  only), and profile media candidates may have the source `bilibili`.
 
 </details>
 
@@ -24,6 +26,8 @@
   private window's login, which the server keeps and refreshes itself, and
   forget it, signing it out at Bilibili or not. The panel shows the
   signed-in account's nickname.
+- Profile images fetch Kano's current Bilibili avatar as an avatar
+  candidate, beside the YouTube one.
 
 </details>
 

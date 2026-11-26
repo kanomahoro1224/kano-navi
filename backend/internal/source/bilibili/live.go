@@ -18,6 +18,9 @@ type Room struct {
 	// LiveTime is the actual start of the current broadcast, RFC 3339 in
 	// UTC, or "" when the room is not live.
 	LiveTime string
+	// Face is the account's current avatar on Bilibili's image CDN, over
+	// HTTPS, or "" when the answer names none.
+	Face string
 }
 
 // RoomLive is the only status that is a broadcast.
@@ -26,6 +29,9 @@ const RoomLive = 1
 // RoomURL is the public link of a live room. The room ID is learned from
 // each live check, never configured.
 func RoomURL(roomID string) string { return "https://live.bilibili.com/" + roomID }
+
+// SpaceURL is the public link of an account's space.
+func SpaceURL(account string) string { return "https://space.bilibili.com/" + account }
 
 var roomPattern = mid
 
@@ -36,12 +42,13 @@ func ParseLiveStatus(data json.RawMessage, account string) (Room, error) {
 		RoomID     flexInt `json:"room_id"`
 		LiveStatus *int    `json:"live_status"`
 		LiveTime   flexInt `json:"live_time"`
+		Face       string  `json:"face"`
 	}
 	if json.Unmarshal(data, &rooms) != nil {
 		return Room{}, &Error{"bilibili_invalid_response"}
 	}
 	r, ok := rooms[account]
-	room := Room{RoomID: strconv.FormatInt(int64(r.RoomID), 10), Title: strings.TrimSpace(r.Title)}
+	room := Room{RoomID: strconv.FormatInt(int64(r.RoomID), 10), Title: strings.TrimSpace(r.Title), Face: thumbnail(r.Face)}
 	if !ok || r.LiveStatus == nil || !roomPattern.MatchString(room.RoomID) {
 		return Room{}, &Error{"bilibili_invalid_response"}
 	}

@@ -95,7 +95,7 @@ func runStandalone(cfg config.Config) int {
 	// The variants step and the Site page's copies status read the archives
 	// under the data directory.
 	run.steps.Variants = &variants.Roots{Data: store.DataRoot()}
-	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies, run.xOptions.Handles)
+	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies, run.xOptions.Handles, run.steps.Bilibili)
 	queue := &workflow.Queue{Store: store, Executor: run.executor}
 	defer queue.Close()
 	if err = queue.Recover(context.Background()); err != nil {
@@ -300,11 +300,19 @@ func firstNonEmpty(values ...string) string {
 
 // standaloneModules attaches the operator feature modules. key is the
 // LLM_SECRETS_KEY that seals provider and proxy credentials; proxies carries
-// the modules' outbound requests.
-func standaloneModules(store *sqlite.Store, mode, key string, proxies *outboundproxy.Pool, xHandles []string) []httpx.AdminModule {
+// the modules' outbound requests. bilibili, when set, reads the Bilibili
+// avatar for profile image discovery over its own proxy route.
+func standaloneModules(store *sqlite.Store, mode, key string, proxies *outboundproxy.Pool, xHandles []string, bilibili *bilisource.Adapter) []httpx.AdminModule {
+	content := contentadmin.Options{HTTPClient: proxies.Client(outboundproxy.AreaMedia), XHandles: xHandles}
+	if bilibili != nil {
+		content.BilibiliAvatar = func(ctx context.Context) (string, string, error) {
+			face, err := bilibili.Avatar(ctx)
+			return face, bilisource.SpaceURL(bilibili.Options.Account), err
+		}
+	}
 	return []httpx.AdminModule{
 		llmadmin.New(store, llmadmin.Options{Mode: mode, SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)}),
-		contentadmin.New(store, contentadmin.Options{HTTPClient: proxies.Client(outboundproxy.AreaMedia), XHandles: xHandles}),
+		contentadmin.New(store, content),
 		outboundproxy.NewAdmin(store, proxies),
 	}
 }

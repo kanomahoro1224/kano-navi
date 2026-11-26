@@ -174,7 +174,7 @@ func normalizedProfileSlot(value string) string {
 
 func normalizedProfileSource(value string) string {
 	source := strings.ToLower(jsTrim(value))
-	if source == "x" || source == "youtube" || source == "upload" {
+	if source == "x" || source == "youtube" || source == "bilibili" || source == "upload" {
 		return source
 	}
 	return ""

@@ -191,6 +191,10 @@ func (m *Module) discoverProfileMediaRoute(w http.ResponseWriter, r *http.Reques
 		httpx.WriteError(w, err)
 		return
 	}
+	if source == "bilibili" && slot == "banner" {
+		httpx.WriteError(w, httpx.Invalid("bilibili only offers an avatar"))
+		return
+	}
 	handle := ""
 	if handleText != nil && strings.TrimSpace(*handleText) != "" {
 		if source != "x" {
@@ -224,6 +228,9 @@ func (m *Module) discoverProfileMediaRoute(w http.ResponseWriter, r *http.Reques
 // for an explicit operator action and holds no transaction while the page is
 // fetched.
 func (m *Module) discoverProfileMedia(ctx context.Context, slot, source, handle string) (*profileDiscoverResponse, error) {
+	if source == "bilibili" {
+		return m.discoverBilibiliAvatar(ctx)
+	}
 	var xURL, youtubeURL, avatarURL, bannerURL sql.NullString
 	err := m.db.QueryRowContext(ctx, `SELECT x_url, youtube_url, avatar_url, banner_url FROM profiles ORDER BY id LIMIT 1`).Scan(&xURL, &youtubeURL, &avatarURL, &bannerURL)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -285,6 +292,23 @@ func (m *Module) discoverProfileMedia(ctx context.Context, slot, source, handle 
 		}
 	}
 	return m.saveDiscoveredCandidates(ctx, slot, source, page.url, slots, discoveredBySlot, existing)
+}
+
+// discoverBilibiliAvatar records the configured Bilibili account's current
+// avatar, which the Bilibili client reads from the account's live room
+// status. The candidate refers to the account's space.
+func (m *Module) discoverBilibiliAvatar(ctx context.Context) (*profileDiscoverResponse, error) {
+	if m.bilibiliAvatar == nil {
+		return nil, failure("bilibili avatar is unavailable")
+	}
+	imageURL, spaceURL, err := m.bilibiliAvatar(ctx)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, failure("bilibili avatar request failed")
+	}
+	return m.saveDiscoveredCandidates(ctx, "avatar", "bilibili", spaceURL, []string{"avatar"}, map[string][]string{"avatar": {imageURL}}, map[string]string{})
 }
 
 func firstNonEmpty(values ...string) string {

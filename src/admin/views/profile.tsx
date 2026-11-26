@@ -44,7 +44,9 @@ export function ProfileView({ navigate }: ViewProps) {
   const accounts = useResource(() => api.accountAvatars(), [])
   const [addingSlot, setAddingSlot] = useState<ProfileSlot | null>(null)
   const [fetchingBanner, setFetchingBanner] = useState(false)
-  const [fetchingYoutube, setFetchingYoutube] = useState(false)
+  const [fetchingAvatar, setFetchingAvatar] = useState<
+    "youtube" | "bilibili" | null
+  >(null)
 
   const state = media.data
   const ownAccounts = (accounts.data?.items ?? []).filter(
@@ -81,13 +83,13 @@ export function ProfileView({ navigate }: ViewProps) {
       )
     : []
 
-  const fetchYoutubeAvatar = async () => {
-    setFetchingYoutube(true)
+  const fetchAvatar = async (source: "youtube" | "bilibili") => {
+    setFetchingAvatar(source)
     const next = await act(
-      () => api.discoverProfileMedia("youtube", "avatar"),
+      () => api.discoverProfileMedia(source, "avatar"),
       "admin.notice.mediaDiscovered",
     )
-    setFetchingYoutube(false)
+    setFetchingAvatar(null)
     if (next) media.setData({ items: next.items, active: next.active })
   }
 
@@ -145,10 +147,21 @@ export function ProfileView({ navigate }: ViewProps) {
                       size="sm"
                       variant="ghost"
                       icon={Search}
-                      busy={fetchingYoutube}
-                      onClick={() => void fetchYoutubeAvatar()}
+                      busy={fetchingAvatar === "youtube"}
+                      disabled={fetchingAvatar !== null}
+                      onClick={() => void fetchAvatar("youtube")}
                     >
                       {t("admin.profile.fetchYoutubeAvatar")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={Search}
+                      busy={fetchingAvatar === "bilibili"}
+                      disabled={fetchingAvatar !== null}
+                      onClick={() => void fetchAvatar("bilibili")}
+                    >
+                      {t("admin.profile.fetchBilibiliAvatar")}
                     </Button>
                     <Button
                       size="sm"

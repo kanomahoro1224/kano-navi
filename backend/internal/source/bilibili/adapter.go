@@ -853,6 +853,20 @@ type LiveState struct {
 	LastError                string
 }
 
+// Avatar reads the account's current avatar address from its live room's
+// status, in one request without any cookie, for an operator's profile
+// image discovery. It leaves the live check's state and backoff alone.
+func (a *Adapter) Avatar(ctx context.Context) (string, error) {
+	room, err := a.Client.LiveStatus(ctx, a.Options.Account)
+	if err != nil {
+		return "", err
+	}
+	if room.Face == "" {
+		return "", &Error{"bilibili_invalid_response"}
+	}
+	return room.Face, nil
+}
+
 // CheckLive asks about the account's live room once, never while the live
 // host's block lasts. The caller decides when a check is due.
 func (a *Adapter) CheckLive(ctx context.Context, state LiveState) (LiveState, bool, error) {

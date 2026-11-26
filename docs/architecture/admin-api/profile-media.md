@@ -16,10 +16,15 @@ Selecting profile media and account avatars.
 | `POST /profile-media/{id}/select`   | `{slot?}`                    | `{item, items, active}`     |
 | `DELETE /profile-media/{id}`        |                              | `{items, active}`           |
 
-`source` is `x` or `youtube`, and `slot` is `avatar` or `banner`. When `source`
-is `x`, an optional `handle` selects that X profile URL instead of the default
-configured `profiles.x_url`, and discovery falls back to `api.fxtwitter.com` if
-the X profile page yields no URLs. A candidate's `slot` is the slot it is active
+`source` is `x`, `youtube` or `bilibili`, and `slot` is `avatar` or `banner`.
+When `source` is `x`, an optional `handle` selects that X profile URL instead of
+the default configured `profiles.x_url`, and discovery falls back to
+`api.fxtwitter.com` if the X profile page yields no URLs. Bilibili discovery
+records only an avatar (a `banner` slot is invalid): the Bilibili client reads
+the configured account's `face` from its
+[live room status](../sources/bilibili.md#live-room) over the `bilibili`
+proxy route, and the candidate's `sourceRef` is the account's space; its file
+is stored under `data/bilibili/`. A candidate's `slot` is the slot it is active
 for, or otherwise the one that found it; an added or uploaded candidate without
 one starts as an avatar. A source URL is one candidate whichever slot finds it.
 Discovery without a slot records the avatar and the banner the profile page

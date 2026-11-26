@@ -184,6 +184,12 @@ broadcast seen live, the last check that saw it live and the first later
 check that saw the room off air, and the start and observed end of the
 broadcast before it when a check saw that one end.
 
+The same answer names the account's avatar (`face`). An operator's
+[profile media discovery](../admin-api/profile-media.md#profile-media) asks
+for it once, on request, and keeps it only on Bilibili's image CDN
+(`*.hdslb.com`, upgraded to HTTPS); that request leaves the live check's
+state and backoff alone.
+
 Entries are tied to the room by their [platforms](../data-model/events.md#event-platforms),
 never by a link: the room's link is the same for every broadcast, while
 readers treat an entry's link as the identity of one broadcast. Public reads

@@ -392,6 +392,28 @@ func TestLiveChecksUseTheLiveHostWithoutCookiesAndBackOff(t *testing.T) {
 	}
 }
 
+func TestAvatarReadsTheFaceFromTheLiveStatusWithoutCookies(t *testing.T) {
+	body := `{"code":0,"data":{"316381099":{"title":"synthetic","room_id":1000001,"live_status":0,"face":"http://i1.hdslb.com/bfs/face/synthetic.jpg"}}}`
+	var seen *http.Request
+	c := NewClient(&http.Client{Transport: fakeTransport(func(r *http.Request) (*http.Response, error) {
+		seen = r
+		return response(200, body), nil
+	})})
+	a := NewAdapter(c, Options{Account: DefaultAccount, SESSDATA: "synthetic0login%2C1767225600%2Cabcde%2A11"})
+	face, err := a.Avatar(context.Background())
+	if err != nil || face != "https://i1.hdslb.com/bfs/face/synthetic.jpg" || seen.URL.Host != "api.live.bilibili.com" || seen.Header.Get("Cookie") != "" {
+		t.Fatalf("face=%q url=%v err=%v", face, seen.URL, err)
+	}
+	// A face off Bilibili's image CDN is no avatar.
+	body = `{"code":0,"data":{"316381099":{"title":"synthetic","room_id":1000001,"live_status":0,"face":"https://media.example.test/face.jpg"}}}`
+	if face, err = a.Avatar(context.Background()); ErrorCode(err) != "bilibili_invalid_response" || face != "" {
+		t.Fatalf("off-CDN face=%q err=%v", face, err)
+	}
+	if SpaceURL(DefaultAccount) != "https://space.bilibili.com/316381099" {
+		t.Fatal("unexpected space link")
+	}
+}
+
 // Older listings publish wording as a plain, HTML-escaped text field and an
 // album's pictures under draw or opus without a major type.
 func TestSpaceFeedReadsOlderPlainTextAlbums(t *testing.T) {

@@ -1,8 +1,6 @@
 package httpapi
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/lineblog"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
@@ -23,8 +22,7 @@ func TestPublicReadsPutMediaOnTheCDN(t *testing.T) {
 	path := testutil.NewSnapshot(t)
 	root := filepath.Dir(filepath.Dir(path))
 	body := []byte("synthetic-image-bytes")
-	sum := sha256.Sum256(body)
-	hash := hex.EncodeToString(sum[:])
+	hash := digest.SHA256Hex(body)
 	id := strings.Repeat("c", 64)
 	relative := filepath.ToSlash(filepath.Join("x", "sha256", hash[:2], hash+".jpg"))
 	full := filepath.Join(root, filepath.FromSlash(relative))

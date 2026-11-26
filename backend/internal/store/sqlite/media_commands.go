@@ -3,13 +3,13 @@ package sqlite
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"io"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/mediaformat"
 )
 
@@ -140,8 +140,7 @@ func (s *Store) SaveMediaDownload(ctx context.Context, asset PendingMedia, conte
 		if len(content) == 0 || len(content) > maxCachedMediaBytes || mediaformat.Sniff(content) != mime || mediaformat.Extension(mime) == "" {
 			return ErrSourceWrite
 		}
-		h := sha256.Sum256(content)
-		hash := hex.EncodeToString(h[:])
+		hash := digest.SHA256Hex(content)
 		relative := asset.Source + "/sha256/" + hash[:2] + "/" + hash + "." + mediaformat.Extension(mime)
 		root, e := os.OpenRoot(s.dataRoot)
 		if e != nil {
@@ -181,7 +180,7 @@ func (s *Store) SaveMediaDownload(ctx context.Context, asset PendingMedia, conte
 				actual, _ = io.ReadAll(io.LimitReader(existing, maxCachedMediaBytes+1))
 			}
 			existing.Close()
-			reusable = sha256.Sum256(actual) == h
+			reusable = digest.SHA256Hex(actual) == hash
 		}
 		if !reusable && root.Rename(temp, filepath.FromSlash(relative)) != nil {
 			return ErrSourceWrite
@@ -292,7 +291,7 @@ func (s *Store) MeasureMediaDimensions(ctx context.Context, limit int) (int, err
 		// header; the dashboard already reports such files as missing.
 		if path, pathErr := s.resolveMediaPath(item.path); pathErr == nil {
 			if content, _, readErr := readContainedFile(path, maxCachedMediaBytes); readErr == nil {
-				if sum := sha256.Sum256(content); hex.EncodeToString(sum[:]) == item.hash {
+				if digest.SHA256Hex(content) == item.hash {
 					width, height = probedDimensions(content)
 				}
 			}

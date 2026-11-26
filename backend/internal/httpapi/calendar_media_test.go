@@ -1,8 +1,6 @@
 package httpapi
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
@@ -118,8 +117,7 @@ func TestMediaAndProfileMediaContainmentAndHeaders(t *testing.T) {
 	path := testutil.NewSnapshot(t)
 	root := filepath.Dir(filepath.Dir(path))
 	body := append([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}, []byte("synthetic")...)
-	hashBytes := sha256.Sum256(body)
-	hash := hex.EncodeToString(hashBytes[:])
+	hash := digest.SHA256Hex(body)
 	id := strings.Repeat("a", 64)
 	relative := filepath.ToSlash(filepath.Join("x", "sha256", hash[:2], hash+".png"))
 	mediaPath := filepath.Join(root, filepath.FromSlash(relative))

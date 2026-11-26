@@ -2,9 +2,7 @@ package mediadownload
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/mediavariant"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
@@ -30,8 +29,7 @@ func queueStore(t *testing.T, n int) (*sqlite.Store, string) {
 	t.Cleanup(func() { store.Close() })
 	for i := range n {
 		u := fmt.Sprintf("https://pbs.twimg.com/media/drain-%d.png", i)
-		h := sha256.Sum256([]byte(u))
-		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, hex.EncodeToString(h[:]), u)
+		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, digest.SHA256Hex(u), u)
 	}
 	return store, p
 }
@@ -103,8 +101,7 @@ func TestDownloadPendingDoesNotRepeatAnAssetThatStaysQueued(t *testing.T) {
 	now := time.Now().UTC()
 	testutil.Exec(t, p, `INSERT INTO videos(id,source,title,published_at,url,live_checked_at) VALUES('skewed','youtube','synthetic',?,'https://www.youtube.com/watch?v=skewed',?)`, now.Add(-72*time.Hour).Format(time.RFC3339), now.Add(time.Hour).Format(time.RFC3339))
 	u := "https://i.ytimg.com/vi/skewedvideo/hqdefault.jpg"
-	h := sha256.Sum256([]byte(u))
-	id := hex.EncodeToString(h[:])
+	id := digest.SHA256Hex(u)
 	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,etag,last_checked_at,created_at,updated_at) VALUES(?,'youtube',?,'ready','"synthetic"',?,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id, u, now.Add(-time.Hour).Format(time.RFC3339))
 	testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'video','skewed','thumbnail',0,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id)
 	requests := 0
@@ -142,8 +139,7 @@ func TestDownloadPendingMakesCopiesWithinItsBounds(t *testing.T) {
 
 // contentPath is where the step stores bytes under data/.
 func contentPath(snapshot string, content []byte) string {
-	h := sha256.Sum256(content)
-	hash := hex.EncodeToString(h[:])
+	hash := digest.SHA256Hex(content)
 	return filepath.Join(filepath.Dir(filepath.Dir(snapshot)), "x", "sha256", hash[:2], hash+".png")
 }
 

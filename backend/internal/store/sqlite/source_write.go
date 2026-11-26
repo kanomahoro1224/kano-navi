@@ -2,10 +2,9 @@ package sqlite
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"net/url"
 	"regexp"
 	"strings"
@@ -38,8 +37,7 @@ func mediaIdentity(raw string) (string, string, error) {
 		u.Path = "/"
 	}
 	normalized := u.String()
-	h := sha256.Sum256([]byte(normalized))
-	return hex.EncodeToString(h[:]), normalized, nil
+	return digest.SHA256Hex(normalized), normalized, nil
 }
 func replaceMediaLink(ctx context.Context, tx *sql.Tx, source, raw, ownerType, ownerID, role string, pos int, now string) error {
 	return replaceMediaLinkKind(ctx, tx, source, raw, ownerType, ownerID, role, pos, "", now)

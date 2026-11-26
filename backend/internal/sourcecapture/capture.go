@@ -5,8 +5,7 @@ package sourcecapture
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"io"
 	"net/http"
 	"net/url"
@@ -101,11 +100,10 @@ func (t *Transport) RoundTrip(request *http.Request) (*http.Response, error) {
 	if int64(len(body)) > MaxBodyBytes {
 		body = body[:MaxBodyBytes]
 	}
-	digest := sha256.Sum256(body)
 	entry := Response{
 		Source: t.Source, Endpoint: endpointKey(t.Source, request.URL), Method: request.Method,
 		ContentType: contentType, StatusCode: response.StatusCode, CapturedAt: time.Now().UTC(),
-		Execution: capture.execution, Body: body, SHA256: hex.EncodeToString(digest[:]), Truncated: truncated,
+		Execution: capture.execution, Body: body, SHA256: digest.SHA256Hex(body), Truncated: truncated,
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(request.Context()), 2*time.Second)
 	defer cancel()

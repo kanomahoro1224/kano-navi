@@ -3,8 +3,6 @@ package sqlite
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"image"
 	"image/color"
@@ -20,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/mediavariant"
 )
 
@@ -42,8 +41,7 @@ func makeReady(t *testing.T, s *Store) int {
 }
 
 func hashOf(content []byte) string {
-	sum := sha256.Sum256(content)
-	return hex.EncodeToString(sum[:])
+	return digest.SHA256Hex(content)
 }
 
 func readStream(t *testing.T, stream *MediaStream) []byte {

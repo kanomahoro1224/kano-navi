@@ -2,9 +2,7 @@ package sqlite
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +10,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/japantime"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
@@ -760,8 +759,7 @@ func (s *Store) repairSelectedProfiles(ctx context.Context) error {
 		if file, err := s.resolveProfileMediaPath(item.path.String); err == nil {
 			if content, _, err := readContainedFile(file, 15*1024*1024); err == nil {
 				if sniffed := sniffImageMIME(content); sniffed != "" {
-					sum := sha256.Sum256(content)
-					hash, mime = hex.EncodeToString(sum[:]), sniffed
+					hash, mime = digest.SHA256Hex(content), sniffed
 				}
 			}
 		}

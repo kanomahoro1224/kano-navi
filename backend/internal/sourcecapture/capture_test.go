@@ -3,8 +3,7 @@ package sourcecapture
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"io"
 	"net/http"
 	"net/url"
@@ -67,8 +66,7 @@ func TestTransportCapturesMetadataAndLeavesResponseReadable(t *testing.T) {
 	if strings.Contains(recorder.got.Endpoint, "synthetic-secret") || strings.Contains(recorder.got.Endpoint, "123456789") {
 		t.Fatalf("endpoint retained sensitive request detail: %q", recorder.got.Endpoint)
 	}
-	digest := sha256.Sum256(want)
-	if recorder.got.SHA256 != hex.EncodeToString(digest[:]) {
+	if recorder.got.SHA256 != digest.SHA256Hex(want) {
 		t.Fatalf("hash=%s", recorder.got.SHA256)
 	}
 }

@@ -3,8 +3,6 @@ package sqlite
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"image"
 	"image/color"
 	"image/png"
@@ -13,6 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
 
@@ -24,8 +23,7 @@ func testPNGBytes(marker byte) ([]byte, string) {
 		panic(err)
 	}
 	content := encoded.Bytes()
-	sum := sha256.Sum256(content)
-	return content, hex.EncodeToString(sum[:])
+	return content, digest.SHA256Hex(content)
 }
 
 func TestAccountAvatarsLifecycleAndMediaDownload(t *testing.T) {

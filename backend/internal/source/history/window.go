@@ -7,8 +7,6 @@
 package history
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math"
@@ -17,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
@@ -231,8 +230,7 @@ func (w Window) checkpointKey(account string) string {
 	case ModeAll:
 		selection = `{"mode":"all"}`
 	}
-	sum := sha256.Sum256([]byte(selection))
-	return account + ":" + hex.EncodeToString(sum[:])[:24]
+	return account + ":" + digest.SHA256Hex(selection)[:24]
 }
 
 // CheckpointKey is checkpointKey for fetches whose pages another package

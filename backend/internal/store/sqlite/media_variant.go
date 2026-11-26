@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/mediaformat"
 	"github.com/yexca/kano-navi/backend/internal/mediavariant"
 )
@@ -228,7 +228,7 @@ func MakeVariants(ctx context.Context, dataRoot, hash string, load func() ([]byt
 	if err != nil {
 		return made, err
 	}
-	if sum := sha256.Sum256(content); hex.EncodeToString(sum[:]) != hash {
+	if digest.SHA256Hex(content) != hash {
 		return made, ErrVariantSource
 	}
 	// Each width is written as soon as it is encoded, so at most one copy

@@ -7,7 +7,6 @@ package outboundproxy
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"net"
 	"net/url"
@@ -17,6 +16,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/httpx"
 )
 
@@ -254,8 +254,7 @@ func (proxy Proxy) URL() *url.URL {
 // fingerprint identifies the endpoint and credentials without keeping them
 // readable, so a changed proxy gets a fresh transport and health record.
 func (proxy Proxy) fingerprint() string {
-	sum := sha256.Sum256([]byte(proxy.URL().String()))
-	return hex.EncodeToString(sum[:])
+	return digest.SHA256Hex(proxy.URL().String())
 }
 
 func newID(taken map[string]bool) string {

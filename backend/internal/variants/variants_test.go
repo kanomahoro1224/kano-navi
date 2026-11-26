@@ -3,8 +3,6 @@ package variants
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -15,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/mediavariant"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
@@ -36,8 +35,7 @@ func syntheticPhoto(t *testing.T, width, height int) []byte {
 }
 
 func hashOf(content []byte) string {
-	sum := sha256.Sum256(content)
-	return hex.EncodeToString(sum[:])
+	return digest.SHA256Hex(content)
 }
 
 func writeFiles(t *testing.T, root string, files map[string][]byte) {

@@ -2,10 +2,8 @@ package sqlite
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
@@ -14,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	moderncsqlite "modernc.org/sqlite"
 )
 
@@ -170,8 +169,7 @@ func TranslationField(ownerType string) string { return translationOwners[ownerT
 
 // TranslationHash identifies the source wording a translation was made from.
 func TranslationHash(text string) string {
-	sum := sha256.Sum256([]byte(strings.TrimSpace(text)))
-	return hex.EncodeToString(sum[:])
+	return digest.SHA256Hex(strings.TrimSpace(text))
 }
 
 // translation_hash lets queries compare stored hashes with the current

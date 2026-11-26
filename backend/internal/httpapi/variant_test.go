@@ -3,8 +3,6 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -18,6 +16,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	_ "image/png"
 )
 
@@ -169,8 +168,7 @@ func TestStaticFilesIgnoreWidths(t *testing.T) {
 }
 
 func sha256Of(content []byte) string {
-	sum := sha256.Sum256(content)
-	return hex.EncodeToString(sum[:])
+	return digest.SHA256Hex(content)
 }
 
 func TestLineblogImagesAreImmutableOnlyUnderTheirOwnHash(t *testing.T) {

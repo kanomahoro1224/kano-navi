@@ -2,8 +2,6 @@ package history
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 )
 
@@ -226,8 +225,7 @@ func TestResolveBoundsAndCheckpointKeys(t *testing.T) {
 }
 
 func keyOf(selection string) string {
-	sum := sha256.Sum256([]byte(selection))
-	return hex.EncodeToString(sum[:])[:24]
+	return digest.SHA256Hex(selection)[:24]
 }
 
 func TestMethodsDescribeTheirCapabilities(t *testing.T) {

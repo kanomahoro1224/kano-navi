@@ -2,8 +2,6 @@ package workflow
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/mediadownload"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
@@ -25,8 +24,7 @@ func TestMediaStepIsPartialWhileImagesRemainQueued(t *testing.T) {
 	defer s.Close()
 	for i := range 3 {
 		u := fmt.Sprintf("https://pbs.twimg.com/media/step-%d.png", i)
-		h := sha256.Sum256([]byte(u))
-		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, hex.EncodeToString(h[:]), u)
+		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, digest.SHA256Hex(u), u)
 	}
 	client := mediadownload.NewClient(&http.Client{Transport: xTestRT(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"image/png"}}, Body: io.NopCloser(strings.NewReader("\x89PNG\r\n\x1a\n" + r.URL.Path))}, nil

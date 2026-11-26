@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "requests": {
+    "allowed": [
+      {
+        "file": "src/admin/api.ts",
+        "reason": "Admin console transport: the one request() every /api/admin call goes through."
+      },
+      {
+        "file": "src/dashboard/use-dashboard.ts",
+        "reason": "Public snapshot requests and polling for the board."
+      },
+      {
+        "file": "src/lib/visitor-region.ts",
+        "reason": "One shared visitor-region lookup per page load."
+      },
+      {
+        "file": "src/works/use-works-uploads.ts",
+        "reason": "One shared Works uploads request per page load."
+      }
+    ]
+  },
+  "fileSize": {
+    "limit": 800,
+    "slack": 20,
+    "exempt": [
+      {
+        "file": "src/admin-i18n.ts",
+        "reason": "Message dictionary for the operator console: one line per string, no logic."
+      }
+    ],
+    "baseline": {
+      "backend/internal/adminapi/adminapi_test.go": 879,
+      "backend/internal/contentadmin/contentadmin_test.go": 1285,
+      "backend/internal/mcpapi/mcpapi_test.go": 1444,
+      "backend/internal/mcpapi/tools.go": 806,
+      "backend/internal/schedule/extract_test.go": 929,
+      "backend/internal/schedule/normalize.go": 803,
+      "backend/internal/schedule/queue.go": 831,
+      "backend/internal/schedule/store.go": 1248,
+      "backend/internal/source/bilibili/adapter.go": 887,
+      "backend/internal/source/youtube/adapter.go": 1050,
+      "backend/internal/store/sqlite/account_avatars.go": 1026,
+      "backend/internal/store/sqlite/admin.go": 1403,
+      "backend/internal/store/sqlite/dashboard_projection.go": 926,
+      "backend/internal/store/sqlite/dashboard_projection_rules_test.go": 888,
+      "backend/internal/store/sqlite/event_merge.go": 861,
+      "backend/internal/store/sqlite/translations.go": 1442,
+      "backend/internal/store/sqlite/video_merge.go": 904,
+      "backend/internal/store/sqlite/x_related.go": 955,
+      "scripts/package-lineblog.ts": 1236,
+      "scripts/package-works.ts": 1346,
+      "src/admin/types.ts": 1615,
+      "src/admin/ui.tsx": 945,
+      "src/admin/use-admin-data.ts": 954,
+      "src/admin/views/source-fetch.tsx": 806,
+      "src/dashboard/components/now-stage.tsx": 813,
+      "src/dashboard/components/post-wall.tsx": 1023,
+      "src/dashboard/components/video-shelf.tsx": 1194,
+      "src/dashboard/components/week-guide.tsx": 1184,
+      "src/dashboard/use-dashboard.ts": 1421,
+      "src/history/milestones.ts": 890,
+      "src/works/personal-view.tsx": 988,
+      "tests/admin-ui.test.ts": 898,
+      "tests/dashboard-requests.test.ts": 899,
+      "tests/lineblog.test.ts": 912,
+      "tests/post-wall.test.ts": 1121,
+      "tests/works.test.ts": 1654
+    }
+  }
+}

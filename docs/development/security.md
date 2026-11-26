@@ -105,10 +105,21 @@ make test-sensitive
 When a finding appears, fix the underlying content. Do not hide it with an
 `allow` comment, a string rewrite, or a wider ignore directory.
 
+### Guardrail Files
+
+The tracked `.claude/settings.json` makes Claude Code ask before it edits the
+files that define what validation accepts: `scripts/golangci-lint.yml`, the
+[pattern ratchet](testing/validation.md#pattern-ratchet) baseline
+`scripts/pattern-baseline.json` and `.github/workflows/`. The rules use `ask`,
+so the maintainer can still approve such an edit; personal permissions stay in
+the ignored `.claude/settings.local.json`. The rules cover the editing tools,
+not shell commands, so review a diff to these files like any other policy
+change.
+
 ## Validation and Publication Boundary
 
 CI has read-only repository permissions and checks formatting, documentation,
-scanner behavior, source privacy, server contracts, the frontend build, local
+scanner behavior, source privacy, the pattern ratchet, server contracts, the frontend build, local
 API smoke, and a disposable production container. Platform and model data is
 never fetched by validation. Release reuses the same validation jobs before registry
 publication; only registry and release jobs receive write permissions.

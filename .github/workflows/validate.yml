@@ -71,7 +71,7 @@ jobs:
           cache-dependency-path: backend/go.sum
       - name: Install locked dependencies
         run: make install
-      - name: Check formatting, docs, workflows, CI policy, and source privacy
+      - name: Check formatting, docs, workflows, CI policy, privacy, and patterns
         run: make ci-style
 
   backend:

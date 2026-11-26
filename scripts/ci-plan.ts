@@ -44,14 +44,16 @@ const backendJobs: Job[] = [
 const frontendJobs: Job[] = ["frontend", "docker"]
 
 // The files under scripts/ and the planned jobs that run them. Style always
-// runs, and it formats every script and runs the scanner, planner and shard
-// tests.
+// runs, and it formats every script and runs the scanner, pattern ratchet,
+// planner and shard tests.
 // The frontend build type-checks every TypeScript script, so each one selects
 // Frontend. An unlisted script selects every job.
 export const scriptJobs: Record<string, Job[]> = {
   "check-doc-links.ts": ["frontend"],
   // Style and Frontend run it before their Node checks.
   "check-node.ts": ["frontend"],
+  "check-patterns.ts": ["frontend"],
+  "check-patterns.test.ts": ["frontend"],
   "check-sensitive.ts": ["frontend"],
   "check-sensitive.test.ts": ["frontend"],
   "ci-plan.test.ts": ["frontend"],
@@ -73,6 +75,7 @@ export const scriptJobs: Record<string, Job[]> = {
   // Packaging's phrase dictionary, which the works tests exercise.
   "works-phrases.ts": ["frontend"],
   "privacy-allowlist.json": [],
+  "pattern-baseline.json": [],
   "production-smoke.ts": ["frontend", "docker"],
   "run-app.mjs": [],
   "smoke.ts": ["frontend", "smoke", "docker"],
@@ -87,9 +90,10 @@ export const scriptJobs: Record<string, Job[]> = {
 
 const documentation =
   /^(docs\/|[^/]+\.md$|backend\/README\.md$|(backend|src|scripts)\/AGENTS\.md$|\.claude\/skills\/|\.github\/SECURITY\.md$|\.github\/ISSUE_TEMPLATE\/)/
-// Read by Style alone: formatting, the scanner and the deployment examples
-// that no validation job starts.
-const styleOnly = /^(\.env\.example|\.gitignore|docker-compose(\.dev)?\.yml)$/
+// Read by Style alone: formatting, the scanner, the deployment examples
+// that no validation job starts, and the shared agent permissions.
+const styleOnly =
+  /^(\.env\.example|\.gitignore|docker-compose(\.dev)?\.yml|\.claude\/settings\.json)$/
 const frontendConfig = /^(index\.html|tsconfig\.json|vite\.config\.ts)$/
 
 // The jobs a changed path selects, or null when it selects every validation

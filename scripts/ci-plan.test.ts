@@ -41,6 +41,7 @@ test("documentation-only PRs skip planned jobs while unknown paths require full 
       ".github/ISSUE_TEMPLATE/bug_report.yml",
       ".env.example",
       "docker-compose.yml",
+      ".claude/settings.json",
     ),
     [],
   )
@@ -123,6 +124,8 @@ test("a validation script selects the jobs that run it, and every script has a d
   assert.deepEqual(selected("scripts/check-node.ts"), ["frontend"])
   assert.deepEqual(selected("scripts/cdn-base.ts"), ["frontend", "docker"])
   assert.deepEqual(selected("scripts/privacy-allowlist.json"), [])
+  assert.deepEqual(selected("scripts/pattern-baseline.json"), [])
+  assert.deepEqual(selected("scripts/check-patterns.ts"), ["frontend"])
   assert.deepEqual(
     selected(
       "docs/history/unreleased.md",

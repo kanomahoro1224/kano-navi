@@ -22,6 +22,7 @@ GO_LDFLAGS = -X github.com/yexca/kano-navi/backend/internal/buildinfo.Version=$(
 .PHONY: go-build go-start go-docker-build go-lint go-vet go-race actionlint
 .PHONY: backend-race-shard backend-race-durations go-test-shard-test
 .PHONY: format format-check typecheck docs-check check-docs sensitive-check check-sensitive privacy-check test-sensitive test-frontend
+.PHONY: pattern-check pattern-baseline test-patterns
 .PHONY: audit npm-audit npm-audit-production npm-audit-signatures go-audit
 .PHONY: smoke docker-build production-smoke ci-fast ci-style ci-backend ci-backend-static ci-backend-race ci-frontend check ci-local ci
 .PHONY: ci-plan ci-results test-ci-plan
@@ -137,6 +138,17 @@ check-sensitive privacy-check: sensitive-check
 test-sensitive:
 	$(NPM) run test:sensitive
 
+# The pattern ratchet: request owners and file sizes against
+# scripts/pattern-baseline.json. pattern-baseline only lowers recorded counts.
+pattern-check:
+	$(NPM) run check-patterns
+
+pattern-baseline:
+	$(NPM) run check-patterns -- --update-baseline
+
+test-patterns:
+	$(NPM) run test:patterns
+
 test-frontend:
 	$(NPM) run test:frontend
 
@@ -178,10 +190,10 @@ production-smoke:
 
 # Fast local feedback for ordinary edits. It uses the installed toolchain and
 # never installs dependencies, runs tests, starts Docker, or contacts sources.
-ci-fast: node-check format-check go-format-check docs-check sensitive-check
+ci-fast: node-check format-check go-format-check docs-check sensitive-check pattern-check
 
 # Narrow checks use the existing locked installation and never fetch source data.
-ci-style: node-check format-check go-format-check docs-check actionlint test-sensitive test-ci-plan go-test-shard-test sensitive-check
+ci-style: node-check format-check go-format-check docs-check actionlint test-sensitive test-patterns test-ci-plan go-test-shard-test sensitive-check pattern-check
 
 ci-backend: ci-backend-static ci-backend-race
 

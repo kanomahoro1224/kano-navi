@@ -52,5 +52,11 @@
   and confirmed once a day before the Bilibili reads.
 - The backend reads and formats Japan time through `internal/japantime`, and
   golangci-lint rejects `time.FixedZone` and `time.LoadLocation` elsewhere.
+- `make pattern-check`, part of `make ci-fast` and `make ci-style`, fails a
+  `fetch` call in `src/` outside the request owners and a code file that
+  passes 800 lines or grows past its recorded size, against
+  `scripts/pattern-baseline.json`. The shared `.claude/settings.json` asks
+  before Claude Code edits that baseline, the lint configuration or the
+  workflows.
 
 </details>

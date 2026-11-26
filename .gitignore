@@ -13,6 +13,7 @@ coverage/
 .vite/
 .claude/*
 !.claude/skills/
+!.claude/settings.json
 .codegraph/
 codegraph/
 .DS_Store

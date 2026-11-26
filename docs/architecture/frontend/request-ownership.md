@@ -18,6 +18,10 @@ and components and shared primitives never call `fetch`:
   `src/lib/visitor-region.ts` (`/api/visitor-region`) and
   `src/works/use-works-uploads.ts` (`/api/works/uploads`).
 
+The
+[pattern ratchet](../../development/testing/validation.md#pattern-ratchet)
+enforces the list of `fetch` callers; a new owner needs a reviewed reason there.
+
 Reuse the existing state and request patterns. Shared primitives must remain
 independent of dashboard, history, and admin features. Extract cohesive
 helpers when needed; avoid a repository-wide move for a small change.

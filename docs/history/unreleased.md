@@ -58,5 +58,7 @@
   `scripts/pattern-baseline.json`. The shared `.claude/settings.json` asks
   before Claude Code edits that baseline, the lint configuration or the
   workflows.
+- `make go-lint` uses golangci-lint v2.14.0, which also reads the packages
+  of a newer local Go such as 1.27, so it passes without `GOTOOLCHAIN`.
 
 </details>

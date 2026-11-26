@@ -2,12 +2,30 @@
 
 Where composition, requests, locales, translations and media paths live.
 
-Keep app composition in src/main.tsx, public snapshot requests in
-src/dashboard/use-dashboard.ts, and admin requests and polling in
-src/admin/use-admin-data.ts. Reuse the existing state and request patterns.
-Shared primitives must remain independent of dashboard, history, and admin
-features. Extract cohesive helpers when needed; avoid a repository-wide move
-for a small change.
+Keep app composition in `src/main.tsx`. Requests belong to request modules,
+and components and shared primitives never call `fetch`:
+
+- Page data hooks own a page's requests, state and polling:
+  `src/dashboard/use-dashboard.ts` the board's and the posts page's snapshot,
+  archive and revision requests, and `src/admin/use-admin-data.ts` every
+  console endpoint call, the session and the overview poll. New board
+  request logic may live in a sibling module in `src/dashboard/` that
+  `use-dashboard.ts` composes, rather than in the hook itself.
+- `src/admin/api.ts` is the console's transport: the one `fetch` for
+  `/api/admin`, with its error mapping. Endpoint calls go through it from
+  `use-admin-data.ts`.
+- Once-per-load readers share one request per page load among every caller:
+  `src/lib/visitor-region.ts` (`/api/visitor-region`) and
+  `src/works/use-works-uploads.ts` (`/api/works/uploads`).
+
+Reuse the existing state and request patterns. Shared primitives must remain
+independent of dashboard, history, and admin features. Extract cohesive
+helpers when needed; avoid a repository-wide move for a small change.
+
+Every time a page shows is Japan time. `src/lib/tokyo-time.ts` owns the
+`Asia/Tokyo` zone and the cached `Intl.DateTimeFormat` builders; the board's,
+the console's, Journey's, the LINE BLOG archive's and Works' date helpers and
+the header clock format through it.
 
 Every page, the board included, loads through a dynamic import with its own
 CSS and translation chunks, so a direct visit downloads the shared runtime

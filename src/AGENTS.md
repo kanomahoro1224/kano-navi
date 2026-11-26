@@ -7,9 +7,15 @@ only the page a change needs.
 ## Rules
 
 - `src/main.tsx` composes `/`, `/posts`, `/journey`, `/works`, `/lineblog`,
-  `/about` and `/admin`. Keep board requests in
-  `src/dashboard/use-dashboard.ts` and admin requests in
-  `src/admin/use-admin-data.ts`.
+  `/about` and `/admin`. Only the request modules call `fetch`: the page
+  data hooks (`src/dashboard/use-dashboard.ts` for the board and posts,
+  `src/admin/use-admin-data.ts` for the console's endpoints), the console's
+  `src/admin/api.ts` transport, and the once-per-load readers
+  (`src/lib/visitor-region.ts`, `src/works/use-works-uploads.ts`). New board
+  request logic may live in a sibling module in `src/dashboard/` that
+  `use-dashboard.ts` composes; components never request.
+- Format displayed times through `src/lib/tokyo-time.ts`, which owns the
+  Japan time zone and the shared `Intl.DateTimeFormat` builders.
 - Style markup in its area's stylesheet, with that area's class names over
   the CSS variables in `src/index.css`, not with Tailwind utilities. Reuse
   `.round-button` and `.pill-button` (`src/site/site.css`) on public pages,

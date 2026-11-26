@@ -1,39 +1,21 @@
 import type { Translator } from "@/types"
 import { eventStatusCode } from "@/lib/event-text"
+import {
+  intlLocale,
+  toDate,
+  tokyoClock,
+  tokyoDay,
+  tokyoFormatter,
+} from "@/lib/tokyo-time"
 
-// All operator times are shown in Asia/Tokyo, whatever the browser zone, and
+// All operator times are shown in Japan time, whatever the browser zone, and
 // every date as YYYY-MM-DD.
-const intlLocales: Record<string, string> = {
-  "zh-CN": "zh-CN",
-  ja: "ja-JP",
-  en: "en-US",
-}
-const formatters = new Map<string, Intl.DateTimeFormat>()
 const relativeFormatters = new Map<string, Intl.RelativeTimeFormat>()
 
-function formatter(locale: string, options: Intl.DateTimeFormatOptions) {
-  const key = `${locale}:${JSON.stringify(options)}`
-  let cached = formatters.get(key)
-  if (!cached) {
-    cached = new Intl.DateTimeFormat(intlLocales[locale] || intlLocales.en, {
-      timeZone: "Asia/Tokyo",
-      ...options,
-    })
-    formatters.set(key, cached)
-  }
-  return cached
-}
-
-function valid(value: string | null | undefined) {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
 export function formatTime(value: string | null | undefined, locale: string) {
-  const date = valid(value)
+  const date = toDate(value)
   return date
-    ? formatter(locale, {
+    ? tokyoFormatter(locale, {
         hour: "2-digit",
         minute: "2-digit",
         hourCycle: "h23",
@@ -49,14 +31,14 @@ export function formatDay(day: string | null | undefined, locale: string) {
 
 /** A stored Japan date's short weekday name. */
 export function formatWeekday(day: string, locale: string) {
-  return formatter(locale, { weekday: "short" }).format(
+  return tokyoFormatter(locale, { weekday: "short" }).format(
     new Date(`${day}T12:00:00+09:00`),
   )
 }
 
 /** The month and year of a stored Japan date. */
 export function formatMonth(day: string, locale: string) {
-  return formatter(locale, { year: "numeric", month: "long" }).format(
+  return tokyoFormatter(locale, { year: "numeric", month: "long" }).format(
     new Date(`${day}T12:00:00+09:00`),
   )
 }
@@ -66,14 +48,14 @@ export function formatRelative(
   locale: string,
   now = Date.now(),
 ) {
-  const date = valid(value)
+  const date = toDate(value)
   if (!date) return ""
   let relative = relativeFormatters.get(locale)
   if (!relative) {
-    relative = new Intl.RelativeTimeFormat(
-      intlLocales[locale] || intlLocales.en,
-      { numeric: "auto", style: "short" },
-    )
+    relative = new Intl.RelativeTimeFormat(intlLocale(locale), {
+      numeric: "auto",
+      style: "short",
+    })
     relativeFormatters.set(locale, relative)
   }
   const seconds = Math.round((date.getTime() - now) / 1000)
@@ -108,35 +90,19 @@ export function formatInterval(minutes: number, t: Translator) {
   return t("admin.interval.minutes", { count: minutes })
 }
 
-/** Today's date in Asia/Tokyo as YYYY-MM-DD. */
+/** Today's date in Japan time as YYYY-MM-DD. */
 export function japanToday(now = new Date()) {
   return japanDay(now.toISOString())
 }
 
 /** An ISO instant as its Japan date "YYYY-MM-DD". */
 export function japanDay(value: string | null | undefined) {
-  const date = valid(value)
-  if (!date) return ""
-  const parts = formatter("en", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date)
-  const get = (type: string) => parts.find((part) => part.type === type)?.value
-  return `${get("year")}-${get("month")}-${get("day")}`
+  return tokyoDay(value)
 }
 
 /** An ISO instant as the Japan wall-clock time "HH:mm". */
 export function japanClock(value: string | null | undefined) {
-  const date = valid(value)
-  if (!date) return ""
-  const parts = formatter("en", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date)
-  const get = (type: string) => parts.find((part) => part.type === type)?.value
-  return `${get("hour")}:${get("minute")}`
+  return tokyoClock(value)
 }
 
 /** An ISO instant as its Japan date and time "YYYY-MM-DD HH:mm". */

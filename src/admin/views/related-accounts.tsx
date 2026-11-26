@@ -64,13 +64,13 @@ export function RelatedAccountsPanel({
   const [busy, setBusy] = useState(false)
   const saved = related
   // A reread after a run, which only changes the read status, keeps the
-  // edits; a changed account list replaces them.
+  // edits; a changed account list replaces them. The effect follows the
+  // list's content, not each reread's new object.
   const savedKey = saved ? JSON.stringify(saved.accounts) : ""
   useEffect(() => {
     if (!saved) return
     setDrafts(draftsOf(saved.accounts))
     setNextKey(saved.accounts.length)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedKey])
   if (!saved) return <Loading />
   const dirty =

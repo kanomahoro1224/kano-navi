@@ -5,6 +5,7 @@ import { ArrowUp, ArrowUpRight, Check, Info } from "lucide-react"
 import { useAppSettings } from "@/app-settings"
 import { PreferenceControls } from "@/components/preference-controls"
 import { cdnUrl } from "@/lib/cdn"
+import { tokyoClock } from "@/lib/tokyo-time"
 import { useMainlandSite } from "@/lib/visitor-region"
 import {
   DropdownMenu,
@@ -34,16 +35,7 @@ function defaultAvatar() {
   return cdnUrl("/assets/kano-avatar.jpg")
 }
 
-function japanClock(now: number) {
-  return new Intl.DateTimeFormat("en", {
-    timeZone: "Asia/Tokyo",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(now)
-}
-
-/** Minute-aligned Japan clock: every time on the site is Asia/Tokyo. */
+/** Minute-aligned Japan clock: every time on the site is Japan time. */
 function JapanClock() {
   const { t } = useAppSettings()
   const [now, setNow] = useState(() => Date.now())
@@ -63,7 +55,7 @@ function JapanClock() {
   return (
     <span className="site-clock" title={t("header.japanTime")}>
       <span className="site-clock-zone">JST</span>
-      <time dateTime={new Date(now).toISOString()}>{japanClock(now)}</time>
+      <time dateTime={new Date(now).toISOString()}>{tokyoClock(now)}</time>
     </span>
   )
 }

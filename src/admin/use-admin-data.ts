@@ -937,9 +937,10 @@ export function useResource<T>(load: () => Promise<T>, deps: unknown[]) {
     }
   }, [fail])
 
+  // The caller's deps say when to reload; `load` itself is read through its
+  // ref, so a new closure each render is not a reason to load again.
   useEffect(() => {
     void reload()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reload, revision, ...deps])
 
   // An unmounted view takes no late result.

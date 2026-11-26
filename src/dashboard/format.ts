@@ -5,65 +5,24 @@ import type {
   Translator,
   Video,
 } from "../types.ts"
-
-export const JAPAN_TIME_ZONE = "Asia/Tokyo"
-
-/** Anything `new Date()` accepts; empty and invalid values format as blank. */
-type DateInput = Date | string | number | null | undefined
-
-const intlLocales: Record<string, string> = {
-  "zh-CN": "zh-CN",
-  ja: "ja-JP",
-  en: "en-US",
-}
-
-export function intlLocale(locale: string) {
-  return intlLocales[locale] || intlLocales.en
-}
-
-const formatterCache = new Map<string, Intl.DateTimeFormat>()
-
-function formatter(locale: string, options: Intl.DateTimeFormatOptions) {
-  const key = `${locale}|${JSON.stringify(options)}`
-  let cached = formatterCache.get(key)
-  if (!cached) {
-    cached = new Intl.DateTimeFormat(intlLocale(locale), options)
-    formatterCache.set(key, cached)
-  }
-  return cached
-}
-
-function parts(
-  date: Date,
-  locale: string,
-  options: Intl.DateTimeFormatOptions,
-) {
-  const result: Partial<Record<Intl.DateTimeFormatPartTypes, string>> = {}
-  for (const part of formatter(locale, options).formatToParts(date))
-    result[part.type] = part.value
-  return result
-}
-
-function toDate(value: DateInput) {
-  if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
+import {
+  TOKYO_TIME_ZONE,
+  dateFormatter as formatter,
+  intlLocale,
+  toDate,
+  tokyoDay,
+  tokyoClock,
+  tokyoFormatter,
+  tokyoParts,
+  type DateInput,
+} from "../lib/tokyo-time.ts"
 
 const pad = (value: number) => String(value).padStart(2, "0")
 
 // Calendar math uses local Date objects whose Y/M/D mirror the Japan date, so
 // week navigation is independent of the visitor's own time zone.
 export function dateKey(value: DateInput) {
-  const date = toDate(value)
-  if (!date) return ""
-  const { year, month, day } = parts(date, "en", {
-    timeZone: JAPAN_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-  return `${year}-${month}-${day}`
+  return tokyoDay(value)
 }
 
 export function localDateKey(date: Date) {
@@ -137,36 +96,24 @@ export function formatLongDate(date: Date, locale: string) {
 
 /** "08.29 21:00" in Japan time. */
 export function formatStamp(value: DateInput) {
-  const date = toDate(value)
-  if (!date) return "—"
-  const p = parts(date, "en", {
-    timeZone: JAPAN_TIME_ZONE,
+  const p = tokyoParts(value, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
   })
-  return `${p.month}.${p.day} ${p.hour}:${p.minute}`
+  return p ? `${p.month}.${p.day} ${p.hour}:${p.minute}` : "—"
 }
 
 export function formatJapanTime(value: DateInput) {
-  const date = toDate(value)
-  if (!date) return ""
-  const p = parts(date, "en", {
-    timeZone: JAPAN_TIME_ZONE,
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  })
-  return `${p.hour}:${p.minute}`
+  return tokyoClock(value)
 }
 
 export function formatJapanDay(value: DateInput, locale: string) {
   const date = toDate(value)
   if (!date) return ""
-  return formatter(locale, {
-    timeZone: JAPAN_TIME_ZONE,
+  return tokyoFormatter(locale, {
     month: "short",
     day: "numeric",
     weekday: "short",
@@ -178,7 +125,7 @@ export function japanDateParts(value: DateInput, locale: string) {
   const date = toDate(value)
   if (!date) return null
   const pick = (options: Intl.DateTimeFormatOptions) =>
-    formatter(locale, { timeZone: JAPAN_TIME_ZONE, ...options }).format(date)
+    tokyoFormatter(locale, options).format(date)
   return {
     day: pick({ day: "numeric" }).replace(/\D/gu, ""),
     month: pick({ month: "short" }),
@@ -201,7 +148,7 @@ export function formatVisitorTime(value: DateInput, locale: string) {
 export function visitorIsInJapan() {
   try {
     return (
-      Intl.DateTimeFormat().resolvedOptions().timeZone === JAPAN_TIME_ZONE ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone === TOKYO_TIME_ZONE ||
       new Date().getTimezoneOffset() === -540
     )
   } catch {

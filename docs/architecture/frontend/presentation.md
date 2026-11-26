@@ -81,8 +81,9 @@ the dialog). A `pill-button is-collapsible` shows only its icon at 560px and
 below, so it keeps its label as `aria-label`. There the post wall's and the
 video shelf's filters share one row with that icon, and a filter too long for
 the row scrolls sideways without a visible scrollbar. The board lives in
-`src/dashboard/`: `use-dashboard.ts` owns the snapshot request and the
-revision stream, `format.ts` owns the board's date and event-status helpers over the shared
+`src/dashboard/`: `use-dashboard.ts` composes the snapshot and calendar
+hooks and the request modules beside it (see
+[Request and UI ownership](request-ownership.md)), `format.ts` owns the board's date and event-status helpers over the shared
 [Japan-time formatters](request-ownership.md), `content.ts` holds static public links, and
 `components/` renders the next-up stage and profile card, the on-sale list
 (`sale-strip.tsx`: the IDs from `projection.sales`, rendered in API order,

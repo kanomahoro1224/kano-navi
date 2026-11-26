@@ -7,8 +7,8 @@
         "reason": "Admin console transport: the one request() every /api/admin call goes through."
       },
       {
-        "file": "src/dashboard/use-dashboard.ts",
-        "reason": "Public snapshot requests and polling for the board."
+        "file": "src/dashboard/api.ts",
+        "reason": "Board transport: the JSON readers every public board, archive and posts page read goes through."
       },
       {
         "file": "src/lib/visitor-region.ts",
@@ -58,7 +58,6 @@
       "src/dashboard/components/post-wall.tsx": 1023,
       "src/dashboard/components/video-shelf.tsx": 1194,
       "src/dashboard/components/week-guide.tsx": 1184,
-      "src/dashboard/use-dashboard.ts": 1421,
       "src/history/milestones.ts": 890,
       "src/works/personal-view.tsx": 988,
       "tests/admin-ui.test.ts": 898,

@@ -4,13 +4,15 @@ How the board requests, caches, revalidates and recovers its snapshot.
 
 ## Dashboard Snapshot Requests
 
-The dashboard hook coordinates one current request. Snapshot refreshes share an
+`startSnapshotSync` (`src/dashboard/snapshot-sync.ts`), which `useDashboard`
+starts, coordinates one current request. Snapshot refreshes share an
 in-flight promise; a manual refresh cancels an older revision read, and stale
 completions cannot install state. A 15-second deadline covers headers and JSON
 consumption.
 
 Each successful snapshot is also kept in `localStorage`
-(`kano-dashboard-snapshot-v1`, with the time it was stored). The next visit
+(`kano-dashboard-snapshot-v1`, with the time it was stored, by
+`src/dashboard/snapshot-cache.ts`). The next visit
 renders a stored snapshot under a week old at once and reads the API as usual;
 the board reports a refresh rather than loading, and the first read replaces
 it or, on failure, leaves it shown with the error. A stored snapshot without
@@ -18,7 +20,7 @@ the supported projection version is not used. Without a usable stored snapshot t
 has a full ticket's shape (the 16:9 art band and a stub with a two-line
 title, three lines at 640px and below), so the usual ticket fills it in place.
 
-While the page is visible the hook keeps an `EventSource` on the
+While the page is visible the coordinator keeps an `EventSource` on the
 [revision stream](../public-api/snapshot.md#revision-stream). A pushed revision that
 differs from the snapshot's reads the snapshot after a random delay of up to
 three seconds, so the boards that hear one change do not all read at once; an
@@ -101,7 +103,8 @@ before any revision has been recorded; manual retry is available. Admin 401
 stops polling and requires login. Failed initial admin loads also retry.
 
 The board's calendar shows one week; its selected week lives in
-`use-dashboard.ts`. It reads
+`useWeekCalendar` (`src/dashboard/use-week-calendar.ts`), which the snapshot
+coordinator keeps current. It reads
 one bounded page, shows the complete range/day counts, and offers more-event
 pagination. Changing the range cancels old work and begins at page one; errors keep a retry control.
 Every same-range refresh rereads the loaded page range and replaces it atomically,
@@ -131,7 +134,7 @@ revalidates its stored copy with the response's
 nothing changed, so the minute refresh, and an open dialog's reread after it,
 cost little when the board is quiet.
 
-The archive dialogs read through `useArchive` in `use-dashboard.ts`, only
+The archive dialogs read through `useArchive` (`src/dashboard/use-archive.ts`), only
 while one is open: the schedule reads the Monday-first weeks covering the month
 from `/api/calendar`, and past videos read
 the [video timeline](../public-api/calendar-and-archives.md#bounded-public-archives) from `/api/videos`
@@ -150,7 +153,8 @@ share the board's visibility pause and snapshot backoff rather than starting a
 separate archive timer. Changing the month, the video
 category or the timeline's start month, or closing the dialog, cancels the
 read and discards late pages.
-While the video timeline is open, `useArchiveMonths` reads
+While the video timeline is open, `useArchiveMonths`
+(`src/dashboard/use-archive-months.ts`) reads
 its month index from
 [`/api/videos/months`](../public-api/calendar-and-archives.md#bounded-public-archives)
 and rereads it on each board revision. The month label opens a jump grid

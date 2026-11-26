@@ -8,12 +8,29 @@ and components and shared primitives never call `fetch`:
 - Page data hooks own a page's requests, state and polling:
   `src/dashboard/use-dashboard.ts` the board's and the posts page's snapshot,
   archive and revision requests, and `src/admin/use-admin-data.ts` every
-  console endpoint call, the session and the overview poll. New board
-  request logic may live in a sibling module in `src/dashboard/` that
-  `use-dashboard.ts` composes, rather than in the hook itself.
-- `src/admin/api.ts` is the console's transport: the one `fetch` for
-  `/api/admin`, with its error mapping. Endpoint calls go through it from
-  `use-admin-data.ts`.
+  console endpoint call, the session and the overview poll.
+- `use-dashboard.ts` is the board's entry point: `useDashboard` composes the
+  snapshot and its week calendar, and the module re-exports the archive and
+  posts page hooks, so pages import every board hook from it. The logic
+  lives in sibling modules, one concern each, and new board request logic
+  goes in one of them or a new sibling rather than in the entry point:
+
+  | Module                  | Owns                                                                                                  |
+  | ----------------------- | ----------------------------------------------------------------------------------------------------- |
+  | `api.ts`                | The board's transport: the JSON readers with their deadlines, and the atomic reread of loaded pages   |
+  | `snapshot-cache.ts`     | The empty snapshot, the supported projection version, and the stored snapshot in `localStorage`       |
+  | `snapshot-sync.ts`      | `startSnapshotSync`: the snapshot and revision reads, the revision stream, polling, backoff and wakes |
+  | `use-week-calendar.ts`  | The selected week, its paged calendar read and retry, and the hooks the snapshot coordinator calls    |
+  | `archive-query.ts`      | Archive request shapes, addresses, ranges, keys and page checks; it reads nothing                     |
+  | `use-archive.ts`        | `useArchive`: a schedule month or a post or video timeline, page by page                              |
+  | `use-archive-months.ts` | `useArchiveMonths`: the post or video month index                                                     |
+  | `post-archive.ts`       | The posts page's index read and its caches in memory and `localStorage`                               |
+  | `use-now.ts`            | `useNow`, the re-rendering clock                                                                      |
+
+- `src/dashboard/api.ts` and `src/admin/api.ts` are the transports: the
+  board's JSON readers for the public API, and the console's one `fetch` for
+  `/api/admin` with its error mapping. Board reads and console endpoint
+  calls go through them.
 - Once-per-load readers share one request per page load among every caller:
   `src/lib/visitor-region.ts` (`/api/visitor-region`) and
   `src/works/use-works-uploads.ts` (`/api/works/uploads`).

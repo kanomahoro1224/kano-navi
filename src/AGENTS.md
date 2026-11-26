@@ -7,13 +7,14 @@ only the page a change needs.
 ## Rules
 
 - `src/main.tsx` composes `/`, `/posts`, `/journey`, `/works`, `/lineblog`,
-  `/about` and `/admin`. Only the request modules call `fetch`: the page
-  data hooks (`src/dashboard/use-dashboard.ts` for the board and posts,
-  `src/admin/use-admin-data.ts` for the console's endpoints), the console's
-  `src/admin/api.ts` transport, and the once-per-load readers
-  (`src/lib/visitor-region.ts`, `src/works/use-works-uploads.ts`). New board
-  request logic may live in a sibling module in `src/dashboard/` that
-  `use-dashboard.ts` composes; components never request.
+  `/about` and `/admin`. Page data hooks own a page's requests:
+  `src/dashboard/use-dashboard.ts` for the board and posts, which composes
+  and re-exports the board's hook modules beside it, and
+  `src/admin/use-admin-data.ts` for the console's endpoints. Only the
+  transports (`src/dashboard/api.ts`, `src/admin/api.ts`) and the
+  once-per-load readers (`src/lib/visitor-region.ts`,
+  `src/works/use-works-uploads.ts`) call `fetch`. New board request logic
+  goes in a sibling module in `src/dashboard/`; components never request.
 - Format displayed times through `src/lib/tokyo-time.ts`, which owns the
   Japan time zone and the shared `Intl.DateTimeFormat` builders.
 - Style markup in its area's stylesheet, with that area's class names over

@@ -14,7 +14,7 @@ an account pushes a history entry, so back and forward return to it; the
 month in view replaces the address's month as the page scrolls, without an
 entry, and the newest month leaves the address without one.
 
-`usePostArchiveIndex` in `use-dashboard.ts` reads
+`usePostArchiveIndex` in `src/dashboard/post-archive.ts` reads
 [`/api/posts/months`](../public-api/calendar-and-archives.md#bounded-public-archives) once per visit: the month
 index, the accounts the page offers (the board's X accounts, then the
 archive-only ones, then Bilibili mids) and their avatars. Until it arrives

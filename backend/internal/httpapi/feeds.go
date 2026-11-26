@@ -12,6 +12,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/buildinfo"
 	"github.com/yexca/kano-navi/backend/internal/feeds"
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -30,8 +31,6 @@ const (
 	// database while the ETag keeps conditional requests small.
 	feedCacheControl = "public, max-age=600"
 )
-
-var feedJapan = time.FixedZone("JST", 9*60*60)
 
 // feedPreamble reads the optional lang query (missing or unknown is English)
 // and sets the shared feed headers. It reports false when the response is
@@ -90,7 +89,7 @@ func (h *Handler) calendarFeed(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "database_unavailable"}, "")
 		return
 	}
-	today, _ := time.ParseInLocation("2006-01-02", now.In(feedJapan).Format("2006-01-02"), feedJapan)
+	today, _ := japantime.ParseDate(japantime.Date(now))
 	events, err := h.calendarEvents(r, today)
 	if err != nil {
 		w.Header().Del("ETag")
@@ -196,7 +195,7 @@ func (h *Handler) atomFeed(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	today := now.In(feedJapan)
+	today := now.In(japantime.Zone)
 	page, err := h.store.GetVideoArchive(r.Context(), today.AddDate(0, 0, -atomFeedPastDays).Format("2006-01-02"),
 		today.AddDate(0, 0, atomFeedFutureDays).Format("2006-01-02"), "", 1, feeds.MaxEntries, now)
 	var body []byte

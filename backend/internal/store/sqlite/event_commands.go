@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 var (
@@ -63,7 +65,7 @@ func (i EventInput) validate(create bool) error {
 	}
 	// A close time falls on its close date in Japan.
 	if i.EndsAt != "" && i.EndsOn != "" {
-		if end, err := time.Parse(time.RFC3339Nano, i.EndsAt); err != nil || dateInJapan(end) != i.EndsOn {
+		if end, err := time.Parse(time.RFC3339Nano, i.EndsAt); err != nil || japantime.Date(end) != i.EndsOn {
 			return ErrEventInvalid
 		}
 	}

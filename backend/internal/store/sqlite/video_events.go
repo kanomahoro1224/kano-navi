@@ -3,8 +3,8 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 )
 
@@ -44,12 +44,11 @@ func settleVideoEvents(ctx context.Context, tx *sql.Tx, from, to, now string) (t
 
 // japanDateBounds turns inclusive Japan dates into UTC instants [start, end).
 func japanDateBounds(from, to string) (string, string, error) {
-	japan := time.FixedZone("JST", 9*3600)
-	first, err := time.ParseInLocation("2006-01-02", from, japan)
+	first, err := japantime.ParseDate(from)
 	if err != nil {
 		return "", "", err
 	}
-	last, err := time.ParseInLocation("2006-01-02", to, japan)
+	last, err := japantime.ParseDate(to)
 	if err != nil {
 		return "", "", err
 	}
@@ -77,7 +76,7 @@ func timeVideoEvents(ctx context.Context, tx *sql.Tx, start, end, now string) (i
 		if !ok {
 			continue
 		}
-		japanDay := instant.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02")
+		japanDay := japantime.Date(instant)
 		stored, hasStart := parseMergeInstant(startsAt)
 		if hasStart && stored.Equal(instant) && precision == "exact" && day == japanDay {
 			continue
@@ -152,7 +151,7 @@ func createBroadcastEvents(ctx context.Context, tx *sql.Tx, start, end, now stri
 			ON CONFLICT(id) DO UPDATE SET title=excluded.title,detail=excluded.detail,starts_on=excluded.starts_on,starts_at=excluded.starts_at,
 			  time_precision=excluded.time_precision,status=excluded.status,event_type=excluded.event_type,url=excluded.url,is_upcoming=0,
 			  deleted_at=NULL,updated_at=excluded.updated_at WHERE `+restorableEventSQL("events"),
-			eventID, v.ID, v.Title, detail, instant.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02"), v.ScheduledAt, status, typeName, v.URL, now, now); err != nil {
+			eventID, v.ID, v.Title, detail, japantime.Date(instant), v.ScheduledAt, status, typeName, v.URL, now, now); err != nil {
 			return 0, err
 		}
 		if _, err = tx.ExecContext(ctx, `INSERT INTO event_sources(event_id,source,source_item_id,source_key,url,raw_json,created_at,updated_at) VALUES(?,'youtube',?,'reservation',?,'{}',?,?)`,

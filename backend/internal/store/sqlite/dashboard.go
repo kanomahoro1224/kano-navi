@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 )
@@ -470,7 +471,7 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 		return nil, err
 	}
 
-	today := dateInJapan(now)
+	today := japantime.Date(now)
 	from, to := mondayWindow(today)
 	events, err := s.queryDashboardEvents(ctx, from, to, now)
 	if err != nil {

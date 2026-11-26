@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
@@ -32,7 +33,7 @@ func newSimulcastFlow(t *testing.T) *simulcastFlow {
 	f.queue("p-main")
 	now := time.Now().UTC().Truncate(time.Second)
 	s := &simulcastFlow{t: t, f: f, ctx: context.Background(), now: now,
-		day: now.In(jst).AddDate(0, 0, 1).Format("2006-01-02"), replies: map[string]string{}}
+		day: now.In(japantime.Zone).AddDate(0, 0, 1).Format("2006-01-02"), replies: map[string]string{}}
 	f.provider.respond = func(request recordedRequest) (int, string) {
 		for marker, reply := range s.replies {
 			if strings.Contains(request.body, marker) {
@@ -358,7 +359,7 @@ func TestPlatformLinksNeverNameTheAnnouncement(t *testing.T) {
 func TestAMergedLiveReservationMakesTheEntryLive(t *testing.T) {
 	s := newSimulcastFlow(t)
 	start := s.now.Add(-10 * time.Minute)
-	created, err := s.f.store.CreateManualEvent(s.ctx, sqlite.EventInput{Title: "雑談", StartsOn: start.In(jst).Format("2006-01-02"),
+	created, err := s.f.store.CreateManualEvent(s.ctx, sqlite.EventInput{Title: "雑談", StartsOn: japantime.Date(start),
 		StartsAt: sqlite.ISOTime(start), EventType: "stream", Platforms: []string{"bilibili"}, PlatformsSet: true})
 	if err != nil {
 		t.Fatal(err)

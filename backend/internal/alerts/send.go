@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 const (
@@ -77,21 +79,13 @@ func subjectName(subject string) string {
 	return subject
 }
 
-var tokyo = func() *time.Location {
-	location, err := time.LoadLocation("Asia/Tokyo")
-	if err != nil {
-		return time.FixedZone("JST", 9*60*60)
-	}
-	return location
-}()
-
 // tokyoTime displays a stored instant in Asia/Tokyo.
 func tokyoTime(value string) string {
 	at, err := time.Parse(time.RFC3339Nano, value)
 	if err != nil {
 		return ""
 	}
-	return at.In(tokyo).Format("2006-01-02 15:04") + " JST"
+	return at.In(japantime.Zone).Format("2006-01-02 15:04") + " JST"
 }
 
 func detailInt(detail map[string]any, key string) int {

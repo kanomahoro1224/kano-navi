@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 const (
@@ -74,14 +76,13 @@ type Window struct {
 var (
 	datePattern    = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	accountPattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
-	japan          = time.FixedZone("JST", 9*3600)
 )
 
 func japanMidnight(value string) (time.Time, error) {
 	if !datePattern.MatchString(value) {
 		return time.Time{}, invalid("dates must use YYYY-MM-DD")
 	}
-	parsed, err := time.ParseInLocation("2006-01-02", value, japan)
+	parsed, err := japantime.ParseDate(value)
 	if err != nil {
 		return time.Time{}, invalid("date is invalid")
 	}

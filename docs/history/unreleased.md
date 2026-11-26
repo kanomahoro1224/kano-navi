@@ -50,5 +50,7 @@
 - A Bilibili login stored from the console wins over `BILIBILI_COOKIE` and
   `BILIBILI_SESSDATA`, is sealed with `LLM_SECRETS_KEY`, and is refreshed
   and confirmed once a day before the Bilibili reads.
+- The backend reads and formats Japan time through `internal/japantime`, and
+  golangci-lint rejects `time.FixedZone` and `time.LoadLocation` elsewhere.
 
 </details>

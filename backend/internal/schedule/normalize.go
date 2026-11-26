@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -20,15 +21,12 @@ func (e *messageError) Error() string { return e.message }
 
 func fail(message string) error { return &messageError{message} }
 
-// Japan has no daylight saving time, so a fixed zone avoids needing tzdata.
-var jst = time.FixedZone("JST", 9*3600)
-
-// China has no daylight saving time either; Beijing time is UTC+8.
-var cst = time.FixedZone("CST", 8*3600)
+// China has no daylight saving time; Beijing time is UTC+8.
+var cst = time.FixedZone("CST", 8*3600) //nolint:forbidigo // Beijing time for Bilibili entries, not Japan time
 
 // entryZones are the time zones an entry may name; stored times are always
 // converted to Asia/Tokyo.
-var entryZones = map[string]*time.Location{"Asia/Tokyo": jst, "Asia/Shanghai": cst}
+var entryZones = map[string]*time.Location{"Asia/Tokyo": japantime.Zone, "Asia/Shanghai": cst}
 
 var (
 	datePattern = regexp.MustCompile(`^(\d{4})-(\d{2})-(\d{2})$`)
@@ -190,7 +188,9 @@ func extractedTag(value any) *string {
 // not the past one. A date that is old either way, such as an anniversary or
 // a look back at the summer, stays. A zero published time leaves every date
 // alone.
-func rolledYear(date string, published time.Time) string { return rolledYearIn(date, published, jst) }
+func rolledYear(date string, published time.Time) string {
+	return rolledYearIn(date, published, japantime.Zone)
+}
 
 // rolledYearIn is rolledYear counted from the post's date in zone.
 func rolledYearIn(date string, published time.Time, zone *time.Location) string {
@@ -252,7 +252,7 @@ type sourceProfile struct {
 }
 
 var (
-	xProfile = sourceProfile{source: "x", idPrefix: "x-schedule-", zone: jst, zoneName: "Asia/Tokyo",
+	xProfile = sourceProfile{source: "x", idPrefix: "x-schedule-", zone: japantime.Zone, zoneName: "Asia/Tokyo",
 		instructions: scheduleInstructions, schema: scheduleSchema}
 	// A Bilibili dynamic is written for Chinese viewers in Beijing time, and
 	// its streams are on the account's Bilibili live room.
@@ -272,7 +272,7 @@ func profileFor(source string) sourceProfile {
 // zoneAliases are the other spellings of the two zones a model may give.
 var zoneAliases = map[string]*time.Location{
 	"cst": cst, "utc+8": cst, "utc+08:00": cst, "gmt+8": cst, "asia/beijing": cst, "北京时间": cst, "beijing": cst,
-	"jst": jst, "utc+9": jst, "utc+09:00": jst, "gmt+9": jst, "日本时间": jst, "日本時間": jst,
+	"jst": japantime.Zone, "utc+9": japantime.Zone, "utc+09:00": japantime.Zone, "gmt+9": japantime.Zone, "日本时间": japantime.Zone, "日本時間": japantime.Zone,
 }
 
 // entryZone is the zone an entry's date and times are written in: its
@@ -499,7 +499,7 @@ func (p sourceProfile) normalizeEvents(items []any, postID, postURL, text string
 		var start time.Time
 		if truthy(clockValue) {
 			start = zonedInstant(postedDate, jsString(clockValue), zone)
-			date, clock = start.In(jst).Format("2006-01-02"), start.In(jst).Format("15:04")
+			date, clock = japantime.Date(start), start.In(japantime.Zone).Format("15:04")
 		}
 		clockLabel := clock
 		if clockLabel == "" {
@@ -565,7 +565,7 @@ func (p sourceProfile) normalizeEvents(items []any, postID, postURL, text string
 			// A sale closes at its stated date and time; 24:00 belongs to the
 			// next calendar date, as a start time does.
 			end := zonedInstant(endDate, jsString(endValue), zone)
-			endsOn := end.In(jst).Format("2006-01-02")
+			endsOn := japantime.Date(end)
 			normalized.endsOn = &endsOn
 			if clock == "" || !end.Before(start) {
 				endsAt := sqlite.ISOTime(end)
@@ -583,7 +583,7 @@ func (p sourceProfile) normalizeEvents(items []any, postID, postURL, text string
 			// A sale's close time always has its close date, the date it
 			// falls on in Japan.
 			if normalized.eventType == "sale" {
-				endsOn := end.In(jst).Format("2006-01-02")
+				endsOn := japantime.Date(end)
 				normalized.endsOn = &endsOn
 			}
 		}

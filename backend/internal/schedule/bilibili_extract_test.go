@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 // bilibiliAnnouncement is the acceptance example: a Chinese dynamic posted at
@@ -93,7 +95,7 @@ func TestBilibiliExtractionConvertsBeijingTimeAndRecordsThePlatform(t *testing.T
 	release, stream := got[0], got[1]
 	at := func(value string) string {
 		parsed, _ := time.Parse(time.RFC3339Nano, value)
-		return parsed.In(jst).Format("2006-01-02 15:04")
+		return parsed.In(japantime.Zone).Format("2006-01-02 15:04")
 	}
 	if !strings.HasPrefix(release.id, "bilibili-schedule-20261107-") || release.source != "bilibili" || release.kind != "release" ||
 		at(release.at) != "2026-11-07 18:00" || release.url != opus || release.platform != "bilibili" || release.evidenceSource != "bilibili" || release.evidenceURL != opus {

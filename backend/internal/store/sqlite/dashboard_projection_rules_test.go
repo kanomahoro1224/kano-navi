@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 // projNow is 13:00 on 2026-11-02 in Japan.
@@ -32,12 +34,12 @@ type projEventSpec struct {
 
 func (spec projEventSpec) event(id string) DashboardEvent {
 	event := DashboardEvent{
-		ID: id, Source: "x", Title: id, StartsOn: dateInJapan(projNow), StartsAt: spec.start, EndsAt: spec.end,
+		ID: id, Source: "x", Title: id, StartsOn: japantime.Date(projNow), StartsAt: spec.start, EndsAt: spec.end,
 		TimePrecision: "exact", Status: strPtr("scheduled"), CancellationStatus: "none",
 		URL: strPtr("https://example.com/event/" + id),
 	}
 	if spec.start != nil {
-		event.StartsOn = dateInJapan(projTime(*spec.start))
+		event.StartsOn = japantime.Date(projTime(*spec.start))
 	}
 	if spec.eventType != "" {
 		event.EventType = strPtr(spec.eventType)

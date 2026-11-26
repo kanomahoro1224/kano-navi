@@ -4,16 +4,14 @@ import (
 	"context"
 	"net/http"
 	"sort"
-	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
 // attentionLimit bounds each kind of item the schedule attention reads.
 const attentionLimit = 100
-
-var japanZone = time.FixedZone("JST", 9*3600)
 
 // attentionWeek is one Monday-to-Sunday week with what in it needs a look:
 // the schedule images whose dates start in it and the entries that start in
@@ -45,7 +43,7 @@ func mondayOf(day string) string {
 // readScheduleAttention groups the pending schedule images and the entries
 // that need a look (see sqlite.EventAttentionSQL) by week, oldest first.
 func (m *Module) readScheduleAttention(ctx context.Context) (scheduleAttention, error) {
-	today := m.now().In(japanZone).Format("2006-01-02")
+	today := japantime.Date(m.now())
 	out := scheduleAttention{Today: today, Weeks: []attentionWeek{}, Undated: []scheduleAsset{}}
 	images, err := m.listScheduleAssets(ctx, attentionLimit+1, "", "", true)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
@@ -193,7 +194,7 @@ func (h *HistorySource) FetchX(ctx context.Context, window history.Window) (Atte
 		// A manual fetch ignores the timed chain's gate and cap, but the posts
 		// it reads count toward the day's X API usage.
 		total.PostsRead += result.PostsRead
-		if h.Store.AddXAPIUsage(ctx, sqlite.JapanDay(time.Now()), result.PostsRead) != nil {
+		if h.Store.AddXAPIUsage(ctx, japantime.Date(time.Now()), result.PostsRead) != nil {
 			return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 		}
 		if fetchErr != nil {

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 // forwardedQuote is the projection of another author's dynamic that an own
@@ -51,7 +53,7 @@ func TestBilibiliForwardWordingIsMarkedContext(t *testing.T) {
 	if err := f.db.QueryRow(`SELECT starts_at FROM events WHERE source_item_id='bilibili-900000000000000110' AND deleted_at IS NULL`).Scan(&at); err != nil {
 		t.Fatal(err)
 	}
-	if parsed, _ := time.Parse(time.RFC3339Nano, at); parsed.In(jst).Format("2006-01-02 15:04") != "2026-11-08 21:00" {
+	if parsed, _ := time.Parse(time.RFC3339Nano, at); parsed.In(japantime.Zone).Format("2006-01-02 15:04") != "2026-11-08 21:00" {
 		t.Fatalf("starts_at=%s", at)
 	}
 	if got := f.text(`SELECT url FROM events WHERE source_item_id='bilibili-900000000000000110' AND deleted_at IS NULL`); got != opus {

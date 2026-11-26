@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 // ErrInvalidAccount rejects a post archive filter that is not an X handle.
@@ -64,9 +66,8 @@ func archiveBounds(from, to string) (string, string, error) {
 	if err := validateCalendarRange(from, to); err != nil {
 		return "", "", err
 	}
-	japan := time.FixedZone("JST", 9*60*60)
-	start, _ := time.ParseInLocation("2006-01-02", from, japan)
-	end, _ := time.ParseInLocation("2006-01-02", to, japan)
+	start, _ := japantime.ParseDate(from)
+	end, _ := japantime.ParseDate(to)
 	return start.UTC().Format(time.RFC3339), end.AddDate(0, 0, 1).UTC().Format(time.RFC3339), nil
 }
 
@@ -121,7 +122,7 @@ func timelineEnd(until string) (string, error) {
 	if !validCalendarDate(until) {
 		return "", ErrInvalidCalendarRange
 	}
-	day, _ := time.ParseInLocation("2006-01-02", until, time.FixedZone("JST", 9*60*60))
+	day, _ := japantime.ParseDate(until)
 	return day.AddDate(0, 0, 1).UTC().Format(time.RFC3339), nil
 }
 

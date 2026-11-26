@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 // Tag is the product tag of every product Kano takes part in. This board is
@@ -47,7 +49,6 @@ var (
 	// plain space.
 	spaceSeparators = regexp.MustCompile(`\p{Zs}`)
 	wideDigits      = strings.NewReplacer("０", "0", "１", "1", "２", "2", "３", "3", "４", "4", "５", "5", "６", "6", "７", "7", "８", "8", "９", "9", "：", ":")
-	japan           = time.FixedZone("JST", 9*3600)
 )
 
 type productJSON struct {
@@ -203,7 +204,7 @@ func date(year, month, day string) (time.Time, bool) {
 	if errY != nil || errM != nil || errD != nil || y < 2000 || y > 2100 {
 		return time.Time{}, false
 	}
-	t := time.Date(y, time.Month(m), d, 0, 0, 0, 0, japan)
+	t := time.Date(y, time.Month(m), d, 0, 0, 0, 0, japantime.Zone)
 	return t, t.Year() == y && int(t.Month()) == m && t.Day() == d
 }
 

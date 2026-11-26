@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 // ProductRef is what a sale keeps of one of its products: no price, stock,
@@ -43,7 +45,7 @@ func (s Sale) StartsAt() (time.Time, bool) {
 	var first time.Time
 	for _, p := range s.Products {
 		at, err := time.Parse(time.RFC3339, p.PublishedAt)
-		if err != nil || at.In(japan).Format(time.DateOnly) != s.Period.Opens {
+		if err != nil || japantime.Date(at) != s.Period.Opens {
 			continue
 		}
 		if first.IsZero() || at.Before(first) {

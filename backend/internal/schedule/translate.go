@@ -9,6 +9,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -206,7 +207,7 @@ func (t *Translator) inferTags(ctx context.Context, forms map[string]any) (event
 	if limit < 1 {
 		limit = 1
 	}
-	now := e.now().In(jst)
+	now := e.now().In(japantime.Zone)
 	from := now.AddDate(0, 0, -eventTagPastDays).Format("2006-01-02")
 	to := now.AddDate(0, 0, eventTagFutureDays).Format("2006-01-02")
 	retryBefore := e.now().Add(-tagRetryAfter)

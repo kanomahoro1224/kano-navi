@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 // Event merging hides a duplicate event behind the event that describes the
@@ -288,7 +290,7 @@ func (s *Store) ReconcileEventMerges(ctx context.Context, now time.Time) (MergeC
 	if s == nil || !s.workflowWritable {
 		return MergeCounts{}, ErrSourceWrite
 	}
-	japan := now.In(time.FixedZone("JST", 9*3600))
+	japan := now.In(japantime.Zone)
 	counts := MergeCounts{
 		From: japan.AddDate(0, 0, -mergeWindowPastDays).Format("2006-01-02"),
 		To:   japan.AddDate(0, 0, mergeWindowNextDays).Format("2006-01-02"),

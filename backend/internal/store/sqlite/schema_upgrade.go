@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
 
@@ -246,7 +247,7 @@ func rebuildLegacyEvents(ctx context.Context, tx *sql.Tx, legacy []schemaColumn,
 	for _, event := range events {
 		startsOn := event.startsAt.String
 		if instant, parseErr := time.Parse(time.RFC3339Nano, startsOn); parseErr == nil {
-			startsOn = instant.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02")
+			startsOn = japantime.Date(instant)
 		} else if len(startsOn) > 10 {
 			startsOn = startsOn[:10]
 		}

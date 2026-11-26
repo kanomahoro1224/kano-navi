@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
 
@@ -90,8 +91,8 @@ func TestXAPIUsageCountsPerJapanDayAndStreaksPerAccount(t *testing.T) {
 	ctx := context.Background()
 	// 15:30 UTC is already the next day in Japan.
 	late := time.Date(2026, 3, 2, 15, 30, 0, 0, time.UTC)
-	if JapanDay(late) != "2026-03-03" || JapanDay(late.Add(-time.Hour)) != "2026-03-02" {
-		t.Fatalf("days=%s %s", JapanDay(late), JapanDay(late.Add(-time.Hour)))
+	if japantime.Date(late) != "2026-03-03" || japantime.Date(late.Add(-time.Hour)) != "2026-03-02" {
+		t.Fatalf("days=%s %s", japantime.Date(late), japantime.Date(late.Add(-time.Hour)))
 	}
 	for _, n := range []int{3, 0, 4} {
 		if err := s.AddXAPIUsage(ctx, "2026-03-02", n); err != nil {

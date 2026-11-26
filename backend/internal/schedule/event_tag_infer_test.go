@@ -5,13 +5,15 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 // addReservation inserts an automatic YouTube reservation days ahead of today
 // in Japan.
 func (f *fixture) addReservation(id, title string, days int) {
 	f.t.Helper()
-	day := time.Now().In(jst).AddDate(0, 0, days).Format("2006-01-02")
+	day := time.Now().In(japantime.Zone).AddDate(0, 0, days).Format("2006-01-02")
 	f.exec(`INSERT INTO events (id,source,source_item_id,source_key,title,starts_on,timezone,time_precision,event_type,provenance,manual_locked,created_at,updated_at)
 		VALUES (?,'youtube',?,'reservation',?,?,'Asia/Tokyo','unknown','stream','automatic',0,?,?)`, id, id, title, day, testTimestamp, testTimestamp)
 }

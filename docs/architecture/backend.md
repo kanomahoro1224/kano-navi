@@ -132,6 +132,7 @@ is occupied.
 | `/mcp`                                         | `internal/mcpapi`                                               |
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
 | LINE BLOG archive for the public reads         | `internal/lineblog`                                             |
+| Japan time zone, dates and wall-clock parsing  | `internal/japantime`                                            |
 
 `cmd/kano-go` validates credentials, opens the runtime database and starts the
 listener; `internal/httpapi` builds the handler around an injected store.
@@ -150,6 +151,18 @@ in `data/lineblog/` and the discography covers in `data/works/` are served by
 archive name through `/media/lineblog/:name` and `/media/works/:name` (see
 [Media cache](media-cache/packaged-media.md#line-blog-archive-media) and
 [Discography covers](media-cache/packaged-media.md#discography-covers)).
+
+## Japan Time
+
+`internal/japantime` is the one source for Japan time. `japantime.Zone` is a
+fixed UTC+9 zone named `JST`, which matches Asia/Tokyo because Japan has no
+daylight saving time, so the binary needs no tzdata. `japantime.Date` gives a
+Japan date (YYYY-MM-DD), `japantime.ParseDate` reads one as its Japan
+midnight, and `japantime.ParseLocal` reads a Japan wall-clock time without an
+offset. Stored instants stay UTC ISO strings. golangci-lint's `forbidigo` rule
+rejects `time.FixedZone` and `time.LoadLocation` outside the package; the
+Beijing zone that Bilibili entries are read in (see
+[Time zones](sources/time-zones.md)) is the one marked exception.
 
 ## Authentication and Origin
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -64,8 +65,8 @@ const FeedPath = "/api/feed.xml"
 // language and has its own feed ID and self link.
 func Atom(videos []sqlite.Video, now time.Time, origin string, locale Locale) ([]byte, error) {
 	m := locale.messages()
-	year, month, day := now.In(japan).Date()
-	today := time.Date(year, month, day, 0, 0, 0, 0, japan)
+	year, month, day := now.In(japantime.Zone).Date()
+	today := time.Date(year, month, day, 0, 0, 0, 0, japantime.Zone)
 	type dated struct {
 		at    time.Time
 		entry atomEntry
@@ -169,5 +170,5 @@ func videoCategories(v sqlite.Video) []atomCategory {
 }
 
 func japanTime(at time.Time) string {
-	return at.In(japan).Format("2006-01-02 15:04") + " JST"
+	return at.In(japantime.Zone).Format("2006-01-02 15:04") + " JST"
 }

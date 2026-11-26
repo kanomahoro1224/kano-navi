@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/jobs"
 	"github.com/yexca/kano-navi/backend/internal/source/history"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
@@ -198,7 +199,7 @@ func (a *api) extractReachesLookback(ctx context.Context, window history.Window)
 		return err
 	}
 	days := settings.ExtractionLookbackDays
-	end, err := time.ParseInLocation("2006-01-02", window.EndDate, japanZone)
+	end, err := japantime.ParseDate(window.EndDate)
 	if days == 0 || err != nil {
 		return nil
 	}
@@ -617,7 +618,7 @@ func (a *api) overview(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
 		return
 	}
-	counts, err := a.Store.AdminCounts(ctx, a.Now().In(japanZone).Format("2006-01-02"))
+	counts, err := a.Store.AdminCounts(ctx, japantime.Date(a.Now()))
 	if err != nil {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
 		return

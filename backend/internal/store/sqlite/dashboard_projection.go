@@ -4,6 +4,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 const (
@@ -92,7 +94,7 @@ func valueOrEmpty(value *string) string {
 }
 
 func projectionNowDate(now time.Time) string {
-	return dateInJapan(now)
+	return japantime.Date(now)
 }
 
 func eventProjectionUpcoming(event DashboardEvent, now time.Time) bool {
@@ -187,7 +189,7 @@ func projectionEventStart(event DashboardEvent) (time.Time, bool) {
 		value, err := time.Parse(time.RFC3339, *event.StartsAt)
 		return value, err == nil
 	}
-	value, err := time.ParseInLocation("2006-01-02T15:04:05.999", event.StartsOn+"T23:59:59.999", time.FixedZone("JST", 9*60*60))
+	value, err := japantime.ParseLocal("2006-01-02T15:04:05.999", event.StartsOn+"T23:59:59.999")
 	return value, err == nil
 }
 
@@ -245,7 +247,7 @@ func saleProjectionOpen(event DashboardEvent) time.Time {
 			return value
 		}
 	}
-	value, _ := time.ParseInLocation("2006-01-02", event.StartsOn, time.FixedZone("JST", 9*60*60))
+	value, _ := japantime.ParseDate(event.StartsOn)
 	return value
 }
 
@@ -259,7 +261,7 @@ func saleProjectionClose(event DashboardEvent) time.Time {
 			return value
 		}
 	}
-	value, _ := time.ParseInLocation("2006-01-02T15:04:05.999", day+"T23:59:59.999", time.FixedZone("JST", 9*60*60))
+	value, _ := japantime.ParseLocal("2006-01-02T15:04:05.999", day+"T23:59:59.999")
 	return value
 }
 
@@ -584,7 +586,7 @@ func projectionFutureTransition(events []DashboardEvent, videos []Video, now tim
 			start, ok := projectionEventStart(event)
 			if event.StartsAt == nil {
 				// A date-only entry changes when its day begins and ends.
-				parsed, err := time.ParseInLocation("2006-01-02", event.StartsOn, time.FixedZone("JST", 9*60*60))
+				parsed, err := japantime.ParseDate(event.StartsOn)
 				start, ok = parsed, err == nil
 				consider(start.AddDate(0, 0, 1), ok)
 			}

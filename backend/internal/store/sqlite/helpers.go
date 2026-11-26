@@ -89,10 +89,6 @@ func xHandleFromURL(v string) string {
 	return h
 }
 
-func dateInJapan(t time.Time) string {
-	return t.In(time.FixedZone("JST", 9*60*60)).Format("2006-01-02")
-}
-
 func mondayWindow(day string) (string, string) {
 	t, _ := time.Parse("2006-01-02", day)
 	delta := (int(t.Weekday()) + 6) % 7

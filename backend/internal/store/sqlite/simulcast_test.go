@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 )
 
@@ -103,7 +104,7 @@ func TestRuleEIsRecomputedAndReleased(t *testing.T) {
 
 // simulcastNow is the store tests' clock: midday in Japan, so every instant
 // they place around it falls on the same Japan date.
-var simulcastNow = time.Date(2026, 11, 7, 12, 0, 0, 0, time.FixedZone("JST", 9*3600)).UTC()
+var simulcastNow = time.Date(2026, 11, 7, 12, 0, 0, 0, japantime.Zone).UTC()
 
 // simulcastStore is a store with a learned live room.
 func simulcastStore(t *testing.T) (*Store, func(id, source, kind, start, end, url, platforms string, inferred int)) {
@@ -119,7 +120,7 @@ func simulcastStore(t *testing.T) (*Store, func(id, source, kind, start, end, ur
 		if platforms != "" {
 			list = platforms
 		}
-		day := parseInstant(start).In(time.FixedZone("JST", 9*3600)).Format("2006-01-02")
+		day := japantime.Date(parseInstant(start))
 		if _, err := s.DB().Exec(`INSERT INTO events (id, source, title, starts_on, starts_at, ends_at, event_type, url, platform, platforms, platforms_inferred, provenance, created_at, updated_at)
  VALUES (?, ?, '杂谈', ?, ?, ?, ?, ?, json_extract(COALESCE(?,'[]'),'$[0]'), ?, ?, 'automatic', ?, ?)`,
 			id, source, day, start, endsAt, kind, url, list, list, inferred, start, start); err != nil {

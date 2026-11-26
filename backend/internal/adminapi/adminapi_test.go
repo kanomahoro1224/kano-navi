@@ -171,7 +171,11 @@ func (c *console) text(t *testing.T, statement string, args ...any) string {
 
 func (c *console) waitForRun(t *testing.T, id, status string) map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	// Each step commit is a synced write on the store's one connection and
+	// each read waits behind it, so on a loaded machine (the race detector
+	// beside the linter or other SQLite tests) one read can take seconds and
+	// a run tens of them. The wait is bounded for a stuck run, not timed.
+	deadline := time.Now().Add(time.Minute)
 	var run map[string]any
 	for time.Now().Before(deadline) {
 		code, payload := c.call(t, "GET", "/api/admin/runs/"+id, "")

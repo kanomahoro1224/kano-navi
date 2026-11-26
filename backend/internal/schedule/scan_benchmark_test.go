@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -74,16 +76,16 @@ func benchmarkScan(b *testing.B, run *Extractor) {
 // syntheticSourceRecord is a stored source record of about the size a
 // fetched status has (1.4 KB on average), most of it nothing the extractor
 // reads.
-func syntheticSourceRecord(id string, i int) *object {
+func syntheticSourceRecord(id string, i int) *jsvalue.Object {
 	entities := []any{}
 	for j := 0; j < 6; j++ {
-		entities = append(entities, obj("start", j*8, "end", j*8+6, "text", fmt.Sprintf("synthetic-tag-%d", j),
+		entities = append(entities, jsvalue.Obj("start", j*8, "end", j*8+6, "text", fmt.Sprintf("synthetic-tag-%d", j),
 			"url", fmt.Sprintf("https://synthetic.example.test/%s/%d", id, j)))
 	}
-	return obj("id", id, "text", "synthetic padding "+id, "lang", "ja", "search_text", "synthetic search text "+id,
-		"author", obj("handle", "synthetic_handle", "name", "Synthetic Account", "avatar", "https://synthetic.example.test/avatar.png",
+	return jsvalue.Obj("id", id, "text", "synthetic padding "+id, "lang", "ja", "search_text", "synthetic search text "+id,
+		"author", jsvalue.Obj("handle", "synthetic_handle", "name", "Synthetic Account", "avatar", "https://synthetic.example.test/avatar.png",
 			"description", "a synthetic profile description that pads the record like a real author block does"),
-		"metrics", obj("likes", i, "reposts", i%7, "replies", i%11, "quotes", i%3, "bookmarks", i%5, "views", i*13),
+		"metrics", jsvalue.Obj("likes", i, "reposts", i%7, "replies", i%11, "quotes", i%3, "bookmarks", i%5, "views", i*13),
 		"entities", entities)
 }
 
@@ -111,13 +113,13 @@ func openSyntheticScan(b *testing.B, n int) *Extractor {
 		id := fmt.Sprintf("synthetic-%05d", i)
 		publishedAt := sqlite.ISOTime(base.Add(time.Duration(i) * time.Minute))
 		record := syntheticSourceRecord(id, i)
-		raw := stringify(record)
+		raw := jsvalue.Stringify(record)
 		if i%4 == 0 {
 			imageURL := "https://pbs.twimg.com/media/synthetic-" + id + ".png"
-			record.set("media_urls", []any{imageURL})
-			raw = stringify(record)
+			record.Set("media_urls", []any{imageURL})
+			raw = jsvalue.Stringify(record)
 			content := pngHeader + id
-			hash := sha256Hex(content)
+			hash := digest.SHA256Hex(content)
 			relative := "x/sha256/" + hash[:2] + "/" + hash + ".png"
 			target := filepath.Join(store.DataRoot(), filepath.FromSlash(relative))
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {

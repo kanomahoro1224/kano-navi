@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/mediaformat"
 )
 
@@ -20,7 +22,7 @@ var errMediaPath = errors.New("media path rejected")
 
 // normalizeMediaMIME keeps only the cacheable image types.
 func normalizeMediaMIME(value string) string {
-	normalized := strings.ToLower(jsTrim(strings.SplitN(value, ";", 2)[0]))
+	normalized := strings.ToLower(jsvalue.Trim(strings.SplitN(value, ";", 2)[0]))
 	if mediaformat.Extension(normalized) == "" {
 		return ""
 	}
@@ -29,7 +31,7 @@ func normalizeMediaMIME(value string) string {
 
 // mediaNamespaceForSource maps a source label to its runtime directory.
 func mediaNamespaceForSource(source string) string {
-	normalized := strings.ToLower(jsTrim(source))
+	normalized := strings.ToLower(jsvalue.Trim(source))
 	switch {
 	case strings.Contains(normalized, "youtube"):
 		return "youtube"
@@ -167,7 +169,7 @@ func (m *Module) writeRootFile(relative string, content []byte, reuseIdentical b
 				current, _ = io.ReadAll(io.LimitReader(existing, maxProfileImageBytes+1))
 			}
 			existing.Close()
-			if len(current) == len(content) && sha256Hex(current) == sha256Hex(content) {
+			if len(current) == len(content) && digest.SHA256Hex(current) == digest.SHA256Hex(content) {
 				return nil
 			}
 		}
@@ -217,7 +219,7 @@ func (m *Module) storeProfileImage(source string, content []byte, declared, inva
 	if sniffed == "" || extension == "" || (declared != "" && declared != sniffed) {
 		return nil, failure(invalidMessage)
 	}
-	hash := sha256Hex(content)
+	hash := digest.SHA256Hex(content)
 	relative := contentAddressedPath(mediaNamespaceForSource(source), hash, extension)
 	if err := m.writeRootFile(relative, content, true); err != nil {
 		return nil, failure("profile media could not be stored")

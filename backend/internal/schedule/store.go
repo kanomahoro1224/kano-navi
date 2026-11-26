@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -65,7 +66,7 @@ func settingBoolean(value string, fallback bool) bool {
 	if value == "" {
 		return fallback
 	}
-	switch jsToLower(jsTrim(value)) {
+	switch jsvalue.ToLower(jsvalue.Trim(value)) {
 	case "1", "true", "yes", "on":
 		return true
 	case "0", "false", "no", "off":
@@ -80,7 +81,7 @@ func uniqueTrimmed(values []string) []string {
 	out := []string{}
 	seen := map[string]bool{}
 	for _, value := range values {
-		value = jsTrim(value)
+		value = jsvalue.Trim(value)
 		if value == "" || seen[value] {
 			continue
 		}
@@ -96,11 +97,11 @@ func parseListText(value string) []string {
 	if value == "" {
 		return []string{}
 	}
-	if parsed, err := parseJSON([]byte(value)); err == nil {
+	if parsed, err := jsvalue.Parse([]byte(value)); err == nil {
 		if list, ok := parsed.([]any); ok {
 			values := make([]string, len(list))
 			for i, item := range list {
-				values[i] = jsString(item)
+				values[i] = jsvalue.String(item)
 			}
 			return uniqueTrimmed(values)
 		}
@@ -112,11 +113,11 @@ func parseListText(value string) []string {
 // original code round-trips through String(array) before splitting.
 func parseListValues(values []string) []string {
 	joined := strings.Join(values, ",")
-	if parsed, err := parseJSON([]byte(joined)); err == nil {
+	if parsed, err := jsvalue.Parse([]byte(joined)); err == nil {
 		if list, ok := parsed.([]any); ok {
 			out := make([]string, len(list))
 			for i, item := range list {
-				out[i] = jsString(item)
+				out[i] = jsvalue.String(item)
 			}
 			return uniqueTrimmed(out)
 		}
@@ -129,8 +130,8 @@ func boundedKeywords(values []string) []string {
 	out := []string{}
 	seen := map[string]bool{}
 	for _, value := range values {
-		value = jsTrim(value)
-		if value == "" || utf16Length(value) > 80 || seen[value] {
+		value = jsvalue.Trim(value)
+		if value == "" || jsvalue.Length(value) > 80 || seen[value] {
 			continue
 		}
 		seen[value] = true
@@ -262,9 +263,9 @@ func columnNumber(value any) float64 {
 	case float64:
 		return v
 	case string:
-		return jsNumber(v, true)
+		return jsvalue.Number(v)
 	case []byte:
-		return jsNumber(string(v), true)
+		return jsvalue.NumberOf(string(v), true)
 	}
 	return 0
 }
@@ -317,7 +318,7 @@ func (e *Extractor) updateProviderStatus(ctx context.Context, id, status, messag
 	timestamp := e.nowISO()
 	_, err := e.db.ExecContext(ctx, `UPDATE llm_providers SET last_status=?, last_error=?,
 		last_checked_at=?, updated_at=? WHERE id=?`,
-		nullable(status), nullable(sliceUTF16(message, 500)), timestamp, timestamp, id)
+		nullable(status), nullable(jsvalue.Slice(message, 500)), timestamp, timestamp, id)
 	return err
 }
 
@@ -336,7 +337,7 @@ type post struct {
 	mediaURLs   []any
 	// raw holds the image lists the stored source record declares
 	// (sqlite schedule_media_json), the only part of it the extractor reads.
-	raw      *object
+	raw      *jsvalue.Object
 	llmRoute string
 	// stamp is the post's input stamp for the detection stage that listed
 	// it (sqlite.ScheduleInputStampSQL), empty for a requested post.
@@ -366,7 +367,7 @@ func quoteContextOf(source string, stored sql.NullString) quotedContext {
 	}
 	// The input stamp reads the projection through the same decoder.
 	quote, ok := sqlite.DecodeScheduleQuote(stored.String)
-	if !ok || quote.Unavailable || jsTrim(quote.Text) == "" {
+	if !ok || quote.Unavailable || jsvalue.Trim(quote.Text) == "" {
 		return quotedContext{}
 	}
 	if source == "bilibili" {
@@ -385,15 +386,15 @@ func (p post) matchText() string {
 }
 
 // rawObjectOf returns a stored JSON object, or nil for anything else.
-func rawObjectOf(rawJSON sql.NullString) *object {
+func rawObjectOf(rawJSON sql.NullString) *jsvalue.Object {
 	if !rawJSON.Valid || rawJSON.String == "" {
 		return nil
 	}
-	parsed, err := parseJSON([]byte(rawJSON.String))
+	parsed, err := jsvalue.Parse([]byte(rawJSON.String))
 	if err != nil {
 		return nil
 	}
-	root, _ := parsed.(*object)
+	root, _ := parsed.(*jsvalue.Object)
 	return root
 }
 
@@ -406,7 +407,7 @@ func (p post) declaredMediaURLs() []string {
 	}
 	// The input stamp covers the same properties.
 	for _, key := range sqlite.ScheduleMediaKeys {
-		value, ok := p.raw.get(key)
+		value, ok := p.raw.Get(key)
 		if !ok {
 			continue
 		}
@@ -423,7 +424,7 @@ func (p post) declaredMediaURLs() []string {
 		if !isString {
 			continue
 		}
-		text = jsTrim(text)
+		text = jsvalue.Trim(text)
 		if text == "" || seen[text] {
 			continue
 		}
@@ -462,7 +463,7 @@ func isLikelyScheduleBoardText(value string) bool {
 func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, detectionType string, allPosts bool, since time.Time) (out []post, read int, err error) {
 	lowered := []string{}
 	for _, keyword := range boundedKeywords(parseListValues(keywords)) {
-		lowered = append(lowered, jsToLower(keyword))
+		lowered = append(lowered, jsvalue.ToLower(keyword))
 	}
 	cutoff := ""
 	if !since.IsZero() {
@@ -507,7 +508,7 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 			item.mediaURLs = []any{item.mediaURL}
 		}
 		matchesKeyword := func() bool {
-			haystack := jsToLower(item.label + " " + item.text)
+			haystack := jsvalue.ToLower(item.label + " " + item.text)
 			for _, keyword := range lowered {
 				if strings.Contains(haystack, keyword) {
 					return true
@@ -520,8 +521,8 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 		case detectionType != "message":
 			selected = matchesKeyword()
 		case allPosts:
-			selected = jsTrim(item.matchText()) != "" || len(item.mediaURLs) > 0
-		case jsTrim(item.matchText()) == "":
+			selected = jsvalue.Trim(item.matchText()) != "" || len(item.mediaURLs) > 0
+		case jsvalue.Trim(item.matchText()) == "":
 			selected = len(item.mediaURLs) > 0 && noticeLabelPattern.MatchString(item.postType+" "+item.label)
 		default:
 			// The quoted wording counts: a post that only points at a quoted
@@ -536,8 +537,8 @@ func (e *Extractor) listCandidatePosts(ctx context.Context, keywords []string, d
 	return out, read, rows.Err()
 }
 
-func arrayProperty(root *object, key string) ([]any, bool) {
-	value, ok := root.get(key)
+func arrayProperty(root *jsvalue.Object, key string) ([]any, bool) {
+	value, ok := root.Get(key)
 	if !ok {
 		return nil, false
 	}
@@ -706,7 +707,7 @@ var postStatuses = map[string]bool{
 
 // normalizedPostStatus is the status markPost stores for a requested one.
 func normalizedPostStatus(value string) string {
-	status := jsToLower(jsTrim(value))
+	status := jsvalue.ToLower(jsvalue.Trim(value))
 	if !postStatuses[status] {
 		return "never"
 	}
@@ -757,7 +758,7 @@ func (e *Extractor) markPost(ctx context.Context, postID string, update stateUpd
 			flag = 1
 		}
 	}
-	status := jsToLower(jsTrim(update.status))
+	status := jsvalue.ToLower(jsvalue.Trim(update.status))
 	if !postStatuses[status] {
 		status = "never"
 	}
@@ -842,7 +843,7 @@ func (e *Extractor) upsertExtraction(ctx context.Context, source, sourceItemID, 
 	timestamp := e.nowISO()
 	var resultJSON any
 	if result != nil {
-		resultJSON = stringify(result)
+		resultJSON = jsvalue.Stringify(result)
 	}
 	_, err := e.db.ExecContext(ctx, `INSERT INTO schedule_extractions (
 			source, source_item_id, content_fingerprint, extractor_version,
@@ -991,7 +992,7 @@ func (m mediaRoot) file(relative string) (string, bool) {
 	if strings.HasPrefix(normalized, "sha256/") {
 		base = filepath.Join(m.root, "cache", "media")
 	} else {
-		switch strings.ToLower(jsTrim(parts[0])) {
+		switch strings.ToLower(jsvalue.Trim(parts[0])) {
 		case "x", "youtube", "bilibili", "avatar":
 		default:
 			return "", false
@@ -1058,7 +1059,7 @@ func normalizedAssetLLMStatus(value string) string {
 	if value == "" {
 		return "pending"
 	}
-	value = jsToLower(jsTrim(value))
+	value = jsvalue.ToLower(jsvalue.Trim(value))
 	if assetLLMStatuses[value] {
 		return value
 	}
@@ -1077,7 +1078,7 @@ func scanAssetReview(row rowScanner) (*assetReview, error) {
 		return nil, err
 	}
 	review.llmStatus = normalizedAssetLLMStatus(llmStatus.String)
-	review.manualStatus = jsToLower(jsTrim(manual.String))
+	review.manualStatus = jsvalue.ToLower(jsvalue.Trim(manual.String))
 	if !assetManualStatuses[review.manualStatus] {
 		review.manualStatus = "unreviewed"
 	}
@@ -1173,7 +1174,7 @@ func (e *Extractor) upsertAssetReview(ctx context.Context, update reviewUpdate) 
 		return false, err
 	}
 	defer tx.Rollback()
-	assetID := jsTrim(update.assetID)
+	assetID := jsvalue.Trim(update.assetID)
 	if assetID == "" {
 		return false, nil
 	}
@@ -1212,7 +1213,7 @@ func (e *Extractor) upsertAssetReview(ctx context.Context, update reviewUpdate) 
 		return true, tx.Commit()
 	}
 	var confidence any
-	if update.llmConfidence != nil && finite(*update.llmConfidence) {
+	if update.llmConfidence != nil && jsvalue.Finite(*update.llmConfidence) {
 		confidence = min(1, max(0, *update.llmConfidence))
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO schedule_asset_reviews (

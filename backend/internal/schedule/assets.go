@@ -5,6 +5,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 type assetResult struct {
@@ -24,7 +27,7 @@ func (e *Extractor) skipAsset(ctx context.Context, update reviewUpdate, reason s
 // without a URL has nothing to download, so it is recorded once as
 // `skipped` / `no_image` instead of waiting for a cache that never arrives.
 func hasImage(review *assetReview) bool {
-	return jsTrim(review.url) != ""
+	return jsvalue.Trim(review.url) != ""
 }
 
 // settledWithoutImage is a URL-less asset already recorded as `no_image`. It
@@ -164,7 +167,7 @@ func (e *Extractor) verifyAsset(ctx context.Context, assetID string, force bool)
 // assetFingerprint identifies the input of an image verdict. The source text
 // is not part of it: the original review row never exposed it to the hash.
 func assetFingerprint(imageSHA string, sourceURL any) string {
-	return sha256Hex(stringify(obj("version", extractorVersion, "image", imageSHA, "sourceUrl", sourceURL)))
+	return digest.SHA256Hex(jsvalue.Stringify(jsvalue.Obj("version", extractorVersion, "image", imageSHA, "sourceUrl", sourceURL)))
 }
 
 func (e *Extractor) attemptVerification(ctx context.Context, target provider, call modelCall, update reviewUpdate, fingerprint string) (assetVerification, bool, error) {

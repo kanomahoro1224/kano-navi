@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/secretstore"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -191,7 +193,7 @@ func (f *fixture) addPost(id, label, text, publishedAt, rawJSON string) string {
 // content hash.
 func (f *fixture) addCachedImage(sourceURL string, content []byte) string {
 	f.t.Helper()
-	hash := sha256Hex(string(content))
+	hash := digest.SHA256Hex(string(content))
 	relative := "x/sha256/" + hash[:2] + "/" + hash + ".png"
 	target := filepath.Join(f.store.DataRoot(), filepath.FromSlash(relative))
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
@@ -218,7 +220,7 @@ func (f *fixture) scan() Result {
 // chatReply wraps a structured result the way a chat-completions provider
 // returns it.
 func chatReply(result string) string {
-	return stringify(obj("choices", []any{obj("message", obj("content", result))}))
+	return jsvalue.Stringify(jsvalue.Obj("choices", []any{jsvalue.Obj("message", jsvalue.Obj("content", result))}))
 }
 
 const pngHeader = "\x89PNG\r\n\x1a\n\x02"
@@ -228,9 +230,9 @@ func scheduleReply(title, date, clock, status string) string {
 	if clock != "" {
 		clockValue = clock
 	}
-	return stringify(obj(
+	return jsvalue.Stringify(jsvalue.Obj(
 		"classification", "schedule",
-		"events", []any{obj(
+		"events", []any{jsvalue.Obj(
 			"title", title, "detail", nil, "date", date, "time", clockValue, "endTime", nil,
 			"timePrecision", "exact", "status", status, "eventType", "stream", "url", nil,
 			"confidence", 0.9, "evidence", "synthetic evidence")},

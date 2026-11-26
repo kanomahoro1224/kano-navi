@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -59,7 +61,7 @@ func TestScheduleImageRecheckKeepsTheVerdict(t *testing.T) {
 
 	// A check that returns a verdict settles the image.
 	f.provider.respond = func(recordedRequest) (int, string) {
-		return http.StatusOK, stringify(obj("output_text", `{"classification":"schedule","text":"火曜 21:00 配信","confidence":0.8,"evidence":"grid","reason":"table"}`))
+		return http.StatusOK, jsvalue.Stringify(jsvalue.Obj("output_text", `{"classification":"schedule","text":"火曜 21:00 配信","confidence":0.8,"evidence":"grid","reason":"table"}`))
 	}
 	f.scan()
 	if got := f.text(`SELECT llm_status || '|' || llm_text FROM schedule_asset_reviews WHERE asset_id=?`, asset); got != "schedule|火曜 21:00 配信" {
@@ -125,13 +127,13 @@ func TestScheduleImageVerdictDoesNotStandForAReplacedImage(t *testing.T) {
 	// Approved again, then the replacement is still downloading: the cache
 	// already names the next image, so the approval does not stand for it.
 	f.provider.respond = func(recordedRequest) (int, string) {
-		return http.StatusOK, stringify(obj("output_text", `{"classification":"schedule","text":"火曜 21:00 配信","confidence":0.8,"evidence":"grid","reason":"table"}`))
+		return http.StatusOK, jsvalue.Stringify(jsvalue.Obj("output_text", `{"classification":"schedule","text":"火曜 21:00 配信","confidence":0.8,"evidence":"grid","reason":"table"}`))
 	}
 	f.scan()
 	if got := f.text(status, asset); got != "schedule|-" {
 		t.Fatalf("re-approval = %s", got)
 	}
-	f.exec(`UPDATE media_assets SET status='pending', sha256=? WHERE id=?`, sha256Hex(pngHeader+"next"), mediaID)
+	f.exec(`UPDATE media_assets SET status='pending', sha256=? WHERE id=?`, digest.SHA256Hex(pngHeader+"next"), mediaID)
 	f.scan()
 	if got := f.text(status, asset); got != "skipped|-" {
 		t.Fatalf("a pending download of another image = %s, want skipped|-", got)

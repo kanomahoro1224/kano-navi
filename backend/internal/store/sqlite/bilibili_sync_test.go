@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 )
@@ -99,7 +100,7 @@ func TestBilibiliReadsStoreUploadsHistoryAndBackoffState(t *testing.T) {
 	if err = s.SaveMediaDownload(ctx, cover, content, "image/jpeg", "", "", "ready", ""); err != nil {
 		t.Fatal(err)
 	}
-	hash := sha256Hex(string(content))
+	hash := digest.SHA256Hex(string(content))
 	if _, err = os.Stat(filepath.Join(root, "bilibili", "sha256", hash[:2], hash+".jpg")); err != nil {
 		t.Fatal(err)
 	}

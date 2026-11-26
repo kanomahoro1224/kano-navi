@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -152,7 +153,7 @@ func runStandalone(cfg config.Config) int {
 	alertService := alerts.New(alerts.Options{
 		Store: store, Key: secretsKey, Pool: run.proxies,
 		Enabled: os.Getenv("ALERTS_ENABLED") != "0", Production: adminConfig.Mode == "production",
-		Origin:  firstNonEmpty(adminConfig.AllowedOrigin, cfg.PublicOrigin),
+		Origin:  cmp.Or(adminConfig.AllowedOrigin, cfg.PublicOrigin),
 		Signals: alertSignals(store, run, secretsKey, keyAdmin, probe.Enabled),
 	})
 	alertService.Start()
@@ -287,15 +288,6 @@ func alertSignals(store *sqlite.Store, run pipeline, key string, keys *keyadmin.
 		signals.Secrets["bilibili"] = adapter.Logins.Unreadable
 	}
 	return signals
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 // standaloneModules attaches the operator feature modules. key is the

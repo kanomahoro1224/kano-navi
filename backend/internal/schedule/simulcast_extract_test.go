@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // The X prompt and schema are unchanged by entry platforms: X platforms
@@ -16,10 +19,10 @@ func TestXExtractionPromptAndSchemaAreUnchanged(t *testing.T) {
 		instructions = "849c536fd9dd074a7d0bab129df711b3aaa4991178f41537206e35abcbf4e185"
 		schema       = "185cd4eb031cc486cb0ec45d825f9263e955ac5f2eee4b4a559023afcff72dba"
 	)
-	if got := sha256Hex(scheduleInstructions); got != instructions {
+	if got := digest.SHA256Hex(scheduleInstructions); got != instructions {
 		t.Errorf("X instructions changed: %s", got)
 	}
-	if got := sha256Hex(string(scheduleSchema)); got != schema {
+	if got := digest.SHA256Hex(string(scheduleSchema)); got != schema {
 		t.Errorf("X schema changed: %s", got)
 	}
 }
@@ -43,17 +46,17 @@ func TestBilibiliSchemaAsksForPlatforms(t *testing.T) {
 	}
 }
 
-func platformsResult(entries ...any) *object {
-	return obj("classification", "schedule", "events", entries, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add")
+func platformsResult(entries ...any) *jsvalue.Object {
+	return jsvalue.Obj("classification", "schedule", "events", entries, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add")
 }
 
 // A Bilibili entry keeps the platforms the model read; an invalid value is
 // dropped; a stream naming none is on Bilibili by the source default.
 func TestBilibiliEntriesListTheirPlatforms(t *testing.T) {
 	published, _ := time.Parse(time.RFC3339, "2026-11-07T04:04:48Z")
-	entry := func(eventType string, url any, platforms ...any) *object {
+	entry := func(eventType string, url any, platforms ...any) *jsvalue.Object {
 		e := bilibiliEntry("杂谈", "2026-11-07", "20:00", eventType, url, nil)
-		e.set("platforms", platforms)
+		e.Set("platforms", platforms)
 		return e
 	}
 	opus := "https://www.bilibili.com/opus/1"
@@ -105,7 +108,9 @@ func firstOr(values []string, fallback string) string {
 func TestXEntriesNameASimulcastFromTheWording(t *testing.T) {
 	published, _ := time.Parse(time.RFC3339, "2026-11-07T04:04:48Z")
 	xPost := "https://x.com/synthetic_handle/status/1"
-	stream := func(title string) *object { return bilibiliEntry(title, "2026-11-07", "20:00", "stream", nil, nil) }
+	stream := func(title string) *jsvalue.Object {
+		return bilibiliEntry(title, "2026-11-07", "20:00", "stream", nil, nil)
+	}
 	for text, want := range map[string][]string{
 		"今夜20時からYouTubeとbilibiliで同時配信！": {"youtube", "bilibili"},
 		"今夜20時から同時配信":                   {"youtube", "bilibili"},
@@ -129,7 +134,7 @@ func TestXEntriesNameASimulcastFromTheWording(t *testing.T) {
 	// The model's single platform and a YouTube link stay as before.
 	linked := bilibiliEntry("配信", "2026-11-07", "20:00", "stream", "https://www.youtube.com/watch?v=AAAAAAAAAAA", nil)
 	modelled := stream("配信")
-	modelled.set("platform", "youtube")
+	modelled.Set("platform", "youtube")
 	got, err = xProfile.normalizeResult(platformsResult(linked, modelled), "1", xPost, "", published, published)
 	if err != nil || !slices.Equal(got.events[0].platforms, []string{"youtube"}) || !slices.Equal(got.events[1].platforms, []string{"youtube"}) {
 		t.Fatalf("youtube=%v / %v err=%v", got.events[0].platforms, got.events[1].platforms, err)
@@ -141,9 +146,9 @@ func TestXEntriesNameASimulcastFromTheWording(t *testing.T) {
 func TestIdenticalEntriesOfAPostShareOneEventWithEveryPlatform(t *testing.T) {
 	f := newFixture(t)
 	published, _ := time.Parse(time.RFC3339, "2026-11-07T04:04:48Z")
-	entry := func(platforms ...any) *object {
+	entry := func(platforms ...any) *jsvalue.Object {
 		e := bilibiliEntry("杂谈", "2026-11-07", "20:00", "stream", nil, nil)
-		e.set("platforms", platforms)
+		e.Set("platforms", platforms)
 		return e
 	}
 	got, err := bilibiliProfile.normalizeResult(platformsResult(entry("bilibili"), entry("youtube"), entry("bilibili")),

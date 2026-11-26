@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 func TestRolledYearMovesOnlyADateAboutAYearBeforeThePost(t *testing.T) {
@@ -38,7 +40,7 @@ func TestRolledYearMovesOnlyADateAboutAYearBeforeThePost(t *testing.T) {
 }
 
 func TestAnEntryRolledIntoTheNextYearTakesThatDateInItsIdentity(t *testing.T) {
-	input, err := parseJSON([]byte(`{"classification":"schedule","events":[{"title":"T","detail":null,"date":"2026-01-05","time":"21:00","endTime":null,"timePrecision":"exact","status":"scheduled","eventType":"stream","url":null,"confidence":0.9,"evidence":""}]}`))
+	input, err := jsvalue.Parse([]byte(`{"classification":"schedule","events":[{"title":"T","detail":null,"date":"2026-01-05","time":"21:00","endTime":null,"timePrecision":"exact","status":"scheduled","eventType":"stream","url":null,"confidence":0.9,"evidence":""}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/japantime"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // addReservation inserts an automatic YouTube reservation days ahead of today
@@ -19,7 +20,7 @@ func (f *fixture) addReservation(id, title string, days int) {
 }
 
 func tagReply(tag any) string {
-	return chatReply(stringify(obj("tag", tag)))
+	return chatReply(jsvalue.Stringify(jsvalue.Obj("tag", tag)))
 }
 
 // tagState is "tag|source|attempted", where attempted reports whether the

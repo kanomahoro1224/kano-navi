@@ -1,6 +1,10 @@
 package schedule
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
+)
 
 // These strings define model behaviour and are copied verbatim from
 // server/schedule-extractor.ts. extractorVersion is part of stored extraction
@@ -44,7 +48,7 @@ const (
 	// video name only the form and are used when no content label applies.
 	eventTagRule = "Choose by content first: game for gameplay, talk for a chat or talk stream, and song for singing, including a singing stream, a song cover, an original song, a music video and a song premiere. Use live only for a broadcast or stream that is none of these or whose content is not shown, and video only for an uploaded video or premiere that is none of these or whose content is not shown. When an entry mixes activities, use the one it leads with; when none leads, use live for a stream and video for an upload or premiere."
 
-	eventTagSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]}},"required":["tag"]}`
+	eventTagSchema jsvalue.Raw = `{"type":"object","additionalProperties":false,"properties":{"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]}},"required":["tag"]}`
 
 	// bilibiliFormInstructions asks for a Bilibili upload's form together
 	// with its content label: Bilibili's unsigned endpoints do not say
@@ -52,11 +56,11 @@ const (
 	bilibiliFormToolName     = "kano_bilibili_form"
 	bilibiliFormInstructions = "Classify one Bilibili upload by Kano Mahoro (鹿乃まほろ), a Japanese virtual singer, for a fan video archive, from its title, its length and the start of its description. Set form to stream when the upload is the recording or replay of one of her live broadcasts (直播回放, 录播, a full or nearly full stream), upload when it is a video made for upload (a song cover, an original song, a music video, a clip, an announcement or a short video), and uncertain when the title, length and description do not tell. A long length alone does not make a stream. " + eventTagRule + " Return null for tag when the upload does not show what kind of activity it is; never guess from the channel name alone."
 
-	bilibiliFormSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"form":{"type":"string","enum":["upload","stream","uncertain"]},"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]}},"required":["form","tag"]}`
+	bilibiliFormSchema jsvalue.Raw = `{"type":"object","additionalProperties":false,"properties":{"form":{"type":"string","enum":["upload","stream","uncertain"]},"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]}},"required":["form","tag"]}`
 
 	translationInstructions = "Translate one X post, Bilibili dynamic or YouTube video title by Kano Mahoro (鹿乃まほろ), a Japanese virtual singer, for readers of an unofficial fan status board. Set sourceLanguage to the language of the text: ja, en, zh, ko or other, or none when it has nothing to translate (only links, hashtags, @mentions, emoji or kaomoji). Judge it by the text's own wording, not by a song title or name it quotes: a Bilibili title or dynamic is written for Chinese viewers, so Chinese wording around a Japanese song title, as in 鹿乃 翻唱《晴る》, is zh. Translate the whole text into natural English (english), Japanese (japanese) and Simplified Chinese (simplifiedChinese). Keep URLs, hashtags, #topic# tags, @mentions, emoji, bracketed emoji codes such as [笑], kaomoji, bracketed channel tags and line breaks as written. Keep dates and times as written, with their time zone: translate 北京时间17点 as 17:00 Beijing time, and never convert a time to another zone. Use the usual romanization or official names of people, groups and games, and keep a song title in its original wording unless it has an official translation. Each translation field is the complete text to display, not a list of changes: when a song title or name stays unchanged, include that original wording in the non-empty result. Every field whose language differs from sourceLanguage must be non-empty, even when the whole title stays unchanged. Do not add explanations, quotation marks or notes. Return an empty string only for english when sourceLanguage is en, only for japanese when sourceLanguage is ja, only for simplifiedChinese when sourceLanguage is zh, and for all three when sourceLanguage is none."
 
-	translationSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"sourceLanguage":{"type":"string","enum":["ja","en","zh","ko","other","none"]},"english":{"type":"string"},"japanese":{"type":"string"},"simplifiedChinese":{"type":"string"}},"required":["sourceLanguage","english","japanese","simplifiedChinese"]}`
+	translationSchema jsvalue.Raw = `{"type":"object","additionalProperties":false,"properties":{"sourceLanguage":{"type":"string","enum":["ja","en","zh","ko","other","none"]},"english":{"type":"string"},"japanese":{"type":"string"},"simplifiedChinese":{"type":"string"}},"required":["sourceLanguage","english","japanese","simplifiedChinese"]}`
 
 	scheduleInstructions = "First classify whether this single Japanese X post is a concrete schedule notice. Return classification=not_schedule when it is ordinary conversation or has no concrete schedule, and classification=uncertain when the evidence is ambiguous. For classification=schedule, extract only entries explicitly supported by the post text or images. Interpret relative dates from the post publication time in Asia/Tokyo. Never invent a time. Use null time and timePrecision unknown when the date is known but the time is not. " + scheduleDateInstruction + " " + scheduleTypeInstruction + " " + scheduleSaleInstruction + " Set action=cancel only when the post is evidence that an existing schedule may have been cancelled; this is a judgement for review, never a deletion or definitive cancellation. Put the reason in the root reason field and cite the post wording in evidence. For cancellation, events should identify the affected date/title/time when possible. " + scheduleLanguageInstruction + " Return an empty events array for not_schedule. " + scheduleTagInstruction + " " + schedulePlatformInstruction
 
@@ -96,9 +100,9 @@ const (
 
 	// JSON.stringify(scheduleSchema) and
 	// JSON.stringify(scheduleAssetVerificationSchema), byte-exact.
-	scheduleSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"classification":{"type":"string","enum":["schedule","not_schedule","uncertain"]},"events":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"title":{"type":"string"},"detail":{"anyOf":[{"type":"string"},{"type":"null"}]},"date":{"type":"string"},"time":{"anyOf":[{"type":"string"},{"type":"null"}]},"endTime":{"anyOf":[{"type":"string"},{"type":"null"}]},"endDate":{"anyOf":[{"type":"string"},{"type":"null"}]},"timePrecision":{"type":"string","enum":["exact","approximate","unknown"]},"status":{"type":"string"},"eventType":{"type":"string","enum":["event","stream","member","release","appearance","sale"]},"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]},"url":{"anyOf":[{"type":"string"},{"type":"null"}]},"platform":{"type":"string","enum":["youtube","bilibili","other","unknown"]},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"}},"required":["title","detail","date","time","endTime","endDate","timePrecision","status","eventType","tag","url","platform","confidence","evidence"]}},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}]},"action":{"type":"string","enum":["add","update","cancel","none"]}},"required":["classification","events","confidence","evidence","reason","action"]}`
+	scheduleSchema jsvalue.Raw = `{"type":"object","additionalProperties":false,"properties":{"classification":{"type":"string","enum":["schedule","not_schedule","uncertain"]},"events":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{"title":{"type":"string"},"detail":{"anyOf":[{"type":"string"},{"type":"null"}]},"date":{"type":"string"},"time":{"anyOf":[{"type":"string"},{"type":"null"}]},"endTime":{"anyOf":[{"type":"string"},{"type":"null"}]},"endDate":{"anyOf":[{"type":"string"},{"type":"null"}]},"timePrecision":{"type":"string","enum":["exact","approximate","unknown"]},"status":{"type":"string"},"eventType":{"type":"string","enum":["event","stream","member","release","appearance","sale"]},"tag":{"anyOf":[{"type":"string","enum":["live","game","talk","song","video"]},{"type":"null"}]},"url":{"anyOf":[{"type":"string"},{"type":"null"}]},"platform":{"type":"string","enum":["youtube","bilibili","other","unknown"]},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"}},"required":["title","detail","date","time","endTime","endDate","timePrecision","status","eventType","tag","url","platform","confidence","evidence"]}},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"},"reason":{"anyOf":[{"type":"string"},{"type":"null"}]},"action":{"type":"string","enum":["add","update","cancel","none"]}},"required":["classification","events","confidence","evidence","reason","action"]}`
 
-	scheduleAssetVerificationSchema rawJSON = `{"type":"object","additionalProperties":false,"properties":{"classification":{"type":"string","enum":["schedule","not_schedule","uncertain"]},"text":{"type":"string"},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"},"reason":{"type":"string"}},"required":["classification","text","confidence","evidence","reason"]}`
+	scheduleAssetVerificationSchema jsvalue.Raw = `{"type":"object","additionalProperties":false,"properties":{"classification":{"type":"string","enum":["schedule","not_schedule","uncertain"]},"text":{"type":"string"},"confidence":{"type":"number","minimum":0,"maximum":1},"evidence":{"type":"string"},"reason":{"type":"string"}},"required":["classification","text","confidence","evidence","reason"]}`
 )
 
 // The Bilibili variant of the extraction prompt. A dynamic is written in
@@ -121,7 +125,7 @@ const (
 
 // bilibiliScheduleSchema is scheduleSchema with each entry's timeZone and
 // its platforms array in place of the single platform.
-var bilibiliScheduleSchema = rawJSON(strings.NewReplacer(
+var bilibiliScheduleSchema = jsvalue.Raw(strings.NewReplacer(
 	`"url":{"anyOf":[{"type":"string"},{"type":"null"}]},"platform":{"type":"string","enum":["youtube","bilibili","other","unknown"]},`,
 	`"url":{"anyOf":[{"type":"string"},{"type":"null"}]},"timeZone":{"type":"string","enum":["Asia/Tokyo","Asia/Shanghai"]},"platforms":{"type":"array","items":{"type":"string","enum":["youtube","bilibili","other"]}},`,
 	`"tag","url","platform","confidence","evidence"]`, `"tag","url","platforms","timeZone","confidence","evidence"]`,
@@ -129,10 +133,10 @@ var bilibiliScheduleSchema = rawJSON(strings.NewReplacer(
 
 // imageScheduleSchema adds the faithful transcription returned by the image
 // queue without changing the text queue's established request schema.
-func imageScheduleSchema(base rawJSON) rawJSON {
+func imageScheduleSchema(base jsvalue.Raw) jsvalue.Raw {
 	value := strings.Replace(string(base), `"events":`, `"text":{"type":"string"},"events":`, 1)
 	value = strings.Replace(value, `"classification","events"`, `"classification","text","events"`, 1)
-	return rawJSON(value)
+	return jsvalue.Raw(value)
 }
 
 var defaultScheduleKeywords = []string{

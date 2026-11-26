@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/yexca/kano-navi/backend/internal/digest"
 )
 
 func (s *Store) queryScheduleAssets(ctx context.Context, from, to string) ([]Asset, error) {
@@ -187,7 +189,7 @@ func (s *Store) resolveMedia(ctx context.Context, source *string) (*mediaReferen
 	if memo := readMemoFrom(ctx); memo != nil {
 		if a, known := memo.assets[norm]; known {
 			if a == nil {
-				id := sha256Hex(norm)
+				id := digest.SHA256Hex(norm)
 				return &mediaReference{ID: &id, Status: "pending", SourceURL: &norm}, nil
 			}
 			return s.mediaReference(ctx, *a), nil
@@ -195,7 +197,7 @@ func (s *Store) resolveMedia(ctx context.Context, source *string) (*mediaReferen
 	}
 	a, err := scanMediaAsset(s.db.QueryRowContext(ctx, `SELECT id,source_url,cache_path,mime_type,byte_size,sha256,NULLIF(width,0),NULLIF(height,0),status FROM media_assets WHERE source_url=?`, norm))
 	if errors.Is(err, sql.ErrNoRows) {
-		id := sha256Hex(norm)
+		id := digest.SHA256Hex(norm)
 		return &mediaReference{ID: &id, Status: "pending", SourceURL: &norm}, nil
 	}
 	if err != nil {

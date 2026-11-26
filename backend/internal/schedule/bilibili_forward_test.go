@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/japantime"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // forwardedQuote is the projection of another author's dynamic that an own
@@ -31,7 +32,7 @@ func TestBilibiliForwardWordingIsMarkedContext(t *testing.T) {
 				bodies[id] = request.body
 			}
 		}
-		return http.StatusOK, chatReply(stringify(obj(
+		return http.StatusOK, chatReply(jsvalue.Stringify(jsvalue.Obj(
 			"classification", "schedule",
 			"events", []any{bilibiliEntry("杂谈", "2026-11-08", "20:00", "stream", nil, nil)},
 			"confidence", 0.9, "evidence", "synthetic evidence", "reason", nil, "action", "add")))
@@ -92,7 +93,7 @@ func TestForwardedDynamicsAreTranslatedOnceFromThePool(t *testing.T) {
 		if strings.Contains(request.body, "Kind: Bilibili dynamic") {
 			kinds = append(kinds, "bilibili")
 		}
-		return http.StatusOK, chatReply(stringify(obj("sourceLanguage", "zh", "english", "Talk stream tomorrow from 20:00",
+		return http.StatusOK, chatReply(jsvalue.Stringify(jsvalue.Obj("sourceLanguage", "zh", "english", "Talk stream tomorrow from 20:00",
 			"japanese", "明日20時から雑談配信", "simplifiedChinese", "")))
 	}
 	result := runTranslator(t, translator)

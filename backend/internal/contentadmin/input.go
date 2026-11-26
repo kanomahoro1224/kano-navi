@@ -3,90 +3,25 @@ package contentadmin
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"math"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
-	"unicode/utf16"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
-// jsString mirrors JavaScript String(value) for a decoded JSON value closely
-// enough for operator text fields. A missing key and null are both "".
-func jsString(raw json.RawMessage) string {
-	trimmed := bytes.TrimSpace(raw)
-	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
-		return ""
-	}
-	switch trimmed[0] {
-	case '"':
-		var value string
-		if json.Unmarshal(trimmed, &value) != nil {
-			return ""
-		}
-		return value
-	case '{':
-		return "[object Object]"
-	case '[':
-		var items []json.RawMessage
-		if json.Unmarshal(trimmed, &items) != nil {
-			return ""
-		}
-		parts := make([]string, len(items))
-		for i, item := range items {
-			parts[i] = jsString(item)
-		}
-		return strings.Join(parts, ",")
-	case 't', 'f':
-		return string(trimmed)
-	}
-	number, err := strconv.ParseFloat(string(trimmed), 64)
-	if err != nil {
-		return string(trimmed)
-	}
-	if math.Abs(number) < 1e21 {
-		return strconv.FormatFloat(number, 'f', -1, 64)
-	}
-	return strconv.FormatFloat(number, 'g', -1, 64)
-}
-
-// jsTrim removes the code points String.prototype.trim removes.
-func jsTrim(value string) string {
-	return strings.TrimFunc(value, func(r rune) bool {
-		switch r {
-		case '\t', '\n', '\v', '\f', '\r', ' ', 0x00a0, 0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff:
-			return true
-		}
-		return r >= 0x2000 && r <= 0x200a
-	})
-}
-
-// jsLength is String.prototype.length: UTF-16 code units.
-func jsLength(value string) int { return len(utf16.Encode([]rune(value))) }
-
-// jsSlice is value.slice(0, limit) in UTF-16 code units.
-func jsSlice(value string, limit int) string {
-	units := utf16.Encode([]rune(value))
-	if len(units) <= limit {
-		return value
-	}
-	return string(utf16.Decode(units[:limit]))
-}
-
 // textValue is the admin `text` validator: trimmed, bounded, nil when empty.
 func textValue(value, name string, required bool, max int) (*string, error) {
-	normalized := jsTrim(value)
+	normalized := jsvalue.Trim(value)
 	if required && normalized == "" {
 		return nil, httpx.Invalid("%s is required", name)
 	}
-	if jsLength(normalized) > max {
+	if jsvalue.Length(normalized) > max {
 		return nil, httpx.Invalid("%s is too long", name)
 	}
 	if normalized == "" {
@@ -96,7 +31,7 @@ func textValue(value, name string, required bool, max int) (*string, error) {
 }
 
 func textField(body map[string]json.RawMessage, key string, required bool, max int) (*string, error) {
-	return textValue(jsString(body[key]), key, required, max)
+	return textValue(jsvalue.MemberString(body[key]), key, required, max)
 }
 
 // stringField returns the value only when it is a JSON string.
@@ -159,11 +94,6 @@ func normalizeSourceURL(value string) (string, *url.URL) {
 		parsed.RawPath = ""
 	}
 	return parsed.String(), parsed
-}
-
-func sha256Hex(content []byte) string {
-	sum := sha256.Sum256(content)
-	return hex.EncodeToString(sum[:])
 }
 
 func safeHash(value string) bool {

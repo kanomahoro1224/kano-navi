@@ -5,14 +5,16 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // taggedScheduleReply is the recorded reply shape with the optional calendar
 // label the extraction schema now asks for.
 func taggedScheduleReply(tag any) string {
-	return stringify(obj(
+	return jsvalue.Stringify(jsvalue.Obj(
 		"classification", "schedule",
-		"events", []any{obj(
+		"events", []any{jsvalue.Obj(
 			"title", songTitle, "detail", nil, "date", songDate, "time", songClock, "endTime", nil,
 			"timePrecision", "exact", "status", "scheduled", "eventType", "stream", "tag", tag, "url", nil,
 			"confidence", 0.9, "evidence", "synthetic evidence")},
@@ -31,7 +33,7 @@ func TestNormalizeKeepsOnlyKnownEventTags(t *testing.T) {
 			pairs = append(pairs, "tag", tag)
 		}
 		pairs = append(pairs, "url", nil, "confidence", 0.9, "evidence", "synthetic evidence")
-		return []any{obj(pairs...)}
+		return []any{jsvalue.Obj(pairs...)}
 	}
 	now := time.Date(2099, 5, 1, 0, 0, 0, 0, time.UTC)
 	for _, tt := range []struct {

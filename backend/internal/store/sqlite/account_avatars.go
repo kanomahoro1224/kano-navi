@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
 
@@ -99,9 +100,9 @@ func NormalizeAccountAvatarKey(source, handle string) (src, key, display string,
 // candidate so public media routes remain opaque and cache-safe.
 func AccountAvatarCandidateID(source, accountKey, origin, sourceURL, contentHash string) string {
 	if origin == AccountAvatarOriginUpload {
-		return sha256Hex("account-avatar\nupload\n" + source + "\n" + accountKey + "\n" + contentHash)
+		return digest.SHA256Hex("account-avatar\nupload\n" + source + "\n" + accountKey + "\n" + contentHash)
 	}
-	return sha256Hex("account-avatar\nurl\n" + source + "\n" + accountKey + "\n" + sourceURL)
+	return digest.SHA256Hex("account-avatar\nurl\n" + source + "\n" + accountKey + "\n" + sourceURL)
 }
 
 func validAccountAvatarMode(mode string) (string, bool) {

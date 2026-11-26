@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // testdata/parity.json is a frozen reference recorded against the same
@@ -256,7 +258,7 @@ func TestParityWithTypeScriptExtractor(t *testing.T) {
 		{"post-b", "", "明日 20時から歌います", "2026-04-26T03:00:00.000Z"},
 		{"post-d", "", "おはよう", "2026-04-25T03:00:00.000Z"},
 	} {
-		f.addPost(item.id, item.label, item.text, item.publishedAt, stringify(obj("id", item.id, "text", item.text)))
+		f.addPost(item.id, item.label, item.text, item.publishedAt, jsvalue.Stringify(jsvalue.Obj("id", item.id, "text", item.text)))
 	}
 	f.provider.respond = func(request recordedRequest) (int, string) {
 		switch {
@@ -391,7 +393,7 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 		{"img-c", "daily", "", "来週の予定表", "2026-04-26T03:00:00.000Z", []any{pendingURL}},
 		{"img-d", "daily", "", "今日は22時から配信予定です", "2026-04-25T03:00:00.000Z", []any{otherURL}},
 	} {
-		f.addPost(item.id, item.label, item.text, item.publishedAt, stringify(obj("id", item.id, "media_urls", item.media)))
+		f.addPost(item.id, item.label, item.text, item.publishedAt, jsvalue.Stringify(jsvalue.Obj("id", item.id, "media_urls", item.media)))
 		f.exec(`UPDATE posts SET type = ?, media_url = ? WHERE id = ?`, item.postType, item.media[0], item.id)
 	}
 	for _, asset := range data.MediaAssets {
@@ -474,12 +476,12 @@ func TestParityWithTypeScriptImagePaths(t *testing.T) {
 			if strings.Contains(request.url, "anthropic.example.test") {
 				return http.StatusOK, `{"content":[{"type":"tool_use","name":"` + verificationToolName + `","input":` + verdict + `}]}`
 			}
-			return http.StatusOK, stringify(obj("output_text", verdict))
+			return http.StatusOK, jsvalue.Stringify(jsvalue.Obj("output_text", verdict))
 		}
 		if strings.Contains(request.body, `"type":"input_text"`) {
-			return http.StatusOK, stringify(obj("output_text", replies["img-a"]))
+			return http.StatusOK, jsvalue.Stringify(jsvalue.Obj("output_text", replies["img-a"]))
 		}
-		return http.StatusOK, stringify(obj("output_text", replies["img-b"]))
+		return http.StatusOK, jsvalue.Stringify(jsvalue.Obj("output_text", replies["img-b"]))
 	}
 
 	first := f.scan()

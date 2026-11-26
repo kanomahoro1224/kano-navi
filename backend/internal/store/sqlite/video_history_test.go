@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
@@ -145,7 +146,7 @@ func TestThumbnailRevalidationKeepsTheReplacedFileAndAnOperatorCanPinIt(t *testi
 			t.Fatal(err)
 		}
 	}
-	oldHash, newHash := sha256Hex(string(placeholder)), sha256Hex(string(replaced))
+	oldHash, newHash := digest.SHA256Hex(string(placeholder)), digest.SHA256Hex(string(replaced))
 	for hash, want := range map[string][]byte{oldHash: placeholder, newHash: replaced, "": replaced} {
 		file, readErr := s.ReadMedia(ctx, asset.ID, hash)
 		if readErr != nil || string(file.Content) != string(want) {
@@ -236,8 +237,8 @@ func TestPendingMediaRevalidatesAThumbnailAfterADetailCheck(t *testing.T) {
 	} {
 		u := "https://i.ytimg.com/vi/" + c.id + "/hqdefault.jpg"
 		testutil.Exec(t, p, `INSERT INTO videos(id,source,title,published_at,url,live_checked_at) VALUES(?,'youtube',?,?,?,NULLIF(?,''))`, c.id, c.id, at(-10*24*time.Hour), "https://www.youtube.com/watch?v="+c.id, c.pageChecked)
-		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,sha256,last_checked_at,created_at,updated_at) VALUES(?,'youtube',?,'ready',?,?,?,?)`, sha256Hex(u), u, strings.Repeat("a", 64), c.fileChecked, c.fileChecked, c.fileChecked)
-		testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'video',?,'thumbnail',0,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, sha256Hex(u), c.id)
+		testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,sha256,last_checked_at,created_at,updated_at) VALUES(?,'youtube',?,'ready',?,?,?,?)`, digest.SHA256Hex(u), u, strings.Repeat("a", 64), c.fileChecked, c.fileChecked, c.fileChecked)
+		testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'video',?,'thumbnail',0,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, digest.SHA256Hex(u), c.id)
 	}
 	pending, err := s.PendingMedia(context.Background(), 10)
 	if err != nil {

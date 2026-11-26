@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 func TestTranslationRefusalDoesNotRetryOrStoreProviderWording(t *testing.T) {
@@ -27,7 +29,7 @@ func TestTranslationRefusalDoesNotRetryOrStoreProviderWording(t *testing.T) {
 			if result.Status != "failed" || f.provider.count() != 1 || f.text(`SELECT last_error FROM translation_states`) != modelRefused {
 				t.Fatalf("result=%v requests=%d", result, f.provider.count())
 			}
-			if strings.Contains(stringify(result.Counts), "private refusal") {
+			if strings.Contains(jsvalue.Stringify(result.Counts), "private refusal") {
 				t.Fatal("provider refusal wording leaked")
 			}
 		})
@@ -37,7 +39,7 @@ func TestTranslationRefusalDoesNotRetryOrStoreProviderWording(t *testing.T) {
 func TestModelDiagnosticsIgnoreUntrustedAndInvalidMetadata(t *testing.T) {
 	d := modelDiagnostics{}
 	call := modelCall{jsonOutput: true, diagnostics: &d}
-	payload, err := parseJSON([]byte(`{"stop_reason":"synthetic private response","usage":{"input_tokens":"synthetic credential","output_tokens":-1}}`))
+	payload, err := jsvalue.Parse([]byte(`{"stop_reason":"synthetic private response","usage":{"input_tokens":"synthetic credential","output_tokens":-1}}`))
 	if err != nil {
 		t.Fatal(err)
 	}

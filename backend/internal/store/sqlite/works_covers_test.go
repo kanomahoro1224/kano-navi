@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
@@ -124,7 +125,7 @@ func TestWorkCoverReportListsUploadsWithoutCoversAndNeverWrites(t *testing.T) {
 		t.Fatal(err)
 	}
 	thumb := "https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg"
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO media_assets (id,source,source_url,cache_path,mime_type,byte_size,sha256,status,created_at,updated_at) VALUES (?,'youtube',?,'youtube/a.jpg','image/jpeg',1,?,'ready','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, sha256Hex(thumb), thumb, strings.Repeat("a", 64)); err != nil {
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO media_assets (id,source,source_url,cache_path,mime_type,byte_size,sha256,status,created_at,updated_at) VALUES (?,'youtube',?,'youtube/a.jpg','image/jpeg',1,?,'ready','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, digest.SHA256Hex(thumb), thumb, strings.Repeat("a", 64)); err != nil {
 		t.Fatal(err)
 	}
 	index := works.Index{Uploads: []works.Upload{

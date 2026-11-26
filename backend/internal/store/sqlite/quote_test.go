@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
@@ -93,7 +94,7 @@ func TestDashboardQuoteListsOnlyReadyImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := []byte("synthetic quoted image")
-	hash := sha256Hex(string(content))
+	hash := digest.SHA256Hex(string(content))
 	cache := "x/sha256/" + hash + ".jpg"
 	if err := os.MkdirAll(filepath.Join(root, "x", "sha256"), 0o755); err != nil {
 		t.Fatal(err)
@@ -114,8 +115,8 @@ func TestDashboardQuoteListsOnlyReadyImages(t *testing.T) {
 		if name == "pending" {
 			status, cachePath = "pending", nil
 		}
-		testutil.Exec(t, path, `INSERT INTO media_assets(id,source,source_url,status,sha256,cache_path,created_at,updated_at) VALUES(?,'x',?,?,?,?,'2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')`, sha256Hex(twimg(name)), twimg(name), status, hash, cachePath)
-		testutil.Exec(t, path, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'post','quoting','quote-image',?,'2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')`, sha256Hex(twimg(name)), position)
+		testutil.Exec(t, path, `INSERT INTO media_assets(id,source,source_url,status,sha256,cache_path,created_at,updated_at) VALUES(?,'x',?,?,?,?,'2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')`, digest.SHA256Hex(twimg(name)), twimg(name), status, hash, cachePath)
+		testutil.Exec(t, path, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'post','quoting','quote-image',?,'2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')`, digest.SHA256Hex(twimg(name)), position)
 	}
 	store, err := OpenReadOnly(path)
 	if err != nil {
@@ -135,7 +136,7 @@ func TestDashboardQuoteListsOnlyReadyImages(t *testing.T) {
 		}
 	}
 	q := quotes["quoting"]
-	if q == nil || q.Text != "quoted wording" || q.URL != quoteURL || q.Unavailable || len(q.Media) != 1 || stringValue(q.Media[0].URL) != "/media/"+sha256Hex(twimg("ready"))+"?v="+hash {
+	if q == nil || q.Text != "quoted wording" || q.URL != quoteURL || q.Unavailable || len(q.Media) != 1 || stringValue(q.Media[0].URL) != "/media/"+digest.SHA256Hex(twimg("ready"))+"?v="+hash {
 		t.Fatalf("quote=%+v", q)
 	}
 	if u := quotes["unavailable"]; u == nil || !u.Unavailable || u.Text != "" || len(u.Media) != 0 {

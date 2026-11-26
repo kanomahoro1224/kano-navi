@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/works"
 )
 
@@ -212,7 +213,7 @@ func TestWorksDecisionIncludesExcludesAndClears(t *testing.T) {
 func TestWorksRecentCoverIsTheCachedThumbnail(t *testing.T) {
 	s := worksTestStore(t)
 	content := []byte("synthetic thumbnail")
-	hash := sha256Hex(string(content))
+	hash := digest.SHA256Hex(string(content))
 	cache := "youtube/sha256/" + hash + ".jpg"
 	if err := os.MkdirAll(filepath.Join(s.dataRoot, "youtube", "sha256"), 0o755); err != nil {
 		t.Fatal(err)
@@ -226,7 +227,7 @@ func TestWorksRecentCoverIsTheCachedThumbnail(t *testing.T) {
 		recentVideo(t, s, id, "youtube", after, "upload", "song", `thumbnail_url='`+thumb(id)+`'`)
 	}
 	if _, err := s.db.Exec(`INSERT INTO media_assets(id,source,source_url,status,sha256,cache_path,width,height,created_at,updated_at) VALUES(?,'youtube',?,'ready',?,?,480,360,'2026-07-01T00:00:00Z','2026-07-01T00:00:00Z')`,
-		sha256Hex(thumb("CACHEDSONG1")), thumb("CACHEDSONG1"), hash, cache); err != nil {
+		digest.SHA256Hex(thumb("CACHEDSONG1")), thumb("CACHEDSONG1"), hash, cache); err != nil {
 		t.Fatal(err)
 	}
 	recent, _, err := s.worksRecentUploads(context.Background(), recentIndex, recentNow)
@@ -236,7 +237,7 @@ func TestWorksRecentCoverIsTheCachedThumbnail(t *testing.T) {
 	for _, item := range recent {
 		switch item.ID {
 		case "CACHEDSONG1":
-			if item.Cover == nil || item.Cover.URL != "/media/"+sha256Hex(thumb("CACHEDSONG1"))+"?v="+hash || item.Cover.Width == nil || *item.Cover.Width != 480 {
+			if item.Cover == nil || item.Cover.URL != "/media/"+digest.SHA256Hex(thumb("CACHEDSONG1"))+"?v="+hash || item.Cover.Width == nil || *item.Cover.Width != 480 {
 				t.Errorf("cover=%+v", item.Cover)
 			}
 		case "PENDINGSONG":

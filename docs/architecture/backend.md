@@ -133,6 +133,8 @@ is occupied.
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
 | LINE BLOG archive for the public reads         | `internal/lineblog`                                             |
 | Japan time zone, dates and wall-clock parsing  | `internal/japantime`                                            |
+| JavaScript value semantics                     | `internal/jsvalue`                                              |
+| SHA-256 hex digests for stored IDs             | `internal/digest`                                               |
 
 `cmd/kano-go` validates credentials, opens the runtime database and starts the
 listener; `internal/httpapi` builds the handler around an injected store.
@@ -143,6 +145,12 @@ listener; `internal/httpapi` builds the handler around an injected store.
 `httpx.AdminModule` by returning their routes; the router authenticates the
 session, applies the origin guard and refuses writes to a read-only database
 before a module handler runs.
+
+Stored fingerprints, stored rows and admin request coercion follow the
+original JavaScript server: `internal/jsvalue` reproduces its `JSON.parse`,
+`JSON.stringify`, `String()`, `Number()`, truthiness, `trim()`, length,
+`slice()` and `toLowerCase()`, and `internal/digest` its SHA-256 hex digests.
+Packages call these instead of keeping their own copies.
 
 Responses stay stable and sanitized: `raw_json`, stack traces, credentials and
 absolute local paths never reach the browser. Ready runtime media is served

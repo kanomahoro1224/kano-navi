@@ -1,12 +1,12 @@
 package schedule
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
@@ -269,7 +269,7 @@ func (u *parsedURL) String() string {
 	return b.String()
 }
 
-// searchParam mirrors url.searchParams.get(name).
+// searchParam mirrors url.searchParams.Get(name).
 func (u *parsedURL) searchParam(name string) (string, bool) {
 	if u.query == nil {
 		return "", false
@@ -344,15 +344,10 @@ func normalizePublicURL(value, fallback string) string {
 	return normalized
 }
 
-func sha256Hex(value string) string {
-	sum := sha256.Sum256([]byte(value))
-	return hex.EncodeToString(sum[:])
-}
-
 // mediaIDForSourceURL mirrors server/media-cache.ts: the opaque media
 // identity is the hash of the normalized, fragment-free source URL.
 func mediaIDForSourceURL(value string) string {
-	value = jsTrim(value)
+	value = jsvalue.Trim(value)
 	if value == "" {
 		return ""
 	}
@@ -361,7 +356,7 @@ func mediaIDForSourceURL(value string) string {
 		return ""
 	}
 	u.fragment = nil
-	return sha256Hex(u.String())
+	return digest.SHA256Hex(u.String())
 }
 
 var mediaIDPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -378,7 +373,7 @@ var (
 
 // providerAPIRoot mirrors src/lib/llm-endpoints.ts.
 func providerAPIRoot(baseURL string) string {
-	base := jsTrim(baseURL)
+	base := jsvalue.Trim(baseURL)
 	base = trailingSlashes.ReplaceAllString(base, "")
 	base = endpointSuffix.ReplaceAllString(base, "")
 	if base == "" {

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -388,7 +390,7 @@ func (r *batchReads) prepare(ctx context.Context, position int) error {
 			sources = append(sources, source)
 		}
 	}
-	tables, err := loadTableReads(ctx, r.q, r.files, nil, &postScope{ids: stringify(ids), sources: stringify(sources)})
+	tables, err := loadTableReads(ctx, r.q, r.files, nil, &postScope{ids: jsvalue.Stringify(ids), sources: jsvalue.Stringify(sources)})
 	if err != nil {
 		return err
 	}
@@ -483,7 +485,7 @@ func effectiveForce(force bool, state *postState) bool {
 // inputModeOf is what the model is given: text (the post's own and its
 // quote's), images, both, or "" for neither.
 func inputModeOf(item post, media postImages) string {
-	hasText := jsTrim(item.matchText()) != ""
+	hasText := jsvalue.Trim(item.matchText()) != ""
 	switch {
 	case hasText && media.hasImages:
 		return "text_image"
@@ -501,17 +503,17 @@ func fingerprintOf(item post, detectionType, inputMode string, media postImages)
 	for i, image := range media.images {
 		hashes[i] = image.sha256
 	}
-	identity := obj("detectionType", detectionType, "inputMode", inputMode, "text", item.text)
+	identity := jsvalue.Obj("detectionType", detectionType, "inputMode", inputMode, "text", item.text)
 	if item.publishedAt != "" {
-		identity.set("publishedAt", item.publishedAt)
+		identity.Set("publishedAt", item.publishedAt)
 	}
-	identity.set("url", item.url)
-	identity.set("images", hashes)
+	identity.Set("url", item.url)
+	identity.Set("images", hashes)
 	// A post without a shown quote keeps the fingerprint it always had.
 	if item.quote.text != "" {
-		identity.set("quote", obj("author", item.quote.author, "text", item.quote.text))
+		identity.Set("quote", jsvalue.Obj("author", item.quote.author, "text", item.quote.text))
 	}
-	return sha256Hex(stringify(identity))
+	return digest.SHA256Hex(jsvalue.Stringify(identity))
 }
 
 // Dispositions of a judged post.
@@ -634,7 +636,7 @@ func judge(input candidateInput, detectionType string, force bool, targets targe
 	for _, target := range providers {
 		keys = append(keys, extractorVersionFor(target, detectionType, decided.inputMode))
 	}
-	decided.failureKey = sha256Hex(stringify(keys))
+	decided.failureKey = digest.SHA256Hex(jsvalue.Stringify(keys))
 	decided.repeated = !decided.force && previous != nil && previous.failureCount > 0 && previous.failureFingerprint == decided.failureKey
 	if decided.repeated {
 		if previous.nextAttemptAt == "" {

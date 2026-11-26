@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/secretstore"
 )
 
@@ -18,12 +19,12 @@ import (
 func text(value any, name string, required bool, max int) (string, error) {
 	normalized := ""
 	if value != nil {
-		normalized = jsTrim(jsString(value))
+		normalized = jsvalue.Trim(jsvalue.String(value))
 	}
 	if required && normalized == "" {
 		return "", httpx.Invalid("%s is required", name)
 	}
-	if utf16Len(normalized) > max {
+	if jsvalue.Length(normalized) > max {
 		return "", httpx.Invalid("%s is too long", name)
 	}
 	return normalized, nil
@@ -33,7 +34,7 @@ func booleanValue(value any, name string) (bool, error) {
 	if flag, ok := value.(bool); ok {
 		return flag, nil
 	}
-	switch strings.ToLower(jsTrim(stringOrEmpty(value))) {
+	switch strings.ToLower(jsvalue.Trim(jsvalue.StringOrEmpty(value))) {
 	case "1", "true", "yes", "on":
 		return true, nil
 	case "0", "false", "no", "off":
@@ -48,14 +49,14 @@ func scheduleKeywords(value any) ([]string, error) {
 	var items []string
 	if array, ok := value.([]any); ok {
 		for _, item := range array {
-			items = append(items, truthyString(item))
+			items = append(items, jsvalue.StringOr(item, ""))
 		}
 	} else {
-		items = strings.FieldsFunc(stringOrEmpty(value), isKeywordSeparator)
+		items = strings.FieldsFunc(jsvalue.StringOrEmpty(value), isKeywordSeparator)
 	}
 	trimmed := make([]string, 0, len(items))
 	for _, item := range items {
-		if keyword := jsTrim(item); keyword != "" {
+		if keyword := jsvalue.Trim(item); keyword != "" {
 			trimmed = append(trimmed, keyword)
 		}
 	}
@@ -64,7 +65,7 @@ func scheduleKeywords(value any) ([]string, error) {
 		return nil, httpx.Invalid("keywords contains too many entries")
 	}
 	for _, keyword := range normalized {
-		if utf16Len(keyword) > 80 {
+		if jsvalue.Length(keyword) > 80 {
 			return nil, httpx.Invalid("keywords contains an entry that is too long")
 		}
 	}
@@ -367,7 +368,8 @@ func integerField(value any, name string, minimum, maximum, fallback int64) (int
 	if value == nil || value == "" {
 		return fallback, nil
 	}
-	number, ok := jsNumber(value)
+	number := jsvalue.Number(value)
+	ok := !math.IsNaN(number)
 	if !ok || math.IsInf(number, 0) || number != math.Trunc(number) || number < float64(minimum) || number > float64(maximum) {
 		return 0, httpx.Invalid("%s must be an integer between %d and %d", name, minimum, maximum)
 	}
@@ -414,7 +416,7 @@ func (m *Module) providerInput(body map[string]any, existing *Provider) (provide
 	if !providerIDPattern.MatchString(input.ID) {
 		return input, httpx.Invalid("id contains unsupported characters")
 	}
-	input.Protocol = jsString(coalesce(body["protocol"], existingValue(func(p *Provider) any { return p.Protocol }), protocolResponses))
+	input.Protocol = jsvalue.String(coalesce(body["protocol"], existingValue(func(p *Provider) any { return p.Protocol }), protocolResponses))
 	if !slices.Contains(llmProtocols, input.Protocol) {
 		return input, httpx.Invalid("protocol is invalid")
 	}
@@ -468,8 +470,8 @@ func (m *Module) providerInput(body map[string]any, existing *Provider) (provide
 	}
 
 	if rawKey, hasKey := body["apiKey"]; hasKey {
-		apiKey := jsTrim(stringOrEmpty(rawKey))
-		if utf16Len(apiKey) > 500 {
+		apiKey := jsvalue.Trim(jsvalue.StringOrEmpty(rawKey))
+		if jsvalue.Length(apiKey) > 500 {
 			return input, httpx.Invalid("apiKey is too long")
 		}
 		input.ReplaceAPIKey = true
@@ -507,12 +509,12 @@ type modelWrite struct {
 func modelTags(value any) ([]string, error) {
 	values, isArray := value.([]any)
 	if !isArray {
-		for _, part := range strings.Split(stringOrEmpty(value), ",") {
+		for _, part := range strings.Split(jsvalue.StringOrEmpty(value), ",") {
 			values = append(values, part)
 		}
 	}
 	for _, item := range values {
-		word := strings.ToLower(jsTrim(truthyString(item)))
+		word := strings.ToLower(jsvalue.Trim(jsvalue.StringOr(item, "")))
 		if word == "vision" {
 			word = "image"
 		}

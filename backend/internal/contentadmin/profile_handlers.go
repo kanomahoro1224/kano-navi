@@ -2,6 +2,7 @@ package contentadmin
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -12,7 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/mediaformat"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -114,7 +117,7 @@ func (m *Module) addProfileMedia(w http.ResponseWriter, r *http.Request) {
 	if slot == "" {
 		slot = "avatar"
 	}
-	rawURL, err := textValue(jsString(body["sourceUrl"]), "url", false, 2000)
+	rawURL, err := textValue(jsvalue.MemberString(body["sourceUrl"]), "url", false, 2000)
 	if err != nil {
 		httpx.WriteError(w, err)
 		return
@@ -260,7 +263,7 @@ func (m *Module) discoverProfileMedia(ctx context.Context, slot, source, handle 
 		// Try FxTwitter JSON for allowed X profile URLs when x.com is unavailable or blocked.
 		if source == "x" {
 			if _, allowed := profilePageURL(pageURL); allowed {
-				if targetHandle := firstNonEmpty(handle, xHandleFromURL(pageURL)); targetHandle != "" {
+				if targetHandle := cmp.Or(handle, xHandleFromURL(pageURL)); targetHandle != "" {
 					fxAvatars, fxBanners, _, fxErr := m.discoverFxTwitterMedia(ctx, targetHandle)
 					if fxErr == nil && (len(fxAvatars) > 0 || len(fxBanners) > 0) {
 						return m.saveDiscoveredCandidates(ctx, slot, source, pageURL, slots, map[string][]string{
@@ -284,7 +287,7 @@ func (m *Module) discoverProfileMedia(ctx context.Context, slot, source, handle 
 		foundFromPage += len(urls)
 	}
 	if source == "x" && foundFromPage == 0 {
-		if targetHandle := firstNonEmpty(handle, xHandleFromURL(page.url)); targetHandle != "" {
+		if targetHandle := cmp.Or(handle, xHandleFromURL(page.url)); targetHandle != "" {
 			if fxAvatars, fxBanners, _, fxErr := m.discoverFxTwitterMedia(ctx, targetHandle); fxErr == nil {
 				discoveredBySlot["avatar"] = fxAvatars
 				discoveredBySlot["banner"] = fxBanners
@@ -309,15 +312,6 @@ func (m *Module) discoverBilibiliAvatar(ctx context.Context) (*profileDiscoverRe
 		return nil, failure("bilibili avatar request failed")
 	}
 	return m.saveDiscoveredCandidates(ctx, "avatar", "bilibili", spaceURL, []string{"avatar"}, map[string][]string{"avatar": {imageURL}}, map[string]string{})
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }
 
 func (m *Module) saveDiscoveredCandidates(ctx context.Context, slot, source, refURL string, slots []string, discoveredBySlot map[string][]string, existing map[string]string) (*profileDiscoverResponse, error) {
@@ -472,7 +466,7 @@ func (m *Module) selectProfileMediaRoute(w http.ResponseWriter, r *http.Request,
 		httpx.WriteError(w, err)
 		return
 	}
-	slot, err := optionalSlot(jsString(body["slot"]))
+	slot, err := optionalSlot(jsvalue.MemberString(body["slot"]))
 	if err != nil {
 		httpx.WriteError(w, err)
 		return
@@ -513,7 +507,7 @@ func (m *Module) selectProfileMedia(ctx context.Context, id, slot string) error 
 	}
 	mimeType := mediaformat.Sniff(content)
 	extension := mediaformat.Extension(mimeType)
-	if extension == "" || mimeType != *candidate.MIMEType || sha256Hex(content) != *candidate.SHA256 {
+	if extension == "" || mimeType != *candidate.MIMEType || digest.SHA256Hex(content) != *candidate.SHA256 {
 		return failure("profile media cache file does not match its metadata")
 	}
 	if slot == "" {
@@ -584,7 +578,7 @@ func (m *Module) clearProfileMediaRoute(w http.ResponseWriter, r *http.Request) 
 		httpx.WriteError(w, err)
 		return
 	}
-	slot, err := optionalSlot(jsString(body["slot"]))
+	slot, err := optionalSlot(jsvalue.MemberString(body["slot"]))
 	if err != nil {
 		httpx.WriteError(w, err)
 		return

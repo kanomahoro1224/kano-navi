@@ -18,6 +18,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -360,7 +361,7 @@ func (e *Extractor) reapplyExtraction(ctx context.Context, item post, extraction
 	if err != nil {
 		return err
 	}
-	result, err := parseJSON([]byte(stored.String))
+	result, err := jsvalue.Parse([]byte(stored.String))
 	if err != nil {
 		return nil
 	}

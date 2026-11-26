@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -394,9 +395,9 @@ func TestCancellationOverlayAnnotatesLockedEvent(t *testing.T) {
 	schedule := f.text(`SELECT title || starts_on || starts_at || status || provenance || manual_locked FROM events WHERE id=?`, eventID)
 
 	f.addPost("post-2", "", "5/3の配信は中止です", "2026-04-29T03:00:00.000Z", "")
-	cancel := stringify(obj(
+	cancel := jsvalue.Stringify(jsvalue.Obj(
 		"classification", "schedule",
-		"events", []any{obj("title", "別名", "detail", nil, "date", songDate, "time", songClock, "endTime", nil,
+		"events", []any{jsvalue.Obj("title", "別名", "detail", nil, "date", songDate, "time", songClock, "endTime", nil,
 			"timePrecision", "exact", "status", "cancelled", "eventType", "stream", "url", nil, "confidence", 0.7, "evidence", "中止")},
 		"confidence", 0.7, "evidence", "中止です", "reason", "配信中止", "action", "cancel"))
 	f.provider.respond = func(request recordedRequest) (int, string) {
@@ -446,7 +447,7 @@ func boardFixture(t *testing.T) (*fixture, string) {
 	f.addCachedImage(imageURL, []byte(pngHeader))
 	f.exec(`INSERT INTO assets (id, kind, url, source_url, week_start) VALUES ('schedule-2026-04-27', 'schedule', ?, ?, '2026-04-27')`, imageURL, sourceURL)
 	f.provider.respond = func(recordedRequest) (int, string) {
-		return http.StatusOK, stringify(obj("output_text", `{"classification":"schedule","text":"月曜 20:00 配信","confidence":0.91,"evidence":"weekly grid","reason":"table of days"}`))
+		return http.StatusOK, jsvalue.Stringify(jsvalue.Obj("output_text", `{"classification":"schedule","text":"月曜 20:00 配信","confidence":0.91,"evidence":"weekly grid","reason":"table of days"}`))
 	}
 	return f, imageURL
 }
@@ -599,7 +600,7 @@ func TestScheduleImageVerdictIsDroppedWhenAssetChanges(t *testing.T) {
 		// The synchronizer replaces the image while the model is deciding. The
 		// write succeeds only because no transaction is held across the request.
 		f.exec(`UPDATE assets SET url='https://pbs.twimg.com/media/synthetic-next.png', asset_version=asset_version+1 WHERE id='schedule-2026-04-27'`)
-		return http.StatusOK, stringify(obj("output_text", `{"classification":"schedule","confidence":0.9,"evidence":"grid","reason":"table"}`))
+		return http.StatusOK, jsvalue.Stringify(jsvalue.Obj("output_text", `{"classification":"schedule","confidence":0.9,"evidence":"grid","reason":"table"}`))
 	}
 	result := f.scan()
 	assets, _ := result.Counts["assetVerification"].(map[string]any)
@@ -721,7 +722,7 @@ func TestReprocessRequestedPostIsRerun(t *testing.T) {
 func TestPostsWithoutUsableInputAreSkipped(t *testing.T) {
 	const imageURL = "https://pbs.twimg.com/media/synthetic-post.png"
 	post := func(f *fixture) {
-		f.addPost("post-img", "", "今週の配信予定です", "2026-04-28T03:00:00.000Z", stringify(obj("media_urls", []any{imageURL})))
+		f.addPost("post-img", "", "今週の配信予定です", "2026-04-28T03:00:00.000Z", jsvalue.Stringify(jsvalue.Obj("media_urls", []any{imageURL})))
 		f.exec(`INSERT INTO media_assets (id, source, source_url, status, created_at, updated_at) VALUES (?, 'x', ?, 'pending', ?, ?)`,
 			mediaIDForSourceURL(imageURL), imageURL, testTimestamp, testTimestamp)
 		f.exec(`INSERT INTO media_links (media_id, owner_type, owner_id, role, position, created_at, updated_at) VALUES (?, 'post', 'post-img', 'post-image', 0, ?, ?)`,

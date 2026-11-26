@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // smallBatches makes runs read two unsettled posts at a time.
@@ -26,7 +29,7 @@ func TestSmallBatchesMatchPerPostReads(t *testing.T) {
 	tw.scan("first")
 	tw.scan("second")
 	tw.exec(`UPDATE posts SET text = '明日 22時から配信に変更' WHERE id = 'text-1'`)
-	tw.exec(`UPDATE media_assets SET sha256 = ?`, sha256Hex("replaced"))
+	tw.exec(`UPDATE media_assets SET sha256 = ?`, digest.SHA256Hex("replaced"))
 	tw.failing["text-2"] = true
 	tw.exec(`UPDATE posts SET text = '今日 21時から雑談配信' WHERE id = 'text-2'`)
 	tw.scan("changed")
@@ -116,7 +119,7 @@ func TestSkipKeepsALaterRequest(t *testing.T) {
 	f.queue("p-vision")
 	for i, id := range []string{"post-a", "post-b"} {
 		imageURL := "https://pbs.twimg.com/media/synthetic-" + id + ".png"
-		f.addPost(id, "", "今週の配信予定です", "2026-04-28T0"+strconv.Itoa(3+i)+":00:00.000Z", stringify(obj("media_urls", []any{imageURL})))
+		f.addPost(id, "", "今週の配信予定です", "2026-04-28T0"+strconv.Itoa(3+i)+":00:00.000Z", jsvalue.Stringify(jsvalue.Obj("media_urls", []any{imageURL})))
 		f.exec(`INSERT INTO media_assets (id, source, source_url, status, created_at, updated_at) VALUES (?, 'x', ?, 'pending', ?, ?)`,
 			mediaIDForSourceURL(imageURL), imageURL, testTimestamp, testTimestamp)
 		f.exec(`INSERT INTO media_links (media_id, owner_type, owner_id, role, position, created_at, updated_at) VALUES (?, 'post', ?, 'post-image', 0, ?, ?)`,

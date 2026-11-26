@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -40,7 +41,7 @@ func translationReply(language, english, chinese string) string {
 	if language != "ja" && language != "none" {
 		japanese = "ja:" + english + chinese
 	}
-	return chatReply(stringify(obj("sourceLanguage", language, "english", english, "japanese", japanese, "simplifiedChinese", chinese)))
+	return chatReply(jsvalue.Stringify(jsvalue.Obj("sourceLanguage", language, "english", english, "japanese", japanese, "simplifiedChinese", chinese)))
 }
 
 func recent(hours int) string {
@@ -183,9 +184,9 @@ func TestAnthropicTranslationUsesJSONWithoutThinking(t *testing.T) {
 		if body["tools"] != nil || body["tool_choice"] != nil || format["type"] != "json_schema" || output["effort"] != "low" || body["thinking"].(map[string]any)["type"] != "disabled" || body["max_tokens"] != float64(1024) {
 			t.Fatalf("translation request=%v", body)
 		}
-		return http.StatusOK, stringify(obj("stop_reason", "end_turn", "usage", obj("input_tokens", 120, "output_tokens", 40), "content", []any{
-			obj("type", "thinking", "thinking", "synthetic private reasoning"),
-			obj("type", "text", "text", stringify(obj("sourceLanguage", "ja", "english", "Good morning", "simplifiedChinese", "早上好"))),
+		return http.StatusOK, jsvalue.Stringify(jsvalue.Obj("stop_reason", "end_turn", "usage", jsvalue.Obj("input_tokens", 120, "output_tokens", 40), "content", []any{
+			jsvalue.Obj("type", "thinking", "thinking", "synthetic private reasoning"),
+			jsvalue.Obj("type", "text", "text", jsvalue.Stringify(jsvalue.Obj("sourceLanguage", "ja", "english", "Good morning", "simplifiedChinese", "早上好"))),
 		}))
 	}
 	result := runTranslator(t, translator)
@@ -193,7 +194,7 @@ func TestAnthropicTranslationUsesJSONWithoutThinking(t *testing.T) {
 		t.Fatalf("result=%v requests=%d", result, f.provider.count())
 	}
 	entry := result.Counts["diagnostics"].([]any)[0].(map[string]any)
-	if entry["stopReason"] != "end_turn" || entry["inputTokens"] != 120 || entry["outputTokens"] != 40 || entry["model"] != "claude-haiku-5-5" || strings.Contains(stringify(entry), "private reasoning") {
+	if entry["stopReason"] != "end_turn" || entry["inputTokens"] != 120 || entry["outputTokens"] != 40 || entry["model"] != "claude-haiku-5-5" || strings.Contains(jsvalue.Stringify(entry), "private reasoning") {
 		t.Fatalf("diagnostic=%v", entry)
 	}
 }
@@ -207,7 +208,7 @@ func TestTranslationTruncationRaisesBudgetWithoutSavingPartialText(t *testing.T)
 			f.addPost("1", "", "今日は配信します", recent(1), "")
 			var budgets []int
 			f.provider.respond = func(request recordedRequest) (int, string) {
-				body, err := parseJSON([]byte(request.body))
+				body, err := jsvalue.Parse([]byte(request.body))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -216,7 +217,7 @@ func TestTranslationTruncationRaisesBudgetWithoutSavingPartialText(t *testing.T)
 				if f.number(`SELECT COUNT(*) FROM translations`) != 0 {
 					t.Fatal("a truncated translation was saved")
 				}
-				value := stringify(obj("sourceLanguage", "ja", "english", "Streaming today", "simplifiedChinese", "今天直播"))
+				value := jsvalue.Stringify(jsvalue.Obj("sourceLanguage", "ja", "english", "Streaming today", "simplifiedChinese", "今天直播"))
 				// Even valid JSON must not be saved with a truncated stop reason.
 				truncated := len(budgets) < 3
 				switch protocol {
@@ -225,19 +226,19 @@ func TestTranslationTruncationRaisesBudgetWithoutSavingPartialText(t *testing.T)
 					if truncated {
 						reason = "max_tokens"
 					}
-					return 200, stringify(obj("stop_reason", reason, "content", []any{obj("type", "text", "text", value)}))
+					return 200, jsvalue.Stringify(jsvalue.Obj("stop_reason", reason, "content", []any{jsvalue.Obj("type", "text", "text", value)}))
 				case protocolChat:
 					reason := "stop"
 					if truncated {
 						reason = "length"
 					}
-					return 200, stringify(obj("choices", []any{obj("finish_reason", reason, "message", obj("content", value))}))
+					return 200, jsvalue.Stringify(jsvalue.Obj("choices", []any{jsvalue.Obj("finish_reason", reason, "message", jsvalue.Obj("content", value))}))
 				default:
 					status := "completed"
 					if truncated {
 						status = "incomplete"
 					}
-					return 200, stringify(obj("status", status, "incomplete_details", obj("reason", "max_output_tokens"), "output_text", value))
+					return 200, jsvalue.Stringify(jsvalue.Obj("status", status, "incomplete_details", jsvalue.Obj("reason", "max_output_tokens"), "output_text", value))
 				}
 			}
 			result := runTranslator(t, translator)

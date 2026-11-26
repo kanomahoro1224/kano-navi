@@ -32,7 +32,7 @@ Source settings and outbound proxy routes.
   "schedules": [SourceSchedule],
   "x":       {"skipped", "methods": [FetchMethod], "accounts": [{"account", "oldest"}]},
   "youtube": {"skipped", "methods": [FetchMethod], "oldest", "push": PushStatus, "liveProbe": LiveProbeStatus},
-  "bilibili": {"available", "skipped", "methods": [FetchMethod], "oldest", "account", "videos", "signedIn", "login", "loginCheckedAt", "minIntervalMinutes", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError",
+  "bilibili": {"available", "skipped", "methods": [FetchMethod], "oldest", "account", "videos", "signedIn", "login", "loginCheckedAt", "loginSource", "loginVia", "loginName", "loginStoredAt", "loginRefreshedAt", "loginRefreshCheckedAt", "loginRefreshError", "loginStorable", "loginUnreadable", "minIntervalMinutes", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError",
                "dynamics": {"posts", "methods": [FetchMethod], "oldest", "lastAttemptAt", "lastSuccessAt", "lastError", "skipped"},
                "live": {"roomId", "liveStatus", "title", "liveTime", "checkedAt", "lastLiveAt", "blockedUntil", "lastError"}},
   "shop": {"skipped", "methods": [FetchMethod], "status": {"sales", "lastAttemptAt", "lastSuccessAt", "blockedUntil", "lastError"},

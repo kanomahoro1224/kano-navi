@@ -620,11 +620,26 @@ export interface Sources {
     oldest?: string | null
     account?: string
     videos?: number
-    /** A login cookie (BILIBILI_COOKIE or BILIBILI_SESSDATA) is configured; it is never shown. */
+    /** A login is configured, stored or from the environment; it is never shown. */
     signedIn?: boolean
-    /** The cookie's state at the daily login check. */
+    /** The login's state at the daily login check. */
     login?: BilibiliLogin
     loginCheckedAt?: string | null
+    /** The stored login wins over the environment's; null without a login. */
+    loginSource?: "stored" | "environment" | null
+    /** How the stored login was given. */
+    loginVia?: "import" | "qr" | null
+    /** The account's nickname at the last check of this login. */
+    loginName?: string | null
+    loginStoredAt?: string | null
+    loginRefreshedAt?: string | null
+    loginRefreshCheckedAt?: string | null
+    /** The stored login's last refresh check failed with this code. */
+    loginRefreshError?: string | null
+    /** This process can store a login (import, QR sign-in, forget). */
+    loginStorable?: boolean
+    /** A stored login is kept that no longer decrypts; reads skip it. */
+    loginUnreadable?: boolean
     minIntervalMinutes?: number
     lastAttemptAt?: string | null
     lastSuccessAt?: string | null
@@ -676,6 +691,18 @@ export interface ShopStatus {
 
 export type BilibiliLogin =
   "signed_in" | "expired" | "unchecked" | "not_configured"
+
+export type BilibiliQRState =
+  "waiting" | "scanned" | "signed_in" | "expired" | "failed"
+
+/** The server's QR sign-in; the code is shown only while it waits. */
+export interface BilibiliQR {
+  state: BilibiliQRState | null
+  error: string | null
+  expiresAt: string | null
+  /** The code as one SVG path over a square of `size` modules. */
+  qr: { size: number; path: string } | null
+}
 
 /** The account's dynamics listing, read with the upload list. */
 export interface BilibiliDynamicsStatus {

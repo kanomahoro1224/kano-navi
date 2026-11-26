@@ -426,6 +426,38 @@ func tallyCodes(codes []string) []string {
 	return out
 }
 
+// bilibiliLogin keeps the stored Bilibili login alive before a read: at
+// most once a day and never during the backoff (see MaintainLogin). What the
+// check learned is stored before the read, which goes on from that state.
+// It returns the step's "login" counts (the outcome, its requests and any
+// failure code), nil when nothing was due.
+func (s *SourceSteps) bilibiliLogin(ctx context.Context, account string, state bilisource.State) (bilisource.State, map[string]any, error) {
+	result, err := s.Bilibili.MaintainLogin(ctx, state)
+	if result.Outcome == "" && result.Requested == 0 {
+		return state, nil, nil
+	}
+	if saveErr := s.Store.SaveBilibiliState(ctx, account, result.State); saveErr != nil {
+		return state, nil, saveErr
+	}
+	counts := map[string]any{"outcome": result.Outcome, "requested": result.Requested}
+	if err != nil {
+		counts["error"] = bilisource.ErrorCode(err)
+	}
+	return result.State, counts, nil
+}
+
+// withLogin adds the login maintenance's counts to a step's, and its
+// requests to the step's total.
+func withLogin(counts, login map[string]any) map[string]any {
+	if login != nil {
+		counts["login"] = login
+		requested, _ := counts["requested"].(int)
+		made, _ := login["requested"].(int)
+		counts["requested"] = requested + made
+	}
+	return counts
+}
+
 // bilibiliRecent reads the account's newest uploads at most once per
 // interval through the run's chain (the default chain for a full sync).
 // During a backoff only the official client's listing, another service, is
@@ -435,6 +467,10 @@ func tallyCodes(codes []string) []string {
 func (s *SourceSteps) bilibiliRecent(ctx context.Context, in StepInput) (AttemptResult, error) {
 	account := s.Bilibili.Options.Account
 	state, err := s.Store.BilibiliState(ctx, account)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
+	state, login, err := s.bilibiliLogin(ctx, account, state)
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
@@ -448,13 +484,13 @@ func (s *SourceSteps) bilibiliRecent(ctx context.Context, in StepInput) (Attempt
 	}
 	if result.Skipped != "" {
 		// A read skipped without a request changes no state.
-		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": result.Skipped, "requested": 0}}, nil
+		return AttemptResult{Status: "succeeded", Result: withLogin(map[string]any{"skipped": true, "reason": result.Skipped, "requested": 0}, login)}, nil
 	}
 	changed, err := s.Store.WriteBilibiliRecent(ctx, account, result)
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
-	counts := map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "requested": result.Requested, "changed": changed}
+	counts := withLogin(map[string]any{"count": len(result.Videos), "videos": len(result.Videos), "requested": result.Requested, "changed": changed}, login)
 	if result.Listing != "" {
 		counts["listing"] = result.Listing
 	}
@@ -487,6 +523,10 @@ func (s *SourceSteps) bilibiliDynamics(ctx context.Context, in StepInput) (Attem
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
+	state, login, err := s.bilibiliLogin(ctx, account, state)
+	if err != nil {
+		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
+	}
 	chain := sqlite.DefaultSourceChain(sqlite.BilibiliDynamicsSource)
 	if in.Chain != nil {
 		chain = *in.Chain
@@ -497,13 +537,13 @@ func (s *SourceSteps) bilibiliDynamics(ctx context.Context, in StepInput) (Attem
 	}
 	if dynamics.Skipped != "" && dynamics.Requested == 0 {
 		// A listing skipped without a request changes no state.
-		return AttemptResult{Status: "succeeded", Result: map[string]any{"skipped": true, "reason": dynamics.Skipped, "requested": 0}}, nil
+		return AttemptResult{Status: "succeeded", Result: withLogin(map[string]any{"skipped": true, "reason": dynamics.Skipped, "requested": 0}, login)}, nil
 	}
 	changed, err := s.Store.WriteBilibiliDynamics(ctx, account, dynamics)
 	if err != nil {
 		return AttemptResult{}, NewStepError("schema_failure", ErrSchema)
 	}
-	counts := map[string]any{"count": len(dynamics.Dynamics), "posts": len(dynamics.Dynamics), "videos": len(dynamics.Uploads), "requested": dynamics.Requested, "changed": changed}
+	counts := withLogin(map[string]any{"count": len(dynamics.Dynamics), "posts": len(dynamics.Dynamics), "videos": len(dynamics.Uploads), "requested": dynamics.Requested, "changed": changed}, login)
 	if dynamics.Listing != "" {
 		counts["listing"] = dynamics.Listing
 	}

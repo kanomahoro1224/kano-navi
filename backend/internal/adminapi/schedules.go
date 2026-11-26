@@ -75,11 +75,11 @@ func (a *api) chainEntry(ctx context.Context, schedule sqlite.SourceSchedule) (m
 		item := map[string]any{"id": method.ID, "enabled": method.Enabled, "available": true}
 		switch {
 		case schedule.Source == "bilibili" && method.ID == bilisource.MethodDynamics:
-			item["requires"] = "BILIBILI_COOKIE or BILIBILI_SESSDATA"
-			item["available"] = a.Bilibili != nil && a.Bilibili.Options.SignedIn()
+			item["requires"] = "a Bilibili login"
+			item["available"] = a.Bilibili != nil && a.Bilibili.SignedIn(ctx)
 		case schedule.Source == sqlite.BilibiliDynamicsSource && (method.ID == bilisource.MethodDesktop || method.ID == bilisource.MethodDynamics):
-			item["requires"] = "BILIBILI_COOKIE or BILIBILI_SESSDATA"
-			item["available"] = a.Bilibili != nil && a.Bilibili.Options.SignedIn()
+			item["requires"] = "a Bilibili login"
+			item["available"] = a.Bilibili != nil && a.Bilibili.SignedIn(ctx)
 		case schedule.Source == sqlite.ShopSource && method.ID == shopsource.MethodSigned:
 			item["requires"] = "a Web Bot Auth key"
 			item["available"] = a.webBotAuthStatus()["state"] == "active"
@@ -92,7 +92,7 @@ func (a *api) chainEntry(ctx context.Context, schedule sqlite.SourceSchedule) (m
 					item["requires"] = described.Requires
 				}
 			}
-			item["available"] = a.methodAvailable(schedule.Source, method.ID)
+			item["available"] = a.methodAvailable(ctx, schedule.Source, method.ID)
 		}
 		methods = append(methods, item)
 	}

@@ -266,7 +266,7 @@ func (s *Service) link(rule string) string {
 	switch rule {
 	case RuleRunFailedStreak:
 		view = "runs"
-	case RuleSourceStale, RuleLoginExpired:
+	case RuleSourceStale, RuleLoginExpired, RuleLoginRefreshFailed:
 		view = "sources"
 	}
 	return s.origin + "/admin#" + view

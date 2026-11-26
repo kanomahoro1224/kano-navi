@@ -118,9 +118,9 @@ pages `/x/polymer/web-dynamic/v1/feed/space` by the offset each page
 answers, both newest first, through the Bilibili client the timers read with
 (see [Bilibili](../sources/bilibili.md)). Pages are 15 seconds apart, far wider
 than the other sources' request spacing, because Bilibili answers quick runs
-of requests with a captcha. The dynamics fetch needs the login cookie and
-checks it and the WBI keys as the timed listing does when they are due; it
-fails with `bilibili_login_required` without a cookie and
+of requests with a captcha. The dynamics fetch needs a login and checks it
+and the WBI keys as the timed listing does when they are due; it fails with
+`bilibili_login_required` without a login and
 `bilibili_login_expired` while the latest check found it expired. Each page
 keeps only the account's own records, as the timed reads keep them.
 

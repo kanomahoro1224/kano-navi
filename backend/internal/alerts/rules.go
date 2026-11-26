@@ -29,6 +29,7 @@ const (
 	RuleRunFailedStreak       = "run_failed_streak"
 	RuleSourceStale           = "source_stale"
 	RuleLoginExpired          = "login_expired"
+	RuleLoginRefreshFailed    = "login_refresh_failed"
 	RuleUnreadableCredentials = "secrets_unreadable"
 )
 
@@ -51,6 +52,7 @@ var Catalog = []Rule{
 	{Code: RuleRunFailedStreak, Param: "runs", Default: 3, Min: 1, Max: 20, Severity: SeverityWarning, Enabled: true},
 	{Code: RuleSourceStale, Param: "hours", Default: 24, Min: 1, Max: 168, Severity: SeverityWarning, Enabled: true},
 	{Code: RuleLoginExpired, Severity: SeverityCritical, Enabled: true},
+	{Code: RuleLoginRefreshFailed, Severity: SeverityWarning, Enabled: true},
 	{Code: RuleUnreadableCredentials, Severity: SeverityCritical, Enabled: true},
 }
 
@@ -95,6 +97,10 @@ type Signals struct {
 	// BilibiliLogin reports the login cookie's state as the console shows
 	// it; "expired" opens login_expired. Nil without a Bilibili account.
 	BilibiliLogin func(ctx context.Context) (string, error)
+	// BilibiliLoginRefresh reports the failure code of the stored login's
+	// latest refresh check, "" when it succeeded or no login is stored; a
+	// code other than bilibili_login_expired opens login_refresh_failed.
+	BilibiliLoginRefresh func(ctx context.Context) (string, error)
 	// Secrets reports, by area, whether a stored secret no longer decrypts.
 	Secrets map[string]func(ctx context.Context) (bool, error)
 	// LiveProbe is true when the live-status probe runs in this process;
@@ -141,6 +147,18 @@ func (s *Service) evaluate(ctx context.Context, rule Rule, setting RuleSetting, 
 		}
 		if status == "expired" {
 			return []Finding{{Rule: rule.Code, Subject: "bilibili", Detail: map[string]any{}}}, nil
+		}
+		return nil, nil
+	case RuleLoginRefreshFailed:
+		if s.signals.BilibiliLoginRefresh == nil || s.signals.SkipSources["bilibili"] {
+			return nil, nil
+		}
+		code, err := s.signals.BilibiliLoginRefresh(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if code != "" && code != "bilibili_login_expired" && codePattern.MatchString(code) {
+			return []Finding{{Rule: rule.Code, Subject: "bilibili", Detail: map[string]any{"error": code}}}, nil
 		}
 		return nil, nil
 	case RuleUnreadableCredentials:

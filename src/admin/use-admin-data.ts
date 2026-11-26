@@ -24,6 +24,7 @@ import type {
   AlertRuleSetting,
   AlertSettings,
   AlertTestResult,
+  BilibiliQR,
   AccountAvatarMode,
   AccountAvatarMutation,
   AccountAvatarsState,
@@ -256,6 +257,19 @@ function createClient(run: Runner, slow: Runner) {
         `/sources/youtube/live-probe/videos/${enc(id)}`,
         { stopped },
       ),
+    importBilibiliLogin: (body: { cookie: string; refreshToken: string }) =>
+      send<Sources["bilibili"]>("PUT", "/sources/bilibili/login", body),
+    /** Drops the stored login; signOut ends its session at Bilibili first. */
+    forgetBilibiliLogin: (signOut: boolean) =>
+      send<Sources["bilibili"]>(
+        "DELETE",
+        `/sources/bilibili/login${signOut ? "?signOut=1" : ""}`,
+      ),
+    bilibiliQR: () => get<BilibiliQR>("/sources/bilibili/login/qr"),
+    startBilibiliQR: () =>
+      send<BilibiliQR>("POST", "/sources/bilibili/login/qr"),
+    cancelBilibiliQR: () =>
+      send<BilibiliQR>("DELETE", "/sources/bilibili/login/qr"),
     updateWebBotAuth: (body: { origin: string | null }) =>
       send<WebBotAuthStatus>("PUT", "/sources/shop/web-bot-auth", body),
     generateWebBotAuthKey: () =>

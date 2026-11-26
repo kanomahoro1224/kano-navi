@@ -15,17 +15,31 @@ month in view replaces the address's month as the page scrolls, without an
 entry, and the newest month leaves the address without one.
 
 `usePostArchiveIndex` in `use-dashboard.ts` reads
-[`/api/posts/months`](../public-api/calendar-and-archives.md#bounded-public-archives) once: the month
+[`/api/posts/months`](../public-api/calendar-and-archives.md#bounded-public-archives) once per visit: the month
 index, the accounts the page offers (the board's X accounts, then the
-archive-only ones, then Bilibili mids) and their avatars. A failed read offers
-a retry. The posts read through `useArchive` from the post timeline of
+archive-only ones, then Bilibili mids) and their avatars. Until it arrives
+the page shows the last index it knew; a failed read keeps that one, and
+without one offers a retry. The posts read through `useArchive` from the post
+timeline of
 [`/api/posts`](../public-api/calendar-and-archives.md#bounded-public-archives), following the index's
-revision, as the video dialog reads its own: a chosen month starts the
+revision, as the video dialog reads its own: the newest posts read alongside
+the index, a chosen month waits for this visit's index and starts the
 timeline at the page holding the month's newest post (`timelineStartPage`,
 from the index's counts for the chosen account), the next page loads as the
 end scrolls near, and **Newer posts** above the first month reads the page
 before it while the first post keeps its place on screen. A chosen month that
-is already loaded scrolls into view instead. A month without the account's
+is already loaded scrolls into view instead.
+
+The page keeps its last reads, so a return opens on them. The document keeps
+the month index and the last timeline as loaded; `localStorage`
+(`kano-post-archive-v1`) keeps the index and the first page of the last three
+accounts' timelines from their newest post, each for a week. A timeline opens
+on a kept run of the same account and start without a read. Post pages carry
+no time-derived fields, so the run is read again only when this visit's index
+names another revision, or once when the index read fails. Back or forward to
+an address whose month the kept timeline holds resumes that timeline from
+its own start without a jump, so the site's navigation restores the scroll.
+A change to the shape of either answer takes a new storage key. A month without the account's
 posts opens the nearest earlier month that has some (`nearestMonth` in
 `src/posts/timeline.ts`), and changing the account keeps the month in view
 that way unless the timeline is at its newest posts.

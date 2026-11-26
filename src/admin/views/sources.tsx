@@ -40,6 +40,7 @@ import {
   BilibiliAddUpload,
   BilibiliLoginBadge,
   BilibiliLoginNote,
+  BilibiliLoginPanel,
   BilibiliSource,
 } from "@/admin/views/bilibili-parts"
 import { stepIcons } from "@/admin/views/run-parts"
@@ -540,6 +541,16 @@ export function SourcesView({ tab, navigate }: ViewProps) {
                     schedule={current}
                     onChange={setSchedule}
                   />
+                  {isBilibili(selected) ? (
+                    <BilibiliLoginPanel
+                      status={data.bilibili}
+                      onChange={(bilibili) => {
+                        sources.setData({ ...data, bilibili })
+                        // The chains' signed-in methods follow the login.
+                        void sources.reload()
+                      }}
+                    />
+                  ) : null}
                   {selected === "x" ? (
                     <XAPIPanel
                       schedule={current}

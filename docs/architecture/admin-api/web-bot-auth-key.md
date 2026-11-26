@@ -48,8 +48,8 @@ manual fetch of one account, reads the accounts.
 
 `FetchMethod` describes one manual fetch method in the order the console
 offers them: `{id, modes, maxCount, pageSize, requires, refresh, extract,
-available}`. `requires` names the environment variable the method needs
-(`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY` or, for a Bilibili login, `BILIBILI_COOKIE or BILIBILI_SESSDATA`), never its value, and is absent
+available}`. `requires` names the credential the method needs
+(`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY` or `a Bilibili login`), never its value, and is absent
 for public methods; `available` is false while
 it, or the method's adapter, is missing. `refresh` and `extract` say which
 options the method takes.
@@ -64,9 +64,9 @@ disables the source. `sync` is `{mode: "incremental", max}` (default, `max` 50) 
 `chain` is the source's [method chain](../workflows/source-schedules.md#method-chains):
 `{methods, fixed}`, where `methods` lists `{id, enabled, available,
 requires}` in the order reads try them. `available` is false while the
-method's credential is missing, and `requires` names its variables
+method's credential is missing, and `requires` names it
 (`X_API_BEARER_TOKEN`, `YOUTUBE_API_KEY`, `YTDLP_BINARY`,
-`BILIBILI_COOKIE or BILIBILI_SESSDATA`,
+`a Bilibili login` (stored or from the environment),
 `BILIBILI_APP_KEY and BILIBILI_APP_SECRET`, or `a Web Bot Auth key` for the
 shop's `signed`, available while the [key](<>) is active)
 for methods that need one. `fixed` is true for the

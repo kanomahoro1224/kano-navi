@@ -27,33 +27,142 @@ type State struct {
 	Dynamics DynamicsState
 	// WBI caches the signature keys of the listing.
 	WBI WBIKeys
-	// Login is what the latest login check learned about the configured
-	// cookie; it is zero until one ran.
+	// Login is what the latest login check learned about the login it
+	// checked; it is zero until one ran.
 	Login LoginState
+	// Refresh is the stored login's latest refresh check (MaintainLogin).
+	Refresh RefreshState
 }
 
-// LoginState is the latest login check: when it ran and whether Bilibili
-// accepted the cookie (nav isLogin).
+// LoginState is the latest login check: when it ran, whether Bilibili
+// accepted the cookie (nav isLogin) and the account's nickname.
 type LoginState struct {
 	CheckedAt time.Time
 	SignedIn  bool
+	// Of names the login checked: "environment" (also when empty) or a
+	// stored login's key, so a check of one login never counts for another.
+	Of   string
+	Name string
 }
 
 // loginCheckInterval is how often the configured cookie is verified.
 const loginCheckInterval = 24 * time.Hour
 
-// LoginStatus is how the console describes the login cookie: signed_in,
-// expired, unchecked (configured, not verified yet) or not_configured.
-func (a *Adapter) LoginStatus(state State) string {
+// Login sources.
+const (
+	LoginStored      = "stored"
+	LoginEnvironment = "environment"
+)
+
+// loginRef is the login one read resolved.
+type loginRef struct {
+	resolved bool
+	// source is LoginStored or LoginEnvironment; key names it in the check
+	// bookkeeping.
+	source, key string
+	stored      *StoredLogin
+}
+
+// resolved is the adapter for one read: its Options carry the stored login
+// while one is stored and readable, the environment's otherwise. Each read
+// resolves it again, so an import, a refresh or a forget applies to the next
+// read without a restart, in every process.
+func (a *Adapter) resolved(ctx context.Context) *Adapter {
+	if a.current.resolved {
+		return a
+	}
+	view := *a
+	view.current = loginRef{resolved: true, source: LoginEnvironment, key: LoginEnvironment}
+	if login, _, err := a.Logins.Load(ctx); err == nil {
+		view.Options.SESSDATA, view.Options.Cookies = login.SESSDATA, login.Cookies
+		view.current.source, view.current.key, view.current.stored = LoginStored, login.key(), &login
+	}
+	return &view
+}
+
+// loginCheck is the latest check of the read's login: zero when the
+// bookkeeping holds a check of another login.
+func (a *Adapter) loginCheck(state State) LoginState {
+	of := state.Login.Of
+	if of == "" {
+		of = LoginEnvironment
+	}
+	key := a.current.key
+	if key == "" {
+		key = LoginEnvironment
+	}
+	if of != key {
+		return LoginState{}
+	}
+	return state.Login
+}
+
+// checked is the bookkeeping of a check of the read's login.
+func (a *Adapter) checked(now time.Time, nav NavLogin) LoginState {
+	of := a.current.key
+	if of == "" {
+		of = LoginEnvironment
+	}
+	return LoginState{CheckedAt: now, SignedIn: nav.SignedIn, Of: of, Name: nav.Name}
+}
+
+// loginDue reports a login whose daily check is due.
+func loginDue(check LoginState, now time.Time) bool {
+	return check.CheckedAt.IsZero() || now.Sub(check.CheckedAt) >= loginCheckInterval
+}
+
+// SignedIn reports whether a read now sends a login: a stored one or the
+// environment's.
+func (a *Adapter) SignedIn(ctx context.Context) bool {
+	return a.resolved(ctx).Options.SignedIn()
+}
+
+// LoginInfo is the read's login as the console describes it. It never
+// carries a cookie, a token or an account ID.
+type LoginInfo struct {
+	// Status is signed_in, expired, unchecked (configured, not verified
+	// yet) or not_configured.
+	Status string
+	// Source is LoginStored, LoginEnvironment or "" without a login; Via is
+	// how a stored login was given.
+	Source, Via string
+	// Name is the nickname the latest check of this login saw.
+	Name             string
+	CheckedAt        time.Time
+	StoredAt         time.Time
+	RefreshedAt      time.Time
+	RefreshCheckedAt time.Time
+	RefreshError     string
+	ConfirmPending   bool
+}
+
+// Login describes the read's login.
+func (a *Adapter) Login(ctx context.Context, state State) LoginInfo {
+	a = a.resolved(ctx)
+	check := a.loginCheck(state)
+	out := LoginInfo{Status: "expired", Name: check.Name, CheckedAt: check.CheckedAt}
 	switch {
 	case !a.Options.SignedIn():
-		return "not_configured"
-	case state.Login.CheckedAt.IsZero():
-		return "unchecked"
-	case state.Login.SignedIn:
-		return "signed_in"
+		return LoginInfo{Status: "not_configured"}
+	case check.CheckedAt.IsZero():
+		out.Status = "unchecked"
+	case check.SignedIn:
+		out.Status = "signed_in"
 	}
-	return "expired"
+	out.Source = a.current.source
+	if stored := a.current.stored; stored != nil {
+		out.Via, out.StoredAt, out.RefreshedAt, out.ConfirmPending = stored.Via, stored.StoredAt, stored.RefreshedAt, stored.PendingConfirm != ""
+		if state.Refresh.Of == stored.key() {
+			out.RefreshCheckedAt, out.RefreshError = state.Refresh.CheckedAt, state.Refresh.LastError
+		}
+	}
+	return out
+}
+
+// LoginStatus is how the console describes the read's login: signed_in,
+// expired, unchecked (configured, not verified yet) or not_configured.
+func (a *Adapter) LoginStatus(ctx context.Context, state State) string {
+	return a.Login(ctx, state).Status
 }
 
 // DynamicsState is the bookkeeping of the dynamics listing.
@@ -112,16 +221,23 @@ type Result struct {
 }
 
 type Adapter struct {
-	Client  *Client
+	Client *Client
+	// Options carry the environment's login; a stored login takes its place
+	// for each read (see resolved).
 	Options Options
 	Now     func() time.Time
+	// Logins keeps the login the server owns; nil leaves the environment's
+	// alone.
+	Logins *Logins
+	// current is the login a resolved adapter reads with.
+	current loginRef
 }
 
 func NewAdapter(c *Client, options Options) *Adapter {
 	if c == nil {
 		c = NewClient(nil)
 	}
-	return &Adapter{c, options, time.Now}
+	return &Adapter{Client: c, Options: options, Now: time.Now}
 }
 
 // Listing methods of the upload read, by the stable IDs the timed chain
@@ -164,6 +280,7 @@ func (a *Adapter) FetchRecentWith(ctx context.Context, state State, methods []st
 	if len(methods) == 0 {
 		methods = DefaultMethods
 	}
+	a = a.resolved(ctx)
 	now := a.Now()
 	result := Result{Videos: []Video{}, State: state}
 	due := state.LastAttemptAt.IsZero() || now.Sub(state.LastAttemptAt) >= a.Options.MinInterval
@@ -275,8 +392,8 @@ func (r *Result) methodFailed(method string, err error, now time.Time) {
 // a login cookie is configured and the last check did not find it expired,
 // or a check is due.
 func (a *Adapter) loginUsable(state State, now time.Time) bool {
-	loginDue := state.Login.CheckedAt.IsZero() || now.Sub(state.Login.CheckedAt) >= loginCheckInterval
-	return a.Options.SignedIn() && (loginDue || state.Login.SignedIn)
+	check := a.loginCheck(state)
+	return a.Options.SignedIn() && (loginDue(check, now) || check.SignedIn)
 }
 
 // uploadsFromDynamics reads the uploads from the account's signed-in
@@ -289,7 +406,7 @@ func (a *Adapter) loginUsable(state State, now time.Time) bool {
 // already did.
 func (a *Adapter) uploadsFromDynamics(ctx context.Context, result *Result, session Session, now time.Time) ([]Video, bool) {
 	state := &result.State
-	loginDue := state.Login.CheckedAt.IsZero() || now.Sub(state.Login.CheckedAt) >= loginCheckInterval
+	due := loginDue(a.loginCheck(*state), now)
 	if !a.loginUsable(*state, now) {
 		return nil, false
 	}
@@ -299,21 +416,21 @@ func (a *Adapter) uploadsFromDynamics(ctx context.Context, result *Result, sessi
 		case "bilibili_risk_control_voucher", "bilibili_risk_control_352":
 			state.WBI = WBIKeys{}
 		case "bilibili_login_expired":
-			state.Login = LoginState{CheckedAt: now}
+			state.Login = a.checked(now, NavLogin{})
 		}
 		result.methodFailed(MethodDynamics, err, now)
 		return nil, false
 	}
-	if loginDue || !state.WBI.fresh(now) {
+	if due || !state.WBI.fresh(now) {
 		result.Requested++
 		check := session
 		a.Options.signIn(&check)
-		keys, signedIn, err := a.Client.NavKeys(ctx, check, now)
+		keys, nav, err := a.Client.NavKeys(ctx, check, now)
 		if err != nil {
 			return fail(err)
 		}
-		state.WBI, state.Login = keys, LoginState{CheckedAt: now, SignedIn: signedIn}
-		if !signedIn {
+		state.WBI, state.Login = keys, a.checked(now, nav)
+		if !nav.SignedIn {
 			result.methodFailed(MethodDynamics, &Error{"bilibili_login_expired"}, now)
 			return nil, false
 		}
@@ -333,6 +450,7 @@ func (a *Adapter) uploadsFromDynamics(ctx context.Context, result *Result, sessi
 // and a failure extends it as usual. Only uploads of the configured account
 // are accepted.
 func (a *Adapter) FetchVideo(ctx context.Context, state State, bvid string, force bool) (Video, State, error) {
+	a = a.resolved(ctx)
 	now := a.Now()
 	if now.Before(state.BlockedUntil) && !force {
 		return Video{}, state, &Error{"bilibili_blocked"}
@@ -370,9 +488,11 @@ func (a *Adapter) FetchDynamicsWith(ctx context.Context, state State, methods []
 	if len(methods) == 0 {
 		methods = DefaultDynamicsMethods
 	}
+	a = a.resolved(ctx)
 	now := a.Now()
 	result := DynamicsResult{Dynamics: []Dynamic{}, Uploads: []Video{}, Errors: []string{}, State: state}
-	loginDue := state.Login.CheckedAt.IsZero() || now.Sub(state.Login.CheckedAt) >= loginCheckInterval
+	last := a.loginCheck(state)
+	due := loginDue(last, now)
 	switch {
 	case !a.Options.SignedIn():
 		result.Skipped = "login_required"
@@ -383,7 +503,7 @@ func (a *Adapter) FetchDynamicsWith(ctx context.Context, state State, methods []
 	case !state.Dynamics.LastAttemptAt.IsZero() && now.Sub(state.Dynamics.LastAttemptAt) < a.Options.MinInterval:
 		result.Skipped = "interval"
 		return result, nil
-	case !loginDue && !state.Login.SignedIn:
+	case !due && !last.SignedIn:
 		result.Skipped = "login_expired"
 		return result, nil
 	}
@@ -395,19 +515,19 @@ func (a *Adapter) FetchDynamicsWith(ctx context.Context, state State, methods []
 		result.Requested++
 		check := session
 		a.Options.signIn(&check)
-		keys, signedIn, err := a.Client.NavKeys(ctx, check, now)
+		keys, nav, err := a.Client.NavKeys(ctx, check, now)
 		if err != nil {
 			return err
 		}
 		result.State.WBI = keys
-		result.State.Login = LoginState{CheckedAt: now, SignedIn: signedIn}
-		if !signedIn {
+		result.State.Login = a.checked(now, nav)
+		if !nav.SignedIn {
 			return &Error{"bilibili_login_expired"}
 		}
 		a.Options.signIn(&session)
 		return nil
 	}
-	if err == nil && loginDue {
+	if err == nil && due {
 		err = checkLogin()
 		if err != nil && ErrorCode(err) == "bilibili_login_expired" {
 			result.State.Dynamics.LastError = "bilibili_login_expired"
@@ -416,7 +536,7 @@ func (a *Adapter) FetchDynamicsWith(ctx context.Context, state State, methods []
 		}
 	}
 	if err != nil {
-		result.State = failedDynamics(result.State, err, now)
+		result.State = a.failedDynamics(result.State, err, now)
 		return result, err
 	}
 	var firstErr error
@@ -458,14 +578,14 @@ func (a *Adapter) FetchDynamicsWith(ctx context.Context, state State, methods []
 			firstErr = err
 		}
 		if IsRiskControl(code) || code == "bilibili_login_expired" || code == "bilibili_login_required" {
-			result.State = failedDynamics(result.State, err, now)
+			result.State = a.failedDynamics(result.State, err, now)
 			return result, err
 		}
 	}
 	if firstErr == nil {
 		firstErr = &Error{"bilibili_no_method"}
 	}
-	result.State = failedDynamics(result.State, firstErr, now)
+	result.State = a.failedDynamics(result.State, firstErr, now)
 	return result, firstErr
 }
 
@@ -477,6 +597,7 @@ func (a *Adapter) FetchDynamicsWith(ctx context.Context, state State, methods []
 // the timer. It also reports the requests it made, the device identity and
 // ticket included.
 func (a *Adapter) FetchUploadsPage(ctx context.Context, state State, page int) (UploadsPage, State, int, error) {
+	a = a.resolved(ctx)
 	now := a.Now()
 	if now.Before(state.BlockedUntil) {
 		return UploadsPage{}, state, 0, &Error{"bilibili_blocked"}
@@ -504,28 +625,30 @@ func (a *Adapter) FetchUploadsPage(ctx context.Context, state State, page int) (
 // listing's success, a failure its code and any backoff; the listing's
 // attempt clock stays with the timer.
 func (a *Adapter) FetchDynamicsPage(ctx context.Context, state State, offset string) (SpacePage, State, int, error) {
+	a = a.resolved(ctx)
 	now := a.Now()
-	loginDue := state.Login.CheckedAt.IsZero() || now.Sub(state.Login.CheckedAt) >= loginCheckInterval
+	last := a.loginCheck(state)
+	due := loginDue(last, now)
 	switch {
 	case !a.Options.SignedIn():
 		return SpacePage{}, state, 0, &Error{"bilibili_login_required"}
 	case now.Before(state.BlockedUntil):
 		return SpacePage{}, state, 0, &Error{"bilibili_blocked"}
-	case !loginDue && !state.Login.SignedIn:
+	case !due && !last.SignedIn:
 		return SpacePage{}, state, 0, &Error{"bilibili_login_expired"}
 	}
 	requests := 0
 	session, err := a.session(ctx, &state, &requests, now)
-	if err == nil && (loginDue || !state.WBI.fresh(now)) {
+	if err == nil && (due || !state.WBI.fresh(now)) {
 		requests++
 		check := session
 		a.Options.signIn(&check)
 		var keys WBIKeys
-		var signedIn bool
-		if keys, signedIn, err = a.Client.NavKeys(ctx, check, now); err == nil {
+		var nav NavLogin
+		if keys, nav, err = a.Client.NavKeys(ctx, check, now); err == nil {
 			state.WBI = keys
-			state.Login = LoginState{CheckedAt: now, SignedIn: signedIn}
-			if !signedIn {
+			state.Login = a.checked(now, nav)
+			if !nav.SignedIn {
 				state.Dynamics.LastError = "bilibili_login_expired"
 				return SpacePage{}, state, requests, &Error{"bilibili_login_expired"}
 			}
@@ -538,7 +661,7 @@ func (a *Adapter) FetchDynamicsPage(ctx context.Context, state State, offset str
 		page, err = a.Client.SpaceDynamicsPage(ctx, a.Options.Account, offset, session, state.WBI, now)
 	}
 	if err != nil {
-		return SpacePage{}, failedDynamics(state, err, now), requests, err
+		return SpacePage{}, a.failedDynamics(state, err, now), requests, err
 	}
 	return page, succeededDynamics(state, now), requests, nil
 }
@@ -548,6 +671,7 @@ func (a *Adapter) FetchDynamicsPage(ctx context.Context, state State, offset str
 // in FetchVideo. Only post-type dynamics of the configured account are
 // accepted.
 func (a *Adapter) FetchDynamic(ctx context.Context, state State, id string, force bool) (Dynamic, State, error) {
+	a = a.resolved(ctx)
 	now := a.Now()
 	if now.Before(state.BlockedUntil) && !force {
 		return Dynamic{}, state, &Error{"bilibili_blocked"}
@@ -574,6 +698,7 @@ func (a *Adapter) FetchDynamic(ctx context.Context, state State, id string, forc
 // clears it; the list read's interval, last success and last error stay as
 // they were.
 func (a *Adapter) FetchCover(ctx context.Context, state State, bvid string) (string, State, error) {
+	a = a.resolved(ctx)
 	now := a.Now()
 	if now.Before(state.BlockedUntil) {
 		return "", state, &Error{"bilibili_blocked"}
@@ -622,7 +747,7 @@ func (a *Adapter) session(ctx context.Context, state *State, requests *int, now 
 		}
 	}
 	session := state.Session
-	if a.Options.SignedIn() && (state.Login.CheckedAt.IsZero() || state.Login.SignedIn) {
+	if last := a.loginCheck(*state); a.Options.SignedIn() && (last.CheckedAt.IsZero() || last.SignedIn) {
 		a.Options.signIn(&session)
 	}
 	return session, nil
@@ -693,7 +818,7 @@ func backoff(failures int, until time.Time, code string, now time.Time) (int, ti
 	return failures, now.Add(min(wait, maxBlock))
 }
 
-func failedDynamics(state State, err error, now time.Time) State {
+func (a *Adapter) failedDynamics(state State, err error, now time.Time) State {
 	state.Dynamics.LastError = ErrorCode(err)
 	// A signature answer may mean the keys rotated: read them again next
 	// time rather than reuse them after the block.
@@ -701,7 +826,7 @@ func failedDynamics(state State, err error, now time.Time) State {
 		state.WBI = WBIKeys{}
 	}
 	if state.Dynamics.LastError == "bilibili_login_expired" {
-		state.Login = LoginState{CheckedAt: now}
+		state.Login = a.checked(now, NavLogin{})
 	}
 	return blocked(state, err, now)
 }

@@ -22,9 +22,8 @@ test("month archives page by revision, follow the board and cancel on close", as
     resolve: { alias: { "@": path.resolve("src") } },
   })
   try {
-    const { useArchive, timelineStartPage } = await vite.ssrLoadModule(
-      "/src/dashboard/use-dashboard.ts",
-    )
+    const { useArchive, usePostArchiveIndex, timelineStartPage } =
+      await vite.ssrLoadModule("/src/dashboard/use-dashboard.ts")
     await vite.close()
     const setup = async (context: TestContext, initial: ProbeProps) => {
       const previous = (globalThis as any).IS_REACT_ACT_ENVIRONMENT
@@ -81,6 +80,12 @@ test("month archives page by revision, follow the board and cancel on close", as
         )
       const rerender = async (props: ProbeProps) =>
         act(async () => root.update(createElement(Probe, props)))
+      // Leaves the page and opens it again, as a return to it does.
+      const remount = async (props: ProbeProps) =>
+        act(async () => {
+          root.unmount()
+          root = render(createElement(Probe, props))
+        })
       const reject = async (index: number) =>
         act(async () => requests[index].reject(new Error("Synthetic outage")))
       const unmount = async () => {
@@ -94,6 +99,7 @@ test("month archives page by revision, follow the board and cancel on close", as
         page,
         respond,
         rerender,
+        remount,
         reject,
         unmount,
         ids,
@@ -225,6 +231,112 @@ test("month archives page by revision, follow the board and cancel on close", as
           assert.equal(fixture.requests.length, 2)
           await fixture.respond(1, fixture.page(1, 5, ["updated-post"]))
           assert.equal(fixture.ids(), "updated-post")
+        } finally {
+          await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
+      "a post timeline reopens on the run it loaded and follows the index revision",
+      async (context) => {
+        const request = {
+          kind: "posts",
+          monthStart: october,
+          account: "memory_a",
+        }
+        const fixture = await setup(context, { request, revision: 1 })
+        try {
+          await fixture.respond(0, fixture.page(1, 1, ["a"], true))
+          await act(async () => void fixture.current().loadMore())
+          await fixture.respond(1, fixture.page(2, 1, ["b"], true))
+          // Back on the page before its index arrives: the loaded run, no read.
+          await fixture.remount({ request })
+          assert.equal(fixture.ids(), "a,b")
+          assert.equal(fixture.current().isLoading, false)
+          assert.equal(fixture.requests.length, 2)
+          // The index names the run's revision: it is current.
+          await fixture.rerender({ request, revision: 1 })
+          assert.equal(fixture.requests.length, 2)
+          // Another revision rereads the whole run.
+          await fixture.remount({ request })
+          await fixture.rerender({ request, revision: 2 })
+          assert.match(fixture.requests[2].url, /[?&]page=1&/)
+          assert.equal(fixture.ids(), "a,b")
+          await fixture.respond(2, fixture.page(1, 2, ["a2"], true))
+          await fixture.respond(3, fixture.page(2, 2, ["b2"], true))
+          assert.equal(fixture.ids(), "a2,b2")
+          // A failed index read rereads a remembered run once.
+          await fixture.remount({ request })
+          await fixture.rerender({ request, revision: null })
+          assert.equal(fixture.requests.length, 5)
+          await fixture.respond(4, fixture.page(1, 2, ["a3"], true))
+          await fixture.respond(5, fixture.page(2, 2, ["b3"], true))
+          assert.equal(fixture.ids(), "a3,b3")
+          assert.equal(fixture.requests.length, 6)
+        } finally {
+          await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
+      "the newest post page waits in storage for the next visit",
+      async (context) => {
+        const stored = {
+          kind: "posts",
+          monthStart: october,
+          account: "stored_a",
+        }
+        const other = { ...stored, account: "stored_b" }
+        window.localStorage.removeItem("kano-post-archive-v1")
+        const fixture = await setup(context, { request: stored })
+        try {
+          await fixture.respond(0, fixture.page(1, 3, ["new"], true))
+          await act(async () => void fixture.current().loadMore())
+          await fixture.respond(1, fixture.page(2, 3, ["older"]))
+          // Another timeline replaces the one this document remembers.
+          await fixture.rerender({ request: other })
+          await fixture.respond(2, fixture.page(1, 3, ["b"]))
+          // The browser kept the first page alone.
+          await fixture.remount({ request: stored })
+          assert.equal(fixture.ids(), "new")
+          assert.equal(fixture.current().archive.page, 1)
+          assert.equal(fixture.current().archive.hasNext, true)
+          assert.equal(fixture.requests.length, 3)
+          await fixture.rerender({ request: stored, revision: 3 })
+          assert.equal(fixture.requests.length, 3)
+          await act(async () => void fixture.current().loadMore())
+          assert.match(fixture.requests[3].url, /[?&]page=2&/)
+          // A timeline from a chosen month is not stored.
+          const chosen = { ...stored, anchor: new Date(2026, 8, 1) }
+          await fixture.rerender({ request: chosen, revision: 3 })
+          await fixture.respond(4, fixture.page(1, 3, ["sept"]))
+          const kept = JSON.parse(
+            window.localStorage.getItem("kano-post-archive-v1") || "{}",
+          )
+          assert.deepEqual(
+            kept.timelines.map((entry: { key: string }) => entry.key),
+            ["posts:until::stored_b:", "posts:until::stored_a:"],
+          )
+        } finally {
+          await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
+      "a post timeline read before its index arrives is not read again for it",
+      async (context) => {
+        const request = { kind: "posts", monthStart: october, account: "early" }
+        const fixture = await setup(context, { request })
+        try {
+          await fixture.respond(0, fixture.page(1, 7, ["a"]))
+          await fixture.rerender({ request, revision: 7 })
+          assert.equal(fixture.requests.length, 1)
+          // One written in between is.
+          await fixture.rerender({ request, revision: 8 })
+          assert.equal(fixture.requests.length, 2)
         } finally {
           await fixture.unmount()
         }
@@ -394,6 +506,68 @@ test("month archives page by revision, follow the board and cancel on close", as
           assert.equal(fixture.requests.length, 11)
         } finally {
           await fixture.unmount()
+        }
+      },
+    )
+
+    await t.test(
+      "the post month index shows the last one known until this visit's read",
+      async (context) => {
+        const previous = (globalThis as any).IS_REACT_ACT_ENVIRONMENT
+        ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+        const answers: ((response: Response) => void)[] = []
+        context.mock.method(
+          globalThis,
+          "fetch",
+          () => new Promise<Response>((resolve) => answers.push(resolve)),
+        )
+        const index = (revision: number) => ({
+          months: [{ month: "2026-10", total: 2, accountCounts: { a: 2 } }],
+          revision,
+          accounts: { x: ["a"], bilibili: [] },
+          accountAvatars: {},
+        })
+        const answer = async (at: number, payload: unknown, ok = true) =>
+          act(async () =>
+            answers[at]({
+              ok,
+              status: ok ? 200 : 503,
+              json: async () => payload,
+            } as Response),
+          )
+        let value: any
+        function Probe() {
+          value = usePostArchiveIndex()
+          return null
+        }
+        let root!: Rendered
+        try {
+          await act(async () => {
+            root = render(createElement(Probe))
+          })
+          assert.equal(value.revision, undefined)
+          await answer(0, index(5))
+          assert.equal(value.revision, 5)
+          assert.deepEqual(value.index.accounts, ["a"])
+          // Back on the page: the known index at once, its revision unread.
+          await act(async () => {
+            root.unmount()
+            root = render(createElement(Probe))
+          })
+          assert.equal(value.index.revision, 5)
+          assert.equal(value.revision, undefined)
+          // A failed read keeps the known index and names no revision.
+          await answer(1, null, false)
+          assert.equal(value.index.revision, 5)
+          assert.equal(value.revision, null)
+          assert.match(value.error.message, /API 503/)
+          await act(async () => value.retry())
+          await answer(2, index(6))
+          assert.equal(value.revision, 6)
+          assert.equal(value.error, null)
+        } finally {
+          await act(async () => root?.unmount())
+          ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = previous
         }
       },
     )

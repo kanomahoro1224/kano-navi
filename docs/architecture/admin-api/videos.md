@@ -78,14 +78,15 @@ in the body, which sends that one read anyway: a success lifts the backoff
 and a failure extends it. Other upstream failures answer `502` with their
 `bilibili_*` code. `bilibili` in
 `GET /sources` reports the uploads' manual fetch `methods` and the
-`oldest` stored upload's publication time, the account, the stored uploads, whether a login cookie
+`oldest` stored upload's publication time, the account, the stored uploads, whether a login
 is configured (`signedIn`, never the cookie), `login` (`signed_in`,
-`expired`, `unchecked` or `not_configured`) with `loginCheckedAt`, the read
+`expired`, `unchecked` or `not_configured`) with `loginCheckedAt` and the
+other [login fields](bilibili-login.md), the read
 interval and the
 latest attempt, success, backoff and error. Its `dynamics` reports the stored
 dynamics, their manual fetch `methods` and `oldest` stored dynamic, and the listing's latest attempt, success and error
-(`bilibili_login_expired` when the cookie no longer signs in), and `skipped`:
-`login_required` without a cookie, `login_expired` while the latest login
+(`bilibili_login_expired` when the login no longer signs in), and `skipped`:
+`login_required` without a login, `login_expired` while the latest login
 check found it expired, `blocked` during the backoff, otherwise null. Its `live` is the room as the last check saw it (`liveStatus` 0 off
 air, 1 live, 2 rotation; `roomId` null until the first check) and
 `lastLiveAt`, the last check that saw it live: the approximate end of the

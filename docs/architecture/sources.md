@@ -7,7 +7,8 @@ How each external source is read, which limits bound it, and how fetched posts b
 - [YouTube](sources/youtube.md): open when you change YouTube reads or Data API use.
 - [YouTube Video Details](sources/youtube-videos.md): open when you change localized titles, Shorts, availability, or follow-up checks.
 - [YouTube Live Status and WebSub](sources/youtube-live.md): open when you change the live-status probe or WebSub push handling.
-- [Bilibili](sources/bilibili.md): open when you change Bilibili uploads, the live room, or login handling.
+- [Bilibili](sources/bilibili.md): open when you change Bilibili uploads or the live room.
+- [Bilibili Login](sources/bilibili-login.md): open when you change the Bilibili login, its refresh, QR sign-in or cookie destinations.
 - [Bilibili Dynamics and Forwards](sources/bilibili-dynamics.md): open when you change Bilibili dynamics or forwards.
 - [Official Shop and Works Cover Lookups](sources/shop.md): open when you change shop reads or Works cover lookups.
 - [Source Request Limits](sources/request-limits.md): open when you change per-source request limits or budgets.

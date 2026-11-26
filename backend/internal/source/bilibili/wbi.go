@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // WBIKeys are the rotating keys Bilibili's web pages sign some API requests
@@ -90,13 +91,36 @@ func signWBI(query url.Values, keys WBIKeys, now time.Time) string {
 	return encoded + "&w_rid=" + hex.EncodeToString(sum[:])
 }
 
-// parseNavKeys reads the key file names from a nav answer. A signed-out
-// answer (-101) still carries them.
-func parseNavKeys(body []byte, now time.Time) (WBIKeys, bool, error) {
+// NavLogin is what nav says of the login: whether Bilibili accepts it and
+// the account's nickname.
+type NavLogin struct {
+	SignedIn bool
+	Name     string
+}
+
+// navName keeps a nickname to display: at most 64 characters, without
+// control characters.
+func navName(raw string) string {
+	name := strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(raw))
+	if runes := []rune(name); len(runes) > 64 {
+		name = string(runes[:64])
+	}
+	return name
+}
+
+// parseNavKeys reads the key file names and the login from a nav answer. A
+// signed-out answer (-101) still carries the keys.
+func parseNavKeys(body []byte, now time.Time) (WBIKeys, NavLogin, error) {
 	var out struct {
 		Code *int `json:"code"`
 		Data struct {
-			IsLogin bool `json:"isLogin"`
+			IsLogin bool   `json:"isLogin"`
+			Uname   string `json:"uname"`
 			WBI     struct {
 				Img string `json:"img_url"`
 				Sub string `json:"sub_url"`
@@ -105,13 +129,13 @@ func parseNavKeys(body []byte, now time.Time) (WBIKeys, bool, error) {
 	}
 	if json.Unmarshal(body, &out) != nil || out.Code == nil {
 		if _, err := envelope(body); err != nil {
-			return WBIKeys{}, false, err
+			return WBIKeys{}, NavLogin{}, err
 		}
-		return WBIKeys{}, false, &Error{"bilibili_invalid_response"}
+		return WBIKeys{}, NavLogin{}, &Error{"bilibili_invalid_response"}
 	}
 	if *out.Code != 0 && *out.Code != -101 {
 		_, err := envelope(body)
-		return WBIKeys{}, false, err
+		return WBIKeys{}, NavLogin{}, err
 	}
 	stem := func(raw string) string {
 		u, err := url.Parse(raw)
@@ -122,17 +146,21 @@ func parseNavKeys(body []byte, now time.Time) (WBIKeys, bool, error) {
 	}
 	keys := WBIKeys{Img: stem(out.Data.WBI.Img), Sub: stem(out.Data.WBI.Sub), At: now.UTC().Format(time.RFC3339Nano)}
 	if !keys.valid() {
-		return WBIKeys{}, false, &Error{"bilibili_invalid_response"}
+		return WBIKeys{}, NavLogin{}, &Error{"bilibili_invalid_response"}
 	}
-	return keys, out.Data.IsLogin, nil
+	login := NavLogin{SignedIn: out.Data.IsLogin}
+	if login.SignedIn {
+		login.Name = navName(out.Data.Uname)
+	}
+	return keys, login, nil
 }
 
 // NavKeys reads the current WBI keys and whether the login cookie is
 // accepted.
-func (c *Client) NavKeys(ctx context.Context, session Session, now time.Time) (WBIKeys, bool, error) {
+func (c *Client) NavKeys(ctx context.Context, session Session, now time.Time) (WBIKeys, NavLogin, error) {
 	body, err := c.fetch(ctx, apiHost, "/x/web-interface/nav", "", "https://www.bilibili.com/", "application/json", &session, true)
 	if err != nil {
-		return WBIKeys{}, false, err
+		return WBIKeys{}, NavLogin{}, err
 	}
 	return parseNavKeys(body, now)
 }

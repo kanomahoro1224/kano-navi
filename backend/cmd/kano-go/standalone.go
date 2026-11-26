@@ -395,8 +395,16 @@ func alertSignals(store *sqlite.Store, run pipeline, key string, keys *keyadmin.
 			if err != nil {
 				return "", err
 			}
-			return adapter.LoginStatus(state), nil
+			return adapter.LoginStatus(ctx, state), nil
 		}
+		signals.BilibiliLoginRefresh = func(ctx context.Context) (string, error) {
+			state, err := store.BilibiliState(ctx, adapter.Options.Account)
+			if err != nil {
+				return "", err
+			}
+			return adapter.Login(ctx, state).RefreshError, nil
+		}
+		signals.Secrets["bilibili"] = adapter.Logins.Unreadable
 	}
 	return signals
 }
@@ -477,7 +485,7 @@ func newPipeline(store *sqlite.Store, key string, signer webbotauth.Source) pipe
 		Skip:      skip,
 		X:         &workflow.XRecentExecutor{Store: store, Adapter: xAdapter, Options: xOptions},
 		Youtube:   youtubeAdapter,
-		Bilibili:  bilisource.NewAdapter(bilisource.NewClient(proxies.Client(outboundproxy.AreaBilibili)), bilisource.OptionsFromEnv()),
+		Bilibili:  bilibiliAdapter(store, key, proxies),
 		Shop:      shopsource.NewAdapter(shopClient(proxies, signer)),
 		Media:     mediadownload.NewClient(proxies.Client(outboundproxy.AreaMedia)),
 		Niconico:  niconico.NewClient(proxies.Client(outboundproxy.AreaMedia)),
@@ -506,6 +514,14 @@ func newPipeline(store *sqlite.Store, key string, signer webbotauth.Source) pipe
 	}
 	queues := adminapi.QueuePreviews{Schedule: extractor.PreviewQueue, Translation: translator.PreviewQueue}
 	return pipeline{steps: steps, executor: executor, skipped: skipped, xOptions: xOptions, proxies: proxies, queues: queues}
+}
+
+// bilibiliAdapter reads Bilibili through the Bilibili proxy route with the
+// stored login, sealed with key, or the environment's.
+func bilibiliAdapter(store *sqlite.Store, key string, proxies *outboundproxy.Pool) *bilisource.Adapter {
+	adapter := bilisource.NewAdapter(bilisource.NewClient(proxies.Client(outboundproxy.AreaBilibili)), bilisource.OptionsFromEnv())
+	adapter.Logins = &bilisource.Logins{Records: store, Key: key}
+	return adapter
 }
 
 // ytdlpRoutes runs yt-dlp's YouTube reads through the YouTube proxy route.

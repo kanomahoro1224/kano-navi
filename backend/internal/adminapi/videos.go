@@ -342,7 +342,7 @@ func writeBilibiliError(w http.ResponseWriter, err error, state bilisource.State
 // bilibiliStatus is the Bilibili source as the console sees it.
 func (a *api) bilibiliStatus(ctx context.Context) (map[string]any, error) {
 	if a.Bilibili == nil {
-		return map[string]any{"available": false, "skipped": a.skipped("bilibili"), "methods": a.fetchMethods("bilibili")}, nil
+		return map[string]any{"available": false, "skipped": a.skipped("bilibili"), "methods": a.fetchMethods(ctx, "bilibili")}, nil
 	}
 	status, err := a.Store.BilibiliStatus(ctx, a.Bilibili.Options.Account)
 	if err != nil {
@@ -360,18 +360,42 @@ func (a *api) bilibiliStatus(ctx context.Context) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	login := a.Bilibili.Login(ctx, state)
+	// A stored record that no longer opens is skipped by every read, which
+	// falls back to the environment's login; only a forget or a new login
+	// replaces it.
+	unreadable, err := a.Bilibili.Logins.Unreadable(ctx)
+	if err != nil {
+		return nil, err
+	}
+	optional := func(value string) any {
+		if value == "" {
+			return nil
+		}
+		return value
+	}
+	instant := func(value time.Time) any {
+		if value.IsZero() {
+			return nil
+		}
+		return sqlite.ISOTime(value)
+	}
 	return map[string]any{
-		"methods": a.fetchMethods("bilibili"), "oldest": oldestVideo,
+		"methods": a.fetchMethods(ctx, "bilibili"), "oldest": oldestVideo,
 		"available": true, "skipped": a.skipped("bilibili"), "account": status.Account, "videos": status.Videos,
-		"signedIn": a.Bilibili.Options.SignedIn(),
-		"login":    a.Bilibili.LoginStatus(state), "loginCheckedAt": status.LoginCheckedAt,
+		"signedIn": login.Status != "not_configured",
+		"login":    login.Status, "loginCheckedAt": instant(login.CheckedAt),
+		"loginSource": optional(login.Source), "loginVia": optional(login.Via), "loginName": optional(login.Name),
+		"loginStoredAt": instant(login.StoredAt), "loginRefreshedAt": instant(login.RefreshedAt),
+		"loginRefreshCheckedAt": instant(login.RefreshCheckedAt), "loginRefreshError": optional(login.RefreshError),
+		"loginStorable": a.Bilibili.Logins != nil, "loginUnreadable": unreadable,
 		"minIntervalMinutes": int(a.Bilibili.Options.MinInterval / time.Minute),
 		"lastAttemptAt":      status.LastAttemptAt, "lastSuccessAt": status.LastSuccessAt,
 		"blockedUntil": status.BlockedUntil, "lastError": status.LastError,
 		"dynamics": map[string]any{
 			"posts": status.Dynamics.Posts, "lastAttemptAt": status.Dynamics.LastAttemptAt, "lastSuccessAt": status.Dynamics.LastSuccessAt,
-			"lastError": status.Dynamics.LastError, "skipped": dynamicsSkipped(a.Bilibili.LoginStatus(state), status),
-			"methods": a.fetchMethods(sqlite.BilibiliDynamicsSource), "oldest": oldestPost,
+			"lastError": status.Dynamics.LastError, "skipped": dynamicsSkipped(login.Status, status),
+			"methods": a.fetchMethods(ctx, sqlite.BilibiliDynamicsSource), "oldest": oldestPost,
 		},
 		"live": status.Live,
 	}, nil

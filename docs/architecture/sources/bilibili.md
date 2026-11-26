@@ -1,14 +1,17 @@
 # Bilibili
 
-How Bilibili uploads and the live room are read, and the login boundary.
+How Bilibili uploads and the live room are read. The login the reads send
+is described in [Bilibili login](bilibili-login.md).
 
 The `bilibili` step reads the uploads and the `bilibili_dynamics` step the
 dynamics (动态) of `BILIBILI_UID` (Kano's account by default), each on its
 own [timer](../workflows/source-schedules.md#source-schedules); the [live-status
 probe](../workflows/steps-and-timers.md#live-status-probe) checks its live room. Every request
-goes to one of four fixed hosts: `api.bilibili.com`, `www.bilibili.com`
-(the opus page of one dynamic only), `api.live.bilibili.com` and
-`app.bilibili.com` (the uploads' official-client method, below). The upload list
+goes to one of five fixed hosts: `api.bilibili.com`, `www.bilibili.com`
+(the opus page of one dynamic and the login refresh's correspond page only),
+`api.live.bilibili.com`, `app.bilibili.com` (the uploads' official-client
+method, below) and `passport.bilibili.com` (the
+[login](bilibili-login.md)'s refresh, QR sign-in and sign-out). The upload list
 uses only endpoints that need no request signature; its fallbacks are
 signed (the dynamics listing with WBI, the official client's listing with
 its app key):
@@ -60,24 +63,13 @@ shortest interval of either Bilibili timer. A skipped read records
 code as a failed step without a retry, keeps every stored upload and post,
 and lets the rest of the run continue.
 
-`BILIBILI_COOKIE` (the signed-in browser's cookies) or `BILIBILI_SESSDATA`
-(its `SESSDATA` alone) optionally adds an operator's login to the
-`api.bilibili.com` requests (never to the device-identity or ticket request,
-the opus page or the live host); see
-[Configuration](../../operations/configuration.md) for the cookies kept. A
-signed-in request sends `SESSDATA` with the browser's `bili_jct`,
-`DedeUserID`, `DedeUserID__ckMd5` and `sid`, and the browser's device
-cookies (`buvid3`, `buvid4`, `b_nut`, `_uuid`, `buvid_fp`) in place of the
-anonymous identity where the login carries them, so the account and its
-device match. Signed-in reads meet the captcha far less often, and both
-dynamics methods require the login. The login is verified at most once
-a day through `nav`'s `isLogin`, when the listing runs; while the latest check
-found it expired, no request sends it and the listing waits for the next
-check (`{ skipped: true, reason: "login_expired" }` on the
-`bilibili_dynamics` step, error
-`bilibili_login_expired`). The console reports `signed_in`, `expired`,
-`unchecked` or `not_configured`. The login cookies stay in memory: they are
-not part of the persisted state, not logged and not returned.
+An optional [login](bilibili-login.md), the one the server stores or the
+environment's (`BILIBILI_COOKIE` or `BILIBILI_SESSDATA`), signs the
+`api.bilibili.com` requests in (never the device-identity or ticket request,
+the opus page or the live host). Signed-in reads meet the captcha far less
+often, and both dynamics methods require the login. It is verified at most
+once a day through `nav`, and a stored login is refreshed once a day at the
+start of either Bilibili step.
 
 The upload read tries the enabled methods of the Bilibili timer's
 [method chain](../workflows/source-schedules.md#method-chains) in its order, by default `list`,

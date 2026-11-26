@@ -677,3 +677,44 @@
 .adm-facts.is-compact {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+
+/* The Bilibili login's secrets are pasted, never read back. */
+.adm-shell .adm-login-secret {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.adm-login-choice {
+  justify-content: center;
+}
+
+.adm-login-qr {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+/* A QR code stays dark on white in either theme, or phones cannot read it. */
+.adm-qr {
+  width: min(240px, 100%);
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.adm-qr path {
+  fill: #000;
+}
+
+.adm-qr.is-empty {
+  display: grid;
+  place-items: center;
+  background: var(--adm-sunken);
+  color: var(--adm-muted);
+}
+
+.adm-qr.is-empty svg {
+  width: 32px;
+  height: 32px;
+}

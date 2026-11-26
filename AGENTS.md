@@ -31,7 +31,9 @@ page a change needs, not every page.
 - Public HTTP and MCP responses use sanitized projections. Raw errors, source
   item IDs, counters, job IDs, `raw_json`, secrets and absolute paths stay in
   their protected boundaries.
-- Secrets and source credentials stay in the environment. A new outbound path
+- Secrets and source credentials stay in the environment, except the ones
+  the console stores sealed with `LLM_SECRETS_KEY` (provider keys, proxy
+  passwords, the Web Bot Auth key, the Bilibili login). A new outbound path
   follows the
   [external request rules](docs/development/security.md#external-request-rules).
 - Production is the default: only explicit `APP_MODE=development` bypasses

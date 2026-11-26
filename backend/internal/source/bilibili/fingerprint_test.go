@@ -166,12 +166,12 @@ func TestLoginIsVerifiedDailyAndAnExpiredCookieHoldsTheListing(t *testing.T) {
 	rec := newRecorder()
 	a := NewAdapter(rec.client(), Options{Account: DefaultAccount, MinInterval: 3 * time.Hour, PageSize: 20, SESSDATA: syntheticLogin})
 	a.Now = func() time.Time { return now }
-	if got := a.LoginStatus(State{}); got != "unchecked" {
+	if got := a.LoginStatus(context.Background(), State{}); got != "unchecked" {
 		t.Fatalf("status=%s", got)
 	}
 	rec.replies["/x/web-interface/nav"] = `{"code":-101,"data":{"isLogin":false,"wbi_img":{"img_url":"https://i0.hdslb.com/bfs/wbi/0123456789abcdef0123456789abcdef.png","sub_url":"https://i0.hdslb.com/bfs/wbi/fedcba9876543210fedcba9876543210.png"}}}`
 	expired, err := a.FetchDynamics(context.Background(), State{})
-	if err != nil || expired.Skipped != "login_expired" || expired.State.Dynamics.LastError != "bilibili_login_expired" || a.LoginStatus(expired.State) != "expired" ||
+	if err != nil || expired.Skipped != "login_expired" || expired.State.Dynamics.LastError != "bilibili_login_expired" || a.LoginStatus(context.Background(), expired.State) != "expired" ||
 		rec.request("/x/polymer/web-dynamic/v1/feed/space") != nil {
 		t.Fatalf("expired=%#v err=%v", expired, err)
 	}
@@ -189,11 +189,11 @@ func TestLoginIsVerifiedDailyAndAnExpiredCookieHoldsTheListing(t *testing.T) {
 	rec.replies["/x/web-interface/nav"] = navKeys
 	now = now.Add(21 * time.Hour)
 	renewed, err := a.FetchDynamics(context.Background(), expired.State)
-	if err != nil || renewed.Skipped != "" || len(renewed.Dynamics) != 3 || a.LoginStatus(renewed.State) != "signed_in" ||
+	if err != nil || renewed.Skipped != "" || len(renewed.Dynamics) != 3 || a.LoginStatus(context.Background(), renewed.State) != "signed_in" ||
 		!strings.Contains(rec.request("/x/web-interface/nav").Header.Get("Cookie"), "SESSDATA="+syntheticLogin) {
 		t.Fatalf("renewed=%#v err=%v", renewed, err)
 	}
-	if got := NewAdapter(nil, Options{}).LoginStatus(State{}); got != "not_configured" {
+	if got := NewAdapter(nil, Options{}).LoginStatus(context.Background(), State{}); got != "not_configured" {
 		t.Fatalf("status=%s", got)
 	}
 }

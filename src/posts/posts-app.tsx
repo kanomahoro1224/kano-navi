@@ -19,6 +19,7 @@ import {
   monthStartOf,
 } from "@/dashboard/format"
 import {
+  rememberedPostTimeline,
   timelineStartPage,
   useArchive,
   useNow,
@@ -26,7 +27,7 @@ import {
 } from "@/dashboard/use-dashboard"
 import { AccountBand } from "./account-band"
 import { ActivityMap } from "./activity-map"
-import { postsHref, usePostsLocation } from "./navigation"
+import { postsHref, usePostsLocation, type PostsView } from "./navigation"
 import { PostTimeline } from "./post-timeline"
 import { monthCount, nearestMonth } from "./timeline"
 import "@/dashboard/styles/base.css"
@@ -55,23 +56,47 @@ function dayFromKey(key: string) {
   return new Date(year, month - 1, day)
 }
 
+/**
+ * Where the timeline this document read last started, when it is the
+ * account's and holds the address's month: a return to the page by back or
+ * forward resumes it, and the site's navigation restores the scroll.
+ */
+function resumedStart(view: PostsView) {
+  const remembered = rememberedPostTimeline()
+  if (!view.month || remembered?.start.account !== view.account) return null
+  const month = view.month
+  return remembered.snapshot.items.some((post) =>
+    dateKey(post.publishedAt).startsWith(month),
+  )
+    ? remembered.start
+    : null
+}
+
 export function PostsApp() {
   const { locale, t } = useAppSettings()
   const now = useNow()
   const [view, show] = usePostsLocation()
-  const { index, error: indexError, retry: retryIndex } = usePostArchiveIndex()
+  const {
+    index,
+    error: indexError,
+    revision: indexRevision,
+    retry: retryIndex,
+  } = usePostArchiveIndex()
 
   usePageMeta(t("posts.metaTitle"), t("posts.metaDescription"))
 
   const account = view.account
   const filter = account?.toLowerCase() || null
 
+  const [resumed] = useState(() => resumedStart(view))
   // The month the timeline starts from: the one the address named when the
   // page opened or a month was chosen that is not loaded; null starts from
   // the newest post.
-  const [anchor, setAnchor] = useState<string | null>(view.month)
+  const [anchor, setAnchor] = useState<string | null>(
+    resumed ? resumed.anchor : view.month,
+  )
   const [jump, setJump] = useState<{ month: string; nonce: number } | null>(
-    view.month ? { month: view.month, nonce: 1 } : null,
+    view.month && !resumed ? { month: view.month, nonce: 1 } : null,
   )
   const jumpTo = useCallback(
     (month: string) =>
@@ -79,22 +104,25 @@ export function PostsApp() {
     [],
   )
 
-  // The timeline waits for the month index, which places a chosen month on
-  // its page; without the index it starts from the month itself.
+  // A chosen month waits for this visit's month index, which places it on
+  // its page; without the index it starts from the month itself. The newest
+  // posts read alongside the index, and a resumed timeline keeps its place.
   const request = useMemo(() => {
-    if (!index && !indexError) return null
+    let startPage: number | undefined
+    if (anchor && resumed?.anchor === anchor && resumed.account === account)
+      startPage = resumed.startPage
+    else if (anchor && index && indexRevision != null)
+      startPage = timelineStartPage(index.months, anchor, filter)
+    else if (anchor && indexRevision === undefined) return null
     return {
       kind: "posts" as const,
       monthStart: monthStartOf(japanToday()),
       account,
       anchor: anchor ? monthFromKey(anchor) : null,
-      startPage:
-        anchor && index
-          ? timelineStartPage(index.months, anchor, filter)
-          : undefined,
+      startPage,
     }
-  }, [index, indexError, account, anchor, filter])
-  const archive = useArchive<Post>(request, index?.revision)
+  }, [index, indexRevision, resumed, account, anchor, filter])
+  const archive = useArchive<Post>(request, indexRevision)
   const posts = archive.archive as ArchiveSnapshot<Post> | null
   const firstPage = posts?.firstPage ?? 1
 
@@ -316,7 +344,7 @@ export function PostsApp() {
               ) : (
                 <PostTimeline
                   archive={posts}
-                  isLoading={archive.isLoading || (!index && !indexError)}
+                  isLoading={archive.isLoading || !request}
                   error={archive.error}
                   onRetry={archive.reload}
                   onLoadMore={archive.loadMore}

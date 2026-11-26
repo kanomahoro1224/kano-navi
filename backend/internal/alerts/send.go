@@ -148,7 +148,18 @@ func render(kind string, incident *incident, link string, now time.Time) message
 			out.Title = name + " login works again"
 		} else {
 			out.Title = name + " login has expired"
-			out.Body = "Replace the login cookie."
+			out.Body = "Sign in again."
+		}
+	case RuleLoginRefreshFailed:
+		if resolved {
+			out.Title = name + " login refreshes again"
+		} else {
+			out.Title = name + " login could not be refreshed"
+			out.Body = "The stored login stays usable until its cookie expires"
+			if code := detailString(incident.Detail, "error"); code != "" {
+				out.Body += " (" + code + ")"
+			}
+			out.Body += "."
 		}
 	case RuleUnreadableCredentials:
 		if resolved {

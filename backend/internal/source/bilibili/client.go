@@ -8,7 +8,9 @@
 // leaves the waiting to the adapter's persisted backoff. It requests a fixed
 // set of hosts: api.bilibili.com (uploads, the device identity, the WBI keys
 // and the signed-in dynamics listing), www.bilibili.com (one dynamic's opus
-// page only) and api.live.bilibili.com (the live room status).
+// page and the login refresh's correspond page), passport.bilibili.com (the
+// stored login's refresh, QR sign-in and sign-out, see login.go) and
+// api.live.bilibili.com (the live room status).
 package bilibili
 
 import (
@@ -33,16 +35,27 @@ import (
 // smaller.
 const MaxResponseBytes = 2 * 1024 * 1024
 
-// The fixed destinations. The login cookie goes only to apiHost; the opus
+// The fixed destinations. The login cookie goes only to apiHost,
+// passportHost and the correspond page (see loginDestination); the opus
 // page gets the device identity alone, and the live host and appHost (the
 // official client's API, read only by the uploads' last fallback when an
 // app key pair is configured) no cookie at all.
 const (
-	apiHost  = "api.bilibili.com"
-	wwwHost  = "www.bilibili.com"
-	liveHost = "api.live.bilibili.com"
-	appHost  = "app.bilibili.com"
+	apiHost      = "api.bilibili.com"
+	wwwHost      = "www.bilibili.com"
+	liveHost     = "api.live.bilibili.com"
+	appHost      = "app.bilibili.com"
+	passportHost = "passport.bilibili.com"
 )
+
+// correspondPrefix is the one www.bilibili.com path that gets the login: the
+// page that renders the refresh's CSRF token.
+const correspondPrefix = "/correspond/1/"
+
+// loginDestination reports a request the login cookies may go to.
+func loginDestination(host, path string) bool {
+	return host == apiHost || host == passportHost || (host == wwwHost && strings.HasPrefix(path, correspondPrefix))
+}
 
 // AppKeys is an official Bilibili client's app key pair, from
 // BILIBILI_APP_KEY and BILIBILI_APP_SECRET. A request signed with it reads as
@@ -82,9 +95,9 @@ func (e *Error) Error() string { return e.Code }
 
 // Session is the anonymous device identity Bilibili's own pages keep in
 // their cookies (buvid3, buvid4, b_nut and the bili_ticket JWT), plus the
-// operator's optional login cookie. Only the device identity is persisted;
-// Login comes from the environment on every request and is never stored,
-// logged or returned.
+// read's optional login cookie. Only the device identity is persisted here;
+// Login is the read's login (the stored one or the environment's, see
+// login.go) and is never put in the bookkeeping, logged or returned.
 type Session struct {
 	Buvid3 string `json:"buvid3"`
 	Buvid4 string `json:"buvid4"`
@@ -96,9 +109,8 @@ type Session struct {
 	TicketAt  int64  `json:"ticketAt,omitempty"`
 	TicketTTL int64  `json:"ticketTTL,omitempty"`
 	Login     string `json:"-"`
-	// Account is the rest of the signed-in browser's cookies, sent with
-	// Login. Like Login it comes from the environment and is never stored;
-	// a pointer keeps Session comparable.
+	// Account is the rest of the login's cookies, sent with Login and kept
+	// like it; a pointer keeps Session comparable.
 	Account *LoginCookies `json:"-"`
 }
 
@@ -161,11 +173,11 @@ func ParseLoginCookies(header string) (string, LoginCookies) {
 const BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.7444.163 Safari/537.36"
 
 // cookie is the Cookie header for a request: the device identity, then the
-// login cookies when login is set and the host is the API. A signed-in
-// request names the browser's own device cookies where the login carries
-// them, so the identity matches the account's.
-func (s Session) cookie(login bool, host string) string {
-	signedIn := login && host == apiHost && sessdata.MatchString(s.Login)
+// login cookies when login is set and the destination takes them (see
+// loginDestination). A signed-in request names the login's own device
+// cookies where it carries them, so the identity matches the account's.
+func (s Session) cookie(login bool, host, path string) string {
+	signedIn := login && loginDestination(host, path) && sessdata.MatchString(s.Login)
 	device := map[string]string{"buvid3": s.Buvid3, "buvid4": s.Buvid4}
 	if s.Nut > 0 {
 		device["b_nut"] = strconv.FormatInt(s.Nut, 10)
@@ -246,63 +258,88 @@ func (c *Client) fetch(ctx context.Context, host, path, rawQuery, referer, accep
 	return c.do(ctx, http.MethodGet, host, path, rawQuery, referer, accept, session, login)
 }
 
-// do requests one path on a fixed host as a browser would: its user agent
-// and language, the page it came from as Referer and, for the API hosts,
-// that page's Origin. The device identity is sent when session is set, and
-// the login cookie only when login is true as well and the host is the API.
+// do requests one path on a fixed host and returns the bounded body.
 func (c *Client) do(ctx context.Context, method, host, path, rawQuery, referer, accept string, session *Session, login bool) ([]byte, error) {
-	u := url.URL{Scheme: "https", Host: host, Path: path, RawQuery: rawQuery}
-	req, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
+	body, _, err := c.send(ctx, request{method: method, host: host, path: path, rawQuery: rawQuery, referer: referer, accept: accept, session: session, login: login})
+	return body, err
+}
+
+// request is one request to a fixed host.
+type request struct {
+	method, host, path, rawQuery, referer, accept string
+	// form is a POST body, sent form-encoded.
+	form    url.Values
+	session *Session
+	// login adds the login cookies where loginDestination allows them.
+	login bool
+}
+
+// send makes one request as a browser would: its user agent and language,
+// the page it came from as Referer and, for hosts other than
+// www.bilibili.com, that page's Origin. The device identity is sent when
+// session is set, and the login cookies only when login is true as well and
+// the destination takes them. It returns the bounded body and the cookies
+// the answer set.
+func (c *Client) send(ctx context.Context, r request) ([]byte, []*http.Cookie, error) {
+	u := url.URL{Scheme: "https", Host: r.host, Path: r.path, RawQuery: r.rawQuery}
+	var payload io.Reader
+	if r.form != nil {
+		payload = strings.NewReader(r.form.Encode())
+	}
+	req, err := http.NewRequestWithContext(ctx, r.method, u.String(), payload)
 	if err != nil {
-		return nil, &Error{"bilibili_invalid_request"}
+		return nil, nil, &Error{"bilibili_invalid_request"}
+	}
+	if r.form != nil {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 	req.Header.Set("User-Agent", BrowserUserAgent)
-	req.Header.Set("Accept", accept)
+	req.Header.Set("Accept", r.accept)
 	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
-	if referer != "" {
-		req.Header.Set("Referer", referer)
-		if host != wwwHost {
-			if from, parseErr := url.Parse(referer); parseErr == nil && from.Host != "" {
+	if r.referer != "" {
+		req.Header.Set("Referer", r.referer)
+		if r.host != wwwHost {
+			if from, parseErr := url.Parse(r.referer); parseErr == nil && from.Host != "" {
 				req.Header.Set("Origin", from.Scheme+"://"+from.Host)
 			}
 		}
 	}
-	if session != nil {
-		req.Header.Set("Cookie", session.cookie(login, host))
+	if r.session != nil {
+		req.Header.Set("Cookie", r.session.cookie(r.login, r.host, r.path))
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, &Error{"bilibili_timeout"}
+			return nil, nil, &Error{"bilibili_timeout"}
 		}
 		if ctx.Err() != nil {
-			return nil, ctx.Err()
+			return nil, nil, ctx.Err()
 		}
-		return nil, &Error{"bilibili_unavailable"}
+		return nil, nil, &Error{"bilibili_unavailable"}
 	}
 	defer resp.Body.Close()
 	switch {
 	case resp.StatusCode >= 300 && resp.StatusCode < 400:
-		return nil, &Error{"bilibili_redirect_rejected"}
+		return nil, nil, &Error{"bilibili_redirect_rejected"}
 	case resp.StatusCode == http.StatusPreconditionFailed:
-		return nil, &Error{"bilibili_risk_control_http"}
+		return nil, nil, &Error{"bilibili_risk_control_http"}
 	case resp.StatusCode == http.StatusTooManyRequests:
-		return nil, &Error{"bilibili_rate_limited"}
-	case resp.StatusCode == http.StatusNotFound && host == wwwHost:
-		return nil, &Error{"bilibili_not_found"}
+		return nil, nil, &Error{"bilibili_rate_limited"}
+	case resp.StatusCode == http.StatusNotFound && r.host == wwwHost:
+		return nil, nil, &Error{"bilibili_not_found"}
 	case resp.StatusCode >= 500:
-		return nil, &Error{"bilibili_upstream_5xx"}
+		return nil, nil, &Error{"bilibili_upstream_5xx"}
 	case resp.StatusCode != http.StatusOK:
-		return nil, &Error{"bilibili_http_error"}
+		return nil, nil, &Error{"bilibili_http_error"}
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, MaxResponseBytes+1))
 	if err != nil {
-		return nil, &Error{"bilibili_body_unavailable"}
+		return nil, nil, &Error{"bilibili_body_unavailable"}
 	}
 	if len(body) > MaxResponseBytes {
-		return nil, &Error{"bilibili_response_oversized"}
+		return nil, nil, &Error{"bilibili_response_oversized"}
 	}
-	return body, nil
+	return body, resp.Cookies(), nil
 }
 
 // envelope reads Bilibili's {code, message, data}. An HTML answer is the
@@ -431,7 +468,8 @@ type Options struct {
 	// SESSDATA is an operator's Bilibili login cookie, from BILIBILI_COOKIE
 	// or BILIBILI_SESSDATA. Signed-in reads meet the captcha far less often.
 	// It is a credential of that account: it stays in memory and goes only
-	// to api.bilibili.com.
+	// to the login destinations (see loginDestination). A stored login
+	// (login.go) takes its place for each read while one is stored.
 	SESSDATA string
 	// Cookies are the signed-in browser's other login cookies from
 	// BILIBILI_COOKIE, kept and sent like SESSDATA and only with it.

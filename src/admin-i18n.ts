@@ -862,8 +862,38 @@ export const adminMessages = {
     "admin.bilibili.anonymous": "Anonymous",
     "admin.bilibili.loginExpired": "Login expired",
     "admin.bilibili.loginUnchecked": "Login not checked yet",
-    "admin.bilibili.loginExpiredHint":
-      "The login cookie expired. Set a fresh BILIBILI_COOKIE or BILIBILI_SESSDATA in the server environment.",
+    "admin.bilibili.loginExpiredHint": "The login expired. Sign in again.",
+    "admin.bilibili.login.title": "Login",
+    "admin.bilibili.login.source": "Source",
+    "admin.bilibili.login.source.stored": "Stored",
+    "admin.bilibili.login.source.environment": "Environment",
+    "admin.bilibili.login.via.import": "imported",
+    "admin.bilibili.login.via.qr": "QR sign-in",
+    "admin.bilibili.login.name": "Signed in as",
+    "admin.bilibili.login.checked": "Checked",
+    "admin.bilibili.login.refreshed": "Refreshed",
+    "admin.bilibili.login.refreshChecked": "Refresh checked",
+    "admin.bilibili.login.refreshError": "Refresh error",
+    "admin.bilibili.login.stored": "Stored login",
+    "admin.bilibili.login.unreadable": "Unreadable",
+    "admin.bilibili.login.import": "Import",
+    "admin.bilibili.login.importTitle": "Import a login",
+    "admin.bilibili.login.cookie": "Cookie",
+    "admin.bilibili.login.refreshToken": "Refresh token (ac_time_value)",
+    "admin.bilibili.login.save": "Save",
+    "admin.bilibili.login.qr": "Sign in with QR",
+    "admin.bilibili.login.qrTitle": "Sign in with QR",
+    "admin.bilibili.login.qrCode": "QR code",
+    "admin.bilibili.login.qrAgain": "New code",
+    "admin.bilibili.login.qrState.waiting": "Waiting for a scan",
+    "admin.bilibili.login.qrState.scanned": "Scanned · confirm in the app",
+    "admin.bilibili.login.qrState.signed_in": "Signed in",
+    "admin.bilibili.login.qrState.expired": "Expired",
+    "admin.bilibili.login.qrState.failed": "Failed",
+    "admin.bilibili.login.forget": "Forget",
+    "admin.bilibili.login.forgetTitle": "Forget the stored login",
+    "admin.bilibili.login.forgetOnly": "Forget here only",
+    "admin.bilibili.login.signOut": "Sign out and forget",
     "admin.bilibili.force": "Try once anyway",
     "admin.bilibili.forceHint":
       "Sends one read now; it may extend the backoff.",
@@ -881,7 +911,7 @@ export const adminMessages = {
     "admin.bilibili.addPostField": "Dynamic link",
     "admin.bilibili.addPost": "Add a dynamic",
     "admin.bilibili.dynamics.loginHint":
-      "The dynamics listing needs a login cookie. Set BILIBILI_COOKIE or BILIBILI_SESSDATA in the server environment to read it.",
+      "The dynamics listing needs a Bilibili login.",
     "admin.bilibili.live.title": "Live room",
     "admin.bilibili.live.on": "Live",
     "admin.bilibili.live.off": "Off air",
@@ -1470,8 +1500,11 @@ export const adminMessages = {
     "admin.error.bilibiliBlocked":
       "Bilibili is asking this server for a captcha. Reads resume after {time}.",
     "admin.error.bilibiliUnavailable": "Bilibili did not answer ({code}).",
-    "admin.error.bilibiliLoginExpired":
-      "Bilibili's login cookie expired (BILIBILI_COOKIE or BILIBILI_SESSDATA).",
+    "admin.error.bilibiliLoginExpired": "The Bilibili login expired.",
+    "admin.error.bilibiliLoginChanged":
+      "The stored Bilibili login changed meanwhile. Reload and try again.",
+    "admin.error.bilibiliLoginUnreadable":
+      "The stored Bilibili login cannot be decrypted, so it cannot sign out. Forget it here only.",
     "admin.error.postNotFound": "The source has no such post.",
     "admin.filter.any": "Any",
     "admin.filter.dates": "Dates",
@@ -1694,6 +1727,9 @@ export const adminMessages = {
     "admin.notice.wbaSaved": "Signing origin saved",
     "admin.notice.wbaGenerated": "Web Bot Auth key generated",
     "admin.notice.wbaRemoved": "Web Bot Auth key removed",
+    "admin.notice.bilibiliLoginImported": "Bilibili login stored",
+    "admin.notice.bilibiliLoginForgotten": "Bilibili login forgotten",
+    "admin.notice.bilibiliSignedIn": "Signed in to Bilibili",
     "admin.shop.readAll": "Read the whole catalog",
     "admin.code.youtube_watch_login_required":
       "YouTube asked this server to sign in (its bot check), so the run read no more watch pages.",
@@ -1709,8 +1745,17 @@ export const adminMessages = {
       "YouTube's RSS feed could not be reached.",
     "admin.code.bilibili_risk_control":
       "Bilibili asked this server for a captcha; reads wait for the backoff to end.",
-    "admin.code.bilibili_login_expired":
-      "Login cookie expired (BILIBILI_COOKIE or BILIBILI_SESSDATA)",
+    "admin.code.bilibili_login_expired": "Login expired",
+    "admin.code.bilibili_login_refresh_rejected":
+      "Bilibili refused the refresh: something else refreshed this login.",
+    "admin.code.bilibili_login_refresh_failed": "The login refresh failed.",
+    "admin.code.bilibili_login_confirm_failed":
+      "Bilibili did not confirm the refresh; the next check sends the confirm once more.",
+    "admin.code.bilibili_login_save_failed":
+      "The refreshed login could not be stored.",
+    "admin.code.bilibili_qr_failed": "The QR sign-in failed.",
+    "admin.code.bilibili_sign_out_failed":
+      "Bilibili did not sign the login out.",
     "admin.code.bilibili_risk_control_http":
       "Bilibili asked this server for a captcha: an HTTP 412 answer.",
     "admin.code.bilibili_risk_control_page":
@@ -1726,7 +1771,7 @@ export const adminMessages = {
     "admin.code.bilibili_no_method":
       "No enabled upload method could run: the enabled ones lack their credentials on the server.",
     "admin.code.bilibili_login_required":
-      "The dynamics listing needs BILIBILI_COOKIE or BILIBILI_SESSDATA on the server.",
+      "The dynamics listing needs a Bilibili login.",
     "admin.code.bilibili_repeated_page":
       "The listing answered the same page again, so the fetch stopped.",
     "admin.code.bilibili_unsupported_dynamic":
@@ -1786,6 +1831,7 @@ export const adminMessages = {
     "admin.alerts.rule.run_failed_streak": "Runs keep failing",
     "admin.alerts.rule.source_stale": "Source not read",
     "admin.alerts.rule.login_expired": "Login expired",
+    "admin.alerts.rule.login_refresh_failed": "Login refresh failed",
     "admin.alerts.rule.secrets_unreadable": "Secrets unreadable",
     "admin.alerts.param.runs": "runs in a row",
     "admin.alerts.param.hours": "hours",
@@ -2528,8 +2574,38 @@ export const adminMessages = {
     "admin.bilibili.anonymous": "未登录",
     "admin.bilibili.loginExpired": "登录已过期",
     "admin.bilibili.loginUnchecked": "尚未检查登录",
-    "admin.bilibili.loginExpiredHint":
-      "登录 Cookie 已过期。请在服务器环境中设置新的 BILIBILI_COOKIE 或 BILIBILI_SESSDATA。",
+    "admin.bilibili.loginExpiredHint": "登录已过期，请重新登录。",
+    "admin.bilibili.login.title": "登录",
+    "admin.bilibili.login.source": "来源",
+    "admin.bilibili.login.source.stored": "已保存",
+    "admin.bilibili.login.source.environment": "环境变量",
+    "admin.bilibili.login.via.import": "导入",
+    "admin.bilibili.login.via.qr": "扫码登录",
+    "admin.bilibili.login.name": "登录账号",
+    "admin.bilibili.login.checked": "检查于",
+    "admin.bilibili.login.refreshed": "刷新于",
+    "admin.bilibili.login.refreshChecked": "刷新检查于",
+    "admin.bilibili.login.refreshError": "刷新错误",
+    "admin.bilibili.login.stored": "已保存的登录",
+    "admin.bilibili.login.unreadable": "无法解密",
+    "admin.bilibili.login.import": "导入",
+    "admin.bilibili.login.importTitle": "导入登录",
+    "admin.bilibili.login.cookie": "Cookie",
+    "admin.bilibili.login.refreshToken": "刷新令牌（ac_time_value）",
+    "admin.bilibili.login.save": "保存",
+    "admin.bilibili.login.qr": "扫码登录",
+    "admin.bilibili.login.qrTitle": "扫码登录",
+    "admin.bilibili.login.qrCode": "二维码",
+    "admin.bilibili.login.qrAgain": "换一个二维码",
+    "admin.bilibili.login.qrState.waiting": "等待扫码",
+    "admin.bilibili.login.qrState.scanned": "已扫码 · 请在 App 中确认",
+    "admin.bilibili.login.qrState.signed_in": "已登录",
+    "admin.bilibili.login.qrState.expired": "已过期",
+    "admin.bilibili.login.qrState.failed": "失败",
+    "admin.bilibili.login.forget": "忘记",
+    "admin.bilibili.login.forgetTitle": "忘记已保存的登录",
+    "admin.bilibili.login.forgetOnly": "仅在本地忘记",
+    "admin.bilibili.login.signOut": "退出登录并忘记",
     "admin.bilibili.force": "仍然尝试一次",
     "admin.bilibili.forceHint": "立即发送一次读取，可能延长退避。",
     "admin.bilibili.blocked": "验证码退避中",
@@ -2545,8 +2621,7 @@ export const adminMessages = {
     "admin.bilibili.addPost": "添加动态",
     "admin.youtube.add": "添加视频",
     "admin.youtube.addField": "视频 ID 或链接",
-    "admin.bilibili.dynamics.loginHint":
-      "动态列表需要登录 Cookie。请在服务器环境中设置 BILIBILI_COOKIE 或 BILIBILI_SESSDATA。",
+    "admin.bilibili.dynamics.loginHint": "动态列表需要哔哩哔哩登录。",
     "admin.bilibili.live.title": "直播间",
     "admin.bilibili.live.on": "直播中",
     "admin.bilibili.live.off": "未开播",
@@ -2935,8 +3010,11 @@ export const adminMessages = {
     "admin.error.bilibiliBlocked":
       "哔哩哔哩正在要求本服务器完成验证码，{time} 后恢复读取。",
     "admin.error.bilibiliUnavailable": "哔哩哔哩没有响应（{code}）。",
-    "admin.error.bilibiliLoginExpired":
-      "哔哩哔哩登录 Cookie 已过期（BILIBILI_COOKIE 或 BILIBILI_SESSDATA）。",
+    "admin.error.bilibiliLoginExpired": "哔哩哔哩登录已过期。",
+    "admin.error.bilibiliLoginChanged":
+      "已保存的哔哩哔哩登录在此期间发生了变化，请刷新后重试。",
+    "admin.error.bilibiliLoginUnreadable":
+      "已保存的哔哩哔哩登录无法解密，因此无法退出登录，请仅在本地忘记。",
     "admin.error.postNotFound": "来源中没有这条帖子。",
     "admin.filter.any": "全部",
     "admin.filter.dates": "日期",
@@ -3064,8 +3142,15 @@ export const adminMessages = {
     "admin.code.youtube_feed_unavailable": "无法访问 YouTube RSS 订阅源。",
     "admin.code.bilibili_risk_control":
       "哔哩哔哩要求本服务器完成验证码，读取会等待退避结束。",
-    "admin.code.bilibili_login_expired":
-      "登录 Cookie 已过期（BILIBILI_COOKIE 或 BILIBILI_SESSDATA）",
+    "admin.code.bilibili_login_expired": "登录已过期",
+    "admin.code.bilibili_login_refresh_rejected":
+      "哔哩哔哩拒绝了刷新：这个登录已被其他地方刷新。",
+    "admin.code.bilibili_login_refresh_failed": "登录刷新失败。",
+    "admin.code.bilibili_login_confirm_failed":
+      "哔哩哔哩没有确认刷新，下次检查时会再发送一次确认。",
+    "admin.code.bilibili_login_save_failed": "刷新后的登录无法保存。",
+    "admin.code.bilibili_qr_failed": "扫码登录失败。",
+    "admin.code.bilibili_sign_out_failed": "哔哩哔哩没有完成退出登录。",
     "admin.code.bilibili_risk_control_http":
       "哔哩哔哩要求本服务器完成验证码：HTTP 412 响应。",
     "admin.code.bilibili_risk_control_page":
@@ -3959,6 +4044,10 @@ export const adminMessages = {
     "admin.notice.alertHeartbeatSaved": "心跳设置已保存",
     "admin.notice.alertTestSent": "已通过 {name} 发送测试通知",
     "admin.notice.alertHeartbeatSent": "心跳请求已响应",
+    "admin.notice.bilibiliLoginImported": "哔哩哔哩登录已保存",
+    "admin.notice.bilibiliLoginForgotten": "哔哩哔哩登录已清除",
+    "admin.notice.bilibiliSignedIn": "已登录哔哩哔哩",
+    "admin.alerts.rule.login_refresh_failed": "登录刷新失败",
   },
   ja: {
     "admin.meta.title": "管理コンソール / 鹿乃ちゃん何してるか",
@@ -5942,5 +6031,57 @@ export const adminMessages = {
     "admin.notice.alertHeartbeatSaved": "ハートビートを保存しました",
     "admin.notice.alertTestSent": "{name} 経由でテストを送信しました",
     "admin.notice.alertHeartbeatSent": "ハートビートが応答しました",
+    "admin.bilibili.login.title": "ログイン",
+    "admin.bilibili.login.source": "ソース",
+    "admin.bilibili.login.source.stored": "保存済み",
+    "admin.bilibili.login.source.environment": "環境変数",
+    "admin.bilibili.login.via.import": "インポート",
+    "admin.bilibili.login.via.qr": "QR ログイン",
+    "admin.bilibili.login.name": "ログイン中",
+    "admin.bilibili.login.checked": "確認済み",
+    "admin.bilibili.login.refreshed": "更新済み",
+    "admin.bilibili.login.refreshChecked": "更新確認",
+    "admin.bilibili.login.refreshError": "更新エラー",
+    "admin.bilibili.login.stored": "保存済みログイン",
+    "admin.bilibili.login.unreadable": "読取不可",
+    "admin.bilibili.login.import": "インポート",
+    "admin.bilibili.login.importTitle": "ログインをインポート",
+    "admin.bilibili.login.cookie": "Cookie",
+    "admin.bilibili.login.refreshToken":
+      "リフレッシュトークン（ac_time_value）",
+    "admin.bilibili.login.save": "保存",
+    "admin.bilibili.login.qr": "QR でログイン",
+    "admin.bilibili.login.qrTitle": "QR でログイン",
+    "admin.bilibili.login.qrCode": "QR コード",
+    "admin.bilibili.login.qrAgain": "新しいコード",
+    "admin.bilibili.login.qrState.waiting": "スキャン待ち",
+    "admin.bilibili.login.qrState.scanned":
+      "スキャン済み・アプリで確認してください",
+    "admin.bilibili.login.qrState.signed_in": "ログイン済み",
+    "admin.bilibili.login.qrState.expired": "期限切れ",
+    "admin.bilibili.login.qrState.failed": "失敗",
+    "admin.bilibili.login.forget": "削除",
+    "admin.bilibili.login.forgetTitle": "保存済みログインを削除",
+    "admin.bilibili.login.forgetOnly": "ここからのみ削除",
+    "admin.bilibili.login.signOut": "ログアウトして削除",
+    "admin.error.bilibiliLoginChanged":
+      "保存済み Bilibili ログインが別の操作で変更されました。再読み込みしてやり直してください。",
+    "admin.error.bilibiliLoginUnreadable":
+      "保存済み Bilibili ログインを復号できないためログアウトできません。ここからのみ削除してください。",
+    "admin.notice.bilibiliLoginImported": "Bilibili ログインを保存しました",
+    "admin.notice.bilibiliLoginForgotten": "Bilibili ログインを削除しました",
+    "admin.notice.bilibiliSignedIn": "Bilibili にログインしました",
+    "admin.code.bilibili_login_refresh_rejected":
+      "Bilibili が更新を拒否しました。別の場所でこのログインが更新されています。",
+    "admin.code.bilibili_login_refresh_failed":
+      "ログインの更新に失敗しました。",
+    "admin.code.bilibili_login_confirm_failed":
+      "Bilibili が更新を確認しませんでした。次回の確認でもう一度送信します。",
+    "admin.code.bilibili_login_save_failed":
+      "更新後のログインを保存できませんでした。",
+    "admin.code.bilibili_qr_failed": "QR ログインに失敗しました。",
+    "admin.code.bilibili_sign_out_failed":
+      "Bilibili がログアウトを完了しませんでした。",
+    "admin.alerts.rule.login_refresh_failed": "ログイン更新失敗",
   },
 }

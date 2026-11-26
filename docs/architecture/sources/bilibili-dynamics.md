@@ -4,8 +4,8 @@ How Bilibili dynamics and forwards are read and stored as posts.
 
 ## Dynamics
 
-The scheduled `bilibili_dynamics` source requires a signed-in caller
-(`BILIBILI_COOKIE` or `BILIBILI_SESSDATA`). Without the cookie it records
+The scheduled `bilibili_dynamics` source requires a signed-in caller (a
+[Bilibili login](bilibili-login.md)). Without a login it records
 `{ skipped: true, reason: "login_required" }` and makes no anonymous attempt.
 Its configurable [method chain](../workflows/source-schedules.md#method-chains) tries the desktop
 feed, `/x/polymer/web-dynamic/desktop/v1/feed/space?host_mid=<mid>`, before

@@ -5021,26 +5021,34 @@
       "catalog": null,
       "covers": [
         {
-          "url": "/media/works/84dd2212149a.png",
-          "width": 750,
-          "height": 750,
+          "url": "/media/works/1409fddc686a.png",
+          "width": 2950,
+          "height": 2950,
           "mimeType": "image/png",
           "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
-          "sourceUrl": "https://vgmdb.net/album/64004",
+          "sourceUrl": null,
           "sourceLabel": null,
-          "credit": null,
+          "credit": {
+            "role": "scan",
+            "name": "ZhFuwe",
+            "url": "https://github.com/ZhFuwe"
+          },
           "thirdParty": true
         }
       ],
       "disc": {
-        "url": "/media/works/84dd2212149a.png",
-        "width": 750,
-        "height": 750,
+        "url": "/media/works/1409fddc686a.png",
+        "width": 2950,
+        "height": 2950,
         "mimeType": "image/png",
         "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
-        "sourceUrl": "https://vgmdb.net/album/64004",
+        "sourceUrl": null,
         "sourceLabel": null,
-        "credit": null,
+        "credit": {
+          "role": "scan",
+          "name": "ZhFuwe",
+          "url": "https://github.com/ZhFuwe"
+        },
         "thirdParty": true
       },
       "printedDisc": false,
@@ -5060,14 +5068,18 @@
         {
           "disc": 1,
           "image": {
-            "url": "/media/works/84dd2212149a.png",
-            "width": 750,
-            "height": 750,
+            "url": "/media/works/1409fddc686a.png",
+            "width": 2950,
+            "height": 2950,
             "mimeType": "image/png",
             "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
-            "sourceUrl": "https://vgmdb.net/album/64004",
+            "sourceUrl": null,
             "sourceLabel": null,
-            "credit": null,
+            "credit": {
+              "role": "scan",
+              "name": "ZhFuwe",
+              "url": "https://github.com/ZhFuwe"
+            },
             "thirdParty": true
           }
         }
@@ -10576,34 +10588,34 @@
       "catalog": null,
       "covers": [
         {
-          "url": "/media/works/7b249347bf9d.png",
-          "width": 512,
-          "height": 512,
+          "url": "/media/works/d49cda9e378f.png",
+          "width": 2907,
+          "height": 2907,
           "mimeType": "image/png",
-          "caption": {
-            "ja": "ジャケット・盤面",
-            "zh-CN": "封面・盘面",
-            "en": "Cover and disc"
-          },
-          "sourceUrl": "https://vgmdb.net/album/84998",
+          "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
+          "sourceUrl": null,
           "sourceLabel": null,
-          "credit": null,
+          "credit": {
+            "role": "scan",
+            "name": "ZhFuwe",
+            "url": "https://github.com/ZhFuwe"
+          },
           "thirdParty": true
         }
       ],
       "disc": {
-        "url": "/media/works/7b249347bf9d.png",
-        "width": 512,
-        "height": 512,
+        "url": "/media/works/d49cda9e378f.png",
+        "width": 2907,
+        "height": 2907,
         "mimeType": "image/png",
-        "caption": {
-          "ja": "ジャケット・盤面",
-          "zh-CN": "封面・盘面",
-          "en": "Cover and disc"
-        },
-        "sourceUrl": "https://vgmdb.net/album/84998",
+        "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
+        "sourceUrl": null,
         "sourceLabel": null,
-        "credit": null,
+        "credit": {
+          "role": "scan",
+          "name": "ZhFuwe",
+          "url": "https://github.com/ZhFuwe"
+        },
         "thirdParty": true
       },
       "printedDisc": false,
@@ -10631,18 +10643,18 @@
         {
           "disc": 1,
           "image": {
-            "url": "/media/works/7b249347bf9d.png",
-            "width": 512,
-            "height": 512,
+            "url": "/media/works/d49cda9e378f.png",
+            "width": 2907,
+            "height": 2907,
             "mimeType": "image/png",
-            "caption": {
-              "ja": "ジャケット・盤面",
-              "zh-CN": "封面・盘面",
-              "en": "Cover and disc"
-            },
-            "sourceUrl": "https://vgmdb.net/album/84998",
+            "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
+            "sourceUrl": null,
             "sourceLabel": null,
-            "credit": null,
+            "credit": {
+              "role": "scan",
+              "name": "ZhFuwe",
+              "url": "https://github.com/ZhFuwe"
+            },
             "thirdParty": true
           }
         }
@@ -10689,18 +10701,18 @@
             {
               "disc": 1,
               "image": {
-                "url": "/media/works/7b249347bf9d.png",
-                "width": 512,
-                "height": 512,
+                "url": "/media/works/d49cda9e378f.png",
+                "width": 2907,
+                "height": 2907,
                 "mimeType": "image/png",
-                "caption": {
-                  "ja": "ジャケット・盤面",
-                  "zh-CN": "封面・盘面",
-                  "en": "Cover and disc"
-                },
-                "sourceUrl": "https://vgmdb.net/album/84998",
+                "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
+                "sourceUrl": null,
                 "sourceLabel": null,
-                "credit": null,
+                "credit": {
+                  "role": "scan",
+                  "name": "ZhFuwe",
+                  "url": "https://github.com/ZhFuwe"
+                },
                 "thirdParty": true
               }
             }
@@ -12085,26 +12097,34 @@
       "catalog": { "ja": "BBCL-0012", "zh-CN": "BBCL-0012", "en": "BBCL-0012" },
       "covers": [
         {
-          "url": "/media/works/e86d0355eb0f.png",
-          "width": 884,
-          "height": 884,
+          "url": "/media/works/14df8854724c.png",
+          "width": 2950,
+          "height": 2950,
           "mimeType": "image/png",
           "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
-          "sourceUrl": "https://vgmdb.net/album/94757",
+          "sourceUrl": null,
           "sourceLabel": null,
-          "credit": null,
+          "credit": {
+            "role": "scan",
+            "name": "ZhFuwe",
+            "url": "https://github.com/ZhFuwe"
+          },
           "thirdParty": true
         }
       ],
       "disc": {
-        "url": "/media/works/e86d0355eb0f.png",
-        "width": 884,
-        "height": 884,
+        "url": "/media/works/14df8854724c.png",
+        "width": 2950,
+        "height": 2950,
         "mimeType": "image/png",
         "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
-        "sourceUrl": "https://vgmdb.net/album/94757",
+        "sourceUrl": null,
         "sourceLabel": null,
-        "credit": null,
+        "credit": {
+          "role": "scan",
+          "name": "ZhFuwe",
+          "url": "https://github.com/ZhFuwe"
+        },
         "thirdParty": true
       },
       "printedDisc": false,
@@ -12128,14 +12148,18 @@
         {
           "disc": 1,
           "image": {
-            "url": "/media/works/e86d0355eb0f.png",
-            "width": 884,
-            "height": 884,
+            "url": "/media/works/14df8854724c.png",
+            "width": 2950,
+            "height": 2950,
             "mimeType": "image/png",
             "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
-            "sourceUrl": "https://vgmdb.net/album/94757",
+            "sourceUrl": null,
             "sourceLabel": null,
-            "credit": null,
+            "credit": {
+              "role": "scan",
+              "name": "ZhFuwe",
+              "url": "https://github.com/ZhFuwe"
+            },
             "thirdParty": true
           }
         }
@@ -12186,14 +12210,18 @@
             {
               "disc": 1,
               "image": {
-                "url": "/media/works/e86d0355eb0f.png",
-                "width": 884,
-                "height": 884,
+                "url": "/media/works/14df8854724c.png",
+                "width": 2950,
+                "height": 2950,
                 "mimeType": "image/png",
                 "caption": { "ja": "盤面", "zh-CN": "盘面", "en": "Disc" },
-                "sourceUrl": "https://vgmdb.net/album/94757",
+                "sourceUrl": null,
                 "sourceLabel": null,
-                "credit": null,
+                "credit": {
+                  "role": "scan",
+                  "name": "ZhFuwe",
+                  "url": "https://github.com/ZhFuwe"
+                },
                 "thirdParty": true
               }
             }

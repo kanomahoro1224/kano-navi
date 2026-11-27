@@ -5126,28 +5126,36 @@
     "catalog": "",
     "covers": [
       {
-        "media": "84dd2212149a.png",
-        "width": 750,
-        "height": 750,
+        "media": "1409fddc686a.png",
+        "width": 2950,
+        "height": 2950,
         "caption": [
           {
             "phrase": "disc"
           }
         ],
-        "source": "https://vgmdb.net/album/64004",
+        "credit": {
+          "role": "scan",
+          "name": "ZhFuwe",
+          "url": "https://github.com/ZhFuwe"
+        },
         "thirdParty": true
       }
     ],
     "disc": {
-      "media": "84dd2212149a.png",
-      "width": 750,
-      "height": 750,
+      "media": "1409fddc686a.png",
+      "width": 2950,
+      "height": 2950,
       "caption": [
         {
           "phrase": "disc"
         }
       ],
-      "source": "https://vgmdb.net/album/64004",
+      "credit": {
+        "role": "scan",
+        "name": "ZhFuwe",
+        "url": "https://github.com/ZhFuwe"
+      },
       "thirdParty": true
     },
     "printedDisc": false,
@@ -5165,15 +5173,19 @@
       {
         "disc": 1,
         "image": {
-          "media": "84dd2212149a.png",
-          "width": 750,
-          "height": 750,
+          "media": "1409fddc686a.png",
+          "width": 2950,
+          "height": 2950,
           "caption": [
             {
               "phrase": "disc"
             }
           ],
-          "source": "https://vgmdb.net/album/64004",
+          "credit": {
+            "role": "scan",
+            "name": "ZhFuwe",
+            "url": "https://github.com/ZhFuwe"
+          },
           "thirdParty": true
         }
       }
@@ -11278,28 +11290,36 @@
     "catalog": "",
     "covers": [
       {
-        "media": "7b249347bf9d.png",
-        "width": 512,
-        "height": 512,
+        "media": "d49cda9e378f.png",
+        "width": 2907,
+        "height": 2907,
         "caption": [
           {
-            "phrase": "coverAndDisc"
+            "phrase": "disc"
           }
         ],
-        "source": "https://vgmdb.net/album/84998",
+        "credit": {
+          "role": "scan",
+          "name": "ZhFuwe",
+          "url": "https://github.com/ZhFuwe"
+        },
         "thirdParty": true
       }
     ],
     "disc": {
-      "media": "7b249347bf9d.png",
-      "width": 512,
-      "height": 512,
+      "media": "d49cda9e378f.png",
+      "width": 2907,
+      "height": 2907,
       "caption": [
         {
-          "phrase": "coverAndDisc"
+          "phrase": "disc"
         }
       ],
-      "source": "https://vgmdb.net/album/84998",
+      "credit": {
+        "role": "scan",
+        "name": "ZhFuwe",
+        "url": "https://github.com/ZhFuwe"
+      },
       "thirdParty": true
     },
     "printedDisc": false,
@@ -11327,15 +11347,19 @@
       {
         "disc": 1,
         "image": {
-          "media": "7b249347bf9d.png",
-          "width": 512,
-          "height": 512,
+          "media": "d49cda9e378f.png",
+          "width": 2907,
+          "height": 2907,
           "caption": [
             {
-              "phrase": "coverAndDisc"
+              "phrase": "disc"
             }
           ],
-          "source": "https://vgmdb.net/album/84998",
+          "credit": {
+            "role": "scan",
+            "name": "ZhFuwe",
+            "url": "https://github.com/ZhFuwe"
+          },
           "thirdParty": true
         }
       }
@@ -11387,15 +11411,19 @@
           {
             "disc": 1,
             "image": {
-              "media": "7b249347bf9d.png",
-              "width": 512,
-              "height": 512,
+              "media": "d49cda9e378f.png",
+              "width": 2907,
+              "height": 2907,
               "caption": [
                 {
-                  "phrase": "coverAndDisc"
+                  "phrase": "disc"
                 }
               ],
-              "source": "https://vgmdb.net/album/84998",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
               "thirdParty": true
             }
           }
@@ -12939,28 +12967,36 @@
     "catalog": "BBCL-0012",
     "covers": [
       {
-        "media": "e86d0355eb0f.png",
-        "width": 884,
-        "height": 884,
+        "media": "14df8854724c.png",
+        "width": 2950,
+        "height": 2950,
         "caption": [
           {
             "phrase": "disc"
           }
         ],
-        "source": "https://vgmdb.net/album/94757",
+        "credit": {
+          "role": "scan",
+          "name": "ZhFuwe",
+          "url": "https://github.com/ZhFuwe"
+        },
         "thirdParty": true
       }
     ],
     "disc": {
-      "media": "e86d0355eb0f.png",
-      "width": 884,
-      "height": 884,
+      "media": "14df8854724c.png",
+      "width": 2950,
+      "height": 2950,
       "caption": [
         {
           "phrase": "disc"
         }
       ],
-      "source": "https://vgmdb.net/album/94757",
+      "credit": {
+        "role": "scan",
+        "name": "ZhFuwe",
+        "url": "https://github.com/ZhFuwe"
+      },
       "thirdParty": true
     },
     "printedDisc": false,
@@ -12983,15 +13019,19 @@
       {
         "disc": 1,
         "image": {
-          "media": "e86d0355eb0f.png",
-          "width": 884,
-          "height": 884,
+          "media": "14df8854724c.png",
+          "width": 2950,
+          "height": 2950,
           "caption": [
             {
               "phrase": "disc"
             }
           ],
-          "source": "https://vgmdb.net/album/94757",
+          "credit": {
+            "role": "scan",
+            "name": "ZhFuwe",
+            "url": "https://github.com/ZhFuwe"
+          },
           "thirdParty": true
         }
       }
@@ -13042,15 +13082,19 @@
           {
             "disc": 1,
             "image": {
-              "media": "e86d0355eb0f.png",
-              "width": 884,
-              "height": 884,
+              "media": "14df8854724c.png",
+              "width": 2950,
+              "height": 2950,
               "caption": [
                 {
                   "phrase": "disc"
                 }
               ],
-              "source": "https://vgmdb.net/album/94757",
+              "credit": {
+                "role": "scan",
+                "name": "ZhFuwe",
+                "url": "https://github.com/ZhFuwe"
+              },
               "thirdParty": true
             }
           }

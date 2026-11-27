@@ -5,6 +5,27 @@
   }
 }
 
+/*
+ * Where the source tabs would overflow their row and a phone's shared row
+ * does not apply, they stand three to a row instead of scrolling.
+ */
+@media (min-width: 641px) and (max-width: 1340px) {
+  .adm-source-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow-x: visible;
+  }
+
+  .adm-source-tabs button {
+    min-width: 0;
+  }
+
+  .adm-source-tabs button strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 @media (max-width: 900px) {
   .adm-shell {
     grid-template-columns: minmax(0, 1fr);

@@ -127,10 +127,15 @@
   list-style: none;
 }
 
+/*
+ * A row too narrow for its name and chips moves the chips below the name
+ * instead of squeezing it.
+ */
 .adm-source-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 12px 0;
 }
 
@@ -149,7 +154,7 @@
 
 .adm-source-copy {
   display: grid;
-  flex: 1;
+  flex: 1 1 8rem;
   min-width: 0;
 }
 
@@ -163,6 +168,7 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
+  margin-left: auto;
 }
 
 .adm-stats {

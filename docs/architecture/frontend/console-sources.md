@@ -38,7 +38,8 @@ off for the service or with nothing to work with says so above its list.
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
 tabs for X, YouTube, Bilibili uploads, Bilibili dynamics and the official
 shop, each with the platform's logo (a shopping bag for the shop), a dot (or
-a lock) for whether its timer runs here and the state as its tooltip.
+a lock) for whether its timer runs here and the state as its tooltip. Where
+one row of them would overflow, they stand three to a row.
 The selected source opens with a summary: its timer state, next run, last run and last successful read, the timer switch (which saves
 at once) and Run now. While the timer runs, Run now starts it as the
 overview queue's Start now does, and reads Run next while a run holds the

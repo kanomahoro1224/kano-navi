@@ -27,5 +27,6 @@
 @import "./styles/source-chain.css";
 @import "./styles/proxy.css";
 @import "./styles/alerts.css";
+@import "./styles/totp.css";
 @import "./styles/queue-preview.css";
 @import "./styles/schedule-review.css";

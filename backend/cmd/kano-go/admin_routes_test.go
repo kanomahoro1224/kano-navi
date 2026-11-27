@@ -10,6 +10,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/adminapi"
 	"github.com/yexca/kano-navi/backend/internal/adminauth"
+	"github.com/yexca/kano-navi/backend/internal/adminauth/totpadmin"
 	"github.com/yexca/kano-navi/backend/internal/alerts"
 	"github.com/yexca/kano-navi/backend/internal/httpx"
 	"github.com/yexca/kano-navi/backend/internal/outboundproxy"
@@ -34,6 +35,7 @@ func TestEveryModuleRouteRequiresASession(t *testing.T) {
 	modules := standaloneModules(store, "production", key, outboundproxy.NewPool(store.DB(), key), []string{"kano_example"}, nil)
 	modules = append(modules, websub.NewAdmin(store, websub.New("UCAAAAAAAAAAAAAAAAAAAAAA", http.DefaultClient, nil), key, true))
 	modules = append(modules, alerts.NewAdmin(alerts.New(alerts.Options{Store: store, Key: key})))
+	modules = append(modules, totpadmin.New(store, key, auth))
 	handler := adminapi.New(adminapi.Options{Store: store, Auth: auth, Modules: modules})
 
 	wildcard := regexp.MustCompile(`\{[^}]+\}`)

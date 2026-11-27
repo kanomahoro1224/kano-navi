@@ -55,16 +55,19 @@ operator actions, and share the bounded single-flight synchronization queue.
   whitespace; missing, whitespace-only, and shorter passwords refuse startup.
   The configured password itself is preserved for login comparison.
 - An optional one-time code
-  ([`ADMIN_TOTP_SECRET`](configuration/environment.md#admin-one-time-code)) joins the
+  ([bound in the console or set in `ADMIN_TOTP_SECRET`](configuration/environment.md#admin-one-time-code)) joins the
   password at production login. It is off by default; setting it is
   recommended whenever `/admin` is reachable from the internet, so a leaked
   password alone does not open the console. Login sends both in one request
   and a failure names neither, so it never confirms the password. A code from
   the step before or after the server's is accepted for clock skew, and each
   accepted code's step is spent: a later login needs a later code. Keep the
-  server clock synchronized. The secret stays in the environment and process
-  memory, is never stored or returned, and a malformed value refuses
-  startup.
+  server clock synchronized. The environment's secret stays in the
+  environment and process memory, and a malformed value refuses startup. The
+  console's is sealed with `LLM_SECRETS_KEY` and returned only once, to the
+  setup that made it; binding, replacing or turning it off needs the password
+  and a code, counts failures as failed logins do, and ends every other
+  session.
 - Successful production login creates a random in-memory session with an
   HttpOnly, SameSite=Strict cookie scoped to `/api/admin`. HTTPS requests also
   receive the `Secure` attribute.

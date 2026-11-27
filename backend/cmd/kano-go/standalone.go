@@ -14,6 +14,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/adminapi"
 	"github.com/yexca/kano-navi/backend/internal/adminauth"
+	"github.com/yexca/kano-navi/backend/internal/adminauth/totpadmin"
 	"github.com/yexca/kano-navi/backend/internal/alerts"
 	"github.com/yexca/kano-navi/backend/internal/config"
 	"github.com/yexca/kano-navi/backend/internal/contentadmin"
@@ -92,6 +93,13 @@ func runStandalone(cfg config.Config) int {
 	if err = keyAdmin.Load(context.Background()); err != nil {
 		return fail("Web Bot Auth settings unavailable", 1)
 	}
+	// A one-time code bound in the console joins the password unless
+	// ADMIN_TOTP_SECRET provides one; a stored one that cannot be opened
+	// refuses startup.
+	totp := totpadmin.New(store, secretsKey, auth)
+	if err = totp.Load(context.Background()); err != nil {
+		return fail(err.Error(), 2)
+	}
 	run := newPipeline(store, secretsKey, signing)
 	// The variants step and the Site page's copies status read the archives
 	// under the data directory.
@@ -163,7 +171,7 @@ func runStandalone(cfg config.Config) int {
 			Store:     store,
 			Auth:      auth,
 			Runs:      manager,
-			Modules:   append(modules, pushAdmin, keyAdmin, alerts.NewAdmin(alertService)),
+			Modules:   append(modules, pushAdmin, keyAdmin, totp, alerts.NewAdmin(alertService)),
 			Scheduler: scheduler.Status,
 			// A timer the operator starts is submitted at once when the
 			// queue is free.

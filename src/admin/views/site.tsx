@@ -10,6 +10,7 @@ import type {
 } from "@/admin/types"
 import { Button, Field, Loading, PageHeader, Panel, Switch } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
+import { TOTPPanel } from "@/admin/views/totp-parts"
 
 /**
  * The mainland China site suggestion: whether the public pages offer the
@@ -241,13 +242,15 @@ function VariantsPanel({
   )
 }
 
-/** The Site page: the image copies the pages are served and, last as the
- * least used, the mainland China site suggestion. */
+/** The Site page: the image copies the pages are served, the admin login's
+ * one-time code and, last as the least used, the mainland China site
+ * suggestion. */
 export function SiteView() {
   const { t } = useAppSettings()
   const { api } = useAdmin()
   const region = useResource(() => api.visitorRegion(), [])
   const variants = useResource(() => api.variantStatus(), [])
+  const totp = useResource(() => api.totp(), [])
   return (
     <div className="adm-view">
       <PageHeader title={t("admin.site.title")} />
@@ -256,6 +259,9 @@ export function SiteView() {
         loading={variants.loading}
         onChange={(next) => variants.setData(next)}
       />
+      {totp.data ? (
+        <TOTPPanel status={totp.data} onChange={(next) => totp.setData(next)} />
+      ) : null}
       {!region.data ? (
         <Loading />
       ) : (

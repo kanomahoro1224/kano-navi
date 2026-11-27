@@ -2,7 +2,6 @@ package adminauth
 
 import (
 	"crypto/rand"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -108,6 +107,9 @@ type Auth struct {
 	// lastStep is the time step of the latest accepted code; a code is
 	// accepted once.
 	lastStep int64
+	// stored is the secret bound in the console (see totpadmin), used while
+	// ADMIN_TOTP_SECRET is empty.
+	stored []byte
 }
 
 func New(cfg Config) (*Auth, error) {
@@ -143,7 +145,22 @@ func (a *Auth) RequiresPassword() bool { return a.cfg.Mode == "production" }
 
 // RequiresCode reports whether production login also asks for the one-time
 // code.
-func (a *Auth) RequiresCode() bool { return a.RequiresPassword() && len(a.cfg.TOTPSecret) > 0 }
+func (a *Auth) RequiresCode() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.requiresCodeLocked()
+}
+
+func (a *Auth) requiresCodeLocked() bool { return a.RequiresPassword() && len(a.secretLocked()) > 0 }
+
+// secretLocked is the secret in use: ADMIN_TOTP_SECRET when set, otherwise
+// the one bound in the console, otherwise none.
+func (a *Auth) secretLocked() []byte {
+	if len(a.cfg.TOTPSecret) > 0 {
+		return a.cfg.TOTPSecret
+	}
+	return a.stored
+}
 
 func (a *Auth) purgeLocked(now time.Time) {
 	for token, item := range a.sessions {
@@ -228,49 +245,18 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	// comparisons are a constant-time compare and three HMACs.
 	a.mu.Lock()
 	a.purgeLocked(now)
-	current := a.attempts[address]
-	if current.count >= 5 && current.resetAt.After(now) {
+	if a.limitedLocked(address, now) {
 		a.mu.Unlock()
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too_many_attempts"})
 		return
 	}
-	actual := []byte(password)
-	expected := []byte(a.cfg.Password)
-	matches := len(actual) == len(expected) && subtle.ConstantTimeCompare(actual, expected) == 1
-	step, codeMatches := int64(0), true
-	locked := false
-	if a.RequiresCode() {
-		step, codeMatches = matchTOTP(a.cfg.TOTPSecret, code, now)
-		// A code is accepted once: a later login needs a later step.
-		codeMatches = codeMatches && step > a.lastStep
-		// The shared limit fails every login as a wrong password does, so
-		// the lockout never tells which password is right.
-		locked = a.codeFailures.count >= codeFailureLimit
-	}
-	if !matches || !codeMatches || locked {
-		if current.resetAt.IsZero() || !current.resetAt.After(now) {
-			current = attempt{resetAt: now.Add(5 * time.Minute)}
-		}
-		current.count++
-		a.attempts[address] = current
-		// Only the right password with a wrong code spends the shared
-		// allowance; a wrong password is limited per address alone.
-		if matches && !locked {
-			if a.codeFailures.resetAt.IsZero() {
-				a.codeFailures.resetAt = now.Add(5 * time.Minute)
-			}
-			a.codeFailures.count++
-		}
+	if _, err := a.verifyLocked(address, password, code, true, now); err != nil {
 		a.mu.Unlock()
 		// Neither factor is named, so a failure never confirms the password.
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_credentials"})
 		return
 	}
-	if a.RequiresCode() {
-		a.lastStep = step
-	}
 	token := encodeToken(tokenBytes)
-	delete(a.attempts, address)
 	a.sessions[token] = session{expiresAt: now.Add(a.cfg.SessionTTL)}
 	a.mu.Unlock()
 	setCookie(w, r, token, int(a.cfg.SessionTTL/time.Second))

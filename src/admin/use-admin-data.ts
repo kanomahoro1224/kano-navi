@@ -92,6 +92,8 @@ import type {
   WorksRecentReport,
   SyncSettingField,
   SyncSettings,
+  TOTPEnrollment,
+  TOTPStatus,
   WebBotAuthStatus,
   YTDLPStatus,
 } from "@/admin/types"
@@ -265,6 +267,17 @@ function createClient(run: Runner, slow: Runner) {
       send<BilibiliQR>("POST", "/sources/bilibili/login/qr"),
     cancelBilibiliQR: () =>
       send<BilibiliQR>("DELETE", "/sources/bilibili/login/qr"),
+    totp: () => get<TOTPStatus>("/security/totp"),
+    startTOTP: () => send<TOTPEnrollment>("POST", "/security/totp/enrollment"),
+    cancelTOTP: () => send<TOTPStatus>("DELETE", "/security/totp/enrollment"),
+    /** Binds the enrollment's secret; currentCode while one is bound. */
+    confirmTOTP: (body: {
+      password: string
+      code: string
+      currentCode?: string
+    }) => send<TOTPStatus>("PUT", "/security/totp", body),
+    turnOffTOTP: (body: { password: string; code: string }) =>
+      send<TOTPStatus>("DELETE", "/security/totp", body),
     updateWebBotAuth: (body: { origin: string | null }) =>
       send<WebBotAuthStatus>("PUT", "/sources/shop/web-bot-auth", body),
     generateWebBotAuthKey: () =>

@@ -84,14 +84,28 @@ origin.
 
 ## Admin one-time code
 
-`ADMIN_TOTP_SECRET` adds a one-time code to production admin login: the
-six-digit RFC 6238 code (HMAC-SHA1, 30-second step) that password managers
-such as 1Password and authenticator apps generate. It is off while the
-variable is empty or whitespace, and `APP_MODE=development` never asks for
-it. The value is base32 of at least 16 bytes, in either case, with spaces,
-hyphens and padding ignored; any other value, including one of only those
-characters, is malformed and stops `kano-go serve` in every mode before
-SQLite opens. Make a value with:
+Production admin login can also ask for a one-time code: the six-digit
+RFC 6238 code (HMAC-SHA1, 30-second step) that password managers such as
+1Password and authenticator apps generate. `APP_MODE=development` never asks
+for it. The secret comes from one of two places.
+
+**The console.** Set up in the Site page's Login one-time code panel shows a
+new secret as a QR code and as text. Scan it (or type the text) into the authenticator, then confirm
+with the admin password and a code from the authenticator; nothing is stored
+until the code matches, and a setup ends after ten minutes or five wrong
+codes. The secret is sealed with `LLM_SECRETS_KEY` in the database and
+applies to the next login without a restart. Replacing it also needs a code
+of the secret in use, and turning it off needs the password and a current
+code. Binding, replacing and turning off each end every other admin session.
+A stored secret that `LLM_SECRETS_KEY` cannot open refuses startup until the
+key is restored or the secret is removed (see recovery below).
+
+**`ADMIN_TOTP_SECRET`.** While set, it is the code in use, and the console
+shows it as set by the environment without changing it. It is off while the
+variable is empty or whitespace. The value is base32 of at least 16 bytes, in
+either case, with spaces, hyphens and padding ignored; any other value,
+including one of only those characters, is malformed and stops
+`kano-go serve` in every mode before SQLite opens. Make a value with:
 
 ```bash
 kano-go totp-secret
@@ -101,8 +115,12 @@ It prints the `ADMIN_TOTP_SECRET=` line and, as a comment, the
 `otpauth://totp/...` address. Import the address (or paste the secret) into
 the password manager's one-time password field for the console's login, then
 restart; the login page asks for the code once the service runs with it.
-Losing the authenticator is recovered by replacing or clearing the variable
-and restarting. The secret is a credential like the others below.
+The secret is a credential like the others below.
+
+Losing the authenticator is recovered on the host. For the console's code,
+run `kano-go totp-reset` (it accepts `-database` and opens an existing
+database only) and restart; login then asks for the password alone. For the
+environment's code, replace or clear the variable and restart.
 
 Setting it is recommended for any deployment whose `/admin` is reachable
 from the internet; see

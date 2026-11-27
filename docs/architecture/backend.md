@@ -21,6 +21,7 @@ kano-go migrate-llm  Seal OPENAI_API_KEY as the key of the openai-default provid
 kano-go variants     Make the resized copies of the LINE BLOG, Works and Journey images
 kano-go web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY override line and its keyid
 kano-go totp-secret  Print a new ADMIN_TOTP_SECRET line and its otpauth:// address
+kano-go totp-reset   Remove the admin one-time code bound in the console
 kano-go healthcheck  Probe the local service and exit
 ```
 
@@ -41,6 +42,8 @@ capture ID.
 `web-bot-auth-key` takes no flags and stores nothing
 ([Web Bot Auth](web-bot-auth.md#key)); neither does `totp-secret`
 ([Admin one-time code](../operations/configuration/environment.md#admin-one-time-code)).
+`totp-reset` opens an existing database only, never creates one, and needs
+no other environment.
 
 From the repository root:
 

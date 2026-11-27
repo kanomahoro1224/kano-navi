@@ -16,6 +16,11 @@
   stored, and for an operator's QR sign-in or sign-out.
 - `POST /api/admin/profile-media/discover` accepts `source` `bilibili` (avatar
   only), and profile media candidates may have the source `bilibili`.
+- New admin routes `GET`, `PUT` and `DELETE /api/admin/security/totp` and
+  `POST` and `DELETE /api/admin/security/totp/enrollment`; the console's
+  one-time code is the sealed `app_settings` row `admin_totp`.
+- New command `kano-go totp-reset` removes the console's one-time code. A
+  stored one that `LLM_SECRETS_KEY` cannot open refuses startup.
 
 </details>
 
@@ -30,6 +35,9 @@
   the step partial.
 - Profile images fetch Kano's current Bilibili avatar as an avatar
   candidate, beside the YouTube one.
+- The Site page sets up the login one-time code by scanning a QR code,
+  confirmed with the password and a code before it is stored, and replaces
+  or turns it off; `ADMIN_TOTP_SECRET` still wins while set.
 
 </details>
 

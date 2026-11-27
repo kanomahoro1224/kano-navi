@@ -4,8 +4,10 @@ The console's overview, queue, sources, manual fetch, posts and data views.
 
 ## Console Overview, Queue and Sources
 
-The console's Overview (`src/admin/views/overview.tsx`) opens with the
-queue: the active run with its steps and Cancel, or Idle, then the timers in
+The console's Overview (`src/admin/views/overview.tsx`) opens with Needs
+your attention: the overview's open `alerts` first, which open the Alerts
+page, then each kind of review work waiting, which opens its Review queue
+tab, or All clear when none is. Then the queue: the active run with its steps and Cancel, or Idle, then the timers in
 the order they start, from the overview's `queue`. A due timer shows Due and
 whether it waits for the current run; a source timer that is not due has
 Start now, or Run next while a run holds the queue. The live-status probe is

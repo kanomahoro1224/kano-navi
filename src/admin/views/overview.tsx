@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  BellRing,
   CalendarClock,
   CalendarMinus,
   CalendarSearch,
@@ -241,8 +242,9 @@ export function OverviewView({ navigate }: ViewProps) {
 
   const { review, counts, activeRun, scheduler } = overview
   const queue = overview.queue || []
-  // Each item opens its Review queue tab; the schedule's three share one.
-  const attention = [
+  // Open alerts come first and open Alerts; each other item opens its Review
+  // queue tab, where the schedule's three share one.
+  const reviewItems = [
     {
       key: "images",
       tab: "schedule",
@@ -292,6 +294,17 @@ export function OverviewView({ navigate }: ViewProps) {
       icon: FileWarning,
       tone: "danger",
     },
+  ]
+  const attention = [
+    {
+      key: "alerts",
+      view: "alerts",
+      tab: "",
+      count: overview.alerts?.open ?? 0,
+      icon: BellRing,
+      tone: "danger",
+    },
+    ...reviewItems.map((item) => ({ ...item, view: "review" })),
   ].filter((item) => item.count > 0)
 
   return (
@@ -329,7 +342,7 @@ export function OverviewView({ navigate }: ViewProps) {
                   key={item.key}
                   type="button"
                   className={`adm-attention-item adm-tone-${item.tone}`}
-                  onClick={() => navigate("review", item.tab)}
+                  onClick={() => navigate(item.view, item.tab)}
                 >
                   <Icon aria-hidden />
                   <span>

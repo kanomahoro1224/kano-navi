@@ -122,6 +122,8 @@ export const adminMessages = {
 
     "admin.overview.title": "Overview",
     "admin.overview.attention": "Needs your attention",
+    "admin.overview.attention.alerts": ({ count }: { count: number }) =>
+      count === 1 ? "open alert" : "open alerts",
     "admin.overview.attention.images": ({ count }: { count: number }) =>
       count === 1 ? "schedule image to review" : "schedule images to review",
     "admin.overview.attention.cancellations": ({ count }: { count: number }) =>
@@ -142,7 +144,7 @@ export const adminMessages = {
       count === 1 ? "post failed extraction" : "posts failed extraction",
     "admin.overview.allClear": "All clear",
     "admin.overview.allClearHint":
-      "No images, cancellations or failed posts are waiting.",
+      "No alerts, images, cancellations or failed posts are waiting.",
     "admin.overview.queue": "Queue",
     "admin.backlog.title": "Waiting for a run",
     "admin.backlog.extraction": ({ count }: { count: number }) =>
@@ -2068,13 +2070,15 @@ export const adminMessages = {
 
     "admin.overview.title": "概览",
     "admin.overview.attention": "需要处理",
+    "admin.overview.attention.alerts": "条未处理告警",
     "admin.overview.attention.images": "张日程图待审核",
     "admin.overview.attention.cancellations": "条疑似取消",
     "admin.overview.attention.unlisted": "条帖子不再列出的条目",
     "admin.overview.attention.uncertain": "条不确定的新增",
     "admin.overview.attention.posts": "条贴文提取失败",
     "admin.overview.allClear": "全部处理完毕",
-    "admin.overview.allClearHint": "没有等待处理的图片、取消或失败贴文。",
+    "admin.overview.allClearHint":
+      "没有未处理的告警，也没有等待处理的图片、取消或失败贴文。",
     "admin.backlog.title": "等待运行",
     "admin.backlog.extraction": "{count} 条贴文待重新提取",
     "admin.backlog.extraction.when": "随下次日程扫描处理",

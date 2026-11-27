@@ -24,8 +24,8 @@ export type PublicPage =
 const pages: { id: PublicPage; href: string; labelKey: string }[] = [
   { id: "board", href: "/", labelKey: "nav.now" },
   { id: "posts", href: "/posts", labelKey: "posts.label" },
-  { id: "history", href: "/journey", labelKey: "history.eyebrow" },
   { id: "works", href: "/works", labelKey: "works.label" },
+  { id: "history", href: "/journey", labelKey: "history.eyebrow" },
   { id: "lineblog", href: "/lineblog", labelKey: "lineblog.label" },
   { id: "about", href: "/about", labelKey: "about.label" },
 ]

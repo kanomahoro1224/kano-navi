@@ -39,6 +39,8 @@
   and going back to it from another page returns to where you were reading.
 - The Posts page's All card is one line without a portrait; in wide windows
   it spans the side rail, with the accounts two a row below it.
+- The header lists Works before Journey: Now, Posts, Works, Journey, LINE
+  BLOG, About.
 
 </details>
 

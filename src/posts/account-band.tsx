@@ -48,7 +48,7 @@ export function AccountBand({
     {
       key: "",
       handle: null as string | null,
-      name: t("common.all") as ReactNode,
+      name: t("posts.allAccounts") as ReactNode,
       portrait: null as ReactNode,
       span: all,
     },

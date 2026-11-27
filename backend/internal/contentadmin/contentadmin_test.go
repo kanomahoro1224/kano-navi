@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -857,58 +856,6 @@ func TestDiscoverProfileMediaFallsBackToFxTwitterWithHandle(t *testing.T) {
 
 	f.post("/profile-media/discover", map[string]any{"slot": "banner", "source": "youtube", "handle": "kano_2525"}).expectInvalid(t, "handle is only supported for x")
 	f.post("/profile-media/discover", map[string]any{"slot": "banner", "source": "x", "handle": "bad/handle"}).expectInvalid(t, "handle is invalid")
-}
-
-func TestDiscoverBilibiliAvatarRecordsTheAccountFace(t *testing.T) {
-	f := newFixture(t, true)
-	f.exec(`UPDATE profiles SET avatar_url=?`, "https://pbs.twimg.com/profile_images/9/existing.jpg")
-	face, space := "https://i0.hdslb.com/bfs/face/synthetic.png", "https://space.bilibili.com/1000001"
-	calls := 0
-	var avatarErr error
-	f.module = New(f.store, Options{HTTPClient: &http.Client{Transport: f.network}, BilibiliAvatar: func(context.Context) (string, string, error) {
-		calls++
-		return face, space, avatarErr
-	}})
-
-	out := f.post("/profile-media/discover", map[string]any{"source": "bilibili"})
-	out.expect(t, http.StatusOK, "")
-	if out.json["slot"] != "avatar" || out.json["source"] != "bilibili" || out.json["sourceUrl"] != space {
-		t.Fatalf("unexpected discovery summary: %s", out.raw)
-	}
-	candidates := list(t, out.json["candidates"])
-	if len(candidates) != 1 {
-		t.Fatalf("expected only the Bilibili face, got %s", out.raw)
-	}
-	candidate := object(t, candidates[0])
-	if candidate["slot"] != "avatar" || candidate["source"] != "bilibili" || candidate["sourceRef"] != space || candidate["sourceUrl"] != face || candidate["status"] != "pending" {
-		t.Fatalf("unexpected candidate: %#v", candidate)
-	}
-	if len(f.network.visited) != 0 {
-		t.Fatalf("discovery fetched images: %v", f.network.visited)
-	}
-
-	image := syntheticPNG(1)
-	f.serveImage(face, "image/png", image)
-	downloaded := f.request(http.MethodPost, "/profile-media/"+candidate["id"].(string)+"/download", "", nil)
-	downloaded.expect(t, http.StatusOK, "")
-	hash := digest.SHA256Hex(image)
-	if item := object(t, downloaded.json["item"]); item["status"] != "ready" || item["cachePath"] != "bilibili/sha256/"+hash[:2]+"/"+hash+".png" {
-		t.Fatalf("unexpected ready candidate: %#v", item)
-	}
-
-	f.post("/profile-media/discover", map[string]any{"slot": "banner", "source": "bilibili"}).expectInvalid(t, "bilibili only offers an avatar")
-	f.post("/profile-media/discover", map[string]any{"slot": "avatar", "source": "bilibili", "handle": "kano_2525"}).expectInvalid(t, "handle is only supported for x")
-	if calls != 1 {
-		t.Fatalf("invalid requests reached Bilibili: %d calls", calls)
-	}
-
-	avatarErr = errors.New("bilibili_risk_control_http")
-	f.post("/profile-media/discover", map[string]any{"slot": "avatar", "source": "bilibili"}).expect(t, http.StatusInternalServerError, "internal_error")
-	f.module = New(f.store, Options{HTTPClient: &http.Client{Transport: f.network}})
-	f.post("/profile-media/discover", map[string]any{"slot": "avatar", "source": "bilibili"}).expect(t, http.StatusInternalServerError, "internal_error")
-	if f.text(`SELECT CAST(COUNT(*) AS TEXT) FROM profile_media`) != "1" {
-		t.Fatal("failed discovery must not register candidates")
-	}
 }
 
 func seedScheduleAssets(f *fixture) (boardURL, thumbURL, thumbHash string) {

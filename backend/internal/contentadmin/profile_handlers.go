@@ -314,9 +314,25 @@ func (m *Module) discoverBilibiliAvatar(ctx context.Context) (*profileDiscoverRe
 	return m.saveDiscoveredCandidates(ctx, "avatar", "bilibili", spaceURL, []string{"avatar"}, map[string][]string{"avatar": {imageURL}}, map[string]string{})
 }
 
+// autoDownloadLimit bounds the images one YouTube or Bilibili check downloads.
+const autoDownloadLimit = 4
+
+// saveDiscoveredCandidates records the found images as candidates of their
+// slots. A YouTube or Bilibili check then downloads the images it found that
+// are not ready yet, at most autoDownloadLimit, so they can be previewed and
+// used at once; a failed download is recorded on its candidate and leaves the
+// check's answer alone. X candidates wait for the operator's download.
 func (m *Module) saveDiscoveredCandidates(ctx context.Context, slot, source, refURL string, slots []string, discoveredBySlot map[string][]string, existing map[string]string) (*profileDiscoverResponse, error) {
 	seen := map[string]bool{}
 	candidates := []profileCandidate{}
+	found := map[string]bool{}
+	for _, values := range discoveredBySlot {
+		for _, value := range values {
+			if imageURL, ok := profileImageURL(value); ok {
+				found[imageURL] = true
+			}
+		}
+	}
 	// A page can contain unrelated social images; those are skipped safely.
 	for _, found := range slots {
 		for _, value := range append(discoveredBySlot[found], existing[found]) {
@@ -329,16 +345,34 @@ func (m *Module) saveDiscoveredCandidates(ctx context.Context, slot, source, ref
 		}
 	}
 	now := m.timestamp()
+	download := []string{}
 	err := m.inTx(ctx, func(tx *sql.Tx) error {
 		for _, candidate := range candidates {
-			if _, upsertErr := upsertProfileCandidate(ctx, tx, candidate, now); upsertErr != nil {
+			id, upsertErr := upsertProfileCandidate(ctx, tx, candidate, now)
+			if upsertErr != nil {
 				return upsertErr
+			}
+			if (source == "youtube" || source == "bilibili") && found[*candidate.SourceURL] && len(download) < autoDownloadLimit {
+				download = append(download, id)
 			}
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, err
+	}
+	// No transaction is held while the images are fetched.
+	for _, id := range download {
+		item, getErr := getProfileMedia(ctx, m.db, id)
+		if getErr != nil {
+			return nil, getErr
+		}
+		if item == nil || item.Status == "ready" {
+			continue
+		}
+		if downloadErr := m.downloadProfileMedia(ctx, id); downloadErr != nil && ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 	}
 	listed, err := listProfileMedia(ctx, m.db, slot)
 	if err != nil {

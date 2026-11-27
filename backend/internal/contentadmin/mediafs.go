@@ -83,7 +83,7 @@ func (m *Module) lexicalMediaPath(relative string) (string, error) {
 		return filepath.Join(m.namespaceRoot("legacy"), filepath.FromSlash(normalized)), nil
 	}
 	switch strings.SplitN(normalized, "/", 2)[0] {
-	case "x", "youtube", "avatar":
+	case "x", "youtube", "bilibili", "avatar":
 		return filepath.Join(m.dataRoot, filepath.FromSlash(normalized)), nil
 	}
 	return "", errMediaPath

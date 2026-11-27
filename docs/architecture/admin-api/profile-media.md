@@ -28,11 +28,17 @@ is stored under `data/bilibili/`. A candidate's `slot` is the slot it is active
 for, or otherwise the one that found it; an added or uploaded candidate without
 one starts as an avatar. A source URL is one candidate whichever slot finds it.
 Discovery without a slot records the avatar and the banner the profile page
-names, and its result then has no `slot`. Selection uses the given slot, or the
-candidate's own, and moves the candidate there; the slot it leaves falls back to
-the built-in image. `POST /profile-media/clear` clears the active image for
-the given `slot` (`avatar` or `banner`) so the slot returns to the built-in
-image while keeping its candidates. Deleting the active candidate falls back to
+names, and its result then has no `slot`. YouTube and Bilibili discovery then
+downloads the images it found that are not ready yet, at most four, as
+`POST /profile-media/{id}/download` would, so they can be previewed and
+selected at once; a failed download is recorded on its candidate
+(`status` `failed`, `lastError`) and the discovery still answers. X
+discovery records URLs only, and its candidates wait for a download.
+Selection uses the given slot, or the candidate's own, and moves the candidate
+there; the slot it leaves falls back to the built-in image.
+`POST /profile-media/clear` clears the active image for the given `slot`
+(`avatar` or `banner`) so the slot returns to the built-in image while keeping
+its candidates. Deleting the active candidate falls back to
 the built-in image, an unknown ID answers `404 profile_media_not_found`, and a
 later discovery may record a deleted URL again. Files follow
 [Selected Profile Media](../media-cache/lifecycle.md#selected-profile-media).

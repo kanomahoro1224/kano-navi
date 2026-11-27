@@ -5,14 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"rsc.io/qr"
-
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/qrsvg"
 	"github.com/yexca/kano-navi/backend/internal/secretstore"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
@@ -42,43 +39,10 @@ type bilibiliQR struct {
 	state, code string
 	expiresAt   time.Time
 	// picture is the code to scan; it is dropped when the sign-in ends.
-	picture *qrPicture
+	picture *qrsvg.Picture
 	cancel  context.CancelFunc
 	// generation counts sign-ins, so a poller only ever changes its own.
 	generation int
-}
-
-// qrPicture is a QR code as one SVG path over a square of size modules,
-// the quiet zone included.
-type qrPicture struct {
-	Size int    `json:"size"`
-	Path string `json:"path"`
-}
-
-// qrQuiet is the quiet zone around a code, in modules.
-const qrQuiet = 4
-
-func newQRPicture(text string) (*qrPicture, error) {
-	code, err := qr.Encode(text, qr.M)
-	if err != nil {
-		return nil, err
-	}
-	var path strings.Builder
-	for y := 0; y < code.Size; y++ {
-		for x := 0; x < code.Size; {
-			if !code.Black(x, y) {
-				x++
-				continue
-			}
-			start := x
-			for x < code.Size && code.Black(x, y) {
-				x++
-			}
-			run := strconv.Itoa(x - start)
-			path.WriteString("M" + strconv.Itoa(start+qrQuiet) + " " + strconv.Itoa(y+qrQuiet) + "h" + run + "v1h-" + run + "z")
-		}
-	}
-	return &qrPicture{Size: code.Size + 2*qrQuiet, Path: path.String()}, nil
 }
 
 func (q *bilibiliQR) active() bool {
@@ -318,7 +282,7 @@ func (a *api) startBilibiliQR(w http.ResponseWriter, r *http.Request) {
 		writeLoginRequestError(w, err, next)
 		return
 	}
-	picture, err := newQRPicture(code.URL)
+	picture, err := qrsvg.Encode(code.URL)
 	if err != nil {
 		httpx.WriteCode(w, http.StatusInternalServerError, "internal_error")
 		return

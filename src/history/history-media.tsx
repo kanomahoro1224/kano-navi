@@ -1,5 +1,5 @@
 import type { Locale, Translator } from "@/types"
-import { useState } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import { ArrowUpRight, ImageOff, Images } from "lucide-react"
 
 import { mediaSrcSet } from "@/lib/media"
@@ -29,6 +29,9 @@ export const HISTORY_IMAGE_SIZES = {
  * unavailable state.
  * With sizes it offers the server's smaller copies; without, as in the
  * viewer, it loads the original.
+ * Until the file arrives the image stays hidden, its frame under a sheen
+ * (src/history/history.css), and then fades in; one already in the cache
+ * shows at once.
  */
 export function HistoryImage({
   item,
@@ -49,6 +52,12 @@ export function HistoryImage({
   focus?: string
 }) {
   const [failed, setFailed] = useState(false)
+  const [load, setLoad] = useState<"loading" | "shown" | "cached">("loading")
+  const imageRef = useRef<HTMLImageElement>(null)
+  useLayoutEffect(() => {
+    const image = imageRef.current
+    setLoad(image?.complete && image.naturalWidth > 0 ? "cached" : "loading")
+  }, [item.url])
   if (failed) {
     return (
       <span
@@ -63,6 +72,8 @@ export function HistoryImage({
   }
   return (
     <img
+      ref={imageRef}
+      className={`history-image${load === "cached" ? "" : ` is-${load}`}`}
       src={item.url}
       srcSet={sizes ? mediaSrcSet(item.url, item.width) : undefined}
       sizes={sizes}
@@ -72,6 +83,9 @@ export function HistoryImage({
       loading={eager ? "eager" : "lazy"}
       decoding="async"
       style={focus ? { objectPosition: focus } : undefined}
+      onLoad={() =>
+        setLoad((current) => (current === "loading" ? "shown" : current))
+      }
       onError={() => setFailed(true)}
     />
   )

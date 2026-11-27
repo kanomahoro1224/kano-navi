@@ -23,6 +23,8 @@ handles its fragment moves (the console's views), and `index.html` applies the s
 language before the first paint so no load flashes the other theme. History copy and image metadata are
 static; the images are served from `data/journey/` (`/media/journey/<name>`),
 and release milestones show the `/works` covers of the release they name.
+An image still loading keeps its frame under a sweeping sheen and fades in
+once it arrives.
 `scripts/package-history-media.ts` packages the images from a local reference
 archive without network requests.
 See [History archive maintenance](../../development/history-archive.md). The

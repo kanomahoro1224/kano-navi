@@ -174,7 +174,10 @@ registers the views in four nav groups by what the operator is doing — Today
 (Overview, Review queue), Content, what the public pages show (Schedule,
 Posts, External posts, Videos, Account avatars, Profile images), Pipeline,
 how data comes in (Sources, Detection, Runs, Alerts), and System, the rarely
-used settings and maintenance (Proxies, Site, Works) — and renders the shell with hash routing
+used settings and maintenance (Proxies, Site, Works) — and renders the shell:
+a sidebar of those groups on wide screens and, at 900 pixels and below, a
+header button naming the current view with the sections' counts, which
+opens the same groups in a sheet along the bottom edge. It routes by hash
 (`#view/tab`, where the tab is everything after the view and may hold
 several parts; `resolveHash` maps older addresses: `#content/<tab>` opens
 the matching view, `#models` and `#llm/<provider>` open Detection, which

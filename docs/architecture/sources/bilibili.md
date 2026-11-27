@@ -184,11 +184,15 @@ broadcast seen live, the last check that saw it live and the first later
 check that saw the room off air, and the start and observed end of the
 broadcast before it when a check saw that one end.
 
-The same answer names the account's avatar (`face`). An operator's
-[profile media discovery](../admin-api/profile-media.md#profile-media) asks
-for it once, on request, and keeps it only on Bilibili's image CDN
-(`*.hdslb.com`, upgraded to HTTPS); that request leaves the live check's
-state and backoff alone.
+The same answer names the account's avatar (`face`), kept only on
+Bilibili's image CDN (`*.hdslb.com`, upgraded to HTTPS). A successful live
+check records it as a synced
+[account avatar](../admin-api/profile-media.md#account-avatars) of the
+account, which the media step downloads and the posts show beside the
+account's dynamics. An operator's
+[profile media discovery](../admin-api/profile-media.md#profile-media) and
+the account avatar's Fetch latest ask for it once, on request; those
+requests leave the live check's state and backoff alone.
 
 Entries are tied to the room by their [platforms](../data-model/events.md#event-platforms),
 never by a link: the room's link is the same for every broadcast, while

@@ -685,6 +685,14 @@ func (s *SourceSteps) bilibiliLive(ctx context.Context) (map[string]any, string,
 	if err != nil {
 		return nil, "", NewStepError("schema_failure", ErrSchema)
 	}
+	// The answer names the account's current face, which joins its account
+	// avatars like an X author's image; the media step downloads it and an
+	// account in auto mode shows the newest one.
+	if checkErr == nil && state.Room.Face != "" {
+		if _, _, err = s.Store.RecordAccountAvatarURL(ctx, "bilibili", account, sqlite.AccountAvatarOriginSync, state.Room.Face, false); err != nil && !errors.Is(err, sqlite.ErrAccountAvatarInvalid) {
+			return nil, "", NewStepError("schema_failure", ErrSchema)
+		}
+	}
 	counts["requested"], counts["live"], counts["changed"] = 1, checkErr == nil && state.Room.LiveStatus == bilisource.RoomLive, changed
 	if checkErr != nil {
 		counts["errors"] = []string{bilisource.ErrorCode(checkErr)}

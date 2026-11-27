@@ -92,11 +92,10 @@ import type {
   WorksRecentReport,
   SyncSettingField,
   SyncSettings,
-  TOTPEnrollment,
-  TOTPStatus,
   WebBotAuthStatus,
   YTDLPStatus,
 } from "@/admin/types"
+import type { TOTPEnrollment, TOTPStatus } from "@/admin/totp-types"
 
 type Runner = <T>(
   key: string,

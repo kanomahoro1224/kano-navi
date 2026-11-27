@@ -37,6 +37,9 @@
   candidate, beside the YouTube one. Fetching a YouTube or Bilibili image
   downloads it at once, so it can be previewed and used without a separate
   Download.
+- Account avatars list the Bilibili account as one of Kano's own. Its avatar
+  arrives with each live check, or with Fetch latest, and the Posts page and
+  the board show it beside the account's dynamics.
 - The Site page sets up the login one-time code by scanning a QR code,
   confirmed with the password and a code before it is stored, and replaces
   or turns it off; `ADMIN_TOTP_SECRET` still wins while set.

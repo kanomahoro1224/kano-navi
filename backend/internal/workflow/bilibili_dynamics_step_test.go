@@ -118,7 +118,7 @@ func TestLiveStepChecksTheBilibiliRoomOncePerDueTime(t *testing.T) {
 	}
 	defer s.Close()
 	paths := []string{}
-	live := `{"code":0,"data":{"316381099":{"title":"synthetic","room_id":1000001,"live_status":1,"live_time":1794049200}}}`
+	live := `{"code":0,"data":{"316381099":{"title":"synthetic","room_id":1000001,"live_status":1,"live_time":1794049200,"face":"https://i0.hdslb.com/bfs/face/synthetic.jpg"}}}`
 	adapter := bilisource.NewAdapter(bilisource.NewClient(&http.Client{Transport: xTestRT(biliResponder(t, &paths, live))}),
 		bilisource.Options{Account: bilisource.DefaultAccount, MinInterval: 3 * time.Hour})
 	clock := time.Now()
@@ -136,6 +136,12 @@ func TestLiveStepChecksTheBilibiliRoomOncePerDueTime(t *testing.T) {
 	checked, _ := first.Result["bilibili"].(map[string]any)
 	if first.Status != "succeeded" || checked["requested"] != 1 || checked["live"] != true || checked["phase"] != sqlite.LivePhaseBaseline || len(paths) != 1 || paths[0] != "api.live.bilibili.com/room/v1/Room/get_status_info_by_uids" {
 		t.Fatalf("first=%#v paths=%v", first, paths)
+	}
+	// The face the answer names joins the account's avatars for the media
+	// step to download.
+	avatar, err := s.GetAccountAvatar(context.Background(), "bilibili", bilisource.DefaultAccount)
+	if err != nil || len(avatar.Candidates) != 1 || avatar.Candidates[0].SourceURL != "https://i0.hdslb.com/bfs/face/synthetic.jpg" || avatar.Candidates[0].Origin != sqlite.AccountAvatarOriginSync {
+		t.Fatalf("avatar=%+v err=%v", avatar, err)
 	}
 	// Within the baseline interval nothing is due.
 	clock = clock.Add(10 * time.Minute)

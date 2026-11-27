@@ -12,7 +12,7 @@ import {
 import { useAppSettings } from "@/app-settings"
 import { ApiError, errorMessage, renderMessage } from "@/admin/api"
 import { formatRelative, japanStamp } from "@/admin/format"
-import type { TOTPEnrollment, TOTPStatus } from "@/admin/types"
+import type { TOTPEnrollment, TOTPStatus } from "@/admin/totp-types"
 import {
   Badge,
   Button,

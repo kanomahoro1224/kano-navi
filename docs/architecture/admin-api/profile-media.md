@@ -58,11 +58,17 @@ later discovery may record a deleted URL again. Files follow
 | `POST /account-avatars/{source}/{handle}/candidates/{id}/select`   |                          | `{item, items}`          |
 | `DELETE /account-avatars/{source}/{handle}/candidates/{id}`        |                          | `{item, items}`          |
 
-Each item tracks a tracked X account (`source` `x`, key `accountKey`) across
-configured `X_HANDLES` (`own`), `x_related_accounts` (`related`), and stored
-avatar rows (`other`). `mode` is `auto` (latest synced or discovered image wins),
-`manual` (operator selection stays locked across syncs), or `hidden` (public
-board shows initials and omits an avatar URL). `discover` checks public X
-endpoints (`fxtwitter` / Twitter) for the account's latest avatar; `apply-profile`
-copies an own account's ready avatar into the global site `avatar` slot in
+Each item tracks an X account (`source` `x`, key `accountKey`, the lowercase
+handle) or the configured Bilibili account (`source` `bilibili`, key its mid)
+across configured `X_HANDLES` and `BILIBILI_UID` (`own`),
+`x_related_accounts` (`related`), and stored avatar rows (`other`). `mode` is
+`auto` (latest synced or discovered image wins), `manual` (operator selection
+stays locked across syncs), or `hidden` (public board shows initials and omits
+an avatar URL). `discover` checks public X endpoints (`fxtwitter` / Twitter)
+for an X account's latest avatar, and for the Bilibili account reads its
+`face` as the [live room status](../sources/bilibili.md#live-room) names it
+(another mid answers `500`); it downloads what it finds. The Bilibili
+account's face also arrives with every live check, as a synced candidate the
+media step downloads under `data/bilibili/`. `apply-profile` copies an own
+account's ready avatar into the global site `avatar` slot in
 `profile_media`.

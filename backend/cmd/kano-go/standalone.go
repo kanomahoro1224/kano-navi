@@ -305,6 +305,7 @@ func alertSignals(store *sqlite.Store, run pipeline, key string, keys *keyadmin.
 func standaloneModules(store *sqlite.Store, mode, key string, proxies *outboundproxy.Pool, xHandles []string, bilibili *bilisource.Adapter) []httpx.AdminModule {
 	content := contentadmin.Options{HTTPClient: proxies.Client(outboundproxy.AreaMedia), XHandles: xHandles}
 	if bilibili != nil {
+		content.BilibiliAccount = bilibili.Options.Account
 		content.BilibiliAvatar = func(ctx context.Context) (string, string, error) {
 			face, err := bilibili.Avatar(ctx)
 			return face, bilisource.SpaceURL(bilibili.Options.Account), err

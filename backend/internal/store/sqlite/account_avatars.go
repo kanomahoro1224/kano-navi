@@ -76,9 +76,17 @@ type AccountAvatar struct {
 }
 
 // NormalizeAccountAvatarKey validates a social account identifier for avatar
-// storage and returns the normalized source, lowercase key, and display handle.
+// storage and returns the normalized source, lowercase key, and display handle:
+// an X handle, or a Bilibili account's numeric mid.
 func NormalizeAccountAvatarKey(source, handle string) (src, key, display string, ok bool) {
 	src = strings.ToLower(strings.TrimSpace(source))
+	if src == "bilibili" {
+		display = strings.TrimSpace(handle)
+		if display == "" || len(display) > 20 || strings.TrimLeft(display, "0123456789") != "" {
+			return "", "", "", false
+		}
+		return src, display, display, true
+	}
 	if src != "x" {
 		return "", "", "", false
 	}
@@ -706,8 +714,8 @@ func recordAccountAvatarCandidateTx(ctx context.Context, tx *sql.Tx, source, han
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT OR IGNORE INTO media_assets (id, source, source_url, status, created_at, updated_at)
-		VALUES (?, 'x', ?, 'pending', ?, ?)
-	`, mediaID, url, now, now); err != nil {
+		VALUES (?, ?, ?, 'pending', ?, ?)
+	`, mediaID, src, url, now, now); err != nil {
 		return "", false, dbErr(err)
 	}
 

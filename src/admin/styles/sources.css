@@ -695,9 +695,13 @@
   gap: 12px;
 }
 
-/* A QR code stays dark on white in either theme, or phones cannot read it. */
-.adm-qr {
+/*
+ * A QR code stays dark on white in either theme, or phones cannot read it.
+ * The code is an svg, so it outranks the console's 16px icon size.
+ */
+.adm-shell .adm-qr {
   width: min(240px, 100%);
+  height: auto;
   aspect-ratio: 1;
   border-radius: 8px;
   background: #fff;

@@ -190,3 +190,30 @@ func TestPostReadCacheSharesAndBoundsItsReads(t *testing.T) {
 		t.Fatal("a full cache dropped its newest read")
 	}
 }
+
+// A read that panics keeps nothing: the readers waiting on it fail, and the
+// next read computes again.
+func TestAPanickedPostReadIsNeitherKeptNorShared(t *testing.T) {
+	cache := newPostReadCache()
+	ctx := context.Background()
+	key := postReadKey{revision: 3, request: "post months"}
+	var call *postReadCall
+	func() {
+		defer func() { _ = recover() }()
+		_, _ = cache.get(ctx, key, func() (preparedBody, error) {
+			cache.mu.Lock()
+			call = cache.calls[key]
+			cache.mu.Unlock()
+			panic("synthetic read failure")
+		})
+	}()
+	<-call.done
+	if call.err == nil {
+		t.Fatal("the readers waiting on a panicked read would get no error")
+	}
+	recomputed := false
+	prepared, err := cache.get(ctx, key, func() (preparedBody, error) { recomputed = true; return preparedBody{body: []byte("fresh")}, nil })
+	if err != nil || !recomputed || string(prepared.body) != "fresh" {
+		t.Fatalf("prepared=%q err=%v recomputed=%v", prepared.body, err, recomputed)
+	}
+}

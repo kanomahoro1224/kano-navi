@@ -1742,6 +1742,8 @@ export const adminMessages = {
     "admin.code.bilibili_login_save_failed":
       "The refreshed login could not be stored.",
     "admin.code.bilibili_qr_failed": "The QR sign-in failed.",
+    "admin.code.account_avatar_save_failed":
+      "The account's new profile image could not be stored.",
     "admin.code.bilibili_sign_out_failed":
       "Bilibili did not sign the login out.",
     "admin.code.bilibili_risk_control_http":
@@ -3019,6 +3021,7 @@ export const adminMessages = {
       "哔哩哔哩没有确认刷新，下次检查时会再发送一次确认。",
     "admin.code.bilibili_login_save_failed": "刷新后的登录无法保存。",
     "admin.code.bilibili_qr_failed": "扫码登录失败。",
+    "admin.code.account_avatar_save_failed": "账号的新头像无法保存。",
     "admin.code.bilibili_sign_out_failed": "哔哩哔哩没有完成退出登录。",
     "admin.code.bilibili_risk_control_http":
       "哔哩哔哩要求本服务器完成验证码：HTTP 412 响应。",

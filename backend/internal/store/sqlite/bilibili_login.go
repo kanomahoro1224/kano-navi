@@ -29,13 +29,18 @@ func (s *Store) BilibiliLoginRecord(ctx context.Context) (string, error) {
 	return value, nil
 }
 
+// BilibiliLoginWritable reports whether SwapBilibiliLoginRecord may write.
+func (s *Store) BilibiliLoginWritable() bool {
+	return s != nil && s.db != nil && (s.writable || s.workflowWritable)
+}
+
 // SwapBilibiliLoginRecord replaces the sealed login with to when the row
 // still holds from ("" for no row); an empty to deletes it. It reports
 // whether it replaced, so a write that lost to another one since its read
 // changes nothing. Operator imports and the workflow's refresh both write
 // it, so either write permission is enough.
 func (s *Store) SwapBilibiliLoginRecord(ctx context.Context, from, to string) (bool, error) {
-	if s == nil || s.db == nil || (!s.writable && !s.workflowWritable) {
+	if !s.BilibiliLoginWritable() {
 		return false, ErrReadOnly
 	}
 	now := workflowTime(time.Now())

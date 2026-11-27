@@ -189,7 +189,8 @@ Bilibili's image CDN (`*.hdslb.com`, upgraded to HTTPS). A successful live
 check records it as a synced
 [account avatar](../admin-api/profile-media.md#account-avatars) of the
 account, which the media step downloads and the posts show beside the
-account's dynamics. An operator's
+account's dynamics. A face that cannot be recorded leaves the stored check
+standing and adds `account_avatar_save_failed` to the step's `errors`. An operator's
 [profile media discovery](../admin-api/profile-media.md#profile-media) and
 the account avatar's Fetch latest ask for it once, on request; those
 requests leave the live check's state and backoff alone.

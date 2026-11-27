@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -108,5 +109,43 @@ func TestDiscoverYouTubeDownloadsTheImagesItFinds(t *testing.T) {
 	hash := digest.SHA256Hex(image)
 	if candidate["sourceUrl"] != found || candidate["status"] != "ready" || candidate["cachePath"] != "youtube/sha256/"+hash[:2]+"/"+hash+".png" {
 		t.Fatalf("unexpected YouTube candidate: %#v", candidate)
+	}
+}
+
+// Images already downloaded take none of a check's download slots, so an
+// image a later check finds is fetched even behind four ready ones.
+func TestReadyImagesLeaveTheDownloadSlotsToNewOnes(t *testing.T) {
+	f := newFixture(t, true)
+	channel := "https://www.youtube.com/channel/synthetic"
+	f.exec(`UPDATE profiles SET youtube_url=?`, channel)
+	images := []string{}
+	for i := range autoDownloadLimit + 1 {
+		image := fmt.Sprintf("https://i.ytimg.com/vi/synthetic/avatar-%d.png", i)
+		images = append(images, image)
+		f.serveImage(image, "image/png", syntheticPNG(byte(10+i)))
+	}
+	page := func(listed []string) {
+		html := ""
+		for _, image := range listed {
+			html += `<meta property="og:image" content="` + image + `">`
+		}
+		f.network.routes[channel] = func(*http.Request) *http.Response {
+			return reply(http.StatusOK, map[string]string{"Content-Type": "text/html"}, []byte(html))
+		}
+	}
+	page(images[:autoDownloadLimit])
+	f.post("/profile-media/discover", map[string]any{"slot": "avatar", "source": "youtube"}).expect(t, http.StatusOK, "")
+	page(images)
+	f.network.visited = nil
+	out := f.post("/profile-media/discover", map[string]any{"slot": "avatar", "source": "youtube"})
+	out.expect(t, http.StatusOK, "")
+	newest := images[autoDownloadLimit]
+	if !f.network.reached(newest) {
+		t.Fatalf("the new image was not fetched: %v", f.network.visited)
+	}
+	for _, item := range list(t, out.json["candidates"]) {
+		if candidate := object(t, item); candidate["status"] != "ready" {
+			t.Fatalf("candidate not ready: %#v", candidate)
+		}
 	}
 }

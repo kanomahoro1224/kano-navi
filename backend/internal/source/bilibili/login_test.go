@@ -34,7 +34,10 @@ type memoryRecords struct {
 
 func (m *memoryRecords) BilibiliLoginRecord(context.Context) (string, error) { return m.value, nil }
 
-func (m *memoryRecords) SwapBilibiliLoginRecord(_ context.Context, from, to string) (bool, error) {
+func (m *memoryRecords) SwapBilibiliLoginRecord(ctx context.Context, from, to string) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
 	m.swaps++
 	if m.swaps == m.failSwap {
 		return false, errors.New("synthetic storage failure")
@@ -67,6 +70,8 @@ type passportFake struct {
 	replies map[string]string
 	status  map[string]int
 	set     map[string][]string
+	// onCall runs as Bilibili receives a request for the path.
+	onCall map[string]func()
 }
 
 func newPassportFake() *passportFake {
@@ -91,6 +96,9 @@ func (f *passportFake) client() *Client {
 			call.form, _ = url.ParseQuery(string(body))
 		}
 		f.calls = append(f.calls, call)
+		if hook := f.onCall[req.URL.Path]; hook != nil {
+			hook()
+		}
 		key := req.URL.Path
 		if strings.HasPrefix(key, correspondPrefix) {
 			key = correspondPrefix
@@ -396,6 +404,53 @@ func TestAConfirmAnsweredWithAnExpiredLoginMarksItExpired(t *testing.T) {
 	}
 }
 
+func TestARefreshBilibiliTookIsStoredWhenTheStepIsCancelled(t *testing.T) {
+	now := time.Date(2026, 11, 26, 0, 0, 0, 0, time.UTC)
+	fake := refreshingFake()
+	a := NewAdapter(fake.client(), Options{Account: DefaultAccount})
+	a.Now = func() time.Time { return now }
+	a.Logins = &Logins{Records: &memoryRecords{}, Key: syntheticSecrets}
+	if err := a.Logins.Put(context.Background(), storedLogin(now.Add(-48*time.Hour))); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	fake.onCall = map[string]func(){"/x/passport-login/web/cookie/refresh": cancel}
+	if result, _ := a.MaintainLogin(ctx, State{}); result.State.Refresh.LastError == "bilibili_login_save_failed" {
+		t.Fatalf("result=%#v", result)
+	}
+	stored, _, err := a.Logins.Load(context.Background())
+	if err != nil || stored.SESSDATA != syntheticFresh || stored.RefreshToken != syntheticNext {
+		t.Fatalf("stored=%#v err=%v", stored, err)
+	}
+}
+
+func TestAnExpiredMarkNamesTheLoginTheCheckLoaded(t *testing.T) {
+	now := time.Date(2026, 11, 26, 0, 0, 0, 0, time.UTC)
+	fake := refreshingFake()
+	fake.replies["/x/passport-login/web/cookie/info"] = `{"code":-101,"message":"not signed in"}`
+	a := NewAdapter(fake.client(), Options{Account: DefaultAccount})
+	a.Now = func() time.Time { return now }
+	a.Logins = &Logins{Records: &memoryRecords{}, Key: syntheticSecrets}
+	checked := storedLogin(now.Add(-48 * time.Hour))
+	if err := a.Logins.Put(context.Background(), checked); err != nil {
+		t.Fatal(err)
+	}
+	// The operator stores another login while cookie/info is asked.
+	fake.onCall = map[string]func(){"/x/passport-login/web/cookie/info": func() {
+		if err := a.Logins.Put(context.Background(), storedLogin(now.Add(-time.Hour))); err != nil {
+			t.Fatal(err)
+		}
+	}}
+	result, err := a.MaintainLogin(context.Background(), State{})
+	if ErrorCode(err) != "bilibili_login_expired" || result.State.Login.Of != checked.key() || result.State.Login.SignedIn {
+		t.Fatalf("result=%#v err=%v", result, err)
+	}
+	if status := a.LoginStatus(context.Background(), result.State); status == "expired" {
+		t.Fatalf("the login stored during the check is %s", status)
+	}
+}
+
 func TestAConfirmWithoutAnAnswerStaysPending(t *testing.T) {
 	now := time.Date(2026, 11, 26, 0, 0, 0, 0, time.UTC)
 	fake := refreshingFake()
@@ -544,5 +599,40 @@ func TestCheckLoginAsksNavOnlyWithALoginAndOutsideTheBlock(t *testing.T) {
 	}
 	if info := a.Login(context.Background(), state); info.Status != "expired" {
 		t.Fatalf("a refused login reads %#v", info)
+	}
+}
+
+func TestASignedOutLoginIsForgottenWithItsRefreshButNotAnotherLogin(t *testing.T) {
+	now := time.Date(2026, 11, 26, 0, 0, 0, 0, time.UTC)
+	ctx := context.Background()
+	logins := &Logins{Records: &memoryRecords{}, Key: syntheticSecrets}
+	ended := storedLogin(now.Add(-48 * time.Hour))
+	version, err := logins.Replace(ctx, "", ended)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refreshed := ended
+	refreshed.SESSDATA, refreshed.RefreshedAt = syntheticFresh, now
+	if _, err = logins.Replace(ctx, version, refreshed); err != nil {
+		t.Fatal(err)
+	}
+	if err = logins.ForgetSignedOut(ctx, version, ended); err != nil {
+		t.Fatalf("forget the refreshed login: %v", err)
+	}
+	if _, _, err = logins.Load(ctx); !errors.Is(err, ErrNoLogin) {
+		t.Fatalf("load=%v", err)
+	}
+
+	if version, err = logins.Replace(ctx, "", ended); err != nil {
+		t.Fatal(err)
+	}
+	if err = logins.Put(ctx, storedLogin(now)); err != nil {
+		t.Fatal(err)
+	}
+	if err = logins.ForgetSignedOut(ctx, version, ended); !errors.Is(err, ErrLoginChanged) {
+		t.Fatalf("forget with another login stored=%v", err)
+	}
+	if stored, _, _ := logins.Load(ctx); !stored.StoredAt.Equal(now) {
+		t.Fatalf("stored=%#v", stored)
 	}
 }

@@ -114,6 +114,18 @@ func (a *api) bilibiliLogins(w http.ResponseWriter) bool {
 	return true
 }
 
+// bilibiliLoginWritable reports why a new login could not be stored: no
+// LLM_SECRETS_KEY to seal it, or a store without write permission.
+func (a *api) bilibiliLoginWritable() error {
+	if a.Bilibili.Logins.Key == "" {
+		return secretstore.ErrKeyRequired
+	}
+	if !a.Store.BilibiliLoginWritable() {
+		return sqlite.ErrReadOnly
+	}
+	return nil
+}
+
 func (a *api) writeBilibiliSource(w http.ResponseWriter, ctx context.Context) {
 	status, err := a.bilibiliStatus(ctx)
 	if err != nil {
@@ -224,8 +236,13 @@ func (a *api) forgetBilibiliLogin(w http.ResponseWriter, r *http.Request) {
 			writeLoginRequestError(w, signOutErr, next)
 			return
 		}
+		// The session has ended, so its record goes even when the operator
+		// leaves meanwhile or the workflow refreshed it since the read.
+		err = a.Bilibili.Logins.ForgetSignedOut(context.WithoutCancel(ctx), version, login)
+	} else {
+		err = a.Bilibili.Logins.Forget(ctx, version)
 	}
-	if err = a.Bilibili.Logins.Forget(ctx, version); err != nil {
+	if err != nil {
 		writeLoginStoreError(w, err)
 		return
 	}
@@ -243,6 +260,12 @@ func (a *api) bilibiliQRStatus(w http.ResponseWriter, _ *http.Request) {
 // import.
 func (a *api) startBilibiliQR(w http.ResponseWriter, r *http.Request) {
 	if !a.bilibiliLogins(w) {
+		return
+	}
+	// A confirmed sign-in opens a session at Bilibili, so one that could
+	// not be stored never starts.
+	if err := a.bilibiliLoginWritable(); err != nil {
+		writeLoginStoreError(w, err)
 		return
 	}
 	ctx := r.Context()

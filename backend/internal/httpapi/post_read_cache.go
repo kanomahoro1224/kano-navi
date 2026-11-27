@@ -28,6 +28,9 @@ type postReadKey struct {
 	request  string
 }
 
+// errPostReadAbandoned is a shared read whose computation never returned.
+var errPostReadAbandoned = errors.New("post read abandoned")
+
 type postReadCall struct {
 	done     chan struct{}
 	prepared preparedBody
@@ -72,7 +75,9 @@ func (c *postReadCache) get(ctx context.Context, key postReadKey, compute func()
 			return preparedBody{}, ctx.Err()
 		}
 	}
-	call := &postReadCall{done: make(chan struct{})}
+	// The call fails until compute returns, so a compute that panics is
+	// neither kept nor handed to the readers waiting on it.
+	call := &postReadCall{done: make(chan struct{}), err: errPostReadAbandoned}
 	c.calls[key] = call
 	c.mu.Unlock()
 	defer func() {
@@ -136,7 +141,7 @@ func (h *Handler) servePostRead(w http.ResponseWriter, r *http.Request, request 
 		})
 	}
 	switch {
-	case errors.Is(err, errPostReadEncoding):
+	case errors.Is(err, errPostReadEncoding), errors.Is(err, errPostReadAbandoned):
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal_error"}, "")
 	case err != nil:
 		writeArchiveError(w, err)

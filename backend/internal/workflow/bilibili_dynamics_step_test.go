@@ -13,6 +13,7 @@ import (
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
+	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
 
 const (
@@ -199,5 +200,31 @@ func TestYoutubeProbeSwitchStopsYoutubeRequestsWhileBilibiliIsDue(t *testing.T) 
 	checked, _ := result.Result["bilibili"].(map[string]any)
 	if youtubeRequests != 0 || result.Result["disabled"] != true || checked["requested"] != 1 || len(paths) != 1 {
 		t.Fatalf("result=%#v youtube=%d paths=%v", result, youtubeRequests, paths)
+	}
+}
+
+// A face that could not be recorded leaves the stored live check standing:
+// the step succeeds with the failure counted.
+func TestALiveCheckOutlivesAFailedAvatarWrite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "data", "database", "snapshot.sqlite")
+	s, err := sqlite.OpenInitialized(path, true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	testutil.Exec(t, path, `CREATE TRIGGER synthetic_avatar_failure BEFORE INSERT ON account_avatar_candidates BEGIN SELECT RAISE(ABORT, 'synthetic'); END`)
+	paths := []string{}
+	live := `{"code":0,"data":{"316381099":{"title":"synthetic","room_id":1000001,"live_status":1,"live_time":1794049200,"face":"https://i0.hdslb.com/bfs/face/synthetic.jpg"}}}`
+	adapter := bilisource.NewAdapter(bilisource.NewClient(&http.Client{Transport: xTestRT(biliResponder(t, &paths, live))}),
+		bilisource.Options{Account: bilisource.DefaultAccount, MinInterval: 3 * time.Hour})
+	steps := &SourceSteps{Store: s, Bilibili: adapter}
+	result, err := steps.Execute(context.Background(), StepInput{StepID: "live", WorkflowID: sqlite.AdhocLiveWorkflow})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checked, _ := result.Result["bilibili"].(map[string]any)
+	errs, _ := checked["errors"].([]string)
+	if result.Status != "succeeded" || checked["live"] != true || len(errs) != 1 || errs[0] != "account_avatar_save_failed" {
+		t.Fatalf("result=%#v", result)
 	}
 }

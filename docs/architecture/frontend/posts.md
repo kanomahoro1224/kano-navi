@@ -39,6 +39,8 @@ no time-derived fields, so the run is read again only when this visit's index
 names another revision, or once when the index read fails. Back or forward to
 an address whose month the kept timeline holds resumes that timeline from
 its own start without a jump, so the site's navigation restores the scroll.
+Once the timeline leaves that account or month, coming back places it from
+the index like any other choice.
 A change to the shape of either answer takes a new storage key. A month without the account's
 posts opens the nearest earlier month that has some (`nearestMonth` in
 `src/posts/timeline.ts`), and changing the account keeps the month in view

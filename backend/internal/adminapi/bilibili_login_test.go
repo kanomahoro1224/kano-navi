@@ -227,3 +227,21 @@ func TestAnUnreadableBilibiliLoginIsReportedAndForgotten(t *testing.T) {
 		t.Fatalf("sealed=%q requests=%v", sealed, passport.paths())
 	}
 }
+
+func TestAQRSignInThatCouldNotBeStoredNeverStarts(t *testing.T) {
+	store, err := sqlite.OpenInitialized(filepath.Join(t.TempDir(), "database", "kano.sqlite"), true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { store.Close() })
+	passport := &bilibiliPassport{}
+	adapter := bilisource.NewAdapter(passport.client(), bilisource.Options{Account: "316381099", MinInterval: 3 * time.Hour, PageSize: 20})
+	adapter.Logins = &bilisource.Logins{Records: store}
+	c := &console{store: store, handler: New(Options{Store: store, Auth: newAuth(t, "development", ""), Bilibili: adapter})}
+	if code, payload := c.call(t, "POST", "/api/admin/sources/bilibili/login/qr", ""); code != 503 || payload["error"] != "secrets_key_unavailable" {
+		t.Fatalf("start=%d %v", code, payload)
+	}
+	if paths := passport.paths(); len(paths) != 0 {
+		t.Fatalf("requests=%v", paths)
+	}
+}

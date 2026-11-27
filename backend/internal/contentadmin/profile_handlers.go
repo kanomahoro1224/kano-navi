@@ -353,7 +353,14 @@ func (m *Module) saveDiscoveredCandidates(ctx context.Context, slot, source, ref
 				return upsertErr
 			}
 			if (source == "youtube" || source == "bilibili") && found[*candidate.SourceURL] && len(download) < autoDownloadLimit {
-				download = append(download, id)
+				// An image already downloaded takes none of the slots.
+				item, getErr := getProfileMedia(ctx, tx, id)
+				if getErr != nil {
+					return getErr
+				}
+				if item != nil && item.Status != "ready" {
+					download = append(download, id)
+				}
 			}
 		}
 		return nil

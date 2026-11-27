@@ -25,7 +25,7 @@
 
 <p align="center">
   <a href="https://kano.fans/"><img src="docs/assets/readme/board.jpg" alt="桌面端与手机端展示效果"></a><br>
-  <sub>日本服务器浅色主题截图，拍摄于 2026 年 11 月 19 日（日本时间）。</sub>
+  <sub>日本服务器浅色主题的看板，拍摄于 2026 年 11 月 28 日（日本时间）。</sub>
 </p>
 
 > [!NOTE]

@@ -251,6 +251,30 @@ func (l *Logins) Forget(ctx context.Context, version string) error {
 	return nil
 }
 
+// ForgetSignedOut deletes ended, read at version, after its session ended
+// at Bilibili. A refresh of the same login stored since holds the ended
+// session too and is deleted with it; a login given since is kept and
+// reported as ErrLoginChanged.
+func (l *Logins) ForgetSignedOut(ctx context.Context, version string, ended StoredLogin) error {
+	for range 3 {
+		err := l.Forget(ctx, version)
+		if !errors.Is(err, ErrLoginChanged) {
+			return err
+		}
+		current, next, loadErr := l.Load(ctx)
+		switch {
+		case errors.Is(loadErr, ErrNoLogin):
+			return nil
+		case loadErr != nil:
+			return loadErr
+		case current.key() != ended.key():
+			return ErrLoginChanged
+		}
+		version = next
+	}
+	return ErrLoginChanged
+}
+
 // passport makes one request to passport.bilibili.com or the correspond
 // page with the login, never captured. It answers the body and the cookies
 // set.

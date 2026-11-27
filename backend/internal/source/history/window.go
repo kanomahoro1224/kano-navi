@@ -7,8 +7,6 @@
 package history
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math"
@@ -16,6 +14,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 const (
@@ -74,14 +75,13 @@ type Window struct {
 var (
 	datePattern    = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	accountPattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,30}$`)
-	japan          = time.FixedZone("JST", 9*3600)
 )
 
 func japanMidnight(value string) (time.Time, error) {
 	if !datePattern.MatchString(value) {
 		return time.Time{}, invalid("dates must use YYYY-MM-DD")
 	}
-	parsed, err := time.ParseInLocation("2006-01-02", value, japan)
+	parsed, err := japantime.ParseDate(value)
 	if err != nil {
 		return time.Time{}, invalid("date is invalid")
 	}
@@ -230,8 +230,7 @@ func (w Window) checkpointKey(account string) string {
 	case ModeAll:
 		selection = `{"mode":"all"}`
 	}
-	sum := sha256.Sum256([]byte(selection))
-	return account + ":" + hex.EncodeToString(sum[:])[:24]
+	return account + ":" + digest.SHA256Hex(selection)[:24]
 }
 
 // CheckpointKey is checkpointKey for fetches whose pages another package

@@ -17,10 +17,12 @@ The Make targets for each kind of change and how formatting stays portable.
 | Full locally portable Actions validation               | make ci-local         | Locked dependencies and Docker           |
 | Install then full validation                           | make ci               | Node/npm, Go and Docker                  |
 | Manual privacy review before handoff or commit         | make sensitive-check  | Node and Git                             |
+| Request owners and file sizes against the baseline     | make pattern-check    | Node and Git                             |
 | Dependency advisories and npm registry signatures      | make audit            | Locked installation, Go and network      |
 
-`make ci-fast` runs only formatting, documentation-link and sensitive-information
-checks; it does not reinstall dependencies, run tests, or start Docker. Use it
+`make ci-fast` runs only formatting, documentation-link, sensitive-information
+and [pattern ratchet](#pattern-ratchet) checks; it does not reinstall
+dependencies, run tests, or start Docker. Use it
 for small edits, then add `make typecheck`, `make go-test` or `make test-frontend`
 when the affected code needs that check.
 
@@ -45,5 +47,34 @@ make check to include the Go tests and API smoke as well.
 
 Prettier accepts the file's existing LF/CRLF style through endOfLine=auto,
 so a Windows checkout does not require rewriting otherwise unchanged source.
-Local tool directories (.claude and .codegraph) are excluded from formatting;
-this does not widen the privacy scanner's exclusions.
+Local tool state (.claude apart from its skills and the shared settings.json,
+and .codegraph) is excluded from formatting; this does not widen the privacy
+scanner's exclusions.
+
+## Pattern Ratchet
+
+`scripts/check-patterns.ts` (make pattern-check, in ci-fast and ci-style)
+turns two code-shape rules into a check that fails only when a change adds an
+exception. It reads the files Git can see, like the
+[sensitive-information scan](../security.md#sensitive-information-scan), and
+its data is `scripts/pattern-baseline.json`.
+
+- Request owners: only the files under `requests.allowed` call the global
+  `fetch` in `src/`, tests aside (see
+  [Request and UI Ownership](../../architecture/frontend/request-ownership.md)).
+  A new owner needs a reviewed entry with a reason.
+- File size: a `.ts`, `.tsx`, `.go` or `.mjs` file over `fileSize.limit`
+  (800) lines fails unless the baseline records it. A recorded file may grow
+  by `fileSize.slack` (20) lines past its count and fails beyond that. Test
+  files are code and are baselined like any other file. Message dictionaries
+  with no logic, such as `src/admin-i18n.ts`, are listed under
+  `fileSize.exempt` with a reason; other i18n tables stay under the limit.
+
+A finding names its fix: route the request through an owner, or split the
+file into cohesive modules. Never raise a recorded count or add an exception
+to pass. When files shrink, the check prints notes and still passes;
+`make pattern-baseline` (`--update-baseline`) then lowers the recorded counts
+and drops files under the limit, owners without requests and deleted paths.
+It never adds an entry or raises a count, so a renamed oversized file moves
+its entry by hand in a reviewed change. `make test-patterns` covers the rules
+with synthetic fixtures.

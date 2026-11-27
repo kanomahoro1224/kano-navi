@@ -29,6 +29,13 @@ type Options struct {
 	PublicAssetsDir string
 	// XHandles names Kano's own X accounts surfaced in Account Avatars.
 	XHandles []string
+	// BilibiliAvatar reads the configured Bilibili account's current avatar
+	// address and its space link through the Bilibili client. Without it the
+	// Bilibili discovery fails.
+	BilibiliAvatar func(context.Context) (imageURL, spaceURL string, err error)
+	// BilibiliAccount is the configured Bilibili account's mid, surfaced in
+	// Account Avatars as one of Kano's own accounts.
+	BilibiliAccount string
 }
 
 // Module implements httpx.AdminModule.
@@ -40,6 +47,10 @@ type Module struct {
 	client    *http.Client
 	now       func() time.Time
 	xHandles  []string
+	// bilibiliAvatar is Options.BilibiliAvatar.
+	bilibiliAvatar func(context.Context) (string, string, error)
+	// bilibiliAccount is Options.BilibiliAccount.
+	bilibiliAccount string
 	// selectMu serializes selected-file replacement with its metadata update.
 	selectMu sync.Mutex
 }
@@ -48,7 +59,7 @@ var _ httpx.AdminModule = (*Module)(nil)
 
 // New builds the content admin module over an opened store.
 func New(store *sqlite.Store, opts Options) *Module {
-	m := &Module{store: store, db: store.DB(), dataRoot: store.DataRoot(), now: opts.Now, assetsDir: opts.PublicAssetsDir, xHandles: append([]string{}, opts.XHandles...)}
+	m := &Module{store: store, db: store.DB(), dataRoot: store.DataRoot(), now: opts.Now, assetsDir: opts.PublicAssetsDir, xHandles: append([]string{}, opts.XHandles...), bilibiliAvatar: opts.BilibiliAvatar, bilibiliAccount: opts.BilibiliAccount}
 	if m.now == nil {
 		m.now = time.Now
 	}

@@ -14,7 +14,7 @@ an account pushes a history entry, so back and forward return to it; the
 month in view replaces the address's month as the page scrolls, without an
 entry, and the newest month leaves the address without one.
 
-`usePostArchiveIndex` in `use-dashboard.ts` reads
+`usePostArchiveIndex` in `src/dashboard/post-archive.ts` reads
 [`/api/posts/months`](../public-api/calendar-and-archives.md#bounded-public-archives) once per visit: the month
 index, the accounts the page offers (the board's X accounts, then the
 archive-only ones, then Bilibili mids) and their avatars. Until it arrives
@@ -39,6 +39,8 @@ no time-derived fields, so the run is read again only when this visit's index
 names another revision, or once when the index read fails. Back or forward to
 an address whose month the kept timeline holds resumes that timeline from
 its own start without a jump, so the site's navigation restores the scroll.
+Once the timeline leaves that account or month, coming back places it from
+the index like any other choice.
 A change to the shape of either answer takes a new storage key. A month without the account's
 posts opens the nearest earlier month that has some (`nearestMonth` in
 `src/posts/timeline.ts`), and changing the account keeps the month in view
@@ -46,11 +48,14 @@ that way unless the timeline is at its newest posts.
 
 The account cards (`account-band.tsx`) show each account's portrait, the
 years its posts span and their total from the month index (in the rail they
-have no outline, and the chosen one is washed in berry); All counts every
-post, including promoted posts filed under their authors. In windows 960px
-and wider they sit in the rail above the activity map, one or two a row as
-the rail's width allows; the rail takes the width the 680px column leaves and
-scrolls on its own when it is taller than the window. Narrower windows show
+have no outline, and the chosen one is washed in berry); All accounts counts
+every post, including promoted posts filed under their authors, and has no
+portrait, its name, years and total on one line. In windows 960px and wider
+they sit in the rail above the activity map, All accounts across the rail
+with its total at the right edge over the map's totals and the accounts one
+or two a row as its width allows; the rail takes the width the 680px column leaves
+and scrolls on its own when it is taller than the window. Narrower windows
+show
 them above the timeline. The activity map
 (`activity-map.tsx`) has a row per year, newest first, from the archive's
 first year to the newest month's, a square cell per month shaded by the

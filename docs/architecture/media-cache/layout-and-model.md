@@ -38,9 +38,9 @@ temporary file in its target directory (`.download-*`, `.part-*`,
 `.variant-*` or `.hash-*`) that is atomically renamed into place. The tracked
 `public/assets/` directory is reserved for fixed fallback branding.
 
-Discovered X and YouTube profile candidates stay in their source namespaces;
-local uploads (`data/avatar/sha256/`) and the selected avatar and banner files
-remain runtime data in `data/avatar/`. A `cache_path` that starts with
+Discovered X, YouTube and Bilibili profile candidates stay in their source
+namespaces; local uploads (`data/avatar/sha256/`) and the selected avatar and
+banner files remain runtime data in `data/avatar/`. A `cache_path` that starts with
 `sha256/` resolves under `data/cache/media/`; readers serve such rows, while
 the downloaders write only the source namespaces.
 

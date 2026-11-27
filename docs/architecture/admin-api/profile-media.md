@@ -16,18 +16,29 @@ Selecting profile media and account avatars.
 | `POST /profile-media/{id}/select`   | `{slot?}`                    | `{item, items, active}`     |
 | `DELETE /profile-media/{id}`        |                              | `{items, active}`           |
 
-`source` is `x` or `youtube`, and `slot` is `avatar` or `banner`. When `source`
-is `x`, an optional `handle` selects that X profile URL instead of the default
-configured `profiles.x_url`, and discovery falls back to `api.fxtwitter.com` if
-the X profile page yields no URLs. A candidate's `slot` is the slot it is active
+`source` is `x`, `youtube` or `bilibili`, and `slot` is `avatar` or `banner`.
+When `source` is `x`, an optional `handle` selects that X profile URL instead of
+the default configured `profiles.x_url`, and discovery falls back to
+`api.fxtwitter.com` if the X profile page yields no URLs. Bilibili discovery
+records only an avatar (a `banner` slot is invalid): the Bilibili client reads
+the configured account's `face` from its
+[live room status](../sources/bilibili.md#live-room) over the `bilibili`
+proxy route, and the candidate's `sourceRef` is the account's space; its file
+is stored under `data/bilibili/`. A candidate's `slot` is the slot it is active
 for, or otherwise the one that found it; an added or uploaded candidate without
 one starts as an avatar. A source URL is one candidate whichever slot finds it.
 Discovery without a slot records the avatar and the banner the profile page
-names, and its result then has no `slot`. Selection uses the given slot, or the
-candidate's own, and moves the candidate there; the slot it leaves falls back to
-the built-in image. `POST /profile-media/clear` clears the active image for
-the given `slot` (`avatar` or `banner`) so the slot returns to the built-in
-image while keeping its candidates. Deleting the active candidate falls back to
+names, and its result then has no `slot`. YouTube and Bilibili discovery then
+downloads the images it found that are not ready yet, at most four, as
+`POST /profile-media/{id}/download` would, so they can be previewed and
+selected at once; a failed download is recorded on its candidate
+(`status` `failed`, `lastError`) and the discovery still answers. X
+discovery records URLs only, and its candidates wait for a download.
+Selection uses the given slot, or the candidate's own, and moves the candidate
+there; the slot it leaves falls back to the built-in image.
+`POST /profile-media/clear` clears the active image for the given `slot`
+(`avatar` or `banner`) so the slot returns to the built-in image while keeping
+its candidates. Deleting the active candidate falls back to
 the built-in image, an unknown ID answers `404 profile_media_not_found`, and a
 later discovery may record a deleted URL again. Files follow
 [Selected Profile Media](../media-cache/lifecycle.md#selected-profile-media).
@@ -47,11 +58,17 @@ later discovery may record a deleted URL again. Files follow
 | `POST /account-avatars/{source}/{handle}/candidates/{id}/select`   |                          | `{item, items}`          |
 | `DELETE /account-avatars/{source}/{handle}/candidates/{id}`        |                          | `{item, items}`          |
 
-Each item tracks a tracked X account (`source` `x`, key `accountKey`) across
-configured `X_HANDLES` (`own`), `x_related_accounts` (`related`), and stored
-avatar rows (`other`). `mode` is `auto` (latest synced or discovered image wins),
-`manual` (operator selection stays locked across syncs), or `hidden` (public
-board shows initials and omits an avatar URL). `discover` checks public X
-endpoints (`fxtwitter` / Twitter) for the account's latest avatar; `apply-profile`
-copies an own account's ready avatar into the global site `avatar` slot in
+Each item tracks an X account (`source` `x`, key `accountKey`, the lowercase
+handle) or the configured Bilibili account (`source` `bilibili`, key its mid)
+across configured `X_HANDLES` and `BILIBILI_UID` (`own`),
+`x_related_accounts` (`related`), and stored avatar rows (`other`). `mode` is
+`auto` (latest synced or discovered image wins), `manual` (operator selection
+stays locked across syncs), or `hidden` (public board shows initials and omits
+an avatar URL). `discover` checks public X endpoints (`fxtwitter` / Twitter)
+for an X account's latest avatar, and for the Bilibili account reads its
+`face` as the [live room status](../sources/bilibili.md#live-room) names it
+(another mid answers `500`); it downloads what it finds. The Bilibili
+account's face also arrives with every live check, as a synced candidate the
+media step downloads under `data/bilibili/`. `apply-profile` copies an own
+account's ready avatar into the global site `avatar` slot in
 `profile_media`.

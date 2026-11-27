@@ -2,9 +2,7 @@ package sqlite
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"net/url"
 	"os"
@@ -13,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
 
@@ -234,8 +233,7 @@ func fileHash(t testing.TB, path string) string {
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
-	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:])
+	return digest.SHA256Hex(data)
 }
 
 func directoryEntries(t testing.TB, dir string) map[string]bool {

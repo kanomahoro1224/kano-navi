@@ -45,7 +45,9 @@ that never waits out or overrides the captcha backoff: during the backoff it
 answers `503 bilibili_blocked` with `blockedUntil`, a captcha answer starts
 the backoff and answers the same, another failure answers `502` with its
 code and keeps the login, and a record that no longer decrypts cannot sign
-out (`409 bilibili_login_unreadable`).
+out (`409 bilibili_login_unreadable`). After a sign-out the forget also
+drops a refresh of the same login stored since its read; a login given
+since stays and answers `409 bilibili_login_changed`.
 
 `BilibiliQR` is the process's QR sign-in:
 
@@ -60,8 +62,12 @@ and is present, with `expiresAt`, only while the sign-in waits. `POST`
 starts a sign-in (answering the open one instead while one waits): it
 reads the device identity when due and `qrcode/generate`, and answers
 `503 bilibili_blocked` during the backoff or `502` with the code of a failed
-request. The server then polls the sign-in itself; the console only reads
-`GET`. A sign-in stores the login like an import. `DELETE` ends a waiting
+request. A start that could not store its login answers `503
+secrets_key_unavailable` or `503 read_only` before any request, since a
+confirmed sign-in opens a session at Bilibili. The server then polls the sign-in itself; the console only reads
+`GET`. A sign-in stores the login like an import and checks it through
+`nav` before it reports `signed_in`, so the source status that follows names
+the account; a failed check leaves the login unchecked. `DELETE` ends a waiting
 sign-in as `expired`.
 
 Writes answer `503 read_only` on a read-only database,

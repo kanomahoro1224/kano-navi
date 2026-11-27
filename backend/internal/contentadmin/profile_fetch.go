@@ -37,7 +37,8 @@ var (
 		"i.ytimg.com": true, "i1.ytimg.com": true, "i2.ytimg.com": true, "i3.ytimg.com": true, "i4.ytimg.com": true,
 		"yt3.ggpht.com": true, "yt3.googleusercontent.com": true, "lh3.googleusercontent.com": true,
 	}
-	profileImageHostSuffixes = []string{".twimg.com", ".ytimg.com"}
+	// Bilibili avatars come from its image CDN (i0, i1 and i2.hdslb.com).
+	profileImageHostSuffixes = []string{".twimg.com", ".ytimg.com", ".hdslb.com"}
 	sensitiveQueryWords      = []string{"password", "secret", "token", "api_key", "apikey", "auth"}
 )
 

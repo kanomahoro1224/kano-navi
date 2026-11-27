@@ -2,9 +2,7 @@ package sqlite
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +10,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 )
 
@@ -246,7 +246,7 @@ func rebuildLegacyEvents(ctx context.Context, tx *sql.Tx, legacy []schemaColumn,
 	for _, event := range events {
 		startsOn := event.startsAt.String
 		if instant, parseErr := time.Parse(time.RFC3339Nano, startsOn); parseErr == nil {
-			startsOn = instant.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02")
+			startsOn = japantime.Date(instant)
 		} else if len(startsOn) > 10 {
 			startsOn = startsOn[:10]
 		}
@@ -786,8 +786,7 @@ func (s *Store) repairSelectedProfiles(ctx context.Context) error {
 		if file, err := s.resolveProfileMediaPath(item.path.String); err == nil {
 			if content, _, err := readContainedFile(file, 15*1024*1024); err == nil {
 				if sniffed := sniffImageMIME(content); sniffed != "" {
-					sum := sha256.Sum256(content)
-					hash, mime = hex.EncodeToString(sum[:]), sniffed
+					hash, mime = digest.SHA256Hex(content), sniffed
 				}
 			}
 		}

@@ -25,7 +25,7 @@
 
 <p align="center">
   <a href="https://kano.fans/"><img src="docs/assets/readme/board.jpg" alt="The board on a desktop and a phone"></a><br>
-  <sub>Screenshots of the Japan Server in the light theme, captured on November 19, 2026 (JST).</sub>
+  <sub>The board on the Japan Server in the light theme, captured on November 28, 2026 (JST).</sub>
 </p>
 
 > [!NOTE]

@@ -147,25 +147,7 @@ func TestModelIDCollation(t *testing.T) {
 }
 
 func TestJavaScriptCoercions(t *testing.T) {
-	equal(t, "integer", jsString(float64(30000)), "30000")
-	equal(t, "fraction", jsString(1.5), "1.5")
-	equal(t, "large", jsString(1e21), "1e+21")
-	equal(t, "small", jsString(1.5e-7), "1.5e-7")
-	equal(t, "array", jsString([]any{"a", nil, float64(2)}), "a,,2")
-	equal(t, "object", jsString(map[string]any{}), "[object Object]")
-	equal(t, "trim", jsTrim(string([]rune{0xFEFF, 0x3000, 0x20, 0x78, 0x20, 0xA0})), "x")
-	equal(t, "utf16 length", utf16Len("a😀"), 3)
-	equal(t, "utf16 prefix", utf16Prefix("a😀b", 2), "a")
-	for input, want := range map[string]float64{"": 0, " 42 ": 42, "0x10": 16, "1e3": 1000, ".5": 0.5} {
-		if got, ok := parseJSNumber(input); !ok || got != want {
-			t.Errorf("parseJSNumber(%q) = %v, %v", input, got, ok)
-		}
-	}
-	for _, input := range []string{"abc", "1_000", "0x", "1 2", "inf", "0x1p3"} {
-		if got, ok := parseJSNumber(input); ok {
-			t.Errorf("parseJSNumber(%q) = %v, want NaN", input, got)
-		}
-	}
+	// String(), Number() and trim() themselves are pinned in internal/jsvalue.
 	for _, value := range []any{"1500", float64(1500), []any{"1500"}} {
 		if got, err := integerField(value, "timeoutMs", 1000, 120000, 30000); err != nil || got != 1500 {
 			t.Errorf("integerField(%#v) = %v, %v", value, got, err)

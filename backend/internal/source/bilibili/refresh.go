@@ -20,6 +20,10 @@ type RefreshState struct {
 // refresh.
 const refreshCheckInterval = 24 * time.Hour
 
+// loginSaveTimeout bounds the writes after a refresh, which outlive the
+// step's context.
+const loginSaveTimeout = 30 * time.Second
+
 // Maintenance outcomes.
 const (
 	// RefreshCurrent: Bilibili asked for no refresh.
@@ -75,8 +79,9 @@ func (a *Adapter) MaintainLogin(ctx context.Context, state State) (RefreshResult
 		code := ErrorCode(err)
 		result.Outcome, result.State.Refresh.LastError = RefreshFailed, code
 		if code == "bilibili_login_expired" {
-			view := a.resolved(ctx)
-			result.State.Login = view.checked(now, NavLogin{})
+			// The mark names the login this check loaded, never one stored
+			// while the check ran.
+			result.State.Login = LoginState{CheckedAt: now, Of: key}
 		}
 		result.State = blocked(result.State, err, now)
 		return result, err
@@ -144,7 +149,12 @@ func (a *Adapter) MaintainLogin(ctx context.Context, state State) (RefreshResult
 		next.Cookies[name] = value
 	}
 	next.RefreshToken, next.PendingConfirm, next.RefreshedAt = token, login.RefreshToken, now.UTC()
-	if version, err = a.Logins.Replace(ctx, version, next); err != nil {
+	// Bilibili has spent the old refresh token, so the new login is stored
+	// even when the step is cancelled or times out meanwhile: lost, the
+	// stored token would be refused at every later check.
+	save, cancel := context.WithTimeout(context.WithoutCancel(ctx), loginSaveTimeout)
+	defer cancel()
+	if version, err = a.Logins.Replace(save, version, next); err != nil {
 		if errors.Is(err, ErrLoginChanged) {
 			return superseded()
 		}
@@ -156,7 +166,7 @@ func (a *Adapter) MaintainLogin(ctx context.Context, state State) (RefreshResult
 		return fail(err)
 	}
 	next.PendingConfirm = ""
-	if _, err = a.Logins.Replace(ctx, version, next); err != nil && !errors.Is(err, ErrLoginChanged) {
+	if _, err = a.Logins.Replace(save, version, next); err != nil && !errors.Is(err, ErrLoginChanged) {
 		// The confirm went through; the next check sends it once more.
 		return fail(&Error{"bilibili_login_save_failed"})
 	}

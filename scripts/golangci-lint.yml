@@ -8,11 +8,19 @@ linters:
   default: none
   enable:
     - errcheck
+    - forbidigo
     - govet
     - ineffassign
     - staticcheck
     - unused
   settings:
+    forbidigo:
+      # Japan time has one source: internal/japantime. A zone built anywhere
+      # else drifts in name or offset and gets copied by the next file.
+      analyze-types: true
+      forbid:
+        - pattern: ^time\.(FixedZone|LoadLocation)$
+          msg: use japantime.Zone / japantime.Date / japantime.ParseDate / japantime.ParseLocal from internal/japantime
     errcheck:
       # Deferred cleanup: Rollback after Commit reports sql.ErrTxDone, and a
       # removed temporary file inside an os.Root needs no further handling.
@@ -36,3 +44,7 @@ linters:
     # cleanup idiom; every other ignored error must be handled or justified.
     presets:
       - std-error-handling
+    rules:
+      - path: internal/japantime/
+        linters:
+          - forbidigo

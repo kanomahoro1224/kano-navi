@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // forwardedQuote is the projection of another author's dynamic that an own
@@ -29,7 +32,7 @@ func TestBilibiliForwardWordingIsMarkedContext(t *testing.T) {
 				bodies[id] = request.body
 			}
 		}
-		return http.StatusOK, chatReply(stringify(obj(
+		return http.StatusOK, chatReply(jsvalue.Stringify(jsvalue.Obj(
 			"classification", "schedule",
 			"events", []any{bilibiliEntry("杂谈", "2026-11-08", "20:00", "stream", nil, nil)},
 			"confidence", 0.9, "evidence", "synthetic evidence", "reason", nil, "action", "add")))
@@ -51,7 +54,7 @@ func TestBilibiliForwardWordingIsMarkedContext(t *testing.T) {
 	if err := f.db.QueryRow(`SELECT starts_at FROM events WHERE source_item_id='bilibili-900000000000000110' AND deleted_at IS NULL`).Scan(&at); err != nil {
 		t.Fatal(err)
 	}
-	if parsed, _ := time.Parse(time.RFC3339Nano, at); parsed.In(jst).Format("2006-01-02 15:04") != "2026-11-08 21:00" {
+	if parsed, _ := time.Parse(time.RFC3339Nano, at); parsed.In(japantime.Zone).Format("2006-01-02 15:04") != "2026-11-08 21:00" {
 		t.Fatalf("starts_at=%s", at)
 	}
 	if got := f.text(`SELECT url FROM events WHERE source_item_id='bilibili-900000000000000110' AND deleted_at IS NULL`); got != opus {
@@ -90,7 +93,7 @@ func TestForwardedDynamicsAreTranslatedOnceFromThePool(t *testing.T) {
 		if strings.Contains(request.body, "Kind: Bilibili dynamic") {
 			kinds = append(kinds, "bilibili")
 		}
-		return http.StatusOK, chatReply(stringify(obj("sourceLanguage", "zh", "english", "Talk stream tomorrow from 20:00",
+		return http.StatusOK, chatReply(jsvalue.Stringify(jsvalue.Obj("sourceLanguage", "zh", "english", "Talk stream tomorrow from 20:00",
 			"japanese", "明日20時から雑談配信", "simplifiedChinese", "")))
 	}
 	result := runTranslator(t, translator)

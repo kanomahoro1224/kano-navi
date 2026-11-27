@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // ProfileMedia is one profile image candidate as the admin console reads it.
@@ -165,7 +168,7 @@ func (m *Module) profilePayload(ctx context.Context) (*profileMediaPayload, erro
 }
 
 func normalizedProfileSlot(value string) string {
-	slot := strings.ToLower(jsTrim(value))
+	slot := strings.ToLower(jsvalue.Trim(value))
 	if slot == "avatar" || slot == "banner" {
 		return slot
 	}
@@ -173,15 +176,15 @@ func normalizedProfileSlot(value string) string {
 }
 
 func normalizedProfileSource(value string) string {
-	source := strings.ToLower(jsTrim(value))
-	if source == "x" || source == "youtube" || source == "upload" {
+	source := strings.ToLower(jsvalue.Trim(value))
+	if source == "x" || source == "youtube" || source == "bilibili" || source == "upload" {
 		return source
 	}
 	return ""
 }
 
 func profileCandidateID(slot, sourceURL string) string {
-	return sha256Hex([]byte(slot + "\x00" + sourceURL))
+	return digest.SHA256Hex([]byte(slot + "\x00" + sourceURL))
 }
 
 type profileCandidate struct {
@@ -262,6 +265,6 @@ func markProfileMediaFailed(ctx context.Context, q queryer, id, message, now str
 	}
 	_, err := q.ExecContext(ctx, `UPDATE profile_media SET status=CASE WHEN cache_path IS NOT NULL AND sha256 IS NOT NULL THEN 'ready' ELSE 'failed' END,
 	     download_status='failed', last_download_at=?, last_error=?, updated_at=? WHERE id=?`,
-		now, jsSlice(message, 500), now, id)
+		now, jsvalue.Slice(message, 500), now, id)
 	return err
 }

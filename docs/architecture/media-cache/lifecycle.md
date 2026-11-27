@@ -74,13 +74,14 @@ does not end the step; a store that cannot record the failure, such as after
 a lost lease, does. A `media_rate_limited` answer ends the step at once. The bounds are
 constants (`StepBounds` in `internal/mediadownload`).
 
-The step result records `attempted`, `ready`, `unchanged`, `failed`,
-`measured`, `resized` and `remaining`: the never-checked assets still queued when the
-step ends. When a bound ends the step, `stopped` names it
-(`media_file_cap`, `media_time_budget`, `media_rate_limited` or
-`media_no_progress`). The step is `partial` while `remaining` is above zero or
-any file failed or was missing, and the next synchronization continues with
-the queue, so a history window's images arrive over a few runs.
+The step result records `attempted`, `ready`, `unchanged`, `missing` (files
+the source answered 404 for), `failed`, `measured`, `resized` and
+`remaining`: the never-checked assets still queued when the step ends. When
+a bound ends the step, `stopped` names it (`media_file_cap`,
+`media_time_budget`, `media_rate_limited` or `media_no_progress`). The step
+is `partial` while `remaining` is above zero or any file failed or was
+missing, and the next synchronization continues with the queue, so a history
+window's images arrive over a few runs.
 
 ## Download Boundary
 

@@ -1,4 +1,5 @@
 import type { Locale, Translator } from "@/types"
+import { tokyoParts } from "@/lib/tokyo-time"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowRight,
@@ -92,12 +93,7 @@ const branchById = Object.fromEntries(
 )
 
 function currentJapanYear() {
-  return Number(
-    new Intl.DateTimeFormat("en", {
-      timeZone: "Asia/Tokyo",
-      year: "numeric",
-    }).format(new Date()),
-  )
+  return Number(tokyoParts(new Date(), { year: "numeric" })?.year)
 }
 
 function dayLabel(date: string) {

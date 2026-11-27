@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 )
@@ -78,10 +79,10 @@ type Post struct {
 	AccountURL    *string
 	Media         []PostMedia
 	// Repost is the original status of a repost, nil for every other kind.
-	Repost         *PostRepost
+	Repost *PostRepost
 	// UpstreamKind is what X says the status is (top_level, self_reply, reply,
 	// repost), or nil when unknown or not from X.
-	UpstreamKind   *string
+	UpstreamKind *string
 	// ReplyTo names the target of an X reply, when raw_json carried it.
 	ReplyTo        *PostReplyTo
 	MediaID        *string
@@ -508,7 +509,7 @@ func (s *Store) GetDashboard(ctx context.Context, days int, now time.Time) (*Das
 		return nil, err
 	}
 
-	today := dateInJapan(now)
+	today := japantime.Date(now)
 	from, to := mondayWindow(today)
 	events, err := s.queryDashboardEvents(ctx, from, to, now)
 	if err != nil {

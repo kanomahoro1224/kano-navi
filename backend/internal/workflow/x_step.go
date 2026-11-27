@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -55,7 +56,7 @@ func (x *XRecentExecutor) Execute(ctx context.Context, in StepInput) (AttemptRes
 	if x.Now != nil {
 		now = x.Now()
 	}
-	day := sqlite.JapanDay(now)
+	day := japantime.Date(now)
 	budget := 0
 	if chain.Uses(xsource.DiscoveryAPI) {
 		usage, usageErr := x.Store.XAPIUsageOn(ctx, day)

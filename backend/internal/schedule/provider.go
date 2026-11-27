@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/secretstore"
 )
 
@@ -38,22 +40,22 @@ type provider struct {
 // tags_json: a JSON array, or a comma/whitespace separated list.
 func capabilityTokens(raw string) []string {
 	var values []string
-	if parsed, err := parseJSON([]byte(raw)); err == nil {
+	if parsed, err := jsvalue.Parse([]byte(raw)); err == nil {
 		if list, ok := parsed.([]any); ok {
 			for _, item := range list {
-				values = append(values, stringOr(item, ""))
+				values = append(values, jsvalue.StringOr(item, ""))
 			}
 			return normalizeTokens(values)
 		}
 	}
-	values = strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || isJSSpace(r) })
+	values = strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || jsvalue.IsSpace(r) })
 	return normalizeTokens(values)
 }
 
 func normalizeTokens(values []string) []string {
 	out := make([]string, 0, len(values))
 	for _, value := range values {
-		value = jsToLower(jsTrim(value))
+		value = jsvalue.ToLower(jsvalue.Trim(value))
 		if value == "vision" {
 			value = "image"
 		}
@@ -217,7 +219,7 @@ func (p provider) endpoint() string {
 // never carry, so it is always null.
 func extractorVersionFor(p provider, detectionType, inputMode string) string {
 	return extractorVersionPrefix(detectionType, inputMode) + p.id + ":" + p.protocol + ":" +
-		sha256Hex(stringify([]any{p.baseURL, nil, p.model}))
+		digest.SHA256Hex(jsvalue.Stringify([]any{p.baseURL, nil, p.model}))
 }
 
 // extractorVersionPrefix is the part of the extraction identity that does not
@@ -228,7 +230,7 @@ func extractorVersionPrefix(detectionType, inputMode string) string {
 
 func timeoutFor(p provider) time.Duration {
 	ms := p.timeoutMs
-	if !finite(ms) {
+	if !jsvalue.Finite(ms) {
 		ms = 30_000
 	}
 	ms = min(120_000, max(1, ms))
@@ -312,7 +314,7 @@ func (e *Extractor) requestLLM(ctx context.Context, p provider, body string) (an
 	if err != nil || len(data) > maxResponseBytes {
 		return nil, failure()
 	}
-	payload, err := parseJSON(data)
+	payload, err := jsvalue.Parse(data)
 	if err != nil {
 		return nil, failure()
 	}
@@ -343,7 +345,7 @@ func (image cachedImage) base64() (string, error) {
 type modelCall struct {
 	instructions string
 	name         string
-	schema       rawJSON
+	schema       jsvalue.Raw
 	maxTokens    int
 	text         string
 	includeText  bool
@@ -355,8 +357,8 @@ type modelCall struct {
 }
 
 func property(value any, key string) any {
-	root, _ := value.(*object)
-	out, _ := root.get(key)
+	root, _ := value.(*jsvalue.Object)
+	out, _ := root.Get(key)
 	return out
 }
 
@@ -392,38 +394,38 @@ func (e *Extractor) callModel(ctx context.Context, p provider, call modelCall) (
 	case protocolAnthropic:
 		content := []any{}
 		for i, image := range call.images {
-			content = append(content, obj("type", "image", "source", obj(
+			content = append(content, jsvalue.Obj("type", "image", "source", jsvalue.Obj(
 				"type", "base64", "media_type", image.mimeType, "data", encoded[i])))
 		}
 		if call.includeText {
-			content = append(content, obj("type", "text", "text", call.text))
+			content = append(content, jsvalue.Obj("type", "text", "text", call.text))
 		}
-		request := obj(
+		request := jsvalue.Obj(
 			"model", p.model,
 			"max_tokens", min(4000, max(1, call.maxTokens)),
 			"system", call.instructions,
-			"messages", []any{obj("role", "user", "content", content)},
+			"messages", []any{jsvalue.Obj("role", "user", "content", content)},
 		)
 		if call.jsonOutput {
-			request.set("system", call.instructions)
-			output := obj("format", obj("type", "json_schema", "schema", call.schema))
+			request.Set("system", call.instructions)
+			output := jsvalue.Obj("format", jsvalue.Obj("type", "json_schema", "schema", call.schema))
 			// Haiku 5.5 thinks by default, sharing max_tokens with its reply.
 			// Simple translations do not need that extra budget. Keep these
 			// model-specific options away from other configured models.
 			if p.model == "claude-haiku-5-5" || strings.HasPrefix(p.model, "claude-haiku-5-5-") {
-				request.set("thinking", obj("type", "disabled"))
-				output.set("effort", "low")
+				request.Set("thinking", jsvalue.Obj("type", "disabled"))
+				output.Set("effort", "low")
 			}
-			request.set("output_config", output)
+			request.Set("output_config", output)
 		} else {
-			request.set("system", anthropicToolInstruction(call.instructions, call.name))
-			request.set("tools", []any{obj(
+			request.Set("system", anthropicToolInstruction(call.instructions, call.name))
+			request.Set("tools", []any{jsvalue.Obj(
 				"name", call.name,
 				"description", "Return the structured classification result.",
 				"input_schema", call.schema)})
-			request.set("tool_choice", obj("type", "auto", "disable_parallel_tool_use", true))
+			request.Set("tool_choice", jsvalue.Obj("type", "auto", "disable_parallel_tool_use", true))
 		}
-		payload, err := e.requestLLM(ctx, p, stringify(request))
+		payload, err := e.requestLLM(ctx, p, jsvalue.Stringify(request))
 		if err != nil {
 			return nil, err
 		}
@@ -440,7 +442,7 @@ func (e *Extractor) callModel(ctx context.Context, p provider, call modelCall) (
 			}
 			// Only the first matching tool call counts, as Array#find did.
 			switch input := property(part, "input").(type) {
-			case *object, []any:
+			case *jsvalue.Object, []any:
 				return input, nil
 			}
 			return nil, fail(noStructuredOutput)
@@ -449,27 +451,27 @@ func (e *Extractor) callModel(ctx context.Context, p provider, call modelCall) (
 	case protocolChat:
 		content := []any{}
 		if call.includeText {
-			content = append(content, obj("type", "text", "text", call.text))
+			content = append(content, jsvalue.Obj("type", "text", "text", call.text))
 		}
 		for i, image := range call.images {
-			content = append(content, obj("type", "image_url", "image_url", obj(
+			content = append(content, jsvalue.Obj("type", "image_url", "image_url", jsvalue.Obj(
 				"url", "data:"+image.mimeType+";base64,"+encoded[i], "detail", "high")))
 		}
 		instructions := call.instructions
-		format := any(obj("type", "json_schema", "json_schema", obj(
+		format := any(jsvalue.Obj("type", "json_schema", "json_schema", jsvalue.Obj(
 			"name", call.name, "strict", true, "schema", call.schema)))
 		if !chatJSONSchema(p) {
 			// The schema cannot travel in response_format here, so it travels
 			// in the prompt: json_object alone does not tell the model which
 			// keys to return.
 			instructions += "\n\nReply with one JSON object and nothing else, matching this JSON schema: " + string(call.schema)
-			format = obj("type", "json_object")
+			format = jsvalue.Obj("type", "json_object")
 		}
-		request := obj(
+		request := jsvalue.Obj(
 			"model", p.model,
 			"messages", []any{
-				obj("role", "system", "content", instructions),
-				obj("role", "user", "content", content),
+				jsvalue.Obj("role", "system", "content", instructions),
+				jsvalue.Obj("role", "user", "content", content),
 			},
 			"response_format", format,
 			// max_tokens is what every chat-completions server reads;
@@ -477,7 +479,7 @@ func (e *Extractor) callModel(ctx context.Context, p provider, call modelCall) (
 			// unknown field with HTTP 400.
 			"max_tokens", call.maxTokens,
 		)
-		payload, err := e.requestLLM(ctx, p, stringify(request))
+		payload, err := e.requestLLM(ctx, p, jsvalue.Stringify(request))
 		if err != nil {
 			return nil, err
 		}
@@ -507,20 +509,20 @@ func (e *Extractor) callModel(ctx context.Context, p provider, call modelCall) (
 	}
 	content := []any{}
 	if call.includeText {
-		content = append(content, obj("type", "input_text", "text", call.text))
+		content = append(content, jsvalue.Obj("type", "input_text", "text", call.text))
 	}
 	for i, image := range call.images {
-		content = append(content, obj(
+		content = append(content, jsvalue.Obj(
 			"type", "input_image",
 			"image_url", "data:"+image.mimeType+";base64,"+encoded[i],
 			"detail", "high"))
 	}
-	payload, err := e.requestLLM(ctx, p, stringify(obj(
+	payload, err := e.requestLLM(ctx, p, jsvalue.Stringify(jsvalue.Obj(
 		"model", p.model,
 		"store", false,
 		"instructions", call.instructions,
-		"input", []any{obj("role", "user", "content", content)},
-		"text", obj("format", obj(
+		"input", []any{jsvalue.Obj("role", "user", "content", content)},
+		"text", jsvalue.Obj("format", jsvalue.Obj(
 			"type", "json_schema", "name", call.name, "strict", true, "schema", call.schema)),
 		"max_output_tokens", call.maxTokens,
 	)))
@@ -543,7 +545,7 @@ func (e *Extractor) callModel(ctx context.Context, p provider, call modelCall) (
 			if property(part, "type") == "refusal" {
 				// The refusal wording is the stored reason, as before; it is
 				// bounded because it is provider-controlled text.
-				return nil, fail(sliceUTF16(stringOr(property(part, "refusal"), "model refused"), 500))
+				return nil, fail(jsvalue.Slice(jsvalue.StringOr(property(part, "refusal"), "model refused"), 500))
 			}
 			if text, ok := property(part, "text").(string); ok && property(part, "type") == "output_text" {
 				return parseModelText(text)
@@ -567,7 +569,7 @@ func parseTextParts(parts []any, kind string) (any, error) {
 }
 
 func parseModelText(text string) (any, error) {
-	value, err := parseJSON([]byte(text))
+	value, err := jsvalue.Parse([]byte(text))
 	if err != nil {
 		return nil, fail("LLM response was not valid JSON")
 	}

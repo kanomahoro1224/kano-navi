@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"io"
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/sourcecapture"
 )
 
@@ -55,8 +54,7 @@ func (s *Store) RecordSourceResponse(ctx context.Context, response sourcecapture
 		body = body[:sourcecapture.MaxBodyBytes]
 		truncated = true
 	}
-	digest := sha256.Sum256(body)
-	bodyHash := hex.EncodeToString(digest[:])
+	bodyHash := digest.SHA256Hex(body)
 	var compressed bytes.Buffer
 	writer := gzip.NewWriter(&compressed)
 	if _, err := writer.Write(body); err != nil {
@@ -178,8 +176,7 @@ func (s *Store) ReadSourceResponseCapture(ctx context.Context, id int64) (Source
 	if err != nil || closeErr != nil || int64(len(item.Body)) > sourcecapture.MaxBodyBytes {
 		return SourceResponseCapture{}, ErrWorkflowStorage
 	}
-	digest := sha256.Sum256(item.Body)
-	if hex.EncodeToString(digest[:]) != item.SHA256 || int64(len(item.Body)) != item.BodyBytes {
+	if digest.SHA256Hex(item.Body) != item.SHA256 || int64(len(item.Body)) != item.BodyBytes {
 		return SourceResponseCapture{}, ErrWorkflowStorage
 	}
 	return item, nil

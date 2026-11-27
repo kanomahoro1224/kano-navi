@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"io"
 	"io/fs"
 	"os"
@@ -44,8 +45,7 @@ var hashSlots = make(chan struct{}, 2)
 // fileHashName files the record of path under the SHA-256 of the path, so
 // any path maps to a fixed, contained name.
 func fileHashName(path string) string {
-	sum := sha256.Sum256([]byte(path))
-	key := hex.EncodeToString(sum[:])
+	key := digest.SHA256Hex(path)
 	return filepath.Join(key[:2], key)
 }
 
@@ -138,12 +138,12 @@ func HashFile(ctx context.Context, file io.Reader, size int64) (string, error) {
 		return "", ctx.Err()
 	}
 	defer func() { <-hashSlots }()
-	digest := sha256.New()
-	read, err := io.Copy(digest, io.LimitReader(file, size+1))
+	hasher := sha256.New()
+	read, err := io.Copy(hasher, io.LimitReader(file, size+1))
 	if err != nil || read != size {
 		return "", errors.New("file unreadable")
 	}
-	return hex.EncodeToString(digest.Sum(nil)), nil
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // KnownFileHash is the package function for this store's data directory.

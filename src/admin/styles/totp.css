@@ -1,0 +1,16 @@
+/* The one-time code's secret for manual entry, under its QR code. */
+.adm-totp-secret {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.adm-totp-secret code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  user-select: all;
+}

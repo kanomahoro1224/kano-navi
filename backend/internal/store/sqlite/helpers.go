@@ -1,8 +1,6 @@
 package sqlite
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net/url"
 	"strings"
@@ -53,8 +51,6 @@ func safeHash(v string) bool {
 	return true
 }
 
-func sha256Hex(v string) string { h := sha256.Sum256([]byte(v)); return hex.EncodeToString(h[:]) }
-
 func normalizeSourceURL(v string) string {
 	u, err := url.Parse(strings.TrimSpace(v))
 	if err != nil || u.Scheme != "http" && u.Scheme != "https" || u.Host == "" || urlguard.ContainsCredentials(u.String()) {
@@ -87,10 +83,6 @@ func xHandleFromURL(v string) string {
 		}
 	}
 	return h
-}
-
-func dateInJapan(t time.Time) string {
-	return t.In(time.FixedZone("JST", 9*60*60)).Format("2006-01-02")
 }
 
 func mondayWindow(day string) (string, string) {

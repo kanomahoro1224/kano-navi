@@ -5,14 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"rsc.io/qr"
-
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/qrsvg"
 	"github.com/yexca/kano-navi/backend/internal/secretstore"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
@@ -42,43 +39,10 @@ type bilibiliQR struct {
 	state, code string
 	expiresAt   time.Time
 	// picture is the code to scan; it is dropped when the sign-in ends.
-	picture *qrPicture
+	picture *qrsvg.Picture
 	cancel  context.CancelFunc
 	// generation counts sign-ins, so a poller only ever changes its own.
 	generation int
-}
-
-// qrPicture is a QR code as one SVG path over a square of size modules,
-// the quiet zone included.
-type qrPicture struct {
-	Size int    `json:"size"`
-	Path string `json:"path"`
-}
-
-// qrQuiet is the quiet zone around a code, in modules.
-const qrQuiet = 4
-
-func newQRPicture(text string) (*qrPicture, error) {
-	code, err := qr.Encode(text, qr.M)
-	if err != nil {
-		return nil, err
-	}
-	var path strings.Builder
-	for y := 0; y < code.Size; y++ {
-		for x := 0; x < code.Size; {
-			if !code.Black(x, y) {
-				x++
-				continue
-			}
-			start := x
-			for x < code.Size && code.Black(x, y) {
-				x++
-			}
-			run := strconv.Itoa(x - start)
-			path.WriteString("M" + strconv.Itoa(start+qrQuiet) + " " + strconv.Itoa(y+qrQuiet) + "h" + run + "v1h-" + run + "z")
-		}
-	}
-	return &qrPicture{Size: code.Size + 2*qrQuiet, Path: path.String()}, nil
 }
 
 func (q *bilibiliQR) active() bool {
@@ -126,6 +90,21 @@ func (q *bilibiliQR) update(generation int, state string) {
 	}
 }
 
+// checkBilibiliLogin verifies the login a QR sign-in just stored, before the
+// sign-in reports success, so the console shows the account's name and state
+// at once. A failed check is left to the next dynamics read, which finds it
+// due.
+func (a *api) checkBilibiliLogin(ctx context.Context) {
+	account := a.Bilibili.Options.Account
+	state, err := a.Store.BilibiliState(ctx, account)
+	if err != nil {
+		return
+	}
+	if next, requests, _ := a.Bilibili.CheckLogin(ctx, state); requests > 0 {
+		_ = a.Store.SaveBilibiliState(ctx, account, next)
+	}
+}
+
 // bilibiliLogins answers 503 unless this process keeps a Bilibili login.
 func (a *api) bilibiliLogins(w http.ResponseWriter) bool {
 	if a.Bilibili == nil || a.Bilibili.Logins == nil {
@@ -133,6 +112,18 @@ func (a *api) bilibiliLogins(w http.ResponseWriter) bool {
 		return false
 	}
 	return true
+}
+
+// bilibiliLoginWritable reports why a new login could not be stored: no
+// LLM_SECRETS_KEY to seal it, or a store without write permission.
+func (a *api) bilibiliLoginWritable() error {
+	if a.Bilibili.Logins.Key == "" {
+		return secretstore.ErrKeyRequired
+	}
+	if !a.Store.BilibiliLoginWritable() {
+		return sqlite.ErrReadOnly
+	}
+	return nil
 }
 
 func (a *api) writeBilibiliSource(w http.ResponseWriter, ctx context.Context) {
@@ -245,8 +236,13 @@ func (a *api) forgetBilibiliLogin(w http.ResponseWriter, r *http.Request) {
 			writeLoginRequestError(w, signOutErr, next)
 			return
 		}
+		// The session has ended, so its record goes even when the operator
+		// leaves meanwhile or the workflow refreshed it since the read.
+		err = a.Bilibili.Logins.ForgetSignedOut(context.WithoutCancel(ctx), version, login)
+	} else {
+		err = a.Bilibili.Logins.Forget(ctx, version)
 	}
-	if err = a.Bilibili.Logins.Forget(ctx, version); err != nil {
+	if err != nil {
 		writeLoginStoreError(w, err)
 		return
 	}
@@ -264,6 +260,12 @@ func (a *api) bilibiliQRStatus(w http.ResponseWriter, _ *http.Request) {
 // import.
 func (a *api) startBilibiliQR(w http.ResponseWriter, r *http.Request) {
 	if !a.bilibiliLogins(w) {
+		return
+	}
+	// A confirmed sign-in opens a session at Bilibili, so one that could
+	// not be stored never starts.
+	if err := a.bilibiliLoginWritable(); err != nil {
+		writeLoginStoreError(w, err)
 		return
 	}
 	ctx := r.Context()
@@ -303,7 +305,7 @@ func (a *api) startBilibiliQR(w http.ResponseWriter, r *http.Request) {
 		writeLoginRequestError(w, err, next)
 		return
 	}
-	picture, err := newQRPicture(code.URL)
+	picture, err := qrsvg.Encode(code.URL)
 	if err != nil {
 		httpx.WriteCode(w, http.StatusInternalServerError, "internal_error")
 		return
@@ -366,6 +368,7 @@ func (a *api) pollBilibiliQR(ctx context.Context, generation int, session biliso
 				a.qr.finish(generation, bilisource.QRFailed, "bilibili_login_save_failed")
 				return
 			}
+			a.checkBilibiliLogin(context.WithoutCancel(ctx))
 			a.qr.finish(generation, bilisource.QRSignedIn, "")
 			return
 		default:

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // saleEntry is one model entry for the sale tests; fields left out of extra
@@ -18,22 +20,22 @@ func saleEntry(extra map[string]any) string {
 	for key, value := range extra {
 		entry[key] = value
 	}
-	return `{"classification":"schedule","events":[` + stringify(toObject(entry)) + `],"confidence":0.8,"evidence":"","reason":null,"action":"add"}`
+	return `{"classification":"schedule","events":[` + jsvalue.Stringify(toObject(entry)) + `],"confidence":0.8,"evidence":"","reason":null,"action":"add"}`
 }
 
-func toObject(values map[string]any) *object {
+func toObject(values map[string]any) *jsvalue.Object {
 	pairs := []any{}
 	for _, key := range []string{"title", "detail", "date", "time", "endTime", "endDate", "timePrecision", "status", "eventType", "tag", "url", "confidence", "evidence"} {
 		if value, ok := values[key]; ok {
 			pairs = append(pairs, key, value)
 		}
 	}
-	return obj(pairs...)
+	return jsvalue.Obj(pairs...)
 }
 
 func normalizeSale(t *testing.T, extra map[string]any) (normalizedExtraction, error) {
 	t.Helper()
-	input, err := parseJSON([]byte(saleEntry(extra)))
+	input, err := jsvalue.Parse([]byte(saleEntry(extra)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +60,7 @@ func TestASalePeriodKeepsItsOpeningAndItsClose(t *testing.T) {
 		orNil(event.endsOn) != "2099-09-22" || orNil(event.endsAt) != "2099-09-22T14:59:00.000Z" {
 		t.Fatalf("event = %+v (endsOn %s, endsAt %s)", event, orNil(event.endsOn), orNil(event.endsAt))
 	}
-	raw := stringify(event.rawObject())
+	raw := jsvalue.Stringify(event.rawObject())
 	if want := `"ends_at":"2099-09-22T14:59:00.000Z","ends_on":"2099-09-22","timezone"`; !strings.Contains(raw, want) {
 		t.Fatalf("raw = %s", raw)
 	}
@@ -122,7 +124,7 @@ func TestOnlyASaleStoresACloseDate(t *testing.T) {
 	if event := result.events[0]; event.endsOn != nil {
 		t.Fatalf("event = %+v", event)
 	}
-	if raw := stringify(result.events[0].rawObject()); strings.Contains(raw, "ends_on") {
+	if raw := jsvalue.Stringify(result.events[0].rawObject()); strings.Contains(raw, "ends_on") {
 		t.Fatalf("raw = %s", raw)
 	}
 	// Without a close date, an end time still needs a start time.

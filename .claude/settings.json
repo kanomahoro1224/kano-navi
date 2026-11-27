@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "ask": [
+      "Edit(/scripts/golangci-lint.yml)",
+      "Edit(/scripts/pattern-baseline.json)",
+      "Edit(/.github/workflows/**)"
+    ]
+  }
+}

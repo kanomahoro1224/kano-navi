@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 )
 
@@ -102,7 +103,7 @@ func TestBilibiliLiveMatchesStreamsByPlatformAndTime(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	at := func(d time.Duration) string { return now.Add(d).Format(time.RFC3339) }
-	day := now.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02")
+	day := japantime.Date(now)
 	room := bilisource.RoomURL("1000001")
 	// Two Bilibili streams the same day, an X notice of one with platform
 	// bilibili, a release, and a stream on another platform.

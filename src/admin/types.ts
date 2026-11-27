@@ -1410,7 +1410,8 @@ export interface AccountAvatarCandidate {
 }
 
 export interface AccountAvatarItem {
-  source: "x"
+  /** An X handle, or the Bilibili account by its mid. */
+  source: "x" | "bilibili"
   accountKey: string
   accountHandle: string
   role: AccountAvatarRole

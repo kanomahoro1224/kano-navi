@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 func TestBilibiliDynamicsAreTranslatedIntoEnglishAndJapanese(t *testing.T) {
@@ -17,7 +19,7 @@ func TestBilibiliDynamicsAreTranslatedIntoEnglishAndJapanese(t *testing.T) {
 		if !strings.Contains(request.body, "Kind: Bilibili dynamic") {
 			t.Errorf("unexpected kind: %s", request.body)
 		}
-		return http.StatusOK, chatReply(stringify(obj("sourceLanguage", "zh", "english", "New song upload today at 17:00 Beijing time",
+		return http.StatusOK, chatReply(jsvalue.Stringify(jsvalue.Obj("sourceLanguage", "zh", "english", "New song upload today at 17:00 Beijing time",
 			"japanese", "今日の北京時間17:00に新曲をアップロード", "simplifiedChinese", "")))
 	}
 	result := runTranslator(t, translator)
@@ -39,10 +41,10 @@ func TestBilibiliDynamicsAreTranslatedIntoEnglishAndJapanese(t *testing.T) {
 }
 
 func TestJapaneseIsRequiredUnlessItIsTheSource(t *testing.T) {
-	if _, err := normalizeTranslation(obj("sourceLanguage", "zh", "english", "Hello", "japanese", "", "simplifiedChinese", ""), "你好"); err == nil || !strings.Contains(err.Error(), "missing ja") {
+	if _, err := normalizeTranslation(jsvalue.Obj("sourceLanguage", "zh", "english", "Hello", "japanese", "", "simplifiedChinese", ""), "你好"); err == nil || !strings.Contains(err.Error(), "missing ja") {
 		t.Fatalf("err=%v", err)
 	}
-	result, err := normalizeTranslation(obj("sourceLanguage", "ja", "english", "Hello", "japanese", "", "simplifiedChinese", "你好"), "こんにちは")
+	result, err := normalizeTranslation(jsvalue.Obj("sourceLanguage", "ja", "english", "Hello", "japanese", "", "simplifiedChinese", "你好"), "こんにちは")
 	if err != nil || len(result.Texts) != 2 || result.Texts["ja"] != "" {
 		t.Fatalf("result=%#v err=%v", result, err)
 	}

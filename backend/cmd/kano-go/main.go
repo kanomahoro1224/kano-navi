@@ -13,6 +13,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/adminapi"
 	"github.com/yexca/kano-navi/backend/internal/adminauth"
+	"github.com/yexca/kano-navi/backend/internal/adminauth/totpadmin"
 	"github.com/yexca/kano-navi/backend/internal/config"
 	"github.com/yexca/kano-navi/backend/internal/dotenv"
 	"github.com/yexca/kano-navi/backend/internal/httpapi"
@@ -40,6 +41,7 @@ Commands:
   x-archive    Import X account exports and review the posts an earlier import added (import, check, apply)
   web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY line and its keyid
   totp-secret  Print a new ADMIN_TOTP_SECRET line and its otpauth:// address
+  totp-reset   Remove the one-time code bound in the console (-database <path>)
   healthcheck  Probe the local service and exit
 
 Common flags: -database <path>  -static <directory>  -listen <address>`
@@ -70,6 +72,8 @@ func main() {
 		os.Exit(runWebBotAuthKey(args, os.Stdout))
 	case "totp-secret":
 		os.Exit(runTOTPSecret(args, os.Stdout))
+	case "totp-reset":
+		os.Exit(runTOTPReset(args, os.Stdout))
 	case "help":
 		fmt.Println(usage)
 		return
@@ -144,6 +148,14 @@ func main() {
 		os.Exit(1)
 	}
 	defer store.Close()
+	// A one-time code bound in the console applies here too; one that cannot
+	// be opened refuses startup.
+	if admin != nil {
+		if _, _, err = totpadmin.Load(context.Background(), store.DB(), strings.TrimSpace(os.Getenv("LLM_SECRETS_KEY")), admin); err != nil {
+			fmt.Fprintln(os.Stderr, "kano-go: "+err.Error())
+			os.Exit(2)
+		}
+	}
 
 	var queue *workflow.Queue
 	if enableSources {

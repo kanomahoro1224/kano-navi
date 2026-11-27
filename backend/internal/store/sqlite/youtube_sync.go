@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 )
 
@@ -361,7 +362,7 @@ func writeYoutubeVideos(ctx context.Context, tx *sql.Tx, videos []ytsource.Video
 			if e != nil {
 				return false, ErrSourceWrite
 			}
-			startsOn, startsAt, precision = start.In(time.FixedZone("JST", 9*3600)).Format("2006-01-02"), v.ScheduledAt, "exact"
+			startsOn, startsAt, precision = japantime.Date(start), v.ScheduledAt, "exact"
 		} else if !v.IsUpcoming {
 			startsOn = ""
 		}

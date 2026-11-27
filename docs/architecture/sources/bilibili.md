@@ -68,8 +68,8 @@ environment's (`BILIBILI_COOKIE` or `BILIBILI_SESSDATA`), signs the
 `api.bilibili.com` requests in (never the device-identity or ticket request,
 the opus page or the live host). Signed-in reads meet the captcha far less
 often, and both dynamics methods require the login. It is verified at most
-once a day through `nav`, and a stored login is refreshed once a day at the
-start of either Bilibili step.
+once a day through `nav` and once right after a QR sign-in, and a stored
+login is refreshed once a day at the start of either Bilibili step.
 
 The upload read tries the enabled methods of the Bilibili timer's
 [method chain](../workflows/source-schedules.md#method-chains) in its order, by default `list`,
@@ -183,6 +183,17 @@ checked and attempted times, backoff) is kept in `sync_state` (source
 broadcast seen live, the last check that saw it live and the first later
 check that saw the room off air, and the start and observed end of the
 broadcast before it when a check saw that one end.
+
+The same answer names the account's avatar (`face`), kept only on
+Bilibili's image CDN (`*.hdslb.com`, upgraded to HTTPS). A successful live
+check records it as a synced
+[account avatar](../admin-api/profile-media.md#account-avatars) of the
+account, which the media step downloads and the posts show beside the
+account's dynamics. A face that cannot be recorded leaves the stored check
+standing and adds `account_avatar_save_failed` to the step's `errors`. An operator's
+[profile media discovery](../admin-api/profile-media.md#profile-media) and
+the account avatar's Fetch latest ask for it once, on request; those
+requests leave the live check's state and backoff alone.
 
 Entries are tied to the room by their [platforms](../data-model/events.md#event-platforms),
 never by a link: the room's link is the same for every broadcast, while

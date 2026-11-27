@@ -20,6 +20,10 @@ const groups = {
     "docs-check": "Check local Markdown links",
     "sensitive-check": "Scan workspace source for sensitive information",
     "test-sensitive": "Test scanner behavior",
+    "pattern-check": "Check request owners and file sizes against the baseline",
+    "pattern-baseline":
+      "Lower the pattern baseline to the current sources (never raises)",
+    "test-patterns": "Test the pattern ratchet",
     "test-ci-plan": "Test GitHub Actions job selection and the Gate",
     "test-frontend":
       "Test frontend request hooks, polling, and the history catalog",
@@ -41,9 +45,9 @@ const groups = {
       "Build the Go service image and smoke its read-only container",
     smoke: "Check a seeded temporary SQLite snapshot through the Go backend",
     "ci-fast":
-      "Run fast local format, documentation, and source privacy checks",
+      "Run fast local format, documentation, privacy, and pattern checks",
     "ci-style":
-      "Check formatting, documentation, workflows, and source privacy",
+      "Check formatting, documentation, workflows, privacy, and patterns",
     "ci-backend": "Run Go lint, vet, and race-enabled contract tests",
     "ci-frontend": "Type-check and build the frontend, then run its tests",
     check: "Run installed-dependency checks and local API smoke",

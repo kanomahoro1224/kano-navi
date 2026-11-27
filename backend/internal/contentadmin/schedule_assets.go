@@ -10,7 +10,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -121,7 +123,7 @@ const scheduleAssetFrom = ` FROM assets a LEFT JOIN schedule_asset_reviews r ON 
 var scheduleBoardText = regexp.MustCompile(`(?i)(?:\b(?:weekly[\s_-]+)?schedule(?:[\s_-]+(?:board|table))?\b|\bthis\s+week(?:'s)?\s+schedule\b|スケジュール|予定表|(?:今週|来週|今月|週間).{0,4}(?:予定|スケジュール))`)
 
 func oneOf(value, fallback string, allowed ...string) string {
-	normalized := strings.ToLower(jsTrim(value))
+	normalized := strings.ToLower(jsvalue.Trim(value))
 	for _, candidate := range allowed {
 		if normalized == candidate {
 			return normalized
@@ -244,7 +246,7 @@ func (m *Module) listScheduleAssets(ctx context.Context, limit int, from, to str
 func (m *Module) attachMedia(ctx context.Context, asset *scheduleAsset) error {
 	asset.PreviewURL, asset.MediaID, asset.MediaSourceURL, asset.MediaStatus = nil, nil, nil, "missing"
 	source := asset.URL
-	if jsTrim(source) == "" {
+	if jsvalue.Trim(source) == "" {
 		asset.MediaStatus = "none"
 		return nil
 	}
@@ -263,7 +265,7 @@ func (m *Module) attachMedia(ctx context.Context, asset *scheduleAsset) error {
 	err := m.db.QueryRowContext(ctx, `SELECT id, source_url, cache_path, sha256, status FROM media_assets WHERE source_url = ?`, normalized).
 		Scan(&id, &sourceURL, &cachePath, &contentHash, &status)
 	if errors.Is(err, sql.ErrNoRows) {
-		pendingID := sha256Hex([]byte(normalized))
+		pendingID := digest.SHA256Hex([]byte(normalized))
 		asset.MediaID, asset.MediaSourceURL, asset.MediaStatus = &pendingID, &normalized, "pending"
 		return nil
 	}
@@ -297,7 +299,7 @@ func boundedLimit(values []string) int {
 	if len(values) != 1 {
 		return 100
 	}
-	number, err := strconv.ParseFloat(jsTrim(values[0]), 64)
+	number, err := strconv.ParseFloat(jsvalue.Trim(values[0]), 64)
 	if err != nil || math.IsNaN(number) || number == 0 {
 		return 100
 	}
@@ -421,7 +423,7 @@ func (m *Module) periodRoute(w http.ResponseWriter, r *http.Request, id string) 
 	ctx, now := r.Context(), m.timestamp()
 	err = m.inTx(ctx, func(tx *sql.Tx) error {
 		result, execErr := tx.ExecContext(ctx, `UPDATE assets SET manual_period_start=?, manual_period_end=?, manual_period_reason=? WHERE id=? AND kind='schedule'`,
-			start, end, jsSlice(*reason, 500), id)
+			start, end, jsvalue.Slice(*reason, 500), id)
 		if execErr != nil {
 			return execErr
 		}

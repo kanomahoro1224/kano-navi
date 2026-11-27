@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	driver "modernc.org/sqlite"
 )
 
@@ -31,8 +31,7 @@ func workflowKey(v string) any {
 	if v == "" {
 		return nil
 	}
-	h := sha256.Sum256([]byte(v))
-	return hex.EncodeToString(h[:])
+	return digest.SHA256Hex(v)
 }
 func newWorkflowRunID() (string, error) {
 	b := make([]byte, 16)

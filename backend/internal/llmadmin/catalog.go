@@ -13,6 +13,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 const (
@@ -194,7 +196,7 @@ func parseModelList(payload any) []RemoteModel {
 				}
 			}
 		}
-		id := strings.TrimPrefix(jsTrim(truthyString(rawID)), "models/")
+		id := strings.TrimPrefix(jsvalue.Trim(jsvalue.StringOr(rawID, "")), "models/")
 		if !modelIDPattern.MatchString(id) {
 			continue
 		}
@@ -207,13 +209,13 @@ func parseModelList(payload any) []RemoteModel {
 					break
 				}
 			}
-			model.OwnedBy = nullableString(utf16Prefix(jsTrim(jsString(owner)), 120))
+			model.OwnedBy = nullableString(jsvalue.SliceWhole(jsvalue.Trim(jsvalue.String(owner)), 120))
 			display := object["display_name"]
-			if display == nil && jsTruthy(object["id"]) {
+			if display == nil && jsvalue.Truthy(object["id"]) {
 				display = object["name"]
 			}
 			if text, ok := display.(string); ok {
-				model.Name = nullableString(utf16Prefix(jsTrim(text), 120))
+				model.Name = nullableString(jsvalue.SliceWhole(jsvalue.Trim(text), 120))
 			}
 		}
 		models = append(models, model)
@@ -232,7 +234,7 @@ var providerAPIRoots = map[string]string{
 // providerAPIRoot mirrors src/lib/llm-endpoints.ts so the admin preview and
 // the request use the same address. It contains no credentials.
 func providerAPIRoot(baseURL string) string {
-	base := strings.TrimRight(jsTrim(baseURL), "/")
+	base := strings.TrimRight(jsvalue.Trim(baseURL), "/")
 	base = endpointSuffixPattern.ReplaceAllString(base, "")
 	if base == "" {
 		return ""
@@ -289,7 +291,7 @@ func listValues(value any) (values []any, ok bool) {
 				return array, true
 			}
 		}
-		parts := strings.FieldsFunc(v, func(r rune) bool { return r == ',' || isJSSpace(r) })
+		parts := strings.FieldsFunc(v, func(r rune) bool { return r == ',' || jsvalue.IsSpace(r) })
 		values = make([]any, len(parts))
 		for i, part := range parts {
 			values[i] = part
@@ -301,7 +303,7 @@ func listValues(value any) (values []any, ok bool) {
 }
 
 func vocabularyWord(item any) string {
-	word := strings.ToLower(jsTrim(truthyString(item)))
+	word := strings.ToLower(jsvalue.Trim(jsvalue.StringOr(item, "")))
 	if word == "vision" {
 		return "image"
 	}

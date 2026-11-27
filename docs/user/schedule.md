@@ -7,10 +7,12 @@ wide screens and a day list on narrower ones, where two or more empty days in
 a row (today aside) share one line naming the first and last of them. Each entry shows its Japan time (or
 "time TBA" when only the date is known), its type, a status when it is on
 air, TBA, or cancelled, and an icon for whether it is Auto-detected
-(sparkles) or Confirmed (check badge). Entries of earlier days, and today's
-once they end, fold to their time, activity icon, and the start of their
-title; a stream still on air stays whole. The legend under the guide and the
-month names both marks, then each activity icon.
+(sparkles) or Confirmed (check badge). Only the stream or event the top of
+the board shows (the one on air or under way, else the next), a stream still
+on air, and an event under way stay whole. Other entries fold to their time, activity icon,
+and the start of their title: entries of earlier days, and today's once they
+end, fade to a single line, and later entries keep two. The legend under the
+guide and the month names both marks, then each activity icon.
 The entry's color follows its type, so members-only streams stand apart.
 When the announcement, the title, or the maintainer says what the activity
 is, an icon and label name it: gameplay, talk, singing, a stream, or an

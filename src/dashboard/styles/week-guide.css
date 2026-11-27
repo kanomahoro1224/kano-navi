@@ -356,11 +356,14 @@
 
 .guide-event.is-done,
 .guide-event.is-pending,
-.guide-event.is-folded {
+.guide-event.is-past {
   opacity: 0.66;
 }
 
-/* A past entry folds to its time row over two lines of title. */
+/*
+ * A folded entry keeps its time row over two lines of title; a past one
+ * tightens to one line.
+ */
 .guide-event.is-folded {
   gap: 2px;
   padding: 5px 8px 6px;
@@ -381,6 +384,22 @@
 .guide-event.is-folded .card-link > .translated-title-text {
   font-size: 12px;
   -webkit-line-clamp: 2;
+}
+
+.guide-event.is-past {
+  gap: 1px;
+  padding: 4px 8px 5px;
+}
+
+.guide-event.is-past .guide-event-time strong {
+  font-size: 11.5px;
+}
+
+.guide-event.is-past .guide-event-title,
+.guide-event.is-past .card-link > .translated-title-text {
+  font-size: 11.5px;
+  line-height: 1.35;
+  -webkit-line-clamp: 1;
 }
 
 .guide-event.is-folded:hover {

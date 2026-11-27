@@ -23,6 +23,8 @@ handles its fragment moves (the console's views), and `index.html` applies the s
 language before the first paint so no load flashes the other theme. History copy and image metadata are
 static; the images are served from `data/journey/` (`/media/journey/<name>`),
 and release milestones show the `/works` covers of the release they name.
+An image still loading keeps its frame under a sweeping sheen and fades in
+once it arrives.
 `scripts/package-history-media.ts` packages the images from a local reference
 archive without network requests.
 See [History archive maintenance](../../development/history-archive.md). The
@@ -81,8 +83,10 @@ the dialog). A `pill-button is-collapsible` shows only its icon at 560px and
 below, so it keeps its label as `aria-label`. There the post wall's and the
 video shelf's filters share one row with that icon, and a filter too long for
 the row scrolls sideways without a visible scrollbar. The board lives in
-`src/dashboard/`: `use-dashboard.ts` owns the snapshot request and the
-revision stream, `format.ts` owns Japan-time and event-status helpers, `content.ts` holds static public links, and
+`src/dashboard/`: `use-dashboard.ts` composes the snapshot and calendar
+hooks and the request modules beside it (see
+[Request and UI ownership](request-ownership.md)), `format.ts` owns the board's date and event-status helpers over the shared
+[Japan-time formatters](request-ownership.md), `content.ts` holds static public links, and
 `components/` renders the next-up stage and profile card, the on-sale list
 (`sale-strip.tsx`: the IDs from `projection.sales`, rendered in API order,
 open or soon by each event's `view.state`; the stage passes its
@@ -136,8 +140,9 @@ dates come from `view.calendarEntries`, and the status codes are
 `upcoming`, `open` and `done`. The canonical enum contract is in the [Public
 API](../public-api/snapshot.md): `event.view.state` has eight
 values (`upcoming`, `live`, `ongoing`, `open`, `done`, `pending`,
-`cancelled`, `cancellation_review`); the week folds neither a `live` nor an
-`ongoing` entry. `video.view.phase` has five (`upcoming`, `live`,
+`cancelled`, `cancellation_review`); the week keeps a `live` or `ongoing`
+entry and the summary's `nextEvent` whole, folds the others of earlier days
+and `done` ones as past, and folds the rest brief. `video.view.phase` has five (`upcoming`, `live`,
 `started`, `past`, `cancelled`), and `formCode` has six non-null values
 (`short`, `upcoming`, `stream`, `archive`, `premiere`, `video`). The
 filter offers All plus Streams, Works and Shorts for each kind
@@ -169,7 +174,10 @@ registers the views in four nav groups by what the operator is doing — Today
 (Overview, Review queue), Content, what the public pages show (Schedule,
 Posts, External posts, Videos, Account avatars, Profile images), Pipeline,
 how data comes in (Sources, Detection, Runs, Alerts), and System, the rarely
-used settings and maintenance (Proxies, Site, Works) — and renders the shell with hash routing
+used settings and maintenance (Proxies, Site, Works) — and renders the shell:
+a sidebar of those groups on wide screens and, at 900 pixels and below, a
+header button naming the current view with the sections' counts, which
+opens the same groups in a sheet along the bottom edge. It routes by hash
 (`#view/tab`, where the tab is everything after the view and may hold
 several parts; `resolveHash` maps older addresses: `#content/<tab>` opens
 the matching view, `#models` and `#llm/<provider>` open Detection, which

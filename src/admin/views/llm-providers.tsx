@@ -232,13 +232,13 @@ function AddModels({
     setPicked([])
     onChanged()
   }
-  // A provider just created with a key lists its models straight away.
+  // A provider just created with a key lists its models straight away, once:
+  // only the key arriving starts it, not a new `discover` each render.
   const started = useRef(false)
   useEffect(() => {
     if (!discoverNow || started.current || !provider.apiKeyConfigured) return
     started.current = true
     void discover()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [discoverNow, provider.apiKeyConfigured])
   const shown = useMemo(
     () =>

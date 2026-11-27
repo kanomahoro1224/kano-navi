@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/yexca/kano-navi/backend/internal/adminapi"
 	"github.com/yexca/kano-navi/backend/internal/adminauth"
+	"github.com/yexca/kano-navi/backend/internal/adminauth/totpadmin"
 	"github.com/yexca/kano-navi/backend/internal/alerts"
 	"github.com/yexca/kano-navi/backend/internal/config"
 	"github.com/yexca/kano-navi/backend/internal/contentadmin"
@@ -108,11 +110,18 @@ func runStandalone(cfg config.Config) int {
 	if err = keyAdmin.Load(context.Background()); err != nil {
 		return fail("Web Bot Auth settings unavailable", 1)
 	}
+	// A one-time code bound in the console joins the password unless
+	// ADMIN_TOTP_SECRET provides one; a stored one that cannot be opened
+	// refuses startup.
+	totp := totpadmin.New(store, secretsKey, auth)
+	if err = totp.Load(context.Background()); err != nil {
+		return fail(err.Error(), 2)
+	}
 	run := newPipeline(store, secretsKey, signing)
 	// The variants step and the Site page's copies status read the archives
 	// under the data directory.
 	run.steps.Variants = &variants.Roots{Data: store.DataRoot()}
-	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies, run.xOptions.Handles)
+	modules := standaloneModules(store, adminConfig.Mode, secretsKey, run.proxies, run.xOptions.Handles, run.steps.Bilibili)
 	queue := &workflow.Queue{Store: store, Executor: run.executor}
 	defer queue.Close()
 	if err = queue.Recover(context.Background()); err != nil {
@@ -263,7 +272,7 @@ func runStandalone(cfg config.Config) int {
 	alertService := alerts.New(alerts.Options{
 		Store: store, Key: secretsKey, Pool: run.proxies,
 		Enabled: os.Getenv("ALERTS_ENABLED") != "0", Production: adminConfig.Mode == "production",
-		Origin:  firstNonEmpty(adminConfig.AllowedOrigin, cfg.PublicOrigin),
+		Origin:  cmp.Or(adminConfig.AllowedOrigin, cfg.PublicOrigin),
 		Signals: alertSignals(store, run, secretsKey, keyAdmin, probe.Enabled),
 	})
 	alertService.Start()
@@ -273,7 +282,7 @@ func runStandalone(cfg config.Config) int {
 			Store:     store,
 			Auth:      auth,
 			Runs:      manager,
-			Modules:   append(modules, pushAdmin, keyAdmin, alerts.NewAdmin(alertService)),
+			Modules:   append(modules, pushAdmin, keyAdmin, totp, alerts.NewAdmin(alertService)),
 			Scheduler: scheduler.Status,
 			// A timer the operator starts is submitted at once when the
 			// queue is free.
@@ -409,22 +418,22 @@ func alertSignals(store *sqlite.Store, run pipeline, key string, keys *keyadmin.
 	return signals
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
 // standaloneModules attaches the operator feature modules. key is the
 // LLM_SECRETS_KEY that seals provider and proxy credentials; proxies carries
-// the modules' outbound requests.
-func standaloneModules(store *sqlite.Store, mode, key string, proxies *outboundproxy.Pool, xHandles []string) []httpx.AdminModule {
+// the modules' outbound requests. bilibili, when set, reads the Bilibili
+// avatar for profile image discovery over its own proxy route.
+func standaloneModules(store *sqlite.Store, mode, key string, proxies *outboundproxy.Pool, xHandles []string, bilibili *bilisource.Adapter) []httpx.AdminModule {
+	content := contentadmin.Options{HTTPClient: proxies.Client(outboundproxy.AreaMedia), XHandles: xHandles}
+	if bilibili != nil {
+		content.BilibiliAccount = bilibili.Options.Account
+		content.BilibiliAvatar = func(ctx context.Context) (string, string, error) {
+			face, err := bilibili.Avatar(ctx)
+			return face, bilisource.SpaceURL(bilibili.Options.Account), err
+		}
+	}
 	return []httpx.AdminModule{
 		llmadmin.New(store, llmadmin.Options{Mode: mode, SecretsKey: key, HTTPClient: proxies.Client(outboundproxy.AreaLLM)}),
-		contentadmin.New(store, contentadmin.Options{HTTPClient: proxies.Client(outboundproxy.AreaMedia), XHandles: xHandles}),
+		contentadmin.New(store, content),
 		outboundproxy.NewAdmin(store, proxies),
 	}
 }

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // Outbound provider requests share these rules: the destination is the
@@ -127,10 +129,10 @@ func (m *Module) fetchModelPages(ctx context.Context, provider *Provider, apiKey
 			return nil, errPayload
 		}
 		object, _ := payload.(map[string]any)
-		if !jsTruthy(object["has_more"]) {
+		if !jsvalue.Truthy(object["has_more"]) {
 			return finishModelList(collected), nil
 		}
-		cursor = truthyString(object["last_id"])
+		cursor = jsvalue.StringOr(object["last_id"], "")
 		if !modelIDPattern.MatchString(cursor) || cursors[cursor] {
 			return nil, errPayload
 		}

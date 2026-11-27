@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/httpx"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -311,7 +312,7 @@ func TestDownloadStoresVerifiedImageAndPreviewsIt(t *testing.T) {
 	downloaded := f.request(http.MethodPost, "/profile-media/"+id+"/download", "", nil)
 	downloaded.expect(t, http.StatusOK, "")
 	item := object(t, downloaded.json["item"])
-	hash := sha256Hex(image)
+	hash := digest.SHA256Hex(image)
 	wantPath := "x/sha256/" + hash[:2] + "/" + hash + ".png"
 	if item["status"] != "ready" || item["cachePath"] != wantPath || item["sha256"] != hash || item["mimeType"] != "image/png" || item["extension"] != "png" {
 		t.Fatalf("unexpected ready candidate: %#v", item)
@@ -473,7 +474,7 @@ func TestUploadSelectAndPublicRead(t *testing.T) {
 	uploaded := f.request(http.MethodPost, "/profile-media/upload?slot=avatar", "image/png", first)
 	uploaded.expect(t, http.StatusCreated, "")
 	item := object(t, uploaded.json["item"])
-	firstID, firstHash := item["id"].(string), sha256Hex(first)
+	firstID, firstHash := item["id"].(string), digest.SHA256Hex(first)
 	if !strings.HasPrefix(firstID, "upload-") || item["source"] != "upload" || item["sourceRef"] != "admin-upload" || item["sourceUrl"] != nil {
 		t.Fatalf("unexpected upload candidate: %#v", item)
 	}
@@ -506,7 +507,7 @@ func TestUploadSelectAndPublicRead(t *testing.T) {
 	uploaded.expect(t, http.StatusCreated, "")
 	secondID := object(t, uploaded.json["item"])["id"].(string)
 	f.request(http.MethodPost, "/profile-media/"+secondID+"/select", "", nil).expect(t, http.StatusOK, "")
-	served, err = f.store.ReadProfileMedia(context.Background(), "avatar", sha256Hex(second))
+	served, err = f.store.ReadProfileMedia(context.Background(), "avatar", digest.SHA256Hex(second))
 	if err != nil || !bytes.Equal(served.Content, second) {
 		t.Fatalf("public reader rejected the replacement: %v", err)
 	}
@@ -556,7 +557,7 @@ func TestSelectForAnotherSlotAndDelete(t *testing.T) {
 	if f.revision() == before {
 		t.Fatal("moving the selection must bump the dashboard revision")
 	}
-	served, err := f.store.ReadProfileMedia(context.Background(), "banner", sha256Hex(first))
+	served, err := f.store.ReadProfileMedia(context.Background(), "banner", digest.SHA256Hex(first))
 	if err != nil || !bytes.Equal(served.Content, first) {
 		t.Fatalf("public reader rejected the moved banner: %v", err)
 	}
@@ -641,7 +642,7 @@ func TestUploadValidation(t *testing.T) {
 func TestSelectAndPreviewContainment(t *testing.T) {
 	f := newFixture(t, true)
 	image := syntheticPNG(30)
-	hash := sha256Hex(image)
+	hash := digest.SHA256Hex(image)
 	outside := filepath.Join(f.dataRoot, "outside.png")
 	if err := os.WriteFile(outside, image, 0o600); err != nil {
 		t.Fatal(err)
@@ -728,7 +729,7 @@ func TestMediaPathAndDimensionHelpers(t *testing.T) {
 	if width, height := imageDimensions([]byte("RIFF0000WEBP"), "image/webp"); width != nil || height != nil {
 		t.Error("unknown formats report no dimensions")
 	}
-	for source, want := range map[string]string{"x": "x", "youtube": "youtube", "upload": "avatar", "profile-x": "avatar", "": "x"} {
+	for source, want := range map[string]string{"x": "x", "youtube": "youtube", "bilibili": "bilibili", "upload": "avatar", "profile-x": "avatar", "": "x"} {
 		if got := mediaNamespaceForSource(source); got != want {
 			t.Errorf("namespace for %q = %q, want %q", source, got, want)
 		}
@@ -870,7 +871,7 @@ func seedScheduleAssets(f *fixture) (boardURL, thumbURL, thumbHash string) {
 	f.exec(`INSERT INTO schedule_asset_reviews(asset_id,llm_status,llm_confidence,updated_at) VALUES('thumb','schedule',0.7,?)`, stamp)
 
 	image := syntheticPNG(40)
-	thumbHash = sha256Hex(image)
+	thumbHash = digest.SHA256Hex(image)
 	relative := "x/sha256/" + thumbHash[:2] + "/" + thumbHash + ".png"
 	if err := os.MkdirAll(filepath.Dir(filepath.Join(f.dataRoot, filepath.FromSlash(relative))), 0o755); err != nil {
 		f.t.Fatal(err)
@@ -879,7 +880,7 @@ func seedScheduleAssets(f *fixture) (boardURL, thumbURL, thumbHash string) {
 		f.t.Fatal(err)
 	}
 	f.exec(`INSERT INTO media_assets(id,source,source_url,cache_path,mime_type,sha256,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'ready',?,?)`,
-		sha256Hex([]byte(thumbURL)), "x", thumbURL, relative, "image/png", thumbHash, stamp, stamp)
+		digest.SHA256Hex([]byte(thumbURL)), "x", thumbURL, relative, "image/png", thumbHash, stamp, stamp)
 	return boardURL, thumbURL, thumbHash
 }
 
@@ -898,14 +899,14 @@ func TestScheduleAssetListAndManualReview(t *testing.T) {
 		board["llmConfidence"] != 0.9 || board["llmText"] != "月曜 20:00 配信" || board["manualStatus"] != "unreviewed" || board["periodBasis"] != "inferred" || board["weekStart"] != "2026-10-05" {
 		t.Fatalf("unexpected board review: %#v", board)
 	}
-	if board["mediaStatus"] != "pending" || board["mediaId"] != sha256Hex([]byte(boardURL)) || board["mediaSourceUrl"] != boardURL || board["previewUrl"] != nil {
+	if board["mediaStatus"] != "pending" || board["mediaId"] != digest.SHA256Hex([]byte(boardURL)) || board["mediaSourceUrl"] != boardURL || board["previewUrl"] != nil {
 		t.Fatalf("an undownloaded image is pending: %#v", board)
 	}
 	// The image check alone cannot approve a post that is not a board notice.
 	if thumb["id"] != "thumb" || thumb["approved"] != false || thumb["sourceMatchesBoard"] != false || thumb["periodBasis"] != "legacy" {
 		t.Fatalf("unexpected thumbnail review: %#v", thumb)
 	}
-	if thumb["mediaStatus"] != "ready" || thumb["previewUrl"] != "/media/"+sha256Hex([]byte(thumbURL))+"?v="+thumbHash {
+	if thumb["mediaStatus"] != "ready" || thumb["previewUrl"] != "/media/"+digest.SHA256Hex([]byte(thumbURL))+"?v="+thumbHash {
 		t.Fatalf("a cached image exposes only its opaque URL: %#v", thumb)
 	}
 	// The post's wording is shown; the board gate's stored search text is not.
@@ -1136,8 +1137,8 @@ func TestPickPostScheduleImage(t *testing.T) {
 	f.exec(`INSERT INTO posts(id,source,account_handle,text,published_at,url) VALUES('p1','x','synthetic','two images',?,'https://x.com/synthetic/status/1'),
 		('y1','youtube',NULL,'not x',?,'https://youtube.example.test/watch')`, stamp, stamp)
 	for position, source := range []string{first, second} {
-		f.exec(`INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending',?,?)`, sha256Hex([]byte(source)), source, stamp, stamp)
-		f.exec(`INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'post','p1','post-image',?,?,?)`, sha256Hex([]byte(source)), position, stamp, stamp)
+		f.exec(`INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending',?,?)`, digest.SHA256Hex([]byte(source)), source, stamp, stamp)
+		f.exec(`INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'post','p1','post-image',?,?,?)`, digest.SHA256Hex([]byte(source)), position, stamp, stamp)
 	}
 	// Synchronization registered the first image and the model approved it.
 	f.exec(`INSERT INTO assets(id,kind,url,source_url,updated_at) VALUES('schedule-x-p1','schedule',?,'https://x.com/synthetic/status/1',?)`, first, stamp)
@@ -1149,7 +1150,7 @@ func TestPickPostScheduleImage(t *testing.T) {
 	image := object(t, picked.json["image"])
 	if image["id"] != "schedule-x-p1" || image["url"] != second || image["manualStatus"] != "schedule" || image["approved"] != true ||
 		image["llmStatus"] != "pending" || image["periodStart"] != "2026-10-05" || image["periodEnd"] != "2026-10-11" || image["periodBasis"] != "manual" ||
-		image["assetVersion"] != float64(2) || image["mediaId"] != sha256Hex([]byte(second)) {
+		image["assetVersion"] != float64(2) || image["mediaId"] != digest.SHA256Hex([]byte(second)) {
 		t.Fatalf("unexpected pick: %#v", image)
 	}
 	if f.revision() == before {

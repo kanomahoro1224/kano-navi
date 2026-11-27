@@ -9,6 +9,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -215,7 +217,7 @@ func (t *Translator) inferTags(ctx context.Context, forms map[string]any) (event
 	if limit < 1 {
 		limit = 1
 	}
-	now := e.now().In(jst)
+	now := e.now().In(japantime.Zone)
 	from := now.AddDate(0, 0, -eventTagPastDays).Format("2006-01-02")
 	to := now.AddDate(0, 0, eventTagFutureDays).Format("2006-01-02")
 	retryBefore := e.now().Add(-tagRetryAfter)
@@ -357,13 +359,13 @@ func (t *Translator) attemptEventTag(ctx context.Context, target provider, call 
 	if err != nil {
 		return nil, err
 	}
-	root, ok := value.(*object)
+	root, ok := value.(*jsvalue.Object)
 	if !ok {
 		return nil, fail("event tag result was not an object")
 	}
 	// A label outside the codes is an answer without one, as extraction drops
 	// it, so the title is judged rather than asked again on every run.
-	tagValue, _ := root.get("tag")
+	tagValue, _ := root.Get("tag")
 	text, isString := tagValue.(string)
 	if !isString || !sqlite.ValidEventTag(text) {
 		return nil, nil
@@ -440,18 +442,18 @@ func (t *Translator) attemptBilibiliForm(ctx context.Context, target provider, c
 	if err != nil {
 		return "", nil, err
 	}
-	root, ok := value.(*object)
+	root, ok := value.(*jsvalue.Object)
 	if !ok {
 		return "", nil, fail("bilibili form result was not an object")
 	}
-	formValue, _ := root.get("form")
+	formValue, _ := root.Get("form")
 	form, _ := formValue.(string)
 	switch form {
 	case sqlite.BilibiliFormUpload, sqlite.BilibiliFormStream, sqlite.BilibiliFormUncertain:
 	default:
 		return "", nil, fail("bilibili form result had no valid form")
 	}
-	tagValue, _ := root.get("tag")
+	tagValue, _ := root.Get("tag")
 	text, isString := tagValue.(string)
 	if !isString || !sqlite.ValidEventTag(text) {
 		return form, nil, nil
@@ -620,11 +622,11 @@ var translationLanguage = map[string]string{"en": "en", "ja": "ja", "zh-CN": "zh
 // normalizeTranslation validates a model result: a known source language and
 // a bounded translation for every locale that differs from it.
 func normalizeTranslation(value any, source string) (sqlite.MachineTranslation, error) {
-	root, ok := value.(*object)
+	root, ok := value.(*jsvalue.Object)
 	if !ok {
 		return sqlite.MachineTranslation{}, fail("translation result was not an object")
 	}
-	language := jsToLower(jsTrim(stringOr(property(root, "sourceLanguage"), "")))
+	language := jsvalue.ToLower(jsvalue.Trim(jsvalue.StringOr(property(root, "sourceLanguage"), "")))
 	if !sqlite.SourceLanguages[language] {
 		return sqlite.MachineTranslation{}, fail("translation result has an unknown source language")
 	}
@@ -637,7 +639,7 @@ func normalizeTranslation(value any, source string) (sqlite.MachineTranslation, 
 		if translationLanguage[locale] == language {
 			continue
 		}
-		text := jsTrim(stringOr(property(root, translationLocaleFields[locale]), ""))
+		text := jsvalue.Trim(jsvalue.StringOr(property(root, translationLocaleFields[locale]), ""))
 		if text == "" {
 			return sqlite.MachineTranslation{}, fail("translation result is missing " + locale)
 		}

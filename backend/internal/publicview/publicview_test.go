@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
@@ -169,7 +170,7 @@ func TestPublicSyncRunReplacesTheStoredMessage(t *testing.T) {
 }
 
 func TestHealthAndRevision(t *testing.T) {
-	health := Health(time.Date(2026, 1, 2, 12, 34, 56, 789000000, time.FixedZone("JST", 9*60*60)), nil)
+	health := Health(time.Date(2026, 1, 2, 12, 34, 56, 789000000, japantime.Zone), nil)
 	if !health.OK || health.Service != "kano-status-board" || health.Now != "2026-01-02T03:34:56.789Z" || health.LastSync != nil {
 		t.Fatalf("health=%+v", health)
 	}

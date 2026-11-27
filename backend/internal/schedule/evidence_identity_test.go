@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -22,7 +23,7 @@ func (f *fixture) applyEntries(postID, classification string, entries ...any) {
 	if entries == nil {
 		entries = []any{}
 	}
-	result := obj("classification", classification, "events", entries, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add")
+	result := jsvalue.Obj("classification", classification, "events", entries, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add")
 	normalized, err := xProfile.normalizeResult(result, postID, "https://x.com/synthetic_handle/status/"+postID, "", published, published)
 	if err != nil {
 		f.t.Fatalf("normalize: %v", err)
@@ -35,7 +36,7 @@ func (f *fixture) applyEntries(postID, classification string, entries ...any) {
 // listedStream is one entry of a model result: the same activity whatever
 // its link, so its source key stays the same.
 func listedStream(title, clock string, url any, tag any) any {
-	return obj("title", title, "detail", nil, "date", "2026-04-10", "time", clock, "endTime", nil, "endDate", nil,
+	return jsvalue.Obj("title", title, "detail", nil, "date", "2026-04-10", "time", clock, "endTime", nil, "endDate", nil,
 		"timePrecision", "exact", "status", "scheduled", "eventType", "stream", "tag", tag, "url", url,
 		"platform", "youtube", "confidence", 0.9, "evidence", "synthetic evidence")
 }

@@ -2,9 +2,7 @@ package mediadownload
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"io"
 	"net/http"
 	"net/url"
@@ -12,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
@@ -65,8 +64,7 @@ func TestDownloadPublishesReadableVersionAndFailureRetainsReadyFile(t *testing.T
 	}
 	defer store.Close()
 	u := "https://pbs.twimg.com/fixture.png"
-	h := sha256.Sum256([]byte(u))
-	id := hex.EncodeToString(h[:])
+	id := digest.SHA256Hex(u)
 	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id, u)
 	client := NewClient(&http.Client{Transport: transport(func(*http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"image/png"}}, Body: io.NopCloser(strings.NewReader("\x89PNG\r\n\x1a\nsynthetic"))}, nil

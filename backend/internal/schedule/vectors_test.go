@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // testdata/vectors.json is a frozen reference that pins the JavaScript
@@ -63,40 +66,40 @@ func stringList(value any) []string {
 func TestJavaScriptStringSemantics(t *testing.T) {
 	data := loadVectors(t)
 	for _, item := range data.Strings {
-		if got := jsToLower(item[0]); got != item[1] {
+		if got := jsvalue.ToLower(item[0]); got != item[1] {
 			t.Errorf("toLowerCase(%q) = %q, want %q", item[0], got, item[1])
 		}
-		if got := jsTrim(item[0]); got != item[2] {
+		if got := jsvalue.Trim(item[0]); got != item[2] {
 			t.Errorf("trim(%q) = %q, want %q", item[0], got, item[2])
 		}
 	}
 	for _, item := range data.Slices {
-		sliced := sliceUTF16(text(item[0]), int(item[1].(float64)))
-		if got := sha256Hex(sliced); got != text(item[2]) {
+		sliced := jsvalue.Slice(text(item[0]), int(item[1].(float64)))
+		if got := digest.SHA256Hex(sliced); got != text(item[2]) {
 			t.Errorf("hash of slice(%q, %v) = %s, want %s", item[0], item[1], got, item[2])
 		}
-		if got := utf16Length(sliced); got != int(item[3].(float64)) {
+		if got := jsvalue.Length(sliced); got != int(item[3].(float64)) {
 			t.Errorf("length of slice(%q, %v) = %d, want %v", item[0], item[1], got, item[3])
 		}
 	}
 	for _, item := range data.Numbers {
-		if got := formatNumber(item[0].(float64)); got != text(item[1]) {
+		if got := jsvalue.FormatNumber(item[0].(float64)); got != text(item[1]) {
 			t.Errorf("String(%v) = %q, want %q", item[0], got, item[1])
 		}
 	}
-	if got := stringify(data.Quoted[0]); got != data.Quoted[1] {
+	if got := jsvalue.Stringify(data.Quoted[0]); got != data.Quoted[1] {
 		t.Errorf("JSON.stringify string = %s, want %s", got, data.Quoted[1])
 	}
-	parsed, err := parseJSON([]byte(data.Reorder[0]))
+	parsed, err := jsvalue.Parse([]byte(data.Reorder[0]))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := stringify(parsed); got != data.Reorder[1] {
+	if got := jsvalue.Stringify(parsed); got != data.Reorder[1] {
 		t.Errorf("JSON round trip = %s, want %s", got, data.Reorder[1])
 	}
 	for _, invalid := range []string{"", "{", `{"a":1,}`, `[1 2]`, `{"a":1} x`, "\ufeff{}", "undefined"} {
-		if _, err := parseJSON([]byte(invalid)); err == nil {
-			t.Errorf("parseJSON(%q) succeeded", invalid)
+		if _, err := jsvalue.Parse([]byte(invalid)); err == nil {
+			t.Errorf("jsvalue.Parse(%q) succeeded", invalid)
 		}
 	}
 }
@@ -169,7 +172,7 @@ func TestNormalizersMatchTypeScript(t *testing.T) {
 	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	for _, item := range data.Normalized {
 		name := text(item[0])
-		input, err := parseJSON([]byte(text(item[1])))
+		input, err := jsvalue.Parse([]byte(text(item[1])))
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -188,7 +191,7 @@ func TestNormalizersMatchTypeScript(t *testing.T) {
 		for i, event := range result.events {
 			events[i] = event.rawObject()
 		}
-		got := stringify(obj(
+		got := jsvalue.Stringify(jsvalue.Obj(
 			"classification", result.classification, "events", events, "confidence", result.confidence,
 			"evidence", result.evidence, "reason", result.reason, "action", result.action))
 		if want := recordedPending.Replace(text(item[2])); got != want {
@@ -197,7 +200,7 @@ func TestNormalizersMatchTypeScript(t *testing.T) {
 	}
 	for _, item := range data.Verification {
 		name := text(item[0])
-		input, err := parseJSON([]byte(text(item[1])))
+		input, err := jsvalue.Parse([]byte(text(item[1])))
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -208,7 +211,7 @@ func TestNormalizersMatchTypeScript(t *testing.T) {
 			}
 			continue
 		}
-		got := stringify(obj("classification", result.classification, "confidence", result.confidence,
+		got := jsvalue.Stringify(jsvalue.Obj("classification", result.classification, "confidence", result.confidence,
 			"evidence", result.evidence, "reason", result.reason))
 		if err != nil || got != text(item[2]) {
 			t.Errorf("%s: got %s (%v), want %s", name, got, err, text(item[2]))

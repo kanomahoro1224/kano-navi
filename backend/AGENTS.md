@@ -41,8 +41,9 @@ the data contract and its verification; see
   `MCP_CONTROL_TOKEN` and never grants manual confirmation, edit or delete,
   media selection or upload, SQL, arbitrary file access, or URL proxying.
 - `LLM_SECRETS_KEY`, source API credentials and `MCP_CONTROL_TOKEN` stay in the
-  environment; the stored Bilibili login is sealed in SQLite like provider
-  keys. Never expose provider or login plaintext or ciphertext. `OPENAI_API_KEY`
+  environment; the stored Bilibili login and the console's admin one-time
+  code secret are sealed in SQLite like provider keys. Never expose provider,
+  login or one-time code plaintext or ciphertext. `OPENAI_API_KEY`
   is accepted only by the explicit `kano-go migrate-llm` command.
 - `.env.example` is the complete variable inventory; document a new variable in
   [Configuration](../docs/operations/configuration.md) and its affected

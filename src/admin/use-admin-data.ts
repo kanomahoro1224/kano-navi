@@ -100,6 +100,7 @@ import type {
   WebBotAuthStatus,
   YTDLPStatus,
 } from "@/admin/types"
+import type { TOTPEnrollment, TOTPStatus } from "@/admin/totp-types"
 
 type Runner = <T>(
   key: string,
@@ -270,6 +271,17 @@ function createClient(run: Runner, slow: Runner) {
       send<BilibiliQR>("POST", "/sources/bilibili/login/qr"),
     cancelBilibiliQR: () =>
       send<BilibiliQR>("DELETE", "/sources/bilibili/login/qr"),
+    totp: () => get<TOTPStatus>("/security/totp"),
+    startTOTP: () => send<TOTPEnrollment>("POST", "/security/totp/enrollment"),
+    cancelTOTP: () => send<TOTPStatus>("DELETE", "/security/totp/enrollment"),
+    /** Binds the enrollment's secret; currentCode while one is bound. */
+    confirmTOTP: (body: {
+      password: string
+      code: string
+      currentCode?: string
+    }) => send<TOTPStatus>("PUT", "/security/totp", body),
+    turnOffTOTP: (body: { password: string; code: string }) =>
+      send<TOTPStatus>("DELETE", "/security/totp", body),
     updateWebBotAuth: (body: { origin: string | null }) =>
       send<WebBotAuthStatus>("PUT", "/sources/shop/web-bot-auth", body),
     generateWebBotAuthKey: () =>
@@ -979,9 +991,10 @@ export function useResource<T>(load: () => Promise<T>, deps: unknown[]) {
     }
   }, [fail])
 
+  // The caller's deps say when to reload; `load` itself is read through its
+  // ref, so a new closure each render is not a reason to load again.
   useEffect(() => {
     void reload()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reload, revision, ...deps])
 
   // An unmounted view takes no late result.

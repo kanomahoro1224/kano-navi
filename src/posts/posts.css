@@ -34,11 +34,18 @@
   margin: 0 0 28px;
 }
 
-/* In the rail, one or two cards a row as its width allows. */
+/*
+ * In the rail, All across its width and the accounts one or two a row as
+ * the width allows.
+ */
 .posts-accounts.is-rail {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   margin: 0;
+}
+
+.posts-accounts.is-rail .posts-account.is-all {
+  grid-column: 1 / -1;
 }
 
 .posts-accounts.is-rail .posts-account {
@@ -90,6 +97,34 @@
     display: grid;
     gap: 0;
   }
+}
+
+/*
+ * All sums the accounts on one line without a portrait: its name, the years
+ * and the count, which the rail sets at its right edge over the map's totals.
+ */
+.posts-account.is-all {
+  padding-inline: 14px;
+}
+
+.posts-account.is-all .posts-account-text {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.posts-accounts .posts-account.is-all .posts-account-meta {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+}
+
+.posts-accounts.is-rail
+  .posts-account.is-all
+  .posts-account-meta
+  > :last-child {
+  margin-left: auto;
 }
 
 .posts-account {

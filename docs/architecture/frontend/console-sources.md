@@ -4,8 +4,10 @@ The console's overview, queue, sources, manual fetch, posts and data views.
 
 ## Console Overview, Queue and Sources
 
-The console's Overview (`src/admin/views/overview.tsx`) opens with the
-queue: the active run with its steps and Cancel, or Idle, then the timers in
+The console's Overview (`src/admin/views/overview.tsx`) opens with Needs
+your attention: the overview's open `alerts` first, which open the Alerts
+page, then each kind of review work waiting, which opens its Review queue
+tab, or All clear when none is. Then the queue: the active run with its steps and Cancel, or Idle, then the timers in
 the order they start, from the overview's `queue`. A due timer shows Due and
 whether it waits for the current run; a source timer that is not due has
 Start now, or Run next while a run holds the queue. The live-status probe is
@@ -38,7 +40,8 @@ off for the service or with nothing to work with says so above its list.
 The console's Sources page (`src/admin/views/sources.tsx`) has a row of
 tabs for X, YouTube, Bilibili uploads, Bilibili dynamics and the official
 shop, each with the platform's logo (a shopping bag for the shop), a dot (or
-a lock) for whether its timer runs here and the state as its tooltip.
+a lock) for whether its timer runs here and the state as its tooltip. Where
+one row of them would overflow, they stand three to a row.
 The selected source opens with a summary: its timer state, next run, last run and last successful read, the timer switch (which saves
 at once) and Run now. While the timer runs, Run now starts it as the
 overview queue's Start now does, and reads Run next while a run holds the

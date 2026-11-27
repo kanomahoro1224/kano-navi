@@ -50,6 +50,8 @@ func (p *bilibiliPassport) client() *bilisource.Client {
 			body = `{"code":0,"data":{"url":"","refresh_token":"` + syntheticImportToken + `","timestamp":1767225600000,"code":0,"message":""}}`
 			header.Add("Set-Cookie", "SESSDATA="+syntheticQRLogin+"; Path=/")
 			header.Add("Set-Cookie", "bili_jct="+syntheticImportJCT+"; Path=/")
+		case "/x/web-interface/nav":
+			body = `{"code":0,"data":{"isLogin":true,"uname":"synthetic-name","wbi_img":{"img_url":"https://i0.hdslb.com/bfs/wbi/0123456789abcdef0123456789abcdef.png","sub_url":"https://i0.hdslb.com/bfs/wbi/fedcba9876543210fedcba9876543210.png"}}}`
 		case "/login/exit/v2":
 			body = `{"code":0,"status":true,"ts":1767225600,"data":{"redirectUrl":"https://www.bilibili.com/"}}`
 		}
@@ -135,8 +137,21 @@ func TestTheBilibiliLoginIsImportedSignedInByQRAndForgotten(t *testing.T) {
 	if payload["state"] != "signed_in" || payload["qr"] != nil {
 		t.Fatalf("qr status=%v", payload)
 	}
-	if status := source(); status["loginSource"] != "stored" || status["loginVia"] != "qr" {
+	// The sign-in checks its new login before it reports success, so the
+	// console shows the account at once.
+	if status := source(); status["loginSource"] != "stored" || status["loginVia"] != "qr" || status["login"] != "signed_in" || status["loginName"] != "synthetic-name" || status["loginCheckedAt"] == nil {
 		t.Fatalf("signed in=%v", status)
+	}
+	passport.mu.Lock()
+	var nav *http.Request
+	for _, r := range passport.calls {
+		if r.URL.Path == "/x/web-interface/nav" {
+			nav = r
+		}
+	}
+	passport.mu.Unlock()
+	if nav == nil || !strings.Contains(nav.Header.Get("Cookie"), "SESSDATA="+syntheticQRLogin) {
+		t.Fatalf("the new login was not checked with its cookie: %v", nav)
 	}
 
 	before := len(passport.paths())
@@ -210,5 +225,23 @@ func TestAnUnreadableBilibiliLoginIsReportedAndForgotten(t *testing.T) {
 	}
 	if sealed, _ := store.BilibiliLoginRecord(t.Context()); sealed != "" || len(passport.paths()) != 0 {
 		t.Fatalf("sealed=%q requests=%v", sealed, passport.paths())
+	}
+}
+
+func TestAQRSignInThatCouldNotBeStoredNeverStarts(t *testing.T) {
+	store, err := sqlite.OpenInitialized(filepath.Join(t.TempDir(), "database", "kano.sqlite"), true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { store.Close() })
+	passport := &bilibiliPassport{}
+	adapter := bilisource.NewAdapter(passport.client(), bilisource.Options{Account: "316381099", MinInterval: 3 * time.Hour, PageSize: 20})
+	adapter.Logins = &bilisource.Logins{Records: store}
+	c := &console{store: store, handler: New(Options{Store: store, Auth: newAuth(t, "development", ""), Bilibili: adapter})}
+	if code, payload := c.call(t, "POST", "/api/admin/sources/bilibili/login/qr", ""); code != 503 || payload["error"] != "secrets_key_unavailable" {
+		t.Fatalf("start=%d %v", code, payload)
+	}
+	if paths := passport.paths(); len(paths) != 0 {
+		t.Fatalf("requests=%v", paths)
 	}
 }

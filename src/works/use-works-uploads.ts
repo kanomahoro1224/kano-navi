@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 
+import { tokyoDay } from "../lib/tokyo-time.ts"
 import type { Translations } from "../types.ts"
 
 /*
@@ -160,21 +161,9 @@ export function recentLinks(item: WorksRecentUpload) {
   return links
 }
 
-const japanDays = new Intl.DateTimeFormat("en", {
-  timeZone: "Asia/Tokyo",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-})
-
 /** An ISO instant's Japan date as YYYY-MM-DD, or "" when it has none. */
 export function japanDay(value: string | null | undefined) {
-  if (!value) return ""
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  const parts = japanDays.formatToParts(date)
-  const part = (type: string) => parts.find((item) => item.type === type)?.value
-  return `${part("year")}-${part("month")}-${part("day")}`
+  return tokyoDay(value)
 }
 
 /** Whether nobody can watch a video any more. */

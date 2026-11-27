@@ -21,7 +21,9 @@ const overview = {
   review: {
     pendingImages: 0,
     suspectedCancellations: 0,
+    unlistedEvents: 0,
     uncertainEvents: 0,
+    bilibiliForms: 0,
     failedPosts: 0,
     failedExtractions: 0,
     failedTranslations: 0,
@@ -595,7 +597,7 @@ test("the public visitor-region toast follows the persisted CN response", async 
   }
 })
 
-test("the overview queue lists timers in order, starts one now or next and links to the requests waiting for a run", async () => {
+test("the overview leads with open alerts, lists timers in order, starts one now or next and links to the requests waiting for a run", async () => {
   const vite = await createServer({
     configFile: false,
     envDir: false,
@@ -623,6 +625,8 @@ test("the overview queue lists timers in order, starts one now or next and links
       ...overview,
       scheduler: { enabled: true, running: true, tickSeconds: 30 },
       backlog: { ...overview.backlog, extraction: 2, videoRefresh: 1 },
+      alerts: { open: 2 },
+      review: { ...overview.review, failedPosts: 1 },
       queue: [
         {
           kind: "source",
@@ -729,6 +733,18 @@ test("the overview queue lists timers in order, starts one now or next and links
     await click(backlog[0])
     await click(backlog[1])
     assert.deepEqual(visits, ["posts/queued-extraction", "videos/queued"])
+    // Open alerts lead what needs attention and open the Alerts page; review
+    // work opens its Review queue tab.
+    const attention = [
+      ...root!.container.querySelectorAll(".adm-attention-item"),
+    ] as HTMLElement[]
+    assert.deepEqual(
+      attention.map((item) => item.textContent),
+      ["2open alerts", "1post failed extraction"],
+    )
+    await click(attention[0])
+    await click(attention[1])
+    assert.deepEqual(visits.slice(2), ["alerts/", "review/posts"])
   } finally {
     await act(async () => root?.unmount())
     restoreBrowser(installed.previous)

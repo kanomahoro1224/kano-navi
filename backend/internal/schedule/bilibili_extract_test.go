@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // bilibiliAnnouncement is the acceptance example: a Chinese dynamic posted at
@@ -20,8 +23,8 @@ func (f *fixture) addBilibiliPost(id, text, publishedAt string) string {
 	return url
 }
 
-func bilibiliEntry(title, date, clock, eventType string, url any, zone any) *object {
-	return obj("title", title, "detail", nil, "date", date, "time", clock, "endTime", nil, "endDate", nil,
+func bilibiliEntry(title, date, clock, eventType string, url any, zone any) *jsvalue.Object {
+	return jsvalue.Obj("title", title, "detail", nil, "date", date, "time", clock, "endTime", nil, "endDate", nil,
 		"timePrecision", "exact", "status", "scheduled", "eventType", eventType, "tag", nil, "url", url,
 		"platform", "unknown", "timeZone", zone, "confidence", 0.9, "evidence", "synthetic evidence")
 }
@@ -55,7 +58,7 @@ func TestBilibiliExtractionConvertsBeijingTimeAndRecordsThePlatform(t *testing.T
 	f.provider.respond = func(request recordedRequest) (int, string) {
 		body = request.body
 		// The model gives the times as written; the stream carries no URL.
-		return http.StatusOK, chatReply(stringify(obj(
+		return http.StatusOK, chatReply(jsvalue.Stringify(jsvalue.Obj(
 			"classification", "schedule",
 			"events", []any{
 				bilibiliEntry("200万粉B站限定歌曲", "2026-11-07", "17:00", "release", nil, "Asia/Shanghai"),
@@ -93,7 +96,7 @@ func TestBilibiliExtractionConvertsBeijingTimeAndRecordsThePlatform(t *testing.T
 	release, stream := got[0], got[1]
 	at := func(value string) string {
 		parsed, _ := time.Parse(time.RFC3339Nano, value)
-		return parsed.In(jst).Format("2006-01-02 15:04")
+		return parsed.In(japantime.Zone).Format("2006-01-02 15:04")
 	}
 	if !strings.HasPrefix(release.id, "bilibili-schedule-20261107-") || release.source != "bilibili" || release.kind != "release" ||
 		at(release.at) != "2026-11-07 18:00" || release.url != opus || release.platform != "bilibili" || release.evidenceSource != "bilibili" || release.evidenceURL != opus {
@@ -111,7 +114,7 @@ func TestBilibiliExtractionConvertsBeijingTimeAndRecordsThePlatform(t *testing.T
 
 func TestBilibiliTimesRollOverToTheJapanDate(t *testing.T) {
 	published, _ := time.Parse(time.RFC3339, "2026-11-07T04:04:48Z")
-	result := obj("classification", "schedule", "events", []any{
+	result := jsvalue.Obj("classification", "schedule", "events", []any{
 		bilibiliEntry("深夜杂谈", "2026-11-07", "23:30", "stream", "https://www.youtube.com/watch?v=AAAAAAAAAAA", nil),
 		bilibiliEntry("日本时间", "2026-11-08", "20:00", "event", nil, "Asia/Tokyo"),
 	}, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add")
@@ -130,7 +133,7 @@ func TestBilibiliTimesRollOverToTheJapanDate(t *testing.T) {
 	}
 	// Aliases name the two zones; anything else falls back to Beijing time
 	// rather than failing the post. X entries ignore a zone.
-	zoned := obj("classification", "schedule", "events", []any{
+	zoned := jsvalue.Obj("classification", "schedule", "events", []any{
 		bilibiliEntry("a", "2026-11-07", "20:00", "stream", nil, "UTC+9"),
 		bilibiliEntry("b", "2026-11-07", "20:00", "stream", nil, "北京时间"),
 		bilibiliEntry("c", "2026-11-07", "20:00", "stream", nil, "Europe/Paris"),
@@ -147,17 +150,17 @@ func TestBilibiliTimesRollOverToTheJapanDate(t *testing.T) {
 
 func TestEntryPlatformsDefaultAndNeverStoreTheRoomLink(t *testing.T) {
 	published, _ := time.Parse(time.RFC3339, "2026-11-07T04:04:48Z")
-	entry := func(eventType string, url, platform any) *object {
+	entry := func(eventType string, url, platform any) *jsvalue.Object {
 		e := bilibiliEntry("杂谈", "2026-11-07", "20:00", eventType, url, nil)
-		e.set("platform", platform)
+		e.Set("platform", platform)
 		return e
 	}
-	result := func(entries ...any) *object {
-		return obj("classification", "schedule", "events", entries, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add")
+	result := func(entries ...any) *jsvalue.Object {
+		return jsvalue.Obj("classification", "schedule", "events", entries, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add")
 	}
-	dynamicEntry := func(eventType string, url any, platform string) *object {
+	dynamicEntry := func(eventType string, url any, platform string) *jsvalue.Object {
 		e := bilibiliEntry("杂谈", "2026-11-07", "20:00", eventType, url, nil)
-		e.set("platforms", []any{platform})
+		e.Set("platforms", []any{platform})
 		return e
 	}
 	opus := "https://www.bilibili.com/opus/1"
@@ -194,10 +197,10 @@ func TestEntryPlatformsDefaultAndNeverStoreTheRoomLink(t *testing.T) {
 func TestBilibiliEntriesReadOnlyThePlatformsArray(t *testing.T) {
 	published, _ := time.Parse(time.RFC3339, "2026-11-07T04:04:48Z")
 	scalar := bilibiliEntry("合唱", "2026-11-07", "20:00", "release", nil, nil)
-	scalar.set("platform", "youtube")
+	scalar.Set("platform", "youtube")
 	listed := bilibiliEntry("合唱", "2026-11-08", "20:00", "release", nil, nil)
-	listed.set("platforms", []any{"youtube"})
-	got, err := bilibiliProfile.normalizeResult(obj("classification", "schedule", "events", []any{scalar, listed}, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add"),
+	listed.Set("platforms", []any{"youtube"})
+	got, err := bilibiliProfile.normalizeResult(jsvalue.Obj("classification", "schedule", "events", []any{scalar, listed}, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add"),
 		"bilibili-1", "https://www.bilibili.com/opus/1", "", published, published)
 	if err != nil || len(got.events) != 2 || len(got.events[0].platforms) != 0 || strings.Join(got.events[1].platforms, ",") != "youtube" {
 		t.Fatalf("events=%#v err=%v", got.events, err)
@@ -206,13 +209,13 @@ func TestBilibiliEntriesReadOnlyThePlatformsArray(t *testing.T) {
 
 func TestRoomLinksAndSimulcastWording(t *testing.T) {
 	published, _ := time.Parse(time.RFC3339, "2026-11-07T04:04:48Z")
-	entry := func(eventType string, url, platform any) *object {
+	entry := func(eventType string, url, platform any) *jsvalue.Object {
 		e := bilibiliEntry("配信", "2026-11-07", "20:00", eventType, url, nil)
-		e.set("platform", platform)
+		e.Set("platform", platform)
 		return e
 	}
-	result := func(entries ...any) *object {
-		return obj("classification", "schedule", "events", entries, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add")
+	result := func(entries ...any) *jsvalue.Object {
+		return jsvalue.Obj("classification", "schedule", "events", entries, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add")
 	}
 	xPost := "https://x.com/synthetic_handle/status/1"
 	// A room link makes any entry but a collaboration a Bilibili one, and
@@ -257,7 +260,7 @@ func TestWebOnlyWordingIsNotBilibili(t *testing.T) {
 		"今夜はb限で歌います":            "bilibili",
 	} {
 		entry := bilibiliEntry("グッズ", "2026-11-20", "21:00", "release", nil, nil)
-		got, err := xProfile.normalizeResult(obj("classification", "schedule", "events", []any{entry}, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add"),
+		got, err := xProfile.normalizeResult(jsvalue.Obj("classification", "schedule", "events", []any{entry}, "confidence", 0.9, "evidence", "e", "reason", nil, "action", "add"),
 			"1", xPost, text, published, published)
 		if err != nil || got.events[0].platform != want {
 			t.Fatalf("%q => %#v err=%v, want %s", text, got.events, err, want)

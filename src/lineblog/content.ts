@@ -1,4 +1,5 @@
 import { cdnUrl } from "../lib/cdn.ts"
+import { tokyoParts } from "../lib/tokyo-time.ts"
 import index from "./post-index.json" with { type: "json" }
 import { inlineImages, isEmojiMedia } from "./post-media.ts"
 import type {
@@ -46,22 +47,15 @@ export function isEmoji(name: string | undefined) {
   return isEmojiMedia(name ? media.get(name) : undefined)
 }
 
-const japanParts = new Intl.DateTimeFormat("en", {
-  timeZone: "Asia/Tokyo",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-})
-
 function japanFields(iso: string) {
-  const parts = Object.fromEntries(
-    japanParts
-      .formatToParts(new Date(iso))
-      .map((part) => [part.type, part.value]),
-  )
+  const parts = tokyoParts(iso, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  })
   return parts as Record<"year" | "month" | "day" | "hour" | "minute", string>
 }
 

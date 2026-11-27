@@ -1,6 +1,7 @@
 package llmadmin
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/secretstore"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -280,7 +282,7 @@ func RouteTargets(ctx context.Context, db Querier, route string) ([]RouteTarget,
 }
 
 func settingBoolean(value string, fallback bool) bool {
-	switch strings.ToLower(jsTrim(value)) {
+	switch strings.ToLower(jsvalue.Trim(value)) {
 	case "1", "true", "yes", "on":
 		return true
 	case "0", "false", "no", "off":
@@ -295,7 +297,7 @@ func parseKeywordSetting(value string) []string {
 	if json.Unmarshal([]byte(value), &parsed) == nil {
 		if array, ok := parsed.([]any); ok {
 			for _, item := range array {
-				items = append(items, jsString(item))
+				items = append(items, jsvalue.String(item))
 			}
 		} else {
 			items = strings.FieldsFunc(value, isKeywordSeparator)
@@ -305,7 +307,7 @@ func parseKeywordSetting(value string) []string {
 	}
 	keywords := make([]string, 0, len(items))
 	for _, item := range items {
-		if keyword := jsTrim(item); keyword != "" && utf16Len(keyword) <= 80 {
+		if keyword := jsvalue.Trim(item); keyword != "" && jsvalue.Length(keyword) <= 80 {
 			keywords = append(keywords, keyword)
 		}
 	}
@@ -429,7 +431,7 @@ func (m *Module) setFeaturedVideoID(ctx context.Context, db Querier, id string) 
 }
 
 func (m *Module) upsertProvider(ctx context.Context, db Querier, input providerWrite) (*Provider, error) {
-	name := utf16Prefix(jsTrim(input.Name), 120)
+	name := jsvalue.SliceWhole(jsvalue.Trim(input.Name), 120)
 	if name == "" {
 		name = input.ID
 	}
@@ -475,7 +477,7 @@ func (m *Module) updateProviderStatus(ctx context.Context, db Querier, id, statu
 	timestamp := m.stamp()
 	_, err := db.ExecContext(ctx, `UPDATE llm_providers SET last_status=?, last_error=?,
 		last_checked_at=?, updated_at=? WHERE id=?`,
-		nullableString(status), nullableString(utf16Prefix(message, 500)), timestamp, timestamp, id)
+		nullableString(status), nullableString(jsvalue.SliceWhole(message, 500)), timestamp, timestamp, id)
 	return err
 }
 
@@ -610,7 +612,7 @@ func (m *Module) setQueue(ctx context.Context, db Querier, route string, targets
 	seen := map[RouteTarget]bool{}
 	normalized := make([]RouteTarget, 0, len(targets))
 	for _, target := range targets {
-		target = RouteTarget{ProviderID: jsTrim(target.ProviderID), ModelID: jsTrim(target.ModelID)}
+		target = RouteTarget{ProviderID: jsvalue.Trim(target.ProviderID), ModelID: jsvalue.Trim(target.ModelID)}
 		if target.ProviderID == "" {
 			continue
 		}
@@ -641,4 +643,37 @@ func (m *Module) setQueue(ctx context.Context, db Querier, route string, targets
 		normalized = append(normalized, target)
 	}
 	return m.writeQueue(ctx, db, route, normalized)
+}
+
+// compactJSON encodes a Go value with encoding/json and no HTML escaping for
+// the JSON columns this package writes. It is not JSON.stringify: U+2028 and
+// U+2029 are escaped, map keys are sorted and a nil slice is null. Use
+// jsvalue.Stringify where stored bytes must match JavaScript.
+func compactJSON(value any) string {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
+		return "[]"
+	}
+	return strings.TrimSuffix(buffer.String(), "\n")
+}
+
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]bool, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if !seen[value] {
+			seen[value] = true
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
+func nullableString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }

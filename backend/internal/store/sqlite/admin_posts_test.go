@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
 
@@ -23,7 +24,7 @@ func TestAdminPostsPreviewOnlyLocalImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := []byte("synthetic post image")
-	hash := sha256Hex(string(content))
+	hash := digest.SHA256Hex(string(content))
 	cache := "x/sha256/" + hash + ".jpg"
 	if err := os.MkdirAll(filepath.Join(root, "x", "sha256"), 0o755); err != nil {
 		t.Fatal(err)
@@ -48,8 +49,8 @@ func TestAdminPostsPreviewOnlyLocalImages(t *testing.T) {
 		if name == "second" {
 			status, cachePath = "pending", nil
 		}
-		testutil.Exec(t, path, `INSERT INTO media_assets(id,source,source_url,status,sha256,cache_path,created_at,updated_at) VALUES(?,'x',?,?,?,?,'2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')`, sha256Hex(image(name)), image(name), status, hash, cachePath)
-		testutil.Exec(t, path, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'post','linked','post-image',?,'2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')`, sha256Hex(image(name)), position)
+		testutil.Exec(t, path, `INSERT INTO media_assets(id,source,source_url,status,sha256,cache_path,created_at,updated_at) VALUES(?,'x',?,?,?,?,'2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')`, digest.SHA256Hex(image(name)), image(name), status, hash, cachePath)
+		testutil.Exec(t, path, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'post','linked','post-image',?,'2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')`, digest.SHA256Hex(image(name)), position)
 	}
 	store, err := OpenReadOnly(path)
 	if err != nil {
@@ -65,7 +66,7 @@ func TestAdminPostsPreviewOnlyLocalImages(t *testing.T) {
 		status string
 		images []string
 	}{
-		"linked":  {"ready", []string{"ready /media/" + sha256Hex(image("first")) + "?v=" + hash, "pending "}},
+		"linked":  {"ready", []string{"ready /media/" + digest.SHA256Hex(image("first")) + "?v=" + hash, "pending "}},
 		"pending": {"pending", []string{"pending "}},
 		"text":    {"none", []string{}},
 	}
@@ -211,8 +212,8 @@ func TestAdminPostsReportTheirScheduleImage(t *testing.T) {
 	image := func(name string) string { return "https://media.example.test/" + name + ".jpg" }
 	exec(`INSERT INTO posts (id,source,type,text,published_at,url) VALUES ('board','x','post','text',?,'https://x.example.invalid/board'),('plain','x','post','text',?,'https://x.example.invalid/plain')`, stamp, stamp)
 	for position, name := range []string{"first", "second"} {
-		exec(`INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending',?,?)`, sha256Hex(image(name)), image(name), stamp, stamp)
-		exec(`INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'post','board','post-image',?,?,?)`, sha256Hex(image(name)), position, stamp, stamp)
+		exec(`INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'x',?,'pending',?,?)`, digest.SHA256Hex(image(name)), image(name), stamp, stamp)
+		exec(`INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'post','board','post-image',?,?,?)`, digest.SHA256Hex(image(name)), position, stamp, stamp)
 	}
 	exec(`INSERT INTO assets(id,kind,url,source_url,updated_at) VALUES('schedule-x-board','schedule',?,'https://x.example.invalid/board',?)`, image("second"), stamp)
 	exec(`INSERT INTO schedule_asset_reviews(asset_id,llm_status,manual_status,updated_at) VALUES('schedule-x-board','uncertain','unreviewed',?)`, stamp)

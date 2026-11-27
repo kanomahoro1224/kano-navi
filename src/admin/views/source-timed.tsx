@@ -115,8 +115,8 @@ export function TimedReadsPanel({
   const savedKey = JSON.stringify(saved)
   const [draft, setDraft] = useState(saved)
   const [busy, setBusy] = useState(false)
-  // A saved change elsewhere, such as the timer switch, keeps the edits.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // A saved change elsewhere, such as the timer switch, keeps the edits: the
+  // draft resets only when the saved settings' content changes.
   useEffect(() => setDraft(saved), [savedKey])
   const set = (patch: Partial<TimedDraft>) =>
     setDraft((current) => ({ ...current, ...patch }))

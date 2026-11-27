@@ -1,7 +1,7 @@
 {
   "name": "kano-status-board",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.9.1",
   "type": "module",
   "engines": {
     "node": ">=24.22.1"
@@ -29,10 +29,12 @@
     "format:check": "prettier . --check",
     "check-sensitive": "node scripts/check-sensitive.ts",
     "test:sensitive": "node --test scripts/check-sensitive.test.ts",
+    "check-patterns": "node scripts/check-patterns.ts",
+    "test:patterns": "node --test scripts/check-patterns.test.ts",
     "test:frontend": "node --test tests/*.test.ts",
     "test": "npm run test:frontend",
     "docs:check-links": "node scripts/check-doc-links.ts",
-    "check": "npm run format:check && npm run test:sensitive && npm run test:frontend && npm run check-sensitive && npm run docs:check-links && npm run build"
+    "check": "npm run format:check && npm run test:sensitive && npm run test:patterns && npm run test:frontend && npm run check-sensitive && npm run check-patterns && npm run docs:check-links && npm run build"
   },
   "prettier": {
     "semi": false,

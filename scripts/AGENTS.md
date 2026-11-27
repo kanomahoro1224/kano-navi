@@ -29,3 +29,6 @@ Their API contracts are in [Public API](../docs/architecture/public-api.md).
   [GitHub Actions](../docs/development/testing/github-actions.md).
 - `privacy-allowlist.json` registers public hosts with a reason; see
   [Sensitive-information scan](../docs/development/security.md#sensitive-information-scan).
+- `check-patterns.ts` holds request owners and file sizes to
+  `pattern-baseline.json`, which only `make pattern-baseline` lowers; see
+  [Pattern ratchet](../docs/development/testing/validation.md#pattern-ratchet).

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
@@ -74,13 +75,13 @@ func TestXChainOpensTheAPIAfterTheGateAndKeepsItsState(t *testing.T) {
 		strings.Join(out.Result["tried"].([]string), ",") != "kano: timeline: x_upstream_5xx,kano: api" {
 		t.Fatalf("result=%v", out.Result)
 	}
-	if usage, _ := s.XAPIUsageOn(ctx, sqlite.JapanDay(now)); usage.Posts != 1 {
+	if usage, _ := s.XAPIUsageOn(ctx, japantime.Date(now)); usage.Posts != 1 {
 		t.Fatalf("usage=%+v", usage)
 	}
 	// At the cap the chain skips the API; with nothing else left the
 	// account fails as before.
 	chain.APIDailyCap = 5
-	if err = s.AddXAPIUsage(ctx, sqlite.JapanDay(now), 2); err != nil {
+	if err = s.AddXAPIUsage(ctx, japantime.Date(now), 2); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = ex.Execute(ctx, StepInput{StepID: "x", Chain: &chain}); err == nil || api.reads != 1 {

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 // X API chain state lives in sync_state under source x-api: one
@@ -15,12 +17,6 @@ const (
 	xAPIStateSource = "x-api"
 	xAPIUsageKey    = "@usage"
 )
-
-var japan = time.FixedZone("Asia/Tokyo", 9*60*60)
-
-// JapanDay is the Asia/Tokyo calendar day of t, which the X API daily cap
-// counts by.
-func JapanDay(t time.Time) string { return t.In(japan).Format(time.DateOnly) }
 
 // XAPIUsage is how many posts X API reads returned on a Japan day.
 type XAPIUsage struct {
@@ -142,7 +138,7 @@ func (s *Store) SetXTimelineFailures(ctx context.Context, account string, failur
 
 // XAPIStatus reads today's usage and the failure streak of each account.
 func (s *Store) XAPIStatus(ctx context.Context, accounts []string, now time.Time) (XAPIState, error) {
-	usage, err := s.XAPIUsageOn(ctx, JapanDay(now))
+	usage, err := s.XAPIUsageOn(ctx, japantime.Date(now))
 	if err != nil {
 		return XAPIState{}, err
 	}

@@ -64,7 +64,13 @@ func (m *Module) discoverAccountAvatarRoute(w http.ResponseWriter, r *http.Reque
 		httpx.WriteError(w, httpx.Invalid("account source or handle is invalid"))
 		return
 	}
-	urls, fetchErr := m.discoverAccountAvatarURLs(r.Context(), display)
+	var urls []string
+	var fetchErr error
+	if src == "bilibili" {
+		urls, fetchErr = m.discoverBilibiliAccountAvatar(r.Context(), key)
+	} else {
+		urls, fetchErr = m.discoverAccountAvatarURLs(r.Context(), display)
+	}
 	if len(urls) == 0 {
 		if fetchErr != nil {
 			writeFailure(w, fetchErr)
@@ -549,6 +555,9 @@ func (m *Module) buildAccountAvatarsPayload(ctx context.Context) (*accountAvatar
 			appendItem(src, key, display, "own", nil)
 		}
 	}
+	if src, key, display, ok := sqlite.NormalizeAccountAvatarKey("bilibili", m.bilibiliAccount); ok {
+		appendItem(src, key, display, "own", nil)
+	}
 	for _, rel := range related {
 		src, key, display, ok := sqlite.NormalizeAccountAvatarKey("x", rel.Handle)
 		if ok {
@@ -559,6 +568,26 @@ func (m *Module) buildAccountAvatarsPayload(ctx context.Context) (*accountAvatar
 		appendItem(s.Source, s.AccountKey, s.AccountHandle, "other", nil)
 	}
 	return &accountAvatarsPayload{Items: items}, nil
+}
+
+// discoverBilibiliAccountAvatar reads the configured Bilibili account's
+// current face, the one the live room status names. Only that account can
+// be checked.
+func (m *Module) discoverBilibiliAccountAvatar(ctx context.Context, mid string) ([]string, error) {
+	if m.bilibiliAvatar == nil || mid != m.bilibiliAccount {
+		return nil, failure("bilibili avatar is unavailable")
+	}
+	face, _, err := m.bilibiliAvatar(ctx)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, failure("bilibili avatar request failed")
+	}
+	if imageURL, ok := profileImageURL(face); ok {
+		return []string{imageURL}, nil
+	}
+	return nil, nil
 }
 
 func (m *Module) discoverAccountAvatarURLs(ctx context.Context, handle string) ([]string, error) {

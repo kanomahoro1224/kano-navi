@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 )
 
 // bilibiliFormState is "kind|kind_source|kind_review|attempts|tag" for a
@@ -14,7 +16,7 @@ func (f *fixture) bilibiliFormState(id string) string {
 }
 
 func formReply(form string, tag any) string {
-	return chatReply(stringify(obj("form", form, "tag", tag)))
+	return chatReply(jsvalue.Stringify(jsvalue.Obj("form", form, "tag", tag)))
 }
 
 // The translate step settles Bilibili forms by rule without a model, asks

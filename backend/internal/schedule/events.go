@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -143,7 +144,7 @@ func postEventsDigest(ctx context.Context, tx *sql.Tx, source, postID string, ta
 var cancellationTitleNoise = regexp.MustCompile(jsSpaceClass + `|[「」『』【】()（）［］\[\]・:：,.，。!?！？]`)
 
 func normalizedCancellationTitle(value string) string {
-	return cancellationTitleNoise.ReplaceAllString(jsToLower(value), "")
+	return cancellationTitleNoise.ReplaceAllString(jsvalue.ToLower(value), "")
 }
 
 // findCancellationTargets resolves each cancellation candidate to at most one
@@ -414,14 +415,14 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, sour
 			}
 		}
 		raw := event.rawObject()
-		raw.set("id", eventID)
-		raw.set("source_key", event.canonicalSourceKey)
-		raw.set("source", event.canonicalSource)
-		raw.set("source_item_id", event.canonicalSourceItemID)
-		raw.set("provenance", "automatic")
-		raw.set("manual_locked", 0)
-		raw.set("extraction_id", extractionID)
-		raw.set("deleted_at", nil)
+		raw.Set("id", eventID)
+		raw.Set("source_key", event.canonicalSourceKey)
+		raw.Set("source", event.canonicalSource)
+		raw.Set("source_item_id", event.canonicalSourceItemID)
+		raw.Set("provenance", "automatic")
+		raw.Set("manual_locked", 0)
+		raw.Set("extraction_id", extractionID)
+		raw.Set("deleted_at", nil)
 		// The persisted source identity wins over a newly generated ID, including
 		// legacy date-only IDs and locked/deleted rows. Never insert a second row
 		// for a tuple already protected by the unique source index.
@@ -468,13 +469,13 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, sour
 				eventID, event.canonicalSource, event.canonicalSourceItemID, event.canonicalSourceKey,
 				event.title, nullableText(event.detail), event.startsOn, nullableText(event.startsAt),
 				nullableText(event.endsAt), nullableText(event.endsOn), event.timePrecision, nullable(event.status), event.eventType,
-				nullableText(event.tag), llmTagSource(event.tag), nullable(event.url), upcoming, event.confidence, extractionID, now, now, stringify(raw), event.platform, sqlite.EncodePlatforms(event.platforms), event.platformsInferred); err != nil {
+				nullableText(event.tag), llmTagSource(event.tag), nullable(event.url), upcoming, event.confidence, extractionID, now, now, jsvalue.Stringify(raw), event.platform, sqlite.EncodePlatforms(event.platforms), event.platformsInferred); err != nil {
 				return err
 			}
 		}
 		evidence := event.rawObject()
-		evidence.set("source", source)
-		evidence.set("source_item_id", postID)
+		evidence.Set("source", source)
+		evidence.Set("source_item_id", postID)
 		// Listing the entry again settles a not_schedule reading of the post.
 		if _, err = tx.ExecContext(ctx, `INSERT INTO event_sources (
 				event_id, source, source_item_id, source_key, url, raw_json, deleted_at,
@@ -486,7 +487,7 @@ func (e *Extractor) replaceAutomaticEvents(ctx context.Context, tx *sql.Tx, sour
 				raw_json=COALESCE(excluded.raw_json, event_sources.raw_json),
 				deleted_at=NULL, unlisted_at=NULL,
 				updated_at=excluded.updated_at`,
-			eventID, source, postID, event.sourceKey, nullable(event.evidenceURL), stringify(evidence), timestamp, timestamp); err != nil {
+			eventID, source, postID, event.sourceKey, nullable(event.evidenceURL), jsvalue.Stringify(evidence), timestamp, timestamp); err != nil {
 			return err
 		}
 	}
@@ -558,12 +559,12 @@ func (e *Extractor) applyCancellations(ctx context.Context, tx *sql.Tx, postID, 
 		reason = "The model judged that this schedule may be cancelled"
 	}
 	var storedConfidence any
-	if finite(confidence) {
+	if jsvalue.Finite(confidence) {
 		storedConfidence = confidence
 	}
 	seen := map[string]bool{}
 	for _, eventID := range targets {
-		eventID = jsTrim(eventID)
+		eventID = jsvalue.Trim(eventID)
 		if eventID == "" || seen[eventID] {
 			continue
 		}
@@ -575,7 +576,7 @@ func (e *Extractor) applyCancellations(ctx context.Context, tx *sql.Tx, postID, 
 				cancellation_at=?, updated_at=?
 			WHERE id=? AND deleted_at IS NULL
 				AND COALESCE(cancellation_status, 'none') != 'manual_confirmed'`,
-			sliceUTF16(reason, 500), nullable(sliceUTF16(evidence, 1000)), nullable(postID),
+			jsvalue.Slice(reason, 500), nullable(jsvalue.Slice(evidence, 1000)), nullable(postID),
 			storedConfidence, timestamp, timestamp, eventID); err != nil {
 			return err
 		}

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
 
@@ -85,7 +86,7 @@ func TestIngestBambinoRepostProjectsTheOriginalStatus(t *testing.T) {
 
 	// Once the file is downloaded, the projection serves it from the cache.
 	content := []byte("synthetic avatar")
-	hash := sha256Hex(string(content))
+	hash := digest.SHA256Hex(content)
 	cache := "x/sha256/" + hash + ".jpg"
 	if err = os.MkdirAll(filepath.Join(root, "x", "sha256"), 0o755); err != nil {
 		t.Fatal(err)

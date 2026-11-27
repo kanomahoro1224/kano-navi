@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
 
@@ -48,7 +50,7 @@ func newTwin(t *testing.T) *twin {
 		f.queueVerify("p-main")
 		f.addPost("text-1", "", "明日 21時から配信", "2026-04-30T01:00:00.000Z", "")
 		f.addPost("text-2", "", "今日 20時から雑談配信", "2026-04-30T02:00:00.000Z", "")
-		f.addPost("board-1", "", "今週のスケジュール", "2026-04-30T03:00:00.000Z", stringify(obj("media_urls", []any{twinImageURL})))
+		f.addPost("board-1", "", "今週のスケジュール", "2026-04-30T03:00:00.000Z", jsvalue.Stringify(jsvalue.Obj("media_urls", []any{twinImageURL})))
 		f.addCachedImage(twinImageURL, []byte(pngHeader+"board"))
 		f.exec(`INSERT INTO media_links (media_id, owner_type, owner_id, role, position, created_at, updated_at)
 			VALUES (?, 'post', 'board-1', 'post-image', 0, ?, ?)`, mediaIDForSourceURL(twinImageURL), testTimestamp, testTimestamp)
@@ -88,10 +90,10 @@ func (tw *twin) respond(request recordedRequest) (int, string) {
 	}
 	switch {
 	case strings.Contains(url, "bilibili.com"):
-		return http.StatusOK, chatReply(stringify(obj("classification", "uncertain", "events", []any{},
+		return http.StatusOK, chatReply(jsvalue.Stringify(jsvalue.Obj("classification", "uncertain", "events", []any{},
 			"confidence", 0.4, "evidence", "synthetic evidence", "reason", "synthetic reason", "action", "add")))
 	case strings.HasSuffix(url, "/noise-1"):
-		return http.StatusOK, chatReply(stringify(obj("classification", "not_schedule", "events", []any{},
+		return http.StatusOK, chatReply(jsvalue.Stringify(jsvalue.Obj("classification", "not_schedule", "events", []any{},
 			"confidence", 0.9, "evidence", "synthetic evidence", "reason", nil, "action", "add")))
 	}
 	return http.StatusOK, chatReply(scheduleReply(songTitle, songDate, songClock, "scheduled"))
@@ -213,7 +215,7 @@ func TestSettledPostsMatchJudgedPosts(t *testing.T) {
 			tw.expect("settled", 0, 5)
 		}},
 		{"image hash changes", func(tw *twin) {
-			tw.exec(`UPDATE media_assets SET sha256 = ?`, sha256Hex("replaced"))
+			tw.exec(`UPDATE media_assets SET sha256 = ?`, digest.SHA256Hex("replaced"))
 			tw.scan("changed")
 			tw.expect("changed", 1, 4)
 			tw.scan("recorded")

@@ -95,13 +95,17 @@ export function PostsApp() {
   const account = view.account
   const filter = account?.toLowerCase() || null
 
-  const [resumed] = useState(() => resumedStart(view))
+  const [resumed, setResumed] = useState(() => resumedStart(view))
   // The month the timeline starts from: the one the address named when the
   // page opened or a month was chosen that is not loaded; null starts from
   // the newest post.
   const [anchor, setAnchor] = useState<string | null>(
     resumed ? resumed.anchor : view.month,
   )
+  // The remembered place holds only until the timeline leaves it: coming
+  // back to the same account and month later places it from the index.
+  if (resumed && (resumed.anchor !== anchor || resumed.account !== account))
+    setResumed(null)
   const [jump, setJump] = useState<{ month: string; nonce: number } | null>(
     view.month && !resumed ? { month: view.month, nonce: 1 } : null,
   )
@@ -301,7 +305,6 @@ export function PostsApp() {
           kind === "reply" || kind === "repost" ? [] : index.bilibiliAccounts,
         months: index.months,
         avatars: posts?.accountAvatars ?? index.accountAvatars,
-        kanoAvatar,
         account,
         setAccount,
         locale,

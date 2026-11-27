@@ -2,6 +2,7 @@ package contentadmin
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -12,7 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	"github.com/yexca/kano-navi/backend/internal/mediaformat"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -114,7 +117,7 @@ func (m *Module) addProfileMedia(w http.ResponseWriter, r *http.Request) {
 	if slot == "" {
 		slot = "avatar"
 	}
-	rawURL, err := textValue(jsString(body["sourceUrl"]), "url", false, 2000)
+	rawURL, err := textValue(jsvalue.MemberString(body["sourceUrl"]), "url", false, 2000)
 	if err != nil {
 		httpx.WriteError(w, err)
 		return
@@ -191,6 +194,10 @@ func (m *Module) discoverProfileMediaRoute(w http.ResponseWriter, r *http.Reques
 		httpx.WriteError(w, err)
 		return
 	}
+	if source == "bilibili" && slot == "banner" {
+		httpx.WriteError(w, httpx.Invalid("bilibili only offers an avatar"))
+		return
+	}
 	handle := ""
 	if handleText != nil && strings.TrimSpace(*handleText) != "" {
 		if source != "x" {
@@ -224,6 +231,9 @@ func (m *Module) discoverProfileMediaRoute(w http.ResponseWriter, r *http.Reques
 // for an explicit operator action and holds no transaction while the page is
 // fetched.
 func (m *Module) discoverProfileMedia(ctx context.Context, slot, source, handle string) (*profileDiscoverResponse, error) {
+	if source == "bilibili" {
+		return m.discoverBilibiliAvatar(ctx)
+	}
 	var xURL, youtubeURL, avatarURL, bannerURL sql.NullString
 	err := m.db.QueryRowContext(ctx, `SELECT x_url, youtube_url, avatar_url, banner_url FROM profiles ORDER BY id LIMIT 1`).Scan(&xURL, &youtubeURL, &avatarURL, &bannerURL)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -253,7 +263,7 @@ func (m *Module) discoverProfileMedia(ctx context.Context, slot, source, handle 
 		// Try FxTwitter JSON for allowed X profile URLs when x.com is unavailable or blocked.
 		if source == "x" {
 			if _, allowed := profilePageURL(pageURL); allowed {
-				if targetHandle := firstNonEmpty(handle, xHandleFromURL(pageURL)); targetHandle != "" {
+				if targetHandle := cmp.Or(handle, xHandleFromURL(pageURL)); targetHandle != "" {
 					fxAvatars, fxBanners, _, fxErr := m.discoverFxTwitterMedia(ctx, targetHandle)
 					if fxErr == nil && (len(fxAvatars) > 0 || len(fxBanners) > 0) {
 						return m.saveDiscoveredCandidates(ctx, slot, source, pageURL, slots, map[string][]string{
@@ -277,7 +287,7 @@ func (m *Module) discoverProfileMedia(ctx context.Context, slot, source, handle 
 		foundFromPage += len(urls)
 	}
 	if source == "x" && foundFromPage == 0 {
-		if targetHandle := firstNonEmpty(handle, xHandleFromURL(page.url)); targetHandle != "" {
+		if targetHandle := cmp.Or(handle, xHandleFromURL(page.url)); targetHandle != "" {
 			if fxAvatars, fxBanners, _, fxErr := m.discoverFxTwitterMedia(ctx, targetHandle); fxErr == nil {
 				discoveredBySlot["avatar"] = fxAvatars
 				discoveredBySlot["banner"] = fxBanners
@@ -287,18 +297,42 @@ func (m *Module) discoverProfileMedia(ctx context.Context, slot, source, handle 
 	return m.saveDiscoveredCandidates(ctx, slot, source, page.url, slots, discoveredBySlot, existing)
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
+// discoverBilibiliAvatar records the configured Bilibili account's current
+// avatar, which the Bilibili client reads from the account's live room
+// status. The candidate refers to the account's space.
+func (m *Module) discoverBilibiliAvatar(ctx context.Context) (*profileDiscoverResponse, error) {
+	if m.bilibiliAvatar == nil {
+		return nil, failure("bilibili avatar is unavailable")
 	}
-	return ""
+	imageURL, spaceURL, err := m.bilibiliAvatar(ctx)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, failure("bilibili avatar request failed")
+	}
+	return m.saveDiscoveredCandidates(ctx, "avatar", "bilibili", spaceURL, []string{"avatar"}, map[string][]string{"avatar": {imageURL}}, map[string]string{})
 }
 
+// autoDownloadLimit bounds the images one YouTube or Bilibili check downloads.
+const autoDownloadLimit = 4
+
+// saveDiscoveredCandidates records the found images as candidates of their
+// slots. A YouTube or Bilibili check then downloads the images it found that
+// are not ready yet, at most autoDownloadLimit, so they can be previewed and
+// used at once; a failed download is recorded on its candidate and leaves the
+// check's answer alone. X candidates wait for the operator's download.
 func (m *Module) saveDiscoveredCandidates(ctx context.Context, slot, source, refURL string, slots []string, discoveredBySlot map[string][]string, existing map[string]string) (*profileDiscoverResponse, error) {
 	seen := map[string]bool{}
 	candidates := []profileCandidate{}
+	found := map[string]bool{}
+	for _, values := range discoveredBySlot {
+		for _, value := range values {
+			if imageURL, ok := profileImageURL(value); ok {
+				found[imageURL] = true
+			}
+		}
+	}
 	// A page can contain unrelated social images; those are skipped safely.
 	for _, found := range slots {
 		for _, value := range append(discoveredBySlot[found], existing[found]) {
@@ -311,16 +345,41 @@ func (m *Module) saveDiscoveredCandidates(ctx context.Context, slot, source, ref
 		}
 	}
 	now := m.timestamp()
+	download := []string{}
 	err := m.inTx(ctx, func(tx *sql.Tx) error {
 		for _, candidate := range candidates {
-			if _, upsertErr := upsertProfileCandidate(ctx, tx, candidate, now); upsertErr != nil {
+			id, upsertErr := upsertProfileCandidate(ctx, tx, candidate, now)
+			if upsertErr != nil {
 				return upsertErr
+			}
+			if (source == "youtube" || source == "bilibili") && found[*candidate.SourceURL] && len(download) < autoDownloadLimit {
+				// An image already downloaded takes none of the slots.
+				item, getErr := getProfileMedia(ctx, tx, id)
+				if getErr != nil {
+					return getErr
+				}
+				if item != nil && item.Status != "ready" {
+					download = append(download, id)
+				}
 			}
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, err
+	}
+	// No transaction is held while the images are fetched.
+	for _, id := range download {
+		item, getErr := getProfileMedia(ctx, m.db, id)
+		if getErr != nil {
+			return nil, getErr
+		}
+		if item == nil || item.Status == "ready" {
+			continue
+		}
+		if downloadErr := m.downloadProfileMedia(ctx, id); downloadErr != nil && ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 	}
 	listed, err := listProfileMedia(ctx, m.db, slot)
 	if err != nil {
@@ -448,7 +507,7 @@ func (m *Module) selectProfileMediaRoute(w http.ResponseWriter, r *http.Request,
 		httpx.WriteError(w, err)
 		return
 	}
-	slot, err := optionalSlot(jsString(body["slot"]))
+	slot, err := optionalSlot(jsvalue.MemberString(body["slot"]))
 	if err != nil {
 		httpx.WriteError(w, err)
 		return
@@ -489,7 +548,7 @@ func (m *Module) selectProfileMedia(ctx context.Context, id, slot string) error 
 	}
 	mimeType := mediaformat.Sniff(content)
 	extension := mediaformat.Extension(mimeType)
-	if extension == "" || mimeType != *candidate.MIMEType || sha256Hex(content) != *candidate.SHA256 {
+	if extension == "" || mimeType != *candidate.MIMEType || digest.SHA256Hex(content) != *candidate.SHA256 {
 		return failure("profile media cache file does not match its metadata")
 	}
 	if slot == "" {
@@ -560,7 +619,7 @@ func (m *Module) clearProfileMediaRoute(w http.ResponseWriter, r *http.Request) 
 		httpx.WriteError(w, err)
 		return
 	}
-	slot, err := optionalSlot(jsString(body["slot"]))
+	slot, err := optionalSlot(jsvalue.MemberString(body["slot"]))
 	if err != nil {
 		httpx.WriteError(w, err)
 		return

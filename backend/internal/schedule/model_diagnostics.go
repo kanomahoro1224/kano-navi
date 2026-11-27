@@ -1,5 +1,9 @@
 package schedule
 
+import (
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
+)
+
 // Only fixed stop reasons and bounded numeric usage leave the provider
 // boundary. Response text, thinking, refusal wording and headers never do.
 const (
@@ -16,7 +20,7 @@ type modelDiagnostics struct {
 
 func usageCount(value any) *int {
 	n, ok := value.(float64)
-	if !ok || !finite(n) || n < 0 || n > 1_000_000_000 || n != float64(int(n)) {
+	if !ok || !jsvalue.Finite(n) || n < 0 || n > 1_000_000_000 || n != float64(int(n)) {
 		return nil
 	}
 	count := int(n)

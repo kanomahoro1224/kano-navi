@@ -52,13 +52,21 @@ export function useMeta() {
     ].filter(Boolean)
 }
 
-/** Sort slot candidates with the active item first, YouTube avatars before custom ones, then newest. */
+/** Avatar sources before custom ones, in this order. */
+const avatarSourceOrder = ["youtube", "bilibili"]
+
+function avatarSourceRank(source: string) {
+  const rank = avatarSourceOrder.indexOf(source)
+  return rank < 0 ? avatarSourceOrder.length : rank
+}
+
+/** Sort slot candidates with the active item first, YouTube then Bilibili avatars before custom ones, then newest. */
 export function orderedForSlot(items: ProfileMedia[], slot: ProfileSlot) {
   return [...items].sort((a, b) => {
     if (a.isActive !== b.isActive) return a.isActive ? -1 : 1
     if (slot === "avatar" && a.source !== b.source) {
-      if (a.source === "youtube") return -1
-      if (b.source === "youtube") return 1
+      const order = avatarSourceRank(a.source) - avatarSourceRank(b.source)
+      if (order) return order
     }
     return b.updatedAt.localeCompare(a.updatedAt)
   })

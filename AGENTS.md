@@ -33,7 +33,8 @@ page a change needs, not every page.
   their protected boundaries.
 - Secrets and source credentials stay in the environment, except the ones
   the console stores sealed with `LLM_SECRETS_KEY` (provider keys, proxy
-  passwords, the Web Bot Auth key, the Bilibili login). A new outbound path
+  passwords, the Web Bot Auth key, the Bilibili login, the admin one-time
+  code's secret). A new outbound path
   follows the
   [external request rules](docs/development/security.md#external-request-rules).
 - Production is the default: only explicit `APP_MODE=development` bypasses

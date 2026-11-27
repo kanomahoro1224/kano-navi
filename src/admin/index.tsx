@@ -9,6 +9,7 @@ import {
 import {
   BellRing,
   CalendarDays,
+  ChevronDown,
   Clapperboard,
   Disc3,
   ExternalLink,
@@ -34,7 +35,7 @@ import { useAppSettings } from "@/app-settings"
 import { PreferenceControls } from "@/components/preference-controls"
 import { errorMessage, renderMessage, type Message } from "@/admin/api"
 import type { Overview } from "@/admin/types"
-import { Badge, Button, Spinner, Toasts } from "@/admin/ui"
+import { Badge, Button, Modal, Spinner, Toasts } from "@/admin/ui"
 import { AdminContext, useAdminData } from "@/admin/use-admin-data"
 import { AccountAvatarsView } from "@/admin/views/account-avatars"
 import { AlertsView } from "@/admin/views/alerts"
@@ -338,11 +339,88 @@ function ActiveRun({
   )
 }
 
+/** The console's sections by group, as the sidebar and the phone menu list them. */
+function ConsoleNav({
+  current,
+  overview,
+  onNavigate,
+}: {
+  current: ViewEntry
+  overview: Overview | null
+  onNavigate: (view: string) => void
+}) {
+  const { t } = useAppSettings()
+  return (
+    <nav className="adm-nav" aria-label={t("admin.nav.label")}>
+      {groups.map((group) => (
+        <div className="adm-nav-group" key={group}>
+          <p>{t(`admin.nav.group.${group}`)}</p>
+          {views
+            .filter((entry) => entry.group === group)
+            .map((entry) => {
+              const Icon = entry.icon
+              const badge = overview && entry.badge?.(overview)
+              const active = current.id === entry.id
+              return (
+                <a
+                  key={entry.id}
+                  href={`#${entry.id}`}
+                  className={cn("adm-nav-item", active && "is-active")}
+                  aria-current={active ? "page" : undefined}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    onNavigate(entry.id)
+                  }}
+                >
+                  <Icon aria-hidden />
+                  <span>{t(`admin.nav.${entry.id}`)}</span>
+                  {badge ? <em>{badge}</em> : null}
+                  {entry.id === "runs" && overview?.activeRun ? (
+                    <i className="adm-live-dot" aria-hidden />
+                  ) : null}
+                </a>
+              )
+            })}
+        </div>
+      ))}
+    </nav>
+  )
+}
+
+/** Whether timers run here, and the way back to the public board. */
+function ConsoleFoot({ overview }: { overview: Overview | null }) {
+  const { t } = useAppSettings()
+  const scheduler = overview?.scheduler
+  return (
+    <div className="adm-sidebar-foot">
+      <p>
+        <i
+          className={cn("adm-dot", scheduler?.running ? "is-on" : "is-off")}
+          aria-hidden
+        />
+        {scheduler?.running
+          ? t("admin.sidebar.schedulerOn", {
+              count: overview?.timers.scheduled ?? 0,
+            })
+          : t("admin.sidebar.schedulerOff")}
+      </p>
+      <a href="/">
+        {t("admin.sidebar.public")}
+        <ExternalLink aria-hidden />
+      </a>
+    </div>
+  )
+}
+
+/** Below this width the sidebar folds into the header's menu. */
+const PHONE_LAYOUT = "(max-width: 900px)"
+
 export function AdminApp() {
   const { t } = useAppSettings()
   const data = useAdminData()
   const [location, setLocation] = useState(readHash)
-  const navRef = useRef<HTMLElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     document.title = t("admin.meta.title")
@@ -368,18 +446,21 @@ export function AdminApp() {
     return () => window.removeEventListener("hashchange", onHashChange)
   }, [])
 
-  // On narrow screens the nav is a scrolling strip; keep the current view in it.
-  const signedIn = Boolean(data.session?.authenticated)
+  // The phone menu opens on the current section and closes once the sidebar
+  // returns.
   useEffect(() => {
-    const nav = navRef.current
-    const item = nav?.querySelector(".adm-nav-item.is-active")
-    if (!nav || !item || nav.scrollWidth <= nav.clientWidth) return
-    const box = nav.getBoundingClientRect()
-    const rect = item.getBoundingClientRect()
-    if (rect.left < box.left) nav.scrollLeft -= box.left - rect.left + 16
-    else if (rect.right > box.right)
-      nav.scrollLeft += rect.right - box.right + 16
-  }, [location.view, signedIn])
+    if (!menuOpen) return
+    menuRef.current
+      ?.querySelector<HTMLElement>(".adm-nav-item.is-active")
+      ?.focus()
+    const layout = window.matchMedia?.(PHONE_LAYOUT)
+    if (!layout) return
+    const close = () => {
+      if (!layout.matches) setMenuOpen(false)
+    }
+    layout.addEventListener("change", close)
+    return () => layout.removeEventListener("change", close)
+  }, [menuOpen])
 
   const navigate = useCallback((view: string, tab = "") => {
     if (!views.some((entry) => entry.id === view)) return
@@ -426,7 +507,15 @@ export function AdminApp() {
   const current = views.find((entry) => entry.id === location.view) || views[0]
   const View = current.component
   const overview = data.overview
-  const scheduler = overview?.scheduler
+  const CurrentIcon = current.icon
+  // The menu button carries the sections' counts, so none hides behind it.
+  const waiting = overview
+    ? views.reduce((sum, entry) => sum + (entry.badge?.(overview) ?? 0), 0)
+    : 0
+  const menuNavigate = (view: string) => {
+    setMenuOpen(false)
+    navigate(view)
+  }
 
   return (
     <AdminContext.Provider value={data}>
@@ -446,64 +535,41 @@ export function AdminApp() {
               <small>{t("admin.brand.console")}</small>
             </span>
           </a>
-          <nav
-            ref={navRef}
-            className="adm-nav"
-            aria-label={t("admin.nav.label")}
+          <button
+            type="button"
+            className="adm-nav-trigger"
+            aria-haspopup="dialog"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(true)}
           >
-            {groups.map((group) => (
-              <div className="adm-nav-group" key={group}>
-                <p>{t(`admin.nav.group.${group}`)}</p>
-                {views
-                  .filter((entry) => entry.group === group)
-                  .map((entry) => {
-                    const Icon = entry.icon
-                    const badge = overview && entry.badge?.(overview)
-                    const active = current.id === entry.id
-                    return (
-                      <a
-                        key={entry.id}
-                        href={`#${entry.id}`}
-                        className={cn("adm-nav-item", active && "is-active")}
-                        aria-current={active ? "page" : undefined}
-                        onClick={(event) => {
-                          event.preventDefault()
-                          navigate(entry.id)
-                        }}
-                      >
-                        <Icon aria-hidden />
-                        <span>{t(`admin.nav.${entry.id}`)}</span>
-                        {badge ? <em>{badge}</em> : null}
-                        {entry.id === "runs" && overview?.activeRun ? (
-                          <i className="adm-live-dot" aria-hidden />
-                        ) : null}
-                      </a>
-                    )
-                  })}
-              </div>
-            ))}
-          </nav>
-          <div className="adm-sidebar-foot">
-            <p>
-              <i
-                className={cn(
-                  "adm-dot",
-                  scheduler?.running ? "is-on" : "is-off",
-                )}
-                aria-hidden
-              />
-              {scheduler?.running
-                ? t("admin.sidebar.schedulerOn", {
-                    count: overview?.timers.scheduled ?? 0,
-                  })
-                : t("admin.sidebar.schedulerOff")}
-            </p>
-            <a href="/">
-              {t("admin.sidebar.public")}
-              <ExternalLink aria-hidden />
-            </a>
-          </div>
+            <CurrentIcon aria-hidden />
+            <span className="adm-visually-hidden">{t("admin.nav.label")}:</span>
+            <strong>{t(`admin.nav.${current.id}`)}</strong>
+            {waiting ? <em>{waiting}</em> : null}
+            <ChevronDown aria-hidden />
+          </button>
+          <ConsoleNav
+            current={current}
+            overview={overview}
+            onNavigate={navigate}
+          />
+          <ConsoleFoot overview={overview} />
         </aside>
+        <Modal
+          open={menuOpen}
+          title={t("admin.nav.label")}
+          onClose={() => setMenuOpen(false)}
+          className="adm-nav-sheet"
+        >
+          <div ref={menuRef}>
+            <ConsoleNav
+              current={current}
+              overview={overview}
+              onNavigate={menuNavigate}
+            />
+            <ConsoleFoot overview={overview} />
+          </div>
+        </Modal>
         <div className="adm-body">
           <header className="adm-topbar">
             <p className="adm-crumb">

@@ -38,6 +38,13 @@ import {
 } from "@/admin/ui"
 import { useAdmin, useResource } from "@/admin/use-admin-data"
 
+/** An account as the page names it: @handle, or bilibili for its mid. */
+function accountName(
+  item: Pick<AccountAvatarItem, "source" | "accountHandle">,
+) {
+  return item.source === "bilibili" ? "bilibili" : `@${item.accountHandle}`
+}
+
 const UPLOAD_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"]
 const MODES: AccountAvatarMode[] = ["auto", "manual", "hidden"]
 
@@ -69,11 +76,11 @@ function activeReadyCandidate(
 }
 
 function AvatarViewer({
-  handle,
+  name,
   candidate,
   onClose,
 }: {
-  handle: string
+  name: string
   candidate: AccountAvatarCandidate
   onClose: () => void
 }) {
@@ -82,7 +89,7 @@ function AvatarViewer({
     <Modal
       open
       className="adm-image-viewer"
-      title={`@${handle} · ${t(`admin.avatars.origin.${candidate.origin}`)}`}
+      title={`${name} · ${t(`admin.avatars.origin.${candidate.origin}`)}`}
       onClose={onClose}
     >
       <div className="adm-image-viewer-stage">
@@ -138,7 +145,7 @@ function AddAvatarDialog({
     <Modal
       open
       className="adm-profile-dialog"
-      title={`@${item.accountHandle}`}
+      title={accountName(item)}
       onClose={onClose}
     >
       <div className="adm-profile-add">
@@ -339,7 +346,7 @@ function AvatarCandidateCard({
       </div>
       {viewing ? (
         <AvatarViewer
-          handle={item.accountHandle}
+          name={accountName(item)}
           candidate={candidate}
           onClose={() => setViewing(false)}
         />
@@ -360,7 +367,9 @@ function AccountAvatarCard({
   const [busyKey, setBusyKey] = useState("")
   const [adding, setAdding] = useState(false)
   const activeReady = activeReadyCandidate(item)
-  const initial = (item.accountHandle || "X").charAt(0).toUpperCase()
+  const initial = (item.source === "bilibili" ? "b" : item.accountHandle || "X")
+    .charAt(0)
+    .toUpperCase()
 
   const run = async (
     key: string,
@@ -389,7 +398,7 @@ function AccountAvatarCard({
           </div>
           <div className="adm-avatar-identity-text">
             <div className="adm-avatar-title-row">
-              <strong>@{item.accountHandle}</strong>
+              <strong>{accountName(item)}</strong>
               <Badge tone={ROLE_TONES[item.role]}>
                 {t(`admin.avatars.role.${item.role}`)}
               </Badge>
@@ -413,7 +422,7 @@ function AccountAvatarCard({
         <div className="adm-avatar-controls">
           <Segmented
             value={item.mode}
-            label={`${t("admin.avatars.mode")} @${item.accountHandle}`}
+            label={`${t("admin.avatars.mode")} ${accountName(item)}`}
             options={MODES.map((mode) => ({
               value: mode,
               label: t(`admin.avatars.mode.${mode}`),

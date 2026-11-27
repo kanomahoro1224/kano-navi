@@ -2,13 +2,12 @@ package sqlite
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	xsource "github.com/yexca/kano-navi/backend/internal/source/x"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
@@ -56,8 +55,7 @@ func TestLegacyMediaIdentityRepairKeepsBytesLinksAndUniqueSource(t *testing.T) {
 	}
 	defer s.Close()
 	u := "https://pbs.twimg.com/fixture.png"
-	h := sha256.Sum256([]byte(u))
-	canonical := hex.EncodeToString(h[:])
+	canonical := digest.SHA256Hex(u)
 	legacy := "x-" + canonical[:32]
 	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,sha256,cache_path,created_at,updated_at) VALUES(?,'x',?,'ready',?,'x/sha256/fixture.png','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')`, legacy, u, canonical)
 	testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,created_at,updated_at) VALUES(?,'post','fixture','post-image','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')`, legacy)

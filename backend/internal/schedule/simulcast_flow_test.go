@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
+	"github.com/yexca/kano-navi/backend/internal/jsvalue"
 	bilisource "github.com/yexca/kano-navi/backend/internal/source/bilibili"
 	ytsource "github.com/yexca/kano-navi/backend/internal/source/youtube"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
@@ -32,14 +34,14 @@ func newSimulcastFlow(t *testing.T) *simulcastFlow {
 	f.queue("p-main")
 	now := time.Now().UTC().Truncate(time.Second)
 	s := &simulcastFlow{t: t, f: f, ctx: context.Background(), now: now,
-		day: now.In(jst).AddDate(0, 0, 1).Format("2006-01-02"), replies: map[string]string{}}
+		day: now.In(japantime.Zone).AddDate(0, 0, 1).Format("2006-01-02"), replies: map[string]string{}}
 	f.provider.respond = func(request recordedRequest) (int, string) {
 		for marker, reply := range s.replies {
 			if strings.Contains(request.body, marker) {
 				return http.StatusOK, chatReply(reply)
 			}
 		}
-		return http.StatusOK, chatReply(stringify(obj("classification", "not_schedule", "events", []any{},
+		return http.StatusOK, chatReply(jsvalue.Stringify(jsvalue.Obj("classification", "not_schedule", "events", []any{},
 			"confidence", 0.9, "evidence", "e", "reason", nil, "action", "none")))
 	}
 	return s
@@ -55,25 +57,25 @@ func (s *simulcastFlow) at(clock string) time.Time {
 }
 
 func (s *simulcastFlow) reply(marker string, entries ...any) {
-	s.replies[marker] = stringify(obj("classification", "schedule", "events", entries,
+	s.replies[marker] = jsvalue.Stringify(jsvalue.Obj("classification", "schedule", "events", entries,
 		"confidence", 0.9, "evidence", "synthetic evidence", "reason", nil, "action", "add"))
 }
 
 // xEntry is an X answer: the single platform the X schema asks for.
-func (s *simulcastFlow) xEntry(title, clock, eventType, platform string) *object {
+func (s *simulcastFlow) xEntry(title, clock, eventType, platform string) *jsvalue.Object {
 	var clockValue any
 	if clock != "" {
 		clockValue = clock
 	}
-	return obj("title", title, "detail", nil, "date", s.day, "time", clockValue, "endTime", nil, "endDate", nil,
+	return jsvalue.Obj("title", title, "detail", nil, "date", s.day, "time", clockValue, "endTime", nil, "endDate", nil,
 		"timePrecision", "exact", "status", "scheduled", "eventType", eventType, "tag", nil, "url", nil,
 		"platform", platform, "confidence", 0.9, "evidence", title)
 }
 
 // dynamicEntry is a Bilibili answer in Beijing time: 19:00 there is 20:00 in
 // Japan.
-func (s *simulcastFlow) dynamicEntry(title, beijingClock, eventType string, platforms ...any) *object {
-	return obj("title", title, "detail", nil, "date", s.day, "time", beijingClock, "endTime", nil, "endDate", nil,
+func (s *simulcastFlow) dynamicEntry(title, beijingClock, eventType string, platforms ...any) *jsvalue.Object {
+	return jsvalue.Obj("title", title, "detail", nil, "date", s.day, "time", beijingClock, "endTime", nil, "endDate", nil,
 		"timePrecision", "exact", "status", "scheduled", "eventType", eventType, "tag", nil, "url", nil,
 		"platforms", platforms, "timeZone", "Asia/Shanghai", "confidence", 0.9, "evidence", title)
 }
@@ -303,7 +305,7 @@ func TestOnlyAStartedYoutubeBroadcastTakesTheRoom(t *testing.T) {
 func TestALaterBroadcastIsNotTheFinishedEntrys(t *testing.T) {
 	s := newSimulcastFlow(t)
 	start := s.now.Add(-3 * time.Hour)
-	s.dynamic("900000000000000401", "直播", obj("title", "杂谈", "detail", nil, "date", start.In(cst).Format("2006-01-02"),
+	s.dynamic("900000000000000401", "直播", jsvalue.Obj("title", "杂谈", "detail", nil, "date", start.In(cst).Format("2006-01-02"),
 		"time", start.In(cst).Format("15:04"), "endTime", nil, "endDate", nil, "timePrecision", "exact", "status", "scheduled",
 		"eventType", "stream", "tag", nil, "url", nil, "platforms", []any{}, "timeZone", "Asia/Shanghai", "confidence", 0.9, "evidence", "杂谈"))
 	s.reservation("SimulF00001", start, ytsource.LiveStatusEnded, s.now.Add(-2*time.Hour))
@@ -318,7 +320,7 @@ func TestALaterBroadcastIsNotTheFinishedEntrys(t *testing.T) {
 
 	o := newSimulcastFlow(t)
 	first := o.now.Add(-3 * time.Hour)
-	o.dynamic("900000000000000402", "B站限定直播", obj("title", "B站限定", "detail", nil, "date", first.In(cst).Format("2006-01-02"),
+	o.dynamic("900000000000000402", "B站限定直播", jsvalue.Obj("title", "B站限定", "detail", nil, "date", first.In(cst).Format("2006-01-02"),
 		"time", first.In(cst).Format("15:04"), "endTime", nil, "endDate", nil, "timePrecision", "exact", "status", "scheduled",
 		"eventType", "stream", "tag", nil, "url", nil, "platforms", []any{"bilibili"}, "timeZone", "Asia/Shanghai", "confidence", 0.9, "evidence", "B站限定"))
 	o.settle()
@@ -358,7 +360,7 @@ func TestPlatformLinksNeverNameTheAnnouncement(t *testing.T) {
 func TestAMergedLiveReservationMakesTheEntryLive(t *testing.T) {
 	s := newSimulcastFlow(t)
 	start := s.now.Add(-10 * time.Minute)
-	created, err := s.f.store.CreateManualEvent(s.ctx, sqlite.EventInput{Title: "雑談", StartsOn: start.In(jst).Format("2006-01-02"),
+	created, err := s.f.store.CreateManualEvent(s.ctx, sqlite.EventInput{Title: "雑談", StartsOn: japantime.Date(start),
 		StartsAt: sqlite.ISOTime(start), EventType: "stream", Platforms: []string{"bilibili"}, PlatformsSet: true})
 	if err != nil {
 		t.Fatal(err)

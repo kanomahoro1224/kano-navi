@@ -112,8 +112,6 @@ type api struct {
 	qr bilibiliQR
 }
 
-var japanZone = time.FixedZone("JST", 9*3600)
-
 // New builds the /api/admin handler.
 func New(options Options) http.Handler {
 	a := &api{Options: options}

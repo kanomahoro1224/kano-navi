@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
@@ -23,7 +24,7 @@ func dashboardHandler(t *testing.T, setup func(string)) http.Handler {
 		t.Fatalf("open dashboard fixture: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	now := time.Date(2026, 10, 11, 3, 0, 0, 0, time.FixedZone("JST", 9*60*60))
+	now := time.Date(2026, 10, 11, 3, 0, 0, 0, japantime.Zone)
 	return NewHandlerWithClock(store, func() time.Time { return now })
 }
 

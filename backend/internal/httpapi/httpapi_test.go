@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/config"
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
@@ -46,7 +47,7 @@ func decodeObject(t *testing.T, recorder *httptest.ResponseRecorder) map[string]
 
 func TestHealthEmptySnapshotMatchesContract(t *testing.T) {
 	store, _ := openFixture(t)
-	handler := NewHandlerWithClock(store, func() time.Time { return time.Date(2026, 10, 11, 1, 2, 3, 456000000, time.FixedZone("JST", 9*60*60)) })
+	handler := NewHandlerWithClock(store, func() time.Time { return time.Date(2026, 10, 11, 1, 2, 3, 456000000, japantime.Zone) })
 	recorder := request(t, handler, http.MethodGet, "/api/health")
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, body=%s", recorder.Code, recorder.Body)

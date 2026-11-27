@@ -12,6 +12,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/yexca/kano-navi/backend/internal/httpx"
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
@@ -32,7 +33,7 @@ func (a *api) listEvents(w http.ResponseWriter, r *http.Request) {
 		From:           query(r, "from"),
 		To:             query(r, "to"),
 		Merge:          query(r, "merge"),
-		Today:          a.Now().In(japanZone).Format("2006-01-02"),
+		Today:          japantime.Date(a.Now()),
 	})
 	if err != nil {
 		httpx.WriteCode(w, http.StatusServiceUnavailable, "database_unavailable")
@@ -335,7 +336,7 @@ func eventInput(body map[string]json.RawMessage) (sqlite.EventInput, error) {
 	if input.StartsAt, startsAt, err = eventInstant(body["startsAt"], "startsAt"); err != nil {
 		return input, err
 	}
-	if input.StartsAt != "" && startsAt.In(japanZone).Format("2006-01-02") != input.StartsOn {
+	if input.StartsAt != "" && japantime.Date(startsAt) != input.StartsOn {
 		return input, httpx.Invalid("startsAt must fall on startsOn in Asia/Tokyo")
 	}
 	if input.EventType, err = oneOf(textField(body["eventType"]), "event", "eventType", "event", "stream", "member", "release", "appearance", "sale"); err != nil {
@@ -365,7 +366,7 @@ func eventInput(body map[string]json.RawMessage) (sqlite.EventInput, error) {
 	if input.EndsAt != "" && input.EventType == "sale" && input.EndsOn == "" {
 		return input, httpx.Invalid("endsAt requires endsOn for a sale")
 	}
-	if input.EndsAt != "" && input.EndsOn != "" && endsAt.In(japanZone).Format("2006-01-02") != input.EndsOn {
+	if input.EndsAt != "" && input.EndsOn != "" && japantime.Date(endsAt) != input.EndsOn {
 		return input, httpx.Invalid("endsAt must fall on endsOn in Asia/Tokyo")
 	}
 	if input.EndsAt != "" && endsAt.Before(startsAt) {

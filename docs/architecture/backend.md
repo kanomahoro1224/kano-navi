@@ -21,6 +21,7 @@ kano-go migrate-llm  Seal OPENAI_API_KEY as the key of the openai-default provid
 kano-go variants     Make the resized copies of the LINE BLOG, Works and Journey images
 kano-go web-bot-auth-key  Print a new WEB_BOT_AUTH_KEY override line and its keyid
 kano-go totp-secret  Print a new ADMIN_TOTP_SECRET line and its otpauth:// address
+kano-go totp-reset   Remove the admin one-time code bound in the console
 kano-go healthcheck  Probe the local service and exit
 ```
 
@@ -41,6 +42,8 @@ capture ID.
 `web-bot-auth-key` takes no flags and stores nothing
 ([Web Bot Auth](web-bot-auth.md#key)); neither does `totp-secret`
 ([Admin one-time code](../operations/configuration/environment.md#admin-one-time-code)).
+`totp-reset` opens an existing database only, never creates one, and needs
+no other environment.
 
 From the repository root:
 
@@ -133,6 +136,9 @@ is occupied.
 | Huawei and browser notifications, ingest       | `internal/push`, `internal/ingest`                              |
 | Built frontend and SPA fallback                | `internal/httpapi/static.go`                                    |
 | LINE BLOG archive for the public reads         | `internal/lineblog`                                             |
+| Japan time zone, dates and wall-clock parsing  | `internal/japantime`                                            |
+| JavaScript value semantics                     | `internal/jsvalue`                                              |
+| SHA-256 hex digests for stored IDs             | `internal/digest`                                               |
 
 `cmd/kano-go` validates credentials, opens the runtime database and starts the
 listener; `internal/httpapi` builds the handler around an injected store.
@@ -144,6 +150,12 @@ listener; `internal/httpapi` builds the handler around an injected store.
 session, applies the origin guard and refuses writes to a read-only database
 before a module handler runs.
 
+Stored fingerprints, stored rows and admin request coercion follow the
+original JavaScript server: `internal/jsvalue` reproduces its `JSON.parse`,
+`JSON.stringify`, `String()`, `Number()`, truthiness, `trim()`, length,
+`slice()` and `toLowerCase()`, and `internal/digest` its SHA-256 hex digests.
+Packages call these instead of keeping their own copies.
+
 Responses stay stable and sanitized: `raw_json`, stack traces, credentials and
 absolute local paths never reach the browser. Ready runtime media is served
 only through the opaque-ID `/media/:id` route; the recovered LINE BLOG files
@@ -151,6 +163,18 @@ in `data/lineblog/` and the discography covers in `data/works/` are served by
 archive name through `/media/lineblog/:name` and `/media/works/:name` (see
 [Media cache](media-cache/packaged-media.md#line-blog-archive-media) and
 [Discography covers](media-cache/packaged-media.md#discography-covers)).
+
+## Japan Time
+
+`internal/japantime` is the one source for Japan time. `japantime.Zone` is a
+fixed UTC+9 zone named `JST`, which matches Asia/Tokyo because Japan has no
+daylight saving time, so the binary needs no tzdata. `japantime.Date` gives a
+Japan date (YYYY-MM-DD), `japantime.ParseDate` reads one as its Japan
+midnight, and `japantime.ParseLocal` reads a Japan wall-clock time without an
+offset. Stored instants stay UTC ISO strings. golangci-lint's `forbidigo` rule
+rejects `time.FixedZone` and `time.LoadLocation` outside the package; the
+Beijing zone that Bilibili entries are read in (see
+[Time zones](sources/time-zones.md)) is the one marked exception.
 
 ## Authentication and Origin
 

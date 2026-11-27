@@ -327,14 +327,15 @@ func (s *SourceSteps) makeVariants(ctx context.Context) (AttemptResult, error) {
 	return AttemptResult{Status: status, Result: counts}, nil
 }
 
-// mediaResult is the media step's outcome. Images a bound left queued and
-// failed Works lookups make it partial; the next run continues with them.
+// mediaResult is the media step's outcome. Images a bound left queued, failed
+// or missing at the source, and failed Works lookups make it partial; the
+// next run continues with them.
 func mediaResult(result mediadownload.Summary, covers workCoverCounts) AttemptResult {
 	status := "succeeded"
 	if result.Failed > 0 || result.Missing > 0 || result.Remaining > 0 || covers.Failed > 0 {
 		status = "partial"
 	}
-	counts := map[string]any{"attempted": result.Attempted, "ready": result.Ready, "unchanged": result.Unchanged, "failed": result.Failed, "measured": result.Measured, "resized": result.Resized, "remaining": result.Remaining, "works": covers.result()}
+	counts := map[string]any{"attempted": result.Attempted, "ready": result.Ready, "unchanged": result.Unchanged, "missing": result.Missing, "failed": result.Failed, "measured": result.Measured, "resized": result.Resized, "remaining": result.Remaining, "works": covers.result()}
 	if result.Stopped != "" {
 		counts["stopped"] = result.Stopped
 	}
@@ -691,10 +692,24 @@ func (s *SourceSteps) bilibiliLive(ctx context.Context) (map[string]any, string,
 	if err != nil {
 		return nil, "", NewStepError("schema_failure", ErrSchema)
 	}
+	// The answer names the account's current face, which joins its account
+	// avatars like an X author's image; the media step downloads it and an
+	// account in auto mode shows the newest one.
+	// The live check is already stored, so a face that could not be
+	// recorded is counted as an error and the next check records it.
+	avatarFailed := false
+	if checkErr == nil && state.Room.Face != "" {
+		if _, _, err = s.Store.RecordAccountAvatarURL(ctx, "bilibili", account, sqlite.AccountAvatarOriginSync, state.Room.Face, false); err != nil && !errors.Is(err, sqlite.ErrAccountAvatarInvalid) {
+			avatarFailed = true
+		}
+	}
 	counts["requested"], counts["live"], counts["changed"] = 1, checkErr == nil && state.Room.LiveStatus == bilisource.RoomLive, changed
 	if checkErr != nil {
 		counts["errors"] = []string{bilisource.ErrorCode(checkErr)}
 		return counts, "failed", nil
+	}
+	if avatarFailed {
+		counts["errors"] = []string{"account_avatar_save_failed"}
 	}
 	return counts, "succeeded", nil
 }

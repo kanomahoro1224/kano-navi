@@ -2,8 +2,6 @@ package mediadownload
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"net/http"
 	"reflect"
@@ -11,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
@@ -50,8 +49,7 @@ func TestThumbnailFallsBackAndRevalidatesUntilALargerSizeAppears(t *testing.T) {
 	ctx := context.Background()
 	const vi = "https://i.ytimg.com/vi/AAAAAAAAAAA/"
 	u := vi + "maxresdefault.jpg"
-	h := sha256.Sum256([]byte(u))
-	id := hex.EncodeToString(h[:])
+	id := digest.SHA256Hex(u)
 	testutil.Exec(t, p, `INSERT INTO videos (id,source,title,published_at,url,is_upcoming) VALUES ('AAAAAAAAAAA','youtube','reservation',?,'https://www.youtube.com/watch?v=AAAAAAAAAAA',1)`, time.Now().UTC().Format(time.RFC3339))
 	testutil.Exec(t, p, `INSERT INTO media_assets(id,source,source_url,status,created_at,updated_at) VALUES(?,'youtube',?,'pending','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id, u)
 	testutil.Exec(t, p, `INSERT INTO media_links(media_id,owner_type,owner_id,role,position,created_at,updated_at) VALUES(?,'video','AAAAAAAAAAA','thumbnail',0,'2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z')`, id)

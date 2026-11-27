@@ -25,7 +25,7 @@
 
 <p align="center">
   <a href="https://kano.fans/"><img src="docs/assets/readme/board.jpg" alt="デスクトップとスマートフォンでの表示例"></a><br>
-  <sub>ライトテーマの日本サーバーのスクリーンショット（2026年11月19日 JST 撮影）。</sub>
+  <sub>ライトテーマの日本サーバーのボード（2026年11月28日 JST 撮影）。</sub>
 </p>
 
 > [!NOTE]

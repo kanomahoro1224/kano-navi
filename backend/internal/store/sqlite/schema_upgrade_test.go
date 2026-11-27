@@ -2,10 +2,9 @@ package sqlite
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -100,7 +99,6 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 		}
 		return value.String
 	}
-	sum := sha256.Sum256(png)
 	for statement, want := range map[string]string{
 		`SELECT COUNT(*) FROM pragma_table_info('media_assets') WHERE name IN('retry_attempts','next_retry_at')`:             "2",
 		`SELECT period_start||'/'||period_end||'/'||period_basis||'/'||asset_version FROM assets WHERE id='synthetic-board'`: "2026-03-02/2026-03-08/legacy/1",
@@ -128,7 +126,7 @@ func TestStandaloneUpgradesOlderSnapshotAdditively(t *testing.T) {
 		`SELECT value FROM app_settings WHERE key='llm_route_targets_migrated'`:                                                  "1",
 
 		`SELECT title FROM resources WHERE id=9`:                                                     "official site",
-		`SELECT active_sha256||'/'||active_mime_type FROM profile_media WHERE id='synthetic-avatar'`: hex.EncodeToString(sum[:]) + "/image/png",
+		`SELECT active_sha256||'/'||active_mime_type FROM profile_media WHERE id='synthetic-avatar'`: digest.SHA256Hex(png) + "/image/png",
 
 		`SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN('events_instant_idx','events_stream_identity_idx','posts_instant_idx','posts_url_published_at_idx','videos_instant_idx','videos_schedule_instant_idx','events_source_item_idx','schedule_asset_reviews_status_idx','posts_account_instant_idx','posts_bilibili_account_idx')`: "10",
 		`SELECT COUNT(*) FROM pragma_table_info('videos') WHERE name IN('live_status','live_checked_at')`:                                                                          "2",

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
 
@@ -98,5 +99,5 @@ func openSynthetic10k(tb testing.TB) *Store {
 }
 
 func syntheticNow() time.Time {
-	return time.Date(2026, 10, 11, 3, 0, 0, 0, time.FixedZone("JST", 9*60*60))
+	return time.Date(2026, 10, 11, 3, 0, 0, 0, japantime.Zone)
 }

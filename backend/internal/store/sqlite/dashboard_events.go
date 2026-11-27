@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"strings"
 	"time"
+
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 )
 
 func (s *Store) queryDashboardEvents(ctx context.Context, from, to string, now time.Time) ([]DashboardEvent, error) {
 	q := `SELECT ` + eventColumnsAs("o") + ` FROM events o WHERE deleted_at IS NULL AND merged_into IS NULL AND id IN (SELECT id FROM (SELECT id FROM events WHERE ` + publicEventSQL + ` AND ` + eventDaySQL + ` ORDER BY julianday(COALESCE(starts_at,starts_on)) ASC,id ASC LIMIT 100) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)>=julianday(?) OR (starts_at IS NULL AND starts_on>=?)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND (julianday(starts_at)<=julianday(?) AND (julianday(ends_at)>julianday(?) OR (ends_at IS NULL AND event_type IN ('stream','member') AND julianday(starts_at)>julianday(?,'-3 hours')))) AND (event_type IN ('stream','member') OR source='youtube') ORDER BY julianday(starts_at) ASC,id ASC LIMIT 30) UNION SELECT id FROM (SELECT id FROM events WHERE ` + eligibleEventSQL + ` AND ` + currentSaleSQL + ` ORDER BY COALESCE(ends_on,starts_on) ASC,id ASC LIMIT 10)) ORDER BY COALESCE(julianday(starts_at),julianday(starts_on||'T23:59:59.999+09:00')) ASC,id ASC`
-	today := dateInJapan(now)
-	soon := now.In(time.FixedZone("JST", 9*3600)).AddDate(0, 0, saleLookaheadDays).Format("2006-01-02")
+	today := japantime.Date(now)
+	soon := now.In(japantime.Zone).AddDate(0, 0, saleLookaheadDays).Format("2006-01-02")
 	args := []any{from, to, from, to, now.UTC().Format(time.RFC3339Nano), today, now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), now.UTC().Format(time.RFC3339Nano), soon, today}
 	return s.scanEvents(ctx, q, args, now)
 }
@@ -137,7 +139,7 @@ func eventUpcoming(e DashboardEvent, now time.Time) bool {
 		t, err := time.Parse(time.RFC3339, *e.StartsAt)
 		return err == nil && !t.Before(now)
 	}
-	return e.StartsOn >= dateInJapan(now)
+	return e.StartsOn >= japantime.Date(now)
 }
 
 func eventSortKey(e DashboardEvent) int64 {
@@ -146,7 +148,7 @@ func eventSortKey(e DashboardEvent) int64 {
 			return t.UnixNano()
 		}
 	}
-	t, err := time.Parse("2006-01-02T15:04:05.999-07:00", e.StartsOn+"T23:59:59.999+09:00")
+	t, err := japantime.ParseLocal("2006-01-02T15:04:05.999", e.StartsOn+"T23:59:59.999")
 	if err != nil {
 		return 0
 	}

@@ -16,9 +16,10 @@ function spanText(first: string | null, last: string | null) {
 }
 
 /**
- * The archive's accounts as cards, All first: each with its portrait, the
- * years its posts span and how many there are. Choosing one filters the
- * timeline. The page places them above the timeline or in its rail.
+ * The archive's accounts as cards, All first: the years each one's posts
+ * span and how many there are, an account's with its portrait. Choosing one
+ * filters the timeline. The page places them above the timeline or in its
+ * rail.
  */
 export function AccountBand({
   placement,
@@ -26,7 +27,6 @@ export function AccountBand({
   bilibiliAccounts,
   months,
   avatars,
-  kanoAvatar,
   account,
   setAccount,
   locale,
@@ -37,8 +37,6 @@ export function AccountBand({
   bilibiliAccounts: string[]
   months: readonly ArchiveMonth[]
   avatars: Record<string, string | null>
-  /** The site portrait, shown for All. */
-  kanoAvatar: string
   account: string | null
   setAccount: (account: string | null) => void
   locale: Locale
@@ -50,10 +48,8 @@ export function AccountBand({
     {
       key: "",
       handle: null as string | null,
-      name: t("common.all") as ReactNode,
-      portrait: (
-        <AccountAvatar url={kanoAvatar} handle="kano" className="is-avatar" />
-      ),
+      name: t("posts.allAccounts") as ReactNode,
+      portrait: null as ReactNode,
       span: all,
     },
     ...postAccounts(accounts, bilibiliAccounts).map((item) => {
@@ -95,7 +91,7 @@ export function AccountBand({
           <button
             type="button"
             key={card.key}
-            className="posts-account"
+            className={card.handle ? "posts-account" : "posts-account is-all"}
             aria-pressed={
               card.handle
                 ? account?.toLowerCase() === card.handle.toLowerCase()

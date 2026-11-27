@@ -61,7 +61,9 @@ answers from them start the shared captcha backoff.
 The login is verified at most once a day through `nav`'s `isLogin`, when a
 signed-in read runs; the check keeps the account's nickname (`uname`, at
 most 64 characters) and the login it checked, so a new login starts
-unchecked whatever the previous one's check found. While the latest check
+unchecked whatever the previous one's check found. A QR sign-in checks its
+new login once at once, outside the backoff, before it reports success; an
+imported login waits for the next signed-in read. While the latest check
 found the login expired, no request sends it and the dynamics listing waits
 for the next check (`{ skipped: true, reason: "login_expired" }` on the
 `bilibili_dynamics` step, error `bilibili_login_expired`). The console
@@ -90,8 +92,10 @@ while the shared backoff holds:
    `DedeUserID`, `DedeUserID__ckMd5` and `sid` cookies and returns the next
    refresh token.
 5. The new login is stored, with the replaced token as the pending confirm.
-   A failed write stops the check here: the old cookie keeps working until
-   a confirm, so the next check tries again.
+   Bilibili has spent the old token by now, so this write and the one after
+   the confirm outlive the step's cancellation or timeout, for at most 30
+   seconds. A failed write stops the check here: the old cookie keeps
+   working until a confirm, so the next check tries again.
 6. `POST .../web/confirm/refresh` with the new `bili_jct` and the replaced
    token invalidates the old cookie. A failure keeps the pending confirm for
    the next check (step 1); the new login works in the meantime.
@@ -102,13 +106,13 @@ due), `refreshed`, `confirmed` (only a pending confirm went through),
 `superseded` (another write replaced the login during the check, which then
 leaves it alone) or `failed`. The failure codes are:
 
-| Code                              | Meaning                                                                                   |
-| --------------------------------- | ----------------------------------------------------------------------------------------- |
-| `bilibili_login_refresh_rejected` | `86095`: the token does not belong to the cookie, usually because a browser refreshed it  |
-| `bilibili_login_refresh_failed`   | `cookie/info`, the correspond page or `cookie/refresh` failed otherwise, `-111` included  |
-| `bilibili_login_save_failed`      | the refreshed login could not be stored, so no confirm was sent                           |
-| `bilibili_login_confirm_failed`   | Bilibili refused the confirm, which the next check sends once more                        |
-| `bilibili_login_expired`          | `-101`: Bilibili no longer accepts the login, which the console then reports as `expired` |
+| Code                              | Meaning                                                                                                  |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `bilibili_login_refresh_rejected` | `86095`: the token does not belong to the cookie, usually because a browser refreshed it                 |
+| `bilibili_login_refresh_failed`   | `cookie/info`, the correspond page or `cookie/refresh` failed otherwise, `-111` included                 |
+| `bilibili_login_save_failed`      | the refreshed login could not be stored, so no confirm was sent                                          |
+| `bilibili_login_confirm_failed`   | Bilibili refused the confirm, which the next check sends once more                                       |
+| `bilibili_login_expired`          | `-101`: Bilibili no longer accepts the login the check read, which the console then reports as `expired` |
 
 Every code but `bilibili_login_expired` opens `login_refresh_failed`, which
 the next check that succeeds resolves. A refused login keeps working until
@@ -138,7 +142,9 @@ Forgetting the stored login can first end its session at Bilibili:
 `POST passport.bilibili.com/login/exit/v2` with `biliCSRF` (`bili_jct`). A
 login Bilibili already refuses (its sign-in page instead of JSON, or
 `-101`) counts as signed out; any other failure keeps the login. A session
-that ended is forgotten even when the device bookkeeping cannot be saved.
+that ended is forgotten even when the device bookkeeping cannot be saved or
+the operator leaves, and so is a refresh of the same login stored since the
+forget read it; a login given since is kept.
 
 ## Related Docs
 

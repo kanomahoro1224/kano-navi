@@ -2,8 +2,6 @@ package mcpapi
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -19,6 +17,7 @@ import (
 	"time"
 
 	"github.com/yexca/kano-navi/backend/internal/buildinfo"
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/jobs"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 )
@@ -1348,8 +1347,7 @@ func TestPublicToolsNameMediaOnTheCDN(t *testing.T) {
 	// The cache lives under the data root (site/), the build's public
 	// images in the public/ directory beside it.
 	picture := []byte("synthetic-image-bytes")
-	sum := sha256.Sum256(picture)
-	hash := hex.EncodeToString(sum[:])
+	hash := digest.SHA256Hex(picture)
 	id := strings.Repeat("d", 64)
 	relative := "x/sha256/" + hash[:2] + "/" + hash + ".jpg"
 	files := map[string][]byte{

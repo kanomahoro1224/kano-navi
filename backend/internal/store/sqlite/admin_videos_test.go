@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	"github.com/yexca/kano-navi/backend/internal/testutil"
 )
 
@@ -25,7 +26,7 @@ func TestAdminVideosServeOnlyLocalThumbnails(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := []byte("synthetic thumbnail")
-	hash := sha256Hex(string(content))
+	hash := digest.SHA256Hex(string(content))
 	cache := "youtube/sha256/" + hash + ".jpg"
 	if err := os.MkdirAll(filepath.Join(root, "youtube", "sha256"), 0o755); err != nil {
 		t.Fatal(err)
@@ -46,7 +47,7 @@ func TestAdminVideosServeOnlyLocalThumbnails(t *testing.T) {
 		if id == "evicted" {
 			cachePath = "youtube/sha256/" + strings.Repeat("0", 64) + ".jpg"
 		}
-		testutil.Exec(t, path, `INSERT INTO media_assets(id,source,source_url,status,sha256,cache_path,created_at,updated_at) VALUES(?,'youtube',?,'ready',?,?,'2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')`, sha256Hex(thumb(id)), thumb(id), hash, cachePath)
+		testutil.Exec(t, path, `INSERT INTO media_assets(id,source,source_url,status,sha256,cache_path,created_at,updated_at) VALUES(?,'youtube',?,'ready',?,?,'2026-10-10T00:00:00Z','2026-10-10T00:00:00Z')`, digest.SHA256Hex(thumb(id)), thumb(id), hash, cachePath)
 	}
 	store, err := OpenReadOnly(path)
 	if err != nil {
@@ -58,7 +59,7 @@ func TestAdminVideosServeOnlyLocalThumbnails(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]struct{ url, status string }{
-		"cached":  {"/media/" + sha256Hex(thumb("cached")) + "?v=" + hash, "ready"},
+		"cached":  {"/media/" + digest.SHA256Hex(thumb("cached")) + "?v=" + hash, "ready"},
 		"evicted": {"", "missing"},
 		"pending": {"", "pending"},
 		"none":    {"", "missing"},

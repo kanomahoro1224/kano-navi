@@ -3,9 +3,7 @@
 package main
 
 import (
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/yexca/kano-navi/backend/internal/digest"
 	_ "modernc.org/sqlite"
 )
 
@@ -51,8 +50,7 @@ func createFixture(databasePath string) (fixtureInfo, error) {
 		return fixtureInfo{}, err
 	}
 	body := append([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}, []byte("go-docker-fixture")...)
-	digest := sha256.Sum256(body)
-	mediaHash := hex.EncodeToString(digest[:])
+	mediaHash := digest.SHA256Hex(body)
 	mediaID := strings.Repeat("a", 64)
 	relative := filepath.ToSlash(filepath.Join("x", "sha256", mediaHash[:2], mediaHash+".png"))
 	dataRoot := filepath.Dir(filepath.Dir(databasePath))

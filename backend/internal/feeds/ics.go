@@ -11,14 +11,13 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/yexca/kano-navi/backend/internal/japantime"
 	"github.com/yexca/kano-navi/backend/internal/store/sqlite"
 	"github.com/yexca/kano-navi/backend/internal/urlguard"
 )
 
 // SiteName is the English base-locale name feeds carry.
 const SiteName = "What’s Kano Up To?"
-
-var japan = time.FixedZone("JST", 9*60*60)
 
 // Calendar renders events as an iCalendar document (RFC 5545) with CRLF line
 // endings and folded lines, worded for locale: titles resolve translations
@@ -42,7 +41,7 @@ func Calendar(events []sqlite.DashboardEvent, stamp time.Time, locale Locale) []
 	dtstamp := stamp.UTC().Format("20060102T150405Z")
 	for _, e := range events {
 		for _, entry := range calendarEntries(e) {
-			day, err := time.ParseInLocation("2006-01-02", entry.day, japan)
+			day, err := japantime.ParseDate(entry.day)
 			if err != nil {
 				continue
 			}

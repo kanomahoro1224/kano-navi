@@ -324,6 +324,19 @@
   list-style: none;
 }
 
+/* Four meters stand two by two, or in one row on wide screens, never three over one. */
+@media (min-width: 561px) {
+  .adm-meters:has(> :nth-child(4):last-child) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .adm-meters:has(> :nth-child(4):last-child) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .adm-meter {
   display: grid;
   gap: 6px;
@@ -695,9 +708,13 @@
   gap: 12px;
 }
 
-/* A QR code stays dark on white in either theme, or phones cannot read it. */
-.adm-qr {
+/*
+ * A QR code stays dark on white in either theme, or phones cannot read it.
+ * The code is an svg, so it outranks the console's 16px icon size.
+ */
+.adm-shell .adm-qr {
   width: min(240px, 100%);
+  height: auto;
   aspect-ratio: 1;
   border-radius: 8px;
   background: #fff;

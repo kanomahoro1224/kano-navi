@@ -26,6 +26,8 @@
   private window's login, which the server keeps and refreshes itself, and
   forget it, signing it out at Bilibili or not. The panel shows the
   signed-in account's nickname.
+- A media step's result counts the files missing at the source, which leave
+  the step partial.
 - Profile images fetch Kano's current Bilibili avatar as an avatar
   candidate, beside the YouTube one.
 

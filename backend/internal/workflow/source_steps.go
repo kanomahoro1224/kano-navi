@@ -320,14 +320,15 @@ func (s *SourceSteps) makeVariants(ctx context.Context) (AttemptResult, error) {
 	return AttemptResult{Status: status, Result: counts}, nil
 }
 
-// mediaResult is the media step's outcome. Images a bound left queued and
-// failed Works lookups make it partial; the next run continues with them.
+// mediaResult is the media step's outcome. Images a bound left queued, failed
+// or missing at the source, and failed Works lookups make it partial; the
+// next run continues with them.
 func mediaResult(result mediadownload.Summary, covers workCoverCounts) AttemptResult {
 	status := "succeeded"
 	if result.Failed > 0 || result.Missing > 0 || result.Remaining > 0 || covers.Failed > 0 {
 		status = "partial"
 	}
-	counts := map[string]any{"attempted": result.Attempted, "ready": result.Ready, "unchanged": result.Unchanged, "failed": result.Failed, "measured": result.Measured, "resized": result.Resized, "remaining": result.Remaining, "works": covers.result()}
+	counts := map[string]any{"attempted": result.Attempted, "ready": result.Ready, "unchanged": result.Unchanged, "missing": result.Missing, "failed": result.Failed, "measured": result.Measured, "resized": result.Resized, "remaining": result.Remaining, "works": covers.result()}
 	if result.Stopped != "" {
 		counts["stopped"] = result.Stopped
 	}

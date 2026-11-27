@@ -189,7 +189,7 @@ const headlineCounts: Record<string, string[]> = {
   x_related: ["promoted", "listed", "demoted"],
   youtube: ["videos", "updated", "discovered"],
   bilibili: ["videos", "discovered"],
-  media: ["ready", "unchanged", "attempted"],
+  media: ["missing", "ready", "unchanged"],
   schedule: ["success", "uncertain", "cached"],
   translate: ["success", "attempted"],
   variants: ["made", "kept", "remaining"],

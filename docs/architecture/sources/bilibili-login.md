@@ -61,7 +61,9 @@ answers from them start the shared captcha backoff.
 The login is verified at most once a day through `nav`'s `isLogin`, when a
 signed-in read runs; the check keeps the account's nickname (`uname`, at
 most 64 characters) and the login it checked, so a new login starts
-unchecked whatever the previous one's check found. While the latest check
+unchecked whatever the previous one's check found. A QR sign-in checks its
+new login once at once, outside the backoff, before it reports success; an
+imported login waits for the next signed-in read. While the latest check
 found the login expired, no request sends it and the dynamics listing waits
 for the next check (`{ skipped: true, reason: "login_expired" }` on the
 `bilibili_dynamics` step, error `bilibili_login_expired`). The console

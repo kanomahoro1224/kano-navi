@@ -515,3 +515,34 @@ func TestSignOutCountsARefusedLoginAsSignedOut(t *testing.T) {
 		t.Fatalf("csrf err=%v", err)
 	}
 }
+
+func TestCheckLoginAsksNavOnlyWithALoginAndOutsideTheBlock(t *testing.T) {
+	now := time.Date(2026, 11, 26, 0, 0, 0, 0, time.UTC)
+	fake := newPassportFake()
+	fake.replies["/x/web-interface/nav"] = `{"code":-101,"data":{"isLogin":false,"wbi_img":{"img_url":"https://i0.hdslb.com/bfs/wbi/0123456789abcdef0123456789abcdef.png","sub_url":"https://i0.hdslb.com/bfs/wbi/fedcba9876543210fedcba9876543210.png"}}}`
+	a := NewAdapter(fake.client(), Options{Account: DefaultAccount})
+	a.Now = func() time.Time { return now }
+	a.Logins = &Logins{Records: &memoryRecords{}, Key: syntheticSecrets}
+	if _, requests, err := a.CheckLogin(context.Background(), State{}); ErrorCode(err) != "bilibili_login_required" || requests != 0 {
+		t.Fatalf("without a login requests=%d err=%v", requests, err)
+	}
+	if err := a.Logins.Put(context.Background(), storedLogin(now)); err != nil {
+		t.Fatal(err)
+	}
+	if _, requests, err := a.CheckLogin(context.Background(), State{BlockedUntil: now.Add(time.Hour)}); ErrorCode(err) != "bilibili_blocked" || requests != 0 {
+		t.Fatalf("blocked requests=%d err=%v", requests, err)
+	}
+	if len(fake.calls) != 0 {
+		t.Fatalf("a refused check made requests: %v", fake.paths())
+	}
+	state, requests, err := a.CheckLogin(context.Background(), State{})
+	if err != nil || requests == 0 || !state.WBI.valid() {
+		t.Fatalf("check state=%#v requests=%d err=%v", state, requests, err)
+	}
+	if nav := fake.call("/x/web-interface/nav"); nav == nil || !strings.Contains(nav.cookie, "SESSDATA="+syntheticLogin) {
+		t.Fatalf("nav=%v", nav)
+	}
+	if info := a.Login(context.Background(), state); info.Status != "expired" {
+		t.Fatalf("a refused login reads %#v", info)
+	}
+}

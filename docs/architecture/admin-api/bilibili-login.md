@@ -61,7 +61,9 @@ starts a sign-in (answering the open one instead while one waits): it
 reads the device identity when due and `qrcode/generate`, and answers
 `503 bilibili_blocked` during the backoff or `502` with the code of a failed
 request. The server then polls the sign-in itself; the console only reads
-`GET`. A sign-in stores the login like an import. `DELETE` ends a waiting
+`GET`. A sign-in stores the login like an import and checks it through
+`nav` before it reports `signed_in`, so the source status that follows names
+the account; a failed check leaves the login unchecked. `DELETE` ends a waiting
 sign-in as `expired`.
 
 Writes answer `503 read_only` on a read-only database,

@@ -68,8 +68,8 @@ environment's (`BILIBILI_COOKIE` or `BILIBILI_SESSDATA`), signs the
 `api.bilibili.com` requests in (never the device-identity or ticket request,
 the opus page or the live host). Signed-in reads meet the captcha far less
 often, and both dynamics methods require the login. It is verified at most
-once a day through `nav`, and a stored login is refreshed once a day at the
-start of either Bilibili step.
+once a day through `nav` and once right after a QR sign-in, and a stored
+login is refreshed once a day at the start of either Bilibili step.
 
 The upload read tries the enabled methods of the Bilibili timer's
 [method chain](../workflows/source-schedules.md#method-chains) in its order, by default `list`,

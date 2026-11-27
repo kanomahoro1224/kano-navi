@@ -126,6 +126,21 @@ func (q *bilibiliQR) update(generation int, state string) {
 	}
 }
 
+// checkBilibiliLogin verifies the login a QR sign-in just stored, before the
+// sign-in reports success, so the console shows the account's name and state
+// at once. A failed check is left to the next dynamics read, which finds it
+// due.
+func (a *api) checkBilibiliLogin(ctx context.Context) {
+	account := a.Bilibili.Options.Account
+	state, err := a.Store.BilibiliState(ctx, account)
+	if err != nil {
+		return
+	}
+	if next, requests, _ := a.Bilibili.CheckLogin(ctx, state); requests > 0 {
+		_ = a.Store.SaveBilibiliState(ctx, account, next)
+	}
+}
+
 // bilibiliLogins answers 503 unless this process keeps a Bilibili login.
 func (a *api) bilibiliLogins(w http.ResponseWriter) bool {
 	if a.Bilibili == nil || a.Bilibili.Logins == nil {
@@ -366,6 +381,7 @@ func (a *api) pollBilibiliQR(ctx context.Context, generation int, session biliso
 				a.qr.finish(generation, bilisource.QRFailed, "bilibili_login_save_failed")
 				return
 			}
+			a.checkBilibiliLogin(context.WithoutCancel(ctx))
 			a.qr.finish(generation, bilisource.QRSignedIn, "")
 			return
 		default:

@@ -401,6 +401,7 @@ export function DashboardApp() {
           hasNext={calendar.hasNext}
           onLoadMore={loadMoreCalendar}
           dayCounts={calendar.dayCounts}
+          leadId={summary.nextEvent?.id ?? null}
           onOpenImage={openScheduleImage}
           onOpenMonth={openScheduleMonth}
           locale={locale}

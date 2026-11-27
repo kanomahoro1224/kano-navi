@@ -369,21 +369,22 @@ function revealNearest(element: HTMLElement) {
  * An entry's card. The card opens the entry's sheet; the arrow in its
  * bottom corner follows the entry's link directly.
  * The month's day details show it `full`, with the whole title, and mark
- * the entry picked in the grid. The week shows a past entry `folded`: its
- * activity icon, time and provenance over two lines of title, with the
- * rest in its sheet.
+ * the entry picked in the grid. The week folds every entry but the one the
+ * board leads with (see `entryFold`): a `brief` one shows its activity icon,
+ * time and provenance over two lines of title, a `past` one, faded, over one
+ * line, with the rest in its sheet.
  */
 function GuideEvent({
   event,
   full = false,
-  folded = false,
+  fold = null,
   pickTurn = 0,
   locale,
   t,
 }: {
   event: ScheduleEvent
   full?: boolean
-  folded?: boolean
+  fold?: EntryFold
   /** The grid pick that marked this entry, 0 when none; each pick scrolls. */
   pickTurn?: number
   locale: Locale
@@ -401,11 +402,12 @@ function GuideEvent({
   const liveLinks =
     facts.status === "live" ? facts.links.filter((link) => link.live) : []
   const otherLinks = facts.links.filter((link) => !liveLinks.includes(link))
+  const folded = fold !== null
 
   return (
     <li ref={itemRef}>
       <div
-        className={`guide-event link-card tone-${facts.tone} is-${facts.status}${full ? " is-full" : ""}${folded ? " is-folded" : ""}${highlighted ? " is-highlighted" : ""}`}
+        className={`guide-event link-card tone-${facts.tone} is-${facts.status}${full ? " is-full" : ""}${folded ? " is-folded" : ""}${fold === "past" ? " is-past" : ""}${highlighted ? " is-highlighted" : ""}`}
         onClick={followCardLink}
       >
         <span className="guide-event-time">
@@ -475,17 +477,24 @@ function GuideEvent({
   )
 }
 
+/** How far the week folds an entry; null keeps it whole. */
+type EntryFold = "brief" | "past" | null
+
 /**
- * Whether the week folds an entry: everything on a day before today, and
- * today's entries once they end, except one still on air or under way.
+ * How the week folds an entry. One on air or under way, and the entry the
+ * board leads with (`leadId`, the summary's next event), stay whole.
+ * Everything else on a day before today, and today's entries once they end,
+ * fold as past; every other entry folds brief.
  */
-function entryIsPast(event: ScheduleEvent, dayIsPast: boolean) {
+function entryFold(
+  event: ScheduleEvent,
+  dayIsPast: boolean,
+  leadId: string | null,
+): EntryFold {
   const status = eventStatus(event)
-  return (
-    status !== "live" &&
-    status !== "ongoing" &&
-    (dayIsPast || status === "done")
-  )
+  if (status === "live" || status === "ongoing" || event.id === leadId)
+    return null
+  return dayIsPast || status === "done" ? "past" : "brief"
 }
 
 function WeekDays({
@@ -493,6 +502,7 @@ function WeekDays({
   byDay,
   dayCounts,
   todayKey,
+  leadId,
   locale,
   t,
 }: {
@@ -500,6 +510,7 @@ function WeekDays({
   byDay: Map<string, ScheduleEvent[]>
   dayCounts: Record<string, number>
   todayKey: string
+  leadId: string | null
   locale: Locale
   t: Translator
 }) {
@@ -562,7 +573,7 @@ function WeekDays({
                   <GuideEvent
                     key={event.id}
                     event={event}
-                    folded={entryIsPast(event, isPast)}
+                    fold={entryFold(event, isPast, leadId)}
                     locale={locale}
                     t={t}
                   />
@@ -965,6 +976,7 @@ export function WeekGuide({
   hasNext,
   onLoadMore,
   dayCounts = {},
+  leadId,
   isLoading,
   onOpenImage,
   onOpenMonth,
@@ -986,6 +998,8 @@ export function WeekGuide({
   hasNext: boolean
   onLoadMore: () => unknown
   dayCounts: Record<string, number>
+  /** The board's next event, the one entry the week keeps whole. */
+  leadId: string | null
   isLoading: boolean
   onOpenImage: (asset: ScheduleAsset) => void
   onOpenMonth: () => void
@@ -1115,6 +1129,7 @@ export function WeekGuide({
               byDay={byDay}
               dayCounts={dayCounts}
               todayKey={todayKey}
+              leadId={leadId}
               locale={locale}
               t={t}
             />

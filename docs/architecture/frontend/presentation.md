@@ -138,8 +138,9 @@ dates come from `view.calendarEntries`, and the status codes are
 `upcoming`, `open` and `done`. The canonical enum contract is in the [Public
 API](../public-api/snapshot.md): `event.view.state` has eight
 values (`upcoming`, `live`, `ongoing`, `open`, `done`, `pending`,
-`cancelled`, `cancellation_review`); the week folds neither a `live` nor an
-`ongoing` entry. `video.view.phase` has five (`upcoming`, `live`,
+`cancelled`, `cancellation_review`); the week keeps a `live` or `ongoing`
+entry and the summary's `nextEvent` whole, folds the others of earlier days
+and `done` ones as past, and folds the rest brief. `video.view.phase` has five (`upcoming`, `live`,
 `started`, `past`, `cancelled`), and `formCode` has six non-null values
 (`short`, `upcoming`, `stream`, `archive`, `premiere`, `video`). The
 filter offers All plus Streams, Works and Shorts for each kind

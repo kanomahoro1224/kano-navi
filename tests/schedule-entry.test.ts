@@ -118,7 +118,7 @@ async function withSchedule(
   }
 }
 
-test("the week folds past entries and names no ended status", async () => {
+test("the week keeps the board's next entry whole and folds the rest", async () => {
   await withSchedule(async ({ WeekGuide, useAppSettings, mount }) => {
     const timed = (id: string, startsAt: string, more = {}) =>
       event(id, {
@@ -145,10 +145,14 @@ test("the week folds past entries and names no ended status", async () => {
       }),
       timed("onAir", "2026-10-08T20:00:00+09:00", { state: "live" }),
       timed("tomorrow", "2026-10-09T20:00:00+09:00", { state: "upcoming" }),
+      timed("weekend", "2026-10-10T20:00:00+09:00", { state: "upcoming" }),
     ]
     const range = { from: "2026-10-05", to: "2026-10-11" }
+    let showLead: (id: string | null) => void = () => {}
     function Harness() {
       const { locale, t } = useAppSettings()
+      const [leadId, setLeadId] = useState<string | null>("onAir")
+      showLead = setLeadId
       return createElement(WeekGuide, {
         events,
         scheduleImages: [],
@@ -163,6 +167,7 @@ test("the week folds past entries and names no ended status", async () => {
         hasNext: false,
         onLoadMore: () => {},
         dayCounts: {},
+        leadId,
         isLoading: false,
         onOpenImage: () => {},
         onOpenMonth: () => {},
@@ -173,22 +178,40 @@ test("the week folds past entries and names no ended status", async () => {
     }
     const { container } = await mount(createElement(Harness))
 
+    const folds = () =>
+      [...container.querySelectorAll(".guide-days .guide-event")].map((card) =>
+        card.classList.contains("is-past")
+          ? "past"
+          : card.classList.contains("is-folded")
+            ? "brief"
+            : "whole",
+      )
+    // An entry of an earlier day, and today's once it ends, fold as past;
+    // the one under way and the one on air stay whole, and the coming ones
+    // fold brief while the board leads with the one on air.
+    assert.deepEqual(folds(), [
+      "past",
+      "past",
+      "whole",
+      "whole",
+      "brief",
+      "brief",
+    ])
     const cards = [...container.querySelectorAll(".guide-days .guide-event")]
-    // An entry of an earlier day, and today's once it ends, fold to their
-    // time and title; the one under way, the one on air and the coming one
-    // stay whole.
-    assert.deepEqual(
-      cards.map((card) => card.classList.contains("is-folded")),
-      [true, true, false, false, false],
-    )
     assert.match(cards[2].textContent || "", /In progress/)
     assert.doesNotMatch(cards[2].textContent || "", /On air/)
-    for (const card of cards.slice(0, 2)) {
+    for (const card of [cards[0], cards[1], cards[4]]) {
       assert.equal(card.querySelector(".guide-event-tags"), null)
       assert.ok(card.querySelector(".guide-event-time svg"))
     }
     assert.match(cards[3].textContent || "", /On air/)
     assert.doesNotMatch(container.textContent || "", /Ended/)
+
+    // The entry the board leads with stays whole; the later one stays brief.
+    await act(async () => showLead("tomorrow"))
+    assert.deepEqual(folds().slice(4), ["whole", "brief"])
+    await act(async () => showLead(null))
+    assert.deepEqual(folds().slice(4), ["brief", "brief"])
 
     // A folded entry still opens its sheet, which has no ended status.
     await click(cards[0].querySelector(".guide-event-title button"))
